@@ -1,0 +1,167 @@
+{
+  "file": "5 YEAR FINANCIAL FORECAST.xlsx",
+  "sheets": {
+    "YEARLY TOTALS": {
+      "headers": [
+        null,
+        "2025/2026",
+        "2026/2027",
+        "2027/2028",
+        "2028/2029",
+        "2029/2030"
+      ],
+      "rows": [
+        {
+          "__EMPTY": null,
+          "__EMPTY_1": "2025/2026",
+          "__EMPTY_2": "2026/2027",
+          "__EMPTY_3": "2027/2028",
+          "__EMPTY_4": "2028/2029",
+          "__EMPTY_5": "2029/2030",
+          "__EMPTY_6": null,
+          "__EMPTY_7": null
+        },
+        {
+          "__EMPTY": "HOME DEPOSIT",
+          "__EMPTY_1": 1000,
+          "__EMPTY_2": 7200,
+          "__EMPTY_3": 8500,
+          "__EMPTY_4": 15900,
+          "__EMPTY_5": 15900,
+          "__EMPTY_6": 48500,
+          "__EMPTY_7": null
+        },
+        {
+          "__EMPTY": "EMERGENCY",
+          "__EMPTY_1": 4300,
+          "__EMPTY_2": 11900,
+          "__EMPTY_3": 11900,
+          "__EMPTY_4": 3900,
+          "__EMPTY_5": 2700,
+          "__EMPTY_6": 34700,
+          "__EMPTY_7": null
+        },
+        {
+          "__EMPTY": "SAVING",
+          "__EMPTY_1": 0,
+          "__EMPTY_2": 1500,
+          "__EMPTY_3": 1500,
+          "__EMPTY_4": 2000,
+          "__EMPTY_5": 1100,
+          "__EMPTY_6": 6100,
+          "__EMPTY_7": null
+        },
+        {
+          "__EMPTY": "INVESTMENT",
+          "__EMPTY_1": 150,
+          "__EMPTY_2": 600,
+          "__EMPTY_3": 600,
+          "__EMPTY_4": 600,
+          "__EMPTY_5": 600,
+          "__EMPTY_6": 2550,
+          "__EMPTY_7": null
+        },
+        {
+          "__EMPTY": "UNTOUCHED FUNDS",
+          "__EMPTY_1": 5450,
+          "__EMPTY_2": 21200,
+          "__EMPTY_3": 22500,
+          "__EMPTY_4": 22400,
+          "__EMPTY_5": 20300,
+          "__EMPTY_6": 91850,
+          "__EMPTY_7": null
+        },
+        {
+          "__EMPTY": "INVESTMENT RETURNS",
+          "__EMPTY_1": 0,
+          "__EMPTY_2": 0,
+          "__EMPTY_3": 0,
+          "__EMPTY_4": 0,
+          "__EMPTY_5": 0,
+          "__EMPTY_6": 0,
+          "__EMPTY_7": null
+        },
+        {
+          "__EMPTY": "YEAR LEFT OVER",
+          "__EMPTY_1": 1810,
+          "__EMPTY_2": 4855,
+          "__EMPTY_3": 6925,
+          "__EMPTY_4": 7125,
+          "__EMPTY_5": 10989,
+          "__EMPTY_6": 31704,
+          "__EMPTY_7": null
+        },
+        {
+          "__EMPTY": null,
+          "__EMPTY_1": null,
+          "__EMPTY_2": null,
+          "__EMPTY_3": null,
+          "__EMPTY_4": null,
+          "__EMPTY_5": "TOTAL ASSETS",
+          "__EMPTY_6": 123554,
+          "__EMPTY_7": null
+        },
+        {
+          "__EMPTY": "DEDUCTIONS",
+          "__EMPTY_1": null,
+          "__EMPTY_2": null,
+          "__EMPTY_3": null,
+          "__EMPTY_4": null,
+          "__EMPTY_5": null,
+          "__EMPTY_6": null,
+          "__EMPTY_7": null
+        },
+        {
+          "__EMPTY": null,
+          "__EMPTY_1": "WITHDRAWAL",
+          "__EMPTY_2": "AMOUNT",
+          "__EMPTY_3": "DATE",
+          "__EMPTY_4": null,
+          "__EMPTY_5": null,
+          "__EMPTY_6": null,
+          "__EMPTY_7": null
+        },
+        {
+          "__EMPTY": null,
+          "__EMPTY_1": "HOME DEPOSIT",
+          "__EMPTY_2": 0,
+          "__EMPTY_3": null,
+          "__EMPTY_4": null,
+          "__EMPTY_5": null,
+          "__EMPTY_6": null,
+          "__EMPTY_7": null
+        },
+        {
+          "__EMPTY": null,
+          "__EMPTY_1": "HOLIDAY",
+          "__EMPTY_2": 0,
+          "__EMPTY_3": null,
+          "__EMPTY_4": null,
+          "__EMPTY_5": null,
+          "__EMPTY_6": null,
+          "__EMPTY_7": null
+        },
+        {
+          "__EMPTY": null,
+          "__EMPTY_1": "CAR",
+          "__EMPTY_2": 0,
+          "__EMPTY_3": null,
+          "__EMPTY_4": null,
+          "__EMPTY_5": null,
+          "__EMPTY_6": null,
+          "__EMPTY_7": null
+        },
+        {
+          "__EMPTY": null,
+          "__EMPTY_1": "WEDDING",
+          "__EMPTY_2": 0,
+          "__EMPTY_3": null,
+          "__EMPTY_4": null,
+          "__EMPTY_5": null,
+          "__EMPTY_6": null,
+          "__EMPTY_7": null
+        }
+      ]
+    }
+  }
+}

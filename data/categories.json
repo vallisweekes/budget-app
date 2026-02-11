@@ -1,0 +1,17 @@
+[
+  { "id": "business", "name": "Business Trip", "icon": "Briefcase", "color": "slate", "featured": true },
+  { "id": "childcare", "name": "Childcare", "icon": "Baby", "color": "pink", "featured": true },
+  { "id": "custom", "name": "Custom", "icon": "Star", "color": "amber", "featured": true },
+  { "id": "entertainment", "name": "Entertainment", "icon": "Gamepad2", "color": "red", "featured": true },
+  { "id": "food", "name": "Food & Dining", "icon": "UtensilsCrossed", "color": "green", "featured": true },
+  { "id": "holiday", "name": "Holiday", "icon": "Palmtree", "color": "teal", "featured": true },
+  { "id": "housing", "name": "Housing", "icon": "Home", "color": "blue", "featured": true },
+  { "id": "insurance", "name": "Insurance", "icon": "Shield", "color": "indigo", "featured": true },
+  { "id": "investments", "name": "Investments", "icon": "TrendingUp", "color": "purple", "featured": true },
+  { "id": "personal", "name": "Personal Care", "icon": "Scissors", "color": "cyan", "featured": true },
+  { "id": "savings", "name": "Savings", "icon": "PiggyBank", "color": "emerald", "featured": true },
+  { "id": "subscriptions", "name": "Subscriptions", "icon": "Smartphone", "color": "purple", "featured": true },
+  { "id": "transport", "name": "Transport", "icon": "Car", "color": "orange", "featured": true },
+  { "id": "utilities", "name": "Utilities", "icon": "Zap", "color": "yellow", "featured": true }
+]
+

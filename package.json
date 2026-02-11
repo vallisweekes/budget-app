@@ -1,0 +1,35 @@
+{
+  "name": "budget-app",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "read:xlsx": "tsx scripts/read-xlsx.ts --file '5 YEAR FINANCIAL FORECAST.xlsx'",
+    "formulas": "tsx scripts/extract-formulas.ts --file '5 YEAR FINANCIAL FORECAST.xlsx' --sheet 'PERSONAL BUDGET 2026-2027'",
+    "budget:test": "tsx scripts/test-budget-engine.ts",
+    "export:xlsx:json": "tsx scripts/export-xlsx.ts --file '5 YEAR FINANCIAL FORECAST.xlsx' --format json --out data/forecast.json",
+    "export:xlsx:csv": "tsx scripts/export-xlsx.ts --file '5 YEAR FINANCIAL FORECAST.xlsx' --format csv --out data/forecast.csv"
+  },
+  "dependencies": {
+    "lucide-react": "^0.563.0",
+    "next": "16.1.6",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@types/xlsx": "^0.0.36",
+    "eslint": "^9",
+    "eslint-config-next": "16.1.6",
+    "tailwindcss": "^4",
+    "tsx": "^4.0.0",
+    "typescript": "^5"
+  }
+}

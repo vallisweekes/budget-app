@@ -1,0 +1,158 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { addSpendingAction, removeSpendingAction } from "../../lib/spending/actions";
+import { useRouter } from "next/navigation";
+
+interface SpendingEntry {
+  id: string;
+  description: string;
+  amount: number;
+  date: string;
+  month: string;
+  source: "card" | "savings" | "allowance";
+  sourceId?: string;
+}
+
+interface Debt {
+  id: string;
+  name: string;
+  type: "credit_card" | "loan" | "high_purchase";
+}
+
+interface SpendingTabProps {
+  month: string;
+  debts: Debt[];
+  spending: SpendingEntry[];
+}
+
+export default function SpendingTab({ month, debts, spending }: SpendingTabProps) {
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+
+  const handleSubmit = async (formData: FormData) => {
+    setError(null);
+    startTransition(async () => {
+      const result = await addSpendingAction(formData);
+      if (result?.error) {
+        setError(result.message || result.error);
+      } else {
+        router.refresh();
+      }
+    });
+  };
+
+  const handleRemove = (id: string) => {
+    if (confirm("Are you sure you want to delete this spending entry?")) {
+      startTransition(() => {
+        removeSpendingAction(id);
+      });
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-slate-800/40 rounded-2xl p-6 shadow-xl border border-white/10">
+        <h2 className="text-xl font-semibold text-white mb-4">Log Unplanned Spending</h2>
+        
+        {error && (
+          <div className="mb-4 p-4 bg-red-500/20 border border-red-500/50 rounded-lg">
+            <p className="text-red-200 text-sm">{error}</p>
+          </div>
+        )}
+
+        <form action={handleSubmit} className="space-y-4">
+          <input type="hidden" name="month" value={month} />
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <label className="block">
+              <span className="block text-sm font-medium text-slate-300 mb-1">Description</span>
+              <input
+                id="spending-description"
+                type="text"
+                name="description"
+                required
+                placeholder="What did you buy?"
+                className="w-full px-4 py-2 bg-slate-900/40 border border-white/10 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent placeholder:text-slate-500"
+              />
+            </label>
+            <label className="block">
+              <span className="block text-sm font-medium text-slate-300 mb-1">Amount</span>
+              <input
+                id="spending-amount"
+                type="number"
+                name="amount"
+                step="0.01"
+                required
+                placeholder="Amount (£)"
+                className="w-full px-4 py-2 bg-slate-900/40 border border-white/10 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent placeholder:text-slate-500"
+              />
+            </label>
+          </div>
+          
+          <div className="flex gap-4">
+            <label htmlFor="spending-source" className="block flex-1">
+              <span className="block text-sm font-medium text-slate-300 mb-1">Payment Source</span>
+              <select
+                id="spending-source"
+                name="source"
+                defaultValue="card"
+                className="w-full px-4 py-2 bg-slate-900/40 border border-white/10 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              >
+                <option value="card">Card</option>
+                <option value="savings">Savings</option>
+                <option value="allowance">Allowance</option>
+              </select>
+            </label>
+            
+            <label htmlFor="spending-sourceId" className="block flex-1">
+              <span className="block text-sm font-medium text-slate-300 mb-1">Card</span>
+              <select
+                id="spending-sourceId"
+                name="sourceId"
+                className="w-full px-4 py-2 bg-slate-900/40 border border-white/10 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              >
+                <option value="">Select Card (if applicable)</option>
+                {debts.filter(d => d.type === "credit_card").map(card => (
+                  <option key={card.id} value={card.id}>{card.name}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+          
+          <button
+            type="submit"
+            disabled={isPending}
+            className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium shadow-lg hover:shadow-xl disabled:opacity-50"
+          >
+            Add Spending
+          </button>
+        </form>
+      </div>
+      
+      <div className="bg-slate-800/40 rounded-2xl p-6 shadow-xl border border-white/10">
+        <h2 className="text-xl font-semibold text-white mb-4">Spending This Month</h2>
+        <ul className="space-y-2">
+          {spending.length === 0 && <li className="text-slate-400">No spending logged yet.</li>}
+          {spending.map(entry => (
+            <li key={entry.id} className="flex items-center justify-between bg-slate-900/40 rounded-lg p-3">
+              <div>
+                <div className="text-white font-medium">{entry.description}</div>
+                <div className="text-xs text-slate-400">£{entry.amount.toLocaleString()} • {entry.source.charAt(0).toUpperCase() + entry.source.slice(1)}</div>
+              </div>
+              <button
+                onClick={() => handleRemove(entry.id)}
+                disabled={isPending}
+                className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                title="Delete"
+              >
+                Remove
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}

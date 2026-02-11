@@ -1,0 +1,38 @@
+[
+  {
+    "id": "debt-1",
+    "name": "VANQUIS CARD",
+    "type": "credit_card",
+    "initialBalance": 6700,
+    "currentBalance": 6700,
+    "amount": 450,
+    "paid": false,
+    "paidAmount": 0,
+    "monthlyMinimum": 450,
+    "createdAt": "2026-02-11T00:00:00.000Z"
+  },
+  {
+    "id": "debt-2",
+    "name": "NATWEST CARD",
+    "type": "credit_card",
+    "initialBalance": 7300,
+    "currentBalance": 7300,
+    "amount": 300,
+    "paid": false,
+    "paidAmount": 0,
+    "monthlyMinimum": 300,
+    "createdAt": "2026-02-11T00:00:00.000Z"
+  },
+  {
+    "id": "debt-3",
+    "name": "AUDIO GEAR",
+    "type": "high_purchase",
+    "initialBalance": 2500,
+    "currentBalance": 2500,
+    "amount": 175,
+    "paid": false,
+    "paidAmount": 0,
+    "monthlyMinimum": 175,
+    "createdAt": "2026-02-11T00:00:00.000Z"
+  }
+]

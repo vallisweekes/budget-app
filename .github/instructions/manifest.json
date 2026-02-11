@@ -1,0 +1,15 @@
+{
+  "instructions": [
+    {
+      "key": "xlsx",
+      "title": "XLSX Instructions",
+      "path": ".github/instructions/xlsx.instructions.md",
+      "related": [
+        ".github/skils/xlsx/SKILL.md",
+        "scripts/read-xlsx.ts",
+        "scripts/export-xlsx.ts",
+        "5 YEAR FINANCIAL FORECAST.xlsx"
+      ]
+    }
+  ]
+}
