@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useMemo } from "react";
 import { MonthKey } from "../../../lib/budget/engine";
-import { addExpenseAction, togglePaidAction, removeExpenseAction } from "./actions";
+import { addExpenseAction, togglePaidAction, removeExpenseAction, applyExpensePaymentAction } from "./actions";
 import { Trash2, Plus, Check, X, ChevronDown, ChevronUp, Search } from "lucide-react";
 import CategoryIcon from "../../../components/CategoryIcon";
 
@@ -40,6 +40,7 @@ export default function ExpenseManager({ month, year, expenses, categories }: Ex
   const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({ uncategorized: true });
   const [statusFilter, setStatusFilter] = useState<"all" | "paid" | "unpaid">("all");
   const [minAmountFilter, setMinAmountFilter] = useState<number | null>(null);
+  const [paymentByExpenseId, setPaymentByExpenseId] = useState<Record<string, string>>({});
 
   // Toggle category collapse
   const toggleCategory = (categoryId: string) => {
@@ -104,6 +105,18 @@ export default function ExpenseManager({ month, year, expenses, categories }: Ex
         removeExpenseAction(month, expenseId);
       });
     }
+  };
+
+  const handleApplyPayment = (expenseId: string) => {
+    const raw = paymentByExpenseId[expenseId];
+    const paymentAmount = Number(raw);
+    if (!Number.isFinite(paymentAmount) || paymentAmount <= 0) return;
+
+    startTransition(() => {
+      applyExpensePaymentAction(month, expenseId, paymentAmount, year);
+    });
+
+    setPaymentByExpenseId((prev) => ({ ...prev, [expenseId]: "" }));
   };
 
   return (
@@ -393,6 +406,56 @@ export default function ExpenseManager({ month, year, expenses, categories }: Ex
                               </span>
                             )}
                           </div>
+
+              {(() => {
+                const paidAmount = expense.paid ? expense.amount : (expense.paidAmount ?? 0);
+                const remaining = Math.max(0, expense.amount - paidAmount);
+                return (
+                  <div className="mt-3 flex flex-wrap items-end gap-3">
+                    <div className="flex-1 min-w-[220px]">
+                      <div className="text-xs text-slate-400">
+                        Paid <span className="text-slate-200 font-medium"><Currency value={paidAmount} /></span> · Remaining{" "}
+                        <span className="text-slate-200 font-medium"><Currency value={remaining} /></span>
+                      </div>
+                      <div className="mt-2 h-2 w-full rounded-full bg-slate-900/40 border border-white/10 overflow-hidden">
+                        <div
+                          className={`h-full ${remaining === 0 ? "bg-emerald-500/70" : "bg-purple-500/70"}`}
+                          style={{ width: `${Math.min(100, (paidAmount / Math.max(1, expense.amount)) * 100)}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {remaining > 0 && (
+                      <div className="min-w-[260px]">
+                        <label className="block">
+                          <span className="block text-xs font-medium text-slate-300 mb-1">Payment amount (£)</span>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              step="0.01"
+                              min={0}
+                              value={paymentByExpenseId[expense.id] ?? ""}
+                              onChange={(e) =>
+                                setPaymentByExpenseId((prev) => ({ ...prev, [expense.id]: e.target.value }))
+                              }
+                              className="w-full px-3 py-2 rounded-xl border border-white/10 bg-slate-900/40 text-white placeholder-slate-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/50 focus:outline-none transition-all"
+                              placeholder="0.00"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleApplyPayment(expense.id)}
+                              disabled={isPending}
+                              className="shrink-0 px-4 py-2 rounded-xl bg-purple-500/20 text-purple-200 border border-purple-400/30 hover:bg-purple-500/30 transition-all cursor-pointer disabled:opacity-50"
+                            >
+                              Add payment
+                            </button>
+                          </div>
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
                         </div>
 
                         <div className="flex items-center gap-2">
@@ -468,9 +531,66 @@ export default function ExpenseManager({ month, year, expenses, categories }: Ex
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex-1 min-w-0">
                       <div className="font-semibold text-white text-lg mb-1">{expense.name}</div>
-                      <div className="text-slate-300 font-medium">
-                        <Currency value={expense.amount} />
+                      <div className="flex items-center gap-3 text-sm">
+                        <span className="text-slate-300 font-medium">
+                          <Currency value={expense.amount} />
+                        </span>
+                        {expense.paidAmount && expense.paidAmount > 0 && expense.paidAmount < expense.amount && (
+                          <span className="text-amber-400 text-xs bg-amber-500/10 px-2 py-1 rounded-lg">
+                            Paid: <Currency value={expense.paidAmount} />
+                          </span>
+                        )}
                       </div>
+
+            {(() => {
+              const paidAmount = expense.paid ? expense.amount : (expense.paidAmount ?? 0);
+              const remaining = Math.max(0, expense.amount - paidAmount);
+              return (
+                <div className="mt-3 flex flex-wrap items-end gap-3">
+                  <div className="flex-1 min-w-[220px]">
+                    <div className="text-xs text-slate-400">
+                      Paid <span className="text-slate-200 font-medium"><Currency value={paidAmount} /></span> · Remaining{" "}
+                      <span className="text-slate-200 font-medium"><Currency value={remaining} /></span>
+                    </div>
+                    <div className="mt-2 h-2 w-full rounded-full bg-slate-900/40 border border-white/10 overflow-hidden">
+                      <div
+                        className={`h-full ${remaining === 0 ? "bg-emerald-500/70" : "bg-purple-500/70"}`}
+                        style={{ width: `${Math.min(100, (paidAmount / Math.max(1, expense.amount)) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {remaining > 0 && (
+                    <div className="min-w-[260px]">
+                      <label className="block">
+                        <span className="block text-xs font-medium text-slate-300 mb-1">Payment amount (£)</span>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            step="0.01"
+                            min={0}
+                            value={paymentByExpenseId[expense.id] ?? ""}
+                            onChange={(e) =>
+                              setPaymentByExpenseId((prev) => ({ ...prev, [expense.id]: e.target.value }))
+                            }
+                            className="w-full px-3 py-2 rounded-xl border border-white/10 bg-slate-900/40 text-white placeholder-slate-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/50 focus:outline-none transition-all"
+                            placeholder="0.00"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleApplyPayment(expense.id)}
+                            disabled={isPending}
+                            className="shrink-0 px-4 py-2 rounded-xl bg-purple-500/20 text-purple-200 border border-purple-400/30 hover:bg-purple-500/30 transition-all cursor-pointer disabled:opacity-50"
+                          >
+                            Add payment
+                          </button>
+                        </div>
+                      </label>
+                  </div>
+                  )}
+                </div>
+              );
+            })()}
                     </div>
 
                     <div className="flex items-center gap-2">

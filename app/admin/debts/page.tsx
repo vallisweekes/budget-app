@@ -8,6 +8,7 @@ function Currency({ value }: { value: number }) {
 
 export default function DebtsPage() {
 	const debts = getAllDebts();
+	const activeDebts = debts.filter((d) => d.currentBalance > 0);
 	const totalDebt = getTotalDebtBalance();
 
 	const typeIcons = {
@@ -37,7 +38,7 @@ export default function DebtsPage() {
 						<Currency value={totalDebt} />
 					</div>
 					<div className="text-sm opacity-75 mt-2">
-						{debts.length} debt{debts.length !== 1 ? "s" : ""} tracked
+						{activeDebts.length} debt{activeDebts.length !== 1 ? "s" : ""} tracked
 					</div>
 				</div>
 
@@ -112,14 +113,14 @@ export default function DebtsPage() {
 				{/* Debts List */}
 				<div className="space-y-4">
 					<h2 className="text-xl font-semibold text-white">Current Debts</h2>
-					{debts.length === 0 ? (
+					{activeDebts.length === 0 ? (
 						<div className="bg-slate-800/40 backdrop-blur-xl rounded-2xl p-8 text-center border border-white/10">
 							<div className="text-6xl mb-4">🎉</div>
 							<h3 className="text-xl font-semibold text-white mb-2">No Debts!</h3>
 							<p className="text-slate-400">You have no tracked debts at the moment.</p>
 						</div>
 					) : (
-						debts.map((debt) => {
+						activeDebts.map((debt) => {
 							const Icon = typeIcons[debt.type as keyof typeof typeIcons];
 							const percentPaid = debt.initialBalance > 0
 								? ((debt.initialBalance - debt.currentBalance) / debt.initialBalance) * 100

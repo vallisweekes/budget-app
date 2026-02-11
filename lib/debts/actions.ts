@@ -1,7 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { addDebt, updateDebt, deleteDebt, addPayment } from "./store";
+import { addDebt, updateDebt, deleteDebt, addPayment, getDebtById } from "./store";
+import { MonthKey } from "../budget/engine";
+import { applyExpensePayment } from "../expenses/store";
+import { upsertExpenseDebt } from "./store";
 
 export async function createDebt(formData: FormData) {
 	const name = formData.get("name") as string;
@@ -60,6 +63,22 @@ export async function makePaymentAction(debtId: string, amount: number, month: s
 
 	addPayment(debtId, amount, month);
 
+	const debt = getDebtById(debtId);
+	if (debt?.sourceType === "expense" && debt.sourceExpenseId && debt.sourceMonthKey) {
+		const result = await applyExpensePayment(debt.sourceMonthKey as MonthKey, debt.sourceExpenseId, amount);
+		if (result) {
+			upsertExpenseDebt({
+				expenseId: result.expense.id,
+				monthKey: debt.sourceMonthKey,
+				year: debt.sourceYear,
+				categoryId: result.expense.categoryId,
+				categoryName: debt.sourceCategoryName,
+				expenseName: result.expense.name,
+				remainingAmount: result.remaining,
+			});
+		}
+	}
+
 	revalidatePath("/admin/debts");
 	revalidatePath("/");
 }
@@ -74,6 +93,22 @@ export async function makePaymentFromForm(formData: FormData) {
 	}
 
 	addPayment(debtId, amount, month);
+
+	const debt = getDebtById(debtId);
+	if (debt?.sourceType === "expense" && debt.sourceExpenseId && debt.sourceMonthKey) {
+		const result = await applyExpensePayment(debt.sourceMonthKey as MonthKey, debt.sourceExpenseId, amount);
+		if (result) {
+			upsertExpenseDebt({
+				expenseId: result.expense.id,
+				monthKey: debt.sourceMonthKey,
+				year: debt.sourceYear,
+				categoryId: result.expense.categoryId,
+				categoryName: debt.sourceCategoryName,
+				expenseName: result.expense.name,
+				remainingAmount: result.remaining,
+			});
+		}
+	}
 
 	revalidatePath("/admin/debts");
 	revalidatePath("/");

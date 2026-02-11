@@ -2098,7 +2098,8 @@
       "paid": false,
       "isSaving": false,
       "isInvestment": false,
-      "categoryId": "entertainment"
+      "categoryId": "entertainment",
+      "paidAmount": 0
     },
     {
       "id": "BARBERS-FEBURARY",

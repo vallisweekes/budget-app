@@ -34,5 +34,22 @@
     "paidAmount": 0,
     "monthlyMinimum": 175,
     "createdAt": "2026-02-11T00:00:00.000Z"
+  },
+  {
+    "name": "Entertainment: AUDIO GEAR (FEBURARY)",
+    "type": "high_purchase",
+    "initialBalance": 175,
+    "sourceType": "expense",
+    "sourceExpenseId": "AUDIO-GEAR-FEBURARY",
+    "sourceMonthKey": "FEBURARY",
+    "sourceCategoryId": "entertainment",
+    "sourceCategoryName": "Entertainment",
+    "sourceExpenseName": "AUDIO GEAR",
+    "id": "1770815641639",
+    "currentBalance": 175,
+    "paid": false,
+    "paidAmount": 0,
+    "amount": 175,
+    "createdAt": "2026-02-11T13:14:01.639Z"
   }
 ]

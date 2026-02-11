@@ -128,7 +128,7 @@ export default async function AdminCategoriesPage() {
                 >
                   <div className="flex items-start justify-between mb-4">
                     <div className={`w-14 h-14 bg-gradient-to-br ${gradient} rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform`}>
-                      <CategoryIcon iconName={c.icon} size={28} className="text-white" />
+                      <CategoryIcon iconName={c.icon ?? "Circle"} size={28} className="text-white" />
                     </div>
                     <DeleteCategoryButton 
                       categoryId={c.id} 

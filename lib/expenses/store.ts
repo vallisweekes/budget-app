@@ -40,19 +40,95 @@ export async function getAllExpenses(): Promise<ExpensesByMonth> {
   return data;
 }
 
-export async function addExpense(month: MonthKey, item: Omit<ExpenseItem, "id"> & { id?: string }): Promise<void> {
+export async function addExpense(month: MonthKey, item: Omit<ExpenseItem, "id"> & { id?: string }): Promise<ExpenseItem> {
   const data = await getAllExpenses();
   const id = item.id ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  data[month].push({ id, name: item.name, amount: item.amount, categoryId: item.categoryId, paid: !!item.paid, paidAmount: item.paidAmount || 0, isSaving: item.isSaving, isInvestment: item.isInvestment });
+  const created: ExpenseItem = {
+    id,
+    name: item.name,
+    amount: item.amount,
+    categoryId: item.categoryId,
+    paid: !!item.paid,
+    paidAmount: item.paidAmount || 0,
+    isSaving: item.isSaving,
+    isInvestment: item.isInvestment,
+  };
+  data[month].push(created);
   await writeJson(filePath, data);
+  return created;
 }
 
 export async function toggleExpensePaid(month: MonthKey, id: string): Promise<void> {
   const data = await getAllExpenses();
   const list = data[month];
   const idx = list.findIndex((e) => e.id === id);
-  if (idx >= 0) list[idx].paid = !list[idx].paid;
+  if (idx >= 0) {
+    const nextPaid = !list[idx].paid;
+    list[idx].paid = nextPaid;
+    if (nextPaid) {
+      list[idx].paidAmount = list[idx].amount;
+    } else {
+      list[idx].paidAmount = 0;
+    }
+  }
   await writeJson(filePath, data);
+}
+
+export async function applyExpensePayment(
+  month: MonthKey,
+  id: string,
+  paymentDelta: number
+): Promise<{ expense: ExpenseItem; remaining: number } | null> {
+  if (!Number.isFinite(paymentDelta) || paymentDelta <= 0) return null;
+
+  const data = await getAllExpenses();
+  const list = data[month];
+  const idx = list.findIndex((e) => e.id === id);
+  if (idx < 0) return null;
+
+  const expense = list[idx];
+  const currentPaid = expense.paidAmount ?? 0;
+  const nextPaidAmount = Math.min(expense.amount, Math.max(0, currentPaid + paymentDelta));
+  const nextPaid = nextPaidAmount >= expense.amount;
+
+  const updated: ExpenseItem = {
+    ...expense,
+    paidAmount: nextPaidAmount,
+    paid: nextPaid,
+  };
+
+  list[idx] = updated;
+  await writeJson(filePath, data);
+
+  return { expense: updated, remaining: Math.max(0, updated.amount - (updated.paidAmount ?? 0)) };
+}
+
+export async function setExpensePaymentAmount(
+  month: MonthKey,
+  id: string,
+  paidAmount: number
+): Promise<{ expense: ExpenseItem; remaining: number } | null> {
+  if (!Number.isFinite(paidAmount) || paidAmount < 0) return null;
+
+  const data = await getAllExpenses();
+  const list = data[month];
+  const idx = list.findIndex((e) => e.id === id);
+  if (idx < 0) return null;
+
+  const expense = list[idx];
+  const nextPaidAmount = Math.min(expense.amount, paidAmount);
+  const nextPaid = nextPaidAmount >= expense.amount;
+
+  const updated: ExpenseItem = {
+    ...expense,
+    paidAmount: nextPaidAmount,
+    paid: nextPaid,
+  };
+
+  list[idx] = updated;
+  await writeJson(filePath, data);
+
+  return { expense: updated, remaining: Math.max(0, updated.amount - (updated.paidAmount ?? 0)) };
 }
 
 export async function removeExpense(month: MonthKey, id: string): Promise<void> {

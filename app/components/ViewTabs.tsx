@@ -1,5 +1,17 @@
-import dynamic from "next/dynamic";
 import SpendingTab from "./SpendingTab";
+import type { MonthKey } from "../../lib/budget/engine";
+
+type ViewTabsProps = {
+	month: MonthKey;
+	categoryData: unknown;
+	regularExpenses: unknown;
+	totalIncome: number;
+	totalExpenses: number;
+	remaining: number;
+	debts: unknown;
+	totalDebtBalance: number;
+	goals: unknown;
+};
 
 export default function ViewTabs({
   month,
@@ -11,7 +23,7 @@ export default function ViewTabs({
   debts,
   totalDebtBalance,
   goals,
-}) {
+}: ViewTabsProps) {
   // For now, just show the SpendingTab and a placeholder for other tabs
   // Later, add tab switching logic
   return (

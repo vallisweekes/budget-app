@@ -5,6 +5,7 @@ export interface CategoryConfig {
   id: string;
   name: string;
   icon?: string; // emoji or URL
+  color?: string;
   featured?: boolean;
 }
 

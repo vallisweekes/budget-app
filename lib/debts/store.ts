@@ -13,6 +13,14 @@ export interface DebtItem {
 	paidAmount: number;
 	amount: number; // alias for initialBalance for compatibility
 	createdAt: string;
+	// Optional linkage to an originating expense (used for unpaid/partial expenses)
+	sourceType?: "expense";
+	sourceExpenseId?: string;
+	sourceMonthKey?: string;
+	sourceYear?: number;
+	sourceCategoryId?: string;
+	sourceCategoryName?: string;
+	sourceExpenseName?: string;
 }
 
 export interface DebtPayment {
@@ -84,6 +92,75 @@ export function addDebt(debt: Omit<DebtItem, "id" | "createdAt" | "currentBalanc
 	debts.push(newDebt);
 	writeDebts(debts);
 	return newDebt;
+}
+
+export function upsertExpenseDebt(params: {
+	expenseId: string;
+	monthKey: string;
+	year?: number;
+	categoryId?: string;
+	categoryName?: string;
+	expenseName: string;
+	remainingAmount: number;
+}): DebtItem | null {
+	const {
+		expenseId,
+		monthKey,
+		year,
+		categoryId,
+		categoryName,
+		expenseName,
+		remainingAmount,
+	} = params;
+
+	const debts = readDebts();
+	const existing = debts.find(
+		(d) => d.sourceType === "expense" && d.sourceExpenseId === expenseId && d.sourceMonthKey === monthKey
+	);
+
+	if (!Number.isFinite(remainingAmount) || remainingAmount <= 0) {
+		if (existing) {
+			// Keep the debt record (and any payment history), but mark it settled
+			const updated = updateDebt(existing.id, {
+				currentBalance: 0,
+				paid: true,
+				paidAmount: existing.initialBalance,
+			});
+			return updated;
+		}
+		return null;
+	}
+
+	if (existing) {
+		const updated = updateDebt(existing.id, {
+			currentBalance: remainingAmount,
+			paid: false,
+			paidAmount: Math.max(0, existing.initialBalance - remainingAmount),
+			name: existing.name,
+			sourceYear: year ?? existing.sourceYear,
+			sourceCategoryId: categoryId ?? existing.sourceCategoryId,
+			sourceCategoryName: categoryName ?? existing.sourceCategoryName,
+			sourceExpenseName: expenseName ?? existing.sourceExpenseName,
+		});
+		return updated;
+	}
+
+	const displayCategory = categoryName ? `${categoryName}: ` : "";
+	const displayPeriod = year ? ` (${monthKey} ${year})` : ` (${monthKey})`;
+	const name = `${displayCategory}${expenseName}${displayPeriod}`;
+
+	return addDebt({
+		name,
+		type: "high_purchase",
+		initialBalance: remainingAmount,
+		sourceType: "expense",
+		sourceExpenseId: expenseId,
+		sourceMonthKey: monthKey,
+		sourceYear: year,
+		sourceCategoryId: categoryId,
+		sourceCategoryName: categoryName,
+		sourceExpenseName: expenseName,
+	});
 }
 
 export function updateDebt(id: string, updates: Partial<Omit<DebtItem, "id" | "createdAt">>): DebtItem | null {
