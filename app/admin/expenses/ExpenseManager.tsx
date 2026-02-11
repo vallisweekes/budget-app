@@ -37,13 +37,15 @@ export default function ExpenseManager({ month, year, expenses, categories }: Ex
   const [isPending, startTransition] = useTransition();
   const [showAddForm, setShowAddForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
+  const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({ uncategorized: true });
+  const [statusFilter, setStatusFilter] = useState<"all" | "paid" | "unpaid">("all");
+  const [minAmountFilter, setMinAmountFilter] = useState<number | null>(null);
 
   // Toggle category collapse
   const toggleCategory = (categoryId: string) => {
     setCollapsedCategories(prev => ({
       ...prev,
-      [categoryId]: !prev[categoryId]
+      [categoryId]: !(prev[categoryId] ?? true)
     }));
   };
 
@@ -55,15 +57,29 @@ export default function ExpenseManager({ month, year, expenses, categories }: Ex
 
   // Filter expenses by search query
   const filteredExpenses = useMemo(() => {
-    if (!searchQuery.trim()) return expenses;
-    
-    const query = searchQuery.toLowerCase();
-    return expenses.filter(expense => 
-      expense.name.toLowerCase().includes(query) ||
-      expense.amount.toString().includes(query) ||
-      (expense.categoryId && categoryLookup[expense.categoryId]?.name.toLowerCase().includes(query))
-    );
-  }, [expenses, searchQuery, categoryLookup]);
+    let result = expenses;
+
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter((expense) =>
+        expense.name.toLowerCase().includes(query) ||
+        expense.amount.toString().includes(query) ||
+        (expense.categoryId && categoryLookup[expense.categoryId]?.name.toLowerCase().includes(query))
+      );
+    }
+
+    if (statusFilter === "paid") {
+      result = result.filter((expense) => expense.paid);
+    } else if (statusFilter === "unpaid") {
+      result = result.filter((expense) => !expense.paid);
+    }
+
+    if (minAmountFilter != null) {
+      result = result.filter((expense) => expense.amount >= minAmountFilter);
+    }
+
+    return result;
+  }, [expenses, searchQuery, statusFilter, minAmountFilter, categoryLookup]);
 
   const uncategorized = filteredExpenses.filter(e => !e.categoryId);
   const categorized = filteredExpenses.filter(e => e.categoryId);
@@ -109,23 +125,122 @@ export default function ExpenseManager({ month, year, expenses, categories }: Ex
         </div>
 
         {/* Search Bar */}
-        <div className="relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-          <input
-            type="text"
-            placeholder="Search expenses by name, amount, or category..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-12 pr-4 py-3 bg-slate-800/40 backdrop-blur-xl border border-white/10 text-white placeholder-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
-          />
-          {searchQuery && (
+        <label className="block">
+          <span className="block text-sm font-medium text-slate-300 mb-2">Search</span>
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+            <input
+              type="text"
+              placeholder="Search expenses by name, amount, or category..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-12 pr-4 py-3 bg-slate-800/40 backdrop-blur-xl border border-white/10 text-white placeholder-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                aria-label="Clear search"
+              >
+                <X size={18} />
+              </button>
+            )}
+          </div>
+        </label>
+
+        {/* Quick Filters */}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-medium text-slate-400 mr-1">Filters:</span>
+
+          <button
+            type="button"
+            onClick={() => setStatusFilter("all")}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer border ${
+              statusFilter === "all"
+                ? "bg-purple-500/20 text-purple-200 border-purple-400/30"
+                : "bg-slate-900/30 text-slate-300 border-white/10 hover:bg-slate-900/50"
+            }`}
+          >
+            All
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatusFilter("paid")}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer border ${
+              statusFilter === "paid"
+                ? "bg-emerald-500/20 text-emerald-200 border-emerald-400/30"
+                : "bg-slate-900/30 text-slate-300 border-white/10 hover:bg-slate-900/50"
+            }`}
+          >
+            Paid
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatusFilter("unpaid")}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer border ${
+              statusFilter === "unpaid"
+                ? "bg-red-500/20 text-red-200 border-red-400/30"
+                : "bg-slate-900/30 text-slate-300 border-white/10 hover:bg-slate-900/50"
+            }`}
+          >
+            Unpaid
+          </button>
+
+          <span className="text-xs font-medium text-slate-400 mx-1">Amount:</span>
+
+          <button
+            type="button"
+            onClick={() => setMinAmountFilter(null)}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer border ${
+              minAmountFilter == null
+                ? "bg-purple-500/20 text-purple-200 border-purple-400/30"
+                : "bg-slate-900/30 text-slate-300 border-white/10 hover:bg-slate-900/50"
+            }`}
+          >
+            Any
+          </button>
+          <button
+            type="button"
+            onClick={() => setMinAmountFilter(100)}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer border ${
+              minAmountFilter === 100
+                ? "bg-purple-500/20 text-purple-200 border-purple-400/30"
+                : "bg-slate-900/30 text-slate-300 border-white/10 hover:bg-slate-900/50"
+            }`}
+          >
+            £100+
+          </button>
+          <button
+            type="button"
+            onClick={() => setMinAmountFilter(500)}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer border ${
+              minAmountFilter === 500
+                ? "bg-purple-500/20 text-purple-200 border-purple-400/30"
+                : "bg-slate-900/30 text-slate-300 border-white/10 hover:bg-slate-900/50"
+            }`}
+          >
+            £500+
+          </button>
+
+          {(searchQuery.trim() || statusFilter !== "all" || minAmountFilter != null) && (
             <button
-              onClick={() => setSearchQuery("")}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
+              type="button"
+              onClick={() => {
+                setSearchQuery("");
+                setStatusFilter("all");
+                setMinAmountFilter(null);
+              }}
+              className="ml-auto px-3 py-1.5 rounded-lg text-sm font-medium bg-slate-900/30 text-slate-300 border border-white/10 hover:bg-slate-900/50 transition-all cursor-pointer"
             >
-              <X size={18} />
+              Clear
             </button>
           )}
+        </div>
+
+        <div className="text-xs text-slate-400">
+          Showing <span className="text-slate-200 font-medium">{filteredExpenses.length}</span> of{" "}
+          <span className="text-slate-200 font-medium">{expenses.length}</span> expenses
         </div>
       </div>
 
@@ -194,26 +309,55 @@ export default function ExpenseManager({ month, year, expenses, categories }: Ex
         </div>
       )}
 
-      {/* Expenses by Category - Grid Layout */}
+      {/* Expenses by Category - Collapsible */}
       <div className="grid grid-cols-1 gap-6">
         {Object.entries(expensesByCategory).map(([catId, catExpenses]) => {
-          const isCollapsed = collapsedCategories[catId];
+          const category = categoryLookup[catId];
+          if (!category) return null;
+
+          const colorMap: Record<string, string> = {
+            blue: "from-blue-400 to-blue-600",
+            yellow: "from-yellow-400 to-yellow-600",
+            purple: "from-purple-400 to-purple-600",
+            orange: "from-orange-400 to-orange-600",
+            green: "from-green-400 to-green-600",
+            indigo: "from-indigo-400 to-indigo-600",
+            pink: "from-pink-400 to-pink-600",
+            cyan: "from-cyan-400 to-cyan-600",
+            red: "from-red-400 to-red-600",
+            emerald: "from-emerald-400 to-emerald-600",
+            teal: "from-teal-400 to-teal-600",
+            amber: "from-amber-400 to-amber-600",
+            slate: "from-slate-400 to-slate-600",
+          };
+
+          const gradient = colorMap[category.color] || colorMap.blue;
+          const totalAmount = catExpenses.reduce((sum, e) => sum + e.amount, 0);
+          const paidCount = catExpenses.filter((e) => e.paid).length;
+          const isCollapsed = collapsedCategories[catId] ?? true;
 
           return (
-            <div key={catId} className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-xl overflow-hidden border border-white/10 hover:shadow-2xl transition-all">
-              {/* Category Header - Clickable to collapse */}
+            <div
+              key={catId}
+              className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-xl overflow-hidden border border-white/10 hover:shadow-2xl transition-all"
+            >
               <button
+                type="button"
                 onClick={() => toggleCategory(catId)}
                 className="w-full p-6 border-b border-white/10 bg-gradient-to-br from-slate-900/60 to-slate-900/40 hover:from-slate-900/80 hover:to-slate-900/60 transition-all cursor-pointer"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <div className={`w-14 h-14 flex items-center justify-center bg-gradient-to-br ${gradient} rounded-2xl shadow-lg`}>
+                    <div
+                      className={`w-14 h-14 flex items-center justify-center bg-gradient-to-br ${gradient} rounded-2xl shadow-lg`}
+                    >
                       <CategoryIcon iconName={category.icon} size={28} className="text-white" />
                     </div>
                     <div className="text-left">
                       <h3 className="font-bold text-xl text-white">{category.name}</h3>
-                      <p className="text-sm text-slate-400 mt-0.5">{catExpenses.length} {catExpenses.length === 1 ? 'expense' : 'expenses'}</p>
+                      <p className="text-sm text-slate-400 mt-0.5">
+                        {catExpenses.length} {catExpenses.length === 1 ? "expense" : "expenses"}
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
@@ -232,73 +376,66 @@ export default function ExpenseManager({ month, year, expenses, categories }: Ex
                 </div>
               </button>
 
-              {/* Expenses List - Collapsible */}
               {!isCollapsed && (
-                  <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className={`w-14 h-14 flex items-center justify-center bg-gradient-to-br ${gradient} rounded-2xl shadow-lg`}>
-                      <CategoryIcon iconName={category.icon} size={28} className="text-white" />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-xl text-white">{category.name}</h3>
-                      <p className="text-sm text-slate-400 mt-0.5">{catExpenses.length} {catExpenses.length === 1 ? 'expense' : 'expenses'}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-2xl font-bold text-white">
-                      <Currency value={totalAmount} />
-                    </div>
-                    <div className="text-xs text-slate-400 mt-1">
-                      {paidCount} / {catExpenses.length} paid
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Expenses List */}
-              <div className="divide-y divide-white/10">
-                {catExpenses.map((expense) => (
-                  <div key={expense.id} className="p-5 hover:bg-slate-900/40 transition-all group">
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="font-semibold text-white text-lg mb-1">{expense.name}</div>
-                        <div className="flex items-center gap-3 text-sm">
-                          <span className="text-slate-300 font-medium">
-                            <Currency value={expense.amount} />
-                          </span>
-                          {expense.paidAmount && expense.paidAmount > 0 && expense.paidAmount < expense.amount && (
-                            <span className="text-amber-400 text-xs bg-amber-500/10 px-2 py-1 rounded-lg">
-                              Paid: <Currency value={expense.paidAmount} />
+                <div className="divide-y divide-white/10">
+                  {catExpenses.map((expense) => (
+                    <div key={expense.id} className="p-5 hover:bg-slate-900/40 transition-all group">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-white text-lg mb-1">{expense.name}</div>
+                          <div className="flex items-center gap-3 text-sm">
+                            <span className="text-slate-300 font-medium">
+                              <Currency value={expense.amount} />
                             </span>
-                          )}
+                            {expense.paidAmount && expense.paidAmount > 0 && expense.paidAmount < expense.amount && (
+                              <span className="text-amber-400 text-xs bg-amber-500/10 px-2 py-1 rounded-lg">
+                                Paid: <Currency value={expense.paidAmount} />
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleTogglePaid(expense.id)}
+                            disabled={isPending}
+                            className={`px-5 py-2.5 rounded-xl font-medium transition-all cursor-pointer shadow-md hover:shadow-lg hover:scale-105 ${
+                              expense.paid
+                                ? "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"
+                                : "bg-red-500/20 text-red-400 hover:bg-red-500/30"
+                            }`}
+                            aria-label={expense.paid ? "Mark as unpaid" : "Mark as paid"}
+                          >
+                            {expense.paid ? <Check size={18} /> : "Unpaid"}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleRemove(expense.id)}
+                            disabled={isPending}
+                            className="p-2.5 rounded-xl hover:bg-red-500/20 text-red-400 transition-all cursor-pointer hover:scale-110"
+                            title="Delete expense"
+                          >
+                            <Trash2 size={18} />
+                          </button>
                         </div>
                       </div>
-
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleTogglePaid(expense.id)}
-                          disabled={isPending}
-                          className={`px-5 py-2.5 rounded-xl font-medium transition-all cursor-pointer shadow-md hover:shadow-lg hover:scale-105 ${
-                            expense.paid
-                              ? "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"
-                              : "bg-red-500/20 text-red-400 hover:bg-red-500/30"
-                          }`}
-                        >
-                          {expense.paid ? <Check size={18} /> : "Unpaid"}
-                        </button>
-
-                        <button
-                          onClick={() => handleRemove(expense.id)}
-                          disabled={isPending}
-                          className="p-2.5 rounded-xl hover:bg-red-500/20 text-red-400 transition-all cursor-pointer hover:scale-110"
-                          title="Delete expense"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
                     </div>
-           button
-            onClick={() => toggleCategory('uncategorized')}
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Uncategorized Expenses - Collapsible */}
+      {uncategorized.length > 0 && (
+        <div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-xl overflow-hidden border border-white/10 hover:shadow-2xl transition-all">
+          <button
+            type="button"
+            onClick={() => toggleCategory("uncategorized")}
             className="w-full p-6 border-b border-white/10 bg-gradient-to-br from-slate-900/60 to-slate-900/40 hover:from-slate-900/80 hover:to-slate-900/60 transition-all cursor-pointer"
           >
             <div className="flex items-center justify-between">
@@ -308,7 +445,9 @@ export default function ExpenseManager({ month, year, expenses, categories }: Ex
                 </div>
                 <div className="text-left">
                   <h3 className="font-bold text-xl text-white">Uncategorized</h3>
-                  <p className="text-sm text-slate-400 mt-0.5">{uncategorized.length} {uncategorized.length === 1 ? 'expense' : 'expenses'}</p>
+                  <p className="text-sm text-slate-400 mt-0.5">
+                    {uncategorized.length} {uncategorized.length === 1 ? "expense" : "expenses"}
+                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-4">
@@ -316,72 +455,70 @@ export default function ExpenseManager({ month, year, expenses, categories }: Ex
                   <Currency value={uncategorized.reduce((sum, e) => sum + e.amount, 0)} />
                 </div>
                 <div className="text-slate-400">
-                  {collapsedCategories['uncategorized'] ? <ChevronDown size={24} /> : <ChevronUp size={24} />}
+                  {collapsedCategories.uncategorized ? <ChevronDown size={24} /> : <ChevronUp size={24} />}
                 </div>
               </div>
             </div>
           </button>
 
-          {!collapsedCategories['uncategorized'] && (
-                  <div>
-                  <h3 className="font-bold text-xl text-white">Uncategorized</h3>
-                  <p className="text-sm text-slate-400 mt-0.5">{uncategorized.length} {uncategorized.length === 1 ? 'expense' : 'expenses'}</p>
-                </div>
-              </div>
-              <div className="text-2xl font-bold text-white">
-                <Currency value={uncategorized.reduce((sum, e) => sum + e.amount, 0)} />
-              </div>
-            </div>
-          </div>
+          {!(collapsedCategories.uncategorized ?? true) && (
+            <div className="divide-y divide-white/10">
+              {uncategorized.map((expense) => (
+                <div key={expense.id} className="p-5 hover:bg-slate-900/40 transition-all group">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-white text-lg mb-1">{expense.name}</div>
+                      <div className="text-slate-300 font-medium">
+                        <Currency value={expense.amount} />
+                      </div>
+                    </div>
 
-          <div className="divide-y divide-white/10">
-            {uncategorized.map((expense) => (
-              <div key={expense.id} className="p-5 hover:bg-slate-900/40 transition-all group">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-white text-lg mb-1">{expense.name}</div>
-                    <div className="text-slate-300 font-medium">
-                      <Currency value={expense.amount} />
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleTogglePaid(expense.id)}
+                        disabled={isPending}
+                        className={`px-5 py-2.5 rounded-xl font-medium transition-all cursor-pointer shadow-md hover:shadow-lg hover:scale-105 ${
+                          expense.paid
+                            ? "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"
+                            : "bg-red-500/20 text-red-400 hover:bg-red-500/30"
+                        }`}
+                        aria-label={expense.paid ? "Mark as unpaid" : "Mark as paid"}
+                      >
+                        {expense.paid ? <Check size={18} /> : "Unpaid"}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleRemove(expense.id)}
+                        disabled={isPending}
+                        className="p-2.5 rounded-xl hover:bg-red-500/20 text-red-400 transition-all cursor-pointer hover:scale-110"
+                        title="Delete expense"
+                      >
+                        <Trash2 size={18} />
+                      </button>
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleTogglePaid(expense.id)}
-                      disabled={isPending}
-                      className={`px-5 py-2.5 rounded-xl font-medium transition-all cursor-pointer shadow-md hover:shadow-lg hover:scale-105 ${
-                        expense.paid
-          )}
-                          ? "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"
-                          : "bg-red-500/20 text-red-400 hover:bg-red-500/30"
-                      }`}
-                    >
-                      {expense.paid ? <Check size={18} /> : "Unpaid"}
-                    </button>
-
-                    <button
-                      onClick={() => handleRemove(expense.id)}
-                      disabled={isPending}
-                      className="p-2.5 rounded-xl hover:bg-red-500/20 text-red-400 transition-all cursor-pointer hover:scale-110"
-                      title="Delete expense"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
-      {expenses.length === 0 && !showAddForm && (
+      {filteredExpenses.length === 0 && !showAddForm && (
         <div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-xl p-16 text-center border border-white/10">
           <div className="w-24 h-24 bg-gradient-to-br from-purple-500/20 to-indigo-600/20 rounded-3xl flex items-center justify-center mx-auto mb-6">
             <span className="text-6xl">📝</span>
           </div>
-          <h3 className="text-2xl font-bold text-white mb-3">No expenses yet</h3>
-          <p className="text-slate-400 text-lg">Click "Add Expense" to track your first expense</p>
+          <h3 className="text-2xl font-bold text-white mb-3">
+            {searchQuery.trim() ? "No matching expenses" : "No expenses yet"}
+          </h3>
+          <p className="text-slate-400 text-lg">
+            {searchQuery.trim()
+              ? "Try a different search term"
+              : 'Click "Add Expense" to track your first expense'}
+          </p>
         </div>
       )}
     </div>

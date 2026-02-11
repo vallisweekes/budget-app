@@ -24,43 +24,46 @@ export default function ExpensesPageClient({ expenses, categories }: ExpensesPag
           <p className="text-slate-400">Add and manage your monthly expenses across years</p>
         </div>
 
-        {/* Year Selector */}
-        <div className="bg-slate-800/40 rounded-3xl shadow-xl border border-white/10 backdrop-blur-xl p-6 mb-6">
-          <h2 className="text-lg font-semibold text-white mb-4">Select Year</h2>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            {YEARS.map((year) => (
-              <button
-                key={year}
-                onClick={() => setSelectedYear(year)}
-                className={`py-4 px-4 rounded-2xl font-bold text-lg transition-all ${
-                  selectedYear === year
-                    ? "bg-gradient-to-br from-indigo-500 to-blue-600 text-white shadow-lg scale-105"
-                    : "bg-slate-900/60 text-slate-300 hover:bg-slate-900/80 hover:shadow-md"
-                }`}
-              >
-                {year}
-              </button>
-            ))}
+        {/* Year + Month Selectors (2-column cards) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          {/* Year Selector */}
+          <div className="bg-slate-800/40 rounded-3xl shadow-xl border border-white/10 backdrop-blur-xl p-6">
+            <h2 className="text-lg font-semibold text-white mb-4">Select Year</h2>
+            <div className="grid grid-cols-2 md:grid-cols-5 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+              {YEARS.map((year) => (
+                <button
+                  key={year}
+                  onClick={() => setSelectedYear(year)}
+                  className={`py-4 px-4 rounded-2xl font-bold text-lg transition-all cursor-pointer ${
+                    selectedYear === year
+                      ? "bg-gradient-to-br from-indigo-500 to-blue-600 text-white shadow-lg scale-105"
+                      : "bg-slate-900/60 text-slate-300 hover:bg-slate-900/80 hover:shadow-md"
+                  }`}
+                >
+                  {year}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
 
-        {/* Month Selector - Calendar Style */}
-        <div className="bg-slate-800/40 rounded-3xl shadow-xl border border-white/10 backdrop-blur-xl p-6 mb-8">
-          <h2 className="text-lg font-semibold text-white mb-4">Select Month</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-            {MONTHS.map((month) => (
-              <button
-                key={month}
-                onClick={() => setSelectedMonth(month as MonthKey)}
-                className={`py-4 px-4 rounded-2xl font-medium transition-all ${
-                  selectedMonth === month
-                    ? "bg-gradient-to-br from-purple-500 to-indigo-600 text-white shadow-lg scale-105"
-                    : "bg-slate-900/60 text-slate-300 hover:bg-slate-900/80 hover:shadow-md"
-                }`}
-              >
-                {month.slice(0, 3)}
-              </button>
-            ))}
+          {/* Month Selector */}
+          <div className="bg-slate-800/40 rounded-3xl shadow-xl border border-white/10 backdrop-blur-xl p-6">
+            <h2 className="text-lg font-semibold text-white mb-4">Select Month</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+              {MONTHS.map((month) => (
+                <button
+                  key={month}
+                  onClick={() => setSelectedMonth(month as MonthKey)}
+                  className={`py-4 px-4 rounded-2xl font-medium transition-all cursor-pointer ${
+                    selectedMonth === month
+                      ? "bg-gradient-to-br from-purple-500 to-indigo-600 text-white shadow-lg scale-105"
+                      : "bg-slate-900/60 text-slate-300 hover:bg-slate-900/80 hover:shadow-md"
+                  }`}
+                >
+                  {month.slice(0, 3)}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
