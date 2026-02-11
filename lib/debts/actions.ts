@@ -2,8 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { addDebt, updateDebt, deleteDebt, addPayment, getDebtById } from "./store";
-import { MonthKey } from "../budget/engine";
-import { applyExpensePayment } from "../expenses/store";
+import { MonthKey } from "@/lib/budget/engine";
+import { applyExpensePayment } from "@/lib/expenses/store";
 import { upsertExpenseDebt } from "./store";
 
 export async function createDebt(formData: FormData) {

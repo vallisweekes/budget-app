@@ -2,6 +2,7 @@
 
 import { PiggyBank, TrendingUp } from "lucide-react";
 import PaymentStatusButton from "./PaymentStatusButton";
+import type { MonthKey } from "@/lib/budget/engine";
 
 interface SavingCardProps {
 	name: string;
@@ -9,9 +10,9 @@ interface SavingCardProps {
 	paid: boolean;
 	paidAmount?: number;
 	isInvestment?: boolean;
-	month: string;
+	month: MonthKey;
 	id: string;
-	updatePaymentStatus: (month: string, id: string, status: "paid" | "unpaid" | "partial", partialAmount?: number) => Promise<void>;
+	updatePaymentStatus: (month: MonthKey, id: string, status: "paid" | "unpaid" | "partial", partialAmount?: number) => Promise<void>;
 }
 
 function Currency({ value }: { value: number }) {

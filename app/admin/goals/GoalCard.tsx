@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Edit2, Trash2, Check, X, Target, TrendingUp, Shield, PiggyBank } from "lucide-react";
-import { updateGoalAction, deleteGoalAction } from "../../../lib/goals/actions";
+import { updateGoalAction, deleteGoalAction } from "@/lib/goals/actions";
 
 interface Goal {
   id: string;

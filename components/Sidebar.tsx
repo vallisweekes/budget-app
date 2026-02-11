@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Home, Settings, DollarSign, Tags, Menu, X, CreditCard, Target, ShoppingBag } from "lucide-react";
+import { Home, Settings, DollarSign, Menu, X, CreditCard, Target, ShoppingBag, Banknote } from "lucide-react";
 import { usePathname } from "next/navigation";
 
 export default function Sidebar() {
@@ -11,12 +11,12 @@ export default function Sidebar() {
 
 	const navItems = [
 		{ href: "/", label: "Home", icon: Home },
+		{ href: "/admin/income", label: "Income", icon: Banknote },
 		{ href: "/admin/expenses", label: "Expenses", icon: DollarSign },
 		{ href: "/admin/spending", label: "Spending", icon: ShoppingBag },
-		{ href: "/admin/debts", label: "Debts", icon: CreditCard },
+		{ href: "/admin/debts", label: "Debt", icon: CreditCard },
 		{ href: "/admin/goals", label: "Goals", icon: Target },
 		{ href: "/admin/settings", label: "Settings", icon: Settings },
-		{ href: "/admin/categories", label: "Categories", icon: Tags },
 	];
 
 	return (

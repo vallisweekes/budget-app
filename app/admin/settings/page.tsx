@@ -1,208 +1,175 @@
-import { getSettings } from "../../../lib/settings/store";
-import { getAllIncome } from "../../../lib/income/store";
-import { MONTHS, MonthKey } from "../../../lib/budget/engine";
-import { saveSettingsAction, addIncomeAction } from "./actions";
-import Card from "../../../components/Card";
-import IncomeManager from "./IncomeManager";
+import { getCategories } from "@/lib/categories/store";
+import { addCategory } from "./actions";
+import { getAllExpenses } from "@/lib/expenses/store";
+import CategoryIcon from "@/components/CategoryIcon";
+import DeleteCategoryButton from "./DeleteCategoryButton";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminSettingsPage() {
-  const settings = await getSettings();
-  const income = await getAllIncome();
-  const defaultMonth: MonthKey = "JANUARY";
-  return (
-    <div className="min-h-screen pb-20 bg-gradient-to-br from-blue-950 via-slate-950 to-black">
-      <div className="mx-auto w-full max-w-7xl px-4 py-8">
-        {/* Header */}
-        <div className="mb-10">
-          <h1 className="text-4xl font-bold text-white mb-2">Settings</h1>
-          <p className="text-slate-400 text-lg">Manage your financial preferences and income sources</p>
-        </div>
+	const list = await getCategories();
+	const expenses = await getAllExpenses();
 
-        {/* Quick Settings Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          {/* Pay Date Card */}
-          <div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/10 p-8 hover:border-white/20 transition-all">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-2xl flex items-center justify-center shadow-lg">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-              </div>
-              <h2 className="text-xl font-bold text-white">Pay Date</h2>
-            </div>
-            <form action={saveSettingsAction} className="space-y-4">
-              <label className="block">
-                <span className="text-sm font-medium text-slate-400 mb-2 block">Day of Month</span>
-                <input
-                  name="payDate"
-                  type="number"
-                  min={1}
-                  max={31}
-                  defaultValue={settings.payDate}
-                  className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white text-lg font-semibold placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                />
-              </label>
-              <button
-                type="submit"
-                className="w-full bg-gradient-to-r from-blue-500 to-cyan-600 text-white rounded-xl py-3 font-semibold shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all cursor-pointer"
-              >
-                Save Pay Date
-              </button>
-            </form>
-          </div>
+	const categoryHasExpenses = new Map<string, number>();
+	Object.values(expenses).forEach((monthExpenses) => {
+		monthExpenses.forEach((expense) => {
+			if (expense.categoryId) {
+				categoryHasExpenses.set(expense.categoryId, (categoryHasExpenses.get(expense.categoryId) || 0) + 1);
+			}
+		});
+	});
 
-          {/* Monthly Allowance Card */}
-          <div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/10 p-8 hover:border-white/20 transition-all">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-green-600 rounded-2xl flex items-center justify-center shadow-lg">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <h2 className="text-xl font-bold text-white">Allowance</h2>
-            </div>
-            <form action={saveSettingsAction} className="space-y-4">
-              <input type="hidden" name="payDate" value={settings.payDate} />
-              <input type="hidden" name="savingsBalance" value={settings.savingsBalance || 0} />
-              <label className="block">
-                <span className="text-sm font-medium text-slate-400 mb-2 block">Monthly Amount (£)</span>
-                <input
-                  name="monthlyAllowance"
-                  type="number"
-                  step="0.01"
-                  defaultValue={settings.monthlyAllowance || 0}
-                  className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white text-lg font-semibold placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
-                />
-              </label>
-              <button
-                type="submit"
-                className="w-full bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl py-3 font-semibold shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all cursor-pointer"
-              >
-                Save Allowance
-              </button>
-            </form>
-          </div>
+	const categoryColorMap: Record<string, string> = {
+		blue: "from-blue-500 to-blue-600",
+		yellow: "from-yellow-500 to-yellow-600",
+		purple: "from-purple-500 to-purple-600",
+		orange: "from-orange-500 to-orange-600",
+		green: "from-green-500 to-green-600",
+		indigo: "from-indigo-500 to-indigo-600",
+		pink: "from-pink-500 to-pink-600",
+		cyan: "from-cyan-500 to-cyan-600",
+		red: "from-red-500 to-red-600",
+		teal: "from-teal-500 to-teal-600",
+		slate: "from-slate-500 to-slate-600",
+		amber: "from-amber-500 to-amber-600",
+		emerald: "from-emerald-500 to-emerald-600",
+	};
 
-          {/* Savings Balance Card */}
-          <div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/10 p-8 hover:border-white/20 transition-all">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-              </div>
-              <h2 className="text-xl font-bold text-white">Savings</h2>
-            </div>
-            <form action={saveSettingsAction} className="space-y-4">
-              <input type="hidden" name="payDate" value={settings.payDate} />
-              <input type="hidden" name="monthlyAllowance" value={settings.monthlyAllowance || 0} />
-              <label className="block">
-                <span className="text-sm font-medium text-slate-400 mb-2 block">Current Balance (£)</span>
-                <input
-                  name="savingsBalance"
-                  type="number"
-                  step="0.01"
-                  defaultValue={settings.savingsBalance || 0}
-                  className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white text-lg font-semibold placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                />
-              </label>
-              <button
-                type="submit"
-                className="w-full bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-xl py-3 font-semibold shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all cursor-pointer"
-              >
-                Save Balance
-              </button>
-            </form>
-          </div>
-        </div>
+	return (
+		<div className="min-h-screen pb-20 bg-gradient-to-br from-blue-950 via-slate-950 to-black">
+			<div className="mx-auto w-full max-w-7xl px-4 py-8">
+				<div className="mb-10">
+					<h1 className="text-4xl font-bold text-white mb-2">Settings</h1>
+					<div className="flex flex-wrap items-center gap-3">
+						<p className="text-slate-400 text-lg">Manage categories (more settings coming soon)</p>
+						<span className="inline-flex items-center rounded-full border border-white/10 bg-slate-900/40 px-3 py-1 text-xs font-medium text-slate-200">
+							Categories
+						</span>
+					</div>
+				</div>
 
-        {/* Income Management Section */}
-        <div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/10 p-8 mb-8">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-14 h-14 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center shadow-lg">
-              <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-white">Add Income</h2>
-              <p className="text-slate-400 text-sm">Add a new income source for any month</p>
-            </div>
-          </div>
-          <form action={addIncomeAction} className="grid grid-cols-1 md:grid-cols-12 gap-4">
-            <label className="md:col-span-3">
-              <span className="block text-sm font-medium text-slate-300 mb-2">Month</span>
-              <select
-                name="month"
-                defaultValue={defaultMonth}
-                className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all cursor-pointer"
-              >
-                {MONTHS.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="md:col-span-5">
-              <span className="block text-sm font-medium text-slate-300 mb-2">Income Name</span>
-              <input
-                name="name"
-                placeholder="e.g., Salary, Freelance Work"
-                className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all"
-              />
-            </label>
-            <label className="md:col-span-3">
-              <span className="block text-sm font-medium text-slate-300 mb-2">Amount (£)</span>
-              <input
-                name="amount"
-                type="number"
-                step="0.01"
-                placeholder="0.00"
-                className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all"
-              />
-            </label>
-            <div className="md:col-span-1 flex items-end">
-              <button
-                type="submit"
-                className="w-full bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-xl py-3 font-semibold shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all cursor-pointer"
-              >
-                <span className="hidden md:inline">+</span>
-                <span className="md:hidden">Add Income</span>
-              </button>
-            </div>
-          </form>
-        </div>
+				<div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/10 p-8 mb-8">
+					<div className="flex items-center gap-3 mb-8">
+						<div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg">
+							<svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+							</svg>
+						</div>
+						<div>
+							<h2 className="text-2xl font-bold text-white">Categories</h2>
+							<p className="text-slate-400 text-sm">Create and manage your expense categories</p>
+						</div>
+					</div>
+					<form action={addCategory} className="grid grid-cols-1 md:grid-cols-12 gap-4">
+						<label className="md:col-span-5">
+							<span className="block text-sm font-medium text-slate-300 mb-2">Category Name</span>
+							<input
+								name="name"
+								placeholder="e.g., Groceries, Hobbies"
+								required
+								className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+							/>
+						</label>
+						<label className="md:col-span-4">
+							<span className="block text-sm font-medium text-slate-300 mb-2">Icon Name</span>
+							<input
+								name="icon"
+								placeholder="e.g., ShoppingCart"
+								className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+							/>
+						</label>
+						<label className="md:col-span-2">
+							<span className="block text-sm font-medium text-slate-300 mb-2">Visibility</span>
+							<select
+								name="featured"
+								defaultValue="true"
+								className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all cursor-pointer"
+							>
+								<option value="true">Featured</option>
+								<option value="false">Hidden</option>
+							</select>
+						</label>
+						<div className="md:col-span-1 flex items-end">
+							<button
+								type="submit"
+								className="w-full bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-xl py-3 font-semibold shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all cursor-pointer"
+							>
+								<span className="hidden md:inline">+</span>
+								<span className="md:hidden">Add Category</span>
+							</button>
+						</div>
+					</form>
+				</div>
 
-        {/* Monthly Income Grid */}
-        <div className="space-y-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-12 h-12 bg-gradient-to-br from-pink-500 to-rose-600 rounded-2xl flex items-center justify-center shadow-lg">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-              </svg>
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-white">Monthly Income</h2>
-              <p className="text-slate-400 text-sm">Manage income sources for each month</p>
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {MONTHS.map((m) => (
-              <div key={m} className="bg-slate-800/40 backdrop-blur-xl rounded-2xl shadow-xl border border-white/10 p-5 hover:border-white/20 transition-all">
-                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                  <span className="w-2 h-2 bg-gradient-to-r from-pink-500 to-rose-600 rounded-full"></span>
-                  {m}
-                </h3>
-                <IncomeManager month={m as MonthKey} incomeItems={income[m]} />
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+				<div className="space-y-6">
+					<div className="flex items-center gap-3 mb-6">
+						<div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-2xl flex items-center justify-center shadow-lg">
+							<svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path
+									strokeLinecap="round"
+									strokeLinejoin="round"
+									strokeWidth={2}
+									d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"
+								/>
+							</svg>
+						</div>
+						<div>
+							<h2 className="text-2xl font-bold text-white">All Categories</h2>
+							<p className="text-slate-400 text-sm">{list.length} categories configured</p>
+						</div>
+					</div>
+
+					<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+						{list.map((c) => {
+							const gradient = categoryColorMap[c.color || "slate"] || "from-slate-500 to-slate-600";
+							const expenseCount = categoryHasExpenses.get(c.id) || 0;
+							const hasExpenses = expenseCount > 0;
+
+							return (
+								<div
+									key={c.id}
+									className="bg-slate-800/40 backdrop-blur-xl rounded-2xl shadow-xl border border-white/10 p-6 hover:border-white/20 transition-all group"
+								>
+									<div className="flex items-start justify-between mb-4">
+										<div
+											className={`w-14 h-14 bg-gradient-to-br ${gradient} rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform`}
+										>
+											<CategoryIcon iconName={c.icon ?? "Circle"} size={28} className="text-white" />
+										</div>
+										<DeleteCategoryButton
+											categoryId={c.id}
+											categoryName={c.name}
+											hasExpenses={hasExpenses}
+											expenseCount={expenseCount}
+										/>
+									</div>
+									<div>
+										<h3 className="font-bold text-lg text-white mb-1">{c.name}</h3>
+										<div className="flex items-center gap-2 flex-wrap">
+											<span
+												className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+													c.featured
+														? "bg-emerald-500/20 text-emerald-400"
+														: "bg-slate-500/20 text-slate-400"
+												}`}
+											>
+												<span className="w-1.5 h-1.5 rounded-full bg-current"></span>
+												{c.featured ? "Featured" : "Hidden"}
+											</span>
+											{hasExpenses && (
+												<span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-blue-500/20 text-blue-400">
+													<span className="w-1.5 h-1.5 rounded-full bg-current"></span>
+													{expenseCount} expense{expenseCount !== 1 ? "s" : ""}
+												</span>
+											)}
+										</div>
+									</div>
+								</div>
+							);
+						})}
+					</div>
+				</div>
+			</div>
+		</div>
+	);
 }

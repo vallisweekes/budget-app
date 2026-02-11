@@ -1,12 +1,12 @@
 "use client";
 
 import { CreditCard, TrendingDown, ShoppingBag } from "lucide-react";
-import type { MonthKey } from "../lib/budget/engine";
+import type { MonthKey } from "@/lib/budget/engine";
 import ExpandableCategory from "./ExpandableCategory";
 import SavingCard from "./SavingCard";
 import GoalsDisplay from "./GoalsDisplay";
-import { updatePaymentStatus } from "../lib/expenses/actions";
-import { updateDebtPaymentStatus } from "../lib/debts/payment-actions";
+import { updatePaymentStatus } from "@/lib/expenses/actions";
+import { updateDebtPaymentStatus } from "@/lib/debts/payment-actions";
 
 interface ViewTabsProps {
 	month: MonthKey;

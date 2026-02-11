@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { MonthKey } from "../budget/engine";
+import { MonthKey } from "@/lib/budget/engine";
 import { getAllExpenses } from "./store";
 import fs from "node:fs/promises";
 import path from "node:path";

@@ -1,33 +1,37 @@
 "use server";
 
-import { saveSettings } from "../../../lib/settings/store";
-import { addIncome, updateIncome, removeIncome } from "../../../lib/income/store";
-import { MonthKey } from "../../../lib/budget/engine";
+import { getCategories, saveCategories, CategoryConfig } from "@/lib/categories/store";
+import { getAllExpenses } from "@/lib/expenses/store";
+import crypto from "node:crypto";
 
-export async function saveSettingsAction(formData: FormData): Promise<void> {
-  const payDate = Number(formData.get("payDate") || 27);
-  const monthlyAllowance = Number(formData.get("monthlyAllowance") || 0);
-  const savingsBalance = Number(formData.get("savingsBalance") || 0);
-  await saveSettings({ 
-    payDate: Math.max(1, Math.min(31, payDate)),
-    monthlyAllowance,
-    savingsBalance
-  });
-}
-
-export async function addIncomeAction(formData: FormData): Promise<void> {
-  const month = String(formData.get("month")) as MonthKey;
+export async function addCategory(formData: FormData): Promise<void> {
   const name = String(formData.get("name") || "").trim();
-  const amount = Number(formData.get("amount") || 0);
-  if (!name || !month) return;
-  await addIncome(month, { name, amount });
+  if (!name) return;
+  const icon = String(formData.get("icon") || "").trim();
+  const featured = String(formData.get("featured") || "false") === "true";
+
+  const list = await getCategories();
+  const id = crypto.randomUUID();
+  const entry: CategoryConfig = { id, name, icon: icon || undefined, featured };
+  await saveCategories([entry, ...list]);
 }
 
-export async function updateIncomeAction(month: MonthKey, id: string, name: string, amount: number): Promise<void> {
-  if (!name.trim()) return;
-  await updateIncome(month, id, { name: name.trim(), amount });
-}
+export async function deleteCategory(id: string): Promise<{ success: boolean; error?: string }> {
+  const expenses = await getAllExpenses();
+  const hasExpenses = Object.values(expenses).some((monthExpenses) =>
+    monthExpenses.some((expense) => expense.categoryId === id)
+  );
 
-export async function removeIncomeAction(month: MonthKey, id: string): Promise<void> {
-  await removeIncome(month, id);
+  if (hasExpenses) {
+    return {
+      success: false,
+      error: "Cannot delete category with existing expenses. Please reassign or delete the expenses first.",
+    };
+  }
+
+  const list = await getCategories();
+  const next = list.filter((c) => c.id !== id);
+  await saveCategories(next);
+
+  return { success: true };
 }

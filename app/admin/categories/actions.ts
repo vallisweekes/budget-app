@@ -1,7 +1,7 @@
 "use server";
 
-import { getCategories, saveCategories, CategoryConfig } from "../../../lib/categories/store";
-import { getAllExpenses } from "../../../lib/expenses/store";
+import { getCategories, saveCategories, CategoryConfig } from "@/lib/categories/store";
+import { getAllExpenses } from "@/lib/expenses/store";
 import crypto from "node:crypto";
 
 export async function addCategory(formData: FormData): Promise<void> {

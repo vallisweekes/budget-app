@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
-import type { MonthKey } from "../lib/budget/engine";
+import type { MonthKey } from "@/lib/budget/engine";
 
 interface PaymentStatusButtonProps {
 	expenseName: string;

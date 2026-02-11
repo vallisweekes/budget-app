@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
-import type { MonthKey } from "../lib/budget/engine";
+import type { MonthKey } from "@/lib/budget/engine";
 import CategoryIcon from "./CategoryIcon";
 import PaymentStatusButton from "./PaymentStatusButton";
 

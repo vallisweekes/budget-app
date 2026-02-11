@@ -1,1 +1,5 @@
-{ "payDate": 27 }
+{
+  "payDate": 27,
+  "monthlyAllowance": 0,
+  "savingsBalance": 0
+}

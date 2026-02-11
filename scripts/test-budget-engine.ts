@@ -1,4 +1,4 @@
-import { computeYear, fixedMonthly, MONTHS } from "../lib/budget/engine";
+import { computeYear, fixedMonthly, MONTHS } from "@/lib/budget/engine";
 
 // Demo inputs: RENT, MORTGAGE, COUNCIL TAX similar to sheet
 const rent = fixedMonthly("RENT", 1110);

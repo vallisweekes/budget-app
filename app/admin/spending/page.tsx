@@ -1,10 +1,10 @@
-import { MONTHS } from "../../../lib/budget/engine";
-import { getAllDebts } from "../../../lib/debts/store";
-import { getSpendingForMonth, getAllowanceStats } from "../../../lib/spending/actions";
-import { getSettings } from "../../../lib/settings/store";
-import SpendingTab from "../../components/SpendingTab";
-import SpendingInsights from "../../components/SpendingInsights";
-import SpendingCharts from "../../components/SpendingCharts";
+import { MONTHS } from "@/lib/budget/engine";
+import { getAllDebts } from "@/lib/debts/store";
+import { getSpendingForMonth, getAllowanceStats } from "@/lib/spending/actions";
+import { getSettings } from "@/lib/settings/store";
+import SpendingTab from "@/app/components/SpendingTab";
+import SpendingInsights from "@/app/components/SpendingInsights";
+import SpendingCharts from "@/app/components/SpendingCharts";
 
 export const dynamic = "force-dynamic";
 

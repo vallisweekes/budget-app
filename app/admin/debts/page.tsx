@@ -1,5 +1,5 @@
-import { getAllDebts, getTotalDebtBalance, getPaymentsByDebt } from "../../../lib/debts/store";
-import { createDebt, deleteDebtAction, makePaymentFromForm } from "../../../lib/debts/actions";
+import { getAllDebts, getTotalDebtBalance, getPaymentsByDebt } from "@/lib/debts/store";
+import { createDebt, deleteDebtAction, makePaymentFromForm } from "@/lib/debts/actions";
 import { CreditCard, TrendingDown, ShoppingBag, Trash2 } from "lucide-react";
 
 function Currency({ value }: { value: number }) {

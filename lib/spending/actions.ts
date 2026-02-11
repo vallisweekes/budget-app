@@ -2,8 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { addSpending, removeSpending, getAllSpending } from "./store";
-import { getSettings, saveSettings } from "../settings/store";
-import { updateDebt, getDebtById } from "../debts/store";
+import { getSettings, saveSettings } from "@/lib/settings/store";
+import { updateDebt, getDebtById } from "@/lib/debts/store";
 
 // Helper to get the pay period for a given date
 function getPayPeriod(date: Date, payDate: number): { start: Date; end: Date; periodMonth: string } {

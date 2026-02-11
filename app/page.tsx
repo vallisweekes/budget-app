@@ -1,12 +1,12 @@
-import { MONTHS } from "../lib/budget/engine";
-import { getAllExpenses } from "../lib/expenses/store";
-import { getAllIncome } from "../lib/income/store";
-import { getCategories } from "../lib/categories/store";
-import { getAllDebts, getTotalDebtBalance } from "../lib/debts/store";
-import { getAllGoals } from "../lib/goals/store";
-import Card from "../components/Card";
-import CategoryIcon from "../components/CategoryIcon";
-import ViewTabs from "../components/ViewTabs";
+import { MONTHS } from "@/lib/budget/engine";
+import { getAllExpenses } from "@/lib/expenses/store";
+import { getAllIncome } from "@/lib/income/store";
+import { getCategories } from "@/lib/categories/store";
+import { getAllDebts, getTotalDebtBalance } from "@/lib/debts/store";
+import { getAllGoals } from "@/lib/goals/store";
+import Card from "@/components/Card";
+import CategoryIcon from "@/components/CategoryIcon";
+import ViewTabs from "@/components/ViewTabs";
 
 export const dynamic = "force-dynamic";
 

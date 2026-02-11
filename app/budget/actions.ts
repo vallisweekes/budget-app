@@ -1,6 +1,6 @@
 "use server";
 
-import { computeYear, fixedMonthly, MONTHS } from "../../lib/budget/engine";
+import { computeYear, fixedMonthly, MONTHS } from "@/lib/budget/engine";
 
 export interface BudgetInputs {
   yearLabel: string;

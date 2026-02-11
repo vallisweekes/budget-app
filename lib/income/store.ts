@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { MONTHS, MonthKey } from "../budget/engine";
+import { MONTHS, MonthKey } from "@/lib/budget/engine";
 
 export interface IncomeItem {
   id: string;

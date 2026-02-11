@@ -8,10 +8,10 @@ import {
   applyExpensePayment,
   setExpensePaymentAmount,
   getAllExpenses,
-} from "../../../lib/expenses/store";
-import { MonthKey } from "../../../lib/budget/engine";
-import { upsertExpenseDebt } from "../../../lib/debts/store";
-import { getCategories } from "../../../lib/categories/store";
+} from "@/lib/expenses/store";
+import { MonthKey } from "@/lib/budget/engine";
+import { upsertExpenseDebt } from "@/lib/debts/store";
+import { getCategories } from "@/lib/categories/store";
 
 export async function addExpenseAction(formData: FormData): Promise<void> {
   const month = String(formData.get("month")) as MonthKey;

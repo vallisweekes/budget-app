@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useTransition, useMemo } from "react";
-import { MonthKey } from "../../../lib/budget/engine";
+import { MonthKey } from "@/lib/budget/engine";
 import { addExpenseAction, togglePaidAction, removeExpenseAction, applyExpensePaymentAction } from "./actions";
 import { Trash2, Plus, Check, X, ChevronDown, ChevronUp, Search } from "lucide-react";
-import CategoryIcon from "../../../components/CategoryIcon";
+import CategoryIcon from "@/components/CategoryIcon";
 
 interface Expense {
   id: string;
@@ -393,7 +393,7 @@ export default function ExpenseManager({ month, year, expenses, categories }: Ex
                 <div className="divide-y divide-white/10">
                   {catExpenses.map((expense) => (
                     <div key={expense.id} className="p-5 hover:bg-slate-900/40 transition-all group">
-                      <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-start justify-between gap-4">
                         <div className="flex-1 min-w-0">
                           <div className="font-semibold text-white text-lg mb-1">{expense.name}</div>
                           <div className="flex items-center gap-3 text-sm">
@@ -458,26 +458,33 @@ export default function ExpenseManager({ month, year, expenses, categories }: Ex
               })()}
                         </div>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 pt-1">
                           <button
                             type="button"
                             onClick={() => handleTogglePaid(expense.id)}
                             disabled={isPending}
-                            className={`px-5 py-2.5 rounded-xl font-medium transition-all cursor-pointer shadow-md hover:shadow-lg hover:scale-105 ${
+                            className={`h-10 min-w-[104px] px-4 rounded-xl font-medium transition-all cursor-pointer shadow-md hover:shadow-lg hover:scale-[1.02] flex items-center justify-center gap-2 ${
                               expense.paid
                                 ? "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"
                                 : "bg-red-500/20 text-red-400 hover:bg-red-500/30"
                             }`}
                             aria-label={expense.paid ? "Mark as unpaid" : "Mark as paid"}
                           >
-                            {expense.paid ? <Check size={18} /> : "Unpaid"}
+                            {expense.paid ? (
+                              <>
+                                <Check size={18} />
+                                <span>Paid</span>
+                              </>
+                            ) : (
+                              <span>Unpaid</span>
+                            )}
                           </button>
 
                           <button
                             type="button"
                             onClick={() => handleRemove(expense.id)}
                             disabled={isPending}
-                            className="p-2.5 rounded-xl hover:bg-red-500/20 text-red-400 transition-all cursor-pointer hover:scale-110"
+                            className="h-10 w-10 rounded-xl hover:bg-red-500/20 text-red-400 transition-all cursor-pointer hover:scale-[1.05] flex items-center justify-center"
                             title="Delete expense"
                           >
                             <Trash2 size={18} />
@@ -528,7 +535,7 @@ export default function ExpenseManager({ month, year, expenses, categories }: Ex
             <div className="divide-y divide-white/10">
               {uncategorized.map((expense) => (
                 <div key={expense.id} className="p-5 hover:bg-slate-900/40 transition-all group">
-                  <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
                       <div className="font-semibold text-white text-lg mb-1">{expense.name}</div>
                       <div className="flex items-center gap-3 text-sm">
@@ -593,26 +600,33 @@ export default function ExpenseManager({ month, year, expenses, categories }: Ex
             })()}
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 pt-1">
                       <button
                         type="button"
                         onClick={() => handleTogglePaid(expense.id)}
                         disabled={isPending}
-                        className={`px-5 py-2.5 rounded-xl font-medium transition-all cursor-pointer shadow-md hover:shadow-lg hover:scale-105 ${
+                        className={`h-10 min-w-[104px] px-4 rounded-xl font-medium transition-all cursor-pointer shadow-md hover:shadow-lg hover:scale-[1.02] flex items-center justify-center gap-2 ${
                           expense.paid
                             ? "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"
                             : "bg-red-500/20 text-red-400 hover:bg-red-500/30"
                         }`}
                         aria-label={expense.paid ? "Mark as unpaid" : "Mark as paid"}
                       >
-                        {expense.paid ? <Check size={18} /> : "Unpaid"}
+                        {expense.paid ? (
+                          <>
+                            <Check size={18} />
+                            <span>Paid</span>
+                          </>
+                        ) : (
+                          <span>Unpaid</span>
+                        )}
                       </button>
 
                       <button
                         type="button"
                         onClick={() => handleRemove(expense.id)}
                         disabled={isPending}
-                        className="p-2.5 rounded-xl hover:bg-red-500/20 text-red-400 transition-all cursor-pointer hover:scale-110"
+                        className="h-10 w-10 rounded-xl hover:bg-red-500/20 text-red-400 transition-all cursor-pointer hover:scale-[1.05] flex items-center justify-center"
                         title="Delete expense"
                       >
                         <Trash2 size={18} />

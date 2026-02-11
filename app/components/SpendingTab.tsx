@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { addSpendingAction, removeSpendingAction } from "../../lib/spending/actions";
+import { addSpendingAction, removeSpendingAction } from "@/lib/spending/actions";
 import { useRouter } from "next/navigation";
 
 interface SpendingEntry {
