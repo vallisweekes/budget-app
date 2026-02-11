@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { MonthKey } from "@/lib/budget/engine";
+import type { MonthKey, PaymentStatus } from "@/types";
 import { getAllExpenses } from "./store";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -15,7 +15,7 @@ async function writeJson<T>(p: string, value: T) {
 export async function updatePaymentStatus(
   month: MonthKey,
   id: string,
-  status: "paid" | "unpaid" | "partial",
+  status: PaymentStatus,
   partialAmount?: number
 ): Promise<void> {
   const data = await getAllExpenses();

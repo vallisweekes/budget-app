@@ -1,5 +1,5 @@
 import SpendingTab from "./SpendingTab";
-import type { MonthKey } from "@/lib/budget/engine";
+import type { MonthKey } from "@/types";
 
 type Debt = {
   id: string;

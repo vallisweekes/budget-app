@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ChevronDown, CreditCard, TrendingDown, ShoppingBag } from "lucide-react";
+import { formatCurrency } from "@/lib/helpers/money";
 
 interface DebtCategoryProps {
 	debts: any[];
@@ -9,7 +10,7 @@ interface DebtCategoryProps {
 }
 
 function Currency({ value }: { value: number }) {
-	return <span>{value.toLocaleString(undefined, { style: "currency", currency: "GBP" })}</span>;
+	return <span>{formatCurrency(value)}</span>;
 }
 
 export default function DebtCategory({ debts, totalBalance }: DebtCategoryProps) {

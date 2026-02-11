@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { MONTHS, MonthKey } from "@/lib/budget/engine";
+import { MONTHS } from "@/lib/constants/time";
+import type { MonthKey } from "@/types";
 import ExpenseManager from "./ExpenseManager";
 
 interface ExpensesPageClientProps {

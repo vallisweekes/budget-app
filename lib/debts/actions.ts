@@ -2,13 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { addDebt, updateDebt, deleteDebt, addPayment, getDebtById } from "./store";
-import { MonthKey } from "@/lib/budget/engine";
+import type { DebtType, MonthKey } from "@/types";
 import { applyExpensePayment } from "@/lib/expenses/store";
 import { upsertExpenseDebt } from "./store";
 
 export async function createDebt(formData: FormData) {
 	const name = formData.get("name") as string;
-	const type = formData.get("type") as "credit_card" | "loan" | "high_purchase";
+	const type = formData.get("type") as DebtType;
 	const initialBalance = parseFloat(formData.get("initialBalance") as string);
 	const monthlyMinimum = formData.get("monthlyMinimum") ? parseFloat(formData.get("monthlyMinimum") as string) : undefined;
 	const interestRate = formData.get("interestRate") ? parseFloat(formData.get("interestRate") as string) : undefined;

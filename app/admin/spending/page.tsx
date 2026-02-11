@@ -1,4 +1,4 @@
-import { MONTHS } from "@/lib/budget/engine";
+import { MONTHS } from "@/lib/constants/time";
 import { getAllDebts } from "@/lib/debts/store";
 import { getSpendingForMonth, getAllowanceStats } from "@/lib/spending/actions";
 import { getSettings } from "@/lib/settings/store";

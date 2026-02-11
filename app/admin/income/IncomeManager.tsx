@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { MonthKey } from "@/lib/budget/engine";
+import type { MonthKey } from "@/types";
 import { updateIncomeAction, removeIncomeAction, addIncomeAction } from "./actions";
 import { Edit2, Trash2, Check, X, Plus } from "lucide-react";
+import { formatCurrency } from "@/lib/helpers/money";
+import ConfirmModal from "@/components/ConfirmModal";
 
 interface IncomeItem {
 	id: string;
@@ -17,12 +19,13 @@ interface IncomeManagerProps {
 }
 
 function Currency({ value }: { value: number }) {
-	return <span>{value.toLocaleString(undefined, { style: "currency", currency: "GBP" })}</span>;
+	return <span>{formatCurrency(value)}</span>;
 }
 
 export default function IncomeManager({ month, incomeItems }: IncomeManagerProps) {
 	const [isPending, startTransition] = useTransition();
 	const [editingId, setEditingId] = useState<string | null>(null);
+	const [incomePendingDelete, setIncomePendingDelete] = useState<IncomeItem | null>(null);
 	const [editName, setEditName] = useState("");
 	const [editAmount, setEditAmount] = useState("");
 	const [isAdding, setIsAdding] = useState(false);
@@ -51,12 +54,16 @@ export default function IncomeManager({ month, incomeItems }: IncomeManagerProps
 		setEditAmount("");
 	};
 
-	const handleRemove = (id: string) => {
-		if (confirm("Are you sure you want to remove this income entry?")) {
-			startTransition(() => {
-				removeIncomeAction(month, id);
-			});
-		}
+	const handleRemoveClick = (item: IncomeItem) => {
+		setIncomePendingDelete(item);
+	};
+
+	const confirmRemove = () => {
+		const item = incomePendingDelete;
+		if (!item) return;
+		startTransition(() => {
+			removeIncomeAction(month, item.id);
+		});
 	};
 
 	const handleAdd = () => {
@@ -83,6 +90,26 @@ export default function IncomeManager({ month, incomeItems }: IncomeManagerProps
 
 	return (
 		<div className="space-y-2">
+			<ConfirmModal
+				open={incomePendingDelete != null}
+				title="Remove income entry?"
+				description={
+					incomePendingDelete
+						? `This will permanently remove \"${incomePendingDelete.name}\".`
+						: undefined
+				}
+				tone="danger"
+				confirmText="Remove"
+				cancelText="Keep"
+				isBusy={isPending}
+				onClose={() => {
+					if (!isPending) setIncomePendingDelete(null);
+				}}
+				onConfirm={() => {
+					confirmRemove();
+					setIncomePendingDelete(null);
+				}}
+			/>
 			{incomeItems.map((item) => {
 				const isEditing = editingId === item.id;
 
@@ -156,7 +183,7 @@ export default function IncomeManager({ month, incomeItems }: IncomeManagerProps
 								<Edit2 size={14} />
 							</button>
 							<button
-								onClick={() => handleRemove(item.id)}
+								onClick={() => handleRemoveClick(item)}
 								disabled={isPending}
 								className="p-1.5 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
 								title="Remove"

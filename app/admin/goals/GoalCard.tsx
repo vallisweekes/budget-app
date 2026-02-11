@@ -3,6 +3,8 @@
 import { useState, useTransition } from "react";
 import { Edit2, Trash2, Check, X, Target, TrendingUp, Shield, PiggyBank } from "lucide-react";
 import { updateGoalAction, deleteGoalAction } from "@/lib/goals/actions";
+import { formatCurrency } from "@/lib/helpers/money";
+import ConfirmModal from "@/components/ConfirmModal";
 
 interface Goal {
   id: string;
@@ -36,12 +38,13 @@ const categoryColors = {
 };
 
 function Currency({ value }: { value: number }) {
-  return <span>{value.toLocaleString(undefined, { style: "currency", currency: "GBP" })}</span>;
+  return <span>{formatCurrency(value)}</span>;
 }
 
 export default function GoalCard({ goal }: GoalCardProps) {
   const [isPending, startTransition] = useTransition();
   const [isEditing, setIsEditing] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [editTitle, setEditTitle] = useState(goal.title);
   const [editTargetAmount, setEditTargetAmount] = useState(goal.targetAmount?.toString() || "");
   const [editCurrentAmount, setEditCurrentAmount] = useState(goal.currentAmount?.toString() || "");
@@ -74,12 +77,14 @@ export default function GoalCard({ goal }: GoalCardProps) {
     setEditDescription(goal.description || "");
   };
 
-  const handleDelete = () => {
-    if (confirm(`Are you sure you want to delete "${goal.title}"?`)) {
-      startTransition(async () => {
-        await deleteGoalAction(goal.id);
-      });
-    }
+  const handleDeleteClick = () => {
+    setConfirmingDelete(true);
+  };
+
+  const confirmDelete = () => {
+    startTransition(async () => {
+      await deleteGoalAction(goal.id);
+    });
   };
 
   if (isEditing) {
@@ -164,6 +169,22 @@ export default function GoalCard({ goal }: GoalCardProps) {
 
   return (
     <div className="bg-slate-800/40 rounded-2xl shadow-xl border border-white/10 backdrop-blur-xl p-6">
+      <ConfirmModal
+        open={confirmingDelete}
+        title="Delete goal?"
+        description={`This will permanently delete \"${goal.title}\".`}
+        tone="danger"
+        confirmText="Delete"
+        cancelText="Keep"
+        isBusy={isPending}
+        onClose={() => {
+          if (!isPending) setConfirmingDelete(false);
+        }}
+        onConfirm={() => {
+          confirmDelete();
+          setConfirmingDelete(false);
+        }}
+      />
       <div className="flex items-start gap-4 mb-4">
         <div className={`w-12 h-12 flex items-center justify-center bg-gradient-to-br ${gradient} rounded-xl shadow-md flex-shrink-0`}>
           <Icon className="text-white" size={24} />
@@ -186,7 +207,7 @@ export default function GoalCard({ goal }: GoalCardProps) {
             <Edit2 size={18} />
           </button>
           <button
-            onClick={handleDelete}
+            onClick={handleDeleteClick}
             disabled={isPending}
             className="p-2 hover:bg-red-500/10 rounded-lg text-red-400 transition-colors cursor-pointer"
             title="Delete"

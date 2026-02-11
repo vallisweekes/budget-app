@@ -9,7 +9,7 @@ import {
   setExpensePaymentAmount,
   getAllExpenses,
 } from "@/lib/expenses/store";
-import { MonthKey } from "@/lib/budget/engine";
+import type { MonthKey } from "@/types";
 import { upsertExpenseDebt } from "@/lib/debts/store";
 import { getCategories } from "@/lib/categories/store";
 

@@ -2,7 +2,7 @@
 
 import { saveSettings } from "@/lib/settings/store";
 import { addIncome, updateIncome, removeIncome } from "@/lib/income/store";
-import { MonthKey } from "@/lib/budget/engine";
+import type { MonthKey } from "@/types";
 
 export async function saveSettingsAction(formData: FormData): Promise<void> {
 	const payDate = Number(formData.get("payDate") || 27);

@@ -1,6 +1,7 @@
 import { getSettings } from "@/lib/settings/store";
 import { getAllIncome } from "@/lib/income/store";
-import { MONTHS, MonthKey } from "@/lib/budget/engine";
+import { MONTHS } from "@/lib/constants/time";
+import type { MonthKey } from "@/types";
 import { saveSettingsAction, addIncomeAction } from "./actions";
 import IncomeManager from "./IncomeManager";
 

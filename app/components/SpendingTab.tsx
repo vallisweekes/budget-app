@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { addSpendingAction, removeSpendingAction } from "@/lib/spending/actions";
 import { useRouter } from "next/navigation";
+import ConfirmModal from "@/components/ConfirmModal";
 
 interface SpendingEntry {
   id: string;
@@ -29,6 +30,7 @@ interface SpendingTabProps {
 export default function SpendingTab({ month, debts, spending }: SpendingTabProps) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [entryPendingDelete, setEntryPendingDelete] = useState<SpendingEntry | null>(null);
   const router = useRouter();
 
   const handleSubmit = async (formData: FormData) => {
@@ -43,16 +45,40 @@ export default function SpendingTab({ month, debts, spending }: SpendingTabProps
     });
   };
 
-  const handleRemove = (id: string) => {
-    if (confirm("Are you sure you want to delete this spending entry?")) {
-      startTransition(() => {
-        removeSpendingAction(id);
-      });
-    }
+  const handleRemoveClick = (entry: SpendingEntry) => {
+    setEntryPendingDelete(entry);
+  };
+
+  const confirmRemove = () => {
+    const entry = entryPendingDelete;
+    if (!entry) return;
+    startTransition(() => {
+      removeSpendingAction(entry.id);
+    });
   };
 
   return (
     <div className="space-y-6">
+      <ConfirmModal
+        open={entryPendingDelete != null}
+        title="Delete spending entry?"
+        description={
+          entryPendingDelete
+            ? `This will permanently delete \"${entryPendingDelete.description}\".`
+            : undefined
+        }
+        tone="danger"
+        confirmText="Delete"
+        cancelText="Keep"
+        isBusy={isPending}
+        onClose={() => {
+          if (!isPending) setEntryPendingDelete(null);
+        }}
+        onConfirm={() => {
+          confirmRemove();
+          setEntryPendingDelete(null);
+        }}
+      />
       <div className="bg-slate-800/40 rounded-2xl p-6 shadow-xl border border-white/10">
         <h2 className="text-xl font-semibold text-white mb-4">Log Unplanned Spending</h2>
         
@@ -142,7 +168,7 @@ export default function SpendingTab({ month, debts, spending }: SpendingTabProps
                 <div className="text-xs text-slate-400">£{entry.amount.toLocaleString()} • {entry.source.charAt(0).toUpperCase() + entry.source.slice(1)}</div>
               </div>
               <button
-                onClick={() => handleRemove(entry.id)}
+                onClick={() => handleRemoveClick(entry)}
                 disabled={isPending}
                 className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
                 title="Delete"

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { deleteCategory } from "./actions";
+import ConfirmModal from "@/components/ConfirmModal";
 
 export default function DeleteCategoryButton({
 	categoryId,
@@ -16,23 +17,38 @@ export default function DeleteCategoryButton({
 }) {
 	const [isPending, startTransition] = useTransition();
 	const [error, setError] = useState<string | null>(null);
+	const [confirmingDelete, setConfirmingDelete] = useState(false);
 
 	const disabled = isPending || hasExpenses;
 
 	return (
 		<div className="flex flex-col items-end gap-2">
-			<button
-				type="button"
-				disabled={disabled}
-				onClick={() => {
-					if (hasExpenses) return;
-					const ok = window.confirm(`Delete category "${categoryName}"?`);
-					if (!ok) return;
+			<ConfirmModal
+				open={confirmingDelete}
+				title="Delete category?"
+				description={`This will permanently delete \"${categoryName}\".`}
+				tone="danger"
+				confirmText="Delete"
+				cancelText="Keep"
+				isBusy={isPending}
+				onClose={() => {
+					if (!isPending) setConfirmingDelete(false);
+				}}
+				onConfirm={() => {
 					setError(null);
 					startTransition(async () => {
 						const result = await deleteCategory(categoryId);
 						if (!result.success) setError(result.error || "Failed to delete category.");
 					});
+					setConfirmingDelete(false);
+				}}
+			/>
+			<button
+				type="button"
+				disabled={disabled}
+				onClick={() => {
+					if (hasExpenses) return;
+					setConfirmingDelete(true);
 				}}
 				className={
 					"p-2 rounded-xl border transition-all cursor-pointer " +

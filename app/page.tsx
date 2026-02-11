@@ -1,4 +1,4 @@
-import { MONTHS } from "@/lib/budget/engine";
+import { MONTHS } from "@/lib/constants/time";
 import { getAllExpenses } from "@/lib/expenses/store";
 import { getAllIncome } from "@/lib/income/store";
 import { getCategories } from "@/lib/categories/store";
@@ -7,11 +7,12 @@ import { getAllGoals } from "@/lib/goals/store";
 import Card from "@/components/Card";
 import CategoryIcon from "@/components/CategoryIcon";
 import ViewTabs from "@/components/ViewTabs";
+import { formatCurrency } from "@/lib/helpers/money";
 
 export const dynamic = "force-dynamic";
 
 function Currency({ value }: { value: number }) {
-	return <span>{value.toLocaleString(undefined, { style: "currency", currency: "GBP" })}</span>;
+	return <span>{formatCurrency(value)}</span>;
 }
 
 function currentMonth(): typeof MONTHS[number] {

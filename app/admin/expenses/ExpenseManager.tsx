@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useTransition, useMemo } from "react";
-import { MonthKey } from "@/lib/budget/engine";
+import type { MonthKey } from "@/types";
 import { addExpenseAction, togglePaidAction, removeExpenseAction, applyExpensePaymentAction } from "./actions";
 import { Trash2, Plus, Check, X, ChevronDown, ChevronUp, Search } from "lucide-react";
 import CategoryIcon from "@/components/CategoryIcon";
+import ConfirmModal from "@/components/ConfirmModal";
+import { formatCurrency } from "@/lib/helpers/money";
 
 interface Expense {
   id: string;
@@ -30,7 +32,7 @@ interface ExpenseManagerProps {
 }
 
 function Currency({ value }: { value: number }) {
-  return <span>{value.toLocaleString(undefined, { style: "currency", currency: "GBP" })}</span>;
+  return <span>{formatCurrency(value)}</span>;
 }
 
 export default function ExpenseManager({ month, year, expenses, categories }: ExpenseManagerProps) {
@@ -41,6 +43,7 @@ export default function ExpenseManager({ month, year, expenses, categories }: Ex
   const [statusFilter, setStatusFilter] = useState<"all" | "paid" | "unpaid">("all");
   const [minAmountFilter, setMinAmountFilter] = useState<number | null>(null);
   const [paymentByExpenseId, setPaymentByExpenseId] = useState<Record<string, string>>({});
+  const [expensePendingDelete, setExpensePendingDelete] = useState<Expense | null>(null);
 
   // Toggle category collapse
   const toggleCategory = (categoryId: string) => {
@@ -99,12 +102,17 @@ export default function ExpenseManager({ month, year, expenses, categories }: Ex
     });
   };
 
-  const handleRemove = (expenseId: string) => {
-    if (confirm("Are you sure you want to delete this expense?")) {
-      startTransition(() => {
-        removeExpenseAction(month, expenseId);
-      });
-    }
+  const handleRemoveClick = (expense: Expense) => {
+    setExpensePendingDelete(expense);
+  };
+
+  const confirmRemove = () => {
+    const expense = expensePendingDelete;
+    if (!expense) return;
+
+    startTransition(() => {
+      removeExpenseAction(month, expense.id);
+    });
   };
 
   const handleApplyPayment = (expenseId: string) => {
@@ -121,6 +129,26 @@ export default function ExpenseManager({ month, year, expenses, categories }: Ex
 
   return (
     <div className="space-y-6">
+      <ConfirmModal
+        open={expensePendingDelete != null}
+        title="Delete expense?"
+        description={
+          expensePendingDelete
+            ? `This will permanently delete \"${expensePendingDelete.name}\".`
+            : undefined
+        }
+        tone="danger"
+        confirmText="Delete"
+        cancelText="Keep"
+        isBusy={isPending}
+        onClose={() => {
+          if (!isPending) setExpensePendingDelete(null);
+        }}
+        onConfirm={() => {
+          confirmRemove();
+          setExpensePendingDelete(null);
+        }}
+      />
       {/* Header with Search and Add Button */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
@@ -482,7 +510,7 @@ export default function ExpenseManager({ month, year, expenses, categories }: Ex
 
                           <button
                             type="button"
-                            onClick={() => handleRemove(expense.id)}
+                            onClick={() => handleRemoveClick(expense)}
                             disabled={isPending}
                             className="h-10 w-10 rounded-xl hover:bg-red-500/20 text-red-400 transition-all cursor-pointer hover:scale-[1.05] flex items-center justify-center"
                             title="Delete expense"
@@ -624,7 +652,7 @@ export default function ExpenseManager({ month, year, expenses, categories }: Ex
 
                       <button
                         type="button"
-                        onClick={() => handleRemove(expense.id)}
+                        onClick={() => handleRemoveClick(expense)}
                         disabled={isPending}
                         className="h-10 w-10 rounded-xl hover:bg-red-500/20 text-red-400 transition-all cursor-pointer hover:scale-[1.05] flex items-center justify-center"
                         title="Delete expense"

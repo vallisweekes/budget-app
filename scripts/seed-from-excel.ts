@@ -1,7 +1,8 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import * as XLSX from "xlsx";
-import { MONTHS, MonthKey } from "@/lib/budget/engine";
+import { MONTHS } from "@/lib/constants/time";
+import type { MonthKey } from "@/types";
 
 async function seedFromExcel() {
   const wb = XLSX.readFile("5 YEAR FINANCIAL FORECAST.xlsx");

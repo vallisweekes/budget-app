@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getAllDebts } from "./store";
 import fs from "node:fs/promises";
 import path from "node:path";
+import type { PaymentStatus } from "@/types";
 
 const filePath = path.join(process.cwd(), "data", "debts.json");
 
@@ -14,7 +15,7 @@ async function writeJson<T>(p: string, value: T) {
 export async function updateDebtPaymentStatus(
   month: string,
   id: string,
-  status: "paid" | "unpaid" | "partial",
+  status: PaymentStatus,
   partialAmount?: number
 ): Promise<void> {
   const debts = getAllDebts();

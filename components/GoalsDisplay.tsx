@@ -1,6 +1,7 @@
 "use client";
 
 import { Target, Shield, PiggyBank, TrendingUp, Calendar } from "lucide-react";
+import { formatCurrency } from "@/lib/helpers/money";
 
 interface Goal {
   id: string;
@@ -18,7 +19,7 @@ interface GoalsDisplayProps {
 }
 
 function Currency({ value }: { value: number }) {
-  return <span>{value.toLocaleString(undefined, { style: "currency", currency: "GBP" })}</span>;
+  return <span>{formatCurrency(value)}</span>;
 }
 
 export default function GoalsDisplay({ goals }: GoalsDisplayProps) {

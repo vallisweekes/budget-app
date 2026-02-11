@@ -2,7 +2,9 @@
 
 import { PiggyBank, TrendingUp } from "lucide-react";
 import PaymentStatusButton from "./PaymentStatusButton";
-import type { MonthKey } from "@/lib/budget/engine";
+import type { MonthKey } from "@/types";
+import { formatCurrency } from "@/lib/helpers/money";
+import { getSimpleColorClasses } from "@/lib/helpers/colors";
 
 interface SavingCardProps {
 	name: string;
@@ -16,7 +18,7 @@ interface SavingCardProps {
 }
 
 function Currency({ value }: { value: number }) {
-	return <span>{value.toLocaleString(undefined, { style: "currency", currency: "GBP" })}</span>;
+	return <span>{formatCurrency(value)}</span>;
 }
 
 export default function SavingCard({
@@ -31,13 +33,7 @@ export default function SavingCard({
 }: SavingCardProps) {
 	const color = isInvestment ? "emerald" : "purple";
 	const Icon = isInvestment ? TrendingUp : PiggyBank;
-	
-	const colorMap: Record<string, { bg: string; text: string }> = {
-		purple: { bg: "from-purple-400 to-purple-600", text: "text-purple-600" },
-		emerald: { bg: "from-emerald-400 to-emerald-600", text: "text-emerald-600" },
-	};
-
-	const colors = colorMap[color];
+	const colors = getSimpleColorClasses(color, "purple");
 
 	return (
 		<div className="bg-white rounded-xl shadow-sm p-4 flex items-center justify-between">

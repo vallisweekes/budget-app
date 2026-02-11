@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { deleteCategory } from "./actions";
+import ConfirmModal from "@/components/ConfirmModal";
 
 interface DeleteCategoryButtonProps {
   categoryId: string;
@@ -18,18 +19,19 @@ export default function DeleteCategoryButton({
 }: DeleteCategoryButtonProps) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
-  const handleDelete = async () => {
+  const handleDeleteClick = async () => {
     if (hasExpenses) {
       setError(`Cannot delete "${categoryName}" - it has ${expenseCount} expense${expenseCount !== 1 ? 's' : ''} linked to it.`);
       setTimeout(() => setError(null), 5000);
       return;
     }
 
-    if (!confirm(`Are you sure you want to delete "${categoryName}"?`)) {
-      return;
-    }
+    setConfirmingDelete(true);
+  };
 
+  const confirmDelete = () => {
     startTransition(async () => {
       const result = await deleteCategory(categoryId);
       if (!result.success && result.error) {
@@ -41,8 +43,24 @@ export default function DeleteCategoryButton({
 
   return (
     <div className="relative">
+      <ConfirmModal
+        open={confirmingDelete}
+        title="Delete category?"
+        description={`This will permanently delete \"${categoryName}\".`}
+        tone="danger"
+        confirmText="Delete"
+        cancelText="Keep"
+        isBusy={isPending}
+        onClose={() => {
+          if (!isPending) setConfirmingDelete(false);
+        }}
+        onConfirm={() => {
+          confirmDelete();
+          setConfirmingDelete(false);
+        }}
+      />
       <button
-        onClick={handleDelete}
+        onClick={handleDeleteClick}
         disabled={isPending}
         className={`p-2 rounded-lg transition-colors cursor-pointer ${
           hasExpenses 

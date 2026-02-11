@@ -1,4 +1,5 @@
-import { MONTHS, MonthKey } from "@/lib/budget/engine";
+import { MONTHS } from "@/lib/constants/time";
+import type { MonthKey } from "@/types";
 import { getAllExpenses } from "@/lib/expenses/store";
 import { getCategories } from "@/lib/categories/store";
 import ExpensesPageClient from "./ExpensesPageClient";

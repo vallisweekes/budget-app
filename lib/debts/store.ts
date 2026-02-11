@@ -1,35 +1,8 @@
 import fs from "fs";
 import path from "path";
+import type { DebtItem, DebtPayment } from "@/types";
 
-export interface DebtItem {
-	id: string;
-	name: string;
-	type: "credit_card" | "loan" | "high_purchase";
-	initialBalance: number;
-	currentBalance: number;
-	monthlyMinimum?: number;
-	interestRate?: number;
-	paid: boolean;
-	paidAmount: number;
-	amount: number; // alias for initialBalance for compatibility
-	createdAt: string;
-	// Optional linkage to an originating expense (used for unpaid/partial expenses)
-	sourceType?: "expense";
-	sourceExpenseId?: string;
-	sourceMonthKey?: string;
-	sourceYear?: number;
-	sourceCategoryId?: string;
-	sourceCategoryName?: string;
-	sourceExpenseName?: string;
-}
-
-export interface DebtPayment {
-	id: string;
-	debtId: string;
-	amount: number;
-	date: string;
-	month: string; // e.g., "2026-02"
-}
+export type { DebtItem, DebtPayment };
 
 const DEBTS_FILE = path.join(process.cwd(), "data", "debts.json");
 const PAYMENTS_FILE = path.join(process.cwd(), "data", "debt-payments.json");

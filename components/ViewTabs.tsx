@@ -1,12 +1,13 @@
 "use client";
 
 import { CreditCard, TrendingDown, ShoppingBag } from "lucide-react";
-import type { MonthKey } from "@/lib/budget/engine";
+import type { MonthKey } from "@/types";
 import ExpandableCategory from "./ExpandableCategory";
 import SavingCard from "./SavingCard";
 import GoalsDisplay from "./GoalsDisplay";
 import { updatePaymentStatus } from "@/lib/expenses/actions";
 import { updateDebtPaymentStatus } from "@/lib/debts/payment-actions";
+import { formatCurrency } from "@/lib/helpers/money";
 
 interface ViewTabsProps {
 	month: MonthKey;
@@ -21,7 +22,7 @@ interface ViewTabsProps {
 }
 
 function Currency({ value }: { value: number }) {
-	return <span>{value.toLocaleString(undefined, { style: "currency", currency: "GBP" })}</span>;
+	return <span>{formatCurrency(value)}</span>;
 }
 
 export default function ViewTabs({

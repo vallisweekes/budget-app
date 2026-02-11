@@ -1,9 +1,11 @@
 import { getAllDebts, getTotalDebtBalance, getPaymentsByDebt } from "@/lib/debts/store";
-import { createDebt, deleteDebtAction, makePaymentFromForm } from "@/lib/debts/actions";
-import { CreditCard, TrendingDown, ShoppingBag, Trash2 } from "lucide-react";
+import { createDebt, makePaymentFromForm } from "@/lib/debts/actions";
+import { CreditCard, TrendingDown, ShoppingBag } from "lucide-react";
+import DeleteDebtButton from "./DeleteDebtButton";
+import { formatCurrency } from "@/lib/helpers/money";
 
 function Currency({ value }: { value: number }) {
-	return <span>{value.toLocaleString(undefined, { style: "currency", currency: "GBP" })}</span>;
+	return <span>{formatCurrency(value)}</span>;
 }
 
 export default function DebtsPage() {
@@ -142,15 +144,7 @@ export default function DebtsPage() {
 												<p className="text-sm text-slate-400">{typeLabels[debt.type as keyof typeof typeLabels]}</p>
 											</div>
 										</div>
-										<form action={deleteDebtAction.bind(null, debt.id)} className="inline">
-											<button
-												type="submit"
-												className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-												title="Delete debt"
-											>
-												<Trash2 className="w-5 h-5" />
-											</button>
-										</form>
+										<DeleteDebtButton debtId={debt.id} debtName={debt.name} />
 									</div>
 
 									<div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
@@ -199,7 +193,7 @@ export default function DebtsPage() {
 									</div>
 
 									{/* Make Payment Form */}
-									<form action={makePaymentFromForm} className="flex gap-2">
+									<form action={makePaymentFromForm} className="flex items-end gap-2">
 										<input type="hidden" name="debtId" value={debt.id} />
 										{/* TODO: Wire this to the selected month/year once available */}
 										<input type="hidden" name="month" value="2026-02" />
@@ -212,12 +206,12 @@ export default function DebtsPage() {
 												placeholder="Payment amount"
 												required
 												aria-label="Payment amount"
-												className="w-full px-4 py-2 bg-slate-900/40 border border-white/10 text-white placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+												className="h-10 w-full px-4 py-2 bg-slate-900/40 border border-white/10 text-white placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
 											/>
 										</label>
 										<button
 											type="submit"
-											className="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium shadow-lg hover:shadow-xl cursor-pointer"
+											className="h-10 px-6 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium shadow-lg hover:shadow-xl cursor-pointer"
 										>
 											Make Payment
 										</button>

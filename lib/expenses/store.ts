@@ -1,19 +1,9 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { MONTHS, MonthKey } from "@/lib/budget/engine";
+import { MONTHS } from "@/lib/constants/time";
+import type { ExpenseItem, ExpensesByMonth, MonthKey } from "@/types";
 
-export interface ExpenseItem {
-  id: string;
-  name: string;
-  amount: number;
-  categoryId?: string;
-  paid?: boolean;
-  paidAmount?: number;
-  isSaving?: boolean;
-  isInvestment?: boolean;
-}
-
-export type ExpensesByMonth = Record<MonthKey, ExpenseItem[]>;
+export type { ExpenseItem, ExpensesByMonth };
 
 const filePath = path.join(process.cwd(), "data", "expenses.monthly.json");
 

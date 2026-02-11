@@ -1,55 +1,8 @@
-export type MonthKey =
-  | "AUGUST "
-  | "SEPTEMBER"
-  | "OCTOBER"
-  | "NOVEMBER"
-  | "DECEMBER"
-  | "JANUARY"
-  | "FEBURARY"
-  | "MARCH"
-  | "APRIL"
-  | "MAY"
-  | "JUNE"
-  | "JULY";
+import { MONTHS } from "@/lib/constants/time";
+import type { CategoryInput, CategoryResult, MonthKey, MonthlyAmounts, YearInputs, YearResult } from "@/types";
 
-export const MONTHS: MonthKey[] = [
-  "AUGUST ",
-  "SEPTEMBER",
-  "OCTOBER",
-  "NOVEMBER",
-  "DECEMBER",
-  "JANUARY",
-  "FEBURARY",
-  "MARCH",
-  "APRIL",
-  "MAY",
-  "JUNE",
-  "JULY",
-];
-
-export type MonthlyAmounts = Partial<Record<MonthKey, number>>;
-
-export interface CategoryInput {
-  name: string;
-  amounts: MonthlyAmounts; // per-month amounts
-}
-
-export interface YearInputs {
-  yearLabel: string; // e.g. "2026 - 2027"
-  categories: CategoryInput[]; // e.g. RENT, MORTGAGE, COUNCIL TAX, etc.
-}
-
-export interface CategoryResult {
-  name: string;
-  monthly: MonthlyAmounts;
-  yearTotal: number;
-}
-
-export interface YearResult {
-  yearLabel: string;
-  categories: CategoryResult[];
-  subtotal: number; // sum of all category totals
-}
+export { MONTHS };
+export type { CategoryInput, CategoryResult, MonthKey, MonthlyAmounts, YearInputs, YearResult };
 
 export function sumMonths(amounts: MonthlyAmounts): number {
   return MONTHS.reduce((acc, m) => acc + (amounts[m] ?? 0), 0);

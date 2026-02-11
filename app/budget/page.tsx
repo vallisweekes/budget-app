@@ -7,11 +7,13 @@ import Card from "@/components/Card";
 import DonutProgress from "@/components/DonutProgress";
 import BarChartMini from "@/components/BarChartMini";
 import CategoryGrid from "@/components/CategoryGrid";
+import ConfirmModal from "@/components/ConfirmModal";
 import categoriesData from "@/data/categories.json";
-import { MONTHS } from "@/lib/budget/engine";
+import { MONTHS } from "@/lib/constants/time";
+import { formatCurrency } from "@/lib/helpers/money";
 
 function Currency({ value }: { value: number }) {
-  return <span>{value.toLocaleString(undefined, { style: "currency", currency: "GBP" })}</span>;
+  return <span>{formatCurrency(value)}</span>;
 }
 
 export default function BudgetPage() {
@@ -42,6 +44,7 @@ export default function BudgetPage() {
   }, [state.perMonthTotals]);
 
   const [rows, setRows] = useState(1);
+  const [confirmingRemoveRow, setConfirmingRemoveRow] = useState(false);
   const [month, setMonth] = useState<typeof MONTHS[number]>("JANUARY");
   const catKeys = [
     { key: "rent", label: "Rent" },
@@ -70,6 +73,20 @@ export default function BudgetPage() {
     <div className="flex">
       <Sidebar />
       <div className="mx-auto w-full max-w-6xl p-6">
+        <ConfirmModal
+          open={confirmingRemoveRow}
+          title="Remove row?"
+          description="This will remove the last custom expense row."
+          tone="danger"
+          confirmText="Remove"
+          cancelText="Keep"
+          isBusy={false}
+          onClose={() => setConfirmingRemoveRow(false)}
+          onConfirm={() => {
+            setRows((r) => Math.max(1, r - 1));
+            setConfirmingRemoveRow(false);
+          }}
+        />
         <h1 className="text-2xl font-semibold mb-4">Budget Dashboard</h1>
 
         {/* Summary cards */}
@@ -177,7 +194,7 @@ export default function BudgetPage() {
           <div className="mt-2 flex gap-2">
             <button type="button" className="rounded border px-3 py-1" onClick={() => setRows((r) => r + 1)}>+ Add Row</button>
             {rows > 1 && (
-              <button type="button" className="rounded border px-3 py-1" onClick={() => setRows((r) => Math.max(1, r - 1))}>- Remove Row</button>
+              <button type="button" className="rounded border px-3 py-1" onClick={() => setConfirmingRemoveRow(true)}>- Remove Row</button>
             )}
           </div>
         </div>
