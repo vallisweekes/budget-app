@@ -18,6 +18,40 @@ export async function getOrCreateUserByUsername(username: string) {
 	});
 }
 
+export async function getUserByUsername(username: string) {
+	const normalized = String(username ?? "").trim();
+	if (!normalized) return null;
+	return prisma.user.findFirst({ where: { name: normalized } });
+}
+
+export async function registerUserByUsername(params: { username: string; email: string }) {
+	const username = String(params.username ?? "").trim();
+	const email = String(params.email ?? "")
+		.trim()
+		.toLowerCase();
+
+	if (!username) throw new Error("Username is required");
+	if (!email) throw new Error("Email is required");
+	if (!email.includes("@")) throw new Error("Invalid email");
+
+	const existingByEmail = await prisma.user.findUnique({ where: { email }, select: { id: true, name: true } });
+	if (existingByEmail && existingByEmail.name !== username) {
+		throw new Error("Email already in use");
+	}
+
+	const existing = await getUserByUsername(username);
+	if (existing) {
+		throw new Error("User already exists");
+	}
+
+	return prisma.user.create({
+		data: {
+			name: username,
+			email,
+		},
+	});
+}
+
 export async function resolveUserId(params: {
 	userId?: string;
 	username?: string;

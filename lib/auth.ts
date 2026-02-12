@@ -1,6 +1,6 @@
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { getOrCreateUserByUsername } from "@/lib/budgetPlans";
+import { getUserByUsername, registerUserByUsername } from "@/lib/budgetPlans";
 
 export const authOptions: NextAuthOptions = {
 	session: {
@@ -11,6 +11,8 @@ export const authOptions: NextAuthOptions = {
 			name: "Username",
 			credentials: {
 				username: { label: "Username", type: "text" },
+				email: { label: "Email", type: "email" },
+				mode: { label: "Mode", type: "text" },
 			},
 			authorize: async (credentials) => {
 				const username = String(credentials?.username ?? "")
@@ -18,13 +20,22 @@ export const authOptions: NextAuthOptions = {
 					.replace(/\s+/g, "-");
 
 				if (!username) return null;
+				const mode = String(credentials?.mode ?? "login").trim().toLowerCase();
+				const email = String(credentials?.email ?? "")
+					.trim()
+					.toLowerCase();
 
-				const user = await getOrCreateUserByUsername(username);
+				const user =
+					mode === "register"
+						? await registerUserByUsername({ username, email })
+						: await getUserByUsername(username);
+
+				if (!user) return null;
 
 				return {
 					id: user.id,
 					name: username,
-				} as any;
+				};
 			},
 		}),
 	],

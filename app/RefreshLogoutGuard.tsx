@@ -14,8 +14,11 @@ function getNavigationType(): string | undefined {
 	}
 
 	// Deprecated fallback (Safari older versions)
-	const legacy: any = typeof performance !== "undefined" ? (performance as any).navigation : undefined;
-	if (legacy?.type === legacy?.TYPE_RELOAD) return "reload";
+	const legacyNav =
+		typeof performance !== "undefined" && "navigation" in performance
+			? (performance as unknown as { navigation: { type: number; TYPE_RELOAD: number } }).navigation
+			: undefined;
+	if (legacyNav?.type === legacyNav?.TYPE_RELOAD) return "reload";
 
 	return undefined;
 }
@@ -39,7 +42,7 @@ export default function RefreshLogoutGuard() {
 			try {
 				await fetch("/api/logout", { method: "POST", cache: "no-store" });
 			} finally {
-				router.replace("/");
+				router.replace("/?auth=1");
 				router.refresh();
 			}
 		})();

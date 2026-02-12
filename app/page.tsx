@@ -4,7 +4,9 @@ import LoginForm from "./LoginForm";
 import { authOptions } from "@/lib/auth";
 import { getDefaultBudgetPlanForUser, resolveUserId } from "@/lib/budgetPlans";
 
-export default async function LoginSplashPage() {
+export default async function LoginSplashPage(props: {
+	searchParams?: Record<string, string | string[] | undefined> | Promise<Record<string, string | string[] | undefined>>;
+}) {
 	const session = await getServerSession(authOptions);
 	const sessionUser = session?.user;
 	const username = sessionUser?.username ?? sessionUser?.name ?? "";
@@ -14,6 +16,14 @@ export default async function LoginSplashPage() {
 		if (!budgetPlan) redirect("/budgets/new");
 		redirect(`/user=${encodeURIComponent(username)}/${encodeURIComponent(budgetPlan.id)}`);
 	}
+
+	const searchParams = await Promise.resolve(props.searchParams ?? {});
+	const authParam = searchParams.auth;
+	const authFlag = Array.isArray(authParam) ? authParam[0] : authParam;
+	const showAuthMessage = authFlag === "1" || authFlag === "true";
+	const modeParam = searchParams.mode;
+	const modeRaw = Array.isArray(modeParam) ? modeParam[0] : modeParam;
+	const initialMode = modeRaw === "register" ? "register" : "login";
 
 	return (
 		<div className="min-h-screen bg-[#0a0d14]">
@@ -54,7 +64,10 @@ export default async function LoginSplashPage() {
 					</div>
 
 					<div className="mx-auto w-full max-w-xl">
-						<LoginForm />
+						<LoginForm
+							initialMode={initialMode}
+							message={showAuthMessage ? "Please log in or register to continue." : undefined}
+						/>
 					</div>
 				</div>
 			</div>
