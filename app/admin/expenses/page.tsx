@@ -6,6 +6,9 @@ import { getCategories } from "@/lib/categories/store";
 import ExpensesPageClient from "./ExpensesPageClient";
 import { prisma } from "@/lib/prisma";
 import { getDefaultBudgetPlanForUser, resolveUserId } from "@/lib/budgetPlans";
+import { MONTHS } from "@/lib/constants/time";
+import type { MonthKey } from "@/types";
+import { isMonthKey } from "@/lib/budget/zero-based";
 
 export const dynamic = "force-dynamic";
 
@@ -28,18 +31,47 @@ export default async function AdminExpensesPage({
   if (!budgetPlanId) {
     const fallback = await getDefaultBudgetPlanForUser({ userId, username });
     if (!fallback) redirect("/budgets/new");
-    redirect(`/admin/expenses?plan=${encodeURIComponent(fallback.id)}`);
+	redirect(`/user=${encodeURIComponent(username)}/${encodeURIComponent(fallback.id)}/expenses`);
   }
 
   const plan = await prisma.budgetPlan.findUnique({ where: { id: budgetPlanId } });
   if (!plan || plan.userId !== userId) {
-    redirect("/dashboard");
+  const fallback = await getDefaultBudgetPlanForUser({ userId, username });
+  if (!fallback) redirect("/budgets/new");
+  redirect(`/user=${encodeURIComponent(username)}/${encodeURIComponent(fallback.id)}/expenses`);
   }
 
   budgetPlanId = plan.id;
 
-  const expenses = await getAllExpenses(budgetPlanId);
+  const rawYear = Array.isArray(sp.year) ? sp.year[0] : sp.year;
+  const parsedYear = rawYear == null ? NaN : Number(rawYear);
+  const selectedYear = Number.isFinite(parsedYear) ? parsedYear : new Date().getFullYear();
+
+  const rawMonth = Array.isArray(sp.month) ? sp.month[0] : sp.month;
+  const monthCandidate = typeof rawMonth === "string" ? rawMonth : "";
+  const selectedMonth: MonthKey = isMonthKey(monthCandidate)
+    ? (monthCandidate as MonthKey)
+    : (MONTHS[0] as MonthKey);
+
+  // Normalize URL so month/year are always present.
+  if (!rawYear || !rawMonth) {
+    redirect(
+    `/user=${encodeURIComponent(username)}/${encodeURIComponent(budgetPlanId)}/expenses?year=${encodeURIComponent(
+      String(selectedYear)
+    )}&month=${encodeURIComponent(selectedMonth)}`
+    );
+  }
+
+  const expenses = await getAllExpenses(budgetPlanId, selectedYear);
   const categories = await getCategories();
 	
-  return <ExpensesPageClient budgetPlanId={budgetPlanId} expenses={expenses} categories={categories} />;
+  return (
+    <ExpensesPageClient
+      budgetPlanId={budgetPlanId}
+      expenses={expenses}
+      categories={categories}
+      initialYear={selectedYear}
+      initialMonth={selectedMonth}
+    />
+  );
 }

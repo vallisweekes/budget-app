@@ -2,9 +2,9 @@ import { MONTHS } from "@/lib/constants/time";
 import { getAllDebts } from "@/lib/debts/store";
 import { getSpendingForMonth, getAllowanceStats } from "@/lib/spending/actions";
 import { getSettings } from "@/lib/settings/store";
-import SpendingTab from "@/app/components/SpendingTab";
-import SpendingInsights from "@/app/components/SpendingInsights";
-import SpendingCharts from "@/app/components/SpendingCharts";
+import SpendingTab from "@/components/SpendingTab";
+import SpendingInsights from "@/components/SpendingInsights";
+import SpendingCharts from "@/components/SpendingCharts";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { getDefaultBudgetPlanForUser, resolveUserId } from "@/lib/budgetPlans";
@@ -52,14 +52,14 @@ export default async function SpendingPage(props: {
 	if (!requestedPlanId) {
 		const fallbackPlan = await getDefaultBudgetPlanForUser({ userId, username: sessionUsername });
 		if (!fallbackPlan) redirect("/budgets/new");
-		redirect(`/admin/spending?plan=${encodeURIComponent(fallbackPlan.id)}`);
+		redirect(`/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(fallbackPlan.id)}/spending`);
 	}
 
 	const budgetPlan = await prisma.budgetPlan.findUnique({ where: { id: requestedPlanId } });
 	if (!budgetPlan || budgetPlan.userId !== userId) {
 		const fallbackPlan = await getDefaultBudgetPlanForUser({ userId, username: sessionUsername });
 		if (!fallbackPlan) redirect("/budgets/new");
-		redirect(`/admin/spending?plan=${encodeURIComponent(fallbackPlan.id)}`);
+		redirect(`/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(fallbackPlan.id)}/spending`);
 	}
 
 	const budgetPlanId = budgetPlan.id;

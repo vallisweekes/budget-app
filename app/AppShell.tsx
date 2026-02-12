@@ -3,6 +3,7 @@
 import { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
+import RefreshLogoutGuard from "./RefreshLogoutGuard";
 
 export default function AppShell({ children }: { children: ReactNode }) {
 	const pathname = usePathname();
@@ -14,6 +15,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
 	return (
 		<div className="flex min-h-screen">
+			<RefreshLogoutGuard />
 			<Sidebar />
 			<main className="flex-1 lg:ml-64">{children}</main>
 		</div>

@@ -21,8 +21,7 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select(
 	{ variant = "dark", options, placeholder, className, containerClassName, children, ...props },
 	ref
 ) {
-	const base =
-		"w-full appearance-none rounded-xl border pr-10 outline-none transition-all disabled:opacity-50";
+	const base = "w-full appearance-none rounded-xl border pr-10 outline-none transition-all disabled:opacity-50";
 
 	const variantClasses =
 		variant === "light"

@@ -19,5 +19,5 @@ export async function createBudgetPlanAction(formData: FormData) {
 	const userId = await resolveUserId({ userId: sessionUser.id, username });
 	const plan = await getOrCreateBudgetPlanForUser({ userId, username, budgetType });
 
-	redirect(`/user=${encodeURIComponent(username)}/id/${encodeURIComponent(plan.id)}`);
+	redirect(`/user=${encodeURIComponent(username)}/${encodeURIComponent(plan.id)}`);
 }

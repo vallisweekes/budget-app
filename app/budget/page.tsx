@@ -2,12 +2,11 @@
 
 import { useActionState, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { calculateBudget, BudgetResult } from "./actions";
-import Card from "@/components/Card";
+import { Card } from "@/components/Shared";
 import DonutProgress from "@/components/DonutProgress";
 import BarChartMini from "@/components/BarChartMini";
 import CategoryGrid from "@/components/CategoryGrid";
-import ConfirmModal from "@/components/ConfirmModal";
-import SelectDropdown from "@/components/SelectDropdown";
+import { ConfirmModal, SelectDropdown } from "@/components/Shared";
 import categoriesData from "@/data/categories.json";
 import { MONTHS } from "@/lib/constants/time";
 import { formatCurrency } from "@/lib/helpers/money";

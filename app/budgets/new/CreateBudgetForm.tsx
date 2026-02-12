@@ -1,8 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Card from "@/components/Card";
-import SelectDropdown from "@/components/SelectDropdown";
+import { Card, SelectDropdown } from "@/components/Shared";
 
 const BUDGET_TYPES = ["personal", "holiday", "carnival"] as const;
 export type BudgetType = (typeof BUDGET_TYPES)[number];

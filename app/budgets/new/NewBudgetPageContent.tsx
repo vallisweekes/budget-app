@@ -20,7 +20,7 @@ export default async function NewBudgetPageContent({
 	// If they already have a budget, send them to it (they can add more later via UI).
 	const existing = await getDefaultBudgetPlanForUser({ userId: sessionUser.id, username });
 	if (existing) {
-		redirect(`/user=${encodeURIComponent(username)}/id/${encodeURIComponent(existing.id)}`);
+		redirect(`/user=${encodeURIComponent(username)}/${encodeURIComponent(existing.id)}`);
 	}
 
 	const sp = await searchParams;

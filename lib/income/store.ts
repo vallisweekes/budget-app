@@ -46,6 +46,35 @@ export async function addIncome(budgetPlanId: string, month: MonthKey, item: Omi
   await writeJson(getFilePath(budgetPlanId), data);
 }
 
+function normalizeIncomeName(name: string): string {
+  return String(name ?? "").trim().toLowerCase();
+}
+
+export async function addOrUpdateIncomeAcrossMonths(
+  budgetPlanId: string,
+  months: MonthKey[],
+  item: Omit<IncomeItem, "id"> & { id?: string }
+): Promise<void> {
+  const data = await getAllIncome(budgetPlanId);
+  const id = item.id ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const targetMonths = Array.from(new Set(months));
+  const targetName = normalizeIncomeName(item.name);
+
+  for (const month of targetMonths) {
+    const list = data[month] ?? [];
+    const existingIndex = list.findIndex((i) => normalizeIncomeName(i.name) === targetName);
+    if (existingIndex >= 0) {
+      list[existingIndex] = { ...list[existingIndex], name: item.name, amount: item.amount };
+    } else {
+      list.push({ id, name: item.name, amount: item.amount });
+    }
+    data[month] = list;
+  }
+
+  await ensureBudgetDataDir(budgetPlanId);
+  await writeJson(getFilePath(budgetPlanId), data);
+}
+
 export async function updateIncome(budgetPlanId: string, month: MonthKey, id: string, updates: Partial<Omit<IncomeItem, "id">>): Promise<void> {
   const data = await getAllIncome(budgetPlanId);
   const index = data[month].findIndex((e) => e.id === id);

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Trash2 } from "lucide-react";
-import ConfirmModal from "@/components/ConfirmModal";
+import { ConfirmModal } from "@/components/Shared";
 import { deleteDebtAction } from "@/lib/debts/actions";
 import { useSearchParams } from "next/navigation";
 

@@ -3,7 +3,7 @@ import { createDebt, makePaymentFromForm } from "@/lib/debts/actions";
 import { CreditCard, TrendingDown, ShoppingBag } from "lucide-react";
 import DeleteDebtButton from "./DeleteDebtButton";
 import { formatCurrency } from "@/lib/helpers/money";
-import SelectDropdown from "@/components/SelectDropdown";
+import { SelectDropdown } from "@/components/Shared";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { getDefaultBudgetPlanForUser, resolveUserId } from "@/lib/budgetPlans";
@@ -32,14 +32,14 @@ export default async function DebtsPage(props: {
 	if (!requestedPlanId) {
 		const fallbackPlan = await getDefaultBudgetPlanForUser({ userId, username: sessionUsername });
 		if (!fallbackPlan) redirect("/budgets/new");
-		redirect(`/admin/debts?plan=${encodeURIComponent(fallbackPlan.id)}`);
+		redirect(`/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(fallbackPlan.id)}/debts`);
 	}
 
 	const budgetPlan = await prisma.budgetPlan.findUnique({ where: { id: requestedPlanId } });
 	if (!budgetPlan || budgetPlan.userId !== userId) {
 		const fallbackPlan = await getDefaultBudgetPlanForUser({ userId, username: sessionUsername });
 		if (!fallbackPlan) redirect("/budgets/new");
-		redirect(`/admin/debts?plan=${encodeURIComponent(fallbackPlan.id)}`);
+		redirect(`/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(fallbackPlan.id)}/debts`);
 	}
 
 	const budgetPlanId = budgetPlan.id;

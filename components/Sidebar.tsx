@@ -3,21 +3,43 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Home, Settings, DollarSign, Menu, X, CreditCard, Target, ShoppingBag, Banknote } from "lucide-react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
+
+function parseUserScopedPath(pathname: string): { username: string; budgetPlanId: string } | null {
+	const m = pathname.match(/^\/user=([^/]+)\/([^/]+)/);
+	if (!m) return null;
+	const username = decodeURIComponent(m[1] ?? "");
+	const budgetPlanId = decodeURIComponent(m[2] ?? "");
+	if (!username || !budgetPlanId) return null;
+	return { username, budgetPlanId };
+}
 
 export default function Sidebar() {
 	const [isOpen, setIsOpen] = useState(false);
 	const pathname = usePathname();
+	const searchParams = useSearchParams();
+	const { data: session } = useSession();
+	const sessionUsername = session?.user?.username ?? session?.user?.name;
+
+	const scoped = parseUserScopedPath(pathname);
+	const planFromQuery = searchParams.get("plan")?.trim() || "";
+
+	const baseHref = scoped
+		? `/user=${encodeURIComponent(scoped.username)}/${encodeURIComponent(scoped.budgetPlanId)}`
+		: sessionUsername && planFromQuery
+			? `/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(planFromQuery)}`
+			: "/";
 
 	const navItems = [
-		{ href: "/", label: "Home", icon: Home },
+		{ href: baseHref, label: "Home", icon: Home },
 		...(pathname === "/artist" ? [{ href: "/artist", label: "Artist", icon: Target }] : []),
-		{ href: "/admin/income", label: "Income", icon: Banknote },
-		{ href: "/admin/expenses", label: "Expenses", icon: DollarSign },
-		{ href: "/admin/spending", label: "Spending", icon: ShoppingBag },
-		{ href: "/admin/debts", label: "Debt", icon: CreditCard },
-		{ href: "/admin/goals", label: "Goals", icon: Target },
-		{ href: "/admin/settings", label: "Settings", icon: Settings },
+		{ href: `${baseHref}/income`, label: "Income", icon: Banknote },
+		{ href: `${baseHref}/expenses`, label: "Expenses", icon: DollarSign },
+		{ href: `${baseHref}/spending`, label: "Spending", icon: ShoppingBag },
+		{ href: `${baseHref}/debts`, label: "Debt", icon: CreditCard },
+		{ href: `${baseHref}/goals`, label: "Goals", icon: Target },
+		{ href: `${baseHref}/settings`, label: "Settings", icon: Settings },
 	];
 
 	return (

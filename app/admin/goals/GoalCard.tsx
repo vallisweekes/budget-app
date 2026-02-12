@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { Edit2, Trash2, Check, X, Target, TrendingUp, Shield, PiggyBank } from "lucide-react";
 import { updateGoalAction, deleteGoalAction } from "@/lib/goals/actions";
 import { formatCurrency } from "@/lib/helpers/money";
-import ConfirmModal from "@/components/ConfirmModal";
+import { ConfirmModal } from "@/components/Shared";
 import { useSearchParams } from "next/navigation";
 
 interface Goal {

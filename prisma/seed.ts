@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { MONTHS } from "@/lib/constants/time";
 import type { MonthKey } from "@/types";
+import { ensureBudgetDataDir, getBudgetDataFilePath } from "@/lib/storage/budgetDataPath";
 
 const prisma = new PrismaClient();
 
@@ -56,6 +57,48 @@ async function main() {
   console.log(`  ✓ User: ${user.name} (${user.id})`);
   console.log(`  ✓ BudgetPlan: ${budgetPlan.name} (${budgetPlan.id})`);
 
+  // Also seed the file-backed stores used by the UI.
+  console.log("\n🗂️  Seeding file-backed budget data...");
+  await ensureBudgetDataDir(budgetPlan.id);
+
+  const rootExpensesMonthly = JSON.parse(
+    await fs.readFile(path.join(process.cwd(), "data", "expenses.monthly.json"), "utf-8")
+  );
+  const rootIncomeMonthly = JSON.parse(
+    await fs.readFile(path.join(process.cwd(), "data", "income.monthly.json"), "utf-8")
+  );
+  const rootDebts = JSON.parse(await fs.readFile(path.join(process.cwd(), "data", "debts.json"), "utf-8"));
+  const rootGoals = JSON.parse(await fs.readFile(path.join(process.cwd(), "data", "goals.json"), "utf-8"));
+
+  let rootDebtPayments: unknown = [];
+  try {
+    rootDebtPayments = JSON.parse(
+      await fs.readFile(path.join(process.cwd(), "data", "debt-payments.json"), "utf-8")
+    );
+  } catch (e: any) {
+    if (e?.code !== "ENOENT") throw e;
+  }
+
+  const currentYear = new Date().getFullYear();
+  const expensesByYear = { [String(currentYear)]: rootExpensesMonthly };
+
+  await fs.writeFile(
+    getBudgetDataFilePath(budgetPlan.id, "expenses.byYear.json"),
+    JSON.stringify(expensesByYear, null, 2) + "\n"
+  );
+  await fs.writeFile(
+    getBudgetDataFilePath(budgetPlan.id, "income.monthly.json"),
+    JSON.stringify(rootIncomeMonthly, null, 2) + "\n"
+  );
+  await fs.writeFile(getBudgetDataFilePath(budgetPlan.id, "debts.json"), JSON.stringify(rootDebts, null, 2) + "\n");
+  await fs.writeFile(
+    getBudgetDataFilePath(budgetPlan.id, "debt-payments.json"),
+    JSON.stringify(rootDebtPayments, null, 2) + "\n"
+  );
+  await fs.writeFile(getBudgetDataFilePath(budgetPlan.id, "goals.json"), JSON.stringify(rootGoals, null, 2) + "\n");
+
+  console.log("  ✓ Wrote expenses/income/debts/goals JSON files");
+
   // 1. Seed Categories
   console.log("📁 Seeding categories...");
   const categoriesData = JSON.parse(
@@ -97,7 +140,7 @@ async function main() {
   );
 
   let expenseCount = 0;
-  const currentYear = new Date().getFullYear();
+  // Note: currentYear declared above for file-backed seed.
   
   for (const monthKey of MONTHS) {
     const monthExpenses = expensesData[monthKey] || [];

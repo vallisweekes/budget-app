@@ -63,7 +63,6 @@ export default function SelectDropdown({
 
 	const close = () => setOpen(false);
 	function focusOptionAt(index: number) {
-		// Defer until after the menu has been rendered.
 		requestAnimationFrame(() => {
 			optionRefs.current[index]?.focus();
 		});
@@ -107,13 +106,14 @@ export default function SelectDropdown({
 
 	useEffect(() => {
 		if (!open) return;
-		// Keep focus aligned when options change while open.
 		focusOptionAt(Math.min(activeIndex, Math.max(0, options.length - 1)));
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [options.length, open]);
 
-	const baseButton = "flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left outline-none transition-all";
-	const baseMenu = "absolute left-0 right-0 mt-2 max-h-72 overflow-auto rounded-2xl border shadow-2xl backdrop-blur-xl";
+	const baseButton =
+		"flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left outline-none transition-all";
+	const baseMenu =
+		"absolute left-0 right-0 mt-2 max-h-72 overflow-auto rounded-2xl border shadow-2xl backdrop-blur-xl";
 
 	const isLight = variant === "light";
 	const buttonStyles = isLight
@@ -143,10 +143,7 @@ export default function SelectDropdown({
 
 	return (
 		<div ref={rootRef} className={cx("relative", className)}>
-			{/* Hidden input for form submissions */}
-			{name ? (
-				<input type="hidden" name={name} value={selectedValue} />
-			) : null}
+			{name ? <input type="hidden" name={name} value={selectedValue} /> : null}
 
 			<button
 				id={controlId}
@@ -172,9 +169,7 @@ export default function SelectDropdown({
 						{selected ? selected.label : placeholder}
 					</div>
 					{required && !selectedValue ? (
-						<div className={cx("mt-1 text-xs", isLight ? "text-zinc-500" : "text-white/50")}>
-							Required
-						</div>
+						<div className={cx("mt-1 text-xs", isLight ? "text-zinc-500" : "text-white/50")}>Required</div>
 					) : null}
 				</div>
 				<svg
@@ -255,9 +250,7 @@ export default function SelectDropdown({
 									)}
 								>
 									<span className={cx("truncate", isSelected && optionSelected)}>{opt.label}</span>
-									{isSelected ? (
-										<span className={cx("text-xs font-semibold", optionSelected)}>✓</span>
-									) : null}
+									{isSelected ? <span className={cx("text-xs font-semibold", optionSelected)}>✓</span> : null}
 								</button>
 							);
 						})}

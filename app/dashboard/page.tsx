@@ -16,6 +16,6 @@ export default async function DashboardPage() {
 	if (!budgetPlan) {
 		redirect("/budgets/new");
 	}
-	redirect(`/user=${encodeURIComponent(username)}/id/${encodeURIComponent(budgetPlan.id)}`);
+	redirect(`/user=${encodeURIComponent(username)}/${encodeURIComponent(budgetPlan.id)}`);
 }
 

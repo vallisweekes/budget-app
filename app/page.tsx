@@ -2,12 +2,17 @@ import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 import LoginForm from "./LoginForm";
 import { authOptions } from "@/lib/auth";
+import { getDefaultBudgetPlanForUser, resolveUserId } from "@/lib/budgetPlans";
 
 export default async function LoginSplashPage() {
 	const session = await getServerSession(authOptions);
-	const username = session?.user?.username ?? session?.user?.name ?? "";
-	if (username) {
-		redirect("/dashboard");
+	const sessionUser = session?.user;
+	const username = sessionUser?.username ?? sessionUser?.name ?? "";
+	if (sessionUser && username) {
+		const userId = await resolveUserId({ userId: sessionUser.id, username });
+		const budgetPlan = await getDefaultBudgetPlanForUser({ userId, username });
+		if (!budgetPlan) redirect("/budgets/new");
+		redirect(`/user=${encodeURIComponent(username)}/${encodeURIComponent(budgetPlan.id)}`);
 	}
 
 	return (
@@ -50,9 +55,6 @@ export default async function LoginSplashPage() {
 
 					<div className="mx-auto w-full max-w-xl">
 						<LoginForm />
-						<div className="mt-6 text-xs text-slate-400">
-							Tip: try <span className="font-semibold text-slate-200">vallis</span> with budget type <span className="font-semibold text-slate-200">Personal</span>.
-						</div>
 					</div>
 				</div>
 			</div>

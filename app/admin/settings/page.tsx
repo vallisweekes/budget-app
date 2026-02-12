@@ -3,20 +3,47 @@ import { getSettings } from "@/lib/settings/store";
 import { saveSettingsAction } from "./actions";
 import { getBudgetMonthSummary, isMonthKey } from "@/lib/budget/zero-based";
 import { MONTHS } from "@/lib/constants/time";
-import SelectDropdown from "@/components/SelectDropdown";
+import { SelectDropdown } from "@/components/Shared";
 import type { MonthKey } from "@/types";
 import { ArrowRight, CalendarDays, Lightbulb, PiggyBank, Tags, Wallet } from "lucide-react";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { getDefaultBudgetPlanForUser, resolveUserId } from "@/lib/budgetPlans";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminSettingsPage(props: {
 	searchParams?: Record<string, string | string[] | undefined> | Promise<Record<string, string | string[] | undefined>>;
 }) {
+	const session = await getServerSession(authOptions);
+	const sessionUser = session?.user;
+	const sessionUsername = sessionUser?.username ?? sessionUser?.name;
+	if (!sessionUser || !sessionUsername) redirect("/");
+	const userId = await resolveUserId({ userId: sessionUser.id, username: sessionUsername });
+
 	const settings = await getSettings();
 	const searchParams = await Promise.resolve(props.searchParams ?? {});
 	const planParam = searchParams.plan;
 	const planCandidate = Array.isArray(planParam) ? planParam[0] : planParam;
-	const budgetPlanId = typeof planCandidate === "string" ? planCandidate : "";
+	let budgetPlanId = typeof planCandidate === "string" ? planCandidate : "";
+	budgetPlanId = budgetPlanId.trim();
+
+	if (!budgetPlanId) {
+		const fallback = await getDefaultBudgetPlanForUser({ userId, username: sessionUsername });
+		if (!fallback) redirect("/budgets/new");
+		redirect(`/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(fallback.id)}/settings#budget`);
+	}
+
+	const plan = await prisma.budgetPlan.findUnique({ where: { id: budgetPlanId }, select: { id: true, userId: true } });
+	if (!plan || plan.userId !== userId) {
+		const fallback = await getDefaultBudgetPlanForUser({ userId, username: sessionUsername });
+		if (!fallback) redirect("/budgets/new");
+		redirect(`/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(fallback.id)}/settings#budget`);
+	}
+
+	budgetPlanId = plan.id;
 	const monthParam = searchParams.month;
 	const monthCandidate = Array.isArray(monthParam) ? monthParam[0] : monthParam;
 	const selectedMonth: MonthKey =

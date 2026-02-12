@@ -1,16 +1,27 @@
 import { getCategories } from "@/lib/categories/store";
 import { addCategory } from "./actions";
 import { getAllExpenses } from "@/lib/expenses/store";
-import { listBudgetDataPlanIds } from "@/lib/storage/listBudgetDataPlanIds";
 import CategoryIcon from "@/components/CategoryIcon";
 import DeleteCategoryButton from "./DeleteCategoryButton";
-import SelectDropdown from "@/components/SelectDropdown";
+import { SelectDropdown } from "@/components/Shared";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { resolveUserId } from "@/lib/budgetPlans";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminCategoriesPage() {
+  const session = await getServerSession(authOptions);
+  const sessionUser = session?.user;
+  const username = sessionUser?.username ?? sessionUser?.name;
+  if (!sessionUser || !username) redirect("/");
+  const userId = await resolveUserId({ userId: sessionUser.id, username });
+
   const list = await getCategories();
-  const planIds = await listBudgetDataPlanIds();
+  const plans = await prisma.budgetPlan.findMany({ where: { userId }, select: { id: true } });
+  const planIds = plans.map((p) => p.id);
   const expensesByPlan = await Promise.all(planIds.map((planId) => getAllExpenses(planId)));
 
   const categoryHasExpenses = new Map<string, number>();

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { MONTHS } from "@/lib/constants/time";
 import type { MonthKey } from "@/types";
 import type { ExpensesByMonth } from "@/types";
@@ -12,9 +13,13 @@ interface ExpensesPageClientProps {
   budgetPlanId: string;
   expenses: ExpensesByMonth;
   categories: CategoryConfig[];
+  initialYear: number;
+  initialMonth: MonthKey;
 }
 
-const YEARS = [2026, 2027, 2028, 2029, 2030, 2031, 2032, 2033, 2034, 2035];
+function buildYears(baseYear: number): number[] {
+	return Array.from({ length: 10 }, (_, i) => baseYear + i);
+}
 
 const monthToNumber: Record<MonthKey, number> = {
   "JANUARY": 1,
@@ -65,9 +70,37 @@ function BackendStatus({ month, year }: { month: MonthKey; year: number }) {
   );
 }
 
-export default function ExpensesPageClient({ budgetPlanId, expenses, categories }: ExpensesPageClientProps) {
-  const [selectedYear, setSelectedYear] = useState<number>(2026);
-  const [selectedMonth, setSelectedMonth] = useState<MonthKey>("FEBURARY");
+export default function ExpensesPageClient({
+  budgetPlanId,
+  expenses,
+  categories,
+  initialYear,
+  initialMonth,
+}: ExpensesPageClientProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const [selectedYear, setSelectedYear] = useState<number>(() => initialYear);
+  const [selectedMonth, setSelectedMonth] = useState<MonthKey>(() => initialMonth);
+
+  const YEARS = useMemo(() => buildYears(new Date().getFullYear()), []);
+
+  useEffect(() => {
+    // Keep local state aligned with the URL (server-selected period).
+    const rawYear = searchParams.get("year");
+    const rawMonth = searchParams.get("month");
+    const parsedYear = rawYear == null ? null : Number(rawYear);
+    if (Number.isFinite(parsedYear)) setSelectedYear(parsedYear as number);
+    if (rawMonth && (MONTHS as string[]).includes(rawMonth)) setSelectedMonth(rawMonth as MonthKey);
+  }, [searchParams]);
+
+  const pushPeriod = (month: MonthKey, year: number) => {
+    const next = new URLSearchParams(searchParams.toString());
+    next.set("plan", budgetPlanId);
+    next.set("month", month);
+    next.set("year", String(year));
+    router.push(`/admin/expenses?${next.toString()}`);
+  };
   
   return (
     <div className="min-h-screen pb-20 bg-gradient-to-br from-blue-950 via-slate-950 to-black">
@@ -87,7 +120,7 @@ export default function ExpensesPageClient({ budgetPlanId, expenses, categories 
               {YEARS.map((year) => (
                 <button
                   key={year}
-                  onClick={() => setSelectedYear(year)}
+                  onClick={() => pushPeriod(selectedMonth, year)}
                   className={`py-4 px-4 rounded-2xl font-bold text-lg transition-all cursor-pointer ${
                     selectedYear === year
                       ? "bg-gradient-to-br from-indigo-500 to-blue-600 text-white shadow-lg scale-105"
@@ -107,7 +140,7 @@ export default function ExpensesPageClient({ budgetPlanId, expenses, categories 
               {MONTHS.map((month) => (
                 <button
                   key={month}
-                  onClick={() => setSelectedMonth(month as MonthKey)}
+                  onClick={() => pushPeriod(month as MonthKey, selectedYear)}
                   className={`py-4 px-4 rounded-2xl font-medium transition-all cursor-pointer ${
                     selectedMonth === month
                       ? "bg-gradient-to-br from-purple-500 to-indigo-600 text-white shadow-lg scale-105"

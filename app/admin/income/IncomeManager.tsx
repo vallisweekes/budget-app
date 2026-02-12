@@ -5,7 +5,7 @@ import type { MonthKey } from "@/types";
 import { updateIncomeAction, removeIncomeAction, addIncomeAction } from "./actions";
 import { Edit2, Trash2, Check, X, Plus } from "lucide-react";
 import { formatCurrency } from "@/lib/helpers/money";
-import ConfirmModal from "@/components/ConfirmModal";
+import { ConfirmModal } from "@/components/Shared";
 
 interface IncomeItem {
 	id: string;
@@ -32,6 +32,8 @@ export default function IncomeManager({ budgetPlanId, month, incomeItems }: Inco
 	const [isAdding, setIsAdding] = useState(false);
 	const [newName, setNewName] = useState("");
 	const [newAmount, setNewAmount] = useState("");
+	const [distributeAllMonths, setDistributeAllMonths] = useState(false);
+	const [distributeAllYears, setDistributeAllYears] = useState(false);
 
 	const handleEdit = (item: IncomeItem) => {
 		setEditingId(item.id);
@@ -77,10 +79,14 @@ export default function IncomeManager({ budgetPlanId, month, incomeItems }: Inco
 			formData.append("month", month);
 			formData.append("name", newName);
 			formData.append("amount", amount.toString());
+			if (distributeAllMonths) formData.append("distributeMonths", "true");
+			if (distributeAllYears) formData.append("distributeYears", "true");
 			await addIncomeAction(formData);
 			setIsAdding(false);
 			setNewName("");
 			setNewAmount("");
+			setDistributeAllMonths(false);
+			setDistributeAllYears(false);
 		});
 	};
 
@@ -88,6 +94,8 @@ export default function IncomeManager({ budgetPlanId, month, incomeItems }: Inco
 		setIsAdding(false);
 		setNewName("");
 		setNewAmount("");
+		setDistributeAllMonths(false);
+		setDistributeAllYears(false);
 	};
 
 	return (
@@ -198,47 +206,69 @@ export default function IncomeManager({ budgetPlanId, month, incomeItems }: Inco
 			})}
 
 			{isAdding ? (
-				<div className="flex items-center gap-2 p-2 bg-slate-900/40 rounded-lg border border-white/10">
-					<label className="flex-1">
-						<span className="block text-xs font-medium text-slate-300 mb-1">Name</span>
-						<input
-							type="text"
-							value={newName}
-							onChange={(e) => setNewName(e.target.value)}
-							className="w-full px-3 py-2 bg-slate-900/60 border border-white/10 text-white placeholder-slate-500 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-							placeholder="Income name"
-							aria-label="New income name"
-							autoFocus
-						/>
-					</label>
-					<label className="w-28">
-						<span className="block text-xs font-medium text-slate-300 mb-1">Amount</span>
-						<input
-							type="number"
-							step="0.01"
-							value={newAmount}
-							onChange={(e) => setNewAmount(e.target.value)}
-							className="w-full px-3 py-2 bg-slate-900/60 border border-white/10 text-white placeholder-slate-500 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-							placeholder="Amount"
-							aria-label="New income amount"
-						/>
-					</label>
-					<button
-						onClick={handleAdd}
-						disabled={isPending}
-						className="p-2 text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-colors cursor-pointer"
-						title="Add"
-					>
-						<Check size={16} />
-					</button>
-					<button
-						onClick={handleCancelAdd}
-						disabled={isPending}
-						className="p-2 text-slate-400 hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
-						title="Cancel"
-					>
-						<X size={16} />
-					</button>
+				<div className="p-2 bg-slate-900/40 rounded-lg border border-white/10">
+					<div className="flex items-center gap-2">
+						<label className="flex-1">
+							<span className="block text-xs font-medium text-slate-300 mb-1">Name</span>
+							<input
+								type="text"
+								value={newName}
+								onChange={(e) => setNewName(e.target.value)}
+								className="w-full px-3 py-2 bg-slate-900/60 border border-white/10 text-white placeholder-slate-500 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+								placeholder="Income name"
+								aria-label="New income name"
+								autoFocus
+							/>
+						</label>
+						<label className="w-28">
+							<span className="block text-xs font-medium text-slate-300 mb-1">Amount</span>
+							<input
+								type="number"
+								step="0.01"
+								value={newAmount}
+								onChange={(e) => setNewAmount(e.target.value)}
+								className="w-full px-3 py-2 bg-slate-900/60 border border-white/10 text-white placeholder-slate-500 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+								placeholder="Amount"
+								aria-label="New income amount"
+							/>
+						</label>
+						<button
+							onClick={handleAdd}
+							disabled={isPending}
+							className="p-2 text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-colors cursor-pointer"
+							title="Add"
+						>
+							<Check size={16} />
+						</button>
+						<button
+							onClick={handleCancelAdd}
+							disabled={isPending}
+							className="p-2 text-slate-400 hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
+							title="Cancel"
+						>
+							<X size={16} />
+						</button>
+					</div>
+					<div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-slate-300">
+						<label className="flex items-center gap-2 select-none">
+							<input
+								type="checkbox"
+								checked={distributeAllMonths}
+								onChange={(e) => setDistributeAllMonths(e.target.checked)}
+								className="h-4 w-4 rounded border-white/20 bg-slate-900/60 text-purple-500 focus:ring-purple-500"
+							/>
+							All months
+						</label>
+						<label className="flex items-center gap-2 select-none">
+							<input
+								type="checkbox"
+								checked={distributeAllYears}
+								onChange={(e) => setDistributeAllYears(e.target.checked)}
+								className="h-4 w-4 rounded border-white/20 bg-slate-900/60 text-purple-500 focus:ring-purple-500"
+							/>
+							All years (all budgets)
+						</label>
+					</div>
 				</div>
 			) : (
 				<button

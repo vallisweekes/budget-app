@@ -6,9 +6,9 @@ import type { MonthKey } from "@/types";
 import { addExpenseAction, togglePaidAction, updateExpenseAction, removeExpenseAction, applyExpensePaymentAction } from "./actions";
 import { Trash2, Plus, Check, X, ChevronDown, ChevronUp, Search, Pencil } from "lucide-react";
 import CategoryIcon from "@/components/CategoryIcon";
-import ConfirmModal from "@/components/ConfirmModal";
-import SelectDropdown from "@/components/SelectDropdown";
+import { ConfirmModal, SelectDropdown } from "@/components/Shared";
 import { formatCurrency } from "@/lib/helpers/money";
+import { MONTHS } from "@/lib/constants/time";
 
 interface Expense {
   id: string;
@@ -65,6 +65,15 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
   const [editName, setEditName] = useState("");
   const [editAmount, setEditAmount] = useState<string>("");
   const [editCategoryId, setEditCategoryId] = useState<string>("");
+  const [addMonth, setAddMonth] = useState<MonthKey>(month);
+  const [addYear, setAddYear] = useState<number>(year);
+  const [distributeAllMonths, setDistributeAllMonths] = useState(false);
+  const [distributeAllYears, setDistributeAllYears] = useState(false);
+
+  const YEARS = useMemo(() => {
+    const base = new Date().getFullYear();
+    return Array.from({ length: 10 }, (_, i) => base + i);
+  }, []);
 
   // Toggle category collapse
   const toggleCategory = (categoryId: string) => {
@@ -119,7 +128,7 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
 
   const handleTogglePaid = (expenseId: string) => {
     startTransition(() => {
-		togglePaidAction(budgetPlanId, month, expenseId);
+		togglePaidAction(budgetPlanId, month, expenseId, year);
     });
   };
 
@@ -139,7 +148,7 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
     if (!expense) return;
 
     startTransition(() => {
-      removeExpenseAction(budgetPlanId, month, expense.id);
+      removeExpenseAction(budgetPlanId, month, expense.id, year);
     });
   };
 
@@ -293,7 +302,18 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
             <p className="text-slate-400 text-sm mt-1">{month} {year}</p>
           </div>
           <button
-            onClick={() => setShowAddForm(!showAddForm)}
+            onClick={() => {
+              setShowAddForm((prev) => {
+                const next = !prev;
+                if (next) {
+                  setAddMonth(month);
+                  setAddYear(year);
+                  setDistributeAllMonths(false);
+                  setDistributeAllYears(false);
+                }
+                return next;
+              });
+            }}
             className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-xl py-3 px-6 font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center gap-2 cursor-pointer"
           >
             {showAddForm ? <X size={18} /> : <Plus size={18} />}
@@ -426,8 +446,55 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
         <div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-xl p-8 border border-white/10">
           <form action={addExpenseAction} className="space-y-6">
             <input type="hidden" name="budgetPlanId" value={budgetPlanId} />
-            <input type="hidden" name="month" value={month} />
-            <input type="hidden" name="year" value={year} />
+        <input type="hidden" name="month" value={addMonth} />
+        <input type="hidden" name="year" value={addYear} />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <label className="block">
+            <span className="text-sm font-medium text-slate-300 mb-2 block">Month</span>
+            <SelectDropdown
+              name="_monthSelect"
+              value={addMonth}
+              onValueChange={(v) => setAddMonth(v as MonthKey)}
+              options={MONTHS.map((m) => ({ value: m, label: m }))}
+              buttonClassName="focus:ring-purple-500/50"
+            />
+          </label>
+
+          <label className="block">
+            <span className="text-sm font-medium text-slate-300 mb-2 block">Year</span>
+            <SelectDropdown
+              name="_yearSelect"
+              value={String(addYear)}
+              onValueChange={(v) => setAddYear(Number(v))}
+              options={YEARS.map((y) => ({ value: String(y), label: String(y) }))}
+              buttonClassName="focus:ring-purple-500/50"
+            />
+          </label>
+        </div>
+
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-6">
+          <label className="flex items-center gap-2 text-sm text-slate-300 select-none">
+            <input
+              type="checkbox"
+              name="distributeMonths"
+              checked={distributeAllMonths}
+              onChange={(e) => setDistributeAllMonths(e.target.checked)}
+              className="h-4 w-4 rounded border-white/20 bg-slate-900/60 text-purple-500 focus:ring-purple-500"
+            />
+            Distribute across all months
+          </label>
+          <label className="flex items-center gap-2 text-sm text-slate-300 select-none">
+            <input
+              type="checkbox"
+              name="distributeYears"
+              checked={distributeAllYears}
+              onChange={(e) => setDistributeAllYears(e.target.checked)}
+              className="h-4 w-4 rounded border-white/20 bg-slate-900/60 text-purple-500 focus:ring-purple-500"
+            />
+            Distribute across all years
+          </label>
+        </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <label className="block">

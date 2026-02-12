@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { signIn } from "next-auth/react";
-import Card from "@/components/Card";
+import { Card } from "@/components/Shared";
 
 export default function LoginForm() {
 	const [username, setUsername] = useState("");
@@ -22,7 +22,7 @@ export default function LoginForm() {
 					await signIn("credentials", {
 						redirect: true,
 						username: normalizedUsername,
-						callbackUrl: "/dashboard",
+						callbackUrl: "/",
 					});
 					setIsBusy(false);
 				}}
@@ -33,7 +33,7 @@ export default function LoginForm() {
 					<input
 						value={username}
 						onChange={(e) => setUsername(e.target.value)}
-						placeholder="e.g. vallis"
+						placeholder="Enter your username"
 						className="mt-1 w-full rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 text-white outline-none focus:ring-2 focus:ring-blue-500"
 						autoComplete="username"
 					/>
@@ -46,8 +46,6 @@ export default function LoginForm() {
 				>
 					{isBusy ? "Signing in…" : "Continue"}
 				</button>
-
-				<div className="text-xs text-slate-400">Creates your user in the DB (if missing).</div>
 			</form>
 		</Card>
 	);

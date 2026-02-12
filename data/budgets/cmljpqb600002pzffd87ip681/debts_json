@@ -1,0 +1,54 @@
+[
+  {
+    "id": "debt-2",
+    "name": "NATWEST CARD",
+    "type": "credit_card",
+    "initialBalance": 7300,
+    "currentBalance": 7300,
+    "amount": 300,
+    "paid": false,
+    "paidAmount": 0,
+    "monthlyMinimum": 300,
+    "createdAt": "2026-02-11T00:00:00.000Z"
+  },
+  {
+    "id": "debt-3",
+    "name": "AUDIO GEAR",
+    "type": "high_purchase",
+    "initialBalance": 2500,
+    "currentBalance": 2500,
+    "amount": 175,
+    "paid": false,
+    "paidAmount": 0,
+    "monthlyMinimum": 175,
+    "createdAt": "2026-02-11T00:00:00.000Z"
+  },
+  {
+    "name": "Entertainment: AUDIO GEAR (FEBURARY)",
+    "type": "high_purchase",
+    "initialBalance": 175,
+    "sourceType": "expense",
+    "sourceExpenseId": "AUDIO-GEAR-FEBURARY",
+    "sourceMonthKey": "FEBURARY",
+    "sourceCategoryId": "entertainment",
+    "sourceCategoryName": "Entertainment",
+    "sourceExpenseName": "AUDIO GEAR",
+    "id": "1770815641639",
+    "currentBalance": 175,
+    "paid": false,
+    "paidAmount": 0,
+    "amount": 175,
+    "createdAt": "2026-02-11T13:14:01.639Z"
+  },
+  {
+    "name": "VANQUIS CARD",
+    "type": "credit_card",
+    "initialBalance": 7000,
+    "id": "1770824062428",
+    "currentBalance": 7000,
+    "paid": false,
+    "paidAmount": 0,
+    "amount": 7000,
+    "createdAt": "2026-02-11T15:34:22.428Z"
+  }
+]

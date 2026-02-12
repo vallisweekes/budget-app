@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { getAllGoals } from "@/lib/goals/store";
 import { createGoal } from "@/lib/goals/actions";
 import GoalCard from "@/app/admin/goals/GoalCard";
-import SelectDropdown from "@/components/SelectDropdown";
+import { SelectDropdown } from "@/components/Shared";
 import { prisma } from "@/lib/prisma";
 import { getDefaultBudgetPlanForUser, resolveUserId } from "@/lib/budgetPlans";
 
@@ -30,12 +30,14 @@ export default async function GoalsPage({
   if (!budgetPlanId) {
     const fallback = await getDefaultBudgetPlanForUser({ userId, username });
     if (!fallback) redirect("/budgets/new");
-    redirect(`/admin/goals?plan=${encodeURIComponent(fallback.id)}`);
+	redirect(`/user=${encodeURIComponent(username)}/${encodeURIComponent(fallback.id)}/goals`);
   }
 
   const plan = await prisma.budgetPlan.findUnique({ where: { id: budgetPlanId } });
   if (!plan || plan.userId !== userId) {
-    redirect("/dashboard");
+		const fallback = await getDefaultBudgetPlanForUser({ userId, username });
+		if (!fallback) redirect("/budgets/new");
+		redirect(`/user=${encodeURIComponent(username)}/${encodeURIComponent(fallback.id)}/goals`);
   }
 
   budgetPlanId = plan.id;

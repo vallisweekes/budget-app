@@ -3,8 +3,7 @@
 import { useState, useTransition } from "react";
 import { addSpendingAction, removeSpendingAction } from "@/lib/spending/actions";
 import { useRouter } from "next/navigation";
-import ConfirmModal from "@/components/ConfirmModal";
-import SelectDropdown from "@/components/SelectDropdown";
+import { ConfirmModal, SelectDropdown } from "@/components/Shared";
 
 interface SpendingEntry {
   id: string;

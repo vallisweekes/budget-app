@@ -1,138 +1,178 @@
 "use client";
 
-import { ShoppingBag } from "lucide-react";
-import type { MonthKey } from "@/types";
-import ExpandableCategory from "./ExpandableCategory";
-import SavingCard from "./SavingCard";
-import GoalsDisplay from "./GoalsDisplay";
-import { updatePaymentStatus } from "@/lib/expenses/actions";
-import { updateDebtPaymentStatus } from "@/lib/debts/payment-actions";
+import { useMemo, useState } from "react";
+import type { DebtItem, ExpenseItem, MonthKey, PaymentStatus } from "@/types";
 import { formatCurrency } from "@/lib/helpers/money";
+import { updatePaymentStatus as updateExpensePaymentStatus } from "@/lib/expenses/actions";
+import ExpandableCategory from "@/components/ExpandableCategory";
+import DebtCategory from "@/components/DebtCategory";
+import GoalsDisplay from "@/components/GoalsDisplay";
+import PieCategories from "@/components/PieCategories";
+import { Card } from "@/components/Shared";
 
-interface ViewTabsProps {
-	budgetPlanId: string;
-	month: MonthKey;
-	categoryData: any[];
-	regularExpenses: any[];
-	totalIncome: number;
-	totalExpenses: number;
-	remaining: number;
-	debts: any[];
-	totalDebtBalance: number;
-	goals: any[];
-}
+type GoalLike = {
+  id: string;
+  title: string;
+  targetAmount?: number;
+  currentAmount?: number;
+  type: "yearly" | "long-term";
+  category: "debt" | "savings" | "emergency" | "investment" | "other";
+  targetYear?: number;
+  description?: string;
+};
+
+type CategoryDataItem = {
+  id: string;
+  name: string;
+  icon?: string;
+  color?: string;
+  total: number;
+  expenses: ExpenseItem[];
+};
+
+type ViewTabsProps = {
+  budgetPlanId: string;
+  month: MonthKey;
+  categoryData: CategoryDataItem[];
+  regularExpenses: ExpenseItem[];
+  totalIncome: number;
+  totalExpenses: number;
+  remaining: number;
+  debts: DebtItem[];
+  totalDebtBalance: number;
+  goals: GoalLike[];
+};
+
+type TabKey = "overview" | "categories" | "debts" | "goals";
 
 function Currency({ value }: { value: number }) {
-	return <span>{formatCurrency(value)}</span>;
+  return <span>{formatCurrency(value)}</span>;
 }
 
 export default function ViewTabs({
-	budgetPlanId,
-	month,
-	categoryData,
-	regularExpenses,
-	totalIncome,
-	totalExpenses,
-	remaining,
-	debts,
-	totalDebtBalance,
-	goals,
+  budgetPlanId,
+  month,
+  categoryData,
+  totalIncome,
+  totalExpenses,
+  remaining,
+  debts,
+  totalDebtBalance,
+  goals,
 }: ViewTabsProps) {
-	const updateExpensePaymentStatus = (
-		m: MonthKey,
-		id: string,
-		status: "paid" | "unpaid" | "partial",
-		partialAmount?: number
-	) => updatePaymentStatus(budgetPlanId, m, id, status, partialAmount);
+  const [tab, setTab] = useState<TabKey>("overview");
 
-	const updateDebtPaymentStatusScoped = (
-		m: MonthKey,
-		id: string,
-		status: "paid" | "unpaid" | "partial",
-		partialAmount?: number
-	) => updateDebtPaymentStatus(budgetPlanId, m, id, status, partialAmount);
+  const updatePaymentStatus = async (
+    monthKey: MonthKey,
+    id: string,
+    status: PaymentStatus,
+    partialAmount?: number
+  ) => {
+    await updateExpensePaymentStatus(budgetPlanId, monthKey, id, status, partialAmount);
+  };
 
-	// Calculate debt (unpaid or partially paid items)
-	const debtExpenses = regularExpenses.filter(e => !e.paid || (e.paidAmount && e.paidAmount < e.amount));
-	
-	const totalDebt = debtExpenses.reduce((sum, item) => {
-		const owed = item.amount - (item.paidAmount || 0);
-		return sum + owed;
-	}, 0);
+  const categoryPieItems = useMemo(
+    () => categoryData.map((c) => ({ name: c.name, amount: c.total })),
+    [categoryData]
+  );
 
-	// Calculate investments total
-	const investmentsCategory = categoryData.find(cat => cat.id === 'investments');
-	const totalInvestments = investmentsCategory ? investmentsCategory.total : 0;
+  const tabButtonBase =
+    "h-10 px-4 rounded-xl border border-white/10 bg-slate-900/30 text-slate-200 hover:bg-slate-900/50 transition-all";
+  const tabButtonActive = "bg-purple-600/30 border-purple-400/30 text-white";
 
-	// Calculate total monthly debt payments (sum of debt amounts, not balances)
-	const totalDebtPayments = debts.reduce((sum, debt) => sum + debt.amount, 0);
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => setTab("overview")}
+          className={`${tabButtonBase} ${tab === "overview" ? tabButtonActive : ""}`}
+        >
+          Overview
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab("categories")}
+          className={`${tabButtonBase} ${tab === "categories" ? tabButtonActive : ""}`}
+        >
+          Categories
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab("debts")}
+          className={`${tabButtonBase} ${tab === "debts" ? tabButtonActive : ""}`}
+        >
+          Loans & Debts
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab("goals")}
+          className={`${tabButtonBase} ${tab === "goals" ? tabButtonActive : ""}`}
+        >
+          Goals
+        </button>
+      </div>
 
-	return (
-		<>
-			{/* Balance Overview Cards */}
-			<div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-				{/* Investments Card */}
-				<div className="bg-slate-800/40 backdrop-blur-xl rounded-2xl p-6 shadow-xl border border-white/10 hover:border-white/20 hover:shadow-2xl transition-all min-h-[120px] flex flex-col justify-between">
-					<div className="text-sm text-slate-400 font-medium mb-1 uppercase tracking-wide">Investments</div>
-					<div className="text-3xl font-bold text-white leading-none"><Currency value={totalInvestments} /></div>
-				</div>
-				
-				{/* Outstanding Debt Card */}
-				<div className="bg-slate-800/40 backdrop-blur-xl rounded-2xl p-6 shadow-xl border border-white/10 hover:border-white/20 hover:shadow-2xl transition-all min-h-[120px] flex flex-col justify-between">
-					<div className="text-sm text-slate-400 font-medium mb-1 uppercase tracking-wide">Outstanding Debt</div>
-					<div className="text-3xl font-bold text-red-400 leading-none"><Currency value={totalDebtBalance} /></div>
-				</div>
-				
-				{/* Total Balance Card */}
-				<div className="bg-slate-800/40 backdrop-blur-xl rounded-2xl p-6 shadow-xl border border-white/10 hover:border-white/20 hover:shadow-2xl transition-all min-h-[120px] flex flex-col justify-between">
-					<div className="text-sm text-slate-400 font-medium mb-1 uppercase tracking-wide">Balance</div>
-					<div className="text-3xl font-bold text-emerald-400 leading-none"><Currency value={remaining} /></div>
-				</div>
-			</div>
+      {tab === "overview" ? (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card title="Income">
+              <div className="text-2xl font-bold">
+                <Currency value={totalIncome} />
+              </div>
+            </Card>
+            <Card title="Expenses">
+              <div className="text-2xl font-bold">
+                <Currency value={totalExpenses} />
+              </div>
+            </Card>
+            <Card title="Remaining">
+              <div className={`text-2xl font-bold ${remaining < 0 ? "text-red-300" : "text-emerald-300"}`}>
+                <Currency value={remaining} />
+              </div>
+            </Card>
+          </div>
 
-			{/* Goals */}
-			<GoalsDisplay goals={goals} />
+          {categoryPieItems.length > 0 ? (
+            <Card title="This Month by Category">
+              <PieCategories items={categoryPieItems} />
+            </Card>
+          ) : null}
+        </div>
+      ) : null}
 
-			{/* All Categories in Grid */}
-			{(debts.length > 0 || categoryData.length > 0) && (
-				<div className="mb-8">
-					<div className="flex items-center gap-3 mb-4">
-						<div className="bg-white/10 p-2.5 rounded-xl shadow-md backdrop-blur-sm">
-							<ShoppingBag size={24} className="text-white" />
-						</div>
-						<h2 className="text-xl font-semibold text-white">Expenses by Category</h2>
-					</div>
-					<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-						{/* Loans & Debts Category */}
-						{debts && debts.length > 0 && (
-							<ExpandableCategory
-								key="loans-debts"
-								categoryName="Loans & Debts"
-								categoryIcon="credit-card"
-								categoryColor="red"
-								expenses={debts}
-								total={totalDebtPayments}
-								month={month}
-								updatePaymentStatus={updateDebtPaymentStatusScoped}
-							/>
-						)}
-						
-						{/* Regular Categories */}
-						{categoryData.map((cat) => (
-							<ExpandableCategory
-								key={cat.id}
-								categoryName={cat.name}
-								categoryIcon={cat.icon}
-								categoryColor={cat.color}
-								expenses={cat.expenses}
-								total={cat.total}
-								month={month}
-								updatePaymentStatus={updateExpensePaymentStatus}
-							/>
-						))}
-					</div>
-				</div>
-			)}
-		</>
-	);
+      {tab === "categories" ? (
+        <div className="space-y-4">
+          {categoryData.length === 0 ? (
+            <Card title="Categories">
+              <div className="text-sm text-slate-400">No categorized expenses yet for this month.</div>
+            </Card>
+          ) : (
+            categoryData.map((cat) => (
+              <ExpandableCategory
+                key={cat.id}
+                categoryName={cat.name}
+                categoryIcon={cat.icon || "Circle"}
+                categoryColor={cat.color}
+                expenses={(cat.expenses || []).map((e) => ({
+                  id: e.id,
+                  name: e.name,
+                  amount: e.amount,
+                  paid: Boolean(e.paid),
+                  paidAmount: e.paidAmount ?? 0,
+                }))}
+                total={cat.total}
+                month={month}
+                updatePaymentStatus={updatePaymentStatus}
+              />
+            ))
+          )}
+        </div>
+      ) : null}
+
+      {tab === "debts" ? <DebtCategory debts={debts} totalBalance={totalDebtBalance} /> : null}
+
+      {tab === "goals" ? <GoalsDisplay goals={goals} /> : null}
+    </div>
+  );
 }

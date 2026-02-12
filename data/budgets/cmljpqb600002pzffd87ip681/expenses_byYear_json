@@ -1,0 +1,3682 @@
+{
+  "2026": {
+    "AUGUST ": [
+      {
+        "id": "RENT-AUGUST ",
+        "name": "RENT",
+        "amount": 1110,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "housing"
+      },
+      {
+        "id": "MORTGAGE-AUGUST ",
+        "name": "MORTGAGE",
+        "amount": 825,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "housing"
+      },
+      {
+        "id": "COUNCIL-TAX-AUGUST ",
+        "name": "COUNCIL TAX",
+        "amount": 170,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "housing"
+      },
+      {
+        "id": "EE-AUGUST ",
+        "name": "EE",
+        "amount": 55,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "SKY-AUGUST ",
+        "name": "SKY",
+        "amount": 135,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "ECLECTRICITY-AUGUST ",
+        "name": "ECLECTRICITY",
+        "amount": 70,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "THAMES-WATER-AUGUST ",
+        "name": "THAMES WATER",
+        "amount": 40,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "ZURICH-AUGUST ",
+        "name": "ZURICH",
+        "amount": 15,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "insurance"
+      },
+      {
+        "id": "GAS-AUGUST ",
+        "name": "GAS",
+        "amount": 30,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "APPLICANE-INSURANCE-AUGUST ",
+        "name": "APPLICANE INSURANCE",
+        "amount": 25,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "insurance"
+      },
+      {
+        "id": "LIFE-INSURANCE-AUGUST ",
+        "name": "LIFE INSURANCE",
+        "amount": 15,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "insurance"
+      },
+      {
+        "id": "WORK-TRAVEL-AUGUST ",
+        "name": "WORK TRAVEL",
+        "amount": 60,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "transport"
+      },
+      {
+        "id": "UBER-AUGUST ",
+        "name": "UBER",
+        "amount": 20,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "transport"
+      },
+      {
+        "id": "FOOD-AUGUST ",
+        "name": "FOOD",
+        "amount": 200,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "food"
+      },
+      {
+        "id": "LUNCH-AUGUST ",
+        "name": "LUNCH",
+        "amount": 70,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "food"
+      },
+      {
+        "id": "MONTHLY-ALLOWANCE-AUGUST ",
+        "name": "MONTHLY ALLOWANCE",
+        "amount": 250,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "food"
+      },
+      {
+        "id": "SERATO-AUGUST ",
+        "name": "SERATO",
+        "amount": 10,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "SPLICE-AUGUST ",
+        "name": "SPLICE",
+        "amount": 10,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "SITE-GROUND-AUGUST ",
+        "name": "SITE GROUND",
+        "amount": 50,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "DISNEY-PLUS-AUGUST ",
+        "name": "DISNEY PLUS",
+        "amount": 5,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "NETFLIX-AUGUST ",
+        "name": "NETFLIX",
+        "amount": 15,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "SPOTIFY-AUGUST ",
+        "name": "SPOTIFY",
+        "amount": 20,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "MICROSOFT-AUGUST ",
+        "name": "MICROSOFT",
+        "amount": 8,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "APPLE-ITUNES-AUGUST ",
+        "name": "APPLE ITUNES",
+        "amount": 12,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "REVOLUT-AUGUST ",
+        "name": "REVOLUT",
+        "amount": 8,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "JAYDA-AUGUST ",
+        "name": "JAYDA",
+        "amount": 180,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "childcare"
+      },
+      {
+        "id": "JAYDA-ALLOWANCE-AUGUST ",
+        "name": "JAYDA ALLOWANCE",
+        "amount": 100,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "childcare"
+      },
+      {
+        "id": "JAYDA-SAVING-2-AUGUST ",
+        "name": "JAYDA SAVING 2",
+        "amount": 50,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "childcare"
+      },
+      {
+        "id": "AUDIO-GEAR-AUGUST ",
+        "name": "AUDIO GEAR",
+        "amount": 175,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "entertainment"
+      },
+      {
+        "id": "BARBERS-AUGUST ",
+        "name": "BARBERS",
+        "amount": 40,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "personal"
+      },
+      {
+        "id": "EMERGENCY-FUNDS-AUGUST ",
+        "name": "EMERGENCY FUNDS",
+        "amount": 300,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "savings"
+      },
+      {
+        "id": "HOME-DEPOSIT-AUGUST ",
+        "name": "HOME DEPOSIT",
+        "amount": 700,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "savings"
+      },
+      {
+        "id": "TRADING-212-AUGUST ",
+        "name": "TRADING 212",
+        "amount": 50,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "investments"
+      }
+    ],
+    "SEPTEMBER": [
+      {
+        "id": "RENT-SEPTEMBER",
+        "name": "RENT",
+        "amount": 1110,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "housing"
+      },
+      {
+        "id": "MORTGAGE-SEPTEMBER",
+        "name": "MORTGAGE",
+        "amount": 825,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "housing"
+      },
+      {
+        "id": "COUNCIL-TAX-SEPTEMBER",
+        "name": "COUNCIL TAX",
+        "amount": 170,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "housing"
+      },
+      {
+        "id": "EE-SEPTEMBER",
+        "name": "EE",
+        "amount": 55,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "SKY-SEPTEMBER",
+        "name": "SKY",
+        "amount": 135,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "ECLECTRICITY-SEPTEMBER",
+        "name": "ECLECTRICITY",
+        "amount": 70,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "THAMES-WATER-SEPTEMBER",
+        "name": "THAMES WATER",
+        "amount": 40,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "ZURICH-SEPTEMBER",
+        "name": "ZURICH",
+        "amount": 15,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "insurance"
+      },
+      {
+        "id": "GAS-SEPTEMBER",
+        "name": "GAS",
+        "amount": 30,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "APPLICANE-INSURANCE-SEPTEMBER",
+        "name": "APPLICANE INSURANCE",
+        "amount": 25,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "insurance"
+      },
+      {
+        "id": "LIFE-INSURANCE-SEPTEMBER",
+        "name": "LIFE INSURANCE",
+        "amount": 15,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "insurance"
+      },
+      {
+        "id": "WORK-TRAVEL-SEPTEMBER",
+        "name": "WORK TRAVEL",
+        "amount": 60,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "transport"
+      },
+      {
+        "id": "UBER-SEPTEMBER",
+        "name": "UBER",
+        "amount": 20,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "transport"
+      },
+      {
+        "id": "FOOD-SEPTEMBER",
+        "name": "FOOD",
+        "amount": 200,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "food"
+      },
+      {
+        "id": "LUNCH-SEPTEMBER",
+        "name": "LUNCH",
+        "amount": 70,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "food"
+      },
+      {
+        "id": "MONTHLY-ALLOWANCE-SEPTEMBER",
+        "name": "MONTHLY ALLOWANCE",
+        "amount": 150,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "food"
+      },
+      {
+        "id": "SERATO-SEPTEMBER",
+        "name": "SERATO",
+        "amount": 10,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "SPLICE-SEPTEMBER",
+        "name": "SPLICE",
+        "amount": 10,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "SITE-GROUND-SEPTEMBER",
+        "name": "SITE GROUND",
+        "amount": 50,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "DISNEY-PLUS-SEPTEMBER",
+        "name": "DISNEY PLUS",
+        "amount": 5,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "NETFLIX-SEPTEMBER",
+        "name": "NETFLIX",
+        "amount": 15,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "SPOTIFY-SEPTEMBER",
+        "name": "SPOTIFY",
+        "amount": 20,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "MICROSOFT-SEPTEMBER",
+        "name": "MICROSOFT",
+        "amount": 8,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "APPLE-ITUNES-SEPTEMBER",
+        "name": "APPLE ITUNES",
+        "amount": 12,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "REVOLUT-SEPTEMBER",
+        "name": "REVOLUT",
+        "amount": 8,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "JAYDA-SEPTEMBER",
+        "name": "JAYDA",
+        "amount": 180,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "childcare"
+      },
+      {
+        "id": "JAYDA-ALLOWANCE-SEPTEMBER",
+        "name": "JAYDA ALLOWANCE",
+        "amount": 100,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "childcare"
+      },
+      {
+        "id": "JAYDA-SAVING-2-SEPTEMBER",
+        "name": "JAYDA SAVING 2",
+        "amount": 50,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "childcare"
+      },
+      {
+        "id": "AUDIO-GEAR-SEPTEMBER",
+        "name": "AUDIO GEAR",
+        "amount": 175,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "entertainment"
+      },
+      {
+        "id": "BARBERS-SEPTEMBER",
+        "name": "BARBERS",
+        "amount": 40,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "personal"
+      },
+      {
+        "id": "EMERGENCY-FUNDS-SEPTEMBER",
+        "name": "EMERGENCY FUNDS",
+        "amount": 300,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "savings"
+      },
+      {
+        "id": "SINGLE-SAVING-SEPTEMBER",
+        "name": "SINGLE SAVING",
+        "amount": 100,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "savings"
+      },
+      {
+        "id": "HOME-DEPOSIT-SEPTEMBER",
+        "name": "HOME DEPOSIT",
+        "amount": 700,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "savings"
+      },
+      {
+        "id": "TRADING-212-SEPTEMBER",
+        "name": "TRADING 212",
+        "amount": 50,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "investments"
+      }
+    ],
+    "OCTOBER": [
+      {
+        "id": "RENT-OCTOBER",
+        "name": "RENT",
+        "amount": 1110,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "housing"
+      },
+      {
+        "id": "MORTGAGE-OCTOBER",
+        "name": "MORTGAGE",
+        "amount": 825,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "housing"
+      },
+      {
+        "id": "COUNCIL-TAX-OCTOBER",
+        "name": "COUNCIL TAX",
+        "amount": 170,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "housing"
+      },
+      {
+        "id": "EE-OCTOBER",
+        "name": "EE",
+        "amount": 55,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "SKY-OCTOBER",
+        "name": "SKY",
+        "amount": 135,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "ECLECTRICITY-OCTOBER",
+        "name": "ECLECTRICITY",
+        "amount": 70,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "THAMES-WATER-OCTOBER",
+        "name": "THAMES WATER",
+        "amount": 40,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "ZURICH-OCTOBER",
+        "name": "ZURICH",
+        "amount": 15,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "insurance"
+      },
+      {
+        "id": "GAS-OCTOBER",
+        "name": "GAS",
+        "amount": 30,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "APPLICANE-INSURANCE-OCTOBER",
+        "name": "APPLICANE INSURANCE",
+        "amount": 25,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "insurance"
+      },
+      {
+        "id": "LIFE-INSURANCE-OCTOBER",
+        "name": "LIFE INSURANCE",
+        "amount": 15,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "insurance"
+      },
+      {
+        "id": "WORK-TRAVEL-OCTOBER",
+        "name": "WORK TRAVEL",
+        "amount": 60,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "transport"
+      },
+      {
+        "id": "UBER-OCTOBER",
+        "name": "UBER",
+        "amount": 20,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "transport"
+      },
+      {
+        "id": "FOOD-OCTOBER",
+        "name": "FOOD",
+        "amount": 200,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "food"
+      },
+      {
+        "id": "LUNCH-OCTOBER",
+        "name": "LUNCH",
+        "amount": 70,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "food"
+      },
+      {
+        "id": "MONTHLY-ALLOWANCE-OCTOBER",
+        "name": "MONTHLY ALLOWANCE",
+        "amount": 100,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "food"
+      },
+      {
+        "id": "SERATO-OCTOBER",
+        "name": "SERATO",
+        "amount": 10,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "SPLICE-OCTOBER",
+        "name": "SPLICE",
+        "amount": 10,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "SITE-GROUND-OCTOBER",
+        "name": "SITE GROUND",
+        "amount": 50,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "DISNEY-PLUS-OCTOBER",
+        "name": "DISNEY PLUS",
+        "amount": 5,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "NETFLIX-OCTOBER",
+        "name": "NETFLIX",
+        "amount": 15,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "SPOTIFY-OCTOBER",
+        "name": "SPOTIFY",
+        "amount": 20,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "MICROSOFT-OCTOBER",
+        "name": "MICROSOFT",
+        "amount": 8,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "APPLE-ITUNES-OCTOBER",
+        "name": "APPLE ITUNES",
+        "amount": 12,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "REVOLUT-OCTOBER",
+        "name": "REVOLUT",
+        "amount": 8,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "JAYDA-OCTOBER",
+        "name": "JAYDA",
+        "amount": 180,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "childcare"
+      },
+      {
+        "id": "JAYDA-ALLOWANCE-OCTOBER",
+        "name": "JAYDA ALLOWANCE",
+        "amount": 100,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "childcare"
+      },
+      {
+        "id": "JAYDA-SAVING-2-OCTOBER",
+        "name": "JAYDA SAVING 2",
+        "amount": 50,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "childcare"
+      },
+      {
+        "id": "AUDIO-GEAR-OCTOBER",
+        "name": "AUDIO GEAR",
+        "amount": 175,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "entertainment"
+      },
+      {
+        "id": "BARBERS-OCTOBER",
+        "name": "BARBERS",
+        "amount": 60,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "personal"
+      },
+      {
+        "id": "EMERGENCY-FUNDS-OCTOBER",
+        "name": "EMERGENCY FUNDS",
+        "amount": 300,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "savings"
+      },
+      {
+        "id": "SINGLE-SAVING-OCTOBER",
+        "name": "SINGLE SAVING",
+        "amount": 100,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "savings"
+      },
+      {
+        "id": "HOME-DEPOSIT-OCTOBER",
+        "name": "HOME DEPOSIT",
+        "amount": 700,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "savings"
+      },
+      {
+        "id": "TRADING-212-OCTOBER",
+        "name": "TRADING 212",
+        "amount": 50,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "investments"
+      }
+    ],
+    "NOVEMBER": [
+      {
+        "id": "RENT-NOVEMBER",
+        "name": "RENT",
+        "amount": 1110,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "housing"
+      },
+      {
+        "id": "MORTGAGE-NOVEMBER",
+        "name": "MORTGAGE",
+        "amount": 825,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "housing"
+      },
+      {
+        "id": "COUNCIL-TAX-NOVEMBER",
+        "name": "COUNCIL TAX",
+        "amount": 170,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "housing"
+      },
+      {
+        "id": "EE-NOVEMBER",
+        "name": "EE",
+        "amount": 55,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "SKY-NOVEMBER",
+        "name": "SKY",
+        "amount": 135,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "ECLECTRICITY-NOVEMBER",
+        "name": "ECLECTRICITY",
+        "amount": 70,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "THAMES-WATER-NOVEMBER",
+        "name": "THAMES WATER",
+        "amount": 40,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "ZURICH-NOVEMBER",
+        "name": "ZURICH",
+        "amount": 15,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "insurance"
+      },
+      {
+        "id": "GAS-NOVEMBER",
+        "name": "GAS",
+        "amount": 30,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "APPLICANE-INSURANCE-NOVEMBER",
+        "name": "APPLICANE INSURANCE",
+        "amount": 25,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "insurance"
+      },
+      {
+        "id": "LIFE-INSURANCE-NOVEMBER",
+        "name": "LIFE INSURANCE",
+        "amount": 15,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "insurance"
+      },
+      {
+        "id": "WORK-TRAVEL-NOVEMBER",
+        "name": "WORK TRAVEL",
+        "amount": 60,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "transport"
+      },
+      {
+        "id": "UBER-NOVEMBER",
+        "name": "UBER",
+        "amount": 20,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "transport"
+      },
+      {
+        "id": "FOOD-NOVEMBER",
+        "name": "FOOD",
+        "amount": 200,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "food"
+      },
+      {
+        "id": "LUNCH-NOVEMBER",
+        "name": "LUNCH",
+        "amount": 70,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "food"
+      },
+      {
+        "id": "MONTHLY-ALLOWANCE-NOVEMBER",
+        "name": "MONTHLY ALLOWANCE",
+        "amount": 150,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "food"
+      },
+      {
+        "id": "SERATO-NOVEMBER",
+        "name": "SERATO",
+        "amount": 10,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "SPLICE-NOVEMBER",
+        "name": "SPLICE",
+        "amount": 10,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "SITE-GROUND-NOVEMBER",
+        "name": "SITE GROUND",
+        "amount": 50,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "DISNEY-PLUS-NOVEMBER",
+        "name": "DISNEY PLUS",
+        "amount": 5,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "NETFLIX-NOVEMBER",
+        "name": "NETFLIX",
+        "amount": 15,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "SPOTIFY-NOVEMBER",
+        "name": "SPOTIFY",
+        "amount": 20,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "MICROSOFT-NOVEMBER",
+        "name": "MICROSOFT",
+        "amount": 8,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "APPLE-ITUNES-NOVEMBER",
+        "name": "APPLE ITUNES",
+        "amount": 12,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "REVOLUT-NOVEMBER",
+        "name": "REVOLUT",
+        "amount": 8,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "JAYDA-NOVEMBER",
+        "name": "JAYDA",
+        "amount": 180,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "childcare"
+      },
+      {
+        "id": "JAYDA-ALLOWANCE-NOVEMBER",
+        "name": "JAYDA ALLOWANCE",
+        "amount": 100,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "childcare"
+      },
+      {
+        "id": "JAYDA-SAVING-2-NOVEMBER",
+        "name": "JAYDA SAVING 2",
+        "amount": 50,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "childcare"
+      },
+      {
+        "id": "AUDIO-GEAR-NOVEMBER",
+        "name": "AUDIO GEAR",
+        "amount": 175,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "entertainment"
+      },
+      {
+        "id": "BARBERS-NOVEMBER",
+        "name": "BARBERS",
+        "amount": 60,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "personal"
+      },
+      {
+        "id": "EMERGENCY-FUNDS-NOVEMBER",
+        "name": "EMERGENCY FUNDS",
+        "amount": 300,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "savings"
+      },
+      {
+        "id": "SINGLE-SAVING-NOVEMBER",
+        "name": "SINGLE SAVING",
+        "amount": 100,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "savings"
+      },
+      {
+        "id": "HOME-DEPOSIT-NOVEMBER",
+        "name": "HOME DEPOSIT",
+        "amount": 700,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "savings"
+      },
+      {
+        "id": "TRADING-212-NOVEMBER",
+        "name": "TRADING 212",
+        "amount": 50,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "investments"
+      }
+    ],
+    "DECEMBER": [
+      {
+        "id": "RENT-DECEMBER",
+        "name": "RENT",
+        "amount": 1110,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "housing"
+      },
+      {
+        "id": "MORTGAGE-DECEMBER",
+        "name": "MORTGAGE",
+        "amount": 825,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "housing"
+      },
+      {
+        "id": "COUNCIL-TAX-DECEMBER",
+        "name": "COUNCIL TAX",
+        "amount": 170,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "housing"
+      },
+      {
+        "id": "EE-DECEMBER",
+        "name": "EE",
+        "amount": 55,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "SKY-DECEMBER",
+        "name": "SKY",
+        "amount": 135,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "ECLECTRICITY-DECEMBER",
+        "name": "ECLECTRICITY",
+        "amount": 70,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "THAMES-WATER-DECEMBER",
+        "name": "THAMES WATER",
+        "amount": 40,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "ZURICH-DECEMBER",
+        "name": "ZURICH",
+        "amount": 15,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "insurance"
+      },
+      {
+        "id": "GAS-DECEMBER",
+        "name": "GAS",
+        "amount": 30,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "APPLICANE-INSURANCE-DECEMBER",
+        "name": "APPLICANE INSURANCE",
+        "amount": 25,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "insurance"
+      },
+      {
+        "id": "LIFE-INSURANCE-DECEMBER",
+        "name": "LIFE INSURANCE",
+        "amount": 15,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "insurance"
+      },
+      {
+        "id": "WORK-TRAVEL-DECEMBER",
+        "name": "WORK TRAVEL",
+        "amount": 60,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "transport"
+      },
+      {
+        "id": "UBER-DECEMBER",
+        "name": "UBER",
+        "amount": 20,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "transport"
+      },
+      {
+        "id": "FOOD-DECEMBER",
+        "name": "FOOD",
+        "amount": 200,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "food"
+      },
+      {
+        "id": "LUNCH-DECEMBER",
+        "name": "LUNCH",
+        "amount": 70,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "food"
+      },
+      {
+        "id": "MONTHLY-ALLOWANCE-DECEMBER",
+        "name": "MONTHLY ALLOWANCE",
+        "amount": 280,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "food"
+      },
+      {
+        "id": "SERATO-DECEMBER",
+        "name": "SERATO",
+        "amount": 10,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "SPLICE-DECEMBER",
+        "name": "SPLICE",
+        "amount": 10,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "SITE-GROUND-DECEMBER",
+        "name": "SITE GROUND",
+        "amount": 50,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "DISNEY-PLUS-DECEMBER",
+        "name": "DISNEY PLUS",
+        "amount": 5,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "NETFLIX-DECEMBER",
+        "name": "NETFLIX",
+        "amount": 15,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "SPOTIFY-DECEMBER",
+        "name": "SPOTIFY",
+        "amount": 20,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "MICROSOFT-DECEMBER",
+        "name": "MICROSOFT",
+        "amount": 8,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "APPLE-ITUNES-DECEMBER",
+        "name": "APPLE ITUNES",
+        "amount": 12,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "REVOLUT-DECEMBER",
+        "name": "REVOLUT",
+        "amount": 8,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "JAYDA-DECEMBER",
+        "name": "JAYDA",
+        "amount": 180,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "childcare"
+      },
+      {
+        "id": "JAYDA-ALLOWANCE-DECEMBER",
+        "name": "JAYDA ALLOWANCE",
+        "amount": 100,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "childcare"
+      },
+      {
+        "id": "JAYDA-SAVING-2-DECEMBER",
+        "name": "JAYDA SAVING 2",
+        "amount": 50,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "childcare"
+      },
+      {
+        "id": "AUDIO-GEAR-DECEMBER",
+        "name": "AUDIO GEAR",
+        "amount": 175,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "entertainment"
+      },
+      {
+        "id": "BARBERS-DECEMBER",
+        "name": "BARBERS",
+        "amount": 60,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "personal"
+      },
+      {
+        "id": "EMERGENCY-FUNDS-DECEMBER",
+        "name": "EMERGENCY FUNDS",
+        "amount": 300,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "savings"
+      },
+      {
+        "id": "SINGLE-SAVING-DECEMBER",
+        "name": "SINGLE SAVING",
+        "amount": 100,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "savings"
+      },
+      {
+        "id": "HOME-DEPOSIT-DECEMBER",
+        "name": "HOME DEPOSIT",
+        "amount": 700,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "savings"
+      },
+      {
+        "id": "TRADING-212-DECEMBER",
+        "name": "TRADING 212",
+        "amount": 50,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "investments"
+      }
+    ],
+    "JANUARY": [
+      {
+        "id": "RENT-JANUARY",
+        "name": "RENT",
+        "amount": 1110,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "housing"
+      },
+      {
+        "id": "MORTGAGE-JANUARY",
+        "name": "MORTGAGE",
+        "amount": 825,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "housing"
+      },
+      {
+        "id": "COUNCIL-TAX-JANUARY",
+        "name": "COUNCIL TAX",
+        "amount": 170,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "housing"
+      },
+      {
+        "id": "EE-JANUARY",
+        "name": "EE",
+        "amount": 55,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "SKY-JANUARY",
+        "name": "SKY",
+        "amount": 135,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "ECLECTRICITY-JANUARY",
+        "name": "ECLECTRICITY",
+        "amount": 70,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "THAMES-WATER-JANUARY",
+        "name": "THAMES WATER",
+        "amount": 40,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "ZURICH-JANUARY",
+        "name": "ZURICH",
+        "amount": 15,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "insurance"
+      },
+      {
+        "id": "GAS-JANUARY",
+        "name": "GAS",
+        "amount": 30,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "APPLICANE-INSURANCE-JANUARY",
+        "name": "APPLICANE INSURANCE",
+        "amount": 25,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "insurance"
+      },
+      {
+        "id": "LIFE-INSURANCE-JANUARY",
+        "name": "LIFE INSURANCE",
+        "amount": 15,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "insurance"
+      },
+      {
+        "id": "WORK-TRAVEL-JANUARY",
+        "name": "WORK TRAVEL",
+        "amount": 60,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "transport"
+      },
+      {
+        "id": "UBER-JANUARY",
+        "name": "UBER",
+        "amount": 20,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "transport"
+      },
+      {
+        "id": "FOOD-JANUARY",
+        "name": "FOOD",
+        "amount": 200,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "food"
+      },
+      {
+        "id": "LUNCH-JANUARY",
+        "name": "LUNCH",
+        "amount": 70,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "food"
+      },
+      {
+        "id": "MONTHLY-ALLOWANCE-JANUARY",
+        "name": "MONTHLY ALLOWANCE",
+        "amount": 150,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "food"
+      },
+      {
+        "id": "SERATO-JANUARY",
+        "name": "SERATO",
+        "amount": 10,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "SPLICE-JANUARY",
+        "name": "SPLICE",
+        "amount": 10,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "SITE-GROUND-JANUARY",
+        "name": "SITE GROUND",
+        "amount": 50,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "DISNEY-PLUS-JANUARY",
+        "name": "DISNEY PLUS",
+        "amount": 5,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "NETFLIX-JANUARY",
+        "name": "NETFLIX",
+        "amount": 15,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "SPOTIFY-JANUARY",
+        "name": "SPOTIFY",
+        "amount": 20,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "MICROSOFT-JANUARY",
+        "name": "MICROSOFT",
+        "amount": 8,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "APPLE-ITUNES-JANUARY",
+        "name": "APPLE ITUNES",
+        "amount": 12,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "REVOLUT-JANUARY",
+        "name": "REVOLUT",
+        "amount": 8,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "JAYDA-JANUARY",
+        "name": "JAYDA",
+        "amount": 180,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "childcare"
+      },
+      {
+        "id": "JAYDA-ALLOWANCE-JANUARY",
+        "name": "JAYDA ALLOWANCE",
+        "amount": 100,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "childcare"
+      },
+      {
+        "id": "JAYDA-SAVING-2-JANUARY",
+        "name": "JAYDA SAVING 2",
+        "amount": 50,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "childcare"
+      },
+      {
+        "id": "AUDIO-GEAR-JANUARY",
+        "name": "AUDIO GEAR",
+        "amount": 175,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "entertainment"
+      },
+      {
+        "id": "BARBERS-JANUARY",
+        "name": "BARBERS",
+        "amount": 60,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "personal"
+      },
+      {
+        "id": "EMERGENCY-FUNDS-JANUARY",
+        "name": "EMERGENCY FUNDS",
+        "amount": 300,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "savings"
+      },
+      {
+        "id": "SINGLE-SAVING-JANUARY",
+        "name": "SINGLE SAVING",
+        "amount": 100,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "savings"
+      },
+      {
+        "id": "HOME-DEPOSIT-JANUARY",
+        "name": "HOME DEPOSIT",
+        "amount": 700,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "savings"
+      },
+      {
+        "id": "TRADING-212-JANUARY",
+        "name": "TRADING 212",
+        "amount": 50,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "investments"
+      }
+    ],
+    "FEBURARY": [
+      {
+        "id": "RENT-FEBURARY",
+        "name": "RENT",
+        "amount": 1110,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "housing"
+      },
+      {
+        "id": "MORTGAGE-FEBURARY",
+        "name": "MORTGAGE",
+        "amount": 825,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "housing"
+      },
+      {
+        "id": "COUNCIL-TAX-FEBURARY",
+        "name": "COUNCIL TAX",
+        "amount": 170,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "housing"
+      },
+      {
+        "id": "EE-FEBURARY",
+        "name": "EE",
+        "amount": 35,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "SKY-FEBURARY",
+        "name": "SKY",
+        "amount": 135,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "ECLECTRICITY-FEBURARY",
+        "name": "ECLECTRICITY",
+        "amount": 70,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "THAMES-WATER-FEBURARY",
+        "name": "THAMES WATER",
+        "amount": 40,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "ZURICH-FEBURARY",
+        "name": "ZURICH",
+        "amount": 15,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "insurance"
+      },
+      {
+        "id": "GAS-FEBURARY",
+        "name": "GAS",
+        "amount": 30,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "APPLICANE-INSURANCE-FEBURARY",
+        "name": "APPLICANE INSURANCE",
+        "amount": 25,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "insurance"
+      },
+      {
+        "id": "LIFE-INSURANCE-FEBURARY",
+        "name": "LIFE INSURANCE",
+        "amount": 15,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "insurance"
+      },
+      {
+        "id": "WORK-TRAVEL-FEBURARY",
+        "name": "WORK TRAVEL",
+        "amount": 60,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "transport"
+      },
+      {
+        "id": "UBER-FEBURARY",
+        "name": "UBER",
+        "amount": 20,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "transport"
+      },
+      {
+        "id": "FOOD-FEBURARY",
+        "name": "FOOD",
+        "amount": 200,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "food"
+      },
+      {
+        "id": "LUNCH-FEBURARY",
+        "name": "LUNCH",
+        "amount": 70,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "food"
+      },
+      {
+        "id": "MONTHLY-ALLOWANCE-FEBURARY",
+        "name": "MONTHLY ALLOWANCE",
+        "amount": 150,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "food"
+      },
+      {
+        "id": "SERATO-FEBURARY",
+        "name": "SERATO",
+        "amount": 10,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "SPLICE-FEBURARY",
+        "name": "SPLICE",
+        "amount": 10,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "SITE-GROUND-FEBURARY",
+        "name": "SITE GROUND",
+        "amount": 50,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "DISNEY-PLUS-FEBURARY",
+        "name": "DISNEY PLUS",
+        "amount": 5,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "NETFLIX-FEBURARY",
+        "name": "NETFLIX",
+        "amount": 15,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "SPOTIFY-FEBURARY",
+        "name": "SPOTIFY",
+        "amount": 20,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "MICROSOFT-FEBURARY",
+        "name": "MICROSOFT",
+        "amount": 8,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "APPLE-ITUNES-FEBURARY",
+        "name": "APPLE ITUNES",
+        "amount": 12,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "REVOLUT-FEBURARY",
+        "name": "REVOLUT",
+        "amount": 8,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "JAYDA-FEBURARY",
+        "name": "JAYDA",
+        "amount": 180,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "childcare"
+      },
+      {
+        "id": "JAYDA-ALLOWANCE-FEBURARY",
+        "name": "JAYDA ALLOWANCE",
+        "amount": 100,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "childcare"
+      },
+      {
+        "id": "JAYDA-SAVING-2-FEBURARY",
+        "name": "JAYDA SAVING 2",
+        "amount": 50,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "childcare"
+      },
+      {
+        "id": "AUDIO-GEAR-FEBURARY",
+        "name": "AUDIO GEAR",
+        "amount": 175,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "entertainment",
+        "paidAmount": 0
+      },
+      {
+        "id": "BARBERS-FEBURARY",
+        "name": "BARBERS",
+        "amount": 60,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "personal"
+      },
+      {
+        "id": "EMERGENCY-FUNDS-FEBURARY",
+        "name": "EMERGENCY FUNDS",
+        "amount": 300,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "savings"
+      },
+      {
+        "id": "SINGLE-SAVING-FEBURARY",
+        "name": "SINGLE SAVING",
+        "amount": 100,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "savings"
+      },
+      {
+        "id": "HOME-DEPOSIT-FEBURARY",
+        "name": "HOME DEPOSIT",
+        "amount": 700,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "savings"
+      },
+      {
+        "id": "TRADING-212-FEBURARY",
+        "name": "TRADING 212",
+        "amount": 50,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "investments"
+      }
+    ],
+    "MARCH": [
+      {
+        "id": "RENT-MARCH",
+        "name": "RENT",
+        "amount": 1110,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "housing"
+      },
+      {
+        "id": "MORTGAGE-MARCH",
+        "name": "MORTGAGE",
+        "amount": 825,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "housing"
+      },
+      {
+        "id": "COUNCIL-TAX-MARCH",
+        "name": "COUNCIL TAX",
+        "amount": 170,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "housing"
+      },
+      {
+        "id": "EE-MARCH",
+        "name": "EE",
+        "amount": 35,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "SKY-MARCH",
+        "name": "SKY",
+        "amount": 135,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "ECLECTRICITY-MARCH",
+        "name": "ECLECTRICITY",
+        "amount": 70,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "THAMES-WATER-MARCH",
+        "name": "THAMES WATER",
+        "amount": 40,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "ZURICH-MARCH",
+        "name": "ZURICH",
+        "amount": 15,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "insurance"
+      },
+      {
+        "id": "GAS-MARCH",
+        "name": "GAS",
+        "amount": 30,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "APPLICANE-INSURANCE-MARCH",
+        "name": "APPLICANE INSURANCE",
+        "amount": 25,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "insurance"
+      },
+      {
+        "id": "LIFE-INSURANCE-MARCH",
+        "name": "LIFE INSURANCE",
+        "amount": 15,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "insurance"
+      },
+      {
+        "id": "WORK-TRAVEL-MARCH",
+        "name": "WORK TRAVEL",
+        "amount": 60,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "transport"
+      },
+      {
+        "id": "UBER-MARCH",
+        "name": "UBER",
+        "amount": 20,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "transport"
+      },
+      {
+        "id": "FOOD-MARCH",
+        "name": "FOOD",
+        "amount": 200,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "food"
+      },
+      {
+        "id": "LUNCH-MARCH",
+        "name": "LUNCH",
+        "amount": 70,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "food"
+      },
+      {
+        "id": "MONTHLY-ALLOWANCE-MARCH",
+        "name": "MONTHLY ALLOWANCE",
+        "amount": 150,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "food"
+      },
+      {
+        "id": "SERATO-MARCH",
+        "name": "SERATO",
+        "amount": 10,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "SPLICE-MARCH",
+        "name": "SPLICE",
+        "amount": 10,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "SITE-GROUND-MARCH",
+        "name": "SITE GROUND",
+        "amount": 50,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "DISNEY-PLUS-MARCH",
+        "name": "DISNEY PLUS",
+        "amount": 5,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "NETFLIX-MARCH",
+        "name": "NETFLIX",
+        "amount": 15,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "SPOTIFY-MARCH",
+        "name": "SPOTIFY",
+        "amount": 20,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "MICROSOFT-MARCH",
+        "name": "MICROSOFT",
+        "amount": 8,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "APPLE-ITUNES-MARCH",
+        "name": "APPLE ITUNES",
+        "amount": 12,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "REVOLUT-MARCH",
+        "name": "REVOLUT",
+        "amount": 8,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "JAYDA-MARCH",
+        "name": "JAYDA",
+        "amount": 180,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "childcare"
+      },
+      {
+        "id": "JAYDA-ALLOWANCE-MARCH",
+        "name": "JAYDA ALLOWANCE",
+        "amount": 100,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "childcare"
+      },
+      {
+        "id": "JAYDA-SAVING-2-MARCH",
+        "name": "JAYDA SAVING 2",
+        "amount": 50,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "childcare"
+      },
+      {
+        "id": "AUDIO-GEAR-MARCH",
+        "name": "AUDIO GEAR",
+        "amount": 175,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "entertainment"
+      },
+      {
+        "id": "BARBERS-MARCH",
+        "name": "BARBERS",
+        "amount": 60,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "personal"
+      },
+      {
+        "id": "EMERGENCY-FUNDS-MARCH",
+        "name": "EMERGENCY FUNDS",
+        "amount": 300,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "savings"
+      },
+      {
+        "id": "SINGLE-SAVING-MARCH",
+        "name": "SINGLE SAVING",
+        "amount": 100,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "savings"
+      },
+      {
+        "id": "HOME-DEPOSIT-MARCH",
+        "name": "HOME DEPOSIT",
+        "amount": 700,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "savings"
+      },
+      {
+        "id": "TRADING-212-MARCH",
+        "name": "TRADING 212",
+        "amount": 50,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "investments"
+      }
+    ],
+    "APRIL": [
+      {
+        "id": "RENT-APRIL",
+        "name": "RENT",
+        "amount": 1110,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "housing"
+      },
+      {
+        "id": "MORTGAGE-APRIL",
+        "name": "MORTGAGE",
+        "amount": 825,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "housing"
+      },
+      {
+        "id": "COUNCIL-TAX-APRIL",
+        "name": "COUNCIL TAX",
+        "amount": 170,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "housing"
+      },
+      {
+        "id": "EE-APRIL",
+        "name": "EE",
+        "amount": 35,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "SKY-APRIL",
+        "name": "SKY",
+        "amount": 135,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "ECLECTRICITY-APRIL",
+        "name": "ECLECTRICITY",
+        "amount": 70,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "THAMES-WATER-APRIL",
+        "name": "THAMES WATER",
+        "amount": 40,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "ZURICH-APRIL",
+        "name": "ZURICH",
+        "amount": 15,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "insurance"
+      },
+      {
+        "id": "GAS-APRIL",
+        "name": "GAS",
+        "amount": 30,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "APPLICANE-INSURANCE-APRIL",
+        "name": "APPLICANE INSURANCE",
+        "amount": 25,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "insurance"
+      },
+      {
+        "id": "LIFE-INSURANCE-APRIL",
+        "name": "LIFE INSURANCE",
+        "amount": 15,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "insurance"
+      },
+      {
+        "id": "WORK-TRAVEL-APRIL",
+        "name": "WORK TRAVEL",
+        "amount": 60,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "transport"
+      },
+      {
+        "id": "UBER-APRIL",
+        "name": "UBER",
+        "amount": 20,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "transport"
+      },
+      {
+        "id": "FOOD-APRIL",
+        "name": "FOOD",
+        "amount": 200,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "food"
+      },
+      {
+        "id": "LUNCH-APRIL",
+        "name": "LUNCH",
+        "amount": 70,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "food"
+      },
+      {
+        "id": "MONTHLY-ALLOWANCE-APRIL",
+        "name": "MONTHLY ALLOWANCE",
+        "amount": 280,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "food"
+      },
+      {
+        "id": "SERATO-APRIL",
+        "name": "SERATO",
+        "amount": 10,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "SPLICE-APRIL",
+        "name": "SPLICE",
+        "amount": 10,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "SITE-GROUND-APRIL",
+        "name": "SITE GROUND",
+        "amount": 50,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "DISNEY-PLUS-APRIL",
+        "name": "DISNEY PLUS",
+        "amount": 5,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "NETFLIX-APRIL",
+        "name": "NETFLIX",
+        "amount": 15,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "SPOTIFY-APRIL",
+        "name": "SPOTIFY",
+        "amount": 20,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "MICROSOFT-APRIL",
+        "name": "MICROSOFT",
+        "amount": 8,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "APPLE-ITUNES-APRIL",
+        "name": "APPLE ITUNES",
+        "amount": 12,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "REVOLUT-APRIL",
+        "name": "REVOLUT",
+        "amount": 8,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "JAYDA-APRIL",
+        "name": "JAYDA",
+        "amount": 180,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "childcare"
+      },
+      {
+        "id": "JAYDA-ALLOWANCE-APRIL",
+        "name": "JAYDA ALLOWANCE",
+        "amount": 100,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "childcare"
+      },
+      {
+        "id": "JAYDA-SAVING-2-APRIL",
+        "name": "JAYDA SAVING 2",
+        "amount": 50,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "childcare"
+      },
+      {
+        "id": "AUDIO-GEAR-APRIL",
+        "name": "AUDIO GEAR",
+        "amount": 175,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "entertainment"
+      },
+      {
+        "id": "BARBERS-APRIL",
+        "name": "BARBERS",
+        "amount": 60,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "personal"
+      },
+      {
+        "id": "EMERGENCY-FUNDS-APRIL",
+        "name": "EMERGENCY FUNDS",
+        "amount": 300,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "savings"
+      },
+      {
+        "id": "SINGLE-SAVING-APRIL",
+        "name": "SINGLE SAVING",
+        "amount": 100,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "savings"
+      },
+      {
+        "id": "HOME-DEPOSIT-APRIL",
+        "name": "HOME DEPOSIT",
+        "amount": 700,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "savings"
+      },
+      {
+        "id": "TRADING-212-APRIL",
+        "name": "TRADING 212",
+        "amount": 50,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "investments"
+      }
+    ],
+    "MAY": [
+      {
+        "id": "RENT-MAY",
+        "name": "RENT",
+        "amount": 1110,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "housing"
+      },
+      {
+        "id": "MORTGAGE-MAY",
+        "name": "MORTGAGE",
+        "amount": 825,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "housing"
+      },
+      {
+        "id": "COUNCIL-TAX-MAY",
+        "name": "COUNCIL TAX",
+        "amount": 170,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "housing"
+      },
+      {
+        "id": "EE-MAY",
+        "name": "EE",
+        "amount": 35,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "SKY-MAY",
+        "name": "SKY",
+        "amount": 160,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "ECLECTRICITY-MAY",
+        "name": "ECLECTRICITY",
+        "amount": 70,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "THAMES-WATER-MAY",
+        "name": "THAMES WATER",
+        "amount": 40,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "ZURICH-MAY",
+        "name": "ZURICH",
+        "amount": 15,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "insurance"
+      },
+      {
+        "id": "GAS-MAY",
+        "name": "GAS",
+        "amount": 30,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "APPLICANE-INSURANCE-MAY",
+        "name": "APPLICANE INSURANCE",
+        "amount": 25,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "insurance"
+      },
+      {
+        "id": "LIFE-INSURANCE-MAY",
+        "name": "LIFE INSURANCE",
+        "amount": 15,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "insurance"
+      },
+      {
+        "id": "WORK-TRAVEL-MAY",
+        "name": "WORK TRAVEL",
+        "amount": 60,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "transport"
+      },
+      {
+        "id": "UBER-MAY",
+        "name": "UBER",
+        "amount": 20,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "transport"
+      },
+      {
+        "id": "FOOD-MAY",
+        "name": "FOOD",
+        "amount": 300,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "food"
+      },
+      {
+        "id": "LUNCH-MAY",
+        "name": "LUNCH",
+        "amount": 70,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "food"
+      },
+      {
+        "id": "MONTHLY-ALLOWANCE-MAY",
+        "name": "MONTHLY ALLOWANCE",
+        "amount": 100,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "food"
+      },
+      {
+        "id": "SERATO-MAY",
+        "name": "SERATO",
+        "amount": 10,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "SPLICE-MAY",
+        "name": "SPLICE",
+        "amount": 10,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "SITE-GROUND-MAY",
+        "name": "SITE GROUND",
+        "amount": 50,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "DISNEY-PLUS-MAY",
+        "name": "DISNEY PLUS",
+        "amount": 5,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "NETFLIX-MAY",
+        "name": "NETFLIX",
+        "amount": 15,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "SPOTIFY-MAY",
+        "name": "SPOTIFY",
+        "amount": 20,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "MICROSOFT-MAY",
+        "name": "MICROSOFT",
+        "amount": 6,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "APPLE-ITUNES-MAY",
+        "name": "APPLE ITUNES",
+        "amount": 12,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "REVOLUT-MAY",
+        "name": "REVOLUT",
+        "amount": 8,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "JAYDA-MAY",
+        "name": "JAYDA",
+        "amount": 180,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "childcare"
+      },
+      {
+        "id": "JAYDA-ALLOWANCE-MAY",
+        "name": "JAYDA ALLOWANCE",
+        "amount": 100,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "childcare"
+      },
+      {
+        "id": "JAYDA-SAVING-2-MAY",
+        "name": "JAYDA SAVING 2",
+        "amount": 50,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "childcare"
+      },
+      {
+        "id": "AUDIO-GEAR-MAY",
+        "name": "AUDIO GEAR",
+        "amount": 175,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "entertainment"
+      },
+      {
+        "id": "BARBERS-MAY",
+        "name": "BARBERS",
+        "amount": 60,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "personal"
+      },
+      {
+        "id": "BODY-CARE-MAY",
+        "name": "BODY CARE",
+        "amount": 100,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false
+      },
+      {
+        "id": "EMERGENCY-FUNDS-MAY",
+        "name": "EMERGENCY FUNDS",
+        "amount": 8000,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "savings"
+      },
+      {
+        "id": "SINGLE-SAVING-MAY",
+        "name": "SINGLE SAVING",
+        "amount": 500,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "savings"
+      },
+      {
+        "id": "HOME-DEPOSIT-MAY",
+        "name": "HOME DEPOSIT",
+        "amount": 300,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "savings"
+      },
+      {
+        "id": "TRADING-212-MAY",
+        "name": "TRADING 212",
+        "amount": 50,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "investments"
+      }
+    ],
+    "JUNE": [
+      {
+        "id": "RENT-JUNE",
+        "name": "RENT",
+        "amount": 1175,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "housing"
+      },
+      {
+        "id": "MORTGAGE-JUNE",
+        "name": "MORTGAGE",
+        "amount": 825,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "housing"
+      },
+      {
+        "id": "COUNCIL-TAX-JUNE",
+        "name": "COUNCIL TAX",
+        "amount": 170,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "housing"
+      },
+      {
+        "id": "EE-JUNE",
+        "name": "EE",
+        "amount": 35,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "SKY-JUNE",
+        "name": "SKY",
+        "amount": 160,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "ECLECTRICITY-JUNE",
+        "name": "ECLECTRICITY",
+        "amount": 70,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "THAMES-WATER-JUNE",
+        "name": "THAMES WATER",
+        "amount": 40,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "ZURICH-JUNE",
+        "name": "ZURICH",
+        "amount": 15,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "insurance"
+      },
+      {
+        "id": "GAS-JUNE",
+        "name": "GAS",
+        "amount": 30,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "APPLICANE-INSURANCE-JUNE",
+        "name": "APPLICANE INSURANCE",
+        "amount": 25,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "insurance"
+      },
+      {
+        "id": "LIFE-INSURANCE-JUNE",
+        "name": "LIFE INSURANCE",
+        "amount": 15,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "insurance"
+      },
+      {
+        "id": "WORK-TRAVEL-JUNE",
+        "name": "WORK TRAVEL",
+        "amount": 60,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "transport"
+      },
+      {
+        "id": "UBER-JUNE",
+        "name": "UBER",
+        "amount": 20,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "transport"
+      },
+      {
+        "id": "FOOD-JUNE",
+        "name": "FOOD",
+        "amount": 300,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "food"
+      },
+      {
+        "id": "LUNCH-JUNE",
+        "name": "LUNCH",
+        "amount": 70,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "food"
+      },
+      {
+        "id": "MONTHLY-ALLOWANCE-JUNE",
+        "name": "MONTHLY ALLOWANCE",
+        "amount": 100,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "food"
+      },
+      {
+        "id": "SERATO-JUNE",
+        "name": "SERATO",
+        "amount": 10,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "SPLICE-JUNE",
+        "name": "SPLICE",
+        "amount": 10,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "SITE-GROUND-JUNE",
+        "name": "SITE GROUND",
+        "amount": 50,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "DISNEY-PLUS-JUNE",
+        "name": "DISNEY PLUS",
+        "amount": 5,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "NETFLIX-JUNE",
+        "name": "NETFLIX",
+        "amount": 15,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "SPOTIFY-JUNE",
+        "name": "SPOTIFY",
+        "amount": 20,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "MICROSOFT-JUNE",
+        "name": "MICROSOFT",
+        "amount": 6,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "APPLE-ITUNES-JUNE",
+        "name": "APPLE ITUNES",
+        "amount": 12,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "REVOLUT-JUNE",
+        "name": "REVOLUT",
+        "amount": 8,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "JAYDA-JUNE",
+        "name": "JAYDA",
+        "amount": 180,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "childcare"
+      },
+      {
+        "id": "JAYDA-ALLOWANCE-JUNE",
+        "name": "JAYDA ALLOWANCE",
+        "amount": 100,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "childcare"
+      },
+      {
+        "id": "JAYDA-SAVING-2-JUNE",
+        "name": "JAYDA SAVING 2",
+        "amount": 50,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "childcare"
+      },
+      {
+        "id": "BARBERS-JUNE",
+        "name": "BARBERS",
+        "amount": 60,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "personal"
+      },
+      {
+        "id": "EMERGENCY-FUNDS-JUNE",
+        "name": "EMERGENCY FUNDS",
+        "amount": 600,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "savings"
+      },
+      {
+        "id": "SINGLE-SAVING-JUNE",
+        "name": "SINGLE SAVING",
+        "amount": 100,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "savings"
+      },
+      {
+        "id": "HOME-DEPOSIT-JUNE",
+        "name": "HOME DEPOSIT",
+        "amount": 300,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "savings"
+      },
+      {
+        "id": "TRADING-212-JUNE",
+        "name": "TRADING 212",
+        "amount": 50,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "investments"
+      }
+    ],
+    "JULY": [
+      {
+        "id": "RENT-JULY",
+        "name": "RENT",
+        "amount": 1175,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "housing"
+      },
+      {
+        "id": "MORTGAGE-JULY",
+        "name": "MORTGAGE",
+        "amount": 825,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "housing"
+      },
+      {
+        "id": "COUNCIL-TAX-JULY",
+        "name": "COUNCIL TAX",
+        "amount": 170,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "housing"
+      },
+      {
+        "id": "EE-JULY",
+        "name": "EE",
+        "amount": 35,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "SKY-JULY",
+        "name": "SKY",
+        "amount": 160,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "ECLECTRICITY-JULY",
+        "name": "ECLECTRICITY",
+        "amount": 70,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "THAMES-WATER-JULY",
+        "name": "THAMES WATER",
+        "amount": 40,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "ZURICH-JULY",
+        "name": "ZURICH",
+        "amount": 15,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "insurance"
+      },
+      {
+        "id": "GAS-JULY",
+        "name": "GAS",
+        "amount": 30,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "utilities"
+      },
+      {
+        "id": "APPLICANE-INSURANCE-JULY",
+        "name": "APPLICANE INSURANCE",
+        "amount": 25,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "insurance"
+      },
+      {
+        "id": "LIFE-INSURANCE-JULY",
+        "name": "LIFE INSURANCE",
+        "amount": 15,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "insurance"
+      },
+      {
+        "id": "WORK-TRAVEL-JULY",
+        "name": "WORK TRAVEL",
+        "amount": 60,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "transport"
+      },
+      {
+        "id": "UBER-JULY",
+        "name": "UBER",
+        "amount": 20,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "transport"
+      },
+      {
+        "id": "FOOD-JULY",
+        "name": "FOOD",
+        "amount": 300,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "food"
+      },
+      {
+        "id": "LUNCH-JULY",
+        "name": "LUNCH",
+        "amount": 70,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "food"
+      },
+      {
+        "id": "MONTHLY-ALLOWANCE-JULY",
+        "name": "MONTHLY ALLOWANCE",
+        "amount": 100,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "food"
+      },
+      {
+        "id": "SERATO-JULY",
+        "name": "SERATO",
+        "amount": 10,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "SPLICE-JULY",
+        "name": "SPLICE",
+        "amount": 10,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "SITE-GROUND-JULY",
+        "name": "SITE GROUND",
+        "amount": 50,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "DISNEY-PLUS-JULY",
+        "name": "DISNEY PLUS",
+        "amount": 5,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "NETFLIX-JULY",
+        "name": "NETFLIX",
+        "amount": 15,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "SPOTIFY-JULY",
+        "name": "SPOTIFY",
+        "amount": 20,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "MICROSOFT-JULY",
+        "name": "MICROSOFT",
+        "amount": 6,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "APPLE-ITUNES-JULY",
+        "name": "APPLE ITUNES",
+        "amount": 12,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "REVOLUT-JULY",
+        "name": "REVOLUT",
+        "amount": 8,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "subscriptions"
+      },
+      {
+        "id": "JAYDA-JULY",
+        "name": "JAYDA",
+        "amount": 180,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "childcare"
+      },
+      {
+        "id": "JAYDA-ALLOWANCE-JULY",
+        "name": "JAYDA ALLOWANCE",
+        "amount": 100,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "childcare"
+      },
+      {
+        "id": "JAYDA-SAVING-2-JULY",
+        "name": "JAYDA SAVING 2",
+        "amount": 50,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "childcare"
+      },
+      {
+        "id": "BARBERS-JULY",
+        "name": "BARBERS",
+        "amount": 60,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "personal"
+      },
+      {
+        "id": "EMERGENCY-FUNDS-JULY",
+        "name": "EMERGENCY FUNDS",
+        "amount": 600,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "savings"
+      },
+      {
+        "id": "SINGLE-SAVING-JULY",
+        "name": "SINGLE SAVING",
+        "amount": 100,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "savings"
+      },
+      {
+        "id": "HOME-DEPOSIT-JULY",
+        "name": "HOME DEPOSIT",
+        "amount": 300,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "savings"
+      },
+      {
+        "id": "TRADING-212-JULY",
+        "name": "TRADING 212",
+        "amount": 50,
+        "paid": false,
+        "isSaving": false,
+        "isInvestment": false,
+        "categoryId": "investments"
+      }
+    ]
+  }
+}

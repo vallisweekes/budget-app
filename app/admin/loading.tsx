@@ -1,4 +1,4 @@
-import { Skeleton } from "@/components/Skeleton";
+import { Skeleton } from "@/components/Shared";
 
 export default function Loading() {
 	return (

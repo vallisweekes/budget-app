@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { deleteCategory } from "./actions";
-import ConfirmModal from "@/components/ConfirmModal";
+import { ConfirmModal } from "@/components/Shared";
 
 interface DeleteCategoryButtonProps {
   categoryId: string;

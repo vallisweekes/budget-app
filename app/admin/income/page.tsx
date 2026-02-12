@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowRight, Settings as SettingsIcon } from "lucide-react";
 import { addIncomeAction } from "./actions";
 import IncomeManager from "./IncomeManager";
-import SelectDropdown from "@/components/SelectDropdown";
+import { SelectDropdown } from "@/components/Shared";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { getDefaultBudgetPlanForUser, resolveUserId } from "@/lib/budgetPlans";
@@ -32,14 +32,14 @@ export default async function AdminIncomePage(props: {
 	if (!requestedPlanId) {
 		const fallbackPlan = await getDefaultBudgetPlanForUser({ userId, username: sessionUsername });
 		if (!fallbackPlan) redirect("/budgets/new");
-		redirect(`/admin/income?plan=${encodeURIComponent(fallbackPlan.id)}`);
+		redirect(`/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(fallbackPlan.id)}/income`);
 	}
 
 	const budgetPlan = await prisma.budgetPlan.findUnique({ where: { id: requestedPlanId } });
 	if (!budgetPlan || budgetPlan.userId !== userId) {
 		const fallbackPlan = await getDefaultBudgetPlanForUser({ userId, username: sessionUsername });
 		if (!fallbackPlan) redirect("/budgets/new");
-		redirect(`/admin/income?plan=${encodeURIComponent(fallbackPlan.id)}`);
+		redirect(`/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(fallbackPlan.id)}/income`);
 	}
 
 	const budgetPlanId = budgetPlan.id;
@@ -65,7 +65,7 @@ export default async function AdminIncomePage(props: {
 							</div>
 						</div>
 						<Link
-							href={`/admin/settings?plan=${encodeURIComponent(budgetPlanId)}#budget`}
+							href={`/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(budgetPlanId)}/settings#budget`}
 							className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-slate-900/40 px-4 py-2 text-sm font-semibold text-white hover:bg-white/10 hover:border-white/20 transition"
 						>
 							Open <ArrowRight className="w-4 h-4" />
@@ -114,6 +114,24 @@ export default async function AdminIncomePage(props: {
 								className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all"
 							/>
 						</label>
+						<div className="md:col-span-11 flex flex-col gap-2 md:flex-row md:items-center md:gap-6">
+							<label className="flex items-center gap-2 text-sm text-slate-300 select-none">
+								<input
+									type="checkbox"
+									name="distributeMonths"
+									className="h-4 w-4 rounded border-white/20 bg-slate-900/60 text-amber-500 focus:ring-amber-500"
+								/>
+								Distribute across all months
+							</label>
+							<label className="flex items-center gap-2 text-sm text-slate-300 select-none">
+								<input
+									type="checkbox"
+									name="distributeYears"
+									className="h-4 w-4 rounded border-white/20 bg-slate-900/60 text-amber-500 focus:ring-amber-500"
+								/>
+								Distribute across all years (all budgets)
+							</label>
+						</div>
 						<div className="md:col-span-1 flex items-end">
 							<button
 								type="submit"
