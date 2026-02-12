@@ -1,6 +1,6 @@
 "use client";
 
-import { CreditCard, TrendingDown, ShoppingBag } from "lucide-react";
+import { ShoppingBag } from "lucide-react";
 import type { MonthKey } from "@/types";
 import ExpandableCategory from "./ExpandableCategory";
 import SavingCard from "./SavingCard";
@@ -80,7 +80,12 @@ export default function ViewTabs({
 			{/* All Categories in Grid */}
 			{(debts.length > 0 || categoryData.length > 0) && (
 				<div className="mb-8">
-					<h2 className="text-xl font-semibold mb-4 text-white">Expenses by Category</h2>
+					<div className="flex items-center gap-3 mb-4">
+						<div className="bg-white/10 p-2.5 rounded-xl shadow-md backdrop-blur-sm">
+							<ShoppingBag size={24} className="text-white" />
+						</div>
+						<h2 className="text-xl font-semibold text-white">Expenses by Category</h2>
+					</div>
 					<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 						{/* Loans & Debts Category */}
 						{debts && debts.length > 0 && (
