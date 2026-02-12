@@ -1,4 +1,5 @@
 [
+  { "id": "carnival", "name": "Carnival", "icon": "PartyPopper", "color": "pink", "featured": true },
   { "id": "business", "name": "Business Trip", "icon": "Briefcase", "color": "slate", "featured": true },
   { "id": "childcare", "name": "Childcare", "icon": "Baby", "color": "pink", "featured": true },
   { "id": "custom", "name": "Custom", "icon": "Star", "color": "amber", "featured": true },

@@ -1,19 +1,7 @@
 "use server";
 
-import { saveSettings } from "@/lib/settings/store";
 import { addIncome, updateIncome, removeIncome } from "@/lib/income/store";
 import type { MonthKey } from "@/types";
-
-export async function saveSettingsAction(formData: FormData): Promise<void> {
-	const payDate = Number(formData.get("payDate") || 27);
-	const monthlyAllowance = Number(formData.get("monthlyAllowance") || 0);
-	const savingsBalance = Number(formData.get("savingsBalance") || 0);
-	await saveSettings({
-		payDate: Math.max(1, Math.min(31, payDate)),
-		monthlyAllowance,
-		savingsBalance,
-	});
-}
 
 export async function addIncomeAction(formData: FormData): Promise<void> {
 	const month = String(formData.get("month")) as MonthKey;

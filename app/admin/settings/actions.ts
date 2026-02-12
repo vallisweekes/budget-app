@@ -1,37 +1,45 @@
 "use server";
 
-import { getCategories, saveCategories, CategoryConfig } from "@/lib/categories/store";
-import { getAllExpenses } from "@/lib/expenses/store";
-import crypto from "node:crypto";
+import { getSettings, saveSettings } from "@/lib/settings/store";
 
-export async function addCategory(formData: FormData): Promise<void> {
-  const name = String(formData.get("name") || "").trim();
-  if (!name) return;
-  const icon = String(formData.get("icon") || "").trim();
-  const featured = String(formData.get("featured") || "false") === "true";
+export async function saveSettingsAction(formData: FormData): Promise<void> {
+	const current = await getSettings();
 
-  const list = await getCategories();
-  const id = crypto.randomUUID();
-  const entry: CategoryConfig = { id, name, icon: icon || undefined, featured };
-  await saveCategories([entry, ...list]);
-}
+	const next = { ...current };
 
-export async function deleteCategory(id: string): Promise<{ success: boolean; error?: string }> {
-  const expenses = await getAllExpenses();
-  const hasExpenses = Object.values(expenses).some((monthExpenses) =>
-    monthExpenses.some((expense) => expense.categoryId === id)
-  );
+	if (formData.has("payDate")) {
+		const raw = Number(formData.get("payDate"));
+		const payDate = Number.isFinite(raw) ? raw : 27;
+		next.payDate = Math.max(1, Math.min(31, payDate));
+	}
 
-  if (hasExpenses) {
-    return {
-      success: false,
-      error: "Cannot delete category with existing expenses. Please reassign or delete the expenses first.",
-    };
-  }
+	if (formData.has("monthlyAllowance")) {
+		const raw = Number(formData.get("monthlyAllowance"));
+		next.monthlyAllowance = Number.isFinite(raw) ? raw : 0;
+	}
 
-  const list = await getCategories();
-  const next = list.filter((c) => c.id !== id);
-  await saveCategories(next);
+	if (formData.has("savingsBalance")) {
+		const raw = Number(formData.get("savingsBalance"));
+		next.savingsBalance = Number.isFinite(raw) ? raw : 0;
+	}
 
-  return { success: true };
+	if (formData.has("monthlySavingsContribution")) {
+		const raw = Number(formData.get("monthlySavingsContribution"));
+		next.monthlySavingsContribution = Number.isFinite(raw) ? raw : 0;
+	}
+
+	if (formData.has("monthlyInvestmentContribution")) {
+		const raw = Number(formData.get("monthlyInvestmentContribution"));
+		next.monthlyInvestmentContribution = Number.isFinite(raw) ? raw : 0;
+	}
+
+	if (formData.has("budgetStrategy")) {
+		const value = String(formData.get("budgetStrategy") || "").trim();
+		next.budgetStrategy =
+			value === "zeroBased" || value === "fiftyThirtyTwenty" || value === "payYourselfFirst"
+				? value
+				: undefined;
+	}
+
+	await saveSettings(next);
 }

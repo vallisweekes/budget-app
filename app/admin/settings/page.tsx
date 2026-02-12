@@ -1,173 +1,478 @@
-import { getCategories } from "@/lib/categories/store";
-import { addCategory } from "./actions";
-import { getAllExpenses } from "@/lib/expenses/store";
-import CategoryIcon from "@/components/CategoryIcon";
-import DeleteCategoryButton from "./DeleteCategoryButton";
+import Link from "next/link";
+import { getSettings } from "@/lib/settings/store";
+import { saveSettingsAction } from "./actions";
+import { getBudgetMonthSummary, isMonthKey } from "@/lib/budget/zero-based";
+import { MONTHS } from "@/lib/constants/time";
+import type { MonthKey } from "@/types";
+import { ArrowRight, CalendarDays, Lightbulb, PiggyBank, Tags, Wallet } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminSettingsPage() {
-	const list = await getCategories();
-	const expenses = await getAllExpenses();
-
-	const categoryHasExpenses = new Map<string, number>();
-	Object.values(expenses).forEach((monthExpenses) => {
-		monthExpenses.forEach((expense) => {
-			if (expense.categoryId) {
-				categoryHasExpenses.set(expense.categoryId, (categoryHasExpenses.get(expense.categoryId) || 0) + 1);
+export default async function AdminSettingsPage(props: {
+	searchParams?: Record<string, string | string[] | undefined> | Promise<Record<string, string | string[] | undefined>>;
+}) {
+	const settings = await getSettings();
+	const searchParams = await Promise.resolve(props.searchParams ?? {});
+	const monthParam = searchParams.month;
+	const monthCandidate = Array.isArray(monthParam) ? monthParam[0] : monthParam;
+	const selectedMonth: MonthKey =
+		typeof monthCandidate === "string" && isMonthKey(monthCandidate) ? (monthCandidate as MonthKey) : "JANUARY";
+	const monthSummary = settings.budgetStrategy ? await getBudgetMonthSummary(selectedMonth) : null;
+	const fiftyThirtyTwenty =
+		settings.budgetStrategy === "fiftyThirtyTwenty" && monthSummary
+			? {
+				needsTarget: monthSummary.incomeTotal * 0.5,
+				wantsTarget: monthSummary.incomeTotal * 0.3,
+				savingsDebtTarget: monthSummary.incomeTotal * 0.2,
+				// Approximations for “where your money is going” based on existing data model
+				needsActual: monthSummary.expenseTotal,
+				wantsActual: monthSummary.plannedAllowance,
+				savingsDebtActual:
+					monthSummary.plannedSavings +
+					monthSummary.plannedInvestments +
+					monthSummary.debtPaymentsTotal,
 			}
-		});
-	});
+			: null;
 
-	const categoryColorMap: Record<string, string> = {
-		blue: "from-blue-500 to-blue-600",
-		yellow: "from-yellow-500 to-yellow-600",
-		purple: "from-purple-500 to-purple-600",
-		orange: "from-orange-500 to-orange-600",
-		green: "from-green-500 to-green-600",
-		indigo: "from-indigo-500 to-indigo-600",
-		pink: "from-pink-500 to-pink-600",
-		cyan: "from-cyan-500 to-cyan-600",
-		red: "from-red-500 to-red-600",
-		teal: "from-teal-500 to-teal-600",
-		slate: "from-slate-500 to-slate-600",
-		amber: "from-amber-500 to-amber-600",
-		emerald: "from-emerald-500 to-emerald-600",
-	};
+	const sections = [
+		{
+			id: "budget",
+			title: "Budget",
+			description: "Core settings for your monthly budgeting.",
+		},
+		{
+			id: "organization",
+			title: "Organization",
+			description: "Structure how you group and track spending.",
+		},
+		{
+			id: "more",
+			title: "More",
+			description: "Reserved space for future settings.",
+		},
+	];
 
 	return (
 		<div className="min-h-screen pb-20 bg-gradient-to-br from-blue-950 via-slate-950 to-black">
 			<div className="mx-auto w-full max-w-7xl px-4 py-8">
 				<div className="mb-10">
 					<h1 className="text-4xl font-bold text-white mb-2">Settings</h1>
-					<div className="flex flex-wrap items-center gap-3">
-						<p className="text-slate-400 text-lg">Manage categories (more settings coming soon)</p>
-						<span className="inline-flex items-center rounded-full border border-white/10 bg-slate-900/40 px-3 py-1 text-xs font-medium text-slate-200">
-							Categories
-						</span>
-					</div>
+					<p className="text-slate-400 text-lg">Configure your budget and app options</p>
 				</div>
 
-				<div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/10 p-8 mb-8">
-					<div className="flex items-center gap-3 mb-8">
-						<div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg">
-							<svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-							</svg>
+				<div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+					<aside className="lg:col-span-3">
+						<div className="lg:sticky lg:top-6 bg-slate-800/30 backdrop-blur-xl rounded-3xl border border-white/10 p-4">
+							<p className="text-xs font-semibold text-slate-300 uppercase tracking-wider px-2 pb-2">Sections</p>
+							<nav className="space-y-1">
+								{sections.map((s) => (
+									<a
+										key={s.id}
+										href={`#${s.id}`}
+										className="block rounded-xl px-3 py-2 text-slate-200 hover:bg-white/5 border border-transparent hover:border-white/10 transition"
+									>
+										<div className="text-sm font-semibold">{s.title}</div>
+										<div className="text-xs text-slate-400">{s.description}</div>
+									</a>
+								))}
+							</nav>
 						</div>
-						<div>
-							<h2 className="text-2xl font-bold text-white">Categories</h2>
-							<p className="text-slate-400 text-sm">Create and manage your expense categories</p>
-						</div>
-					</div>
-					<form action={addCategory} className="grid grid-cols-1 md:grid-cols-12 gap-4">
-						<label className="md:col-span-5">
-							<span className="block text-sm font-medium text-slate-300 mb-2">Category Name</span>
-							<input
-								name="name"
-								placeholder="e.g., Groceries, Hobbies"
-								required
-								className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-							/>
-						</label>
-						<label className="md:col-span-4">
-							<span className="block text-sm font-medium text-slate-300 mb-2">Icon Name</span>
-							<input
-								name="icon"
-								placeholder="e.g., ShoppingCart"
-								className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-							/>
-						</label>
-						<label className="md:col-span-2">
-							<span className="block text-sm font-medium text-slate-300 mb-2">Visibility</span>
-							<select
-								name="featured"
-								defaultValue="true"
-								className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all cursor-pointer"
-							>
-								<option value="true">Featured</option>
-								<option value="false">Hidden</option>
-							</select>
-						</label>
-						<div className="md:col-span-1 flex items-end">
-							<button
-								type="submit"
-								className="w-full bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-xl py-3 font-semibold shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all cursor-pointer"
-							>
-								<span className="hidden md:inline">+</span>
-								<span className="md:hidden">Add Category</span>
-							</button>
-						</div>
-					</form>
-				</div>
+					</aside>
 
-				<div className="space-y-6">
-					<div className="flex items-center gap-3 mb-6">
-						<div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-2xl flex items-center justify-center shadow-lg">
-							<svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path
-									strokeLinecap="round"
-									strokeLinejoin="round"
-									strokeWidth={2}
-									d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"
-								/>
-							</svg>
-						</div>
-						<div>
-							<h2 className="text-2xl font-bold text-white">All Categories</h2>
-							<p className="text-slate-400 text-sm">{list.length} categories configured</p>
-						</div>
-					</div>
-
-					<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-						{list.map((c) => {
-							const gradient = categoryColorMap[c.color || "slate"] || "from-slate-500 to-slate-600";
-							const expenseCount = categoryHasExpenses.get(c.id) || 0;
-							const hasExpenses = expenseCount > 0;
-
-							return (
-								<div
-									key={c.id}
-									className="bg-slate-800/40 backdrop-blur-xl rounded-2xl shadow-xl border border-white/10 p-6 hover:border-white/20 transition-all group"
-								>
-									<div className="flex items-start justify-between mb-4">
-										<div
-											className={`w-14 h-14 bg-gradient-to-br ${gradient} rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform`}
-										>
-											<CategoryIcon iconName={c.icon ?? "Circle"} size={28} className="text-white" />
-										</div>
-										<DeleteCategoryButton
-											categoryId={c.id}
-											categoryName={c.name}
-											hasExpenses={hasExpenses}
-											expenseCount={expenseCount}
-										/>
-									</div>
-									<div>
-										<h3 className="font-bold text-lg text-white mb-1">{c.name}</h3>
-										<div className="flex items-center gap-2 flex-wrap">
-											<span
-												className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
-													c.featured
-														? "bg-emerald-500/20 text-emerald-400"
-														: "bg-slate-500/20 text-slate-400"
-												}`}
-											>
-												<span className="w-1.5 h-1.5 rounded-full bg-current"></span>
-												{c.featured ? "Featured" : "Hidden"}
-											</span>
-											{hasExpenses && (
-												<span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-blue-500/20 text-blue-400">
-													<span className="w-1.5 h-1.5 rounded-full bg-current"></span>
-													{expenseCount} expense{expenseCount !== 1 ? "s" : ""}
-												</span>
-											)}
-										</div>
-									</div>
+					<main className="lg:col-span-9 space-y-10">
+						<section id="budget" className="scroll-mt-24">
+							<div className="flex items-center justify-between gap-4 mb-5">
+								<div>
+									<h2 className="text-2xl font-bold text-white">Budget</h2>
+									<p className="text-slate-400 text-sm">Pay date, allocations, and budgeting style.</p>
 								</div>
-							);
-						})}
-					</div>
+								<span className="inline-flex items-center rounded-full border border-white/10 bg-slate-900/40 px-3 py-1 text-xs font-medium text-slate-200">
+									Core
+								</span>
+							</div>
+
+							<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+								<div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/10 p-8 hover:border-white/20 transition-all">
+									<div className="flex items-center gap-3 mb-6">
+										<div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-2xl flex items-center justify-center shadow-lg">
+											<CalendarDays className="w-6 h-6 text-white" />
+										</div>
+										<h3 className="text-xl font-bold text-white">Pay Date</h3>
+									</div>
+									<form action={saveSettingsAction} className="space-y-4">
+										<label className="block">
+											<span className="text-sm font-medium text-slate-400 mb-2 block">Day of Month</span>
+											<input
+												name="payDate"
+												type="number"
+												min={1}
+												max={31}
+												defaultValue={settings.payDate}
+												className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white text-lg font-semibold placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+											/>
+										</label>
+										<button
+											type="submit"
+											className="w-full bg-gradient-to-r from-blue-500 to-cyan-600 text-white rounded-xl py-3 font-semibold shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all cursor-pointer"
+										>
+											Save Pay Date
+										</button>
+									</form>
+								</div>
+
+								<div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/10 p-8 hover:border-white/20 transition-all">
+									<div className="flex items-center gap-3 mb-6">
+										<div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-green-600 rounded-2xl flex items-center justify-center shadow-lg">
+											<Wallet className="w-6 h-6 text-white" />
+										</div>
+										<h3 className="text-xl font-bold text-white">Allocations</h3>
+									</div>
+									<form action={saveSettingsAction} className="space-y-4">
+										<label className="block">
+											<span className="text-sm font-medium text-slate-400 mb-2 block">Monthly Allowance (£)</span>
+											<input
+												name="monthlyAllowance"
+												type="number"
+												step="0.01"
+												defaultValue={settings.monthlyAllowance ?? 0}
+												className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white text-lg font-semibold placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+											/>
+										</label>
+										<label className="block">
+											<span className="text-sm font-medium text-slate-400 mb-2 block">Monthly Savings (£)</span>
+											<input
+												name="monthlySavingsContribution"
+												type="number"
+												step="0.01"
+												defaultValue={settings.monthlySavingsContribution ?? 0}
+												className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white text-lg font-semibold placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+											/>
+										</label>
+										<label className="block">
+											<span className="text-sm font-medium text-slate-400 mb-2 block">Monthly Investments (£)</span>
+											<input
+												name="monthlyInvestmentContribution"
+												type="number"
+												step="0.01"
+												defaultValue={settings.monthlyInvestmentContribution ?? 0}
+												className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white text-lg font-semibold placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+											/>
+										</label>
+										<button
+											type="submit"
+											className="w-full bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl py-3 font-semibold shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all cursor-pointer"
+										>
+											Save Allocations
+										</button>
+									</form>
+								</div>
+
+								<div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/10 p-8 hover:border-white/20 transition-all">
+									<div className="flex items-center gap-3 mb-6">
+										<div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg">
+											<PiggyBank className="w-6 h-6 text-white" />
+										</div>
+										<h3 className="text-xl font-bold text-white">Savings Balance</h3>
+									</div>
+									<form action={saveSettingsAction} className="space-y-4">
+										<label className="block">
+											<span className="text-sm font-medium text-slate-400 mb-2 block">Current Balance (£)</span>
+											<input
+												name="savingsBalance"
+												type="number"
+												step="0.01"
+												defaultValue={settings.savingsBalance ?? 0}
+												className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white text-lg font-semibold placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+											/>
+										</label>
+										<button
+											type="submit"
+											className="w-full bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-xl py-3 font-semibold shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all cursor-pointer"
+										>
+											Save Balance
+										</button>
+									</form>
+								</div>
+							</div>
+
+							<div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+								<div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/10 p-8 hover:border-white/20 transition-all">
+									<div className="flex items-center gap-3 mb-6">
+										<div className="w-12 h-12 bg-gradient-to-br from-pink-500 to-rose-600 rounded-2xl flex items-center justify-center shadow-lg">
+											<Lightbulb className="w-6 h-6 text-white" />
+										</div>
+										<div>
+											<h3 className="text-xl font-bold text-white">Budget Strategy</h3>
+											<p className="text-slate-400 text-sm">Optional. Turn on features like zero-based budgeting.</p>
+										</div>
+									</div>
+									<form action={saveSettingsAction} className="space-y-4">
+										<label className="block">
+											<span className="text-sm font-medium text-slate-400 mb-2 block">Strategy</span>
+											<select
+												name="budgetStrategy"
+												defaultValue={settings.budgetStrategy ?? ""}
+												className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all cursor-pointer"
+											>
+												<option value="">None</option>
+												<option value="zeroBased">Zero-based budgeting (ZBB)</option>
+												<option value="fiftyThirtyTwenty">50/30/20 rule</option>
+												<option value="payYourselfFirst">Pay yourself first</option>
+											</select>
+										</label>
+										<button
+											type="submit"
+											className="w-full bg-gradient-to-r from-pink-500 to-rose-600 text-white rounded-xl py-3 font-semibold shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all cursor-pointer"
+										>
+											Save Strategy
+										</button>
+									</form>
+								</div>
+
+								{settings.budgetStrategy === "zeroBased" && monthSummary && (
+									<div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/10 p-8 hover:border-white/20 transition-all">
+										<div className="flex items-start justify-between gap-4 mb-6">
+											<div>
+												<h3 className="text-xl font-bold text-white">Zero-based leftover</h3>
+												<p className="text-slate-400 text-sm">
+													Assign every £ until leftover is £0.
+												</p>
+											</div>
+											<form method="get" className="flex items-end gap-2">
+												<label className="block">
+													<span className="text-xs font-medium text-slate-400 mb-2 block">Preview month</span>
+													<select
+														name="month"
+														defaultValue={selectedMonth}
+														className="rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all cursor-pointer"
+													>
+														{MONTHS.map((m) => (
+															<option key={m} value={m}>
+																{m}
+															</option>
+														))}
+													</select>
+												</label>
+												<button
+													type="submit"
+													className="rounded-xl border border-white/10 bg-slate-900/40 px-4 py-2 text-sm font-semibold text-white hover:bg-white/10 hover:border-white/20 transition"
+												>
+													View
+												</button>
+											</form>
+										</div>
+
+										<div className="rounded-2xl border border-white/10 bg-slate-900/40 p-5 mb-5">
+											<div className="flex items-center justify-between gap-4">
+												<div>
+													<p className="text-xs uppercase tracking-wider text-slate-400 font-semibold">Leftover to allocate</p>
+													<p className="text-3xl font-extrabold text-white mt-1">£{monthSummary.unallocated.toFixed(2)}</p>
+												</div>
+												<div className="text-right">
+													<p className="text-slate-300 text-sm font-semibold">Tip</p>
+													<p className="text-slate-400 text-sm">Adjust Allowance / Savings / Investments until this is £0.</p>
+												</div>
+											</div>
+											<p className="text-xs text-slate-500 mt-3">
+												Leftover = Income − Expenses − Debt Payments − Allowance − Savings − Investments
+											</p>
+										</div>
+
+										<div className="grid grid-cols-2 gap-3 text-sm">
+											<div className="rounded-xl border border-white/10 bg-slate-900/30 p-4">
+												<p className="text-slate-400">Income</p>
+												<p className="text-white font-bold">£{monthSummary.incomeTotal.toFixed(2)}</p>
+											</div>
+											<div className="rounded-xl border border-white/10 bg-slate-900/30 p-4">
+												<p className="text-slate-400">Expenses</p>
+												<p className="text-white font-bold">£{monthSummary.expenseTotal.toFixed(2)}</p>
+											</div>
+											<div className="rounded-xl border border-white/10 bg-slate-900/30 p-4">
+												<p className="text-slate-400">Debt payments</p>
+												<p className="text-white font-bold">£{monthSummary.debtPaymentsTotal.toFixed(2)}</p>
+											</div>
+											<div className="rounded-xl border border-white/10 bg-slate-900/30 p-4">
+												<p className="text-slate-400">Spending (tracked)</p>
+												<p className="text-white font-bold">£{monthSummary.spendingTotal.toFixed(2)}</p>
+											</div>
+										</div>
+									</div>
+								)}
+
+								{settings.budgetStrategy === "fiftyThirtyTwenty" && monthSummary && fiftyThirtyTwenty && (
+									<div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/10 p-8 hover:border-white/20 transition-all">
+										<div className="flex items-start justify-between gap-4 mb-6">
+											<div>
+												<h3 className="text-xl font-bold text-white">50/30/20 targets</h3>
+												<p className="text-slate-400 text-sm">Simple guideline based on your income for the month.</p>
+											</div>
+											<form method="get" className="flex items-end gap-2">
+												<label className="block">
+													<span className="text-xs font-medium text-slate-400 mb-2 block">Preview month</span>
+													<select
+														name="month"
+														defaultValue={selectedMonth}
+														className="rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all cursor-pointer"
+													>
+														{MONTHS.map((m) => (
+															<option key={m} value={m}>
+																{m}
+															</option>
+														))}
+													</select>
+												</label>
+												<button
+													type="submit"
+													className="rounded-xl border border-white/10 bg-slate-900/40 px-4 py-2 text-sm font-semibold text-white hover:bg-white/10 hover:border-white/20 transition"
+												>
+													View
+												</button>
+											</form>
+										</div>
+
+										<div className="rounded-2xl border border-white/10 bg-slate-900/40 p-5 mb-5">
+											<p className="text-xs uppercase tracking-wider text-slate-400 font-semibold">Income used for targets</p>
+											<p className="text-2xl font-extrabold text-white mt-1">£{monthSummary.incomeTotal.toFixed(2)}</p>
+											<p className="text-xs text-slate-500 mt-2">
+												Needs and wants are approximations until category tagging is added.
+											</p>
+										</div>
+
+										<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+											<div className="rounded-2xl border border-white/10 bg-slate-900/30 p-5">
+												<p className="text-slate-300 font-semibold">Needs (50%)</p>
+												<p className="text-white font-bold mt-1">Target: £{fiftyThirtyTwenty.needsTarget.toFixed(2)}</p>
+												<p className="text-slate-400 text-sm mt-1">Actual (expenses): £{fiftyThirtyTwenty.needsActual.toFixed(2)}</p>
+												<p className="text-slate-500 text-xs mt-1">
+													Delta: £{(fiftyThirtyTwenty.needsActual - fiftyThirtyTwenty.needsTarget).toFixed(2)}
+												</p>
+											</div>
+											<div className="rounded-2xl border border-white/10 bg-slate-900/30 p-5">
+												<p className="text-slate-300 font-semibold">Wants (30%)</p>
+												<p className="text-white font-bold mt-1">Target: £{fiftyThirtyTwenty.wantsTarget.toFixed(2)}</p>
+												<p className="text-slate-400 text-sm mt-1">Actual (allowance): £{fiftyThirtyTwenty.wantsActual.toFixed(2)}</p>
+												<p className="text-slate-500 text-xs mt-1">
+													Delta: £{(fiftyThirtyTwenty.wantsActual - fiftyThirtyTwenty.wantsTarget).toFixed(2)}
+												</p>
+											</div>
+											<div className="rounded-2xl border border-white/10 bg-slate-900/30 p-5">
+												<p className="text-slate-300 font-semibold">Savings/Debt (20%)</p>
+												<p className="text-white font-bold mt-1">Target: £{fiftyThirtyTwenty.savingsDebtTarget.toFixed(2)}</p>
+												<p className="text-slate-400 text-sm mt-1">
+													Actual (savings + investments + debt): £{fiftyThirtyTwenty.savingsDebtActual.toFixed(2)}
+												</p>
+												<p className="text-slate-500 text-xs mt-1">
+													Delta: £{(fiftyThirtyTwenty.savingsDebtActual - fiftyThirtyTwenty.savingsDebtTarget).toFixed(2)}
+												</p>
+											</div>
+										</div>
+									</div>
+								)}
+
+								{settings.budgetStrategy === "payYourselfFirst" && monthSummary && (
+									<div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/10 p-8 hover:border-white/20 transition-all">
+										<div className="flex items-start justify-between gap-4 mb-6">
+											<div>
+												<h3 className="text-xl font-bold text-white">Pay yourself first</h3>
+												<p className="text-slate-400 text-sm">
+													Prioritise savings/investments and debt payments, then spend what’s left.
+												</p>
+											</div>
+											<form method="get" className="flex items-end gap-2">
+												<label className="block">
+													<span className="text-xs font-medium text-slate-400 mb-2 block">Preview month</span>
+													<select
+														name="month"
+														defaultValue={selectedMonth}
+														className="rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all cursor-pointer"
+													>
+														{MONTHS.map((m) => (
+															<option key={m} value={m}>
+																{m}
+															</option>
+														))}
+													</select>
+												</label>
+												<button
+													type="submit"
+													className="rounded-xl border border-white/10 bg-slate-900/40 px-4 py-2 text-sm font-semibold text-white hover:bg-white/10 hover:border-white/20 transition"
+												>
+													View
+												</button>
+											</form>
+										</div>
+
+										<div className="rounded-2xl border border-white/10 bg-slate-900/40 p-5 mb-5">
+											<p className="text-xs uppercase tracking-wider text-slate-400 font-semibold">Left after paying yourself first</p>
+											<p className="text-3xl font-extrabold text-white mt-1">£{monthSummary.unallocated.toFixed(2)}</p>
+											<p className="text-slate-400 text-sm mt-2">
+												Increase Savings/Investments if you want to prioritise future goals.
+											</p>
+										</div>
+
+										<div className="grid grid-cols-2 gap-3 text-sm">
+											<div className="rounded-xl border border-white/10 bg-slate-900/30 p-4">
+												<p className="text-slate-400">Savings (planned)</p>
+												<p className="text-white font-bold">£{monthSummary.plannedSavings.toFixed(2)}</p>
+											</div>
+											<div className="rounded-xl border border-white/10 bg-slate-900/30 p-4">
+												<p className="text-slate-400">Investments (planned)</p>
+												<p className="text-white font-bold">£{monthSummary.plannedInvestments.toFixed(2)}</p>
+											</div>
+											<div className="rounded-xl border border-white/10 bg-slate-900/30 p-4">
+												<p className="text-slate-400">Debt payments</p>
+												<p className="text-white font-bold">£{monthSummary.debtPaymentsTotal.toFixed(2)}</p>
+											</div>
+											<div className="rounded-xl border border-white/10 bg-slate-900/30 p-4">
+												<p className="text-slate-400">Expenses</p>
+												<p className="text-white font-bold">£{monthSummary.expenseTotal.toFixed(2)}</p>
+											</div>
+										</div>
+									</div>
+								)}
+							</div>
+						</section>
+
+						<section id="organization" className="scroll-mt-24">
+							<div className="flex items-center justify-between gap-4 mb-5">
+								<div>
+									<h2 className="text-2xl font-bold text-white">Organization</h2>
+									<p className="text-slate-400 text-sm">Manage categories and grouping options.</p>
+								</div>
+							</div>
+
+							<div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/10 p-8 hover:border-white/20 transition-all">
+								<div className="flex items-center justify-between gap-4">
+									<div className="flex items-center gap-3">
+										<div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center shadow-lg">
+											<Tags className="w-6 h-6 text-white" />
+										</div>
+										<div>
+											<h3 className="text-xl font-bold text-white">Categories</h3>
+											<p className="text-slate-400 text-sm">Create, hide, and delete expense categories.</p>
+										</div>
+									</div>
+									<Link
+										href="/admin/categories"
+										className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-slate-900/40 px-4 py-2 text-sm font-semibold text-white hover:bg-white/10 hover:border-white/20 transition"
+									>
+										Open <ArrowRight className="w-4 h-4" />
+									</Link>
+								</div>
+							</div>
+						</section>
+
+						<section id="more" className="scroll-mt-24">
+							<h2 className="text-2xl font-bold text-white mb-2">More</h2>
+							<p className="text-slate-400 text-sm mb-5">Add new sections here as the app grows.</p>
+							<div className="bg-slate-800/30 backdrop-blur-xl rounded-3xl border border-white/10 p-8">
+								<p className="text-slate-300 font-semibold">Coming soon</p>
+								<p className="text-slate-500 text-sm mt-1">
+									Ideas: currency/locale, rounding rules, export/import, display preferences.
+								</p>
+							</div>
+						</section>
+					</main>
 				</div>
 			</div>
 		</div>
