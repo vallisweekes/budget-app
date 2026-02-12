@@ -1,0 +1,236 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// NextAuth.js models
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id            String       @id @default(cuid())
+  name          String?
+  email         String?      @unique
+  emailVerified DateTime?
+  image         String?
+  phoneNumber   String?      @unique
+  
+  accounts      Account[]
+  sessions      Session[]
+  budgetPlans   BudgetPlan[]
+  
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// Budget Plan - Each user can have multiple budget plans
+model BudgetPlan {
+  id          String   @id @default(cuid())
+  name        String   @default("My Budget")
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Budget plan settings
+  payDate                       Int            @default(27)
+  monthlyAllowance              Decimal        @default(0) @db.Decimal(12, 2)
+  savingsBalance                Decimal        @default(0) @db.Decimal(12, 2)
+  monthlySavingsContribution    Decimal        @default(0) @db.Decimal(12, 2)
+  monthlyInvestmentContribution Decimal        @default(0) @db.Decimal(12, 2)
+  budgetStrategy                BudgetStrategy @default(payYourselfFirst)
+  
+  // Relations
+  categories Category[]
+  expenses   Expense[]
+  income     Income[]
+  debts      Debt[]
+  goals      Goal[]
+  
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  @@index([userId])
+}
+
+model Category {
+  id           String     @id @default(cuid())
+  name         String
+  icon         String?
+  color        String?
+  featured     Boolean    @default(false)
+  
+  budgetPlanId String
+  budgetPlan   BudgetPlan @relation(fields: [budgetPlanId], references: [id], onDelete: Cascade)
+  
+  expenses     Expense[]
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  
+  @@unique([budgetPlanId, name])
+  @@index([budgetPlanId])
+}
+
+model Expense {
+  id           String     @id @default(cuid())
+  name         String
+  amount       Decimal    @db.Decimal(12, 2)
+  paid         Boolean    @default(false)
+  paidAmount   Decimal    @default(0) @db.Decimal(12, 2)
+  month        Int
+  year         Int
+
+  budgetPlanId String
+  budgetPlan   BudgetPlan @relation(fields: [budgetPlanId], references: [id], onDelete: Cascade)
+  
+  categoryId   String?
+  category     Category?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([budgetPlanId, month, year])
+  @@index([categoryId])
+}
+
+model Income {
+  id           String     @id @default(cuid())
+  name         String
+  amount       Decimal    @db.Decimal(12, 2)
+  month        Int
+  year         Int
+  
+  budgetPlanId String
+  budgetPlan   BudgetPlan @relation(fields: [budgetPlanId], references: [id], onDelete: Cascade)
+  
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([budgetPlanId, month, year])
+}
+
+enum DebtType {
+  credit_card
+  loan
+  high_purchase
+  other
+}
+
+model Debt {
+  id                   String         @id @default(cuid())
+  name                 String
+  type                 DebtType
+  initialBalance       Decimal        @db.Decimal(12, 2)
+  currentBalance       Decimal        @db.Decimal(12, 2)
+  amount               Decimal        @db.Decimal(12, 2)
+  paid                 Boolean        @default(false)
+  paidAmount           Decimal        @default(0) @db.Decimal(12, 2)
+  monthlyMinimum       Decimal?       @db.Decimal(12, 2)
+  
+  budgetPlanId         String
+  budgetPlan           BudgetPlan     @relation(fields: [budgetPlanId], references: [id], onDelete: Cascade)
+  
+  // For debts created from expenses
+  sourceType           String?
+  sourceExpenseId      String?
+  sourceMonthKey       String?
+  sourceCategoryId     String?
+  sourceCategoryName   String?
+  sourceExpenseName    String?
+  
+  payments             DebtPayment[]
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  
+  @@index([budgetPlanId])
+}
+
+model DebtPayment {
+  id          String   @id @default(cuid())
+  debtId      String
+  debt        Debt     @relation(fields: [debtId], references: [id], onDelete: Cascade)
+  amount      Decimal  @db.Decimal(12, 2)
+  paidAt      DateTime
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([debtId])
+  @@index([paidAt])
+}
+
+enum GoalType {
+  yearly
+  long_term
+  short_term
+}
+
+enum GoalCategory {
+  debt
+  emergency
+  savings
+  investment
+  other
+}
+
+model Goal {
+  id            String       @id @default(cuid())
+  title         String
+  type          GoalType
+  category      GoalCategory
+  description   String?
+  targetAmount  Decimal?     @db.Decimal(12, 2)
+  currentAmount Decimal?     @default(0) @db.Decimal(12, 2)
+  targetYear    Int?
+  
+  budgetPlanId  String
+  budgetPlan    BudgetPlan   @relation(fields: [budgetPlanId], references: [id], onDelete: Cascade)
+  
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  
+  @@index([budgetPlanId])
+}
+
+enum BudgetStrategy {
+  payYourselfFirst
+  zeroBased
+  fiftyThirtyTwenty
+}
+
+// Removed Settings model - now part of BudgetPlan
+

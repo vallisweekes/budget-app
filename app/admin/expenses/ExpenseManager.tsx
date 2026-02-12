@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useTransition, useMemo } from "react";
+import { useFormStatus } from "react-dom";
 import type { MonthKey } from "@/types";
-import { addExpenseAction, togglePaidAction, removeExpenseAction, applyExpensePaymentAction } from "./actions";
-import { Trash2, Plus, Check, X, ChevronDown, ChevronUp, Search } from "lucide-react";
+import { addExpenseAction, togglePaidAction, updateExpenseAction, removeExpenseAction, applyExpensePaymentAction } from "./actions";
+import { Trash2, Plus, Check, X, ChevronDown, ChevronUp, Search, Pencil } from "lucide-react";
 import CategoryIcon from "@/components/CategoryIcon";
 import ConfirmModal from "@/components/ConfirmModal";
 import { formatCurrency } from "@/lib/helpers/money";
@@ -12,7 +13,7 @@ interface Expense {
   id: string;
   name: string;
   amount: number;
-  paid: boolean;
+  paid?: boolean;
   paidAmount?: number;
   categoryId?: string;
 }
@@ -20,8 +21,8 @@ interface Expense {
 interface Category {
   id: string;
   name: string;
-  icon: string;
-  color: string;
+  icon?: string;
+  color?: string;
 }
 
 interface ExpenseManagerProps {
@@ -35,6 +36,20 @@ function Currency({ value }: { value: number }) {
   return <span>{formatCurrency(value)}</span>;
 }
 
+function SaveExpenseChangesButton() {
+  const { pending } = useFormStatus();
+
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="h-10 px-4 rounded-xl text-white font-semibold shadow-lg hover:shadow-xl transition-all bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-400 hover:to-indigo-500 disabled:opacity-50"
+    >
+      {pending ? "Saving…" : "Save changes"}
+    </button>
+  );
+}
+
 export default function ExpenseManager({ month, year, expenses, categories }: ExpenseManagerProps) {
   const [isPending, startTransition] = useTransition();
   const [showAddForm, setShowAddForm] = useState(false);
@@ -44,6 +59,10 @@ export default function ExpenseManager({ month, year, expenses, categories }: Ex
   const [minAmountFilter, setMinAmountFilter] = useState<number | null>(null);
   const [paymentByExpenseId, setPaymentByExpenseId] = useState<Record<string, string>>({});
   const [expensePendingDelete, setExpensePendingDelete] = useState<Expense | null>(null);
+  const [expensePendingEdit, setExpensePendingEdit] = useState<Expense | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editAmount, setEditAmount] = useState<string>("");
+  const [editCategoryId, setEditCategoryId] = useState<string>("");
 
   // Toggle category collapse
   const toggleCategory = (categoryId: string) => {
@@ -106,6 +125,13 @@ export default function ExpenseManager({ month, year, expenses, categories }: Ex
     setExpensePendingDelete(expense);
   };
 
+  const handleEditClick = (expense: Expense) => {
+    setExpensePendingEdit(expense);
+    setEditName(expense.name);
+    setEditAmount(String(expense.amount));
+    setEditCategoryId(expense.categoryId ?? "");
+  };
+
   const confirmRemove = () => {
     const expense = expensePendingDelete;
     if (!expense) return;
@@ -149,6 +175,115 @@ export default function ExpenseManager({ month, year, expenses, categories }: Ex
           setExpensePendingDelete(null);
         }}
       />
+
+      {/* Edit Expense Modal */}
+      {expensePendingEdit && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
+            onClick={() => {
+              if (!isPending) setExpensePendingEdit(null);
+            }}
+            aria-label="Close dialog"
+          />
+
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="relative w-full max-w-xl rounded-3xl border border-white/10 bg-slate-800/50 backdrop-blur-xl shadow-2xl"
+          >
+            <div className="p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-bold text-white">Edit expense</h2>
+                  <p className="mt-1 text-sm text-slate-300">
+                    Update the name, amount, or category. Payments remain intact.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!isPending) setExpensePendingEdit(null);
+                  }}
+                  className="h-10 w-10 rounded-xl border border-white/10 bg-slate-900/30 text-slate-200 hover:bg-slate-900/50 transition-all"
+                  aria-label="Close"
+                  disabled={isPending}
+                >
+                  <X size={18} className="mx-auto" />
+                </button>
+              </div>
+
+              <form
+                action={updateExpenseAction}
+                className="mt-6 space-y-5"
+              >
+                <input type="hidden" name="month" value={month} />
+                <input type="hidden" name="year" value={year} />
+                <input type="hidden" name="id" value={expensePendingEdit.id} />
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <label className="block md:col-span-2">
+                    <span className="text-sm font-medium text-slate-300 mb-2 block">Expense Name</span>
+                    <input
+                      name="name"
+                      required
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border border-white/10 bg-slate-900/40 text-white placeholder-slate-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/50 focus:outline-none transition-all"
+                      placeholder="e.g., Monthly Rent"
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="text-sm font-medium text-slate-300 mb-2 block">Amount (£)</span>
+                    <input
+                      name="amount"
+                      type="number"
+                      step="0.01"
+                      required
+                      value={editAmount}
+                      onChange={(e) => setEditAmount(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border border-white/10 bg-slate-900/40 text-white placeholder-slate-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/50 focus:outline-none transition-all"
+                      placeholder="0.00"
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="text-sm font-medium text-slate-300 mb-2 block">Category</span>
+                    <select
+                      name="categoryId"
+                      value={editCategoryId}
+                      onChange={(e) => setEditCategoryId(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border border-white/10 bg-slate-900/40 text-white focus:border-purple-500 focus:ring-2 focus:ring-purple-500/50 focus:outline-none transition-all cursor-pointer"
+                    >
+                      <option value="">None (Uncategorized)</option>
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setExpensePendingEdit(null)}
+                    disabled={isPending}
+                    className="h-10 px-4 rounded-xl border border-white/10 bg-slate-900/40 text-slate-200 hover:bg-slate-900/60 transition-all disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+
+                  <SaveExpenseChangesButton />
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Header with Search and Add Button */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
@@ -372,7 +507,7 @@ export default function ExpenseManager({ month, year, expenses, categories }: Ex
             slate: "from-slate-400 to-slate-600",
           };
 
-          const gradient = colorMap[category.color] || colorMap.blue;
+          const gradient = colorMap[category.color ?? "blue"] || colorMap.blue;
           const totalAmount = catExpenses.reduce((sum, e) => sum + e.amount, 0);
           const paidCount = catExpenses.filter((e) => e.paid).length;
           const isCollapsed = collapsedCategories[catId] ?? true;
@@ -392,7 +527,7 @@ export default function ExpenseManager({ month, year, expenses, categories }: Ex
                     <div
                       className={`w-14 h-14 flex items-center justify-center bg-gradient-to-br ${gradient} rounded-2xl shadow-lg`}
                     >
-                      <CategoryIcon iconName={category.icon} size={28} className="text-white" />
+                      <CategoryIcon iconName={category.icon ?? "Circle"} size={28} className="text-white" />
                     </div>
                     <div className="text-left">
                       <h3 className="font-bold text-xl text-white">{category.name}</h3>
@@ -421,6 +556,10 @@ export default function ExpenseManager({ month, year, expenses, categories }: Ex
                 <div className="divide-y divide-white/10">
                   {catExpenses.map((expense) => (
                     <div key={expense.id} className="p-5 hover:bg-slate-900/40 transition-all group">
+                      {(() => {
+                        const isPaid = !!expense.paid;
+
+                        return (
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex-1 min-w-0">
                           <div className="font-semibold text-white text-lg mb-1">{expense.name}</div>
@@ -436,7 +575,7 @@ export default function ExpenseManager({ month, year, expenses, categories }: Ex
                           </div>
 
               {(() => {
-                const paidAmount = expense.paid ? expense.amount : (expense.paidAmount ?? 0);
+                const paidAmount = isPaid ? expense.amount : (expense.paidAmount ?? 0);
                 const remaining = Math.max(0, expense.amount - paidAmount);
                 return (
                   <div className="mt-3 flex flex-wrap items-end gap-3">
@@ -492,13 +631,13 @@ export default function ExpenseManager({ month, year, expenses, categories }: Ex
                             onClick={() => handleTogglePaid(expense.id)}
                             disabled={isPending}
                             className={`h-10 min-w-[104px] px-4 rounded-xl font-medium transition-all cursor-pointer shadow-md hover:shadow-lg hover:scale-[1.02] flex items-center justify-center gap-2 ${
-                              expense.paid
+                              isPaid
                                 ? "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"
                                 : "bg-red-500/20 text-red-400 hover:bg-red-500/30"
                             }`}
-                            aria-label={expense.paid ? "Mark as unpaid" : "Mark as paid"}
+                            aria-label={isPaid ? "Mark as unpaid" : "Mark as paid"}
                           >
-                            {expense.paid ? (
+                            {isPaid ? (
                               <>
                                 <Check size={18} />
                                 <span>Paid</span>
@@ -506,6 +645,16 @@ export default function ExpenseManager({ month, year, expenses, categories }: Ex
                             ) : (
                               <span>Unpaid</span>
                             )}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleEditClick(expense)}
+                            disabled={isPending}
+                            className="h-10 w-10 rounded-xl hover:bg-purple-500/20 text-purple-200 transition-all cursor-pointer hover:scale-[1.05] flex items-center justify-center"
+                            title="Edit expense"
+                          >
+                            <Pencil size={18} />
                           </button>
 
                           <button
@@ -519,6 +668,8 @@ export default function ExpenseManager({ month, year, expenses, categories }: Ex
                           </button>
                         </div>
                       </div>
+                        );
+                      })()}
                     </div>
                   ))}
                 </div>
@@ -563,6 +714,10 @@ export default function ExpenseManager({ month, year, expenses, categories }: Ex
             <div className="divide-y divide-white/10">
               {uncategorized.map((expense) => (
                 <div key={expense.id} className="p-5 hover:bg-slate-900/40 transition-all group">
+                  {(() => {
+                    const isPaid = !!expense.paid;
+
+                    return (
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
                       <div className="font-semibold text-white text-lg mb-1">{expense.name}</div>
@@ -578,7 +733,7 @@ export default function ExpenseManager({ month, year, expenses, categories }: Ex
                       </div>
 
             {(() => {
-              const paidAmount = expense.paid ? expense.amount : (expense.paidAmount ?? 0);
+              const paidAmount = isPaid ? expense.amount : (expense.paidAmount ?? 0);
               const remaining = Math.max(0, expense.amount - paidAmount);
               return (
                 <div className="mt-3 flex flex-wrap items-end gap-3">
@@ -634,13 +789,13 @@ export default function ExpenseManager({ month, year, expenses, categories }: Ex
                         onClick={() => handleTogglePaid(expense.id)}
                         disabled={isPending}
                         className={`h-10 min-w-[104px] px-4 rounded-xl font-medium transition-all cursor-pointer shadow-md hover:shadow-lg hover:scale-[1.02] flex items-center justify-center gap-2 ${
-                          expense.paid
+                          isPaid
                             ? "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"
                             : "bg-red-500/20 text-red-400 hover:bg-red-500/30"
                         }`}
-                        aria-label={expense.paid ? "Mark as unpaid" : "Mark as paid"}
+                        aria-label={isPaid ? "Mark as unpaid" : "Mark as paid"}
                       >
-                        {expense.paid ? (
+                        {isPaid ? (
                           <>
                             <Check size={18} />
                             <span>Paid</span>
@@ -648,6 +803,16 @@ export default function ExpenseManager({ month, year, expenses, categories }: Ex
                         ) : (
                           <span>Unpaid</span>
                         )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleEditClick(expense)}
+                        disabled={isPending}
+                        className="h-10 w-10 rounded-xl hover:bg-purple-500/20 text-purple-200 transition-all cursor-pointer hover:scale-[1.05] flex items-center justify-center"
+                        title="Edit expense"
+                      >
+                        <Pencil size={18} />
                       </button>
 
                       <button
@@ -661,6 +826,8 @@ export default function ExpenseManager({ month, year, expenses, categories }: Ex
                       </button>
                     </div>
                   </div>
+                    );
+                  })()}
                 </div>
               ))}
             </div>

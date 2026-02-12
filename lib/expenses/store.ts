@@ -48,6 +48,52 @@ export async function addExpense(month: MonthKey, item: Omit<ExpenseItem, "id"> 
   return created;
 }
 
+export async function updateExpense(
+  month: MonthKey,
+  id: string,
+  updates: Partial<Pick<ExpenseItem, "name" | "amount">> & { categoryId?: string | null }
+): Promise<ExpenseItem | null> {
+  const data = await getAllExpenses();
+  const list = data[month];
+  const idx = list.findIndex((e) => e.id === id);
+  if (idx < 0) return null;
+
+  const existing = list[idx];
+  const nextName = (updates.name ?? existing.name).trim();
+  const nextAmount = updates.amount ?? existing.amount;
+  const nextCategoryId = updates.categoryId;
+
+  if (!nextName) return null;
+  if (!Number.isFinite(nextAmount) || nextAmount < 0) return null;
+
+  const existingPaidAmount = existing.paidAmount ?? 0;
+  let nextPaidAmount = existingPaidAmount;
+
+  // If it was marked fully paid, keep it fully paid after amount edits.
+  if (existing.paid) {
+    nextPaidAmount = nextAmount;
+  } else {
+    nextPaidAmount = Math.min(existingPaidAmount, nextAmount);
+  }
+
+  const nextPaid = nextPaidAmount >= nextAmount && nextAmount > 0;
+  if (nextPaid) nextPaidAmount = nextAmount;
+
+  const updated: ExpenseItem = {
+    ...existing,
+    name: nextName,
+    amount: nextAmount,
+    categoryId:
+      nextCategoryId === undefined ? existing.categoryId : nextCategoryId ? nextCategoryId : undefined,
+    paidAmount: nextPaidAmount,
+    paid: nextPaid,
+  };
+
+  list[idx] = updated;
+  await writeJson(filePath, data);
+  return updated;
+}
+
 export async function toggleExpensePaid(month: MonthKey, id: string): Promise<void> {
   const data = await getAllExpenses();
   const list = data[month];

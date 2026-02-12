@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import {
   addExpense,
   toggleExpensePaid,
+  updateExpense,
   removeExpense,
   applyExpensePayment,
   setExpensePaymentAmount,
@@ -59,6 +60,38 @@ export async function togglePaidAction(month: MonthKey, id: string): Promise<voi
       remainingAmount: remaining,
     });
   }
+  revalidatePath("/");
+  revalidatePath("/admin/expenses");
+  revalidatePath("/admin/debts");
+}
+
+export async function updateExpenseAction(formData: FormData): Promise<void> {
+  const month = String(formData.get("month")) as MonthKey;
+  const id = String(formData.get("id") || "");
+  const name = String(formData.get("name") || "").trim();
+  const amount = Number(formData.get("amount") || 0);
+  const categoryRaw = formData.get("categoryId");
+  const categoryString = categoryRaw == null ? undefined : String(categoryRaw);
+  const categoryId = categoryString === undefined ? undefined : categoryString.trim() ? categoryString.trim() : null;
+  const year = Number(formData.get("year") || 0) || undefined;
+  if (!month || !id || !name) return;
+
+  const updated = await updateExpense(month, id, { name, amount, categoryId });
+  if (!updated) return;
+
+  const categories = await getCategories();
+  const category = updated.categoryId ? categories.find((c) => c.id === updated.categoryId) : undefined;
+  const remaining = Math.max(0, updated.amount - (updated.paidAmount ?? 0));
+  upsertExpenseDebt({
+    expenseId: updated.id,
+    monthKey: month,
+    year,
+    categoryId: updated.categoryId,
+    categoryName: category?.name,
+    expenseName: updated.name,
+    remainingAmount: remaining,
+  });
+
   revalidatePath("/");
   revalidatePath("/admin/expenses");
   revalidatePath("/admin/debts");

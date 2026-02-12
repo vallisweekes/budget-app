@@ -3,14 +3,66 @@
 import { useState } from "react";
 import { MONTHS } from "@/lib/constants/time";
 import type { MonthKey } from "@/types";
+import type { ExpensesByMonth } from "@/types";
+import type { CategoryConfig } from "@/lib/categories/store";
 import ExpenseManager from "./ExpenseManager";
+import { useGetCategoriesQuery, useGetExpensesQuery } from "@/lib/redux/api/bffApi";
 
 interface ExpensesPageClientProps {
-  expenses: Record<string, any[]>;
-  categories: any[];
+  expenses: ExpensesByMonth;
+  categories: CategoryConfig[];
 }
 
 const YEARS = [2026, 2027, 2028, 2029, 2030, 2031, 2032, 2033, 2034, 2035];
+
+const monthToNumber: Record<MonthKey, number> = {
+  "JANUARY": 1,
+  "FEBURARY": 2,
+  "MARCH": 3,
+  "APRIL": 4,
+  "MAY": 5,
+  "JUNE": 6,
+  "JULY": 7,
+  "AUGUST ": 8,
+  "SEPTEMBER": 9,
+  "OCTOBER": 10,
+  "NOVEMBER": 11,
+  "DECEMBER": 12,
+};
+
+function BackendStatus({ month, year }: { month: MonthKey; year: number }) {
+  const monthNumber = monthToNumber[month];
+  const categoriesQuery = useGetCategoriesQuery();
+  const expensesQuery = useGetExpensesQuery({ month: monthNumber, year });
+
+  const isLoading = categoriesQuery.isLoading || expensesQuery.isLoading;
+  const isError = categoriesQuery.isError || expensesQuery.isError;
+
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-2">
+      <span className="text-xs text-slate-400">Backend (Neon/Prisma):</span>
+      {isLoading ? (
+        <span className="text-xs px-2 py-1 rounded-lg border border-white/10 bg-slate-900/40 text-slate-200">
+          Checking…
+        </span>
+      ) : isError ? (
+        <span className="text-xs px-2 py-1 rounded-lg border border-red-400/20 bg-red-500/10 text-red-200">
+          Not connected
+        </span>
+      ) : (
+        <span className="text-xs px-2 py-1 rounded-lg border border-emerald-400/20 bg-emerald-500/10 text-emerald-200">
+          Connected
+        </span>
+      )}
+
+      {!isLoading && !isError && (
+        <span className="text-xs text-slate-400">
+          {expensesQuery.data?.length ?? 0} expenses · {categoriesQuery.data?.length ?? 0} categories
+        </span>
+      )}
+    </div>
+  );
+}
 
 export default function ExpensesPageClient({ expenses, categories }: ExpensesPageClientProps) {
   const [selectedYear, setSelectedYear] = useState<number>(2026);
@@ -73,6 +125,9 @@ export default function ExpensesPageClient({ expenses, categories }: ExpensesPag
           <h3 className="text-2xl font-bold text-white">
             {selectedMonth} {selectedYear}
           </h3>
+          <div className="mt-2">
+            <BackendStatus month={selectedMonth} year={selectedYear} />
+          </div>
         </div>
 
         {/* Expense Manager */}
