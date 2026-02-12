@@ -7,6 +7,7 @@ import DonutProgress from "@/components/DonutProgress";
 import BarChartMini from "@/components/BarChartMini";
 import CategoryGrid from "@/components/CategoryGrid";
 import ConfirmModal from "@/components/ConfirmModal";
+import SelectDropdown from "@/components/SelectDropdown";
 import categoriesData from "@/data/categories.json";
 import { MONTHS } from "@/lib/constants/time";
 import { formatCurrency } from "@/lib/helpers/money";
@@ -143,11 +144,14 @@ export default function BudgetPage() {
         <div className="col-span-2 flex items-end gap-3">
           <div className="flex-1">
             <span className="block text-sm font-medium">Month</span>
-            <select value={month} onChange={(e) => setMonth(e.target.value as any)} className="mt-1 w-full rounded border p-2">
-              {MONTHS.map((m) => (
-                <option key={m} value={m}>{m}</option>
-              ))}
-            </select>
+			<SelectDropdown
+				variant="light"
+				value={month}
+				onValueChange={(v) => setMonth(v as any)}
+				options={MONTHS.map((m) => ({ value: m, label: m }))}
+				className="mt-1"
+				buttonClassName="rounded border p-2"
+			/>
           </div>
           <div className="text-sm text-zinc-600">Editing values for selected month</div>
         </div>

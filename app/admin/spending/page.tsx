@@ -5,6 +5,11 @@ import { getSettings } from "@/lib/settings/store";
 import SpendingTab from "@/app/components/SpendingTab";
 import SpendingInsights from "@/app/components/SpendingInsights";
 import SpendingCharts from "@/app/components/SpendingCharts";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
+import { getDefaultBudgetPlanForUser, resolveUserId } from "@/lib/budgetPlans";
+import { prisma } from "@/lib/prisma";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
@@ -28,9 +33,39 @@ function currentMonth(): typeof MONTHS[number] {
 	return map[mIdx];
 }
 
-export default async function SpendingPage() {
+export default async function SpendingPage(props: {
+	searchParams?: Record<string, string | string[] | undefined> | Promise<Record<string, string | string[] | undefined>>;
+}) {
+	const session = await getServerSession(authOptions);
+	const sessionUser = session?.user;
+	const sessionUsername = sessionUser?.username ?? sessionUser?.name;
+	if (!sessionUser || !sessionUsername) redirect("/");
+
+	const searchParams = await Promise.resolve(props.searchParams ?? {});
+	const planParam = searchParams.plan;
+	const planCandidate = Array.isArray(planParam) ? planParam[0] : planParam;
+	let requestedPlanId = typeof planCandidate === "string" ? planCandidate.trim() : "";
+	if (requestedPlanId === "undefined" || requestedPlanId === "null") requestedPlanId = "";
+
+	const userId = await resolveUserId({ userId: sessionUser.id, username: sessionUsername });
+
+	if (!requestedPlanId) {
+		const fallbackPlan = await getDefaultBudgetPlanForUser({ userId, username: sessionUsername });
+		if (!fallbackPlan) redirect("/budgets/new");
+		redirect(`/admin/spending?plan=${encodeURIComponent(fallbackPlan.id)}`);
+	}
+
+	const budgetPlan = await prisma.budgetPlan.findUnique({ where: { id: requestedPlanId } });
+	if (!budgetPlan || budgetPlan.userId !== userId) {
+		const fallbackPlan = await getDefaultBudgetPlanForUser({ userId, username: sessionUsername });
+		if (!fallbackPlan) redirect("/budgets/new");
+		redirect(`/admin/spending?plan=${encodeURIComponent(fallbackPlan.id)}`);
+	}
+
+	const budgetPlanId = budgetPlan.id;
+	if (!budgetPlanId) redirect("/budgets/new");
 	const month = currentMonth();
-	const debts = getAllDebts();
+	const debts = getAllDebts(budgetPlanId).filter((d) => d.sourceType !== "expense");
 	const spending = await getSpendingForMonth(month);
 	const allowanceStats = await getAllowanceStats(month);
 	const settings = await getSettings();
@@ -83,7 +118,7 @@ export default async function SpendingPage() {
 					</div>
 				)}
 
-				<SpendingTab month={month} debts={debts} spending={spending} />
+				<SpendingTab budgetPlanId={budgetPlanId} month={month} debts={debts} spending={spending} />
 			</div>
 		</div>
 	);

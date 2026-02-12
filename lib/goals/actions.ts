@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { addGoal, updateGoal, deleteGoal } from "./store";
 
 export async function createGoal(formData: FormData) {
+  const budgetPlanId = String(formData.get("budgetPlanId") ?? "").trim();
   const title = formData.get("title") as string;
   const type = formData.get("type") as "yearly" | "long-term";
   const category = formData.get("category") as "debt" | "savings" | "emergency" | "investment" | "other";
@@ -15,8 +16,11 @@ export async function createGoal(formData: FormData) {
   if (!title || !type || !category) {
     throw new Error("Invalid input");
   }
+  if (!budgetPlanId) {
+    throw new Error("Missing budgetPlanId");
+  }
 
-  addGoal({
+  addGoal(budgetPlanId, {
     title,
     type,
     category,
@@ -26,11 +30,12 @@ export async function createGoal(formData: FormData) {
     description,
   });
 
-  revalidatePath("/admin/goals");
+  revalidatePath(`/admin/goals?plan=${encodeURIComponent(budgetPlanId)}`);
   revalidatePath("/");
 }
 
 export async function updateGoalAction(id: string, formData: FormData) {
+  const budgetPlanId = String(formData.get("budgetPlanId") ?? "").trim();
   const title = formData.get("title") as string;
   const targetAmount = formData.get("targetAmount") ? parseFloat(formData.get("targetAmount") as string) : undefined;
   const currentAmount = formData.get("currentAmount") ? parseFloat(formData.get("currentAmount") as string) : undefined;
@@ -39,20 +44,26 @@ export async function updateGoalAction(id: string, formData: FormData) {
   if (!title) {
     throw new Error("Invalid input");
   }
+  if (!budgetPlanId) {
+    throw new Error("Missing budgetPlanId");
+  }
 
-  updateGoal(id, {
+  updateGoal(budgetPlanId, id, {
     title,
     targetAmount,
     currentAmount,
     description,
   });
 
-  revalidatePath("/admin/goals");
+  revalidatePath(`/admin/goals?plan=${encodeURIComponent(budgetPlanId)}`);
   revalidatePath("/");
 }
 
-export async function deleteGoalAction(id: string) {
-  deleteGoal(id);
-  revalidatePath("/admin/goals");
+export async function deleteGoalAction(budgetPlanId: string, id: string) {
+  if (!budgetPlanId) {
+    throw new Error("Missing budgetPlanId");
+  }
+  deleteGoal(budgetPlanId, id);
+  revalidatePath(`/admin/goals?plan=${encodeURIComponent(budgetPlanId)}`);
   revalidatePath("/");
 }

@@ -2,6 +2,7 @@
 
 import { getCategories, saveCategories, CategoryConfig } from "@/lib/categories/store";
 import { getAllExpenses } from "@/lib/expenses/store";
+import { listBudgetDataPlanIds } from "@/lib/storage/listBudgetDataPlanIds";
 import crypto from "node:crypto";
 
 export async function addCategory(formData: FormData): Promise<void> {
@@ -17,11 +18,18 @@ export async function addCategory(formData: FormData): Promise<void> {
 }
 
 export async function deleteCategory(id: string): Promise<{ success: boolean; error?: string }> {
-  // Check if category is used in any expenses
-  const expenses = await getAllExpenses();
-  const hasExpenses = Object.values(expenses).some(monthExpenses => 
-    monthExpenses.some(expense => expense.categoryId === id)
-  );
+  // Categories are global; check usage across all budget data directories.
+  const planIds = await listBudgetDataPlanIds();
+  const hasExpenses = await (async () => {
+    for (const planId of planIds) {
+      const expenses = await getAllExpenses(planId);
+      const used = Object.values(expenses).some((monthExpenses) =>
+        monthExpenses.some((expense) => expense.categoryId === id)
+      );
+      if (used) return true;
+    }
+    return false;
+  })();
 
   if (hasExpenses) {
     return { 

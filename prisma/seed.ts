@@ -9,6 +9,53 @@ const prisma = new PrismaClient();
 async function main() {
   console.log("🌱 Starting database seed...\n");
 
+  // 0. Seed default user + budget plan
+  console.log("👤 Seeding default user + budget plan...");
+  const settingsData = JSON.parse(
+    await fs.readFile(path.join(process.cwd(), "data", "settings.json"), "utf-8")
+  );
+
+  const defaultUsername = "vallis";
+  const defaultEmail = "vallis@example.com";
+  const user = await prisma.user.upsert({
+    where: { email: defaultEmail },
+    update: {},
+    create: {
+      name: defaultUsername,
+      email: defaultEmail,
+    },
+  });
+
+  const existingPlan = await prisma.budgetPlan.findFirst({
+    where: { userId: user.id, name: "personal" },
+  });
+  const budgetPlan = existingPlan
+    ? await prisma.budgetPlan.update({
+        where: { id: existingPlan.id },
+        data: {
+          payDate: settingsData.payDate,
+          monthlyAllowance: String(settingsData.monthlyAllowance ?? 0),
+          savingsBalance: String(settingsData.savingsBalance ?? 0),
+          monthlySavingsContribution: String(settingsData.monthlySavingsContribution ?? 0),
+          monthlyInvestmentContribution: String(settingsData.monthlyInvestmentContribution ?? 0),
+          budgetStrategy: settingsData.budgetStrategy,
+        },
+      })
+    : await prisma.budgetPlan.create({
+        data: {
+          name: "personal",
+          userId: user.id,
+          payDate: settingsData.payDate,
+          monthlyAllowance: String(settingsData.monthlyAllowance ?? 0),
+          savingsBalance: String(settingsData.savingsBalance ?? 0),
+          monthlySavingsContribution: String(settingsData.monthlySavingsContribution ?? 0),
+          monthlyInvestmentContribution: String(settingsData.monthlyInvestmentContribution ?? 0),
+          budgetStrategy: settingsData.budgetStrategy,
+        },
+      });
+  console.log(`  ✓ User: ${user.name} (${user.id})`);
+  console.log(`  ✓ BudgetPlan: ${budgetPlan.name} (${budgetPlan.id})`);
+
   // 1. Seed Categories
   console.log("📁 Seeding categories...");
   const categoriesData = JSON.parse(
@@ -19,7 +66,12 @@ async function main() {
   
   for (const cat of categoriesData) {
     const category = await prisma.category.upsert({
-      where: { name: cat.name },
+      where: {
+				budgetPlanId_name: {
+					budgetPlanId: budgetPlan.id,
+					name: cat.name,
+				},
+			},
       update: {
         icon: cat.icon,
         color: cat.color,
@@ -31,41 +83,14 @@ async function main() {
         icon: cat.icon,
         color: cat.color,
         featured: cat.featured || false,
+				budgetPlanId: budgetPlan.id,
       },
     });
     categoryMap.set(cat.id, category.id);
     console.log(`  ✓ ${category.name}`);
   }
 
-  // 2. Seed Settings
-  console.log("\n⚙️  Seeding settings...");
-  const settingsData = JSON.parse(
-    await fs.readFile(path.join(process.cwd(), "data", "settings.json"), "utf-8")
-  );
-
-  await prisma.settings.upsert({
-    where: { id: "default" },
-    update: {
-      payDate: settingsData.payDate,
-      monthlyAllowance: settingsData.monthlyAllowance,
-      savingsBalance: settingsData.savingsBalance,
-      monthlySavingsContribution: settingsData.monthlySavingsContribution,
-      monthlyInvestmentContribution: settingsData.monthlyInvestmentContribution,
-      budgetStrategy: settingsData.budgetStrategy,
-    },
-    create: {
-      id: "default",
-      payDate: settingsData.payDate,
-      monthlyAllowance: settingsData.monthlyAllowance,
-      savingsBalance: settingsData.savingsBalance,
-      monthlySavingsContribution: settingsData.monthlySavingsContribution,
-      monthlyInvestmentContribution: settingsData.monthlyInvestmentContribution,
-      budgetStrategy: settingsData.budgetStrategy,
-    },
-  });
-  console.log("  ✓ Settings configured");
-
-  // 3. Seed Expenses
+  // 2. Seed Expenses
   console.log("\n💰 Seeding expenses...");
   const expensesData = JSON.parse(
     await fs.readFile(path.join(process.cwd(), "data", "expenses.monthly.json"), "utf-8")
@@ -88,7 +113,8 @@ async function main() {
           paidAmount: expense.paidAmount || 0,
           month: monthIndex,
           year: currentYear,
-          categoryId: expense.categoryId || null,
+				budgetPlanId: budgetPlan.id,
+				categoryId: expense.categoryId ? (categoryMap.get(expense.categoryId) ?? null) : null,
         },
         create: {
           id: expense.id,
@@ -98,7 +124,8 @@ async function main() {
           paidAmount: expense.paidAmount || 0,
           month: monthIndex,
           year: currentYear,
-          categoryId: expense.categoryId || null,
+				budgetPlanId: budgetPlan.id,
+				categoryId: expense.categoryId ? (categoryMap.get(expense.categoryId) ?? null) : null,
         },
       });
       expenseCount++;
@@ -106,7 +133,7 @@ async function main() {
   }
   console.log(`  ✓ ${expenseCount} expenses`);
 
-  // 4. Seed Income
+  // 3. Seed Income
   console.log("\n💵 Seeding income...");
   const incomeData = JSON.parse(
     await fs.readFile(path.join(process.cwd(), "data", "income.monthly.json"), "utf-8")
@@ -126,6 +153,7 @@ async function main() {
           amount: income.amount,
           month: monthIndex,
           year: currentYear,
+				budgetPlanId: budgetPlan.id,
         },
         create: {
           id: income.id,
@@ -133,6 +161,7 @@ async function main() {
           amount: income.amount,
           month: monthIndex,
           year: currentYear,
+				budgetPlanId: budgetPlan.id,
         },
       });
       incomeCount++;
@@ -140,7 +169,7 @@ async function main() {
   }
   console.log(`  ✓ ${incomeCount} income entries`);
 
-  // 5. Seed Debts
+  // 4. Seed Debts
   console.log("\n💳 Seeding debts...");
   const debtsData = JSON.parse(
     await fs.readFile(path.join(process.cwd(), "data", "debts.json"), "utf-8")
@@ -158,6 +187,7 @@ async function main() {
         paid: debt.paid,
         paidAmount: debt.paidAmount || 0,
         monthlyMinimum: debt.monthlyMinimum || null,
+			budgetPlanId: budgetPlan.id,
         sourceType: debt.sourceType || null,
         sourceExpenseId: debt.sourceExpenseId || null,
         sourceMonthKey: debt.sourceMonthKey || null,
@@ -175,6 +205,7 @@ async function main() {
         paid: debt.paid,
         paidAmount: debt.paidAmount || 0,
         monthlyMinimum: debt.monthlyMinimum || null,
+			budgetPlanId: budgetPlan.id,
         sourceType: debt.sourceType || null,
         sourceExpenseId: debt.sourceExpenseId || null,
         sourceMonthKey: debt.sourceMonthKey || null,
@@ -187,7 +218,7 @@ async function main() {
   }
   console.log(`  ✓ ${debtsData.length} debts`);
 
-  // 6. Seed Goals
+  // 5. Seed Goals
   console.log("\n🎯 Seeding goals...");
   const goalsData = JSON.parse(
     await fs.readFile(path.join(process.cwd(), "data", "goals.json"), "utf-8")
@@ -207,6 +238,7 @@ async function main() {
         targetAmount: goal.targetAmount || null,
         currentAmount: goal.currentAmount || 0,
         targetYear: goal.targetYear || null,
+			budgetPlanId: budgetPlan.id,
       },
       create: {
         id: goal.id,
@@ -217,6 +249,7 @@ async function main() {
         targetAmount: goal.targetAmount || null,
         currentAmount: goal.currentAmount || 0,
         targetYear: goal.targetYear || null,
+			budgetPlanId: budgetPlan.id,
         createdAt: goal.createdAt ? new Date(goal.createdAt) : new Date(),
       },
     });

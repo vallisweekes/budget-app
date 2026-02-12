@@ -5,6 +5,7 @@ import { Edit2, Trash2, Check, X, Target, TrendingUp, Shield, PiggyBank } from "
 import { updateGoalAction, deleteGoalAction } from "@/lib/goals/actions";
 import { formatCurrency } from "@/lib/helpers/money";
 import ConfirmModal from "@/components/ConfirmModal";
+import { useSearchParams } from "next/navigation";
 
 interface Goal {
   id: string;
@@ -43,6 +44,8 @@ function Currency({ value }: { value: number }) {
 
 export default function GoalCard({ goal }: GoalCardProps) {
   const [isPending, startTransition] = useTransition();
+  const searchParams = useSearchParams();
+  const budgetPlanId = searchParams.get("plan") ?? "";
   const [isEditing, setIsEditing] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [editTitle, setEditTitle] = useState(goal.title);
@@ -59,6 +62,7 @@ export default function GoalCard({ goal }: GoalCardProps) {
   const handleSave = () => {
     startTransition(async () => {
       const formData = new FormData();
+		  formData.append("budgetPlanId", budgetPlanId);
       formData.append("title", editTitle);
       if (editTargetAmount) formData.append("targetAmount", editTargetAmount);
       if (editCurrentAmount) formData.append("currentAmount", editCurrentAmount);
@@ -83,7 +87,7 @@ export default function GoalCard({ goal }: GoalCardProps) {
 
   const confirmDelete = () => {
     startTransition(async () => {
-      await deleteGoalAction(goal.id);
+      await deleteGoalAction(budgetPlanId, goal.id);
     });
   };
 

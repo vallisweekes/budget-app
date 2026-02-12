@@ -2,7 +2,7 @@ import { MONTHS } from "@/lib/constants/time";
 import { getAllExpenses } from "@/lib/expenses/store";
 import { getAllIncome } from "@/lib/income/store";
 import { getCategories } from "@/lib/categories/store";
-import { getAllDebts, getTotalDebtBalance } from "@/lib/debts/store";
+import { getAllDebts } from "@/lib/debts/store";
 import { getAllGoals } from "@/lib/goals/store";
 import ViewTabs from "@/components/ViewTabs";
 
@@ -28,14 +28,14 @@ function currentMonth(): typeof MONTHS[number] {
 	return map[mIdx];
 }
 
-export default async function DashboardView() {
+export default async function DashboardView({ budgetPlanId }: { budgetPlanId: string }) {
 	const month = currentMonth();
-	const expenses = await getAllExpenses();
-	const income = await getAllIncome();
+	const expenses = await getAllExpenses(budgetPlanId);
+	const income = await getAllIncome(budgetPlanId);
 	const categories = await getCategories();
-	const debts = getAllDebts();
-	const totalDebtBalance = getTotalDebtBalance();
-	const goals = getAllGoals();
+	const debts = (await getAllDebts(budgetPlanId)).filter((d) => d.sourceType !== "expense");
+	const totalDebtBalance = debts.reduce((sum, debt) => sum + (debt.currentBalance || 0), 0);
+	const goals = getAllGoals(budgetPlanId);
 	const monthExpenses = expenses[month];
 	const monthIncome = income[month];
 
@@ -78,6 +78,7 @@ export default async function DashboardView() {
 		<div className="min-h-screen pb-20 bg-gradient-to-br from-blue-950 via-slate-950 to-black">
 			<div className="mx-auto w-full max-w-6xl px-4 py-6">
 				<ViewTabs
+					budgetPlanId={budgetPlanId}
 					month={month}
 					categoryData={categoryData}
 					regularExpenses={regularExpenses}

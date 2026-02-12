@@ -3,6 +3,18 @@ import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
+async function resolveBudgetPlanId(maybeBudgetPlanId: string | null): Promise<string | null> {
+  const budgetPlanId = maybeBudgetPlanId?.trim();
+  if (budgetPlanId) return budgetPlanId;
+
+  const plan = await prisma.budgetPlan.findFirst({
+    orderBy: { createdAt: "desc" },
+    select: { id: true },
+  });
+
+  return plan?.id ?? null;
+}
+
 function badRequest(message: string) {
   return NextResponse.json({ error: message }, { status: 400 });
 }
@@ -56,12 +68,14 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const month = toNumber(searchParams.get("month"));
   const year = toNumber(searchParams.get("year"));
+  const budgetPlanId = await resolveBudgetPlanId(searchParams.get("budgetPlanId"));
 
   if (month == null || month < 1 || month > 12) return badRequest("Invalid month");
   if (year == null || year < 1900) return badRequest("Invalid year");
+  if (!budgetPlanId) return badRequest("No budget plan found. Create a budget plan first.");
 
   const items = await prisma.expense.findMany({
-    where: { month, year },
+    where: { budgetPlanId, month, year },
     orderBy: [{ createdAt: "asc" }],
     include: {
       category: {
@@ -78,6 +92,7 @@ export async function POST(req: NextRequest) {
   if (!raw || typeof raw !== "object") return badRequest("Invalid JSON body");
 
   const body = raw as {
+    budgetPlanId?: unknown;
     name?: unknown;
     amount?: unknown;
     month?: unknown;
@@ -86,6 +101,9 @@ export async function POST(req: NextRequest) {
     paid?: unknown;
   };
 
+  const budgetPlanId =
+    typeof body.budgetPlanId === "string" ? body.budgetPlanId.trim() : "";
+
   const name = typeof body.name === "string" ? body.name.trim() : "";
   const amount = Number(body.amount);
   const month = Number(body.month);
@@ -93,6 +111,7 @@ export async function POST(req: NextRequest) {
   const categoryId = typeof body.categoryId === "string" ? body.categoryId.trim() : undefined;
   const paid = Boolean(body.paid ?? false);
 
+  if (!budgetPlanId) return badRequest("budgetPlanId is required");
   if (!name) return badRequest("Name is required");
   if (!Number.isFinite(amount) || amount < 0) return badRequest("Amount must be a number >= 0");
   if (!Number.isFinite(month) || month < 1 || month > 12) return badRequest("Invalid month");
@@ -107,6 +126,7 @@ export async function POST(req: NextRequest) {
       month,
       year,
       categoryId: categoryId ? categoryId : null,
+      budgetPlanId,
     },
     include: {
       category: {

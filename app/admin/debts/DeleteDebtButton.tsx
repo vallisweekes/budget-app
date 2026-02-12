@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Trash2 } from "lucide-react";
 import ConfirmModal from "@/components/ConfirmModal";
 import { deleteDebtAction } from "@/lib/debts/actions";
+import { useSearchParams } from "next/navigation";
 
 export default function DeleteDebtButton({
   debtId,
@@ -14,6 +15,8 @@ export default function DeleteDebtButton({
 }) {
   const [isPending, startTransition] = useTransition();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const searchParams = useSearchParams();
+  const budgetPlanId = searchParams.get("plan") ?? "";
 
   return (
     <>
@@ -30,7 +33,8 @@ export default function DeleteDebtButton({
         }}
         onConfirm={() => {
           startTransition(async () => {
-            await deleteDebtAction(debtId);
+				if (!budgetPlanId) return;
+            await deleteDebtAction(budgetPlanId, debtId);
           });
           setConfirmingDelete(false);
         }}

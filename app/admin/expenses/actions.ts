@@ -8,64 +8,44 @@ import {
   removeExpense,
   applyExpensePayment,
   setExpensePaymentAmount,
-  getAllExpenses,
 } from "@/lib/expenses/store";
 import type { MonthKey } from "@/types";
-import { upsertExpenseDebt } from "@/lib/debts/store";
-import { getCategories } from "@/lib/categories/store";
+
+function requireBudgetPlanId(formData: FormData): string {
+  const raw = formData.get("budgetPlanId");
+  const budgetPlanId = String(raw ?? "").trim();
+  if (!budgetPlanId) throw new Error("Missing budgetPlanId");
+  return budgetPlanId;
+}
 
 export async function addExpenseAction(formData: FormData): Promise<void> {
+  const budgetPlanId = requireBudgetPlanId(formData);
   const month = String(formData.get("month")) as MonthKey;
   const name = String(formData.get("name") || "").trim();
   const amount = Number(formData.get("amount") || 0);
   const categoryId = String(formData.get("categoryId") || "") || undefined;
   const paid = String(formData.get("paid") || "false") === "true";
-  const year = Number(formData.get("year") || 0) || undefined;
   if (!name || !month) return;
-  const created = await addExpense(month, { name, amount, categoryId, paid, paidAmount: paid ? amount : 0 });
-
-  const categories = await getCategories();
-  const category = created.categoryId ? categories.find((c) => c.id === created.categoryId) : undefined;
-  const remaining = Math.max(0, created.amount - (created.paidAmount ?? 0));
-  upsertExpenseDebt({
-    expenseId: created.id,
-    monthKey: month,
-    year,
-    categoryId: created.categoryId,
-    categoryName: category?.name,
-    expenseName: created.name,
-    remainingAmount: remaining,
+  await addExpense(budgetPlanId, month, {
+    name,
+    amount,
+    categoryId,
+    paid,
+    paidAmount: paid ? amount : 0,
   });
 
   revalidatePath("/");
   revalidatePath("/admin/expenses");
-  revalidatePath("/admin/debts");
 }
 
-export async function togglePaidAction(month: MonthKey, id: string): Promise<void> {
-  await toggleExpensePaid(month, id);
-  // After toggling, ensure remainder is represented as a debt (or removed if fully paid)
-  const expensesData = await getAllExpenses();
-  const expense = expensesData[month]?.find((e) => e.id === id);
-  if (expense) {
-    const categories = await getCategories();
-    const category = expense.categoryId ? categories.find((c) => c.id === expense.categoryId) : undefined;
-    const remaining = Math.max(0, expense.amount - (expense.paidAmount ?? 0));
-    upsertExpenseDebt({
-      expenseId: expense.id,
-      monthKey: month,
-      categoryId: expense.categoryId,
-      categoryName: category?.name,
-      expenseName: expense.name,
-      remainingAmount: remaining,
-    });
-  }
+export async function togglePaidAction(budgetPlanId: string, month: MonthKey, id: string): Promise<void> {
+  await toggleExpensePaid(budgetPlanId, month, id);
   revalidatePath("/");
   revalidatePath("/admin/expenses");
-  revalidatePath("/admin/debts");
 }
 
 export async function updateExpenseAction(formData: FormData): Promise<void> {
+  const budgetPlanId = requireBudgetPlanId(formData);
   const month = String(formData.get("month")) as MonthKey;
   const id = String(formData.get("id") || "");
   const name = String(formData.get("name") || "").trim();
@@ -73,45 +53,22 @@ export async function updateExpenseAction(formData: FormData): Promise<void> {
   const categoryRaw = formData.get("categoryId");
   const categoryString = categoryRaw == null ? undefined : String(categoryRaw);
   const categoryId = categoryString === undefined ? undefined : categoryString.trim() ? categoryString.trim() : null;
-  const year = Number(formData.get("year") || 0) || undefined;
   if (!month || !id || !name) return;
 
-  const updated = await updateExpense(month, id, { name, amount, categoryId });
-  if (!updated) return;
-
-  const categories = await getCategories();
-  const category = updated.categoryId ? categories.find((c) => c.id === updated.categoryId) : undefined;
-  const remaining = Math.max(0, updated.amount - (updated.paidAmount ?? 0));
-  upsertExpenseDebt({
-    expenseId: updated.id,
-    monthKey: month,
-    year,
-    categoryId: updated.categoryId,
-    categoryName: category?.name,
-    expenseName: updated.name,
-    remainingAmount: remaining,
-  });
+  await updateExpense(budgetPlanId, month, id, { name, amount, categoryId });
 
   revalidatePath("/");
   revalidatePath("/admin/expenses");
-  revalidatePath("/admin/debts");
 }
 
-export async function removeExpenseAction(month: MonthKey, id: string): Promise<void> {
-  // Remove any linked debt for this expense
-  upsertExpenseDebt({
-    expenseId: id,
-    monthKey: month,
-    expenseName: "",
-    remainingAmount: 0,
-  });
-  await removeExpense(month, id);
+export async function removeExpenseAction(budgetPlanId: string, month: MonthKey, id: string): Promise<void> {
+  await removeExpense(budgetPlanId, month, id);
   revalidatePath("/");
   revalidatePath("/admin/expenses");
-  revalidatePath("/admin/debts");
 }
 
 export async function applyExpensePaymentAction(
+	budgetPlanId: string,
   month: MonthKey,
   expenseId: string,
   paymentAmount: number,
@@ -122,29 +79,16 @@ export async function applyExpensePaymentAction(
     return { success: false, error: "Payment amount must be greater than 0" };
   }
 
-  const result = await applyExpensePayment(month, expenseId, paymentAmount);
+  const result = await applyExpensePayment(budgetPlanId, month, expenseId, paymentAmount);
   if (!result) return { success: false, error: "Expense not found" };
-
-  const categories = await getCategories();
-  const category = result.expense.categoryId ? categories.find((c) => c.id === result.expense.categoryId) : undefined;
-
-  upsertExpenseDebt({
-    expenseId: result.expense.id,
-    monthKey: month,
-    year,
-    categoryId: result.expense.categoryId,
-    categoryName: category?.name,
-    expenseName: result.expense.name,
-    remainingAmount: result.remaining,
-  });
 
   revalidatePath("/");
   revalidatePath("/admin/expenses");
-  revalidatePath("/admin/debts");
   return { success: true };
 }
 
 export async function setExpensePaidAmountAction(
+	budgetPlanId: string,
   month: MonthKey,
   expenseId: string,
   paidAmount: number,
@@ -155,24 +99,10 @@ export async function setExpensePaidAmountAction(
     return { success: false, error: "Paid amount must be 0 or more" };
   }
 
-  const result = await setExpensePaymentAmount(month, expenseId, paidAmount);
+  const result = await setExpensePaymentAmount(budgetPlanId, month, expenseId, paidAmount);
   if (!result) return { success: false, error: "Expense not found" };
-
-  const categories = await getCategories();
-  const category = result.expense.categoryId ? categories.find((c) => c.id === result.expense.categoryId) : undefined;
-
-  upsertExpenseDebt({
-    expenseId: result.expense.id,
-    monthKey: month,
-    year,
-    categoryId: result.expense.categoryId,
-    categoryName: category?.name,
-    expenseName: result.expense.name,
-    remainingAmount: result.remaining,
-  });
 
   revalidatePath("/");
   revalidatePath("/admin/expenses");
-  revalidatePath("/admin/debts");
   return { success: true };
 }

@@ -18,6 +18,7 @@ type SpendingEntry = {
 };
 
 type ViewTabsProps = {
+	budgetPlanId: string;
 	month: MonthKey;
   debts: Debt[];
   spending: SpendingEntry[];
@@ -31,6 +32,7 @@ type ViewTabsProps = {
 };
 
 export default function ViewTabs({
+  budgetPlanId,
   month,
   debts,
   spending,
@@ -41,7 +43,7 @@ export default function ViewTabs({
     <div>
       <div className="mb-6">
         {/* TODO: Add tab navigation here */}
-			<SpendingTab month={month} debts={debts} spending={spending} />
+			<SpendingTab budgetPlanId={budgetPlanId} month={month} debts={debts} spending={spending} />
       </div>
       {/* TODO: Render other dashboard content here, conditionally by tab */}
     </div>

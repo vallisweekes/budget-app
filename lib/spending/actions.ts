@@ -5,6 +5,13 @@ import { addSpending, removeSpending, getAllSpending } from "./store";
 import { getSettings, saveSettings } from "@/lib/settings/store";
 import { updateDebt, getDebtById } from "@/lib/debts/store";
 
+function requireBudgetPlanId(formData: FormData): string {
+  const raw = formData.get("budgetPlanId");
+  const budgetPlanId = String(raw ?? "").trim();
+  if (!budgetPlanId) throw new Error("Missing budgetPlanId");
+  return budgetPlanId;
+}
+
 // Helper to get the pay period for a given date
 function getPayPeriod(date: Date, payDate: number): { start: Date; end: Date; periodMonth: string } {
   const currentDay = date.getDate();
@@ -38,6 +45,7 @@ function getPayPeriod(date: Date, payDate: number): { start: Date; end: Date; pe
 }
 
 export async function addSpendingAction(formData: FormData) {
+	const budgetPlanId = requireBudgetPlanId(formData);
   const description = formData.get("description") as string;
   const amount = parseFloat(formData.get("amount") as string);
   const source = formData.get("source") as "card" | "savings" | "allowance";
@@ -89,10 +97,10 @@ export async function addSpendingAction(formData: FormData) {
 
   // Handle card balance increase
   if (source === "card" && sourceId) {
-    const debt = getDebtById(sourceId);
+    const debt = getDebtById(budgetPlanId, sourceId);
     if (debt) {
       const newBalance = debt.currentBalance + amount;
-      await updateDebt(sourceId, { currentBalance: newBalance });
+			updateDebt(budgetPlanId, sourceId, { currentBalance: newBalance });
     }
   }
 

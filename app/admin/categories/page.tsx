@@ -1,21 +1,29 @@
 import { getCategories } from "@/lib/categories/store";
 import { addCategory } from "./actions";
 import { getAllExpenses } from "@/lib/expenses/store";
+import { listBudgetDataPlanIds } from "@/lib/storage/listBudgetDataPlanIds";
 import CategoryIcon from "@/components/CategoryIcon";
 import DeleteCategoryButton from "./DeleteCategoryButton";
+import SelectDropdown from "@/components/SelectDropdown";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminCategoriesPage() {
   const list = await getCategories();
-  const expenses = await getAllExpenses();
+  const planIds = await listBudgetDataPlanIds();
+  const expensesByPlan = await Promise.all(planIds.map((planId) => getAllExpenses(planId)));
 
   const categoryHasExpenses = new Map<string, number>();
-  Object.values(expenses).forEach((monthExpenses) => {
-    monthExpenses.forEach((expense) => {
-      if (expense.categoryId) {
-        categoryHasExpenses.set(expense.categoryId, (categoryHasExpenses.get(expense.categoryId) || 0) + 1);
-      }
+  expensesByPlan.forEach((expenses) => {
+    Object.values(expenses).forEach((monthExpenses) => {
+      monthExpenses.forEach((expense) => {
+        if (expense.categoryId) {
+          categoryHasExpenses.set(
+            expense.categoryId,
+            (categoryHasExpenses.get(expense.categoryId) || 0) + 1
+          );
+        }
+      });
     });
   });
 
@@ -75,14 +83,15 @@ export default async function AdminCategoriesPage() {
             </label>
             <label className="md:col-span-2">
               <span className="block text-sm font-medium text-slate-300 mb-2">Visibility</span>
-              <select
+              <SelectDropdown
                 name="featured"
                 defaultValue="true"
-                className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all cursor-pointer"
-              >
-                <option value="true">Featured</option>
-                <option value="false">Hidden</option>
-              </select>
+                options={[
+                  { value: "true", label: "Featured" },
+                  { value: "false", label: "Hidden" },
+                ]}
+                buttonClassName="bg-slate-900/60 focus:ring-purple-500"
+              />
             </label>
             <div className="md:col-span-1 flex items-end">
               <button

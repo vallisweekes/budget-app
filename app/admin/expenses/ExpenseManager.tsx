@@ -7,6 +7,7 @@ import { addExpenseAction, togglePaidAction, updateExpenseAction, removeExpenseA
 import { Trash2, Plus, Check, X, ChevronDown, ChevronUp, Search, Pencil } from "lucide-react";
 import CategoryIcon from "@/components/CategoryIcon";
 import ConfirmModal from "@/components/ConfirmModal";
+import SelectDropdown from "@/components/SelectDropdown";
 import { formatCurrency } from "@/lib/helpers/money";
 
 interface Expense {
@@ -26,6 +27,7 @@ interface Category {
 }
 
 interface ExpenseManagerProps {
+	budgetPlanId: string;
   month: MonthKey;
   year: number;
   expenses: Expense[];
@@ -50,7 +52,7 @@ function SaveExpenseChangesButton() {
   );
 }
 
-export default function ExpenseManager({ month, year, expenses, categories }: ExpenseManagerProps) {
+export default function ExpenseManager({ budgetPlanId, month, year, expenses, categories }: ExpenseManagerProps) {
   const [isPending, startTransition] = useTransition();
   const [showAddForm, setShowAddForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -117,7 +119,7 @@ export default function ExpenseManager({ month, year, expenses, categories }: Ex
 
   const handleTogglePaid = (expenseId: string) => {
     startTransition(() => {
-      togglePaidAction(month, expenseId);
+		togglePaidAction(budgetPlanId, month, expenseId);
     });
   };
 
@@ -137,7 +139,7 @@ export default function ExpenseManager({ month, year, expenses, categories }: Ex
     if (!expense) return;
 
     startTransition(() => {
-      removeExpenseAction(month, expense.id);
+      removeExpenseAction(budgetPlanId, month, expense.id);
     });
   };
 
@@ -147,7 +149,7 @@ export default function ExpenseManager({ month, year, expenses, categories }: Ex
     if (!Number.isFinite(paymentAmount) || paymentAmount <= 0) return;
 
     startTransition(() => {
-      applyExpensePaymentAction(month, expenseId, paymentAmount, year);
+      applyExpensePaymentAction(budgetPlanId, month, expenseId, paymentAmount, year);
     });
 
     setPaymentByExpenseId((prev) => ({ ...prev, [expenseId]: "" }));
@@ -218,6 +220,7 @@ export default function ExpenseManager({ month, year, expenses, categories }: Ex
                 action={updateExpenseAction}
                 className="mt-6 space-y-5"
               >
+                <input type="hidden" name="budgetPlanId" value={budgetPlanId} />
                 <input type="hidden" name="month" value={month} />
                 <input type="hidden" name="year" value={year} />
                 <input type="hidden" name="id" value={expensePendingEdit.id} />
@@ -251,19 +254,17 @@ export default function ExpenseManager({ month, year, expenses, categories }: Ex
 
                   <label className="block">
                     <span className="text-sm font-medium text-slate-300 mb-2 block">Category</span>
-                    <select
+                    <SelectDropdown
                       name="categoryId"
                       value={editCategoryId}
-                      onChange={(e) => setEditCategoryId(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-white/10 bg-slate-900/40 text-white focus:border-purple-500 focus:ring-2 focus:ring-purple-500/50 focus:outline-none transition-all cursor-pointer"
-                    >
-                      <option value="">None (Uncategorized)</option>
-                      {categories.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
+                      onValueChange={(v) => setEditCategoryId(v)}
+                      placeholder="None (Uncategorized)"
+                      options={[
+                        { value: "", label: "None (Uncategorized)" },
+                        ...categories.map((c) => ({ value: c.id, label: c.name })),
+                      ]}
+                      buttonClassName="focus:ring-purple-500/50"
+                    />
                   </label>
                 </div>
 
@@ -424,6 +425,7 @@ export default function ExpenseManager({ month, year, expenses, categories }: Ex
       {showAddForm && (
         <div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-xl p-8 border border-white/10">
           <form action={addExpenseAction} className="space-y-6">
+            <input type="hidden" name="budgetPlanId" value={budgetPlanId} />
             <input type="hidden" name="month" value={month} />
             <input type="hidden" name="year" value={year} />
             
@@ -452,26 +454,28 @@ export default function ExpenseManager({ month, year, expenses, categories }: Ex
 
               <label className="block">
                 <span className="text-sm font-medium text-slate-300 mb-2 block">Category</span>
-                <select
+                <SelectDropdown
                   name="categoryId"
-                  className="w-full px-4 py-3 rounded-xl border border-white/10 bg-slate-900/40 text-white focus:border-purple-500 focus:ring-2 focus:ring-purple-500/50 focus:outline-none transition-all cursor-pointer"
-                >
-                  <option value="">None (Uncategorized)</option>
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
+                  placeholder="None (Uncategorized)"
+                  options={[
+                    { value: "", label: "None (Uncategorized)" },
+                    ...categories.map((c) => ({ value: c.id, label: c.name })),
+                  ]}
+                  buttonClassName="focus:ring-purple-500/50"
+                />
               </label>
 
               <label className="block">
                 <span className="text-sm font-medium text-slate-300 mb-2 block">Payment Status</span>
-                <select
+                <SelectDropdown
                   name="paid"
-                  className="w-full px-4 py-3 rounded-xl border border-white/10 bg-slate-900/40 text-white focus:border-purple-500 focus:ring-2 focus:ring-purple-500/50 focus:outline-none transition-all cursor-pointer"
-                >
-                  <option value="false">Not Paid</option>
-                  <option value="true">Paid</option>
-                </select>
+                  defaultValue="false"
+                  options={[
+                    { value: "false", label: "Not Paid" },
+                    { value: "true", label: "Paid" },
+                  ]}
+                  buttonClassName="focus:ring-purple-500/50"
+                />
               </label>
             </div>
 

@@ -10,6 +10,7 @@ import { updateDebtPaymentStatus } from "@/lib/debts/payment-actions";
 import { formatCurrency } from "@/lib/helpers/money";
 
 interface ViewTabsProps {
+	budgetPlanId: string;
 	month: MonthKey;
 	categoryData: any[];
 	regularExpenses: any[];
@@ -26,6 +27,7 @@ function Currency({ value }: { value: number }) {
 }
 
 export default function ViewTabs({
+	budgetPlanId,
 	month,
 	categoryData,
 	regularExpenses,
@@ -36,6 +38,20 @@ export default function ViewTabs({
 	totalDebtBalance,
 	goals,
 }: ViewTabsProps) {
+	const updateExpensePaymentStatus = (
+		m: MonthKey,
+		id: string,
+		status: "paid" | "unpaid" | "partial",
+		partialAmount?: number
+	) => updatePaymentStatus(budgetPlanId, m, id, status, partialAmount);
+
+	const updateDebtPaymentStatusScoped = (
+		m: MonthKey,
+		id: string,
+		status: "paid" | "unpaid" | "partial",
+		partialAmount?: number
+	) => updateDebtPaymentStatus(budgetPlanId, m, id, status, partialAmount);
+
 	// Calculate debt (unpaid or partially paid items)
 	const debtExpenses = regularExpenses.filter(e => !e.paid || (e.paidAmount && e.paidAmount < e.amount));
 	
@@ -97,7 +113,7 @@ export default function ViewTabs({
 								expenses={debts}
 								total={totalDebtPayments}
 								month={month}
-								updatePaymentStatus={updateDebtPaymentStatus}
+								updatePaymentStatus={updateDebtPaymentStatusScoped}
 							/>
 						)}
 						
@@ -111,7 +127,7 @@ export default function ViewTabs({
 								expenses={cat.expenses}
 								total={cat.total}
 								month={month}
-								updatePaymentStatus={updatePaymentStatus}
+								updatePaymentStatus={updateExpensePaymentStatus}
 							/>
 						))}
 					</div>

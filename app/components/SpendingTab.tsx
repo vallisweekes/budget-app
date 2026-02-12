@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { addSpendingAction, removeSpendingAction } from "@/lib/spending/actions";
 import { useRouter } from "next/navigation";
 import ConfirmModal from "@/components/ConfirmModal";
+import SelectDropdown from "@/components/SelectDropdown";
 
 interface SpendingEntry {
   id: string;
@@ -22,12 +23,13 @@ interface Debt {
 }
 
 interface SpendingTabProps {
+  budgetPlanId: string;
   month: string;
   debts: Debt[];
   spending: SpendingEntry[];
 }
 
-export default function SpendingTab({ month, debts, spending }: SpendingTabProps) {
+export default function SpendingTab({ budgetPlanId, month, debts, spending }: SpendingTabProps) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [entryPendingDelete, setEntryPendingDelete] = useState<SpendingEntry | null>(null);
@@ -89,6 +91,7 @@ export default function SpendingTab({ month, debts, spending }: SpendingTabProps
         )}
 
         <form action={handleSubmit} className="space-y-4">
+          <input type="hidden" name="budgetPlanId" value={budgetPlanId} />
           <input type="hidden" name="month" value={month} />
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -120,30 +123,32 @@ export default function SpendingTab({ month, debts, spending }: SpendingTabProps
           <div className="flex gap-4">
             <label htmlFor="spending-source" className="block flex-1">
               <span className="block text-sm font-medium text-slate-300 mb-1">Payment Source</span>
-              <select
+              <SelectDropdown
                 id="spending-source"
                 name="source"
                 defaultValue="card"
-                className="w-full px-4 py-2 bg-slate-900/40 border border-white/10 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              >
-                <option value="card">Card</option>
-                <option value="savings">Savings</option>
-                <option value="allowance">Allowance</option>
-              </select>
+                options={[
+                  { value: "card", label: "Card" },
+                  { value: "savings", label: "Savings" },
+                  { value: "allowance", label: "Allowance" },
+                ]}
+                buttonClassName="rounded-lg px-4 py-2 focus:ring-purple-500"
+                menuClassName="rounded-xl"
+              />
             </label>
             
             <label htmlFor="spending-sourceId" className="block flex-1">
               <span className="block text-sm font-medium text-slate-300 mb-1">Card</span>
-              <select
+              <SelectDropdown
                 id="spending-sourceId"
                 name="sourceId"
-                className="w-full px-4 py-2 bg-slate-900/40 border border-white/10 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              >
-                <option value="">Select Card (if applicable)</option>
-                {debts.filter(d => d.type === "credit_card").map(card => (
-                  <option key={card.id} value={card.id}>{card.name}</option>
-                ))}
-              </select>
+                placeholder="Select Card (if applicable)"
+                options={debts
+                  .filter((d) => d.type === "credit_card")
+                  .map((card) => ({ value: card.id, label: card.name }))}
+                buttonClassName="rounded-lg px-4 py-2 focus:ring-purple-500"
+                menuClassName="rounded-xl"
+              />
             </label>
           </div>
           

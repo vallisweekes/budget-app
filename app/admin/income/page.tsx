@@ -5,11 +5,45 @@ import Link from "next/link";
 import { ArrowRight, Settings as SettingsIcon } from "lucide-react";
 import { addIncomeAction } from "./actions";
 import IncomeManager from "./IncomeManager";
+import SelectDropdown from "@/components/SelectDropdown";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
+import { getDefaultBudgetPlanForUser, resolveUserId } from "@/lib/budgetPlans";
+import { prisma } from "@/lib/prisma";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminIncomePage() {
-	const income = await getAllIncome();
+export default async function AdminIncomePage(props: {
+	searchParams?: Record<string, string | string[] | undefined> | Promise<Record<string, string | string[] | undefined>>;
+}) {
+	const session = await getServerSession(authOptions);
+	const sessionUser = session?.user;
+	const sessionUsername = sessionUser?.username ?? sessionUser?.name;
+	if (!sessionUser || !sessionUsername) redirect("/");
+
+	const searchParams = await Promise.resolve(props.searchParams ?? {});
+	const planParam = searchParams.plan;
+	const planCandidate = Array.isArray(planParam) ? planParam[0] : planParam;
+	const requestedPlanId = typeof planCandidate === "string" ? planCandidate : "";
+
+	const userId = await resolveUserId({ userId: sessionUser.id, username: sessionUsername });
+
+	if (!requestedPlanId) {
+		const fallbackPlan = await getDefaultBudgetPlanForUser({ userId, username: sessionUsername });
+		if (!fallbackPlan) redirect("/budgets/new");
+		redirect(`/admin/income?plan=${encodeURIComponent(fallbackPlan.id)}`);
+	}
+
+	const budgetPlan = await prisma.budgetPlan.findUnique({ where: { id: requestedPlanId } });
+	if (!budgetPlan || budgetPlan.userId !== userId) {
+		const fallbackPlan = await getDefaultBudgetPlanForUser({ userId, username: sessionUsername });
+		if (!fallbackPlan) redirect("/budgets/new");
+		redirect(`/admin/income?plan=${encodeURIComponent(fallbackPlan.id)}`);
+	}
+
+	const budgetPlanId = budgetPlan.id;
+	const income = await getAllIncome(budgetPlanId);
 	const defaultMonth: MonthKey = "JANUARY";
 	return (
 		<div className="min-h-screen pb-20 bg-gradient-to-br from-blue-950 via-slate-950 to-black">
@@ -31,7 +65,7 @@ export default async function AdminIncomePage() {
 							</div>
 						</div>
 						<Link
-							href="/admin/settings#budget"
+							href={`/admin/settings?plan=${encodeURIComponent(budgetPlanId)}#budget`}
 							className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-slate-900/40 px-4 py-2 text-sm font-semibold text-white hover:bg-white/10 hover:border-white/20 transition"
 						>
 							Open <ArrowRight className="w-4 h-4" />
@@ -52,19 +86,15 @@ export default async function AdminIncomePage() {
 						</div>
 					</div>
 					<form action={addIncomeAction} className="grid grid-cols-1 md:grid-cols-12 gap-4">
+						<input type="hidden" name="budgetPlanId" value={budgetPlanId} />
 						<label className="md:col-span-3">
 							<span className="block text-sm font-medium text-slate-300 mb-2">Month</span>
-							<select
+							<SelectDropdown
 								name="month"
 								defaultValue={defaultMonth}
-								className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all cursor-pointer"
-							>
-								{MONTHS.map((m) => (
-									<option key={m} value={m}>
-										{m}
-									</option>
-								))}
-							</select>
+								options={MONTHS.map((m) => ({ value: m, label: m }))}
+								buttonClassName="bg-slate-900/60 focus:ring-amber-500"
+							/>
 						</label>
 						<label className="md:col-span-5">
 							<span className="block text-sm font-medium text-slate-300 mb-2">Income Name</span>
@@ -124,7 +154,7 @@ export default async function AdminIncomePage() {
 									<span className="w-2 h-2 bg-gradient-to-r from-pink-500 to-rose-600 rounded-full"></span>
 									{m}
 								</h3>
-								<IncomeManager month={m as MonthKey} incomeItems={income[m]} />
+								<IncomeManager budgetPlanId={budgetPlanId} month={m as MonthKey} incomeItems={income[m]} />
 							</div>
 						))}
 					</div>

@@ -28,17 +28,17 @@ export function isMonthKey(value: string): value is MonthKey {
 	return (MONTHS as string[]).includes(value);
 }
 
-export async function getZeroBasedSummary(month: MonthKey): Promise<ZeroBasedSummary> {
+export async function getZeroBasedSummary(budgetPlanId: string, month: MonthKey): Promise<ZeroBasedSummary> {
 	const [settings, allIncome, allExpenses, allSpending] = await Promise.all([
 		getSettings(),
-		getAllIncome(),
-		getAllExpenses(),
+		getAllIncome(budgetPlanId),
+		getAllExpenses(budgetPlanId),
 		getAllSpending(),
 	]);
 
 	const incomeTotal = sumAmounts(allIncome[month] ?? []);
 	const expenseTotal = sumAmounts(allExpenses[month] ?? []);
-	const debtPaymentsTotal = sumAmounts(getPaymentsByMonth(month) ?? []);
+	const debtPaymentsTotal = sumAmounts(getPaymentsByMonth(budgetPlanId, month) ?? []);
 	const spendingTotal = sumAmounts((allSpending ?? []).filter((s) => s.month === month));
 
 	const plannedAllowance = Number(settings.monthlyAllowance ?? 0) || 0;
@@ -61,6 +61,6 @@ export async function getZeroBasedSummary(month: MonthKey): Promise<ZeroBasedSum
 	};
 }
 
-export async function getBudgetMonthSummary(month: MonthKey): Promise<BudgetMonthSummary> {
-	return await getZeroBasedSummary(month);
+export async function getBudgetMonthSummary(budgetPlanId: string, month: MonthKey): Promise<BudgetMonthSummary> {
+	return await getZeroBasedSummary(budgetPlanId, month);
 }

@@ -3,6 +3,7 @@ import { getSettings } from "@/lib/settings/store";
 import { saveSettingsAction } from "./actions";
 import { getBudgetMonthSummary, isMonthKey } from "@/lib/budget/zero-based";
 import { MONTHS } from "@/lib/constants/time";
+import SelectDropdown from "@/components/SelectDropdown";
 import type { MonthKey } from "@/types";
 import { ArrowRight, CalendarDays, Lightbulb, PiggyBank, Tags, Wallet } from "lucide-react";
 
@@ -13,11 +14,14 @@ export default async function AdminSettingsPage(props: {
 }) {
 	const settings = await getSettings();
 	const searchParams = await Promise.resolve(props.searchParams ?? {});
+	const planParam = searchParams.plan;
+	const planCandidate = Array.isArray(planParam) ? planParam[0] : planParam;
+	const budgetPlanId = typeof planCandidate === "string" ? planCandidate : "";
 	const monthParam = searchParams.month;
 	const monthCandidate = Array.isArray(monthParam) ? monthParam[0] : monthParam;
 	const selectedMonth: MonthKey =
 		typeof monthCandidate === "string" && isMonthKey(monthCandidate) ? (monthCandidate as MonthKey) : "JANUARY";
-	const monthSummary = settings.budgetStrategy ? await getBudgetMonthSummary(selectedMonth) : null;
+	const monthSummary = settings.budgetStrategy && budgetPlanId ? await getBudgetMonthSummary(budgetPlanId, selectedMonth) : null;
 	const fiftyThirtyTwenty =
 		settings.budgetStrategy === "fiftyThirtyTwenty" && monthSummary
 			? {
@@ -209,16 +213,17 @@ export default async function AdminSettingsPage(props: {
 									<form action={saveSettingsAction} className="space-y-4">
 										<label className="block">
 											<span className="text-sm font-medium text-slate-400 mb-2 block">Strategy</span>
-											<select
-												name="budgetStrategy"
-												defaultValue={settings.budgetStrategy ?? ""}
-												className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all cursor-pointer"
-											>
-												<option value="">None</option>
-												<option value="zeroBased">Zero-based budgeting (ZBB)</option>
-												<option value="fiftyThirtyTwenty">50/30/20 rule</option>
-												<option value="payYourselfFirst">Pay yourself first</option>
-											</select>
+												<SelectDropdown
+													name="budgetStrategy"
+													defaultValue={settings.budgetStrategy ?? ""}
+													options={[
+														{ value: "", label: "None" },
+														{ value: "zeroBased", label: "Zero-based budgeting (ZBB)" },
+														{ value: "fiftyThirtyTwenty", label: "50/30/20 rule" },
+														{ value: "payYourselfFirst", label: "Pay yourself first" },
+													]}
+													buttonClassName="bg-slate-900/60 focus:ring-pink-500"
+												/>
 										</label>
 										<button
 											type="submit"
@@ -241,17 +246,12 @@ export default async function AdminSettingsPage(props: {
 											<form method="get" className="flex items-end gap-2">
 												<label className="block">
 													<span className="text-xs font-medium text-slate-400 mb-2 block">Preview month</span>
-													<select
-														name="month"
-														defaultValue={selectedMonth}
-														className="rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all cursor-pointer"
-													>
-														{MONTHS.map((m) => (
-															<option key={m} value={m}>
-																{m}
-															</option>
-														))}
-													</select>
+														<SelectDropdown
+															name="month"
+															defaultValue={selectedMonth}
+															options={MONTHS.map((m) => ({ value: m, label: m }))}
+															buttonClassName="bg-slate-900/60 px-3 py-2 focus:ring-pink-500"
+														/>
 												</label>
 												<button
 													type="submit"
@@ -309,17 +309,12 @@ export default async function AdminSettingsPage(props: {
 											<form method="get" className="flex items-end gap-2">
 												<label className="block">
 													<span className="text-xs font-medium text-slate-400 mb-2 block">Preview month</span>
-													<select
-														name="month"
-														defaultValue={selectedMonth}
-														className="rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all cursor-pointer"
-													>
-														{MONTHS.map((m) => (
-															<option key={m} value={m}>
-																{m}
-															</option>
-														))}
-													</select>
+														<SelectDropdown
+															name="month"
+															defaultValue={selectedMonth}
+															options={MONTHS.map((m) => ({ value: m, label: m }))}
+															buttonClassName="bg-slate-900/60 px-3 py-2 focus:ring-pink-500"
+														/>
 												</label>
 												<button
 													type="submit"
@@ -381,17 +376,12 @@ export default async function AdminSettingsPage(props: {
 											<form method="get" className="flex items-end gap-2">
 												<label className="block">
 													<span className="text-xs font-medium text-slate-400 mb-2 block">Preview month</span>
-													<select
-														name="month"
-														defaultValue={selectedMonth}
-														className="rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all cursor-pointer"
-													>
-														{MONTHS.map((m) => (
-															<option key={m} value={m}>
-																{m}
-															</option>
-														))}
-													</select>
+														<SelectDropdown
+															name="month"
+															defaultValue={selectedMonth}
+															options={MONTHS.map((m) => ({ value: m, label: m }))}
+															buttonClassName="bg-slate-900/60 px-3 py-2 focus:ring-pink-500"
+														/>
 												</label>
 												<button
 													type="submit"

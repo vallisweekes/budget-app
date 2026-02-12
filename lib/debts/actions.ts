@@ -6,7 +6,15 @@ import type { DebtType, MonthKey } from "@/types";
 import { applyExpensePayment } from "@/lib/expenses/store";
 import { upsertExpenseDebt } from "./store";
 
+function requireBudgetPlanId(formData: FormData): string {
+	const raw = formData.get("budgetPlanId");
+	const budgetPlanId = String(raw ?? "").trim();
+	if (!budgetPlanId) throw new Error("Missing budgetPlanId");
+	return budgetPlanId;
+}
+
 export async function createDebt(formData: FormData) {
+	const budgetPlanId = requireBudgetPlanId(formData);
 	const name = formData.get("name") as string;
 	const type = formData.get("type") as DebtType;
 	const initialBalance = parseFloat(formData.get("initialBalance") as string);
@@ -17,7 +25,7 @@ export async function createDebt(formData: FormData) {
 		throw new Error("Invalid input");
 	}
 
-	addDebt({
+	addDebt(budgetPlanId, {
 		name,
 		type,
 		initialBalance,
@@ -30,6 +38,7 @@ export async function createDebt(formData: FormData) {
 }
 
 export async function updateDebtAction(id: string, formData: FormData) {
+	const budgetPlanId = requireBudgetPlanId(formData);
 	const name = formData.get("name") as string;
 	const currentBalance = parseFloat(formData.get("currentBalance") as string);
 	const monthlyMinimum = formData.get("monthlyMinimum") ? parseFloat(formData.get("monthlyMinimum") as string) : undefined;
@@ -39,7 +48,7 @@ export async function updateDebtAction(id: string, formData: FormData) {
 		throw new Error("Invalid input");
 	}
 
-	updateDebt(id, {
+	updateDebt(budgetPlanId, id, {
 		name,
 		currentBalance,
 		monthlyMinimum,
@@ -50,24 +59,30 @@ export async function updateDebtAction(id: string, formData: FormData) {
 	revalidatePath("/");
 }
 
-export async function deleteDebtAction(id: string) {
-	deleteDebt(id);
+export async function deleteDebtAction(budgetPlanId: string, id: string) {
+	deleteDebt(budgetPlanId, id);
 	revalidatePath("/admin/debts");
 	revalidatePath("/");
 }
 
-export async function makePaymentAction(debtId: string, amount: number, month: string) {
+export async function makePaymentAction(budgetPlanId: string, debtId: string, amount: number, month: string) {
 	if (isNaN(amount) || amount <= 0) {
 		throw new Error("Invalid payment amount");
 	}
 
-	addPayment(debtId, amount, month);
+	addPayment(budgetPlanId, debtId, amount, month);
 
-	const debt = getDebtById(debtId);
+	const debt = getDebtById(budgetPlanId, debtId);
 	if (debt?.sourceType === "expense" && debt.sourceExpenseId && debt.sourceMonthKey) {
-		const result = await applyExpensePayment(debt.sourceMonthKey as MonthKey, debt.sourceExpenseId, amount);
+		const result = await applyExpensePayment(
+			budgetPlanId,
+			debt.sourceMonthKey as MonthKey,
+			debt.sourceExpenseId,
+			amount
+		);
 		if (result) {
 			upsertExpenseDebt({
+				budgetPlanId,
 				expenseId: result.expense.id,
 				monthKey: debt.sourceMonthKey,
 				year: debt.sourceYear,
@@ -84,6 +99,7 @@ export async function makePaymentAction(debtId: string, amount: number, month: s
 }
 
 export async function makePaymentFromForm(formData: FormData) {
+	const budgetPlanId = requireBudgetPlanId(formData);
 	const debtId = formData.get("debtId") as string;
 	const amount = parseFloat(formData.get("amount") as string);
 	const month = formData.get("month") as string;
@@ -92,13 +108,19 @@ export async function makePaymentFromForm(formData: FormData) {
 		throw new Error("Invalid payment data");
 	}
 
-	addPayment(debtId, amount, month);
+	addPayment(budgetPlanId, debtId, amount, month);
 
-	const debt = getDebtById(debtId);
+	const debt = getDebtById(budgetPlanId, debtId);
 	if (debt?.sourceType === "expense" && debt.sourceExpenseId && debt.sourceMonthKey) {
-		const result = await applyExpensePayment(debt.sourceMonthKey as MonthKey, debt.sourceExpenseId, amount);
+		const result = await applyExpensePayment(
+			budgetPlanId,
+			debt.sourceMonthKey as MonthKey,
+			debt.sourceExpenseId,
+			amount
+		);
 		if (result) {
 			upsertExpenseDebt({
+				budgetPlanId,
 				expenseId: result.expense.id,
 				monthKey: debt.sourceMonthKey,
 				year: debt.sourceYear,

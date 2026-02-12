@@ -2,10 +2,13 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { MONTHS } from "@/lib/constants/time";
 import type { ExpenseItem, ExpensesByMonth, MonthKey } from "@/types";
+import { ensureBudgetDataDir, getBudgetDataFilePath } from "@/lib/storage/budgetDataPath";
 
 export type { ExpenseItem, ExpensesByMonth };
 
-const filePath = path.join(process.cwd(), "data", "expenses.monthly.json");
+function getFilePath(budgetPlanId: string) {
+  return getBudgetDataFilePath(budgetPlanId, "expenses.monthly.json");
+}
 
 async function readJson<T>(p: string, fallback: T): Promise<T> {
   try {
@@ -21,17 +24,21 @@ async function writeJson<T>(p: string, value: T) {
   await fs.writeFile(p, JSON.stringify(value, null, 2) + "\n");
 }
 
-export async function getAllExpenses(): Promise<ExpensesByMonth> {
+export async function getAllExpenses(budgetPlanId: string): Promise<ExpensesByMonth> {
   const empty: ExpensesByMonth = MONTHS.reduce((acc, m) => {
     acc[m] = [];
     return acc;
   }, {} as ExpensesByMonth);
-  const data = await readJson(filePath, empty);
+  const data = await readJson(getFilePath(budgetPlanId), empty);
   return data;
 }
 
-export async function addExpense(month: MonthKey, item: Omit<ExpenseItem, "id"> & { id?: string }): Promise<ExpenseItem> {
-  const data = await getAllExpenses();
+export async function addExpense(
+	budgetPlanId: string,
+	month: MonthKey,
+	item: Omit<ExpenseItem, "id"> & { id?: string }
+): Promise<ExpenseItem> {
+  const data = await getAllExpenses(budgetPlanId);
   const id = item.id ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const created: ExpenseItem = {
     id,
@@ -44,16 +51,18 @@ export async function addExpense(month: MonthKey, item: Omit<ExpenseItem, "id"> 
     isInvestment: item.isInvestment,
   };
   data[month].push(created);
-  await writeJson(filePath, data);
+  await ensureBudgetDataDir(budgetPlanId);
+  await writeJson(getFilePath(budgetPlanId), data);
   return created;
 }
 
 export async function updateExpense(
+  budgetPlanId: string,
   month: MonthKey,
   id: string,
   updates: Partial<Pick<ExpenseItem, "name" | "amount">> & { categoryId?: string | null }
 ): Promise<ExpenseItem | null> {
-  const data = await getAllExpenses();
+  const data = await getAllExpenses(budgetPlanId);
   const list = data[month];
   const idx = list.findIndex((e) => e.id === id);
   if (idx < 0) return null;
@@ -90,12 +99,13 @@ export async function updateExpense(
   };
 
   list[idx] = updated;
-  await writeJson(filePath, data);
+  await ensureBudgetDataDir(budgetPlanId);
+  await writeJson(getFilePath(budgetPlanId), data);
   return updated;
 }
 
-export async function toggleExpensePaid(month: MonthKey, id: string): Promise<void> {
-  const data = await getAllExpenses();
+export async function toggleExpensePaid(budgetPlanId: string, month: MonthKey, id: string): Promise<void> {
+  const data = await getAllExpenses(budgetPlanId);
   const list = data[month];
   const idx = list.findIndex((e) => e.id === id);
   if (idx >= 0) {
@@ -107,17 +117,19 @@ export async function toggleExpensePaid(month: MonthKey, id: string): Promise<vo
       list[idx].paidAmount = 0;
     }
   }
-  await writeJson(filePath, data);
+  await ensureBudgetDataDir(budgetPlanId);
+  await writeJson(getFilePath(budgetPlanId), data);
 }
 
 export async function applyExpensePayment(
+  budgetPlanId: string,
   month: MonthKey,
   id: string,
   paymentDelta: number
 ): Promise<{ expense: ExpenseItem; remaining: number } | null> {
   if (!Number.isFinite(paymentDelta) || paymentDelta <= 0) return null;
 
-  const data = await getAllExpenses();
+  const data = await getAllExpenses(budgetPlanId);
   const list = data[month];
   const idx = list.findIndex((e) => e.id === id);
   if (idx < 0) return null;
@@ -134,19 +146,21 @@ export async function applyExpensePayment(
   };
 
   list[idx] = updated;
-  await writeJson(filePath, data);
+  await ensureBudgetDataDir(budgetPlanId);
+  await writeJson(getFilePath(budgetPlanId), data);
 
   return { expense: updated, remaining: Math.max(0, updated.amount - (updated.paidAmount ?? 0)) };
 }
 
 export async function setExpensePaymentAmount(
+  budgetPlanId: string,
   month: MonthKey,
   id: string,
   paidAmount: number
 ): Promise<{ expense: ExpenseItem; remaining: number } | null> {
   if (!Number.isFinite(paidAmount) || paidAmount < 0) return null;
 
-  const data = await getAllExpenses();
+  const data = await getAllExpenses(budgetPlanId);
   const list = data[month];
   const idx = list.findIndex((e) => e.id === id);
   if (idx < 0) return null;
@@ -162,13 +176,15 @@ export async function setExpensePaymentAmount(
   };
 
   list[idx] = updated;
-  await writeJson(filePath, data);
+  await ensureBudgetDataDir(budgetPlanId);
+  await writeJson(getFilePath(budgetPlanId), data);
 
   return { expense: updated, remaining: Math.max(0, updated.amount - (updated.paidAmount ?? 0)) };
 }
 
-export async function removeExpense(month: MonthKey, id: string): Promise<void> {
-  const data = await getAllExpenses();
+export async function removeExpense(budgetPlanId: string, month: MonthKey, id: string): Promise<void> {
+  const data = await getAllExpenses(budgetPlanId);
   data[month] = data[month].filter((e) => e.id !== id);
-  await writeJson(filePath, data);
+  await ensureBudgetDataDir(budgetPlanId);
+  await writeJson(getFilePath(budgetPlanId), data);
 }

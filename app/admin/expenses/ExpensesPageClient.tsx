@@ -9,6 +9,7 @@ import ExpenseManager from "./ExpenseManager";
 import { useGetCategoriesQuery, useGetExpensesQuery } from "@/lib/redux/api/bffApi";
 
 interface ExpensesPageClientProps {
+  budgetPlanId: string;
   expenses: ExpensesByMonth;
   categories: CategoryConfig[];
 }
@@ -43,7 +44,7 @@ function BackendStatus({ month, year }: { month: MonthKey; year: number }) {
       <span className="text-xs text-slate-400">Backend (Neon/Prisma):</span>
       {isLoading ? (
         <span className="text-xs px-2 py-1 rounded-lg border border-white/10 bg-slate-900/40 text-slate-200">
-          Checking…
+          Loading...
         </span>
       ) : isError ? (
         <span className="text-xs px-2 py-1 rounded-lg border border-red-400/20 bg-red-500/10 text-red-200">
@@ -64,7 +65,7 @@ function BackendStatus({ month, year }: { month: MonthKey; year: number }) {
   );
 }
 
-export default function ExpensesPageClient({ expenses, categories }: ExpensesPageClientProps) {
+export default function ExpensesPageClient({ budgetPlanId, expenses, categories }: ExpensesPageClientProps) {
   const [selectedYear, setSelectedYear] = useState<number>(2026);
   const [selectedMonth, setSelectedMonth] = useState<MonthKey>("FEBURARY");
   
@@ -132,6 +133,7 @@ export default function ExpensesPageClient({ expenses, categories }: ExpensesPag
 
         {/* Expense Manager */}
         <ExpenseManager
+		  budgetPlanId={budgetPlanId}
           month={selectedMonth}
           year={selectedYear}
           expenses={expenses[selectedMonth] || []}

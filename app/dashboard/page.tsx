@@ -1,26 +1,21 @@
 import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
-import { getOrCreateBudgetPlanForUser, isSupportedBudgetType } from "@/lib/budgetPlans";
+import { getDefaultBudgetPlanForUser, resolveUserId } from "@/lib/budgetPlans";
 
 export default async function DashboardPage() {
 	const session = await getServerSession(authOptions);
-	const username = session?.user?.username ?? session?.user?.name;
-	if (!username) {
+	const sessionUser = session?.user;
+	const username = sessionUser?.username ?? sessionUser?.name;
+	if (!sessionUser || !username) {
 		redirect("/");
 	}
 
-	if (session.user?.budgetPlanId) {
-		redirect(`/user=${encodeURIComponent(username)}/id/${encodeURIComponent(session.user.budgetPlanId)}`);
+	const userId = await resolveUserId({ userId: sessionUser.id, username });
+	const budgetPlan = await getDefaultBudgetPlanForUser({ userId, username });
+	if (!budgetPlan) {
+		redirect("/budgets/new");
 	}
-
-	const budgetTypeRaw = session.user?.budgetType ?? "personal";
-	const budgetType = isSupportedBudgetType(budgetTypeRaw) ? budgetTypeRaw : "personal";
-	const userId = (session.user as any).id as string | undefined;
-	if (!userId) {
-		redirect("/");
-	}
-	const budgetPlan = await getOrCreateBudgetPlanForUser({ userId, budgetType });
 	redirect(`/user=${encodeURIComponent(username)}/id/${encodeURIComponent(budgetPlan.id)}`);
 }
 

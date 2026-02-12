@@ -2,40 +2,27 @@
 
 import { revalidatePath } from "next/cache";
 import type { MonthKey, PaymentStatus } from "@/types";
-import { getAllExpenses } from "./store";
-import fs from "node:fs/promises";
-import path from "node:path";
-
-const filePath = path.join(process.cwd(), "data", "expenses.monthly.json");
-
-async function writeJson<T>(p: string, value: T) {
-  await fs.writeFile(p, JSON.stringify(value, null, 2) + "\n");
-}
+import { getAllExpenses, setExpensePaymentAmount } from "./store";
 
 export async function updatePaymentStatus(
+	budgetPlanId: string,
   month: MonthKey,
   id: string,
   status: PaymentStatus,
   partialAmount?: number
 ): Promise<void> {
-  const data = await getAllExpenses();
-  const list = data[month];
-  const idx = list.findIndex((e) => e.id === id);
-  
-  if (idx >= 0) {
-    if (status === "paid") {
-      list[idx].paid = true;
-      list[idx].paidAmount = list[idx].amount;
-    } else if (status === "unpaid") {
-      list[idx].paid = false;
-      list[idx].paidAmount = 0;
-    } else if (status === "partial" && partialAmount !== undefined) {
-      list[idx].paid = false;
-      list[idx].paidAmount = partialAmount;
-    }
-  }
-  
-  await writeJson(filePath, data);
+	const data = await getAllExpenses(budgetPlanId);
+	const expense = data[month]?.find((e) => e.id === id);
+	if (!expense) return;
+
+	if (status === "paid") {
+		await setExpensePaymentAmount(budgetPlanId, month, id, expense.amount);
+	} else if (status === "unpaid") {
+		await setExpensePaymentAmount(budgetPlanId, month, id, 0);
+	} else if (status === "partial") {
+		await setExpensePaymentAmount(budgetPlanId, month, id, partialAmount ?? 0);
+	}
+
   revalidatePath("/");
   revalidatePath("/admin/expenses");
 }

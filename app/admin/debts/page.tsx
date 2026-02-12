@@ -1,17 +1,51 @@
-import { getAllDebts, getTotalDebtBalance, getPaymentsByDebt } from "@/lib/debts/store";
+import { getAllDebts, getPaymentsByDebt } from "@/lib/debts/store";
 import { createDebt, makePaymentFromForm } from "@/lib/debts/actions";
 import { CreditCard, TrendingDown, ShoppingBag } from "lucide-react";
 import DeleteDebtButton from "./DeleteDebtButton";
 import { formatCurrency } from "@/lib/helpers/money";
+import SelectDropdown from "@/components/SelectDropdown";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
+import { getDefaultBudgetPlanForUser, resolveUserId } from "@/lib/budgetPlans";
+import { prisma } from "@/lib/prisma";
+import { redirect } from "next/navigation";
 
 function Currency({ value }: { value: number }) {
 	return <span>{formatCurrency(value)}</span>;
 }
 
-export default function DebtsPage() {
-	const debts = getAllDebts();
+export default async function DebtsPage(props: {
+	searchParams?: Record<string, string | string[] | undefined> | Promise<Record<string, string | string[] | undefined>>;
+}) {
+	const session = await getServerSession(authOptions);
+	const sessionUser = session?.user;
+	const sessionUsername = sessionUser?.username ?? sessionUser?.name;
+	if (!sessionUser || !sessionUsername) redirect("/");
+
+	const searchParams = await Promise.resolve(props.searchParams ?? {});
+	const planParam = searchParams.plan;
+	const planCandidate = Array.isArray(planParam) ? planParam[0] : planParam;
+	const requestedPlanId = typeof planCandidate === "string" ? planCandidate : "";
+
+	const userId = await resolveUserId({ userId: sessionUser.id, username: sessionUsername });
+
+	if (!requestedPlanId) {
+		const fallbackPlan = await getDefaultBudgetPlanForUser({ userId, username: sessionUsername });
+		if (!fallbackPlan) redirect("/budgets/new");
+		redirect(`/admin/debts?plan=${encodeURIComponent(fallbackPlan.id)}`);
+	}
+
+	const budgetPlan = await prisma.budgetPlan.findUnique({ where: { id: requestedPlanId } });
+	if (!budgetPlan || budgetPlan.userId !== userId) {
+		const fallbackPlan = await getDefaultBudgetPlanForUser({ userId, username: sessionUsername });
+		if (!fallbackPlan) redirect("/budgets/new");
+		redirect(`/admin/debts?plan=${encodeURIComponent(fallbackPlan.id)}`);
+	}
+
+	const budgetPlanId = budgetPlan.id;
+	const debts = getAllDebts(budgetPlanId).filter((d) => d.sourceType !== "expense");
 	const activeDebts = debts.filter((d) => d.currentBalance > 0);
-	const totalDebt = getTotalDebtBalance();
+	const totalDebt = debts.reduce((sum, debt) => sum + (debt.currentBalance || 0), 0);
 
 	const typeIcons = {
 		credit_card: CreditCard,
@@ -48,6 +82,7 @@ export default function DebtsPage() {
 				<div className="bg-slate-800/40 backdrop-blur-xl rounded-2xl shadow-xl border border-white/10 p-6 mb-8">
 					<h2 className="text-xl font-semibold mb-4 text-white">Add New Debt</h2>
 					<form action={createDebt} className="space-y-4">
+						<input type="hidden" name="budgetPlanId" value={budgetPlanId} />
 						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 							<div>
 								<label className="block text-sm font-medium text-slate-300 mb-2">Name</label>
@@ -61,15 +96,17 @@ export default function DebtsPage() {
 							</div>
 							<div>
 								<label className="block text-sm font-medium text-slate-300 mb-2">Type</label>
-								<select
+								<SelectDropdown
 									name="type"
 									required
-									className="w-full px-4 py-2 bg-slate-900/40 border border-white/10 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-								>
-									<option value="credit_card">Credit Card</option>
-									<option value="loan">Loan</option>
-									<option value="high_purchase">High Purchase</option>
-								</select>
+									defaultValue="credit_card"
+									options={[
+										{ value: "credit_card", label: "Credit Card" },
+										{ value: "loan", label: "Loan" },
+										{ value: "high_purchase", label: "High Purchase" },
+									]}
+									buttonClassName="rounded-lg px-4 py-2 focus:ring-purple-500"
+								/>
 							</div>
 							<div>
 								<label className="block text-sm font-medium text-slate-300 mb-2">Initial Balance</label>
@@ -127,7 +164,7 @@ export default function DebtsPage() {
 							const percentPaid = debt.initialBalance > 0
 								? ((debt.initialBalance - debt.currentBalance) / debt.initialBalance) * 100
 								: 0;
-							const payments = getPaymentsByDebt(debt.id);
+												const payments = getPaymentsByDebt(budgetPlanId, debt.id);
 
 							return (
 								<div
@@ -144,7 +181,7 @@ export default function DebtsPage() {
 												<p className="text-sm text-slate-400">{typeLabels[debt.type as keyof typeof typeLabels]}</p>
 											</div>
 										</div>
-										<DeleteDebtButton debtId={debt.id} debtName={debt.name} />
+												<DeleteDebtButton debtId={debt.id} debtName={debt.name} />
 									</div>
 
 									<div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
@@ -193,7 +230,8 @@ export default function DebtsPage() {
 									</div>
 
 									{/* Make Payment Form */}
-									<form action={makePaymentFromForm} className="flex items-end gap-2">
+												<form action={makePaymentFromForm} className="flex items-end gap-2">
+													<input type="hidden" name="budgetPlanId" value={budgetPlanId} />
 										<input type="hidden" name="debtId" value={debt.id} />
 										{/* TODO: Wire this to the selected month/year once available */}
 										<input type="hidden" name="month" value="2026-02" />

@@ -1,0 +1,38 @@
+[
+  {
+    "name": "Housing: RENT (FEBURARY 2026)",
+    "type": "high_purchase",
+    "initialBalance": 2000,
+    "sourceType": "expense",
+    "sourceExpenseId": "1770929157914-xpvdwvsvura",
+    "sourceMonthKey": "FEBURARY",
+    "sourceYear": 2026,
+    "sourceCategoryId": "housing",
+    "sourceCategoryName": "Housing",
+    "sourceExpenseName": "RENT",
+    "id": "1770929157915",
+    "currentBalance": 2000,
+    "paid": false,
+    "paidAmount": 0,
+    "amount": 2000,
+    "createdAt": "2026-02-12T20:45:57.915Z"
+  },
+  {
+    "name": "Housing: Mortgage (FEBURARY 2026)",
+    "type": "high_purchase",
+    "initialBalance": 6000,
+    "sourceType": "expense",
+    "sourceExpenseId": "1770929199202-3nqkl3xstig",
+    "sourceMonthKey": "FEBURARY",
+    "sourceYear": 2026,
+    "sourceCategoryId": "housing",
+    "sourceCategoryName": "Housing",
+    "sourceExpenseName": "Mortgage",
+    "id": "1770929199203",
+    "currentBalance": 6000,
+    "paid": false,
+    "paidAmount": 0,
+    "amount": 6000,
+    "createdAt": "2026-02-12T20:46:39.203Z"
+  }
+]

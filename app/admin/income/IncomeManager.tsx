@@ -14,6 +14,7 @@ interface IncomeItem {
 }
 
 interface IncomeManagerProps {
+	budgetPlanId: string;
 	month: MonthKey;
 	incomeItems: IncomeItem[];
 }
@@ -22,7 +23,7 @@ function Currency({ value }: { value: number }) {
 	return <span>{formatCurrency(value)}</span>;
 }
 
-export default function IncomeManager({ month, incomeItems }: IncomeManagerProps) {
+export default function IncomeManager({ budgetPlanId, month, incomeItems }: IncomeManagerProps) {
 	const [isPending, startTransition] = useTransition();
 	const [editingId, setEditingId] = useState<string | null>(null);
 	const [incomePendingDelete, setIncomePendingDelete] = useState<IncomeItem | null>(null);
@@ -43,7 +44,7 @@ export default function IncomeManager({ month, incomeItems }: IncomeManagerProps
 		if (!editName.trim() || isNaN(amount)) return;
 
 		startTransition(async () => {
-			await updateIncomeAction(month, id, editName, amount);
+			await updateIncomeAction(budgetPlanId, month, id, editName, amount);
 			setEditingId(null);
 		});
 	};
@@ -62,7 +63,7 @@ export default function IncomeManager({ month, incomeItems }: IncomeManagerProps
 		const item = incomePendingDelete;
 		if (!item) return;
 		startTransition(() => {
-			removeIncomeAction(month, item.id);
+			removeIncomeAction(budgetPlanId, month, item.id);
 		});
 	};
 
@@ -72,6 +73,7 @@ export default function IncomeManager({ month, incomeItems }: IncomeManagerProps
 
 		startTransition(async () => {
 			const formData = new FormData();
+			formData.append("budgetPlanId", budgetPlanId);
 			formData.append("month", month);
 			formData.append("name", newName);
 			formData.append("amount", amount.toString());
