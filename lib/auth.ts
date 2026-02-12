@@ -3,6 +3,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { getUserByUsername, registerUserByUsername } from "@/lib/budgetPlans";
 
 export const authOptions: NextAuthOptions = {
+	secret: process.env.NEXTAUTH_SECRET,
 	session: {
 		strategy: "jwt",
 	},

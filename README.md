@@ -16,6 +16,16 @@ bun dev
 
 Open [http://localhost:5537](http://localhost:5537) with your browser to see the result.
 
+## Environment Variables
+
+This app uses NextAuth and requires a secret in production.
+
+- `DATABASE_URL`
+- `NEXTAUTH_URL`
+- `NEXTAUTH_SECRET`
+
+On Vercel: add these under Project → Settings → Environment Variables, then redeploy.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
