@@ -2,7 +2,6 @@
 
 import { useActionState, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { calculateBudget, BudgetResult } from "./actions";
-import Sidebar from "@/components/Sidebar";
 import Card from "@/components/Card";
 import DonutProgress from "@/components/DonutProgress";
 import BarChartMini from "@/components/BarChartMini";
@@ -70,9 +69,7 @@ export default function BudgetPage() {
   });
 
   return (
-    <div className="flex">
-      <Sidebar />
-      <div className="mx-auto w-full max-w-6xl p-6">
+    <div className="mx-auto w-full max-w-6xl p-6">
         <ConfirmModal
           open={confirmingRemoveRow}
           title="Remove row?"
@@ -202,7 +199,7 @@ export default function BudgetPage() {
         <div className="col-span-2 text-sm text-zinc-600">{pending ? "Calculating…" : "Values update automatically."}</div>
       </form>
 
-      <div className="mt-6" id="analysis">
+    <div className="mt-6" id="analysis">
         <h2 className="text-xl font-semibold">Results</h2>
         <div className="mt-2">Year Subtotal: <Currency value={state.subtotal || 0} /></div>
 
@@ -243,7 +240,6 @@ export default function BudgetPage() {
             </tbody>
           </table>
         )}
-      </div>
       </div>
     </div>
   );

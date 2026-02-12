@@ -11,6 +11,7 @@ export default function Sidebar() {
 
 	const navItems = [
 		{ href: "/", label: "Home", icon: Home },
+		{ href: "/artist", label: "Artist", icon: Target },
 		{ href: "/admin/income", label: "Income", icon: Banknote },
 		{ href: "/admin/expenses", label: "Expenses", icon: DollarSign },
 		{ href: "/admin/spending", label: "Spending", icon: ShoppingBag },
