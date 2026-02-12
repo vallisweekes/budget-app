@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 
 type ConfirmModalTone = "danger" | "default";
 
@@ -8,10 +8,12 @@ interface ConfirmModalProps {
 	open: boolean;
 	title: string;
 	description?: string;
+	children?: ReactNode;
 	confirmText?: string;
 	cancelText?: string;
 	tone?: ConfirmModalTone;
 	isBusy?: boolean;
+	confirmDisabled?: boolean;
 	onConfirm: () => void;
 	onClose: () => void;
 }
@@ -20,10 +22,12 @@ export default function ConfirmModal({
 	open,
 	title,
 	description,
+	children,
 	confirmText = "Confirm",
 	cancelText = "Cancel",
 	tone = "default",
 	isBusy = false,
+	confirmDisabled = false,
 	onConfirm,
 	onClose,
 }: ConfirmModalProps) {
@@ -62,14 +66,14 @@ export default function ConfirmModal({
 
 				if (!isTextInput) {
 					e.preventDefault();
-					if (!isBusy) onConfirm();
+					if (!isBusy && !confirmDisabled) onConfirm();
 				}
 			}
 		};
 
 		window.addEventListener("keydown", onKeyDown);
 		return () => window.removeEventListener("keydown", onKeyDown);
-	}, [open, isBusy, onClose, onConfirm]);
+	}, [open, isBusy, confirmDisabled, onClose, onConfirm]);
 
 	if (!open) return null;
 
@@ -107,6 +111,8 @@ export default function ConfirmModal({
 						</p>
 					)}
 
+					{children && <div className="mt-4">{children}</div>}
+
 					<div className="mt-6 flex items-center justify-end gap-3">
 						<button
 							ref={cancelButtonRef}
@@ -125,7 +131,7 @@ export default function ConfirmModal({
 							onClick={() => {
 								if (!isBusy) onConfirm();
 							}}
-							disabled={isBusy}
+							disabled={isBusy || confirmDisabled}
 							className={`h-10 px-4 rounded-xl text-white font-semibold shadow-lg hover:shadow-xl transition-all ${confirmButtonClassName} disabled:opacity-50`}
 						>
 							{isBusy ? "Working…" : confirmText}

@@ -11,6 +11,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getDefaultBudgetPlanForUser, resolveUserId } from "@/lib/budgetPlans";
 import { redirect } from "next/navigation";
+import DeleteBudgetPlanButton from "./DeleteBudgetPlanButton";
 
 export const dynamic = "force-dynamic";
 
@@ -80,6 +81,11 @@ export default async function AdminSettingsPage(props: {
 			id: "more",
 			title: "More",
 			description: "Reserved space for future settings.",
+		},
+		{
+			id: "danger",
+			title: "Danger Zone",
+			description: "Irreversible actions.",
 		},
 	];
 
@@ -487,6 +493,22 @@ export default async function AdminSettingsPage(props: {
 								<p className="text-slate-500 text-sm mt-1">
 									Ideas: currency/locale, rounding rules, export/import, display preferences.
 								</p>
+							</div>
+						</section>
+
+						<section id="danger" className="scroll-mt-24">
+							<h2 className="text-2xl font-bold text-white mb-2">Danger Zone</h2>
+							<p className="text-slate-400 text-sm mb-5">Actions here are permanent.</p>
+							<div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-2xl border border-red-500/20 p-8 hover:border-red-500/30 transition-all">
+								<div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+									<div>
+										<h3 className="text-xl font-bold text-white">Delete this budget plan</h3>
+										<p className="text-slate-400 text-sm mt-1">
+											This permanently deletes the plan and all associated data.
+										</p>
+									</div>
+									<DeleteBudgetPlanButton budgetPlanId={budgetPlanId} />
+								</div>
 							</div>
 						</section>
 					</main>
