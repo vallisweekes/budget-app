@@ -8,7 +8,7 @@ interface Goal {
   title: string;
   targetAmount?: number;
   currentAmount?: number;
-  type: "yearly" | "long-term";
+  type: "yearly" | "long-term" | "long_term" | "short_term" | "short-term";
   category: "debt" | "savings" | "emergency" | "investment" | "other";
   targetYear?: number;
   description?: string;
@@ -24,16 +24,27 @@ function Currency({ value }: { value: number }) {
 
 export default function GoalsDisplay({ goals }: GoalsDisplayProps) {
   const currentYear = new Date().getFullYear();
+
+  const normalizeType = (type: Goal["type"]) => {
+    if (type === "long_term") return "long-term";
+    if (type === "short_term") return "short-term";
+    return type;
+  };
   
   // Filter out "Pay Back Debts" goal from home display
   const displayGoals = goals.filter(g => g.title !== "Pay Back Debts");
+
+  const normalizedGoals = displayGoals.map((g) => ({
+    ...g,
+    type: normalizeType(g.type),
+  }));
   
   // Group goals by time horizon
-  const yearlyGoals = displayGoals.filter(g => g.type === "yearly");
-  const fiveYearGoals = displayGoals.filter(g => 
+  const yearlyGoals = normalizedGoals.filter(g => g.type === "yearly" || g.type === "short-term");
+  const fiveYearGoals = normalizedGoals.filter(g => 
     g.type === "long-term" && g.targetYear && g.targetYear <= currentYear + 5
   );
-  const tenYearGoals = displayGoals.filter(g => 
+  const tenYearGoals = normalizedGoals.filter(g => 
     g.type === "long-term" && g.targetYear && g.targetYear > currentYear + 5
   );
 
@@ -45,7 +56,7 @@ export default function GoalsDisplay({ goals }: GoalsDisplayProps) {
     other: Target,
   };
 
-  if (displayGoals.length === 0) return null;
+  if (normalizedGoals.length === 0) return null;
 
   const GoalCard = ({ goal, gradientClass }: { goal: Goal; gradientClass: string }) => {
     const Icon = categoryIcons[goal.category];

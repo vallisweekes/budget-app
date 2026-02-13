@@ -10,7 +10,7 @@ import { saveSettingsAction, updateUserDetailsAction } from "./actions";
 import DeleteBudgetPlanButton from "./DeleteBudgetPlanButton";
 import type { Settings } from "@/lib/settings/store";
 
-type Section = "details" | "budget" | "locale" | "danger";
+type Section = "details" | "budget" | "locale" | "plans" | "danger";
 
 interface SettingsContentProps {
 	budgetPlanId: string;
@@ -19,6 +19,7 @@ interface SettingsContentProps {
 	monthSummary: any;
 	fiftyThirtyTwenty: any;
 	selectedMonth: MonthKey;
+	allPlans?: Array<{ id: string; name: string; kind: string }>;
 }
 
 export default function SettingsContent({
@@ -28,6 +29,7 @@ export default function SettingsContent({
 	monthSummary,
 	fiftyThirtyTwenty,
 	selectedMonth,
+	allPlans = [],
 }: SettingsContentProps) {
 	const [activeSection, setActiveSection] = useState<Section>("details");
 	const [isEditingEmail, setIsEditingEmail] = useState(false);
@@ -50,6 +52,12 @@ export default function SettingsContent({
 			title: "Locale",
 			description: "Country, language, and currency preferences",
 			icon: Globe,
+		},
+		{
+			id: "plans" as Section,
+			title: "Plans",
+			description: "Manage your budget plans",
+			icon: Wallet,
 		},
 		{
 			id: "danger" as Section,
@@ -572,6 +580,59 @@ export default function SettingsContent({
 											Save Locale Settings
 										</button>
 									</form>
+								</div>
+							</section>
+						)}
+
+						{activeSection === "plans" && (
+							<section className="space-y-6">
+								<div className="flex items-center justify-between gap-4 mb-5">
+									<div>
+										<h2 className="text-2xl font-bold text-white">Budget Plans</h2>
+										<p className="text-slate-400 text-sm">Manage your budget plans (Personal, Holiday, Carnival)</p>
+									</div>
+								</div>
+
+								<div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/10 p-8">
+									<div className="space-y-4">
+										{allPlans.map((plan) => (
+											<div
+												key={plan.id}
+												className={`p-4 rounded-xl border transition-all ${
+													plan.id === budgetPlanId
+														? "bg-blue-500/10 border-blue-500/50"
+														: "bg-slate-900/40 border-white/10 hover:border-white/20"
+												}`}
+											>
+												<div className="flex items-center justify-between">
+													<div>
+														<h3 className="font-bold text-white capitalize">{plan.name}</h3>
+														<p className="text-sm text-slate-400 capitalize">{plan.kind} Plan</p>
+													</div>
+													{plan.id === budgetPlanId && (
+														<span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-500/20 text-blue-400">
+															Current
+														</span>
+													)}
+												</div>
+											</div>
+										))}
+										
+										{allPlans.length === 0 && (
+											<div className="text-center py-8 text-slate-400">
+												<p>No budget plans found. Create one to get started.</p>
+											</div>
+										)}
+										
+										{allPlans.length < 3 && (
+											<a
+												href={`/user=${encodeURIComponent(sessionUser.name || "")}/${encodeURIComponent(sessionUser.id || "")}/budgets/new`}
+												className="block w-full bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-xl py-3 font-semibold text-center shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all"
+											>
+												+ Add New Plan
+											</a>
+										)}
+									</div>
 								</div>
 							</section>
 						)}

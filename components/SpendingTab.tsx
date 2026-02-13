@@ -18,7 +18,7 @@ interface SpendingEntry {
 interface Debt {
   id: string;
   name: string;
-  type: "credit_card" | "loan" | "high_purchase";
+  type: "credit_card" | "loan" | "high_purchase" | "other";
 }
 
 interface SpendingTabProps {

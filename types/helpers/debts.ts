@@ -1,4 +1,4 @@
-export type DebtType = "credit_card" | "loan" | "high_purchase";
+export type DebtType = "credit_card" | "loan" | "high_purchase" | "other";
 
 export interface DebtItem {
 	id: string;

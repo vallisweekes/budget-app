@@ -11,24 +11,24 @@ export async function updateDebtPaymentStatus(
   status: PaymentStatus,
   partialAmount?: number
 ): Promise<void> {
-	const debt = getDebtById(budgetPlanId, id);
+	const debt = await getDebtById(budgetPlanId, id);
 	if (!debt) return;
 
 	if (status === "paid") {
-		updateDebt(budgetPlanId, id, {
+		await updateDebt(budgetPlanId, id, {
 			paid: true,
 			paidAmount: debt.initialBalance,
 			currentBalance: 0,
 		});
 	} else if (status === "unpaid") {
-		updateDebt(budgetPlanId, id, {
+		await updateDebt(budgetPlanId, id, {
 			paid: false,
 			paidAmount: 0,
 			currentBalance: debt.initialBalance,
 		});
 	} else if (status === "partial") {
 		const paidAmount = Math.max(0, partialAmount ?? 0);
-		updateDebt(budgetPlanId, id, {
+		await updateDebt(budgetPlanId, id, {
 			paid: false,
 			paidAmount,
 			currentBalance: Math.max(0, debt.initialBalance - paidAmount),

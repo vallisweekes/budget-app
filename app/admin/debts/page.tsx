@@ -42,7 +42,7 @@ export default async function DebtsPage(props: {
 	}
 
 	const budgetPlanId = budgetPlan.id;
-	const debts = getAllDebts(budgetPlanId).filter((d) => d.sourceType !== "expense");
+	const debts = (await getAllDebts(budgetPlanId)).filter((d) => d.sourceType !== "expense");
 	const activeDebts = debts.filter((d) => d.currentBalance > 0);
 	const totalDebt = debts.reduce((sum, debt) => sum + (debt.currentBalance || 0), 0);
 	const totalInitialDebt = debts.reduce((sum, debt) => sum + (debt.initialBalance || 0), 0);
@@ -50,14 +50,16 @@ export default async function DebtsPage(props: {
 	const debtPayoffProgress = totalInitialDebt > 0 ? (totalPaidAmount / totalInitialDebt) * 100 : 0;
 
 	// Create payments map for efficient lookup
-	const paymentsMap = new Map(
-		activeDebts.map(debt => [debt.id, getPaymentsByDebt(budgetPlanId, debt.id)])
+	const paymentsEntries = await Promise.all(
+		activeDebts.map(async (debt) => [debt.id, await getPaymentsByDebt(budgetPlanId, debt.id)] as const)
 	);
+	const paymentsMap = new Map(paymentsEntries);
 
 	const typeLabels = {
 		credit_card: "Credit Card",
 		loan: "Loan",
 		high_purchase: "High Purchase",
+		other: "Other",
 	} as const;
 
 	return (

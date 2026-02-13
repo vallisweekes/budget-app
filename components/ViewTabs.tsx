@@ -17,7 +17,7 @@ type GoalLike = {
   title: string;
   targetAmount?: number;
   currentAmount?: number;
-  type: "yearly" | "long-term";
+  type: "yearly" | "long-term" | "long_term" | "short_term" | "short-term";
   category: "debt" | "savings" | "emergency" | "investment" | "other";
   targetYear?: number;
   description?: string;

@@ -49,6 +49,13 @@ export default async function AdminSettingsPage(props: {
 	// Get settings from database for this budget plan
 	const settings = await getSettings(budgetPlanId);
 	
+	// Get all budget plans for this user
+	const allPlans = await prisma.budgetPlan.findMany({
+		where: { userId },
+		select: { id: true, name: true, kind: true },
+		orderBy: { createdAt: 'asc' },
+	});
+	
 	const monthParam = searchParams.month;
 	const monthCandidate = Array.isArray(monthParam) ? monthParam[0] : monthParam;
 	const selectedMonth: MonthKey =
@@ -81,6 +88,7 @@ export default async function AdminSettingsPage(props: {
 			monthSummary={monthSummary}
 			fiftyThirtyTwenty={fiftyThirtyTwenty}
 			selectedMonth={selectedMonth}
+			allPlans={allPlans}
 		/>
 	);
 }

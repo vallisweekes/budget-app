@@ -1,114 +1,170 @@
-import fs from "fs";
-import path from "path";
 import type { DebtItem, DebtPayment } from "@/types";
-import { getBudgetDataDir, getBudgetDataFilePath } from "@/lib/storage/budgetDataPath";
+import { prisma } from "@/lib/prisma";
 
 export type { DebtItem, DebtPayment };
 
-function debtsFilePath(budgetPlanId: string) {
-	return getBudgetDataFilePath(budgetPlanId, "debts.json");
+function decimalToNumber(value: unknown): number {
+	if (value == null) return 0;
+	if (typeof value === "number") return value;
+	return Number((value as any).toString?.() ?? value);
 }
 
-function paymentsFilePath(budgetPlanId: string) {
-	return getBudgetDataFilePath(budgetPlanId, "debt-payments.json");
+function paymentMonthKeyFromDate(date: Date): string {
+	const y = date.getUTCFullYear();
+	const m = String(date.getUTCMonth() + 1).padStart(2, "0");
+	return `${y}-${m}`;
 }
 
-
-function ensureDataDir(budgetPlanId: string) {
-	const dir = getBudgetDataDir(budgetPlanId);
-	// Skip directory creation in production serverless environments
-	if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
-		return;
-	}
-	if (!fs.existsSync(dir)) {
-		try {
-			fs.mkdirSync(dir, { recursive: true });
-		} catch (error: any) {
-			// Ignore errors in read-only environments
-			if (error?.code !== 'ENOENT' && error?.code !== 'EROFS') {
-				console.warn('Failed to create debts directory:', error);
-			}
-		}
-	}
+function serializeDebt(row: {
+	id: string;
+	name: string;
+	type: string;
+	initialBalance: unknown;
+	currentBalance: unknown;
+	amount: unknown;
+	paid: boolean;
+	paidAmount: unknown;
+	monthlyMinimum: unknown | null;
+	interestRate: unknown | null;
+	createdAt: Date;
+	sourceType: string | null;
+	sourceExpenseId: string | null;
+	sourceMonthKey: string | null;
+	sourceCategoryId: string | null;
+	sourceCategoryName: string | null;
+	sourceExpenseName: string | null;
+}): DebtItem {
+	return {
+		id: row.id,
+		name: row.name,
+		type: row.type as any,
+		initialBalance: decimalToNumber(row.initialBalance),
+		currentBalance: decimalToNumber(row.currentBalance),
+		amount: decimalToNumber(row.amount),
+		paid: row.paid,
+		paidAmount: decimalToNumber(row.paidAmount),
+		monthlyMinimum: row.monthlyMinimum == null ? undefined : decimalToNumber(row.monthlyMinimum),
+		interestRate: row.interestRate == null ? undefined : decimalToNumber(row.interestRate),
+		createdAt: row.createdAt.toISOString(),
+		sourceType: row.sourceType === "expense" ? "expense" : undefined,
+		sourceExpenseId: row.sourceExpenseId ?? undefined,
+		sourceMonthKey: row.sourceMonthKey ?? undefined,
+		sourceCategoryId: row.sourceCategoryId ?? undefined,
+		sourceCategoryName: row.sourceCategoryName ?? undefined,
+		sourceExpenseName: row.sourceExpenseName ?? undefined,
+	};
 }
 
-function readDebts(budgetPlanId: string): DebtItem[] {
-	// In production serverless environments, skip file operations
-	if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
-		return [];
-	}
-	
-	ensureDataDir(budgetPlanId);
-	const file = debtsFilePath(budgetPlanId);
-	if (!fs.existsSync(file)) {
-		return [];
-	}
-	const raw = fs.readFileSync(file, "utf-8");
-	return JSON.parse(raw);
+function serializePayment(row: { id: string; debtId: string; amount: unknown; paidAt: Date }): DebtPayment {
+	return {
+		id: row.id,
+		debtId: row.debtId,
+		amount: decimalToNumber(row.amount),
+		date: row.paidAt.toISOString(),
+		month: paymentMonthKeyFromDate(row.paidAt),
+	};
 }
 
-function writeDebts(budgetPlanId: string, debts: DebtItem[]) {
-	// Skip writes in production serverless environments
-	if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
-		return;
-	}
-	ensureDataDir(budgetPlanId);
-	fs.writeFileSync(debtsFilePath(budgetPlanId), JSON.stringify(debts, null, 2));
+export async function getAllDebts(budgetPlanId: string): Promise<DebtItem[]> {
+	const rows = await prisma.debt.findMany({
+		where: { budgetPlanId },
+		orderBy: [{ createdAt: "asc" }],
+		select: {
+			id: true,
+			name: true,
+			type: true,
+			initialBalance: true,
+			currentBalance: true,
+			amount: true,
+			paid: true,
+			paidAmount: true,
+			monthlyMinimum: true,
+			interestRate: true,
+			createdAt: true,
+			sourceType: true,
+			sourceExpenseId: true,
+			sourceMonthKey: true,
+			sourceCategoryId: true,
+			sourceCategoryName: true,
+			sourceExpenseName: true,
+		},
+	});
+	return rows.map(serializeDebt);
 }
 
-function readPayments(budgetPlanId: string): DebtPayment[] {
-	// In production serverless environments, skip file operations
-	if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
-		return [];
-	}
-	
-	ensureDataDir(budgetPlanId);
-	const file = paymentsFilePath(budgetPlanId);
-	if (!fs.existsSync(file)) {
-		return [];
-	}
-	const raw = fs.readFileSync(file, "utf-8");
-	return JSON.parse(raw);
+export async function getDebtById(budgetPlanId: string, id: string): Promise<DebtItem | undefined> {
+	const row = await prisma.debt.findFirst({
+		where: { id, budgetPlanId },
+		select: {
+			id: true,
+			name: true,
+			type: true,
+			initialBalance: true,
+			currentBalance: true,
+			amount: true,
+			paid: true,
+			paidAmount: true,
+			monthlyMinimum: true,
+			interestRate: true,
+			createdAt: true,
+			sourceType: true,
+			sourceExpenseId: true,
+			sourceMonthKey: true,
+			sourceCategoryId: true,
+			sourceCategoryName: true,
+			sourceExpenseName: true,
+		},
+	});
+	return row ? serializeDebt(row) : undefined;
 }
 
-function writePayments(budgetPlanId: string, payments: DebtPayment[]) {
-	// Skip writes in production serverless environments
-	if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
-		return;
-	}
-	ensureDataDir(budgetPlanId);
-	fs.writeFileSync(paymentsFilePath(budgetPlanId), JSON.stringify(payments, null, 2));
-}
-
-export function getAllDebts(budgetPlanId: string): DebtItem[] {
-	return readDebts(budgetPlanId);
-}
-
-export function getDebtById(budgetPlanId: string, id: string): DebtItem | undefined {
-	const debts = readDebts(budgetPlanId);
-	return debts.find(d => d.id === id);
-}
-
-export function addDebt(
+export async function addDebt(
 	budgetPlanId: string,
 	debt: Omit<DebtItem, "id" | "createdAt" | "currentBalance" | "paid" | "paidAmount" | "amount">
-): DebtItem {
-	const debts = readDebts(budgetPlanId);
-	const newDebt: DebtItem = {
-		...debt,
-		id: Date.now().toString(),
-		currentBalance: debt.initialBalance,
-		paid: false,
-		paidAmount: 0,
-		amount: debt.initialBalance,
-		createdAt: new Date().toISOString(),
-	};
-	debts.push(newDebt);
-	writeDebts(budgetPlanId, debts);
-	return newDebt;
+): Promise<DebtItem> {
+	const created = await prisma.debt.create({
+		data: {
+			budgetPlanId,
+			name: debt.name,
+			type: debt.type as any,
+			initialBalance: debt.initialBalance,
+			currentBalance: debt.initialBalance,
+			amount: debt.initialBalance,
+			paid: false,
+			paidAmount: 0,
+			monthlyMinimum: debt.monthlyMinimum ?? null,
+			interestRate: debt.interestRate ?? null,
+			sourceType: debt.sourceType ?? null,
+			sourceExpenseId: debt.sourceExpenseId ?? null,
+			sourceMonthKey: debt.sourceMonthKey ?? null,
+			sourceCategoryId: debt.sourceCategoryId ?? null,
+			sourceCategoryName: debt.sourceCategoryName ?? null,
+			sourceExpenseName: debt.sourceExpenseName ?? null,
+		},
+		select: {
+			id: true,
+			name: true,
+			type: true,
+			initialBalance: true,
+			currentBalance: true,
+			amount: true,
+			paid: true,
+			paidAmount: true,
+			monthlyMinimum: true,
+			interestRate: true,
+			createdAt: true,
+			sourceType: true,
+			sourceExpenseId: true,
+			sourceMonthKey: true,
+			sourceCategoryId: true,
+			sourceCategoryName: true,
+			sourceExpenseName: true,
+		},
+	});
+	return serializeDebt(created);
 }
 
-export function upsertExpenseDebt(params: {
+export async function upsertExpenseDebt(params: {
 	budgetPlanId: string;
 	expenseId: string;
 	monthKey: string;
@@ -117,7 +173,7 @@ export function upsertExpenseDebt(params: {
 	categoryName?: string;
 	expenseName: string;
 	remainingAmount: number;
-}): DebtItem | null {
+}): Promise<DebtItem | null> {
 	const {
 		budgetPlanId,
 		expenseId,
@@ -129,120 +185,258 @@ export function upsertExpenseDebt(params: {
 		remainingAmount,
 	} = params;
 
-	const debts = readDebts(budgetPlanId);
-	const existing = debts.find(
-		(d) => d.sourceType === "expense" && d.sourceExpenseId === expenseId && d.sourceMonthKey === monthKey
-	);
+	const existing = await prisma.debt.findFirst({
+		where: {
+			budgetPlanId,
+			sourceType: "expense",
+			sourceExpenseId: expenseId,
+			sourceMonthKey: monthKey,
+		},
+		select: {
+			id: true,
+			name: true,
+			type: true,
+			initialBalance: true,
+			currentBalance: true,
+			amount: true,
+			paid: true,
+			paidAmount: true,
+			monthlyMinimum: true,
+			interestRate: true,
+			createdAt: true,
+			sourceType: true,
+			sourceExpenseId: true,
+			sourceMonthKey: true,
+			sourceCategoryId: true,
+			sourceCategoryName: true,
+			sourceExpenseName: true,
+		},
+	});
 
 	if (!Number.isFinite(remainingAmount) || remainingAmount <= 0) {
-		if (existing) {
-			// Keep the debt record (and any payment history), but mark it settled
-			const updated = updateDebt(budgetPlanId, existing.id, {
+		if (!existing) return null;
+		const updated = await prisma.debt.update({
+			where: { id: existing.id },
+			data: {
 				currentBalance: 0,
 				paid: true,
 				paidAmount: existing.initialBalance,
-			});
-			return updated;
-		}
-		return null;
+			},
+			select: {
+				id: true,
+				name: true,
+				type: true,
+				initialBalance: true,
+				currentBalance: true,
+				amount: true,
+				paid: true,
+				paidAmount: true,
+				monthlyMinimum: true,
+				interestRate: true,
+				createdAt: true,
+				sourceType: true,
+				sourceExpenseId: true,
+				sourceMonthKey: true,
+				sourceCategoryId: true,
+				sourceCategoryName: true,
+				sourceExpenseName: true,
+			},
+		});
+		return serializeDebt(updated);
 	}
 
 	if (existing) {
-		const updated = updateDebt(budgetPlanId, existing.id, {
-			currentBalance: remainingAmount,
-			paid: false,
-			paidAmount: Math.max(0, existing.initialBalance - remainingAmount),
-			name: existing.name,
-			sourceYear: year ?? existing.sourceYear,
-			sourceCategoryId: categoryId ?? existing.sourceCategoryId,
-			sourceCategoryName: categoryName ?? existing.sourceCategoryName,
-			sourceExpenseName: expenseName ?? existing.sourceExpenseName,
+		const initialBalance = decimalToNumber(existing.initialBalance);
+		const updated = await prisma.debt.update({
+			where: { id: existing.id },
+			data: {
+				currentBalance: remainingAmount,
+				paid: false,
+				paidAmount: Math.max(0, initialBalance - remainingAmount),
+				sourceCategoryId: categoryId ?? undefined,
+				sourceCategoryName: categoryName ?? undefined,
+				sourceExpenseName: expenseName ?? undefined,
+				// include year in the display name so it stays visible
+				name: existing.name,
+			},
+			select: {
+				id: true,
+				name: true,
+				type: true,
+				initialBalance: true,
+				currentBalance: true,
+				amount: true,
+				paid: true,
+				paidAmount: true,
+				monthlyMinimum: true,
+				interestRate: true,
+				createdAt: true,
+				sourceType: true,
+				sourceExpenseId: true,
+				sourceMonthKey: true,
+				sourceCategoryId: true,
+				sourceCategoryName: true,
+				sourceExpenseName: true,
+			},
 		});
-		return updated;
+		return serializeDebt(updated);
 	}
 
 	const displayCategory = categoryName ? `${categoryName}: ` : "";
 	const displayPeriod = year ? ` (${monthKey} ${year})` : ` (${monthKey})`;
 	const name = `${displayCategory}${expenseName}${displayPeriod}`;
 
-	return addDebt(budgetPlanId, {
-		name,
-		type: "high_purchase",
-		initialBalance: remainingAmount,
-		sourceType: "expense",
-		sourceExpenseId: expenseId,
-		sourceMonthKey: monthKey,
-		sourceYear: year,
-		sourceCategoryId: categoryId,
-		sourceCategoryName: categoryName,
-		sourceExpenseName: expenseName,
+	const created = await prisma.debt.create({
+		data: {
+			budgetPlanId,
+			name,
+			type: "high_purchase",
+			initialBalance: remainingAmount,
+			currentBalance: remainingAmount,
+			amount: remainingAmount,
+			paid: false,
+			paidAmount: 0,
+			sourceType: "expense",
+			sourceExpenseId: expenseId,
+			sourceMonthKey: monthKey,
+			sourceCategoryId: categoryId ?? null,
+			sourceCategoryName: categoryName ?? null,
+			sourceExpenseName: expenseName,
+		},
+		select: {
+			id: true,
+			name: true,
+			type: true,
+			initialBalance: true,
+			currentBalance: true,
+			amount: true,
+			paid: true,
+			paidAmount: true,
+			monthlyMinimum: true,
+			interestRate: true,
+			createdAt: true,
+			sourceType: true,
+			sourceExpenseId: true,
+			sourceMonthKey: true,
+			sourceCategoryId: true,
+			sourceCategoryName: true,
+			sourceExpenseName: true,
+		},
 	});
+
+	return serializeDebt(created);
 }
 
-export function updateDebt(budgetPlanId: string, id: string, updates: Partial<Omit<DebtItem, "id" | "createdAt">>): DebtItem | null {
-	const debts = readDebts(budgetPlanId);
-	const index = debts.findIndex(d => d.id === id);
-	if (index === -1) return null;
-	
-	debts[index] = { ...debts[index], ...updates };
-	writeDebts(budgetPlanId, debts);
-	return debts[index];
+export async function updateDebt(
+	budgetPlanId: string,
+	id: string,
+	updates: Partial<Omit<DebtItem, "id" | "createdAt">>
+): Promise<DebtItem | null> {
+	const existing = await prisma.debt.findFirst({ where: { id, budgetPlanId }, select: { id: true } });
+	if (!existing) return null;
+	const updated = await prisma.debt.update({
+		where: { id: existing.id },
+		data: {
+			name: updates.name,
+			currentBalance: updates.currentBalance,
+			monthlyMinimum: updates.monthlyMinimum === undefined ? undefined : updates.monthlyMinimum ?? null,
+			interestRate: updates.interestRate === undefined ? undefined : updates.interestRate ?? null,
+			paid: updates.paid,
+			paidAmount: updates.paidAmount,
+			amount: updates.amount,
+		},
+		select: {
+			id: true,
+			name: true,
+			type: true,
+			initialBalance: true,
+			currentBalance: true,
+			amount: true,
+			paid: true,
+			paidAmount: true,
+			monthlyMinimum: true,
+			interestRate: true,
+			createdAt: true,
+			sourceType: true,
+			sourceExpenseId: true,
+			sourceMonthKey: true,
+			sourceCategoryId: true,
+			sourceCategoryName: true,
+			sourceExpenseName: true,
+		},
+	});
+	return serializeDebt(updated);
 }
 
-export function deleteDebt(budgetPlanId: string, id: string): boolean {
-	const debts = readDebts(budgetPlanId);
-	const filtered = debts.filter(d => d.id !== id);
-	if (filtered.length === debts.length) return false;
-	
-	writeDebts(budgetPlanId, filtered);
-	
-	// Also delete related payments
-	const payments = readPayments(budgetPlanId);
-	const filteredPayments = payments.filter(p => p.debtId !== id);
-	writePayments(budgetPlanId, filteredPayments);
-	
-	return true;
+export async function deleteDebt(budgetPlanId: string, id: string): Promise<boolean> {
+	const deleted = await prisma.debt.deleteMany({ where: { id, budgetPlanId } });
+	return deleted.count > 0;
 }
 
-export function addPayment(budgetPlanId: string, debtId: string, amount: number, month: string): DebtPayment | null {
-	const debt = getDebtById(budgetPlanId, debtId);
+export async function addPayment(
+	budgetPlanId: string,
+	debtId: string,
+	amount: number,
+	month: string
+): Promise<DebtPayment | null> {
+	const debt = await prisma.debt.findFirst({
+		where: { id: debtId, budgetPlanId },
+		select: { id: true, currentBalance: true, paidAmount: true, initialBalance: true },
+	});
 	if (!debt) return null;
-	
-	const payments = readPayments(budgetPlanId);
-	const newPayment: DebtPayment = {
-		id: Date.now().toString(),
-		debtId,
-		amount,
-		date: new Date().toISOString(),
-		month,
-	};
-	
-	payments.push(newPayment);
-	writePayments(budgetPlanId, payments);
-	
-	// Update debt balance and paid amount
-	const newBalance = Math.max(0, debt.currentBalance - amount);
-	const newPaidAmount = (debt.paidAmount || 0) + amount;
-	updateDebt(budgetPlanId, debtId, { 
-		currentBalance: newBalance,
-		paidAmount: newPaidAmount,
-		paid: newBalance === 0,
+
+	const paidAt = new Date();
+	const payment = await prisma.debtPayment.create({
+		data: {
+			debtId: debt.id,
+			amount,
+			paidAt,
+			notes: month ? `month:${month}` : null,
+		},
+		select: { id: true, debtId: true, amount: true, paidAt: true },
 	});
-	
-	return newPayment;
+
+	const currentBalance = decimalToNumber(debt.currentBalance);
+	const currentPaid = decimalToNumber(debt.paidAmount);
+	const newBalance = Math.max(0, currentBalance - amount);
+	const newPaidAmount = Math.max(0, currentPaid + amount);
+	await prisma.debt.update({
+		where: { id: debt.id },
+		data: {
+			currentBalance: newBalance,
+			paidAmount: newPaidAmount,
+			paid: newBalance === 0,
+		},
+	});
+
+	return serializePayment(payment);
 }
 
-export function getPaymentsByDebt(budgetPlanId: string, debtId: string): DebtPayment[] {
-	const payments = readPayments(budgetPlanId);
-	return payments.filter(p => p.debtId === debtId);
+export async function getPaymentsByDebt(budgetPlanId: string, debtId: string): Promise<DebtPayment[]> {
+	const debt = await prisma.debt.findFirst({ where: { id: debtId, budgetPlanId }, select: { id: true } });
+	if (!debt) return [];
+	const rows = await prisma.debtPayment.findMany({
+		where: { debtId: debt.id },
+		orderBy: [{ paidAt: "asc" }],
+		select: { id: true, debtId: true, amount: true, paidAt: true },
+	});
+	return rows.map(serializePayment);
 }
 
-export function getPaymentsByMonth(budgetPlanId: string, month: string): DebtPayment[] {
-	const payments = readPayments(budgetPlanId);
-	return payments.filter(p => p.month === month);
+export async function getPaymentsByMonth(budgetPlanId: string, month: string): Promise<DebtPayment[]> {
+	// Legacy MonthKey strings aren't stored on the DB model; filter by derived YYYY-MM.
+	const debts = await prisma.debt.findMany({ where: { budgetPlanId }, select: { id: true } });
+	if (debts.length === 0) return [];
+	const debtIds = debts.map((d) => d.id);
+	const rows = await prisma.debtPayment.findMany({
+		where: { debtId: { in: debtIds } },
+		orderBy: [{ paidAt: "asc" }],
+		select: { id: true, debtId: true, amount: true, paidAt: true },
+	});
+	return rows.map(serializePayment).filter((p) => p.month === month);
 }
 
-export function getTotalDebtBalance(budgetPlanId: string): number {
-	const debts = readDebts(budgetPlanId);
-	return debts.reduce((sum, debt) => sum + debt.currentBalance, 0);
+export async function getTotalDebtBalance(budgetPlanId: string): Promise<number> {
+	const rows = await prisma.debt.findMany({ where: { budgetPlanId }, select: { currentBalance: true } });
+	return rows.reduce((sum, d) => sum + decimalToNumber(d.currentBalance), 0);
 }

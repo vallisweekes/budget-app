@@ -29,16 +29,17 @@ export function isMonthKey(value: string): value is MonthKey {
 }
 
 export async function getZeroBasedSummary(budgetPlanId: string, month: MonthKey): Promise<ZeroBasedSummary> {
-	const [settings, allIncome, allExpenses, allSpending] = await Promise.all([
+	const [settings, allIncome, allExpenses, allSpending, debtPayments] = await Promise.all([
 		getSettings(budgetPlanId),
 		getAllIncome(budgetPlanId),
 		getAllExpenses(budgetPlanId),
 		getAllSpending(),
+		getPaymentsByMonth(budgetPlanId, month),
 	]);
 
 	const incomeTotal = sumAmounts(allIncome[month] ?? []);
 	const expenseTotal = sumAmounts(allExpenses[month] ?? []);
-	const debtPaymentsTotal = sumAmounts(getPaymentsByMonth(budgetPlanId, month) ?? []);
+	const debtPaymentsTotal = sumAmounts(debtPayments ?? []);
 	const spendingTotal = sumAmounts((allSpending ?? []).filter((s) => s.month === month));
 
 	const plannedAllowance = Number(settings.monthlyAllowance) || 0;

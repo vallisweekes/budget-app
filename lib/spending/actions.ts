@@ -97,10 +97,10 @@ export async function addSpendingAction(formData: FormData) {
 
   // Handle card balance increase
   if (source === "card" && sourceId) {
-    const debt = getDebtById(budgetPlanId, sourceId);
+		const debt = await getDebtById(budgetPlanId, sourceId);
     if (debt) {
       const newBalance = debt.currentBalance + amount;
-			updateDebt(budgetPlanId, sourceId, { currentBalance: newBalance });
+			await updateDebt(budgetPlanId, sourceId, { currentBalance: newBalance });
     }
   }
 

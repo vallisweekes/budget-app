@@ -5,6 +5,10 @@ import { addDebt, updateDebt, deleteDebt, addPayment, getDebtById } from "./stor
 import type { DebtType, MonthKey } from "@/types";
 import { applyExpensePayment } from "@/lib/expenses/store";
 import { upsertExpenseDebt } from "./store";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { resolveUserId } from "@/lib/budgetPlans";
 
 function requireBudgetPlanId(formData: FormData): string {
 	const raw = formData.get("budgetPlanId");
@@ -13,8 +17,25 @@ function requireBudgetPlanId(formData: FormData): string {
 	return budgetPlanId;
 }
 
+async function requireAuthenticatedUser() {
+	const session = await getServerSession(authOptions);
+	const sessionUser = session?.user;
+	const sessionUsername = sessionUser?.username ?? sessionUser?.name;
+	if (!sessionUser || !sessionUsername) throw new Error("Not authenticated");
+	const userId = await resolveUserId({ userId: sessionUser.id, username: sessionUsername });
+	return { userId };
+}
+
+async function requireOwnedBudgetPlan(budgetPlanId: string, userId: string) {
+	const plan = await prisma.budgetPlan.findUnique({ where: { id: budgetPlanId }, select: { id: true, userId: true } });
+	if (!plan || plan.userId !== userId) throw new Error("Budget plan not found");
+	return plan;
+}
+
 export async function createDebt(formData: FormData) {
 	const budgetPlanId = requireBudgetPlanId(formData);
+	const { userId } = await requireAuthenticatedUser();
+	await requireOwnedBudgetPlan(budgetPlanId, userId);
 	const name = formData.get("name") as string;
 	const type = formData.get("type") as DebtType;
 	const initialBalance = parseFloat(formData.get("initialBalance") as string);
@@ -25,7 +46,7 @@ export async function createDebt(formData: FormData) {
 		throw new Error("Invalid input");
 	}
 
-	addDebt(budgetPlanId, {
+	await addDebt(budgetPlanId, {
 		name,
 		type,
 		initialBalance,
@@ -39,6 +60,8 @@ export async function createDebt(formData: FormData) {
 
 export async function updateDebtAction(id: string, formData: FormData) {
 	const budgetPlanId = requireBudgetPlanId(formData);
+	const { userId } = await requireAuthenticatedUser();
+	await requireOwnedBudgetPlan(budgetPlanId, userId);
 	const name = formData.get("name") as string;
 	const currentBalance = parseFloat(formData.get("currentBalance") as string);
 	const monthlyMinimum = formData.get("monthlyMinimum") ? parseFloat(formData.get("monthlyMinimum") as string) : undefined;
@@ -48,7 +71,7 @@ export async function updateDebtAction(id: string, formData: FormData) {
 		throw new Error("Invalid input");
 	}
 
-	updateDebt(budgetPlanId, id, {
+	await updateDebt(budgetPlanId, id, {
 		name,
 		currentBalance,
 		monthlyMinimum,
@@ -60,7 +83,9 @@ export async function updateDebtAction(id: string, formData: FormData) {
 }
 
 export async function deleteDebtAction(budgetPlanId: string, id: string) {
-	deleteDebt(budgetPlanId, id);
+	const { userId } = await requireAuthenticatedUser();
+	await requireOwnedBudgetPlan(budgetPlanId, userId);
+	await deleteDebt(budgetPlanId, id);
 	revalidatePath("/admin/debts");
 	revalidatePath("/");
 }
@@ -69,10 +94,12 @@ export async function makePaymentAction(budgetPlanId: string, debtId: string, am
 	if (isNaN(amount) || amount <= 0) {
 		throw new Error("Invalid payment amount");
 	}
+	const { userId } = await requireAuthenticatedUser();
+	await requireOwnedBudgetPlan(budgetPlanId, userId);
 
-	addPayment(budgetPlanId, debtId, amount, month);
+	await addPayment(budgetPlanId, debtId, amount, month);
 
-	const debt = getDebtById(budgetPlanId, debtId);
+	const debt = await getDebtById(budgetPlanId, debtId);
 	if (debt?.sourceType === "expense" && debt.sourceExpenseId && debt.sourceMonthKey) {
 		const result = await applyExpensePayment(
 			budgetPlanId,
@@ -81,11 +108,10 @@ export async function makePaymentAction(budgetPlanId: string, debtId: string, am
 			amount
 		);
 		if (result) {
-			upsertExpenseDebt({
+			await upsertExpenseDebt({
 				budgetPlanId,
 				expenseId: result.expense.id,
 				monthKey: debt.sourceMonthKey,
-				year: debt.sourceYear,
 				categoryId: result.expense.categoryId,
 				categoryName: debt.sourceCategoryName,
 				expenseName: result.expense.name,
@@ -100,6 +126,8 @@ export async function makePaymentAction(budgetPlanId: string, debtId: string, am
 
 export async function makePaymentFromForm(formData: FormData) {
 	const budgetPlanId = requireBudgetPlanId(formData);
+	const { userId } = await requireAuthenticatedUser();
+	await requireOwnedBudgetPlan(budgetPlanId, userId);
 	const debtId = formData.get("debtId") as string;
 	const amount = parseFloat(formData.get("amount") as string);
 	const month = formData.get("month") as string;
@@ -108,9 +136,9 @@ export async function makePaymentFromForm(formData: FormData) {
 		throw new Error("Invalid payment data");
 	}
 
-	addPayment(budgetPlanId, debtId, amount, month);
+	await addPayment(budgetPlanId, debtId, amount, month);
 
-	const debt = getDebtById(budgetPlanId, debtId);
+	const debt = await getDebtById(budgetPlanId, debtId);
 	if (debt?.sourceType === "expense" && debt.sourceExpenseId && debt.sourceMonthKey) {
 		const result = await applyExpensePayment(
 			budgetPlanId,
@@ -119,11 +147,10 @@ export async function makePaymentFromForm(formData: FormData) {
 			amount
 		);
 		if (result) {
-			upsertExpenseDebt({
+			await upsertExpenseDebt({
 				budgetPlanId,
 				expenseId: result.expense.id,
 				monthKey: debt.sourceMonthKey,
-				year: debt.sourceYear,
 				categoryId: result.expense.categoryId,
 				categoryName: debt.sourceCategoryName,
 				expenseName: result.expense.name,

@@ -1,8 +1,7 @@
-import fs from "node:fs/promises";
-import path from "node:path";
 import { MONTHS } from "@/lib/constants/time";
+import { prisma } from "@/lib/prisma";
+import { monthKeyToNumber, monthNumberToKey } from "@/lib/helpers/monthKey";
 import type { MonthKey } from "@/types";
-import { ensureBudgetDataDir, getBudgetDataFilePath } from "@/lib/storage/budgetDataPath";
 
 export interface IncomeItem {
   id: string;
@@ -12,48 +11,56 @@ export interface IncomeItem {
 
 export type IncomeByMonth = Record<MonthKey, IncomeItem[]>;
 
-function getFilePath(budgetPlanId: string) {
-  return getBudgetDataFilePath(budgetPlanId, "income.monthly.json");
-}
-
-async function readJson<T>(p: string, fallback: T): Promise<T> {
-  try {
-    const buf = await fs.readFile(p);
-    return JSON.parse(buf.toString());
-  } catch (e: any) {
-    if (e?.code === "ENOENT") return fallback;
-    throw e;
-  }
-}
-
-async function writeJson<T>(p: string, value: T) {
-  // Skip writes in production serverless environments
-  if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
-    return;
-  }
-  await fs.writeFile(p, JSON.stringify(value, null, 2) + "\n");
-}
-
-export async function getAllIncome(budgetPlanId: string): Promise<IncomeByMonth> {
-	const empty: IncomeByMonth = MONTHS.reduce((acc, m) => {
+function emptyIncomeByMonth(): IncomeByMonth {
+	return MONTHS.reduce((acc, m) => {
 		acc[m] = [];
 		return acc;
 	}, {} as IncomeByMonth);
-	
-	// In production serverless environments, skip file operations
-	if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
-		return empty;
-	}
-	
-	return readJson(getFilePath(budgetPlanId), empty);
+}
+
+function decimalToNumber(value: unknown): number {
+	if (value == null) return 0;
+	if (typeof value === "number") return value;
+	return Number((value as any).toString?.() ?? value);
+}
+
+async function resolveIncomeYear(budgetPlanId: string): Promise<number> {
+	const latest = await prisma.income.findFirst({
+		where: { budgetPlanId },
+		orderBy: [{ year: "desc" }, { month: "desc" }],
+		select: { year: true },
+	});
+	return latest?.year ?? new Date().getFullYear();
+}
+
+export async function getAllIncome(budgetPlanId: string): Promise<IncomeByMonth> {
+  const empty = emptyIncomeByMonth();
+  const year = await resolveIncomeYear(budgetPlanId);
+  const rows = await prisma.income.findMany({
+    where: { budgetPlanId, year },
+    orderBy: [{ month: "asc" }, { createdAt: "asc" }],
+    select: { id: true, name: true, amount: true, month: true },
+  });
+
+  for (const row of rows) {
+    const monthKey = monthNumberToKey(row.month);
+    empty[monthKey].push({ id: row.id, name: row.name, amount: decimalToNumber(row.amount) });
+  }
+
+  return empty;
 }
 
 export async function addIncome(budgetPlanId: string, month: MonthKey, item: Omit<IncomeItem, "id"> & { id?: string }): Promise<void> {
-  const data = await getAllIncome(budgetPlanId);
-  const id = item.id ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  data[month].push({ id, name: item.name, amount: item.amount });
-  await ensureBudgetDataDir(budgetPlanId);
-  await writeJson(getFilePath(budgetPlanId), data);
+  const year = await resolveIncomeYear(budgetPlanId);
+  await prisma.income.create({
+    data: {
+      budgetPlanId,
+      year,
+      month: monthKeyToNumber(month),
+      name: item.name,
+      amount: item.amount,
+    },
+  });
 }
 
 function normalizeIncomeName(name: string): string {
@@ -65,39 +72,47 @@ export async function addOrUpdateIncomeAcrossMonths(
   months: MonthKey[],
   item: Omit<IncomeItem, "id"> & { id?: string }
 ): Promise<void> {
-  const data = await getAllIncome(budgetPlanId);
-  const id = item.id ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const year = await resolveIncomeYear(budgetPlanId);
   const targetMonths = Array.from(new Set(months));
   const targetName = normalizeIncomeName(item.name);
 
-  for (const month of targetMonths) {
-    const list = data[month] ?? [];
-    const existingIndex = list.findIndex((i) => normalizeIncomeName(i.name) === targetName);
-    if (existingIndex >= 0) {
-      list[existingIndex] = { ...list[existingIndex], name: item.name, amount: item.amount };
-    } else {
-      list.push({ id, name: item.name, amount: item.amount });
-    }
-    data[month] = list;
-  }
+  for (const monthKey of targetMonths) {
+    const month = monthKeyToNumber(monthKey);
+    const existing = await prisma.income.findFirst({
+      where: {
+        budgetPlanId,
+        year,
+        month,
+        name: { equals: targetName, mode: "insensitive" },
+      },
+      select: { id: true },
+    });
 
-  await ensureBudgetDataDir(budgetPlanId);
-  await writeJson(getFilePath(budgetPlanId), data);
+    if (existing) {
+      await prisma.income.update({
+        where: { id: existing.id },
+        data: { name: item.name, amount: item.amount },
+      });
+      continue;
+    }
+
+    await prisma.income.create({
+      data: { budgetPlanId, year, month, name: item.name, amount: item.amount },
+    });
+  }
 }
 
 export async function updateIncome(budgetPlanId: string, month: MonthKey, id: string, updates: Partial<Omit<IncomeItem, "id">>): Promise<void> {
-  const data = await getAllIncome(budgetPlanId);
-  const index = data[month].findIndex((e) => e.id === id);
-  if (index >= 0) {
-    data[month][index] = { ...data[month][index], ...updates };
-    await ensureBudgetDataDir(budgetPlanId);
-    await writeJson(getFilePath(budgetPlanId), data);
-  }
+	const year = await resolveIncomeYear(budgetPlanId);
+	await prisma.income.updateMany({
+		where: { id, budgetPlanId, year, month: monthKeyToNumber(month) },
+		data: updates,
+	});
 }
 
 export async function removeIncome(budgetPlanId: string, month: MonthKey, id: string): Promise<void> {
-  const data = await getAllIncome(budgetPlanId);
-  data[month] = data[month].filter((e) => e.id !== id);
-  await ensureBudgetDataDir(budgetPlanId);
-  await writeJson(getFilePath(budgetPlanId), data);
+	const year = await resolveIncomeYear(budgetPlanId);
+	await prisma.income.deleteMany({
+		where: { id, budgetPlanId, year, month: monthKeyToNumber(month) },
+	});
 }
