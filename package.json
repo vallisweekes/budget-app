@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 5537",
+    "dev": "npm run prisma:generate && next dev -p 5537",
+    "dev:clean": "rm -rf .next && npm run dev",
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
@@ -12,6 +13,7 @@
     "prisma:studio": "prisma studio",
     "prisma:seed": "tsx prisma/seed.ts",
     "db:seed": "tsx prisma/seed.ts",
+    "postinstall": "prisma generate",
     "test:api": "tsx scripts/test-api-integration.ts",
     "read:xlsx": "tsx scripts/read-xlsx.ts --file '5 YEAR FINANCIAL FORECAST.xlsx'",
     "formulas": "tsx scripts/extract-formulas.ts --file '5 YEAR FINANCIAL FORECAST.xlsx' --sheet 'PERSONAL BUDGET 2026-2027'",

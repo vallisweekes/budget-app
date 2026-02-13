@@ -75,7 +75,7 @@ export default async function UserBudgetPage({
 	searchParams,
 }: {
 	params: Promise<{ slug: string[] }>;
-	searchParams?: Record<string, string | string[] | undefined>;
+	searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
 	const { slug } = await params;
 	const parsed = parseUserBudget(slug);
@@ -153,7 +153,8 @@ export default async function UserBudgetPage({
 	}
 
 	const budgetPlanId = requestedPlan.id;
-	const sp = { ...(searchParams ?? {}), plan: budgetPlanId };
+	const resolvedSearchParams = (await searchParams) ?? {};
+	const sp = { ...resolvedSearchParams, plan: budgetPlanId };
 
 	const [pageKeyRaw, ...pageRest] = parsed.page;
 	const pageKey = (pageKeyRaw ?? "").toLowerCase();

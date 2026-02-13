@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Home, Settings, DollarSign, Menu, X, CreditCard, Target, ShoppingBag, Banknote } from "lucide-react";
-import { usePathname, useSearchParams } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { Home, Settings, DollarSign, Menu, X, CreditCard, Target, ShoppingBag, Banknote, LogOut } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useSession, signOut } from "next-auth/react";
+import { SelectDropdown } from "@/components/Shared";
 
 function parseUserScopedPath(pathname: string): { username: string; budgetPlanId: string } | null {
 	const m = pathname.match(/^\/user=([^/]+)\/([^/]+)/);
@@ -19,17 +20,51 @@ export default function Sidebar() {
 	const [isOpen, setIsOpen] = useState(false);
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
+	const router = useRouter();
 	const { data: session } = useSession();
 	const sessionUsername = session?.user?.username ?? session?.user?.name;
+	const [plans, setPlans] = useState<Array<{ id: string; name: string; kind: string }>>([]);
 
 	const scoped = parseUserScopedPath(pathname);
 	const planFromQuery = searchParams.get("plan")?.trim() || "";
+	const currentPlanId = scoped?.budgetPlanId || planFromQuery;
+
+	useEffect(() => {
+		if (!sessionUsername) return;
+		let cancelled = false;
+		(async () => {
+			try {
+				const res = await fetch("/api/bff/budget-plans", { cache: "no-store" });
+				if (!res.ok) return;
+				const data = (await res.json()) as { plans?: Array<{ id: string; name: string; kind: string }> };
+				if (cancelled) return;
+				setPlans(Array.isArray(data.plans) ? data.plans : []);
+			} catch {
+				// Non-blocking: sidebar still works without the switcher.
+			}
+		})();
+		return () => {
+			cancelled = true;
+		};
+	}, [sessionUsername]);
+
+	const planOptions = useMemo(
+		() =>
+			plans.map((p) => ({
+				value: p.id,
+				label: `${p.name} (${p.kind})`,
+			})),
+		[plans]
+	);
 
 	const baseHref = scoped
 		? `/user=${encodeURIComponent(scoped.username)}/${encodeURIComponent(scoped.budgetPlanId)}`
 		: sessionUsername && planFromQuery
 			? `/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(planFromQuery)}`
 			: "/";
+
+	const tailPath = scoped ? pathname.replace(/^\/user=[^/]+\/[^/]+/, "") : "";
+	const qs = searchParams.toString();
 
 	const navItems = [
 		{ href: baseHref, label: "Home", icon: Home },
@@ -73,6 +108,26 @@ export default function Sidebar() {
 							Budget App
 						</h2>
 						<p className="text-sm text-slate-400 mt-1">Manage your finances</p>
+						{sessionUsername && planOptions.length > 1 && currentPlanId && (
+							<div className="mt-4">
+								<div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
+									Budget plan
+								</div>
+								<SelectDropdown
+									options={planOptions}
+									value={currentPlanId}
+									onValueChange={(nextId) => {
+										if (!sessionUsername) return;
+										const href = `/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(nextId)}${tailPath}`;
+										router.push(qs ? `${href}?${qs}` : href);
+										router.refresh();
+										setIsOpen(false);
+									}}
+									variant="dark"
+									buttonClassName="bg-slate-950/40 px-3 py-2"
+								/>
+							</div>
+						)}
 					</div>
 
 					{/* Navigation */}
@@ -96,7 +151,14 @@ export default function Sidebar() {
 
 					{/* Footer */}
 					<div className="pt-4 border-t border-white/10">
-						<p className="text-xs text-slate-500 text-center">
+						<button
+							onClick={() => signOut({ callbackUrl: "/" })}
+							className="flex w-full items-center gap-3 px-4 py-3 rounded-xl transition-all text-slate-400 hover:bg-white/5 hover:text-white"
+						>
+							<LogOut size={20} />
+							<span className="font-medium">Log out</span>
+						</button>
+						<p className="text-xs text-slate-500 text-center mt-4">
 							Budget App v1.0
 						</p>
 					</div>

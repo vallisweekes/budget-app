@@ -11,6 +11,7 @@ import { authOptions } from "@/lib/auth";
 import { getDefaultBudgetPlanForUser, resolveUserId } from "@/lib/budgetPlans";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
+import { MonthlyIncomeGrid } from "./MonthlyIncomeGrid";
 
 export const dynamic = "force-dynamic";
 
@@ -162,20 +163,11 @@ export default async function AdminIncomePage(props: {
 						</div>
 					</div>
 
-					<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-						{MONTHS.map((m) => (
-							<div
-								key={m}
-								className="bg-slate-800/40 backdrop-blur-xl rounded-2xl shadow-xl border border-white/10 p-5 hover:border-white/20 transition-all"
-							>
-								<h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-									<span className="w-2 h-2 bg-gradient-to-r from-pink-500 to-rose-600 rounded-full"></span>
-									{m}
-								</h3>
-								<IncomeManager budgetPlanId={budgetPlanId} month={m as MonthKey} incomeItems={income[m]} />
-							</div>
-						))}
-					</div>
+					<MonthlyIncomeGrid
+						months={MONTHS}
+						income={income}
+						budgetPlanId={budgetPlanId}
+					/>
 				</div>
 			</div>
 		</div>

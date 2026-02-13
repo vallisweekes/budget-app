@@ -1,7 +1,7 @@
 import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
-import { getDefaultBudgetPlanForUser, isSupportedBudgetType } from "@/lib/budgetPlans";
+import { isSupportedBudgetType, listBudgetPlansForUser } from "@/lib/budgetPlans";
 import CreateBudgetForm, { type BudgetType } from "./CreateBudgetForm";
 import { createBudgetPlanAction } from "./actions";
 
@@ -17,11 +17,7 @@ export default async function NewBudgetPageContent({
 		redirect("/");
 	}
 
-	// If they already have a budget, send them to it (they can add more later via UI).
-	const existing = await getDefaultBudgetPlanForUser({ userId: sessionUser.id, username });
-	if (existing) {
-		redirect(`/user=${encodeURIComponent(username)}/${encodeURIComponent(existing.id)}`);
-	}
+	const plans = await listBudgetPlansForUser({ userId: sessionUser.id, username });
 
 	const sp = await searchParams;
 	const raw = Array.isArray(sp.type) ? sp.type[0] : sp.type;
@@ -37,11 +33,29 @@ export default async function NewBudgetPageContent({
 						Create budget
 					</div>
 					<h1 className="mt-4 text-4xl font-bold tracking-tight text-white md:text-5xl">
-						Choose your first budget type
+						Create a new budget
 					</h1>
 					<p className="mt-3 text-slate-300">
-						You’re signed in as <span className="font-semibold text-slate-200">{username}</span>. Let’s create your first budget.
+						You’re signed in as <span className="font-semibold text-slate-200">{username}</span>.
 					</p>
+
+					{plans.length > 0 && (
+						<div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4">
+							<p className="text-sm font-semibold text-slate-200">Your existing budgets</p>
+							<div className="mt-3 grid gap-2">
+								{plans.map((p) => (
+									<a
+										key={p.id}
+										href={`/user=${encodeURIComponent(username)}/${encodeURIComponent(p.id)}`}
+										className="flex items-center justify-between rounded-xl border border-white/10 bg-slate-950/20 px-3 py-2 text-sm text-slate-200 hover:bg-white/10"
+									>
+										<span className="font-medium">{p.name}</span>
+										<span className="text-xs uppercase tracking-wide text-slate-400">{p.kind}</span>
+									</a>
+								))}
+							</div>
+						</div>
+					)}
 
 					<CreateBudgetForm action={createBudgetPlanAction} defaultBudgetType={defaultBudgetType} />
 				</div>

@@ -15,9 +15,10 @@ export async function createBudgetPlanAction(formData: FormData) {
 
 	const budgetTypeRaw = String(formData.get("budgetType") ?? "personal").trim().toLowerCase();
 	const budgetType = isSupportedBudgetType(budgetTypeRaw) ? budgetTypeRaw : "personal";
+	const planName = String(formData.get("planName") ?? "").trim();
 
 	const userId = await resolveUserId({ userId: sessionUser.id, username });
-	const plan = await getOrCreateBudgetPlanForUser({ userId, username, budgetType });
+	const plan = await getOrCreateBudgetPlanForUser({ userId, username, budgetType, planName });
 
 	redirect(`/user=${encodeURIComponent(username)}/${encodeURIComponent(plan.id)}`);
 }

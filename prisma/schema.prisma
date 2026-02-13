@@ -64,6 +64,7 @@ model VerificationToken {
 model BudgetPlan {
   id          String   @id @default(cuid())
   name        String   @default("My Budget")
+  kind        BudgetPlanKind @default(personal)
   userId      String
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
@@ -86,6 +87,13 @@ model BudgetPlan {
   updatedAt  DateTime @updatedAt
   
   @@index([userId])
+  @@index([userId, kind])
+}
+
+enum BudgetPlanKind {
+  personal
+  holiday
+  carnival
 }
 
 model Category {

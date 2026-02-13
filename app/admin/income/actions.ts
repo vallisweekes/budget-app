@@ -58,7 +58,7 @@ export async function addIncomeAction(formData: FormData): Promise<void> {
 	await addOrUpdateIncomeAcrossMonths(budgetPlanId, targetMonths, { id: sharedId, name, amount });
 }
 
-export async function updateIncomeAction(
+export async function updateIncomeItemAction(
 	budgetPlanId: string,
 	month: MonthKey,
 	id: string,

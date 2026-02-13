@@ -78,22 +78,40 @@ export async function getOrCreateBudgetPlanForUser(params: {
 	userId?: string;
 	username?: string;
 	budgetType: SupportedBudgetType;
+	planName?: string;
 }) {
 	const { budgetType } = params;
 	const userId = await resolveUserId({ userId: params.userId, username: params.username });
 
-	const existing = await prisma.budgetPlan.findFirst({
-		where: {
-			userId,
-			name: budgetType,
-		},
-	});
-	if (existing) return existing;
+	const planName = String(params.planName ?? "").trim();
 
+	// Enforce only one Personal plan. If it exists, return it.
+	if (budgetType === "personal") {
+		const existing = await prisma.budgetPlan.findFirst({
+			where: {
+				userId,
+				kind: "personal",
+			},
+			orderBy: { createdAt: "desc" },
+		});
+		if (existing) return existing;
+
+		return prisma.budgetPlan.create({
+			data: {
+				userId,
+				kind: "personal",
+				name: planName || "Personal",
+			},
+		});
+	}
+
+	// Holiday/Carnival: allow multiple plans.
+	const fallbackName = budgetType === "holiday" ? "Holiday" : "Carnival";
 	return prisma.budgetPlan.create({
 		data: {
 			userId,
-			name: budgetType,
+			kind: budgetType,
+			name: planName || fallbackName,
 		},
 	});
 }
@@ -105,7 +123,7 @@ export async function getBudgetPlanForUserByType(params: {
 }) {
 	const userId = await resolveUserId({ userId: params.userId, username: params.username });
 	return prisma.budgetPlan.findFirst({
-		where: { userId, name: params.budgetType },
+		where: { userId, kind: params.budgetType },
 		orderBy: { createdAt: "desc" },
 	});
 }
@@ -115,10 +133,15 @@ export async function getDefaultBudgetPlanForUser(params: {
 	username?: string;
 }) {
 	const userId = await resolveUserId({ userId: params.userId, username: params.username });
-	return prisma.budgetPlan.findFirst({
-		where: { userId },
+
+	// Prefer Personal if it exists, otherwise fall back to the most recent plan.
+	const personal = await prisma.budgetPlan.findFirst({
+		where: { userId, kind: "personal" },
 		orderBy: { createdAt: "desc" },
 	});
+	if (personal) return personal;
+
+	return prisma.budgetPlan.findFirst({ where: { userId }, orderBy: { createdAt: "desc" } });
 }
 
 export async function listBudgetPlansForUser(params: {

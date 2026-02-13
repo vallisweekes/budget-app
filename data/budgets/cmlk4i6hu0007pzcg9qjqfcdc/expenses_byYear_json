@@ -1,0 +1,37 @@
+{
+  "2026": {
+    "AUGUST ": [],
+    "SEPTEMBER": [],
+    "OCTOBER": [],
+    "NOVEMBER": [],
+    "DECEMBER": [],
+    "JANUARY": [
+      {
+        "id": "1770941098436-jaha3458rz",
+        "name": "Flight",
+        "amount": 1100,
+        "categoryId": "cmlk4lqn1000fpztqb4fvnupz"
+      }
+    ],
+    "FEBURARY": [
+      {
+        "id": "1770941098437-rnpbwxe1hlp",
+        "name": "Hotel",
+        "amount": 1800,
+        "categoryId": "cmlk4lqym000hpztq2345axsf"
+      }
+    ],
+    "MARCH": [
+      {
+        "id": "1770941098437-9n2k4pft7ys",
+        "name": "Excursions",
+        "amount": 450,
+        "categoryId": "cmlk4lra5000jpztqbx3hlzk0"
+      }
+    ],
+    "APRIL": [],
+    "MAY": [],
+    "JUNE": [],
+    "JULY": []
+  }
+}

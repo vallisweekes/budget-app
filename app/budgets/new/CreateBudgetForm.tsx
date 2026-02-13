@@ -14,6 +14,7 @@ export default function CreateBudgetForm({
 	defaultBudgetType?: BudgetType;
 }) {
 	const [budgetType, setBudgetType] = useState<BudgetType>(defaultBudgetType);
+	const [planName, setPlanName] = useState<string>(defaultBudgetType === "personal" ? "Personal" : "");
 
 	const options = useMemo(
 		() =>
@@ -33,11 +34,41 @@ export default function CreateBudgetForm({
 						<SelectDropdown
 							name="budgetType"
 							value={budgetType}
-							onValueChange={(v) => setBudgetType(v as BudgetType)}
+							onValueChange={(v) => {
+								const next = v as BudgetType;
+								setBudgetType(next);
+								setPlanName((prev) => {
+									// If the user already typed something, keep it.
+									if (prev.trim()) return prev;
+									return next === "personal" ? "Personal" : "";
+								});
+							}}
 							options={options}
 							variant="dark"
 							buttonClassName="bg-slate-950/40 px-3 py-2"
 						/>
+					</div>
+				</label>
+
+				<label className="block">
+					<span className="block text-sm font-medium text-slate-300">Budget name</span>
+					<input
+						name="planName"
+						value={planName}
+						onChange={(e) => setPlanName(e.target.value)}
+						placeholder={
+							budgetType === "holiday"
+								? "e.g. Jamaica 2026"
+								: budgetType === "carnival"
+									? "e.g. Carnival 2026"
+									: "Personal"
+						}
+						className="mt-1 w-full rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/60"
+					/>
+					<div className="mt-1 text-xs text-slate-400">
+						{budgetType === "personal"
+							? "Only one Personal budget is allowed."
+							: "You can create multiple budgets of this type."}
 					</div>
 				</label>
 

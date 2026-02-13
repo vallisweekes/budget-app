@@ -1,0 +1,51 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { Trash2 } from "lucide-react";
+import { removeIncomeAction } from "./actions";
+import { ConfirmModal } from "@/components/Shared";
+import type { MonthKey } from "@/types";
+
+interface DeleteIncomeButtonProps {
+	id: string;
+	budgetPlanId: string;
+	month: MonthKey;
+}
+
+export default function DeleteIncomeButton({
+	id,
+	budgetPlanId,
+	month,
+}: DeleteIncomeButtonProps) {
+	const [isPending, startTransition] = useTransition();
+	const [isOpen, setIsOpen] = useState(false);
+
+	const handleDelete = () => {
+		startTransition(async () => {
+			await removeIncomeAction(budgetPlanId, month, id);
+			setIsOpen(false);
+		});
+	};
+
+	return (
+		<>
+			<button
+				onClick={() => setIsOpen(true)}
+				disabled={isPending}
+				className="p-1.5 rounded-md bg-red-500/20 text-red-400 hover:bg-red-500/30 disabled:opacity-50"
+				aria-label="Delete income"
+			>
+				<Trash2 className="w-3 h-3" />
+			</button>
+			<ConfirmModal
+				open={isOpen}
+				title="Delete Income"
+				description="Are you sure you want to delete this income source? This action cannot be undone."
+				tone="danger"
+				isBusy={isPending}
+				onConfirm={handleDelete}
+				onClose={() => setIsOpen(false)}
+			/>
+		</>
+	);
+}

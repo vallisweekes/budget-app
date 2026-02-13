@@ -1,0 +1,178 @@
+{
+  "2026": {
+    "AUGUST ": [
+      {
+        "id": "1770941097861-4ssaus1lgqp",
+        "name": "Rent",
+        "amount": 2500,
+        "categoryId": "cmlk4loyr0005pztq1fvvwz6w"
+      },
+      {
+        "id": "1770941097862-jkudn75tzsg",
+        "name": "Groceries",
+        "amount": 900,
+        "categoryId": "cmlk4lpcn0007pztqykwq2zxn"
+      }
+    ],
+    "SEPTEMBER": [
+      {
+        "id": "1770941097861-4ssaus1lgqp",
+        "name": "Rent",
+        "amount": 2500,
+        "categoryId": "cmlk4loyr0005pztq1fvvwz6w"
+      },
+      {
+        "id": "1770941097862-jkudn75tzsg",
+        "name": "Groceries",
+        "amount": 900,
+        "categoryId": "cmlk4lpcn0007pztqykwq2zxn"
+      }
+    ],
+    "OCTOBER": [
+      {
+        "id": "1770941097861-4ssaus1lgqp",
+        "name": "Rent",
+        "amount": 2500,
+        "categoryId": "cmlk4loyr0005pztq1fvvwz6w"
+      },
+      {
+        "id": "1770941097862-jkudn75tzsg",
+        "name": "Groceries",
+        "amount": 900,
+        "categoryId": "cmlk4lpcn0007pztqykwq2zxn"
+      }
+    ],
+    "NOVEMBER": [
+      {
+        "id": "1770941097861-4ssaus1lgqp",
+        "name": "Rent",
+        "amount": 2500,
+        "categoryId": "cmlk4loyr0005pztq1fvvwz6w"
+      },
+      {
+        "id": "1770941097862-jkudn75tzsg",
+        "name": "Groceries",
+        "amount": 900,
+        "categoryId": "cmlk4lpcn0007pztqykwq2zxn"
+      }
+    ],
+    "DECEMBER": [
+      {
+        "id": "1770941097861-4ssaus1lgqp",
+        "name": "Rent",
+        "amount": 2500,
+        "categoryId": "cmlk4loyr0005pztq1fvvwz6w"
+      },
+      {
+        "id": "1770941097862-jkudn75tzsg",
+        "name": "Groceries",
+        "amount": 900,
+        "categoryId": "cmlk4lpcn0007pztqykwq2zxn"
+      }
+    ],
+    "JANUARY": [
+      {
+        "id": "1770941097861-4ssaus1lgqp",
+        "name": "Rent",
+        "amount": 2500,
+        "categoryId": "cmlk4loyr0005pztq1fvvwz6w"
+      },
+      {
+        "id": "1770941097862-jkudn75tzsg",
+        "name": "Groceries",
+        "amount": 900,
+        "categoryId": "cmlk4lpcn0007pztqykwq2zxn"
+      }
+    ],
+    "FEBURARY": [
+      {
+        "id": "1770941097861-4ssaus1lgqp",
+        "name": "Rent",
+        "amount": 2500,
+        "categoryId": "cmlk4loyr0005pztq1fvvwz6w"
+      },
+      {
+        "id": "1770941097862-jkudn75tzsg",
+        "name": "Groceries",
+        "amount": 900,
+        "categoryId": "cmlk4lpcn0007pztqykwq2zxn"
+      }
+    ],
+    "MARCH": [
+      {
+        "id": "1770941097861-4ssaus1lgqp",
+        "name": "Rent",
+        "amount": 2500,
+        "categoryId": "cmlk4loyr0005pztq1fvvwz6w"
+      },
+      {
+        "id": "1770941097862-jkudn75tzsg",
+        "name": "Groceries",
+        "amount": 900,
+        "categoryId": "cmlk4lpcn0007pztqykwq2zxn"
+      },
+      {
+        "id": "1770941097862-glr8xkh54bf",
+        "name": "Beach Resort Deposit",
+        "amount": 300,
+        "categoryId": "cmlk4i6p2000bpzcgnq00ourl"
+      }
+    ],
+    "APRIL": [
+      {
+        "id": "1770941097861-4ssaus1lgqp",
+        "name": "Rent",
+        "amount": 2500,
+        "categoryId": "cmlk4loyr0005pztq1fvvwz6w"
+      },
+      {
+        "id": "1770941097862-jkudn75tzsg",
+        "name": "Groceries",
+        "amount": 900,
+        "categoryId": "cmlk4lpcn0007pztqykwq2zxn"
+      }
+    ],
+    "MAY": [
+      {
+        "id": "1770941097861-4ssaus1lgqp",
+        "name": "Rent",
+        "amount": 2500,
+        "categoryId": "cmlk4loyr0005pztq1fvvwz6w"
+      },
+      {
+        "id": "1770941097862-jkudn75tzsg",
+        "name": "Groceries",
+        "amount": 900,
+        "categoryId": "cmlk4lpcn0007pztqykwq2zxn"
+      }
+    ],
+    "JUNE": [
+      {
+        "id": "1770941097861-4ssaus1lgqp",
+        "name": "Rent",
+        "amount": 2500,
+        "categoryId": "cmlk4loyr0005pztq1fvvwz6w"
+      },
+      {
+        "id": "1770941097862-jkudn75tzsg",
+        "name": "Groceries",
+        "amount": 900,
+        "categoryId": "cmlk4lpcn0007pztqykwq2zxn"
+      }
+    ],
+    "JULY": [
+      {
+        "id": "1770941097861-4ssaus1lgqp",
+        "name": "Rent",
+        "amount": 2500,
+        "categoryId": "cmlk4loyr0005pztq1fvvwz6w"
+      },
+      {
+        "id": "1770941097862-jkudn75tzsg",
+        "name": "Groceries",
+        "amount": 900,
+        "categoryId": "cmlk4lpcn0007pztqykwq2zxn"
+      }
+    ]
+  }
+}
