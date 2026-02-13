@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { MONTHS } from "@/lib/constants/time";
 import { formatMonthKeyLabel, normalizeMonthKey } from "@/lib/helpers/monthKey";
@@ -8,7 +8,6 @@ import type { MonthKey } from "@/types";
 import type { ExpensesByMonth } from "@/types";
 import type { CategoryConfig } from "@/lib/categories/store";
 import ExpenseManager from "./ExpenseManager";
-import { useGetCategoriesQuery, useGetExpensesQuery } from "@/lib/redux/api/bffApi";
 
 interface BudgetPlan {
   id: string;
@@ -45,8 +44,25 @@ export default function ExpensesPageClient({
   const searchParams = useSearchParams();
   const pathname = usePathname();
 
-  const [selectedYear, setSelectedYear] = useState<number>(() => initialYear);
-  const [selectedMonth, setSelectedMonth] = useState<MonthKey>(() => initialMonth);
+  const [isNavigating, startTransition] = useTransition();
+
+  // Canonical selected period comes from the URL; we keep optimistic state for immediate UI feedback.
+  const urlYear = useMemo(() => {
+    const raw = searchParams.get("year");
+    const parsed = raw == null ? NaN : Number(raw);
+    return Number.isFinite(parsed) ? (parsed as number) : initialYear;
+  }, [initialYear, searchParams]);
+
+  const urlMonth = useMemo(() => {
+    const raw = searchParams.get("month");
+    return (raw && normalizeMonthKey(raw)) ? (normalizeMonthKey(raw) as MonthKey) : initialMonth;
+  }, [initialMonth, searchParams]);
+
+  const [optimisticYear, setOptimisticYear] = useState<number>(() => initialYear);
+  const [optimisticMonth, setOptimisticMonth] = useState<MonthKey>(() => initialMonth);
+
+  const selectedYear = isNavigating ? optimisticYear : urlYear;
+  const selectedMonth = isNavigating ? optimisticMonth : urlMonth;
   
   // Initialize activeTab based on available plans
   const [activeTab, setActiveTab] = useState<TabKey>(() => {
@@ -102,31 +118,25 @@ export default function ExpensesPageClient({
 
   // Create categories by plan map
   const allCategoriesByPlan = useMemo(() => {
-    const map: Record<string, any[]> = {};
+    const map: Record<string, CategoryConfig[]> = {};
     allPlansData.forEach((data) => {
       map[data.plan.id] = data.categories;
     });
     return map;
   }, [allPlansData]);
 
-  useEffect(() => {
-    // Keep local state aligned with the URL (server-selected period).
-    const rawYear = searchParams.get("year");
-    const rawMonth = searchParams.get("month");
-    const parsedYear = rawYear == null ? null : Number(rawYear);
-    if (Number.isFinite(parsedYear)) setSelectedYear(parsedYear as number);
-	if (rawMonth) {
-		const normalized = normalizeMonthKey(rawMonth);
-		if (normalized) setSelectedMonth(normalized);
-	}
-  }, [searchParams]);
-
   const pushPeriod = (month: MonthKey, year: number) => {
+    // Update local state immediately so the UI reflects the chosen period,
+    // then navigate and show skeletons until the server render completes.
+    setOptimisticMonth(month);
+    setOptimisticYear(year);
     const next = new URLSearchParams(searchParams.toString());
     next.set("month", month);
     next.set("year", String(year));
 	// Preserve the current (user-scoped) pathname so we stay on the right plan.
-	router.push(`${pathname}?${next.toString()}`);
+	startTransition(() => {
+		router.push(`${pathname}?${next.toString()}`);
+	});
   };
   
   return (
@@ -148,11 +158,12 @@ export default function ExpensesPageClient({
                 <button
                   key={year}
                   onClick={() => pushPeriod(selectedMonth, year)}
+                  disabled={isNavigating}
                   className={`py-3 sm:py-4 px-3 sm:px-4 rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg transition-all cursor-pointer ${
                     selectedYear === year
                       ? "bg-gradient-to-br from-indigo-500 to-blue-600 text-white shadow-lg scale-105"
                       : "bg-slate-900/60 text-slate-300 hover:bg-slate-900/80 hover:shadow-md"
-                  }`}
+                  } ${isNavigating ? "opacity-70 cursor-not-allowed" : ""}`}
                 >
                   {year}
                 </button>
@@ -168,11 +179,12 @@ export default function ExpensesPageClient({
                 <button
                   key={month}
                   onClick={() => pushPeriod(month as MonthKey, selectedYear)}
+                  disabled={isNavigating}
                   className={`py-3 sm:py-4 px-3 sm:px-4 rounded-xl sm:rounded-2xl font-medium text-sm sm:text-base transition-all cursor-pointer ${
                     selectedMonth === month
                       ? "bg-gradient-to-br from-purple-500 to-indigo-600 text-white shadow-lg scale-105"
                       : "bg-slate-900/60 text-slate-300 hover:bg-slate-900/80 hover:shadow-md"
-                  }`}
+                  } ${isNavigating ? "opacity-70 cursor-not-allowed" : ""}`}
                 >
 				  {formatMonthKeyLabel(month as MonthKey).slice(0, 3)}
                 </button>
@@ -221,6 +233,7 @@ export default function ExpensesPageClient({
               year={selectedYear}
               expenses={planData.expenses[selectedMonth] || []}
               categories={planData.categories}
+              loading={isNavigating}
               allPlans={allPlansData.map(d => ({ id: d.plan.id, name: d.plan.name, kind: d.plan.kind }))}
               allCategoriesByPlan={allCategoriesByPlan}
             />

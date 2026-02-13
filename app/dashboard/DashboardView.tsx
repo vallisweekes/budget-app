@@ -20,33 +20,8 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 	// Function to process plan data
 	const processPlanData = async (planId: string) => {
 		const now = new Date();
-		const defaultYear = now.getFullYear();
-		const defaultMonthNum = now.getMonth() + 1; // 1-12
-
-		const [latestExpense, latestIncome] = await Promise.all([
-			prisma.expense.findFirst({
-				where: { budgetPlanId: planId },
-				orderBy: [{ year: "desc" }, { month: "desc" }],
-				select: { year: true, month: true },
-			}),
-			prisma.income.findFirst({
-				where: { budgetPlanId: planId },
-				orderBy: [{ year: "desc" }, { month: "desc" }],
-				select: { year: true, month: true },
-			}),
-		]);
-
-		const candidates = [
-			{ year: defaultYear, month: defaultMonthNum },
-			latestExpense ? { year: latestExpense.year, month: latestExpense.month } : null,
-			latestIncome ? { year: latestIncome.year, month: latestIncome.month } : null,
-		].filter(Boolean) as Array<{ year: number; month: number }>;
-
-		const { year: selectedYear, month: selectedMonthNum } = candidates.reduce((max, cur) => {
-			if (cur.year > max.year) return cur;
-			if (cur.year < max.year) return max;
-			return cur.month > max.month ? cur : max;
-		});
+		const selectedYear = now.getFullYear();
+		const selectedMonthNum = now.getMonth() + 1; // 1-12
 		
 		// Fetch all data from database for this plan
 		const [categories, expenses, income, goals] = await Promise.all([

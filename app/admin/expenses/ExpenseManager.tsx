@@ -1,16 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition, type FormEvent } from "react";
 import { useFormStatus } from "react-dom";
 import type { MonthKey } from "@/types";
 import { addExpenseAction, togglePaidAction, updateExpenseAction, removeExpenseAction, applyExpensePaymentAction } from "./actions";
 import { Trash2, Plus, Check, X, ChevronDown, ChevronUp, Search, Pencil, TrendingUp } from "lucide-react";
 import CategoryIcon from "@/components/CategoryIcon";
-import { ConfirmModal, SelectDropdown } from "@/components/Shared";
+import { ConfirmModal, SelectDropdown, Skeleton, SkeletonText } from "@/components/Shared";
 import { formatCurrency } from "@/lib/helpers/money";
 import { MONTHS } from "@/lib/constants/time";
 import { formatMonthKeyLabel } from "@/lib/helpers/monthKey";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 interface Expense {
   id: string;
@@ -34,18 +35,48 @@ interface BudgetPlanOption {
   kind: string;
 }
 
-interface CategoryWithPlanId extends Category {
-  budgetPlanId: string;
-}
-
 interface ExpenseManagerProps {
 	budgetPlanId: string;
   month: MonthKey;
   year: number;
   expenses: Expense[];
   categories: Category[];
+  loading?: boolean;
   allPlans?: BudgetPlanOption[];
-  allCategoriesByPlan?: Record<string, CategoryWithPlanId[]>;
+  allCategoriesByPlan?: Record<string, Category[]>;
+}
+
+function ExpenseCardsSkeleton({ count = 4 }: { count?: number }) {
+  return (
+    <div className="grid grid-cols-1 gap-6">
+      {Array.from({ length: count }).map((_, i) => (
+        <div
+          key={i}
+          className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-xl overflow-hidden border border-white/10"
+        >
+          <div className="p-6 border-b border-white/10 bg-gradient-to-br from-slate-900/60 to-slate-900/40">
+            <div className="flex items-center justify-between gap-6">
+              <div className="flex items-center gap-4">
+                <Skeleton className="h-14 w-14 rounded-2xl" />
+                <div className="min-w-[180px]">
+                  <Skeleton className="h-6 w-40" />
+                  <Skeleton className="mt-2 h-4 w-24" />
+                </div>
+              </div>
+              <div className="text-right">
+                <Skeleton className="h-7 w-28 ml-auto" />
+                <Skeleton className="mt-2 h-4 w-20 ml-auto" />
+              </div>
+            </div>
+          </div>
+
+          <div className="p-5">
+            <SkeletonText lines={3} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function Currency({ value }: { value: number }) {
@@ -66,9 +97,14 @@ function SaveExpenseChangesButton() {
   );
 }
 
-export default function ExpenseManager({ budgetPlanId, month, year, expenses, categories, allPlans, allCategoriesByPlan }: ExpenseManagerProps) {
+export default function ExpenseManager({ budgetPlanId, month, year, expenses, categories, loading, allPlans, allCategoriesByPlan }: ExpenseManagerProps) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [isAdding, startAddTransition] = useTransition();
+  const isPeriodLoading = Boolean(loading);
+
   const [showAddForm, setShowAddForm] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({ uncategorized: true });
   const [statusFilter, setStatusFilter] = useState<"all" | "paid" | "unpaid">("all");
@@ -85,96 +121,6 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
   const [distributeAllMonths, setDistributeAllMonths] = useState(false);
   const [distributeAllYears, setDistributeAllYears] = useState(false);
 
-  const [categoriesByPlan, setCategoriesByPlan] = useState<Record<string, Category[]>>(() => {
-    const initial: Record<string, Category[]> = {};
-    if (allCategoriesByPlan) {
-      for (const [planId, list] of Object.entries(allCategoriesByPlan)) {
-        initial[planId] = (list as Category[]).map((c) => ({
-          id: c.id,
-          name: c.name,
-          icon: c.icon,
-          color: c.color,
-        }));
-      }
-    }
-    initial[budgetPlanId] = initial[budgetPlanId] ?? categories;
-    return initial;
-  });
-
-  const [categoryLoadStateByPlan, setCategoryLoadStateByPlan] = useState<
-    Record<string, { status: "idle" | "loading" | "loaded" | "error"; message?: string }>
-  >(() => ({}));
-
-  async function ensureCategoriesLoaded(planId: string) {
-    if (!planId) return;
-    // If we already have categories for this plan, don't refetch.
-    if ((categoriesByPlan[planId] ?? []).length > 0) return;
-    try {
-		setCategoryLoadStateByPlan((prev) => ({
-			...prev,
-			[planId]: { status: "loading" },
-		}));
-      const res = await fetch(`/api/bff/categories?budgetPlanId=${encodeURIComponent(planId)}`, {
-        method: "GET",
-        credentials: "same-origin",
-        cache: "no-store",
-        headers: { Accept: "application/json" },
-      });
-		if (!res.ok) {
-			let message = `HTTP ${res.status}`;
-			try {
-				const body = (await res.json()) as any;
-				if (body?.error) message = String(body.error);
-			} catch {
-				// ignore
-			}
-			setCategoryLoadStateByPlan((prev) => ({
-				...prev,
-				[planId]: { status: "error", message },
-			}));
-			return;
-		}
-      const data = (await res.json()) as Array<{ id: string; name: string; icon?: string | null; color?: string | null }>;
-      setCategoriesByPlan((prev) => ({
-        ...prev,
-        [planId]: data.map((c) => ({
-          id: c.id,
-          name: c.name,
-          icon: c.icon ?? undefined,
-          color: c.color ?? undefined,
-        })),
-      }));
-		setCategoryLoadStateByPlan((prev) => ({
-			...prev,
-			[planId]: { status: "loaded" },
-		}));
-    } catch {
-		setCategoryLoadStateByPlan((prev) => ({
-			...prev,
-			[planId]: { status: "error", message: "Network error" },
-		}));
-    }
-  }
-
-  useEffect(() => {
-    // Keep local cache aligned with server props (and allow fallback).
-    setCategoriesByPlan((prev) => ({
-      ...prev,
-      [budgetPlanId]: prev[budgetPlanId] && prev[budgetPlanId].length > 0 ? prev[budgetPlanId] : categories,
-    }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [budgetPlanId, categories]);
-
-  useEffect(() => {
-    void ensureCategoriesLoaded(budgetPlanId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [budgetPlanId]);
-
-  useEffect(() => {
-    void ensureCategoriesLoaded(addBudgetPlanId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [addBudgetPlanId]);
-
   const YEARS = useMemo(() => {
     const base = new Date().getFullYear();
     return Array.from({ length: 10 }, (_, i) => base + i);
@@ -182,14 +128,11 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
 
   // Get categories for the selected budget plan when adding
   const addFormCategories = useMemo(() => {
-    if (addBudgetPlanId) {
-      const cached = categoriesByPlan[addBudgetPlanId];
-      if (cached && cached.length > 0) return cached;
-      if (allCategoriesByPlan && allCategoriesByPlan[addBudgetPlanId]?.length) return allCategoriesByPlan[addBudgetPlanId];
+    if (addBudgetPlanId && allCategoriesByPlan && allCategoriesByPlan[addBudgetPlanId]?.length) {
+      return allCategoriesByPlan[addBudgetPlanId];
     }
-    const fallback = categoriesByPlan[budgetPlanId];
-    return fallback && fallback.length > 0 ? fallback : categories;
-  }, [allCategoriesByPlan, addBudgetPlanId, budgetPlanId, categories, categoriesByPlan]);
+    return categories;
+  }, [addBudgetPlanId, allCategoriesByPlan, categories]);
 
   // Toggle category collapse
   const toggleCategory = (categoryId: string) => {
@@ -199,10 +142,28 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
     }));
   };
 
-  const effectiveCategories = useMemo(() => {
-		const cached = categoriesByPlan[budgetPlanId];
-		return cached && cached.length > 0 ? cached : categories;
-	}, [budgetPlanId, categories, categoriesByPlan]);
+  const effectiveCategories = categories;
+
+  const handleAddExpenseSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (isPeriodLoading) return;
+
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    setAddError(null);
+
+    startAddTransition(() => {
+      void (async () => {
+        try {
+          await addExpenseAction(formData);
+          setShowAddForm(false);
+          router.refresh();
+        } catch {
+          setAddError("Could not add expense. Please try again.");
+        }
+      })();
+    });
+  };
 
   // Group expenses by category
   const categoryLookup = effectiveCategories.reduce((acc, cat) => {
@@ -287,25 +248,6 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
 
   return (
     <div className="space-y-6">
-		{effectiveCategories.length === 0 && (
-			<div className="rounded-2xl border border-white/10 bg-slate-900/40 p-4 text-sm text-slate-200">
-				<div className="font-semibold">Categories aren’t loading for this budget.</div>
-				<div className="mt-1 text-slate-300">
-					{categoryLoadStateByPlan[budgetPlanId]?.status === "loading"
-						? "Loading categories…"
-						: categoryLoadStateByPlan[budgetPlanId]?.status === "error"
-							? `Error: ${categoryLoadStateByPlan[budgetPlanId]?.message ?? "Unknown"}`
-							: "No categories found."}
-				</div>
-				<button
-					type="button"
-					onClick={() => void ensureCategoriesLoaded(budgetPlanId)}
-					className="mt-3 inline-flex h-9 items-center rounded-xl border border-white/10 bg-white/5 px-3 font-semibold text-white hover:bg-white/10"
-				>
-					Retry
-				</button>
-			</div>
-		)}
       <ConfirmModal
         open={expensePendingDelete != null}
         title="Delete expense?"
@@ -442,6 +384,7 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
 			<p className="text-slate-400 text-sm mt-1">{formatMonthKeyLabel(month)} {year}</p>
           </div>
           <button
+            disabled={isPeriodLoading || isAdding}
             onClick={() => {
               setShowAddForm((prev) => {
                 const next = !prev;
@@ -451,11 +394,14 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
                   setAddBudgetPlanId(budgetPlanId);
                   setDistributeAllMonths(false);
                   setDistributeAllYears(false);
+                  setAddError(null);
                 }
                 return next;
               });
             }}
-            className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-xl py-3 px-6 font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center gap-2 cursor-pointer"
+            className={`bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-xl py-3 px-6 font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center gap-2 cursor-pointer ${
+              isPeriodLoading || isAdding ? "opacity-70 cursor-not-allowed" : ""
+            }`}
           >
             {showAddForm ? <X size={18} /> : <Plus size={18} />}
             {showAddForm ? "Cancel" : "Add Expense"}
@@ -577,15 +523,24 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
         </div>
 
         <div className="text-xs text-slate-400">
-          Showing <span className="text-slate-200 font-medium">{filteredExpenses.length}</span> of{" "}
-          <span className="text-slate-200 font-medium">{expenses.length}</span> expenses
+          {isPeriodLoading ? (
+            <span className="inline-flex items-center gap-2">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-4 w-20" />
+            </span>
+          ) : (
+            <>
+              Showing <span className="text-slate-200 font-medium">{filteredExpenses.length}</span> of{" "}
+              <span className="text-slate-200 font-medium">{expenses.length}</span> expenses
+            </>
+          )}
         </div>
       </div>
 
       {/* Add Expense Form */}
-      {showAddForm && (
+      {showAddForm && !isPeriodLoading && (
         <div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-xl p-8 border border-white/10">
-          <form action={addExpenseAction} className="space-y-6">
+          <form onSubmit={handleAddExpenseSubmit} className="space-y-6">
             <input type="hidden" name="budgetPlanId" value={addBudgetPlanId} />
         <input type="hidden" name="month" value={addMonth} />
         <input type="hidden" name="year" value={addYear} />
@@ -597,7 +552,10 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
               <SelectDropdown
                 name="_budgetPlanSelect"
                 value={addBudgetPlanId}
-                onValueChange={(v) => setAddBudgetPlanId(v)}
+                onValueChange={(v) => {
+                  setAddBudgetPlanId(v);
+                  setAddError(null);
+                }}
                 options={allPlans.map((p) => ({ 
                   value: p.id, 
                   label: `${p.name} (${p.kind.charAt(0).toUpperCase() + p.kind.slice(1)})` 
@@ -705,15 +663,21 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
 
             <button
               type="submit"
-              className="w-full bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl py-3 font-semibold shadow-md hover:shadow-lg hover:scale-105 transition-all cursor-pointer"
+              disabled={isPeriodLoading || isAdding}
+              className="w-full bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl py-3 font-semibold shadow-md hover:shadow-lg hover:scale-105 transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              Add Expense
+              {isAdding ? "Adding…" : "Add Expense"}
             </button>
+
+            {addError && <p className="text-sm text-red-200">{addError}</p>}
           </form>
         </div>
       )}
 
       {/* Expenses by Category - Collapsible */}
+      {isPeriodLoading ? (
+        <ExpenseCardsSkeleton />
+      ) : (
       <div className="grid grid-cols-1 gap-6">
         {Object.entries(expensesByCategory).map(([catId, catExpenses]) => {
           const category = categoryLookup[catId];
@@ -906,9 +870,10 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
           );
         })}
       </div>
+      )}
 
       {/* Miscellaneous Expenses (no category) - Collapsible */}
-      {uncategorized.length > 0 && (
+      {!isPeriodLoading && uncategorized.length > 0 && (
         <div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-xl overflow-hidden border border-white/10 hover:shadow-2xl transition-all">
           <button
             type="button"
