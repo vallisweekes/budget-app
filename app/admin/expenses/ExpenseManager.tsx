@@ -289,10 +289,10 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
                       name="categoryId"
                       value={editCategoryId}
                       onValueChange={(v) => setEditCategoryId(v)}
-                      placeholder="None (Uncategorized)"
+                      placeholder="Select Category"
                       options={[
-                        { value: "", label: "None (Uncategorized)" },
                         ...categories.map((c) => ({ value: c.id, label: c.name })),
+                        { value: "", label: "None (Uncategorized)" },
                       ]}
                       buttonClassName="focus:ring-purple-500/50"
                     />
@@ -562,10 +562,10 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
                 <span className="text-sm font-medium text-slate-300 mb-2 block">Category</span>
                 <SelectDropdown
                   name="categoryId"
-                  placeholder="None (Uncategorized)"
+                  placeholder="Select Category"
                   options={[
-                    { value: "", label: "None (Uncategorized)" },
                     ...addFormCategories.map((c) => ({ value: c.id, label: c.name })),
+                    { value: "", label: "None (Uncategorized)" },
                   ]}
                   buttonClassName="focus:ring-purple-500/50"
                 />

@@ -32,6 +32,7 @@ export async function addCategory(formData: FormData): Promise<void> {
   });
 
   revalidatePath("/admin/categories");
+  revalidatePath("/admin/expenses");
 }
 
 export async function deleteCategory(id: string): Promise<{ success: boolean; error?: string }> {
@@ -69,6 +70,7 @@ export async function deleteCategory(id: string): Promise<{ success: boolean; er
 
   await prisma.category.delete({ where: { id } });
   revalidatePath("/admin/categories");
+  revalidatePath("/admin/expenses");
   
   return { success: true };
 }
