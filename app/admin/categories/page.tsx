@@ -1,4 +1,3 @@
-import { getCategories } from "@/lib/categories/store";
 import { addCategory } from "./actions";
 import { getAllExpenses } from "@/lib/expenses/store";
 import CategoryIcon from "@/components/CategoryIcon";
@@ -22,11 +21,20 @@ export default async function AdminCategoriesPage() {
   const userId = await resolveUserId({ userId: sessionUser.id, username });
 
   const defaultPlan = await getDefaultBudgetPlanForUser({ userId, username });
-  const backHref = defaultPlan
-    ? `/user=${encodeURIComponent(username)}/${encodeURIComponent(defaultPlan.id)}/settings`
-    : "/dashboard";
+  
+  // Redirect to create budget if no plan exists
+  if (!defaultPlan) {
+    redirect("/budgets/new");
+  }
 
-  const list = await getCategories();
+  const backHref = `/user=${encodeURIComponent(username)}/${encodeURIComponent(defaultPlan.id)}/settings`;
+
+  // Get categories from database for the default plan
+  const list = await prisma.category.findMany({
+    where: { budgetPlanId: defaultPlan.id },
+    orderBy: { name: "asc" },
+  });
+
   const plans = await prisma.budgetPlan.findMany({ where: { userId }, select: { id: true } });
   const planIds = plans.map((p) => p.id);
   const expensesByPlan = await Promise.all(planIds.map((planId) => getAllExpenses(planId)));

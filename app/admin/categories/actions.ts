@@ -1,35 +1,64 @@
 "use server";
 
-import { getCategories, saveCategories, CategoryConfig } from "@/lib/categories/store";
+import { prisma } from "@/lib/prisma";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
+import { resolveUserId, getDefaultBudgetPlanForUser } from "@/lib/budgetPlans";
+import { revalidatePath } from "next/cache";
 import { getAllExpenses } from "@/lib/expenses/store";
-import { listBudgetDataPlanIds } from "@/lib/storage/listBudgetDataPlanIds";
-import crypto from "node:crypto";
 
 export async function addCategory(formData: FormData): Promise<void> {
+  const session = await getServerSession(authOptions);
+  const sessionUser = session?.user;
+  const username = sessionUser?.username ?? sessionUser?.name;
+  if (!sessionUser || !username) return;
+  
+  const userId = await resolveUserId({ userId: sessionUser.id, username });
+  const defaultPlan = await getDefaultBudgetPlanForUser({ userId, username });
+  if (!defaultPlan) return;
+
   const name = String(formData.get("name") || "").trim();
   if (!name) return;
   const icon = String(formData.get("icon") || "").trim();
   const featured = String(formData.get("featured") || "false") === "true";
 
-  const list = await getCategories();
-  const id = crypto.randomUUID();
-  const entry: CategoryConfig = { id, name, icon: icon || undefined, featured };
-  await saveCategories([entry, ...list]);
+  await prisma.category.create({
+    data: {
+      name,
+      icon: icon || null,
+      featured,
+      budgetPlanId: defaultPlan.id,
+    },
+  });
+
+  revalidatePath("/admin/categories");
 }
 
 export async function deleteCategory(id: string): Promise<{ success: boolean; error?: string }> {
-  // Categories are global; check usage across all budget data directories.
-  const planIds = await listBudgetDataPlanIds();
-  const hasExpenses = await (async () => {
-    for (const planId of planIds) {
-      const expenses = await getAllExpenses(planId);
-      const used = Object.values(expenses).some((monthExpenses) =>
-        monthExpenses.some((expense) => expense.categoryId === id)
-      );
-      if (used) return true;
-    }
-    return false;
-  })();
+  const session = await getServerSession(authOptions);
+  const sessionUser = session?.user;
+  const username = sessionUser?.username ?? sessionUser?.name;
+  if (!sessionUser || !username) {
+    return { success: false, error: "Unauthorized" };
+  }
+  
+  const userId = await resolveUserId({ userId: sessionUser.id, username });
+  
+  // Check if category belongs to user's plan
+  const category = await prisma.category.findUnique({
+    where: { id },
+    include: { budgetPlan: true },
+  });
+
+  if (!category || category.budgetPlan.userId !== userId) {
+    return { success: false, error: "Category not found or unauthorized" };
+  }
+
+  // Check if category has expenses (in file system for now)
+  const expenses = await getAllExpenses(category.budgetPlanId);
+  const hasExpenses = Object.values(expenses).some((monthExpenses) =>
+    monthExpenses.some((expense) => expense.categoryId === id)
+  );
 
   if (hasExpenses) {
     return { 
@@ -38,9 +67,8 @@ export async function deleteCategory(id: string): Promise<{ success: boolean; er
     };
   }
 
-  const list = await getCategories();
-  const next = list.filter((c) => c.id !== id);
-  await saveCategories(next);
+  await prisma.category.delete({ where: { id } });
+  revalidatePath("/admin/categories");
   
   return { success: true };
 }

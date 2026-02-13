@@ -72,7 +72,11 @@ export default async function AdminExpensesPage({
         where: { budgetPlanId: p.id },
       });
       return {
-        plan: p,
+        plan: {
+          id: p.id,
+          name: p.name,
+          kind: p.kind,
+        },
         expenses,
         categories: categories.map(c => ({
           id: c.id,
