@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { MonthKey } from "@/types";
 import { getAllIncome } from "@/lib/income/store";
+import { formatMonthKeyLabel } from "@/lib/helpers/monthKey";
 import IncomeManager from "./IncomeManager";
 
 interface MonthlyIncomeGridProps {
@@ -29,7 +30,7 @@ export function MonthlyIncomeGrid({
 				>
 					<h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2 flex-shrink-0">
 						<span className="w-2 h-2 bg-gradient-to-r from-pink-500 to-rose-600 rounded-full"></span>
-						{m}
+						{formatMonthKeyLabel(m as MonthKey)}
 					</h3>
 					<div className="flex-1 flex flex-col">
 						<IncomeManager

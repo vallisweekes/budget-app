@@ -1,9 +1,8 @@
 import { getAllIncome } from "@/lib/income/store";
 import { MONTHS } from "@/lib/constants/time";
-import { currentMonthKey } from "@/lib/helpers/monthKey";
+import { currentMonthKey, formatMonthKeyLabel } from "@/lib/helpers/monthKey";
 import type { MonthKey } from "@/types";
 import { addIncomeAction } from "./actions";
-import IncomeManager from "./IncomeManager";
 import { SelectDropdown } from "@/components/Shared";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
@@ -12,7 +11,7 @@ import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { MonthlyIncomeGrid } from "./MonthlyIncomeGrid";
 
-export const dynamic = "force-dynamic";
+export const dynamic = "force-dynamic"; // This line is now active
 
 export default async function AdminIncomePage(props: {
 	searchParams?: Record<string, string | string[] | undefined> | Promise<Record<string, string | string[] | undefined>>;
@@ -44,11 +43,10 @@ export default async function AdminIncomePage(props: {
 
 	const budgetPlanId = budgetPlan.id;
 	const income = await getAllIncome(budgetPlanId);
-	
-	// Filter months that don't have any income items yet
-	const monthsWithoutIncome = MONTHS.filter((m) => !income[m] || income[m].length === 0);
-	const hasAvailableMonths = monthsWithoutIncome.length > 0;
 	const nowMonth = currentMonthKey();
+
+	const monthsWithoutIncome = MONTHS.filter((m) => (income[m]?.length ?? 0) === 0);
+	const hasAvailableMonths = monthsWithoutIncome.length > 0;
 	const defaultMonth: MonthKey =
 		(monthsWithoutIncome.includes(nowMonth) ? nowMonth : monthsWithoutIncome[0]) || nowMonth;
 	
@@ -80,7 +78,7 @@ export default async function AdminIncomePage(props: {
 								<SelectDropdown
 									name="month"
 									defaultValue={defaultMonth}
-									options={monthsWithoutIncome.map((m) => ({ value: m, label: m }))}
+									options={monthsWithoutIncome.map((m) => ({ value: m, label: formatMonthKeyLabel(m) }))}
 									buttonClassName="bg-slate-900/60 focus:ring-amber-500"
 								/>
 							</label>

@@ -5,6 +5,7 @@ import { Trash2 } from "lucide-react";
 import { removeIncomeAction } from "./actions";
 import { ConfirmModal } from "@/components/Shared";
 import type { MonthKey } from "@/types";
+import { useRouter } from "next/navigation";
 
 interface DeleteIncomeButtonProps {
 	id: string;
@@ -17,6 +18,7 @@ export default function DeleteIncomeButton({
 	budgetPlanId,
 	month,
 }: DeleteIncomeButtonProps) {
+	const router = useRouter();
 	const [isPending, startTransition] = useTransition();
 	const [isOpen, setIsOpen] = useState(false);
 
@@ -24,6 +26,7 @@ export default function DeleteIncomeButton({
 		startTransition(async () => {
 			await removeIncomeAction(budgetPlanId, month, id);
 			setIsOpen(false);
+			router.refresh();
 		});
 	};
 

@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { addOrUpdateIncomeAcrossMonths, updateIncome, removeIncome } from "@/lib/income/store";
 import { MONTHS } from "@/lib/constants/time";
 import type { MonthKey } from "@/types";
@@ -57,10 +58,14 @@ export async function addIncomeAction(formData: FormData): Promise<void> {
 		for (const p of plans) {
 			await addOrUpdateIncomeAcrossMonths(p.id, targetMonths, { id: sharedId, name, amount });
 		}
+		revalidatePath("/");
+		revalidatePath("/admin/income");
 		return;
 	}
 
 	await addOrUpdateIncomeAcrossMonths(budgetPlanId, targetMonths, { id: sharedId, name, amount });
+	revalidatePath("/");
+	revalidatePath("/admin/income");
 }
 
 export async function updateIncomeItemAction(
@@ -74,10 +79,14 @@ export async function updateIncomeItemAction(
 	const { userId } = await requireAuthenticatedUser();
 	await requireOwnedBudgetPlan(budgetPlanId, userId);
 	await updateIncome(budgetPlanId, month, id, { name: name.trim(), amount });
+	revalidatePath("/");
+	revalidatePath("/admin/income");
 }
 
 export async function removeIncomeAction(budgetPlanId: string, month: MonthKey, id: string): Promise<void> {
 	const { userId } = await requireAuthenticatedUser();
 	await requireOwnedBudgetPlan(budgetPlanId, userId);
 	await removeIncome(budgetPlanId, month, id);
+	revalidatePath("/");
+	revalidatePath("/admin/income");
 }

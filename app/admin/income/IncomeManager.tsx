@@ -2,14 +2,13 @@
 
 import { useState, useTransition } from "react";
 import type { MonthKey } from "@/types";
+import { useRouter } from "next/navigation";
 import {
 	updateIncomeItemAction,
-	removeIncomeAction,
 	addIncomeAction,
 } from "./actions";
-import { Edit2, Trash2, Check, X, Plus, Pencil } from "lucide-react";
+import { Check, X, Plus, Pencil } from "lucide-react";
 import { formatCurrency } from "@/lib/helpers/money";
-import { useMemo } from "react";
 import DeleteIncomeButton from "./DeleteIncomeButton";
 
 interface IncomeItem {
@@ -33,6 +32,7 @@ export default function IncomeManager({
 	onOpen,
 	onClose,
 }: IncomeManagerProps) {
+	const router = useRouter();
 	const [isPending, startTransition] = useTransition();
 	const [editingItemId, setEditingItemId] = useState<string | null>(null);
 	const [isAdding, setIsAdding] = useState(false);
@@ -68,10 +68,26 @@ export default function IncomeManager({
 		onOpen();
 	};
 
-	const total = useMemo(
-		() => incomeItems.reduce((acc, item) => acc + item.amount, 0),
-		[incomeItems]
-	);
+	const handleConfirmAdd = () => {
+		const name = newName.trim();
+		const amount = Number(newAmount);
+		if (!name) return;
+		if (!Number.isFinite(amount) || amount <= 0) return;
+
+		startTransition(async () => {
+			const formData = new FormData();
+			formData.set("budgetPlanId", budgetPlanId);
+			formData.set("month", month);
+			formData.set("name", name);
+			formData.set("amount", String(amount));
+			if (distributeAllMonths) formData.set("distributeMonths", "on");
+			if (distributeAllYears) formData.set("distributeYears", "on");
+			await addIncomeAction(formData);
+			setIsAdding(false);
+			onClose();
+			router.refresh();
+		});
+	};
 
 	return (
 		<div className="flex flex-col h-full">
@@ -97,6 +113,7 @@ export default function IncomeManager({
 											);
 											setEditingItemId(null);
 											onClose();
+											router.refresh();
 										});
 									}
 								}}
@@ -176,6 +193,7 @@ export default function IncomeManager({
 								type="text"
 								value={newName}
 								onChange={(e) => setNewName(e.target.value)}
+								disabled={isPending}
 								className="w-full px-3 py-2 bg-slate-900/60 border border-white/10 text-white placeholder-slate-500 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
 								placeholder="Income name"
 								aria-label="New income name"
@@ -189,13 +207,24 @@ export default function IncomeManager({
 								step="0.01"
 								value={newAmount}
 								onChange={(e) => setNewAmount(e.target.value)}
+								disabled={isPending}
 								className="w-full px-3 py-2 bg-slate-900/60 border border-white/10 text-white placeholder-slate-500 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
 								placeholder="Amount"
 								aria-label="New income amount"
 							/>
 						</label>
+						{isPending && (
+							<div
+								className="flex items-center gap-2 text-xs text-slate-300 px-2"
+								aria-live="polite"
+							>
+								<span className="w-3.5 h-3.5 rounded-full border-2 border-slate-400/60 border-t-transparent animate-spin" />
+								Saving…
+							</div>
+						)}
 						<button
-							onClick={handleAddClick}
+							type="button"
+							onClick={handleConfirmAdd}
 							disabled={isPending}
 							className="p-2 text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-colors cursor-pointer"
 							title="Add"
@@ -217,6 +246,7 @@ export default function IncomeManager({
 								type="checkbox"
 								checked={distributeAllMonths}
 								onChange={(e) => setDistributeAllMonths(e.target.checked)}
+								disabled={isPending}
 								className="h-4 w-4 rounded border-white/20 bg-slate-900/60 text-purple-500 focus:ring-purple-500"
 							/>
 							All months
@@ -226,6 +256,7 @@ export default function IncomeManager({
 								type="checkbox"
 								checked={distributeAllYears}
 								onChange={(e) => setDistributeAllYears(e.target.checked)}
+								disabled={isPending}
 								className="h-4 w-4 rounded border-white/20 bg-slate-900/60 text-purple-500 focus:ring-purple-500"
 							/>
 							All years (all budgets)

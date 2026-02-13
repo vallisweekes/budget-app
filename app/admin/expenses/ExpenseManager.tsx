@@ -410,7 +410,7 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
                       placeholder="Select Category"
                       options={[
                         ...effectiveCategories.map((c) => ({ value: c.id, label: c.name })),
-                        { value: "", label: "None (Uncategorized)" },
+						{ value: "", label: "Miscellaneous" },
                       ]}
                       buttonClassName="focus:ring-purple-500/50"
                     />
@@ -683,7 +683,7 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
                   placeholder="Select Category"
                   options={[
                     ...addFormCategories.map((c) => ({ value: c.id, label: c.name })),
-                    { value: "", label: "None (Uncategorized)" },
+					{ value: "", label: "Miscellaneous" },
                   ]}
                   buttonClassName="focus:ring-purple-500/50"
                 />
@@ -907,7 +907,7 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
         })}
       </div>
 
-      {/* Uncategorized Expenses - Collapsible */}
+      {/* Miscellaneous Expenses (no category) - Collapsible */}
       {uncategorized.length > 0 && (
         <div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-xl overflow-hidden border border-white/10 hover:shadow-2xl transition-all">
           <button
@@ -921,7 +921,7 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
                   <span className="text-2xl">📋</span>
                 </div>
                 <div className="text-left">
-                  <h3 className="font-bold text-xl text-white">Uncategorized</h3>
+					  <h3 className="font-bold text-xl text-white">Miscellaneous</h3>
                   <p className="text-sm text-slate-400 mt-0.5">
                     {uncategorized.length} {uncategorized.length === 1 ? "expense" : "expenses"}
                   </p>
