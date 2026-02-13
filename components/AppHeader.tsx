@@ -24,11 +24,14 @@ export default async function AppHeader() {
     const userId = await resolveUserId({ userId: sessionUser.id, username: sessionUsername });
     const budgetPlan = await getDefaultBudgetPlanForUser({ userId, username: sessionUsername });
     
-    if (!budgetPlan) return null;
-
-    const settings = await getSettings(budgetPlan.id);
     const firstLetter = sessionUsername.charAt(0).toUpperCase();
-    const countryFlag = FLAG_EMOJI[settings.country] || FLAG_EMOJI.GB;
+    let countryFlag = FLAG_EMOJI.GB; // Default flag
+
+    // Only fetch settings if budget plan exists
+    if (budgetPlan) {
+      const settings = await getSettings(budgetPlan.id);
+      countryFlag = FLAG_EMOJI[settings.country] || FLAG_EMOJI.GB;
+    }
 
     return (
       <header className="h-12 bg-gradient-to-r from-blue-950 via-slate-950 to-slate-900 backdrop-blur-xl border-b border-white/10 flex items-center justify-end px-4 lg:px-6 fixed top-0 left-0 right-0 z-50 lg:left-64">
@@ -36,13 +39,27 @@ export default async function AppHeader() {
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center text-white font-bold text-sm shadow-lg">
             {firstLetter}
           </div>
-          <div className="text-lg leading-none" title={settings.country}>
+          <div className="text-lg leading-none" title={budgetPlan?.id ? "Country" : "Default"}>
             {countryFlag}
           </div>
         </div>
       </header>
     );
   } catch (error) {
-    return null;
+    console.error("AppHeader error:", error);
+    // Still show header with defaults even on error
+    const firstLetter = sessionUsername?.charAt(0).toUpperCase() || "?";
+    return (
+      <header className="h-12 bg-gradient-to-r from-blue-950 via-slate-950 to-slate-900 backdrop-blur-xl border-b border-white/10 flex items-center justify-end px-4 lg:px-6 fixed top-0 left-0 right-0 z-50 lg:left-64">
+        <div className="flex items-center gap-4">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center text-white font-bold text-sm shadow-lg">
+            {firstLetter}
+          </div>
+          <div className="text-lg leading-none">
+            {FLAG_EMOJI.GB}
+          </div>
+        </div>
+      </header>
+    );
   }
 }

@@ -4,11 +4,12 @@ import { useState, useTransition, useMemo } from "react";
 import { useFormStatus } from "react-dom";
 import type { MonthKey } from "@/types";
 import { addExpenseAction, togglePaidAction, updateExpenseAction, removeExpenseAction, applyExpensePaymentAction } from "./actions";
-import { Trash2, Plus, Check, X, ChevronDown, ChevronUp, Search, Pencil } from "lucide-react";
+import { Trash2, Plus, Check, X, ChevronDown, ChevronUp, Search, Pencil, TrendingUp } from "lucide-react";
 import CategoryIcon from "@/components/CategoryIcon";
 import { ConfirmModal, SelectDropdown } from "@/components/Shared";
 import { formatCurrency } from "@/lib/helpers/money";
 import { MONTHS } from "@/lib/constants/time";
+import Link from "next/link";
 
 interface Expense {
   id: string;
@@ -952,11 +953,27 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
           <h3 className="text-2xl font-bold text-white mb-3">
             {searchQuery.trim() ? "No matching expenses" : "No expenses yet"}
           </h3>
-          <p className="text-slate-400 text-lg">
+          <p className="text-slate-400 text-lg mb-6">
             {searchQuery.trim()
               ? "Try a different search term"
               : 'Click "Add Expense" to track your first expense'}
           </p>
+          {!searchQuery.trim() && (
+            <div className="mt-6 pt-6 border-t border-white/10">
+              <div className="flex items-center justify-center gap-2 text-slate-400 mb-4">
+                <TrendingUp size={20} />
+                <span className="font-semibold">Pro tip:</span>
+              </div>
+              <p className="text-slate-300 mb-4">Start by adding your income to get a complete budget overview</p>
+              <Link 
+                href="/admin/income"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all"
+              >
+                <Plus size={20} />
+                Add Income First
+              </Link>
+            </div>
+          )}
         </div>
       )}
     </div>

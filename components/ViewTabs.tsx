@@ -9,7 +9,8 @@ import DebtCategory from "@/components/DebtCategory";
 import GoalsDisplay from "@/components/GoalsDisplay";
 import PieCategories from "@/components/PieCategories";
 import { Card } from "@/components/Shared";
-import { Target, Receipt } from "lucide-react";
+import { Target, Receipt, Plus } from "lucide-react";
+import Link from "next/link";
 
 type GoalLike = {
   id: string;
@@ -241,7 +242,16 @@ export default function ViewTabs({
               
               {planData.categoryData.length === 0 ? (
                 <Card title="Categories">
-                  <div className="text-sm text-slate-400">No categorized expenses yet for this month.</div>
+                  <div className="text-center py-6">
+                    <div className="text-sm text-slate-400 mb-4">No categorized expenses yet for this month.</div>
+                    <Link 
+                      href="/admin/expenses"
+                      className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all"
+                    >
+                      <Plus size={20} />
+                      Add Your First Expense
+                    </Link>
+                  </div>
                 </Card>
               ) : (
                 planData.categoryData.map((cat) => (
