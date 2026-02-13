@@ -1,15 +1,138 @@
 @import "tailwindcss";
 
-:root {
-  /* Teal/blue dark theme */
+:root,
+:root[data-theme="nord-mint"] {
+  /* Nord-ish Mint (default) */
+  --background: #0b1220;
+  --foreground: #eef3ff;
+  color-scheme: dark;
+
+  --app-bg-from: #111b2f;
+  --app-bg-via: #0b1220;
+  --app-bg-to: #070a12;
+
+  --glow-1: rgba(162, 255, 214, 0.14);
+  --glow-2: rgba(186, 162, 255, 0.12);
+
+  --accent-surface-from: rgba(46, 212, 170, 0.16);
+  --accent-surface-to: rgba(186, 162, 255, 0.08);
+  --accent-border: rgba(46, 212, 170, 0.28);
+}
+
+:root[data-theme="calm-teal"] {
+  /* Calm Teal */
   --background: #041827;
   --foreground: #eef8ff;
   color-scheme: dark;
 
-  /* Background gradient stops */
   --app-bg-from: #0b5a6d;
   --app-bg-via: #06364c;
   --app-bg-to: #020b16;
+
+  --glow-1: rgba(107, 232, 225, 0.22);
+  --glow-2: rgba(122, 210, 255, 0.18);
+
+  --accent-surface-from: rgba(20, 184, 166, 0.18);
+  --accent-surface-to: rgba(34, 211, 238, 0.10);
+  --accent-border: rgba(45, 212, 191, 0.30);
+}
+
+:root[data-theme="midnight-peach"] {
+  /* Midnight + Peach */
+  --background: #0a0f1f;
+  --foreground: #f4f7ff;
+  color-scheme: dark;
+
+  --app-bg-from: #1a1b3a;
+  --app-bg-via: #10142a;
+  --app-bg-to: #070914;
+
+  --glow-1: rgba(99, 179, 255, 0.18);
+  --glow-2: rgba(255, 162, 120, 0.16);
+
+  --accent-surface-from: rgba(255, 120, 84, 0.18);
+  --accent-surface-to: rgba(255, 196, 122, 0.10);
+  --accent-border: rgba(255, 156, 122, 0.30);
+}
+
+/* nord-mint is now the default (:root) */
+
+:root[data-theme="soft-light"] {
+  /* Soft Light */
+  --background: #f7f4ef;
+  --foreground: #0b1220;
+  color-scheme: light;
+
+  --app-bg-from: #f7f4ef;
+  --app-bg-via: #edf6f6;
+  --app-bg-to: #e8eef6;
+
+  --glow-1: rgba(30, 180, 170, 0.10);
+  --glow-2: rgba(40, 130, 255, 0.08);
+
+  --accent-surface-from: rgba(30, 180, 170, 0.18);
+  --accent-surface-to: rgba(40, 130, 255, 0.10);
+  --accent-border: rgba(30, 180, 170, 0.30);
+}
+
+/*
+  Soft Light accessibility layer
+  Many components currently hard-code dark-mode utility classes (e.g. text-white, bg-slate-900/60).
+  In soft-light, we remap the most common ones to light surfaces + dark text so contrast stays WCAG-friendly
+  without needing to refactor every page.
+*/
+:root[data-theme="soft-light"] .text-white {
+  color: var(--foreground) !important;
+}
+
+/* Keep white text where the background is a strong gradient (buttons/pills). */
+:root[data-theme="soft-light"] .bg-gradient-to-r .text-white,
+:root[data-theme="soft-light"] .bg-gradient-to-br .text-white {
+  color: #ffffff !important;
+}
+
+:root[data-theme="soft-light"] .text-slate-50,
+:root[data-theme="soft-light"] .text-slate-100,
+:root[data-theme="soft-light"] .text-slate-200 {
+  color: #0b1220 !important;
+}
+
+:root[data-theme="soft-light"] .text-slate-300 {
+  color: #0f172a !important;
+}
+
+:root[data-theme="soft-light"] .text-slate-400 {
+  color: #334155 !important;
+}
+
+:root[data-theme="soft-light"] .text-slate-500 {
+  color: #475569 !important;
+}
+
+:root[data-theme="soft-light"] .text-slate-600 {
+  color: #64748b !important;
+}
+
+/* Remap common dark glass surfaces to light glass surfaces. */
+:root[data-theme="soft-light"] .bg-slate-800\/30,
+:root[data-theme="soft-light"] .bg-slate-800\/40,
+:root[data-theme="soft-light"] .bg-slate-900\/30,
+:root[data-theme="soft-light"] .bg-slate-900\/40,
+:root[data-theme="soft-light"] .bg-slate-900\/60,
+:root[data-theme="soft-light"] .bg-slate-900\/95 {
+  background-color: rgba(255, 255, 255, 0.72) !important;
+}
+
+:root[data-theme="soft-light"] .bg-white\/10 {
+  background-color: rgba(15, 23, 42, 0.06) !important;
+}
+
+:root[data-theme="soft-light"] .border-white\/10 {
+  border-color: rgba(15, 23, 42, 0.12) !important;
+}
+
+:root[data-theme="soft-light"] .border-white\/20 {
+  border-color: rgba(15, 23, 42, 0.18) !important;
 }
 
 @theme inline {
@@ -22,8 +145,8 @@
 body {
   background-color: var(--background);
   background-image:
-    radial-gradient(900px 500px at 15% 10%, rgba(107, 232, 225, 0.22), transparent 60%),
-    radial-gradient(700px 420px at 90% 18%, rgba(122, 210, 255, 0.18), transparent 55%),
+    radial-gradient(900px 500px at 15% 10%, var(--glow-1), transparent 60%),
+    radial-gradient(700px 420px at 90% 18%, var(--glow-2), transparent 55%),
     linear-gradient(135deg, var(--app-bg-from) 0%, var(--app-bg-via) 40%, var(--app-bg-to) 100%);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
@@ -33,9 +156,14 @@ body {
   .app-theme-bg {
     background-color: var(--background);
     background-image:
-      radial-gradient(900px 500px at 15% 10%, rgba(107, 232, 225, 0.22), transparent 60%),
-      radial-gradient(700px 420px at 90% 18%, rgba(122, 210, 255, 0.18), transparent 55%),
+      radial-gradient(900px 500px at 15% 10%, var(--glow-1), transparent 60%),
+      radial-gradient(700px 420px at 90% 18%, var(--glow-2), transparent 55%),
       linear-gradient(135deg, var(--app-bg-from) 0%, var(--app-bg-via) 40%, var(--app-bg-to) 100%);
+  }
+
+  .app-nav-active {
+    background-image: linear-gradient(90deg, var(--accent-surface-from), var(--accent-surface-to));
+    border-color: var(--accent-border);
   }
 }
 

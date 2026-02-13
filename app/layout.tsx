@@ -48,6 +48,12 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <script
+          // Keep this tiny and synchronous to avoid theme flash.
+          dangerouslySetInnerHTML={{
+            __html: `(() => { try { const t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t; } catch {} })();`,
+          }}
+        />
         <Providers>
           <Suspense fallback={null}>
             <AppHeader />

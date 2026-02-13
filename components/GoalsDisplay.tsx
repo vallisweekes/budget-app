@@ -58,45 +58,45 @@ export default function GoalsDisplay({ goals }: GoalsDisplayProps) {
 
   if (normalizedGoals.length === 0) return null;
 
-  const GoalCard = ({ goal, gradientClass }: { goal: Goal; gradientClass: string }) => {
+  const GoalCard = ({ goal }: { goal: Goal }) => {
     const Icon = categoryIcons[goal.category];
     const progress = goal.targetAmount && goal.currentAmount 
       ? (goal.currentAmount / goal.targetAmount) * 100 
       : 0;
 
     return (
-      <div className="bg-slate-800/40 backdrop-blur-xl rounded-2xl p-5 shadow-xl border border-white/10 hover:border-white/20 hover:shadow-2xl transition-all">
+      <div className="bg-[#9EDBFF] rounded-2xl p-5 shadow-xl border border-sky-200/70 hover:shadow-2xl transition-all">
         <div className="flex items-start gap-3 mb-4">
-          <div className="bg-white/10 p-2.5 rounded-xl shadow-sm backdrop-blur-sm">
-            <Icon size={20} className="text-white" />
+          <div className="bg-white/40 p-2.5 rounded-xl shadow-sm border border-black/5">
+            <Icon size={20} className="text-slate-900" />
           </div>
           <div className="flex-1">
-            <h4 className="font-semibold text-white text-base mb-1">{goal.title}</h4>
+            <h4 className="font-semibold text-slate-900 text-base mb-1">{goal.title}</h4>
             {goal.targetYear && (
-              <div className="flex items-center gap-1.5 text-slate-400 text-sm">
+              <div className="flex items-center gap-1.5 text-slate-700 text-sm">
                 <Calendar size={14} />
                 <span>Target: {goal.targetYear}</span>
               </div>
             )}
             {goal.description && !goal.targetAmount && (
-              <p className="text-sm text-slate-400 mt-2">{goal.description}</p>
+              <p className="text-sm text-slate-700 mt-2">{goal.description}</p>
             )}
           </div>
         </div>
         
         {goal.targetAmount && (
           <div className="space-y-2">
-            <div className="flex justify-between text-sm text-slate-300 font-medium">
+            <div className="flex justify-between text-sm text-slate-800 font-medium">
               <span><Currency value={goal.currentAmount || 0} /></span>
               <span><Currency value={goal.targetAmount} /></span>
             </div>
-            <div className="w-full bg-white/10 rounded-full h-3 overflow-hidden">
+            <div className="w-full bg-slate-900/10 rounded-full h-3 overflow-hidden">
               <div
                 className="bg-gradient-to-r from-emerald-400 to-green-500 h-3 rounded-full transition-all duration-500 shadow-sm"
                 style={{ width: `${Math.min(100, progress)}%` }}
               />
             </div>
-            <div className="text-right text-sm text-slate-300 font-semibold">
+            <div className="text-right text-sm text-slate-800 font-semibold">
               {progress.toFixed(1)}% Complete
             </div>
           </div>
@@ -123,7 +123,7 @@ export default function GoalsDisplay({ goals }: GoalsDisplayProps) {
             </div>
             <div className="space-y-4">
               {yearlyGoals.map((goal) => (
-                <GoalCard key={goal.id} goal={goal} gradientClass="from-purple-500 via-purple-600 to-indigo-600" />
+                <GoalCard key={goal.id} goal={goal} />
               ))}
             </div>
           </div>
@@ -138,7 +138,7 @@ export default function GoalsDisplay({ goals }: GoalsDisplayProps) {
             </div>
             <div className="space-y-4">
               {fiveYearGoals.map((goal) => (
-                <GoalCard key={goal.id} goal={goal} gradientClass="from-emerald-500 via-emerald-600 to-green-600" />
+                <GoalCard key={goal.id} goal={goal} />
               ))}
             </div>
           </div>
@@ -149,7 +149,7 @@ export default function GoalsDisplay({ goals }: GoalsDisplayProps) {
           <>
             {tenYearGoals.map((goal) => (
               <div key={goal.id} className="space-y-4">
-                <GoalCard goal={goal} gradientClass="from-blue-500 via-blue-600 to-cyan-600" />
+                <GoalCard goal={goal} />
               </div>
             ))}
           </>

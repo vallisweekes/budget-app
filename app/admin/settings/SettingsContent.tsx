@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { MONTHS } from "@/lib/constants/time";
 import { SUPPORTED_CURRENCIES, SUPPORTED_COUNTRIES, SUPPORTED_LANGUAGES } from "@/lib/constants/locales";
 import { SelectDropdown } from "@/components/Shared";
@@ -31,6 +31,15 @@ type FiftyThirtyTwentySummary = {
 	savingsDebtActual: number;
 };
 
+type ThemeKey = "nord-mint" | "calm-teal" | "midnight-peach" | "soft-light";
+
+const THEME_OPTIONS: Array<{ value: ThemeKey; label: string; description: string }> = [
+	{ value: "nord-mint", label: "Nord Mint", description: "Minimal, premium, muted" },
+	{ value: "calm-teal", label: "Calm Teal", description: "Modern, calm, slightly fintech" },
+	{ value: "midnight-peach", label: "Midnight + Peach", description: "Friendly, energetic, not corporate" },
+	{ value: "soft-light", label: "Soft Light", description: "Bright, everyday, lifestyle" },
+];
+
 interface SettingsContentProps {
 	budgetPlanId: string;
 	settings: Settings;
@@ -52,6 +61,21 @@ export default function SettingsContent({
 }: SettingsContentProps) {
 	const [activeSection, setActiveSection] = useState<Section>("details");
 	const [isEditingEmail, setIsEditingEmail] = useState(false);
+	const [theme, setTheme] = useState<ThemeKey>(() => {
+		if (typeof document === "undefined") return "nord-mint";
+		const raw = document.documentElement.dataset.theme;
+		if (raw === "midnight-peach" || raw === "nord-mint" || raw === "soft-light" || raw === "calm-teal") return raw;
+		return "nord-mint";
+	});
+
+	useEffect(() => {
+		try {
+			document.documentElement.dataset.theme = theme;
+			localStorage.setItem("theme", theme);
+		} catch {
+			// Non-blocking; theme preview just won't persist.
+		}
+	}, [theme]);
 
 	const sections = [
 		{
@@ -92,6 +116,32 @@ export default function SettingsContent({
 				<div className="mb-10">
 					<h1 className="text-4xl font-bold text-white mb-2">Settings</h1>
 					<p className="text-slate-400 text-lg">Configure your budget and app options</p>
+				</div>
+
+				<div className="mb-6 bg-slate-800/35 backdrop-blur-xl rounded-3xl border border-white/10 p-5">
+					<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+						<div>
+							<p className="text-white font-semibold">Theme preview</p>
+							<p className="text-slate-300 text-sm">Try a few vibes and pick your favourite.</p>
+						</div>
+						<div className="flex items-center gap-3">
+							<select
+								value={theme}
+								onChange={(e) => setTheme(e.target.value as ThemeKey)}
+								className="rounded-xl border border-white/10 bg-slate-900/40 px-4 py-2 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+								aria-label="Theme preview"
+							>
+								{THEME_OPTIONS.map((t) => (
+									<option key={t.value} value={t.value}>
+										{t.label}
+									</option>
+								))}
+							</select>
+						</div>
+					</div>
+					<p className="text-xs text-slate-400 mt-3">
+						{THEME_OPTIONS.find((t) => t.value === theme)?.description}
+					</p>
 				</div>
 
 				<div className="grid grid-cols-1 lg:grid-cols-12 gap-6">

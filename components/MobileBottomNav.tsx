@@ -75,7 +75,7 @@ export default function MobileBottomNav() {
 							<div
 								className={`p-2 rounded-lg border transition-all ${
 									active
-										? "bg-gradient-to-br from-teal-500/20 to-cyan-500/10 border-teal-400/30"
+										? "app-nav-active"
 										: "border-transparent group-hover:bg-white/5 group-hover:border-white/10"
 								}`}
 							>

@@ -100,7 +100,7 @@ export default function Sidebar() {
 								href={item.href}
 								className={`group flex items-center gap-3 px-4 py-3 rounded-xl border transition-all ${
 									pathname === item.href
-										? "bg-gradient-to-r from-teal-500/15 to-cyan-500/10 border-teal-400/30 text-white shadow-sm"
+										? "app-nav-active text-white shadow-sm"
 										: "border-transparent text-slate-300 hover:bg-white/5 hover:border-white/10 hover:text-white"
 								}`}
 							>
