@@ -17,6 +17,22 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Budget App",
   description: "Personal budget calculator",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Budget App",
+  },
+  icons: {
+    icon: "/icon-192x192.png",
+    apple: "/icon-192x192.png",
+  },
+  viewport: {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
+  },
 };
 
 export default function RootLayout({
