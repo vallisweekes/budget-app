@@ -6,7 +6,6 @@ import ExpensesPageClient from "./ExpensesPageClient";
 import { prisma } from "@/lib/prisma";
 import { getDefaultBudgetPlanForUser, resolveUserId, listBudgetPlansForUser } from "@/lib/budgetPlans";
 import { ensureDefaultCategoriesForBudgetPlan } from "@/lib/categories/defaultCategories";
-import { MONTHS } from "@/lib/constants/time";
 import type { MonthKey } from "@/types";
 import { currentMonthKey, normalizeMonthKey } from "@/lib/helpers/monthKey";
 

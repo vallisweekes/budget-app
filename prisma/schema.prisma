@@ -67,6 +67,9 @@ model BudgetPlan {
   kind        BudgetPlanKind @default(personal)
   userId      String
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Tracks one-time default category seeding/backfills.
+  categorySeedVersion          Int            @default(0)
   
   // Budget plan settings
   payDate                       Int            @default(27)
