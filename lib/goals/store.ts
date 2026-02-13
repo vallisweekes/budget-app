@@ -53,6 +53,10 @@ function readGoals(budgetPlanId: string): Goal[] {
 }
 
 function writeGoals(budgetPlanId: string, goals: Goal[]) {
+  // Skip writes in production serverless environments
+  if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
+    return;
+  }
   ensureDataDir(budgetPlanId);
   fs.writeFileSync(goalsFilePath(budgetPlanId), JSON.stringify(goals, null, 2));
 }

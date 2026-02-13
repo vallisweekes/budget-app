@@ -24,6 +24,10 @@ async function readJson<T>(p: string, fallback: T): Promise<T> {
 }
 
 async function writeJson<T>(p: string, value: T) {
+  // Skip writes in production serverless environments
+  if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
+    return;
+  }
   await fs.writeFile(p, JSON.stringify(value, null, 2) + "\n");
 }
 
