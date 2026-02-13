@@ -51,7 +51,7 @@ export default async function AdminIncomePage(props: {
 		(monthsWithoutIncome.includes(nowMonth) ? nowMonth : monthsWithoutIncome[0]) || nowMonth;
 	
 	return (
-		<div className="min-h-screen pb-20 bg-gradient-to-br from-blue-950 via-slate-950 to-black">
+		<div className="min-h-screen pb-20 app-theme-bg">
 			<div className="mx-auto w-full max-w-7xl px-4 py-8">
 				<div className="mb-10">
 					<h1 className="text-4xl font-bold text-white mb-2">Income</h1>

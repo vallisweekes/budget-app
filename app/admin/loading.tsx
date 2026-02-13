@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/Shared";
 
 export default function Loading() {
 	return (
-		<div className="min-h-screen pb-20 bg-gradient-to-br from-blue-950 via-slate-950 to-black">
+		<div className="min-h-screen pb-20 app-theme-bg">
 			<div className="mx-auto w-full max-w-6xl px-4 py-6">
 				<div className="mb-6">
 					<Skeleton className="h-9 w-64 rounded-xl bg-white/10" />

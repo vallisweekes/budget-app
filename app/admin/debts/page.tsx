@@ -63,7 +63,7 @@ export default async function DebtsPage(props: {
 	} as const;
 
 	return (
-		<div className="min-h-screen pb-20 bg-gradient-to-br from-blue-950 via-slate-950 to-black">
+		<div className="min-h-screen pb-20 app-theme-bg">
 			<div className="mx-auto w-full max-w-6xl px-4 py-6">
 				<div className="mb-8">
 					<h1 className="text-3xl font-bold text-white mb-2">Debt Management</h1>

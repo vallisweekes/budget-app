@@ -44,7 +44,7 @@ export default function MobileBottomNav() {
 	};
 
 	return (
-		<nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur-xl border-t border-white/10 shadow-2xl z-30 safe-area-inset-bottom">
+		<nav className="lg:hidden fixed bottom-0 left-0 right-0 app-theme-bg bg-fixed border-t border-white/10 shadow-2xl z-30 safe-area-inset-bottom">
 			<div className="flex items-center justify-around px-2 py-3">
 				{navItems.map((item) => {
 					const active = isActive(item.href);
@@ -54,7 +54,7 @@ export default function MobileBottomNav() {
 							<button
 								key={item.label}
 								onClick={item.action}
-								className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all min-w-[64px] text-slate-400 hover:text-red-400`}
+								className="flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all min-w-[64px] text-slate-300 hover:text-red-400"
 							>
 								<div className="p-2 rounded-lg transition-all hover:bg-red-500/10">
 									<item.icon size={20} strokeWidth={2} />
@@ -68,16 +68,18 @@ export default function MobileBottomNav() {
 						<Link
 							key={item.href}
 							href={item.href}
-							className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all min-w-[64px] ${
-								active
-									? "text-white"
-									: "text-slate-400"
+							className={`group flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all min-w-[64px] ${
+								active ? "text-white" : "text-slate-300 hover:text-white"
 							}`}
 						>
-							<div className={`p-2 rounded-lg transition-all ${
-								active ? "bg-white/10" : ""
-							}`}>
-								<item.icon size={20} strokeWidth={active ? 2.5 : 2} />
+							<div
+								className={`p-2 rounded-lg border transition-all ${
+									active
+										? "bg-gradient-to-br from-teal-500/20 to-cyan-500/10 border-teal-400/30"
+										: "border-transparent group-hover:bg-white/5 group-hover:border-white/10"
+								}`}
+							>
+								<item.icon size={20} strokeWidth={active ? 2.5 : 2} className={active ? "text-white" : "text-slate-300 group-hover:text-white"} />
 							</div>
 							<span className="text-xs font-medium">{item.label}</span>
 						</Link>

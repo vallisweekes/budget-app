@@ -2,7 +2,7 @@ import { Skeleton, SkeletonText } from "@/components/Shared";
 
 export default function Loading() {
 	return (
-		<div className="min-h-screen bg-gradient-to-br from-blue-950 via-slate-950 to-black pb-20">
+		<div className="min-h-screen app-theme-bg pb-20">
 			<div className="mx-auto w-full max-w-6xl px-4 py-6">
 				<div className="mb-6 space-y-3">
 					<Skeleton className="h-9 w-56 rounded-xl bg-white/10" />

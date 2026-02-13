@@ -173,7 +173,7 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 	const totalDebtBalance = debts.reduce((sum, debt) => sum + (debt.currentBalance || 0), 0);
 
 	return (
-		<div className="min-h-screen pb-20 bg-gradient-to-br from-blue-950 via-slate-950 to-black">
+		<div className="min-h-screen pb-20 app-theme-bg">
 			<div className="mx-auto w-full max-w-6xl px-4 py-6">
 				<ViewTabs
 					budgetPlanId={budgetPlanId}

@@ -12,12 +12,31 @@ import type { Settings } from "@/lib/settings/store";
 
 type Section = "details" | "budget" | "locale" | "plans" | "danger";
 
+type MonthSummary = {
+	unallocated: number;
+	incomeTotal: number;
+	expenseTotal: number;
+	debtPaymentsTotal: number;
+	spendingTotal: number;
+	plannedSavings: number;
+	plannedInvestments: number;
+};
+
+type FiftyThirtyTwentySummary = {
+	needsTarget: number;
+	needsActual: number;
+	wantsTarget: number;
+	wantsActual: number;
+	savingsDebtTarget: number;
+	savingsDebtActual: number;
+};
+
 interface SettingsContentProps {
 	budgetPlanId: string;
 	settings: Settings;
 	sessionUser: { id?: string; name?: string | null; email?: string | null };
-	monthSummary: any;
-	fiftyThirtyTwenty: any;
+	monthSummary: MonthSummary | null;
+	fiftyThirtyTwenty: FiftyThirtyTwentySummary | null;
 	selectedMonth: MonthKey;
 	allPlans?: Array<{ id: string; name: string; kind: string }>;
 }
@@ -68,7 +87,7 @@ export default function SettingsContent({
 	];
 
 	return (
-		<div className="min-h-screen pb-20 bg-gradient-to-br from-blue-950 via-slate-950 to-black">
+		<div className="min-h-screen pb-20 app-theme-bg">
 			<div className="mx-auto w-full max-w-7xl px-4 py-8">
 				<div className="mb-10">
 					<h1 className="text-4xl font-bold text-white mb-2">Settings</h1>
@@ -464,7 +483,7 @@ export default function SettingsContent({
 												<div>
 													<h3 className="text-xl font-bold text-white">Pay yourself first</h3>
 													<p className="text-slate-400 text-sm">
-														Prioritise savings/investments and debt payments, then spend what's left.
+															Prioritise savings/investments and debt payments, then spend what&apos;s left.
 													</p>
 												</div>
 												<form method="get" className="flex items-end gap-2">

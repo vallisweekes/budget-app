@@ -1,9 +1,15 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f7f8ff;
-  --foreground: #171717;
-  color-scheme: light; /* force light theme */
+  /* Teal/blue dark theme */
+  --background: #041827;
+  --foreground: #eef8ff;
+  color-scheme: dark;
+
+  /* Background gradient stops */
+  --app-bg-from: #0b5a6d;
+  --app-bg-via: #06364c;
+  --app-bg-to: #020b16;
 }
 
 @theme inline {
@@ -13,12 +19,24 @@
   --font-mono: var(--font-geist-mono);
 }
 
-/* Disable automatic dark mode; always use light variables */
-
 body {
-  background: var(--background);
+  background-color: var(--background);
+  background-image:
+    radial-gradient(900px 500px at 15% 10%, rgba(107, 232, 225, 0.22), transparent 60%),
+    radial-gradient(700px 420px at 90% 18%, rgba(122, 210, 255, 0.18), transparent 55%),
+    linear-gradient(135deg, var(--app-bg-from) 0%, var(--app-bg-via) 40%, var(--app-bg-to) 100%);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+@layer utilities {
+  .app-theme-bg {
+    background-color: var(--background);
+    background-image:
+      radial-gradient(900px 500px at 15% 10%, rgba(107, 232, 225, 0.22), transparent 60%),
+      radial-gradient(700px 420px at 90% 18%, rgba(122, 210, 255, 0.18), transparent 55%),
+      linear-gradient(135deg, var(--app-bg-from) 0%, var(--app-bg-via) 40%, var(--app-bg-to) 100%);
+  }
 }
 
 @keyframes shimmer {

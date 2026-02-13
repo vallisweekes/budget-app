@@ -56,7 +56,7 @@ export default async function SpendingPage(props: {
 	const settings = await getSettings(budgetPlanId);
 
 	return (
-		<div className="min-h-screen pb-20 bg-gradient-to-br from-blue-950 via-slate-950 to-black">
+		<div className="min-h-screen pb-20 app-theme-bg">
 			<div className="mx-auto w-full max-w-6xl px-4 py-6">
 				<h1 className="text-3xl font-bold text-white mb-2">Spending Tracker</h1>
 				<p className="text-slate-400 mb-6">Log unplanned purchases and track where the money comes from</p>

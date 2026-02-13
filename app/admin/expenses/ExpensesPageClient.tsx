@@ -140,7 +140,7 @@ export default function ExpensesPageClient({
   };
   
   return (
-    <div className="min-h-screen pb-20 bg-gradient-to-br from-blue-950 via-slate-950 to-black">
+    <div className="min-h-screen pb-20 app-theme-bg">
       <div className="mx-auto w-full max-w-6xl px-4 py-6">
         {/* Header */}
         <div className="mb-6 sm:mb-8">

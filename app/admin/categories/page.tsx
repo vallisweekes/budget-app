@@ -70,7 +70,7 @@ export default async function AdminCategoriesPage() {
   };
 
   return (
-    <div className="min-h-screen pb-20 bg-gradient-to-br from-blue-950 via-slate-950 to-black">
+    <div className="min-h-screen pb-20 app-theme-bg">
       <div className="mx-auto w-full max-w-7xl px-4 py-8">
         <div className="mb-10">
           <Link

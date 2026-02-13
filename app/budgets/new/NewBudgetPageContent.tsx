@@ -25,7 +25,7 @@ export default async function NewBudgetPageContent({
 	const defaultBudgetType: BudgetType = (isSupportedBudgetType(typeRaw) ? typeRaw : "personal") as BudgetType;
 
 	return (
-		<div className="min-h-screen bg-gradient-to-br from-blue-950 via-slate-950 to-black">
+		<div className="min-h-screen app-theme-bg">
 			<div className="relative mx-auto flex min-h-screen w-full max-w-3xl items-center px-4 py-16">
 				<div className="w-full">
 					<div className="inline-flex items-center gap-2 rounded-full bg-white/5 px-3 py-1 text-xs font-medium text-slate-200 ring-1 ring-white/10">

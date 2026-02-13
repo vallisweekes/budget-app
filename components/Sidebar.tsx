@@ -79,14 +79,17 @@ export default function Sidebar() {
 	return (
 		<>
 			{/* Sidebar - Desktop Only */}
-			<aside className="hidden lg:block fixed top-0 left-0 h-full bg-slate-900/95 backdrop-blur-xl border-r border-white/10 shadow-2xl z-40 w-64">
+			<aside className="hidden lg:block fixed top-0 left-0 h-full app-theme-bg bg-fixed border-r border-white/10 shadow-2xl z-40 w-64">
 				<div className="flex flex-col h-full p-6">
 					{/* Logo/Title */}
 					<div className="mb-8 mt-2">
-						<h2 className="text-2xl font-bold text-white">
-							Budget App
-						</h2>
-						<p className="text-sm text-slate-400 mt-1">Manage your finances</p>
+						<div className="inline-flex items-center gap-3">
+							<div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-teal-500/20 to-cyan-500/10 border border-white/10 shadow-lg" />
+							<div>
+								<h2 className="text-2xl font-bold text-white leading-none">Budget App</h2>
+								<p className="text-sm text-slate-400 mt-1">Manage your finances</p>
+							</div>
+						</div>
 					</div>
 
 					{/* Navigation */}
@@ -95,13 +98,13 @@ export default function Sidebar() {
 							<Link
 								key={item.href}
 								href={item.href}
-								className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+								className={`group flex items-center gap-3 px-4 py-3 rounded-xl border transition-all ${
 									pathname === item.href
-										? "bg-white/10 text-white font-semibold backdrop-blur-sm"
-										: "text-slate-400 hover:bg-white/5 hover:text-white"
+										? "bg-gradient-to-r from-teal-500/15 to-cyan-500/10 border-teal-400/30 text-white shadow-sm"
+										: "border-transparent text-slate-300 hover:bg-white/5 hover:border-white/10 hover:text-white"
 								}`}
 							>
-								<item.icon size={20} />
+								<item.icon size={20} className="text-slate-300 group-hover:text-white" />
 								<span className="font-medium">{item.label}</span>
 							</Link>
 						))}
@@ -111,7 +114,7 @@ export default function Sidebar() {
 					<div className="pt-4 border-t border-white/10">
 						<button
 							onClick={() => signOut({ callbackUrl: "/" })}
-							className="flex w-full items-center gap-3 px-4 py-3 rounded-xl transition-all text-slate-400 hover:bg-white/5 hover:text-white"
+							className="flex w-full items-center gap-3 px-4 py-3 rounded-xl border border-transparent transition-all text-slate-300 hover:bg-white/5 hover:border-white/10 hover:text-white"
 						>
 							<LogOut size={20} />
 							<span className="font-medium">Log out</span>
