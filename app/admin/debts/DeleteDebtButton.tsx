@@ -9,14 +9,16 @@ import { useSearchParams } from "next/navigation";
 export default function DeleteDebtButton({
   debtId,
   debtName,
+  budgetPlanId,
 }: {
   debtId: string;
   debtName: string;
+  budgetPlanId?: string;
 }) {
   const [isPending, startTransition] = useTransition();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const searchParams = useSearchParams();
-  const budgetPlanId = searchParams.get("plan") ?? "";
+  const planId = budgetPlanId ?? searchParams.get("plan") ?? "";
 
   return (
     <>
@@ -33,8 +35,8 @@ export default function DeleteDebtButton({
         }}
         onConfirm={() => {
           startTransition(async () => {
-				if (!budgetPlanId) return;
-            await deleteDebtAction(budgetPlanId, debtId);
+				if (!planId) return;
+            await deleteDebtAction(planId, debtId);
           });
           setConfirmingDelete(false);
         }}

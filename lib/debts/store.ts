@@ -191,9 +191,14 @@ export function addPayment(budgetPlanId: string, debtId: string, amount: number,
 	payments.push(newPayment);
 	writePayments(budgetPlanId, payments);
 	
-	// Update debt balance
+	// Update debt balance and paid amount
 	const newBalance = Math.max(0, debt.currentBalance - amount);
-	updateDebt(budgetPlanId, debtId, { currentBalance: newBalance });
+	const newPaidAmount = (debt.paidAmount || 0) + amount;
+	updateDebt(budgetPlanId, debtId, { 
+		currentBalance: newBalance,
+		paidAmount: newPaidAmount,
+		paid: newBalance === 0,
+	});
 	
 	return newPayment;
 }

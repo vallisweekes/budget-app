@@ -169,6 +169,7 @@ model Debt {
   paid                 Boolean        @default(false)
   paidAmount           Decimal        @default(0) @db.Decimal(12, 2)
   monthlyMinimum       Decimal?       @db.Decimal(12, 2)
+  interestRate         Decimal?       @db.Decimal(5, 2)
   
   budgetPlanId         String
   budgetPlan           BudgetPlan     @relation(fields: [budgetPlanId], references: [id], onDelete: Cascade)

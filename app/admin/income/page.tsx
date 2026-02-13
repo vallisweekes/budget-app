@@ -1,8 +1,6 @@
 import { getAllIncome } from "@/lib/income/store";
 import { MONTHS } from "@/lib/constants/time";
 import type { MonthKey } from "@/types";
-import Link from "next/link";
-import { ArrowRight, Settings as SettingsIcon } from "lucide-react";
 import { addIncomeAction } from "./actions";
 import IncomeManager from "./IncomeManager";
 import { SelectDropdown } from "@/components/Shared";
@@ -57,26 +55,6 @@ export default async function AdminIncomePage(props: {
 				<div className="mb-10">
 					<h1 className="text-4xl font-bold text-white mb-2">Income</h1>
 					<p className="text-slate-400 text-lg">Manage your income sources</p>
-				</div>
-
-				<div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/10 p-8 mb-8 hover:border-white/20 transition-all">
-					<div className="flex items-center justify-between gap-4">
-						<div className="flex items-center gap-3">
-							<div className="w-12 h-12 bg-gradient-to-br from-slate-500 to-slate-700 rounded-2xl flex items-center justify-center shadow-lg">
-								<SettingsIcon className="w-6 h-6 text-white" />
-							</div>
-							<div>
-								<h2 className="text-xl font-bold text-white">Budget Settings</h2>
-								<p className="text-slate-400 text-sm">Pay date, allowance and savings live in Settings now.</p>
-							</div>
-						</div>
-						<Link
-							href={`/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(budgetPlanId)}/settings#budget`}
-							className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-slate-900/40 px-4 py-2 text-sm font-semibold text-white hover:bg-white/10 hover:border-white/20 transition"
-						>
-							Open <ArrowRight className="w-4 h-4" />
-						</Link>
-					</div>
 				</div>
 
 				{hasAvailableMonths && (

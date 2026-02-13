@@ -74,8 +74,8 @@ export default function IncomeManager({
 	);
 
 	return (
-		<div>
-			<ul className="space-y-3 mb-4">
+		<div className="flex flex-col h-full">
+			<ul className="space-y-3 mb-4 flex-1">
 				{incomeItems.map((item) => (
 					<li
 						key={item.id}

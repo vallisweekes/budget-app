@@ -66,6 +66,7 @@ export async function POST(request: Request) {
         paid: body.paid || false,
         paidAmount: body.paidAmount || 0,
         monthlyMinimum: body.monthlyMinimum || null,
+        interestRate: body.interestRate || null,
         sourceType: body.sourceType || null,
         sourceExpenseId: body.sourceExpenseId || null,
         sourceMonthKey: body.sourceMonthKey || null,
