@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useMemo } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useFormStatus } from "react-dom";
 import type { MonthKey } from "@/types";
 import { addExpenseAction, togglePaidAction, updateExpenseAction, removeExpenseAction, applyExpensePaymentAction } from "./actions";
@@ -9,6 +9,7 @@ import CategoryIcon from "@/components/CategoryIcon";
 import { ConfirmModal, SelectDropdown } from "@/components/Shared";
 import { formatCurrency } from "@/lib/helpers/money";
 import { MONTHS } from "@/lib/constants/time";
+import { formatMonthKeyLabel } from "@/lib/helpers/monthKey";
 import Link from "next/link";
 
 interface Expense {
@@ -84,6 +85,96 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
   const [distributeAllMonths, setDistributeAllMonths] = useState(false);
   const [distributeAllYears, setDistributeAllYears] = useState(false);
 
+  const [categoriesByPlan, setCategoriesByPlan] = useState<Record<string, Category[]>>(() => {
+    const initial: Record<string, Category[]> = {};
+    if (allCategoriesByPlan) {
+      for (const [planId, list] of Object.entries(allCategoriesByPlan)) {
+        initial[planId] = (list as Category[]).map((c) => ({
+          id: c.id,
+          name: c.name,
+          icon: c.icon,
+          color: c.color,
+        }));
+      }
+    }
+    initial[budgetPlanId] = initial[budgetPlanId] ?? categories;
+    return initial;
+  });
+
+  const [categoryLoadStateByPlan, setCategoryLoadStateByPlan] = useState<
+    Record<string, { status: "idle" | "loading" | "loaded" | "error"; message?: string }>
+  >(() => ({}));
+
+  async function ensureCategoriesLoaded(planId: string) {
+    if (!planId) return;
+    // If we already have categories for this plan, don't refetch.
+    if ((categoriesByPlan[planId] ?? []).length > 0) return;
+    try {
+		setCategoryLoadStateByPlan((prev) => ({
+			...prev,
+			[planId]: { status: "loading" },
+		}));
+      const res = await fetch(`/api/bff/categories?budgetPlanId=${encodeURIComponent(planId)}`, {
+        method: "GET",
+        credentials: "same-origin",
+        cache: "no-store",
+        headers: { Accept: "application/json" },
+      });
+		if (!res.ok) {
+			let message = `HTTP ${res.status}`;
+			try {
+				const body = (await res.json()) as any;
+				if (body?.error) message = String(body.error);
+			} catch {
+				// ignore
+			}
+			setCategoryLoadStateByPlan((prev) => ({
+				...prev,
+				[planId]: { status: "error", message },
+			}));
+			return;
+		}
+      const data = (await res.json()) as Array<{ id: string; name: string; icon?: string | null; color?: string | null }>;
+      setCategoriesByPlan((prev) => ({
+        ...prev,
+        [planId]: data.map((c) => ({
+          id: c.id,
+          name: c.name,
+          icon: c.icon ?? undefined,
+          color: c.color ?? undefined,
+        })),
+      }));
+		setCategoryLoadStateByPlan((prev) => ({
+			...prev,
+			[planId]: { status: "loaded" },
+		}));
+    } catch {
+		setCategoryLoadStateByPlan((prev) => ({
+			...prev,
+			[planId]: { status: "error", message: "Network error" },
+		}));
+    }
+  }
+
+  useEffect(() => {
+    // Keep local cache aligned with server props (and allow fallback).
+    setCategoriesByPlan((prev) => ({
+      ...prev,
+      [budgetPlanId]: prev[budgetPlanId] && prev[budgetPlanId].length > 0 ? prev[budgetPlanId] : categories,
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [budgetPlanId, categories]);
+
+  useEffect(() => {
+    void ensureCategoriesLoaded(budgetPlanId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [budgetPlanId]);
+
+  useEffect(() => {
+    void ensureCategoriesLoaded(addBudgetPlanId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addBudgetPlanId]);
+
   const YEARS = useMemo(() => {
     const base = new Date().getFullYear();
     return Array.from({ length: 10 }, (_, i) => base + i);
@@ -91,11 +182,14 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
 
   // Get categories for the selected budget plan when adding
   const addFormCategories = useMemo(() => {
-    if (allCategoriesByPlan && addBudgetPlanId) {
-      return allCategoriesByPlan[addBudgetPlanId] || [];
+    if (addBudgetPlanId) {
+      const cached = categoriesByPlan[addBudgetPlanId];
+      if (cached && cached.length > 0) return cached;
+      if (allCategoriesByPlan && allCategoriesByPlan[addBudgetPlanId]?.length) return allCategoriesByPlan[addBudgetPlanId];
     }
-    return categories;
-  }, [allCategoriesByPlan, addBudgetPlanId, categories]);
+    const fallback = categoriesByPlan[budgetPlanId];
+    return fallback && fallback.length > 0 ? fallback : categories;
+  }, [allCategoriesByPlan, addBudgetPlanId, budgetPlanId, categories, categoriesByPlan]);
 
   // Toggle category collapse
   const toggleCategory = (categoryId: string) => {
@@ -105,8 +199,13 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
     }));
   };
 
+  const effectiveCategories = useMemo(() => {
+		const cached = categoriesByPlan[budgetPlanId];
+		return cached && cached.length > 0 ? cached : categories;
+	}, [budgetPlanId, categories, categoriesByPlan]);
+
   // Group expenses by category
-  const categoryLookup = categories.reduce((acc, cat) => {
+  const categoryLookup = effectiveCategories.reduce((acc, cat) => {
     acc[cat.id] = cat;
     return acc;
   }, {} as Record<string, Category>);
@@ -188,6 +287,25 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
 
   return (
     <div className="space-y-6">
+		{effectiveCategories.length === 0 && (
+			<div className="rounded-2xl border border-white/10 bg-slate-900/40 p-4 text-sm text-slate-200">
+				<div className="font-semibold">Categories aren’t loading for this budget.</div>
+				<div className="mt-1 text-slate-300">
+					{categoryLoadStateByPlan[budgetPlanId]?.status === "loading"
+						? "Loading categories…"
+						: categoryLoadStateByPlan[budgetPlanId]?.status === "error"
+							? `Error: ${categoryLoadStateByPlan[budgetPlanId]?.message ?? "Unknown"}`
+							: "No categories found."}
+				</div>
+				<button
+					type="button"
+					onClick={() => void ensureCategoriesLoaded(budgetPlanId)}
+					className="mt-3 inline-flex h-9 items-center rounded-xl border border-white/10 bg-white/5 px-3 font-semibold text-white hover:bg-white/10"
+				>
+					Retry
+				</button>
+			</div>
+		)}
       <ConfirmModal
         open={expensePendingDelete != null}
         title="Delete expense?"
@@ -291,7 +409,7 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
                       onValueChange={(v) => setEditCategoryId(v)}
                       placeholder="Select Category"
                       options={[
-                        ...categories.map((c) => ({ value: c.id, label: c.name })),
+                        ...effectiveCategories.map((c) => ({ value: c.id, label: c.name })),
                         { value: "", label: "None (Uncategorized)" },
                       ]}
                       buttonClassName="focus:ring-purple-500/50"
@@ -321,7 +439,7 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold text-white">Expenses</h2>
-            <p className="text-slate-400 text-sm mt-1">{month} {year}</p>
+			<p className="text-slate-400 text-sm mt-1">{formatMonthKeyLabel(month)} {year}</p>
           </div>
           <button
             onClick={() => {
@@ -495,7 +613,7 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
               name="_monthSelect"
               value={addMonth}
               onValueChange={(v) => setAddMonth(v as MonthKey)}
-              options={MONTHS.map((m) => ({ value: m, label: m }))}
+			  options={MONTHS.map((m) => ({ value: m, label: formatMonthKeyLabel(m) }))}
               buttonClassName="focus:ring-purple-500/50"
             />
           </label>

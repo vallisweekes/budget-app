@@ -1,5 +1,6 @@
 import { getAllIncome } from "@/lib/income/store";
 import { MONTHS } from "@/lib/constants/time";
+import { currentMonthKey } from "@/lib/helpers/monthKey";
 import type { MonthKey } from "@/types";
 import { addIncomeAction } from "./actions";
 import IncomeManager from "./IncomeManager";
@@ -47,7 +48,9 @@ export default async function AdminIncomePage(props: {
 	// Filter months that don't have any income items yet
 	const monthsWithoutIncome = MONTHS.filter((m) => !income[m] || income[m].length === 0);
 	const hasAvailableMonths = monthsWithoutIncome.length > 0;
-	const defaultMonth: MonthKey = monthsWithoutIncome[0] || "JANUARY";
+	const nowMonth = currentMonthKey();
+	const defaultMonth: MonthKey =
+		(monthsWithoutIncome.includes(nowMonth) ? nowMonth : monthsWithoutIncome[0]) || nowMonth;
 	
 	return (
 		<div className="min-h-screen pb-20 bg-gradient-to-br from-blue-950 via-slate-950 to-black">

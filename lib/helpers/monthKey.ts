@@ -58,3 +58,15 @@ export function tryMonthNumberFromKey(value: string): number | null {
 	if (!normalized) return null;
 	return monthKeyToNumber(normalized);
 }
+
+export function formatMonthKeyLabel(month: MonthKey): string {
+	const trimmed = String(month).trim();
+	if (trimmed === "FEBURARY") return "FEBRUARY";
+	return trimmed;
+}
+
+export function currentMonthKey(date: Date = new Date()): MonthKey {
+	// JS Date.getMonth(): 0-11
+	const monthNumber = date.getMonth() + 1;
+	return monthNumberToKey(monthNumber);
+}

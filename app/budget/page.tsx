@@ -9,6 +9,7 @@ import CategoryGrid from "@/components/CategoryGrid";
 import { ConfirmModal, SelectDropdown } from "@/components/Shared";
 import categoriesData from "@/data/categories.json";
 import { MONTHS } from "@/lib/constants/time";
+import { currentMonthKey, formatMonthKeyLabel } from "@/lib/helpers/monthKey";
 import { formatCurrency } from "@/lib/helpers/money";
 
 function Currency({ value }: { value: number }) {
@@ -44,7 +45,7 @@ export default function BudgetPage() {
 
   const [rows, setRows] = useState(1);
   const [confirmingRemoveRow, setConfirmingRemoveRow] = useState(false);
-  const [month, setMonth] = useState<typeof MONTHS[number]>("JANUARY");
+	const [month, setMonth] = useState<typeof MONTHS[number]>(() => currentMonthKey());
   const catKeys = [
     { key: "rent", label: "Rent" },
     { key: "mortgage", label: "Mortgage" },
@@ -147,7 +148,7 @@ export default function BudgetPage() {
 				variant="light"
 				value={month}
 				onValueChange={(v) => setMonth(v as any)}
-				options={MONTHS.map((m) => ({ value: m, label: m }))}
+        options={MONTHS.map((m) => ({ value: m, label: formatMonthKeyLabel(m) }))}
 				className="mt-1"
 				buttonClassName="rounded border p-2"
 			/>
@@ -234,12 +235,12 @@ export default function BudgetPage() {
               </tr>
             </thead>
             <tbody>
-              {Object.entries(state.perMonthTotals).map(([m, v]) => (
-                <tr key={m}>
-                  <td className="border p-2">{m}</td>
-                  <td className="border p-2 text-right"><Currency value={v} /></td>
-                </tr>
-              ))}
+            {MONTHS.filter((m) => (state.perMonthTotals?.[m] ?? 0) !== 0).map((m) => (
+              <tr key={m}>
+                <td className="border p-2">{formatMonthKeyLabel(m)}</td>
+                <td className="border p-2 text-right"><Currency value={state.perMonthTotals[m] || 0} /></td>
+              </tr>
+            ))}
             </tbody>
           </table>
         )}

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
+import { ensureDefaultCategoriesForBudgetPlan } from "@/lib/categories/defaultCategories";
 
 export const runtime = "nodejs";
 
@@ -20,6 +21,8 @@ export async function GET(request: Request) {
 	if (!budgetPlanId) {
 		return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
 	}
+
+	await ensureDefaultCategoriesForBudgetPlan({ budgetPlanId });
 
   const categories = await prisma.category.findMany({
     where: { budgetPlanId },

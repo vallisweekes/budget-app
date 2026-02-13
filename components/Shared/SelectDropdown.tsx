@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useId, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 export type SelectOption = {
 	value: string;
@@ -59,7 +60,10 @@ export default function SelectDropdown({
 	});
 
 	const rootRef = useRef<HTMLDivElement | null>(null);
+	const triggerRef = useRef<HTMLButtonElement | null>(null);
+	const menuRef = useRef<HTMLDivElement | null>(null);
 	const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
+	const [menuPosition, setMenuPosition] = useState<{ left: number; top: number; width: number } | null>(null);
 
 	const close = () => setOpen(false);
 	function focusOptionAt(index: number) {
@@ -73,8 +77,34 @@ export default function SelectDropdown({
 		const idx = options.findIndex((o) => o.value === selectedValue);
 		const nextActive = idx >= 0 ? idx : 0;
 		setActiveIndex(nextActive);
+		updateMenuPosition();
 		setOpen(true);
 		focusOptionAt(nextActive);
+	}
+
+	function updateMenuPosition() {
+		const trigger = triggerRef.current;
+		if (!trigger) return;
+		const rect = trigger.getBoundingClientRect();
+		const width = rect.width;
+		let left = rect.left;
+		let top = rect.bottom + 8;
+
+		// Keep within viewport horizontally.
+		const viewportWidth = window.innerWidth;
+		if (left + width > viewportWidth - 8) {
+			left = Math.max(8, viewportWidth - width - 8);
+		}
+		if (left < 8) left = 8;
+
+		// If the menu would overflow the bottom, flip it above.
+		const estimatedHeight = Math.min(288, 44 * Math.max(1, options.length));
+		const viewportHeight = window.innerHeight;
+		if (top + estimatedHeight > viewportHeight - 8) {
+			top = Math.max(8, rect.top - 8 - estimatedHeight);
+		}
+
+		setMenuPosition({ left, top, width });
 	}
 
 	function toggle() {
@@ -91,18 +121,26 @@ export default function SelectDropdown({
 	}
 
 	useEffect(() => {
-		function onDocPointerDown(e: MouseEvent | TouchEvent) {
-			const target = e.target as Node | null;
-			if (!target) return;
-			if (!rootRef.current?.contains(target)) close();
+		if (!open) return;
+		updateMenuPosition();
+		function onEscape(e: KeyboardEvent) {
+			if (e.key !== "Escape") return;
+			e.preventDefault();
+			close();
 		}
-		document.addEventListener("mousedown", onDocPointerDown);
-		document.addEventListener("touchstart", onDocPointerDown);
+		function onScrollOrResize() {
+			updateMenuPosition();
+		}
+		window.addEventListener("keydown", onEscape);
+		window.addEventListener("scroll", onScrollOrResize, true);
+		window.addEventListener("resize", onScrollOrResize);
 		return () => {
-			document.removeEventListener("mousedown", onDocPointerDown);
-			document.removeEventListener("touchstart", onDocPointerDown);
+			window.removeEventListener("keydown", onEscape);
+			window.removeEventListener("scroll", onScrollOrResize, true);
+			window.removeEventListener("resize", onScrollOrResize);
 		};
-	}, []);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [open, options.length]);
 
 	useEffect(() => {
 		if (!open) return;
@@ -113,7 +151,7 @@ export default function SelectDropdown({
 	const baseButton =
 		"flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left outline-none transition-all";
 	const baseMenu =
-		"absolute left-0 right-0 mt-2 max-h-72 overflow-auto rounded-2xl border shadow-2xl backdrop-blur-xl";
+		"max-h-72 overflow-auto rounded-2xl border shadow-2xl backdrop-blur-xl";
 
 	const isLight = variant === "light";
 	const buttonStyles = isLight
@@ -147,6 +185,7 @@ export default function SelectDropdown({
 
 			<button
 				id={controlId}
+				ref={triggerRef}
 				type="button"
 				disabled={disabled}
 				aria-haspopup="listbox"
@@ -190,73 +229,83 @@ export default function SelectDropdown({
 				</svg>
 			</button>
 
-			{open ? (
-				<div
-					role="listbox"
-					aria-labelledby={controlId}
-					className={cx(baseMenu, menuStyles, "z-50", menuClassName)}
-					onKeyDown={(e) => {
-						if (e.key === "Escape") {
-							e.preventDefault();
-							close();
-							return;
-						}
-						if (e.key === "ArrowDown") {
-							e.preventDefault();
-							move(1);
-						}
-						if (e.key === "ArrowUp") {
-							e.preventDefault();
-							move(-1);
-						}
-						if (e.key === "Home") {
-							e.preventDefault();
-							setActiveIndex(0);
-							optionRefs.current[0]?.focus();
-						}
-						if (e.key === "End") {
-							e.preventDefault();
-							const last = Math.max(0, options.length - 1);
-							setActiveIndex(last);
-							optionRefs.current[last]?.focus();
-						}
-					}}
-				>
-					<div className="p-2">
-						{options.map((opt, idx) => {
-							const isSelected = opt.value === selectedValue;
-							const isActive = idx === activeIndex;
-							return (
-								<button
-									key={opt.value}
-									type="button"
-									role="option"
-									aria-selected={isSelected}
-									disabled={opt.disabled}
-									ref={(el) => {
-										optionRefs.current[idx] = el;
-									}}
-									onMouseEnter={() => setActiveIndex(idx)}
-									onClick={() => {
-										if (opt.disabled) return;
-										setValue(opt.value);
-										close();
-									}}
-									className={cx(
-										optionBase,
-										optionStyles,
-										opt.disabled && "opacity-50 cursor-not-allowed",
-										isActive && optionActive
-									)}
-								>
-									<span className={cx("truncate", isSelected && optionSelected)}>{opt.label}</span>
-									{isSelected ? <span className={cx("text-xs font-semibold", optionSelected)}>✓</span> : null}
-								</button>
-							);
-						})}
-					</div>
-				</div>
-			) : null}
+			{open && menuPosition
+				? createPortal(
+					<>
+						<button
+							type="button"
+							aria-label="Close"
+							className="fixed inset-0 z-[9998] cursor-default"
+							onClick={() => close()}
+						/>
+						<div
+							ref={menuRef}
+							role="listbox"
+							aria-labelledby={controlId}
+							className={cx(baseMenu, menuStyles, "fixed z-[9999]", menuClassName)}
+							style={{ left: menuPosition.left, top: menuPosition.top, width: menuPosition.width }}
+							onKeyDown={(e) => {
+								if (e.key === "ArrowDown") {
+									e.preventDefault();
+									move(1);
+								}
+								if (e.key === "ArrowUp") {
+									e.preventDefault();
+									move(-1);
+								}
+								if (e.key === "Home") {
+									e.preventDefault();
+									setActiveIndex(0);
+									optionRefs.current[0]?.focus();
+								}
+								if (e.key === "End") {
+									e.preventDefault();
+									const last = Math.max(0, options.length - 1);
+									setActiveIndex(last);
+									optionRefs.current[last]?.focus();
+								}
+							}}
+						>
+							<div className="p-2">
+								{options.map((opt, idx) => {
+									const isSelected = opt.value === selectedValue;
+									const isActive = idx === activeIndex;
+									return (
+										<button
+											key={opt.value}
+											type="button"
+											role="option"
+											aria-selected={isSelected}
+											disabled={opt.disabled}
+											ref={(el) => {
+												optionRefs.current[idx] = el;
+											}}
+											onMouseEnter={() => setActiveIndex(idx)}
+											onClick={() => {
+												if (opt.disabled) return;
+												setValue(opt.value);
+												close();
+											}}
+											className={cx(
+												optionBase,
+												optionStyles,
+												opt.disabled && "opacity-50 cursor-not-allowed",
+												isActive && optionActive
+											)}
+										>
+											<span className={cx("truncate", isSelected && optionSelected)}>{opt.label}</span>
+											{isSelected ? (
+												<span className={cx("text-xs font-semibold", optionSelected)}>✓</span>
+											) : null}
+										</button>
+									);
+								})}
+							</div>
+						</div>
+					</>,
+					document.body
+				)
+				: null}
 		</div>
 	);
 }

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { ensureDefaultCategoriesForBudgetPlan } from "@/lib/categories/defaultCategories";
 
 export const SUPPORTED_BUDGET_TYPES = ["personal", "holiday", "carnival"] as const;
 export type SupportedBudgetType = (typeof SUPPORTED_BUDGET_TYPES)[number];
@@ -94,26 +95,33 @@ export async function getOrCreateBudgetPlanForUser(params: {
 			},
 			orderBy: { createdAt: "desc" },
 		});
-		if (existing) return existing;
+		if (existing) {
+			await ensureDefaultCategoriesForBudgetPlan({ budgetPlanId: existing.id });
+			return existing;
+		}
 
-		return prisma.budgetPlan.create({
+		const created = await prisma.budgetPlan.create({
 			data: {
 				userId,
 				kind: "personal",
 				name: planName || "Personal",
 			},
 		});
+		await ensureDefaultCategoriesForBudgetPlan({ budgetPlanId: created.id });
+		return created;
 	}
 
 	// Holiday/Carnival: allow multiple plans.
 	const fallbackName = budgetType === "holiday" ? "Holiday" : "Carnival";
-	return prisma.budgetPlan.create({
+	const created = await prisma.budgetPlan.create({
 		data: {
 			userId,
 			kind: budgetType,
 			name: planName || fallbackName,
 		},
 	});
+	await ensureDefaultCategoriesForBudgetPlan({ budgetPlanId: created.id });
+	return created;
 }
 
 export async function getBudgetPlanForUserByType(params: {

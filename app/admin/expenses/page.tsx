@@ -5,9 +5,10 @@ import { getAllExpenses } from "@/lib/expenses/store";
 import ExpensesPageClient from "./ExpensesPageClient";
 import { prisma } from "@/lib/prisma";
 import { getDefaultBudgetPlanForUser, resolveUserId, listBudgetPlansForUser } from "@/lib/budgetPlans";
+import { ensureDefaultCategoriesForBudgetPlan } from "@/lib/categories/defaultCategories";
 import { MONTHS } from "@/lib/constants/time";
 import type { MonthKey } from "@/types";
-import { isMonthKey } from "@/lib/budget/zero-based";
+import { currentMonthKey, normalizeMonthKey } from "@/lib/helpers/monthKey";
 
 export const dynamic = "force-dynamic";
 
@@ -48,9 +49,7 @@ export default async function AdminExpensesPage({
 
   const rawMonth = Array.isArray(sp.month) ? sp.month[0] : sp.month;
   const monthCandidate = typeof rawMonth === "string" ? rawMonth : "";
-  const selectedMonth: MonthKey = isMonthKey(monthCandidate)
-    ? (monthCandidate as MonthKey)
-    : (MONTHS[0] as MonthKey);
+	const selectedMonth: MonthKey = normalizeMonthKey(monthCandidate) ?? currentMonthKey();
 
   // Normalize URL so month/year are always present.
   if (!rawYear || !rawMonth) {
@@ -68,6 +67,7 @@ export default async function AdminExpensesPage({
   const allPlansData = await Promise.all(
     allPlans.map(async (p) => {
       const expenses = await getAllExpenses(p.id, selectedYear);
+	  await ensureDefaultCategoriesForBudgetPlan({ budgetPlanId: p.id });
       const categories = await prisma.category.findMany({
         where: { budgetPlanId: p.id },
       });

@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { MONTHS } from "@/lib/constants/time";
+import { formatMonthKeyLabel, normalizeMonthKey } from "@/lib/helpers/monthKey";
 import type { MonthKey } from "@/types";
 import type { ExpensesByMonth } from "@/types";
 import type { CategoryConfig } from "@/lib/categories/store";
@@ -42,6 +43,7 @@ export default function ExpensesPageClient({
 }: ExpensesPageClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
 
   const [selectedYear, setSelectedYear] = useState<number>(() => initialYear);
   const [selectedMonth, setSelectedMonth] = useState<MonthKey>(() => initialMonth);
@@ -113,18 +115,18 @@ export default function ExpensesPageClient({
     const rawMonth = searchParams.get("month");
     const parsedYear = rawYear == null ? null : Number(rawYear);
     if (Number.isFinite(parsedYear)) setSelectedYear(parsedYear as number);
-    if (rawMonth && (MONTHS as string[]).includes(rawMonth)) setSelectedMonth(rawMonth as MonthKey);
+	if (rawMonth) {
+		const normalized = normalizeMonthKey(rawMonth);
+		if (normalized) setSelectedMonth(normalized);
+	}
   }, [searchParams]);
 
   const pushPeriod = (month: MonthKey, year: number) => {
     const next = new URLSearchParams(searchParams.toString());
-    // Keep the first plan ID for URL purposes
-    if (allPlansData.length > 0) {
-      next.set("plan", allPlansData[0].plan.id);
-    }
     next.set("month", month);
     next.set("year", String(year));
-    router.push(`/admin/expenses?${next.toString()}`);
+	// Preserve the current (user-scoped) pathname so we stay on the right plan.
+	router.push(`${pathname}?${next.toString()}`);
   };
   
   return (
@@ -172,7 +174,7 @@ export default function ExpensesPageClient({
                       : "bg-slate-900/60 text-slate-300 hover:bg-slate-900/80 hover:shadow-md"
                   }`}
                 >
-                  {month.slice(0, 3)}
+				  {formatMonthKeyLabel(month as MonthKey).slice(0, 3)}
                 </button>
               ))}
             </div>
@@ -182,7 +184,7 @@ export default function ExpensesPageClient({
         {/* Selected Period Display */}
         <div className="mb-4 sm:mb-6 text-center">
           <h3 className="text-xl sm:text-2xl font-bold text-white">
-            {selectedMonth} {selectedYear}
+			{formatMonthKeyLabel(selectedMonth)} {selectedYear}
           </h3>
         </div>
 
