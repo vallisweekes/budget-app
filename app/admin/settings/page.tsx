@@ -73,7 +73,11 @@ export default async function AdminSettingsPage(props: {
 		<SettingsContent
 			budgetPlanId={budgetPlanId}
 			settings={settings}
-			sessionUser={sessionUser}
+			sessionUser={{
+				id: userId,
+				name: user?.name || sessionUser.name || '',
+				email: user?.email || '',
+			}}
 			monthSummary={monthSummary}
 			fiftyThirtyTwenty={fiftyThirtyTwenty}
 			selectedMonth={selectedMonth}

@@ -5,7 +5,7 @@ import { MONTHS } from "@/lib/constants/time";
 import { SUPPORTED_CURRENCIES, SUPPORTED_COUNTRIES, SUPPORTED_LANGUAGES } from "@/lib/constants/locales";
 import { SelectDropdown } from "@/components/Shared";
 import type { MonthKey } from "@/types";
-import { CalendarDays, Lightbulb, PiggyBank, Wallet, Globe, User, AlertTriangle } from "lucide-react";
+import { CalendarDays, Lightbulb, PiggyBank, Wallet, Globe, User, AlertTriangle, Edit2 } from "lucide-react";
 import { saveSettingsAction, updateUserDetailsAction } from "./actions";
 import DeleteBudgetPlanButton from "./DeleteBudgetPlanButton";
 import type { Settings } from "@/lib/settings/store";
@@ -30,6 +30,7 @@ export default function SettingsContent({
 	selectedMonth,
 }: SettingsContentProps) {
 	const [activeSection, setActiveSection] = useState<Section>("details");
+	const [isEditingEmail, setIsEditingEmail] = useState(false);
 
 	const sections = [
 		{
@@ -69,7 +70,6 @@ export default function SettingsContent({
 				<div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 					<aside className="lg:col-span-3">
 						<div className="lg:sticky lg:top-20 bg-slate-800/30 backdrop-blur-xl rounded-3xl border border-white/10 p-4">
-							<p className="text-xs font-semibold text-slate-300 uppercase tracking-wider px-2 pb-2">Sections</p>
 							<nav className="space-y-1">
 								{sections.map((s) => {
 									const Icon = s.icon;
@@ -117,13 +117,29 @@ export default function SettingsContent({
 										</div>
 										<div>
 											<label className="block text-sm font-medium text-slate-400 mb-2">Email</label>
-											<input
-												name="email"
-												type="email"
-												defaultValue={sessionUser.email || ""}
-												placeholder="your@email.com"
-												className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white text-lg placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-											/>
+											<div className="relative">
+												{isEditingEmail ? (
+													<input
+														name="email"
+														type="email"
+														defaultValue={sessionUser.email || ""}
+														placeholder="your@email.com"
+														className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 pr-12 text-white text-lg placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+													/>
+												) : (
+													<div className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 pr-12 text-white text-lg">
+														{sessionUser.email || "Not set"}
+													</div>
+												)}
+												<button
+													type="button"
+													onClick={() => setIsEditingEmail(!isEditingEmail)}
+													className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-lg hover:bg-white/10 transition-colors"
+													aria-label={isEditingEmail ? "Cancel editing" : "Edit email"}
+												>
+													<Edit2 className="w-4 h-4 text-slate-400" />
+												</button>
+											</div>
 										</div>
 										<div>
 											<label className="block text-sm font-medium text-slate-400 mb-2">Country</label>
