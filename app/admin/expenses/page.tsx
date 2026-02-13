@@ -74,7 +74,13 @@ export default async function AdminExpensesPage({
       return {
         plan: p,
         expenses,
-        categories,
+        categories: categories.map(c => ({
+          id: c.id,
+          name: c.name,
+          icon: c.icon ?? undefined,
+          color: c.color ?? undefined,
+          featured: c.featured,
+        })),
       };
     })
   );
