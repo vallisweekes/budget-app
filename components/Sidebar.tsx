@@ -108,26 +108,6 @@ export default function Sidebar() {
 							Budget App
 						</h2>
 						<p className="text-sm text-slate-400 mt-1">Manage your finances</p>
-						{sessionUsername && planOptions.length > 1 && currentPlanId && (
-							<div className="mt-4">
-								<div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
-									Budget plan
-								</div>
-								<SelectDropdown
-									options={planOptions}
-									value={currentPlanId}
-									onValueChange={(nextId) => {
-										if (!sessionUsername) return;
-										const href = `/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(nextId)}${tailPath}`;
-										router.push(qs ? `${href}?${qs}` : href);
-										router.refresh();
-										setIsOpen(false);
-									}}
-									variant="dark"
-									buttonClassName="bg-slate-950/40 px-3 py-2"
-								/>
-							</div>
-						)}
 					</div>
 
 					{/* Navigation */}

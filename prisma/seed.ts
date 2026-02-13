@@ -126,26 +126,76 @@ async function seedDemoFileData(params: {
       name: "Personal Transfer",
       amount: 1200,
     });
-    const flightsId = await getCategoryId(params.budgetPlanId, "Flights");
-    const lodgingId = await getCategoryId(params.budgetPlanId, "Lodging");
-    const activitiesId = await getCategoryId(params.budgetPlanId, "Activities");
+    
+    const touringId = await getCategoryId(params.budgetPlanId, "Touring");
+    const hikingId = await getCategoryId(params.budgetPlanId, "Hiking");
+    const waterSportsId = await getCategoryId(params.budgetPlanId, "Water Sports");
+    const mealsId = await getCategoryId(params.budgetPlanId, "Meals");
+    
+    // January expenses
     await addOrUpdateExpenseAcrossMonths(
       params.budgetPlanId,
       year,
       ["JANUARY"],
-      { name: "Flight", amount: 1100, categoryId: flightsId }
+      { name: "City Tour", amount: 150, categoryId: touringId }
+    );
+    await addOrUpdateExpenseAcrossMonths(
+      params.budgetPlanId,
+      year,
+      ["JANUARY"],
+      { name: "Museum Pass", amount: 80, categoryId: touringId }
+    );
+    await addOrUpdateExpenseAcrossMonths(
+      params.budgetPlanId,
+      year,
+      ["JANUARY"],
+      { name: "Welcome Dinner", amount: 120, categoryId: mealsId }
+    );
+    
+    // February expenses
+    await addOrUpdateExpenseAcrossMonths(
+      params.budgetPlanId,
+      year,
+      ["FEBURARY"],
+      { name: "Mountain Hike Guide", amount: 200, categoryId: hikingId }
     );
     await addOrUpdateExpenseAcrossMonths(
       params.budgetPlanId,
       year,
       ["FEBURARY"],
-      { name: "Hotel", amount: 1800, categoryId: lodgingId }
+      { name: "Hiking Gear Rental", amount: 75, categoryId: hikingId }
+    );
+    await addOrUpdateExpenseAcrossMonths(
+      params.budgetPlanId,
+      year,
+      ["FEBURARY"],
+      { name: "Trail Lunch", amount: 45, categoryId: mealsId }
+    );
+    
+    // March expenses
+    await addOrUpdateExpenseAcrossMonths(
+      params.budgetPlanId,
+      year,
+      ["MARCH"],
+      { name: "Snorkeling Trip", amount: 180, categoryId: waterSportsId }
     );
     await addOrUpdateExpenseAcrossMonths(
       params.budgetPlanId,
       year,
       ["MARCH"],
-      { name: "Excursions", amount: 450, categoryId: activitiesId }
+      { name: "Jet Ski Rental", amount: 150, categoryId: waterSportsId }
+    );
+    await addOrUpdateExpenseAcrossMonths(
+      params.budgetPlanId,
+      year,
+      ["MARCH"],
+      { name: "Beach Restaurant", amount: 95, categoryId: mealsId }
+    );
+    await addOrUpdateExpenseAcrossMonths(
+      params.budgetPlanId,
+      year,
+      ["MARCH"],
+      { name: "Sunset Cruise Dinner", amount: 140, categoryId: mealsId }
     );
     return;
   }
@@ -155,19 +205,68 @@ async function seedDemoFileData(params: {
     name: "Personal Transfer",
     amount: 800,
   });
+  
   const costumeId = await getCategoryId(params.budgetPlanId, "Costume");
   const eventsId = await getCategoryId(params.budgetPlanId, "Events");
+  const drinksId = await getCategoryId(params.budgetPlanId, "Drinks");
+  const foodId = await getCategoryId(params.budgetPlanId, "Food");
+  
+  // January expenses
   await addOrUpdateExpenseAcrossMonths(
     params.budgetPlanId,
     year,
     ["JANUARY"],
-    { name: "Fete Tickets", amount: 250, categoryId: eventsId }
+    { name: "Fete Tickets - J'ouvert", amount: 150, categoryId: eventsId }
+  );
+  await addOrUpdateExpenseAcrossMonths(
+    params.budgetPlanId,
+    year,
+    ["JANUARY"],
+    { name: "Fete Tickets - All Inclusive", amount: 200, categoryId: eventsId }
+  );
+  await addOrUpdateExpenseAcrossMonths(
+    params.budgetPlanId,
+    year,
+    ["JANUARY"],
+    { name: "Bar Tab", amount: 120, categoryId: drinksId }
+  );
+  await addOrUpdateExpenseAcrossMonths(
+    params.budgetPlanId,
+    year,
+    ["JANUARY"],
+    { name: "Street Food", amount: 50, categoryId: foodId }
+  );
+  
+  // February expenses
+  await addOrUpdateExpenseAcrossMonths(
+    params.budgetPlanId,
+    year,
+    ["FEBURARY"],
+    { name: "Costume Deposit", amount: 500, categoryId: costumeId }
   );
   await addOrUpdateExpenseAcrossMonths(
     params.budgetPlanId,
     year,
     ["FEBURARY"],
-    { name: "Costume", amount: 950, categoryId: costumeId }
+    { name: "Costume Balance", amount: 450, categoryId: costumeId }
+  );
+  await addOrUpdateExpenseAcrossMonths(
+    params.budgetPlanId,
+    year,
+    ["FEBURARY"],
+    { name: "Fete Tickets - Cooler Fete", amount: 180, categoryId: eventsId }
+  );
+  await addOrUpdateExpenseAcrossMonths(
+    params.budgetPlanId,
+    year,
+    ["FEBURARY"],
+    { name: "Drinks & Ice", amount: 90, categoryId: drinksId }
+  );
+  await addOrUpdateExpenseAcrossMonths(
+    params.budgetPlanId,
+    year,
+    ["FEBURARY"],
+    { name: "Carnival Monday Food", amount: 75, categoryId: foodId }
   );
 }
 
@@ -350,9 +449,83 @@ async function main() {
   // Minimal categories to illustrate the scenarios.
   // Personal commonly has a broad "Holiday" category.
   await upsertSimpleCategories(testPersonal.id, ["Holiday", "Housing", "Food & Dining"]);
-  await upsertSimpleCategories(testHoliday1.id, ["Flights", "Lodging", "Activities"]);
-  await upsertSimpleCategories(testHoliday2.id, ["Flights", "Lodging", "Activities"]);
-  await upsertSimpleCategories(testCarnival.id, ["Costume", "Events"]);
+  
+  // Holiday categories with icons
+  const holidayCategories = [
+    { name: "Touring", icon: "Map", color: "#3b82f6" },
+    { name: "Hiking", icon: "Mountain", color: "#10b981" },
+    { name: "Water Sports", icon: "Waves", color: "#06b6d4" },
+    { name: "Meals", icon: "UtensilsCrossed", color: "#f97316" },
+  ];
+  
+  for (const cat of holidayCategories) {
+    await prisma.category.upsert({
+      where: {
+        budgetPlanId_name: {
+          budgetPlanId: testHoliday1.id,
+          name: cat.name,
+        },
+      },
+      update: {
+        icon: cat.icon,
+        color: cat.color,
+      },
+      create: {
+        budgetPlanId: testHoliday1.id,
+        name: cat.name,
+        icon: cat.icon,
+        color: cat.color,
+      },
+    });
+    
+    await prisma.category.upsert({
+      where: {
+        budgetPlanId_name: {
+          budgetPlanId: testHoliday2.id,
+          name: cat.name,
+        },
+      },
+      update: {
+        icon: cat.icon,
+        color: cat.color,
+      },
+      create: {
+        budgetPlanId: testHoliday2.id,
+        name: cat.name,
+        icon: cat.icon,
+        color: cat.color,
+      },
+    });
+  }
+  
+  // Carnival categories with icons
+  const carnivalCategories = [
+    { name: "Costume", icon: "Shirt", color: "#ec4899" },
+    { name: "Events", icon: "Ticket", color: "#8b5cf6" },
+    { name: "Drinks", icon: "GlassWater", color: "#14b8a6" },
+    { name: "Food", icon: "UtensilsCrossed", color: "#f97316" },
+  ];
+  
+  for (const cat of carnivalCategories) {
+    await prisma.category.upsert({
+      where: {
+        budgetPlanId_name: {
+          budgetPlanId: testCarnival.id,
+          name: cat.name,
+        },
+      },
+      update: {
+        icon: cat.icon,
+        color: cat.color,
+      },
+      create: {
+        budgetPlanId: testCarnival.id,
+        name: cat.name,
+        icon: cat.icon,
+        color: cat.color,
+      },
+    });
+  }
 
   // Seed small demo data (idempotent; only seeds if plan is empty).
   await seedDemoFileData({ budgetPlanId: testPersonal.id, kind: "personal" });

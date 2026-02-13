@@ -9,13 +9,25 @@ import type { CategoryConfig } from "@/lib/categories/store";
 import ExpenseManager from "./ExpenseManager";
 import { useGetCategoriesQuery, useGetExpensesQuery } from "@/lib/redux/api/bffApi";
 
-interface ExpensesPageClientProps {
-  budgetPlanId: string;
+interface BudgetPlan {
+  id: string;
+  name: string;
+  kind: string;
+}
+
+interface PlanData {
+  plan: BudgetPlan;
   expenses: ExpensesByMonth;
   categories: CategoryConfig[];
+}
+
+interface ExpensesPageClientProps {
+  allPlansData: PlanData[];
   initialYear: number;
   initialMonth: MonthKey;
 }
+
+type TabKey = "personal" | "holiday" | "carnival";
 
 function buildYears(baseYear: number): number[] {
 	return Array.from({ length: 10 }, (_, i) => baseYear + i);
@@ -71,9 +83,7 @@ function BackendStatus({ month, year }: { month: MonthKey; year: number }) {
 }
 
 export default function ExpensesPageClient({
-  budgetPlanId,
-  expenses,
-  categories,
+  allPlansData,
   initialYear,
   initialMonth,
 }: ExpensesPageClientProps) {
@@ -82,8 +92,67 @@ export default function ExpensesPageClient({
 
   const [selectedYear, setSelectedYear] = useState<number>(() => initialYear);
   const [selectedMonth, setSelectedMonth] = useState<MonthKey>(() => initialMonth);
+  
+  // Initialize activeTab based on available plans
+  const [activeTab, setActiveTab] = useState<TabKey>(() => {
+    // Check if user has personal plans first
+    const hasPersonal = allPlansData.some(d => d.plan.kind.toLowerCase() === "personal");
+    if (hasPersonal) return "personal";
+    
+    // Otherwise check for holiday
+    const hasHoliday = allPlansData.some(d => d.plan.kind.toLowerCase() === "holiday");
+    if (hasHoliday) return "holiday";
+    
+    // Otherwise carnival
+    return "carnival";
+  });
 
   const YEARS = useMemo(() => buildYears(new Date().getFullYear()), []);
+
+  // Group plans by kind
+  const plansByKind = useMemo(() => {
+    const grouped: Record<TabKey, PlanData[]> = {
+      personal: [],
+      holiday: [],
+      carnival: [],
+    };
+
+    allPlansData.forEach((data) => {
+      const kind = data.plan.kind.toLowerCase();
+      if (kind === "personal") {
+        grouped.personal.push(data);
+      } else if (kind === "holiday") {
+        grouped.holiday.push(data);
+      } else if (kind === "carnival") {
+        grouped.carnival.push(data);
+      }
+    });
+
+    return grouped;
+  }, [allPlansData]);
+
+  // Determine which tabs to show
+  const availableTabs = useMemo(() => {
+    const tabs: Array<{ key: TabKey; label: string }> = [];
+    if (plansByKind.personal.length > 0) tabs.push({ key: "personal", label: "Personal" });
+    if (plansByKind.holiday.length > 0) tabs.push({ key: "holiday", label: "Holiday" });
+    if (plansByKind.carnival.length > 0) tabs.push({ key: "carnival", label: "Carnival" });
+    return tabs;
+  }, [plansByKind]);
+
+  // Get plans for active tab
+  const activePlans = useMemo(() => {
+    return plansByKind[activeTab];
+  }, [plansByKind, activeTab]);
+
+  // Create categories by plan map
+  const allCategoriesByPlan = useMemo(() => {
+    const map: Record<string, any[]> = {};
+    allPlansData.forEach((data) => {
+      map[data.plan.id] = data.categories;
+    });
+    return map;
+  }, [allPlansData]);
 
   useEffect(() => {
     // Keep local state aligned with the URL (server-selected period).
@@ -96,7 +165,10 @@ export default function ExpensesPageClient({
 
   const pushPeriod = (month: MonthKey, year: number) => {
     const next = new URLSearchParams(searchParams.toString());
-    next.set("plan", budgetPlanId);
+    // Keep the first plan ID for URL purposes
+    if (allPlansData.length > 0) {
+      next.set("plan", allPlansData[0].plan.id);
+    }
     next.set("month", month);
     next.set("year", String(year));
     router.push(`/admin/expenses?${next.toString()}`);
@@ -164,14 +236,44 @@ export default function ExpensesPageClient({
           </div>
         </div>
 
-        {/* Expense Manager */}
-        <ExpenseManager
-		  budgetPlanId={budgetPlanId}
-          month={selectedMonth}
-          year={selectedYear}
-          expenses={expenses[selectedMonth] || []}
-          categories={categories}
-        />
+        {/* Budget Plan Pills - only show if more than one tab */}
+        {availableTabs.length > 1 && (
+          <div className="flex flex-wrap gap-2 mb-6">
+            {availableTabs.map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                  activeTab === tab.key
+                    ? "bg-white text-slate-900"
+                    : "bg-white/10 text-white hover:bg-white/20"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Expense Managers for active plans */}
+        {activePlans.map((planData) => (
+          <div key={planData.plan.id} className="mb-8">
+            {/* Show plan name if multiple plans under this tab */}
+            {activePlans.length > 1 && (
+              <h3 className="text-xl font-bold text-white mb-4">{planData.plan.name}</h3>
+            )}
+            
+            <ExpenseManager
+              budgetPlanId={planData.plan.id}
+              month={selectedMonth}
+              year={selectedYear}
+              expenses={planData.expenses[selectedMonth] || []}
+              categories={planData.categories}
+              allPlans={allPlansData.map(d => ({ id: d.plan.id, name: d.plan.name, kind: d.plan.kind }))}
+              allCategoriesByPlan={allCategoriesByPlan}
+            />
+          </div>
+        ))}
       </div>
     </div>
   );

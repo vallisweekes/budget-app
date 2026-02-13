@@ -6,7 +6,7 @@ function sanitizeSegment(segment: unknown) {
 	if (typeof segment !== "string" || segment.trim().length === 0) {
 		throw new Error("Invalid path segment (expected non-empty string)");
 	}
-	return segment.replace(/[^a-zA-Z0-9_-]/g, "_");
+	return segment.replace(/[^a-zA-Z0-9_.-]/g, "_");
 }
 
 export function getBudgetDataDir(budgetPlanId: string) {

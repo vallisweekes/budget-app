@@ -26,12 +26,24 @@ interface Category {
   color?: string;
 }
 
+interface BudgetPlanOption {
+  id: string;
+  name: string;
+  kind: string;
+}
+
+interface CategoryWithPlanId extends Category {
+  budgetPlanId: string;
+}
+
 interface ExpenseManagerProps {
 	budgetPlanId: string;
   month: MonthKey;
   year: number;
   expenses: Expense[];
   categories: Category[];
+  allPlans?: BudgetPlanOption[];
+  allCategoriesByPlan?: Record<string, CategoryWithPlanId[]>;
 }
 
 function Currency({ value }: { value: number }) {
@@ -52,7 +64,7 @@ function SaveExpenseChangesButton() {
   );
 }
 
-export default function ExpenseManager({ budgetPlanId, month, year, expenses, categories }: ExpenseManagerProps) {
+export default function ExpenseManager({ budgetPlanId, month, year, expenses, categories, allPlans, allCategoriesByPlan }: ExpenseManagerProps) {
   const [isPending, startTransition] = useTransition();
   const [showAddForm, setShowAddForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -67,6 +79,7 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
   const [editCategoryId, setEditCategoryId] = useState<string>("");
   const [addMonth, setAddMonth] = useState<MonthKey>(month);
   const [addYear, setAddYear] = useState<number>(year);
+  const [addBudgetPlanId, setAddBudgetPlanId] = useState<string>(budgetPlanId);
   const [distributeAllMonths, setDistributeAllMonths] = useState(false);
   const [distributeAllYears, setDistributeAllYears] = useState(false);
 
@@ -74,6 +87,14 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
     const base = new Date().getFullYear();
     return Array.from({ length: 10 }, (_, i) => base + i);
   }, []);
+
+  // Get categories for the selected budget plan when adding
+  const addFormCategories = useMemo(() => {
+    if (allCategoriesByPlan && addBudgetPlanId) {
+      return allCategoriesByPlan[addBudgetPlanId] || [];
+    }
+    return categories;
+  }, [allCategoriesByPlan, addBudgetPlanId, categories]);
 
   // Toggle category collapse
   const toggleCategory = (categoryId: string) => {
@@ -308,6 +329,7 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
                 if (next) {
                   setAddMonth(month);
                   setAddYear(year);
+                  setAddBudgetPlanId(budgetPlanId);
                   setDistributeAllMonths(false);
                   setDistributeAllYears(false);
                 }
@@ -445,12 +467,28 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
       {showAddForm && (
         <div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-xl p-8 border border-white/10">
           <form action={addExpenseAction} className="space-y-6">
-            <input type="hidden" name="budgetPlanId" value={budgetPlanId} />
+            <input type="hidden" name="budgetPlanId" value={addBudgetPlanId} />
         <input type="hidden" name="month" value={addMonth} />
         <input type="hidden" name="year" value={addYear} />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <label className="block">
+          {allPlans && allPlans.length > 1 && (
+            <label className="block md:col-span-2">
+              <span className="text-sm font-medium text-slate-300 mb-2 block">Budget Plan</span>
+              <SelectDropdown
+                name="_budgetPlanSelect"
+                value={addBudgetPlanId}
+                onValueChange={(v) => setAddBudgetPlanId(v)}
+                options={allPlans.map((p) => ({ 
+                  value: p.id, 
+                  label: `${p.name} (${p.kind.charAt(0).toUpperCase() + p.kind.slice(1)})` 
+                }))}
+                buttonClassName="focus:ring-purple-500/50"
+              />
+            </label>
+          )}
+
+          <label className="block md:col-span-1">
             <span className="text-sm font-medium text-slate-300 mb-2 block">Month</span>
             <SelectDropdown
               name="_monthSelect"
@@ -526,7 +564,7 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
                   placeholder="None (Uncategorized)"
                   options={[
                     { value: "", label: "None (Uncategorized)" },
-                    ...categories.map((c) => ({ value: c.id, label: c.name })),
+                    ...addFormCategories.map((c) => ({ value: c.id, label: c.name })),
                   ]}
                   buttonClassName="focus:ring-purple-500/50"
                 />

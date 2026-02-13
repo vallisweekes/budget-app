@@ -6,25 +6,19 @@
   "DECEMBER": [],
   "JANUARY": [
     {
-      "id": "1770941097863-00k8tiic5hj9",
+      "id": "1770945093992-7sz90w0wy0j",
       "name": "Personal Transfer",
-      "amount": 1200
+      "amount": 800
     }
   ],
   "FEBURARY": [
     {
-      "id": "1770941097863-00k8tiic5hj9",
+      "id": "1770945093992-7sz90w0wy0j",
       "name": "Personal Transfer",
-      "amount": 1200
+      "amount": 800
     }
   ],
-  "MARCH": [
-    {
-      "id": "1770941097863-00k8tiic5hj9",
-      "name": "Personal Transfer",
-      "amount": 1200
-    }
-  ],
+  "MARCH": [],
   "APRIL": [],
   "MAY": [],
   "JUNE": [],

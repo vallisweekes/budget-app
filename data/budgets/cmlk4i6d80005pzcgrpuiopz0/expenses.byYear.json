@@ -1,0 +1,79 @@
+{
+  "2026": {
+    "AUGUST ": [],
+    "SEPTEMBER": [],
+    "OCTOBER": [],
+    "NOVEMBER": [],
+    "DECEMBER": [],
+    "JANUARY": [
+      {
+        "id": "1770945093651-yeecqe4iye",
+        "name": "City Tour",
+        "amount": 150,
+        "categoryId": "cmlk6zeaj0009pzsi8acruerx"
+      },
+      {
+        "id": "1770945093652-lmz0ejpb6n9",
+        "name": "Museum Pass",
+        "amount": 80,
+        "categoryId": "cmlk6zeaj0009pzsi8acruerx"
+      },
+      {
+        "id": "1770945093652-n4bszswgksd",
+        "name": "Welcome Dinner",
+        "amount": 120,
+        "categoryId": "cmlk6zer7000lpzsim4vfdln9"
+      }
+    ],
+    "FEBURARY": [
+      {
+        "id": "1770945093653-eneu77ipyd",
+        "name": "Mountain Hike Guide",
+        "amount": 200,
+        "categoryId": "cmlk6zeho000dpzsivj8af10x"
+      },
+      {
+        "id": "1770945093653-l4vinw58g2g",
+        "name": "Hiking Gear Rental",
+        "amount": 75,
+        "categoryId": "cmlk6zeho000dpzsivj8af10x"
+      },
+      {
+        "id": "1770945093653-j62nzr5octk",
+        "name": "Trail Lunch",
+        "amount": 45,
+        "categoryId": "cmlk6zer7000lpzsim4vfdln9"
+      }
+    ],
+    "MARCH": [
+      {
+        "id": "1770945093654-15be0ds0gu6j",
+        "name": "Snorkeling Trip",
+        "amount": 180,
+        "categoryId": "cmlk6zemh000hpzsi71n6qupj"
+      },
+      {
+        "id": "1770945093654-1m979h2hkcf",
+        "name": "Jet Ski Rental",
+        "amount": 150,
+        "categoryId": "cmlk6zemh000hpzsi71n6qupj"
+      },
+      {
+        "id": "1770945093654-crlvowah6qp",
+        "name": "Beach Restaurant",
+        "amount": 95,
+        "categoryId": "cmlk6zer7000lpzsim4vfdln9"
+      },
+      {
+        "id": "1770945093655-kt1jg6832tr",
+        "name": "Sunset Cruise Dinner",
+        "amount": 140,
+        "categoryId": "cmlk6zer7000lpzsim4vfdln9"
+      }
+    ],
+    "APRIL": [],
+    "MAY": [],
+    "JUNE": [],
+    "JULY": []
+  }
+}

@@ -2,10 +2,9 @@ import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { getAllExpenses } from "@/lib/expenses/store";
-import { getCategories } from "@/lib/categories/store";
 import ExpensesPageClient from "./ExpensesPageClient";
 import { prisma } from "@/lib/prisma";
-import { getDefaultBudgetPlanForUser, resolveUserId } from "@/lib/budgetPlans";
+import { getDefaultBudgetPlanForUser, resolveUserId, listBudgetPlansForUser } from "@/lib/budgetPlans";
 import { MONTHS } from "@/lib/constants/time";
 import type { MonthKey } from "@/types";
 import { isMonthKey } from "@/lib/budget/zero-based";
@@ -62,14 +61,27 @@ export default async function AdminExpensesPage({
     );
   }
 
-  const expenses = await getAllExpenses(budgetPlanId, selectedYear);
-  const categories = await getCategories();
+  // Fetch all plans for this user
+  const allPlans = await listBudgetPlansForUser({ userId, username });
+  
+  // Fetch expenses and categories for all plans
+  const allPlansData = await Promise.all(
+    allPlans.map(async (p) => {
+      const expenses = await getAllExpenses(p.id, selectedYear);
+      const categories = await prisma.category.findMany({
+        where: { budgetPlanId: p.id },
+      });
+      return {
+        plan: p,
+        expenses,
+        categories,
+      };
+    })
+  );
 	
   return (
     <ExpensesPageClient
-      budgetPlanId={budgetPlanId}
-      expenses={expenses}
-      categories={categories}
+      allPlansData={allPlansData}
       initialYear={selectedYear}
       initialMonth={selectedMonth}
     />

@@ -1,0 +1,72 @@
+{
+  "2026": {
+    "AUGUST ": [],
+    "SEPTEMBER": [],
+    "OCTOBER": [],
+    "NOVEMBER": [],
+    "DECEMBER": [],
+    "JANUARY": [
+      {
+        "id": "1770945094327-42zgtng6gvp",
+        "name": "Fete Tickets - J'ouvert",
+        "amount": 150,
+        "categoryId": "cmlk4i8ss000npzcgkzdgfkgp"
+      },
+      {
+        "id": "1770945094327-su50gi9tfi",
+        "name": "Fete Tickets - All Inclusive",
+        "amount": 200,
+        "categoryId": "cmlk4i8ss000npzcgkzdgfkgp"
+      },
+      {
+        "id": "1770945094328-0e3wscufvvtr",
+        "name": "Bar Tab",
+        "amount": 120,
+        "categoryId": "cmlk6zf0m000tpzsi0dkn6zdy"
+      },
+      {
+        "id": "1770945094328-62o8f3t4ne",
+        "name": "Street Food",
+        "amount": 50,
+        "categoryId": "cmlk6zf30000vpzsi0j5aih9o"
+      }
+    ],
+    "FEBURARY": [
+      {
+        "id": "1770945094328-kmlh7ybkqw",
+        "name": "Costume Deposit",
+        "amount": 500,
+        "categoryId": "cmlk4i8hc000lpzcgsxhixz3j"
+      },
+      {
+        "id": "1770945094329-28dtn46zyk8h",
+        "name": "Costume Balance",
+        "amount": 450,
+        "categoryId": "cmlk4i8hc000lpzcgsxhixz3j"
+      },
+      {
+        "id": "1770945094329-z7zm4x1olz",
+        "name": "Fete Tickets - Cooler Fete",
+        "amount": 180,
+        "categoryId": "cmlk4i8ss000npzcgkzdgfkgp"
+      },
+      {
+        "id": "1770945094329-wepifd0o0ho",
+        "name": "Drinks & Ice",
+        "amount": 90,
+        "categoryId": "cmlk6zf0m000tpzsi0dkn6zdy"
+      },
+      {
+        "id": "1770945094330-sog04edi4ha",
+        "name": "Carnival Monday Food",
+        "amount": 75,
+        "categoryId": "cmlk6zf30000vpzsi0j5aih9o"
+      }
+    ],
+    "MARCH": [],
+    "APRIL": [],
+    "MAY": [],
+    "JUNE": [],
+    "JULY": []
+  }
+}
