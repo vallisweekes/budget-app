@@ -172,19 +172,19 @@ export default function ViewTabs({
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-3 md:grid-cols-3 gap-2 sm:gap-4">
         <Card title="Income">
-          <div className="text-2xl font-bold">
+          <div className="text-lg sm:text-2xl font-bold">
             <Currency value={combinedData.totalIncome} />
           </div>
         </Card>
         <Card title="Expenses">
-          <div className="text-2xl font-bold">
+          <div className="text-lg sm:text-2xl font-bold">
             <Currency value={combinedData.totalExpenses} />
           </div>
         </Card>
         <Card title="Remaining">
-          <div className={`text-2xl font-bold ${combinedData.remaining < 0 ? "text-red-300" : "text-emerald-300"}`}>
+          <div className={`text-lg sm:text-2xl font-bold ${combinedData.remaining < 0 ? "text-red-300" : "text-emerald-300"}`}>
             <Currency value={combinedData.remaining} />
           </div>
         </Card>
