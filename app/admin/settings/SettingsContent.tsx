@@ -15,7 +15,7 @@ type Section = "details" | "budget" | "locale" | "danger";
 interface SettingsContentProps {
 	budgetPlanId: string;
 	settings: Settings;
-	sessionUser: { name?: string | null; email?: string | null };
+	sessionUser: { id?: string; name?: string | null; email?: string | null };
 	monthSummary: any;
 	fiftyThirtyTwenty: any;
 	selectedMonth: MonthKey;
