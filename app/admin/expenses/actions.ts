@@ -95,6 +95,8 @@ export async function togglePaidAction(
   id: string,
   year?: number
 ): Promise<void> {
+	const { userId } = await requireAuthenticatedUser();
+	await requireOwnedBudgetPlan(budgetPlanId, userId);
   await toggleExpensePaid(budgetPlanId, month, id, year);
   revalidatePath("/");
   revalidatePath("/admin/expenses");
@@ -112,6 +114,8 @@ export async function updateExpenseAction(formData: FormData): Promise<void> {
   const categoryId = categoryString === undefined ? undefined : categoryString.trim() ? categoryString.trim() : null;
   if (!month || !id || !name) return;
 
+  const { userId } = await requireAuthenticatedUser();
+  await requireOwnedBudgetPlan(budgetPlanId, userId);
 	await updateExpense(budgetPlanId, month, id, { name, amount, categoryId }, year);
 
   revalidatePath("/");
@@ -124,6 +128,8 @@ export async function removeExpenseAction(
   id: string,
   year?: number
 ): Promise<void> {
+	const { userId } = await requireAuthenticatedUser();
+	await requireOwnedBudgetPlan(budgetPlanId, userId);
   await removeExpense(budgetPlanId, month, id, year);
   revalidatePath("/");
   revalidatePath("/admin/expenses");
@@ -140,6 +146,9 @@ export async function applyExpensePaymentAction(
   if (!Number.isFinite(paymentAmount) || paymentAmount <= 0) {
     return { success: false, error: "Payment amount must be greater than 0" };
   }
+
+	const { userId } = await requireAuthenticatedUser();
+	await requireOwnedBudgetPlan(budgetPlanId, userId);
 
   const result = await applyExpensePayment(budgetPlanId, month, expenseId, paymentAmount, year);
   if (!result) return { success: false, error: "Expense not found" };
@@ -160,6 +169,9 @@ export async function setExpensePaidAmountAction(
   if (!Number.isFinite(paidAmount) || paidAmount < 0) {
     return { success: false, error: "Paid amount must be 0 or more" };
   }
+
+	const { userId } = await requireAuthenticatedUser();
+	await requireOwnedBudgetPlan(budgetPlanId, userId);
 
   const result = await setExpensePaymentAmount(budgetPlanId, month, expenseId, paidAmount, year);
   if (!result) return { success: false, error: "Expense not found" };

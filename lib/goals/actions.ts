@@ -2,6 +2,25 @@
 
 import { revalidatePath } from "next/cache";
 import { addGoal, updateGoal, deleteGoal } from "./store";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { resolveUserId } from "@/lib/budgetPlans";
+
+async function requireAuthenticatedUser() {
+  const session = await getServerSession(authOptions);
+  const sessionUser = session?.user;
+  const sessionUsername = sessionUser?.username ?? sessionUser?.name;
+  if (!sessionUser || !sessionUsername) throw new Error("Not authenticated");
+  const userId = await resolveUserId({ userId: sessionUser.id, username: sessionUsername });
+  return { userId };
+}
+
+async function requireOwnedBudgetPlan(budgetPlanId: string, userId: string) {
+  const plan = await prisma.budgetPlan.findUnique({ where: { id: budgetPlanId }, select: { id: true, userId: true } });
+  if (!plan || plan.userId !== userId) throw new Error("Budget plan not found");
+  return plan;
+}
 
 export async function createGoal(formData: FormData) {
   const budgetPlanId = String(formData.get("budgetPlanId") ?? "").trim();
@@ -20,7 +39,10 @@ export async function createGoal(formData: FormData) {
     throw new Error("Missing budgetPlanId");
   }
 
-  addGoal(budgetPlanId, {
+	const { userId } = await requireAuthenticatedUser();
+	await requireOwnedBudgetPlan(budgetPlanId, userId);
+
+  await addGoal(budgetPlanId, {
     title,
     type,
     category,
@@ -48,7 +70,10 @@ export async function updateGoalAction(id: string, formData: FormData) {
     throw new Error("Missing budgetPlanId");
   }
 
-  updateGoal(budgetPlanId, id, {
+	const { userId } = await requireAuthenticatedUser();
+	await requireOwnedBudgetPlan(budgetPlanId, userId);
+
+  await updateGoal(budgetPlanId, id, {
     title,
     targetAmount,
     currentAmount,
@@ -63,7 +88,9 @@ export async function deleteGoalAction(budgetPlanId: string, id: string) {
   if (!budgetPlanId) {
     throw new Error("Missing budgetPlanId");
   }
-  deleteGoal(budgetPlanId, id);
+	const { userId } = await requireAuthenticatedUser();
+	await requireOwnedBudgetPlan(budgetPlanId, userId);
+  await deleteGoal(budgetPlanId, id);
   revalidatePath(`/admin/goals?plan=${encodeURIComponent(budgetPlanId)}`);
   revalidatePath("/");
 }

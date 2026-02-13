@@ -1,7 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getSessionUserId } from "@/lib/api/bffAuth";
 
 export const runtime = "nodejs";
+
+function unauthorized() {
+  return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+}
 
 function badRequest(message: string) {
   return NextResponse.json({ error: message }, { status: 400 });
@@ -53,6 +58,9 @@ type PatchBody = {
 };
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const userId = await getSessionUserId();
+  if (!userId) return unauthorized();
+
   const { id } = await ctx.params;
   if (!id) return badRequest("Missing id");
 
@@ -76,9 +84,19 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 
   const existing = await prisma.expense.findUnique({
     where: { id },
-    select: { id: true, name: true, amount: true, paid: true, paidAmount: true, categoryId: true },
+    select: {
+      id: true,
+      name: true,
+      amount: true,
+      paid: true,
+      paidAmount: true,
+      categoryId: true,
+      budgetPlan: { select: { userId: true } },
+    },
   });
-  if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!existing || existing.budgetPlan.userId !== userId) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
 
   const nextName = name ?? existing.name;
   const nextAmountNumber = amount ?? Number(existing.amount.toString());
@@ -116,8 +134,19 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 }
 
 export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const userId = await getSessionUserId();
+  if (!userId) return unauthorized();
+
   const { id } = await ctx.params;
   if (!id) return badRequest("Missing id");
+
+	const existing = await prisma.expense.findUnique({
+		where: { id },
+		select: { id: true, budgetPlan: { select: { userId: true } } },
+	});
+	if (!existing || existing.budgetPlan.userId !== userId) {
+		return NextResponse.json({ error: "Not found" }, { status: 404 });
+	}
 
   await prisma.expense.delete({ where: { id } }).catch(() => null);
   return NextResponse.json({ success: true as const });

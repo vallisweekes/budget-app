@@ -1,29 +1,25 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
 
 export const runtime = "nodejs";
 
-async function resolveBudgetPlanId(maybeBudgetPlanId: string | null): Promise<string | null> {
-  const budgetPlanId = maybeBudgetPlanId?.trim();
-  if (budgetPlanId) return budgetPlanId;
-
-  const plan = await prisma.budgetPlan.findFirst({
-    orderBy: { createdAt: "desc" },
-    select: { id: true },
-  });
-
-  return plan?.id ?? null;
+function unauthorized() {
+	return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 }
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const budgetPlanId = await resolveBudgetPlanId(searchParams.get("budgetPlanId"));
-  if (!budgetPlanId) {
-    return NextResponse.json(
-      { error: "No budget plan found. Create a budget plan first." },
-      { status: 400 }
-    );
-  }
+  const userId = await getSessionUserId();
+  if (!userId) return unauthorized();
+
+	const budgetPlanId = await resolveOwnedBudgetPlanId({
+		userId,
+		budgetPlanId: searchParams.get("budgetPlanId"),
+	});
+	if (!budgetPlanId) {
+		return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
+	}
 
   const categories = await prisma.category.findMany({
     where: { budgetPlanId },
@@ -36,16 +32,17 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const userId = await getSessionUserId();
+    if (!userId) return unauthorized();
+
     const body = await request.json();
-    const budgetPlanId = await resolveBudgetPlanId(
-      typeof body?.budgetPlanId === "string" ? body.budgetPlanId : null
-    );
-    if (!budgetPlanId) {
-      return NextResponse.json(
-        { error: "budgetPlanId is required" },
-        { status: 400 }
-      );
-    }
+    const budgetPlanId = await resolveOwnedBudgetPlanId({
+			userId,
+			budgetPlanId: typeof body?.budgetPlanId === "string" ? body.budgetPlanId : null,
+		});
+		if (!budgetPlanId) {
+			return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
+		}
 
     const category = await prisma.category.create({
       data: {

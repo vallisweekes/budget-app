@@ -1,6 +1,4 @@
-import fs from "fs";
-import path from "path";
-import { getBudgetDataDir, getBudgetDataFilePath } from "@/lib/storage/budgetDataPath";
+import { prisma } from "@/lib/prisma";
 
 export interface Goal {
   id: string;
@@ -14,94 +12,166 @@ export interface Goal {
   createdAt: string;
 }
 
-function goalsFilePath(budgetPlanId: string) {
-  return getBudgetDataFilePath(budgetPlanId, "goals.json");
+function decimalToNumber(value: unknown): number {
+  if (value == null) return 0;
+  if (typeof value === "number") return value;
+  return Number((value as any).toString?.() ?? value);
 }
 
-
-function ensureDataDir(budgetPlanId: string) {
-  const dir = getBudgetDataDir(budgetPlanId);
-  // Skip directory creation in production serverless environments
-  if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
-    return;
-  }
-  if (!fs.existsSync(dir)) {
-    try {
-      fs.mkdirSync(dir, { recursive: true });
-    } catch (error: any) {
-      // Ignore errors in read-only environments
-      if (error?.code !== 'ENOENT' && error?.code !== 'EROFS') {
-        console.warn('Failed to create goals directory:', error);
-      }
-    }
-  }
+function toUiGoalType(value: string): Goal["type"] {
+  if (value === "long_term") return "long-term";
+  if (value === "yearly") return "yearly";
+  return "yearly";
 }
 
-function readGoals(budgetPlanId: string): Goal[] {
-  // In production serverless environments, skip file operations
-  if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
-    return [];
-  }
-  
-  ensureDataDir(budgetPlanId);
-  const file = goalsFilePath(budgetPlanId);
-  if (!fs.existsSync(file)) {
-    return [];
-  }
-  const raw = fs.readFileSync(file, "utf-8");
-  return JSON.parse(raw);
+function toDbGoalType(value: string): "yearly" | "long_term" {
+  if (value === "long-term" || value === "long_term") return "long_term";
+  return "yearly";
 }
 
-function writeGoals(budgetPlanId: string, goals: Goal[]) {
-  // Skip writes in production serverless environments
-  if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
-    return;
-  }
-  ensureDataDir(budgetPlanId);
-  fs.writeFileSync(goalsFilePath(budgetPlanId), JSON.stringify(goals, null, 2));
+export async function getAllGoals(budgetPlanId: string): Promise<Goal[]> {
+  const rows = await prisma.goal.findMany({
+    where: { budgetPlanId },
+    orderBy: [{ createdAt: "asc" }],
+    select: {
+      id: true,
+      title: true,
+      type: true,
+      category: true,
+      description: true,
+      targetAmount: true,
+      currentAmount: true,
+      targetYear: true,
+      createdAt: true,
+    },
+  });
+
+  return rows.map((g) => ({
+    id: g.id,
+    title: g.title,
+    type: toUiGoalType(g.type),
+    category: g.category as any,
+    description: g.description ?? undefined,
+    targetAmount: g.targetAmount == null ? undefined : decimalToNumber(g.targetAmount),
+    currentAmount: g.currentAmount == null ? undefined : decimalToNumber(g.currentAmount),
+    targetYear: g.targetYear ?? undefined,
+    createdAt: g.createdAt.toISOString(),
+  }));
 }
 
-export function getAllGoals(budgetPlanId: string): Goal[] {
-  return readGoals(budgetPlanId);
+export async function getGoalsByType(budgetPlanId: string, type: "yearly" | "long-term"): Promise<Goal[]> {
+  const goals = await getAllGoals(budgetPlanId);
+  return goals.filter((g) => g.type === type);
 }
 
-export function getGoalsByType(budgetPlanId: string, type: "yearly" | "long-term"): Goal[] {
-  const goals = readGoals(budgetPlanId);
-  return goals.filter(g => g.type === type);
-}
-
-export function getGoalById(budgetPlanId: string, id: string): Goal | undefined {
-  const goals = readGoals(budgetPlanId);
-  return goals.find(g => g.id === id);
-}
-
-export function addGoal(budgetPlanId: string, goal: Omit<Goal, "id" | "createdAt">): Goal {
-  const goals = readGoals(budgetPlanId);
-  const newGoal: Goal = {
-    ...goal,
-    id: Date.now().toString(),
-    createdAt: new Date().toISOString(),
+export async function getGoalById(budgetPlanId: string, id: string): Promise<Goal | undefined> {
+  const row = await prisma.goal.findFirst({
+    where: { id, budgetPlanId },
+    select: {
+      id: true,
+      title: true,
+      type: true,
+      category: true,
+      description: true,
+      targetAmount: true,
+      currentAmount: true,
+      targetYear: true,
+      createdAt: true,
+    },
+  });
+  if (!row) return undefined;
+  return {
+    id: row.id,
+    title: row.title,
+    type: toUiGoalType(row.type),
+    category: row.category as any,
+    description: row.description ?? undefined,
+    targetAmount: row.targetAmount == null ? undefined : decimalToNumber(row.targetAmount),
+    currentAmount: row.currentAmount == null ? undefined : decimalToNumber(row.currentAmount),
+    targetYear: row.targetYear ?? undefined,
+    createdAt: row.createdAt.toISOString(),
   };
-  goals.push(newGoal);
-  writeGoals(budgetPlanId, goals);
-  return newGoal;
 }
 
-export function updateGoal(budgetPlanId: string, id: string, updates: Partial<Omit<Goal, "id" | "createdAt">>): Goal | null {
-  const goals = readGoals(budgetPlanId);
-  const index = goals.findIndex(g => g.id === id);
-  if (index === -1) return null;
-  
-  goals[index] = { ...goals[index], ...updates };
-  writeGoals(budgetPlanId, goals);
-  return goals[index];
+export async function addGoal(budgetPlanId: string, goal: Omit<Goal, "id" | "createdAt">): Promise<Goal> {
+  const created = await prisma.goal.create({
+    data: {
+      budgetPlanId,
+      title: goal.title,
+      type: toDbGoalType(goal.type),
+      category: goal.category as any,
+      description: goal.description ?? null,
+      targetAmount: goal.targetAmount ?? null,
+      currentAmount: goal.currentAmount ?? 0,
+      targetYear: goal.targetYear ?? null,
+    },
+    select: {
+      id: true,
+      title: true,
+      type: true,
+      category: true,
+      description: true,
+      targetAmount: true,
+      currentAmount: true,
+      targetYear: true,
+      createdAt: true,
+    },
+  });
+  return {
+    id: created.id,
+    title: created.title,
+    type: toUiGoalType(created.type),
+    category: created.category as any,
+    description: created.description ?? undefined,
+    targetAmount: created.targetAmount == null ? undefined : decimalToNumber(created.targetAmount),
+    currentAmount: created.currentAmount == null ? undefined : decimalToNumber(created.currentAmount),
+    targetYear: created.targetYear ?? undefined,
+    createdAt: created.createdAt.toISOString(),
+  };
 }
 
-export function deleteGoal(budgetPlanId: string, id: string): boolean {
-  const goals = readGoals(budgetPlanId);
-  const filtered = goals.filter(g => g.id !== id);
-  if (filtered.length === goals.length) return false;
-  
-  writeGoals(budgetPlanId, filtered);
-  return true;
+export async function updateGoal(
+  budgetPlanId: string,
+  id: string,
+  updates: Partial<Omit<Goal, "id" | "createdAt">>
+): Promise<Goal | null> {
+  const existing = await prisma.goal.findFirst({ where: { id, budgetPlanId }, select: { id: true } });
+  if (!existing) return null;
+  const updated = await prisma.goal.update({
+    where: { id: existing.id },
+    data: {
+      title: updates.title,
+      description: updates.description === undefined ? undefined : updates.description ?? null,
+      targetAmount: updates.targetAmount === undefined ? undefined : updates.targetAmount ?? null,
+      currentAmount: updates.currentAmount === undefined ? undefined : updates.currentAmount ?? null,
+      targetYear: updates.targetYear === undefined ? undefined : updates.targetYear ?? null,
+    },
+    select: {
+      id: true,
+      title: true,
+      type: true,
+      category: true,
+      description: true,
+      targetAmount: true,
+      currentAmount: true,
+      targetYear: true,
+      createdAt: true,
+    },
+  });
+  return {
+    id: updated.id,
+    title: updated.title,
+    type: toUiGoalType(updated.type),
+    category: updated.category as any,
+    description: updated.description ?? undefined,
+    targetAmount: updated.targetAmount == null ? undefined : decimalToNumber(updated.targetAmount),
+    currentAmount: updated.currentAmount == null ? undefined : decimalToNumber(updated.currentAmount),
+    targetYear: updated.targetYear ?? undefined,
+    createdAt: updated.createdAt.toISOString(),
+  };
+}
+
+export async function deleteGoal(budgetPlanId: string, id: string): Promise<boolean> {
+  const deleted = await prisma.goal.deleteMany({ where: { id, budgetPlanId } });
+  return deleted.count > 0;
 }

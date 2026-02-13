@@ -1,18 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
 
 export const runtime = "nodejs";
 
-async function resolveBudgetPlanId(maybeBudgetPlanId: string | null): Promise<string | null> {
-  const budgetPlanId = maybeBudgetPlanId?.trim();
-  if (budgetPlanId) return budgetPlanId;
-
-  const plan = await prisma.budgetPlan.findFirst({
-    orderBy: { createdAt: "desc" },
-    select: { id: true },
-  });
-
-  return plan?.id ?? null;
+function unauthorized() {
+	return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 }
 
 function badRequest(message: string) {
@@ -68,11 +61,17 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const month = toNumber(searchParams.get("month"));
   const year = toNumber(searchParams.get("year"));
-  const budgetPlanId = await resolveBudgetPlanId(searchParams.get("budgetPlanId"));
+  const userId = await getSessionUserId();
+  if (!userId) return unauthorized();
+
+  const budgetPlanId = await resolveOwnedBudgetPlanId({
+		userId,
+		budgetPlanId: searchParams.get("budgetPlanId"),
+	});
 
   if (month == null || month < 1 || month > 12) return badRequest("Invalid month");
   if (year == null || year < 1900) return badRequest("Invalid year");
-  if (!budgetPlanId) return badRequest("No budget plan found. Create a budget plan first.");
+  if (!budgetPlanId) return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
 
   const items = await prisma.expense.findMany({
     where: { budgetPlanId, month, year },
@@ -88,6 +87,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const userId = await getSessionUserId();
+  if (!userId) return unauthorized();
+
   const raw = (await req.json().catch(() => null)) as unknown;
   if (!raw || typeof raw !== "object") return badRequest("Invalid JSON body");
 
@@ -101,8 +103,10 @@ export async function POST(req: NextRequest) {
     paid?: unknown;
   };
 
-  const budgetPlanId =
-    typeof body.budgetPlanId === "string" ? body.budgetPlanId.trim() : "";
+  const ownedBudgetPlanId = await resolveOwnedBudgetPlanId({
+		userId,
+		budgetPlanId: typeof body.budgetPlanId === "string" ? body.budgetPlanId : null,
+	});
 
   const name = typeof body.name === "string" ? body.name.trim() : "";
   const amount = Number(body.amount);
@@ -111,7 +115,7 @@ export async function POST(req: NextRequest) {
   const categoryId = typeof body.categoryId === "string" ? body.categoryId.trim() : undefined;
   const paid = Boolean(body.paid ?? false);
 
-  if (!budgetPlanId) return badRequest("budgetPlanId is required");
+  if (!ownedBudgetPlanId) return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
   if (!name) return badRequest("Name is required");
   if (!Number.isFinite(amount) || amount < 0) return badRequest("Amount must be a number >= 0");
   if (!Number.isFinite(month) || month < 1 || month > 12) return badRequest("Invalid month");
@@ -126,7 +130,7 @@ export async function POST(req: NextRequest) {
       month,
       year,
       categoryId: categoryId ? categoryId : null,
-      budgetPlanId,
+			budgetPlanId: ownedBudgetPlanId,
     },
     include: {
       category: {

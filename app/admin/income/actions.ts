@@ -23,6 +23,12 @@ async function requireAuthenticatedUser() {
 	return { userId };
 }
 
+async function requireOwnedBudgetPlan(budgetPlanId: string, userId: string) {
+	const plan = await prisma.budgetPlan.findUnique({ where: { id: budgetPlanId }, select: { id: true, userId: true } });
+	if (!plan || plan.userId !== userId) throw new Error("Budget plan not found");
+	return plan;
+}
+
 function requireBudgetPlanId(formData: FormData): string {
 	const raw = formData.get("budgetPlanId");
 	const budgetPlanId = String(raw ?? "").trim();
@@ -41,8 +47,7 @@ export async function addIncomeAction(formData: FormData): Promise<void> {
 	const distributeYears = isTruthyFormValue(formData.get("distributeYears"));
 
 	const { userId } = await requireAuthenticatedUser();
-	const plan = await prisma.budgetPlan.findUnique({ where: { id: budgetPlanId }, select: { id: true, userId: true } });
-	if (!plan || plan.userId !== userId) throw new Error("Budget plan not found");
+	await requireOwnedBudgetPlan(budgetPlanId, userId);
 
 	const targetMonths: MonthKey[] = distributeMonths ? (MONTHS as MonthKey[]) : [month];
 	const sharedId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -66,9 +71,13 @@ export async function updateIncomeItemAction(
 	amount: number
 ): Promise<void> {
 	if (!name.trim()) return;
+	const { userId } = await requireAuthenticatedUser();
+	await requireOwnedBudgetPlan(budgetPlanId, userId);
 	await updateIncome(budgetPlanId, month, id, { name: name.trim(), amount });
 }
 
 export async function removeIncomeAction(budgetPlanId: string, month: MonthKey, id: string): Promise<void> {
+	const { userId } = await requireAuthenticatedUser();
+	await requireOwnedBudgetPlan(budgetPlanId, userId);
 	await removeIncome(budgetPlanId, month, id);
 }

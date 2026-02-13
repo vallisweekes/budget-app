@@ -1,22 +1,15 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
 
 export const runtime = "nodejs";
 
-function badRequest(message: string) {
-  return NextResponse.json({ error: message }, { status: 400 });
+function unauthorized() {
+  return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 }
 
-async function resolveBudgetPlanId(maybeBudgetPlanId: string | null): Promise<string | null> {
-  const budgetPlanId = maybeBudgetPlanId?.trim();
-  if (budgetPlanId) return budgetPlanId;
-
-  const plan = await prisma.budgetPlan.findFirst({
-    orderBy: { createdAt: "desc" },
-    select: { id: true },
-  });
-
-  return plan?.id ?? null;
+function badRequest(message: string) {
+  return NextResponse.json({ error: message }, { status: 400 });
 }
 
 const settingsSelect = {
@@ -31,9 +24,15 @@ const settingsSelect = {
 
 export async function GET(req: NextRequest) {
   try {
+    const userId = await getSessionUserId();
+    if (!userId) return unauthorized();
+
     const { searchParams } = new URL(req.url);
-    const budgetPlanId = await resolveBudgetPlanId(searchParams.get("budgetPlanId"));
-    if (!budgetPlanId) return badRequest("No budget plan found. Create a budget plan first.");
+    const budgetPlanId = await resolveOwnedBudgetPlanId({
+			userId,
+			budgetPlanId: searchParams.get("budgetPlanId"),
+		});
+    if (!budgetPlanId) return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
 
     const plan = await prisma.budgetPlan.findUnique({
       where: { id: budgetPlanId },
@@ -51,15 +50,23 @@ export async function GET(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
+    const userId = await getSessionUserId();
+    if (!userId) return unauthorized();
+
     const { searchParams } = new URL(req.url);
     const raw = (await req.json().catch(() => null)) as unknown;
     if (!raw || typeof raw !== "object") return badRequest("Invalid JSON body");
 
     const body = raw as Record<string, unknown>;
-    const budgetPlanId = await resolveBudgetPlanId(
-      typeof body.budgetPlanId === "string" ? body.budgetPlanId : searchParams.get("budgetPlanId")
-    );
-    if (!budgetPlanId) return badRequest("budgetPlanId is required");
+    const requestedBudgetPlanId =
+      typeof body.budgetPlanId === "string" ? body.budgetPlanId : searchParams.get("budgetPlanId");
+    if (!requestedBudgetPlanId || !requestedBudgetPlanId.trim()) return badRequest("budgetPlanId is required");
+
+    const budgetPlanId = await resolveOwnedBudgetPlanId({
+      userId,
+      budgetPlanId: requestedBudgetPlanId,
+    });
+    if (!budgetPlanId) return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
 
     const updateData: Record<string, unknown> = {};
     if (typeof body.payDate === "number") updateData.payDate = body.payDate;

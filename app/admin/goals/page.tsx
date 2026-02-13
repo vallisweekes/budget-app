@@ -42,7 +42,7 @@ export default async function GoalsPage({
 
   budgetPlanId = plan.id;
 
-  const goals = getAllGoals(budgetPlanId);
+  const goals = await getAllGoals(budgetPlanId);
   const yearlyGoals = goals.filter(g => g.type === "yearly");
   const longTermGoals = goals.filter(g => g.type === "long-term");
   const currentYear = new Date().getFullYear();
