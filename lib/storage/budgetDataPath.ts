@@ -21,6 +21,17 @@ export function getBudgetDataFilePath(budgetPlanId: string, filename: string) {
 
 export async function ensureBudgetDataDir(budgetPlanId: string) {
 	const dir = getBudgetDataDir(budgetPlanId);
-	await fs.mkdir(dir, { recursive: true });
+	// Skip directory creation in production serverless environments
+	if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
+		return dir;
+	}
+	try {
+		await fs.mkdir(dir, { recursive: true });
+	} catch (error: any) {
+		// Ignore errors in read-only environments
+		if (error?.code !== 'ENOENT' && error?.code !== 'EROFS') {
+			console.warn('Failed to create budget data directory:', error);
+		}
+	}
 	return dir;
 }

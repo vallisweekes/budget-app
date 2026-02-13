@@ -21,8 +21,19 @@ function goalsFilePath(budgetPlanId: string) {
 
 function ensureDataDir(budgetPlanId: string) {
   const dir = getBudgetDataDir(budgetPlanId);
+  // Skip directory creation in production serverless environments
+  if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
+    return;
+  }
   if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+    } catch (error: any) {
+      // Ignore errors in read-only environments
+      if (error?.code !== 'ENOENT' && error?.code !== 'EROFS') {
+        console.warn('Failed to create goals directory:', error);
+      }
+    }
   }
 }
 
