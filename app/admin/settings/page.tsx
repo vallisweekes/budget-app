@@ -5,7 +5,7 @@ import { getBudgetMonthSummary, isMonthKey } from "@/lib/budget/zero-based";
 import { MONTHS } from "@/lib/constants/time";
 import { SelectDropdown } from "@/components/Shared";
 import type { MonthKey } from "@/types";
-import { ArrowRight, CalendarDays, Lightbulb, PiggyBank, Tags, Wallet } from "lucide-react";
+import { CalendarDays, Lightbulb, PiggyBank, Wallet } from "lucide-react";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -71,11 +71,6 @@ export default async function AdminSettingsPage(props: {
 			id: "budget",
 			title: "Budget",
 			description: "Core settings for your monthly budgeting.",
-		},
-		{
-			id: "organization",
-			title: "Organization",
-			description: "Structure how you group and track spending.",
 		},
 		{
 			id: "more",
@@ -453,35 +448,6 @@ export default async function AdminSettingsPage(props: {
 										</div>
 									</div>
 								)}
-							</div>
-						</section>
-
-						<section id="organization" className="scroll-mt-24">
-							<div className="flex items-center justify-between gap-4 mb-5">
-								<div>
-									<h2 className="text-2xl font-bold text-white">Organization</h2>
-									<p className="text-slate-400 text-sm">Manage categories and grouping options.</p>
-								</div>
-							</div>
-
-							<div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/10 p-8 hover:border-white/20 transition-all">
-								<div className="flex items-center justify-between gap-4">
-									<div className="flex items-center gap-3">
-										<div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center shadow-lg">
-											<Tags className="w-6 h-6 text-white" />
-										</div>
-										<div>
-											<h3 className="text-xl font-bold text-white">Categories</h3>
-											<p className="text-slate-400 text-sm">Create, hide, and delete expense categories.</p>
-										</div>
-									</div>
-									<Link
-										href="/admin/categories"
-										className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-slate-900/40 px-4 py-2 text-sm font-semibold text-white hover:bg-white/10 hover:border-white/20 transition"
-									>
-										Open <ArrowRight className="w-4 h-4" />
-									</Link>
-								</div>
 							</div>
 						</section>
 

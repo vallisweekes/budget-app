@@ -7,8 +7,10 @@ import { SelectDropdown } from "@/components/Shared";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { resolveUserId } from "@/lib/budgetPlans";
+import { resolveUserId, getDefaultBudgetPlanForUser } from "@/lib/budgetPlans";
 import { redirect } from "next/navigation";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +20,11 @@ export default async function AdminCategoriesPage() {
   const username = sessionUser?.username ?? sessionUser?.name;
   if (!sessionUser || !username) redirect("/");
   const userId = await resolveUserId({ userId: sessionUser.id, username });
+
+  const defaultPlan = await getDefaultBudgetPlanForUser({ userId, username });
+  const backHref = defaultPlan
+    ? `/user=${encodeURIComponent(username)}/${encodeURIComponent(defaultPlan.id)}/settings`
+    : "/dashboard";
 
   const list = await getCategories();
   const plans = await prisma.budgetPlan.findMany({ where: { userId }, select: { id: true } });
@@ -58,6 +65,13 @@ export default async function AdminCategoriesPage() {
     <div className="min-h-screen pb-20 bg-gradient-to-br from-blue-950 via-slate-950 to-black">
       <div className="mx-auto w-full max-w-7xl px-4 py-8">
         <div className="mb-10">
+          <Link
+            href={backHref}
+            className="inline-flex items-center gap-2 text-slate-400 hover:text-white transition-colors mb-4"
+          >
+            <ArrowLeft size={20} />
+            <span className="text-sm font-medium">Back to Settings</span>
+          </Link>
           <h1 className="text-4xl font-bold text-white mb-2">Categories</h1>
           <p className="text-slate-400 text-lg">Create and manage your expense categories</p>
         </div>

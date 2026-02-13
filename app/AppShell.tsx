@@ -3,6 +3,7 @@
 import { ReactNode, Suspense } from "react";
 import { usePathname } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
+import MobileBottomNav from "@/components/MobileBottomNav";
 
 export default function AppShell({ children }: { children: ReactNode }) {
 	const pathname = usePathname();
@@ -17,7 +18,10 @@ export default function AppShell({ children }: { children: ReactNode }) {
 			<Suspense fallback={null}>
 				<Sidebar />
 			</Suspense>
-			<main className="flex-1 lg:ml-64">{children}</main>
+			<main className="flex-1 lg:ml-64 pb-20 lg:pb-0">{children}</main>
+			<Suspense fallback={null}>
+				<MobileBottomNav />
+			</Suspense>
 		</div>
 	);
 }

@@ -43,3 +43,10 @@ input[type="checkbox"],
 input[type="radio"] {
   cursor: pointer;
 }
+
+/* Safe area insets for PWA mobile devices */
+@supports (padding: env(safe-area-inset-bottom)) {
+	.safe-area-inset-bottom {
+		padding-bottom: env(safe-area-inset-bottom);
+	}
+}

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Home, Settings, DollarSign, Menu, X, CreditCard, Target, ShoppingBag, Banknote, LogOut } from "lucide-react";
+import { Home, Settings, DollarSign, CreditCard, Target, ShoppingBag, Banknote, LogOut } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { SelectDropdown } from "@/components/Shared";
@@ -17,7 +17,6 @@ function parseUserScopedPath(pathname: string): { username: string; budgetPlanId
 }
 
 export default function Sidebar() {
-	const [isOpen, setIsOpen] = useState(false);
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
 	const router = useRouter();
@@ -79,28 +78,8 @@ export default function Sidebar() {
 
 	return (
 		<>
-			{/* Mobile Menu Button */}
-			<button
-				onClick={() => setIsOpen(!isOpen)}
-				className="fixed top-4 right-4 left-auto z-50 lg:hidden bg-slate-800/60 backdrop-blur-xl border border-white/10 rounded-xl p-3 shadow-lg hover:shadow-xl transition-all"
-			>
-				{isOpen ? <X size={24} className="text-white" /> : <Menu size={24} className="text-white" />}
-			</button>
-
-			{/* Overlay for mobile */}
-			{isOpen && (
-				<div
-					className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-					onClick={() => setIsOpen(false)}
-				/>
-			)}
-
-			{/* Sidebar */}
-			<aside
-				className={`fixed top-0 left-0 h-full bg-slate-900/95 backdrop-blur-xl border-r border-white/10 shadow-2xl z-40 transition-transform duration-300 ease-in-out ${
-					isOpen ? "translate-x-0" : "-translate-x-full"
-				} lg:translate-x-0 lg:w-64 w-72`}
-			>
+			{/* Sidebar - Desktop Only */}
+			<aside className="hidden lg:block fixed top-0 left-0 h-full bg-slate-900/95 backdrop-blur-xl border-r border-white/10 shadow-2xl z-40 w-64">
 				<div className="flex flex-col h-full p-6">
 					{/* Logo/Title */}
 					<div className="mb-8 mt-2">
@@ -116,7 +95,6 @@ export default function Sidebar() {
 							<Link
 								key={item.href}
 								href={item.href}
-								onClick={() => setIsOpen(false)}
 								className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
 									pathname === item.href
 										? "bg-white/10 text-white font-semibold backdrop-blur-sm"
