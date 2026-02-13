@@ -280,7 +280,7 @@ async function main() {
   );
 
   const defaultUsername = "vallis";
-  const defaultEmail = "vallis@example.com";
+  const defaultEmail = "vallis.weekes@gmail.com";
   const user = await prisma.user.upsert({
     where: { email: defaultEmail },
     update: {},

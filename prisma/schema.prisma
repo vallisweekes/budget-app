@@ -76,6 +76,11 @@ model BudgetPlan {
   monthlyInvestmentContribution Decimal        @default(0) @db.Decimal(12, 2)
   budgetStrategy                BudgetStrategy @default(payYourselfFirst)
   
+  // Locale settings
+  country                       String         @default("GB")
+  language                      String         @default("en")
+  currency                      String         @default("GBP")
+  
   // Relations
   categories Category[]
   expenses   Expense[]

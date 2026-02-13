@@ -56,7 +56,7 @@ export async function addSpendingAction(formData: FormData) {
     return { error: "Invalid input" };
   }
 
-  const settings = await getSettings();
+  const settings = await getSettings(budgetPlanId);
   const now = new Date();
 
   // Handle allowance tracking by pay period
@@ -92,7 +92,7 @@ export async function addSpendingAction(formData: FormData) {
         message: `You only have £${currentSavings.toFixed(2)} in savings but are trying to spend £${amount.toFixed(2)}.`
       };
     }
-    await saveSettings({ ...settings, savingsBalance: currentSavings - amount });
+    await saveSettings(budgetPlanId, { savingsBalance: currentSavings - amount });
   }
 
   // Handle card balance increase
@@ -129,8 +129,8 @@ export async function getSpendingForMonth(month: string) {
   return allSpending.filter(e => e.month === month);
 }
 
-export async function getAllowanceStats(month: string) {
-  const settings = await getSettings();
+export async function getAllowanceStats(month: string, budgetPlanId: string) {
+  const settings = await getSettings(budgetPlanId);
   const monthlyAllowance = settings.monthlyAllowance || 0;
   const now = new Date();
   const payPeriod = getPayPeriod(now, settings.payDate);

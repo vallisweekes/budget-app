@@ -67,8 +67,8 @@ export default async function SpendingPage(props: {
 	const month = currentMonth();
 	const debts = getAllDebts(budgetPlanId).filter((d) => d.sourceType !== "expense");
 	const spending = await getSpendingForMonth(month);
-	const allowanceStats = await getAllowanceStats(month);
-	const settings = await getSettings();
+	const allowanceStats = await getAllowanceStats(month, budgetPlanId);
+	const settings = await getSettings(budgetPlanId);
 
 	return (
 		<div className="min-h-screen pb-20 bg-gradient-to-br from-blue-950 via-slate-950 to-black">

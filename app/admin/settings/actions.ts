@@ -7,47 +7,131 @@ import { resolveUserId } from "@/lib/budgetPlans";
 import { prisma } from "@/lib/prisma";
 import fs from "node:fs/promises";
 import { getBudgetDataDir } from "@/lib/storage/budgetDataPath";
+import { revalidatePath } from "next/cache";
 
 export async function saveSettingsAction(formData: FormData): Promise<void> {
-	const current = await getSettings();
+	const session = await getServerSession(authOptions);
+	const sessionUser = session?.user;
+	const sessionUsername = sessionUser?.username ?? sessionUser?.name;
+	if (!sessionUser || !sessionUsername) {
+		throw new Error("Not authenticated");
+	}
 
-	const next = { ...current };
+	const budgetPlanId = String(formData.get("budgetPlanId") || "").trim();
+	if (!budgetPlanId) {
+		throw new Error("Missing budgetPlanId");
+	}
+
+	// Verify user owns this budget plan
+	const userId = await resolveUserId({ userId: sessionUser.id, username: sessionUsername });
+	const plan = await prisma.budgetPlan.findUnique({
+		where: { id: budgetPlanId },
+		select: { userId: true },
+	});
+	if (!plan || plan.userId !== userId) {
+		throw new Error("Budget plan not found or unauthorized");
+	}
+
+	const updates: any = {};
 
 	if (formData.has("payDate")) {
 		const raw = Number(formData.get("payDate"));
-		const payDate = Number.isFinite(raw) ? raw : 27;
-		next.payDate = Math.max(1, Math.min(31, payDate));
+		updates.payDate = Number.isFinite(raw) ? Math.max(1, Math.min(31, raw)) : 27;
 	}
 
 	if (formData.has("monthlyAllowance")) {
 		const raw = Number(formData.get("monthlyAllowance"));
-		next.monthlyAllowance = Number.isFinite(raw) ? raw : 0;
+		updates.monthlyAllowance = Number.isFinite(raw) ? raw : 0;
 	}
 
 	if (formData.has("savingsBalance")) {
 		const raw = Number(formData.get("savingsBalance"));
-		next.savingsBalance = Number.isFinite(raw) ? raw : 0;
+		updates.savingsBalance = Number.isFinite(raw) ? raw : 0;
 	}
 
 	if (formData.has("monthlySavingsContribution")) {
 		const raw = Number(formData.get("monthlySavingsContribution"));
-		next.monthlySavingsContribution = Number.isFinite(raw) ? raw : 0;
+		updates.monthlySavingsContribution = Number.isFinite(raw) ? raw : 0;
 	}
 
 	if (formData.has("monthlyInvestmentContribution")) {
 		const raw = Number(formData.get("monthlyInvestmentContribution"));
-		next.monthlyInvestmentContribution = Number.isFinite(raw) ? raw : 0;
+		updates.monthlyInvestmentContribution = Number.isFinite(raw) ? raw : 0;
 	}
 
 	if (formData.has("budgetStrategy")) {
 		const value = String(formData.get("budgetStrategy") || "").trim();
-		next.budgetStrategy =
-			value === "zeroBased" || value === "fiftyThirtyTwenty" || value === "payYourselfFirst"
-				? value
-				: undefined;
+		if (value === "zeroBased" || value === "fiftyThirtyTwenty" || value === "payYourselfFirst") {
+			updates.budgetStrategy = value;
+		}
 	}
 
-	await saveSettings(next);
+	if (formData.has("country")) {
+		updates.country = String(formData.get("country") || "GB").trim();
+	}
+
+	if (formData.has("language")) {
+		updates.language = String(formData.get("language") || "en").trim();
+	}
+
+	if (formData.has("currency")) {
+		updates.currency = String(formData.get("currency") || "GBP").trim();
+	}
+
+	await saveSettings(budgetPlanId, updates);
+	revalidatePath(`/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(budgetPlanId)}/settings`);
+}
+
+export async function updateUserDetailsAction(formData: FormData): Promise<void> {
+	const session = await getServerSession(authOptions);
+	const sessionUser = session?.user;
+	const sessionUsername = sessionUser?.username ?? sessionUser?.name;
+	if (!sessionUser?.id || !sessionUsername) {
+		throw new Error("Not authenticated");
+	}
+
+	const budgetPlanId = String(formData.get("budgetPlanId") || "").trim();
+	if (!budgetPlanId) {
+		throw new Error("Missing budgetPlanId");
+	}
+
+	// Verify user owns this budget plan
+	const userId = await resolveUserId({ userId: sessionUser.id, username: sessionUsername });
+	const plan = await prisma.budgetPlan.findUnique({
+		where: { id: budgetPlanId },
+		select: { userId: true },
+	});
+	if (!plan || plan.userId !== userId) {
+		throw new Error("Budget plan not found or unauthorized");
+	}
+
+	const userUpdates: any = {};
+	const settingsUpdates: any = {};
+
+	if (formData.has("email")) {
+		const email = String(formData.get("email") || "").trim();
+		if (email) userUpdates.email = email;
+	}
+
+	if (formData.has("country")) {
+		const country = String(formData.get("country") || "GB").trim();
+		settingsUpdates.country = country;
+	}
+
+	// Update user details
+	if (Object.keys(userUpdates).length > 0) {
+		await prisma.user.update({
+			where: { id: sessionUser.id },
+			data: userUpdates,
+		});
+	}
+
+	// Update country in budget plan settings
+	if (Object.keys(settingsUpdates).length > 0) {
+		await saveSettings(budgetPlanId, settingsUpdates);
+	}
+
+	revalidatePath(`/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(budgetPlanId)}/settings`);
 }
 
 export async function deleteBudgetPlanAction(

@@ -4,5 +4,8 @@
   "savingsBalance": 0,
   "monthlySavingsContribution": 0,
   "monthlyInvestmentContribution": 0,
-  "budgetStrategy": "payYourselfFirst"
+  "budgetStrategy": "payYourselfFirst",
+  "country": "GB",
+  "language": "en",
+  "currency": "GBP"
 }

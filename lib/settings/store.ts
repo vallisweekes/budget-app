@@ -1,58 +1,92 @@
-import fs from "node:fs/promises";
-import path from "node:path";
+import { prisma } from "@/lib/prisma";
+import type { BudgetStrategy as PrismaBudgetStrategy } from "@prisma/client";
 
 export type BudgetStrategy = "zeroBased" | "fiftyThirtyTwenty" | "payYourselfFirst";
 
 export interface Settings {
   payDate: number;
-  monthlyAllowance?: number;
-  savingsBalance?: number;
-  monthlySavingsContribution?: number;
-  monthlyInvestmentContribution?: number;
-  budgetStrategy?: BudgetStrategy;
+  monthlyAllowance: number;
+  savingsBalance: number;
+  monthlySavingsContribution: number;
+  monthlyInvestmentContribution: number;
+  budgetStrategy: BudgetStrategy;
+  country: string;
+  language: string;
+  currency: string;
 }
 
-const filePath = path.join(process.cwd(), "data", "settings.json");
+/**
+ * Get settings for a specific budget plan from the database
+ */
+export async function getSettings(budgetPlanId: string): Promise<Settings> {
+  const plan = await prisma.budgetPlan.findUnique({
+    where: { id: budgetPlanId },
+    select: {
+      payDate: true,
+      monthlyAllowance: true,
+      savingsBalance: true,
+      monthlySavingsContribution: true,
+      monthlyInvestmentContribution: true,
+      budgetStrategy: true,
+      country: true,
+      language: true,
+      currency: true,
+    },
+  });
 
-function normalizeSettings(input: Partial<Settings> | null | undefined): Settings {
-  const payDateRaw = Number(input?.payDate ?? 27);
-  const payDate = Math.max(1, Math.min(31, Number.isFinite(payDateRaw) ? payDateRaw : 27));
-
-  const monthlyAllowance = Number(input?.monthlyAllowance ?? 0);
-  const savingsBalance = Number(input?.savingsBalance ?? 0);
-  const monthlySavingsContribution = Number(input?.monthlySavingsContribution ?? 0);
-  const monthlyInvestmentContribution = Number(input?.monthlyInvestmentContribution ?? 0);
-
-  const budgetStrategy =
-    input?.budgetStrategy === "zeroBased" ||
-    input?.budgetStrategy === "fiftyThirtyTwenty" ||
-    input?.budgetStrategy === "payYourselfFirst"
-      ? input.budgetStrategy
-      : undefined;
+  if (!plan) {
+    throw new Error(`Budget plan ${budgetPlanId} not found`);
+  }
 
   return {
-    payDate,
-    monthlyAllowance: Number.isFinite(monthlyAllowance) ? monthlyAllowance : 0,
-    savingsBalance: Number.isFinite(savingsBalance) ? savingsBalance : 0,
-    monthlySavingsContribution: Number.isFinite(monthlySavingsContribution) ? monthlySavingsContribution : 0,
-    monthlyInvestmentContribution: Number.isFinite(monthlyInvestmentContribution)
-      ? monthlyInvestmentContribution
-      : 0,
-    budgetStrategy,
+    payDate: plan.payDate,
+    monthlyAllowance: Number(plan.monthlyAllowance),
+    savingsBalance: Number(plan.savingsBalance),
+    monthlySavingsContribution: Number(plan.monthlySavingsContribution),
+    monthlyInvestmentContribution: Number(plan.monthlyInvestmentContribution),
+    budgetStrategy: plan.budgetStrategy as BudgetStrategy,
+    country: plan.country,
+    language: plan.language,
+    currency: plan.currency,
   };
 }
 
-export async function getSettings(): Promise<Settings> {
-  try {
-    const buf = await fs.readFile(filePath);
-    const parsed = JSON.parse(buf.toString());
-    return normalizeSettings(parsed);
-  } catch (e: any) {
-    if (e?.code === "ENOENT") return normalizeSettings(null);
-    throw e;
-  }
-}
+/**
+ * Save settings for a specific budget plan to the database
+ */
+export async function saveSettings(budgetPlanId: string, settings: Partial<Settings>): Promise<void> {
+  const updateData: any = {};
 
-export async function saveSettings(s: Settings): Promise<void> {
-  await fs.writeFile(filePath, JSON.stringify(s, null, 2) + "\n");
+  if (settings.payDate !== undefined) {
+    updateData.payDate = Math.max(1, Math.min(31, settings.payDate));
+  }
+  if (settings.monthlyAllowance !== undefined) {
+    updateData.monthlyAllowance = settings.monthlyAllowance;
+  }
+  if (settings.savingsBalance !== undefined) {
+    updateData.savingsBalance = settings.savingsBalance;
+  }
+  if (settings.monthlySavingsContribution !== undefined) {
+    updateData.monthlySavingsContribution = settings.monthlySavingsContribution;
+  }
+  if (settings.monthlyInvestmentContribution !== undefined) {
+    updateData.monthlyInvestmentContribution = settings.monthlyInvestmentContribution;
+  }
+  if (settings.budgetStrategy !== undefined) {
+    updateData.budgetStrategy = settings.budgetStrategy;
+  }
+  if (settings.country !== undefined) {
+    updateData.country = settings.country;
+  }
+  if (settings.language !== undefined) {
+    updateData.language = settings.language;
+  }
+  if (settings.currency !== undefined) {
+    updateData.currency = settings.currency;
+  }
+
+  await prisma.budgetPlan.update({
+    where: { id: budgetPlanId },
+    data: updateData,
+  });
 }
