@@ -75,6 +75,8 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 		const categoryData = Object.entries(categoryTotals)
 			.map(([catId, total]) => ({
 				...categoryLookup[catId],
+				icon: categoryLookup[catId]?.icon ?? undefined,
+				color: categoryLookup[catId]?.color ?? undefined,
 				total,
 				expenses: expensesByCategory[catId] || [],
 			}))
