@@ -35,6 +35,12 @@ export async function getAllIncome(budgetPlanId: string): Promise<IncomeByMonth>
 		acc[m] = [];
 		return acc;
 	}, {} as IncomeByMonth);
+	
+	// In production serverless environments, skip file operations
+	if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
+		return empty;
+	}
+	
 	return readJson(getFilePath(budgetPlanId), empty);
 }
 

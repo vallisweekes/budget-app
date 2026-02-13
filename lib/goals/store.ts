@@ -38,6 +38,11 @@ function ensureDataDir(budgetPlanId: string) {
 }
 
 function readGoals(budgetPlanId: string): Goal[] {
+  // In production serverless environments, skip file operations
+  if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
+    return [];
+  }
+  
   ensureDataDir(budgetPlanId);
   const file = goalsFilePath(budgetPlanId);
   if (!fs.existsSync(file)) {

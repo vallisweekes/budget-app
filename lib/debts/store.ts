@@ -33,6 +33,11 @@ function ensureDataDir(budgetPlanId: string) {
 }
 
 function readDebts(budgetPlanId: string): DebtItem[] {
+	// In production serverless environments, skip file operations
+	if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
+		return [];
+	}
+	
 	ensureDataDir(budgetPlanId);
 	const file = debtsFilePath(budgetPlanId);
 	if (!fs.existsSync(file)) {
@@ -48,6 +53,11 @@ function writeDebts(budgetPlanId: string, debts: DebtItem[]) {
 }
 
 function readPayments(budgetPlanId: string): DebtPayment[] {
+	// In production serverless environments, skip file operations
+	if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
+		return [];
+	}
+	
 	ensureDataDir(budgetPlanId);
 	const file = paymentsFilePath(budgetPlanId);
 	if (!fs.existsSync(file)) {

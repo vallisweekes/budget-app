@@ -42,6 +42,12 @@ type ExpensesByYear = Record<string, ExpensesByMonth>;
 
 async function getAllExpensesByYear(budgetPlanId: string): Promise<ExpensesByYear> {
   const empty: ExpensesByYear = {};
+  
+  // In production serverless environments, skip file operations
+  if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
+    return empty;
+  }
+  
   const primaryPath = getFilePath(budgetPlanId);
   const legacyPath = getLegacyFilePath(budgetPlanId);
 
