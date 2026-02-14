@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Home, Settings, DollarSign, CreditCard, Target, ShoppingBag, Banknote, LogOut } from "lucide-react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
-import { SelectDropdown } from "@/components/Shared";
+import { currentMonthKey } from "@/lib/helpers/monthKey";
 
 function parseUserScopedPath(pathname: string): { username: string; budgetPlanId: string } | null {
 	const m = pathname.match(/^\/user=([^/]+)\/([^/]+)/);
@@ -19,57 +18,28 @@ function parseUserScopedPath(pathname: string): { username: string; budgetPlanId
 export default function Sidebar() {
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
-	const router = useRouter();
 	const { data: session } = useSession();
 	const sessionUsername = session?.user?.username ?? session?.user?.name;
-	const [plans, setPlans] = useState<Array<{ id: string; name: string; kind: string }>>([]);
 
 	const scoped = parseUserScopedPath(pathname);
 	const planFromQuery = searchParams.get("plan")?.trim() || "";
-	const currentPlanId = scoped?.budgetPlanId || planFromQuery;
-
-	useEffect(() => {
-		if (!sessionUsername) return;
-		let cancelled = false;
-		(async () => {
-			try {
-				const res = await fetch("/api/bff/budget-plans", { cache: "no-store" });
-				if (!res.ok) return;
-				const data = (await res.json()) as { plans?: Array<{ id: string; name: string; kind: string }> };
-				if (cancelled) return;
-				setPlans(Array.isArray(data.plans) ? data.plans : []);
-			} catch {
-				// Non-blocking: sidebar still works without the switcher.
-			}
-		})();
-		return () => {
-			cancelled = true;
-		};
-	}, [sessionUsername]);
-
-	const planOptions = useMemo(
-		() =>
-			plans.map((p) => ({
-				value: p.id,
-				label: `${p.name} (${p.kind})`,
-			})),
-		[plans]
-	);
 
 	const baseHref = scoped
 		? `/user=${encodeURIComponent(scoped.username)}/${encodeURIComponent(scoped.budgetPlanId)}`
 		: sessionUsername && planFromQuery
 			? `/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(planFromQuery)}`
 			: "/";
-
-	const tailPath = scoped ? pathname.replace(/^\/user=[^/]+\/[^/]+/, "") : "";
-	const qs = searchParams.toString();
+	const defaultYear = new Date().getFullYear();
+	const defaultMonth = currentMonthKey();
+	const expensesHref = `${baseHref}/expenses?year=${encodeURIComponent(String(defaultYear))}&month=${encodeURIComponent(
+		defaultMonth
+	)}`;
 
 	const navItems = [
 		{ href: baseHref, label: "Home", icon: Home },
 		...(pathname === "/artist" ? [{ href: "/artist", label: "Artist", icon: Target }] : []),
 		{ href: `${baseHref}/income`, label: "Income", icon: Banknote },
-		{ href: `${baseHref}/expenses`, label: "Expenses", icon: DollarSign },
+		{ href: expensesHref, label: "Expenses", icon: DollarSign },
 		{ href: `${baseHref}/spending`, label: "Spending", icon: ShoppingBag },
 		{ href: `${baseHref}/debts`, label: "Debt", icon: CreditCard },
 		{ href: `${baseHref}/goals`, label: "Goals", icon: Target },

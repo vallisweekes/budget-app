@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useEffect, useState } from "react";
-import type { ExpenseItem, MonthKey, PaymentStatus } from "@/types";
+import type { DebtItem, ExpenseItem, MonthKey, PaymentStatus } from "@/types";
 import { formatCurrency } from "@/lib/helpers/money";
 import { formatMonthKeyLabel, monthKeyToNumber } from "@/lib/helpers/monthKey";
 import { updatePaymentStatus as updateExpensePaymentStatus } from "@/lib/expenses/actions";

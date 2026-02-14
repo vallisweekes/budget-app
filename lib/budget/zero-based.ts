@@ -33,7 +33,7 @@ export async function getZeroBasedSummary(budgetPlanId: string, month: MonthKey)
 		getSettings(budgetPlanId),
 		getAllIncome(budgetPlanId),
 		getAllExpenses(budgetPlanId),
-		getAllSpending(),
+		getAllSpending(budgetPlanId),
 		getPaymentsByMonth(budgetPlanId, month),
 	]);
 

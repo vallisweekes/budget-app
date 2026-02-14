@@ -54,7 +54,7 @@ export default function SpendingTab({ budgetPlanId, month, debts, spending }: Sp
     const entry = entryPendingDelete;
     if (!entry) return;
     startTransition(() => {
-      removeSpendingAction(entry.id);
+      removeSpendingAction(budgetPlanId, entry.id);
     });
   };
 

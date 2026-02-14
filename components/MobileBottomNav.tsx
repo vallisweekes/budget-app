@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { Home, DollarSign, CreditCard, Target, Settings, LogOut } from "lucide-react";
 import { signOut } from "next-auth/react";
+import { currentMonthKey } from "@/lib/helpers/monthKey";
 
 function parseUserScopedPath(pathname: string): { username: string; budgetPlanId: string } | null {
 	const m = pathname.match(/^\/user=([^/]+)\/([^/]+)/);
@@ -16,9 +17,7 @@ function parseUserScopedPath(pathname: string): { username: string; budgetPlanId
 
 export default function MobileBottomNav() {
 	const pathname = usePathname();
-	const searchParams = useSearchParams();
 	const scoped = parseUserScopedPath(pathname);
-	const planFromQuery = searchParams.get("plan")?.trim() || "";
 
 	// Don't show on splash page
 	if (pathname === "/") return null;
@@ -27,9 +26,15 @@ export default function MobileBottomNav() {
 		? `/user=${encodeURIComponent(scoped.username)}/${encodeURIComponent(scoped.budgetPlanId)}`
 		: "/dashboard";
 
+	const defaultYear = new Date().getFullYear();
+	const defaultMonth = currentMonthKey();
+	const expensesHref = `${baseHref}/expenses?year=${encodeURIComponent(String(defaultYear))}&month=${encodeURIComponent(
+		defaultMonth
+	)}`;
+
 	const navItems = [
 		{ href: baseHref, label: "Home", icon: Home },
-		{ href: `${baseHref}/expenses`, label: "Expenses", icon: DollarSign },
+		{ href: expensesHref, label: "Expenses", icon: DollarSign },
 		{ href: `${baseHref}/debts`, label: "Debts", icon: CreditCard },
 		{ href: `${baseHref}/goals`, label: "Goals", icon: Target },
 		{ href: `${baseHref}/settings`, label: "Settings", icon: Settings },

@@ -64,7 +64,7 @@ export async function addSpendingAction(formData: FormData) {
     const monthlyAllowance = settings.monthlyAllowance || 0;
     const payPeriod = getPayPeriod(now, settings.payDate);
     
-    const allSpending = await getAllSpending();
+    const allSpending = await getAllSpending(budgetPlanId);
     // Filter spending within the current pay period
     const allowanceSpending = allSpending.filter(e => {
       if (e.source !== "allowance") return false;
@@ -104,7 +104,7 @@ export async function addSpendingAction(formData: FormData) {
     }
   }
 
-  await addSpending({
+  await addSpending(budgetPlanId, {
     description,
     amount,
     date: new Date().toISOString(),
@@ -118,14 +118,19 @@ export async function addSpendingAction(formData: FormData) {
   return { success: true };
 }
 
-export async function removeSpendingAction(id: string) {
-  await removeSpending(id);
+export async function removeSpendingAction(id: string): Promise<void>;
+export async function removeSpendingAction(budgetPlanId: string, id: string): Promise<void>;
+export async function removeSpendingAction(a: string, b?: string) {
+  const budgetPlanId = b ? a : "";
+  const id = b ?? a;
+  if (!budgetPlanId) throw new Error("Missing budgetPlanId");
+  await removeSpending(budgetPlanId, id);
   revalidatePath("/admin/spending");
   revalidatePath("/");
 }
 
-export async function getSpendingForMonth(month: string) {
-  const allSpending = await getAllSpending();
+export async function getSpendingForMonth(budgetPlanId: string, month: string) {
+  const allSpending = await getAllSpending(budgetPlanId);
   return allSpending.filter(e => e.month === month);
 }
 
@@ -135,7 +140,7 @@ export async function getAllowanceStats(month: string, budgetPlanId: string) {
   const now = new Date();
   const payPeriod = getPayPeriod(now, settings.payDate);
   
-  const allSpending = await getAllSpending();
+  const allSpending = await getAllSpending(budgetPlanId);
   // Filter spending within the current pay period (not calendar month)
   const allowanceSpending = allSpending.filter(e => {
     if (e.source !== "allowance") return false;

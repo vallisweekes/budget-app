@@ -31,7 +31,7 @@ export default function DebtsList({ debts, budgetPlanId, typeLabels, paymentsMap
 
 	// Sort debts based on current sort option
 	const sortedDebts = useMemo(() => {
-		let sorted = [...debts];
+		const sorted = [...debts];
 		
 		if (sortBy === "name") {
 			sorted.sort((a, b) => a.name.localeCompare(b.name));

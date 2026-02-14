@@ -51,7 +51,7 @@ export default async function SpendingPage(props: {
 	if (!budgetPlanId) redirect("/budgets/new");
 	const month = currentMonth();
 	const debts = (await getAllDebts(budgetPlanId)).filter((d) => d.sourceType !== "expense");
-	const spending = await getSpendingForMonth(month);
+	const spending = await getSpendingForMonth(budgetPlanId, month);
 	const allowanceStats = await getAllowanceStats(month, budgetPlanId);
 	const settings = await getSettings(budgetPlanId);
 

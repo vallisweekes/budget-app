@@ -17,6 +17,7 @@ import {
 	resolveUserId,
 } from "@/lib/budgetPlans";
 import { prisma } from "@/lib/prisma";
+import { currentMonthKey } from "@/lib/helpers/monthKey";
 
 type ParsedUserBudget =
 	| {
@@ -169,6 +170,23 @@ export default async function UserBudgetPage({
 		const adminKey = (pageRest[0] ?? "").toLowerCase();
 		if (!adminKey) return notFound();
 		return renderUserScopedAdminPage(adminKey, budgetPlanId, sp);
+	}
+
+	// Canonicalize Expenses URL so year/month are always present.
+	if (pageKey === "expenses") {
+		const rawYear = resolvedSearchParams.year;
+		const rawMonth = resolvedSearchParams.month;
+		const yearVal = Array.isArray(rawYear) ? rawYear[0] : rawYear;
+		const monthVal = Array.isArray(rawMonth) ? rawMonth[0] : rawMonth;
+		if (!yearVal || !monthVal) {
+			const y = new Date().getFullYear();
+			const m = currentMonthKey();
+			redirect(
+				`/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(budgetPlanId)}/expenses?year=${encodeURIComponent(
+					String(y)
+				)}&month=${encodeURIComponent(m)}`
+			);
+		}
 	}
 
 	return renderUserScopedAdminPage(pageKey, budgetPlanId, sp);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { Pencil, X, Check, CreditCard, TrendingDown, ShoppingBag } from "lucide-react";
 import DeleteDebtButton from "./DeleteDebtButton";
 import { formatCurrency } from "@/lib/helpers/money";
@@ -46,6 +46,13 @@ export default function DebtCard({ debt, budgetPlanId, typeLabels, payments }: D
 	const percentPaid = debt.initialBalance > 0
 		? ((debt.initialBalance - debt.currentBalance) / debt.initialBalance) * 100
 		: 0;
+
+	const paymentMonth = useMemo(() => {
+		const now = new Date();
+		const y = now.getUTCFullYear();
+		const m = String(now.getUTCMonth() + 1).padStart(2, "0");
+		return `${y}-${m}`;
+	}, []);
 
 	const handleEdit = () => {
 		setEditName(debt.name);
@@ -219,7 +226,7 @@ export default function DebtCard({ debt, budgetPlanId, typeLabels, payments }: D
 					<form action={makePaymentFromForm} className="flex items-end gap-2">
 						<input type="hidden" name="budgetPlanId" value={budgetPlanId} />
 						<input type="hidden" name="debtId" value={debt.id} />
-						<input type="hidden" name="month" value="2026-02" />
+						<input type="hidden" name="month" value={paymentMonth} />
 						<label className="flex-1">
 							<span className="block text-xs font-medium text-slate-300 mb-1">Payment Amount</span>
 							<input
