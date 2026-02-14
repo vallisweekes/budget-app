@@ -3,7 +3,7 @@
 import { useEffect, useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
-type SaveKind = "allocations" | "income";
+type SaveKind = "allocations" | "allocationsReset" | "allowanceCreated" | "income";
 
 export default function SaveFeedbackBanner({
 	kind,

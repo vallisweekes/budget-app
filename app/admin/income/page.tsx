@@ -3,7 +3,12 @@ import { MONTHS } from "@/lib/constants/time";
 import { currentMonthKey, formatMonthKeyLabel } from "@/lib/helpers/monthKey";
 import type { MonthKey } from "@/types";
 import { isMonthKey } from "@/lib/budget/zero-based";
-import { addIncomeAction, saveAllocationsAction } from "./actions";
+import {
+	addIncomeAction,
+	createCustomAllowanceAction,
+	resetAllocationsToPlanDefaultAction,
+	saveAllocationsAction,
+} from "./actions";
 import { SelectDropdown } from "@/components/Shared";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
@@ -17,6 +22,8 @@ import { formatCurrency } from "@/lib/helpers/money";
 import Link from "next/link";
 import IncomeTabs from "./IncomeTabs";
 import AllocationsMonthSaveRow from "./AllocationsMonthSaveRow";
+import ResetAllocationsToDefaultButton from "./ResetAllocationsToDefaultButton";
+import CreateAllowanceButton from "./CreateAllowanceButton";
 
 export const dynamic = "force-dynamic"; // This line is now active
 
@@ -59,6 +66,8 @@ export default async function AdminIncomePage(props: {
 		: nowMonth;
 	const allocation = await getMonthlyAllocationSnapshot(budgetPlanId, allocMonth);
 	const customAllocations = await getMonthlyCustomAllocationsSnapshot(budgetPlanId, allocMonth, { year: allocation.year });
+	const hasOverridesForAllocMonth =
+		allocation.isOverride || customAllocations.items.some((item) => item.isOverride);
 
 	const monthlyAllocationSummaries = await Promise.all(
 		MONTHS.map(async (m) => {
@@ -105,32 +114,93 @@ export default async function AdminIncomePage(props: {
 
 	const allocationsView = (
 			<div className="space-y-8">
-				<div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/10 p-8">
-					<div className="flex items-center gap-3 mb-6">
-						<div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-green-600 rounded-2xl flex items-center justify-center shadow-lg">
-							<svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 1v22m7-17H5m12 4H7m8 4H9" />
-							</svg>
+				<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+					<div className="rounded-2xl border border-white/10 bg-slate-900/30 px-5 py-4">
+						<div className="text-xs text-slate-400">Gross income ({formatMonthKeyLabel(allocMonth)})</div>
+						<div className="mt-1 text-xl font-bold text-white">{formatCurrency(grossIncomeForAllocMonth)}</div>
+					</div>
+					<div className="rounded-2xl border border-white/10 bg-slate-900/30 px-5 py-4">
+						<div className="text-xs text-slate-400">Total allocations</div>
+						<div className="mt-1 text-xl font-bold text-white">{formatCurrency(totalAllocationsForAllocMonth)}</div>
+						<div className="mt-1 text-xs text-slate-400">Fixed + custom allocations</div>
+					</div>
+					<div className="rounded-2xl border border-white/10 bg-slate-900/30 px-5 py-4">
+						<div className="text-xs text-slate-400">Left to budget</div>
+						<div
+							className={`mt-1 text-xl font-bold ${
+								remainingToBudgetForAllocMonth < 0 ? "text-red-200" : "text-emerald-200"
+							}`}
+						>
+							{formatCurrency(remainingToBudgetForAllocMonth)}
 						</div>
+						{remainingToBudgetForAllocMonth < 0 && (
+							<div className="mt-1 text-xs text-red-200">
+								Allocations exceed income by {formatCurrency(Math.abs(remainingToBudgetForAllocMonth))}
+							</div>
+						)}
+					</div>
+				</div>
+
+				<div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/10 p-6 md:p-8">
+					<div className="flex items-center justify-between gap-4">
 						<div>
 							<h2 className="text-2xl font-bold text-white">Allocations</h2>
-							<p className="text-slate-400 text-sm">Set your month’s pre-budget costs, then budget what’s left.</p>
+							<p className="mt-1 text-slate-400 text-sm">
+								Edit month-specific overrides. Create new allowances globally.
+							</p>
+						</div>
+						<div className="hidden md:block text-xs text-slate-400">
+							Month: {formatMonthKeyLabel(allocMonth)}
 						</div>
 					</div>
-					<SaveFeedbackBanner
-						kind="allocations"
-						message="Allocations don’t change your Salary amounts — they reduce what’s left to budget for the selected month."
-					/>
-					<form id="allocations-form" action={saveAllocationsAction} className="grid grid-cols-1 md:grid-cols-12 gap-4">
-						<input type="hidden" name="budgetPlanId" value={budgetPlanId} />
-						<AllocationsMonthSaveRow
-							formId="allocations-form"
-							month={allocMonth}
-							year={allocation.year}
-							isOverride={allocation.isOverride}
+					<div className="mt-5 space-y-3">
+						<SaveFeedbackBanner
+							kind="allocations"
+							message="Saved changes apply to the selected month only (month-specific overrides)."
 						/>
+						<SaveFeedbackBanner
+							kind="allocationsReset"
+							message="This month has been reset back to your plan defaults."
+						/>
+						<SaveFeedbackBanner kind="allowanceCreated" message="New allowance created. It now shows for all months." />
+					</div>
+				</div>
 
-						<div className="md:col-span-12 mt-1 grid grid-cols-1 md:grid-cols-2 gap-4">
+				<form id="allocations-form" action={saveAllocationsAction} className="space-y-6">
+					<input type="hidden" name="budgetPlanId" value={budgetPlanId} />
+
+					<div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/10 p-6 md:p-8">
+						<div className="flex items-start justify-between gap-4">
+							<div>
+								<div className="text-sm font-semibold text-white">Edit allocations for a month</div>
+								<div className="text-xs text-slate-400">Adjust this month’s overrides, then save changes.</div>
+							</div>
+							<div className="text-xs text-slate-400">Switch months to view defaults/overrides.</div>
+						</div>
+
+						<div className="mt-4 grid grid-cols-1 md:grid-cols-12 gap-4">
+							<AllocationsMonthSaveRow
+								formId="allocations-form"
+								month={allocMonth}
+								year={allocation.year}
+								isOverride={allocation.isOverride}
+								resetToDefault={
+									hasOverridesForAllocMonth ? (
+										<ResetAllocationsToDefaultButton
+											budgetPlanId={budgetPlanId}
+											month={allocMonth}
+											action={resetAllocationsToPlanDefaultAction}
+										/>
+									) : null
+								}
+							/>
+						</div>
+
+						<div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+							<div className="md:col-span-2">
+								<div className="text-sm font-semibold text-white">Fixed allocations</div>
+								<div className="mt-1 text-xs text-slate-400">Default values come from the plan; changes are saved as overrides.</div>
+							</div>
 							<label>
 								<span className="block text-sm font-medium text-slate-300 mb-2">Monthly Allowance (£)</span>
 								<input
@@ -173,99 +243,91 @@ export default async function AdminIncomePage(props: {
 							</label>
 						</div>
 
-						<div className="md:col-span-12 mt-2">
-							<div className="rounded-2xl border border-white/10 bg-slate-900/20 px-5 py-4">
-								<div className="flex items-center justify-between gap-3">
-									<div>
-										<div className="text-sm font-semibold text-white">Custom allocations</div>
-										<div className="text-xs text-slate-400">Add any pre-budget items you want to track.</div>
-									</div>
-									<div className="text-xs text-slate-400">Total: {formatCurrency(customAllocations.total ?? 0)}</div>
+						<div className="mt-8">
+							<div className="flex items-center justify-between gap-3">
+								<div>
+									<div className="text-sm font-semibold text-white">Custom allowances (this month)</div>
+									<div className="mt-1 text-xs text-slate-400">Each item has a global default; edits here become month overrides.</div>
 								</div>
+								<div className="text-xs text-slate-400">Total: {formatCurrency(customAllocations.total ?? 0)}</div>
+							</div>
 
-								{customAllocations.items.length === 0 ? (
-									<div className="mt-3 rounded-xl border border-dashed border-white/10 bg-slate-900/10 px-4 py-3 text-sm text-slate-300">
-										No custom allocations yet.
-									</div>
-								) : (
-									<div className="mt-4 grid grid-cols-1 gap-4">
-										{customAllocations.items.map((item) => (
-											<label key={item.id} className="block">
-												<span className="block text-sm font-medium text-slate-300 mb-2">
-													{item.name}
-													{item.isOverride ? (
-														<span className="ml-2 text-xs text-amber-200">(custom for this month)</span>
-													) : null}
-												</span>
-												<input
-													name={`customAllocation:${item.id}`}
-													type="number"
-													step="0.01"
-													defaultValue={item.amount ?? 0}
-													className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
-												/>
-											</label>
-										))}
-									</div>
-								)}
-
-								<div className="mt-5 grid grid-cols-1 md:grid-cols-12 gap-4">
-									<label className="md:col-span-7">
-										<span className="block text-sm font-medium text-slate-300 mb-2">New allocation name</span>
-										<input
-											name="newCustomAllocationName"
-											placeholder="e.g., Tithe, Childcare, Pension"
-											className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
-										/>
-									</label>
-									<label className="md:col-span-5">
-										<span className="block text-sm font-medium text-slate-300 mb-2">Default amount (£)</span>
-										<input
-											name="newCustomAllocationAmount"
-											type="number"
-											step="0.01"
-											placeholder="0.00"
-											className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
-										/>
-									</label>
+							{customAllocations.items.length === 0 ? (
+								<div className="mt-3 rounded-xl border border-dashed border-white/10 bg-slate-900/10 px-4 py-3 text-sm text-slate-300">
+									No custom allowances yet. Use “Create allowance (global)” below.
 								</div>
-							</div>
-						</div>
-					</form>
-
-					<div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-						<div className="rounded-2xl border border-white/10 bg-slate-900/30 px-5 py-4">
-							<div className="text-xs text-slate-400">Gross income ({formatMonthKeyLabel(allocMonth)})</div>
-							<div className="mt-1 text-xl font-bold text-white">{formatCurrency(grossIncomeForAllocMonth)}</div>
-						</div>
-						<div className="rounded-2xl border border-white/10 bg-slate-900/30 px-5 py-4">
-							<div className="text-xs text-slate-400">Total allocations</div>
-							<div className="mt-1 text-xl font-bold text-white">{formatCurrency(totalAllocationsForAllocMonth)}</div>
-							<div className="mt-1 text-xs text-slate-400">Fixed + custom allocations</div>
-						</div>
-						<div className="rounded-2xl border border-white/10 bg-slate-900/30 px-5 py-4">
-							<div className="text-xs text-slate-400">Left to budget</div>
-							<div
-								className={`mt-1 text-xl font-bold ${
-									remainingToBudgetForAllocMonth < 0 ? "text-red-200" : "text-emerald-200"
-								}`}
-							>
-								{formatCurrency(remainingToBudgetForAllocMonth)}
-							</div>
-							{remainingToBudgetForAllocMonth < 0 && (
-								<div className="mt-1 text-xs text-red-200">
-									Allocations exceed income by {formatCurrency(Math.abs(remainingToBudgetForAllocMonth))}
+							) : (
+								<div className="mt-4 grid grid-cols-1 gap-4">
+									{customAllocations.items.map((item) => (
+										<label key={item.id} className="block">
+											<span className="block text-sm font-medium text-slate-300 mb-2">
+												{item.name}
+												{item.isOverride ? (
+													<span className="ml-2 text-xs text-amber-200">(custom for this month)</span>
+												) : null}
+											</span>
+											<input
+												name={`customAllocation:${item.id}`}
+												type="number"
+												step="0.01"
+												defaultValue={item.amount ?? 0}
+												className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+											/>
+										</label>
+									))}
 								</div>
 							)}
 						</div>
 					</div>
+				</form>
 
-					<div className="mt-6 rounded-2xl border border-white/10 bg-slate-900/20 px-5 py-4">
-						<div className="flex items-center justify-between gap-3">
-							<div>
-								<div className="text-sm font-semibold text-white">Monthly allocations summary</div>
-								<div className="text-xs text-slate-400">Quick view for Feb/Mar/etc. Click a month to edit details.</div>
+				<details className="bg-slate-800/30 rounded-3xl border border-white/10 overflow-hidden">
+					<summary className="cursor-pointer select-none px-6 py-5 text-sm font-semibold text-white hover:bg-slate-800/40 transition">
+						Create allowance (global)
+						<span className="ml-2 text-xs font-normal text-slate-400">
+							Adds an item that appears for every month
+						</span>
+					</summary>
+					<div className="px-6 pb-6">
+						<div className="text-xs text-slate-400">
+							Examples: Tithe, Childcare, Pension. You can override amounts per month in the editor above.
+						</div>
+
+						<form action={createCustomAllowanceAction} className="mt-4 grid grid-cols-1 md:grid-cols-12 gap-4">
+							<input type="hidden" name="budgetPlanId" value={budgetPlanId} />
+							<input type="hidden" name="month" value={allocMonth} />
+							<label className="md:col-span-7">
+								<span className="block text-sm font-medium text-slate-300 mb-2">Allowance name</span>
+								<input
+									name="name"
+									placeholder="e.g., Tithe"
+									className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+								/>
+							</label>
+							<label className="md:col-span-3">
+								<span className="block text-sm font-medium text-slate-300 mb-2">Default amount (£)</span>
+								<input
+									name="defaultAmount"
+									type="number"
+									step="0.01"
+									placeholder="0.00"
+									className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+								/>
+							</label>
+							<div className="md:col-span-2 flex items-end">
+								<CreateAllowanceButton />
 							</div>
+						</form>
+					</div>
+				</details>
+
+				<details className="bg-slate-800/30 rounded-3xl border border-white/10 overflow-hidden">
+					<summary className="cursor-pointer select-none px-6 py-5 text-sm font-semibold text-white hover:bg-slate-800/40 transition">
+						Monthly allocations summary
+						<span className="ml-2 text-xs font-normal text-slate-400">Quick view; click a month to edit</span>
+					</summary>
+					<div className="px-6 pb-6">
+						<div className="flex items-center justify-between gap-3">
 							<div className="text-xs text-slate-400">Year {allocation.year}</div>
 						</div>
 
@@ -293,7 +355,9 @@ export default async function AdminIncomePage(props: {
 											<td className="py-3 pr-4 text-slate-200">{formatCurrency(row.fixedTotal)}</td>
 											<td className="py-3 pr-4 text-slate-200">{formatCurrency(row.customTotal)}</td>
 											<td className="py-3 pr-4 text-white font-semibold">{formatCurrency(row.total)}</td>
-											<td className={`py-3 pr-4 ${row.leftToBudget < 0 ? "text-red-200" : "text-emerald-200"}`}>
+											<td
+												className={`py-3 pr-4 ${row.leftToBudget < 0 ? "text-red-200" : "text-emerald-200"}`}
+											>
 												{formatCurrency(row.leftToBudget)}
 											</td>
 											<td className="py-3 pr-4">
@@ -310,7 +374,7 @@ export default async function AdminIncomePage(props: {
 							</table>
 						</div>
 					</div>
-				</div>
+				</details>
 			</div>
 		);
 

@@ -13,6 +13,8 @@ import { monthKeyToNumber } from "@/lib/helpers/monthKey";
 import {
 	createAllocationDefinition,
 	listAllocationDefinitions,
+	removeAllMonthlyCustomAllocationOverrides,
+	removeMonthlyAllocationOverride,
 	resolveActiveBudgetYear,
 	upsertMonthlyAllocation,
 	upsertMonthlyCustomAllocationOverrides,
@@ -205,6 +207,79 @@ export async function saveAllocationsAction(formData: FormData): Promise<void> {
 		);
 	}
 	// Keep these broad revalidations consistent with existing income actions.
+	revalidatePath("/");
+	revalidatePath("/admin/income");
+}
+
+export async function resetAllocationsToPlanDefaultAction(formData: FormData): Promise<void> {
+	const budgetPlanId = requireBudgetPlanId(formData);
+	const { userId } = await requireAuthenticatedUser();
+	await requireOwnedBudgetPlan(budgetPlanId, userId);
+
+	const rawMonth = String(formData.get("month") ?? "").trim();
+	if (!isMonthKey(rawMonth)) {
+		throw new Error("Invalid allocation month");
+	}
+	const monthKey = rawMonth as MonthKey;
+	if (isPastMonth(monthKey)) return;
+
+	const month = monthKeyToNumber(monthKey);
+	const year = await resolveActiveBudgetYear(budgetPlanId);
+
+	await removeMonthlyAllocationOverride({ budgetPlanId, year, month });
+	await removeAllMonthlyCustomAllocationOverrides({ budgetPlanId, year, month });
+
+	const session = await getServerSession(authOptions);
+	const sessionUser = session?.user;
+	const sessionUsername = sessionUser?.username ?? sessionUser?.name;
+	if (sessionUsername) {
+		const incomePath = `/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(budgetPlanId)}/income`;
+		revalidatePath(incomePath);
+		revalidatePath("/");
+		revalidatePath("/admin/income");
+		redirect(
+			`${incomePath}?month=${encodeURIComponent(monthKey)}&saved=${encodeURIComponent("allocationsReset")}`
+		);
+	}
+
+	revalidatePath("/");
+	revalidatePath("/admin/income");
+}
+
+export async function createCustomAllowanceAction(formData: FormData): Promise<void> {
+	const budgetPlanId = requireBudgetPlanId(formData);
+	const { userId } = await requireAuthenticatedUser();
+	await requireOwnedBudgetPlan(budgetPlanId, userId);
+
+	const rawMonth = String(formData.get("month") ?? "").trim();
+	if (!isMonthKey(rawMonth)) {
+		throw new Error("Invalid allocation month");
+	}
+	const monthKey = rawMonth as MonthKey;
+	if (isPastMonth(monthKey)) return;
+
+	const name = String(formData.get("name") ?? "").trim();
+	const defaultAmountRaw = Number(formData.get("defaultAmount") ?? 0);
+	const defaultAmount = Number.isFinite(defaultAmountRaw) ? defaultAmountRaw : 0;
+	if (!name) return;
+
+	await createAllocationDefinition({ budgetPlanId, name, defaultAmount });
+
+	const session = await getServerSession(authOptions);
+	const sessionUser = session?.user;
+	const sessionUsername = sessionUser?.username ?? sessionUser?.name;
+	if (sessionUsername) {
+		const incomePath = `/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(budgetPlanId)}/income`;
+		revalidatePath(incomePath);
+		revalidatePath("/");
+		revalidatePath("/admin/income");
+		redirect(
+			`${incomePath}?tab=allocations&month=${encodeURIComponent(monthKey)}&saved=${encodeURIComponent(
+				"allowanceCreated"
+			)}`
+		);
+	}
+
 	revalidatePath("/");
 	revalidatePath("/admin/income");
 }

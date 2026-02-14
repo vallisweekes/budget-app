@@ -390,3 +390,41 @@ export async function upsertMonthlyCustomAllocationOverrides(params: {
 		});
 	}
 }
+
+export async function removeMonthlyAllocationOverride(params: {
+	budgetPlanId: string;
+	year: number;
+	month: number;
+}): Promise<void> {
+	type MonthlyAllocationDeleteManyDelegate = {
+		deleteMany: (args: { where: { budgetPlanId: string; year: number; month: number } }) => Promise<unknown>;
+	};
+
+	const monthlyAllocation = (prisma as unknown as { monthlyAllocation?: MonthlyAllocationDeleteManyDelegate }).monthlyAllocation;
+	if (!monthlyAllocation?.deleteMany) {
+		throw new Error(
+			"Monthly allocations are not available yet. Restart the dev server to pick up Prisma schema changes."
+		);
+	}
+
+	await monthlyAllocation.deleteMany({
+		where: { budgetPlanId: params.budgetPlanId, year: params.year, month: params.month },
+	});
+}
+
+export async function removeAllMonthlyCustomAllocationOverrides(params: {
+	budgetPlanId: string;
+	year: number;
+	month: number;
+}): Promise<void> {
+	const monthlyAllocationItem = (prisma as unknown as { monthlyAllocationItem?: any }).monthlyAllocationItem;
+	if (!monthlyAllocationItem?.deleteMany) {
+		throw new Error(
+			"Custom allocations are not available yet. Restart the dev server to pick up Prisma schema changes."
+		);
+	}
+
+	await monthlyAllocationItem.deleteMany({
+		where: { budgetPlanId: params.budgetPlanId, year: params.year, month: params.month },
+	});
+}

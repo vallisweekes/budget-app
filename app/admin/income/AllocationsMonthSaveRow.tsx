@@ -13,6 +13,7 @@ export default function AllocationsMonthSaveRow(props: {
 	month: MonthKey;
 	year: number;
 	isOverride: boolean;
+	resetToDefault?: React.ReactNode;
 }) {
 	const router = useRouter();
 	const pathname = usePathname();
@@ -42,14 +43,18 @@ export default function AllocationsMonthSaveRow(props: {
 		};
 	}, [props.formId]);
 
-	const isSaved = searchParams.get("saved") === "allocations";
+	const savedValue = searchParams.get("saved");
+	const isSaved = savedValue === "allocations" || savedValue === "allocationsReset";
 
 	const helperText = useMemo(() => {
 		return `${props.isOverride ? "Custom for this month" : "Using plan default"} (year ${props.year})`;
 	}, [props.isOverride, props.year]);
 
 	const status = isSaved
-		? { label: "Saved", className: "border-emerald-400/20 bg-emerald-500/10 text-emerald-100" }
+		? {
+				label: savedValue === "allocationsReset" ? "Reset" : "Saved",
+				className: "border-emerald-400/20 bg-emerald-500/10 text-emerald-100",
+			}
 		: dirty
 			? { label: "Unsaved changes", className: "border-amber-300/20 bg-amber-400/10 text-amber-100" }
 			: null;
@@ -105,6 +110,7 @@ export default function AllocationsMonthSaveRow(props: {
 							Reset
 						</button>
 					) : null}
+					{props.resetToDefault ? <div className="hidden md:block">{props.resetToDefault}</div> : null}
 				</div>
 				{status ? (
 					<div className={`shrink-0 rounded-full border px-3 py-1 text-xs font-medium ${status.className}`}>
@@ -112,6 +118,7 @@ export default function AllocationsMonthSaveRow(props: {
 					</div>
 				) : null}
 			</div>
+			{props.resetToDefault ? <div className="md:hidden -mt-1">{props.resetToDefault}</div> : null}
 		</>
 	);
 }
