@@ -27,7 +27,7 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 		const selectedMonthKey = monthNumberToKey(selectedMonthNum);
 		
 		// Fetch all data from database for this plan
-		const [categories, expenses, income, goals, allocation, debtPaymentsAgg] = await Promise.all([
+		const [categories, expenses, income, goals, allocation, debtPaymentsAgg, plannedDebtPayments] = await Promise.all([
 			prisma.category.findMany({
 				where: { budgetPlanId: planId },
 			}),
@@ -55,6 +55,13 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 					year: selectedYear,
 					month: selectedMonthNum,
 					source: "income",
+				},
+				_sum: { amount: true },
+			}),
+			prisma.debt.aggregate({
+				where: {
+					budgetPlanId: planId,
+					currentBalance: { gt: 0 },
 				},
 				_sum: { amount: true },
 			}),
@@ -119,6 +126,7 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 			.sort((a, b) => b.total - a.total);
 
 		const debtPaymentsFromIncome = Number(debtPaymentsAgg._sum.amount?.toString?.() ?? debtPaymentsAgg._sum.amount ?? 0);
+		const plannedDebtAmount = Number(plannedDebtPayments._sum.amount?.toString?.() ?? plannedDebtPayments._sum.amount ?? 0);
 		const totalExpenses = regularExpenses.reduce((a, b) => a + (b.amount || 0), 0);
 		const totalIncome = monthIncome.reduce((a, b) => a + (b.amount || 0), 0);
 		const remaining = totalIncome - totalExpenses;
@@ -128,7 +136,7 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 			(allocation.monthlySavingsContribution ?? 0) +
 			(allocation.monthlyEmergencyContribution ?? 0) +
 			(allocation.monthlyInvestmentContribution ?? 0);
-		const incomeAfterAllocations = totalIncome - totalAllocations - debtPaymentsFromIncome;
+		const incomeAfterAllocations = totalIncome - totalAllocations - plannedDebtAmount;
 
 		return {
 			year: selectedYear,
@@ -166,12 +174,10 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 		allPlansData[budgetPlanId] = currentPlanData;
 	}
 
-	// Fetch debts from database
 	const allDebts = await prisma.debt.findMany({
 		where: { budgetPlanId },
 	});
 
-	// Serialize debts into plain objects (convert Decimal/Date and nulls)
 	const serializedDebts = allDebts.map((d) => ({
 		id: d.id,
 		name: d.name,

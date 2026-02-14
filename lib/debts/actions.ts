@@ -63,7 +63,9 @@ export async function updateDebtAction(id: string, formData: FormData) {
 	const { userId } = await requireAuthenticatedUser();
 	await requireOwnedBudgetPlan(budgetPlanId, userId);
 	const name = formData.get("name") as string;
+	const initialBalance = formData.get("initialBalance") ? parseFloat(formData.get("initialBalance") as string) : undefined;
 	const currentBalance = parseFloat(formData.get("currentBalance") as string);
+	const amount = formData.get("amount") ? parseFloat(formData.get("amount") as string) : undefined;
 	const monthlyMinimum = formData.get("monthlyMinimum") ? parseFloat(formData.get("monthlyMinimum") as string) : undefined;
 	const interestRate = formData.get("interestRate") ? parseFloat(formData.get("interestRate") as string) : undefined;
 
@@ -73,7 +75,9 @@ export async function updateDebtAction(id: string, formData: FormData) {
 
 	await updateDebt(budgetPlanId, id, {
 		name,
+		initialBalance,
 		currentBalance,
+		amount,
 		monthlyMinimum,
 		interestRate,
 	});

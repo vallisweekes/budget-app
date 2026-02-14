@@ -121,6 +121,7 @@ export default async function DebtsPage(props: {
 						budgetPlanId={budgetPlanId}
 						typeLabels={typeLabels}
 						paymentsMap={paymentsMap}
+						payDate={budgetPlan.payDate}
 					/>
 				</div>
 			</div>

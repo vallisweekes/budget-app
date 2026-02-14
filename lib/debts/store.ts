@@ -372,6 +372,7 @@ export async function updateDebt(
 		where: { id: existing.id },
 		data: {
 			name: updates.name,
+			initialBalance: updates.initialBalance,
 			currentBalance: updates.currentBalance,
 			monthlyMinimum: updates.monthlyMinimum === undefined ? undefined : updates.monthlyMinimum ?? null,
 			interestRate: updates.interestRate === undefined ? undefined : updates.interestRate ?? null,

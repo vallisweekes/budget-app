@@ -20,11 +20,12 @@ interface DebtsListProps {
 	budgetPlanId: string;
 	typeLabels: Record<string, string>;
 	paymentsMap: Map<string, DebtPayment[]>;
+	payDate: number;
 }
 
 type SortOption = "manual" | "name" | "amount";
 
-export default function DebtsList({ debts, budgetPlanId, typeLabels, paymentsMap }: DebtsListProps) {
+export default function DebtsList({ debts, budgetPlanId, typeLabels, paymentsMap, payDate }: DebtsListProps) {
 	const [sortBy, setSortBy] = useState<SortOption>("manual");
 	const [manualOrder, setManualOrder] = useState<string[]>(debts.map(d => d.id));
 	const [draggedId, setDraggedId] = useState<string | null>(null);
@@ -176,6 +177,7 @@ export default function DebtsList({ debts, budgetPlanId, typeLabels, paymentsMap
 							budgetPlanId={budgetPlanId}
 							typeLabels={typeLabels}
 							payments={paymentsMap.get(debt.id) || []}
+							payDate={payDate}
 						/>
 					</div>
 				))}
