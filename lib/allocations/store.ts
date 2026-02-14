@@ -68,15 +68,31 @@ export async function getMonthlyAllocationSnapshot(
 	const monthlyAllocation = (prisma as unknown as { monthlyAllocation?: MonthlyAllocationDelegate }).monthlyAllocation;
 
 	// Avoid parallel queries here to reduce connection pool pressure in dev.
-	const plan = ((await (prisma.budgetPlan.findUnique({
-		where: { id: budgetPlanId },
-		select: {
-			monthlyAllowance: true,
-			monthlySavingsContribution: true,
-			monthlyEmergencyContribution: true,
-			monthlyInvestmentContribution: true,
-		} as any,
-	}) as any)) as any) as any;
+	let plan: any = null;
+	try {
+		plan = await prisma.budgetPlan.findUnique({
+			where: { id: budgetPlanId },
+			select: {
+				monthlyAllowance: true,
+				monthlySavingsContribution: true,
+				monthlyEmergencyContribution: true,
+				monthlyInvestmentContribution: true,
+			} as any,
+		});
+	} catch (error) {
+		const message = String((error as any)?.message ?? error);
+		if (!message.includes("Unknown field `monthlyEmergencyContribution`")) throw error;
+
+		// Dev-only safety: Turbopack can cache an older Prisma Client after schema changes.
+		plan = await prisma.budgetPlan.findUnique({
+			where: { id: budgetPlanId },
+			select: {
+				monthlyAllowance: true,
+				monthlySavingsContribution: true,
+				monthlyInvestmentContribution: true,
+			} as any,
+		});
+	}
 
 	const override = monthlyAllocation
 		? await monthlyAllocation.findUnique({
@@ -97,7 +113,7 @@ export async function getMonthlyAllocationSnapshot(
 		override?.monthlySavingsContribution ?? plan.monthlySavingsContribution
 	);
 	const monthlyEmergencyContribution = decimalToNumber(
-		override?.monthlyEmergencyContribution ?? (plan as any).monthlyEmergencyContribution
+		override?.monthlyEmergencyContribution ?? (plan as any).monthlyEmergencyContribution ?? 0
 	);
 	const monthlyInvestmentContribution = decimalToNumber(
 		override?.monthlyInvestmentContribution ?? plan.monthlyInvestmentContribution

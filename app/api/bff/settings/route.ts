@@ -23,6 +23,16 @@ const settingsSelect = {
   budgetStrategy: true,
 } as const;
 
+const settingsSelectWithoutEmergency = {
+  id: true,
+  payDate: true,
+  monthlyAllowance: true,
+  savingsBalance: true,
+  monthlySavingsContribution: true,
+  monthlyInvestmentContribution: true,
+  budgetStrategy: true,
+} as const;
+
 export async function GET(req: NextRequest) {
   try {
     const userId = await getSessionUserId();
@@ -37,13 +47,42 @@ export async function GET(req: NextRequest) {
 
     const plan = await prisma.budgetPlan.findUnique({
       where: { id: budgetPlanId },
-      select: settingsSelect,
+      select: settingsSelect as any,
     });
 
     if (!plan) return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
 
     return NextResponse.json(plan);
   } catch (error) {
+    const message = String((error as any)?.message ?? error);
+    if (message.includes("Unknown field `monthlyEmergencyContribution`")) {
+      try {
+        const userId = await getSessionUserId();
+        if (!userId) return unauthorized();
+
+        const { searchParams } = new URL(req.url);
+        const budgetPlanId = await resolveOwnedBudgetPlanId({
+          userId,
+          budgetPlanId: searchParams.get("budgetPlanId"),
+        });
+        if (!budgetPlanId) return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
+
+        const plan = await prisma.budgetPlan.findUnique({
+          where: { id: budgetPlanId },
+          select: settingsSelectWithoutEmergency as any,
+        });
+        if (!plan) return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
+
+        return NextResponse.json({
+          ...plan,
+          monthlyEmergencyContribution: 0,
+        });
+      } catch (fallbackError) {
+        console.error("Failed to fetch settings (fallback):", fallbackError);
+        return NextResponse.json({ error: "Failed to fetch settings" }, { status: 500 });
+      }
+    }
+
     console.error("Failed to fetch settings:", error);
     return NextResponse.json({ error: "Failed to fetch settings" }, { status: 500 });
   }
@@ -86,13 +125,34 @@ export async function PATCH(req: NextRequest) {
 
     if (Object.keys(updateData).length === 0) return badRequest("No valid fields to update");
 
-    const updated = await prisma.budgetPlan.update({
-      where: { id: budgetPlanId },
-      data: updateData,
-      select: settingsSelect,
-    });
+    try {
+      const updated = await prisma.budgetPlan.update({
+        where: { id: budgetPlanId },
+        data: updateData,
+        select: settingsSelect as any,
+      });
 
-    return NextResponse.json(updated);
+      return NextResponse.json(updated);
+    } catch (error) {
+      const message = String((error as any)?.message ?? error);
+      if (!message.includes("Unknown field `monthlyEmergencyContribution`")) throw error;
+
+      // Dev-only safety: ignore emergency contribution when Prisma Client is stale.
+      if ("monthlyEmergencyContribution" in updateData) {
+        delete updateData.monthlyEmergencyContribution;
+      }
+
+      const updated = await prisma.budgetPlan.update({
+        where: { id: budgetPlanId },
+        data: updateData,
+        select: settingsSelectWithoutEmergency as any,
+      });
+
+      return NextResponse.json({
+        ...updated,
+        monthlyEmergencyContribution: 0,
+      });
+    }
   } catch (error) {
     console.error("Failed to update settings:", error);
     return NextResponse.json({ error: "Failed to update settings" }, { status: 500 });

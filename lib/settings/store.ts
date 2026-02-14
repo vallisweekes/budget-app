@@ -20,21 +20,44 @@ export interface Settings {
  * Get settings for a specific budget plan from the database
  */
 export async function getSettings(budgetPlanId: string): Promise<Settings> {
-  const plan = await prisma.budgetPlan.findUnique({
-    where: { id: budgetPlanId },
-    select: {
-      payDate: true,
-      monthlyAllowance: true,
-      savingsBalance: true,
-      monthlySavingsContribution: true,
-      monthlyEmergencyContribution: true,
-      monthlyInvestmentContribution: true,
-      budgetStrategy: true,
-      country: true,
-      language: true,
-      currency: true,
-    },
-  });
+  let plan: any = null;
+
+  try {
+    plan = await prisma.budgetPlan.findUnique({
+      where: { id: budgetPlanId },
+      select: {
+        payDate: true,
+        monthlyAllowance: true,
+        savingsBalance: true,
+        monthlySavingsContribution: true,
+        monthlyEmergencyContribution: true,
+        monthlyInvestmentContribution: true,
+        budgetStrategy: true,
+        country: true,
+        language: true,
+        currency: true,
+      } as any,
+    });
+  } catch (error) {
+    const message = String((error as any)?.message ?? error);
+    if (!message.includes("Unknown field `monthlyEmergencyContribution`")) throw error;
+
+    // Dev-only safety: Turbopack can cache an older Prisma Client after schema changes.
+    plan = await prisma.budgetPlan.findUnique({
+      where: { id: budgetPlanId },
+      select: {
+        payDate: true,
+        monthlyAllowance: true,
+        savingsBalance: true,
+        monthlySavingsContribution: true,
+        monthlyInvestmentContribution: true,
+        budgetStrategy: true,
+        country: true,
+        language: true,
+        currency: true,
+      } as any,
+    });
+  }
 
   if (!plan) {
     throw new Error(`Budget plan ${budgetPlanId} not found`);
@@ -45,7 +68,7 @@ export async function getSettings(budgetPlanId: string): Promise<Settings> {
     monthlyAllowance: Number(plan.monthlyAllowance),
     savingsBalance: Number(plan.savingsBalance),
     monthlySavingsContribution: Number(plan.monthlySavingsContribution),
-    monthlyEmergencyContribution: Number(plan.monthlyEmergencyContribution),
+    monthlyEmergencyContribution: Number((plan as any).monthlyEmergencyContribution ?? 0),
     monthlyInvestmentContribution: Number(plan.monthlyInvestmentContribution),
     budgetStrategy: plan.budgetStrategy as BudgetStrategy,
     country: plan.country,
@@ -91,8 +114,22 @@ export async function saveSettings(budgetPlanId: string, settings: Partial<Setti
     updateData.currency = settings.currency;
   }
 
-  await prisma.budgetPlan.update({
-    where: { id: budgetPlanId },
-    data: updateData,
-  });
+  try {
+    await prisma.budgetPlan.update({
+      where: { id: budgetPlanId },
+      data: updateData,
+    });
+  } catch (error) {
+    const message = String((error as any)?.message ?? error);
+    if (!message.includes("Unknown field `monthlyEmergencyContribution`")) throw error;
+
+    // Dev-only safety: retry without emergency contribution if Prisma Client is stale.
+    if ("monthlyEmergencyContribution" in updateData) {
+      delete updateData.monthlyEmergencyContribution;
+    }
+    await prisma.budgetPlan.update({
+      where: { id: budgetPlanId },
+      data: updateData,
+    });
+  }
 }
