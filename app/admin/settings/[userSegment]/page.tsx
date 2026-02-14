@@ -20,18 +20,15 @@ export default async function AdminUserSettingsPage({
 
 	const { userSegment } = await params;
 	
-	// Parse user segment (format: user=username)
 	if (!userSegment.startsWith("user=")) {
 		redirect("/");
 	}
 	
 	const requestedUsername = decodeURIComponent(userSegment.slice("user=".length));
 	
-	// For now, only allow access to own user settings
 	if (requestedUsername !== sessionUsername) {
 		redirect(`/admin/settings/user=${encodeURIComponent(sessionUsername)}`);
 	}
 
-	// Default to categories page for now
 	return <AdminCategoriesPage />;
 }

@@ -22,7 +22,6 @@ export async function saveSettingsAction(formData: FormData): Promise<void> {
 		throw new Error("Missing budgetPlanId");
 	}
 
-	// Verify user owns this budget plan
 	const userId = await resolveUserId({ userId: sessionUser.id, username: sessionUsername });
 	const plan = await prisma.budgetPlan.findUnique({
 		where: { id: budgetPlanId },
@@ -118,7 +117,6 @@ export async function updateUserDetailsAction(formData: FormData): Promise<void>
 		settingsUpdates.country = country;
 	}
 
-	// Update user details
 	if (Object.keys(userUpdates).length > 0) {
 		await prisma.user.update({
 			where: { id: sessionUser.id },
@@ -126,7 +124,6 @@ export async function updateUserDetailsAction(formData: FormData): Promise<void>
 		});
 	}
 
-	// Update country in budget plan settings
 	if (Object.keys(settingsUpdates).length > 0) {
 		await saveSettings(budgetPlanId, settingsUpdates);
 	}

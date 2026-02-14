@@ -223,7 +223,7 @@ export default function DebtCard({ debt, budgetPlanId, typeLabels, payments }: D
 					</div>
 
 					{/* Make Payment Form */}
-					<form action={makePaymentFromForm} className="flex items-end gap-2">
+					<form action={makePaymentFromForm} className="flex flex-col sm:flex-row sm:items-end gap-2">
 						<input type="hidden" name="budgetPlanId" value={budgetPlanId} />
 						<input type="hidden" name="debtId" value={debt.id} />
 						<input type="hidden" name="month" value={paymentMonth} />
@@ -233,11 +233,23 @@ export default function DebtCard({ debt, budgetPlanId, typeLabels, payments }: D
 								type="number"
 								name="amount"
 								step="0.01"
-								placeholder="Payment amount"
+								placeholder={debt.monthlyMinimum ? String(debt.monthlyMinimum) : "Payment amount"}
+								defaultValue={debt.monthlyMinimum ?? undefined}
 								required
 								aria-label="Payment amount"
 								className="h-10 w-full px-4 py-2 bg-slate-900/40 border border-white/10 text-white placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
 							/>
+						</label>
+						<label className="sm:w-44">
+							<span className="block text-xs font-medium text-slate-300 mb-1">Source</span>
+							<select
+								name="source"
+								defaultValue="income"
+								className="h-10 w-full px-3 bg-slate-900/40 border border-white/10 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+							>
+								<option value="income">Income (tracked)</option>
+								<option value="extra_funds">Extra funds</option>
+							</select>
 						</label>
 						<button
 							type="submit"
@@ -252,11 +264,16 @@ export default function DebtCard({ debt, budgetPlanId, typeLabels, payments }: D
 							<div className="text-xs text-slate-400 mb-2">Recent Payments</div>
 							<div className="space-y-1">
 								{payments.slice(-3).reverse().map((payment) => (
-									<div key={payment.id} className="flex justify-between text-sm">
+									<div key={payment.id} className="flex items-center justify-between gap-3 text-sm">
 										<span className="text-slate-400">
 											{new Date(payment.date).toLocaleDateString()}
+											{payment.source ? (
+												<span className="ml-2 text-xs text-slate-500">
+													({payment.source === "extra_funds" ? "extra funds" : "income"})
+												</span>
+											) : null}
 										</span>
-										<span className="font-semibold text-emerald-400">
+										<span className="font-semibold text-emerald-400 whitespace-nowrap">
 											-<Currency value={payment.amount} />
 										</span>
 									</div>

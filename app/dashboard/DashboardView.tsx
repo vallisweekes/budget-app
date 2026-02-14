@@ -27,7 +27,7 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 		const selectedMonthKey = monthNumberToKey(selectedMonthNum);
 		
 		// Fetch all data from database for this plan
-		const [categories, expenses, income, goals, allocation] = await Promise.all([
+		const [categories, expenses, income, goals, allocation, debtPaymentsAgg] = await Promise.all([
 			prisma.category.findMany({
 				where: { budgetPlanId: planId },
 			}),
@@ -49,6 +49,15 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 				where: { budgetPlanId: planId },
 			}),
 			getMonthlyAllocationSnapshot(planId, selectedMonthKey, { year: selectedYear }),
+			prisma.debtPayment.aggregate({
+				where: {
+					debt: { budgetPlanId: planId },
+					year: selectedYear,
+					month: selectedMonthNum,
+					source: "income",
+				},
+				_sum: { amount: true },
+			}),
 		]);
 		
 		// Serialize goals into plain objects (convert Decimal and nulls)
@@ -109,6 +118,7 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 			.filter((c) => c.name)
 			.sort((a, b) => b.total - a.total);
 
+		const debtPaymentsFromIncome = Number(debtPaymentsAgg._sum.amount?.toString?.() ?? debtPaymentsAgg._sum.amount ?? 0);
 		const totalExpenses = regularExpenses.reduce((a, b) => a + (b.amount || 0), 0);
 		const totalIncome = monthIncome.reduce((a, b) => a + (b.amount || 0), 0);
 		const remaining = totalIncome - totalExpenses;
@@ -118,7 +128,7 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 			(allocation.monthlySavingsContribution ?? 0) +
 			(allocation.monthlyEmergencyContribution ?? 0) +
 			(allocation.monthlyInvestmentContribution ?? 0);
-		const incomeAfterAllocations = totalIncome - totalAllocations;
+		const incomeAfterAllocations = totalIncome - totalAllocations - debtPaymentsFromIncome;
 
 		return {
 			year: selectedYear,

@@ -27,4 +27,5 @@ export interface DebtPayment {
 	amount: number;
 	date: string;
 	month: string;
+	source?: "income" | "extra_funds";
 }

@@ -186,6 +186,7 @@ export default function ViewTabs({
     let totalInc = 0;
     let totalExp = 0;
     let allocationsTotal = 0;
+    let leftToBudgetTotal = 0;
     let combinedGoals: GoalLike[] = [];
     const categoryTotals: Record<string, { total: number; color?: string }> = {};
     const flattenedExpenses: ExpenseItem[] = [];
@@ -197,6 +198,10 @@ export default function ViewTabs({
       totalInc += planData.totalIncome;
       totalExp += planData.totalExpenses;
       allocationsTotal += planData.totalAllocations ?? 0;
+      leftToBudgetTotal +=
+        typeof planData.incomeAfterAllocations === "number"
+          ? planData.incomeAfterAllocations
+          : planData.totalIncome - (planData.totalAllocations ?? 0);
       combinedGoals = combinedGoals.concat(planData.goals);
 
       planData.categoryData.forEach((cat) => {
@@ -212,10 +217,10 @@ export default function ViewTabs({
     return {
       totalIncome: totalInc,
       totalAllocations: allocationsTotal,
-      incomeAfterAllocations: totalInc - allocationsTotal,
+      incomeAfterAllocations: leftToBudgetTotal,
       totalExpenses: totalExp,
       remaining: totalInc - totalExp,
-      amountLeftToBudget: totalInc - allocationsTotal,
+      amountLeftToBudget: leftToBudgetTotal,
       categoryTotals: Object.entries(categoryTotals).map(([name, v]) => ({
         name,
         total: v.total,

@@ -61,6 +61,8 @@ export async function POST(
       return badRequest("amount must be a number > 0");
     }
 
+		const paymentSource = body.source === "extra_funds" ? "extra_funds" : "income";
+
     const debt = await prisma.debt.findUnique({
       where: { id },
       include: { budgetPlan: { select: { userId: true } } },
@@ -69,12 +71,19 @@ export async function POST(
       return NextResponse.json({ error: "Debt not found" }, { status: 404 });
     }
 
+		const paidAt = body.paidAt ? new Date(body.paidAt) : new Date();
+		const year = paidAt.getUTCFullYear();
+		const month = paidAt.getUTCMonth() + 1;
+
     // Create payment
     const payment = await prisma.debtPayment.create({
       data: {
         debtId: id,
         amount: String(paymentAmount),
-        paidAt: body.paidAt ? new Date(body.paidAt) : new Date(),
+        paidAt,
+			year,
+			month,
+			source: paymentSource,
         notes: body.notes || null,
       },
     });

@@ -35,6 +35,9 @@ export interface BffDebtPayment {
   debtId: string;
   amount: string;
   paidAt: string;
+  year?: number;
+  month?: number;
+  source?: "income" | "extra_funds";
   notes?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -134,6 +137,7 @@ export interface CreateDebtBody {
 export interface CreateDebtPaymentBody {
   amount: number;
   paidAt?: string;
+  source?: "income" | "extra_funds";
   notes?: string;
 }
 

@@ -266,12 +266,22 @@ model DebtPayment {
   debt        Debt     @relation(fields: [debtId], references: [id], onDelete: Cascade)
   amount      Decimal  @db.Decimal(12, 2)
   paidAt      DateTime
+  year        Int
+  month       Int
+  source      DebtPaymentSource @default(income)
   notes       String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   @@index([debtId])
   @@index([paidAt])
+  @@index([debtId, year, month])
+  @@index([year, month, source])
+}
+
+enum DebtPaymentSource {
+  income
+  extra_funds
 }
 
 enum GoalType {

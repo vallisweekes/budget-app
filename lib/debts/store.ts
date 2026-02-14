@@ -1,5 +1,7 @@
 import type { DebtItem, DebtPayment } from "@/types";
 import { prisma } from "@/lib/prisma";
+import { monthKeyToNumber } from "@/lib/helpers/monthKey";
+import type { MonthKey } from "@/types";
 
 export type { DebtItem, DebtPayment };
 
@@ -13,6 +15,31 @@ function paymentMonthKeyFromDate(date: Date): string {
 	const y = date.getUTCFullYear();
 	const m = String(date.getUTCMonth() + 1).padStart(2, "0");
 	return `${y}-${m}`;
+}
+
+function parseYearMonthKey(value: string | undefined): { year: number; month: number } | null {
+	const raw = String(value ?? "").trim();
+	const match = raw.match(/^([0-9]{4})-([0-9]{2})$/);
+	if (!match) return null;
+	const year = Number(match[1]);
+	const month = Number(match[2]);
+	if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) return null;
+	return { year, month };
+}
+
+async function resolveBudgetYear(budgetPlanId: string): Promise<number> {
+	const latestIncome = await prisma.income.findFirst({
+		where: { budgetPlanId },
+		orderBy: [{ year: "desc" }, { month: "desc" }],
+		select: { year: true },
+	});
+	if (latestIncome?.year) return latestIncome.year;
+	const latestExpense = await prisma.expense.findFirst({
+		where: { budgetPlanId },
+		orderBy: [{ year: "desc" }, { month: "desc" }],
+		select: { year: true },
+	});
+	return latestExpense?.year ?? new Date().getFullYear();
 }
 
 function serializeDebt(row: {
@@ -55,13 +82,20 @@ function serializeDebt(row: {
 	};
 }
 
-function serializePayment(row: { id: string; debtId: string; amount: unknown; paidAt: Date }): DebtPayment {
+function serializePayment(row: {
+	id: string;
+	debtId: string;
+	amount: unknown;
+	paidAt: Date;
+	source?: unknown;
+}): DebtPayment {
 	return {
 		id: row.id,
 		debtId: row.debtId,
 		amount: decimalToNumber(row.amount),
 		date: row.paidAt.toISOString(),
 		month: paymentMonthKeyFromDate(row.paidAt),
+		source: row.source === "extra_funds" ? "extra_funds" : row.source === "income" ? "income" : undefined,
 	};
 }
 
@@ -377,7 +411,8 @@ export async function addPayment(
 	budgetPlanId: string,
 	debtId: string,
 	amount: number,
-	month: string
+	month: string,
+	source: "income" | "extra_funds" = "income"
 ): Promise<DebtPayment | null> {
 	const debt = await prisma.debt.findFirst({
 		where: { id: debtId, budgetPlanId },
@@ -386,14 +421,20 @@ export async function addPayment(
 	if (!debt) return null;
 
 	const paidAt = new Date();
+	const parsed = parseYearMonthKey(month);
+	const year = parsed?.year ?? paidAt.getUTCFullYear();
+	const monthNum = parsed?.month ?? paidAt.getUTCMonth() + 1;
 	const payment = await prisma.debtPayment.create({
 		data: {
 			debtId: debt.id,
 			amount,
 			paidAt,
+			year,
+			month: monthNum,
+			source: source === "extra_funds" ? "extra_funds" : "income",
 			notes: month ? `month:${month}` : null,
 		},
-		select: { id: true, debtId: true, amount: true, paidAt: true },
+		select: { id: true, debtId: true, amount: true, paidAt: true, source: true },
 	});
 
 	const currentBalance = decimalToNumber(debt.currentBalance);
@@ -418,22 +459,27 @@ export async function getPaymentsByDebt(budgetPlanId: string, debtId: string): P
 	const rows = await prisma.debtPayment.findMany({
 		where: { debtId: debt.id },
 		orderBy: [{ paidAt: "asc" }],
-		select: { id: true, debtId: true, amount: true, paidAt: true },
+		select: { id: true, debtId: true, amount: true, paidAt: true, source: true },
 	});
 	return rows.map(serializePayment);
 }
 
 export async function getPaymentsByMonth(budgetPlanId: string, month: string): Promise<DebtPayment[]> {
-	// Legacy MonthKey strings aren't stored on the DB model; filter by derived YYYY-MM.
-	const debts = await prisma.debt.findMany({ where: { budgetPlanId }, select: { id: true } });
-	if (debts.length === 0) return [];
-	const debtIds = debts.map((d) => d.id);
+	// MonthKey strings are used throughout the budget summary; map them to (year, month).
+	const monthKey = month as MonthKey;
+	const year = await resolveBudgetYear(budgetPlanId);
+	const monthNum = monthKeyToNumber(monthKey);
 	const rows = await prisma.debtPayment.findMany({
-		where: { debtId: { in: debtIds } },
+		where: {
+			debt: { budgetPlanId },
+			year,
+			month: monthNum,
+			source: "income",
+		},
 		orderBy: [{ paidAt: "asc" }],
-		select: { id: true, debtId: true, amount: true, paidAt: true },
+		select: { id: true, debtId: true, amount: true, paidAt: true, source: true },
 	});
-	return rows.map(serializePayment).filter((p) => p.month === month);
+	return rows.map(serializePayment);
 }
 
 export async function getTotalDebtBalance(budgetPlanId: string): Promise<number> {

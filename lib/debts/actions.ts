@@ -97,7 +97,7 @@ export async function makePaymentAction(budgetPlanId: string, debtId: string, am
 	const { userId } = await requireAuthenticatedUser();
 	await requireOwnedBudgetPlan(budgetPlanId, userId);
 
-	await addPayment(budgetPlanId, debtId, amount, month);
+	await addPayment(budgetPlanId, debtId, amount, month, "income");
 
 	const debt = await getDebtById(budgetPlanId, debtId);
 	if (debt?.sourceType === "expense" && debt.sourceExpenseId && debt.sourceMonthKey) {
@@ -131,12 +131,14 @@ export async function makePaymentFromForm(formData: FormData) {
 	const debtId = formData.get("debtId") as string;
 	const amount = parseFloat(formData.get("amount") as string);
 	const month = formData.get("month") as string;
+	const rawSource = String(formData.get("source") ?? "income").trim();
+	const source = rawSource === "extra_funds" ? "extra_funds" : "income";
 
 	if (!debtId || isNaN(amount) || amount <= 0) {
 		throw new Error("Invalid payment data");
 	}
 
-	await addPayment(budgetPlanId, debtId, amount, month);
+	await addPayment(budgetPlanId, debtId, amount, month, source);
 
 	const debt = await getDebtById(budgetPlanId, debtId);
 	if (debt?.sourceType === "expense" && debt.sourceExpenseId && debt.sourceMonthKey) {
