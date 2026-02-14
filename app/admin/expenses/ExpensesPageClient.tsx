@@ -13,6 +13,7 @@ interface BudgetPlan {
   id: string;
   name: string;
   kind: string;
+  payDate: number;
 }
 
 interface PlanData {
@@ -236,6 +237,7 @@ export default function ExpensesPageClient({
               loading={isNavigating}
               allPlans={allPlansData.map(d => ({ id: d.plan.id, name: d.plan.name, kind: d.plan.kind }))}
               allCategoriesByPlan={allCategoriesByPlan}
+              payDate={planData.plan.payDate}
             />
           </div>
         ))}

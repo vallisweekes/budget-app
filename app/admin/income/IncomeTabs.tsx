@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 export type IncomeTabKey = "income" | "allocations";
@@ -15,14 +15,10 @@ export default function IncomeTabs(props: {
 	const searchParams = useSearchParams();
 
 	const urlTab = (searchParams.get("tab") ?? "") as IncomeTabKey;
-	const initial = props.initialTab ?? (urlTab === "allocations" || urlTab === "income" ? urlTab : "income");
-	const [activeTab, setActiveTab] = useState<IncomeTabKey>(initial);
-
-	useEffect(() => {
-		if (urlTab === "allocations" || urlTab === "income") {
-			setActiveTab(urlTab);
-		}
-	}, [urlTab]);
+	const activeTab = useMemo<IncomeTabKey>(() => {
+		if (urlTab === "allocations" || urlTab === "income") return urlTab;
+		return props.initialTab ?? "income";
+	}, [props.initialTab, urlTab]);
 
 	const tabs = useMemo(
 		() =>
@@ -42,7 +38,6 @@ export default function IncomeTabs(props: {
 	);
 
 	const setTab = (tab: IncomeTabKey) => {
-		setActiveTab(tab);
 		const params = new URLSearchParams(searchParams.toString());
 		params.set("tab", tab);
 		router.replace(`${pathname}?${params.toString()}`, { scroll: false });

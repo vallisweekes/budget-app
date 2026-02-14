@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { useState, useTransition } from "react";
+import { ChevronDown, ChevronRight, Calendar, Check, X } from "lucide-react";
 import type { MonthKey } from "@/types";
 import CategoryIcon from "./CategoryIcon";
 import PaymentStatusButton from "./PaymentStatusButton";
 import { formatCurrency } from "@/lib/helpers/money";
 import { getSimpleColorClasses } from "@/lib/helpers/colors";
+import { updateExpense } from "@/lib/expenses/store";
 
 interface Expense {
 	id: string;
@@ -14,6 +15,7 @@ interface Expense {
 	amount: number;
 	paid: boolean;
 	paidAmount?: number;
+	dueDate?: number;
 }
 
 interface ExpandableCategoryProps {
@@ -23,6 +25,8 @@ interface ExpandableCategoryProps {
 	expenses: Expense[];
 	total: number;
 	month: MonthKey;
+	defaultDueDate: number;
+	budgetPlanId: string;
 	updatePaymentStatus: (month: MonthKey, id: string, status: "paid" | "unpaid" | "partial", partialAmount?: number) => Promise<void>;
 }
 
@@ -37,10 +41,43 @@ export default function ExpandableCategory({
 	expenses,
 	total,
 	month,
+	defaultDueDate,
+	budgetPlanId,
 	updatePaymentStatus,
 }: ExpandableCategoryProps) {
 	const [isExpanded, setIsExpanded] = useState(false);
+	const [editingDueDateId, setEditingDueDateId] = useState<string | null>(null);
+	const [tempDueDate, setTempDueDate] = useState("");
+	const [isPending, startTransition] = useTransition();
 	const colors = getSimpleColorClasses(categoryColor, "blue");
+
+	const handleEditDueDate = (expense: Expense) => {
+		setEditingDueDateId(expense.id);
+		setTempDueDate(expense.dueDate ? String(expense.dueDate) : "");
+	};
+
+	const handleSaveDueDate = async (expenseId: string, budgetPlanId: string) => {
+		const dueDateValue = tempDueDate.trim() === "" ? null : parseInt(tempDueDate);
+		
+		// Validate if it's a number and within range
+		if (dueDateValue !== null && (isNaN(dueDateValue) || dueDateValue < 1 || dueDateValue > 31)) {
+			alert("Please enter a valid day (1-31) or leave empty to use default");
+			return;
+		}
+
+		startTransition(async () => {
+			await updateExpense(budgetPlanId, month, expenseId, {
+				dueDate: dueDateValue ?? undefined,
+			});
+			setEditingDueDateId(null);
+			window.location.reload(); // Refresh to show updated data
+		});
+	};
+
+	const handleCancelDueDate = () => {
+		setEditingDueDateId(null);
+		setTempDueDate("");
+	};
 
 	return (
 		<div className="bg-slate-800/40 backdrop-blur-xl rounded-xl shadow-xl border border-white/10 overflow-hidden">
@@ -69,23 +106,72 @@ export default function ExpandableCategory({
 			{isExpanded && (
 				<div className="border-t border-white/10 bg-slate-900/20">
 					<div className="divide-y divide-white/5">
-						{expenses.map((e) => (
-							<div key={e.id} className="flex items-center justify-between p-3 px-4 hover:bg-white/5 transition-colors">
-								<div className="flex items-center gap-3">
-									<div className="text-sm font-medium text-white">{e.name}</div>
-									<div className="text-xs text-slate-400"><Currency value={e.amount} /></div>
+						{expenses.map((e) => {
+							const displayDueDate = e.dueDate ?? defaultDueDate;
+							const isEditing = editingDueDateId === e.id;
+							
+							return (
+								<div key={e.id} className="flex items-center justify-between gap-3 p-3 px-4 hover:bg-white/5 transition-colors">
+									<div className="flex items-center gap-3 flex-1 min-w-0">
+										<div className="text-sm font-medium text-white truncate">{e.name}</div>
+										<div className="text-xs text-slate-400 whitespace-nowrap"><Currency value={e.amount} /></div>
+										
+										{/* Due Date Display/Edit */}
+										<div className="flex items-center gap-1.5">
+											{isEditing ? (
+												<>
+													<input
+														type="number"
+														min="1"
+														max="31"
+														value={tempDueDate}
+														onChange={(e) => setTempDueDate(e.target.value)}
+														placeholder={String(defaultDueDate)}
+														className="w-14 px-2 py-0.5 bg-slate-900/60 border border-white/20 text-white text-xs rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+														autoFocus
+														disabled={isPending}
+													/>
+													<button
+														onClick={() => handleSaveDueDate(e.id, "budgetPlanId")}
+														disabled={isPending}
+														className="p-0.5 hover:bg-green-500/20 rounded text-green-400 disabled:opacity-50"
+													>
+														<Check size={14} />
+													</button>
+													<button
+														onClick={handleCancelDueDate}
+														disabled={isPending}
+														className="p-0.5 hover:bg-red-500/20 rounded text-red-400 disabled:opacity-50"
+													>
+														<X size={14} />
+													</button>
+												</>
+											) : (
+												<button
+													onClick={() => handleEditDueDate(e)}
+													className="flex items-center gap-1 px-2 py-0.5 bg-slate-800/60 hover:bg-slate-700/60 border border-white/10 rounded text-xs text-slate-300 transition-colors group"
+													title={e.dueDate ? "Custom due date" : "Using default pay date"}
+												>
+													<Calendar size={12} className="text-slate-400 group-hover:text-blue-400" />
+													<span className={e.dueDate ? "text-blue-400 font-medium" : ""}>
+														Day {displayDueDate}
+													</span>
+												</button>
+											)}
+										</div>
+									</div>
+									<PaymentStatusButton
+										expenseName={e.name}
+										amount={e.amount}
+										paid={e.paid}
+										paidAmount={e.paidAmount || 0}
+										month={month}
+										id={e.id}
+										updatePaymentStatus={updatePaymentStatus}
+									/>
 								</div>
-								<PaymentStatusButton
-									expenseName={e.name}
-									amount={e.amount}
-									paid={e.paid}
-									paidAmount={e.paidAmount || 0}
-									month={month}
-									id={e.id}
-									updatePaymentStatus={updatePaymentStatus}
-								/>
-							</div>
-						))}
+							);
+						})}
 					</div>
 				</div>
 			)}

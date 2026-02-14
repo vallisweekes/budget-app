@@ -41,6 +41,8 @@ export async function createDebt(formData: FormData) {
 	const initialBalance = parseFloat(formData.get("initialBalance") as string);
 	const monthlyMinimum = formData.get("monthlyMinimum") ? parseFloat(formData.get("monthlyMinimum") as string) : undefined;
 	const interestRate = formData.get("interestRate") ? parseFloat(formData.get("interestRate") as string) : undefined;
+	const installmentMonthsRaw = formData.get("installmentMonths") as string | null;
+	const installmentMonths = installmentMonthsRaw ? parseInt(installmentMonthsRaw, 10) : undefined;
 
 	if (!name || !type || isNaN(initialBalance)) {
 		throw new Error("Invalid input");
@@ -52,6 +54,7 @@ export async function createDebt(formData: FormData) {
 		initialBalance,
 		monthlyMinimum,
 		interestRate,
+		installmentMonths,
 	});
 
 	revalidatePath("/admin/debts");
@@ -68,6 +71,8 @@ export async function updateDebtAction(id: string, formData: FormData) {
 	const amount = formData.get("amount") ? parseFloat(formData.get("amount") as string) : undefined;
 	const monthlyMinimum = formData.get("monthlyMinimum") ? parseFloat(formData.get("monthlyMinimum") as string) : undefined;
 	const interestRate = formData.get("interestRate") ? parseFloat(formData.get("interestRate") as string) : undefined;
+	const installmentMonthsRaw = formData.get("installmentMonths") as string | null;
+	const installmentMonths = installmentMonthsRaw ? parseInt(installmentMonthsRaw, 10) : undefined;
 
 	if (!name || isNaN(currentBalance)) {
 		throw new Error("Invalid input");
@@ -80,6 +85,7 @@ export async function updateDebtAction(id: string, formData: FormData) {
 		amount,
 		monthlyMinimum,
 		interestRate,
+		installmentMonths,
 	});
 
 	revalidatePath("/admin/debts");

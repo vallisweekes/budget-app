@@ -39,6 +39,7 @@ export async function getAllExpenses(budgetPlanId: string, year: number = curren
 			paidAmount: true,
 			month: true,
 			categoryId: true,
+			dueDate: true,
 		},
 	});
 
@@ -51,6 +52,7 @@ export async function getAllExpenses(budgetPlanId: string, year: number = curren
 			categoryId: row.categoryId ?? undefined,
 			paid: row.paid,
 			paidAmount: decimalToNumber(row.paidAmount),
+			dueDate: row.dueDate ?? undefined,
 		});
 	}
 
@@ -73,6 +75,7 @@ export async function addExpense(
       paid: !!item.paid,
       paidAmount: item.paidAmount ?? (item.paid ? item.amount : 0),
       categoryId: item.categoryId ?? null,
+      dueDate: item.dueDate ?? null,
     },
     select: {
       id: true,
@@ -81,6 +84,7 @@ export async function addExpense(
       paid: true,
       paidAmount: true,
       categoryId: true,
+      dueDate: true,
     },
   });
 
@@ -91,6 +95,7 @@ export async function addExpense(
     categoryId: created.categoryId ?? undefined,
     paid: created.paid,
     paidAmount: decimalToNumber(created.paidAmount),
+    dueDate: created.dueDate ?? undefined,
   };
 }
 
@@ -124,6 +129,7 @@ export async function addOrUpdateExpenseAcrossMonths(
 					categoryId: item.categoryId ?? null,
 					paid: !!item.paid,
 					paidAmount: item.paidAmount ?? (item.paid ? item.amount : 0),
+					dueDate: item.dueDate ?? null,
 				},
 			});
 			continue;
@@ -139,6 +145,7 @@ export async function addOrUpdateExpenseAcrossMonths(
 				categoryId: item.categoryId ?? null,
 				paid: !!item.paid,
 				paidAmount: item.paidAmount ?? (item.paid ? item.amount : 0),
+				dueDate: item.dueDate ?? null,
 			},
 		});
 	}
@@ -148,7 +155,7 @@ export async function updateExpense(
   budgetPlanId: string,
   month: MonthKey,
   id: string,
-  updates: Partial<Pick<ExpenseItem, "name" | "amount">> & { categoryId?: string | null },
+  updates: Partial<Pick<ExpenseItem, "name" | "amount" | "dueDate">> & { categoryId?: string | null },
 	year: number = currentYear()
 ): Promise<ExpenseItem | null> {
   const existing = await prisma.expense.findFirst({
@@ -160,6 +167,7 @@ export async function updateExpense(
       paid: true,
       paidAmount: true,
       categoryId: true,
+      dueDate: true,
     },
   });
   if (!existing) return null;
@@ -190,6 +198,7 @@ export async function updateExpense(
       categoryId: nextCategoryId === undefined ? undefined : nextCategoryId,
       paidAmount: nextPaidAmount,
       paid: nextPaid,
+      dueDate: updates.dueDate === undefined ? undefined : (updates.dueDate ?? null),
     },
     select: {
       id: true,
@@ -198,6 +207,7 @@ export async function updateExpense(
       paid: true,
       paidAmount: true,
       categoryId: true,
+      dueDate: true,
     },
   });
 
@@ -208,6 +218,7 @@ export async function updateExpense(
     categoryId: updated.categoryId ?? undefined,
     paid: updated.paid,
     paidAmount: decimalToNumber(updated.paidAmount),
+    dueDate: updated.dueDate ?? undefined,
   };
 }
 

@@ -9,6 +9,7 @@ export interface ExpenseItem {
 	paidAmount?: number;
 	isSaving?: boolean;
 	isInvestment?: boolean;
+	dueDate?: number; // Day of month (1-31), defaults to payDate from settings
 }
 
 export type ExpensesByMonth = Record<MonthKey, ExpenseItem[]>;

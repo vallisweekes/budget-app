@@ -20,6 +20,7 @@ interface Expense {
   paid?: boolean;
   paidAmount?: number;
   categoryId?: string;
+  dueDate?: number;
 }
 
 interface Category {
@@ -44,6 +45,7 @@ interface ExpenseManagerProps {
   loading?: boolean;
   allPlans?: BudgetPlanOption[];
   allCategoriesByPlan?: Record<string, Category[]>;
+  payDate: number;
 }
 
 function ExpenseCardsSkeleton({ count = 4 }: { count?: number }) {
@@ -97,7 +99,7 @@ function SaveExpenseChangesButton() {
   );
 }
 
-export default function ExpenseManager({ budgetPlanId, month, year, expenses, categories, loading, allPlans, allCategoriesByPlan }: ExpenseManagerProps) {
+export default function ExpenseManager({ budgetPlanId, month, year, expenses, categories, loading, allPlans, allCategoriesByPlan, payDate }: ExpenseManagerProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [isAdding, startAddTransition] = useTransition();
@@ -115,6 +117,7 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
   const [editName, setEditName] = useState("");
   const [editAmount, setEditAmount] = useState<string>("");
   const [editCategoryId, setEditCategoryId] = useState<string>("");
+  const [editDueDate, setEditDueDate] = useState<string>("");
   const [addMonth, setAddMonth] = useState<MonthKey>(month);
   const [addYear, setAddYear] = useState<number>(year);
   const [addBudgetPlanId, setAddBudgetPlanId] = useState<string>(budgetPlanId);
@@ -223,6 +226,7 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
     setEditName(expense.name);
     setEditAmount(String(expense.amount));
     setEditCategoryId(expense.categoryId ?? "");
+    setEditDueDate(expense.dueDate ? String(expense.dueDate) : "");
   };
 
   const confirmRemove = () => {
@@ -355,6 +359,20 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
 						{ value: "", label: "Miscellaneous" },
                       ]}
                       buttonClassName="focus:ring-purple-500/50"
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="text-sm font-medium text-slate-300 mb-2 block">Due Date (Day of Month)</span>
+                    <input
+                      name="dueDate"
+                      type="number"
+                      min="1"
+                      max="31"
+                      value={editDueDate}
+                      onChange={(e) => setEditDueDate(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border border-white/10 bg-slate-900/40 text-white placeholder-slate-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/50 focus:outline-none transition-all"
+                      placeholder="Optional (defaults to pay date)"
                     />
                   </label>
                 </div>
@@ -724,7 +742,7 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
                     <div className="text-left">
                       <h3 className="font-bold text-xl text-white">{category.name}</h3>
                       <p className="text-sm text-slate-400 mt-0.5">
-                        {catExpenses.length} {catExpenses.length === 1 ? "expense" : "expenses"}
+                        {catExpenses.length} {catExpenses.length === 1 ? "expense" : "expenses"} · Due day {payDate}
                       </p>
                     </div>
                   </div>
@@ -754,7 +772,16 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
                         return (
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex-1 min-w-0">
-                          <div className="font-semibold text-white text-lg mb-1">{expense.name}</div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <div className="font-semibold text-white text-lg">{expense.name}</div>
+                            <span className={`text-xs px-2 py-0.5 rounded-lg font-medium ${
+                              expense.dueDate 
+                                ? 'bg-blue-500/20 text-blue-300 border border-blue-400/30' 
+                                : 'bg-slate-700/50 text-slate-400 border border-slate-600/30'
+                            }`}>
+                              Due: Day {expense.dueDate ?? payDate}
+                            </span>
+                          </div>
                           <div className="flex items-center gap-3 text-sm">
                             <span className="text-slate-300 font-medium">
                               <Currency value={expense.amount} />

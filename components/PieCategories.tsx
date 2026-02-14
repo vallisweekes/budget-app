@@ -1,13 +1,22 @@
 export default function PieCategories({ items }: { items: Array<{ name: string; amount: number }> }) {
   const total = items.reduce((a, b) => a + b.amount, 0) || 1;
-  let acc = 0;
   const colors = ["#4f46e5", "#ef4444", "#22c55e", "#f59e0b", "#06b6d4", "#a855f7", "#fb8c50"];
-  const segments = items.map((it, i) => {
-    const start = acc / total * 360;
-    acc += it.amount;
-    const end = acc / total * 360;
-    return { label: it.name, start, end, color: colors[i % colors.length] };
-  });
+  const segments = items
+    .reduce<
+      { acc: number; list: Array<{ label: string; start: number; end: number; color: string }> }
+    >(
+      (state, it, i) => {
+        const start = (state.acc / total) * 360;
+        const nextAcc = state.acc + it.amount;
+        const end = (nextAcc / total) * 360;
+        return {
+          acc: nextAcc,
+          list: [...state.list, { label: it.name, start, end, color: colors[i % colors.length] }],
+        };
+      },
+      { acc: 0, list: [] }
+    )
+    .list;
   const bg = segments.map(s => `${s.color} ${s.start.toFixed(2)}deg ${s.end.toFixed(2)}deg`).join(", ");
   return (
     <div className="flex items-center gap-4">

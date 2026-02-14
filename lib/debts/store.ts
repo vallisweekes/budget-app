@@ -53,6 +53,7 @@ function serializeDebt(row: {
 	paidAmount: unknown;
 	monthlyMinimum: unknown | null;
 	interestRate: unknown | null;
+	installmentMonths: number | null;
 	createdAt: Date;
 	sourceType: string | null;
 	sourceExpenseId: string | null;
@@ -72,6 +73,7 @@ function serializeDebt(row: {
 		paidAmount: decimalToNumber(row.paidAmount),
 		monthlyMinimum: row.monthlyMinimum == null ? undefined : decimalToNumber(row.monthlyMinimum),
 		interestRate: row.interestRate == null ? undefined : decimalToNumber(row.interestRate),
+		installmentMonths: row.installmentMonths ?? undefined,
 		createdAt: row.createdAt.toISOString(),
 		sourceType: row.sourceType === "expense" ? "expense" : undefined,
 		sourceExpenseId: row.sourceExpenseId ?? undefined,
@@ -114,6 +116,7 @@ export async function getAllDebts(budgetPlanId: string): Promise<DebtItem[]> {
 			paidAmount: true,
 			monthlyMinimum: true,
 			interestRate: true,
+			installmentMonths: true,
 			createdAt: true,
 			sourceType: true,
 			sourceExpenseId: true,
@@ -140,6 +143,7 @@ export async function getDebtById(budgetPlanId: string, id: string): Promise<Deb
 			paidAmount: true,
 			monthlyMinimum: true,
 			interestRate: true,
+			installmentMonths: true,
 			createdAt: true,
 			sourceType: true,
 			sourceExpenseId: true,
@@ -156,6 +160,16 @@ export async function addDebt(
 	budgetPlanId: string,
 	debt: Omit<DebtItem, "id" | "createdAt" | "currentBalance" | "paid" | "paidAmount" | "amount">
 ): Promise<DebtItem> {
+	const installmentMonths = debt.installmentMonths ?? null;
+	const monthlyMinimum = debt.monthlyMinimum ?? null;
+	let dueAmount = debt.initialBalance;
+	if (installmentMonths && installmentMonths > 0) {
+		dueAmount = debt.initialBalance / installmentMonths;
+	}
+	if (monthlyMinimum != null && Number.isFinite(monthlyMinimum)) {
+		dueAmount = Math.max(dueAmount, monthlyMinimum);
+	}
+
 	const created = await prisma.debt.create({
 		data: {
 			budgetPlanId,
@@ -163,11 +177,12 @@ export async function addDebt(
 			type: debt.type as any,
 			initialBalance: debt.initialBalance,
 			currentBalance: debt.initialBalance,
-			amount: debt.initialBalance,
+			amount: dueAmount,
 			paid: false,
 			paidAmount: 0,
 			monthlyMinimum: debt.monthlyMinimum ?? null,
 			interestRate: debt.interestRate ?? null,
+			installmentMonths: debt.installmentMonths ?? null,
 			sourceType: debt.sourceType ?? null,
 			sourceExpenseId: debt.sourceExpenseId ?? null,
 			sourceMonthKey: debt.sourceMonthKey ?? null,
@@ -186,6 +201,7 @@ export async function addDebt(
 			paidAmount: true,
 			monthlyMinimum: true,
 			interestRate: true,
+			installmentMonths: true,
 			createdAt: true,
 			sourceType: true,
 			sourceExpenseId: true,
@@ -237,6 +253,7 @@ export async function upsertExpenseDebt(params: {
 			paidAmount: true,
 			monthlyMinimum: true,
 			interestRate: true,
+			installmentMonths: true,
 			createdAt: true,
 			sourceType: true,
 			sourceExpenseId: true,
@@ -267,6 +284,7 @@ export async function upsertExpenseDebt(params: {
 				paidAmount: true,
 				monthlyMinimum: true,
 				interestRate: true,
+				installmentMonths: true,
 				createdAt: true,
 				sourceType: true,
 				sourceExpenseId: true,
@@ -304,6 +322,7 @@ export async function upsertExpenseDebt(params: {
 				paidAmount: true,
 				monthlyMinimum: true,
 				interestRate: true,
+				installmentMonths: true,
 				createdAt: true,
 				sourceType: true,
 				sourceExpenseId: true,
@@ -348,6 +367,7 @@ export async function upsertExpenseDebt(params: {
 			paidAmount: true,
 			monthlyMinimum: true,
 			interestRate: true,
+			installmentMonths: true,
 			createdAt: true,
 			sourceType: true,
 			sourceExpenseId: true,
@@ -376,6 +396,7 @@ export async function updateDebt(
 			currentBalance: updates.currentBalance,
 			monthlyMinimum: updates.monthlyMinimum === undefined ? undefined : updates.monthlyMinimum ?? null,
 			interestRate: updates.interestRate === undefined ? undefined : updates.interestRate ?? null,
+			installmentMonths: updates.installmentMonths === undefined ? undefined : updates.installmentMonths ?? null,
 			paid: updates.paid,
 			paidAmount: updates.paidAmount,
 			amount: updates.amount,
@@ -391,6 +412,7 @@ export async function updateDebt(
 			paidAmount: true,
 			monthlyMinimum: true,
 			interestRate: true,
+			installmentMonths: true,
 			createdAt: true,
 			sourceType: true,
 			sourceExpenseId: true,

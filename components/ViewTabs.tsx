@@ -34,6 +34,7 @@ type BudgetPlan = {
   id: string;
   name: string;
   kind: string;
+  payDate: number;
 };
 
 type TabKey = "personal" | "holiday" | "carnival";
@@ -492,7 +493,7 @@ export default function ViewTabs({
       {showExpenseDetails ? (
         <div className="space-y-4">
           {/* Show all plans in the active tab (fallback to current plan if we don't have the list yet) */}
-          {(activePlans.length > 0 ? activePlans : [{ id: budgetPlanId, name: "This plan", kind: activeTab }]).map(
+          {(activePlans.length > 0 ? activePlans : [{ id: budgetPlanId, name: "This plan", kind: activeTab, payDate: 27 }]).map(
             (plan) => {
               const planData = allPlansData?.[plan.id] ?? (plan.id === budgetPlanId ? fallbackPlanData : undefined);
               if (!planData) return null;
@@ -529,9 +530,12 @@ export default function ViewTabs({
                           amount: e.amount,
                           paid: Boolean(e.paid),
                           paidAmount: e.paidAmount ?? 0,
+                          dueDate: e.dueDate,
                         }))}
                         total={cat.total}
                         month={month}
+                        defaultDueDate={plan.payDate}
+                        budgetPlanId={plan.id}
                         updatePaymentStatus={(monthKey, id, status, partialAmount) =>
                           updatePaymentStatus(plan.id, monthKey, id, status, partialAmount)
                         }

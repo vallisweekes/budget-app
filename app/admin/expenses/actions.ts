@@ -112,11 +112,14 @@ export async function updateExpenseAction(formData: FormData): Promise<void> {
   const categoryRaw = formData.get("categoryId");
   const categoryString = categoryRaw == null ? undefined : String(categoryRaw);
   const categoryId = categoryString === undefined ? undefined : categoryString.trim() ? categoryString.trim() : null;
+  const dueDateRaw = formData.get("dueDate");
+  const dueDateString = dueDateRaw == null ? undefined : String(dueDateRaw).trim();
+  const dueDate = dueDateString && dueDateString !== "" ? parseInt(dueDateString) : undefined;
   if (!month || !id || !name) return;
 
   const { userId } = await requireAuthenticatedUser();
   await requireOwnedBudgetPlan(budgetPlanId, userId);
-	await updateExpense(budgetPlanId, month, id, { name, amount, categoryId }, year);
+	await updateExpense(budgetPlanId, month, id, { name, amount, categoryId, dueDate }, year);
 
   revalidatePath("/");
   revalidatePath("/admin/expenses");

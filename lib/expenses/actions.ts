@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import type { MonthKey, PaymentStatus } from "@/types";
 import { getAllExpenses, setExpensePaymentAmount } from "./store";
+import { processUnpaidExpenses } from "./carryover";
 
 export async function updatePaymentStatus(
 	budgetPlanId: string,
@@ -23,6 +24,20 @@ export async function updatePaymentStatus(
 		await setExpensePaymentAmount(budgetPlanId, month, id, partialAmount ?? 0);
 	}
 
+	// Auto-create debt ONLY for partial payments (immediate)
+	// Unpaid expenses only become debts when the month has passed
+	if (status === "partial") {
+		const [year, monthNum] = month.split("-").map(Number);
+		await processUnpaidExpenses({
+			budgetPlanId,
+			year,
+			month: monthNum,
+			monthKey: month,
+			onlyPartialPayments: true,
+		});
+	}
+
   revalidatePath("/");
   revalidatePath("/admin/expenses");
+  revalidatePath("/admin/debts");
 }

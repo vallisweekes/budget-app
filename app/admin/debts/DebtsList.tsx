@@ -3,17 +3,21 @@
 import { useState, useMemo } from "react";
 import { ArrowUpDown, ArrowUpAZ, DollarSign } from "lucide-react";
 import DebtCard from "./DebtCard";
-import type { DebtPayment } from "@/types";
+import type { DebtPayment, DebtType } from "@/types";
 
 interface Debt {
 	id: string;
 	name: string;
-	type: string;
+	type: DebtType;
 	initialBalance: number;
 	currentBalance: number;
 	amount: number;
+	paid: boolean;
+	paidAmount: number;
 	monthlyMinimum?: number;
 	interestRate?: number;
+	installmentMonths?: number;
+	createdAt: string;
 }
 
 interface DebtsListProps {

@@ -6,17 +6,27 @@ import DeleteDebtButton from "./DeleteDebtButton";
 import { formatCurrency } from "@/lib/helpers/money";
 import { updateDebtAction, makePaymentFromForm } from "@/lib/debts/actions";
 import { SelectDropdown } from "@/components/Shared";
-import type { DebtPayment } from "@/types";
+import type { DebtPayment, DebtType } from "@/types";
+import { getDebtMonthlyPayment } from "@/lib/debts/calculate";
 
 interface Debt {
 	id: string;
 	name: string;
-	type: string;
+	type: DebtType;
 	initialBalance: number;
 	currentBalance: number;
 	amount: number;
+	paid: boolean;
+	paidAmount: number;
 	monthlyMinimum?: number;
 	interestRate?: number;
+	installmentMonths?: number;
+	createdAt: string;
+	sourceType?: "expense";
+	sourceExpenseId?: string;
+	sourceMonthKey?: string;
+	sourceCategoryName?: string;
+	sourceExpenseName?: string;
 }
 
 interface DebtCardProps {
@@ -58,8 +68,13 @@ export default function DebtCard({ debt, budgetPlanId, typeLabels, payments, pay
 	const [tempDueAmount, setTempDueAmount] = useState(String(debt.amount));
 	const [editMonthlyMinimum, setEditMonthlyMinimum] = useState(debt.monthlyMinimum ? String(debt.monthlyMinimum) : "");
 	const [editInterestRate, setEditInterestRate] = useState(debt.interestRate ? String(debt.interestRate) : "");
+	const [editInstallmentMonths, setEditInstallmentMonths] = useState(debt.installmentMonths ? String(debt.installmentMonths) : "");
 
 	const Icon = typeIcons[debt.type as keyof typeof typeIcons];
+	
+	// Calculate effective monthly payment considering installment plan and minimum
+	const effectiveMonthlyPayment = getDebtMonthlyPayment(debt);
+	
 	const percentPaid = debt.initialBalance > 0
 		? ((debt.initialBalance - debt.currentBalance) / debt.initialBalance) * 100
 		: 0;
@@ -78,6 +93,7 @@ export default function DebtCard({ debt, budgetPlanId, typeLabels, payments, pay
 		setEditDueAmount(String(debt.amount));
 		setEditMonthlyMinimum(debt.monthlyMinimum ? String(debt.monthlyMinimum) : "");
 		setEditInterestRate(debt.interestRate ? String(debt.interestRate) : "");
+		setEditInstallmentMonths(debt.installmentMonths ? String(debt.installmentMonths) : "");
 		setIsEditing(true);
 	};
 
@@ -94,6 +110,7 @@ export default function DebtCard({ debt, budgetPlanId, typeLabels, payments, pay
 		formData.append("amount", editDueAmount);
 		if (editMonthlyMinimum) formData.append("monthlyMinimum", editMonthlyMinimum);
 		if (editInterestRate) formData.append("interestRate", editInterestRate);
+		if (editInstallmentMonths) formData.append("installmentMonths", editInstallmentMonths);
 
 		startTransition(async () => {
 			await updateDebtAction(debt.id, formData);
@@ -146,8 +163,19 @@ export default function DebtCard({ debt, budgetPlanId, typeLabels, payments, pay
 						</div>
 					) : (
 						<div>
-							<h3 className="text-lg font-bold text-white">{debt.name}</h3>
-							<p className="text-sm text-slate-400">{typeLabels[debt.type as keyof typeof typeLabels]}</p>
+							<div className="flex items-center gap-2">
+								<h3 className="text-lg font-bold text-white">{debt.name}</h3>
+								{debt.sourceType === "expense" && (
+									<span className="px-2 py-0.5 bg-amber-500/20 border border-amber-500/30 rounded text-xs font-semibold text-amber-400">
+										From Expense
+									</span>
+								)}
+							</div>
+							<p className="text-sm text-slate-400">
+								{debt.sourceType === "expense" && debt.sourceExpenseName
+									? `${debt.sourceCategoryName || ''} → ${debt.sourceExpenseName}${debt.sourceMonthKey ? ` (${debt.sourceMonthKey})` : ''}`
+									: typeLabels[debt.type as keyof typeof typeLabels]}
+							</p>
 						</div>
 					)}
 				</div>
@@ -187,6 +215,7 @@ export default function DebtCard({ debt, budgetPlanId, typeLabels, payments, pay
 			</div>
 
 			{isEditing ? (
+				<>
 				<div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
 					<div>
 						<label className="block text-xs text-slate-400 mb-1">Initial Balance</label>
@@ -244,6 +273,53 @@ export default function DebtCard({ debt, budgetPlanId, typeLabels, payments, pay
 						/>
 					</div>
 				</div>
+				<div className="mb-4">
+					<label className="block text-xs text-slate-400 mb-2">Installment Plan (spread cost over time)</label>
+					<div className="flex flex-wrap gap-2">
+						{[0, 2, 3, 4, 6, 8, 9, 12, 18, 24, 30, 36].map((months) => (
+							<button
+								key={months}
+								type="button"
+								onClick={() => {
+									setEditInstallmentMonths(months === 0 ? "" : String(months));
+									// Auto-calculate monthly amount if installment is set
+									if (months > 0 && parseFloat(editCurrentBalance) > 0) {
+										const monthlyAmount = parseFloat(editCurrentBalance) / months;
+										const min = editMonthlyMinimum ? parseFloat(editMonthlyMinimum) : 0;
+										const effective = Math.max(monthlyAmount, Number.isFinite(min) ? min : 0);
+										setEditDueAmount(effective.toFixed(2));
+									}
+								}}
+								className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+									(months === 0 && !editInstallmentMonths) || editInstallmentMonths === String(months)
+										? "bg-purple-500 text-white"
+										: "bg-slate-800/40 text-slate-300 hover:bg-slate-700/40 border border-white/10"
+								}`}
+							>
+								{months === 0 ? "None" : `${months} months`}
+							</button>
+						))}
+					</div>
+					{editInstallmentMonths && parseFloat(editCurrentBalance) > 0 && (
+						<div className="mt-3 p-3 bg-purple-500/10 rounded-lg border border-purple-500/20">
+							<div className="text-sm text-purple-300">
+								Installment: <span className="font-bold">
+									<Currency value={parseFloat(editCurrentBalance) / parseFloat(editInstallmentMonths)} />
+								</span> per month for {editInstallmentMonths} months
+								<div className="text-xs text-slate-400 mt-1">
+									💡 &quot;Due This Month&quot; will be auto-calculated based on this plan
+								</div>
+								{editMonthlyMinimum && parseFloat(editMonthlyMinimum) > (parseFloat(editCurrentBalance) / parseFloat(editInstallmentMonths)) && (
+									<div className="text-xs text-amber-400 mt-2 flex items-start gap-1">
+										<span>⚠️</span>
+										<span>Monthly minimum (£{parseFloat(editMonthlyMinimum).toFixed(2)}) is higher than installment. The higher amount will be used.</span>
+									</div>
+								)}
+							</div>
+						</div>
+					)}
+				</div>
+				</>
 			) : (
 				<>
 					<div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
@@ -326,6 +402,34 @@ export default function DebtCard({ debt, budgetPlanId, typeLabels, payments, pay
 						)}
 					</div>
 
+					{/* Installment Plan Display */}
+					{debt.installmentMonths && debt.currentBalance > 0 && (
+						<div className="mb-4 p-4 bg-purple-500/10 rounded-xl border border-purple-500/20">
+							<div className="flex items-center justify-between">
+								<div>
+									<div className="text-xs text-purple-300 mb-1">Installment Plan Active</div>
+									<div className="text-lg font-bold text-purple-400">
+										<Currency value={effectiveMonthlyPayment} /> / month
+									</div>
+									<div className="text-xs text-slate-400 mt-1">
+										for {debt.installmentMonths} months
+										{debt.monthlyMinimum && effectiveMonthlyPayment > (debt.currentBalance / debt.installmentMonths) && (
+											<span className="block text-amber-400 mt-1">
+												⚠️ Monthly minimum (£{debt.monthlyMinimum.toFixed(2)}) applied
+											</span>
+										)}
+									</div>
+								</div>
+								<div className="text-right">
+									<div className="text-xs text-slate-400 mb-1">Remaining</div>
+									<div className="text-sm font-semibold text-slate-300">
+										<Currency value={debt.currentBalance} />
+									</div>
+								</div>
+							</div>
+						</div>
+					)}
+
 					{/* Progress Bar */}
 					<div className="mb-4">
 						<div className="flex justify-between text-xs text-slate-400 mb-1">
@@ -383,7 +487,7 @@ export default function DebtCard({ debt, budgetPlanId, typeLabels, payments, pay
 						</form>
 						<p className="text-xs text-slate-500 mt-3">
 							💡 <span className="text-amber-400">Income (tracked)</span> payments reduce your available budget for the month.{" "}
-							<span className="text-blue-400">Extra funds</span> don't affect your monthly budget.
+							<span className="text-blue-400">Extra funds</span> don&apos;t affect your monthly budget.
 						</p>
 					</div>
 

@@ -1,5 +1,5 @@
 import { getAllDebts, getPaymentsByDebt } from "@/lib/debts/store";
-import { CreditCard } from "lucide-react";
+import { CreditCard, AlertCircle } from "lucide-react";
 import { formatCurrency } from "@/lib/helpers/money";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import AddDebtForm from "./AddDebtForm";
 import DebtsList from "./DebtsList";
+import { getExpenseDebts } from "@/lib/expenses/carryover";
 
 function Currency({ value }: { value: number }) {
 	return <span>{formatCurrency(value)}</span>;
@@ -42,11 +43,20 @@ export default async function DebtsPage(props: {
 	}
 
 	const budgetPlanId = budgetPlan.id;
-	const debts = (await getAllDebts(budgetPlanId)).filter((d) => d.sourceType !== "expense");
-	const activeDebts = debts.filter((d) => d.currentBalance > 0);
-	const totalDebt = debts.reduce((sum, debt) => sum + (debt.currentBalance || 0), 0);
-	const totalInitialDebt = debts.reduce((sum, debt) => sum + (debt.initialBalance || 0), 0);
-	const totalPaidAmount = debts.reduce((sum, debt) => sum + (debt.paidAmount || 0), 0);
+	
+	// Get regular debts and expense-derived debts separately
+	const regularDebts = (await getAllDebts(budgetPlanId)).filter((d) => d.sourceType !== "expense");
+	const expenseDebts = await getExpenseDebts(budgetPlanId);
+	
+	// Combine both types
+	const allDebts = [...regularDebts, ...expenseDebts];
+	const activeDebts = allDebts.filter((d) => d.currentBalance > 0);
+	const activeRegularDebts = regularDebts.filter((d) => d.currentBalance > 0);
+	const activeExpenseDebts = expenseDebts.filter((d) => d.currentBalance > 0);
+	
+	const totalDebt = allDebts.reduce((sum, debt) => sum + (debt.currentBalance || 0), 0);
+	const totalInitialDebt = allDebts.reduce((sum, debt) => sum + (debt.initialBalance || 0), 0);
+	const totalPaidAmount = allDebts.reduce((sum, debt) => sum + (debt.paidAmount || 0), 0);
 	const debtPayoffProgress = totalInitialDebt > 0 ? (totalPaidAmount / totalInitialDebt) * 100 : 0;
 
 	// Create payments map for efficient lookup
@@ -114,15 +124,49 @@ export default async function DebtsPage(props: {
 				<AddDebtForm budgetPlanId={budgetPlanId} />
 
 				{/* Debts List */}
-				<div className="space-y-4">
-					<h2 className="text-xl font-semibold text-white">Current Debts</h2>
-					<DebtsList 
-						debts={activeDebts}
-						budgetPlanId={budgetPlanId}
-						typeLabels={typeLabels}
-						paymentsMap={paymentsMap}
-						payDate={budgetPlan.payDate}
-					/>
+				<div className="space-y-6">
+					{/* Unpaid Expenses Section */}
+					{activeExpenseDebts.length > 0 && (
+						<div>
+							<div className="flex items-center gap-2 mb-4">
+								<AlertCircle className="w-5 h-5 text-amber-400" />
+								<h2 className="text-xl font-semibold text-white">Unpaid Expenses</h2>
+								<span className="text-sm text-slate-400">({activeExpenseDebts.length} item{activeExpenseDebts.length !== 1 ? 's' : ''})</span>
+							</div>
+							<p className="text-sm text-slate-400 mb-4">
+								These expenses weren&apos;t fully paid and have been carried over as debts. Pay them to clear from your budget.
+							</p>
+							<DebtsList 
+								debts={activeExpenseDebts}
+								budgetPlanId={budgetPlanId}
+								typeLabels={typeLabels}
+								paymentsMap={paymentsMap}
+								payDate={budgetPlan.payDate}
+							/>
+						</div>
+					)}
+
+					{/* Regular Debts Section */}
+					{activeRegularDebts.length > 0 && (
+						<div>
+							<h2 className="text-xl font-semibold text-white mb-4">Regular Debts</h2>
+							<DebtsList 
+								debts={activeRegularDebts}
+								budgetPlanId={budgetPlanId}
+								typeLabels={typeLabels}
+								paymentsMap={paymentsMap}
+								payDate={budgetPlan.payDate}
+							/>
+						</div>
+					)}
+
+					{activeDebts.length === 0 && (
+						<div className="bg-slate-800/40 backdrop-blur-xl rounded-2xl p-8 text-center border border-white/10">
+							<div className="text-6xl mb-4">🎉</div>
+							<h3 className="text-xl font-semibold text-white mb-2">No Debts!</h3>
+							<p className="text-slate-400">You have no tracked debts at the moment.</p>
+						</div>
+					)}
 				</div>
 			</div>
 		</div>

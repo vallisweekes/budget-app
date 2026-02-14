@@ -11,6 +11,7 @@ export interface DebtItem {
 	paid: boolean;
 	paidAmount: number;
 	amount: number;
+	installmentMonths?: number;
 	createdAt: string;
 	sourceType?: "expense";
 	sourceExpenseId?: string;

@@ -40,7 +40,7 @@ export default async function LoginSplashPage(props: {
 						<span className="bg-gradient-to-r from-blue-200 via-white to-blue-200 bg-clip-text text-transparent"> money</span>
 					</h1>
 					<p className="mt-4 text-lg text-slate-300">
-						Know exactly where your money's going. No stress, no surprises — just real budgeting that works for you.
+							Know exactly where your money&apos;s going. No stress, no surprises — just real budgeting that works for you.
 						</p>
 						<div className="mt-6 flex flex-wrap gap-2">
 							{["Personal", "Holiday", "Carnival"].map((label) => (

@@ -4,17 +4,26 @@ import { useState } from "react";
 import { Plus, X } from "lucide-react";
 import { SelectDropdown } from "@/components/Shared";
 import { createDebt } from "@/lib/debts/actions";
+import { formatCurrency } from "@/lib/helpers/money";
 
 interface AddDebtFormProps {
 	budgetPlanId: string;
 }
 
+function Currency({ value }: { value: number }) {
+	return <span>{formatCurrency(value)}</span>;
+}
+
 export default function AddDebtForm({ budgetPlanId }: AddDebtFormProps) {
 	const [isOpen, setIsOpen] = useState(false);
+	const [initialBalance, setInitialBalance] = useState("");
+	const [installmentMonths, setInstallmentMonths] = useState("");
 
 	const handleSubmit = async (formData: FormData) => {
 		await createDebt(formData);
 		setIsOpen(false);
+		setInitialBalance("");
+		setInstallmentMonths("");
 	};
 
 	if (!isOpen) {
@@ -76,6 +85,8 @@ export default function AddDebtForm({ budgetPlanId }: AddDebtFormProps) {
 							step="0.01"
 							placeholder="450.00"
 							required
+							value={initialBalance}
+							onChange={(e) => setInitialBalance(e.target.value)}
 							className="w-full px-4 py-2 bg-slate-900/40 border border-white/10 text-white placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
 						/>
 					</div>
@@ -100,6 +111,37 @@ export default function AddDebtForm({ budgetPlanId }: AddDebtFormProps) {
 						/>
 					</div>
 				</div>
+
+				<div>
+					<label className="block text-sm font-medium text-slate-300 mb-2">Installment Plan (Optional)</label>
+					<div className="flex flex-wrap gap-2 mb-3">
+						{[0, 2, 3, 4, 6, 8, 9, 12, 18, 24, 30, 36].map((months) => (
+							<button
+								key={months}
+								type="button"
+								onClick={() => setInstallmentMonths(months === 0 ? "" : String(months))}
+								className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+									(months === 0 && !installmentMonths) || installmentMonths === String(months)
+										? "bg-purple-500 text-white"
+										: "bg-slate-800/40 text-slate-300 hover:bg-slate-700/40 border border-white/10"
+								}`}
+							>
+								{months === 0 ? "None" : `${months} months`}
+							</button>
+						))}
+					</div>
+					<input type="hidden" name="installmentMonths" value={installmentMonths} />
+					{installmentMonths && parseFloat(initialBalance) > 0 && (
+						<div className="p-3 bg-purple-500/10 rounded-lg border border-purple-500/20">
+							<div className="text-sm text-purple-300">
+								💡 Payment will be spread over {installmentMonths} months: <span className="font-bold">
+									<Currency value={parseFloat(initialBalance) / parseFloat(installmentMonths)} />
+								</span> per month
+							</div>
+						</div>
+					)}
+				</div>
+
 				<div className="flex gap-3">
 					<button
 						type="submit"

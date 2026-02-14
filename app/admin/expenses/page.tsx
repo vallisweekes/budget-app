@@ -75,6 +75,7 @@ export default async function AdminExpensesPage({
           id: p.id,
           name: p.name,
           kind: p.kind,
+          payDate: p.payDate,
         },
         expenses,
         categories: categories.map(c => ({
