@@ -164,10 +164,12 @@ export default function IncomeManager({
 									<span className="text-slate-200 font-semibold text-sm">
 										{formatCurrency(item.amount)}
 									</span>
-									<div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+									<div className="opacity-90 group-hover:opacity-100 transition-opacity flex items-center gap-1">
 										<button
 											onClick={() => handleEditClick(item.id)}
 											className="p-1.5 rounded-md bg-blue-500/20 text-blue-400 hover:bg-blue-500/30"
+											type="button"
+											aria-label={`Edit ${item.name}`}
 										>
 											<Pencil className="w-3 h-3" />
 										</button>

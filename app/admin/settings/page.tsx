@@ -71,6 +71,7 @@ export default async function AdminSettingsPage(props: {
 				wantsActual: monthSummary.plannedAllowance,
 				savingsDebtActual:
 					monthSummary.plannedSavings +
+					monthSummary.plannedEmergency +
 					monthSummary.plannedInvestments +
 					monthSummary.debtPaymentsTotal,
 			}

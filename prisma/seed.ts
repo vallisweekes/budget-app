@@ -302,9 +302,10 @@ async function main() {
           monthlyAllowance: String(settingsData.monthlyAllowance ?? 0),
           savingsBalance: String(settingsData.savingsBalance ?? 0),
           monthlySavingsContribution: String(settingsData.monthlySavingsContribution ?? 0),
+          monthlyEmergencyContribution: String((settingsData as any).monthlyEmergencyContribution ?? 0),
           monthlyInvestmentContribution: String(settingsData.monthlyInvestmentContribution ?? 0),
           budgetStrategy: settingsData.budgetStrategy,
-        },
+        } as any,
       })
     : await prisma.budgetPlan.create({
         data: {
@@ -315,9 +316,10 @@ async function main() {
           monthlyAllowance: String(settingsData.monthlyAllowance ?? 0),
           savingsBalance: String(settingsData.savingsBalance ?? 0),
           monthlySavingsContribution: String(settingsData.monthlySavingsContribution ?? 0),
+          monthlyEmergencyContribution: String((settingsData as any).monthlyEmergencyContribution ?? 0),
           monthlyInvestmentContribution: String(settingsData.monthlyInvestmentContribution ?? 0),
           budgetStrategy: settingsData.budgetStrategy,
-        },
+        } as any,
       });
   console.log(`  ✓ User: ${user.name} (${user.id})`);
   console.log(`  ✓ BudgetPlan: ${budgetPlan.name} (${budgetPlan.id})`);
@@ -424,9 +426,10 @@ async function main() {
           monthlyAllowance: String(settingsData.monthlyAllowance ?? 0),
           savingsBalance: String(settingsData.savingsBalance ?? 0),
           monthlySavingsContribution: String(settingsData.monthlySavingsContribution ?? 0),
+          monthlyEmergencyContribution: String((settingsData as any).monthlyEmergencyContribution ?? 0),
           monthlyInvestmentContribution: String(settingsData.monthlyInvestmentContribution ?? 0),
           budgetStrategy: settingsData.budgetStrategy,
-        },
+        } as any,
       });
 
   // Holiday (multiple) - covers "Jamaica twice in the same year"

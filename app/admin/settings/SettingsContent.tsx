@@ -20,6 +20,7 @@ type MonthSummary = {
 	debtPaymentsTotal: number;
 	spendingTotal: number;
 	plannedSavings: number;
+	plannedEmergency: number;
 	plannedInvestments: number;
 };
 
@@ -256,9 +257,17 @@ export default function SettingsContent({
 										<h2 className="text-2xl font-bold text-white">Budget</h2>
 										<p className="text-slate-400 text-sm">Pay date, allocations, and budgeting style.</p>
 									</div>
-									<span className="inline-flex items-center rounded-full border border-white/10 bg-slate-900/40 px-3 py-1 text-xs font-medium text-slate-200">
-										Core
-									</span>
+									<div className="flex items-center gap-2">
+										<a
+											href="../income"
+											className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-white/90 hover:bg-white/10 transition"
+										>
+											Manage allocations in Income
+										</a>
+										<span className="inline-flex items-center rounded-full border border-white/10 bg-slate-900/40 px-3 py-1 text-xs font-medium text-slate-200">
+											Core
+										</span>
+									</div>
 								</div>
 
 								<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -293,58 +302,10 @@ export default function SettingsContent({
 
 									<div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/10 p-8 hover:border-white/20 transition-all">
 										<div className="flex items-center gap-3 mb-6">
-											<div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-green-600 rounded-2xl flex items-center justify-center shadow-lg">
-												<Wallet className="w-6 h-6 text-white" />
-											</div>
-											<h3 className="text-xl font-bold text-white">Allocations</h3>
-										</div>
-										<form action={saveSettingsAction} className="space-y-4">
-											<input type="hidden" name="budgetPlanId" value={budgetPlanId} />
-											<label className="block">
-												<span className="text-sm font-medium text-slate-400 mb-2 block">Monthly Allowance (£)</span>
-												<input
-													name="monthlyAllowance"
-													type="number"
-													step="0.01"
-													defaultValue={settings.monthlyAllowance ?? 0}
-													className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white text-lg font-semibold placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
-												/>
-											</label>
-											<label className="block">
-												<span className="text-sm font-medium text-slate-400 mb-2 block">Monthly Savings (£)</span>
-												<input
-													name="monthlySavingsContribution"
-													type="number"
-													step="0.01"
-													defaultValue={settings.monthlySavingsContribution ?? 0}
-													className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white text-lg font-semibold placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
-												/>
-											</label>
-											<label className="block">
-												<span className="text-sm font-medium text-slate-400 mb-2 block">Monthly Investments (£)</span>
-												<input
-													name="monthlyInvestmentContribution"
-													type="number"
-													step="0.01"
-													defaultValue={settings.monthlyInvestmentContribution ?? 0}
-													className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white text-lg font-semibold placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
-												/>
-											</label>
-											<button
-												type="submit"
-												className="w-full bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl py-3 font-semibold shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all cursor-pointer"
-											>
-												Save Allocations
-											</button>
-										</form>
-									</div>
-
-									<div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/10 p-8 hover:border-white/20 transition-all">
-										<div className="flex items-center gap-3 mb-6">
 											<div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg">
 												<PiggyBank className="w-6 h-6 text-white" />
 											</div>
-											<h3 className="text-xl font-bold text-white">Savings Balance</h3>
+																<h3 className="text-xl font-bold text-white">Savings pot (spendable balance)</h3>
 										</div>
 										<form action={saveSettingsAction} className="space-y-4">
 											<input type="hidden" name="budgetPlanId" value={budgetPlanId} />

@@ -2,7 +2,8 @@ import { getAllIncome } from "@/lib/income/store";
 import { MONTHS } from "@/lib/constants/time";
 import { currentMonthKey, formatMonthKeyLabel } from "@/lib/helpers/monthKey";
 import type { MonthKey } from "@/types";
-import { addIncomeAction } from "./actions";
+import { isMonthKey } from "@/lib/budget/zero-based";
+import { addIncomeAction, saveAllocationsAction } from "./actions";
 import { SelectDropdown } from "@/components/Shared";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
@@ -10,6 +11,10 @@ import { getDefaultBudgetPlanForUser, resolveUserId } from "@/lib/budgetPlans";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { MonthlyIncomeGrid } from "./MonthlyIncomeGrid";
+import { getMonthlyAllocationSnapshot } from "@/lib/allocations/store";
+import AllocationsSaveButton from "./AllocationsSaveButton";
+import SaveFeedbackBanner from "./SaveFeedbackBanner";
+import { formatCurrency } from "@/lib/helpers/money";
 
 export const dynamic = "force-dynamic"; // This line is now active
 
@@ -45,6 +50,21 @@ export default async function AdminIncomePage(props: {
 	const income = await getAllIncome(budgetPlanId);
 	const nowMonth = currentMonthKey();
 
+	const allocMonthParam = searchParams.month;
+	const allocMonthCandidate = Array.isArray(allocMonthParam) ? allocMonthParam[0] : allocMonthParam;
+	const allocMonth: MonthKey = isMonthKey(String(allocMonthCandidate ?? ""))
+		? (String(allocMonthCandidate) as MonthKey)
+		: nowMonth;
+	const allocation = await getMonthlyAllocationSnapshot(budgetPlanId, allocMonth);
+
+	const grossIncomeForAllocMonth = (income[allocMonth] ?? []).reduce((sum, item) => sum + (item.amount ?? 0), 0);
+	const totalAllocationsForAllocMonth =
+		(allocation.monthlyAllowance ?? 0) +
+		(allocation.monthlySavingsContribution ?? 0) +
+		(allocation.monthlyEmergencyContribution ?? 0) +
+		(allocation.monthlyInvestmentContribution ?? 0);
+	const remainingToBudgetForAllocMonth = grossIncomeForAllocMonth - totalAllocationsForAllocMonth;
+
 	const monthsWithoutIncome = MONTHS.filter((m) => (income[m]?.length ?? 0) === 0);
 	const hasAvailableMonths = monthsWithoutIncome.length > 0;
 	const defaultMonth: MonthKey =
@@ -56,6 +76,109 @@ export default async function AdminIncomePage(props: {
 				<div className="mb-10">
 					<h1 className="text-4xl font-bold text-white mb-2">Income</h1>
 					<p className="text-slate-400 text-lg">Manage your income sources</p>
+				</div>
+
+				<div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/10 p-8 mb-8">
+					<div className="flex items-center gap-3 mb-6">
+						<div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-green-600 rounded-2xl flex items-center justify-center shadow-lg">
+							<svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 1v22m7-17H5m12 4H7m8 4H9" />
+							</svg>
+						</div>
+						<div>
+							<h2 className="text-2xl font-bold text-white">Allocations</h2>
+							<p className="text-slate-400 text-sm">What comes out of salary before you budget the rest.</p>
+						</div>
+					</div>
+					<SaveFeedbackBanner
+						kind="allocations"
+						message="Allocations don’t change your Salary amounts below — they reduce what’s left to budget this month."
+					/>
+					<form action={saveAllocationsAction} className="grid grid-cols-1 md:grid-cols-12 gap-4">
+						<input type="hidden" name="budgetPlanId" value={budgetPlanId} />
+						<label className="md:col-span-3">
+							<span className="block text-sm font-medium text-slate-300 mb-2">Month</span>
+							<SelectDropdown
+								name="month"
+								defaultValue={allocMonth}
+								options={MONTHS.map((m) => ({ value: m, label: formatMonthKeyLabel(m) }))}
+								buttonClassName="bg-slate-900/60 focus:ring-emerald-500"
+							/>
+							<p className="mt-2 text-xs text-slate-400">
+								{allocation.isOverride ? "Custom for this month" : "Using plan default"} (year {allocation.year})
+							</p>
+						</label>
+						<label className="md:col-span-3">
+							<span className="block text-sm font-medium text-slate-300 mb-2">Monthly Allowance (£)</span>
+							<input
+								name="monthlyAllowance"
+								type="number"
+								step="0.01"
+								defaultValue={allocation.monthlyAllowance ?? 0}
+								className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+							/>
+						</label>
+						<label className="md:col-span-2">
+							<span className="block text-sm font-medium text-slate-300 mb-2">Monthly Savings (£)</span>
+							<input
+								name="monthlySavingsContribution"
+								type="number"
+								step="0.01"
+								defaultValue={allocation.monthlySavingsContribution ?? 0}
+								className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+							/>
+						</label>
+						<label className="md:col-span-2">
+							<span className="block text-sm font-medium text-slate-300 mb-2">Emergency Fund (£)</span>
+							<input
+								name="monthlyEmergencyContribution"
+								type="number"
+								step="0.01"
+								defaultValue={allocation.monthlyEmergencyContribution ?? 0}
+								className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+							/>
+						</label>
+						<label className="md:col-span-2">
+							<span className="block text-sm font-medium text-slate-300 mb-2">Monthly Investments (£)</span>
+							<input
+								name="monthlyInvestmentContribution"
+								type="number"
+								step="0.01"
+								defaultValue={allocation.monthlyInvestmentContribution ?? 0}
+								className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+							/>
+						</label>
+						<div className="md:col-span-1 flex items-end">
+							<AllocationsSaveButton />
+						</div>
+					</form>
+
+					<div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+						<div className="rounded-2xl border border-white/10 bg-slate-900/30 px-5 py-4">
+							<div className="text-xs text-slate-400">Gross income ({formatMonthKeyLabel(allocMonth)})</div>
+							<div className="mt-1 text-xl font-bold text-white">{formatCurrency(grossIncomeForAllocMonth)}</div>
+						</div>
+						<div className="rounded-2xl border border-white/10 bg-slate-900/30 px-5 py-4">
+							<div className="text-xs text-slate-400">Total allocations</div>
+							<div className="mt-1 text-xl font-bold text-white">{formatCurrency(totalAllocationsForAllocMonth)}</div>
+							<div className="mt-1 text-xs text-slate-400">Allowance + Savings + Emergency + Investments</div>
+						</div>
+						<div className="rounded-2xl border border-white/10 bg-slate-900/30 px-5 py-4">
+							<div className="text-xs text-slate-400">Left to budget</div>
+							<div
+								className={`mt-1 text-xl font-bold ${
+									remainingToBudgetForAllocMonth < 0 ? "text-red-200" : "text-emerald-200"
+								}`}
+							>
+								{formatCurrency(remainingToBudgetForAllocMonth)}
+							</div>
+							{remainingToBudgetForAllocMonth < 0 && (
+								<div className="mt-1 text-xs text-red-200">
+									Allocations exceed income by {formatCurrency(Math.abs(remainingToBudgetForAllocMonth))}
+								</div>
+							)}
+						</div>
+					</div>
 				</div>
 
 				{hasAvailableMonths && (

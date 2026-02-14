@@ -3,7 +3,7 @@ import { getAllExpenses } from "@/lib/expenses/store";
 import { getAllIncome } from "@/lib/income/store";
 import { getPaymentsByMonth } from "@/lib/debts/store";
 import { getAllSpending } from "@/lib/spending/store";
-import { getSettings } from "@/lib/settings/store";
+import { getMonthlyAllocationSnapshot } from "@/lib/allocations/store";
 import type { MonthKey } from "@/types";
 
 export interface ZeroBasedSummary {
@@ -14,6 +14,7 @@ export interface ZeroBasedSummary {
 	spendingTotal: number;
 	plannedAllowance: number;
 	plannedSavings: number;
+	plannedEmergency: number;
 	plannedInvestments: number;
 	unallocated: number;
 }
@@ -29,8 +30,8 @@ export function isMonthKey(value: string): value is MonthKey {
 }
 
 export async function getZeroBasedSummary(budgetPlanId: string, month: MonthKey): Promise<ZeroBasedSummary> {
-	const [settings, allIncome, allExpenses, allSpending, debtPayments] = await Promise.all([
-		getSettings(budgetPlanId),
+	const [allocation, allIncome, allExpenses, allSpending, debtPayments] = await Promise.all([
+		getMonthlyAllocationSnapshot(budgetPlanId, month),
 		getAllIncome(budgetPlanId),
 		getAllExpenses(budgetPlanId),
 		getAllSpending(budgetPlanId),
@@ -42,12 +43,19 @@ export async function getZeroBasedSummary(budgetPlanId: string, month: MonthKey)
 	const debtPaymentsTotal = sumAmounts(debtPayments ?? []);
 	const spendingTotal = sumAmounts((allSpending ?? []).filter((s) => s.month === month));
 
-	const plannedAllowance = Number(settings.monthlyAllowance) || 0;
-	const plannedSavings = Number(settings.monthlySavingsContribution) || 0;
-	const plannedInvestments = Number(settings.monthlyInvestmentContribution) || 0;
+	const plannedAllowance = allocation.monthlyAllowance || 0;
+	const plannedSavings = allocation.monthlySavingsContribution || 0;
+	const plannedEmergency = allocation.monthlyEmergencyContribution || 0;
+	const plannedInvestments = allocation.monthlyInvestmentContribution || 0;
 
 	const unallocated =
-		incomeTotal - expenseTotal - debtPaymentsTotal - plannedAllowance - plannedSavings - plannedInvestments;
+		incomeTotal -
+		expenseTotal -
+		debtPaymentsTotal -
+		plannedAllowance -
+		plannedSavings -
+		plannedEmergency -
+		plannedInvestments;
 
 	return {
 		month,
@@ -57,6 +65,7 @@ export async function getZeroBasedSummary(budgetPlanId: string, month: MonthKey)
 		spendingTotal,
 		plannedAllowance,
 		plannedSavings,
+		plannedEmergency,
 		plannedInvestments,
 		unallocated,
 	};

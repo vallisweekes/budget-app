@@ -4,6 +4,9 @@ import { revalidatePath } from "next/cache";
 import { addSpending, removeSpending, getAllSpending } from "./store";
 import { getSettings, saveSettings } from "@/lib/settings/store";
 import { updateDebt, getDebtById } from "@/lib/debts/store";
+import { getMonthlyAllocationSnapshot } from "@/lib/allocations/store";
+import { monthNumberToKey } from "@/lib/helpers/monthKey";
+import { createPot } from "@/lib/pots/store";
 
 function requireBudgetPlanId(formData: FormData): string {
   const raw = formData.get("budgetPlanId");
@@ -50,6 +53,8 @@ export async function addSpendingAction(formData: FormData) {
   const amount = parseFloat(formData.get("amount") as string);
   const source = formData.get("source") as "card" | "savings" | "allowance";
   const sourceId = formData.get("sourceId") as string;
+  const potIdRaw = String(formData.get("potId") ?? "").trim();
+  const newPotNameRaw = String(formData.get("newPotName") ?? "").trim();
   const month = formData.get("month") as string;
 
   if (!description || isNaN(amount) || amount <= 0) {
@@ -59,10 +64,26 @@ export async function addSpendingAction(formData: FormData) {
   const settings = await getSettings(budgetPlanId);
   const now = new Date();
 
+  let potId: string | undefined = potIdRaw || undefined;
+  if (source === "allowance") {
+    if (newPotNameRaw) {
+      const pot = await createPot(budgetPlanId, { name: newPotNameRaw, kind: "allowance" });
+      potId = pot.id;
+    }
+    // If the client sent the sentinel, ignore it.
+    if (potId === "__new__") potId = undefined;
+  } else {
+    potId = undefined;
+  }
+
   // Handle allowance tracking by pay period
   if (source === "allowance") {
-    const monthlyAllowance = settings.monthlyAllowance || 0;
     const payPeriod = getPayPeriod(now, settings.payDate);
+    const allocationMonthKey = monthNumberToKey(payPeriod.start.getMonth() + 1);
+    const allocation = await getMonthlyAllocationSnapshot(budgetPlanId, allocationMonthKey, {
+		year: payPeriod.start.getFullYear(),
+	});
+    const monthlyAllowance = allocation.monthlyAllowance || settings.monthlyAllowance || 0;
     
     const allSpending = await getAllSpending(budgetPlanId);
     // Filter spending within the current pay period
@@ -111,6 +132,7 @@ export async function addSpendingAction(formData: FormData) {
     month,
     source,
     sourceId: sourceId || undefined,
+    potId,
   });
 
   revalidatePath("/admin/spending");
@@ -136,9 +158,20 @@ export async function getSpendingForMonth(budgetPlanId: string, month: string) {
 
 export async function getAllowanceStats(month: string, budgetPlanId: string) {
   const settings = await getSettings(budgetPlanId);
-  const monthlyAllowance = settings.monthlyAllowance || 0;
-  const now = new Date();
-  const payPeriod = getPayPeriod(now, settings.payDate);
+  const [yearStr, monthStr] = String(month ?? "").split("-");
+  const parsedYear = Number(yearStr);
+  const parsedMonth = Number(monthStr);
+  const baseDate =
+    Number.isFinite(parsedYear) && Number.isFinite(parsedMonth)
+      ? new Date(parsedYear, Math.max(0, Math.min(11, parsedMonth - 1)), 15)
+      : new Date();
+
+  const payPeriod = getPayPeriod(baseDate, settings.payDate);
+  const allocationMonthKey = monthNumberToKey(payPeriod.start.getMonth() + 1);
+  const allocation = await getMonthlyAllocationSnapshot(budgetPlanId, allocationMonthKey, {
+		year: payPeriod.start.getFullYear(),
+	});
+  const monthlyAllowance = allocation.monthlyAllowance || settings.monthlyAllowance || 0;
   
   const allSpending = await getAllSpending(budgetPlanId);
   // Filter spending within the current pay period (not calendar month)

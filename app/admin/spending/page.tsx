@@ -11,6 +11,7 @@ import { getDefaultBudgetPlanForUser, resolveUserId } from "@/lib/budgetPlans";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { currentMonthKey } from "@/lib/helpers/monthKey";
+import { getAllPots } from "@/lib/pots/store";
 
 export const dynamic = "force-dynamic";
 
@@ -54,6 +55,7 @@ export default async function SpendingPage(props: {
 	const spending = await getSpendingForMonth(budgetPlanId, month);
 	const allowanceStats = await getAllowanceStats(month, budgetPlanId);
 	const settings = await getSettings(budgetPlanId);
+	const pots = await getAllPots(budgetPlanId, "allowance");
 
 	return (
 		<div className="min-h-screen pb-20 app-theme-bg">
@@ -80,7 +82,7 @@ export default async function SpendingPage(props: {
 						</div>
 					</div>
 					<div className="bg-slate-800/40 backdrop-blur-xl rounded-2xl p-4 shadow-xl border border-white/10">
-						<div className="text-sm text-slate-400 mb-1">Savings Balance</div>
+							<div className="text-sm text-slate-400 mb-1">Savings pot (spendable balance)</div>
 						<div className="text-2xl font-bold text-white">£{(settings.savingsBalance || 0).toFixed(2)}</div>
 					</div>
 				</div>
@@ -103,7 +105,7 @@ export default async function SpendingPage(props: {
 					</div>
 				)}
 
-				<SpendingTab budgetPlanId={budgetPlanId} month={month} debts={debts} spending={spending} />
+				<SpendingTab budgetPlanId={budgetPlanId} month={month} debts={debts} spending={spending} pots={pots} />
 			</div>
 		</div>
 	);

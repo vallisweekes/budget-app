@@ -60,11 +60,9 @@ export async function resolveUserId(params: {
 	const { userId, username } = params;
 
 	if (userId) {
-		const existing = await prisma.user.findUnique({
-			where: { id: userId },
-			select: { id: true },
-		});
-		if (existing) return existing.id;
+		// If we already have a userId (typically from the session), don't spend a DB
+		// connection verifying it on every server render.
+		return userId;
 	}
 
 	if (!username) {

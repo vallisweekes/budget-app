@@ -8,6 +8,7 @@ export interface Settings {
   monthlyAllowance: number;
   savingsBalance: number;
   monthlySavingsContribution: number;
+  monthlyEmergencyContribution: number;
   monthlyInvestmentContribution: number;
   budgetStrategy: BudgetStrategy;
   country: string;
@@ -26,6 +27,7 @@ export async function getSettings(budgetPlanId: string): Promise<Settings> {
       monthlyAllowance: true,
       savingsBalance: true,
       monthlySavingsContribution: true,
+      monthlyEmergencyContribution: true,
       monthlyInvestmentContribution: true,
       budgetStrategy: true,
       country: true,
@@ -43,6 +45,7 @@ export async function getSettings(budgetPlanId: string): Promise<Settings> {
     monthlyAllowance: Number(plan.monthlyAllowance),
     savingsBalance: Number(plan.savingsBalance),
     monthlySavingsContribution: Number(plan.monthlySavingsContribution),
+    monthlyEmergencyContribution: Number(plan.monthlyEmergencyContribution),
     monthlyInvestmentContribution: Number(plan.monthlyInvestmentContribution),
     budgetStrategy: plan.budgetStrategy as BudgetStrategy,
     country: plan.country,
@@ -68,6 +71,9 @@ export async function saveSettings(budgetPlanId: string, settings: Partial<Setti
   }
   if (settings.monthlySavingsContribution !== undefined) {
     updateData.monthlySavingsContribution = settings.monthlySavingsContribution;
+  }
+  if (settings.monthlyEmergencyContribution !== undefined) {
+    updateData.monthlyEmergencyContribution = settings.monthlyEmergencyContribution;
   }
   if (settings.monthlyInvestmentContribution !== undefined) {
     updateData.monthlyInvestmentContribution = settings.monthlyInvestmentContribution;

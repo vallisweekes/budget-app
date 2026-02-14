@@ -13,6 +13,12 @@ interface SpendingEntry {
   month: string;
   source: "card" | "savings" | "allowance";
   sourceId?: string;
+  potId?: string;
+}
+
+interface Pot {
+	id: string;
+	name: string;
 }
 
 interface Debt {
@@ -26,12 +32,15 @@ interface SpendingTabProps {
   month: string;
   debts: Debt[];
   spending: SpendingEntry[];
+	pots: Pot[];
 }
 
-export default function SpendingTab({ budgetPlanId, month, debts, spending }: SpendingTabProps) {
+export default function SpendingTab({ budgetPlanId, month, debts, spending, pots }: SpendingTabProps) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [entryPendingDelete, setEntryPendingDelete] = useState<SpendingEntry | null>(null);
+	const [source, setSource] = useState<"card" | "savings" | "allowance">("card");
+	const [selectedPotId, setSelectedPotId] = useState<string>("");
   const router = useRouter();
 
   const handleSubmit = async (formData: FormData) => {
@@ -125,7 +134,11 @@ export default function SpendingTab({ budgetPlanId, month, debts, spending }: Sp
               <SelectDropdown
                 id="spending-source"
                 name="source"
-                defaultValue="card"
+                value={source}
+                onValueChange={(v) => {
+										setSource(v as "card" | "savings" | "allowance");
+										setSelectedPotId("");
+									}}
                 options={[
                   { value: "card", label: "Card" },
                   { value: "savings", label: "Savings" },
@@ -150,6 +163,38 @@ export default function SpendingTab({ budgetPlanId, month, debts, spending }: Sp
               />
             </label>
           </div>
+
+      {source === "allowance" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <label className="block">
+            <span className="block text-sm font-medium text-slate-300 mb-1">Allowance Pot</span>
+            <SelectDropdown
+              name="potId"
+              value={selectedPotId}
+              onValueChange={(v) => setSelectedPotId(v)}
+              placeholder={pots.length ? "Select a pot" : "Create your first pot"}
+              options={[
+                ...pots.map((p) => ({ value: p.id, label: p.name })),
+                { value: "__new__", label: "+ New pot" },
+              ]}
+              buttonClassName="rounded-lg px-4 py-2 focus:ring-purple-500"
+              menuClassName="rounded-xl"
+            />
+          </label>
+
+          {selectedPotId === "__new__" && (
+            <label className="block">
+              <span className="block text-sm font-medium text-slate-300 mb-1">New pot name</span>
+              <input
+                name="newPotName"
+                required
+                placeholder="e.g., Jayda, Personal, Kids"
+                className="w-full px-4 py-2 bg-slate-900/40 border border-white/10 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent placeholder:text-slate-500"
+              />
+            </label>
+          )}
+        </div>
+      )}
           
           <button
             type="submit"
@@ -169,7 +214,12 @@ export default function SpendingTab({ budgetPlanId, month, debts, spending }: Sp
             <li key={entry.id} className="flex items-center justify-between bg-slate-900/40 rounded-lg p-3">
               <div>
                 <div className="text-white font-medium">{entry.description}</div>
-                <div className="text-xs text-slate-400">£{entry.amount.toLocaleString()} • {entry.source.charAt(0).toUpperCase() + entry.source.slice(1)}</div>
+							<div className="text-xs text-slate-400">
+								£{entry.amount.toLocaleString()} • {entry.source.charAt(0).toUpperCase() + entry.source.slice(1)}
+								{entry.source === "allowance" && entry.potId
+									? ` • ${pots.find((p) => p.id === entry.potId)?.name ?? "Pot"}`
+									: ""}
+							</div>
               </div>
               <button
                 onClick={() => handleRemoveClick(entry)}

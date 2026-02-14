@@ -9,6 +9,7 @@ export interface SpendingEntry {
   month: string;
   source: "card" | "savings" | "allowance";
   sourceId?: string; // card id if card
+  potId?: string; // allowance pot id
 }
 
 function spendingFilePath(budgetPlanId: string): string {

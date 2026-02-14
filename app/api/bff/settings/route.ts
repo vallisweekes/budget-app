@@ -18,6 +18,7 @@ const settingsSelect = {
   monthlyAllowance: true,
   savingsBalance: true,
   monthlySavingsContribution: true,
+  monthlyEmergencyContribution: true,
   monthlyInvestmentContribution: true,
   budgetStrategy: true,
 } as const;
@@ -75,6 +76,9 @@ export async function PATCH(req: NextRequest) {
     if (typeof body.monthlySavingsContribution !== "undefined") {
       updateData.monthlySavingsContribution = body.monthlySavingsContribution;
     }
+      if (typeof body.monthlyEmergencyContribution !== "undefined") {
+        updateData.monthlyEmergencyContribution = body.monthlyEmergencyContribution;
+      }
     if (typeof body.monthlyInvestmentContribution !== "undefined") {
       updateData.monthlyInvestmentContribution = body.monthlyInvestmentContribution;
     }

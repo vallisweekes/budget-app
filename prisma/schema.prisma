@@ -76,6 +76,7 @@ model BudgetPlan {
   monthlyAllowance              Decimal        @default(0) @db.Decimal(12, 2)
   savingsBalance                Decimal        @default(0) @db.Decimal(12, 2)
   monthlySavingsContribution    Decimal        @default(0) @db.Decimal(12, 2)
+  monthlyEmergencyContribution  Decimal        @default(0) @db.Decimal(12, 2)
   monthlyInvestmentContribution Decimal        @default(0) @db.Decimal(12, 2)
   budgetStrategy                BudgetStrategy @default(payYourselfFirst)
   
@@ -90,12 +91,34 @@ model BudgetPlan {
   income     Income[]
   debts      Debt[]
   goals      Goal[]
+  monthlyAllocations MonthlyAllocation[]
   
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   
   @@index([userId])
   @@index([userId, kind])
+}
+
+model MonthlyAllocation {
+  id String @id @default(cuid())
+
+  year  Int
+  month Int
+
+  monthlyAllowance              Decimal @default(0) @db.Decimal(12, 2)
+  monthlySavingsContribution    Decimal @default(0) @db.Decimal(12, 2)
+  monthlyEmergencyContribution  Decimal @default(0) @db.Decimal(12, 2)
+  monthlyInvestmentContribution Decimal @default(0) @db.Decimal(12, 2)
+
+  budgetPlanId String
+  budgetPlan   BudgetPlan @relation(fields: [budgetPlanId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([budgetPlanId, year, month])
+  @@index([budgetPlanId])
 }
 
 enum BudgetPlanKind {

@@ -5,6 +5,8 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import ViewTabs from "@/components/ViewTabs";
 import { currentMonthKey } from "@/lib/helpers/monthKey";
+import { monthNumberToKey } from "@/lib/helpers/monthKey";
+import { getMonthlyAllocationSnapshot } from "@/lib/allocations/store";
 
 export const dynamic = "force-dynamic";
 
@@ -22,9 +24,10 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 		const now = new Date();
 		const selectedYear = now.getFullYear();
 		const selectedMonthNum = now.getMonth() + 1; // 1-12
+		const selectedMonthKey = monthNumberToKey(selectedMonthNum);
 		
 		// Fetch all data from database for this plan
-		const [categories, expenses, income, goals] = await Promise.all([
+		const [categories, expenses, income, goals, allocation] = await Promise.all([
 			prisma.category.findMany({
 				where: { budgetPlanId: planId },
 			}),
@@ -45,6 +48,7 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 			prisma.goal.findMany({
 				where: { budgetPlanId: planId },
 			}),
+			getMonthlyAllocationSnapshot(planId, selectedMonthKey, { year: selectedYear }),
 		]);
 		
 		// Serialize goals into plain objects (convert Decimal and nulls)
@@ -109,11 +113,20 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 		const totalIncome = monthIncome.reduce((a, b) => a + (b.amount || 0), 0);
 		const remaining = totalIncome - totalExpenses;
 
+		const totalAllocations =
+			(allocation.monthlyAllowance ?? 0) +
+			(allocation.monthlySavingsContribution ?? 0) +
+			(allocation.monthlyEmergencyContribution ?? 0) +
+			(allocation.monthlyInvestmentContribution ?? 0);
+		const incomeAfterAllocations = totalIncome - totalAllocations;
+
 		return {
 			year: selectedYear,
 			monthNum: selectedMonthNum,
 			categoryData,
 			totalIncome,
+			totalAllocations,
+			incomeAfterAllocations,
 			totalExpenses,
 			remaining,
 			goals: serializedGoals,
@@ -181,6 +194,8 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 					categoryData={currentPlanData.categoryData}
 					regularExpenses={[]}
 					totalIncome={currentPlanData.totalIncome}
+					totalAllocations={currentPlanData.totalAllocations}
+					incomeAfterAllocations={currentPlanData.incomeAfterAllocations}
 					totalExpenses={currentPlanData.totalExpenses}
 					remaining={currentPlanData.remaining}
 					debts={debts}
@@ -188,7 +203,6 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 					goals={currentPlanData.goals}
 					allPlansData={allPlansData}
 				/>
-				<div className="mt-8 text-xs text-zinc-500 text-center">Manage entries in /admin.</div>
 			</div>
 		</div>
 	);

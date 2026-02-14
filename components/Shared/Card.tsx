@@ -2,10 +2,12 @@ import { ReactNode } from "react";
 
 export default function Card({
 	title,
+	titleTooltip,
 	children,
 	className,
 }: {
 	title?: string;
+	titleTooltip?: string;
 	children: ReactNode;
 	className?: string;
 }) {
@@ -16,7 +18,14 @@ export default function Card({
 				(className ?? "")
 			}
 		>
-			{title && <div className="text-sm font-medium text-slate-300 mb-2">{title}</div>}
+			{title && (
+				<div
+					className="text-sm font-medium text-slate-300 mb-2"
+					title={titleTooltip}
+				>
+					{title}
+				</div>
+			)}
 			{children}
 		</div>
 	);

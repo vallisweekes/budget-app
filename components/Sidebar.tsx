@@ -46,17 +46,24 @@ export default function Sidebar() {
 		{ href: `${baseHref}/settings`, label: "Settings", icon: Settings },
 	];
 
+	const displayUsernameRaw = scoped?.username || sessionUsername || "";
+	const displayUsername = displayUsernameRaw
+		? displayUsernameRaw.slice(0, 1).toUpperCase() + displayUsernameRaw.slice(1)
+		: "";
+
 	return (
 		<>
 			{/* Sidebar - Desktop Only */}
-			<aside className="hidden lg:block fixed top-0 left-0 h-full app-theme-bg bg-fixed border-r border-white/10 shadow-2xl z-40 w-64">
+			<aside className="hidden lg:block fixed top-0 left-0 h-full app-theme-bg bg-fixed border-r border-white/10 shadow-2xl z-40 w-72 xl:w-80">
 				<div className="flex flex-col h-full p-6">
 					{/* Logo/Title */}
 					<div className="mb-8 mt-2">
 						<div className="inline-flex items-center gap-3">
 							<div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-teal-500/20 to-cyan-500/10 border border-white/10 shadow-lg" />
 							<div>
-								<h2 className="text-2xl font-bold text-white leading-none">Budget App</h2>
+								<h2 className="text-2xl font-bold text-white leading-none">
+									Welcome{displayUsername ? ` ${displayUsername}` : ""}
+								</h2>
 								<p className="text-sm text-slate-400 mt-1">Manage your finances</p>
 							</div>
 						</div>
@@ -89,9 +96,6 @@ export default function Sidebar() {
 							<LogOut size={20} />
 							<span className="font-medium">Log out</span>
 						</button>
-						<p className="text-xs text-slate-500 text-center mt-4">
-							Budget App v1.0
-						</p>
 					</div>
 				</div>
 			</aside>

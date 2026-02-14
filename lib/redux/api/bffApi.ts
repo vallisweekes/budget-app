@@ -80,6 +80,7 @@ export interface BffSettings {
   monthlyAllowance: string;
   savingsBalance: string;
   monthlySavingsContribution: string;
+  monthlyEmergencyContribution: string;
   monthlyInvestmentContribution: string;
   budgetStrategy: string;
   createdAt: string;
