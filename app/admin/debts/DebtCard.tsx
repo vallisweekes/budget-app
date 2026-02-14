@@ -5,6 +5,7 @@ import { Pencil, X, Check, CreditCard, TrendingDown, ShoppingBag } from "lucide-
 import DeleteDebtButton from "./DeleteDebtButton";
 import { formatCurrency } from "@/lib/helpers/money";
 import { updateDebtAction, makePaymentFromForm } from "@/lib/debts/actions";
+import { SelectDropdown } from "@/components/Shared";
 import type { DebtPayment } from "@/types";
 
 interface Debt {
@@ -49,6 +50,7 @@ export default function DebtCard({ debt, budgetPlanId, typeLabels, payments, pay
 	const [isPending, startTransition] = useTransition();
 	const [isEditing, setIsEditing] = useState(false);
 	const [isEditingAmount, setIsEditingAmount] = useState(false);
+	const [paymentSource, setPaymentSource] = useState("income");
 	const [editName, setEditName] = useState(debt.name);
 	const [editInitialBalance, setEditInitialBalance] = useState(String(debt.initialBalance));
 	const [editCurrentBalance, setEditCurrentBalance] = useState(String(debt.currentBalance));
@@ -341,42 +343,45 @@ export default function DebtCard({ debt, budgetPlanId, typeLabels, payments, pay
 					{/* Make Payment Form */}
 					<div className="bg-slate-900/40 rounded-xl p-4 border border-white/5">
 						<h4 className="text-sm font-semibold text-slate-300 mb-3">Record Payment</h4>
-						<form key={debt.amount} action={makePaymentFromForm} className="flex flex-col sm:flex-row sm:items-end gap-2">
+						<form key={debt.amount} action={makePaymentFromForm} className="grid grid-cols-1 sm:grid-cols-[180px_1fr_auto] gap-3 sm:items-end">
 							<input type="hidden" name="budgetPlanId" value={budgetPlanId} />
 							<input type="hidden" name="debtId" value={debt.id} />
 							<input type="hidden" name="month" value={paymentMonth} />
-							<label className="flex-1">
-								<span className="block text-xs font-medium text-slate-300 mb-1">Payment Amount</span>
+							<input type="hidden" name="source" value={paymentSource} />
+							<div>
+								<label className="block text-xs font-medium text-slate-300 mb-1.5">Payment Amount</label>
 								<input
 									type="number"
 									name="amount"
 									step="0.01"
-									placeholder="Enter payment amount"
+									placeholder="Amount"
 									defaultValue={debt.amount}
 									required
 									aria-label="Payment amount"
-									className="h-10 w-full px-4 py-2 bg-slate-900/60 border border-white/10 text-white placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+									className="h-10 w-full px-3 py-2 bg-slate-900/60 border border-white/10 text-white placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
 								/>
-							</label>
-							<label className="sm:w-44">
-								<span className="block text-xs font-medium text-slate-300 mb-1">Source</span>
-								<select
-									name="source"
-									defaultValue="income"
-									className="h-10 w-full px-3 bg-slate-900/60 border border-white/10 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-								>
-									<option value="income">Income (tracked)</option>
-									<option value="extra_funds">Extra funds</option>
-								</select>
-							</label>
+							</div>
+							<div>
+								<label className="block text-xs font-medium text-slate-300 mb-1.5">Source</label>
+								<SelectDropdown
+									options={[
+										{ value: "income", label: "Income (tracked)" },
+										{ value: "extra_funds", label: "Extra funds" },
+									]}
+									value={paymentSource}
+									onValueChange={setPaymentSource}
+									variant="dark"
+									buttonClassName="h-10"
+								/>
+							</div>
 							<button
 								type="submit"
-								className="h-10 px-6 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium shadow-lg hover:shadow-xl cursor-pointer"
+								className="h-10 px-6 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium shadow-lg hover:shadow-xl cursor-pointer whitespace-nowrap"
 							>
 								Make Payment
 							</button>
 						</form>
-						<p className="text-xs text-slate-500 mt-2">
+						<p className="text-xs text-slate-500 mt-3">
 							💡 <span className="text-amber-400">Income (tracked)</span> payments reduce your available budget for the month.{" "}
 							<span className="text-blue-400">Extra funds</span> don't affect your monthly budget.
 						</p>
