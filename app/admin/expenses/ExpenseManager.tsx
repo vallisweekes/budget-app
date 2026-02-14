@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState, useTransition, type FormEvent } from "react";
+import { useMemo, useState, useTransition } from "react";
+import type { SyntheticEvent } from "react";
 import { useFormStatus } from "react-dom";
 import type { MonthKey } from "@/types";
 import { addExpenseAction, togglePaidAction, updateExpenseAction, removeExpenseAction, applyExpensePaymentAction } from "./actions";
@@ -147,7 +148,7 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
 
   const effectiveCategories = categories;
 
-  const handleAddExpenseSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleAddExpenseSubmit = (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (isPeriodLoading) return;
 
