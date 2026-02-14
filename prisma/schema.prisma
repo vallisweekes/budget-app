@@ -92,12 +92,52 @@ model BudgetPlan {
   debts      Debt[]
   goals      Goal[]
   monthlyAllocations MonthlyAllocation[]
+  allocationDefinitions AllocationDefinition[]
+  monthlyAllocationItems MonthlyAllocationItem[]
   
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   
   @@index([userId])
   @@index([userId, kind])
+}
+
+model AllocationDefinition {
+  id            String   @id @default(cuid())
+  name          String
+  defaultAmount Decimal  @default(0) @db.Decimal(12, 2)
+  sortOrder     Int      @default(0)
+  isArchived    Boolean  @default(false)
+
+  budgetPlanId  String
+  budgetPlan    BudgetPlan @relation(fields: [budgetPlanId], references: [id], onDelete: Cascade)
+
+  monthlyItems  MonthlyAllocationItem[]
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([budgetPlanId, name])
+  @@index([budgetPlanId, isArchived, sortOrder])
+}
+
+model MonthlyAllocationItem {
+  id            String   @id @default(cuid())
+  year          Int
+  month         Int
+  amount        Decimal  @db.Decimal(12, 2)
+
+  allocationId  String
+  allocation    AllocationDefinition @relation(fields: [allocationId], references: [id], onDelete: Cascade)
+
+  budgetPlanId  String
+  budgetPlan    BudgetPlan @relation(fields: [budgetPlanId], references: [id], onDelete: Cascade)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([allocationId, year, month])
+  @@index([budgetPlanId, year, month])
 }
 
 model MonthlyAllocation {

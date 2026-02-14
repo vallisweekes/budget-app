@@ -12,6 +12,27 @@ export type MonthlyAllocationSnapshot = {
 	isOverride: boolean;
 };
 
+export type CustomAllocationItem = {
+	id: string;
+	name: string;
+	amount: number;
+	isOverride: boolean;
+};
+
+export type MonthlyCustomAllocationsSnapshot = {
+	year: number;
+	month: number;
+	items: CustomAllocationItem[];
+	total: number;
+};
+
+function warnStalePrismaClient(feature: string) {
+	if (process.env.NODE_ENV === "production") return;
+	// Dev-only safety: after Prisma schema changes, Next dev server sometimes holds a stale client instance.
+	// This prevents hard crashes and hints at the fix.
+	console.warn(`[allocations] ${feature} unavailable (stale Prisma Client). Restart the dev server to pick up schema changes.`);
+}
+
 function decimalToNumber(value: unknown): number {
 	if (value == null) return 0;
 	if (typeof value === "number") return value;
@@ -20,6 +41,10 @@ function decimalToNumber(value: unknown): number {
 		return Number(asString);
 	}
 	return Number(String(value));
+}
+
+function normalizeAllocationName(name: string): string {
+	return String(name ?? "").trim();
 }
 
 export async function resolveActiveBudgetYear(budgetPlanId: string): Promise<number> {
@@ -186,4 +211,182 @@ export async function upsertMonthlyAllocation(
 			monthlyInvestmentContribution: values.monthlyInvestmentContribution,
 		},
 	});
+}
+
+export async function listAllocationDefinitions(budgetPlanId: string): Promise<
+	Array<{ id: string; name: string; defaultAmount: number; sortOrder: number; isArchived: boolean }>
+> {
+	const allocationDefinition = (prisma as unknown as { allocationDefinition?: any }).allocationDefinition;
+	if (!allocationDefinition?.findMany) {
+		throw new Error(
+			"Custom allocations are not available yet. Restart the dev server to pick up Prisma schema changes."
+		);
+	}
+
+	type AllocationDefinitionListRow = {
+		id: string;
+		name: string;
+		defaultAmount: unknown;
+		sortOrder: number;
+		isArchived: boolean;
+	};
+
+	const defs = (await allocationDefinition.findMany({
+		where: { budgetPlanId },
+		orderBy: [{ isArchived: "asc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
+		select: { id: true, name: true, defaultAmount: true, sortOrder: true, isArchived: true },
+	})) as AllocationDefinitionListRow[];
+
+	return defs.map((d) => ({
+		id: d.id,
+		name: d.name,
+		defaultAmount: decimalToNumber(d.defaultAmount),
+		sortOrder: d.sortOrder,
+		isArchived: d.isArchived,
+	}));
+}
+
+export async function createAllocationDefinition(params: {
+	budgetPlanId: string;
+	name: string;
+	defaultAmount?: number;
+}): Promise<{ id: string; name: string; defaultAmount: number; sortOrder: number }> {
+	const name = normalizeAllocationName(params.name);
+	if (!name) throw new Error("Allocation name is required");
+
+	const allocationDefinition = (prisma as unknown as { allocationDefinition?: any }).allocationDefinition;
+	if (!allocationDefinition?.aggregate || !allocationDefinition?.create) {
+		throw new Error(
+			"Custom allocations are not available yet. Restart the dev server to pick up Prisma schema changes."
+		);
+	}
+
+	const maxSort = await allocationDefinition.aggregate({
+		where: { budgetPlanId: params.budgetPlanId },
+		_max: { sortOrder: true },
+	});
+	const sortOrder = (maxSort._max.sortOrder ?? 0) + 1;
+	const defaultAmount = Number(params.defaultAmount ?? 0);
+
+	type AllocationDefinitionCreateRow = { id: string; name: string; defaultAmount: unknown; sortOrder: number };
+
+	const created = (await allocationDefinition.create({
+		data: {
+			budgetPlanId: params.budgetPlanId,
+			name,
+			defaultAmount,
+			sortOrder,
+		},
+		select: { id: true, name: true, defaultAmount: true, sortOrder: true },
+	})) as AllocationDefinitionCreateRow;
+
+	return {
+		id: created.id,
+		name: created.name,
+		defaultAmount: decimalToNumber(created.defaultAmount),
+		sortOrder: created.sortOrder,
+	};
+}
+
+export async function getMonthlyCustomAllocationsSnapshot(
+	budgetPlanId: string,
+	monthKey: MonthKey,
+	options?: { year?: number }
+): Promise<MonthlyCustomAllocationsSnapshot> {
+	const year = options?.year ?? (await resolveActiveBudgetYear(budgetPlanId));
+	const month = monthKeyToNumber(monthKey);
+
+	const allocationDefinition = (prisma as unknown as { allocationDefinition?: any }).allocationDefinition;
+	const monthlyAllocationItem = (prisma as unknown as { monthlyAllocationItem?: any }).monthlyAllocationItem;
+	if (!allocationDefinition?.findMany || !monthlyAllocationItem?.findMany) {
+		warnStalePrismaClient("Custom allocations");
+		return { year, month, items: [], total: 0 };
+	}
+
+	type AllocationDefinitionSnapshotRow = { id: string; name: string; defaultAmount: unknown };
+	type MonthlyAllocationItemRow = { allocationId: string; amount: unknown };
+
+	const [defs, overrides] = (await Promise.all([
+		allocationDefinition.findMany({
+			where: { budgetPlanId, isArchived: false },
+			orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+			select: { id: true, name: true, defaultAmount: true },
+		}),
+		monthlyAllocationItem.findMany({
+			where: { budgetPlanId, year, month },
+			select: { allocationId: true, amount: true },
+		}),
+	])) as [AllocationDefinitionSnapshotRow[], MonthlyAllocationItemRow[]];
+
+	const overrideById = new Map<string, number>();
+	for (const row of overrides) {
+		overrideById.set(row.allocationId, decimalToNumber(row.amount));
+	}
+
+	const items: CustomAllocationItem[] = defs.map((d: AllocationDefinitionSnapshotRow) => {
+		const defaultAmount = decimalToNumber(d.defaultAmount);
+		const override = overrideById.get(d.id);
+		return {
+			id: d.id,
+			name: d.name,
+			amount: typeof override === "number" ? override : defaultAmount,
+			isOverride: typeof override === "number",
+		};
+	});
+
+	const total = items.reduce((sum, it) => sum + (it.amount ?? 0), 0);
+
+	return { year, month, items, total };
+}
+
+export async function upsertMonthlyCustomAllocationOverrides(params: {
+	budgetPlanId: string;
+	year: number;
+	month: number;
+	amountsByAllocationId: Record<string, number>;
+}): Promise<void> {
+	const allocationIds = Object.keys(params.amountsByAllocationId);
+	if (allocationIds.length === 0) return;
+
+	const allocationDefinition = (prisma as unknown as { allocationDefinition?: any }).allocationDefinition;
+	const monthlyAllocationItem = (prisma as unknown as { monthlyAllocationItem?: any }).monthlyAllocationItem;
+	if (!allocationDefinition?.findMany || !monthlyAllocationItem?.deleteMany || !monthlyAllocationItem?.upsert) {
+		throw new Error(
+			"Custom allocations are not available yet. Restart the dev server to pick up Prisma schema changes."
+		);
+	}
+
+	type AllocationDefinitionDefaultsRow = { id: string; defaultAmount: unknown };
+	const defs = (await allocationDefinition.findMany({
+		where: { budgetPlanId: params.budgetPlanId, id: { in: allocationIds }, isArchived: false },
+		select: { id: true, defaultAmount: true },
+	})) as AllocationDefinitionDefaultsRow[];
+	const defaultById = new Map(defs.map((d) => [d.id, decimalToNumber(d.defaultAmount)] as const));
+
+	for (const allocationId of allocationIds) {
+		const raw = params.amountsByAllocationId[allocationId];
+		const amount = Number.isFinite(raw) ? Number(raw) : 0;
+		const defaultAmount = defaultById.get(allocationId);
+		if (typeof defaultAmount !== "number") continue;
+
+		// If user sets it back to the default, remove the override row.
+		if (amount === defaultAmount) {
+			await monthlyAllocationItem.deleteMany({
+				where: { allocationId, year: params.year, month: params.month },
+			});
+			continue;
+		}
+
+		await monthlyAllocationItem.upsert({
+			where: { allocationId_year_month: { allocationId, year: params.year, month: params.month } },
+			create: {
+				budgetPlanId: params.budgetPlanId,
+				allocationId,
+				year: params.year,
+				month: params.month,
+				amount,
+			},
+			update: { amount },
+		});
+	}
 }

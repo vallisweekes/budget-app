@@ -10,7 +10,13 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { resolveUserId } from "@/lib/budgetPlans";
 import { monthKeyToNumber } from "@/lib/helpers/monthKey";
-import { resolveActiveBudgetYear, upsertMonthlyAllocation } from "@/lib/allocations/store";
+import {
+	createAllocationDefinition,
+	listAllocationDefinitions,
+	resolveActiveBudgetYear,
+	upsertMonthlyAllocation,
+	upsertMonthlyCustomAllocationOverrides,
+} from "@/lib/allocations/store";
 import { isMonthKey } from "@/lib/budget/zero-based";
 import { currentMonthKey } from "@/lib/helpers/monthKey";
 
@@ -138,6 +144,50 @@ export async function saveAllocationsAction(formData: FormData): Promise<void> {
 		monthlySavingsContribution: parseMoney("monthlySavingsContribution"),
 		monthlyEmergencyContribution: parseMoney("monthlyEmergencyContribution"),
 		monthlyInvestmentContribution: parseMoney("monthlyInvestmentContribution"),
+	});
+
+	// Custom allocations
+	const amountsByAllocationId: Record<string, number> = {};
+	for (const [key, value] of formData.entries()) {
+		if (!key.startsWith("customAllocation:")) continue;
+		const allocationId = key.slice("customAllocation:".length).trim();
+		if (!allocationId) continue;
+		const amount = Number(value);
+		amountsByAllocationId[allocationId] = Number.isFinite(amount) ? amount : 0;
+	}
+
+	const newName = String(formData.get("newCustomAllocationName") ?? "").trim();
+	const normalizedNewName = newName.replace(/\s+/g, " ").trim().toLowerCase();
+	const newAmountRaw = Number(formData.get("newCustomAllocationAmount") ?? 0);
+	const newAmount = Number.isFinite(newAmountRaw) ? newAmountRaw : 0;
+	if (newName) {
+		// Treat the provided amount as the default amount for the new allocation.
+		// If the user only meant it for this month, they can change other months later.
+		let allocationId: string | null = null;
+		try {
+			const created = await createAllocationDefinition({
+				budgetPlanId,
+				name: newName,
+				defaultAmount: newAmount,
+			});
+			allocationId = created.id;
+		} catch {
+			// Likely a duplicate name; reuse the existing definition.
+			const defs = await listAllocationDefinitions(budgetPlanId);
+			const existing = defs.find((d) => d.name.replace(/\s+/g, " ").trim().toLowerCase() === normalizedNewName);
+			allocationId = existing?.id ?? null;
+		}
+
+		if (allocationId) {
+			amountsByAllocationId[allocationId] = newAmount;
+		}
+	}
+
+	await upsertMonthlyCustomAllocationOverrides({
+		budgetPlanId,
+		year,
+		month,
+		amountsByAllocationId,
 	});
 
 	const session = await getServerSession(authOptions);
