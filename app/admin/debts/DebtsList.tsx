@@ -11,6 +11,7 @@ interface Debt {
 	type: string;
 	initialBalance: number;
 	currentBalance: number;
+	amount: number;
 	monthlyMinimum?: number;
 	interestRate?: number;
 }
