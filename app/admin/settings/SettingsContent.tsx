@@ -5,7 +5,8 @@ import { MONTHS } from "@/lib/constants/time";
 import { SUPPORTED_CURRENCIES, SUPPORTED_COUNTRIES, SUPPORTED_LANGUAGES } from "@/lib/constants/locales";
 import { SelectDropdown } from "@/components/Shared";
 import type { MonthKey } from "@/types";
-import { CalendarDays, Lightbulb, PiggyBank, Wallet, Globe, User, AlertTriangle, Edit2 } from "lucide-react";
+import { CalendarDays, Lightbulb, PiggyBank, Wallet, Globe, User, AlertTriangle, Edit2, LogOut } from "lucide-react";
+import { signOut } from "next-auth/react";
 import { saveSettingsAction, updateUserDetailsAction } from "./actions";
 import DeleteBudgetPlanButton from "./DeleteBudgetPlanButton";
 import type { Settings } from "@/lib/settings/store";
@@ -113,9 +114,19 @@ export default function SettingsContent({
 	return (
 		<div className="min-h-screen pb-20 app-theme-bg">
 			<div className="mx-auto w-full max-w-7xl px-4 py-8">
-				<div className="mb-10">
-					<h1 className="text-4xl font-bold text-white mb-2">Settings</h1>
-					<p className="text-slate-400 text-lg">Configure your budget and app options</p>
+				<div className="mb-10 flex items-start justify-between gap-4">
+					<div>
+						<h1 className="text-4xl font-bold text-white mb-2">Settings</h1>
+						<p className="text-slate-400 text-lg">Configure your budget and app options</p>
+					</div>
+					<button
+						type="button"
+						onClick={() => signOut({ callbackUrl: "/" })}
+						className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white/90 border border-white/10 bg-white/5 hover:bg-white/10 transition"
+					>
+						<LogOut size={16} />
+						Log out
+					</button>
 				</div>
 
 				<div className="mb-6 bg-slate-800/35 backdrop-blur-xl rounded-3xl border border-white/10 p-5">

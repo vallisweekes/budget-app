@@ -2,8 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, DollarSign, CreditCard, Target, Settings, LogOut } from "lucide-react";
-import { signOut } from "next-auth/react";
+import { Home, DollarSign, CreditCard, Target, Settings, Banknote } from "lucide-react";
 import { currentMonthKey } from "@/lib/helpers/monthKey";
 
 function parseUserScopedPath(pathname: string): { username: string; budgetPlanId: string } | null {
@@ -34,18 +33,19 @@ export default function MobileBottomNav() {
 
 	const navItems = [
 		{ href: baseHref, label: "Home", icon: Home },
+		{ href: `${baseHref}/income`, label: "Income", icon: Banknote },
 		{ href: expensesHref, label: "Expenses", icon: DollarSign },
 		{ href: `${baseHref}/debts`, label: "Debts", icon: CreditCard },
 		{ href: `${baseHref}/goals`, label: "Goals", icon: Target },
 		{ href: `${baseHref}/settings`, label: "Settings", icon: Settings },
-		{ href: "#", label: "Logout", icon: LogOut, action: () => signOut({ callbackUrl: "/" }) },
 	];
 
 	const isActive = (href: string) => {
+		const pathOnly = href.split("?")[0] ?? href;
 		if (href === baseHref) {
 			return pathname === href || pathname === `${href}/`;
 		}
-		return pathname.startsWith(href);
+		return pathname.startsWith(pathOnly);
 	};
 
 	return (
@@ -53,21 +53,6 @@ export default function MobileBottomNav() {
 			<div className="flex items-center justify-around px-2 py-3">
 				{navItems.map((item) => {
 					const active = isActive(item.href);
-					
-					if (item.action) {
-						return (
-							<button
-								key={item.label}
-								onClick={item.action}
-								className="flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all min-w-[64px] text-slate-300 hover:text-red-400"
-							>
-								<div className="p-2 rounded-lg transition-all hover:bg-red-500/10">
-									<item.icon size={20} strokeWidth={2} />
-								</div>
-								<span className="text-xs font-medium">{item.label}</span>
-							</button>
-						);
-					}
 					
 					return (
 						<Link
