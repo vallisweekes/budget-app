@@ -69,7 +69,7 @@ export default async function AdminIncomePage(props: {
 	const hasAvailableMonths = monthsWithoutIncome.length > 0;
 	const defaultMonth: MonthKey =
 		(monthsWithoutIncome.includes(nowMonth) ? nowMonth : monthsWithoutIncome[0]) || nowMonth;
-	
+
 	return (
 		<div className="min-h-screen pb-20 app-theme-bg">
 			<div className="mx-auto w-full max-w-7xl px-4 py-8">
@@ -181,7 +181,7 @@ export default async function AdminIncomePage(props: {
 					</div>
 				</div>
 
-				{hasAvailableMonths && (
+				{hasAvailableMonths ? (
 					<div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/10 p-8 mb-8">
 						<div className="flex items-center gap-3 mb-8">
 							<div className="w-14 h-14 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center shadow-lg">
@@ -191,7 +191,7 @@ export default async function AdminIncomePage(props: {
 							</div>
 							<div>
 								<h2 className="text-2xl font-bold text-white">Add Income</h2>
-								<p className="text-slate-400 text-sm">Add a new income source for any month</p>
+								<p className="text-slate-400 text-sm">Only shows months that don’t have income yet.</p>
 							</div>
 						</div>
 						<form action={addIncomeAction} className="grid grid-cols-1 md:grid-cols-12 gap-4">
@@ -246,11 +246,17 @@ export default async function AdminIncomePage(props: {
 									type="submit"
 									className="w-full bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-xl py-3 font-semibold shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all cursor-pointer"
 								>
-									<span className="hidden md:inline">+</span>
-									<span className="md:hidden">Add Income</span>
+									Add
 								</button>
 							</div>
 						</form>
+					</div>
+				) : (
+					<div className="rounded-3xl border border-white/10 bg-slate-800/30 px-6 py-5 mb-8">
+						<div className="text-sm font-semibold text-slate-200">All months already have income</div>
+						<div className="mt-1 text-sm text-slate-400">
+							You can still edit (or add extra sources to) any month below — including past months.
+						</div>
 					</div>
 				)}
 

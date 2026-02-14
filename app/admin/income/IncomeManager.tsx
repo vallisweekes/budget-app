@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import type { MonthKey } from "@/types";
 import { useRouter } from "next/navigation";
+import { currentMonthKey, monthKeyToNumber } from "@/lib/helpers/monthKey";
 import {
 	updateIncomeItemAction,
 	addIncomeAction,
@@ -32,6 +33,9 @@ export default function IncomeManager({
 	onOpen,
 	onClose,
 }: IncomeManagerProps) {
+	const nowMonth = currentMonthKey();
+	const isCurrentMonth = month === nowMonth;
+	const isLocked = monthKeyToNumber(month) < monthKeyToNumber(nowMonth);
 	const router = useRouter();
 	const [isPending, startTransition] = useTransition();
 	const [editingItemId, setEditingItemId] = useState<string | null>(null);
@@ -44,6 +48,7 @@ export default function IncomeManager({
 	const [distributeAllYears, setDistributeAllYears] = useState(false);
 
 	const handleEditClick = (id: string) => {
+		if (isLocked) return;
 		const item = incomeItems.find((i) => i.id === id);
 		if (item) {
 			setEditName(item.name);
@@ -60,6 +65,7 @@ export default function IncomeManager({
 	};
 
 	const handleAddClick = () => {
+		if (isLocked) return;
 		setNewName("");
 		setNewAmount("");
 		setDistributeAllMonths(false);
@@ -69,6 +75,7 @@ export default function IncomeManager({
 	};
 
 	const handleConfirmAdd = () => {
+		if (isLocked) return;
 		const name = newName.trim();
 		const amount = Number(newAmount);
 		if (!name) return;
@@ -92,11 +99,17 @@ export default function IncomeManager({
 	return (
 		<div className="flex flex-col h-full">
 			<ul className="space-y-3 mb-4 flex-1">
-				{incomeItems.map((item) => (
-					<li
-						key={item.id}
-						className="group flex items-center justify-between gap-2 p-2 rounded-lg hover:bg-slate-700/50 transition-colors"
-					>
+				{incomeItems.length === 0 ? (
+					<li className="rounded-xl border border-dashed border-white/10 bg-slate-900/20 px-4 py-4">
+						<div className="text-sm font-medium text-slate-200">No income yet</div>
+						<div className="mt-1 text-xs text-slate-400">Add your salary or any other sources for this month.</div>
+					</li>
+				) : (
+					incomeItems.map((item) => (
+						<li
+							key={item.id}
+							className="group flex items-center justify-between gap-2 p-2 rounded-lg hover:bg-slate-700/50 transition-colors"
+						>
 						{editingItemId === item.id ? (
 							<form
 								className="w-full flex items-center gap-2"
@@ -164,29 +177,29 @@ export default function IncomeManager({
 									<span className="text-slate-200 font-semibold text-sm">
 										{formatCurrency(item.amount)}
 									</span>
-									<div className="opacity-90 group-hover:opacity-100 transition-opacity flex items-center gap-1">
-										<button
-											onClick={() => handleEditClick(item.id)}
-											className="p-1.5 rounded-md bg-blue-500/20 text-blue-400 hover:bg-blue-500/30"
-											type="button"
-											aria-label={`Edit ${item.name}`}
-										>
-											<Pencil className="w-3 h-3" />
-										</button>
-										<DeleteIncomeButton
-											id={item.id}
-											budgetPlanId={budgetPlanId}
-											month={month}
-										/>
-									</div>
+									{!isLocked && (
+										<div className="opacity-90 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+											<button
+												onClick={() => handleEditClick(item.id)}
+												disabled={isPending}
+												className="p-1.5 rounded-md bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+												type="button"
+												aria-label={`Edit ${item.name}`}
+											>
+												<Pencil className="w-3 h-3" />
+											</button>
+											<DeleteIncomeButton id={item.id} budgetPlanId={budgetPlanId} month={month} />
+										</div>
+									)}
 								</div>
 							</>
 						)}
 					</li>
-				))}
+					))
+				)}
 			</ul>
 
-			{isAdding ? (
+			{isLocked ? null : isAdding ? (
 				<div className="p-2 bg-slate-900/40 rounded-lg border border-white/10">
 					<div className="flex items-center gap-2">
 						<label className="flex-1">
@@ -249,7 +262,9 @@ export default function IncomeManager({
 								checked={distributeAllMonths}
 								onChange={(e) => setDistributeAllMonths(e.target.checked)}
 								disabled={isPending}
-								className="h-4 w-4 rounded border-white/20 bg-slate-900/60 text-purple-500 focus:ring-purple-500"
+								className={`h-4 w-4 rounded border-white/20 bg-slate-900/60 ${
+									isCurrentMonth ? "text-teal-300 focus:ring-teal-300" : "text-purple-500 focus:ring-purple-500"
+								}`}
 							/>
 							All months
 						</label>
@@ -259,7 +274,9 @@ export default function IncomeManager({
 								checked={distributeAllYears}
 								onChange={(e) => setDistributeAllYears(e.target.checked)}
 								disabled={isPending}
-								className="h-4 w-4 rounded border-white/20 bg-slate-900/60 text-purple-500 focus:ring-purple-500"
+								className={`h-4 w-4 rounded border-white/20 bg-slate-900/60 ${
+									isCurrentMonth ? "text-teal-300 focus:ring-teal-300" : "text-purple-500 focus:ring-purple-500"
+								}`}
 							/>
 							All years (all budgets)
 						</label>
@@ -268,7 +285,12 @@ export default function IncomeManager({
 			) : (
 				<button
 					onClick={handleAddClick}
-					className="w-full flex items-center justify-center gap-2 p-2 text-sm text-purple-400 hover:bg-purple-500/10 rounded-lg border border-purple-500/20 transition-colors cursor-pointer"
+					disabled={isPending}
+					className={`w-full flex items-center justify-center gap-2 p-2 text-sm rounded-lg border transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${
+						isCurrentMonth
+							? "text-teal-200 hover:bg-teal-400/10 border-teal-200/30"
+							: "text-purple-400 hover:bg-purple-500/10 border-purple-500/20"
+					}`}
 				>
 					<Plus size={16} />
 					Add Income

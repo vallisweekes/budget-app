@@ -12,6 +12,12 @@ import { resolveUserId } from "@/lib/budgetPlans";
 import { monthKeyToNumber } from "@/lib/helpers/monthKey";
 import { resolveActiveBudgetYear, upsertMonthlyAllocation } from "@/lib/allocations/store";
 import { isMonthKey } from "@/lib/budget/zero-based";
+import { currentMonthKey } from "@/lib/helpers/monthKey";
+
+function isPastMonth(month: MonthKey, now: Date = new Date()): boolean {
+	const current = currentMonthKey(now);
+	return monthKeyToNumber(month) < monthKeyToNumber(current);
+}
 
 function isTruthyFormValue(value: FormDataEntryValue | null): boolean {
 	if (value == null) return false;
@@ -60,7 +66,9 @@ export async function addIncomeAction(formData: FormData): Promise<void> {
 	const { userId, sessionUsername } = await requireAuthenticatedUser();
 	await requireOwnedBudgetPlan(budgetPlanId, userId);
 
-	const targetMonths: MonthKey[] = distributeMonths ? (MONTHS as MonthKey[]) : [month];
+	const rawTargetMonths: MonthKey[] = distributeMonths ? (MONTHS as MonthKey[]) : [month];
+	const targetMonths: MonthKey[] = rawTargetMonths.filter((m) => !isPastMonth(m));
+	if (targetMonths.length === 0) return;
 	const sharedId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
 	if (distributeYears) {
@@ -88,6 +96,7 @@ export async function updateIncomeItemAction(
 	amount: number
 ): Promise<void> {
 	if (!name.trim()) return;
+	if (isPastMonth(month)) return;
 	const { userId, sessionUsername } = await requireAuthenticatedUser();
 	await requireOwnedBudgetPlan(budgetPlanId, userId);
 	await updateIncome(budgetPlanId, month, id, { name: name.trim(), amount });
@@ -97,6 +106,7 @@ export async function updateIncomeItemAction(
 }
 
 export async function removeIncomeAction(budgetPlanId: string, month: MonthKey, id: string): Promise<void> {
+	if (isPastMonth(month)) return;
 	const { userId, sessionUsername } = await requireAuthenticatedUser();
 	await requireOwnedBudgetPlan(budgetPlanId, userId);
 	await removeIncome(budgetPlanId, month, id);
