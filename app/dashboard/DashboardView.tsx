@@ -8,12 +8,31 @@ import { currentMonthKey } from "@/lib/helpers/monthKey";
 import { monthNumberToKey } from "@/lib/helpers/monthKey";
 import { getMonthlyAllocationSnapshot } from "@/lib/allocations/store";
 import type { ExpenseItem } from "@/types";
-import { computePreviousMonthRecap, computeUpcomingPayments } from "@/lib/expenses/insights";
+import { computePreviousMonthRecap, computeUpcomingPayments, computeRecapTips, type DatedExpenseItem } from "@/lib/expenses/insights";
 
 export const dynamic = "force-dynamic";
 
 function currentMonth(): typeof MONTHS[number] {
 	return currentMonthKey();
+}
+
+function addMonthsUtc(year: number, monthNum: number, delta: number): { year: number; monthNum: number } {
+	const d = new Date(Date.UTC(year, monthNum - 1 + delta, 1));
+	return { year: d.getUTCFullYear(), monthNum: d.getUTCMonth() + 1 };
+}
+
+function toNumber(value: unknown): number {
+	if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+	if (typeof value === "string") {
+		const n = Number(value);
+		return Number.isFinite(n) ? n : 0;
+	}
+	if (value && typeof value === "object") {
+		const str = (value as { toString: () => string }).toString();
+		const n = Number(str);
+		return Number.isFinite(n) ? n : 0;
+	}
+	return 0;
 }
 
 export default async function DashboardView({ budgetPlanId }: { budgetPlanId: string }) {
@@ -165,6 +184,8 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 
 	const currentYear = now.getFullYear();
 	const currentMonthNum = now.getMonth() + 1;
+	const historyPairs = Array.from({ length: 6 }, (_, i) => addMonthsUtc(currentYear, currentMonthNum, -i));
+	const historyOr = historyPairs.map((p) => ({ year: p.year, month: p.monthNum }));
 	const prev = new Date(now);
 	prev.setMonth(prev.getMonth() - 1);
 	const prevYear = prev.getFullYear();
@@ -190,12 +211,29 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 		},
 	});
 
+	const historyRows = await prisma.expense.findMany({
+		where: {
+			budgetPlanId,
+			OR: historyOr,
+		},
+		select: {
+			id: true,
+			name: true,
+			amount: true,
+			paid: true,
+			paidAmount: true,
+			dueDate: true,
+			year: true,
+			month: true,
+		},
+	});
+
 	const toExpenseItem = (e: (typeof insightRows)[number]): ExpenseItem => ({
 		id: e.id,
 		name: e.name,
-		amount: Number((e.amount as any)?.toString?.() ?? e.amount),
+		amount: toNumber(e.amount),
 		paid: e.paid,
-		paidAmount: Number((e.paidAmount as any)?.toString?.() ?? e.paidAmount),
+		paidAmount: toNumber(e.paidAmount),
 		dueDate: e.dueDate ? e.dueDate.toISOString().split("T")[0] : undefined,
 	});
 
@@ -206,14 +244,80 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 		.filter((e) => e.year === prevYear && e.month === prevMonthNum)
 		.map(toExpenseItem);
 
+	const historyExpenses: DatedExpenseItem[] = historyRows.map((e) => ({
+		...toExpenseItem(e),
+		year: e.year,
+		monthNum: e.month,
+	}));
+
+	const forecastPairs = Array.from({ length: 4 }, (_, i) => addMonthsUtc(currentYear, currentMonthNum, i));
+	const forecastOr = forecastPairs.map((p) => ({ year: p.year, month: p.monthNum }));
+
+	const [forecastExpenseRows, forecastIncomeRows] = await Promise.all([
+		prisma.expense.findMany({
+			where: {
+				budgetPlanId,
+				OR: forecastOr,
+			},
+			select: {
+				amount: true,
+				year: true,
+				month: true,
+			},
+		}),
+		prisma.income.findMany({
+			where: {
+				budgetPlanId,
+				OR: forecastOr,
+			},
+			select: {
+				amount: true,
+				year: true,
+				month: true,
+			},
+		}),
+	]);
+
+	const expenseTotalsByMonth = new Map<string, number>();
+	for (const r of forecastExpenseRows) {
+		const key = `${r.year}-${r.month}`;
+		expenseTotalsByMonth.set(key, (expenseTotalsByMonth.get(key) ?? 0) + toNumber(r.amount));
+	}
+
+	const incomeTotalsByMonth = new Map<string, number>();
+	for (const r of forecastIncomeRows) {
+		const key = `${r.year}-${r.month}`;
+		incomeTotalsByMonth.set(key, (incomeTotalsByMonth.get(key) ?? 0) + toNumber(r.amount));
+	}
+
+	const forecasts = forecastPairs.map((p) => {
+		const key = `${p.year}-${p.monthNum}`;
+		return {
+			year: p.year,
+			monthNum: p.monthNum,
+			incomeTotal: incomeTotalsByMonth.get(key) ?? 0,
+			billsTotal: expenseTotalsByMonth.get(key) ?? 0,
+		};
+	});
+
+	const recap = computePreviousMonthRecap(prevMonthExpenses, { year: prevYear, monthNum: prevMonthNum, payDate, now });
+	const upcoming = computeUpcomingPayments(currentMonthExpenses, {
+		year: currentYear,
+		monthNum: currentMonthNum,
+		payDate,
+		now,
+		limit: 6,
+	});
+
 	const expenseInsights = {
-		recap: computePreviousMonthRecap(prevMonthExpenses, { year: prevYear, monthNum: prevMonthNum, payDate, now }),
-		upcoming: computeUpcomingPayments(currentMonthExpenses, {
-			year: currentYear,
-			monthNum: currentMonthNum,
-			payDate,
-			now,
-			limit: 6,
+		recap,
+		upcoming,
+		recapTips: computeRecapTips({
+			recap,
+			currentMonthExpenses,
+			ctx: { year: currentYear, monthNum: currentMonthNum, payDate, now },
+			forecasts,
+			historyExpenses,
 		}),
 	};
 

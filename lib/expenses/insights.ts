@@ -1,5 +1,6 @@
 import type { ExpenseItem, PaymentStatus } from "@/types";
 import { formatMonthKeyLabel, monthNumberToKey } from "@/lib/helpers/monthKey";
+import { formatCurrency } from "@/lib/helpers/money";
 
 export type ExpenseUrgency = "overdue" | "today" | "soon" | "later";
 
@@ -16,6 +17,13 @@ export interface PreviousMonthRecap {
 	missedDueCount: number;
 	missedDueAmount: number;
 }
+
+export interface RecapTip {
+	title: string;
+	detail: string;
+}
+
+export type DatedExpenseItem = ExpenseItem & { year: number; monthNum: number };
 
 export interface UpcomingPayment {
 	id: string;
@@ -47,6 +55,12 @@ function parseIsoDateToUtcDateOnly(iso: string): Date | null {
 	return new Date(Date.UTC(y, m - 1, d));
 }
 
+function dayOfMonthFromIso(iso: string): number | null {
+	if (!/^(\d{4})-(\d{2})-(\d{2})$/.test(iso)) return null;
+	const day = Number(iso.slice(8, 10));
+	return Number.isFinite(day) && day >= 1 && day <= 31 ? day : null;
+}
+
 function todayUtcDateOnly(now: Date = new Date()): Date {
 	return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 }
@@ -59,6 +73,11 @@ function diffDaysUtc(a: Date, b: Date): number {
 function toFiniteNumber(value: unknown): number {
 	const n = typeof value === "number" ? value : Number(value);
 	return Number.isFinite(n) ? n : 0;
+}
+
+function monthLabel(year: number, monthNum: number): string {
+	const monthKey = monthNumberToKey(monthNum);
+	return `${formatMonthKeyLabel(monthKey)} ${year}`;
 }
 
 export function getPaymentStatus(expense: ExpenseItem): PaymentStatus {
@@ -211,4 +230,178 @@ export function computeUpcomingPayments(
 	return upcoming
 		.sort((a, b) => score(a) - score(b))
 		.slice(0, Math.max(0, limit));
+}
+
+export function computeRecapTips(args: {
+	recap: PreviousMonthRecap;
+	currentMonthExpenses: ExpenseItem[];
+	ctx: { year: number; monthNum: number; payDate: number; now?: Date };
+	forecasts?: Array<{ year: number; monthNum: number; incomeTotal: number; billsTotal: number }>;
+	historyExpenses?: DatedExpenseItem[];
+}): RecapTip[] {
+	const tips: RecapTip[] = [];
+	const now = args.ctx.now ?? new Date();
+	const today = todayUtcDateOnly(now);
+
+	const needsHelp = args.recap.missedDueCount > 0 || args.recap.unpaidCount + args.recap.partialCount > 0;
+	if (!needsHelp) return tips;
+
+	// Personalization based on the user's recent patterns (this plan's history).
+	const history = Array.isArray(args.historyExpenses) ? args.historyExpenses : [];
+	if (history.length > 0) {
+		const monthsInHistory = new Set(history.map((h) => `${h.year}-${h.monthNum}`)).size;
+
+		// Compute which bills are most frequently missed.
+		const missedByName = new Map<string, { count: number; totalRemaining: number }>();
+		let partialCount = 0;
+		let notPaidCount = 0;
+		let dueBeforePayDateCount = 0;
+		let dueWithKnownDayCount = 0;
+
+		for (const e of history) {
+			const amount = toFiniteNumber(e.amount);
+			if (!(amount > 0)) continue;
+
+			const paidAmount = toFiniteNumber(e.paidAmount);
+			const status = getPaymentStatus(e);
+			if (status !== "paid") notPaidCount += 1;
+			if (status === "partial") partialCount += 1;
+
+			const dueIso = resolveEffectiveDueDateIso(e, { year: e.year, monthNum: e.monthNum, payDate: args.ctx.payDate });
+			if (dueIso) {
+				const dueDay = dayOfMonthFromIso(dueIso);
+				if (dueDay != null) {
+					dueWithKnownDayCount += 1;
+					if (dueDay < Math.floor(args.ctx.payDate)) dueBeforePayDateCount += 1;
+				}
+			}
+
+			// Missed = unpaid/partial where due date is by month end.
+			if (status === "paid") continue;
+			const endOfMonth = new Date(Date.UTC(e.year, e.monthNum, 0));
+			const due = dueIso ? parseIsoDateToUtcDateOnly(dueIso) : null;
+			const dueByEndOfMonth = due ? due.getTime() <= endOfMonth.getTime() : true;
+			if (!dueByEndOfMonth) continue;
+
+			const key = (e.name || "").trim() || "(Unnamed bill)";
+			const prev = missedByName.get(key) ?? { count: 0, totalRemaining: 0 };
+			missedByName.set(key, {
+				count: prev.count + 1,
+				totalRemaining: prev.totalRemaining + Math.max(0, amount - paidAmount),
+			});
+		}
+
+		const topMissed = Array.from(missedByName.entries())
+			.sort((a, b) => b[1].count - a[1].count || b[1].totalRemaining - a[1].totalRemaining)
+			.slice(0, 1);
+
+		if (topMissed.length > 0 && topMissed[0][1].count >= 2 && monthsInHistory >= 2) {
+			const [name, stat] = topMissed[0];
+			tips.push({
+				title: `You often miss ${name}`,
+				detail: `${name} was missed ${stat.count} times in your recent history. Consider autopay (if available) or a recurring reminder 3 days before the due date.`,
+			});
+		}
+
+		if (dueWithKnownDayCount >= 6) {
+			const ratio = dueBeforePayDateCount / Math.max(1, dueWithKnownDayCount);
+			if (ratio >= 0.6) {
+				tips.push({
+					title: "Many bills are due before payday",
+					detail: "A lot of your bills fall before your pay date. If possible, move due dates to just after payday or set a ‘bills pot’ transfer on payday to cover them.",
+				});
+			}
+		}
+
+		if (notPaidCount >= 4) {
+			const ratio = partialCount / Math.max(1, notPaidCount);
+			if (ratio >= 0.5) {
+				tips.push({
+					title: "You often pay partially",
+					detail: "If partial payments are common, try splitting large bills into 2 payments (payday + mid-month) so they don’t pile up near the due date.",
+				});
+			}
+		}
+	}
+
+	let overdueRemaining = 0;
+	for (const e of args.currentMonthExpenses) {
+		const amount = toFiniteNumber(e.amount);
+		if (!(amount > 0)) continue;
+		const paidAmount = toFiniteNumber(e.paidAmount);
+		const status = getPaymentStatus(e);
+		if (status === "paid") continue;
+
+		const dueIso = resolveEffectiveDueDateIso(e, args.ctx);
+		if (!dueIso) continue;
+		const due = parseIsoDateToUtcDateOnly(dueIso);
+		if (!due) continue;
+
+		const daysUntil = diffDaysUtc(due, today);
+		if (daysUntil < 0) overdueRemaining += Math.max(0, amount - paidAmount);
+	}
+
+	if (overdueRemaining > 0) {
+		tips.push({
+			title: "Prioritize overdue bills first",
+			detail: `Start with anything overdue. Even partial payments help reduce late fees. Remaining overdue: ${formatCurrency(overdueRemaining)}.`,
+		});
+	}
+
+	tips.push({
+		title: "Pay on payday (or the day after)",
+		detail: "If possible, schedule bill payments right after your pay date so you don’t accidentally spend it elsewhere.",
+	});
+
+	tips.push({
+		title: "Add reminders + autopay for the basics",
+		detail: "Turn on reminders 3 days before due dates (and on the day). Use autopay for rent/mortgage/utilities if you can.",
+	});
+
+	tips.push({
+		title: "Build a tiny ‘bills buffer’",
+		detail: "Aim for a small buffer (even £25–£50) so one unexpected spend doesn’t cause a missed bill.",
+	});
+
+	const forecasts = args.forecasts ?? [];
+	if (forecasts.length > 0) {
+		const byKey = new Map<string, { incomeTotal: number; billsTotal: number }>();
+		for (const f of forecasts) {
+			byKey.set(`${f.year}-${f.monthNum}`, {
+				incomeTotal: toFiniteNumber(f.incomeTotal),
+				billsTotal: toFiniteNumber(f.billsTotal),
+			});
+		}
+
+		const currentKey = `${args.ctx.year}-${args.ctx.monthNum}`;
+		const current = byKey.get(currentKey);
+		const currentNet = current ? current.incomeTotal - current.billsTotal : 0;
+
+		let best: { year: number; monthNum: number; net: number } | null = null;
+		let tight: { year: number; monthNum: number; net: number } | null = null;
+		for (const f of forecasts) {
+			if (f.year === args.ctx.year && f.monthNum === args.ctx.monthNum) continue;
+			const net = toFiniteNumber(f.incomeTotal) - toFiniteNumber(f.billsTotal);
+			if (!best || net > best.net) best = { year: f.year, monthNum: f.monthNum, net };
+			if (!tight || net < tight.net) tight = { year: f.year, monthNum: f.monthNum, net };
+		}
+
+		if (best && best.net > currentNet + 50 && (overdueRemaining > 0 || args.recap.missedDueAmount > 0)) {
+			const headroom = Math.max(0, best.net - currentNet);
+			const suggestedExtra = Math.max(0, Math.min(overdueRemaining || args.recap.missedDueAmount, headroom));
+			tips.push({
+				title: "Use higher-income months to catch up",
+				detail: `${monthLabel(best.year, best.monthNum)} looks stronger after bills (about ${formatCurrency(headroom)} more than this month). If you can, consider paying an extra ~${formatCurrency(suggestedExtra)} toward overdue/missed bills then.`,
+			});
+		}
+
+		if (tight && tight.net < 0) {
+			tips.push({
+				title: "Watch for tight months ahead",
+				detail: `${monthLabel(tight.year, tight.monthNum)} projects a negative gap after bills. Consider pre-paying 1–2 smaller bills in the prior month or trimming discretionary spend early.`,
+			});
+		}
+	}
+
+	return tips;
 }

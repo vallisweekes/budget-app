@@ -10,7 +10,7 @@ import { Card } from "@/components/Shared";
 import { Receipt, Plus } from "lucide-react";
 import Link from "next/link";
 import PaymentInsightsCards from "@/components/Insights/PaymentInsightsCards";
-import type { PreviousMonthRecap, UpcomingPayment } from "@/lib/expenses/insights";
+import type { PreviousMonthRecap, UpcomingPayment, RecapTip } from "@/lib/expenses/insights";
 
 type GoalLike = {
   id: string;
@@ -66,6 +66,7 @@ type ViewTabsProps = {
 	expenseInsights?: {
 		recap: PreviousMonthRecap;
 		upcoming: UpcomingPayment[];
+    recapTips?: RecapTip[];
 	};
 };
 
@@ -373,7 +374,7 @@ export default function ViewTabs({
         </Card>
       </div>
 
-		<PaymentInsightsCards recap={expenseInsights?.recap} upcoming={expenseInsights?.upcoming} />
+    <PaymentInsightsCards recap={expenseInsights?.recap} recapTips={expenseInsights?.recapTips} upcoming={expenseInsights?.upcoming} />
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
         <Card title="Top categories" className="lg:col-span-7">

@@ -1,4 +1,7 @@
-import type { PreviousMonthRecap, UpcomingPayment } from "@/lib/expenses/insights";
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import type { PreviousMonthRecap, UpcomingPayment, RecapTip } from "@/lib/expenses/insights";
 import { Card } from "@/components/Shared";
 import { formatCurrency } from "@/lib/helpers/money";
 
@@ -32,19 +35,48 @@ function badgeClass(kind: "ok" | "warn" | "bad" | "muted"): string {
 	}
 }
 
+function toTitleCaseMonthOnly(label: string): string {
+	const trimmed = String(label ?? "").trim();
+	if (!trimmed) return "";
+	const parts = trimmed.split(/\s+/);
+	if (parts.length < 1) return trimmed;
+	const month = parts[0];
+	const monthTc = month.length ? month[0].toUpperCase() + month.slice(1).toLowerCase() : month;
+	return monthTc;
+}
+
 export default function PaymentInsightsCards({
 	recap,
+	recapTips,
 	upcoming,
 	showRecap = true,
 	showUpcoming = true,
 }: {
 	recap?: PreviousMonthRecap | null;
+	recapTips?: RecapTip[] | null;
 	upcoming?: UpcomingPayment[] | null;
 	showRecap?: boolean;
 	showUpcoming?: boolean;
 }) {
 	const shouldShowRecap = showRecap;
 	const shouldShowUpcoming = showUpcoming;
+
+	const tips = useMemo(() => {
+		return Array.isArray(recapTips) ? recapTips.filter((t) => t && t.title && t.detail) : [];
+	}, [recapTips]);
+
+	const [tipIndex, setTipIndex] = useState(0);
+
+	useEffect(() => {
+		setTipIndex(0);
+		if (tips.length <= 1) return;
+		const id = window.setInterval(() => {
+			setTipIndex((i) => (tips.length ? (i + 1) % tips.length : 0));
+		}, 50_000);
+		return () => window.clearInterval(id);
+	}, [tips.length]);
+
+	const activeTip = tips.length ? tips[tipIndex % tips.length] : null;
 
 	return (
 		<div
@@ -53,12 +85,22 @@ export default function PaymentInsightsCards({
 			}`}
 		>
 			{shouldShowRecap ? (
-				<Card title="AI recap (previous month)" className={shouldShowUpcoming ? "lg:col-span-6" : "lg:col-span-12"}>
+				<Card
+					title={undefined}
+					className={shouldShowUpcoming ? "lg:col-span-6" : "lg:col-span-12"}
+				>
 				{!recap ? (
 					<div className="text-sm text-slate-300">No recap available.</div>
 				) : (
 					<div className="space-y-3">
-						<div className="text-sm text-slate-300">{recap.label}</div>
+						<div className="inline-flex">
+							<div
+								className="rounded-full px-3 py-1 text-xs font-semibold text-slate-900"
+								style={{ backgroundColor: "#9EDBFF" }}
+							>
+								{toTitleCaseMonthOnly(recap.label)} Recap
+							</div>
+						</div>
 						<div className="grid grid-cols-2 gap-2">
 							<div className={`rounded-2xl border p-3 ${badgeClass("ok")}`}>
 								<div className="text-xs uppercase tracking-wide opacity-90">Paid</div>
@@ -83,6 +125,14 @@ export default function PaymentInsightsCards({
 							</div>
 						</div>
 
+						{recap.missedDueCount > 0 && activeTip ? (
+							<div className="pt-1">
+								<div className="text-xs uppercase tracking-wide text-slate-400">Tip</div>
+								<div className="mt-1 text-sm font-semibold text-white">{activeTip.title}</div>
+								<div className="mt-0.5 text-xs text-slate-300">{activeTip.detail}</div>
+							</div>
+						) : null}
+
 						<div className="text-xs text-slate-400">
 							Recap uses your current payment totals (no payment timestamps yet).
 						</div>
@@ -92,11 +142,29 @@ export default function PaymentInsightsCards({
 			) : null}
 
 			{shouldShowUpcoming ? (
-				<Card title="Upcoming payments" className={shouldShowRecap ? "lg:col-span-6" : "lg:col-span-12"}>
+				<Card title={undefined} className={shouldShowRecap ? "lg:col-span-6" : "lg:col-span-12"}>
 				{!upcoming || upcoming.length === 0 ? (
-					<div className="text-sm text-slate-300">Nothing urgent right now.</div>
+					<div className="space-y-3">
+						<div className="inline-flex">
+							<div
+								className="rounded-full px-3 py-1 text-xs font-semibold text-slate-900"
+								style={{ backgroundColor: "#9EDBFF" }}
+							>
+								Upcoming payments
+							</div>
+						</div>
+						<div className="text-sm text-slate-300">Nothing urgent right now.</div>
+					</div>
 				) : (
 					<div className="space-y-2">
+						<div className="inline-flex">
+							<div
+								className="rounded-full px-3 py-1 text-xs font-semibold text-slate-900"
+								style={{ backgroundColor: "#9EDBFF" }}
+							>
+								Upcoming payments
+							</div>
+						</div>
 						{upcoming.map((u) => {
 							const tone =
 								u.urgency === "overdue" ? "bad" : u.urgency === "today" ? "warn" : u.urgency === "soon" ? "warn" : "muted";
