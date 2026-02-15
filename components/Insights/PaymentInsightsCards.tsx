@@ -132,10 +132,6 @@ export default function PaymentInsightsCards({
 								<div className="mt-0.5 text-xs text-slate-300">{activeTip.detail}</div>
 							</div>
 						) : null}
-
-						<div className="text-xs text-slate-400">
-							Recap uses your current payment totals (no payment timestamps yet).
-						</div>
 					</div>
 				)}
 				</Card>
