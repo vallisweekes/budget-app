@@ -375,11 +375,20 @@ export default function ViewTabs({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
-        <Card title="Top categories" className="lg:col-span-7">
-          {topCategories.length === 0 ? (
-            <div className="text-sm text-slate-300">No categorized spend yet for this month.</div>
-          ) : (
-            <div className="space-y-3">
+        <Card title={undefined} className="lg:col-span-7">
+          <div className="space-y-3">
+            <div className="inline-flex">
+              <div
+                className="rounded-full px-3 py-1 text-xs font-semibold text-slate-900"
+                style={{ backgroundColor: "#9EDBFF" }}
+              >
+                Largest expenses
+              </div>
+            </div>
+            {topCategories.length === 0 ? (
+              <div className="text-sm text-slate-300">No categorized spend yet for this month.</div>
+            ) : (
+              <div className="space-y-3">
               {topCategories.map((c) => {
                 const share = combinedData.totalExpenses > 0 ? c.total / combinedData.totalExpenses : 0;
                 return (
@@ -400,32 +409,42 @@ export default function ViewTabs({
                   </div>
                 );
               })}
-            </div>
-          )}
+              </div>
+            )}
 
-          <div className="mt-4 flex items-center justify-between">
+            <div className="flex items-center justify-between">
             <div className="text-xs text-slate-400">Shows top 6 by spend</div>
-            <Link href="/admin/expenses" className="text-sm font-medium text-white/90 hover:text-white">
-              View expenses
-            </Link>
+              <Link href="/admin/expenses" className="text-sm font-medium text-white/90 hover:text-white">
+                View expenses
+              </Link>
+            </div>
           </div>
         </Card>
 
-        <Card title="Largest expenses" className="lg:col-span-5">
-          {largestExpenses.length === 0 ? (
-            <div className="text-sm text-slate-300">No expenses yet for this month.</div>
-          ) : (
-            <div className="space-y-2">
+        <Card title={undefined} className="lg:col-span-5">
+          <div className="space-y-3">
+            <div className="inline-flex">
+              <div
+                className="rounded-full px-3 py-1 text-xs font-semibold text-slate-900"
+                style={{ backgroundColor: "#9EDBFF" }}
+              >
+                Largest expenses
+              </div>
+            </div>
+            {largestExpenses.length === 0 ? (
+              <div className="text-sm text-slate-300">No expenses yet for this month.</div>
+            ) : (
+              <div className="space-y-2">
               {largestExpenses.map((e) => (
                 <div key={e.id} className="flex items-center justify-between gap-3">
                   <div className="text-sm text-white truncate">{e.name}</div>
                   <div className="text-sm text-slate-200 whitespace-nowrap"><Currency value={e.amount} /></div>
                 </div>
               ))}
-            </div>
-          )}
+              </div>
+            )}
 
-          <div className="mt-4 grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-2">
             <Card title="Debt" className="p-3 bg-white/5">
               <div className="text-base font-bold"><Currency value={totalDebtBalance} /></div>
               <div className="text-xs text-slate-300">this plan</div>
@@ -434,16 +453,26 @@ export default function ViewTabs({
               <div className="text-base font-bold">{combinedData.goals.filter((g) => g.title !== "Pay Back Debts").length}</div>
               <div className="text-xs text-slate-300">active</div>
             </Card>
+            </div>
           </div>
         </Card>
       </div>
 
       {combinedData.goals.filter((g) => g.title !== "Pay Back Debts").length > 0 ? (
-        <Card title="Goals (quick view)">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <Card title={undefined}>
+          <div className="space-y-3">
+            <div className="inline-flex">
+              <div
+                className="rounded-full px-3 py-1 text-xs font-semibold text-slate-900"
+                style={{ backgroundColor: "#9EDBFF" }}
+              >
+                Goals
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {combinedData.goals
               .filter((g) => g.title !== "Pay Back Debts")
-              .slice(0, 3)
+              .slice(0, 2)
               .map((g) => {
                 const target = g.targetAmount ?? 0;
                 const current = g.currentAmount ?? 0;
@@ -473,11 +502,12 @@ export default function ViewTabs({
                   </div>
                 );
               })}
-          </div>
-          <div className="mt-4 flex justify-end">
-            <Link href="/admin/goals" className="text-sm font-medium text-white/90 hover:text-white">
-              View all goals
-            </Link>
+            </div>
+            <div className="flex justify-end">
+              <Link href="/admin/goals" className="text-sm font-medium text-white/90 hover:text-white">
+                Goals Overview
+              </Link>
+            </div>
           </div>
         </Card>
       ) : null}

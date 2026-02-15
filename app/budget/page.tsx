@@ -95,7 +95,7 @@ export default function BudgetPage() {
         </div>
 
         {/* Chart + Budget donut */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
           <Card title="Monthly totals">
             <BarChartMini
               data={MONTHS.map((m) => ({ label: m.slice(0, 3), value: state.perMonthTotals[m] || 0 }))}
@@ -111,14 +111,6 @@ export default function BudgetPage() {
                 <div className="text-zinc-500">£0 Remaining</div>
               </div>
             </div>
-          </Card>
-          <Card title="Biggest expenses">
-            <CategoryGrid
-              items={state.categories.map((c) => {
-                const matched = (categoriesData as any[]).find((x) => String(x.name).toLowerCase() === c.name.toLowerCase());
-                return { name: c.name, amount: c.yearTotal, icon: matched?.icon };
-              })}
-            />
           </Card>
         </div>
 
