@@ -81,6 +81,7 @@ export async function getOrCreateBudgetPlanForUser(params: {
 }) {
 	const { budgetType } = params;
 	const userId = await resolveUserId({ userId: params.userId, username: params.username });
+	const username = String(params.username ?? "").trim();
 
 	const planName = String(params.planName ?? "").trim();
 
@@ -100,7 +101,15 @@ export async function getOrCreateBudgetPlanForUser(params: {
 
 		const created = await prisma.budgetPlan.create({
 			data: {
-				userId,
+				user: {
+					connectOrCreate: {
+						where: { id: userId },
+						create: {
+							id: userId,
+							...(username ? { name: username } : null),
+						},
+					},
+				},
 				kind: "personal",
 				name: planName || "Personal",
 			},
@@ -113,7 +122,15 @@ export async function getOrCreateBudgetPlanForUser(params: {
 	const fallbackName = budgetType === "holiday" ? "Holiday" : "Carnival";
 	const created = await prisma.budgetPlan.create({
 		data: {
-			userId,
+			user: {
+				connectOrCreate: {
+					where: { id: userId },
+					create: {
+						id: userId,
+						...(username ? { name: username } : null),
+					},
+				},
+			},
 			kind: budgetType,
 			name: planName || fallbackName,
 		},
