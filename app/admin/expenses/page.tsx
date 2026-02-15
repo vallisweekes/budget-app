@@ -49,6 +49,7 @@ export default async function AdminExpensesPage({
   const rawMonth = Array.isArray(sp.month) ? sp.month[0] : sp.month;
   const monthCandidate = typeof rawMonth === "string" ? rawMonth : "";
 	const selectedMonth: MonthKey = normalizeMonthKey(monthCandidate) ?? currentMonthKey();
+  const currentYear = new Date().getFullYear();
 
   // Normalize URL so month/year are always present.
   if (!rawYear || !rawMonth) {
@@ -66,6 +67,7 @@ export default async function AdminExpensesPage({
   const allPlansData = await Promise.all(
     allPlans.map(async (p) => {
       const expenses = await getAllExpenses(p.id, selectedYear);
+      const currentYearExpenses = currentYear === selectedYear ? expenses : await getAllExpenses(p.id, currentYear);
 	  await ensureDefaultCategoriesForBudgetPlan({ budgetPlanId: p.id });
       const categories = await prisma.category.findMany({
         where: { budgetPlanId: p.id },
@@ -78,6 +80,7 @@ export default async function AdminExpensesPage({
           payDate: p.payDate,
         },
         expenses,
+        currentYearExpenses,
         categories: categories.map(c => ({
           id: c.id,
           name: c.name,

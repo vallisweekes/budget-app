@@ -9,6 +9,8 @@ import ExpandableCategory from "@/components/ExpandableCategory";
 import { Card } from "@/components/Shared";
 import { Receipt, Plus } from "lucide-react";
 import Link from "next/link";
+import PaymentInsightsCards from "@/components/Insights/PaymentInsightsCards";
+import type { PreviousMonthRecap, UpcomingPayment } from "@/lib/expenses/insights";
 
 type GoalLike = {
   id: string;
@@ -61,6 +63,10 @@ type ViewTabsProps = {
     remaining: number;
     goals: GoalLike[];
   }>;
+	expenseInsights?: {
+		recap: PreviousMonthRecap;
+		upcoming: UpcomingPayment[];
+	};
 };
 
 function Currency({ value }: { value: number }) {
@@ -89,6 +95,7 @@ export default function ViewTabs({
   remaining,
   goals,
   allPlansData,
+	expenseInsights,
 }: ViewTabsProps) {
   const [budgetPlans, setBudgetPlans] = useState<BudgetPlan[]>([]);
   const [activeTab, setActiveTab] = useState<TabKey>("personal");
@@ -365,6 +372,8 @@ export default function ViewTabs({
           <div className="text-xs text-slate-300">{daysInMonth} days</div>
         </Card>
       </div>
+
+		<PaymentInsightsCards recap={expenseInsights?.recap} upcoming={expenseInsights?.upcoming} />
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
         <Card title="Top categories" className="lg:col-span-7">

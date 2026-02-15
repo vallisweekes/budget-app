@@ -7,6 +7,8 @@ import ViewTabs from "@/components/ViewTabs";
 import { currentMonthKey } from "@/lib/helpers/monthKey";
 import { monthNumberToKey } from "@/lib/helpers/monthKey";
 import { getMonthlyAllocationSnapshot } from "@/lib/allocations/store";
+import type { ExpenseItem } from "@/types";
+import { computePreviousMonthRecap, computeUpcomingPayments } from "@/lib/expenses/insights";
 
 export const dynamic = "force-dynamic";
 
@@ -15,13 +17,13 @@ function currentMonth(): typeof MONTHS[number] {
 }
 
 export default async function DashboardView({ budgetPlanId }: { budgetPlanId: string }) {
+	const now = new Date();
 	const session = await getServerSession(authOptions);
 	const sessionUser = session?.user;
 	const username = sessionUser?.username ?? sessionUser?.name;
 
 	// Function to process plan data
 	const processPlanData = async (planId: string) => {
-		const now = new Date();
 		const selectedYear = now.getFullYear();
 		const selectedMonthNum = now.getMonth() + 1; // 1-12
 		const selectedMonthKey = monthNumberToKey(selectedMonthNum);
@@ -155,6 +157,66 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 	const currentPlanData = await processPlanData(budgetPlanId);
 	const month = MONTHS[currentPlanData.monthNum - 1] ?? currentMonth();
 
+	const planMeta = await prisma.budgetPlan.findUnique({
+		where: { id: budgetPlanId },
+		select: { payDate: true },
+	});
+	const payDate = Number(planMeta?.payDate ?? 1);
+
+	const currentYear = now.getFullYear();
+	const currentMonthNum = now.getMonth() + 1;
+	const prev = new Date(now);
+	prev.setMonth(prev.getMonth() - 1);
+	const prevYear = prev.getFullYear();
+	const prevMonthNum = prev.getMonth() + 1;
+
+	const insightRows = await prisma.expense.findMany({
+		where: {
+			budgetPlanId,
+			OR: [
+				{ year: currentYear, month: currentMonthNum },
+				{ year: prevYear, month: prevMonthNum },
+			],
+		},
+		select: {
+			id: true,
+			name: true,
+			amount: true,
+			paid: true,
+			paidAmount: true,
+			dueDate: true,
+			year: true,
+			month: true,
+		},
+	});
+
+	const toExpenseItem = (e: (typeof insightRows)[number]): ExpenseItem => ({
+		id: e.id,
+		name: e.name,
+		amount: Number((e.amount as any)?.toString?.() ?? e.amount),
+		paid: e.paid,
+		paidAmount: Number((e.paidAmount as any)?.toString?.() ?? e.paidAmount),
+		dueDate: e.dueDate ? e.dueDate.toISOString().split("T")[0] : undefined,
+	});
+
+	const currentMonthExpenses = insightRows
+		.filter((e) => e.year === currentYear && e.month === currentMonthNum)
+		.map(toExpenseItem);
+	const prevMonthExpenses = insightRows
+		.filter((e) => e.year === prevYear && e.month === prevMonthNum)
+		.map(toExpenseItem);
+
+	const expenseInsights = {
+		recap: computePreviousMonthRecap(prevMonthExpenses, { year: prevYear, monthNum: prevMonthNum, payDate, now }),
+		upcoming: computeUpcomingPayments(currentMonthExpenses, {
+			year: currentYear,
+			monthNum: currentMonthNum,
+			payDate,
+			now,
+			limit: 6,
+		}),
+	};
+
 	// Fetch all plans for this user
 	const allPlansData: Record<string, typeof currentPlanData> = {};
 	if (sessionUser && username) {
@@ -218,6 +280,7 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 					totalDebtBalance={totalDebtBalance}
 					goals={currentPlanData.goals}
 					allPlansData={allPlansData}
+					expenseInsights={expenseInsights}
 				/>
 			</div>
 		</div>
