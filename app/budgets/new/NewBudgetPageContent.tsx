@@ -18,6 +18,7 @@ export default async function NewBudgetPageContent({
 	}
 
 	const plans = await listBudgetPlansForUser({ userId: sessionUser.id, username });
+	const hasPersonalPlan = plans.some((p) => String(p.kind).toLowerCase() === "personal");
 
 	const sp = await searchParams;
 	const raw = Array.isArray(sp.type) ? sp.type[0] : sp.type;
@@ -57,7 +58,11 @@ export default async function NewBudgetPageContent({
 						</div>
 					)}
 
-					<CreateBudgetForm action={createBudgetPlanAction} defaultBudgetType={defaultBudgetType} />
+					<CreateBudgetForm
+						action={createBudgetPlanAction}
+						defaultBudgetType={defaultBudgetType}
+						hasPersonalPlan={hasPersonalPlan}
+					/>
 				</div>
 			</div>
 		</div>

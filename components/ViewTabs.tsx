@@ -374,8 +374,6 @@ export default function ViewTabs({
         </Card>
       </div>
 
-    <PaymentInsightsCards recap={expenseInsights?.recap} recapTips={expenseInsights?.recapTips} upcoming={expenseInsights?.upcoming} />
-
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
         <Card title="Top categories" className="lg:col-span-7">
           {topCategories.length === 0 ? (
@@ -483,6 +481,12 @@ export default function ViewTabs({
           </div>
         </Card>
       ) : null}
+
+		<PaymentInsightsCards
+			recap={expenseInsights?.recap}
+			recapTips={expenseInsights?.recapTips}
+			upcoming={expenseInsights?.upcoming}
+		/>
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">

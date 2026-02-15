@@ -9,21 +9,28 @@ export type BudgetType = (typeof BUDGET_TYPES)[number];
 export default function CreateBudgetForm({
 	action,
 	defaultBudgetType = "personal",
+	hasPersonalPlan = false,
 }: {
 	action: (formData: FormData) => void;
 	defaultBudgetType?: BudgetType;
+	hasPersonalPlan?: boolean;
 }) {
-	const [budgetType, setBudgetType] = useState<BudgetType>(defaultBudgetType);
-	const [planName, setPlanName] = useState<string>(defaultBudgetType === "personal" ? "Personal" : "");
+	const initialBudgetType: BudgetType =
+		hasPersonalPlan && defaultBudgetType === "personal" ? "holiday" : defaultBudgetType;
+	const [budgetType, setBudgetType] = useState<BudgetType>(initialBudgetType);
+	const [planName, setPlanName] = useState<string>(initialBudgetType === "personal" ? "Personal" : "");
 
-	const options = useMemo(
-		() =>
-			BUDGET_TYPES.map((t) => ({
+	const options = useMemo(() => {
+		return BUDGET_TYPES.map((t) => {
+			const isPersonal = t === "personal";
+			const disabled = Boolean(hasPersonalPlan && isPersonal);
+			return {
 				value: t,
 				label: t.charAt(0).toUpperCase() + t.slice(1),
-			})),
-		[]
-	);
+				disabled,
+			};
+		});
+	}, [hasPersonalPlan]);
 
 	return (
 		<Card className="mt-8">
@@ -48,6 +55,11 @@ export default function CreateBudgetForm({
 							buttonClassName="bg-slate-950/40 px-3 py-2"
 						/>
 					</div>
+					{hasPersonalPlan ? (
+						<div className="mt-2 text-xs text-slate-400">
+							Personal budget already exists — you can create Holiday/Carnival plans.
+						</div>
+					) : null}
 				</label>
 
 				<label className="block">

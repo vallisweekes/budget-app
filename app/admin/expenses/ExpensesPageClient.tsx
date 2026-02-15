@@ -8,8 +8,6 @@ import type { MonthKey } from "@/types";
 import type { ExpensesByMonth } from "@/types";
 import type { CategoryConfig } from "@/lib/categories/store";
 import ExpenseManager from "./ExpenseManager";
-import PaymentInsightsCards from "@/components/Insights/PaymentInsightsCards";
-import { computeUpcomingPayments } from "@/lib/expenses/insights";
 
 interface BudgetPlan {
   id: string;
@@ -231,22 +229,6 @@ export default function ExpensesPageClient({
               <h3 className="text-xl font-bold text-white mb-4">{planData.plan.name}</h3>
             )}
 
-      {(() => {
-        const now = new Date();
-        const year = now.getFullYear();
-        const monthKey = currentMonthKey();
-        const monthNum = monthKeyToNumber(monthKey);
-        const byMonth = planData.currentYearExpenses ?? planData.expenses;
-        const monthExpenses = byMonth[monthKey] || [];
-        const upcoming = computeUpcomingPayments(monthExpenses, {
-          year,
-          monthNum,
-          payDate: planData.plan.payDate,
-          now,
-          limit: 5,
-        });
-        return <PaymentInsightsCards showRecap={false} upcoming={upcoming} />;
-      })()}
             
             <ExpenseManager
               budgetPlanId={planData.plan.id}

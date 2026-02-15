@@ -695,7 +695,11 @@ export default function SettingsContent({
 												This permanently deletes the plan and all associated data.
 											</p>
 										</div>
-										<DeleteBudgetPlanButton budgetPlanId={budgetPlanId} />
+											<DeleteBudgetPlanButton
+												budgetPlanId={budgetPlanId}
+												planName={allPlans.find((p) => p.id === budgetPlanId)?.name}
+												planKind={allPlans.find((p) => p.id === budgetPlanId)?.kind}
+											/>
 									</div>
 								</div>
 							</section>

@@ -9,6 +9,49 @@ import fs from "node:fs/promises";
 import { getBudgetDataDir } from "@/lib/storage/budgetDataPath";
 import { revalidatePath } from "next/cache";
 
+export async function getBudgetPlanDeleteImpactAction(budgetPlanId: string): Promise<{
+	plan: { id: string; name: string; kind: string };
+	counts: {
+		categories: number;
+		expenses: number;
+		income: number;
+		debts: number;
+		goals: number;
+	};
+}> {
+	const session = await getServerSession(authOptions);
+	const sessionUser = session?.user;
+	const sessionUsername = sessionUser?.username ?? sessionUser?.name;
+	if (!sessionUser || !sessionUsername) {
+		throw new Error("Not authenticated");
+	}
+
+	const planId = String(budgetPlanId ?? "").trim();
+	if (!planId) throw new Error("Missing budgetPlanId");
+
+	const userId = await resolveUserId({ userId: sessionUser.id, username: sessionUsername });
+	const plan = await prisma.budgetPlan.findUnique({
+		where: { id: planId },
+		select: { id: true, userId: true, name: true, kind: true },
+	});
+	if (!plan || plan.userId !== userId) {
+		throw new Error("Budget plan not found");
+	}
+
+	const [categories, expenses, income, debts, goals] = await Promise.all([
+		prisma.category.count({ where: { budgetPlanId: planId } }),
+		prisma.expense.count({ where: { budgetPlanId: planId } }),
+		prisma.income.count({ where: { budgetPlanId: planId } }),
+		prisma.debt.count({ where: { budgetPlanId: planId } }),
+		prisma.goal.count({ where: { budgetPlanId: planId } }),
+	]);
+
+	return {
+		plan: { id: plan.id, name: plan.name, kind: plan.kind },
+		counts: { categories, expenses, income, debts, goals },
+	};
+}
+
 export async function saveSettingsAction(formData: FormData): Promise<void> {
 	const session = await getServerSession(authOptions);
 	const sessionUser = session?.user;
