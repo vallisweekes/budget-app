@@ -193,7 +193,7 @@ model Expense {
   paidAmount   Decimal    @default(0) @db.Decimal(12, 2)
   month        Int
   year         Int
-  dueDate      Int?       // Day of month (1-31), defaults to payDate from settings if not set
+  dueDate      DateTime?  // Full due date, defaults to payDate day of the current/next month if not set
 
   budgetPlanId String
   budgetPlan   BudgetPlan @relation(fields: [budgetPlanId], references: [id], onDelete: Cascade)

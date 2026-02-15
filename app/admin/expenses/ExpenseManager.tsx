@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import type { SyntheticEvent } from "react";
 import { useFormStatus } from "react-dom";
-import type { MonthKey } from "@/types";
+import type { MonthKey, ExpenseItem } from "@/types";
 import { addExpenseAction, togglePaidAction, updateExpenseAction, removeExpenseAction, applyExpensePaymentAction } from "./actions";
 import { Trash2, Plus, Check, X, ChevronDown, ChevronUp, Search, Pencil, TrendingUp } from "lucide-react";
 import CategoryIcon from "@/components/CategoryIcon";
@@ -14,14 +14,19 @@ import { formatMonthKeyLabel } from "@/lib/helpers/monthKey";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-interface Expense {
-  id: string;
-  name: string;
-  amount: number;
-  paid?: boolean;
-  paidAmount?: number;
-  categoryId?: string;
-  dueDate?: number;
+const dueDateFormatter = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  timeZone: "UTC",
+});
+
+function formatIsoDueDate(iso: string): string {
+  // Expect YYYY-MM-DD. Parse as UTC to avoid timezone day shifts.
+  const match = /^\d{4}-\d{2}-\d{2}$/.test(iso);
+  if (!match) return iso;
+  const [year, month, day] = iso.split("-").map((x) => Number(x));
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return iso;
+  return dueDateFormatter.format(new Date(Date.UTC(year, month - 1, day)));
 }
 
 interface Category {
@@ -41,7 +46,7 @@ interface ExpenseManagerProps {
 	budgetPlanId: string;
   month: MonthKey;
   year: number;
-  expenses: Expense[];
+  expenses: ExpenseItem[];
   categories: Category[];
   loading?: boolean;
   allPlans?: BudgetPlanOption[];
@@ -113,8 +118,8 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
   const [statusFilter, setStatusFilter] = useState<"all" | "paid" | "unpaid">("all");
   const [minAmountFilter, setMinAmountFilter] = useState<number | null>(null);
   const [paymentByExpenseId, setPaymentByExpenseId] = useState<Record<string, string>>({});
-  const [expensePendingDelete, setExpensePendingDelete] = useState<Expense | null>(null);
-  const [expensePendingEdit, setExpensePendingEdit] = useState<Expense | null>(null);
+  const [expensePendingDelete, setExpensePendingDelete] = useState<ExpenseItem | null>(null);
+  const [expensePendingEdit, setExpensePendingEdit] = useState<ExpenseItem | null>(null);
   const [editName, setEditName] = useState("");
   const [editAmount, setEditAmount] = useState<string>("");
   const [editCategoryId, setEditCategoryId] = useState<string>("");
@@ -210,7 +215,7 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
       acc[e.categoryId].push(e);
     }
     return acc;
-  }, {} as Record<string, Expense[]>);
+  }, {} as Record<string, ExpenseItem[]>);
 
   const handleTogglePaid = (expenseId: string) => {
     startTransition(() => {
@@ -218,16 +223,16 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
     });
   };
 
-  const handleRemoveClick = (expense: Expense) => {
+  const handleRemoveClick = (expense: ExpenseItem) => {
     setExpensePendingDelete(expense);
   };
 
-  const handleEditClick = (expense: Expense) => {
+  const handleEditClick = (expense: ExpenseItem) => {
     setExpensePendingEdit(expense);
     setEditName(expense.name);
     setEditAmount(String(expense.amount));
     setEditCategoryId(expense.categoryId ?? "");
-    setEditDueDate(expense.dueDate ? String(expense.dueDate) : "");
+    setEditDueDate(expense.dueDate || "");
   };
 
   const confirmRemove = () => {
@@ -367,9 +372,7 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
                     <span className="text-sm font-medium text-slate-300 mb-2 block">Due Date (Day of Month)</span>
                     <input
                       name="dueDate"
-                      type="number"
-                      min="1"
-                      max="31"
+                      type="date"
                       value={editDueDate}
                       onChange={(e) => setEditDueDate(e.target.value)}
                       className="w-full px-4 py-3 rounded-xl border border-white/10 bg-slate-900/40 text-white placeholder-slate-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/50 focus:outline-none transition-all"
@@ -780,18 +783,13 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
                                 ? 'bg-blue-500/20 text-blue-300 border border-blue-400/30' 
                                 : 'bg-slate-700/50 text-slate-400 border border-slate-600/30'
                             }`}>
-                              Due: Day {expense.dueDate ?? payDate}
+                              Due: {expense.dueDate ? formatIsoDueDate(expense.dueDate) : `Day ${payDate}`}
                             </span>
                           </div>
                           <div className="flex items-center gap-3 text-sm">
                             <span className="text-slate-300 font-medium">
                               <Currency value={expense.amount} />
                             </span>
-                            {expense.paidAmount && expense.paidAmount > 0 && expense.paidAmount < expense.amount && (
-                              <span className="text-amber-400 text-xs bg-amber-500/10 px-2 py-1 rounded-lg">
-                                Paid: <Currency value={expense.paidAmount} />
-                              </span>
-                            )}
                           </div>
 
               {(() => {

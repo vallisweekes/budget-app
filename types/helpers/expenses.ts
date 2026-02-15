@@ -9,7 +9,7 @@ export interface ExpenseItem {
 	paidAmount?: number;
 	isSaving?: boolean;
 	isInvestment?: boolean;
-	dueDate?: number; // Day of month (1-31), defaults to payDate from settings
+	dueDate?: string; // ISO date string (YYYY-MM-DD)
 }
 
 export type ExpensesByMonth = Record<MonthKey, ExpenseItem[]>;

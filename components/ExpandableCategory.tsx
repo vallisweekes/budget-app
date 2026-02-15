@@ -15,7 +15,7 @@ interface Expense {
 	amount: number;
 	paid: boolean;
 	paidAmount?: number;
-	dueDate?: number;
+	dueDate?: string; // ISO date string (YYYY-MM-DD)
 }
 
 interface ExpandableCategoryProps {
@@ -53,15 +53,15 @@ export default function ExpandableCategory({
 
 	const handleEditDueDate = (expense: Expense) => {
 		setEditingDueDateId(expense.id);
-		setTempDueDate(expense.dueDate ? String(expense.dueDate) : "");
+		setTempDueDate(expense.dueDate || "");
 	};
 
 	const handleSaveDueDate = async (expenseId: string, budgetPlanId: string) => {
-		const dueDateValue = tempDueDate.trim() === "" ? null : parseInt(tempDueDate);
+		const dueDateValue = tempDueDate.trim() === "" ? null : tempDueDate.trim();
 		
-		// Validate if it's a number and within range
-		if (dueDateValue !== null && (isNaN(dueDateValue) || dueDateValue < 1 || dueDateValue > 31)) {
-			alert("Please enter a valid day (1-31) or leave empty to use default");
+		// Validate date format (YYYY-MM-DD)
+		if (dueDateValue && !/^\d{4}-\d{2}-\d{2}$/.test(dueDateValue)) {
+			alert("Please enter a valid date");
 			return;
 		}
 
@@ -107,8 +107,8 @@ export default function ExpandableCategory({
 				<div className="border-t border-white/10 bg-slate-900/20">
 					<div className="divide-y divide-white/5">
 						{expenses.map((e) => {
-							const displayDueDate = e.dueDate ?? defaultDueDate;
 							const isEditing = editingDueDateId === e.id;
+							const dueDateFormatted = e.dueDate ? new Date(e.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : `Day ${defaultDueDate}`;
 							
 							return (
 								<div key={e.id} className="flex items-center justify-between gap-3 p-3 px-4 hover:bg-white/5 transition-colors">
@@ -121,18 +121,15 @@ export default function ExpandableCategory({
 											{isEditing ? (
 												<>
 													<input
-														type="number"
-														min="1"
-														max="31"
+														type="date"
 														value={tempDueDate}
 														onChange={(e) => setTempDueDate(e.target.value)}
-														placeholder={String(defaultDueDate)}
-														className="w-14 px-2 py-0.5 bg-slate-900/60 border border-white/20 text-white text-xs rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+														className="px-2 py-0.5 bg-slate-900/60 border border-white/20 text-white text-xs rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
 														autoFocus
 														disabled={isPending}
 													/>
 													<button
-														onClick={() => handleSaveDueDate(e.id, "budgetPlanId")}
+														onClick={() => handleSaveDueDate(e.id, budgetPlanId)}
 														disabled={isPending}
 														className="p-0.5 hover:bg-green-500/20 rounded text-green-400 disabled:opacity-50"
 													>
@@ -154,7 +151,7 @@ export default function ExpandableCategory({
 												>
 													<Calendar size={12} className="text-slate-400 group-hover:text-blue-400" />
 													<span className={e.dueDate ? "text-blue-400 font-medium" : ""}>
-														Day {displayDueDate}
+														{dueDateFormatted}
 													</span>
 												</button>
 											)}

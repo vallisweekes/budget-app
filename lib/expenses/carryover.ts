@@ -4,6 +4,21 @@ import { prisma } from "@/lib/prisma";
 import { upsertExpenseDebt } from "@/lib/debts/store";
 import type { MonthKey } from "@/types";
 
+function toLocalDateOnly(value: Date): Date {
+	return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+}
+
+function resolveExpenseDueDate(params: {
+	year: number;
+	month: number;
+	dueDate: Date | null;
+	defaultDueDay: number;
+}): Date {
+	const { year, month, dueDate, defaultDueDay } = params;
+	if (dueDate) return toLocalDateOnly(dueDate);
+	return new Date(year, month - 1, defaultDueDay);
+}
+
 /**
  * Processes unpaid/partially paid expenses and converts them to debts
  * This should be called at the end of each month or when viewing a new month
@@ -21,9 +36,7 @@ export async function processUnpaidExpenses(params: {
 	const { budgetPlanId, year, month, monthKey, onlyPartialPayments = false } = params;
 
 	const now = new Date();
-	const currentDate = now.getDate(); // Current day of month
-	const currentYear = now.getFullYear();
-	const currentMonth = now.getMonth() + 1; // JS months are 0-indexed
+	const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
 	// Get budget plan to access default payDate
 	const budgetPlan = await prisma.budgetPlan.findUnique({
@@ -85,14 +98,15 @@ export async function processUnpaidExpenses(params: {
 		const paidAmount = Number(expense.paidAmount);
 		const remainingAmount = totalAmount - paidAmount;
 
-		// Determine if this expense's due date has passed
-		const expenseDueDate = expense.dueDate ?? defaultDueDate;
-		const isExpenseOverdue = 
-			// Past months are always overdue
-			(expense.year < currentYear) ||
-			(expense.year === currentYear && expense.month < currentMonth) ||
-			// Current month: check if due date has passed
-			(expense.year === currentYear && expense.month === currentMonth && expenseDueDate < currentDate);
+		// Determine if this expense's due date has passed.
+		// If dueDate isn't set, assume default due-day within the expense month.
+		const expenseDueDate = resolveExpenseDueDate({
+			year: expense.year,
+			month: expense.month,
+			dueDate: expense.dueDate,
+			defaultDueDay: defaultDueDate,
+		});
+		const isExpenseOverdue = expenseDueDate.getTime() < today.getTime();
 
 		// Skip if not overdue (unless we're only processing partial payments)
 		if (!onlyPartialPayments && !isExpenseOverdue) {
@@ -203,9 +217,7 @@ export async function processPastMonthsUnpaidExpenses(budgetPlanId: string) {
  */
 export async function getExpenseDebts(budgetPlanId: string) {
 	const now = new Date();
-	const currentYear = now.getFullYear();
-	const currentMonth = now.getMonth() + 1;
-	const currentDate = now.getDate();
+	const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
 	// Get budget plan to access default payDate
 	const budgetPlan = await prisma.budgetPlan.findUnique({
@@ -257,11 +269,9 @@ export async function getExpenseDebts(budgetPlanId: string) {
 				const debtYear = parseInt(yearStr);
 				const debtMonth = parseInt(monthStr);
 				
-				// Use default due date for fallback
-				const isOverdue = 
-					(debtYear < currentYear) ||
-					(debtYear === currentYear && debtMonth < currentMonth) ||
-					(debtYear === currentYear && debtMonth === currentMonth && defaultDueDate < currentDate);
+				// Use default due date for fallback (date-only).
+				const fallbackDueDate = new Date(debtYear, debtMonth - 1, defaultDueDate);
+				const isOverdue = fallbackDueDate.getTime() < today.getTime();
 				
 				return isOverdue;
 			}
@@ -269,17 +279,19 @@ export async function getExpenseDebts(budgetPlanId: string) {
 		}
 
 		// Check if expense due date has passed
-		const expenseDueDate = expense.dueDate ?? defaultDueDate;
+		const expenseDueDate = resolveExpenseDueDate({
+			year: expense.year,
+			month: expense.month,
+			dueDate: expense.dueDate,
+			defaultDueDay: defaultDueDate,
+		});
 		const expensePaidAmount = Number(expense.paidAmount);
 		
 		// Keep if partial payment on expense
 		if (expensePaidAmount > 0) return true;
 
 		// Check if overdue
-		const isOverdue = 
-			(expense.year < currentYear) ||
-			(expense.year === currentYear && expense.month < currentMonth) ||
-			(expense.year === currentYear && expense.month === currentMonth && expenseDueDate < currentDate);
+		const isOverdue = expenseDueDate.getTime() < today.getTime();
 
 		return isOverdue;
 	});

@@ -114,7 +114,7 @@ export async function updateExpenseAction(formData: FormData): Promise<void> {
   const categoryId = categoryString === undefined ? undefined : categoryString.trim() ? categoryString.trim() : null;
   const dueDateRaw = formData.get("dueDate");
   const dueDateString = dueDateRaw == null ? undefined : String(dueDateRaw).trim();
-  const dueDate = dueDateString && dueDateString !== "" ? parseInt(dueDateString) : undefined;
+  const dueDate = dueDateString && dueDateString !== "" ? dueDateString : undefined;
   if (!month || !id || !name) return;
 
   const { userId } = await requireAuthenticatedUser();
