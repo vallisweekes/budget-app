@@ -14,7 +14,7 @@ export default async function LoginSplashPage(props: {
 		const userId = await resolveUserId({ userId: sessionUser.id, username });
 		const budgetPlan = await getDefaultBudgetPlanForUser({ userId, username });
 		if (!budgetPlan) redirect("/budgets/new");
-		redirect(`/user=${encodeURIComponent(username)}/${encodeURIComponent(budgetPlan.id)}`);
+		redirect(`/user=${encodeURIComponent(username)}/${encodeURIComponent(budgetPlan.id)}/page=home`);
 	}
 
 	const searchParams = await Promise.resolve(props.searchParams ?? {});

@@ -158,10 +158,49 @@ export default async function UserBudgetPage({
 	const sp = { ...resolvedSearchParams, plan: budgetPlanId };
 
 	const [pageKeyRaw, ...pageRest] = parsed.page;
-	const pageKey = (pageKeyRaw ?? "").toLowerCase();
+	const rawSegment = (pageKeyRaw ?? "").toLowerCase();
+	const pageKey = rawSegment.startsWith("page=") ? rawSegment.slice("page=".length) : rawSegment;
 
-	// Allow optional /dashboard segment but treat base as dashboard.
-	if (!pageKey || pageKey === "dashboard") {
+	const knownPages = new Set([
+		"home",
+		"dashboard",
+		"income",
+		"expenses",
+		"spending",
+		"debts",
+		"goals",
+		"settings",
+		"categories",
+	]);
+
+	// Canonicalize base routes to always include page=<pageName>
+	if (!rawSegment) {
+		redirect(`/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(budgetPlanId)}/page=home`);
+	}
+
+	// Canonicalize /dashboard -> /page=home
+	if (pageKey === "dashboard") {
+		redirect(`/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(budgetPlanId)}/page=home`);
+	}
+
+	// Canonicalize old form /<page> -> /page=<page>
+	if (!rawSegment.startsWith("page=") && knownPages.has(pageKey)) {
+		const qs = new URLSearchParams();
+		for (const [k, v] of Object.entries(resolvedSearchParams)) {
+			const val = Array.isArray(v) ? v[0] : v;
+			if (val == null) continue;
+			qs.set(k, String(val));
+		}
+		const q = qs.toString();
+		redirect(
+			`/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(budgetPlanId)}/page=${encodeURIComponent(
+				pageKey
+			)}${q ? `?${q}` : ""}`
+		);
+	}
+
+	// Allow optional /home segment but treat it as dashboard.
+	if (pageKey === "home") {
 		return <DashboardView budgetPlanId={budgetPlanId} />;
 	}
 
@@ -182,7 +221,9 @@ export default async function UserBudgetPage({
 			const y = new Date().getFullYear();
 			const m = currentMonthKey();
 			redirect(
-				`/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(budgetPlanId)}/expenses?year=${encodeURIComponent(
+				`/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(
+					budgetPlanId
+				)}/page=expenses?year=${encodeURIComponent(
 					String(y)
 				)}&month=${encodeURIComponent(m)}`
 			);

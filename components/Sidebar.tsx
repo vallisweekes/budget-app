@@ -15,6 +15,20 @@ function parseUserScopedPath(pathname: string): { username: string; budgetPlanId
 	return { username, budgetPlanId };
 }
 
+function getActiveUserPage(pathname: string): string {
+	if (!pathname.startsWith("/user=")) return "";
+	// Supports both /<page> and /page=<page>
+	const parts = pathname.split("/").filter(Boolean);
+	const pageSegment = parts[2] ?? ""; // /user=<u>/<plan>/<page>
+	if (!pageSegment || pageSegment === "dashboard") return "home";
+	if (pageSegment === "admin") return (parts[3] ?? "").toLowerCase();
+	if (pageSegment.toLowerCase().startsWith("page=")) {
+		const key = pageSegment.slice("page=".length).toLowerCase();
+		return key || "home";
+	}
+	return pageSegment.toLowerCase();
+}
+
 export default function Sidebar() {
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
@@ -29,21 +43,22 @@ export default function Sidebar() {
 		: sessionUsername && planFromQuery
 			? `/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(planFromQuery)}`
 			: "/";
+	const activePage = getActiveUserPage(pathname);
 	const defaultYear = new Date().getFullYear();
 	const defaultMonth = currentMonthKey();
-	const expensesHref = `${baseHref}/expenses?year=${encodeURIComponent(String(defaultYear))}&month=${encodeURIComponent(
+	const expensesHref = `${baseHref}/page=expenses?year=${encodeURIComponent(String(defaultYear))}&month=${encodeURIComponent(
 		defaultMonth
 	)}`;
 
-	const navItems = [
-		{ href: baseHref, label: "Home", icon: Home },
-		...(pathname === "/artist" ? [{ href: "/artist", label: "Artist", icon: Target }] : []),
-		{ href: `${baseHref}/income`, label: "Income", icon: Banknote },
-		{ href: expensesHref, label: "Expenses", icon: DollarSign },
-		{ href: `${baseHref}/spending`, label: "Spending", icon: ShoppingBag },
-		{ href: `${baseHref}/debts`, label: "Debt", icon: CreditCard },
-		{ href: `${baseHref}/goals`, label: "Goals", icon: Target },
-		{ href: `${baseHref}/settings`, label: "Settings", icon: Settings },
+	const navItems: Array<{ key: string; href: string; label: string; icon: any }> = [
+		{ key: "home", href: `${baseHref}/page=home`, label: "Home", icon: Home },
+		...(pathname === "/artist" ? [{ key: "artist", href: "/artist", label: "Artist", icon: Target }] : []),
+		{ key: "income", href: `${baseHref}/page=income`, label: "Income", icon: Banknote },
+		{ key: "expenses", href: expensesHref, label: "Expenses", icon: DollarSign },
+		{ key: "spending", href: `${baseHref}/page=spending`, label: "Spending", icon: ShoppingBag },
+		{ key: "debts", href: `${baseHref}/page=debts`, label: "Debt", icon: CreditCard },
+		{ key: "goals", href: `${baseHref}/page=goals`, label: "Goals", icon: Target },
+		{ key: "settings", href: `${baseHref}/page=settings`, label: "Settings", icon: Settings },
 	];
 
 	const displayUsernameRaw = scoped?.username || sessionUsername || "";
@@ -72,11 +87,12 @@ export default function Sidebar() {
 					{/* Navigation */}
 					<nav className="flex-1 space-y-2">
 						{navItems.map((item) => (
+							// Highlight based on the current page key (ignore query params)
 							<Link
 								key={item.href}
 								href={item.href}
 								className={`group flex items-center gap-3 px-4 py-3 rounded-xl border transition-all ${
-									pathname === item.href
+									activePage === item.key
 										? "app-nav-active text-white shadow-sm"
 										: "border-transparent text-slate-300 hover:bg-white/5 hover:border-white/10 hover:text-white"
 								}`}
