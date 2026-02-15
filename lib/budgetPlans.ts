@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { ensureDefaultCategoriesForBudgetPlan } from "@/lib/categories/defaultCategories";
+import { normalizeUsername } from "@/lib/helpers/username";
 
 export const SUPPORTED_BUDGET_TYPES = ["personal", "holiday", "carnival"] as const;
 export type SupportedBudgetType = (typeof SUPPORTED_BUDGET_TYPES)[number];
@@ -9,24 +10,43 @@ export function isSupportedBudgetType(value: string): value is SupportedBudgetTy
 }
 
 export async function getOrCreateUserByUsername(username: string) {
-	const existing = await prisma.user.findFirst({ where: { name: username } });
+	const normalized = normalizeUsername(username);
+	if (!normalized) {
+		throw new Error("Username is required");
+	}
+
+	const existing = await prisma.user.findFirst({
+		where: {
+			name: {
+				equals: normalized,
+				mode: "insensitive",
+			},
+		},
+	});
 	if (existing) return existing;
 
 	return prisma.user.create({
 		data: {
-			name: username,
+			name: normalized,
 		},
 	});
 }
 
 export async function getUserByUsername(username: string) {
-	const normalized = String(username ?? "").trim();
+	const normalized = normalizeUsername(username);
 	if (!normalized) return null;
-	return prisma.user.findFirst({ where: { name: normalized } });
+	return prisma.user.findFirst({
+		where: {
+			name: {
+				equals: normalized,
+				mode: "insensitive",
+			},
+		},
+	});
 }
 
 export async function registerUserByUsername(params: { username: string; email: string }) {
-	const username = String(params.username ?? "").trim();
+	const username = normalizeUsername(params.username);
 	const email = String(params.email ?? "")
 		.trim()
 		.toLowerCase();
@@ -58,18 +78,38 @@ export async function resolveUserId(params: {
 	username?: string;
 }): Promise<string> {
 	const { userId, username } = params;
+	const normalizedUsername = normalizeUsername(username ?? "");
 
 	if (userId) {
-		// If we already have a userId (typically from the session), don't spend a DB
-		// connection verifying it on every server render.
-		return userId;
+		// PWA sessions can get stale across DB resets / migrations. If the session's
+		// userId points at a different (or "ghost") user than the current username,
+		// prefer resolving by username so we don't strand the user on a fresh account.
+		const byId = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true } });
+		if (byId) {
+			if (!normalizedUsername) return byId.id;
+			const byIdName = String(byId.name ?? "").trim();
+			if (byIdName && byIdName.localeCompare(normalizedUsername, undefined, { sensitivity: "accent" }) === 0) {
+				return byId.id;
+			}
+
+			const byUsername = await prisma.user.findFirst({
+				where: {
+					name: {
+						equals: normalizedUsername,
+						mode: "insensitive",
+					},
+				},
+				select: { id: true },
+			});
+			return byUsername?.id ?? byId.id;
+		}
 	}
 
-	if (!username) {
+	if (!normalizedUsername) {
 		throw new Error("Unable to resolve user id: missing username.");
 	}
 
-	const user = await getOrCreateUserByUsername(username);
+	const user = await getOrCreateUserByUsername(normalizedUsername);
 	return user.id;
 }
 
@@ -81,7 +121,6 @@ export async function getOrCreateBudgetPlanForUser(params: {
 }) {
 	const { budgetType } = params;
 	const userId = await resolveUserId({ userId: params.userId, username: params.username });
-	const username = String(params.username ?? "").trim();
 
 	const planName = String(params.planName ?? "").trim();
 
@@ -101,15 +140,7 @@ export async function getOrCreateBudgetPlanForUser(params: {
 
 		const created = await prisma.budgetPlan.create({
 			data: {
-				user: {
-					connectOrCreate: {
-						where: { id: userId },
-						create: {
-							id: userId,
-							...(username ? { name: username } : null),
-						},
-					},
-				},
+				userId,
 				kind: "personal",
 				name: planName || "Personal",
 			},
@@ -122,15 +153,7 @@ export async function getOrCreateBudgetPlanForUser(params: {
 	const fallbackName = budgetType === "holiday" ? "Holiday" : "Carnival";
 	const created = await prisma.budgetPlan.create({
 		data: {
-			user: {
-				connectOrCreate: {
-					where: { id: userId },
-					create: {
-						id: userId,
-						...(username ? { name: username } : null),
-					},
-				},
-			},
+			userId,
 			kind: budgetType,
 			name: planName || fallbackName,
 		},
