@@ -125,7 +125,7 @@ export default function PaymentInsightsCards({
 							</div>
 						</div>
 
-						{recap.missedDueCount > 0 && activeTip ? (
+						{activeTip ? (
 							<div className="pt-1">
 								<div className="text-xs uppercase tracking-wide text-slate-400">Tip</div>
 								<div className="mt-1 text-sm font-semibold text-white">{activeTip.title}</div>

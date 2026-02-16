@@ -10,6 +10,7 @@ import { getMonthlyAllocationSnapshot } from "@/lib/allocations/store";
 import type { ExpenseItem } from "@/types";
 import { computePreviousMonthRecap, computeUpcomingPayments, computeRecapTips, type DatedExpenseItem } from "@/lib/expenses/insights";
 import { ensureDefaultCategoriesForBudgetPlan } from "@/lib/categories/defaultCategories";
+import { computeDebtTips } from "@/lib/debts/insights";
 
 export const dynamic = "force-dynamic";
 
@@ -315,7 +316,7 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 		limit: 6,
 	});
 
-	const expenseInsights = {
+	const expenseInsightsBase = {
 		recap,
 		upcoming,
 		recapTips: computeRecapTips({
@@ -371,6 +372,11 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 	}));
 	
 	const debts = serializedDebts.filter((d) => d.sourceType !== "expense");
+	const debtTips = computeDebtTips({ debts, totalIncome: currentPlanData.totalIncome });
+	const expenseInsights = {
+		...expenseInsightsBase,
+		recapTips: [...(expenseInsightsBase.recapTips ?? []), ...debtTips],
+	};
 	const totalDebtBalance = debts.reduce((sum, debt) => sum + (debt.currentBalance || 0), 0);
 
 	return (
