@@ -391,7 +391,7 @@ export default function ViewTabs({
                 className="rounded-full px-3 py-1 text-xs font-semibold text-slate-900"
                 style={{ backgroundColor: "#9EDBFF" }}
               >
-                Largest expenses
+                Category expenses
               </div>
             </div>
             {topCategories.length === 0 ? (
