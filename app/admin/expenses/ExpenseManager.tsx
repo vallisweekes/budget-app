@@ -299,8 +299,14 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
     setEditName(expense.name);
     setEditAmount(String(expense.amount));
     setEditCategoryId(expense.categoryId ?? "");
+    const monthNumber = (MONTHS as MonthKey[]).indexOf(month) + 1;
     const rawDue = expense.dueDate || "";
-    setEditDueDate(rawDue && rawDue.length >= 10 ? rawDue.slice(0, 10) : rawDue);
+    if (rawDue) {
+      setEditDueDate(rawDue.length >= 10 ? rawDue.slice(0, 10) : rawDue);
+    } else {
+      const defaultDueUtc = getDueDateUtc({ year, monthNumber, payDate });
+      setEditDueDate(defaultDueUtc.toISOString().slice(0, 10));
+    }
 		setApplyRemainingMonths(false);
 		setApplyFutureYears(false);
   };
