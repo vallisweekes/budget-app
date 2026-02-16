@@ -120,7 +120,7 @@ export default function PaymentStatusButton({
 						return next;
 					});
 				}}
-				className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-medium cursor-pointer transition-colors ${getStatusColor()}`}
+				className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-xl text-[10px] sm:text-xs font-medium cursor-pointer transition-colors border ${getStatusColor()}`}
 			>
 				{getStatusText()}
 				<ChevronDown size={12} className="sm:w-3.5 sm:h-3.5" />
@@ -132,7 +132,7 @@ export default function PaymentStatusButton({
 					<>
 						<div className="fixed inset-0 z-[9998]" onClick={closeMenu} />
 						<div
-							className="fixed w-64 bg-white rounded-xl shadow-xl border border-zinc-200 z-[9999] overflow-hidden"
+							className="fixed w-64 bg-slate-950/80 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/10 z-[9999] overflow-hidden"
 							style={{ top: menuPosition.top, left: menuPosition.left }}
 							aria-label={`${expenseName} payment status`}
 						>
@@ -140,27 +140,27 @@ export default function PaymentStatusButton({
 								<div className="p-2">
 									<button
 										onClick={() => handleStatusChange("paid")}
-										className="w-full text-left px-4 py-3 hover:bg-emerald-50 rounded-lg transition-colors text-sm font-medium text-emerald-700"
+										className="w-full text-left px-3 py-2 hover:bg-white/10 focus:bg-white/10 rounded-xl transition-colors text-sm font-medium text-emerald-400"
 									>
 										✓ Paid in Full
 									</button>
 									<button
 										onClick={() => handleStatusChange("partial")}
-										className="w-full text-left px-4 py-3 hover:bg-amber-50 rounded-lg transition-colors text-sm font-medium text-amber-700"
+										className="w-full text-left px-3 py-2 hover:bg-white/10 focus:bg-white/10 rounded-xl transition-colors text-sm font-medium text-amber-400"
 									>
 										◐ Partially Paid
 									</button>
 									<button
 										onClick={() => handleStatusChange("unpaid")}
-										className="w-full text-left px-4 py-3 hover:bg-red-50 rounded-lg transition-colors text-sm font-medium text-red-700"
+										className="w-full text-left px-3 py-2 hover:bg-white/10 focus:bg-white/10 rounded-xl transition-colors text-sm font-medium text-red-400"
 									>
-										✗ Not Paid
+										✗ Unpaid
 									</button>
 								</div>
 							) : (
 								<div className="p-4">
 									<div className="mb-3">
-										<label className="block text-sm font-medium text-zinc-700 mb-2">
+										<label className="block text-sm font-medium text-slate-300 mb-2">
 											Amount Paid
 										</label>
 										<input
@@ -170,18 +170,27 @@ export default function PaymentStatusButton({
 											max={amount}
 											min={0}
 											step="0.01"
-											className="w-full px-3 py-2 border border-zinc-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+											className="w-full px-3 py-2 border border-white/10 bg-slate-900/40 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+											placeholder="0.00"
 										/>
-										<p className="text-xs text-zinc-500 mt-1">
+										<p className="text-xs text-slate-400 mt-1">
 											Total: <Currency value={amount} />
 										</p>
 									</div>
-									<button
-										onClick={handlePartialSubmit}
-										className="w-full bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors font-medium"
-									>
-										Save
-									</button>
+									<div className="flex gap-2">
+										<button
+											onClick={() => setShowPartialInput(false)}
+											className="flex-1 px-3 py-2 border border-white/10 bg-slate-900/40 text-slate-200 rounded-xl hover:bg-slate-900/60 transition-colors text-sm font-medium"
+										>
+											Cancel
+										</button>
+										<button
+											onClick={handlePartialSubmit}
+											className="flex-1 px-3 py-2 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-xl hover:from-purple-400 hover:to-indigo-500 transition-colors text-sm font-medium shadow-lg"
+										>
+											Save
+										</button>
+									</div>
 								</div>
 							)}
 						</div>

@@ -932,7 +932,7 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
               })()}
                         </div>
 
-                        <div className="flex items-center gap-1.5 sm:gap-2 pt-1">
+                        <div className="flex flex-col items-end gap-1.5 sm:gap-2">
                           <button
                             type="button"
                             onClick={() => handleTogglePaid(expense.id)}
@@ -1091,7 +1091,7 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
             })()}
                     </div>
 
-                    <div className="flex items-center gap-1.5 sm:gap-2 pt-1">
+                    <div className="flex flex-col items-end gap-1.5 sm:gap-2">
                       <button
                         type="button"
                         onClick={() => handleTogglePaid(expense.id)}
