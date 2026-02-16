@@ -395,7 +395,7 @@ export default function ViewTabs({
         <Card
           title="Avg/day"
           titleTooltip="Average spending per day: monthly expenses ÷ days in month."
-          className="p-3"
+          className="p-3 col-span-2 lg:col-span-1"
         >
           <div className="flex items-center gap-2">
             <div className="text-base sm:text-lg font-bold"><Currency value={avgSpendPerDay} /></div>
