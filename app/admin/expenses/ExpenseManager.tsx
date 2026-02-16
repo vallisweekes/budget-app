@@ -1146,7 +1146,7 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
           <p className="text-slate-400 text-lg mb-6">
             {searchQuery.trim()
               ? "Try a different search term"
-              : 'Click "Add Expense" to track your first expense'}
+              : 'Click "Add Expense" to track your first expense — or switch tabs/month/year to view expenses in a different plan or period.'}
           </p>
           {!searchQuery.trim() && (
             <div className="mt-6 pt-6 border-t border-white/10">

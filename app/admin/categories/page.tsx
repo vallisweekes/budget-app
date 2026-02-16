@@ -7,6 +7,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { resolveUserId, getDefaultBudgetPlanForUser } from "@/lib/budgetPlans";
+import { ensureDefaultCategoriesForBudgetPlan } from "@/lib/categories/defaultCategories";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
@@ -28,6 +29,8 @@ export default async function AdminCategoriesPage() {
   }
 
   const backHref = `/user=${encodeURIComponent(username)}/${encodeURIComponent(defaultPlan.id)}/settings`;
+
+  await ensureDefaultCategoriesForBudgetPlan({ budgetPlanId: defaultPlan.id });
 
   // Get categories from database for the default plan
   const list = await prisma.category.findMany({

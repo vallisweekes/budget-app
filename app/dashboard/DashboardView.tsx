@@ -9,6 +9,7 @@ import { monthNumberToKey } from "@/lib/helpers/monthKey";
 import { getMonthlyAllocationSnapshot } from "@/lib/allocations/store";
 import type { ExpenseItem } from "@/types";
 import { computePreviousMonthRecap, computeUpcomingPayments, computeRecapTips, type DatedExpenseItem } from "@/lib/expenses/insights";
+import { ensureDefaultCategoriesForBudgetPlan } from "@/lib/categories/defaultCategories";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +44,9 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 
 	// Function to process plan data
 	const processPlanData = async (planId: string) => {
+		// Keep category defaults in sync even if the DB predates new defaults.
+		await ensureDefaultCategoriesForBudgetPlan({ budgetPlanId: planId });
+
 		const selectedYear = now.getFullYear();
 		const selectedMonthNum = now.getMonth() + 1; // 1-12
 		const selectedMonthKey = monthNumberToKey(selectedMonthNum);
