@@ -22,7 +22,7 @@ export function MonthlyIncomeGrid({
 	const now = currentMonthKey();
 
 	return (
-		<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+		<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
 			{months.map((m) => (
 				(() => {
 					const monthKey = m as MonthKey;
@@ -34,7 +34,7 @@ export function MonthlyIncomeGrid({
 					return (
 				<div
 					key={m}
-					className={`backdrop-blur-xl rounded-2xl shadow-xl border p-5 transition-all flex flex-col ${
+					className={`backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-xl border p-3 sm:p-5 transition-all flex flex-col ${
 						isActive
 							? isCurrent
 								? "z-10 relative ring-2 ring-teal-200/35"
@@ -50,10 +50,10 @@ export function MonthlyIncomeGrid({
 							: ""
 					}`}
 				>
-					<div className="mb-4 flex items-start justify-between gap-3 flex-shrink-0">
-						<h3 className="text-lg font-bold text-white flex items-center gap-2">
+					<div className="mb-2 sm:mb-4 flex items-start justify-between gap-2 sm:gap-3 flex-shrink-0">
+						<h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
 							<span
-								className={`w-2 h-2 rounded-full ${
+								className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full ${
 									isCurrent
 										? "bg-gradient-to-r from-teal-200 to-cyan-200"
 										: "bg-gradient-to-r from-pink-500 to-rose-600"
@@ -61,21 +61,21 @@ export function MonthlyIncomeGrid({
 							/>
 							{formatMonthKeyLabel(monthKey)}
 							{isCurrent && (
-								<span className="ml-1 rounded-full border border-teal-100/40 bg-teal-200/15 px-2 py-0.5 text-[11px] font-semibold text-teal-50">
+								<span className="ml-1 rounded-full border border-teal-100/40 bg-teal-200/15 px-2 py-0.5 text-[10px] sm:text-[11px] font-semibold text-teal-50">
 									Current
 								</span>
 							)}
 							{isPast && !isCurrent && (
-								<span className="ml-1 rounded-full border border-white/10 bg-slate-900/20 px-2 py-0.5 text-[11px] font-medium text-slate-400">
+								<span className="ml-1 rounded-full border border-white/10 bg-slate-900/20 px-2 py-0.5 text-[10px] sm:text-[11px] font-medium text-slate-400">
 									Past
 								</span>
 							)}
 						</h3>
 						<div className="text-right">
-							<div className={`text-sm font-semibold ${isCurrent ? "text-teal-50" : "text-slate-100"}`}>
+							<div className={`text-xs sm:text-sm font-semibold ${isCurrent ? "text-teal-50" : "text-slate-100"}`}>
 								{formatCurrency(total)}
 							</div>
-							<div className="text-[11px] text-slate-400">{items.length} source{items.length === 1 ? "" : "s"}</div>
+							<div className="text-[10px] sm:text-[11px] text-slate-400">{items.length} source{items.length === 1 ? "" : "s"}</div>
 						</div>
 					</div>
 					<div className="flex-1 flex flex-col">

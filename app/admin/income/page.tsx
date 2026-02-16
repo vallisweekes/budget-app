@@ -423,7 +423,7 @@ export default async function AdminIncomePage(props: {
 								/>
 							</label>
 							<div className="md:col-span-11 flex flex-col gap-2 md:flex-row md:items-center md:gap-6">
-								<label className="flex items-center gap-2 text-sm text-slate-300 select-none">
+								<label className="flex items-center gap-2 text-xs sm:text-sm text-slate-300 select-none">
 									<input
 										type="checkbox"
 										name="distributeMonths"
@@ -431,7 +431,7 @@ export default async function AdminIncomePage(props: {
 									/>
 									Distribute across all months
 								</label>
-								<label className="flex items-center gap-2 text-sm text-slate-300 select-none">
+								<label className="flex items-center gap-2 text-xs sm:text-sm text-slate-300 select-none">
 									<input
 										type="checkbox"
 										name="distributeYears"
@@ -443,7 +443,7 @@ export default async function AdminIncomePage(props: {
 							<div className="md:col-span-1 flex items-end">
 								<button
 									type="submit"
-									className="w-full bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-xl py-3 font-semibold shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all cursor-pointer"
+									className="w-full bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-lg sm:rounded-xl py-2.5 sm:py-3 text-sm sm:text-base font-semibold shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all cursor-pointer"
 								>
 									Add
 								</button>
@@ -451,16 +451,16 @@ export default async function AdminIncomePage(props: {
 						</form>
 					</div>
 				) : (
-					<div className="rounded-3xl border border-white/10 bg-slate-800/30 px-6 py-5">
+					<div className="rounded-2xl sm:rounded-3xl border border-white/10 bg-slate-800/30 px-4 sm:px-6 py-3 sm:py-5">
 						<div className="text-sm font-semibold text-slate-200">All months already have income</div>
-						<div className="mt-1 text-sm text-slate-400">Edit current/future months below. Past months are read-only.</div>
+						<div className="mt-1 text-xs sm:text-sm text-slate-400">Edit current/future months below. Past months are read-only.</div>
 					</div>
 				)}
 
-				<div className="space-y-6">
-					<div className="flex items-center gap-3 mb-6">
-						<div className="w-12 h-12 bg-gradient-to-br from-pink-500 to-rose-600 rounded-2xl flex items-center justify-center shadow-lg">
-							<svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				<div className="space-y-4 sm:space-y-6">
+					<div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
+						<div className="w-9 h-9 sm:w-12 sm:h-12 bg-gradient-to-br from-pink-500 to-rose-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg">
+							<svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path
 									strokeLinecap="round"
 									strokeLinejoin="round"
@@ -470,8 +470,8 @@ export default async function AdminIncomePage(props: {
 							</svg>
 						</div>
 						<div>
-							<h2 className="text-2xl font-bold text-white">Monthly Income</h2>
-							<p className="text-slate-400 text-sm">Manage income sources for each month</p>
+							<h2 className="text-lg sm:text-2xl font-bold text-white">Monthly Income</h2>
+							<p className="text-slate-400 text-xs sm:text-sm">Manage income sources for each month</p>
 						</div>
 					</div>
 
@@ -482,10 +482,10 @@ export default async function AdminIncomePage(props: {
 
 		return (
 			<div className="min-h-screen pb-20 app-theme-bg">
-				<div className="mx-auto w-full max-w-7xl px-4 py-8">
-					<div className="mb-10">
-						<h1 className="text-4xl font-bold text-white mb-2">Income</h1>
-						<p className="text-slate-400 text-lg">Manage your income sources</p>
+				<div className="mx-auto w-full max-w-7xl px-4 py-4 sm:py-8">
+					<div className="mb-5 sm:mb-10">
+						<h1 className="text-2xl sm:text-4xl font-bold text-white mb-1 sm:mb-2">Income</h1>
+						<p className="text-slate-400 text-sm sm:text-lg">Manage your income sources</p>
 					</div>
 
 					<IncomeTabs initialTab={initialTab} allocations={allocationsView} income={incomeView} />
