@@ -5,7 +5,7 @@ import { MONTHS } from "@/lib/constants/time";
 import { SUPPORTED_CURRENCIES, SUPPORTED_COUNTRIES, SUPPORTED_LANGUAGES } from "@/lib/constants/locales";
 import { SelectDropdown } from "@/components/Shared";
 import type { MonthKey } from "@/types";
-import { CalendarDays, Lightbulb, PiggyBank, Wallet, Globe, User, AlertTriangle, Edit2, LogOut } from "lucide-react";
+import { ArrowLeft, CalendarDays, Lightbulb, PiggyBank, Wallet, Globe, User, AlertTriangle, Edit2, LogOut } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { saveSettingsAction, updateUserDetailsAction } from "./actions";
 import DeleteBudgetPlanButton from "./DeleteBudgetPlanButton";
@@ -62,6 +62,7 @@ export default function SettingsContent({
 	allPlans = [],
 }: SettingsContentProps) {
 	const [activeSection, setActiveSection] = useState<Section>("details");
+	const [mobileView, setMobileView] = useState<"menu" | "content">("menu");
 	const [isEditingEmail, setIsEditingEmail] = useState(false);
 	const [theme, setTheme] = useState<ThemeKey>(() => {
 		if (typeof document === "undefined") return "nord-mint";
@@ -112,81 +113,168 @@ export default function SettingsContent({
 		},
 	];
 
-		return (
-			<div className="min-h-screen pb-20 app-theme-bg">
-				<div className="mx-auto w-full max-w-7xl px-4 py-6 sm:py-8">
-				<div className="mb-6 sm:mb-10 pt-16 lg:pt-0">
-					<div className="flex items-start justify-between gap-3 sm:gap-4 mb-4">
-						<div className="flex-1">
-							<h1 className="text-2xl sm:text-4xl font-bold text-white mb-1 sm:mb-2">Settings</h1>
-							<p className="text-slate-400 text-xs sm:text-lg">Configure your budget and app options</p>
-						</div>
-					</div>
-					<button
-						type="button"
-						onClick={() => signOut({ callbackUrl: "/" })}
-						className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-xl px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold text-white/90 border border-white/10 bg-white/5 hover:bg-white/10 transition"
-					>
-						<LogOut size={14} className="sm:w-4 sm:h-4" />
-						Log out
-					</button>
-				</div>
+	const isMobileContent = mobileView === "content";
 
-				<div className="mb-4 sm:mb-6 bg-slate-800/35 backdrop-blur-xl rounded-2xl sm:rounded-3xl border border-white/10 p-3 sm:p-5">
-					<div className="flex flex-col gap-2 sm:gap-3 sm:flex-row sm:items-center sm:justify-between">
-						<div>
-							<p className="text-white font-semibold text-sm sm:text-base">Theme preview</p>
-							<p className="text-slate-300 text-xs sm:text-sm">Try a few vibes and pick your favourite.</p>
-						</div>
-						<div className="flex items-center gap-2 sm:gap-3">
-							<select
-								value={theme}
-								onChange={(e) => setTheme(e.target.value as ThemeKey)}
-								className="rounded-xl border border-white/10 bg-slate-900/40 px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
-								aria-label="Theme preview"
+	const openSection = (section: Section) => {
+		setActiveSection(section);
+		setMobileView("content");
+		try {
+			window.scrollTo({ top: 0, behavior: "smooth" });
+		} catch {
+			// Non-blocking
+		}
+	};
+
+	const backToMenu = () => {
+		setMobileView("menu");
+		try {
+			window.scrollTo({ top: 0, behavior: "smooth" });
+		} catch {
+			// Non-blocking
+		}
+	};
+
+	return (
+		<div className="min-h-screen pb-20 app-theme-bg">
+			<div className="mx-auto w-full max-w-7xl px-4 py-6 sm:py-8">
+				{/* Desktop header + theme */}
+				<div className="hidden lg:block">
+					<div className="mb-6 sm:mb-10">
+						<div className="flex items-start justify-between gap-3 sm:gap-4 mb-4">
+							<div className="flex-1">
+								<h1 className="text-2xl sm:text-4xl font-bold text-white mb-1 sm:mb-2">Settings</h1>
+								<p className="text-slate-400 text-xs sm:text-lg">Configure your budget and app options</p>
+							</div>
+							<button
+								type="button"
+								onClick={() => signOut({ callbackUrl: "/" })}
+								className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white/90 border border-white/10 bg-white/5 hover:bg-white/10 transition"
 							>
-								{THEME_OPTIONS.map((t) => (
-									<option key={t.value} value={t.value}>
-										{t.label}
-									</option>
-								))}
-							</select>
+								<LogOut size={16} />
+								Log out
+							</button>
 						</div>
 					</div>
-					<p className="text-xs text-slate-400 mt-3">
-						{THEME_OPTIONS.find((t) => t.value === theme)?.description}
-					</p>
+
+					<div className="mb-4 sm:mb-6 bg-slate-800/35 backdrop-blur-xl rounded-2xl sm:rounded-3xl border border-white/10 p-3 sm:p-5">
+						<div className="flex flex-col gap-2 sm:gap-3 sm:flex-row sm:items-center sm:justify-between">
+							<div>
+								<p className="text-white font-semibold text-sm sm:text-base">Theme preview</p>
+								<p className="text-slate-300 text-xs sm:text-sm">Try a few vibes and pick your favourite.</p>
+							</div>
+							<div className="flex items-center gap-2 sm:gap-3">
+								<select
+									value={theme}
+									onChange={(e) => setTheme(e.target.value as ThemeKey)}
+									className="rounded-xl border border-white/10 bg-slate-900/40 px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+									aria-label="Theme preview"
+								>
+									{THEME_OPTIONS.map((t) => (
+										<option key={t.value} value={t.value}>
+											{t.label}
+										</option>
+									))}
+								</select>
+							</div>
+						</div>
+						<p className="text-xs text-slate-400 mt-3">
+							{THEME_OPTIONS.find((t) => t.value === theme)?.description}
+						</p>
+					</div>
 				</div>
 
-				<div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
-					<aside className="lg:col-span-3">
-						<div className="lg:sticky lg:top-20 bg-slate-800/30 backdrop-blur-xl rounded-2xl sm:rounded-3xl border border-white/10 p-3 sm:p-4">
-							<nav className="space-y-0.5 sm:space-y-1">
-								{sections.map((s) => {
-									const Icon = s.icon;
-									return (
-										<button
-											key={s.id}
-											onClick={() => setActiveSection(s.id)}
-											className={`w-full text-left flex items-center gap-2 sm:gap-3 rounded-xl px-2 py-1.5 sm:px-3 sm:py-2 transition ${
-												activeSection === s.id
-													? "bg-blue-500/20 border-blue-500/50 text-white"
-													: "text-slate-200 hover:bg-white/5 border-transparent hover:border-white/10"
-											} border`}
-										>
-											<Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-											<div className="flex-1">
-												<div className="text-xs sm:text-sm font-semibold">{s.title}</div>
-												<div className="text-[10px] sm:text-xs text-slate-400">{s.description}</div>
-											</div>
-										</button>
-									);
-								})}
-							</nav>
+				{/* Single layout: mobile overlays, desktop grid */}
+				<div className="relative overflow-hidden lg:overflow-visible min-h-[calc(100vh-6rem)] lg:min-h-0 lg:grid lg:grid-cols-12 gap-4 sm:gap-6">
+					<aside
+						className={`absolute inset-0 transition-all duration-300 ease-out transform-gpu overflow-y-auto pb-24 lg:overflow-visible lg:pb-0 ${
+							isMobileContent ? "opacity-0 -translate-x-6 pointer-events-none" : "opacity-100 translate-x-0"
+						} lg:static lg:col-span-3 lg:opacity-100 lg:translate-x-0 lg:pointer-events-auto`}
+					>
+						<div className="pt-16 lg:pt-0">
+							{/* Mobile header + theme live inside the menu panel */}
+							<div className="lg:hidden mb-6">
+								<div className="mb-4">
+									<h1 className="text-2xl font-bold text-white mb-1">Settings</h1>
+									<p className="text-slate-400 text-xs">Configure your budget and app options</p>
+								</div>
+								<button
+									type="button"
+									onClick={() => signOut({ callbackUrl: "/" })}
+									className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold text-white/90 border border-white/10 bg-white/5 hover:bg-white/10 transition"
+								>
+									<LogOut size={14} />
+									Log out
+								</button>
+							</div>
+
+							<div className="lg:hidden mb-4 bg-slate-800/35 backdrop-blur-xl rounded-2xl border border-white/10 p-3">
+								<div className="flex items-center justify-between gap-3">
+									<div>
+										<p className="text-white font-semibold text-sm">Theme preview</p>
+										<p className="text-slate-300 text-[10px]">Try a few vibes.</p>
+									</div>
+									<select
+										value={theme}
+										onChange={(e) => setTheme(e.target.value as ThemeKey)}
+										className="rounded-xl border border-white/10 bg-slate-900/40 px-3 py-1.5 text-xs font-semibold text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+										aria-label="Theme preview"
+									>
+										{THEME_OPTIONS.map((t) => (
+											<option key={t.value} value={t.value}>
+												{t.label}
+											</option>
+										))}
+									</select>
+								</div>
+								<p className="text-[10px] text-slate-400 mt-2">
+									{THEME_OPTIONS.find((t) => t.value === theme)?.description}
+								</p>
+							</div>
+
+							<div className="lg:sticky lg:top-20 bg-slate-800/30 backdrop-blur-xl rounded-2xl sm:rounded-3xl border border-white/10 p-3 sm:p-4">
+								<nav className="space-y-0.5 sm:space-y-1">
+									{sections.map((s) => {
+										const Icon = s.icon;
+										return (
+											<button
+												key={s.id}
+												onClick={() => openSection(s.id)}
+												className={`w-full text-left flex items-center gap-2 sm:gap-3 rounded-xl px-2 py-1.5 sm:px-3 sm:py-2 transition ${
+													activeSection === s.id
+														? "bg-blue-500/20 border-blue-500/50 text-white"
+														: "text-slate-200 hover:bg-white/5 border-transparent hover:border-white/10"
+												} border`}
+											>
+												<Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+												<div className="flex-1">
+													<div className="text-xs sm:text-sm font-semibold">{s.title}</div>
+													<div className="text-[10px] sm:text-xs text-slate-400">{s.description}</div>
+												</div>
+											</button>
+										);
+									})}
+								</nav>
+							</div>
 						</div>
 					</aside>
 
-					<main className="lg:col-span-9">
+					<main
+						className={`absolute inset-0 transition-all duration-300 ease-out transform-gpu ${
+							isMobileContent ? "opacity-100 translate-x-0" : "opacity-0 translate-x-6 pointer-events-none"
+						} lg:static lg:col-span-9 lg:opacity-100 lg:translate-x-0 lg:pointer-events-auto overflow-y-auto lg:overflow-visible pb-24 lg:pb-0`}
+					>
+						<div className="lg:hidden pt-16 mb-4">
+							<button
+								type="button"
+								onClick={backToMenu}
+								className="inline-flex items-center gap-2 text-sm font-semibold text-white/90 hover:text-white transition"
+								aria-label="Back to settings"
+							>
+								<ArrowLeft className="w-4 h-4" />
+								<span>Settings</span>
+							</button>
+						</div>
+
 						{activeSection === "details" && (
 						<section className="space-y-4 sm:space-y-6">
 							<div className="flex items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-5">
