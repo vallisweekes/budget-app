@@ -108,18 +108,39 @@ export default function ExpandableCategory({
 					<div className="divide-y divide-white/5">
 						{expenses.map((e) => {
 							const isEditing = editingDueDateId === e.id;
-							const dueDateFormatted = e.dueDate ? new Date(e.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : `Day ${defaultDueDate}`;
+									const safeDefaultDueDate =
+										typeof defaultDueDate === "number" && Number.isFinite(defaultDueDate)
+											? defaultDueDate
+											: null;
+									const dueDateFormatted = e.dueDate
+										? new Date(e.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+										: safeDefaultDueDate != null
+											? `Day ${safeDefaultDueDate}`
+											: "No due date";
 							
 							return (
-								<div key={e.id} className="flex items-center justify-between gap-3 p-3 px-4 hover:bg-white/5 transition-colors">
-									<div className="flex items-center gap-3 flex-1 min-w-0">
-										<div className="text-sm font-medium text-white truncate">{e.name}</div>
-										<div className="text-xs text-slate-400 whitespace-nowrap"><Currency value={e.amount} /></div>
-										
-										{/* Due Date Display/Edit */}
-										<div className="flex items-center gap-1.5">
-											{isEditing ? (
-												<>
+								<div key={e.id} className="flex items-start justify-between gap-2 sm:gap-3 p-2 sm:p-3 px-3 sm:px-4 hover:bg-white/5 transition-colors">
+									<div className="flex-1 min-w-0">
+										<div className="flex items-center gap-1.5 mb-1 flex-wrap">
+											<div className="text-xs sm:text-sm font-medium text-white leading-tight">{e.name}</div>
+											
+											{/* Due Date Display/Edit */}
+											{!isEditing && (
+												<span className={`text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0 ${
+													e.dueDate 
+														? 'bg-blue-500/20 text-blue-300 border border-blue-400/30' 
+														: 'bg-slate-700/50 text-slate-400 border border-slate-600/30'
+												}`}>
+													Due: {dueDateFormatted}
+												</span>
+											)}
+										</div>
+										<div className="flex items-center gap-2 flex-wrap">
+											<div className="text-sm sm:text-base font-bold text-slate-200"><Currency value={e.amount} /></div>
+											
+											{/* Due Date Edit */}
+											{isEditing && (
+												<div className="flex items-center gap-1.5">
 													<input
 														type="date"
 														value={tempDueDate}
@@ -142,18 +163,7 @@ export default function ExpandableCategory({
 													>
 														<X size={14} />
 													</button>
-												</>
-											) : (
-												<button
-													onClick={() => handleEditDueDate(e)}
-													className="flex items-center gap-1 px-2 py-0.5 bg-slate-800/60 hover:bg-slate-700/60 border border-white/10 rounded text-xs text-slate-300 transition-colors group"
-													title={e.dueDate ? "Custom due date" : "Using default pay date"}
-												>
-													<Calendar size={12} className="text-slate-400 group-hover:text-blue-400" />
-													<span className={e.dueDate ? "text-blue-400 font-medium" : ""}>
-														{dueDateFormatted}
-													</span>
-												</button>
+												</div>
 											)}
 										</div>
 									</div>

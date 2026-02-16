@@ -100,7 +100,7 @@ export default function PaymentStatusButton({
 	const getStatusText = () => {
 		if (paid) return "Paid in Full";
 		if (paidAmount > 0) return `Partial (${formatCurrency(paidAmount)})`;
-		return "Not Paid";
+		return "Unpaid";
 	};
 
 	const getStatusColor = () => {
@@ -120,10 +120,10 @@ export default function PaymentStatusButton({
 						return next;
 					});
 				}}
-				className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium cursor-pointer transition-colors ${getStatusColor()}`}
+				className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-medium cursor-pointer transition-colors ${getStatusColor()}`}
 			>
 				{getStatusText()}
-				<ChevronDown size={16} />
+				<ChevronDown size={12} className="sm:w-3.5 sm:h-3.5" />
 			</button>
 
 
