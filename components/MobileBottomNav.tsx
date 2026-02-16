@@ -51,36 +51,36 @@ export default function MobileBottomNav() {
 		{ key: "expenses", href: expensesHref, label: "Expenses", icon: DollarSign },
 		{ key: "debts", href: `${baseHref}/page=debts`, label: "Debts", icon: CreditCard },
 		{ key: "goals", href: `${baseHref}/page=goals`, label: "Goals", icon: Target },
-		{ key: "settings", href: `${baseHref}/page=settings`, label: "Settings", icon: Settings },
 	];
 
 	return (
-		<nav className="lg:hidden fixed bottom-0 left-0 right-0 app-theme-bg bg-fixed border-t border-white/10 shadow-2xl z-30 safe-area-inset-bottom">
-			<div className="flex items-center justify-around px-2 py-3">
-				{navItems.map((item) => {
-					const active = activePage === item.key;
-					
-					return (
-						<Link
-							key={item.href}
-							href={item.href}
-							className={`group flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all min-w-[64px] ${
-								active ? "text-white" : "text-slate-300 hover:text-white"
-							}`}
-						>
-							<div
-								className={`p-2 rounded-lg border transition-all ${
-									active
-										? "app-nav-active"
-										: "border-transparent group-hover:bg-white/5 group-hover:border-white/10"
+		<nav className="lg:hidden fixed bottom-4 left-4 right-4 z-30 flex justify-center pointer-events-none">
+			<div className="pointer-events-auto bg-slate-900/40 backdrop-blur-xl border border-white/10 rounded-full shadow-2xl px-4 py-3">
+				<div className="flex items-center gap-2">
+					{navItems.map((item) => {
+						const active = activePage === item.key;
+						
+						return (
+							<Link
+								key={item.href}
+								href={item.href}
+								className={`group flex items-center justify-center transition-all ${
+									active ? "text-white" : "text-slate-300 hover:text-white"
 								}`}
 							>
-								<item.icon size={20} strokeWidth={active ? 2.5 : 2} className={active ? "text-white" : "text-slate-300 group-hover:text-white"} />
-							</div>
-							<span className="text-xs font-medium">{item.label}</span>
-						</Link>
-					);
-				})}
+								<div
+									className={`p-3 rounded-full transition-all ${
+										active
+											? "bg-blue-500/20 border border-blue-400/30"
+											: "hover:bg-white/5"
+									}`}
+								>
+									<item.icon size={20} strokeWidth={active ? 2.5 : 2} className={active ? "text-white" : "text-slate-300 group-hover:text-white"} />
+								</div>
+							</Link>
+						);
+					})}
+				</div>
 			</div>
 		</nav>
 	);
