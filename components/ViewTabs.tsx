@@ -49,6 +49,7 @@ type ViewTabsProps = {
   regularExpenses: ExpenseItem[];
   totalIncome: number;
   totalAllocations?: number;
+  plannedDebtPayments?: number;
   plannedSavingsContribution?: number;
   incomeAfterAllocations?: number;
   totalExpenses: number;
@@ -60,6 +61,7 @@ type ViewTabsProps = {
     categoryData: CategoryDataItem[];
     totalIncome: number;
     totalAllocations?: number;
+    plannedDebtPayments?: number;
     plannedSavingsContribution?: number;
     incomeAfterAllocations?: number;
     totalExpenses: number;
@@ -94,6 +96,7 @@ export default function ViewTabs({
   totalDebtBalance,
   totalIncome,
   totalAllocations,
+  plannedDebtPayments,
   plannedSavingsContribution,
   incomeAfterAllocations,
   totalExpenses,
@@ -178,19 +181,21 @@ export default function ViewTabs({
       categoryData,
       totalIncome,
       totalAllocations,
+      plannedDebtPayments,
       plannedSavingsContribution,
       incomeAfterAllocations,
       totalExpenses,
       remaining,
       goals,
     };
-  }, [allPlansData, budgetPlanId, categoryData, goals, incomeAfterAllocations, remaining, totalAllocations, totalExpenses, totalIncome]);
+  }, [allPlansData, budgetPlanId, categoryData, goals, incomeAfterAllocations, plannedDebtPayments, remaining, totalAllocations, totalExpenses, totalIncome]);
 
   // Combine data for all plans in active tab (with a safe fallback for initial render)
   const combinedData = useMemo(() => {
     const hasMultiPlanData = Boolean(allPlansData) && activePlans.length > 0;
     if (!hasMultiPlanData) {
       const allocationsTotal = fallbackPlanData.totalAllocations ?? 0;
+      const plannedDebtTotal = fallbackPlanData.plannedDebtPayments ?? 0;
       const leftToBudget =
         typeof fallbackPlanData.incomeAfterAllocations === "number"
           ? fallbackPlanData.incomeAfterAllocations
@@ -199,6 +204,7 @@ export default function ViewTabs({
       return {
         totalIncome: fallbackPlanData.totalIncome,
         totalAllocations: allocationsTotal,
+        plannedDebtPayments: plannedDebtTotal,
         incomeAfterAllocations: leftToBudget,
         totalExpenses: fallbackPlanData.totalExpenses,
         remaining: fallbackPlanData.remaining,
@@ -217,6 +223,7 @@ export default function ViewTabs({
     let totalInc = 0;
     let totalExp = 0;
     let allocationsTotal = 0;
+    let plannedDebtTotal = 0;
     let leftToBudgetTotal = 0;
     let plannedSavingsTotal = 0;
     let combinedGoals: GoalLike[] = [];
@@ -230,6 +237,7 @@ export default function ViewTabs({
       totalInc += planData.totalIncome;
       totalExp += planData.totalExpenses;
       allocationsTotal += planData.totalAllocations ?? 0;
+      plannedDebtTotal += planData.plannedDebtPayments ?? 0;
       plannedSavingsTotal += planData.plannedSavingsContribution ?? 0;
       leftToBudgetTotal +=
         typeof planData.incomeAfterAllocations === "number"
@@ -250,6 +258,7 @@ export default function ViewTabs({
     return {
       totalIncome: totalInc,
       totalAllocations: allocationsTotal,
+      plannedDebtPayments: plannedDebtTotal,
       incomeAfterAllocations: leftToBudgetTotal,
       totalExpenses: totalExp,
       remaining: totalInc - totalExp,
@@ -387,20 +396,20 @@ export default function ViewTabs({
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-3">
         <Card
           title="Income"
-          titleTooltip="Money left to budget after planned income sacrifice (allowance, savings, emergency fund, investments)."
+          titleTooltip="Money left to budget after planned income sacrifice (allowance, savings, emergency fund, investments) and planned debt payments."
           className="p-3"
         >
           <div className="flex items-center gap-2">
             <div className="text-base sm:text-lg font-bold"><Currency value={combinedData.amountLeftToBudget} /></div>
             {combinedData.totalIncome > 0 && (
               <span className={`text-xs font-medium ${
-                (combinedData.totalAllocations ?? 0) / combinedData.totalIncome > 0.30 ? "text-red-400" : "text-emerald-400"
+                ((combinedData.totalAllocations ?? 0) + (combinedData.plannedDebtPayments ?? 0)) / combinedData.totalIncome > 0.30 ? "text-red-400" : "text-emerald-400"
               }`}>
-                {(combinedData.totalAllocations ?? 0) / combinedData.totalIncome > 0.30 ? "↑" : "↓"} {percent((combinedData.totalAllocations ?? 0) / combinedData.totalIncome)}
+                {((combinedData.totalAllocations ?? 0) + (combinedData.plannedDebtPayments ?? 0)) / combinedData.totalIncome > 0.30 ? "↑" : "↓"} {percent(((combinedData.totalAllocations ?? 0) + (combinedData.plannedDebtPayments ?? 0)) / combinedData.totalIncome)}
               </span>
             )}
           </div>
-          <div className="text-xs text-slate-300">after income sacrifice</div>
+          <div className="text-xs text-slate-300">after income sacrifice + debt plan</div>
         </Card>
         <Card
           title="Expenses"

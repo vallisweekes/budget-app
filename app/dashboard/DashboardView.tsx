@@ -171,6 +171,7 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 			categoryData,
 			totalIncome,
 			totalAllocations,
+			plannedDebtPayments: plannedDebtAmount,
 			plannedSavingsContribution,
 			incomeAfterAllocations,
 			totalExpenses,
@@ -389,6 +390,7 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 					regularExpenses={[]}
 					totalIncome={currentPlanData.totalIncome}
 					totalAllocations={currentPlanData.totalAllocations}
+					plannedDebtPayments={currentPlanData.plannedDebtPayments}
 					incomeAfterAllocations={currentPlanData.incomeAfterAllocations}
 					totalExpenses={currentPlanData.totalExpenses}
 					remaining={currentPlanData.remaining}
