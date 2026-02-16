@@ -56,7 +56,7 @@ interface ExpenseManagerProps {
 
 function ExpenseCardsSkeleton({ count = 4 }: { count?: number }) {
   return (
-    <div className="grid grid-cols-1 gap-6">
+    <div className="grid grid-cols-1 gap-1 sm:gap-2 lg:gap-2">
       {Array.from({ length: count }).map((_, i) => (
         <div
           key={i}
@@ -281,7 +281,7 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <ConfirmModal
         open={expensePendingDelete != null}
         title="Delete expense?"
@@ -724,7 +724,7 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
       {isPeriodLoading ? (
         <ExpenseCardsSkeleton />
       ) : (
-      <div className="grid grid-cols-1 gap-3 sm:gap-6">
+      <div className="grid grid-cols-1 gap-1 sm:gap-2 lg:gap-2">
         {Object.entries(expensesByCategory).map(([catId, catExpenses]) => {
           const category = categoryLookup[catId];
           if (!category) return null;
