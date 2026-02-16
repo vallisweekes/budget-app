@@ -117,45 +117,45 @@ export default function DebtsList({ debts, budgetPlanId, typeLabels, paymentsMap
 	return (
 		<>
 			{/* Sort Controls */}
-			<div className="flex items-center gap-3 mb-4">
-				<span className="text-sm text-slate-400">Sort by:</span>
-				<div className="flex gap-2">
+			<div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+				<span className="text-xs sm:text-sm text-slate-400">Sort by:</span>
+				<div className="flex gap-1.5 sm:gap-2">
 					<button
 						onClick={() => setSortBy("manual")}
-						className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5 ${
+						className={`px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-[10px] sm:text-sm font-medium transition-all flex items-center gap-1 sm:gap-1.5 ${
 							sortBy === "manual"
 								? "bg-purple-600 text-white"
 								: "bg-slate-800/40 text-slate-300 hover:bg-slate-700/40"
 						}`}
 					>
-						<ArrowUpDown className="w-4 h-4" />
+						<ArrowUpDown className="w-3 h-3 sm:w-4 sm:h-4" />
 						Manual
 					</button>
 					<button
 						onClick={() => setSortBy("name")}
-						className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5 ${
+						className={`px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-[10px] sm:text-sm font-medium transition-all flex items-center gap-1 sm:gap-1.5 ${
 							sortBy === "name"
 								? "bg-purple-600 text-white"
 								: "bg-slate-800/40 text-slate-300 hover:bg-slate-700/40"
 						}`}
 					>
-						<ArrowUpAZ className="w-4 h-4" />
+						<ArrowUpAZ className="w-3 h-3 sm:w-4 sm:h-4" />
 						Name
 					</button>
 					<button
 						onClick={() => setSortBy("amount")}
-						className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5 ${
+						className={`px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-[10px] sm:text-sm font-medium transition-all flex items-center gap-1 sm:gap-1.5 ${
 							sortBy === "amount"
 								? "bg-purple-600 text-white"
 								: "bg-slate-800/40 text-slate-300 hover:bg-slate-700/40"
 						}`}
 					>
-						<DollarSign className="w-4 h-4" />
+						<DollarSign className="w-3 h-3 sm:w-4 sm:h-4" />
 						Amount
 					</button>
 				</div>
 				{sortBy === "manual" && (
-					<span className="text-xs text-slate-500 ml-2">
+					<span className="text-[10px] sm:text-xs text-slate-500 ml-1 sm:ml-2">
 						Drag to reorder
 					</span>
 				)}
