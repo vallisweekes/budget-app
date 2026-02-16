@@ -109,9 +109,18 @@ export default function ViewTabs({
         if (!res.ok) return;
         const data = await res.json() as { plans?: BudgetPlan[] };
         if (Array.isArray(data.plans)) {
-          setBudgetPlans(data.plans);
+          const normalizedPlans = data.plans.map((p) => {
+            const rawPayDate = (p as unknown as { payDate?: unknown }).payDate;
+            const parsedPayDate = typeof rawPayDate === "number" ? rawPayDate : Number(rawPayDate);
+            return {
+              ...p,
+              payDate: Number.isFinite(parsedPayDate) && parsedPayDate > 0 ? parsedPayDate : 27,
+            };
+          });
+
+          setBudgetPlans(normalizedPlans);
           // Set active tab based on current budget plan
-          const currentPlan = data.plans.find(p => p.id === budgetPlanId);
+          const currentPlan = normalizedPlans.find((p) => p.id === budgetPlanId);
           if (currentPlan) {
             setActiveTab(currentPlan.kind as TabKey);
           }
