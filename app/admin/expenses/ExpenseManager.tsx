@@ -29,6 +29,49 @@ function formatIsoDueDate(iso: string): string {
   return dueDateFormatter.format(new Date(Date.UTC(year, month - 1, day)));
 }
 
+function clampDay(year: number, monthNumber: number, day: number): number {
+  const lastDay = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
+  const safe = Number.isFinite(day) ? day : 1;
+  return Math.min(Math.max(1, safe), lastDay);
+}
+
+function getDueDateUtc(params: { year: number; monthNumber: number; dueDate?: string; payDate: number }): Date {
+  const { year, monthNumber, dueDate, payDate } = params;
+  if (dueDate && /^\d{4}-\d{2}-\d{2}$/.test(dueDate)) {
+    const [y, m, d] = dueDate.split("-").map((x) => Number(x));
+    if (Number.isFinite(y) && Number.isFinite(m) && Number.isFinite(d)) {
+      return new Date(Date.UTC(y, m - 1, d));
+    }
+  }
+
+  const day = clampDay(year, monthNumber, payDate);
+  return new Date(Date.UTC(year, monthNumber - 1, day));
+}
+
+function daysUntilUtc(dateUtc: Date): number {
+  const now = new Date();
+  const todayUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const diff = dateUtc.getTime() - todayUtc.getTime();
+  return Math.floor(diff / (1000 * 60 * 60 * 24));
+}
+
+function dueBadgeClasses(daysUntilDue: number): string {
+  // Requirements:
+  // - green when > 10 days
+  // - orange within 5 days
+  // - red 1 day / today / overdue
+  if (daysUntilDue <= 1) {
+    return "bg-red-500/35 text-red-100 border border-red-400/50";
+  }
+  if (daysUntilDue <= 5) {
+    return "bg-orange-500/35 text-orange-100 border border-orange-400/50";
+  }
+  if (daysUntilDue > 10) {
+    return "bg-emerald-500/35 text-emerald-100 border border-emerald-400/50";
+  }
+  return "bg-yellow-500/35 text-yellow-100 border border-yellow-400/50";
+}
+
 interface Category {
   id: string;
   name: string;
@@ -917,13 +960,25 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5 mb-0.5 sm:mb-1 flex-wrap">
                               <div className="font-semibold text-white text-xs sm:text-sm truncate">{expense.name}</div>
-                              <span className={`text-[10px] sm:text-xs px-1.5 py-0.5 rounded font-medium shrink-0 ${
-                                expense.dueDate 
-                                  ? 'bg-blue-500/20 text-blue-300 border border-blue-400/30' 
-                                  : 'bg-slate-700/50 text-slate-400 border border-slate-600/30'
-                              }`}>
-                                Due: {expense.dueDate ? formatIsoDueDate(expense.dueDate) : `Day ${payDate}`}
-                              </span>
+                {(() => {
+                  const monthNumber = (MONTHS as MonthKey[]).indexOf(month) + 1;
+                  const dueDateUtc = getDueDateUtc({ year, monthNumber, dueDate: expense.dueDate, payDate });
+                  const days = daysUntilUtc(dueDateUtc);
+                  return (
+                    <span
+                      className={`text-[10px] sm:text-xs px-2 py-0.5 rounded-lg font-semibold shrink-0 ${dueBadgeClasses(days)}`}
+                      title={
+                        days < 0
+                          ? `Overdue by ${Math.abs(days)} day${Math.abs(days) === 1 ? "" : "s"}`
+                          : days === 0
+                            ? "Due today"
+                            : `Due in ${days} day${days === 1 ? "" : "s"}`
+                      }
+                    >
+                      Due: {expense.dueDate ? formatIsoDueDate(expense.dueDate) : `Day ${payDate}`}
+                    </span>
+                  );
+                })()}
                             </div>
                             <div className="flex items-center gap-2 text-xs sm:text-sm">
                               <span className="text-slate-300 font-medium">
