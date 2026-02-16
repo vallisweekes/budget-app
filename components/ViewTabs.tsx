@@ -10,6 +10,7 @@ import { Card } from "@/components/Shared";
 import { Receipt, Plus } from "lucide-react";
 import Link from "next/link";
 import PaymentInsightsCards from "@/components/Insights/PaymentInsightsCards";
+import PieCategories from "@/components/PieCategories";
 import type { PreviousMonthRecap, UpcomingPayment, RecapTip } from "@/lib/expenses/insights";
 
 type GoalLike = {
@@ -425,28 +426,7 @@ export default function ViewTabs({
             {topCategories.length === 0 ? (
               <div className="text-sm text-slate-300">No categorized spend yet for this month.</div>
             ) : (
-              <div className="space-y-3">
-              {topCategories.map((c) => {
-                const share = combinedData.totalExpenses > 0 ? c.total / combinedData.totalExpenses : 0;
-                return (
-                  <div key={c.name} className="space-y-1">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="text-sm font-medium text-white truncate">{c.name}</div>
-                      <div className="text-sm text-slate-200 whitespace-nowrap"><Currency value={c.total} /></div>
-                    </div>
-                    <div className="h-2 rounded-full bg-white/10 overflow-hidden">
-                      <div
-                        className="h-2 rounded-full"
-                        style={{
-                          width: `${Math.min(100, share * 100)}%`,
-                          background: c.color ?? "rgba(45, 212, 191, 0.8)",
-                        }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-              </div>
+              <PieCategories items={topCategories.map(c => ({ name: c.name, amount: c.total }))} />
             )}
 
             <div className="flex items-center justify-between">
