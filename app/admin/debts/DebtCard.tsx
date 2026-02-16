@@ -223,7 +223,7 @@ export default function DebtCard({ debt, budgetPlanId, typeLabels, payments, pay
 
 			{/* Collapsed Summary View */}
 			{isCollapsed && !isEditing && (
-				<div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
+				<div className="grid grid-cols-2 gap-2 sm:gap-3">
 					<div>
 						<div className="text-[10px] sm:text-xs text-slate-400 mb-0.5">Current</div>
 						<div className="text-sm sm:text-base font-bold text-red-400">
@@ -236,8 +236,11 @@ export default function DebtCard({ debt, budgetPlanId, typeLabels, payments, pay
 							<Currency value={debt.amount} />
 						</div>
 					</div>
-					<div className="col-span-2 sm:col-span-1">
-						<div className="text-[10px] sm:text-xs text-slate-400 mb-0.5">{percentPaid.toFixed(0)}% paid</div>
+					<div className="col-span-2">
+						<div className="flex items-center justify-between text-[10px] sm:text-xs text-slate-400 mb-0.5">
+							<span>Progress</span>
+							<span>{percentPaid.toFixed(0)}% paid</span>
+						</div>
 						<div className="w-full bg-white/10 rounded-full h-1.5">
 							<div
 								className="bg-gradient-to-r from-emerald-400 to-green-500 h-1.5 rounded-full transition-all"

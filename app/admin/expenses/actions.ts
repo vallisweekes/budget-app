@@ -5,6 +5,7 @@ import {
   addOrUpdateExpenseAcrossMonths,
   toggleExpensePaid,
   updateExpense,
+  updateExpenseAcrossMonthsByName,
   removeExpense,
   applyExpensePayment,
   setExpensePaymentAmount,
@@ -31,6 +32,16 @@ function toYear(value: FormDataEntryValue | null): number | null {
 function defaultYears(): number[] {
   const y = new Date().getFullYear();
   return Array.from({ length: 10 }, (_, i) => y + i);
+}
+
+function yearsFrom(startYear: number): number[] {
+  return Array.from({ length: 10 }, (_, i) => startYear + i);
+}
+
+function remainingMonthsFrom(month: MonthKey): MonthKey[] {
+  const idx = (MONTHS as MonthKey[]).indexOf(month);
+  if (idx < 0) return [month];
+  return (MONTHS as MonthKey[]).slice(idx);
 }
 
 async function requireAuthenticatedUser() {
@@ -117,9 +128,38 @@ export async function updateExpenseAction(formData: FormData): Promise<void> {
   const dueDate = dueDateString && dueDateString !== "" ? dueDateString : undefined;
   if (!month || !id || !name) return;
 
+  const applyRemainingMonths = isTruthyFormValue(formData.get("applyRemainingMonths"));
+  const applyFutureYears = isTruthyFormValue(formData.get("applyFutureYears"));
+
   const { userId } = await requireAuthenticatedUser();
   await requireOwnedBudgetPlan(budgetPlanId, userId);
-	await updateExpense(budgetPlanId, month, id, { name, amount, categoryId, dueDate }, year);
+
+  // Lookup the current row so we can match the same expense in other periods
+  const monthIndex = (MONTHS as MonthKey[]).indexOf(month);
+  const monthNumber = monthIndex >= 0 ? monthIndex + 1 : null;
+  const matchRow = monthNumber
+    ? await prisma.expense.findFirst({
+        where: { id, budgetPlanId, year, month: monthNumber },
+        select: { name: true, categoryId: true },
+      })
+    : null;
+
+  await updateExpense(budgetPlanId, month, id, { name, amount, categoryId, dueDate }, year);
+
+  if (applyRemainingMonths && matchRow && monthNumber) {
+    const monthsThisYear = remainingMonthsFrom(month);
+    const years = applyFutureYears ? yearsFrom(year) : [year];
+    for (const y of years) {
+      const monthsForYear = y === year ? monthsThisYear : (MONTHS as MonthKey[]);
+      await updateExpenseAcrossMonthsByName(
+        budgetPlanId,
+        { name: matchRow.name, categoryId: matchRow.categoryId },
+        { name, amount, categoryId, dueDate },
+        y,
+        monthsForYear
+      );
+    }
+  }
 
   revalidatePath("/");
   revalidatePath("/admin/expenses");

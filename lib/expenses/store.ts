@@ -26,6 +26,78 @@ function decimalToNumber(value: unknown): number {
 	return Number((value as any).toString?.() ?? value);
 }
 
+function dueDateForYearMonthFromISO(iso: string, year: number, monthNumber: number): Date {
+  // Keep the *day of month* from `iso`, but apply it to the given year/month.
+  // Clamp to the last day of the target month (e.g. Feb 30 -> Feb 28/29).
+  const parts = String(iso).split("-");
+  const day = Number(parts[2]);
+  const safeDay = Number.isFinite(day) ? day : 1;
+  const lastDay = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
+  const clampedDay = Math.min(Math.max(1, safeDay), lastDay);
+  return new Date(Date.UTC(year, monthNumber - 1, clampedDay));
+}
+
+export async function updateExpenseAcrossMonthsByName(
+  budgetPlanId: string,
+  match: { name: string; categoryId: string | null },
+  updates: { name: string; amount: number; categoryId?: string | null; dueDate?: string },
+  year: number,
+  months: MonthKey[]
+): Promise<void> {
+  const targetMonths = Array.from(new Set(months));
+  const matchName = normalizeExpenseName(match.name);
+  const nextName = normalizeExpenseName(updates.name);
+  if (!matchName || !nextName) return;
+  if (!Number.isFinite(updates.amount) || updates.amount < 0) return;
+
+  for (const month of targetMonths) {
+    const monthNumber = monthKeyToNumber(month);
+    const rows = await prisma.expense.findMany({
+      where: {
+        budgetPlanId,
+        year,
+        month: monthNumber,
+        name: { equals: matchName, mode: "insensitive" },
+        categoryId: match.categoryId,
+      },
+      select: { id: true, paid: true, paidAmount: true, amount: true },
+    });
+
+    for (const row of rows) {
+      const nextAmount = updates.amount;
+      const existingPaidAmount = decimalToNumber(row.paidAmount);
+      let nextPaidAmount = existingPaidAmount;
+      if (row.paid) {
+        nextPaidAmount = nextAmount;
+      } else {
+        nextPaidAmount = Math.min(existingPaidAmount, nextAmount);
+      }
+
+      let nextPaid = nextPaidAmount >= nextAmount && nextAmount > 0;
+      if (nextPaid) nextPaidAmount = nextAmount;
+
+      const dueDateValue =
+        updates.dueDate === undefined
+          ? undefined
+          : updates.dueDate
+            ? dueDateForYearMonthFromISO(updates.dueDate, year, monthNumber)
+            : null;
+
+      await prisma.expense.update({
+        where: { id: row.id },
+        data: {
+          name: nextName,
+          amount: nextAmount,
+          categoryId: updates.categoryId === undefined ? undefined : updates.categoryId,
+          paidAmount: nextPaidAmount,
+          paid: nextPaid,
+          dueDate: dueDateValue,
+        },
+      });
+    }
+  }
+}
+
 export async function getAllExpenses(budgetPlanId: string, year: number = currentYear()): Promise<ExpensesByMonth> {
 	const empty = emptyExpensesByMonth();
 	const rows = await prisma.expense.findMany({

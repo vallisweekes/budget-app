@@ -125,6 +125,8 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
   const [editAmount, setEditAmount] = useState<string>("");
   const [editCategoryId, setEditCategoryId] = useState<string>("");
   const [editDueDate, setEditDueDate] = useState<string>("");
+	const [applyRemainingMonths, setApplyRemainingMonths] = useState(false);
+	const [applyFutureYears, setApplyFutureYears] = useState(false);
   const [addMonth, setAddMonth] = useState<MonthKey>(month);
   const [addYear, setAddYear] = useState<number>(year);
   const [addBudgetPlanId, setAddBudgetPlanId] = useState<string>(budgetPlanId);
@@ -258,6 +260,8 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
     setEditAmount(String(expense.amount));
     setEditCategoryId(expense.categoryId ?? "");
     setEditDueDate(expense.dueDate || "");
+		setApplyRemainingMonths(false);
+		setApplyFutureYears(false);
   };
 
   const confirmRemove = () => {
@@ -405,6 +409,50 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
                     />
                   </label>
                 </div>
+
+          <div className="rounded-2xl border border-white/10 bg-slate-900/30 p-4">
+            <div className="flex items-start gap-3">
+              <input
+                id="applyRemainingMonths"
+                name="applyRemainingMonths"
+                type="checkbox"
+                checked={applyRemainingMonths}
+                onChange={(e) => {
+                  const next = e.target.checked;
+                  setApplyRemainingMonths(next);
+                  if (!next) setApplyFutureYears(false);
+                }}
+                className="mt-1 h-4 w-4 rounded border-white/20 bg-slate-900/40 text-purple-500 focus:ring-purple-500/50"
+              />
+              <div className="min-w-0 flex-1">
+                <label htmlFor="applyRemainingMonths" className="block text-sm font-semibold text-white">
+                  Apply changes to remaining months
+                </label>
+                <p className="mt-1 text-xs text-slate-300">
+                  Updates this expense in all remaining months this year by matching the current expense name + category.
+                  Payments in other months are preserved.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-3 pl-7">
+              <label className={`flex items-center gap-2 text-xs ${applyRemainingMonths ? "text-slate-200" : "text-slate-500"}`}>
+                <input
+                  name="applyFutureYears"
+                  type="checkbox"
+                  disabled={!applyRemainingMonths}
+                  checked={applyFutureYears}
+                  onChange={(e) => {
+                    const next = e.target.checked;
+                    setApplyFutureYears(next);
+                    if (next) setApplyRemainingMonths(true);
+                  }}
+                  className="h-4 w-4 rounded border-white/20 bg-slate-900/40 text-purple-500 focus:ring-purple-500/50 disabled:opacity-60"
+                />
+                <span>Also apply to future years</span>
+              </label>
+            </div>
+          </div>
 
                 <div className="flex items-center justify-end gap-3 pt-2">
                   <button
