@@ -115,17 +115,19 @@ export default function SettingsContent({
 		return (
 			<div className="min-h-screen pb-20 app-theme-bg">
 				<div className="mx-auto w-full max-w-7xl px-4 py-6 sm:py-8">
-					<div className="mb-6 sm:mb-10 flex items-start justify-between gap-3 sm:gap-4">
-						<div>
+				<div className="mb-6 sm:mb-10 pt-16 lg:pt-0">
+					<div className="flex items-start justify-between gap-3 sm:gap-4 mb-4">
+						<div className="flex-1">
 							<h1 className="text-2xl sm:text-4xl font-bold text-white mb-1 sm:mb-2">Settings</h1>
 							<p className="text-slate-400 text-xs sm:text-lg">Configure your budget and app options</p>
 						</div>
-						<button
-							type="button"
-							onClick={() => signOut({ callbackUrl: "/" })}
-							className="inline-flex items-center gap-1.5 sm:gap-2 rounded-xl px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold text-white/90 border border-white/10 bg-white/5 hover:bg-white/10 transition"
-						>
-							<LogOut size={14} className="sm:w-4 sm:h-4" />
+					</div>
+					<button
+						type="button"
+						onClick={() => signOut({ callbackUrl: "/" })}
+						className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-xl px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold text-white/90 border border-white/10 bg-white/5 hover:bg-white/10 transition"
+					>
+						<LogOut size={14} className="sm:w-4 sm:h-4" />
 						Log out
 					</button>
 				</div>
