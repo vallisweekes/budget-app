@@ -11,6 +11,7 @@ import { ConfirmModal, SelectDropdown, Skeleton, SkeletonText } from "@/componen
 import { formatCurrency } from "@/lib/helpers/money";
 import { MONTHS } from "@/lib/constants/time";
 import { formatMonthKeyLabel } from "@/lib/helpers/monthKey";
+import { getSimpleColorClasses } from "@/lib/helpers/colors";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -729,23 +730,8 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
           const category = categoryLookup[catId];
           if (!category) return null;
 
-          const colorMap: Record<string, string> = {
-            blue: "from-blue-400 to-blue-600",
-            yellow: "from-yellow-400 to-yellow-600",
-            purple: "from-purple-400 to-purple-600",
-            orange: "from-orange-400 to-orange-600",
-            green: "from-green-400 to-green-600",
-            indigo: "from-indigo-400 to-indigo-600",
-            pink: "from-pink-400 to-pink-600",
-            cyan: "from-cyan-400 to-cyan-600",
-            red: "from-red-400 to-red-600",
-            emerald: "from-emerald-400 to-emerald-600",
-            teal: "from-teal-400 to-teal-600",
-            amber: "from-amber-400 to-amber-600",
-            slate: "from-slate-400 to-slate-600",
-          };
-
-          const gradient = colorMap[category.color ?? "blue"] || colorMap.blue;
+          const colors = getSimpleColorClasses(category.color, "blue");
+          const gradient = colors.bg;
           const totalAmount = catExpenses.reduce((sum, e) => sum + e.amount, 0);
           const paidCount = catExpenses.filter((e) => e.paid).length;
           const isCollapsed = collapsedCategories[catId] ?? true;
