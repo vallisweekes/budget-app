@@ -92,13 +92,13 @@ export default function GoalCard({ goal }: GoalCardProps) {
   if (isEditing) {
     return (
       <div className={CARD_CLASS}>
-        <div className="flex items-start gap-4 mb-4">
-          <div className={`w-12 h-12 flex items-center justify-center bg-gradient-to-br ${gradient} rounded-xl shadow-md flex-shrink-0`}>
-            <Icon className="text-white" size={24} />
+        <div className="flex items-start gap-3 sm:gap-4 mb-3 sm:mb-4">
+          <div className={`w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center bg-gradient-to-br ${gradient} rounded-xl shadow-md flex-shrink-0`}>
+            <Icon className="text-white" size={18} />
           </div>
-          <div className="flex-1 space-y-3">
+          <div className="flex-1 space-y-2 sm:space-y-3">
             <label>
-              <span className="block text-xs font-medium text-slate-700 mb-1">Goal Title</span>
+              <span className="block text-[10px] sm:text-xs font-medium text-slate-700 mb-0.5 sm:mb-1">Goal Title</span>
               <input
                 type="text"
                 value={editTitle}
@@ -109,7 +109,7 @@ export default function GoalCard({ goal }: GoalCardProps) {
               />
             </label>
             <label>
-              <span className="block text-xs font-medium text-slate-700 mb-1">Description</span>
+              <span className="block text-[10px] sm:text-xs font-medium text-slate-700 mb-0.5 sm:mb-1">Description</span>
               <textarea
                 value={editDescription}
                 onChange={(e) => setEditDescription(e.target.value)}
@@ -119,9 +119,9 @@ export default function GoalCard({ goal }: GoalCardProps) {
                 rows={2}
               />
             </label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
               <label>
-                <span className="block text-xs font-medium text-slate-700 mb-1">Target Amount</span>
+                <span className="block text-[10px] sm:text-xs font-medium text-slate-700 mb-0.5 sm:mb-1">Target Amount</span>
                 <input
                   type="number"
                   step="0.01"
@@ -133,7 +133,7 @@ export default function GoalCard({ goal }: GoalCardProps) {
                 />
               </label>
               <label>
-                <span className="block text-xs font-medium text-slate-700 mb-1">Current Amount</span>
+                <span className="block text-[10px] sm:text-xs font-medium text-slate-700 mb-0.5 sm:mb-1">Current Amount</span>
                 <input
                   type="number"
                   step="0.01"
@@ -146,22 +146,22 @@ export default function GoalCard({ goal }: GoalCardProps) {
               </label>
             </div>
           </div>
-          <div className="flex gap-1">
+          <div className="flex gap-0.5 sm:gap-1">
             <button
               onClick={handleSave}
               disabled={isPending}
-              className="p-2 text-emerald-600 hover:bg-emerald-500/10 rounded-lg transition-colors cursor-pointer"
+              className="p-1.5 sm:p-2 text-emerald-600 hover:bg-emerald-500/10 rounded-lg transition-colors cursor-pointer"
               title="Save"
             >
-              <Check size={18} />
+              <Check size={16} className="sm:w-[18px] sm:h-[18px]" />
             </button>
             <button
               onClick={handleCancel}
               disabled={isPending}
-              className="p-2 text-slate-700 hover:bg-black/5 rounded-lg transition-colors cursor-pointer"
+              className="p-1.5 sm:p-2 text-slate-700 hover:bg-black/5 rounded-lg transition-colors cursor-pointer"
               title="Cancel"
             >
-              <X size={18} />
+              <X size={16} className="sm:w-[18px] sm:h-[18px]" />
             </button>
           </div>
         </div>
@@ -187,53 +187,53 @@ export default function GoalCard({ goal }: GoalCardProps) {
           setConfirmingDelete(false);
         }}
       />
-      <div className="flex items-start gap-4 mb-4">
-        <div className={`w-12 h-12 flex items-center justify-center bg-gradient-to-br ${gradient} rounded-xl shadow-md flex-shrink-0`}>
-          <Icon className="text-white" size={24} />
+      <div className="flex items-start gap-3 sm:gap-4 mb-3 sm:mb-4">
+        <div className={`w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center bg-gradient-to-br ${gradient} rounded-xl shadow-md flex-shrink-0`}>
+          <Icon className="text-white" size={18} />
         </div>
         <div className="flex-1">
-          <h3 className="font-bold text-lg text-slate-900">{goal.title}</h3>
+          <h3 className="font-bold text-base sm:text-lg text-slate-900">{goal.title}</h3>
           {goal.description && (
-            <p className="text-sm text-slate-700 mt-1">{goal.description}</p>
+            <p className="text-xs sm:text-sm text-slate-700 mt-0.5 sm:mt-1">{goal.description}</p>
           )}
           {goal.targetYear && (
-            <p className="text-xs text-slate-700 mt-1">Target: {goal.targetYear}</p>
+            <p className="text-[10px] sm:text-xs text-slate-700 mt-0.5 sm:mt-1">Target: {goal.targetYear}</p>
           )}
         </div>
-        <div className="flex gap-1">
+        <div className="flex gap-0.5 sm:gap-1">
           <button
             onClick={() => setIsEditing(true)}
-            className="p-2 hover:bg-black/5 rounded-lg text-slate-800 transition-colors cursor-pointer"
+            className="p-1.5 sm:p-2 hover:bg-black/5 rounded-lg text-slate-800 transition-colors cursor-pointer"
             title="Edit"
           >
-            <Edit2 size={18} />
+            <Edit2 size={16} className="sm:w-[18px] sm:h-[18px]" />
           </button>
           <button
             onClick={() => setConfirmingDelete(true)}
             disabled={isPending}
-            className="p-2 hover:bg-red-500/10 rounded-lg text-red-600 transition-colors cursor-pointer"
+            className="p-1.5 sm:p-2 hover:bg-red-500/10 rounded-lg text-red-600 transition-colors cursor-pointer"
             title="Delete"
           >
-            <Trash2 size={18} />
+            <Trash2 size={16} className="sm:w-[18px] sm:h-[18px]" />
           </button>
         </div>
       </div>
 
       {goal.targetAmount && (
         <div>
-          <div className="flex justify-between text-sm mb-2">
+          <div className="flex justify-between text-xs sm:text-sm mb-1 sm:mb-2">
             <span className="text-slate-700 font-medium">Progress</span>
             <span className="font-semibold text-slate-900">
               <Currency value={goal.currentAmount || 0} /> / <Currency value={goal.targetAmount} />
             </span>
           </div>
-          <div className="w-full bg-slate-900/10 rounded-full h-3">
+          <div className="w-full bg-slate-900/10 rounded-full h-2 sm:h-3">
             <div
-              className={`bg-gradient-to-r ${gradient} h-3 rounded-full transition-all`}
+              className={`bg-gradient-to-r ${gradient} h-2 sm:h-3 rounded-full transition-all`}
               style={{ width: `${Math.min(100, progress)}%` }}
             />
           </div>
-          <div className="text-right text-xs text-slate-700 mt-1">
+          <div className="text-right text-[10px] sm:text-xs text-slate-700 mt-0.5 sm:mt-1">
             {progress.toFixed(1)}% complete
           </div>
         </div>

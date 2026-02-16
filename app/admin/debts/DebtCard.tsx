@@ -58,6 +58,7 @@ export default function DebtCard({ debt, budgetPlanId, typeLabels, payments, pay
 	const isNearPayday = daysUntilPayday <= 3 && debt.amount > 0;
 
 	const [isPending, startTransition] = useTransition();
+	const [isCollapsed, setIsCollapsed] = useState(true);
 	const [isEditing, setIsEditing] = useState(false);
 	const [isEditingAmount, setIsEditingAmount] = useState(false);
 	const [paymentSource, setPaymentSource] = useState("income");
@@ -135,78 +136,82 @@ export default function DebtCard({ debt, budgetPlanId, typeLabels, payments, pay
 	};
 
 	return (
-		<div className={`bg-slate-800/40 backdrop-blur-xl rounded-2xl border p-6 hover:border-white/20 transition-all ${
+		<div className={`bg-slate-800/40 backdrop-blur-xl rounded-xl sm:rounded-2xl border p-3 sm:p-5 hover:border-white/20 transition-all ${
 			isNearPayday ? 'border-amber-500/50 shadow-lg shadow-amber-500/20' : 'border-white/10'
 		}`}>
 			{isNearPayday && (
-				<div className="mb-3 flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 border border-amber-500/30 rounded-lg w-fit">
-					<div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
-					<span className="text-xs font-semibold text-amber-400">
+				<div className="mb-2 sm:mb-3 flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 bg-amber-500/10 border border-amber-500/30 rounded-lg w-fit">
+					<div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-amber-500 rounded-full animate-pulse" />
+					<span className="text-[10px] sm:text-xs font-semibold text-amber-400">
 						{daysUntilPayday === 0 ? 'PAYDAY - Payment Due Today' : `Payment Due in ${daysUntilPayday} day${daysUntilPayday > 1 ? 's' : ''}`}
 					</span>
 				</div>
 			)}
-			<div className="flex items-start justify-between mb-4">
-				<div className="flex items-center gap-4 flex-1">
-					<div className="p-3 bg-red-500/10 backdrop-blur-sm rounded-full">
-						<Icon className="w-6 h-6 text-red-400" />
+			<div className="flex items-start justify-between mb-2 sm:mb-3">
+				<button
+					onClick={() => !isEditing && setIsCollapsed(!isCollapsed)}
+					type="button"
+					className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0 text-left cursor-pointer"
+				>
+					<div className="p-2 sm:p-2.5 bg-red-500/10 backdrop-blur-sm rounded-full shrink-0">
+						<Icon className="w-4 h-4 sm:w-5 sm:h-5 text-red-400" />
 					</div>
 					{isEditing ? (
-						<div className="flex-1">
+						<div className="flex-1 min-w-0">
 							<input
 								type="text"
 								value={editName}
 								onChange={(e) => setEditName(e.target.value)}
-								className="w-full px-3 py-2 bg-slate-900/40 border border-white/10 text-white placeholder-slate-500 rounded-lg text-lg font-bold focus:outline-none focus:ring-2 focus:ring-purple-500"
+								className="w-full px-2 sm:px-3 py-1.5 sm:py-2 bg-slate-900/40 border border-white/10 text-white placeholder-slate-500 rounded-lg text-sm sm:text-base font-bold focus:outline-none focus:ring-2 focus:ring-purple-500"
 								placeholder="Debt name"
 							/>
 						</div>
 					) : (
-						<div>
-							<div className="flex items-center gap-2">
-								<h3 className="text-lg font-bold text-white">{debt.name}</h3>
+						<div className="flex-1 min-w-0">
+							<div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+								<h3 className="text-sm sm:text-base font-bold text-white truncate">{debt.name}</h3>
 								{debt.sourceType === "expense" && (
-									<span className="px-2 py-0.5 bg-amber-500/20 border border-amber-500/30 rounded text-xs font-semibold text-amber-400">
+									<span className="px-1.5 py-0.5 bg-amber-500/20 border border-amber-500/30 rounded text-[10px] font-semibold text-amber-400 shrink-0">
 										From Expense
 									</span>
 								)}
 							</div>
-							<p className="text-sm text-slate-400">
+							<p className="text-[10px] sm:text-xs text-slate-400 truncate">
 								{debt.sourceType === "expense" && debt.sourceExpenseName
 									? `${debt.sourceCategoryName || ''} → ${debt.sourceExpenseName}${debt.sourceMonthKey ? ` (${debt.sourceMonthKey})` : ''}`
 									: typeLabels[debt.type as keyof typeof typeLabels]}
 							</p>
 						</div>
 					)}
-				</div>
-				<div className="flex items-center gap-2">
+				</button>
+				<div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
 					{isEditing ? (
 						<>
 							<button
 								onClick={handleSave}
 								disabled={isPending}
-								className="p-2 rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 transition-colors"
+								className="p-1.5 sm:p-2 rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 transition-colors"
 								title="Save"
 							>
-								<Check size={18} />
+								<Check size={14} className="sm:w-[18px] sm:h-[18px]" />
 							</button>
 							<button
 								onClick={handleCancel}
 								disabled={isPending}
-								className="p-2 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors"
+								className="p-1.5 sm:p-2 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors"
 								title="Cancel"
 							>
-								<X size={18} />
+								<X size={14} className="sm:w-[18px] sm:h-[18px]" />
 							</button>
 						</>
 					) : (
 						<>
 							<button
 								onClick={handleEdit}
-								className="p-2 rounded-lg bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition-colors"
+								className="p-1.5 sm:p-2 rounded-lg bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition-colors"
 								title="Edit debt"
 							>
-								<Pencil size={18} />
+								<Pencil size={14} className="sm:w-[18px] sm:h-[18px]" />
 							</button>
 							<DeleteDebtButton debtId={debt.id} debtName={debt.name} budgetPlanId={budgetPlanId} />
 						</>
@@ -214,68 +219,98 @@ export default function DebtCard({ debt, budgetPlanId, typeLabels, payments, pay
 				</div>
 			</div>
 
+			{/* Collapsed Summary View */}
+			{isCollapsed && !isEditing && (
+				<div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
+					<div>
+						<div className="text-[10px] sm:text-xs text-slate-400 mb-0.5">Current</div>
+						<div className="text-sm sm:text-base font-bold text-red-400">
+							<Currency value={debt.currentBalance} />
+						</div>
+					</div>
+					<div className="bg-amber-500/10 rounded-lg p-2 border border-amber-500/20">
+						<div className="text-[10px] sm:text-xs text-amber-300 mb-0.5">Due This Month</div>
+						<div className="text-sm sm:text-base font-bold text-amber-400">
+							<Currency value={debt.amount} />
+						</div>
+					</div>
+					<div className="col-span-2 sm:col-span-1">
+						<div className="text-[10px] sm:text-xs text-slate-400 mb-0.5">{percentPaid.toFixed(0)}% paid</div>
+						<div className="w-full bg-white/10 rounded-full h-1.5">
+							<div
+								className="bg-gradient-to-r from-emerald-400 to-green-500 h-1.5 rounded-full transition-all"
+								style={{ width: `${Math.min(100, percentPaid)}%` }}
+							/>
+						</div>
+					</div>
+				</div>
+			)}
+
+			{/* Expanded Details View */}
+			{!isCollapsed && (
+			<>
 			{isEditing ? (
 				<>
-				<div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
+				<div className="grid grid-cols-2 md:grid-cols-5 gap-2 sm:gap-4 mb-3 sm:mb-4">
 					<div>
-						<label className="block text-xs text-slate-400 mb-1">Initial Balance</label>
+						<label className="block text-[10px] sm:text-xs text-slate-400 mb-0.5 sm:mb-1">Initial Balance</label>
 						<input
 							type="number"
 							step="0.01"
 							value={editInitialBalance}
 							onChange={(e) => setEditInitialBalance(e.target.value)}
-							className="w-full px-3 py-2 bg-slate-900/40 border border-white/10 text-white placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+							className="w-full px-2 py-1.5 sm:px-3 sm:py-2 bg-slate-900/40 border border-white/10 text-white placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-xs sm:text-sm"
 							placeholder="Initial balance"
 						/>
 					</div>
 					<div>
-						<label className="block text-xs text-slate-400 mb-1">Current Balance</label>
+						<label className="block text-[10px] sm:text-xs text-slate-400 mb-0.5 sm:mb-1">Current Balance</label>
 						<input
 							type="number"
 							step="0.01"
 							value={editCurrentBalance}
 							onChange={(e) => setEditCurrentBalance(e.target.value)}
-							className="w-full px-3 py-2 bg-slate-900/40 border border-white/10 text-white placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+							className="w-full px-2 py-1.5 sm:px-3 sm:py-2 bg-slate-900/40 border border-white/10 text-white placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-xs sm:text-sm"
 							placeholder="Current balance"
 						/>
 					</div>
 					<div>
-						<label className="block text-xs text-slate-400 mb-1">Due This Month</label>
+						<label className="block text-[10px] sm:text-xs text-slate-400 mb-0.5 sm:mb-1">Due This Month</label>
 						<input
 							type="number"
 							step="0.01"
 							value={editDueAmount}
 							onChange={(e) => setEditDueAmount(e.target.value)}
-							className="w-full px-3 py-2 bg-slate-900/40 border border-white/10 text-white placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+							className="w-full px-2 py-1.5 sm:px-3 sm:py-2 bg-slate-900/40 border border-white/10 text-white placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-xs sm:text-sm"
 							placeholder="Payment amount"
 						/>
 					</div>
 					<div>
-						<label className="block text-xs text-slate-400 mb-1">Monthly Minimum</label>
+						<label className="block text-[10px] sm:text-xs text-slate-400 mb-0.5 sm:mb-1">Monthly Minimum</label>
 						<input
 							type="number"
 							step="0.01"
 							value={editMonthlyMinimum}
 							onChange={(e) => setEditMonthlyMinimum(e.target.value)}
-							className="w-full px-3 py-2 bg-slate-900/40 border border-white/10 text-white placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+							className="w-full px-2 py-1.5 sm:px-3 sm:py-2 bg-slate-900/40 border border-white/10 text-white placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-xs sm:text-sm"
 							placeholder="Optional"
 						/>
 					</div>
 					<div>
-						<label className="block text-xs text-slate-400 mb-1">Interest Rate (%)</label>
+						<label className="block text-[10px] sm:text-xs text-slate-400 mb-0.5 sm:mb-1">Interest Rate (%)</label>
 						<input
 							type="number"
 							step="0.01"
 							value={editInterestRate}
 							onChange={(e) => setEditInterestRate(e.target.value)}
-							className="w-full px-3 py-2 bg-slate-900/40 border border-white/10 text-white placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+							className="w-full px-2 py-1.5 sm:px-3 sm:py-2 bg-slate-900/40 border border-white/10 text-white placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-xs sm:text-sm"
 							placeholder="Optional"
 						/>
 					</div>
 				</div>
-				<div className="mb-4">
-					<label className="block text-xs text-slate-400 mb-2">Installment Plan (spread cost over time)</label>
-					<div className="flex flex-wrap gap-2">
+				<div className="mb-3 sm:mb-4">
+					<label className="block text-[10px] sm:text-xs text-slate-400 mb-1.5 sm:mb-2">Installment Plan (spread cost over time)</label>
+					<div className="flex flex-wrap gap-1.5 sm:gap-2">
 						{[0, 2, 3, 4, 6, 8, 9, 12, 18, 24, 30, 36].map((months) => (
 							<button
 								key={months}
@@ -290,7 +325,7 @@ export default function DebtCard({ debt, budgetPlanId, typeLabels, payments, pay
 										setEditDueAmount(effective.toFixed(2));
 									}
 								}}
-								className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+								className={`px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg text-[10px] sm:text-sm font-medium transition-all ${
 									(months === 0 && !editInstallmentMonths) || editInstallmentMonths === String(months)
 										? "bg-purple-500 text-white"
 										: "bg-slate-800/40 text-slate-300 hover:bg-slate-700/40 border border-white/10"
@@ -301,8 +336,8 @@ export default function DebtCard({ debt, budgetPlanId, typeLabels, payments, pay
 						))}
 					</div>
 					{editInstallmentMonths && parseFloat(editCurrentBalance) > 0 && (
-						<div className="mt-3 p-3 bg-purple-500/10 rounded-lg border border-purple-500/20">
-							<div className="text-sm text-purple-300">
+						<div className="mt-2 sm:mt-3 p-2 sm:p-3 bg-purple-500/10 rounded-lg border border-purple-500/20">
+							<div className="text-xs sm:text-sm text-purple-300">
 								Installment: <span className="font-bold">
 									<Currency value={parseFloat(editCurrentBalance) / parseFloat(editInstallmentMonths)} />
 								</span> per month for {editInstallmentMonths} months
@@ -322,21 +357,21 @@ export default function DebtCard({ debt, budgetPlanId, typeLabels, payments, pay
 				</>
 			) : (
 				<>
-					<div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
+					<div className="grid grid-cols-2 md:grid-cols-5 gap-2 sm:gap-4 mb-3 sm:mb-4">
 						<div>
-							<div className="text-xs text-slate-400 mb-1">Current Balance</div>
-							<div className="text-xl font-bold text-red-400">
+							<div className="text-[10px] sm:text-xs text-slate-400 mb-0.5 sm:mb-1">Current Balance</div>
+							<div className="text-lg sm:text-xl font-bold text-red-400">
 								<Currency value={debt.currentBalance} />
 							</div>
 						</div>
 						<div>
-							<div className="text-xs text-slate-400 mb-1">Initial Balance</div>
-							<div className="text-lg font-semibold text-slate-300">
+							<div className="text-[10px] sm:text-xs text-slate-400 mb-0.5 sm:mb-1">Initial Balance</div>
+							<div className="text-base sm:text-lg font-semibold text-slate-300">
 								<Currency value={debt.initialBalance} />
 							</div>
 						</div>
-						<div className="bg-amber-500/10 rounded-lg p-3 border border-amber-500/20">
-							<div className="text-xs text-amber-300 mb-1 font-medium flex items-center justify-between">
+						<div className="bg-amber-500/10 rounded-lg p-2 sm:p-3 border border-amber-500/20">
+							<div className="text-[10px] sm:text-xs text-amber-300 mb-0.5 sm:mb-1 font-medium flex items-center justify-between">
 								<span>Due This Month</span>
 								{!isEditingAmount ? (
 									<button
@@ -344,38 +379,38 @@ export default function DebtCard({ debt, budgetPlanId, typeLabels, payments, pay
 											setTempDueAmount(String(debt.amount));
 											setIsEditingAmount(true);
 										}}
-										className="p-1 rounded hover:bg-amber-500/20 transition-colors"
+										className="p-0.5 sm:p-1 rounded hover:bg-amber-500/20 transition-colors"
 										title="Edit amount"
 									>
-										<Pencil size={12} className="text-amber-300" />
+										<Pencil size={10} className="sm:w-3 sm:h-3 text-amber-300" />
 									</button>
-								) : null}
-							</div>
-							{isEditingAmount ? (
-								<div className="flex items-center gap-2">
-									<input
-										type="number"
-										step="0.01"
-										value={tempDueAmount}
-										onChange={(e) => setTempDueAmount(e.target.value)}
-										className="flex-1 px-2 py-1 bg-slate-900/60 border border-amber-500/30 text-amber-400 rounded text-lg font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
+									) : null}
+								</div>
+								{isEditingAmount ? (
+									<div className="flex items-center gap-1.5 sm:gap-2">
+										<input
+											type="number"
+											step="0.01"
+											value={tempDueAmount}
+											onChange={(e) => setTempDueAmount(e.target.value)}
+											className="flex-1 px-1.5 py-1 sm:px-2 sm:py-1 bg-slate-900/60 border border-amber-500/30 text-amber-400 rounded text-base sm:text-lg font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
 										autoFocus
 									/>
 									<button
 										onClick={handleSaveDueAmount}
 										disabled={isPending}
-										className="p-1 rounded bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 transition-colors"
-										title="Save"
-									>
-										<Check size={14} />
-									</button>
-									<button
-										onClick={() => setIsEditingAmount(false)}
-										disabled={isPending}
-										className="p-1 rounded bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors"
-										title="Cancel"
-									>
-										<X size={14} />
+											className="p-0.5 sm:p-1 rounded bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 transition-colors"
+											title="Save"
+										>
+											<Check size={12} className="sm:w-[14px] sm:h-[14px]" />
+										</button>
+										<button
+											onClick={() => setIsEditingAmount(false)}
+											disabled={isPending}
+											className="p-0.5 sm:p-1 rounded bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors"
+											title="Cancel"
+										>
+											<X size={12} className="sm:w-[14px] sm:h-[14px]" />
 									</button>
 								</div>
 							) : (
@@ -386,16 +421,16 @@ export default function DebtCard({ debt, budgetPlanId, typeLabels, payments, pay
 						</div>
 						{debt.monthlyMinimum && (
 							<div>
-								<div className="text-xs text-slate-400 mb-1">Monthly Minimum</div>
-								<div className="text-lg font-semibold text-slate-300">
-									<Currency value={debt.monthlyMinimum} />
+									<div className="text-[10px] sm:text-xs text-slate-400 mb-0.5 sm:mb-1">Monthly Minimum</div>
+									<div className="text-base sm:text-lg font-semibold text-slate-300">
+										<Currency value={debt.monthlyMinimum} />
+									</div>
 								</div>
-							</div>
-						)}
-						{debt.interestRate && (
-							<div>
-								<div className="text-xs text-slate-400 mb-1">Interest Rate</div>
-								<div className="text-lg font-semibold text-slate-300">
+							)}
+							{debt.interestRate && (
+								<div>
+									<div className="text-[10px] sm:text-xs text-slate-400 mb-0.5 sm:mb-1">Interest Rate</div>
+									<div className="text-base sm:text-lg font-semibold text-slate-300">
 									{debt.interestRate}%
 								</div>
 							</div>
@@ -404,14 +439,14 @@ export default function DebtCard({ debt, budgetPlanId, typeLabels, payments, pay
 
 					{/* Installment Plan Display */}
 					{debt.installmentMonths && debt.currentBalance > 0 && (
-						<div className="mb-4 p-4 bg-purple-500/10 rounded-xl border border-purple-500/20">
+						<div className="mb-3 sm:mb-4 p-2.5 sm:p-4 bg-purple-500/10 rounded-xl border border-purple-500/20">
 							<div className="flex items-center justify-between">
 								<div>
-									<div className="text-xs text-purple-300 mb-1">Installment Plan Active</div>
-									<div className="text-lg font-bold text-purple-400">
+									<div className="text-[10px] sm:text-xs text-purple-300 mb-0.5 sm:mb-1">Installment Plan Active</div>
+									<div className="text-base sm:text-lg font-bold text-purple-400">
 										<Currency value={effectiveMonthlyPayment} /> / month
 									</div>
-									<div className="text-xs text-slate-400 mt-1">
+									<div className="text-[10px] sm:text-xs text-slate-400 mt-0.5 sm:mt-1">
 										for {debt.installmentMonths} months
 										{debt.monthlyMinimum && effectiveMonthlyPayment > (debt.currentBalance / debt.installmentMonths) && (
 											<span className="block text-amber-400 mt-1">
@@ -421,8 +456,8 @@ export default function DebtCard({ debt, budgetPlanId, typeLabels, payments, pay
 									</div>
 								</div>
 								<div className="text-right">
-									<div className="text-xs text-slate-400 mb-1">Remaining</div>
-									<div className="text-sm font-semibold text-slate-300">
+									<div className="text-[10px] sm:text-xs text-slate-400 mb-0.5 sm:mb-1">Remaining</div>
+									<div className="text-xs sm:text-sm font-semibold text-slate-300">
 										<Currency value={debt.currentBalance} />
 									</div>
 								</div>
@@ -431,29 +466,29 @@ export default function DebtCard({ debt, budgetPlanId, typeLabels, payments, pay
 					)}
 
 					{/* Progress Bar */}
-					<div className="mb-4">
-						<div className="flex justify-between text-xs text-slate-400 mb-1">
+					<div className="mb-3 sm:mb-4">
+						<div className="flex justify-between text-[10px] sm:text-xs text-slate-400 mb-0.5 sm:mb-1">
 							<span>Progress</span>
 							<span>{percentPaid.toFixed(1)}% paid</span>
 						</div>
-						<div className="w-full bg-white/10 rounded-full h-2">
+						<div className="w-full bg-white/10 rounded-full h-1.5 sm:h-2">
 							<div
-								className="bg-gradient-to-r from-emerald-400 to-green-500 h-2 rounded-full transition-all"
+								className="bg-gradient-to-r from-emerald-400 to-green-500 h-1.5 sm:h-2 rounded-full transition-all"
 								style={{ width: `${Math.min(100, percentPaid)}%` }}
 							/>
 						</div>
 					</div>
 
 					{/* Make Payment Form */}
-					<div className="bg-slate-900/40 rounded-xl p-4 border border-white/5">
-						<h4 className="text-sm font-semibold text-slate-300 mb-3">Record Payment</h4>
-						<form key={debt.amount} action={makePaymentFromForm} className="grid grid-cols-1 sm:grid-cols-[180px_1fr_auto] gap-3 sm:items-end">
+					<div className="bg-slate-900/40 rounded-xl p-2.5 sm:p-4 border border-white/5">
+						<h4 className="text-xs sm:text-sm font-semibold text-slate-300 mb-2 sm:mb-3">Record Payment</h4>
+						<form key={debt.amount} action={makePaymentFromForm} className="grid grid-cols-1 sm:grid-cols-[180px_1fr_auto] gap-2 sm:gap-3 sm:items-end">
 							<input type="hidden" name="budgetPlanId" value={budgetPlanId} />
 							<input type="hidden" name="debtId" value={debt.id} />
 							<input type="hidden" name="month" value={paymentMonth} />
 							<input type="hidden" name="source" value={paymentSource} />
 							<div>
-								<label className="block text-xs font-medium text-slate-300 mb-1.5">Payment Amount</label>
+								<label className="block text-[10px] sm:text-xs font-medium text-slate-300 mb-1 sm:mb-1.5">Payment Amount</label>
 								<input
 									type="number"
 									name="amount"
@@ -462,11 +497,11 @@ export default function DebtCard({ debt, budgetPlanId, typeLabels, payments, pay
 									defaultValue={debt.amount}
 									required
 									aria-label="Payment amount"
-									className="h-10 w-full px-3 py-2 bg-slate-900/60 border border-white/10 text-white placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+									className="h-8 sm:h-10 w-full px-2 py-1.5 sm:px-3 sm:py-2 bg-slate-900/60 border border-white/10 text-white placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-xs sm:text-sm"
 								/>
 							</div>
 							<div>
-								<label className="block text-xs font-medium text-slate-300 mb-1.5">Source</label>
+								<label className="block text-[10px] sm:text-xs font-medium text-slate-300 mb-1 sm:mb-1.5">Source</label>
 								<SelectDropdown
 									options={[
 										{ value: "income", label: "Income (tracked)" },
@@ -475,28 +510,28 @@ export default function DebtCard({ debt, budgetPlanId, typeLabels, payments, pay
 									value={paymentSource}
 									onValueChange={setPaymentSource}
 									variant="dark"
-									buttonClassName="h-10"
+									buttonClassName="h-8 sm:h-10 text-xs sm:text-sm"
 								/>
 							</div>
 							<button
 								type="submit"
-								className="h-10 px-6 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium shadow-lg hover:shadow-xl cursor-pointer whitespace-nowrap"
+								className="h-8 sm:h-10 px-3 sm:px-6 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium shadow-lg hover:shadow-xl cursor-pointer whitespace-nowrap text-xs sm:text-sm"
 							>
 								Make Payment
 							</button>
 						</form>
-						<p className="text-xs text-slate-500 mt-3">
+						<p className="text-[10px] sm:text-xs text-slate-500 mt-2 sm:mt-3">
 							💡 <span className="text-amber-400">Income (tracked)</span> payments reduce your available budget for the month.{" "}
 							<span className="text-blue-400">Extra funds</span> don&apos;t affect your monthly budget.
 						</p>
 					</div>
 
 					{payments.length > 0 && (
-						<div className="mt-4 pt-4 border-t border-white/10">
-							<div className="text-xs text-slate-400 mb-2">Recent Payments</div>
-							<div className="space-y-1">
+						<div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-white/10">
+							<div className="text-[10px] sm:text-xs text-slate-400 mb-1.5 sm:mb-2">Recent Payments</div>
+							<div className="space-y-0.5 sm:space-y-1">
 								{payments.slice(-3).reverse().map((payment) => (
-									<div key={payment.id} className="flex items-center justify-between gap-3 text-sm">
+									<div key={payment.id} className="flex items-center justify-between gap-2 sm:gap-3 text-xs sm:text-sm">
 										<span className="text-slate-400">
 											{new Date(payment.date).toLocaleDateString()}
 											{payment.source ? (
@@ -514,6 +549,8 @@ export default function DebtCard({ debt, budgetPlanId, typeLabels, payments, pay
 						</div>
 					)}
 				</>
+			)}
+			</>
 			)}
 		</div>
 	);

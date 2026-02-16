@@ -112,35 +112,35 @@ export default function SettingsContent({
 		},
 	];
 
-	return (
-		<div className="min-h-screen pb-20 app-theme-bg">
-			<div className="mx-auto w-full max-w-7xl px-4 py-8">
-				<div className="mb-10 flex items-start justify-between gap-4">
-					<div>
-						<h1 className="text-4xl font-bold text-white mb-2">Settings</h1>
-						<p className="text-slate-400 text-lg">Configure your budget and app options</p>
-					</div>
-					<button
-						type="button"
-						onClick={() => signOut({ callbackUrl: "/" })}
-						className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white/90 border border-white/10 bg-white/5 hover:bg-white/10 transition"
-					>
-						<LogOut size={16} />
+		return (
+			<div className="min-h-screen pb-20 app-theme-bg">
+				<div className="mx-auto w-full max-w-7xl px-4 py-6 sm:py-8">
+					<div className="mb-6 sm:mb-10 flex items-start justify-between gap-3 sm:gap-4">
+						<div>
+							<h1 className="text-2xl sm:text-4xl font-bold text-white mb-1 sm:mb-2">Settings</h1>
+							<p className="text-slate-400 text-xs sm:text-lg">Configure your budget and app options</p>
+						</div>
+						<button
+							type="button"
+							onClick={() => signOut({ callbackUrl: "/" })}
+							className="inline-flex items-center gap-1.5 sm:gap-2 rounded-xl px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold text-white/90 border border-white/10 bg-white/5 hover:bg-white/10 transition"
+						>
+							<LogOut size={14} className="sm:w-4 sm:h-4" />
 						Log out
 					</button>
 				</div>
 
-				<div className="mb-6 bg-slate-800/35 backdrop-blur-xl rounded-3xl border border-white/10 p-5">
-					<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+				<div className="mb-4 sm:mb-6 bg-slate-800/35 backdrop-blur-xl rounded-2xl sm:rounded-3xl border border-white/10 p-3 sm:p-5">
+					<div className="flex flex-col gap-2 sm:gap-3 sm:flex-row sm:items-center sm:justify-between">
 						<div>
-							<p className="text-white font-semibold">Theme preview</p>
-							<p className="text-slate-300 text-sm">Try a few vibes and pick your favourite.</p>
+							<p className="text-white font-semibold text-sm sm:text-base">Theme preview</p>
+							<p className="text-slate-300 text-xs sm:text-sm">Try a few vibes and pick your favourite.</p>
 						</div>
-						<div className="flex items-center gap-3">
+						<div className="flex items-center gap-2 sm:gap-3">
 							<select
 								value={theme}
 								onChange={(e) => setTheme(e.target.value as ThemeKey)}
-								className="rounded-xl border border-white/10 bg-slate-900/40 px-4 py-2 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+								className="rounded-xl border border-white/10 bg-slate-900/40 px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
 								aria-label="Theme preview"
 							>
 								{THEME_OPTIONS.map((t) => (
@@ -156,26 +156,26 @@ export default function SettingsContent({
 					</p>
 				</div>
 
-				<div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+				<div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
 					<aside className="lg:col-span-3">
-						<div className="lg:sticky lg:top-20 bg-slate-800/30 backdrop-blur-xl rounded-3xl border border-white/10 p-4">
-							<nav className="space-y-1">
+						<div className="lg:sticky lg:top-20 bg-slate-800/30 backdrop-blur-xl rounded-2xl sm:rounded-3xl border border-white/10 p-3 sm:p-4">
+							<nav className="space-y-0.5 sm:space-y-1">
 								{sections.map((s) => {
 									const Icon = s.icon;
 									return (
 										<button
 											key={s.id}
 											onClick={() => setActiveSection(s.id)}
-											className={`w-full text-left flex items-center gap-3 rounded-xl px-3 py-2 transition ${
+											className={`w-full text-left flex items-center gap-2 sm:gap-3 rounded-xl px-2 py-1.5 sm:px-3 sm:py-2 transition ${
 												activeSection === s.id
 													? "bg-blue-500/20 border-blue-500/50 text-white"
 													: "text-slate-200 hover:bg-white/5 border-transparent hover:border-white/10"
 											} border`}
 										>
-											<Icon className="w-4 h-4" />
+											<Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
 											<div className="flex-1">
-												<div className="text-sm font-semibold">{s.title}</div>
-												<div className="text-xs text-slate-400">{s.description}</div>
+												<div className="text-xs sm:text-sm font-semibold">{s.title}</div>
+												<div className="text-[10px] sm:text-xs text-slate-400">{s.description}</div>
 											</div>
 										</button>
 									);
@@ -186,16 +186,16 @@ export default function SettingsContent({
 
 					<main className="lg:col-span-9">
 						{activeSection === "details" && (
-							<section className="space-y-6">
-								<div className="flex items-center justify-between gap-4 mb-5">
-									<div>
-										<h2 className="text-2xl font-bold text-white">My Details</h2>
-										<p className="text-slate-400 text-sm">Your personal information</p>
-									</div>
+						<section className="space-y-4 sm:space-y-6">
+							<div className="flex items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-5">
+								<div>
+									<h2 className="text-xl sm:text-2xl font-bold text-white">My Details</h2>
+									<p className="text-slate-400 text-xs sm:text-sm">Your personal information</p>
 								</div>
+							</div>
 
-								<div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/10 p-8">
-									<form action={updateUserDetailsAction} className="space-y-6">
+							<div className="bg-slate-800/40 backdrop-blur-xl rounded-2xl sm:rounded-3xl shadow-2xl border border-white/10 p-4 sm:p-8">
+								<form action={updateUserDetailsAction} className="space-y-4 sm:space-y-6">
 										<input type="hidden" name="budgetPlanId" value={budgetPlanId} />
 										<div>
 											<label className="block text-sm font-medium text-slate-400 mb-2">Name</label>
