@@ -2,7 +2,6 @@
 
 import { useMemo, useState, useTransition } from "react";
 import type { SyntheticEvent } from "react";
-import { useFormStatus } from "react-dom";
 import type { MonthKey, ExpenseItem } from "@/types";
 import { addExpenseAction, togglePaidAction, updateExpenseAction, removeExpenseAction, applyExpensePaymentAction } from "./actions";
 import { Trash2, Plus, Check, X, ChevronDown, ChevronUp, Search, Pencil, TrendingUp } from "lucide-react";
@@ -92,9 +91,7 @@ function Currency({ value }: { value: number }) {
   return <span>{formatCurrency(value)}</span>;
 }
 
-function SaveExpenseChangesButton() {
-  const { pending } = useFormStatus();
-
+function SaveExpenseChangesButton({ pending }: { pending: boolean }) {
   return (
     <button
       type="submit"
@@ -259,9 +256,27 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
     setEditName(expense.name);
     setEditAmount(String(expense.amount));
     setEditCategoryId(expense.categoryId ?? "");
-    setEditDueDate(expense.dueDate || "");
+    const rawDue = expense.dueDate || "";
+    setEditDueDate(rawDue && rawDue.length >= 10 ? rawDue.slice(0, 10) : rawDue);
 		setApplyRemainingMonths(false);
 		setApplyFutureYears(false);
+  };
+
+  const handleEditSubmit = (e: SyntheticEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (isPending) return;
+    const form = e.currentTarget;
+    const data = new FormData(form);
+
+    startTransition(async () => {
+      try {
+        await updateExpenseAction(data);
+        setExpensePendingEdit(null);
+        router.refresh();
+      } catch (err) {
+        console.error("Failed to update expense:", err);
+      }
+    });
   };
 
   const confirmRemove = () => {
@@ -347,7 +362,7 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
               </div>
 
               <form
-                action={updateExpenseAction}
+					onSubmit={handleEditSubmit}
                 className="mt-6 space-y-5"
               >
                 <input type="hidden" name="budgetPlanId" value={budgetPlanId} />
@@ -464,7 +479,7 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
                     Cancel
                   </button>
 
-                  <SaveExpenseChangesButton />
+					<SaveExpenseChangesButton pending={isPending} />
                 </div>
               </form>
             </div>
