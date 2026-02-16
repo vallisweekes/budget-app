@@ -151,19 +151,19 @@ export default function ExpensesPageClient({
         </div>
 
         {/* Year + Month Selectors (Compact on mobile) */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6">
           {/* Year Selector */}
-          <div className="bg-slate-800/40 rounded-2xl sm:rounded-3xl shadow-xl border border-white/10 backdrop-blur-xl p-3 sm:p-5">
-            <h2 className="text-sm sm:text-base font-semibold text-white mb-2 sm:mb-3">Select Year</h2>
-            <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-3 xl:grid-cols-5 gap-1.5 sm:gap-2">
+          <div className="bg-slate-800/40 rounded-xl sm:rounded-3xl shadow-xl border border-white/10 backdrop-blur-xl p-2.5 sm:p-5">
+            <h2 className="text-xs sm:text-base font-semibold text-white mb-1.5 sm:mb-3">Select Year</h2>
+            <div className="grid grid-cols-4 sm:grid-cols-5 lg:grid-cols-3 xl:grid-cols-5 gap-1.5 sm:gap-2">
               {YEARS.map((year) => (
                 <button
                   key={year}
                   onClick={() => pushPeriod(selectedMonth, year)}
                   disabled={isNavigating}
-                  className={`py-2 sm:py-3 px-2 sm:px-3 rounded-lg sm:rounded-xl font-bold text-sm sm:text-base transition-all cursor-pointer ${
+                  className={`py-1.5 sm:py-3 px-2 sm:px-3 rounded-md sm:rounded-xl font-bold text-xs sm:text-base transition-all cursor-pointer ${
                     selectedYear === year
-                      ? "bg-gradient-to-br from-indigo-500 to-blue-600 text-white shadow-lg scale-105"
+                      ? "bg-gradient-to-br from-indigo-500 to-blue-600 text-white shadow-lg ring-1 ring-indigo-200/30"
                       : "bg-slate-900/60 text-slate-300 hover:bg-slate-900/80 hover:shadow-md"
                   } ${isNavigating ? "opacity-70 cursor-not-allowed" : ""}`}
                 >
@@ -174,17 +174,17 @@ export default function ExpensesPageClient({
           </div>
 
           {/* Month Selector */}
-          <div className="bg-slate-800/40 rounded-2xl sm:rounded-3xl shadow-xl border border-white/10 backdrop-blur-xl p-3 sm:p-5">
-            <h2 className="text-sm sm:text-base font-semibold text-white mb-2 sm:mb-3">Select Month</h2>
-            <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-6 gap-1.5 sm:gap-2">
+          <div className="bg-slate-800/40 rounded-xl sm:rounded-3xl shadow-xl border border-white/10 backdrop-blur-xl p-2.5 sm:p-5">
+            <h2 className="text-xs sm:text-base font-semibold text-white mb-1.5 sm:mb-3">Select Month</h2>
+            <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-6 gap-1.5 sm:gap-2">
               {MONTHS.map((month) => (
                 <button
                   key={month}
                   onClick={() => pushPeriod(month as MonthKey, selectedYear)}
                   disabled={isNavigating}
-                  className={`py-2 sm:py-3 px-2 sm:px-3 rounded-lg sm:rounded-xl font-medium text-xs sm:text-sm transition-all cursor-pointer ${
+                  className={`py-1.5 sm:py-3 px-2 sm:px-3 rounded-md sm:rounded-xl font-semibold text-[11px] sm:text-sm transition-all cursor-pointer ${
                     selectedMonth === month
-                      ? "bg-gradient-to-br from-purple-500 to-indigo-600 text-white shadow-lg scale-105"
+                      ? "bg-gradient-to-br from-purple-500 to-indigo-600 text-white shadow-lg ring-1 ring-purple-200/25"
                       : "bg-slate-900/60 text-slate-300 hover:bg-slate-900/80 hover:shadow-md"
                   } ${isNavigating ? "opacity-70 cursor-not-allowed" : ""}`}
                 >
@@ -196,8 +196,8 @@ export default function ExpensesPageClient({
         </div>
 
         {/* Selected Period Display */}
-        <div className="mb-3 sm:mb-4 text-center">
-          <h3 className="text-lg sm:text-xl font-bold text-white">
+        <div className="mb-2 sm:mb-4 text-center">
+          <h3 className="text-base sm:text-xl font-bold text-white">
 			{formatMonthKeyLabel(selectedMonth)} {selectedYear}
           </h3>
         </div>
