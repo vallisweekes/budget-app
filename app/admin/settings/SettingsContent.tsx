@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { MONTHS } from "@/lib/constants/time";
 import { SUPPORTED_CURRENCIES, SUPPORTED_COUNTRIES, SUPPORTED_LANGUAGES } from "@/lib/constants/locales";
 import { SelectDropdown } from "@/components/Shared";
@@ -64,6 +65,8 @@ export default function SettingsContent({
 	const [activeSection, setActiveSection] = useState<Section>("details");
 	const [mobileView, setMobileView] = useState<"menu" | "content">("menu");
 	const [isEditingEmail, setIsEditingEmail] = useState(false);
+	const pathname = usePathname();
+	const router = useRouter();
 	const [theme, setTheme] = useState<ThemeKey>(() => {
 		if (typeof document === "undefined") return "nord-mint";
 		const raw = document.documentElement.dataset.theme;
@@ -113,11 +116,57 @@ export default function SettingsContent({
 		},
 	];
 
-	const isMobileContent = mobileView === "content";
+	const SECTION_TO_SLUG: Record<Section, string> = {
+		details: "my-details",
+		budget: "budget",
+		locale: "locale",
+		plans: "plans",
+		danger: "danger-zone",
+	};
+	const SLUG_TO_SECTION: Record<string, Section> = {
+		"my-details": "details",
+		budget: "budget",
+		locale: "locale",
+		plans: "plans",
+		"danger-zone": "danger",
+	};
+
+	const isContentView = mobileView === "content";
+
+	const getSettingsBasePath = (path: string) => {
+		const parts = path.split("/").filter(Boolean);
+		const idx = parts.findIndex((p) => p === "page=settings" || p === "settings");
+		if (idx === -1) return path;
+		return `/${parts.slice(0, idx + 1).join("/")}`;
+	};
+
+	const getSectionFromPath = (path: string): Section | null => {
+		const parts = path.split("/").filter(Boolean);
+		const idx = parts.findIndex((p) => p === "page=settings" || p === "settings");
+		if (idx === -1) return null;
+		const slug = parts[idx + 1];
+		if (!slug) return null;
+		return SLUG_TO_SECTION[slug] ?? null;
+	};
+
+	const settingsBasePath = getSettingsBasePath(pathname);
+
+	useEffect(() => {
+		const section = getSectionFromPath(pathname);
+		if (section) {
+			setActiveSection(section);
+			setMobileView("content");
+		} else {
+			setMobileView("menu");
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [pathname]);
 
 	const openSection = (section: Section) => {
 		setActiveSection(section);
 		setMobileView("content");
+		const next = `${settingsBasePath}/${SECTION_TO_SLUG[section]}`;
+		router.push(next, { scroll: false });
 		try {
 			window.scrollTo({ top: 0, behavior: "smooth" });
 		} catch {
@@ -127,6 +176,7 @@ export default function SettingsContent({
 
 	const backToMenu = () => {
 		setMobileView("menu");
+		router.push(settingsBasePath, { scroll: false });
 		try {
 			window.scrollTo({ top: 0, behavior: "smooth" });
 		} catch {
@@ -137,101 +187,58 @@ export default function SettingsContent({
 	return (
 		<div className="min-h-screen pb-20 app-theme-bg">
 			<div className="mx-auto w-full max-w-7xl px-4 py-6 sm:py-8">
-				{/* Desktop header + theme */}
-				<div className="hidden lg:block">
-					<div className="mb-6 sm:mb-10">
-						<div className="flex items-start justify-between gap-3 sm:gap-4 mb-4">
-							<div className="flex-1">
-								<h1 className="text-2xl sm:text-4xl font-bold text-white mb-1 sm:mb-2">Settings</h1>
-								<p className="text-slate-400 text-xs sm:text-lg">Configure your budget and app options</p>
-							</div>
-							<button
-								type="button"
-								onClick={() => signOut({ callbackUrl: "/" })}
-								className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white/90 border border-white/10 bg-white/5 hover:bg-white/10 transition"
-							>
-								<LogOut size={16} />
-								Log out
-							</button>
-						</div>
-					</div>
-
-					<div className="mb-4 sm:mb-6 bg-slate-800/35 backdrop-blur-xl rounded-2xl sm:rounded-3xl border border-white/10 p-3 sm:p-5">
-						<div className="flex flex-col gap-2 sm:gap-3 sm:flex-row sm:items-center sm:justify-between">
-							<div>
-								<p className="text-white font-semibold text-sm sm:text-base">Theme preview</p>
-								<p className="text-slate-300 text-xs sm:text-sm">Try a few vibes and pick your favourite.</p>
-							</div>
-							<div className="flex items-center gap-2 sm:gap-3">
-								<select
-									value={theme}
-									onChange={(e) => setTheme(e.target.value as ThemeKey)}
-									className="rounded-xl border border-white/10 bg-slate-900/40 px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
-									aria-label="Theme preview"
-								>
-									{THEME_OPTIONS.map((t) => (
-										<option key={t.value} value={t.value}>
-											{t.label}
-										</option>
-									))}
-								</select>
-							</div>
-						</div>
-						<p className="text-xs text-slate-400 mt-3">
-							{THEME_OPTIONS.find((t) => t.value === theme)?.description}
-						</p>
-					</div>
-				</div>
-
-				{/* Single layout: mobile overlays, desktop grid */}
-				<div className="relative overflow-hidden lg:overflow-visible min-h-[calc(100vh-6rem)] lg:min-h-0 lg:grid lg:grid-cols-12 gap-4 sm:gap-6">
+				{/* Settings: menu -> section (all breakpoints) */}
+				<div className="relative overflow-hidden min-h-[calc(100vh-6rem)]">
 					<aside
-						className={`absolute inset-0 transition-all duration-300 ease-out transform-gpu overflow-y-auto pb-24 lg:overflow-visible lg:pb-0 ${
-							isMobileContent ? "opacity-0 -translate-x-6 pointer-events-none" : "opacity-100 translate-x-0"
-						} lg:static lg:col-span-3 lg:opacity-100 lg:translate-x-0 lg:pointer-events-auto`}
+						className={`absolute inset-0 transition-all duration-300 ease-out transform-gpu overflow-y-auto pb-24 ${
+							isContentView ? "opacity-0 -translate-x-6 pointer-events-none" : "opacity-100 translate-x-0"
+						}`}
 					>
-						<div className="pt-16 lg:pt-0">
-							{/* Mobile header + theme live inside the menu panel */}
-							<div className="lg:hidden mb-6">
-								<div className="mb-4">
-									<h1 className="text-2xl font-bold text-white mb-1">Settings</h1>
-									<p className="text-slate-400 text-xs">Configure your budget and app options</p>
+						<div className="pt-16 lg:pt-6">
+							<div className="mb-6">
+								<div className="flex items-start justify-between gap-3 sm:gap-4 mb-4">
+									<div className="flex-1">
+										<h1 className="text-2xl sm:text-4xl font-bold text-white mb-1 sm:mb-2">Settings</h1>
+										<p className="text-slate-400 text-xs sm:text-lg">Configure your budget and app options</p>
+									</div>
+									<button
+										type="button"
+										onClick={() => signOut({ callbackUrl: "/" })}
+										className="inline-flex items-center justify-center gap-2 rounded-xl px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold text-white/90 border border-white/10 bg-white/5 hover:bg-white/10 transition"
+									>
+										<LogOut size={14} className="sm:w-4 sm:h-4" />
+										Log out
+									</button>
 								</div>
-								<button
-									type="button"
-									onClick={() => signOut({ callbackUrl: "/" })}
-									className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold text-white/90 border border-white/10 bg-white/5 hover:bg-white/10 transition"
-								>
-									<LogOut size={14} />
-									Log out
-								</button>
 							</div>
 
-							<div className="lg:hidden mb-4 bg-slate-800/35 backdrop-blur-xl rounded-2xl border border-white/10 p-3">
-								<div className="flex items-center justify-between gap-3">
+							<div className="mb-4 sm:mb-6 bg-slate-800/35 backdrop-blur-xl rounded-2xl sm:rounded-3xl border border-white/10 p-3 sm:p-5">
+								<div className="flex flex-col gap-2 sm:gap-3 sm:flex-row sm:items-center sm:justify-between">
 									<div>
-										<p className="text-white font-semibold text-sm">Theme preview</p>
-										<p className="text-slate-300 text-[10px]">Try a few vibes.</p>
+										<p className="text-white font-semibold text-sm sm:text-base">Theme preview</p>
+										<p className="text-slate-300 text-xs sm:text-sm">Try a few vibes and pick your favourite.</p>
 									</div>
-									<select
-										value={theme}
-										onChange={(e) => setTheme(e.target.value as ThemeKey)}
-										className="rounded-xl border border-white/10 bg-slate-900/40 px-3 py-1.5 text-xs font-semibold text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
-										aria-label="Theme preview"
-									>
-										{THEME_OPTIONS.map((t) => (
-											<option key={t.value} value={t.value}>
-												{t.label}
-											</option>
-										))}
-									</select>
+									<div className="flex items-center gap-2 sm:gap-3">
+										<select
+											value={theme}
+											onChange={(e) => setTheme(e.target.value as ThemeKey)}
+											className="rounded-xl border border-white/10 bg-slate-900/40 px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+											aria-label="Theme preview"
+										>
+											{THEME_OPTIONS.map((t) => (
+												<option key={t.value} value={t.value}>
+													{t.label}
+												</option>
+											))}
+										</select>
+									</div>
 								</div>
-								<p className="text-[10px] text-slate-400 mt-2">
+								<p className="text-xs text-slate-400 mt-3">
 									{THEME_OPTIONS.find((t) => t.value === theme)?.description}
 								</p>
 							</div>
 
-							<div className="lg:sticky lg:top-20 bg-slate-800/30 backdrop-blur-xl rounded-2xl sm:rounded-3xl border border-white/10 p-3 sm:p-4">
+							<div className="bg-slate-800/30 backdrop-blur-xl rounded-2xl sm:rounded-3xl border border-white/10 p-3 sm:p-4">
 								<nav className="space-y-0.5 sm:space-y-1">
 									{sections.map((s) => {
 										const Icon = s.icon;
@@ -259,11 +266,11 @@ export default function SettingsContent({
 					</aside>
 
 					<main
-						className={`absolute inset-0 transition-all duration-300 ease-out transform-gpu ${
-							isMobileContent ? "opacity-100 translate-x-0" : "opacity-0 translate-x-6 pointer-events-none"
-						} lg:static lg:col-span-9 lg:opacity-100 lg:translate-x-0 lg:pointer-events-auto overflow-y-auto lg:overflow-visible pb-24 lg:pb-0`}
+						className={`absolute inset-0 transition-all duration-300 ease-out transform-gpu overflow-y-auto pb-24 ${
+							isContentView ? "opacity-100 translate-x-0" : "opacity-0 translate-x-6 pointer-events-none"
+						}`}
 					>
-						<div className="lg:hidden pt-16 mb-4">
+						<div className="pt-16 lg:pt-6 mb-4">
 							<button
 								type="button"
 								onClick={backToMenu}
