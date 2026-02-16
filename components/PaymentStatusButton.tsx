@@ -98,15 +98,15 @@ export default function PaymentStatusButton({
 	};
 
 	const getStatusText = () => {
-		if (paid) return "Paid in Full";
+		if (paid) return "Paid";
 		if (paidAmount > 0) return `Partial (${formatCurrency(paidAmount)})`;
 		return "Unpaid";
 	};
 
 	const getStatusColor = () => {
-		if (paid) return "text-emerald-600 bg-emerald-50";
-		if (paidAmount > 0) return "text-amber-600 bg-amber-50";
-		return "text-red-600 bg-red-50";
+		if (paid) return "bg-emerald-500/20 text-emerald-400";
+		if (paidAmount > 0) return "bg-amber-500/20 text-amber-400";
+		return "bg-red-500/20 text-red-400";
 	};
 
 	return (
@@ -120,7 +120,7 @@ export default function PaymentStatusButton({
 						return next;
 					});
 				}}
-				className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-xl text-[10px] sm:text-xs font-medium cursor-pointer transition-colors border ${getStatusColor()}`}
+				className={`h-8 sm:h-9 min-w-[76px] sm:min-w-[88px] px-2 sm:px-3 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium cursor-pointer transition-all shadow-sm hover:shadow-md hover:scale-[1.02] flex items-center justify-center gap-1 sm:gap-1.5 ${getStatusColor()}`}
 			>
 				{getStatusText()}
 				<ChevronDown size={12} className="sm:w-3.5 sm:h-3.5" />
@@ -142,19 +142,19 @@ export default function PaymentStatusButton({
 										onClick={() => handleStatusChange("paid")}
 										className="w-full text-left px-3 py-2 hover:bg-white/10 focus:bg-white/10 rounded-xl transition-colors text-sm font-medium text-emerald-400"
 									>
-										✓ Paid in Full
+										Paid
 									</button>
 									<button
 										onClick={() => handleStatusChange("partial")}
 										className="w-full text-left px-3 py-2 hover:bg-white/10 focus:bg-white/10 rounded-xl transition-colors text-sm font-medium text-amber-400"
 									>
-										◐ Partially Paid
+										Partially Paid
 									</button>
 									<button
 										onClick={() => handleStatusChange("unpaid")}
 										className="w-full text-left px-3 py-2 hover:bg-white/10 focus:bg-white/10 rounded-xl transition-colors text-sm font-medium text-red-400"
 									>
-										✗ Unpaid
+										Unpaid
 									</button>
 								</div>
 							) : (

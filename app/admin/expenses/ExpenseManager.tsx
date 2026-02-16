@@ -863,30 +863,77 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
                         const isPaid = !!expense.paid;
 
                         return (
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5 mb-0.5 sm:mb-1 flex-wrap">
-                            <div className="font-semibold text-white text-xs sm:text-sm truncate">{expense.name}</div>
-                            <span className={`text-[10px] sm:text-xs px-1.5 py-0.5 rounded font-medium shrink-0 ${
-                              expense.dueDate 
-                                ? 'bg-blue-500/20 text-blue-300 border border-blue-400/30' 
-                                : 'bg-slate-700/50 text-slate-400 border border-slate-600/30'
-                            }`}>
-                              Due: {expense.dueDate ? formatIsoDueDate(expense.dueDate) : `Day ${payDate}`}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2 text-xs sm:text-sm">
-                            <span className="text-slate-300 font-medium">
-                              <Currency value={expense.amount} />
-                            </span>
+                      <div className="space-y-2 sm:space-y-3">
+                        <div className="flex items-start justify-between gap-2 sm:gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 mb-0.5 sm:mb-1 flex-wrap">
+                              <div className="font-semibold text-white text-xs sm:text-sm truncate">{expense.name}</div>
+                              <span className={`text-[10px] sm:text-xs px-1.5 py-0.5 rounded font-medium shrink-0 ${
+                                expense.dueDate 
+                                  ? 'bg-blue-500/20 text-blue-300 border border-blue-400/30' 
+                                  : 'bg-slate-700/50 text-slate-400 border border-slate-600/30'
+                              }`}>
+                                Due: {expense.dueDate ? formatIsoDueDate(expense.dueDate) : `Day ${payDate}`}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs sm:text-sm">
+                              <span className="text-slate-300 font-medium">
+                                <Currency value={expense.amount} />
+                              </span>
+                            </div>
                           </div>
 
-              {(() => {
+                          <div className="flex items-start gap-1.5 sm:gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleTogglePaid(expense.id)}
+                              disabled={isPending}
+                              className={`h-8 sm:h-9 min-w-[76px] sm:min-w-[88px] px-2 sm:px-3 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium transition-all cursor-pointer shadow-sm hover:shadow-md hover:scale-[1.02] flex items-center justify-center gap-1 sm:gap-1.5 ${
+                                isPaid
+                                  ? "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"
+                                  : "bg-red-500/20 text-red-400 hover:bg-red-500/30"
+                              }`}
+                              aria-label={isPaid ? "Mark as unpaid" : "Mark as paid"}
+                            >
+                              {isPaid ? (
+                                <>
+                                  <Check size={16} className="sm:w-[18px] sm:h-[18px]" />
+                                  <span>Paid</span>
+                                </>
+                              ) : (
+                                <span>Unpaid</span>
+                              )}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleEditClick(expense)}
+                              disabled={isPending}
+                              className="h-8 sm:h-9 w-8 sm:w-9 rounded-lg sm:rounded-xl hover:bg-purple-500/20 text-purple-200 transition-all cursor-pointer hover:scale-[1.05] flex items-center justify-center"
+                              title="Edit expense"
+                            >
+                              <Pencil size={14} className="sm:w-4 sm:h-4" />
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveClick(expense)}
+                              disabled={isPending}
+                              className="h-8 sm:h-9 w-8 sm:w-9 rounded-lg sm:rounded-xl hover:bg-red-500/20 text-red-400 transition-all cursor-pointer hover:scale-[1.05] flex items-center justify-center"
+                              title="Delete expense"
+                            >
+                              <Trash2 size={14} className="sm:w-4 sm:h-4" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Full width progress and payment section */}
+                        {(() => {
                 const paidAmount = isPaid ? expense.amount : (expense.paidAmount ?? 0);
                 const remaining = Math.max(0, expense.amount - paidAmount);
                 return (
-                  <div className="mt-1.5 sm:mt-2 flex flex-col gap-1.5 sm:gap-2">
-                    <div className="flex-1">
+                  <div className="flex flex-col gap-1.5 sm:gap-2">
+                    <div className="w-full">
                       <div className="text-[10px] sm:text-xs text-slate-400">
                         Paid <span className="text-slate-200 font-medium"><Currency value={paidAmount} /></span> · Remaining{" "}
                         <span className="text-slate-200 font-medium"><Currency value={remaining} /></span>
@@ -930,50 +977,6 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
                   </div>
                 );
               })()}
-                        </div>
-
-                        <div className="flex flex-col items-end gap-1.5 sm:gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleTogglePaid(expense.id)}
-                            disabled={isPending}
-                            className={`h-8 sm:h-9 min-w-[76px] sm:min-w-[88px] px-2 sm:px-3 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium transition-all cursor-pointer shadow-sm hover:shadow-md hover:scale-[1.02] flex items-center justify-center gap-1 sm:gap-1.5 ${
-                              isPaid
-                                ? "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"
-                                : "bg-red-500/20 text-red-400 hover:bg-red-500/30"
-                            }`}
-                            aria-label={isPaid ? "Mark as unpaid" : "Mark as paid"}
-                          >
-                            {isPaid ? (
-                              <>
-                                <Check size={16} className="sm:w-[18px] sm:h-[18px]" />
-                                <span>Paid</span>
-                              </>
-                            ) : (
-                              <span>Unpaid</span>
-                            )}
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => handleEditClick(expense)}
-                            disabled={isPending}
-                            className="h-8 sm:h-9 w-8 sm:w-9 rounded-lg sm:rounded-xl hover:bg-purple-500/20 text-purple-200 transition-all cursor-pointer hover:scale-[1.05] flex items-center justify-center"
-                            title="Edit expense"
-                          >
-                            <Pencil size={14} className="sm:w-4 sm:h-4" />
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveClick(expense)}
-                            disabled={isPending}
-                            className="h-8 sm:h-9 w-8 sm:w-9 rounded-lg sm:rounded-xl hover:bg-red-500/20 text-red-400 transition-all cursor-pointer hover:scale-[1.05] flex items-center justify-center"
-                            title="Delete expense"
-                          >
-                            <Trash2 size={14} className="sm:w-4 sm:h-4" />
-                          </button>
-                        </div>
                       </div>
                         );
                       })()}
@@ -1026,26 +1029,73 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
                     const isPaid = !!expense.paid;
 
                     return (
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="font-semibold text-white text-xs sm:text-sm mb-1 truncate">{expense.name}</div>
-                      <div className="flex items-center gap-2 text-xs sm:text-sm">
-                        <span className="text-slate-300 font-medium">
-                          <Currency value={expense.amount} />
-                        </span>
-                        {expense.paidAmount && expense.paidAmount > 0 && expense.paidAmount < expense.amount && (
-                          <span className="text-amber-400 text-xs bg-amber-500/10 px-2 py-1 rounded-lg">
-                            Paid: <Currency value={expense.paidAmount} />
+                  <div className="space-y-2 sm:space-y-3">
+                    <div className="flex items-start justify-between gap-2 sm:gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-white text-xs sm:text-sm mb-1 truncate">{expense.name}</div>
+                        <div className="flex items-center gap-2 text-xs sm:text-sm">
+                          <span className="text-slate-300 font-medium">
+                            <Currency value={expense.amount} />
                           </span>
-                        )}
+                          {expense.paidAmount && expense.paidAmount > 0 && expense.paidAmount < expense.amount && (
+                            <span className="text-amber-400 text-xs bg-amber-500/10 px-2 py-1 rounded-lg">
+                              Paid: <Currency value={expense.paidAmount} />
+                            </span>
+                          )}
+                        </div>
                       </div>
 
-            {(() => {
+                      <div className="flex items-start gap-1.5 sm:gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleTogglePaid(expense.id)}
+                          disabled={isPending}
+                          className={`h-8 sm:h-9 min-w-[76px] sm:min-w-[88px] px-2 sm:px-3 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium transition-all cursor-pointer shadow-sm hover:shadow-md hover:scale-[1.02] flex items-center justify-center gap-1 sm:gap-1.5 ${
+                            isPaid
+                              ? "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"
+                              : "bg-red-500/20 text-red-400 hover:bg-red-500/30"
+                          }`}
+                          aria-label={isPaid ? "Mark as unpaid" : "Mark as paid"}
+                        >
+                          {isPaid ? (
+                            <>
+                              <Check size={14} className="sm:w-4 sm:h-4" />
+                              <span>Paid</span>
+                            </>
+                          ) : (
+                            <span>Unpaid</span>
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleEditClick(expense)}
+                          disabled={isPending}
+                          className="h-8 sm:h-9 w-8 sm:w-9 rounded-lg sm:rounded-xl hover:bg-purple-500/20 text-purple-200 transition-all cursor-pointer hover:scale-[1.05] flex items-center justify-center"
+                          title="Edit expense"
+                        >
+                          <Pencil size={14} className="sm:w-4 sm:h-4" />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveClick(expense)}
+                          disabled={isPending}
+                          className="h-8 sm:h-9 w-8 sm:w-9 rounded-lg sm:rounded-xl hover:bg-red-500/20 text-red-400 transition-all cursor-pointer hover:scale-[1.05] flex items-center justify-center"
+                          title="Delete expense"
+                        >
+                          <Trash2 size={14} className="sm:w-4 sm:h-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Full width progress and payment section */}
+                    {(() => {
               const paidAmount = isPaid ? expense.amount : (expense.paidAmount ?? 0);
               const remaining = Math.max(0, expense.amount - paidAmount);
               return (
-                <div className="mt-2 flex flex-col gap-2">
-                  <div className="flex-1">
+                <div className="flex flex-col gap-1.5 sm:gap-2">
+                  <div className="w-full">
                     <div className="text-[10px] sm:text-xs text-slate-400">
                       Paid <span className="text-slate-200 font-medium"><Currency value={paidAmount} /></span> · Remaining{" "}
                       <span className="text-slate-200 font-medium"><Currency value={remaining} /></span>
@@ -1089,50 +1139,6 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
                 </div>
               );
             })()}
-                    </div>
-
-                    <div className="flex flex-col items-end gap-1.5 sm:gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleTogglePaid(expense.id)}
-                        disabled={isPending}
-                        className={`h-8 sm:h-9 min-w-[76px] sm:min-w-[88px] px-2 sm:px-3 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium transition-all cursor-pointer shadow-sm hover:shadow-md hover:scale-[1.02] flex items-center justify-center gap-1 sm:gap-1.5 ${
-                          isPaid
-                            ? "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"
-                            : "bg-red-500/20 text-red-400 hover:bg-red-500/30"
-                        }`}
-                        aria-label={isPaid ? "Mark as unpaid" : "Mark as paid"}
-                      >
-                        {isPaid ? (
-                          <>
-                            <Check size={14} className="sm:w-4 sm:h-4" />
-                            <span>Paid</span>
-                          </>
-                        ) : (
-                          <span>Unpaid</span>
-                        )}
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleEditClick(expense)}
-                        disabled={isPending}
-                        className="h-8 sm:h-9 w-8 sm:w-9 rounded-lg sm:rounded-xl hover:bg-purple-500/20 text-purple-200 transition-all cursor-pointer hover:scale-[1.05] flex items-center justify-center"
-                        title="Edit expense"
-                      >
-                        <Pencil size={14} className="sm:w-4 sm:h-4" />
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveClick(expense)}
-                        disabled={isPending}
-                        className="h-8 sm:h-9 w-8 sm:w-9 rounded-lg sm:rounded-xl hover:bg-red-500/20 text-red-400 transition-all cursor-pointer hover:scale-[1.05] flex items-center justify-center"
-                        title="Delete expense"
-                      >
-                        <Trash2 size={14} className="sm:w-4 sm:h-4" />
-                      </button>
-                    </div>
                   </div>
                     );
                   })()}
