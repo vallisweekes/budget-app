@@ -95,6 +95,8 @@ export default function DebtCard({ debt, budgetPlanId, typeLabels, payments, pay
 		setEditMonthlyMinimum(debt.monthlyMinimum ? String(debt.monthlyMinimum) : "");
 		setEditInterestRate(debt.interestRate ? String(debt.interestRate) : "");
 		setEditInstallmentMonths(debt.installmentMonths ? String(debt.installmentMonths) : "");
+		setIsEditingAmount(false);
+		setIsCollapsed(false);
 		setIsEditing(true);
 	};
 
@@ -147,7 +149,7 @@ export default function DebtCard({ debt, budgetPlanId, typeLabels, payments, pay
 					</span>
 				</div>
 			)}
-			<div className="flex items-start justify-between mb-2 sm:mb-3">
+			<div className="flex items-start justify-between gap-2 sm:gap-3 mb-2 sm:mb-3">
 				<button
 					onClick={() => !isEditing && setIsCollapsed(!isCollapsed)}
 					type="button"
@@ -387,13 +389,13 @@ export default function DebtCard({ debt, budgetPlanId, typeLabels, payments, pay
 									) : null}
 								</div>
 								{isEditingAmount ? (
-									<div className="flex items-center gap-1.5 sm:gap-2">
+									<div className="flex items-center gap-2.5 sm:gap-3">
 										<input
 											type="number"
 											step="0.01"
 											value={tempDueAmount}
 											onChange={(e) => setTempDueAmount(e.target.value)}
-											className="flex-1 px-1.5 py-1 sm:px-2 sm:py-1 bg-slate-900/60 border border-amber-500/30 text-amber-400 rounded text-base sm:text-lg font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
+											className="flex-1 min-w-0 px-2 py-1 sm:px-3 sm:py-1 bg-slate-900/60 border border-amber-500/30 text-amber-400 rounded text-base sm:text-lg font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
 										autoFocus
 									/>
 									<button
@@ -465,20 +467,6 @@ export default function DebtCard({ debt, budgetPlanId, typeLabels, payments, pay
 						</div>
 					)}
 
-					{/* Progress Bar */}
-					<div className="mb-3 sm:mb-4">
-						<div className="flex justify-between text-[10px] sm:text-xs text-slate-400 mb-0.5 sm:mb-1">
-							<span>Progress</span>
-							<span>{percentPaid.toFixed(1)}% paid</span>
-						</div>
-						<div className="w-full bg-white/10 rounded-full h-1.5 sm:h-2">
-							<div
-								className="bg-gradient-to-r from-emerald-400 to-green-500 h-1.5 sm:h-2 rounded-full transition-all"
-								style={{ width: `${Math.min(100, percentPaid)}%` }}
-							/>
-						</div>
-					</div>
-
 					{/* Make Payment Form */}
 					<div className="bg-slate-900/40 rounded-xl p-2.5 sm:p-4 border border-white/5">
 						<h4 className="text-xs sm:text-sm font-semibold text-slate-300 mb-2 sm:mb-3">Record Payment</h4>
@@ -548,6 +536,20 @@ export default function DebtCard({ debt, budgetPlanId, typeLabels, payments, pay
 							</div>
 						</div>
 					)}
+
+					{/* Progress Bar (keep at bottom when expanded) */}
+					<div className="mt-3 sm:mt-4">
+						<div className="flex justify-between text-[10px] sm:text-xs text-slate-400 mb-0.5 sm:mb-1">
+							<span>Progress</span>
+							<span>{percentPaid.toFixed(1)}% paid</span>
+						</div>
+						<div className="w-full bg-white/10 rounded-full h-1.5 sm:h-2">
+							<div
+								className="bg-gradient-to-r from-emerald-400 to-green-500 h-1.5 sm:h-2 rounded-full transition-all"
+								style={{ width: `${Math.min(100, percentPaid)}%` }}
+							/>
+						</div>
+					</div>
 				</>
 			)}
 			</>

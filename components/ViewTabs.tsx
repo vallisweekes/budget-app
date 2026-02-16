@@ -49,6 +49,7 @@ type ViewTabsProps = {
   regularExpenses: ExpenseItem[];
   totalIncome: number;
   totalAllocations?: number;
+  plannedSavingsContribution?: number;
   incomeAfterAllocations?: number;
   totalExpenses: number;
   remaining: number;
@@ -59,6 +60,7 @@ type ViewTabsProps = {
     categoryData: CategoryDataItem[];
     totalIncome: number;
     totalAllocations?: number;
+    plannedSavingsContribution?: number;
     incomeAfterAllocations?: number;
     totalExpenses: number;
     remaining: number;
@@ -92,6 +94,7 @@ export default function ViewTabs({
   totalDebtBalance,
   totalIncome,
   totalAllocations,
+  plannedSavingsContribution,
   incomeAfterAllocations,
   totalExpenses,
   remaining,
@@ -175,6 +178,7 @@ export default function ViewTabs({
       categoryData,
       totalIncome,
       totalAllocations,
+      plannedSavingsContribution,
       incomeAfterAllocations,
       totalExpenses,
       remaining,
@@ -199,6 +203,7 @@ export default function ViewTabs({
         totalExpenses: fallbackPlanData.totalExpenses,
         remaining: fallbackPlanData.remaining,
         amountLeftToBudget: leftToBudget,
+        plannedSavingsContribution: fallbackPlanData.plannedSavingsContribution ?? 0,
         categoryTotals: fallbackPlanData.categoryData.map((c) => ({
           name: c.name,
           total: c.total,
@@ -213,6 +218,7 @@ export default function ViewTabs({
     let totalExp = 0;
     let allocationsTotal = 0;
     let leftToBudgetTotal = 0;
+    let plannedSavingsTotal = 0;
     let combinedGoals: GoalLike[] = [];
     const categoryTotals: Record<string, { total: number; color?: string }> = {};
     const flattenedExpenses: ExpenseItem[] = [];
@@ -224,6 +230,7 @@ export default function ViewTabs({
       totalInc += planData.totalIncome;
       totalExp += planData.totalExpenses;
       allocationsTotal += planData.totalAllocations ?? 0;
+      plannedSavingsTotal += planData.plannedSavingsContribution ?? 0;
       leftToBudgetTotal +=
         typeof planData.incomeAfterAllocations === "number"
           ? planData.incomeAfterAllocations
@@ -247,6 +254,7 @@ export default function ViewTabs({
       totalExpenses: totalExp,
       remaining: totalInc - totalExp,
       amountLeftToBudget: leftToBudgetTotal,
+      plannedSavingsContribution: plannedSavingsTotal,
       categoryTotals: Object.entries(categoryTotals).map(([name, v]) => ({
         name,
         total: v.total,
@@ -273,7 +281,10 @@ export default function ViewTabs({
 
   const amountAfterExpenses = combinedData.amountLeftToBudget - combinedData.totalExpenses;
 
-  const savingsRate = combinedData.totalIncome > 0 ? amountAfterExpenses / combinedData.totalIncome : 0;
+  const savingsRate =
+    combinedData.totalIncome > 0
+      ? (combinedData.plannedSavingsContribution ?? 0) / combinedData.totalIncome
+      : 0;
   const spendRate = combinedData.totalIncome > 0 ? combinedData.totalExpenses / combinedData.totalIncome : 0;
 
   const daysInMonth = useMemo(() => {
@@ -428,11 +439,24 @@ export default function ViewTabs({
         </Card>
         <Card
           title="Savings"
-          titleTooltip="Amount left after allocations and expenses, shown as a % of gross income."
+          titleTooltip="Planned savings from income sacrifice for this month, shown as an amount and as a % of gross income."
           className="p-3"
         >
-          <div className={`text-base sm:text-lg font-bold ${savingsRate < 0 ? "text-red-300" : "text-emerald-300"}`}>{percent(savingsRate)}</div>
-          <div className="text-xs text-slate-300">of income</div>
+          <div className="flex items-center gap-2">
+            <div className="text-base sm:text-lg font-bold text-emerald-300">
+              <Currency value={combinedData.plannedSavingsContribution ?? 0} />
+            </div>
+            {combinedData.totalIncome > 0 && (
+              <span
+                className={`text-xs font-medium ${
+                  savingsRate > 0 ? "text-emerald-400" : "text-slate-400"
+                }`}
+              >
+                {percent(savingsRate)}
+              </span>
+            )}
+          </div>
+          <div className="text-xs text-slate-300">income sacrifice</div>
         </Card>
         <Card
           title="Avg/day"
