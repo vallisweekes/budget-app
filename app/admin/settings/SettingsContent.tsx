@@ -352,14 +352,14 @@ export default function SettingsContent({
 								<div className="flex items-center justify-between gap-4 mb-5">
 									<div>
 										<h2 className="text-2xl font-bold text-white">Budget</h2>
-										<p className="text-slate-400 text-sm">Pay date, allocations, and budgeting style.</p>
+										<p className="text-slate-400 text-sm">Pay date, income sacrifice, and budgeting style.</p>
 									</div>
 									<div className="flex items-center gap-2">
 										<a
 											href="../income"
 											className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-white/90 hover:bg-white/10 transition"
 										>
-											Manage allocations in Income
+											Manage income sacrifice in Income
 										</a>
 										<span className="inline-flex items-center rounded-full border border-white/10 bg-slate-900/40 px-3 py-1 text-xs font-medium text-slate-200">
 											Core

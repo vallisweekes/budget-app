@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useEffect, useState } from "react";
+import { useMemo, useEffect, useId, useState } from "react";
 import type { DebtItem, ExpenseItem, MonthKey, PaymentStatus } from "@/types";
 import { formatCurrency } from "@/lib/helpers/money";
 import { formatMonthKeyLabel, monthKeyToNumber } from "@/lib/helpers/monthKey";
@@ -99,6 +99,7 @@ export default function ViewTabs({
   allPlansData,
 	expenseInsights,
 }: ViewTabsProps) {
+  const planTabsLabelId = useId();
   const [budgetPlans, setBudgetPlans] = useState<BudgetPlan[]>([]);
   const [activeTab, setActiveTab] = useState<TabKey>("personal");
   const [showExpenseDetails, setShowExpenseDetails] = useState(false);
@@ -156,6 +157,12 @@ export default function ViewTabs({
     if (plansByKind.carnival.length > 0) tabs.push({ key: "carnival", label: "Carnival" });
     return tabs;
   }, [plansByKind]);
+
+  useEffect(() => {
+    if (availableTabs.length === 0) return;
+    if (availableTabs.some((t) => t.key === activeTab)) return;
+    setActiveTab(availableTabs[0].key);
+  }, [activeTab, availableTabs]);
 
   // Get plans for active tab
   const activePlans = plansByKind[activeTab];
@@ -298,21 +305,55 @@ export default function ViewTabs({
 
         <div className="flex flex-wrap items-center gap-2">
           {availableTabs.length > 1 && (
-            <div className="flex flex-wrap gap-2">
-              {availableTabs.map((tab) => (
-                <button
-                  key={tab.key}
-                  onClick={() => setActiveTab(tab.key)}
-                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
-                    activeTab === tab.key
-                      ? "bg-white text-slate-900"
-                      : "bg-white/10 text-white hover:bg-white/20"
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
+            <>
+              <span id={planTabsLabelId} className="sr-only">
+                Budget plans
+              </span>
+              <div
+                role="tablist"
+                aria-labelledby={planTabsLabelId}
+                className="rounded-full border border-white/10 bg-slate-900/35 backdrop-blur-xl shadow-lg p-1"
+              >
+              {(() => {
+                const activeIndex = Math.max(
+                  0,
+                  availableTabs.findIndex((t) => t.key === activeTab)
+                );
+                const tabWidth = 100 / availableTabs.length;
+                return (
+                  <div className="relative flex items-center">
+                    <div
+                      aria-hidden="true"
+                      className="absolute inset-y-0 left-0 rounded-full border border-white/10 bg-white shadow-sm transition-transform duration-300 ease-out"
+                      style={{
+                        width: `${tabWidth}%`,
+                        transform: `translateX(${activeIndex * 100}%)`,
+                      }}
+                    />
+
+                    {availableTabs.map((tab) => {
+                      const isActive = activeTab === tab.key;
+                      return (
+                        <button
+                          key={tab.key}
+                          type="button"
+                          role="tab"
+                          aria-selected={isActive}
+                          onClick={() => setActiveTab(tab.key)}
+                          className={`relative z-10 px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${
+                            isActive ? "text-slate-900" : "text-slate-200 hover:text-white"
+                          }`}
+                          style={{ width: `${tabWidth}%` }}
+                        >
+                          {tab.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+              </div>
+            </>
           )}
 
           <Link
@@ -335,7 +376,7 @@ export default function ViewTabs({
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-3">
         <Card
           title="Income"
-          titleTooltip="Money left to budget after planned allocations (allowance, savings, emergency fund, investments)."
+          titleTooltip="Money left to budget after planned income sacrifice (allowance, savings, emergency fund, investments)."
           className="p-3"
         >
           <div className="flex items-center gap-2">
@@ -348,7 +389,7 @@ export default function ViewTabs({
               </span>
             )}
           </div>
-          <div className="text-xs text-slate-300">after allocations</div>
+          <div className="text-xs text-slate-300">after income sacrifice</div>
         </Card>
         <Card
           title="Expenses"

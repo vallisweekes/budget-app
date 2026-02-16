@@ -120,9 +120,9 @@ export default async function AdminIncomePage(props: {
 						<div className="mt-1 text-xl font-bold text-white">{formatCurrency(grossIncomeForAllocMonth)}</div>
 					</div>
 					<div className="rounded-2xl border border-white/10 bg-slate-900/30 px-5 py-4">
-						<div className="text-xs text-slate-400">Total allocations</div>
+						<div className="text-xs text-slate-400">Total income sacrifice</div>
 						<div className="mt-1 text-xl font-bold text-white">{formatCurrency(totalAllocationsForAllocMonth)}</div>
-						<div className="mt-1 text-xs text-slate-400">Fixed + custom allocations</div>
+						<div className="mt-1 text-xs text-slate-400">Fixed + custom items</div>
 					</div>
 					<div className="rounded-2xl border border-white/10 bg-slate-900/30 px-5 py-4">
 						<div className="text-xs text-slate-400">Left to budget</div>
@@ -135,7 +135,7 @@ export default async function AdminIncomePage(props: {
 						</div>
 						{remainingToBudgetForAllocMonth < 0 && (
 							<div className="mt-1 text-xs text-red-200">
-								Allocations exceed income by {formatCurrency(Math.abs(remainingToBudgetForAllocMonth))}
+								Income sacrifice exceeds income by {formatCurrency(Math.abs(remainingToBudgetForAllocMonth))}
 							</div>
 						)}
 					</div>
@@ -144,9 +144,9 @@ export default async function AdminIncomePage(props: {
 				<div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/10 p-6 md:p-8">
 					<div className="flex items-center justify-between gap-4">
 						<div>
-							<h2 className="text-2xl font-bold text-white">Allocations</h2>
+							<h2 className="text-2xl font-bold text-white">Income sacrifice</h2>
 							<p className="mt-1 text-slate-400 text-sm">
-								Edit month-specific overrides. Create new allowances globally.
+								Edit month-specific overrides. Create new items globally.
 							</p>
 						</div>
 						<div className="hidden md:block text-xs text-slate-400">
@@ -172,7 +172,7 @@ export default async function AdminIncomePage(props: {
 					<div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/10 p-6 md:p-8">
 						<div className="flex items-start justify-between gap-4">
 							<div>
-								<div className="text-sm font-semibold text-white">Edit allocations for a month</div>
+								<div className="text-sm font-semibold text-white">Edit income sacrifice for a month</div>
 								<div className="text-xs text-slate-400">Adjust this month’s overrides, then save changes.</div>
 							</div>
 							<div className="text-xs text-slate-400">Switch months to view defaults/overrides.</div>
@@ -198,7 +198,7 @@ export default async function AdminIncomePage(props: {
 
 						<div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
 							<div className="md:col-span-2">
-								<div className="text-sm font-semibold text-white">Fixed allocations</div>
+								<div className="text-sm font-semibold text-white">Fixed income sacrifice</div>
 								<div className="mt-1 text-xs text-slate-400">Default values come from the plan; changes are saved as overrides.</div>
 							</div>
 							<label>
@@ -246,16 +246,16 @@ export default async function AdminIncomePage(props: {
 						<div className="mt-8">
 							<div className="flex items-center justify-between gap-3">
 								<div>
-									<div className="text-sm font-semibold text-white">Custom allowances (this month)</div>
+									<div className="text-sm font-semibold text-white">Custom items (this month)</div>
 									<div className="mt-1 text-xs text-slate-400">Each item has a global default; edits here become month overrides.</div>
 								</div>
 								<div className="text-xs text-slate-400">Total: {formatCurrency(customAllocations.total ?? 0)}</div>
 							</div>
 
 							{customAllocations.items.length === 0 ? (
-								<div className="mt-3 rounded-xl border border-dashed border-white/10 bg-slate-900/10 px-4 py-3 text-sm text-slate-300">
-									No custom allowances yet. Use “Create allowance (global)” below.
-								</div>
+									<div className="mt-3 rounded-xl border border-dashed border-white/10 bg-slate-900/10 px-4 py-3 text-sm text-slate-300">
+										No custom items yet. Use “Create allowance (global)” below.
+									</div>
 							) : (
 								<div className="mt-4 grid grid-cols-1 gap-4">
 									{customAllocations.items.map((item) => (

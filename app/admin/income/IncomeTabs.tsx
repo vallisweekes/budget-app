@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useId, useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 export type IncomeTabKey = "income" | "allocations";
@@ -10,6 +10,7 @@ export default function IncomeTabs(props: {
 	allocations: React.ReactNode;
 	income: React.ReactNode;
 }) {
+	const tabsLabelId = useId();
 	const router = useRouter();
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
@@ -30,8 +31,8 @@ export default function IncomeTabs(props: {
 				},
 				{
 					key: "allocations" as const,
-					label: "Allocations",
-					description: "Pre-budget costs and custom allocations",
+					label: "Income sacrifice",
+					description: "Amounts taken from income before budgeting",
 				},
 			],
 		[]
@@ -45,34 +46,47 @@ export default function IncomeTabs(props: {
 
 	return (
 		<div className="space-y-4 sm:space-y-6">
-			<div className="bg-slate-800/35 backdrop-blur-xl rounded-2xl sm:rounded-3xl border border-white/10 p-2 sm:p-3">
-				<div className="grid grid-cols-2 gap-2">
-					{tabs.map((t) => {
-						const isActive = activeTab === t.key;
-						return (
-							<button
-								key={t.key}
-								type="button"
-								onClick={() => setTab(t.key)}
-								className={`rounded-xl sm:rounded-2xl border px-3 sm:px-4 py-2 sm:py-3 text-left transition ${
-									isActive
-										? "bg-emerald-500/15 border-emerald-300/30"
-										: "bg-slate-900/20 border-white/10 hover:bg-white/5"
+			<div className="space-y-2">
+				<span id={tabsLabelId} className="sr-only">
+					Income tabs
+				</span>
+				<div
+					role="tablist"
+					aria-labelledby={tabsLabelId}
+					className="inline-flex max-w-full rounded-full border border-white/10 bg-slate-900/35 backdrop-blur-xl shadow-lg p-1"
+				>
+					<div className="relative grid grid-cols-2">
+						<div
+							aria-hidden="true"
+							className={`absolute inset-y-0 left-0 w-1/2 rounded-full border border-white/10 shadow-sm transition-transform duration-300 ease-out ${
+								activeTab === "income"
+									? "bg-gradient-to-r from-purple-500/35 to-indigo-500/25"
+									: "bg-gradient-to-r from-emerald-500/30 to-teal-500/20 translate-x-full"
+							}`}
+						/>
+
+						{tabs.map((t) => {
+							const isActive = activeTab === t.key;
+							return (
+								<button
+									key={t.key}
+									type="button"
+									onClick={() => setTab(t.key)}
+									role="tab"
+									aria-selected={isActive}
+									className={`relative z-10 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+									isActive ? "text-white" : "text-slate-300 hover:text-white"
 								}`}
-								aria-pressed={isActive}
 							>
-								<div className="flex items-center justify-between gap-3">
-									<div className={`text-xs sm:text-sm font-semibold ${isActive ? "text-white" : "text-slate-200"}`}>{t.label}</div>
-									{isActive ? (
-										<span className="rounded-full border border-emerald-200/25 bg-emerald-300/10 px-2 py-0.5 text-[10px] sm:text-[11px] font-semibold text-emerald-50">
-											Active
-										</span>
-									) : null}
-								</div>
-								<div className="mt-0.5 sm:mt-1 text-[11px] sm:text-xs text-slate-400 hidden sm:block">{t.description}</div>
+								{t.label}
 							</button>
-						);
-					})}
+							);
+						})}
+					</div>
+				</div>
+
+				<div className="hidden sm:block text-xs text-slate-400">
+					{tabs.find((t) => t.key === activeTab)?.description ?? ""}
 				</div>
 			</div>
 

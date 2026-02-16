@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useId, useMemo, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { MONTHS } from "@/lib/constants/time";
 import { currentMonthKey, formatMonthKeyLabel, monthKeyToNumber, normalizeMonthKey } from "@/lib/helpers/monthKey";
@@ -42,6 +42,7 @@ export default function ExpensesPageClient({
   initialYear,
   initialMonth,
 }: ExpensesPageClientProps) {
+  const planTabsLabelId = useId();
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -112,6 +113,12 @@ export default function ExpensesPageClient({
     if (plansByKind.carnival.length > 0) tabs.push({ key: "carnival", label: "Carnival" });
     return tabs;
   }, [plansByKind]);
+
+  useEffect(() => {
+    if (availableTabs.length === 0) return;
+    if (availableTabs.some((t) => t.key === activeTab)) return;
+    setActiveTab(availableTabs[0].key);
+  }, [activeTab, availableTabs]);
 
   // Get plans for active tab
   const activePlans = useMemo(() => {
@@ -195,29 +202,59 @@ export default function ExpensesPageClient({
           </div>
         </div>
 
-        {/* Selected Period Display */}
-        <div className="mb-2 sm:mb-4 text-center">
-          <h3 className="text-base sm:text-xl font-bold text-white">
-			{formatMonthKeyLabel(selectedMonth)} {selectedYear}
-          </h3>
-        </div>
-
         {/* Budget Plan Pills - only show if more than one tab */}
         {availableTabs.length > 1 && (
-          <div className="flex flex-wrap gap-2 mb-6">
-            {availableTabs.map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                  activeTab === tab.key
-                    ? "bg-white text-slate-900"
-                    : "bg-white/10 text-white hover:bg-white/20"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
+          <div className="mb-6">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+              <div id={planTabsLabelId} className="text-sm font-medium text-slate-300">
+                Budget Plans
+              </div>
+            <div
+              role="tablist"
+              aria-labelledby={planTabsLabelId}
+              className="inline-flex rounded-full border border-white/10 bg-slate-900/35 backdrop-blur-xl shadow-lg p-1"
+            >
+              {(() => {
+                const activeIndex = Math.max(
+                  0,
+                  availableTabs.findIndex((t) => t.key === activeTab)
+                );
+                const tabWidth = 100 / availableTabs.length;
+
+                return (
+                  <div className="relative flex items-center w-[320px] max-w-full">
+                    <div
+                      aria-hidden="true"
+                      className="absolute inset-y-0 left-0 rounded-full border border-white/10 bg-white shadow-sm transition-transform duration-300 ease-out"
+                      style={{
+                        width: `${tabWidth}%`,
+                        transform: `translateX(${activeIndex * 100}%)`,
+                      }}
+                    />
+
+                    {availableTabs.map((tab) => {
+                      const isActive = activeTab === tab.key;
+                      return (
+                        <button
+                          key={tab.key}
+                          type="button"
+                          role="tab"
+                          aria-selected={isActive}
+                          onClick={() => setActiveTab(tab.key)}
+                          className={`relative z-10 px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${
+                            isActive ? "text-slate-900" : "text-slate-200 hover:text-white"
+                          }`}
+                          style={{ width: `${tabWidth}%` }}
+                        >
+                          {tab.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </div>
+            </div>
           </div>
         )}
 
