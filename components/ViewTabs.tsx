@@ -466,11 +466,17 @@ export default function ViewTabs({
           <div className="flex items-center gap-2">
             <div className="text-base sm:text-lg font-bold"><Currency value={avgSpendPerDay} /></div>
             {combinedData.amountLeftToBudget > 0 && daysInMonth > 0 && (
-              <span className={`text-xs font-medium ${
-                avgSpendPerDay > (combinedData.amountLeftToBudget / daysInMonth) ? "text-red-400" : "text-emerald-400"
-              }`}>
-                {avgSpendPerDay > (combinedData.amountLeftToBudget / daysInMonth) ? "↑" : "↓"} {percent(avgSpendPerDay / (combinedData.amountLeftToBudget / daysInMonth))}
-              </span>
+				(() => {
+					const dailyBudget = combinedData.amountLeftToBudget / daysInMonth;
+					const spendRate = dailyBudget > 0 ? (avgSpendPerDay / dailyBudget) : 0;
+					const isOver = spendRate > 1;
+					const isHigh = spendRate >= 0.9;
+					return (
+						<span className={`text-xs font-medium ${isOver || isHigh ? "text-red-400" : "text-emerald-400"}`}>
+							{isOver ? "↑" : isHigh ? "↗" : "↓"} {percent(spendRate)}
+						</span>
+					);
+				})()
             )}
           </div>
           <div className="text-xs text-slate-300">{daysInMonth} days</div>
