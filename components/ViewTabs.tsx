@@ -331,13 +331,22 @@ export default function ViewTabs({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-6 gap-2 sm:gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-3">
         <Card
           title="Income"
           titleTooltip="Money left to budget after planned allocations (allowance, savings, emergency fund, investments)."
           className="p-3"
         >
-          <div className="text-base sm:text-lg font-bold"><Currency value={combinedData.amountLeftToBudget} /></div>
+          <div className="flex items-center gap-2">
+            <div className="text-base sm:text-lg font-bold"><Currency value={combinedData.amountLeftToBudget} /></div>
+            {combinedData.totalIncome > 0 && (
+              <span className={`text-xs font-medium ${
+                (combinedData.totalAllocations ?? 0) / combinedData.totalIncome > 0.30 ? "text-red-400" : "text-emerald-400"
+              }`}>
+                {(combinedData.totalAllocations ?? 0) / combinedData.totalIncome > 0.30 ? "↑" : "↓"} {percent((combinedData.totalAllocations ?? 0) / combinedData.totalIncome)}
+              </span>
+            )}
+          </div>
           <div className="text-xs text-slate-300">after allocations</div>
         </Card>
         <Card
@@ -345,15 +354,33 @@ export default function ViewTabs({
           titleTooltip="Total expenses recorded for this month."
           className="p-3"
         >
-          <div className="text-base sm:text-lg font-bold"><Currency value={combinedData.totalExpenses} /></div>
+          <div className="flex items-center gap-2">
+            <div className="text-base sm:text-lg font-bold"><Currency value={combinedData.totalExpenses} /></div>
+            {combinedData.totalIncome > 0 && (
+              <span className={`text-xs font-medium ${
+                spendRate > 0.70 ? "text-red-400" : spendRate > 0.50 ? "text-amber-400" : "text-emerald-400"
+              }`}>
+                {spendRate > 0.60 ? "↑" : "↓"} {percent(spendRate)}
+              </span>
+            )}
+          </div>
         </Card>
         <Card
           title="Amount Left"
           titleTooltip="What remains after expenses: (income after allocations) − expenses."
           className="p-3"
         >
-          <div className={`text-base sm:text-lg font-bold ${amountAfterExpenses < 0 ? "text-red-300" : "text-emerald-300"}`}>
-            <Currency value={amountAfterExpenses} />
+          <div className="flex items-center gap-2">
+            <div className={`text-base sm:text-lg font-bold ${amountAfterExpenses < 0 ? "text-red-300" : "text-emerald-300"}`}>
+              <Currency value={amountAfterExpenses} />
+            </div>
+            {combinedData.amountLeftToBudget > 0 && (
+              <span className={`text-xs font-medium ${
+                amountAfterExpenses < 0 ? "text-red-400" : "text-emerald-400"
+              }`}>
+                {amountAfterExpenses < 0 ? "↓" : "↑"} {percent(Math.abs(amountAfterExpenses) / combinedData.amountLeftToBudget)}
+              </span>
+            )}
           </div>
           <div className="text-xs text-slate-300">after expenses</div>
         </Card>
@@ -366,19 +393,20 @@ export default function ViewTabs({
           <div className="text-xs text-slate-300">of income</div>
         </Card>
         <Card
-          title="Spend rate"
-          titleTooltip="Expenses as a % of gross income."
-          className="p-3"
-        >
-          <div className="text-base sm:text-lg font-bold">{percent(spendRate)}</div>
-          <div className="text-xs text-slate-300">income used</div>
-        </Card>
-        <Card
           title="Avg/day"
           titleTooltip="Average spending per day: monthly expenses ÷ days in month."
           className="p-3"
         >
-          <div className="text-base sm:text-lg font-bold"><Currency value={avgSpendPerDay} /></div>
+          <div className="flex items-center gap-2">
+            <div className="text-base sm:text-lg font-bold"><Currency value={avgSpendPerDay} /></div>
+            {combinedData.amountLeftToBudget > 0 && daysInMonth > 0 && (
+              <span className={`text-xs font-medium ${
+                avgSpendPerDay > (combinedData.amountLeftToBudget / daysInMonth) ? "text-red-400" : "text-emerald-400"
+              }`}>
+                {avgSpendPerDay > (combinedData.amountLeftToBudget / daysInMonth) ? "↑" : "↓"} {percent(avgSpendPerDay / (combinedData.amountLeftToBudget / daysInMonth))}
+              </span>
+            )}
+          </div>
           <div className="text-xs text-slate-300">{daysInMonth} days</div>
         </Card>
       </div>
