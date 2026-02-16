@@ -130,6 +130,9 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
   const [distributeAllMonths, setDistributeAllMonths] = useState(false);
   const [distributeAllYears, setDistributeAllYears] = useState(false);
 
+  const [inlineAddCategoryId, setInlineAddCategoryId] = useState<string | null>(null);
+  const [inlineAddError, setInlineAddError] = useState<string | null>(null);
+
   const YEARS = useMemo(() => {
     const base = new Date().getFullYear();
     return Array.from({ length: 10 }, (_, i) => base + i);
@@ -169,6 +172,27 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
           router.refresh();
         } catch {
           setAddError("Could not add expense. Please try again.");
+        }
+      })();
+    });
+  };
+
+  const handleInlineAddExpenseSubmit = (event: SyntheticEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (isPeriodLoading) return;
+
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    setInlineAddError(null);
+
+    startAddTransition(() => {
+      void (async () => {
+        try {
+          await addExpenseAction(formData);
+          setInlineAddCategoryId(null);
+          router.refresh();
+        } catch {
+          setInlineAddError("Could not add expense. Please try again.");
         }
       })();
     });
@@ -700,7 +724,7 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
       {isPeriodLoading ? (
         <ExpenseCardsSkeleton />
       ) : (
-      <div className="grid grid-cols-1 gap-6">
+      <div className="grid grid-cols-1 gap-3 sm:gap-6">
         {Object.entries(expensesByCategory).map(([catId, catExpenses]) => {
           const category = categoryLookup[catId];
           if (!category) return null;
@@ -768,15 +792,80 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
 
               {!isCollapsed && (
                 <div className="divide-y divide-white/10">
+                  <div className="p-2 sm:p-4 bg-slate-900/20">
+                    {inlineAddCategoryId === catId ? (
+                      <form onSubmit={handleInlineAddExpenseSubmit} className="space-y-2">
+                        <input type="hidden" name="budgetPlanId" value={budgetPlanId} />
+                        <input type="hidden" name="month" value={month} />
+                        <input type="hidden" name="year" value={year} />
+                        <input type="hidden" name="categoryId" value={catId} />
+                        <input type="hidden" name="paid" value="false" />
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          <input
+                            name="name"
+                            required
+                            className="sm:col-span-2 w-full px-3 py-2 rounded-xl border border-white/10 bg-slate-900/40 text-white text-sm placeholder-slate-500 focus:border-purple-500 focus:ring-1 focus:ring-purple-500/50 focus:outline-none transition-all"
+                            placeholder={`Add to ${category.name}…`}
+                          />
+                          <input
+                            name="amount"
+                            type="number"
+                            step="0.01"
+                            required
+                            className="w-full px-3 py-2 rounded-xl border border-white/10 bg-slate-900/40 text-white text-sm placeholder-slate-500 focus:border-purple-500 focus:ring-1 focus:ring-purple-500/50 focus:outline-none transition-all"
+                            placeholder="0.00"
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setInlineAddCategoryId(null)}
+                            className="px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-200 border border-white/10 bg-white/5 hover:bg-white/10 transition"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="submit"
+                            disabled={isAdding}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-white border border-emerald-400/30 bg-emerald-500/20 hover:bg-emerald-500/30 transition disabled:opacity-60"
+                          >
+                            <Plus size={14} />
+                            {isAdding ? "Adding…" : "Add"}
+                          </button>
+                        </div>
+
+                        {inlineAddError ? <p className="text-xs text-red-200">{inlineAddError}</p> : null}
+                      </form>
+                    ) : (
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-[10px] sm:text-xs text-slate-400">
+                          Add a new expense for {formatMonthKeyLabel(month)} {year}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setInlineAddError(null);
+                            setInlineAddCategoryId(catId);
+                          }}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[10px] sm:text-xs font-semibold text-white border border-white/10 bg-white/5 hover:bg-white/10 transition"
+                        >
+                          <Plus size={14} />
+                          Add expense
+                        </button>
+                      </div>
+                    )}
+                  </div>
                   {catExpenses.map((expense) => (
-                    <div key={expense.id} className="p-3 sm:p-4 hover:bg-slate-900/40 transition-all group">
+                    <div key={expense.id} className="p-2 sm:p-4 hover:bg-slate-900/40 transition-all group">
                       {(() => {
                         const isPaid = !!expense.paid;
 
                         return (
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                          <div className="flex items-center gap-1.5 mb-0.5 sm:mb-1 flex-wrap">
                             <div className="font-semibold text-white text-xs sm:text-sm truncate">{expense.name}</div>
                             <span className={`text-[10px] sm:text-xs px-1.5 py-0.5 rounded font-medium shrink-0 ${
                               expense.dueDate 
@@ -796,7 +885,7 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
                 const paidAmount = isPaid ? expense.amount : (expense.paidAmount ?? 0);
                 const remaining = Math.max(0, expense.amount - paidAmount);
                 return (
-                  <div className="mt-2 flex flex-col gap-2">
+                  <div className="mt-1.5 sm:mt-2 flex flex-col gap-1.5 sm:gap-2">
                     <div className="flex-1">
                       <div className="text-[10px] sm:text-xs text-slate-400">
                         Paid <span className="text-slate-200 font-medium"><Currency value={paidAmount} /></span> · Remaining{" "}
