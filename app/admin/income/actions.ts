@@ -9,7 +9,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { resolveUserId } from "@/lib/budgetPlans";
-import { monthKeyToNumber } from "@/lib/helpers/monthKey";
+import { monthKeyToNumber, normalizeMonthKey } from "@/lib/helpers/monthKey";
 import { getSettings } from "@/lib/settings/store";
 import {
 	createAllocationDefinition,
@@ -95,7 +95,10 @@ function requireBudgetPlanId(formData: FormData): string {
 
 export async function addIncomeAction(formData: FormData): Promise<void> {
 	const budgetPlanId = requireBudgetPlanId(formData);
-	const month = String(formData.get("month")) as MonthKey;
+	const rawMonth = String(formData.get("month") ?? "").trim();
+	const normalizedMonth = normalizeMonthKey(rawMonth) ?? (isMonthKey(rawMonth) ? (rawMonth as MonthKey) : null);
+	if (!normalizedMonth) throw new Error("Invalid month");
+	const month = normalizedMonth;
 	const yearRaw = Number(formData.get("year"));
 	const year = Number.isFinite(yearRaw) ? yearRaw : await resolveIncomeYear(budgetPlanId);
 	const name = String(formData.get("name") || "").trim();
@@ -112,8 +115,6 @@ export async function addIncomeAction(formData: FormData): Promise<void> {
 	const rawTargetMonths: MonthKey[] = distributeMonths ? (MONTHS as MonthKey[]) : [month];
 	const targetMonths: MonthKey[] = rawTargetMonths.filter((m) => !isPastMonth(m, year));
 	if (targetMonths.length === 0) return;
-	const missingMonthsForPlan = await filterMonthsWithoutAnyIncome(budgetPlanId, year, targetMonths);
-	if (!distributeYears && missingMonthsForPlan.length === 0) return;
 	const sharedId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
 	if (distributeYears) {
@@ -124,9 +125,7 @@ export async function addIncomeAction(formData: FormData): Promise<void> {
 			} catch {
 				continue;
 			}
-			const monthsForThisPlan = await filterMonthsWithoutAnyIncome(p.id, year, targetMonths);
-			if (monthsForThisPlan.length === 0) continue;
-			await addOrUpdateIncomeAcrossMonths(p.id, monthsForThisPlan, { id: sharedId, name, amount }, year);
+			await addOrUpdateIncomeAcrossMonths(p.id, targetMonths, { id: sharedId, name, amount }, year);
 			if (sessionUsername) revalidateUserScopedBudgetPaths(sessionUsername, p.id);
 		}
 		revalidatePath("/");
@@ -134,7 +133,7 @@ export async function addIncomeAction(formData: FormData): Promise<void> {
 		return;
 	}
 
-	await addOrUpdateIncomeAcrossMonths(budgetPlanId, missingMonthsForPlan, { id: sharedId, name, amount }, year);
+	await addOrUpdateIncomeAcrossMonths(budgetPlanId, targetMonths, { id: sharedId, name, amount }, year);
 	if (sessionUsername) revalidateUserScopedBudgetPaths(sessionUsername, budgetPlanId);
 	revalidatePath("/");
 	revalidatePath("/admin/income");
