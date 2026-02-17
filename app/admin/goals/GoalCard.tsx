@@ -5,7 +5,6 @@ import { Edit2, Trash2, Check, X, Target, TrendingUp, Shield, PiggyBank } from "
 import { updateGoalAction, deleteGoalAction } from "@/lib/goals/actions";
 import { formatCurrency } from "@/lib/helpers/money";
 import { ConfirmModal } from "@/components/Shared";
-import { useSearchParams } from "next/navigation";
 
 interface Goal {
   id: string;
@@ -20,6 +19,7 @@ interface Goal {
 
 interface GoalCardProps {
   goal: Goal;
+	budgetPlanId: string;
 }
 
 const categoryIcons = {
@@ -46,10 +46,8 @@ const CARD_CLASS = "bg-[#9EDBFF] rounded-2xl shadow-xl border border-sky-200/70 
 const INPUT_CLASS =
   "w-full px-3 py-2 bg-white/70 border border-black/10 text-slate-900 placeholder-slate-500 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500";
 
-export default function GoalCard({ goal }: GoalCardProps) {
+export default function GoalCard({ goal, budgetPlanId }: GoalCardProps) {
   const [isPending, startTransition] = useTransition();
-  const searchParams = useSearchParams();
-  const budgetPlanId = searchParams.get("plan") ?? "";
   const [isEditing, setIsEditing] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [editTitle, setEditTitle] = useState(goal.title);

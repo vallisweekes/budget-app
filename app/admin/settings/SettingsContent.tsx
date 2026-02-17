@@ -6,12 +6,13 @@ import { MONTHS } from "@/lib/constants/time";
 import { SUPPORTED_CURRENCIES, SUPPORTED_COUNTRIES, SUPPORTED_LANGUAGES } from "@/lib/constants/locales";
 import { InfoTooltip, SelectDropdown } from "@/components/Shared";
 import type { MonthKey } from "@/types";
-import { ArrowLeft, CalendarDays, Lightbulb, PiggyBank, Wallet, Globe, User, AlertTriangle, Edit2, LogOut } from "lucide-react";
+import { ArrowLeft, CalendarDays, Lightbulb, PiggyBank, Wallet, Globe, User, AlertTriangle, Edit2, LogOut, Plus } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { applyFiftyThirtyTwentyTargetsAction, saveSettingsAction, updateUserDetailsAction } from "./actions";
 import DeleteBudgetPlanButton from "./DeleteBudgetPlanButton";
 import type { Settings } from "@/lib/settings/store";
 import CreateBudgetForm, { type BudgetType } from "@/app/budgets/new/CreateBudgetForm";
+import Link from "next/link";
 
 type Section = "details" | "budget" | "locale" | "plans" | "danger";
 
@@ -160,6 +161,11 @@ export default function SettingsContent({
 		return `/${parts.slice(0, idx + 1).join("/")}`;
 	};
 
+	const getUserSegmentFromPath = (path: string) => {
+		const parts = path.split("/").filter(Boolean);
+		return parts.find((p) => p.startsWith("user=")) ?? null;
+	};
+
 	const getSectionFromPath = (path: string): Section | null => {
 		const parts = path.split("/").filter(Boolean);
 		const idx = parts.findIndex((p) => p === "page=settings" || p === "settings");
@@ -170,6 +176,11 @@ export default function SettingsContent({
 	};
 
 	const settingsBasePath = getSettingsBasePath(pathname);
+	const userSegment = useMemo(() => getUserSegmentFromPath(pathname), [pathname]);
+	const planSettingsHref = (planId: string) => {
+		if (!userSegment) return `${settingsBasePath}/plans`;
+		return `/${userSegment}/${encodeURIComponent(planId)}/page=settings/plans`;
+	};
 	const typeParamRaw = (searchParams.get("type") ?? "").trim().toLowerCase();
 	const requestedType: BudgetType = (typeParamRaw === "holiday" || typeParamRaw === "carnival" || typeParamRaw === "personal"
 		? (typeParamRaw as BudgetType)
@@ -913,87 +924,151 @@ export default function SettingsContent({
 											)}
 										</div>
 									</div>
-								) : (
-									<div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/10 p-8">
-										<div className="space-y-4">
-											{hasPersonalPlan ? (
-												<div className="rounded-2xl border border-white/10 bg-slate-950/20 p-4">
-													<div className="text-sm font-semibold text-slate-200">Add another plan</div>
-													<div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
-														<a
-															href={`${settingsBasePath}/plans/new?type=holiday`}
-															className="block w-full rounded-xl bg-white/10 px-4 py-2 text-center text-sm font-semibold text-white hover:bg-white/15"
-														>
-															+ Create Holiday plan
-														</a>
-														<a
-															href={`${settingsBasePath}/plans/new?type=carnival`}
-															className="block w-full rounded-xl bg-white/10 px-4 py-2 text-center text-sm font-semibold text-white hover:bg-white/15"
-														>
-															+ Create Carnival plan
-														</a>
+														) : (
+															<div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
+											<div className="lg:col-span-7 rounded-2xl border border-white/10 bg-slate-950/15 p-4 sm:p-6">
+												<div className="flex items-start justify-between gap-3">
+													<div>
+														<div className="text-sm font-semibold text-white">Your plans</div>
+														<div className="mt-1 text-xs text-slate-400">Tap a plan to manage it in Settings.</div>
 													</div>
-													<div className="mt-2 text-xs text-slate-400">
-														You can only create Holiday/Carnival once a Personal plan exists.
-													</div>
+													<span className="inline-flex items-center rounded-full bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-slate-200 ring-1 ring-white/10">
+														{allPlans.length} plan{allPlans.length === 1 ? "" : "s"}
+													</span>
 												</div>
-											) : (
-												<div className="rounded-2xl border border-white/10 bg-slate-950/20 p-4">
-													<div className="text-sm font-semibold text-slate-200">Unlock Holiday & Carnival</div>
-													<div className="mt-2 text-sm text-slate-300">
-														Create your Personal plan first, then you’ll be able to add Holiday/Carnival budgets.
-													</div>
-													<div className="mt-3">
-														<a
-															href={`${settingsBasePath}/plans/new?type=personal`}
-															className="inline-flex items-center justify-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500"
-														>
-															Create Personal plan
-														</a>
-													</div>
-												</div>
-											)}
 
-											{allPlans.map((plan) => (
-												<div
-													key={plan.id}
-													className={`p-4 rounded-xl border transition-all ${
-														plan.id === budgetPlanId
-															? "bg-blue-500/10 border-blue-500/50"
-															: "bg-slate-900/40 border-white/10 hover:border-white/20"
-													}`}
-												>
-													<div className="flex items-center justify-between">
-														<div>
-															<h3 className="font-bold text-white capitalize">{plan.name}</h3>
-															<p className="text-sm text-slate-400 capitalize">{plan.kind} Plan</p>
+												{allPlans.length === 0 ? (
+													<div className="mt-4 rounded-2xl border border-white/10 bg-slate-900/30 p-4 text-slate-300">
+														<div className="text-sm font-semibold text-white">No budget plans yet</div>
+														<div className="mt-1 text-sm text-slate-300">Create a plan to get started.</div>
+														<div className="mt-4">
+															<Link
+																href={`${settingsBasePath}/plans/new?type=personal`}
+																className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-blue-500 to-cyan-600 px-4 py-2 text-sm font-semibold text-white shadow-lg hover:shadow-xl hover:scale-[1.02] transition"
+															>
+																<Plus className="h-4 w-4" />
+																Create Personal plan
+															</Link>
 														</div>
-														{plan.id === budgetPlanId && (
-															<span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-500/20 text-blue-400">
-																Current
-															</span>
-														)}
 													</div>
-												</div>
-											))}
+												) : (
+																		<div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
+														{allPlans.map((plan) => {
+															const kindLabel = `${String(plan.kind).slice(0, 1).toUpperCase()}${String(plan.kind).slice(1).toLowerCase()}`;
+															const isCurrent = plan.id === budgetPlanId;
+																				const canDelete = String(plan.kind).toLowerCase() !== "personal";
+																					return (
+																						<div key={plan.id} className="relative group">
+																						{canDelete ? (
+																							<div className="absolute right-2 top-2 z-10">
+																								<DeleteBudgetPlanButton
+																									budgetPlanId={plan.id}
+																									planName={plan.name}
+																									planKind={String(plan.kind)}
+																									variant="icon"
+																										confirmMode="confirm"
+																								/>
+																							</div>
+																						) : null}
 
-											{allPlans.length === 0 && (
-												<div className="text-center py-8 text-slate-400">
-													<p>No budget plans found. Create one to get started.</p>
-												</div>
-											)}
+																						<Link
+																							href={planSettingsHref(plan.id)}
+																							className={`block rounded-xl border p-3 pr-12 transition ${
+																								isCurrent
+																									? "bg-blue-500/10 border-blue-500/40"
+																									: "bg-slate-900/35 border-white/10 hover:border-white/20 hover:bg-slate-900/45"
+																							}`}
+																						>
+																							<div className="flex items-start justify-between gap-3">
+																								<div className="min-w-0">
+																									<div className="text-sm font-bold text-white truncate">{plan.name}</div>
+																									<div className="mt-1 flex flex-wrap items-center gap-2">
+																										<span className="inline-flex items-center rounded-full bg-white/5 px-2 py-0.5 text-[11px] font-semibold text-slate-200 ring-1 ring-white/10">
+																											{kindLabel} plan
+																										</span>
+																										{isCurrent ? (
+																											<span className="inline-flex items-center rounded-full bg-blue-500/15 px-2 py-0.5 text-[11px] font-semibold text-blue-200 ring-1 ring-blue-500/25">
+																												Current
+																										</span>
+																									) : null}
+																									</div>
+																							</div>
+																							<div className="shrink-0 text-xs font-semibold text-white/70 group-hover:text-white">
+																								Manage
+																						</div>
+																						</div>
+																						</Link>
+																					</div>
+															);
+														})}
+													</div>
+												)}
+											</div>
 
-											{allPlans.length < 3 && (
-												<a
-													href={`${settingsBasePath}/plans/new`}
-													className="block w-full bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-xl py-3 font-semibold text-center shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all"
-												>
-													+ Create another budget
-												</a>
-											)}
-										</div>
-									</div>
-								)}
+																<div className="lg:col-span-5 rounded-2xl border border-white/10 bg-slate-950/15 p-4 sm:p-6">
+												<div className="flex items-start justify-between gap-3">
+													<div>
+														<div className="text-sm font-semibold text-white">Add another plan</div>
+														<div className="mt-1 text-xs text-slate-400">Create extra plans for events like holidays and carnival.</div>
+													</div>
+													<span className="inline-flex items-center rounded-full bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-slate-200 ring-1 ring-white/10">
+														Optional
+													</span>
+																</div>
+
+												{hasPersonalPlan ? (
+													<div className="mt-4 space-y-2">
+														<Link
+															href={`${settingsBasePath}/plans/new?type=holiday`}
+															className="flex items-center justify-center gap-2 rounded-xl bg-white/10 px-4 py-2.5 text-sm font-semibold text-white ring-1 ring-white/10 hover:bg-white/15 hover:ring-white/20 transition"
+														>
+															<Plus className="h-4 w-4" />
+															Create Holiday plan
+														</Link>
+														<Link
+															href={`${settingsBasePath}/plans/new?type=carnival`}
+															className="flex items-center justify-center gap-2 rounded-xl bg-white/10 px-4 py-2.5 text-sm font-semibold text-white ring-1 ring-white/10 hover:bg-white/15 hover:ring-white/20 transition"
+														>
+															<Plus className="h-4 w-4" />
+															Create Carnival plan
+														</Link>
+													</div>
+												) : (
+													<div className="mt-4 rounded-2xl border border-white/10 bg-slate-900/30 p-4">
+														<div className="text-sm font-semibold text-white">Create Personal first</div>
+														<div className="mt-1 text-sm text-slate-300">
+															Holiday and Carnival plans unlock after you create a Personal plan.
+														</div>
+														<div className="mt-4">
+															<Link
+																href={`${settingsBasePath}/plans/new?type=personal`}
+																className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-600 px-4 py-2 text-sm font-semibold text-white shadow-lg hover:shadow-xl hover:scale-[1.02] transition"
+															>
+																<Plus className="h-4 w-4" />
+																Create Personal plan
+															</Link>
+														</div>
+													</div>
+												)}
+
+												{allPlans.length < 3 ? (
+													<div className="mt-4 pt-4 border-t border-white/10">
+														<Link
+															href={`${settingsBasePath}/plans/new`}
+															className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-lg hover:shadow-xl hover:scale-[1.02] transition"
+														>
+															<Plus className="h-4 w-4" />
+															Create another budget
+														</Link>
+														<div className="mt-2 text-[11px] text-slate-400">
+															Tip: use separate plans to keep event spending tidy.
+														</div>
+													</div>
+												) : null}
+											</div>
+																</div>
+														)
+											}
 							</section>
 						)}
 

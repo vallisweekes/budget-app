@@ -191,7 +191,7 @@ export default async function GoalsPage({
                 <h2 className="text-xl sm:text-2xl font-bold text-white mb-3 sm:mb-4">{currentYear} Goals</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                   {yearlyGoals.map((goal) => (
-                    <GoalCard key={goal.id} goal={goal} />
+                    <GoalCard key={goal.id} goal={goal} budgetPlanId={budgetPlanId} />
                   ))}
                 </div>
               </div>
@@ -205,7 +205,7 @@ export default async function GoalsPage({
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                   {longTermGoals.map((goal) => (
-                    <GoalCard key={goal.id} goal={goal} />
+                    <GoalCard key={goal.id} goal={goal} budgetPlanId={budgetPlanId} />
                   ))}
                 </div>
               </div>

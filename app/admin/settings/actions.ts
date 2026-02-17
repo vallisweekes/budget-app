@@ -42,6 +42,10 @@ export async function getBudgetPlanDeleteImpactAction(budgetPlanId: string): Pro
 		throw new Error("Budget plan not found");
 	}
 
+	if (String(plan.kind).toLowerCase() === "personal") {
+		throw new Error("Personal plans cannot be deleted");
+	}
+
 	const [categories, expenses, income, debts, goals] = await Promise.all([
 		prisma.category.count({ where: { budgetPlanId: planId } }),
 		prisma.expense.count({ where: { budgetPlanId: planId } }),
@@ -286,10 +290,14 @@ export async function deleteBudgetPlanAction(
 	const userId = await resolveUserId({ userId: sessionUser.id, username: sessionUsername });
 	const plan = await prisma.budgetPlan.findUnique({
 		where: { id: planId },
-		select: { id: true, userId: true },
+		select: { id: true, userId: true, kind: true },
 	});
 	if (!plan || plan.userId !== userId) {
 		throw new Error("Budget plan not found");
+	}
+
+	if (String(plan.kind).toLowerCase() === "personal") {
+		throw new Error("Personal plans cannot be deleted");
 	}
 
 	await prisma.budgetPlan.delete({ where: { id: planId } });

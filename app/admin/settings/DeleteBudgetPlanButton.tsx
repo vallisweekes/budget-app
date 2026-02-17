@@ -10,10 +10,14 @@ export default function DeleteBudgetPlanButton({
 	budgetPlanId,
 	planName,
 	planKind,
+	variant = "default",
+	confirmMode = "type",
 }: {
 	budgetPlanId: string;
 	planName?: string;
 	planKind?: string;
+	variant?: "default" | "icon";
+	confirmMode?: "type" | "confirm";
 }) {
 	const router = useRouter();
 	const [isOpen, setIsOpen] = useState(false);
@@ -24,7 +28,10 @@ export default function DeleteBudgetPlanButton({
 		counts: { categories: number; expenses: number; income: number; debts: number; goals: number };
 	}>(null);
 	const [isPending, startTransition] = useTransition();
-	const confirmDisabled = useMemo(() => typed.trim() !== "DELETE", [typed]);
+	const confirmDisabled = useMemo(
+		() => (confirmMode === "type" ? typed.trim() !== "DELETE" : false),
+		[typed, confirmMode]
+	);
 	const effectiveKind = String(impact?.plan.kind ?? planKind ?? "").toLowerCase();
 	const effectiveName = String(impact?.plan.name ?? planName ?? "this plan");
 	const hasSpendingData = Boolean(
@@ -51,16 +58,25 @@ export default function DeleteBudgetPlanButton({
 						}
 					});
 				}}
-				className="inline-flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-950/20 px-4 py-2 text-sm font-semibold text-red-100 hover:bg-red-950/30 hover:border-red-400/40 transition"
+				className={
+					variant === "icon"
+						? "inline-flex items-center justify-center rounded-lg border border-red-500/25 bg-red-950/10 p-2 text-red-100 hover:bg-red-950/20 hover:border-red-400/40 transition"
+						: "inline-flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-950/20 px-4 py-2 text-sm font-semibold text-red-100 hover:bg-red-950/30 hover:border-red-400/40 transition"
+				}
+				aria-label={variant === "icon" ? "Delete budget plan" : undefined}
 			>
 				<Trash2 className="h-4 w-4" />
-				Delete budget plan
+				{variant === "icon" ? null : "Delete budget plan"}
 			</button>
 
 			<ConfirmModal
 				open={isOpen}
 				title="Delete budget plan?"
-				description={`This is permanent and cannot be undone. To confirm, type DELETE.`}
+				description={
+					confirmMode === "type"
+						? "This is permanent and cannot be undone. To confirm, type DELETE."
+						: "This is permanent and cannot be undone."
+				}
 				confirmText="Delete"
 				cancelText="Cancel"
 				tone="danger"
@@ -105,21 +121,23 @@ export default function DeleteBudgetPlanButton({
 					</div>
 				) : null}
 
-				<label className="block">
-					<span className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
-						Type DELETE to confirm
-					</span>
-					<input
-						autoFocus
-						value={typed}
-						onChange={(e) => {
-							setTyped(e.target.value);
-							if (error) setError(null);
-						}}
-						placeholder="DELETE"
-						className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white font-semibold placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
-					/>
-				</label>
+				{confirmMode === "type" ? (
+					<label className="block">
+						<span className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
+							Type DELETE to confirm
+						</span>
+						<input
+							autoFocus
+							value={typed}
+							onChange={(e) => {
+								setTyped(e.target.value);
+								if (error) setError(null);
+							}}
+							placeholder="DELETE"
+							className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white font-semibold placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
+						/>
+					</label>
+				) : null}
 				{error && (
 					<p className="mt-3 text-sm text-red-200" role="alert">
 						{error}
