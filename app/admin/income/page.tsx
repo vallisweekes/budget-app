@@ -24,8 +24,18 @@ import IncomeTabs from "./IncomeTabs";
 import AllocationsMonthSaveRow from "./AllocationsMonthSaveRow";
 import ResetAllocationsToDefaultButton from "./ResetAllocationsToDefaultButton";
 import CreateAllowanceButton from "./CreateAllowanceButton";
+import IncomeYearPicker from "./IncomeYearPicker";
+import { monthNumberToKey, monthKeyToNumber } from "@/lib/helpers/monthKey";
 
 export const dynamic = "force-dynamic"; // This line is now active
+
+function isPastMonthForYear(month: MonthKey, year: number, now: Date): boolean {
+	const currentYear = now.getFullYear();
+	if (year < currentYear) return true;
+	if (year > currentYear) return false;
+	const currentMonth = currentMonthKey(now);
+	return monthKeyToNumber(month) < monthKeyToNumber(currentMonth);
+}
 
 export default async function AdminIncomePage(props: {
 	searchParams?: Record<string, string | string[] | undefined> | Promise<Record<string, string | string[] | undefined>>;
@@ -56,8 +66,61 @@ export default async function AdminIncomePage(props: {
 	}
 
 	const budgetPlanId = budgetPlan.id;
-	const income = await getAllIncome(budgetPlanId);
-	const nowMonth = currentMonthKey();
+	const now = new Date();
+	const nowMonth = currentMonthKey(now);
+
+	const yearParam = searchParams.year;
+	const yearCandidate = Array.isArray(yearParam) ? yearParam[0] : yearParam;
+	const requestedYear = typeof yearCandidate === "string" ? Number(yearCandidate) : NaN;
+
+	const incomeYearMonthCoverage = await prisma.income.groupBy({
+		by: ["year", "month"],
+		where: { budgetPlanId },
+		_count: { _all: true },
+	});
+	const expenseYears = await prisma.expense.groupBy({
+		by: ["year"],
+		where: { budgetPlanId },
+		_count: { _all: true },
+	});
+
+	const yearsFromIncome = Array.from(
+		new Set(incomeYearMonthCoverage.map((row) => Number(row.year)).filter((y) => Number.isFinite(y)))
+	);
+	const currentYear = now.getFullYear();
+	const yearsFromExpenses = Array.from(
+		new Set(expenseYears.map((row) => Number(row.year)).filter((y) => Number.isFinite(y)))
+	);
+
+	// Allow browsing historical/future years (e.g., planned expenses), but keep it within a sane window.
+	const MIN_YEAR = currentYear - 50;
+	const MAX_YEAR = currentYear + 20;
+	const yearsRaw = Array.from(new Set([currentYear, currentYear - 1, ...yearsFromIncome, ...yearsFromExpenses]))
+		.filter((y) => Number.isFinite(y) && y >= MIN_YEAR && y <= MAX_YEAR);
+
+	// Desired order: chronological (2025, 2026, 2027 ...).
+	const allYears = yearsRaw.slice().sort((a, b) => a - b);
+
+	const monthsWithIncomeByYear = new Map<number, Set<MonthKey>>();
+	for (const row of incomeYearMonthCoverage) {
+		const set = monthsWithIncomeByYear.get(row.year) ?? new Set<MonthKey>();
+		set.add(monthNumberToKey(row.month));
+		monthsWithIncomeByYear.set(row.year, set);
+	}
+	const missingMonthsByYear: Record<number, MonthKey[]> = {};
+	for (const y of allYears) {
+		const set = monthsWithIncomeByYear.get(y) ?? new Set<MonthKey>();
+		missingMonthsByYear[y] = (MONTHS as MonthKey[]).filter((m) => !set.has(m) && !isPastMonthForYear(m, y, now));
+	}
+	const showYearPicker = allYears.length > 1;
+	const selectedIncomeYear =
+		Number.isFinite(requestedYear) && allYears.includes(requestedYear)
+			? requestedYear
+			: allYears.includes(currentYear)
+				? currentYear
+				: (allYears[0] ?? currentYear);
+
+	const incomeForIncomeTab = await getAllIncome(budgetPlanId, selectedIncomeYear);
 
 	const allocMonthParam = searchParams.month;
 	const allocMonthCandidate = Array.isArray(allocMonthParam) ? allocMonthParam[0] : allocMonthParam;
@@ -65,6 +128,7 @@ export default async function AdminIncomePage(props: {
 		? (String(allocMonthCandidate) as MonthKey)
 		: nowMonth;
 	const allocation = await getMonthlyAllocationSnapshot(budgetPlanId, allocMonth);
+	const incomeForAllocations = await getAllIncome(budgetPlanId, allocation.year);
 	const customAllocations = await getMonthlyCustomAllocationsSnapshot(budgetPlanId, allocMonth, { year: allocation.year });
 	const hasOverridesForAllocMonth =
 		allocation.isOverride || customAllocations.items.some((item) => item.isOverride);
@@ -73,7 +137,7 @@ export default async function AdminIncomePage(props: {
 		MONTHS.map(async (m) => {
 			const alloc = await getMonthlyAllocationSnapshot(budgetPlanId, m);
 			const custom = await getMonthlyCustomAllocationsSnapshot(budgetPlanId, m, { year: alloc.year });
-			const grossIncome = (income[m] ?? []).reduce((sum, item) => sum + (item.amount ?? 0), 0);
+			const grossIncome = (incomeForAllocations[m] ?? []).reduce((sum, item) => sum + (item.amount ?? 0), 0);
 			const fixedTotal =
 				(alloc.monthlyAllowance ?? 0) +
 				(alloc.monthlySavingsContribution ?? 0) +
@@ -94,7 +158,7 @@ export default async function AdminIncomePage(props: {
 		})
 	);
 
-	const grossIncomeForAllocMonth = (income[allocMonth] ?? []).reduce((sum, item) => sum + (item.amount ?? 0), 0);
+	const grossIncomeForAllocMonth = (incomeForAllocations[allocMonth] ?? []).reduce((sum, item) => sum + (item.amount ?? 0), 0);
 	const fixedAllocationsForAllocMonth =
 		(allocation.monthlyAllowance ?? 0) +
 		(allocation.monthlySavingsContribution ?? 0) +
@@ -103,7 +167,7 @@ export default async function AdminIncomePage(props: {
 	const totalAllocationsForAllocMonth = fixedAllocationsForAllocMonth + (customAllocations.total ?? 0);
 	const remainingToBudgetForAllocMonth = grossIncomeForAllocMonth - totalAllocationsForAllocMonth;
 
-	const monthsWithoutIncome = MONTHS.filter((m) => (income[m]?.length ?? 0) === 0);
+	const monthsWithoutIncome = missingMonthsByYear[selectedIncomeYear] ?? [];
 	const hasAvailableMonths = monthsWithoutIncome.length > 0;
 	const defaultMonth: MonthKey =
 		(monthsWithoutIncome.includes(nowMonth) ? nowMonth : monthsWithoutIncome[0]) || nowMonth;
@@ -380,6 +444,13 @@ export default async function AdminIncomePage(props: {
 
 	const incomeView = (
 			<div className="space-y-8">
+				{showYearPicker ? (
+					<div className="flex items-end justify-between gap-3">
+						<div className="text-xs text-slate-400">Viewing income for year</div>
+						<IncomeYearPicker years={allYears} selectedYear={selectedIncomeYear} className="w-40" />
+					</div>
+				) : null}
+
 				{hasAvailableMonths ? (
 					<div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/10 p-8">
 						<div className="flex items-center gap-3 mb-8">
@@ -390,11 +461,12 @@ export default async function AdminIncomePage(props: {
 							</div>
 							<div>
 								<h2 className="text-2xl font-bold text-white">Add Income</h2>
-								<p className="text-slate-400 text-sm">Only shows months that don’t have income yet.</p>
+								<p className="text-slate-400 text-sm">Only shows months that don’t have income yet (Year {selectedIncomeYear}).</p>
 							</div>
 						</div>
 						<form action={addIncomeAction} className="grid grid-cols-1 md:grid-cols-12 gap-4">
 							<input type="hidden" name="budgetPlanId" value={budgetPlanId} />
+							<input type="hidden" name="year" value={selectedIncomeYear} />
 							<label className="md:col-span-3">
 								<span className="block text-sm font-medium text-slate-300 mb-2">Month</span>
 								<SelectDropdown
@@ -437,7 +509,7 @@ export default async function AdminIncomePage(props: {
 										name="distributeYears"
 										className="h-4 w-4 rounded border-white/20 bg-slate-900/60 text-amber-500 focus:ring-amber-500"
 									/>
-									Distribute across all years (all budgets)
+									Distribute across all budgets
 								</label>
 							</div>
 							<div className="md:col-span-1 flex items-end">
@@ -450,12 +522,7 @@ export default async function AdminIncomePage(props: {
 							</div>
 						</form>
 					</div>
-				) : (
-					<div className="rounded-2xl sm:rounded-3xl border border-white/10 bg-slate-800/30 px-4 sm:px-6 py-3 sm:py-5">
-						<div className="text-sm font-semibold text-slate-200">All months already have income</div>
-						<div className="mt-1 text-xs sm:text-sm text-slate-400">Edit current/future months below. Past months are read-only.</div>
-					</div>
-				)}
+				) : null}
 
 				<div className="space-y-4 sm:space-y-6">
 					<div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
@@ -475,7 +542,7 @@ export default async function AdminIncomePage(props: {
 						</div>
 					</div>
 
-					<MonthlyIncomeGrid months={MONTHS} income={income} budgetPlanId={budgetPlanId} />
+					<MonthlyIncomeGrid months={MONTHS} income={incomeForIncomeTab} budgetPlanId={budgetPlanId} year={selectedIncomeYear} />
 				</div>
 			</div>
 		);

@@ -19,6 +19,7 @@ interface IncomeItem {
 }
 
 interface IncomeManagerProps {
+	year: number;
 	month: MonthKey;
 	incomeItems: IncomeItem[];
 	budgetPlanId: string;
@@ -27,15 +28,20 @@ interface IncomeManagerProps {
 }
 
 export default function IncomeManager({
+	year,
 	month,
 	incomeItems,
 	budgetPlanId,
 	onOpen,
 	onClose,
 }: IncomeManagerProps) {
-	const nowMonth = currentMonthKey();
-	const isCurrentMonth = month === nowMonth;
-	const isLocked = monthKeyToNumber(month) < monthKeyToNumber(nowMonth);
+	const now = new Date();
+	const currentYear = now.getFullYear();
+	const nowMonth = currentMonthKey(now);
+	const isCurrentMonth = year === currentYear && month === nowMonth;
+	const isLocked =
+		year < currentYear || (year === currentYear && monthKeyToNumber(month) < monthKeyToNumber(nowMonth));
+	const canAddForMonth = !isLocked && incomeItems.length === 0;
 	const router = useRouter();
 	const [isPending, startTransition] = useTransition();
 	const [editingItemId, setEditingItemId] = useState<string | null>(null);
@@ -65,7 +71,7 @@ export default function IncomeManager({
 	};
 
 	const handleAddClick = () => {
-		if (isLocked) return;
+		if (!canAddForMonth) return;
 		setNewName("");
 		setNewAmount("");
 		setDistributeAllMonths(false);
@@ -75,7 +81,7 @@ export default function IncomeManager({
 	};
 
 	const handleConfirmAdd = () => {
-		if (isLocked) return;
+		if (!canAddForMonth) return;
 		const name = newName.trim();
 		const amount = Number(newAmount);
 		if (!name) return;
@@ -84,6 +90,7 @@ export default function IncomeManager({
 		startTransition(async () => {
 			const formData = new FormData();
 			formData.set("budgetPlanId", budgetPlanId);
+			formData.set("year", String(year));
 			formData.set("month", month);
 			formData.set("name", name);
 			formData.set("amount", String(amount));
@@ -119,6 +126,7 @@ export default function IncomeManager({
 										startTransition(async () => {
 											await updateIncomeItemAction(
 												budgetPlanId,
+												year,
 												month,
 												item.id,
 												editName,
@@ -188,7 +196,7 @@ export default function IncomeManager({
 											>
 												<Pencil className="w-3 h-3" />
 											</button>
-											<DeleteIncomeButton id={item.id} budgetPlanId={budgetPlanId} month={month} />
+											<DeleteIncomeButton id={item.id} budgetPlanId={budgetPlanId} year={year} month={month} />
 										</div>
 									)}
 								</div>
@@ -278,11 +286,11 @@ export default function IncomeManager({
 									isCurrentMonth ? "text-teal-300 focus:ring-teal-300" : "text-purple-500 focus:ring-purple-500"
 								}`}
 							/>
-							All years (all budgets)
+							All budgets
 						</label>
 					</div>
 				</div>
-			) : (
+			) : canAddForMonth ? (
 				<button
 					onClick={handleAddClick}
 					disabled={isPending}
@@ -296,7 +304,7 @@ export default function IncomeManager({
 					<Plus size={16} className="hidden sm:block" />
 					Add Income
 				</button>
-			)}
+			) : null}
 		</div>
 	);
 }

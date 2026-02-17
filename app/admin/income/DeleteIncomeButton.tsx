@@ -10,12 +10,14 @@ import { useRouter } from "next/navigation";
 interface DeleteIncomeButtonProps {
 	id: string;
 	budgetPlanId: string;
+	year: number;
 	month: MonthKey;
 }
 
 export default function DeleteIncomeButton({
 	id,
 	budgetPlanId,
+	year,
 	month,
 }: DeleteIncomeButtonProps) {
 	const router = useRouter();
@@ -24,7 +26,7 @@ export default function DeleteIncomeButton({
 
 	const handleDelete = () => {
 		startTransition(async () => {
-			await removeIncomeAction(budgetPlanId, month, id);
+			await removeIncomeAction(budgetPlanId, year, month, id);
 			setIsOpen(false);
 			router.refresh();
 		});

@@ -24,7 +24,7 @@ function decimalToNumber(value: unknown): number {
 	return Number((value as any).toString?.() ?? value);
 }
 
-async function resolveIncomeYear(budgetPlanId: string): Promise<number> {
+export async function resolveIncomeYear(budgetPlanId: string): Promise<number> {
 	const latest = await prisma.income.findFirst({
 		where: { budgetPlanId },
 		orderBy: [{ year: "desc" }, { month: "desc" }],
@@ -50,8 +50,13 @@ export async function getAllIncome(budgetPlanId: string, year?: number): Promise
   return empty;
 }
 
-export async function addIncome(budgetPlanId: string, month: MonthKey, item: Omit<IncomeItem, "id"> & { id?: string }): Promise<void> {
-  const year = await resolveIncomeYear(budgetPlanId);
+export async function addIncome(
+	budgetPlanId: string,
+	month: MonthKey,
+	item: Omit<IncomeItem, "id"> & { id?: string },
+	yearOverride?: number
+): Promise<void> {
+  const year = typeof yearOverride === "number" && Number.isFinite(yearOverride) ? yearOverride : await resolveIncomeYear(budgetPlanId);
   await prisma.income.create({
     data: {
       budgetPlanId,
@@ -70,9 +75,10 @@ function normalizeIncomeName(name: string): string {
 export async function addOrUpdateIncomeAcrossMonths(
   budgetPlanId: string,
   months: MonthKey[],
-  item: Omit<IncomeItem, "id"> & { id?: string }
+  item: Omit<IncomeItem, "id"> & { id?: string },
+  yearOverride?: number
 ): Promise<void> {
-  const year = await resolveIncomeYear(budgetPlanId);
+  const year = typeof yearOverride === "number" && Number.isFinite(yearOverride) ? yearOverride : await resolveIncomeYear(budgetPlanId);
   const targetMonths = Array.from(new Set(months));
   const targetName = normalizeIncomeName(item.name);
 
@@ -102,16 +108,27 @@ export async function addOrUpdateIncomeAcrossMonths(
   }
 }
 
-export async function updateIncome(budgetPlanId: string, month: MonthKey, id: string, updates: Partial<Omit<IncomeItem, "id">>): Promise<void> {
-	const year = await resolveIncomeYear(budgetPlanId);
+export async function updateIncome(
+  budgetPlanId: string,
+  month: MonthKey,
+  id: string,
+  updates: Partial<Omit<IncomeItem, "id">>,
+  yearOverride?: number
+): Promise<void> {
+  const year = typeof yearOverride === "number" && Number.isFinite(yearOverride) ? yearOverride : await resolveIncomeYear(budgetPlanId);
 	await prisma.income.updateMany({
 		where: { id, budgetPlanId, year, month: monthKeyToNumber(month) },
 		data: updates,
 	});
 }
 
-export async function removeIncome(budgetPlanId: string, month: MonthKey, id: string): Promise<void> {
-	const year = await resolveIncomeYear(budgetPlanId);
+export async function removeIncome(
+  budgetPlanId: string,
+  month: MonthKey,
+  id: string,
+  yearOverride?: number
+): Promise<void> {
+  const year = typeof yearOverride === "number" && Number.isFinite(yearOverride) ? yearOverride : await resolveIncomeYear(budgetPlanId);
 	await prisma.income.deleteMany({
 		where: { id, budgetPlanId, year, month: monthKeyToNumber(month) },
 	});
