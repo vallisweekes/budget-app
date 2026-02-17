@@ -6,7 +6,7 @@ export default function Card({
 	children,
 	className,
 }: {
-	title?: string;
+	title?: ReactNode;
 	titleTooltip?: string;
 	children: ReactNode;
 	className?: string;

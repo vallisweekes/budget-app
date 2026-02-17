@@ -6,7 +6,7 @@ import { formatCurrency } from "@/lib/helpers/money";
 import { formatMonthKeyLabel, monthKeyToNumber } from "@/lib/helpers/monthKey";
 import { updatePaymentStatus as updateExpensePaymentStatus } from "@/lib/expenses/actions";
 import ExpandableCategory from "@/components/ExpandableCategory";
-import { Card } from "@/components/Shared";
+import { Card, InfoTooltip } from "@/components/Shared";
 import { Receipt, Plus } from "lucide-react";
 import Link from "next/link";
 import PaymentInsightsCards from "@/components/Insights/PaymentInsightsCards";
@@ -395,8 +395,15 @@ export default function ViewTabs({
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-3">
         <Card
-          title="Income"
-          titleTooltip="Money left to budget after planned income sacrifice (allowance, savings, emergency fund, investments) and planned debt payments."
+          title={
+            <span className="inline-flex items-center gap-1.5">
+              Income
+              <InfoTooltip
+                ariaLabel="Income info"
+                content="Money left to budget for this month after your planned income sacrifice (allowance, savings contributions, emergency fund, investments) AND your planned debt payments are deducted. This is the pool you still need to assign to spending categories — not your gross income."
+              />
+            </span>
+          }
           className="p-3"
         >
           <div className="flex items-center gap-2">
@@ -409,11 +416,17 @@ export default function ViewTabs({
               </span>
             )}
           </div>
-          <div className="text-xs text-slate-300">after income sacrifice + debt plan</div>
         </Card>
         <Card
-          title="Expenses"
-          titleTooltip="Total expenses recorded for this month."
+          title={
+            <span className="inline-flex items-center gap-1.5">
+              Expenses
+              <InfoTooltip
+                ariaLabel="Expenses info"
+                content="Total expenses recorded for this month across your categories. This includes paid and unpaid items you’ve entered for the month, so it’s a good ‘what you’re actually spending’ number."
+              />
+            </span>
+          }
           className="p-3"
         >
           <div className="flex items-center gap-2">
@@ -428,8 +441,15 @@ export default function ViewTabs({
           </div>
         </Card>
         <Card
-          title="Amount Left"
-          titleTooltip="What remains after expenses: (income after allocations) − expenses."
+          title={
+            <span className="inline-flex items-center gap-1.5">
+              Amount Left
+              <InfoTooltip
+                ariaLabel="Amount left info"
+                content="What remains after expenses: (income left to budget after income sacrifice + debt plan) − (this month’s recorded expenses). If this goes negative, you’re overspending vs your plan."
+              />
+            </span>
+          }
           className="p-3"
         >
           <div className="flex items-center gap-2">
@@ -444,11 +464,17 @@ export default function ViewTabs({
               </span>
             )}
           </div>
-          <div className="text-xs text-slate-300">after expenses</div>
         </Card>
         <Card
-          title="Savings"
-          titleTooltip="Planned savings from income sacrifice for this month, shown as an amount and as a % of gross income."
+          title={
+            <span className="inline-flex items-center gap-1.5">
+              Savings
+              <InfoTooltip
+                ariaLabel="Savings info"
+                content="Planned savings contribution coming from your Income sacrifice setup for this month. Think of this as ‘scheduled savings’ (what you intend to move/save), shown as an amount and a % of gross income."
+              />
+            </span>
+          }
           className="p-3"
         >
           <div className="flex items-center gap-2">
@@ -465,11 +491,17 @@ export default function ViewTabs({
               </span>
             )}
           </div>
-          <div className="text-xs text-slate-300">income sacrifice</div>
         </Card>
         <Card
-          title="Avg/day"
-          titleTooltip="Average spending per day: monthly expenses ÷ days in month."
+          title={
+            <span className="inline-flex items-center gap-1.5">
+              Avg/day
+              <InfoTooltip
+                ariaLabel="Average per day info"
+                content="Average spending per day: (this month’s expenses ÷ days in month). This helps you pace spending; the % compares your average daily spend to your daily budget based on the money left to budget."
+              />
+            </span>
+          }
           className="p-3 col-span-2 lg:col-span-1"
         >
           <div className="flex items-center gap-2">
@@ -488,7 +520,6 @@ export default function ViewTabs({
 				})()
             )}
           </div>
-          <div className="text-xs text-slate-300">{daysInMonth} days</div>
         </Card>
       </div>
 
