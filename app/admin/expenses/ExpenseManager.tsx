@@ -505,9 +505,12 @@ export default function ExpenseManager({
                   </label>
 
             <label className="md:col-span-2 flex items-start gap-3 rounded-2xl border border-white/10 bg-slate-900/30 p-4">
+              {/* Hidden input ensures unchecked sends "false" */}
+              <input type="hidden" name="isAllocation" value="false" />
               <input
                 name="isAllocation"
                 type="checkbox"
+                value="true"
                 checked={editIsAllocation}
                 onChange={(e) => setEditIsAllocation(e.target.checked)}
                 className="mt-1 h-4 w-4 rounded border-white/20 bg-slate-900/40 text-purple-500 focus:ring-purple-500/50"
@@ -870,9 +873,12 @@ export default function ExpenseManager({
             </div>
 
 				<label className="flex items-start gap-3 rounded-2xl border border-white/10 bg-slate-900/30 p-4">
+					{/* Hidden input ensures unchecked sends "false" */}
+					<input type="hidden" name="isAllocation" value="false" />
 					<input
 						name="isAllocation"
 						type="checkbox"
+						value="true"
 						className="mt-1 h-4 w-4 rounded border-white/20 bg-slate-900/60 text-purple-500 focus:ring-purple-500"
 					/>
 					<div className="min-w-0 flex-1">

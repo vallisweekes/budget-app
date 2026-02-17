@@ -10,6 +10,7 @@ import {
   applyExpensePayment,
   setExpensePaymentAmount,
 } from "@/lib/expenses/store";
+import { isNonDebtCategoryName } from "@/lib/expenses/helpers";
 import { MONTHS } from "@/lib/constants/time";
 import type { MonthKey } from "@/types";
 import { getServerSession } from "next-auth/next";
@@ -138,7 +139,19 @@ export async function addExpenseAction(formData: FormData): Promise<void> {
 	const amount = Number(formData.get("amount") || 0);
 	const categoryId = String(formData.get("categoryId") || "") || undefined;
 	const paid = String(formData.get("paid") || "false") === "true";
-  const isAllocation = isTruthyFormValue(formData.get("isAllocation"));
+  let isAllocation = isTruthyFormValue(formData.get("isAllocation"));
+
+	// Auto-mark Food/Transport categories as allocations
+	if (categoryId) {
+		const category = await prisma.category.findUnique({
+			where: { id: categoryId },
+			select: { name: true },
+		});
+		if (category && isNonDebtCategoryName(category.name)) {
+			isAllocation = true;
+		}
+	}
+
 	if (!name || !month) return;
 
 	const distributeMonths = isTruthyFormValue(formData.get("distributeMonths"));
@@ -195,7 +208,19 @@ export async function updateExpenseAction(formData: FormData): Promise<void> {
   const dueDateRaw = formData.get("dueDate");
   const dueDateString = dueDateRaw == null ? undefined : String(dueDateRaw).trim();
   const dueDate = dueDateString && dueDateString !== "" ? dueDateString : undefined;
-	const isAllocation = isTruthyFormValue(formData.get("isAllocation"));
+	let isAllocation = isTruthyFormValue(formData.get("isAllocation"));
+
+	// Auto-mark Food/Transport categories as allocations
+	if (categoryId) {
+		const category = await prisma.category.findUnique({
+			where: { id: categoryId },
+			select: { name: true },
+		});
+		if (category && isNonDebtCategoryName(category.name)) {
+			isAllocation = true;
+		}
+	}
+
   if (!month || !id || !name) return;
 
   const applyRemainingMonths = isTruthyFormValue(formData.get("applyRemainingMonths"));

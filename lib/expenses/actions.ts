@@ -101,6 +101,8 @@ export async function updatePaymentStatus(
 	});
 
 	if (existingDebt) {
+		// When marking as paid, remaining amount = 0 (clears the debt)
+		// When marking as unpaid, recalculate based on original expense amount
 		await upsertExpenseDebt({
 			budgetPlanId,
 			expenseId: updated.expense.id,

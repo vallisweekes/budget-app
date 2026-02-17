@@ -5,32 +5,10 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import { upsertExpenseDebt } from "@/lib/debts/store";
 import { monthNumberToKey } from "@/lib/helpers/monthKey";
+import { isNonDebtCategoryName } from "./helpers";
 import type { MonthKey } from "@/types";
 
 const OVERDUE_GRACE_DAYS = 5;
-
-const NON_DEBT_CATEGORY_NAMES = new Set(
-	[
-		"food and dining",
-		"food & dining",
-		"food",
-		"dining",
-		"transport",
-		"travel",
-		"transport / travel",
-		"transport/travel",
-	]
-		.map((s) => s.toLowerCase())
-);
-
-function isNonDebtCategoryName(name: string | null | undefined): boolean {
-	const normalized = String(name ?? "").trim().toLowerCase();
-	if (!normalized) return false;
-	if (NON_DEBT_CATEGORY_NAMES.has(normalized)) return true;
-	if (normalized.includes("food") && normalized.includes("dining")) return true;
-	if (normalized.includes("transport") || normalized.includes("travel")) return true;
-	return false;
-}
 
 function toLocalDateOnly(value: Date): Date {
 	return new Date(value.getFullYear(), value.getMonth(), value.getDate());
