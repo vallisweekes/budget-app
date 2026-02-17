@@ -149,6 +149,15 @@ export async function getOrCreateBudgetPlanForUser(params: {
 		return created;
 	}
 
+	// Require a Personal plan before creating Holiday/Carnival.
+	const personal = await prisma.budgetPlan.findFirst({
+		where: { userId, kind: "personal" },
+		select: { id: true },
+	});
+	if (!personal) {
+		throw new Error("Personal budget required");
+	}
+
 	// Holiday/Carnival: allow multiple plans.
 	const fallbackName = budgetType === "holiday" ? "Holiday" : "Carnival";
 	const created = await prisma.budgetPlan.create({

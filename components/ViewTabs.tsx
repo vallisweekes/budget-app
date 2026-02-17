@@ -12,6 +12,21 @@ import Link from "next/link";
 import PaymentInsightsCards from "@/components/Insights/PaymentInsightsCards";
 import PieCategories from "@/components/PieCategories";
 import type { PreviousMonthRecap, UpcomingPayment, RecapTip } from "@/lib/expenses/insights";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Tooltip,
+  Filler,
+  Legend,
+  type ChartOptions,
+  type ScriptableContext,
+} from "chart.js";
+import { Line } from "react-chartjs-2";
+
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler, Legend);
 
 type GoalLike = {
   id: string;
@@ -33,14 +48,29 @@ type CategoryDataItem = {
   expenses: ExpenseItem[];
 };
 
+type TabKey = "personal" | "holiday" | "carnival";
+
 type BudgetPlan = {
   id: string;
   name: string;
-  kind: string;
+  kind: TabKey | string;
   payDate: number;
+  budgetHorizonYears?: number;
+  createdAt?: string;
 };
 
-type TabKey = "personal" | "holiday" | "carnival";
+type BudgetPlanData = {
+  categoryData: CategoryDataItem[];
+  totalIncome: number;
+  totalAllocations: number;
+  plannedDebtPayments: number;
+  plannedSavingsContribution: number;
+  plannedEmergencyContribution: number;
+  incomeAfterAllocations: number;
+  totalExpenses: number;
+  remaining: number;
+  goals: GoalLike[];
+};
 
 type ViewTabsProps = {
   budgetPlanId: string;
@@ -48,36 +78,62 @@ type ViewTabsProps = {
   categoryData: CategoryDataItem[];
   regularExpenses: ExpenseItem[];
   totalIncome: number;
-  totalAllocations?: number;
-  plannedDebtPayments?: number;
-  plannedSavingsContribution?: number;
-  incomeAfterAllocations?: number;
+  totalAllocations: number;
+  plannedDebtPayments: number;
+  plannedSavingsContribution: number;
+  plannedEmergencyContribution: number;
+  incomeAfterAllocations: number;
   totalExpenses: number;
   remaining: number;
   debts: DebtItem[];
   totalDebtBalance: number;
   goals: GoalLike[];
   incomeMonthsCoverageByPlan?: Record<string, number>;
-  allPlansData?: Record<string, {
-    categoryData: CategoryDataItem[];
-    totalIncome: number;
-    totalAllocations?: number;
-    plannedDebtPayments?: number;
-    plannedSavingsContribution?: number;
-    incomeAfterAllocations?: number;
-    totalExpenses: number;
-    remaining: number;
-    goals: GoalLike[];
-  }>;
-	expenseInsights?: {
-		recap: PreviousMonthRecap;
-		upcoming: UpcomingPayment[];
+  allPlansData?: Record<string, BudgetPlanData>;
+  expenseInsights?: {
+    recap: PreviousMonthRecap;
+    upcoming: UpcomingPayment[];
     recapTips?: RecapTip[];
-	};
+  };
+};
+
+type GoalsSubTabKey = "overview" | "projection";
+
+type MonthlyAssumptions = {
+  savings: number;
+  emergency: number;
 };
 
 function Currency({ value }: { value: number }) {
-  return <span>{formatCurrency(value)}</span>;
+	return <span>{formatCurrency(value)}</span>;
+}
+
+function formatCurrencyCompact(value: number): string {
+  try {
+    return new Intl.NumberFormat("en-GB", {
+      style: "currency",
+      currency: "GBP",
+      notation: "compact",
+      compactDisplay: "short",
+      maximumFractionDigits: 0,
+      minimumFractionDigits: 0,
+    }).format(Math.round(value));
+  } catch {
+    return formatCurrency(Math.round(value));
+  }
+}
+
+function formatCurrencyWhole(value: number): string {
+	try {
+		return new Intl.NumberFormat("en-GB", {
+			style: "currency",
+			currency: "GBP",
+			maximumFractionDigits: 0,
+			minimumFractionDigits: 0,
+		}).format(Math.round(value));
+	} catch {
+		return formatCurrency(Math.round(value));
+	}
 }
 
 function monthDisplayLabel(month: MonthKey): string {
@@ -99,6 +155,7 @@ export default function ViewTabs({
   totalAllocations,
   plannedDebtPayments,
   plannedSavingsContribution,
+	plannedEmergencyContribution,
   incomeAfterAllocations,
   totalExpenses,
   remaining,
@@ -111,6 +168,7 @@ export default function ViewTabs({
   const [budgetPlans, setBudgetPlans] = useState<BudgetPlan[]>([]);
   const [activeTab, setActiveTab] = useState<TabKey>("personal");
   const [showExpenseDetails, setShowExpenseDetails] = useState(false);
+	const [goalsSubTab, setGoalsSubTab] = useState<GoalsSubTabKey>("overview");
 
   useEffect(() => {
     (async () => {
@@ -122,9 +180,12 @@ export default function ViewTabs({
           const normalizedPlans = data.plans.map((p) => {
             const rawPayDate = (p as unknown as { payDate?: unknown }).payDate;
             const parsedPayDate = typeof rawPayDate === "number" ? rawPayDate : Number(rawPayDate);
+				const rawHorizon = (p as unknown as { budgetHorizonYears?: unknown }).budgetHorizonYears;
+				const parsedHorizon = typeof rawHorizon === "number" ? rawHorizon : Number(rawHorizon);
             return {
               ...p,
               payDate: Number.isFinite(parsedPayDate) && parsedPayDate > 0 ? parsedPayDate : 27,
+				budgetHorizonYears: Number.isFinite(parsedHorizon) && parsedHorizon > 0 ? parsedHorizon : undefined,
             };
           });
 
@@ -192,12 +253,13 @@ export default function ViewTabs({
       totalAllocations,
       plannedDebtPayments,
       plannedSavingsContribution,
+      plannedEmergencyContribution,
       incomeAfterAllocations,
       totalExpenses,
       remaining,
       goals,
     };
-  }, [allPlansData, budgetPlanId, categoryData, goals, incomeAfterAllocations, plannedDebtPayments, remaining, totalAllocations, totalExpenses, totalIncome]);
+  }, [allPlansData, budgetPlanId, categoryData, goals, incomeAfterAllocations, plannedDebtPayments, plannedEmergencyContribution, plannedSavingsContribution, remaining, totalAllocations, totalExpenses, totalIncome]);
 
   // Combine data for all plans in active tab (with a safe fallback for initial render)
   const combinedData = useMemo(() => {
@@ -219,6 +281,7 @@ export default function ViewTabs({
         remaining: fallbackPlanData.remaining,
         amountLeftToBudget: leftToBudget,
         plannedSavingsContribution: fallbackPlanData.plannedSavingsContribution ?? 0,
+        plannedEmergencyContribution: fallbackPlanData.plannedEmergencyContribution ?? 0,
         categoryTotals: fallbackPlanData.categoryData.map((c) => ({
           name: c.name,
           total: c.total,
@@ -235,6 +298,7 @@ export default function ViewTabs({
     let plannedDebtTotal = 0;
     let leftToBudgetTotal = 0;
     let plannedSavingsTotal = 0;
+    let plannedEmergencyTotal = 0;
     let combinedGoals: GoalLike[] = [];
     const categoryTotals: Record<string, { total: number; color?: string }> = {};
     const flattenedExpenses: ExpenseItem[] = [];
@@ -248,6 +312,7 @@ export default function ViewTabs({
       allocationsTotal += planData.totalAllocations ?? 0;
       plannedDebtTotal += planData.plannedDebtPayments ?? 0;
       plannedSavingsTotal += planData.plannedSavingsContribution ?? 0;
+      plannedEmergencyTotal += planData.plannedEmergencyContribution ?? 0;
       leftToBudgetTotal +=
         typeof planData.incomeAfterAllocations === "number"
           ? planData.incomeAfterAllocations
@@ -273,6 +338,7 @@ export default function ViewTabs({
       remaining: totalInc - totalExp,
       amountLeftToBudget: leftToBudgetTotal,
       plannedSavingsContribution: plannedSavingsTotal,
+      plannedEmergencyContribution: plannedEmergencyTotal,
       categoryTotals: Object.entries(categoryTotals).map(([name, v]) => ({
         name,
         total: v.total,
@@ -282,6 +348,203 @@ export default function ViewTabs({
       flattenedExpenses,
     };
   }, [activePlans, allPlansData, fallbackPlanData]);
+
+  const activePlansMeta = useMemo(() => {
+    if (budgetPlans.length === 0) return [];
+    const ids = new Set((activePlans.length > 0 ? activePlans : [{ id: budgetPlanId }]).map((p) => p.id));
+    return budgetPlans.filter((p) => ids.has(p.id));
+  }, [activePlans, budgetPlanId, budgetPlans]);
+
+  const projectionHorizonYears = useMemo(() => {
+    const horizons = activePlansMeta
+      .map((p) => (typeof p.budgetHorizonYears === "number" ? p.budgetHorizonYears : undefined))
+      .filter((n): n is number => typeof n === "number" && Number.isFinite(n) && n > 0);
+    if (horizons.length === 0) return 10;
+    return Math.max(...horizons);
+  }, [activePlansMeta]);
+
+  const defaultMonthlySavings = combinedData.plannedSavingsContribution ?? 0;
+  const defaultMonthlyEmergency = combinedData.plannedEmergencyContribution ?? 0;
+
+  const [assumptionsByTab, setAssumptionsByTab] = useState<Partial<Record<TabKey, MonthlyAssumptions>>>({});
+
+  const monthlyAssumptions = useMemo<MonthlyAssumptions>(() => {
+    const existing = assumptionsByTab[resolvedActiveTab];
+    if (existing) {
+      return {
+        savings: existing.savings,
+        emergency: existing.emergency,
+      };
+    }
+    return {
+      savings: defaultMonthlySavings,
+      emergency: defaultMonthlyEmergency,
+    };
+  }, [assumptionsByTab, defaultMonthlyEmergency, defaultMonthlySavings, resolvedActiveTab]);
+
+  const goalsProjection = useMemo(() => {
+    const monthlySavings = Math.max(0, monthlyAssumptions.savings);
+    const monthlyEmergency = Math.max(0, monthlyAssumptions.emergency);
+
+    const startingSavings = combinedData.goals
+      .filter((g) => g.category === "savings")
+      .reduce((sum, g) => sum + (g.currentAmount ?? 0), 0);
+    const startingEmergency = combinedData.goals
+      .filter((g) => g.category === "emergency")
+      .reduce((sum, g) => sum + (g.currentAmount ?? 0), 0);
+
+    const monthsToProject = Math.max(1, Math.min(12 * projectionHorizonYears, 12 * 30));
+    let savings = startingSavings;
+    let emergency = startingEmergency;
+    const points: Array<{ t: number; savings: number; emergency: number; total: number }> = [
+      { t: 0, savings, emergency, total: savings + emergency },
+    ];
+
+    for (let i = 1; i <= monthsToProject; i += 1) {
+      savings += monthlySavings;
+      emergency += monthlyEmergency;
+      points.push({ t: i, savings, emergency, total: savings + emergency });
+    }
+
+    return {
+      startingSavings,
+      startingEmergency,
+      monthlySavings,
+      monthlyEmergency,
+      points,
+    };
+  }, [combinedData.goals, monthlyAssumptions.emergency, monthlyAssumptions.savings, projectionHorizonYears]);
+
+  const goalsOverviewCount = useMemo(() => {
+    return combinedData.goals.filter((g) => g.title !== "Pay Back Debts").length;
+  }, [combinedData.goals]);
+
+  const shouldShowGoalsCard = useMemo(() => {
+    const hasGoals = goalsOverviewCount > 0;
+    const hasProjectionSignal =
+      goalsProjection.startingSavings > 0 ||
+      goalsProjection.startingEmergency > 0 ||
+      goalsProjection.monthlySavings > 0 ||
+      goalsProjection.monthlyEmergency > 0;
+    return hasGoals || hasProjectionSignal;
+  }, [goalsOverviewCount, goalsProjection.monthlyEmergency, goalsProjection.monthlySavings, goalsProjection.startingEmergency, goalsProjection.startingSavings]);
+
+  const setSavingsAssumption = (raw: string) => {
+    const next = raw.trim() === "" ? 0 : Number.parseInt(raw, 10);
+    const value = Number.isFinite(next) ? Math.max(0, next) : 0;
+    setAssumptionsByTab((prev) => {
+      return {
+        ...prev,
+        [resolvedActiveTab]: {
+          savings: value,
+          emergency: prev[resolvedActiveTab]?.emergency ?? defaultMonthlyEmergency,
+        },
+      };
+    });
+  };
+
+  const setEmergencyAssumption = (raw: string) => {
+    const next = raw.trim() === "" ? 0 : Number.parseInt(raw, 10);
+    const value = Number.isFinite(next) ? Math.max(0, next) : 0;
+    setAssumptionsByTab((prev) => {
+      return {
+        ...prev,
+        [resolvedActiveTab]: {
+          savings: prev[resolvedActiveTab]?.savings ?? defaultMonthlySavings,
+          emergency: value,
+        },
+      };
+    });
+  };
+
+  const projectionChart = useMemo(() => {
+    const pts = goalsProjection.points;
+    if (pts.length < 2) return null;
+
+    const labels = pts.map((p) => String(p.t));
+    const savingsSeries = pts.map((p) => p.savings);
+    const emergencySeries = pts.map((p) => p.emergency);
+
+    const maxVal = Math.max(...pts.map((p) => Math.max(p.savings, p.emergency)), 1);
+    const suggestedMax = Math.ceil(maxVal / 1000) * 1000;
+
+    const data = {
+      labels,
+      datasets: [
+        {
+          label: "Savings",
+          data: savingsSeries,
+          borderColor: "rgba(52, 211, 153, 0.95)",
+          backgroundColor: "rgba(52, 211, 153, 0.18)",
+          fill: true,
+          tension: 0.2,
+          borderWidth: 4,
+          pointRadius: (ctx: ScriptableContext<"line">) => (ctx.dataIndex === pts.length - 1 ? 4 : 0),
+          pointHoverRadius: 5,
+        },
+        {
+          label: "Emergency",
+          data: emergencySeries,
+          borderColor: "rgba(56, 189, 248, 0.95)",
+          backgroundColor: "rgba(56, 189, 248, 0.14)",
+          fill: true,
+          tension: 0.2,
+          borderWidth: 4,
+          pointRadius: (ctx: ScriptableContext<"line">) => (ctx.dataIndex === pts.length - 1 ? 4 : 0),
+          pointHoverRadius: 5,
+        },
+      ],
+    };
+
+    const options: ChartOptions<"line"> = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          enabled: true,
+          mode: "index",
+          intersect: false,
+          callbacks: {
+            title: (items) => {
+              const raw = items?.[0]?.label;
+              const monthIndex = raw ? Number(raw) : 0;
+              return `Month +${Number.isFinite(monthIndex) ? monthIndex : 0}`;
+            },
+            label: (item) => `${item.dataset.label}: ${formatCurrencyWhole(item.parsed.y ?? 0)}`,
+          },
+        },
+      },
+      interaction: { mode: "index", intersect: false },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: {
+            color: "rgba(226, 232, 240, 0.6)",
+            maxRotation: 0,
+            autoSkip: true,
+            maxTicksLimit: 6,
+            callback: (_value, index) => {
+              if (index === 0) return "Now";
+              if (index === pts.length - 1) return `+${pts.length - 1}m`;
+              return "";
+            },
+          },
+        },
+        y: {
+          beginAtZero: true,
+          suggestedMax,
+          grid: { color: "rgba(255,255,255,0.10)" },
+          ticks: {
+            color: "rgba(226, 232, 240, 0.65)",
+            callback: (val) => formatCurrencyCompact(Number(val)),
+          },
+        },
+      },
+    };
+
+    return { data, options, maxVal: suggestedMax };
+  }, [goalsProjection.points]);
 
   const topCategories = useMemo(() => {
     return [...combinedData.categoryTotals]
@@ -584,11 +847,33 @@ export default function ViewTabs({
             )}
 
             <div className="grid grid-cols-2 gap-2">
-            <Card title="Debt" className="p-3 bg-white/5">
+            <Card
+              title={
+                <span className="inline-flex items-center gap-1.5">
+                  Debt
+                  <InfoTooltip
+                    ariaLabel="Debt total info"
+                    content="Sum of your current outstanding debt balances for this plan (excluding fully paid debts)."
+                  />
+                </span>
+              }
+              className="p-3 bg-white/5"
+            >
               <div className="text-base font-bold"><Currency value={totalDebtBalance} /></div>
               <div className="text-xs text-slate-300">this plan</div>
             </Card>
-            <Card title="Goals" className="p-3 bg-white/5">
+            <Card
+              title={
+                <span className="inline-flex items-center gap-1.5">
+                  Goals
+                  <InfoTooltip
+                    ariaLabel="Goals count info"
+                    content="Number of active goals on this plan (excluding the special 'Pay Back Debts' goal)."
+                  />
+                </span>
+              }
+              className="p-3 bg-white/5"
+            >
               <div className="text-base font-bold">{combinedData.goals.filter((g) => g.title !== "Pay Back Debts").length}</div>
               <div className="text-xs text-slate-300">active</div>
             </Card>
@@ -597,7 +882,7 @@ export default function ViewTabs({
         </Card>
       </div>
 
-      {combinedData.goals.filter((g) => g.title !== "Pay Back Debts").length > 0 ? (
+      {shouldShowGoalsCard ? (
         <Card title={undefined}>
           <div className="space-y-3">
             <div className="inline-flex">
@@ -608,40 +893,189 @@ export default function ViewTabs({
                 Goals
               </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {combinedData.goals
-              .filter((g) => g.title !== "Pay Back Debts")
-              .slice(0, 2)
-              .map((g) => {
-                const target = g.targetAmount ?? 0;
-                const current = g.currentAmount ?? 0;
-                const progress = target > 0 ? Math.min(1, current / target) : 0;
-                return (
-                  <div key={g.id} className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                    <div className="font-semibold text-white truncate">{g.title}</div>
-                    {target > 0 ? (
-                      <>
-                        <div className="mt-2 flex items-center justify-between text-sm text-slate-200">
-                          <span><Currency value={current} /></span>
-                          <span><Currency value={target} /></span>
-                        </div>
-                        <div className="mt-2 h-2 rounded-full bg-white/10 overflow-hidden">
-                          <div
-                            className="h-2 rounded-full bg-gradient-to-r from-emerald-400 to-green-500"
-                            style={{ width: `${progress * 100}%` }}
-                          />
-                        </div>
-                      </>
-                    ) : (
-                      <div className="mt-2 text-sm text-slate-300">No target amount set</div>
-                    )}
-                    {g.targetYear ? (
-                      <div className="mt-2 text-xs text-slate-400">Target year: {g.targetYear}</div>
-                    ) : null}
-                  </div>
-                );
-              })}
+      <div className="flex items-center justify-between gap-3">
+        <div className="inline-flex rounded-full border border-white/10 bg-white/5 p-1">
+          <button
+            type="button"
+            onClick={() => setGoalsSubTab("overview")}
+            className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors ${
+              goalsSubTab === "overview" ? "bg-white text-slate-900" : "text-slate-200 hover:text-white"
+            }`}
+          >
+            Overview
+          </button>
+          <button
+            type="button"
+            onClick={() => setGoalsSubTab("projection")}
+            className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors ${
+              goalsSubTab === "projection" ? "bg-white text-slate-900" : "text-slate-200 hover:text-white"
+            }`}
+          >
+            Projection
+          </button>
+        </div>
+
+        <div className="text-xs text-slate-400 inline-flex items-center gap-1.5">
+          <span>{projectionHorizonYears}y</span>
+          <InfoTooltip
+            ariaLabel="Projection info"
+            content="Projection uses your monthly assumptions for Savings/Emergency (per month) starting from the current month. Horizon uses the longest budget horizon across the selected budget(s)."
+          />
+        </div>
+      </div>
+
+      {goalsSubTab === "overview" ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {combinedData.goals
+            .filter((g) => g.title !== "Pay Back Debts")
+            .slice(0, 2)
+            .map((g) => {
+              const target = g.targetAmount ?? 0;
+              const current = g.currentAmount ?? 0;
+              const progress = target > 0 ? Math.min(1, current / target) : 0;
+              return (
+                <div key={g.id} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <div className="font-semibold text-white truncate">{g.title}</div>
+                  {target > 0 ? (
+                    <>
+                      <div className="mt-2 flex items-center justify-between text-sm text-slate-200">
+                        <span>
+                          <Currency value={current} />
+                        </span>
+                        <span>
+                          <Currency value={target} />
+                        </span>
+                      </div>
+                      <div className="mt-2 h-2 rounded-full bg-white/10 overflow-hidden">
+                        <div
+                          className="h-2 rounded-full bg-gradient-to-r from-emerald-400 to-green-500"
+                          style={{ width: `${progress * 100}%` }}
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="mt-2 text-sm text-slate-300">No target amount set</div>
+                  )}
+                  {g.targetYear ? (
+                    <div className="mt-2 text-xs text-slate-400">Target year: {g.targetYear}</div>
+                  ) : null}
+                </div>
+              );
+            })}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <Card
+              title={
+                <div className="inline-flex items-center gap-1.5">
+                  <span>Savings</span>
+                  <InfoTooltip
+                    ariaLabel="Savings projection info"
+                    content="Savings projection starts from your current Savings goal amount and adds your monthly Savings assumption each month."
+                  />
+                </div>
+              }
+              className="p-3 bg-white/5"
+            >
+        <div className="space-y-2">
+          <div>
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-sm text-slate-300">Now</div>
+              <div className="text-base font-bold text-white">
+                {formatCurrencyWhole(goalsProjection.startingSavings)}
+              </div>
             </div>
+          </div>
+          <div>
+            <div className="text-sm text-slate-300">Assumption</div>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                step={50}
+                value={Number.isFinite(monthlyAssumptions.savings) ? monthlyAssumptions.savings : 0}
+                onChange={(e) => setSavingsAssumption(e.target.value)}
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-white/20"
+                aria-label="Monthly savings assumption"
+              />
+              <span className="text-xs text-slate-400 whitespace-nowrap">/ month</span>
+            </div>
+          </div>
+        </div>
+            </Card>
+            <Card
+              title={
+                <div className="inline-flex items-center gap-1.5">
+                  <span>Emergency</span>
+                  <InfoTooltip
+                    ariaLabel="Emergency projection info"
+                    content="Emergency projection starts from your current Emergency fund goal amount and adds your monthly Emergency assumption each month."
+                  />
+                </div>
+              }
+              className="p-3 bg-white/5"
+            >
+        <div className="space-y-2">
+          <div>
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-sm text-slate-300">Now</div>
+              <div className="text-base font-bold text-white">
+                {formatCurrencyWhole(goalsProjection.startingEmergency)}
+              </div>
+            </div>
+          </div>
+          <div>
+            <div className="text-sm text-slate-300">Assumption</div>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                step={50}
+                value={Number.isFinite(monthlyAssumptions.emergency) ? monthlyAssumptions.emergency : 0}
+                onChange={(e) => setEmergencyAssumption(e.target.value)}
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-white/20"
+                aria-label="Monthly emergency assumption"
+              />
+              <span className="text-xs text-slate-400 whitespace-nowrap">/ month</span>
+            </div>
+          </div>
+        </div>
+            </Card>
+          </div>
+
+          {projectionChart ? (
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-sm font-semibold text-white">Over time</div>
+                <div className="flex items-center gap-3 text-xs text-slate-300">
+                  <span className="inline-flex items-center gap-1">
+                    <span className="inline-block h-2 w-2 rounded-full bg-emerald-400" /> Savings
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <span className="inline-block h-2 w-2 rounded-full bg-sky-400" /> Emergency
+                  </span>
+                </div>
+              </div>
+        <div className="mt-2 text-xs text-slate-300">
+          <span className="text-slate-400">End of horizon:</span>{" "}
+          Savings <span className="text-white">{formatCurrencyWhole(goalsProjection.points[goalsProjection.points.length - 1]?.savings ?? 0)}</span>
+          <span className="text-slate-500"> · </span>
+          Emergency <span className="text-white">{formatCurrencyWhole(goalsProjection.points[goalsProjection.points.length - 1]?.emergency ?? 0)}</span>
+        </div>
+        <div className="mt-3 h-56 w-full">
+          <Line data={projectionChart.data} options={projectionChart.options} />
+        </div>
+        <div className="mt-2 text-xs text-slate-400">Scale max: <Currency value={projectionChart.maxVal} /></div>
+            </div>
+          ) : (
+			<div className="text-sm text-slate-300">Add an assumption to see a projection.</div>
+          )}
+
+        </div>
+      )}
             <div className="flex justify-end">
               <Link href="/admin/goals" className="text-sm font-medium text-white/90 hover:text-white">
                 Goals Overview

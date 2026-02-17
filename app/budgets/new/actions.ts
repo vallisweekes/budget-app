@@ -16,9 +16,25 @@ export async function createBudgetPlanAction(formData: FormData) {
 	const budgetTypeRaw = String(formData.get("budgetType") ?? "personal").trim().toLowerCase();
 	const budgetType = isSupportedBudgetType(budgetTypeRaw) ? budgetTypeRaw : "personal";
 	const planName = String(formData.get("planName") ?? "").trim();
+	const returnToRaw = String(formData.get("returnTo") ?? "").trim();
+	const returnTo = returnToRaw.startsWith("/") ? returnToRaw : "";
 
 	const userId = await resolveUserId({ userId: sessionUser.id, username });
-	const plan = await getOrCreateBudgetPlanForUser({ userId, username, budgetType, planName });
-
-	redirect(`/user=${encodeURIComponent(username)}/${encodeURIComponent(plan.id)}`);
+	try {
+		const plan = await getOrCreateBudgetPlanForUser({ userId, username, budgetType, planName });
+		if (returnTo) {
+			redirect(returnTo);
+		}
+		redirect(`/user=${encodeURIComponent(username)}/${encodeURIComponent(plan.id)}`);
+	} catch (e) {
+		const message = (e as { message?: string } | null)?.message ?? "";
+		if (message.includes("Personal budget required")) {
+			redirect(
+				`/user=${encodeURIComponent(username)}/${encodeURIComponent(userId)}/budgets/new?type=personal&error=personal_required${
+					returnTo ? `&returnTo=${encodeURIComponent(returnTo)}` : ""
+				}`
+			);
+		}
+		throw e;
+	}
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { Home, DollarSign, CreditCard, Target, Settings, Banknote } from "lucide-react";
 import { currentMonthKey } from "@/lib/helpers/monthKey";
 
@@ -12,6 +12,12 @@ function parseUserScopedPath(pathname: string): { username: string; budgetPlanId
 	const budgetPlanId = decodeURIComponent(m[2] ?? "");
 	if (!username || !budgetPlanId) return null;
 	return { username, budgetPlanId };
+}
+
+function isUserOnboardingNewBudget(pathname: string): boolean {
+	if (!pathname.startsWith("/user=")) return false;
+	const parts = pathname.split("/").filter(Boolean);
+	return parts[2] === "budgets" && parts[3] === "new";
 }
 
 function getActiveUserPage(pathname: string): string {
@@ -29,8 +35,12 @@ function getActiveUserPage(pathname: string): string {
 
 export default function MobileBottomNav() {
 	const pathname = usePathname();
-	const scoped = parseUserScopedPath(pathname);
-	const activePage = getActiveUserPage(pathname);
+	const searchParams = useSearchParams();
+	const onboardingNewBudget = isUserOnboardingNewBudget(pathname);
+	const returnToFromQuery = (searchParams.get("returnTo") ?? "").trim();
+	const scopedFromReturnTo = returnToFromQuery ? parseUserScopedPath(returnToFromQuery) : null;
+	const scoped = onboardingNewBudget ? scopedFromReturnTo : parseUserScopedPath(pathname);
+	const activePage = onboardingNewBudget && returnToFromQuery ? getActiveUserPage(returnToFromQuery) : getActiveUserPage(pathname);
 
 	// Don't show on splash page
 	if (pathname === "/") return null;

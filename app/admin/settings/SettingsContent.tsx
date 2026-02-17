@@ -79,6 +79,10 @@ export default function SettingsContent({
 		return "nord-mint";
 	});
 
+	const hasPersonalPlan = useMemo(() => {
+		return allPlans.some((p) => String(p.kind).toLowerCase() === "personal");
+	}, [allPlans]);
+
 	const payDateLabel = useMemo(() => {
 		const d = Math.max(1, Math.min(31, Number(settings.payDate ?? 1)));
 		const mod10 = d % 10;
@@ -862,12 +866,56 @@ export default function SettingsContent({
 								<div className="flex items-center justify-between gap-4 mb-5">
 									<div>
 										<h2 className="text-2xl font-bold text-white">Budget Plans</h2>
-										<p className="text-slate-400 text-sm">Manage your budget plans (Personal, Holiday, Carnival)</p>
+													<p className="text-slate-400 text-sm">Manage your budget plans</p>
 									</div>
 								</div>
 
 								<div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/10 p-8">
 									<div className="space-y-4">
+													{hasPersonalPlan ? (
+														<div className="rounded-2xl border border-white/10 bg-slate-950/20 p-4">
+															<div className="text-sm font-semibold text-slate-200">Add another plan</div>
+															<div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+																<a
+																	href={`/user=${encodeURIComponent(sessionUser.name || "")}/${encodeURIComponent(
+																		sessionUser.id || ""
+																	)}/budgets/new?type=holiday&returnTo=${encodeURIComponent(settingsBasePath + "/plans")}`}
+																	className="block w-full rounded-xl bg-white/10 px-4 py-2 text-center text-sm font-semibold text-white hover:bg-white/15"
+																>
+																	+ Create Holiday plan
+																</a>
+																<a
+																	href={`/user=${encodeURIComponent(sessionUser.name || "")}/${encodeURIComponent(
+																		sessionUser.id || ""
+																	)}/budgets/new?type=carnival&returnTo=${encodeURIComponent(settingsBasePath + "/plans")}`}
+																	className="block w-full rounded-xl bg-white/10 px-4 py-2 text-center text-sm font-semibold text-white hover:bg-white/15"
+																>
+																	+ Create Carnival plan
+																</a>
+															</div>
+															<div className="mt-2 text-xs text-slate-400">
+																You can only create Holiday/Carnival once a Personal plan exists.
+														</div>
+													</div>
+												) : (
+														<div className="rounded-2xl border border-white/10 bg-slate-950/20 p-4">
+															<div className="text-sm font-semibold text-slate-200">Unlock Holiday & Carnival</div>
+															<div className="mt-2 text-sm text-slate-300">
+																Create your Personal plan first, then you’ll be able to add Holiday/Carnival budgets.
+															</div>
+															<div className="mt-3">
+																<a
+																	href={`/user=${encodeURIComponent(sessionUser.name || "")}/${encodeURIComponent(
+																		sessionUser.id || ""
+																	)}/budgets/new?type=personal&returnTo=${encodeURIComponent(settingsBasePath + "/plans")}`}
+																	className="inline-flex items-center justify-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500"
+																>
+																	Create Personal plan
+																</a>
+															</div>
+													</div>
+												)}
+
 										{allPlans.map((plan) => (
 											<div
 												key={plan.id}
@@ -897,14 +945,16 @@ export default function SettingsContent({
 											</div>
 										)}
 										
-										{allPlans.length < 3 && (
-											<a
-												href={`/user=${encodeURIComponent(sessionUser.name || "")}/${encodeURIComponent(sessionUser.id || "")}/budgets/new`}
-												className="block w-full bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-xl py-3 font-semibold text-center shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all"
-											>
-												+ Add New Plan
-											</a>
-										)}
+													{allPlans.length < 3 && (
+														<a
+															href={`/user=${encodeURIComponent(sessionUser.name || "")}/${encodeURIComponent(sessionUser.id || "")}/budgets/new?returnTo=${encodeURIComponent(
+																settingsBasePath + "/plans"
+															)}`}
+															className="block w-full bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-xl py-3 font-semibold text-center shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all"
+														>
+															+ Create another budget
+														</a>
+													)}
 									</div>
 								</div>
 							</section>

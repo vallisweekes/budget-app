@@ -19,6 +19,8 @@ export async function GET() {
 			id: p.id,
 			name: p.name,
 			kind: p.kind,
+			payDate: p.payDate,
+			budgetHorizonYears: p.budgetHorizonYears,
 			createdAt: p.createdAt,
 		})),
 	});

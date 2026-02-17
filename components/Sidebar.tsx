@@ -15,6 +15,12 @@ function parseUserScopedPath(pathname: string): { username: string; budgetPlanId
 	return { username, budgetPlanId };
 }
 
+function isUserOnboardingNewBudget(pathname: string): boolean {
+	if (!pathname.startsWith("/user=")) return false;
+	const parts = pathname.split("/").filter(Boolean);
+	return parts[2] === "budgets" && parts[3] === "new";
+}
+
 function getActiveUserPage(pathname: string): string {
 	if (!pathname.startsWith("/user=")) return "";
 	// Supports both /<page> and /page=<page>
@@ -35,7 +41,11 @@ export default function Sidebar() {
 	const { data: session } = useSession();
 	const sessionUsername = session?.user?.username ?? session?.user?.name;
 
-	const scoped = parseUserScopedPath(pathname);
+	const onboardingNewBudget = isUserOnboardingNewBudget(pathname);
+	const scopedFromPath = parseUserScopedPath(pathname);
+	const returnToFromQuery = (searchParams.get("returnTo") ?? "").trim();
+	const scopedFromReturnTo = returnToFromQuery ? parseUserScopedPath(returnToFromQuery) : null;
+	const scoped = onboardingNewBudget ? scopedFromReturnTo : scopedFromPath;
 	const planFromQuery = searchParams.get("plan")?.trim() || "";
 
 	const baseHref = scoped
@@ -43,7 +53,16 @@ export default function Sidebar() {
 		: sessionUsername && planFromQuery
 			? `/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(planFromQuery)}`
 			: "/";
-	const activePage = getActiveUserPage(pathname);
+	let activePage = getActiveUserPage(pathname);
+	if (onboardingNewBudget) {
+		const nav = (searchParams.get("nav") ?? "").trim().toLowerCase();
+		if (nav) {
+			activePage = nav;
+		} else if (returnToFromQuery) {
+			const fromReturnTo = getActiveUserPage(returnToFromQuery);
+			if (fromReturnTo) activePage = fromReturnTo;
+		}
+	}
 	const defaultYear = new Date().getFullYear();
 	const defaultMonth = currentMonthKey();
 	const expensesHref = `${baseHref}/page=expenses?year=${encodeURIComponent(String(defaultYear))}&month=${encodeURIComponent(
