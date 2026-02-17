@@ -243,6 +243,31 @@ export async function updateExpenseAction(formData: FormData): Promise<void> {
   await updateExpense(budgetPlanId, month, id, { name, amount, categoryId, dueDate, isAllocation }, year);
 	await syncExistingExpenseDebt({ budgetPlanId, expenseId: id, fallbackMonthKey: month, year });
 
+  // If a due date is provided, propagate it across months as:
+  // - same day-of-month
+  // - same relative month offset from the expense month
+  // Example: editing JAN expense due 2026-02-24 => FEB expense due 2026-03-24.
+  let dueDateDay: number | undefined;
+  let dueDateMonthOffset: number | undefined;
+  if (dueDate && monthNumber) {
+    const m = /^\s*(\d{4})-(\d{2})-(\d{2})\s*$/.exec(dueDate);
+    if (m) {
+      const dueYear = Number(m[1]);
+      const dueMonth = Number(m[2]);
+      const day = Number(m[3]);
+      if (
+        Number.isFinite(dueYear) &&
+        Number.isFinite(dueMonth) &&
+        dueMonth >= 1 &&
+        dueMonth <= 12 &&
+        Number.isFinite(day)
+      ) {
+        dueDateDay = day;
+        dueDateMonthOffset = (dueYear - year) * 12 + (dueMonth - monthNumber);
+      }
+    }
+  }
+
   if (applyRemainingMonths && matchRow && monthNumber) {
     const monthsThisYear = remainingMonthsFrom(month);
     const years = applyFutureYears ? horizon.allowedYears.filter((y) => y >= year) : [year];
@@ -251,7 +276,15 @@ export async function updateExpenseAction(formData: FormData): Promise<void> {
       await updateExpenseAcrossMonthsByName(
         budgetPlanId,
         { name: matchRow.name, categoryId: matchRow.categoryId },
-				{ name, amount, categoryId, dueDate, isAllocation },
+				{
+					name,
+					amount,
+					categoryId,
+					isAllocation,
+					// Keep same day-of-month, adjust month/year per target expense.
+					dueDateDay,
+					dueDateMonthOffset,
+				},
         y,
         monthsForYear
       );

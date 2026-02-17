@@ -39,10 +39,27 @@ function dueDateForYearMonthFromISO(iso: string, year: number, monthNumber: numb
   return new Date(Date.UTC(year, monthNumber - 1, clampedDay));
 }
 
+function addMonthsToYearMonth(year: number, monthNumber: number, deltaMonths: number): { year: number; month: number } {
+	const base = year * 12 + (monthNumber - 1);
+	const next = base + (Number.isFinite(deltaMonths) ? deltaMonths : 0);
+	const nextYear = Math.floor(next / 12);
+	const monthIndex0 = ((next % 12) + 12) % 12;
+	return { year: nextYear, month: monthIndex0 + 1 };
+}
+
 export async function updateExpenseAcrossMonthsByName(
   budgetPlanId: string,
   match: { name: string; categoryId: string | null },
-  updates: { name: string; amount: number; categoryId?: string | null; dueDate?: string; isAllocation?: boolean },
+  updates: {
+    name: string;
+    amount: number;
+    categoryId?: string | null;
+    // When applying a due date across months, propagate the same day-of-month,
+    // and preserve the relative month-offset from the expense month.
+    dueDateDay?: number;
+    dueDateMonthOffset?: number;
+    isAllocation?: boolean;
+  },
   year: number,
   months: MonthKey[]
 ): Promise<void> {
@@ -79,11 +96,17 @@ export async function updateExpenseAcrossMonthsByName(
       if (nextPaid) nextPaidAmount = nextAmount;
 
       const dueDateValue =
-        updates.dueDate === undefined
-          ? undefined
-          : updates.dueDate
-            ? dueDateForYearMonthFromISO(updates.dueDate, year, monthNumber)
-            : null;
+    updates.dueDateDay === undefined
+      ? undefined
+      : Number.isFinite(updates.dueDateDay)
+        ? (() => {
+          const offset = updates.dueDateMonthOffset ?? 0;
+          const target = addMonthsToYearMonth(year, monthNumber, offset);
+          const lastDay = new Date(Date.UTC(target.year, target.month, 0)).getUTCDate();
+          const clampedDay = Math.min(Math.max(1, Math.floor(updates.dueDateDay)), lastDay);
+          return new Date(Date.UTC(target.year, target.month - 1, clampedDay));
+        })()
+        : null;
 
       await prisma.expense.update({
         where: { id: row.id },

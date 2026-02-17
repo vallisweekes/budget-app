@@ -364,6 +364,12 @@ export async function processOverdueExpensesToDebts(budgetPlanId: string) {
  * 2. OR it has a partial payment (paidAmount > 0)
  */
 export async function getExpenseDebts(budgetPlanId: string) {
+	const budgetPlan = await prisma.budgetPlan.findUnique({
+		where: { id: budgetPlanId },
+		select: { payDate: true },
+	});
+	const defaultDueDay = budgetPlan?.payDate ?? 27;
+
 	// First, clean up any stale paid/zero-balance debts
 	await prisma.debt.deleteMany({
 		where: {
@@ -387,8 +393,95 @@ export async function getExpenseDebts(budgetPlanId: string) {
 		}
 	});
 
+	// Expense-backed debts are derived state.
+	// Only show them when the *source expense* is overdue by grace days OR has a partial payment.
+	// This prevents future-due items (e.g. a Jan-listed bill due Feb 24) from appearing as "missed".
+	const sourceExpenseIds = Array.from(
+		new Set(debts.map((d) => String(d.sourceExpenseId ?? "").trim()).filter(Boolean))
+	);
+
+	type ExpenseDebtVisibilityRow = {
+		id: string;
+		amount: any;
+		paidAmount: any;
+		paid: boolean;
+		isAllocation: boolean;
+		dueDate: Date | null;
+		year: number;
+		month: number;
+		category: { name: string } | null;
+	};
+
+	const expenses = sourceExpenseIds.length
+		? (((await prisma.expense.findMany({
+				where: { budgetPlanId, id: { in: sourceExpenseIds } },
+				select: {
+					id: true,
+					amount: true,
+					paidAmount: true,
+					paid: true,
+					isAllocation: true,
+					dueDate: true,
+					year: true,
+					month: true,
+					category: { select: { name: true } },
+				},
+			} as any)) as unknown) as ExpenseDebtVisibilityRow[])
+		: [];
+
+	const expenseById = new Map(expenses.map((e) => [e.id, e] as const));
+	const now = new Date();
+	const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+	const debtsToDelete: string[] = [];
+	const visibleDebts = debts.filter((d) => {
+		const expenseId = String(d.sourceExpenseId ?? "").trim();
+		if (!expenseId) return true;
+		const expense = expenseById.get(expenseId);
+		if (!expense) return true;
+		if (expense.isAllocation) {
+			debtsToDelete.push(d.id);
+			return false;
+		}
+		if (isNonDebtCategoryName(expense.category?.name)) {
+			debtsToDelete.push(d.id);
+			return false;
+		}
+		if (expense.paid) {
+			debtsToDelete.push(d.id);
+			return false;
+		}
+		const totalAmount = Number(expense.amount);
+		const paidAmount = Number(expense.paidAmount);
+		const remainingAmount = totalAmount - paidAmount;
+		if (!(Number.isFinite(remainingAmount) && remainingAmount > 0)) {
+			debtsToDelete.push(d.id);
+			return false;
+		}
+
+		const expenseDueDate = resolveExpenseDueDate({
+			year: expense.year,
+			month: expense.month,
+			dueDate: expense.dueDate,
+			defaultDueDay,
+		});
+		const overdueThreshold = addDays(expenseDueDate, OVERDUE_GRACE_DAYS);
+		const isExpenseOverdueByGrace = overdueThreshold.getTime() <= today.getTime();
+		const hasPartialPayment = Number.isFinite(paidAmount) && paidAmount > 0;
+		if (!isExpenseOverdueByGrace && !hasPartialPayment) {
+			debtsToDelete.push(d.id);
+			return false;
+		}
+		return true;
+	});
+
+	if (debtsToDelete.length > 0) {
+		await prisma.debt.deleteMany({
+			where: { budgetPlanId, id: { in: debtsToDelete } },
+		});
+	}
+
 	// Filter out allocations and non-debt categories
-	const filtered = debts.filter(d => {
+	const filtered = visibleDebts.filter(d => {
 		const catName = d.sourceCategoryName;
 		if (isNonDebtCategoryName(catName)) return false;
 		return true;
