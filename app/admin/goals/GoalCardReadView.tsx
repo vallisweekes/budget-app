@@ -66,96 +66,95 @@ export default function GoalCardReadView({
         }}
       />
 
-      <div className="flex items-start gap-3 sm:gap-4 mb-3 sm:mb-4">
-        <div className="flex flex-col items-start gap-1 flex-shrink-0">
-      <span
-        className={
-          goal.targetYear
-            ? "inline-flex items-center rounded-full bg-white/70 px-2.5 py-1 text-[11px] font-semibold text-slate-900 border border-black/10"
-            : "inline-flex items-center rounded-full bg-amber-200/70 px-2.5 py-1 text-[11px] font-semibold text-amber-950 border border-amber-900/20"
-        }
-        title={goal.targetYear ? "Target year" : "No target year set"}
-      >
-        {targetYearLabel}
-      </span>
-      <div
-        className={`w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center bg-gradient-to-br ${gradient} rounded-xl shadow-md`}
-      >
-        <Icon className="text-white" size={18} />
-      </div>
-        </div>
-
-        <div className="flex-1">
-          <div className="flex items-start justify-between gap-2">
-            <h3 className="font-bold text-sm sm:text-base text-slate-900">{goal.title}</h3>
-          </div>
-          {homepageSelected ? (
-            <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-slate-900/10 px-2 py-0.5 text-[10px] font-semibold text-slate-800">
-              <Home size={12} />
-              <span>On dashboard</span>
-            </div>
-          ) : null}
-          {goal.description && (
-            <p className="text-[11px] sm:text-xs text-slate-700 mt-0.5 sm:mt-1">{goal.description}</p>
-          )}
-        </div>
-
-        <div className="flex gap-0.5 sm:gap-1">
-      {onToggleHomepage ? (
-          <div
+      <div className="mb-3 sm:mb-4">
+        <div className="flex items-start justify-between gap-3">
+          <span
             className={
-              "inline-flex items-center gap-2 rounded-lg bg-black/5 px-2 py-1 sm:px-2 sm:py-1 " +
-              (homepageToggleDisabled ? "opacity-60" : "")
+              "inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold border " +
+              "bg-[color:var(--background)] " +
+              (goal.targetYear
+                ? "text-slate-100 border-white/10"
+                : "text-amber-200 border-amber-400/20")
             }
-            title={
-              homepageToggleDisabled && homepageToggleDisabledReason
-                ? homepageToggleDisabledReason
-                : homepageSelected
-                  ? "Shown on dashboard"
-                  : "Hidden from dashboard"
-            }
+            title={goal.targetYear ? "Target year" : "No target year set"}
           >
-            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-800">
-              <Home size={12} className="text-slate-700" />
-              Dashboard
-            </span>
+            {targetYearLabel}
+          </span>
+
+          {onToggleHomepage ? (
             <button
               type="button"
               onClick={onToggleHomepage}
               disabled={homepageToggleDisabled}
               role="switch"
               aria-checked={homepageSelected}
+              aria-label="Dashboard"
               className={
-                "relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors " +
-                (homepageSelected ? "bg-slate-900" : "bg-slate-900/20") +
-                " disabled:cursor-not-allowed"
+                "inline-flex items-center gap-2 rounded-lg bg-black/5 px-2 py-1 transition-colors hover:bg-black/10 disabled:cursor-not-allowed " +
+                (homepageToggleDisabled ? "opacity-60" : "")
+              }
+              title={
+                homepageToggleDisabled && homepageToggleDisabledReason
+                  ? homepageToggleDisabledReason
+                  : homepageSelected
+                    ? "Shown on dashboard"
+                    : "Hidden from dashboard"
               }
             >
+              <Home size={12} className="text-slate-700" />
+              <span className="sr-only">Dashboard</span>
               <span
+                aria-hidden="true"
                 className={
-                  "inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform " +
-                  (homepageSelected ? "translate-x-4" : "translate-x-0.5")
+                  "relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors " +
+                  (homepageSelected ? "bg-slate-900" : "bg-slate-900/20")
                 }
-              />
+              >
+                <span
+                  className={
+                    "inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform " +
+                    (homepageSelected ? "translate-x-4" : "translate-x-0.5")
+                  }
+                />
+              </span>
+            </button>
+          ) : null}
+        </div>
+
+        <div className="mt-2 flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3 min-w-0">
+            <div
+              className={`w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center bg-gradient-to-br ${gradient} rounded-xl shadow-md flex-shrink-0`}
+            >
+              <Icon className="text-white" size={18} />
+            </div>
+            <h3 className="font-bold text-sm sm:text-base text-slate-900 leading-snug break-words min-w-0">
+              {goal.title}
+            </h3>
+          </div>
+
+          <div className="flex gap-0.5 sm:gap-1 flex-shrink-0">
+            <button
+              onClick={onStartEdit}
+              className="p-1.5 sm:p-2 hover:bg-black/5 rounded-lg text-slate-800 transition-colors cursor-pointer"
+              title="Edit"
+            >
+              <Edit2 size={16} className="sm:w-[18px] sm:h-[18px]" />
+            </button>
+            <button
+              onClick={onOpenDelete}
+              disabled={isPending}
+              className="p-1.5 sm:p-2 hover:bg-red-500/10 rounded-lg text-red-600 transition-colors cursor-pointer"
+              title="Delete"
+            >
+              <Trash2 size={16} className="sm:w-[18px] sm:h-[18px]" />
             </button>
           </div>
-      ) : null}
-          <button
-            onClick={onStartEdit}
-            className="p-1.5 sm:p-2 hover:bg-black/5 rounded-lg text-slate-800 transition-colors cursor-pointer"
-            title="Edit"
-          >
-            <Edit2 size={16} className="sm:w-[18px] sm:h-[18px]" />
-          </button>
-          <button
-            onClick={onOpenDelete}
-            disabled={isPending}
-            className="p-1.5 sm:p-2 hover:bg-red-500/10 rounded-lg text-red-600 transition-colors cursor-pointer"
-            title="Delete"
-          >
-            <Trash2 size={16} className="sm:w-[18px] sm:h-[18px]" />
-          </button>
         </div>
+
+        {goal.description ? (
+          <p className="mt-2 text-[11px] sm:text-xs text-slate-700">{goal.description}</p>
+        ) : null}
       </div>
 
       {goal.targetAmount && (
