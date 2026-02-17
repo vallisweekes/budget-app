@@ -65,6 +65,10 @@ export async function updateDebtAction(id: string, formData: FormData) {
 	const budgetPlanId = requireBudgetPlanId(formData);
 	const { userId } = await requireAuthenticatedUser();
 	await requireOwnedBudgetPlan(budgetPlanId, userId);
+
+	const existing = await getDebtById(budgetPlanId, id);
+	if (!existing) throw new Error("Debt not found");
+
 	const name = formData.get("name") as string;
 	const initialBalance = formData.get("initialBalance") ? parseFloat(formData.get("initialBalance") as string) : undefined;
 	const currentBalance = parseFloat(formData.get("currentBalance") as string);
@@ -78,15 +82,57 @@ export async function updateDebtAction(id: string, formData: FormData) {
 		throw new Error("Invalid input");
 	}
 
-	await updateDebt(budgetPlanId, id, {
-		name,
-		initialBalance,
-		currentBalance,
-		amount,
-		monthlyMinimum,
-		interestRate,
-		installmentMonths,
-	});
+	if (existing.sourceType === "expense" && existing.sourceExpenseId) {
+		const expense = await prisma.expense.findFirst({
+			where: { id: existing.sourceExpenseId, budgetPlanId },
+			select: { id: true, amount: true, paidAmount: true },
+		});
+		if (!expense) throw new Error("Source expense not found");
+
+		const expenseAmount = Number((expense.amount as any)?.toString?.() ?? expense.amount);
+		let nextExpenseAmount = Number.isFinite(initialBalance as number)
+			? Math.max(0, initialBalance as number)
+			: expenseAmount;
+
+		if (currentBalance > nextExpenseAmount) {
+			nextExpenseAmount = currentBalance;
+		}
+
+		const nextPaidAmount = Math.max(0, Math.min(nextExpenseAmount, nextExpenseAmount - currentBalance));
+		const nextPaid = nextExpenseAmount > 0 && nextPaidAmount >= nextExpenseAmount;
+
+		await prisma.expense.update({
+			where: { id: expense.id },
+			data: {
+				name,
+				amount: nextExpenseAmount,
+				paidAmount: nextPaid ? nextExpenseAmount : nextPaidAmount,
+				paid: nextPaid,
+			},
+		});
+
+		await updateDebt(budgetPlanId, id, {
+			name,
+			initialBalance: nextExpenseAmount,
+			currentBalance,
+			paid: nextPaid,
+			paidAmount: nextPaid ? nextExpenseAmount : nextPaidAmount,
+			amount,
+			monthlyMinimum,
+			interestRate,
+			installmentMonths,
+		});
+	} else {
+		await updateDebt(budgetPlanId, id, {
+			name,
+			initialBalance,
+			currentBalance,
+			amount,
+			monthlyMinimum,
+			interestRate,
+			installmentMonths,
+		});
+	}
 
 	revalidatePath("/admin/debts");
 	revalidatePath("/");
