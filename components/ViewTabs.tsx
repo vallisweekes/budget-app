@@ -9,6 +9,7 @@ import ExpandableCategory from "@/components/ExpandableCategory";
 import { Card, InfoTooltip } from "@/components/Shared";
 import { Receipt, Plus } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import PaymentInsightsCards from "@/components/Insights/PaymentInsightsCards";
 import PieCategories from "@/components/PieCategories";
 import type { PreviousMonthRecap, UpcomingPayment, RecapTip } from "@/lib/expenses/insights";
@@ -146,6 +147,32 @@ function percent(value: number): string {
   return `${(value * 100).toFixed(0)}%`;
 }
 
+function buildScopedPageHref(pathname: string | null, page: string): string {
+  if (!pathname) return `/admin/${page}`;
+  const idx = pathname.lastIndexOf("/page=");
+  if (idx >= 0) return `${pathname.slice(0, idx)}/page=${page}`;
+
+  const segments = pathname.split("/").filter(Boolean);
+  const userIdx = segments.findIndex((s) => s.startsWith("user="));
+  if (userIdx !== -1 && segments.length >= userIdx + 2) {
+    const base = `/${segments[userIdx]}/${segments[userIdx + 1]}`;
+    return `${base}/page=${page}`;
+  }
+
+  return `/admin/${page}`;
+}
+
+function buildScopedPageHrefForPlan(pathname: string | null, budgetPlanId: string, page: string): string {
+  if (!pathname) return `/admin/${page}`;
+  const segments = pathname.split("/").filter(Boolean);
+  const userIdx = segments.findIndex((s) => s.startsWith("user="));
+  if (userIdx !== -1) {
+    const userSegment = segments[userIdx];
+    return `/${userSegment}/${encodeURIComponent(budgetPlanId)}/page=${page}`;
+  }
+  return buildScopedPageHref(pathname, page);
+}
+
 export default function ViewTabs({
   budgetPlanId,
   month,
@@ -164,6 +191,10 @@ export default function ViewTabs({
   allPlansData,
 	expenseInsights,
 }: ViewTabsProps) {
+  const pathname = usePathname();
+	const expensesHref = useMemo(() => buildScopedPageHref(pathname, "expenses"), [pathname]);
+	const incomeHref = useMemo(() => buildScopedPageHref(pathname, "income"), [pathname]);
+
   const planTabsLabelId = useId();
   const [budgetPlans, setBudgetPlans] = useState<BudgetPlan[]>([]);
   const [activeTab, setActiveTab] = useState<TabKey>("personal");
@@ -649,7 +680,7 @@ export default function ViewTabs({
           )}
 
           <Link
-            href="/admin/expenses"
+            href={expensesHref}
             className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium bg-white/10 text-white hover:bg-white/20 transition-all"
           >
             <Plus size={16} />
@@ -657,7 +688,7 @@ export default function ViewTabs({
           </Link>
           {shouldShowAddIncome ? (
             <Link
-              href="/admin/income"
+              href={incomeHref}
               className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium bg-white/10 text-white hover:bg-white/20 transition-all"
             >
               <Plus size={16} />
@@ -666,6 +697,23 @@ export default function ViewTabs({
           ) : null}
         </div>
       </div>
+
+		{combinedData.totalIncome <= 0 ? (
+			<div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+				<div className="min-w-0">
+					<div className="text-sm font-semibold text-white">Add income to unlock your budget</div>
+					<div className="text-xs sm:text-sm text-amber-100/80">
+						No income added for {monthDisplayLabel(month)} yet — your totals and insights will be limited until you do.
+					</div>
+				</div>
+				<Link
+					href={incomeHref}
+					className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 px-4 py-2 text-sm font-semibold text-white shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all"
+				>
+					Add income
+				</Link>
+			</div>
+		) : null}
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-3">
         <Card
@@ -816,7 +864,7 @@ export default function ViewTabs({
 
             <div className="flex items-center justify-between">
             <div className="text-xs text-slate-400">Shows top 6 by spend</div>
-              <Link href="/admin/expenses" className="text-sm font-medium text-white/90 hover:text-white">
+              <Link href={expensesHref} className="text-sm font-medium text-white/90 hover:text-white">
                 View expenses
               </Link>
             </div>
@@ -1126,7 +1174,7 @@ export default function ViewTabs({
                       <div className="text-center py-6">
                         <div className="text-sm text-slate-400 mb-4">No categorized expenses yet for this month.</div>
                         <Link
-                          href="/admin/expenses"
+                          href={buildScopedPageHrefForPlan(pathname, plan.id, "expenses")}
                           className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all"
                         >
                           <Plus size={20} />

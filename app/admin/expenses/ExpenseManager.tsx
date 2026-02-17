@@ -12,7 +12,7 @@ import { MONTHS } from "@/lib/constants/time";
 import { formatMonthKeyLabel } from "@/lib/helpers/monthKey";
 import { getSimpleColorClasses } from "@/lib/helpers/colors";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 const dueDateFormatter = new Intl.DateTimeFormat("en-US", {
   month: "short",
@@ -161,6 +161,13 @@ export default function ExpenseManager({
   allCategoriesByPlan,
   payDate,
 }: ExpenseManagerProps) {
+  const pathname = usePathname();
+  const incomeHref = useMemo(() => {
+    if (!pathname) return "/admin/income";
+    const idx = pathname.lastIndexOf("/page=");
+    if (idx >= 0) return `${pathname.slice(0, idx)}/page=income`;
+    return "/admin/income";
+  }, [pathname]);
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [isAdding, startAddTransition] = useTransition();
@@ -1304,7 +1311,7 @@ export default function ExpenseManager({
               </div>
               <p className="text-slate-300 mb-4">Start by adding your income to get a complete budget overview</p>
               <Link 
-                href="/admin/income"
+                href={incomeHref}
                 className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all"
               >
                 <Plus size={20} />
