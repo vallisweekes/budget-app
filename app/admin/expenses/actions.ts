@@ -26,6 +26,12 @@ function isTruthyFormValue(value: FormDataEntryValue | null): boolean {
   return v === "1" || v === "true" || v === "on" || v === "yes";
 }
 
+function isTruthyFormField(formData: FormData, name: string): boolean {
+	const values = formData.getAll(name);
+	if (!values.length) return false;
+	return values.some((v) => isTruthyFormValue(v));
+}
+
 function toYear(value: FormDataEntryValue | null): number | null {
   if (value == null) return null;
   const n = Number(value);
@@ -139,7 +145,7 @@ export async function addExpenseAction(formData: FormData): Promise<void> {
 	const amount = Number(formData.get("amount") || 0);
 	const categoryId = String(formData.get("categoryId") || "") || undefined;
 	const paid = String(formData.get("paid") || "false") === "true";
-  let isAllocation = isTruthyFormValue(formData.get("isAllocation"));
+  let isAllocation = isTruthyFormField(formData, "isAllocation");
 
 	// Auto-mark Food/Transport categories as allocations
 	if (categoryId) {
@@ -208,7 +214,7 @@ export async function updateExpenseAction(formData: FormData): Promise<void> {
   const dueDateRaw = formData.get("dueDate");
   const dueDateString = dueDateRaw == null ? undefined : String(dueDateRaw).trim();
   const dueDate = dueDateString && dueDateString !== "" ? dueDateString : undefined;
-	let isAllocation = isTruthyFormValue(formData.get("isAllocation"));
+  let isAllocation = isTruthyFormField(formData, "isAllocation");
 
 	// Auto-mark Food/Transport categories as allocations
 	if (categoryId) {
