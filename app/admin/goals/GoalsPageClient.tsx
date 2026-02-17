@@ -6,9 +6,9 @@ import type { Goal } from "@/lib/goals/store";
 
 type GoalsByYear = { year: number; goals: Goal[] };
 
-function isHomepageEligible(goal: Goal): boolean {
-  if (goal.title === "Pay Back Debts") return false;
-  return (goal.targetAmount ?? 0) > 0;
+function getHomepageEligibility(goal: Goal): { eligible: boolean; reason?: string } {
+  void goal;
+  return { eligible: true };
 }
 
 export default function GoalsPageClient({
@@ -44,7 +44,7 @@ export default function GoalsPageClient({
   }, [goalsByYear, outOfHorizonGoals]);
 
   const defaultSelectedIds = useMemo(() => {
-    const eligible = allGoals.filter(isHomepageEligible);
+		const eligible = allGoals.filter((g) => getHomepageEligibility(g).eligible);
     const emergency = eligible.find((g) => g.category === "emergency");
     const savings = eligible.find((g) => g.category === "savings");
     const defaults: string[] = [];
@@ -79,8 +79,9 @@ export default function GoalsPageClient({
   const toggleHomepage = (goal: Goal) => {
     setHomepageError(null);
 
-    if (!isHomepageEligible(goal)) {
-      setHomepageError("Set a target amount on this goal to show it on the dashboard.");
+    const eligibility = getHomepageEligibility(goal);
+    if (!eligibility.eligible) {
+			setHomepageError(eligibility.reason ?? "This goal can’t be shown on the dashboard.");
       return;
     }
 
@@ -115,12 +116,13 @@ export default function GoalsPageClient({
     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
       {goals.map((goal) => {
         const selected = selectedSet.has(goal.id);
-        const eligible = isHomepageEligible(goal);
+				const eligibility = getHomepageEligibility(goal);
+				const eligible = eligibility.eligible;
         const disableBecauseMax = !selected && selectedCount >= 2;
         const disabled = isPending || !eligible || disableBecauseMax;
 
         let disabledReason: string | undefined;
-        if (!eligible) disabledReason = "Set a target amount to enable";
+				if (!eligible) disabledReason = eligibility.reason ?? "Not eligible";
         else if (disableBecauseMax) disabledReason = "Remove one of the selected goals first";
         else if (isPending) disabledReason = "Saving…";
 
@@ -147,7 +149,7 @@ export default function GoalsPageClient({
         <div className="text-xs sm:text-sm text-slate-300">
           Dashboard goals: <span className="font-semibold text-white">{selectedCount}</span>/2 selected
         </div>
-        <div className="text-[11px] sm:text-xs text-slate-400">Only goals with a target amount can be shown</div>
+				<div className="text-[11px] sm:text-xs text-slate-400">Pick up to 2 goals to show on the dashboard</div>
       </div>
 
       {homepageError ? (

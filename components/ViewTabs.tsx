@@ -532,9 +532,7 @@ export default function ViewTabs({
   }, [combinedData.goals, monthlyAssumptions.emergency, monthlyAssumptions.investments, monthlyAssumptions.savings, projectionHorizonYears]);
 
   const eligibleHomepageGoals = useMemo(() => {
-    return combinedData.goals
-      .filter((g) => g.title !== "Pay Back Debts")
-      .filter((g) => (g.targetAmount ?? 0) > 0);
+    return combinedData.goals;
   }, [combinedData.goals]);
 
   const homepageGoalsForOverview = useMemo(() => {
@@ -557,7 +555,7 @@ export default function ViewTabs({
   }, [eligibleHomepageGoals, homepageGoalIds]);
 
   const goalsOverviewCount = useMemo(() => {
-    return combinedData.goals.filter((g) => g.title !== "Pay Back Debts").length;
+    return combinedData.goals.length;
   }, [combinedData.goals]);
 
   const shouldShowGoalsCard = useMemo(() => {
@@ -1178,7 +1176,7 @@ export default function ViewTabs({
               }
               className="p-3 bg-white/5"
             >
-              <div className="text-base font-bold">{combinedData.goals.filter((g) => g.title !== "Pay Back Debts").length}</div>
+              <div className="text-base font-bold">{combinedData.goals.length}</div>
               <div className="text-xs text-slate-300">active</div>
             </Card>
             </div>

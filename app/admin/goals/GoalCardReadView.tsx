@@ -45,6 +45,7 @@ export default function GoalCardReadView({
     : 0;
 
 	const targetYearLabel = goal.targetYear ? `Target ${goal.targetYear}` : "Set target year";
+  // Eligibility rules are handled by the Goals page + API; the card only reflects disabled/selected state.
 
   return (
     <div className={CARD_CLASS}>
@@ -86,10 +87,10 @@ export default function GoalCardReadView({
 
         <div className="flex-1">
           <div className="flex items-start justify-between gap-2">
-            <h3 className="font-bold text-base sm:text-lg text-slate-900">{goal.title}</h3>
+            <h3 className="font-bold text-sm sm:text-base text-slate-900">{goal.title}</h3>
           </div>
           {goal.description && (
-            <p className="text-xs sm:text-sm text-slate-700 mt-0.5 sm:mt-1">{goal.description}</p>
+            <p className="text-[11px] sm:text-xs text-slate-700 mt-0.5 sm:mt-1">{goal.description}</p>
           )}
         </div>
 
@@ -100,15 +101,15 @@ export default function GoalCardReadView({
           disabled={homepageToggleDisabled}
           className={
             homepageSelected
-              ? "px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg bg-slate-900 text-white text-[11px] sm:text-xs font-semibold transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-              : "px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg bg-black/5 text-slate-800 text-[11px] sm:text-xs font-semibold hover:bg-black/10 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              ? "px-2 sm:px-2 py-1 sm:py-1 rounded-lg bg-slate-900 text-white text-[10px] font-semibold transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              : "px-2 sm:px-2 py-1 sm:py-1 rounded-lg bg-black/5 text-slate-800 text-[10px] font-semibold hover:bg-black/10 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           }
           title={homepageToggleDisabled && homepageToggleDisabledReason ? homepageToggleDisabledReason : "Toggle dashboard visibility"}
           aria-pressed={homepageSelected}
         >
           <span className="inline-flex items-center gap-1.5">
-            <Home size={14} className="sm:w-4 sm:h-4" />
-            {homepageSelected ? "Hide from dashboard" : "Show on dashboard"}
+            <Home size={12} className="sm:w-[13px] sm:h-[13px]" />
+							{homepageSelected ? "Hide from dashboard" : "Show on dashboard"}
           </span>
         </button>
       ) : null}

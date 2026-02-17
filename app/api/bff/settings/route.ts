@@ -154,16 +154,9 @@ export async function PATCH(req: NextRequest) {
             budgetPlanId,
             id: { in: homepageGoalIds },
           },
-          select: { id: true, targetAmount: true },
+          select: { id: true },
         });
-				const allowedSet = new Set(
-					owned
-						.filter((g) => {
-							const n = Number((g as any).targetAmount);
-							return Number.isFinite(n) && n > 0;
-						})
-						.map((g) => g.id)
-				);
+          const allowedSet = new Set(owned.map((g) => g.id));
 				updateData.homepageGoalIds = homepageGoalIds.filter((id) => allowedSet.has(id));
       }
     }
