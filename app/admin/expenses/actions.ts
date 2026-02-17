@@ -68,7 +68,20 @@ async function requireAuthenticatedUser() {
   const sessionUsername = sessionUser?.username ?? sessionUser?.name;
   if (!sessionUser || !sessionUsername) throw new Error("Not authenticated");
   const userId = await resolveUserId({ userId: sessionUser.id, username: sessionUsername });
-  return { userId };
+  return { userId, username: sessionUsername };
+}
+
+function userScopedPagePath(params: { username: string; budgetPlanId: string; page: string }): string {
+	const { username, budgetPlanId, page } = params;
+	return `/user=${encodeURIComponent(username)}/${encodeURIComponent(budgetPlanId)}/page=${encodeURIComponent(page)}`;
+}
+
+function revalidateBudgetPlanViews(params: { username: string; budgetPlanId: string }) {
+	const { username, budgetPlanId } = params;
+	revalidatePath(userScopedPagePath({ username, budgetPlanId, page: "home" }));
+	revalidatePath(userScopedPagePath({ username, budgetPlanId, page: "expenses" }));
+	// Spending tiles/insights often depend on expenses too.
+	revalidatePath(userScopedPagePath({ username, budgetPlanId, page: "spending" }));
 }
 
 async function requireOwnedBudgetPlan(budgetPlanId: string, userId: string) {
@@ -165,7 +178,7 @@ export async function addExpenseAction(formData: FormData): Promise<void> {
 	const targetMonths: MonthKey[] = distributeMonths ? (MONTHS as MonthKey[]) : [month];
 	const sharedId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-	const { userId } = await requireAuthenticatedUser();
+  const { userId, username } = await requireAuthenticatedUser();
 	await requireOwnedBudgetPlan(budgetPlanId, userId);
 
 	const { allowedYears } = await requireYearWithinBudgetHorizon(budgetPlanId, year);
@@ -183,8 +196,7 @@ export async function addExpenseAction(formData: FormData): Promise<void> {
 		});
 	}
 
-	revalidatePath("/");
-	revalidatePath("/admin/expenses");
+  revalidateBudgetPlanViews({ username, budgetPlanId });
 }
 
 export async function togglePaidAction(
@@ -193,12 +205,11 @@ export async function togglePaidAction(
   id: string,
   year?: number
 ): Promise<void> {
-	const { userId } = await requireAuthenticatedUser();
+	const { userId, username } = await requireAuthenticatedUser();
 	await requireOwnedBudgetPlan(budgetPlanId, userId);
   await toggleExpensePaid(budgetPlanId, month, id, year);
 	await syncExistingExpenseDebt({ budgetPlanId, expenseId: id, fallbackMonthKey: month, year });
-  revalidatePath("/");
-  revalidatePath("/admin/expenses");
+	revalidateBudgetPlanViews({ username, budgetPlanId });
 }
 
 export async function updateExpenseAction(formData: FormData): Promise<void> {
@@ -232,7 +243,7 @@ export async function updateExpenseAction(formData: FormData): Promise<void> {
   const applyRemainingMonths = isTruthyFormValue(formData.get("applyRemainingMonths"));
   const applyFutureYears = isTruthyFormValue(formData.get("applyFutureYears"));
 
-  const { userId } = await requireAuthenticatedUser();
+  const { userId, username } = await requireAuthenticatedUser();
   await requireOwnedBudgetPlan(budgetPlanId, userId);
 
 	const horizon = await requireYearWithinBudgetHorizon(budgetPlanId, year);
@@ -297,8 +308,7 @@ export async function updateExpenseAction(formData: FormData): Promise<void> {
     }
   }
 
-  revalidatePath("/");
-  revalidatePath("/admin/expenses");
+	revalidateBudgetPlanViews({ username, budgetPlanId });
 }
 
 export async function removeExpenseAction(
@@ -311,7 +321,7 @@ export async function removeExpenseAction(
 		applyFutureYears?: boolean;
 	}
 ): Promise<void> {
-	const { userId } = await requireAuthenticatedUser();
+  const { userId, username } = await requireAuthenticatedUser();
 	await requireOwnedBudgetPlan(budgetPlanId, userId);
   const y = year ?? new Date().getFullYear();
 
@@ -365,8 +375,7 @@ export async function removeExpenseAction(
 
   const uniqueDeleteIds = Array.from(new Set(deleteExpenseIds));
   if (uniqueDeleteIds.length === 0) {
-    revalidatePath("/");
-    revalidatePath("/admin/expenses");
+		revalidateBudgetPlanViews({ username, budgetPlanId });
     return;
   }
 
@@ -389,8 +398,7 @@ export async function removeExpenseAction(
       },
     });
   }
-  revalidatePath("/");
-  revalidatePath("/admin/expenses");
+	revalidateBudgetPlanViews({ username, budgetPlanId });
 }
 
 export async function applyExpensePaymentAction(
@@ -405,15 +413,13 @@ export async function applyExpensePaymentAction(
     return { success: false, error: "Payment amount must be greater than 0" };
   }
 
-	const { userId } = await requireAuthenticatedUser();
+  const { userId, username } = await requireAuthenticatedUser();
 	await requireOwnedBudgetPlan(budgetPlanId, userId);
 
   const result = await applyExpensePayment(budgetPlanId, month, expenseId, paymentAmount, year);
   if (!result) return { success: false, error: "Expense not found" };
 	await syncExistingExpenseDebt({ budgetPlanId, expenseId, fallbackMonthKey: month, year });
-
-  revalidatePath("/");
-  revalidatePath("/admin/expenses");
+	revalidateBudgetPlanViews({ username, budgetPlanId });
   return { success: true };
 }
 
@@ -429,14 +435,12 @@ export async function setExpensePaidAmountAction(
     return { success: false, error: "Paid amount must be 0 or more" };
   }
 
-	const { userId } = await requireAuthenticatedUser();
+  const { userId, username } = await requireAuthenticatedUser();
 	await requireOwnedBudgetPlan(budgetPlanId, userId);
 
   const result = await setExpensePaymentAmount(budgetPlanId, month, expenseId, paidAmount, year);
   if (!result) return { success: false, error: "Expense not found" };
 	await syncExistingExpenseDebt({ budgetPlanId, expenseId, fallbackMonthKey: month, year });
-
-  revalidatePath("/");
-  revalidatePath("/admin/expenses");
+	revalidateBudgetPlanViews({ username, budgetPlanId });
   return { success: true };
 }
