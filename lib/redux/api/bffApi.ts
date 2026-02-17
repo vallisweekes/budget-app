@@ -87,6 +87,7 @@ export interface BffSettings {
   monthlyEmergencyContribution: string;
   monthlyInvestmentContribution: string;
   budgetStrategy: string;
+  homepageGoalIds?: string[];
   createdAt: string;
   updatedAt: string;
 }

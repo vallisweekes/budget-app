@@ -2,11 +2,11 @@ import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { getAllGoals } from "@/lib/goals/store";
-import GoalCard from "@/app/admin/goals/GoalCard";
 import { prisma } from "@/lib/prisma";
 import { getDefaultBudgetPlanForUser, resolveUserId } from "@/lib/budgetPlans";
 import AddGoalModal from "@/app/admin/goals/AddGoalModal";
 import { getSettings } from "@/lib/settings/store";
+import GoalsPageClient from "@/app/admin/goals/GoalsPageClient";
 
 export const dynamic = "force-dynamic";
 
@@ -45,6 +45,9 @@ export default async function GoalsPage({
   const goals = await getAllGoals(budgetPlanId);
   const currentYear = new Date().getFullYear();
   const settings = await getSettings(budgetPlanId);
+  const initialHomepageGoalIds = Array.isArray(settings.homepageGoalIds)
+    ? settings.homepageGoalIds.filter((v): v is string => typeof v === "string").slice(0, 2)
+    : [];
   const horizonYearsRaw = Number(settings.budgetHorizonYears ?? 10);
   const horizonYears = Number.isFinite(horizonYearsRaw) && horizonYearsRaw > 0 ? Math.floor(horizonYearsRaw) : 10;
   const minYear = currentYear;
@@ -81,56 +84,14 @@ export default async function GoalsPage({
             <p className="text-xs sm:text-sm text-slate-400">Add your first goal using the panel above.</p>
           </div>
         ) : (
-          <>
-            {outOfHorizonGoals.length > 0 && (
-              <div className="mb-6 sm:mb-8">
-                <div className="rounded-2xl border border-amber-400/20 bg-amber-500/10 backdrop-blur-xl p-4 sm:p-5">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h2 className="text-base sm:text-lg font-semibold text-amber-100">Some goals are outside your budget horizon</h2>
-                      <p className="text-xs sm:text-sm text-amber-200/80 mt-0.5">
-                        Update their target year to be between {minYear} and {maxYear}.
-                      </p>
-                    </div>
-                    <div className="text-xs sm:text-sm text-amber-100 font-semibold">
-                      {outOfHorizonGoals.length} needing update
-                    </div>
-                  </div>
-                  <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-                    {outOfHorizonGoals.map((goal) => (
-                      <GoalCard
-                        key={goal.id}
-                        goal={goal}
-                        budgetPlanId={budgetPlanId}
-                        minYear={minYear}
-                        maxYear={maxYear}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {goalsByYear.map(({ year, goals: goalsForYear }) => {
-              if (goalsForYear.length === 0) return null;
-              return (
-                <div key={year} className="mb-6 sm:mb-8">
-                  <h2 className="text-xl sm:text-2xl font-bold text-white mb-3 sm:mb-4">{year} Goals</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-                    {goalsForYear.map((goal) => (
-                      <GoalCard
-                        key={goal.id}
-                        goal={goal}
-                        budgetPlanId={budgetPlanId}
-                        minYear={minYear}
-                        maxYear={maxYear}
-                      />
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </>
+          <GoalsPageClient
+            budgetPlanId={budgetPlanId}
+            minYear={minYear}
+            maxYear={maxYear}
+            outOfHorizonGoals={outOfHorizonGoals}
+            goalsByYear={goalsByYear}
+            initialHomepageGoalIds={initialHomepageGoalIds}
+          />
         )}
       </div>
     </div>

@@ -12,6 +12,7 @@ export interface Settings {
   monthlyInvestmentContribution: number;
   budgetStrategy: BudgetStrategy;
   budgetHorizonYears: number;
+  homepageGoalIds: string[];
   country: string;
   language: string;
   currency: string;
@@ -67,6 +68,9 @@ export async function getSettings(budgetPlanId: string): Promise<Settings> {
 		if (prismaBudgetPlanHasField("budgetHorizonYears")) {
 			select.budgetHorizonYears = true;
 		}
+    if (prismaBudgetPlanHasField("homepageGoalIds")) {
+      select.homepageGoalIds = true;
+    }
 
     plan = await prisma.budgetPlan.findUnique({
       where: { id: budgetPlanId },
@@ -77,7 +81,8 @@ export async function getSettings(budgetPlanId: string): Promise<Settings> {
 
 		const unknownEmergency = message.includes("Unknown field `monthlyEmergencyContribution`");
 		const unknownHorizon = message.includes("Unknown field `budgetHorizonYears`");
-		if (!unknownEmergency && !unknownHorizon) throw error;
+    const unknownHomepage = message.includes("Unknown field `homepageGoalIds`");
+    if (!unknownEmergency && !unknownHorizon && !unknownHomepage) throw error;
 
 		// Dev-only safety: Turbopack can cache an older Prisma Client after schema changes.
 		// Retry with a select that excludes the unknown field(s).
@@ -94,6 +99,7 @@ export async function getSettings(budgetPlanId: string): Promise<Settings> {
 		};
 		if (!unknownEmergency) select.monthlyEmergencyContribution = true;
     if (!unknownHorizon) select.budgetHorizonYears = true;
+    if (!unknownHomepage) select.homepageGoalIds = true;
 
 		plan = await prisma.budgetPlan.findUnique({
 			where: { id: budgetPlanId },
@@ -119,6 +125,9 @@ export async function getSettings(budgetPlanId: string): Promise<Settings> {
     monthlyInvestmentContribution: Number(plan.monthlyInvestmentContribution),
     budgetStrategy: plan.budgetStrategy as BudgetStrategy,
     budgetHorizonYears: Number(budgetHorizonYears),
+    homepageGoalIds: Array.isArray((plan as any).homepageGoalIds)
+			? ((plan as any).homepageGoalIds as unknown[]).filter((v): v is string => typeof v === "string")
+			: [],
     country: plan.country,
     language: plan.language,
     currency: plan.currency,
@@ -155,6 +164,9 @@ export async function saveSettings(budgetPlanId: string, settings: Partial<Setti
   if (settings.budgetHorizonYears !== undefined) {
     updateData.budgetHorizonYears = settings.budgetHorizonYears;
   }
+  if (settings.homepageGoalIds !== undefined) {
+    updateData.homepageGoalIds = Array.isArray(settings.homepageGoalIds) ? settings.homepageGoalIds.slice(0, 2) : [];
+  }
   if (settings.country !== undefined) {
     updateData.country = settings.country;
   }
@@ -179,7 +191,10 @@ export async function saveSettings(budgetPlanId: string, settings: Partial<Setti
     const unknownHorizon =
       message.includes("Unknown field `budgetHorizonYears`") ||
       message.includes("Unknown argument `budgetHorizonYears`");
-    if (!unknownEmergency && !unknownHorizon) throw error;
+    const unknownHomepage =
+			message.includes("Unknown field `homepageGoalIds`") ||
+			message.includes("Unknown argument `homepageGoalIds`");
+		if (!unknownEmergency && !unknownHorizon && !unknownHomepage) throw error;
 
     // Dev-only safety: retry without unknown fields if Prisma Client is stale.
     if (unknownEmergency && "monthlyEmergencyContribution" in updateData) {
@@ -188,6 +203,9 @@ export async function saveSettings(budgetPlanId: string, settings: Partial<Setti
     if (unknownHorizon && "budgetHorizonYears" in updateData) {
       delete updateData.budgetHorizonYears;
     }
+		if (unknownHomepage && "homepageGoalIds" in updateData) {
+			delete updateData.homepageGoalIds;
+		}
 
     await prisma.budgetPlan.update({
       where: { id: budgetPlanId },

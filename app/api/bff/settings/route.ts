@@ -21,6 +21,7 @@ const settingsSelect = {
   monthlyEmergencyContribution: true,
   monthlyInvestmentContribution: true,
   budgetStrategy: true,
+  homepageGoalIds: true,
 } as const;
 
 const settingsSelectWithoutEmergency = {
@@ -31,7 +32,27 @@ const settingsSelectWithoutEmergency = {
   monthlySavingsContribution: true,
   monthlyInvestmentContribution: true,
   budgetStrategy: true,
+  homepageGoalIds: true,
 } as const;
+
+function normalizeHomepageGoalIds(value: unknown): string[] | null {
+  if (!Array.isArray(value)) return null;
+  const ids = value
+    .filter((v): v is string => typeof v === "string")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (ids.length === 0) return [];
+
+  const unique: string[] = [];
+  const seen = new Set<string>();
+  for (const id of ids) {
+    if (seen.has(id)) continue;
+    seen.add(id);
+    unique.push(id);
+    if (unique.length >= 2) break;
+  }
+  return unique;
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -122,6 +143,30 @@ export async function PATCH(req: NextRequest) {
       updateData.monthlyInvestmentContribution = body.monthlyInvestmentContribution;
     }
     if (typeof body.budgetStrategy === "string") updateData.budgetStrategy = body.budgetStrategy;
+
+    const homepageGoalIds = normalizeHomepageGoalIds((body as any).homepageGoalIds);
+    if (homepageGoalIds !== null) {
+      if (homepageGoalIds.length === 0) {
+        updateData.homepageGoalIds = [];
+      } else {
+        const owned = await prisma.goal.findMany({
+          where: {
+            budgetPlanId,
+            id: { in: homepageGoalIds },
+          },
+          select: { id: true, targetAmount: true },
+        });
+				const allowedSet = new Set(
+					owned
+						.filter((g) => {
+							const n = Number((g as any).targetAmount);
+							return Number.isFinite(n) && n > 0;
+						})
+						.map((g) => g.id)
+				);
+				updateData.homepageGoalIds = homepageGoalIds.filter((id) => allowedSet.has(id));
+      }
+    }
 
     if (Object.keys(updateData).length === 0) return badRequest("No valid fields to update");
 

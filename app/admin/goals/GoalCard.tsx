@@ -13,6 +13,10 @@ interface GoalCardProps {
 	budgetPlanId: string;
   minYear?: number;
   maxYear?: number;
+  homepageSelected?: boolean;
+  homepageToggleDisabled?: boolean;
+  homepageToggleDisabledReason?: string;
+  onToggleHomepage?: () => void;
 }
 
 const categoryIcons = {
@@ -31,7 +35,16 @@ const categoryColors = {
   other: "from-zinc-400 to-zinc-600",
 };
 
-export default function GoalCard({ goal, budgetPlanId, minYear, maxYear }: GoalCardProps) {
+export default function GoalCard({
+  goal,
+  budgetPlanId,
+  minYear,
+  maxYear,
+  homepageSelected,
+  homepageToggleDisabled,
+  homepageToggleDisabledReason,
+  onToggleHomepage,
+}: GoalCardProps) {
   const [isPending, startTransition] = useTransition();
   const [isEditing, setIsEditing] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -104,6 +117,10 @@ export default function GoalCard({ goal, budgetPlanId, minYear, maxYear }: GoalC
       icon={Icon}
       gradient={gradient}
       isPending={isPending}
+		homepageSelected={Boolean(homepageSelected)}
+		homepageToggleDisabled={Boolean(homepageToggleDisabled)}
+		homepageToggleDisabledReason={homepageToggleDisabledReason}
+		onToggleHomepage={onToggleHomepage}
       confirmingDelete={confirmingDelete}
       onStartEdit={() => setIsEditing(true)}
       onOpenDelete={() => setConfirmingDelete(true)}

@@ -189,11 +189,25 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 	const currentPlanData = await processPlanData(budgetPlanId);
 	const month = MONTHS[currentPlanData.monthNum - 1] ?? currentMonth();
 
-	const planMeta = await prisma.budgetPlan.findUnique({
-		where: { id: budgetPlanId },
-		select: { payDate: true },
-	});
-	const payDate = Number(planMeta?.payDate ?? 1);
+	let payDate = 1;
+	let homepageGoalIds: string[] = [];
+	try {
+		const planMeta = await prisma.budgetPlan.findUnique({
+			where: { id: budgetPlanId },
+			select: { payDate: true, homepageGoalIds: true },
+		});
+		payDate = Number(planMeta?.payDate ?? 1);
+		homepageGoalIds = Array.isArray(planMeta?.homepageGoalIds)
+			? planMeta!.homepageGoalIds.filter((v): v is string => typeof v === "string")
+			: [];
+	} catch {
+		const planMeta = await prisma.budgetPlan.findUnique({
+			where: { id: budgetPlanId },
+			select: { payDate: true },
+		});
+		payDate = Number(planMeta?.payDate ?? 1);
+		homepageGoalIds = [];
+	}
 
 	const currentYear = now.getFullYear();
 	const currentMonthNum = now.getMonth() + 1;
@@ -426,6 +440,7 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 					debts={debts}
 					totalDebtBalance={totalDebtBalance}
 					goals={currentPlanData.goals}
+					homepageGoalIds={homepageGoalIds}
 					allPlansData={allPlansData}
 					incomeMonthsCoverageByPlan={incomeMonthsCoverageByPlan}
 					expenseInsights={expenseInsights}

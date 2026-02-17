@@ -91,6 +91,7 @@ type ViewTabsProps = {
   debts: DebtItem[];
   totalDebtBalance: number;
   goals: GoalLike[];
+  homepageGoalIds?: string[];
   incomeMonthsCoverageByPlan?: Record<string, number>;
   allPlansData?: Record<string, BudgetPlanData>;
   expenseInsights?: {
@@ -197,6 +198,7 @@ export default function ViewTabs({
   totalExpenses,
   remaining,
   goals,
+  homepageGoalIds: initialHomepageGoalIds,
   incomeMonthsCoverageByPlan,
   allPlansData,
 	expenseInsights,
@@ -210,6 +212,11 @@ export default function ViewTabs({
   const [activeTab, setActiveTab] = useState<TabKey>("personal");
   const [showExpenseDetails, setShowExpenseDetails] = useState(false);
 	const [goalsSubTab, setGoalsSubTab] = useState<GoalsSubTabKey>("overview");
+
+  const homepageGoalIds = useMemo(
+    () => (Array.isArray(initialHomepageGoalIds) ? initialHomepageGoalIds.slice(0, 2) : []),
+    [initialHomepageGoalIds]
+  );
 
   useEffect(() => {
     (async () => {
@@ -524,6 +531,31 @@ export default function ViewTabs({
     };
   }, [combinedData.goals, monthlyAssumptions.emergency, monthlyAssumptions.investments, monthlyAssumptions.savings, projectionHorizonYears]);
 
+  const eligibleHomepageGoals = useMemo(() => {
+    return combinedData.goals
+      .filter((g) => g.title !== "Pay Back Debts")
+      .filter((g) => (g.targetAmount ?? 0) > 0);
+  }, [combinedData.goals]);
+
+  const homepageGoalsForOverview = useMemo(() => {
+    const byId = new Map<string, GoalLike>();
+    eligibleHomepageGoals.forEach((g) => byId.set(g.id, g));
+
+    const picked = homepageGoalIds
+      .filter((id) => byId.has(id))
+      .map((id) => byId.get(id)!)
+      .slice(0, 2);
+    if (picked.length > 0) return picked;
+
+    const emergency = eligibleHomepageGoals.find((g) => g.category === "emergency");
+    const savings = eligibleHomepageGoals.find((g) => g.category === "savings");
+    const defaults: GoalLike[] = [];
+    if (emergency) defaults.push(emergency);
+    if (savings && savings.id !== emergency?.id) defaults.push(savings);
+    if (defaults.length > 0) return defaults.slice(0, 2);
+    return eligibleHomepageGoals.slice(0, 2);
+  }, [eligibleHomepageGoals, homepageGoalIds]);
+
   const goalsOverviewCount = useMemo(() => {
     return combinedData.goals.filter((g) => g.title !== "Pay Back Debts").length;
   }, [combinedData.goals]);
@@ -690,29 +722,17 @@ export default function ViewTabs({
     const pts = goalsProjection.points;
     if (pts.length < 2) return null;
 
-    // Chart-only baseline point so lines start at 0 and rise to the "Now" value.
-    const chartPts = [
-      { t: -1, savings: 0, emergency: 0, investments: 0, total: 0 },
-      ...pts,
-    ];
-
+    const chartPts = pts;
     const baseYear = new Date().getFullYear();
-    const labels = chartPts.map((p) => {
-      if (p.t < 0) return "";
-      if (p.t === 0) return String(baseYear);
-      if (p.t % 12 === 0) return String(baseYear + Math.floor(p.t / 12));
-      return "";
-    });
 
-    const savingsSeries = chartPts.map((p) => p.savings);
-    const emergencySeries = chartPts.map((p) => p.emergency);
-		const investmentsSeries = chartPts.map((p) => p.investments);
+    const savingsSeries = chartPts.map((p) => ({ x: p.t, y: p.savings }));
+    const emergencySeries = chartPts.map((p) => ({ x: p.t, y: p.emergency }));
+		const investmentsSeries = chartPts.map((p) => ({ x: p.t, y: p.investments }));
 
     const maxVal = Math.max(...pts.map((p) => Math.max(p.savings, p.emergency, p.investments)), 1);
     const suggestedMax = Math.ceil(maxVal / 1000) * 1000;
 
     const data = {
-      labels,
       datasets: [
         {
           label: "Savings",
@@ -722,7 +742,7 @@ export default function ViewTabs({
           fill: true,
           tension: 0.2,
           borderWidth: 4,
-          pointRadius: (ctx: ScriptableContext<"line">) => (ctx.dataIndex === pts.length - 1 ? 4 : 0),
+				pointRadius: (ctx: ScriptableContext<"line">) => (ctx.dataIndex === chartPts.length - 1 ? 4 : 0),
           pointHoverRadius: 5,
         },
         {
@@ -733,7 +753,7 @@ export default function ViewTabs({
           fill: true,
           tension: 0.2,
           borderWidth: 4,
-          pointRadius: (ctx: ScriptableContext<"line">) => (ctx.dataIndex === pts.length - 1 ? 4 : 0),
+				pointRadius: (ctx: ScriptableContext<"line">) => (ctx.dataIndex === chartPts.length - 1 ? 4 : 0),
           pointHoverRadius: 5,
         },
 			{
@@ -744,7 +764,7 @@ export default function ViewTabs({
 				fill: true,
 				tension: 0.2,
 				borderWidth: 4,
-				pointRadius: (ctx: ScriptableContext<"line">) => (ctx.dataIndex === pts.length - 1 ? 4 : 0),
+				pointRadius: (ctx: ScriptableContext<"line">) => (ctx.dataIndex === chartPts.length - 1 ? 4 : 0),
 				pointHoverRadius: 5,
 			},
       ],
@@ -761,9 +781,8 @@ export default function ViewTabs({
           intersect: false,
           callbacks: {
             title: (items) => {
-              const dataIndex = items?.[0]?.dataIndex ?? 0;
-              const t = chartPts[dataIndex]?.t ?? 0;
-              if (t <= 0) return "Now";
+              const t = Number(items?.[0]?.parsed?.x ?? 0);
+              if (t <= 0) return String(baseYear);
               const years = Math.floor(t / 12);
               const months = t % 12;
               if (years <= 0) return `+${t}m`;
@@ -777,19 +796,17 @@ export default function ViewTabs({
       interaction: { mode: "index", intersect: false },
       scales: {
         x: {
+          type: "linear",
           grid: { display: false },
           ticks: {
             color: "rgba(226, 232, 240, 0.6)",
             maxRotation: 0,
             minRotation: 0,
-            autoSkip: false,
-            callback: (_value, index) => {
-              if (index === 0) return "0";
-              if (index === 1) return `Now (${baseYear})`;
-              const t = chartPts[index]?.t ?? 0;
-              if (t > 0 && t % 12 === 0) return String(baseYear + Math.floor(t / 12));
-              return "";
-            },
+            autoSkip: true,
+				stepSize: 12,
+            maxTicksLimit: 7,
+            autoSkipPadding: 28,
+				callback: (val) => String(baseYear + Math.floor(Number(val) / 12)),
           },
         },
         y: {
@@ -1231,11 +1248,10 @@ export default function ViewTabs({
       </div>
 
       {goalsSubTab === "overview" ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {combinedData.goals
-            .filter((g) => g.title !== "Pay Back Debts")
-            .slice(0, 2)
-            .map((g) => {
+        <div
+          className={`grid grid-cols-1 ${homepageGoalsForOverview.length === 1 ? "md:grid-cols-1" : "md:grid-cols-2"} gap-3`}
+        >
+          {homepageGoalsForOverview.map((g) => {
               const target = g.targetAmount ?? 0;
               const current = g.currentAmount ?? 0;
               const progress = target > 0 ? Math.min(1, current / target) : 0;
@@ -1268,6 +1284,9 @@ export default function ViewTabs({
                 </div>
               );
             })}
+			{homepageGoalsForOverview.length === 0 ? (
+				<div className="text-sm text-slate-300">Add a target amount to a goal to show it here.</div>
+			) : null}
         </div>
       ) : (
         <div className="space-y-3">

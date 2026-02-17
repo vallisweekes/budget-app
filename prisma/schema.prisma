@@ -82,6 +82,9 @@ model BudgetPlan {
 
   // Planning horizon
   budgetHorizonYears            Int            @default(10)
+
+  // Dashboard preferences
+  homepageGoalIds               String[]       @default([])
   
   // Locale settings
   country                       String         @default("GB")
