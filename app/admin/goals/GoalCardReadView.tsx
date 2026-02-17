@@ -89,6 +89,12 @@ export default function GoalCardReadView({
           <div className="flex items-start justify-between gap-2">
             <h3 className="font-bold text-sm sm:text-base text-slate-900">{goal.title}</h3>
           </div>
+          {homepageSelected ? (
+            <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-slate-900/10 px-2 py-0.5 text-[10px] font-semibold text-slate-800">
+              <Home size={12} />
+              <span>On dashboard</span>
+            </div>
+          ) : null}
           {goal.description && (
             <p className="text-[11px] sm:text-xs text-slate-700 mt-0.5 sm:mt-1">{goal.description}</p>
           )}

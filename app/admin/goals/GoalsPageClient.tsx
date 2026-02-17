@@ -59,6 +59,13 @@ export default function GoalsPageClient({
 
   const selectedSet = useMemo(() => new Set(effectiveSelectedIds), [effectiveSelectedIds]);
   const selectedCount = effectiveSelectedIds.length;
+  const usingDefaults = homepageGoalIds.length === 0;
+
+  const selectedGoals = useMemo(() => {
+    const byId = new Map<string, Goal>();
+    allGoals.forEach((g) => byId.set(g.id, g));
+    return effectiveSelectedIds.map((id) => byId.get(id)).filter((g): g is Goal => Boolean(g));
+  }, [allGoals, effectiveSelectedIds]);
 
   const saveHomepageGoalIds = async (nextIds: string[]) => {
     const res = await fetch("/api/bff/settings", {
@@ -145,11 +152,71 @@ export default function GoalsPageClient({
 
   return (
     <>
-      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="text-xs sm:text-sm text-slate-300">
-          Dashboard goals: <span className="font-semibold text-white">{selectedCount}</span>/2 selected
+      <div className="mb-6 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-4 sm:p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <div className="text-base sm:text-lg font-semibold text-white">Dashboard goals</div>
+            <div className="mt-0.5 text-[11px] sm:text-xs text-slate-300">
+              Pick up to 2 goals to show on your dashboard home page.
+            </div>
+            {usingDefaults && defaultSelectedIds.length > 0 ? (
+              <div className="mt-1 text-[11px] sm:text-xs text-slate-400">
+                Currently using defaults (Emergency + Savings). Click “Hide from dashboard” on a card to customize.
+              </div>
+            ) : null}
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="text-xs sm:text-sm text-slate-300">
+              <span className="font-semibold text-white">{selectedCount}</span>/2 selected
+            </div>
+            {!usingDefaults ? (
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={() => {
+                  setHomepageError(null);
+                  const prev = homepageGoalIds;
+                  setHomepageGoalIds([]);
+                  startTransition(async () => {
+                    try {
+                      const saved = await saveHomepageGoalIds([]);
+                      setHomepageGoalIds(saved);
+                    } catch (e) {
+                      setHomepageGoalIds(prev);
+                      setHomepageError(String((e as any)?.message ?? e));
+                    }
+                  });
+                }}
+                className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] sm:text-xs font-semibold text-white/90 hover:bg-white/10 disabled:opacity-60 disabled:cursor-not-allowed"
+                title="Reset dashboard goals back to defaults"
+              >
+                Reset
+              </button>
+            ) : null}
+          </div>
         </div>
-				<div className="text-[11px] sm:text-xs text-slate-400">Pick up to 2 goals to show on the dashboard</div>
+
+        <div className="mt-3 flex flex-wrap gap-2">
+          {selectedGoals.length > 0 ? (
+            selectedGoals.map((g) => (
+              <button
+                key={g.id}
+                type="button"
+                disabled={isPending}
+                onClick={() => toggleHomepage(g)}
+                className="inline-flex max-w-full items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] sm:text-xs font-semibold text-white/90 hover:bg-white/10 disabled:opacity-60 disabled:cursor-not-allowed"
+                title="Click to remove from dashboard"
+              >
+                <span className="truncate max-w-[220px]">{g.title}</span>
+                <span className="text-white/60">×</span>
+              </button>
+            ))
+          ) : (
+            <div className="text-[11px] sm:text-xs text-slate-400">
+              No dashboard goals selected yet. Click “Show on dashboard” on any goal card below.
+            </div>
+          )}
+        </div>
       </div>
 
       {homepageError ? (
