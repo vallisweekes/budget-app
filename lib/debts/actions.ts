@@ -95,6 +95,10 @@ export async function updateDebtAction(id: string, formData: FormData) {
 export async function deleteDebtAction(budgetPlanId: string, id: string) {
 	const { userId } = await requireAuthenticatedUser();
 	await requireOwnedBudgetPlan(budgetPlanId, userId);
+	const existing = await getDebtById(budgetPlanId, id);
+	if (existing?.sourceType === "expense" && existing.currentBalance > 0) {
+		throw new Error("Cannot delete an unpaid expense debt. Mark the expense as paid first.");
+	}
 	await deleteDebt(budgetPlanId, id);
 	revalidatePath("/admin/debts");
 	revalidatePath("/");

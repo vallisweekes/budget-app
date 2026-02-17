@@ -14,6 +14,7 @@ export interface BffExpense {
   amount: string; // Decimal as string
   paid: boolean;
   paidAmount: string; // Decimal as string
+  isAllocation: boolean;
   month: number;
   year: number;
   categoryId?: string | null;
@@ -107,6 +108,7 @@ export interface CreateExpenseBody {
   year: number;
   categoryId?: string;
   paid?: boolean;
+  isAllocation?: boolean;
 }
 
 export interface UpdateExpenseBody {
@@ -114,6 +116,7 @@ export interface UpdateExpenseBody {
   name: string;
   amount: number;
   categoryId?: string;
+  isAllocation?: boolean;
 }
 
 export interface CreateIncomeBody {

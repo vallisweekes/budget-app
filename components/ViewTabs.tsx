@@ -67,6 +67,7 @@ type BudgetPlanData = {
   plannedDebtPayments: number;
   plannedSavingsContribution: number;
   plannedEmergencyContribution: number;
+	plannedInvestments: number;
   incomeAfterAllocations: number;
   totalExpenses: number;
   remaining: number;
@@ -83,6 +84,7 @@ type ViewTabsProps = {
   plannedDebtPayments: number;
   plannedSavingsContribution: number;
   plannedEmergencyContribution: number;
+	plannedInvestments: number;
   incomeAfterAllocations: number;
   totalExpenses: number;
   remaining: number;
@@ -103,11 +105,13 @@ type GoalsSubTabKey = "overview" | "projection";
 type MonthlyAssumptions = {
   savings: number;
   emergency: number;
+  investments: number;
 };
 
 type MonthlyAssumptionsDraft = {
 	savings: string;
 	emergency: string;
+  investments: string;
 };
 
 function Currency({ value }: { value: number }) {
@@ -188,6 +192,7 @@ export default function ViewTabs({
   plannedDebtPayments,
   plannedSavingsContribution,
 	plannedEmergencyContribution,
+	plannedInvestments,
   incomeAfterAllocations,
   totalExpenses,
   remaining,
@@ -290,12 +295,13 @@ export default function ViewTabs({
       plannedDebtPayments,
       plannedSavingsContribution,
       plannedEmergencyContribution,
+		plannedInvestments,
       incomeAfterAllocations,
       totalExpenses,
       remaining,
       goals,
     };
-  }, [allPlansData, budgetPlanId, categoryData, goals, incomeAfterAllocations, plannedDebtPayments, plannedEmergencyContribution, plannedSavingsContribution, remaining, totalAllocations, totalExpenses, totalIncome]);
+  }, [allPlansData, budgetPlanId, categoryData, goals, incomeAfterAllocations, plannedDebtPayments, plannedEmergencyContribution, plannedInvestments, plannedSavingsContribution, remaining, totalAllocations, totalExpenses, totalIncome]);
 
   // Combine data for all plans in active tab (with a safe fallback for initial render)
   const combinedData = useMemo(() => {
@@ -318,6 +324,7 @@ export default function ViewTabs({
         amountLeftToBudget: leftToBudget,
         plannedSavingsContribution: fallbackPlanData.plannedSavingsContribution ?? 0,
         plannedEmergencyContribution: fallbackPlanData.plannedEmergencyContribution ?? 0,
+		plannedInvestments: fallbackPlanData.plannedInvestments ?? 0,
         categoryTotals: fallbackPlanData.categoryData.map((c) => ({
           name: c.name,
           total: c.total,
@@ -335,6 +342,7 @@ export default function ViewTabs({
     let leftToBudgetTotal = 0;
     let plannedSavingsTotal = 0;
     let plannedEmergencyTotal = 0;
+  	let plannedInvestmentsTotal = 0;
     let combinedGoals: GoalLike[] = [];
     const categoryTotals: Record<string, { total: number; color?: string }> = {};
     const flattenedExpenses: ExpenseItem[] = [];
@@ -349,6 +357,7 @@ export default function ViewTabs({
       plannedDebtTotal += planData.plannedDebtPayments ?? 0;
       plannedSavingsTotal += planData.plannedSavingsContribution ?? 0;
       plannedEmergencyTotal += planData.plannedEmergencyContribution ?? 0;
+		plannedInvestmentsTotal += planData.plannedInvestments ?? 0;
       leftToBudgetTotal +=
         typeof planData.incomeAfterAllocations === "number"
           ? planData.incomeAfterAllocations
@@ -375,6 +384,7 @@ export default function ViewTabs({
       amountLeftToBudget: leftToBudgetTotal,
       plannedSavingsContribution: plannedSavingsTotal,
       plannedEmergencyContribution: plannedEmergencyTotal,
+		plannedInvestments: plannedInvestmentsTotal,
       categoryTotals: Object.entries(categoryTotals).map(([name, v]) => ({
         name,
         total: v.total,
@@ -401,6 +411,22 @@ export default function ViewTabs({
 
   const defaultMonthlySavings = combinedData.plannedSavingsContribution ?? 0;
   const defaultMonthlyEmergency = combinedData.plannedEmergencyContribution ?? 0;
+	const defaultMonthlyInvestments = combinedData.plannedInvestments ?? 0;
+
+  const savingsAssumptionNow = useMemo(() => {
+    const n = Number(defaultMonthlySavings);
+    return Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0;
+  }, [defaultMonthlySavings]);
+
+  const emergencyAssumptionNow = useMemo(() => {
+    const n = Number(defaultMonthlyEmergency);
+    return Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0;
+  }, [defaultMonthlyEmergency]);
+
+	const investmentsAssumptionNow = useMemo(() => {
+		const n = Number(defaultMonthlyInvestments);
+		return Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0;
+	}, [defaultMonthlyInvestments]);
 
   const [assumptionsByTab, setAssumptionsByTab] = useState<Partial<Record<TabKey, MonthlyAssumptions>>>({});
 	const [assumptionDraftsByTab, setAssumptionDraftsByTab] =
@@ -412,39 +438,54 @@ export default function ViewTabs({
       return {
         savings: existing.savings,
         emergency: existing.emergency,
+			investments:
+				typeof existing.investments === "number" && Number.isFinite(existing.investments)
+					? existing.investments
+					: defaultMonthlyInvestments,
       };
     }
     return {
       savings: defaultMonthlySavings,
       emergency: defaultMonthlyEmergency,
+		investments: defaultMonthlyInvestments,
     };
-  }, [assumptionsByTab, defaultMonthlyEmergency, defaultMonthlySavings, resolvedActiveTab]);
+  }, [assumptionsByTab, defaultMonthlyEmergency, defaultMonthlyInvestments, defaultMonthlySavings, resolvedActiveTab]);
 
   const monthlyAssumptionsDraft = useMemo<MonthlyAssumptionsDraft>(() => {
     const existing = assumptionDraftsByTab[resolvedActiveTab];
-    if (existing) return existing;
+    if (existing) {
+			return {
+				savings: existing.savings,
+				emergency: existing.emergency,
+				investments: typeof existing.investments === "string" ? existing.investments : "0",
+			};
+		}
     return {
       savings: String(Number.isFinite(monthlyAssumptions.savings) ? monthlyAssumptions.savings : 0),
       emergency: String(Number.isFinite(monthlyAssumptions.emergency) ? monthlyAssumptions.emergency : 0),
+		investments: String(Number.isFinite(monthlyAssumptions.investments) ? monthlyAssumptions.investments : 0),
     };
-  }, [assumptionDraftsByTab, monthlyAssumptions.emergency, monthlyAssumptions.savings, resolvedActiveTab]);
+  }, [assumptionDraftsByTab, monthlyAssumptions.emergency, monthlyAssumptions.investments, monthlyAssumptions.savings, resolvedActiveTab]);
 
   useEffect(() => {
     setAssumptionDraftsByTab((prev) => {
-      if (prev[resolvedActiveTab]) return prev;
+			const existing = prev[resolvedActiveTab];
+			if (existing && typeof existing.investments === "string") return prev;
       return {
         ...prev,
         [resolvedActiveTab]: {
-          savings: String(Number.isFinite(monthlyAssumptions.savings) ? monthlyAssumptions.savings : 0),
-          emergency: String(Number.isFinite(monthlyAssumptions.emergency) ? monthlyAssumptions.emergency : 0),
+				savings: existing?.savings ?? String(Number.isFinite(monthlyAssumptions.savings) ? monthlyAssumptions.savings : 0),
+				emergency: existing?.emergency ?? String(Number.isFinite(monthlyAssumptions.emergency) ? monthlyAssumptions.emergency : 0),
+			investments: String(Number.isFinite(monthlyAssumptions.investments) ? monthlyAssumptions.investments : 0),
         },
       };
     });
-  }, [monthlyAssumptions.emergency, monthlyAssumptions.savings, resolvedActiveTab]);
+  }, [monthlyAssumptions.emergency, monthlyAssumptions.investments, monthlyAssumptions.savings, resolvedActiveTab]);
 
   const goalsProjection = useMemo(() => {
     const monthlySavings = Math.max(0, monthlyAssumptions.savings);
     const monthlyEmergency = Math.max(0, monthlyAssumptions.emergency);
+		const monthlyInvestments = Math.max(0, monthlyAssumptions.investments);
 
     const startingSavings = combinedData.goals
       .filter((g) => g.category === "savings")
@@ -453,27 +494,35 @@ export default function ViewTabs({
       .filter((g) => g.category === "emergency")
       .reduce((sum, g) => sum + (g.currentAmount ?? 0), 0);
 
+		const startingInvestments = combinedData.goals
+			.filter((g) => g.category === "investment")
+			.reduce((sum, g) => sum + (g.currentAmount ?? 0), 0);
+
     const monthsToProject = Math.max(1, Math.min(12 * projectionHorizonYears, 12 * 30));
     let savings = startingSavings;
     let emergency = startingEmergency;
-    const points: Array<{ t: number; savings: number; emergency: number; total: number }> = [
-      { t: 0, savings, emergency, total: savings + emergency },
+		let investments = startingInvestments;
+    const points: Array<{ t: number; savings: number; emergency: number; investments: number; total: number }> = [
+      { t: 0, savings, emergency, investments, total: savings + emergency + investments },
     ];
 
     for (let i = 1; i <= monthsToProject; i += 1) {
       savings += monthlySavings;
       emergency += monthlyEmergency;
-      points.push({ t: i, savings, emergency, total: savings + emergency });
+			investments += monthlyInvestments;
+      points.push({ t: i, savings, emergency, investments, total: savings + emergency + investments });
     }
 
     return {
       startingSavings,
       startingEmergency,
+		startingInvestments,
       monthlySavings,
       monthlyEmergency,
+		monthlyInvestments,
       points,
     };
-  }, [combinedData.goals, monthlyAssumptions.emergency, monthlyAssumptions.savings, projectionHorizonYears]);
+  }, [combinedData.goals, monthlyAssumptions.emergency, monthlyAssumptions.investments, monthlyAssumptions.savings, projectionHorizonYears]);
 
   const goalsOverviewCount = useMemo(() => {
     return combinedData.goals.filter((g) => g.title !== "Pay Back Debts").length;
@@ -484,16 +533,19 @@ export default function ViewTabs({
     const hasProjectionSignal =
       goalsProjection.startingSavings > 0 ||
       goalsProjection.startingEmergency > 0 ||
+			goalsProjection.startingInvestments > 0 ||
       goalsProjection.monthlySavings > 0 ||
-      goalsProjection.monthlyEmergency > 0;
+			goalsProjection.monthlyEmergency > 0 ||
+			goalsProjection.monthlyInvestments > 0;
     return hasGoals || hasProjectionSignal;
-  }, [goalsOverviewCount, goalsProjection.monthlyEmergency, goalsProjection.monthlySavings, goalsProjection.startingEmergency, goalsProjection.startingSavings]);
+  }, [goalsOverviewCount, goalsProjection.monthlyEmergency, goalsProjection.monthlyInvestments, goalsProjection.monthlySavings, goalsProjection.startingEmergency, goalsProjection.startingInvestments, goalsProjection.startingSavings]);
 
   const setSavingsAssumption = (raw: string) => {
     setAssumptionDraftsByTab((prev) => {
 			const existing = prev[resolvedActiveTab] ?? {
 				savings: String(Number.isFinite(monthlyAssumptions.savings) ? monthlyAssumptions.savings : 0),
 				emergency: String(Number.isFinite(monthlyAssumptions.emergency) ? monthlyAssumptions.emergency : 0),
+        investments: String(Number.isFinite(monthlyAssumptions.investments) ? monthlyAssumptions.investments : 0),
 			};
       return {
         ...prev,
@@ -512,6 +564,7 @@ export default function ViewTabs({
         [resolvedActiveTab]: {
           savings: value,
           emergency: prev[resolvedActiveTab]?.emergency ?? defaultMonthlyEmergency,
+          investments: prev[resolvedActiveTab]?.investments ?? defaultMonthlyInvestments,
         },
       };
     });
@@ -522,6 +575,7 @@ export default function ViewTabs({
 			const existing = prev[resolvedActiveTab] ?? {
 				savings: String(Number.isFinite(monthlyAssumptions.savings) ? monthlyAssumptions.savings : 0),
 				emergency: String(Number.isFinite(monthlyAssumptions.emergency) ? monthlyAssumptions.emergency : 0),
+        investments: String(Number.isFinite(monthlyAssumptions.investments) ? monthlyAssumptions.investments : 0),
 			};
       return {
         ...prev,
@@ -540,6 +594,37 @@ export default function ViewTabs({
         [resolvedActiveTab]: {
           savings: prev[resolvedActiveTab]?.savings ?? defaultMonthlySavings,
           emergency: value,
+          investments: prev[resolvedActiveTab]?.investments ?? defaultMonthlyInvestments,
+        },
+      };
+    });
+  };
+
+  const setInvestmentsAssumption = (raw: string) => {
+    setAssumptionDraftsByTab((prev) => {
+      const existing = prev[resolvedActiveTab] ?? {
+        savings: String(Number.isFinite(monthlyAssumptions.savings) ? monthlyAssumptions.savings : 0),
+        emergency: String(Number.isFinite(monthlyAssumptions.emergency) ? monthlyAssumptions.emergency : 0),
+        investments: String(Number.isFinite(monthlyAssumptions.investments) ? monthlyAssumptions.investments : 0),
+      };
+      return {
+        ...prev,
+        [resolvedActiveTab]: {
+          ...existing,
+          investments: raw,
+        },
+      };
+    });
+
+    const next = raw.trim() === "" ? 0 : Number.parseInt(raw, 10);
+    const value = Number.isFinite(next) ? Math.max(0, next) : 0;
+    setAssumptionsByTab((prev) => {
+      return {
+        ...prev,
+        [resolvedActiveTab]: {
+          savings: prev[resolvedActiveTab]?.savings ?? defaultMonthlySavings,
+          emergency: prev[resolvedActiveTab]?.emergency ?? defaultMonthlyEmergency,
+          investments: value,
         },
       };
     });
@@ -573,6 +658,34 @@ export default function ViewTabs({
 		});
 	};
 
+  const resetProjectionAssumptionsToNow = () => {
+    setAssumptionsByTab((prev) => {
+      return {
+        ...prev,
+        [resolvedActiveTab]: {
+          savings: savingsAssumptionNow,
+          emergency: emergencyAssumptionNow,
+			investments: investmentsAssumptionNow,
+        },
+      };
+    });
+    setAssumptionDraftsByTab((prev) => {
+      return {
+        ...prev,
+        [resolvedActiveTab]: {
+          savings: String(savingsAssumptionNow),
+          emergency: String(emergencyAssumptionNow),
+			investments: String(investmentsAssumptionNow),
+        },
+      };
+    });
+  };
+
+  const canResetProjectionAssumptions =
+    monthlyAssumptions.savings !== savingsAssumptionNow ||
+    monthlyAssumptions.emergency !== emergencyAssumptionNow ||
+    monthlyAssumptions.investments !== investmentsAssumptionNow;
+
   const projectionChart = useMemo(() => {
     const pts = goalsProjection.points;
     if (pts.length < 2) return null;
@@ -580,8 +693,9 @@ export default function ViewTabs({
     const labels = pts.map((p) => String(p.t));
     const savingsSeries = pts.map((p) => p.savings);
     const emergencySeries = pts.map((p) => p.emergency);
+		const investmentsSeries = pts.map((p) => p.investments);
 
-    const maxVal = Math.max(...pts.map((p) => Math.max(p.savings, p.emergency)), 1);
+		const maxVal = Math.max(...pts.map((p) => Math.max(p.savings, p.emergency, p.investments)), 1);
     const suggestedMax = Math.ceil(maxVal / 1000) * 1000;
 
     const data = {
@@ -609,6 +723,17 @@ export default function ViewTabs({
           pointRadius: (ctx: ScriptableContext<"line">) => (ctx.dataIndex === pts.length - 1 ? 4 : 0),
           pointHoverRadius: 5,
         },
+			{
+				label: "Investments",
+				data: investmentsSeries,
+				borderColor: "rgba(167, 139, 250, 0.95)",
+				backgroundColor: "rgba(167, 139, 250, 0.12)",
+				fill: true,
+				tension: 0.2,
+				borderWidth: 4,
+				pointRadius: (ctx: ScriptableContext<"line">) => (ctx.dataIndex === pts.length - 1 ? 4 : 0),
+				pointHoverRadius: 5,
+			},
       ],
     };
 
@@ -1057,6 +1182,24 @@ export default function ViewTabs({
           </button>
         </div>
 
+      <div className="inline-flex items-center gap-2">
+        {goalsSubTab === "projection" ? (
+          <button
+            type="button"
+            onClick={resetProjectionAssumptionsToNow}
+            disabled={!canResetProjectionAssumptions}
+            className={`rounded-full px-3 py-1 text-xs font-semibold transition border ${
+              canResetProjectionAssumptions
+                ? "border-white/15 bg-white/10 text-white hover:bg-white/15"
+                : "border-white/10 bg-white/5 text-white/50 cursor-not-allowed"
+            }`}
+            aria-label="Reset projection assumptions to now"
+            title="Reset Savings/Emergency assumptions back to your current plan values"
+          >
+            Reset to now
+          </button>
+        ) : null}
+
         <div className="text-xs text-slate-400 inline-flex items-center gap-1.5">
           <span>{projectionHorizonYears}y</span>
           <InfoTooltip
@@ -1064,6 +1207,7 @@ export default function ViewTabs({
             content="Projection uses your monthly assumptions for Savings/Emergency (per month) starting from the current month. Horizon uses the longest budget horizon across the selected budget(s)."
           />
         </div>
+      </div>
       </div>
 
       {goalsSubTab === "overview" ? (
@@ -1107,7 +1251,7 @@ export default function ViewTabs({
         </div>
       ) : (
         <div className="space-y-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+    			<div className="grid grid-cols-1 md:grid-cols-3 gap-2">
             <Card
               title={
                 <div className="inline-flex items-center gap-1.5">
@@ -1192,6 +1336,48 @@ export default function ViewTabs({
           </div>
         </div>
             </Card>
+        <Card
+          title={
+            <div className="inline-flex items-center gap-1.5">
+              <span>Investments</span>
+              <InfoTooltip
+                ariaLabel="Investments projection info"
+                content="Investments projection starts from your current Investment goal amount and adds your monthly Investments assumption each month."
+              />
+            </div>
+          }
+          className="p-3 bg-white/5"
+        >
+          <div className="space-y-2">
+            <div>
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-sm text-slate-300">Now</div>
+                <div className="text-base font-bold text-white">
+                  {formatCurrencyWhole(goalsProjection.startingInvestments)}
+                </div>
+              </div>
+            </div>
+            <div>
+              <div className="text-sm text-slate-300">Assumption</div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  step={50}
+                  value={monthlyAssumptionsDraft.investments}
+                  placeholder="0"
+                  onFocus={() => clearAssumptionZeroOnFocus("investments")}
+                  onBlur={() => normalizeAssumptionOnBlur("investments")}
+                  onChange={(e) => setInvestmentsAssumption(e.target.value)}
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-white/20"
+                  aria-label="Monthly investments assumption"
+                />
+                <span className="text-xs text-slate-400 whitespace-nowrap">/ month</span>
+              </div>
+            </div>
+          </div>
+        </Card>
           </div>
 
           {projectionChart ? (
@@ -1205,6 +1391,9 @@ export default function ViewTabs({
                   <span className="inline-flex items-center gap-1">
                     <span className="inline-block h-2 w-2 rounded-full bg-sky-400" /> Emergency
                   </span>
+                  <span className="inline-flex items-center gap-1">
+                    <span className="inline-block h-2 w-2 rounded-full bg-violet-400" /> Investments
+                  </span>
                 </div>
               </div>
         <div className="mt-2 text-xs text-slate-300">
@@ -1212,6 +1401,8 @@ export default function ViewTabs({
           Savings <span className="text-white">{formatCurrencyWhole(goalsProjection.points[goalsProjection.points.length - 1]?.savings ?? 0)}</span>
           <span className="text-slate-500"> · </span>
           Emergency <span className="text-white">{formatCurrencyWhole(goalsProjection.points[goalsProjection.points.length - 1]?.emergency ?? 0)}</span>
+            <span className="text-slate-500"> · </span>
+            Investments <span className="text-white">{formatCurrencyWhole(goalsProjection.points[goalsProjection.points.length - 1]?.investments ?? 0)}</span>
         </div>
         <div className="mt-3 h-56 w-full">
           <Line data={projectionChart.data} options={projectionChart.options} />

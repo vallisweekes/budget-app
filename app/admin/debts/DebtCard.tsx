@@ -48,6 +48,7 @@ const typeIcons = {
 } as const;
 
 export default function DebtCard({ debt, budgetPlanId, typeLabels, payments, payDate }: DebtCardProps) {
+	const canDeleteDebt = !(debt.sourceType === "expense" && debt.currentBalance > 0);
 	// Check if it's near payday (within 3 days before or on payday)
 	const now = new Date();
 	const currentDay = now.getDate();
@@ -215,7 +216,9 @@ export default function DebtCard({ debt, budgetPlanId, typeLabels, payments, pay
 							>
 								<Pencil size={14} className="sm:w-[18px] sm:h-[18px]" />
 							</button>
-							<DeleteDebtButton debtId={debt.id} debtName={debt.name} budgetPlanId={budgetPlanId} />
+							{canDeleteDebt ? (
+								<DeleteDebtButton debtId={debt.id} debtName={debt.name} budgetPlanId={budgetPlanId} />
+							) : null}
 						</>
 					)}
 				</div>

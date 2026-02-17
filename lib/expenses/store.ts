@@ -1,3 +1,5 @@
+import "server-only";
+
 import { MONTHS } from "@/lib/constants/time";
 import { prisma } from "@/lib/prisma";
 import { monthKeyToNumber, monthNumberToKey } from "@/lib/helpers/monthKey";
@@ -40,7 +42,7 @@ function dueDateForYearMonthFromISO(iso: string, year: number, monthNumber: numb
 export async function updateExpenseAcrossMonthsByName(
   budgetPlanId: string,
   match: { name: string; categoryId: string | null },
-  updates: { name: string; amount: number; categoryId?: string | null; dueDate?: string },
+  updates: { name: string; amount: number; categoryId?: string | null; dueDate?: string; isAllocation?: boolean },
   year: number,
   months: MonthKey[]
 ): Promise<void> {
@@ -85,14 +87,15 @@ export async function updateExpenseAcrossMonthsByName(
 
       await prisma.expense.update({
         where: { id: row.id },
-        data: {
+        data: ({
           name: nextName,
           amount: nextAmount,
           categoryId: updates.categoryId === undefined ? undefined : updates.categoryId,
           paidAmount: nextPaidAmount,
           paid: nextPaid,
+          isAllocation: updates.isAllocation === undefined ? undefined : !!updates.isAllocation,
           dueDate: dueDateValue,
-        },
+        }) as any,
       });
     }
   }
@@ -100,7 +103,19 @@ export async function updateExpenseAcrossMonthsByName(
 
 export async function getAllExpenses(budgetPlanId: string, year: number = currentYear()): Promise<ExpensesByMonth> {
 	const empty = emptyExpensesByMonth();
-	const rows = await prisma.expense.findMany({
+  type ExpenseListRow = {
+    id: string;
+    name: string;
+    amount: unknown;
+    paid: boolean;
+    paidAmount: unknown;
+    isAllocation: boolean;
+    month: number;
+    categoryId: string | null;
+    dueDate: Date | null;
+  };
+
+  const rows = (await prisma.expense.findMany({
 		where: { budgetPlanId, year },
 		orderBy: [{ month: "asc" }, { createdAt: "asc" }],
 		select: {
@@ -109,11 +124,12 @@ export async function getAllExpenses(budgetPlanId: string, year: number = curren
 			amount: true,
 			paid: true,
 			paidAmount: true,
+      isAllocation: true,
 			month: true,
 			categoryId: true,
 			dueDate: true,
 		},
-	});
+  } as any)) as unknown as ExpenseListRow[];
 
 	for (const row of rows) {
 		const monthKey = monthNumberToKey(row.month);
@@ -124,6 +140,7 @@ export async function getAllExpenses(budgetPlanId: string, year: number = curren
 			categoryId: row.categoryId ?? undefined,
 			paid: row.paid,
 			paidAmount: decimalToNumber(row.paidAmount),
+      isAllocation: row.isAllocation,
 			dueDate: row.dueDate ? row.dueDate.toISOString().split('T')[0] : undefined,
 		});
 	}
@@ -137,8 +154,8 @@ export async function addExpense(
   item: Omit<ExpenseItem, "id"> & { id?: string },
   year: number = currentYear()
 ): Promise<ExpenseItem> {
-  const created = await prisma.expense.create({
-    data: {
+  const created = (await prisma.expense.create({
+    data: ({
       budgetPlanId,
       year,
       month: monthKeyToNumber(month),
@@ -146,19 +163,21 @@ export async function addExpense(
       amount: item.amount,
       paid: !!item.paid,
       paidAmount: item.paidAmount ?? (item.paid ? item.amount : 0),
+			isAllocation: !!item.isAllocation,
       categoryId: item.categoryId ?? null,
       dueDate: item.dueDate ? new Date(item.dueDate) : null,
-    },
+    }) as any,
     select: {
       id: true,
       name: true,
       amount: true,
       paid: true,
       paidAmount: true,
+			isAllocation: true,
       categoryId: true,
       dueDate: true,
     },
-  });
+  } as any)) as any;
 
   return {
     id: created.id,
@@ -167,6 +186,7 @@ export async function addExpense(
     categoryId: created.categoryId ?? undefined,
     paid: created.paid,
     paidAmount: decimalToNumber(created.paidAmount),
+		isAllocation: created.isAllocation,
     dueDate: created.dueDate ? created.dueDate.toISOString().split('T')[0] : undefined,
   };
 }
@@ -195,20 +215,21 @@ export async function addOrUpdateExpenseAcrossMonths(
 		if (existing) {
 			await prisma.expense.update({
 				where: { id: existing.id },
-				data: {
+        data: ({
 					name: targetName,
 					amount: item.amount,
 					categoryId: item.categoryId ?? null,
 					paid: !!item.paid,
 					paidAmount: item.paidAmount ?? (item.paid ? item.amount : 0),
+          isAllocation: !!item.isAllocation,
 					dueDate: item.dueDate ? new Date(item.dueDate) : null,
-				},
+        }) as any,
 			});
 			continue;
 		}
 
 		await prisma.expense.create({
-			data: {
+      data: ({
 				budgetPlanId,
 				year,
 				month: monthNumber,
@@ -217,8 +238,9 @@ export async function addOrUpdateExpenseAcrossMonths(
 				categoryId: item.categoryId ?? null,
 				paid: !!item.paid,
 				paidAmount: item.paidAmount ?? (item.paid ? item.amount : 0),
+        isAllocation: !!item.isAllocation,
 				dueDate: item.dueDate ? new Date(item.dueDate) : null,
-			},
+      }) as any,
 		});
 	}
 }
@@ -227,10 +249,10 @@ export async function updateExpense(
   budgetPlanId: string,
   month: MonthKey,
   id: string,
-  updates: Partial<Pick<ExpenseItem, "name" | "amount" | "dueDate">> & { categoryId?: string | null },
+	updates: Partial<Pick<ExpenseItem, "name" | "amount" | "dueDate" | "isAllocation">> & { categoryId?: string | null },
 	year: number = currentYear()
 ): Promise<ExpenseItem | null> {
-  const existing = await prisma.expense.findFirst({
+  const existing = (await prisma.expense.findFirst({
     where: { id, budgetPlanId, year, month: monthKeyToNumber(month) },
     select: {
       id: true,
@@ -238,10 +260,11 @@ export async function updateExpense(
       amount: true,
       paid: true,
       paidAmount: true,
+			isAllocation: true,
       categoryId: true,
       dueDate: true,
     },
-  });
+  } as any)) as any;
   if (!existing) return null;
 
   const nextName = normalizeExpenseName(updates.name ?? existing.name);
@@ -262,26 +285,28 @@ export async function updateExpense(
   const nextPaid = nextPaidAmount >= nextAmount && nextAmount > 0;
   if (nextPaid) nextPaidAmount = nextAmount;
 
-  const updated = await prisma.expense.update({
+  const updated = (await prisma.expense.update({
     where: { id: existing.id },
-    data: {
+    data: ({
       name: nextName,
       amount: nextAmount,
       categoryId: nextCategoryId === undefined ? undefined : nextCategoryId,
       paidAmount: nextPaidAmount,
       paid: nextPaid,
+			isAllocation: updates.isAllocation === undefined ? undefined : !!updates.isAllocation,
       dueDate: updates.dueDate === undefined ? undefined : (updates.dueDate ? new Date(updates.dueDate) : null),
-    },
+    }) as any,
     select: {
       id: true,
       name: true,
       amount: true,
       paid: true,
       paidAmount: true,
+			isAllocation: true,
       categoryId: true,
       dueDate: true,
     },
-  });
+  } as any)) as any;
 
   return {
     id: updated.id,
@@ -290,6 +315,7 @@ export async function updateExpense(
     categoryId: updated.categoryId ?? undefined,
     paid: updated.paid,
     paidAmount: decimalToNumber(updated.paidAmount),
+		isAllocation: updated.isAllocation,
     dueDate: updated.dueDate ? updated.dueDate.toISOString().split('T')[0] : undefined,
   };
 }
@@ -324,10 +350,10 @@ export async function applyExpensePayment(
 ): Promise<{ expense: ExpenseItem; remaining: number } | null> {
   if (!Number.isFinite(paymentDelta) || paymentDelta <= 0) return null;
 
-  const existing = await prisma.expense.findFirst({
+  const existing = (await prisma.expense.findFirst({
     where: { id, budgetPlanId, year, month: monthKeyToNumber(month) },
-    select: { id: true, name: true, amount: true, paidAmount: true, paid: true, categoryId: true },
-  });
+		select: { id: true, name: true, amount: true, paidAmount: true, paid: true, categoryId: true, isAllocation: true },
+  } as any)) as any;
   if (!existing) return null;
 
   const amount = decimalToNumber(existing.amount);
@@ -335,14 +361,14 @@ export async function applyExpensePayment(
   const nextPaidAmount = Math.min(amount, Math.max(0, currentPaid + paymentDelta));
   const nextPaid = nextPaidAmount >= amount;
 
-  const updated = await prisma.expense.update({
+  const updated = (await prisma.expense.update({
     where: { id: existing.id },
     data: {
       paidAmount: nextPaid ? amount : nextPaidAmount,
       paid: nextPaid,
     },
-    select: { id: true, name: true, amount: true, paidAmount: true, paid: true, categoryId: true },
-  });
+		select: { id: true, name: true, amount: true, paidAmount: true, paid: true, categoryId: true, isAllocation: true },
+  } as any)) as any;
 
   const updatedAmount = decimalToNumber(updated.amount);
   const updatedPaidAmount = decimalToNumber(updated.paidAmount);
@@ -355,6 +381,7 @@ export async function applyExpensePayment(
       categoryId: updated.categoryId ?? undefined,
       paid: updated.paid,
       paidAmount: updatedPaidAmount,
+			isAllocation: updated.isAllocation,
     },
     remaining: Math.max(0, updatedAmount - updatedPaidAmount),
   };
@@ -369,24 +396,24 @@ export async function setExpensePaymentAmount(
 ): Promise<{ expense: ExpenseItem; remaining: number } | null> {
   if (!Number.isFinite(paidAmount) || paidAmount < 0) return null;
 
-  const existing = await prisma.expense.findFirst({
+  const existing = (await prisma.expense.findFirst({
     where: { id, budgetPlanId, year, month: monthKeyToNumber(month) },
-    select: { id: true, name: true, amount: true, paidAmount: true, paid: true, categoryId: true },
-  });
+		select: { id: true, name: true, amount: true, paidAmount: true, paid: true, categoryId: true, isAllocation: true },
+  } as any)) as any;
   if (!existing) return null;
 
   const amount = decimalToNumber(existing.amount);
   const nextPaidAmount = Math.min(amount, paidAmount);
   const nextPaid = nextPaidAmount >= amount;
 
-  const updated = await prisma.expense.update({
+  const updated = (await prisma.expense.update({
     where: { id: existing.id },
     data: {
       paidAmount: nextPaid ? amount : nextPaidAmount,
       paid: nextPaid,
     },
-    select: { id: true, name: true, amount: true, paidAmount: true, paid: true, categoryId: true },
-  });
+		select: { id: true, name: true, amount: true, paidAmount: true, paid: true, categoryId: true, isAllocation: true },
+  } as any)) as any;
 
   const updatedAmount = decimalToNumber(updated.amount);
   const updatedPaidAmount = decimalToNumber(updated.paidAmount);
@@ -399,6 +426,7 @@ export async function setExpensePaymentAmount(
       categoryId: updated.categoryId ?? undefined,
       paid: updated.paid,
       paidAmount: updatedPaidAmount,
+			isAllocation: updated.isAllocation,
     },
     remaining: Math.max(0, updatedAmount - updatedPaidAmount),
   };

@@ -165,6 +165,7 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 			(allocation.monthlyInvestmentContribution ?? 0);
 		const plannedSavingsContribution = allocation.monthlySavingsContribution ?? 0;
 		const plannedEmergencyContribution = allocation.monthlyEmergencyContribution ?? 0;
+		const plannedInvestments = allocation.monthlyInvestmentContribution ?? 0;
 		const incomeAfterAllocations = totalIncome - totalAllocations - plannedDebtAmount;
 
 		return {
@@ -176,6 +177,7 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 			plannedDebtPayments: plannedDebtAmount,
 			plannedSavingsContribution,
 			plannedEmergencyContribution,
+			plannedInvestments,
 			incomeAfterAllocations,
 			totalExpenses,
 			remaining,
@@ -417,6 +419,7 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 					plannedDebtPayments={currentPlanData.plannedDebtPayments}
 					plannedSavingsContribution={currentPlanData.plannedSavingsContribution}
 					plannedEmergencyContribution={currentPlanData.plannedEmergencyContribution}
+					plannedInvestments={currentPlanData.plannedInvestments}
 					incomeAfterAllocations={currentPlanData.incomeAfterAllocations}
 					totalExpenses={currentPlanData.totalExpenses}
 					remaining={currentPlanData.remaining}

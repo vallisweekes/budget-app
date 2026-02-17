@@ -27,29 +27,14 @@ function decimalToString(value: unknown): string {
   return "0";
 }
 
-function serializeExpense(expense: {
-  id: string;
-  name: string;
-  amount: unknown;
-  paid: boolean;
-  paidAmount: unknown;
-  month: number;
-  year: number;
-  categoryId: string | null;
-  category?: {
-    id: string;
-    name: string;
-    icon: string | null;
-    color: string | null;
-    featured: boolean;
-  } | null;
-}) {
+function serializeExpense(expense: any) {
   return {
     id: expense.id,
     name: expense.name,
     amount: decimalToString(expense.amount),
     paid: expense.paid,
     paidAmount: decimalToString(expense.paidAmount),
+    isAllocation: Boolean(expense.isAllocation ?? false),
     month: expense.month,
     year: expense.year,
     categoryId: expense.categoryId,
@@ -83,7 +68,7 @@ export async function GET(req: NextRequest) {
     },
   });
 
-  return NextResponse.json(items.map(serializeExpense));
+  return NextResponse.json((items as any[]).map(serializeExpense));
 }
 
 export async function POST(req: NextRequest) {
@@ -101,6 +86,7 @@ export async function POST(req: NextRequest) {
     year?: unknown;
     categoryId?: unknown;
     paid?: unknown;
+    isAllocation?: unknown;
   };
 
   const ownedBudgetPlanId = await resolveOwnedBudgetPlanId({
@@ -114,6 +100,7 @@ export async function POST(req: NextRequest) {
   const year = Number(body.year);
   const categoryId = typeof body.categoryId === "string" ? body.categoryId.trim() : undefined;
   const paid = Boolean(body.paid ?? false);
+  const isAllocation = Boolean(body.isAllocation ?? false);
 
   if (!ownedBudgetPlanId) return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
   if (!name) return badRequest("Name is required");
@@ -122,16 +109,17 @@ export async function POST(req: NextRequest) {
   if (!Number.isFinite(year) || year < 1900) return badRequest("Invalid year");
 
   const created = await prisma.expense.create({
-    data: {
+    data: ({
       name,
       amount: String(amount),
       paid,
       paidAmount: String(paid ? amount : 0),
+      isAllocation,
       month,
       year,
       categoryId: categoryId ? categoryId : null,
 			budgetPlanId: ownedBudgetPlanId,
-    },
+    }) as any,
     include: {
       category: {
         select: { id: true, name: true, icon: true, color: true, featured: true },

@@ -110,6 +110,12 @@ export async function DELETE(
 		if (!existing || existing.budgetPlan.userId !== userId) {
 			return NextResponse.json({ error: "Debt not found" }, { status: 404 });
 		}
+    if (existing.sourceType === "expense" && Number(existing.currentBalance) > 0) {
+      return NextResponse.json(
+        { error: "Cannot delete an unpaid expense debt. Mark the expense as paid first." },
+        { status: 409 }
+      );
+    }
 
     await prisma.debt.delete({
       where: { id },

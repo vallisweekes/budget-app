@@ -8,7 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import AddDebtForm from "./AddDebtForm";
 import DebtsList from "./DebtsList";
-import { getExpenseDebts } from "@/lib/expenses/carryover";
+import { getExpenseDebts, processOverdueExpensesToDebts } from "@/lib/expenses/carryover";
 
 function Currency({ value }: { value: number }) {
 	return <span>{formatCurrency(value)}</span>;
@@ -43,6 +43,9 @@ export default async function DebtsPage(props: {
 	}
 
 	const budgetPlanId = budgetPlan.id;
+
+	// Ensure overdue/part-paid expenses are reflected as debts.
+	await processOverdueExpensesToDebts(budgetPlanId);
 	
 	// Get regular debts and expense-derived debts separately
 	const regularDebts = (await getAllDebts(budgetPlanId)).filter((d) => d.sourceType !== "expense");

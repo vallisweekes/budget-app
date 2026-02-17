@@ -9,6 +9,9 @@ export interface ExpenseItem {
 	paidAmount?: number;
 	isSaving?: boolean;
 	isInvestment?: boolean;
+	// If true, this is treated as an allocation/envelope amount rather than a bill.
+	// It should never generate an expense-backed debt.
+	isAllocation?: boolean;
 	dueDate?: string; // ISO date string (YYYY-MM-DD)
 }
 

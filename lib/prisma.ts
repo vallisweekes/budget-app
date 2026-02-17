@@ -1,6 +1,25 @@
-import { PrismaClient } from "@prisma/client";
+import "server-only";
 
-const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
+import { PrismaClient } from "@prisma/client";
+import { createHash } from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
+
+const globalForPrisma = globalThis as unknown as {
+  prisma?: PrismaClient;
+  prismaSchemaHash?: string;
+};
+
+function getPrismaSchemaHash(): string | undefined {
+  if (process.env.NODE_ENV === "production") return undefined;
+  try {
+    const schemaPath = path.join(process.cwd(), "prisma", "schema.prisma");
+    const schema = fs.readFileSync(schemaPath, "utf8");
+    return createHash("sha1").update(schema).digest("hex");
+  } catch {
+    return undefined;
+  }
+}
 
 function withConnectionLimits(url: string | undefined): string | undefined {
   if (!url) return url;
@@ -28,9 +47,12 @@ function resolvePrismaUrl(): string | undefined {
   );
 }
 
+const prismaSchemaHash = getPrismaSchemaHash();
+
 export const prisma =
-  globalForPrisma.prisma ??
-  new PrismaClient({
+  globalForPrisma.prisma && (!prismaSchemaHash || globalForPrisma.prismaSchemaHash === prismaSchemaHash)
+    ? globalForPrisma.prisma
+    : new PrismaClient({
     datasources: {
       db: {
         url: resolvePrismaUrl(),
@@ -39,4 +61,7 @@ export const prisma =
     log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
   });
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = prisma;
+  globalForPrisma.prismaSchemaHash = prismaSchemaHash;
+}

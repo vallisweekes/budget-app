@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUserId } from "@/lib/api/bffAuth";
+import { upsertExpenseDebt } from "@/lib/debts/store";
+import { monthNumberToKey } from "@/lib/helpers/monthKey";
 
 export const runtime = "nodejs";
 
@@ -21,29 +23,14 @@ function decimalToString(value: unknown): string {
   return "0";
 }
 
-function serializeExpense(expense: {
-  id: string;
-  name: string;
-  amount: unknown;
-  paid: boolean;
-  paidAmount: unknown;
-  month: number;
-  year: number;
-  categoryId: string | null;
-  category?: {
-    id: string;
-    name: string;
-    icon: string | null;
-    color: string | null;
-    featured: boolean;
-  } | null;
-}) {
+function serializeExpense(expense: any) {
   return {
     id: expense.id,
     name: expense.name,
     amount: decimalToString(expense.amount),
     paid: expense.paid,
     paidAmount: decimalToString(expense.paidAmount),
+    isAllocation: Boolean(expense.isAllocation ?? false),
     month: expense.month,
     year: expense.year,
     categoryId: expense.categoryId,
@@ -55,6 +42,7 @@ type PatchBody = {
   name?: unknown;
   amount?: unknown;
   categoryId?: unknown;
+  isAllocation?: unknown;
 };
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
@@ -77,12 +65,14 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
         ? body.categoryId.trim() || null
         : undefined;
 
+	const isAllocation = body.isAllocation == null ? undefined : Boolean(body.isAllocation);
+
   if (name !== undefined && !name) return badRequest("Name cannot be empty");
   if (amount !== undefined && (!Number.isFinite(amount) || amount < 0)) {
     return badRequest("Amount must be a number >= 0");
   }
 
-  const existing = await prisma.expense.findUnique({
+  const existing = (await prisma.expense.findUnique({
     where: { id },
     select: {
       id: true,
@@ -90,10 +80,12 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       amount: true,
       paid: true,
       paidAmount: true,
+      isAllocation: true,
       categoryId: true,
+			budgetPlanId: true,
       budgetPlan: { select: { userId: true } },
     },
-  });
+  } as any)) as any;
   if (!existing || existing.budgetPlan.userId !== userId) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
@@ -114,21 +106,46 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   const nextPaid = nextAmountNumber > 0 && nextPaidAmountNumber >= nextAmountNumber;
   if (nextPaid) nextPaidAmountNumber = nextAmountNumber;
 
-  const updated = await prisma.expense.update({
+  const updated = (await prisma.expense.update({
     where: { id },
-    data: {
+    data: ({
       name: nextName,
       amount: String(nextAmountNumber),
       paid: nextPaid,
       paidAmount: String(nextPaidAmountNumber),
       categoryId: categoryId === undefined ? existing.categoryId : categoryId,
-    },
+      isAllocation: isAllocation === undefined ? undefined : isAllocation,
+    }) as any,
     include: {
       category: {
         select: { id: true, name: true, icon: true, color: true, featured: true },
       },
     },
-  });
+  } as any)) as any;
+
+  if (updated.isAllocation) {
+    const existingDebt = await prisma.debt.findFirst({
+      where: {
+        budgetPlanId: existing.budgetPlanId,
+        sourceType: "expense",
+        sourceExpenseId: existing.id,
+      },
+      select: { sourceMonthKey: true },
+    });
+
+    if (existingDebt) {
+      const monthKey = existingDebt.sourceMonthKey ?? monthNumberToKey(updated.month);
+      await upsertExpenseDebt({
+        budgetPlanId: existing.budgetPlanId,
+        expenseId: existing.id,
+        monthKey,
+        expenseName: updated.name,
+        categoryId: updated.categoryId ?? undefined,
+        categoryName: updated.category?.name ?? undefined,
+        remainingAmount: 0,
+      });
+    }
+  }
 
   return NextResponse.json(serializeExpense(updated));
 }
@@ -142,11 +159,21 @@ export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: str
 
 	const existing = await prisma.expense.findUnique({
 		where: { id },
-		select: { id: true, budgetPlan: { select: { userId: true } } },
+    select: { id: true, amount: true, paid: true, paidAmount: true, budgetPlan: { select: { userId: true } } },
 	});
 	if (!existing || existing.budgetPlan.userId !== userId) {
 		return NextResponse.json({ error: "Not found" }, { status: 404 });
 	}
+
+  const amountNumber = Number(existing.amount.toString());
+  const paidAmountNumber = Number(existing.paidAmount.toString());
+  const isFullyPaid = existing.paid || amountNumber <= 0 || (amountNumber > 0 && paidAmountNumber >= amountNumber);
+  if (!isFullyPaid) {
+    return NextResponse.json(
+      { error: "Cannot delete an unpaid expense. Mark it paid first." },
+      { status: 409 }
+    );
+  }
 
   await prisma.expense.delete({ where: { id } }).catch(() => null);
   return NextResponse.json({ success: true as const });

@@ -240,7 +240,6 @@ export async function upsertExpenseDebt(params: {
 			budgetPlanId,
 			sourceType: "expense",
 			sourceExpenseId: expenseId,
-			sourceMonthKey: monthKey,
 		},
 		select: {
 			id: true,

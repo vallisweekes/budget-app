@@ -17,6 +17,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { resolveUserId } from "@/lib/budgetPlans";
 import { getSettings } from "@/lib/settings/store";
+import { upsertExpenseDebt } from "@/lib/debts/store";
 
 function isTruthyFormValue(value: FormDataEntryValue | null): boolean {
   if (value == null) return false;
@@ -76,6 +77,59 @@ function requireBudgetPlanId(formData: FormData): string {
   return budgetPlanId;
 }
 
+async function syncExistingExpenseDebt(params: {
+  budgetPlanId: string;
+  expenseId: string;
+  fallbackMonthKey: MonthKey;
+  year?: number;
+}) {
+  const { budgetPlanId, expenseId, fallbackMonthKey, year } = params;
+  const existingDebt = await prisma.debt.findFirst({
+    where: { budgetPlanId, sourceType: "expense", sourceExpenseId: expenseId },
+    select: { sourceMonthKey: true },
+  });
+  if (!existingDebt) return;
+
+  const y = year ?? new Date().getFullYear();
+  type ExpenseDebtSyncRow = {
+    id: string;
+    name: string;
+    amount: { toString(): string };
+    paidAmount: { toString(): string };
+    isAllocation: boolean;
+    categoryId: string | null;
+    category: { name: string } | null;
+  };
+
+  const expense = (await prisma.expense.findFirst({
+    where: { id: expenseId, budgetPlanId, year: y },
+    select: {
+      id: true,
+      name: true,
+      amount: true,
+      paidAmount: true,
+      isAllocation: true,
+      categoryId: true,
+      category: { select: { name: true } },
+    } as any,
+  } as any)) as ExpenseDebtSyncRow | null;
+  if (!expense) return;
+
+  const amountNumber = Number(expense.amount.toString());
+  const paidAmountNumber = Number(expense.paidAmount.toString());
+  const remainingAmount = expense.isAllocation ? 0 : Math.max(0, amountNumber - paidAmountNumber);
+
+  await upsertExpenseDebt({
+    budgetPlanId,
+    expenseId: expense.id,
+    monthKey: (existingDebt.sourceMonthKey as MonthKey) ?? fallbackMonthKey,
+    expenseName: expense.name,
+    categoryId: expense.categoryId ?? undefined,
+    categoryName: expense.category?.name ?? undefined,
+    remainingAmount,
+  });
+}
+
 export async function addExpenseAction(formData: FormData): Promise<void> {
 	const budgetPlanId = requireBudgetPlanId(formData);
 	const month = String(formData.get("month")) as MonthKey;
@@ -84,6 +138,7 @@ export async function addExpenseAction(formData: FormData): Promise<void> {
 	const amount = Number(formData.get("amount") || 0);
 	const categoryId = String(formData.get("categoryId") || "") || undefined;
 	const paid = String(formData.get("paid") || "false") === "true";
+  const isAllocation = isTruthyFormValue(formData.get("isAllocation"));
 	if (!name || !month) return;
 
 	const distributeMonths = isTruthyFormValue(formData.get("distributeMonths"));
@@ -105,6 +160,7 @@ export async function addExpenseAction(formData: FormData): Promise<void> {
 			categoryId,
 			paid,
 			paidAmount: paid ? amount : 0,
+      isAllocation,
 		});
 	}
 
@@ -121,6 +177,7 @@ export async function togglePaidAction(
 	const { userId } = await requireAuthenticatedUser();
 	await requireOwnedBudgetPlan(budgetPlanId, userId);
   await toggleExpensePaid(budgetPlanId, month, id, year);
+	await syncExistingExpenseDebt({ budgetPlanId, expenseId: id, fallbackMonthKey: month, year });
   revalidatePath("/");
   revalidatePath("/admin/expenses");
 }
@@ -138,6 +195,7 @@ export async function updateExpenseAction(formData: FormData): Promise<void> {
   const dueDateRaw = formData.get("dueDate");
   const dueDateString = dueDateRaw == null ? undefined : String(dueDateRaw).trim();
   const dueDate = dueDateString && dueDateString !== "" ? dueDateString : undefined;
+	const isAllocation = isTruthyFormValue(formData.get("isAllocation"));
   if (!month || !id || !name) return;
 
   const applyRemainingMonths = isTruthyFormValue(formData.get("applyRemainingMonths"));
@@ -157,7 +215,8 @@ export async function updateExpenseAction(formData: FormData): Promise<void> {
       })
     : null;
 
-  await updateExpense(budgetPlanId, month, id, { name, amount, categoryId, dueDate }, year);
+  await updateExpense(budgetPlanId, month, id, { name, amount, categoryId, dueDate, isAllocation }, year);
+	await syncExistingExpenseDebt({ budgetPlanId, expenseId: id, fallbackMonthKey: month, year });
 
   if (applyRemainingMonths && matchRow && monthNumber) {
     const monthsThisYear = remainingMonthsFrom(month);
@@ -167,7 +226,7 @@ export async function updateExpenseAction(formData: FormData): Promise<void> {
       await updateExpenseAcrossMonthsByName(
         budgetPlanId,
         { name: matchRow.name, categoryId: matchRow.categoryId },
-        { name, amount, categoryId, dueDate },
+				{ name, amount, categoryId, dueDate, isAllocation },
         y,
         monthsForYear
       );
@@ -186,6 +245,21 @@ export async function removeExpenseAction(
 ): Promise<void> {
 	const { userId } = await requireAuthenticatedUser();
 	await requireOwnedBudgetPlan(budgetPlanId, userId);
+  const y = year ?? new Date().getFullYear();
+  const monthIndex = (MONTHS as MonthKey[]).indexOf(month);
+  const monthNumber = monthIndex >= 0 ? monthIndex + 1 : null;
+  if (!monthNumber) throw new Error("Invalid month");
+  const existing = await prisma.expense.findFirst({
+    where: { id, budgetPlanId, year: y, month: monthNumber },
+    select: { amount: true, paid: true, paidAmount: true },
+  });
+  if (!existing) throw new Error("Expense not found");
+  const amountNumber = Number(existing.amount.toString());
+  const paidAmountNumber = Number(existing.paidAmount.toString());
+  const isFullyPaid = existing.paid || amountNumber <= 0 || (amountNumber > 0 && paidAmountNumber >= amountNumber);
+  if (!isFullyPaid) {
+    throw new Error("Cannot delete an unpaid expense. Mark it paid first.");
+  }
   await removeExpense(budgetPlanId, month, id, year);
   revalidatePath("/");
   revalidatePath("/admin/expenses");
@@ -208,6 +282,7 @@ export async function applyExpensePaymentAction(
 
   const result = await applyExpensePayment(budgetPlanId, month, expenseId, paymentAmount, year);
   if (!result) return { success: false, error: "Expense not found" };
+	await syncExistingExpenseDebt({ budgetPlanId, expenseId, fallbackMonthKey: month, year });
 
   revalidatePath("/");
   revalidatePath("/admin/expenses");
@@ -231,6 +306,7 @@ export async function setExpensePaidAmountAction(
 
   const result = await setExpensePaymentAmount(budgetPlanId, month, expenseId, paidAmount, year);
   if (!result) return { success: false, error: "Expense not found" };
+	await syncExistingExpenseDebt({ budgetPlanId, expenseId, fallbackMonthKey: month, year });
 
   revalidatePath("/");
   revalidatePath("/admin/expenses");

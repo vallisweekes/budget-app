@@ -186,6 +186,7 @@ export default function ExpenseManager({
   const [editAmount, setEditAmount] = useState<string>("");
   const [editCategoryId, setEditCategoryId] = useState<string>("");
   const [editDueDate, setEditDueDate] = useState<string>("");
+	const [editIsAllocation, setEditIsAllocation] = useState(false);
 	const [applyRemainingMonths, setApplyRemainingMonths] = useState(false);
 	const [applyFutureYears, setApplyFutureYears] = useState(false);
   const [addMonth, setAddMonth] = useState<MonthKey>(month);
@@ -328,6 +329,7 @@ export default function ExpenseManager({
     setEditName(expense.name);
     setEditAmount(String(expense.amount));
     setEditCategoryId(expense.categoryId ?? "");
+		setEditIsAllocation(Boolean(expense.isAllocation));
     const monthNumber = (MONTHS as MonthKey[]).indexOf(month) + 1;
     const rawDue = expense.dueDate || "";
     if (rawDue) {
@@ -501,6 +503,22 @@ export default function ExpenseManager({
                       placeholder="Optional (defaults to pay date)"
                     />
                   </label>
+
+            <label className="md:col-span-2 flex items-start gap-3 rounded-2xl border border-white/10 bg-slate-900/30 p-4">
+              <input
+                name="isAllocation"
+                type="checkbox"
+                checked={editIsAllocation}
+                onChange={(e) => setEditIsAllocation(e.target.checked)}
+                className="mt-1 h-4 w-4 rounded border-white/20 bg-slate-900/40 text-purple-500 focus:ring-purple-500/50"
+              />
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-semibold text-white">Treat this as an allocation</div>
+                <div className="mt-1 text-xs text-slate-300">
+                  Allocation-tagged expenses never convert into debts (useful for envelopes like groceries/transport).
+                </div>
+              </div>
+            </label>
                 </div>
 
           <div className="rounded-2xl border border-white/10 bg-slate-900/30 p-4">
@@ -851,6 +869,20 @@ export default function ExpenseManager({
               </label>
             </div>
 
+				<label className="flex items-start gap-3 rounded-2xl border border-white/10 bg-slate-900/30 p-4">
+					<input
+						name="isAllocation"
+						type="checkbox"
+						className="mt-1 h-4 w-4 rounded border-white/20 bg-slate-900/60 text-purple-500 focus:ring-purple-500"
+					/>
+					<div className="min-w-0 flex-1">
+						<div className="text-sm font-semibold text-white">Treat this as an allocation</div>
+						<div className="mt-1 text-xs text-slate-300">
+							Use this for envelopes like groceries/transport so they never appear as debts.
+						</div>
+					</div>
+				</label>
+
             <button
               type="submit"
               disabled={isPeriodLoading || isAdding}
@@ -997,6 +1029,11 @@ export default function ExpenseManager({
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5 mb-0.5 sm:mb-1 flex-wrap">
                               <div className="font-semibold text-white text-xs sm:text-sm truncate">{expense.name}</div>
+											{expense.isAllocation ? (
+												<span className="text-[10px] sm:text-xs px-2 py-0.5 rounded-lg font-semibold shrink-0 bg-indigo-500/20 text-indigo-200 border border-indigo-400/30">
+													Allocation
+												</span>
+											) : null}
                 {(() => {
                   const monthNumber = (MONTHS as MonthKey[]).indexOf(month) + 1;
                   const dueDateUtc = getDueDateUtc({ year, monthNumber, dueDate: expense.dueDate, payDate });
@@ -1059,9 +1096,13 @@ export default function ExpenseManager({
                             <button
                               type="button"
                               onClick={() => handleRemoveClick(expense)}
-                              disabled={isPending}
-                              className="h-8 sm:h-9 w-8 sm:w-9 rounded-lg sm:rounded-xl hover:bg-red-500/20 text-red-400 transition-all cursor-pointer hover:scale-[1.05] flex items-center justify-center"
-                              title="Delete expense"
+							  disabled={isPending || (!isPaid && expense.amount > 0)}
+							  className={`h-8 sm:h-9 w-8 sm:w-9 rounded-lg sm:rounded-xl text-red-400 transition-all flex items-center justify-center ${
+								isPending || (!isPaid && expense.amount > 0)
+									? "opacity-40 cursor-not-allowed"
+									: "hover:bg-red-500/20 cursor-pointer hover:scale-[1.05]"
+							  }`}
+							  title={!isPaid && expense.amount > 0 ? "Cannot delete until paid" : "Delete expense"}
                             >
                               <Trash2 size={14} className="sm:w-4 sm:h-4" />
                             </button>

@@ -1,8 +1,36 @@
 "use server";
 
+import "server-only";
+
 import { prisma } from "@/lib/prisma";
 import { upsertExpenseDebt } from "@/lib/debts/store";
+import { monthNumberToKey } from "@/lib/helpers/monthKey";
 import type { MonthKey } from "@/types";
+
+const OVERDUE_GRACE_DAYS = 5;
+
+const NON_DEBT_CATEGORY_NAMES = new Set(
+	[
+		"food and dining",
+		"food & dining",
+		"food",
+		"dining",
+		"transport",
+		"travel",
+		"transport / travel",
+		"transport/travel",
+	]
+		.map((s) => s.toLowerCase())
+);
+
+function isNonDebtCategoryName(name: string | null | undefined): boolean {
+	const normalized = String(name ?? "").trim().toLowerCase();
+	if (!normalized) return false;
+	if (NON_DEBT_CATEGORY_NAMES.has(normalized)) return true;
+	if (normalized.includes("food") && normalized.includes("dining")) return true;
+	if (normalized.includes("transport") || normalized.includes("travel")) return true;
+	return false;
+}
 
 function toLocalDateOnly(value: Date): Date {
 	return new Date(value.getFullYear(), value.getMonth(), value.getDate());
@@ -19,12 +47,19 @@ function resolveExpenseDueDate(params: {
 	return new Date(year, month - 1, defaultDueDay);
 }
 
+function addDays(date: Date, days: number): Date {
+	const next = new Date(date);
+	next.setDate(next.getDate() + days);
+	return next;
+}
+
 /**
  * Processes unpaid/partially paid expenses and converts them to debts
  * This should be called at the end of each month or when viewing a new month
  * 
- * @param onlyPartialPayments - If true, only process expenses with partial payments (immediate conversion)
- *                               If false, only process expenses from past months
+ * @param onlyPartialPayments - If true, processes just the requested expense IDs (immediate conversion)
+ *                               If false, processes all unpaid/partial from past months
+ * @param forceExpenseIds - If set, these expenses are converted immediately (even if not overdue)
  */
 export async function processUnpaidExpenses(params: {
 	budgetPlanId: string;
@@ -32,8 +67,9 @@ export async function processUnpaidExpenses(params: {
 	month: number;
 	monthKey: MonthKey;
 	onlyPartialPayments?: boolean;
+	forceExpenseIds?: string[];
 }) {
-	const { budgetPlanId, year, month, monthKey, onlyPartialPayments = false } = params;
+	const { budgetPlanId, year, month, monthKey: _monthKey, onlyPartialPayments = false, forceExpenseIds } = params;
 
 	const now = new Date();
 	const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -45,15 +81,19 @@ export async function processUnpaidExpenses(params: {
 	});
 	const defaultDueDate = budgetPlan?.payDate ?? 27;
 
+	const normalizedForceIds = Array.isArray(forceExpenseIds)
+		? forceExpenseIds.map((id) => String(id ?? "").trim()).filter(Boolean)
+		: [];
+
 	// Build query based on processing mode
 	const whereCondition = onlyPartialPayments
 		? {
-				// Only partial payments (immediate conversion)
+				// Immediate conversion for a specific set of expenses (even if paidAmount is 0)
 				budgetPlanId,
 				year,
 				month,
 				paid: false,
-				paidAmount: { gt: 0 },
+				...(normalizedForceIds.length > 0 ? { id: { in: normalizedForceIds } } : {}),
 		  }
 		: {
 				// All unpaid/partial from past months
@@ -72,13 +112,26 @@ export async function processUnpaidExpenses(params: {
 		  };
 
 	// Find all unpaid or partially paid expenses for this month
-	const unpaidExpenses = await prisma.expense.findMany({
+	type ExpenseCarryRow = {
+		id: string;
+		name: string;
+		amount: any;
+		paidAmount: any;
+		isAllocation: boolean;
+		dueDate: Date | null;
+		year: number;
+		month: number;
+		category: { id: string; name: string } | null;
+	};
+
+	const unpaidExpenses = (await prisma.expense.findMany({
 		where: whereCondition,
 		select: {
 			id: true,
 			name: true,
 			amount: true,
 			paidAmount: true,
+			isAllocation: true,
 			dueDate: true,
 			year: true,
 			month: true,
@@ -89,11 +142,13 @@ export async function processUnpaidExpenses(params: {
 				}
 			}
 		}
-	});
+	} as any)) as unknown as ExpenseCarryRow[];
 
 	// Convert each unpaid expense to a debt (only if due date has passed or it's a partial payment)
 	const results = [];
 	for (const expense of unpaidExpenses) {
+		if (expense.isAllocation) continue;
+		if (isNonDebtCategoryName(expense.category?.name)) continue;
 		const totalAmount = Number(expense.amount);
 		const paidAmount = Number(expense.paidAmount);
 		const remainingAmount = totalAmount - paidAmount;
@@ -106,18 +161,21 @@ export async function processUnpaidExpenses(params: {
 			dueDate: expense.dueDate,
 			defaultDueDay: defaultDueDate,
 		});
-		const isExpenseOverdue = expenseDueDate.getTime() < today.getTime();
+		const overdueThreshold = addDays(expenseDueDate, OVERDUE_GRACE_DAYS);
+		const isExpenseOverdueByGrace = overdueThreshold.getTime() <= today.getTime();
+		const shouldConvertImmediately = normalizedForceIds.length > 0 || onlyPartialPayments;
 
-		// Skip if not overdue (unless we're only processing partial payments)
-		if (!onlyPartialPayments && !isExpenseOverdue) {
+		// Skip if not overdue enough (unless forced)
+		if (!shouldConvertImmediately && !isExpenseOverdueByGrace) {
 			continue;
 		}
 
 		if (remainingAmount > 0) {
+			const expenseMonthKey = monthNumberToKey(expense.month);
 			const debt = await upsertExpenseDebt({
 				budgetPlanId,
 				expenseId: expense.id,
-				monthKey,
+				monthKey: expenseMonthKey,
 				year,
 				categoryId: expense.category?.id,
 				categoryName: expense.category?.name,
@@ -141,7 +199,19 @@ export async function processPastMonthsUnpaidExpenses(budgetPlanId: string) {
 	const currentMonth = now.getMonth() + 1;
 
 	// Get all unpaid expenses from past months
-	const pastUnpaidExpenses = await prisma.expense.findMany({
+	type PastExpenseCarryRow = {
+		id: string;
+		name: string;
+		amount: any;
+		paidAmount: any;
+		isAllocation: boolean;
+		dueDate: Date | null;
+		year: number;
+		month: number;
+		category: { id: string; name: string } | null;
+	};
+
+	const pastUnpaidExpenses = (await prisma.expense.findMany({
 		where: {
 			budgetPlanId,
 			AND: [
@@ -173,20 +243,30 @@ export async function processPastMonthsUnpaidExpenses(budgetPlanId: string) {
 				}
 			]
 		},
-		include: {
+		select: {
+			id: true,
+			name: true,
+			amount: true,
+			paidAmount: true,
+			isAllocation: true,
+			dueDate: true,
+			year: true,
+			month: true,
 			category: {
 				select: {
 					id: true,
-					name: true
-				}
-			}
-		}
-	});
+					name: true,
+				},
+			},
+		},
+	} as any)) as unknown as PastExpenseCarryRow[];
 
 	// Group by month and process
 	const results = [];
 	for (const expense of pastUnpaidExpenses) {
-		const monthKey = `${expense.year}-${String(expense.month).padStart(2, '0')}` as MonthKey;
+		if (expense.isAllocation) continue;
+		if (isNonDebtCategoryName(expense.category?.name)) continue;
+		const monthKey = monthNumberToKey(expense.month);
 		const totalAmount = Number(expense.amount);
 		const paidAmount = Number(expense.paidAmount);
 		const remainingAmount = totalAmount - paidAmount;
@@ -210,21 +290,113 @@ export async function processPastMonthsUnpaidExpenses(budgetPlanId: string) {
 }
 
 /**
+ * Converts any unpaid/part-paid expenses into debts when:
+ * - the due date is overdue by >= OVERDUE_GRACE_DAYS, OR
+ * - there's any paidAmount recorded (partial payment)
+ *
+ * This is intended to be called when loading the Debts page.
+ */
+export async function processOverdueExpensesToDebts(budgetPlanId: string) {
+	const now = new Date();
+	const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+	const budgetPlan = await prisma.budgetPlan.findUnique({
+		where: { id: budgetPlanId },
+		select: { payDate: true },
+	});
+	const defaultDueDate = budgetPlan?.payDate ?? 27;
+
+	type OverdueExpenseCarryRow = {
+		id: string;
+		name: string;
+		amount: any;
+		paidAmount: any;
+		isAllocation: boolean;
+		dueDate: Date | null;
+		year: number;
+		month: number;
+		category: { id: string; name: string } | null;
+	};
+
+	const unpaidExpenses = (await prisma.expense.findMany({
+		where: {
+			budgetPlanId,
+			paid: false,
+		},
+		select: {
+			id: true,
+			name: true,
+			amount: true,
+			paidAmount: true,
+			isAllocation: true,
+			dueDate: true,
+			year: true,
+			month: true,
+			category: {
+				select: {
+					id: true,
+					name: true,
+				},
+			},
+		},
+	} as any)) as unknown as OverdueExpenseCarryRow[];
+
+	const results = [];
+	for (const expense of unpaidExpenses) {
+		if (expense.isAllocation) continue;
+		if (isNonDebtCategoryName(expense.category?.name)) continue;
+		const totalAmount = Number(expense.amount);
+		const paidAmount = Number(expense.paidAmount);
+		const remainingAmount = totalAmount - paidAmount;
+		if (!(Number.isFinite(remainingAmount) && remainingAmount > 0)) continue;
+
+		const expenseDueDate = resolveExpenseDueDate({
+			year: expense.year,
+			month: expense.month,
+			dueDate: expense.dueDate,
+			defaultDueDay: defaultDueDate,
+		});
+		const overdueThreshold = addDays(expenseDueDate, OVERDUE_GRACE_DAYS);
+		const isExpenseOverdueByGrace = overdueThreshold.getTime() <= today.getTime();
+		const hasPartialPayment = Number.isFinite(paidAmount) && paidAmount > 0;
+
+		if (!isExpenseOverdueByGrace && !hasPartialPayment) continue;
+
+		const monthKey = monthNumberToKey(expense.month);
+		const debt = await upsertExpenseDebt({
+			budgetPlanId,
+			expenseId: expense.id,
+			monthKey,
+			year: expense.year,
+			categoryId: expense.category?.id,
+			categoryName: expense.category?.name,
+			expenseName: expense.name,
+			remainingAmount,
+		});
+		results.push(debt);
+	}
+
+	return results;
+}
+
+/**
  * Gets all expense-derived debts for display
  * Only shows debts from expenses where:
  * 1. The due date has passed
  * 2. OR it has a partial payment (paidAmount > 0)
  */
 export async function getExpenseDebts(budgetPlanId: string) {
-	const now = new Date();
-	const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-	// Get budget plan to access default payDate
-	const budgetPlan = await prisma.budgetPlan.findUnique({
-		where: { id: budgetPlanId },
-		select: { payDate: true }
+	// First, clean up any stale paid/zero-balance debts
+	await prisma.debt.deleteMany({
+		where: {
+			budgetPlanId,
+			sourceType: "expense",
+			OR: [
+				{ currentBalance: { lte: 0 } },
+				{ paid: true },
+			],
+		},
 	});
-	const defaultDueDate = budgetPlan?.payDate ?? 27;
 
 	const debts = await prisma.debt.findMany({
 		where: {
@@ -237,66 +409,14 @@ export async function getExpenseDebts(budgetPlanId: string) {
 		}
 	});
 
-	// Fetch the source expenses to check due dates
-	const expenseIds = debts.map(d => d.sourceExpenseId).filter(Boolean) as string[];
-	const expenses = await prisma.expense.findMany({
-		where: {
-			id: { in: expenseIds }
-		},
-		select: {
-			id: true,
-			year: true,
-			month: true,
-			dueDate: true,
-			paidAmount: true
-		}
+	// Filter out allocations and non-debt categories
+	const filtered = debts.filter(d => {
+		const catName = d.sourceCategoryName;
+		if (isNonDebtCategoryName(catName)) return false;
+		return true;
 	});
 
-	const expenseMap = new Map(expenses.map(e => [e.id, e]));
-
-	// Filter to only show debts where due date has passed or has partial payment
-	const filteredDebts = debts.filter(d => {
-		// Keep if it's a partial payment (paidAmount > 0 on the debt)
-		const debtPaidAmount = Number(d.paidAmount);
-		if (debtPaidAmount > 0) return true;
-
-		// Get the source expense
-		const expense = d.sourceExpenseId ? expenseMap.get(d.sourceExpenseId) : null;
-		if (!expense) {
-			// If we can't find the expense, parse sourceMonthKey as fallback
-			if (d.sourceMonthKey) {
-				const [yearStr, monthStr] = d.sourceMonthKey.split('-');
-				const debtYear = parseInt(yearStr);
-				const debtMonth = parseInt(monthStr);
-				
-				// Use default due date for fallback (date-only).
-				const fallbackDueDate = new Date(debtYear, debtMonth - 1, defaultDueDate);
-				const isOverdue = fallbackDueDate.getTime() < today.getTime();
-				
-				return isOverdue;
-			}
-			return true; // Keep if we can't determine
-		}
-
-		// Check if expense due date has passed
-		const expenseDueDate = resolveExpenseDueDate({
-			year: expense.year,
-			month: expense.month,
-			dueDate: expense.dueDate,
-			defaultDueDay: defaultDueDate,
-		});
-		const expensePaidAmount = Number(expense.paidAmount);
-		
-		// Keep if partial payment on expense
-		if (expensePaidAmount > 0) return true;
-
-		// Check if overdue
-		const isOverdue = expenseDueDate.getTime() < today.getTime();
-
-		return isOverdue;
-	});
-
-	return filteredDebts.map(d => ({
+	return filtered.map(d => ({
 		id: d.id,
 		name: d.name,
 		type: d.type,

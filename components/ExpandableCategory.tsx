@@ -7,7 +7,7 @@ import CategoryIcon from "./CategoryIcon";
 import PaymentStatusButton from "./PaymentStatusButton";
 import { formatCurrency } from "@/lib/helpers/money";
 import { getSimpleColorClasses } from "@/lib/helpers/colors";
-import { updateExpense } from "@/lib/expenses/store";
+import { updateExpenseDueDate } from "@/lib/expenses/actions";
 
 interface Expense {
 	id: string;
@@ -66,9 +66,7 @@ export default function ExpandableCategory({
 		}
 
 		startTransition(async () => {
-			await updateExpense(budgetPlanId, month, expenseId, {
-				dueDate: dueDateValue ?? undefined,
-			});
+			await updateExpenseDueDate(budgetPlanId, month, expenseId, dueDateValue);
 			setEditingDueDateId(null);
 			window.location.reload(); // Refresh to show updated data
 		});
