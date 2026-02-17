@@ -41,7 +41,7 @@ export default function IncomeManager({
 	const isCurrentMonth = year === currentYear && month === nowMonth;
 	const isLocked =
 		year < currentYear || (year === currentYear && monthKeyToNumber(month) < monthKeyToNumber(nowMonth));
-	const canAddForMonth = !isLocked && incomeItems.length === 0;
+	const canAddForMonth = !isLocked;
 	const router = useRouter();
 	const [isPending, startTransition] = useTransition();
 	const [editingItemId, setEditingItemId] = useState<string | null>(null);
@@ -302,7 +302,7 @@ export default function IncomeManager({
 				>
 					<Plus size={14} className="sm:hidden" />
 					<Plus size={16} className="hidden sm:block" />
-					Add Income
+					{incomeItems.length > 0 ? "Add income source" : "Add Income"}
 				</button>
 			) : null}
 		</div>

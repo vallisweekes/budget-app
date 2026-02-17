@@ -823,6 +823,15 @@ export default function ViewTabs({
               </span>
             )}
           </div>
+			<div className="mt-2">
+				<Link
+					href={incomeHref}
+					className="inline-flex items-center gap-1.5 text-xs font-semibold text-white/85 hover:text-white"
+				>
+					<Plus size={14} />
+					{shouldShowAddIncome ? "Add income" : "View income"}
+				</Link>
+			</div>
         </Card>
         <Card
           title={
