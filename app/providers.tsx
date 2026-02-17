@@ -2,11 +2,14 @@
 
 import ReduxProvider from "@/lib/redux/ReduxProvider";
 import { SessionProvider } from "next-auth/react";
+import { ToastProvider } from "@/components/Shared";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   return (
     <SessionProvider>
-      <ReduxProvider>{children}</ReduxProvider>
+			<ToastProvider>
+				<ReduxProvider>{children}</ReduxProvider>
+			</ToastProvider>
     </SessionProvider>
   );
 }

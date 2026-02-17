@@ -4,3 +4,4 @@ export { default as InfoTooltip } from "@/components/Shared/InfoTooltip";
 export { default as Select } from "@/components/Shared/Select";
 export { default as SelectDropdown } from "@/components/Shared/SelectDropdown";
 export { Skeleton, SkeletonText } from "@/components/Shared/Skeleton";
+export { ToastProvider, useToast } from "@/components/Shared/ToastProvider";

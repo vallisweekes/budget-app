@@ -1,12 +1,12 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import type { SyntheticEvent } from "react";
 import type { MonthKey, ExpenseItem } from "@/types";
 import { addExpenseAction, togglePaidAction, updateExpenseAction, removeExpenseAction, applyExpensePaymentAction } from "./actions";
 import { Trash2, Plus, Check, X, ChevronDown, ChevronUp, Search, Pencil, TrendingUp } from "lucide-react";
 import CategoryIcon from "@/components/CategoryIcon";
-import { ConfirmModal, SelectDropdown, Skeleton, SkeletonText } from "@/components/Shared";
+import { ConfirmModal, SelectDropdown, Skeleton, SkeletonText, useToast } from "@/components/Shared";
 import { formatCurrency } from "@/lib/helpers/money";
 import { MONTHS } from "@/lib/constants/time";
 import { formatMonthKeyLabel } from "@/lib/helpers/monthKey";
@@ -201,6 +201,13 @@ export default function ExpenseManager({
   const [inlineAddCategoryId, setInlineAddCategoryId] = useState<string | null>(null);
   const [inlineAddError, setInlineAddError] = useState<string | null>(null);
 
+  const toast = useToast();
+
+  const [optimisticExpenses, setOptimisticExpenses] = useState<ExpenseItem[]>(expenses);
+  useEffect(() => {
+    setOptimisticExpenses(expenses);
+  }, [expenses]);
+
   const baseYear = useMemo(() => new Date().getFullYear(), []);
   const getYearsForPlan = useMemo(() => {
     return (planId: string): number[] => {
@@ -282,7 +289,7 @@ export default function ExpenseManager({
 
   // Filter expenses by search query
   const filteredExpenses = useMemo(() => {
-    let result = expenses;
+    let result = optimisticExpenses;
 
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
@@ -304,7 +311,7 @@ export default function ExpenseManager({
     }
 
     return result;
-  }, [expenses, searchQuery, statusFilter, minAmountFilter, categoryLookup]);
+  }, [optimisticExpenses, searchQuery, statusFilter, minAmountFilter, categoryLookup]);
 
   const uncategorized = filteredExpenses.filter(e => !e.categoryId);
   const categorized = filteredExpenses.filter(e => e.categoryId);
@@ -318,8 +325,24 @@ export default function ExpenseManager({
   }, {} as Record<string, ExpenseItem[]>);
 
   const handleTogglePaid = (expenseId: string) => {
-    startTransition(() => {
-		togglePaidAction(budgetPlanId, month, expenseId, year);
+    const prevExpense = optimisticExpenses.find((e) => e.id === expenseId);
+    if (!prevExpense) return;
+    const prevSnapshot = { ...prevExpense };
+    const nextPaid = !prevExpense.paid;
+    const nextPaidAmount = nextPaid ? prevExpense.amount : 0;
+    setOptimisticExpenses((prev) =>
+      prev.map((e) => (e.id === expenseId ? { ...e, paid: nextPaid, paidAmount: nextPaidAmount } : e))
+    );
+
+    startTransition(async () => {
+      try {
+        await togglePaidAction(budgetPlanId, month, expenseId, year);
+        router.refresh();
+      } catch (err) {
+        setOptimisticExpenses((prev) => prev.map((e) => (e.id === expenseId ? prevSnapshot : e)));
+        toast.error(err instanceof Error ? err.message : "Could not update paid status.");
+        console.error("Failed to toggle paid:", err);
+      }
     });
   };
 
@@ -354,12 +377,56 @@ export default function ExpenseManager({
     const form = e.currentTarget;
     const data = new FormData(form);
 
+    const editingId = String(data.get("id") ?? "");
+    const prevExpense = optimisticExpenses.find((ex) => ex.id === editingId);
+    const prevSnapshot = prevExpense ? { ...prevExpense } : null;
+    if (prevExpense) {
+      const name = String(data.get("name") ?? prevExpense.name).trim();
+      const amount = Number(data.get("amount") ?? prevExpense.amount);
+      const rawCategoryId = String(data.get("categoryId") ?? "").trim();
+      const categoryId = rawCategoryId ? rawCategoryId : undefined;
+      const dueDateRaw = String(data.get("dueDate") ?? "").trim();
+      const dueDate = dueDateRaw ? dueDateRaw : undefined;
+      const isAllocation = (data.getAll("isAllocation") as any[]).some((v) => String(v).trim().toLowerCase() === "true");
+
+      const nextAmount = Number.isFinite(amount) ? amount : prevExpense.amount;
+      let nextPaidAmount = prevExpense.paidAmount;
+      if (prevExpense.paid) {
+        nextPaidAmount = nextAmount;
+      } else {
+        nextPaidAmount = Math.min(prevExpense.paidAmount ?? 0, nextAmount);
+      }
+      const nextPaid = nextPaidAmount >= nextAmount && nextAmount > 0;
+      if (nextPaid) nextPaidAmount = nextAmount;
+
+      setOptimisticExpenses((prev) =>
+        prev.map((ex) =>
+          ex.id === editingId
+            ? {
+                ...ex,
+                name: name || ex.name,
+                amount: nextAmount,
+                categoryId,
+                dueDate,
+                isAllocation,
+                paidAmount: nextPaidAmount,
+                paid: nextPaid,
+              }
+            : ex
+        )
+      );
+    }
+
     startTransition(async () => {
       try {
         await updateExpenseAction(data);
         setExpensePendingEdit(null);
         router.refresh();
       } catch (err) {
+        if (prevSnapshot) {
+          setOptimisticExpenses((prev) => prev.map((ex) => (ex.id === prevSnapshot.id ? prevSnapshot : ex)));
+        }
+        toast.error(err instanceof Error ? err.message : "Could not update expense.");
         console.error("Failed to update expense:", err);
       }
     });
@@ -368,6 +435,8 @@ export default function ExpenseManager({
   const confirmRemove = () => {
     const expense = expensePendingDelete;
     if (!expense) return;
+		const prevSnapshot = [...optimisticExpenses];
+		setOptimisticExpenses((prev) => prev.filter((e) => e.id !== expense.id));
 
     setDeleteError(null);
     startTransition(async () => {
@@ -381,6 +450,8 @@ export default function ExpenseManager({
       } catch (err) {
         const message = err instanceof Error ? err.message : "Could not delete expense.";
         setDeleteError(message);
+			setOptimisticExpenses(prevSnapshot);
+			toast.error(message);
         console.error("Failed to delete expense:", err);
       }
     });
@@ -391,8 +462,34 @@ export default function ExpenseManager({
     const paymentAmount = Number(raw);
     if (!Number.isFinite(paymentAmount) || paymentAmount <= 0) return;
 
-    startTransition(() => {
-      applyExpensePaymentAction(budgetPlanId, month, expenseId, paymentAmount, year);
+    const prevExpense = optimisticExpenses.find((e) => e.id === expenseId);
+    const prevSnapshot = prevExpense ? { ...prevExpense } : null;
+    if (prevExpense) {
+      const nextPaidAmount = Math.min(prevExpense.amount, (prevExpense.paidAmount ?? 0) + paymentAmount);
+      const nextPaid = nextPaidAmount >= prevExpense.amount && prevExpense.amount > 0;
+      setOptimisticExpenses((prev) =>
+        prev.map((e) => (e.id === expenseId ? { ...e, paidAmount: nextPaidAmount, paid: nextPaid } : e))
+      );
+    }
+
+    startTransition(async () => {
+      try {
+        const res = await applyExpensePaymentAction(budgetPlanId, month, expenseId, paymentAmount, year);
+        if (!res?.success) {
+          if (prevSnapshot) {
+            setOptimisticExpenses((prev) => prev.map((e) => (e.id === prevSnapshot.id ? prevSnapshot : e)));
+          }
+          toast.error(res?.error ?? "Could not apply payment.");
+          return;
+        }
+        router.refresh();
+      } catch (err) {
+        if (prevSnapshot) {
+          setOptimisticExpenses((prev) => prev.map((e) => (e.id === prevSnapshot.id ? prevSnapshot : e)));
+        }
+        toast.error(err instanceof Error ? err.message : "Could not apply payment.");
+        console.error("Failed to apply payment:", err);
+      }
     });
 
     setPaymentByExpenseId((prev) => ({ ...prev, [expenseId]: "" }));

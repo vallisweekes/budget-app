@@ -176,6 +176,36 @@ body {
   }
 }
 
+@keyframes toast-slide-in {
+  0% {
+    opacity: 0;
+    transform: translateX(16px) translateY(-6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) translateY(0);
+  }
+}
+
+@keyframes toast-slide-out {
+  0% {
+    opacity: 1;
+    transform: translateX(0) translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(16px) translateY(-6px);
+  }
+}
+
+.toast-slide-in {
+  animation: toast-slide-in 180ms ease-out;
+}
+
+.toast-slide-out {
+  animation: toast-slide-out 180ms ease-in;
+}
+
 /* Make all interactive elements show pointer cursor */
 button,
 a,
