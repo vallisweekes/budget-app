@@ -304,21 +304,27 @@ export async function removeExpenseAction(
 	const { userId } = await requireAuthenticatedUser();
 	await requireOwnedBudgetPlan(budgetPlanId, userId);
   const y = year ?? new Date().getFullYear();
+
+  // Ensure the expense exists for this period.
   const monthIndex = (MONTHS as MonthKey[]).indexOf(month);
   const monthNumber = monthIndex >= 0 ? monthIndex + 1 : null;
   if (!monthNumber) throw new Error("Invalid month");
   const existing = await prisma.expense.findFirst({
     where: { id, budgetPlanId, year: y, month: monthNumber },
-    select: { amount: true, paid: true, paidAmount: true },
+    select: { id: true },
   });
   if (!existing) throw new Error("Expense not found");
-  const amountNumber = Number(existing.amount.toString());
-  const paidAmountNumber = Number(existing.paidAmount.toString());
-  const isFullyPaid = existing.paid || amountNumber <= 0 || (amountNumber > 0 && paidAmountNumber >= amountNumber);
-  if (!isFullyPaid) {
-    throw new Error("Cannot delete an unpaid expense. Mark it paid first.");
-  }
-  await removeExpense(budgetPlanId, month, id, year);
+
+  // Clean up any debt derived from this expense.
+  await prisma.debt.deleteMany({
+    where: {
+      budgetPlanId,
+      sourceType: "expense",
+      sourceExpenseId: id,
+    },
+  });
+
+  await removeExpense(budgetPlanId, month, id, y);
   revalidatePath("/");
   revalidatePath("/admin/expenses");
 }

@@ -181,6 +181,7 @@ export default function ExpenseManager({
   const [minAmountFilter, setMinAmountFilter] = useState<number | null>(null);
   const [paymentByExpenseId, setPaymentByExpenseId] = useState<Record<string, string>>({});
   const [expensePendingDelete, setExpensePendingDelete] = useState<ExpenseItem | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [expensePendingEdit, setExpensePendingEdit] = useState<ExpenseItem | null>(null);
   const [editName, setEditName] = useState("");
   const [editAmount, setEditAmount] = useState<string>("");
@@ -321,6 +322,7 @@ export default function ExpenseManager({
   };
 
   const handleRemoveClick = (expense: ExpenseItem) => {
+    setDeleteError(null);
     setExpensePendingDelete(expense);
   };
 
@@ -363,8 +365,17 @@ export default function ExpenseManager({
     const expense = expensePendingDelete;
     if (!expense) return;
 
-    startTransition(() => {
-      removeExpenseAction(budgetPlanId, month, expense.id, year);
+    setDeleteError(null);
+    startTransition(async () => {
+      try {
+        await removeExpenseAction(budgetPlanId, month, expense.id, year);
+        setExpensePendingDelete(null);
+        router.refresh();
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Could not delete expense.";
+        setDeleteError(message);
+        console.error("Failed to delete expense:", err);
+      }
     });
   };
 
@@ -387,7 +398,7 @@ export default function ExpenseManager({
         title="Delete expense?"
         description={
           expensePendingDelete
-            ? `This will permanently delete \"${expensePendingDelete.name}\".`
+            ? `${deleteError ? `${deleteError} ` : ""}This will permanently delete \"${expensePendingDelete.name}\".`
             : undefined
         }
         tone="danger"
@@ -399,7 +410,6 @@ export default function ExpenseManager({
         }}
         onConfirm={() => {
           confirmRemove();
-          setExpensePendingDelete(null);
         }}
       />
 
@@ -1102,13 +1112,9 @@ export default function ExpenseManager({
                             <button
                               type="button"
                               onClick={() => handleRemoveClick(expense)}
-							  disabled={isPending || (!isPaid && expense.amount > 0)}
-							  className={`h-8 sm:h-9 w-8 sm:w-9 rounded-lg sm:rounded-xl text-red-400 transition-all flex items-center justify-center ${
-								isPending || (!isPaid && expense.amount > 0)
-									? "opacity-40 cursor-not-allowed"
-									: "hover:bg-red-500/20 cursor-pointer hover:scale-[1.05]"
-							  }`}
-							  title={!isPaid && expense.amount > 0 ? "Cannot delete until paid" : "Delete expense"}
+                              disabled={isPending}
+                              className="h-8 sm:h-9 w-8 sm:w-9 rounded-lg sm:rounded-xl hover:bg-red-500/20 text-red-400 transition-all cursor-pointer hover:scale-[1.05] flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                              title="Delete expense"
                             >
                               <Trash2 size={14} className="sm:w-4 sm:h-4" />
                             </button>
