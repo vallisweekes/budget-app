@@ -50,6 +50,7 @@ export default function InfoTooltip({
   const [dragging, setDragging] = useState(false);
 
   const touchStartYRef = useRef<number | null>(null);
+  const dragYRef = useRef<number>(0);
   const closeTimerRef = useRef<number | null>(null);
 
   // Bottom sheet only on narrow screens (<768px)
@@ -68,6 +69,7 @@ export default function InfoTooltip({
 
   const closeSheet = () => {
     setDragging(false);
+    dragYRef.current = 0;
     setDragY(0);
     setSheetVisible(false);
 
@@ -79,6 +81,23 @@ export default function InfoTooltip({
   const openSheet = () => {
     setSheetMounted(true);
     requestAnimationFrame(() => setSheetVisible(true));
+  };
+
+  const setDrag = (next: number) => {
+    dragYRef.current = next;
+    setDragY(next);
+  };
+
+  const endDrag = () => {
+    const shouldClose = dragYRef.current > 80;
+    touchStartYRef.current = null;
+    setDragging(false);
+
+    if (shouldClose) {
+      closeSheet();
+    } else {
+      setDrag(0);
+    }
   };
 
   useEffect(() => {
@@ -208,46 +227,47 @@ export default function InfoTooltip({
                   style={{ height: "clamp(240px, 35vh, 440px)" }}
                 >
                   <div
-                    className="flex h-full flex-col p-4"
+                    className="relative flex h-full flex-col p-4"
                     style={{ paddingBottom: "calc(1rem + env(safe-area-inset-bottom))" }}
                   >
+
                     <div
-                      className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-white/20"
-                      onTouchStart={(e) => {
-                        touchStartYRef.current = e.touches[0]?.clientY ?? null;
+                      className="select-none"
+                      style={{ touchAction: "none" }}
+                      onPointerDown={(e) => {
+                        // Drag down anywhere in the top region (handle/title) to dismiss.
+                        if (e.button !== 0) return;
+                        touchStartYRef.current = e.clientY;
                         setDragging(true);
+                        setDrag(0);
+                        (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
                       }}
-                      onTouchMove={(e) => {
+                      onPointerMove={(e) => {
                         const startY = touchStartYRef.current;
                         if (startY == null) return;
-                        const currentY = e.touches[0]?.clientY ?? startY;
-                        const delta = Math.max(0, currentY - startY);
-                        setDragY(delta);
+                        const delta = Math.max(0, e.clientY - startY);
+                        setDrag(delta);
                       }}
-                      onTouchEnd={() => {
-                        const shouldClose = dragY > 80;
-                        touchStartYRef.current = null;
-                        setDragging(false);
+                      onPointerUp={endDrag}
+                      onPointerCancel={endDrag}
+                    >
+                      <div className="mx-auto mb-2 h-1.5 w-10 rounded-full bg-white/20" />
 
-                        if (shouldClose) {
-                          closeSheet();
-                        } else {
-                          setDragY(0);
-                        }
-                      }}
-                    />
-
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="text-sm font-semibold">What this means</div>
-                      <button
-                        type="button"
-                        onClick={closeSheet}
-                        aria-label="Close"
-                        className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border border-black/60 bg-slate-950/95 text-slate-200 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20"
-                      >
-                        <SvgClose className="h-4 w-4" fill="currentColor" />
-                      </button>
+                      <div className="flex items-start justify-between gap-3 pr-10">
+                        <div className="text-sm font-semibold">What this means</div>
+                      </div>
                     </div>
+
+                    <button
+                      type="button"
+                      onClick={closeSheet}
+                      onPointerDown={(e) => e.stopPropagation()}
+                      aria-label="Close"
+                      className="absolute right-4 top-2 inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border border-black/60 bg-slate-950/95 text-slate-200 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20"
+                    >
+                      <SvgClose className="h-4 w-4" fill="currentColor" />
+                    </button>
+
                     <div className="mt-2 flex-1 overflow-y-auto text-sm leading-relaxed text-slate-200">
                       {content}
                     </div>
