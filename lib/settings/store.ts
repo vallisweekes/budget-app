@@ -17,6 +17,31 @@ export interface Settings {
   currency: string;
 }
 
+function prismaBudgetPlanHasField(fieldName: string): boolean {
+  try {
+    const fields = (prisma as any)?._runtimeDataModel?.models?.BudgetPlan?.fields;
+    if (!Array.isArray(fields)) return false;
+    return fields.some((f: any) => f?.name === fieldName);
+  } catch {
+    return false;
+  }
+}
+
+async function getBudgetHorizonYearsFallback(budgetPlanId: string): Promise<number | null> {
+  try {
+    const rows = await prisma.$queryRaw<Array<{ budgetHorizonYears: number | null }>>`
+      SELECT "budgetHorizonYears" as "budgetHorizonYears"
+      FROM "BudgetPlan"
+      WHERE id = ${budgetPlanId}
+      LIMIT 1
+    `;
+    const value = rows?.[0]?.budgetHorizonYears;
+    return value == null ? null : Number(value);
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Get settings for a specific budget plan from the database
  */
@@ -24,21 +49,28 @@ export async function getSettings(budgetPlanId: string): Promise<Settings> {
   let plan: any = null;
 
   try {
+    const select: any = {
+      payDate: true,
+      monthlyAllowance: true,
+      savingsBalance: true,
+      monthlySavingsContribution: true,
+      monthlyEmergencyContribution: true,
+      monthlyInvestmentContribution: true,
+      budgetStrategy: true,
+      country: true,
+      language: true,
+      currency: true,
+    };
+
+		// Turbopack/dev can sometimes run with a stale Prisma Client after schema changes.
+		// Only include newer fields when the runtime client supports them.
+		if (prismaBudgetPlanHasField("budgetHorizonYears")) {
+			select.budgetHorizonYears = true;
+		}
+
     plan = await prisma.budgetPlan.findUnique({
       where: { id: budgetPlanId },
-      select: {
-        payDate: true,
-        monthlyAllowance: true,
-        savingsBalance: true,
-        monthlySavingsContribution: true,
-        monthlyEmergencyContribution: true,
-        monthlyInvestmentContribution: true,
-        budgetStrategy: true,
-        budgetHorizonYears: true,
-        country: true,
-        language: true,
-        currency: true,
-      } as any,
+			select,
     });
   } catch (error) {
     const message = String((error as any)?.message ?? error);
@@ -49,7 +81,7 @@ export async function getSettings(budgetPlanId: string): Promise<Settings> {
 
 		// Dev-only safety: Turbopack can cache an older Prisma Client after schema changes.
 		// Retry with a select that excludes the unknown field(s).
-		const select: any = {
+    const select: any = {
 			payDate: true,
 			monthlyAllowance: true,
 			savingsBalance: true,
@@ -61,7 +93,7 @@ export async function getSettings(budgetPlanId: string): Promise<Settings> {
 			currency: true,
 		};
 		if (!unknownEmergency) select.monthlyEmergencyContribution = true;
-		if (!unknownHorizon) select.budgetHorizonYears = true;
+    if (!unknownHorizon) select.budgetHorizonYears = true;
 
 		plan = await prisma.budgetPlan.findUnique({
 			where: { id: budgetPlanId },
@@ -73,6 +105,11 @@ export async function getSettings(budgetPlanId: string): Promise<Settings> {
     throw new Error(`Budget plan ${budgetPlanId} not found`);
   }
 
+  const horizonFromPlan = Number((plan as any).budgetHorizonYears);
+  const budgetHorizonYears = Number.isFinite(horizonFromPlan) && horizonFromPlan > 0
+		? horizonFromPlan
+		: (await getBudgetHorizonYearsFallback(budgetPlanId)) ?? 10;
+
   return {
     payDate: plan.payDate,
     monthlyAllowance: Number(plan.monthlyAllowance),
@@ -81,7 +118,7 @@ export async function getSettings(budgetPlanId: string): Promise<Settings> {
     monthlyEmergencyContribution: Number((plan as any).monthlyEmergencyContribution ?? 0),
     monthlyInvestmentContribution: Number(plan.monthlyInvestmentContribution),
     budgetStrategy: plan.budgetStrategy as BudgetStrategy,
-    budgetHorizonYears: Number((plan as any).budgetHorizonYears ?? 10),
+    budgetHorizonYears: Number(budgetHorizonYears),
     country: plan.country,
     language: plan.language,
     currency: plan.currency,

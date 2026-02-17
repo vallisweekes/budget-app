@@ -10,7 +10,17 @@ import { createGoal } from "@/lib/goals/actions";
 type GoalType = "yearly" | "long-term";
 type GoalCategory = "debt" | "savings" | "emergency" | "investment" | "other";
 
-export default function AddGoalModal({ budgetPlanId }: { budgetPlanId: string }) {
+export default function AddGoalModal({
+	budgetPlanId,
+	minYear,
+	maxYear,
+	defaultYear,
+}: {
+	budgetPlanId: string;
+	minYear: number;
+	maxYear: number;
+	defaultYear: number;
+}) {
 	const router = useRouter();
 	const [open, setOpen] = useState(false);
 	const [isPending, startTransition] = useTransition();
@@ -32,7 +42,7 @@ export default function AddGoalModal({ budgetPlanId }: { budgetPlanId: string })
 		setCategory("debt");
 		setTargetAmount("");
 		setCurrentAmount("");
-		setTargetYear("");
+		setTargetYear(String(defaultYear));
 		setDescription("");
 		setError(null);
 	}
@@ -76,6 +86,19 @@ export default function AddGoalModal({ budgetPlanId }: { budgetPlanId: string })
 					startTransition(async () => {
 						setError(null);
 						try {
+								const yearTrimmed = targetYear.trim();
+								if (yearTrimmed) {
+									const parsed = Number.parseInt(yearTrimmed, 10);
+									if (Number.isNaN(parsed)) {
+										setError("Please enter a valid target year.");
+										return;
+									}
+									if (parsed < minYear || parsed > maxYear) {
+										setError(`Target year must be between ${minYear} and ${maxYear}.`);
+										return;
+									}
+								}
+
 							const formData = new FormData();
 							formData.append("budgetPlanId", budgetPlanId);
 							formData.append("title", title.trim());
@@ -83,7 +106,7 @@ export default function AddGoalModal({ budgetPlanId }: { budgetPlanId: string })
 							formData.append("category", category);
 							if (targetAmount.trim()) formData.append("targetAmount", targetAmount.trim());
 							if (currentAmount.trim()) formData.append("currentAmount", currentAmount.trim());
-							if (targetYear.trim()) formData.append("targetYear", targetYear.trim());
+								if (yearTrimmed) formData.append("targetYear", yearTrimmed);
 							if (description.trim()) formData.append("description", description.trim());
 
 							await createGoal(formData);
@@ -118,8 +141,8 @@ export default function AddGoalModal({ budgetPlanId }: { budgetPlanId: string })
 								value={type}
 								onValueChange={(v) => setType(v as GoalType)}
 								options={[
-									{ value: "yearly", label: "This year" },
-									{ value: "long-term", label: "10-year" },
+										{ value: "yearly", label: "Yearly" },
+										{ value: "long-term", label: "Long-term" },
 								]}
 								buttonClassName="focus:ring-purple-500 text-xs sm:text-sm"
 							/>
@@ -173,9 +196,12 @@ export default function AddGoalModal({ budgetPlanId }: { budgetPlanId: string })
 							value={targetYear}
 							onChange={(e) => setTargetYear(e.target.value)}
 							type="number"
+							min={minYear}
+							max={maxYear}
 							className="w-full px-3 py-2 sm:px-4 sm:py-3 rounded-xl border border-white/10 bg-slate-900/40 text-white placeholder-slate-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 outline-none transition-all text-xs sm:text-sm"
-							placeholder="e.g., 2035 (optional)"
+							placeholder={`${minYear}–${maxYear}`}
 						/>
+						<p className="text-[11px] text-slate-400 mt-1">Choose a year within your budget horizon ({minYear}–{maxYear}).</p>
 					</label>
 
 					<label className="block">

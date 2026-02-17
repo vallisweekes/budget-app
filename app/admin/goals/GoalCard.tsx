@@ -20,6 +20,8 @@ interface Goal {
 interface GoalCardProps {
   goal: Goal;
 	budgetPlanId: string;
+  minYear?: number;
+  maxYear?: number;
 }
 
 const categoryIcons = {
@@ -46,13 +48,14 @@ const CARD_CLASS = "bg-[#9EDBFF] rounded-2xl shadow-xl border border-sky-200/70 
 const INPUT_CLASS =
   "w-full px-3 py-2 bg-white/70 border border-black/10 text-slate-900 placeholder-slate-500 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500";
 
-export default function GoalCard({ goal, budgetPlanId }: GoalCardProps) {
+export default function GoalCard({ goal, budgetPlanId, minYear, maxYear }: GoalCardProps) {
   const [isPending, startTransition] = useTransition();
   const [isEditing, setIsEditing] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [editTitle, setEditTitle] = useState(goal.title);
   const [editTargetAmount, setEditTargetAmount] = useState(goal.targetAmount?.toString() || "");
   const [editCurrentAmount, setEditCurrentAmount] = useState(goal.currentAmount?.toString() || "");
+  const [editTargetYear, setEditTargetYear] = useState(goal.targetYear?.toString() || "");
   const [editDescription, setEditDescription] = useState(goal.description || "");
 
   const Icon = categoryIcons[goal.category];
@@ -66,6 +69,7 @@ export default function GoalCard({ goal, budgetPlanId }: GoalCardProps) {
       formData.append("title", editTitle);
       if (editTargetAmount) formData.append("targetAmount", editTargetAmount);
       if (editCurrentAmount) formData.append("currentAmount", editCurrentAmount);
+      formData.append("targetYear", editTargetYear);
       if (editDescription) formData.append("description", editDescription);
 
       await updateGoalAction(goal.id, formData);
@@ -78,6 +82,7 @@ export default function GoalCard({ goal, budgetPlanId }: GoalCardProps) {
     setEditTitle(goal.title);
     setEditTargetAmount(goal.targetAmount?.toString() || "");
     setEditCurrentAmount(goal.currentAmount?.toString() || "");
+    setEditTargetYear(goal.targetYear?.toString() || "");
     setEditDescription(goal.description || "");
   };
 
@@ -143,6 +148,19 @@ export default function GoalCard({ goal, budgetPlanId }: GoalCardProps) {
                 />
               </label>
             </div>
+              <label>
+                <span className="block text-[10px] sm:text-xs font-medium text-slate-700 mb-0.5 sm:mb-1">Target Year</span>
+                <input
+                  type="number"
+                  value={editTargetYear}
+                  onChange={(e) => setEditTargetYear(e.target.value)}
+                  min={minYear}
+                  max={maxYear}
+                  className={INPUT_CLASS}
+                  placeholder={minYear && maxYear ? `${minYear}–${maxYear}` : "e.g., 2035"}
+                  aria-label="Target year"
+                />
+              </label>
           </div>
           <div className="flex gap-0.5 sm:gap-1">
             <button
@@ -190,12 +208,21 @@ export default function GoalCard({ goal, budgetPlanId }: GoalCardProps) {
           <Icon className="text-white" size={18} />
         </div>
         <div className="flex-1">
-          <h3 className="font-bold text-base sm:text-lg text-slate-900">{goal.title}</h3>
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="font-bold text-base sm:text-lg text-slate-900">{goal.title}</h3>
+            <span
+              className={
+                goal.targetYear
+                  ? "inline-flex items-center rounded-full bg-white/70 px-2.5 py-1 text-[11px] font-semibold text-slate-900 border border-black/10"
+                  : "inline-flex items-center rounded-full bg-amber-200/70 px-2.5 py-1 text-[11px] font-semibold text-amber-950 border border-amber-900/20"
+              }
+              title={goal.targetYear ? "Target year" : "No target year set"}
+            >
+              {goal.targetYear ? `Target ${goal.targetYear}` : "Set target year"}
+            </span>
+          </div>
           {goal.description && (
             <p className="text-xs sm:text-sm text-slate-700 mt-0.5 sm:mt-1">{goal.description}</p>
-          )}
-          {goal.targetYear && (
-            <p className="text-[10px] sm:text-xs text-slate-700 mt-0.5 sm:mt-1">Target: {goal.targetYear}</p>
           )}
         </div>
         <div className="flex gap-0.5 sm:gap-1">

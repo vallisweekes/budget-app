@@ -12,6 +12,10 @@ export interface Goal {
   createdAt: string;
 }
 
+type GoalUpdates = Partial<Omit<Goal, "id" | "createdAt" | "targetYear">> & {
+  targetYear?: number | null;
+};
+
 function decimalToNumber(value: unknown): number {
   if (value == null) return 0;
   if (typeof value === "number") return value;
@@ -133,7 +137,7 @@ export async function addGoal(budgetPlanId: string, goal: Omit<Goal, "id" | "cre
 export async function updateGoal(
   budgetPlanId: string,
   id: string,
-  updates: Partial<Omit<Goal, "id" | "createdAt">>
+  updates: GoalUpdates
 ): Promise<Goal | null> {
   const existing = await prisma.goal.findFirst({ where: { id, budgetPlanId }, select: { id: true } });
   if (!existing) return null;
