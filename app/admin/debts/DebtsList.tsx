@@ -2,33 +2,14 @@
 
 import { useState, useMemo } from "react";
 import DebtCard from "./DebtCard";
-import { formatCurrency } from "@/lib/helpers/money";
 import type { DebtPayment, DebtType } from "@/types";
 import DebtsSortControls from "./DebtsSortControls";
 import DebtsEmptyState from "./DebtsEmptyState";
-
-interface Debt {
-	id: string;
-	name: string;
-	type: DebtType;
-	initialBalance: number;
-	currentBalance: number;
-	amount: number;
-	paid: boolean;
-	paidAmount: number;
-	monthlyMinimum?: number;
-	interestRate?: number;
-	installmentMonths?: number;
-	createdAt: string;
-	sourceType?: "expense";
-	sourceExpenseId?: string;
-	sourceMonthKey?: string;
-	sourceCategoryName?: string;
-	sourceExpenseName?: string;
-}
+import ExpenseDebtGroup from "./ExpenseDebtGroup";
+import type { DebtCardDebt } from "./debtCardTypes";
 
 interface DebtsListProps {
-	debts: Debt[];
+	debts: DebtCardDebt[];
 	budgetPlanId: string;
 	typeLabels: Record<string, string>;
 	paymentsMap: Map<string, DebtPayment[]>;
@@ -39,6 +20,11 @@ type SortOption = "default" | "name" | "amount";
 
 export default function DebtsList({ debts, budgetPlanId, typeLabels, paymentsMap, payDate }: DebtsListProps) {
 	const [sortBy, setSortBy] = useState<SortOption>("default");
+	const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+
+	const toggleGroup = (key: string) => {
+		setOpenGroups((prev) => ({ ...prev, [key]: !prev[key] }));
+	};
 
 	const listItems = useMemo(() => {
 		const hasExpenseDebts = debts.some((d) => d.sourceType === "expense");
@@ -56,9 +42,9 @@ export default function DebtsList({ debts, budgetPlanId, typeLabels, paymentsMap
 
 		const groups = new Map<
 			string,
-			{ title: string; debts: Debt[]; totalCurrentBalance: number; totalDue: number }
+			{ key: string; title: string; debts: DebtCardDebt[]; totalCurrentBalance: number; totalDue: number }
 		>();
-		const passthrough: Debt[] = [];
+		const passthrough: DebtCardDebt[] = [];
 
 		for (const debt of sorted) {
 			if (debt.sourceType !== "expense") {
@@ -78,6 +64,7 @@ export default function DebtsList({ debts, budgetPlanId, typeLabels, paymentsMap
 				existing.totalDue += debt.amount;
 			} else {
 				groups.set(key, {
+					key,
 					title,
 					debts: [debt],
 					totalCurrentBalance: debt.currentBalance,
@@ -93,21 +80,28 @@ export default function DebtsList({ debts, budgetPlanId, typeLabels, paymentsMap
 			grouped.sort((a, b) => b.totalCurrentBalance - a.totalCurrentBalance);
 		}
 
-		const items: Array<
-			| { kind: "header"; title: string; totalCurrentBalance: number; totalDue: number; count: number }
-			| { kind: "debt"; debt: Debt }
-		> = [];
+		type ListItem =
+			| {
+					kind: "expenseGroup";
+					key: string;
+					title: string;
+					debts: DebtCardDebt[];
+					totalCurrentBalance: number;
+					totalDue: number;
+			  }
+			| { kind: "debt"; debt: DebtCardDebt };
+		const items: ListItem[] = [];
 
 		for (const group of grouped) {
 			group.debts.sort((a, b) => (a.sourceMonthKey ?? "").localeCompare(b.sourceMonthKey ?? ""));
 			items.push({
-				kind: "header",
+				kind: "expenseGroup",
+				key: group.key,
 				title: group.title,
+				debts: group.debts,
 				totalCurrentBalance: group.totalCurrentBalance,
 				totalDue: group.totalDue,
-				count: group.debts.length,
 			});
-			for (const debt of group.debts) items.push({ kind: "debt", debt });
 		}
 
 		for (const debt of passthrough) items.push({ kind: "debt", debt });
@@ -125,25 +119,23 @@ export default function DebtsList({ debts, budgetPlanId, typeLabels, paymentsMap
 			{/* Debts List */}
 			<div className="space-y-4">
 				{listItems.map((item) => {
-					if (item.kind === "header") {
+					if (item.kind === "expenseGroup") {
+						const isOpen = openGroups[item.key] ?? item.debts.length === 1;
 						return (
-							<div
-								key={`header:${item.title}`}
-								className="px-3 py-2 rounded-xl bg-slate-900/30 border border-white/10"
-							>
-								<div className="flex items-center justify-between gap-3">
-									<div className="min-w-0">
-										<div className="text-sm font-semibold text-white truncate">{item.title}</div>
-										<div className="text-[10px] sm:text-xs text-slate-400">
-											{item.count} missed item{item.count !== 1 ? "s" : ""} · Due this month {formatCurrency(item.totalDue)}
-									</div>
-									</div>
-									<div className="text-right shrink-0">
-										<div className="text-[10px] sm:text-xs text-slate-400">Total outstanding</div>
-										<div className="text-sm font-bold text-amber-400">{formatCurrency(item.totalCurrentBalance)}</div>
-									</div>
-								</div>
-							</div>
+							<ExpenseDebtGroup
+								key={`expenseGroup:${item.key}`}
+								groupKey={item.key}
+								title={item.title}
+								debts={item.debts}
+								totalCurrentBalance={item.totalCurrentBalance}
+								totalDue={item.totalDue}
+								paymentsMap={paymentsMap}
+								budgetPlanId={budgetPlanId}
+								typeLabels={typeLabels}
+								payDate={payDate}
+								isOpen={isOpen}
+								onToggle={() => toggleGroup(item.key)}
+							/>
 						);
 					}
 
