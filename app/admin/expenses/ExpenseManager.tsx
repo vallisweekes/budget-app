@@ -87,6 +87,8 @@ interface BudgetPlanOption {
 
 interface ExpenseManagerProps {
 	budgetPlanId: string;
+	budgetHorizonYears?: number;
+	horizonYearsByPlan?: Record<string, number>;
   month: MonthKey;
   year: number;
   expenses: ExpenseItem[];
@@ -146,7 +148,19 @@ function SaveExpenseChangesButton({ pending }: { pending: boolean }) {
   );
 }
 
-export default function ExpenseManager({ budgetPlanId, month, year, expenses, categories, loading, allPlans, allCategoriesByPlan, payDate }: ExpenseManagerProps) {
+export default function ExpenseManager({
+  budgetPlanId,
+  budgetHorizonYears,
+  horizonYearsByPlan,
+  month,
+  year,
+  expenses,
+  categories,
+  loading,
+  allPlans,
+  allCategoriesByPlan,
+  payDate,
+}: ExpenseManagerProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [isAdding, startAddTransition] = useTransition();
@@ -176,10 +190,18 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
   const [inlineAddCategoryId, setInlineAddCategoryId] = useState<string | null>(null);
   const [inlineAddError, setInlineAddError] = useState<string | null>(null);
 
+  const baseYear = useMemo(() => new Date().getFullYear(), []);
+  const getYearsForPlan = useMemo(() => {
+    return (planId: string): number[] => {
+      const horizonRaw = (horizonYearsByPlan && planId ? horizonYearsByPlan[planId] : undefined) ?? budgetHorizonYears ?? 10;
+      const safeHorizon = Number.isFinite(horizonRaw) && horizonRaw > 0 ? Math.floor(horizonRaw) : 10;
+      return Array.from({ length: safeHorizon }, (_, i) => baseYear + i);
+    };
+  }, [baseYear, budgetHorizonYears, horizonYearsByPlan]);
+
   const YEARS = useMemo(() => {
-    const base = new Date().getFullYear();
-    return Array.from({ length: 10 }, (_, i) => base + i);
-  }, []);
+    return getYearsForPlan(addBudgetPlanId);
+  }, [addBudgetPlanId, getYearsForPlan]);
 
   // Get categories for the selected budget plan when adding
   const addFormCategories = useMemo(() => {
@@ -712,8 +734,10 @@ export default function ExpenseManager({ budgetPlanId, month, year, expenses, ca
                 name="_budgetPlanSelect"
                 value={addBudgetPlanId}
                 onValueChange={(v) => {
-                  setAddBudgetPlanId(v);
-                  setAddError(null);
+						setAddBudgetPlanId(v);
+						setAddError(null);
+						const nextYears = getYearsForPlan(v);
+						setAddYear((prev) => (nextYears.includes(prev) ? prev : (nextYears[0] ?? prev)));
                 }}
                 options={allPlans.map((p) => ({ 
                   value: p.id, 

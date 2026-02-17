@@ -78,6 +78,7 @@ export default async function AdminExpensesPage({
           name: p.name,
           kind: p.kind,
           payDate: p.payDate,
+        budgetHorizonYears: (p as any).budgetHorizonYears ?? 10,
         },
         expenses,
         currentYearExpenses,

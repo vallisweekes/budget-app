@@ -10,6 +10,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { resolveUserId } from "@/lib/budgetPlans";
 import { monthKeyToNumber } from "@/lib/helpers/monthKey";
+import { getSettings } from "@/lib/settings/store";
 import {
 	createAllocationDefinition,
 	listAllocationDefinitions,
@@ -36,6 +37,20 @@ function isTruthyFormValue(value: FormDataEntryValue | null): boolean {
 	if (value == null) return false;
 	const v = String(value).trim().toLowerCase();
 	return v === "1" || v === "true" || v === "on" || v === "yes";
+}
+
+function buildAllowedBudgetYears(horizonYears: number, nowYear: number): number[] {
+	const safeHorizon = Number.isFinite(horizonYears) && horizonYears > 0 ? Math.floor(horizonYears) : 10;
+	return Array.from({ length: safeHorizon }, (_, i) => nowYear + i);
+}
+
+async function requireYearWithinBudgetHorizon(budgetPlanId: string, year: number): Promise<void> {
+	const settings = await getSettings(budgetPlanId);
+	const nowYear = new Date().getFullYear();
+	const allowedYears = buildAllowedBudgetYears(settings.budgetHorizonYears ?? 10, nowYear);
+	if (!allowedYears.includes(year)) {
+		throw new Error(`Year ${year} is outside your budget horizon.`);
+	}
 }
 
 async function requireAuthenticatedUser() {
@@ -92,6 +107,7 @@ export async function addIncomeAction(formData: FormData): Promise<void> {
 
 	const { userId, sessionUsername } = await requireAuthenticatedUser();
 	await requireOwnedBudgetPlan(budgetPlanId, userId);
+	await requireYearWithinBudgetHorizon(budgetPlanId, year);
 
 	const rawTargetMonths: MonthKey[] = distributeMonths ? (MONTHS as MonthKey[]) : [month];
 	const targetMonths: MonthKey[] = rawTargetMonths.filter((m) => !isPastMonth(m, year));
@@ -103,6 +119,11 @@ export async function addIncomeAction(formData: FormData): Promise<void> {
 	if (distributeYears) {
 		const plans = await prisma.budgetPlan.findMany({ where: { userId }, select: { id: true } });
 		for (const p of plans) {
+			try {
+				await requireYearWithinBudgetHorizon(p.id, year);
+			} catch {
+				continue;
+			}
 			const monthsForThisPlan = await filterMonthsWithoutAnyIncome(p.id, year, targetMonths);
 			if (monthsForThisPlan.length === 0) continue;
 			await addOrUpdateIncomeAcrossMonths(p.id, monthsForThisPlan, { id: sharedId, name, amount }, year);
@@ -129,6 +150,11 @@ export async function updateIncomeItemAction(
 ): Promise<void> {
 	if (!name.trim()) return;
 	if (isPastMonth(month, year)) return;
+	try {
+		await requireYearWithinBudgetHorizon(budgetPlanId, year);
+	} catch {
+		return;
+	}
 	const { userId, sessionUsername } = await requireAuthenticatedUser();
 	await requireOwnedBudgetPlan(budgetPlanId, userId);
 	await updateIncome(budgetPlanId, month, id, { name: name.trim(), amount }, year);
@@ -139,6 +165,11 @@ export async function updateIncomeItemAction(
 
 export async function removeIncomeAction(budgetPlanId: string, year: number, month: MonthKey, id: string): Promise<void> {
 	if (isPastMonth(month, year)) return;
+	try {
+		await requireYearWithinBudgetHorizon(budgetPlanId, year);
+	} catch {
+		return;
+	}
 	const { userId, sessionUsername } = await requireAuthenticatedUser();
 	await requireOwnedBudgetPlan(budgetPlanId, userId);
 	await removeIncome(budgetPlanId, month, id, year);

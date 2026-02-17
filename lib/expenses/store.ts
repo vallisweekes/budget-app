@@ -73,7 +73,7 @@ export async function updateExpenseAcrossMonthsByName(
         nextPaidAmount = Math.min(existingPaidAmount, nextAmount);
       }
 
-      let nextPaid = nextPaidAmount >= nextAmount && nextAmount > 0;
+      const nextPaid = nextPaidAmount >= nextAmount && nextAmount > 0;
       if (nextPaid) nextPaidAmount = nextAmount;
 
       const dueDateValue =

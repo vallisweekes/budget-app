@@ -79,6 +79,9 @@ model BudgetPlan {
   monthlyEmergencyContribution  Decimal        @default(0) @db.Decimal(12, 2)
   monthlyInvestmentContribution Decimal        @default(0) @db.Decimal(12, 2)
   budgetStrategy                BudgetStrategy @default(payYourselfFirst)
+
+  // Planning horizon
+  budgetHorizonYears            Int            @default(10)
   
   // Locale settings
   country                       String         @default("GB")

@@ -166,14 +166,14 @@ export default function ViewTabs({
     return tabs;
   }, [plansByKind]);
 
-  useEffect(() => {
-    if (availableTabs.length === 0) return;
-    if (availableTabs.some((t) => t.key === activeTab)) return;
-    setActiveTab(availableTabs[0].key);
+  const resolvedActiveTab = useMemo<TabKey>(() => {
+    if (availableTabs.length === 0) return activeTab;
+    if (availableTabs.some((t) => t.key === activeTab)) return activeTab;
+    return availableTabs[0].key;
   }, [activeTab, availableTabs]);
 
   // Get plans for active tab
-  const activePlans = plansByKind[activeTab];
+  const activePlans = plansByKind[resolvedActiveTab];
 
   const shouldShowAddIncome = useMemo(() => {
     if (!incomeMonthsCoverageByPlan) return true;
@@ -346,7 +346,7 @@ export default function ViewTabs({
               {(() => {
                 const activeIndex = Math.max(
                   0,
-                  availableTabs.findIndex((t) => t.key === activeTab)
+                  availableTabs.findIndex((t) => t.key === resolvedActiveTab)
                 );
                 const tabWidth = 100 / availableTabs.length;
                 return (
@@ -361,7 +361,7 @@ export default function ViewTabs({
                     />
 
                     {availableTabs.map((tab) => {
-                      const isActive = activeTab === tab.key;
+                      const isActive = resolvedActiveTab === tab.key;
                       return (
                         <button
                           key={tab.key}

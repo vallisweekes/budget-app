@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useId, useMemo, useState, useTransition } from "react";
+import { useId, useMemo, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { MONTHS } from "@/lib/constants/time";
-import { currentMonthKey, formatMonthKeyLabel, monthKeyToNumber, normalizeMonthKey } from "@/lib/helpers/monthKey";
+import { formatMonthKeyLabel, normalizeMonthKey } from "@/lib/helpers/monthKey";
 import type { MonthKey } from "@/types";
 import type { ExpensesByMonth } from "@/types";
 import type { CategoryConfig } from "@/lib/categories/store";
@@ -14,6 +14,7 @@ interface BudgetPlan {
   name: string;
   kind: string;
   payDate: number;
+	budgetHorizonYears?: number;
 }
 
 interface PlanData {
@@ -31,8 +32,9 @@ interface ExpensesPageClientProps {
 
 type TabKey = "personal" | "holiday" | "carnival";
 
-function buildYears(baseYear: number): number[] {
-	return Array.from({ length: 10 }, (_, i) => baseYear + i);
+function buildYears(baseYear: number, horizonYears: number): number[] {
+  const safe = Number.isFinite(horizonYears) && horizonYears > 0 ? Math.floor(horizonYears) : 10;
+  return Array.from({ length: safe }, (_, i) => baseYear + i);
 }
 
 
@@ -81,7 +83,14 @@ export default function ExpensesPageClient({
     return "carnival";
   });
 
-  const YEARS = useMemo(() => buildYears(new Date().getFullYear()), []);
+  const horizonYearsByPlan = useMemo(() => {
+    const map: Record<string, number> = {};
+    allPlansData.forEach((d) => {
+      const raw = Number(d.plan.budgetHorizonYears ?? 10);
+      map[d.plan.id] = Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 10;
+    });
+    return map;
+  }, [allPlansData]);
 
   // Group plans by kind
   const plansByKind = useMemo(() => {
@@ -114,16 +123,24 @@ export default function ExpensesPageClient({
     return tabs;
   }, [plansByKind]);
 
-  useEffect(() => {
-    if (availableTabs.length === 0) return;
-    if (availableTabs.some((t) => t.key === activeTab)) return;
-    setActiveTab(availableTabs[0].key);
-  }, [activeTab, availableTabs]);
+  const resolvedActiveTab: TabKey = useMemo(() => {
+		if (availableTabs.length === 0) return activeTab;
+		if (availableTabs.some((t) => t.key === activeTab)) return activeTab;
+		return availableTabs[0].key;
+	}, [activeTab, availableTabs]);
 
   // Get plans for active tab
   const activePlans = useMemo(() => {
-    return plansByKind[activeTab];
-  }, [plansByKind, activeTab]);
+		return plansByKind[resolvedActiveTab];
+	}, [plansByKind, resolvedActiveTab]);
+
+  const activeTabHorizonYears = useMemo(() => {
+    const first = activePlans[0];
+    if (!first) return 10;
+    return horizonYearsByPlan[first.plan.id] ?? 10;
+  }, [activePlans, horizonYearsByPlan]);
+
+  const YEARS = useMemo(() => buildYears(new Date().getFullYear(), activeTabHorizonYears), [activeTabHorizonYears]);
 
   // Create categories by plan map
   const allCategoriesByPlan = useMemo(() => {
@@ -233,7 +250,7 @@ export default function ExpensesPageClient({
                     />
 
                     {availableTabs.map((tab) => {
-                      const isActive = activeTab === tab.key;
+							const isActive = resolvedActiveTab === tab.key;
                       return (
                         <button
                           key={tab.key}
@@ -269,6 +286,8 @@ export default function ExpensesPageClient({
             
             <ExpenseManager
               budgetPlanId={planData.plan.id}
+				  budgetHorizonYears={horizonYearsByPlan[planData.plan.id] ?? 10}
+				  horizonYearsByPlan={horizonYearsByPlan}
               month={selectedMonth}
               year={selectedYear}
               expenses={planData.expenses[selectedMonth] || []}

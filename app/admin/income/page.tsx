@@ -92,14 +92,15 @@ export default async function AdminIncomePage(props: {
 		new Set(expenseYears.map((row) => Number(row.year)).filter((y) => Number.isFinite(y)))
 	);
 
-	// Allow browsing historical/future years (e.g., planned expenses), but keep it within a sane window.
-	const MIN_YEAR = currentYear - 50;
-	const MAX_YEAR = currentYear + 20;
-	const yearsRaw = Array.from(new Set([currentYear, currentYear - 1, ...yearsFromIncome, ...yearsFromExpenses]))
-		.filter((y) => Number.isFinite(y) && y >= MIN_YEAR && y <= MAX_YEAR);
+	const horizonYearsRaw = Number((budgetPlan as any).budgetHorizonYears ?? 10);
+	const horizonYears = Number.isFinite(horizonYearsRaw) && horizonYearsRaw > 0 ? Math.floor(horizonYearsRaw) : 10;
+	const plannedYears = Array.from({ length: horizonYears }, (_, i) => currentYear + i);
 
-	// Desired order: chronological (2025, 2026, 2027 ...).
-	const allYears = yearsRaw.slice().sort((a, b) => a - b);
+	// Year picker shows only the planned horizon (current year forward).
+	// This constrains what years users can add income for.
+	void yearsFromIncome;
+	void yearsFromExpenses;
+	const allYears = plannedYears.slice().sort((a, b) => a - b);
 
 	const monthsWithIncomeByYear = new Map<number, Set<MonthKey>>();
 	for (const row of incomeYearMonthCoverage) {

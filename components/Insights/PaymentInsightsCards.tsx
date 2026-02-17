@@ -68,7 +68,6 @@ export default function PaymentInsightsCards({
 	const [tipIndex, setTipIndex] = useState(0);
 
 	useEffect(() => {
-		setTipIndex(0);
 		if (tips.length <= 1) return;
 		const id = window.setInterval(() => {
 			setTipIndex((i) => (tips.length ? (i + 1) % tips.length : 0));

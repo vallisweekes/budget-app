@@ -1,6 +1,6 @@
 "use server";
 
-import { getSettings, saveSettings } from "@/lib/settings/store";
+import { saveSettings } from "@/lib/settings/store";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { resolveUserId } from "@/lib/budgetPlans";
@@ -79,6 +79,16 @@ export async function saveSettingsAction(formData: FormData): Promise<void> {
 	}
 
 	const updates: any = {};
+
+	if (formData.has("budgetHorizonYears")) {
+		const allowed = new Set([2, 5, 10, 15, 20, 25, 30]);
+		const raw = Number(formData.get("budgetHorizonYears"));
+		const value = Number.isFinite(raw) ? Math.floor(raw) : NaN;
+		if (!allowed.has(value)) {
+			throw new Error("Invalid budget horizon years");
+		}
+		updates.budgetHorizonYears = value;
+	}
 
 	if (formData.has("payDate")) {
 		const raw = Number(formData.get("payDate"));

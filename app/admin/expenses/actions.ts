@@ -16,6 +16,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { resolveUserId } from "@/lib/budgetPlans";
+import { getSettings } from "@/lib/settings/store";
 
 function isTruthyFormValue(value: FormDataEntryValue | null): boolean {
   if (value == null) return false;
@@ -29,19 +30,28 @@ function toYear(value: FormDataEntryValue | null): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-function defaultYears(): number[] {
-  const y = new Date().getFullYear();
-  return Array.from({ length: 10 }, (_, i) => y + i);
-}
-
-function yearsFrom(startYear: number): number[] {
-  return Array.from({ length: 10 }, (_, i) => startYear + i);
+function buildAllowedBudgetYears(horizonYears: number, nowYear: number): number[] {
+	const safeHorizon = Number.isFinite(horizonYears) && horizonYears > 0 ? Math.floor(horizonYears) : 10;
+	return Array.from({ length: safeHorizon }, (_, i) => nowYear + i);
 }
 
 function remainingMonthsFrom(month: MonthKey): MonthKey[] {
   const idx = (MONTHS as MonthKey[]).indexOf(month);
   if (idx < 0) return [month];
   return (MONTHS as MonthKey[]).slice(idx);
+}
+
+async function requireYearWithinBudgetHorizon(
+  budgetPlanId: string,
+  year: number
+): Promise<{ allowedYears: number[]; nowYear: number }> {
+  const settings = await getSettings(budgetPlanId);
+  const nowYear = new Date().getFullYear();
+  const allowedYears = buildAllowedBudgetYears(settings.budgetHorizonYears ?? 10, nowYear);
+  if (!allowedYears.includes(year)) {
+    throw new Error(`Year ${year} is outside your budget horizon.`);
+  }
+  return { allowedYears, nowYear };
 }
 
 async function requireAuthenticatedUser() {
@@ -67,37 +77,39 @@ function requireBudgetPlanId(formData: FormData): string {
 }
 
 export async function addExpenseAction(formData: FormData): Promise<void> {
-  const budgetPlanId = requireBudgetPlanId(formData);
-  const month = String(formData.get("month")) as MonthKey;
-  const year = toYear(formData.get("year")) ?? new Date().getFullYear();
-  const name = String(formData.get("name") || "").trim();
-  const amount = Number(formData.get("amount") || 0);
-  const categoryId = String(formData.get("categoryId") || "") || undefined;
-  const paid = String(formData.get("paid") || "false") === "true";
-  if (!name || !month) return;
+	const budgetPlanId = requireBudgetPlanId(formData);
+	const month = String(formData.get("month")) as MonthKey;
+	const year = toYear(formData.get("year")) ?? new Date().getFullYear();
+	const name = String(formData.get("name") || "").trim();
+	const amount = Number(formData.get("amount") || 0);
+	const categoryId = String(formData.get("categoryId") || "") || undefined;
+	const paid = String(formData.get("paid") || "false") === "true";
+	if (!name || !month) return;
 
-  const distributeMonths = isTruthyFormValue(formData.get("distributeMonths"));
-  const distributeYears = isTruthyFormValue(formData.get("distributeYears"));
-  const targetMonths: MonthKey[] = distributeMonths ? (MONTHS as MonthKey[]) : [month];
-  const targetYears: number[] = distributeYears ? defaultYears() : [year];
-  const sharedId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+	const distributeMonths = isTruthyFormValue(formData.get("distributeMonths"));
+	const distributeYears = isTruthyFormValue(formData.get("distributeYears"));
+	const targetMonths: MonthKey[] = distributeMonths ? (MONTHS as MonthKey[]) : [month];
+	const sharedId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-  const { userId } = await requireAuthenticatedUser();
-  await requireOwnedBudgetPlan(budgetPlanId, userId);
+	const { userId } = await requireAuthenticatedUser();
+	await requireOwnedBudgetPlan(budgetPlanId, userId);
 
-  for (const y of targetYears) {
-    await addOrUpdateExpenseAcrossMonths(budgetPlanId, y, targetMonths, {
-      id: sharedId,
-      name,
-      amount,
-      categoryId,
-      paid,
-      paidAmount: paid ? amount : 0,
-    });
-  }
+	const { allowedYears } = await requireYearWithinBudgetHorizon(budgetPlanId, year);
+	const targetYears: number[] = distributeYears ? allowedYears : [year];
 
-  revalidatePath("/");
-  revalidatePath("/admin/expenses");
+	for (const y of targetYears) {
+		await addOrUpdateExpenseAcrossMonths(budgetPlanId, y, targetMonths, {
+			id: sharedId,
+			name,
+			amount,
+			categoryId,
+			paid,
+			paidAmount: paid ? amount : 0,
+		});
+	}
+
+	revalidatePath("/");
+	revalidatePath("/admin/expenses");
 }
 
 export async function togglePaidAction(
@@ -134,6 +146,7 @@ export async function updateExpenseAction(formData: FormData): Promise<void> {
   const { userId } = await requireAuthenticatedUser();
   await requireOwnedBudgetPlan(budgetPlanId, userId);
 
+	const horizon = await requireYearWithinBudgetHorizon(budgetPlanId, year);
   // Lookup the current row so we can match the same expense in other periods
   const monthIndex = (MONTHS as MonthKey[]).indexOf(month);
   const monthNumber = monthIndex >= 0 ? monthIndex + 1 : null;
@@ -148,7 +161,7 @@ export async function updateExpenseAction(formData: FormData): Promise<void> {
 
   if (applyRemainingMonths && matchRow && monthNumber) {
     const monthsThisYear = remainingMonthsFrom(month);
-    const years = applyFutureYears ? yearsFrom(year) : [year];
+    const years = applyFutureYears ? horizon.allowedYears.filter((y) => y >= year) : [year];
     for (const y of years) {
       const monthsForYear = y === year ? monthsThisYear : (MONTHS as MonthKey[]);
       await updateExpenseAcrossMonthsByName(

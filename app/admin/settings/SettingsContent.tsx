@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { MONTHS } from "@/lib/constants/time";
 import { SUPPORTED_CURRENCIES, SUPPORTED_COUNTRIES, SUPPORTED_LANGUAGES } from "@/lib/constants/locales";
-import { SelectDropdown } from "@/components/Shared";
+import { InfoTooltip, SelectDropdown } from "@/components/Shared";
 import type { MonthKey } from "@/types";
 import { ArrowLeft, CalendarDays, Lightbulb, PiggyBank, Wallet, Globe, User, AlertTriangle, Edit2, LogOut } from "lucide-react";
 import { signOut } from "next-auth/react";
@@ -365,28 +365,28 @@ export default function SettingsContent({
 								<div className="flex items-center justify-between gap-4 mb-5">
 									<div>
 										<h2 className="text-2xl font-bold text-white">Budget</h2>
-										<p className="text-slate-400 text-sm">Pay date, income sacrifice, and budgeting style.</p>
+										<p className="text-slate-400 text-sm">Pay date, horizon, and budgeting style.</p>
 									</div>
 									<div className="flex items-center gap-2">
-										<a
-											href="../income"
-											className="inline-flex items-center rounded-full bg-white/5 px-3 py-1 text-xs font-semibold text-white/90 ring-1 ring-white/10 hover:bg-white/10 transition"
-										>
-											Manage income sacrifice
-										</a>
 										<span className="inline-flex items-center rounded-full bg-white/5 px-3 py-1 text-xs font-medium text-slate-200 ring-1 ring-white/10">
 											Core
 										</span>
 									</div>
 								</div>
 
-								<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+								<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 									<div className="rounded-2xl sm:rounded-3xl bg-white/5 ring-1 ring-white/10 backdrop-blur-xl p-5 sm:p-7 shadow-xl">
 										<div className="flex items-center gap-3 mb-6">
 											<div className="w-10 h-10 rounded-xl bg-white/5 ring-1 ring-white/10 flex items-center justify-center">
 												<CalendarDays className="w-5 h-5 text-slate-200" />
 											</div>
-											<h3 className="text-xl font-bold text-white">Pay Date</h3>
+											<h3 className="text-xl font-bold text-white inline-flex items-center gap-2">
+												Pay Date
+												<InfoTooltip
+													ariaLabel="Pay date info"
+													content="The day of the month you typically get paid. Used as a default for due dates and monthly planning."
+												/>
+											</h3>
 										</div>
 										{!isEditingPayDate ? (
 											<div className="space-y-4">
@@ -445,46 +445,43 @@ export default function SettingsContent({
 										)}
 									</div>
 
-									<div className="rounded-2xl sm:rounded-3xl bg-white/5 ring-1 ring-white/10 backdrop-blur-xl p-5 sm:p-7 shadow-xl lg:col-span-2">
-										<div className="flex items-center gap-3 mb-6">
-											<div className="w-10 h-10 rounded-xl bg-white/5 ring-1 ring-white/10 flex items-center justify-center">
-												<PiggyBank className="w-5 h-5 text-slate-200" />
+										<div className="rounded-2xl sm:rounded-3xl bg-white/5 ring-1 ring-white/10 backdrop-blur-xl p-5 sm:p-7 shadow-xl">
+											<div className="flex items-center gap-3 mb-6">
+												<div className="w-10 h-10 rounded-xl bg-white/5 ring-1 ring-white/10 flex items-center justify-center">
+													<CalendarDays className="w-5 h-5 text-slate-200" />
+												</div>
+												<div>
+													<h3 className="text-xl font-bold text-white inline-flex items-center gap-2">
+														Budget horizon
+														<InfoTooltip
+															ariaLabel="Budget horizon info"
+															content="Choose how many years ahead this plan covers."
+														/>
+													</h3>
+													<p className="text-slate-400 text-sm">Select how far ahead you plan.</p>
+												</div>
 											</div>
-											<div>
-												<h3 className="text-xl font-bold text-white">Income sacrifice</h3>
-												<p className="text-slate-400 text-sm">Your planned splits before you start spending.</p>
-											</div>
+
+											<form action={saveSettingsAction} className="flex flex-col md:flex-row md:items-end gap-4">
+												<input type="hidden" name="budgetPlanId" value={budgetPlanId} />
+												<label className="block md:flex-1">
+													<span className="text-sm font-medium text-slate-400 mb-2 block">Years</span>
+													<SelectDropdown
+														name="budgetHorizonYears"
+														defaultValue={String(settings.budgetHorizonYears ?? 10)}
+														options={[2, 5, 10, 15, 20, 25, 30].map((n) => ({ value: String(n), label: `${n} years` }))}
+														buttonClassName="bg-slate-900/60 focus:ring-blue-500"
+													/>
+												</label>
+												<button
+													type="submit"
+													className="w-full md:w-40 rounded-xl bg-white/10 px-4 py-3 text-sm font-semibold text-white ring-1 ring-white/10 hover:bg-white/15 hover:ring-white/20 transition"
+												>
+													Save
+												</button>
+											</form>
 										</div>
 
-										<div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-											<div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
-												<p className="text-slate-400 text-xs">Allowance</p>
-												<p className="text-white font-bold mt-1">£{Number(settings.monthlyAllowance ?? 0).toFixed(2)}</p>
-											</div>
-											<div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
-												<p className="text-slate-400 text-xs">Savings</p>
-												<p className="text-white font-bold mt-1">£{Number(settings.monthlySavingsContribution ?? 0).toFixed(2)}</p>
-											</div>
-											<div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
-												<p className="text-slate-400 text-xs">Emergency</p>
-												<p className="text-white font-bold mt-1">£{Number(settings.monthlyEmergencyContribution ?? 0).toFixed(2)}</p>
-											</div>
-											<div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
-												<p className="text-slate-400 text-xs">Investments</p>
-												<p className="text-white font-bold mt-1">£{Number(settings.monthlyInvestmentContribution ?? 0).toFixed(2)}</p>
-											</div>
-										</div>
-
-										<div className="mt-4 flex items-center justify-between gap-3">
-											<div className="text-xs text-slate-500">These are plan defaults. You can override per month in Income.</div>
-											<a
-												href="../income"
-												className="inline-flex items-center rounded-xl bg-white/10 px-4 py-2 text-sm font-semibold text-white ring-1 ring-white/10 hover:bg-white/15 hover:ring-white/20 transition"
-											>
-												Edit in Income
-											</a>
-										</div>
-									</div>
 								</div>
 
 								<div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
@@ -494,7 +491,13 @@ export default function SettingsContent({
 												<Lightbulb className="w-5 h-5 text-slate-200" />
 											</div>
 											<div>
-												<h3 className="text-xl font-bold text-white">Budget Strategy</h3>
+												<h3 className="text-xl font-bold text-white inline-flex items-center gap-2">
+													Budget Strategy
+													<InfoTooltip
+														ariaLabel="Budget strategy info"
+														content="Choose a budgeting style (e.g. zero-based, 50/30/20) to enable extra guidance and summaries."
+													/>
+												</h3>
 												<p className="text-slate-400 text-sm">Optional. Turn on features like zero-based budgeting.</p>
 											</div>
 										</div>
@@ -527,8 +530,14 @@ export default function SettingsContent({
 										<div className="rounded-2xl sm:rounded-3xl bg-white/5 ring-1 ring-white/10 backdrop-blur-xl p-5 sm:p-7 shadow-xl">
 											<div className="flex items-start justify-between gap-4 mb-6">
 												<div>
-													<h3 className="text-xl font-bold text-white">Zero-based leftover</h3>
-													<p className="text-slate-400 text-sm">Assign every £ until leftover is £0.</p>
+													<h3 className="text-xl font-bold text-white inline-flex items-center gap-2">
+														Zero-based leftover
+														<InfoTooltip
+															ariaLabel="Zero-based leftover info"
+															content="Shows what’s still unallocated for the selected month."
+														/>
+													</h3>
+													{/* Intentionally no subtitle here; tooltip explains it. */}
 												</div>
 												<form method="get" className="flex items-end gap-2">
 													<label className="block">
