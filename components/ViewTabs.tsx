@@ -105,6 +105,11 @@ type MonthlyAssumptions = {
   emergency: number;
 };
 
+type MonthlyAssumptionsDraft = {
+	savings: string;
+	emergency: string;
+};
+
 function Currency({ value }: { value: number }) {
 	return <span>{formatCurrency(value)}</span>;
 }
@@ -398,6 +403,8 @@ export default function ViewTabs({
   const defaultMonthlyEmergency = combinedData.plannedEmergencyContribution ?? 0;
 
   const [assumptionsByTab, setAssumptionsByTab] = useState<Partial<Record<TabKey, MonthlyAssumptions>>>({});
+	const [assumptionDraftsByTab, setAssumptionDraftsByTab] =
+		useState<Partial<Record<TabKey, MonthlyAssumptionsDraft>>>({});
 
   const monthlyAssumptions = useMemo<MonthlyAssumptions>(() => {
     const existing = assumptionsByTab[resolvedActiveTab];
@@ -412,6 +419,28 @@ export default function ViewTabs({
       emergency: defaultMonthlyEmergency,
     };
   }, [assumptionsByTab, defaultMonthlyEmergency, defaultMonthlySavings, resolvedActiveTab]);
+
+  const monthlyAssumptionsDraft = useMemo<MonthlyAssumptionsDraft>(() => {
+    const existing = assumptionDraftsByTab[resolvedActiveTab];
+    if (existing) return existing;
+    return {
+      savings: String(Number.isFinite(monthlyAssumptions.savings) ? monthlyAssumptions.savings : 0),
+      emergency: String(Number.isFinite(monthlyAssumptions.emergency) ? monthlyAssumptions.emergency : 0),
+    };
+  }, [assumptionDraftsByTab, monthlyAssumptions.emergency, monthlyAssumptions.savings, resolvedActiveTab]);
+
+  useEffect(() => {
+    setAssumptionDraftsByTab((prev) => {
+      if (prev[resolvedActiveTab]) return prev;
+      return {
+        ...prev,
+        [resolvedActiveTab]: {
+          savings: String(Number.isFinite(monthlyAssumptions.savings) ? monthlyAssumptions.savings : 0),
+          emergency: String(Number.isFinite(monthlyAssumptions.emergency) ? monthlyAssumptions.emergency : 0),
+        },
+      };
+    });
+  }, [monthlyAssumptions.emergency, monthlyAssumptions.savings, resolvedActiveTab]);
 
   const goalsProjection = useMemo(() => {
     const monthlySavings = Math.max(0, monthlyAssumptions.savings);
@@ -461,6 +490,20 @@ export default function ViewTabs({
   }, [goalsOverviewCount, goalsProjection.monthlyEmergency, goalsProjection.monthlySavings, goalsProjection.startingEmergency, goalsProjection.startingSavings]);
 
   const setSavingsAssumption = (raw: string) => {
+    setAssumptionDraftsByTab((prev) => {
+			const existing = prev[resolvedActiveTab] ?? {
+				savings: String(Number.isFinite(monthlyAssumptions.savings) ? monthlyAssumptions.savings : 0),
+				emergency: String(Number.isFinite(monthlyAssumptions.emergency) ? monthlyAssumptions.emergency : 0),
+			};
+      return {
+        ...prev,
+        [resolvedActiveTab]: {
+				...existing,
+          savings: raw,
+        },
+      };
+    });
+
     const next = raw.trim() === "" ? 0 : Number.parseInt(raw, 10);
     const value = Number.isFinite(next) ? Math.max(0, next) : 0;
     setAssumptionsByTab((prev) => {
@@ -475,6 +518,20 @@ export default function ViewTabs({
   };
 
   const setEmergencyAssumption = (raw: string) => {
+    setAssumptionDraftsByTab((prev) => {
+			const existing = prev[resolvedActiveTab] ?? {
+				savings: String(Number.isFinite(monthlyAssumptions.savings) ? monthlyAssumptions.savings : 0),
+				emergency: String(Number.isFinite(monthlyAssumptions.emergency) ? monthlyAssumptions.emergency : 0),
+			};
+      return {
+        ...prev,
+        [resolvedActiveTab]: {
+				...existing,
+          emergency: raw,
+        },
+      };
+    });
+
     const next = raw.trim() === "" ? 0 : Number.parseInt(raw, 10);
     const value = Number.isFinite(next) ? Math.max(0, next) : 0;
     setAssumptionsByTab((prev) => {
@@ -487,6 +544,34 @@ export default function ViewTabs({
       };
     });
   };
+
+	const clearAssumptionZeroOnFocus = (field: keyof MonthlyAssumptionsDraft) => {
+		setAssumptionDraftsByTab((prev) => {
+			const existing = prev[resolvedActiveTab] ?? monthlyAssumptionsDraft;
+			if (existing[field] !== "0") return prev;
+			return {
+				...prev,
+				[resolvedActiveTab]: {
+					...existing,
+					[field]: "",
+				},
+			};
+		});
+	};
+
+	const normalizeAssumptionOnBlur = (field: keyof MonthlyAssumptionsDraft) => {
+		setAssumptionDraftsByTab((prev) => {
+			const existing = prev[resolvedActiveTab] ?? monthlyAssumptionsDraft;
+			if (existing[field].trim() !== "") return prev;
+			return {
+				...prev,
+				[resolvedActiveTab]: {
+					...existing,
+					[field]: "0",
+				},
+			};
+		});
+	};
 
   const projectionChart = useMemo(() => {
     const pts = goalsProjection.points;
@@ -1043,7 +1128,10 @@ export default function ViewTabs({
                 inputMode="numeric"
                 min={0}
                 step={50}
-                value={Number.isFinite(monthlyAssumptions.savings) ? monthlyAssumptions.savings : 0}
+                value={monthlyAssumptionsDraft.savings}
+					placeholder="0"
+					onFocus={() => clearAssumptionZeroOnFocus("savings")}
+					onBlur={() => normalizeAssumptionOnBlur("savings")}
                 onChange={(e) => setSavingsAssumption(e.target.value)}
                 className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-white/20"
                 aria-label="Monthly savings assumption"
@@ -1082,7 +1170,10 @@ export default function ViewTabs({
                 inputMode="numeric"
                 min={0}
                 step={50}
-                value={Number.isFinite(monthlyAssumptions.emergency) ? monthlyAssumptions.emergency : 0}
+                value={monthlyAssumptionsDraft.emergency}
+					placeholder="0"
+					onFocus={() => clearAssumptionZeroOnFocus("emergency")}
+					onBlur={() => normalizeAssumptionOnBlur("emergency")}
                 onChange={(e) => setEmergencyAssumption(e.target.value)}
                 className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-white/20"
                 aria-label="Monthly emergency assumption"
