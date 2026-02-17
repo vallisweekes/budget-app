@@ -299,7 +299,11 @@ export async function removeExpenseAction(
   budgetPlanId: string,
   month: MonthKey,
   id: string,
-  year?: number
+  year?: number,
+	options?: {
+		applyRemainingMonths?: boolean;
+		applyFutureYears?: boolean;
+	}
 ): Promise<void> {
 	const { userId } = await requireAuthenticatedUser();
 	await requireOwnedBudgetPlan(budgetPlanId, userId);
@@ -311,20 +315,74 @@ export async function removeExpenseAction(
   if (!monthNumber) throw new Error("Invalid month");
   const existing = await prisma.expense.findFirst({
     where: { id, budgetPlanId, year: y, month: monthNumber },
-    select: { id: true },
+    select: { id: true, name: true, categoryId: true },
   });
   if (!existing) throw new Error("Expense not found");
 
-  // Clean up any debt derived from this expense.
+  const applyRemainingMonths = Boolean(options?.applyRemainingMonths);
+  const applyFutureYears = Boolean(options?.applyFutureYears);
+
+  const deleteExpenseIds: string[] = [];
+
+  if (!applyRemainingMonths && !applyFutureYears) {
+    deleteExpenseIds.push(id);
+  } else {
+    const monthsThisYear = remainingMonthsFrom(month);
+    const monthKeysToNumbers = (keys: MonthKey[]) =>
+      keys
+        .map((m) => (MONTHS as MonthKey[]).indexOf(m) + 1)
+        .filter((n) => Number.isFinite(n) && n >= 1 && n <= 12);
+
+    const years = applyFutureYears
+      ? (await requireYearWithinBudgetHorizon(budgetPlanId, y)).allowedYears.filter((yr) => yr >= y)
+      : [y];
+
+    for (const targetYear of years) {
+      const monthsForYear = targetYear === y ? monthsThisYear : (MONTHS as MonthKey[]);
+      const monthNumbersForYear = monthKeysToNumbers(monthsForYear);
+      if (monthNumbersForYear.length === 0) continue;
+
+      const matches = await prisma.expense.findMany({
+        where: {
+          budgetPlanId,
+          year: targetYear,
+          month: { in: monthNumbersForYear },
+          name: { equals: existing.name, mode: "insensitive" },
+          categoryId: existing.categoryId,
+        },
+        select: { id: true },
+      });
+
+      deleteExpenseIds.push(...matches.map((m) => m.id));
+    }
+  }
+
+  const uniqueDeleteIds = Array.from(new Set(deleteExpenseIds));
+  if (uniqueDeleteIds.length === 0) {
+    revalidatePath("/");
+    revalidatePath("/admin/expenses");
+    return;
+  }
+
+  // Clean up any debt derived from the deleted expense rows.
   await prisma.debt.deleteMany({
     where: {
       budgetPlanId,
       sourceType: "expense",
-      sourceExpenseId: id,
+      sourceExpenseId: { in: uniqueDeleteIds },
     },
   });
 
-  await removeExpense(budgetPlanId, month, id, y);
+  if (uniqueDeleteIds.length === 1 && uniqueDeleteIds[0] === id) {
+    await removeExpense(budgetPlanId, month, id, y);
+  } else {
+    await prisma.expense.deleteMany({
+      where: {
+        budgetPlanId,
+        id: { in: uniqueDeleteIds },
+      },
+    });
+  }
   revalidatePath("/");
   revalidatePath("/admin/expenses");
 }

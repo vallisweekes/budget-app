@@ -182,6 +182,8 @@ export default function ExpenseManager({
   const [paymentByExpenseId, setPaymentByExpenseId] = useState<Record<string, string>>({});
   const [expensePendingDelete, setExpensePendingDelete] = useState<ExpenseItem | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteApplyRemainingMonths, setDeleteApplyRemainingMonths] = useState(false);
+  const [deleteApplyFutureYears, setDeleteApplyFutureYears] = useState(false);
   const [expensePendingEdit, setExpensePendingEdit] = useState<ExpenseItem | null>(null);
   const [editName, setEditName] = useState("");
   const [editAmount, setEditAmount] = useState<string>("");
@@ -323,6 +325,8 @@ export default function ExpenseManager({
 
   const handleRemoveClick = (expense: ExpenseItem) => {
     setDeleteError(null);
+    setDeleteApplyRemainingMonths(false);
+    setDeleteApplyFutureYears(false);
     setExpensePendingDelete(expense);
   };
 
@@ -368,7 +372,10 @@ export default function ExpenseManager({
     setDeleteError(null);
     startTransition(async () => {
       try {
-        await removeExpenseAction(budgetPlanId, month, expense.id, year);
+			await removeExpenseAction(budgetPlanId, month, expense.id, year, {
+				applyRemainingMonths: deleteApplyRemainingMonths,
+				applyFutureYears: deleteApplyFutureYears,
+			});
         setExpensePendingDelete(null);
         router.refresh();
       } catch (err) {
@@ -411,7 +418,50 @@ export default function ExpenseManager({
         onConfirm={() => {
           confirmRemove();
         }}
-      />
+      >
+    <div className="rounded-2xl border border-white/10 bg-slate-900/30 p-4">
+      <div className="flex items-start gap-3">
+        <input
+          id="deleteApplyRemainingMonths"
+          name="deleteApplyRemainingMonths"
+          type="checkbox"
+          checked={deleteApplyRemainingMonths}
+          onChange={(e) => {
+            const next = e.target.checked;
+            setDeleteApplyRemainingMonths(next);
+            if (!next) setDeleteApplyFutureYears(false);
+          }}
+          className="mt-1 h-4 w-4 rounded border-white/20 bg-slate-900/40 text-red-500 focus:ring-red-500/50"
+        />
+        <div className="min-w-0 flex-1">
+          <label htmlFor="deleteApplyRemainingMonths" className="block text-sm font-semibold text-white">
+            Delete in remaining months
+          </label>
+          <p className="mt-1 text-xs text-slate-300">
+            Deletes the matching expense in all remaining months this year (matched by name + category).
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-3 pl-7">
+        <label className={`flex items-center gap-2 text-xs ${deleteApplyRemainingMonths ? "text-slate-200" : "text-slate-500"}`}>
+          <input
+            name="deleteApplyFutureYears"
+            type="checkbox"
+            disabled={!deleteApplyRemainingMonths}
+            checked={deleteApplyFutureYears}
+            onChange={(e) => {
+              const next = e.target.checked;
+              setDeleteApplyFutureYears(next);
+              if (next) setDeleteApplyRemainingMonths(true);
+            }}
+            className="h-4 w-4 rounded border-white/20 bg-slate-900/40 text-red-500 focus:ring-red-500/50 disabled:opacity-60"
+          />
+          <span>Also delete in future years</span>
+        </label>
+      </div>
+    </div>
+  </ConfirmModal>
 
       {/* Edit Expense Modal */}
       {expensePendingEdit && (
