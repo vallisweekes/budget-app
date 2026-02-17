@@ -17,11 +17,7 @@ export default function CreateBudgetForm({
 	hasPersonalPlan?: boolean;
 	returnTo?: string;
 }) {
-	const initialBudgetType: BudgetType = hasPersonalPlan
-		? defaultBudgetType === "personal"
-			? "holiday"
-			: defaultBudgetType
-		: "personal";
+	const initialBudgetType: BudgetType = hasPersonalPlan ? defaultBudgetType : "personal";
 	const [budgetType, setBudgetType] = useState<BudgetType>(initialBudgetType);
 	const [planName, setPlanName] = useState<string>(initialBudgetType === "personal" ? "Personal" : "");
 
@@ -96,7 +92,7 @@ export default function CreateBudgetForm({
 				</label>
 
 				<button type="submit" className="w-full rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white">
-					Create budget
+					Create {budgetType.charAt(0).toUpperCase() + budgetType.slice(1)} plan
 				</button>
 
 				<div className="text-xs text-slate-400">Starts empty — you’ll add categories, income, and expenses next.</div>

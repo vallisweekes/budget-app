@@ -14,6 +14,11 @@ function parseUserScopedPath(pathname: string): { username: string; budgetPlanId
 	return { username, budgetPlanId };
 }
 
+function parseUsernameFromUserScopedPath(pathname: string): string {
+	const m = pathname.match(/^\/user=([^/]+)/);
+	return decodeURIComponent(m?.[1] ?? "");
+}
+
 function isUserOnboardingNewBudget(pathname: string): boolean {
 	if (!pathname.startsWith("/user=")) return false;
 	const parts = pathname.split("/").filter(Boolean);
@@ -37,10 +42,15 @@ export default function MobileBottomNav() {
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
 	const onboardingNewBudget = isUserOnboardingNewBudget(pathname);
-	const returnToFromQuery = (searchParams.get("returnTo") ?? "").trim();
-	const scopedFromReturnTo = returnToFromQuery ? parseUserScopedPath(returnToFromQuery) : null;
-	const scoped = onboardingNewBudget ? scopedFromReturnTo : parseUserScopedPath(pathname);
-	const activePage = onboardingNewBudget && returnToFromQuery ? getActiveUserPage(returnToFromQuery) : getActiveUserPage(pathname);
+	const returnToPlanId = (searchParams.get("returnToPlanId") ?? "").trim();
+	const usernameFromPath = parseUsernameFromUserScopedPath(pathname);
+	const scoped = onboardingNewBudget
+		? returnToPlanId && usernameFromPath
+			? { username: usernameFromPath, budgetPlanId: returnToPlanId }
+			: null
+		: parseUserScopedPath(pathname);
+	const returnToPage = (searchParams.get("returnToPage") ?? "").trim().toLowerCase();
+	const activePage = onboardingNewBudget && returnToPage ? returnToPage : getActiveUserPage(pathname);
 
 	// Don't show on splash page
 	if (pathname === "/") return null;

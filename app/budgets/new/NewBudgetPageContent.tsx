@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 import { isSupportedBudgetType, listBudgetPlansForUser } from "@/lib/budgetPlans";
 import CreateBudgetForm, { type BudgetType } from "./CreateBudgetForm";
@@ -23,11 +24,36 @@ export default async function NewBudgetPageContent({
 
 	const sp = await searchParams;
 	const raw = Array.isArray(sp.type) ? sp.type[0] : sp.type;
-	const typeRaw = String(raw ?? "personal").trim().toLowerCase();
+	const typeRaw = String(raw ?? "").trim().toLowerCase();
+	const typeProvided = Boolean(typeRaw);
 	const returnToRaw = Array.isArray(sp.returnTo) ? sp.returnTo[0] : sp.returnTo;
-	const returnTo = typeof returnToRaw === "string" && returnToRaw.startsWith("/") ? returnToRaw : undefined;
-	const requestedBudgetType: BudgetType = (isSupportedBudgetType(typeRaw) ? typeRaw : "personal") as BudgetType;
+	const returnToLegacy = typeof returnToRaw === "string" && returnToRaw.startsWith("/") ? returnToRaw : undefined;
+	const returnToPageRaw = Array.isArray(sp.returnToPage) ? sp.returnToPage[0] : sp.returnToPage;
+	const returnToSectionRaw = Array.isArray(sp.returnToSection) ? sp.returnToSection[0] : sp.returnToSection;
+	const returnToPlanIdRaw = Array.isArray(sp.returnToPlanId) ? sp.returnToPlanId[0] : sp.returnToPlanId;
+	const returnToPage = String(returnToPageRaw ?? "").trim().toLowerCase();
+	const returnToSection = String(returnToSectionRaw ?? "").trim().toLowerCase();
+	const returnToPlanId = String(returnToPlanIdRaw ?? "").trim();
+	const returnToStructured =
+		returnToPage === "settings" && returnToSection === "plans" && returnToPlanId
+			? `/user=${encodeURIComponent(username)}/${encodeURIComponent(returnToPlanId)}/page=settings/plans`
+			: undefined;
+	const returnTo = returnToStructured ?? returnToLegacy;
+	const requestedBudgetType: BudgetType = (
+		typeProvided && isSupportedBudgetType(typeRaw)
+			? typeRaw
+			: hasPersonalPlan
+				? "holiday"
+				: "personal"
+	) as BudgetType;
 	const defaultBudgetType: BudgetType = hasPersonalPlan ? requestedBudgetType : "personal";
+
+	const budgetTypeLabel =
+		defaultBudgetType === "carnival"
+			? "Carnival"
+			: defaultBudgetType === "holiday"
+				? "Holiday"
+				: "Personal";
 
 	return (
 		<div className="min-h-screen app-theme-bg">
@@ -35,11 +61,12 @@ export default async function NewBudgetPageContent({
 				<div className="w-full">
 					{returnTo ? (
 						<Link href={returnTo} className="inline-flex items-center gap-2 text-sm font-semibold text-white/90 hover:text-white">
-							← Back
+							<ArrowLeft className="h-4 w-4" />
+							<span>Back</span>
 						</Link>
 					) : null}
 					<h1 className="mt-4 text-4xl font-bold tracking-tight text-white md:text-5xl">
-						Create a new budget
+						Create a {budgetTypeLabel} budget plan
 					</h1>
 					<p className="mt-3 text-slate-300">
 						You’re signed in as <span className="font-semibold text-slate-200">{username}</span>.

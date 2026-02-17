@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { getDefaultBudgetPlanForUser, resolveUserId } from "@/lib/budgetPlans";
 import { redirect } from "next/navigation";
 import SettingsContent from "./SettingsContent";
+import { createBudgetPlanAction } from "@/app/budgets/new/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -90,6 +91,7 @@ export default async function AdminSettingsPage(props: {
 			fiftyThirtyTwenty={fiftyThirtyTwenty}
 			selectedMonth={selectedMonth}
 			allPlans={allPlans}
+			createBudgetPlanAction={createBudgetPlanAction}
 		/>
 	);
 }
