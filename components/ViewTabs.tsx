@@ -57,6 +57,7 @@ type ViewTabsProps = {
   debts: DebtItem[];
   totalDebtBalance: number;
   goals: GoalLike[];
+  incomeMonthsCoverageByPlan?: Record<string, number>;
   allPlansData?: Record<string, {
     categoryData: CategoryDataItem[];
     totalIncome: number;
@@ -102,6 +103,7 @@ export default function ViewTabs({
   totalExpenses,
   remaining,
   goals,
+  incomeMonthsCoverageByPlan,
   allPlansData,
 	expenseInsights,
 }: ViewTabsProps) {
@@ -172,6 +174,13 @@ export default function ViewTabs({
 
   // Get plans for active tab
   const activePlans = plansByKind[activeTab];
+
+  const shouldShowAddIncome = useMemo(() => {
+    if (!incomeMonthsCoverageByPlan) return true;
+    const ids = activePlans.length > 0 ? activePlans.map((p) => p.id) : [budgetPlanId];
+    // Show the shortcut if any active plan is missing income for some month.
+    return ids.some((id) => (incomeMonthsCoverageByPlan[id] ?? 0) < 12);
+  }, [activePlans, budgetPlanId, incomeMonthsCoverageByPlan]);
 
   const fallbackPlanData = useMemo(() => {
     const fromAllPlans = allPlansData?.[budgetPlanId];
@@ -383,13 +392,15 @@ export default function ViewTabs({
             <Plus size={16} />
             Add expense
           </Link>
-          <Link
-            href="/admin/income"
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium bg-white/10 text-white hover:bg-white/20 transition-all"
-          >
-            <Plus size={16} />
-            Add income
-          </Link>
+          {shouldShowAddIncome ? (
+            <Link
+              href="/admin/income"
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium bg-white/10 text-white hover:bg-white/20 transition-all"
+            >
+              <Plus size={16} />
+              Add income
+            </Link>
+          ) : null}
         </div>
       </div>
 

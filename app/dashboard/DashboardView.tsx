@@ -39,6 +39,7 @@ function toNumber(value: unknown): number {
 
 export default async function DashboardView({ budgetPlanId }: { budgetPlanId: string }) {
 	const now = new Date();
+	const selectedYear = now.getFullYear();
 	const session = await getServerSession(authOptions);
 	const sessionUser = session?.user;
 	const username = sessionUser?.username ?? sessionUser?.name;
@@ -348,6 +349,27 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 		allPlansData[budgetPlanId] = currentPlanData;
 	}
 
+	// Determine whether each plan has income entries for every month in the selected year.
+	// Used to hide the “Add income” shortcut when the year is already fully populated.
+	const incomeMonthsCoverageByPlan: Record<string, number> = {};
+	try {
+		const planIds = Object.keys(allPlansData);
+		if (planIds.length > 0) {
+			const groups = await prisma.income.groupBy({
+				by: ["budgetPlanId", "month"],
+				where: {
+					budgetPlanId: { in: planIds },
+					year: selectedYear,
+				},
+			});
+			for (const g of groups) {
+				incomeMonthsCoverageByPlan[g.budgetPlanId] = (incomeMonthsCoverageByPlan[g.budgetPlanId] ?? 0) + 1;
+			}
+		}
+	} catch {
+		// Non-blocking
+	}
+
 	const allDebts = await prisma.debt.findMany({
 		where: { budgetPlanId },
 	});
@@ -398,6 +420,7 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 					totalDebtBalance={totalDebtBalance}
 					goals={currentPlanData.goals}
 					allPlansData={allPlansData}
+					incomeMonthsCoverageByPlan={incomeMonthsCoverageByPlan}
 					expenseInsights={expenseInsights}
 				/>
 			</div>
