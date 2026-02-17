@@ -1,21 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Edit2, Trash2, Check, X, Target, TrendingUp, Shield, PiggyBank } from "lucide-react";
-import { updateGoalAction, deleteGoalAction } from "@/lib/goals/actions";
-import { formatCurrency } from "@/lib/helpers/money";
-import { ConfirmModal } from "@/components/Shared";
+import type { Goal } from "@/lib/goals/store";
 
-interface Goal {
-  id: string;
-  title: string;
-  targetAmount?: number;
-  currentAmount?: number;
-  type: "yearly" | "long-term";
-  category: "debt" | "savings" | "emergency" | "investment" | "other";
-  targetYear?: number;
-  description?: string;
-}
+import { Target, TrendingUp, Shield, PiggyBank } from "lucide-react";
+import { updateGoalAction, deleteGoalAction } from "@/lib/goals/actions";
+import GoalCardEditView from "@/app/admin/goals/GoalCardEditView";
+import GoalCardReadView from "@/app/admin/goals/GoalCardReadView";
 
 interface GoalCardProps {
   goal: Goal;
@@ -40,14 +31,6 @@ const categoryColors = {
   other: "from-zinc-400 to-zinc-600",
 };
 
-function Currency({ value }: { value: number }) {
-  return <span>{formatCurrency(value)}</span>;
-}
-
-const CARD_CLASS = "bg-[#9EDBFF] rounded-2xl shadow-xl border border-sky-200/70 p-6";
-const INPUT_CLASS =
-  "w-full px-3 py-2 bg-white/70 border border-black/10 text-slate-900 placeholder-slate-500 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500";
-
 export default function GoalCard({ goal, budgetPlanId, minYear, maxYear }: GoalCardProps) {
   const [isPending, startTransition] = useTransition();
   const [isEditing, setIsEditing] = useState(false);
@@ -60,7 +43,6 @@ export default function GoalCard({ goal, budgetPlanId, minYear, maxYear }: GoalC
 
   const Icon = categoryIcons[goal.category];
   const gradient = categoryColors[goal.category];
-  const progress = goal.targetAmount && goal.currentAmount ? (goal.currentAmount / goal.targetAmount) * 100 : 0;
 
   const handleSave = () => {
     startTransition(async () => {
@@ -94,175 +76,39 @@ export default function GoalCard({ goal, budgetPlanId, minYear, maxYear }: GoalC
 
   if (isEditing) {
     return (
-      <div className={CARD_CLASS}>
-        <div className="flex items-start gap-3 sm:gap-4 mb-3 sm:mb-4">
-          <div className={`w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center bg-gradient-to-br ${gradient} rounded-xl shadow-md flex-shrink-0`}>
-            <Icon className="text-white" size={18} />
-          </div>
-          <div className="flex-1 space-y-2 sm:space-y-3">
-            <label>
-              <span className="block text-[10px] sm:text-xs font-medium text-slate-700 mb-0.5 sm:mb-1">Goal Title</span>
-              <input
-                type="text"
-                value={editTitle}
-                onChange={(e) => setEditTitle(e.target.value)}
-                className={INPUT_CLASS}
-                placeholder="Goal title"
-                aria-label="Goal title"
-              />
-            </label>
-            <label>
-              <span className="block text-[10px] sm:text-xs font-medium text-slate-700 mb-0.5 sm:mb-1">Description</span>
-              <textarea
-                value={editDescription}
-                onChange={(e) => setEditDescription(e.target.value)}
-                className={INPUT_CLASS}
-                placeholder="Description (optional)"
-                aria-label="Goal description"
-                rows={2}
-              />
-            </label>
-            <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
-              <label>
-                <span className="block text-[10px] sm:text-xs font-medium text-slate-700 mb-0.5 sm:mb-1">Target Amount</span>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={editTargetAmount}
-                  onChange={(e) => setEditTargetAmount(e.target.value)}
-                  className={INPUT_CLASS}
-                  placeholder="Target £"
-                  aria-label="Target amount"
-                />
-              </label>
-              <label>
-                <span className="block text-[10px] sm:text-xs font-medium text-slate-700 mb-0.5 sm:mb-1">Current Amount</span>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={editCurrentAmount}
-                  onChange={(e) => setEditCurrentAmount(e.target.value)}
-                  className={INPUT_CLASS}
-                  placeholder="Current £"
-                  aria-label="Current amount"
-                />
-              </label>
-            </div>
-              <label>
-                <span className="block text-[10px] sm:text-xs font-medium text-slate-700 mb-0.5 sm:mb-1">Target Year</span>
-                <input
-                  type="number"
-                  value={editTargetYear}
-                  onChange={(e) => setEditTargetYear(e.target.value)}
-                  min={minYear}
-                  max={maxYear}
-                  className={INPUT_CLASS}
-                  placeholder={minYear && maxYear ? `${minYear}–${maxYear}` : "e.g., 2035"}
-                  aria-label="Target year"
-                />
-              </label>
-          </div>
-          <div className="flex gap-0.5 sm:gap-1">
-            <button
-              onClick={handleSave}
-              disabled={isPending}
-              className="p-1.5 sm:p-2 text-emerald-600 hover:bg-emerald-500/10 rounded-lg transition-colors cursor-pointer"
-              title="Save"
-            >
-              <Check size={16} className="sm:w-[18px] sm:h-[18px]" />
-            </button>
-            <button
-              onClick={handleCancel}
-              disabled={isPending}
-              className="p-1.5 sm:p-2 text-slate-700 hover:bg-black/5 rounded-lg transition-colors cursor-pointer"
-              title="Cancel"
-            >
-              <X size={16} className="sm:w-[18px] sm:h-[18px]" />
-            </button>
-          </div>
-        </div>
-      </div>
+      <GoalCardEditView
+        icon={Icon}
+        gradient={gradient}
+        minYear={minYear}
+        maxYear={maxYear}
+        isPending={isPending}
+        title={editTitle}
+        onTitleChange={setEditTitle}
+        description={editDescription}
+        onDescriptionChange={setEditDescription}
+        targetAmount={editTargetAmount}
+        onTargetAmountChange={setEditTargetAmount}
+        currentAmount={editCurrentAmount}
+        onCurrentAmountChange={setEditCurrentAmount}
+        targetYear={editTargetYear}
+        onTargetYearChange={setEditTargetYear}
+        onSave={handleSave}
+        onCancel={handleCancel}
+      />
     );
   }
 
   return (
-    <div className={CARD_CLASS}>
-      <ConfirmModal
-        open={confirmingDelete}
-        title="Delete goal?"
-        description={`This will permanently delete \"${goal.title}\".`}
-        tone="danger"
-        confirmText="Delete"
-        cancelText="Keep"
-        isBusy={isPending}
-        onClose={() => {
-          if (!isPending) setConfirmingDelete(false);
-        }}
-        onConfirm={() => {
-          confirmDelete();
-          setConfirmingDelete(false);
-        }}
-      />
-      <div className="flex items-start gap-3 sm:gap-4 mb-3 sm:mb-4">
-        <div className={`w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center bg-gradient-to-br ${gradient} rounded-xl shadow-md flex-shrink-0`}>
-          <Icon className="text-white" size={18} />
-        </div>
-        <div className="flex-1">
-          <div className="flex items-start justify-between gap-2">
-            <h3 className="font-bold text-base sm:text-lg text-slate-900">{goal.title}</h3>
-            <span
-              className={
-                goal.targetYear
-                  ? "inline-flex items-center rounded-full bg-white/70 px-2.5 py-1 text-[11px] font-semibold text-slate-900 border border-black/10"
-                  : "inline-flex items-center rounded-full bg-amber-200/70 px-2.5 py-1 text-[11px] font-semibold text-amber-950 border border-amber-900/20"
-              }
-              title={goal.targetYear ? "Target year" : "No target year set"}
-            >
-              {goal.targetYear ? `Target ${goal.targetYear}` : "Set target year"}
-            </span>
-          </div>
-          {goal.description && (
-            <p className="text-xs sm:text-sm text-slate-700 mt-0.5 sm:mt-1">{goal.description}</p>
-          )}
-        </div>
-        <div className="flex gap-0.5 sm:gap-1">
-          <button
-            onClick={() => setIsEditing(true)}
-            className="p-1.5 sm:p-2 hover:bg-black/5 rounded-lg text-slate-800 transition-colors cursor-pointer"
-            title="Edit"
-          >
-            <Edit2 size={16} className="sm:w-[18px] sm:h-[18px]" />
-          </button>
-          <button
-            onClick={() => setConfirmingDelete(true)}
-            disabled={isPending}
-            className="p-1.5 sm:p-2 hover:bg-red-500/10 rounded-lg text-red-600 transition-colors cursor-pointer"
-            title="Delete"
-          >
-            <Trash2 size={16} className="sm:w-[18px] sm:h-[18px]" />
-          </button>
-        </div>
-      </div>
-
-      {goal.targetAmount && (
-        <div>
-          <div className="flex justify-between text-xs sm:text-sm mb-1 sm:mb-2">
-            <span className="text-slate-700 font-medium">Progress</span>
-            <span className="font-semibold text-slate-900">
-              <Currency value={goal.currentAmount || 0} /> / <Currency value={goal.targetAmount} />
-            </span>
-          </div>
-          <div className="w-full bg-slate-900/10 rounded-full h-2 sm:h-3">
-            <div
-              className={`bg-gradient-to-r ${gradient} h-2 sm:h-3 rounded-full transition-all`}
-              style={{ width: `${Math.min(100, progress)}%` }}
-            />
-          </div>
-          <div className="text-right text-[10px] sm:text-xs text-slate-700 mt-0.5 sm:mt-1">
-            {progress.toFixed(1)}% complete
-          </div>
-        </div>
-      )}
-    </div>
+    <GoalCardReadView
+      goal={goal}
+      icon={Icon}
+      gradient={gradient}
+      isPending={isPending}
+      confirmingDelete={confirmingDelete}
+      onStartEdit={() => setIsEditing(true)}
+      onOpenDelete={() => setConfirmingDelete(true)}
+      onCloseDelete={() => setConfirmingDelete(false)}
+      onConfirmDelete={confirmDelete}
+    />
   );
 }

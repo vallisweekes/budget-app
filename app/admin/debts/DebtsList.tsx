@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { ArrowUpDown, ArrowUpAZ, DollarSign } from "lucide-react";
 import DebtCard from "./DebtCard";
 import { formatCurrency } from "@/lib/helpers/money";
 import type { DebtPayment, DebtType } from "@/types";
+import DebtsSortControls from "./DebtsSortControls";
+import DebtsEmptyState from "./DebtsEmptyState";
 
 interface Debt {
 	id: string;
@@ -114,56 +115,12 @@ export default function DebtsList({ debts, budgetPlanId, typeLabels, paymentsMap
 	}, [debts, sortBy]);
 
 	if (debts.length === 0) {
-		return (
-			<div className="bg-slate-800/40 backdrop-blur-xl rounded-2xl p-8 text-center border border-white/10">
-				<div className="text-6xl mb-4">🎉</div>
-				<h3 className="text-xl font-semibold text-white mb-2">No Debts!</h3>
-				<p className="text-slate-400">You have no tracked debts at the moment.</p>
-			</div>
-		);
+		return <DebtsEmptyState />;
 	}
 
 	return (
 		<>
-			{/* Sort Controls */}
-			<div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
-				<span className="text-xs sm:text-sm text-slate-400">Sort by:</span>
-				<div className="flex gap-1.5 sm:gap-2">
-					<button
-						onClick={() => setSortBy("default")}
-						className={`px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-[10px] sm:text-sm font-medium transition-all flex items-center gap-1 sm:gap-1.5 ${
-							sortBy === "default"
-								? "bg-purple-600 text-white"
-								: "bg-slate-800/40 text-slate-300 hover:bg-slate-700/40"
-						}`}
-					>
-						<ArrowUpDown className="w-3 h-3 sm:w-4 sm:h-4" />
-						Default
-					</button>
-					<button
-						onClick={() => setSortBy("name")}
-						className={`px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-[10px] sm:text-sm font-medium transition-all flex items-center gap-1 sm:gap-1.5 ${
-							sortBy === "name"
-								? "bg-purple-600 text-white"
-								: "bg-slate-800/40 text-slate-300 hover:bg-slate-700/40"
-						}`}
-					>
-						<ArrowUpAZ className="w-3 h-3 sm:w-4 sm:h-4" />
-						Name
-					</button>
-					<button
-						onClick={() => setSortBy("amount")}
-						className={`px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-[10px] sm:text-sm font-medium transition-all flex items-center gap-1 sm:gap-1.5 ${
-							sortBy === "amount"
-								? "bg-purple-600 text-white"
-								: "bg-slate-800/40 text-slate-300 hover:bg-slate-700/40"
-						}`}
-					>
-						<DollarSign className="w-3 h-3 sm:w-4 sm:h-4" />
-						Amount
-					</button>
-				</div>
-			</div>
+			<DebtsSortControls sortBy={sortBy} onSortChange={setSortBy} />
 
 			{/* Debts List */}
 			<div className="space-y-4">

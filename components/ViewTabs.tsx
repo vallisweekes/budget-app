@@ -690,12 +690,25 @@ export default function ViewTabs({
     const pts = goalsProjection.points;
     if (pts.length < 2) return null;
 
-    const labels = pts.map((p) => String(p.t));
-    const savingsSeries = pts.map((p) => p.savings);
-    const emergencySeries = pts.map((p) => p.emergency);
-		const investmentsSeries = pts.map((p) => p.investments);
+    // Chart-only baseline point so lines start at 0 and rise to the "Now" value.
+    const chartPts = [
+      { t: -1, savings: 0, emergency: 0, investments: 0, total: 0 },
+      ...pts,
+    ];
 
-		const maxVal = Math.max(...pts.map((p) => Math.max(p.savings, p.emergency, p.investments)), 1);
+    const baseYear = new Date().getFullYear();
+    const labels = chartPts.map((p) => {
+      if (p.t < 0) return "";
+      if (p.t === 0) return String(baseYear);
+      if (p.t % 12 === 0) return String(baseYear + Math.floor(p.t / 12));
+      return "";
+    });
+
+    const savingsSeries = chartPts.map((p) => p.savings);
+    const emergencySeries = chartPts.map((p) => p.emergency);
+		const investmentsSeries = chartPts.map((p) => p.investments);
+
+    const maxVal = Math.max(...pts.map((p) => Math.max(p.savings, p.emergency, p.investments)), 1);
     const suggestedMax = Math.ceil(maxVal / 1000) * 1000;
 
     const data = {
@@ -748,9 +761,14 @@ export default function ViewTabs({
           intersect: false,
           callbacks: {
             title: (items) => {
-              const raw = items?.[0]?.label;
-              const monthIndex = raw ? Number(raw) : 0;
-              return `Month +${Number.isFinite(monthIndex) ? monthIndex : 0}`;
+              const dataIndex = items?.[0]?.dataIndex ?? 0;
+              const t = chartPts[dataIndex]?.t ?? 0;
+              if (t <= 0) return "Now";
+              const years = Math.floor(t / 12);
+              const months = t % 12;
+              if (years <= 0) return `+${t}m`;
+              if (months === 0) return `+${years}y`;
+              return `+${years}y ${months}m`;
             },
             label: (item) => `${item.dataset.label}: ${formatCurrencyWhole(item.parsed.y ?? 0)}`,
           },
@@ -763,11 +781,13 @@ export default function ViewTabs({
           ticks: {
             color: "rgba(226, 232, 240, 0.6)",
             maxRotation: 0,
-            autoSkip: true,
-            maxTicksLimit: 6,
+            minRotation: 0,
+            autoSkip: false,
             callback: (_value, index) => {
-              if (index === 0) return "Now";
-              if (index === pts.length - 1) return `+${pts.length - 1}m`;
+              if (index === 0) return "0";
+              if (index === 1) return `Now (${baseYear})`;
+              const t = chartPts[index]?.t ?? 0;
+              if (t > 0 && t % 12 === 0) return String(baseYear + Math.floor(t / 12));
               return "";
             },
           },
