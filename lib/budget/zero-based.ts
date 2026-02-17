@@ -4,10 +4,12 @@ import { getAllIncome } from "@/lib/income/store";
 import { getPaymentsByMonth } from "@/lib/debts/store";
 import { getAllSpending } from "@/lib/spending/store";
 import { getMonthlyAllocationSnapshot } from "@/lib/allocations/store";
+import { prisma } from "@/lib/prisma";
 import type { MonthKey } from "@/types";
 
 export interface ZeroBasedSummary {
 	month: MonthKey;
+	year: number;
 	incomeTotal: number;
 	expenseTotal: number;
 	debtPaymentsTotal: number;
@@ -29,13 +31,35 @@ export function isMonthKey(value: string): value is MonthKey {
 	return (MONTHS as string[]).includes(value);
 }
 
-export async function getZeroBasedSummary(budgetPlanId: string, month: MonthKey): Promise<ZeroBasedSummary> {
+async function resolveSummaryYear(budgetPlanId: string): Promise<number> {
+	const latestIncome = await prisma.income.findFirst({
+		where: { budgetPlanId },
+		orderBy: [{ year: "desc" }, { month: "desc" }],
+		select: { year: true },
+	});
+	if (latestIncome?.year) return latestIncome.year;
+
+	const latestExpense = await prisma.expense.findFirst({
+		where: { budgetPlanId },
+		orderBy: [{ year: "desc" }, { month: "desc" }],
+		select: { year: true },
+	});
+	return latestExpense?.year ?? new Date().getFullYear();
+}
+
+export async function getZeroBasedSummary(
+	budgetPlanId: string,
+	month: MonthKey,
+	options?: { year?: number }
+): Promise<ZeroBasedSummary> {
+	const year = options?.year ?? (await resolveSummaryYear(budgetPlanId));
+
 	const [allocation, allIncome, allExpenses, allSpending, debtPayments] = await Promise.all([
-		getMonthlyAllocationSnapshot(budgetPlanId, month),
-		getAllIncome(budgetPlanId),
-		getAllExpenses(budgetPlanId),
+		getMonthlyAllocationSnapshot(budgetPlanId, month, { year }),
+		getAllIncome(budgetPlanId, year),
+		getAllExpenses(budgetPlanId, year),
 		getAllSpending(budgetPlanId),
-		getPaymentsByMonth(budgetPlanId, month),
+		getPaymentsByMonth(budgetPlanId, month, year),
 	]);
 
 	const incomeTotal = sumAmounts(allIncome[month] ?? []);
@@ -59,6 +83,7 @@ export async function getZeroBasedSummary(budgetPlanId: string, month: MonthKey)
 
 	return {
 		month,
+		year,
 		incomeTotal,
 		expenseTotal,
 		debtPaymentsTotal,

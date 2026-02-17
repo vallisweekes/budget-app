@@ -1,20 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { MONTHS } from "@/lib/constants/time";
 import { SUPPORTED_CURRENCIES, SUPPORTED_COUNTRIES, SUPPORTED_LANGUAGES } from "@/lib/constants/locales";
 import { SelectDropdown } from "@/components/Shared";
 import type { MonthKey } from "@/types";
 import { ArrowLeft, CalendarDays, Lightbulb, PiggyBank, Wallet, Globe, User, AlertTriangle, Edit2, LogOut } from "lucide-react";
 import { signOut } from "next-auth/react";
-import { saveSettingsAction, updateUserDetailsAction } from "./actions";
+import { applyFiftyThirtyTwentyTargetsAction, saveSettingsAction, updateUserDetailsAction } from "./actions";
 import DeleteBudgetPlanButton from "./DeleteBudgetPlanButton";
 import type { Settings } from "@/lib/settings/store";
 
 type Section = "details" | "budget" | "locale" | "plans" | "danger";
 
 type MonthSummary = {
+	year: number;
 	unallocated: number;
 	incomeTotal: number;
 	expenseTotal: number;
@@ -62,6 +63,10 @@ export default function SettingsContent({
 	selectedMonth,
 	allPlans = [],
 }: SettingsContentProps) {
+	const searchParams = useSearchParams();
+	const applied = searchParams?.get("applied") ?? "";
+	const [showApply503020, setShowApply503020] = useState(false);
+	const [isEditingPayDate, setIsEditingPayDate] = useState(false);
 	const [activeSection, setActiveSection] = useState<Section>("details");
 	const [mobileView, setMobileView] = useState<"menu" | "content">("menu");
 	const [isEditingEmail, setIsEditingEmail] = useState(false);
@@ -73,6 +78,14 @@ export default function SettingsContent({
 		if (raw === "midnight-peach" || raw === "nord-mint" || raw === "soft-light" || raw === "calm-teal") return raw;
 		return "nord-mint";
 	});
+
+	const payDateLabel = useMemo(() => {
+		const d = Math.max(1, Math.min(31, Number(settings.payDate ?? 1)));
+		const mod10 = d % 10;
+		const mod100 = d % 100;
+		const suffix = mod100 >= 11 && mod100 <= 13 ? "th" : mod10 === 1 ? "st" : mod10 === 2 ? "nd" : mod10 === 3 ? "rd" : "th";
+		return `${d}${suffix}`;
+	}, [settings.payDate]);
 
 	useEffect(() => {
 		try {
@@ -357,80 +370,128 @@ export default function SettingsContent({
 									<div className="flex items-center gap-2">
 										<a
 											href="../income"
-											className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-white/90 hover:bg-white/10 transition"
+											className="inline-flex items-center rounded-full bg-white/5 px-3 py-1 text-xs font-semibold text-white/90 ring-1 ring-white/10 hover:bg-white/10 transition"
 										>
-											Manage income sacrifice in Income
+											Manage income sacrifice
 										</a>
-										<span className="inline-flex items-center rounded-full border border-white/10 bg-slate-900/40 px-3 py-1 text-xs font-medium text-slate-200">
+										<span className="inline-flex items-center rounded-full bg-white/5 px-3 py-1 text-xs font-medium text-slate-200 ring-1 ring-white/10">
 											Core
 										</span>
 									</div>
 								</div>
 
 								<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-									<div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/10 p-8 hover:border-white/20 transition-all">
+									<div className="rounded-2xl sm:rounded-3xl bg-white/5 ring-1 ring-white/10 backdrop-blur-xl p-5 sm:p-7 shadow-xl">
 										<div className="flex items-center gap-3 mb-6">
-											<div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-2xl flex items-center justify-center shadow-lg">
-												<CalendarDays className="w-6 h-6 text-white" />
+											<div className="w-10 h-10 rounded-xl bg-white/5 ring-1 ring-white/10 flex items-center justify-center">
+												<CalendarDays className="w-5 h-5 text-slate-200" />
 											</div>
 											<h3 className="text-xl font-bold text-white">Pay Date</h3>
 										</div>
-										<form action={saveSettingsAction} className="space-y-4">
-											<input type="hidden" name="budgetPlanId" value={budgetPlanId} />
-											<label className="block">
-												<span className="text-sm font-medium text-slate-400 mb-2 block">Day of Month</span>
-												<input
-													name="payDate"
-													type="number"
-													min={1}
-													max={31}
-													defaultValue={settings.payDate}
-													className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white text-lg font-semibold placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-												/>
-											</label>
-											<button
-												type="submit"
-												className="w-full bg-gradient-to-r from-blue-500 to-cyan-600 text-white rounded-xl py-3 font-semibold shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all cursor-pointer"
-											>
-												Save Pay Date
+										{!isEditingPayDate ? (
+											<div className="space-y-4">
+												<div className="rounded-2xl bg-white/5 ring-1 ring-white/10 px-4 py-4">
+													<p className="text-xs font-medium text-slate-400">Current pay date</p>
+													<p className="mt-1 text-2xl font-extrabold text-white">{payDateLabel}</p>
+													<p className="mt-2 text-xs text-slate-500">Locked to prevent accidental changes.</p>
+												</div>
+												<button
+													type="button"
+													onClick={() => setIsEditingPayDate(true)}
+													className="w-full rounded-xl bg-white/10 px-4 py-3 text-sm font-semibold text-white ring-1 ring-white/10 hover:bg-white/15 hover:ring-white/20 transition"
+												>
+												Change pay date
 											</button>
-										</form>
+										</div>
+										) : (
+											<form
+												action={saveSettingsAction}
+												onSubmit={() => setIsEditingPayDate(false)}
+												className="space-y-4"
+											>
+												<input type="hidden" name="budgetPlanId" value={budgetPlanId} />
+												<label className="block">
+													<span className="text-sm font-medium text-slate-400 mb-2 block">Day of Month</span>
+													<input
+														name="payDate"
+														type="number"
+														min={1}
+														max={31}
+														inputMode="numeric"
+														defaultValue={settings.payDate}
+														onWheel={(e) => {
+															// Prevent accidental scroll-wheel changes.
+															(e.currentTarget as HTMLInputElement).blur();
+														}}
+														className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white text-lg font-semibold placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+													/>
+												</label>
+												<div className="flex items-center gap-2">
+													<button
+														type="button"
+														onClick={() => setIsEditingPayDate(false)}
+														className="flex-1 rounded-xl bg-white/10 px-4 py-3 text-sm font-semibold text-white ring-1 ring-white/10 hover:bg-white/15 hover:ring-white/20 transition"
+													>
+														Cancel
+													</button>
+													<button
+														type="submit"
+														className="flex-1 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-600 px-4 py-3 text-sm font-semibold text-white shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all"
+													>
+														Save
+													</button>
+												</div>
+											</form>
+										)}
 									</div>
 
-									<div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/10 p-8 hover:border-white/20 transition-all">
+									<div className="rounded-2xl sm:rounded-3xl bg-white/5 ring-1 ring-white/10 backdrop-blur-xl p-5 sm:p-7 shadow-xl lg:col-span-2">
 										<div className="flex items-center gap-3 mb-6">
-											<div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg">
-												<PiggyBank className="w-6 h-6 text-white" />
+											<div className="w-10 h-10 rounded-xl bg-white/5 ring-1 ring-white/10 flex items-center justify-center">
+												<PiggyBank className="w-5 h-5 text-slate-200" />
 											</div>
-																<h3 className="text-xl font-bold text-white">Savings pot (spendable balance)</h3>
+											<div>
+												<h3 className="text-xl font-bold text-white">Income sacrifice</h3>
+												<p className="text-slate-400 text-sm">Your planned splits before you start spending.</p>
+											</div>
 										</div>
-										<form action={saveSettingsAction} className="space-y-4">
-											<input type="hidden" name="budgetPlanId" value={budgetPlanId} />
-											<label className="block">
-												<span className="text-sm font-medium text-slate-400 mb-2 block">Current Balance (£)</span>
-												<input
-													name="savingsBalance"
-													type="number"
-													step="0.01"
-													defaultValue={settings.savingsBalance ?? 0}
-													className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white text-lg font-semibold placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-												/>
-											</label>
-											<button
-												type="submit"
-												className="w-full bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-xl py-3 font-semibold shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all cursor-pointer"
+
+										<div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+											<div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+												<p className="text-slate-400 text-xs">Allowance</p>
+												<p className="text-white font-bold mt-1">£{Number(settings.monthlyAllowance ?? 0).toFixed(2)}</p>
+											</div>
+											<div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+												<p className="text-slate-400 text-xs">Savings</p>
+												<p className="text-white font-bold mt-1">£{Number(settings.monthlySavingsContribution ?? 0).toFixed(2)}</p>
+											</div>
+											<div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+												<p className="text-slate-400 text-xs">Emergency</p>
+												<p className="text-white font-bold mt-1">£{Number(settings.monthlyEmergencyContribution ?? 0).toFixed(2)}</p>
+											</div>
+											<div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+												<p className="text-slate-400 text-xs">Investments</p>
+												<p className="text-white font-bold mt-1">£{Number(settings.monthlyInvestmentContribution ?? 0).toFixed(2)}</p>
+											</div>
+										</div>
+
+										<div className="mt-4 flex items-center justify-between gap-3">
+											<div className="text-xs text-slate-500">These are plan defaults. You can override per month in Income.</div>
+											<a
+												href="../income"
+												className="inline-flex items-center rounded-xl bg-white/10 px-4 py-2 text-sm font-semibold text-white ring-1 ring-white/10 hover:bg-white/15 hover:ring-white/20 transition"
 											>
-												Save Balance
-											</button>
-										</form>
+												Edit in Income
+											</a>
+										</div>
 									</div>
 								</div>
 
 								<div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-									<div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/10 p-8 hover:border-white/20 transition-all">
+									<div className="rounded-2xl sm:rounded-3xl bg-white/5 ring-1 ring-white/10 backdrop-blur-xl p-5 sm:p-7 shadow-xl">
 										<div className="flex items-center gap-3 mb-6">
-											<div className="w-12 h-12 bg-gradient-to-br from-pink-500 to-rose-600 rounded-2xl flex items-center justify-center shadow-lg">
-												<Lightbulb className="w-6 h-6 text-white" />
+											<div className="w-10 h-10 rounded-xl bg-white/5 ring-1 ring-white/10 flex items-center justify-center">
+												<Lightbulb className="w-5 h-5 text-slate-200" />
 											</div>
 											<div>
 												<h3 className="text-xl font-bold text-white">Budget Strategy</h3>
@@ -455,7 +516,7 @@ export default function SettingsContent({
 											</label>
 											<button
 												type="submit"
-												className="w-full bg-gradient-to-r from-pink-500 to-rose-600 text-white rounded-xl py-3 font-semibold shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all cursor-pointer"
+												className="w-full rounded-xl bg-white/10 px-4 py-3 text-sm font-semibold text-white ring-1 ring-white/10 hover:bg-white/15 hover:ring-white/20 transition"
 											>
 												Save Strategy
 											</button>
@@ -463,7 +524,7 @@ export default function SettingsContent({
 									</div>
 
 									{settings.budgetStrategy === "zeroBased" && monthSummary && (
-										<div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/10 p-8 hover:border-white/20 transition-all">
+										<div className="rounded-2xl sm:rounded-3xl bg-white/5 ring-1 ring-white/10 backdrop-blur-xl p-5 sm:p-7 shadow-xl">
 											<div className="flex items-start justify-between gap-4 mb-6">
 												<div>
 													<h3 className="text-xl font-bold text-white">Zero-based leftover</h3>
@@ -493,6 +554,7 @@ export default function SettingsContent({
 													<div>
 														<p className="text-xs uppercase tracking-wider text-slate-400 font-semibold">Leftover to allocate</p>
 														<p className="text-3xl font-extrabold text-white mt-1">£{monthSummary.unallocated.toFixed(2)}</p>
+														<p className="text-xs text-slate-500 mt-2">Previewing: {selectedMonth} {monthSummary.year}</p>
 													</div>
 													<div className="text-right">
 														<p className="text-slate-300 text-sm font-semibold">Tip</p>
@@ -507,19 +569,19 @@ export default function SettingsContent({
 											</div>
 
 											<div className="grid grid-cols-2 gap-3 text-sm">
-												<div className="rounded-xl border border-white/10 bg-slate-900/30 p-4">
+												<div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
 													<p className="text-slate-400">Income</p>
 													<p className="text-white font-bold">£{monthSummary.incomeTotal.toFixed(2)}</p>
 												</div>
-												<div className="rounded-xl border border-white/10 bg-slate-900/30 p-4">
+												<div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
 													<p className="text-slate-400">Expenses</p>
 													<p className="text-white font-bold">£{monthSummary.expenseTotal.toFixed(2)}</p>
 												</div>
-												<div className="rounded-xl border border-white/10 bg-slate-900/30 p-4">
+												<div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
 													<p className="text-slate-400">Debt payments</p>
 													<p className="text-white font-bold">£{monthSummary.debtPaymentsTotal.toFixed(2)}</p>
 												</div>
-												<div className="rounded-xl border border-white/10 bg-slate-900/30 p-4">
+												<div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
 													<p className="text-slate-400">Spending (tracked)</p>
 													<p className="text-white font-bold">£{monthSummary.spendingTotal.toFixed(2)}</p>
 												</div>
@@ -528,7 +590,7 @@ export default function SettingsContent({
 									)}
 
 									{settings.budgetStrategy === "fiftyThirtyTwenty" && monthSummary && fiftyThirtyTwenty && (
-										<div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/10 p-8 hover:border-white/20 transition-all">
+										<div className="rounded-2xl sm:rounded-3xl bg-white/5 ring-1 ring-white/10 backdrop-blur-xl p-5 sm:p-7 shadow-xl">
 											<div className="flex items-start justify-between gap-4 mb-6">
 												<div>
 													<h3 className="text-xl font-bold text-white">50/30/20 targets</h3>
@@ -556,13 +618,14 @@ export default function SettingsContent({
 											<div className="rounded-2xl border border-white/10 bg-slate-900/40 p-5 mb-5">
 												<p className="text-xs uppercase tracking-wider text-slate-400 font-semibold">Income used for targets</p>
 												<p className="text-2xl font-extrabold text-white mt-1">£{monthSummary.incomeTotal.toFixed(2)}</p>
+												<p className="text-xs text-slate-500 mt-2">Previewing: {selectedMonth} {monthSummary.year}</p>
 												<p className="text-xs text-slate-500 mt-2">
 													Needs and wants are approximations until category tagging is added.
 												</p>
 											</div>
 
 											<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-												<div className="rounded-2xl border border-white/10 bg-slate-900/30 p-5">
+												<div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-5">
 													<p className="text-slate-300 font-semibold">Needs (50%)</p>
 													<p className="text-white font-bold mt-1">Target: £{fiftyThirtyTwenty.needsTarget.toFixed(2)}</p>
 													<p className="text-slate-400 text-sm mt-1">
@@ -572,7 +635,7 @@ export default function SettingsContent({
 														Delta: £{(fiftyThirtyTwenty.needsActual - fiftyThirtyTwenty.needsTarget).toFixed(2)}
 													</p>
 												</div>
-												<div className="rounded-2xl border border-white/10 bg-slate-900/30 p-5">
+												<div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-5">
 													<p className="text-slate-300 font-semibold">Wants (30%)</p>
 													<p className="text-white font-bold mt-1">Target: £{fiftyThirtyTwenty.wantsTarget.toFixed(2)}</p>
 													<p className="text-slate-400 text-sm mt-1">
@@ -582,7 +645,7 @@ export default function SettingsContent({
 														Delta: £{(fiftyThirtyTwenty.wantsActual - fiftyThirtyTwenty.wantsTarget).toFixed(2)}
 													</p>
 												</div>
-												<div className="rounded-2xl border border-white/10 bg-slate-900/30 p-5">
+												<div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-5">
 													<p className="text-slate-300 font-semibold">Savings/Debt (20%)</p>
 													<p className="text-white font-bold mt-1">Target: £{fiftyThirtyTwenty.savingsDebtTarget.toFixed(2)}</p>
 													<p className="text-slate-400 text-sm mt-1">
@@ -593,11 +656,73 @@ export default function SettingsContent({
 													</p>
 												</div>
 											</div>
+
+											{applied === "503020" ? (
+												<div className="mt-5 rounded-2xl bg-emerald-500/10 ring-1 ring-emerald-400/20 p-4">
+													<div className="text-sm font-semibold text-emerald-200">Applied 50/30/20 targets for {selectedMonth} {monthSummary.year}.</div>
+													<div className="text-xs text-emerald-200/80 mt-1">Allowance and Savings were updated for this month.</div>
+												</div>
+											) : null}
+
+											<div className="mt-5 rounded-2xl bg-white/5 ring-1 ring-white/10 p-5">
+												<div className="text-sm font-semibold text-white">Apply these targets to your budget</div>
+												<div className="text-xs text-slate-400 mt-1">
+													Writes a monthly override for {selectedMonth} {monthSummary.year}. Uses your debt plan amounts (from Debts) when calculating the 20% bucket.
+												</div>
+
+												{!showApply503020 ? (
+													<button
+														type="button"
+														onClick={() => setShowApply503020(true)}
+														className="mt-3 rounded-xl bg-gradient-to-r from-pink-500 to-rose-600 px-4 py-2 text-sm font-semibold text-white shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all"
+													>
+														Preview + Apply
+													</button>
+												) : (
+													<div className="mt-3 flex items-center gap-2">
+														<button
+															type="button"
+															onClick={() => setShowApply503020(false)}
+															className="rounded-xl bg-white/10 px-4 py-2 text-sm font-semibold text-white ring-1 ring-white/10 hover:bg-white/15 hover:ring-white/20 transition"
+														>
+															Cancel
+														</button>
+														<form action={applyFiftyThirtyTwentyTargetsAction}>
+															<input type="hidden" name="budgetPlanId" value={budgetPlanId} />
+															<input type="hidden" name="month" value={selectedMonth} />
+															<input type="hidden" name="year" value={monthSummary.year} />
+															<button
+																type="submit"
+																className="rounded-xl bg-gradient-to-r from-pink-500 to-rose-600 px-4 py-2 text-sm font-semibold text-white shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all"
+															>
+																Apply now
+															</button>
+														</form>
+													</div>
+												)}
+											</div>
+
+											{showApply503020 ? (
+												<div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+													<div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+														<p className="text-slate-400">Allowance (30% target)</p>
+														<p className="text-white font-bold">£{fiftyThirtyTwenty.wantsTarget.toFixed(2)}</p>
+														<p className="text-xs text-slate-500 mt-1">This will set your monthly allowance override to match the 30% guideline.</p>
+													</div>
+													<div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+														<p className="text-slate-400">Savings/Debt (20% target)</p>
+														<p className="text-white font-bold">£{fiftyThirtyTwenty.savingsDebtTarget.toFixed(2)}</p>
+														<p className="text-xs text-slate-500 mt-1">
+															This will adjust your Savings contribution for the month (keeping Emergency + Investments as-is) so that Savings + Emergency + Investments + planned debt ≈ 20% of income.
+														</p>
+													</div>
+												</div>
+											) : null}
 										</div>
 									)}
 
 									{settings.budgetStrategy === "payYourselfFirst" && monthSummary && (
-										<div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/10 p-8 hover:border-white/20 transition-all">
+										<div className="rounded-2xl sm:rounded-3xl bg-white/5 ring-1 ring-white/10 backdrop-blur-xl p-5 sm:p-7 shadow-xl">
 											<div className="flex items-start justify-between gap-4 mb-6">
 												<div>
 													<h3 className="text-xl font-bold text-white">Pay yourself first</h3>
@@ -629,25 +754,26 @@ export default function SettingsContent({
 													Left after paying yourself first
 												</p>
 												<p className="text-3xl font-extrabold text-white mt-1">£{monthSummary.unallocated.toFixed(2)}</p>
+												<p className="text-xs text-slate-500 mt-2">Previewing: {selectedMonth} {monthSummary.year}</p>
 												<p className="text-slate-400 text-sm mt-2">
 													Increase Savings/Investments if you want to prioritise future goals.
 												</p>
 											</div>
 
 											<div className="grid grid-cols-2 gap-3 text-sm">
-												<div className="rounded-xl border border-white/10 bg-slate-900/30 p-4">
+												<div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
 													<p className="text-slate-400">Savings (planned)</p>
 													<p className="text-white font-bold">£{monthSummary.plannedSavings.toFixed(2)}</p>
 												</div>
-												<div className="rounded-xl border border-white/10 bg-slate-900/30 p-4">
+												<div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
 													<p className="text-slate-400">Investments (planned)</p>
 													<p className="text-white font-bold">£{monthSummary.plannedInvestments.toFixed(2)}</p>
 												</div>
-												<div className="rounded-xl border border-white/10 bg-slate-900/30 p-4">
+												<div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
 													<p className="text-slate-400">Debt payments</p>
 													<p className="text-white font-bold">£{monthSummary.debtPaymentsTotal.toFixed(2)}</p>
 												</div>
-												<div className="rounded-xl border border-white/10 bg-slate-900/30 p-4">
+												<div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
 													<p className="text-slate-400">Expenses</p>
 													<p className="text-white font-bold">£{monthSummary.expenseTotal.toFixed(2)}</p>
 												</div>

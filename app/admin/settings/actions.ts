@@ -5,9 +5,13 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { resolveUserId } from "@/lib/budgetPlans";
 import { prisma } from "@/lib/prisma";
+import { getZeroBasedSummary, isMonthKey } from "@/lib/budget/zero-based";
+import { monthKeyToNumber } from "@/lib/helpers/monthKey";
+import { getMonthlyAllocationSnapshot, upsertMonthlyAllocation } from "@/lib/allocations/store";
 import fs from "node:fs/promises";
 import { getBudgetDataDir } from "@/lib/storage/budgetDataPath";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 export async function getBudgetPlanDeleteImpactAction(budgetPlanId: string): Promise<{
 	plan: { id: string; name: string; kind: string };
@@ -172,6 +176,83 @@ export async function updateUserDetailsAction(formData: FormData): Promise<void>
 	}
 
 	revalidatePath(`/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(budgetPlanId)}/settings`);
+}
+
+function decimalToNumber(value: unknown): number {
+	if (value == null) return 0;
+	if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+	const n = Number((value as any)?.toString?.() ?? value);
+	return Number.isFinite(n) ? n : 0;
+}
+
+export async function applyFiftyThirtyTwentyTargetsAction(formData: FormData): Promise<void> {
+	const session = await getServerSession(authOptions);
+	const sessionUser = session?.user;
+	const sessionUsername = sessionUser?.username ?? sessionUser?.name;
+	if (!sessionUser || !sessionUsername) {
+		throw new Error("Not authenticated");
+	}
+
+	const budgetPlanId = String(formData.get("budgetPlanId") || "").trim();
+	if (!budgetPlanId) throw new Error("Missing budgetPlanId");
+
+	const rawMonth = String(formData.get("month") || "").trim();
+	if (!isMonthKey(rawMonth)) throw new Error("Invalid month");
+
+	const rawYear = Number(formData.get("year"));
+	const year = Number.isFinite(rawYear) && rawYear > 2000 && rawYear < 3000 ? Math.floor(rawYear) : new Date().getFullYear();
+
+	const userId = await resolveUserId({ userId: sessionUser.id, username: sessionUsername });
+	const plan = await prisma.budgetPlan.findUnique({ where: { id: budgetPlanId }, select: { userId: true } });
+	if (!plan || plan.userId !== userId) {
+		throw new Error("Budget plan not found or unauthorized");
+	}
+
+	const monthKey = rawMonth as any;
+	const monthNum = monthKeyToNumber(monthKey);
+
+	// Recompute on server (avoid trusting client-provided income totals).
+	const summary = await getZeroBasedSummary(budgetPlanId, monthKey, { year });
+	const incomeTotal = Number.isFinite(summary.incomeTotal) ? summary.incomeTotal : 0;
+
+	// Use planned debt plan (not just recorded payments) so the targets stay stable.
+	const debts = await prisma.debt.findMany({
+		where: {
+			budgetPlanId,
+			currentBalance: { gt: 0 },
+			OR: [{ sourceType: null }, { sourceType: { not: "expense" } }],
+		},
+		select: { amount: true },
+	});
+	const plannedDebtPayments = debts.reduce((sum, d) => sum + decimalToNumber(d.amount), 0);
+
+	const wantsTarget = incomeTotal * 0.3;
+	const savingsDebtTarget = incomeTotal * 0.2;
+	const targetIncomeSacrifice = Math.max(0, savingsDebtTarget - plannedDebtPayments);
+
+	const currentAlloc = await getMonthlyAllocationSnapshot(budgetPlanId, monthKey, { year });
+	const keepEmergency = currentAlloc.monthlyEmergencyContribution ?? 0;
+	const keepInvestments = currentAlloc.monthlyInvestmentContribution ?? 0;
+	const nextSavings = Math.max(0, targetIncomeSacrifice - keepEmergency - keepInvestments);
+
+	await upsertMonthlyAllocation(budgetPlanId, year, monthNum, {
+		monthlyAllowance: wantsTarget,
+		monthlySavingsContribution: nextSavings,
+		monthlyEmergencyContribution: keepEmergency,
+		monthlyInvestmentContribution: keepInvestments,
+	});
+
+	const settingsPath = `/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(budgetPlanId)}/settings`;
+	const incomePath = `/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(budgetPlanId)}/income`;
+
+	revalidatePath(settingsPath);
+	revalidatePath(incomePath);
+	revalidatePath("/");
+	revalidatePath("/dashboard");
+	revalidatePath("/admin/income");
+	revalidatePath("/admin/settings");
+
+	redirect(`${settingsPath}?month=${encodeURIComponent(String(rawMonth))}&applied=${encodeURIComponent("503020")}`);
 }
 
 export async function deleteBudgetPlanAction(

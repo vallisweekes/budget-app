@@ -487,10 +487,10 @@ export async function getPaymentsByDebt(budgetPlanId: string, debtId: string): P
 	return rows.map(serializePayment);
 }
 
-export async function getPaymentsByMonth(budgetPlanId: string, month: string): Promise<DebtPayment[]> {
+export async function getPaymentsByMonth(budgetPlanId: string, month: string, yearOverride?: number): Promise<DebtPayment[]> {
 	// MonthKey strings are used throughout the budget summary; map them to (year, month).
 	const monthKey = month as MonthKey;
-	const year = await resolveBudgetYear(budgetPlanId);
+	const year = yearOverride ?? (await resolveBudgetYear(budgetPlanId));
 	const monthNum = monthKeyToNumber(monthKey);
 	const rows = await prisma.debtPayment.findMany({
 		where: {

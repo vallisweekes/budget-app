@@ -33,11 +33,11 @@ async function resolveIncomeYear(budgetPlanId: string): Promise<number> {
 	return latest?.year ?? new Date().getFullYear();
 }
 
-export async function getAllIncome(budgetPlanId: string): Promise<IncomeByMonth> {
+export async function getAllIncome(budgetPlanId: string, year?: number): Promise<IncomeByMonth> {
   const empty = emptyIncomeByMonth();
-  const year = await resolveIncomeYear(budgetPlanId);
+  const resolvedYear = year ?? (await resolveIncomeYear(budgetPlanId));
   const rows = await prisma.income.findMany({
-    where: { budgetPlanId, year },
+    where: { budgetPlanId, year: resolvedYear },
     orderBy: [{ month: "asc" }, { createdAt: "asc" }],
     select: { id: true, name: true, amount: true, month: true },
   });
