@@ -102,22 +102,43 @@ export default function GoalCardReadView({
 
         <div className="flex gap-0.5 sm:gap-1">
       {onToggleHomepage ? (
-        <button
-          onClick={onToggleHomepage}
-          disabled={homepageToggleDisabled}
-          className={
-            homepageSelected
-              ? "px-2 sm:px-2 py-1 sm:py-1 rounded-lg bg-slate-900 text-white text-[10px] font-semibold transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-              : "px-2 sm:px-2 py-1 sm:py-1 rounded-lg bg-black/5 text-slate-800 text-[10px] font-semibold hover:bg-black/10 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-          }
-          title={homepageToggleDisabled && homepageToggleDisabledReason ? homepageToggleDisabledReason : "Toggle dashboard visibility"}
-          aria-pressed={homepageSelected}
-        >
-          <span className="inline-flex items-center gap-1.5">
-            <Home size={12} className="sm:w-[13px] sm:h-[13px]" />
-							{homepageSelected ? "Hide from dashboard" : "Show on dashboard"}
-          </span>
-        </button>
+          <div
+            className={
+              "inline-flex items-center gap-2 rounded-lg bg-black/5 px-2 py-1 sm:px-2 sm:py-1 " +
+              (homepageToggleDisabled ? "opacity-60" : "")
+            }
+            title={
+              homepageToggleDisabled && homepageToggleDisabledReason
+                ? homepageToggleDisabledReason
+                : homepageSelected
+                  ? "Shown on dashboard"
+                  : "Hidden from dashboard"
+            }
+          >
+            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-800">
+              <Home size={12} className="text-slate-700" />
+              Dashboard
+            </span>
+            <button
+              type="button"
+              onClick={onToggleHomepage}
+              disabled={homepageToggleDisabled}
+              role="switch"
+              aria-checked={homepageSelected}
+              className={
+                "relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors " +
+                (homepageSelected ? "bg-slate-900" : "bg-slate-900/20") +
+                " disabled:cursor-not-allowed"
+              }
+            >
+              <span
+                className={
+                  "inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform " +
+                  (homepageSelected ? "translate-x-4" : "translate-x-0.5")
+                }
+              />
+            </button>
+          </div>
       ) : null}
           <button
             onClick={onStartEdit}
