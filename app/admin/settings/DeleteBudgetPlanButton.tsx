@@ -90,7 +90,8 @@ export default function DeleteBudgetPlanButton({
 					startTransition(async () => {
 						setError(null);
 						try {
-							const result = await deleteBudgetPlanAction(budgetPlanId, typed.trim());
+							const confirmation = confirmMode === "type" ? typed.trim() : "DELETE";
+							const result = await deleteBudgetPlanAction(budgetPlanId, confirmation);
 							setIsOpen(false);
 							router.push(result.redirectTo);
 							router.refresh();
