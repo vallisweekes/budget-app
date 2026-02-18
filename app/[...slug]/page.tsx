@@ -18,6 +18,7 @@ import {
 } from "@/lib/budgetPlans";
 import { prisma } from "@/lib/prisma";
 import { currentMonthKey } from "@/lib/helpers/monthKey";
+import { ensureDefaultCategoriesForBudgetPlan } from "@/lib/categories/defaultCategories";
 
 type ParsedUserBudget =
 	| {
@@ -154,6 +155,9 @@ export default async function UserBudgetPage({
 	}
 
 	const budgetPlanId = requestedPlan.id;
+
+	// Keep categories in sync for ALL users/plans, including older plans.
+	await ensureDefaultCategoriesForBudgetPlan({ budgetPlanId });
 	const resolvedSearchParams = (await searchParams) ?? {};
 	const sp = { ...resolvedSearchParams, plan: budgetPlanId };
 
@@ -252,7 +256,7 @@ function renderUserScopedAdminPage(
 		case "settings":
 			return <AdminSettingsPage searchParams={Promise.resolve({ ...searchParams, plan: budgetPlanId })} />;
 		case "categories":
-			return <AdminCategoriesPage />;
+			return <AdminCategoriesPage searchParams={Promise.resolve({ ...searchParams, plan: budgetPlanId })} />;
 		default:
 			return notFound();
 	}

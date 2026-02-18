@@ -14,8 +14,19 @@ export async function addCategory(formData: FormData): Promise<void> {
   if (!sessionUser || !username) return;
   
   const userId = await resolveUserId({ userId: sessionUser.id, username });
-  const defaultPlan = await getDefaultBudgetPlanForUser({ userId, username });
-  if (!defaultPlan) return;
+
+  const budgetPlanIdRaw = String(formData.get("budgetPlanId") || "").trim();
+  let budgetPlanId = budgetPlanIdRaw;
+
+  // Back-compat: if the page didn't send budgetPlanId, fall back to default plan.
+  if (!budgetPlanId) {
+    const defaultPlan = await getDefaultBudgetPlanForUser({ userId, username });
+    if (!defaultPlan) return;
+    budgetPlanId = defaultPlan.id;
+  }
+
+  const plan = await prisma.budgetPlan.findUnique({ where: { id: budgetPlanId }, select: { id: true, userId: true } });
+  if (!plan || plan.userId !== userId) return;
 
   const name = String(formData.get("name") || "").trim();
   if (!name) return;
@@ -27,12 +38,13 @@ export async function addCategory(formData: FormData): Promise<void> {
       name,
       icon: icon || null,
       featured,
-      budgetPlanId: defaultPlan.id,
+      budgetPlanId: plan.id,
     },
   });
 
-  revalidatePath("/admin/categories");
-  revalidatePath("/admin/expenses");
+  // Most pages here are rendered under /user=<username>/<planId>/page=...
+  revalidatePath(`/user=${encodeURIComponent(username)}/${encodeURIComponent(plan.id)}/page=categories`);
+  revalidatePath(`/user=${encodeURIComponent(username)}/${encodeURIComponent(plan.id)}/page=expenses`);
 }
 
 export async function deleteCategory(id: string): Promise<{ success: boolean; error?: string }> {

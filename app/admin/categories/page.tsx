@@ -14,27 +14,40 @@ import { ArrowLeft } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminCategoriesPage() {
+export default async function AdminCategoriesPage(props: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const session = await getServerSession(authOptions);
   const sessionUser = session?.user;
   const username = sessionUser?.username ?? sessionUser?.name;
   if (!sessionUser || !username) redirect("/");
   const userId = await resolveUserId({ userId: sessionUser.id, username });
 
+  const resolvedSearchParams = (await props.searchParams) ?? {};
+  const planParam = resolvedSearchParams.plan;
+  const requestedPlanId = Array.isArray(planParam) ? planParam[0] : planParam;
+
   const defaultPlan = await getDefaultBudgetPlanForUser({ userId, username });
-  
-  // Redirect to create budget if no plan exists
-  if (!defaultPlan) {
-    redirect("/budgets/new");
+  if (!defaultPlan) redirect("/budgets/new");
+
+  let activePlanId = defaultPlan.id;
+  if (requestedPlanId) {
+    const requestedPlan = await prisma.budgetPlan.findUnique({
+      where: { id: requestedPlanId },
+      select: { id: true, userId: true },
+    });
+    if (requestedPlan && requestedPlan.userId === userId) {
+      activePlanId = requestedPlan.id;
+    }
   }
 
-  const backHref = `/user=${encodeURIComponent(username)}/${encodeURIComponent(defaultPlan.id)}/settings`;
+  const backHref = `/user=${encodeURIComponent(username)}/${encodeURIComponent(activePlanId)}/page=settings`;
 
-  await ensureDefaultCategoriesForBudgetPlan({ budgetPlanId: defaultPlan.id });
+  await ensureDefaultCategoriesForBudgetPlan({ budgetPlanId: activePlanId });
 
-  // Get categories from database for the default plan
+  // Get categories from database for the active plan
   const list = await prisma.category.findMany({
-    where: { budgetPlanId: defaultPlan.id },
+    where: { budgetPlanId: activePlanId },
     orderBy: { name: "asc" },
   });
 
@@ -100,6 +113,7 @@ export default async function AdminCategoriesPage() {
             </div>
           </div>
           <form action={addCategory} className="grid grid-cols-1 md:grid-cols-12 gap-4">
+            <input type="hidden" name="budgetPlanId" value={activePlanId} />
             <label className="md:col-span-5">
               <span className="block text-sm font-medium text-slate-300 mb-2">Category Name</span>
               <input

@@ -26,6 +26,7 @@ import {
   type ScriptableContext,
 } from "chart.js";
 import { Line } from "react-chartjs-2";
+import type { LargestExpensesForPlan } from "@/lib/helpers/dashboard/getLargestExpensesByPlan";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler, Legend);
 
@@ -94,6 +95,7 @@ type ViewTabsProps = {
   homepageGoalIds?: string[];
   incomeMonthsCoverageByPlan?: Record<string, number>;
   allPlansData?: Record<string, BudgetPlanData>;
+	largestExpensesByPlan?: Record<string, LargestExpensesForPlan>;
   expenseInsights?: {
     recap: PreviousMonthRecap;
     upcoming: UpcomingPayment[];
@@ -201,6 +203,7 @@ export default function ViewTabs({
   homepageGoalIds: initialHomepageGoalIds,
   incomeMonthsCoverageByPlan,
   allPlansData,
+  largestExpensesByPlan,
 	expenseInsights,
 }: ViewTabsProps) {
   const pathname = usePathname();
@@ -836,6 +839,84 @@ export default function ViewTabs({
       .slice(0, 6);
   }, [combinedData.flattenedExpenses]);
 
+  type LargestExpenseSection = {
+    key: "personal" | "carnival" | "holiday";
+    label: string;
+    items: Array<{ id: string; name: string; amount: number }>;
+  };
+
+  const largestExpensesCard = useMemo(() => {
+    const planCount = budgetPlans.length > 0 ? budgetPlans.length : Object.keys(allPlansData ?? {}).length;
+    const hasEventPlans =
+      budgetPlans.length > 0
+        ? budgetPlans.some((p) => String(p.kind).toLowerCase() === "carnival" || String(p.kind).toLowerCase() === "holiday")
+        : Object.values(allPlansData ?? {}).some((p) => (p as any)?.kind === "carnival" || (p as any)?.kind === "holiday");
+
+    const isSinglePlan = !planCount || planCount <= 1;
+    const shouldShowGrouped = !isSinglePlan && hasEventPlans && budgetPlans.length > 0;
+
+    const title = shouldShowGrouped ? "Largest expenses (by plan)" : "Largest expenses";
+    if (!shouldShowGrouped) {
+      return {
+        title,
+        sections: [] as LargestExpenseSection[],
+        flat: largestExpenses,
+        showEventDivider: false,
+      };
+    }
+
+    const byKindLatest = (kind: "personal" | "carnival" | "holiday") => {
+      const filtered = budgetPlans
+        .filter((p) => String(p.kind).toLowerCase() === kind)
+        .sort((a, b) => new Date(String(b.createdAt)).getTime() - new Date(String(a.createdAt)).getTime());
+      return filtered[0] ?? null;
+    };
+
+    const personalPlan = byKindLatest("personal");
+    const carnivalPlan = byKindLatest("carnival");
+    const holidayPlan = byKindLatest("holiday");
+
+    const getTopExpenses = (planId: string, limit: number) => {
+      const byPlan = largestExpensesByPlan?.[planId];
+      if (byPlan && Array.isArray(byPlan.items)) {
+        return byPlan.items.slice(0, limit);
+      }
+
+      // Fallback: current-month dashboard data (may be empty for event plans).
+      const planData = allPlansData?.[planId];
+      if (!planData) return [] as Array<{ id: string; name: string; amount: number }>;
+      const flat = (planData.categoryData ?? []).flatMap((c) => c.expenses ?? []);
+      return [...flat]
+        .map((e) => ({ id: e.id, name: e.name, amount: Number(e.amount) }))
+        .filter((e) => Number.isFinite(e.amount) && e.amount > 0)
+        .sort((a, b) => b.amount - a.amount)
+        .slice(0, limit);
+    };
+
+    const perPlanMax = 3;
+    const carnivalItems = carnivalPlan ? getTopExpenses(carnivalPlan.id, perPlanMax) : [];
+    const holidayItems = holidayPlan ? getTopExpenses(holidayPlan.id, perPlanMax) : [];
+    const personalItems = personalPlan ? getTopExpenses(personalPlan.id, perPlanMax) : [];
+
+    const sections: LargestExpenseSection[] = [];
+    if (personalPlan && personalItems.length > 0) {
+      sections.push({ key: "personal", label: "Personal", items: personalItems });
+    }
+    if (carnivalPlan && carnivalItems.length > 0) {
+      sections.push({ key: "carnival", label: "Carnival", items: carnivalItems });
+    }
+    if (holidayPlan && holidayItems.length > 0) {
+      sections.push({ key: "holiday", label: "Holiday", items: holidayItems });
+    }
+
+    return {
+      title,
+      sections,
+      flat: [] as Array<{ id: string; name: string; amount: number }>,
+      showEventDivider: Boolean(carnivalPlan && holidayPlan),
+    };
+  }, [allPlansData, budgetPlans, largestExpenses]);
+
   const amountAfterExpenses = combinedData.amountLeftToBudget - combinedData.totalExpenses;
 
   const savingsRate =
@@ -1132,21 +1213,51 @@ export default function ViewTabs({
                 className="rounded-full px-3 py-1 text-xs font-semibold text-slate-900"
                 style={{ backgroundColor: "#9EDBFF" }}
               >
-                Largest expenses
+          {largestExpensesCard.title}
               </div>
             </div>
-            {largestExpenses.length === 0 ? (
-              <div className="text-sm text-slate-300">No expenses yet for this month.</div>
-            ) : (
-              <div className="space-y-2">
-              {largestExpenses.map((e) => (
-                <div key={e.id} className="flex items-center justify-between gap-3">
-                  <div className="text-sm text-white truncate">{e.name}</div>
-                  <div className="text-sm text-slate-200 whitespace-nowrap"><Currency value={e.amount} /></div>
+
+      {largestExpensesCard.sections.length > 0 ? (
+        <div className="space-y-3">
+          {largestExpensesCard.sections.map((section, idx) => {
+            const prev = largestExpensesCard.sections[idx - 1];
+            const shouldDividerBetweenEventPlans =
+              largestExpensesCard.showEventDivider &&
+              prev &&
+              ((prev.key === "carnival" && section.key === "holiday") ||
+                (prev.key === "holiday" && section.key === "carnival"));
+            return (
+              <div key={section.key} className="space-y-2">
+                {shouldDividerBetweenEventPlans ? <div className="h-px bg-white/10" /> : null}
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                  {section.label}
                 </div>
-              ))}
+                {section.items.map((e) => (
+                  <div key={e.id} className="flex items-center justify-between gap-3">
+                    <div className="text-sm text-white truncate">{e.name}</div>
+                    <div className="text-sm text-slate-200 whitespace-nowrap">
+                      <Currency value={e.amount} />
+                    </div>
+                  </div>
+                ))}
               </div>
-            )}
+            );
+          })}
+        </div>
+      ) : largestExpensesCard.flat.length === 0 ? (
+        <div className="text-sm text-slate-300">No expenses yet for this month.</div>
+      ) : (
+        <div className="space-y-2">
+          {largestExpensesCard.flat.map((e) => (
+            <div key={e.id} className="flex items-center justify-between gap-3">
+              <div className="text-sm text-white truncate">{e.name}</div>
+              <div className="text-sm text-slate-200 whitespace-nowrap">
+                <Currency value={e.amount} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
             <div className="grid grid-cols-2 gap-2">
             <Card
