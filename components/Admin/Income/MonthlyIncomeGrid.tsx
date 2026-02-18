@@ -3,9 +3,10 @@
 import { useState } from "react";
 import type { MonthKey } from "@/types";
 import { getAllIncome } from "@/lib/income/store";
-import { currentMonthKey, formatMonthKeyLabel, monthKeyToNumber } from "@/lib/helpers/monthKey";
+import { formatMonthKeyLabel } from "@/lib/helpers/monthKey";
 import IncomeManager from "./IncomeManager";
 import { formatCurrency } from "@/lib/helpers/money";
+import { getIncomeMonthState } from "@/lib/helpers/income/monthState";
 
 interface MonthlyIncomeGridProps {
 	months: readonly string[];
@@ -21,17 +22,12 @@ export function MonthlyIncomeGrid({
 	year,
 }: MonthlyIncomeGridProps) {
 	const [activeManager, setActiveManager] = useState<string | null>(null);
-	const now = new Date();
-	const currentYear = now.getFullYear();
-	const nowMonth = currentMonthKey(now);
 
 	return (
 		<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
 			{months.map((m) => {
 				const monthKey = m as MonthKey;
-				const isCurrent = year === currentYear && monthKey === nowMonth;
-				const isPast =
-					year < currentYear || (year === currentYear && monthKeyToNumber(monthKey) < monthKeyToNumber(nowMonth));
+				const { isCurrentMonth: isCurrent, isLocked: isPast } = getIncomeMonthState({ year, month: monthKey });
 				const isActive = activeManager === m;
 				const items = income[monthKey] ?? [];
 				const total = items.reduce((sum, item) => sum + (item?.amount ?? 0), 0);

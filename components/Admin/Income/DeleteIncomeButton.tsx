@@ -1,11 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
 import { Trash2 } from "lucide-react";
-import { removeIncomeAction } from "./actions";
 import { ConfirmModal } from "@/components/Shared";
 import type { MonthKey } from "@/types";
-import { useRouter } from "next/navigation";
+import { useDeleteIncomeButton } from "@/lib/hooks/income/useDeleteIncomeButton";
 
 interface DeleteIncomeButtonProps {
 	id: string;
@@ -20,22 +18,12 @@ export default function DeleteIncomeButton({
 	year,
 	month,
 }: DeleteIncomeButtonProps) {
-	const router = useRouter();
-	const [isPending, startTransition] = useTransition();
-	const [isOpen, setIsOpen] = useState(false);
-
-	const handleDelete = () => {
-		startTransition(async () => {
-			await removeIncomeAction(budgetPlanId, year, month, id);
-			setIsOpen(false);
-			router.refresh();
-		});
-	};
+	const { isPending, isOpen, open, close, confirm } = useDeleteIncomeButton({ id, budgetPlanId, year, month });
 
 	return (
 		<>
 			<button
-				onClick={() => setIsOpen(true)}
+				onClick={open}
 				disabled={isPending}
 				className="p-1.5 rounded-md bg-red-500/20 text-red-400 hover:bg-red-500/30 disabled:opacity-50"
 				aria-label="Delete income"
@@ -48,8 +36,8 @@ export default function DeleteIncomeButton({
 				description="Are you sure you want to delete this income source? This action cannot be undone."
 				tone="danger"
 				isBusy={isPending}
-				onConfirm={handleDelete}
-				onClose={() => setIsOpen(false)}
+				onConfirm={confirm}
+				onClose={close}
 			/>
 		</>
 	);

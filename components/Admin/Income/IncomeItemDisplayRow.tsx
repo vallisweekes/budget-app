@@ -4,12 +4,7 @@ import { Pencil } from "lucide-react";
 import type { MonthKey } from "@/types";
 import { formatCurrency } from "@/lib/helpers/money";
 import DeleteIncomeButton from "./DeleteIncomeButton";
-
-type IncomeItem = {
-	id: string;
-	name: string;
-	amount: number;
-};
+import type { IncomeItem } from "@/types";
 
 export default function IncomeItemDisplayRow(props: {
 	item: IncomeItem;

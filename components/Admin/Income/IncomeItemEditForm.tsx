@@ -1,12 +1,7 @@
 "use client";
 
 import { Check, X } from "lucide-react";
-
-type IncomeItem = {
-	id: string;
-	name: string;
-	amount: number;
-};
+import type { IncomeItem } from "@/types";
 
 export default function IncomeItemEditForm(props: {
 	item: IncomeItem;

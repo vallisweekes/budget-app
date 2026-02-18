@@ -1,1 +1,1 @@
-export { default } from "@/app/admin/income/IncomeManager";
+export { default } from "@/components/Admin/Income/IncomeManager";

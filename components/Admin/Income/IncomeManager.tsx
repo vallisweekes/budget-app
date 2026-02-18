@@ -1,23 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import type { MonthKey } from "@/types";
-import { useRouter } from "next/navigation";
-import { currentMonthKey, monthKeyToNumber } from "@/lib/helpers/monthKey";
-import {
-	updateIncomeItemAction,
-	addIncomeAction,
-} from "./actions";
 import { Plus } from "lucide-react";
+import type { MonthKey } from "@/types";
 import IncomeItemEditForm from "./IncomeItemEditForm";
 import IncomeItemDisplayRow from "./IncomeItemDisplayRow";
 import IncomeAddFormRow from "./IncomeAddFormRow";
-
-interface IncomeItem {
-	id: string;
-	name: string;
-	amount: number;
-}
+import type { IncomeItem } from "@/types";
+import { useIncomeManager } from "@/lib/hooks/income/useIncomeManager";
 
 interface IncomeManagerProps {
 	year: number;
@@ -36,73 +25,31 @@ export default function IncomeManager({
 	onOpen,
 	onClose,
 }: IncomeManagerProps) {
-	const now = new Date();
-	const currentYear = now.getFullYear();
-	const nowMonth = currentMonthKey(now);
-	const isCurrentMonth = year === currentYear && month === nowMonth;
-	const isLocked =
-		year < currentYear || (year === currentYear && monthKeyToNumber(month) < monthKeyToNumber(nowMonth));
-	const canAddForMonth = !isLocked;
-	const router = useRouter();
-	const [isPending, startTransition] = useTransition();
-	const [editingItemId, setEditingItemId] = useState<string | null>(null);
-	const [isAdding, setIsAdding] = useState(false);
-	const [editName, setEditName] = useState("");
-	const [editAmount, setEditAmount] = useState("");
-	const [newName, setNewName] = useState("");
-	const [newAmount, setNewAmount] = useState("");
-	const [distributeAllMonths, setDistributeAllMonths] = useState(false);
-	const [distributeAllYears, setDistributeAllYears] = useState(false);
-
-	const handleEditClick = (id: string) => {
-		if (isLocked) return;
-		const item = incomeItems.find((i) => i.id === id);
-		if (item) {
-			setEditName(item.name);
-			setEditAmount(item.amount.toString());
-		}
-		setEditingItemId(id);
-		onOpen();
-	};
-
-	const handleCancel = () => {
-		setEditingItemId(null);
-		setIsAdding(false);
-		onClose();
-	};
-
-	const handleAddClick = () => {
-		if (!canAddForMonth) return;
-		setNewName("");
-		setNewAmount("");
-		setDistributeAllMonths(false);
-		setDistributeAllYears(false);
-		setIsAdding(true);
-		onOpen();
-	};
-
-	const handleConfirmAdd = () => {
-		if (!canAddForMonth) return;
-		const name = newName.trim();
-		const amount = Number(newAmount);
-		if (!name) return;
-		if (!Number.isFinite(amount) || amount <= 0) return;
-
-		startTransition(async () => {
-			const formData = new FormData();
-			formData.set("budgetPlanId", budgetPlanId);
-			formData.set("year", String(year));
-			formData.set("month", month);
-			formData.set("name", name);
-			formData.set("amount", String(amount));
-			if (distributeAllMonths) formData.set("distributeMonths", "on");
-			if (distributeAllYears) formData.set("distributeYears", "on");
-			await addIncomeAction(formData);
-			setIsAdding(false);
-			onClose();
-			router.refresh();
-		});
-	};
+	const {
+		isCurrentMonth,
+		isLocked,
+		canAddForMonth,
+		isPending,
+		editingItemId,
+		isAdding,
+		editName,
+		editAmount,
+		newName,
+		newAmount,
+		distributeAllMonths,
+		distributeAllYears,
+		setEditName,
+		setEditAmount,
+		setNewName,
+		setNewAmount,
+		setDistributeAllMonths,
+		setDistributeAllYears,
+		handleEditClick,
+		handleCancel,
+		handleAddClick,
+		handleConfirmAdd,
+		handleSubmitEdit,
+	} = useIncomeManager({ year, month, incomeItems, budgetPlanId, onOpen, onClose });
 
 	return (
 		<div className="flex flex-col h-full">
@@ -128,20 +75,7 @@ export default function IncomeManager({
 									onEditAmountChange={setEditAmount}
 									onCancel={handleCancel}
 									onSubmit={() => {
-										if (!editName.trim() || !editAmount) return;
-										startTransition(async () => {
-											await updateIncomeItemAction(
-												budgetPlanId,
-												year,
-												month,
-												item.id,
-												editName,
-												parseFloat(editAmount)
-											);
-											setEditingItemId(null);
-											onClose();
-											router.refresh();
-										});
+									handleSubmitEdit(item.id);
 									}}
 								/>
 							) : (

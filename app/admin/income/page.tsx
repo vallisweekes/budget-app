@@ -8,23 +8,23 @@ import {
 	createCustomAllowanceAction,
 	resetAllocationsToPlanDefaultAction,
 	saveAllocationsAction,
-} from "./actions";
+} from "@/lib/income/actions";
 import { SelectDropdown } from "@/components/Shared";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { getDefaultBudgetPlanForUser, resolveUserId } from "@/lib/budgetPlans";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
-import { MonthlyIncomeGrid } from "./MonthlyIncomeGrid";
+import { MonthlyIncomeGrid } from "@/components/Admin/Income/MonthlyIncomeGrid";
 import { getMonthlyAllocationSnapshot, getMonthlyCustomAllocationsSnapshot } from "@/lib/allocations/store";
-import SaveFeedbackBanner from "./SaveFeedbackBanner";
+import SaveFeedbackBanner from "@/components/Admin/Income/SaveFeedbackBanner";
 import { formatCurrency } from "@/lib/helpers/money";
 import Link from "next/link";
-import IncomeTabs from "./IncomeTabs";
-import AllocationsMonthSaveRow from "./AllocationsMonthSaveRow";
-import ResetAllocationsToDefaultButton from "./ResetAllocationsToDefaultButton";
-import CreateAllowanceButton from "./CreateAllowanceButton";
-import IncomeYearPicker from "./IncomeYearPicker";
+import IncomeTabs from "@/components/Admin/Income/IncomeTabs";
+import AllocationsMonthSaveRow from "@/components/Admin/Income/AllocationsMonthSaveRow";
+import ResetAllocationsToDefaultButton from "@/components/Admin/Income/ResetAllocationsToDefaultButton";
+import CreateAllowanceButton from "@/components/Admin/Income/CreateAllowanceButton";
+import IncomeYearPicker from "@/components/Admin/Income/IncomeYearPicker";
 import { monthNumberToKey, monthKeyToNumber } from "@/lib/helpers/monthKey";
 
 export const dynamic = "force-dynamic"; // This line is now active
