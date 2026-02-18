@@ -106,10 +106,10 @@ export default async function GoalsPage({
             outOfHorizonGoals={outOfHorizonGoals}
             goalsByYear={goalsByYear}
             initialHomepageGoalIds={initialHomepageGoalIds}
-				budgetInsights={budgetInsights}
-				startingBalances={{
-					savings: settings.savingsBalance,
-					emergency: settings.emergencyBalance,
+				    budgetInsights={budgetInsights}
+				    startingBalances={{
+					    savings: settings.savingsBalance,
+					    emergency: settings.emergencyBalance,
               investment: (settings as any).investmentBalance,
 				}}
 				contributionTotals={contributionTotals}

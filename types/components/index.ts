@@ -2,4 +2,5 @@
 
 export * from "./debts";
 export * from "./income";
+export * from "./settings";
 
