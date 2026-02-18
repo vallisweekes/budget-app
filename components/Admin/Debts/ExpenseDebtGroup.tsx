@@ -5,7 +5,7 @@ import { ChevronDown } from "lucide-react";
 import DebtCard from "./DebtCard";
 import { formatCurrency } from "@/lib/helpers/money";
 import type { DebtPayment } from "@/types";
-import type { DebtCardDebt } from "./debtCardTypes";
+import type { DebtCardDebt } from "@/types/components/debts";
 
 export default function ExpenseDebtGroup({
 	groupKey,

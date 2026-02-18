@@ -2,7 +2,7 @@
 
 import { Check, Pencil, X } from "lucide-react";
 import { formatCurrency } from "@/lib/helpers/money";
-import type { DebtCardDebt } from "./debtCardTypes";
+import type { DebtCardDebt } from "@/types/components/debts";
 
 function Currency({ value }: { value: number }) {
 	return <span>{formatCurrency(value)}</span>;

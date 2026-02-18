@@ -6,9 +6,10 @@ import { authOptions } from "@/lib/auth";
 import { getDefaultBudgetPlanForUser, resolveUserId } from "@/lib/budgetPlans";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
-import AddDebtForm from "./AddDebtForm";
-import DebtsList from "./DebtsList";
+import AddDebtForm from "@/components/Admin/Debts/AddDebtForm";
+import DebtsList from "@/components/Admin/Debts/DebtsList";
 import { getExpenseDebts, processOverdueExpensesToDebts } from "@/lib/expenses/carryover";
+
 
 function Currency({ value }: { value: number }) {
 	return <span>{formatCurrency(value)}</span>;

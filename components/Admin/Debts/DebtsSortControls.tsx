@@ -2,11 +2,11 @@
 
 import { ArrowUpAZ, ArrowUpDown, DollarSign } from "lucide-react";
 
-type SortOption = "default" | "name" | "amount";
+import type { DebtSortOption } from "@/lib/helpers/debts/listItems";
 
 export default function DebtsSortControls(props: {
-	sortBy: SortOption;
-	onSortChange: (next: SortOption) => void;
+	sortBy: DebtSortOption;
+	onSortChange: (next: DebtSortOption) => void;
 }) {
 	const { sortBy, onSortChange } = props;
 

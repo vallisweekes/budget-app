@@ -1,4 +1,4 @@
-import type { DebtType } from "@/types";
+import type { DebtType } from "../helpers/debts";
 
 export interface DebtCardDebt {
 	id: string;

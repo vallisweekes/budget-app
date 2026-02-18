@@ -3,7 +3,7 @@
 import { Check, Pencil, X } from "lucide-react";
 import type { ComponentType } from "react";
 import DeleteDebtButton from "./DeleteDebtButton";
-import type { DebtCardDebt } from "./debtCardTypes";
+import type { DebtCardDebt } from "@/types/components/debts";
 
 export default function DebtCardHeader(props: {
 	debt: DebtCardDebt;

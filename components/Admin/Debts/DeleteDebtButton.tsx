@@ -1,10 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
 import { Trash2 } from "lucide-react";
 import { ConfirmModal } from "@/components/Shared";
-import { deleteDebtAction } from "@/lib/debts/actions";
-import { useSearchParams } from "next/navigation";
+import { useDeleteDebtButton } from "@/lib/hooks/debts/useDeleteDebtButton";
 
 export default function DeleteDebtButton({
   debtId,
@@ -15,10 +13,7 @@ export default function DeleteDebtButton({
   debtName: string;
   budgetPlanId?: string;
 }) {
-  const [isPending, startTransition] = useTransition();
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const searchParams = useSearchParams();
-  const planId = budgetPlanId ?? searchParams.get("plan") ?? "";
+  const { isPending, confirmingDelete, open, close, confirm } = useDeleteDebtButton({ debtId, budgetPlanId });
 
   return (
     <>
@@ -30,21 +25,13 @@ export default function DeleteDebtButton({
         confirmText="Delete"
         cancelText="Keep"
         isBusy={isPending}
-        onClose={() => {
-          if (!isPending) setConfirmingDelete(false);
-        }}
-        onConfirm={() => {
-          startTransition(async () => {
-				if (!planId) return;
-            await deleteDebtAction(planId, debtId);
-          });
-          setConfirmingDelete(false);
-        }}
+        onClose={close}
+        onConfirm={confirm}
       />
 
       <button
         type="button"
-        onClick={() => setConfirmingDelete(true)}
+        onClick={open}
         disabled={isPending}
         className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
         title="Delete debt"

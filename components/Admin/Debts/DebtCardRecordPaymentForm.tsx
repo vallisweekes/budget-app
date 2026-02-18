@@ -2,7 +2,7 @@
 
 import { SelectDropdown } from "@/components/Shared";
 import { makePaymentFromForm } from "@/lib/debts/actions";
-import type { DebtCardDebt } from "./debtCardTypes";
+import type { DebtCardDebt } from "@/types/components/debts";
 
 export default function DebtCardRecordPaymentForm(props: {
 	debt: DebtCardDebt;

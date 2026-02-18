@@ -1,7 +1,7 @@
 "use client";
 
 import type { DebtPayment } from "@/types";
-import type { DebtCardDebt } from "./debtCardTypes";
+import type { DebtCardDebt } from "@/types/components/debts";
 import DebtCardAmountsGrid from "./DebtCardAmountsGrid";
 import DebtCardInstallmentSummary from "./DebtCardInstallmentSummary";
 import DebtCardRecordPaymentForm from "./DebtCardRecordPaymentForm";
