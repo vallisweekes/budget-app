@@ -44,6 +44,7 @@ export default function AddGoalModal({
   defaultBalances?: {
 		savings?: number;
 		emergency?: number;
+    investment?: number;
 	};
 }) {
   const router = useRouter();
@@ -73,16 +74,11 @@ export default function AddGoalModal({
   }
 
   useEffect(() => {
+    // Starting balances are added to goal progress automatically.
+    // Keep the tracked current amount independent to avoid double-counting.
     if (!open) return;
-    if (currentAmount.trim()) return;
-    if (category === "savings" && typeof defaultBalances?.savings === "number") {
-      setCurrentAmount(String(defaultBalances.savings));
-      return;
-    }
-    if (category === "emergency" && typeof defaultBalances?.emergency === "number") {
-      setCurrentAmount(String(defaultBalances.emergency));
-    }
-  }, [open, category, currentAmount, defaultBalances?.savings, defaultBalances?.emergency]);
+    // No-op (intentionally).
+  }, [open]);
 
   return (
     <>

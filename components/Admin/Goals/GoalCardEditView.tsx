@@ -18,6 +18,8 @@ export default function GoalCardEditView({
   onTargetAmountChange,
   currentAmount,
   onCurrentAmountChange,
+	currentAmountDisabled = false,
+	currentAmountHelpText,
   targetYear,
   onTargetYearChange,
   onSave,
@@ -36,6 +38,8 @@ export default function GoalCardEditView({
   onTargetAmountChange: (value: string) => void;
   currentAmount: string;
   onCurrentAmountChange: (value: string) => void;
+	currentAmountDisabled?: boolean;
+	currentAmountHelpText?: string;
   targetYear: string;
   onTargetYearChange: (value: string) => void;
   onSave: () => void;
@@ -100,10 +104,19 @@ export default function GoalCardEditView({
                 step="0.01"
                 value={currentAmount}
                 onChange={(e) => onCurrentAmountChange(e.target.value)}
-                className={INPUT_CLASS}
+                disabled={currentAmountDisabled}
+				className={
+					INPUT_CLASS +
+					(currentAmountDisabled
+						? " opacity-70 cursor-not-allowed bg-slate-50 text-slate-700"
+						: "")
+				}
                 placeholder="Current £"
                 aria-label="Current amount"
               />
+				{currentAmountHelpText ? (
+					<p className="mt-1 text-[10px] sm:text-xs text-slate-600">{currentAmountHelpText}</p>
+				) : null}
             </label>
           </div>
           <label>

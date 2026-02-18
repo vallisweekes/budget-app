@@ -80,6 +80,7 @@ model BudgetPlan {
   monthlyAllowance              Decimal        @default(0) @db.Decimal(12, 2)
   savingsBalance                Decimal        @default(0) @db.Decimal(12, 2)
   emergencyBalance              Decimal        @default(0) @db.Decimal(12, 2)
+  investmentBalance             Decimal        @default(0) @db.Decimal(12, 2)
   monthlySavingsContribution    Decimal        @default(0) @db.Decimal(12, 2)
   monthlyEmergencyContribution  Decimal        @default(0) @db.Decimal(12, 2)
   monthlyInvestmentContribution Decimal        @default(0) @db.Decimal(12, 2)

@@ -5,6 +5,7 @@ import { getAllGoals } from "@/lib/goals/store";
 import { prisma } from "@/lib/prisma";
 import { getDefaultBudgetPlanForUser, resolveUserId } from "@/lib/budgetPlans";
 import { getSettings } from "@/lib/settings/store";
+import { getContributionTotalsToDate } from "@/lib/allocations/store";
 import AddGoalModal from "@/components/Admin/Goals/AddGoalModal";
 import GoalsPageClient from "@/components/Admin/Goals/GoalsPageClient";
 import { getGoalsBudgetInsights } from "@/lib/helpers/goalsBudgetInsights";
@@ -68,6 +69,7 @@ export default async function GoalsPage({
   });
 
   const budgetInsights = await getGoalsBudgetInsights({ budgetPlanId, monthsBack: 3 });
+  const contributionTotals = await getContributionTotalsToDate(budgetPlanId);
 
   return (
     <div className="min-h-screen pb-20 app-theme-bg">
@@ -86,6 +88,7 @@ export default async function GoalsPage({
             defaultBalances={{
               savings: settings.savingsBalance,
               emergency: settings.emergencyBalance,
+              investment: (settings as any).investmentBalance,
             }}
           />
         </div>
@@ -104,6 +107,12 @@ export default async function GoalsPage({
             goalsByYear={goalsByYear}
             initialHomepageGoalIds={initialHomepageGoalIds}
 				budgetInsights={budgetInsights}
+				startingBalances={{
+					savings: settings.savingsBalance,
+					emergency: settings.emergencyBalance,
+              investment: (settings as any).investmentBalance,
+				}}
+				contributionTotals={contributionTotals}
           />
         )}
       </div>

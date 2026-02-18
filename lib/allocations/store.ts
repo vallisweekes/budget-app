@@ -26,6 +26,15 @@ export type MonthlyCustomAllocationsSnapshot = {
 	total: number;
 };
 
+export type ContributionTotalsToDate = {
+	year: number;
+	throughMonth: number;
+	savings: number;
+	emergency: number;
+	investment: number;
+	allowance: number;
+};
+
 function warnStalePrismaClient(feature: string) {
 	if (process.env.NODE_ENV === "production") return;
 	// Dev-only safety: after Prisma schema changes, Next dev server sometimes holds a stale client instance.
@@ -45,6 +54,126 @@ function decimalToNumber(value: unknown): number {
 
 function normalizeAllocationName(name: string): string {
 	return String(name ?? "").trim();
+}
+
+export async function getContributionTotalsToDate(
+	budgetPlanId: string,
+	options?: { year?: number; throughMonth?: number }
+): Promise<ContributionTotalsToDate> {
+	const year = options?.year ?? (await resolveActiveBudgetYear(budgetPlanId));
+
+	const now = new Date();
+	const defaultThroughMonth = year === now.getFullYear() ? now.getMonth() + 1 : 12;
+	const throughMonthRaw = options?.throughMonth ?? defaultThroughMonth;
+	const throughMonth = Math.max(1, Math.min(12, Math.floor(throughMonthRaw)));
+
+	let plan: any = null;
+	try {
+		plan = await prisma.budgetPlan.findUnique({
+			where: { id: budgetPlanId },
+			select: {
+				monthlyAllowance: true,
+				monthlySavingsContribution: true,
+				monthlyEmergencyContribution: true,
+				monthlyInvestmentContribution: true,
+			} as any,
+		});
+	} catch (error) {
+		const message = String((error as any)?.message ?? error);
+		if (!message.includes("Unknown field `monthlyEmergencyContribution`")) throw error;
+
+		// Dev-only safety: Turbopack can cache an older Prisma Client after schema changes.
+		plan = await prisma.budgetPlan.findUnique({
+			where: { id: budgetPlanId },
+			select: {
+				monthlyAllowance: true,
+				monthlySavingsContribution: true,
+				monthlyInvestmentContribution: true,
+			} as any,
+		});
+	}
+
+	if (!plan) throw new Error(`Budget plan ${budgetPlanId} not found`);
+
+	const baseAllowance = decimalToNumber(plan.monthlyAllowance);
+	const baseSavings = decimalToNumber(plan.monthlySavingsContribution);
+	const baseEmergency = decimalToNumber((plan as any).monthlyEmergencyContribution ?? 0);
+	const baseInvestment = decimalToNumber(plan.monthlyInvestmentContribution);
+
+	type MonthlyAllocationFindManyDelegate = {
+		findMany: (args: {
+			where: any;
+			select: {
+				month: true;
+				monthlyAllowance: true;
+				monthlySavingsContribution: true;
+				monthlyEmergencyContribution: true;
+				monthlyInvestmentContribution: true;
+			};
+		}) => Promise<
+			Array<{
+				month: number;
+				monthlyAllowance: unknown;
+				monthlySavingsContribution: unknown;
+				monthlyEmergencyContribution: unknown;
+				monthlyInvestmentContribution: unknown;
+			}>
+		>;
+	};
+
+	const monthlyAllocation = (prisma as unknown as { monthlyAllocation?: MonthlyAllocationFindManyDelegate }).monthlyAllocation;
+	let overridesByMonth = new Map<number, {
+		allowance: number;
+		savings: number;
+		emergency: number;
+		investment: number;
+	}>();
+
+	if (monthlyAllocation?.findMany) {
+		const rows = await monthlyAllocation.findMany({
+			where: {
+				budgetPlanId,
+				year,
+				month: { lte: throughMonth },
+			},
+			select: {
+				month: true,
+				monthlyAllowance: true,
+				monthlySavingsContribution: true,
+				monthlyEmergencyContribution: true,
+				monthlyInvestmentContribution: true,
+			} as any,
+		});
+
+		overridesByMonth = new Map(
+			rows.map((row) => [
+				row.month,
+				{
+					allowance: decimalToNumber(row.monthlyAllowance),
+					savings: decimalToNumber(row.monthlySavingsContribution),
+					emergency: decimalToNumber(row.monthlyEmergencyContribution),
+					investment: decimalToNumber(row.monthlyInvestmentContribution),
+				},
+			])
+		);
+	} else {
+		warnStalePrismaClient("monthlyAllocation.findMany");
+	}
+
+	let allowance = 0;
+	let savings = 0;
+	let emergency = 0;
+	let investment = 0;
+
+	for (let month = 1; month <= throughMonth; month += 1) {
+		const override = overridesByMonth.get(month);
+		allowance += override?.allowance ?? baseAllowance;
+		savings += override?.savings ?? baseSavings;
+		emergency += override?.emergency ?? baseEmergency;
+		investment += override?.investment ?? baseInvestment;
+	}
+
+	return { year, throughMonth, allowance, savings, emergency, investment };
 }
 
 export async function resolveActiveBudgetYear(budgetPlanId: string): Promise<number> {

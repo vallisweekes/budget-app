@@ -9,6 +9,8 @@ export default function GoalsGrid({
   minYear,
   maxYear,
   budgetInsights,
+	startingBalances,
+	contributionTotals,
   getToggleState,
   onToggleHomepage,
 }: {
@@ -17,6 +19,19 @@ export default function GoalsGrid({
   minYear: number;
   maxYear: number;
   budgetInsights: GoalsBudgetInsights | null;
+	startingBalances?: {
+		savings?: number;
+		emergency?: number;
+    investment?: number;
+	};
+  contributionTotals?: {
+    year: number;
+    throughMonth: number;
+    savings: number;
+    emergency: number;
+    investment: number;
+    allowance: number;
+  };
   getToggleState: (goal: Goal) => {
     selected: boolean;
     disabled: boolean;
@@ -36,6 +51,8 @@ export default function GoalsGrid({
             minYear={minYear}
             maxYear={maxYear}
             budgetInsights={budgetInsights}
+				startingBalances={startingBalances}
+			contributionTotals={contributionTotals}
             homepageSelected={selected}
             homepageToggleDisabled={disabled}
             homepageToggleDisabledReason={disabledReason}

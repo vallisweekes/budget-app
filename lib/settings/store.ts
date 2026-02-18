@@ -8,6 +8,7 @@ export interface Settings {
   monthlyAllowance: number;
   savingsBalance: number;
   emergencyBalance: number;
+  investmentBalance: number;
   monthlySavingsContribution: number;
   monthlyEmergencyContribution: number;
   monthlyInvestmentContribution: number;
@@ -44,6 +45,36 @@ async function getEmergencyBalanceFallback(budgetPlanId: string): Promise<number
   } catch {
     // Column may not exist in older DBs.
     return 0;
+  }
+}
+
+async function getInvestmentBalanceFallback(budgetPlanId: string): Promise<number> {
+  try {
+    const rows = await prisma.$queryRaw<Array<{ investmentBalance: unknown }>>`
+      SELECT "investmentBalance" as "investmentBalance"
+      FROM "BudgetPlan"
+      WHERE id = ${budgetPlanId}
+      LIMIT 1
+    `;
+    const value = rows?.[0]?.investmentBalance;
+    if (value == null) return 0;
+    const asNumber = Number((value as any)?.toString?.() ?? value);
+    return Number.isFinite(asNumber) ? asNumber : 0;
+  } catch {
+    // Column may not exist in older DBs.
+    return 0;
+  }
+}
+
+async function setInvestmentBalanceFallback(budgetPlanId: string, investmentBalance: number): Promise<void> {
+  try {
+    await prisma.$executeRaw`
+      UPDATE "BudgetPlan"
+      SET "investmentBalance" = ${investmentBalance}
+      WHERE id = ${budgetPlanId}
+    `;
+  } catch {
+    // Column may not exist in older DBs.
   }
 }
 
@@ -97,6 +128,9 @@ export async function getSettings(budgetPlanId: string): Promise<Settings> {
 		if (prismaBudgetPlanHasField("emergencyBalance")) {
 			select.emergencyBalance = true;
 		}
+    if (prismaBudgetPlanHasField("investmentBalance")) {
+      select.investmentBalance = true;
+    }
 
 		// Turbopack/dev can sometimes run with a stale Prisma Client after schema changes.
 		// Only include newer fields when the runtime client supports them.
@@ -116,9 +150,10 @@ export async function getSettings(budgetPlanId: string): Promise<Settings> {
 
 		const unknownEmergency = message.includes("Unknown field `monthlyEmergencyContribution`");
 		const unknownEmergencyBalance = message.includes("Unknown field `emergencyBalance`");
+    const unknownInvestmentBalance = message.includes("Unknown field `investmentBalance`");
 		const unknownHorizon = message.includes("Unknown field `budgetHorizonYears`");
     const unknownHomepage = message.includes("Unknown field `homepageGoalIds`");
-		if (!unknownEmergency && !unknownEmergencyBalance && !unknownHorizon && !unknownHomepage) throw error;
+    if (!unknownEmergency && !unknownEmergencyBalance && !unknownInvestmentBalance && !unknownHorizon && !unknownHomepage) throw error;
 
 		// Dev-only safety: Turbopack can cache an older Prisma Client after schema changes.
 		// Retry with a select that excludes the unknown field(s).
@@ -135,6 +170,7 @@ export async function getSettings(budgetPlanId: string): Promise<Settings> {
 		};
 		if (!unknownEmergency) select.monthlyEmergencyContribution = true;
     if (!unknownEmergencyBalance) select.emergencyBalance = true;
+		if (!unknownInvestmentBalance) select.investmentBalance = true;
     if (!unknownHorizon) select.budgetHorizonYears = true;
     if (!unknownHomepage) select.homepageGoalIds = true;
 
@@ -157,11 +193,16 @@ export async function getSettings(budgetPlanId: string): Promise<Settings> {
     ? Number((plan as any).emergencyBalance ?? 0)
     : await getEmergencyBalanceFallback(budgetPlanId);
 
+	const investmentBalance = typeof (plan as any).investmentBalance !== "undefined"
+		? Number((plan as any).investmentBalance ?? 0)
+		: await getInvestmentBalanceFallback(budgetPlanId);
+
   return {
     payDate: plan.payDate,
     monthlyAllowance: Number(plan.monthlyAllowance),
     savingsBalance: Number(plan.savingsBalance),
 		emergencyBalance,
+		investmentBalance,
     monthlySavingsContribution: Number(plan.monthlySavingsContribution),
     monthlyEmergencyContribution: Number((plan as any).monthlyEmergencyContribution ?? 0),
     monthlyInvestmentContribution: Number(plan.monthlyInvestmentContribution),
@@ -183,6 +224,8 @@ export async function saveSettings(budgetPlanId: string, settings: Partial<Setti
   const updateData: any = {};
   const wantsEmergencyBalance = settings.emergencyBalance !== undefined;
   const emergencyBalanceValue = wantsEmergencyBalance ? Number(settings.emergencyBalance) : null;
+	const wantsInvestmentBalance = settings.investmentBalance !== undefined;
+	const investmentBalanceValue = wantsInvestmentBalance ? Number(settings.investmentBalance) : null;
 
   if (settings.payDate !== undefined) {
     updateData.payDate = Math.max(1, Math.min(31, settings.payDate));
@@ -196,6 +239,9 @@ export async function saveSettings(budgetPlanId: string, settings: Partial<Setti
   if (wantsEmergencyBalance && prismaBudgetPlanHasField("emergencyBalance")) {
     updateData.emergencyBalance = emergencyBalanceValue;
   }
+	if (wantsInvestmentBalance && prismaBudgetPlanHasField("investmentBalance")) {
+		updateData.investmentBalance = investmentBalanceValue;
+	}
   if (settings.monthlySavingsContribution !== undefined) {
     updateData.monthlySavingsContribution = settings.monthlySavingsContribution;
   }
@@ -228,6 +274,9 @@ export async function saveSettings(budgetPlanId: string, settings: Partial<Setti
     if (wantsEmergencyBalance) {
       await setEmergencyBalanceFallback(budgetPlanId, emergencyBalanceValue ?? 0);
     }
+		if (wantsInvestmentBalance) {
+			await setInvestmentBalanceFallback(budgetPlanId, investmentBalanceValue ?? 0);
+		}
     return;
   }
 
@@ -240,6 +289,9 @@ export async function saveSettings(budgetPlanId: string, settings: Partial<Setti
 		if (wantsEmergencyBalance && !prismaBudgetPlanHasField("emergencyBalance")) {
 			await setEmergencyBalanceFallback(budgetPlanId, emergencyBalanceValue ?? 0);
 		}
+    if (wantsInvestmentBalance && !prismaBudgetPlanHasField("investmentBalance")) {
+      await setInvestmentBalanceFallback(budgetPlanId, investmentBalanceValue ?? 0);
+    }
   } catch (error) {
     const message = String((error as any)?.message ?? error);
 
@@ -252,10 +304,13 @@ export async function saveSettings(budgetPlanId: string, settings: Partial<Setti
     const unknownEmergencyBalance =
       message.includes("Unknown field `emergencyBalance`") ||
       message.includes("Unknown argument `emergencyBalance`");
+		const unknownInvestmentBalance =
+			message.includes("Unknown field `investmentBalance`") ||
+			message.includes("Unknown argument `investmentBalance`");
     const unknownHomepage =
 			message.includes("Unknown field `homepageGoalIds`") ||
 			message.includes("Unknown argument `homepageGoalIds`");
-    if (!unknownEmergency && !unknownEmergencyBalance && !unknownHorizon && !unknownHomepage) throw error;
+    if (!unknownEmergency && !unknownEmergencyBalance && !unknownInvestmentBalance && !unknownHorizon && !unknownHomepage) throw error;
 
     // Dev-only safety: retry without unknown fields if Prisma Client is stale.
     if (unknownEmergency && "monthlyEmergencyContribution" in updateData) {
@@ -264,6 +319,9 @@ export async function saveSettings(budgetPlanId: string, settings: Partial<Setti
 		if (unknownEmergencyBalance && "emergencyBalance" in updateData) {
 			delete updateData.emergencyBalance;
 		}
+    if (unknownInvestmentBalance && "investmentBalance" in updateData) {
+      delete updateData.investmentBalance;
+    }
     if (unknownHorizon && "budgetHorizonYears" in updateData) {
       delete updateData.budgetHorizonYears;
     }
@@ -279,5 +337,8 @@ export async function saveSettings(budgetPlanId: string, settings: Partial<Setti
 		if (wantsEmergencyBalance) {
 			await setEmergencyBalanceFallback(budgetPlanId, emergencyBalanceValue ?? 0);
 		}
+    if (wantsInvestmentBalance) {
+      await setInvestmentBalanceFallback(budgetPlanId, investmentBalanceValue ?? 0);
+    }
   }
 }

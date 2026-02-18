@@ -1,8 +1,9 @@
-export type SettingsSection = "details" | "budget" | "locale" | "plans" | "danger";
+export type SettingsSection = "details" | "budget" | "savings" | "locale" | "plans" | "danger";
 
 export const SECTION_TO_SLUG: Record<SettingsSection, string> = {
 	details: "my-details",
 	budget: "budget",
+	savings: "savings",
 	locale: "locale",
 	plans: "plans",
 	danger: "danger-zone",
@@ -11,6 +12,7 @@ export const SECTION_TO_SLUG: Record<SettingsSection, string> = {
 export const SLUG_TO_SECTION: Record<string, SettingsSection> = {
 	"my-details": "details",
 	budget: "budget",
+	savings: "savings",
 	locale: "locale",
 	plans: "plans",
 	"danger-zone": "danger",

@@ -84,6 +84,35 @@ async function setEmergencyBalanceFallback(budgetPlanId: string, emergencyBalanc
   }
 }
 
+async function getInvestmentBalanceFallback(budgetPlanId: string): Promise<number> {
+  try {
+    const rows = await prisma.$queryRaw<Array<{ investmentBalance: unknown }>>`
+      SELECT "investmentBalance" as "investmentBalance"
+      FROM "BudgetPlan"
+      WHERE id = ${budgetPlanId}
+      LIMIT 1
+    `;
+    const value = rows?.[0]?.investmentBalance;
+    if (value == null) return 0;
+    const asNumber = Number((value as any)?.toString?.() ?? value);
+    return Number.isFinite(asNumber) ? asNumber : 0;
+  } catch {
+    return 0;
+  }
+}
+
+async function setInvestmentBalanceFallback(budgetPlanId: string, investmentBalance: number): Promise<void> {
+  try {
+    await prisma.$executeRaw`
+      UPDATE "BudgetPlan"
+      SET "investmentBalance" = ${investmentBalance}
+      WHERE id = ${budgetPlanId}
+    `;
+  } catch {
+    // Column may not exist in older DBs.
+  }
+}
+
 function normalizeHomepageGoalIds(value: unknown): string[] | null {
   if (!Array.isArray(value)) return null;
   const ids = value
@@ -123,7 +152,8 @@ export async function GET(req: NextRequest) {
     if (!plan) return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
 
 		const emergencyBalance = await getEmergencyBalanceFallback(budgetPlanId);
-		return NextResponse.json({ ...plan, emergencyBalance });
+    const investmentBalance = await getInvestmentBalanceFallback(budgetPlanId);
+    return NextResponse.json({ ...plan, emergencyBalance, investmentBalance });
   } catch (error) {
     const message = String((error as any)?.message ?? error);
     const unknownMonthlyEmergency = message.includes("Unknown field `monthlyEmergencyContribution`");
@@ -145,11 +175,13 @@ export async function GET(req: NextRequest) {
 				});
         if (!plan) return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
         const emergencyBalance = await getEmergencyBalanceFallback(budgetPlanId);
+        const investmentBalance = await getInvestmentBalanceFallback(budgetPlanId);
 
         return NextResponse.json({
           ...plan,
 				monthlyEmergencyContribution: unknownMonthlyEmergency ? 0 : (plan as any).monthlyEmergencyContribution,
 				emergencyBalance,
+				investmentBalance,
         });
       } catch (fallbackError) {
         console.error("Failed to fetch settings (fallback):", fallbackError);
@@ -188,6 +220,8 @@ export async function PATCH(req: NextRequest) {
     if (typeof body.savingsBalance !== "undefined") updateData.savingsBalance = body.savingsBalance;
     const wantsEmergencyBalance = typeof body.emergencyBalance !== "undefined";
     const emergencyBalance = wantsEmergencyBalance ? Number(body.emergencyBalance) : 0;
+    const wantsInvestmentBalance = typeof body.investmentBalance !== "undefined";
+    const investmentBalance = wantsInvestmentBalance ? Number(body.investmentBalance) : 0;
     if (typeof body.monthlySavingsContribution !== "undefined") {
       updateData.monthlySavingsContribution = body.monthlySavingsContribution;
     }
@@ -220,12 +254,15 @@ export async function PATCH(req: NextRequest) {
     }
 
       if (Object.keys(updateData).length === 0 && !wantsEmergencyBalance) {
-        return badRequest("No valid fields to update");
+        if (!wantsInvestmentBalance) return badRequest("No valid fields to update");
       }
 
-      if (Object.keys(updateData).length === 0 && wantsEmergencyBalance) {
+      if (Object.keys(updateData).length === 0 && (wantsEmergencyBalance || wantsInvestmentBalance)) {
         if (Number.isFinite(emergencyBalance)) {
           await setEmergencyBalanceFallback(budgetPlanId, emergencyBalance);
+        }
+        if (wantsInvestmentBalance && Number.isFinite(investmentBalance)) {
+          await setInvestmentBalanceFallback(budgetPlanId, investmentBalance);
         }
         const plan = await prisma.budgetPlan.findUnique({
           where: { id: budgetPlanId },
@@ -233,7 +270,8 @@ export async function PATCH(req: NextRequest) {
         });
         if (!plan) return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
         const nextEmergencyBalance = await getEmergencyBalanceFallback(budgetPlanId);
-        return NextResponse.json({ ...plan, emergencyBalance: nextEmergencyBalance });
+        const nextInvestmentBalance = await getInvestmentBalanceFallback(budgetPlanId);
+        return NextResponse.json({ ...plan, emergencyBalance: nextEmergencyBalance, investmentBalance: nextInvestmentBalance });
       }
 
     try {
@@ -246,7 +284,11 @@ export async function PATCH(req: NextRequest) {
         await setEmergencyBalanceFallback(budgetPlanId, emergencyBalance);
       }
       const nextEmergencyBalance = await getEmergencyBalanceFallback(budgetPlanId);
-      return NextResponse.json({ ...updated, emergencyBalance: nextEmergencyBalance });
+      if (wantsInvestmentBalance && Number.isFinite(investmentBalance)) {
+        await setInvestmentBalanceFallback(budgetPlanId, investmentBalance);
+      }
+      const nextInvestmentBalance = await getInvestmentBalanceFallback(budgetPlanId);
+      return NextResponse.json({ ...updated, emergencyBalance: nextEmergencyBalance, investmentBalance: nextInvestmentBalance });
     } catch (error) {
       const message = String((error as any)?.message ?? error);
 			const unknownMonthlyEmergency =
@@ -261,6 +303,9 @@ export async function PATCH(req: NextRequest) {
       if (wantsEmergencyBalance && Number.isFinite(emergencyBalance)) {
         await setEmergencyBalanceFallback(budgetPlanId, emergencyBalance);
       }
+      if (wantsInvestmentBalance && Number.isFinite(investmentBalance)) {
+        await setInvestmentBalanceFallback(budgetPlanId, investmentBalance);
+      }
 
 			const updated = await prisma.budgetPlan.update({
 				where: { id: budgetPlanId },
@@ -268,10 +313,12 @@ export async function PATCH(req: NextRequest) {
         select: (unknownMonthlyEmergency ? settingsSelectLegacy : settingsSelectWithoutMonthlyEmergency) as any,
 			});
       const nextEmergencyBalance = await getEmergencyBalanceFallback(budgetPlanId);
+      const nextInvestmentBalance = await getInvestmentBalanceFallback(budgetPlanId);
       return NextResponse.json({
         ...updated,
         monthlyEmergencyContribution: unknownMonthlyEmergency ? 0 : (updated as any).monthlyEmergencyContribution,
-        emergencyBalance: nextEmergencyBalance,
+      emergencyBalance: nextEmergencyBalance,
+      investmentBalance: nextInvestmentBalance,
       });
     }
   } catch (error) {

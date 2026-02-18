@@ -15,6 +15,19 @@ interface GoalCardProps {
   minYear?: number;
   maxYear?: number;
   budgetInsights?: GoalsBudgetInsights | null;
+	startingBalances?: {
+		savings?: number;
+		emergency?: number;
+    investment?: number;
+	};
+  contributionTotals?: {
+    year: number;
+    throughMonth: number;
+    savings: number;
+    emergency: number;
+    investment: number;
+    allowance: number;
+  };
   homepageSelected?: boolean;
   homepageToggleDisabled?: boolean;
   homepageToggleDisabledReason?: string;
@@ -32,7 +45,7 @@ const categoryIcons = {
 const categoryColors = {
   debt: "from-red-400 to-red-600",
   savings: "from-emerald-400 to-emerald-600",
-  emergency: "from-blue-400 to-blue-600",
+  emergency: "from-cyan-400 to-cyan-600",
   investment: "from-purple-400 to-purple-600",
   other: "from-zinc-400 to-zinc-600",
 };
@@ -43,6 +56,8 @@ export default function GoalCard({
   minYear,
   maxYear,
   budgetInsights,
+	startingBalances,
+	contributionTotals,
   homepageSelected,
   homepageToggleDisabled,
   homepageToggleDisabledReason,
@@ -57,6 +72,16 @@ export default function GoalCard({
   const [editTargetYear, setEditTargetYear] = useState(goal.targetYear?.toString() || "");
   const [editDescription, setEditDescription] = useState(goal.description || "");
 
+  const isComputedBalanceGoal = goal.category === "savings" || goal.category === "emergency" || goal.category === "investment";
+	const computedCurrentAmount =
+		goal.category === "savings"
+			? (startingBalances?.savings ?? 0) + (contributionTotals?.savings ?? 0)
+			: goal.category === "emergency"
+				? (startingBalances?.emergency ?? 0) + (contributionTotals?.emergency ?? 0)
+        : goal.category === "investment"
+          ? (startingBalances?.investment ?? 0) + (contributionTotals?.investment ?? 0)
+				: (goal.currentAmount ?? 0);
+
   const Icon = categoryIcons[goal.category];
   const gradient = categoryColors[goal.category];
 
@@ -66,7 +91,7 @@ export default function GoalCard({
       formData.append("budgetPlanId", budgetPlanId);
       formData.append("title", editTitle);
       if (editTargetAmount) formData.append("targetAmount", editTargetAmount);
-      if (editCurrentAmount) formData.append("currentAmount", editCurrentAmount);
+        if (!isComputedBalanceGoal && editCurrentAmount) formData.append("currentAmount", editCurrentAmount);
       formData.append("targetYear", editTargetYear);
       if (editDescription) formData.append("description", editDescription);
 
@@ -83,6 +108,15 @@ export default function GoalCard({
     setEditTargetYear(goal.targetYear?.toString() || "");
     setEditDescription(goal.description || "");
   };
+
+	const startEdit = () => {
+		setEditTitle(goal.title);
+		setEditTargetAmount(goal.targetAmount?.toString() || "");
+    setEditCurrentAmount(isComputedBalanceGoal ? String(computedCurrentAmount) : (goal.currentAmount?.toString() || ""));
+		setEditTargetYear(goal.targetYear?.toString() || "");
+		setEditDescription(goal.description || "");
+		setIsEditing(true);
+	};
 
   const confirmDelete = () => {
     startTransition(async () => {
@@ -106,6 +140,12 @@ export default function GoalCard({
         onTargetAmountChange={setEditTargetAmount}
         currentAmount={editCurrentAmount}
         onCurrentAmountChange={setEditCurrentAmount}
+        currentAmountDisabled={isComputedBalanceGoal}
+			currentAmountHelpText={
+          isComputedBalanceGoal
+					? `Calculated from starting balance + contributions through month ${contributionTotals?.throughMonth ?? "?"} (${contributionTotals?.year ?? "?"}).`
+					: undefined
+			}
         targetYear={editTargetYear}
         onTargetYearChange={setEditTargetYear}
         onSave={handleSave}
@@ -121,12 +161,14 @@ export default function GoalCard({
       gradient={gradient}
       isPending={isPending}
       budgetInsights={budgetInsights}
+		startingBalances={startingBalances}
+		contributionTotals={contributionTotals}
       homepageSelected={Boolean(homepageSelected)}
       homepageToggleDisabled={Boolean(homepageToggleDisabled)}
       homepageToggleDisabledReason={homepageToggleDisabledReason}
       onToggleHomepage={onToggleHomepage}
       confirmingDelete={confirmingDelete}
-      onStartEdit={() => setIsEditing(true)}
+			onStartEdit={startEdit}
       onOpenDelete={() => setConfirmingDelete(true)}
       onCloseDelete={() => setConfirmingDelete(false)}
       onConfirmDelete={confirmDelete}

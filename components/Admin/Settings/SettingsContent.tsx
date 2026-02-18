@@ -1,12 +1,25 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { MONTHS } from "@/lib/constants/time";
 import { SUPPORTED_CURRENCIES, SUPPORTED_COUNTRIES, SUPPORTED_LANGUAGES } from "@/lib/constants/locales";
 import { InfoTooltip, SelectDropdown } from "@/components/Shared";
 import type { MonthKey } from "@/types";
-import { ArrowLeft, CalendarDays, Lightbulb, PiggyBank, Wallet, Globe, User, AlertTriangle, Edit2, LogOut, Plus } from "lucide-react";
+import {
+	ArrowLeft,
+	CalendarDays,
+	Coins,
+	Lightbulb,
+	PiggyBank,
+	Wallet,
+	Globe,
+	User,
+	AlertTriangle,
+	Edit2,
+	LogOut,
+	Plus,
+} from "lucide-react";
 import { signOut } from "next-auth/react";
 import { applyFiftyThirtyTwentyTargetsAction, saveSettingsAction, updateUserDetailsAction } from "@/lib/settings/actions";
 import DeleteBudgetPlanButton from "./DeleteBudgetPlanButton";
@@ -20,7 +33,7 @@ import {
 	SECTION_TO_SLUG,
 } from "@/lib/helpers/settings/navigation";
 
-type Section = "details" | "budget" | "locale" | "plans" | "danger";
+type Section = "details" | "budget" | "savings" | "locale" | "plans" | "danger";
 
 type MonthSummary = {
 	year: number;
@@ -78,6 +91,7 @@ export default function SettingsContent({
 	const [showApply503020, setShowApply503020] = useState(false);
 	const [isEditingPayDate, setIsEditingPayDate] = useState(false);
 	const [isEditingStartingBalances, setIsEditingStartingBalances] = useState(false);
+	const [isSavingStartingBalances, startSavingStartingBalances] = useTransition();
 	const [activeSection, setActiveSection] = useState<Section>("details");
 	const [mobileView, setMobileView] = useState<"menu" | "content">("menu");
 	const [isEditingEmail, setIsEditingEmail] = useState(false);
@@ -123,6 +137,12 @@ export default function SettingsContent({
 			title: "Budget",
 			description: "Core settings for your monthly budgeting",
 			icon: PiggyBank,
+		},
+		{
+			id: "savings" as Section,
+			title: "Savings",
+			description: "Savings & emergency balances",
+			icon: Coins,
 		},
 		{
 			id: "locale" as Section,
@@ -202,6 +222,14 @@ export default function SettingsContent({
 		} catch {
 			// Non-blocking
 		}
+	};
+
+	const saveStartingBalancesAction = (formData: FormData) => {
+		startSavingStartingBalances(async () => {
+			await saveSettingsAction(formData);
+			setIsEditingStartingBalances(false);
+			router.refresh();
+		});
 	};
 
 	return (
@@ -407,15 +435,11 @@ export default function SettingsContent({
 													onClick={() => setIsEditingPayDate(true)}
 													className="w-full rounded-xl bg-white/10 px-4 py-3 text-sm font-semibold text-white ring-1 ring-white/10 hover:bg-white/15 hover:ring-white/20 transition"
 												>
-												Change pay date
-											</button>
-										</div>
+													Change pay date
+												</button>
+											</div>
 										) : (
-											<form
-												action={saveSettingsAction}
-												onSubmit={() => setIsEditingPayDate(false)}
-												className="space-y-4"
-											>
+											<form action={saveSettingsAction} onSubmit={() => setIsEditingPayDate(false)} className="space-y-4">
 												<input type="hidden" name="budgetPlanId" value={budgetPlanId} />
 												<label className="block">
 													<span className="text-sm font-medium text-slate-400 mb-2 block">Day of Month</span>
@@ -427,7 +451,6 @@ export default function SettingsContent({
 														inputMode="numeric"
 														defaultValue={settings.payDate}
 														onWheel={(e) => {
-															// Prevent accidental scroll-wheel changes.
 															(e.currentTarget as HTMLInputElement).blur();
 														}}
 														className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white text-lg font-semibold placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
@@ -455,145 +478,36 @@ export default function SettingsContent({
 									<div className="rounded-2xl sm:rounded-3xl bg-white/5 ring-1 ring-white/10 backdrop-blur-xl p-5 sm:p-7 shadow-xl">
 										<div className="flex items-center gap-3 mb-6">
 											<div className="w-10 h-10 rounded-xl bg-white/5 ring-1 ring-white/10 flex items-center justify-center">
-												<Wallet className="w-5 h-5 text-slate-200" />
-										</div>
-											<div className="flex-1">
-												<div className="flex items-start justify-between gap-3">
-													<div>
-														<h3 className="text-xl font-bold text-white inline-flex items-center gap-2">
-														Starting balances
-														<InfoTooltip
-															ariaLabel="Starting balances info"
-															content="Set your current Savings and Emergency balances so the app can show how spending affects them."
-														/>
-													</h3>
-													<p className="text-slate-400 text-sm">Used for Holiday/Carnival funding and goal progress defaults.</p>
-												</div>
-												{!isEditingStartingBalances ? (
-													<button
-														type="button"
-														onClick={() => setIsEditingStartingBalances(true)}
-														className="inline-flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2 text-xs font-semibold text-white ring-1 ring-white/10 hover:bg-white/10 hover:ring-white/20 transition"
-													>
-														<Edit2 className="h-4 w-4" />
-														Edit
-													</button>
-												) : null}
+												<CalendarDays className="w-5 h-5 text-slate-200" />
+											</div>
+											<div>
+												<h3 className="text-xl font-bold text-white inline-flex items-center gap-2">
+													Budget horizon
+													<InfoTooltip ariaLabel="Budget horizon info" content="Choose how many years ahead this plan covers." />
+												</h3>
+												<p className="text-slate-400 text-sm">Select how far ahead you plan.</p>
 											</div>
 										</div>
+
+										<form action={saveSettingsAction} className="flex flex-col md:flex-row md:items-end gap-4">
+											<input type="hidden" name="budgetPlanId" value={budgetPlanId} />
+											<label className="block md:flex-1">
+												<span className="text-sm font-medium text-slate-400 mb-2 block">Years</span>
+												<SelectDropdown
+													name="budgetHorizonYears"
+													defaultValue={String(settings.budgetHorizonYears ?? 10)}
+													options={[2, 5, 10, 15, 20, 25, 30].map((n) => ({ value: String(n), label: `${n} years` }))}
+													buttonClassName="bg-slate-900/60 focus:ring-blue-500"
+												/>
+											</label>
+											<button
+												type="submit"
+												className="w-full md:w-40 rounded-xl bg-white/10 px-4 py-3 text-sm font-semibold text-white ring-1 ring-white/10 hover:bg-white/15 hover:ring-white/20 transition"
+											>
+												Save
+											</button>
+										</form>
 									</div>
-
-										{!isEditingStartingBalances ? (
-											<div className="space-y-4">
-												<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-													<label className="block">
-														<span className="text-sm font-medium text-slate-400 mb-2 block">Savings balance</span>
-														<input
-															disabled
-															value={Number(settings.savingsBalance ?? 0)}
-															type="number"
-															step="0.01"
-															className="w-full rounded-xl border border-white/10 bg-slate-900/40 px-4 py-3 text-white/90 text-lg font-semibold placeholder-slate-500"
-													/>
-													</label>
-													<label className="block">
-														<span className="text-sm font-medium text-slate-400 mb-2 block">Emergency balance</span>
-														<input
-															disabled
-															value={Number(settings.emergencyBalance ?? 0)}
-															type="number"
-															step="0.01"
-															className="w-full rounded-xl border border-white/10 bg-slate-900/40 px-4 py-3 text-white/90 text-lg font-semibold placeholder-slate-500"
-													/>
-													</label>
-												</div>
-												<div className="text-xs text-slate-500">
-													Click Edit to update these balances.
-												</div>
-											</div>
-										) : (
-											<form action={saveSettingsAction} className="space-y-4">
-												<input type="hidden" name="budgetPlanId" value={budgetPlanId} />
-												<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-													<label className="block">
-														<span className="text-sm font-medium text-slate-400 mb-2 block">Savings balance</span>
-														<input
-															autoFocus
-															name="savingsBalance"
-															type="number"
-															step="0.01"
-															defaultValue={Number(settings.savingsBalance ?? 0)}
-															className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white text-lg font-semibold placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-													/>
-													</label>
-													<label className="block">
-														<span className="text-sm font-medium text-slate-400 mb-2 block">Emergency balance</span>
-														<input
-															name="emergencyBalance"
-															type="number"
-															step="0.01"
-															defaultValue={Number(settings.emergencyBalance ?? 0)}
-															className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white text-lg font-semibold placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-													/>
-													</label>
-												</div>
-												<div className="flex items-center gap-2">
-													<button
-														type="button"
-														onClick={() => setIsEditingStartingBalances(false)}
-														className="flex-1 rounded-xl bg-white/10 px-4 py-3 text-sm font-semibold text-white ring-1 ring-white/10 hover:bg-white/15 hover:ring-white/20 transition"
-													>
-														Cancel
-													</button>
-													<button
-														type="submit"
-														onClick={() => setIsEditingStartingBalances(false)}
-														className="flex-1 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-600 px-4 py-3 text-sm font-semibold text-white shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all"
-													>
-														Save
-													</button>
-												</div>
-											</form>
-										)}
-									</div>
-
-										<div className="rounded-2xl sm:rounded-3xl bg-white/5 ring-1 ring-white/10 backdrop-blur-xl p-5 sm:p-7 shadow-xl">
-											<div className="flex items-center gap-3 mb-6">
-												<div className="w-10 h-10 rounded-xl bg-white/5 ring-1 ring-white/10 flex items-center justify-center">
-													<CalendarDays className="w-5 h-5 text-slate-200" />
-												</div>
-												<div>
-													<h3 className="text-xl font-bold text-white inline-flex items-center gap-2">
-														Budget horizon
-														<InfoTooltip
-															ariaLabel="Budget horizon info"
-															content="Choose how many years ahead this plan covers."
-														/>
-													</h3>
-													<p className="text-slate-400 text-sm">Select how far ahead you plan.</p>
-												</div>
-											</div>
-
-											<form action={saveSettingsAction} className="flex flex-col md:flex-row md:items-end gap-4">
-												<input type="hidden" name="budgetPlanId" value={budgetPlanId} />
-												<label className="block md:flex-1">
-													<span className="text-sm font-medium text-slate-400 mb-2 block">Years</span>
-													<SelectDropdown
-														name="budgetHorizonYears"
-														defaultValue={String(settings.budgetHorizonYears ?? 10)}
-														options={[2, 5, 10, 15, 20, 25, 30].map((n) => ({ value: String(n), label: `${n} years` }))}
-														buttonClassName="bg-slate-900/60 focus:ring-blue-500"
-													/>
-												</label>
-												<button
-													type="submit"
-													className="w-full md:w-40 rounded-xl bg-white/10 px-4 py-3 text-sm font-semibold text-white ring-1 ring-white/10 hover:bg-white/15 hover:ring-white/20 transition"
-												>
-													Save
-												</button>
-											</form>
-										</div>
-
 								</div>
 
 								<div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
@@ -901,6 +815,148 @@ export default function SettingsContent({
 											</div>
 										</div>
 									)}
+								</div>
+							</section>
+						)}
+
+						{activeSection === "savings" && (
+							<section className="space-y-6">
+								<div className="flex items-center justify-between gap-4 mb-5">
+									<div>
+										<h2 className="text-2xl font-bold text-white">Savings</h2>
+										<p className="text-slate-400 text-sm">Starting balances used across the app.</p>
+									</div>
+									<span className="inline-flex items-center rounded-full bg-white/5 px-3 py-1 text-xs font-medium text-slate-200 ring-1 ring-white/10">
+										Balances
+									</span>
+								</div>
+
+								<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+									<div className="rounded-2xl sm:rounded-3xl bg-white/5 ring-1 ring-white/10 backdrop-blur-xl p-5 sm:p-7 shadow-xl">
+										<div className="flex items-center gap-3 mb-6">
+											<div className="w-10 h-10 rounded-xl bg-white/5 ring-1 ring-white/10 flex items-center justify-center">
+												<Wallet className="w-5 h-5 text-slate-200" />
+											</div>
+											<div className="flex-1">
+												<div className="flex items-start justify-between gap-3">
+													<div>
+														<h3 className="text-xl font-bold text-white inline-flex items-center gap-2">
+															Starting balances
+															<InfoTooltip
+																ariaLabel="Starting balances info"
+																content="Set your current Savings, Emergency, and Investment balances so the app can calculate goal progress and show balance-aware insights."
+															/>
+														</h3>
+														<p className="text-slate-400 text-sm">Used for goals and balance-aware planning.</p>
+													</div>
+													{!isEditingStartingBalances ? (
+														<button
+															type="button"
+															onClick={() => setIsEditingStartingBalances(true)}
+															className="inline-flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2 text-xs font-semibold text-white ring-1 ring-white/10 hover:bg-white/10 hover:ring-white/20 transition"
+														>
+															<Edit2 className="h-4 w-4" />
+															Edit
+														</button>
+													) : null}
+												</div>
+											</div>
+										</div>
+
+										{!isEditingStartingBalances ? (
+											<div className="space-y-4">
+												<div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+													<label className="block">
+														<span className="text-sm font-medium text-slate-400 mb-2 block">Savings balance</span>
+														<input
+															disabled
+															value={Number(settings.savingsBalance ?? 0)}
+															type="number"
+															step="0.01"
+															className="w-full rounded-xl border border-white/10 bg-slate-900/40 px-4 py-3 text-white/90 text-lg font-semibold placeholder-slate-500"
+														/>
+													</label>
+													<label className="block">
+														<span className="text-sm font-medium text-slate-400 mb-2 block">Emergency balance</span>
+														<input
+															disabled
+															value={Number(settings.emergencyBalance ?? 0)}
+															type="number"
+															step="0.01"
+															className="w-full rounded-xl border border-white/10 bg-slate-900/40 px-4 py-3 text-white/90 text-lg font-semibold placeholder-slate-500"
+														/>
+													</label>
+													<label className="block">
+														<span className="text-sm font-medium text-slate-400 mb-2 block">Investment balance</span>
+														<input
+															disabled
+															value={Number((settings as any).investmentBalance ?? 0)}
+															type="number"
+															step="0.01"
+															className="w-full rounded-xl border border-white/10 bg-slate-900/40 px-4 py-3 text-white/90 text-lg font-semibold placeholder-slate-500"
+														/>
+													</label>
+												</div>
+												<div className="text-xs text-slate-500">Click Edit to update these balances.</div>
+											</div>
+										) : (
+											<form action={saveStartingBalancesAction} className="space-y-4">
+												<input type="hidden" name="budgetPlanId" value={budgetPlanId} />
+												<div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+													<label className="block">
+														<span className="text-sm font-medium text-slate-400 mb-2 block">Savings balance</span>
+														<input
+															autoFocus
+															name="savingsBalance"
+															type="number"
+															step="0.01"
+															defaultValue={Number(settings.savingsBalance ?? 0)}
+															className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white text-lg font-semibold placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+														/>
+													</label>
+													<label className="block">
+														<span className="text-sm font-medium text-slate-400 mb-2 block">Emergency balance</span>
+														<input
+															name="emergencyBalance"
+															type="number"
+															step="0.01"
+															defaultValue={Number(settings.emergencyBalance ?? 0)}
+															className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white text-lg font-semibold placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+														/>
+													</label>
+													<label className="block">
+														<span className="text-sm font-medium text-slate-400 mb-2 block">Investment balance</span>
+														<input
+															name="investmentBalance"
+															type="number"
+															step="0.01"
+															defaultValue={Number((settings as any).investmentBalance ?? 0)}
+															className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white text-lg font-semibold placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+														/>
+													</label>
+												</div>
+												<div className="flex items-center gap-2">
+													<button
+														type="button"
+														onClick={() => {
+															if (isSavingStartingBalances) return;
+															setIsEditingStartingBalances(false);
+														}}
+														className="flex-1 rounded-xl bg-white/10 px-4 py-3 text-sm font-semibold text-white ring-1 ring-white/10 hover:bg-white/15 hover:ring-white/20 transition"
+													>
+														Cancel
+													</button>
+													<button
+														type="submit"
+														disabled={isSavingStartingBalances}
+														className="flex-1 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-600 px-4 py-3 text-sm font-semibold text-white shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all"
+													>
+														{isSavingStartingBalances ? "Saving…" : "Save"}
+													</button>
+												</div>
+											</form>
+										)}
+									</div>
 								</div>
 							</section>
 						)}

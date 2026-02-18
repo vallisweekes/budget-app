@@ -14,6 +14,8 @@ export default function GoalCardReadView({
   gradient,
   isPending,
   budgetInsights,
+	startingBalances,
+	contributionTotals,
   homepageSelected = false,
   homepageToggleDisabled = false,
   homepageToggleDisabledReason,
@@ -29,6 +31,19 @@ export default function GoalCardReadView({
   gradient: string;
   isPending: boolean;
   budgetInsights?: GoalsBudgetInsights | null;
+	startingBalances?: {
+		savings?: number;
+		emergency?: number;
+    investment?: number;
+	};
+  contributionTotals?: {
+    year: number;
+    throughMonth: number;
+    savings: number;
+    emergency: number;
+    investment: number;
+    allowance: number;
+  };
   homepageSelected?: boolean;
   homepageToggleDisabled?: boolean;
   homepageToggleDisabledReason?: string;
@@ -71,7 +86,13 @@ export default function GoalCardReadView({
         onOpenDelete={onOpenDelete}
       />
 
-      <GoalCardProgress goal={goal} gradient={gradient} budgetInsights={budgetInsights} />
+      <GoalCardProgress
+        goal={goal}
+        gradient={gradient}
+        budgetInsights={budgetInsights}
+        startingBalances={startingBalances}
+		contributionTotals={contributionTotals}
+      />
     </div>
   );
 }

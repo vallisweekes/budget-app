@@ -16,6 +16,8 @@ export default function GoalsPageClient({
   goalsByYear,
   initialHomepageGoalIds,
   budgetInsights,
+	startingBalances,
+	contributionTotals,
 }: {
   budgetPlanId: string;
   minYear: number;
@@ -24,6 +26,19 @@ export default function GoalsPageClient({
   goalsByYear: GoalsByYear[];
   initialHomepageGoalIds: string[];
   budgetInsights: GoalsBudgetInsights | null;
+	startingBalances?: {
+		savings?: number;
+		emergency?: number;
+    investment?: number;
+	};
+  contributionTotals?: {
+    year: number;
+    throughMonth: number;
+    savings: number;
+    emergency: number;
+    investment: number;
+    allowance: number;
+  };
 }) {
   const allGoals = useMemo(() => {
     const flattened: Goal[] = [];
@@ -89,6 +104,8 @@ export default function GoalsPageClient({
                 minYear={minYear}
                 maxYear={maxYear}
                 budgetInsights={budgetInsights}
+					startingBalances={startingBalances}
+					contributionTotals={contributionTotals}
                 getToggleState={getToggleState}
                 onToggleHomepage={toggleHomepage}
               />
@@ -108,6 +125,8 @@ export default function GoalsPageClient({
               minYear={minYear}
               maxYear={maxYear}
               budgetInsights={budgetInsights}
+				startingBalances={startingBalances}
+			contributionTotals={contributionTotals}
               getToggleState={getToggleState}
               onToggleHomepage={toggleHomepage}
             />
