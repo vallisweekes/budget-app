@@ -9,6 +9,7 @@ import type { ExpenseBudgetPlanOption } from "@/types/expenses-manager";
 type Props = {
 	allPlans?: ExpenseBudgetPlanOption[];
 	selectedPlanId: string;
+	planKind?: string;
 	onPlanIdChange: (planId: string) => void;
 	month: MonthKey;
 	onMonthChange: (month: MonthKey) => void;
@@ -24,6 +25,7 @@ type Props = {
 export default function AddExpensePeriodControls({
 	allPlans,
 	selectedPlanId,
+	planKind,
 	onPlanIdChange,
 	month,
 	onMonthChange,
@@ -35,6 +37,14 @@ export default function AddExpensePeriodControls({
 	distributeAllYears,
 	onDistributeAllYearsChange,
 }: Props) {
+	const isEventPlan = planKind === "holiday" || planKind === "carnival";
+	const distributeMonthsLabel =
+		planKind === "holiday"
+			? "Distribute up to travel month"
+			: planKind === "carnival"
+				? "Distribute up to event month"
+				: "Distribute across all months";
+
 	return (
 		<>
 			<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -86,18 +96,20 @@ export default function AddExpensePeriodControls({
 						onChange={(e) => onDistributeAllMonthsChange(e.target.checked)}
 						className="h-4 w-4 rounded border-white/20 bg-slate-900/60 text-purple-500 focus:ring-purple-500"
 					/>
-					Distribute across all months
+					{distributeMonthsLabel}
 				</label>
-				<label className="flex items-center gap-2 text-sm text-slate-300 select-none">
-					<input
-						type="checkbox"
-						name="distributeYears"
-						checked={distributeAllYears}
-						onChange={(e) => onDistributeAllYearsChange(e.target.checked)}
-						className="h-4 w-4 rounded border-white/20 bg-slate-900/60 text-purple-500 focus:ring-purple-500"
-					/>
-					Distribute across all years
-				</label>
+				{isEventPlan ? (
+					<label className="flex items-center gap-2 text-sm text-slate-300 select-none">
+						<input
+							type="checkbox"
+							name="distributeYears"
+							checked={distributeAllYears}
+							onChange={(e) => onDistributeAllYearsChange(e.target.checked)}
+							className="h-4 w-4 rounded border-white/20 bg-slate-900/60 text-purple-500 focus:ring-purple-500"
+						/>
+						Distribute across years
+					</label>
+				) : null}
 			</div>
 		</>
 	);

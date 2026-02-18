@@ -197,6 +197,24 @@ model Category {
   @@index([budgetPlanId])
 }
 
+model CategoryTemplate {
+  id        String   @id @default(cuid())
+  // "base" applies to all plans; otherwise match BudgetPlan.kind values.
+  kindKey   String
+  name      String
+  icon      String?
+  color     String?
+  featured  Boolean  @default(false)
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([kindKey, name])
+  @@index([kindKey, isActive, sortOrder])
+}
+
 model Expense {
   id           String     @id @default(cuid())
   name         String

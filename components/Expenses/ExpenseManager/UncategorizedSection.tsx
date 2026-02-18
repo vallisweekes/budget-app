@@ -7,6 +7,7 @@ import ExpenseRow from "@/components/Expenses/ExpenseManager/ExpenseRow";
 
 type Props = {
 	expenses: ExpenseItem[];
+	planKind: string;
 	month: MonthKey;
 	year: number;
 	payDate: number;
@@ -15,6 +16,8 @@ type Props = {
 	onToggleCollapsed: () => void;
 	paymentByExpenseId: Record<string, string>;
 	onPaymentValueChange: (expenseId: string, value: string) => void;
+	paymentSourceByExpenseId: Record<string, string>;
+	onPaymentSourceChange: (expenseId: string, value: string) => void;
 	onTogglePaid: (expenseId: string) => void;
 	onEdit: (expense: ExpenseItem) => void;
 	onDelete: (expense: ExpenseItem) => void;
@@ -23,6 +26,7 @@ type Props = {
 
 export default function UncategorizedSection({
 	expenses,
+	planKind,
 	month,
 	year,
 	payDate,
@@ -31,6 +35,8 @@ export default function UncategorizedSection({
 	onToggleCollapsed,
 	paymentByExpenseId,
 	onPaymentValueChange,
+	paymentSourceByExpenseId,
+	onPaymentSourceChange,
 	onTogglePaid,
 	onEdit,
 	onDelete,
@@ -74,12 +80,15 @@ export default function UncategorizedSection({
 						<div key={expense.id} className="p-3 sm:p-4 hover:bg-slate-900/40 transition-all group">
 							<ExpenseRow
 								expense={expense}
+								planKind={planKind}
 								month={month}
 								year={year}
 								payDate={payDate}
 								isBusy={isBusy}
 								paymentValue={paymentByExpenseId[expense.id] ?? ""}
 								onPaymentValueChange={(value) => onPaymentValueChange(expense.id, value)}
+								paymentSourceValue={paymentSourceByExpenseId[expense.id] ?? "income"}
+								onPaymentSourceChange={(value) => onPaymentSourceChange(expense.id, value)}
 								onTogglePaid={() => onTogglePaid(expense.id)}
 								onEdit={() => onEdit(expense)}
 								onDelete={() => onDelete(expense)}

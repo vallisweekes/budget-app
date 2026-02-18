@@ -5,9 +5,10 @@ import type { ExpenseCategoryOption } from "@/types/expenses-manager";
 
 type Props = {
 	categories: ExpenseCategoryOption[];
+	planKind?: string;
 };
 
-export default function AddExpenseDetailsFields({ categories }: Props) {
+export default function AddExpenseDetailsFields({ categories, planKind }: Props) {
 	return (
 		<>
 			<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -58,6 +59,22 @@ export default function AddExpenseDetailsFields({ categories }: Props) {
 						buttonClassName="focus:ring-purple-500/50"
 					/>
 				</label>
+
+				{planKind && planKind !== "personal" ? (
+					<label className="block">
+						<span className="text-sm font-medium text-slate-300 mb-2 block">Source of Funds</span>
+						<SelectDropdown
+							name="paymentSource"
+							defaultValue="income"
+							options={[
+								{ value: "income", label: "Income" },
+								{ value: "savings", label: "Savings" },
+								{ value: "other", label: "Other" },
+							]}
+							buttonClassName="focus:ring-purple-500/50"
+						/>
+					</label>
+				) : null}
 			</div>
 
 			<label className="flex items-start gap-3 rounded-2xl border border-white/10 bg-slate-900/30 p-4">

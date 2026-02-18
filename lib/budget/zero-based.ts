@@ -76,19 +76,34 @@ export async function getZeroBasedSummary(
 	options?: { year?: number }
 ): Promise<ZeroBasedSummary> {
 	const year = options?.year ?? (await resolveSummaryYear(budgetPlanId));
+	const monthNumber = (MONTHS as MonthKey[]).indexOf(month) + 1;
 
-	const [allocation, allIncome, allExpenses, allSpending, debtPayments] = await Promise.all([
+	const [allocation, allIncome, allExpenses, allSpending, debtPayments, nonIncomeExpensePaymentsAgg] = await Promise.all([
 		getMonthlyAllocationSnapshot(budgetPlanId, month, { year }),
 		getAllIncome(budgetPlanId, year),
 		getAllExpenses(budgetPlanId, year),
 		getAllSpending(budgetPlanId),
 		getPaymentsByMonth(budgetPlanId, month, year),
+		monthNumber >= 1 && monthNumber <= 12
+			? prisma.expensePayment.aggregate({
+				where: {
+					expense: { budgetPlanId, year, month: monthNumber },
+					source: { in: ["savings", "emergency", "extra_untracked"] },
+				},
+				_sum: { amount: true },
+			})
+			: Promise.resolve(null),
 	]);
 
 	const incomeTotal = sumAmounts(allIncome[month] ?? []);
 	const expenseTotal = sumAmounts(allExpenses[month] ?? []);
 	const debtPaymentsTotal = sumAmounts(debtPayments ?? []);
 	const spendingTotal = sumAmounts((allSpending ?? []).filter((s) => s.month === month));
+	const nonIncomeExpensePaymentsTotal = Number(
+		((nonIncomeExpensePaymentsAgg as any)?._sum?.amount as any)?.toString?.() ??
+			(nonIncomeExpensePaymentsAgg as any)?._sum?.amount ??
+			0
+	);
 
 	const plannedAllowance = allocation.monthlyAllowance || 0;
 	const plannedSavings = allocation.monthlySavingsContribution || 0;
@@ -102,7 +117,8 @@ export async function getZeroBasedSummary(
 		plannedAllowance -
 		plannedSavings -
 		plannedEmergency -
-		plannedInvestments;
+		plannedInvestments +
+		nonIncomeExpensePaymentsTotal;
 
 	return {
 		month,

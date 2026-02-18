@@ -58,6 +58,16 @@ export default function AddExpenseForm({
 		return categories;
 	}, [addBudgetPlanId, allCategoriesByPlan, categories]);
 
+	const selectedPlanKind = useMemo(() => {
+		return allPlans?.find((p) => p.id === addBudgetPlanId)?.kind ?? "personal";
+	}, [addBudgetPlanId, allPlans]);
+
+	useEffect(() => {
+		if (selectedPlanKind === "personal") {
+			setDistributeAllYears(false);
+		}
+	}, [selectedPlanKind]);
+
 	const submit = (event: SyntheticEvent<HTMLFormElement>) => {
 		event.preventDefault();
 		setError(null);
@@ -87,6 +97,7 @@ export default function AddExpenseForm({
 				<AddExpensePeriodControls
 					allPlans={allPlans}
 					selectedPlanId={addBudgetPlanId}
+					planKind={selectedPlanKind}
 					onPlanIdChange={(v) => {
 						setAddBudgetPlanId(v);
 						setError(null);
@@ -104,7 +115,7 @@ export default function AddExpenseForm({
 					onDistributeAllYearsChange={setDistributeAllYears}
 				/>
 
-				<AddExpenseDetailsFields categories={addFormCategories} />
+				<AddExpenseDetailsFields categories={addFormCategories} planKind={selectedPlanKind} />
 
 				<button
 					type="submit"

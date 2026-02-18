@@ -5,15 +5,19 @@ import type { ExpenseItem, MonthKey } from "@/types";
 import { formatCurrency } from "@/lib/helpers/money";
 import { formatIsoDueDate, getDueDateUtc, daysUntilUtc, dueBadgeClasses } from "@/lib/helpers/expenses/dueDate";
 import { MONTHS } from "@/lib/constants/time";
+import { SelectDropdown } from "@/components/Shared";
 
 type Props = {
 	expense: ExpenseItem;
+	planKind: string;
 	month: MonthKey;
 	year: number;
 	payDate: number;
 	isBusy?: boolean;
 	paymentValue: string;
 	onPaymentValueChange: (value: string) => void;
+	paymentSourceValue: string;
+	onPaymentSourceChange: (value: string) => void;
 	onTogglePaid: () => void;
 	onEdit: () => void;
 	onDelete: () => void;
@@ -29,12 +33,15 @@ function Currency({ value }: { value: number }) {
 
 export default function ExpenseRow({
 	expense,
+	planKind,
 	month,
 	year,
 	payDate,
 	isBusy,
 	paymentValue,
 	onPaymentValueChange,
+	paymentSourceValue,
+	onPaymentSourceChange,
 	onTogglePaid,
 	onEdit,
 	onDelete,
@@ -165,6 +172,21 @@ export default function ExpenseRow({
 									className="w-full px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl border border-white/10 bg-slate-900/40 text-white text-sm placeholder-slate-500 focus:border-purple-500 focus:ring-1 focus:ring-purple-500/50 focus:outline-none transition-all"
 									placeholder="0.00"
 								/>
+
+								{planKind !== "personal" ? (
+									<SelectDropdown
+										value={paymentSourceValue}
+										onValueChange={onPaymentSourceChange}
+										options={[
+											{ value: "income", label: "Income" },
+											{ value: "savings", label: "Savings" },
+											{ value: "other", label: "Other" },
+										]}
+										buttonClassName="focus:ring-purple-500/50"
+										className="min-w-[120px]"
+									/>
+								) : null}
+
 								<button
 									type="button"
 									onClick={onApplyPayment}

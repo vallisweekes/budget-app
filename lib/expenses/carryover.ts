@@ -55,8 +55,12 @@ export async function processUnpaidExpenses(params: {
 	// Get budget plan to access default payDate
 	const budgetPlan = await prisma.budgetPlan.findUnique({
 		where: { id: budgetPlanId },
-		select: { payDate: true }
+		select: { payDate: true, kind: true }
 	});
+	if (budgetPlan && budgetPlan.kind !== "personal") {
+		// Holiday/Carnival (and future non-personal plans) should not convert overdue expenses into debts.
+		return [];
+	}
 	const defaultDueDate = budgetPlan?.payDate ?? 27;
 
 	const normalizedForceIds = Array.isArray(forceExpenseIds)
@@ -172,6 +176,11 @@ export async function processUnpaidExpenses(params: {
  * This can be called manually or scheduled to run periodically
  */
 export async function processPastMonthsUnpaidExpenses(budgetPlanId: string) {
+	const plan = await prisma.budgetPlan.findUnique({ where: { id: budgetPlanId }, select: { kind: true } });
+	if (plan && plan.kind !== "personal") {
+		return;
+	}
+
 	const now = new Date();
 	const currentYear = now.getFullYear();
 	const currentMonth = now.getMonth() + 1;

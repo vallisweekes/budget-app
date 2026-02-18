@@ -8,21 +8,39 @@ export type DefaultCategorySeed = {
 	featured?: boolean;
 };
 
-const PERSONAL_ONLY_CATEGORIES: DefaultCategorySeed[] = [
-	{ name: "Fees & Charges", icon: "Receipt", color: "slate", featured: false },
-];
-
-// Bump this when default categories change in a way that should be treated as a one-time backfill.
-// Note: we *also* run a lightweight missing-defaults check on every call so users don't drift
-// out of sync when we add new defaults.
-const CURRENT_CATEGORY_SEED_VERSION = 2;
-
-export const DEFAULT_CATEGORIES: DefaultCategorySeed[] = rawDefaultCategories.map((c) => ({
+// Fallback defaults (used only if DB templates are unavailable at runtime).
+const FALLBACK_BASE_CATEGORIES: DefaultCategorySeed[] = rawDefaultCategories.map((c) => ({
 	name: c.name,
 	icon: c.icon ?? null,
 	color: c.color ?? null,
 	featured: Boolean(c.featured),
 }));
+
+const FALLBACK_PERSONAL_ONLY_CATEGORIES: DefaultCategorySeed[] = [
+	{ name: "Fees & Charges", icon: "Receipt", color: "slate", featured: false },
+];
+
+const FALLBACK_CARNIVAL_ONLY_CATEGORIES: DefaultCategorySeed[] = [
+	{ name: "Costumes", icon: "Shirt", color: "pink", featured: true },
+	{ name: "Events Tickets", icon: "Ticket", color: "amber", featured: true },
+	{ name: "Jouvert Package", icon: "Package", color: "violet", featured: true },
+	{ name: "Transport", icon: "Car", color: "sky", featured: false },
+	{ name: "Accommodation", icon: "Home", color: "emerald", featured: false },
+	{ name: "Flights", icon: "Plane", color: "cyan", featured: false },
+	{ name: "Spending Money", icon: "Wallet", color: "slate", featured: false },
+	{ name: "Drinks and Food", icon: "Utensils", color: "orange", featured: false },
+	{ name: "Rental", icon: "Key", color: "indigo", featured: false },
+	{ name: "Other", icon: "DotsHorizontal", color: "slate", featured: false },
+];
+
+const FALLBACK_HOLIDAY_ONLY_CATEGORIES: DefaultCategorySeed[] = [
+	{ name: "Activities", icon: "Sparkles", color: "pink", featured: true },
+	{ name: "Tours", icon: "Map", color: "amber", featured: true },
+	{ name: "Spending Money", icon: "Wallet", color: "slate", featured: false },
+	{ name: "Accommodation", icon: "Home", color: "emerald", featured: false },
+	{ name: "Flights", icon: "Plane", color: "cyan", featured: false },
+	{ name: "Rental", icon: "Key", color: "indigo", featured: false },
+];
 
 function isPrismaValidationError(err: unknown, contains: string): boolean {
 	if (!err || typeof err !== "object") return false;
@@ -38,7 +56,49 @@ export async function ensureDefaultCategoriesForBudgetPlan(params: { budgetPlanI
 	const { budgetPlanId } = params;
 
 	const syncDefaults = async (planKind: string) => {
-		const desired = planKind === "personal" ? [...DEFAULT_CATEGORIES, ...PERSONAL_ONLY_CATEGORIES] : DEFAULT_CATEGORIES;
+		const fallbackDesired =
+			planKind === "personal"
+				? [...FALLBACK_BASE_CATEGORIES, ...FALLBACK_PERSONAL_ONLY_CATEGORIES]
+				: planKind === "carnival"
+					? [...FALLBACK_BASE_CATEGORIES, ...FALLBACK_CARNIVAL_ONLY_CATEGORIES]
+					: planKind === "holiday"
+						? [...FALLBACK_BASE_CATEGORIES, ...FALLBACK_HOLIDAY_ONLY_CATEGORIES]
+						: FALLBACK_BASE_CATEGORIES;
+
+		let desired: DefaultCategorySeed[] = [];
+		const categoryTemplateDelegate = (prisma as any)?.categoryTemplate;
+		const canUseTemplates =
+			categoryTemplateDelegate && typeof categoryTemplateDelegate.findMany === "function";
+
+		if (canUseTemplates) {
+			try {
+				type TemplateRow = { name: string; icon: string | null; color: string | null; featured: boolean };
+				const templates = (await categoryTemplateDelegate.findMany({
+					where: {
+						isActive: true,
+						kindKey: { in: ["base", planKind] },
+					},
+					select: { name: true, icon: true, color: true, featured: true },
+					orderBy: [{ kindKey: "asc" }, { sortOrder: "asc" }],
+				})) as TemplateRow[];
+
+				desired = templates.map((t) => ({
+					name: t.name,
+					icon: t.icon ?? null,
+					color: t.color ?? null,
+					featured: Boolean(t.featured),
+				}));
+			} catch {
+				desired = [];
+			}
+		}
+
+		// If templates aren't available yet (stale Prisma client / migration not applied / no rows),
+		// fall back so the app can still run.
+		if (desired.length === 0) {
+			desired = fallbackDesired;
+		}
+		if (desired.length === 0) return;
 		const desiredByName = new Map(desired.map((c) => [c.name, c] as const));
 		const desiredNames = [...desiredByName.keys()];
 
@@ -116,17 +176,5 @@ export async function ensureDefaultCategoriesForBudgetPlan(params: { budgetPlanI
 	// Always ensure missing defaults exist so users don't drift out of sync.
 	await syncDefaults(plan.kind);
 
-	try {
-		if ((plan.categorySeedVersion ?? 0) < CURRENT_CATEGORY_SEED_VERSION) {
-			await prisma.budgetPlan.update({
-				where: { id: budgetPlanId },
-				data: { categorySeedVersion: CURRENT_CATEGORY_SEED_VERSION },
-			});
-		}
-	} catch (err) {
-		if (!isPrismaValidationError(err, "categorySeedVersion")) {
-			throw err;
-		}
-		// Ignore in legacy client mode.
-	}
+	// NOTE: categorySeedVersion is kept for backwards compatibility but is no longer required.
 }

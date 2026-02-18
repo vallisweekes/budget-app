@@ -8,7 +8,8 @@ export type ExpenseManagerActions = {
 		month: MonthKey,
 		expenseId: string,
 		paymentAmount: number,
-		year?: number
+		year?: number,
+		paymentSource?: string
 	) => Promise<{ success: boolean; error?: string }>;
 	removeExpenseAction: (
 		budgetPlanId: string,
@@ -17,6 +18,6 @@ export type ExpenseManagerActions = {
 		year?: number,
 		scope?: DeleteExpenseScopeOptions
 	) => Promise<void>;
-	togglePaidAction: (budgetPlanId: string, month: MonthKey, expenseId: string, year?: number) => Promise<void>;
+	togglePaidAction: (budgetPlanId: string, month: MonthKey, expenseId: string, year?: number, paymentSource?: string) => Promise<void>;
 	updateExpenseAction: (data: FormData) => Promise<void>;
 };
