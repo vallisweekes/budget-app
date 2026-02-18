@@ -1,9 +1,12 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Home, DollarSign, CreditCard, Target, Settings, Banknote } from "lucide-react";
+import { Home, CreditCard, Target, Banknote, ShoppingCart } from "lucide-react";
 import { currentMonthKey } from "@/lib/helpers/monthKey";
+import { getCurrencySymbol } from "@/lib/constants/locales";
+import { DEFAULT_CURRENCY_CODE } from "@/lib/constants/money";
 
 function parseUserScopedPath(pathname: string): { username: string; budgetPlanId: string } | null {
 	const m = pathname.match(/^\/user=([^/]+)\/([^/]+)/);
@@ -41,6 +44,7 @@ function getActiveUserPage(pathname: string): string {
 export default function MobileBottomNav() {
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
+	const [currencyCode, setCurrencyCode] = useState<string>(DEFAULT_CURRENCY_CODE);
 	const onboardingNewBudget = isUserOnboardingNewBudget(pathname);
 	const returnToPlanId = (searchParams.get("returnToPlanId") ?? "").trim();
 	const usernameFromPath = parseUsernameFromUserScopedPath(pathname);
@@ -51,6 +55,27 @@ export default function MobileBottomNav() {
 		: parseUserScopedPath(pathname);
 	const returnToPage = (searchParams.get("returnToPage") ?? "").trim().toLowerCase();
 	const activePage = onboardingNewBudget && returnToPage ? returnToPage : getActiveUserPage(pathname);
+
+	useEffect(() => {
+		if (!scoped?.budgetPlanId) return;
+		const controller = new AbortController();
+		(async () => {
+			try {
+				const res = await fetch(
+					`/api/bff/settings?budgetPlanId=${encodeURIComponent(scoped.budgetPlanId)}`,
+					{ signal: controller.signal }
+				);
+				if (!res.ok) return;
+				const body = (await res.json().catch(() => null)) as any;
+				const next = typeof body?.currency === "string" ? body.currency.trim() : "";
+				if (next) setCurrencyCode(next);
+			} catch (e) {
+				// Ignore network/auth errors; keep default currency.
+				void e;
+			}
+		})();
+		return () => controller.abort();
+	}, [scoped?.budgetPlanId]);
 
 	// Don't show on splash page
 	if (pathname === "/") return null;
@@ -68,15 +93,16 @@ export default function MobileBottomNav() {
 	const navItems: Array<{ key: string; href: string; label: string; icon: any }> = [
 		{ key: "home", href: `${baseHref}/page=home`, label: "Home", icon: Home },
 		{ key: "income", href: `${baseHref}/page=income`, label: "Income", icon: Banknote },
-		{ key: "expenses", href: expensesHref, label: "Expenses", icon: DollarSign },
+		{ key: "expenses", href: expensesHref, label: "Expenses", icon: null },
+		{ key: "spending", href: `${baseHref}/page=spending`, label: "Spending", icon: ShoppingCart },
 		{ key: "debts", href: `${baseHref}/page=debts`, label: "Debts", icon: CreditCard },
 		{ key: "goals", href: `${baseHref}/page=goals`, label: "Goals", icon: Target },
 	];
 
 	return (
 		<nav className="lg:hidden fixed bottom-4 left-4 right-4 z-30 flex justify-center pointer-events-none">
-			<div className="pointer-events-auto bg-slate-900/30 backdrop-blur-2xl border border-white/20 rounded-full shadow-2xl px-4 py-3 ring-1 ring-white/5">
-				<div className="flex items-center gap-2">
+			<div className="pointer-events-auto w-[min(420px,calc(100vw-2rem))] bg-slate-900/30 backdrop-blur-2xl border border-white/20 rounded-full shadow-2xl px-3 sm:px-4 pt-2.5 sm:pt-3 pb-[calc(0.625rem+env(safe-area-inset-bottom))] sm:pb-[calc(0.75rem+env(safe-area-inset-bottom))] ring-1 ring-white/5">
+				<div className="flex w-full items-center justify-between">
 					{navItems.map((item) => {
 						const active = activePage === item.key;
 						
@@ -89,22 +115,33 @@ export default function MobileBottomNav() {
 								}`}
 							>
 								<div
-									className={`p-3 rounded-full transition-all duration-300 relative overflow-hidden ${
+									className={`flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-full transition-all duration-300 relative overflow-hidden ${
 										active
-											? "bg-blue-500/30 border border-blue-400/40 shadow-lg shadow-blue-500/20 scale-110"
+											? "bg-blue-500/30 border border-blue-400/40 shadow-lg shadow-blue-500/20 scale-105"
 											: "hover:bg-white/10 hover:scale-105 active:scale-95"
 									}`}
 								>
 									{active && (
 										<div className="absolute inset-0 bg-gradient-to-br from-blue-400/20 to-cyan-500/20 animate-pulse" />
 									)}
-									<item.icon 
-										size={20} 
-										strokeWidth={active ? 2.5 : 2} 
-										className={`relative z-10 transition-transform duration-300 ${
-											active ? "text-white" : "text-slate-300 group-hover:text-white"
-										}`} 
-									/>
+									{item.key === "expenses" ? (
+										<span
+											aria-hidden="true"
+											className={`relative z-10 block select-none text-[18px] leading-none font-semibold transition-transform duration-300 ${
+												active ? "text-white" : "text-slate-300 group-hover:text-white"
+											}`}
+										>
+											{getCurrencySymbol(currencyCode)}
+										</span>
+									) : (
+										<item.icon
+											size={18}
+											strokeWidth={active ? 2.5 : 2}
+											className={`relative z-10 transition-transform duration-300 ${
+												active ? "text-white" : "text-slate-300 group-hover:text-white"
+											} block`}
+										/>
+									)}
 								</div>
 							</Link>
 						);

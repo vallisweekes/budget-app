@@ -22,6 +22,9 @@ const settingsSelect = {
   monthlyInvestmentContribution: true,
   budgetStrategy: true,
   homepageGoalIds: true,
+	country: true,
+	language: true,
+	currency: true,
 } as const;
 
 const settingsSelectWithoutEmergency = {
@@ -33,6 +36,9 @@ const settingsSelectWithoutEmergency = {
   monthlyInvestmentContribution: true,
   budgetStrategy: true,
   homepageGoalIds: true,
+	country: true,
+	language: true,
+	currency: true,
 } as const;
 
 function normalizeHomepageGoalIds(value: unknown): string[] | null {
@@ -143,6 +149,9 @@ export async function PATCH(req: NextRequest) {
       updateData.monthlyInvestmentContribution = body.monthlyInvestmentContribution;
     }
     if (typeof body.budgetStrategy === "string") updateData.budgetStrategy = body.budgetStrategy;
+		if (typeof body.country === "string") updateData.country = body.country;
+		if (typeof body.language === "string") updateData.language = body.language;
+		if (typeof body.currency === "string") updateData.currency = body.currency;
 
     const homepageGoalIds = normalizeHomepageGoalIds((body as any).homepageGoalIds);
     if (homepageGoalIds !== null) {
