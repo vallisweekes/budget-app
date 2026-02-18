@@ -2,17 +2,19 @@
 
 import { useState, useTransition } from "react";
 import type { Goal } from "@/lib/goals/store";
+import type { GoalsBudgetInsights } from "@/types";
 
 import { Target, TrendingUp, Shield, PiggyBank } from "lucide-react";
 import { updateGoalAction, deleteGoalAction } from "@/lib/goals/actions";
-import GoalCardEditView from "@/app/admin/goals/GoalCardEditView";
-import GoalCardReadView from "@/app/admin/goals/GoalCardReadView";
+import GoalCardEditView from "@/components/Admin/Goals/GoalCardEditView";
+import GoalCardReadView from "@/components/Admin/Goals/GoalCardReadView";
 
 interface GoalCardProps {
   goal: Goal;
-	budgetPlanId: string;
+  budgetPlanId: string;
   minYear?: number;
   maxYear?: number;
+  budgetInsights?: GoalsBudgetInsights | null;
   homepageSelected?: boolean;
   homepageToggleDisabled?: boolean;
   homepageToggleDisabledReason?: string;
@@ -40,6 +42,7 @@ export default function GoalCard({
   budgetPlanId,
   minYear,
   maxYear,
+  budgetInsights,
   homepageSelected,
   homepageToggleDisabled,
   homepageToggleDisabledReason,
@@ -117,10 +120,11 @@ export default function GoalCard({
       icon={Icon}
       gradient={gradient}
       isPending={isPending}
-		homepageSelected={Boolean(homepageSelected)}
-		homepageToggleDisabled={Boolean(homepageToggleDisabled)}
-		homepageToggleDisabledReason={homepageToggleDisabledReason}
-		onToggleHomepage={onToggleHomepage}
+      budgetInsights={budgetInsights}
+      homepageSelected={Boolean(homepageSelected)}
+      homepageToggleDisabled={Boolean(homepageToggleDisabled)}
+      homepageToggleDisabledReason={homepageToggleDisabledReason}
+      onToggleHomepage={onToggleHomepage}
       confirmingDelete={confirmingDelete}
       onStartEdit={() => setIsEditing(true)}
       onOpenDelete={() => setConfirmingDelete(true)}

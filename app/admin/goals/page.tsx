@@ -4,9 +4,10 @@ import { authOptions } from "@/lib/auth";
 import { getAllGoals } from "@/lib/goals/store";
 import { prisma } from "@/lib/prisma";
 import { getDefaultBudgetPlanForUser, resolveUserId } from "@/lib/budgetPlans";
-import AddGoalModal from "@/app/admin/goals/AddGoalModal";
 import { getSettings } from "@/lib/settings/store";
-import GoalsPageClient from "@/app/admin/goals/GoalsPageClient";
+import AddGoalModal from "@/components/Admin/Goals/AddGoalModal";
+import GoalsPageClient from "@/components/Admin/Goals/GoalsPageClient";
+import { getGoalsBudgetInsights } from "@/lib/helpers/goalsBudgetInsights";
 
 export const dynamic = "force-dynamic";
 
@@ -66,6 +67,8 @@ export default async function GoalsPage({
     return { year, goals: forYear };
   });
 
+  const budgetInsights = await getGoalsBudgetInsights({ budgetPlanId, monthsBack: 3 });
+
   return (
     <div className="min-h-screen pb-20 app-theme-bg">
       <div className="mx-auto w-full max-w-6xl px-4 py-6">
@@ -91,6 +94,7 @@ export default async function GoalsPage({
             outOfHorizonGoals={outOfHorizonGoals}
             goalsByYear={goalsByYear}
             initialHomepageGoalIds={initialHomepageGoalIds}
+				budgetInsights={budgetInsights}
           />
         )}
       </div>

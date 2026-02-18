@@ -2,7 +2,7 @@ import type { LucideIcon } from "lucide-react";
 
 import { Check, X } from "lucide-react";
 
-import { CARD_CLASS, INPUT_CLASS } from "@/app/admin/goals/goalCardStyles";
+import { CARD_CLASS, INPUT_CLASS } from "@/components/Admin/Goals/goalCardStyles";
 
 export default function GoalCardEditView({
   icon: Icon,

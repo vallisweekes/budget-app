@@ -1,6 +1,6 @@
 import { getServerSession } from "next-auth/next";
 import { notFound, redirect } from "next/navigation";
-import DashboardView from "@/app/dashboard/DashboardView";
+import DashboardView from "@/components/Dashboard/DashboardView";
 import NewBudgetPageContent from "@/app/budgets/new/NewBudgetPageContent";
 import AdminIncomePage from "@/app/admin/income/page";
 import AdminExpensesPage from "@/app/admin/expenses/page";
