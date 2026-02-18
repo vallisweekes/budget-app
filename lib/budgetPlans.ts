@@ -9,6 +9,16 @@ export function isSupportedBudgetType(value: string): value is SupportedBudgetTy
 	return (SUPPORTED_BUDGET_TYPES as readonly string[]).includes(value);
 }
 
+function prismaBudgetPlanHasField(fieldName: string): boolean {
+	try {
+		const fields = (prisma as any)?._runtimeDataModel?.models?.BudgetPlan?.fields;
+		if (!Array.isArray(fields)) return false;
+		return fields.some((f: any) => f?.name === fieldName);
+	} catch {
+		return false;
+	}
+}
+
 export async function getOrCreateUserByUsername(username: string) {
 	const normalized = normalizeUsername(username);
 	if (!normalized) {
@@ -118,6 +128,8 @@ export async function getOrCreateBudgetPlanForUser(params: {
 	username?: string;
 	budgetType: SupportedBudgetType;
 	planName?: string;
+	eventDate?: Date | null;
+	includePostEventIncome?: boolean;
 }) {
 	const { budgetType } = params;
 	const userId = await resolveUserId({ userId: params.userId, username: params.username });
@@ -150,22 +162,60 @@ export async function getOrCreateBudgetPlanForUser(params: {
 	}
 
 	// Require a Personal plan before creating Holiday/Carnival.
-	const personal = await prisma.budgetPlan.findFirst({
+	type PersonalSeed = {
+		id: string;
+		payDate: number;
+		country: string;
+		language: string;
+		currency: string;
+		savingsBalance: unknown;
+		emergencyBalance?: unknown;
+	};
+	const select: any = {
+		id: true,
+		payDate: true,
+		country: true,
+		language: true,
+		currency: true,
+		savingsBalance: true,
+	};
+	if (prismaBudgetPlanHasField("emergencyBalance")) {
+		select.emergencyBalance = true;
+	}
+	const personal = (await prisma.budgetPlan.findFirst({
 		where: { userId, kind: "personal" },
-		select: { id: true },
-	});
+		select,
+	} as any)) as PersonalSeed | null;
 	if (!personal) {
 		throw new Error("Personal budget required");
 	}
 
+	const eventDate = params.eventDate ?? null;
+	if (!eventDate) {
+		throw new Error("Event date required");
+	}
+	const includePostEventIncome = Boolean(params.includePostEventIncome);
+
 	// Holiday/Carnival: allow multiple plans.
 	const fallbackName = budgetType === "holiday" ? "Holiday" : "Carnival";
+	const data: any = {
+		userId,
+		kind: budgetType,
+		name: planName || fallbackName,
+		eventDate,
+		includePostEventIncome,
+		// Seed these from the Personal plan so Holiday/Carnival budgeting starts grounded.
+		payDate: personal.payDate,
+		country: personal.country,
+		language: personal.language,
+		currency: personal.currency,
+		savingsBalance: personal.savingsBalance as any,
+	};
+	if (prismaBudgetPlanHasField("emergencyBalance")) {
+		data.emergencyBalance = (personal as any).emergencyBalance ?? 0;
+	}
 	const created = await prisma.budgetPlan.create({
-		data: {
-			userId,
-			kind: budgetType,
-			name: planName || fallbackName,
-		},
+		data,
 	});
 	await ensureDefaultCategoriesForBudgetPlan({ budgetPlanId: created.id });
 	return created;

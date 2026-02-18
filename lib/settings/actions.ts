@@ -109,6 +109,11 @@ export async function saveSettingsAction(formData: FormData): Promise<void> {
 		updates.savingsBalance = Number.isFinite(raw) ? raw : 0;
 	}
 
+	if (formData.has("emergencyBalance")) {
+		const raw = Number(formData.get("emergencyBalance"));
+		updates.emergencyBalance = Number.isFinite(raw) ? raw : 0;
+	}
+
 	if (formData.has("monthlySavingsContribution")) {
 		const raw = Number(formData.get("monthlySavingsContribution"));
 		updates.monthlySavingsContribution = Number.isFinite(raw) ? raw : 0;

@@ -31,7 +31,30 @@ export function isMonthKey(value: string): value is MonthKey {
 	return (MONTHS as string[]).includes(value);
 }
 
+function prismaBudgetPlanHasField(fieldName: string): boolean {
+	try {
+		const fields = (prisma as any)?._runtimeDataModel?.models?.BudgetPlan?.fields;
+		if (!Array.isArray(fields)) return false;
+		return fields.some((f: any) => f?.name === fieldName);
+	} catch {
+		return false;
+	}
+}
+
 async function resolveSummaryYear(budgetPlanId: string): Promise<number> {
+	// Holiday/Carnival plans should default to the event year.
+	if (prismaBudgetPlanHasField("eventDate")) {
+		const plan = await prisma.budgetPlan.findUnique({
+			where: { id: budgetPlanId },
+			select: { kind: true, eventDate: true } as any,
+		});
+		const kind = String((plan as any)?.kind ?? "");
+		const eventDate = (plan as any)?.eventDate as Date | null | undefined;
+		if (eventDate && (kind === "holiday" || kind === "carnival")) {
+			return eventDate.getFullYear();
+		}
+	}
+
 	const latestIncome = await prisma.income.findFirst({
 		where: { budgetPlanId },
 		orderBy: [{ year: "desc" }, { month: "desc" }],

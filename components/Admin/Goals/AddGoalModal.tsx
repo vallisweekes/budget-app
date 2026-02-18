@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { Goal } from "@/lib/goals/store";
@@ -35,11 +35,16 @@ export default function AddGoalModal({
   minYear,
   maxYear,
   defaultYear,
+  defaultBalances,
 }: {
   budgetPlanId: string;
   minYear: number;
   maxYear: number;
   defaultYear: number;
+  defaultBalances?: {
+		savings?: number;
+		emergency?: number;
+	};
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -66,6 +71,18 @@ export default function AddGoalModal({
     setDescription("");
     setError(null);
   }
+
+  useEffect(() => {
+    if (!open) return;
+    if (currentAmount.trim()) return;
+    if (category === "savings" && typeof defaultBalances?.savings === "number") {
+      setCurrentAmount(String(defaultBalances.savings));
+      return;
+    }
+    if (category === "emergency" && typeof defaultBalances?.emergency === "number") {
+      setCurrentAmount(String(defaultBalances.emergency));
+    }
+  }, [open, category, currentAmount, defaultBalances?.savings, defaultBalances?.emergency]);
 
   return (
     <>

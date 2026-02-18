@@ -68,6 +68,10 @@ model BudgetPlan {
   userId      String
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  // Holiday/Carnival metadata
+  eventDate                     DateTime?
+  includePostEventIncome         Boolean        @default(false)
+
   // Tracks one-time default category seeding/backfills.
   categorySeedVersion          Int            @default(0)
   
@@ -75,6 +79,7 @@ model BudgetPlan {
   payDate                       Int            @default(27)
   monthlyAllowance              Decimal        @default(0) @db.Decimal(12, 2)
   savingsBalance                Decimal        @default(0) @db.Decimal(12, 2)
+  emergencyBalance              Decimal        @default(0) @db.Decimal(12, 2)
   monthlySavingsContribution    Decimal        @default(0) @db.Decimal(12, 2)
   monthlyEmergencyContribution  Decimal        @default(0) @db.Decimal(12, 2)
   monthlyInvestmentContribution Decimal        @default(0) @db.Decimal(12, 2)
@@ -210,12 +215,36 @@ model Expense {
   categoryId   String?
   category     Category?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
 
+	payments     ExpensePayment[]
+
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
   @@index([budgetPlanId, month, year])
   @@index([categoryId])
   @@index([budgetPlanId, isAllocation])
+}
+
+enum ExpensePaymentSource {
+  income
+  savings
+  emergency
+  extra_untracked
+}
+
+model ExpensePayment {
+  id        String               @id @default(cuid())
+  expenseId String
+  expense   Expense              @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  amount    Decimal              @db.Decimal(12, 2)
+  source    ExpensePaymentSource
+  paidAt    DateTime
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+
+  @@index([expenseId])
+  @@index([paidAt])
+  @@index([source])
 }
 
 model Income {

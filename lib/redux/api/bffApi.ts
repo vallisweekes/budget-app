@@ -83,11 +83,15 @@ export interface BffSettings {
   payDate: number;
   monthlyAllowance: string;
   savingsBalance: string;
+  emergencyBalance?: string;
   monthlySavingsContribution: string;
   monthlyEmergencyContribution: string;
   monthlyInvestmentContribution: string;
   budgetStrategy: string;
   homepageGoalIds?: string[];
+	country?: string;
+	language?: string;
+	currency?: string;
   createdAt: string;
   updatedAt: string;
 }

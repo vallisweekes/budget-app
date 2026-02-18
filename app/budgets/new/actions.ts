@@ -16,12 +16,24 @@ export async function createBudgetPlanAction(formData: FormData) {
 	const budgetTypeRaw = String(formData.get("budgetType") ?? "personal").trim().toLowerCase();
 	const budgetType = isSupportedBudgetType(budgetTypeRaw) ? budgetTypeRaw : "personal";
 	const planName = String(formData.get("planName") ?? "").trim();
+	const eventDateRaw = String(formData.get("eventDate") ?? "").trim();
 	const returnToRaw = String(formData.get("returnTo") ?? "").trim();
 	const returnTo = returnToRaw.startsWith("/") ? returnToRaw : "";
 
 	const userId = await resolveUserId({ userId: sessionUser.id, username });
 	try {
-		const plan = await getOrCreateBudgetPlanForUser({ userId, username, budgetType, planName });
+		const eventDate = eventDateRaw ? new Date(eventDateRaw) : null;
+		if ((budgetType === "holiday" || budgetType === "carnival") && (!eventDateRaw || Number.isNaN(eventDate?.getTime?.() ?? NaN))) {
+			throw new Error("Event date required");
+		}
+		const plan = await getOrCreateBudgetPlanForUser({
+			userId,
+			username,
+			budgetType,
+			planName,
+			eventDate: eventDateRaw ? eventDate : null,
+			includePostEventIncome: false,
+		});
 		if (returnTo) {
 			redirect(returnTo);
 		}
@@ -33,6 +45,13 @@ export async function createBudgetPlanAction(formData: FormData) {
 				`/user=${encodeURIComponent(username)}/${encodeURIComponent(userId)}/budgets/new?type=personal&error=personal_required${
 					returnTo ? `&returnTo=${encodeURIComponent(returnTo)}` : ""
 				}`
+			);
+		}
+		if (message.includes("Event date required")) {
+			redirect(
+				`/user=${encodeURIComponent(username)}/${encodeURIComponent(userId)}/budgets/new?type=${encodeURIComponent(
+					budgetType
+				)}&error=${encodeURIComponent("event_date_required")}${returnTo ? `&returnTo=${encodeURIComponent(returnTo)}` : ""}`
 			);
 		}
 		throw e;

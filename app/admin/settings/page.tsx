@@ -6,7 +6,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getDefaultBudgetPlanForUser, resolveUserId } from "@/lib/budgetPlans";
 import { redirect } from "next/navigation";
-import SettingsContent from "./SettingsContent";
+import SettingsContent from "@/components/Admin/Settings/SettingsContent";
 import { createBudgetPlanAction } from "@/app/budgets/new/actions";
 
 export const dynamic = "force-dynamic";

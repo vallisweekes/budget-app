@@ -78,7 +78,16 @@ export default async function GoalsPage({
         </div>
 
         <div className="mb-6 sm:mb-8">
-          <AddGoalModal budgetPlanId={budgetPlanId} minYear={minYear} maxYear={maxYear} defaultYear={currentYear} />
+          <AddGoalModal
+            budgetPlanId={budgetPlanId}
+            minYear={minYear}
+            maxYear={maxYear}
+            defaultYear={currentYear}
+            defaultBalances={{
+              savings: settings.savingsBalance,
+              emergency: settings.emergencyBalance,
+            }}
+          />
         </div>
 
         {goals.length === 0 ? (

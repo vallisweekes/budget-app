@@ -27,7 +27,7 @@ const settingsSelect = {
 	currency: true,
 } as const;
 
-const settingsSelectWithoutEmergency = {
+const settingsSelectWithoutMonthlyEmergency = {
   id: true,
   payDate: true,
   monthlyAllowance: true,
@@ -40,6 +40,49 @@ const settingsSelectWithoutEmergency = {
 	language: true,
 	currency: true,
 } as const;
+
+const settingsSelectLegacy = {
+  id: true,
+  payDate: true,
+  monthlyAllowance: true,
+  savingsBalance: true,
+  monthlySavingsContribution: true,	
+  monthlyInvestmentContribution: true,
+  budgetStrategy: true,
+  homepageGoalIds: true,
+  country: true,
+  language: true,
+  currency: true,
+} as const;
+
+async function getEmergencyBalanceFallback(budgetPlanId: string): Promise<number> {
+  try {
+    const rows = await prisma.$queryRaw<Array<{ emergencyBalance: unknown }>>`
+      SELECT "emergencyBalance" as "emergencyBalance"
+      FROM "BudgetPlan"
+      WHERE id = ${budgetPlanId}
+      LIMIT 1
+    `;
+    const value = rows?.[0]?.emergencyBalance;
+    if (value == null) return 0;
+    const asNumber = Number((value as any)?.toString?.() ?? value);
+    return Number.isFinite(asNumber) ? asNumber : 0;
+  } catch {
+    return 0;
+  }
+}
+
+async function setEmergencyBalanceFallback(budgetPlanId: string, emergencyBalance: number): Promise<void> {
+  try {
+    await prisma.$executeRaw`
+      UPDATE "BudgetPlan"
+      SET "emergencyBalance" = ${emergencyBalance}
+      WHERE id = ${budgetPlanId}
+    `;
+  } catch {
+    // Column may not exist in older DBs.
+  }
+}
 
 function normalizeHomepageGoalIds(value: unknown): string[] | null {
   if (!Array.isArray(value)) return null;
@@ -73,16 +116,18 @@ export async function GET(req: NextRequest) {
     if (!budgetPlanId) return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
 
     const plan = await prisma.budgetPlan.findUnique({
-      where: { id: budgetPlanId },
-      select: settingsSelect as any,
-    });
+			where: { id: budgetPlanId },
+			select: settingsSelect as any,
+		});
 
     if (!plan) return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
 
-    return NextResponse.json(plan);
+		const emergencyBalance = await getEmergencyBalanceFallback(budgetPlanId);
+		return NextResponse.json({ ...plan, emergencyBalance });
   } catch (error) {
     const message = String((error as any)?.message ?? error);
-    if (message.includes("Unknown field `monthlyEmergencyContribution`")) {
+    const unknownMonthlyEmergency = message.includes("Unknown field `monthlyEmergencyContribution`");
+		if (unknownMonthlyEmergency) {
       try {
         const userId = await getSessionUserId();
         if (!userId) return unauthorized();
@@ -95,14 +140,16 @@ export async function GET(req: NextRequest) {
         if (!budgetPlanId) return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
 
         const plan = await prisma.budgetPlan.findUnique({
-          where: { id: budgetPlanId },
-          select: settingsSelectWithoutEmergency as any,
-        });
+					where: { id: budgetPlanId },
+          select: (unknownMonthlyEmergency ? settingsSelectLegacy : settingsSelectWithoutMonthlyEmergency) as any,
+				});
         if (!plan) return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
+        const emergencyBalance = await getEmergencyBalanceFallback(budgetPlanId);
 
         return NextResponse.json({
           ...plan,
-          monthlyEmergencyContribution: 0,
+				monthlyEmergencyContribution: unknownMonthlyEmergency ? 0 : (plan as any).monthlyEmergencyContribution,
+				emergencyBalance,
         });
       } catch (fallbackError) {
         console.error("Failed to fetch settings (fallback):", fallbackError);
@@ -139,6 +186,8 @@ export async function PATCH(req: NextRequest) {
     if (typeof body.payDate === "number") updateData.payDate = body.payDate;
     if (typeof body.monthlyAllowance !== "undefined") updateData.monthlyAllowance = body.monthlyAllowance;
     if (typeof body.savingsBalance !== "undefined") updateData.savingsBalance = body.savingsBalance;
+    const wantsEmergencyBalance = typeof body.emergencyBalance !== "undefined";
+    const emergencyBalance = wantsEmergencyBalance ? Number(body.emergencyBalance) : 0;
     if (typeof body.monthlySavingsContribution !== "undefined") {
       updateData.monthlySavingsContribution = body.monthlySavingsContribution;
     }
@@ -170,7 +219,22 @@ export async function PATCH(req: NextRequest) {
       }
     }
 
-    if (Object.keys(updateData).length === 0) return badRequest("No valid fields to update");
+      if (Object.keys(updateData).length === 0 && !wantsEmergencyBalance) {
+        return badRequest("No valid fields to update");
+      }
+
+      if (Object.keys(updateData).length === 0 && wantsEmergencyBalance) {
+        if (Number.isFinite(emergencyBalance)) {
+          await setEmergencyBalanceFallback(budgetPlanId, emergencyBalance);
+        }
+        const plan = await prisma.budgetPlan.findUnique({
+          where: { id: budgetPlanId },
+          select: settingsSelect as any,
+        });
+        if (!plan) return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
+        const nextEmergencyBalance = await getEmergencyBalanceFallback(budgetPlanId);
+        return NextResponse.json({ ...plan, emergencyBalance: nextEmergencyBalance });
+      }
 
     try {
       const updated = await prisma.budgetPlan.update({
@@ -178,26 +242,36 @@ export async function PATCH(req: NextRequest) {
         data: updateData,
         select: settingsSelect as any,
       });
-
-      return NextResponse.json(updated);
+      if (wantsEmergencyBalance && Number.isFinite(emergencyBalance)) {
+        await setEmergencyBalanceFallback(budgetPlanId, emergencyBalance);
+      }
+      const nextEmergencyBalance = await getEmergencyBalanceFallback(budgetPlanId);
+      return NextResponse.json({ ...updated, emergencyBalance: nextEmergencyBalance });
     } catch (error) {
       const message = String((error as any)?.message ?? error);
-      if (!message.includes("Unknown field `monthlyEmergencyContribution`")) throw error;
+			const unknownMonthlyEmergency =
+				message.includes("Unknown field `monthlyEmergencyContribution`") ||
+				message.includes("Unknown argument `monthlyEmergencyContribution`");
+      if (!unknownMonthlyEmergency) throw error;
 
-      // Dev-only safety: ignore emergency contribution when Prisma Client is stale.
-      if ("monthlyEmergencyContribution" in updateData) {
-        delete updateData.monthlyEmergencyContribution;
+			// Dev-only safety: ignore unknown fields when Prisma Client is stale.
+			if (unknownMonthlyEmergency && "monthlyEmergencyContribution" in updateData) {
+				delete updateData.monthlyEmergencyContribution;
+			}
+      if (wantsEmergencyBalance && Number.isFinite(emergencyBalance)) {
+        await setEmergencyBalanceFallback(budgetPlanId, emergencyBalance);
       }
 
-      const updated = await prisma.budgetPlan.update({
-        where: { id: budgetPlanId },
-        data: updateData,
-        select: settingsSelectWithoutEmergency as any,
-      });
-
+			const updated = await prisma.budgetPlan.update({
+				where: { id: budgetPlanId },
+				data: updateData,
+        select: (unknownMonthlyEmergency ? settingsSelectLegacy : settingsSelectWithoutMonthlyEmergency) as any,
+			});
+      const nextEmergencyBalance = await getEmergencyBalanceFallback(budgetPlanId);
       return NextResponse.json({
         ...updated,
-        monthlyEmergencyContribution: 0,
+        monthlyEmergencyContribution: unknownMonthlyEmergency ? 0 : (updated as any).monthlyEmergencyContribution,
+        emergencyBalance: nextEmergencyBalance,
       });
     }
   } catch (error) {

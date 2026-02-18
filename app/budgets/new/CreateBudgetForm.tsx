@@ -20,6 +20,7 @@ export default function CreateBudgetForm({
 	const initialBudgetType: BudgetType = hasPersonalPlan ? defaultBudgetType : "personal";
 	const [budgetType, setBudgetType] = useState<BudgetType>(initialBudgetType);
 	const [planName, setPlanName] = useState<string>(initialBudgetType === "personal" ? "Personal" : "");
+	const [eventDate, setEventDate] = useState<string>("");
 
 	const options = useMemo(() => {
 		const visibleTypes = hasPersonalPlan ? BUDGET_TYPES : (["personal"] as const);
@@ -38,6 +39,24 @@ export default function CreateBudgetForm({
 		<Card className="mt-8">
 			<form action={action} className="space-y-4">
 				{returnTo ? <input type="hidden" name="returnTo" value={returnTo} /> : null}
+				{budgetType === "holiday" || budgetType === "carnival" ? (
+					<>
+						<label className="block">
+							<span className="block text-sm font-medium text-slate-300">{budgetType === "holiday" ? "Travel date" : "Event date"}</span>
+							<input
+								name="eventDate"
+								type="date"
+								required
+								value={eventDate}
+								onChange={(e) => setEventDate(e.target.value)}
+								className="mt-1 w-full rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/60"
+							/>
+							<div className="mt-1 text-xs text-slate-400">
+								Income is included up to (and including) this month.
+							</div>
+						</label>
+					</>
+				) : null}
 				<label className="block">
 					<span className="block text-sm font-medium text-slate-300">Budget type</span>
 					<div className="mt-1">

@@ -8,11 +8,17 @@ import { InfoTooltip, SelectDropdown } from "@/components/Shared";
 import type { MonthKey } from "@/types";
 import { ArrowLeft, CalendarDays, Lightbulb, PiggyBank, Wallet, Globe, User, AlertTriangle, Edit2, LogOut, Plus } from "lucide-react";
 import { signOut } from "next-auth/react";
-import { applyFiftyThirtyTwentyTargetsAction, saveSettingsAction, updateUserDetailsAction } from "./actions";
+import { applyFiftyThirtyTwentyTargetsAction, saveSettingsAction, updateUserDetailsAction } from "@/lib/settings/actions";
 import DeleteBudgetPlanButton from "./DeleteBudgetPlanButton";
 import type { Settings } from "@/lib/settings/store";
 import CreateBudgetForm, { type BudgetType } from "@/app/budgets/new/CreateBudgetForm";
 import Link from "next/link";
+import {
+	getSectionFromPath,
+	getSettingsBasePath,
+	getUserSegmentFromPath,
+	SECTION_TO_SLUG,
+} from "@/lib/helpers/settings/navigation";
 
 type Section = "details" | "budget" | "locale" | "plans" | "danger";
 
@@ -71,6 +77,7 @@ export default function SettingsContent({
 	const applied = searchParams?.get("applied") ?? "";
 	const [showApply503020, setShowApply503020] = useState(false);
 	const [isEditingPayDate, setIsEditingPayDate] = useState(false);
+	const [isEditingStartingBalances, setIsEditingStartingBalances] = useState(false);
 	const [activeSection, setActiveSection] = useState<Section>("details");
 	const [mobileView, setMobileView] = useState<"menu" | "content">("menu");
 	const [isEditingEmail, setIsEditingEmail] = useState(false);
@@ -137,43 +144,9 @@ export default function SettingsContent({
 		},
 	];
 
-	const SECTION_TO_SLUG: Record<Section, string> = {
-		details: "my-details",
-		budget: "budget",
-		locale: "locale",
-		plans: "plans",
-		danger: "danger-zone",
-	};
-	const SLUG_TO_SECTION: Record<string, Section> = {
-		"my-details": "details",
-		budget: "budget",
-		locale: "locale",
-		plans: "plans",
-		"danger-zone": "danger",
-	};
+	const SECTION_TO_SLUG_TYPED = SECTION_TO_SLUG as Record<Section, string>;
 
 	const isContentView = mobileView === "content";
-
-	const getSettingsBasePath = (path: string) => {
-		const parts = path.split("/").filter(Boolean);
-		const idx = parts.findIndex((p) => p === "page=settings" || p === "settings");
-		if (idx === -1) return path;
-		return `/${parts.slice(0, idx + 1).join("/")}`;
-	};
-
-	const getUserSegmentFromPath = (path: string) => {
-		const parts = path.split("/").filter(Boolean);
-		return parts.find((p) => p.startsWith("user=")) ?? null;
-	};
-
-	const getSectionFromPath = (path: string): Section | null => {
-		const parts = path.split("/").filter(Boolean);
-		const idx = parts.findIndex((p) => p === "page=settings" || p === "settings");
-		if (idx === -1) return null;
-		const slug = parts[idx + 1];
-		if (!slug) return null;
-		return SLUG_TO_SECTION[slug] ?? null;
-	};
 
 	const settingsBasePath = getSettingsBasePath(pathname);
 	const userSegment = useMemo(() => getUserSegmentFromPath(pathname), [pathname]);
@@ -199,7 +172,7 @@ export default function SettingsContent({
 		: "personal";
 
 	useEffect(() => {
-		const section = getSectionFromPath(pathname);
+		const section = getSectionFromPath(pathname) as Section | null;
 		if (section) {
 			setActiveSection(section);
 			setMobileView("content");
@@ -212,7 +185,7 @@ export default function SettingsContent({
 	const openSection = (section: Section) => {
 		setActiveSection(section);
 		setMobileView("content");
-		const next = `${settingsBasePath}/${SECTION_TO_SLUG[section]}`;
+		const next = `${settingsBasePath}/${SECTION_TO_SLUG_TYPED[section]}`;
 		router.push(next, { scroll: false });
 		try {
 			window.scrollTo({ top: 0, behavior: "smooth" });
@@ -470,6 +443,111 @@ export default function SettingsContent({
 													</button>
 													<button
 														type="submit"
+														className="flex-1 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-600 px-4 py-3 text-sm font-semibold text-white shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all"
+													>
+														Save
+													</button>
+												</div>
+											</form>
+										)}
+									</div>
+
+									<div className="rounded-2xl sm:rounded-3xl bg-white/5 ring-1 ring-white/10 backdrop-blur-xl p-5 sm:p-7 shadow-xl">
+										<div className="flex items-center gap-3 mb-6">
+											<div className="w-10 h-10 rounded-xl bg-white/5 ring-1 ring-white/10 flex items-center justify-center">
+												<Wallet className="w-5 h-5 text-slate-200" />
+										</div>
+											<div className="flex-1">
+												<div className="flex items-start justify-between gap-3">
+													<div>
+														<h3 className="text-xl font-bold text-white inline-flex items-center gap-2">
+														Starting balances
+														<InfoTooltip
+															ariaLabel="Starting balances info"
+															content="Set your current Savings and Emergency balances so the app can show how spending affects them."
+														/>
+													</h3>
+													<p className="text-slate-400 text-sm">Used for Holiday/Carnival funding and goal progress defaults.</p>
+												</div>
+												{!isEditingStartingBalances ? (
+													<button
+														type="button"
+														onClick={() => setIsEditingStartingBalances(true)}
+														className="inline-flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2 text-xs font-semibold text-white ring-1 ring-white/10 hover:bg-white/10 hover:ring-white/20 transition"
+													>
+														<Edit2 className="h-4 w-4" />
+														Edit
+													</button>
+												) : null}
+											</div>
+										</div>
+									</div>
+
+										{!isEditingStartingBalances ? (
+											<div className="space-y-4">
+												<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+													<label className="block">
+														<span className="text-sm font-medium text-slate-400 mb-2 block">Savings balance</span>
+														<input
+															disabled
+															value={Number(settings.savingsBalance ?? 0)}
+															type="number"
+															step="0.01"
+															className="w-full rounded-xl border border-white/10 bg-slate-900/40 px-4 py-3 text-white/90 text-lg font-semibold placeholder-slate-500"
+													/>
+													</label>
+													<label className="block">
+														<span className="text-sm font-medium text-slate-400 mb-2 block">Emergency balance</span>
+														<input
+															disabled
+															value={Number(settings.emergencyBalance ?? 0)}
+															type="number"
+															step="0.01"
+															className="w-full rounded-xl border border-white/10 bg-slate-900/40 px-4 py-3 text-white/90 text-lg font-semibold placeholder-slate-500"
+													/>
+													</label>
+												</div>
+												<div className="text-xs text-slate-500">
+													Click Edit to update these balances.
+												</div>
+											</div>
+										) : (
+											<form action={saveSettingsAction} className="space-y-4">
+												<input type="hidden" name="budgetPlanId" value={budgetPlanId} />
+												<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+													<label className="block">
+														<span className="text-sm font-medium text-slate-400 mb-2 block">Savings balance</span>
+														<input
+															autoFocus
+															name="savingsBalance"
+															type="number"
+															step="0.01"
+															defaultValue={Number(settings.savingsBalance ?? 0)}
+															className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white text-lg font-semibold placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+													/>
+													</label>
+													<label className="block">
+														<span className="text-sm font-medium text-slate-400 mb-2 block">Emergency balance</span>
+														<input
+															name="emergencyBalance"
+															type="number"
+															step="0.01"
+															defaultValue={Number(settings.emergencyBalance ?? 0)}
+															className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white text-lg font-semibold placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+													/>
+													</label>
+												</div>
+												<div className="flex items-center gap-2">
+													<button
+														type="button"
+														onClick={() => setIsEditingStartingBalances(false)}
+														className="flex-1 rounded-xl bg-white/10 px-4 py-3 text-sm font-semibold text-white ring-1 ring-white/10 hover:bg-white/15 hover:ring-white/20 transition"
+													>
+														Cancel
+													</button>
+													<button
+														type="submit"
+														onClick={() => setIsEditingStartingBalances(false)}
 														className="flex-1 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-600 px-4 py-3 text-sm font-semibold text-white shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all"
 													>
 														Save

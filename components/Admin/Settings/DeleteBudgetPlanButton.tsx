@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
 import { ConfirmModal } from "@/components/Shared";
-import { deleteBudgetPlanAction, getBudgetPlanDeleteImpactAction } from "./actions";
+import { deleteBudgetPlanAction, getBudgetPlanDeleteImpactAction } from "@/lib/settings/actions";
 
 export default function DeleteBudgetPlanButton({
 	budgetPlanId,
