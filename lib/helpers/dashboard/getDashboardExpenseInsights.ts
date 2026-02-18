@@ -27,6 +27,23 @@ function isoForPayDate(year: number, monthNum: number, payDate: number): string 
 	return `${year}-${pad2(monthNum)}-${pad2(day)}`;
 }
 
+function resolveUpcomingPayDate(args: { now: Date; year: number; monthNum: number; payDate: number }): {
+	year: number;
+	monthNum: number;
+	dueIso: string;
+	due: Date | null;
+} {
+	const today = todayUtcDateOnly(args.now);
+	const thisDueIso = isoForPayDate(args.year, args.monthNum, args.payDate);
+	const thisDue = parseIsoDateToUtcDateOnly(thisDueIso);
+	if (!thisDue) return { year: args.year, monthNum: args.monthNum, dueIso: thisDueIso, due: null };
+	if (diffDaysUtc(thisDue, today) >= 0) return { year: args.year, monthNum: args.monthNum, dueIso: thisDueIso, due: thisDue };
+
+	const next = addMonthsUtc(args.year, args.monthNum, 1);
+	const nextIso = isoForPayDate(next.year, next.monthNum, args.payDate);
+	return { year: next.year, monthNum: next.monthNum, dueIso: nextIso, due: parseIsoDateToUtcDateOnly(nextIso) };
+}
+
 function parseIsoDateToUtcDateOnly(iso: string): Date | null {
 	if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null;
 	const [y, m, d] = iso.split("-").map((x) => Number(x));
@@ -175,6 +192,22 @@ export async function getDashboardExpenseInsights({
 		.filter((e) => e.year === prevYear && e.month === prevMonthNum)
 		.map(toExpenseItem);
 
+	const upcomingMonthPairs = Array.from({ length: 3 }, (_, i) => addMonthsUtc(currentYear, currentMonthNum, i));
+	const upcomingMonthOr = upcomingMonthPairs.map((p) => ({ year: p.year, month: p.monthNum }));
+	const upcomingExpenseRows = await prisma.expense.findMany({
+		where: { budgetPlanId, OR: upcomingMonthOr },
+		select: {
+			id: true,
+			name: true,
+			amount: true,
+			paid: true,
+			paidAmount: true,
+			dueDate: true,
+			year: true,
+			month: true,
+		},
+	});
+
 	const historyExpenses: DatedExpenseItem[] = historyRows.map((e) => ({
 		...toExpenseItem(e),
 		year: e.year,
@@ -224,13 +257,22 @@ export async function getDashboardExpenseInsights({
 		now,
 	});
 
-	const upcomingExpenses = computeUpcomingPayments(currentMonthExpenses, {
-		year: currentYear,
-		monthNum: currentMonthNum,
-		payDate,
-		now,
-		limit: 12,
-	});
+	const upcomingExpenses = upcomingMonthPairs
+		.flatMap((p) => {
+			const monthExpenses = upcomingExpenseRows
+				.filter((e) => e.year === p.year && e.month === p.monthNum)
+				.map(toExpenseItem);
+
+			return computeUpcomingPayments(monthExpenses, {
+				year: p.year,
+				monthNum: p.monthNum,
+				payDate,
+				now,
+				limit: 50,
+			});
+		})
+		.filter((u) => u.status !== "paid")
+		.sort((a, b) => scoreUpcoming(a) - scoreUpcoming(b) || b.amount - a.amount);
 
 	const debtRows = await prisma.debt.findMany({
 		where: {
@@ -248,8 +290,9 @@ export async function getDashboardExpenseInsights({
 	});
 
 	const today = todayUtcDateOnly(now);
-	const debtDueIso = isoForPayDate(currentYear, currentMonthNum, payDate);
-	const debtDue = parseIsoDateToUtcDateOnly(debtDueIso);
+	const upcomingPayDate = resolveUpcomingPayDate({ now, year: currentYear, monthNum: currentMonthNum, payDate });
+	const debtDueIso = upcomingPayDate.dueIso;
+	const debtDue = upcomingPayDate.due;
 	const debtUpcoming = debtRows
 		.map((d) => {
 			const amount = toNumber(d.amount);
@@ -271,7 +314,7 @@ export async function getDashboardExpenseInsights({
 		.filter((x): x is UpcomingPayment => x != null)
 		.sort((a, b) => scoreUpcoming(a) - scoreUpcoming(b) || b.amount - a.amount);
 
-	const monthKey = monthNumberToKey(currentMonthNum);
+	const monthKey = monthNumberToKey(upcomingPayDate.monthNum);
 	const allocationSnapshot = await getMonthlyAllocationSnapshot(budgetPlanId, monthKey);
 	const customAllocationsSnapshot = await getMonthlyCustomAllocationsSnapshot(budgetPlanId, monthKey, {
 		year: allocationSnapshot.year,
@@ -283,7 +326,7 @@ export async function getDashboardExpenseInsights({
 		toNumber(allocationSnapshot.monthlyEmergencyContribution) +
 		toNumber(allocationSnapshot.monthlyInvestmentContribution);
 	const allocationTotal = allocationFixedTotal + toNumber(customAllocationsSnapshot.total);
-	const allocDueIso = isoForPayDate(allocationSnapshot.year, currentMonthNum, payDate);
+	const allocDueIso = isoForPayDate(allocationSnapshot.year, upcomingPayDate.monthNum, payDate);
 	const allocDue = parseIsoDateToUtcDateOnly(allocDueIso);
 	const allocDaysUntil = allocDue ? diffDaysUtc(allocDue, today) : 999;
 	const allocationUpcoming: UpcomingPayment | undefined = allocationTotal > 0
