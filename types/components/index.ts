@@ -3,4 +3,5 @@
 export * from "./debts";
 export * from "./income";
 export * from "./settings";
+export * from "./view-tabs";
 

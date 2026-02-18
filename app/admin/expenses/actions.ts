@@ -20,6 +20,10 @@ import { resolveUserId } from "@/lib/budgetPlans";
 import { getSettings, saveSettings } from "@/lib/settings/store";
 import { upsertExpenseDebt } from "@/lib/debts/store";
 
+function getExpensePaymentDelegate(): any | null {
+  return (prisma as any)?.expensePayment ?? null;
+}
+
 function isTruthyFormValue(value: FormDataEntryValue | null): boolean {
   if (value == null) return false;
   const v = String(value).trim().toLowerCase();
@@ -121,6 +125,9 @@ async function backfillExpensePaymentAndAdjustBalances(args: {
   if (!args.paid) return;
   if (args.planKind === "personal") return;
 
+	const expensePayment = getExpensePaymentDelegate();
+	if (!expensePayment) return;
+
   const now = new Date();
   for (const m of args.months) {
     const monthIndex = (MONTHS as MonthKey[]).indexOf(m);
@@ -142,7 +149,7 @@ async function backfillExpensePaymentAndAdjustBalances(args: {
     const paidAmount = Number((expense.paidAmount as any)?.toString?.() ?? expense.paidAmount ?? 0);
     if (!(paidAmount > 0)) continue;
 
-    const paymentsAgg = await prisma.expensePayment.aggregate({
+    const paymentsAgg = await expensePayment.aggregate({
       where: { expenseId: expense.id },
       _sum: { amount: true },
     });
@@ -150,7 +157,7 @@ async function backfillExpensePaymentAndAdjustBalances(args: {
     const delta = Math.max(0, paidAmount - recorded);
     if (!(delta > 0)) continue;
 
-    await prisma.expensePayment.create({
+    await expensePayment.create({
       data: {
         expenseId: expense.id,
         amount: delta,
@@ -177,7 +184,10 @@ async function recordExpensePaymentAndAdjustBalances(args: {
   if (args.planKind === "personal") return;
   if (!Number.isFinite(args.amount) || args.amount <= 0) return;
 
-  await prisma.expensePayment.create({
+	const expensePayment = getExpensePaymentDelegate();
+	if (!expensePayment) return;
+
+  await expensePayment.create({
     data: {
       expenseId: args.expenseId,
       amount: args.amount,

@@ -71,7 +71,7 @@ export default function PaymentInsightsCards({
 		if (tips.length <= 1) return;
 		const id = window.setInterval(() => {
 			setTipIndex((i) => (tips.length ? (i + 1) % tips.length : 0));
-		}, 50_000);
+		}, 20_000);
 		return () => window.clearInterval(id);
 	}, [tips.length]);
 

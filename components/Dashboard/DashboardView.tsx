@@ -12,6 +12,7 @@ import { getAllPlansDashboardData } from "@/lib/helpers/dashboard/getAllPlansDas
 import { getIncomeMonthsCoverageByPlan } from "@/lib/helpers/dashboard/getIncomeMonthsCoverageByPlan";
 import { getDashboardExpenseInsights } from "@/lib/helpers/dashboard/getDashboardExpenseInsights";
 import { getLargestExpensesByPlan } from "@/lib/helpers/dashboard/getLargestExpensesByPlan";
+import { getMultiPlanHealthTips } from "@/lib/helpers/dashboard/getMultiPlanHealthTips";
 
 export default async function DashboardView({ budgetPlanId }: { budgetPlanId: string }) {
 	const now = new Date();
@@ -41,6 +42,13 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 		perPlanLimit: 3,
 	});
 
+	const multiPlanTips = await getMultiPlanHealthTips({
+		planIds: Object.keys(allPlansData),
+		now,
+		payDate,
+		largestExpensesByPlan,
+	});
+
 	const incomeMonthsCoverageByPlan = await getIncomeMonthsCoverageByPlan({
 		planIds: Object.keys(allPlansData),
 		year: selectedYear,
@@ -53,7 +61,7 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 
 	const expenseInsights = {
 		...expenseInsightsBase,
-		recapTips: [...(expenseInsightsBase.recapTips ?? []), ...debtTips],
+		recapTips: [...(expenseInsightsBase.recapTips ?? []), ...multiPlanTips, ...debtTips],
 	};
 
 	return (
