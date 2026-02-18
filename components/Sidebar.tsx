@@ -1,10 +1,13 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Home, Settings, DollarSign, CreditCard, Target, ShoppingBag, Banknote, LogOut } from "lucide-react";
+import { Home, Settings, CreditCard, Target, ShoppingBag, Banknote, LogOut } from "lucide-react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { currentMonthKey } from "@/lib/helpers/monthKey";
+import { getCurrencySymbol } from "@/lib/constants/locales";
+import { DEFAULT_CURRENCY_CODE } from "@/lib/constants/money";
 
 function parseUserScopedPath(pathname: string): { username: string; budgetPlanId: string } | null {
 	const m = pathname.match(/^\/user=([^/]+)\/([^/]+)/);
@@ -45,6 +48,7 @@ export default function Sidebar() {
 	const searchParams = useSearchParams();
 	const { data: session } = useSession();
 	const sessionUsername = session?.user?.username ?? session?.user?.name;
+	const [currencyCode, setCurrencyCode] = useState<string>(DEFAULT_CURRENCY_CODE);
 
 	const onboardingNewBudget = isUserOnboardingNewBudget(pathname);
 	const scopedFromPath = parseUserScopedPath(pathname);
@@ -56,6 +60,26 @@ export default function Sidebar() {
 			: null
 		: scopedFromPath;
 	const planFromQuery = searchParams.get("plan")?.trim() || "";
+
+	useEffect(() => {
+		const budgetPlanId = scoped?.budgetPlanId || planFromQuery;
+		if (!budgetPlanId) return;
+		const controller = new AbortController();
+		(async () => {
+			try {
+				const res = await fetch(`/api/bff/settings?budgetPlanId=${encodeURIComponent(budgetPlanId)}`,
+					{ signal: controller.signal }
+				);
+				if (!res.ok) return;
+				const body = (await res.json().catch(() => null)) as any;
+				const next = typeof body?.currency === "string" ? body.currency.trim() : "";
+				if (next) setCurrencyCode(next);
+			} catch (e) {
+				void e;
+			}
+		})();
+		return () => controller.abort();
+	}, [scoped?.budgetPlanId, planFromQuery]);
 
 	const baseHref = scoped
 		? `/user=${encodeURIComponent(scoped.username)}/${encodeURIComponent(scoped.budgetPlanId)}`
@@ -82,7 +106,7 @@ export default function Sidebar() {
 		{ key: "home", href: `${baseHref}/page=home`, label: "Home", icon: Home },
 		...(pathname === "/artist" ? [{ key: "artist", href: "/artist", label: "Artist", icon: Target }] : []),
 		{ key: "income", href: `${baseHref}/page=income`, label: "Income", icon: Banknote },
-		{ key: "expenses", href: expensesHref, label: "Expenses", icon: DollarSign },
+		{ key: "expenses", href: expensesHref, label: "Expenses", icon: null },
 		{ key: "spending", href: `${baseHref}/page=spending`, label: "Spending", icon: ShoppingBag },
 		{ key: "debts", href: `${baseHref}/page=debts`, label: "Debt", icon: CreditCard },
 		{ key: "goals", href: `${baseHref}/page=goals`, label: "Goals", icon: Target },
@@ -125,7 +149,16 @@ export default function Sidebar() {
 										: "border-transparent text-slate-300 hover:bg-white/5 hover:border-white/10 hover:text-white"
 								}`}
 							>
-								<item.icon size={20} className="text-slate-300 group-hover:text-white" />
+								{item.key === "expenses" ? (
+									<span
+										aria-hidden="true"
+										className="w-5 text-center text-[18px] leading-none font-semibold text-slate-300 group-hover:text-white"
+									>
+										{getCurrencySymbol(currencyCode)}
+									</span>
+								) : (
+									<item.icon size={20} className="text-slate-300 group-hover:text-white" />
+								)}
 								<span className="font-medium">{item.label}</span>
 							</Link>
 						))}
