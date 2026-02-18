@@ -5,7 +5,7 @@ import type { UseExpenseManagerResult } from "@/components/Expenses/ExpenseManag
 import DeleteExpenseModal from "@/components/Expenses/ExpenseManager/DeleteExpenseModal";
 import EditExpenseModal from "@/components/Expenses/ExpenseManager/EditExpenseModal";
 import ExpenseManagerToolbar from "@/components/Expenses/ExpenseManager/ExpenseManagerToolbar";
-import { formatMonthKeyLabel } from "@/lib/helpers/monthKey";
+import { formatMonthKeyLabel, formatMonthKeyShortLabel } from "@/lib/helpers/monthKey";
 import AddExpenseForm from "@/components/Expenses/ExpenseManager/AddExpenseForm";
 import ExpenseCardsSkeleton from "@/components/Expenses/ExpenseManager/ExpenseCardsSkeleton";
 import CategorySection from "@/components/Expenses/ExpenseManager/CategorySection";
@@ -27,6 +27,9 @@ export default function ExpenseManagerView({
 	allPlans,
 	allCategoriesByPlan,
 	payDate,
+	hasAnyIncome,
+	emptyExpensesJumpTarget,
+	onJumpToEmptyExpensesTarget,
 	incomeHref,
 	isPending,
 	isPeriodLoading,
@@ -231,6 +234,10 @@ export default function ExpenseManagerView({
 					incomeHref={incomeHref}
 					hasSearch={Boolean(searchQuery.trim())}
 					onAddClick={() => setShowAddForm(true)}
+					jumpTarget={emptyExpensesJumpTarget}
+					onJumpToTarget={onJumpToEmptyExpensesTarget}
+					hasAnyIncome={hasAnyIncome}
+					monthLabel={formatMonthKeyShortLabel(month)}
 				/>
 			)}
 		</div>

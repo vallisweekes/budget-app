@@ -47,9 +47,25 @@ model User {
   accounts      Account[]
   sessions      Session[]
   budgetPlans   BudgetPlan[]
+  webPushSubscriptions WebPushSubscription[]
   
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
+}
+
+model WebPushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model VerificationToken {
@@ -188,11 +204,11 @@ model Category {
   
   budgetPlanId String
   budgetPlan   BudgetPlan @relation(fields: [budgetPlanId], references: [id], onDelete: Cascade)
-  
+
   expenses     Expense[]
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
-  
+
   @@unique([budgetPlanId, name])
   @@index([budgetPlanId])
 }

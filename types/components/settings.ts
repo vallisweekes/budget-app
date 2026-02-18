@@ -2,7 +2,14 @@ import type { ComponentType } from "react";
 import type { Settings } from "@/lib/settings/store";
 import type { MonthKey } from "@/types";
 
-export type SettingsSectionId = "details" | "budget" | "savings" | "locale" | "plans" | "danger";
+export type SettingsSectionId =
+	| "details"
+	| "budget"
+	| "savings"
+	| "locale"
+	| "plans"
+	| "notifications"
+	| "danger";
 
 export type MonthSummary = {
 	year: number;

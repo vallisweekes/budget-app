@@ -6,6 +6,7 @@ import BudgetSection from "./sections/BudgetSection";
 import DangerSection from "./sections/DangerSection";
 import DetailsSection from "./sections/DetailsSection";
 import LocaleSection from "./sections/LocaleSection";
+import NotificationsSection from "./sections/NotificationsSection";
 import PlansSection from "./sections/PlansSection";
 import SavingsSection from "./sections/SavingsSection";
 
@@ -65,6 +66,7 @@ export default function SettingsMain({
 					createBudgetPlanAction={createBudgetPlanAction}
 				/>
 			) : null}
+			{activeSection === "notifications" ? <NotificationsSection /> : null}
 			{activeSection === "danger" ? (
 				<DangerSection budgetPlanId={budgetPlanId} allPlans={allPlans ?? []} />
 			) : null}

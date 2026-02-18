@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Coins, Globe, PiggyBank, User, Wallet } from "lucide-react";
+import { AlertTriangle, Bell, Coins, Globe, PiggyBank, User, Wallet } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 
 import SettingsMain from "@/components/Admin/Settings/SettingsMain";
@@ -21,6 +21,7 @@ export default function SettingsContent(props: SettingsContentProps) {
 		{ id: "savings", title: "Savings", description: "Savings & emergency balances", icon: Coins },
 		{ id: "locale", title: "Locale", description: "Country, language, and currency preferences", icon: Globe },
 		{ id: "plans", title: "Plans", description: "Manage your budget plans", icon: Wallet },
+		{ id: "notifications", title: "Notifications", description: "Push notifications on this device", icon: Bell },
 		{ id: "danger", title: "Danger Zone", description: "Irreversible actions", icon: AlertTriangle },
 	];
 

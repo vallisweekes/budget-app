@@ -3,10 +3,11 @@
 import { useId, useMemo, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { MONTHS } from "@/lib/constants/time";
-import { formatMonthKeyLabel, normalizeMonthKey } from "@/lib/helpers/monthKey";
+import { formatMonthKeyLabel, formatMonthKeyShortLabel, normalizeMonthKey } from "@/lib/helpers/monthKey";
 import type { MonthKey } from "@/types";
 import type { ExpensesByMonth } from "@/types";
 import type { CategoryConfig } from "@/lib/categories/store";
+import type { EmptyExpensesJumpTarget } from "@/types/expenses-manager";
 import ExpenseManager from "./ExpenseManager";
 
 interface BudgetPlan {
@@ -28,6 +29,7 @@ interface ExpensesPageClientProps {
   allPlansData: PlanData[];
   initialYear: number;
   initialMonth: MonthKey;
+	hasAnyIncome: boolean;
 }
 
 type TabKey = "personal" | "holiday" | "carnival";
@@ -37,12 +39,47 @@ function buildYears(baseYear: number, horizonYears: number): number[] {
   return Array.from({ length: safe }, (_, i) => baseYear + i);
 }
 
+function monthIndex(month: MonthKey): number {
+  const idx = (MONTHS as unknown as string[]).indexOf(month);
+  return idx >= 0 ? idx : 0;
+}
+
+function pickNearestMonthWithExpenses(expensesByMonth: ExpensesByMonth | undefined, selectedMonth: MonthKey): MonthKey | null {
+  if (!expensesByMonth) return null;
+  const selectedIdx = monthIndex(selectedMonth);
+
+  const monthsWithExpenses = (MONTHS as unknown as MonthKey[]).filter(
+    (m) => Array.isArray(expensesByMonth[m]) && expensesByMonth[m]!.length > 0
+  );
+  if (monthsWithExpenses.length === 0) return null;
+
+  const futureOrCurrent = monthsWithExpenses
+    .map((m) => ({ m, d: monthIndex(m) - selectedIdx }))
+    .filter((x) => x.d >= 0)
+    .sort((a, b) => a.d - b.d);
+  if (futureOrCurrent.length > 0) return futureOrCurrent[0]!.m;
+
+  const past = monthsWithExpenses
+    .map((m) => ({ m, d: selectedIdx - monthIndex(m) }))
+    .sort((a, b) => a.d - b.d);
+  return past[0]!.m;
+}
+
+function kindDisplayLabel(kind: string): string {
+  const safe = String(kind ?? "").toLowerCase();
+  if (safe === "personal") return "Personal";
+  if (safe === "holiday") return "Holiday";
+  if (safe === "carnival") return "Carnival";
+  return safe ? safe[0]!.toUpperCase() + safe.slice(1) : "Plan";
+}
+
 
 
 export default function ExpensesPageClient({
   allPlansData,
   initialYear,
   initialMonth,
+  hasAnyIncome,
 }: ExpensesPageClientProps) {
   const planTabsLabelId = useId();
   const router = useRouter();
@@ -134,6 +171,15 @@ export default function ExpensesPageClient({
 		return plansByKind[resolvedActiveTab];
 	}, [plansByKind, resolvedActiveTab]);
 
+  const kindPlanCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    allPlansData.forEach((d) => {
+      const kind = String(d.plan.kind ?? "").toLowerCase();
+      counts[kind] = (counts[kind] ?? 0) + 1;
+    });
+    return counts;
+  }, [allPlansData]);
+
   const activeTabHorizonYears = useMemo(() => {
     const first = activePlans[0];
     if (!first) return 10;
@@ -164,6 +210,67 @@ export default function ExpensesPageClient({
 		router.push(`${pathname}?${next.toString()}`);
 	});
   };
+
+  const globalEmptyJumpTarget = useMemo<EmptyExpensesJumpTarget | null>(() => {
+    type Candidate = {
+      target: EmptyExpensesJumpTarget;
+      yearPenalty: number;
+      kindPenalty: number;
+      monthDistance: number;
+      futurePenalty: number;
+    };
+
+    const selectedIdx = monthIndex(selectedMonth);
+    const currentYear = new Date().getFullYear();
+    const candidates: Candidate[] = [];
+
+    allPlansData.forEach((d) => {
+      const kind = String(d.plan.kind ?? "").toLowerCase();
+      const kindPenalty = kind === resolvedActiveTab ? 0 : 1;
+      const includePlanName = (kindPlanCounts[kind] ?? 0) > 1;
+      const planSuffix = includePlanName ? ` (${d.plan.name})` : "";
+
+      const sources: Array<{ year: number; expenses: ExpensesByMonth | undefined; yearPenalty: number }> = [
+        { year: selectedYear, expenses: d.expenses, yearPenalty: 0 },
+      ];
+
+      if (selectedYear !== currentYear) {
+        sources.push({ year: currentYear, expenses: d.currentYearExpenses, yearPenalty: 2 });
+      }
+
+      sources.forEach((src) => {
+        const m = pickNearestMonthWithExpenses(src.expenses, selectedMonth);
+        if (!m) return;
+        const idx = monthIndex(m);
+        const diff = idx - selectedIdx;
+        const futurePenalty = diff >= 0 ? 0 : 1;
+        const monthDistance = Math.abs(diff);
+        const kindLabel = kindDisplayLabel(kind);
+        const monthLabel = formatMonthKeyShortLabel(m);
+        candidates.push({
+          target: {
+            year: src.year,
+            month: m,
+            tabKey: kind,
+            label: `View ${kindLabel} ${monthLabel} Expenses ${src.year}`,
+          },
+          yearPenalty: src.yearPenalty,
+          kindPenalty,
+          monthDistance,
+          futurePenalty,
+        });
+      });
+    });
+
+    candidates.sort((a, b) => {
+      if (a.yearPenalty !== b.yearPenalty) return a.yearPenalty - b.yearPenalty;
+      if (a.kindPenalty !== b.kindPenalty) return a.kindPenalty - b.kindPenalty;
+      if (a.futurePenalty !== b.futurePenalty) return a.futurePenalty - b.futurePenalty;
+      return a.monthDistance - b.monthDistance;
+    });
+
+    return candidates[0]?.target ?? null;
+  }, [allPlansData, kindPlanCounts, resolvedActiveTab, selectedMonth, selectedYear]);
   
   return (
     <div className="min-h-screen pb-20 app-theme-bg">
@@ -212,7 +319,7 @@ export default function ExpensesPageClient({
                       : "bg-slate-900/60 text-slate-300 hover:bg-slate-900/80 hover:shadow-md"
                   } ${isNavigating ? "opacity-70 cursor-not-allowed" : ""}`}
                 >
-				  {formatMonthKeyLabel(month as MonthKey).slice(0, 3)}
+				  {formatMonthKeyShortLabel(month as MonthKey)}
                 </button>
               ))}
             </div>
@@ -296,6 +403,35 @@ export default function ExpensesPageClient({
               allPlans={allPlansData.map(d => ({ id: d.plan.id, name: d.plan.name, kind: d.plan.kind }))}
               allCategoriesByPlan={allCategoriesByPlan}
               payDate={planData.plan.payDate}
+			  hasAnyIncome={hasAnyIncome}
+        emptyExpensesJumpTarget={(() => {
+        const selectedMonthExpenses = planData.expenses[selectedMonth] ?? [];
+        if (selectedMonthExpenses.length > 0) return null;
+        const kind = String(planData.plan.kind ?? "").toLowerCase();
+        const includePlanName = (kindPlanCounts[kind] ?? 0) > 1;
+        const planSuffix = includePlanName ? ` (${planData.plan.name})` : "";
+
+        const m = pickNearestMonthWithExpenses(planData.expenses, selectedMonth);
+        if (m) {
+          const kindLabel = kindDisplayLabel(kind);
+          const monthLabel = formatMonthKeyShortLabel(m);
+          return {
+            year: selectedYear,
+            month: m,
+            tabKey: kind,
+            label: `View ${kindLabel} ${monthLabel} Expenses ${selectedYear}`,
+          } satisfies EmptyExpensesJumpTarget;
+        }
+
+        return globalEmptyJumpTarget;
+      })()}
+        onJumpToEmptyExpensesTarget={(target) => {
+        const nextTab = (target.tabKey ?? "") as TabKey;
+        if (nextTab === "personal" || nextTab === "holiday" || nextTab === "carnival") {
+          setActiveTab(nextTab);
+        }
+        pushPeriod(target.month, target.year);
+        }}
             />
           </div>
         ))}

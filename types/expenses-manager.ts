@@ -15,6 +15,13 @@ export type ExpenseBudgetPlanOption = {
 	kind: string;
 };
 
+export type EmptyExpensesJumpTarget = {
+	year: number;
+	month: MonthKey;
+	tabKey?: string;
+	label: string;
+};
+
 export type ExpenseManagerProps = {
 	budgetPlanId: string;
 	budgetHorizonYears?: number;
@@ -27,6 +34,9 @@ export type ExpenseManagerProps = {
 	allPlans?: ExpenseBudgetPlanOption[];
 	allCategoriesByPlan?: Record<string, ExpenseCategoryOption[]>;
 	payDate: number;
+	hasAnyIncome?: boolean;
+	emptyExpensesJumpTarget?: EmptyExpensesJumpTarget | null;
+	onJumpToEmptyExpensesTarget?: (target: EmptyExpensesJumpTarget) => void;
 };
 
 export type DeleteExpenseScopeOptions = {

@@ -24,7 +24,15 @@ This app uses NextAuth and requires a secret in production.
 - `NEXTAUTH_URL`
 - `NEXTAUTH_SECRET`
 
+For PWA push notifications (web push):
+
+- `VAPID_PUBLIC_KEY`
+- `VAPID_PRIVATE_KEY`
+- `VAPID_SUBJECT` (e.g. `mailto:you@domain.com`)
+
 On Vercel: add these under Project → Settings → Environment Variables, then redeploy.
+
+Note: the service worker is disabled in development (`next.config.ts`), so push notifications only work in production builds over HTTPS.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 

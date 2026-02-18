@@ -61,8 +61,23 @@ export function tryMonthNumberFromKey(value: string): number | null {
 
 export function formatMonthKeyLabel(month: MonthKey): string {
 	const trimmed = String(month).trim();
-	if (trimmed === "FEBURARY") return "FEBRUARY";
-	return trimmed;
+	if (trimmed === "FEBURARY") return "February";
+	if (trimmed === "JANUARY") return "January";
+	if (trimmed === "MARCH") return "March";
+	if (trimmed === "APRIL") return "April";
+	if (trimmed === "MAY") return "May";
+	if (trimmed === "JUNE") return "June";
+	if (trimmed === "JULY") return "July";
+	if (trimmed === "AUGUST") return "August";
+	if (trimmed === "SEPTEMBER") return "September";
+	if (trimmed === "OCTOBER") return "October";
+	if (trimmed === "NOVEMBER") return "November";
+	if (trimmed === "DECEMBER") return "December";
+	return trimmed ? trimmed[0] + trimmed.slice(1).toLowerCase() : trimmed;
+}
+
+export function formatMonthKeyShortLabel(month: MonthKey): string {
+	return formatMonthKeyLabel(month).slice(0, 3);
 }
 
 export function currentMonthKey(date: Date = new Date()): MonthKey {

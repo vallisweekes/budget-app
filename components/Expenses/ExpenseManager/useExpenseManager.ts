@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { usePathname } from "next/navigation";
 import type { ExpenseManagerProps } from "@/types/expenses-manager";
 import type { ExpenseManagerActions } from "@/types/expense-manager-actions";
+import { buildScopedPageHref } from "@/lib/helpers/scopedPageHref";
 import { useExpenseManagerFilters } from "@/components/Expenses/ExpenseManager/useExpenseManagerFilters";
 import { useExpenseManagerMutations } from "@/components/Expenses/ExpenseManager/useExpenseManagerMutations";
 
@@ -23,10 +24,7 @@ export function useExpenseManager(
 	const isPeriodLoading = Boolean(loading);
 
 	const incomeHref = useMemo(() => {
-		if (!pathname) return "/admin/income";
-		const idx = pathname.lastIndexOf("/page=");
-		if (idx >= 0) return `${pathname.slice(0, idx)}/page=income`;
-		return "/admin/income";
+		return buildScopedPageHref(pathname, "income");
 	}, [pathname]);
 
 	const mutations = useExpenseManagerMutations({

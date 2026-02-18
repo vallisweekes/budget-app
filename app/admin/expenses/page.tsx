@@ -8,6 +8,7 @@ import { getDefaultBudgetPlanForUser, resolveUserId, listBudgetPlansForUser } fr
 import { ensureDefaultCategoriesForBudgetPlan } from "@/lib/categories/defaultCategories";
 import type { MonthKey } from "@/types";
 import { currentMonthKey, normalizeMonthKey } from "@/lib/helpers/monthKey";
+import { getIncomeMonthsCoverageByPlan } from "@/lib/helpers/dashboard/getIncomeMonthsCoverageByPlan";
 
 export const dynamic = "force-dynamic";
 
@@ -62,6 +63,14 @@ export default async function AdminExpensesPage({
 
   // Fetch all plans for this user
   const allPlans = await listBudgetPlansForUser({ userId, username });
+  const planIds = allPlans.map((p) => p.id);
+  const incomeCoverageSelectedYear = await getIncomeMonthsCoverageByPlan({ planIds, year: selectedYear });
+  const incomeCoverageCurrentYear = selectedYear === currentYear
+    ? incomeCoverageSelectedYear
+    : await getIncomeMonthsCoverageByPlan({ planIds, year: currentYear });
+  const hasAnyIncome =
+    Object.values(incomeCoverageSelectedYear).some((n) => (n ?? 0) > 0) ||
+    Object.values(incomeCoverageCurrentYear).some((n) => (n ?? 0) > 0);
   
   // Fetch expenses and categories for all plans
   const allPlansData = await Promise.all(
@@ -98,6 +107,7 @@ export default async function AdminExpensesPage({
       allPlansData={allPlansData}
       initialYear={selectedYear}
       initialMonth={selectedMonth}
+		hasAnyIncome={hasAnyIncome}
     />
   );
 }
