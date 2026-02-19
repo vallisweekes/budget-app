@@ -31,6 +31,12 @@ export default function DebtCardAmountsGrid(props: {
 		isPending,
 	} = props;
 
+	const showAvailableToSpend =
+		(debt.type === "credit_card" || debt.type === "store_card") &&
+		Boolean(debt.creditLimit && debt.creditLimit > 0);
+	const creditLimit = showAvailableToSpend ? (debt.creditLimit as number) : 0;
+	const availableToSpend = showAvailableToSpend ? Math.max(0, creditLimit - debt.currentBalance) : 0;
+
 	return (
 		<div className="grid grid-cols-2 md:grid-cols-5 gap-2 sm:gap-4 mb-3 sm:mb-4">
 			<div>
@@ -38,16 +44,18 @@ export default function DebtCardAmountsGrid(props: {
 				<div className="text-lg sm:text-xl font-bold text-red-400">
 					<Currency value={debt.currentBalance} />
 				</div>
+				{showAvailableToSpend ? (
+					<div className="text-[10px] sm:text-xs text-slate-500 mt-0.5">
+						Available to spend: <span className="text-slate-300">{formatCurrency(availableToSpend)}</span>
+					</div>
+				) : null}
 			</div>
 
-			{(debt.type === "credit_card" || debt.type === "store_card") && debt.creditLimit && debt.creditLimit > 0 ? (
+			{showAvailableToSpend ? (
 				<div>
 					<div className="text-[10px] sm:text-xs text-slate-400 mb-0.5 sm:mb-1">Credit Limit</div>
 					<div className="text-base sm:text-lg font-semibold text-slate-300">
-						<Currency value={debt.creditLimit} />
-					</div>
-					<div className="text-[10px] sm:text-xs text-slate-500 mt-0.5">
-						Avail: <span className="text-slate-300">{formatCurrency(Math.max(0, debt.creditLimit - debt.currentBalance))}</span>
+						<Currency value={creditLimit} />
 					</div>
 				</div>
 			) : null}

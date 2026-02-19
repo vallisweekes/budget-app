@@ -1,4 +1,5 @@
 import type { DebtCardDebt } from "@/types/components/debts";
+import { cleanExpenseDebtBaseName } from "@/lib/helpers/debts/expenseDebtLabels";
 
 export type DebtSortOption = "default" | "name" | "amount";
 
@@ -41,8 +42,9 @@ export function buildDebtListItems(debts: DebtCardDebt[], sortBy: DebtSortOption
 
 		const baseName = (debt.sourceExpenseName ?? "").trim() || debt.name;
 		const categoryName = (debt.sourceCategoryName ?? "").trim();
-		const title = categoryName ? `${categoryName}: ${baseName}` : baseName;
-		const key = `${categoryName.toLowerCase()}|${baseName.toLowerCase()}`;
+		const cleanBaseName = cleanExpenseDebtBaseName(baseName, categoryName);
+		const title = cleanBaseName;
+		const key = `${categoryName.toLowerCase()}|${cleanBaseName.toLowerCase()}`;
 
 		const existing = groups.get(key);
 		if (existing) {

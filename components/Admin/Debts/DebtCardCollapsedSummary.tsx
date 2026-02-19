@@ -10,6 +10,11 @@ function Currency({ value }: { value: number }) {
 export default function DebtCardCollapsedSummary(props: { debt: DebtCardDebt; percentPaid: number }) {
 	const { debt, percentPaid } = props;
 
+	const showAvailableToSpend =
+		(debt.type === "credit_card" || debt.type === "store_card") &&
+		Boolean(debt.creditLimit && debt.creditLimit > 0);
+	const availableToSpend = showAvailableToSpend ? Math.max(0, (debt.creditLimit as number) - debt.currentBalance) : 0;
+
 	return (
 		<div className="grid grid-cols-2 gap-2 sm:gap-3">
 			<div>
@@ -17,6 +22,11 @@ export default function DebtCardCollapsedSummary(props: { debt: DebtCardDebt; pe
 				<div className="text-sm sm:text-base font-bold text-red-400">
 					<Currency value={debt.currentBalance} />
 				</div>
+				{showAvailableToSpend ? (
+					<div className="text-[10px] sm:text-xs text-slate-500 mt-0.5">
+						Available to spend: <span className="text-slate-300">{formatCurrency(availableToSpend)}</span>
+					</div>
+				) : null}
 			</div>
 			<div className="bg-amber-500/10 rounded-lg p-2 border border-amber-500/20">
 				<div className="text-[10px] sm:text-xs text-amber-300 mb-0.5">Due This Month</div>

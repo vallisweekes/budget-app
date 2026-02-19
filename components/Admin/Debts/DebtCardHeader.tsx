@@ -4,6 +4,7 @@ import { Check, Pencil, X } from "lucide-react";
 import type { ComponentType } from "react";
 import DeleteDebtButton from "./DeleteDebtButton";
 import type { DebtCardDebt } from "@/types/components/debts";
+import { cleanExpenseDebtBaseName, formatExpenseDebtCardTitle, formatYearMonthLabel } from "@/lib/helpers/debts/expenseDebtLabels";
 
 export default function DebtCardHeader(props: {
 	debt: DebtCardDebt;
@@ -62,7 +63,9 @@ export default function DebtCardHeader(props: {
 				) : (
 					<div className="flex-1 min-w-0">
 						<div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-							<h3 className="text-sm sm:text-base font-bold text-white truncate">{debt.name}</h3>
+							<h3 className="text-sm sm:text-base font-bold text-white truncate">
+								{debt.sourceType === "expense" ? formatExpenseDebtCardTitle(debt) : debt.name}
+							</h3>
 							{debt.sourceType === "expense" && (
 								<span className="px-1.5 py-0.5 bg-amber-500/20 border border-amber-500/30 rounded text-[10px] font-semibold text-amber-400 shrink-0">
 									From Expense
@@ -70,11 +73,16 @@ export default function DebtCardHeader(props: {
 							)}
 						</div>
 						<p className="text-[10px] sm:text-xs text-slate-400 truncate">
-							{debt.sourceType === "expense" && debt.sourceExpenseName
-								? `${debt.sourceCategoryName || ""} → ${debt.sourceExpenseName}${
-									debt.sourceMonthKey ? ` (${debt.sourceMonthKey})` : ""
-								}`
-								: typeLabels[debt.type as keyof typeof typeLabels]}
+							{debt.sourceType === "expense" ? (
+								(() => {
+									const category = String(debt.sourceCategoryName ?? "").trim();
+									const monthLabel = formatYearMonthLabel(debt.sourceMonthKey);
+									const left = category || "Expense";
+									return monthLabel ? `${left} · ${monthLabel}` : left;
+								})()
+							) : (
+								typeLabels[debt.type as keyof typeof typeLabels]
+							)}
 						</p>
 					</div>
 				)}
