@@ -100,8 +100,8 @@ export default function MobileBottomNav() {
 	];
 
 	return (
-		<nav className="lg:hidden fixed bottom-4 left-4 right-4 z-30 flex justify-center pointer-events-none">
-			<div className="pointer-events-auto w-[min(420px,calc(100vw-2rem))] bg-slate-900/30 backdrop-blur-2xl border border-white/20 rounded-full shadow-2xl px-3 sm:px-4 pt-2.5 sm:pt-3 pb-[calc(0.625rem+env(safe-area-inset-bottom))] sm:pb-[calc(0.75rem+env(safe-area-inset-bottom))] ring-1 ring-white/5">
+		<nav className="lg:hidden fixed bottom-2 left-4 right-4 z-30 flex justify-center pointer-events-none">
+			<div className="pointer-events-auto w-[min(360px,calc(100vw-3rem))] bg-slate-900/30 backdrop-blur-2xl border border-white/20 rounded-full shadow-2xl px-3 sm:px-4 pt-1.5 sm:pt-2 pb-[calc(0.375rem+env(safe-area-inset-bottom))] sm:pb-[calc(0.5rem+env(safe-area-inset-bottom))] ring-1 ring-white/5">
 				<div className="flex w-full items-center justify-between">
 					{navItems.map((item) => {
 						const active = activePage === item.key;
@@ -115,7 +115,7 @@ export default function MobileBottomNav() {
 								}`}
 							>
 								<div
-									className={`flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-full transition-all duration-300 relative overflow-hidden ${
+									className={`flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-full transition-all duration-300 relative overflow-hidden ${
 										active
 											? "bg-blue-500/30 border border-blue-400/40 shadow-lg shadow-blue-500/20 scale-105"
 											: "hover:bg-white/10 hover:scale-105 active:scale-95"
@@ -135,7 +135,7 @@ export default function MobileBottomNav() {
 										</span>
 									) : (
 										<item.icon
-											size={18}
+											size={17}
 											strokeWidth={active ? 2.5 : 2}
 											className={`relative z-10 transition-transform duration-300 ${
 												active ? "text-white" : "text-slate-300 group-hover:text-white"
