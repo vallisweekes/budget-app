@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { formatCurrency } from "@/lib/helpers/money";
 
 function Currency({ value }: { value: number }) {
@@ -8,8 +9,7 @@ function Currency({ value }: { value: number }) {
 
 export default function DebtCardEditDetails(props: {
 	debtType: string;
-	editCreditLimit: string;
-	onEditCreditLimitChange: (next: string) => void;
+	creditLimit: string;
 	editInitialBalance: string;
 	editCurrentBalance: string;
 	editDueAmount: string;
@@ -32,8 +32,7 @@ export default function DebtCardEditDetails(props: {
 }) {
 	const {
 		debtType,
-		editCreditLimit,
-		onEditCreditLimitChange,
+		creditLimit,
 		editInitialBalance,
 		editCurrentBalance,
 		editDueAmount,
@@ -121,12 +120,19 @@ export default function DebtCardEditDetails(props: {
 						type="number"
 						step="0.01"
 						min={0}
-						required
-						value={editCreditLimit}
-						onChange={(e) => onEditCreditLimitChange(e.target.value)}
-						className="w-full px-2 py-1.5 sm:px-3 sm:py-2 bg-slate-900/40 border border-white/10 text-white placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-xs sm:text-sm"
+						value={creditLimit}
+						disabled
+						readOnly
+						className="w-full px-2 py-1.5 sm:px-3 sm:py-2 bg-slate-900/30 border border-white/10 text-slate-300 placeholder-slate-600 rounded-lg opacity-80 cursor-not-allowed text-xs sm:text-sm"
 						placeholder="e.g. 1200.00"
 					/>
+					<div className="mt-1 text-[10px] sm:text-xs text-slate-500">
+						Credit limits are read-only here. Edit in{" "}
+						<Link href="/admin/settings" className="text-purple-300 hover:text-purple-200 underline underline-offset-2">
+							Settings → Savings and Cards
+						</Link>
+						.
+					</div>
 				</div>
 			) : null}
 

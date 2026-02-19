@@ -119,9 +119,6 @@ export async function updateDebtAction(id: string, formData: FormData) {
 	const initialBalance = formData.get("initialBalance") ? parseFloat(formData.get("initialBalance") as string) : undefined;
 	const currentBalance = parseFloat(formData.get("currentBalance") as string);
 	const amount = formData.get("amount") ? parseFloat(formData.get("amount") as string) : undefined;
-	const creditLimitRaw = formData.get("creditLimit");
-	const hasCreditLimitValue = creditLimitRaw != null && String(creditLimitRaw).trim() !== "";
-	const creditLimit = hasCreditLimitValue ? parseFloat(String(creditLimitRaw)) : undefined;
 	const monthlyMinimum = formData.get("monthlyMinimum") ? parseFloat(formData.get("monthlyMinimum") as string) : undefined;
 	const interestRate = formData.get("interestRate") ? parseFloat(formData.get("interestRate") as string) : undefined;
 	const installmentMonthsRaw = formData.get("installmentMonths") as string | null;
@@ -139,15 +136,6 @@ export async function updateDebtAction(id: string, formData: FormData) {
 
 	if (defaultPaymentSource === "credit_card" && !defaultPaymentCardDebtId) {
 		throw new Error("Default card is required when payment source is credit card");
-	}
-
-	if ((existing.type === "credit_card" || (existing.type as any) === "store_card") && hasCreditLimitValue) {
-		// Only validate when a non-empty value is provided.
-		// This prevents partial edit flows (or older cached PWA bundles) from crashing the app
-		// by submitting an empty creditLimit.
-		if (creditLimit == null || !Number.isFinite(creditLimit) || creditLimit <= 0) {
-			throw new Error("Credit limit must be a positive number");
-		}
 	}
 
 	if (existing.sourceType === "expense" && existing.sourceExpenseId) {
@@ -189,7 +177,6 @@ export async function updateDebtAction(id: string, formData: FormData) {
 					: defaultPaymentSource === "credit_card"
 						? defaultPaymentCardDebtId
 						: (null as any),
-			creditLimit: hasCreditLimitValue ? creditLimit : undefined,
 			initialBalance: nextExpenseAmount,
 			currentBalance,
 			paid: nextPaid,
@@ -210,7 +197,6 @@ export async function updateDebtAction(id: string, formData: FormData) {
 					: defaultPaymentSource === "credit_card"
 						? defaultPaymentCardDebtId
 						: (null as any),
-			creditLimit: hasCreditLimitValue ? creditLimit : undefined,
 			initialBalance,
 			currentBalance,
 			amount,

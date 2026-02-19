@@ -29,7 +29,6 @@ export function useDebtCard(params: { debt: DebtCardDebt; budgetPlanId: string; 
 	);
 
 	const [editName, setEditName] = useState(debt.name);
-	const [editCreditLimit, setEditCreditLimit] = useState(debt.creditLimit ? String(debt.creditLimit) : "");
 	const [editDueDay, setEditDueDay] = useState(debt.dueDay ? String(debt.dueDay) : "");
 	const [editDefaultPaymentSource, setEditDefaultPaymentSource] = useState(debt.defaultPaymentSource ?? "income");
 	const [editDefaultPaymentCardDebtId, setEditDefaultPaymentCardDebtId] = useState(debt.defaultPaymentCardDebtId ?? "");
@@ -60,7 +59,6 @@ export function useDebtCard(params: { debt: DebtCardDebt; budgetPlanId: string; 
 
 	const handleEdit = () => {
 		setEditName(debt.name);
-		setEditCreditLimit(debt.creditLimit ? String(debt.creditLimit) : "");
 		setEditDueDay(debt.dueDay ? String(debt.dueDay) : "");
 		setEditDefaultPaymentSource(debt.defaultPaymentSource ?? "income");
 		setEditDefaultPaymentCardDebtId(debt.defaultPaymentCardDebtId ?? "");
@@ -87,7 +85,6 @@ export function useDebtCard(params: { debt: DebtCardDebt; budgetPlanId: string; 
 			dueDay: editDueDay,
 			defaultPaymentSource: editDefaultPaymentSource,
 			defaultPaymentCardDebtId: editDefaultPaymentCardDebtId,
-			creditLimit: debt.type === "credit_card" || debt.type === "store_card" ? editCreditLimit : "",
 			initialBalance: editInitialBalance,
 			currentBalance: editCurrentBalance,
 			amount: editDueAmount,
@@ -114,12 +111,6 @@ export function useDebtCard(params: { debt: DebtCardDebt; budgetPlanId: string; 
 			dueDay: debt.dueDay ? String(debt.dueDay) : "",
 			defaultPaymentSource: debt.defaultPaymentSource ?? "income",
 			defaultPaymentCardDebtId: debt.defaultPaymentCardDebtId ?? "",
-			creditLimit:
-				debt.type === "credit_card" || debt.type === "store_card"
-					? debt.creditLimit
-						? String(debt.creditLimit)
-						: ""
-					: "",
 			initialBalance: String(debt.initialBalance),
 			currentBalance: String(debt.currentBalance),
 			amount: tempDueAmount,
@@ -168,8 +159,6 @@ export function useDebtCard(params: { debt: DebtCardDebt; budgetPlanId: string; 
 
 		editName,
 		setEditName,
-		editCreditLimit,
-		setEditCreditLimit,
 		editDueDay,
 		setEditDueDay,
 		editDefaultPaymentSource,
