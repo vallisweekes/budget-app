@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { ensureDefaultCategoriesForBudgetPlan } from "@/lib/categories/defaultCategories";
 import { normalizeUsername } from "@/lib/helpers/username";
+import { isValidEmail, normalizeEmail } from "@/lib/helpers/email";
 
 export const SUPPORTED_BUDGET_TYPES = ["personal", "holiday", "carnival"] as const;
 export type SupportedBudgetType = (typeof SUPPORTED_BUDGET_TYPES)[number];
@@ -57,13 +58,11 @@ export async function getUserByUsername(username: string) {
 
 export async function registerUserByUsername(params: { username: string; email: string }) {
 	const username = normalizeUsername(params.username);
-	const email = String(params.email ?? "")
-		.trim()
-		.toLowerCase();
+	const email = normalizeEmail(params.email);
 
 	if (!username) throw new Error("Username is required");
 	if (!email) throw new Error("Email is required");
-	if (!email.includes("@")) throw new Error("Invalid email");
+	if (!isValidEmail(email)) throw new Error("Invalid email address");
 
 	const existingByEmail = await prisma.user.findUnique({ where: { email }, select: { id: true, name: true } });
 	if (existingByEmail && existingByEmail.name !== username) {

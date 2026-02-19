@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { signIn } from "next-auth/react";
 import { Card } from "@/components/Shared";
 import { useRouter } from "next/navigation";
+import { isValidEmail, normalizeEmail } from "@/lib/helpers/email";
 
 type AuthMode = "login" | "register";
 
@@ -55,12 +56,12 @@ export default function LoginForm({
 					if (!normalizedUsername) return;
 					setError("");
 					if (mode === "register") {
-						const e1 = email.trim().toLowerCase();
+						const e1 = normalizeEmail(email);
 						if (!e1) {
 							setError("Email is required to register.");
 							return;
 						}
-						if (!e1.includes("@")) {
+						if (!isValidEmail(e1)) {
 							setError("Please enter a valid email address.");
 							return;
 						}
@@ -85,7 +86,7 @@ export default function LoginForm({
 					const result = await signIn("credentials", {
 						redirect: false,
 						username: normalizedUsername,
-						email: mode === "register" ? email.trim().toLowerCase() : "",
+						email: mode === "register" ? normalizeEmail(email) : "",
 						mode,
 						callbackUrl: "/",
 					});
@@ -124,6 +125,7 @@ export default function LoginForm({
 							onChange={(e) => setEmail(e.target.value)}
 							type="email"
 							placeholder="Enter your email"
+							required
 							className="mt-1 w-full rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 text-white outline-none focus:ring-2 focus:ring-blue-500"
 							autoComplete="email"
 						/>

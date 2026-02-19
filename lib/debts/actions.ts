@@ -95,6 +95,15 @@ export async function createDebt(formData: FormData) {
 	revalidatePath("/");
 }
 
+// Cards must be created via Settings so credit limits stay centralized.
+export async function createNonCardDebtAction(formData: FormData) {
+	const type = formData.get("type") as DebtType;
+	if (type === "credit_card" || (type as any) === "store_card") {
+		throw new Error("Cards must be added in Settings → Savings and Cards.");
+	}
+	return createDebt(formData);
+}
+
 export async function updateDebtAction(id: string, formData: FormData) {
 	const budgetPlanId = requireBudgetPlanId(formData);
 	const { userId } = await requireAuthenticatedUser();

@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { Plus, X } from "lucide-react";
 import { SelectDropdown } from "@/components/Shared";
-import { createDebt } from "@/lib/debts/actions";
+import Link from "next/link";
+import { createNonCardDebtAction } from "@/lib/debts/actions";
 import { formatCurrency } from "@/lib/helpers/money";
 
 interface AddDebtFormProps {
@@ -18,8 +19,7 @@ function Currency({ value }: { value: number }) {
 
 export default function AddDebtForm({ budgetPlanId, payDate, creditCards }: AddDebtFormProps) {
 	const [isOpen, setIsOpen] = useState(false);
-	const [type, setType] = useState("credit_card");
-	const [creditLimit, setCreditLimit] = useState("");
+	const [type, setType] = useState("loan");
 	const [initialBalance, setInitialBalance] = useState("");
 	const [installmentMonths, setInstallmentMonths] = useState("");
 	const [dueDay, setDueDay] = useState(String(payDate ?? ""));
@@ -27,10 +27,9 @@ export default function AddDebtForm({ budgetPlanId, payDate, creditCards }: AddD
 	const [defaultPaymentCardDebtId, setDefaultPaymentCardDebtId] = useState("");
 
 	const handleSubmit = async (formData: FormData) => {
-		await createDebt(formData);
+		await createNonCardDebtAction(formData);
 		setIsOpen(false);
-		setType("credit_card");
-		setCreditLimit("");
+		setType("loan");
 		setInitialBalance("");
 		setInstallmentMonths("");
 		setDueDay(String(payDate ?? ""));
@@ -64,6 +63,13 @@ export default function AddDebtForm({ budgetPlanId, payDate, creditCards }: AddD
 			</div>
 			<form action={handleSubmit} className="space-y-3 sm:space-y-4">
 				<input type="hidden" name="budgetPlanId" value={budgetPlanId} />
+				<div className="text-xs sm:text-sm text-slate-400">
+					Need to add a card? Do it in{" "}
+					<Link href="/admin/settings" className="text-purple-300 hover:text-purple-200 underline underline-offset-2">
+						Settings → Savings and Cards
+					</Link>
+					.
+				</div>
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
 					<div>
 						<label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1 sm:mb-2">Name</label>
@@ -81,16 +87,12 @@ export default function AddDebtForm({ budgetPlanId, payDate, creditCards }: AddD
 							name="type"
 							required
 							value={type}
-							onValueChange={(next) => {
-								setType(next);
-								if (next !== "credit_card" && next !== "store_card") setCreditLimit("");
-							}}
+							onValueChange={setType}
 							options={[
-								{ value: "credit_card", label: "Credit Card" },
-								{ value: "store_card", label: "Store Card" },
 								{ value: "loan", label: "Loan" },
 								{ value: "mortgage", label: "Mortgage" },
 								{ value: "high_purchase", label: "High Purchase" },
+								{ value: "other", label: "Other" },
 							]}
 							buttonClassName="rounded-lg px-4 py-2 focus:ring-purple-500"
 						/>
@@ -144,24 +146,7 @@ export default function AddDebtForm({ budgetPlanId, payDate, creditCards }: AddD
 					) : (
 						<input type="hidden" name="defaultPaymentCardDebtId" value="" />
 					)}
-					{type === "credit_card" || type === "store_card" ? (
-						<div>
-							<label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1 sm:mb-2">Credit Limit</label>
-							<input
-								type="number"
-								name="creditLimit"
-								step="0.01"
-								min={0}
-								required
-								placeholder="1200.00"
-								value={creditLimit}
-								onChange={(e) => setCreditLimit(e.target.value)}
-								className="w-full px-3 py-1.5 sm:px-4 sm:py-2 bg-slate-900/40 border border-white/10 text-white placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-xs sm:text-sm"
-							/>
-						</div>
-					) : (
-						<input type="hidden" name="creditLimit" value="" />
-					)}
+					<input type="hidden" name="creditLimit" value="" />
 					<div>
 						<label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1 sm:mb-2">Initial Balance</label>
 						<input
