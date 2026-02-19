@@ -100,7 +100,7 @@ export default function MobileBottomNav() {
 	];
 
 	return (
-		<nav className="lg:hidden fixed bottom-[calc(env(safe-area-inset-bottom)+0.5rem)] left-4 right-4 z-30 flex justify-center pointer-events-none">
+		<nav className="lg:hidden fixed bottom-[calc(env(safe-area-inset-bottom)+0.375rem)] left-4 right-4 z-30 flex justify-center pointer-events-none">
 			<div className="pointer-events-auto w-[min(360px,calc(100vw-3rem))] bg-slate-900/30 backdrop-blur-2xl border border-white/20 rounded-full shadow-2xl px-3 sm:px-4 pt-2 pb-2 ring-1 ring-white/5">
 				<div className="flex w-full items-center justify-between">
 					{navItems.map((item) => {
