@@ -110,16 +110,16 @@ export default function ExpenseManagerView({
 			/>
 
 			{showAddForm && !isPeriodLoading ? (
-				<div className="fixed inset-0 z-50">
+				<div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 py-6 overscroll-contain">
 					<button
 						type="button"
-						className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+						className="fixed inset-0 bg-black/60 backdrop-blur-sm"
 						onClick={() => {
 							if (!isPending) setShowAddForm(false);
 						}}
 						aria-label="Close add expense"
 					/>
-					<div className="relative mx-auto mt-10 w-[calc(100%-2rem)] max-w-2xl">
+					<div className="relative z-10 my-auto w-full max-w-2xl max-h-[calc(100dvh-2rem)] overflow-y-auto">
 						<div className="relative">
 							<button
 								type="button"

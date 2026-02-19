@@ -83,10 +83,10 @@ export default function ConfirmModal({
 			: "bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-400 hover:to-indigo-500";
 
 	return (
-		<div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+		<div className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto p-4 py-6 overscroll-contain">
 			<button
 				type="button"
-				className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
+				className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm"
 				onClick={() => {
 					if (!isBusy) onClose();
 				}}
@@ -98,7 +98,7 @@ export default function ConfirmModal({
 				aria-modal="true"
 				aria-labelledby={titleId}
 				aria-describedby={description ? descriptionId : undefined}
-				className="relative w-full max-w-md rounded-3xl border border-white/10 bg-slate-800/50 backdrop-blur-xl shadow-2xl"
+				className="relative z-10 my-auto w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-3xl border border-white/10 bg-slate-800/50 backdrop-blur-xl shadow-2xl"
 			>
 				<div className="p-6">
 					<h2 id={titleId} className="text-xl font-bold text-white">

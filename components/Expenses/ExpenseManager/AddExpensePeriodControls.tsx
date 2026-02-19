@@ -47,9 +47,9 @@ export default function AddExpensePeriodControls({
 
 	return (
 		<>
-			<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+			<div className="grid grid-cols-2 gap-6">
 				{allPlans && allPlans.length > 1 ? (
-					<label className="block md:col-span-2">
+					<label className="block col-span-2">
 						<span className="text-sm font-medium text-slate-300 mb-2 block">Budget Plan</span>
 						<SelectDropdown
 							name="_budgetPlanSelect"
@@ -64,7 +64,7 @@ export default function AddExpensePeriodControls({
 					</label>
 				) : null}
 
-				<label className="block md:col-span-1">
+				<label className="block col-span-1">
 					<span className="text-sm font-medium text-slate-300 mb-2 block">Month</span>
 					<SelectDropdown
 						name="_monthSelect"
@@ -75,7 +75,7 @@ export default function AddExpensePeriodControls({
 					/>
 				</label>
 
-				<label className="block">
+				<label className="block col-span-1">
 					<span className="text-sm font-medium text-slate-300 mb-2 block">Year</span>
 					<SelectDropdown
 						name="_yearSelect"

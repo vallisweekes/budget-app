@@ -11,8 +11,9 @@ type Props = {
 export default function AddExpenseDetailsFields({ categories, planKind }: Props) {
 	return (
 		<>
-			<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-				<label className="block">
+			<div className="space-y-6">
+				<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+					<label className="block">
 					<span className="text-sm font-medium text-slate-300 mb-2 block">Expense Name</span>
 					<input
 						name="name"
@@ -20,9 +21,9 @@ export default function AddExpenseDetailsFields({ categories, planKind }: Props)
 						className="w-full px-4 py-3 rounded-xl border border-white/10 bg-slate-900/40 text-white placeholder-slate-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/50 focus:outline-none transition-all"
 						placeholder="e.g., Monthly Rent"
 					/>
-				</label>
+					</label>
 
-				<label className="block">
+					<label className="block">
 					<span className="text-sm font-medium text-slate-300 mb-2 block">Amount (£)</span>
 					<input
 						name="amount"
@@ -32,9 +33,11 @@ export default function AddExpenseDetailsFields({ categories, planKind }: Props)
 						className="w-full px-4 py-3 rounded-xl border border-white/10 bg-slate-900/40 text-white placeholder-slate-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/50 focus:outline-none transition-all"
 						placeholder="0.00"
 					/>
-				</label>
+					</label>
+				</div>
 
-				<label className="block">
+				<div className="grid grid-cols-2 gap-6">
+					<label className="block">
 					<span className="text-sm font-medium text-slate-300 mb-2 block">Category</span>
 					<SelectDropdown
 						name="categoryId"
@@ -45,9 +48,9 @@ export default function AddExpenseDetailsFields({ categories, planKind }: Props)
 						]}
 						buttonClassName="focus:ring-purple-500/50"
 					/>
-				</label>
+					</label>
 
-				<label className="block">
+					<label className="block">
 					<span className="text-sm font-medium text-slate-300 mb-2 block">Payment Status</span>
 					<SelectDropdown
 						name="paid"
@@ -58,7 +61,8 @@ export default function AddExpenseDetailsFields({ categories, planKind }: Props)
 						]}
 						buttonClassName="focus:ring-purple-500/50"
 					/>
-				</label>
+					</label>
+				</div>
 
 				{planKind && planKind !== "personal" ? (
 					<label className="block">

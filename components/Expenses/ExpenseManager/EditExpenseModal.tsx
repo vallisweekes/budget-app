@@ -57,10 +57,10 @@ export default function EditExpenseModal({
 	if (!open || !expense) return null;
 
 	return (
-		<div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+		<div className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto p-4 py-6 overscroll-contain">
 			<button
 				type="button"
-				className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
+				className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm"
 				onClick={() => {
 					if (!isBusy) onClose();
 				}}
@@ -70,7 +70,7 @@ export default function EditExpenseModal({
 			<div
 				role="dialog"
 				aria-modal="true"
-				className="relative w-full max-w-xl rounded-3xl border border-white/10 bg-slate-800/50 backdrop-blur-xl shadow-2xl"
+				className="relative z-10 my-auto w-full max-w-xl max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-3xl border border-white/10 bg-slate-800/50 backdrop-blur-xl shadow-2xl"
 			>
 				<div className="p-6">
 					<div className="flex items-start justify-between gap-4">
