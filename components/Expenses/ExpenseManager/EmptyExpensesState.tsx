@@ -51,7 +51,7 @@ export default function EmptyExpensesState({
 					<button
 						type="button"
 						onClick={onAddClick}
-						className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all"
+						className="inline-flex items-center gap-2 px-6 py-3 bg-[var(--cta)] hover:bg-[var(--cta-hover)] active:bg-[var(--cta-active)] text-white rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all"
 					>
 						<Plus size={20} />
 						Add Expense for {monthLabel}
@@ -66,7 +66,7 @@ export default function EmptyExpensesState({
 							<p className="text-slate-300 mb-4">Start by adding your income to get a complete budget overview</p>
 							<Link
 								href={incomeHref}
-								className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all"
+								className="inline-flex items-center gap-2 px-6 py-3 bg-[var(--cta)] hover:bg-[var(--cta-hover)] active:bg-[var(--cta-active)] text-white rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all"
 							>
 								<Plus size={20} />
 								Add Income First

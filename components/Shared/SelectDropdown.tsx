@@ -155,8 +155,8 @@ export default function SelectDropdown({
 
 	const isLight = variant === "light";
 	const buttonStyles = isLight
-		? "border-zinc-300 bg-white text-zinc-900 focus:ring-2 focus:ring-blue-500"
-		: "border-white/10 bg-slate-900/40 text-white focus:ring-2 focus:ring-blue-500";
+		? "border-zinc-300 bg-white text-zinc-900 focus:ring-2 focus:ring-[var(--cta)]"
+		: "border-white/10 bg-slate-900/40 text-white focus:ring-2 focus:ring-[var(--cta)]";
 
 	const menuStyles = isLight ? "border-zinc-200 bg-white/95" : "border-white/10 bg-slate-950/80";
 
@@ -166,7 +166,7 @@ export default function SelectDropdown({
 		: "text-white hover:bg-white/10 focus:bg-white/10";
 
 	const optionActive = isLight ? "bg-zinc-100" : "bg-white/10";
-	const optionSelected = isLight ? "text-blue-700" : "text-blue-200";
+	const optionSelected = "text-[var(--cta)]";
 
 	function move(delta: number) {
 		if (options.length === 0) return;

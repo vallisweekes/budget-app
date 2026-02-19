@@ -186,7 +186,7 @@ export default function PaymentStatusButton({
 										</button>
 										<button
 											onClick={handlePartialSubmit}
-											className="flex-1 px-3 py-2 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-xl hover:from-purple-400 hover:to-indigo-500 transition-colors text-sm font-medium shadow-lg"
+											className="flex-1 px-3 py-2 bg-[var(--cta)] hover:bg-[var(--cta-hover)] active:bg-[var(--cta-active)] text-white rounded-xl transition-colors text-sm font-medium shadow-lg"
 										>
 											Save
 										</button>

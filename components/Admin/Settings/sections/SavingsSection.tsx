@@ -18,7 +18,7 @@ function CardSaveButton() {
 		<button
 			type="submit"
 			disabled={pending}
-			className="rounded-xl bg-gradient-to-r from-purple-500 to-fuchsia-600 px-4 py-3 text-sm font-semibold text-white shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all disabled:opacity-60"
+			className="rounded-xl bg-[var(--cta)] hover:bg-[var(--cta-hover)] active:bg-[var(--cta-active)] px-4 py-3 text-sm font-semibold text-white shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all disabled:opacity-60"
 		>
 			{pending ? "Saving…" : "Save"}
 		</button>

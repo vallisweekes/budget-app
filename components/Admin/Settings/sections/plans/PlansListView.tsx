@@ -107,7 +107,7 @@ export default function PlansListView({
 							<div className="mt-4">
 								<Link
 									href={`${settingsBasePath}/plans/new?type=personal`}
-									className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-600 px-4 py-2 text-sm font-semibold text-white shadow-lg hover:shadow-xl hover:scale-[1.02] transition"
+									className="inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--cta)] hover:bg-[var(--cta-hover)] active:bg-[var(--cta-active)] px-4 py-2 text-sm font-semibold text-white shadow-lg hover:shadow-xl hover:scale-[1.02] transition"
 								>
 									<Plus className="h-4 w-4" />
 									Create Personal plan
@@ -120,7 +120,7 @@ export default function PlansListView({
 						<div className="mt-4 pt-4 border-t border-white/10">
 							<Link
 								href={`${settingsBasePath}/plans/new`}
-								className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-lg hover:shadow-xl hover:scale-[1.02] transition"
+								className="flex items-center justify-center gap-2 rounded-xl bg-[var(--cta)] hover:bg-[var(--cta-hover)] active:bg-[var(--cta-active)] px-4 py-3 text-sm font-semibold text-white shadow-lg hover:shadow-xl hover:scale-[1.02] transition"
 							>
 								<Plus className="h-4 w-4" />
 								Create another budget

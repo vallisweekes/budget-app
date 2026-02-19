@@ -143,7 +143,7 @@ export default function EditExpenseModal({
 							<button
 								type="submit"
 								disabled={isBusy}
-								className="h-10 px-4 rounded-xl text-white font-semibold shadow-lg hover:shadow-xl transition-all bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-400 hover:to-indigo-500 disabled:opacity-50"
+								className="h-10 px-4 rounded-xl text-white font-semibold shadow-lg hover:shadow-xl transition-all bg-[var(--cta)] hover:bg-[var(--cta-hover)] active:bg-[var(--cta-active)] disabled:opacity-50"
 							>
 								{isBusy ? "Saving…" : "Save changes"}
 							</button>

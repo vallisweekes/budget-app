@@ -68,7 +68,7 @@ export default function AddDebtForm({ budgetPlanId, payDate, creditCards }: AddD
 		return (
 			<button
 				onClick={() => setIsOpen(true)}
-				className="w-full md:w-auto px-4 py-2 sm:px-6 sm:py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium shadow-lg hover:shadow-xl flex items-center gap-1.5 sm:gap-2 justify-center mb-6 sm:mb-8 text-sm sm:text-base"
+				className="w-full md:w-auto px-4 py-2 sm:px-6 sm:py-3 bg-[var(--cta)] hover:bg-[var(--cta-hover)] active:bg-[var(--cta-active)] text-white rounded-lg transition-colors font-medium shadow-lg hover:shadow-xl flex items-center gap-1.5 sm:gap-2 justify-center mb-6 sm:mb-8 text-sm sm:text-base"
 			>
 				<Plus className="w-4 h-4 sm:w-5 sm:h-5" />
 				Add New Debt
@@ -240,7 +240,7 @@ export default function AddDebtForm({ budgetPlanId, payDate, creditCards }: AddD
 				<div className="flex gap-2 sm:gap-3">
 					<button
 						type="submit"
-						className="flex-1 md:flex-initial px-4 py-2 sm:px-6 sm:py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium shadow-lg hover:shadow-xl text-sm sm:text-base"
+						className="flex-1 md:flex-initial px-4 py-2 sm:px-6 sm:py-3 bg-[var(--cta)] hover:bg-[var(--cta-hover)] active:bg-[var(--cta-active)] text-white rounded-lg transition-colors font-medium shadow-lg hover:shadow-xl text-sm sm:text-base"
 					>
 						Add Debt
 					</button>

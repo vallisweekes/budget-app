@@ -25,7 +25,7 @@ export default function ExpenseManagerToolbar({
 				<button
 					disabled={isDisabled}
 					onClick={onToggleAddForm}
-					className={`bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg sm:rounded-xl py-2 sm:py-3 px-3 sm:px-5 text-sm sm:text-base font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center gap-1.5 sm:gap-2 cursor-pointer shrink-0 ${
+					className={`bg-[var(--cta)] hover:bg-[var(--cta-hover)] active:bg-[var(--cta-active)] text-white rounded-lg sm:rounded-xl py-2 sm:py-3 px-3 sm:px-5 text-sm sm:text-base font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center gap-1.5 sm:gap-2 cursor-pointer shrink-0 ${
 						isDisabled ? "opacity-70 cursor-not-allowed" : ""
 					}`}
 				>

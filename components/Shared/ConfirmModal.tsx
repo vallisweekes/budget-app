@@ -80,7 +80,7 @@ export default function ConfirmModal({
 	const confirmButtonClassName =
 		tone === "danger"
 			? "bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-400 hover:to-rose-500"
-			: "bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-400 hover:to-indigo-500";
+			: "bg-[var(--cta)] hover:bg-[var(--cta-hover)] active:bg-[var(--cta-active)]";
 
 	return (
 		<div className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto p-4 py-6 overscroll-contain">

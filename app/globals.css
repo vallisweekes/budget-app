@@ -28,9 +28,9 @@
   --accent-border: rgba(2, 239, 240, 0.30);
 
   /* Primary call-to-action (CTA) button color */
-  --cta: #ff1493;
-  --cta-hover: #e01383;
-  --cta-active: #c81172;
+  --cta: #b00062;
+  --cta-hover: #980055;
+  --cta-active: #7f0046;
 }
 
 :root[data-theme="nord-mint"] {

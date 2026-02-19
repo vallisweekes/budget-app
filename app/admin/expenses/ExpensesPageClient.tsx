@@ -332,7 +332,7 @@ export default function ExpensesPageClient({
                   disabled={isNavigating}
                   className={`py-1.5 sm:py-3 px-2 sm:px-3 rounded-md sm:rounded-xl font-bold text-xs sm:text-base transition-all cursor-pointer ${
                     selectedYear === year
-                      ? "bg-gradient-to-br from-indigo-500 to-blue-600 text-white shadow-lg ring-1 ring-indigo-200/30"
+                      ? "bg-[var(--cta)] hover:bg-[var(--cta-hover)] active:bg-[var(--cta-active)] text-white shadow-lg ring-1 ring-white/15"
                       : "bg-slate-900/60 text-slate-300 hover:bg-slate-900/80 hover:shadow-md"
                   } ${isNavigating ? "opacity-70 cursor-not-allowed" : ""}`}
                 >
@@ -366,7 +366,7 @@ export default function ExpensesPageClient({
 						disabled
 							? "bg-slate-900/30 text-slate-500 cursor-not-allowed opacity-60"
 							: selectedMonth === month
-								? "bg-gradient-to-br from-purple-500 to-indigo-600 text-white shadow-lg ring-1 ring-purple-200/25 cursor-pointer"
+								? "bg-[var(--cta)] hover:bg-[var(--cta-hover)] active:bg-[var(--cta-active)] text-white shadow-lg ring-1 ring-white/15 cursor-pointer"
 								: "bg-slate-900/60 text-slate-300 hover:bg-slate-900/80 hover:shadow-md cursor-pointer"
                   }`}
                   title={isLocked ? "You can’t use months before you signed up (unless you already have expenses there)." : undefined}
