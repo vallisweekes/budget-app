@@ -230,7 +230,7 @@ export async function updateUserThemeAction(formData: FormData): Promise<void> {
 	}
 
 	if (prismaUserHasField("theme")) {
-		await prisma.user.update({
+		await (prisma as any).user.update({
 			where: { id: sessionUser.id },
 			data: { theme: raw },
 		});
