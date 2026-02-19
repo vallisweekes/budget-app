@@ -39,6 +39,10 @@ export async function createDebt(formData: FormData) {
 	const name = formData.get("name") as string;
 	const type = formData.get("type") as DebtType;
 	const initialBalance = parseFloat(formData.get("initialBalance") as string);
+	const creditLimitRaw = formData.get("creditLimit");
+	const creditLimit = creditLimitRaw != null && String(creditLimitRaw).trim() !== ""
+		? parseFloat(String(creditLimitRaw))
+		: undefined;
 	const monthlyMinimum = formData.get("monthlyMinimum") ? parseFloat(formData.get("monthlyMinimum") as string) : undefined;
 	const interestRate = formData.get("interestRate") ? parseFloat(formData.get("interestRate") as string) : undefined;
 	const installmentMonthsRaw = formData.get("installmentMonths") as string | null;
@@ -48,9 +52,16 @@ export async function createDebt(formData: FormData) {
 		throw new Error("Invalid input");
 	}
 
+	if (type === "credit_card") {
+		if (creditLimit == null || !Number.isFinite(creditLimit) || creditLimit <= 0) {
+			throw new Error("Credit limit is required for credit card debts");
+		}
+	}
+
 	await addDebt(budgetPlanId, {
 		name,
 		type,
+		creditLimit,
 		initialBalance,
 		monthlyMinimum,
 		interestRate,
@@ -73,6 +84,10 @@ export async function updateDebtAction(id: string, formData: FormData) {
 	const initialBalance = formData.get("initialBalance") ? parseFloat(formData.get("initialBalance") as string) : undefined;
 	const currentBalance = parseFloat(formData.get("currentBalance") as string);
 	const amount = formData.get("amount") ? parseFloat(formData.get("amount") as string) : undefined;
+	const creditLimitRaw = formData.get("creditLimit");
+	const creditLimit = creditLimitRaw != null && String(creditLimitRaw).trim() !== ""
+		? parseFloat(String(creditLimitRaw))
+		: undefined;
 	const monthlyMinimum = formData.get("monthlyMinimum") ? parseFloat(formData.get("monthlyMinimum") as string) : undefined;
 	const interestRate = formData.get("interestRate") ? parseFloat(formData.get("interestRate") as string) : undefined;
 	const installmentMonthsRaw = formData.get("installmentMonths") as string | null;
@@ -80,6 +95,12 @@ export async function updateDebtAction(id: string, formData: FormData) {
 
 	if (!name || isNaN(currentBalance)) {
 		throw new Error("Invalid input");
+	}
+
+	if (existing.type === "credit_card") {
+		if (creditLimit == null || !Number.isFinite(creditLimit) || creditLimit <= 0) {
+			throw new Error("Credit limit is required for credit card debts");
+		}
 	}
 
 	if (existing.sourceType === "expense" && existing.sourceExpenseId) {
@@ -113,6 +134,7 @@ export async function updateDebtAction(id: string, formData: FormData) {
 
 		await updateDebt(budgetPlanId, id, {
 			name,
+			creditLimit,
 			initialBalance: nextExpenseAmount,
 			currentBalance,
 			paid: nextPaid,
@@ -125,6 +147,7 @@ export async function updateDebtAction(id: string, formData: FormData) {
 	} else {
 		await updateDebt(budgetPlanId, id, {
 			name,
+			creditLimit,
 			initialBalance,
 			currentBalance,
 			amount,

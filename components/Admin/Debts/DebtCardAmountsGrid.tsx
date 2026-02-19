@@ -35,6 +35,19 @@ export default function DebtCardAmountsGrid(props: {
 					<Currency value={debt.currentBalance} />
 				</div>
 			</div>
+
+			{debt.type === "credit_card" && debt.creditLimit && debt.creditLimit > 0 ? (
+				<div>
+					<div className="text-[10px] sm:text-xs text-slate-400 mb-0.5 sm:mb-1">Credit Limit</div>
+					<div className="text-base sm:text-lg font-semibold text-slate-300">
+						<Currency value={debt.creditLimit} />
+					</div>
+					<div className="text-[10px] sm:text-xs text-slate-500 mt-0.5">
+						Avail: <span className="text-slate-300">{formatCurrency(Math.max(0, debt.creditLimit - debt.currentBalance))}</span>
+					</div>
+				</div>
+			) : null}
+
 			<div>
 				<div className="text-[10px] sm:text-xs text-slate-400 mb-0.5 sm:mb-1">Initial Balance</div>
 				<div className="text-base sm:text-lg font-semibold text-slate-300">

@@ -45,6 +45,7 @@ export function buildDebtUpdateFormData(params: {
 	initialBalance: string;
 	currentBalance: string;
 	amount: string;
+	creditLimit?: string;
 	monthlyMinimum?: string;
 	interestRate?: string;
 	installmentMonths?: string;
@@ -55,6 +56,7 @@ export function buildDebtUpdateFormData(params: {
 	formData.append("initialBalance", params.initialBalance);
 	formData.append("currentBalance", params.currentBalance);
 	formData.append("amount", params.amount);
+	if (typeof params.creditLimit === "string") formData.append("creditLimit", params.creditLimit);
 	if (params.monthlyMinimum) formData.append("monthlyMinimum", params.monthlyMinimum);
 	if (params.interestRate) formData.append("interestRate", params.interestRate);
 	if (params.installmentMonths) formData.append("installmentMonths", params.installmentMonths);

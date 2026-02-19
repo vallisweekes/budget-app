@@ -173,19 +173,18 @@ export default function ExpenseRow({
 									placeholder="0.00"
 								/>
 
-								{planKind !== "personal" ? (
-									<SelectDropdown
-										value={paymentSourceValue}
-										onValueChange={onPaymentSourceChange}
-										options={[
-											{ value: "income", label: "Income" },
-											{ value: "savings", label: "Savings" },
-											{ value: "other", label: "Other" },
-										]}
-										buttonClassName="focus:ring-purple-500/50"
-										className="min-w-[120px]"
-									/>
-								) : null}
+								<SelectDropdown
+									value={paymentSourceValue}
+									onValueChange={onPaymentSourceChange}
+									options={[
+										{ value: "income", label: "Income" },
+										{ value: "credit_card", label: "Credit Card" },
+										{ value: "savings", label: "Savings" },
+										{ value: "other", label: "Other" },
+									]}
+									buttonClassName="focus:ring-purple-500/50"
+									className="min-w-[140px]"
+								/>
 
 								<button
 									type="button"

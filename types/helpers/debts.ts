@@ -4,6 +4,7 @@ export interface DebtItem {
 	id: string;
 	name: string;
 	type: DebtType;
+	creditLimit?: number;
 	initialBalance: number;
 	currentBalance: number;
 	monthlyMinimum?: number;

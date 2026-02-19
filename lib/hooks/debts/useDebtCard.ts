@@ -24,6 +24,7 @@ export function useDebtCard(params: { debt: DebtCardDebt; budgetPlanId: string; 
 	const [paymentSource, setPaymentSource] = useState("income");
 
 	const [editName, setEditName] = useState(debt.name);
+	const [editCreditLimit, setEditCreditLimit] = useState(debt.creditLimit ? String(debt.creditLimit) : "");
 	const [editInitialBalance, setEditInitialBalance] = useState(String(debt.initialBalance));
 	const [editCurrentBalance, setEditCurrentBalance] = useState(String(debt.currentBalance));
 	const [editDueAmount, setEditDueAmount] = useState(String(debt.amount));
@@ -51,6 +52,7 @@ export function useDebtCard(params: { debt: DebtCardDebt; budgetPlanId: string; 
 
 	const handleEdit = () => {
 		setEditName(debt.name);
+		setEditCreditLimit(debt.creditLimit ? String(debt.creditLimit) : "");
 		setEditInitialBalance(String(debt.initialBalance));
 		setEditCurrentBalance(String(debt.currentBalance));
 		setEditDueAmount(String(debt.amount));
@@ -71,6 +73,7 @@ export function useDebtCard(params: { debt: DebtCardDebt; budgetPlanId: string; 
 		const formData = buildDebtUpdateFormData({
 			budgetPlanId,
 			name: editName,
+			creditLimit: debt.type === "credit_card" ? editCreditLimit : "",
 			initialBalance: editInitialBalance,
 			currentBalance: editCurrentBalance,
 			amount: editDueAmount,
@@ -89,6 +92,7 @@ export function useDebtCard(params: { debt: DebtCardDebt; budgetPlanId: string; 
 		const formData = buildDebtUpdateFormData({
 			budgetPlanId,
 			name: debt.name,
+			creditLimit: debt.type === "credit_card" ? (debt.creditLimit ? String(debt.creditLimit) : "") : "",
 			initialBalance: String(debt.initialBalance),
 			currentBalance: String(debt.currentBalance),
 			amount: tempDueAmount,
@@ -130,6 +134,8 @@ export function useDebtCard(params: { debt: DebtCardDebt; budgetPlanId: string; 
 
 		editName,
 		setEditName,
+		editCreditLimit,
+		setEditCreditLimit,
 		editInitialBalance,
 		setEditInitialBalance,
 		editCurrentBalance,

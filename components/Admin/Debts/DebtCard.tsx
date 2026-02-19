@@ -38,6 +38,8 @@ export default function DebtCard({ debt, budgetPlanId, typeLabels, payments, pay
 		setPaymentSource,
 		editName,
 		setEditName,
+		editCreditLimit,
+		setEditCreditLimit,
 		editInitialBalance,
 		setEditInitialBalance,
 		editCurrentBalance,
@@ -87,6 +89,9 @@ export default function DebtCard({ debt, budgetPlanId, typeLabels, payments, pay
 			{!isCollapsed ? (
 				isEditing ? (
 					<DebtCardEditDetails
+						debtType={debt.type}
+						editCreditLimit={editCreditLimit}
+						onEditCreditLimitChange={setEditCreditLimit}
 						editInitialBalance={editInitialBalance}
 						editCurrentBalance={editCurrentBalance}
 						editDueAmount={editDueAmount}

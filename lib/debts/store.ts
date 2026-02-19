@@ -5,6 +5,20 @@ import type { MonthKey } from "@/types";
 
 export type { DebtItem, DebtPayment };
 
+function prismaDebtHasField(fieldName: string): boolean {
+	try {
+		const fields = (prisma as any)?._runtimeDataModel?.models?.Debt?.fields;
+		if (!Array.isArray(fields)) return false;
+		return fields.some((f: any) => f?.name === fieldName);
+	} catch {
+		return false;
+	}
+}
+
+// Dev safety: Turbopack can run with a stale Prisma Client after schema changes.
+// Only select/write fields when the runtime client supports them.
+const DEBT_HAS_CREDIT_LIMIT = prismaDebtHasField("creditLimit");
+
 function decimalToNumber(value: unknown): number {
 	if (value == null) return 0;
 	if (typeof value === "number") return value;
@@ -46,6 +60,7 @@ function serializeDebt(row: {
 	id: string;
 	name: string;
 	type: string;
+	creditLimit?: unknown | null;
 	initialBalance: unknown;
 	currentBalance: unknown;
 	amount: unknown;
@@ -66,6 +81,7 @@ function serializeDebt(row: {
 		id: row.id,
 		name: row.name,
 		type: row.type as any,
+		creditLimit: row.creditLimit == null ? undefined : decimalToNumber(row.creditLimit),
 		initialBalance: decimalToNumber(row.initialBalance),
 		currentBalance: decimalToNumber(row.currentBalance),
 		amount: decimalToNumber(row.amount),
@@ -109,6 +125,7 @@ export async function getAllDebts(budgetPlanId: string): Promise<DebtItem[]> {
 			id: true,
 			name: true,
 			type: true,
+			...(DEBT_HAS_CREDIT_LIMIT ? { creditLimit: true } : {}),
 			initialBalance: true,
 			currentBalance: true,
 			amount: true,
@@ -136,6 +153,7 @@ export async function getDebtById(budgetPlanId: string, id: string): Promise<Deb
 			id: true,
 			name: true,
 			type: true,
+			...(DEBT_HAS_CREDIT_LIMIT ? { creditLimit: true } : {}),
 			initialBalance: true,
 			currentBalance: true,
 			amount: true,
@@ -175,6 +193,7 @@ export async function addDebt(
 			budgetPlanId,
 			name: debt.name,
 			type: debt.type as any,
+			...(DEBT_HAS_CREDIT_LIMIT ? { creditLimit: (debt as any).creditLimit ?? null } : {}),
 			initialBalance: debt.initialBalance,
 			currentBalance: debt.initialBalance,
 			amount: dueAmount,
@@ -194,6 +213,7 @@ export async function addDebt(
 			id: true,
 			name: true,
 			type: true,
+			...(DEBT_HAS_CREDIT_LIMIT ? { creditLimit: true } : {}),
 			initialBalance: true,
 			currentBalance: true,
 			amount: true,
@@ -245,6 +265,7 @@ export async function upsertExpenseDebt(params: {
 			id: true,
 			name: true,
 			type: true,
+			...(DEBT_HAS_CREDIT_LIMIT ? { creditLimit: true } : {}),
 			initialBalance: true,
 			currentBalance: true,
 			amount: true,
@@ -276,6 +297,7 @@ export async function upsertExpenseDebt(params: {
 				id: true,
 				name: true,
 				type: true,
+				...(DEBT_HAS_CREDIT_LIMIT ? { creditLimit: true } : {}),
 				initialBalance: true,
 				currentBalance: true,
 				amount: true,
@@ -314,6 +336,7 @@ export async function upsertExpenseDebt(params: {
 				id: true,
 				name: true,
 				type: true,
+				...(DEBT_HAS_CREDIT_LIMIT ? { creditLimit: true } : {}),
 				initialBalance: true,
 				currentBalance: true,
 				amount: true,
@@ -359,6 +382,7 @@ export async function upsertExpenseDebt(params: {
 			id: true,
 			name: true,
 			type: true,
+			...(DEBT_HAS_CREDIT_LIMIT ? { creditLimit: true } : {}),
 			initialBalance: true,
 			currentBalance: true,
 			amount: true,
@@ -391,6 +415,12 @@ export async function updateDebt(
 		where: { id: existing.id },
 		data: {
 			name: updates.name,
+			...(DEBT_HAS_CREDIT_LIMIT
+				? {
+					creditLimit:
+						(updates as any).creditLimit === undefined ? undefined : (updates as any).creditLimit ?? null,
+				}
+				: {}),
 			initialBalance: updates.initialBalance,
 			currentBalance: updates.currentBalance,
 			monthlyMinimum: updates.monthlyMinimum === undefined ? undefined : updates.monthlyMinimum ?? null,
@@ -404,6 +434,7 @@ export async function updateDebt(
 			id: true,
 			name: true,
 			type: true,
+			...(DEBT_HAS_CREDIT_LIMIT ? { creditLimit: true } : {}),
 			initialBalance: true,
 			currentBalance: true,
 			amount: true,

@@ -61,9 +61,12 @@ function monthsFromToInclusive(start: MonthKey, endMonthNum: number): MonthKey[]
   return (MONTHS as MonthKey[]).slice(startIdx, endIdx + 1);
 }
 
-function normalizeExpensePaymentSource(raw: unknown): "income" | "savings" | "extra_untracked" {
+type NormalizedExpensePaymentSource = "income" | "savings" | "extra_untracked" | "credit_card";
+
+function normalizeExpensePaymentSource(raw: unknown): NormalizedExpensePaymentSource {
   const v = String(raw ?? "").trim().toLowerCase();
   if (v === "savings") return "savings";
+  if (v === "credit_card" || v === "credit card" || v === "card" || v === "cc") return "credit_card";
   if (v === "other") return "extra_untracked";
   return "income";
 }
@@ -120,10 +123,9 @@ async function backfillExpensePaymentAndAdjustBalances(args: {
   year: number;
   months: MonthKey[];
   paid: boolean;
-  paymentSource: "income" | "savings" | "extra_untracked";
+  paymentSource: NormalizedExpensePaymentSource;
 }) {
   if (!args.paid) return;
-  if (args.planKind === "personal") return;
 
 	const expensePayment = getExpensePaymentDelegate();
 	if (!expensePayment) return;
@@ -179,9 +181,8 @@ async function recordExpensePaymentAndAdjustBalances(args: {
   planKind: string;
   expenseId: string;
   amount: number;
-  paymentSource: "income" | "savings" | "extra_untracked";
+  paymentSource: NormalizedExpensePaymentSource;
 }) {
-  if (args.planKind === "personal") return;
   if (!Number.isFinite(args.amount) || args.amount <= 0) return;
 
 	const expensePayment = getExpensePaymentDelegate();
@@ -296,7 +297,7 @@ export async function addExpenseAction(formData: FormData): Promise<void> {
   const planKind = String((plan as any).kind ?? "personal");
   const eventDate = (plan as any).eventDate as Date | null | undefined;
 
-  const paymentSource = planKind === "personal" ? "income" : normalizeExpensePaymentSource(rawPaymentSource);
+  const paymentSource = normalizeExpensePaymentSource(rawPaymentSource);
 
   const isEventPlan = planKind === "holiday" || planKind === "carnival";
   const eventYear = isEventPlan && eventDate ? eventDate.getFullYear() : null;
@@ -363,7 +364,7 @@ export async function togglePaidAction(
 	const { userId, username } = await requireAuthenticatedUser();
   const plan = await requireOwnedBudgetPlan(budgetPlanId, userId);
   const planKind = String((plan as any).kind ?? "personal");
-  const source = planKind === "personal" ? "income" : normalizeExpensePaymentSource(paymentSource);
+  const source = normalizeExpensePaymentSource(paymentSource);
 
   const y = year ?? new Date().getFullYear();
   const existing = await prisma.expense.findFirst({
@@ -373,7 +374,7 @@ export async function togglePaidAction(
 
   await toggleExpensePaid(budgetPlanId, month, id, year);
 
-  if (existing && !existing.paid && planKind !== "personal") {
+  if (existing && !existing.paid) {
     const amount = Number((existing.amount as any)?.toString?.() ?? existing.amount ?? 0);
     const paidAmount = Number((existing.paidAmount as any)?.toString?.() ?? existing.paidAmount ?? 0);
     const delta = Math.max(0, amount - paidAmount);
@@ -588,7 +589,7 @@ export async function applyExpensePaymentAction(
   const { userId, username } = await requireAuthenticatedUser();
   const plan = await requireOwnedBudgetPlan(budgetPlanId, userId);
   const planKind = String((plan as any).kind ?? "personal");
-  const source = planKind === "personal" ? "income" : normalizeExpensePaymentSource(paymentSource);
+  const source = normalizeExpensePaymentSource(paymentSource);
 
   const y = year ?? new Date().getFullYear();
   const before = await prisma.expense.findFirst({
@@ -600,17 +601,15 @@ export async function applyExpensePaymentAction(
   const result = await applyExpensePayment(budgetPlanId, month, expenseId, paymentAmount, year);
   if (!result) return { success: false, error: "Expense not found" };
 
-  if (planKind !== "personal") {
-    const afterPaid = Number(result.expense.paidAmount ?? 0);
-    const delta = Math.max(0, afterPaid - beforePaid);
-    await recordExpensePaymentAndAdjustBalances({
-      budgetPlanId,
-      planKind,
-      expenseId,
-      amount: delta,
-      paymentSource: source,
-    });
-  }
+  const afterPaid = Number(result.expense.paidAmount ?? 0);
+  const delta = Math.max(0, afterPaid - beforePaid);
+  await recordExpensePaymentAndAdjustBalances({
+    budgetPlanId,
+    planKind,
+    expenseId,
+    amount: delta,
+    paymentSource: source,
+  });
 	await syncExistingExpenseDebt({ budgetPlanId, expenseId, fallbackMonthKey: month, year });
 	revalidateBudgetPlanViews({ username, budgetPlanId });
   return { success: true };

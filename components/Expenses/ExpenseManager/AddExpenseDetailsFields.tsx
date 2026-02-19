@@ -64,21 +64,20 @@ export default function AddExpenseDetailsFields({ categories, planKind }: Props)
 					</label>
 				</div>
 
-				{planKind && planKind !== "personal" ? (
-					<label className="block">
-						<span className="text-sm font-medium text-slate-300 mb-2 block">Source of Funds</span>
-						<SelectDropdown
-							name="paymentSource"
-							defaultValue="income"
-							options={[
-								{ value: "income", label: "Income" },
-								{ value: "savings", label: "Savings" },
-								{ value: "other", label: "Other" },
-							]}
-							buttonClassName="focus:ring-purple-500/50"
-						/>
-					</label>
-				) : null}
+				<label className="block">
+					<span className="text-sm font-medium text-slate-300 mb-2 block">Source of Funds</span>
+					<SelectDropdown
+						name="paymentSource"
+						defaultValue="income"
+						options={[
+							{ value: "income", label: "Income" },
+							{ value: "credit_card", label: "Credit Card" },
+							{ value: "savings", label: "Savings" },
+							{ value: "other", label: "Other" },
+						]}
+						buttonClassName="focus:ring-purple-500/50"
+					/>
+				</label>
 			</div>
 
 			<label className="flex items-start gap-3 rounded-2xl border border-white/10 bg-slate-900/30 p-4">

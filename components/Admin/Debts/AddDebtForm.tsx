@@ -16,12 +16,16 @@ function Currency({ value }: { value: number }) {
 
 export default function AddDebtForm({ budgetPlanId }: AddDebtFormProps) {
 	const [isOpen, setIsOpen] = useState(false);
+	const [type, setType] = useState("credit_card");
+	const [creditLimit, setCreditLimit] = useState("");
 	const [initialBalance, setInitialBalance] = useState("");
 	const [installmentMonths, setInstallmentMonths] = useState("");
 
 	const handleSubmit = async (formData: FormData) => {
 		await createDebt(formData);
 		setIsOpen(false);
+		setType("credit_card");
+		setCreditLimit("");
 		setInitialBalance("");
 		setInstallmentMonths("");
 	};
@@ -68,7 +72,11 @@ export default function AddDebtForm({ budgetPlanId }: AddDebtFormProps) {
 						<SelectDropdown
 							name="type"
 							required
-							defaultValue="credit_card"
+							value={type}
+							onValueChange={(next) => {
+								setType(next);
+								if (next !== "credit_card") setCreditLimit("");
+							}}
 							options={[
 								{ value: "credit_card", label: "Credit Card" },
 								{ value: "loan", label: "Loan" },
@@ -77,6 +85,24 @@ export default function AddDebtForm({ budgetPlanId }: AddDebtFormProps) {
 							buttonClassName="rounded-lg px-4 py-2 focus:ring-purple-500"
 						/>
 					</div>
+					{type === "credit_card" ? (
+						<div>
+							<label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1 sm:mb-2">Credit Limit</label>
+							<input
+								type="number"
+								name="creditLimit"
+								step="0.01"
+								min={0}
+								required
+								placeholder="1200.00"
+								value={creditLimit}
+								onChange={(e) => setCreditLimit(e.target.value)}
+								className="w-full px-3 py-1.5 sm:px-4 sm:py-2 bg-slate-900/40 border border-white/10 text-white placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-xs sm:text-sm"
+							/>
+						</div>
+					) : (
+						<input type="hidden" name="creditLimit" value="" />
+					)}
 					<div>
 						<label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1 sm:mb-2">Initial Balance</label>
 						<input

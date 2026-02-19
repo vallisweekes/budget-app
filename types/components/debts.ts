@@ -4,6 +4,7 @@ export interface DebtCardDebt {
 	id: string;
 	name: string;
 	type: DebtType;
+	creditLimit?: number;
 	initialBalance: number;
 	currentBalance: number;
 	amount: number;

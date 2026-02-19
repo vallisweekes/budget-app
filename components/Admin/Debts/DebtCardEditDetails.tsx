@@ -7,6 +7,9 @@ function Currency({ value }: { value: number }) {
 }
 
 export default function DebtCardEditDetails(props: {
+	debtType: string;
+	editCreditLimit: string;
+	onEditCreditLimitChange: (next: string) => void;
 	editInitialBalance: string;
 	editCurrentBalance: string;
 	editDueAmount: string;
@@ -21,6 +24,9 @@ export default function DebtCardEditDetails(props: {
 	onSelectInstallmentMonths: (months: number) => void;
 }) {
 	const {
+		debtType,
+		editCreditLimit,
+		onEditCreditLimitChange,
 		editInitialBalance,
 		editCurrentBalance,
 		editDueAmount,
@@ -46,6 +52,22 @@ export default function DebtCardEditDetails(props: {
 
 	return (
 		<>
+			{debtType === "credit_card" ? (
+				<div className="mb-3 sm:mb-4">
+					<label className="block text-[10px] sm:text-xs text-slate-400 mb-0.5 sm:mb-1">Credit Limit</label>
+					<input
+						type="number"
+						step="0.01"
+						min={0}
+						required
+						value={editCreditLimit}
+						onChange={(e) => onEditCreditLimitChange(e.target.value)}
+						className="w-full px-2 py-1.5 sm:px-3 sm:py-2 bg-slate-900/40 border border-white/10 text-white placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-xs sm:text-sm"
+						placeholder="e.g. 1200.00"
+					/>
+				</div>
+			) : null}
+
 			<div className="grid grid-cols-2 md:grid-cols-5 gap-2 sm:gap-4 mb-3 sm:mb-4">
 				<div>
 					<label className="block text-[10px] sm:text-xs text-slate-400 mb-0.5 sm:mb-1">Initial Balance</label>
