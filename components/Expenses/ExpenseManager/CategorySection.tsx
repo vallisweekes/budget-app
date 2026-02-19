@@ -98,7 +98,7 @@ export default function CategorySection({
 						<div className="text-left min-w-0 flex-1">
 							<h3 className="font-bold text-sm sm:text-base text-white truncate">{category.name}</h3>
 							<p className="text-[10px] sm:text-xs text-slate-400 mt-0.5 truncate">
-								{expenses.length} {expenses.length === 1 ? "expense" : "expenses"} · Due day {payDate}
+								{expenses.length} {expenses.length === 1 ? "expense" : "expenses"} · Pay day {payDate}
 							</p>
 						</div>
 					</div>

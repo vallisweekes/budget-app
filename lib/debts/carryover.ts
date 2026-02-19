@@ -52,9 +52,11 @@ function decimalToNumber(value: unknown): number {
 
 /**
  * Missed payment accumulation:
- * - Once per month (for the previous month), if a debt has a dueDay and the user paid less than `amount`.
- * - Adds the unpaid remainder to BOTH `currentBalance` and `initialBalance` (so progress doesn't go negative).
- * - Marks `lastAccrualMonth` to keep the operation idempotent.
+ * - Preferred (new) behavior: debts with a `dueDate` use a calendar date with a 5-day grace window.
+ *   When `now > dueDate + 5 days`, any unpaid remainder (vs `amount`) is accrued into BOTH
+ *   `currentBalance` and `initialBalance`, and the debt's `dueDate` is rolled forward by 1 month.
+ * - Legacy behavior: debts with only a `dueDay` accrue once per month (for the previous month) when
+ *   paid < `amount`, using `lastAccrualMonth` for idempotency.
  */
 export async function processMissedDebtPaymentsToAccrue(budgetPlanId: string, now: Date = new Date()) {
 	const msPerDay = 24 * 60 * 60 * 1000;

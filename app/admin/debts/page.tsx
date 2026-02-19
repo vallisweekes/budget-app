@@ -48,7 +48,7 @@ export default async function DebtsPage(props: {
 
 	// Ensure overdue/part-paid expenses are reflected as debts.
 	await processOverdueExpensesToDebts(budgetPlanId);
-	// Ensure standing-order missed payments accumulate into balances.
+	// Ensure missed debt payments (due date + grace) accumulate into balances.
 	await processMissedDebtPaymentsToAccrue(budgetPlanId);
 	
 	// Get regular debts and expense-derived debts separately
