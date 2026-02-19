@@ -1,14 +1,33 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { SelectDropdown } from "@/components/Shared";
-import type { ExpenseCategoryOption } from "@/types/expenses-manager";
+import type { CreditCardOption, ExpenseCategoryOption } from "@/types/expenses-manager";
 
 type Props = {
 	categories: ExpenseCategoryOption[];
 	planKind?: string;
+	creditCards?: CreditCardOption[];
 };
 
-export default function AddExpenseDetailsFields({ categories, planKind }: Props) {
+export default function AddExpenseDetailsFields({ categories, planKind, creditCards }: Props) {
+	const cards = creditCards ?? [];
+	const [paymentSource, setPaymentSource] = useState<string>("income");
+	const [cardDebtId, setCardDebtId] = useState<string>("");
+
+	const isCreditCard = paymentSource === "credit_card";
+	const shouldRequireCard = isCreditCard && cards.length > 1;
+	const effectiveCardDebtId = useMemo(() => {
+		if (!isCreditCard) return "";
+		if (cardDebtId) return cardDebtId;
+		if (cards.length === 1) return cards[0]!.id;
+		return "";
+	}, [cardDebtId, cards, isCreditCard]);
+
+	const creditCardOptions = useMemo(() => {
+		return cards.map((c) => ({ value: c.id, label: c.name }));
+	}, [cards]);
+
 	return (
 		<>
 			<div className="space-y-6">
@@ -68,7 +87,8 @@ export default function AddExpenseDetailsFields({ categories, planKind }: Props)
 					<span className="text-sm font-medium text-slate-300 mb-2 block">Source of Funds</span>
 					<SelectDropdown
 						name="paymentSource"
-						defaultValue="income"
+						value={paymentSource}
+						onValueChange={(v) => setPaymentSource(v)}
 						options={[
 							{ value: "income", label: "Income" },
 							{ value: "credit_card", label: "Credit Card" },
@@ -78,6 +98,31 @@ export default function AddExpenseDetailsFields({ categories, planKind }: Props)
 						buttonClassName="focus:ring-purple-500/50"
 					/>
 				</label>
+
+				{isCreditCard ? (
+					cards.length > 0 ? (
+						<label className="block">
+							<span className="text-sm font-medium text-slate-300 mb-2 block">Which card?</span>
+							<SelectDropdown
+								name="cardDebtId"
+								value={effectiveCardDebtId}
+								onValueChange={(v) => setCardDebtId(v)}
+								required={shouldRequireCard}
+								placeholder={cards.length === 1 ? "Using your only card" : "Select a card"}
+								options={creditCardOptions}
+								buttonClassName="focus:ring-purple-500/50"
+							/>
+							{cards.length === 1 ? (
+								<p className="mt-1 text-xs text-slate-400">This expense will be charged to {cards[0]!.name}.</p>
+							) : null}
+						</label>
+					) : (
+						<div className="rounded-2xl border border-amber-400/20 bg-amber-500/10 p-4">
+							<div className="text-sm font-semibold text-amber-100">No credit cards found for this plan</div>
+							<div className="mt-1 text-xs text-amber-200/80">Add a credit card in Debts, or choose a different payment source.</div>
+						</div>
+					)
+				) : null}
 			</div>
 
 			<label className="flex items-start gap-3 rounded-2xl border border-white/10 bg-slate-900/30 p-4">

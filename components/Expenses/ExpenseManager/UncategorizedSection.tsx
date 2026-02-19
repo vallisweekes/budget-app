@@ -3,6 +3,7 @@
 import { ChevronDown, ChevronUp } from "lucide-react";
 import type { MonthKey, ExpenseItem } from "@/types";
 import { formatCurrency } from "@/lib/helpers/money";
+import type { CreditCardOption } from "@/types/expenses-manager";
 import ExpenseRow from "@/components/Expenses/ExpenseManager/ExpenseRow";
 
 type Props = {
@@ -18,6 +19,9 @@ type Props = {
 	onPaymentValueChange: (expenseId: string, value: string) => void;
 	paymentSourceByExpenseId: Record<string, string>;
 	onPaymentSourceChange: (expenseId: string, value: string) => void;
+	creditCards?: CreditCardOption[];
+	cardDebtIdByExpenseId: Record<string, string>;
+	onCardDebtIdChange: (expenseId: string, value: string) => void;
 	onTogglePaid: (expenseId: string) => void;
 	onEdit: (expense: ExpenseItem) => void;
 	onDelete: (expense: ExpenseItem) => void;
@@ -37,6 +41,9 @@ export default function UncategorizedSection({
 	onPaymentValueChange,
 	paymentSourceByExpenseId,
 	onPaymentSourceChange,
+	creditCards,
+	cardDebtIdByExpenseId,
+	onCardDebtIdChange,
 	onTogglePaid,
 	onEdit,
 	onDelete,
@@ -89,6 +96,9 @@ export default function UncategorizedSection({
 								onPaymentValueChange={(value) => onPaymentValueChange(expense.id, value)}
 								paymentSourceValue={paymentSourceByExpenseId[expense.id] ?? "income"}
 								onPaymentSourceChange={(value) => onPaymentSourceChange(expense.id, value)}
+								creditCards={creditCards}
+								cardDebtIdValue={cardDebtIdByExpenseId[expense.id] ?? ""}
+								onCardDebtIdChange={(value) => onCardDebtIdChange(expense.id, value)}
 								onTogglePaid={() => onTogglePaid(expense.id)}
 								onEdit={() => onEdit(expense)}
 								onDelete={() => onDelete(expense)}

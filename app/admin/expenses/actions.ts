@@ -24,6 +24,18 @@ function getExpensePaymentDelegate(): any | null {
   return (prisma as any)?.expensePayment ?? null;
 }
 
+function prismaExpensePaymentHasField(fieldName: string): boolean {
+  try {
+    const fields = (prisma as any)?._runtimeDataModel?.models?.ExpensePayment?.fields;
+    if (!Array.isArray(fields)) return false;
+    return fields.some((f: any) => f?.name === fieldName);
+  } catch {
+    return false;
+  }
+}
+
+const EXPENSE_PAYMENT_HAS_DEBT_ID = prismaExpensePaymentHasField("debtId");
+
 function isTruthyFormValue(value: FormDataEntryValue | null): boolean {
   if (value == null) return false;
   const v = String(value).trim().toLowerCase();
@@ -124,6 +136,7 @@ async function backfillExpensePaymentAndAdjustBalances(args: {
   months: MonthKey[];
   paid: boolean;
   paymentSource: NormalizedExpensePaymentSource;
+	cardDebtId?: string;
 }) {
   if (!args.paid) return;
 
@@ -159,6 +172,18 @@ async function backfillExpensePaymentAndAdjustBalances(args: {
     const delta = Math.max(0, paidAmount - recorded);
     if (!(delta > 0)) continue;
 
+    if (args.paymentSource === "credit_card") {
+      await recordExpensePaymentAndAdjustBalances({
+        budgetPlanId: args.budgetPlanId,
+        planKind: args.planKind,
+        expenseId: expense.id,
+        amount: delta,
+        paymentSource: "credit_card",
+        cardDebtId: args.cardDebtId,
+      });
+      continue;
+    }
+
     await expensePayment.create({
       data: {
         expenseId: expense.id,
@@ -176,17 +201,96 @@ async function backfillExpensePaymentAndAdjustBalances(args: {
   }
 }
 
+async function resolveCreditCardDebtId(params: {
+  budgetPlanId: string;
+  requestedDebtId?: string | null;
+}): Promise<string> {
+  const requested = String(params.requestedDebtId ?? "").trim();
+
+  if (requested) {
+    const found = await prisma.debt.findFirst({
+      where: { id: requested, budgetPlanId: params.budgetPlanId, type: "credit_card" },
+      select: { id: true },
+    });
+    if (!found) throw new Error("Selected credit card not found.");
+    return found.id;
+  }
+
+  const cards = await prisma.debt.findMany({
+    where: { budgetPlanId: params.budgetPlanId, type: "credit_card" },
+    select: { id: true },
+    orderBy: [{ createdAt: "asc" }],
+  });
+  if (cards.length === 0) {
+    throw new Error("No credit card found. Add a credit card debt first, then select it as the payment source.");
+  }
+  if (cards.length > 1) {
+    throw new Error("Multiple credit cards found. Please choose which card you used.");
+  }
+  return cards[0]!.id;
+}
+
+async function applyCreditCardCharge(params: { budgetPlanId: string; debtId: string; amount: number }) {
+  const delta = Number(params.amount);
+  if (!Number.isFinite(delta) || delta <= 0) return;
+
+  await prisma.$transaction(async (tx) => {
+    const card = await tx.debt.findFirst({
+      where: { id: params.debtId, budgetPlanId: params.budgetPlanId, type: "credit_card" },
+      select: { id: true, currentBalance: true, initialBalance: true, paidAmount: true },
+    });
+    if (!card) throw new Error("Credit card not found.");
+
+    const current = Number((card.currentBalance as any)?.toString?.() ?? card.currentBalance ?? 0);
+    const initial = Number((card.initialBalance as any)?.toString?.() ?? card.initialBalance ?? 0);
+    const paidAmount = Number((card.paidAmount as any)?.toString?.() ?? card.paidAmount ?? 0);
+
+    const nextCurrent = Math.max(0, current + delta);
+    const nextInitial = Math.max(initial, nextCurrent);
+    const nextPaidAmount = Math.min(Math.max(0, paidAmount), nextInitial);
+
+    await tx.debt.update({
+      where: { id: card.id },
+      data: {
+        currentBalance: String(nextCurrent),
+        initialBalance: String(nextInitial),
+        paidAmount: String(nextPaidAmount),
+        paid: false,
+      },
+    });
+  });
+}
+
 async function recordExpensePaymentAndAdjustBalances(args: {
   budgetPlanId: string;
   planKind: string;
   expenseId: string;
   amount: number;
   paymentSource: NormalizedExpensePaymentSource;
+  cardDebtId?: string;
 }) {
   if (!Number.isFinite(args.amount) || args.amount <= 0) return;
 
-	const expensePayment = getExpensePaymentDelegate();
-	if (!expensePayment) return;
+  if (args.paymentSource === "credit_card") {
+    const debtId = await resolveCreditCardDebtId({ budgetPlanId: args.budgetPlanId, requestedDebtId: args.cardDebtId });
+    const expensePayment = getExpensePaymentDelegate();
+    if (expensePayment) {
+      await expensePayment.create({
+        data: {
+          expenseId: args.expenseId,
+          amount: args.amount,
+          source: args.paymentSource,
+          ...(EXPENSE_PAYMENT_HAS_DEBT_ID ? { debtId } : {}),
+          paidAt: new Date(),
+        },
+      });
+    }
+    await applyCreditCardCharge({ budgetPlanId: args.budgetPlanId, debtId, amount: args.amount });
+    return;
+  }
+
+  const expensePayment = getExpensePaymentDelegate();
+  if (!expensePayment) return;
 
   await expensePayment.create({
     data: {
@@ -274,6 +378,8 @@ export async function addExpenseAction(formData: FormData): Promise<void> {
 	const paid = String(formData.get("paid") || "false") === "true";
   let isAllocation = isTruthyFormField(formData, "isAllocation");
   const rawPaymentSource = formData.get("paymentSource");
+  const rawCardDebtId = formData.get("cardDebtId");
+  const cardDebtId = rawCardDebtId == null ? undefined : String(rawCardDebtId).trim() || undefined;
 
 	// Auto-mark Food/Transport categories as allocations
 	if (categoryId) {
@@ -348,6 +454,7 @@ export async function addExpenseAction(formData: FormData): Promise<void> {
       months: monthsForYear,
       paid,
       paymentSource,
+			cardDebtId,
     });
   }
 
@@ -359,7 +466,8 @@ export async function togglePaidAction(
   month: MonthKey,
   id: string,
   year?: number,
-  paymentSource?: string
+  paymentSource?: string,
+	cardDebtId?: string
 ): Promise<void> {
 	const { userId, username } = await requireAuthenticatedUser();
   const plan = await requireOwnedBudgetPlan(budgetPlanId, userId);
@@ -369,7 +477,7 @@ export async function togglePaidAction(
   const y = year ?? new Date().getFullYear();
   const existing = await prisma.expense.findFirst({
     where: { id, budgetPlanId, year: y, month: (MONTHS as MonthKey[]).indexOf(month) + 1 },
-    select: { paid: true, amount: true, paidAmount: true },
+		select: { paid: true, amount: true, paidAmount: true },
   });
 
   await toggleExpensePaid(budgetPlanId, month, id, year);
@@ -378,7 +486,7 @@ export async function togglePaidAction(
     const amount = Number((existing.amount as any)?.toString?.() ?? existing.amount ?? 0);
     const paidAmount = Number((existing.paidAmount as any)?.toString?.() ?? existing.paidAmount ?? 0);
     const delta = Math.max(0, amount - paidAmount);
-    await recordExpensePaymentAndAdjustBalances({ budgetPlanId, planKind, expenseId: id, amount: delta, paymentSource: source });
+		await recordExpensePaymentAndAdjustBalances({ budgetPlanId, planKind, expenseId: id, amount: delta, paymentSource: source, cardDebtId });
   }
 	await syncExistingExpenseDebt({ budgetPlanId, expenseId: id, fallbackMonthKey: month, year });
 	revalidateBudgetPlanViews({ username, budgetPlanId });
@@ -579,7 +687,8 @@ export async function applyExpensePaymentAction(
   expenseId: string,
   paymentAmount: number,
   year?: number,
-  paymentSource?: string
+  paymentSource?: string,
+	cardDebtId?: string
 ): Promise<{ success: boolean; error?: string }>
 {
   if (!Number.isFinite(paymentAmount) || paymentAmount <= 0) {
@@ -609,6 +718,7 @@ export async function applyExpensePaymentAction(
     expenseId,
     amount: delta,
     paymentSource: source,
+		cardDebtId,
   });
 	await syncExistingExpenseDebt({ budgetPlanId, expenseId, fallbackMonthKey: month, year });
 	revalidateBudgetPlanViews({ username, budgetPlanId });

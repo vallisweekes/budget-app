@@ -6,6 +6,7 @@ import { formatCurrency } from "@/lib/helpers/money";
 import { formatIsoDueDate, getDueDateUtc, daysUntilUtc, dueBadgeClasses } from "@/lib/helpers/expenses/dueDate";
 import { MONTHS } from "@/lib/constants/time";
 import { SelectDropdown } from "@/components/Shared";
+import type { CreditCardOption } from "@/types/expenses-manager";
 
 type Props = {
 	expense: ExpenseItem;
@@ -18,6 +19,9 @@ type Props = {
 	onPaymentValueChange: (value: string) => void;
 	paymentSourceValue: string;
 	onPaymentSourceChange: (value: string) => void;
+	creditCards?: CreditCardOption[];
+	cardDebtIdValue?: string;
+	onCardDebtIdChange?: (value: string) => void;
 	onTogglePaid: () => void;
 	onEdit: () => void;
 	onDelete: () => void;
@@ -42,6 +46,9 @@ export default function ExpenseRow({
 	onPaymentValueChange,
 	paymentSourceValue,
 	onPaymentSourceChange,
+	creditCards,
+	cardDebtIdValue,
+	onCardDebtIdChange,
 	onTogglePaid,
 	onEdit,
 	onDelete,
@@ -53,6 +60,14 @@ export default function ExpenseRow({
 	const isPaid = !!expense.paid;
 	const paidAmount = isPaid ? expense.amount : (expense.paidAmount ?? 0);
 	const remaining = Math.max(0, expense.amount - paidAmount);
+	const cards = creditCards ?? [];
+	const isCreditCard = paymentSourceValue === "credit_card";
+	const cardRequired = isCreditCard && cards.length > 1;
+	const hasSelectedCard = Boolean((cardDebtIdValue ?? "").trim());
+	const disableMarkPaid =
+		!isPaid &&
+		isCreditCard &&
+		(cards.length === 0 || (cardRequired && !hasSelectedCard));
 
 	return (
 		<div className="space-y-2 sm:space-y-3">
@@ -104,7 +119,7 @@ export default function ExpenseRow({
 					<button
 						type="button"
 						onClick={onTogglePaid}
-						disabled={isBusy}
+						disabled={isBusy || disableMarkPaid}
 						className={`h-8 sm:h-9 min-w-[76px] sm:min-w-[88px] px-2 sm:px-3 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium transition-all cursor-pointer shadow-sm hover:shadow-md hover:scale-[1.02] flex items-center justify-center gap-1 sm:gap-1.5 ${
 							isPaid
 								? "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"
@@ -186,16 +201,42 @@ export default function ExpenseRow({
 									className="min-w-[140px]"
 								/>
 
+								{isCreditCard ? (
+									cards.length > 0 ? (
+										<SelectDropdown
+											value={cardDebtIdValue ?? ""}
+											onValueChange={(v) => onCardDebtIdChange?.(v)}
+											required={cardRequired}
+											placeholder={cards.length === 1 ? "Card" : "Choose card"}
+											options={cards.map((c) => ({ value: c.id, label: c.name }))}
+											buttonClassName="focus:ring-purple-500/50"
+											className="min-w-[160px]"
+										/>
+									) : (
+										<div className="min-w-[160px] rounded-xl border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-[10px] sm:text-xs text-amber-100">
+											No cards
+										</div>
+									)
+								) : null}
+
 								<button
 									type="button"
 									onClick={onApplyPayment}
-									disabled={isBusy}
+									disabled={
+									isBusy ||
+									(isCreditCard && (cards.length === 0 || (cardRequired && !hasSelectedCard)))
+								}
 									className="shrink-0 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-purple-500/20 text-purple-200 border border-purple-400/30 hover:bg-purple-500/30 transition-all cursor-pointer disabled:opacity-50 text-[10px] sm:text-xs whitespace-nowrap"
 								>
 									Add payment
 								</button>
 							</div>
 						</label>
+						{isCreditCard && cards.length === 0 ? (
+							<p className="mt-1 text-[10px] sm:text-xs text-amber-200/90">Add a credit card in Debts to use this source.</p>
+						) : isCreditCard && cardRequired && !hasSelectedCard ? (
+							<p className="mt-1 text-[10px] sm:text-xs text-amber-200/90">Select a card to continue.</p>
+						) : null}
 					</div>
 				) : null}
 			</div>

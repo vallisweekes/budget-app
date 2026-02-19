@@ -14,6 +14,8 @@ export default function AddExpenseForm({
 	month,
 	year,
 	categories,
+	creditCards,
+	creditCardsByPlan,
 	allPlans,
 	allCategoriesByPlan,
 	horizonYearsByPlan,
@@ -57,6 +59,13 @@ export default function AddExpenseForm({
 		}
 		return categories;
 	}, [addBudgetPlanId, allCategoriesByPlan, categories]);
+
+	const addFormCreditCards = useMemo(() => {
+		if (addBudgetPlanId && creditCardsByPlan && Array.isArray(creditCardsByPlan[addBudgetPlanId])) {
+			return creditCardsByPlan[addBudgetPlanId] ?? [];
+		}
+		return creditCards ?? [];
+	}, [addBudgetPlanId, creditCards, creditCardsByPlan]);
 
 	const selectedPlanKind = useMemo(() => {
 		return allPlans?.find((p) => p.id === addBudgetPlanId)?.kind ?? "personal";
@@ -115,7 +124,11 @@ export default function AddExpenseForm({
 					onDistributeAllYearsChange={setDistributeAllYears}
 				/>
 
-				<AddExpenseDetailsFields categories={addFormCategories} planKind={selectedPlanKind} />
+				<AddExpenseDetailsFields
+					categories={addFormCategories}
+					planKind={selectedPlanKind}
+					creditCards={addFormCreditCards}
+				/>
 
 				<button
 					type="submit"

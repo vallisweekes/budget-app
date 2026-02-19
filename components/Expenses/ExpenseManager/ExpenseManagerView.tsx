@@ -24,6 +24,8 @@ export default function ExpenseManagerView({
 	year,
 	expenses,
 	categories,
+	creditCards,
+	creditCardsByPlan,
 	allPlans,
 	allCategoriesByPlan,
 	payDate,
@@ -51,6 +53,8 @@ export default function ExpenseManagerView({
 	setPaymentByExpenseId,
 	paymentSourceByExpenseId,
 	setPaymentSourceByExpenseId,
+	cardDebtIdByExpenseId,
+	setCardDebtIdByExpenseId,
 	expensePendingDelete,
 	deleteError,
 	handleRemoveClick,
@@ -138,6 +142,8 @@ export default function ExpenseManagerView({
 								month={month}
 								year={year}
 								categories={categories}
+								creditCards={creditCards}
+								creditCardsByPlan={creditCardsByPlan}
 								allPlans={allPlans}
 								allCategoriesByPlan={allCategoriesByPlan}
 								horizonYearsByPlan={horizonYearsByPlan}
@@ -198,6 +204,11 @@ export default function ExpenseManagerView({
 								onPaymentSourceChange={(expenseId, value) =>
 									setPaymentSourceByExpenseId((prev) => ({ ...prev, [expenseId]: value }))
 								}
+								creditCards={creditCards ?? []}
+								cardDebtIdByExpenseId={cardDebtIdByExpenseId}
+								onCardDebtIdChange={(expenseId, value) =>
+									setCardDebtIdByExpenseId((prev) => ({ ...prev, [expenseId]: value }))
+								}
 								planKind={selectedPlanKind}
 								onTogglePaid={(expenseId) => handleTogglePaid(expenseId)}
 								onEdit={(expense) => handleEditClick(expense)}
@@ -222,6 +233,9 @@ export default function ExpenseManagerView({
 				onPaymentValueChange={(expenseId, value) => setPaymentByExpenseId((prev) => ({ ...prev, [expenseId]: value }))}
 				paymentSourceByExpenseId={paymentSourceByExpenseId}
 				onPaymentSourceChange={(expenseId, value) => setPaymentSourceByExpenseId((prev) => ({ ...prev, [expenseId]: value }))}
+				creditCards={creditCards ?? []}
+				cardDebtIdByExpenseId={cardDebtIdByExpenseId}
+				onCardDebtIdChange={(expenseId, value) => setCardDebtIdByExpenseId((prev) => ({ ...prev, [expenseId]: value }))}
 				planKind={selectedPlanKind}
 				onTogglePaid={(expenseId) => handleTogglePaid(expenseId)}
 				onEdit={(expense) => handleEditClick(expense)}
