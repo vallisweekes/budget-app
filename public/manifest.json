@@ -4,8 +4,8 @@
   "description": "Personal budget calculator and financial planning tool",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#000000",
+  "background_color": "#0b1220",
+  "theme_color": "#0b1220",
   "orientation": "portrait-primary",
   "icons": [
     {

@@ -63,7 +63,7 @@ export default function MobileBottomNav() {
 			try {
 				const res = await fetch(
 					`/api/bff/settings?budgetPlanId=${encodeURIComponent(scoped.budgetPlanId)}`,
-					{ signal: controller.signal }
+					{ signal: controller.signal, cache: "no-store" }
 				);
 				if (!res.ok) return;
 				const body = (await res.json().catch(() => null)) as any;
