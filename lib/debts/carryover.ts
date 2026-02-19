@@ -1,0 +1,119 @@
+import { prisma } from "@/lib/prisma";
+
+function prismaDebtHasField(fieldName: string): boolean {
+	try {
+		const fields = (prisma as any)?._runtimeDataModel?.models?.Debt?.fields;
+		if (!Array.isArray(fields)) return false;
+		return fields.some((f: any) => f?.name === fieldName);
+	} catch {
+		return false;
+	}
+}
+
+const DEBT_HAS_LAST_ACCRUAL_MONTH = prismaDebtHasField("lastAccrualMonth");
+
+function monthKeyUTC(date: Date): string {
+	const y = date.getUTCFullYear();
+	const m = String(date.getUTCMonth() + 1).padStart(2, "0");
+	return `${y}-${m}`;
+}
+
+function prevMonthKeyUTC(date: Date): string {
+	const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
+	d.setUTCMonth(d.getUTCMonth() - 1);
+	return monthKeyUTC(d);
+}
+
+function parseMonthKey(key: string): { year: number; month: number } | null {
+	const match = String(key ?? "").trim().match(/^([0-9]{4})-([0-9]{2})$/);
+	if (!match) return null;
+	const year = Number(match[1]);
+	const month = Number(match[2]);
+	if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) return null;
+	return { year, month };
+}
+
+function decimalToNumber(value: unknown): number {
+	if (value == null) return 0;
+	if (typeof value === "number") return value;
+	return Number((value as any).toString?.() ?? value);
+}
+
+/**
+ * Missed payment accumulation:
+ * - Once per month (for the previous month), if a debt has a dueDay and the user paid less than `amount`.
+ * - Adds the unpaid remainder to BOTH `currentBalance` and `initialBalance` (so progress doesn't go negative).
+ * - Marks `lastAccrualMonth` to keep the operation idempotent.
+ */
+export async function processMissedDebtPaymentsToAccrue(budgetPlanId: string, now: Date = new Date()) {
+	if (!DEBT_HAS_LAST_ACCRUAL_MONTH) {
+		// Dev-safety: if Prisma Client is stale, skip rather than crashing.
+		return;
+	}
+
+	const prevKey = prevMonthKeyUTC(now);
+	const prev = parseMonthKey(prevKey);
+	if (!prev) return;
+
+	// Use `any` here so TypeScript doesn't break when Prisma client types are stale.
+	const debts: any[] = await (prisma.debt as any).findMany({
+		where: {
+			budgetPlanId,
+			dueDay: { not: null },
+			currentBalance: { gt: 0 },
+			OR: [{ sourceType: null }, { sourceType: { not: "expense" } }],
+		},
+		select: {
+			id: true,
+			amount: true,
+			initialBalance: true,
+			currentBalance: true,
+			lastAccrualMonth: true,
+		},
+	});
+
+	if (debts.length === 0) return;
+
+	const payments = await prisma.debtPayment.findMany({
+		where: {
+			debt: { budgetPlanId },
+			year: prev.year,
+			month: prev.month,
+		},
+		select: { debtId: true, amount: true },
+	});
+
+	const paidByDebt = new Map<string, number>();
+	for (const p of payments) {
+		const amt = decimalToNumber(p.amount);
+		paidByDebt.set(p.debtId, (paidByDebt.get(p.debtId) ?? 0) + (Number.isFinite(amt) ? amt : 0));
+	}
+
+	const updates: Array<{ id: string; remaining: number }> = debts
+		.filter((d) => (d.lastAccrualMonth ?? "") !== prevKey)
+		.map((d) => {
+			const due = decimalToNumber(d.amount);
+			const paid = paidByDebt.get(d.id) ?? 0;
+			const remaining = Math.max(0, due - paid);
+			return { id: d.id, remaining };
+		});
+
+	if (updates.length === 0) return;
+
+	await prisma.$transaction(
+		updates.map((u) => {
+			return (prisma.debt as any).update({
+				where: { id: u.id },
+				data: {
+					lastAccrualMonth: prevKey,
+					...(u.remaining > 0
+						? {
+							currentBalance: { increment: u.remaining },
+							initialBalance: { increment: u.remaining },
+						}
+						: {}),
+				},
+			});
+		})
+	);
+}

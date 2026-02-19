@@ -10,6 +10,8 @@ function Currency({ value }: { value: number }) {
 
 export default function DebtCardAmountsGrid(props: {
 	debt: DebtCardDebt;
+	displayDueAmount?: number;
+	displayDueNote?: string;
 	isEditingAmount: boolean;
 	tempDueAmount: string;
 	onTempDueAmountChange: (next: string) => void;
@@ -19,6 +21,8 @@ export default function DebtCardAmountsGrid(props: {
 }) {
 	const {
 		debt,
+		displayDueAmount,
+		displayDueNote,
 		isEditingAmount,
 		tempDueAmount,
 		onTempDueAmountChange,
@@ -36,7 +40,7 @@ export default function DebtCardAmountsGrid(props: {
 				</div>
 			</div>
 
-			{debt.type === "credit_card" && debt.creditLimit && debt.creditLimit > 0 ? (
+			{(debt.type === "credit_card" || debt.type === "store_card") && debt.creditLimit && debt.creditLimit > 0 ? (
 				<div>
 					<div className="text-[10px] sm:text-xs text-slate-400 mb-0.5 sm:mb-1">Credit Limit</div>
 					<div className="text-base sm:text-lg font-semibold text-slate-300">
@@ -98,9 +102,12 @@ export default function DebtCardAmountsGrid(props: {
 						</button>
 					</div>
 				) : (
-					<div className="text-xl font-bold text-amber-400">
-						<Currency value={debt.amount} />
-					</div>
+					<>
+						<div className="text-xl font-bold text-amber-400">
+							<Currency value={displayDueAmount ?? debt.amount} />
+						</div>
+						{displayDueNote ? <div className="text-[10px] sm:text-xs text-amber-200/80 mt-0.5">{displayDueNote}</div> : null}
+					</>
 				)}
 			</div>
 			{debt.monthlyMinimum && (

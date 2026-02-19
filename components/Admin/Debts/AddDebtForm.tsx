@@ -8,18 +8,23 @@ import { formatCurrency } from "@/lib/helpers/money";
 
 interface AddDebtFormProps {
 	budgetPlanId: string;
+	payDate: number;
+	creditCards: Array<{ id: string; name: string }>;
 }
 
 function Currency({ value }: { value: number }) {
 	return <span>{formatCurrency(value)}</span>;
 }
 
-export default function AddDebtForm({ budgetPlanId }: AddDebtFormProps) {
+export default function AddDebtForm({ budgetPlanId, payDate, creditCards }: AddDebtFormProps) {
 	const [isOpen, setIsOpen] = useState(false);
 	const [type, setType] = useState("credit_card");
 	const [creditLimit, setCreditLimit] = useState("");
 	const [initialBalance, setInitialBalance] = useState("");
 	const [installmentMonths, setInstallmentMonths] = useState("");
+	const [dueDay, setDueDay] = useState(String(payDate ?? ""));
+	const [defaultPaymentSource, setDefaultPaymentSource] = useState("income");
+	const [defaultPaymentCardDebtId, setDefaultPaymentCardDebtId] = useState("");
 
 	const handleSubmit = async (formData: FormData) => {
 		await createDebt(formData);
@@ -28,6 +33,9 @@ export default function AddDebtForm({ budgetPlanId }: AddDebtFormProps) {
 		setCreditLimit("");
 		setInitialBalance("");
 		setInstallmentMonths("");
+		setDueDay(String(payDate ?? ""));
+		setDefaultPaymentSource("income");
+		setDefaultPaymentCardDebtId("");
 	};
 
 	if (!isOpen) {
@@ -75,17 +83,68 @@ export default function AddDebtForm({ budgetPlanId }: AddDebtFormProps) {
 							value={type}
 							onValueChange={(next) => {
 								setType(next);
-								if (next !== "credit_card") setCreditLimit("");
+								if (next !== "credit_card" && next !== "store_card") setCreditLimit("");
 							}}
 							options={[
 								{ value: "credit_card", label: "Credit Card" },
+								{ value: "store_card", label: "Store Card" },
 								{ value: "loan", label: "Loan" },
+								{ value: "mortgage", label: "Mortgage" },
 								{ value: "high_purchase", label: "High Purchase" },
 							]}
 							buttonClassName="rounded-lg px-4 py-2 focus:ring-purple-500"
 						/>
 					</div>
-					{type === "credit_card" ? (
+					<div>
+						<label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1 sm:mb-2">Due Day (standing order)</label>
+						<input
+							type="number"
+							name="dueDay"
+							min={1}
+							max={31}
+							placeholder="e.g. 27"
+							value={dueDay}
+							onChange={(e) => setDueDay(e.target.value)}
+							className="w-full px-3 py-1.5 sm:px-4 sm:py-2 bg-slate-900/40 border border-white/10 text-white placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-xs sm:text-sm"
+						/>
+					</div>
+					<div>
+						<label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1 sm:mb-2">Default Payment Source</label>
+						<SelectDropdown
+							name="defaultPaymentSource"
+							required
+							value={defaultPaymentSource}
+							onValueChange={(next) => {
+								setDefaultPaymentSource(next);
+								if (next !== "credit_card") setDefaultPaymentCardDebtId("");
+							}}
+							options={[
+								{ value: "income", label: "Income (tracked)" },
+								{ value: "extra_funds", label: "Extra funds" },
+								{ value: "credit_card", label: "Credit card" },
+							]}
+							buttonClassName="rounded-lg px-4 py-2 focus:ring-purple-500"
+						/>
+					</div>
+					{defaultPaymentSource === "credit_card" ? (
+						<div>
+							<label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1 sm:mb-2">Default Card</label>
+							<SelectDropdown
+								name="defaultPaymentCardDebtId"
+								required
+								value={defaultPaymentCardDebtId}
+								onValueChange={setDefaultPaymentCardDebtId}
+								options={[
+									{ value: "", label: "Choose a card" },
+									...creditCards.map((c) => ({ value: c.id, label: c.name })),
+								]}
+								buttonClassName="rounded-lg px-4 py-2 focus:ring-purple-500"
+							/>
+						</div>
+					) : (
+						<input type="hidden" name="defaultPaymentCardDebtId" value="" />
+					)}
+					{type === "credit_card" || type === "store_card" ? (
 						<div>
 							<label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1 sm:mb-2">Credit Limit</label>
 							<input

@@ -7,6 +7,7 @@ import DebtCardInstallmentSummary from "./DebtCardInstallmentSummary";
 import DebtCardRecordPaymentForm from "./DebtCardRecordPaymentForm";
 import DebtCardRecentPayments from "./DebtCardRecentPayments";
 import DebtCardProgressBar from "./DebtCardProgressBar";
+import { computeAccumulatedDueNow } from "@/lib/helpers/debts/debtCard";
 
 export default function DebtCardViewDetails(props: {
 	debt: DebtCardDebt;
@@ -15,6 +16,9 @@ export default function DebtCardViewDetails(props: {
 	paymentMonth: string;
 	paymentSource: string;
 	onPaymentSourceChange: (next: string) => void;
+	paymentCardDebtId: string;
+	onPaymentCardDebtIdChange: (next: string) => void;
+	creditCardOptions: Array<{ value: string; label: string }>;
 	isEditingAmount: boolean;
 	onEditingAmountChange: (next: boolean) => void;
 	tempDueAmount: string;
@@ -31,6 +35,9 @@ export default function DebtCardViewDetails(props: {
 		paymentMonth,
 		paymentSource,
 		onPaymentSourceChange,
+		paymentCardDebtId,
+		onPaymentCardDebtIdChange,
+		creditCardOptions,
 		isEditingAmount,
 		onEditingAmountChange,
 		tempDueAmount,
@@ -41,10 +48,14 @@ export default function DebtCardViewDetails(props: {
 		percentPaid,
 	} = props;
 
+	const accumulated = computeAccumulatedDueNow({ debt, payments });
+
 	return (
 		<>
 			<DebtCardAmountsGrid
 				debt={debt}
+				displayDueAmount={accumulated.dueNowAmount}
+				displayDueNote={accumulated.note}
 				isEditingAmount={isEditingAmount}
 				tempDueAmount={tempDueAmount}
 				onTempDueAmountChange={onTempDueAmountChange}
@@ -61,6 +72,10 @@ export default function DebtCardViewDetails(props: {
 				paymentMonth={paymentMonth}
 				paymentSource={paymentSource}
 				onPaymentSourceChange={onPaymentSourceChange}
+				paymentCardDebtId={paymentCardDebtId}
+				onPaymentCardDebtIdChange={onPaymentCardDebtIdChange}
+				creditCardOptions={creditCardOptions}
+				defaultPaymentAmount={accumulated.dueNowAmount}
 			/>
 
 			<DebtCardRecentPayments payments={payments} />

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { useToast } from "@/components/Shared";
 import { updateDebtAction } from "@/lib/debts/actions";
 import { getDebtMonthlyPayment } from "@/lib/debts/calculate";
 import type { DebtCardDebt } from "@/types/components/debts";
@@ -16,15 +17,22 @@ import {
 
 export function useDebtCard(params: { debt: DebtCardDebt; budgetPlanId: string; payDate: number }) {
 	const { debt, budgetPlanId, payDate } = params;
+	const toast = useToast();
 
 	const [isPending, startTransition] = useTransition();
 	const [isCollapsed, setIsCollapsed] = useState(true);
 	const [isEditing, setIsEditing] = useState(false);
 	const [isEditingAmount, setIsEditingAmount] = useState(false);
-	const [paymentSource, setPaymentSource] = useState("income");
+	const [paymentSource, setPaymentSource] = useState(() => debt.defaultPaymentSource ?? "income");
+	const [paymentCardDebtId, setPaymentCardDebtId] = useState(() =>
+		(debt.defaultPaymentSource === "credit_card" ? debt.defaultPaymentCardDebtId : undefined) ?? ""
+	);
 
 	const [editName, setEditName] = useState(debt.name);
 	const [editCreditLimit, setEditCreditLimit] = useState(debt.creditLimit ? String(debt.creditLimit) : "");
+	const [editDueDay, setEditDueDay] = useState(debt.dueDay ? String(debt.dueDay) : "");
+	const [editDefaultPaymentSource, setEditDefaultPaymentSource] = useState(debt.defaultPaymentSource ?? "income");
+	const [editDefaultPaymentCardDebtId, setEditDefaultPaymentCardDebtId] = useState(debt.defaultPaymentCardDebtId ?? "");
 	const [editInitialBalance, setEditInitialBalance] = useState(String(debt.initialBalance));
 	const [editCurrentBalance, setEditCurrentBalance] = useState(String(debt.currentBalance));
 	const [editDueAmount, setEditDueAmount] = useState(String(debt.amount));
@@ -53,6 +61,9 @@ export function useDebtCard(params: { debt: DebtCardDebt; budgetPlanId: string; 
 	const handleEdit = () => {
 		setEditName(debt.name);
 		setEditCreditLimit(debt.creditLimit ? String(debt.creditLimit) : "");
+		setEditDueDay(debt.dueDay ? String(debt.dueDay) : "");
+		setEditDefaultPaymentSource(debt.defaultPaymentSource ?? "income");
+		setEditDefaultPaymentCardDebtId(debt.defaultPaymentCardDebtId ?? "");
 		setEditInitialBalance(String(debt.initialBalance));
 		setEditCurrentBalance(String(debt.currentBalance));
 		setEditDueAmount(String(debt.amount));
@@ -73,7 +84,10 @@ export function useDebtCard(params: { debt: DebtCardDebt; budgetPlanId: string; 
 		const formData = buildDebtUpdateFormData({
 			budgetPlanId,
 			name: editName,
-			creditLimit: debt.type === "credit_card" ? editCreditLimit : "",
+			dueDay: editDueDay,
+			defaultPaymentSource: editDefaultPaymentSource,
+			defaultPaymentCardDebtId: editDefaultPaymentCardDebtId,
+			creditLimit: debt.type === "credit_card" || debt.type === "store_card" ? editCreditLimit : "",
 			initialBalance: editInitialBalance,
 			currentBalance: editCurrentBalance,
 			amount: editDueAmount,
@@ -83,8 +97,13 @@ export function useDebtCard(params: { debt: DebtCardDebt; budgetPlanId: string; 
 		});
 
 		startTransition(async () => {
-			await updateDebtAction(debt.id, formData);
-			setIsEditing(false);
+			try {
+				await updateDebtAction(debt.id, formData);
+				setIsEditing(false);
+			} catch (err) {
+				toast.error(err instanceof Error ? err.message : "Could not update debt.");
+				console.error("Failed to update debt:", err);
+			}
 		});
 	};
 
@@ -92,7 +111,15 @@ export function useDebtCard(params: { debt: DebtCardDebt; budgetPlanId: string; 
 		const formData = buildDebtUpdateFormData({
 			budgetPlanId,
 			name: debt.name,
-			creditLimit: debt.type === "credit_card" ? (debt.creditLimit ? String(debt.creditLimit) : "") : "",
+			dueDay: debt.dueDay ? String(debt.dueDay) : "",
+			defaultPaymentSource: debt.defaultPaymentSource ?? "income",
+			defaultPaymentCardDebtId: debt.defaultPaymentCardDebtId ?? "",
+			creditLimit:
+				debt.type === "credit_card" || debt.type === "store_card"
+					? debt.creditLimit
+						? String(debt.creditLimit)
+						: ""
+					: "",
 			initialBalance: String(debt.initialBalance),
 			currentBalance: String(debt.currentBalance),
 			amount: tempDueAmount,
@@ -102,8 +129,13 @@ export function useDebtCard(params: { debt: DebtCardDebt; budgetPlanId: string; 
 		});
 
 		startTransition(async () => {
-			await updateDebtAction(debt.id, formData);
-			setIsEditingAmount(false);
+			try {
+				await updateDebtAction(debt.id, formData);
+				setIsEditingAmount(false);
+			} catch (err) {
+				toast.error(err instanceof Error ? err.message : "Could not update debt.");
+				console.error("Failed to update debt amount:", err);
+			}
 		});
 	};
 
@@ -131,11 +163,19 @@ export function useDebtCard(params: { debt: DebtCardDebt; budgetPlanId: string; 
 		setIsEditingAmount,
 		paymentSource,
 		setPaymentSource,
+		paymentCardDebtId,
+		setPaymentCardDebtId,
 
 		editName,
 		setEditName,
 		editCreditLimit,
 		setEditCreditLimit,
+		editDueDay,
+		setEditDueDay,
+		editDefaultPaymentSource,
+		setEditDefaultPaymentSource,
+		editDefaultPaymentCardDebtId,
+		setEditDefaultPaymentCardDebtId,
 		editInitialBalance,
 		setEditInitialBalance,
 		editCurrentBalance,

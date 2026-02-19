@@ -304,7 +304,9 @@ model Income {
 
 enum DebtType {
   credit_card
+  store_card
   loan
+  mortgage
   high_purchase
   other
 }
@@ -314,11 +316,19 @@ model Debt {
   name                 String
   type                 DebtType
   creditLimit          Decimal?       @db.Decimal(12, 2)
+  dueDay               Int?
+  // Used to ensure missed-payment accrual is applied at most once per month.
+  // Stored as YYYY-MM (UTC).
+  lastAccrualMonth      String?
   initialBalance       Decimal        @db.Decimal(12, 2)
   currentBalance       Decimal        @db.Decimal(12, 2)
   amount               Decimal        @db.Decimal(12, 2)
   paid                 Boolean        @default(false)
   paidAmount           Decimal        @default(0) @db.Decimal(12, 2)
+  defaultPaymentSource DebtPaymentSource @default(income)
+  defaultPaymentCardDebtId String?
+  defaultPaymentCard   Debt?          @relation("DebtDefaultPaymentCard", fields: [defaultPaymentCardDebtId], references: [id], onDelete: SetNull)
+  debtsPaidByThisCard  Debt[]         @relation("DebtDefaultPaymentCard")
   monthlyMinimum       Decimal?       @db.Decimal(12, 2)
   interestRate         Decimal?       @db.Decimal(5, 2)
   installmentMonths    Int?
@@ -335,6 +345,7 @@ model Debt {
   sourceExpenseName    String?
   
   payments             DebtPayment[]
+  debtPaymentsAsCard   DebtPayment[]  @relation("DebtPaymentCard")
   expensePayments      ExpensePayment[]
   createdAt            DateTime       @default(now())
   updatedAt            DateTime       @updatedAt
@@ -351,6 +362,8 @@ model DebtPayment {
   year        Int
   month       Int
   source      DebtPaymentSource @default(income)
+  cardDebtId  String?
+  cardDebt    Debt?    @relation("DebtPaymentCard", fields: [cardDebtId], references: [id], onDelete: SetNull)
   notes       String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -359,11 +372,13 @@ model DebtPayment {
   @@index([paidAt])
   @@index([debtId, year, month])
   @@index([year, month, source])
+  @@index([cardDebtId])
 }
 
 enum DebtPaymentSource {
   income
   extra_funds
+  credit_card
 }
 
 enum GoalType {

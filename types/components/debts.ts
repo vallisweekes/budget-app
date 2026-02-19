@@ -5,6 +5,7 @@ export interface DebtCardDebt {
 	name: string;
 	type: DebtType;
 	creditLimit?: number;
+	dueDay?: number;
 	initialBalance: number;
 	currentBalance: number;
 	amount: number;
@@ -14,6 +15,8 @@ export interface DebtCardDebt {
 	interestRate?: number;
 	installmentMonths?: number;
 	createdAt: string;
+	defaultPaymentSource?: "income" | "extra_funds" | "credit_card";
+	defaultPaymentCardDebtId?: string;
 	sourceType?: "expense";
 	sourceExpenseId?: string;
 	sourceMonthKey?: string;

@@ -38,6 +38,16 @@ export async function createDebt(formData: FormData) {
 	await requireOwnedBudgetPlan(budgetPlanId, userId);
 	const name = formData.get("name") as string;
 	const type = formData.get("type") as DebtType;
+	const dueDayRaw = formData.get("dueDay");
+	const dueDay = dueDayRaw != null && String(dueDayRaw).trim() !== "" ? parseInt(String(dueDayRaw), 10) : undefined;
+	const rawDefaultPaymentSource = String(formData.get("defaultPaymentSource") ?? "income").trim();
+	const defaultPaymentSource =
+		rawDefaultPaymentSource === "credit_card"
+			? "credit_card"
+			: rawDefaultPaymentSource === "extra_funds"
+				? "extra_funds"
+				: "income";
+	const defaultPaymentCardDebtId = String(formData.get("defaultPaymentCardDebtId") ?? "").trim();
 	const initialBalance = parseFloat(formData.get("initialBalance") as string);
 	const creditLimitRaw = formData.get("creditLimit");
 	const creditLimit = creditLimitRaw != null && String(creditLimitRaw).trim() !== ""
@@ -52,7 +62,17 @@ export async function createDebt(formData: FormData) {
 		throw new Error("Invalid input");
 	}
 
-	if (type === "credit_card") {
+	if (dueDay != null) {
+		if (!Number.isFinite(dueDay) || dueDay < 1 || dueDay > 31) {
+			throw new Error("Due day must be between 1 and 31");
+		}
+	}
+
+	if (defaultPaymentSource === "credit_card" && !defaultPaymentCardDebtId) {
+		throw new Error("Default card is required when payment source is credit card");
+	}
+
+	if (type === "credit_card" || (type as any) === "store_card") {
 		if (creditLimit == null || !Number.isFinite(creditLimit) || creditLimit <= 0) {
 			throw new Error("Credit limit is required for credit card debts");
 		}
@@ -61,6 +81,9 @@ export async function createDebt(formData: FormData) {
 	await addDebt(budgetPlanId, {
 		name,
 		type,
+		dueDay,
+		defaultPaymentSource,
+		defaultPaymentCardDebtId: defaultPaymentSource === "credit_card" ? defaultPaymentCardDebtId : undefined,
 		creditLimit,
 		initialBalance,
 		monthlyMinimum,
@@ -81,13 +104,24 @@ export async function updateDebtAction(id: string, formData: FormData) {
 	if (!existing) throw new Error("Debt not found");
 
 	const name = formData.get("name") as string;
+	const dueDayRaw = formData.get("dueDay");
+	const dueDay = dueDayRaw != null && String(dueDayRaw).trim() !== "" ? parseInt(String(dueDayRaw), 10) : undefined;
+	const rawDefaultPaymentSource = formData.get("defaultPaymentSource");
+	const defaultPaymentSource =
+		rawDefaultPaymentSource == null
+			? undefined
+			: String(rawDefaultPaymentSource).trim() === "credit_card"
+				? "credit_card"
+				: String(rawDefaultPaymentSource).trim() === "extra_funds"
+					? "extra_funds"
+					: "income";
+	const defaultPaymentCardDebtId = String(formData.get("defaultPaymentCardDebtId") ?? "").trim();
 	const initialBalance = formData.get("initialBalance") ? parseFloat(formData.get("initialBalance") as string) : undefined;
 	const currentBalance = parseFloat(formData.get("currentBalance") as string);
 	const amount = formData.get("amount") ? parseFloat(formData.get("amount") as string) : undefined;
 	const creditLimitRaw = formData.get("creditLimit");
-	const creditLimit = creditLimitRaw != null && String(creditLimitRaw).trim() !== ""
-		? parseFloat(String(creditLimitRaw))
-		: undefined;
+	const hasCreditLimitValue = creditLimitRaw != null && String(creditLimitRaw).trim() !== "";
+	const creditLimit = hasCreditLimitValue ? parseFloat(String(creditLimitRaw)) : undefined;
 	const monthlyMinimum = formData.get("monthlyMinimum") ? parseFloat(formData.get("monthlyMinimum") as string) : undefined;
 	const interestRate = formData.get("interestRate") ? parseFloat(formData.get("interestRate") as string) : undefined;
 	const installmentMonthsRaw = formData.get("installmentMonths") as string | null;
@@ -97,9 +131,22 @@ export async function updateDebtAction(id: string, formData: FormData) {
 		throw new Error("Invalid input");
 	}
 
-	if (existing.type === "credit_card") {
+	if (dueDay != null) {
+		if (!Number.isFinite(dueDay) || dueDay < 1 || dueDay > 31) {
+			throw new Error("Due day must be between 1 and 31");
+		}
+	}
+
+	if (defaultPaymentSource === "credit_card" && !defaultPaymentCardDebtId) {
+		throw new Error("Default card is required when payment source is credit card");
+	}
+
+	if ((existing.type === "credit_card" || (existing.type as any) === "store_card") && hasCreditLimitValue) {
+		// Only validate when a non-empty value is provided.
+		// This prevents partial edit flows (or older cached PWA bundles) from crashing the app
+		// by submitting an empty creditLimit.
 		if (creditLimit == null || !Number.isFinite(creditLimit) || creditLimit <= 0) {
-			throw new Error("Credit limit is required for credit card debts");
+			throw new Error("Credit limit must be a positive number");
 		}
 	}
 
@@ -134,7 +181,15 @@ export async function updateDebtAction(id: string, formData: FormData) {
 
 		await updateDebt(budgetPlanId, id, {
 			name,
-			creditLimit,
+			dueDay,
+			defaultPaymentSource,
+			defaultPaymentCardDebtId:
+				defaultPaymentSource === undefined
+					? undefined
+					: defaultPaymentSource === "credit_card"
+						? defaultPaymentCardDebtId
+						: (null as any),
+			creditLimit: hasCreditLimitValue ? creditLimit : undefined,
 			initialBalance: nextExpenseAmount,
 			currentBalance,
 			paid: nextPaid,
@@ -147,7 +202,15 @@ export async function updateDebtAction(id: string, formData: FormData) {
 	} else {
 		await updateDebt(budgetPlanId, id, {
 			name,
-			creditLimit,
+			dueDay,
+			defaultPaymentSource,
+			defaultPaymentCardDebtId:
+				defaultPaymentSource === undefined
+					? undefined
+					: defaultPaymentSource === "credit_card"
+						? defaultPaymentCardDebtId
+						: (null as any),
+			creditLimit: hasCreditLimitValue ? creditLimit : undefined,
 			initialBalance,
 			currentBalance,
 			amount,
@@ -215,13 +278,18 @@ export async function makePaymentFromForm(formData: FormData) {
 	const amount = parseFloat(formData.get("amount") as string);
 	const month = formData.get("month") as string;
 	const rawSource = String(formData.get("source") ?? "income").trim();
-	const source = rawSource === "extra_funds" ? "extra_funds" : "income";
+	const source = rawSource === "credit_card" ? "credit_card" : rawSource === "extra_funds" ? "extra_funds" : "income";
+	const cardDebtId = String(formData.get("cardDebtId") ?? "").trim();
 
 	if (!debtId || isNaN(amount) || amount <= 0) {
 		throw new Error("Invalid payment data");
 	}
 
-	await addPayment(budgetPlanId, debtId, amount, month, source);
+	if (source === "credit_card" && !cardDebtId) {
+		throw new Error("Card is required when payment source is credit card");
+	}
+
+	await addPayment(budgetPlanId, debtId, amount, month, source, cardDebtId || undefined);
 
 	const debt = await getDebtById(budgetPlanId, debtId);
 	if (debt?.sourceType === "expense" && debt.sourceExpenseId && debt.sourceMonthKey) {

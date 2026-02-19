@@ -22,6 +22,13 @@ export default function DebtCardEditDetails(props: {
 	onEditMonthlyMinimumChange: (next: string) => void;
 	onEditInterestRateChange: (next: string) => void;
 	onSelectInstallmentMonths: (months: number) => void;
+	editDueDay: string;
+	onEditDueDayChange: (next: string) => void;
+	editDefaultPaymentSource: string;
+	onEditDefaultPaymentSourceChange: (next: string) => void;
+	editDefaultPaymentCardDebtId: string;
+	onEditDefaultPaymentCardDebtIdChange: (next: string) => void;
+	creditCardOptions?: Array<{ value: string; label: string }>;
 }) {
 	const {
 		debtType,
@@ -39,6 +46,13 @@ export default function DebtCardEditDetails(props: {
 		onEditMonthlyMinimumChange,
 		onEditInterestRateChange,
 		onSelectInstallmentMonths,
+		editDueDay,
+		onEditDueDayChange,
+		editDefaultPaymentSource,
+		onEditDefaultPaymentSourceChange,
+		editDefaultPaymentCardDebtId,
+		onEditDefaultPaymentCardDebtIdChange,
+		creditCardOptions,
 	} = props;
 
 	const installmentMonths = editInstallmentMonths ? parseFloat(editInstallmentMonths) : 0;
@@ -52,7 +66,55 @@ export default function DebtCardEditDetails(props: {
 
 	return (
 		<>
-			{debtType === "credit_card" ? (
+			<div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-4 mb-3 sm:mb-4">
+				<div>
+					<label className="block text-[10px] sm:text-xs text-slate-400 mb-0.5 sm:mb-1">Due Day (standing order)</label>
+					<input
+						type="number"
+						min={1}
+						max={31}
+						value={editDueDay}
+						onChange={(e) => onEditDueDayChange(e.target.value)}
+						className="w-full px-2 py-1.5 sm:px-3 sm:py-2 bg-slate-900/40 border border-white/10 text-white placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-xs sm:text-sm"
+						placeholder="e.g. 27"
+					/>
+					<div className="mt-1 text-[10px] sm:text-xs text-slate-500">Used to compute missed payments.</div>
+				</div>
+
+				<div>
+					<label className="block text-[10px] sm:text-xs text-slate-400 mb-0.5 sm:mb-1">Default Payment Source</label>
+					<select
+						value={editDefaultPaymentSource}
+						onChange={(e) => onEditDefaultPaymentSourceChange(e.target.value)}
+						className="w-full px-2 py-1.5 sm:px-3 sm:py-2 bg-slate-900/40 border border-white/10 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-xs sm:text-sm"
+					>
+						<option value="income">Income (tracked)</option>
+						<option value="extra_funds">Extra funds</option>
+						<option value="credit_card">Credit card</option>
+					</select>
+				</div>
+
+				{editDefaultPaymentSource === "credit_card" ? (
+					<div>
+						<label className="block text-[10px] sm:text-xs text-slate-400 mb-0.5 sm:mb-1">Default Card</label>
+						<select
+							value={editDefaultPaymentCardDebtId}
+							onChange={(e) => onEditDefaultPaymentCardDebtIdChange(e.target.value)}
+							required
+							className="w-full px-2 py-1.5 sm:px-3 sm:py-2 bg-slate-900/40 border border-white/10 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-xs sm:text-sm"
+						>
+							<option value="">Choose a card</option>
+							{(creditCardOptions ?? []).map((opt) => (
+								<option key={opt.value} value={opt.value}>
+									{opt.label}
+								</option>
+							))}
+						</select>
+					</div>
+				) : null}
+			</div>
+
+			{debtType === "credit_card" || debtType === "store_card" ? (
 				<div className="mb-3 sm:mb-4">
 					<label className="block text-[10px] sm:text-xs text-slate-400 mb-0.5 sm:mb-1">Credit Limit</label>
 					<input

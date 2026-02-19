@@ -1,10 +1,11 @@
-export type DebtType = "credit_card" | "loan" | "high_purchase" | "other";
+export type DebtType = "credit_card" | "store_card" | "loan" | "mortgage" | "high_purchase" | "other";
 
 export interface DebtItem {
 	id: string;
 	name: string;
 	type: DebtType;
 	creditLimit?: number;
+	dueDay?: number;
 	initialBalance: number;
 	currentBalance: number;
 	monthlyMinimum?: number;
@@ -14,6 +15,8 @@ export interface DebtItem {
 	amount: number;
 	installmentMonths?: number;
 	createdAt: string;
+	defaultPaymentSource?: "income" | "extra_funds" | "credit_card";
+	defaultPaymentCardDebtId?: string;
 	sourceType?: "expense";
 	sourceExpenseId?: string;
 	sourceMonthKey?: string;
@@ -29,5 +32,6 @@ export interface DebtPayment {
 	amount: number;
 	date: string;
 	month: string;
-	source?: "income" | "extra_funds";
+	source?: "income" | "extra_funds" | "credit_card";
+	cardDebtId?: string;
 }

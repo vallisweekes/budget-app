@@ -12,13 +12,14 @@ import type { DebtSortOption } from "@/lib/helpers/debts/listItems";
 
 interface DebtsListProps {
 	debts: DebtCardDebt[];
+	creditCards: DebtCardDebt[];
 	budgetPlanId: string;
 	typeLabels: Record<string, string>;
 	paymentsMap: Map<string, DebtPayment[]>;
 	payDate: number;
 }
 
-export default function DebtsList({ debts, budgetPlanId, typeLabels, paymentsMap, payDate }: DebtsListProps) {
+export default function DebtsList({ debts, creditCards, budgetPlanId, typeLabels, paymentsMap, payDate }: DebtsListProps) {
 	const [sortBy, setSortBy] = useState<DebtSortOption>("default");
 	const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
@@ -47,6 +48,7 @@ export default function DebtsList({ debts, budgetPlanId, typeLabels, paymentsMap
 								groupKey={item.key}
 								title={item.title}
 								debts={item.debts}
+								creditCards={creditCards}
 								totalCurrentBalance={item.totalCurrentBalance}
 								totalDue={item.totalDue}
 								paymentsMap={paymentsMap}
@@ -63,6 +65,7 @@ export default function DebtsList({ debts, budgetPlanId, typeLabels, paymentsMap
 						<DebtCard
 							key={item.debt.id}
 							debt={item.debt}
+							creditCards={creditCards}
 							budgetPlanId={budgetPlanId}
 							typeLabels={typeLabels}
 							payments={paymentsMap.get(item.debt.id) || []}

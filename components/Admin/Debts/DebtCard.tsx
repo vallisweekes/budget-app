@@ -1,6 +1,6 @@
 "use client";
 
-import { CreditCard, TrendingDown, ShoppingBag } from "lucide-react";
+import { CreditCard, TrendingDown, ShoppingBag, Home } from "lucide-react";
 import DebtCardHeader from "./DebtCardHeader";
 import DebtCardCollapsedSummary from "./DebtCardCollapsedSummary";
 import DebtCardEditDetails from "./DebtCardEditDetails";
@@ -12,6 +12,7 @@ import { useDebtCard } from "@/lib/hooks/debts/useDebtCard";
 
 interface DebtCardProps {
 	debt: DebtCardDebt;
+	creditCards: DebtCardDebt[];
 	budgetPlanId: string;
 	typeLabels: Record<string, string>;
 	payments: DebtPayment[];
@@ -20,12 +21,18 @@ interface DebtCardProps {
 
 const typeIcons = {
 	credit_card: CreditCard,
+	store_card: ShoppingBag,
 	loan: TrendingDown,
+	mortgage: Home,
 	high_purchase: ShoppingBag,
+	other: TrendingDown,
 } as const;
 
-export default function DebtCard({ debt, budgetPlanId, typeLabels, payments, payDate }: DebtCardProps) {
-	const Icon = typeIcons[debt.type as keyof typeof typeIcons];
+export default function DebtCard({ debt, creditCards, budgetPlanId, typeLabels, payments, payDate }: DebtCardProps) {
+	const Icon = typeIcons[debt.type as keyof typeof typeIcons] ?? CreditCard;
+	const creditCardOptions = creditCards
+		.filter((d) => d.id !== debt.id)
+		.map((d) => ({ value: d.id, label: d.name }));
 
 	const {
 		isPending,
@@ -36,10 +43,18 @@ export default function DebtCard({ debt, budgetPlanId, typeLabels, payments, pay
 		setIsEditingAmount,
 		paymentSource,
 		setPaymentSource,
+		paymentCardDebtId,
+		setPaymentCardDebtId,
 		editName,
 		setEditName,
 		editCreditLimit,
 		setEditCreditLimit,
+		editDueDay,
+		setEditDueDay,
+		editDefaultPaymentSource,
+		setEditDefaultPaymentSource,
+		editDefaultPaymentCardDebtId,
+		setEditDefaultPaymentCardDebtId,
 		editInitialBalance,
 		setEditInitialBalance,
 		editCurrentBalance,
@@ -92,6 +107,13 @@ export default function DebtCard({ debt, budgetPlanId, typeLabels, payments, pay
 						debtType={debt.type}
 						editCreditLimit={editCreditLimit}
 						onEditCreditLimitChange={setEditCreditLimit}
+						editDueDay={editDueDay}
+						onEditDueDayChange={setEditDueDay}
+						editDefaultPaymentSource={editDefaultPaymentSource}
+						onEditDefaultPaymentSourceChange={(next) => setEditDefaultPaymentSource(next as any)}
+						editDefaultPaymentCardDebtId={editDefaultPaymentCardDebtId}
+						onEditDefaultPaymentCardDebtIdChange={setEditDefaultPaymentCardDebtId}
+						creditCardOptions={creditCardOptions}
 						editInitialBalance={editInitialBalance}
 						editCurrentBalance={editCurrentBalance}
 						editDueAmount={editDueAmount}
@@ -112,7 +134,10 @@ export default function DebtCard({ debt, budgetPlanId, typeLabels, payments, pay
 						budgetPlanId={budgetPlanId}
 						paymentMonth={derived.paymentMonth}
 						paymentSource={paymentSource}
-						onPaymentSourceChange={setPaymentSource}
+						onPaymentSourceChange={(next) => setPaymentSource(next as any)}
+						paymentCardDebtId={paymentCardDebtId}
+						onPaymentCardDebtIdChange={setPaymentCardDebtId}
+						creditCardOptions={creditCardOptions}
 						isEditingAmount={isEditingAmount}
 						onEditingAmountChange={setIsEditingAmount}
 						tempDueAmount={tempDueAmount}

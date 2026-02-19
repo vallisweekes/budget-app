@@ -18,6 +18,21 @@ function prismaDebtHasField(fieldName: string): boolean {
 // Dev safety: Turbopack can run with a stale Prisma Client after schema changes.
 // Only select/write fields when the runtime client supports them.
 const DEBT_HAS_CREDIT_LIMIT = prismaDebtHasField("creditLimit");
+const DEBT_HAS_DUE_DAY = prismaDebtHasField("dueDay");
+const DEBT_HAS_DEFAULT_PAYMENT_SOURCE = prismaDebtHasField("defaultPaymentSource");
+const DEBT_HAS_DEFAULT_PAYMENT_CARD_DEBT_ID = prismaDebtHasField("defaultPaymentCardDebtId");
+
+function prismaDebtPaymentHasField(fieldName: string): boolean {
+	try {
+		const fields = (prisma as any)?._runtimeDataModel?.models?.DebtPayment?.fields;
+		if (!Array.isArray(fields)) return false;
+		return fields.some((f: any) => f?.name === fieldName);
+	} catch {
+		return false;
+	}
+}
+
+const DEBT_PAYMENT_HAS_CARD_DEBT_ID = prismaDebtPaymentHasField("cardDebtId");
 
 function decimalToNumber(value: unknown): number {
 	if (value == null) return 0;
@@ -61,11 +76,14 @@ function serializeDebt(row: {
 	name: string;
 	type: string;
 	creditLimit?: unknown | null;
+	dueDay?: number | null;
 	initialBalance: unknown;
 	currentBalance: unknown;
 	amount: unknown;
 	paid: boolean;
 	paidAmount: unknown;
+	defaultPaymentSource?: unknown | null;
+	defaultPaymentCardDebtId?: string | null;
 	monthlyMinimum: unknown | null;
 	interestRate: unknown | null;
 	installmentMonths: number | null;
@@ -82,11 +100,21 @@ function serializeDebt(row: {
 		name: row.name,
 		type: row.type as any,
 		creditLimit: row.creditLimit == null ? undefined : decimalToNumber(row.creditLimit),
+		dueDay: row.dueDay == null ? undefined : Number(row.dueDay),
 		initialBalance: decimalToNumber(row.initialBalance),
 		currentBalance: decimalToNumber(row.currentBalance),
 		amount: decimalToNumber(row.amount),
 		paid: row.paid,
 		paidAmount: decimalToNumber(row.paidAmount),
+		defaultPaymentSource:
+			row.defaultPaymentSource === "credit_card"
+				? "credit_card"
+				: row.defaultPaymentSource === "extra_funds"
+					? "extra_funds"
+					: row.defaultPaymentSource === "income"
+						? "income"
+						: undefined,
+		defaultPaymentCardDebtId: row.defaultPaymentCardDebtId ?? undefined,
 		monthlyMinimum: row.monthlyMinimum == null ? undefined : decimalToNumber(row.monthlyMinimum),
 		interestRate: row.interestRate == null ? undefined : decimalToNumber(row.interestRate),
 		installmentMonths: row.installmentMonths ?? undefined,
@@ -106,6 +134,7 @@ function serializePayment(row: {
 	amount: unknown;
 	paidAt: Date;
 	source?: unknown;
+	cardDebtId?: string | null;
 }): DebtPayment {
 	return {
 		id: row.id,
@@ -113,7 +142,15 @@ function serializePayment(row: {
 		amount: decimalToNumber(row.amount),
 		date: row.paidAt.toISOString(),
 		month: paymentMonthKeyFromDate(row.paidAt),
-		source: row.source === "extra_funds" ? "extra_funds" : row.source === "income" ? "income" : undefined,
+		source:
+			row.source === "credit_card"
+				? "credit_card"
+				: row.source === "extra_funds"
+					? "extra_funds"
+					: row.source === "income"
+						? "income"
+						: undefined,
+		cardDebtId: row.cardDebtId ?? undefined,
 	};
 }
 
@@ -126,11 +163,14 @@ export async function getAllDebts(budgetPlanId: string): Promise<DebtItem[]> {
 			name: true,
 			type: true,
 			...(DEBT_HAS_CREDIT_LIMIT ? { creditLimit: true } : {}),
+			...(DEBT_HAS_DUE_DAY ? { dueDay: true } : {}),
 			initialBalance: true,
 			currentBalance: true,
 			amount: true,
 			paid: true,
 			paidAmount: true,
+			...(DEBT_HAS_DEFAULT_PAYMENT_SOURCE ? { defaultPaymentSource: true } : {}),
+			...(DEBT_HAS_DEFAULT_PAYMENT_CARD_DEBT_ID ? { defaultPaymentCardDebtId: true } : {}),
 			monthlyMinimum: true,
 			interestRate: true,
 			installmentMonths: true,
@@ -154,11 +194,14 @@ export async function getDebtById(budgetPlanId: string, id: string): Promise<Deb
 			name: true,
 			type: true,
 			...(DEBT_HAS_CREDIT_LIMIT ? { creditLimit: true } : {}),
+			...(DEBT_HAS_DUE_DAY ? { dueDay: true } : {}),
 			initialBalance: true,
 			currentBalance: true,
 			amount: true,
 			paid: true,
 			paidAmount: true,
+			...(DEBT_HAS_DEFAULT_PAYMENT_SOURCE ? { defaultPaymentSource: true } : {}),
+			...(DEBT_HAS_DEFAULT_PAYMENT_CARD_DEBT_ID ? { defaultPaymentCardDebtId: true } : {}),
 			monthlyMinimum: true,
 			interestRate: true,
 			installmentMonths: true,
@@ -194,6 +237,13 @@ export async function addDebt(
 			name: debt.name,
 			type: debt.type as any,
 			...(DEBT_HAS_CREDIT_LIMIT ? { creditLimit: (debt as any).creditLimit ?? null } : {}),
+			...(DEBT_HAS_DUE_DAY ? { dueDay: (debt as any).dueDay ?? null } : {}),
+			...(DEBT_HAS_DEFAULT_PAYMENT_SOURCE
+				? { defaultPaymentSource: (debt as any).defaultPaymentSource ?? "income" }
+				: {}),
+			...(DEBT_HAS_DEFAULT_PAYMENT_CARD_DEBT_ID
+				? { defaultPaymentCardDebtId: (debt as any).defaultPaymentCardDebtId ?? null }
+				: {}),
 			initialBalance: debt.initialBalance,
 			currentBalance: debt.initialBalance,
 			amount: dueAmount,
@@ -214,11 +264,14 @@ export async function addDebt(
 			name: true,
 			type: true,
 			...(DEBT_HAS_CREDIT_LIMIT ? { creditLimit: true } : {}),
+			...(DEBT_HAS_DUE_DAY ? { dueDay: true } : {}),
 			initialBalance: true,
 			currentBalance: true,
 			amount: true,
 			paid: true,
 			paidAmount: true,
+			...(DEBT_HAS_DEFAULT_PAYMENT_SOURCE ? { defaultPaymentSource: true } : {}),
+			...(DEBT_HAS_DEFAULT_PAYMENT_CARD_DEBT_ID ? { defaultPaymentCardDebtId: true } : {}),
 			monthlyMinimum: true,
 			interestRate: true,
 			installmentMonths: true,
@@ -421,6 +474,27 @@ export async function updateDebt(
 						(updates as any).creditLimit === undefined ? undefined : (updates as any).creditLimit ?? null,
 				}
 				: {}),
+			...(DEBT_HAS_DUE_DAY
+				? {
+					dueDay: (updates as any).dueDay === undefined ? undefined : (updates as any).dueDay ?? null,
+				}
+				: {}),
+			...(DEBT_HAS_DEFAULT_PAYMENT_SOURCE
+				? {
+					defaultPaymentSource:
+						(updates as any).defaultPaymentSource === undefined
+							? undefined
+							: (updates as any).defaultPaymentSource ?? "income",
+				}
+				: {}),
+			...(DEBT_HAS_DEFAULT_PAYMENT_CARD_DEBT_ID
+				? {
+					defaultPaymentCardDebtId:
+						(updates as any).defaultPaymentCardDebtId === undefined
+							? undefined
+							: (updates as any).defaultPaymentCardDebtId ?? null,
+				}
+				: {}),
 			initialBalance: updates.initialBalance,
 			currentBalance: updates.currentBalance,
 			monthlyMinimum: updates.monthlyMinimum === undefined ? undefined : updates.monthlyMinimum ?? null,
@@ -435,11 +509,14 @@ export async function updateDebt(
 			name: true,
 			type: true,
 			...(DEBT_HAS_CREDIT_LIMIT ? { creditLimit: true } : {}),
+			...(DEBT_HAS_DUE_DAY ? { dueDay: true } : {}),
 			initialBalance: true,
 			currentBalance: true,
 			amount: true,
 			paid: true,
 			paidAmount: true,
+			...(DEBT_HAS_DEFAULT_PAYMENT_SOURCE ? { defaultPaymentSource: true } : {}),
+			...(DEBT_HAS_DEFAULT_PAYMENT_CARD_DEBT_ID ? { defaultPaymentCardDebtId: true } : {}),
 			monthlyMinimum: true,
 			interestRate: true,
 			installmentMonths: true,
@@ -465,18 +542,92 @@ export async function addPayment(
 	debtId: string,
 	amount: number,
 	month: string,
-	source: "income" | "extra_funds" = "income"
+	source: "income" | "extra_funds" | "credit_card" = "income",
+	cardDebtId?: string
 ): Promise<DebtPayment | null> {
-	const debt = await prisma.debt.findFirst({
-		where: { id: debtId, budgetPlanId },
-		select: { id: true, currentBalance: true, paidAmount: true, initialBalance: true },
-	});
-	if (!debt) return null;
-
 	const paidAt = new Date();
 	const parsed = parseYearMonthKey(month);
 	const year = parsed?.year ?? paidAt.getUTCFullYear();
 	const monthNum = parsed?.month ?? paidAt.getUTCMonth() + 1;
+
+	if (source === "credit_card") {
+		const trimmedCardId = String(cardDebtId ?? "").trim();
+		if (!trimmedCardId) throw new Error("cardDebtId is required when source=credit_card");
+		if (trimmedCardId === debtId) throw new Error("Cannot pay a debt using the same card");
+
+		const [targetDebt, cardDebt] = await prisma.$transaction([
+			prisma.debt.findFirst({
+				where: { id: debtId, budgetPlanId },
+				select: { id: true, type: true, currentBalance: true, paidAmount: true },
+			}),
+			prisma.debt.findFirst({
+				where: { id: trimmedCardId, budgetPlanId },
+				select: { id: true, type: true, currentBalance: true, paid: true, paidAmount: true },
+			}),
+		]);
+		if (!targetDebt) return null;
+		if (!cardDebt) throw new Error("Selected card not found");
+		if (cardDebt.type !== "credit_card") throw new Error("Selected source must be a credit card");
+
+		const result = await prisma.$transaction(async (tx) => {
+			const createdPayment = await tx.debtPayment.create({
+				data: {
+					debtId: targetDebt.id,
+					amount,
+					paidAt,
+					year,
+					month: monthNum,
+					source: "credit_card" as any,
+					...(DEBT_PAYMENT_HAS_CARD_DEBT_ID ? { cardDebtId: trimmedCardId } : {}),
+					notes: month ? `month:${month}` : null,
+				},
+				select: {
+					id: true,
+					debtId: true,
+					amount: true,
+					paidAt: true,
+					source: true,
+					...(DEBT_PAYMENT_HAS_CARD_DEBT_ID ? { cardDebtId: true } : {}),
+				},
+			});
+
+			const targetCurrentBalance = decimalToNumber(targetDebt.currentBalance);
+			const targetCurrentPaid = decimalToNumber(targetDebt.paidAmount);
+			const nextTargetBalance = Math.max(0, targetCurrentBalance - amount);
+			const nextTargetPaid = Math.max(0, targetCurrentPaid + amount);
+
+			await tx.debt.update({
+				where: { id: targetDebt.id },
+				data: {
+					currentBalance: nextTargetBalance,
+					paidAmount: nextTargetPaid,
+					paid: nextTargetBalance === 0,
+				},
+			});
+
+			const cardCurrentBalance = decimalToNumber(cardDebt.currentBalance);
+			const nextCardBalance = Math.max(0, cardCurrentBalance + amount);
+			await tx.debt.update({
+				where: { id: cardDebt.id },
+				data: {
+					currentBalance: nextCardBalance,
+					paid: nextCardBalance === 0,
+					// Do not change paidAmount; this is a charge, not a payment.
+				},
+			});
+
+			return createdPayment;
+		});
+
+		return serializePayment(result);
+	}
+
+	const debt = await prisma.debt.findFirst({
+		where: { id: debtId, budgetPlanId },
+		select: { id: true, currentBalance: true, paidAmount: true },
+	});
+	if (!debt) return null;
+
 	const payment = await prisma.debtPayment.create({
 		data: {
 			debtId: debt.id,
@@ -485,9 +636,17 @@ export async function addPayment(
 			year,
 			month: monthNum,
 			source: source === "extra_funds" ? "extra_funds" : "income",
+			...(DEBT_PAYMENT_HAS_CARD_DEBT_ID ? { cardDebtId: cardDebtId ?? null } : {}),
 			notes: month ? `month:${month}` : null,
 		},
-		select: { id: true, debtId: true, amount: true, paidAt: true, source: true },
+		select: {
+			id: true,
+			debtId: true,
+			amount: true,
+			paidAt: true,
+			source: true,
+			...(DEBT_PAYMENT_HAS_CARD_DEBT_ID ? { cardDebtId: true } : {}),
+		},
 	});
 
 	const currentBalance = decimalToNumber(debt.currentBalance);
@@ -512,7 +671,14 @@ export async function getPaymentsByDebt(budgetPlanId: string, debtId: string): P
 	const rows = await prisma.debtPayment.findMany({
 		where: { debtId: debt.id },
 		orderBy: [{ paidAt: "asc" }],
-		select: { id: true, debtId: true, amount: true, paidAt: true, source: true },
+		select: {
+			id: true,
+			debtId: true,
+			amount: true,
+			paidAt: true,
+			source: true,
+			...(DEBT_PAYMENT_HAS_CARD_DEBT_ID ? { cardDebtId: true } : {}),
+		},
 	});
 	return rows.map(serializePayment);
 }
@@ -530,7 +696,14 @@ export async function getPaymentsByMonth(budgetPlanId: string, month: string, ye
 			source: "income",
 		},
 		orderBy: [{ paidAt: "asc" }],
-		select: { id: true, debtId: true, amount: true, paidAt: true, source: true },
+		select: {
+			id: true,
+			debtId: true,
+			amount: true,
+			paidAt: true,
+			source: true,
+			...(DEBT_PAYMENT_HAS_CARD_DEBT_ID ? { cardDebtId: true } : {}),
+		},
 	});
 	return rows.map(serializePayment);
 }

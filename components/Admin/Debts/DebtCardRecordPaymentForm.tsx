@@ -10,14 +10,28 @@ export default function DebtCardRecordPaymentForm(props: {
 	paymentMonth: string;
 	paymentSource: string;
 	onPaymentSourceChange: (next: string) => void;
+	paymentCardDebtId: string;
+	onPaymentCardDebtIdChange: (next: string) => void;
+	creditCardOptions: Array<{ value: string; label: string }>;
+	defaultPaymentAmount?: number;
 }) {
-	const { debt, budgetPlanId, paymentMonth, paymentSource, onPaymentSourceChange } = props;
+	const {
+		debt,
+		budgetPlanId,
+		paymentMonth,
+		paymentSource,
+		onPaymentSourceChange,
+		paymentCardDebtId,
+		onPaymentCardDebtIdChange,
+		creditCardOptions,
+		defaultPaymentAmount,
+	} = props;
 
 	return (
 		<div className="bg-slate-900/40 rounded-xl p-2.5 sm:p-4 border border-white/5">
 			<h4 className="text-xs sm:text-sm font-semibold text-slate-300 mb-2 sm:mb-3">Record Payment</h4>
 			<form
-				key={debt.amount}
+				key={defaultPaymentAmount ?? debt.amount}
 				action={makePaymentFromForm}
 				className="grid grid-cols-1 sm:grid-cols-[180px_1fr_auto] gap-2 sm:gap-3 sm:items-end"
 			>
@@ -25,6 +39,7 @@ export default function DebtCardRecordPaymentForm(props: {
 				<input type="hidden" name="debtId" value={debt.id} />
 				<input type="hidden" name="month" value={paymentMonth} />
 				<input type="hidden" name="source" value={paymentSource} />
+				<input type="hidden" name="cardDebtId" value={paymentCardDebtId} />
 				<div>
 					<label className="block text-[10px] sm:text-xs font-medium text-slate-300 mb-1 sm:mb-1.5">Payment Amount</label>
 					<input
@@ -32,7 +47,7 @@ export default function DebtCardRecordPaymentForm(props: {
 						name="amount"
 						step="0.01"
 						placeholder="Amount"
-						defaultValue={debt.amount}
+						defaultValue={defaultPaymentAmount ?? debt.amount}
 						required
 						aria-label="Payment amount"
 						className="h-8 sm:h-10 w-full px-2 py-1.5 sm:px-3 sm:py-2 bg-slate-900/60 border border-white/10 text-white placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-xs sm:text-sm"
@@ -44,15 +59,36 @@ export default function DebtCardRecordPaymentForm(props: {
 						options={[
 							{ value: "income", label: "Income (tracked)" },
 							{ value: "extra_funds", label: "Extra funds" },
+							{ value: "credit_card", label: "Credit card" },
 						]}
 						value={paymentSource}
-						onValueChange={onPaymentSourceChange}
+						onValueChange={(next) => {
+							onPaymentSourceChange(next);
+							if (next !== "credit_card") onPaymentCardDebtIdChange("");
+							if (next === "credit_card" && !paymentCardDebtId && creditCardOptions.length === 1) {
+								onPaymentCardDebtIdChange(creditCardOptions[0].value);
+							}
+						}}
 						variant="dark"
 						buttonClassName="h-8 sm:h-10 text-xs sm:text-sm"
 					/>
 				</div>
+
+				{paymentSource === "credit_card" ? (
+					<div>
+						<label className="block text-[10px] sm:text-xs font-medium text-slate-300 mb-1 sm:mb-1.5">Card</label>
+						<SelectDropdown
+							options={[{ value: "", label: "Choose a card" }, ...creditCardOptions]}
+							value={paymentCardDebtId}
+							onValueChange={onPaymentCardDebtIdChange}
+							variant="dark"
+							buttonClassName="h-8 sm:h-10 text-xs sm:text-sm"
+						/>
+					</div>
+				) : null}
 				<button
 					type="submit"
+					disabled={paymentSource === "credit_card" && !paymentCardDebtId}
 					className="h-8 sm:h-10 px-3 sm:px-6 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium shadow-lg hover:shadow-xl cursor-pointer whitespace-nowrap text-xs sm:text-sm"
 				>
 					Make Payment

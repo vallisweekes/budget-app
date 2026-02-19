@@ -11,6 +11,7 @@ export default function ExpenseDebtGroup({
 	groupKey,
 	title,
 	debts,
+	creditCards,
 	totalCurrentBalance,
 	totalDue,
 	paymentsMap,
@@ -23,6 +24,7 @@ export default function ExpenseDebtGroup({
 	groupKey: string;
 	title: string;
 	debts: DebtCardDebt[];
+	creditCards: DebtCardDebt[];
 	totalCurrentBalance: number;
 	totalDue: number;
 	paymentsMap: Map<string, DebtPayment[]>;
@@ -66,6 +68,7 @@ export default function ExpenseDebtGroup({
 						<DebtCard
 							key={`${groupKey}:${debt.id}`}
 							debt={debt}
+							creditCards={creditCards}
 							budgetPlanId={budgetPlanId}
 							typeLabels={typeLabels}
 							payments={paymentsMap.get(debt.id) || []}

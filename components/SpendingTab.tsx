@@ -24,7 +24,7 @@ interface Pot {
 interface Debt {
   id: string;
   name: string;
-  type: "credit_card" | "loan" | "high_purchase" | "other";
+  type: "credit_card" | "store_card" | "loan" | "mortgage" | "high_purchase" | "other";
 }
 
 interface SpendingTabProps {
