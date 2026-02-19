@@ -100,8 +100,8 @@ export default function MobileBottomNav() {
 	];
 
 	return (
-		<nav className="lg:hidden fixed bottom-2 left-4 right-4 z-30 flex justify-center pointer-events-none">
-			<div className="pointer-events-auto w-[min(360px,calc(100vw-3rem))] bg-slate-900/30 backdrop-blur-2xl border border-white/20 rounded-full shadow-2xl px-3 sm:px-4 pt-1.5 sm:pt-2 pb-[calc(0.375rem+env(safe-area-inset-bottom))] sm:pb-[calc(0.5rem+env(safe-area-inset-bottom))] ring-1 ring-white/5">
+		<nav className="lg:hidden fixed bottom-[calc(env(safe-area-inset-bottom)+0.5rem)] left-4 right-4 z-30 flex justify-center pointer-events-none">
+			<div className="pointer-events-auto w-[min(360px,calc(100vw-3rem))] bg-slate-900/30 backdrop-blur-2xl border border-white/20 rounded-full shadow-2xl px-3 sm:px-4 pt-2 pb-2 ring-1 ring-white/5">
 				<div className="flex w-full items-center justify-between">
 					{navItems.map((item) => {
 						const active = activePage === item.key;
