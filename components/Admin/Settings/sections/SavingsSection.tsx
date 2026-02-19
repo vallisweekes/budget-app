@@ -355,14 +355,11 @@ export default function SavingsSection({
 										<div className="mt-1 text-[11px] text-slate-500">Current balance starts the same; you can edit it after adding.</div>
 									</label>
 									<label className="block">
-										<span className="text-sm font-medium text-slate-400 mb-2 block">Due day (optional)</span>
+										<span className="text-sm font-medium text-slate-400 mb-2 block">Due date (optional)</span>
 										<input
-											name="dueDay"
-											type="number"
-											min={1}
-											max={31}
+											name="dueDate"
+											type="date"
 											className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white text-base font-semibold placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-											placeholder="e.g. 24"
 										/>
 									</label>
 								</div>

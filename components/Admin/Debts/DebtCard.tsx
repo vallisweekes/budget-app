@@ -47,8 +47,8 @@ export default function DebtCard({ debt, creditCards, budgetPlanId, typeLabels, 
 		setPaymentCardDebtId,
 		editName,
 		setEditName,
-		editDueDay,
-		setEditDueDay,
+		editDueDate,
+		setEditDueDate,
 		editDefaultPaymentSource,
 		setEditDefaultPaymentSource,
 		editDefaultPaymentCardDebtId,
@@ -104,8 +104,8 @@ export default function DebtCard({ debt, creditCards, budgetPlanId, typeLabels, 
 					<DebtCardEditDetails
 						debtType={debt.type}
 						creditLimit={debt.creditLimit ? String(debt.creditLimit) : ""}
-						editDueDay={editDueDay}
-						onEditDueDayChange={setEditDueDay}
+						editDueDate={editDueDate}
+						onEditDueDateChange={setEditDueDate}
 						editDefaultPaymentSource={editDefaultPaymentSource}
 						onEditDefaultPaymentSourceChange={(next) => setEditDefaultPaymentSource(next as any)}
 						editDefaultPaymentCardDebtId={editDefaultPaymentCardDebtId}

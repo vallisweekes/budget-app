@@ -10,6 +10,19 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { resolveUserId } from "@/lib/budgetPlans";
 
+function parseDateOnlyYYYYMMDD(value: unknown): string | undefined {
+	const raw = String(value ?? "").trim();
+	if (!raw) return undefined;
+	if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+		throw new Error("Due date must be a valid date");
+	}
+	const dt = new Date(`${raw}T00:00:00.000Z`);
+	if (!Number.isFinite(dt.getTime())) {
+		throw new Error("Due date must be a valid date");
+	}
+	return dt.toISOString();
+}
+
 function requireBudgetPlanId(formData: FormData): string {
 	const raw = formData.get("budgetPlanId");
 	const budgetPlanId = String(raw ?? "").trim();
@@ -38,8 +51,14 @@ export async function createDebt(formData: FormData) {
 	await requireOwnedBudgetPlan(budgetPlanId, userId);
 	const name = formData.get("name") as string;
 	const type = formData.get("type") as DebtType;
+	const dueDate = parseDateOnlyYYYYMMDD(formData.get("dueDate"));
 	const dueDayRaw = formData.get("dueDay");
-	const dueDay = dueDayRaw != null && String(dueDayRaw).trim() !== "" ? parseInt(String(dueDayRaw), 10) : undefined;
+	const dueDay =
+		dueDate != null
+			? undefined
+			: dueDayRaw != null && String(dueDayRaw).trim() !== ""
+				? parseInt(String(dueDayRaw), 10)
+				: undefined;
 	const rawDefaultPaymentSource = String(formData.get("defaultPaymentSource") ?? "income").trim();
 	const defaultPaymentSource =
 		rawDefaultPaymentSource === "credit_card"
@@ -82,6 +101,7 @@ export async function createDebt(formData: FormData) {
 		name,
 		type,
 		dueDay,
+		dueDate,
 		defaultPaymentSource,
 		defaultPaymentCardDebtId: defaultPaymentSource === "credit_card" ? defaultPaymentCardDebtId : undefined,
 		creditLimit,
@@ -113,8 +133,14 @@ export async function updateDebtAction(id: string, formData: FormData) {
 	if (!existing) throw new Error("Debt not found");
 
 	const name = formData.get("name") as string;
+	const dueDate = parseDateOnlyYYYYMMDD(formData.get("dueDate"));
 	const dueDayRaw = formData.get("dueDay");
-	const dueDay = dueDayRaw != null && String(dueDayRaw).trim() !== "" ? parseInt(String(dueDayRaw), 10) : undefined;
+	const dueDay =
+		dueDate != null
+			? undefined
+			: dueDayRaw != null && String(dueDayRaw).trim() !== ""
+				? parseInt(String(dueDayRaw), 10)
+				: undefined;
 	const rawDefaultPaymentSource = formData.get("defaultPaymentSource");
 	const defaultPaymentSource =
 		rawDefaultPaymentSource == null
@@ -178,7 +204,8 @@ export async function updateDebtAction(id: string, formData: FormData) {
 
 		await updateDebt(budgetPlanId, id, {
 			name,
-			dueDay,
+			dueDay: dueDate != null ? (null as any) : dueDay,
+			dueDate,
 			defaultPaymentSource,
 			defaultPaymentCardDebtId:
 				defaultPaymentSource === undefined
@@ -198,7 +225,8 @@ export async function updateDebtAction(id: string, formData: FormData) {
 	} else {
 		await updateDebt(budgetPlanId, id, {
 			name,
-			dueDay,
+			dueDay: dueDate != null ? (null as any) : dueDay,
+			dueDate,
 			defaultPaymentSource,
 			defaultPaymentCardDebtId:
 				defaultPaymentSource === undefined

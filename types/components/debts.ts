@@ -6,6 +6,7 @@ export interface DebtCardDebt {
 	type: DebtType;
 	creditLimit?: number;
 	dueDay?: number;
+	dueDate?: string;
 	initialBalance: number;
 	currentBalance: number;
 	amount: number;

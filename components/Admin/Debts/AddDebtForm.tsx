@@ -22,7 +22,24 @@ export default function AddDebtForm({ budgetPlanId, payDate, creditCards }: AddD
 	const [type, setType] = useState("loan");
 	const [initialBalance, setInitialBalance] = useState("");
 	const [installmentMonths, setInstallmentMonths] = useState("");
-	const [dueDay, setDueDay] = useState(String(payDate ?? ""));
+	const defaultDueDate = (): string => {
+		const now = new Date();
+		const day = Number(payDate);
+		if (!Number.isFinite(day) || day < 1 || day > 31) return "";
+		const y = now.getUTCFullYear();
+		const m = now.getUTCMonth();
+		const dim = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+		let candidate = new Date(Date.UTC(y, m, Math.min(day, dim)));
+		if (candidate.getTime() < now.getTime()) {
+			const ny = candidate.getUTCFullYear();
+			const nm = candidate.getUTCMonth() + 1;
+			const dim2 = new Date(Date.UTC(ny, nm + 1, 0)).getUTCDate();
+			candidate = new Date(Date.UTC(ny, nm, Math.min(day, dim2)));
+		}
+		return candidate.toISOString().slice(0, 10);
+	};
+
+	const [dueDate, setDueDate] = useState(defaultDueDate());
 	const [defaultPaymentSource, setDefaultPaymentSource] = useState("income");
 	const [defaultPaymentCardDebtId, setDefaultPaymentCardDebtId] = useState("");
 
@@ -32,7 +49,7 @@ export default function AddDebtForm({ budgetPlanId, payDate, creditCards }: AddD
 		setType("loan");
 		setInitialBalance("");
 		setInstallmentMonths("");
-		setDueDay(String(payDate ?? ""));
+		setDueDate(defaultDueDate());
 		setDefaultPaymentSource("income");
 		setDefaultPaymentCardDebtId("");
 	};
@@ -98,17 +115,15 @@ export default function AddDebtForm({ budgetPlanId, payDate, creditCards }: AddD
 						/>
 					</div>
 					<div>
-						<label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1 sm:mb-2">Due Day (standing order)</label>
+						<label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1 sm:mb-2">Due Date</label>
 						<input
-							type="number"
-							name="dueDay"
-							min={1}
-							max={31}
-							placeholder="e.g. 27"
-							value={dueDay}
-							onChange={(e) => setDueDay(e.target.value)}
+							type="date"
+							name="dueDate"
+							value={dueDate}
+							onChange={(e) => setDueDate(e.target.value)}
 							className="w-full px-3 py-1.5 sm:px-4 sm:py-2 bg-slate-900/40 border border-white/10 text-white placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-xs sm:text-sm"
 						/>
+						<div className="mt-1 text-[10px] sm:text-xs text-slate-500">Missed payment triggers 5 days after this date.</div>
 					</div>
 					<div>
 						<label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1 sm:mb-2">Default Payment Source</label>

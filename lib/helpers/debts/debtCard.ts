@@ -58,6 +58,36 @@ export function computeAccumulatedDueNow(params: {
 	const { debt, payments } = params;
 	const now = params.now ?? new Date();
 
+	const formatDMY = (iso: string): string => {
+		const dt = new Date(iso);
+		if (!Number.isFinite(dt.getTime())) return "";
+		const d = String(dt.getUTCDate()).padStart(2, "0");
+		const m = String(dt.getUTCMonth() + 1).padStart(2, "0");
+		const y = String(dt.getUTCFullYear());
+		return `${d}/${m}/${y}`;
+	};
+
+	// New model: full calendar due date.
+	if (debt.dueDate && debt.sourceType !== "expense") {
+		const due = new Date(debt.dueDate);
+		if (Number.isFinite(due.getTime())) {
+			const msPerDay = 24 * 60 * 60 * 1000;
+			const overdueDays = Math.floor((now.getTime() - due.getTime()) / msPerDay);
+			const dueNowAmount =
+				Number.isFinite(debt.currentBalance) && debt.currentBalance > 0
+					? Math.min(debt.amount, debt.currentBalance)
+					: debt.amount;
+			const dateLabel = formatDMY(debt.dueDate);
+			if (overdueDays > 5) {
+				return { dueNowAmount, monthsDue: 1, note: `Missed payment (due ${dateLabel})` };
+			}
+			if (overdueDays > 0) {
+				return { dueNowAmount, monthsDue: 1, note: `Overdue (due ${dateLabel})` };
+			}
+			return { dueNowAmount, monthsDue: 1, note: dateLabel ? `Due ${dateLabel}` : undefined };
+		}
+	}
+
 	// Only apply simple accumulation to standing-order debts.
 	if (!debt.dueDay || debt.sourceType === "expense") {
 		return { dueNowAmount: debt.amount, monthsDue: 1 };
@@ -121,6 +151,7 @@ export function buildDebtUpdateFormData(params: {
 	currentBalance: string;
 	amount: string;
 	dueDay?: string;
+	dueDate?: string;
 	defaultPaymentSource?: string;
 	defaultPaymentCardDebtId?: string;
 	creditLimit?: string;
@@ -135,6 +166,7 @@ export function buildDebtUpdateFormData(params: {
 	formData.append("currentBalance", params.currentBalance);
 	formData.append("amount", params.amount);
 	if (typeof params.dueDay === "string" && params.dueDay.trim() !== "") formData.append("dueDay", params.dueDay);
+	if (typeof params.dueDate === "string" && params.dueDate.trim() !== "") formData.append("dueDate", params.dueDate);
 	if (typeof params.defaultPaymentSource === "string" && params.defaultPaymentSource.trim() !== "") {
 		formData.append("defaultPaymentSource", params.defaultPaymentSource);
 	}

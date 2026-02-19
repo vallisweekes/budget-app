@@ -317,6 +317,8 @@ model Debt {
   type                 DebtType
   creditLimit          Decimal?       @db.Decimal(12, 2)
   dueDay               Int?
+  // Full due date (calendar date). Used for missed-payment logic (overdue + 5 days).
+  dueDate              DateTime?
   // Used to ensure missed-payment accrual is applied at most once per month.
   // Stored as YYYY-MM (UTC).
   lastAccrualMonth      String?

@@ -22,8 +22,8 @@ export default function DebtCardEditDetails(props: {
 	onEditMonthlyMinimumChange: (next: string) => void;
 	onEditInterestRateChange: (next: string) => void;
 	onSelectInstallmentMonths: (months: number) => void;
-	editDueDay: string;
-	onEditDueDayChange: (next: string) => void;
+	editDueDate: string;
+	onEditDueDateChange: (next: string) => void;
 	editDefaultPaymentSource: string;
 	onEditDefaultPaymentSourceChange: (next: string) => void;
 	editDefaultPaymentCardDebtId: string;
@@ -45,8 +45,8 @@ export default function DebtCardEditDetails(props: {
 		onEditMonthlyMinimumChange,
 		onEditInterestRateChange,
 		onSelectInstallmentMonths,
-		editDueDay,
-		onEditDueDayChange,
+		editDueDate,
+		onEditDueDateChange,
 		editDefaultPaymentSource,
 		onEditDefaultPaymentSourceChange,
 		editDefaultPaymentCardDebtId,
@@ -67,17 +67,16 @@ export default function DebtCardEditDetails(props: {
 		<>
 			<div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-4 mb-3 sm:mb-4">
 				<div>
-					<label className="block text-[10px] sm:text-xs text-slate-400 mb-0.5 sm:mb-1">Due Day (standing order)</label>
+					<label className="block text-[10px] sm:text-xs text-slate-400 mb-0.5 sm:mb-1">Due Date</label>
 					<input
-						type="number"
-						min={1}
-						max={31}
-						value={editDueDay}
-						onChange={(e) => onEditDueDayChange(e.target.value)}
+						type="date"
+						value={editDueDate}
+						onChange={(e) => onEditDueDateChange(e.target.value)}
 						className="w-full px-2 py-1.5 sm:px-3 sm:py-2 bg-slate-900/40 border border-white/10 text-white placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-xs sm:text-sm"
-						placeholder="e.g. 27"
 					/>
-					<div className="mt-1 text-[10px] sm:text-xs text-slate-500">Used to compute missed payments.</div>
+					<div className="mt-1 text-[10px] sm:text-xs text-slate-500">
+						A payment is treated as <span className="text-slate-300">missed</span> once it’s more than 5 days past this date.
+					</div>
 				</div>
 
 				<div>

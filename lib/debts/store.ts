@@ -19,6 +19,7 @@ function prismaDebtHasField(fieldName: string): boolean {
 // Only select/write fields when the runtime client supports them.
 const DEBT_HAS_CREDIT_LIMIT = prismaDebtHasField("creditLimit");
 const DEBT_HAS_DUE_DAY = prismaDebtHasField("dueDay");
+const DEBT_HAS_DUE_DATE = prismaDebtHasField("dueDate");
 const DEBT_HAS_DEFAULT_PAYMENT_SOURCE = prismaDebtHasField("defaultPaymentSource");
 const DEBT_HAS_DEFAULT_PAYMENT_CARD_DEBT_ID = prismaDebtHasField("defaultPaymentCardDebtId");
 
@@ -77,6 +78,7 @@ function serializeDebt(row: {
 	type: string;
 	creditLimit?: unknown | null;
 	dueDay?: number | null;
+	dueDate?: Date | null;
 	initialBalance: unknown;
 	currentBalance: unknown;
 	amount: unknown;
@@ -101,6 +103,7 @@ function serializeDebt(row: {
 		type: row.type as any,
 		creditLimit: row.creditLimit == null ? undefined : decimalToNumber(row.creditLimit),
 		dueDay: row.dueDay == null ? undefined : Number(row.dueDay),
+		dueDate: row.dueDate == null ? undefined : row.dueDate.toISOString(),
 		initialBalance: decimalToNumber(row.initialBalance),
 		currentBalance: decimalToNumber(row.currentBalance),
 		amount: decimalToNumber(row.amount),
@@ -164,6 +167,7 @@ export async function getAllDebts(budgetPlanId: string): Promise<DebtItem[]> {
 			type: true,
 			...(DEBT_HAS_CREDIT_LIMIT ? { creditLimit: true } : {}),
 			...(DEBT_HAS_DUE_DAY ? { dueDay: true } : {}),
+			...(DEBT_HAS_DUE_DATE ? { dueDate: true } : {}),
 			initialBalance: true,
 			currentBalance: true,
 			amount: true,
@@ -195,6 +199,7 @@ export async function getDebtById(budgetPlanId: string, id: string): Promise<Deb
 			type: true,
 			...(DEBT_HAS_CREDIT_LIMIT ? { creditLimit: true } : {}),
 			...(DEBT_HAS_DUE_DAY ? { dueDay: true } : {}),
+			...(DEBT_HAS_DUE_DATE ? { dueDate: true } : {}),
 			initialBalance: true,
 			currentBalance: true,
 			amount: true,
@@ -238,6 +243,7 @@ export async function addDebt(
 			type: debt.type as any,
 			...(DEBT_HAS_CREDIT_LIMIT ? { creditLimit: (debt as any).creditLimit ?? null } : {}),
 			...(DEBT_HAS_DUE_DAY ? { dueDay: (debt as any).dueDay ?? null } : {}),
+			...(DEBT_HAS_DUE_DATE ? { dueDate: (debt as any).dueDate ?? null } : {}),
 			...(DEBT_HAS_DEFAULT_PAYMENT_SOURCE
 				? { defaultPaymentSource: (debt as any).defaultPaymentSource ?? "income" }
 				: {}),
@@ -265,6 +271,7 @@ export async function addDebt(
 			type: true,
 			...(DEBT_HAS_CREDIT_LIMIT ? { creditLimit: true } : {}),
 			...(DEBT_HAS_DUE_DAY ? { dueDay: true } : {}),
+			...(DEBT_HAS_DUE_DATE ? { dueDate: true } : {}),
 			initialBalance: true,
 			currentBalance: true,
 			amount: true,
@@ -479,6 +486,11 @@ export async function updateDebt(
 					dueDay: (updates as any).dueDay === undefined ? undefined : (updates as any).dueDay ?? null,
 				}
 				: {}),
+			...(DEBT_HAS_DUE_DATE
+				? {
+					dueDate: (updates as any).dueDate === undefined ? undefined : (updates as any).dueDate ?? null,
+				}
+				: {}),
 			...(DEBT_HAS_DEFAULT_PAYMENT_SOURCE
 				? {
 					defaultPaymentSource:
@@ -510,6 +522,7 @@ export async function updateDebt(
 			type: true,
 			...(DEBT_HAS_CREDIT_LIMIT ? { creditLimit: true } : {}),
 			...(DEBT_HAS_DUE_DAY ? { dueDay: true } : {}),
+			...(DEBT_HAS_DUE_DATE ? { dueDate: true } : {}),
 			initialBalance: true,
 			currentBalance: true,
 			amount: true,

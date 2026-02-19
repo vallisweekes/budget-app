@@ -19,6 +19,27 @@ export function useDebtCard(params: { debt: DebtCardDebt; budgetPlanId: string; 
 	const { debt, budgetPlanId, payDate } = params;
 	const toast = useToast();
 
+	const toDateInputValue = (iso: string): string => {
+		const raw = String(iso ?? "");
+		return /^\d{4}-\d{2}-\d{2}/.test(raw) ? raw.slice(0, 10) : "";
+	};
+
+	const nextDueDateFromDay = (day: number, now: Date = new Date()): string => {
+		if (!Number.isFinite(day) || day < 1 || day > 31) return "";
+		const y = now.getUTCFullYear();
+		const m = now.getUTCMonth();
+		const daysInMonth = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+		const safeDay = Math.min(day, daysInMonth);
+		let candidate = new Date(Date.UTC(y, m, safeDay));
+		if (candidate.getTime() < now.getTime()) {
+			const ny = candidate.getUTCFullYear();
+			const nm = candidate.getUTCMonth() + 1;
+			const dim = new Date(Date.UTC(ny, nm + 1, 0)).getUTCDate();
+			candidate = new Date(Date.UTC(ny, nm, Math.min(day, dim)));
+		}
+		return candidate.toISOString().slice(0, 10);
+	};
+
 	const [isPending, startTransition] = useTransition();
 	const [isCollapsed, setIsCollapsed] = useState(true);
 	const [isEditing, setIsEditing] = useState(false);
@@ -29,7 +50,13 @@ export function useDebtCard(params: { debt: DebtCardDebt; budgetPlanId: string; 
 	);
 
 	const [editName, setEditName] = useState(debt.name);
-	const [editDueDay, setEditDueDay] = useState(debt.dueDay ? String(debt.dueDay) : "");
+	const [editDueDate, setEditDueDate] = useState(() =>
+		debt.dueDate
+			? toDateInputValue(debt.dueDate)
+			: debt.dueDay
+				? nextDueDateFromDay(debt.dueDay)
+				: ""
+	);
 	const [editDefaultPaymentSource, setEditDefaultPaymentSource] = useState(debt.defaultPaymentSource ?? "income");
 	const [editDefaultPaymentCardDebtId, setEditDefaultPaymentCardDebtId] = useState(debt.defaultPaymentCardDebtId ?? "");
 	const [editInitialBalance, setEditInitialBalance] = useState(String(debt.initialBalance));
@@ -59,7 +86,9 @@ export function useDebtCard(params: { debt: DebtCardDebt; budgetPlanId: string; 
 
 	const handleEdit = () => {
 		setEditName(debt.name);
-		setEditDueDay(debt.dueDay ? String(debt.dueDay) : "");
+		setEditDueDate(
+			debt.dueDate ? toDateInputValue(debt.dueDate) : debt.dueDay ? nextDueDateFromDay(debt.dueDay) : ""
+		);
 		setEditDefaultPaymentSource(debt.defaultPaymentSource ?? "income");
 		setEditDefaultPaymentCardDebtId(debt.defaultPaymentCardDebtId ?? "");
 		setEditInitialBalance(String(debt.initialBalance));
@@ -82,7 +111,7 @@ export function useDebtCard(params: { debt: DebtCardDebt; budgetPlanId: string; 
 		const formData = buildDebtUpdateFormData({
 			budgetPlanId,
 			name: editName,
-			dueDay: editDueDay,
+			dueDate: editDueDate,
 			defaultPaymentSource: editDefaultPaymentSource,
 			defaultPaymentCardDebtId: editDefaultPaymentCardDebtId,
 			initialBalance: editInitialBalance,
@@ -108,7 +137,7 @@ export function useDebtCard(params: { debt: DebtCardDebt; budgetPlanId: string; 
 		const formData = buildDebtUpdateFormData({
 			budgetPlanId,
 			name: debt.name,
-			dueDay: debt.dueDay ? String(debt.dueDay) : "",
+			dueDate: debt.dueDate ? toDateInputValue(debt.dueDate) : debt.dueDay ? nextDueDateFromDay(debt.dueDay) : "",
 			defaultPaymentSource: debt.defaultPaymentSource ?? "income",
 			defaultPaymentCardDebtId: debt.defaultPaymentCardDebtId ?? "",
 			initialBalance: String(debt.initialBalance),
@@ -159,8 +188,8 @@ export function useDebtCard(params: { debt: DebtCardDebt; budgetPlanId: string; 
 
 		editName,
 		setEditName,
-		editDueDay,
-		setEditDueDay,
+		editDueDate,
+		setEditDueDate,
 		editDefaultPaymentSource,
 		setEditDefaultPaymentSource,
 		editDefaultPaymentCardDebtId,
