@@ -12,14 +12,16 @@ export default async function AppHeader() {
   if (!sessionUsername) return null;
 
   const firstLetter = sessionUsername.charAt(0).toUpperCase();
-  let settingsHref = "/settings";
+  // Use the admin settings route as a safe default.
+  // It will redirect to onboarding if the user has no budget plan yet.
+  let settingsHref = "/admin/settings";
 
   try {
     const userId = await resolveUserId({ userId: sessionUser.id, username: sessionUsername });
     const budgetPlan = await getDefaultBudgetPlanForUser({ userId, username: sessionUsername });
     settingsHref = budgetPlan
       ? `/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(budgetPlan.id)}/page=settings`
-      : "/settings";
+      : "/admin/settings";
   } catch (error) {
     console.error("AppHeader error:", error);
   }
