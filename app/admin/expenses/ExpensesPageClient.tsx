@@ -9,6 +9,7 @@ import type { ExpensesByMonth } from "@/types";
 import type { CategoryConfig } from "@/lib/categories/store";
 import type { EmptyExpensesJumpTarget } from "@/types/expenses-manager";
 import type { CreditCardOption } from "@/types/expenses-manager";
+import type { DebtOption } from "@/types/expenses-manager";
 import ExpenseManager from "./ExpenseManager";
 
 interface BudgetPlan {
@@ -25,6 +26,7 @@ interface PlanData {
 	currentYearExpenses?: ExpensesByMonth;
   categories: CategoryConfig[];
 	creditCards?: CreditCardOption[];
+	debts?: DebtOption[];
 }
 
 interface ExpensesPageClientProps {
@@ -206,6 +208,14 @@ export default function ExpensesPageClient({
 		});
 		return map;
 	}, [allPlansData]);
+
+  const debtsByPlan = useMemo(() => {
+    const map: Record<string, DebtOption[]> = {};
+    allPlansData.forEach((data) => {
+      map[data.plan.id] = data.debts ?? [];
+    });
+    return map;
+  }, [allPlansData]);
 
   const pushPeriod = (month: MonthKey, year: number) => {
     // Update local state immediately so the UI reflects the chosen period,
@@ -411,6 +421,8 @@ export default function ExpensesPageClient({
               categories={planData.categories}
 				  creditCards={planData.creditCards ?? []}
 				  creditCardsByPlan={creditCardsByPlan}
+				  debts={planData.debts ?? []}
+				  debtsByPlan={debtsByPlan}
               loading={isNavigating}
               allPlans={allPlansData.map(d => ({ id: d.plan.id, name: d.plan.name, kind: d.plan.kind }))}
               allCategoriesByPlan={allCategoriesByPlan}

@@ -209,23 +209,27 @@ async function resolveCreditCardDebtId(params: {
 
   if (requested) {
     const found = await prisma.debt.findFirst({
-      where: { id: requested, budgetPlanId: params.budgetPlanId, type: "credit_card" },
-      select: { id: true },
+      where: { id: requested, budgetPlanId: params.budgetPlanId, sourceType: null },
+      select: { id: true, type: true },
     });
-    if (!found) throw new Error("Selected credit card not found.");
+    if (!found) throw new Error("Selected card not found.");
+    if (found.type !== "credit_card" && (found.type as any) !== "store_card") {
+      throw new Error("Selected card must be a credit card or store card");
+    }
     return found.id;
   }
 
-  const cards = await prisma.debt.findMany({
-    where: { budgetPlanId: params.budgetPlanId, type: "credit_card" },
-    select: { id: true },
+  const cardsAll = await prisma.debt.findMany({
+    where: { budgetPlanId: params.budgetPlanId, sourceType: null },
+    select: { id: true, type: true, createdAt: true },
     orderBy: [{ createdAt: "asc" }],
   });
+  const cards = cardsAll.filter((c) => c.type === "credit_card" || (c.type as any) === "store_card");
   if (cards.length === 0) {
-    throw new Error("No credit card found. Add a credit card debt first, then select it as the payment source.");
+    throw new Error("No card found. Add a credit/store card in Debts, then select it as the payment source.");
   }
   if (cards.length > 1) {
-    throw new Error("Multiple credit cards found. Please choose which card you used.");
+    throw new Error("Multiple cards found. Please choose which card you used.");
   }
   return cards[0]!.id;
 }
@@ -236,10 +240,13 @@ async function applyCreditCardCharge(params: { budgetPlanId: string; debtId: str
 
   await prisma.$transaction(async (tx) => {
     const card = await tx.debt.findFirst({
-      where: { id: params.debtId, budgetPlanId: params.budgetPlanId, type: "credit_card" },
-      select: { id: true, currentBalance: true, initialBalance: true, paidAmount: true },
+      where: { id: params.debtId, budgetPlanId: params.budgetPlanId, sourceType: null },
+      select: { id: true, type: true, currentBalance: true, initialBalance: true, paidAmount: true },
     });
-    if (!card) throw new Error("Credit card not found.");
+    if (!card) throw new Error("Card not found.");
+    if (card.type !== "credit_card" && (card.type as any) !== "store_card") {
+      throw new Error("Selected card must be a credit card or store card");
+    }
 
     const current = Number((card.currentBalance as any)?.toString?.() ?? card.currentBalance ?? 0);
     const initial = Number((card.initialBalance as any)?.toString?.() ?? card.initialBalance ?? 0);
@@ -268,6 +275,9 @@ async function recordExpensePaymentAndAdjustBalances(args: {
   amount: number;
   paymentSource: NormalizedExpensePaymentSource;
   cardDebtId?: string;
+  debtId?: string;
+  month?: MonthKey;
+  year?: number;
 }) {
   if (!Number.isFinite(args.amount) || args.amount <= 0) return;
 
@@ -300,6 +310,31 @@ async function recordExpensePaymentAndAdjustBalances(args: {
       paidAt: new Date(),
     },
   });
+
+  // If this payment represents a debt repayment, reduce that debt balance too.
+  // This works even if the selected debt is itself still outstanding (e.g. credit card).
+  const trimmedDebtId = String(args.debtId ?? "").trim();
+  if (trimmedDebtId) {
+    const targetDebt = await prisma.debt.findFirst({
+      where: { id: trimmedDebtId, budgetPlanId: args.budgetPlanId },
+      select: { id: true, sourceType: true },
+    });
+    if (!targetDebt) throw new Error("Selected debt not found");
+    if (targetDebt.sourceType === "expense") {
+      throw new Error("Cannot reduce an expense-derived debt from an expense payment");
+    }
+
+    const monthNumber = args.month ? (MONTHS as MonthKey[]).indexOf(args.month) + 1 : null;
+    const y = args.year ?? new Date().getFullYear();
+    const monthKey =
+      monthNumber && monthNumber >= 1 && monthNumber <= 12
+        ? `${y}-${String(monthNumber).padStart(2, "0")}`
+        : `${y}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
+
+    const debtSource = args.paymentSource === "income" ? "income" : "extra_funds";
+    const { addPayment } = await import("@/lib/debts/store");
+    await addPayment(args.budgetPlanId, targetDebt.id, args.amount, monthKey, debtSource);
+  }
 
   if (args.paymentSource === "savings") {
     const settings = await getSettings(args.budgetPlanId);
@@ -467,7 +502,8 @@ export async function togglePaidAction(
   id: string,
   year?: number,
   paymentSource?: string,
-	cardDebtId?: string
+	cardDebtId?: string,
+	debtId?: string
 ): Promise<void> {
 	const { userId, username } = await requireAuthenticatedUser();
   const plan = await requireOwnedBudgetPlan(budgetPlanId, userId);
@@ -486,7 +522,17 @@ export async function togglePaidAction(
     const amount = Number((existing.amount as any)?.toString?.() ?? existing.amount ?? 0);
     const paidAmount = Number((existing.paidAmount as any)?.toString?.() ?? existing.paidAmount ?? 0);
     const delta = Math.max(0, amount - paidAmount);
-		await recordExpensePaymentAndAdjustBalances({ budgetPlanId, planKind, expenseId: id, amount: delta, paymentSource: source, cardDebtId });
+    await recordExpensePaymentAndAdjustBalances({
+      budgetPlanId,
+      planKind,
+      expenseId: id,
+      amount: delta,
+      paymentSource: source,
+      cardDebtId,
+      debtId,
+      month,
+      year: y,
+    });
   }
 	await syncExistingExpenseDebt({ budgetPlanId, expenseId: id, fallbackMonthKey: month, year });
 	revalidateBudgetPlanViews({ username, budgetPlanId });
@@ -688,7 +734,8 @@ export async function applyExpensePaymentAction(
   paymentAmount: number,
   year?: number,
   paymentSource?: string,
-	cardDebtId?: string
+	cardDebtId?: string,
+	debtId?: string
 ): Promise<{ success: boolean; error?: string }>
 {
   if (!Number.isFinite(paymentAmount) || paymentAmount <= 0) {
@@ -719,6 +766,9 @@ export async function applyExpensePaymentAction(
     amount: delta,
     paymentSource: source,
 		cardDebtId,
+    debtId,
+    month,
+    year: y,
   });
 	await syncExistingExpenseDebt({ budgetPlanId, expenseId, fallbackMonthKey: month, year });
 	revalidateBudgetPlanViews({ username, budgetPlanId });

@@ -10,7 +10,8 @@ export type ExpenseManagerActions = {
 		paymentAmount: number,
 		year?: number,
 		paymentSource?: string,
-		cardDebtId?: string
+		cardDebtId?: string,
+		debtId?: string
 	) => Promise<{ success: boolean; error?: string }>;
 	removeExpenseAction: (
 		budgetPlanId: string,
@@ -25,7 +26,8 @@ export type ExpenseManagerActions = {
 		expenseId: string,
 		year?: number,
 		paymentSource?: string,
-		cardDebtId?: string
+		cardDebtId?: string,
+		debtId?: string
 	) => Promise<void>;
 	updateExpenseAction: (data: FormData) => Promise<void>;
 };

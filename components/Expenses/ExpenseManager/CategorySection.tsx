@@ -6,7 +6,11 @@ import CategoryIcon from "@/components/CategoryIcon";
 import { formatMonthKeyLabel } from "@/lib/helpers/monthKey";
 import { getSimpleColorClasses } from "@/lib/helpers/colors";
 import { formatCurrency } from "@/lib/helpers/money";
-import type { CreditCardOption, ExpenseCategoryOption } from "@/types/expenses-manager";
+import type {
+	CreditCardOption,
+	DebtOption,
+	ExpenseCategoryOption,
+} from "@/types/expenses-manager";
 import ExpenseRow from "@/components/Expenses/ExpenseManager/ExpenseRow";
 
 type Props = {
@@ -31,6 +35,9 @@ type Props = {
 	creditCards?: CreditCardOption[];
 	cardDebtIdByExpenseId: Record<string, string>;
 	onCardDebtIdChange: (expenseId: string, value: string) => void;
+	debts?: DebtOption[];
+	debtIdByExpenseId: Record<string, string>;
+	onDebtIdChange: (expenseId: string, value: string) => void;
 	onTogglePaid: (expenseId: string) => void;
 	onEdit: (expense: ExpenseItem) => void;
 	onDelete: (expense: ExpenseItem) => void;
@@ -60,6 +67,9 @@ export default function CategorySection({
 	creditCards,
 	cardDebtIdByExpenseId,
 	onCardDebtIdChange,
+	debts,
+	debtIdByExpenseId,
+	onDebtIdChange,
 	onTogglePaid,
 	onEdit,
 	onDelete,
@@ -194,6 +204,9 @@ export default function CategorySection({
 								creditCards={creditCards}
 								cardDebtIdValue={cardDebtIdByExpenseId[expense.id] ?? ""}
 								onCardDebtIdChange={(value) => onCardDebtIdChange(expense.id, value)}
+								debts={debts}
+								debtIdValue={debtIdByExpenseId[expense.id] ?? ""}
+								onDebtIdChange={(value) => onDebtIdChange(expense.id, value)}
 								onTogglePaid={() => onTogglePaid(expense.id)}
 								onEdit={() => onEdit(expense)}
 								onDelete={() => onDelete(expense)}

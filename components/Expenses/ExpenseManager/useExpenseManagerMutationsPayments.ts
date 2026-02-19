@@ -15,6 +15,8 @@ export type UseExpenseManagerMutationsPaymentsResult = {
 	setPaymentSourceByExpenseId: (updater: (prev: Record<string, string>) => Record<string, string>) => void;
 	cardDebtIdByExpenseId: Record<string, string>;
 	setCardDebtIdByExpenseId: (updater: (prev: Record<string, string>) => Record<string, string>) => void;
+	debtIdByExpenseId: Record<string, string>;
+	setDebtIdByExpenseId: (updater: (prev: Record<string, string>) => Record<string, string>) => void;
 	handleTogglePaid: (expenseId: string) => void;
 	handleApplyPayment: (expenseId: string) => void;
 };
@@ -34,6 +36,7 @@ export function useExpenseManagerMutationsPayments(args: {
 	const [paymentByExpenseId, setPaymentByExpenseIdState] = useState<Record<string, string>>({});
 	const [paymentSourceByExpenseId, setPaymentSourceByExpenseIdState] = useState<Record<string, string>>({});
 	const [cardDebtIdByExpenseId, setCardDebtIdByExpenseIdState] = useState<Record<string, string>>({});
+	const [debtIdByExpenseId, setDebtIdByExpenseIdState] = useState<Record<string, string>>({});
 
 	const setPaymentByExpenseId = (updater: (prev: Record<string, string>) => Record<string, string>) => {
 		setPaymentByExpenseIdState((prev) => updater(prev));
@@ -47,16 +50,21 @@ export function useExpenseManagerMutationsPayments(args: {
 		setCardDebtIdByExpenseIdState((prev) => updater(prev));
 	};
 
+	const setDebtIdByExpenseId = (updater: (prev: Record<string, string>) => Record<string, string>) => {
+		setDebtIdByExpenseIdState((prev) => updater(prev));
+	};
+
 	const handleTogglePaid = (expenseId: string) => {
 		const paymentSource = paymentSourceByExpenseId[expenseId] ?? "income";
 		const cardDebtId = cardDebtIdByExpenseId[expenseId] || undefined;
+		const debtId = debtIdByExpenseId[expenseId] || undefined;
 		const { next, prevSnapshot } = optimisticTogglePaid({ expenses: optimisticExpenses, expenseId });
 		if (!prevSnapshot) return;
 		setOptimisticExpenses(next);
 
 		startTransition(async () => {
 			try {
-				await actions.togglePaidAction(budgetPlanId, month, expenseId, year, paymentSource, cardDebtId);
+				await actions.togglePaidAction(budgetPlanId, month, expenseId, year, paymentSource, cardDebtId, debtId);
 				router.refresh();
 			} catch (err) {
 				setOptimisticExpenses((prev) => prev.map((e) => (e.id === expenseId ? prevSnapshot : e)));
@@ -72,6 +80,7 @@ export function useExpenseManagerMutationsPayments(args: {
 		if (!Number.isFinite(paymentAmount) || paymentAmount <= 0) return;
 		const paymentSource = paymentSourceByExpenseId[expenseId] ?? "income";
 		const cardDebtId = cardDebtIdByExpenseId[expenseId] || undefined;
+		const debtId = debtIdByExpenseId[expenseId] || undefined;
 
 		const { next, prevSnapshot } = optimisticApplyPayment({ expenses: optimisticExpenses, expenseId, paymentAmount });
 		setOptimisticExpenses(next);
@@ -85,7 +94,8 @@ export function useExpenseManagerMutationsPayments(args: {
 					paymentAmount,
 					year,
 					paymentSource,
-					cardDebtId
+					cardDebtId,
+					debtId
 				);
 				if (!res?.success) {
 					if (prevSnapshot) {
@@ -115,6 +125,8 @@ export function useExpenseManagerMutationsPayments(args: {
 		setPaymentSourceByExpenseId,
 		cardDebtIdByExpenseId,
 		setCardDebtIdByExpenseId,
+		debtIdByExpenseId,
+		setDebtIdByExpenseId,
 		handleTogglePaid,
 		handleApplyPayment,
 	};

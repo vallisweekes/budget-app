@@ -6,7 +6,7 @@ import { formatCurrency } from "@/lib/helpers/money";
 import { formatIsoDueDate, getDueDateUtc, daysUntilUtc, dueBadgeClasses } from "@/lib/helpers/expenses/dueDate";
 import { MONTHS } from "@/lib/constants/time";
 import { SelectDropdown } from "@/components/Shared";
-import type { CreditCardOption } from "@/types/expenses-manager";
+import type { CreditCardOption, DebtOption } from "@/types/expenses-manager";
 
 type Props = {
 	expense: ExpenseItem;
@@ -22,6 +22,9 @@ type Props = {
 	creditCards?: CreditCardOption[];
 	cardDebtIdValue?: string;
 	onCardDebtIdChange?: (value: string) => void;
+	debts?: DebtOption[];
+	debtIdValue?: string;
+	onDebtIdChange?: (value: string) => void;
 	onTogglePaid: () => void;
 	onEdit: () => void;
 	onDelete: () => void;
@@ -49,6 +52,9 @@ export default function ExpenseRow({
 	creditCards,
 	cardDebtIdValue,
 	onCardDebtIdChange,
+	debts,
+	debtIdValue,
+	onDebtIdChange,
 	onTogglePaid,
 	onEdit,
 	onDelete,
@@ -61,6 +67,7 @@ export default function ExpenseRow({
 	const paidAmount = isPaid ? expense.amount : (expense.paidAmount ?? 0);
 	const remaining = Math.max(0, expense.amount - paidAmount);
 	const cards = creditCards ?? [];
+	const debtOptions = debts ?? [];
 	const isCreditCard = paymentSourceValue === "credit_card";
 	const cardRequired = isCreditCard && cards.length > 1;
 	const hasSelectedCard = Boolean((cardDebtIdValue ?? "").trim());
@@ -201,6 +208,20 @@ export default function ExpenseRow({
 									className="min-w-[140px]"
 								/>
 
+								{!isCreditCard && debtOptions.length > 0 ? (
+									<SelectDropdown
+										value={debtIdValue ?? ""}
+										onValueChange={(v) => onDebtIdChange?.(v)}
+										placeholder="Applies to debt (optional)"
+										options={[
+											{ value: "", label: "No debt" },
+											...debtOptions.map((d) => ({ value: d.id, label: d.name })),
+										]}
+										buttonClassName="focus:ring-purple-500/50"
+										className="min-w-[200px]"
+									/>
+								) : null}
+
 								{isCreditCard ? (
 									cards.length > 0 ? (
 										<SelectDropdown
@@ -233,7 +254,7 @@ export default function ExpenseRow({
 							</div>
 						</label>
 						{isCreditCard && cards.length === 0 ? (
-							<p className="mt-1 text-[10px] sm:text-xs text-amber-200/90">Add a credit card in Debts to use this source.</p>
+							<p className="mt-1 text-[10px] sm:text-xs text-amber-200/90">Add a card in Debts to use this source.</p>
 						) : isCreditCard && cardRequired && !hasSelectedCard ? (
 							<p className="mt-1 text-[10px] sm:text-xs text-amber-200/90">Select a card to continue.</p>
 						) : null}

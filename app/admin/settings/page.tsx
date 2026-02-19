@@ -9,6 +9,21 @@ import { redirect } from "next/navigation";
 import SettingsContent from "@/components/Admin/Settings/SettingsContent";
 import { createBudgetPlanAction } from "@/app/budgets/new/actions";
 
+function prismaDebtHasField(fieldName: string): boolean {
+	try {
+		const fields = (prisma as any)?._runtimeDataModel?.models?.Debt?.fields;
+		if (!Array.isArray(fields)) return false;
+		return fields.some((f: any) => f?.name === fieldName);
+	} catch {
+		return false;
+	}
+}
+
+const DEBT_HAS_CREDIT_LIMIT = prismaDebtHasField("creditLimit");
+const DEBT_HAS_DUE_DAY = prismaDebtHasField("dueDay");
+const DEBT_HAS_DEFAULT_PAYMENT_SOURCE = prismaDebtHasField("defaultPaymentSource");
+const DEBT_HAS_DEFAULT_PAYMENT_CARD_DEBT_ID = prismaDebtHasField("defaultPaymentCardDebtId");
+
 export const dynamic = "force-dynamic";
 
 export default async function AdminSettingsPage(props: {
@@ -49,6 +64,73 @@ export default async function AdminSettingsPage(props: {
 	
 	// Get settings from database for this budget plan
 	const settings = await getSettings(budgetPlanId);
+
+	// Card settings (edit cards from Settings, kept in sync with Debts)
+	// Avoid enum filtering (e.g. store_card) to stay resilient to stale Prisma Clients in dev.
+	const debtsRaw = await prisma.debt.findMany({
+		where: {
+			budgetPlanId,
+			sourceType: null,
+		},
+		select: {
+			id: true,
+			name: true,
+			type: true,
+			...(DEBT_HAS_CREDIT_LIMIT ? { creditLimit: true } : {}),
+			...(DEBT_HAS_DUE_DAY ? { dueDay: true } : {}),
+			...(DEBT_HAS_DEFAULT_PAYMENT_SOURCE ? { defaultPaymentSource: true } : {}),
+			...(DEBT_HAS_DEFAULT_PAYMENT_CARD_DEBT_ID ? { defaultPaymentCardDebtId: true } : {}),
+			initialBalance: true,
+			currentBalance: true,
+			amount: true,
+			paid: true,
+			paidAmount: true,
+			monthlyMinimum: true,
+			interestRate: true,
+			installmentMonths: true,
+			createdAt: true,
+			sourceType: true,
+			sourceExpenseId: true,
+			sourceMonthKey: true,
+			sourceCategoryName: true,
+			sourceExpenseName: true,
+		},
+		orderBy: [{ createdAt: "asc" }],
+	});
+	const cardDebts = debtsRaw
+		.filter((d) => d.type === "credit_card" || (d.type as any) === "store_card")
+		.map((d) => ({
+			id: d.id,
+			name: d.name,
+			type: d.type as any,
+			creditLimit:
+				(d as any).creditLimit == null
+					? undefined
+					: Number(((d as any).creditLimit as any)?.toString?.() ?? (d as any).creditLimit),
+			dueDay: (d as any).dueDay ?? undefined,
+			initialBalance: Number((d.initialBalance as any)?.toString?.() ?? d.initialBalance ?? 0),
+			currentBalance: Number((d.currentBalance as any)?.toString?.() ?? d.currentBalance ?? 0),
+			amount: Number((d.amount as any)?.toString?.() ?? d.amount ?? 0),
+			paid: Boolean(d.paid),
+			paidAmount: Number((d.paidAmount as any)?.toString?.() ?? d.paidAmount ?? 0),
+			monthlyMinimum:
+				d.monthlyMinimum == null
+					? undefined
+					: Number((d.monthlyMinimum as any)?.toString?.() ?? d.monthlyMinimum),
+			interestRate:
+				d.interestRate == null
+					? undefined
+					: Number((d.interestRate as any)?.toString?.() ?? d.interestRate),
+			installmentMonths: d.installmentMonths ?? undefined,
+			createdAt: d.createdAt.toISOString(),
+			defaultPaymentSource: (d as any).defaultPaymentSource ?? undefined,
+			defaultPaymentCardDebtId: (d as any).defaultPaymentCardDebtId ?? undefined,
+			sourceType: (d as any).sourceType ?? undefined,
+			sourceExpenseId: (d as any).sourceExpenseId ?? undefined,
+			sourceMonthKey: (d as any).sourceMonthKey ?? undefined,
+			sourceCategoryName: (d as any).sourceCategoryName ?? undefined,
+			sourceExpenseName: (d as any).sourceExpenseName ?? undefined,
+		}));
 	
 	// Get all budget plans for this user
 	const allPlans = await prisma.budgetPlan.findMany({
@@ -82,6 +164,7 @@ export default async function AdminSettingsPage(props: {
 		<SettingsContent
 			budgetPlanId={budgetPlanId}
 			settings={settings}
+			cardDebts={cardDebts}
 			sessionUser={{
 				id: userId,
 				name: user?.name || sessionUser.name || '',

@@ -26,6 +26,8 @@ export default function ExpenseManagerView({
 	categories,
 	creditCards,
 	creditCardsByPlan,
+	debts,
+	debtsByPlan,
 	allPlans,
 	allCategoriesByPlan,
 	payDate,
@@ -55,6 +57,8 @@ export default function ExpenseManagerView({
 	setPaymentSourceByExpenseId,
 	cardDebtIdByExpenseId,
 	setCardDebtIdByExpenseId,
+	debtIdByExpenseId,
+	setDebtIdByExpenseId,
 	expensePendingDelete,
 	deleteError,
 	handleRemoveClick,
@@ -144,6 +148,8 @@ export default function ExpenseManagerView({
 								categories={categories}
 								creditCards={creditCards}
 								creditCardsByPlan={creditCardsByPlan}
+								debts={debts}
+								debtsByPlan={debtsByPlan}
 								allPlans={allPlans}
 								allCategoriesByPlan={allCategoriesByPlan}
 								horizonYearsByPlan={horizonYearsByPlan}
@@ -209,6 +215,9 @@ export default function ExpenseManagerView({
 								onCardDebtIdChange={(expenseId, value) =>
 									setCardDebtIdByExpenseId((prev) => ({ ...prev, [expenseId]: value }))
 								}
+								debts={debts ?? []}
+								debtIdByExpenseId={debtIdByExpenseId}
+								onDebtIdChange={(expenseId, value) => setDebtIdByExpenseId((prev) => ({ ...prev, [expenseId]: value }))}
 								planKind={selectedPlanKind}
 								onTogglePaid={(expenseId) => handleTogglePaid(expenseId)}
 								onEdit={(expense) => handleEditClick(expense)}
@@ -236,6 +245,11 @@ export default function ExpenseManagerView({
 				creditCards={creditCards ?? []}
 				cardDebtIdByExpenseId={cardDebtIdByExpenseId}
 				onCardDebtIdChange={(expenseId, value) => setCardDebtIdByExpenseId((prev) => ({ ...prev, [expenseId]: value }))}
+				debts={debts ?? []}
+				debtIdByExpenseId={debtIdByExpenseId}
+				onDebtIdChange={(expenseId, value) =>
+					setDebtIdByExpenseId((prev) => ({ ...prev, [expenseId]: value }))
+				}
 				planKind={selectedPlanKind}
 				onTogglePaid={(expenseId) => handleTogglePaid(expenseId)}
 				onEdit={(expense) => handleEditClick(expense)}

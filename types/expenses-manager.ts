@@ -20,6 +20,12 @@ export type CreditCardOption = {
 	name: string;
 };
 
+export type DebtOption = {
+	id: string;
+	name: string;
+	type?: string;
+};
+
 export type EmptyExpensesJumpTarget = {
 	year: number;
 	month: MonthKey;
@@ -37,6 +43,8 @@ export type ExpenseManagerProps = {
 	categories: ExpenseCategoryOption[];
 	creditCards?: CreditCardOption[];
 	creditCardsByPlan?: Record<string, CreditCardOption[]>;
+	debts?: DebtOption[];
+	debtsByPlan?: Record<string, DebtOption[]>;
 	loading?: boolean;
 	allPlans?: ExpenseBudgetPlanOption[];
 	allCategoriesByPlan?: Record<string, ExpenseCategoryOption[]>;
@@ -94,6 +102,8 @@ export type AddExpenseFormProps = {
 	categories: ExpenseCategoryOption[];
 	creditCards?: CreditCardOption[];
 	creditCardsByPlan?: Record<string, CreditCardOption[]>;
+	debts?: DebtOption[];
+	debtsByPlan?: Record<string, DebtOption[]>;
 	allPlans?: ExpenseBudgetPlanOption[];
 	allCategoriesByPlan?: Record<string, ExpenseCategoryOption[]>;
 	horizonYearsByPlan?: Record<string, number>;

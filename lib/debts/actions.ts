@@ -224,6 +224,60 @@ export async function updateDebtAction(id: string, formData: FormData) {
 	revalidatePath("/");
 }
 
+export async function updateCardSettingsAction(cardDebtId: string, formData: FormData): Promise<void> {
+	const budgetPlanId = requireBudgetPlanId(formData);
+	const { userId } = await requireAuthenticatedUser();
+	await requireOwnedBudgetPlan(budgetPlanId, userId);
+
+	const debt = await prisma.debt.findFirst({
+		where: { id: cardDebtId, budgetPlanId, sourceType: null },
+		select: { id: true, type: true, name: true },
+	});
+	if (!debt) throw new Error("Card not found");
+	if (debt.type !== "credit_card" && (debt.type as any) !== "store_card") {
+		throw new Error("Selected debt is not a card");
+	}
+
+	const creditLimitRaw = formData.get("creditLimit");
+	const creditLimit =
+		creditLimitRaw != null && String(creditLimitRaw).trim() !== ""
+			? Number(creditLimitRaw)
+			: undefined;
+	if (creditLimit == null || !Number.isFinite(creditLimit) || creditLimit <= 0) {
+		throw new Error("Credit limit must be a positive number");
+	}
+
+	const initialRaw = formData.get("initialBalance");
+	const currentRaw = formData.get("currentBalance");
+	let initialBalance = initialRaw == null ? NaN : Number(initialRaw);
+	let currentBalance = currentRaw == null ? NaN : Number(currentRaw);
+	if (!Number.isFinite(initialBalance) || initialBalance < 0) {
+		throw new Error("Initial balance must be 0 or more");
+	}
+	if (!Number.isFinite(currentBalance) || currentBalance < 0) {
+		throw new Error("Current balance must be 0 or more");
+	}
+
+	// Keep invariants stable across the app.
+	currentBalance = Math.max(0, currentBalance);
+	initialBalance = Math.max(initialBalance, currentBalance);
+	const paidAmount = Math.max(0, Math.min(initialBalance, initialBalance - currentBalance));
+	const paid = currentBalance === 0;
+
+	await updateDebt(budgetPlanId, debt.id, {
+		creditLimit,
+		initialBalance,
+		currentBalance,
+		paidAmount,
+		paid,
+	});
+
+	revalidatePath("/admin/settings");
+	revalidatePath("/admin/debts");
+	revalidatePath("/dashboard");
+	revalidatePath("/");
+}
+
 export async function deleteDebtAction(budgetPlanId: string, id: string) {
 	const { userId } = await requireAuthenticatedUser();
 	await requireOwnedBudgetPlan(budgetPlanId, userId);

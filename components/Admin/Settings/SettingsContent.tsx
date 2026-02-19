@@ -18,7 +18,7 @@ export default function SettingsContent(props: SettingsContentProps) {
 	const sections: SettingsNavItem[] = [
 		{ id: "details", title: "My Details", description: "Your personal information", icon: User },
 		{ id: "budget", title: "Budget", description: "Core settings for your monthly budgeting", icon: PiggyBank },
-		{ id: "savings", title: "Savings", description: "Savings & emergency balances", icon: Coins },
+		{ id: "savings", title: "Savings and Cards", description: "Savings balances (and card settings)", icon: Coins },
 		{ id: "locale", title: "Locale", description: "Country, language, and currency preferences", icon: Globe },
 		{ id: "plans", title: "Plans", description: "Manage your budget plans", icon: Wallet },
 		{ id: "notifications", title: "Notifications", description: "Push notifications on this device", icon: Bell },

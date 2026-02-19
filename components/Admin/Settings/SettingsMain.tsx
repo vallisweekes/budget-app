@@ -17,6 +17,7 @@ export default function SettingsMain({
 	budgetPlanId,
 	settings,
 	sessionUser,
+	cardDebts,
 	monthSummary,
 	fiftyThirtyTwenty,
 	selectedMonth,
@@ -57,7 +58,9 @@ export default function SettingsMain({
 					selectedMonth={selectedMonth}
 				/>
 			) : null}
-			{activeSection === "savings" ? <SavingsSection budgetPlanId={budgetPlanId} settings={settings} /> : null}
+			{activeSection === "savings" ? (
+				<SavingsSection budgetPlanId={budgetPlanId} settings={settings} cardDebts={cardDebts ?? []} />
+			) : null}
 			{activeSection === "locale" ? <LocaleSection budgetPlanId={budgetPlanId} settings={settings} /> : null}
 			{activeSection === "plans" ? (
 				<PlansSection

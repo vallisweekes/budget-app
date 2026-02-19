@@ -82,8 +82,16 @@ export default async function AdminExpensesPage({
         where: { budgetPlanId: p.id },
       });
 		const creditCards = await prisma.debt.findMany({
-			where: { budgetPlanId: p.id, type: "credit_card" },
+			where: { budgetPlanId: p.id, type: { in: ["credit_card", "store_card"] } },
 			select: { id: true, name: true },
+			orderBy: { createdAt: "asc" },
+		});
+		const debts = await prisma.debt.findMany({
+			where: {
+				budgetPlanId: p.id,
+				sourceType: null,
+			},
+			select: { id: true, name: true, type: true },
 			orderBy: { createdAt: "asc" },
 		});
       return {
@@ -104,6 +112,7 @@ export default async function AdminExpensesPage({
           featured: c.featured,
         })),
 		creditCards,
+		debts,
       };
     })
   );

@@ -1,6 +1,7 @@
 import type { ComponentType } from "react";
 import type { Settings } from "@/lib/settings/store";
 import type { MonthKey } from "@/types";
+import type { DebtCardDebt } from "@/types/components/debts";
 
 export type SettingsSectionId =
 	| "details"
@@ -49,6 +50,7 @@ export interface SettingsContentProps {
 	budgetPlanId: string;
 	settings: Settings;
 	sessionUser: { id?: string; name?: string | null; email?: string | null };
+	cardDebts?: DebtCardDebt[];
 	monthSummary: MonthSummary | null;
 	fiftyThirtyTwenty: FiftyThirtyTwentySummary | null;
 	selectedMonth: MonthKey;
