@@ -33,7 +33,7 @@ export type FiftyThirtyTwentySummary = {
 	savingsDebtActual: number;
 };
 
-export type ThemeKey = "nord-mint" | "calm-teal" | "midnight-peach" | "soft-light";
+export type ThemeKey = "nord-mint" | "calm-teal" | "midnight-peach" | "soft-light" | "storm-cyan";
 
 export type ThemeOption = { value: ThemeKey; label: string; description: string };
 

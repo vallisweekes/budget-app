@@ -124,7 +124,7 @@ export default function Sidebar() {
 	return (
 		<>
 			{/* Sidebar - Desktop Only */}
-			<aside className="hidden lg:block fixed top-0 left-0 h-full app-theme-bg bg-fixed border-r border-white/10 shadow-2xl z-40 w-72 xl:w-80">
+			<aside className="hidden lg:block fixed top-0 left-0 h-full dashboard-hero-bg border-r border-white/10 shadow-2xl z-40 w-72 xl:w-80">
 				<div className="flex flex-col h-full p-6">
 					{/* Logo/Title */}
 					<div className="mb-8 mt-2">

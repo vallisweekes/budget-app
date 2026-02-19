@@ -7,6 +7,9 @@
   --foreground: #eef3ff;
   color-scheme: dark;
 
+  --dashboard-hero-bg: rgba(7, 10, 18, 0.55);
+  --dashboard-canvas-bg: transparent;
+
   --app-bg-from: #111b2f;
   --app-bg-via: #0b1220;
   --app-bg-to: #070a12;
@@ -25,6 +28,9 @@
   --foreground: #eef8ff;
   color-scheme: dark;
 
+  --dashboard-hero-bg: rgba(2, 11, 22, 0.55);
+  --dashboard-canvas-bg: transparent;
+
   --app-bg-from: #0b5a6d;
   --app-bg-via: #06364c;
   --app-bg-to: #020b16;
@@ -35,6 +41,42 @@
   --accent-surface-from: rgba(20, 184, 166, 0.18);
   --accent-surface-to: rgba(34, 211, 238, 0.10);
   --accent-border: rgba(45, 212, 191, 0.30);
+}
+
+:root[data-theme="storm-cyan"] {
+  /* Storm Green + Vivid Cyan (brand) */
+  --background: #0f282f; /* Storm Green */
+  --foreground: #ffffff;
+  color-scheme: dark;
+
+  /* Darker shade for the top dashboard section */
+  --dashboard-hero-bg: #06161a;
+
+  /* Slightly lighter "canvas" for the rest of the dashboard (more visible contrast) */
+  --dashboard-canvas-bg: #0f282f;
+
+  /* Main background should read as Storm Green. */
+  --app-bg-from: #0f282f;
+  --app-bg-via: #0f282f;
+  --app-bg-to: #0f282f;
+
+  --glow-1: rgba(2, 239, 240, 0.12);
+  --glow-2: rgba(2, 239, 240, 0.06);
+
+  --accent-surface-from: rgba(2, 239, 240, 0.18);
+  --accent-surface-to: rgba(2, 239, 240, 0.08);
+  --accent-border: rgba(2, 239, 240, 0.30);
+}
+
+/* Storm Cyan uses a solid storm-green background (no gradient/glow). */
+:root[data-theme="storm-cyan"] body {
+  background-color: var(--background);
+  background-image: none;
+}
+
+:root[data-theme="storm-cyan"] .app-theme-bg {
+  background-color: var(--background);
+  background-image: none;
 }
 
 :root[data-theme="midnight-peach"] {
@@ -164,6 +206,76 @@ body {
   .app-nav-active {
     background-image: linear-gradient(90deg, var(--accent-surface-from), var(--accent-surface-to));
     border-color: var(--accent-border);
+  }
+
+  .dashboard-hero {
+    background-color: var(--dashboard-hero-bg);
+  }
+
+  .dashboard-hero-bg {
+    background-color: var(--dashboard-hero-bg);
+  }
+
+  .dashboard-canvas-bg {
+    background-color: var(--dashboard-canvas-bg);
+  }
+
+  /* Asymmetric S-curve: RIGHT (dark hero down), LEFT (light canvas up) */
+  @media (min-width: 1024px) {
+    .dashboard-hero {
+      border-bottom-left-radius: 0;
+      border-bottom-right-radius: 96px;
+    }
+  }
+
+  @media (max-width: 1023px) {
+    .dashboard-hero {
+      border-bottom-right-radius: 96px;
+      border-bottom-left-radius: 96px;
+    }
+  }
+
+  .dashboard-canvas-content {
+    background-color: var(--dashboard-canvas-bg);
+    border-top-left-radius: 96px;
+  }
+
+  .dashboard-left-underlay {
+    display: none;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 96px;
+    height: 96px;
+    background-color: var(--dashboard-hero-bg);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  @media (min-width: 1024px) {
+    .dashboard-left-underlay {
+      display: block;
+    }
+  }
+
+  /* Dashboard: darker card surfaces (storm-cyan only) */
+  :root[data-theme="storm-cyan"] .dashboard-dark-cards .bg-white\/5 {
+    background-color: rgba(6, 22, 26, 0.55) !important;
+  }
+
+  :root[data-theme="storm-cyan"] .dashboard-dark-cards .bg-white\/10 {
+    background-color: rgba(6, 22, 26, 0.70) !important;
+  }
+
+  :root[data-theme="storm-cyan"] .dashboard-dark-cards .bg-slate-800\/30,
+  :root[data-theme="storm-cyan"] .dashboard-dark-cards .bg-slate-800\/40,
+  :root[data-theme="storm-cyan"] .dashboard-dark-cards .bg-slate-900\/20,
+  :root[data-theme="storm-cyan"] .dashboard-dark-cards .bg-slate-900\/30,
+  :root[data-theme="storm-cyan"] .dashboard-dark-cards .bg-slate-900\/40,
+  :root[data-theme="storm-cyan"] .dashboard-dark-cards .bg-slate-900\/60,
+  :root[data-theme="storm-cyan"] .dashboard-dark-cards .bg-slate-950\/15,
+  :root[data-theme="storm-cyan"] .dashboard-dark-cards .bg-slate-950\/20 {
+    background-color: rgba(6, 22, 26, 0.62) !important;
   }
 }
 

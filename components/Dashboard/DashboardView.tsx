@@ -67,31 +67,29 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 
 	return (
 		<div className="min-h-screen pb-20 app-theme-bg">
-			<div className="mx-auto w-full max-w-6xl px-4 py-6">
-				<ViewTabs
-					budgetPlanId={budgetPlanId}
-					month={month}
-					categoryData={currentPlanData.categoryData}
-					regularExpenses={[]}
-					totalIncome={currentPlanData.totalIncome}
-					totalAllocations={currentPlanData.totalAllocations}
-					plannedDebtPayments={currentPlanData.plannedDebtPayments}
-					plannedSavingsContribution={currentPlanData.plannedSavingsContribution}
-					plannedEmergencyContribution={currentPlanData.plannedEmergencyContribution}
-					plannedInvestments={currentPlanData.plannedInvestments}
-					incomeAfterAllocations={currentPlanData.incomeAfterAllocations}
-					totalExpenses={currentPlanData.totalExpenses}
-					remaining={currentPlanData.remaining}
-					debts={debts}
-					totalDebtBalance={totalDebtBalance}
-					goals={currentPlanData.goals}
-					homepageGoalIds={homepageGoalIds}
-					allPlansData={allPlansData}
-					largestExpensesByPlan={largestExpensesByPlan}
-					incomeMonthsCoverageByPlan={incomeMonthsCoverageByPlan}
-					expenseInsights={expenseInsights}
-				/>
-			</div>
+			<ViewTabs
+				budgetPlanId={budgetPlanId}
+				month={month}
+				categoryData={currentPlanData.categoryData}
+				regularExpenses={[]}
+				totalIncome={currentPlanData.totalIncome}
+				totalAllocations={currentPlanData.totalAllocations}
+				plannedDebtPayments={currentPlanData.plannedDebtPayments}
+				plannedSavingsContribution={currentPlanData.plannedSavingsContribution}
+				plannedEmergencyContribution={currentPlanData.plannedEmergencyContribution}
+				plannedInvestments={currentPlanData.plannedInvestments}
+				incomeAfterAllocations={currentPlanData.incomeAfterAllocations}
+				totalExpenses={currentPlanData.totalExpenses}
+				remaining={currentPlanData.remaining}
+				debts={debts}
+				totalDebtBalance={totalDebtBalance}
+				goals={currentPlanData.goals}
+				homepageGoalIds={homepageGoalIds}
+				allPlansData={allPlansData}
+				largestExpensesByPlan={largestExpensesByPlan}
+				incomeMonthsCoverageByPlan={incomeMonthsCoverageByPlan}
+				expenseInsights={expenseInsights}
+			/>
 		</div>
 	);
 }

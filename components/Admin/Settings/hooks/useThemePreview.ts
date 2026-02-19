@@ -4,9 +4,9 @@ import { isThemeKey } from "@/components/Admin/Settings/theme";
 
 export function useThemePreview(): { theme: ThemeKey; setTheme: (next: ThemeKey) => void } {
 	const [theme, setTheme] = useState<ThemeKey>(() => {
-		if (typeof document === "undefined") return "nord-mint";
+		if (typeof document === "undefined") return "storm-cyan";
 		const raw = document.documentElement.dataset.theme;
-		return isThemeKey(raw) ? raw : "nord-mint";
+		return isThemeKey(raw) ? raw : "storm-cyan";
 	});
 
 	useEffect(() => {

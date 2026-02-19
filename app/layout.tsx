@@ -38,7 +38,7 @@ export const viewport = {
   userScalable: false,
   viewportFit: "cover",
   themeColor: [
-    { media: "(prefers-color-scheme: dark)", color: "#0b1220" },
+    { media: "(prefers-color-scheme: dark)", color: "#0f282f" },
     { media: "(prefers-color-scheme: light)", color: "#f7f4ef" },
   ],
 };
@@ -49,14 +49,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning data-theme="storm-cyan">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <script
           // Keep this tiny and synchronous to avoid theme flash.
           dangerouslySetInnerHTML={{
-            __html: `(() => { try { const t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t; } catch {} })();`,
+            __html: `(() => { try { const t = localStorage.getItem('theme'); document.documentElement.dataset.theme = t || 'storm-cyan'; } catch {} })();`,
           }}
         />
         <Providers>
