@@ -128,7 +128,7 @@ export default function SpendingTab({ budgetPlanId, month, debts, spending, pots
             </label>
           </div>
           
-          <div className="flex gap-4">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
             <label htmlFor="spending-source" className="block flex-1">
               <span className="block text-sm font-medium text-slate-300 mb-1">Payment Source</span>
               <SelectDropdown
@@ -199,7 +199,7 @@ export default function SpendingTab({ budgetPlanId, month, debts, spending, pots
           <button
             type="submit"
             disabled={isPending}
-            className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium shadow-lg hover:shadow-xl disabled:opacity-50"
+            className="h-10 px-6 bg-[var(--cta)] text-white rounded-lg hover:bg-[var(--cta-hover)] active:bg-[var(--cta-active)] transition-colors font-medium shadow-lg hover:shadow-xl disabled:opacity-60 disabled:cursor-not-allowed"
           >
             Add Spending
           </button>
