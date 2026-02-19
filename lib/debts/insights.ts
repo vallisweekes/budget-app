@@ -2,8 +2,14 @@ import type { RecapTip } from "@/lib/expenses/insights";
 import { formatCurrency } from "@/lib/helpers/money";
 
 type DebtLike = {
+	id?: string;
 	name: string;
+	type?: string;
 	currentBalance: number;
+	creditLimit?: number;
+	defaultPaymentSource?: string;
+	defaultPaymentCardDebtId?: string;
+	dueDay?: number;
 	amount?: number;
 	monthlyMinimum?: number;
 	interestRate?: number;
@@ -44,8 +50,15 @@ export function computeDebtTips(args: {
 	const debts = Array.isArray(args.debts)
 		? args.debts
 			.map((d) => ({
+				id: d?.id == null ? undefined : String(d.id),
 				name: String(d?.name ?? "").trim(),
+				type: d?.type == null ? undefined : String(d.type),
 				currentBalance: toFiniteNumber(d?.currentBalance),
+				creditLimit: d?.creditLimit == null ? undefined : toFiniteNumber(d.creditLimit),
+				defaultPaymentSource: d?.defaultPaymentSource == null ? undefined : String(d.defaultPaymentSource),
+				defaultPaymentCardDebtId:
+					d?.defaultPaymentCardDebtId == null ? undefined : String(d.defaultPaymentCardDebtId),
+				dueDay: d?.dueDay == null ? undefined : toFiniteNumber(d.dueDay),
 				amount: d?.amount == null ? undefined : toFiniteNumber(d.amount),
 				monthlyMinimum: d?.monthlyMinimum == null ? undefined : toFiniteNumber(d.monthlyMinimum),
 				interestRate: d?.interestRate == null ? undefined : toFiniteNumber(d.interestRate),
@@ -56,6 +69,48 @@ export function computeDebtTips(args: {
 	if (debts.length === 0) return [];
 
 	const tips: RecapTip[] = [];
+
+	// 0) Credit limit vs upcoming card-funded obligations
+	// If a debt's default payment source is "credit_card", paying it will increase the chosen card's balance.
+	// Warn when the card doesn't have enough available credit for those upcoming charges.
+	const cardDebts = debts.filter((d) =>
+		(d.type === "credit_card" || d.type === "store_card") &&
+		(d.creditLimit ?? 0) > 0 &&
+		(d.currentBalance ?? 0) > 0 &&
+		Boolean(d.id)
+	);
+	if (cardDebts.length > 0) {
+		const plannedChargesByCardId = new Map<string, number>();
+		for (const d of debts) {
+			if (d.defaultPaymentSource !== "credit_card") continue;
+			const cardId = String(d.defaultPaymentCardDebtId ?? "").trim();
+			if (!cardId) continue;
+			const due = toFiniteNumber(d.amount ?? 0);
+			if (!(due > 0)) continue;
+			plannedChargesByCardId.set(cardId, (plannedChargesByCardId.get(cardId) ?? 0) + due);
+		}
+
+		for (const card of cardDebts) {
+			const limit = toFiniteNumber(card.creditLimit ?? 0);
+			const available = limit - toFiniteNumber(card.currentBalance);
+			const plannedCharges = plannedChargesByCardId.get(String(card.id)) ?? 0;
+
+			if (limit > 0 && available < -0.005) {
+				tips.push({
+					title: "Card is over its credit limit",
+					detail: `${card.name} looks over limit (available ${money(available)} on a ${money(limit)} limit). Consider paying it down to avoid fees / declined payments.`,
+				});
+				continue;
+			}
+
+			if (plannedCharges > 0 && available + 0.005 < plannedCharges) {
+				tips.push({
+					title: "Pay your card before upcoming charges",
+					detail: `${card.name} has only ${money(available)} available, but you have ${money(plannedCharges)} planned to be charged to it (via other debt payments). Paying the card down first helps avoid going over limit / missed payments.`,
+				});
+			}
+		}
+	}
 
 	const totalDebtBalance = debts.reduce((sum, d) => sum + d.currentBalance, 0);
 	const plannedDebtPayment = debts.reduce((sum, d) => sum + (d.amount ?? 0), 0);

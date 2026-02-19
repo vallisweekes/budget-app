@@ -141,6 +141,9 @@ export default function DebtCardEditDetails(props: {
 						className="w-full px-2 py-1.5 sm:px-3 sm:py-2 bg-slate-900/40 border border-white/10 text-white placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-xs sm:text-sm"
 						placeholder="Initial balance"
 					/>
+					<div className="mt-1 text-[10px] sm:text-xs text-slate-500">
+						Starting amount when you added the debt (can increase if missed payments roll over).
+					</div>
 				</div>
 				<div>
 					<label className="block text-[10px] sm:text-xs text-slate-400 mb-0.5 sm:mb-1">Current Balance</label>
@@ -152,6 +155,7 @@ export default function DebtCardEditDetails(props: {
 						className="w-full px-2 py-1.5 sm:px-3 sm:py-2 bg-slate-900/40 border border-white/10 text-white placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-xs sm:text-sm"
 						placeholder="Current balance"
 					/>
+					<div className="mt-1 text-[10px] sm:text-xs text-slate-500">What you still owe right now.</div>
 				</div>
 				<div>
 					<label className="block text-[10px] sm:text-xs text-slate-400 mb-0.5 sm:mb-1">Due This Month</label>
