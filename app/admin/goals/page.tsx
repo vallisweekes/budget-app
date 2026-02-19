@@ -9,6 +9,7 @@ import { getContributionTotalsToDate } from "@/lib/allocations/store";
 import AddGoalModal from "@/components/Admin/Goals/AddGoalModal";
 import GoalsPageClient from "@/components/Admin/Goals/GoalsPageClient";
 import { getGoalsBudgetInsights } from "@/lib/helpers/goalsBudgetInsights";
+import { HeroCanvasLayout } from "@/components/Shared";
 
 export const dynamic = "force-dynamic";
 
@@ -72,14 +73,13 @@ export default async function GoalsPage({
   const contributionTotals = await getContributionTotalsToDate(budgetPlanId);
 
   return (
-    <div className="min-h-screen pb-20 app-theme-bg">
-      <div className="mx-auto w-full max-w-6xl px-4 py-6">
-        <div className="mb-6 sm:mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1 sm:mb-2">Financial Goals</h1>
-          <p className="text-xs sm:text-sm text-slate-400">Track your targets across your budget horizon</p>
-        </div>
-
-        <div className="mb-6 sm:mb-8">
+    <HeroCanvasLayout
+      hero={
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div className="space-y-1 sm:space-y-2">
+            <h1 className="text-2xl sm:text-3xl font-bold text-white">Financial Goals</h1>
+            <p className="text-xs sm:text-sm text-slate-400">Track your targets across your budget horizon</p>
+          </div>
           <AddGoalModal
             budgetPlanId={budgetPlanId}
             minYear={minYear}
@@ -92,30 +92,30 @@ export default async function GoalsPage({
             }}
           />
         </div>
-
-        {goals.length === 0 ? (
-          <div className="bg-slate-800/40 backdrop-blur-xl rounded-2xl p-6 sm:p-8 border border-white/10 text-center">
-            <h2 className="text-lg sm:text-xl font-semibold text-white mb-1 sm:mb-2">No goals yet</h2>
-            <p className="text-xs sm:text-sm text-slate-400">Add your first goal using the panel above.</p>
-          </div>
-        ) : (
-          <GoalsPageClient
-            budgetPlanId={budgetPlanId}
-            minYear={minYear}
-            maxYear={maxYear}
-            outOfHorizonGoals={outOfHorizonGoals}
-            goalsByYear={goalsByYear}
-            initialHomepageGoalIds={initialHomepageGoalIds}
-				    budgetInsights={budgetInsights}
-				    startingBalances={{
-					    savings: settings.savingsBalance,
-					    emergency: settings.emergencyBalance,
-              investment: (settings as any).investmentBalance,
-				}}
-				contributionTotals={contributionTotals}
-          />
-        )}
-      </div>
-    </div>
+      }
+    >
+      {goals.length === 0 ? (
+        <div className="bg-slate-800/40 backdrop-blur-xl rounded-2xl p-6 sm:p-8 border border-white/10 text-center">
+          <h2 className="text-lg sm:text-xl font-semibold text-white mb-1 sm:mb-2">No goals yet</h2>
+          <p className="text-xs sm:text-sm text-slate-400">Add your first goal using the button above.</p>
+        </div>
+      ) : (
+        <GoalsPageClient
+          budgetPlanId={budgetPlanId}
+          minYear={minYear}
+          maxYear={maxYear}
+          outOfHorizonGoals={outOfHorizonGoals}
+          goalsByYear={goalsByYear}
+          initialHomepageGoalIds={initialHomepageGoalIds}
+          budgetInsights={budgetInsights}
+          startingBalances={{
+            savings: settings.savingsBalance,
+            emergency: settings.emergencyBalance,
+            investment: (settings as any).investmentBalance,
+          }}
+          contributionTotals={contributionTotals}
+        />
+      )}
+    </HeroCanvasLayout>
   );
 }

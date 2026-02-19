@@ -11,6 +11,7 @@ import { ensureDefaultCategoriesForBudgetPlan } from "@/lib/categories/defaultCa
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { HeroCanvasLayout } from "@/components/Shared";
 
 export const dynamic = "force-dynamic";
 
@@ -86,21 +87,25 @@ export default async function AdminCategoriesPage(props: {
   };
 
   return (
-    <div className="min-h-screen pb-20 app-theme-bg">
-      <div className="mx-auto w-full max-w-7xl px-4 py-8">
-        <div className="mb-10">
+    <HeroCanvasLayout
+      maxWidthClassName="max-w-7xl"
+      hero={
+        <div className="space-y-3">
           <Link
             href={backHref}
-            className="inline-flex items-center gap-2 text-slate-400 hover:text-white transition-colors mb-4"
+            className="inline-flex items-center gap-2 text-slate-400 hover:text-white transition-colors"
           >
             <ArrowLeft size={20} />
             <span className="text-sm font-medium">Back to Settings</span>
           </Link>
-          <h1 className="text-4xl font-bold text-white mb-2">Categories</h1>
-          <p className="text-slate-400 text-lg">Create and manage your expense categories</p>
+          <div className="space-y-1">
+            <h1 className="text-2xl sm:text-4xl font-bold text-white">Categories</h1>
+            <p className="text-slate-400 text-sm sm:text-lg">Create and manage your expense categories</p>
+          </div>
         </div>
-
-        <div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/10 p-8 mb-8">
+      }
+    >
+      <div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/10 p-8 mb-8">
           <div className="flex items-center gap-3 mb-8">
             <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg">
               <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -223,7 +228,6 @@ export default async function AdminCategoriesPage(props: {
             })}
           </div>
         </div>
-      </div>
-    </div>
+    </HeroCanvasLayout>
   );
 }

@@ -43,6 +43,9 @@ model User {
   emailVerified DateTime?
   image         String?
   phoneNumber   String?      @unique
+
+  // UI preferences
+  theme         String       @default("storm-cyan")
   
   accounts      Account[]
   sessions      Session[]

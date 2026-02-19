@@ -10,6 +10,7 @@ import AddDebtForm from "@/components/Admin/Debts/AddDebtForm";
 import DebtsList from "@/components/Admin/Debts/DebtsList";
 import { getExpenseDebts, processOverdueExpensesToDebts } from "@/lib/expenses/carryover";
 import { processMissedDebtPaymentsToAccrue } from "@/lib/debts/carryover";
+import { HeroCanvasLayout } from "@/components/Shared";
 
 
 function Currency({ value }: { value: number }) {
@@ -83,14 +84,15 @@ export default async function DebtsPage(props: {
 	} as const;
 
 	return (
-		<div className="min-h-screen pb-20 app-theme-bg">
-			<div className="mx-auto w-full max-w-6xl px-4 py-6">
-<div className="mb-6 sm:mb-8">
-				<h1 className="text-2xl sm:text-3xl font-bold text-white mb-1 sm:mb-2">Debt Management</h1>
-				<p className="text-xs sm:text-sm text-slate-400">Track credit cards, loans, and high purchase debts</p>
+		<HeroCanvasLayout
+			hero={
+				<div className="space-y-1 sm:space-y-2">
+					<h1 className="text-2xl sm:text-3xl font-bold text-white">Debt Management</h1>
+					<p className="text-xs sm:text-sm text-slate-400">Track credit cards, loans, and high purchase debts</p>
 				</div>
-
-				{/* Total Debt Overview */}
+			}
+		>
+			{/* Total Debt Overview */}
 			<div className="bg-slate-800/40 backdrop-blur-xl rounded-2xl sm:rounded-3xl shadow-2xl border border-white/10 p-4 sm:p-6 mb-6 sm:mb-8 hover:border-white/20 transition-all">
 				<div className="flex items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
 					<div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-red-500 to-red-700 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg shrink-0">
@@ -180,7 +182,6 @@ export default async function DebtsPage(props: {
 						</div>
 					)}
 				</div>
-			</div>
-		</div>
+		</HeroCanvasLayout>
 	);
 }

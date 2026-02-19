@@ -11,6 +11,7 @@ import type { EmptyExpensesJumpTarget } from "@/types/expenses-manager";
 import type { CreditCardOption } from "@/types/expenses-manager";
 import type { DebtOption } from "@/types/expenses-manager";
 import ExpenseManager from "./ExpenseManager";
+import { HeroCanvasLayoutClient } from "@/components/Shared";
 
 interface BudgetPlan {
   id: string;
@@ -308,16 +309,18 @@ export default function ExpensesPageClient({
   }, [allPlansData, kindPlanCounts, resolvedActiveTab, selectedMonth, selectedYear]);
   
   return (
-    <div className="min-h-screen pb-20 app-theme-bg">
-      <div className="mx-auto w-full max-w-6xl px-4 py-6">
-        {/* Header */}
-        <div className="mb-6 sm:mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">Manage Expenses</h1>
-          <p className="text-sm sm:text-base text-slate-400">Add and manage your monthly expenses across years</p>
+    <HeroCanvasLayoutClient
+      hero={
+        <div className="space-y-1 sm:space-y-2">
+          <h1 className="text-2xl sm:text-3xl font-bold text-white">Manage Expenses</h1>
+          <p className="text-sm sm:text-base text-slate-400">
+            Add and manage your monthly expenses across years
+          </p>
         </div>
-
-        {/* Year + Month Selectors (Compact on mobile) */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6">
+      }
+    >
+      {/* Year + Month Selectors (Compact on mobile) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6">
           {/* Year Selector */}
           <div className="bg-slate-800/40 rounded-xl sm:rounded-3xl shadow-xl border border-white/10 backdrop-blur-xl p-2.5 sm:p-5">
             <h2 className="text-xs sm:text-base font-semibold text-white mb-1.5 sm:mb-3">Select Year</h2>
@@ -490,7 +493,6 @@ export default function ExpensesPageClient({
             />
           </div>
         ))}
-      </div>
-    </div>
+	</HeroCanvasLayoutClient>
   );
 }

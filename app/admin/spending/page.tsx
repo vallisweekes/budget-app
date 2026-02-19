@@ -12,6 +12,7 @@ import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { currentMonthKey } from "@/lib/helpers/monthKey";
 import { getAllPots } from "@/lib/pots/store";
+import { HeroCanvasLayout } from "@/components/Shared";
 
 export const dynamic = "force-dynamic";
 
@@ -58,13 +59,18 @@ export default async function SpendingPage(props: {
 	const pots = await getAllPots(budgetPlanId, "allowance");
 
 	return (
-		<div className="min-h-screen pb-20 app-theme-bg">
-			<div className="mx-auto w-full max-w-6xl px-4 py-6">
-				<h1 className="text-3xl font-bold text-white mb-2">Spending Tracker</h1>
-				<p className="text-slate-400 mb-6">Log unplanned purchases and track where the money comes from</p>
-				
-				{/* Stats Cards */}
-				<div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+		<HeroCanvasLayout
+			hero={
+				<div className="space-y-1 sm:space-y-2">
+					<h1 className="text-2xl sm:text-3xl font-bold text-white">Spending Tracker</h1>
+					<p className="text-slate-400 text-sm sm:text-base">
+						Log unplanned purchases and track where the money comes from
+					</p>
+				</div>
+			}
+		>
+			{/* Stats Cards */}
+			<div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
 					<div className="bg-slate-800/40 backdrop-blur-xl rounded-2xl p-4 shadow-xl border border-white/10">
 						<div className="text-sm text-slate-400 mb-1">Monthly Allowance</div>
 						<div className="text-2xl font-bold text-white">£{allowanceStats.monthlyAllowance.toFixed(2)}</div>
@@ -106,7 +112,6 @@ export default async function SpendingPage(props: {
 				)}
 
 				<SpendingTab budgetPlanId={budgetPlanId} month={month} debts={debts} spending={spending} pots={pots} />
-			</div>
-		</div>
+		</HeroCanvasLayout>
 	);
 }

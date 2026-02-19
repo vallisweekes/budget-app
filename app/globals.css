@@ -1,14 +1,45 @@
 @import "tailwindcss";
 
-:root,
+:root {
+  /* Brand default: Storm Green (fallback when no data-theme is set) */
+  --background: #0f282f; /* Storm Green */
+  --foreground: #ffffff;
+  color-scheme: dark;
+
+  /* Top hero / lower canvas */
+  --dashboard-hero-bg: #06161a;
+  --dashboard-canvas-bg: #0f282f;
+
+  /* Card surface tuning for hero/canvas pages */
+  --dashboard-card-surface-weak: rgba(6, 22, 26, 0.55);
+  --dashboard-card-surface-strong: rgba(6, 22, 26, 0.70);
+  --dashboard-card-surface-glass: rgba(6, 22, 26, 0.62);
+
+  /* Solid site background */
+  --app-bg-from: #0f282f;
+  --app-bg-via: #0f282f;
+  --app-bg-to: #0f282f;
+
+  --glow-1: rgba(2, 239, 240, 0.12);
+  --glow-2: rgba(2, 239, 240, 0.06);
+
+  --accent-surface-from: rgba(2, 239, 240, 0.18);
+  --accent-surface-to: rgba(2, 239, 240, 0.08);
+  --accent-border: rgba(2, 239, 240, 0.30);
+}
+
 :root[data-theme="nord-mint"] {
-  /* Nord-ish Mint (default) */
+  /* Nord-ish Mint */
   --background: #0b1220;
   --foreground: #eef3ff;
   color-scheme: dark;
 
   --dashboard-hero-bg: rgba(7, 10, 18, 0.55);
   --dashboard-canvas-bg: transparent;
+
+  --dashboard-card-surface-weak: rgba(7, 10, 18, 0.45);
+  --dashboard-card-surface-strong: rgba(7, 10, 18, 0.58);
+  --dashboard-card-surface-glass: rgba(7, 10, 18, 0.52);
 
   --app-bg-from: #111b2f;
   --app-bg-via: #0b1220;
@@ -30,6 +61,10 @@
 
   --dashboard-hero-bg: rgba(2, 11, 22, 0.55);
   --dashboard-canvas-bg: transparent;
+
+  --dashboard-card-surface-weak: rgba(2, 11, 22, 0.46);
+  --dashboard-card-surface-strong: rgba(2, 11, 22, 0.60);
+  --dashboard-card-surface-glass: rgba(2, 11, 22, 0.54);
 
   --app-bg-from: #0b5a6d;
   --app-bg-via: #06364c;
@@ -54,6 +89,10 @@
 
   /* Slightly lighter "canvas" for the rest of the dashboard (more visible contrast) */
   --dashboard-canvas-bg: #0f282f;
+
+  --dashboard-card-surface-weak: rgba(6, 22, 26, 0.55);
+  --dashboard-card-surface-strong: rgba(6, 22, 26, 0.70);
+  --dashboard-card-surface-glass: rgba(6, 22, 26, 0.62);
 
   /* Main background should read as Storm Green. */
   --app-bg-from: #0f282f;
@@ -85,6 +124,13 @@
   --foreground: #f4f7ff;
   color-scheme: dark;
 
+  --dashboard-hero-bg: rgba(6, 10, 20, 0.58);
+  --dashboard-canvas-bg: transparent;
+
+  --dashboard-card-surface-weak: rgba(6, 10, 20, 0.46);
+  --dashboard-card-surface-strong: rgba(6, 10, 20, 0.60);
+  --dashboard-card-surface-glass: rgba(6, 10, 20, 0.54);
+
   --app-bg-from: #1a1b3a;
   --app-bg-via: #10142a;
   --app-bg-to: #070914;
@@ -104,6 +150,13 @@
   --background: #f7f4ef;
   --foreground: #0b1220;
   color-scheme: light;
+
+  --dashboard-hero-bg: rgba(255, 255, 255, 0.78);
+  --dashboard-canvas-bg: transparent;
+
+  --dashboard-card-surface-weak: rgba(255, 255, 255, 0.72);
+  --dashboard-card-surface-strong: rgba(255, 255, 255, 0.82);
+  --dashboard-card-surface-glass: rgba(255, 255, 255, 0.72);
 
   --app-bg-from: #f7f4ef;
   --app-bg-via: #edf6f6;
@@ -209,15 +262,15 @@ body {
   }
 
   .dashboard-hero {
-    background-color: var(--dashboard-hero-bg);
+    background-color: var(--dashboard-hero-bg, rgba(7, 10, 18, 0.55));
   }
 
   .dashboard-hero-bg {
-    background-color: var(--dashboard-hero-bg);
+    background-color: var(--dashboard-hero-bg, rgba(7, 10, 18, 0.55));
   }
 
   .dashboard-canvas-bg {
-    background-color: var(--dashboard-canvas-bg);
+    background-color: var(--dashboard-canvas-bg, transparent);
   }
 
   /* Asymmetric S-curve: RIGHT (dark hero down), LEFT (light canvas up) */
@@ -236,7 +289,7 @@ body {
   }
 
   .dashboard-canvas-content {
-    background-color: var(--dashboard-canvas-bg);
+    background-color: var(--dashboard-canvas-bg, transparent);
     border-top-left-radius: 96px;
   }
 
@@ -258,24 +311,24 @@ body {
     }
   }
 
-  /* Dashboard: darker card surfaces (storm-cyan only) */
-  :root[data-theme="storm-cyan"] .dashboard-dark-cards .bg-white\/5 {
-    background-color: rgba(6, 22, 26, 0.55) !important;
+  /* Hero/canvas pages: tune card surfaces per theme via CSS variables */
+  .dashboard-dark-cards .bg-white\/5 {
+    background-color: var(--dashboard-card-surface-weak, rgba(7, 10, 18, 0.45)) !important;
   }
 
-  :root[data-theme="storm-cyan"] .dashboard-dark-cards .bg-white\/10 {
-    background-color: rgba(6, 22, 26, 0.70) !important;
+  .dashboard-dark-cards .bg-white\/10 {
+    background-color: var(--dashboard-card-surface-strong, rgba(7, 10, 18, 0.58)) !important;
   }
 
-  :root[data-theme="storm-cyan"] .dashboard-dark-cards .bg-slate-800\/30,
-  :root[data-theme="storm-cyan"] .dashboard-dark-cards .bg-slate-800\/40,
-  :root[data-theme="storm-cyan"] .dashboard-dark-cards .bg-slate-900\/20,
-  :root[data-theme="storm-cyan"] .dashboard-dark-cards .bg-slate-900\/30,
-  :root[data-theme="storm-cyan"] .dashboard-dark-cards .bg-slate-900\/40,
-  :root[data-theme="storm-cyan"] .dashboard-dark-cards .bg-slate-900\/60,
-  :root[data-theme="storm-cyan"] .dashboard-dark-cards .bg-slate-950\/15,
-  :root[data-theme="storm-cyan"] .dashboard-dark-cards .bg-slate-950\/20 {
-    background-color: rgba(6, 22, 26, 0.62) !important;
+  .dashboard-dark-cards .bg-slate-800\/30,
+  .dashboard-dark-cards .bg-slate-800\/40,
+  .dashboard-dark-cards .bg-slate-900\/20,
+  .dashboard-dark-cards .bg-slate-900\/30,
+  .dashboard-dark-cards .bg-slate-900\/40,
+  .dashboard-dark-cards .bg-slate-900\/60,
+  .dashboard-dark-cards .bg-slate-950\/15,
+  .dashboard-dark-cards .bg-slate-950\/20 {
+    background-color: var(--dashboard-card-surface-glass, rgba(7, 10, 18, 0.52)) !important;
   }
 }
 

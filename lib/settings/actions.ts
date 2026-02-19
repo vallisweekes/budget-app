@@ -12,6 +12,17 @@ import fs from "node:fs/promises";
 import { getBudgetDataDir } from "@/lib/storage/budgetDataPath";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { isThemeKey } from "@/components/Admin/Settings/theme";
+
+function prismaUserHasField(fieldName: string): boolean {
+	try {
+		const fields = (prisma as any)?._runtimeDataModel?.models?.User?.fields;
+		if (!Array.isArray(fields)) return false;
+		return fields.some((f: any) => f?.name === fieldName);
+	} catch {
+		return false;
+	}
+}
 
 export async function getBudgetPlanDeleteImpactAction(budgetPlanId: string): Promise<{
 	plan: { id: string; name: string; kind: string };
@@ -204,6 +215,38 @@ export async function updateUserDetailsAction(formData: FormData): Promise<void>
 	revalidatePath(`/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(settingsScopeId)}/page=settings`);
 	// Legacy route (if still used anywhere)
 	revalidatePath(`/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(settingsScopeId)}/settings`);
+}
+
+export async function updateUserThemeAction(formData: FormData): Promise<void> {
+	const session = await getServerSession(authOptions);
+	const sessionUser = session?.user;
+	if (!sessionUser?.id) {
+		throw new Error("Not authenticated");
+	}
+
+	const raw = String(formData.get("theme") ?? "").trim();
+	if (!isThemeKey(raw)) {
+		throw new Error("Invalid theme");
+	}
+
+	if (prismaUserHasField("theme")) {
+		await prisma.user.update({
+			where: { id: sessionUser.id },
+			data: { theme: raw },
+		});
+		return;
+	}
+
+	// Dev/Turbopack safety: raw SQL fallback if Prisma Client is stale.
+	try {
+		await prisma.$executeRaw`
+			UPDATE "User"
+			SET theme = ${raw}
+			WHERE id = ${sessionUser.id}
+		`;
+	} catch {
+		// If the column doesn't exist yet, ignore (theme will remain local only).
+	}
 }
 
 function decimalToNumber(value: unknown): number {
