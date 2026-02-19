@@ -36,7 +36,7 @@ async function requireAuthenticatedUser() {
 	const sessionUsername = sessionUser?.username ?? sessionUser?.name;
 	if (!sessionUser || !sessionUsername) throw new Error("Not authenticated");
 	const userId = await resolveUserId({ userId: sessionUser.id, username: sessionUsername });
-	return { userId };
+	return { userId, username: sessionUsername };
 }
 
 async function requireOwnedBudgetPlan(budgetPlanId: string, userId: string) {
@@ -249,7 +249,7 @@ export async function updateDebtAction(id: string, formData: FormData) {
 
 export async function updateCardSettingsAction(cardDebtId: string, formData: FormData): Promise<void> {
 	const budgetPlanId = requireBudgetPlanId(formData);
-	const { userId } = await requireAuthenticatedUser();
+	const { userId, username } = await requireAuthenticatedUser();
 	await requireOwnedBudgetPlan(budgetPlanId, userId);
 
 	const debt = await prisma.debt.findFirst({
@@ -295,7 +295,10 @@ export async function updateCardSettingsAction(cardDebtId: string, formData: For
 		paid,
 	});
 
-	revalidatePath("/admin/settings");
+	const settingsPath = `/user=${encodeURIComponent(username)}/${encodeURIComponent(budgetPlanId)}/page=settings`;
+	const debtsPath = `/user=${encodeURIComponent(username)}/${encodeURIComponent(budgetPlanId)}/page=debts`;
+	revalidatePath(settingsPath);
+	revalidatePath(debtsPath);
 	revalidatePath("/admin/debts");
 	revalidatePath("/dashboard");
 	revalidatePath("/");

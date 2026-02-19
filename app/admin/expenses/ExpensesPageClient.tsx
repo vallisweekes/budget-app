@@ -34,6 +34,8 @@ interface ExpensesPageClientProps {
   initialYear: number;
   initialMonth: MonthKey;
 	hasAnyIncome: boolean;
+	userStartYear: number;
+	userStartMonthIndex: number;
 }
 
 type TabKey = "personal" | "holiday" | "carnival";
@@ -84,6 +86,8 @@ export default function ExpensesPageClient({
   initialYear,
   initialMonth,
   hasAnyIncome,
+  userStartYear,
+  userStartMonthIndex,
 }: ExpensesPageClientProps) {
   const planTabsLabelId = useId();
   const router = useRouter();
@@ -217,6 +221,17 @@ export default function ExpensesPageClient({
     return map;
   }, [allPlansData]);
 
+  const monthsWithAnyExpensesThisYear = useMemo(() => {
+    const set = new Set<MonthKey>();
+    allPlansData.forEach((d) => {
+      (MONTHS as unknown as MonthKey[]).forEach((m) => {
+        const list = d.expenses?.[m] ?? [];
+        if (Array.isArray(list) && list.length > 0) set.add(m);
+      });
+    });
+    return set;
+  }, [allPlansData]);
+
   const pushPeriod = (month: MonthKey, year: number) => {
     // Update local state immediately so the UI reflects the chosen period,
     // then navigate and show skeletons until the server render completes.
@@ -329,18 +344,34 @@ export default function ExpensesPageClient({
             <h2 className="text-xs sm:text-base font-semibold text-white mb-1.5 sm:mb-3">Select Month</h2>
             <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-6 gap-1.5 sm:gap-2">
               {MONTHS.map((month) => (
+                (() => {
+						const monthKey = month as MonthKey;
+						const idx = monthIndex(monthKey);
+						const isBeforeStartYear = selectedYear < userStartYear;
+						const isBeforeStartMonth =
+							selectedYear === userStartYear && idx >= 0 && idx < userStartMonthIndex;
+						const hasExpenses = monthsWithAnyExpensesThisYear.has(monthKey);
+						const isLocked = (isBeforeStartYear || isBeforeStartMonth) && !hasExpenses;
+						const disabled = isNavigating || isLocked;
+
+						return (
                 <button
                   key={month}
-                  onClick={() => pushPeriod(month as MonthKey, selectedYear)}
-                  disabled={isNavigating}
-                  className={`py-1.5 sm:py-3 px-2 sm:px-3 rounded-md sm:rounded-xl font-semibold text-[11px] sm:text-sm transition-all cursor-pointer ${
-                    selectedMonth === month
-                      ? "bg-gradient-to-br from-purple-500 to-indigo-600 text-white shadow-lg ring-1 ring-purple-200/25"
-                      : "bg-slate-900/60 text-slate-300 hover:bg-slate-900/80 hover:shadow-md"
-                  } ${isNavigating ? "opacity-70 cursor-not-allowed" : ""}`}
+                  onClick={() => pushPeriod(monthKey, selectedYear)}
+                  disabled={disabled}
+                  className={`py-1.5 sm:py-3 px-2 sm:px-3 rounded-md sm:rounded-xl font-semibold text-[11px] sm:text-sm transition-all ${
+						disabled
+							? "bg-slate-900/30 text-slate-500 cursor-not-allowed opacity-60"
+							: selectedMonth === month
+								? "bg-gradient-to-br from-purple-500 to-indigo-600 text-white shadow-lg ring-1 ring-purple-200/25 cursor-pointer"
+								: "bg-slate-900/60 text-slate-300 hover:bg-slate-900/80 hover:shadow-md cursor-pointer"
+                  }`}
+                  title={isLocked ? "You can’t use months before you signed up (unless you already have expenses there)." : undefined}
                 >
-				  {formatMonthKeyShortLabel(month as MonthKey)}
+				  {formatMonthKeyShortLabel(monthKey)}
                 </button>
+					);
+					})()
               ))}
             </div>
           </div>

@@ -115,6 +115,9 @@ export async function getDashboardPlanData(planId: string, now: Date): Promise<D
 		return acc;
 	}, {} as Record<string, number>);
 
+	const uncategorizedExpenses = regularExpenses.filter((e) => !e.categoryId);
+	const uncategorizedTotal = uncategorizedExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+
 	const expensesByCategory = regularExpenses.reduce((acc, e) => {
 		if (e.categoryId) {
 			if (!acc[e.categoryId]) acc[e.categoryId] = [];
@@ -133,6 +136,18 @@ export async function getDashboardPlanData(planId: string, now: Date): Promise<D
 		}))
 		.filter((c) => c.name)
 		.sort((a, b) => b.total - a.total);
+
+	if (uncategorizedTotal > 0) {
+		categoryData.push({
+			id: "__misc__",
+			name: "Miscellaneous",
+			icon: "Circle",
+			color: "slate",
+			total: uncategorizedTotal,
+			expenses: uncategorizedExpenses,
+		});
+		categoryData.sort((a, b) => b.total - a.total);
+	}
 
 	const debtPaymentsFromIncome = Number(
 		debtPaymentsAgg._sum.amount?.toString?.() ?? debtPaymentsAgg._sum.amount ?? 0

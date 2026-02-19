@@ -21,12 +21,13 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 	const session = await getServerSession(authOptions);
 	const sessionUser = session?.user;
 	const username = sessionUser?.username ?? sessionUser?.name;
+	const userId = sessionUser?.id;
 
 	const currentPlanData = await getDashboardPlanData(budgetPlanId, now);
 	const month = MONTHS[currentPlanData.monthNum - 1] ?? currentMonthKey();
 
 	const { payDate, homepageGoalIds } = await getBudgetPlanMeta(budgetPlanId);
-	const expenseInsightsBase = await getDashboardExpenseInsights({ budgetPlanId, payDate, now });
+	const expenseInsightsBase = await getDashboardExpenseInsights({ budgetPlanId, payDate, now, userId });
 
 	const allPlansData = await getAllPlansDashboardData({
 		budgetPlanId,

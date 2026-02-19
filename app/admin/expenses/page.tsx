@@ -9,6 +9,7 @@ import { ensureDefaultCategoriesForBudgetPlan } from "@/lib/categories/defaultCa
 import type { MonthKey } from "@/types";
 import { currentMonthKey, normalizeMonthKey } from "@/lib/helpers/monthKey";
 import { getIncomeMonthsCoverageByPlan } from "@/lib/helpers/dashboard/getIncomeMonthsCoverageByPlan";
+import { MONTHS } from "@/lib/constants/time";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +25,11 @@ export default async function AdminExpensesPage({
     redirect("/");
   }
   const userId = await resolveUserId({ userId: sessionUser.id, username });
+
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { createdAt: true } });
+  const userCreatedAt = user?.createdAt ?? new Date();
+  const userStartYear = userCreatedAt.getUTCFullYear();
+  const userStartMonthIndex = userCreatedAt.getUTCMonth(); // 0-11
   const sp = await searchParams;
   const rawPlan = Array.isArray(sp.plan) ? sp.plan[0] : sp.plan;
   let budgetPlanId = String(rawPlan ?? "").trim();
@@ -51,6 +57,15 @@ export default async function AdminExpensesPage({
   const monthCandidate = typeof rawMonth === "string" ? rawMonth : "";
 	const selectedMonth: MonthKey = normalizeMonthKey(monthCandidate) ?? currentMonthKey();
   const currentYear = new Date().getFullYear();
+
+  if (selectedYear < userStartYear) {
+    const minMonth = (MONTHS as MonthKey[])[Math.min(Math.max(userStartMonthIndex, 0), 11)] ?? selectedMonth;
+    redirect(
+      `/user=${encodeURIComponent(username)}/${encodeURIComponent(
+        budgetPlanId
+      )}/page=expenses?year=${encodeURIComponent(String(userStartYear))}&month=${encodeURIComponent(minMonth)}`
+    );
+  }
 
   // Normalize URL so month/year are always present.
   if (!rawYear || !rawMonth) {
@@ -116,6 +131,26 @@ export default async function AdminExpensesPage({
       };
     })
   );
+
+  const selectedMonthHasAnyExpenses = allPlansData.some((d) => {
+    const list = d.expenses?.[selectedMonth] ?? [];
+    return Array.isArray(list) && list.length > 0;
+  });
+
+  const selectedMonthIndex = (MONTHS as MonthKey[]).indexOf(selectedMonth);
+  const isBeforeUserStartMonth =
+    selectedYear === userStartYear && selectedMonthIndex >= 0 && selectedMonthIndex < userStartMonthIndex;
+
+  // New users should not browse months before their signup month.
+  // If there is existing expense data in that month, keep it accessible.
+  if (isBeforeUserStartMonth && !selectedMonthHasAnyExpenses) {
+    const minMonth = (MONTHS as MonthKey[])[Math.min(Math.max(userStartMonthIndex, 0), 11)] ?? selectedMonth;
+    redirect(
+      `/user=${encodeURIComponent(username)}/${encodeURIComponent(
+        budgetPlanId
+      )}/page=expenses?year=${encodeURIComponent(String(selectedYear))}&month=${encodeURIComponent(minMonth)}`
+    );
+  }
 	
   return (
     <ExpensesPageClient
@@ -123,6 +158,8 @@ export default async function AdminExpensesPage({
       initialYear={selectedYear}
       initialMonth={selectedMonth}
 		hasAnyIncome={hasAnyIncome}
+    userStartYear={userStartYear}
+    userStartMonthIndex={userStartMonthIndex}
     />
   );
 }

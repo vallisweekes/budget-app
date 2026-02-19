@@ -119,12 +119,14 @@ export async function getDashboardExpenseInsights({
 	budgetPlanId,
 	payDate,
 	now,
+	userId,
 }: {
 	budgetPlanId: string;
 	payDate: number;
 	now: Date;
+	userId?: string | null;
 }): Promise<{
-	recap: ReturnType<typeof computePreviousMonthRecap>;
+	recap: ReturnType<typeof computePreviousMonthRecap> | null;
 	upcoming: ReturnType<typeof computeUpcomingPayments>;
 	recapTips: ReturnType<typeof computeRecapTips>;
 }> {
@@ -138,7 +140,7 @@ export async function getDashboardExpenseInsights({
 	const historyPairs = Array.from({ length: 6 }, (_, i) => addMonthsUtc(currentYear, currentMonthNum, -i));
 	const historyOr = historyPairs.map((p) => ({ year: p.year, month: p.monthNum }));
 
-	const [insightRows, historyRows] = await Promise.all([
+	const [insightRows, historyRows, userRow] = await Promise.all([
 		prisma.expense.findMany({
 			where: {
 				budgetPlanId,
@@ -174,6 +176,9 @@ export async function getDashboardExpenseInsights({
 				month: true,
 			},
 		}),
+		userId
+			? prisma.user.findUnique({ where: { id: userId }, select: { createdAt: true } })
+			: Promise.resolve(null),
 	]);
 
 	const toExpenseItem = (e: (typeof insightRows)[number]): ExpenseItem => ({
@@ -250,12 +255,24 @@ export async function getDashboardExpenseInsights({
 		};
 	});
 
-	const recap = computePreviousMonthRecap(prevMonthExpenses, {
-		year: prevYear,
-		monthNum: prevMonthNum,
-		payDate,
-		now,
-	});
+	const userCreatedAt = userRow?.createdAt ?? null;
+	const userStartYear = userCreatedAt ? userCreatedAt.getUTCFullYear() : null;
+	const userStartMonthIndex = userCreatedAt ? userCreatedAt.getUTCMonth() : null;
+	const prevMonthIndex0 = prevMonthNum - 1;
+	const prevMonthBeforeSignup =
+		userStartYear != null &&
+		userStartMonthIndex != null &&
+		(prevYear < userStartYear || (prevYear === userStartYear && prevMonthIndex0 < userStartMonthIndex));
+
+	const shouldSuppressRecap = prevMonthBeforeSignup && prevMonthExpenses.length === 0;
+	const recap = shouldSuppressRecap
+		? null
+		: computePreviousMonthRecap(prevMonthExpenses, {
+			year: prevYear,
+			monthNum: prevMonthNum,
+			payDate,
+			now,
+		});
 
 	const upcomingExpenses = upcomingMonthPairs
 		.flatMap((p) => {
@@ -351,13 +368,15 @@ export async function getDashboardExpenseInsights({
 		maxDebts: 2,
 	});
 
-	const recapTips = computeRecapTips({
-		recap,
-		currentMonthExpenses,
-		ctx: { year: currentYear, monthNum: currentMonthNum, payDate, now },
-		forecasts,
-		historyExpenses,
-	});
+	const recapTips = recap
+		? computeRecapTips({
+			recap,
+			currentMonthExpenses,
+			ctx: { year: currentYear, monthNum: currentMonthNum, payDate, now },
+			forecasts,
+			historyExpenses,
+		})
+		: [];
 
 	return { recap, upcoming, recapTips };
 }

@@ -10,6 +10,24 @@ import NotificationsSection from "./sections/NotificationsSection";
 import PlansSection from "./sections/PlansSection";
 import SavingsSection from "./sections/SavingsSection";
 
+function PlanRequiredNotice({ title }: { title: string }) {
+	return (
+		<section className="space-y-4 sm:space-y-6">
+			<div className="flex items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-5">
+				<div>
+					<h2 className="text-xl sm:text-2xl font-bold text-white">{title}</h2>
+					<p className="text-slate-400 text-xs sm:text-sm">Create a plan to edit these settings</p>
+				</div>
+			</div>
+			<div className="bg-slate-800/40 backdrop-blur-xl rounded-2xl sm:rounded-3xl shadow-2xl border border-white/10 p-4 sm:p-8">
+				<p className="text-sm text-slate-300">
+					You don’t have any budget plans yet. Go to <span className="font-semibold text-white">Plans</span> to create one.
+				</p>
+			</div>
+		</section>
+	);
+}
+
 export default function SettingsMain({
 	isHidden,
 	activeSection,
@@ -47,21 +65,39 @@ export default function SettingsMain({
 			</div>
 
 			{activeSection === "details" ? (
-				<DetailsSection budgetPlanId={budgetPlanId} settings={settings} sessionUser={sessionUser} />
+				budgetPlanId ? (
+					<DetailsSection budgetPlanId={budgetPlanId} settings={settings} sessionUser={sessionUser} />
+				) : (
+					<PlanRequiredNotice title="My Details" />
+				)
 			) : null}
 			{activeSection === "budget" ? (
-				<BudgetSection
-					budgetPlanId={budgetPlanId}
-					settings={settings}
-					monthSummary={monthSummary}
-					fiftyThirtyTwenty={fiftyThirtyTwenty}
-					selectedMonth={selectedMonth}
-				/>
+				budgetPlanId ? (
+					<BudgetSection
+						budgetPlanId={budgetPlanId}
+						settings={settings}
+						monthSummary={monthSummary}
+						fiftyThirtyTwenty={fiftyThirtyTwenty}
+						selectedMonth={selectedMonth}
+					/>
+				) : (
+					<PlanRequiredNotice title="Budget" />
+				)
 			) : null}
 			{activeSection === "savings" ? (
-				<SavingsSection budgetPlanId={budgetPlanId} settings={settings} cardDebts={cardDebts ?? []} />
+				budgetPlanId ? (
+					<SavingsSection budgetPlanId={budgetPlanId} settings={settings} cardDebts={cardDebts ?? []} />
+				) : (
+					<PlanRequiredNotice title="Savings and Cards" />
+				)
 			) : null}
-			{activeSection === "locale" ? <LocaleSection budgetPlanId={budgetPlanId} settings={settings} /> : null}
+			{activeSection === "locale" ? (
+				budgetPlanId ? (
+					<LocaleSection budgetPlanId={budgetPlanId} settings={settings} />
+				) : (
+					<PlanRequiredNotice title="Locale" />
+				)
+			) : null}
 			{activeSection === "plans" ? (
 				<PlansSection
 					budgetPlanId={budgetPlanId}
@@ -71,7 +107,11 @@ export default function SettingsMain({
 			) : null}
 			{activeSection === "notifications" ? <NotificationsSection /> : null}
 			{activeSection === "danger" ? (
-				<DangerSection budgetPlanId={budgetPlanId} allPlans={allPlans ?? []} />
+				budgetPlanId ? (
+					<DangerSection budgetPlanId={budgetPlanId} allPlans={allPlans ?? []} />
+				) : (
+					<PlanRequiredNotice title="Danger Zone" />
+				)
 			) : null}
 		</main>
 	);

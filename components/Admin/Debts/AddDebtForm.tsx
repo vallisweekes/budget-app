@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Plus, X } from "lucide-react";
 import { SelectDropdown } from "@/components/Shared";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { createNonCardDebtAction } from "@/lib/debts/actions";
 import { formatCurrency } from "@/lib/helpers/money";
 
@@ -18,6 +19,15 @@ function Currency({ value }: { value: number }) {
 }
 
 export default function AddDebtForm({ budgetPlanId, payDate, creditCards }: AddDebtFormProps) {
+	const pathname = usePathname();
+	const settingsHref = (() => {
+		const parts = String(pathname ?? "").split("/").filter(Boolean);
+		if (parts.length >= 2 && parts[0].startsWith("user=")) {
+			return `/${parts[0]}/${parts[1]}/page=settings`;
+		}
+		return "/admin/settings";
+	})();
+
 	const [isOpen, setIsOpen] = useState(false);
 	const [type, setType] = useState("loan");
 	const [initialBalance, setInitialBalance] = useState("");
@@ -82,7 +92,7 @@ export default function AddDebtForm({ budgetPlanId, payDate, creditCards }: AddD
 				<input type="hidden" name="budgetPlanId" value={budgetPlanId} />
 				<div className="text-xs sm:text-sm text-slate-400">
 					Need to add a card? Do it in{" "}
-					<Link href="/admin/settings" className="text-purple-300 hover:text-purple-200 underline underline-offset-2">
+					<Link href={settingsHref} className="text-purple-300 hover:text-purple-200 underline underline-offset-2">
 						Settings → Savings and Cards
 					</Link>
 					.

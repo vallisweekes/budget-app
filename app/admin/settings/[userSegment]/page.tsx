@@ -1,7 +1,7 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import AdminCategoriesPage from "@/app/admin/categories/page";
+import { getDefaultBudgetPlanForUser, resolveUserId } from "@/lib/budgetPlans";
 
 export const dynamic = "force-dynamic";
 
@@ -30,5 +30,8 @@ export default async function AdminUserSettingsPage({
 		redirect(`/admin/settings/user=${encodeURIComponent(sessionUsername)}`);
 	}
 
-	return <AdminCategoriesPage />;
+	const userId = await resolveUserId({ userId: sessionUser.id, username: sessionUsername });
+	const budgetPlan = await getDefaultBudgetPlanForUser({ userId, username: sessionUsername });
+	const idSegment = budgetPlan?.id ? budgetPlan.id : userId;
+	redirect(`/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(idSegment)}/page=settings`);
 }

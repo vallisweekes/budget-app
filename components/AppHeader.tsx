@@ -12,18 +12,20 @@ export default async function AppHeader() {
   if (!sessionUsername) return null;
 
   const firstLetter = sessionUsername.charAt(0).toUpperCase();
-  // Use the admin settings route as a safe default.
-  // It will redirect to onboarding if the user has no budget plan yet.
-  let settingsHref = "/admin/settings";
+  // Always use the canonical scoped settings URL.
+  // If the user has no budget plan yet, we use their userId as the middle segment.
+  let settingsHref = "/";
 
   try {
     const userId = await resolveUserId({ userId: sessionUser.id, username: sessionUsername });
     const budgetPlan = await getDefaultBudgetPlanForUser({ userId, username: sessionUsername });
     settingsHref = budgetPlan
       ? `/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(budgetPlan.id)}/page=settings`
-      : "/admin/settings";
+      : `/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(userId)}/page=settings`;
   } catch (error) {
     console.error("AppHeader error:", error);
+    const fallbackIdSegment = typeof sessionUser.id === "string" && sessionUser.id.trim() ? sessionUser.id : "me";
+    settingsHref = `/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(fallbackIdSegment)}/page=settings`;
   }
 
   return (

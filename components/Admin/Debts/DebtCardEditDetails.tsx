@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { formatCurrency } from "@/lib/helpers/money";
 
 function Currency({ value }: { value: number }) {
@@ -30,6 +31,15 @@ export default function DebtCardEditDetails(props: {
 	onEditDefaultPaymentCardDebtIdChange: (next: string) => void;
 	creditCardOptions?: Array<{ value: string; label: string }>;
 }) {
+	const pathname = usePathname();
+	const settingsHref = (() => {
+		const parts = String(pathname ?? "").split("/").filter(Boolean);
+		if (parts.length >= 2 && parts[0].startsWith("user=")) {
+			return `/${parts[0]}/${parts[1]}/page=settings`;
+		}
+		return "/admin/settings";
+	})();
+
 	const {
 		debtType,
 		creditLimit,
@@ -127,7 +137,7 @@ export default function DebtCardEditDetails(props: {
 					/>
 					<div className="mt-1 text-[10px] sm:text-xs text-slate-500">
 						Credit limits are read-only here. Edit in{" "}
-						<Link href="/admin/settings" className="text-purple-300 hover:text-purple-200 underline underline-offset-2">
+						<Link href={settingsHref} className="text-purple-300 hover:text-purple-200 underline underline-offset-2">
 							Settings → Savings and Cards
 						</Link>
 						.

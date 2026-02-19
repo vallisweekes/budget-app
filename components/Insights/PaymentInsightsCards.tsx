@@ -58,7 +58,7 @@ export default function PaymentInsightsCards({
 	showRecap?: boolean;
 	showUpcoming?: boolean;
 }) {
-	const shouldShowRecap = showRecap;
+	const shouldShowRecap = showRecap && !!recap;
 	const shouldShowUpcoming = showUpcoming;
 
 	const tips = useMemo(() => {
@@ -76,6 +76,15 @@ export default function PaymentInsightsCards({
 	}, [tips.length]);
 
 	const activeTip = tips.length ? tips[tipIndex % tips.length] : null;
+	const shouldShowTipInRecap = !!activeTip && shouldShowRecap;
+	const shouldShowTipInUpcoming = !!activeTip && !shouldShowRecap && shouldShowUpcoming;
+	const tipBlock = activeTip ? (
+		<div className="pt-2">
+			<div className="text-xs uppercase tracking-wide text-slate-400">Tip</div>
+			<div className="mt-1 text-sm font-semibold text-white">{activeTip.title}</div>
+			<div className="mt-0.5 text-xs text-slate-300">{activeTip.detail}</div>
+		</div>
+	) : null;
 
 	return (
 		<div
@@ -88,51 +97,41 @@ export default function PaymentInsightsCards({
 					title={undefined}
 					className={shouldShowUpcoming ? "lg:col-span-6" : "lg:col-span-12"}
 				>
-				{!recap ? (
-					<div className="text-sm text-slate-300">No recap available.</div>
-				) : (
 					<div className="space-y-3">
 						<div className="inline-flex">
 							<div
 								className="rounded-full px-3 py-1 text-xs font-semibold text-slate-900"
 								style={{ backgroundColor: "#9EDBFF" }}
 							>
-								{toTitleCaseMonthOnly(recap.label)} Recap
+								{toTitleCaseMonthOnly(recap!.label)} Recap
 							</div>
 						</div>
 						<div className="grid grid-cols-2 gap-2">
 							<div className={`rounded-2xl border p-3 ${badgeClass("ok")}`}>
 								<div className="text-xs uppercase tracking-wide opacity-90">Paid</div>
-								<div className="mt-1 text-lg font-bold">{recap.paidCount}</div>
-								<div className="text-xs opacity-90">{money(recap.paidAmount)}</div>
+								<div className="mt-1 text-lg font-bold">{recap!.paidCount}</div>
+								<div className="text-xs opacity-90">{money(recap!.paidAmount)}</div>
 							</div>
-							<div className={`rounded-2xl border p-3 ${badgeClass(recap.unpaidCount > 0 ? "warn" : "muted")}`}>
+							<div className={`rounded-2xl border p-3 ${badgeClass(recap!.unpaidCount > 0 ? "warn" : "muted")}`}>
 								<div className="text-xs uppercase tracking-wide opacity-90">Not paid</div>
-								<div className="mt-1 text-lg font-bold">{recap.unpaidCount + recap.partialCount}</div>
-								<div className="text-xs opacity-90">{money(recap.unpaidAmount + recap.partialAmount)}</div>
+								<div className="mt-1 text-lg font-bold">{recap!.unpaidCount + recap!.partialCount}</div>
+								<div className="text-xs opacity-90">{money(recap!.unpaidAmount + recap!.partialAmount)}</div>
 							</div>
 						</div>
 
-						<div className={`rounded-2xl border p-3 ${badgeClass(recap.missedDueCount > 0 ? "bad" : "muted")}`}>
+						<div className={`rounded-2xl border p-3 ${badgeClass(recap!.missedDueCount > 0 ? "bad" : "muted")}`}>
 							<div className="flex items-center justify-between gap-3">
 								<div className="text-xs uppercase tracking-wide opacity-90">Missed due date</div>
 								<div className="text-xs opacity-80">(due by month end)</div>
 							</div>
 							<div className="mt-1 flex items-end justify-between gap-3">
-								<div className="text-lg font-bold">{recap.missedDueCount}</div>
-								<div className="text-sm font-semibold">{money(recap.missedDueAmount)}</div>
+								<div className="text-lg font-bold">{recap!.missedDueCount}</div>
+								<div className="text-sm font-semibold">{money(recap!.missedDueAmount)}</div>
 							</div>
 						</div>
 
-						{activeTip ? (
-							<div className="pt-1">
-								<div className="text-xs uppercase tracking-wide text-slate-400">Tip</div>
-								<div className="mt-1 text-sm font-semibold text-white">{activeTip.title}</div>
-								<div className="mt-0.5 text-xs text-slate-300">{activeTip.detail}</div>
-							</div>
-						) : null}
+						{shouldShowTipInRecap ? <div className="pt-1">{tipBlock}</div> : null}
 					</div>
-				)}
 				</Card>
 			) : null}
 
@@ -149,6 +148,7 @@ export default function PaymentInsightsCards({
 							</div>
 						</div>
 						<div className="text-sm text-slate-300">Nothing urgent right now.</div>
+						{shouldShowTipInUpcoming ? <div className="pt-1">{tipBlock}</div> : null}
 					</div>
 				) : (
 					<div className="space-y-2">
@@ -186,6 +186,7 @@ export default function PaymentInsightsCards({
 								</div>
 							);
 						})}
+						{shouldShowTipInUpcoming ? <div className="pt-2">{tipBlock}</div> : null}
 					</div>
 				)}
 				</Card>

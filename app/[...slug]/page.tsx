@@ -7,7 +7,7 @@ import AdminExpensesPage from "@/app/admin/expenses/page";
 import DebtsPage from "@/app/admin/debts/page";
 import GoalsPage from "@/app/admin/goals/page";
 import SpendingPage from "@/app/admin/spending/page";
-import AdminSettingsPage from "@/app/admin/settings/page";
+import SettingsPageContent from "@/app/admin/settings/SettingsPageContent";
 import AdminCategoriesPage from "@/app/admin/categories/page";
 import { authOptions } from "@/lib/auth";
 import {
@@ -145,11 +145,30 @@ export default async function UserBudgetPage({
 		redirect(`/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(parsed.budgetRef)}${tail}`);
 	}
 
+	const resolvedSearchParams = (await searchParams) ?? {};
+
+	const [pageKeyRaw, ...pageRest] = parsed.kind === "scoped" ? parsed.page : [];
+	const rawSegment = (pageKeyRaw ?? "").toLowerCase();
+	const pageKey = rawSegment.startsWith("page=") ? rawSegment.slice("page=".length) : rawSegment;
+
+	// Allow /user=<username>/<userId>/page=settings so new users (no plan yet) can still reach Settings.
+	if (parsed.kind === "scoped" && parsed.budgetPlanId === userId) {
+		if (!rawSegment) {
+			redirect(`/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(userId)}/page=settings`);
+		}
+		if (pageKey !== "settings") {
+			redirect(`/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(userId)}/page=settings`);
+		}
+		return <SettingsPageContent searchParams={Promise.resolve({ ...resolvedSearchParams, plan: "" })} />;
+	}
+
 	// Scoped canonical route: /user=<username>/<budgetPlanId>/<page>
 	const requestedPlan = await prisma.budgetPlan.findUnique({ where: { id: parsed.budgetPlanId } });
 	if (!requestedPlan || requestedPlan.userId !== userId) {
 		const fallbackPlan = await getDefaultBudgetPlanForUser({ userId, username: sessionUsername });
-		if (!fallbackPlan) redirect("/budgets/new");
+		if (!fallbackPlan) {
+			redirect(`/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(userId)}/page=settings`);
+		}
 		const tail = parsed.page.length ? `/${parsed.page.map((s) => encodeURIComponent(s)).join("/")}` : "";
 		redirect(`/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(fallbackPlan.id)}${tail}`);
 	}
@@ -158,12 +177,7 @@ export default async function UserBudgetPage({
 
 	// Keep categories in sync for ALL users/plans, including older plans.
 	await ensureDefaultCategoriesForBudgetPlan({ budgetPlanId });
-	const resolvedSearchParams = (await searchParams) ?? {};
 	const sp = { ...resolvedSearchParams, plan: budgetPlanId };
-
-	const [pageKeyRaw, ...pageRest] = parsed.page;
-	const rawSegment = (pageKeyRaw ?? "").toLowerCase();
-	const pageKey = rawSegment.startsWith("page=") ? rawSegment.slice("page=".length) : rawSegment;
 
 	const knownPages = new Set([
 		"home",
@@ -254,7 +268,7 @@ function renderUserScopedAdminPage(
 		case "goals":
 			return <GoalsPage searchParams={Promise.resolve({ ...searchParams, plan: budgetPlanId })} />;
 		case "settings":
-			return <AdminSettingsPage searchParams={Promise.resolve({ ...searchParams, plan: budgetPlanId })} />;
+			return <SettingsPageContent searchParams={Promise.resolve({ ...searchParams, plan: budgetPlanId })} />;
 		case "categories":
 			return <AdminCategoriesPage searchParams={Promise.resolve({ ...searchParams, plan: budgetPlanId })} />;
 		default:

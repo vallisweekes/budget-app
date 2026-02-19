@@ -71,7 +71,7 @@ export type ViewTabsProps = {
 	allPlansData?: Record<string, BudgetPlanData>;
 	largestExpensesByPlan?: Record<string, LargestExpensesForPlan>;
 	expenseInsights?: {
-		recap: PreviousMonthRecap;
+		recap: PreviousMonthRecap | null;
 		upcoming: UpcomingPayment[];
 		recapTips?: RecapTip[];
 	};

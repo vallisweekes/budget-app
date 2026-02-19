@@ -266,7 +266,7 @@ export async function applyFiftyThirtyTwentyTargetsAction(formData: FormData): P
 		monthlyInvestmentContribution: keepInvestments,
 	});
 
-	const settingsPath = `/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(budgetPlanId)}/settings`;
+	const settingsPath = `/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(budgetPlanId)}/page=settings`;
 	const incomePath = `/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(budgetPlanId)}/income`;
 
 	revalidatePath(settingsPath);
@@ -274,7 +274,6 @@ export async function applyFiftyThirtyTwentyTargetsAction(formData: FormData): P
 	revalidatePath("/");
 	revalidatePath("/dashboard");
 	revalidatePath("/admin/income");
-	revalidatePath("/admin/settings");
 
 	redirect(`${settingsPath}?month=${encodeURIComponent(String(rawMonth))}&applied=${encodeURIComponent("503020")}`);
 }
