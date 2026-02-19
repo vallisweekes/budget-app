@@ -32,21 +32,23 @@ export default function ViewTabsDashboard(props: ViewTabsProps) {
 						hasIncome={model.combinedData.totalIncome > 0}
 					/>
 
-					<StatsGrid
-						amountLeftToBudget={model.combinedData.amountLeftToBudget}
-						totalIncome={model.combinedData.totalIncome}
-						totalAllocations={model.combinedData.totalAllocations}
-						plannedDebtPayments={model.combinedData.plannedDebtPayments}
-						totalExpenses={model.combinedData.totalExpenses}
-						amountAfterExpenses={model.amountAfterExpenses}
-						plannedSavingsContribution={model.combinedData.plannedSavingsContribution}
-						savingsRate={model.savingsRate}
-						spendRate={model.spendRate}
-						avgSpendPerDay={model.avgSpendPerDay}
-						daysInMonth={model.daysInMonth}
-						incomeHref={model.incomeHref}
-						shouldShowAddIncome={model.shouldShowAddIncome}
-					/>
+					<div className="mx-auto w-full max-w-[420px] sm:max-w-none">
+						<StatsGrid
+							amountLeftToBudget={model.combinedData.amountLeftToBudget}
+							totalIncome={model.combinedData.totalIncome}
+							totalAllocations={model.combinedData.totalAllocations}
+							plannedDebtPayments={model.combinedData.plannedDebtPayments}
+							totalExpenses={model.combinedData.totalExpenses}
+							amountAfterExpenses={model.amountAfterExpenses}
+							plannedSavingsContribution={model.combinedData.plannedSavingsContribution}
+							savingsRate={model.savingsRate}
+							spendRate={model.spendRate}
+							avgSpendPerDay={model.avgSpendPerDay}
+							daysInMonth={model.daysInMonth}
+							incomeHref={model.incomeHref}
+							shouldShowAddIncome={model.shouldShowAddIncome}
+						/>
+					</div>
 				</div>
 			</section>
 

@@ -15,8 +15,10 @@ export default function DashboardHeader(props: {
 		<>
 			<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 				<div>
-					<div className="text-sm text-slate-300">{monthDisplayLabel(month as any)} snapshot</div>
-					<div className="text-xl sm:text-2xl font-bold text-white">Dashboard</div>
+					<div className="text-xl sm:text-2xl font-bold text-white">
+						<span className="sr-only">Dashboard</span>
+						This month
+					</div>
 				</div>
 
 				<div className="flex flex-wrap items-center gap-2">

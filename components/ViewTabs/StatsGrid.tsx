@@ -39,7 +39,7 @@ export default function StatsGrid(props: {
 		<div className="grid grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-3">
 			<Card
 				title={
-					<span className="inline-flex items-center gap-1.5">
+					<span className="inline-flex items-center gap-1.5 text-base sm:text-sm">
 						Income
 						<InfoTooltip
 							ariaLabel="Income info"
@@ -47,10 +47,10 @@ export default function StatsGrid(props: {
 						/>
 					</span>
 				}
-				className="p-3"
+				className="p-2.5 sm:p-3"
 			>
 				<div className="flex items-center gap-2">
-					<div className="text-base sm:text-lg font-bold">
+					<div className="text-lg sm:text-lg font-bold">
 						<Currency value={amountLeftToBudget} />
 					</div>
 					{totalIncome > 0 && (
@@ -64,16 +64,29 @@ export default function StatsGrid(props: {
 					)}
 				</div>
 				<div className="mt-2">
-					<Link href={incomeHref} className="inline-flex items-center gap-1.5 text-xs font-semibold text-white/85 hover:text-white">
-						<Plus size={14} />
-						{shouldShowAddIncome ? "Add income" : "View income"}
-					</Link>
+					{shouldShowAddIncome ? (
+						<Link
+							href={incomeHref}
+							className="inline-flex items-center gap-1.5 text-xs font-semibold text-white/85 hover:text-white"
+						>
+							<Plus size={14} />
+							Add income
+						</Link>
+					) : (
+						<Link
+							href={incomeHref}
+							className="hidden sm:inline-flex items-center gap-1.5 text-xs font-semibold text-white/85 hover:text-white"
+						>
+							<Plus size={14} />
+							View income
+						</Link>
+					)}
 				</div>
 			</Card>
 
 			<Card
 				title={
-					<span className="inline-flex items-center gap-1.5">
+					<span className="inline-flex items-center gap-1.5 text-base sm:text-sm">
 						Expenses
 						<InfoTooltip
 							ariaLabel="Expenses info"
@@ -81,10 +94,10 @@ export default function StatsGrid(props: {
 						/>
 					</span>
 				}
-				className="p-3"
+				className="p-2.5 sm:p-3"
 			>
 				<div className="flex items-center gap-2">
-					<div className="text-base sm:text-lg font-bold">
+					<div className="text-lg sm:text-lg font-bold">
 						<Currency value={totalExpenses} />
 					</div>
 					{totalIncome > 0 && (
@@ -101,7 +114,7 @@ export default function StatsGrid(props: {
 
 			<Card
 				title={
-					<span className="inline-flex items-center gap-1.5">
+					<span className="inline-flex items-center gap-1.5 text-base sm:text-sm">
 						Amount Left
 						<InfoTooltip
 							ariaLabel="Amount left info"
@@ -109,10 +122,10 @@ export default function StatsGrid(props: {
 						/>
 					</span>
 				}
-				className="p-3"
+				className="p-2.5 sm:p-3"
 			>
 				<div className="flex items-center gap-2">
-					<div className={`text-base sm:text-lg font-bold ${amountAfterExpenses < 0 ? "text-red-300" : "text-emerald-300"}`}>
+					<div className={`text-lg sm:text-lg font-bold ${amountAfterExpenses < 0 ? "text-red-300" : "text-emerald-300"}`}>
 						<Currency value={amountAfterExpenses} />
 					</div>
 					{amountLeftToBudget > 0 && (
@@ -125,7 +138,7 @@ export default function StatsGrid(props: {
 
 			<Card
 				title={
-					<span className="inline-flex items-center gap-1.5">
+					<span className="inline-flex items-center gap-1.5 text-base sm:text-sm">
 						Savings
 						<InfoTooltip
 							ariaLabel="Savings info"
@@ -133,10 +146,10 @@ export default function StatsGrid(props: {
 						/>
 					</span>
 				}
-				className="p-3"
+				className="p-2.5 sm:p-3"
 			>
 				<div className="flex items-center gap-2">
-					<div className="text-base sm:text-lg font-bold text-emerald-300">
+					<div className="text-lg sm:text-lg font-bold text-emerald-300">
 						<Currency value={plannedSavingsContribution ?? 0} />
 					</div>
 					{totalIncome > 0 && (
@@ -149,7 +162,7 @@ export default function StatsGrid(props: {
 
 			<Card
 				title={
-					<span className="inline-flex items-center gap-1.5">
+					<span className="inline-flex items-center gap-1.5 text-base sm:text-sm">
 						Avg/day
 						<InfoTooltip
 							ariaLabel="Average per day info"
@@ -157,10 +170,10 @@ export default function StatsGrid(props: {
 						/>
 					</span>
 				}
-				className="p-3 col-span-2 lg:col-span-1"
+				className="p-2.5 sm:p-3 col-span-2 lg:col-span-1"
 			>
 				<div className="flex items-center gap-2">
-					<div className="text-base sm:text-lg font-bold">
+					<div className="text-lg sm:text-lg font-bold">
 						<Currency value={avgSpendPerDay} />
 					</div>
 					{amountLeftToBudget > 0 && daysInMonth > 0 && (() => {

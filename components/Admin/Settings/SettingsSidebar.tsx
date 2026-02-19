@@ -27,24 +27,18 @@ export default function SettingsSidebar({
 			}`}
 		>
 			<div className="pt-16 lg:pt-6">
-				<div className="mb-6">
-					<div className="flex items-start justify-between gap-3 sm:gap-4 mb-4">
-						<div className="flex-1">
-							<h1 className="text-2xl sm:text-4xl font-bold text-white mb-1 sm:mb-2">Settings</h1>
-							<p className="text-slate-400 text-xs sm:text-lg">Configure your budget and app options</p>
-						</div>
-						<button
-							type="button"
-							onClick={() => signOut({ callbackUrl: "/" })}
-							className="inline-flex items-center justify-center gap-2 rounded-xl px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold text-white/90 border border-white/10 bg-white/5 hover:bg-white/10 transition"
-						>
-							<LogOut size={14} className="sm:w-4 sm:h-4" />
-							Log out
-						</button>
-					</div>
+				<div className="mb-4 sm:mb-6 flex justify-end">
+					<button
+						type="button"
+						onClick={() => signOut({ callbackUrl: "/" })}
+						className="inline-flex items-center justify-center gap-2 rounded-xl px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold text-white/90 border border-white/10 bg-white/5 hover:bg-white/10 transition"
+					>
+						<LogOut size={14} className="sm:w-4 sm:h-4" />
+						Log out
+					</button>
 				</div>
 
-				<div className="mb-4 sm:mb-6 bg-slate-800/35 backdrop-blur-xl rounded-2xl sm:rounded-3xl border border-white/10 p-3 sm:p-5">
+				<div className="mb-4 sm:mb-6 bg-white/5 backdrop-blur-xl rounded-2xl sm:rounded-3xl border border-white/10 p-3 sm:p-5">
 					<div className="flex flex-col gap-2 sm:gap-3 sm:flex-row sm:items-center sm:justify-between">
 						<div>
 							<p className="text-white font-semibold text-sm sm:text-base">Theme preview</p>
@@ -68,7 +62,7 @@ export default function SettingsSidebar({
 					<p className="text-xs text-slate-400 mt-3">{THEME_OPTIONS.find((t) => t.value === theme)?.description}</p>
 				</div>
 
-				<div className="bg-slate-800/30 backdrop-blur-xl rounded-2xl sm:rounded-3xl border border-white/10 p-3 sm:p-4">
+				<div className="bg-white/5 backdrop-blur-xl rounded-2xl sm:rounded-3xl border border-white/10 p-3 sm:p-4">
 					<nav className="space-y-0.5 sm:space-y-1">
 						{sections.map((s) => {
 							const Icon = s.icon;

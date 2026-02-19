@@ -89,7 +89,7 @@ export default function DebtCardRecordPaymentForm(props: {
 				<button
 					type="submit"
 					disabled={paymentSource === "credit_card" && !paymentCardDebtId}
-					className="h-8 sm:h-10 px-3 sm:px-6 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium shadow-lg hover:shadow-xl cursor-pointer whitespace-nowrap text-xs sm:text-sm"
+					className="h-8 sm:h-10 px-3 sm:px-6 bg-[var(--cta)] text-white rounded-lg hover:bg-[var(--cta-hover)] active:bg-[var(--cta-active)] transition-colors font-medium shadow-lg hover:shadow-xl cursor-pointer whitespace-nowrap text-xs sm:text-sm disabled:opacity-60 disabled:cursor-not-allowed"
 				>
 					Make Payment
 				</button>

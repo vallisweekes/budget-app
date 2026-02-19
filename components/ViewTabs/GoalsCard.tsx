@@ -374,9 +374,9 @@ export default function GoalsCard(props: {
 													<Currency value={target} />
 												</span>
 											</div>
-											<div className="mt-2 h-2 rounded-full bg-white/10 overflow-hidden">
+											<div className="mt-2 h-2 sm:h-4 rounded-full bg-white/10 overflow-hidden">
 												<div
-													className="h-2 rounded-full bg-gradient-to-r from-emerald-400 to-green-500"
+													className="h-2 sm:h-4 rounded-full bg-gradient-to-r from-emerald-400 to-green-500"
 													style={{ width: `${progress * 100}%` }}
 												/>
 											</div>

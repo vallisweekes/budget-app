@@ -26,6 +26,11 @@
   --accent-surface-from: rgba(2, 239, 240, 0.18);
   --accent-surface-to: rgba(2, 239, 240, 0.08);
   --accent-border: rgba(2, 239, 240, 0.30);
+
+  /* Primary call-to-action (CTA) button color */
+  --cta: #ff1493;
+  --cta-hover: #e01383;
+  --cta-active: #c81172;
 }
 
 :root[data-theme="nord-mint"] {
@@ -233,7 +238,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-app-sans);
   --font-mono: var(--font-geist-mono);
 }
 
@@ -244,7 +249,7 @@ body {
     radial-gradient(700px 420px at 90% 18%, var(--glow-2), transparent 55%),
     linear-gradient(135deg, var(--app-bg-from) 0%, var(--app-bg-via) 40%, var(--app-bg-to) 100%);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
 }
 
 @layer utilities {
@@ -283,14 +288,20 @@ body {
 
   @media (max-width: 1023px) {
     .dashboard-hero {
-      border-bottom-right-radius: 96px;
-      border-bottom-left-radius: 96px;
+      border-bottom-right-radius: 72px;
+      border-bottom-left-radius: 0;
     }
   }
 
   .dashboard-canvas-content {
     background-color: var(--dashboard-canvas-bg, transparent);
     border-top-left-radius: 96px;
+  }
+
+  @media (max-width: 1023px) {
+    .dashboard-canvas-content {
+      border-top-left-radius: 72px;
+    }
   }
 
   .dashboard-left-underlay {
@@ -329,6 +340,30 @@ body {
   .dashboard-dark-cards .bg-slate-950\/15,
   .dashboard-dark-cards .bg-slate-950\/20 {
     background-color: var(--dashboard-card-surface-glass, rgba(7, 10, 18, 0.52)) !important;
+  }
+
+  /* Settings page: keep the curve/canvas reveal white */
+  .settings-page {
+    --dashboard-canvas-bg: #ffffff;
+  }
+
+  /* Settings page: white canvas, dark storm-green cards */
+  :root:not([data-theme="soft-light"]) .settings-page .backdrop-blur-xl {
+    background: var(--background) !important;
+    backdrop-filter: none !important;
+  }
+
+  :root:not([data-theme="soft-light"]) .settings-page .bg-white\/5,
+  :root:not([data-theme="soft-light"]) .settings-page .bg-white\/10,
+  :root:not([data-theme="soft-light"]) .settings-page .bg-slate-800\/30,
+  :root:not([data-theme="soft-light"]) .settings-page .bg-slate-800\/35,
+  :root:not([data-theme="soft-light"]) .settings-page .bg-slate-800\/40,
+  :root:not([data-theme="soft-light"]) .settings-page .bg-slate-900\/30,
+  :root:not([data-theme="soft-light"]) .settings-page .bg-slate-900\/40,
+  :root:not([data-theme="soft-light"]) .settings-page .bg-slate-900\/60,
+  :root:not([data-theme="soft-light"]) .settings-page .bg-slate-950\/15,
+  :root:not([data-theme="soft-light"]) .settings-page .bg-slate-950\/20 {
+    background: var(--background) !important;
   }
 }
 

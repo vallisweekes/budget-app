@@ -64,9 +64,9 @@ export default function GoalCardProgress({
 						<Currency value={effectiveCurrent} /> / <Currency value={goal.targetAmount} />
         </span>
       </div>
-      <div className="w-full bg-slate-900/10 rounded-full h-2 sm:h-3">
+			<div className="w-full bg-slate-900/10 rounded-full h-2 sm:h-4">
         <div
-          className={`bg-gradient-to-r ${gradient} h-2 sm:h-3 rounded-full transition-all`}
+					className={`bg-gradient-to-r ${gradient} h-2 sm:h-4 rounded-full transition-all`}
           style={{ width: `${Math.min(100, progress)}%` }}
         />
       </div>

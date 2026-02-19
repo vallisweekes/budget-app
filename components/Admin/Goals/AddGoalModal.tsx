@@ -82,20 +82,14 @@ export default function AddGoalModal({
 
   return (
     <>
-      <div className="flex items-center justify-between gap-3 sm:gap-4">
-        <div>
-          <h2 className="text-base sm:text-xl font-bold text-white">Goals</h2>
-          <p className="text-slate-400 text-xs sm:text-sm mt-0.5 sm:mt-1">
-            Add goals to keep your plan on track.
-          </p>
-        </div>
+      <div className="flex items-center justify-start gap-3 sm:gap-4">
         <button
           type="button"
           onClick={() => {
             resetForm();
             setOpen(true);
           }}
-          className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg hover:shadow-xl hover:scale-[1.02] transition"
+          className="inline-flex items-center gap-2 rounded-xl bg-[var(--cta)] px-4 py-2.5 text-sm font-semibold text-white shadow-lg hover:bg-[var(--cta-hover)] hover:shadow-xl hover:scale-[1.02] active:bg-[var(--cta-active)] transition"
         >
           <Plus className="h-4 w-4" />
           Add goal

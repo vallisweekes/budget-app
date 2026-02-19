@@ -94,17 +94,14 @@ export default async function DebtsPage(props: {
 		>
 			{/* Total Debt Overview */}
 			<div className="bg-slate-800/40 backdrop-blur-xl rounded-2xl sm:rounded-3xl shadow-2xl border border-white/10 p-4 sm:p-6 mb-6 sm:mb-8 hover:border-white/20 transition-all">
-				<div className="flex items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
-					<div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-red-500 to-red-700 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg shrink-0">
-						<CreditCard className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
-					</div>
-					<div className="flex-1 min-w-0">
+				<div className="mb-4 sm:mb-6">
+					<div className="min-w-0">
 						<div className="text-xs sm:text-sm text-slate-400 mb-0.5 sm:mb-1">Total Outstanding Debt</div>
 						<div className="text-2xl sm:text-3xl md:text-4xl font-bold text-white truncate">
 								<Currency value={totalDebt} />
 							</div>
 						<div className="text-xs sm:text-sm text-slate-400 mt-1 sm:mt-2 flex items-center gap-1.5 sm:gap-2">
-							<div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-red-500 rounded-full"></div>
+							<div className="w-2 h-2 sm:w-3 sm:h-3 bg-red-500 rounded-full shrink-0"></div>
 								{activeDebts.length} debt{activeDebts.length !== 1 ? "s" : ""} tracked
 							</div>
 						</div>
@@ -119,9 +116,9 @@ export default async function DebtsPage(props: {
 									<Currency value={totalPaidAmount} /> / <Currency value={totalInitialDebt} />
 								</span>
 							</div>
-						<div className="w-full bg-white/10 rounded-full h-2 sm:h-3">
+						<div className="w-full bg-white/10 rounded-full h-2 sm:h-4">
 							<div
-								className="bg-gradient-to-r from-emerald-400 to-emerald-600 h-2 sm:h-3 rounded-full transition-all"
+								className="bg-gradient-to-r from-emerald-400 to-emerald-600 h-2 sm:h-4 rounded-full transition-all"
 									style={{ width: `${Math.min(100, debtPayoffProgress)}%` }}
 								/>
 							</div>

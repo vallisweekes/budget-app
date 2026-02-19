@@ -39,6 +39,7 @@ export default function SettingsContent(props: SettingsContentProps) {
 	return (
 		<HeroCanvasLayoutClient
 			maxWidthClassName="max-w-7xl"
+			className="settings-page [&_.dashboard-canvas-content]:bg-white"
 			hero={
 				<div className="space-y-1 sm:space-y-2">
 					<h1 className="text-2xl sm:text-3xl font-bold text-white">Settings</h1>

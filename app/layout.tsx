@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import Providers from "./providers";
 import AppShell from "./AppShell";
@@ -36,14 +36,16 @@ async function getUserThemeFallback(userId: string): Promise<string> {
   }
 }
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const appSans = Plus_Jakarta_Sans({
+  variable: "--font-app-sans",
   subsets: ["latin"],
+  display: "swap",
 });
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -98,7 +100,7 @@ export default async function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning data-theme={htmlTheme}>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${appSans.variable} ${geistMono.variable} antialiased`}
       >
         <script
           // Keep this tiny and synchronous to avoid theme flash.
