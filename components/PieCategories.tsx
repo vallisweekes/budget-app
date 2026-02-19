@@ -53,18 +53,28 @@ export default function PieCategories({ items }: { items: Array<{ name: string; 
   };
 
   return (
-    <div className="flex flex-col items-center gap-4">
-      <div className="relative h-32 w-32">
-        <Doughnut data={data} options={options} />
+    <div className="flex flex-col gap-6 sm:grid sm:grid-cols-[14rem_1fr_14rem] sm:items-center">
+      <div className="w-full sm:w-auto min-w-0 order-2 sm:order-none">
+        <div className="flex flex-col gap-2 text-xs">
+          {items.slice(0, 8).map((s, i) => (
+            <div key={s.name} className="flex items-center gap-2 min-w-0">
+              <span
+                className="inline-block w-2.5 h-2.5 rounded-sm shrink-0"
+                style={{ background: colors[i % colors.length] }}
+              />
+              <span className="truncate">{s.name}</span>
+            </div>
+          ))}
+        </div>
       </div>
-      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs w-full">
-        {items.slice(0, 8).map((s, i) => (
-          <div key={s.name} className="flex items-center gap-2">
-            <span className="inline-block w-2 h-2 rounded" style={{ background: colors[i % colors.length] }} />
-            <span className="truncate">{s.name}</span>
-          </div>
-        ))}
+
+      <div className="flex items-center justify-center order-1 sm:order-none">
+        <div className="relative h-44 w-44 sm:h-48 sm:w-48 md:h-56 md:w-56">
+          <Doughnut data={data} options={options} />
+        </div>
       </div>
+
+      <div className="hidden sm:block" aria-hidden="true" />
     </div>
   );
 }

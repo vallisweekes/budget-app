@@ -48,6 +48,7 @@ export default function Sidebar() {
 	const searchParams = useSearchParams();
 	const { data: session } = useSession();
 	const sessionUsername = session?.user?.username ?? session?.user?.name;
+	const sessionUserId = typeof session?.user?.id === "string" ? session.user.id.trim() : "";
 	const [currencyCode, setCurrencyCode] = useState<string>(DEFAULT_CURRENCY_CODE);
 
 	const onboardingNewBudget = isUserOnboardingNewBudget(pathname);
@@ -85,7 +86,9 @@ export default function Sidebar() {
 		? `/user=${encodeURIComponent(scoped.username)}/${encodeURIComponent(scoped.budgetPlanId)}`
 		: sessionUsername && planFromQuery
 			? `/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(planFromQuery)}`
-			: "/";
+			: sessionUsername && sessionUserId
+				? `/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(sessionUserId)}`
+				: "/dashboard";
 	let activePage = getActiveUserPage(pathname);
 	if (onboardingNewBudget) {
 		const nav = (searchParams.get("nav") ?? "").trim().toLowerCase();

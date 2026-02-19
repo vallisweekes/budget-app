@@ -14,11 +14,14 @@ export default function DetailsSection({
 	settings,
 	sessionUser,
 }: {
-	budgetPlanId: string;
+	budgetPlanId?: string | null;
 	settings: Settings;
 	sessionUser: { id?: string; name?: string | null; email?: string | null };
 }) {
 	const [isEditingEmail, setIsEditingEmail] = useState(false);
+	const hasPlan = Boolean(String(budgetPlanId ?? "").trim());
+	const countryName =
+		SUPPORTED_COUNTRIES.find((c) => c.code === (settings.country ?? "GB"))?.name ?? (settings.country ?? "GB");
 
 	return (
 		<section className="space-y-4 sm:space-y-6">
@@ -31,7 +34,7 @@ export default function DetailsSection({
 
 			<div className="bg-slate-800/40 backdrop-blur-xl rounded-2xl sm:rounded-3xl shadow-2xl border border-white/10 p-4 sm:p-8">
 				<form action={updateUserDetailsAction} className="space-y-4 sm:space-y-6">
-					<input type="hidden" name="budgetPlanId" value={budgetPlanId} />
+					{hasPlan ? <input type="hidden" name="budgetPlanId" value={String(budgetPlanId)} /> : null}
 
 					<div>
 						<label className="block text-sm font-medium text-slate-400 mb-2">Name</label>
@@ -70,12 +73,23 @@ export default function DetailsSection({
 
 					<div>
 						<label className="block text-sm font-medium text-slate-400 mb-2">Country</label>
-						<SelectDropdown
-							name="country"
-							defaultValue={settings.country ?? "GB"}
-							options={SUPPORTED_COUNTRIES.map((c) => ({ value: c.code, label: c.name }))}
-							buttonClassName="bg-slate-900/60 focus:ring-blue-500"
-						/>
+						{hasPlan ? (
+							<SelectDropdown
+								name="country"
+								defaultValue={settings.country ?? "GB"}
+								options={SUPPORTED_COUNTRIES.map((c) => ({ value: c.code, label: c.name }))}
+								buttonClassName="bg-slate-900/60 focus:ring-blue-500"
+							/>
+						) : (
+							<div className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white text-lg">
+								{countryName}
+							</div>
+						)}
+						{hasPlan ? null : (
+							<p className="text-xs text-slate-500 mt-1">
+								Country is saved per budget plan. Create a plan to edit it.
+							</p>
+						)}
 					</div>
 
 					<button

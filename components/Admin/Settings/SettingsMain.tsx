@@ -65,11 +65,7 @@ export default function SettingsMain({
 			</div>
 
 			{activeSection === "details" ? (
-				budgetPlanId ? (
-					<DetailsSection budgetPlanId={budgetPlanId} settings={settings} sessionUser={sessionUser} />
-				) : (
-					<PlanRequiredNotice title="My Details" />
-				)
+				<DetailsSection budgetPlanId={budgetPlanId} settings={settings} sessionUser={sessionUser} />
 			) : null}
 			{activeSection === "budget" ? (
 				budgetPlanId ? (
@@ -85,18 +81,10 @@ export default function SettingsMain({
 				)
 			) : null}
 			{activeSection === "savings" ? (
-				budgetPlanId ? (
-					<SavingsSection budgetPlanId={budgetPlanId} settings={settings} cardDebts={cardDebts ?? []} />
-				) : (
-					<PlanRequiredNotice title="Savings and Cards" />
-				)
+				<SavingsSection budgetPlanId={budgetPlanId} settings={settings} cardDebts={cardDebts ?? []} />
 			) : null}
 			{activeSection === "locale" ? (
-				budgetPlanId ? (
-					<LocaleSection budgetPlanId={budgetPlanId} settings={settings} />
-				) : (
-					<PlanRequiredNotice title="Locale" />
-				)
+				<LocaleSection budgetPlanId={budgetPlanId} settings={settings} />
 			) : null}
 			{activeSection === "plans" ? (
 				<PlansSection

@@ -30,11 +30,12 @@ export default function SavingsSection({
 	settings,
 	cardDebts,
 }: {
-	budgetPlanId: string;
+	budgetPlanId?: string | null;
 	settings: Settings;
 	cardDebts: DebtCardDebt[];
 }) {
 	const router = useRouter();
+	const hasPlan = Boolean(String(budgetPlanId ?? "").trim());
 	const { isEditing, setIsEditing, isSaving, saveAction } = useStartingBalancesEditor({
 		router,
 		onSave: saveSettingsAction,
@@ -76,7 +77,11 @@ export default function SavingsSection({
 								{!isEditing ? (
 									<button
 										type="button"
-										onClick={() => setIsEditing(true)}
+										onClick={() => {
+											if (!hasPlan) return;
+											setIsEditing(true);
+										}}
+										disabled={!hasPlan}
 										className="inline-flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2 text-xs font-semibold text-white ring-1 ring-white/10 hover:bg-white/10 hover:ring-white/20 transition"
 									>
 										<Edit2 className="h-4 w-4" />
@@ -87,7 +92,7 @@ export default function SavingsSection({
 						</div>
 					</div>
 
-					{!isEditing ? (
+					{!isEditing || !hasPlan ? (
 						<div className="space-y-4">
 							<div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
 								<label className="block">
@@ -121,11 +126,13 @@ export default function SavingsSection({
 									/>
 								</label>
 							</div>
-							<div className="text-xs text-slate-500">Click Edit to update these balances.</div>
+							<div className="text-xs text-slate-500">
+								{hasPlan ? "Click Edit to update these balances." : "Create a plan to edit these balances."}
+							</div>
 						</div>
 					) : (
 						<form action={saveAction} className="space-y-4">
-							<input type="hidden" name="budgetPlanId" value={budgetPlanId} />
+							<input type="hidden" name="budgetPlanId" value={String(budgetPlanId)} />
 							<div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
 								<label className="block">
 									<span className="text-sm font-medium text-slate-400 mb-2 block">Savings balance</span>
@@ -199,7 +206,11 @@ export default function SavingsSection({
 						</div>
 					</div>
 
-					{cardDebts.length === 0 ? (
+					{!hasPlan ? (
+						<div className="text-sm text-slate-400">
+							Create a plan to add and manage cards.
+						</div>
+					) : cardDebts.length === 0 ? (
 						<div className="text-sm text-slate-400">
 							No cards yet. Add one here to start tracking it.
 						</div>
@@ -211,7 +222,7 @@ export default function SavingsSection({
 									action={updateCardSettingsAction.bind(null, card.id)}
 									className="rounded-2xl bg-slate-950/30 ring-1 ring-white/10 p-4"
 								>
-									<input type="hidden" name="budgetPlanId" value={budgetPlanId} />
+									<input type="hidden" name="budgetPlanId" value={String(budgetPlanId)} />
 									<div className="flex items-start justify-between gap-3">
 										<div>
 											<div className="text-sm font-semibold text-white">{card.name}</div>
@@ -269,39 +280,40 @@ export default function SavingsSection({
 					)}
 
 					<div className="pt-2">
-						{!showAddCard ? (
-							<button
-								type="button"
-								onClick={() => {
-									setAddCardError(null);
-									setShowAddCard(true);
-								}}
-								className="inline-flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2 text-xs font-semibold text-white ring-1 ring-white/10 hover:bg-white/10 hover:ring-white/20 transition"
-							>
-								Add card
-							</button>
-						) : (
-							<form
-								onSubmit={(e) => {
-									e.preventDefault();
-									setAddCardError(null);
-									const form = e.currentTarget;
-									const data = new FormData(form);
-									startAddCardTransition(async () => {
-										try {
-											await createDebt(data);
-											setShowAddCard(false);
-											form.reset();
-											router.refresh();
-										} catch (err) {
-											setAddCardError(err instanceof Error ? err.message : "Could not add card.");
-										}
-									});
-								}}
-								className="mt-3 rounded-2xl bg-slate-950/30 ring-1 ring-white/10 p-4 space-y-3"
-							>
-								<input type="hidden" name="budgetPlanId" value={budgetPlanId} />
-								<input type="hidden" name="defaultPaymentSource" value="income" />
+						{hasPlan ? (
+							!showAddCard ? (
+								<button
+									type="button"
+									onClick={() => {
+										setAddCardError(null);
+										setShowAddCard(true);
+									}}
+									className="inline-flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2 text-xs font-semibold text-white ring-1 ring-white/10 hover:bg-white/10 hover:ring-white/20 transition"
+								>
+									Add card
+								</button>
+							) : (
+								<form
+									onSubmit={(e) => {
+										e.preventDefault();
+										setAddCardError(null);
+										const form = e.currentTarget;
+										const data = new FormData(form);
+										startAddCardTransition(async () => {
+											try {
+												await createDebt(data);
+												setShowAddCard(false);
+												form.reset();
+												router.refresh();
+											} catch (err) {
+												setAddCardError(err instanceof Error ? err.message : "Could not add card.");
+											}
+										});
+									}}
+									className="mt-3 rounded-2xl bg-slate-950/30 ring-1 ring-white/10 p-4 space-y-3"
+								>
+									<input type="hidden" name="budgetPlanId" value={String(budgetPlanId)} />
+									<input type="hidden" name="defaultPaymentSource" value="income" />
 
 								<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 									<label className="block">
@@ -388,7 +400,8 @@ export default function SavingsSection({
 
 								{addCardError ? <p className="text-xs text-red-200">{addCardError}</p> : null}
 							</form>
-						)}
+							)
+						) : null}
 					</div>
 				</div>
 			</div>

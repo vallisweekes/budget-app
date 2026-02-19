@@ -161,18 +161,18 @@ export async function updateUserDetailsAction(formData: FormData): Promise<void>
 	}
 
 	const budgetPlanId = String(formData.get("budgetPlanId") || "").trim();
-	if (!budgetPlanId) {
-		throw new Error("Missing budgetPlanId");
-	}
+	const hasPlan = Boolean(budgetPlanId);
 
-	// Verify user owns this budget plan
-	const userId = await resolveUserId({ userId: sessionUser.id, username: sessionUsername });
-	const plan = await prisma.budgetPlan.findUnique({
-		where: { id: budgetPlanId },
-		select: { userId: true },
-	});
-	if (!plan || plan.userId !== userId) {
-		throw new Error("Budget plan not found or unauthorized");
+	// If a plan id is supplied, verify ownership before allowing plan-scoped setting updates.
+	if (hasPlan) {
+		const userId = await resolveUserId({ userId: sessionUser.id, username: sessionUsername });
+		const plan = await prisma.budgetPlan.findUnique({
+			where: { id: budgetPlanId },
+			select: { userId: true },
+		});
+		if (!plan || plan.userId !== userId) {
+			throw new Error("Budget plan not found or unauthorized");
+		}
 	}
 
 	const userUpdates: any = {};
@@ -183,7 +183,7 @@ export async function updateUserDetailsAction(formData: FormData): Promise<void>
 		if (email) userUpdates.email = email;
 	}
 
-	if (formData.has("country")) {
+	if (hasPlan && formData.has("country")) {
 		const country = String(formData.get("country") || "GB").trim();
 		settingsUpdates.country = country;
 	}
@@ -195,11 +195,15 @@ export async function updateUserDetailsAction(formData: FormData): Promise<void>
 		});
 	}
 
-	if (Object.keys(settingsUpdates).length > 0) {
+	if (hasPlan && Object.keys(settingsUpdates).length > 0) {
 		await saveSettings(budgetPlanId, settingsUpdates);
 	}
 
-	revalidatePath(`/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(budgetPlanId)}/settings`);
+	const settingsScopeId = hasPlan ? budgetPlanId : sessionUser.id;
+	// Canonical scoped settings route
+	revalidatePath(`/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(settingsScopeId)}/page=settings`);
+	// Legacy route (if still used anywhere)
+	revalidatePath(`/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(settingsScopeId)}/settings`);
 }
 
 function decimalToNumber(value: unknown): number {
