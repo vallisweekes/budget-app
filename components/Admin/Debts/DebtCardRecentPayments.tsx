@@ -20,16 +20,15 @@ export default function DebtCardRecentPayments(props: {
 	debtName?: string;
 }) {
 	const { payments, budgetPlanId, paymentMonth, debtName } = props;
-	if (payments.length === 0) return null;
-
 	const toast = useToast();
 	const router = useRouter();
 	const [isPending, startTransition] = useTransition();
 	const [confirmOpen, setConfirmOpen] = useState(false);
 
-	const latestPayment = payments[payments.length - 1];
+	const hasPayments = payments.length > 0;
+	const latestPayment = hasPayments ? payments[payments.length - 1] : undefined;
 	const latestPaymentId = latestPayment?.id;
-	const canUndoLatest = Boolean(latestPaymentId && latestPayment.month === paymentMonth);
+	const canUndoLatest = Boolean(latestPaymentId && latestPayment?.month === paymentMonth);
 	const confirmPayment = canUndoLatest ? latestPayment : undefined;
 	const hasAnyUndoableInView = payments.some((p) => p.month === paymentMonth);
 
@@ -42,6 +41,8 @@ export default function DebtCardRecentPayments(props: {
 			"You can only undo payments in the same month they were made."
 		);
 	}, [confirmPayment, debtName]);
+
+	if (!hasPayments) return null;
 
 	return (
 		<div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-white/10">

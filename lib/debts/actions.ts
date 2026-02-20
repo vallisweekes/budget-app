@@ -75,8 +75,9 @@ export async function createDebt(formData: FormData) {
 		: undefined;
 	const monthlyMinimum = formData.get("monthlyMinimum") ? parseFloat(formData.get("monthlyMinimum") as string) : undefined;
 	const interestRate = formData.get("interestRate") ? parseFloat(formData.get("interestRate") as string) : undefined;
-	const installmentMonthsRaw = formData.get("installmentMonths") as string | null;
-	const installmentMonths = installmentMonthsRaw ? parseInt(installmentMonthsRaw, 10) : undefined;
+	const installmentMonthsRaw = formData.get("installmentMonths");
+	const installmentMonthsText = installmentMonthsRaw == null ? "" : String(installmentMonthsRaw).trim();
+	const installmentMonths = installmentMonthsText ? parseInt(installmentMonthsText, 10) : undefined;
 
 	if (!name || !type || isNaN(initialBalance)) {
 		throw new Error("Invalid input");
@@ -157,8 +158,17 @@ export async function updateDebtAction(id: string, formData: FormData) {
 	const amount = formData.get("amount") ? parseFloat(formData.get("amount") as string) : undefined;
 	const monthlyMinimum = formData.get("monthlyMinimum") ? parseFloat(formData.get("monthlyMinimum") as string) : undefined;
 	const interestRate = formData.get("interestRate") ? parseFloat(formData.get("interestRate") as string) : undefined;
-	const installmentMonthsRaw = formData.get("installmentMonths") as string | null;
-	const installmentMonths = installmentMonthsRaw ? parseInt(installmentMonthsRaw, 10) : undefined;
+	const installmentMonthsRaw = formData.get("installmentMonths");
+	let installmentMonths: number | null | undefined = undefined;
+	if (installmentMonthsRaw !== null) {
+		const text = String(installmentMonthsRaw).trim();
+		if (!text) {
+			installmentMonths = null;
+		} else {
+			const parsed = parseInt(text, 10);
+			installmentMonths = Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+		}
+	}
 
 	if (!name || isNaN(currentBalance)) {
 		throw new Error("Invalid input");
@@ -221,7 +231,7 @@ export async function updateDebtAction(id: string, formData: FormData) {
 			amount,
 			monthlyMinimum,
 			interestRate,
-			installmentMonths,
+			installmentMonths: installmentMonths as any,
 		});
 	} else {
 		await updateDebt(budgetPlanId, id, {
@@ -240,7 +250,7 @@ export async function updateDebtAction(id: string, formData: FormData) {
 			amount,
 			monthlyMinimum,
 			interestRate,
-			installmentMonths,
+			installmentMonths: installmentMonths as any,
 		});
 	}
 

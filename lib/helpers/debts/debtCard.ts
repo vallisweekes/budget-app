@@ -178,6 +178,6 @@ export function buildDebtUpdateFormData(params: {
 	}
 	if (params.monthlyMinimum) formData.append("monthlyMinimum", params.monthlyMinimum);
 	if (params.interestRate) formData.append("interestRate", params.interestRate);
-	if (params.installmentMonths) formData.append("installmentMonths", params.installmentMonths);
+	if (typeof params.installmentMonths === "string") formData.append("installmentMonths", params.installmentMonths);
 	return formData;
 }

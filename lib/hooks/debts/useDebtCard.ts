@@ -119,7 +119,7 @@ export function useDebtCard(params: { debt: DebtCardDebt; budgetPlanId: string; 
 			amount: editDueAmount,
 			monthlyMinimum: editMonthlyMinimum || undefined,
 			interestRate: editInterestRate || undefined,
-			installmentMonths: editInstallmentMonths || undefined,
+			installmentMonths: editInstallmentMonths,
 		});
 
 		startTransition(async () => {
@@ -145,7 +145,7 @@ export function useDebtCard(params: { debt: DebtCardDebt; budgetPlanId: string; 
 			amount: tempDueAmount,
 			monthlyMinimum: debt.monthlyMinimum ? String(debt.monthlyMinimum) : undefined,
 			interestRate: debt.interestRate ? String(debt.interestRate) : undefined,
-			installmentMonths: debt.installmentMonths ? String(debt.installmentMonths) : undefined,
+			installmentMonths: debt.installmentMonths ? String(debt.installmentMonths) : "",
 		});
 
 		startTransition(async () => {
