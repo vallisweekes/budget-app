@@ -36,6 +36,7 @@ function getActiveUserPage(pathname: string): string {
 	if (pageSegment === "admin") return (parts[3] ?? "").toLowerCase();
 	if (pageSegment.toLowerCase().startsWith("page=")) {
 		const key = pageSegment.slice("page=".length).toLowerCase();
+		if (key === "expense-category" || key.startsWith("expense-category")) return "expenses";
 		return key || "home";
 	}
 	return pageSegment.toLowerCase();

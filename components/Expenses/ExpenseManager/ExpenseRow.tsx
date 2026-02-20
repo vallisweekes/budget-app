@@ -71,6 +71,8 @@ export default function ExpenseRow({
 	const isCreditCard = paymentSourceValue === "credit_card";
 	const cardRequired = isCreditCard && cards.length > 1;
 	const hasSelectedCard = Boolean((cardDebtIdValue ?? "").trim());
+	const showDebtDropdown = !isCreditCard && debtOptions.length > 0;
+	const hasSecondDropdownColumn = showDebtDropdown || isCreditCard;
 	const disableMarkPaid =
 		!isPaid &&
 		isCreditCard &&
@@ -184,14 +186,14 @@ export default function ExpenseRow({
 					<div className="w-full">
 						<label className="block">
 							<span className="block text-[10px] sm:text-xs font-medium text-slate-300 mb-1">Payment amount (£)</span>
-							<div className="flex items-center gap-1.5 sm:gap-2">
+							<div className="grid grid-cols-2 sm:grid-cols-12 gap-1.5 sm:gap-2 items-stretch">
 								<input
 									type="number"
 									step="0.01"
 									min={0}
 									value={paymentValue}
 									onChange={(e) => onPaymentValueChange(e.target.value)}
-									className="w-full px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl border border-white/10 bg-slate-900/40 text-white text-sm placeholder-slate-500 focus:border-purple-500 focus:ring-1 focus:ring-purple-500/50 focus:outline-none transition-all"
+									className="w-full col-span-2 sm:col-span-3 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl border border-white/10 bg-slate-900/40 text-white text-sm placeholder-slate-500 focus:border-purple-500 focus:ring-1 focus:ring-purple-500/50 focus:outline-none transition-all"
 									placeholder="0.00"
 								/>
 
@@ -205,10 +207,10 @@ export default function ExpenseRow({
 										{ value: "other", label: "Other" },
 									]}
 									buttonClassName="focus:ring-purple-500/50"
-									className="min-w-[140px]"
+									className={`w-full min-w-0 ${hasSecondDropdownColumn ? "col-span-1" : "col-span-2"} sm:col-span-3 sm:min-w-[140px]`}
 								/>
 
-								{!isCreditCard && debtOptions.length > 0 ? (
+								{showDebtDropdown ? (
 									<SelectDropdown
 										value={debtIdValue ?? ""}
 										onValueChange={(v) => onDebtIdChange?.(v)}
@@ -218,7 +220,7 @@ export default function ExpenseRow({
 											...debtOptions.map((d) => ({ value: d.id, label: d.name })),
 										]}
 										buttonClassName="focus:ring-purple-500/50"
-										className="min-w-[200px]"
+										className="w-full min-w-0 col-span-1 sm:col-span-4 sm:min-w-[200px]"
 									/>
 								) : null}
 
@@ -231,10 +233,10 @@ export default function ExpenseRow({
 											placeholder={cards.length === 1 ? "Card" : "Choose card"}
 											options={cards.map((c) => ({ value: c.id, label: c.name }))}
 											buttonClassName="focus:ring-purple-500/50"
-											className="min-w-[160px]"
+											className="w-full min-w-0 col-span-1 sm:col-span-4 sm:min-w-[160px]"
 										/>
 									) : (
-										<div className="min-w-[160px] rounded-xl border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-[10px] sm:text-xs text-amber-100">
+										<div className="w-full min-w-0 col-span-1 sm:col-span-4 sm:min-w-[160px] rounded-xl border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-[10px] sm:text-xs text-amber-100">
 											No cards
 										</div>
 									)
@@ -244,10 +246,10 @@ export default function ExpenseRow({
 									type="button"
 									onClick={onApplyPayment}
 									disabled={
-									isBusy ||
-									(isCreditCard && (cards.length === 0 || (cardRequired && !hasSelectedCard)))
-								}
-									className="shrink-0 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-purple-500/20 text-purple-200 border border-purple-400/30 hover:bg-purple-500/30 transition-all cursor-pointer disabled:opacity-50 text-[10px] sm:text-xs whitespace-nowrap"
+										isBusy ||
+										(isCreditCard && (cards.length === 0 || (cardRequired && !hasSelectedCard)))
+									}
+									className="w-full col-span-2 sm:w-auto sm:col-span-2 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-purple-500/20 text-purple-200 border border-purple-400/30 hover:bg-purple-500/30 transition-all cursor-pointer disabled:opacity-50 text-[10px] sm:text-xs whitespace-nowrap"
 								>
 									Add payment
 								</button>
