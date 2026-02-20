@@ -10,6 +10,7 @@ import type { MonthKey } from "@/types";
 import { currentMonthKey, normalizeMonthKey } from "@/lib/helpers/monthKey";
 import { getIncomeMonthsCoverageByPlan } from "@/lib/helpers/dashboard/getIncomeMonthsCoverageByPlan";
 import { MONTHS } from "@/lib/constants/time";
+import { withPrismaRetry } from "@/lib/prismaRetry";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +27,10 @@ export default async function AdminExpensesPage({
   }
   const userId = await resolveUserId({ userId: sessionUser.id, username });
 
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { createdAt: true } });
+  const user = await withPrismaRetry(
+		() => prisma.user.findUnique({ where: { id: userId }, select: { createdAt: true } }),
+		{ retries: 1, delayMs: 75 }
+	);
   const userCreatedAt = user?.createdAt ?? new Date();
   const userStartYear = userCreatedAt.getUTCFullYear();
   const userStartMonthIndex = userCreatedAt.getUTCMonth(); // 0-11
@@ -40,7 +44,10 @@ export default async function AdminExpensesPage({
 	redirect(`/user=${encodeURIComponent(username)}/${encodeURIComponent(fallback.id)}/expenses`);
   }
 
-  const plan = await prisma.budgetPlan.findUnique({ where: { id: budgetPlanId } });
+  const plan = await withPrismaRetry(
+		() => prisma.budgetPlan.findUnique({ where: { id: budgetPlanId } }),
+		{ retries: 1, delayMs: 75 }
+	);
   if (!plan || plan.userId !== userId) {
   const fallback = await getDefaultBudgetPlanForUser({ userId, username });
   if (!fallback) redirect("/budgets/new");

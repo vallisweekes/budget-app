@@ -8,6 +8,7 @@ import type { MonthKey } from "@/types";
 import { currentMonthKey, normalizeMonthKey } from "@/lib/helpers/monthKey";
 import { ensureDefaultCategoriesForBudgetPlan } from "@/lib/categories/defaultCategories";
 import ExpenseCategoryPageClient from "@/app/admin/expenses/ExpenseCategoryPageClient";
+import { withPrismaRetry } from "@/lib/prismaRetry";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +34,10 @@ export default async function ExpenseCategoryPage({
 		budgetPlanId = fallback.id;
 	}
 
-	const plan = await prisma.budgetPlan.findUnique({ where: { id: budgetPlanId } });
+	const plan = await withPrismaRetry(
+		() => prisma.budgetPlan.findUnique({ where: { id: budgetPlanId } }),
+		{ retries: 1, delayMs: 75 }
+	);
 	if (!plan || plan.userId !== userId) {
 		const fallback = await getDefaultBudgetPlanForUser({ userId, username });
 		if (!fallback) redirect("/budgets/new");
