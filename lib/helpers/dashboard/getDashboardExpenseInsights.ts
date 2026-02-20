@@ -337,19 +337,35 @@ export async function getDashboardExpenseInsights({
 		year: allocationSnapshot.year,
 	});
 
-	const allocationFixedTotal =
-		toNumber(allocationSnapshot.monthlyAllowance) +
-		toNumber(allocationSnapshot.monthlySavingsContribution) +
-		toNumber(allocationSnapshot.monthlyEmergencyContribution) +
-		toNumber(allocationSnapshot.monthlyInvestmentContribution);
+	const allocationParts: Array<{ name: string; amount: number }> = [];
+	const allowanceAmt = toNumber(allocationSnapshot.monthlyAllowance);
+	const savingsAmt = toNumber(allocationSnapshot.monthlySavingsContribution);
+	const emergencyAmt = toNumber(allocationSnapshot.monthlyEmergencyContribution);
+	const investmentAmt = toNumber(allocationSnapshot.monthlyInvestmentContribution);
+	if (allowanceAmt > 0) allocationParts.push({ name: "Monthly allowance", amount: allowanceAmt });
+	if (savingsAmt > 0) allocationParts.push({ name: "Savings contribution", amount: savingsAmt });
+	if (emergencyAmt > 0) allocationParts.push({ name: "Emergency fund", amount: emergencyAmt });
+	if (investmentAmt > 0) allocationParts.push({ name: "Investments", amount: investmentAmt });
+	for (const item of customAllocationsSnapshot.items ?? []) {
+		const amt = toNumber(item.amount);
+		const label = String(item.name ?? "").trim();
+		if (amt > 0 && label) allocationParts.push({ name: label, amount: amt });
+	}
+
+	const allocationFixedTotal = allowanceAmt + savingsAmt + emergencyAmt + investmentAmt;
 	const allocationTotal = allocationFixedTotal + toNumber(customAllocationsSnapshot.total);
 	const allocDueIso = isoForPayDate(allocationSnapshot.year, upcomingPayDate.monthNum, payDate);
 	const allocDue = parseIsoDateToUtcDateOnly(allocDueIso);
 	const allocDaysUntil = allocDue ? diffDaysUtc(allocDue, today) : 999;
+	const allocationUpcomingName = (() => {
+		if (allocationParts.length === 1) return allocationParts[0].name;
+		if (allocationParts.length > 1) return "Income sacrifice";
+		return "Income sacrifice";
+	})();
 	const allocationUpcoming: UpcomingPayment | undefined = allocationTotal > 0
 		? {
 				id: `allocation:${budgetPlanId}:${currentYear}-${currentMonthNum}`,
-				name: "Income sacrifice (Allocation)",
+				name: allocationUpcomingName,
 				amount: allocationTotal,
 				paidAmount: 0,
 				status: "unpaid",
