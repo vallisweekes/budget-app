@@ -1,14 +1,15 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { addDebt, updateDebt, deleteDebt, addPayment, getDebtById } from "./store";
+import { addDebt, updateDebt, deleteDebt, addPayment, getDebtById, undoMostRecentPayment } from "./store";
 import type { DebtType, MonthKey } from "@/types";
-import { applyExpensePayment } from "@/lib/expenses/store";
+import { applyExpensePayment, setExpensePaymentAmount } from "@/lib/expenses/store";
 import { upsertExpenseDebt } from "./store";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { resolveUserId } from "@/lib/budgetPlans";
+import { monthKeyToNumber } from "@/lib/helpers/monthKey";
 
 function parseDateOnlyYYYYMMDD(value: unknown): string | undefined {
 	const raw = String(value ?? "").trim();
@@ -397,5 +398,54 @@ export async function makePaymentFromForm(formData: FormData) {
 	}
 
 	revalidatePath("/admin/debts");
+	revalidatePath("/");
+}
+
+export async function undoDebtPaymentFromForm(formData: FormData) {
+	const budgetPlanId = requireBudgetPlanId(formData);
+	const { userId, username } = await requireAuthenticatedUser();
+	await requireOwnedBudgetPlan(budgetPlanId, userId);
+
+	const debtId = String(formData.get("debtId") ?? "").trim();
+	const paymentId = String(formData.get("paymentId") ?? "").trim();
+	if (!debtId || !paymentId) throw new Error("Missing payment information");
+
+	const debt = await getDebtById(budgetPlanId, debtId);
+	if (!debt) throw new Error("Debt not found");
+
+	const undone = await undoMostRecentPayment({ budgetPlanId, debtId, paymentId });
+
+	// Keep expense debts in sync with their backing expense rows.
+	if (debt.sourceType === "expense" && debt.sourceExpenseId && debt.sourceMonthKey) {
+		const monthKey = debt.sourceMonthKey as MonthKey;
+		const expense = await prisma.expense.findFirst({
+			where: { id: debt.sourceExpenseId, budgetPlanId, month: monthKeyToNumber(monthKey) },
+			orderBy: [{ year: "desc" }],
+			select: { id: true, amount: true, paidAmount: true, year: true, categoryId: true, name: true },
+		});
+		if (expense) {
+			const amount = Number((expense.amount as any)?.toString?.() ?? expense.amount);
+			const currentPaid = Number((expense.paidAmount as any)?.toString?.() ?? expense.paidAmount);
+			const nextPaidAmount = Math.max(0, Math.min(amount, currentPaid - undone.amount));
+			const result = await setExpensePaymentAmount(budgetPlanId, monthKey, expense.id, nextPaidAmount, expense.year);
+			if (result) {
+				await upsertExpenseDebt({
+					budgetPlanId,
+					expenseId: result.expense.id,
+					monthKey,
+					year: expense.year,
+					categoryId: result.expense.categoryId,
+					categoryName: debt.sourceCategoryName,
+					expenseName: result.expense.name,
+					remainingAmount: result.remaining,
+				});
+			}
+		}
+	}
+
+	const debtsPath = `/user=${encodeURIComponent(username)}/${encodeURIComponent(budgetPlanId)}/page=debts`;
+	revalidatePath(debtsPath);
+	revalidatePath("/admin/debts");
+	revalidatePath("/dashboard");
 	revalidatePath("/");
 }

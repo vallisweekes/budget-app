@@ -707,6 +707,114 @@ export async function getPaymentsByDebt(budgetPlanId: string, debtId: string): P
 	return rows.map(serializePayment);
 }
 
+export async function undoMostRecentPayment(params: {
+	budgetPlanId: string;
+	debtId: string;
+	paymentId: string;
+}): Promise<{ debtId: string; amount: number; source?: string; cardDebtId?: string; paidAt: string }> {
+	const { budgetPlanId, debtId, paymentId } = params;
+
+	const paymentRow = await prisma.debtPayment.findFirst({
+		where: {
+			id: paymentId,
+			debtId,
+			debt: { budgetPlanId },
+		},
+		select: {
+			id: true,
+			debtId: true,
+			amount: true,
+			paidAt: true,
+			source: true,
+			...(DEBT_PAYMENT_HAS_CARD_DEBT_ID ? { cardDebtId: true } : {}),
+		},
+	});
+	if (!paymentRow) throw new Error("Payment not found");
+
+	const now = new Date();
+	const currentMonthKey = paymentMonthKeyFromDate(now);
+	const paymentMonthKey = paymentMonthKeyFromDate(paymentRow.paidAt);
+	if (paymentMonthKey !== currentMonthKey) {
+		throw new Error("You can only undo a payment in the same month it was made.");
+	}
+
+	const latest = await prisma.debtPayment.findFirst({
+		where: { debtId, debt: { budgetPlanId } },
+		orderBy: [{ paidAt: "desc" }],
+		select: { id: true },
+	});
+	if (!latest || latest.id !== paymentRow.id) {
+		throw new Error("Only the most recent payment can be undone.");
+	}
+
+	const amount = decimalToNumber(paymentRow.amount);
+	if (!Number.isFinite(amount) || amount <= 0) {
+		throw new Error("Invalid payment amount");
+	}
+
+	await prisma.$transaction(async (tx) => {
+		const targetDebt = await tx.debt.findFirst({
+			where: { id: debtId, budgetPlanId },
+			select: { id: true, currentBalance: true, paidAmount: true },
+		});
+		if (!targetDebt) throw new Error("Debt not found");
+
+		const currentBalance = decimalToNumber(targetDebt.currentBalance);
+		const currentPaid = decimalToNumber(targetDebt.paidAmount);
+		const nextBalance = Math.max(0, currentBalance + amount);
+		const nextPaid = Math.max(0, currentPaid - amount);
+
+		await tx.debt.update({
+			where: { id: targetDebt.id },
+			data: {
+				currentBalance: nextBalance,
+				paidAmount: nextPaid,
+				paid: nextBalance === 0,
+			},
+		});
+
+		const source = paymentRow.source;
+		const cardDebtId = (paymentRow as any).cardDebtId as string | null | undefined;
+		if (source === "credit_card" && cardDebtId) {
+			const cardDebt = await tx.debt.findFirst({
+				where: { id: cardDebtId, budgetPlanId },
+				select: { id: true, type: true, currentBalance: true },
+			});
+			if (!cardDebt) throw new Error("Card not found");
+			if (cardDebt.type !== "credit_card" && (cardDebt.type as any) !== "store_card") {
+				throw new Error("Selected source must be a credit or store card");
+			}
+
+			const cardBalance = decimalToNumber(cardDebt.currentBalance);
+			if (cardBalance < amount) {
+				throw new Error(
+					"Cannot undo this payment because the card balance has changed. Undo newer payments first."
+				);
+			}
+
+			const nextCardBalance = Math.max(0, cardBalance - amount);
+			await tx.debt.update({
+				where: { id: cardDebt.id },
+				data: {
+					currentBalance: nextCardBalance,
+					paid: nextCardBalance === 0,
+				},
+			});
+		}
+
+		await tx.debtPayment.delete({ where: { id: paymentRow.id } });
+	});
+
+	const serialized = serializePayment(paymentRow as any);
+	return {
+		debtId: serialized.debtId,
+		amount: serialized.amount,
+		source: serialized.source,
+		cardDebtId: serialized.cardDebtId,
+		paidAt: serialized.date,
+	};
+}
+
 export async function getPaymentsByMonth(budgetPlanId: string, month: string, yearOverride?: number): Promise<DebtPayment[]> {
 	// MonthKey strings are used throughout the budget summary; map them to (year, month).
 	const monthKey = month as MonthKey;

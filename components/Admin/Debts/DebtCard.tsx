@@ -138,6 +138,10 @@ export default function DebtCard({ debt, creditCards, budgetPlanId, typeLabels, 
 						payments={payments}
 						budgetPlanId={budgetPlanId}
 						paymentMonth={derived.paymentMonth}
+						onRequestEditInstallment={(months) => {
+							handleEdit();
+							handleSelectInstallmentMonths(months);
+						}}
 						paymentSource={paymentSource}
 						onPaymentSourceChange={(next) => setPaymentSource(next as any)}
 						paymentCardDebtId={paymentCardDebtId}

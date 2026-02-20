@@ -22,7 +22,8 @@
     "formulas": "tsx scripts/extract-formulas.ts --file '5 YEAR FINANCIAL FORECAST.xlsx' --sheet 'PERSONAL BUDGET 2026-2027'",
     "budget:test": "tsx scripts/test-budget-engine.ts",
     "export:xlsx:json": "tsx scripts/export-xlsx.ts --file '5 YEAR FINANCIAL FORECAST.xlsx' --format json --out data/forecast.json",
-    "export:xlsx:csv": "tsx scripts/export-xlsx.ts --file '5 YEAR FINANCIAL FORECAST.xlsx' --format csv --out data/forecast.csv"
+    "export:xlsx:csv": "tsx scripts/export-xlsx.ts --file '5 YEAR FINANCIAL FORECAST.xlsx' --format csv --out data/forecast.csv",
+    "migrate:debt-ids": "tsx scripts/migrate-debt-ids.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",

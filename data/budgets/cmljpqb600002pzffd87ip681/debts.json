@@ -1,6 +1,6 @@
 [
   {
-    "id": "debt-2",
+    "id": "fbda2f05-8f1a-443d-8e4a-da7a0bf474e4",
     "name": "NATWEST CARD",
     "type": "credit_card",
     "initialBalance": 7300,
@@ -12,7 +12,7 @@
     "createdAt": "2026-02-11T00:00:00.000Z"
   },
   {
-    "id": "debt-3",
+    "id": "b64fe160-fc9c-4a95-b2f2-062803951bd4",
     "name": "AUDIO GEAR",
     "type": "high_purchase",
     "initialBalance": 2500,

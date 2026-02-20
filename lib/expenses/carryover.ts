@@ -507,6 +507,7 @@ export async function getExpenseDebts(budgetPlanId: string) {
 		paidAmount: Number(d.paidAmount),
 		monthlyMinimum: d.monthlyMinimum ? Number(d.monthlyMinimum) : undefined,
 		interestRate: d.interestRate ? Number(d.interestRate) : undefined,
+		installmentMonths: d.installmentMonths ?? undefined,
 		createdAt: d.createdAt.toISOString(),
 		sourceType: "expense" as const,
 		sourceExpenseId: d.sourceExpenseId ?? undefined,

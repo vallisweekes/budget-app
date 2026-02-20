@@ -14,6 +14,7 @@ export default function DebtCardViewDetails(props: {
 	payments: DebtPayment[];
 	budgetPlanId: string;
 	paymentMonth: string;
+	onRequestEditInstallment: (months: number) => void;
 	paymentSource: string;
 	onPaymentSourceChange: (next: string) => void;
 	paymentCardDebtId: string;
@@ -33,6 +34,7 @@ export default function DebtCardViewDetails(props: {
 		payments,
 		budgetPlanId,
 		paymentMonth,
+		onRequestEditInstallment,
 		paymentSource,
 		onPaymentSourceChange,
 		paymentCardDebtId,
@@ -78,6 +80,32 @@ export default function DebtCardViewDetails(props: {
 
 			<DebtCardInstallmentSummary debt={debt} effectiveMonthlyPayment={effectiveMonthlyPayment} />
 
+			<div className="mb-3 sm:mb-4">
+				<label className="block text-[10px] sm:text-xs text-slate-400 mb-1.5 sm:mb-2">
+					Installment Plan (spread cost over time)
+				</label>
+				<div className="flex flex-wrap gap-1.5 sm:gap-2">
+					{[0, 2, 3, 4, 6, 8, 9, 12, 18, 24, 30, 36].map((months) => (
+						<button
+							key={months}
+							type="button"
+							onClick={() => onRequestEditInstallment(months)}
+							className={`px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg text-[10px] sm:text-sm font-medium transition-all ${
+								(months === 0 && !debt.installmentMonths) || debt.installmentMonths === months
+									? "bg-purple-500 text-white"
+									: "bg-slate-800/40 text-slate-300 hover:bg-slate-700/40 border border-white/10"
+							}`}
+							aria-label={months === 0 ? "No installment plan" : `Set installment plan to ${months} months`}
+						>
+							{months === 0 ? "None" : `${months} months`}
+						</button>
+					))}
+				</div>
+				<div className="mt-1 text-[10px] sm:text-xs text-slate-500">
+					Tap an option to edit and save.
+				</div>
+			</div>
+
 			<DebtCardRecordPaymentForm
 				debt={debt}
 				budgetPlanId={budgetPlanId}
@@ -91,7 +119,7 @@ export default function DebtCardViewDetails(props: {
 				isPaymentMonthPaid={isPaymentMonthPaid}
 			/>
 
-			<DebtCardRecentPayments payments={payments} />
+			<DebtCardRecentPayments payments={payments} budgetPlanId={budgetPlanId} paymentMonth={paymentMonth} debtName={debt.name} />
 			<DebtCardProgressBar percentPaid={percentPaid} />
 		</>
 	);
