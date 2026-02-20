@@ -5,6 +5,10 @@ import { CreditCard, TrendingDown, ShoppingBag, Home } from "lucide-react";
 import DebtCardCollapsedSummary from "./DebtCardCollapsedSummary";
 import type { DebtPayment } from "@/types";
 import type { DebtCardDebt } from "@/types/components/debts";
+import {
+	formatExpenseDebtCardTitle,
+	formatYearMonthLabel,
+} from "@/lib/helpers/debts/expenseDebtLabels";
 
 const typeIcons = {
 	credit_card: CreditCard,
@@ -42,12 +46,22 @@ export default function DebtCardLink(props: {
 	const Icon = typeIcons[debt.type as keyof typeof typeIcons] ?? CreditCard;
 	const href = `${baseHref}/${encodeURIComponent(debt.id)}/${encodeURIComponent(slugifySegment(debt.name))}?view=true`;
 	const percentPaid = getPercentPaid(debt);
+	const title = debt.sourceType === "expense" ? formatExpenseDebtCardTitle(debt) : debt.name;
+	const subtitle =
+		debt.sourceType === "expense"
+			? (() => {
+				const category = String(debt.sourceCategoryName ?? "").trim();
+				const monthLabel = formatYearMonthLabel(debt.sourceMonthKey);
+				const left = category || "Expense";
+				return monthLabel ? `${left} · ${monthLabel}` : left;
+			})()
+			: typeLabels[debt.type as keyof typeof typeLabels] ?? debt.type;
 
 	return (
 		<Link
 			href={href}
 			className={
-				"block bg-slate-800/40 backdrop-blur-xl rounded-xl sm:rounded-2xl border p-3 sm:p-5 hover:border-white/20 transition-all focus:outline-none focus:ring-2 focus:ring-[var(--cta)]"
+				"block bg-slate-800/40 backdrop-blur-xl rounded-xl sm:rounded-2xl p-3 sm:p-5 shadow-xl hover:shadow-2xl transition-all focus:outline-none focus:ring-2 focus:ring-[var(--cta)]"
 			}
 			aria-label={`Open debt ${debt.name}`}
 		>
@@ -57,9 +71,9 @@ export default function DebtCardLink(props: {
 						<Icon className="w-4 h-4 sm:w-5 sm:h-5 text-red-400" />
 					</div>
 					<div className="flex-1 min-w-0">
-						<h3 className="text-sm sm:text-base font-bold text-white truncate">{debt.name}</h3>
+						<h3 className="text-sm sm:text-base font-bold text-white truncate">{title}</h3>
 						<p className="text-[10px] sm:text-xs text-slate-400 truncate">
-							{typeLabels[debt.type as keyof typeof typeLabels] ?? debt.type}
+							{subtitle}
 						</p>
 					</div>
 				</div>
