@@ -7,7 +7,7 @@ import { resolveUserId } from "@/lib/budgetPlans";
 import { prisma } from "@/lib/prisma";
 import { getAllIncome } from "@/lib/income/store";
 import { monthKeyToNumber, monthNumberToKey, normalizeMonthKey } from "@/lib/helpers/monthKey";
-import { MONTHS } from "@/lib/constants/time";
+import { getMonthlyAllocationSnapshot, getMonthlyCustomAllocationsSnapshot } from "@/lib/allocations/store";
 import { HeroCanvasLayout } from "@/components/Shared";
 import type { MonthKey } from "@/types";
 import IncomeMonthPageClient from "@/app/admin/income/IncomeMonthPageClient";
@@ -61,6 +61,18 @@ export default async function IncomeMonthPage(props: {
 		String(year)
 	)}&month=${encodeURIComponent(month)}`;
 
+	const buildMonthHref = (m: MonthKey, y: number) =>
+		`${baseIncomeHref.replace(/\?.*$/, "")}/${encodeURIComponent(m)}?year=${encodeURIComponent(String(y))}&month=${encodeURIComponent(m)}`;
+	const monthNum = monthKeyToNumber(month);
+	const prevYear = monthNum === 1 ? year - 1 : year;
+	type MonthNum = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
+	const prevMonthNum = (monthNum === 1 ? 12 : (monthNum - 1)) as MonthNum;
+	const prevMonth = monthNumberToKey(prevMonthNum);
+
+	const nextYear = monthNum === 12 ? year + 1 : year;
+	const nextMonthNum = (monthNum === 12 ? 1 : (monthNum + 1)) as MonthNum;
+	const nextMonth = monthNumberToKey(nextMonthNum);
+
 	// Keep URL canonical for shareability.
 	if (normalizedQueryMonth !== month || firstString(sp.year) !== String(year) || !firstString(sp.month)) {
 		redirect(canonicalHref);
@@ -68,73 +80,6 @@ export default async function IncomeMonthPage(props: {
 
 	const incomeByMonth = await getAllIncome(props.budgetPlanId, year);
 	const incomeItems = incomeByMonth[month] ?? [];
-	const monthKeys = MONTHS as readonly MonthKey[];
-	const monthIndex = new Map(monthKeys.map((m, idx) => [m, idx] as const));
-
-	const incomeTotalsByMonth = monthKeys.map((m) => (incomeByMonth[m] ?? []).reduce((sum, item) => sum + (item.amount ?? 0), 0));
-
-	// Build stacked series for top income sources across the year (+ "Other").
-	const totalsByName = new Map<string, number>();
-	for (const m of monthKeys) {
-		for (const item of incomeByMonth[m] ?? []) {
-			const name = String(item.name ?? "").trim() || "Untitled";
-			totalsByName.set(name, (totalsByName.get(name) ?? 0) + (item.amount ?? 0));
-		}
-	}
-	const topNames = [...totalsByName.entries()]
-		.sort((a, b) => b[1] - a[1])
-		.slice(0, 4)
-		.map(([name]) => name);
-	const topSet = new Set(topNames);
-	const palette = [
-		{ border: "rgba(52, 211, 153, 0.95)", bg: "rgba(52, 211, 153, 0.16)" }, // emerald
-		{ border: "rgba(56, 189, 248, 0.95)", bg: "rgba(56, 189, 248, 0.14)" }, // sky
-		{ border: "rgba(167, 139, 250, 0.95)", bg: "rgba(167, 139, 250, 0.12)" }, // violet
-		{ border: "rgba(251, 191, 36, 0.95)", bg: "rgba(251, 191, 36, 0.14)" }, // amber
-	];
-	const incomeStacks: Array<{ label: string; data: number[]; borderColor: string; backgroundColor: string }> = topNames.map(
-		(name, idx) => ({
-			label: name,
-			data: Array(monthKeys.length).fill(0),
-			borderColor: palette[idx]?.border ?? "rgba(226, 232, 240, 0.85)",
-			backgroundColor: palette[idx]?.bg ?? "rgba(226, 232, 240, 0.10)",
-		})
-	);
-	const other = { label: "Other", data: Array(monthKeys.length).fill(0), borderColor: "rgba(148, 163, 184, 0.85)", backgroundColor: "rgba(148, 163, 184, 0.10)" };
-	for (const m of monthKeys) {
-		const idx = monthIndex.get(m) ?? -1;
-		if (idx < 0) continue;
-		for (const item of incomeByMonth[m] ?? []) {
-			const name = String(item.name ?? "").trim() || "Untitled";
-			const amount = item.amount ?? 0;
-			const topIdx = topNames.indexOf(name);
-			if (topIdx >= 0) incomeStacks[topIdx]!.data[idx] += amount;
-			else if (topSet.size > 0) other.data[idx] += amount;
-		}
-	}
-	const otherTotal = other.data.reduce((s, n) => s + n, 0);
-	if (otherTotal > 0) incomeStacks.push(other);
-
-	// Monthly expenses series for the selected year.
-	const plannedExpensesByMonth = Array(monthKeys.length).fill(0);
-	const paidExpensesByMonth = Array(monthKeys.length).fill(0);
-	const expenseByMonthAgg = await prisma.expense.groupBy({
-		by: ["month"],
-		where: {
-			budgetPlanId: props.budgetPlanId,
-			year,
-			isAllocation: false,
-		},
-		_sum: { amount: true, paidAmount: true },
-	});
-	for (const row of expenseByMonthAgg) {
-		const monthNum = Number(row.month);
-		const idx = Number.isFinite(monthNum) ? monthNum - 1 : -1;
-		if (idx < 0 || idx >= monthKeys.length) continue;
-		plannedExpensesByMonth[idx] = decimalToNumber(row._sum.amount);
-		paidExpensesByMonth[idx] = decimalToNumber(row._sum.paidAmount);
-	}
-
 	const expenseAgg = await prisma.expense.aggregate({
 		where: {
 			budgetPlanId: props.budgetPlanId,
@@ -145,23 +90,80 @@ export default async function IncomeMonthPage(props: {
 		_sum: { amount: true, paidAmount: true },
 	});
 
+	// IMPORTANT: "Allowances" here means the monthly allowance settings (and custom allowance items)
+	// from the allocations system — NOT Expense rows marked as isAllocation.
+	const allocationSnapshot = await getMonthlyAllocationSnapshot(props.budgetPlanId, month, { year });
+	const customAllocationsSnapshot = await getMonthlyCustomAllocationsSnapshot(props.budgetPlanId, month, { year });
+
+	const plannedDebtAgg = await prisma.debt.aggregate({
+		where: {
+			budgetPlanId: props.budgetPlanId,
+			paid: false,
+			currentBalance: { gt: 0 },
+			defaultPaymentSource: "income",
+		},
+		_sum: { amount: true },
+	});
+
+	const paidDebtAggFromIncome = await prisma.debtPayment.aggregate({
+		where: {
+			debt: { budgetPlanId: props.budgetPlanId },
+			year,
+			month: monthKeyToNumber(month),
+			source: "income",
+		},
+		_sum: { amount: true },
+	});
+
 	const grossIncome = incomeItems.reduce((sum, item) => sum + (item.amount ?? 0), 0);
 	const plannedExpenses = decimalToNumber(expenseAgg._sum.amount);
 	const paidExpenses = decimalToNumber(expenseAgg._sum.paidAmount);
-	const remainingExpenses = Math.max(0, plannedExpenses - paidExpenses);
-	const netPlanned = grossIncome - plannedExpenses;
-	const netPaid = grossIncome - paidExpenses;
+	const monthlyAllowance = Number(allocationSnapshot.monthlyAllowance ?? 0);
+	const plannedSetAsideFromAllocations =
+		Number(allocationSnapshot.monthlySavingsContribution ?? 0) +
+		Number(allocationSnapshot.monthlyEmergencyContribution ?? 0) +
+		Number(allocationSnapshot.monthlyInvestmentContribution ?? 0);
+	const customSetAsideTotal = Number(customAllocationsSnapshot.total ?? 0);
+	const plannedSetAside = plannedSetAsideFromAllocations + customSetAsideTotal;
+	const plannedDebtPayments = decimalToNumber(plannedDebtAgg._sum.amount);
+	const paidDebtPaymentsFromIncome = decimalToNumber(paidDebtAggFromIncome._sum.amount);
+
+	const plannedBills = plannedExpenses + plannedDebtPayments;
+	const paidBillsSoFar = paidExpenses + paidDebtPaymentsFromIncome;
+	const remainingBills = Math.max(0, plannedBills - paidBillsSoFar);
+	const moneyLeftAfterPlan = grossIncome - (plannedBills + monthlyAllowance + plannedSetAside);
+	const incomeLeftToBudgetAfterSacrificeAndDebtPlan = grossIncome - plannedSetAside - plannedDebtPayments;
+	const remainingAfterRecordedExpenses = incomeLeftToBudgetAfterSacrificeAndDebtPlan - plannedExpenses;
 
 	return (
 		<HeroCanvasLayout
 			maxWidthClassName="max-w-5xl"
 			hero={
-				<div className="space-y-1 sm:space-y-2">
-					<div className="flex items-center justify-between gap-3">
-						<div>
-							<h1 className="text-2xl sm:text-4xl font-bold text-white">Income</h1>
-							<p className="text-slate-400 text-sm sm:text-lg">Manage income for {monthNumberToKey(monthKeyToNumber(month))} {year}</p>
+				<div className="space-y-3">
+					<div className="flex justify-center">
+						<div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-2 py-1.5">
+							<Link
+								href={buildMonthHref(prevMonth, prevYear)}
+								className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/90 hover:bg-white/10 transition"
+								aria-label={`Previous month (${prevMonth} ${prevYear})`}
+								prefetch={false}
+							>
+								‹
+							</Link>
+							<div className="px-2 text-sm sm:text-base font-semibold text-white whitespace-nowrap">
+								{monthNumberToKey(monthKeyToNumber(month))} {year}
+							</div>
+							<Link
+								href={buildMonthHref(nextMonth, nextYear)}
+								className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/90 hover:bg-white/10 transition"
+								aria-label={`Next month (${nextMonth} ${nextYear})`}
+								prefetch={false}
+							>
+								›
+							</Link>
 						</div>
+					</div>
+					<div className="flex justify-start">
 						<Link
 							href={baseIncomeHref}
 							className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white hover:bg-white/10 transition"
@@ -177,20 +179,24 @@ export default async function IncomeMonthPage(props: {
 				year={year}
 				month={month}
 				incomeItems={incomeItems}
-				yearSeries={{
-					monthKeys: [...monthKeys],
-					incomeStacks,
-					incomeTotalsByMonth,
-					plannedExpensesByMonth,
-					paidExpensesByMonth,
-				}}
 				analysis={{
 					grossIncome,
 					plannedExpenses,
+					plannedDebtPayments,
+					plannedAllowances: monthlyAllowance,
+					plannedSetAside,
+					incomeLeftToBudgetAfterSacrificeAndDebtPlan,
+					remainingAfterRecordedExpenses,
+					setAsideBreakdown: {
+						fromAllocations: plannedSetAsideFromAllocations,
+						customTotal: customSetAsideTotal,
+						customCount: customAllocationsSnapshot.items?.length ?? 0,
+						isAllowanceOverride: !!allocationSnapshot.isOverride,
+					},
 					paidExpenses,
-					remainingExpenses,
-					netPlanned,
-					netPaid,
+					paidDebtPaymentsFromIncome,
+					remainingBills,
+					moneyLeftAfterPlan,
 				}}
 			/>
 		</HeroCanvasLayout>
