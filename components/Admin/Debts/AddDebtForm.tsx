@@ -5,7 +5,7 @@ import { Plus, X } from "lucide-react";
 import { SelectDropdown } from "@/components/Shared";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { createNonCardDebtAction } from "@/lib/debts/actions";
+import { createDebt } from "@/lib/debts/actions";
 import { formatCurrency } from "@/lib/helpers/money";
 
 interface AddDebtFormProps {
@@ -30,6 +30,7 @@ export default function AddDebtForm({ budgetPlanId, payDate, creditCards }: AddD
 
 	const [isOpen, setIsOpen] = useState(false);
 	const [type, setType] = useState("loan");
+	const [creditLimit, setCreditLimit] = useState("");
 	const [initialBalance, setInitialBalance] = useState("");
 	const [installmentMonths, setInstallmentMonths] = useState("");
 	const defaultDueDate = (): string => {
@@ -53,10 +54,13 @@ export default function AddDebtForm({ budgetPlanId, payDate, creditCards }: AddD
 	const [defaultPaymentSource, setDefaultPaymentSource] = useState("income");
 	const [defaultPaymentCardDebtId, setDefaultPaymentCardDebtId] = useState("");
 
+	const isCardType = type === "credit_card" || type === "store_card";
+
 	const handleSubmit = async (formData: FormData) => {
-		await createNonCardDebtAction(formData);
+		await createDebt(formData);
 		setIsOpen(false);
 		setType("loan");
+		setCreditLimit("");
 		setInitialBalance("");
 		setInstallmentMonths("");
 		setDueDate(defaultDueDate());
@@ -91,7 +95,7 @@ export default function AddDebtForm({ budgetPlanId, payDate, creditCards }: AddD
 			<form action={handleSubmit} className="space-y-3 sm:space-y-4">
 				<input type="hidden" name="budgetPlanId" value={budgetPlanId} />
 				<div className="text-xs sm:text-sm text-slate-400">
-					Need to add a card? Do it in{" "}
+					You can add cards here (requires a credit limit) or in{" "}
 					<Link href={settingsHref} className="text-purple-300 hover:text-purple-200 underline underline-offset-2">
 						Settings → Savings and Cards
 					</Link>
@@ -114,8 +118,15 @@ export default function AddDebtForm({ budgetPlanId, payDate, creditCards }: AddD
 							name="type"
 							required
 							value={type}
-							onValueChange={setType}
+							onValueChange={(next) => {
+								setType(next);
+								if (next !== "credit_card" && next !== "store_card") {
+									setCreditLimit("");
+								}
+							}}
 							options={[
+								{ value: "credit_card", label: "Credit Card" },
+								{ value: "store_card", label: "Store Card" },
 								{ value: "loan", label: "Loan" },
 								{ value: "mortgage", label: "Mortgage" },
 								{ value: "high_purchase", label: "High Purchase" },
@@ -124,6 +135,24 @@ export default function AddDebtForm({ budgetPlanId, payDate, creditCards }: AddD
 							buttonClassName="rounded-lg px-4 py-2 focus:ring-purple-500"
 						/>
 					</div>
+					{isCardType ? (
+						<div>
+							<label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1 sm:mb-2">Credit Limit</label>
+							<input
+								type="number"
+								name="creditLimit"
+								step="0.01"
+								placeholder="1200.00"
+								required
+								value={creditLimit}
+								onChange={(e) => setCreditLimit(e.target.value)}
+								className="w-full px-3 py-1.5 sm:px-4 sm:py-2 bg-slate-900/40 border border-white/10 text-white placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-xs sm:text-sm"
+							/>
+							<div className="mt-1 text-[10px] sm:text-xs text-slate-500">Required for credit/store cards.</div>
+						</div>
+					) : (
+						<input type="hidden" name="creditLimit" value="" />
+					)}
 					<div>
 						<label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1 sm:mb-2">Due Date</label>
 						<input
@@ -171,7 +200,6 @@ export default function AddDebtForm({ budgetPlanId, payDate, creditCards }: AddD
 					) : (
 						<input type="hidden" name="defaultPaymentCardDebtId" value="" />
 					)}
-					<input type="hidden" name="creditLimit" value="" />
 					<div>
 						<label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1 sm:mb-2">Initial Balance</label>
 						<input
