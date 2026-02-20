@@ -118,7 +118,7 @@ export default function CategorySection({
 								disabled={!onView}
 								className="px-3 py-1.5 rounded-xl text-xs font-semibold text-white border border-white/10 bg-white/5 hover:bg-white/10 transition disabled:opacity-60"
 							>
-								View
+								Manage
 							</button>
 						</div>
 					</div>
@@ -178,7 +178,7 @@ export default function CategorySection({
 								disabled={!onView}
 								className="text-xs font-semibold text-slate-200 hover:text-white transition disabled:opacity-60"
 							>
-								View all {expenses.length} expenses
+								Manage all {expenses.length} expenses
 							</button>
 						</div>
 					) : null}
