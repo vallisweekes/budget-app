@@ -157,10 +157,9 @@ export default function PaymentInsightsCards({
 	}, [tips.length]);
 
 	const activeTip = tips.length ? tips[tipIndex % tips.length] : null;
-	const shouldShowTipInRecap = !!activeTip && shouldShowRecap;
-	const shouldShowTipInUpcoming = !!activeTip && !shouldShowRecap && shouldShowUpcoming;
+	const shouldShowTipCard = !!activeTip && (shouldShowRecap || shouldShowUpcoming);
 	const tipBlock = activeTip ? (
-		<div className="pt-2">
+		<div>
 			<div className="text-xs uppercase tracking-wide text-slate-400">Tip</div>
 			<div className="mt-1 text-sm font-semibold text-white">{activeTip.title}</div>
 			<div className="mt-0.5 text-xs text-slate-300">{activeTip.detail}</div>
@@ -168,17 +167,13 @@ export default function PaymentInsightsCards({
 	) : null;
 
 	return (
-		<div
-			className={`grid grid-cols-1 lg:grid-cols-12 gap-3 ${
-				shouldShowRecap && shouldShowUpcoming ? "" : "lg:grid-cols-1"
-			}`}
-		>
+		<div className="grid grid-cols-1 lg:grid-cols-12 lg:grid-rows-[auto_1fr] gap-3">
 			{shouldShowRecap ? (
 				<Card
 					title={undefined}
-					className={shouldShowUpcoming ? "lg:col-span-6" : "lg:col-span-12"}
+					className={shouldShowUpcoming ? "lg:col-span-6 lg:row-start-1" : "lg:col-span-12"}
 				>
-					<div className="space-y-3">
+					<div className="space-y-2">
 						<div className="inline-flex">
 							<div
 								className="rounded-full px-3 py-1 text-xs font-semibold text-slate-900"
@@ -188,115 +183,137 @@ export default function PaymentInsightsCards({
 							</div>
 						</div>
 						<div className="grid grid-cols-2 gap-2">
-							<div className={`rounded-2xl border p-3 ${badgeClass("ok")}`}>
+							<div className={`rounded-2xl border p-2.5 ${badgeClass("ok")}`}>
 								<div className="text-xs uppercase tracking-wide opacity-90">Paid</div>
-								<div className="mt-1 text-lg font-bold">{recap!.paidCount}</div>
+								<div className="mt-1 text-base font-bold">{recap!.paidCount}</div>
 								<div className="text-xs opacity-90">{money(recap!.paidAmount)}</div>
 							</div>
-							<div className={`rounded-2xl border p-3 ${badgeClass(recap!.unpaidCount > 0 ? "warn" : "muted")}`}>
+							<div className={`rounded-2xl border p-2.5 ${badgeClass(recap!.unpaidCount > 0 ? "warn" : "muted")}`}>
 								<div className="text-xs uppercase tracking-wide opacity-90">Not paid</div>
-								<div className="mt-1 text-lg font-bold">{recap!.unpaidCount + recap!.partialCount}</div>
+								<div className="mt-1 text-base font-bold">{recap!.unpaidCount + recap!.partialCount}</div>
 								<div className="text-xs opacity-90">{money(recap!.unpaidAmount + recap!.partialAmount)}</div>
 							</div>
 						</div>
 
-						<div className={`rounded-2xl border p-3 ${badgeClass(recap!.missedDueCount > 0 ? "bad" : "muted")}`}>
+						<div className={`rounded-2xl border p-2.5 ${badgeClass(recap!.missedDueCount > 0 ? "bad" : "muted")}`}>
 							<div className="flex items-center justify-between gap-3">
 								<div className="text-xs uppercase tracking-wide opacity-90">Missed due date</div>
 								<div className="text-xs opacity-80">(due by month end)</div>
 							</div>
 							<div className="mt-1 flex items-end justify-between gap-3">
-								<div className="text-lg font-bold">{recap!.missedDueCount}</div>
+								<div className="text-base font-bold">{recap!.missedDueCount}</div>
 								<div className="text-sm font-semibold">{money(recap!.missedDueAmount)}</div>
 							</div>
 						</div>
-
-						{shouldShowTipInRecap ? <div className="pt-1">{tipBlock}</div> : null}
 					</div>
 				</Card>
 			) : null}
 
 			{shouldShowUpcoming ? (
-				<Card title={undefined} className={shouldShowRecap ? "lg:col-span-6" : "lg:col-span-12"}>
-				{!upcoming || upcoming.length === 0 ? (
-					<div className="space-y-3">
-						<div className="inline-flex">
-							<div
-								className="rounded-full px-3 py-1 text-xs font-semibold text-slate-900"
-								style={{ backgroundColor: "#9EDBFF" }}
-							>
-								Upcoming payments
-							</div>
-						</div>
-						<div className="text-sm text-slate-300">Nothing urgent right now.</div>
-						{shouldShowTipInUpcoming ? <div className="pt-1">{tipBlock}</div> : null}
-					</div>
-				) : (
-					<div className="space-y-2">
-						<div className="inline-flex">
-							<div
-								className="rounded-full px-3 py-1 text-xs font-semibold text-slate-900"
-								style={{ backgroundColor: "#9EDBFF" }}
-							>
-								Upcoming payments
-							</div>
-						</div>
-						{upcoming.map((u) => {
-							const tagTone = urgencyTone(u.urgency);
-							const isDebt = u.id.startsWith("debt:") || u.id.startsWith("debt-expense:");
-							const isMissPaymentDebt = u.id.startsWith("debt-expense:");
-							const displayName = normalizeUpcomingName(u.name);
-							return (
+				<Card
+					title={undefined}
+					className={
+						shouldShowRecap && shouldShowTipCard
+							? "lg:col-span-6 lg:row-start-1 lg:row-span-2"
+							: shouldShowRecap
+								? "lg:col-span-6"
+								: "lg:col-span-12"
+					}
+				>
+					{!upcoming || upcoming.length === 0 ? (
+						<div className="space-y-3">
+							<div className="inline-flex">
 								<div
-									key={u.id}
-									className="flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-slate-900/40 px-3 py-2 text-slate-200"
+									className="rounded-full px-3 py-1 text-xs font-semibold text-slate-900"
+									style={{ backgroundColor: "#9EDBFF" }}
 								>
-									<div className="min-w-0">
-										<div className="inline-flex items-center gap-1 min-w-0">
-											<span
-												aria-hidden
-												className={`h-1 w-1 rounded-full shrink-0 ${dotClass(tagTone)}`}
-											/>
-											<div className="text-[12px] leading-none font-semibold truncate">{displayName}</div>
-										</div>
-										<div className="mt-1 flex items-center gap-2">
-											<div
-												className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[8px] font-semibold ${badgeClass(
-													tagTone
-												)}`}
-												title={
-													u.urgency === "overdue"
-														? "Overdue payment"
+									Upcoming payments
+								</div>
+							</div>
+							<div className="text-sm text-slate-300">Nothing urgent right now.</div>
+						</div>
+					) : (
+						<div className="space-y-2">
+							<div className="inline-flex">
+								<div
+									className="rounded-full px-3 py-1 text-xs font-semibold text-slate-900"
+									style={{ backgroundColor: "#9EDBFF" }}
+								>
+									Upcoming payments
+								</div>
+							</div>
+							{upcoming.map((u) => {
+								const tagTone = urgencyTone(u.urgency);
+								const isDebt = u.id.startsWith("debt:") || u.id.startsWith("debt-expense:");
+								const isMissPaymentDebt = u.id.startsWith("debt-expense:");
+								const displayName = normalizeUpcomingName(u.name);
+								return (
+									<div
+										key={u.id}
+										className="flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-slate-900/40 px-3 py-2 text-slate-200"
+									>
+										<div className="min-w-0">
+											<div className="inline-flex items-center gap-1 min-w-0">
+												<span
+													aria-hidden
+													className={`h-1 w-1 rounded-full shrink-0 ${dotClass(tagTone)}`}
+												/>
+												<div className="text-[12px] leading-none font-semibold truncate">{displayName}</div>
+											</div>
+											<div className="mt-1 flex items-center gap-2">
+												<div
+													className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[8px] font-semibold ${badgeClass(
+														tagTone
+													)}`}
+													title={
+														u.urgency === "overdue"
+															? "Overdue payment"
 														: u.urgency === "today"
 															? "Payment due today"
 															: u.urgency === "soon"
 																? "Payment due soon"
 																: "Upcoming payment"
-												}
-											>
-												{dueLabel(u)}
-											</div>
-											{isDebt ? (
-												<div className="inline-flex items-center rounded-md border border-white/10 bg-slate-950/40 px-2 py-0.5 text-[8px] font-semibold text-slate-200">
-													{isMissPaymentDebt ? "Miss Payment Debt" : "Debt"}
+													}
+												>
+													{dueLabel(u)}
 												</div>
-											) : null}
+												{isDebt ? (
+													<div className="inline-flex items-center rounded-md border border-white/10 bg-slate-950/40 px-2 py-0.5 text-[8px] font-semibold text-slate-200">
+														{isMissPaymentDebt ? "Miss Payment Debt" : "Debt"}
+													</div>
+												) : null}
+											</div>
+										</div>
+										<div className="text-right whitespace-nowrap">
+											<div className="text-sm font-bold">{money(u.amount)}</div>
+											{u.status !== "paid" ? (
+												<div className="text-xs text-slate-300">
+													Remaining {money(Math.max(0, u.amount - u.paidAmount))}
+												</div>
+											) : (
+												<div className="text-xs text-slate-300">Paid</div>
+											)}
 										</div>
 									</div>
-									<div className="text-right whitespace-nowrap">
-										<div className="text-sm font-bold">{money(u.amount)}</div>
-										{u.status !== "paid" ? (
-											<div className="text-xs text-slate-300">Remaining {money(Math.max(0, u.amount - u.paidAmount))}</div>
-										) : (
-											<div className="text-xs text-slate-300">Paid</div>
-										)}
-									</div>
-								</div>
-							);
-						})}
-						{shouldShowTipInUpcoming ? <div className="pt-2">{tipBlock}</div> : null}
-					</div>
-				)}
+								);
+							})}
+						</div>
+					)}
+				</Card>
+			) : null}
+
+			{shouldShowTipCard ? (
+				<Card
+					title={undefined}
+					className={
+						shouldShowRecap && shouldShowUpcoming
+							? "lg:col-span-6 lg:row-start-2 h-full"
+							: shouldShowUpcoming
+								? "lg:col-span-12"
+								: "lg:col-span-12"
+					}
+				>
+					<div className="h-full flex flex-col justify-center">{tipBlock}</div>
 				</Card>
 			) : null}
 		</div>
