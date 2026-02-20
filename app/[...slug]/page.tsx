@@ -5,6 +5,7 @@ import NewBudgetPageContent from "@/app/budgets/new/NewBudgetPageContent";
 import AdminIncomePage from "@/app/admin/income/page";
 import AdminExpensesPage from "@/app/admin/expenses/page";
 import DebtsPage from "@/app/admin/debts/page";
+import DebtDetailPage from "@/app/admin/debts/DebtDetailPage";
 import GoalsPage from "@/app/admin/goals/page";
 import SpendingPage from "@/app/admin/spending/page";
 import SettingsPageContent from "@/app/admin/settings/SettingsPageContent";
@@ -246,6 +247,13 @@ export default async function UserBudgetPage({
 				)}&month=${encodeURIComponent(m)}`
 			);
 		}
+	}
+
+	// Debt detail route: /user=<username>/<planId>/page=debts/<debtId>/<debtName>?view=true
+	if (pageKey === "debts" && pageRest.length >= 1) {
+		const debtId = String(pageRest[0] ?? "").trim();
+		if (!debtId) return notFound();
+		return <DebtDetailPage username={sessionUsername} budgetPlanId={budgetPlanId} debtId={debtId} />;
 	}
 
 	return renderUserScopedAdminPage(pageKey, budgetPlanId, sp);

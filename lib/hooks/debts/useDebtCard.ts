@@ -15,8 +15,8 @@ import {
 	isNearPaydayDebt,
 } from "@/lib/helpers/debts/debtCard";
 
-export function useDebtCard(params: { debt: DebtCardDebt; budgetPlanId: string; payDate: number }) {
-	const { debt, budgetPlanId, payDate } = params;
+export function useDebtCard(params: { debt: DebtCardDebt; budgetPlanId: string; payDate: number; defaultExpanded?: boolean }) {
+	const { debt, budgetPlanId, payDate, defaultExpanded } = params;
 	const toast = useToast();
 
 	const toDateInputValue = (iso: string): string => {
@@ -41,7 +41,7 @@ export function useDebtCard(params: { debt: DebtCardDebt; budgetPlanId: string; 
 	};
 
 	const [isPending, startTransition] = useTransition();
-	const [isCollapsed, setIsCollapsed] = useState(true);
+	const [isCollapsed, setIsCollapsed] = useState(() => !defaultExpanded);
 	const [isEditing, setIsEditing] = useState(false);
 	const [isEditingAmount, setIsEditingAmount] = useState(false);
 	const [paymentSource, setPaymentSource] = useState(() => debt.defaultPaymentSource ?? "income");

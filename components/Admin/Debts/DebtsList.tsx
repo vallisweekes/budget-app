@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import DebtCard from "./DebtCard";
+import DebtCardLink from "./DebtCardLink";
 import type { DebtPayment } from "@/types";
 import type { DebtCardDebt } from "@/types/components/debts";
 import DebtsSortControls from "./DebtsSortControls";
@@ -9,6 +9,7 @@ import DebtsEmptyState from "./DebtsEmptyState";
 import ExpenseDebtGroup from "./ExpenseDebtGroup";
 import { useDebtListItems } from "@/lib/hooks/debts/useDebtListItems";
 import type { DebtSortOption } from "@/lib/helpers/debts/listItems";
+import { getPaymentMonthKeyUTC } from "@/lib/helpers/debts/debtCard";
 
 interface DebtsListProps {
 	debts: DebtCardDebt[];
@@ -17,11 +18,13 @@ interface DebtsListProps {
 	typeLabels: Record<string, string>;
 	paymentsMap: Map<string, DebtPayment[]>;
 	payDate: number;
+	baseHref: string;
 }
 
-export default function DebtsList({ debts, creditCards, budgetPlanId, typeLabels, paymentsMap, payDate }: DebtsListProps) {
+export default function DebtsList({ debts, creditCards, budgetPlanId, typeLabels, paymentsMap, payDate, baseHref }: DebtsListProps) {
 	const [sortBy, setSortBy] = useState<DebtSortOption>("default");
 	const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+	const paymentMonth = getPaymentMonthKeyUTC();
 
 	const toggleGroup = (key: string) => {
 		setOpenGroups((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -55,6 +58,8 @@ export default function DebtsList({ debts, creditCards, budgetPlanId, typeLabels
 								budgetPlanId={budgetPlanId}
 								typeLabels={typeLabels}
 								payDate={payDate}
+								baseHref={baseHref}
+								paymentMonth={paymentMonth}
 								isOpen={isOpen}
 								onToggle={() => toggleGroup(item.key)}
 							/>
@@ -62,14 +67,14 @@ export default function DebtsList({ debts, creditCards, budgetPlanId, typeLabels
 					}
 
 					return (
-						<DebtCard
+						<DebtCardLink
 							key={item.debt.id}
 							debt={item.debt}
-							creditCards={creditCards}
 							budgetPlanId={budgetPlanId}
 							typeLabels={typeLabels}
+							baseHref={baseHref}
 							payments={paymentsMap.get(item.debt.id) || []}
-							payDate={payDate}
+							paymentMonth={paymentMonth}
 						/>
 					);
 				})}

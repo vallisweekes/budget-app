@@ -45,6 +45,7 @@ export default async function DebtsPage(props: {
 	}
 
 	const budgetPlanId = budgetPlan.id;
+	const baseHref = `/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(budgetPlanId)}/page=debts`;
 
 	const debtSummary = await getDebtSummaryForPlan(budgetPlanId, { includeExpenseDebts: true, ensureSynced: true });
 	const { allDebts, activeDebts, activeRegularDebts, activeExpenseDebts, creditCards } = debtSummary;
@@ -138,6 +139,7 @@ export default async function DebtsPage(props: {
 								typeLabels={typeLabels}
 								paymentsMap={paymentsMap}
 								payDate={budgetPlan.payDate}
+								baseHref={baseHref}
 							/>
 						</div>
 					)}
@@ -153,6 +155,7 @@ export default async function DebtsPage(props: {
 								typeLabels={typeLabels}
 								paymentsMap={paymentsMap}
 								payDate={budgetPlan.payDate}
+								baseHref={baseHref}
 							/>
 						</div>
 					)}

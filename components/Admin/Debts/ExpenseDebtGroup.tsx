@@ -2,7 +2,7 @@
 
 import { ChevronDown } from "lucide-react";
 
-import DebtCard from "./DebtCard";
+import DebtCardLink from "./DebtCardLink";
 import { formatCurrency } from "@/lib/helpers/money";
 import type { DebtPayment } from "@/types";
 import type { DebtCardDebt } from "@/types/components/debts";
@@ -18,6 +18,8 @@ export default function ExpenseDebtGroup({
 	budgetPlanId,
 	typeLabels,
 	payDate,
+	baseHref,
+	paymentMonth,
 	isOpen,
 	onToggle,
 }: {
@@ -31,6 +33,8 @@ export default function ExpenseDebtGroup({
 	budgetPlanId: string;
 	typeLabels: Record<string, string>;
 	payDate: number;
+	baseHref: string;
+	paymentMonth: string;
 	isOpen: boolean;
 	onToggle: () => void;
 }) {
@@ -65,14 +69,14 @@ export default function ExpenseDebtGroup({
 			{isOpen ? (
 				<div className="px-3 pb-3 space-y-4">
 					{debts.map((debt) => (
-						<DebtCard
+						<DebtCardLink
 							key={`${groupKey}:${debt.id}`}
 							debt={debt}
-							creditCards={creditCards}
 							budgetPlanId={budgetPlanId}
 							typeLabels={typeLabels}
+							baseHref={baseHref}
 							payments={paymentsMap.get(debt.id) || []}
-							payDate={payDate}
+							paymentMonth={paymentMonth}
 						/>
 					))}
 				</div>

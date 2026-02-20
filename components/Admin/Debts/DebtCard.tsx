@@ -17,6 +17,7 @@ interface DebtCardProps {
 	typeLabels: Record<string, string>;
 	payments: DebtPayment[];
 	payDate: number;
+	defaultExpanded?: boolean;
 }
 
 const typeIcons = {
@@ -28,7 +29,7 @@ const typeIcons = {
 	other: TrendingDown,
 } as const;
 
-export default function DebtCard({ debt, creditCards, budgetPlanId, typeLabels, payments, payDate }: DebtCardProps) {
+export default function DebtCard({ debt, creditCards, budgetPlanId, typeLabels, payments, payDate, defaultExpanded }: DebtCardProps) {
 	const Icon = typeIcons[debt.type as keyof typeof typeIcons] ?? CreditCard;
 	const creditCardOptions = creditCards
 		.filter((d) => d.id !== debt.id)
@@ -73,7 +74,7 @@ export default function DebtCard({ debt, creditCards, budgetPlanId, typeLabels, 
 		handleSave,
 		handleSaveDueAmount,
 		handleSelectInstallmentMonths,
-	} = useDebtCard({ debt, budgetPlanId, payDate });
+	} = useDebtCard({ debt, budgetPlanId, payDate, defaultExpanded });
 
 	return (
 		<div className={`bg-slate-800/40 backdrop-blur-xl rounded-xl sm:rounded-2xl border p-3 sm:p-5 hover:border-white/20 transition-all ${
