@@ -302,6 +302,7 @@ export async function getDashboardExpenseInsights({
 			name: true,
 			amount: true,
 			currentBalance: true,
+			sourceType: true,
 		},
 		orderBy: [{ currentBalance: "desc" }],
 	});
@@ -317,8 +318,8 @@ export async function getDashboardExpenseInsights({
 			const daysUntilDue = debtDue ? diffDaysUtc(debtDue, today) : 999;
 			const status: UpcomingPayment["status"] = "unpaid";
 			const item: UpcomingPayment = {
-				id: `debt:${d.id}`,
-				name: `${d.name} (Debt)`,
+				id: d.sourceType === "expense" ? `debt-expense:${d.id}` : `debt:${d.id}`,
+				name: d.name,
 				amount,
 				paidAmount: 0,
 				status,

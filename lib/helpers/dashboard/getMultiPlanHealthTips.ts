@@ -5,6 +5,34 @@ import {
 	resolveEffectiveDueDateIso,
 	type RecapTip,
 } from "@/lib/expenses/insights";
+import { formatCurrency } from "@/lib/helpers/money";
+
+function titleCaseIfAllCaps(value: string): string {
+	const s = String(value ?? "").trim();
+	if (!s) return s;
+	if (!/[A-Za-z]/.test(s)) return s;
+	if (s !== s.toUpperCase()) return s;
+	return s
+		.toLowerCase()
+		.replace(/\b\w/g, (c) => c.toUpperCase())
+		.trim();
+}
+
+function normalizeLabel(value: string): string {
+	let s = String(value ?? "").trim();
+	if (!s) return "";
+	// Remove trailing auto-appended date tokens like "(2026-01)", "(2026-01 2026)", or "(2026-01 2026-01)".
+	s = s.replace(/\s*\((\d{4}-\d{2})(?:\s+\d{4}(?:-\d{2})?)?\)\s*$/u, "").trim();
+	return titleCaseIfAllCaps(s);
+}
+
+function formatShortDate(dt: Date): string {
+	return new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short" }).format(dt);
+}
+
+function monthsUntil(fromYear: number, fromMonth: number, toYear: number, toMonth: number): number {
+	return Math.max(0, (toYear - fromYear) * 12 + (toMonth - fromMonth));
+}
 
 function parseIsoDateToUtcDateOnly(iso: string): Date | null {
 	if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null;
@@ -165,9 +193,58 @@ export async function getMultiPlanHealthTips(args: {
 			if (!next) continue;
 			const isCurrent = next.year === currentYear && next.month === currentMonthNum;
 			if (isCurrent) continue;
+
+			const since = new Date(now.getTime() - 21 * 24 * 60 * 60 * 1000);
+			const [recentAdds, lastTouched, recentPayments] = await Promise.all([
+				prisma.expense.count({ where: { budgetPlanId: p.id, createdAt: { gte: since } } }),
+				prisma.expense.findFirst({
+					where: { budgetPlanId: p.id },
+					select: { name: true, updatedAt: true },
+					orderBy: { updatedAt: "desc" },
+				}),
+				prisma.expensePayment.count({
+					where: { expense: { budgetPlanId: p.id }, createdAt: { gte: since } },
+				}),
+			]);
+
+			const nextItems = Array.isArray(next.items) ? next.items : [];
+			const nextTotal = nextItems.reduce((sum, it) => sum + toNumber(it.amount), 0);
+			const largest = nextItems.reduce<{ name: string; amount: number } | null>((best, it) => {
+				const amt = toNumber(it.amount);
+				if (!(amt > 0)) return best;
+				if (!best || amt > best.amount) return { name: it.name, amount: amt };
+				return best;
+			}, null);
+
+			const monthGap = monthsUntil(currentYear, currentMonthNum, next.year, next.month);
+			const savingSuggestion = monthGap >= 2 && nextTotal > 0 ? formatCurrency(nextTotal / monthGap) : null;
+			const activityParts: string[] = [];
+			if (recentAdds > 0) activityParts.push(`you added ${recentAdds} item(s)`);
+			if (recentPayments > 0) activityParts.push(`you recorded ${recentPayments} payment(s)`);
+			const activityLine = activityParts.length ? `In the last 3 weeks, ${activityParts.join(" and ")} on this plan.` : "";
+			const lastTouchedLine = lastTouched?.updatedAt
+				? `Last update: ${normalizeLabel(lastTouched.name)} on ${formatShortDate(lastTouched.updatedAt)}.`
+				: "";
+			const nextSummary = nextTotal > 0
+				? `Next planned expenses are in ${monthLabel(next.year, next.month)} (≈ ${formatCurrency(nextTotal)} total).`
+				: `Next planned expenses are in ${monthLabel(next.year, next.month)}.`;
+			const largestLine = largest ? `Biggest planned item: ${normalizeLabel(largest.name)} (${formatCurrency(largest.amount)}).` : "";
+			const saveLine = savingSuggestion ? `If you want to be ready, setting aside about ${savingSuggestion} per month until then will cover it.` : "";
+
+			const detail = [
+				`No expenses for this plan in ${monthLabel(currentYear, currentMonthNum)} yet.`,
+				nextSummary,
+				largestLine,
+				activityLine,
+				lastTouchedLine,
+				saveLine,
+			]
+				.map((s) => s.trim())
+				.filter(Boolean)
+				.join(" ");
 			tips.push({
 				title: `${p.name || (key === "holiday" ? "Holiday" : "Carnival")}: next expenses`,
-				detail: `No expenses in the current month. Next expenses show in ${monthLabel(next.year, next.month)} for this plan.`,
+				detail,
 			});
 		}
 	}

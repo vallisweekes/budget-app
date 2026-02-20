@@ -5,17 +5,35 @@ import type { PreviousMonthRecap, UpcomingPayment, RecapTip } from "@/lib/expens
 import { Card } from "@/components/Shared";
 import { formatCurrency } from "@/lib/helpers/money";
 
-const dueDateFormatter = new Intl.DateTimeFormat("en-US", {
+const dueMonthFormatter = new Intl.DateTimeFormat("en-US", {
 	month: "short",
-	day: "numeric",
 	timeZone: "UTC",
 });
 
-function formatIsoDueDate(iso: string): string {
+function ordinalSuffix(day: number): string {
+	const d = Math.trunc(day);
+	const mod100 = d % 100;
+	if (mod100 >= 11 && mod100 <= 13) return "th";
+	switch (d % 10) {
+		case 1:
+			return "st";
+		case 2:
+			return "nd";
+		case 3:
+			return "rd";
+		default:
+			return "th";
+	}
+}
+
+function formatIsoDueDateOrdinal(iso: string): string {
 	if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso;
 	const [year, month, day] = iso.split("-").map((x) => Number(x));
 	if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return iso;
-	return dueDateFormatter.format(new Date(Date.UTC(year, month - 1, day)));
+	const dt = new Date(Date.UTC(year, month - 1, day));
+	const monthLabel = dueMonthFormatter.format(dt);
+	const dayNum = dt.getUTCDate();
+	return `${monthLabel} ${dayNum}${ordinalSuffix(dayNum)}`;
 }
 
 function money(value: number): string {
@@ -35,12 +53,67 @@ function badgeClass(kind: "ok" | "warn" | "bad" | "muted"): string {
 	}
 }
 
-function urgencyTone(urgency: UpcomingPayment["urgency"]): "warn" | "bad" | "muted" {
-	return urgency === "overdue" ? "bad" : urgency === "today" || urgency === "soon" ? "warn" : "muted";
+function dotClass(kind: "ok" | "warn" | "bad" | "muted"): string {
+	switch (kind) {
+		case "ok":
+			return "bg-emerald-400";
+		case "warn":
+			return "bg-amber-400";
+		case "bad":
+			return "bg-red-400";
+		default:
+			return "bg-slate-400";
+	}
+}
+
+function titleCaseIfAllCaps(value: string): string {
+	const s = String(value ?? "").trim();
+	if (!s) return s;
+	if (!/[A-Za-z]/.test(s)) return s;
+	if (s !== s.toUpperCase()) return s;
+	return s
+		.toLowerCase()
+		.replace(/\b\w/g, (c) => c.toUpperCase())
+		.trim();
+}
+
+function normalizeUpcomingName(rawName: string): string {
+	let s = String(rawName ?? "").trim();
+	if (!s) return s;
+
+	// Remove trailing auto-appended date tokens like "(2026-01)", "(2026-01 2026)", or "(2026-01 2026-01)".
+	s = s.replace(/\s*\((\d{4}-\d{2})(?:\s+\d{4}(?:-\d{2})?)?\)\s*$/u, "").trim();
+
+	// Remove any legacy debt suffix if present.
+	s = s.replace(/\s*\(Debt\)\s*$/i, "").trim();
+
+	// If there's a category prefix (e.g. "Housing: RENT"), title-case ALL CAPS parts on each side.
+	if (s.includes(":")) {
+		const idx = s.indexOf(":");
+		const left = s.slice(0, idx).trim();
+		const right = s.slice(idx + 1).trim();
+		const leftNice = titleCaseIfAllCaps(left);
+		const rightNice = titleCaseIfAllCaps(right);
+		return rightNice ? `${leftNice}: ${rightNice}` : leftNice;
+	}
+
+	return titleCaseIfAllCaps(s);
+}
+
+function urgencyTone(urgency: UpcomingPayment["urgency"]): "ok" | "warn" | "bad" {
+	if (urgency === "overdue" || urgency === "today") return "bad";
+	if (urgency === "soon") return "warn";
+	return "ok";
 }
 
 function urgencySuffix(urgency: UpcomingPayment["urgency"]): string {
-	return urgency === "overdue" ? " (overdue)" : urgency === "today" ? " (today)" : urgency === "soon" ? " (soon)" : "";
+	return "";
+}
+
+function dueLabel(u: UpcomingPayment): string {
+	if (u.urgency === "today") return "Due Today";
+	if (u.urgency === "overdue") return "Past Due Date";
+	return `Due on ${formatIsoDueDateOrdinal(u.dueDate)}${urgencySuffix(u.urgency)}`;
 }
 
 function toTitleCaseMonthOnly(label: string): string {
@@ -170,16 +243,25 @@ export default function PaymentInsightsCards({
 						</div>
 						{upcoming.map((u) => {
 							const tagTone = urgencyTone(u.urgency);
+							const isDebt = u.id.startsWith("debt:") || u.id.startsWith("debt-expense:");
+							const isMissPaymentDebt = u.id.startsWith("debt-expense:");
+							const displayName = normalizeUpcomingName(u.name);
 							return (
 								<div
 									key={u.id}
-									className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-slate-900/40 px-3 py-2 text-slate-200"
+									className="flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-slate-900/40 px-3 py-2 text-slate-200"
 								>
 									<div className="min-w-0">
-										<div className="text-sm font-semibold truncate">{u.name}</div>
+										<div className="inline-flex items-center gap-1 min-w-0">
+											<span
+												aria-hidden
+												className={`h-1 w-1 rounded-full shrink-0 ${dotClass(tagTone)}`}
+											/>
+											<div className="text-[12px] leading-none font-semibold truncate">{displayName}</div>
+										</div>
 										<div className="mt-1 flex items-center gap-2">
 											<div
-												className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${badgeClass(
+												className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[8px] font-semibold ${badgeClass(
 													tagTone
 												)}`}
 												title={
@@ -192,9 +274,13 @@ export default function PaymentInsightsCards({
 																: "Upcoming payment"
 												}
 											>
-												Due {formatIsoDueDate(u.dueDate)}
-												{urgencySuffix(u.urgency)}
+												{dueLabel(u)}
 											</div>
+											{isDebt ? (
+												<div className="inline-flex items-center rounded-md border border-white/10 bg-slate-950/40 px-2 py-0.5 text-[8px] font-semibold text-slate-200">
+													{isMissPaymentDebt ? "Miss Payment Debt" : "Debt"}
+												</div>
+											) : null}
 										</div>
 									</div>
 									<div className="text-right whitespace-nowrap">

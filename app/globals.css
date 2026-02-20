@@ -7,8 +7,8 @@
   color-scheme: dark;
 
   /* Top hero / lower canvas */
-  --dashboard-hero-bg: #06161a;
   --dashboard-canvas-bg: #0f282f;
+  --dashboard-hero-bg: var(--dashboard-canvas-bg);
 
   /* Card surface tuning for hero/canvas pages */
   --dashboard-card-surface-weak: rgba(6, 22, 26, 0.55);
@@ -39,8 +39,8 @@
   --foreground: #eef3ff;
   color-scheme: dark;
 
-  --dashboard-hero-bg: rgba(7, 10, 18, 0.55);
   --dashboard-canvas-bg: transparent;
+  --dashboard-hero-bg: var(--dashboard-canvas-bg);
 
   --dashboard-card-surface-weak: rgba(7, 10, 18, 0.45);
   --dashboard-card-surface-strong: rgba(7, 10, 18, 0.58);
@@ -64,8 +64,8 @@
   --foreground: #eef8ff;
   color-scheme: dark;
 
-  --dashboard-hero-bg: rgba(2, 11, 22, 0.55);
   --dashboard-canvas-bg: transparent;
+  --dashboard-hero-bg: var(--dashboard-canvas-bg);
 
   --dashboard-card-surface-weak: rgba(2, 11, 22, 0.46);
   --dashboard-card-surface-strong: rgba(2, 11, 22, 0.60);
@@ -89,11 +89,9 @@
   --foreground: #ffffff;
   color-scheme: dark;
 
-  /* Darker shade for the top dashboard section */
-  --dashboard-hero-bg: #06161a;
-
   /* Slightly lighter "canvas" for the rest of the dashboard (more visible contrast) */
   --dashboard-canvas-bg: #0f282f;
+  --dashboard-hero-bg: var(--dashboard-canvas-bg);
 
   --dashboard-card-surface-weak: rgba(6, 22, 26, 0.55);
   --dashboard-card-surface-strong: rgba(6, 22, 26, 0.70);
@@ -129,8 +127,8 @@
   --foreground: #f4f7ff;
   color-scheme: dark;
 
-  --dashboard-hero-bg: rgba(6, 10, 20, 0.58);
   --dashboard-canvas-bg: transparent;
+  --dashboard-hero-bg: var(--dashboard-canvas-bg);
 
   --dashboard-card-surface-weak: rgba(6, 10, 20, 0.46);
   --dashboard-card-surface-strong: rgba(6, 10, 20, 0.60);
@@ -267,7 +265,8 @@ body {
   }
 
   .dashboard-hero {
-    background-color: var(--dashboard-hero-bg, rgba(7, 10, 18, 0.55));
+    /* No separate dark header band; let the page background show through. */
+    background-color: transparent;
   }
 
   .dashboard-hero-bg {
@@ -278,48 +277,19 @@ body {
     background-color: var(--dashboard-canvas-bg, transparent);
   }
 
-  /* Asymmetric S-curve: RIGHT (dark hero down), LEFT (light canvas up) */
-  @media (min-width: 1024px) {
-    .dashboard-hero {
-      border-bottom-left-radius: 0;
-      border-bottom-right-radius: 96px;
-    }
-  }
-
-  @media (max-width: 1023px) {
-    .dashboard-hero {
-      border-bottom-right-radius: 72px;
-      border-bottom-left-radius: 0;
-    }
+  /* Remove the hero/canvas curve: keep a straight edge across all pages. */
+  .dashboard-hero {
+    border-radius: 0 !important;
   }
 
   .dashboard-canvas-content {
-    background-color: var(--dashboard-canvas-bg, transparent);
-    border-top-left-radius: 96px;
-  }
-
-  @media (max-width: 1023px) {
-    .dashboard-canvas-content {
-      border-top-left-radius: 72px;
-    }
+    /* Avoid a 2-tone split between hero and body. */
+    background-color: transparent;
+    border-radius: 0 !important;
   }
 
   .dashboard-left-underlay {
-    display: none;
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 96px;
-    height: 96px;
-    background-color: var(--dashboard-hero-bg);
-    pointer-events: none;
-    z-index: 0;
-  }
-
-  @media (min-width: 1024px) {
-    .dashboard-left-underlay {
-      display: block;
-    }
+    display: none !important;
   }
 
   /* Hero/canvas pages: tune card surfaces per theme via CSS variables */
