@@ -139,7 +139,7 @@ export async function getDashboardPlanData(planId: string, now: Date): Promise<D
 
 	if (uncategorizedTotal > 0) {
 		categoryData.push({
-			id: "__misc__",
+			id: "uncategorized",
 			name: "Miscellaneous",
 			icon: "Circle",
 			color: "slate",

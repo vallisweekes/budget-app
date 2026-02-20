@@ -15,11 +15,11 @@ export type UseExpenseManagerResult = {
 	ReturnType<typeof useExpenseManagerMutations>;
 
 export function useExpenseManager(
-	props: Pick<ExpenseManagerProps, "budgetPlanId" | "month" | "year" | "expenses" | "categories" | "loading"> & {
+	props: Pick<ExpenseManagerProps, "budgetPlanId" | "month" | "year" | "expenses" | "categories" | "loading" | "initialOpenCategoryId"> & {
 		actions: ExpenseManagerActions;
 	}
 ): UseExpenseManagerResult {
-	const { budgetPlanId, month, year, expenses, categories, loading, actions } = props;
+	const { budgetPlanId, month, year, expenses, categories, loading, actions, initialOpenCategoryId } = props;
 	const pathname = usePathname();
 	const isPeriodLoading = Boolean(loading);
 
@@ -36,7 +36,7 @@ export function useExpenseManager(
 		actions,
 	});
 
-	const filters = useExpenseManagerFilters({ expenses: mutations.optimisticExpenses, categories });
+	const filters = useExpenseManagerFilters({ expenses: mutations.optimisticExpenses, categories, initialOpenCategoryId });
 
 	return {
 		incomeHref,

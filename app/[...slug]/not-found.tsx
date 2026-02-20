@@ -38,12 +38,6 @@ export default function NotFound() {
 						>
 							Go to Expenses
 						</Link>
-						<Link
-							href="/admin/debts"
-							className="px-4 py-2.5 rounded-lg bg-slate-800/50 hover:bg-slate-700/50 border border-white/10 text-slate-200 font-medium transition-colors text-sm"
-						>
-							Go to Debts
-						</Link>
 					</div>
 				</div>
 			</div>

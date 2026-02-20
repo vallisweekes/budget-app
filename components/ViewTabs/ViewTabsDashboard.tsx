@@ -93,7 +93,6 @@ export default function ViewTabsDashboard(props: ViewTabsProps) {
 							activePlans={model.activePlans}
 							allPlansData={props.allPlansData}
 							fallbackPlanData={model.fallbackPlanData}
-							updatePaymentStatus={model.updatePaymentStatus}
 						/>
 					</div>
 				</div>

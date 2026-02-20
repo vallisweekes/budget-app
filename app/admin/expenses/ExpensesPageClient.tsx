@@ -3,7 +3,7 @@
 import { useId, useMemo, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { MONTHS } from "@/lib/constants/time";
-import { formatMonthKeyLabel, formatMonthKeyShortLabel, normalizeMonthKey } from "@/lib/helpers/monthKey";
+import { formatMonthKeyShortLabel, normalizeMonthKey } from "@/lib/helpers/monthKey";
 import type { MonthKey } from "@/types";
 import type { ExpensesByMonth } from "@/types";
 import type { CategoryConfig } from "@/lib/categories/store";
@@ -34,6 +34,7 @@ interface ExpensesPageClientProps {
   allPlansData: PlanData[];
   initialYear: number;
   initialMonth: MonthKey;
+  initialOpenCategoryId?: string | null;
 	hasAnyIncome: boolean;
 	userStartYear: number;
 	userStartMonthIndex: number;
@@ -86,6 +87,7 @@ export default function ExpensesPageClient({
   allPlansData,
   initialYear,
   initialMonth,
+	initialOpenCategoryId,
   hasAnyIncome,
   userStartYear,
   userStartMonthIndex,
@@ -263,8 +265,6 @@ export default function ExpensesPageClient({
     allPlansData.forEach((d) => {
       const kind = String(d.plan.kind ?? "").toLowerCase();
       const kindPenalty = kind === resolvedActiveTab ? 0 : 1;
-      const includePlanName = (kindPlanCounts[kind] ?? 0) > 1;
-      const planSuffix = includePlanName ? ` (${d.plan.name})` : "";
 
       const sources: Array<{ year: number; expenses: ExpensesByMonth | undefined; yearPenalty: number }> = [
         { year: selectedYear, expenses: d.expenses, yearPenalty: 0 },
@@ -438,7 +438,7 @@ export default function ExpensesPageClient({
 
         {/* Expense Managers for active plans */}
         {activePlans.map((planData) => (
-          <div key={planData.plan.id} className="mb-8">
+          <div key={`${planData.plan.id}:${initialOpenCategoryId ?? ""}`} className="mb-8">
             {/* Show plan name if multiple plans under this tab */}
             {activePlans.length > 1 && (
               <h3 className="text-xl font-bold text-white mb-4">{planData.plan.name}</h3>
@@ -449,6 +449,7 @@ export default function ExpensesPageClient({
               budgetPlanId={planData.plan.id}
 				  budgetHorizonYears={horizonYearsByPlan[planData.plan.id] ?? 10}
 				  horizonYearsByPlan={horizonYearsByPlan}
+				  initialOpenCategoryId={initialOpenCategoryId}
               month={selectedMonth}
               year={selectedYear}
               expenses={planData.expenses[selectedMonth] || []}
@@ -466,8 +467,6 @@ export default function ExpensesPageClient({
         const selectedMonthExpenses = planData.expenses[selectedMonth] ?? [];
         if (selectedMonthExpenses.length > 0) return null;
         const kind = String(planData.plan.kind ?? "").toLowerCase();
-        const includePlanName = (kindPlanCounts[kind] ?? 0) > 1;
-        const planSuffix = includePlanName ? ` (${planData.plan.name})` : "";
 
         const m = pickNearestMonthWithExpenses(planData.expenses, selectedMonth);
         if (m) {

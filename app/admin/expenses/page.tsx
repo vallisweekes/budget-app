@@ -58,6 +58,21 @@ export default async function AdminExpensesPage({
 	const selectedMonth: MonthKey = normalizeMonthKey(monthCandidate) ?? currentMonthKey();
   const currentYear = new Date().getFullYear();
 
+  const rawOpenCategoryId = Array.isArray(sp.openCategoryId)
+    ? sp.openCategoryId[0]
+    : (sp.openCategoryId ?? (Array.isArray(sp.categoryId) ? sp.categoryId[0] : sp.categoryId));
+  const openCategoryId = typeof rawOpenCategoryId === "string" && rawOpenCategoryId.trim() ? rawOpenCategoryId.trim() : null;
+
+  if (openCategoryId) {
+    redirect(
+      `/user=${encodeURIComponent(username)}/${encodeURIComponent(
+        budgetPlanId
+      )}/page=expense-category/${encodeURIComponent(openCategoryId)}?year=${encodeURIComponent(
+        String(selectedYear)
+      )}&month=${encodeURIComponent(selectedMonth)}`
+    );
+  }
+
   if (selectedYear < userStartYear) {
     const minMonth = (MONTHS as MonthKey[])[Math.min(Math.max(userStartMonthIndex, 0), 11)] ?? selectedMonth;
     redirect(
@@ -90,6 +105,8 @@ export default async function AdminExpensesPage({
   // Fetch expenses and categories for all plans
   const allPlansData = await Promise.all(
     allPlans.map(async (p) => {
+      type PlanWithHorizon = typeof p & { budgetHorizonYears?: number | null };
+      const planHorizonYears = (p as PlanWithHorizon).budgetHorizonYears ?? 10;
       const expenses = await getAllExpenses(p.id, selectedYear);
       const currentYearExpenses = currentYear === selectedYear ? expenses : await getAllExpenses(p.id, currentYear);
 	  await ensureDefaultCategoriesForBudgetPlan({ budgetPlanId: p.id });
@@ -115,7 +132,7 @@ export default async function AdminExpensesPage({
           name: p.name,
           kind: p.kind,
           payDate: p.payDate,
-        budgetHorizonYears: (p as any).budgetHorizonYears ?? 10,
+        budgetHorizonYears: planHorizonYears,
         },
         expenses,
         currentYearExpenses,
@@ -131,6 +148,8 @@ export default async function AdminExpensesPage({
       };
     })
   );
+
+  // Focused category views are handled by /page=expense-category/<id>.
 
   const selectedMonthHasAnyExpenses = allPlansData.some((d) => {
     const list = d.expenses?.[selectedMonth] ?? [];
@@ -157,6 +176,7 @@ export default async function AdminExpensesPage({
       allPlansData={allPlansData}
       initialYear={selectedYear}
       initialMonth={selectedMonth}
+	  initialOpenCategoryId={null}
 		hasAnyIncome={hasAnyIncome}
     userStartYear={userStartYear}
     userStartMonthIndex={userStartMonthIndex}

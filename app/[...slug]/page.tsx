@@ -4,6 +4,7 @@ import DashboardView from "@/components/Dashboard/DashboardView";
 import NewBudgetPageContent from "@/app/budgets/new/NewBudgetPageContent";
 import AdminIncomePage from "@/app/admin/income/page";
 import AdminExpensesPage from "@/app/admin/expenses/page";
+import ExpenseCategoryPage from "@/app/admin/expenses/ExpenseCategoryPage";
 import DebtsPage from "@/app/admin/debts/page";
 import DebtDetailPage from "@/app/admin/debts/DebtDetailPage";
 import GoalsPage from "@/app/admin/goals/page";
@@ -185,6 +186,7 @@ export default async function UserBudgetPage({
 		"dashboard",
 		"income",
 		"expenses",
+		"expense-category",
 		"spending",
 		"debts",
 		"goals",
@@ -239,14 +241,80 @@ export default async function UserBudgetPage({
 		if (!yearVal || !monthVal) {
 			const y = new Date().getFullYear();
 			const m = currentMonthKey();
+			const rest = pageRest.length > 0 ? `/${pageRest.map((s) => encodeURIComponent(String(s))).join("/")}` : "";
 			redirect(
 				`/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(
 					budgetPlanId
-				)}/page=expenses?year=${encodeURIComponent(
+				)}/page=expenses${rest}?year=${encodeURIComponent(
 					String(y)
 				)}&month=${encodeURIComponent(m)}`
 			);
 		}
+	}
+
+	// Canonicalize Expense Category URL so year/month are always present.
+	if (pageKey === "expense-category") {
+		const rawYear = resolvedSearchParams.year;
+		const rawMonth = resolvedSearchParams.month;
+		const yearVal = Array.isArray(rawYear) ? rawYear[0] : rawYear;
+		const monthVal = Array.isArray(rawMonth) ? rawMonth[0] : rawMonth;
+		const categoryId = String(pageRest[0] ?? "").trim();
+		if (!categoryId) return notFound();
+		if (!yearVal || !monthVal) {
+			const y = new Date().getFullYear();
+			const m = currentMonthKey();
+			redirect(
+				`/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(
+					budgetPlanId
+				)}/page=expense-category/${encodeURIComponent(categoryId)}?year=${encodeURIComponent(
+					String(y)
+				)}&month=${encodeURIComponent(m)}`
+			);
+		}
+	}
+
+	// Redirect legacy Expense focused links to the dedicated route.
+	// Old: /page=expenses/<categoryId>?year=...&month=...
+	if (pageKey === "expenses" && pageRest.length >= 1) {
+		const categoryId = String(pageRest[0] ?? "").trim();
+		if (!categoryId) return notFound();
+		const rawYear = resolvedSearchParams.year;
+		const rawMonth = resolvedSearchParams.month;
+		const yearVal = Array.isArray(rawYear) ? rawYear[0] : rawYear;
+		const monthVal = Array.isArray(rawMonth) ? rawMonth[0] : rawMonth;
+		redirect(
+			`/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(
+				budgetPlanId
+			)}/page=expense-category/${encodeURIComponent(categoryId)}?year=${encodeURIComponent(
+				String(yearVal)
+			)}&month=${encodeURIComponent(String(monthVal))}`
+		);
+	}
+
+	// Old: /page=expenses?year=...&month=...&categoryId=<id>
+	if (pageKey === "expenses") {
+		const rawCategoryId = resolvedSearchParams.categoryId;
+		const categoryId = Array.isArray(rawCategoryId) ? rawCategoryId[0] : rawCategoryId;
+		if (typeof categoryId === "string" && categoryId.trim()) {
+			const rawYear = resolvedSearchParams.year;
+			const rawMonth = resolvedSearchParams.month;
+			const yearVal = Array.isArray(rawYear) ? rawYear[0] : rawYear;
+			const monthVal = Array.isArray(rawMonth) ? rawMonth[0] : rawMonth;
+			redirect(
+				`/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(
+					budgetPlanId
+				)}/page=expense-category/${encodeURIComponent(categoryId.trim())}?year=${encodeURIComponent(
+					String(yearVal)
+				)}&month=${encodeURIComponent(String(monthVal))}`
+			);
+		}
+	}
+
+	// Dedicated expense category route: /user=<username>/<planId>/page=expense-category/<categoryId>?year=...&month=...
+	if (pageKey === "expense-category") {
+		const categoryId = String(pageRest[0] ?? "").trim();
+		if (!categoryId) return notFound();
+		return renderUserScopedAdminPage(pageKey, budgetPlanId, { ...sp, categoryId });
 	}
 
 	// Debt detail route: /user=<username>/<planId>/page=debts/<debtId>/<debtName>?view=true
@@ -269,6 +337,8 @@ function renderUserScopedAdminPage(
 			return <AdminIncomePage searchParams={Promise.resolve({ ...searchParams, plan: budgetPlanId })} />;
 		case "expenses":
 			return <AdminExpensesPage searchParams={Promise.resolve({ ...searchParams, plan: budgetPlanId })} />;
+		case "expense-category":
+			return <ExpenseCategoryPage searchParams={Promise.resolve({ ...searchParams, plan: budgetPlanId })} />;
 		case "spending":
 			return <SpendingPage searchParams={Promise.resolve({ ...searchParams, plan: budgetPlanId })} />;
 		case "debts":

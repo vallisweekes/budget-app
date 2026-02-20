@@ -37,6 +37,7 @@ export type ExpenseManagerProps = {
 	budgetPlanId: string;
 	budgetHorizonYears?: number;
 	horizonYearsByPlan?: Record<string, number>;
+	initialOpenCategoryId?: string | null;
 	month: MonthKey;
 	year: number;
 	expenses: ExpenseItem[];

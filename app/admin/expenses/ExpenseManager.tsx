@@ -10,6 +10,7 @@ export default function ExpenseManager({
 }: ExpenseManagerProps) {
 	const logic = useExpenseManager({
 		budgetPlanId: props.budgetPlanId,
+		initialOpenCategoryId: props.initialOpenCategoryId,
 		month: props.month,
 		year: props.year,
 		expenses: props.expenses,

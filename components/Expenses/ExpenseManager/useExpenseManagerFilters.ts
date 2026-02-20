@@ -24,13 +24,23 @@ export type UseExpenseManagerFiltersResult = {
 export function useExpenseManagerFilters(args: {
 	expenses: ExpenseItem[];
 	categories: ExpenseManagerProps["categories"];
+	initialOpenCategoryId?: string | null;
 }): UseExpenseManagerFiltersResult {
-	const { expenses, categories } = args;
+	const { expenses, categories, initialOpenCategoryId } = args;
 
 	const [searchQuery, setSearchQuery] = useState("");
 	const [statusFilter, setStatusFilter] = useState<ExpenseStatusFilter>("all");
 	const [minAmountFilter, setMinAmountFilter] = useState<number | null>(null);
-	const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({ uncategorized: true });
+	const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>(() => {
+		const next: Record<string, boolean> = { uncategorized: true };
+		if (initialOpenCategoryId === "uncategorized") {
+			next.uncategorized = false;
+		}
+		if (initialOpenCategoryId && categories.some((c) => c.id === initialOpenCategoryId)) {
+			next[initialOpenCategoryId] = false;
+		}
+		return next;
+	});
 
 	const toggleCategory = (categoryId: string) => {
 		setCollapsedCategories((prev) => ({ ...prev, [categoryId]: !(prev[categoryId] ?? true) }));

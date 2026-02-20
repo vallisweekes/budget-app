@@ -5,7 +5,7 @@ import { Receipt, Plus } from "lucide-react";
 import ExpandableCategory from "@/components/ExpandableCategory";
 import { Card } from "@/components/Shared";
 import { buildScopedPageHrefForPlan } from "@/lib/helpers/scopedPageHref";
-import type { BudgetPlan, BudgetPlanData, MonthKey, TabKey, UpdatePaymentStatusFn } from "@/types";
+import type { BudgetPlan, BudgetPlanData, MonthKey, TabKey } from "@/types";
 
 export default function ExpenseDetailsSection(props: {
 	show: boolean;
@@ -17,7 +17,6 @@ export default function ExpenseDetailsSection(props: {
 	activePlans: BudgetPlan[];
 	allPlansData?: Record<string, BudgetPlanData>;
 	fallbackPlanData: BudgetPlanData;
-	updatePaymentStatus: UpdatePaymentStatusFn;
 }) {
 	const {
 		show,
@@ -29,7 +28,6 @@ export default function ExpenseDetailsSection(props: {
 		activePlans,
 		allPlansData,
 		fallbackPlanData,
-		updatePaymentStatus,
 	} = props;
 
 	return (
@@ -52,10 +50,12 @@ export default function ExpenseDetailsSection(props: {
 
 			{show ? (
 				<div className="space-y-4">
+					{/* Dashboard shows an overview; clicking a category navigates to the full expenses page and opens it there. */}
 					{(activePlans.length > 0
 						? activePlans
 						: [{ id: budgetPlanId, name: "This plan", kind: resolvedActiveTab, payDate: 27 }]
 					).map((plan) => {
+						const currentYear = new Date().getFullYear();
 						const planData = allPlansData?.[plan.id] ?? (plan.id === budgetPlanId ? fallbackPlanData : undefined);
 						if (!planData) return null;
 
@@ -80,6 +80,7 @@ export default function ExpenseDetailsSection(props: {
 									planData.categoryData.map((cat) => (
 										<ExpandableCategory
 											key={cat.id}
+											categoryId={cat.id}
 											categoryName={cat.name}
 											categoryIcon={cat.icon || "Circle"}
 											categoryColor={cat.color}
@@ -93,11 +94,8 @@ export default function ExpenseDetailsSection(props: {
 											}))}
 											total={cat.total}
 											month={month}
-											defaultDueDate={plan.payDate}
+											year={currentYear}
 											budgetPlanId={plan.id}
-											updatePaymentStatus={(monthKey, id, status, partialAmount) =>
-												updatePaymentStatus(plan.id, monthKey, id, status, partialAmount)
-											}
 										/>
 									))
 								)}

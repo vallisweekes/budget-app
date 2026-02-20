@@ -13,6 +13,8 @@ import UncategorizedSection from "@/components/Expenses/ExpenseManager/Uncategor
 import EmptyExpensesState from "@/components/Expenses/ExpenseManager/EmptyExpensesState";
 import { Skeleton } from "@/components/Shared";
 import { X } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { buildScopedPageHrefForPlan } from "@/lib/helpers/scopedPageHref";
 
 type Props = ExpenseManagerProps & UseExpenseManagerResult;
 
@@ -45,8 +47,6 @@ export default function ExpenseManagerView({
 	setStatusFilter,
 	minAmountFilter,
 	setMinAmountFilter,
-	collapsedCategories,
-	toggleCategory,
 	filteredExpenses,
 	uncategorized,
 	expensesByCategory,
@@ -78,7 +78,16 @@ export default function ExpenseManagerView({
 	onAddedExpense,
 	onAddError,
 }: Props) {
+	const router = useRouter();
+	const pathname = usePathname();
 	const selectedPlanKind = allPlans?.find((p) => p.id === budgetPlanId)?.kind ?? "personal";
+
+	const navigateToCategory = (categoryId: string) => {
+		const base = buildScopedPageHrefForPlan(pathname, budgetPlanId, "expense-category");
+		router.push(
+			`${base}/${encodeURIComponent(categoryId)}?year=${encodeURIComponent(String(year))}&month=${encodeURIComponent(month)}`
+		);
+	};
 
 	return (
 		<div className="space-y-4 sm:space-y-6">
@@ -189,14 +198,16 @@ export default function ExpenseManagerView({
 						return (
 							<CategorySection
 								key={catId}
+									variant="preview"
+									onView={() => navigateToCategory(catId)}
 								category={category}
 								expenses={catExpenses}
 								month={month}
 								year={year}
 								payDate={payDate}
 								isBusy={isPending}
-								isCollapsed={collapsedCategories[catId] ?? true}
-								onToggleCollapsed={() => toggleCategory(catId)}
+									isCollapsed={false}
+									onToggleCollapsed={() => {}}
 								inlineAddOpen={inlineAddCategoryId === catId}
 								inlineAddError={inlineAddError}
 								onInlineAddOpen={() => openInlineAdd(catId)}
@@ -232,12 +243,14 @@ export default function ExpenseManagerView({
 
 			<UncategorizedSection
 				expenses={uncategorized}
+				variant="preview"
+				onView={() => navigateToCategory("uncategorized")}
 				month={month}
 				year={year}
 				payDate={payDate}
 				isBusy={isPending}
-				isCollapsed={collapsedCategories.uncategorized ?? true}
-				onToggleCollapsed={() => toggleCategory("uncategorized")}
+				isCollapsed={false}
+				onToggleCollapsed={() => {}}
 				paymentByExpenseId={paymentByExpenseId}
 				onPaymentValueChange={(expenseId, value) => setPaymentByExpenseId((prev) => ({ ...prev, [expenseId]: value }))}
 				paymentSourceByExpenseId={paymentSourceByExpenseId}
