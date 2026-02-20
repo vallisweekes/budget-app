@@ -81,6 +81,7 @@ export async function getMultiPlanHealthTips(args: {
 	});
 
 	const hasOtherPlans = plans.length > 1;
+	const mainPlan = plans.find((p) => String(p.kind).toLowerCase() === "personal") ?? plans[0];
 
 	// 1) Cross-plan debt pressure (DB debts only).
 	const debtAgg = await prisma.debt.aggregate({
@@ -209,6 +210,14 @@ export async function getMultiPlanHealthTips(args: {
 
 			const nextItems = Array.isArray(next.items) ? next.items : [];
 			const nextTotal = nextItems.reduce((sum, it) => sum + toNumber(it.amount), 0);
+
+			const mainIncomeAgg = mainPlan
+				? await prisma.income.aggregate({
+						where: { budgetPlanId: mainPlan.id, year: next.year, month: next.month },
+						_sum: { amount: true },
+				  })
+				: null;
+			const mainIncomeTotal = toNumber(mainIncomeAgg?._sum?.amount);
 			const largest = nextItems.reduce<{ name: string; amount: number } | null>((best, it) => {
 				const amt = toNumber(it.amount);
 				if (!(amt > 0)) return best;
@@ -229,12 +238,26 @@ export async function getMultiPlanHealthTips(args: {
 				? `Next planned expenses are in ${monthLabel(next.year, next.month)} (≈ ${formatCurrency(nextTotal)} total).`
 				: `Next planned expenses are in ${monthLabel(next.year, next.month)}.`;
 			const largestLine = largest ? `Biggest planned item: ${normalizeLabel(largest.name)} (${formatCurrency(largest.amount)}).` : "";
+			const affordabilityLine = (() => {
+				if (!(nextTotal > 0) || !mainPlan) return "";
+				if (!(mainIncomeTotal > 0)) {
+					return `I don’t see any income recorded on your main plan (${mainPlan.name || "Main plan"}) for ${monthLabel(next.year, next.month)} yet — add income to get a coverage estimate.`;
+				}
+				const gap = mainIncomeTotal - nextTotal;
+				const pct = mainIncomeTotal > 0 ? Math.round((nextTotal / mainIncomeTotal) * 100) : null;
+				const pctPart = pct != null && Number.isFinite(pct) ? ` (~${pct}% of your main-plan income)` : "";
+				if (gap >= 0) {
+					return `Based on your main plan income for ${monthLabel(next.year, next.month)} (≈ ${formatCurrency(mainIncomeTotal)}), you’re on track to cover this${pctPart}.`;
+				}
+				return `Based on your main plan income for ${monthLabel(next.year, next.month)} (≈ ${formatCurrency(mainIncomeTotal)}), this looks short by about ${formatCurrency(Math.abs(gap))}${pctPart}.`;
+			})();
 			const saveLine = savingSuggestion ? `If you want to be ready, setting aside about ${savingSuggestion} per month until then will cover it.` : "";
 
 			const detail = [
 				`No expenses for this plan in ${monthLabel(currentYear, currentMonthNum)} yet.`,
 				nextSummary,
 				largestLine,
+				affordabilityLine,
 				activityLine,
 				lastTouchedLine,
 				saveLine,
