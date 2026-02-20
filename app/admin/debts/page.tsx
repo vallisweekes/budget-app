@@ -8,8 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import AddDebtForm from "@/components/Admin/Debts/AddDebtForm";
 import DebtsList from "@/components/Admin/Debts/DebtsList";
-import { getExpenseDebts, processOverdueExpensesToDebts } from "@/lib/expenses/carryover";
-import { processMissedDebtPaymentsToAccrue } from "@/lib/debts/carryover";
+import { getDebtSummaryForPlan } from "@/lib/debts/summary";
 import { HeroCanvasLayout } from "@/components/Shared";
 
 
@@ -47,23 +46,10 @@ export default async function DebtsPage(props: {
 
 	const budgetPlanId = budgetPlan.id;
 
-	// Ensure overdue/part-paid expenses are reflected as debts.
-	await processOverdueExpensesToDebts(budgetPlanId);
-	// Ensure missed debt payments (due date + grace) accumulate into balances.
-	await processMissedDebtPaymentsToAccrue(budgetPlanId);
+	const debtSummary = await getDebtSummaryForPlan(budgetPlanId, { includeExpenseDebts: true, ensureSynced: true });
+	const { allDebts, activeDebts, activeRegularDebts, activeExpenseDebts, creditCards } = debtSummary;
 	
-	// Get regular debts and expense-derived debts separately
-	const regularDebts = (await getAllDebts(budgetPlanId)).filter((d) => d.sourceType !== "expense");
-	const expenseDebts = await getExpenseDebts(budgetPlanId);
-	
-	// Combine both types
-	const allDebts = [...regularDebts, ...expenseDebts];
-	const activeDebts = allDebts.filter((d) => d.currentBalance > 0);
-	const activeRegularDebts = regularDebts.filter((d) => d.currentBalance > 0);
-	const activeExpenseDebts = expenseDebts.filter((d) => d.currentBalance > 0);
-	const creditCards = regularDebts.filter((d) => d.type === "credit_card" || d.type === "store_card");
-	
-	const totalDebt = allDebts.reduce((sum, debt) => sum + (debt.currentBalance || 0), 0);
+	const totalDebt = debtSummary.totalDebtBalance;
 	const totalInitialDebt = allDebts.reduce((sum, debt) => sum + (debt.initialBalance || 0), 0);
 	const totalPaidAmount = allDebts.reduce((sum, debt) => sum + (debt.paidAmount || 0), 0);
 	const debtPayoffProgress = totalInitialDebt > 0 ? (totalPaidAmount / totalInitialDebt) * 100 : 0;

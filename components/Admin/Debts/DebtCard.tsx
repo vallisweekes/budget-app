@@ -97,7 +97,14 @@ export default function DebtCard({ debt, creditCards, budgetPlanId, typeLabels, 
 				budgetPlanId={budgetPlanId}
 			/>
 
-			{isCollapsed && !isEditing ? <DebtCardCollapsedSummary debt={debt} percentPaid={derived.percentPaid} /> : null}
+			{isCollapsed && !isEditing ? (
+				<DebtCardCollapsedSummary
+					debt={debt}
+					percentPaid={derived.percentPaid}
+					payments={payments}
+					paymentMonth={derived.paymentMonth}
+				/>
+			) : null}
 
 			{!isCollapsed ? (
 				isEditing ? (

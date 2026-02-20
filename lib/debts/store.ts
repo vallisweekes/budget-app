@@ -580,13 +580,21 @@ export async function addPayment(
 		]);
 		if (!targetDebt) return null;
 		if (!cardDebt) throw new Error("Selected card not found");
-		if (cardDebt.type !== "credit_card") throw new Error("Selected source must be a credit card");
+		if (cardDebt.type !== "credit_card" && (cardDebt.type as any) !== "store_card") {
+			throw new Error("Selected source must be a credit or store card");
+		}
+
+		const targetCurrentBalance = decimalToNumber(targetDebt.currentBalance);
+		if (targetCurrentBalance <= 0) {
+			throw new Error("Debt is already paid");
+		}
+		const appliedAmount = Math.min(amount, targetCurrentBalance);
 
 		const result = await prisma.$transaction(async (tx) => {
 			const createdPayment = await tx.debtPayment.create({
 				data: {
 					debtId: targetDebt.id,
-					amount,
+					amount: appliedAmount,
 					paidAt,
 					year,
 					month: monthNum,
@@ -603,11 +611,9 @@ export async function addPayment(
 					...(DEBT_PAYMENT_HAS_CARD_DEBT_ID ? { cardDebtId: true } : {}),
 				},
 			});
-
-			const targetCurrentBalance = decimalToNumber(targetDebt.currentBalance);
 			const targetCurrentPaid = decimalToNumber(targetDebt.paidAmount);
-			const nextTargetBalance = Math.max(0, targetCurrentBalance - amount);
-			const nextTargetPaid = Math.max(0, targetCurrentPaid + amount);
+			const nextTargetBalance = Math.max(0, targetCurrentBalance - appliedAmount);
+			const nextTargetPaid = Math.max(0, targetCurrentPaid + appliedAmount);
 
 			await tx.debt.update({
 				where: { id: targetDebt.id },
@@ -619,7 +625,7 @@ export async function addPayment(
 			});
 
 			const cardCurrentBalance = decimalToNumber(cardDebt.currentBalance);
-			const nextCardBalance = Math.max(0, cardCurrentBalance + amount);
+			const nextCardBalance = Math.max(0, cardCurrentBalance + appliedAmount);
 			await tx.debt.update({
 				where: { id: cardDebt.id },
 				data: {
@@ -641,10 +647,17 @@ export async function addPayment(
 	});
 	if (!debt) return null;
 
+	const currentBalance = decimalToNumber(debt.currentBalance);
+	if (currentBalance <= 0) {
+		throw new Error("Debt is already paid");
+	}
+
+	const appliedAmount = Math.min(amount, currentBalance);
+
 	const payment = await prisma.debtPayment.create({
 		data: {
 			debtId: debt.id,
-			amount,
+			amount: appliedAmount,
 			paidAt,
 			year,
 			month: monthNum,
@@ -661,11 +674,9 @@ export async function addPayment(
 			...(DEBT_PAYMENT_HAS_CARD_DEBT_ID ? { cardDebtId: true } : {}),
 		},
 	});
-
-	const currentBalance = decimalToNumber(debt.currentBalance);
 	const currentPaid = decimalToNumber(debt.paidAmount);
-	const newBalance = Math.max(0, currentBalance - amount);
-	const newPaidAmount = Math.max(0, currentPaid + amount);
+	const newBalance = Math.max(0, currentBalance - appliedAmount);
+	const newPaidAmount = Math.max(0, currentPaid + appliedAmount);
 	await prisma.debt.update({
 		where: { id: debt.id },
 		data: {

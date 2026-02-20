@@ -323,7 +323,9 @@ export async function makePaymentAction(budgetPlanId: string, debtId: string, am
 	const { userId } = await requireAuthenticatedUser();
 	await requireOwnedBudgetPlan(budgetPlanId, userId);
 
-	await addPayment(budgetPlanId, debtId, amount, month, "income");
+	const payment = await addPayment(budgetPlanId, debtId, amount, month, "income");
+	if (!payment) throw new Error("Debt not found");
+	const appliedAmount = payment.amount;
 
 	const debt = await getDebtById(budgetPlanId, debtId);
 	if (debt?.sourceType === "expense" && debt.sourceExpenseId && debt.sourceMonthKey) {
@@ -331,7 +333,7 @@ export async function makePaymentAction(budgetPlanId: string, debtId: string, am
 			budgetPlanId,
 			debt.sourceMonthKey as MonthKey,
 			debt.sourceExpenseId,
-			amount
+			appliedAmount
 		);
 		if (result) {
 			await upsertExpenseDebt({
@@ -369,7 +371,9 @@ export async function makePaymentFromForm(formData: FormData) {
 		throw new Error("Card is required when payment source is credit card");
 	}
 
-	await addPayment(budgetPlanId, debtId, amount, month, source, cardDebtId || undefined);
+	const payment = await addPayment(budgetPlanId, debtId, amount, month, source, cardDebtId || undefined);
+	if (!payment) throw new Error("Debt not found");
+	const appliedAmount = payment.amount;
 
 	const debt = await getDebtById(budgetPlanId, debtId);
 	if (debt?.sourceType === "expense" && debt.sourceExpenseId && debt.sourceMonthKey) {
@@ -377,7 +381,7 @@ export async function makePaymentFromForm(formData: FormData) {
 			budgetPlanId,
 			debt.sourceMonthKey as MonthKey,
 			debt.sourceExpenseId,
-			amount
+			appliedAmount
 		);
 		if (result) {
 			await upsertExpenseDebt({

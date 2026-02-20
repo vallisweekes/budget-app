@@ -1,0 +1,55 @@
+import type { DebtItem } from "@/types/helpers/debts";
+import { processMissedDebtPaymentsToAccrue } from "@/lib/debts/carryover";
+import { getAllDebts } from "@/lib/debts/store";
+import { getExpenseDebts, processOverdueExpensesToDebts } from "@/lib/expenses/carryover";
+
+export type DebtSummary = {
+	regularDebts: DebtItem[];
+	expenseDebts: DebtItem[];
+	allDebts: DebtItem[];
+	activeDebts: DebtItem[];
+	activeRegularDebts: DebtItem[];
+	activeExpenseDebts: DebtItem[];
+	creditCards: DebtItem[];
+	totalDebtBalance: number;
+};
+
+export async function getDebtSummaryForPlan(
+	budgetPlanId: string,
+	opts?: {
+		includeExpenseDebts?: boolean;
+		ensureSynced?: boolean;
+	}
+): Promise<DebtSummary> {
+	const includeExpenseDebts = opts?.includeExpenseDebts ?? true;
+	const ensureSynced = opts?.ensureSynced ?? true;
+
+	if (ensureSynced) {
+		// Ensure overdue/part-paid expenses are reflected as debts.
+		await processOverdueExpensesToDebts(budgetPlanId);
+		// Ensure missed debt payments (due date + grace) accumulate into balances.
+		await processMissedDebtPaymentsToAccrue(budgetPlanId);
+	}
+
+	const regularDebts = (await getAllDebts(budgetPlanId)).filter((d) => d.sourceType !== "expense");
+	const expenseDebts = includeExpenseDebts ? await getExpenseDebts(budgetPlanId) : [];
+	const allDebts = [...regularDebts, ...expenseDebts];
+
+	const activeDebts = allDebts.filter((d) => (d.currentBalance ?? 0) > 0);
+	const activeRegularDebts = regularDebts.filter((d) => (d.currentBalance ?? 0) > 0);
+	const activeExpenseDebts = expenseDebts.filter((d) => (d.currentBalance ?? 0) > 0);
+
+	const creditCards = regularDebts.filter((d) => d.type === "credit_card" || d.type === "store_card");
+	const totalDebtBalance = allDebts.reduce((sum, debt) => sum + (debt.currentBalance || 0), 0);
+
+	return {
+		regularDebts,
+		expenseDebts,
+		allDebts,
+		activeDebts,
+		activeRegularDebts,
+		activeExpenseDebts,
+		creditCards,
+		totalDebtBalance,
+	};
+}

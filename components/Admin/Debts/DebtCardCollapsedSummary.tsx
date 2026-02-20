@@ -1,14 +1,31 @@
 "use client";
 
 import { formatCurrency } from "@/lib/helpers/money";
+import type { DebtPayment } from "@/types";
 import type { DebtCardDebt } from "@/types/components/debts";
 
 function Currency({ value }: { value: number }) {
 	return <span>{formatCurrency(value)}</span>;
 }
 
-export default function DebtCardCollapsedSummary(props: { debt: DebtCardDebt; percentPaid: number }) {
-	const { debt, percentPaid } = props;
+
+export default function DebtCardCollapsedSummary(props: {
+	debt: DebtCardDebt;
+	percentPaid: number;
+	payments: DebtPayment[];
+	paymentMonth: string;
+}) {
+	const { debt, percentPaid, payments, paymentMonth } = props;
+	const isCardDebt = debt.type === "credit_card" || debt.type === "store_card";
+	const paidThisMonth =
+		isCardDebt
+			? payments
+					.filter((p) => p.month === paymentMonth)
+					.reduce((sum, p) => sum + (Number.isFinite(p.amount) ? p.amount : 0), 0)
+			: 0;
+	const monthlyMinimumDue = isCardDebt ? (debt.monthlyMinimum ?? debt.amount) : debt.amount;
+	const isPaymentMonthPaid = isCardDebt && monthlyMinimumDue > 0 && paidThisMonth >= monthlyMinimumDue;
+	const remainingDueThisMonth = isCardDebt ? Math.max(0, monthlyMinimumDue - paidThisMonth) : monthlyMinimumDue;
 
 	const showAvailableToSpend =
 		(debt.type === "credit_card" || debt.type === "store_card") &&
@@ -29,9 +46,9 @@ export default function DebtCardCollapsedSummary(props: { debt: DebtCardDebt; pe
 				) : null}
 			</div>
 			<div className="bg-amber-500/10 rounded-lg p-2 border border-amber-500/20">
-				<div className="text-[10px] sm:text-xs text-amber-300 mb-0.5">Due This Month</div>
+				<div className="text-[10px] sm:text-xs text-amber-300 mb-0.5">{isPaymentMonthPaid ? "Paid This Month" : "Due This Month"}</div>
 				<div className="text-sm sm:text-base font-bold text-amber-400">
-					<Currency value={debt.amount} />
+					<Currency value={isPaymentMonthPaid ? paidThisMonth : remainingDueThisMonth} />
 				</div>
 			</div>
 			<div className="col-span-2">

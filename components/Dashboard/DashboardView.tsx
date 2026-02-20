@@ -5,7 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { MONTHS } from "@/lib/constants/time";
 import { currentMonthKey } from "@/lib/helpers/monthKey";
 import { computeDebtTips } from "@/lib/debts/insights";
-import { getAllDebts } from "@/lib/debts/store";
+import { getDebtSummaryForPlan } from "@/lib/debts/summary";
 import { getBudgetPlanMeta } from "@/lib/helpers/dashboard/getBudgetPlanMeta";
 import { getDashboardPlanData } from "@/lib/helpers/dashboard/getDashboardPlanData";
 import { getAllPlansDashboardData } from "@/lib/helpers/dashboard/getAllPlansDashboardData";
@@ -55,10 +55,10 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 		year: selectedYear,
 	});
 
-	const allDebts = await getAllDebts(budgetPlanId);
-	const debts = allDebts.filter((d) => d.sourceType !== "expense");
+	const debtSummary = await getDebtSummaryForPlan(budgetPlanId, { includeExpenseDebts: true, ensureSynced: true });
+	const debts = debtSummary.activeDebts;
 	const debtTips = computeDebtTips({ debts, totalIncome: currentPlanData.totalIncome });
-	const totalDebtBalance = debts.reduce((sum, debt) => sum + (debt.currentBalance || 0), 0);
+	const totalDebtBalance = debtSummary.totalDebtBalance;
 
 	const expenseInsights = {
 		...expenseInsightsBase,

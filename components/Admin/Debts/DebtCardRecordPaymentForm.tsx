@@ -14,6 +14,7 @@ export default function DebtCardRecordPaymentForm(props: {
 	onPaymentCardDebtIdChange: (next: string) => void;
 	creditCardOptions: Array<{ value: string; label: string }>;
 	defaultPaymentAmount?: number;
+	isPaymentMonthPaid?: boolean;
 }) {
 	const {
 		debt,
@@ -25,6 +26,7 @@ export default function DebtCardRecordPaymentForm(props: {
 		onPaymentCardDebtIdChange,
 		creditCardOptions,
 		defaultPaymentAmount,
+		isPaymentMonthPaid,
 	} = props;
 
 	return (
@@ -47,7 +49,11 @@ export default function DebtCardRecordPaymentForm(props: {
 						name="amount"
 						step="0.01"
 						placeholder="Amount"
-						defaultValue={defaultPaymentAmount ?? debt.amount}
+						defaultValue={
+							isPaymentMonthPaid
+								? ""
+								: (Number.isFinite(defaultPaymentAmount as number) ? defaultPaymentAmount : debt.amount)
+						}
 						required
 						aria-label="Payment amount"
 						className="h-8 sm:h-10 w-full px-2 py-1.5 sm:px-3 sm:py-2 bg-slate-900/60 border border-white/10 text-white placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-xs sm:text-sm"

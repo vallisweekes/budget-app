@@ -12,6 +12,10 @@ export default function DebtCardAmountsGrid(props: {
 	debt: DebtCardDebt;
 	displayDueAmount?: number;
 	displayDueNote?: string;
+	monthlyMinimumDue?: number;
+	paidThisMonth?: number;
+	isPaymentMonthPaid?: boolean;
+	lockDueAmountEdit?: boolean;
 	isEditingAmount: boolean;
 	tempDueAmount: string;
 	onTempDueAmountChange: (next: string) => void;
@@ -23,6 +27,10 @@ export default function DebtCardAmountsGrid(props: {
 		debt,
 		displayDueAmount,
 		displayDueNote,
+		monthlyMinimumDue,
+		paidThisMonth,
+		isPaymentMonthPaid,
+		lockDueAmountEdit,
 		isEditingAmount,
 		tempDueAmount,
 		onTempDueAmountChange,
@@ -30,6 +38,11 @@ export default function DebtCardAmountsGrid(props: {
 		onSaveDueAmount,
 		isPending,
 	} = props;
+
+	const isCardDebt = debt.type === "credit_card" || debt.type === "store_card";
+	const effectiveMonthlyDue = monthlyMinimumDue ?? debt.amount;
+	const effectivePaidThisMonth = paidThisMonth ?? 0;
+	const showPaidThisMonth = Boolean(isCardDebt && isPaymentMonthPaid);
 
 	const showAvailableToSpend =
 		(debt.type === "credit_card" || debt.type === "store_card") &&
@@ -60,16 +73,18 @@ export default function DebtCardAmountsGrid(props: {
 				</div>
 			) : null}
 
-			<div>
-				<div className="text-[10px] sm:text-xs text-slate-400 mb-0.5 sm:mb-1">Initial Balance</div>
-				<div className="text-base sm:text-lg font-semibold text-slate-300">
-					<Currency value={debt.initialBalance} />
+			{!isCardDebt ? (
+				<div>
+					<div className="text-[10px] sm:text-xs text-slate-400 mb-0.5 sm:mb-1">Initial Balance</div>
+					<div className="text-base sm:text-lg font-semibold text-slate-300">
+						<Currency value={debt.initialBalance} />
+					</div>
 				</div>
-			</div>
+			) : null}
 			<div className="bg-amber-500/10 rounded-lg p-2 sm:p-3 border border-amber-500/20">
 				<div className="text-[10px] sm:text-xs text-amber-300 mb-0.5 sm:mb-1 font-medium flex items-center justify-between">
-					<span>Due This Month</span>
-					{!isEditingAmount ? (
+					<span>{showPaidThisMonth ? "Paid This Month" : "Due This Month"}</span>
+					{!isEditingAmount && !lockDueAmountEdit ? (
 						<button
 							onClick={() => {
 								onTempDueAmountChange(String(debt.amount));
@@ -112,9 +127,11 @@ export default function DebtCardAmountsGrid(props: {
 				) : (
 					<>
 						<div className="text-xl font-bold text-amber-400">
-							<Currency value={displayDueAmount ?? debt.amount} />
+							<Currency value={showPaidThisMonth ? effectivePaidThisMonth : (displayDueAmount ?? debt.amount)} />
 						</div>
-						{displayDueNote ? <div className="text-[10px] sm:text-xs text-amber-200/80 mt-0.5">{displayDueNote}</div> : null}
+						{displayDueNote ? (
+							<div className="text-[10px] sm:text-xs text-amber-200/80 mt-0.5">{displayDueNote}</div>
+						) : null}
 					</>
 				)}
 			</div>
