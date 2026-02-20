@@ -35,6 +35,14 @@ function badgeClass(kind: "ok" | "warn" | "bad" | "muted"): string {
 	}
 }
 
+function urgencyTone(urgency: UpcomingPayment["urgency"]): "warn" | "bad" | "muted" {
+	return urgency === "overdue" ? "bad" : urgency === "today" || urgency === "soon" ? "warn" : "muted";
+}
+
+function urgencySuffix(urgency: UpcomingPayment["urgency"]): string {
+	return urgency === "overdue" ? " (overdue)" : urgency === "today" ? " (today)" : urgency === "soon" ? " (soon)" : "";
+}
+
 function toTitleCaseMonthOnly(label: string): string {
 	const trimmed = String(label ?? "").trim();
 	if (!trimmed) return "";
@@ -161,26 +169,40 @@ export default function PaymentInsightsCards({
 							</div>
 						</div>
 						{upcoming.map((u) => {
-							const tone =
-								u.urgency === "overdue" ? "bad" : u.urgency === "today" ? "warn" : u.urgency === "soon" ? "warn" : "muted";
+							const tagTone = urgencyTone(u.urgency);
 							return (
 								<div
 									key={u.id}
-									className={`flex items-center justify-between gap-3 rounded-2xl border px-3 py-2 ${badgeClass(tone)}`}
+									className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-slate-900/40 px-3 py-2 text-slate-200"
 								>
 									<div className="min-w-0">
 										<div className="text-sm font-semibold truncate">{u.name}</div>
-										<div className="text-xs opacity-90">
-											Due {formatIsoDueDate(u.dueDate)}
-											{u.urgency === "overdue" ? " (overdue)" : u.urgency === "today" ? " (today)" : u.urgency === "soon" ? " (soon)" : ""}
+										<div className="mt-1 flex items-center gap-2">
+											<div
+												className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${badgeClass(
+													tagTone
+												)}`}
+												title={
+													u.urgency === "overdue"
+														? "Overdue payment"
+														: u.urgency === "today"
+															? "Payment due today"
+															: u.urgency === "soon"
+																? "Payment due soon"
+																: "Upcoming payment"
+												}
+											>
+												Due {formatIsoDueDate(u.dueDate)}
+												{urgencySuffix(u.urgency)}
+											</div>
 										</div>
 									</div>
 									<div className="text-right whitespace-nowrap">
 										<div className="text-sm font-bold">{money(u.amount)}</div>
 										{u.status !== "paid" ? (
-											<div className="text-xs opacity-90">Remaining {money(Math.max(0, u.amount - u.paidAmount))}</div>
+											<div className="text-xs text-slate-300">Remaining {money(Math.max(0, u.amount - u.paidAmount))}</div>
 										) : (
-											<div className="text-xs opacity-90">Paid</div>
+											<div className="text-xs text-slate-300">Paid</div>
 										)}
 									</div>
 								</div>
