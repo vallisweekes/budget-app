@@ -1,11 +1,16 @@
 import "server-only";
 
 function isRetryableConnectionError(error: unknown): boolean {
+	const code =
+		error && typeof error === "object" && "code" in error ? String((error as any).code ?? "") : "";
 	const message = error instanceof Error ? error.message : String(error ?? "");
 	return (
+		code === "P1017" ||
 		message.includes("Server has closed the connection") ||
 		message.includes("Error in PostgreSQL connection") ||
-		message.includes("kind: Closed")
+		message.includes("kind: Closed") ||
+		message.toLowerCase().includes("econnreset") ||
+		message.toLowerCase().includes("connection terminated")
 	);
 }
 

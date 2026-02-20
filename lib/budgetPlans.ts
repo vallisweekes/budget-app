@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { ensureDefaultCategoriesForBudgetPlan } from "@/lib/categories/defaultCategories";
+import { withPrismaRetry } from "@/lib/prismaRetry";
 import { normalizeUsername } from "@/lib/helpers/username";
 import { isValidEmail, normalizeEmail } from "@/lib/helpers/email";
 
@@ -26,14 +27,18 @@ export async function getOrCreateUserByUsername(username: string) {
 		throw new Error("Username is required");
 	}
 
-	const existing = await prisma.user.findFirst({
+	const existing = await withPrismaRetry(
+		() =>
+			prisma.user.findFirst({
 		where: {
 			name: {
 				equals: normalized,
 				mode: "insensitive",
 			},
 		},
-	});
+		}),
+		{ retries: 2, delayMs: 150 }
+	);
 	if (existing) return existing;
 
 	return prisma.user.create({
@@ -46,14 +51,18 @@ export async function getOrCreateUserByUsername(username: string) {
 export async function getUserByUsername(username: string) {
 	const normalized = normalizeUsername(username);
 	if (!normalized) return null;
-	return prisma.user.findFirst({
-		where: {
-			name: {
-				equals: normalized,
-				mode: "insensitive",
-			},
-		},
-	});
+	return withPrismaRetry(
+		() =>
+			prisma.user.findFirst({
+				where: {
+					name: {
+						equals: normalized,
+						mode: "insensitive",
+					},
+				},
+			}),
+		{ retries: 2, delayMs: 150 }
+	);
 }
 
 export async function registerUserByUsername(params: { username: string; email: string }) {
@@ -64,7 +73,10 @@ export async function registerUserByUsername(params: { username: string; email: 
 	if (!email) throw new Error("Email is required");
 	if (!isValidEmail(email)) throw new Error("Invalid email address");
 
-	const existingByEmail = await prisma.user.findUnique({ where: { email }, select: { id: true, name: true } });
+	const existingByEmail = await withPrismaRetry(
+		() => prisma.user.findUnique({ where: { email }, select: { id: true, name: true } }),
+		{ retries: 2, delayMs: 150 }
+	);
 	if (existingByEmail && existingByEmail.name !== username) {
 		throw new Error("Email already in use");
 	}
@@ -93,7 +105,10 @@ export async function resolveUserId(params: {
 		// PWA sessions can get stale across DB resets / migrations. If the session's
 		// userId points at a different (or "ghost") user than the current username,
 		// prefer resolving by username so we don't strand the user on a fresh account.
-		const byId = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true } });
+		const byId = await withPrismaRetry(
+			() => prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true } }),
+			{ retries: 2, delayMs: 150 }
+		);
 		if (byId) {
 			if (!normalizedUsername) return byId.id;
 			const byIdName = String(byId.name ?? "").trim();
@@ -101,15 +116,19 @@ export async function resolveUserId(params: {
 				return byId.id;
 			}
 
-			const byUsername = await prisma.user.findFirst({
-				where: {
-					name: {
-						equals: normalizedUsername,
-						mode: "insensitive",
-					},
-				},
-				select: { id: true },
-			});
+			const byUsername = await withPrismaRetry(
+				() =>
+					prisma.user.findFirst({
+						where: {
+							name: {
+								equals: normalizedUsername,
+								mode: "insensitive",
+							},
+						},
+						select: { id: true },
+					}),
+				{ retries: 2, delayMs: 150 }
+			);
 			return byUsername?.id ?? byId.id;
 		}
 	}
@@ -137,13 +156,17 @@ export async function getOrCreateBudgetPlanForUser(params: {
 
 	// Enforce only one Personal plan. If it exists, return it.
 	if (budgetType === "personal") {
-		const existing = await prisma.budgetPlan.findFirst({
+		const existing = await withPrismaRetry(
+			() =>
+				prisma.budgetPlan.findFirst({
 			where: {
 				userId,
 				kind: "personal",
 			},
 			orderBy: { createdAt: "desc" },
-		});
+			}),
+			{ retries: 2, delayMs: 150 }
+		);
 		if (existing) {
 			await ensureDefaultCategoriesForBudgetPlan({ budgetPlanId: existing.id });
 			return existing;
@@ -181,10 +204,14 @@ export async function getOrCreateBudgetPlanForUser(params: {
 	if (prismaBudgetPlanHasField("emergencyBalance")) {
 		select.emergencyBalance = true;
 	}
-	const personal = (await prisma.budgetPlan.findFirst({
+	const personal = (await withPrismaRetry(
+		() =>
+			prisma.budgetPlan.findFirst({
 		where: { userId, kind: "personal" },
 		select,
-	} as any)) as PersonalSeed | null;
+		} as any),
+		{ retries: 2, delayMs: 150 }
+	)) as PersonalSeed | null;
 	if (!personal) {
 		throw new Error("Personal budget required");
 	}
@@ -226,10 +253,14 @@ export async function getBudgetPlanForUserByType(params: {
 	budgetType: SupportedBudgetType;
 }) {
 	const userId = await resolveUserId({ userId: params.userId, username: params.username });
-	return prisma.budgetPlan.findFirst({
-		where: { userId, kind: params.budgetType },
-		orderBy: { createdAt: "desc" },
-	});
+	return withPrismaRetry(
+		() =>
+			prisma.budgetPlan.findFirst({
+				where: { userId, kind: params.budgetType },
+				orderBy: { createdAt: "desc" },
+			}),
+		{ retries: 2, delayMs: 150 }
+	);
 }
 
 export async function getDefaultBudgetPlanForUser(params: {
@@ -239,13 +270,20 @@ export async function getDefaultBudgetPlanForUser(params: {
 	const userId = await resolveUserId({ userId: params.userId, username: params.username });
 
 	// Prefer Personal if it exists, otherwise fall back to the most recent plan.
-	const personal = await prisma.budgetPlan.findFirst({
+	const personal = await withPrismaRetry(
+		() =>
+			prisma.budgetPlan.findFirst({
 		where: { userId, kind: "personal" },
 		orderBy: { createdAt: "desc" },
-	});
+		}),
+		{ retries: 2, delayMs: 150 }
+	);
 	if (personal) return personal;
 
-	return prisma.budgetPlan.findFirst({ where: { userId }, orderBy: { createdAt: "desc" } });
+	return withPrismaRetry(
+		() => prisma.budgetPlan.findFirst({ where: { userId }, orderBy: { createdAt: "desc" } }),
+		{ retries: 2, delayMs: 150 }
+	);
 }
 
 export async function listBudgetPlansForUser(params: {
@@ -253,8 +291,12 @@ export async function listBudgetPlansForUser(params: {
 	username?: string;
 }) {
 	const userId = await resolveUserId({ userId: params.userId, username: params.username });
-	return prisma.budgetPlan.findMany({
-		where: { userId },
-		orderBy: { createdAt: "desc" },
-	});
+	return withPrismaRetry(
+		() =>
+			prisma.budgetPlan.findMany({
+				where: { userId },
+				orderBy: { createdAt: "desc" },
+			}),
+		{ retries: 2, delayMs: 150 }
+	);
 }

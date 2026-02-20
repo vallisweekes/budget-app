@@ -2,8 +2,6 @@ import type { MonthKey } from "@/types";
 import type { IncomeByMonth } from "@/types/components/income";
 
 import { MONTHS } from "@/lib/constants/time";
-
-import AddIncomeCard from "@/components/Admin/Income/views/AddIncomeCard";
 import IncomeYearPicker from "@/components/Admin/Income/IncomeYearPicker";
 import { MonthlyIncomeGrid } from "@/components/Admin/Income/MonthlyIncomeGrid";
 
@@ -12,9 +10,9 @@ export default function IncomeView({
 	showYearPicker,
 	allYears,
 	selectedIncomeYear,
-	hasAvailableMonths,
-	defaultMonth,
-	monthsWithoutIncome,
+	hasAvailableMonths: _hasAvailableMonths,
+	defaultMonth: _defaultMonth,
+	monthsWithoutIncome: _monthsWithoutIncome,
 	income,
 }: {
 	budgetPlanId: string;
@@ -35,15 +33,6 @@ export default function IncomeView({
 				</div>
 			) : null}
 
-			{hasAvailableMonths ? (
-				<AddIncomeCard
-					budgetPlanId={budgetPlanId}
-					year={selectedIncomeYear}
-					defaultMonth={defaultMonth}
-					monthsWithoutIncome={monthsWithoutIncome}
-				/>
-			) : null}
-
 			<div className="space-y-4 sm:space-y-6">
 				<div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
 					<div className="w-9 h-9 sm:w-12 sm:h-12 bg-gradient-to-br from-pink-500 to-rose-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg">
@@ -58,11 +47,17 @@ export default function IncomeView({
 					</div>
 					<div>
 						<h2 className="text-lg sm:text-2xl font-bold text-white">Monthly Income</h2>
-						<p className="text-slate-400 text-xs sm:text-sm">Manage income sources for each month</p>
+						<p className="text-slate-400 text-xs sm:text-sm">Tap a month to view and manage income sources</p>
 					</div>
 				</div>
 
-				<MonthlyIncomeGrid months={MONTHS} income={income} budgetPlanId={budgetPlanId} year={selectedIncomeYear} />
+				<MonthlyIncomeGrid
+					months={MONTHS}
+					income={income}
+					budgetPlanId={budgetPlanId}
+					year={selectedIncomeYear}
+					variant="preview"
+				/>
 			</div>
 		</div>
 	);

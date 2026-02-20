@@ -1,5 +1,6 @@
 import rawDefaultCategories from "@/data/categories.json";
 import { prisma } from "@/lib/prisma";
+import { withPrismaRetry } from "@/lib/prismaRetry";
 
 export type DefaultCategorySeed = {
 	name: string;
@@ -103,27 +104,35 @@ export async function ensureDefaultCategoriesForBudgetPlan(params: { budgetPlanI
 		const desiredNames = [...desiredByName.keys()];
 
 		// Only check defaults (not user-created categories) so this stays fast.
-		const existingDefaults = await prisma.category.findMany({
-			where: { budgetPlanId, name: { in: desiredNames } },
-			select: { id: true, name: true, icon: true, color: true, featured: true },
-		});
+		const existingDefaults = await withPrismaRetry(
+			() =>
+				prisma.category.findMany({
+					where: { budgetPlanId, name: { in: desiredNames } },
+					select: { id: true, name: true, icon: true, color: true, featured: true },
+				}),
+			{ retries: 2, delayMs: 150 }
+		);
 		const existingByName = new Map(existingDefaults.map((c) => [c.name, c] as const));
 
 		const missing = desiredNames.filter((name) => !existingByName.has(name));
 		if (missing.length > 0) {
-			await prisma.category.createMany({
-				data: missing.map((name) => {
-					const c = desiredByName.get(name)!;
-					return {
-						budgetPlanId,
-						name: c.name,
-						icon: c.icon ?? null,
-						color: c.color ?? null,
-						featured: Boolean(c.featured),
-					};
-				}),
-				skipDuplicates: true,
-			});
+			await withPrismaRetry(
+				() =>
+					prisma.category.createMany({
+						data: missing.map((name) => {
+							const c = desiredByName.get(name)!;
+							return {
+								budgetPlanId,
+								name: c.name,
+								icon: c.icon ?? null,
+								color: c.color ?? null,
+								featured: Boolean(c.featured),
+							};
+						}),
+						skipDuplicates: true,
+					}),
+				{ retries: 2, delayMs: 150 }
+			);
 		}
 
 		// Patch only missing fields from defaults (keeps user customizations intact).
@@ -136,10 +145,14 @@ export async function ensureDefaultCategoriesForBudgetPlan(params: { budgetPlanI
 				const nextFeatured = row.featured || Boolean(def.featured);
 				const needsUpdate = nextIcon !== row.icon || nextColor !== row.color || nextFeatured !== row.featured;
 				if (!needsUpdate) return null;
-				return prisma.category.update({
-					where: { id: row.id },
-					data: { icon: nextIcon, color: nextColor, featured: nextFeatured },
-				});
+				return withPrismaRetry(
+					() =>
+						prisma.category.update({
+							where: { id: row.id },
+							data: { icon: nextIcon, color: nextColor, featured: nextFeatured },
+						}),
+					{ retries: 2, delayMs: 150 }
+				);
 			})
 			.filter(Boolean) as Array<ReturnType<typeof prisma.category.update>>;
 		if (patchUpdates.length > 0) {
@@ -149,10 +162,14 @@ export async function ensureDefaultCategoriesForBudgetPlan(params: { budgetPlanI
 
 	let plan: { kind: string; categorySeedVersion?: number } | null = null;
 	try {
-		plan = await prisma.budgetPlan.findUnique({
-			where: { id: budgetPlanId },
-			select: { kind: true, categorySeedVersion: true },
-		});
+		plan = await withPrismaRetry(
+			() =>
+				prisma.budgetPlan.findUnique({
+					where: { id: budgetPlanId },
+					select: { kind: true, categorySeedVersion: true },
+				}),
+			{ retries: 2, delayMs: 150 }
+		);
 	} catch (err) {
 		// When running with a stale Prisma Client (e.g. dev server not restarted after migration),
 		// selecting the new field will throw. Fall back to a safe, non-versioned path.
@@ -160,10 +177,14 @@ export async function ensureDefaultCategoriesForBudgetPlan(params: { budgetPlanI
 			throw err;
 		}
 
-		const legacyPlan = await prisma.budgetPlan.findUnique({
-			where: { id: budgetPlanId },
-			select: { kind: true },
-		});
+		const legacyPlan = await withPrismaRetry(
+			() =>
+				prisma.budgetPlan.findUnique({
+					where: { id: budgetPlanId },
+					select: { kind: true },
+				}),
+			{ retries: 2, delayMs: 150 }
+		);
 		if (!legacyPlan) return;
 
 		await syncDefaults(legacyPlan.kind);

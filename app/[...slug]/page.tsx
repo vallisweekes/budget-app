@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import DashboardView from "@/components/Dashboard/DashboardView";
 import NewBudgetPageContent from "@/app/budgets/new/NewBudgetPageContent";
 import AdminIncomePage from "@/app/admin/income/page";
+import IncomeMonthPage from "@/app/admin/income/IncomeMonthPage";
 import AdminExpensesPage from "@/app/admin/expenses/page";
 import ExpenseCategoryPage from "@/app/admin/expenses/ExpenseCategoryPage";
 import DebtsPage from "@/app/admin/debts/page";
@@ -273,6 +274,27 @@ export default async function UserBudgetPage({
 		}
 	}
 
+	// Focused income month route: /user=<username>/<planId>/page=income/<month>?year=...&month=...
+	if (pageKey === "income" && pageRest.length >= 1) {
+		const rawYear = resolvedSearchParams.year;
+		const rawMonth = resolvedSearchParams.month;
+		const yearVal = Array.isArray(rawYear) ? rawYear[0] : rawYear;
+		const monthVal = Array.isArray(rawMonth) ? rawMonth[0] : rawMonth;
+		const monthFromPath = String(pageRest[0] ?? "").trim();
+		if (!monthFromPath) return notFound();
+		if (!yearVal || !monthVal) {
+			const y = new Date().getFullYear();
+			const m = currentMonthKey();
+			redirect(
+				`/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(
+					budgetPlanId
+				)}/page=income/${encodeURIComponent(monthFromPath)}?year=${encodeURIComponent(
+					String(yearVal || y)
+				)}&month=${encodeURIComponent(String(monthVal || monthFromPath || m))}`
+			);
+		}
+	}
+
 	// Redirect legacy Expense focused links to the dedicated route.
 	// Old: /page=expenses/<categoryId>?year=...&month=...
 	if (pageKey === "expenses" && pageRest.length >= 1) {
@@ -322,6 +344,19 @@ export default async function UserBudgetPage({
 		const debtId = String(pageRest[0] ?? "").trim();
 		if (!debtId) return notFound();
 		return <DebtDetailPage username={sessionUsername} budgetPlanId={budgetPlanId} debtId={debtId} />;
+	}
+
+	// Dedicated income month route: /user=<username>/<planId>/page=income/<month>?year=...&month=...
+	if (pageKey === "income" && pageRest.length >= 1) {
+		const monthKeyFromPath = String(pageRest[0] ?? "").trim();
+		if (!monthKeyFromPath) return notFound();
+		return (
+			<IncomeMonthPage
+				budgetPlanId={budgetPlanId}
+				monthKeyFromPath={monthKeyFromPath}
+				searchParams={sp}
+			/>
+		);
 	}
 
 	return renderUserScopedAdminPage(pageKey, budgetPlanId, sp);
