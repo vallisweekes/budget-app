@@ -112,9 +112,11 @@ export default function EditExpenseBottomSheet({
 						   className="space-y-5"
 					   >
 						<input type="hidden" name="budgetPlanId" value={budgetPlanId} />
-						<input type="hidden" name="month" value={month} />
-						<input type="hidden" name="year" value={year} />
-						<input type="hidden" name="id" value={expense.id} />
+						<input type="hidden" name="month" value={month}  />
+						<input type="hidden" name="year" value={year}  />
+						{expense && (
+							<input type="hidden" name="id" value={expense.id} />
+						)}
 
 						<EditExpenseFields
 							categories={categories}
