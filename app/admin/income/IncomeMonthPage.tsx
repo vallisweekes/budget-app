@@ -95,17 +95,20 @@ export default async function IncomeMonthPage(props: {
 	const allocationSnapshot = await getMonthlyAllocationSnapshot(props.budgetPlanId, month, { year });
 	const customAllocationsSnapshot = await getMonthlyCustomAllocationsSnapshot(props.budgetPlanId, month, { year });
 
-	const plannedDebtAgg = await prisma.debt.aggregate({
+
+	// Calculate total due debts for the month (scheduled + overdue), minus any paid for this month
+	const dueDebts = await prisma.debt.findMany({
 		where: {
 			budgetPlanId: props.budgetPlanId,
 			paid: false,
 			currentBalance: { gt: 0 },
 			defaultPaymentSource: "income",
 		},
-		_sum: { amount: true },
+		select: { id: true, amount: true },
 	});
+	const totalDueDebts = dueDebts.reduce((sum, d) => sum + decimalToNumber(d.amount), 0);
 
-	const paidDebtAggFromIncome = await prisma.debtPayment.aggregate({
+	const paidDebtPayments = await prisma.debtPayment.aggregate({
 		where: {
 			debt: { budgetPlanId: props.budgetPlanId },
 			year,
@@ -114,6 +117,9 @@ export default async function IncomeMonthPage(props: {
 		},
 		_sum: { amount: true },
 	});
+	const paidDebtPaymentsFromIncome = decimalToNumber(paidDebtPayments._sum.amount);
+
+	const debtsDueThisMonth = Math.max(0, totalDueDebts - paidDebtPaymentsFromIncome);
 
 	const grossIncome = incomeItems.reduce((sum, item) => sum + (item.amount ?? 0), 0);
 	const plannedExpenses = decimalToNumber(expenseAgg._sum.amount);
@@ -124,15 +130,13 @@ export default async function IncomeMonthPage(props: {
 		Number(allocationSnapshot.monthlyEmergencyContribution ?? 0) +
 		Number(allocationSnapshot.monthlyInvestmentContribution ?? 0);
 	const customSetAsideTotal = Number(customAllocationsSnapshot.total ?? 0);
-	const plannedSetAside = plannedSetAsideFromAllocations + customSetAsideTotal;
-	const plannedDebtPayments = decimalToNumber(plannedDebtAgg._sum.amount);
-	const paidDebtPaymentsFromIncome = decimalToNumber(paidDebtAggFromIncome._sum.amount);
+	const plannedSetAside = plannedSetAsideFromAllocations + customSetAsideTotal + monthlyAllowance;
 
-	const plannedBills = plannedExpenses + plannedDebtPayments;
+	const plannedBills = plannedExpenses + debtsDueThisMonth;
 	const paidBillsSoFar = paidExpenses + paidDebtPaymentsFromIncome;
 	const remainingBills = Math.max(0, plannedBills - paidBillsSoFar);
 	const moneyLeftAfterPlan = grossIncome - (plannedBills + monthlyAllowance + plannedSetAside);
-	const incomeLeftToBudgetAfterSacrificeAndDebtPlan = grossIncome - plannedSetAside - plannedDebtPayments;
+	const incomeLeftToBudgetAfterSacrificeAndDebtPlan = grossIncome - plannedSetAside - debtsDueThisMonth;
 	const remainingAfterRecordedExpenses = incomeLeftToBudgetAfterSacrificeAndDebtPlan - plannedExpenses;
 
 	return (
@@ -182,7 +186,7 @@ export default async function IncomeMonthPage(props: {
 				analysis={{
 					grossIncome,
 					plannedExpenses,
-					plannedDebtPayments,
+					plannedDebtPayments: debtsDueThisMonth,
 					plannedAllowances: monthlyAllowance,
 					plannedSetAside,
 					incomeLeftToBudgetAfterSacrificeAndDebtPlan,
