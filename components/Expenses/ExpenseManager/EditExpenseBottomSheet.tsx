@@ -59,34 +59,29 @@ export default function EditExpenseBottomSheet({
 			   <div
 				   role="dialog"
 				   aria-modal="true"
-				   className="relative z-50 w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-t-3xl border border-white/10 bg-slate-800/50 backdrop-blur-xl shadow-2xl animate-slide-up safe-area-inset-bottom"
+				   className="relative z-50 w-full max-w-xl max-h-[98vh] overflow-y-auto rounded-t-3xl border border-white/10 bg-slate-800/50 backdrop-blur-xl shadow-2xl animate-slide-up safe-area-inset-bottom"
 			   >
 				   <div className="p-6 pb-8 md:pb-6">
-					<div className="flex items-start justify-between gap-4">
-						<div>
-							<h2 className="text-xl font-bold text-white">Edit expense</h2>
-							<p className="mt-1 text-sm text-slate-300">Update the name, amount, or category. Payments remain intact.</p>
-						</div>
-						<button
-							type="button"
-							onClick={() => {
-								if (!isBusy) onClose();
-							}}
-							className="h-10 w-10 rounded-xl border border-white/10 bg-slate-900/30 text-slate-200 hover:bg-slate-900/50 transition-all"
-							aria-label="Close"
-							disabled={isBusy}
-						>
-							<X size={18} className="mx-auto" />
-						</button>
-					</div>
+				   <div className="flex items-center justify-between gap-4 mb-4">
+					   <button
+						   type="button"
+						   onClick={() => {
+							   if (!isBusy) onClose();
+						   }}
+						   className="h-10 px-4 rounded-xl border border-white/10 bg-slate-900/40 text-slate-200 hover:bg-slate-900/60 transition-all disabled:opacity-50"
+						   disabled={isBusy}
+					   >
+						   Cancel
+					   </button>
+				   </div>
 
-					<form
-						onSubmit={(e) => {
-							e.preventDefault();
-							onSubmit(new FormData(e.currentTarget));
-						}}
-						className="mt-6 space-y-5"
-					>
+					   <form
+						   onSubmit={(e) => {
+							   e.preventDefault();
+							   onSubmit(new FormData(e.currentTarget));
+						   }}
+						   className="space-y-5"
+					   >
 						<input type="hidden" name="budgetPlanId" value={budgetPlanId} />
 						<input type="hidden" name="month" value={month} />
 						<input type="hidden" name="year" value={year} />
@@ -119,24 +114,15 @@ export default function EditExpenseBottomSheet({
 							}}
 						/>
 
-						<div className="flex items-center justify-end gap-3 pt-2">
-							<button
-								type="button"
-								onClick={onClose}
-								disabled={isBusy}
-								className="h-10 px-4 rounded-xl border border-white/10 bg-slate-900/40 text-slate-200 hover:bg-slate-900/60 transition-all disabled:opacity-50"
-							>
-								Cancel
-							</button>
-
-							<button
-								type="submit"
-								disabled={isBusy}
-								className="h-10 px-4 rounded-xl text-white font-semibold shadow-lg hover:shadow-xl transition-all bg-[var(--cta)] hover:bg-[var(--cta-hover)] active:bg-[var(--cta-active)] disabled:opacity-50"
-							>
-								{isBusy ? "Saving…" : "Save changes"}
-							</button>
-						</div>
+						   <div className="flex items-center justify-center pt-6">
+							   <button
+								   type="submit"
+								   disabled={isBusy}
+								   className="h-10 px-6 rounded-xl text-white font-semibold shadow-lg hover:shadow-xl transition-all bg-[var(--cta)] hover:bg-[var(--cta-hover)] active:bg-[var(--cta-active)] disabled:opacity-50"
+							   >
+								   {isBusy ? "Saving…" : "Save changes"}
+							   </button>
+						   </div>
 					</form>
 				</div>
 			</div>
