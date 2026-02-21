@@ -37,7 +37,7 @@ export default function HeroCanvasLayoutClient(props: {
 
 			<div className="relative">
 				<div aria-hidden className="dashboard-left-underlay" />
-				<div className={cx("dashboard-canvas-content relative z-10", bodyPaddingTopClassName)}>
+				<div className={cx("dashboard-canvas-content relative z-50", bodyPaddingTopClassName)}>
 					<div className={cx("mx-auto w-full px-4", maxWidthClassName)}>{children}</div>
 				</div>
 			</div>

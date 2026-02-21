@@ -10,6 +10,7 @@ import { HeroCanvasLayoutClient } from "@/components/Shared";
 import { buildScopedPageHrefForPlan } from "@/lib/helpers/scopedPageHref";
 import DeleteExpenseModal from "@/components/Expenses/ExpenseManager/DeleteExpenseModal";
 import EditExpenseModal from "@/components/Expenses/ExpenseManager/EditExpenseModal";
+import EditExpenseBottomSheet from "@/components/Expenses/ExpenseManager/EditExpenseBottomSheet";
 import CategorySection from "@/components/Expenses/ExpenseManager/CategorySection";
 import UncategorizedSection from "@/components/Expenses/ExpenseManager/UncategorizedSection";
 import { useExpenseManager } from "@/components/Expenses/ExpenseManager/useExpenseManager";
@@ -91,18 +92,33 @@ export default function ExpenseCategoryPageClient(props: ExpenseCategoryPageClie
 				onConfirm={(scope) => logic.confirmRemove(scope)}
 			/>
 
-			<EditExpenseModal
-				open={logic.expensePendingEdit != null}
-				budgetPlanId={props.budgetPlanId}
-				month={props.month}
-				year={props.year}
-				payDate={props.payDate}
-				categories={props.categories}
-				expense={logic.expensePendingEdit}
-				isBusy={logic.isPending}
-				onClose={logic.closeEdit}
-				onSubmit={(data) => logic.handleEditSubmit(data)}
-			/>
+			{typeof window !== "undefined" && window.innerWidth <= 640 ? (
+				<EditExpenseBottomSheet
+					open={logic.expensePendingEdit != null}
+					budgetPlanId={props.budgetPlanId}
+					month={props.month}
+					year={props.year}
+					payDate={props.payDate}
+					categories={props.categories}
+					expense={logic.expensePendingEdit}
+					isBusy={logic.isPending}
+					onClose={logic.closeEdit}
+					onSubmit={(data) => logic.handleEditSubmit(data)}
+				/>
+			) : (
+				<EditExpenseModal
+					open={logic.expensePendingEdit != null}
+					budgetPlanId={props.budgetPlanId}
+					month={props.month}
+					year={props.year}
+					payDate={props.payDate}
+					categories={props.categories}
+					expense={logic.expensePendingEdit}
+					isBusy={logic.isPending}
+					onClose={logic.closeEdit}
+					onSubmit={(data) => logic.handleEditSubmit(data)}
+				/>
+			)}
 
 			<div className="space-y-4">
 				{logic.filteredExpenses.length === 0 ? (
