@@ -87,7 +87,7 @@ export default function EditExpenseBottomSheet({
 					<div
 						role="dialog"
 						aria-modal="true"
-						className={`relative z-50 w-full max-w-xl max-h-screen h-screen overflow-y-auto border border-white/10 bg-slate-800/50 backdrop-blur-xl shadow-2xl safe-area-inset-bottom ${isClosing ? "animate-slide-down" : "animate-slide-up"}`}
+						className={`relative z-50 w-full max-w-xl max-h-[90vh] h-[90vh] mt-8 overflow-y-auto border border-white/10 bg-slate-800/50 backdrop-blur-xl shadow-2xl safe-area-inset-bottom ${isClosing ? "animate-slide-down" : "animate-slide-up"}`}
 						onAnimationEnd={handleAnimationEnd}
 					>
 				   <div className="p-6 pb-8 md:pb-6">
