@@ -233,7 +233,7 @@ export default function IncomeMonthPageClient(props: {
 					<div className={`mt-1 text-base sm:text-lg font-semibold ${moneyLeftAfterPaidBillsSoFar < 0 ? "text-red-200" : "text-slate-200"}`}>
 						{formatCurrency(moneyLeftAfterPaidBillsSoFar)}
 					</div>
-					<div className="mt-1 text-[10px] sm:text-xs text-slate-400">So far (based on bills you’ve recorded as paid)</div>
+
 				</div>
 			</div>
 
