@@ -65,22 +65,20 @@ export default function ExpenseCategoryPageClient(props: ExpenseCategoryPageClie
 	return (
 		<HeroCanvasLayoutClient
 			hero={
-				<div className="flex items-start justify-between gap-4">
-					<div className="space-y-1">
-						<h1 className="text-2xl sm:text-3xl font-bold text-white">
-							{props.categoryId === "uncategorized" ? "Miscellaneous" : (props.category?.name ?? "Category")}
-						</h1>
-					</div>
-					<button
-						type="button"
-						onClick={() => router.push(backHref)}
-						className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white/90 hover:bg-white/10 hover:text-white transition"
-						aria-label="Back to expenses"
-					>
-						<ArrowLeft size={16} />
-						Back to expenses
-					</button>
-				</div>
+				   <div className="flex items-start gap-4">
+					   <h1 className="sr-only">
+						   {props.categoryId === "uncategorized" ? "Miscellaneous" : (props.category?.name ?? "Category")}
+					   </h1>
+					   <button
+						   type="button"
+						   onClick={() => router.push(backHref)}
+						   className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white/90 hover:bg-white/10 hover:text-white transition"
+						   aria-label="Back to expenses"
+					   >
+						   <ArrowLeft size={16} />
+						   Back to expenses
+					   </button>
+				   </div>
 			}
 		>
 			<DeleteExpenseModal
