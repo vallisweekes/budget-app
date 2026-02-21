@@ -59,7 +59,7 @@ export default function EditExpenseBottomSheet({
 			   <div
 				   role="dialog"
 				   aria-modal="true"
-				   className="relative z-50 w-full max-w-xl max-h-[98vh] overflow-y-auto rounded-t-3xl border border-white/10 bg-slate-800/50 backdrop-blur-xl shadow-2xl animate-slide-up safe-area-inset-bottom"
+				   className="relative z-50 w-full max-w-xl max-h-screen h-screen overflow-y-auto border border-white/10 bg-slate-800/50 backdrop-blur-xl shadow-2xl animate-slide-up safe-area-inset-bottom"
 			   >
 				   <div className="p-6 pb-8 md:pb-6">
 				   <div className="flex items-center justify-between gap-4 mb-4">
