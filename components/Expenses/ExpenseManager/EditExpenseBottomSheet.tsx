@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { X } from "lucide-react";
 import type { MonthKey } from "@/types";
 import { MONTHS } from "@/lib/constants/time";
@@ -31,6 +31,8 @@ export default function EditExpenseBottomSheet({
 	const [isAllocation, setIsAllocation] = useState(false);
 	const [applyRemainingMonths, setApplyRemainingMonths] = useState(false);
 	const [applyFutureYears, setApplyFutureYears] = useState(false);
+	const [isClosing, setIsClosing] = useState(false);
+	const closeTimeout = useRef<NodeJS.Timeout | null>(null);
 
 	const monthNumber = useMemo(() => (MONTHS as MonthKey[]).indexOf(month) + 1, [month]);
 
@@ -52,28 +54,55 @@ export default function EditExpenseBottomSheet({
 		setDueDate(defaultDueUtc.toISOString().slice(0, 10));
 	}, [expense, monthNumber, payDate, year]);
 
-	if (!open || !expense) return null;
+
+
+
+	// Animation end handler
+	const handleAnimationEnd = () => {
+		if (isClosing) {
+			setIsClosing(false);
+		}
+	};
+
+	// Custom close handler
+	const handleClose = () => {
+		setIsClosing(true);
+		closeTimeout.current = setTimeout(() => {
+			setIsClosing(false);
+			onClose();
+		}, 300); // match animation duration
+	};
+
+	// Cleanup timeout on unmount
+	useEffect(() => {
+		return () => {
+			if (closeTimeout.current) clearTimeout(closeTimeout.current);
+		};
+	}, []);
 
 	return (
-		<div className="fixed inset-x-0 bottom-0 z-[999] flex items-end justify-center pointer-events-auto">
-			   <div
-				   role="dialog"
-				   aria-modal="true"
-				   className="relative z-50 w-full max-w-xl max-h-screen h-screen overflow-y-auto border border-white/10 bg-slate-800/50 backdrop-blur-xl shadow-2xl animate-slide-up safe-area-inset-bottom"
-			   >
+		<>
+			{(open || isClosing) && (
+				<div className="fixed inset-x-0 bottom-0 z-[999] flex items-end justify-center pointer-events-auto">
+					<div
+						role="dialog"
+						aria-modal="true"
+						className={`relative z-50 w-full max-w-xl max-h-screen h-screen overflow-y-auto border border-white/10 bg-slate-800/50 backdrop-blur-xl shadow-2xl safe-area-inset-bottom ${isClosing ? "animate-slide-down" : "animate-slide-up"}`}
+						onAnimationEnd={handleAnimationEnd}
+					>
 				   <div className="p-6 pb-8 md:pb-6">
-				   <div className="flex items-center justify-between gap-4 mb-4">
-					   <button
-						   type="button"
-						   onClick={() => {
-							   if (!isBusy) onClose();
-						   }}
-						   className="h-10 px-4 rounded-xl border border-white/10 bg-slate-900/40 text-slate-200 hover:bg-slate-900/60 transition-all disabled:opacity-50"
-						   disabled={isBusy}
-					   >
-						   Cancel
-					   </button>
-				   </div>
+						<div className="flex items-center justify-between gap-4 mb-4">
+							<button
+								type="button"
+								onClick={() => {
+									if (!isBusy) handleClose();
+								}}
+								className="h-10 px-4 rounded-xl border border-white/10 bg-slate-900/40 text-slate-200 hover:bg-slate-900/60 transition-all disabled:opacity-50"
+								disabled={isBusy}
+							>
+								Cancel
+							</button>
+						</div>
 
 					   <form
 						   onSubmit={(e) => {
@@ -125,8 +154,10 @@ export default function EditExpenseBottomSheet({
 						   </div>
 					</form>
 				</div>
-			</div>
-		</div>
+					</div>
+				</div>
+			)}
+		</>
 	);
 }
 
