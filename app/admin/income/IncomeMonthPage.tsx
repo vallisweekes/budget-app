@@ -85,7 +85,7 @@ export default async function IncomeMonthPage(props: {
 			budgetPlanId: props.budgetPlanId,
 			year,
 			month: monthKeyToNumber(month),
-			isAllocation: false,
+			// No isAllocation filter: include all expenses
 		},
 		_sum: { amount: true, paidAmount: true },
 	});

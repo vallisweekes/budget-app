@@ -50,7 +50,7 @@ export default function IncomeMonthPageClient(props: {
 	const billsPaidSoFar = (analysis.paidExpenses ?? 0) + (analysis.paidDebtPaymentsFromIncome ?? 0);
 	const plannedMoneyOutTotal = plannedBillsTotal + (analysis.plannedAllowances ?? 0) + (analysis.plannedSetAside ?? 0);
 	const moneyLeftAfterPaidBillsSoFar =
-		(analysis.grossIncome ?? 0) - billsPaidSoFar - (analysis.plannedAllowances ?? 0) - (analysis.plannedSetAside ?? 0);
+		(analysis.grossIncome ?? 0) - billsPaidSoFar - (analysis.plannedSetAside ?? 0);
 
 	const allowanceLabel = "Allowance";
 	const allowanceTooltip =
@@ -223,9 +223,6 @@ export default function IncomeMonthPageClient(props: {
 					</div>
 					<div className={`mt-1 text-base sm:text-lg font-semibold ${analysis.moneyLeftAfterPlan < 0 ? "text-red-200" : "text-emerald-200"}`}>
 						{formatCurrency(analysis.moneyLeftAfterPlan)}
-					</div>
-					<div className="mt-1 text-[10px] sm:text-xs text-slate-400">
-						After plan (expenses + debts + allowance + income sacrifice)
 					</div>
 				</div>
 				<div className="rounded-2xl border border-white/10 bg-slate-950/20 p-3 sm:p-4">
