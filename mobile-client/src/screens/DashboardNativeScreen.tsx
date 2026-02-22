@@ -1,35 +1,49 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, Button, ActivityIndicator, StyleSheet } from "react-native";
+import { apiFetch } from "../lib/api";
 
 // Types for dashboard data
 type User = { name: string };
-type BudgetPlan = { id: string; name: string };
+type BudgetPlan = { id: string };
 type DashboardData = { user: User | null; budgetPlan: BudgetPlan | null };
 
-// Placeholder API fetch function (replace with real API call)
 async function fetchDashboardData(): Promise<DashboardData> {
-  // Simulate API call
-  return new Promise(resolve => {
-    setTimeout(() => {
-      resolve({
-        user: { name: "Demo User" },
-        budgetPlan: { id: "demo-plan", name: "Demo Budget Plan" }
-      });
-    }, 1000);
-  });
+  const settings = await apiFetch<{ budgetPlanId?: string }>("/api/bff/settings");
+
+  return {
+    user: { name: "Signed in" },
+    budgetPlan: settings?.budgetPlanId ? { id: settings.budgetPlanId } : null,
+  };
 }
 
 export default function DashboardNativeScreen() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
   const [budgetPlan, setBudgetPlan] = useState<BudgetPlan | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchDashboardData().then((data: DashboardData) => {
-      setUser(data.user);
-      setBudgetPlan(data.budgetPlan);
-      setLoading(false);
-    });
+    let isMounted = true;
+    fetchDashboardData()
+      .then((data: DashboardData) => {
+        if (!isMounted) return;
+        setUser(data.user);
+        setBudgetPlan(data.budgetPlan);
+        setError(null);
+      })
+      .catch((err: unknown) => {
+        if (!isMounted) return;
+        const message = err instanceof Error ? err.message : "Unknown error";
+        setError(message);
+      })
+      .finally(() => {
+        if (!isMounted) return;
+        setLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   if (loading) {
@@ -37,6 +51,19 @@ export default function DashboardNativeScreen() {
       <View style={styles.centered}>
         <ActivityIndicator size="large" color="#fff" />
         <Text style={styles.text}>Loading dashboard...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    const authError = /unauthorized|auth|signin|forbidden/i.test(error);
+    return (
+      <View style={styles.centered}>
+        <Text style={styles.text}>
+          {authError
+            ? "Sign in via Web mode first, then return to Native mode."
+            : `Failed to load dashboard: ${error}`}
+        </Text>
       </View>
     );
   }
@@ -62,7 +89,7 @@ export default function DashboardNativeScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Welcome, {user.name}!</Text>
-      <Text style={styles.subtitle}>Budget Plan: {budgetPlan.name}</Text>
+      <Text style={styles.subtitle}>Budget Plan ID: {budgetPlan.id}</Text>
       {/* Add dashboard content here */}
     </View>
   );

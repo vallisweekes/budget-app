@@ -1,9 +1,59 @@
-// Simple placeholder for API fetch
-export async function apiFetch<T = any>(path: string): Promise<T> {
-  // Simulate API call
-  return new Promise<T>((resolve) => {
-    setTimeout(() => {
-      resolve({ publicKey: "demo-vapid-key" } as T);
-    }, 500);
+import { getSessionToken } from "@/lib/storage";
+
+export function getApiBaseUrl(): string {
+  const baseUrl = (process.env.EXPO_PUBLIC_API_BASE_URL ?? "").trim().replace(/\/$/, "");
+  if (!baseUrl) {
+    throw new Error("Missing EXPO_PUBLIC_API_BASE_URL in .env");
+  }
+  return baseUrl;
+}
+
+export type ApiFetchOptions = {
+  method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
+  body?: unknown;
+  headers?: Record<string, string>;
+  /** Pass false to skip injecting the session cookie (e.g. during sign-in flow) */
+  withAuth?: boolean;
+};
+
+export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): Promise<T> {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  const url = `${getApiBaseUrl()}${normalizedPath}`;
+
+  const withAuth = options.withAuth !== false;
+  const sessionToken = withAuth ? await getSessionToken() : null;
+  const cookieHeader = sessionToken
+    ? `next-auth.session-token=${sessionToken}`
+    : undefined;
+
+  const response = await fetch(url, {
+    method: options.method ?? "GET",
+    headers: {
+      "Content-Type": "application/json",
+      ...(cookieHeader ? { Cookie: cookieHeader } : {}),
+      ...(options.headers ?? {}),
+    },
+    body: options.body === undefined ? undefined : JSON.stringify(options.body),
   });
+
+  const responseText = await response.text();
+  const parsed = responseText ? safeParseJson(responseText) : null;
+
+  if (!response.ok) {
+    const parsedObj =
+      parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : null;
+    const serverMessage =
+      typeof parsedObj?.["error"] === "string" ? parsedObj["error"] : null;
+    throw new Error(serverMessage ?? response.statusText ?? `HTTP ${response.status}`);
+  }
+
+  return (parsed as T) ?? ({} as T);
+}
+
+function safeParseJson(raw: string): unknown {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return raw;
+  }
 }
