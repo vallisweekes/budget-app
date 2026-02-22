@@ -63,7 +63,7 @@ export default function SettingsScreen() {
     <SafeAreaView style={styles.safe}>
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color="#4f6cf7" />
+          <ActivityIndicator size="large" color="#02eff0" />
         </View>
       ) : error ? (
         <View style={styles.center}>
@@ -75,7 +75,7 @@ export default function SettingsScreen() {
         </View>
       ) : (
         <ScrollView
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor="#4f6cf7" />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor="#02eff0" />}
           contentContainerStyle={styles.scroll}
           showsVerticalScrollIndicator={false}
         >
@@ -132,12 +132,12 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#070e1a" },
+  safe: { flex: 1, backgroundColor: "#0f282f" },
   center: { flex: 1, justifyContent: "center", alignItems: "center", gap: 12 },
   scroll: { padding: 16, paddingBottom: 48 },
 
   profileCard: {
-    backgroundColor: "#111d30",
+    backgroundColor: "#0a1e23",
     borderRadius: 16,
     padding: 20,
     flexDirection: "row",
@@ -149,7 +149,7 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: "#4f6cf7",
+    backgroundColor: "#02eff0",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -158,7 +158,7 @@ const styles = StyleSheet.create({
   profileSub: { color: "rgba(255,255,255,0.35)", fontSize: 12, marginTop: 2 },
 
   section: {
-    backgroundColor: "#111d30",
+    backgroundColor: "#0a1e23",
     borderRadius: 14,
     padding: 16,
     marginBottom: 12,
@@ -198,6 +198,6 @@ const styles = StyleSheet.create({
   signOutText: { color: "#e25c5c", fontSize: 15, fontWeight: "700" },
 
   errorText: { color: "#e25c5c", fontSize: 14, textAlign: "center", paddingHorizontal: 32 },
-  retryBtn: { backgroundColor: "#4f6cf7", borderRadius: 8, paddingHorizontal: 24, paddingVertical: 10 },
-  retryTxt: { color: "#fff", fontWeight: "700" },
+  retryBtn: { backgroundColor: "#02eff0", borderRadius: 8, paddingHorizontal: 24, paddingVertical: 10 },
+  retryTxt: { color: "#061b1c", fontWeight: "700" },
 });

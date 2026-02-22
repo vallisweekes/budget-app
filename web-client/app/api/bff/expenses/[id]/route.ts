@@ -35,6 +35,7 @@ function serializeExpense(expense: any) {
     year: expense.year,
     categoryId: expense.categoryId,
     category: expense.category ?? null,
+    dueDate: expense.dueDate ? (expense.dueDate instanceof Date ? expense.dueDate.toISOString() : String(expense.dueDate)) : null,
   };
 }
 
@@ -43,6 +44,10 @@ type PatchBody = {
   amount?: unknown;
   categoryId?: unknown;
   isAllocation?: unknown;
+  /** Explicitly set paid status (mobile toggle) */
+  paid?: unknown;
+  /** Explicitly set paidAmount (mobile partial payment) */
+  paidAmount?: unknown;
 };
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
@@ -64,12 +69,16 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       : typeof body.categoryId === "string"
         ? body.categoryId.trim() || null
         : undefined;
-
 	const isAllocation = body.isAllocation == null ? undefined : Boolean(body.isAllocation);
+  const paidExplicit = body.paid == null ? undefined : Boolean(body.paid);
+  const paidAmountExplicit = body.paidAmount == null ? undefined : Number(body.paidAmount);
 
   if (name !== undefined && !name) return badRequest("Name cannot be empty");
   if (amount !== undefined && (!Number.isFinite(amount) || amount < 0)) {
     return badRequest("Amount must be a number >= 0");
+  }
+  if (paidAmountExplicit !== undefined && (!Number.isFinite(paidAmountExplicit) || paidAmountExplicit < 0)) {
+    return badRequest("paidAmount must be a number >= 0");
   }
 
   const existing = (await prisma.expense.findUnique({
@@ -93,18 +102,35 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   const nextName = name ?? existing.name;
   const nextAmountNumber = amount ?? Number(existing.amount.toString());
 
-  // Preserve payment intent: if it was fully paid, keep it fully paid after amount edits.
-  const existingPaidAmountNumber = Number(existing.paidAmount.toString());
-  let nextPaidAmountNumber = existingPaidAmountNumber;
+  // Explicit paid toggle (from mobile client) takes priority
+  let nextPaidAmountNumber: number;
+  let nextPaid: boolean;
 
-  if (existing.paid) {
-    nextPaidAmountNumber = nextAmountNumber;
+  if (paidExplicit !== undefined) {
+    if (paidExplicit) {
+      nextPaidAmountNumber = paidAmountExplicit != null ? Math.min(paidAmountExplicit, nextAmountNumber) : nextAmountNumber;
+      nextPaid = nextAmountNumber <= 0 || nextPaidAmountNumber >= nextAmountNumber;
+    } else {
+      nextPaidAmountNumber = 0;
+      nextPaid = false;
+    }
+  } else if (paidAmountExplicit !== undefined) {
+    nextPaidAmountNumber = Math.min(paidAmountExplicit, nextAmountNumber);
+    nextPaid = nextAmountNumber > 0 && nextPaidAmountNumber >= nextAmountNumber;
   } else {
-    nextPaidAmountNumber = Math.min(existingPaidAmountNumber, nextAmountNumber);
-  }
+    // Preserve payment intent: if it was fully paid, keep it fully paid after amount edits.
+    const existingPaidAmountNumber = Number(existing.paidAmount.toString());
+    nextPaidAmountNumber = existingPaidAmountNumber;
 
-  const nextPaid = nextAmountNumber > 0 && nextPaidAmountNumber >= nextAmountNumber;
-  if (nextPaid) nextPaidAmountNumber = nextAmountNumber;
+    if (existing.paid) {
+      nextPaidAmountNumber = nextAmountNumber;
+    } else {
+      nextPaidAmountNumber = Math.min(existingPaidAmountNumber, nextAmountNumber);
+    }
+
+    nextPaid = nextAmountNumber > 0 && nextPaidAmountNumber >= nextAmountNumber;
+    if (nextPaid) nextPaidAmountNumber = nextAmountNumber;
+  }
 
   const updated = (await prisma.expense.update({
     where: { id },

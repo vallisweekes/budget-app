@@ -1,10 +1,17 @@
-import { configureStore } from "@reduxjs/toolkit";
+import { configureStore, createSlice } from "@reduxjs/toolkit";
 import type { TypedUseSelectorHook } from "react-redux";
 import { useDispatch, useSelector } from "react-redux";
 
+// Placeholder slice — replace with real slices as the app grows
+const appSlice = createSlice({
+  name: "app",
+  initialState: { ready: true },
+  reducers: {},
+});
+
 export const store = configureStore({
   reducer: {
-    // Slices are added here as screens grow
+    app: appSlice.reducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

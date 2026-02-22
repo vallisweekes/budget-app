@@ -8,7 +8,7 @@ import {
   setStoredUsername,
   clearStoredUsername,
 } from "@/lib/storage";
-import { getApiBaseUrl } from "@/lib/api";
+import { getApiBaseUrl, setOnUnauthorized } from "@/lib/api";
 
 type AuthState = {
   token: string | null;
@@ -95,6 +95,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await Promise.all([clearSessionToken(), clearStoredUsername()]);
     setState({ token: null, username: null, isLoading: false });
   }, []);
+
+  // Register a global callback so apiFetch can trigger sign-out on 401
+  useEffect(() => {
+    setOnUnauthorized(() => {
+      // Fire-and-forget: clear stale session so the navigator redirects to login
+      void signOut();
+    });
+    return () => setOnUnauthorized(null);
+  }, [signOut]);
 
   return (
     <AuthContext.Provider value={{ ...state, signIn, signOut }}>

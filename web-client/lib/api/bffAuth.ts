@@ -21,6 +21,15 @@ export async function resolveOwnedBudgetPlanId(params: {
 		return owned?.id ?? null;
 	}
 
+	// Prefer a "personal" plan (matches web client's getDefaultBudgetPlanForUser logic)
+	const personal = await prisma.budgetPlan.findFirst({
+		where: { userId: params.userId, kind: "personal" },
+		orderBy: { createdAt: "desc" },
+		select: { id: true },
+	});
+	if (personal) return personal.id;
+
+	// Fall back to the most recent plan of any kind
 	const plan = await prisma.budgetPlan.findFirst({
 		where: { userId: params.userId },
 		orderBy: { createdAt: "desc" },

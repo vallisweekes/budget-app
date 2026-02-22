@@ -1,0 +1,187 @@
+import React, { useCallback, useEffect, useState } from "react";
+import {
+  View,
+  Text,
+  FlatList,
+  Pressable,
+  ActivityIndicator,
+  StyleSheet,
+  RefreshControl,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+
+import { apiFetch } from "@/lib/api";
+import type { Income, Settings, IncomeMonthData } from "@/lib/apiTypes";
+import type { IncomeStackParamList } from "@/navigation/types";
+import { fmt, MONTH_NAMES_LONG } from "@/lib/formatting";
+import { useIncomeCRUD } from "@/lib/hooks/useIncomeCRUD";
+import IncomeMonthStats from "@/components/Income/IncomeMonthStats";
+import IncomeBarChart from "@/components/Income/IncomeBarChart";
+import BillsSummary from "@/components/Income/BillsSummary";
+import { IncomeRow, IncomeEditRow } from "@/components/Income/IncomeSourceItem";
+import { IncomeAddForm } from "@/components/Income/IncomeAddForm";
+
+type Props = NativeStackScreenProps<IncomeStackParamList, "IncomeMonth">;
+
+export default function IncomeMonthScreen({ navigation, route }: Props) {
+  const { month, year, budgetPlanId } = route.params;
+  const monthLabel = `${MONTH_NAMES_LONG[month - 1]} ${year}`;
+
+  const [analysis, setAnalysis] = useState<IncomeMonthData | null>(null);
+  const [items, setItems]       = useState<Income[]>([]);
+  const [settings, setSettings] = useState<Settings | null>(null);
+  const [loading, setLoading]   = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError]       = useState<string | null>(null);
+
+  const currency = settings?.currency ?? "£";
+
+  const load = useCallback(async () => {
+    try {
+      setError(null);
+      const [monthData, incomeList, s] = await Promise.all([
+        apiFetch<IncomeMonthData>(`/api/bff/income-month?month=${month}&year=${year}`),
+        apiFetch<Income[]>(`/api/bff/income?month=${month}&year=${year}`),
+        apiFetch<Settings>("/api/bff/settings"),
+      ]);
+      setAnalysis(monthData);
+      setItems(Array.isArray(incomeList) ? incomeList : []);
+      setSettings(s);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to load");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [month, year]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const crud = useIncomeCRUD({ month, year, budgetPlanId, currency, onReload: load });
+
+  if (loading) {
+    return (
+      <SafeAreaView style={s.safe}>
+        <View style={s.center}><ActivityIndicator size="large" color="#02eff0" /></View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={s.safe}>
+        <View style={s.center}>
+          <Ionicons name="cloud-offline-outline" size={48} color="#455" />
+          <Text style={s.errorText}>{error}</Text>
+          <Pressable onPress={load} style={s.retryBtn}><Text style={s.retryTxt}>Retry</Text></Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={s.safe}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        {/* Header */}
+        <View style={s.header}>
+          <Pressable onPress={() => navigation.goBack()} style={s.backBtn} hitSlop={8}>
+            <Ionicons name="chevron-back" size={22} color="#02eff0" />
+          </Pressable>
+          <Text style={s.headerTitle}>{monthLabel}</Text>
+          <Pressable onPress={() => crud.setShowAddForm((v) => !v)} style={s.addBtn} hitSlop={8}>
+            <Ionicons name={crud.showAddForm ? "close" : "add-circle-outline"} size={24} color="#02eff0" />
+          </Pressable>
+        </View>
+
+        <FlatList
+          data={items}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={s.scroll}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor="#02eff0" />
+          }
+          ListHeaderComponent={
+            <>
+              {analysis && <IncomeMonthStats data={analysis} currency={currency} fmt={fmt} />}
+              {analysis && <IncomeBarChart data={analysis} currency={currency} />}
+              {analysis && <BillsSummary data={analysis} currency={currency} fmt={fmt} />}
+
+              <View style={s.sourcesHeader}>
+                <Text style={s.sourcesTitle}>Income sources</Text>
+                <Text style={s.sourcesSub}>Add, edit, or remove income for this month.</Text>
+              </View>
+
+              {crud.showAddForm && (
+                <IncomeAddForm
+                  name={crud.newName}
+                  amount={crud.newAmount}
+                  setName={crud.setNewName}
+                  setAmount={crud.setNewAmount}
+                  onAdd={crud.handleAdd}
+                  saving={crud.saving}
+                />
+              )}
+            </>
+          }
+          renderItem={({ item }) =>
+            crud.editingId === item.id ? (
+              <IncomeEditRow
+                editName={crud.editName}
+                editAmount={crud.editAmount}
+                setEditName={crud.setEditName}
+                setEditAmount={crud.setEditAmount}
+                onSave={crud.handleSaveEdit}
+                onCancel={crud.cancelEdit}
+                saving={crud.saving}
+              />
+            ) : (
+              <IncomeRow
+                item={item}
+                currency={currency}
+                fmt={fmt}
+                onEdit={() => crud.startEdit(item)}
+                onDelete={() => crud.handleDelete(item)}
+              />
+            )
+          }
+          ListEmptyComponent={
+            !crud.showAddForm ? (
+              <View style={s.empty}>
+                <Ionicons name="wallet-outline" size={48} color="#1a3d3f" />
+                <Text style={s.emptyText}>No income sources yet</Text>
+                <Text style={s.emptySub}>Tap + to add your first source</Text>
+              </View>
+            ) : null
+          }
+        />
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+}
+
+const s = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: "#0f282f" },
+  center: { flex: 1, justifyContent: "center", alignItems: "center", gap: 12 },
+  scroll: { paddingBottom: 40 },
+  header: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingHorizontal: 16, paddingVertical: 12,
+    borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.06)",
+  },
+  backBtn: { padding: 4 },
+  addBtn: { padding: 4 },
+  headerTitle: { color: "#fff", fontSize: 17, fontWeight: "700", flex: 1, textAlign: "center" },
+  sourcesHeader: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 8 },
+  sourcesTitle: { color: "#fff", fontSize: 15, fontWeight: "700" },
+  sourcesSub: { color: "rgba(255,255,255,0.35)", fontSize: 12, marginTop: 3 },
+  empty: { alignItems: "center", paddingTop: 40, gap: 8 },
+  emptyText: { color: "rgba(255,255,255,0.5)", fontSize: 15, fontWeight: "600" },
+  emptySub: { color: "rgba(255,255,255,0.25)", fontSize: 13 },
+  errorText: { color: "#e25c5c", fontSize: 14, textAlign: "center", paddingHorizontal: 32 },
+  retryBtn: { backgroundColor: "#02eff0", borderRadius: 8, paddingHorizontal: 24, paddingVertical: 10 },
+  retryTxt: { color: "#061b1c", fontWeight: "700" },
+});

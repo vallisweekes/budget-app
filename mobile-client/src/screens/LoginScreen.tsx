@@ -120,7 +120,7 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#070e1a" },
+  safe: { flex: 1, backgroundColor: "#0f282f" },
   kav: { flex: 1 },
   scroll: { flexGrow: 1, justifyContent: "center", paddingHorizontal: 24, paddingVertical: 40 },
 
@@ -129,7 +129,7 @@ const styles = StyleSheet.create({
   tagline: { color: "rgba(255,255,255,0.35)", fontSize: 14, marginTop: 6 },
 
   card: {
-    backgroundColor: "#111d30",
+    backgroundColor: "#0a1e23",
     borderRadius: 20,
     padding: 24,
     borderWidth: 1,
@@ -151,9 +151,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderRadius: 8,
   },
-  modeBtnActive: { backgroundColor: "#4f6cf7" },
+  modeBtnActive: { backgroundColor: "#02eff0" },
   modeBtnText: { color: "rgba(255,255,255,0.4)", fontWeight: "600", fontSize: 14 },
-  modeBtnTextActive: { color: "#fff" },
+  modeBtnTextActive: { color: "#061b1c" },
 
   input: {
     backgroundColor: "rgba(255,255,255,0.05)",
@@ -168,13 +168,13 @@ const styles = StyleSheet.create({
   },
 
   submitBtn: {
-    backgroundColor: "#4f6cf7",
+    backgroundColor: "#02eff0",
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: "center",
   },
   submitBtnDisabled: { opacity: 0.6 },
-  submitBtnText: { color: "#fff", fontWeight: "700", fontSize: 16 },
+  submitBtnText: { color: "#061b1c", fontWeight: "700", fontSize: 16 },
 
   apiNote: {
     marginTop: 16,

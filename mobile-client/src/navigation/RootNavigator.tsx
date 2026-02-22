@@ -5,32 +5,54 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
 
 import { useAuth } from "@/context/AuthContext";
-import type { RootStackParamList, MainTabParamList } from "@/navigation/types";
+import type { RootStackParamList, MainTabParamList, IncomeStackParamList, DebtStackParamList } from "@/navigation/types";
+import TopHeader from "@/components/Shared/TopHeader";
+import PillTabBar from "@/components/Shared/PillTabBar";
 
 import LoginScreen from "@/screens/LoginScreen";
 import DashboardScreen from "@/screens/DashboardScreen";
+import IncomeScreen from "@/screens/IncomeScreen";
+import IncomeMonthScreen from "@/screens/IncomeMonthScreen";
 import ExpensesScreen from "@/screens/ExpensesScreen";
+import DebtScreen from "@/screens/DebtScreen";
+import DebtDetailScreen from "@/screens/DebtDetailScreen";
 import SettingsScreen from "@/screens/SettingsScreen";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
+const IncomeStack = createNativeStackNavigator<IncomeStackParamList>();
+const DebtStack = createNativeStackNavigator<DebtStackParamList>();
+
+function IncomeStackNavigator() {
+  return (
+    <IncomeStack.Navigator screenOptions={{ headerShown: false }}>
+      <IncomeStack.Screen name="IncomeGrid" component={IncomeScreen} />
+      <IncomeStack.Screen name="IncomeMonth" component={IncomeMonthScreen} />
+    </IncomeStack.Navigator>
+  );
+}
+
+function DebtStackNavigator() {
+  return (
+    <DebtStack.Navigator screenOptions={{ headerShown: false }}>
+      <DebtStack.Screen name="DebtList" component={DebtScreen} />
+      <DebtStack.Screen name="DebtDetail" component={DebtDetailScreen} />
+    </DebtStack.Navigator>
+  );
+}
 
 function MainTabs() {
   return (
     <Tab.Navigator
-      screenOptions={{
-        headerShown: false,
-        tabBarStyle: {
-          backgroundColor: "#0f1b2d",
-          borderTopColor: "rgba(255,255,255,0.08)",
-          borderTopWidth: 1,
-          paddingBottom: 4,
-          height: 62,
-        },
-        tabBarActiveTintColor: "#4f6cf7",
+      tabBar={(props) => <PillTabBar {...props} />}
+      screenOptions={({ navigation }) => ({
+        headerShown: true,
+        header: () => (
+          <TopHeader onSettings={() => navigation.navigate("Settings")} />
+        ),
+        tabBarActiveTintColor: "#02eff0",
         tabBarInactiveTintColor: "#556",
-        tabBarLabelStyle: { fontSize: 11, fontWeight: "600" },
-      }}
+      })}
     >
       <Tab.Screen
         name="Dashboard"
@@ -43,6 +65,15 @@ function MainTabs() {
         }}
       />
       <Tab.Screen
+        name="Income"
+        component={IncomeStackNavigator}
+        options={{
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="wallet-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
         name="Expenses"
         component={ExpensesScreen}
         options={{
@@ -52,12 +83,19 @@ function MainTabs() {
         }}
       />
       <Tab.Screen
+        name="Debts"
+        component={DebtStackNavigator}
+        options={{
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="card-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
         name="Settings"
         component={SettingsScreen}
         options={{
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="settings-outline" size={size} color={color} />
-          ),
+          tabBarButton: () => null,
         }}
       />
     </Tab.Navigator>
@@ -69,8 +107,8 @@ export default function RootNavigator() {
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#0b1220" }}>
-        <ActivityIndicator size="large" color="#4f6cf7" />
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#0f282f" }}>
+        <ActivityIndicator size="large" color="#02eff0" />
       </View>
     );
   }

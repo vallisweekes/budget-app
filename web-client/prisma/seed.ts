@@ -366,8 +366,94 @@ async function main() {
 
   console.log("  ✓ Wrote expenses/income/debts/goals JSON files");
 
+  // 0.5 Seed CategoryTemplates (DB source of truth for icon/color/featured per plan kind)
+  console.log("\n🗂️  Seeding category templates...");
+
+  type TemplateInput = { name: string; icon?: string | null; color?: string | null; featured?: boolean; sortOrder?: number };
+  const templateGroups: { kindKey: string; entries: TemplateInput[] }[] = [
+    {
+      kindKey: "base",
+      entries: [
+        { name: "Carnival",       icon: "PartyPopper",     color: "pink",    featured: true,  sortOrder: 0 },
+        { name: "Business Trip",  icon: "Briefcase",       color: "slate",   featured: true,  sortOrder: 1 },
+        { name: "Childcare",      icon: "Baby",            color: "pink",    featured: true,  sortOrder: 2 },
+        { name: "Custom",         icon: "Star",            color: "amber",   featured: true,  sortOrder: 3 },
+        { name: "Entertainment",  icon: "Gamepad2",        color: "red",     featured: true,  sortOrder: 4 },
+        { name: "Food & Dining",  icon: "UtensilsCrossed", color: "green",   featured: true,  sortOrder: 5 },
+        { name: "Holiday",        icon: "Palmtree",        color: "teal",    featured: true,  sortOrder: 6 },
+        { name: "Housing",        icon: "Home",            color: "blue",    featured: true,  sortOrder: 7 },
+        { name: "Insurance",      icon: "Shield",          color: "indigo",  featured: true,  sortOrder: 8 },
+        { name: "Investments",    icon: "TrendingUp",      color: "purple",  featured: true,  sortOrder: 9 },
+        { name: "Personal Care",  icon: "Scissors",        color: "cyan",    featured: true,  sortOrder: 10 },
+        { name: "Savings",        icon: "PiggyBank",       color: "emerald", featured: true,  sortOrder: 11 },
+        { name: "Subscriptions",  icon: "Smartphone",      color: "purple",  featured: true,  sortOrder: 12 },
+        { name: "Transport",      icon: "Car",             color: "orange",  featured: true,  sortOrder: 13 },
+        { name: "Utilities",      icon: "Zap",             color: "yellow",  featured: true,  sortOrder: 14 },
+      ],
+    },
+    {
+      kindKey: "personal",
+      entries: [
+        { name: "Fees & Charges", icon: "Receipt", color: "slate", featured: false, sortOrder: 0 },
+      ],
+    },
+    {
+      kindKey: "carnival",
+      entries: [
+        { name: "Costumes",        icon: "Shirt",         color: "pink",   featured: true,  sortOrder: 0 },
+        { name: "Events Tickets",  icon: "Ticket",        color: "amber",  featured: true,  sortOrder: 1 },
+        { name: "Jouvert Package", icon: "Package",       color: "violet", featured: true,  sortOrder: 2 },
+        { name: "Transport",       icon: "Car",           color: "sky",    featured: false, sortOrder: 3 },
+        { name: "Accommodation",   icon: "Home",          color: "emerald",featured: false, sortOrder: 4 },
+        { name: "Flights",         icon: "Plane",         color: "cyan",   featured: false, sortOrder: 5 },
+        { name: "Spending Money",  icon: "Wallet",        color: "slate",  featured: false, sortOrder: 6 },
+        { name: "Drinks and Food", icon: "Utensils",      color: "orange", featured: false, sortOrder: 7 },
+        { name: "Rental",          icon: "Key",           color: "indigo", featured: false, sortOrder: 8 },
+        { name: "Other",           icon: "CircleDot",     color: "slate",  featured: false, sortOrder: 9 },
+      ],
+    },
+    {
+      kindKey: "holiday",
+      entries: [
+        { name: "Activities",     icon: "Sparkles", color: "pink",    featured: true,  sortOrder: 0 },
+        { name: "Tours",          icon: "Map",      color: "amber",   featured: true,  sortOrder: 1 },
+        { name: "Spending Money", icon: "Wallet",   color: "slate",   featured: false, sortOrder: 2 },
+        { name: "Accommodation",  icon: "Home",     color: "emerald", featured: false, sortOrder: 3 },
+        { name: "Flights",        icon: "Plane",    color: "cyan",    featured: false, sortOrder: 4 },
+        { name: "Rental",         icon: "Key",      color: "indigo",  featured: false, sortOrder: 5 },
+      ],
+    },
+  ];
+
+  let templateCount = 0;
+  for (const { kindKey, entries } of templateGroups) {
+    for (const entry of entries) {
+      await (prisma as any).categoryTemplate.upsert({
+        where: { kindKey_name: { kindKey, name: entry.name } },
+        update: {
+          icon:      entry.icon ?? null,
+          color:     entry.color ?? null,
+          featured:  entry.featured ?? false,
+          sortOrder: entry.sortOrder ?? 0,
+          isActive:  true,
+        },
+        create: {
+          kindKey,
+          name:      entry.name,
+          icon:      entry.icon ?? null,
+          color:     entry.color ?? null,
+          featured:  entry.featured ?? false,
+          sortOrder: entry.sortOrder ?? 0,
+          isActive:  true,
+        },
+      });
+      templateCount++;
+    }
+  }
+  console.log(`  ✓ ${templateCount} category templates`);
+
   // 1. Seed Categories
-  console.log("📁 Seeding categories...");
+  console.log("\n📁 Seeding categories...");
   const categoriesData = JSON.parse(
     await fs.readFile(path.join(process.cwd(), "data", "categories.json"), "utf-8")
   );

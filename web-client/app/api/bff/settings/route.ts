@@ -144,16 +144,23 @@ export async function GET(req: NextRequest) {
 		});
     if (!budgetPlanId) return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
 
-    const plan = await prisma.budgetPlan.findUnique({
-			where: { id: budgetPlanId },
-			select: settingsSelect as any,
-		});
+    const [plan, userRow] = await Promise.all([
+      prisma.budgetPlan.findUnique({
+        where: { id: budgetPlanId },
+        select: settingsSelect as any,
+      }),
+      prisma.user.findUnique({
+        where: { id: userId },
+        select: { createdAt: true },
+      }),
+    ]);
 
     if (!plan) return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
 
 		const emergencyBalance = await getEmergencyBalanceFallback(budgetPlanId);
     const investmentBalance = await getInvestmentBalanceFallback(budgetPlanId);
-    return NextResponse.json({ ...plan, emergencyBalance, investmentBalance });
+    const accountCreatedAt = userRow?.createdAt?.toISOString() ?? null;
+    return NextResponse.json({ ...plan, emergencyBalance, investmentBalance, accountCreatedAt });
   } catch (error) {
     const message = String((error as any)?.message ?? error);
     const unknownMonthlyEmergency = message.includes("Unknown field `monthlyEmergencyContribution`");
@@ -169,19 +176,27 @@ export async function GET(req: NextRequest) {
         });
         if (!budgetPlanId) return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
 
-        const plan = await prisma.budgetPlan.findUnique({
-					where: { id: budgetPlanId },
-          select: (unknownMonthlyEmergency ? settingsSelectLegacy : settingsSelectWithoutMonthlyEmergency) as any,
-				});
+        const [plan, userRow2] = await Promise.all([
+          prisma.budgetPlan.findUnique({
+            where: { id: budgetPlanId },
+            select: (unknownMonthlyEmergency ? settingsSelectLegacy : settingsSelectWithoutMonthlyEmergency) as any,
+          }),
+          prisma.user.findUnique({
+            where: { id: userId! },
+            select: { createdAt: true },
+          }),
+        ]);
         if (!plan) return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
         const emergencyBalance = await getEmergencyBalanceFallback(budgetPlanId);
         const investmentBalance = await getInvestmentBalanceFallback(budgetPlanId);
+        const accountCreatedAt2 = userRow2?.createdAt?.toISOString() ?? null;
 
         return NextResponse.json({
           ...plan,
 				monthlyEmergencyContribution: unknownMonthlyEmergency ? 0 : (plan as any).monthlyEmergencyContribution,
 				emergencyBalance,
 				investmentBalance,
+          accountCreatedAt: accountCreatedAt2,
         });
       } catch (fallbackError) {
         console.error("Failed to fetch settings (fallback):", fallbackError);

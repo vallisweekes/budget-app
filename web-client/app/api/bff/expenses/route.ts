@@ -39,6 +39,7 @@ function serializeExpense(expense: any) {
     year: expense.year,
     categoryId: expense.categoryId,
     category: expense.category ?? null,
+    dueDate: expense.dueDate ? (expense.dueDate instanceof Date ? expense.dueDate.toISOString() : String(expense.dueDate)) : null,
   };
 }
 
@@ -66,6 +67,7 @@ export async function GET(req: NextRequest) {
         select: { id: true, name: true, icon: true, color: true, featured: true },
       },
     },
+    // dueDate is a scalar on Expense, included automatically
   });
 
   return NextResponse.json((items as any[]).map(serializeExpense));
