@@ -48,6 +48,10 @@ export async function POST(request: Request) {
     if (!userId) return unauthorized();
 
     const body = await request.json();
+
+    // Backward compatible mapping: older clients may still send "high_purchase".
+    // The DB enum value is now "hire_purchase".
+    const normalizedType = body?.type === "high_purchase" ? "hire_purchase" : body?.type;
 		const requestedBudgetPlanId = typeof body?.budgetPlanId === "string" ? body.budgetPlanId : "";
 		if (!requestedBudgetPlanId.trim()) {
 			return NextResponse.json({ error: "budgetPlanId is required" }, { status: 400 });
@@ -59,7 +63,7 @@ export async function POST(request: Request) {
     const debt = await prisma.debt.create({
       data: {
         name: body.name,
-        type: body.type,
+				type: normalizedType,
         initialBalance: body.initialBalance,
         currentBalance: body.currentBalance || body.initialBalance,
         amount: body.amount,

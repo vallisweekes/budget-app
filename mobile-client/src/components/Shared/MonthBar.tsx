@@ -34,14 +34,14 @@ export default function MonthBar({
         <Ionicons
           name="chevron-back"
           size={20}
-          color={prevDisabled ? "rgba(2,239,240,0.3)" : "#02eff0"}
+          color={prevDisabled ? "rgba(15,40,47,0.25)" : "#0f282f"}
         />
       </Pressable>
       <Text style={s.label}>
         {MONTH_NAMES[month - 1]} {year}
       </Text>
       <Pressable onPress={onNext} style={s.arrow} hitSlop={8}>
-        <Ionicons name="chevron-forward" size={20} color="#02eff0" />
+        <Ionicons name="chevron-forward" size={20} color="#0f282f" />
       </Pressable>
     </View>
   );
@@ -54,10 +54,11 @@ const s = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 14,
+    backgroundColor: "#ffffff",
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.06)",
+    borderBottomColor: "rgba(15,40,47,0.10)",
   },
   arrow: { padding: 8 },
   arrowDisabled: { opacity: 0.4 },
-  label: { color: "#fff", fontSize: 16, fontWeight: "700" },
+  label: { color: "#0f282f", fontSize: 16, fontWeight: "900" },
 });

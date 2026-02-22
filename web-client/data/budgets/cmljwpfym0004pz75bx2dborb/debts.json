@@ -1,7 +1,7 @@
 [
   {
     "name": "Housing: RENT (FEBURARY 2026)",
-    "type": "high_purchase",
+    "type": "hire_purchase",
     "initialBalance": 2000,
     "sourceType": "expense",
     "sourceExpenseId": "1770929157914-xpvdwvsvura",
@@ -19,7 +19,7 @@
   },
   {
     "name": "Housing: Mortgage (FEBURARY 2026)",
-    "type": "high_purchase",
+    "type": "hire_purchase",
     "initialBalance": 6000,
     "sourceType": "expense",
     "sourceExpenseId": "1770929199202-3nqkl3xstig",

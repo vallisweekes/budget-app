@@ -52,7 +52,7 @@ export default function UpcomingList({ payments, currency, fmt }: Props) {
 const s = StyleSheet.create({
   wrap: { paddingHorizontal: 14, paddingTop: 16 },
   title: {
-    color: "rgba(255,255,255,0.5)",
+    color: "rgba(15,27,45,0.55)",
     fontSize: 11,
     fontWeight: "700",
     textTransform: "uppercase",
@@ -60,10 +60,10 @@ const s = StyleSheet.create({
     marginBottom: 8,
   },
   card: {
-    backgroundColor: "#0a1e23",
+    backgroundColor: "#ffffff",
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.07)",
+    borderColor: "rgba(15,40,47,0.10)",
     paddingHorizontal: 14,
     paddingVertical: 2,
   },
@@ -72,12 +72,12 @@ const s = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.04)",
+    borderBottomColor: "rgba(15,40,47,0.08)",
     gap: 10,
   },
   dot: { width: 8, height: 8, borderRadius: 4, flexShrink: 0 },
   info: { flex: 1 },
-  name: { color: "#fff", fontSize: 13, fontWeight: "600" },
-  due: { color: "rgba(255,255,255,0.35)", fontSize: 11, marginTop: 2 },
+  name: { color: "#0f282f", fontSize: 13, fontWeight: "800" },
+  due: { color: "rgba(15,40,47,0.55)", fontSize: 11, marginTop: 2, fontWeight: "600" },
   amount: { fontSize: 13, fontWeight: "700" },
 });

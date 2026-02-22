@@ -12,15 +12,15 @@ import RootNavigator from "@/navigation/RootNavigator";
 
 function App() {
   return (
-    <SafeAreaProvider style={{ backgroundColor: "#0f282f" }}>
+    <SafeAreaProvider style={{ backgroundColor: "#ffffff" }}>
       <ReduxProvider store={store}>
         <AuthProvider>
           <NavigationContainer>
-            <View style={{ flex: 1, backgroundColor: "#0f282f" }}>
+            <View style={{ flex: 1, backgroundColor: "#ffffff" }}>
               <RootNavigator />
             </View>
           </NavigationContainer>
-          <StatusBar style="light" />
+          <StatusBar style="dark" />
         </AuthProvider>
       </ReduxProvider>
     </SafeAreaProvider>

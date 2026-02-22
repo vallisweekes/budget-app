@@ -6,6 +6,8 @@ import CategoryIcon from "@/components/CategoryIcon";
 import { formatMonthKeyLabel } from "@/lib/helpers/monthKey";
 import { getSimpleColorClasses } from "@/lib/helpers/colors";
 import { formatCurrency } from "@/lib/helpers/money";
+import { MONTHS } from "@/lib/constants/time";
+import { getDueDateUtc, daysUntilUtc, formatDueDateLabel, dueBadgeClasses } from "@/lib/helpers/expenses/dueDate";
 import type {
 	CreditCardOption,
 	DebtOption,
@@ -110,7 +112,7 @@ export default function CategorySection({
 						<div className="flex items-center gap-2 sm:gap-3 shrink-0">
 							<div className="text-right">
 								<div className="text-base sm:text-xl font-bold text-white">{formatCurrency(totalAmount)}</div>
-								<div className="text-[10px] sm:text-xs text-slate-400 mt-0.5">Pay day {payDate}</div>
+								<div className="text-[10px] sm:text-xs text-slate-400 mt-0.5">{paidCount} paid</div>
 							</div>
 							<button
 								type="button"
@@ -139,7 +141,7 @@ export default function CategorySection({
 							<div className="text-left min-w-0 flex-1">
 								<h3 className="font-bold text-sm sm:text-base text-white truncate">{category.name}</h3>
 								<p className="text-[10px] sm:text-xs text-slate-400 mt-0.5 truncate">
-									{expenses.length} {expenses.length === 1 ? "expense" : "expenses"} · Pay day {payDate}
+								{expenses.length} {expenses.length === 1 ? "expense" : "expenses"} · {paidCount} paid
 								</p>
 							</div>
 						</div>
@@ -162,9 +164,18 @@ export default function CategorySection({
 							<div className="flex items-center justify-between gap-3">
 								<div className="min-w-0 flex-1">
 									<div className="text-sm font-semibold text-slate-100 truncate">{expense.name}</div>
-									<div className="text-[10px] sm:text-xs text-slate-400">
-										{expense.paid ? "Paid" : "Unpaid"}
-									</div>
+									{(() => {
+										const monthNumber = (MONTHS as MonthKey[]).indexOf(month) + 1;
+										const dueDateUtc = getDueDateUtc({ year, monthNumber, dueDate: expense.dueDate, payDate });
+										const days = daysUntilUtc(dueDateUtc);
+										const label = formatDueDateLabel(days, dueDateUtc);
+										const colorClass = expense.paid ? "text-emerald-400" : days <= 0 ? "text-red-300" : days <= 5 ? "text-orange-300" : "text-slate-400";
+										return (
+											<div className={`text-[10px] sm:text-xs font-medium mt-0.5 ${colorClass}`}>
+												{expense.paid ? "Paid" : label}
+											</div>
+										);
+									})()}
 								</div>
 								<div className="shrink-0 text-sm font-bold text-white">{formatCurrency(expense.amount)}</div>
 							</div>

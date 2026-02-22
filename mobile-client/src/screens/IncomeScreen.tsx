@@ -15,7 +15,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { apiFetch } from "@/lib/api";
 import type { IncomeSummaryData, Settings } from "@/lib/apiTypes";
-import { fmt } from "@/lib/formatting";
+import { currencySymbol, fmt } from "@/lib/formatting";
 import { useYearGuard } from "@/lib/hooks/useYearGuard";
 import IncomeMonthCard from "@/components/Income/IncomeMonthCard";
 import type { IncomeStackParamList } from "@/navigation/types";
@@ -32,7 +32,7 @@ export default function IncomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const currency = settings?.currency ?? "£";
+  const currency = currencySymbol(settings?.currency);
   const { minYear } = useYearGuard(settings);
 
   const load = useCallback(async () => {
@@ -67,7 +67,7 @@ export default function IncomeScreen() {
     return (
       <SafeAreaView style={s.safe} edges={[]}>
         <View style={s.center}>
-          <ActivityIndicator size="large" color="#02eff0" />
+          <ActivityIndicator size="large" color="#0f282f" />
           <Text style={s.loadingText}>Loading income…</Text>
         </View>
       </SafeAreaView>
@@ -78,7 +78,7 @@ export default function IncomeScreen() {
     return (
       <SafeAreaView style={s.safe} edges={[]}>
         <View style={s.center}>
-          <Ionicons name="cloud-offline-outline" size={48} color="#455" />
+          <Ionicons name="cloud-offline-outline" size={48} color="rgba(15,40,47,0.55)" />
           <Text style={s.errorText}>{error}</Text>
           <Pressable onPress={load} style={s.retryBtn}>
             <Text style={s.retryTxt}>Retry</Text>
@@ -102,11 +102,11 @@ export default function IncomeScreen() {
           style={[s.yearArrow, year - 1 < minYear && s.yearArrowDisabled]}
           hitSlop={8}
         >
-          <Ionicons name="chevron-back" size={20} color={year - 1 < minYear ? "rgba(2,239,240,0.3)" : "#02eff0"} />
+          <Ionicons name="chevron-back" size={20} color={year - 1 < minYear ? "rgba(15,40,47,0.25)" : "#0f282f"} />
         </Pressable>
         <Text style={s.yearLabel}>{year}</Text>
         <Pressable onPress={() => changeYear(1)} style={s.yearArrow} hitSlop={8}>
-          <Ionicons name="chevron-forward" size={20} color="#02eff0" />
+          <Ionicons name="chevron-forward" size={20} color="#0f282f" />
         </Pressable>
       </View>
 
@@ -137,7 +137,7 @@ export default function IncomeScreen() {
         contentContainerStyle={s.grid}
         columnWrapperStyle={s.gridRow}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor="#02eff0" />
+          <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor="#0f282f" />
         }
         renderItem={({ item }) => (
           <IncomeMonthCard
@@ -165,33 +165,34 @@ export default function IncomeScreen() {
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#0f282f" },
+  safe: { flex: 1, backgroundColor: "#f2f4f7" },
   center: { flex: 1, justifyContent: "center", alignItems: "center", gap: 12 },
-  loadingText: { color: "rgba(255,255,255,0.35)", marginTop: 8, fontSize: 14 },
+  loadingText: { color: "rgba(15,40,47,0.55)", marginTop: 8, fontSize: 14 },
 
   yearBar: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     paddingHorizontal: 16, paddingVertical: 14,
-    borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.06)",
+    backgroundColor: "#ffffff",
+    borderBottomWidth: 1, borderBottomColor: "rgba(15,40,47,0.10)",
   },
   yearArrow: { padding: 8 },
   yearArrowDisabled: { opacity: 0.4 },
-  yearLabel: { color: "#fff", fontSize: 18, fontWeight: "700" },
+  yearLabel: { color: "#0f282f", fontSize: 18, fontWeight: "900" },
 
   summaryBar: {
     flexDirection: "row", paddingHorizontal: 24, paddingVertical: 12,
-    backgroundColor: "#0a1e23", borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.06)",
+    backgroundColor: "#ffffff", borderBottomWidth: 1,
+    borderBottomColor: "rgba(15,40,47,0.10)",
   },
   summaryItem: { flex: 1, alignItems: "center" },
-  summaryDivider: { width: 1, backgroundColor: "rgba(255,255,255,0.08)" },
-  summaryVal: { color: "#fff", fontWeight: "700", fontSize: 14 },
-  summaryLbl: { color: "rgba(255,255,255,0.35)", fontSize: 11, marginTop: 2 },
+  summaryDivider: { width: 1, backgroundColor: "rgba(15,40,47,0.10)" },
+  summaryVal: { color: "#0f282f", fontWeight: "900", fontSize: 14 },
+  summaryLbl: { color: "rgba(15,40,47,0.55)", fontSize: 11, marginTop: 2, fontWeight: "700" },
 
   grid: { padding: 12, paddingBottom: 140 },
   gridRow: { gap: 10, marginBottom: 10 },
   empty: { flex: 1, justifyContent: "center", alignItems: "center", paddingTop: 80, gap: 12 },
-  emptyText: { color: "rgba(255,255,255,0.3)", fontSize: 15 },
+  emptyText: { color: "rgba(15,40,47,0.55)", fontSize: 15, fontWeight: "700" },
   errorText: { color: "#e25c5c", fontSize: 14, textAlign: "center", paddingHorizontal: 32 },
   retryBtn: { backgroundColor: "#02eff0", borderRadius: 8, paddingHorizontal: 24, paddingVertical: 10 },
   retryTxt: { color: "#061b1c", fontWeight: "700" },

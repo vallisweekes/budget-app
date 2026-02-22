@@ -66,7 +66,7 @@ export default async function DebtsPage(props: {
 		store_card: "Store Card",
 		loan: "Loan",
 		mortgage: "Mortgage",
-		high_purchase: "High Purchase",
+		hire_purchase: "Hire Purchase",
 		other: "Other",
 	} as const;
 
@@ -75,7 +75,7 @@ export default async function DebtsPage(props: {
 			hero={
 				<div className="space-y-1 sm:space-y-2">
 					<h1 className="text-2xl sm:text-3xl font-bold text-white">Debt Management</h1>
-					<p className="text-xs sm:text-sm text-slate-400">Track credit cards, loans, and high purchase debts</p>
+					<p className="text-xs sm:text-sm text-slate-400">Track credit cards, loans, and hire purchase debts</p>
 				</div>
 			}
 		>

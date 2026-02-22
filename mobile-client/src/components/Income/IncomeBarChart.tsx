@@ -41,11 +41,11 @@ export default function IncomeBarChart({ data: a, currency }: Props) {
         maxValue={maxVal || 1}
         noOfSections={4}
         barBorderRadius={4}
-        xAxisColor="rgba(255,255,255,0.1)"
-        yAxisColor="rgba(255,255,255,0.1)"
-        yAxisTextStyle={{ color: "rgba(255,255,255,0.35)", fontSize: 9 }}
+        xAxisColor="rgba(15,40,47,0.10)"
+        yAxisColor="rgba(15,40,47,0.10)"
+        yAxisTextStyle={{ color: "rgba(15,40,47,0.55)", fontSize: 9, fontWeight: "600" }}
         xAxisLabelTextStyle={{
-          color: "rgba(255,255,255,0.5)",
+          color: "rgba(15,40,47,0.65)",
           fontSize: 11,
           fontWeight: "600",
         }}
@@ -88,5 +88,5 @@ const s = StyleSheet.create({
   },
   legendItem: { flexDirection: "row", alignItems: "center", gap: 4 },
   dot: { width: 8, height: 8, borderRadius: 4 },
-  legendText: { color: "rgba(255,255,255,0.5)", fontSize: 10 },
+  legendText: { color: "rgba(15,40,47,0.65)", fontSize: 10, fontWeight: "600" },
 });

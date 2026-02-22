@@ -3,6 +3,7 @@ import { View, Text, Pressable, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/context/AuthContext";
+import { StatusBar } from "expo-status-bar";
 
 interface Props {
   onSettings: () => void;
@@ -11,19 +12,18 @@ interface Props {
 export default function TopHeader({ onSettings }: Props) {
   const insets = useSafeAreaInsets();
   const { username } = useAuth();
-  const currentMonth = new Date().toLocaleDateString("en-GB", { month: "long" });
 
   const initial = username ? username.charAt(0).toUpperCase() : "?";
 
   return (
     <View style={[s.container, { paddingTop: insets.top }]}>
+      <StatusBar style="dark" />
       <View style={s.inner}>
         {/* App brand */}
         <View style={s.brand}>
           <View style={s.logoMark}>
-            <Ionicons name="stats-chart" size={14} color="#02eff0" />
+            <Ionicons name="stats-chart" size={14} color="#0f282f" />
           </View>
-          <Text style={s.appName}>{currentMonth}</Text>
         </View>
 
         {/* Settings button — user avatar + cog badge */}
@@ -42,40 +42,43 @@ export default function TopHeader({ onSettings }: Props) {
 
 const s = StyleSheet.create({
   container: {
-    backgroundColor: "#0f1b2d",
+    backgroundColor: "#ffffff",
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.07)",
+    borderBottomColor: "rgba(15,40,47,0.10)",
+    borderBottomLeftRadius: 26,
+    borderBottomRightRadius: 26,
+    overflow: "hidden",
   },
   inner: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 18,
-    paddingVertical: 10,
+    paddingVertical: 12,
   },
   brand: { flexDirection: "row", alignItems: "center", gap: 8 },
   logoMark: {
     width: 26,
     height: 26,
     borderRadius: 7,
-    backgroundColor: "rgba(79,108,247,0.18)",
+    backgroundColor: "rgba(15,40,47,0.06)",
     alignItems: "center",
     justifyContent: "center",
   },
-  appName: { color: "#fff", fontSize: 18, fontWeight: "800", letterSpacing: -0.4 },
+  appName: { color: "#0f282f", fontSize: 18, fontWeight: "900", letterSpacing: -0.4 },
 
   avatarBtn: { position: "relative" },
   avatar: {
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: "#1e3058",
+    backgroundColor: "#02eff0",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1.5,
-    borderColor: "rgba(79,108,247,0.4)",
+    borderColor: "rgba(15,40,47,0.15)",
   },
-  avatarInitial: { color: "#fff", fontSize: 14, fontWeight: "700" },
+  avatarInitial: { color: "#061b1c", fontSize: 14, fontWeight: "900" },
   cogBadge: {
     position: "absolute",
     bottom: -2,
@@ -83,10 +86,10 @@ const s = StyleSheet.create({
     width: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: "#02eff0",
+    backgroundColor: "#0f282f",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1.5,
-    borderColor: "#0f1b2d",
+    borderColor: "#ffffff",
   },
 });

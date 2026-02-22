@@ -64,6 +64,8 @@ export interface DebtSummaryItem {
   id: string;
   name: string;
   type: string;
+  displayTitle?: string;
+  displaySubtitle?: string;
   currentBalance: number;
   initialBalance: number;
   paidAmount: number;
@@ -75,6 +77,8 @@ export interface DebtSummaryItem {
   creditLimit: number | null;
   dueDay: number | null;
   sourceType: string | null;
+  sourceMonthKey?: string | null;
+  sourceCategoryName?: string | null;
   sourceExpenseName: string | null;
   computedMonthlyPayment: number;
   isActive: boolean;
@@ -278,6 +282,8 @@ export interface DebtSummaryItem {
   id: string;
   name: string;
   type: string;
+  displayTitle?: string;
+  displaySubtitle?: string;
   currentBalance: number;
   initialBalance: number;
   paidAmount: number;
@@ -289,6 +295,8 @@ export interface DebtSummaryItem {
   creditLimit: number | null;
   dueDay: number | null;
   sourceType: string | null;
+  sourceMonthKey?: string | null;
+  sourceCategoryName?: string | null;
   sourceExpenseName: string | null;
   computedMonthlyPayment: number;
   isActive: boolean;

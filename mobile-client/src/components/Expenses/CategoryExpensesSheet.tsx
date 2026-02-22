@@ -331,7 +331,7 @@ export default function CategoryExpensesSheet({
 
             {/* Edit */}
             <Pressable onPress={() => openEdit(item)} disabled={isBusy} hitSlop={8} style={rs.iconBtn}>
-              <Ionicons name="pencil-outline" size={16} color="rgba(255,255,255,0.45)" />
+              <Ionicons name="pencil-outline" size={16} color="rgba(15,40,47,0.55)" />
             </Pressable>
 
             {/* Delete */}
@@ -366,9 +366,9 @@ export default function CategoryExpensesSheet({
                 value={paymentInput[item.id] ?? ""}
                 onChangeText={(t) => setPaymentInput(p => ({ ...p, [item.id]: t }))}
                 placeholder="0.00"
-                placeholderTextColor="rgba(255,255,255,0.2)"
+                placeholderTextColor="rgba(15,40,47,0.35)"
                 keyboardType="decimal-pad"
-                selectionColor="#02eff0"
+                selectionColor="#0f282f"
               />
               <TouchableOpacity
                 style={[rs.addPayBtn, (paying[item.id] || !(paymentInput[item.id] ?? "")) && { opacity: 0.5 }]}
@@ -413,7 +413,7 @@ export default function CategoryExpensesSheet({
             </View>
           </View>
           <Pressable onPress={onClose} hitSlop={12} style={ss.closeBtn}>
-            <Ionicons name="close" size={20} color="rgba(255,255,255,0.5)" />
+            <Ionicons name="close" size={20} color="rgba(15,40,47,0.55)" />
           </Pressable>
         </View>
 
@@ -423,11 +423,11 @@ export default function CategoryExpensesSheet({
             <Text style={ss.statLbl}>TOTAL</Text>
             <Text style={ss.statVal}>{fmt(totalAmount, currency)}</Text>
           </View>
-          <View style={[ss.stat, { borderLeftWidth: 1, borderLeftColor: "rgba(255,255,255,0.07)" }]}>
+          <View style={[ss.stat, { borderLeftWidth: 1, borderLeftColor: "rgba(15,40,47,0.10)" }]}>
             <Text style={ss.statLbl}>PAID</Text>
             <Text style={[ss.statVal, { color: "#3ec97e" }]}>{fmt(totalPaid, currency)}</Text>
           </View>
-          <View style={[ss.stat, { borderLeftWidth: 1, borderLeftColor: "rgba(255,255,255,0.07)" }]}>
+          <View style={[ss.stat, { borderLeftWidth: 1, borderLeftColor: "rgba(15,40,47,0.10)" }]}>
             <Text style={ss.statLbl}>REMAINING</Text>
             <Text style={[ss.statVal, { color: "#f4a942" }]}>{fmt(remaining, currency)}</Text>
           </View>
@@ -436,11 +436,11 @@ export default function CategoryExpensesSheet({
         {/* List */}
         {loading ? (
           <View style={ss.center}>
-            <ActivityIndicator size="large" color="#02eff0" />
+            <ActivityIndicator size="large" color="#0f282f" />
           </View>
         ) : error ? (
           <View style={ss.center}>
-            <Ionicons name="cloud-offline-outline" size={36} color="#1a3d3f" />
+            <Ionicons name="cloud-offline-outline" size={36} color="rgba(15,40,47,0.55)" />
             <Text style={ss.errTxt}>{error}</Text>
             <Pressable onPress={load} style={ss.retryBtn}>
               <Text style={ss.retryTxt}>Retry</Text>
@@ -453,7 +453,7 @@ export default function CategoryExpensesSheet({
             contentContainerStyle={ss.list}
             keyboardShouldPersistTaps="handled"
             refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor="#02eff0" />
+              <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor="#0f282f" />
             }
             ListEmptyComponent={
               <View style={ss.center}>
@@ -480,8 +480,8 @@ export default function CategoryExpensesSheet({
               value={editState?.name ?? ""}
               onChangeText={t => setEditState(p => p ? { ...p, name: t } : p)}
               placeholder="Expense name"
-              placeholderTextColor="rgba(255,255,255,0.25)"
-              selectionColor="#02eff0"
+              placeholderTextColor="rgba(15,40,47,0.35)"
+              selectionColor="#0f282f"
               returnKeyType="next"
               autoFocus
             />
@@ -492,8 +492,8 @@ export default function CategoryExpensesSheet({
               value={editState?.amount ?? ""}
               onChangeText={t => setEditState(p => p ? { ...p, amount: t } : p)}
               placeholder="0.00"
-              placeholderTextColor="rgba(255,255,255,0.25)"
-              selectionColor="#02eff0"
+              placeholderTextColor="rgba(15,40,47,0.35)"
+              selectionColor="#0f282f"
               keyboardType="decimal-pad"
               returnKeyType="done"
               onSubmitEditing={handleEditSave}
@@ -531,16 +531,16 @@ const ss = StyleSheet.create({
     position: "absolute",
     bottom: 0, left: 0, right: 0,
     maxHeight: SCREEN_H * 0.88,
-    backgroundColor: "#0a1e23",
+    backgroundColor: "#ffffff",
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
     borderTopWidth: 1,
-    borderTopColor: "rgba(255,255,255,0.1)",
+    borderTopColor: "rgba(15,40,47,0.10)",
     overflow: "hidden",
   },
   handle: {
     width: 40, height: 4, borderRadius: 2,
-    backgroundColor: "rgba(255,255,255,0.18)",
+    backgroundColor: "rgba(15,40,47,0.20)",
     alignSelf: "center",
     marginTop: 10, marginBottom: 6,
   },
@@ -551,46 +551,46 @@ const ss = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.07)",
+    borderBottomColor: "rgba(15,40,47,0.10)",
   },
   headerLeft: { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },
-  title: { color: "#fff", fontSize: 16, fontWeight: "700" },
-  sub:   { color: "rgba(255,255,255,0.4)", fontSize: 12, marginTop: 1 },
+  title: { color: "#0f282f", fontSize: 16, fontWeight: "900" },
+  sub:   { color: "rgba(15,40,47,0.55)", fontSize: 12, marginTop: 1, fontWeight: "600" },
   closeBtn: {
     width: 32, height: 32, borderRadius: 16,
-    backgroundColor: "rgba(255,255,255,0.07)",
+    backgroundColor: "rgba(15,40,47,0.06)",
     alignItems: "center", justifyContent: "center",
   },
   statsRow: {
     flexDirection: "row",
-    backgroundColor: "#061b1c",
+    backgroundColor: "rgba(15,40,47,0.04)",
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.06)",
+    borderBottomColor: "rgba(15,40,47,0.10)",
   },
   stat: { flex: 1, paddingVertical: 10, paddingHorizontal: 14 },
-  statLbl: { color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: "600", marginBottom: 2 },
-  statVal: { color: "#fff", fontSize: 14, fontWeight: "700" },
+  statLbl: { color: "rgba(15,40,47,0.55)", fontSize: 10, fontWeight: "700", marginBottom: 2 },
+  statVal: { color: "#0f282f", fontSize: 14, fontWeight: "900" },
   list: { paddingHorizontal: 14, paddingTop: 12, paddingBottom: 32 },
   center: { alignItems: "center", justifyContent: "center", paddingVertical: 40, gap: 10 },
   errTxt: { color: "#e25c5c", fontSize: 13, textAlign: "center" },
   retryBtn: { backgroundColor: "#02eff0", borderRadius: 8, paddingHorizontal: 20, paddingVertical: 8 },
   retryTxt: { color: "#061b1c", fontWeight: "700", fontSize: 13 },
-  emptyTxt: { color: "rgba(255,255,255,0.3)", fontSize: 14 },
+  emptyTxt: { color: "rgba(15,40,47,0.45)", fontSize: 14, fontWeight: "600" },
 });
 
 // Row / card styles
 const rs = StyleSheet.create({
   card: {
-    backgroundColor: "#0f282f",
+    backgroundColor: "#ffffff",
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.07)",
+    borderColor: "rgba(15,40,47,0.10)",
     padding: 14,
     marginBottom: 10,
   },
   row1: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
   nameCol: { flex: 1, minWidth: 0 },
-  name: { color: "#fff", fontSize: 14, fontWeight: "600", marginBottom: 4 },
+  name: { color: "#0f282f", fontSize: 14, fontWeight: "800", marginBottom: 4 },
   badgeRow: { flexDirection: "row", flexWrap: "wrap", gap: 4 },
   badge: {
     paddingHorizontal: 8, paddingVertical: 2,
@@ -608,7 +608,7 @@ const rs = StyleSheet.create({
   paidBtnTxt:   { fontSize: 12, fontWeight: "700" },
   iconBtn: {
     width: 30, height: 30, borderRadius: 6,
-    backgroundColor: "rgba(255,255,255,0.05)",
+    backgroundColor: "rgba(15,40,47,0.06)",
     alignItems: "center", justifyContent: "center",
   },
   row2: {
@@ -616,23 +616,23 @@ const rs = StyleSheet.create({
     justifyContent: "space-between",
     marginTop: 10, marginBottom: 6,
   },
-  amount: { color: "#fff", fontSize: 15, fontWeight: "700" },
-  paidSub: { color: "rgba(255,255,255,0.4)", fontSize: 12 },
+  amount: { color: "#0f282f", fontSize: 15, fontWeight: "900" },
+  paidSub: { color: "rgba(15,40,47,0.55)", fontSize: 12, fontWeight: "600" },
   progressBg: {
     height: 5, borderRadius: 3,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "rgba(15,40,47,0.10)",
     overflow: "hidden",
   },
   progressFill: { height: 5, borderRadius: 3 },
   payRow: { marginTop: 12 },
-  payLabel: { color: "rgba(255,255,255,0.4)", fontSize: 11, fontWeight: "600", marginBottom: 6 },
+  payLabel: { color: "rgba(15,40,47,0.55)", fontSize: 11, fontWeight: "700", marginBottom: 6 },
   payInputRow: { flexDirection: "row", gap: 8 },
   payInput: {
     flex: 1,
-    backgroundColor: "rgba(255,255,255,0.05)",
+    backgroundColor: "rgba(15,40,47,0.06)",
     borderRadius: 8, borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
-    color: "#fff", fontSize: 15,
+    borderColor: "rgba(15,40,47,0.10)",
+    color: "#0f282f", fontSize: 15,
     paddingHorizontal: 12, paddingVertical: 9,
   },
   addPayBtn: {
@@ -649,33 +649,33 @@ const es = StyleSheet.create({
   overlay: { flex: 1, justifyContent: "flex-end" },
   backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.55)" },
   sheet: {
-    backgroundColor: "#0a1e23",
+    backgroundColor: "#ffffff",
     borderTopLeftRadius: 20, borderTopRightRadius: 20,
     paddingHorizontal: 20, paddingTop: 12,
-    borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.1)",
+    borderTopWidth: 1, borderTopColor: "rgba(15,40,47,0.10)",
   },
   handle: {
     width: 40, height: 4, borderRadius: 2,
-    backgroundColor: "rgba(255,255,255,0.2)",
+    backgroundColor: "rgba(15,40,47,0.20)",
     alignSelf: "center", marginBottom: 20,
   },
-  title:  { color: "#fff", fontSize: 17, fontWeight: "700", marginBottom: 20 },
-  label:  { color: "rgba(255,255,255,0.5)", fontSize: 12, fontWeight: "600", marginBottom: 6 },
+  title:  { color: "#0f282f", fontSize: 17, fontWeight: "900", marginBottom: 20 },
+  label:  { color: "rgba(15,40,47,0.65)", fontSize: 12, fontWeight: "700", marginBottom: 6 },
   input: {
-    backgroundColor: "#0f282f",
+    backgroundColor: "rgba(15,40,47,0.06)",
     borderRadius: 10, borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
-    color: "#fff", fontSize: 16,
+    borderColor: "rgba(15,40,47,0.10)",
+    color: "#0f282f", fontSize: 16,
     paddingHorizontal: 14, paddingVertical: 12,
     marginBottom: 16,
   },
   errTxt: { color: "#e25c5c", fontSize: 13, marginBottom: 12 },
   actions: { flexDirection: "row", gap: 10, marginTop: 4 },
   cancelBtn: {
-    flex: 1, backgroundColor: "rgba(255,255,255,0.07)",
+    flex: 1, backgroundColor: "rgba(15,40,47,0.06)",
     borderRadius: 10, paddingVertical: 14, alignItems: "center",
   },
-  cancelTxt: { color: "rgba(255,255,255,0.7)", fontSize: 15, fontWeight: "600" },
+  cancelTxt: { color: "rgba(15,40,47,0.75)", fontSize: 15, fontWeight: "700" },
   saveBtn: {
     flex: 2, backgroundColor: "#02eff0",
     borderRadius: 10, paddingVertical: 14, alignItems: "center",

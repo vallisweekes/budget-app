@@ -15,7 +15,7 @@ const typeIcons = {
 	store_card: ShoppingBag,
 	loan: TrendingDown,
 	mortgage: Home,
-	high_purchase: ShoppingBag,
+	hire_purchase: ShoppingBag,
 	other: TrendingDown,
 } as const;
 

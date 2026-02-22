@@ -3,7 +3,7 @@
 import { Check, Pencil, Trash2 } from "lucide-react";
 import type { ExpenseItem, MonthKey } from "@/types";
 import { formatCurrency } from "@/lib/helpers/money";
-import { formatIsoDueDate, getDueDateUtc, daysUntilUtc, dueBadgeClasses } from "@/lib/helpers/expenses/dueDate";
+import { getDueDateUtc, daysUntilUtc, dueBadgeClasses, formatDueDateLabel } from "@/lib/helpers/expenses/dueDate";
 import { MONTHS } from "@/lib/constants/time";
 import { SelectDropdown } from "@/components/Shared";
 import type { CreditCardOption, DebtOption } from "@/types/expenses-manager";
@@ -105,7 +105,7 @@ export default function ExpenseRow({
 												: `Due in ${days} day${days === 1 ? "" : "s"}`
 										}
 									>
-										Due: {expense.dueDate ? formatIsoDueDate(expense.dueDate) : `Day ${payDate}`}
+										{formatDueDateLabel(days, dueDateUtc)}
 									</span>
 								);
 							})()

@@ -129,7 +129,7 @@ export default function AddDebtForm({ budgetPlanId, payDate, creditCards }: AddD
 								{ value: "store_card", label: "Store Card" },
 								{ value: "loan", label: "Loan" },
 								{ value: "mortgage", label: "Mortgage" },
-								{ value: "high_purchase", label: "High Purchase" },
+								{ value: "hire_purchase", label: "Hire Purchase" },
 								{ value: "other", label: "Other" },
 							]}
 							buttonClassName="rounded-lg px-4 py-2 focus:ring-purple-500"

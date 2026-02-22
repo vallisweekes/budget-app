@@ -3,8 +3,34 @@ import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
 import { getDebtSummaryForPlan } from "@/lib/debts/summary";
 import { computeDebtTips } from "@/lib/debts/insights";
 import { getDebtMonthlyPayment, getTotalMonthlyDebtPayments } from "@/lib/debts/calculate";
+import { formatExpenseDebtCardTitle, formatYearMonthLabel } from "@/lib/helpers/debts/expenseDebtLabels";
 
 export const runtime = "nodejs";
+
+const TYPE_LABELS: Record<string, string> = {
+	credit_card: "Credit Card",
+	store_card: "Store Card",
+	loan: "Loan",
+	mortgage: "Mortgage",
+	hire_purchase: "Hire Purchase",
+	other: "Other",
+};
+
+function getDebtDisplayTitle(debt: { name: string; sourceType?: string | null; sourceExpenseName?: string | null; sourceCategoryName?: string | null; sourceMonthKey?: string | null }): string {
+	if (debt.sourceType === "expense") return formatExpenseDebtCardTitle(debt as any);
+	return debt.name;
+}
+
+function getDebtDisplaySubtitle(debt: { type: string; sourceType?: string | null; sourceCategoryName?: string | null; sourceMonthKey?: string | null }): string {
+	if (debt.sourceType === "expense") {
+		const category = String(debt.sourceCategoryName ?? "").trim();
+		const monthLabel = formatYearMonthLabel(debt.sourceMonthKey);
+		const left = category || "Expense";
+		return monthLabel ? `${left} · ${monthLabel}` : left;
+	}
+
+	return TYPE_LABELS[debt.type] ?? debt.type;
+}
 
 function unauthorized() {
 	return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
@@ -44,6 +70,8 @@ export async function GET(req: NextRequest) {
 			id: d.id,
 			name: d.name,
 			type: d.type,
+			displayTitle: getDebtDisplayTitle(d),
+			displaySubtitle: getDebtDisplaySubtitle(d),
 			currentBalance: d.currentBalance,
 			initialBalance: d.initialBalance ?? d.currentBalance,
 			paidAmount: d.paidAmount,
@@ -55,6 +83,8 @@ export async function GET(req: NextRequest) {
 			creditLimit: d.creditLimit ?? null,
 			dueDay: d.dueDay ?? null,
 			sourceType: d.sourceType ?? null,
+			sourceMonthKey: d.sourceMonthKey ?? null,
+			sourceCategoryName: d.sourceCategoryName ?? null,
 			sourceExpenseName: d.sourceExpenseName ?? null,
 			computedMonthlyPayment: getDebtMonthlyPayment(d),
 			isActive: (d.currentBalance ?? 0) > 0,

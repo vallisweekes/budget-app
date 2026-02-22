@@ -24,7 +24,7 @@ export default function ExpenseStatGrid({
     <View style={s.stack}>
       <View style={s.card}>
         <Text style={s.lbl}>Total</Text>
-        <Text style={[s.val, { color: "#fff" }]}>{fmt(totalAmount, currency)}</Text>
+        <Text style={[s.val, { color: "#0f282f" }]}>{fmt(totalAmount, currency)}</Text>
         <Text style={s.sub}>{totalCount} bill{totalCount !== 1 ? "s" : ""}</Text>
       </View>
       <View style={[s.card, s.cardOrange]}>
@@ -43,18 +43,18 @@ const s = StyleSheet.create({
     paddingTop: 12,
   },
   card: {
-    backgroundColor: "#0a1e23",
+    backgroundColor: "#ffffff",
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
+    borderColor: "rgba(15,40,47,0.10)",
   },
   cardOrange: {
     borderColor: "rgba(244,169,66,0.18)",
   },
   lbl: {
-    color: "rgba(255,255,255,0.4)",
+    color: "rgba(15,40,47,0.55)",
     fontSize: 11,
     fontWeight: "600",
     textTransform: "uppercase",
@@ -62,5 +62,5 @@ const s = StyleSheet.create({
     marginBottom: 4,
   },
   val: { fontWeight: "700", fontSize: 24 },
-  sub: { color: "rgba(255,255,255,0.3)", fontSize: 12, marginTop: 2 },
+  sub: { color: "rgba(15,40,47,0.50)", fontSize: 12, marginTop: 2, fontWeight: "600" },
 });

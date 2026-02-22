@@ -4,9 +4,7 @@ import {
   Pressable,
   Text,
   StyleSheet,
-  Platform,
 } from "react-native";
-import { BlurView } from "expo-blur";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -36,62 +34,42 @@ export default function PillTabBar({ state, descriptors, navigation }: BottomTab
   });
 
   return (
-    <View style={{ height: 0 }}>
-      <View style={[s.wrapper, { paddingBottom: (insets.bottom || 16) + 4 }]}>
-        {/* Outer glow ring — sits behind the pill */}
-        <View pointerEvents="none" style={s.outerGlow} />
+    <View style={[s.wrapper, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+      <View style={s.bar}>
+        {visibleRoutes.map((route) => {
+          const isFocused = state.routes[state.index].name === route.name;
+          const icons = ICONS[route.name] ?? { active: "ellipse", inactive: "ellipse-outline" };
+          const label = LABELS[route.name] ?? route.name;
 
-        {/* The pill itself — ultra-thin blur so content behind is clearly visible */}
-        <BlurView
-          intensity={55}
-          tint="systemUltraThinMaterialDark"
-          style={s.bar}
-        >
+          const onPress = () => {
+            const event = navigation.emit({
+              type: "tabPress",
+              target: route.key,
+              canPreventDefault: true,
+            });
+            if (!isFocused && !event.defaultPrevented) {
+              navigation.navigate(route.name);
+            }
+          };
 
-          {/* Bottom refraction edge */}
-          <View pointerEvents="none" style={s.specularBottom} />
-
-          {visibleRoutes.map((route) => {
-            const isFocused = state.routes[state.index].name === route.name;
-            const icons = ICONS[route.name] ?? { active: "ellipse", inactive: "ellipse-outline" };
-            const label = LABELS[route.name] ?? route.name;
-
-            const onPress = () => {
-              const event = navigation.emit({
-                type: "tabPress",
-                target: route.key,
-                canPreventDefault: true,
-              });
-              if (!isFocused && !event.defaultPrevented) {
-                navigation.navigate(route.name);
-              }
-            };
-
-            return (
-              <Pressable
-                key={route.key}
-                onPress={onPress}
-                style={s.tab}
-                android_ripple={{ color: "rgba(255,255,255,0.1)", borderless: true, radius: 32 }}
-              >
-                {isFocused ? (
-                  // Active bubble — glass lens within glass
-                  <View style={s.activePill}>
-                    <Ionicons name={icons.active} size={19} color="#fff" />
-                    <Text style={s.activePillLabel} numberOfLines={1}>{label}</Text>
-                  </View>
-                ) : (
-                  <>
-                    <View style={s.iconWrap}>
-                      <Ionicons name={icons.inactive} size={19} color="rgba(255,255,255,0.5)" />
-                    </View>
-                    <Text style={s.label} numberOfLines={1}>{label}</Text>
-                  </>
-                )}
-              </Pressable>
-            );
-          })}
-        </BlurView>
+          return (
+            <Pressable
+              key={route.key}
+              onPress={onPress}
+              style={s.tab}
+              android_ripple={{ color: "rgba(15,40,47,0.08)", borderless: false }}
+            >
+              <Ionicons
+                name={isFocused ? icons.active : icons.inactive}
+                size={20}
+                color={isFocused ? "#0f282f" : "rgba(15,40,47,0.45)"}
+              />
+              <Text style={[s.label, isFocused && s.labelActive]} numberOfLines={1}>
+                {label}
+              </Text>
+            </Pressable>
+          );
+        })}
       </View>
     </View>
   );
@@ -103,102 +81,30 @@ const s = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    paddingHorizontal: 14,
-    paddingTop: 8,
-    backgroundColor: "transparent",
+    backgroundColor: "#ffffff",
+    borderTopWidth: 1,
+    borderTopColor: "rgba(15,40,47,0.10)",
   },
-
-  // Soft ambient glow behind the pill — makes it look like it's lit from inside
-  outerGlow: {
-    position: "absolute",
-    bottom: 0,
-    left: 14,
-    right: 14,
-    top: 10,
-    borderRadius: 36,
-    ...Platform.select({
-      ios: {
-        shadowColor: "rgba(2,239,240,0.45)",
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 1,
-        shadowRadius: 28,
-      },
-    }),
-  },
-
   bar: {
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: 36,
+    paddingVertical: 10,
     paddingHorizontal: 8,
-    paddingVertical: 6,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.14)",
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 16 },
-        shadowOpacity: 0.5,
-        shadowRadius: 28,
-      },
-      android: {
-        elevation: 20,
-        backgroundColor: "rgba(6,22,26,0.85)",
-      },
-    }),
   },
-
-  specularBottom: {
-    position: "absolute",
-    bottom: 0,
-    left: 30,
-    right: 30,
-    height: 1,
-    borderRadius: 1,
-    backgroundColor: "rgba(255,255,255,0.12)",
-  },
-
   tab: {
     flex: 1,
     alignItems: "center",
     gap: 3,
-    paddingVertical: 1,
-  },
-
-  // Active glass bubble — a second glass surface sitting inside the first
-  activePill: {
-    width: "100%",
-    minHeight: 46,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 3,
     paddingVertical: 6,
-    overflow: "hidden",
-    backgroundColor: "rgba(255,255,255,0.15)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.45)",
   },
-
-  activePillLabel: {
-    color: "#fff",
+  label: {
+    color: "rgba(15,40,47,0.45)",
     fontSize: 11,
     fontWeight: "700",
     letterSpacing: 0.1,
   },
-
-  iconWrap: {
-    width: 40,
-    height: 28,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  label: {
-    color: "rgba(255,255,255,0.5)",
-    fontSize: 11,
-    fontWeight: "600",
-    letterSpacing: 0.1,
+  labelActive: {
+    color: "#0f282f",
+    fontWeight: "800",
   },
 });

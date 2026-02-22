@@ -2,6 +2,8 @@
 
 import type { MonthKey, ExpenseItem } from "@/types";
 import { formatCurrency } from "@/lib/helpers/money";
+import { MONTHS } from "@/lib/constants/time";
+import { getDueDateUtc, daysUntilUtc, formatDueDateLabel } from "@/lib/helpers/expenses/dueDate";
 import type { CreditCardOption, DebtOption } from "@/types/expenses-manager";
 import ExpenseRow from "@/components/Expenses/ExpenseManager/ExpenseRow";
 
@@ -61,6 +63,7 @@ export default function UncategorizedSection({
 	if (expenses.length === 0) return null;
 
 	const total = expenses.reduce((sum, e) => sum + e.amount, 0);
+	const paidCount = expenses.filter((e) => e.paid).length;
 	const previewLimit = 3;
 	const previewExpenses = expenses.slice(0, previewLimit);
 
@@ -83,7 +86,7 @@ export default function UncategorizedSection({
 						<div className="flex items-center gap-2 sm:gap-3 shrink-0">
 							<div className="text-right">
 								<div className="text-base sm:text-xl font-bold text-white">{formatCurrency(total)}</div>
-								<div className="text-[10px] sm:text-xs text-slate-400 mt-0.5">Pay day {payDate}</div>
+								<div className="text-[10px] sm:text-xs text-slate-400 mt-0.5">{paidCount} paid</div>
 							</div>
 							<button
 								type="button"
@@ -128,7 +131,18 @@ export default function UncategorizedSection({
 							<div className="flex items-center justify-between gap-3">
 								<div className="min-w-0 flex-1">
 									<div className="text-sm font-semibold text-slate-100 truncate">{expense.name}</div>
-									<div className="text-[10px] sm:text-xs text-slate-400">{expense.paid ? "Paid" : "Unpaid"}</div>
+									{(() => {
+										const monthNumber = (MONTHS as MonthKey[]).indexOf(month) + 1;
+										const dueDateUtc = getDueDateUtc({ year, monthNumber, dueDate: expense.dueDate, payDate });
+										const days = daysUntilUtc(dueDateUtc);
+										const label = formatDueDateLabel(days, dueDateUtc);
+										const colorClass = expense.paid ? "text-emerald-400" : days <= 0 ? "text-red-300" : days <= 5 ? "text-orange-300" : "text-slate-400";
+										return (
+											<div className={`text-[10px] sm:text-xs font-medium mt-0.5 ${colorClass}`}>
+												{expense.paid ? "Paid" : label}
+											</div>
+										);
+									})()}
 								</div>
 								<div className="shrink-0 text-sm font-bold text-white">{formatCurrency(expense.amount)}</div>
 							</div>
@@ -172,7 +186,7 @@ export default function UncategorizedSection({
 								onEdit={() => onEdit(expense)}
 								onDelete={() => onDelete(expense)}
 								onApplyPayment={() => onApplyPayment(expense.id)}
-								showDueBadge={false}
+								showDueBadge
 								showAllocationBadge={false}
 								showPartialPaidBadge
 							/>

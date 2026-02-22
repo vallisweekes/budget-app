@@ -27,7 +27,7 @@ export default async function DebtDetailPage(props: {
 		store_card: "Store Card",
 		loan: "Loan",
 		mortgage: "Mortgage",
-		high_purchase: "High Purchase",
+		hire_purchase: "Hire Purchase",
 		other: "Other",
 	} as const;
 

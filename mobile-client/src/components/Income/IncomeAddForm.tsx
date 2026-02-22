@@ -66,24 +66,26 @@ export function IncomeAddForm({ name, amount, setName, setAmount, onAdd, saving 
 
 const s = StyleSheet.create({
   wrap: {
-    backgroundColor: "#0a1e23",
+    backgroundColor: "#ffffff",
     borderRadius: 12,
     padding: 14,
     marginHorizontal: 14,
     marginVertical: 8,
     gap: 10,
+    borderWidth: 1,
+    borderColor: "rgba(15,40,47,0.10)",
   },
-  title: { color: "#fff", fontWeight: "700", fontSize: 15 },
+  title: { color: "#0f282f", fontWeight: "900", fontSize: 15 },
   row: { flexDirection: "row", gap: 10 },
   input: {
-    backgroundColor: "rgba(255,255,255,0.05)",
+    backgroundColor: "rgba(15,40,47,0.06)",
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    color: "#fff",
+    color: "#0f282f",
     fontSize: 14,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: "rgba(15,40,47,0.10)",
   },
   btn: {
     backgroundColor: "#02eff0",

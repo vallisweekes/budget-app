@@ -14,6 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch, getApiBaseUrl } from "@/lib/api";
 import type { Settings } from "@/lib/apiTypes";
+import { currencySymbol } from "@/lib/formatting";
 
 function SettingRow({ label, value }: { label: string; value: string | number | null | undefined }) {
   if (value == null || value === "") return null;
@@ -41,6 +42,8 @@ export default function SettingsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const cur = currencySymbol(settings?.currency);
+
   let apiBase = "";
   try { apiBase = getApiBaseUrl(); } catch { /* not configured */ }
 
@@ -63,11 +66,11 @@ export default function SettingsScreen() {
     <SafeAreaView style={styles.safe}>
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color="#02eff0" />
+          <ActivityIndicator size="large" color="#0f282f" />
         </View>
       ) : error ? (
         <View style={styles.center}>
-          <Ionicons name="cloud-offline-outline" size={40} color="#455" />
+          <Ionicons name="cloud-offline-outline" size={40} color="rgba(15,40,47,0.55)" />
           <Text style={styles.errorText}>{error}</Text>
           <Pressable onPress={load} style={styles.retryBtn}>
             <Text style={styles.retryTxt}>Retry</Text>
@@ -75,7 +78,7 @@ export default function SettingsScreen() {
         </View>
       ) : (
         <ScrollView
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor="#02eff0" />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor="#0f282f" />}
           contentContainerStyle={styles.scroll}
           showsVerticalScrollIndicator={false}
         >
@@ -93,21 +96,21 @@ export default function SettingsScreen() {
           {/* Budget settings */}
           <Section title="Budget">
             <SettingRow label="Strategy" value={settings?.budgetStrategy} />
-            <SettingRow label="Monthly allowance" value={settings?.monthlyAllowance ? `${settings.currency ?? "$"}${settings.monthlyAllowance}` : null} />
+            <SettingRow label="Monthly allowance" value={settings?.monthlyAllowance ? `${cur}${settings.monthlyAllowance}` : null} />
             <SettingRow label="Pay date" value={settings?.payDate ? `${settings.payDate}th of month` : null} />
           </Section>
 
           {/* Savings */}
           <Section title="Savings">
-            <SettingRow label="Current balance" value={settings?.savingsBalance ? `${settings.currency ?? "$"}${settings.savingsBalance}` : null} />
-            <SettingRow label="Monthly contribution" value={settings?.monthlySavingsContribution ? `${settings.currency ?? "$"}${settings.monthlySavingsContribution}` : null} />
-            <SettingRow label="Emergency contribution" value={settings?.monthlyEmergencyContribution ? `${settings.currency ?? "$"}${settings.monthlyEmergencyContribution}` : null} />
-            <SettingRow label="Investment contribution" value={settings?.monthlyInvestmentContribution ? `${settings.currency ?? "$"}${settings.monthlyInvestmentContribution}` : null} />
+            <SettingRow label="Current balance" value={settings?.savingsBalance ? `${cur}${settings.savingsBalance}` : null} />
+            <SettingRow label="Monthly contribution" value={settings?.monthlySavingsContribution ? `${cur}${settings.monthlySavingsContribution}` : null} />
+            <SettingRow label="Emergency contribution" value={settings?.monthlyEmergencyContribution ? `${cur}${settings.monthlyEmergencyContribution}` : null} />
+            <SettingRow label="Investment contribution" value={settings?.monthlyInvestmentContribution ? `${cur}${settings.monthlyInvestmentContribution}` : null} />
           </Section>
 
           {/* Locale */}
           <Section title="Locale">
-            <SettingRow label="Currency" value={settings?.currency} />
+            <SettingRow label="Currency" value={cur} />
             <SettingRow label="Country" value={settings?.country} />
             <SettingRow label="Language" value={settings?.language} />
           </Section>
@@ -132,18 +135,20 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#0f282f" },
+  safe: { flex: 1, backgroundColor: "#f2f4f7" },
   center: { flex: 1, justifyContent: "center", alignItems: "center", gap: 12 },
   scroll: { padding: 16, paddingBottom: 48 },
 
   profileCard: {
-    backgroundColor: "#0a1e23",
+    backgroundColor: "#ffffff",
     borderRadius: 16,
     padding: 20,
     flexDirection: "row",
     alignItems: "center",
     gap: 16,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "rgba(15,40,47,0.10)",
   },
   avatar: {
     width: 52,
@@ -154,19 +159,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   avatarText: { color: "#fff", fontSize: 22, fontWeight: "700" },
-  profileName: { color: "#fff", fontSize: 17, fontWeight: "700" },
-  profileSub: { color: "rgba(255,255,255,0.35)", fontSize: 12, marginTop: 2 },
+  profileName: { color: "#0f282f", fontSize: 17, fontWeight: "900" },
+  profileSub: { color: "rgba(15,40,47,0.55)", fontSize: 12, marginTop: 2, fontWeight: "600" },
 
   section: {
-    backgroundColor: "#0a1e23",
+    backgroundColor: "#ffffff",
     borderRadius: 14,
     padding: 16,
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "rgba(15,40,47,0.10)",
   },
   sectionTitle: {
-    color: "rgba(255,255,255,0.5)",
+    color: "rgba(15,40,47,0.55)",
     fontSize: 11,
-    fontWeight: "700",
+    fontWeight: "900",
     textTransform: "uppercase",
     letterSpacing: 1,
     marginBottom: 12,
@@ -177,10 +184,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.05)",
+    borderBottomColor: "rgba(15,40,47,0.10)",
   },
-  rowLabel: { color: "rgba(255,255,255,0.55)", fontSize: 14 },
-  rowValue: { color: "#fff", fontSize: 14, fontWeight: "600", maxWidth: "55%" },
+  rowLabel: { color: "rgba(15,40,47,0.55)", fontSize: 14, fontWeight: "700" },
+  rowValue: { color: "#0f282f", fontSize: 14, fontWeight: "800", maxWidth: "55%" },
   monoText: { fontVariant: ["tabular-nums"], fontSize: 11 },
 
   signOutBtn: {

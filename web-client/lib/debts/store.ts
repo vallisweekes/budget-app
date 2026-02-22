@@ -425,7 +425,7 @@ export async function upsertExpenseDebt(params: {
 		data: {
 			budgetPlanId,
 			name,
-			type: "high_purchase",
+			type: "other",
 			initialBalance: remainingAmount,
 			currentBalance: remainingAmount,
 			amount: remainingAmount,

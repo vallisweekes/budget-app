@@ -17,26 +17,26 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { apiFetch } from "@/lib/api";
 import type { DebtSummaryData, DebtSummaryItem, Settings } from "@/lib/apiTypes";
-import { fmt } from "@/lib/formatting";
+import { currencySymbol, fmt } from "@/lib/formatting";
 import type { DebtStackParamList } from "@/navigation/types";
 
 type Nav = NativeStackNavigationProp<DebtStackParamList, "DebtList">;
 
 const TYPE_LABELS: Record<string, string> = {
   credit_card: "Credit Card",
-  personal_loan: "Personal Loan",
-  student_loan: "Student Loan",
+  store_card: "Store Card",
+  loan: "Loan",
   mortgage: "Mortgage",
-  medical: "Medical",
+  hire_purchase: "Hire Purchase",
   other: "Other",
 };
 
 const TYPE_COLORS: Record<string, string> = {
   credit_card: "#e25c5c",
-  personal_loan: "#f4a942",
-  student_loan: "#a78bfa",
+  store_card: "#f4a942",
+  loan: "#a78bfa",
   mortgage: "#38bdf8",
-  medical: "#fb7185",
+  hire_purchase: "#f4a942",
   other: "#64748b",
 };
 
@@ -63,9 +63,9 @@ function DebtCard({
         {/* Top row */}
         <View style={s.cardTop}>
           <View style={s.cardLeft}>
-            <Text style={s.cardName} numberOfLines={1}>{debt.name}</Text>
+            <Text style={s.cardName} numberOfLines={1}>{debt.displayTitle ?? debt.name}</Text>
             <Text style={[s.cardType, { color: accentColor }]}>
-              {TYPE_LABELS[debt.type] ?? debt.type}
+              {debt.displaySubtitle ?? TYPE_LABELS[debt.type] ?? debt.type}
             </Text>
           </View>
           <View style={s.cardRight}>
@@ -128,11 +128,11 @@ export default function DebtScreen() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [addName, setAddName] = useState("");
   const [addBalance, setAddBalance] = useState("");
-  const [addType, setAddType] = useState("personal_loan");
+  const [addType, setAddType] = useState("loan");
   const [saving, setSaving] = useState(false);
   const [filter, setFilter] = useState<"active" | "all">("active");
 
-  const currency = settings?.currency ?? "£";
+  const currency = currencySymbol(settings?.currency);
 
   const load = useCallback(async () => {
     try {
@@ -180,7 +180,7 @@ export default function DebtScreen() {
   if (loading) {
     return (
       <SafeAreaView style={s.safe} edges={[]}>
-        <View style={s.center}><ActivityIndicator size="large" color="#02eff0" /></View>
+        <View style={s.center}><ActivityIndicator size="large" color="#0f282f" /></View>
       </SafeAreaView>
     );
   }
@@ -189,7 +189,7 @@ export default function DebtScreen() {
     return (
       <SafeAreaView style={s.safe} edges={[]}>
         <View style={s.center}>
-          <Ionicons name="cloud-offline-outline" size={48} color="#455" />
+          <Ionicons name="cloud-offline-outline" size={48} color="rgba(15,40,47,0.55)" />
           <Text style={s.errorText}>{error}</Text>
           <Pressable onPress={load} style={s.retryBtn}><Text style={s.retryTxt}>Retry</Text></Pressable>
         </View>
@@ -204,7 +204,7 @@ export default function DebtScreen() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={s.scroll}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor="#02eff0" />
+          <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor="#0f282f" />
         }
         ListHeaderComponent={
           <>
@@ -224,7 +224,7 @@ export default function DebtScreen() {
               </View>
               <View style={s.statCard}>
                 <Text style={s.statLabel}>Active</Text>
-                <Text style={[s.statValue, { color: "#fff" }]}>
+                <Text style={[s.statValue, { color: "#0f282f" }]}>
                   {summary?.activeCount ?? 0}
                 </Text>
               </View>
@@ -268,7 +268,7 @@ export default function DebtScreen() {
                 </Pressable>
               </View>
               <Pressable onPress={() => setShowAddForm((v) => !v)} style={s.addBtn}>
-                <Ionicons name={showAddForm ? "close" : "add-circle-outline"} size={22} color="#02eff0" />
+                <Ionicons name={showAddForm ? "close" : "add-circle-outline"} size={22} color="#0f282f" />
                 <Text style={s.addBtnTxt}>{showAddForm ? "Cancel" : "Add Debt"}</Text>
               </Pressable>
             </View>
@@ -318,7 +318,7 @@ export default function DebtScreen() {
           <DebtCard
             debt={item}
             currency={currency}
-            onPress={() => navigation.navigate("DebtDetail", { debtId: item.id, debtName: item.name })}
+            onPress={() => navigation.navigate("DebtDetail", { debtId: item.id, debtName: item.displayTitle ?? item.name })}
           />
         )}
         ListEmptyComponent={
@@ -334,23 +334,23 @@ export default function DebtScreen() {
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#0f282f" },
+  safe: { flex: 1, backgroundColor: "#f2f4f7" },
   center: { flex: 1, justifyContent: "center", alignItems: "center", gap: 12 },
   scroll: { paddingBottom: 140 },
 
   statsRow: { flexDirection: "row", gap: 8, padding: 14, paddingBottom: 0 },
   statCard: {
-    flex: 1, backgroundColor: "#0a1e23", borderRadius: 12, padding: 12,
-    alignItems: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.06)",
+    flex: 1, backgroundColor: "#ffffff", borderRadius: 12, padding: 12,
+    alignItems: "center", borderWidth: 1, borderColor: "rgba(15,40,47,0.10)",
   },
-  statLabel: { color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: "700", marginBottom: 4 },
+  statLabel: { color: "rgba(15,40,47,0.55)", fontSize: 10, fontWeight: "800", marginBottom: 4 },
   statValue: { fontSize: 13, fontWeight: "800" },
 
-  tipsCard: { margin: 14, marginBottom: 0, backgroundColor: "#0a1e23", borderRadius: 12, padding: 14 },
+  tipsCard: { margin: 14, marginBottom: 0, backgroundColor: "#ffffff", borderRadius: 12, padding: 14, borderWidth: 1, borderColor: "rgba(15,40,47,0.10)" },
   tipRow: { flexDirection: "row", paddingVertical: 6 },
-  tipBorder: { borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.06)", marginTop: 6 },
-  tipTitle: { color: "#fff", fontSize: 13, fontWeight: "700" },
-  tipDetail: { color: "rgba(255,255,255,0.45)", fontSize: 12, marginTop: 2 },
+  tipBorder: { borderTopWidth: 1, borderTopColor: "rgba(15,40,47,0.10)", marginTop: 6 },
+  tipTitle: { color: "#0f282f", fontSize: 13, fontWeight: "900" },
+  tipDetail: { color: "rgba(15,40,47,0.62)", fontSize: 12, marginTop: 2, fontWeight: "600" },
 
   listHeader: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
@@ -359,29 +359,30 @@ const s = StyleSheet.create({
   filterRow: { flexDirection: "row", gap: 6 },
   filterBtn: {
     paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20,
-    backgroundColor: "#0a1e23", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "#ffffff", borderWidth: 1, borderColor: "rgba(15,40,47,0.10)",
   },
-  filterBtnActive: { backgroundColor: "rgba(2,239,240,0.12)", borderColor: "#02eff0" },
-  filterTxt: { color: "rgba(255,255,255,0.4)", fontSize: 13, fontWeight: "600" },
-  filterTxtActive: { color: "#02eff0" },
+  filterBtnActive: { backgroundColor: "rgba(15,40,47,0.06)", borderColor: "rgba(15,40,47,0.18)" },
+  filterTxt: { color: "rgba(15,40,47,0.55)", fontSize: 13, fontWeight: "800" },
+  filterTxtActive: { color: "#0f282f" },
   addBtn: { flexDirection: "row", alignItems: "center", gap: 4 },
-  addBtnTxt: { color: "#02eff0", fontSize: 14, fontWeight: "700" },
+  addBtnTxt: { color: "#0f282f", fontSize: 14, fontWeight: "900" },
 
   addForm: {
-    margin: 14, marginTop: 0, backgroundColor: "#0a1e23",
+    margin: 14, marginTop: 0, backgroundColor: "#ffffff",
     borderRadius: 12, padding: 14, gap: 10,
+    borderWidth: 1, borderColor: "rgba(15,40,47,0.10)",
   },
-  addFormTitle: { color: "#fff", fontWeight: "700", fontSize: 15 },
+  addFormTitle: { color: "#0f282f", fontWeight: "900", fontSize: 15 },
   input: {
-    backgroundColor: "rgba(255,255,255,0.05)", borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10,
-    color: "#fff", fontSize: 14, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "rgba(15,40,47,0.06)", borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10,
+    color: "#0f282f", fontSize: 14, borderWidth: 1, borderColor: "rgba(15,40,47,0.10)",
   },
   typeRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   typeBtn: {
     paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20,
-    borderWidth: 1, borderColor: "rgba(255,255,255,0.1)",
+    borderWidth: 1, borderColor: "rgba(15,40,47,0.12)",
   },
-  typeBtnTxt: { color: "rgba(255,255,255,0.45)", fontSize: 12, fontWeight: "600" },
+  typeBtnTxt: { color: "rgba(15,40,47,0.55)", fontSize: 12, fontWeight: "800" },
   saveBtn: { backgroundColor: "#02eff0", borderRadius: 8, paddingVertical: 11, alignItems: "center" },
   saveBtnTxt: { color: "#061b1c", fontWeight: "700", fontSize: 14 },
   disabled: { opacity: 0.5 },
@@ -389,8 +390,8 @@ const s = StyleSheet.create({
   // Debt card
   card: {
     flexDirection: "row", marginHorizontal: 14, marginBottom: 10,
-    backgroundColor: "#0a1e23", borderRadius: 14,
-    overflow: "hidden", borderWidth: 1, borderColor: "rgba(255,255,255,0.06)",
+    backgroundColor: "#ffffff", borderRadius: 14,
+    overflow: "hidden", borderWidth: 1, borderColor: "rgba(15,40,47,0.10)",
   },
   cardPressed: { opacity: 0.75 },
   cardAccent: { width: 4 },
@@ -398,24 +399,24 @@ const s = StyleSheet.create({
   cardTop: { flexDirection: "row", alignItems: "flex-start" },
   cardLeft: { flex: 1 },
   cardRight: { alignItems: "flex-end" },
-  cardName: { color: "#fff", fontSize: 15, fontWeight: "700" },
+  cardName: { color: "#0f282f", fontSize: 15, fontWeight: "900" },
   cardType: { fontSize: 11, fontWeight: "600", marginTop: 2 },
-  cardBalance: { color: "#fff", fontSize: 17, fontWeight: "800" },
+  cardBalance: { color: "#0f282f", fontSize: 17, fontWeight: "900" },
   cardBalancePaid: { color: "#3ec97e" },
-  cardMonthly: { color: "rgba(255,255,255,0.4)", fontSize: 12, marginTop: 2 },
+  cardMonthly: { color: "rgba(15,40,47,0.55)", fontSize: 12, marginTop: 2, fontWeight: "600" },
   progressWrap: { gap: 4 },
-  progressBg: { height: 5, backgroundColor: "rgba(255,255,255,0.08)", borderRadius: 3, overflow: "hidden" },
+  progressBg: { height: 5, backgroundColor: "rgba(15,40,47,0.10)", borderRadius: 3, overflow: "hidden" },
   progressFill: { height: "100%", borderRadius: 3 },
-  progressPct: { color: "rgba(255,255,255,0.35)", fontSize: 11 },
+  progressPct: { color: "rgba(15,40,47,0.55)", fontSize: 11, fontWeight: "600" },
   cardFooter: { flexDirection: "row", alignItems: "center", gap: 10 },
-  cardMeta: { color: "rgba(255,255,255,0.35)", fontSize: 12 },
+  cardMeta: { color: "rgba(15,40,47,0.55)", fontSize: 12, fontWeight: "600" },
   paidBadge: { flexDirection: "row", alignItems: "center", gap: 4 },
   paidBadgeText: { color: "#3ec97e", fontSize: 12, fontWeight: "600" },
-  cardChevron: { color: "rgba(255,255,255,0.25)", fontSize: 20 },
+  cardChevron: { color: "rgba(15,40,47,0.25)", fontSize: 20 },
 
   empty: { alignItems: "center", paddingTop: 60, gap: 10 },
-  emptyTitle: { color: "rgba(255,255,255,0.5)", fontSize: 16, fontWeight: "700" },
-  emptySubtitle: { color: "rgba(255,255,255,0.25)", fontSize: 13 },
+  emptyTitle: { color: "rgba(15,27,45,0.65)", fontSize: 16, fontWeight: "800" },
+  emptySubtitle: { color: "rgba(15,27,45,0.45)", fontSize: 13 },
   errorText: { color: "#e25c5c", fontSize: 14, textAlign: "center", paddingHorizontal: 32 },
   retryBtn: { backgroundColor: "#02eff0", borderRadius: 8, paddingHorizontal: 24, paddingVertical: 10 },
   retryTxt: { color: "#061b1c", fontWeight: "700" },

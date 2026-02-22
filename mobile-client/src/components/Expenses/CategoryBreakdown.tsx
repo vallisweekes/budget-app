@@ -52,7 +52,7 @@ export default function CategoryBreakdown({ categories, currency, fmt, onCategor
               </View>
               <View style={s.right}>
                 <Text style={s.catTotal}>{fmt(cat.total, currency)}</Text>
-                <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.3)" />
+                <Ionicons name="chevron-forward" size={16} color="rgba(15,40,47,0.35)" />
               </View>
             </View>
 
@@ -80,7 +80,7 @@ export default function CategoryBreakdown({ categories, currency, fmt, onCategor
 const s = StyleSheet.create({
   wrap: { paddingHorizontal: 14, paddingTop: 16, gap: 8 },
   sectionLabel: {
-    color: "rgba(255,255,255,0.45)",
+    color: "rgba(15,27,45,0.55)",
     fontSize: 11,
     fontWeight: "700",
     textTransform: "uppercase",
@@ -89,10 +89,10 @@ const s = StyleSheet.create({
   },
 
   card: {
-    backgroundColor: "#0a1e23",
+    backgroundColor: "#ffffff",
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.07)",
+    borderColor: "rgba(15,40,47,0.10)",
     paddingHorizontal: 14,
     paddingTop: 12,
     paddingBottom: 10,
@@ -109,14 +109,14 @@ const s = StyleSheet.create({
     alignItems: "center", justifyContent: "center", flexShrink: 0,
   },
   iconDot: { width: 10, height: 10, borderRadius: 5 },
-  catName: { color: "#fff", fontSize: 14, fontWeight: "600", flex: 1 },
-  catTotal: { color: "#fff", fontSize: 15, fontWeight: "700" },
+  catName: { color: "#0f282f", fontSize: 14, fontWeight: "800", flex: 1 },
+  catTotal: { color: "#0f282f", fontSize: 15, fontWeight: "900" },
 
-  sub: { color: "rgba(255,255,255,0.4)", fontSize: 12, paddingLeft: 46 },
+  sub: { color: "rgba(15,40,47,0.55)", fontSize: 12, paddingLeft: 46, fontWeight: "600" },
 
   track: {
     height: 4,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "rgba(15,40,47,0.10)",
     borderRadius: 2,
     overflow: "hidden",
     marginTop: 2,

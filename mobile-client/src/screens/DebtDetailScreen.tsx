@@ -22,7 +22,7 @@ import {
 
 import { apiFetch } from "@/lib/api";
 import type { Debt, DebtPayment, Settings } from "@/lib/apiTypes";
-import { fmt } from "@/lib/formatting";
+import { currencySymbol, fmt } from "@/lib/formatting";
 import type { DebtStackParamList } from "@/navigation/types";
 
 type Route = RouteProp<DebtStackParamList, "DebtDetail">;
@@ -51,7 +51,7 @@ export default function DebtDetailScreen() {
   const [editDue, setEditDue] = useState("");
   const [editSaving, setEditSaving] = useState(false);
 
-  const currency = settings?.currency ?? "£";
+  const currency = currencySymbol(settings?.currency);
 
   const load = useCallback(async () => {
     try {
@@ -166,12 +166,12 @@ export default function DebtDetailScreen() {
       <SafeAreaView style={s.safe} edges={["bottom"]}>
         <View style={s.header}>
           <Pressable onPress={() => navigation.goBack()} style={s.backBtn}>
-            <Ionicons name="chevron-back" size={24} color="#fff" />
+            <Ionicons name="chevron-back" size={24} color="#0f282f" />
           </Pressable>
           <Text style={s.headerTitle} numberOfLines={1}>{debtName}</Text>
           <View style={{ width: 40 }} />
         </View>
-        <View style={s.center}><ActivityIndicator size="large" color="#02eff0" /></View>
+        <View style={s.center}><ActivityIndicator size="large" color="#0f282f" /></View>
       </SafeAreaView>
     );
   }
@@ -181,13 +181,13 @@ export default function DebtDetailScreen() {
       <SafeAreaView style={s.safe} edges={["bottom"]}>
         <View style={s.header}>
           <Pressable onPress={() => navigation.goBack()} style={s.backBtn}>
-            <Ionicons name="chevron-back" size={24} color="#fff" />
+            <Ionicons name="chevron-back" size={24} color="#0f282f" />
           </Pressable>
           <Text style={s.headerTitle}>{debtName}</Text>
           <View style={{ width: 40 }} />
         </View>
         <View style={s.center}>
-          <Ionicons name="cloud-offline-outline" size={48} color="#455" />
+          <Ionicons name="cloud-offline-outline" size={48} color="rgba(15,40,47,0.55)" />
           <Text style={s.errorText}>{error ?? "Debt not found"}</Text>
           <Pressable onPress={load} style={s.retryBtn}><Text style={s.retryTxt}>Retry</Text></Pressable>
         </View>
@@ -200,12 +200,12 @@ export default function DebtDetailScreen() {
       {/* Header */}
       <View style={s.header}>
         <Pressable onPress={() => navigation.goBack()} style={s.backBtn}>
-          <Ionicons name="chevron-back" size={24} color="#fff" />
+          <Ionicons name="chevron-back" size={24} color="#0f282f" />
         </Pressable>
         <Text style={s.headerTitle} numberOfLines={1}>{debt.name}</Text>
         <View style={s.headerActions}>
           <Pressable onPress={() => setEditing((v) => !v)} style={s.iconBtn}>
-            <Ionicons name={editing ? "close" : "pencil"} size={18} color="#02eff0" />
+            <Ionicons name={editing ? "close" : "pencil"} size={18} color="#0f282f" />
           </Pressable>
           <Pressable onPress={handleDelete} style={s.iconBtn}>
             <Ionicons name="trash-outline" size={18} color="#e25c5c" />
@@ -223,7 +223,7 @@ export default function DebtDetailScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={() => { setRefreshing(true); load(); }}
-              tintColor="#02eff0"
+              tintColor="#0f282f"
             />
           }
         >
@@ -397,46 +397,49 @@ export default function DebtDetailScreen() {
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#0f282f" },
+  safe: { flex: 1, backgroundColor: "#f2f4f7" },
   center: { flex: 1, justifyContent: "center", alignItems: "center", gap: 12 },
   header: {
     flexDirection: "row", alignItems: "center",
-    paddingHorizontal: 8, paddingVertical: 12, backgroundColor: "#0f282f",
+    paddingHorizontal: 8, paddingVertical: 12, backgroundColor: "#ffffff",
+    borderBottomWidth: 1, borderBottomColor: "rgba(15,40,47,0.10)",
   },
-  headerTitle: { flex: 1, color: "#fff", fontSize: 17, fontWeight: "800", marginLeft: 4 },
+  headerTitle: { flex: 1, color: "#0f282f", fontSize: 17, fontWeight: "900", marginLeft: 4 },
   headerActions: { flexDirection: "row", gap: 4 },
   backBtn: { paddingHorizontal: 6, paddingVertical: 4 },
   iconBtn: {
     paddingHorizontal: 8, paddingVertical: 6, borderRadius: 8,
-    backgroundColor: "rgba(255,255,255,0.05)",
+    backgroundColor: "rgba(15,40,47,0.06)",
+    borderWidth: 1,
+    borderColor: "rgba(15,40,47,0.10)",
   },
   scroll: { padding: 14, gap: 14, paddingBottom: 40 },
 
   statCard: {
-    backgroundColor: "#0a1e23", borderRadius: 14, padding: 14,
-    gap: 12, borderWidth: 1, borderColor: "rgba(255,255,255,0.06)",
+    backgroundColor: "#ffffff", borderRadius: 14, padding: 14,
+    gap: 12, borderWidth: 1, borderColor: "rgba(15,40,47,0.10)",
   },
   statRow: { flexDirection: "row", gap: 12 },
   statItem: { flex: 1 },
-  statLabel: { color: "rgba(255,255,255,0.4)", fontSize: 11, fontWeight: "700", marginBottom: 4 },
-  statValue: { color: "#fff", fontSize: 16, fontWeight: "800" },
+  statLabel: { color: "rgba(15,40,47,0.55)", fontSize: 11, fontWeight: "800", marginBottom: 4 },
+  statValue: { color: "#0f282f", fontSize: 16, fontWeight: "900" },
   progressWrap: { gap: 4 },
-  progressBg: { height: 7, backgroundColor: "rgba(255,255,255,0.08)", borderRadius: 4, overflow: "hidden" },
+  progressBg: { height: 7, backgroundColor: "rgba(15,40,47,0.10)", borderRadius: 4, overflow: "hidden" },
   progressFill: { height: "100%", borderRadius: 4, backgroundColor: "#02eff0" },
-  progressPct: { color: "rgba(255,255,255,0.35)", fontSize: 12 },
+  progressPct: { color: "rgba(15,40,47,0.55)", fontSize: 12, fontWeight: "600" },
 
   sectionCard: {
-    backgroundColor: "#0a1e23", borderRadius: 14, padding: 14,
-    gap: 12, borderWidth: 1, borderColor: "rgba(255,255,255,0.06)",
+    backgroundColor: "#ffffff", borderRadius: 14, padding: 14,
+    gap: 12, borderWidth: 1, borderColor: "rgba(15,40,47,0.10)",
   },
-  sectionTitle: { color: "#fff", fontSize: 14, fontWeight: "800" },
+  sectionTitle: { color: "#0f282f", fontSize: 14, fontWeight: "900" },
 
   formGroup: { flex: 1, gap: 6 },
   formRow: { flexDirection: "row", gap: 10 },
-  inputLabel: { color: "rgba(255,255,255,0.5)", fontSize: 12, fontWeight: "600" },
+  inputLabel: { color: "rgba(15,40,47,0.55)", fontSize: 12, fontWeight: "800" },
   input: {
-    backgroundColor: "rgba(255,255,255,0.05)", borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10,
-    color: "#fff", fontSize: 14, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "rgba(15,40,47,0.06)", borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10,
+    color: "#0f282f", fontSize: 14, borderWidth: 1, borderColor: "rgba(15,40,47,0.10)",
   },
   saveBtn: { backgroundColor: "#02eff0", borderRadius: 8, paddingVertical: 11, alignItems: "center" },
   saveBtnTxt: { color: "#061b1c", fontWeight: "700", fontSize: 14 },
@@ -449,14 +452,14 @@ const s = StyleSheet.create({
   },
   payBtnTxt: { color: "#fff", fontWeight: "800", fontSize: 14 },
   quickPay: { alignSelf: "flex-start" },
-  quickPayTxt: { color: "#02eff0", fontSize: 13, fontWeight: "600" },
+  quickPayTxt: { color: "#0f282f", fontSize: 13, fontWeight: "900" },
 
   payHistRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 8 },
-  payHistBorder: { borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.06)" },
-  payHistDate: { color: "rgba(255,255,255,0.75)", fontSize: 13, fontWeight: "600" },
-  payHistSource: { color: "rgba(255,255,255,0.35)", fontSize: 12, marginTop: 2 },
+  payHistBorder: { borderTopWidth: 1, borderTopColor: "rgba(15,40,47,0.10)" },
+  payHistDate: { color: "#0f282f", fontSize: 13, fontWeight: "800" },
+  payHistSource: { color: "rgba(15,40,47,0.55)", fontSize: 12, marginTop: 2, fontWeight: "600" },
   payHistAmt: { color: "#3ec97e", fontSize: 14, fontWeight: "800" },
-  emptyHistory: { color: "rgba(255,255,255,0.3)", fontSize: 13, textAlign: "center", paddingVertical: 16 },
+  emptyHistory: { color: "rgba(15,40,47,0.55)", fontSize: 13, textAlign: "center", paddingVertical: 16, fontWeight: "600" },
 
   errorText: { color: "#e25c5c", fontSize: 14, textAlign: "center", paddingHorizontal: 32 },
   retryBtn: { backgroundColor: "#02eff0", borderRadius: 8, paddingHorizontal: 24, paddingVertical: 10 },

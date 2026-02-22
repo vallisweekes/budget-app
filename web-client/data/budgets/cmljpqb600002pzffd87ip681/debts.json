@@ -14,7 +14,7 @@
   {
     "id": "b64fe160-fc9c-4a95-b2f2-062803951bd4",
     "name": "AUDIO GEAR",
-    "type": "high_purchase",
+    "type": "hire_purchase",
     "initialBalance": 2500,
     "currentBalance": 2500,
     "amount": 175,
@@ -25,7 +25,7 @@
   },
   {
     "name": "Entertainment: AUDIO GEAR (FEBURARY)",
-    "type": "high_purchase",
+    "type": "hire_purchase",
     "initialBalance": 175,
     "sourceType": "expense",
     "sourceExpenseId": "AUDIO-GEAR-FEBURARY",

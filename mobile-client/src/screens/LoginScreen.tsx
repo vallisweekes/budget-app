@@ -120,20 +120,20 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#0f282f" },
+  safe: { flex: 1, backgroundColor: "#f2f4f7" },
   kav: { flex: 1 },
   scroll: { flexGrow: 1, justifyContent: "center", paddingHorizontal: 24, paddingVertical: 40 },
 
   logoArea: { alignItems: "center", marginBottom: 36 },
-  appName: { color: "#fff", fontSize: 32, fontWeight: "800", letterSpacing: -0.5 },
-  tagline: { color: "rgba(255,255,255,0.35)", fontSize: 14, marginTop: 6 },
+  appName: { color: "#0f282f", fontSize: 32, fontWeight: "900", letterSpacing: -0.5 },
+  tagline: { color: "rgba(15,40,47,0.55)", fontSize: 14, marginTop: 6, fontWeight: "600" },
 
   card: {
-    backgroundColor: "#0a1e23",
+    backgroundColor: "#ffffff",
     borderRadius: 20,
     padding: 24,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.07)",
+    borderColor: "rgba(15,40,47,0.10)",
   },
 
   modeRow: {
@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     borderRadius: 10,
     overflow: "hidden",
-    backgroundColor: "rgba(255,255,255,0.05)",
+    backgroundColor: "rgba(15,40,47,0.06)",
     padding: 4,
     gap: 4,
   },
@@ -152,15 +152,15 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   modeBtnActive: { backgroundColor: "#02eff0" },
-  modeBtnText: { color: "rgba(255,255,255,0.4)", fontWeight: "600", fontSize: 14 },
+  modeBtnText: { color: "rgba(15,40,47,0.55)", fontWeight: "800", fontSize: 14 },
   modeBtnTextActive: { color: "#061b1c" },
 
   input: {
-    backgroundColor: "rgba(255,255,255,0.05)",
-    color: "#fff",
+    backgroundColor: "rgba(15,40,47,0.06)",
+    color: "#0f282f",
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
+    borderColor: "rgba(15,40,47,0.10)",
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
 
   apiNote: {
     marginTop: 16,
-    color: "rgba(255,255,255,0.25)",
+    color: "rgba(15,40,47,0.55)",
     fontSize: 11,
     textAlign: "center",
   },

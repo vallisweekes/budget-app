@@ -24,7 +24,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { apiFetch } from "@/lib/api";
 import type { Settings, ExpenseSummary, ExpenseInsights, UpcomingPayment, ExpenseCategoryBreakdown } from "@/lib/apiTypes";
-import { fmt } from "@/lib/formatting";
+import { currencySymbol, fmt } from "@/lib/formatting";
 import { useYearGuard } from "@/lib/hooks/useYearGuard";
 import MonthBar from "@/components/Shared/MonthBar";
 import ExpenseStatGrid from "@/components/Expenses/ExpenseStatGrid";
@@ -53,7 +53,7 @@ export default function ExpensesScreen() {
   const [sheetCategory, setSheetCategory] = useState<SheetCategory | null>(null);
   const [sheetOpen, setSheetOpen]         = useState(false);
 
-  const currency = settings?.currency ?? "£";
+  const currency = currencySymbol(settings?.currency);
   const { canDecrement } = useYearGuard(settings);
 
   const load = useCallback(async () => {
@@ -113,11 +113,11 @@ export default function ExpensesScreen() {
 
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color="#02eff0" />
+          <ActivityIndicator size="large" color="#0f282f" />
         </View>
       ) : error ? (
         <View style={styles.center}>
-          <Ionicons name="cloud-offline-outline" size={40} color="#455" />
+          <Ionicons name="cloud-offline-outline" size={40} color="rgba(15,40,47,0.55)" />
           <Text style={styles.errorText}>{error}</Text>
           <Pressable onPress={load} style={styles.retryBtn}>
             <Text style={styles.retryTxt}>Retry</Text>
@@ -129,7 +129,7 @@ export default function ExpensesScreen() {
           keyExtractor={() => ""}
           contentContainerStyle={styles.scrollContent}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor="#02eff0" />
+            <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor="#0f282f" />
           }
           ListHeaderComponent={
             <>
@@ -174,7 +174,7 @@ export default function ExpensesScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#0f282f" },
+  safe: { flex: 1, backgroundColor: "#f2f4f7" },
   center: { flex: 1, justifyContent: "center", alignItems: "center", gap: 12 },
   scrollContent: { paddingBottom: 140 },
   errorText: { color: "#e25c5c", fontSize: 14, textAlign: "center", paddingHorizontal: 32 },

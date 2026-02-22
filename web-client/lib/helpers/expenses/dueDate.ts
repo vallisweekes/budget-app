@@ -39,6 +39,22 @@ export function daysUntilUtc(dateUtc: Date): number {
 	return Math.floor(diff / (1000 * 60 * 60 * 24));
 }
 
+export function ordinalSuffix(day: number): string {
+	const mod10 = day % 10;
+	const mod100 = day % 100;
+	if (mod10 === 1 && mod100 !== 11) return `${day}st`;
+	if (mod10 === 2 && mod100 !== 12) return `${day}nd`;
+	if (mod10 === 3 && mod100 !== 13) return `${day}rd`;
+	return `${day}th`;
+}
+
+export function formatDueDateLabel(days: number, dueDateUtc: Date): string {
+	if (days === 0) return "Due Today";
+	if (days < 0) return `Past Due ${Math.abs(days)}d`;
+	const day = dueDateUtc.getUTCDate();
+	return `Due on ${ordinalSuffix(day)}`;
+}
+
 export function dueBadgeClasses(daysUntilDue: number): string {
 	// Requirements:
 	// - green when > 10 days

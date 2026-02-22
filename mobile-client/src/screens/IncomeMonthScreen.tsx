@@ -17,7 +17,7 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { apiFetch } from "@/lib/api";
 import type { Income, Settings, IncomeMonthData } from "@/lib/apiTypes";
 import type { IncomeStackParamList } from "@/navigation/types";
-import { fmt, MONTH_NAMES_LONG } from "@/lib/formatting";
+import { currencySymbol, fmt, MONTH_NAMES_LONG } from "@/lib/formatting";
 import { useIncomeCRUD } from "@/lib/hooks/useIncomeCRUD";
 import IncomeMonthStats from "@/components/Income/IncomeMonthStats";
 import IncomeBarChart from "@/components/Income/IncomeBarChart";
@@ -38,7 +38,7 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError]       = useState<string | null>(null);
 
-  const currency = settings?.currency ?? "£";
+  const currency = currencySymbol(settings?.currency);
 
   const load = useCallback(async () => {
     try {
@@ -66,7 +66,7 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
   if (loading) {
     return (
       <SafeAreaView style={s.safe}>
-        <View style={s.center}><ActivityIndicator size="large" color="#02eff0" /></View>
+        <View style={s.center}><ActivityIndicator size="large" color="#0f282f" /></View>
       </SafeAreaView>
     );
   }
@@ -75,7 +75,7 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
     return (
       <SafeAreaView style={s.safe}>
         <View style={s.center}>
-          <Ionicons name="cloud-offline-outline" size={48} color="#455" />
+          <Ionicons name="cloud-offline-outline" size={48} color="rgba(15,40,47,0.55)" />
           <Text style={s.errorText}>{error}</Text>
           <Pressable onPress={load} style={s.retryBtn}><Text style={s.retryTxt}>Retry</Text></Pressable>
         </View>
@@ -89,11 +89,11 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
         {/* Header */}
         <View style={s.header}>
           <Pressable onPress={() => navigation.goBack()} style={s.backBtn} hitSlop={8}>
-            <Ionicons name="chevron-back" size={22} color="#02eff0" />
+            <Ionicons name="chevron-back" size={22} color="#0f282f" />
           </Pressable>
           <Text style={s.headerTitle}>{monthLabel}</Text>
           <Pressable onPress={() => crud.setShowAddForm((v) => !v)} style={s.addBtn} hitSlop={8}>
-            <Ionicons name={crud.showAddForm ? "close" : "add-circle-outline"} size={24} color="#02eff0" />
+            <Ionicons name={crud.showAddForm ? "close" : "add-circle-outline"} size={24} color="#0f282f" />
           </Pressable>
         </View>
 
@@ -102,7 +102,7 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
           keyExtractor={(item) => item.id}
           contentContainerStyle={s.scroll}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor="#02eff0" />
+            <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor="#0f282f" />
           }
           ListHeaderComponent={
             <>
@@ -164,23 +164,24 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#0f282f" },
+  safe: { flex: 1, backgroundColor: "#f2f4f7" },
   center: { flex: 1, justifyContent: "center", alignItems: "center", gap: 12 },
   scroll: { paddingBottom: 40 },
   header: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     paddingHorizontal: 16, paddingVertical: 12,
-    borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.06)",
+    backgroundColor: "#ffffff",
+    borderBottomWidth: 1, borderBottomColor: "rgba(15,40,47,0.10)",
   },
   backBtn: { padding: 4 },
   addBtn: { padding: 4 },
-  headerTitle: { color: "#fff", fontSize: 17, fontWeight: "700", flex: 1, textAlign: "center" },
+  headerTitle: { color: "#0f282f", fontSize: 17, fontWeight: "900", flex: 1, textAlign: "center" },
   sourcesHeader: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 8 },
-  sourcesTitle: { color: "#fff", fontSize: 15, fontWeight: "700" },
-  sourcesSub: { color: "rgba(255,255,255,0.35)", fontSize: 12, marginTop: 3 },
+  sourcesTitle: { color: "#0f282f", fontSize: 15, fontWeight: "900" },
+  sourcesSub: { color: "rgba(15,40,47,0.55)", fontSize: 12, marginTop: 3, fontWeight: "600" },
   empty: { alignItems: "center", paddingTop: 40, gap: 8 },
-  emptyText: { color: "rgba(255,255,255,0.5)", fontSize: 15, fontWeight: "600" },
-  emptySub: { color: "rgba(255,255,255,0.25)", fontSize: 13 },
+  emptyText: { color: "rgba(15,40,47,0.70)", fontSize: 15, fontWeight: "800" },
+  emptySub: { color: "rgba(15,40,47,0.55)", fontSize: 13, fontWeight: "600" },
   errorText: { color: "#e25c5c", fontSize: 14, textAlign: "center", paddingHorizontal: 32 },
   retryBtn: { backgroundColor: "#02eff0", borderRadius: 8, paddingHorizontal: 24, paddingVertical: 10 },
   retryTxt: { color: "#061b1c", fontWeight: "700" },

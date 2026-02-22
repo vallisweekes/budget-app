@@ -310,7 +310,7 @@ enum DebtType {
   store_card
   loan
   mortgage
-  high_purchase
+  hire_purchase
   other
 }
 

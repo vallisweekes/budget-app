@@ -19,13 +19,13 @@ export default function DebtCategory({ debts, totalBalance }: DebtCategoryProps)
 	const typeIcons = {
 		credit_card: CreditCard,
 		loan: TrendingDown,
-		high_purchase: ShoppingBag,
+		hire_purchase: ShoppingBag,
 	};
 
 	const typeLabels = {
 		credit_card: "Credit Card",
 		loan: "Loan",
-		high_purchase: "High Purchase",
+		hire_purchase: "Hire Purchase",
 	};
 
 	return (
