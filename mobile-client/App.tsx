@@ -63,11 +63,7 @@ export default function App() {
         ) : (
           tab === "dashboard" ? (
             <DashboardNativeScreen
-              baseUrl={baseUrl}
-              message={message}
-              busy={isLoading}
-              onTestApi={testApi}
-              onOpenWebTab={openWebTab}
+             
             />
           ) : (
             <NativePlaceholderScreen
