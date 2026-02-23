@@ -28,6 +28,8 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [categorySheet, setCategorySheet] = useState<{ id: string; name: string } | null>(null);
+  const [aiTipIndex, setAiTipIndex] = useState(0);
+  const [showAllTips, setShowAllTips] = useState(false);
 
   const currency = currencySymbol(settings?.currency);
 
@@ -134,6 +136,18 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
     return true;
   });
   const tips = dashboard?.expenseInsights?.recapTips ?? [];
+
+  useEffect(() => {
+    if (aiTipIndex >= tips.length) setAiTipIndex(0);
+  }, [tips.length, aiTipIndex]);
+
+  useEffect(() => {
+    if (tips.length <= 1) return;
+    const id = setInterval(() => {
+      setAiTipIndex((i) => (i + 1) % tips.length);
+    }, 20_000);
+    return () => clearInterval(id);
+  }, [tips.length]);
 
   const getDebtDueAmount = (d: (typeof debts)[number]) => {
     // Match web-client getDebtMonthlyPayment()
@@ -344,15 +358,45 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
         {tips.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Insights</Text>
-            {tips.slice(0, 4).map((tip, i) => (
-              <View key={i} style={styles.tipRow}>
-                <Ionicons name="bulb-outline" size={16} color="#f4a942" style={{ marginTop: 2 }} />
-                <View style={{ flex: 1, marginLeft: 8 }}>
-                  <Text style={styles.tipTitle}>{tip.title}</Text>
-                  <Text style={styles.tipDetail}>{tip.detail}</Text>
+            {(() => {
+              const tip = tips[aiTipIndex] ?? tips[0];
+              const message = String(tip?.detail ?? tip?.title ?? "").trim();
+              return (
+                <View style={styles.aiCard}>
+                  <View style={styles.aiHeader}>
+                    <View style={styles.aiIconWrap}>
+                      <Ionicons name="sparkles-outline" size={16} color={T.accent} />
+                    </View>
+                    <Text style={styles.aiTitle}>Ai Insight</Text>
+                  </View>
+
+                  <Text style={styles.aiMessage} numberOfLines={3}>
+                    {message}
+                  </Text>
+
+                  <Pressable
+                    onPress={() => setShowAllTips((v) => !v)}
+                    style={({ pressed }) => [styles.aiBtn, pressed && styles.aiBtnPressed]}
+                  >
+                    <Text style={styles.aiBtnText}>View Tips</Text>
+                  </Pressable>
+
+                  {showAllTips ? (
+                    <View style={{ marginTop: 10 }}>
+                      {tips.map((t, i) => (
+                        <View key={i} style={styles.tipRow}>
+                          <Ionicons name="bulb-outline" size={16} color={T.orange} style={{ marginTop: 2 }} />
+                          <View style={{ flex: 1, marginLeft: 8 }}>
+                            <Text style={styles.tipTitle}>{t.title}</Text>
+                            <Text style={styles.tipDetail}>{t.detail}</Text>
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  ) : null}
                 </View>
-              </View>
-            ))}
+              );
+            })()}
           </View>
         )}
       </ScrollView>
@@ -518,6 +562,46 @@ const styles = StyleSheet.create({
   tipRow: { flexDirection: "row", paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "rgba(15,40,47,0.10)" },
   tipTitle: { color: "#0f282f", fontSize: 13, fontWeight: "800" },
   tipDetail: { color: "rgba(15,40,47,0.62)", fontSize: 12, marginTop: 2, fontWeight: "600" },
+
+  aiCard: {
+    backgroundColor: T.card,
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: T.border,
+    alignItems: "center",
+  },
+  aiHeader: { flexDirection: "row", alignItems: "center", gap: 8 },
+  aiIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: T.accentDim,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  aiTitle: { color: T.text, fontSize: 16, fontWeight: "900" },
+  aiMessage: {
+    marginTop: 10,
+    color: "rgba(255,255,255,0.82)",
+    fontSize: 13,
+    fontWeight: "700",
+    textAlign: "center",
+    lineHeight: 18,
+  },
+  aiBtn: {
+    marginTop: 12,
+    backgroundColor: T.accent,
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    minWidth: 120,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  aiBtnPressed: { transform: [{ scale: 0.99 }] },
+  aiBtnText: { color: T.onAccent, fontSize: 13, fontWeight: "900" },
 
   goalWrap: { gap: 8 },
   goalBarBg: {
