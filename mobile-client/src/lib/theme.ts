@@ -1,9 +1,8 @@
 /**
- * Storm-Cyan theme — mirrors the web client's default `storm-cyan` data-theme.
+ * Shared theme tokens.
  *
- * Background:   #0f282f  (Storm Green)
- * Card surface: #0a1e23  (deep teal, ≈ rgba(6,22,26,0.80) on Storm Green)
- * Accent:       #02eff0  (vivid cyan — same as web `--glow-1` hue)
+ * Note: The mobile UI has moved to a light surface with blue sections.
+ * The primary accent is now a dark purple (replacing the previous cyan).
  */
 
 export const T = {
@@ -15,14 +14,14 @@ export const T = {
   cardAlt:    "#0d2429",
   /** Faint card border */
   border:     "rgba(255,255,255,0.08)",
-  /** Accent border (cyan-tinted) */
-  accentBorder: "rgba(2,239,240,0.28)",
-  /** Primary accent (vivid cyan) */
-  accent:     "#02eff0",
+  /** Accent border (purple-tinted) */
+  accentBorder: "rgba(91,46,255,0.28)",
+  /** Primary accent (dark purple) */
+  accent:     "#5b2eff",
   /** Accent at low opacity — icon backgrounds, filter active, etc. */
-  accentDim:  "rgba(2,239,240,0.12)",
+  accentDim:  "rgba(91,46,255,0.12)",
   /** Disabled accent */
-  accentFaint:"rgba(2,239,240,0.30)",
+  accentFaint:"rgba(91,46,255,0.30)",
 
   /** Full-white body text */
   text:       "#ffffff",
@@ -31,8 +30,8 @@ export const T = {
   /** Muted / placeholder text */
   textMuted:  "rgba(255,255,255,0.3)",
 
-  /** Text rendered ON a cyan-filled button (must be dark for contrast) */
-  onAccent:   "#061b1c",
+  /** Text rendered ON an accent-filled button */
+  onAccent:   "#ffffff",
 
   /** Semantic: paid / success */
   green:      "#3ec97e",

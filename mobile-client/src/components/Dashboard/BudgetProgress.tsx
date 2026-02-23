@@ -1,5 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
+import { T } from "@/lib/theme";
 
 interface Props {
   progressPct: number;
@@ -23,7 +24,7 @@ export function BudgetProgress({ progressPct, isOverBudget, amountAfterExpenses,
             s.fill,
             {
               width: `${progressPct}%` as `${number}%`,
-              backgroundColor: isOverBudget ? "#e25c5c" : "#02eff0",
+              backgroundColor: isOverBudget ? "#e25c5c" : T.accent,
             },
           ]}
         />

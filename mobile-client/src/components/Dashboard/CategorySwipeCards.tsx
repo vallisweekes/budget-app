@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { View, Text, StyleSheet, FlatList, Dimensions, Pressable } from "react-native";
 import type { DashboardCategoryItem } from "@/lib/apiTypes";
+import { T } from "@/lib/theme";
 
 interface Props {
   categories: DashboardCategoryItem[];
@@ -15,7 +16,7 @@ const CARD = 122;
 const GAP = 12;
 const SIDE = 16;
 
-const ACCENT_COLORS = ["#02eff0", "#3ec97e", "#a78bfa", "#f4a942", "#38bdf8", "#e25c5c"] as const;
+const ACCENT_COLORS = [T.accent, "#3ec97e", "#a78bfa", "#f4a942", "#38bdf8", "#e25c5c"] as const;
 const STORM_RGB = { r: 15, g: 40, b: 47 } as const;
 
 function hashString(s: string): number {
@@ -171,6 +172,6 @@ const s = StyleSheet.create({
   },
   indicatorDotActive: {
     width: 18,
-    backgroundColor: "#0f282f",
+    backgroundColor: T.accent,
   },
 });

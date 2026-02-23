@@ -27,6 +27,7 @@ export type MainTabParamList = {
 export type RootStackParamList = {
   Login: undefined;
   Main: NavigatorScreenParams<MainTabParamList>;
+  Payments: undefined;
 };
 
 /* ── Typed screen props helpers ─────────────────────────────── */

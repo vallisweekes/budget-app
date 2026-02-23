@@ -1,3 +1,5 @@
+import { T } from "@/lib/theme";
+
 const CATEGORY_COLOR_HEX: Record<string, string> = {
   blue: "#3b82f6",
   yellow: "#eab308",
@@ -14,7 +16,7 @@ const CATEGORY_COLOR_HEX: Record<string, string> = {
   amber: "#f59e0b",
 };
 
-const DEFAULT_COLOR = "#02eff0";
+const DEFAULT_COLOR = T.accent;
 
 function normalizeHex(color: string): string | null {
   const value = color.trim();

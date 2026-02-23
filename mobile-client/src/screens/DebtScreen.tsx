@@ -19,6 +19,7 @@ import { apiFetch } from "@/lib/api";
 import type { DebtSummaryData, DebtSummaryItem, Settings } from "@/lib/apiTypes";
 import { currencySymbol, fmt } from "@/lib/formatting";
 import type { DebtStackParamList } from "@/navigation/types";
+import { T } from "@/lib/theme";
 
 type Nav = NativeStackNavigationProp<DebtStackParamList, "DebtList">;
 
@@ -49,7 +50,7 @@ function DebtCard({
   currency: string;
   onPress: () => void;
 }) {
-  const accentColor = TYPE_COLORS[debt.type] ?? "#02eff0";
+  const accentColor = TYPE_COLORS[debt.type] ?? T.accent;
   const progressPct =
     debt.initialBalance > 0
       ? Math.min(100, ((debt.initialBalance - debt.currentBalance) / debt.initialBalance) * 100)
@@ -383,8 +384,8 @@ const s = StyleSheet.create({
     borderWidth: 1, borderColor: "rgba(15,40,47,0.12)",
   },
   typeBtnTxt: { color: "rgba(15,40,47,0.55)", fontSize: 12, fontWeight: "800" },
-  saveBtn: { backgroundColor: "#02eff0", borderRadius: 8, paddingVertical: 11, alignItems: "center" },
-  saveBtnTxt: { color: "#061b1c", fontWeight: "700", fontSize: 14 },
+  saveBtn: { backgroundColor: T.accent, borderRadius: 8, paddingVertical: 11, alignItems: "center" },
+  saveBtnTxt: { color: T.onAccent, fontWeight: "700", fontSize: 14 },
   disabled: { opacity: 0.5 },
 
   // Debt card
@@ -418,6 +419,6 @@ const s = StyleSheet.create({
   emptyTitle: { color: "rgba(15,27,45,0.65)", fontSize: 16, fontWeight: "800" },
   emptySubtitle: { color: "rgba(15,27,45,0.45)", fontSize: 13 },
   errorText: { color: "#e25c5c", fontSize: 14, textAlign: "center", paddingHorizontal: 32 },
-  retryBtn: { backgroundColor: "#02eff0", borderRadius: 8, paddingHorizontal: 24, paddingVertical: 10 },
-  retryTxt: { color: "#061b1c", fontWeight: "700" },
+  retryBtn: { backgroundColor: T.accent, borderRadius: 8, paddingHorizontal: 24, paddingVertical: 10 },
+  retryTxt: { color: T.onAccent, fontWeight: "700" },
 });

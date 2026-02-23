@@ -18,6 +18,7 @@ import { apiFetch } from "@/lib/api";
 import type { Income, Settings, IncomeMonthData } from "@/lib/apiTypes";
 import type { IncomeStackParamList } from "@/navigation/types";
 import { currencySymbol, fmt, MONTH_NAMES_LONG } from "@/lib/formatting";
+import { T } from "@/lib/theme";
 import { useIncomeCRUD } from "@/lib/hooks/useIncomeCRUD";
 import IncomeMonthStats from "@/components/Income/IncomeMonthStats";
 import IncomeBarChart from "@/components/Income/IncomeBarChart";
@@ -183,6 +184,6 @@ const s = StyleSheet.create({
   emptyText: { color: "rgba(15,40,47,0.70)", fontSize: 15, fontWeight: "800" },
   emptySub: { color: "rgba(15,40,47,0.55)", fontSize: 13, fontWeight: "600" },
   errorText: { color: "#e25c5c", fontSize: 14, textAlign: "center", paddingHorizontal: 32 },
-  retryBtn: { backgroundColor: "#02eff0", borderRadius: 8, paddingHorizontal: 24, paddingVertical: 10 },
-  retryTxt: { color: "#061b1c", fontWeight: "700" },
+  retryBtn: { backgroundColor: T.accent, borderRadius: 8, paddingHorizontal: 24, paddingVertical: 10 },
+  retryTxt: { color: T.onAccent, fontWeight: "700" },
 });

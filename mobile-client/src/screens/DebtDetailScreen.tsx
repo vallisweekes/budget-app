@@ -24,6 +24,7 @@ import { apiFetch } from "@/lib/api";
 import type { Debt, DebtPayment, Settings } from "@/lib/apiTypes";
 import { currencySymbol, fmt } from "@/lib/formatting";
 import type { DebtStackParamList } from "@/navigation/types";
+import { T } from "@/lib/theme";
 
 type Route = RouteProp<DebtStackParamList, "DebtDetail">;
 
@@ -425,7 +426,7 @@ const s = StyleSheet.create({
   statValue: { color: "#0f282f", fontSize: 16, fontWeight: "900" },
   progressWrap: { gap: 4 },
   progressBg: { height: 7, backgroundColor: "rgba(15,40,47,0.10)", borderRadius: 4, overflow: "hidden" },
-  progressFill: { height: "100%", borderRadius: 4, backgroundColor: "#02eff0" },
+  progressFill: { height: "100%", borderRadius: 4, backgroundColor: T.accent },
   progressPct: { color: "rgba(15,40,47,0.55)", fontSize: 12, fontWeight: "600" },
 
   sectionCard: {
@@ -441,8 +442,8 @@ const s = StyleSheet.create({
     backgroundColor: "rgba(15,40,47,0.06)", borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10,
     color: "#0f282f", fontSize: 14, borderWidth: 1, borderColor: "rgba(15,40,47,0.10)",
   },
-  saveBtn: { backgroundColor: "#02eff0", borderRadius: 8, paddingVertical: 11, alignItems: "center" },
-  saveBtnTxt: { color: "#061b1c", fontWeight: "700", fontSize: 14 },
+  saveBtn: { backgroundColor: T.accent, borderRadius: 8, paddingVertical: 11, alignItems: "center" },
+  saveBtnTxt: { color: T.onAccent, fontWeight: "700", fontSize: 14 },
   disabled: { opacity: 0.5 },
 
   payRow: { flexDirection: "row", gap: 10, alignItems: "center" },
@@ -462,6 +463,6 @@ const s = StyleSheet.create({
   emptyHistory: { color: "rgba(15,40,47,0.55)", fontSize: 13, textAlign: "center", paddingVertical: 16, fontWeight: "600" },
 
   errorText: { color: "#e25c5c", fontSize: 14, textAlign: "center", paddingHorizontal: 32 },
-  retryBtn: { backgroundColor: "#02eff0", borderRadius: 8, paddingHorizontal: 24, paddingVertical: 10 },
-  retryTxt: { color: "#061b1c", fontWeight: "700" },
+  retryBtn: { backgroundColor: T.accent, borderRadius: 8, paddingHorizontal: 24, paddingVertical: 10 },
+  retryTxt: { color: T.onAccent, fontWeight: "700" },
 });

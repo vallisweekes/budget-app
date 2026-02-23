@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { Income } from "@/lib/apiTypes";
+import { T } from "@/lib/theme";
 
 /* ── Display row ─────────────────────────────────────────────── */
 
@@ -145,7 +146,7 @@ const s = StyleSheet.create({
     backgroundColor: "rgba(15,40,47,0.06)",
   },
   cancelText: { color: "rgba(15,40,47,0.65)", fontWeight: "700", fontSize: 13 },
-  saveBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, backgroundColor: "#02eff0" },
-  saveText: { color: "#061b1c", fontWeight: "700", fontSize: 13 },
+  saveBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, backgroundColor: T.accent },
+  saveText: { color: T.onAccent, fontWeight: "700", fontSize: 13 },
   disabled: { opacity: 0.5 },
 });

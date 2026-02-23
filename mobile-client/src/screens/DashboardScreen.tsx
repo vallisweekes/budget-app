@@ -16,6 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { apiFetch } from "@/lib/api";
 import type { DashboardData, Settings } from "@/lib/apiTypes";
 import { currencySymbol, fmt, MONTH_NAMES_SHORT } from "@/lib/formatting";
+import { T } from "@/lib/theme";
 import { SectionRow } from "@/components/Dashboard/SectionRow";
 import BudgetDonutCard from "@/components/Dashboard/BudgetDonutCard";
 import CategorySwipeCards from "@/components/Dashboard/CategorySwipeCards";
@@ -272,7 +273,7 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
                 </View>
               );
             })}
-            <Pressable onPress={() => navigation.navigate("Expenses")} style={styles.seeAllBtn}>
+            <Pressable onPress={() => navigation.navigate("Payments")} style={styles.seeAllBtn}>
               <Text style={styles.seeAllText}>See all</Text>
             </Pressable>
           </View>
@@ -427,7 +428,7 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: "rgba(15,40,47,0.10)",
   },
-  seeAllText: { color: "#0f282f", fontSize: 14, fontWeight: "900" },
+  seeAllText: { color: T.accent, fontSize: 14, fontWeight: "900" },
   period: { color: "#0f282f", fontSize: 22, fontWeight: "900", letterSpacing: -0.4 },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginBottom: 12 },
   section: {
@@ -510,8 +511,8 @@ const styles = StyleSheet.create({
   blueRowAmt: { color: "rgba(255,255,255,0.96)", fontSize: 18, fontWeight: "800", letterSpacing: -0.2 },
   loadingText: { color: "rgba(15,40,47,0.55)", marginTop: 12, fontSize: 14 },
   errorText: { color: "#e25c5c", marginTop: 12, fontSize: 15, textAlign: "center", paddingHorizontal: 32 },
-  retryBtn: { marginTop: 16, backgroundColor: "#02eff0", borderRadius: 10, paddingHorizontal: 28, paddingVertical: 12 },
-  retryText: { color: "#061b1c", fontWeight: "700" },
+  retryBtn: { marginTop: 16, backgroundColor: T.accent, borderRadius: 10, paddingHorizontal: 28, paddingVertical: 12 },
+  retryText: { color: T.onAccent, fontWeight: "700" },
   emptyText: { color: "rgba(15,40,47,0.55)", fontSize: 13, fontStyle: "italic", paddingVertical: 6, fontWeight: "600" },
   divider: { height: StyleSheet.hairlineWidth, backgroundColor: "rgba(15,40,47,0.10)", marginVertical: 10 },
   tipRow: { flexDirection: "row", paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "rgba(15,40,47,0.10)" },
@@ -529,6 +530,6 @@ const styles = StyleSheet.create({
   goalBarFill: {
     height: "100%",
     borderRadius: 999,
-    backgroundColor: "#02eff0",
+    backgroundColor: T.accent,
   },
 });

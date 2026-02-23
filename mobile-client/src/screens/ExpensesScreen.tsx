@@ -26,6 +26,7 @@ import { apiFetch } from "@/lib/api";
 import type { Settings, ExpenseSummary, ExpenseInsights, UpcomingPayment, ExpenseCategoryBreakdown } from "@/lib/apiTypes";
 import { currencySymbol, fmt } from "@/lib/formatting";
 import { useYearGuard } from "@/lib/hooks/useYearGuard";
+import { T } from "@/lib/theme";
 import MonthBar from "@/components/Shared/MonthBar";
 import ExpenseStatGrid from "@/components/Expenses/ExpenseStatGrid";
 import CategoryBreakdown from "@/components/Expenses/CategoryBreakdown";
@@ -178,6 +179,6 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: "center", alignItems: "center", gap: 12 },
   scrollContent: { paddingBottom: 140 },
   errorText: { color: "#e25c5c", fontSize: 14, textAlign: "center", paddingHorizontal: 32 },
-  retryBtn: { backgroundColor: "#02eff0", borderRadius: 8, paddingHorizontal: 24, paddingVertical: 10 },
-  retryTxt: { color: "#061b1c", fontWeight: "700" },
+  retryBtn: { backgroundColor: T.accent, borderRadius: 8, paddingHorizontal: 24, paddingVertical: 10 },
+  retryTxt: { color: T.onAccent, fontWeight: "700" },
 });

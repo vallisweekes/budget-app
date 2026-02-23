@@ -8,6 +8,7 @@ import {
   StyleSheet,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { T } from "@/lib/theme";
 
 interface Props {
   name: string;
@@ -52,10 +53,10 @@ export function IncomeAddForm({ name, amount, setName, setAmount, onAdd, saving 
         ]}
       >
         {saving ? (
-          <ActivityIndicator size="small" color="#061b1c" />
+          <ActivityIndicator size="small" color={T.onAccent} />
         ) : (
           <>
-            <Ionicons name="add-circle-outline" size={17} color="#061b1c" />
+            <Ionicons name="add-circle-outline" size={17} color={T.onAccent} />
             <Text style={s.btnText}>Add Source</Text>
           </>
         )}
@@ -88,7 +89,7 @@ const s = StyleSheet.create({
     borderColor: "rgba(15,40,47,0.10)",
   },
   btn: {
-    backgroundColor: "#02eff0",
+    backgroundColor: T.accent,
     borderRadius: 8,
     paddingVertical: 10,
     alignItems: "center",
@@ -96,6 +97,6 @@ const s = StyleSheet.create({
     justifyContent: "center",
     gap: 6,
   },
-  btnText: { color: "#061b1c", fontWeight: "700", fontSize: 14 },
+  btnText: { color: T.onAccent, fontWeight: "700", fontSize: 14 },
   disabled: { opacity: 0.45 },
 });

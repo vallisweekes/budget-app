@@ -36,6 +36,7 @@ import { apiFetch } from "@/lib/api";
 import type { Expense, Settings } from "@/lib/apiTypes";
 import { resolveCategoryColor, withOpacity } from "@/lib/categoryColors";
 import { fmt } from "@/lib/formatting";
+import { T } from "@/lib/theme";
 
 const { height: SCREEN_H } = Dimensions.get("window");
 
@@ -353,7 +354,15 @@ export default function CategoryExpensesSheet({
 
         {/* Row 3: progress bar */}
         <View style={rs.progressBg}>
-          <View style={[rs.progressFill, { width: `${Math.round(progress * 100)}%` as any, backgroundColor: isPaid ? "#3ec97e" : "#02eff0" }]} />
+          <View
+            style={[
+              rs.progressFill,
+              {
+                width: `${Math.round(progress * 100)}%` as any,
+                backgroundColor: isPaid ? "#3ec97e" : T.accent,
+              },
+            ]}
+          />
         </View>
 
         {/* Row 4: payment input (only when unpaid) */}
@@ -376,7 +385,7 @@ export default function CategoryExpensesSheet({
                 disabled={isBusy || !(paymentInput[item.id] ?? "")}
               >
                 {paying[item.id]
-                  ? <ActivityIndicator size="small" color="#061b1c" />
+                  ? <ActivityIndicator size="small" color={T.onAccent} />
                   : <Text style={rs.addPayTxt}>Add payment</Text>
                 }
               </TouchableOpacity>
@@ -506,7 +515,7 @@ export default function CategoryExpensesSheet({
                 <Text style={es.cancelTxt}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[es.saveBtn, editSaving && { opacity: 0.6 }]} onPress={handleEditSave} disabled={editSaving}>
-                {editSaving ? <ActivityIndicator size="small" color="#061b1c" /> : <Text style={es.saveTxt}>Save</Text>}
+                {editSaving ? <ActivityIndicator size="small" color={T.onAccent} /> : <Text style={es.saveTxt}>Save</Text>}
               </TouchableOpacity>
             </View>
           </View>
@@ -573,8 +582,8 @@ const ss = StyleSheet.create({
   list: { paddingHorizontal: 14, paddingTop: 12, paddingBottom: 32 },
   center: { alignItems: "center", justifyContent: "center", paddingVertical: 40, gap: 10 },
   errTxt: { color: "#e25c5c", fontSize: 13, textAlign: "center" },
-  retryBtn: { backgroundColor: "#02eff0", borderRadius: 8, paddingHorizontal: 20, paddingVertical: 8 },
-  retryTxt: { color: "#061b1c", fontWeight: "700", fontSize: 13 },
+  retryBtn: { backgroundColor: T.accent, borderRadius: 8, paddingHorizontal: 20, paddingVertical: 8 },
+  retryTxt: { color: T.onAccent, fontWeight: "700", fontSize: 13 },
   emptyTxt: { color: "rgba(15,40,47,0.45)", fontSize: 14, fontWeight: "600" },
 });
 
@@ -636,12 +645,12 @@ const rs = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 9,
   },
   addPayBtn: {
-    backgroundColor: "#02eff0",
+    backgroundColor: T.accent,
     borderRadius: 8,
     paddingHorizontal: 16, paddingVertical: 9,
     alignItems: "center", justifyContent: "center",
   },
-  addPayTxt: { color: "#061b1c", fontSize: 13, fontWeight: "700" },
+  addPayTxt: { color: T.onAccent, fontSize: 13, fontWeight: "700" },
 });
 
 // Edit modal styles
@@ -677,8 +686,8 @@ const es = StyleSheet.create({
   },
   cancelTxt: { color: "rgba(15,40,47,0.75)", fontSize: 15, fontWeight: "700" },
   saveBtn: {
-    flex: 2, backgroundColor: "#02eff0",
+    flex: 2, backgroundColor: T.accent,
     borderRadius: 10, paddingVertical: 14, alignItems: "center",
   },
-  saveTxt: { color: "#061b1c", fontSize: 15, fontWeight: "700" },
+  saveTxt: { color: T.onAccent, fontSize: 15, fontWeight: "700" },
 });

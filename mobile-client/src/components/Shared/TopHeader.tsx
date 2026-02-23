@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/context/AuthContext";
 import { StatusBar } from "expo-status-bar";
+import { T } from "@/lib/theme";
 
 interface Props {
   onSettings: () => void;
@@ -72,13 +73,13 @@ const s = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: "#02eff0",
+    backgroundColor: T.accent,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1.5,
     borderColor: "rgba(15,40,47,0.15)",
   },
-  avatarInitial: { color: "#061b1c", fontSize: 14, fontWeight: "900" },
+  avatarInitial: { color: T.onAccent, fontSize: 14, fontWeight: "900" },
   cogBadge: {
     position: "absolute",
     bottom: -2,

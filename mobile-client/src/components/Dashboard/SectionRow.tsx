@@ -1,5 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
+import { T } from "@/lib/theme";
 
 interface Props {
   label: string;
@@ -9,7 +10,7 @@ interface Props {
   leadingColor?: string;
 }
 
-const ACCENT_COLORS = ["#0f282f", "#02eff0"] as const;
+const ACCENT_COLORS = ["#0f282f", T.accent] as const;
 
 function hashString(s: string): number {
   let h = 0;

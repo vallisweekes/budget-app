@@ -49,61 +49,116 @@ export async function GET(req: NextRequest) {
 		const username = sessionUser?.username ?? sessionUser?.name;
 
 		// 1) Core plan data (income, expenses, allocations, goals, categories)
+		// This is required for the dashboard; let it throw if it truly can't compute.
 		const currentPlanData = await getDashboardPlanData(budgetPlanId, now);
 		const month = MONTHS[currentPlanData.monthNum - 1] ?? currentMonthKey();
 
 		// 2) Plan meta (payDate, homepageGoalIds)
 		const { payDate, homepageGoalIds } = await getBudgetPlanMeta(budgetPlanId);
 
-		// 3) Expense insights (recap, upcoming payments, tips)
-		const expenseInsightsBase = await getDashboardExpenseInsights({
-			budgetPlanId,
-			payDate,
-			now,
-			userId,
-		});
+		// Everything below is "best effort". If one section fails (e.g. debt sync),
+		// return the rest of the dashboard rather than a full 500.
+		const expenseInsightsBase = await (async () => {
+			try {
+				return await getDashboardExpenseInsights({
+					budgetPlanId,
+					payDate,
+					now,
+					userId,
+				});
+			} catch (error) {
+				console.error("Dashboard: expense insights failed:", error);
+				return { recap: null, upcoming: [], recapTips: [] };
+			}
+		})();
 
-		// 4) All plans data (for multi-plan users)
-		const allPlansData = await getAllPlansDashboardData({
-			budgetPlanId,
-			currentPlanData,
-			now,
-			session,
-			username,
-		});
+		const allPlansData = await (async () => {
+			try {
+				return await getAllPlansDashboardData({
+					budgetPlanId,
+					currentPlanData,
+					now,
+					session,
+					username,
+				});
+			} catch (error) {
+				console.error("Dashboard: all plans data failed:", error);
+				return { [budgetPlanId]: currentPlanData };
+			}
+		})();
 		const planIds = Object.keys(allPlansData);
 
-		// 5) Largest expenses per plan
-		const largestExpensesByPlan = await getLargestExpensesByPlan({
-			planIds,
-			now,
-			perPlanLimit: 3,
-		});
+		const largestExpensesByPlan = await (async () => {
+			try {
+				return await getLargestExpensesByPlan({
+					planIds,
+					now,
+					perPlanLimit: 3,
+				});
+			} catch (error) {
+				console.error("Dashboard: largest expenses failed:", error);
+				return {};
+			}
+		})();
 
-		// 6) Multi-plan health tips
-		const multiPlanTips = await getMultiPlanHealthTips({
-			planIds,
-			now,
-			payDate,
-			largestExpensesByPlan,
-		});
+		const multiPlanTips = await (async () => {
+			try {
+				return await getMultiPlanHealthTips({
+					planIds,
+					now,
+					payDate,
+					largestExpensesByPlan,
+				});
+			} catch (error) {
+				console.error("Dashboard: multi-plan tips failed:", error);
+				return [];
+			}
+		})();
 
-		// 7) Income coverage
-		const incomeMonthsCoverageByPlan = await getIncomeMonthsCoverageByPlan({
-			planIds,
-			year: selectedYear,
-		});
+		const incomeMonthsCoverageByPlan = await (async () => {
+			try {
+				return await getIncomeMonthsCoverageByPlan({
+					planIds,
+					year: selectedYear,
+				});
+			} catch (error) {
+				console.error("Dashboard: income coverage failed:", error);
+				return {};
+			}
+		})();
 
-		// 8) Debt summary
-		const debtSummary = await getDebtSummaryForPlan(budgetPlanId, {
-			includeExpenseDebts: true,
-			ensureSynced: true,
-		});
+		const debtSummary = await (async () => {
+			try {
+				return await getDebtSummaryForPlan(budgetPlanId, {
+					includeExpenseDebts: true,
+					ensureSynced: true,
+				});
+			} catch (error) {
+				console.error("Dashboard: debt summary failed:", error);
+				return {
+					regularDebts: [],
+					expenseDebts: [],
+					allDebts: [],
+					activeDebts: [],
+					activeRegularDebts: [],
+					activeExpenseDebts: [],
+					creditCards: [],
+					totalDebtBalance: 0,
+				};
+			}
+		})();
+
 		const debts = debtSummary.activeDebts;
-		const debtTips = computeDebtTips({ debts, totalIncome: currentPlanData.totalIncome });
+		const debtTips = (() => {
+			try {
+				return computeDebtTips({ debts, totalIncome: currentPlanData.totalIncome });
+			} catch (error) {
+				console.error("Dashboard: debt tips failed:", error);
+				return [];
+			}
+		})();
 		const totalDebtBalance = debtSummary.totalDebtBalance;
 
-		// Merge all tips
 		const expenseInsights = {
 			...expenseInsightsBase,
 			recapTips: [
@@ -168,8 +223,12 @@ export async function GET(req: NextRequest) {
 		});
 	} catch (error) {
 		console.error("Failed to compute dashboard:", error);
+		const isProd = process.env.NODE_ENV === "production";
 		return NextResponse.json(
-			{ error: "Failed to compute dashboard data" },
+			{
+				error: "Failed to compute dashboard data",
+				...(isProd ? {} : { detail: String((error as any)?.message ?? error) }),
+			},
 			{ status: 500 }
 		);
 	}

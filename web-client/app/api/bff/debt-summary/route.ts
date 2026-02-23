@@ -60,10 +60,21 @@ export async function GET(req: NextRequest) {
 			return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
 		}
 
-		const summary = await getDebtSummaryForPlan(budgetPlanId, {
-			includeExpenseDebts: true,
-			ensureSynced: true,
-		});
+		const summary = await (async () => {
+			try {
+				return await getDebtSummaryForPlan(budgetPlanId, {
+					includeExpenseDebts: true,
+					ensureSynced: true,
+				});
+			} catch (error) {
+				// Debt sync routines are helpful but should not hard-fail the UI.
+				console.error("Debt summary: sync failed, retrying without ensureSynced:", error);
+				return await getDebtSummaryForPlan(budgetPlanId, {
+					includeExpenseDebts: true,
+					ensureSynced: false,
+				});
+			}
+		})();
 
 		// Add computed monthly payment to each debt
 		const debtsWithPayments = summary.allDebts.map((d) => ({
@@ -110,8 +121,12 @@ export async function GET(req: NextRequest) {
 		});
 	} catch (error) {
 		console.error("Failed to compute debt summary:", error);
+		const isProd = process.env.NODE_ENV === "production";
 		return NextResponse.json(
-			{ error: "Failed to compute debt summary" },
+			{
+				error: "Failed to compute debt summary",
+				...(isProd ? {} : { detail: String((error as any)?.message ?? error) }),
+			},
 			{ status: 500 }
 		);
 	}

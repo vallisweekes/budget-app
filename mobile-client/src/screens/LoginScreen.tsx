@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../context/AuthContext";
+import { T } from "@/lib/theme";
 
 type Mode = "login" | "register";
 
@@ -151,9 +152,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderRadius: 8,
   },
-  modeBtnActive: { backgroundColor: "#02eff0" },
+  modeBtnActive: { backgroundColor: T.accent },
   modeBtnText: { color: "rgba(15,40,47,0.55)", fontWeight: "800", fontSize: 14 },
-  modeBtnTextActive: { color: "#061b1c" },
+  modeBtnTextActive: { color: T.onAccent },
 
   input: {
     backgroundColor: "rgba(15,40,47,0.06)",
@@ -168,13 +169,13 @@ const styles = StyleSheet.create({
   },
 
   submitBtn: {
-    backgroundColor: "#02eff0",
+    backgroundColor: T.accent,
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: "center",
   },
   submitBtnDisabled: { opacity: 0.6 },
-  submitBtnText: { color: "#061b1c", fontWeight: "700", fontSize: 16 },
+  submitBtnText: { color: T.onAccent, fontWeight: "700", fontSize: 16 },
 
   apiNote: {
     marginTop: 16,

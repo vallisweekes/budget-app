@@ -8,6 +8,7 @@ import { useAuth } from "@/context/AuthContext";
 import type { RootStackParamList, MainTabParamList, IncomeStackParamList, DebtStackParamList } from "@/navigation/types";
 import TopHeader from "@/components/Shared/TopHeader";
 import PillTabBar from "@/components/Shared/PillTabBar";
+import { T } from "@/lib/theme";
 
 import LoginScreen from "@/screens/LoginScreen";
 import DashboardScreen from "@/screens/DashboardScreen";
@@ -17,6 +18,7 @@ import ExpensesScreen from "@/screens/ExpensesScreen";
 import DebtScreen from "@/screens/DebtScreen";
 import DebtDetailScreen from "@/screens/DebtDetailScreen";
 import SettingsScreen from "@/screens/SettingsScreen";
+import PaymentsScreen from "@/screens/PaymentsScreen";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -50,7 +52,7 @@ function MainTabs() {
         header: () => (
           <TopHeader onSettings={() => navigation.navigate("Settings")} />
         ),
-        tabBarActiveTintColor: "#02eff0",
+        tabBarActiveTintColor: T.accent,
         tabBarInactiveTintColor: "#556",
       })}
     >
@@ -108,7 +110,7 @@ export default function RootNavigator() {
   if (isLoading) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#ffffff" }}>
-        <ActivityIndicator size="large" color="#02eff0" />
+        <ActivityIndicator size="large" color={T.accent} />
       </View>
     );
   }
@@ -116,7 +118,10 @@ export default function RootNavigator() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false, animation: "fade" }}>
       {token ? (
-        <Stack.Screen name="Main" component={MainTabs} />
+        <>
+          <Stack.Screen name="Main" component={MainTabs} />
+          <Stack.Screen name="Payments" component={PaymentsScreen} />
+        </>
       ) : (
         <Stack.Screen name="Login" component={LoginScreen} />
       )}

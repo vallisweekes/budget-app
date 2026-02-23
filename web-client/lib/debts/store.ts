@@ -78,7 +78,7 @@ function serializeDebt(row: {
 	type: string;
 	creditLimit?: unknown | null;
 	dueDay?: number | null;
-	dueDate?: Date | null;
+	dueDate?: Date | string | null;
 	initialBalance: unknown;
 	currentBalance: unknown;
 	amount: unknown;
@@ -89,7 +89,7 @@ function serializeDebt(row: {
 	monthlyMinimum: unknown | null;
 	interestRate: unknown | null;
 	installmentMonths: number | null;
-	createdAt: Date;
+	createdAt: Date | string;
 	sourceType: string | null;
 	sourceExpenseId: string | null;
 	sourceMonthKey: string | null;
@@ -97,13 +97,21 @@ function serializeDebt(row: {
 	sourceCategoryName: string | null;
 	sourceExpenseName: string | null;
 }): DebtItem {
+	const createdAt = row.createdAt instanceof Date ? row.createdAt : new Date(row.createdAt);
+	const dueDate =
+		row.dueDate == null
+			? undefined
+			: row.dueDate instanceof Date
+				? row.dueDate
+				: new Date(row.dueDate);
+
 	return {
 		id: row.id,
 		name: row.name,
 		type: row.type as any,
 		creditLimit: row.creditLimit == null ? undefined : decimalToNumber(row.creditLimit),
 		dueDay: row.dueDay == null ? undefined : Number(row.dueDay),
-		dueDate: row.dueDate == null ? undefined : row.dueDate.toISOString(),
+		dueDate: dueDate?.toISOString(),
 		initialBalance: decimalToNumber(row.initialBalance),
 		currentBalance: decimalToNumber(row.currentBalance),
 		amount: decimalToNumber(row.amount),
@@ -121,7 +129,7 @@ function serializeDebt(row: {
 		monthlyMinimum: row.monthlyMinimum == null ? undefined : decimalToNumber(row.monthlyMinimum),
 		interestRate: row.interestRate == null ? undefined : decimalToNumber(row.interestRate),
 		installmentMonths: row.installmentMonths ?? undefined,
-		createdAt: row.createdAt.toISOString(),
+		createdAt: createdAt.toISOString(),
 		sourceType: row.sourceType === "expense" ? "expense" : undefined,
 		sourceExpenseId: row.sourceExpenseId ?? undefined,
 		sourceMonthKey: row.sourceMonthKey ?? undefined,
@@ -129,6 +137,132 @@ function serializeDebt(row: {
 		sourceCategoryName: row.sourceCategoryName ?? undefined,
 		sourceExpenseName: row.sourceExpenseName ?? undefined,
 	};
+}
+
+function isDebtTypeEnumMismatchError(error: unknown): boolean {
+	const message = String((error as any)?.message ?? error);
+	return message.includes("not found in enum 'DebtType'") || message.includes("not found in enum \"DebtType\"");
+}
+
+async function getAllDebtsRaw(budgetPlanId: string): Promise<DebtItem[]> {
+	const rows = await prisma.$queryRaw<
+		Array<{
+			id: string;
+			name: string;
+			type: string;
+			creditLimit: unknown | null;
+			dueDay: number | null;
+			dueDate: Date | string | null;
+			initialBalance: unknown;
+			currentBalance: unknown;
+			amount: unknown;
+			paid: boolean;
+			paidAmount: unknown;
+			defaultPaymentSource: unknown | null;
+			defaultPaymentCardDebtId: string | null;
+			monthlyMinimum: unknown | null;
+			interestRate: unknown | null;
+			installmentMonths: number | null;
+			createdAt: Date | string;
+			sourceType: string | null;
+			sourceExpenseId: string | null;
+			sourceMonthKey: string | null;
+			sourceCategoryId: string | null;
+			sourceCategoryName: string | null;
+			sourceExpenseName: string | null;
+		}>
+	>`
+		SELECT
+			"id",
+			"name",
+			"type"::text AS "type",
+			"creditLimit",
+			"dueDay",
+			"dueDate",
+			"initialBalance",
+			"currentBalance",
+			"amount",
+			"paid",
+			"paidAmount",
+			"defaultPaymentSource"::text AS "defaultPaymentSource",
+			"defaultPaymentCardDebtId",
+			"monthlyMinimum",
+			"interestRate",
+			"installmentMonths",
+			"createdAt",
+			"sourceType",
+			"sourceExpenseId",
+			"sourceMonthKey",
+			"sourceCategoryId",
+			"sourceCategoryName",
+			"sourceExpenseName"
+		FROM "Debt"
+		WHERE "budgetPlanId" = ${budgetPlanId}
+		ORDER BY "createdAt" ASC
+	`;
+
+	return rows.map(serializeDebt);
+}
+
+async function getDebtByIdRaw(budgetPlanId: string, id: string): Promise<DebtItem | undefined> {
+	const rows = await prisma.$queryRaw<
+		Array<{
+			id: string;
+			name: string;
+			type: string;
+			creditLimit: unknown | null;
+			dueDay: number | null;
+			dueDate: Date | string | null;
+			initialBalance: unknown;
+			currentBalance: unknown;
+			amount: unknown;
+			paid: boolean;
+			paidAmount: unknown;
+			defaultPaymentSource: unknown | null;
+			defaultPaymentCardDebtId: string | null;
+			monthlyMinimum: unknown | null;
+			interestRate: unknown | null;
+			installmentMonths: number | null;
+			createdAt: Date | string;
+			sourceType: string | null;
+			sourceExpenseId: string | null;
+			sourceMonthKey: string | null;
+			sourceCategoryId: string | null;
+			sourceCategoryName: string | null;
+			sourceExpenseName: string | null;
+		}>
+	>`
+		SELECT
+			"id",
+			"name",
+			"type"::text AS "type",
+			"creditLimit",
+			"dueDay",
+			"dueDate",
+			"initialBalance",
+			"currentBalance",
+			"amount",
+			"paid",
+			"paidAmount",
+			"defaultPaymentSource"::text AS "defaultPaymentSource",
+			"defaultPaymentCardDebtId",
+			"monthlyMinimum",
+			"interestRate",
+			"installmentMonths",
+			"createdAt",
+			"sourceType",
+			"sourceExpenseId",
+			"sourceMonthKey",
+			"sourceCategoryId",
+			"sourceCategoryName",
+			"sourceExpenseName"
+		FROM "Debt"
+		WHERE "budgetPlanId" = ${budgetPlanId} AND "id" = ${id}
+		LIMIT 1
+	`;
+
+	const row = rows[0];
+	return row ? serializeDebt(row) : undefined;
 }
 
 function serializePayment(row: {
@@ -158,68 +292,82 @@ function serializePayment(row: {
 }
 
 export async function getAllDebts(budgetPlanId: string): Promise<DebtItem[]> {
-	const rows = await prisma.debt.findMany({
-		where: { budgetPlanId },
-		orderBy: [{ createdAt: "asc" }],
-		select: {
-			id: true,
-			name: true,
-			type: true,
-			...(DEBT_HAS_CREDIT_LIMIT ? { creditLimit: true } : {}),
-			...(DEBT_HAS_DUE_DAY ? { dueDay: true } : {}),
-			...(DEBT_HAS_DUE_DATE ? { dueDate: true } : {}),
-			initialBalance: true,
-			currentBalance: true,
-			amount: true,
-			paid: true,
-			paidAmount: true,
-			...(DEBT_HAS_DEFAULT_PAYMENT_SOURCE ? { defaultPaymentSource: true } : {}),
-			...(DEBT_HAS_DEFAULT_PAYMENT_CARD_DEBT_ID ? { defaultPaymentCardDebtId: true } : {}),
-			monthlyMinimum: true,
-			interestRate: true,
-			installmentMonths: true,
-			createdAt: true,
-			sourceType: true,
-			sourceExpenseId: true,
-			sourceMonthKey: true,
-			sourceCategoryId: true,
-			sourceCategoryName: true,
-			sourceExpenseName: true,
-		},
-	});
-	return rows.map(serializeDebt);
+	try {
+		const rows = await prisma.debt.findMany({
+			where: { budgetPlanId },
+			orderBy: [{ createdAt: "asc" }],
+			select: {
+				id: true,
+				name: true,
+				type: true,
+				...(DEBT_HAS_CREDIT_LIMIT ? { creditLimit: true } : {}),
+				...(DEBT_HAS_DUE_DAY ? { dueDay: true } : {}),
+				...(DEBT_HAS_DUE_DATE ? { dueDate: true } : {}),
+				initialBalance: true,
+				currentBalance: true,
+				amount: true,
+				paid: true,
+				paidAmount: true,
+				...(DEBT_HAS_DEFAULT_PAYMENT_SOURCE ? { defaultPaymentSource: true } : {}),
+				...(DEBT_HAS_DEFAULT_PAYMENT_CARD_DEBT_ID ? { defaultPaymentCardDebtId: true } : {}),
+				monthlyMinimum: true,
+				interestRate: true,
+				installmentMonths: true,
+				createdAt: true,
+				sourceType: true,
+				sourceExpenseId: true,
+				sourceMonthKey: true,
+				sourceCategoryId: true,
+				sourceCategoryName: true,
+				sourceExpenseName: true,
+			},
+		});
+		return rows.map(serializeDebt);
+	} catch (error) {
+		if (isDebtTypeEnumMismatchError(error)) {
+			return getAllDebtsRaw(budgetPlanId);
+		}
+		throw error;
+	}
 }
 
 export async function getDebtById(budgetPlanId: string, id: string): Promise<DebtItem | undefined> {
-	const row = await prisma.debt.findFirst({
-		where: { id, budgetPlanId },
-		select: {
-			id: true,
-			name: true,
-			type: true,
-			...(DEBT_HAS_CREDIT_LIMIT ? { creditLimit: true } : {}),
-			...(DEBT_HAS_DUE_DAY ? { dueDay: true } : {}),
-			...(DEBT_HAS_DUE_DATE ? { dueDate: true } : {}),
-			initialBalance: true,
-			currentBalance: true,
-			amount: true,
-			paid: true,
-			paidAmount: true,
-			...(DEBT_HAS_DEFAULT_PAYMENT_SOURCE ? { defaultPaymentSource: true } : {}),
-			...(DEBT_HAS_DEFAULT_PAYMENT_CARD_DEBT_ID ? { defaultPaymentCardDebtId: true } : {}),
-			monthlyMinimum: true,
-			interestRate: true,
-			installmentMonths: true,
-			createdAt: true,
-			sourceType: true,
-			sourceExpenseId: true,
-			sourceMonthKey: true,
-			sourceCategoryId: true,
-			sourceCategoryName: true,
-			sourceExpenseName: true,
-		},
-	});
-	return row ? serializeDebt(row) : undefined;
+	try {
+		const row = await prisma.debt.findFirst({
+			where: { id, budgetPlanId },
+			select: {
+				id: true,
+				name: true,
+				type: true,
+				...(DEBT_HAS_CREDIT_LIMIT ? { creditLimit: true } : {}),
+				...(DEBT_HAS_DUE_DAY ? { dueDay: true } : {}),
+				...(DEBT_HAS_DUE_DATE ? { dueDate: true } : {}),
+				initialBalance: true,
+				currentBalance: true,
+				amount: true,
+				paid: true,
+				paidAmount: true,
+				...(DEBT_HAS_DEFAULT_PAYMENT_SOURCE ? { defaultPaymentSource: true } : {}),
+				...(DEBT_HAS_DEFAULT_PAYMENT_CARD_DEBT_ID ? { defaultPaymentCardDebtId: true } : {}),
+				monthlyMinimum: true,
+				interestRate: true,
+				installmentMonths: true,
+				createdAt: true,
+				sourceType: true,
+				sourceExpenseId: true,
+				sourceMonthKey: true,
+				sourceCategoryId: true,
+				sourceCategoryName: true,
+				sourceExpenseName: true,
+			},
+		});
+		return row ? serializeDebt(row) : undefined;
+	} catch (error) {
+		if (isDebtTypeEnumMismatchError(error)) {
+			return getDebtByIdRaw(budgetPlanId, id);
+		}
+		throw error;
+	}
 }
 
 export async function addDebt(

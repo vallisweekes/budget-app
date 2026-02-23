@@ -373,6 +373,7 @@ export async function processOverdueExpensesToDebts(budgetPlanId: string) {
  * 2. OR it has a partial payment (paidAmount > 0)
  */
 export async function getExpenseDebts(budgetPlanId: string) {
+	type DebtItem = import("@/types/helpers/debts").DebtItem;
 	const budgetPlan = await prisma.budgetPlan.findUnique({
 		where: { id: budgetPlanId },
 		select: { payDate: true },
@@ -391,16 +392,90 @@ export async function getExpenseDebts(budgetPlanId: string) {
 		},
 	});
 
-	const debts = await prisma.debt.findMany({
-		where: {
-			budgetPlanId,
-			sourceType: "expense",
-			currentBalance: { gt: 0 }
-		},
-		orderBy: {
-			createdAt: "desc"
-		}
-	});
+	function isDebtTypeEnumMismatchError(error: unknown): boolean {
+		const message = String((error as any)?.message ?? error);
+		return message.includes("not found in enum 'DebtType'") || message.includes("not found in enum \"DebtType\"");
+	}
+
+	type ExpenseDebtRow = {
+		id: string;
+		name: string;
+		type: string;
+		initialBalance: any;
+		currentBalance: any;
+		amount: any;
+		paid: boolean;
+		paidAmount: any;
+		monthlyMinimum: any | null;
+		interestRate: any | null;
+		installmentMonths: number | null;
+		createdAt: Date | string;
+		sourceExpenseId: string | null;
+		sourceMonthKey: string | null;
+		sourceCategoryId: string | null;
+		sourceCategoryName: string | null;
+		sourceExpenseName: string | null;
+	};
+
+	let debts: ExpenseDebtRow[];
+	try {
+		debts = (await prisma.debt.findMany({
+			where: {
+				budgetPlanId,
+				sourceType: "expense",
+				currentBalance: { gt: 0 },
+			},
+			orderBy: {
+				createdAt: "desc",
+			},
+			select: {
+				id: true,
+				name: true,
+				type: true,
+				initialBalance: true,
+				currentBalance: true,
+				amount: true,
+				paid: true,
+				paidAmount: true,
+				monthlyMinimum: true,
+				interestRate: true,
+				installmentMonths: true,
+				createdAt: true,
+				sourceExpenseId: true,
+				sourceMonthKey: true,
+				sourceCategoryId: true,
+				sourceCategoryName: true,
+				sourceExpenseName: true,
+			},
+		})) as unknown as ExpenseDebtRow[];
+	} catch (error) {
+		if (!isDebtTypeEnumMismatchError(error)) throw error;
+		debts = await prisma.$queryRaw<ExpenseDebtRow[]>`
+			SELECT
+				"id",
+				"name",
+				"type"::text AS "type",
+				"initialBalance",
+				"currentBalance",
+				"amount",
+				"paid",
+				"paidAmount",
+				"monthlyMinimum",
+				"interestRate",
+				"installmentMonths",
+				"createdAt",
+				"sourceExpenseId",
+				"sourceMonthKey",
+				"sourceCategoryId",
+				"sourceCategoryName",
+				"sourceExpenseName"
+			FROM "Debt"
+			WHERE "budgetPlanId" = ${budgetPlanId}
+				AND "sourceType" = 'expense'
+				AND "currentBalance" > 0
+			ORDER BY "createdAt" DESC
+		`;
+	}
 
 	// Expense-backed debts are derived state.
 	// Only show them when the *source expense* is overdue by grace days OR has a partial payment.
@@ -496,10 +571,12 @@ export async function getExpenseDebts(budgetPlanId: string) {
 		return true;
 	});
 
-	return filtered.map(d => ({
+	return filtered.map(d => {
+		const createdAt = d.createdAt instanceof Date ? d.createdAt : new Date(d.createdAt);
+		return {
 		id: d.id,
 		name: d.name,
-		type: d.type,
+		type: d.type as DebtItem["type"],
 		initialBalance: Number(d.initialBalance),
 		currentBalance: Number(d.currentBalance),
 		amount: Number(d.amount),
@@ -508,12 +585,13 @@ export async function getExpenseDebts(budgetPlanId: string) {
 		monthlyMinimum: d.monthlyMinimum ? Number(d.monthlyMinimum) : undefined,
 		interestRate: d.interestRate ? Number(d.interestRate) : undefined,
 		installmentMonths: d.installmentMonths ?? undefined,
-		createdAt: d.createdAt.toISOString(),
+		createdAt: createdAt.toISOString(),
 		sourceType: "expense" as const,
 		sourceExpenseId: d.sourceExpenseId ?? undefined,
 		sourceMonthKey: d.sourceMonthKey ?? undefined,
 		sourceCategoryId: d.sourceCategoryId ?? undefined,
 		sourceCategoryName: d.sourceCategoryName ?? undefined,
 		sourceExpenseName: d.sourceExpenseName ?? undefined,
-	}));
+		};
+	});
 }

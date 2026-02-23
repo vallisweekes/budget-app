@@ -15,6 +15,7 @@ import { useAuth } from "@/context/AuthContext";
 import { apiFetch, getApiBaseUrl } from "@/lib/api";
 import type { Settings } from "@/lib/apiTypes";
 import { currencySymbol } from "@/lib/formatting";
+import { T } from "@/lib/theme";
 
 function SettingRow({ label, value }: { label: string; value: string | number | null | undefined }) {
   if (value == null || value === "") return null;
@@ -154,11 +155,11 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: "#02eff0",
+    backgroundColor: T.accent,
     justifyContent: "center",
     alignItems: "center",
   },
-  avatarText: { color: "#fff", fontSize: 22, fontWeight: "700" },
+  avatarText: { color: T.onAccent, fontSize: 22, fontWeight: "700" },
   profileName: { color: "#0f282f", fontSize: 17, fontWeight: "900" },
   profileSub: { color: "rgba(15,40,47,0.55)", fontSize: 12, marginTop: 2, fontWeight: "600" },
 
@@ -205,6 +206,6 @@ const styles = StyleSheet.create({
   signOutText: { color: "#e25c5c", fontSize: 15, fontWeight: "700" },
 
   errorText: { color: "#e25c5c", fontSize: 14, textAlign: "center", paddingHorizontal: 32 },
-  retryBtn: { backgroundColor: "#02eff0", borderRadius: 8, paddingHorizontal: 24, paddingVertical: 10 },
-  retryTxt: { color: "#061b1c", fontWeight: "700" },
+  retryBtn: { backgroundColor: T.accent, borderRadius: 8, paddingHorizontal: 24, paddingVertical: 10 },
+  retryTxt: { color: T.onAccent, fontWeight: "700" },
 });

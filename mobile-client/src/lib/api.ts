@@ -56,7 +56,17 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
       parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : null;
     const serverMessage =
       typeof parsedObj?.["error"] === "string" ? parsedObj["error"] : null;
-    throw new Error(serverMessage ?? response.statusText ?? `HTTP ${response.status}`);
+
+    const serverDetail =
+      typeof parsedObj?.["detail"] === "string" ? (parsedObj["detail"] as string) : null;
+
+    const baseMessage = serverMessage ?? response.statusText ?? `HTTP ${response.status}`;
+    const message =
+      __DEV__ && serverMessage && serverDetail && serverDetail.trim() && serverDetail !== serverMessage
+        ? `${serverMessage}: ${serverDetail}`
+        : baseMessage;
+
+    throw new Error(message);
   }
 
   return (parsed as T) ?? ({} as T);

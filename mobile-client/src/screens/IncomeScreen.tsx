@@ -17,6 +17,7 @@ import { apiFetch } from "@/lib/api";
 import type { IncomeSummaryData, Settings } from "@/lib/apiTypes";
 import { currencySymbol, fmt } from "@/lib/formatting";
 import { useYearGuard } from "@/lib/hooks/useYearGuard";
+import { T } from "@/lib/theme";
 import IncomeMonthCard from "@/components/Income/IncomeMonthCard";
 import type { IncomeStackParamList } from "@/navigation/types";
 
@@ -194,6 +195,6 @@ const s = StyleSheet.create({
   empty: { flex: 1, justifyContent: "center", alignItems: "center", paddingTop: 80, gap: 12 },
   emptyText: { color: "rgba(15,40,47,0.55)", fontSize: 15, fontWeight: "700" },
   errorText: { color: "#e25c5c", fontSize: 14, textAlign: "center", paddingHorizontal: 32 },
-  retryBtn: { backgroundColor: "#02eff0", borderRadius: 8, paddingHorizontal: 24, paddingVertical: 10 },
-  retryTxt: { color: "#061b1c", fontWeight: "700" },
+  retryBtn: { backgroundColor: T.accent, borderRadius: 8, paddingHorizontal: 24, paddingVertical: 10 },
+  retryTxt: { color: T.onAccent, fontWeight: "700" },
 });
