@@ -8,6 +8,7 @@ import {
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { T } from "@/lib/theme";
 
 type IconName = React.ComponentProps<typeof Ionicons>["name"];
 
@@ -57,12 +58,12 @@ export default function PillTabBar({ state, descriptors, navigation }: BottomTab
               key={route.key}
               onPress={onPress}
               style={s.tab}
-              android_ripple={{ color: "rgba(15,40,47,0.08)", borderless: false }}
+              android_ripple={{ color: T.border, borderless: false }}
             >
               <Ionicons
                 name={isFocused ? icons.active : icons.inactive}
                 size={20}
-                color={isFocused ? "#0f282f" : "rgba(15,40,47,0.45)"}
+                color={isFocused ? T.text : T.textDim}
               />
               <Text style={[s.label, isFocused && s.labelActive]} numberOfLines={1}>
                 {label}
@@ -81,9 +82,9 @@ const s = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: "#ffffff",
+    backgroundColor: T.card,
     borderTopWidth: 1,
-    borderTopColor: "rgba(15,40,47,0.10)",
+    borderTopColor: T.border,
   },
   bar: {
     flexDirection: "row",
@@ -98,13 +99,13 @@ const s = StyleSheet.create({
     paddingVertical: 6,
   },
   label: {
-    color: "rgba(15,40,47,0.45)",
+    color: T.textDim,
     fontSize: 11,
     fontWeight: "700",
     letterSpacing: 0.1,
   },
   labelActive: {
-    color: "#0f282f",
+    color: T.text,
     fontWeight: "800",
   },
 });

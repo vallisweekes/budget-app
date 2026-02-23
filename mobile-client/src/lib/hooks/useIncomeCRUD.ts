@@ -17,6 +17,8 @@ export function useIncomeCRUD({ month, year, budgetPlanId, currency, onReload }:
   const [showAddForm, setShowAddForm] = useState(false);
   const [newName, setNewName] = useState("");
   const [newAmount, setNewAmount] = useState("");
+  const [distributeMonths, setDistributeMonths] = useState(false);
+  const [distributeYears, setDistributeYears] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // Edit state
@@ -39,10 +41,12 @@ export function useIncomeCRUD({ month, year, budgetPlanId, currency, onReload }:
       setSaving(true);
       await apiFetch("/api/bff/income", {
         method: "POST",
-        body: { name, amount, month, year, budgetPlanId },
+        body: { name, amount, month, year, budgetPlanId, distributeMonths, distributeYears },
       });
       setNewName("");
       setNewAmount("");
+      setDistributeMonths(false);
+      setDistributeYears(false);
       setShowAddForm(false);
       Keyboard.dismiss();
       await onReload();
@@ -51,7 +55,7 @@ export function useIncomeCRUD({ month, year, budgetPlanId, currency, onReload }:
     } finally {
       setSaving(false);
     }
-  }, [newName, newAmount, month, year, budgetPlanId, onReload]);
+  }, [newName, newAmount, month, year, budgetPlanId, distributeMonths, distributeYears, onReload]);
 
   const startEdit = useCallback((item: Income) => {
     setEditingId(item.id);
@@ -119,6 +123,10 @@ export function useIncomeCRUD({ month, year, budgetPlanId, currency, onReload }:
     setNewName,
     newAmount,
     setNewAmount,
+    distributeMonths,
+    setDistributeMonths,
+    distributeYears,
+    setDistributeYears,
     saving,
     handleAdd,
     // Edit

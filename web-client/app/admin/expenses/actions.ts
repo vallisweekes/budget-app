@@ -412,6 +412,7 @@ export async function addExpenseAction(formData: FormData): Promise<void> {
 	const categoryId = String(formData.get("categoryId") || "") || undefined;
 	const paid = String(formData.get("paid") || "false") === "true";
   let isAllocation = isTruthyFormField(formData, "isAllocation");
+  const isDirectDebit = isTruthyFormField(formData, "isDirectDebit");
   const rawPaymentSource = formData.get("paymentSource");
   const rawCardDebtId = formData.get("cardDebtId");
   const cardDebtId = rawCardDebtId == null ? undefined : String(rawCardDebtId).trim() || undefined;
@@ -478,6 +479,7 @@ export async function addExpenseAction(formData: FormData): Promise<void> {
       paid,
       paidAmount: paid ? amount : 0,
       isAllocation,
+      isDirectDebit,
     });
 
     await backfillExpensePaymentAndAdjustBalances({

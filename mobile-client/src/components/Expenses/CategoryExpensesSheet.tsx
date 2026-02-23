@@ -54,6 +54,7 @@ type Props = {
   category: SheetCategory | null;
   month: number;
   year: number;
+  budgetPlanId?: string | null;
   currency: string;
   onClose: () => void;
   /** Called after a mutating action so the parent can refresh summary stats */
@@ -100,6 +101,7 @@ export default function CategoryExpensesSheet({
   category,
   month,
   year,
+  budgetPlanId,
   currency,
   onClose,
   onMutated,
@@ -139,7 +141,8 @@ export default function CategoryExpensesSheet({
     if (!category) return;
     try {
       setError(null);
-      const all = await apiFetch<Expense[]>(`/api/bff/expenses?month=${month}&year=${year}`);
+      const qp = budgetPlanId ? `&budgetPlanId=${encodeURIComponent(budgetPlanId)}` : "";
+      const all = await apiFetch<Expense[]>(`/api/bff/expenses?month=${month}&year=${year}${qp}`);
       setExpenses(
         Array.isArray(all) ? all.filter((e) => e.categoryId === category.categoryId) : []
       );
@@ -149,7 +152,7 @@ export default function CategoryExpensesSheet({
       setLoading(false);
       setRefreshing(false);
     }
-  }, [category, month, year]);
+  }, [budgetPlanId, category, month, year]);
 
   useEffect(() => {
     if (visible && category) {
@@ -296,6 +299,10 @@ export default function CategoryExpensesSheet({
     const progress = amount > 0 ? Math.min(1, paid / amount) : 0;
     const isBusy   = !!toggling[item.id] || !!deleting[item.id] || !!paying[item.id];
 
+    const isPartial = !isPaid && paid > 0;
+    const statusLabel = isPaid ? "✓ Paid" : isPartial ? "Partial" : "Unpaid";
+    const statusColor = isPaid ? T.green : isPartial ? T.orange : T.red;
+
     return (
       <View style={[rs.card, isBusy && deleting[item.id] && { opacity: 0.4 }]}>
         {/* Row 1: name + badges + paid button + icons */}
@@ -319,20 +326,20 @@ export default function CategoryExpensesSheet({
             <Pressable
               onPress={() => handleTogglePaid(item)}
               disabled={isBusy}
-              style={[rs.paidBtn, isPaid ? rs.paidBtnGreen : rs.paidBtnRed]}
+              style={[rs.paidBtn, isPaid ? rs.paidBtnGreen : isPartial ? rs.paidBtnOrange : rs.paidBtnRed]}
             >
               {toggling[item.id] ? (
-                <ActivityIndicator size="small" color={isPaid ? "#3ec97e" : "#ef4444"} />
+                <ActivityIndicator size="small" color={statusColor} />
               ) : (
-                <Text style={[rs.paidBtnTxt, { color: isPaid ? "#3ec97e" : "#ef4444" }]}>
-                  {isPaid ? "✓ Paid" : "Unpaid"}
+                <Text style={[rs.paidBtnTxt, { color: statusColor }]}>
+                  {statusLabel}
                 </Text>
               )}
             </Pressable>
 
             {/* Edit */}
             <Pressable onPress={() => openEdit(item)} disabled={isBusy} hitSlop={8} style={rs.iconBtn}>
-              <Ionicons name="pencil-outline" size={16} color="rgba(15,40,47,0.55)" />
+              <Ionicons name="pencil-outline" size={16} color={T.textDim} />
             </Pressable>
 
             {/* Delete */}
@@ -359,7 +366,7 @@ export default function CategoryExpensesSheet({
               rs.progressFill,
               {
                 width: `${Math.round(progress * 100)}%` as any,
-                backgroundColor: isPaid ? "#3ec97e" : T.accent,
+                backgroundColor: isPaid ? T.green : isPartial ? T.orange : T.accent,
               },
             ]}
           />
@@ -375,7 +382,7 @@ export default function CategoryExpensesSheet({
                 value={paymentInput[item.id] ?? ""}
                 onChangeText={(t) => setPaymentInput(p => ({ ...p, [item.id]: t }))}
                 placeholder="0.00"
-                placeholderTextColor="rgba(15,40,47,0.35)"
+              placeholderTextColor={T.textMuted}
                 keyboardType="decimal-pad"
                 selectionColor="#0f282f"
               />
@@ -422,7 +429,7 @@ export default function CategoryExpensesSheet({
             </View>
           </View>
           <Pressable onPress={onClose} hitSlop={12} style={ss.closeBtn}>
-            <Ionicons name="close" size={20} color="rgba(15,40,47,0.55)" />
+            <Ionicons name="close" size={20} color={T.textDim} />
           </Pressable>
         </View>
 
@@ -432,24 +439,24 @@ export default function CategoryExpensesSheet({
             <Text style={ss.statLbl}>TOTAL</Text>
             <Text style={ss.statVal}>{fmt(totalAmount, currency)}</Text>
           </View>
-          <View style={[ss.stat, { borderLeftWidth: 1, borderLeftColor: "rgba(15,40,47,0.10)" }]}>
+          <View style={[ss.stat, { borderLeftWidth: 1, borderLeftColor: T.border }]}>
             <Text style={ss.statLbl}>PAID</Text>
-            <Text style={[ss.statVal, { color: "#3ec97e" }]}>{fmt(totalPaid, currency)}</Text>
+            <Text style={[ss.statVal, { color: T.green }]}>{fmt(totalPaid, currency)}</Text>
           </View>
-          <View style={[ss.stat, { borderLeftWidth: 1, borderLeftColor: "rgba(15,40,47,0.10)" }]}>
+          <View style={[ss.stat, { borderLeftWidth: 1, borderLeftColor: T.border }]}>
             <Text style={ss.statLbl}>REMAINING</Text>
-            <Text style={[ss.statVal, { color: "#f4a942" }]}>{fmt(remaining, currency)}</Text>
+            <Text style={[ss.statVal, { color: T.orange }]}>{fmt(remaining, currency)}</Text>
           </View>
         </View>
 
         {/* List */}
         {loading ? (
           <View style={ss.center}>
-            <ActivityIndicator size="large" color="#0f282f" />
+            <ActivityIndicator size="large" color={T.accent} />
           </View>
         ) : error ? (
           <View style={ss.center}>
-            <Ionicons name="cloud-offline-outline" size={36} color="rgba(15,40,47,0.55)" />
+            <Ionicons name="cloud-offline-outline" size={36} color={T.textDim} />
             <Text style={ss.errTxt}>{error}</Text>
             <Pressable onPress={load} style={ss.retryBtn}>
               <Text style={ss.retryTxt}>Retry</Text>
@@ -489,8 +496,8 @@ export default function CategoryExpensesSheet({
               value={editState?.name ?? ""}
               onChangeText={t => setEditState(p => p ? { ...p, name: t } : p)}
               placeholder="Expense name"
-              placeholderTextColor="rgba(15,40,47,0.35)"
-              selectionColor="#0f282f"
+              placeholderTextColor={T.textMuted}
+              selectionColor={T.accent}
               returnKeyType="next"
               autoFocus
             />
@@ -501,8 +508,8 @@ export default function CategoryExpensesSheet({
               value={editState?.amount ?? ""}
               onChangeText={t => setEditState(p => p ? { ...p, amount: t } : p)}
               placeholder="0.00"
-              placeholderTextColor="rgba(15,40,47,0.35)"
-              selectionColor="#0f282f"
+              placeholderTextColor={T.textMuted}
+              selectionColor={T.accent}
               keyboardType="decimal-pad"
               returnKeyType="done"
               onSubmitEditing={handleEditSave}
@@ -540,16 +547,16 @@ const ss = StyleSheet.create({
     position: "absolute",
     bottom: 0, left: 0, right: 0,
     maxHeight: SCREEN_H * 0.88,
-    backgroundColor: "#ffffff",
+    backgroundColor: T.card,
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
     borderTopWidth: 1,
-    borderTopColor: "rgba(15,40,47,0.10)",
+    borderTopColor: T.border,
     overflow: "hidden",
   },
   handle: {
     width: 40, height: 4, borderRadius: 2,
-    backgroundColor: "rgba(15,40,47,0.20)",
+    backgroundColor: T.border,
     alignSelf: "center",
     marginTop: 10, marginBottom: 6,
   },
@@ -560,46 +567,46 @@ const ss = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(15,40,47,0.10)",
+    borderBottomColor: T.border,
   },
   headerLeft: { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },
-  title: { color: "#0f282f", fontSize: 16, fontWeight: "900" },
-  sub:   { color: "rgba(15,40,47,0.55)", fontSize: 12, marginTop: 1, fontWeight: "600" },
+  title: { color: T.text, fontSize: 16, fontWeight: "900" },
+  sub:   { color: T.textDim, fontSize: 12, marginTop: 1, fontWeight: "600" },
   closeBtn: {
     width: 32, height: 32, borderRadius: 16,
-    backgroundColor: "rgba(15,40,47,0.06)",
+    backgroundColor: T.cardAlt,
     alignItems: "center", justifyContent: "center",
   },
   statsRow: {
     flexDirection: "row",
-    backgroundColor: "rgba(15,40,47,0.04)",
+    backgroundColor: T.cardAlt,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(15,40,47,0.10)",
+    borderBottomColor: T.border,
   },
   stat: { flex: 1, paddingVertical: 10, paddingHorizontal: 14 },
-  statLbl: { color: "rgba(15,40,47,0.55)", fontSize: 10, fontWeight: "700", marginBottom: 2 },
-  statVal: { color: "#0f282f", fontSize: 14, fontWeight: "900" },
+  statLbl: { color: T.textDim, fontSize: 10, fontWeight: "700", marginBottom: 2 },
+  statVal: { color: T.text, fontSize: 14, fontWeight: "900" },
   list: { paddingHorizontal: 14, paddingTop: 12, paddingBottom: 32 },
   center: { alignItems: "center", justifyContent: "center", paddingVertical: 40, gap: 10 },
-  errTxt: { color: "#e25c5c", fontSize: 13, textAlign: "center" },
+  errTxt: { color: T.red, fontSize: 13, textAlign: "center" },
   retryBtn: { backgroundColor: T.accent, borderRadius: 8, paddingHorizontal: 20, paddingVertical: 8 },
   retryTxt: { color: T.onAccent, fontWeight: "700", fontSize: 13 },
-  emptyTxt: { color: "rgba(15,40,47,0.45)", fontSize: 14, fontWeight: "600" },
+  emptyTxt: { color: T.textDim, fontSize: 14, fontWeight: "600" },
 });
 
 // Row / card styles
 const rs = StyleSheet.create({
   card: {
-    backgroundColor: "#ffffff",
+    backgroundColor: T.cardAlt,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "rgba(15,40,47,0.10)",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: T.border,
     padding: 14,
     marginBottom: 10,
   },
   row1: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
   nameCol: { flex: 1, minWidth: 0 },
-  name: { color: "#0f282f", fontSize: 14, fontWeight: "800", marginBottom: 4 },
+  name: { color: T.text, fontSize: 14, fontWeight: "800", marginBottom: 4 },
   badgeRow: { flexDirection: "row", flexWrap: "wrap", gap: 4 },
   badge: {
     paddingHorizontal: 8, paddingVertical: 2,
@@ -612,12 +619,13 @@ const rs = StyleSheet.create({
     borderRadius: 8, paddingHorizontal: 10,
     alignItems: "center", justifyContent: "center",
   },
-  paidBtnGreen: { backgroundColor: "rgba(62,201,126,0.12)" },
-  paidBtnRed:   { backgroundColor: "rgba(239,68,68,0.12)" },
+  paidBtnGreen: { backgroundColor: "rgba(46,229,143,0.12)" },
+  paidBtnOrange:{ backgroundColor: "rgba(255,176,32,0.12)" },
+  paidBtnRed:   { backgroundColor: "rgba(255,92,122,0.12)" },
   paidBtnTxt:   { fontSize: 12, fontWeight: "700" },
   iconBtn: {
     width: 30, height: 30, borderRadius: 6,
-    backgroundColor: "rgba(15,40,47,0.06)",
+    backgroundColor: T.cardAlt,
     alignItems: "center", justifyContent: "center",
   },
   row2: {
@@ -625,23 +633,23 @@ const rs = StyleSheet.create({
     justifyContent: "space-between",
     marginTop: 10, marginBottom: 6,
   },
-  amount: { color: "#0f282f", fontSize: 15, fontWeight: "900" },
-  paidSub: { color: "rgba(15,40,47,0.55)", fontSize: 12, fontWeight: "600" },
+  amount: { color: T.text, fontSize: 15, fontWeight: "900" },
+  paidSub: { color: T.textDim, fontSize: 12, fontWeight: "600" },
   progressBg: {
     height: 5, borderRadius: 3,
-    backgroundColor: "rgba(15,40,47,0.10)",
+    backgroundColor: T.border,
     overflow: "hidden",
   },
   progressFill: { height: 5, borderRadius: 3 },
   payRow: { marginTop: 12 },
-  payLabel: { color: "rgba(15,40,47,0.55)", fontSize: 11, fontWeight: "700", marginBottom: 6 },
+  payLabel: { color: T.textDim, fontSize: 11, fontWeight: "700", marginBottom: 6 },
   payInputRow: { flexDirection: "row", gap: 8 },
   payInput: {
     flex: 1,
-    backgroundColor: "rgba(15,40,47,0.06)",
+    backgroundColor: T.card,
     borderRadius: 8, borderWidth: 1,
-    borderColor: "rgba(15,40,47,0.10)",
-    color: "#0f282f", fontSize: 15,
+    borderColor: T.border,
+    color: T.text, fontSize: 15,
     paddingHorizontal: 12, paddingVertical: 9,
   },
   addPayBtn: {
@@ -658,33 +666,33 @@ const es = StyleSheet.create({
   overlay: { flex: 1, justifyContent: "flex-end" },
   backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.55)" },
   sheet: {
-    backgroundColor: "#ffffff",
+    backgroundColor: T.card,
     borderTopLeftRadius: 20, borderTopRightRadius: 20,
     paddingHorizontal: 20, paddingTop: 12,
-    borderTopWidth: 1, borderTopColor: "rgba(15,40,47,0.10)",
+    borderTopWidth: 1, borderTopColor: T.border,
   },
   handle: {
     width: 40, height: 4, borderRadius: 2,
-    backgroundColor: "rgba(15,40,47,0.20)",
+    backgroundColor: T.border,
     alignSelf: "center", marginBottom: 20,
   },
-  title:  { color: "#0f282f", fontSize: 17, fontWeight: "900", marginBottom: 20 },
-  label:  { color: "rgba(15,40,47,0.65)", fontSize: 12, fontWeight: "700", marginBottom: 6 },
+  title:  { color: T.text, fontSize: 17, fontWeight: "900", marginBottom: 20 },
+  label:  { color: T.textDim, fontSize: 12, fontWeight: "700", marginBottom: 6 },
   input: {
-    backgroundColor: "rgba(15,40,47,0.06)",
+    backgroundColor: T.cardAlt,
     borderRadius: 10, borderWidth: 1,
-    borderColor: "rgba(15,40,47,0.10)",
-    color: "#0f282f", fontSize: 16,
+    borderColor: T.border,
+    color: T.text, fontSize: 16,
     paddingHorizontal: 14, paddingVertical: 12,
     marginBottom: 16,
   },
-  errTxt: { color: "#e25c5c", fontSize: 13, marginBottom: 12 },
+  errTxt: { color: T.red, fontSize: 13, marginBottom: 12 },
   actions: { flexDirection: "row", gap: 10, marginTop: 4 },
   cancelBtn: {
-    flex: 1, backgroundColor: "rgba(15,40,47,0.06)",
+    flex: 1, backgroundColor: T.cardAlt,
     borderRadius: 10, paddingVertical: 14, alignItems: "center",
   },
-  cancelTxt: { color: "rgba(15,40,47,0.75)", fontSize: 15, fontWeight: "700" },
+  cancelTxt: { color: T.textDim, fontSize: 15, fontWeight: "700" },
   saveBtn: {
     flex: 2, backgroundColor: T.accent,
     borderRadius: 10, paddingVertical: 14, alignItems: "center",

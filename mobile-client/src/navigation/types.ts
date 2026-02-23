@@ -8,17 +8,37 @@ export type IncomeStackParamList = {
   IncomeMonth: { month: number; year: number; budgetPlanId: string };
 };
 
+/* ── Expenses stack (inside Expenses tab) ───────────────────── */
+export type ExpensesStackParamList = {
+  ExpensesList: undefined;
+  CategoryExpenses: {
+    categoryId: string;
+    categoryName: string;
+    color: string | null;
+    icon: string | null;
+    month: number;
+    year: number;
+    budgetPlanId: string | null;
+    currency: string;
+  };
+};
+
 /* ── Debt stack (inside Debts tab) ─────────────────────────── */
 export type DebtStackParamList = {
   DebtList: undefined;
   DebtDetail: { debtId: string; debtName: string };
+  DebtAnalytics: {
+    debts: import("@/lib/apiTypes").DebtSummaryItem[];
+    totalMonthly: number;
+    currency: string;
+  };
 };
 
 /* ── Tab navigator ─────────────────────────────────────────── */
 export type MainTabParamList = {
   Dashboard: undefined;
   Income: NavigatorScreenParams<IncomeStackParamList> | undefined;
-  Expenses: undefined;
+  Expenses: NavigatorScreenParams<ExpensesStackParamList> | undefined;
   Debts: NavigatorScreenParams<DebtStackParamList> | undefined;
   Settings: undefined;
 };
@@ -38,6 +58,9 @@ export type MainTabScreenProps<T extends keyof MainTabParamList> = CompositeScre
   BottomTabScreenProps<MainTabParamList, T>,
   NativeStackScreenProps<RootStackParamList>
 >;
+
+export type ExpensesStackScreenProps<T extends keyof ExpensesStackParamList> =
+  NativeStackScreenProps<ExpensesStackParamList, T>;
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace

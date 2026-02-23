@@ -2,6 +2,7 @@ import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import type { Expense } from "@/lib/apiTypes";
 import { resolveCategoryColor } from "@/lib/categoryColors";
+import { T } from "@/lib/theme";
 
 interface Props {
   expense: Expense;
@@ -11,6 +12,12 @@ interface Props {
 
 export default function ExpenseItem({ expense, currency, fmt }: Props) {
   const color = resolveCategoryColor(expense.category?.color);
+
+  const paidAmount = parseFloat(expense.paidAmount);
+  const isPartial = !expense.paid && Number.isFinite(paidAmount) && paidAmount > 0;
+  const badgeLabel = expense.paid ? "paid" : isPartial ? "partial" : "unpaid";
+  const badgeColor = expense.paid ? T.green : isPartial ? T.orange : T.red;
+
   return (
     <View style={s.row}>
       <View style={[s.dot, { backgroundColor: color }]} />
@@ -26,8 +33,8 @@ export default function ExpenseItem({ expense, currency, fmt }: Props) {
       </View>
       <View style={s.right}>
         <Text style={s.amount}>{fmt(expense.amount, currency)}</Text>
-        <View style={[s.badge, expense.paid ? s.badgePaid : s.badgeDue]}>
-          <Text style={s.badgeText}>{expense.paid ? "paid" : "due"}</Text>
+        <View style={[s.badge, { borderColor: badgeColor }]}> 
+          <Text style={[s.badgeText, { color: badgeColor }]}>{badgeLabel}</Text>
         </View>
       </View>
     </View>
@@ -40,23 +47,26 @@ const s = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 14,
     paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(15,40,47,0.08)",
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: T.border,
     gap: 12,
   },
   dot: { width: 10, height: 10, borderRadius: 5, flexShrink: 0 },
   info: { flex: 1, minWidth: 0 },
-  name: { color: "#0f282f", fontSize: 14, fontWeight: "800" },
-  cat: { color: "rgba(15,40,47,0.55)", fontSize: 12, marginTop: 2, fontWeight: "600" },
+  name: { color: T.text, fontSize: 14, fontWeight: "800" },
+  cat: { color: T.textDim, fontSize: 12, marginTop: 2, fontWeight: "600" },
   right: { alignItems: "flex-end", gap: 5, flexShrink: 0 },
-  amount: { color: "#0f282f", fontSize: 14, fontWeight: "900" },
-  badge: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 },
-  badgePaid: { backgroundColor: "rgba(62,201,126,0.15)" },
-  badgeDue: { backgroundColor: "rgba(244,169,66,0.15)" },
+  amount: { color: T.text, fontSize: 14, fontWeight: "900" },
+  badge: {
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    backgroundColor: T.cardAlt,
+    borderWidth: 1,
+  },
   badgeText: {
     fontSize: 10,
     fontWeight: "700",
-    color: "#0f282f",
     textTransform: "uppercase",
   },
 });

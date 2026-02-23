@@ -14,6 +14,8 @@ export default function AddExpenseDetailsFields({ categories, planKind, creditCa
 	const cards = creditCards ?? [];
 	const [paymentSource, setPaymentSource] = useState<string>("income");
 	const [cardDebtId, setCardDebtId] = useState<string>("");
+	const [isAllocation, setIsAllocation] = useState(false);
+	const [isDirectDebit, setIsDirectDebit] = useState(false);
 
 	const isCreditCard = paymentSource === "credit_card";
 	const shouldRequireCard = isCreditCard && cards.length > 1;
@@ -125,18 +127,42 @@ export default function AddExpenseDetailsFields({ categories, planKind, creditCa
 				) : null}
 			</div>
 
-			<label className="flex items-start gap-3 rounded-2xl border border-white/10 bg-slate-900/30 p-4">
-				<input type="hidden" name="isAllocation" value="false" />
-				<input
-					name="isAllocation"
-					type="checkbox"
-					value="true"
-					className="mt-1 h-4 w-4 rounded border-white/20 bg-slate-900/60 text-purple-500 focus:ring-purple-500"
-				/>
+			<label className="flex items-start gap-3 rounded-2xl border border-white/10 bg-slate-900/30 p-4 cursor-pointer select-none" onClick={() => setIsAllocation((v) => !v)}>
+				<input type="hidden" name="isAllocation" value={isAllocation ? "true" : "false"} />
 				<div className="min-w-0 flex-1">
 					<div className="text-sm font-semibold text-white">Treat this as an allocation</div>
 					<div className="mt-1 text-xs text-slate-300">Use this for envelopes like groceries/transport so they never appear as debts.</div>
 				</div>
+				<button
+					type="button"
+					role="switch"
+					aria-checked={isAllocation}
+					onClick={(e) => { e.stopPropagation(); setIsAllocation((v) => !v); }}
+					className={`relative mt-0.5 h-6 w-11 flex-shrink-0 rounded-full border transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500/50 ${
+						isAllocation ? "bg-purple-600 border-purple-500" : "bg-slate-800 border-white/10"
+					}`}
+				>
+					<span className={`block h-4 w-4 rounded-full bg-white shadow transition-transform ${isAllocation ? "translate-x-[22px]" : "translate-x-1"}`} />
+				</button>
+			</label>
+
+			<label className="flex items-start gap-3 rounded-2xl border border-white/10 bg-slate-900/30 p-4 cursor-pointer select-none" onClick={() => setIsDirectDebit((v) => !v)}>
+				<input type="hidden" name="isDirectDebit" value={isDirectDebit ? "true" : "false"} />
+				<div className="min-w-0 flex-1">
+					<div className="text-sm font-semibold text-white">Direct Debit / Standing Order</div>
+					<div className="mt-1 text-xs text-slate-300">Automatically collected — safe to distribute across months without creating a debt.</div>
+				</div>
+				<button
+					type="button"
+					role="switch"
+					aria-checked={isDirectDebit}
+					onClick={(e) => { e.stopPropagation(); setIsDirectDebit((v) => !v); }}
+					className={`relative mt-0.5 h-6 w-11 flex-shrink-0 rounded-full border transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500/50 ${
+						isDirectDebit ? "bg-purple-600 border-purple-500" : "bg-slate-800 border-white/10"
+					}`}
+				>
+					<span className={`block h-4 w-4 rounded-full bg-white shadow transition-transform ${isDirectDebit ? "translate-x-[22px]" : "translate-x-1"}`} />
+				</button>
 			</label>
 		</>
 	);

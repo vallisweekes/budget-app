@@ -1,6 +1,8 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import type { IncomeMonthData } from "@/lib/apiTypes";
+import { T } from "@/lib/theme";
+import { cardBase } from "@/lib/ui";
 
 interface Props {
   data: IncomeMonthData;
@@ -13,12 +15,12 @@ export default function IncomeMonthStats({ data: a, currency, fmt }: Props) {
     <>
       {/* Top stat cards */}
       <View style={s.row}>
-        <Card label="Total income" value={fmt(a.grossIncome, currency)} color="#3ec97e" />
-        <Card label="Expenses" value={fmt(a.plannedExpenses, currency)} color="#e25c5c" />
+        <Card label="Total income" value={fmt(a.grossIncome, currency)} color={T.green} />
+        <Card label="Expenses" value={fmt(a.plannedExpenses, currency)} color={T.red} />
       </View>
       <View style={s.row}>
-        <Card label="Debts" value={fmt(a.plannedDebtPayments, currency)} color="#f4a942" />
-        <Card label="Income sacrifice" value={fmt(a.incomeSacrifice, currency)} color="#a78bfa" />
+        <Card label="Debts" value={fmt(a.plannedDebtPayments, currency)} color={T.orange} />
+        <Card label="Income sacrifice" value={fmt(a.incomeSacrifice, currency)} color={T.accent} />
       </View>
 
       {/* Secondary row */}
@@ -37,7 +39,7 @@ export default function IncomeMonthStats({ data: a, currency, fmt }: Props) {
             {fmt(a.moneyLeftAfterPlan, currency)}
           </Text>
         </View>
-        <Card label="Income left now" value={fmt(a.incomeLeftRightNow, currency)} color="#38bdf8" />
+        <Card label="Income left now" value={fmt(a.incomeLeftRightNow, currency)} color={T.accent} />
       </View>
 
       {/* Annotation pills */}
@@ -72,34 +74,31 @@ const s = StyleSheet.create({
   row: { flexDirection: "row", gap: 10, paddingHorizontal: 14, marginTop: 10 },
   card: {
     flex: 1,
-    backgroundColor: "#ffffff",
-    borderRadius: 10,
+    ...cardBase,
     padding: 12,
-    borderWidth: 1,
-    borderColor: "rgba(15,40,47,0.10)",
   },
   cardHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  cardLabel: { color: "rgba(15,40,47,0.55)", fontSize: 11, fontWeight: "700", marginBottom: 4 },
-  cardValue: { color: "#0f282f", fontSize: 17, fontWeight: "900" },
-  negative: { color: "#e25c5c" },
+  cardLabel: { color: T.textDim, fontSize: 11, fontWeight: "700", marginBottom: 4 },
+  cardValue: { color: T.text, fontSize: 17, fontWeight: "900" },
+  negative: { color: T.red },
   badge: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 },
-  badgeOn: { backgroundColor: "rgba(62,201,126,0.15)" },
-  badgeOver: { backgroundColor: "rgba(226,92,92,0.15)" },
+  badgeOn: { backgroundColor: T.cardAlt, borderWidth: 1, borderColor: T.border },
+  badgeOver: { backgroundColor: T.cardAlt, borderWidth: 1, borderColor: T.border },
   badgeText: { fontSize: 10, fontWeight: "800", textTransform: "uppercase" },
-  badgeTextOn: { color: "#3ec97e" },
-  badgeTextOver: { color: "#e25c5c" },
+  badgeTextOn: { color: T.green },
+  badgeTextOver: { color: T.red },
   pills: { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingHorizontal: 14, marginTop: 10 },
   pill: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: "#ffffff",
+    backgroundColor: T.cardAlt,
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderWidth: 1,
-    borderColor: "rgba(15,40,47,0.10)",
+    borderColor: T.border,
   },
-  pillLabel: { color: "rgba(15,40,47,0.55)", fontSize: 11, fontWeight: "700" },
-  pillValue: { color: "#0f282f", fontSize: 11, fontWeight: "900" },
+  pillLabel: { color: T.textDim, fontSize: 11, fontWeight: "700" },
+  pillValue: { color: T.text, fontSize: 11, fontWeight: "900" },
 });

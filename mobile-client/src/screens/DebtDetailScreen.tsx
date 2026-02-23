@@ -25,9 +25,158 @@ import type { Debt, DebtPayment, Settings } from "@/lib/apiTypes";
 import { currencySymbol, fmt } from "@/lib/formatting";
 import type { DebtStackParamList } from "@/navigation/types";
 import { T } from "@/lib/theme";
+import { cardBase } from "@/lib/ui";
+import Svg, { Path, Line, Circle, Defs, LinearGradient, Stop } from "react-native-svg";
 
 type Route = RouteProp<DebtStackParamList, "DebtDetail">;
 
+// ─── Payoff Projection Chart ─────────────────────────────────────────────────
+function buildProjection(balance: number, monthlyPayment: number, monthlyRate: number, maxMonths = 60): number[] {
+  const pts: number[] = [balance];
+  let b = balance;
+  for (let i = 0; i < maxMonths; i++) {
+    if (b <= 0) break;
+    if (monthlyRate > 0) b = b * (1 + monthlyRate) - monthlyPayment;
+    else b = b - monthlyPayment;
+    b = Math.max(0, b);
+    pts.push(b);
+    if (b === 0) break;
+  }
+  return pts;
+}
+
+function PayoffChart({
+  balance,
+  monthlyPayment,
+  interestRate,
+  currency,
+}: {
+  balance: number;
+  monthlyPayment: number;
+  interestRate: number | null;
+  currency: string;
+}) {
+  const [chartWidth, setChartWidth] = React.useState(300);
+  const H = 150;
+  const PX = 12;
+  const PY = 14;
+  const monthlyRate = interestRate ? interestRate / 100 / 12 : 0;
+  const pts = buildProjection(balance, monthlyPayment, monthlyRate);
+  const totalMonths = pts.length - 1;
+  const cannotPayoff = monthlyPayment === 0 || pts[pts.length - 1] > 0;
+
+  const toX = (i: number) => PX + (i / Math.max(1, totalMonths)) * (chartWidth - PX * 2);
+  const toY = (v: number) => PY + (1 - (balance > 0 ? v / balance : 0)) * (H - PY * 2);
+
+  const linePts = pts.map((v, i) => `${i === 0 ? "M" : "L"}${toX(i).toFixed(1)},${toY(v).toFixed(1)}`).join(" ");
+  const areaPts = `${linePts} L${toX(totalMonths).toFixed(1)},${(H - PY).toFixed(1)} L${toX(0).toFixed(1)},${(H - PY).toFixed(1)} Z`;
+
+  const payoffDate = new Date();
+  payoffDate.setMonth(payoffDate.getMonth() + totalMonths);
+  const payoffLabel = !cannotPayoff && totalMonths > 0
+    ? payoffDate.toLocaleDateString("en-GB", { month: "short", year: "numeric" })
+    : null;
+
+  // Midpoint balance label
+  const midIdx = Math.floor(totalMonths / 2);
+  const midVal = pts[midIdx] ?? 0;
+
+  return (
+    <View>
+      {/* Mini stat strip */}
+      <View style={pc.strip}>
+        <View style={pc.stat}>
+          <Text style={pc.lbl}>REMAINING</Text>
+          <Text style={[pc.val, { color: T.red }]}>{fmt(balance, currency)}</Text>
+        </View>
+        <View style={pc.statDivider} />
+        <View style={pc.stat}>
+          <Text style={pc.lbl}>MONTHS LEFT</Text>
+          <Text style={[pc.val, { color: cannotPayoff ? T.orange : T.text }]}>
+            {cannotPayoff ? "—" : String(totalMonths)}
+          </Text>
+        </View>
+        <View style={pc.statDivider} />
+        <View style={pc.stat}>
+          <Text style={pc.lbl}>PAID OFF BY</Text>
+          <Text style={[pc.val, { color: T.green }]}>{payoffLabel ?? "—"}</Text>
+        </View>
+      </View>
+
+      {/* Chart */}
+      <View
+        onLayout={(e) => setChartWidth(e.nativeEvent.layout.width)}
+        style={{ width: "100%", height: H, marginTop: 8 }}
+      >
+        <Svg width={chartWidth} height={H}>
+          <Defs>
+            <LinearGradient id="payGrad" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor={T.accent} stopOpacity="0.4" />
+              <Stop offset="1" stopColor={T.accent} stopOpacity="0.03" />
+            </LinearGradient>
+          </Defs>
+          {/* Baseline */}
+          <Line x1={PX} y1={H - PY} x2={chartWidth - PX} y2={H - PY} stroke={T.border} strokeWidth={1} />
+          {/* Midline tick */}
+          {totalMonths > 2 && (
+            <Line
+              x1={toX(midIdx)} y1={H - PY + 3}
+              x2={toX(midIdx)} y2={H - PY - 4}
+              stroke={T.border} strokeWidth={1}
+            />
+          )}
+          {/* Area */}
+          <Path d={areaPts} fill="url(#payGrad)" />
+          {/* Line */}
+          <Path d={linePts} stroke={T.accent} strokeWidth={2.5} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+          {/* Start dot */}
+          <Circle cx={toX(0)} cy={toY(balance)} r={4.5} fill={T.accent} />
+          {/* End dot */}
+          {!cannotPayoff && (
+            <Circle cx={toX(totalMonths)} cy={toY(0)} r={4.5} fill={T.green} />
+          )}
+          {/* Midpoint dot */}
+          {totalMonths > 4 && (
+            <Circle cx={toX(midIdx)} cy={toY(midVal)} r={3} fill={T.accentDim} stroke={T.accent} strokeWidth={1.5} />
+          )}
+        </Svg>
+      </View>
+
+      {/* Axis labels */}
+      {!cannotPayoff && totalMonths > 0 && (
+        <View style={pc.axisRow}>
+          <Text style={pc.axisLbl}>Now</Text>
+          {totalMonths > 4 && (
+            <Text style={[pc.axisLbl, { textAlign: "center" }]}>
+              {midIdx}mo · {fmt(midVal, currency)}
+            </Text>
+          )}
+          <Text style={[pc.axisLbl, { textAlign: "right" }]}>{payoffLabel}</Text>
+        </View>
+      )}
+
+      {cannotPayoff && monthlyPayment === 0 && (
+        <Text style={pc.warn}>Enter a payment amount to see your payoff projection.</Text>
+      )}
+      {cannotPayoff && monthlyPayment > 0 && (
+        <Text style={pc.warn}>Payment may not cover interest — try increasing it.</Text>
+      )}
+    </View>
+  );
+}
+
+const pc = StyleSheet.create({
+  strip: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  stat: { flex: 1, alignItems: "center" },
+  statDivider: { width: 1, height: 28, backgroundColor: T.border },
+  lbl: { color: T.textDim, fontSize: 9, fontWeight: "800", letterSpacing: 0.5 },
+  val: { color: T.text, fontSize: 14, fontWeight: "900", marginTop: 2 },
+  axisRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 2 },
+  axisLbl: { flex: 1, color: T.textMuted, fontSize: 10, fontWeight: "600" },
+  warn: { color: T.orange, fontSize: 11, fontWeight: "600", marginTop: 8, textAlign: "center" },
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 export default function DebtDetailScreen() {
   const navigation = useNavigation();
   const { params } = useRoute<Route>();
@@ -167,12 +316,12 @@ export default function DebtDetailScreen() {
       <SafeAreaView style={s.safe} edges={["bottom"]}>
         <View style={s.header}>
           <Pressable onPress={() => navigation.goBack()} style={s.backBtn}>
-            <Ionicons name="chevron-back" size={24} color="#0f282f" />
+            <Ionicons name="chevron-back" size={24} color={T.text} />
           </Pressable>
           <Text style={s.headerTitle} numberOfLines={1}>{debtName}</Text>
           <View style={{ width: 40 }} />
         </View>
-        <View style={s.center}><ActivityIndicator size="large" color="#0f282f" /></View>
+        <View style={s.center}><ActivityIndicator size="large" color={T.accent} /></View>
       </SafeAreaView>
     );
   }
@@ -182,13 +331,13 @@ export default function DebtDetailScreen() {
       <SafeAreaView style={s.safe} edges={["bottom"]}>
         <View style={s.header}>
           <Pressable onPress={() => navigation.goBack()} style={s.backBtn}>
-            <Ionicons name="chevron-back" size={24} color="#0f282f" />
+            <Ionicons name="chevron-back" size={24} color={T.text} />
           </Pressable>
           <Text style={s.headerTitle}>{debtName}</Text>
           <View style={{ width: 40 }} />
         </View>
         <View style={s.center}>
-          <Ionicons name="cloud-offline-outline" size={48} color="rgba(15,40,47,0.55)" />
+          <Ionicons name="cloud-offline-outline" size={48} color={T.textDim} />
           <Text style={s.errorText}>{error ?? "Debt not found"}</Text>
           <Pressable onPress={load} style={s.retryBtn}><Text style={s.retryTxt}>Retry</Text></Pressable>
         </View>
@@ -201,15 +350,15 @@ export default function DebtDetailScreen() {
       {/* Header */}
       <View style={s.header}>
         <Pressable onPress={() => navigation.goBack()} style={s.backBtn}>
-          <Ionicons name="chevron-back" size={24} color="#0f282f" />
+          <Ionicons name="chevron-back" size={24} color={T.text} />
         </Pressable>
         <Text style={s.headerTitle} numberOfLines={1}>{debt.name}</Text>
         <View style={s.headerActions}>
           <Pressable onPress={() => setEditing((v) => !v)} style={s.iconBtn}>
-            <Ionicons name={editing ? "close" : "pencil"} size={18} color="#0f282f" />
+            <Ionicons name={editing ? "close" : "pencil"} size={18} color={T.text} />
           </Pressable>
           <Pressable onPress={handleDelete} style={s.iconBtn}>
-            <Ionicons name="trash-outline" size={18} color="#e25c5c" />
+            <Ionicons name="trash-outline" size={18} color={T.red} />
           </Pressable>
         </View>
       </View>
@@ -224,7 +373,7 @@ export default function DebtDetailScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={() => { setRefreshing(true); load(); }}
-              tintColor="#0f282f"
+              tintColor={T.accent}
             />
           }
         >
@@ -233,7 +382,7 @@ export default function DebtDetailScreen() {
             <View style={s.statRow}>
               <View style={s.statItem}>
                 <Text style={s.statLabel}>Current Balance</Text>
-                <Text style={[s.statValue, isPaid && { color: "#3ec97e" }]}>
+                <Text style={[s.statValue, isPaid && { color: T.green }]}>
                   {isPaid ? "Paid off" : fmt(currentBalNum, currency)}
                 </Text>
               </View>
@@ -245,7 +394,7 @@ export default function DebtDetailScreen() {
             <View style={s.statRow}>
               <View style={s.statItem}>
                 <Text style={s.statLabel}>Paid so far</Text>
-                <Text style={[s.statValue, { color: "#3ec97e" }]}>
+                <Text style={[s.statValue, { color: T.green }]}>
                   {fmt(originalBalNum - currentBalNum, currency)}
                 </Text>
               </View>
@@ -281,7 +430,7 @@ export default function DebtDetailScreen() {
                   style={s.input}
                   value={editName}
                   onChangeText={setEditName}
-                  placeholderTextColor="#4a5568"
+                  placeholderTextColor={T.textMuted}
                   autoFocus
                 />
               </View>
@@ -294,7 +443,7 @@ export default function DebtDetailScreen() {
                     onChangeText={setEditRate}
                     keyboardType="decimal-pad"
                     placeholder="0.00"
-                    placeholderTextColor="#4a5568"
+                    placeholderTextColor={T.textMuted}
                   />
                 </View>
                 <View style={s.formGroup}>
@@ -305,7 +454,7 @@ export default function DebtDetailScreen() {
                     onChangeText={setEditMin}
                     keyboardType="decimal-pad"
                     placeholder="0.00"
-                    placeholderTextColor="#4a5568"
+                    placeholderTextColor={T.textMuted}
                   />
                 </View>
               </View>
@@ -317,7 +466,7 @@ export default function DebtDetailScreen() {
                   onChangeText={setEditDue}
                   keyboardType="number-pad"
                   placeholder="e.g. 15"
-                  placeholderTextColor="#4a5568"
+                  placeholderTextColor={T.textMuted}
                 />
               </View>
               <Pressable
@@ -326,22 +475,28 @@ export default function DebtDetailScreen() {
                 style={[s.saveBtn, editSaving && s.disabled]}
               >
                 {editSaving
-                  ? <ActivityIndicator size="small" color="#fff" />
+                  ? <ActivityIndicator size="small" color={T.onAccent} />
                   : <Text style={s.saveBtnTxt}>Save Changes</Text>
                 }
               </Pressable>
             </View>
           )}
 
-          {/* Pay section */}
+          {/* Payoff projection + payment */}
           {!isPaid && (
             <View style={s.sectionCard}>
-              <Text style={s.sectionTitle}>Make a Payment</Text>
-              <View style={s.payRow}>
+              <Text style={s.sectionTitle}>Payoff Projection</Text>
+              <PayoffChart
+                balance={currentBalNum}
+                monthlyPayment={payAmount ? (parseFloat(payAmount) || 0) : (monthlyMinNum ?? 0)}
+                interestRate={interestRateNum}
+                currency={currency}
+              />
+              <View style={[s.payRow, { marginTop: 12 }]}>
                 <TextInput
                   style={[s.input, { flex: 1 }]}
-                  placeholder={`Amount (${currency})`}
-                  placeholderTextColor="#4a5568"
+                  placeholder={`Payment amount (${currency})`}
+                  placeholderTextColor={T.textMuted}
                   value={payAmount}
                   onChangeText={setPayAmount}
                   keyboardType="decimal-pad"
@@ -352,7 +507,7 @@ export default function DebtDetailScreen() {
                   style={[s.payBtn, paying && s.disabled]}
                 >
                   {paying
-                    ? <ActivityIndicator size="small" color="#fff" />
+                    ? <ActivityIndicator size="small" color={T.onAccent} />
                     : <Text style={s.payBtnTxt}>Pay</Text>
                   }
                 </Pressable>
@@ -363,7 +518,7 @@ export default function DebtDetailScreen() {
                   style={s.quickPay}
                 >
                   <Text style={s.quickPayTxt}>
-                    Pay minimum ({fmt(monthlyMinNum, currency)})
+                    Use minimum ({fmt(monthlyMinNum, currency)})
                   </Text>
                 </Pressable>
               )}
@@ -398,49 +553,55 @@ export default function DebtDetailScreen() {
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#f2f4f7" },
+  safe: { flex: 1, backgroundColor: T.bg },
   center: { flex: 1, justifyContent: "center", alignItems: "center", gap: 12 },
   header: {
     flexDirection: "row", alignItems: "center",
-    paddingHorizontal: 8, paddingVertical: 12, backgroundColor: "#ffffff",
-    borderBottomWidth: 1, borderBottomColor: "rgba(15,40,47,0.10)",
+    paddingHorizontal: 8, paddingVertical: 12, backgroundColor: T.card,
+    borderBottomWidth: 1, borderBottomColor: T.border,
   },
-  headerTitle: { flex: 1, color: "#0f282f", fontSize: 17, fontWeight: "900", marginLeft: 4 },
+  headerTitle: { flex: 1, color: T.text, fontSize: 17, fontWeight: "900", marginLeft: 4 },
   headerActions: { flexDirection: "row", gap: 4 },
   backBtn: { paddingHorizontal: 6, paddingVertical: 4 },
   iconBtn: {
     paddingHorizontal: 8, paddingVertical: 6, borderRadius: 8,
-    backgroundColor: "rgba(15,40,47,0.06)",
+    backgroundColor: T.cardAlt,
     borderWidth: 1,
-    borderColor: "rgba(15,40,47,0.10)",
+    borderColor: T.border,
   },
   scroll: { padding: 14, gap: 14, paddingBottom: 40 },
 
   statCard: {
-    backgroundColor: "#ffffff", borderRadius: 14, padding: 14,
-    gap: 12, borderWidth: 1, borderColor: "rgba(15,40,47,0.10)",
+    backgroundColor: T.card, borderRadius: 14, padding: 14,
+    gap: 12, borderWidth: 2, borderColor: T.accentBorder,
   },
   statRow: { flexDirection: "row", gap: 12 },
   statItem: { flex: 1 },
-  statLabel: { color: "rgba(15,40,47,0.55)", fontSize: 11, fontWeight: "800", marginBottom: 4 },
-  statValue: { color: "#0f282f", fontSize: 16, fontWeight: "900" },
+  statLabel: { color: T.textDim, fontSize: 11, fontWeight: "800", marginBottom: 4 },
+  statValue: { color: T.text, fontSize: 16, fontWeight: "900" },
   progressWrap: { gap: 4 },
-  progressBg: { height: 7, backgroundColor: "rgba(15,40,47,0.10)", borderRadius: 4, overflow: "hidden" },
+  progressBg: { height: 7, backgroundColor: T.border, borderRadius: 4, overflow: "hidden" },
   progressFill: { height: "100%", borderRadius: 4, backgroundColor: T.accent },
-  progressPct: { color: "rgba(15,40,47,0.55)", fontSize: 12, fontWeight: "600" },
+  progressPct: { color: T.textDim, fontSize: 12, fontWeight: "600" },
 
   sectionCard: {
-    backgroundColor: "#ffffff", borderRadius: 14, padding: 14,
-    gap: 12, borderWidth: 1, borderColor: "rgba(15,40,47,0.10)",
+    backgroundColor: T.card, borderRadius: 14, padding: 14,
+    gap: 12, borderWidth: 2, borderColor: T.accentBorder,
   },
-  sectionTitle: { color: "#0f282f", fontSize: 14, fontWeight: "900" },
+  sectionTitle: { color: T.text, fontSize: 14, fontWeight: "900" },
 
   formGroup: { flex: 1, gap: 6 },
   formRow: { flexDirection: "row", gap: 10 },
-  inputLabel: { color: "rgba(15,40,47,0.55)", fontSize: 12, fontWeight: "800" },
+  inputLabel: { color: T.textDim, fontSize: 12, fontWeight: "800" },
   input: {
-    backgroundColor: "rgba(15,40,47,0.06)", borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10,
-    color: "#0f282f", fontSize: 14, borderWidth: 1, borderColor: "rgba(15,40,47,0.10)",
+    backgroundColor: T.cardAlt,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: T.text,
+    fontSize: 14,
+    borderWidth: 1,
+    borderColor: T.border,
   },
   saveBtn: { backgroundColor: T.accent, borderRadius: 8, paddingVertical: 11, alignItems: "center" },
   saveBtnTxt: { color: T.onAccent, fontWeight: "700", fontSize: 14 },
@@ -448,19 +609,19 @@ const s = StyleSheet.create({
 
   payRow: { flexDirection: "row", gap: 10, alignItems: "center" },
   payBtn: {
-    backgroundColor: "#3ec97e", borderRadius: 8, paddingVertical: 11,
+    backgroundColor: T.green, borderRadius: 8, paddingVertical: 11,
     paddingHorizontal: 22, alignItems: "center",
   },
-  payBtnTxt: { color: "#fff", fontWeight: "800", fontSize: 14 },
+  payBtnTxt: { color: T.onAccent, fontWeight: "800", fontSize: 14 },
   quickPay: { alignSelf: "flex-start" },
-  quickPayTxt: { color: "#0f282f", fontSize: 13, fontWeight: "900" },
+  quickPayTxt: { color: T.text, fontSize: 13, fontWeight: "900" },
 
   payHistRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 8 },
-  payHistBorder: { borderTopWidth: 1, borderTopColor: "rgba(15,40,47,0.10)" },
-  payHistDate: { color: "#0f282f", fontSize: 13, fontWeight: "800" },
-  payHistSource: { color: "rgba(15,40,47,0.55)", fontSize: 12, marginTop: 2, fontWeight: "600" },
-  payHistAmt: { color: "#3ec97e", fontSize: 14, fontWeight: "800" },
-  emptyHistory: { color: "rgba(15,40,47,0.55)", fontSize: 13, textAlign: "center", paddingVertical: 16, fontWeight: "600" },
+  payHistBorder: { borderTopWidth: 1, borderTopColor: T.border },
+  payHistDate: { color: T.text, fontSize: 13, fontWeight: "800" },
+  payHistSource: { color: T.textDim, fontSize: 12, marginTop: 2, fontWeight: "600" },
+  payHistAmt: { color: T.green, fontSize: 14, fontWeight: "800" },
+  emptyHistory: { color: T.textDim, fontSize: 13, textAlign: "center", paddingVertical: 16, fontWeight: "600" },
 
   errorText: { color: "#e25c5c", fontSize: 14, textAlign: "center", paddingHorizontal: 32 },
   retryBtn: { backgroundColor: T.accent, borderRadius: 8, paddingHorizontal: 24, paddingVertical: 10 },

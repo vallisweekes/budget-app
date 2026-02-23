@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { T } from "@/lib/theme";
+import { cardBase, textCaption, textLabel } from "@/lib/ui";
 
 interface Props {
   progressPct: number;
@@ -40,24 +41,15 @@ export function BudgetProgress({ progressPct, isOverBudget, amountAfterExpenses,
 
 const s = StyleSheet.create({
   card: {
-    backgroundColor: "#ffffff",
-    borderRadius: 18,
     padding: 16,
     marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "rgba(15,40,47,0.10)",
+    ...cardBase,
   },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 },
-  title: {
-    color: "rgba(15,40,47,0.55)",
-    fontSize: 11,
-    fontWeight: "900",
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
-  },
-  pct: { color: "#0f282f", fontSize: 16, fontWeight: "900", letterSpacing: -0.1 },
-  over: { color: "#e25c5c" },
-  bg: { height: 10, backgroundColor: "rgba(15,40,47,0.10)", borderRadius: 999, overflow: "hidden" },
+  title: { ...textLabel },
+  pct: { color: T.text, fontSize: 16, fontWeight: "900", letterSpacing: -0.1 },
+  over: { color: T.red },
+  bg: { height: 10, backgroundColor: T.border, borderRadius: 999, overflow: "hidden" },
   fill: { height: "100%", borderRadius: 999 },
-  sub: { color: "rgba(15,40,47,0.62)", fontSize: 12, marginTop: 10, fontWeight: "600" },
+  sub: { ...textCaption, marginTop: 10 },
 });

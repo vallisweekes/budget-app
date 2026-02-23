@@ -242,8 +242,10 @@ model Expense {
   paidAmount   Decimal    @default(0) @db.Decimal(12, 2)
   // If true, this record represents an allocation/envelope amount, not a bill.
   // It must never generate an expense-backed debt.
-  isAllocation Boolean    @default(false)
-  month        Int
+  isAllocation  Boolean    @default(false)
+  // If true, this is a direct debit / standing order — collected automatically.
+  isDirectDebit Boolean    @default(false)
+  month         Int
   year         Int
   dueDate      DateTime?  // Full due date, defaults to payDate day of the current/next month if not set
 

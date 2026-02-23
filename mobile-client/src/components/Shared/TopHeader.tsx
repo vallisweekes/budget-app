@@ -3,7 +3,6 @@ import { View, Text, Pressable, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/context/AuthContext";
-import { StatusBar } from "expo-status-bar";
 import { T } from "@/lib/theme";
 
 interface Props {
@@ -18,12 +17,11 @@ export default function TopHeader({ onSettings }: Props) {
 
   return (
     <View style={[s.container, { paddingTop: insets.top }]}>
-      <StatusBar style="dark" />
       <View style={s.inner}>
         {/* App brand */}
         <View style={s.brand}>
           <View style={s.logoMark}>
-            <Ionicons name="stats-chart" size={14} color="#0f282f" />
+            <Ionicons name="stats-chart" size={14} color={T.accent} />
           </View>
         </View>
 
@@ -33,7 +31,7 @@ export default function TopHeader({ onSettings }: Props) {
             <Text style={s.avatarInitial}>{initial}</Text>
           </View>
           <View style={s.cogBadge}>
-            <Ionicons name="settings-sharp" size={10} color="#fff" />
+            <Ionicons name="settings-sharp" size={10} color={T.text} />
           </View>
         </Pressable>
       </View>
@@ -43,9 +41,9 @@ export default function TopHeader({ onSettings }: Props) {
 
 const s = StyleSheet.create({
   container: {
-    backgroundColor: "#ffffff",
+    backgroundColor: T.card,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(15,40,47,0.10)",
+    borderBottomColor: T.border,
     borderBottomLeftRadius: 26,
     borderBottomRightRadius: 26,
     overflow: "hidden",
@@ -62,11 +60,11 @@ const s = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 7,
-    backgroundColor: "rgba(15,40,47,0.06)",
+    backgroundColor: T.accentDim,
     alignItems: "center",
     justifyContent: "center",
   },
-  appName: { color: "#0f282f", fontSize: 18, fontWeight: "900", letterSpacing: -0.4 },
+  appName: { color: T.text, fontSize: 18, fontWeight: "900", letterSpacing: -0.4 },
 
   avatarBtn: { position: "relative" },
   avatar: {
@@ -77,7 +75,7 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1.5,
-    borderColor: "rgba(15,40,47,0.15)",
+    borderColor: T.border,
   },
   avatarInitial: { color: T.onAccent, fontSize: 14, fontWeight: "900" },
   cogBadge: {
@@ -87,10 +85,10 @@ const s = StyleSheet.create({
     width: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: "#0f282f",
+    backgroundColor: T.cardAlt,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1.5,
-    borderColor: "#ffffff",
+    borderColor: T.card,
   },
 });

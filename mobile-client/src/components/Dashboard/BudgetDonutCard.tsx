@@ -1,6 +1,8 @@
 import React, { useMemo } from "react";
 import { View, Text, StyleSheet, Dimensions } from "react-native";
 import { PieChart } from "react-native-gifted-charts";
+import { T } from "@/lib/theme";
+import { cardElevated, textCaption, textValue } from "@/lib/ui";
 
 interface Props {
   totalBudget: number;
@@ -27,13 +29,13 @@ export default function BudgetDonutCard({ totalBudget, totalExpenses, paidTotal,
 
     const data = over
       ? [
-          { value: committedSpending, color: "#a78bfa" },
-          { value: paid, color: "#3ec97e" },
+          { value: committedSpending, color: T.accent },
+          { value: paid, color: T.green },
         ]
       : [
-          { value: remainingValue, color: "rgba(15,40,47,0.08)" },
-          { value: committedSpending, color: "#a78bfa" },
-          { value: paid, color: "#3ec97e" },
+          { value: remainingValue, color: T.border },
+          { value: committedSpending, color: T.accent },
+          { value: paid, color: T.green },
         ];
 
     return {
@@ -61,8 +63,9 @@ export default function BudgetDonutCard({ totalBudget, totalExpenses, paidTotal,
         donut
         radius={radius}
         innerRadius={innerRadius}
+        innerCircleColor={T.card}
         strokeWidth={2}
-        strokeColor="#ffffff"
+        strokeColor={T.card}
         showText={false}
         focusOnPress={false}
         isAnimated
@@ -77,12 +80,12 @@ export default function BudgetDonutCard({ totalBudget, totalExpenses, paidTotal,
 
       <View style={s.legend}>
         <View style={s.legendRow}>
-          <View style={[s.dot, { backgroundColor: "#3ec97e" }]} />
+          <View style={[s.dot, { backgroundColor: T.green }]} />
           <Text style={s.legendLabel}>Spending</Text>
           <Text style={s.legendValue}>{fmt(Math.min(paidTotal, totalExpenses), currency)}</Text>
         </View>
         <View style={s.legendRow}>
-          <View style={[s.dot, { backgroundColor: "#a78bfa" }]} />
+          <View style={[s.dot, { backgroundColor: T.accent }]} />
           <Text style={s.legendLabel}>Committed spending</Text>
           <Text style={s.legendValue}>{fmt(committed, currency)}</Text>
         </View>
@@ -93,30 +96,17 @@ export default function BudgetDonutCard({ totalBudget, totalExpenses, paidTotal,
 
 const s = StyleSheet.create({
   card: {
-    backgroundColor: "#ffffff",
-    borderRadius: 22,
     padding: 16,
     marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "rgba(15,40,47,0.10)",
     alignItems: "center",
-    shadowColor: "#000000",
-    shadowOpacity: 0.08,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 6,
+    ...cardElevated,
   },
   centerValue: {
-    color: "#0f282f",
-    fontSize: 22,
-    fontWeight: "900",
-    letterSpacing: -0.3,
+    ...textValue,
   },
   centerSub: {
     marginTop: 4,
-    color: "rgba(15,40,47,0.55)",
-    fontSize: 12,
-    fontWeight: "700",
+    ...textCaption,
   },
   legend: {
     width: "100%",
@@ -127,12 +117,12 @@ const s = StyleSheet.create({
   dot: { width: 8, height: 8, borderRadius: 4, marginRight: 10 },
   legendLabel: {
     flex: 1,
-    color: "rgba(15,40,47,0.75)",
+    color: T.textDim,
     fontSize: 14,
     fontWeight: "800",
   },
   legendValue: {
-    color: "rgba(15,40,47,0.80)",
+    color: T.text,
     fontSize: 14,
     fontWeight: "900",
   },

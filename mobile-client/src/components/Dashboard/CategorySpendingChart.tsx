@@ -2,6 +2,7 @@ import React, { useMemo } from "react";
 import { View, Text, StyleSheet, Dimensions } from "react-native";
 import { PieChart } from "react-native-gifted-charts";
 import type { DashboardCategoryItem } from "@/lib/apiTypes";
+import { T } from "@/lib/theme";
 
 interface Props {
   categories: DashboardCategoryItem[];
@@ -55,8 +56,9 @@ export default function CategorySpendingChart({ categories, currency, fmt }: Pro
         donut
         radius={radius}
         innerRadius={innerRadius}
+        innerCircleColor={T.card}
         strokeWidth={2}
-        strokeColor="#ffffff"
+        strokeColor={T.card}
         showText={false}
         focusOnPress={false}
         isAnimated
@@ -91,12 +93,12 @@ export default function CategorySpendingChart({ categories, currency, fmt }: Pro
 
 const s = StyleSheet.create({
   card: {
-    backgroundColor: "#ffffff",
+    backgroundColor: T.card,
     borderRadius: 18,
     padding: 16,
     marginTop: 12,
-    borderWidth: 1,
-    borderColor: "rgba(15,40,47,0.10)",
+    borderWidth: 2,
+    borderColor: T.accentBorder,
     alignItems: "center",
   },
   header: {
@@ -107,26 +109,26 @@ const s = StyleSheet.create({
     marginBottom: 6,
   },
   title: {
-    color: "rgba(15,40,47,0.55)",
+    color: T.textDim,
     fontSize: 11,
     fontWeight: "900",
     textTransform: "uppercase",
     letterSpacing: 0.7,
   },
   total: {
-    color: "#0f282f",
+    color: T.text,
     fontSize: 16,
     fontWeight: "900",
     letterSpacing: -0.2,
   },
   caption: {
     marginTop: 8,
-    color: "rgba(15,40,47,0.55)",
+    color: T.textDim,
     fontSize: 12,
     fontWeight: "600",
   },
   centerTop: {
-    color: "rgba(15,40,47,0.55)",
+    color: T.textDim,
     fontSize: 10,
     fontWeight: "800",
     textTransform: "uppercase",
@@ -134,7 +136,7 @@ const s = StyleSheet.create({
     marginBottom: 2,
   },
   centerValue: {
-    color: "#0f282f",
+    color: T.text,
     fontSize: 14,
     fontWeight: "900",
     letterSpacing: -0.2,
@@ -156,13 +158,13 @@ const s = StyleSheet.create({
   },
   legendLabel: {
     flex: 1,
-    color: "rgba(15,40,47,0.70)",
+    color: T.textDim,
     fontSize: 12,
     fontWeight: "700",
     marginRight: 8,
   },
   legendValue: {
-    color: "rgba(15,40,47,0.70)",
+    color: T.text,
     fontSize: 12,
     fontWeight: "800",
   },

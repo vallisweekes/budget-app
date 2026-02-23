@@ -244,8 +244,7 @@ export async function addOrUpdateExpenseAcrossMonths(
 					categoryId: item.categoryId ?? null,
 					paid: !!item.paid,
 					paidAmount: item.paidAmount ?? (item.paid ? item.amount : 0),
-          isAllocation: !!item.isAllocation,
-					dueDate: item.dueDate ? new Date(item.dueDate) : null,
+          isAllocation: !!item.isAllocation,          isDirectDebit: !!item.isDirectDebit,					dueDate: item.dueDate ? new Date(item.dueDate) : null,
         }) as any,
 			});
 			continue;
@@ -262,6 +261,7 @@ export async function addOrUpdateExpenseAcrossMonths(
 				paid: !!item.paid,
 				paidAmount: item.paidAmount ?? (item.paid ? item.amount : 0),
         isAllocation: !!item.isAllocation,
+        isDirectDebit: !!item.isDirectDebit,
 				dueDate: item.dueDate ? new Date(item.dueDate) : null,
       }) as any,
 		});

@@ -22,6 +22,7 @@ import type { Settings } from "@/lib/apiTypes";
 import { currencySymbol, fmt } from "@/lib/formatting";
 import type { RootStackParamList } from "@/navigation/types";
 import { T } from "@/lib/theme";
+import { CARD_RADIUS, cardBase } from "@/lib/ui";
 
 type Nav = NativeStackNavigationProp<RootStackParamList, "Payments">;
 
@@ -228,7 +229,7 @@ export default function PaymentsScreen() {
     return (
       <SafeAreaView style={s.safe} edges={[]}> 
         <View style={s.center}>
-          <Ionicons name="cloud-offline-outline" size={48} color="rgba(15,40,47,0.55)" />
+          <Ionicons name="cloud-offline-outline" size={48} color={T.textDim} />
           <Text style={s.errorText}>{error}</Text>
           <Pressable onPress={load} style={s.retryBtn}>
             <Text style={s.retryText}>Retry</Text>
@@ -239,6 +240,35 @@ export default function PaymentsScreen() {
   }
 
   const showEmpty = sections.length === 0;
+
+  const dueAmount = sheetDetail?.dueAmount ?? sheetItem?.dueAmount ?? 0;
+  const paymentsTotal = (sheetDetail?.payments ?? []).reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
+  const isPaid = dueAmount <= 0 ? true : paymentsTotal >= dueAmount - 0.005;
+  const isPartial = !isPaid && paymentsTotal > 0;
+  const statusTag = sheetDetail?.missed
+    ? "Missed"
+    : sheetDetail?.overdue
+      ? "Overdue"
+      : isPaid
+        ? "Paid"
+        : isPartial
+          ? "Partial"
+          : "Unpaid";
+
+  const statusDescription = sheetDetail?.missed
+    ? "This payment is marked as missed."
+    : sheetDetail?.overdue
+      ? "This payment is overdue."
+      : isPaid
+        ? "This payment is paid in full."
+        : isPartial
+          ? "This payment has been paid partially."
+          : "This payment is not yet paid.";
+
+  const heroName = String(sheetItem?.name ?? "Payment").trim();
+  const heroInitial = (heroName?.[0] ?? "?").toUpperCase();
+  const remaining = Math.max(0, dueAmount - paymentsTotal);
+  const paymentKind = (sheetDetail?.kind ?? sheetItem?.kind ?? "payment").toString();
 
   return (
     <SafeAreaView style={s.safe} edges={["top"]}>
@@ -253,72 +283,117 @@ export default function PaymentsScreen() {
           <Pressable style={StyleSheet.absoluteFill} onPress={closeSheet} />
           <View style={[s.sheet, { paddingBottom: Math.max(16, insets.bottom) }]}>
             <View style={s.sheetHandle} />
-            <View style={s.sheetHeader}>
-              <View style={{ flex: 1, marginRight: 12 }}>
-                <Text style={s.sheetTitle} numberOfLines={1}>
-                  {sheetItem?.name ?? "Payment"}
-                </Text>
-                <Text style={s.sheetSub} numberOfLines={1}>
-                  {sheetDetail ? formatDueLabel(sheetDetail) : ""}
-                </Text>
-              </View>
-              <Pressable onPress={closeSheet} hitSlop={10} style={s.sheetCloseBtn}>
-                <Ionicons name="close" size={20} color="#0f282f" />
+
+            <View style={s.sheetTopBar}>
+              <Pressable onPress={closeSheet} hitSlop={10} style={s.sheetClosePlain}>
+                <Ionicons name="close" size={22} color={T.text} />
               </Pressable>
+              <View style={{ flex: 1 }} />
             </View>
 
-            <View style={s.sheetTopRow}>
-              <Text style={s.sheetAmtLabel}>Amount due</Text>
-              <Text style={s.sheetAmt}>{fmt(sheetDetail?.dueAmount ?? sheetItem?.dueAmount ?? 0, currency)}</Text>
-            </View>
-            {sheetDetail?.missed ? (
-              <Text style={s.sheetFlag}>Missed payment</Text>
-            ) : sheetDetail?.overdue ? (
-              <Text style={s.sheetFlag}>Overdue</Text>
-            ) : null}
-
-            <Text style={s.sheetSectionTitle}>Payment history</Text>
-            {sheetLoading ? (
-              <View style={{ paddingVertical: 16 }}>
-                <ActivityIndicator color={T.accent} />
+            <View style={s.sheetHero}>
+              <View style={s.sheetAvatar}>
+                <Text style={s.sheetAvatarText}>{heroInitial}</Text>
               </View>
-            ) : sheetError ? (
-              <View style={{ paddingVertical: 12 }}>
-                <Text style={s.sheetError}>{sheetError}</Text>
-                <Pressable
-                  onPress={() => {
-                    if (!sheetItem) return;
-                    openSheet(sheetItem);
-                  }}
-                  style={s.sheetRetryBtn}
+              <Text style={s.sheetHeroName} numberOfLines={1}>
+                {heroName || "Payment"}
+              </Text>
+              <Text style={s.sheetHeroAmt} numberOfLines={1}>
+                {fmt(dueAmount, currency)}
+              </Text>
+              <Text style={s.sheetHeroSub} numberOfLines={1}>
+                {sheetDetail ? formatDueLabel(sheetDetail) : ""}
+              </Text>
+            </View>
+
+            <View style={s.sheetCard}>
+              <Text style={s.sheetCardTitle}>Payment</Text>
+              <View style={[s.sheetCardRow, s.sheetCardRowFirst]}>
+                <Text style={s.sheetCardLabel}>Type</Text>
+                <Text style={s.sheetCardValue}>
+                  {paymentKind === "debt" ? "Debt" : paymentKind === "expense" ? "Expense" : "Payment"}
+                </Text>
+              </View>
+              <View style={s.sheetCardRow}>
+                <Text style={s.sheetCardLabel}>Due</Text>
+                <Text style={s.sheetCardValue}>{sheetDetail ? formatDueLabel(sheetDetail) : ""}</Text>
+              </View>
+              <View style={s.sheetCardRow}>
+                <Text style={s.sheetCardLabel}>Paid so far</Text>
+                <Text style={s.sheetCardValue}>{fmt(paymentsTotal, currency)}</Text>
+              </View>
+              <View style={s.sheetCardRow}>
+                <Text style={s.sheetCardLabel}>Remaining</Text>
+                <Text style={s.sheetCardValue}>{fmt(remaining, currency)}</Text>
+              </View>
+            </View>
+
+            <View style={s.sheetCard}>
+              <Text style={s.sheetCardTitle}>Status</Text>
+              <View style={[s.sheetCardRow, s.sheetCardRowFirst]}>
+                <Text style={s.sheetCardLabel}>State</Text>
+                <Text
+                  style={[
+                    s.sheetCardValue,
+                    statusTag === "Paid"
+                      ? s.sheetCardValueGood
+                      : statusTag === "Partial"
+                        ? s.sheetCardValueWarn
+                        : s.sheetCardValueBad,
+                  ]}
                 >
-                  <Text style={s.sheetRetryText}>Retry</Text>
-                </Pressable>
+                  {statusTag}
+                </Text>
               </View>
-            ) : (
-              <FlatList
-                data={sheetDetail?.payments ?? []}
-                keyExtractor={(p) => p.id}
-                contentContainerStyle={s.sheetList}
-                ListEmptyComponent={<Text style={s.sheetEmpty}>No payments recorded yet.</Text>}
-                renderItem={({ item }) => {
-                  const d = new Date(item.date);
-                  const dateLabel = Number.isNaN(d.getTime())
-                    ? ""
-                    : d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
-                  return (
-                    <View style={s.sheetPayRow}>
-                      <View style={{ flex: 1, marginRight: 12 }}>
-                        <Text style={s.sheetPayDate}>{dateLabel}</Text>
-                        <Text style={s.sheetPaySource}>{String(item.source ?? "").replaceAll("_", " ")}</Text>
+              <Text style={s.sheetCardHint}>
+                {statusDescription}
+              </Text>
+            </View>
+
+            <View style={[s.sheetCard, { flex: 1 }]}>
+              <Text style={s.sheetCardTitle}>Payment history</Text>
+              {sheetLoading ? (
+                <View style={{ paddingVertical: 16 }}>
+                  <ActivityIndicator color={T.accent} />
+                </View>
+              ) : sheetError ? (
+                <View style={{ paddingVertical: 12 }}>
+                  <Text style={s.sheetError}>{sheetError}</Text>
+                  <Pressable
+                    onPress={() => {
+                      if (!sheetItem) return;
+                      openSheet(sheetItem);
+                    }}
+                    style={s.sheetRetryBtn}
+                  >
+                    <Text style={s.sheetRetryText}>Retry</Text>
+                  </Pressable>
+                </View>
+              ) : (
+                <FlatList
+                  data={sheetDetail?.payments ?? []}
+                  keyExtractor={(p) => p.id}
+                  contentContainerStyle={s.sheetList}
+                  ListEmptyComponent={<Text style={s.sheetEmpty}>No payments recorded yet.</Text>}
+                  renderItem={({ item }) => {
+                    const d = new Date(item.date);
+                    const dateLabel = Number.isNaN(d.getTime())
+                      ? ""
+                      : d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+                    return (
+                      <View style={s.sheetPayRow}>
+                        <View style={{ flex: 1, marginRight: 12 }}>
+                          <Text style={s.sheetPayDate}>{dateLabel}</Text>
+                          <Text style={s.sheetPaySource}>{String(item.source ?? "").replaceAll("_", " ")}</Text>
+                        </View>
+                        <Text style={s.sheetPayAmt}>{fmt(item.amount, currency)}</Text>
                       </View>
-                      <Text style={s.sheetPayAmt}>{fmt(item.amount, currency)}</Text>
-                    </View>
-                  );
-                }}
-                ItemSeparatorComponent={() => <View style={s.sheetSep} />}
-              />
-            )}
+                    );
+                  }}
+                  ItemSeparatorComponent={() => <View style={s.sheetSep} />}
+                />
+              )}
+            </View>
           </View>
         </View>
       </Modal>
@@ -326,7 +401,7 @@ export default function PaymentsScreen() {
       {/* Header */}
       <View style={[s.header, { paddingTop: Math.max(10, insets.top) }]}>
         <Pressable onPress={handleBack} style={({ pressed }) => [s.backBtn, pressed && s.backBtnPressed]}>
-          <Ionicons name="chevron-back" size={18} color="#0f282f" />
+          <Ionicons name="chevron-back" size={18} color={T.text} />
         </Pressable>
         <Text style={s.title}>Payments</Text>
         <View style={{ width: 40 }} />
@@ -335,12 +410,12 @@ export default function PaymentsScreen() {
       {/* Search */}
       <View style={[s.searchWrap, { marginTop: 10 }]}
       >
-        <Ionicons name="search" size={16} color="rgba(15,40,47,0.55)" />
+        <Ionicons name="search" size={16} color={T.textDim} />
         <TextInput
           value={query}
           onChangeText={setQuery}
           placeholder="Search"
-          placeholderTextColor="rgba(15,40,47,0.45)"
+          placeholderTextColor={T.textMuted}
           style={s.searchInput}
           autoCorrect={false}
           autoCapitalize="none"
@@ -353,7 +428,7 @@ export default function PaymentsScreen() {
         keyExtractor={(item: ExpenseRow | DebtRow) => item.id}
         contentContainerStyle={s.listContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor="#0f282f" />
+          <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={T.accent} />
         }
         renderSectionHeader={({ section }) => (
           <Text style={s.sectionTitle}>{section.title}</Text>
@@ -389,9 +464,9 @@ export default function PaymentsScreen() {
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#f2f4f7" },
+  safe: { flex: 1, backgroundColor: T.bg },
   center: { flex: 1, justifyContent: "center", alignItems: "center", gap: 12 },
-  errorText: { color: "#e25c5c", fontSize: 14, textAlign: "center", paddingHorizontal: 32 },
+  errorText: { color: T.red, fontSize: 14, textAlign: "center", paddingHorizontal: 32 },
   retryBtn: { backgroundColor: T.accent, borderRadius: 8, paddingHorizontal: 24, paddingVertical: 10 },
   retryText: { color: T.onAccent, fontWeight: "700" },
 
@@ -401,19 +476,19 @@ const s = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.25)",
   },
   sheet: {
-    backgroundColor: "#ffffff",
+    backgroundColor: T.card,
     borderTopLeftRadius: 18,
     borderTopRightRadius: 18,
     paddingHorizontal: 16,
     paddingTop: 10,
-    maxHeight: "85%",
+    maxHeight: "92%",
   },
   sheetHandle: {
     alignSelf: "center",
     width: 46,
     height: 5,
     borderRadius: 3,
-    backgroundColor: "rgba(15,40,47,0.15)",
+    backgroundColor: T.border,
     marginBottom: 10,
   },
   sheetHeader: {
@@ -421,19 +496,116 @@ const s = StyleSheet.create({
     alignItems: "center",
     paddingBottom: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "rgba(15,40,47,0.10)",
+    borderBottomColor: T.border,
   },
-  sheetTitle: { color: "#0f282f", fontSize: 18, fontWeight: "900" },
-  sheetSub: { color: "rgba(15,40,47,0.60)", fontSize: 13, fontWeight: "700", marginTop: 2 },
+  sheetTitle: { color: T.text, fontSize: 18, fontWeight: "900" },
+  sheetSub: { color: T.textDim, fontSize: 13, fontWeight: "700", marginTop: 2 },
   sheetCloseBtn: {
     width: 34,
     height: 34,
     borderRadius: 17,
     borderWidth: 1,
-    borderColor: "rgba(15,40,47,0.12)",
+    borderColor: T.border,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#ffffff",
+    backgroundColor: T.cardAlt,
+  },
+  sheetTopBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-start",
+    paddingBottom: 6,
+  },
+  sheetClosePlain: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: T.cardAlt,
+    borderWidth: 1,
+    borderColor: T.border,
+  },
+  sheetHero: {
+    paddingTop: 6,
+    paddingBottom: 8,
+    alignItems: "center",
+  },
+  sheetAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: T.cardAlt,
+    borderWidth: 1,
+    borderColor: T.border,
+    marginBottom: 10,
+  },
+  sheetAvatarText: {
+    color: T.text,
+    fontSize: 20,
+    fontWeight: "900",
+    letterSpacing: -0.2,
+  },
+  sheetHeroName: {
+    color: T.text,
+    fontSize: 16,
+    fontWeight: "800",
+    textAlign: "center",
+    letterSpacing: -0.2,
+  },
+  sheetHeroAmt: {
+    marginTop: 6,
+    color: T.text,
+    fontSize: 38,
+    fontWeight: "900",
+    textAlign: "center",
+    letterSpacing: -0.6,
+  },
+  sheetHeroSub: {
+    marginTop: 6,
+    color: T.textDim,
+    fontSize: 13,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  sheetCard: {
+    marginTop: 12,
+    ...cardBase,
+    backgroundColor: T.cardAlt,
+    borderRadius: CARD_RADIUS,
+    padding: 12,
+  },
+  sheetCardTitle: {
+    marginBottom: 10,
+    color: T.text,
+    fontSize: 14,
+    fontWeight: "900",
+  },
+  sheetCardRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: T.border,
+  },
+  sheetCardRowFirst: {
+    borderTopWidth: 0,
+    paddingTop: 0,
+  },
+  sheetCardLabel: { color: T.textDim, fontSize: 13, fontWeight: "800" },
+  sheetCardValue: { color: T.text, fontSize: 13, fontWeight: "900" },
+  sheetCardValueGood: { color: T.green },
+  sheetCardValueWarn: { color: T.orange },
+  sheetCardValueBad: { color: T.red },
+  sheetCardHint: {
+    marginTop: 8,
+    color: T.textDim,
+    fontSize: 12,
+    fontWeight: "700",
+    lineHeight: 16,
   },
   sheetTopRow: {
     flexDirection: "row",
@@ -441,17 +613,17 @@ const s = StyleSheet.create({
     justifyContent: "space-between",
     paddingTop: 12,
   },
-  sheetAmtLabel: { color: "rgba(15,40,47,0.60)", fontSize: 13, fontWeight: "800" },
-  sheetAmt: { color: "#0f282f", fontSize: 22, fontWeight: "900" },
-  sheetFlag: { marginTop: 8, color: "rgba(15,40,47,0.70)", fontSize: 13, fontWeight: "800" },
+  sheetAmtLabel: { color: T.textDim, fontSize: 13, fontWeight: "800" },
+  sheetAmt: { color: T.text, fontSize: 22, fontWeight: "900" },
+  sheetFlag: { marginTop: 8, color: T.textDim, fontSize: 13, fontWeight: "800" },
   sheetSectionTitle: {
     marginTop: 16,
     marginBottom: 8,
-    color: "rgba(15,40,47,0.80)",
+    color: T.textDim,
     fontSize: 14,
     fontWeight: "900",
   },
-  sheetError: { color: "#e25c5c", fontSize: 13, fontWeight: "700" },
+  sheetError: { color: T.red, fontSize: 13, fontWeight: "700" },
   sheetRetryBtn: {
     marginTop: 10,
     backgroundColor: T.accent,
@@ -462,12 +634,12 @@ const s = StyleSheet.create({
   },
   sheetRetryText: { color: T.onAccent, fontWeight: "800" },
   sheetList: { paddingBottom: 18 },
-  sheetEmpty: { color: "rgba(15,40,47,0.55)", fontSize: 13, fontStyle: "italic", paddingVertical: 12 },
+  sheetEmpty: { color: T.textDim, fontSize: 13, fontStyle: "italic", paddingVertical: 12 },
   sheetPayRow: { flexDirection: "row", alignItems: "center", paddingVertical: 10 },
-  sheetPayDate: { color: "#0f282f", fontSize: 14, fontWeight: "800" },
-  sheetPaySource: { color: "rgba(15,40,47,0.55)", fontSize: 12, fontWeight: "700", marginTop: 2 },
-  sheetPayAmt: { color: "#0f282f", fontSize: 14, fontWeight: "900" },
-  sheetSep: { height: StyleSheet.hairlineWidth, backgroundColor: "rgba(15,40,47,0.10)" },
+  sheetPayDate: { color: T.text, fontSize: 14, fontWeight: "800" },
+  sheetPaySource: { color: T.textDim, fontSize: 12, fontWeight: "700", marginTop: 2 },
+  sheetPayAmt: { color: T.text, fontSize: 14, fontWeight: "900" },
+  sheetSep: { height: StyleSheet.hairlineWidth, backgroundColor: T.border },
 
   header: {
     flexDirection: "row",
@@ -479,9 +651,9 @@ const s = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "#ffffff",
+    backgroundColor: T.card,
     borderWidth: 1,
-    borderColor: "rgba(15,40,47,0.12)",
+    borderColor: T.border,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -491,7 +663,7 @@ const s = StyleSheet.create({
     textAlign: "center",
     fontSize: 18,
     fontWeight: "800",
-    color: "#0f282f",
+    color: T.text,
   },
 
   searchWrap: {
@@ -501,9 +673,9 @@ const s = StyleSheet.create({
     paddingHorizontal: 12,
     height: 44,
     borderRadius: 12,
-    backgroundColor: "#ffffff",
+    backgroundColor: T.card,
     borderWidth: 1,
-    borderColor: "rgba(15,40,47,0.12)",
+    borderColor: T.border,
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
@@ -511,7 +683,7 @@ const s = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 14,
-    color: "#0f282f",
+    color: T.text,
     fontWeight: "600",
   },
 
@@ -522,12 +694,11 @@ const s = StyleSheet.create({
     marginBottom: 8,
     fontSize: 14,
     fontWeight: "800",
-    color: "rgba(15,40,47,0.80)",
+    color: T.textDim,
   },
 
   row: {
-    backgroundColor: "#ffffff",
-    borderRadius: 12,
+    ...cardBase,
     paddingHorizontal: 12,
     paddingVertical: 12,
     flexDirection: "row",
@@ -536,10 +707,10 @@ const s = StyleSheet.create({
     gap: 12,
   },
   rowPressed: { opacity: 0.92 },
-  rowName: { flex: 1, color: "#0f282f", fontSize: 14, fontWeight: "700" },
-  rowAmt: { color: "#0f282f", fontSize: 14, fontWeight: "800" },
+  rowName: { flex: 1, color: T.text, fontSize: 14, fontWeight: "700" },
+  rowAmt: { color: T.text, fontSize: 14, fontWeight: "800" },
   sep: { height: 10 },
 
   empty: { paddingVertical: 20, alignItems: "center" },
-  emptyText: { color: "rgba(15,40,47,0.55)", fontWeight: "700" },
+  emptyText: { color: T.textDim, fontWeight: "700" },
 });

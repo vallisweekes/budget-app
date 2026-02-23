@@ -1,7 +1,10 @@
 import * as SecureStore from "expo-secure-store";
 
+import type { ThemeMode } from "@/lib/theme";
+
 export const SESSION_KEY = "budget_app.session_token";
 export const USERNAME_KEY = "budget_app.username";
+export const THEME_MODE_KEY = "budget_app.theme_mode";
 
 export async function getSessionToken(): Promise<string | null> {
   return SecureStore.getItemAsync(SESSION_KEY);
@@ -25,4 +28,14 @@ export async function setStoredUsername(username: string): Promise<void> {
 
 export async function clearStoredUsername(): Promise<void> {
   return SecureStore.deleteItemAsync(USERNAME_KEY);
+}
+
+export async function getStoredThemeMode(): Promise<ThemeMode | null> {
+  const v = await SecureStore.getItemAsync(THEME_MODE_KEY);
+  if (v === "light" || v === "dark") return v;
+  return null;
+}
+
+export async function setStoredThemeMode(mode: ThemeMode): Promise<void> {
+  return SecureStore.setItemAsync(THEME_MODE_KEY, mode);
 }

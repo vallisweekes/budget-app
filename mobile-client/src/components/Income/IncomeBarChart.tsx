@@ -2,6 +2,7 @@ import React from "react";
 import { View, Text, StyleSheet, Dimensions } from "react-native";
 import { BarChart } from "react-native-gifted-charts";
 import type { IncomeMonthData } from "@/lib/apiTypes";
+import { T } from "@/lib/theme";
 
 interface Props {
   data: IncomeMonthData;
@@ -16,15 +17,15 @@ export default function IncomeBarChart({ data: a, currency }: Props) {
 
   const stackData = [
     {
-      stacks: [{ value: a.grossIncome, color: "#3ec97e" }],
+      stacks: [{ value: a.grossIncome, color: T.green }],
       label: "In",
     },
     {
       stacks: [
-        { value: a.plannedExpenses, color: "#e25c5c" },
-        { value: a.plannedDebtPayments, color: "#f4a942" },
-        { value: a.monthlyAllowance, color: "#38bdf8" },
-        { value: Math.max(0, a.incomeSacrifice - a.monthlyAllowance), color: "#a78bfa" },
+        { value: a.plannedExpenses, color: T.red },
+        { value: a.plannedDebtPayments, color: T.orange },
+        { value: a.monthlyAllowance, color: T.accent },
+        { value: Math.max(0, a.incomeSacrifice - a.monthlyAllowance), color: T.accentFaint },
       ],
       label: "Out",
     },
@@ -41,11 +42,11 @@ export default function IncomeBarChart({ data: a, currency }: Props) {
         maxValue={maxVal || 1}
         noOfSections={4}
         barBorderRadius={4}
-        xAxisColor="rgba(15,40,47,0.10)"
-        yAxisColor="rgba(15,40,47,0.10)"
-        yAxisTextStyle={{ color: "rgba(15,40,47,0.55)", fontSize: 9, fontWeight: "600" }}
+        xAxisColor={T.border}
+        yAxisColor={T.border}
+        yAxisTextStyle={{ color: T.textDim, fontSize: 9, fontWeight: "600" }}
         xAxisLabelTextStyle={{
-          color: "rgba(15,40,47,0.65)",
+          color: T.textDim,
           fontSize: 11,
           fontWeight: "600",
         }}
@@ -70,11 +71,11 @@ export default function IncomeBarChart({ data: a, currency }: Props) {
 }
 
 const LEGEND: [string, string][] = [
-  ["#3ec97e", "Income"],
-  ["#e25c5c", "Bills"],
-  ["#f4a942", "Debts"],
-  ["#38bdf8", "Allowance"],
-  ["#a78bfa", "Sacrifice"],
+  [T.green, "Income"],
+  [T.red, "Bills"],
+  [T.orange, "Debts"],
+  [T.accent, "Allowance"],
+  [T.accentFaint, "Sacrifice"],
 ];
 
 const s = StyleSheet.create({
@@ -88,5 +89,5 @@ const s = StyleSheet.create({
   },
   legendItem: { flexDirection: "row", alignItems: "center", gap: 4 },
   dot: { width: 8, height: 8, borderRadius: 4 },
-  legendText: { color: "rgba(15,40,47,0.65)", fontSize: 10, fontWeight: "600" },
+  legendText: { color: T.textDim, fontSize: 10, fontWeight: "600" },
 });

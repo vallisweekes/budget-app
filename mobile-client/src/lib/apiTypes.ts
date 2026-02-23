@@ -130,6 +130,28 @@ export interface Settings {
   accountCreatedAt?: string | null;
 }
 
+export interface BudgetPlanListItem {
+  id: string;
+  name: string;
+  kind: string;
+  payDate: number | null;
+  budgetHorizonYears: number | null;
+  createdAt: string;
+}
+
+export interface BudgetPlansResponse {
+  plans: BudgetPlanListItem[];
+}
+
+export interface ExpenseMonthsResponse {
+  months: Array<{
+    year: number;
+    month: number; // 1-12
+    totalCount: number;
+    totalAmount: number;
+  }>;
+}
+
 // ─── Computed / Aggregated API types ─────────────────────────
 
 /** Category data with pre-computed expense totals from /api/bff/dashboard */

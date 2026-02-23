@@ -82,7 +82,7 @@ export default function LoginScreen() {
             <TextInput
               style={styles.input}
               placeholder="Username"
-              placeholderTextColor="#4a5568"
+              placeholderTextColor={T.textMuted}
               value={username}
               onChangeText={setUsername}
               autoCapitalize="none"
@@ -121,20 +121,20 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#f2f4f7" },
+  safe: { flex: 1, backgroundColor: T.bg },
   kav: { flex: 1 },
   scroll: { flexGrow: 1, justifyContent: "center", paddingHorizontal: 24, paddingVertical: 40 },
 
   logoArea: { alignItems: "center", marginBottom: 36 },
-  appName: { color: "#0f282f", fontSize: 32, fontWeight: "900", letterSpacing: -0.5 },
-  tagline: { color: "rgba(15,40,47,0.55)", fontSize: 14, marginTop: 6, fontWeight: "600" },
+  appName: { color: T.text, fontSize: 32, fontWeight: "900", letterSpacing: -0.5 },
+  tagline: { color: T.textDim, fontSize: 14, marginTop: 6, fontWeight: "600" },
 
   card: {
-    backgroundColor: "#ffffff",
+    backgroundColor: T.card,
     borderRadius: 20,
     padding: 24,
-    borderWidth: 1,
-    borderColor: "rgba(15,40,47,0.10)",
+    borderWidth: 2,
+    borderColor: T.accentBorder,
   },
 
   modeRow: {
@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     borderRadius: 10,
     overflow: "hidden",
-    backgroundColor: "rgba(15,40,47,0.06)",
+    backgroundColor: T.cardAlt,
     padding: 4,
     gap: 4,
   },
@@ -153,15 +153,15 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   modeBtnActive: { backgroundColor: T.accent },
-  modeBtnText: { color: "rgba(15,40,47,0.55)", fontWeight: "800", fontSize: 14 },
+  modeBtnText: { color: T.textDim, fontWeight: "800", fontSize: 14 },
   modeBtnTextActive: { color: T.onAccent },
 
   input: {
-    backgroundColor: "rgba(15,40,47,0.06)",
-    color: "#0f282f",
+    backgroundColor: T.cardAlt,
+    color: T.text,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "rgba(15,40,47,0.10)",
+    borderColor: T.border,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
@@ -179,9 +179,9 @@ const styles = StyleSheet.create({
 
   apiNote: {
     marginTop: 16,
-    color: "rgba(15,40,47,0.55)",
+    color: T.textDim,
     fontSize: 11,
     textAlign: "center",
   },
-  apiNoteError: { color: "#f4a942" },
+  apiNoteError: { color: T.orange },
 });

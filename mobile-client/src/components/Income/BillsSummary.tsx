@@ -1,6 +1,8 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import type { IncomeMonthData } from "@/lib/apiTypes";
+import { T } from "@/lib/theme";
+import { cardBase } from "@/lib/ui";
 
 interface Props {
   data: IncomeMonthData;
@@ -33,14 +35,11 @@ const s = StyleSheet.create({
     flexDirection: "row",
     marginHorizontal: 14,
     marginTop: 10,
-    backgroundColor: "#ffffff",
-    borderRadius: 10,
+    ...cardBase,
     paddingVertical: 10,
     paddingHorizontal: 8,
-    borderWidth: 1,
-    borderColor: "rgba(15,40,47,0.10)",
   },
   item: { flex: 1, alignItems: "center" },
-  label: { color: "rgba(15,40,47,0.55)", fontSize: 10, marginBottom: 2, fontWeight: "700" },
-  value: { color: "#0f282f", fontSize: 12, fontWeight: "900" },
+  label: { color: T.textDim, fontSize: 10, marginBottom: 2, fontWeight: "700" },
+  value: { color: T.text, fontSize: 12, fontWeight: "900" },
 });

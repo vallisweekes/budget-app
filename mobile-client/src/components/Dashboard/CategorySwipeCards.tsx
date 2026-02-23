@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { View, Text, StyleSheet, FlatList, Dimensions, Pressable } from "react-native";
 import type { DashboardCategoryItem } from "@/lib/apiTypes";
 import { T } from "@/lib/theme";
+import { cardElevated } from "@/lib/ui";
 
 interface Props {
   categories: DashboardCategoryItem[];
@@ -16,8 +17,7 @@ const CARD = 122;
 const GAP = 12;
 const SIDE = 16;
 
-const ACCENT_COLORS = [T.accent, "#3ec97e", "#a78bfa", "#f4a942", "#38bdf8", "#e25c5c"] as const;
-const STORM_RGB = { r: 15, g: 40, b: 47 } as const;
+const ACCENT_COLORS = [T.accent, T.green, "#a78bfa", T.orange, "#38bdf8", T.red] as const;
 
 function hashString(s: string): number {
   let h = 0;
@@ -48,9 +48,10 @@ function blendRgb(a: { r: number; g: number; b: number }, b: { r: number; g: num
 }
 
 function tintedDarkBg(accentHex: string): string {
+  const base = hexToRgb(T.card) ?? { r: 15, g: 40, b: 47 };
   const rgb = hexToRgb(accentHex);
-  if (!rgb) return "rgb(15,40,47)";
-  const mixed = blendRgb(STORM_RGB, rgb, 0.22);
+  if (!rgb) return `rgb(${base.r},${base.g},${base.b})`;
+  const mixed = blendRgb(base, rgb, 0.14);
   return `rgb(${mixed.r},${mixed.g},${mixed.b})`;
 }
 
@@ -134,28 +135,21 @@ const s = StyleSheet.create({
   card: {
     width: CARD,
     height: CARD,
-    borderRadius: 22,
+    ...cardElevated,
     padding: 14,
     justifyContent: "space-between",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
-    shadowColor: "#000000",
-    shadowOpacity: 0.18,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 8,
   },
   top: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end" },
-  name: { color: "rgba(255,255,255,0.95)", fontSize: 15, fontWeight: "900", letterSpacing: -0.2 },
-  amount: { color: "rgba(255,255,255,0.80)", fontSize: 15, fontWeight: "900", letterSpacing: -0.2 },
+  name: { color: T.text, fontSize: 15, fontWeight: "900", letterSpacing: -0.2 },
+  amount: { color: T.textDim, fontSize: 15, fontWeight: "900", letterSpacing: -0.2 },
   pill: {
     alignSelf: "flex-start",
-    backgroundColor: "rgba(255,255,255,0.14)",
+    backgroundColor: T.accentDim,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
   },
-  pillTxt: { color: "rgba(255,255,255,0.88)", fontSize: 12, fontWeight: "900" },
+  pillTxt: { color: T.text, fontSize: 12, fontWeight: "900" },
 
   indicatorWrap: {
     flexDirection: "row",
@@ -168,7 +162,7 @@ const s = StyleSheet.create({
     height: 4,
     width: 6,
     borderRadius: 999,
-    backgroundColor: "rgba(15,40,47,0.18)",
+    backgroundColor: T.textMuted,
   },
   indicatorDotActive: {
     width: 18,

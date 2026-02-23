@@ -17,6 +17,7 @@ import IncomeMonthScreen from "@/screens/IncomeMonthScreen";
 import ExpensesScreen from "@/screens/ExpensesScreen";
 import DebtScreen from "@/screens/DebtScreen";
 import DebtDetailScreen from "@/screens/DebtDetailScreen";
+import DebtAnalyticsScreen from "@/screens/DebtAnalyticsScreen";
 import SettingsScreen from "@/screens/SettingsScreen";
 import PaymentsScreen from "@/screens/PaymentsScreen";
 
@@ -27,7 +28,7 @@ const DebtStack = createNativeStackNavigator<DebtStackParamList>();
 
 function IncomeStackNavigator() {
   return (
-    <IncomeStack.Navigator screenOptions={{ headerShown: false }}>
+    <IncomeStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: T.bg } }}>
       <IncomeStack.Screen name="IncomeGrid" component={IncomeScreen} />
       <IncomeStack.Screen name="IncomeMonth" component={IncomeMonthScreen} />
     </IncomeStack.Navigator>
@@ -36,9 +37,10 @@ function IncomeStackNavigator() {
 
 function DebtStackNavigator() {
   return (
-    <DebtStack.Navigator screenOptions={{ headerShown: false }}>
+    <DebtStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: T.bg } }}>
       <DebtStack.Screen name="DebtList" component={DebtScreen} />
       <DebtStack.Screen name="DebtDetail" component={DebtDetailScreen} />
+      <DebtStack.Screen name="DebtAnalytics" component={DebtAnalyticsScreen} />
     </DebtStack.Navigator>
   );
 }
@@ -52,8 +54,9 @@ function MainTabs() {
         header: () => (
           <TopHeader onSettings={() => navigation.navigate("Settings")} />
         ),
+        sceneContainerStyle: { backgroundColor: T.bg },
         tabBarActiveTintColor: T.accent,
-        tabBarInactiveTintColor: "#556",
+        tabBarInactiveTintColor: T.textDim,
       })}
     >
       <Tab.Screen
@@ -109,14 +112,14 @@ export default function RootNavigator() {
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#ffffff" }}>
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: T.bg }}>
         <ActivityIndicator size="large" color={T.accent} />
       </View>
     );
   }
 
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false, animation: "fade" }}>
+    <Stack.Navigator screenOptions={{ headerShown: false, animation: "fade", contentStyle: { backgroundColor: T.bg } }}>
       {token ? (
         <>
           <Stack.Screen name="Main" component={MainTabs} />

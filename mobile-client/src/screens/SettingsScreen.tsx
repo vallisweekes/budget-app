@@ -7,15 +7,20 @@ import {
   Pressable,
   StyleSheet,
   RefreshControl,
+  Switch,
+  DevSettings,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import * as Updates from "expo-updates";
 
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch, getApiBaseUrl } from "@/lib/api";
 import type { Settings } from "@/lib/apiTypes";
 import { currencySymbol } from "@/lib/formatting";
-import { T } from "@/lib/theme";
+import { applyThemeMode, type ThemeMode, T } from "@/lib/theme";
+import { getStoredThemeMode, setStoredThemeMode } from "@/lib/storage";
+import { cardBase, cardElevated } from "@/lib/ui";
 
 function SettingRow({ label, value }: { label: string; value: string | number | null | undefined }) {
   if (value == null || value === "") return null;
@@ -42,6 +47,7 @@ export default function SettingsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [themeMode, setThemeMode] = useState<ThemeMode>("dark");
 
   const cur = currencySymbol(settings?.currency);
 
@@ -63,15 +69,35 @@ export default function SettingsScreen() {
 
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    (async () => {
+      const stored = await getStoredThemeMode();
+      setThemeMode(stored ?? "dark");
+    })();
+  }, []);
+
+  const toggleTheme = async (nextIsDark: boolean) => {
+    const next: ThemeMode = nextIsDark ? "dark" : "light";
+    setThemeMode(next);
+    await setStoredThemeMode(next);
+    applyThemeMode(next);
+    // Reload so module-level StyleSheet values use the new tokens.
+    try {
+      await Updates.reloadAsync();
+    } catch {
+      if (__DEV__) DevSettings.reload();
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safe}>
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color="#0f282f" />
+          <ActivityIndicator size="large" color={T.accent} />
         </View>
       ) : error ? (
         <View style={styles.center}>
-          <Ionicons name="cloud-offline-outline" size={40} color="rgba(15,40,47,0.55)" />
+          <Ionicons name="cloud-offline-outline" size={40} color={T.textDim} />
           <Text style={styles.errorText}>{error}</Text>
           <Pressable onPress={load} style={styles.retryBtn}>
             <Text style={styles.retryTxt}>Retry</Text>
@@ -79,7 +105,7 @@ export default function SettingsScreen() {
         </View>
       ) : (
         <ScrollView
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor="#0f282f" />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={T.accent} />}
           contentContainerStyle={styles.scroll}
           showsVerticalScrollIndicator={false}
         >
@@ -119,6 +145,15 @@ export default function SettingsScreen() {
           {/* App info */}
           <Section title="App">
             <View style={styles.row}>
+              <Text style={styles.rowLabel}>Dark theme</Text>
+              <Switch
+                value={themeMode === "dark"}
+                onValueChange={toggleTheme}
+                trackColor={{ false: T.border, true: T.accentFaint }}
+                thumbColor={themeMode === "dark" ? T.accent : T.card}
+              />
+            </View>
+            <View style={styles.row}>
               <Text style={styles.rowLabel}>API server</Text>
               <Text style={[styles.rowValue, styles.monoText]} numberOfLines={1}>{apiBase || "Not configured"}</Text>
             </View>
@@ -126,7 +161,7 @@ export default function SettingsScreen() {
 
           {/* Sign out */}
           <Pressable onPress={signOut} style={styles.signOutBtn}>
-            <Ionicons name="log-out-outline" size={18} color="#e25c5c" />
+            <Ionicons name="log-out-outline" size={18} color={T.red} />
             <Text style={styles.signOutText}>Sign Out</Text>
           </Pressable>
         </ScrollView>
@@ -136,20 +171,17 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#f2f4f7" },
+  safe: { flex: 1, backgroundColor: T.bg },
   center: { flex: 1, justifyContent: "center", alignItems: "center", gap: 12 },
   scroll: { padding: 16, paddingBottom: 48 },
 
   profileCard: {
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
+    ...cardElevated,
     padding: 20,
     flexDirection: "row",
     alignItems: "center",
     gap: 16,
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: "rgba(15,40,47,0.10)",
   },
   avatar: {
     width: 52,
@@ -160,23 +192,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   avatarText: { color: T.onAccent, fontSize: 22, fontWeight: "700" },
-  profileName: { color: "#0f282f", fontSize: 17, fontWeight: "900" },
-  profileSub: { color: "rgba(15,40,47,0.55)", fontSize: 12, marginTop: 2, fontWeight: "600" },
+  profileName: { color: T.text, fontSize: 17, fontWeight: "900" },
+  profileSub: { color: T.textDim, fontSize: 12, marginTop: 2, fontWeight: "600" },
 
   section: {
-    backgroundColor: "#ffffff",
-    borderRadius: 14,
+    ...cardBase,
     padding: 16,
     marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "rgba(15,40,47,0.10)",
   },
   sectionTitle: {
-    color: "rgba(15,40,47,0.55)",
-    fontSize: 11,
-    fontWeight: "900",
-    textTransform: "uppercase",
-    letterSpacing: 1,
+    color: T.textDim,
+    fontSize: 13,
+    fontWeight: "800",
+    letterSpacing: 0,
     marginBottom: 12,
   },
   row: {
@@ -185,10 +213,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(15,40,47,0.10)",
+    borderBottomColor: T.border,
   },
-  rowLabel: { color: "rgba(15,40,47,0.55)", fontSize: 14, fontWeight: "700" },
-  rowValue: { color: "#0f282f", fontSize: 14, fontWeight: "800", maxWidth: "55%" },
+  rowLabel: { color: T.textDim, fontSize: 14, fontWeight: "700" },
+  rowValue: { color: T.text, fontSize: 14, fontWeight: "800", maxWidth: "55%" },
   monoText: { fontVariant: ["tabular-nums"], fontSize: 11 },
 
   signOutBtn: {

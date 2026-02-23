@@ -57,17 +57,37 @@ export async function POST(request: Request) {
 		if (!budgetPlanId) {
 			return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
 		}
-    const income = await prisma.income.create({
-      data: {
-        name: body.name,
-        amount: body.amount,
-        month: body.month,
-        year: body.year,
-        budgetPlanId,
-      },
-    });
 
-    return NextResponse.json(income, { status: 201 });
+    const name: string = String(body.name ?? "").trim();
+    const amount = Number(body.amount);
+    const month = Number(body.month);
+    const year = Number(body.year);
+    const distributeMonths = Boolean(body.distributeMonths ?? false);
+    const distributeYears = Boolean(body.distributeYears ?? false);
+
+    const targetYears = distributeYears ? [year, year + 1] : [year];
+
+    let firstCreated: any = null;
+    for (const y of targetYears) {
+      const startMonth = y === year ? month : (distributeMonths ? 1 : month);
+      const endMonth = distributeMonths ? 12 : month;
+      for (let m = startMonth; m <= endMonth; m++) {
+        // Upsert so we don't create duplicates on re-run
+        const existing = await prisma.income.findFirst({
+          where: { budgetPlanId, month: m, year: y, name },
+        });
+        if (existing) {
+          if (!firstCreated) firstCreated = existing;
+          continue;
+        }
+        const record = await prisma.income.create({
+          data: { name, amount, month: m, year: y, budgetPlanId },
+        });
+        if (!firstCreated) firstCreated = record;
+      }
+    }
+
+    return NextResponse.json(firstCreated, { status: 201 });
   } catch (error) {
     console.error("Failed to create income:", error);
     return NextResponse.json(

@@ -4,6 +4,8 @@ import { Ionicons } from "@expo/vector-icons";
 import * as LucideIcons from "lucide-react-native";
 import type { ExpenseCategoryBreakdown } from "@/lib/apiTypes";
 import { resolveCategoryColor, withOpacity } from "@/lib/categoryColors";
+import { T } from "@/lib/theme";
+import { cardElevated } from "@/lib/ui";
 
 /** Resolve a Lucide icon name → component, or undefined if not found */
 function CategoryIcon({ name, color }: { name: string | null; color: string }) {
@@ -28,13 +30,19 @@ interface Props {
   currency: string;
   fmt: (v: number, c: string) => string;
   onCategoryPress?: (cat: ExpenseCategoryBreakdown) => void;
+  onAddPress?: () => void;
 }
 
-export default function CategoryBreakdown({ categories, currency, fmt, onCategoryPress }: Props) {
+export default function CategoryBreakdown({ categories, currency, fmt, onCategoryPress, onAddPress }: Props) {
   if (categories.length === 0) return null;
   return (
     <View style={s.wrap}>
-      <Text style={s.sectionLabel}>By category</Text>
+      <View style={s.labelRow}>
+        <Text style={s.sectionLabel}>By category</Text>
+        <Pressable onPress={onAddPress} style={s.addBtn} hitSlop={8}>
+          <Ionicons name="add" size={18} color={T.onAccent} />
+        </Pressable>
+      </View>
       {categories.map((cat) => {
         const pct = cat.total > 0 ? Math.round((cat.paidTotal / cat.total) * 100) : 0;
         const color = resolveCategoryColor(cat.color);
@@ -52,7 +60,7 @@ export default function CategoryBreakdown({ categories, currency, fmt, onCategor
               </View>
               <View style={s.right}>
                 <Text style={s.catTotal}>{fmt(cat.total, currency)}</Text>
-                <Ionicons name="chevron-forward" size={16} color="rgba(15,40,47,0.35)" />
+                <Ionicons name="chevron-forward" size={16} color={T.textMuted} />
               </View>
             </View>
 
@@ -79,8 +87,21 @@ export default function CategoryBreakdown({ categories, currency, fmt, onCategor
 
 const s = StyleSheet.create({
   wrap: { paddingHorizontal: 14, paddingTop: 16, gap: 8 },
+  labelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  addBtn: {
+    backgroundColor: T.accent,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   sectionLabel: {
-    color: "rgba(15,27,45,0.55)",
+    color: T.textDim,
     fontSize: 11,
     fontWeight: "700",
     textTransform: "uppercase",
@@ -89,10 +110,7 @@ const s = StyleSheet.create({
   },
 
   card: {
-    backgroundColor: "#ffffff",
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "rgba(15,40,47,0.10)",
+    ...cardElevated,
     paddingHorizontal: 14,
     paddingTop: 12,
     paddingBottom: 10,
@@ -109,14 +127,14 @@ const s = StyleSheet.create({
     alignItems: "center", justifyContent: "center", flexShrink: 0,
   },
   iconDot: { width: 10, height: 10, borderRadius: 5 },
-  catName: { color: "#0f282f", fontSize: 14, fontWeight: "800", flex: 1 },
-  catTotal: { color: "#0f282f", fontSize: 15, fontWeight: "900" },
+  catName: { color: T.text, fontSize: 14, fontWeight: "800", flex: 1 },
+  catTotal: { color: T.text, fontSize: 15, fontWeight: "900" },
 
-  sub: { color: "rgba(15,40,47,0.55)", fontSize: 12, paddingLeft: 46, fontWeight: "600" },
+  sub: { color: T.textDim, fontSize: 12, paddingLeft: 46, fontWeight: "600" },
 
   track: {
     height: 4,
-    backgroundColor: "rgba(15,40,47,0.10)",
+    backgroundColor: T.border,
     borderRadius: 2,
     overflow: "hidden",
     marginTop: 2,

@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { T } from "@/lib/theme";
 
 interface MonthBarProps {
   month: number;
@@ -34,14 +35,14 @@ export default function MonthBar({
         <Ionicons
           name="chevron-back"
           size={20}
-          color={prevDisabled ? "rgba(15,40,47,0.25)" : "#0f282f"}
+          color={prevDisabled ? T.textMuted : T.text}
         />
       </Pressable>
       <Text style={s.label}>
         {MONTH_NAMES[month - 1]} {year}
       </Text>
       <Pressable onPress={onNext} style={s.arrow} hitSlop={8}>
-        <Ionicons name="chevron-forward" size={20} color="#0f282f" />
+        <Ionicons name="chevron-forward" size={20} color={T.text} />
       </Pressable>
     </View>
   );
@@ -54,11 +55,11 @@ const s = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 14,
-    backgroundColor: "#ffffff",
+    backgroundColor: T.card,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(15,40,47,0.10)",
+    borderBottomColor: T.border,
   },
   arrow: { padding: 8 },
   arrowDisabled: { opacity: 0.4 },
-  label: { color: "#0f282f", fontSize: 16, fontWeight: "900" },
+  label: { color: T.text, fontSize: 16, fontWeight: "900" },
 });
