@@ -74,7 +74,6 @@ export default function PillTabBar({ state, descriptors, navigation }: BottomTab
               ]}
             >
               <View style={s.liquidInner} />
-              <View style={s.liquidSheen} />
             </View>
           ) : null}
           {visibleRoutes.map((route) => {
@@ -88,8 +87,16 @@ export default function PillTabBar({ state, descriptors, navigation }: BottomTab
                 target: route.key,
                 canPreventDefault: true,
               });
-              if (!isFocused && !event.defaultPrevented) {
-                navigation.navigate(route.name);
+              if (!event.defaultPrevented) {
+                if (route.name === "Expenses") {
+                  navigation.navigate("Expenses", { screen: "ExpensesList" });
+                } else if (route.name === "Debts") {
+                  navigation.navigate("Debts", { screen: "DebtList" });
+                } else if (route.name === "Dashboard") {
+                  navigation.navigate("Dashboard");
+                } else if (route.name === "Goals") {
+                  navigation.navigate("Goals");
+                }
               }
             };
 
@@ -169,15 +176,6 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: `${T.text}14`,
     backgroundColor: `${T.text}08`,
-  },
-  liquidSheen: {
-    position: "absolute",
-    left: 8,
-    right: 8,
-    top: 5,
-    height: 16,
-    borderRadius: 10,
-    backgroundColor: `${T.text}1A`,
   },
   tab: {
     flex: 1,
