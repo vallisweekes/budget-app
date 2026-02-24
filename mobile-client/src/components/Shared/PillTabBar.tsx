@@ -7,6 +7,7 @@ import {
 } from "react-native";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { T } from "@/lib/theme";
 
@@ -54,66 +55,72 @@ export default function PillTabBar({ state, descriptors, navigation }: BottomTab
 
   return (
     <View style={[s.wrapper, { paddingBottom: Math.max(insets.bottom, 8) }]}>
-      <View
-        style={s.bar}
-        onLayout={(event) => {
-          setBarWidth(event.nativeEvent.layout.width);
-          setBarHeight(event.nativeEvent.layout.height);
-        }}
-      >
-        {slotWidth > 0 ? (
-          <View
-            pointerEvents="none"
-            style={[
-              s.liquidIndicator,
-              {
-                left: indicatorLeft,
-                top: indicatorTop,
-              },
-            ]}
-          />
-        ) : null}
-        {visibleRoutes.map((route) => {
-          const isFocused = state.routes[state.index].name === route.name;
-          const icons = ICONS[route.name] ?? { active: "ellipse", inactive: "ellipse-outline" };
-          const label = LABELS[route.name] ?? route.name;
-
-          const onPress = () => {
-            const event = navigation.emit({
-              type: "tabPress",
-              target: route.key,
-              canPreventDefault: true,
-            });
-            if (!isFocused && !event.defaultPrevented) {
-              navigation.navigate(route.name);
-            }
-          };
-
-          return (
-            <Pressable
-              key={route.key}
-              onPress={onPress}
-              style={s.tab}
-              android_ripple={{ color: T.border, borderless: false }}
+      <BlurView intensity={22} tint="dark" style={s.glassBase}>
+        <View style={s.glassTint} />
+        <View
+          style={s.bar}
+          onLayout={(event) => {
+            setBarWidth(event.nativeEvent.layout.width);
+            setBarHeight(event.nativeEvent.layout.height);
+          }}
+        >
+          {slotWidth > 0 ? (
+            <View
+              pointerEvents="none"
+              style={[
+                s.liquidIndicator,
+                {
+                  left: indicatorLeft,
+                  top: indicatorTop,
+                },
+              ]}
             >
-              <View style={[s.tabContent, isFocused && s.tabContentActive]}>
-                <View style={s.iconWrap}>
-                  <Ionicons
-                    name={isFocused ? icons.active : icons.inactive}
-                    size={20}
-                    color={isFocused ? T.text : T.textDim}
-                  />
+              <View style={s.liquidInner} />
+              <View style={s.liquidSheen} />
+            </View>
+          ) : null}
+          {visibleRoutes.map((route) => {
+            const isFocused = state.routes[state.index].name === route.name;
+            const icons = ICONS[route.name] ?? { active: "ellipse", inactive: "ellipse-outline" };
+            const label = LABELS[route.name] ?? route.name;
+
+            const onPress = () => {
+              const event = navigation.emit({
+                type: "tabPress",
+                target: route.key,
+                canPreventDefault: true,
+              });
+              if (!isFocused && !event.defaultPrevented) {
+                navigation.navigate(route.name);
+              }
+            };
+
+            return (
+              <Pressable
+                key={route.key}
+                onPress={onPress}
+                style={s.tab}
+                android_ripple={{ color: T.border, borderless: false }}
+              >
+                <View style={[s.tabContent, isFocused && s.tabContentActive]}>
+                  <View style={s.iconWrap}>
+                    <Ionicons
+                      name={isFocused ? icons.active : icons.inactive}
+                      size={20}
+                      color={isFocused ? T.text : T.textDim}
+                    />
+                  </View>
+                  {!isFocused ? (
+                    <Text style={s.label} numberOfLines={1}>
+                      {label}
+                    </Text>
+                  ) : null}
                 </View>
-                {!isFocused ? (
-                  <Text style={s.label} numberOfLines={1}>
-                    {label}
-                  </Text>
-                ) : null}
-              </View>
-            </Pressable>
-          );
-        })}
-      </View>
+              </Pressable>
+            );
+          })}
+        </View>
+      </BlurView>
     </View>
   );
 }
@@ -124,9 +131,17 @@ const s = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: T.card,
+    backgroundColor: "transparent",
+  },
+  glassBase: {
+    overflow: "hidden",
     borderTopWidth: 1,
-    borderTopColor: T.border,
+    borderTopColor: `${T.accent}29`,
+    backgroundColor: `${T.card}A8`,
+  },
+  glassTint: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: `${T.accent}12`,
   },
   bar: {
     position: "relative",
@@ -137,17 +152,34 @@ const s = StyleSheet.create({
   },
   liquidIndicator: {
     position: "absolute",
+    overflow: "hidden",
     width: INDICATOR_SIZE,
     height: INDICATOR_SIZE,
     borderRadius: INDICATOR_SIZE / 2,
-    backgroundColor: `${T.accent}2A`,
+    backgroundColor: `${T.accent}30`,
     borderWidth: 1,
-    borderColor: `${T.accent}66`,
+    borderColor: `${T.accent}73`,
     shadowColor: T.accent,
-    shadowOpacity: 0.22,
-    shadowRadius: 10,
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
     shadowOffset: { width: 0, height: 2 },
-    elevation: 6,
+    elevation: 7,
+  },
+  liquidInner: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: INDICATOR_SIZE / 2,
+    borderWidth: 1,
+    borderColor: `${T.text}14`,
+    backgroundColor: `${T.text}08`,
+  },
+  liquidSheen: {
+    position: "absolute",
+    left: 8,
+    right: 8,
+    top: 5,
+    height: 16,
+    borderRadius: 10,
+    backgroundColor: `${T.text}1A`,
   },
   tab: {
     flex: 1,
