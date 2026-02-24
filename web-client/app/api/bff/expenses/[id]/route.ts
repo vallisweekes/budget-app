@@ -15,6 +15,19 @@ function badRequest(message: string) {
   return NextResponse.json({ error: message }, { status: 400 });
 }
 
+function toBool(value: unknown): boolean {
+  if (value === true) return true;
+  if (value === false || value == null) return false;
+  if (typeof value === "number") return value === 1;
+  if (typeof value === "string") {
+    const v = value.trim().toLowerCase();
+    if (!v) return false;
+    if (v === "true" || v === "1" || v === "yes" || v === "on") return true;
+    if (v === "false" || v === "0" || v === "no" || v === "off") return false;
+  }
+  return false;
+}
+
 function decimalToString(value: unknown): string {
   if (typeof value === "string") return value;
   if (typeof value === "number") return String(value);
@@ -76,13 +89,13 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       : typeof body.categoryId === "string"
         ? body.categoryId.trim() || null
         : undefined;
-	const isAllocation = body.isAllocation == null ? undefined : Boolean(body.isAllocation);
+  	const isAllocation = body.isAllocation == null ? undefined : toBool(body.isAllocation);
   const merchantDomain = body.merchantDomain == null
     ? undefined
     : typeof body.merchantDomain === "string"
       ? body.merchantDomain.trim() || null
       : null;
-  const paidExplicit = body.paid == null ? undefined : Boolean(body.paid);
+    const paidExplicit = body.paid == null ? undefined : toBool(body.paid);
   const paidAmountExplicit = body.paidAmount == null ? undefined : Number(body.paidAmount);
   const dueDate =
     body.dueDate == null

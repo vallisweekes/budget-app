@@ -68,6 +68,10 @@ npm run ios         # iOS simulator directly
 npm run android     # Android emulator directly
 ```
 
+## iOS TestFlight beta
+
+See `TESTFLIGHT_BETA_CHECKLIST.md` for the full release flow (build + submit).
+
 ---
 
 ## Auth flow

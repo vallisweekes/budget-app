@@ -9,6 +9,19 @@ import {
 	type SupportedBudgetType,
 } from "@/lib/budgetPlans";
 
+function toBool(value: unknown): boolean {
+	if (value === true) return true;
+	if (value === false || value == null) return false;
+	if (typeof value === "number") return value === 1;
+	if (typeof value === "string") {
+		const v = value.trim().toLowerCase();
+		if (!v) return false;
+		if (v === "true" || v === "1" || v === "yes" || v === "on") return true;
+		if (v === "false" || v === "0" || v === "no" || v === "off") return false;
+	}
+	return false;
+}
+
 export async function GET() {
 	const session = await getServerSession(authOptions);
 	const sessionUser = session?.user;
@@ -47,7 +60,7 @@ export async function POST(req: Request) {
 	}
 
 	const planName = typeof body?.name === "string" ? body.name.trim() : undefined;
-	const includePostEventIncome = Boolean(body?.includePostEventIncome);
+	const includePostEventIncome = toBool(body?.includePostEventIncome);
 	let eventDate: Date | null = null;
 	if (typeof body?.eventDate === "string" && body.eventDate.trim()) {
 		const parsed = new Date(body.eventDate);

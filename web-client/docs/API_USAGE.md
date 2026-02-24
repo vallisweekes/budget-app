@@ -109,6 +109,34 @@ function ExpensesPage() {
 }
 ```
 
+### Analytics Overview (Income vs Expenses)
+
+```typescript
+type AnalyticsOverview = {
+  year: number;
+  budgetPlanId: string;
+  months: Array<{
+    monthKey: string;
+    monthIndex: number; // 1-12
+    incomeTotal: number;
+    expenseTotal: number;
+    expenseCount: number;
+  }>;
+  incomeGrandTotal: number;
+  expenseGrandTotal: number;
+};
+
+async function loadOverview(year: number, budgetPlanId?: string) {
+  const qp = new URLSearchParams();
+  qp.set("year", String(year));
+  if (budgetPlanId) qp.set("budgetPlanId", budgetPlanId);
+
+  const res = await fetch(`/api/bff/analytics/overview?${qp.toString()}`);
+  if (!res.ok) throw new Error("Failed to load analytics overview");
+  return (await res.json()) as AnalyticsOverview;
+}
+```
+
 ### Categories
 
 ```typescript

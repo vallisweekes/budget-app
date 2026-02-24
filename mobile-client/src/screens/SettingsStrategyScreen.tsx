@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
 import { apiFetch } from "@/lib/api";
@@ -18,6 +18,7 @@ const STRATEGY_OPTIONS = [
 export default function SettingsStrategyScreen({ navigation, route }: RootStackScreenProps<"SettingsStrategy">) {
   const { budgetPlanId, strategy } = route.params;
   const { signOut } = useAuth();
+  const insets = useSafeAreaInsets();
   const [draft, setDraft] = useState(strategy ?? "payYourselfFirst");
   const [saving, setSaving] = useState(false);
 
@@ -43,7 +44,7 @@ export default function SettingsStrategyScreen({ navigation, route }: RootStackS
 
   return (
     <SafeAreaView style={styles.safe} edges={[]}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={22} color={T.text} />
         </Pressable>

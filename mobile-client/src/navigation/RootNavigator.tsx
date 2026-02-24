@@ -60,6 +60,21 @@ function DebtStackNavigator() {
   );
 }
 
+function NotificationSettingsScreen(props: unknown) {
+  return <SettingsScreen {...(props as React.ComponentProps<typeof SettingsScreen>)} />;
+}
+
+function RootTopHeader({ navigation }: { navigation: any }) {
+  return (
+    <TopHeader
+      onSettings={() => navigation.navigate("NotificationSettings")}
+      onIncome={() => navigation.navigate("IncomeFlow")}
+      onAnalytics={() => navigation.navigate("Analytics")}
+      onNotifications={() => navigation.navigate("NotificationSettings")}
+    />
+  );
+}
+
 function MainTabs() {
   return (
     <Tab.Navigator
@@ -67,6 +82,15 @@ function MainTabs() {
       screenOptions={({ navigation }) => ({
         headerShown: true,
         header: () => {
+          const openIncome = () => {
+            const parent = navigation.getParent();
+            if (parent) {
+              parent.navigate("IncomeFlow" as never);
+              return;
+            }
+            navigation.navigate("Income");
+          };
+
           const openAnalytics = () => {
             const parent = navigation.getParent();
             if (parent) {
@@ -74,12 +98,21 @@ function MainTabs() {
             }
           };
 
+          const openNotifications = () => {
+            const parent = navigation.getParent();
+            if (parent) {
+              parent.navigate("NotificationSettings" as never);
+              return;
+            }
+            navigation.navigate("Settings");
+          };
+
           return (
             <TopHeader
               onSettings={() => navigation.navigate("Settings")}
-              onIncome={() => navigation.navigate("Income")}
+              onIncome={openIncome}
               onAnalytics={openAnalytics}
-              onNotifications={() => navigation.navigate("Settings")}
+              onNotifications={openNotifications}
             />
           );
         },
@@ -159,8 +192,31 @@ export default function RootNavigator() {
       {token ? (
         <>
           <Stack.Screen name="Main" component={MainTabs} />
+          <Stack.Screen
+            name="IncomeFlow"
+            component={IncomeStackNavigator}
+            options={({ navigation }) => ({
+              headerShown: true,
+              header: () => <RootTopHeader navigation={navigation} />,
+            })}
+          />
+          <Stack.Screen
+            name="NotificationSettings"
+            component={NotificationSettingsScreen}
+            options={({ navigation }) => ({
+              headerShown: true,
+              header: () => <RootTopHeader navigation={navigation} />,
+            })}
+          />
           <Stack.Screen name="Payments" component={PaymentsScreen} />
-          <Stack.Screen name="Analytics" component={AnalyticsScreen} />
+          <Stack.Screen
+            name="Analytics"
+            component={AnalyticsScreen}
+            options={({ navigation }) => ({
+              headerShown: true,
+              header: () => <RootTopHeader navigation={navigation} />,
+            })}
+          />
           <Stack.Screen name="Goals" component={GoalsScreen} />
           <Stack.Screen name="GoalsProjection" component={GoalsProjectionScreen} />
           <Stack.Screen name="SettingsStrategy" component={SettingsStrategyScreen} />

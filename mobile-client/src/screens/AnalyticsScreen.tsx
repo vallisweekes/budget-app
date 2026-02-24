@@ -7,42 +7,33 @@ import {
   Pressable,
   ActivityIndicator,
   RefreshControl,
+  Dimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import Svg, { Polyline, Rect } from "react-native-svg";
+import Svg, { Rect } from "react-native-svg";
+import { LineChart } from "react-native-gifted-charts";
 
 import { apiFetch } from "@/lib/api";
-import type { DashboardData, DebtSummaryData, IncomeSummaryData, Settings } from "@/lib/apiTypes";
+import type { DashboardData, DebtSummaryData, ExpenseSummary, IncomeSummaryData, Settings } from "@/lib/apiTypes";
 import { currencySymbol, fmt } from "@/lib/formatting";
 import { T } from "@/lib/theme";
 import { cardBase, cardElevated } from "@/lib/ui";
 
-const SPARKLINE_WIDTH = 220;
-const SPARKLINE_HEIGHT = 68;
-
-function toSparklinePoints(values: number[]): string {
-  if (values.length === 0) return "";
-  const max = Math.max(...values, 1);
-  const min = Math.min(...values, 0);
-  const spread = Math.max(1, max - min);
-  return values
-    .map((value, index) => {
-      const x = values.length === 1 ? SPARKLINE_WIDTH / 2 : (index / (values.length - 1)) * SPARKLINE_WIDTH;
-      const y = SPARKLINE_HEIGHT - ((value - min) / spread) * SPARKLINE_HEIGHT;
-      return `${x},${y}`;
-    })
-    .join(" ");
-}
+const MONTH_SHORT = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+const OVERVIEW_CHART_W = Math.max(240, Dimensions.get("window").width - 76);
+const OVERVIEW_CHART_H = 180;
 
 export default function AnalyticsScreen({ navigation }: { navigation: any }) {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [debt, setDebt] = useState<DebtSummaryData | null>(null);
   const [income, setIncome] = useState<IncomeSummaryData | null>(null);
+  const [expensesByMonth, setExpensesByMonth] = useState<number[]>(Array(12).fill(0));
   const [settings, setSettings] = useState<Settings | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [overviewMode, setOverviewMode] = useState<"month" | "year">("year");
 
   const load = useCallback(async () => {
     try {
@@ -54,9 +45,23 @@ export default function AnalyticsScreen({ navigation }: { navigation: any }) {
         apiFetch<IncomeSummaryData>(`/api/bff/income-summary?year=${year}`),
         apiFetch<Settings>("/api/bff/settings"),
       ]);
+
+      const planQp = dash?.budgetPlanId ? `&budgetPlanId=${encodeURIComponent(dash.budgetPlanId)}` : "";
+      const expenseSeries = await Promise.all(
+        Array.from({ length: 12 }, async (_, idx) => {
+          try {
+            const summary = await apiFetch<ExpenseSummary>(`/api/bff/expenses/summary?month=${idx + 1}&year=${year}${planQp}`);
+            return summary?.totalAmount ?? 0;
+          } catch {
+            return 0;
+          }
+        })
+      );
+
       setDashboard(dash);
       setDebt(debtSummary);
       setIncome(incomeSummary);
+      setExpensesByMonth(expenseSeries);
       setSettings(s);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load analytics");
@@ -95,20 +100,62 @@ export default function AnalyticsScreen({ navigation }: { navigation: any }) {
     return [...expenseTips, ...debtTips].slice(0, 4);
   }, [dashboard?.expenseInsights?.recapTips, debt?.tips]);
 
-  const incomeTrend = useMemo(() => {
-    const months = [...(income?.months ?? [])]
-      .sort((a, b) => a.monthIndex - b.monthIndex)
-      .slice(-6);
-    const values = months.map((month) => month.total);
-    const labels = months.map((month) => month.monthKey.slice(0, 3));
+  const chartData = useMemo(() => {
+    const incomeYear = Array(12).fill(0);
+    (income?.months ?? []).forEach((m) => {
+      if (m.monthIndex >= 1 && m.monthIndex <= 12) {
+        incomeYear[m.monthIndex - 1] = m.total ?? 0;
+      }
+    });
+
+    if (overviewMode === "year") {
+      const maxValue = Math.max(...incomeYear, ...expensesByMonth, 1);
+      return {
+        labels: MONTH_SHORT.map((label, idx) => (idx % 2 === 0 ? label : "")),
+        rawLabels: MONTH_SHORT,
+        incomeSeries: incomeYear,
+        expenseSeries: expensesByMonth,
+        maxValue,
+      };
+    }
+
+    const now = new Date();
+    const currentIdx = now.getMonth();
+    const prevIdx = (currentIdx + 11) % 12;
+    const currentIncome = incomeYear[currentIdx] ?? 0;
+    const prevIncome = incomeYear[prevIdx] ?? 0;
+    const currentExpense = dashboard?.totalExpenses ?? expensesByMonth[currentIdx] ?? 0;
+    const prevExpense = dashboard?.expenseInsights?.recap?.totalAmount ?? expensesByMonth[prevIdx] ?? 0;
+
+    const incomeSeries = [prevIncome, currentIncome];
+    const expenseSeries = [prevExpense, currentExpense];
+    const maxValue = Math.max(...incomeSeries, ...expenseSeries, 1);
+
     return {
-      labels,
-      values,
-      points: toSparklinePoints(values),
-      max: Math.max(...values, 0),
-      min: Math.min(...values, 0),
+      labels: [MONTH_SHORT[prevIdx], MONTH_SHORT[currentIdx]],
+      rawLabels: [MONTH_SHORT[prevIdx], MONTH_SHORT[currentIdx]],
+      incomeSeries,
+      expenseSeries,
+      maxValue,
     };
-  }, [income?.months]);
+  }, [dashboard?.expenseInsights?.recap?.totalAmount, dashboard?.totalExpenses, expensesByMonth, income?.months, overviewMode]);
+
+  const overviewMaxValue = useMemo(() => {
+    const unit = 500;
+    return Math.max(unit, Math.ceil((chartData.maxValue || 0) / unit) * unit);
+  }, [chartData.maxValue]);
+
+  const overviewIncomeLine = useMemo(
+    () => chartData.incomeSeries.map((value, idx) => ({ value, label: chartData.labels[idx] ?? "" })),
+    [chartData.incomeSeries, chartData.labels]
+  );
+
+  const overviewExpenseLine = useMemo(
+    () => chartData.expenseSeries.map((value) => ({ value })),
+    [chartData.expenseSeries]
+  );
+
+  const chartSpacing = overviewMode === "year" ? 23 : 140;
 
   const debtDistribution = useMemo(() => {
     const topDebts = [...(debt?.debts ?? [])]
@@ -174,6 +221,87 @@ export default function AnalyticsScreen({ navigation }: { navigation: any }) {
         </View>
 
         <View style={s.tipCard}>
+          <View style={s.overviewHead}>
+            <Text style={s.tipTitle}>Overview</Text>
+            <View style={s.overviewToggle}>
+              <Pressable onPress={() => setOverviewMode("month")} style={[s.overviewModeBtn, overviewMode === "month" && s.overviewModeBtnActive]}>
+                <Text style={[s.overviewModeText, overviewMode === "month" && s.overviewModeTextActive]}>Month</Text>
+              </Pressable>
+              <Pressable onPress={() => setOverviewMode("year")} style={[s.overviewModeBtn, overviewMode === "year" && s.overviewModeBtnActive]}>
+                <Text style={[s.overviewModeText, overviewMode === "year" && s.overviewModeTextActive]}>Year</Text>
+              </Pressable>
+            </View>
+          </View>
+
+          <View style={s.overviewChartWrap}>
+            <LineChart
+              data={overviewIncomeLine}
+              data2={overviewExpenseLine}
+              color1="#2c91ff"
+              color2="#ef4fa6"
+              thickness={2}
+              thickness2={2}
+              height={OVERVIEW_CHART_H}
+              width={OVERVIEW_CHART_W - 20}
+              initialSpacing={6}
+              spacing={chartSpacing}
+              noOfSections={5}
+              maxValue={overviewMaxValue}
+              yAxisColor={T.border}
+              xAxisColor={T.border}
+              yAxisTextStyle={s.chartAxisText}
+              xAxisLabelTextStyle={s.chartAxisText}
+              rulesColor={T.border}
+              rulesType="dashed"
+              hideDataPoints={false}
+              dataPointsColor="#2c91ff"
+              dataPointsColor2="#ef4fa6"
+              dataPointsRadius={3}
+              dataPointsRadius2={3}
+              areaChart
+              startFillColor="#2c91ff"
+              endFillColor="#2c91ff"
+              startOpacity={0.16}
+              endOpacity={0.02}
+              pointerConfig={{
+                activatePointersOnLongPress: true,
+                autoAdjustPointerLabelPosition: true,
+                pointerStripColor: "#2c91ff",
+                pointerStripWidth: 1,
+                strokeDashArray: [4, 4],
+                pointerColor: "#2c91ff",
+                radius: 4,
+                pointerLabelWidth: 128,
+                pointerLabelHeight: 64,
+                pointerLabelComponent: (items: Array<{ value: number; index: number }>) => {
+                  const item = items?.[0];
+                  if (!item) return null;
+                  const index = Number.isFinite(item.index) ? item.index : 0;
+                  const monthLabel = chartData.rawLabels[index] ?? chartData.labels[index] ?? "";
+                  return (
+                    <View style={s.pointerTooltip}>
+                      <Text style={s.pointerTooltipValue}>{fmt(item.value ?? 0, currency)}</Text>
+                      <Text style={s.pointerTooltipMonth}>{monthLabel}</Text>
+                    </View>
+                  );
+                },
+              }}
+            />
+          </View>
+
+          <View style={s.legendRow}>
+            <View style={s.legendItem}>
+              <View style={[s.legendDot, { backgroundColor: "#2c91ff" }]} />
+              <Text style={s.legendText}>Income</Text>
+            </View>
+            <View style={s.legendItem}>
+              <View style={[s.legendDot, { backgroundColor: "#ef4fa6" }]} />
+              <Text style={s.legendText}>Expenses</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={s.tipCard}>
           <Text style={s.tipTitle}>Top Insights</Text>
           {topTips.length === 0 ? (
             <Text style={s.tipText}>No insights yet.</Text>
@@ -187,37 +315,6 @@ export default function AnalyticsScreen({ navigation }: { navigation: any }) {
                 </View>
               </View>
             ))
-          )}
-        </View>
-
-        <View style={s.tipCard}>
-          <Text style={s.tipTitle}>Income Trend (6 months)</Text>
-          {incomeTrend.values.length < 2 ? (
-            <Text style={s.tipText}>Not enough income history yet.</Text>
-          ) : (
-            <>
-              <View style={s.sparklineWrap}>
-                <Svg width={SPARKLINE_WIDTH} height={SPARKLINE_HEIGHT}>
-                  <Polyline
-                    points={incomeTrend.points}
-                    fill="none"
-                    stroke={T.accent}
-                    strokeWidth={3}
-                    strokeLinejoin="round"
-                    strokeLinecap="round"
-                  />
-                </Svg>
-              </View>
-              <View style={s.sparklineMeta}>
-                <Text style={s.sparklineText}>Low: {fmt(incomeTrend.min, currency)}</Text>
-                <Text style={s.sparklineText}>High: {fmt(incomeTrend.max, currency)}</Text>
-              </View>
-              <View style={s.sparklineLabels}>
-                {incomeTrend.labels.map((label) => (
-                  <Text key={label} style={s.sparklineLabel}>{label}</Text>
-                ))}
-              </View>
-            </>
           )}
         </View>
 
@@ -291,33 +388,87 @@ const s = StyleSheet.create({
   tipRowTitle: { color: T.text, fontSize: 13, fontWeight: "800", marginBottom: 2 },
   tipText: { color: T.textDim, fontSize: 12, fontWeight: "600" },
 
-  sparklineWrap: {
-    marginTop: 4,
+  overviewHead: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 6,
+  },
+  overviewToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: T.border,
+    borderRadius: 999,
+    padding: 2,
+    backgroundColor: T.card,
+  },
+  overviewModeBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+  },
+  overviewModeBtnActive: {
+    backgroundColor: T.accent,
+  },
+  overviewModeText: {
+    color: T.textDim,
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  overviewModeTextActive: {
+    color: T.onAccent,
+  },
+  overviewChartWrap: {
     borderRadius: 10,
     borderWidth: 1,
     borderColor: T.border,
-    backgroundColor: `${T.accent}14`,
+    backgroundColor: T.card,
     paddingVertical: 8,
     alignItems: "center",
   },
-  sparklineMeta: {
-    marginTop: 8,
-    flexDirection: "row",
-    justifyContent: "space-between",
+  chartAxisText: {
+    color: T.textMuted,
+    fontSize: 10,
+    fontWeight: "700",
   },
-  sparklineText: {
-    color: T.textDim,
+  pointerTooltip: {
+    backgroundColor: "#0a0a0a",
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    justifyContent: "center",
+  },
+  pointerTooltipValue: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  pointerTooltipMonth: {
+    marginTop: 2,
+    color: "#d2d2d2",
     fontSize: 11,
     fontWeight: "700",
   },
-  sparklineLabels: {
-    marginTop: 6,
+  legendRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 14,
+    marginTop: 10,
   },
-  sparklineLabel: {
-    color: T.textMuted,
-    fontSize: 10,
+  legendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  legendDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 2,
+  },
+  legendText: {
+    color: T.text,
+    fontSize: 12,
     fontWeight: "700",
   },
   barRow: {

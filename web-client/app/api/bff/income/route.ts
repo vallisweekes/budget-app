@@ -8,6 +8,19 @@ function unauthorized() {
 	return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 }
 
+function toBool(value: unknown): boolean {
+  if (value === true) return true;
+  if (value === false || value == null) return false;
+  if (typeof value === "number") return value === 1;
+  if (typeof value === "string") {
+    const v = value.trim().toLowerCase();
+    if (!v) return false;
+    if (v === "true" || v === "1" || v === "yes" || v === "on") return true;
+    if (v === "false" || v === "0" || v === "no" || v === "off") return false;
+  }
+  return false;
+}
+
 export async function GET(request: Request) {
   try {
     const userId = await getSessionUserId();
@@ -62,8 +75,8 @@ export async function POST(request: Request) {
     const amount = Number(body.amount);
     const month = Number(body.month);
     const year = Number(body.year);
-    const distributeMonths = Boolean(body.distributeMonths ?? false);
-    const distributeYears = Boolean(body.distributeYears ?? false);
+    const distributeMonths = toBool(body.distributeMonths);
+    const distributeYears = toBool(body.distributeYears);
 
     const targetYears = distributeYears ? [year, year + 1] : [year];
 

@@ -53,6 +53,8 @@ export type MainTabParamList = {
 export type RootStackParamList = {
   Login: undefined;
   Main: NavigatorScreenParams<MainTabParamList>;
+  IncomeFlow: NavigatorScreenParams<IncomeStackParamList> | undefined;
+  NotificationSettings: undefined;
   Payments: undefined;
   Analytics: undefined;
   Goals: undefined;

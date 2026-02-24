@@ -21,6 +21,99 @@ function prismaBudgetPlanHasField(fieldName: string): boolean {
 	}
 }
 
+async function seedStarterDataForPlan(params: { budgetPlanId: string }) {
+	const { budgetPlanId } = params;
+	const now = new Date();
+	const month = now.getMonth() + 1;
+	const year = now.getFullYear();
+
+	const [existingIncome, existingExpense, existingGoal, firstCategory] = await Promise.all([
+		withPrismaRetry(
+			() => prisma.income.findFirst({ where: { budgetPlanId }, select: { id: true } }),
+			{ retries: 2, delayMs: 150 }
+		),
+		withPrismaRetry(
+			() => prisma.expense.findFirst({ where: { budgetPlanId, isAllocation: false }, select: { id: true } }),
+			{ retries: 2, delayMs: 150 }
+		),
+		withPrismaRetry(
+			() => prisma.goal.findFirst({ where: { budgetPlanId }, select: { id: true } }),
+			{ retries: 2, delayMs: 150 }
+		),
+		withPrismaRetry(
+			() => prisma.category.findFirst({ where: { budgetPlanId }, select: { id: true }, orderBy: { createdAt: "asc" } }),
+			{ retries: 2, delayMs: 150 }
+		),
+	]);
+
+	const writes: Array<Promise<unknown>> = [];
+
+	if (!existingIncome) {
+		writes.push(
+			withPrismaRetry(
+				() =>
+					prisma.income.create({
+						data: {
+							budgetPlanId,
+							name: "Starter income (Edit me)",
+							amount: 3000,
+							month,
+							year,
+						},
+					}),
+				{ retries: 2, delayMs: 150 }
+			)
+		);
+	}
+
+	if (!existingExpense) {
+		writes.push(
+			withPrismaRetry(
+				() =>
+					prisma.expense.create({
+						data: {
+							budgetPlanId,
+							name: "Starter expense (Edit me)",
+							amount: 250,
+							paid: false,
+							paidAmount: 0,
+							isAllocation: false,
+							month,
+							year,
+							categoryId: firstCategory?.id ?? null,
+						},
+					}),
+				{ retries: 2, delayMs: 150 }
+			)
+		);
+	}
+
+	if (!existingGoal) {
+		writes.push(
+			withPrismaRetry(
+				() =>
+					prisma.goal.create({
+						data: {
+							budgetPlanId,
+							title: "Starter goal (Edit me)",
+							type: "short_term",
+							category: "savings",
+							description: "Replace this with your real goal and target.",
+							targetAmount: 1000,
+							currentAmount: 0,
+							targetYear: year,
+						},
+					}),
+				{ retries: 2, delayMs: 150 }
+			)
+		);
+	}
+
+	if (writes.length > 0) {
+		await Promise.all(writes);
+	}
+}
+
 export async function getOrCreateUserByUsername(username: string) {
 	const normalized = normalizeUsername(username);
 	if (!normalized) {
@@ -180,6 +273,7 @@ export async function getOrCreateBudgetPlanForUser(params: {
 			},
 		});
 		await ensureDefaultCategoriesForBudgetPlan({ budgetPlanId: created.id });
+		await seedStarterDataForPlan({ budgetPlanId: created.id });
 		return created;
 	}
 
@@ -244,6 +338,7 @@ export async function getOrCreateBudgetPlanForUser(params: {
 		data,
 	});
 	await ensureDefaultCategoriesForBudgetPlan({ budgetPlanId: created.id });
+	await seedStarterDataForPlan({ budgetPlanId: created.id });
 	return created;
 }
 

@@ -59,6 +59,7 @@ export default function ExpensesScreen({ navigation }: Props) {
   const [expenseMonths, setExpenseMonths] = useState<ExpenseMonthsResponse["months"]>([]);
 
   const [summary, setSummary]   = useState<ExpenseSummary | null>(null);
+  const [previousSummary, setPreviousSummary] = useState<ExpenseSummary | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
 
   const [loading, setLoading]     = useState(true);
@@ -76,6 +77,9 @@ export default function ExpensesScreen({ navigation }: Props) {
   const activePlan = plans.find((p) => p.id === activePlanId) ?? null;
   const isPersonalPlan = !activePlan || activePlan.kind === "personal";
   const isAdditionalPlan = !isPersonalPlan && plans.length > 1;
+
+  const planTotalAmount = expenseMonths.reduce((sum, m) => sum + (m.totalAmount ?? 0), 0);
+  const planTotalCount = expenseMonths.reduce((sum, m) => sum + (m.totalCount ?? 0), 0);
 
   const prevIsPersonalPlanRef = useRef<boolean>(true);
 
@@ -137,12 +141,17 @@ export default function ExpensesScreen({ navigation }: Props) {
       setError(null);
       const planQp = activePlanId ? `&budgetPlanId=${encodeURIComponent(activePlanId)}` : "";
 
-      const [sumData, s, bp] = await Promise.all([
+      const prevMonth = month === 1 ? 12 : month - 1;
+      const prevYear = month === 1 ? year - 1 : year;
+
+      const [sumData, prevData, s, bp] = await Promise.all([
         apiFetch<ExpenseSummary>(`/api/bff/expenses/summary?month=${month}&year=${year}${planQp}`),
+        apiFetch<ExpenseSummary>(`/api/bff/expenses/summary?month=${prevMonth}&year=${prevYear}${planQp}`),
         apiFetch<Settings>("/api/bff/settings"),
         apiFetch<BudgetPlansResponse>("/api/bff/budget-plans"),
       ]);
       setSummary(sumData);
+      setPreviousSummary(prevData);
       setSettings(s);
 
       const rawPlans = Array.isArray(bp?.plans) ? bp.plans : [];
@@ -213,6 +222,14 @@ export default function ExpensesScreen({ navigation }: Props) {
     });
   };
 
+  const showTopAddExpenseCta = !loading && !error && (summary?.totalCount ?? 0) === 0;
+
+  const showPlanTotalFallback =
+    isAdditionalPlan &&
+    (summary?.totalCount ?? 0) === 0 &&
+    expenseMonths.length > 0 &&
+    planTotalAmount > 0;
+
   return (
     <SafeAreaView style={styles.safe} edges={[]}>
       <MonthBar
@@ -222,31 +239,18 @@ export default function ExpensesScreen({ navigation }: Props) {
         prevDisabled={!canDecrement(year, month)}
       />
 
-      {plans.length > 1 && (
-        <View style={styles.planBarWrap} {...planSwipe.panHandlers}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.planBar}
-          >
-            {plans.map((p) => {
-              const selected = (activePlanId ?? personalPlanId) === p.id;
-              return (
-                <Pressable
-                  key={p.id}
-                  onPress={() => setSelectedPlanId(p.id)}
-                  style={[styles.planPill, selected && styles.planPillSelected]}
-                  hitSlop={6}
-                >
-                  <Text style={[styles.planPillText, selected && styles.planPillTextSelected]} numberOfLines={1}>
-                    {p.name}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
+      {showTopAddExpenseCta ? (
+        <View style={styles.actionCard}>
+          <View style={styles.actionCopy}>
+            <Text style={styles.actionTitle}>Add expense</Text>
+            <Text style={styles.actionText}>Create a bill for {monthName(month)} {year}.</Text>
+          </View>
+          <Pressable onPress={() => setAddSheetOpen(true)} style={styles.actionBtn}>
+            <Ionicons name="add" size={16} color={T.onAccent} />
+            <Text style={styles.actionBtnText}>Add</Text>
+          </Pressable>
         </View>
-      )}
+      ) : null}
 
       {loading ? (
         <View style={styles.center}>
@@ -271,12 +275,59 @@ export default function ExpensesScreen({ navigation }: Props) {
           ListHeaderComponent={
             <>
               {summary && (
-                <View style={styles.totalCard}>
-                  <Text style={styles.totalLabel}>TOTAL</Text>
-                  <Text style={styles.totalValue}>{fmt(summary.totalAmount ?? 0, currency)}</Text>
-                  <Text style={styles.totalMeta}>
-                    {summary.totalCount ?? 0} bill{(summary.totalCount ?? 0) === 1 ? "" : "s"}
+                <View style={styles.totalSummaryWrap}>
+                  <Text style={styles.totalSummaryTitle}>
+                    {showPlanTotalFallback ? "Plan expenses" : "This month expenses"}
                   </Text>
+                  <Text style={styles.totalSummaryValue}>
+                    {fmt(showPlanTotalFallback ? planTotalAmount : (summary.totalAmount ?? 0), currency)}
+                  </Text>
+                  <Text style={styles.totalSummaryMeta}>
+                    {showPlanTotalFallback
+                      ? `${planTotalCount} bill${planTotalCount === 1 ? "" : "s"}`
+                      : `${summary.totalCount ?? 0} bill${(summary.totalCount ?? 0) === 1 ? "" : "s"}`}
+                  </Text>
+                  {(() => {
+                    if (showPlanTotalFallback) return null;
+                    const currentTotal = summary.totalAmount ?? 0;
+                    const prevTotal = previousSummary?.totalAmount ?? 0;
+                    if (prevTotal <= 0) return null;
+                    const changePct = ((currentTotal - prevTotal) / prevTotal) * 100;
+                    const up = changePct >= 0;
+                    const pctLabel = `${up ? "↗" : "↘"} ${Math.abs(changePct).toFixed(1)}%`;
+                    return (
+                      <Text style={styles.totalSummaryDelta}>
+                        <Text style={[styles.totalSummaryDeltaPct, up ? styles.deltaUp : styles.deltaDown]}>{pctLabel}</Text>
+                        <Text style={styles.totalSummaryDeltaText}> vs last month</Text>
+                      </Text>
+                    );
+                  })()}
+                </View>
+              )}
+
+              {plans.length > 1 && (
+                <View style={styles.planCardsWrap} {...planSwipe.panHandlers}>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.planCardsScroll}
+                  >
+                    {plans.map((p) => {
+                      const selected = (activePlanId ?? personalPlanId) === p.id;
+                      return (
+                        <Pressable
+                          key={p.id}
+                          onPress={() => setSelectedPlanId(p.id)}
+                          style={[styles.planCard, selected && styles.planCardSelected]}
+                          hitSlop={6}
+                        >
+                          <Text style={[styles.planCardText, selected && styles.planCardTextSelected]} numberOfLines={2}>
+                            {p.name}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </ScrollView>
                 </View>
               )}
 
@@ -286,6 +337,7 @@ export default function ExpensesScreen({ navigation }: Props) {
                   <Text style={styles.noExpensesSub}>
                     {monthName(month)} {year}
                   </Text>
+                  <Text style={styles.noExpensesHint}>Tap Add above to create your first expense.</Text>
                 </View>
               )}
 
@@ -356,38 +408,69 @@ const styles = StyleSheet.create({
   retryBtn: { backgroundColor: T.accent, borderRadius: 8, paddingHorizontal: 24, paddingVertical: 10 },
   retryTxt: { color: T.onAccent, fontWeight: "700" },
 
-  planBarWrap: {
-    backgroundColor: T.card,
-    borderBottomWidth: 1,
-    borderBottomColor: T.border,
-  },
-  planBar: {
-    flexGrow: 1,
-    paddingHorizontal: 14,
+  actionCard: {
+    marginHorizontal: 12,
+    marginTop: 10,
+    marginBottom: 2,
+    paddingHorizontal: 12,
     paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: T.border,
+    backgroundColor: T.card,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     gap: 10,
+  },
+  actionCopy: { flex: 1 },
+  actionTitle: { color: T.text, fontSize: 14, fontWeight: "900" },
+  actionText: { marginTop: 2, color: T.textDim, fontSize: 12, fontWeight: "700" },
+  actionBtn: {
+    minWidth: 84,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: T.accent,
+  },
+  actionBtnText: { color: T.onAccent, fontSize: 13, fontWeight: "800" },
+
+  planCardsWrap: {
+    marginTop: 32,
+    marginBottom: 6,
+  },
+  planCardsScroll: {
+    paddingHorizontal: 12,
+    gap: 10,
+  },
+  planCard: {
+    width: 116,
+    minHeight: 76,
+    borderRadius: 14,
+    backgroundColor: T.card,
+    borderWidth: 1,
+    borderColor: T.border,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
     justifyContent: "center",
     alignItems: "center",
   },
-  planPill: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: T.cardAlt,
-    borderWidth: 1,
-    borderColor: T.border,
-    maxWidth: 160,
-  },
-  planPillSelected: {
+  planCardSelected: {
     backgroundColor: T.accentDim,
     borderColor: T.accent,
   },
-  planPillText: {
+  planCardText: {
     color: T.textDim,
-    fontWeight: "800",
-    fontSize: 13,
+    fontWeight: "900",
+    fontSize: 15,
+    textAlign: "center",
+    lineHeight: 18,
   },
-  planPillTextSelected: {
+  planCardTextSelected: {
     color: T.text,
   },
 
@@ -409,6 +492,12 @@ const styles = StyleSheet.create({
     marginTop: 4,
     color: T.textDim,
     fontWeight: "700",
+    fontSize: 12,
+  },
+  noExpensesHint: {
+    marginTop: 6,
+    color: T.textMuted,
+    fontWeight: "600",
     fontSize: 12,
   },
 
@@ -458,33 +547,47 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
 
-  totalCard: {
+  totalSummaryWrap: {
     marginHorizontal: 12,
-    marginTop: 12,
-    backgroundColor: T.card,
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 2,
-    borderColor: T.accentBorder,
+    marginTop: 10,
+    marginBottom: 2,
+    alignItems: "center",
   },
-  totalLabel: {
-    color: T.textDim,
-    fontSize: 12,
-    fontWeight: "900",
-    letterSpacing: 0.8,
-  },
-  totalValue: {
-    marginTop: 8,
-    color: T.text,
-    fontSize: 34,
-    fontWeight: "900",
-    letterSpacing: -0.4,
-  },
-  totalMeta: {
-    marginTop: 4,
+  totalSummaryTitle: {
     color: T.textDim,
     fontSize: 14,
     fontWeight: "700",
+  },
+  totalSummaryValue: {
+    marginTop: 4,
+    color: T.text,
+    fontSize: 52,
+    fontWeight: "900",
+    letterSpacing: -0.8,
+  },
+  totalSummaryMeta: {
+    marginTop: 2,
+    color: T.textDim,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  totalSummaryDelta: {
+    marginTop: 8,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  totalSummaryDeltaPct: {
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  totalSummaryDeltaText: {
+    color: T.textDim,
+  },
+  deltaUp: {
+    color: "#2ecf70",
+  },
+  deltaDown: {
+    color: T.red,
   },
 
   // (Additional-plan per-expense list styles removed; we now show the category cards instead.)

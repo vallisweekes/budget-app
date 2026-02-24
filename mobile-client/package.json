@@ -6,9 +6,12 @@
     "start": "EXPO_NO_DEPENDENCY_VALIDATION=1 node node_modules/expo/bin/cli start",
     "start:clear": "EXPO_NO_DEPENDENCY_VALIDATION=1 node node_modules/expo/bin/cli start --clear",
     "typecheck": "node node_modules/typescript/bin/tsc --noEmit",
+    "doctor": "npx expo-doctor",
     "android": "EXPO_NO_DEPENDENCY_VALIDATION=1 node node_modules/expo/bin/cli start --android",
     "ios": "node node_modules/expo/bin/cli run:ios",
     "prebuild": "node node_modules/expo/bin/cli prebuild --clean",
+    "build:ios:beta": "eas build --platform ios --profile beta",
+    "submit:ios:beta": "eas submit --platform ios --profile beta",
     "web": "EXPO_NO_DEPENDENCY_VALIDATION=1 node node_modules/expo/bin/cli start --web",
     "postinstall": "node scripts/fix-expo-metro-shims.cjs"
   },
@@ -43,6 +46,7 @@
     "@types/react-redux": "^7.1.34",
     "babel-plugin-module-resolver": "^5.0.2",
     "babel-preset-expo": "^54.0.10",
+    "eas-cli": "^18.0.4",
     "expo-module-scripts": "^5.0.8",
     "typescript": "~5.9.2"
   },

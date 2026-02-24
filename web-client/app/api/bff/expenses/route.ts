@@ -22,6 +22,19 @@ function toNumber(value: string | null): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+function toBool(value: unknown): boolean {
+  if (value === true) return true;
+  if (value === false || value == null) return false;
+  if (typeof value === "number") return value === 1;
+  if (typeof value === "string") {
+    const v = value.trim().toLowerCase();
+    if (!v) return false;
+    if (v === "true" || v === "1" || v === "yes" || v === "on") return true;
+    if (v === "false" || v === "0" || v === "no" || v === "off") return false;
+  }
+  return false;
+}
+
 function decimalToString(value: unknown): string {
   if (typeof value === "string") return value;
   if (typeof value === "number") return String(value);
@@ -112,11 +125,11 @@ export async function POST(req: NextRequest) {
   const month = Number(body.month);
   const year = Number(body.year);
   const categoryId = typeof body.categoryId === "string" ? body.categoryId.trim() : undefined;
-  const paid = Boolean(body.paid ?? false);
-  const isAllocation = Boolean(body.isAllocation ?? false);
-  const isDirectDebit = Boolean(body.isDirectDebit ?? false);
-  const distributeMonths = Boolean(body.distributeMonths ?? false);
-  const distributeYears = Boolean(body.distributeYears ?? false);
+  const paid = toBool(body.paid);
+  const isAllocation = toBool(body.isAllocation);
+  const isDirectDebit = toBool(body.isDirectDebit);
+  const distributeMonths = toBool(body.distributeMonths);
+  const distributeYears = toBool(body.distributeYears);
 
   if (!ownedBudgetPlanId) return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
   if (!name) return badRequest("Name is required");

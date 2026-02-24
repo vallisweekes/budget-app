@@ -200,6 +200,8 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
     goalCardsData,
   } = buildDashboardDerived({ dashboard, settings, categorySheet });
 
+  const needsSetup = totalIncome <= 0 || totalExpenses <= 0;
+
   return (
     <SafeAreaView style={styles.safe} edges={[]}>
       <Modal
@@ -343,6 +345,31 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
           currency={currency}
           fmt={fmt}
         />
+
+        {needsSetup ? (
+          <View style={styles.setupCard}>
+            <Text style={styles.setupTitle}>Get your plan ready</Text>
+            <Text style={styles.setupText}>Add or update your income and expenses so your dashboard can calculate real totals.</Text>
+            <View style={styles.setupActions}>
+              <Pressable
+                onPress={() => {
+                  const parent = navigation.getParent?.();
+                  if (parent) {
+                    parent.navigate("IncomeFlow");
+                    return;
+                  }
+                  navigation.navigate("Income");
+                }}
+                style={styles.setupBtn}
+              >
+                <Text style={styles.setupBtnText}>Go to Income</Text>
+              </Pressable>
+              <Pressable onPress={() => navigation.navigate("Expenses")} style={styles.setupBtn}>
+                <Text style={styles.setupBtnText}>Go to Expenses</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : null}
 
         <CategorySwipeCards
           categories={categories}
@@ -718,6 +745,25 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 18,
   },
+  setupCard: {
+    ...cardElevated,
+    marginTop: 12,
+    padding: 14,
+    gap: 8,
+  },
+  setupTitle: { color: T.text, fontSize: 16, fontWeight: "900" },
+  setupText: { color: T.textDim, fontSize: 13, fontWeight: "600", lineHeight: 18 },
+  setupActions: { flexDirection: "row", gap: 10, marginTop: 4 },
+  setupBtn: {
+    flex: 1,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: T.border,
+    backgroundColor: T.cardAlt,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  setupBtnText: { color: T.accent, fontSize: 12, fontWeight: "900" },
 
   // Goals swipe cards
   goalsWrap: { marginTop: 12, marginHorizontal: -16 },

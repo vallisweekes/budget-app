@@ -105,9 +105,45 @@ export default function IncomeScreen() {
   const months = data?.months ?? [];
   const nowMonthIndex = now.getMonth() + 1;
   const nowYear = now.getFullYear();
+  const parentNav = navigation.getParent();
+  const canGoBack = navigation.canGoBack() || Boolean(parentNav?.canGoBack());
+  const canAddIncome = Boolean(data?.budgetPlanId);
+
+  const onBack = () => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+    if (parentNav?.canGoBack()) {
+      parentNav.goBack();
+    }
+  };
+
+  const openAddIncome = () => {
+    if (!data?.budgetPlanId) return;
+    navigation.navigate("IncomeMonth", {
+      month: nowMonthIndex,
+      year,
+      budgetPlanId: data.budgetPlanId,
+      initialMode: "income",
+    });
+  };
 
   return (
     <SafeAreaView style={s.safe} edges={[]}>
+      <View style={s.stackHeader}>
+        <Pressable
+          onPress={onBack}
+          disabled={!canGoBack}
+          hitSlop={10}
+          style={[s.stackHeaderBtn, !canGoBack && s.stackHeaderBtnDisabled]}
+        >
+          <Ionicons name="chevron-back" size={22} color={canGoBack ? T.text : T.textMuted} />
+        </Pressable>
+        <View style={s.stackHeaderCenter} />
+        <View style={s.stackHeaderBtn} />
+      </View>
+
       {/* Year selector */}
       <View style={s.yearBar}>
         <Pressable
@@ -136,6 +172,21 @@ export default function IncomeScreen() {
           }}
         >
           <Text style={[s.modeTxt, viewMode === "sacrifice" && s.modeTxtActive]}>Income sacrifice</Text>
+        </Pressable>
+      </View>
+
+      <View style={s.actionCard}>
+        <View style={s.actionCopy}>
+          <Text style={s.actionTitle}>Add income</Text>
+          <Text style={s.actionText}>Create an income item for this month.</Text>
+        </View>
+        <Pressable
+          onPress={openAddIncome}
+          disabled={!canAddIncome}
+          style={[s.actionBtn, !canAddIncome && s.actionBtnDisabled]}
+        >
+          <Ionicons name="add" size={16} color={T.onAccent} />
+          <Text style={s.actionBtnText}>Add</Text>
         </Pressable>
       </View>
 
@@ -174,6 +225,7 @@ export default function IncomeScreen() {
           <View style={s.empty}>
             <Ionicons name="wallet-outline" size={48} color={T.iconMuted} />
             <Text style={s.emptyText}>No income data for {year}</Text>
+            <Text style={s.emptyHint}>Use the Add button above to create your first income.</Text>
           </View>
         }
       />
@@ -185,6 +237,25 @@ const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: T.bg },
   center: { flex: 1, justifyContent: "center", alignItems: "center", gap: 12 },
   loadingText: { color: T.textDim, marginTop: 8, fontSize: 14 },
+
+  stackHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingTop: 18,
+    paddingBottom: 4,
+    backgroundColor: "transparent",
+  },
+  stackHeaderBtn: {
+    width: 28,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stackHeaderBtnDisabled: {
+    opacity: 0.45,
+  },
+  stackHeaderCenter: { flex: 1 },
 
   yearBar: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
@@ -228,8 +299,39 @@ const s = StyleSheet.create({
 
   grid: { padding: 12, paddingBottom: 140 },
   gridRow: { gap: 10, marginBottom: 10 },
+  actionCard: {
+    marginHorizontal: 12,
+    marginBottom: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: T.border,
+    backgroundColor: T.card,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  actionCopy: { flex: 1 },
+  actionTitle: { color: T.text, fontSize: 14, fontWeight: "900" },
+  actionText: { marginTop: 2, color: T.textDim, fontSize: 12, fontWeight: "700" },
+  actionBtn: {
+    minWidth: 84,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: T.accent,
+  },
+  actionBtnDisabled: { opacity: 0.5 },
+  actionBtnText: { color: T.onAccent, fontSize: 13, fontWeight: "800" },
   empty: { flex: 1, justifyContent: "center", alignItems: "center", paddingTop: 80, gap: 12 },
   emptyText: { color: T.textDim, fontSize: 15, fontWeight: "700" },
+  emptyHint: { color: T.textMuted, fontSize: 12, fontWeight: "600" },
   errorText: { color: T.red, fontSize: 14, textAlign: "center", paddingHorizontal: 32 },
   retryBtn: { backgroundColor: T.accent, borderRadius: 8, paddingHorizontal: 24, paddingVertical: 10 },
   retryTxt: { color: T.onAccent, fontWeight: "700" },
