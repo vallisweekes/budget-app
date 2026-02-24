@@ -58,48 +58,82 @@ export async function GET(req: NextRequest) {
 
 		// Everything below is "best effort". If one section fails (e.g. debt sync),
 		// return the rest of the dashboard rather than a full 500.
-		const expenseInsightsBase = await (async () => {
-			try {
-				return await getDashboardExpenseInsights({
-					budgetPlanId,
-					payDate,
-					now,
-					userId,
-				});
-			} catch (error) {
-				console.error("Dashboard: expense insights failed:", error);
-				return { recap: null, upcoming: [], recapTips: [] };
-			}
-		})();
-
-		const allPlansData = await (async () => {
-			try {
-				return await getAllPlansDashboardData({
-					budgetPlanId,
-					currentPlanData,
-					now,
-					session,
-					username,
-				});
-			} catch (error) {
-				console.error("Dashboard: all plans data failed:", error);
-				return { [budgetPlanId]: currentPlanData };
-			}
-		})();
+		const [expenseInsightsBase, allPlansData, debtSummary] = await Promise.all([
+			(async () => {
+				try {
+					return await getDashboardExpenseInsights({
+						budgetPlanId,
+						payDate,
+						now,
+						userId,
+					});
+				} catch (error) {
+					console.error("Dashboard: expense insights failed:", error);
+					return { recap: null, upcoming: [], recapTips: [] };
+				}
+			})(),
+			(async () => {
+				try {
+					return await getAllPlansDashboardData({
+						budgetPlanId,
+						currentPlanData,
+						now,
+						session,
+						username,
+					});
+				} catch (error) {
+					console.error("Dashboard: all plans data failed:", error);
+					return { [budgetPlanId]: currentPlanData };
+				}
+			})(),
+			(async () => {
+				try {
+					return await getDebtSummaryForPlan(budgetPlanId, {
+						includeExpenseDebts: true,
+						ensureSynced: false,
+					});
+				} catch (error) {
+					console.error("Dashboard: debt summary failed:", error);
+					return {
+						regularDebts: [],
+						expenseDebts: [],
+						allDebts: [],
+						activeDebts: [],
+						activeRegularDebts: [],
+						activeExpenseDebts: [],
+						creditCards: [],
+						totalDebtBalance: 0,
+					};
+				}
+			})(),
+		]);
 		const planIds = Object.keys(allPlansData);
 
-		const largestExpensesByPlan = await (async () => {
-			try {
-				return await getLargestExpensesByPlan({
-					planIds,
-					now,
-					perPlanLimit: 3,
-				});
-			} catch (error) {
-				console.error("Dashboard: largest expenses failed:", error);
-				return {};
-			}
-		})();
+		const [largestExpensesByPlan, incomeMonthsCoverageByPlan] = await Promise.all([
+			(async () => {
+				try {
+					return await getLargestExpensesByPlan({
+						planIds,
+						now,
+						perPlanLimit: 3,
+					});
+				} catch (error) {
+					console.error("Dashboard: largest expenses failed:", error);
+					return {};
+				}
+			})(),
+			(async () => {
+				try {
+					return await getIncomeMonthsCoverageByPlan({
+						planIds,
+						year: selectedYear,
+					});
+				} catch (error) {
+					console.error("Dashboard: income coverage failed:", error);
+					return {};
+				}
+			})(),
+		]);
 
 		const multiPlanTips = await (async () => {
 			try {
@@ -112,39 +146,6 @@ export async function GET(req: NextRequest) {
 			} catch (error) {
 				console.error("Dashboard: multi-plan tips failed:", error);
 				return [];
-			}
-		})();
-
-		const incomeMonthsCoverageByPlan = await (async () => {
-			try {
-				return await getIncomeMonthsCoverageByPlan({
-					planIds,
-					year: selectedYear,
-				});
-			} catch (error) {
-				console.error("Dashboard: income coverage failed:", error);
-				return {};
-			}
-		})();
-
-		const debtSummary = await (async () => {
-			try {
-				return await getDebtSummaryForPlan(budgetPlanId, {
-					includeExpenseDebts: true,
-					ensureSynced: true,
-				});
-			} catch (error) {
-				console.error("Dashboard: debt summary failed:", error);
-				return {
-					regularDebts: [],
-					expenseDebts: [],
-					allDebts: [],
-					activeDebts: [],
-					activeRegularDebts: [],
-					activeExpenseDebts: [],
-					creditCards: [],
-					totalDebtBalance: 0,
-				};
 			}
 		})();
 

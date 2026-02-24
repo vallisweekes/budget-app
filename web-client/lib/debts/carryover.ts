@@ -83,28 +83,72 @@ export async function processMissedDebtPaymentsToAccrue(budgetPlanId: string, no
 		});
 
 		if (debts.length > 0) {
-			const evaluations = await Promise.all(
-				debts.map(async (d) => {
+			type EvaluableDebt = {
+				id: string;
+				dueAmount: number;
+				prevDue: Date;
+				graceEnd: Date;
+				nextDue: Date;
+			};
+
+			const evaluableDebts: EvaluableDebt[] = debts
+				.map((d) => {
 					const due = new Date(d.dueDate);
 					if (!Number.isFinite(due.getTime())) return null;
 					const graceEnd = new Date(due.getTime() + 5 * msPerDay);
 					if (now.getTime() <= graceEnd.getTime()) return null;
 
-					const prevDue = addMonthsUTC(due, -1);
-					const cyclePayments = await prisma.debtPayment.findMany({
-						where: { debtId: d.id, paidAt: { gt: prevDue, lte: graceEnd } },
-						select: { amount: true },
-					});
-					const paid = cyclePayments.reduce((sum, p) => sum + decimalToNumber(p.amount), 0);
-					const dueAmount = decimalToNumber(d.amount);
-					const remaining = Math.max(0, dueAmount - paid);
-					const nextDue = addMonthsUTC(due, 1);
-
-					return { id: d.id, remaining, nextDue };
+					return {
+						id: d.id,
+						dueAmount: decimalToNumber(d.amount),
+						prevDue: addMonthsUTC(due, -1),
+						graceEnd,
+						nextDue: addMonthsUTC(due, 1),
+					};
 				})
-			);
+				.filter((value): value is EvaluableDebt => value != null);
 
-			const updates = evaluations.filter((e): e is { id: string; remaining: number; nextDue: Date } => Boolean(e));
+			const updates: Array<{ id: string; remaining: number; nextDue: Date }> = [];
+			if (evaluableDebts.length > 0) {
+				const minPrevDueTs = Math.min(...evaluableDebts.map((d) => d.prevDue.getTime()));
+				const maxGraceEndTs = Math.max(...evaluableDebts.map((d) => d.graceEnd.getTime()));
+
+				const debtWindowById = new Map(
+					evaluableDebts.map((d) => [d.id, { prevDueTs: d.prevDue.getTime(), graceEndTs: d.graceEnd.getTime(), dueAmount: d.dueAmount, nextDue: d.nextDue }])
+				);
+
+				const candidatePayments = await prisma.debtPayment.findMany({
+					where: {
+						debtId: { in: evaluableDebts.map((d) => d.id) },
+						paidAt: {
+							gt: new Date(minPrevDueTs),
+							lte: new Date(maxGraceEndTs),
+						},
+					},
+					select: { debtId: true, amount: true, paidAt: true },
+				});
+
+				const paidByDebtId = new Map<string, number>();
+				for (const payment of candidatePayments) {
+					const window = debtWindowById.get(payment.debtId);
+					if (!window) continue;
+					const paidAtTs = new Date(payment.paidAt).getTime();
+					if (paidAtTs <= window.prevDueTs || paidAtTs > window.graceEndTs) continue;
+					const amount = decimalToNumber(payment.amount);
+					if (!Number.isFinite(amount)) continue;
+					paidByDebtId.set(payment.debtId, (paidByDebtId.get(payment.debtId) ?? 0) + amount);
+				}
+
+				for (const debt of evaluableDebts) {
+					const paid = paidByDebtId.get(debt.id) ?? 0;
+					updates.push({
+						id: debt.id,
+						remaining: Math.max(0, debt.dueAmount - paid),
+						nextDue: debt.nextDue,
+					});
+				}
+			}
+
 			if (updates.length > 0) {
 				await prisma.$transaction(
 					updates.map((u) => {
