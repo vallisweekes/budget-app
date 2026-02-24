@@ -25,6 +25,7 @@ import IncomeBarChart from "@/components/Income/IncomeBarChart";
 import BillsSummary from "@/components/Income/BillsSummary";
 import { IncomeRow, IncomeEditRow } from "@/components/Income/IncomeSourceItem";
 import { IncomeAddForm } from "@/components/Income/IncomeAddForm";
+import DeleteConfirmSheet from "@/components/Shared/DeleteConfirmSheet";
 
 type Props = NativeStackScreenProps<IncomeStackParamList, "IncomeMonth">;
 
@@ -43,6 +44,7 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
   const [loading, setLoading]   = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError]       = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Income | null>(null);
 
   const currency = currencySymbol(settings?.currency);
 
@@ -67,7 +69,7 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
 
   useEffect(() => { load(); }, [load]);
 
-  const crud = useIncomeCRUD({ month, year, budgetPlanId, currency, onReload: load });
+  const crud = useIncomeCRUD({ month, year, budgetPlanId, onReload: load });
 
   useEffect(() => {
     if (!isLocked) return;
@@ -174,7 +176,7 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
                 currency={currency}
                 fmt={fmt}
                 onEdit={!isLocked ? () => crud.startEdit(item) : undefined}
-                onDelete={!isLocked ? () => crud.handleDelete(item) : undefined}
+                onDelete={!isLocked ? () => setDeleteTarget(item) : undefined}
               />
             )
           }
@@ -187,6 +189,22 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
               </View>
             ) : null
           }
+        />
+
+        <DeleteConfirmSheet
+          visible={deleteTarget !== null}
+          title="Delete income"
+          description={deleteTarget ? `Remove "${deleteTarget.name}" (${fmt(deleteTarget.amount, currency)})?` : ""}
+          isBusy={crud.deletingId === deleteTarget?.id}
+          onClose={() => {
+            if (crud.deletingId) return;
+            setDeleteTarget(null);
+          }}
+          onConfirm={async () => {
+            if (!deleteTarget) return;
+            await crud.deleteIncome(deleteTarget);
+            setDeleteTarget(null);
+          }}
         />
       </KeyboardAvoidingView>
     </SafeAreaView>

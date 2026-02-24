@@ -37,6 +37,7 @@ import type { Expense, Settings } from "@/lib/apiTypes";
 import { resolveCategoryColor, withOpacity } from "@/lib/categoryColors";
 import { fmt } from "@/lib/formatting";
 import { T } from "@/lib/theme";
+import DeleteConfirmSheet from "@/components/Shared/DeleteConfirmSheet";
 
 const { height: SCREEN_H } = Dimensions.get("window");
 
@@ -129,6 +130,7 @@ export default function CategoryExpensesSheet({
   const [deleting, setDeleting]     = useState<Record<string, boolean>>({});
   const [paying, setPaying]         = useState<Record<string, boolean>>({});
   const [paymentInput, setPaymentInput] = useState<PaymentInputState>({});
+  const [deleteConfirm, setDeleteConfirm] = useState<Expense | null>(null);
 
   // edit nested sheet
   const [editState, setEditState]   = useState<EditState>(null);
@@ -257,14 +259,7 @@ export default function CategoryExpensesSheet({
       Alert.alert("Cannot Delete", "Mark the expense as paid before deleting it.");
       return;
     }
-    Alert.alert(
-      "Delete Expense",
-      `Delete "${expense.name}"? This cannot be undone.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Delete", style: "destructive", onPress: () => doDelete(expense) },
-      ]
-    );
+    setDeleteConfirm(expense);
   };
 
   const doDelete = async (expense: Expense) => {
@@ -540,6 +535,23 @@ export default function CategoryExpensesSheet({
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      <DeleteConfirmSheet
+        visible={deleteConfirm !== null}
+        title="Delete Expense"
+        description={deleteConfirm ? `Delete "${deleteConfirm.name}"? This cannot be undone.` : ""}
+        isBusy={!!(deleteConfirm && deleting[deleteConfirm.id])}
+        onClose={() => {
+          if (deleteConfirm && deleting[deleteConfirm.id]) return;
+          setDeleteConfirm(null);
+        }}
+        onConfirm={async () => {
+          if (!deleteConfirm) return;
+          const target = deleteConfirm;
+          setDeleteConfirm(null);
+          await doDelete(target);
+        }}
+      />
     </Modal>
   );
 }

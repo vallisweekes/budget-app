@@ -2,17 +2,15 @@ import { useState, useCallback } from "react";
 import { Alert, Keyboard } from "react-native";
 import { apiFetch } from "@/lib/api";
 import type { Income } from "@/lib/apiTypes";
-import { fmt as fmtUtil } from "@/lib/formatting";
 
 interface Params {
   month: number;
   year: number;
   budgetPlanId: string;
-  currency: string;
   onReload: () => Promise<void>;
 }
 
-export function useIncomeCRUD({ month, year, budgetPlanId, currency, onReload }: Params) {
+export function useIncomeCRUD({ month, year, budgetPlanId, onReload }: Params) {
   // Add form
   const [showAddForm, setShowAddForm] = useState(false);
   const [newName, setNewName] = useState("");
@@ -25,6 +23,7 @@ export function useIncomeCRUD({ month, year, budgetPlanId, currency, onReload }:
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editAmount, setEditAmount] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const handleAdd = useCallback(async () => {
     const name = newName.trim();
@@ -93,27 +92,17 @@ export function useIncomeCRUD({ month, year, budgetPlanId, currency, onReload }:
     }
   }, [editingId, editName, editAmount, cancelEdit, onReload]);
 
-  const handleDelete = useCallback((item: Income) => {
-    Alert.alert(
-      "Delete income",
-      `Remove "${item.name}" (${fmtUtil(item.amount, currency)})?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await apiFetch(`/api/bff/income/${item.id}`, { method: "DELETE" });
-              await onReload();
-            } catch (err: unknown) {
-              Alert.alert("Error", err instanceof Error ? err.message : "Could not delete");
-            }
-          },
-        },
-      ],
-    );
-  }, [currency, onReload]);
+  const deleteIncome = useCallback(async (item: Income) => {
+    try {
+      setDeletingId(item.id);
+      await apiFetch(`/api/bff/income/${item.id}`, { method: "DELETE" });
+      await onReload();
+    } catch (err: unknown) {
+      Alert.alert("Error", err instanceof Error ? err.message : "Could not delete");
+    } finally {
+      setDeletingId(null);
+    }
+  }, [onReload]);
 
   return {
     // Add form
@@ -139,6 +128,7 @@ export function useIncomeCRUD({ month, year, budgetPlanId, currency, onReload }:
     cancelEdit,
     handleSaveEdit,
     // Delete
-    handleDelete,
+    deleteIncome,
+    deletingId,
   };
 }
