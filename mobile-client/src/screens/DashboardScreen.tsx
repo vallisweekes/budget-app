@@ -31,7 +31,7 @@ const GOAL_GAP = 12;
 const GOAL_SIDE = 16;
 // Fit two cards side-by-side by default (with side padding + gap)
 const GOAL_CARD = Math.max(122, Math.round((W - GOAL_SIDE * 2 - GOAL_GAP) / 2));
-const GOAL_ADD_W = Math.max(64, Math.round(GOAL_CARD / 2));
+const GOAL_ADD_W = Math.max(52, Math.round(GOAL_CARD * 0.34));
 
 export default function DashboardScreen({ navigation }: { navigation: any }) {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
@@ -252,11 +252,20 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
   const selectedCategory = categorySheet ? categories.find((c) => c.id === categorySheet.id) : undefined;
   const selectedExpenses = (selectedCategory?.expenses ?? []).slice().sort((a, b) => (b.amount ?? 0) - (a.amount ?? 0));
 
-  const goalsToShow = goals.slice(0, 2);
-  const goalCardsData = [
-    { kind: "add" as const },
-    ...goalsToShow.map((g) => ({ kind: "goal" as const, goal: g })),
-  ];
+  const preferredGoalIds = Array.isArray(dashboard?.homepageGoalIds) ? dashboard.homepageGoalIds : [];
+  const goalsToShow = (() => {
+    const byId = new Map(goals.map((g) => [g.id, g] as const));
+    const preferred = preferredGoalIds
+      .map((id) => byId.get(id))
+      .filter((g): g is NonNullable<typeof g> => Boolean(g));
+    if (preferred.length >= 2) return preferred.slice(0, 2);
+
+    const used = new Set(preferred.map((g) => g.id));
+    const fallback = goals.filter((g) => !used.has(g.id));
+    return [...preferred, ...fallback].slice(0, 2);
+  })();
+
+  const goalCardsData = [{ kind: "add" as const }, ...goalsToShow.map((g) => ({ kind: "goal" as const, goal: g }))];
 
   return (
     <SafeAreaView style={styles.safe} edges={[]}>
@@ -482,7 +491,15 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
         {/* Goals (swipe cards) */}
         {dashboard ? (
           <View style={styles.goalsWrap}>
-            <Text style={styles.sectionTitle}>Goals</Text>
+            <View style={styles.goalsHeaderRow}>
+              <Pressable onPress={() => navigation.navigate("Goals")} hitSlop={8}>
+                <Text style={styles.seeAllGoalsText}>See all goals</Text>
+              </Pressable>
+              <Pressable onPress={() => navigation.navigate("GoalsProjection")} hitSlop={8}>
+                <Text style={styles.goalsProjectionTitle}>Goals projection</Text>
+              </Pressable>
+            </View>
+
             <FlatList
               horizontal
               data={goalCardsData}
@@ -771,6 +788,23 @@ const styles = StyleSheet.create({
 
   // Goals swipe cards
   goalsWrap: { marginTop: 12, marginHorizontal: -16 },
+  goalsHeaderRow: {
+    paddingHorizontal: GOAL_SIDE,
+    marginBottom: 10,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  seeAllGoalsText: {
+    color: T.accent,
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  goalsProjectionTitle: {
+    color: T.accent,
+    fontSize: 12,
+    fontWeight: "900",
+  },
   goalCard: {
     width: GOAL_CARD,
     height: GOAL_CARD,
@@ -883,7 +917,7 @@ const styles = StyleSheet.create({
   goalBtnPrimaryText: { color: T.onAccent, fontSize: 15, fontWeight: "900" },
   goalBtnDisabled: { opacity: 0.6 },
   goalBarBg: {
-    height: 10,
+    height: 12,
     borderRadius: 999,
     backgroundColor: T.border,
     overflow: "hidden",

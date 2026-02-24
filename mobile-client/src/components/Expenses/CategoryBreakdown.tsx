@@ -133,11 +133,11 @@ const s = StyleSheet.create({
   sub: { color: T.textDim, fontSize: 12, paddingLeft: 46, fontWeight: "600" },
 
   track: {
-    height: 4,
+    height: 6,
     backgroundColor: T.border,
-    borderRadius: 2,
+    borderRadius: 3,
     overflow: "hidden",
     marginTop: 2,
   },
-  fill: { height: "100%", borderRadius: 2 },
+  fill: { height: "100%", borderRadius: 3 },
 });

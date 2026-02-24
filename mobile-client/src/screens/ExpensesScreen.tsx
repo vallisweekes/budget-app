@@ -23,6 +23,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { useFocusEffect } from "@react-navigation/native";
 
 import { apiFetch } from "@/lib/api";
 import type {
@@ -36,16 +38,18 @@ import type {
 import { currencySymbol, fmt } from "@/lib/formatting";
 import { useYearGuard } from "@/lib/hooks/useYearGuard";
 import { T } from "@/lib/theme";
+import type { ExpensesStackParamList } from "@/navigation/types";
 import MonthBar from "@/components/Shared/MonthBar";
 import CategoryBreakdown from "@/components/Expenses/CategoryBreakdown";
-import CategoryExpensesSheet, { type SheetCategory } from "@/components/Expenses/CategoryExpensesSheet";
 import AddExpenseSheet from "@/components/Expenses/AddExpenseSheet";
 
 /* ════════════════════════════════════════════════════════════════
  * Screen
  * ════════════════════════════════════════════════════════════════ */
 
-export default function ExpensesScreen() {
+type Props = NativeStackScreenProps<ExpensesStackParamList, "ExpensesList">;
+
+export default function ExpensesScreen({ navigation }: Props) {
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
@@ -60,10 +64,6 @@ export default function ExpensesScreen() {
   const [loading, setLoading]     = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError]         = useState<string | null>(null);
-
-  // Category drill-down sheet
-  const [sheetCategory, setSheetCategory] = useState<SheetCategory | null>(null);
-  const [sheetOpen, setSheetOpen]         = useState(false);
 
   // Add-expense sheet
   const [addSheetOpen, setAddSheetOpen] = useState(false);
@@ -185,6 +185,13 @@ export default function ExpensesScreen() {
 
   useEffect(() => { setLoading(true); load(); }, [load]);
 
+  // Refresh when navigating back from CategoryExpensesScreen
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
+
   const changeMonth = (delta: number) => {
     if (delta < 0 && !canDecrement(year, month)) return;
     let m = month + delta, y = year;
@@ -194,13 +201,16 @@ export default function ExpensesScreen() {
   };
 
   const handleCategoryPress = (cat: ExpenseCategoryBreakdown) => {
-    setSheetCategory({ categoryId: cat.categoryId, categoryName: cat.name, color: cat.color, icon: cat.icon });
-    setSheetOpen(true);
-  };
-
-  const handleSheetMutated = () => {
-    // Refresh the summary in the background so stats update after mutations
-    load();
+    navigation.navigate("CategoryExpenses", {
+      categoryId: cat.categoryId,
+      categoryName: cat.name,
+      color: cat.color,
+      icon: cat.icon,
+      month,
+      year,
+      budgetPlanId: activePlanId,
+      currency,
+    });
   };
 
   return (
@@ -323,17 +333,6 @@ export default function ExpensesScreen() {
           renderItem={() => null}
         />
       )}
-
-      <CategoryExpensesSheet
-        visible={sheetOpen}
-        category={sheetCategory}
-        month={month}
-        year={year}
-        budgetPlanId={activePlanId}
-        currency={currency}
-        onClose={() => setSheetOpen(false)}
-        onMutated={handleSheetMutated}
-      />
 
       <AddExpenseSheet
         visible={addSheetOpen}

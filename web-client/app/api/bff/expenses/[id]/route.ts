@@ -48,6 +48,8 @@ type PatchBody = {
   paid?: unknown;
   /** Explicitly set paidAmount (mobile partial payment) */
   paidAmount?: unknown;
+  /** Due date in ISO format (YYYY-MM-DD or full ISO datetime) */
+  dueDate?: unknown;
 };
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
@@ -72,6 +74,12 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 	const isAllocation = body.isAllocation == null ? undefined : Boolean(body.isAllocation);
   const paidExplicit = body.paid == null ? undefined : Boolean(body.paid);
   const paidAmountExplicit = body.paidAmount == null ? undefined : Number(body.paidAmount);
+  const dueDate =
+    body.dueDate == null
+      ? undefined
+      : typeof body.dueDate === "string"
+        ? body.dueDate.trim() || null
+        : null;
 
   if (name !== undefined && !name) return badRequest("Name cannot be empty");
   if (amount !== undefined && (!Number.isFinite(amount) || amount < 0)) {
@@ -141,6 +149,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       paidAmount: String(nextPaidAmountNumber),
       categoryId: categoryId === undefined ? existing.categoryId : categoryId,
       isAllocation: isAllocation === undefined ? undefined : isAllocation,
+      dueDate: dueDate === undefined ? undefined : dueDate,
     }) as any,
     include: {
       category: {
@@ -185,21 +194,11 @@ export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: str
 
 	const existing = await prisma.expense.findUnique({
 		where: { id },
-    select: { id: true, amount: true, paid: true, paidAmount: true, budgetPlan: { select: { userId: true } } },
+		select: { id: true, budgetPlan: { select: { userId: true } } },
 	});
 	if (!existing || existing.budgetPlan.userId !== userId) {
 		return NextResponse.json({ error: "Not found" }, { status: 404 });
 	}
-
-  const amountNumber = Number(existing.amount.toString());
-  const paidAmountNumber = Number(existing.paidAmount.toString());
-  const isFullyPaid = existing.paid || amountNumber <= 0 || (amountNumber > 0 && paidAmountNumber >= amountNumber);
-  if (!isFullyPaid) {
-    return NextResponse.json(
-      { error: "Cannot delete an unpaid expense. Mark it paid first." },
-      { status: 409 }
-    );
-  }
 
   await prisma.expense.delete({ where: { id } }).catch(() => null);
   return NextResponse.json({ success: true as const });

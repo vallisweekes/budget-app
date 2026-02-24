@@ -380,17 +380,7 @@ export async function getExpenseDebts(budgetPlanId: string) {
 	});
 	const defaultDueDay = budgetPlan?.payDate ?? 27;
 
-	// First, clean up any stale paid/zero-balance debts
-	await prisma.debt.deleteMany({
-		where: {
-			budgetPlanId,
-			sourceType: "expense",
-			OR: [
-				{ currentBalance: { lte: 0 } },
-				{ paid: true },
-			],
-		},
-	});
+	// Keep paid expense-derived debts so they can appear in Paid History.
 
 	function isDebtTypeEnumMismatchError(error: unknown): boolean {
 		const message = String((error as any)?.message ?? error);
@@ -423,7 +413,6 @@ export async function getExpenseDebts(budgetPlanId: string) {
 			where: {
 				budgetPlanId,
 				sourceType: "expense",
-				currentBalance: { gt: 0 },
 			},
 			orderBy: {
 				createdAt: "desc",
@@ -472,7 +461,6 @@ export async function getExpenseDebts(budgetPlanId: string) {
 			FROM "Debt"
 			WHERE "budgetPlanId" = ${budgetPlanId}
 				AND "sourceType" = 'expense'
-				AND "currentBalance" > 0
 			ORDER BY "createdAt" DESC
 		`;
 	}
@@ -516,30 +504,43 @@ export async function getExpenseDebts(budgetPlanId: string) {
 	const expenseById = new Map(expenses.map((e) => [e.id, e] as const));
 	const now = new Date();
 	const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-	const debtsToDelete: string[] = [];
+	const expenseUpdates: Array<{ id: string; paidAmount: number; paid: boolean }> = [];
 	const visibleDebts = debts.filter((d) => {
 		const expenseId = String(d.sourceExpenseId ?? "").trim();
 		if (!expenseId) return true;
 		const expense = expenseById.get(expenseId);
 		if (!expense) return true;
 		if (expense.isAllocation) {
-			debtsToDelete.push(d.id);
 			return false;
 		}
 		if (isNonDebtCategoryName(expense.category?.name)) {
-			debtsToDelete.push(d.id);
 			return false;
 		}
 		if (expense.paid) {
-			debtsToDelete.push(d.id);
-			return false;
+			return true;
 		}
 		const totalAmount = Number(expense.amount);
-		const paidAmount = Number(expense.paidAmount);
+		let paidAmount = Number(expense.paidAmount);
+		const debtPaidAmount = Number(d.paidAmount);
+
+		// Reconcile historical debt-payments into the source expense.
+		// This keeps expense-derived debt state consistent even for records paid
+		// before debt-payment -> expense sync was introduced.
+		if (Number.isFinite(debtPaidAmount) && debtPaidAmount > paidAmount) {
+			const reconciledPaidAmount = Math.min(totalAmount, debtPaidAmount);
+			if (reconciledPaidAmount > paidAmount) {
+				expenseUpdates.push({
+					id: expense.id,
+					paidAmount: reconciledPaidAmount,
+					paid: totalAmount > 0 && reconciledPaidAmount >= totalAmount,
+				});
+				paidAmount = reconciledPaidAmount;
+			}
+		}
+
 		const remainingAmount = totalAmount - paidAmount;
 		if (!(Number.isFinite(remainingAmount) && remainingAmount > 0)) {
-			debtsToDelete.push(d.id);
-			return false;
+			return true;
 		}
 
 		const expenseDueDate = resolveExpenseDueDate({
@@ -552,16 +553,20 @@ export async function getExpenseDebts(budgetPlanId: string) {
 		const isExpenseOverdueByGrace = overdueThreshold.getTime() <= today.getTime();
 		const hasPartialPayment = Number.isFinite(paidAmount) && paidAmount > 0;
 		if (!isExpenseOverdueByGrace && !hasPartialPayment) {
-			debtsToDelete.push(d.id);
 			return false;
 		}
 		return true;
 	});
 
-	if (debtsToDelete.length > 0) {
-		await prisma.debt.deleteMany({
-			where: { budgetPlanId, id: { in: debtsToDelete } },
-		});
+	if (expenseUpdates.length > 0) {
+		await Promise.all(
+			expenseUpdates.map((u) =>
+				prisma.expense.update({
+					where: { id: u.id },
+					data: { paidAmount: u.paidAmount, paid: u.paid },
+				})
+			)
+		);
 	}
 
 	// Filter out allocations and non-debt categories
@@ -571,17 +576,134 @@ export async function getExpenseDebts(budgetPlanId: string) {
 		return true;
 	});
 
-	return filtered.map(d => {
+	type LatePaidExpenseRow = {
+		id: string;
+		name: string;
+		amount: any;
+		paidAmount: any;
+		paid: boolean;
+		isAllocation: boolean;
+		dueDate: Date | null;
+		year: number;
+		month: number;
+		updatedAt: Date;
+		category: { id: string; name: string } | null;
+	};
+
+	const paidExpensesWithoutDebt = ((await prisma.expense.findMany({
+		where: {
+			budgetPlanId,
+			paid: true,
+			paidAmount: { gt: 0 },
+			isAllocation: false,
+			dueDate: { not: null },
+			...(sourceExpenseIds.length > 0 ? { id: { notIn: sourceExpenseIds } } : {}),
+		},
+		select: {
+			id: true,
+			name: true,
+			amount: true,
+			paidAmount: true,
+			paid: true,
+			isAllocation: true,
+			dueDate: true,
+			year: true,
+			month: true,
+			updatedAt: true,
+			category: { select: { id: true, name: true } },
+		},
+	} as any)) as unknown) as LatePaidExpenseRow[];
+
+	const paidExpenseIds = paidExpensesWithoutDebt.map((e) => e.id);
+	const latestExpensePayments = paidExpenseIds.length
+		? await prisma.expensePayment.groupBy({
+				by: ["expenseId"],
+				where: { expenseId: { in: paidExpenseIds } },
+				_max: { paidAt: true },
+		  })
+		: [];
+	const latestExpensePaymentByExpenseId = new Map(
+		latestExpensePayments.map((row) => [row.expenseId, row._max.paidAt ?? null] as const)
+	);
+
+	const syntheticPaidCarryovers: DebtItem[] = paidExpensesWithoutDebt
+		.filter((expense) => {
+			if (isNonDebtCategoryName(expense.category?.name)) return false;
+			const totalAmount = Number(expense.amount);
+			const paidAmount = Number(expense.paidAmount);
+			const remainingAmount = totalAmount - paidAmount;
+			if (!(Number.isFinite(remainingAmount) && remainingAmount <= 0)) return false;
+
+			const dueDate = resolveExpenseDueDate({
+				year: expense.year,
+				month: expense.month,
+				dueDate: expense.dueDate,
+				defaultDueDay,
+			});
+			const overdueThreshold = addDays(dueDate, OVERDUE_GRACE_DAYS);
+			const explicitPaidAt = latestExpensePaymentByExpenseId.get(expense.id) ?? null;
+			const fallbackPaidAt = explicitPaidAt ? null : expense.updatedAt;
+			const latestPaymentAt = explicitPaidAt ?? fallbackPaidAt;
+			if (!latestPaymentAt) return false;
+
+			const isLate = latestPaymentAt.getTime() > overdueThreshold.getTime();
+			if (!isLate) return false;
+
+			// If we don't have explicit payment rows, keep this fallback strict to avoid
+			// pulling ordinary paid expenses into Debt History.
+			if (!explicitPaidAt) {
+				const fallbackWindowMs = 14 * 24 * 60 * 60 * 1000;
+				if (latestPaymentAt.getTime() - overdueThreshold.getTime() > fallbackWindowMs) {
+					return false;
+				}
+			}
+
+			return true;
+		})
+		.map((expense) => {
+			const totalAmount = Number(expense.amount);
+			const normalizedAmount = Number.isFinite(totalAmount) ? Math.max(0, totalAmount) : 0;
+			const monthKey = monthNumberToKey(expense.month);
+			return {
+				id: `expense-history-${expense.id}`,
+				name: expense.name,
+				type: "other" as DebtItem["type"],
+				initialBalance: normalizedAmount,
+				currentBalance: 0,
+				amount: normalizedAmount,
+				paid: true,
+				paidAmount: normalizedAmount,
+				createdAt: new Date(expense.year, expense.month - 1, 1).toISOString(),
+				sourceType: "expense" as const,
+				sourceExpenseId: expense.id,
+				sourceMonthKey: monthKey,
+				sourceCategoryId: expense.category?.id,
+				sourceCategoryName: expense.category?.name,
+				sourceExpenseName: expense.name,
+			};
+		});
+
+	const mappedDebts = filtered.map(d => {
 		const createdAt = d.createdAt instanceof Date ? d.createdAt : new Date(d.createdAt);
+		const expenseId = String(d.sourceExpenseId ?? "").trim();
+		const expense = expenseId ? expenseById.get(expenseId) : undefined;
+		const initialBalance = Number(d.initialBalance);
+		const computedInitial = Number.isFinite(initialBalance) && initialBalance > 0
+			? initialBalance
+			: Number(expense?.amount ?? d.amount);
+		const sourcePaidAmount = Number(expense?.paidAmount ?? d.paidAmount);
+		const paidAmount = Math.min(computedInitial, Math.max(0, sourcePaidAmount));
+		const currentBalance = Math.max(0, computedInitial - paidAmount);
+		const paid = Boolean(expense?.paid ?? d.paid) || currentBalance <= 0;
 		return {
 		id: d.id,
 		name: d.name,
 		type: d.type as DebtItem["type"],
-		initialBalance: Number(d.initialBalance),
-		currentBalance: Number(d.currentBalance),
+		initialBalance: computedInitial,
+		currentBalance,
 		amount: Number(d.amount),
-		paid: d.paid,
-		paidAmount: Number(d.paidAmount),
+		paid,
+		paidAmount,
 		monthlyMinimum: d.monthlyMinimum ? Number(d.monthlyMinimum) : undefined,
 		interestRate: d.interestRate ? Number(d.interestRate) : undefined,
 		installmentMonths: d.installmentMonths ?? undefined,
@@ -594,4 +716,6 @@ export async function getExpenseDebts(budgetPlanId: string) {
 		sourceExpenseName: d.sourceExpenseName ?? undefined,
 		};
 	});
+
+	return [...mappedDebts, ...syntheticPaidCarryovers];
 }

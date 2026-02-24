@@ -719,7 +719,14 @@ export async function addPayment(
 		const [targetDebt, cardDebt] = await prisma.$transaction([
 			prisma.debt.findFirst({
 				where: { id: debtId, budgetPlanId },
-				select: { id: true, type: true, currentBalance: true, paidAmount: true },
+				select: {
+					id: true,
+					type: true,
+					currentBalance: true,
+					paidAmount: true,
+					sourceType: true,
+					sourceExpenseId: true,
+				},
 			}),
 			prisma.debt.findFirst({
 				where: { id: trimmedCardId, budgetPlanId },
@@ -772,6 +779,27 @@ export async function addPayment(
 				},
 			});
 
+			if (targetDebt.sourceType === "expense" && targetDebt.sourceExpenseId) {
+				const sourceExpense = await tx.expense.findUnique({
+					where: { id: targetDebt.sourceExpenseId },
+					select: { id: true, amount: true, paidAmount: true },
+				});
+				if (sourceExpense) {
+					const sourceAmount = decimalToNumber(sourceExpense.amount);
+					const sourcePaidAmount = decimalToNumber(sourceExpense.paidAmount);
+					const nextSourcePaidAmount = Math.min(sourceAmount, Math.max(0, sourcePaidAmount + appliedAmount));
+					const nextSourcePaid = sourceAmount > 0 && nextSourcePaidAmount >= sourceAmount;
+
+					await tx.expense.update({
+						where: { id: sourceExpense.id },
+						data: {
+							paidAmount: nextSourcePaidAmount,
+							paid: nextSourcePaid,
+						},
+					});
+				}
+			}
+
 			const cardCurrentBalance = decimalToNumber(cardDebt.currentBalance);
 			const nextCardBalance = Math.max(0, cardCurrentBalance + appliedAmount);
 			await tx.debt.update({
@@ -791,7 +819,7 @@ export async function addPayment(
 
 	const debt = await prisma.debt.findFirst({
 		where: { id: debtId, budgetPlanId },
-		select: { id: true, currentBalance: true, paidAmount: true },
+		select: { id: true, currentBalance: true, paidAmount: true, sourceType: true, sourceExpenseId: true },
 	});
 	if (!debt) return null;
 
@@ -833,6 +861,28 @@ export async function addPayment(
 			paid: newBalance === 0,
 		},
 	});
+
+	if (debt.sourceType === "expense" && debt.sourceExpenseId) {
+		const sourceExpense = await prisma.expense.findUnique({
+			where: { id: debt.sourceExpenseId },
+			select: { id: true, amount: true, paidAmount: true },
+		});
+
+		if (sourceExpense) {
+			const sourceAmount = decimalToNumber(sourceExpense.amount);
+			const sourcePaidAmount = decimalToNumber(sourceExpense.paidAmount);
+			const nextSourcePaidAmount = Math.min(sourceAmount, Math.max(0, sourcePaidAmount + appliedAmount));
+			const nextSourcePaid = sourceAmount > 0 && nextSourcePaidAmount >= sourceAmount;
+
+			await prisma.expense.update({
+				where: { id: sourceExpense.id },
+				data: {
+					paidAmount: nextSourcePaidAmount,
+					paid: nextSourcePaid,
+				},
+			});
+		}
+	}
 
 	return serializePayment(payment);
 }

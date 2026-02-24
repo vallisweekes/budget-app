@@ -185,6 +185,7 @@ export default function AddExpenseSheet({
       visible={visible}
       transparent
       animationType="none"
+      presentationStyle="overFullScreen"
       onRequestClose={onClose}
     >
       <KeyboardAvoidingView

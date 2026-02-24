@@ -5,7 +5,7 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
 
 import { useAuth } from "@/context/AuthContext";
-import type { RootStackParamList, MainTabParamList, IncomeStackParamList, DebtStackParamList } from "@/navigation/types";
+import type { RootStackParamList, MainTabParamList, IncomeStackParamList, ExpensesStackParamList, DebtStackParamList } from "@/navigation/types";
 import TopHeader from "@/components/Shared/TopHeader";
 import PillTabBar from "@/components/Shared/PillTabBar";
 import { T } from "@/lib/theme";
@@ -15,15 +15,19 @@ import DashboardScreen from "@/screens/DashboardScreen";
 import IncomeScreen from "@/screens/IncomeScreen";
 import IncomeMonthScreen from "@/screens/IncomeMonthScreen";
 import ExpensesScreen from "@/screens/ExpensesScreen";
+import CategoryExpensesScreen from "@/screens/CategoryExpensesScreen";
 import DebtScreen from "@/screens/DebtScreen";
 import DebtDetailScreen from "@/screens/DebtDetailScreen";
 import DebtAnalyticsScreen from "@/screens/DebtAnalyticsScreen";
 import SettingsScreen from "@/screens/SettingsScreen";
 import PaymentsScreen from "@/screens/PaymentsScreen";
+import GoalsScreen from "@/screens/GoalsScreen";
+import GoalsProjectionScreen from "@/screens/GoalsProjectionScreen";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
 const IncomeStack = createNativeStackNavigator<IncomeStackParamList>();
+const ExpensesStack = createNativeStackNavigator<ExpensesStackParamList>();
 const DebtStack = createNativeStackNavigator<DebtStackParamList>();
 
 function IncomeStackNavigator() {
@@ -32,6 +36,15 @@ function IncomeStackNavigator() {
       <IncomeStack.Screen name="IncomeGrid" component={IncomeScreen} />
       <IncomeStack.Screen name="IncomeMonth" component={IncomeMonthScreen} />
     </IncomeStack.Navigator>
+  );
+}
+
+function ExpensesStackNavigator() {
+  return (
+    <ExpensesStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: T.bg } }}>
+      <ExpensesStack.Screen name="ExpensesList" component={ExpensesScreen} />
+      <ExpensesStack.Screen name="CategoryExpenses" component={CategoryExpensesScreen} />
+    </ExpensesStack.Navigator>
   );
 }
 
@@ -80,7 +93,7 @@ function MainTabs() {
       />
       <Tab.Screen
         name="Expenses"
-        component={ExpensesScreen}
+        component={ExpensesStackNavigator}
         options={{
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="receipt-outline" size={size} color={color} />
@@ -124,6 +137,8 @@ export default function RootNavigator() {
         <>
           <Stack.Screen name="Main" component={MainTabs} />
           <Stack.Screen name="Payments" component={PaymentsScreen} />
+          <Stack.Screen name="Goals" component={GoalsScreen} />
+          <Stack.Screen name="GoalsProjection" component={GoalsProjectionScreen} />
         </>
       ) : (
         <Stack.Screen name="Login" component={LoginScreen} />

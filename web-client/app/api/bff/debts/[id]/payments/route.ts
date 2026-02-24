@@ -75,27 +75,59 @@ export async function POST(
 		const year = paidAt.getUTCFullYear();
 		const month = paidAt.getUTCMonth() + 1;
 
-    // Create payment
-    const payment = await prisma.debtPayment.create({
-      data: {
-        debtId: id,
-        amount: String(paymentAmount),
-        paidAt,
-			year,
-			month,
-			source: paymentSource,
-        notes: body.notes || null,
-      },
-    });
+    const appliedAmount = Math.min(paymentAmount, debt.currentBalance.toNumber());
 
-    // Update debt balance
-		await prisma.debt.update({
-			where: { id },
-			data: {
-				currentBalance: debt.currentBalance.toNumber() - paymentAmount,
-				paidAmount: debt.paidAmount.toNumber() + paymentAmount,
-			},
-		});
+    // Create payment + update debt (and linked expense when applicable) atomically
+    const payment = await prisma.$transaction(async (tx) => {
+      const created = await tx.debtPayment.create({
+        data: {
+          debtId: id,
+          amount: String(appliedAmount),
+          paidAt,
+          year,
+          month,
+          source: paymentSource,
+          notes: body.notes || null,
+        },
+      });
+
+      const nextDebtBalance = Math.max(0, debt.currentBalance.toNumber() - appliedAmount);
+      const nextDebtPaidAmount = Math.max(0, debt.paidAmount.toNumber() + appliedAmount);
+
+      const updatedDebt = await tx.debt.update({
+        where: { id },
+        data: {
+          currentBalance: nextDebtBalance,
+          paidAmount: nextDebtPaidAmount,
+          paid: nextDebtBalance === 0,
+        },
+        select: { sourceType: true, sourceExpenseId: true },
+      });
+
+      if (updatedDebt.sourceType === "expense" && updatedDebt.sourceExpenseId) {
+        const sourceExpense = await tx.expense.findUnique({
+          where: { id: updatedDebt.sourceExpenseId },
+          select: { id: true, amount: true, paidAmount: true },
+        });
+
+        if (sourceExpense) {
+          const sourceAmount = Number(sourceExpense.amount.toString());
+          const sourcePaid = Number(sourceExpense.paidAmount.toString());
+          const nextSourcePaid = Math.min(sourceAmount, Math.max(0, sourcePaid + appliedAmount));
+          const nextSourceIsPaid = sourceAmount > 0 && nextSourcePaid >= sourceAmount;
+
+          await tx.expense.update({
+            where: { id: sourceExpense.id },
+            data: {
+              paidAmount: String(nextSourcePaid),
+              paid: nextSourceIsPaid,
+            },
+          });
+        }
+      }
+
+      return created;
+    });
 
     return NextResponse.json(payment, { status: 201 });
   } catch (error) {

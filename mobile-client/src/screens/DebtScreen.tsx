@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { apiFetch } from "@/lib/api";
@@ -21,7 +21,7 @@ import { currencySymbol, fmt } from "@/lib/formatting";
 import type { DebtStackParamList } from "@/navigation/types";
 import { T } from "@/lib/theme";
 import { cardBase, cardElevated } from "@/lib/ui";
-import Svg, { Path, Defs, LinearGradient, Stop, Circle, Line as SvgLine, Text as SvgText, Rect } from "react-native-svg";
+import Svg, { G, Path, Defs, LinearGradient, Stop, Circle, Line as SvgLine, Text as SvgText, Rect } from "react-native-svg";
 
 type Nav = NativeStackNavigationProp<DebtStackParamList, "DebtList">;
 
@@ -135,6 +135,8 @@ export default function DebtScreen() {
   const [saving, setSaving] = useState(false);
   const [filter, setFilter] = useState<"active" | "all">("active");
   const [chartWidth, setChartWidth] = useState(320);
+  const [selectedProjectionMonth, setSelectedProjectionMonth] = useState<number | null>(null);
+  const [paidHistoryOpen, setPaidHistoryOpen] = useState(false);
 
   const currency = currencySymbol(settings?.currency);
 
@@ -156,6 +158,12 @@ export default function DebtScreen() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
 
   const handleAdd = async () => {
     const name = addName.trim();
@@ -180,6 +188,19 @@ export default function DebtScreen() {
   const visibleDebts = (summary?.debts ?? []).filter((d) =>
     filter === "active" ? d.isActive && !d.paid : true,
   );
+  const paidDebts = (summary?.debts ?? [])
+    .filter((d) => d.paid || d.currentBalance <= 0 || Boolean(d.lastPaidAt))
+    .sort((a, b) => {
+      const aTime = a.lastPaidAt ? new Date(a.lastPaidAt).getTime() : 0;
+      const bTime = b.lastPaidAt ? new Date(b.lastPaidAt).getTime() : 0;
+      return bTime - aTime;
+    });
+  const formatPaidDate = (iso?: string | null) => {
+    if (!iso) return null;
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return null;
+    return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  };
 
   if (loading) {
     return (
@@ -217,13 +238,32 @@ export default function DebtScreen() {
               const activeDebts = (summary?.debts ?? []).filter(d => d.isActive && !d.paid);
               const total = summary?.totalDebtBalance ?? 0;
               const monthly = summary?.totalMonthlyDebtPayments ?? 0;
-              const monthsToClear = monthly > 0 ? Math.ceil(total / monthly) : null;
               const highestAPR = activeDebts
                 .filter(d => d.interestRate != null && d.interestRate > 0)
                 .sort((a, b) => (b.interestRate ?? 0) - (a.interestRate ?? 0))[0];
 
+              const estimateDebtMonths = (d: DebtSummaryItem) => {
+                if (d.paid || d.currentBalance <= 0) return 0;
+                const rate = d.interestRate ? d.interestRate / 100 / 12 : 0;
+                const pmt = d.computedMonthlyPayment > 0
+                  ? d.computedMonthlyPayment
+                  : (monthly > 0 ? (monthly / Math.max(activeDebts.length, 1)) : 0);
+                if (pmt <= 0) return null;
+
+                let b = d.currentBalance;
+                for (let m = 1; m <= 360; m++) {
+                  b = rate > 0 ? b * (1 + rate) - pmt : b - pmt;
+                  if (b <= 0) return m;
+                }
+                return null;
+              };
+
               // Build composite projection: simulate each debt independently then sum
-              const MAX_M = Math.min(monthsToClear ? monthsToClear + 2 : 60, 120);
+              const projectedDebtMonths = activeDebts
+                .map(estimateDebtMonths)
+                .filter((m): m is number => m != null);
+              const baseMaxMonths = projectedDebtMonths.length > 0 ? Math.max(...projectedDebtMonths) : 0;
+              const MAX_M = Math.min(Math.max(baseMaxMonths + 2, 60), 360);
               const projection: number[] = [];
               for (let m = 0; m <= MAX_M; m++) {
                 let sum = 0;
@@ -243,6 +283,8 @@ export default function DebtScreen() {
                 if (sum <= 0) break;
               }
               const months = projection.length - 1;
+              const canProjectPayoff = projection.length > 0 && projection[projection.length - 1] <= 0;
+              const monthsToClear = canProjectPayoff ? months : null;
 
               // SVG chart constants
               const CH = 180;
@@ -267,8 +309,14 @@ export default function DebtScreen() {
               const lastPt = projection.length > 0 ? { x: toX(months), y: toY(0) } : null;
               const areaPath = smoothPath + (lastPt ? ` L${lastPt.x.toFixed(1)},${(CH - PB).toFixed(1)} L${toX(0).toFixed(1)},${(CH - PB).toFixed(1)} Z` : "");
 
-              // Tooltip anchor at ~25% through the payoff
-              const tipIdx = Math.max(1, Math.floor(months * 0.28));
+              const milestoneMonths = [6, 12, 24].filter((m) => m > 0 && m < months);
+              const selectedMonth =
+                selectedProjectionMonth != null && selectedProjectionMonth >= 1 && selectedProjectionMonth <= months
+                  ? selectedProjectionMonth
+                  : Math.max(1, Math.floor(months * 0.28));
+
+              // Tooltip anchor defaults to ~25% through payoff, or selected milestone
+              const tipIdx = selectedMonth;
               const tipX = toX(tipIdx);
               const tipY = toY(projection[tipIdx] ?? total);
               const tipVal = fmt(projection[tipIdx] ?? total, currency);
@@ -284,11 +332,7 @@ export default function DebtScreen() {
               const payoffDate = new Date();
               payoffDate.setMonth(payoffDate.getMonth() + months);
               const payoffLabel = months > 0 ? payoffDate.toLocaleDateString("en-GB", { month: "short", year: "2-digit" }) : "";
-              const midM = Math.floor(months / 2);
-              const midDate = new Date();
-              midDate.setMonth(midDate.getMonth() + midM);
-              const midLabel = midDate.toLocaleDateString("en-GB", { month: "short", year: "2-digit" });
-              const midVal = projection[midM] ?? 0;
+              const monthLabel = (m: number) => (m === 12 ? "1y" : m === 24 ? "2y" : `${m}m`);
 
               return (
                 <>
@@ -303,7 +347,7 @@ export default function DebtScreen() {
                       <Text style={s.heroLabel}>MONTHLY</Text>
                       <Text style={[s.heroValue, { color: T.orange }]}>{fmt(monthly, currency)}</Text>
                       <Text style={s.heroSub}>
-                        {monthsToClear ? `~${monthsToClear} mo to clear` : "No payments set"}
+                        {monthsToClear != null ? `~${monthsToClear} mo to clear` : "No payoff projected"}
                       </Text>
                     </View>
                   </View>
@@ -315,7 +359,7 @@ export default function DebtScreen() {
                         <View>
                           <Text style={s.chartTitle}>Debt Payoff Projection</Text>
                           <Text style={s.chartSub}>
-                            {monthsToClear ? `Debt-free by ${payoffLabel}` : "Keep up your payments"}
+                            {monthsToClear != null ? `Debt-free by ${payoffLabel}` : "No payoff projected"}
                           </Text>
                         </View>
                         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -378,6 +422,27 @@ export default function DebtScreen() {
                           {/* Dot on line at tooltip */}
                           <Circle cx={tipX} cy={tipY} r={5} fill={T.card} stroke={T.accent} strokeWidth={2} />
                           <Circle cx={tipX} cy={tipY} r={2.5} fill={T.accent} />
+                          {/* Milestone points (6m / 1y / 2y) */}
+                          {milestoneMonths.map((m) => (
+                            <G key={`m-${m}`}>
+                              <SvgLine
+                                x1={toX(m)}
+                                y1={CH - PB}
+                                x2={toX(m)}
+                                y2={CH - PB - 5}
+                                stroke={T.border}
+                                strokeWidth={1}
+                              />
+                              <Circle
+                                cx={toX(m)}
+                                cy={toY(projection[m] ?? 0)}
+                                r={selectedMonth === m ? 3.8 : 3}
+                                fill={selectedMonth === m ? T.accent : T.accentDim}
+                                stroke={T.accent}
+                                strokeWidth={1}
+                              />
+                            </G>
+                          ))}
                           {/* End dot (green = debt free) */}
                           <Circle cx={toX(months)} cy={toY(0)} r={4} fill={T.green} />
                           {/* Baseline */}
@@ -388,12 +453,31 @@ export default function DebtScreen() {
                           />
                           {/* Axis labels */}
                           <SvgText x={toX(0) + 2} y={CH - 10} fontSize={10} fill={T.textMuted} textAnchor="start" fontWeight="600">Now</SvgText>
-                          {months > 4 && (
-                            <SvgText x={toX(midM)} y={CH - 10} fontSize={10} fill={T.textMuted} textAnchor="middle" fontWeight="600">{midLabel}</SvgText>
-                          )}
+                          {milestoneMonths.map((m) => (
+                            <SvgText key={`lbl-${m}`} x={toX(m)} y={CH - 10} fontSize={10} fill={T.textMuted} textAnchor="middle" fontWeight="600">
+                              {monthLabel(m)}
+                            </SvgText>
+                          ))}
                           <SvgText x={toX(months) - 2} y={CH - 10} fontSize={10} fill={T.green} textAnchor="end" fontWeight="700">{payoffLabel}</SvgText>
                         </Svg>
                       </View>
+
+                      {milestoneMonths.length > 0 && (
+                        <View style={s.milestoneRow}>
+                          <Text style={s.milestoneLabel}>Tap point:</Text>
+                          {milestoneMonths.map((m) => (
+                            <Pressable
+                              key={`chip-${m}`}
+                              onPress={() => setSelectedProjectionMonth(m)}
+                              style={[s.milestoneChip, selectedMonth === m && s.milestoneChipActive]}
+                            >
+                              <Text style={[s.milestoneChipText, selectedMonth === m && s.milestoneChipTextActive]}>
+                                {m === 12 ? "1 year" : m === 24 ? "2 years" : `${m} months`}
+                              </Text>
+                            </Pressable>
+                          ))}
+                        </View>
+                      )}
 
                       {/* Insight chips */}
                       <View style={s.chipRow}>
@@ -409,10 +493,10 @@ export default function DebtScreen() {
                           </View>
                         )}
                         <View style={[s.chip, { borderColor: T.green + "55" }]}>
-                          <Ionicons name="checkmark-circle-outline" size={13} color={T.green} />
+                          <Ionicons name="time-outline" size={13} color={T.green} />
                           <View style={{ flex: 1 }}>
-                            <Text style={s.chipLabel}>MIDPOINT</Text>
-                            <Text style={s.chipValue}>{fmt(midVal, currency)} at {midM}mo</Text>
+                            <Text style={s.chipLabel}>SELECTED POINT</Text>
+                            <Text style={s.chipValue}>{fmt(projection[selectedMonth] ?? 0, currency)} at {selectedMonth}mo</Text>
                           </View>
                         </View>
                       </View>
@@ -500,22 +584,58 @@ export default function DebtScreen() {
           </View>
         }
         ListFooterComponent={
-          (summary?.tips ?? []).length > 0 ? (
-            <View style={s.tipsCard}>
-              <View style={s.tipsHeader}>
-                <Ionicons name="bulb-outline" size={15} color={T.orange} />
-                <Text style={s.tipsHeading}>Tips</Text>
-              </View>
-              {summary!.tips.map((tip, i) => (
-                <View key={i} style={[s.tipRow, i > 0 && s.tipBorder]}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={s.tipTitle}>{tip.title}</Text>
-                    <Text style={s.tipDetail}>{tip.detail}</Text>
+          <>
+            <View style={s.historyCard}>
+              <Pressable style={s.historyHeader} onPress={() => setPaidHistoryOpen((v) => !v)}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flex: 1 }}>
+                  <Ionicons name="checkmark-done-circle-outline" size={15} color={T.green} />
+                  <Text style={s.historyHeading}>Paid History</Text>
+                  <Text style={s.historyCount}>({paidDebts.length})</Text>
+                </View>
+                <Ionicons
+                  name={paidHistoryOpen ? "chevron-up" : "chevron-down"}
+                  size={16}
+                  color={T.textMuted}
+                />
+              </Pressable>
+
+              {paidHistoryOpen && paidDebts.length === 0 && (
+                <Text style={s.historyEmpty}>No paid debts yet.</Text>
+              )}
+
+              {paidHistoryOpen && paidDebts.map((debt, i) => (
+                <View key={debt.id} style={[s.historyRow, i > 0 && s.tipBorder]}>
+                  <View style={{ flex: 1, paddingRight: 10 }}>
+                    <Text style={s.historyTitle} numberOfLines={1}>{debt.displayTitle ?? debt.name}</Text>
+                    <Text style={s.historyDetail} numberOfLines={1}>{debt.displaySubtitle ?? TYPE_LABELS[debt.type] ?? debt.type}</Text>
+                    <Text style={s.historyDate} numberOfLines={1}>
+                      {`${debt.paid || debt.currentBalance <= 0 ? "Paid" : "Last payment"} ${formatPaidDate(debt.lastPaidAt) ?? "date unavailable"}`}
+                    </Text>
                   </View>
+                  <Text style={s.historyAmount}>
+                    {fmt(debt.paid || debt.currentBalance <= 0 ? debt.initialBalance : debt.paidAmount, currency)}
+                  </Text>
                 </View>
               ))}
             </View>
-          ) : null
+
+            {(summary?.tips ?? []).length > 0 ? (
+              <View style={s.tipsCard}>
+                <View style={s.tipsHeader}>
+                  <Ionicons name="bulb-outline" size={15} color={T.orange} />
+                  <Text style={s.tipsHeading}>Tips</Text>
+                </View>
+                {summary!.tips.map((tip, i) => (
+                  <View key={i} style={[s.tipRow, i > 0 && s.tipBorder]}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.tipTitle}>{tip.title}</Text>
+                      <Text style={s.tipDetail}>{tip.detail}</Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+          </>
         }
       />
     </SafeAreaView>
@@ -549,6 +669,19 @@ const s = StyleSheet.create({
   chartBadgeTxt: { color: T.accent, fontSize: 12, fontWeight: "800" },
   analyticsBtn: { flexDirection: "row", alignItems: "center", gap: 2, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, backgroundColor: T.accentDim, borderWidth: 1, borderColor: T.accentFaint },
   analyticsBtnTxt: { color: T.accent, fontSize: 11, fontWeight: "800" },
+  milestoneRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 6 },
+  milestoneLabel: { color: T.textMuted, fontSize: 11, fontWeight: "700", marginRight: 2 },
+  milestoneChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: T.cardAlt,
+    borderWidth: 1,
+    borderColor: T.border,
+  },
+  milestoneChipActive: { borderColor: T.accent, backgroundColor: T.accentDim },
+  milestoneChipText: { color: T.textDim, fontSize: 11, fontWeight: "700" },
+  milestoneChipTextActive: { color: T.accent },
 
   // Insight chips
   chipRow: { flexDirection: "row", gap: 8 },
@@ -559,6 +692,17 @@ const s = StyleSheet.create({
   },
   chipLabel: { color: T.textMuted, fontSize: 9, fontWeight: "800", letterSpacing: 0.4 },
   chipValue: { color: T.text, fontSize: 11, fontWeight: "800", marginTop: 1 },
+
+  historyCard: { margin: 14, marginTop: 6, padding: 14, ...cardBase },
+  historyHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
+  historyHeading: { color: T.text, fontSize: 13, fontWeight: "900" },
+  historyCount: { color: T.textMuted, fontSize: 12, fontWeight: "700" },
+  historyRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 8 },
+  historyTitle: { color: T.text, fontSize: 13, fontWeight: "800" },
+  historyDetail: { color: T.textDim, fontSize: 12, marginTop: 2, fontWeight: "600" },
+  historyDate: { color: T.textMuted, fontSize: 11, marginTop: 2, fontWeight: "600" },
+  historyAmount: { color: T.green, fontSize: 13, fontWeight: "900" },
+  historyEmpty: { color: T.textDim, fontSize: 12, fontWeight: "600", fontStyle: "italic", paddingTop: 2 },
 
   tipsCard: { margin: 14, marginTop: 6, padding: 14, ...cardBase },
   tipsHeader: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 },
@@ -631,7 +775,7 @@ const s = StyleSheet.create({
   cardBalancePaid: { color: T.green },
   cardMonthly: { color: T.textDim, fontSize: 12, marginTop: 2, fontWeight: "600" },
   progressWrap: { gap: 4 },
-  progressBg: { height: 5, backgroundColor: T.border, borderRadius: 3, overflow: "hidden" },
+  progressBg: { height: 7, backgroundColor: T.border, borderRadius: 4, overflow: "hidden" },
   progressFill: { height: "100%", borderRadius: 3 },
   progressPct: { color: T.textDim, fontSize: 11, fontWeight: "600" },
   cardFooter: { flexDirection: "row", alignItems: "center", gap: 10 },

@@ -49,7 +49,7 @@ const s = StyleSheet.create({
   title: { ...textLabel },
   pct: { color: T.text, fontSize: 16, fontWeight: "900", letterSpacing: -0.1 },
   over: { color: T.red },
-  bg: { height: 10, backgroundColor: T.border, borderRadius: 999, overflow: "hidden" },
+  bg: { height: 12, backgroundColor: T.border, borderRadius: 999, overflow: "hidden" },
   fill: { height: "100%", borderRadius: 999 },
   sub: { ...textCaption, marginTop: 10 },
 });

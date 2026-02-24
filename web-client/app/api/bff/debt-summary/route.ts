@@ -4,6 +4,7 @@ import { getDebtSummaryForPlan } from "@/lib/debts/summary";
 import { computeDebtTips } from "@/lib/debts/insights";
 import { getDebtMonthlyPayment, getTotalMonthlyDebtPayments } from "@/lib/debts/calculate";
 import { formatExpenseDebtCardTitle, formatYearMonthLabel } from "@/lib/helpers/debts/expenseDebtLabels";
+import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
@@ -76,6 +77,46 @@ export async function GET(req: NextRequest) {
 			}
 		})();
 
+		const debtIds = summary.allDebts.map((d) => d.id);
+		const expenseIds = Array.from(
+			new Set(summary.allDebts.map((d) => String(d.sourceExpenseId ?? "").trim()).filter(Boolean))
+		);
+		const lastPaymentRows = debtIds.length
+			? await prisma.debtPayment.groupBy({
+					by: ["debtId"],
+					where: { debtId: { in: debtIds } },
+					_max: { paidAt: true },
+			  })
+			: [];
+		const lastExpensePaymentRows = expenseIds.length
+			? await prisma.expensePayment.groupBy({
+					by: ["expenseId"],
+					where: { expenseId: { in: expenseIds } },
+					_max: { paidAt: true },
+			  })
+			: [];
+		const paidExpenseRows = expenseIds.length
+			? await prisma.expense.findMany({
+					where: { id: { in: expenseIds } },
+					select: { id: true, amount: true, paidAmount: true, paid: true, updatedAt: true },
+			  })
+			: [];
+		const lastPaidAtByDebtId = new Map(
+			lastPaymentRows.map((row) => [row.debtId, row._max.paidAt ? row._max.paidAt.toISOString() : null])
+		);
+		const lastPaidAtByExpenseId = new Map(
+			lastExpensePaymentRows.map((row) => [row.expenseId, row._max.paidAt ? row._max.paidAt.toISOString() : null])
+		);
+		const fallbackLastPaidAtByExpenseId = new Map(
+			paidExpenseRows
+				.filter((e) => {
+					const amount = Number(e.amount);
+					const paidAmount = Number(e.paidAmount);
+					return Boolean(e.paid) || (Number.isFinite(amount) && Number.isFinite(paidAmount) && paidAmount >= amount && amount > 0);
+				})
+				.map((e) => [e.id, e.updatedAt?.toISOString?.() ?? null])
+		);
+
 		// Add computed monthly payment to each debt
 		const debtsWithPayments = summary.allDebts.map((d) => ({
 			id: d.id,
@@ -94,9 +135,15 @@ export async function GET(req: NextRequest) {
 			creditLimit: d.creditLimit ?? null,
 			dueDay: d.dueDay ?? null,
 			sourceType: d.sourceType ?? null,
+			isCarriedOverDebt: d.sourceType === "expense",
 			sourceMonthKey: d.sourceMonthKey ?? null,
 			sourceCategoryName: d.sourceCategoryName ?? null,
 			sourceExpenseName: d.sourceExpenseName ?? null,
+			lastPaidAt:
+				lastPaidAtByDebtId.get(d.id) ??
+				lastPaidAtByExpenseId.get(String(d.sourceExpenseId ?? "").trim()) ??
+				fallbackLastPaidAtByExpenseId.get(String(d.sourceExpenseId ?? "").trim()) ??
+				null,
 			computedMonthlyPayment: getDebtMonthlyPayment(d),
 			isActive: (d.currentBalance ?? 0) > 0,
 		}));

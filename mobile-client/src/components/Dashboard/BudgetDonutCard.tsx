@@ -2,7 +2,7 @@ import React, { useMemo } from "react";
 import { View, Text, StyleSheet, Dimensions } from "react-native";
 import { PieChart } from "react-native-gifted-charts";
 import { T } from "@/lib/theme";
-import { cardElevated, textCaption, textValue } from "@/lib/ui";
+import { textCaption, textValue } from "@/lib/ui";
 
 interface Props {
   totalBudget: number;
@@ -15,7 +15,7 @@ interface Props {
 const W = Dimensions.get("window").width;
 
 export default function BudgetDonutCard({ totalBudget, totalExpenses, paidTotal, currency, fmt }: Props) {
-  const { remaining, committed, isOverBudget, chartData } = useMemo(() => {
+  const { remaining, isOverBudget, chartData } = useMemo(() => {
     const safeTotalBudget = Math.max(0, totalBudget ?? 0);
     const safeTotalExpenses = Math.max(0, totalExpenses ?? 0);
     const safePaidTotal = Math.max(0, paidTotal ?? 0);
@@ -40,7 +40,6 @@ export default function BudgetDonutCard({ totalBudget, totalExpenses, paidTotal,
 
     return {
       remaining: left,
-      committed: committedSpending,
       isOverBudget: over,
       chartData: data,
     };
@@ -57,15 +56,15 @@ export default function BudgetDonutCard({ totalBudget, totalExpenses, paidTotal,
     : `left of ${fmt(totalBudget, currency)}`;
 
   return (
-    <View style={s.card}>
+    <View style={s.wrap}>
       <PieChart
         data={chartData}
         donut
         radius={radius}
         innerRadius={innerRadius}
-        innerCircleColor={T.card}
+        innerCircleColor={T.bg}
         strokeWidth={2}
-        strokeColor={T.card}
+        strokeColor={T.bg}
         showText={false}
         focusOnPress={false}
         isAnimated
@@ -77,29 +76,15 @@ export default function BudgetDonutCard({ totalBudget, totalExpenses, paidTotal,
           </View>
         )}
       />
-
-      <View style={s.legend}>
-        <View style={s.legendRow}>
-          <View style={[s.dot, { backgroundColor: T.green }]} />
-          <Text style={s.legendLabel}>Spending</Text>
-          <Text style={s.legendValue}>{fmt(Math.min(paidTotal, totalExpenses), currency)}</Text>
-        </View>
-        <View style={s.legendRow}>
-          <View style={[s.dot, { backgroundColor: T.accent }]} />
-          <Text style={s.legendLabel}>Committed spending</Text>
-          <Text style={s.legendValue}>{fmt(committed, currency)}</Text>
-        </View>
-      </View>
     </View>
   );
 }
 
 const s = StyleSheet.create({
-  card: {
-    padding: 16,
+  wrap: {
+    paddingVertical: 8,
     marginBottom: 12,
     alignItems: "center",
-    ...cardElevated,
   },
   centerValue: {
     ...textValue,
@@ -107,23 +92,5 @@ const s = StyleSheet.create({
   centerSub: {
     marginTop: 4,
     ...textCaption,
-  },
-  legend: {
-    width: "100%",
-    marginTop: 14,
-    gap: 14,
-  },
-  legendRow: { flexDirection: "row", alignItems: "center" },
-  dot: { width: 8, height: 8, borderRadius: 4, marginRight: 10 },
-  legendLabel: {
-    flex: 1,
-    color: T.textDim,
-    fontSize: 14,
-    fontWeight: "800",
-  },
-  legendValue: {
-    color: T.text,
-    fontSize: 14,
-    fontWeight: "900",
   },
 });

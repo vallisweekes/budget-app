@@ -48,6 +48,8 @@ export type RootStackParamList = {
   Login: undefined;
   Main: NavigatorScreenParams<MainTabParamList>;
   Payments: undefined;
+  Goals: undefined;
+  GoalsProjection: undefined;
 };
 
 /* ── Typed screen props helpers ─────────────────────────────── */

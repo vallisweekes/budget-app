@@ -496,7 +496,7 @@ const s = StyleSheet.create({
   debtBalance: { fontSize: 14, fontWeight: "900" },
   debtRowMeta: { flexDirection: "row", gap: 12 },
   debtMeta: { color: T.textDim, fontSize: 11, fontWeight: "600" },
-  progressBg: { height: 5, backgroundColor: T.border, borderRadius: 3, overflow: "hidden" },
+  progressBg: { height: 7, backgroundColor: T.border, borderRadius: 4, overflow: "hidden" },
   progressFill: { height: "100%", borderRadius: 3 },
 });
 

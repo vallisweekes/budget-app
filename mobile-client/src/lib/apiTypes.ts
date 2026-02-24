@@ -80,6 +80,7 @@ export interface DebtSummaryItem {
   sourceMonthKey?: string | null;
   sourceCategoryName?: string | null;
   sourceExpenseName: string | null;
+  lastPaidAt?: string | null;
   computedMonthlyPayment: number;
   isActive: boolean;
 }
@@ -317,6 +318,7 @@ export interface DebtSummaryItem {
   creditLimit: number | null;
   dueDay: number | null;
   sourceType: string | null;
+  isCarriedOverDebt?: boolean;
   sourceMonthKey?: string | null;
   sourceCategoryName?: string | null;
   sourceExpenseName: string | null;

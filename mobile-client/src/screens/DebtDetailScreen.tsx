@@ -241,15 +241,42 @@ export default function DebtDetailScreen() {
       Alert.alert("Amount too high", `Balance remaining is ${fmt(currentBal, currency)}.`);
       return;
     }
+    const currentPaid = parseFloat(debt.paidAmount);
+    const appliedAmount = Math.min(amount, currentBal);
+    const nextBalance = Math.max(0, currentBal - appliedAmount);
+    const nextPaidAmount = Math.max(0, currentPaid + appliedAmount);
+
+    const debtSnapshot = debt;
+    const paymentsSnapshot = payments;
+
+    // Optimistic update while request is in flight
+    setDebt({
+      ...debt,
+      currentBalance: String(nextBalance),
+      paidAmount: String(nextPaidAmount),
+      paid: nextBalance <= 0,
+    });
+    setPayments((prev) => [
+      {
+        id: `optimistic-${Date.now()}`,
+        amount: String(appliedAmount),
+        paidAt: new Date().toISOString(),
+        notes: null,
+      },
+      ...prev,
+    ]);
+    setPayAmount("");
+
     try {
       setPaying(true);
       await apiFetch(`/api/bff/debts/${debtId}/payments`, {
         method: "POST",
-        body: { amount },
+        body: { amount: appliedAmount },
       });
-      setPayAmount("");
       await load();
     } catch (err: unknown) {
+      setDebt(debtSnapshot);
+      setPayments(paymentsSnapshot);
       Alert.alert("Payment failed", err instanceof Error ? err.message : "Unknown error");
     } finally {
       setPaying(false);
@@ -580,8 +607,8 @@ const s = StyleSheet.create({
   statLabel: { color: T.textDim, fontSize: 11, fontWeight: "800", marginBottom: 4 },
   statValue: { color: T.text, fontSize: 16, fontWeight: "900" },
   progressWrap: { gap: 4 },
-  progressBg: { height: 7, backgroundColor: T.border, borderRadius: 4, overflow: "hidden" },
-  progressFill: { height: "100%", borderRadius: 4, backgroundColor: T.accent },
+  progressBg: { height: 9, backgroundColor: T.border, borderRadius: 5, overflow: "hidden" },
+  progressFill: { height: "100%", borderRadius: 5, backgroundColor: T.accent },
   progressPct: { color: T.textDim, fontSize: 12, fontWeight: "600" },
 
   sectionCard: {
