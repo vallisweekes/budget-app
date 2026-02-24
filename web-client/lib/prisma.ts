@@ -104,7 +104,7 @@ const basePrisma =
     log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
   });
 
-export const prisma = basePrisma.$extends({
+export const prisma: PrismaClient = basePrisma.$extends({
   query: {
     $allModels: {
       async $allOperations({ operation, args, query }) {
@@ -123,7 +123,7 @@ export const prisma = basePrisma.$extends({
       },
     },
   },
-});
+}) as unknown as PrismaClient;
 
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = basePrisma;

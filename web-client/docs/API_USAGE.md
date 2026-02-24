@@ -341,3 +341,17 @@ data?.forEach(expense => {
   console.log(expense.category?.name);
 });
 ```
+
+## Mobile Push
+
+Register an Expo push token for the currently-authenticated user:
+
+`POST /api/bff/push/mobile/register`
+
+```json
+{
+  "token": "ExponentPushToken[xxxx]",
+  "platform": "ios",
+  "deviceId": "iPhone16,2:..."
+}
+```
