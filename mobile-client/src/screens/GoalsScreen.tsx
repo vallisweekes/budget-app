@@ -16,6 +16,7 @@ export default function GoalsScreen({ navigation }: { navigation: any }) {
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const canGoBack = typeof navigation?.canGoBack === "function" ? navigation.canGoBack() : false;
 
   const load = useCallback(async () => {
     try {
@@ -77,7 +78,7 @@ export default function GoalsScreen({ navigation }: { navigation: any }) {
         },
       });
       Alert.alert("Saved", "Dashboard goals updated.");
-      navigation.goBack();
+      if (canGoBack) navigation.goBack();
     } catch (err: unknown) {
       Alert.alert("Failed to save", err instanceof Error ? err.message : "Unknown error");
     } finally {
@@ -113,9 +114,13 @@ export default function GoalsScreen({ navigation }: { navigation: any }) {
   return (
     <SafeAreaView style={s.safe} edges={[]}>
       <View style={s.header}>
-        <Pressable onPress={() => navigation.goBack()} hitSlop={10}>
-          <Ionicons name="chevron-back" size={22} color={T.text} />
-        </Pressable>
+        {canGoBack ? (
+          <Pressable onPress={() => navigation.goBack()} hitSlop={10}>
+            <Ionicons name="chevron-back" size={22} color={T.text} />
+          </Pressable>
+        ) : (
+          <View style={{ width: 22 }} />
+        )}
         <Text style={s.title}>Goals</Text>
         <View style={{ width: 22 }} />
       </View>

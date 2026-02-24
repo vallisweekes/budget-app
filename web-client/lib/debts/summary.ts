@@ -25,14 +25,19 @@ export async function getDebtSummaryForPlan(
 	const ensureSynced = opts?.ensureSynced ?? true;
 
 	if (ensureSynced) {
-		// Ensure overdue/part-paid expenses are reflected as debts.
-		await processOverdueExpensesToDebts(budgetPlanId);
-		// Ensure missed debt payments (due date + grace) accumulate into balances.
-		await processMissedDebtPaymentsToAccrue(budgetPlanId);
+		await Promise.all([
+			// Ensure overdue/part-paid expenses are reflected as debts.
+			processOverdueExpensesToDebts(budgetPlanId),
+			// Ensure missed debt payments (due date + grace) accumulate into balances.
+			processMissedDebtPaymentsToAccrue(budgetPlanId),
+		]);
 	}
 
-	const regularDebts = (await getAllDebts(budgetPlanId)).filter((d) => d.sourceType !== "expense");
-	const expenseDebts = includeExpenseDebts ? await getExpenseDebts(budgetPlanId) : [];
+	const [allDebtsRaw, expenseDebts] = await Promise.all([
+		getAllDebts(budgetPlanId),
+		includeExpenseDebts ? getExpenseDebts(budgetPlanId) : Promise.resolve([]),
+	]);
+	const regularDebts = allDebtsRaw.filter((d) => d.sourceType !== "expense");
 	const allDebts = [...regularDebts, ...expenseDebts];
 
 	const activeDebts = allDebts.filter((d) => (d.currentBalance ?? 0) > 0);

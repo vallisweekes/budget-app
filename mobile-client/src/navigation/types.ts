@@ -37,9 +37,10 @@ export type DebtStackParamList = {
 /* ── Tab navigator ─────────────────────────────────────────── */
 export type MainTabParamList = {
   Dashboard: undefined;
-  Income: NavigatorScreenParams<IncomeStackParamList> | undefined;
   Expenses: NavigatorScreenParams<ExpensesStackParamList> | undefined;
   Debts: NavigatorScreenParams<DebtStackParamList> | undefined;
+  Goals: undefined;
+  Income: NavigatorScreenParams<IncomeStackParamList> | undefined;
   Settings: undefined;
 };
 
@@ -48,6 +49,7 @@ export type RootStackParamList = {
   Login: undefined;
   Main: NavigatorScreenParams<MainTabParamList>;
   Payments: undefined;
+  Analytics: undefined;
   Goals: undefined;
   GoalsProjection: undefined;
 };

@@ -7,9 +7,11 @@ import { T } from "@/lib/theme";
 
 interface Props {
   onSettings: () => void;
+  onIncome: () => void;
+  onAnalytics: () => void;
 }
 
-export default function TopHeader({ onSettings }: Props) {
+export default function TopHeader({ onSettings, onIncome, onAnalytics }: Props) {
   const insets = useSafeAreaInsets();
   const { username } = useAuth();
 
@@ -18,22 +20,20 @@ export default function TopHeader({ onSettings }: Props) {
   return (
     <View style={[s.container, { paddingTop: insets.top }]}>
       <View style={s.inner}>
-        {/* App brand */}
-        <View style={s.brand}>
-          <View style={s.logoMark}>
-            <Ionicons name="stats-chart" size={14} color={T.accent} />
-          </View>
-        </View>
-
-        {/* Settings button — user avatar + cog badge */}
         <Pressable onPress={onSettings} style={s.avatarBtn} hitSlop={10}>
           <View style={s.avatar}>
             <Text style={s.avatarInitial}>{initial}</Text>
           </View>
-          <View style={s.cogBadge}>
-            <Ionicons name="settings-sharp" size={10} color={T.text} />
-          </View>
         </Pressable>
+
+        <View style={s.rightActions}>
+          <Pressable onPress={onIncome} style={s.iconBtn} hitSlop={10}>
+            <Ionicons name="wallet-outline" size={18} color={T.accent} />
+          </Pressable>
+          <Pressable onPress={onAnalytics} style={s.iconBtn} hitSlop={10}>
+            <Ionicons name="stats-chart-outline" size={18} color={T.accent} />
+          </Pressable>
+        </View>
       </View>
     </View>
   );
@@ -55,16 +55,6 @@ const s = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 12,
   },
-  brand: { flexDirection: "row", alignItems: "center", gap: 8 },
-  logoMark: {
-    width: 26,
-    height: 26,
-    borderRadius: 7,
-    backgroundColor: T.accentDim,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  appName: { color: T.text, fontSize: 18, fontWeight: "900", letterSpacing: -0.4 },
 
   avatarBtn: { position: "relative" },
   avatar: {
@@ -78,17 +68,19 @@ const s = StyleSheet.create({
     borderColor: T.border,
   },
   avatarInitial: { color: T.onAccent, fontSize: 14, fontWeight: "900" },
-  cogBadge: {
-    position: "absolute",
-    bottom: -2,
-    right: -2,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+  rightActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  iconBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: T.cardAlt,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1.5,
-    borderColor: T.card,
+    borderWidth: 1,
+    borderColor: T.border,
   },
 });

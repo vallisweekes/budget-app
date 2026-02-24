@@ -21,20 +21,79 @@ export type ApiFetchOptions = {
   headers?: Record<string, string>;
   /** Pass false to skip injecting the session cookie (e.g. during sign-in flow) */
   withAuth?: boolean;
+  /** Optional override for GET cache TTL in ms; set 0 to disable for this call */
+  cacheTtlMs?: number;
 };
+
+type CacheEntry = {
+  expiresAt: number;
+  value: unknown;
+};
+
+const inflightRequests = new Map<string, Promise<unknown>>();
+const responseCache = new Map<string, CacheEntry>();
+
+function isGetMethod(method?: ApiFetchOptions["method"]): boolean {
+  return (method ?? "GET") === "GET";
+}
+
+function getDefaultCacheTtlMs(path: string): number {
+  const normalized = path.toLowerCase();
+  if (normalized.startsWith("/api/bff/settings")) return 6_000;
+  if (normalized.startsWith("/api/bff/budget-plans")) return 6_000;
+  if (normalized.startsWith("/api/bff/categories")) return 4_000;
+  if (normalized.startsWith("/api/bff/expenses/summary")) return 3_000;
+  if (normalized.startsWith("/api/bff/expenses?")) return 3_000;
+  if (normalized.startsWith("/api/bff/debt-summary")) return 4_000;
+  if (normalized.startsWith("/api/bff/dashboard")) return 3_000;
+  if (normalized.startsWith("/api/bff/income-summary")) return 4_000;
+  return 0;
+}
+
+function buildRequestKey(path: string, options: ApiFetchOptions, hasAuth: boolean): string {
+  const method = options.method ?? "GET";
+  const body = options.body === undefined ? "" : JSON.stringify(options.body);
+  return `${method}|${path}|auth:${hasAuth ? "1" : "0"}|${body}`;
+}
+
+export function invalidateApiCache() {
+  responseCache.clear();
+  inflightRequests.clear();
+}
 
 export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): Promise<T> {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   const url = `${getApiBaseUrl()}${normalizedPath}`;
 
   const withAuth = options.withAuth !== false;
+  const method = options.method ?? "GET";
+  const isGet = isGetMethod(method);
+  const cacheTtlMs = isGet ? (options.cacheTtlMs ?? getDefaultCacheTtlMs(normalizedPath)) : 0;
+
+  const requestKey = buildRequestKey(normalizedPath, options, withAuth);
+  if (isGet && cacheTtlMs > 0) {
+    const existing = responseCache.get(requestKey);
+    if (existing && existing.expiresAt > Date.now()) {
+      return existing.value as T;
+    }
+    if (existing && existing.expiresAt <= Date.now()) {
+      responseCache.delete(requestKey);
+    }
+  }
+
+  const inflight = inflightRequests.get(requestKey);
+  if (inflight) {
+    return (await inflight) as T;
+  }
+
+  const execute = async (): Promise<T> => {
   const sessionToken = withAuth ? await getSessionToken() : null;
   const cookieHeader = sessionToken
     ? `next-auth.session-token=${sessionToken}`
     : undefined;
 
   const response = await fetch(url, {
-    method: options.method ?? "GET",
+    method,
     headers: {
       "Content-Type": "application/json",
       ...(cookieHeader ? { Cookie: cookieHeader } : {}),
@@ -69,7 +128,26 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
     throw new Error(message);
   }
 
-  return (parsed as T) ?? ({} as T);
+    const result = ((parsed as T) ?? ({} as T));
+    if (isGet && cacheTtlMs > 0) {
+      responseCache.set(requestKey, {
+        value: result,
+        expiresAt: Date.now() + cacheTtlMs,
+      });
+    } else if (!isGet) {
+      // Any successful mutation can invalidate stale aggregates/list responses.
+      invalidateApiCache();
+    }
+
+    return result;
+  };
+
+  const promise = execute().finally(() => {
+    inflightRequests.delete(requestKey);
+  });
+
+  inflightRequests.set(requestKey, promise as Promise<unknown>);
+  return promise;
 }
 
 function safeParseJson(raw: string): unknown {

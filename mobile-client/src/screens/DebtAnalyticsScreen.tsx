@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   View,
   Text,
   ScrollView,
   Pressable,
   StyleSheet,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -18,7 +19,8 @@ import Svg, {
   Rect,
 } from "react-native-svg";
 
-import type { DebtSummaryItem } from "@/lib/apiTypes";
+import { apiFetch } from "@/lib/api";
+import type { DebtSummaryData, DebtSummaryItem, Settings } from "@/lib/apiTypes";
 import { fmt } from "@/lib/formatting";
 import type { DebtStackParamList } from "@/navigation/types";
 import { T } from "@/lib/theme";
@@ -284,8 +286,68 @@ function GanttChart({
 
 export default function DebtAnalyticsScreen() {
   const navigation = useNavigation();
-  const { params } = useRoute<Route>();
-  const { debts, totalMonthly, currency } = params;
+  const route = useRoute<Route>();
+
+  const routeDebts = route.params?.debts;
+  const routeTotalMonthly = route.params?.totalMonthly;
+  const routeCurrency = route.params?.currency;
+  const hasRoutePayload = Array.isArray(routeDebts) && typeof routeTotalMonthly === "number" && typeof routeCurrency === "string";
+
+  const [debts, setDebts] = useState<DebtSummaryItem[]>(hasRoutePayload ? routeDebts : []);
+  const [totalMonthly, setTotalMonthly] = useState<number>(hasRoutePayload ? routeTotalMonthly : 0);
+  const [currency, setCurrency] = useState<string>(hasRoutePayload ? routeCurrency : "£");
+  const [loading, setLoading] = useState(!hasRoutePayload);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      setError(null);
+      setLoading(true);
+      const [summary, settings] = await Promise.all([
+        apiFetch<DebtSummaryData>("/api/bff/debt-summary"),
+        apiFetch<Settings>("/api/bff/settings"),
+      ]);
+      setDebts(summary.debts ?? []);
+      setTotalMonthly(summary.totalMonthlyDebtPayments ?? 0);
+      setCurrency(settings.currency ?? "£");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to load analytics");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!hasRoutePayload) {
+      load();
+    }
+  }, [hasRoutePayload, load]);
+
+  const showBack = typeof navigation.canGoBack === "function" ? navigation.canGoBack() : false;
+
+  if (loading) {
+    return (
+      <SafeAreaView style={s.safe} edges={["bottom"]}>
+        <View style={s.loadingWrap}>
+          <ActivityIndicator size="large" color={T.accent} />
+          <Text style={s.loadingText}>Loading analytics…</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={s.safe} edges={["bottom"]}>
+        <View style={s.loadingWrap}>
+          <Text style={s.errorText}>{error}</Text>
+          <Pressable onPress={load} style={s.retryBtn}>
+            <Text style={s.retryTxt}>Retry</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   const activeDebts = debts
     .filter((d) => d.isActive && !d.paid && d.currentBalance > 0)
@@ -320,9 +382,13 @@ export default function DebtAnalyticsScreen() {
     <SafeAreaView style={s.safe} edges={["bottom"]}>
       {/* Header */}
       <View style={s.header}>
-        <Pressable onPress={() => navigation.goBack()} style={s.backBtn}>
-          <Ionicons name="chevron-back" size={24} color={T.text} />
-        </Pressable>
+        {showBack ? (
+          <Pressable onPress={() => navigation.goBack()} style={s.backBtn}>
+            <Ionicons name="chevron-back" size={24} color={T.text} />
+          </Pressable>
+        ) : (
+          <View style={s.backBtn} />
+        )}
         <View style={{ alignItems: "center" }}>
           <Text style={s.headerTitle}>Debt Analytics</Text>
           <Text style={s.headerSub}>
@@ -458,6 +524,11 @@ export default function DebtAnalyticsScreen() {
 
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: T.bg },
+  loadingWrap: { flex: 1, alignItems: "center", justifyContent: "center", gap: 10, paddingHorizontal: 24 },
+  loadingText: { color: T.textDim, fontSize: 14, fontWeight: "700" },
+  errorText: { color: T.red, textAlign: "center", fontSize: 14, fontWeight: "700" },
+  retryBtn: { marginTop: 8, backgroundColor: T.accent, borderRadius: 10, paddingHorizontal: 20, paddingVertical: 10 },
+  retryTxt: { color: T.onAccent, fontWeight: "800" },
   header: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     paddingHorizontal: 8, paddingVertical: 12,

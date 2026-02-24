@@ -40,9 +40,16 @@ export type DashboardPlanData = {
 	goals: DashboardGoalLike[];
 };
 
-export async function getDashboardPlanData(planId: string, now: Date): Promise<DashboardPlanData> {
+export async function getDashboardPlanData(
+	planId: string,
+	now: Date,
+	opts?: { ensureDefaultCategories?: boolean }
+): Promise<DashboardPlanData> {
+	const ensureDefaultCategories = opts?.ensureDefaultCategories ?? true;
 	// Keep category defaults in sync even if the DB predates new defaults.
-	await ensureDefaultCategoriesForBudgetPlan({ budgetPlanId: planId });
+	if (ensureDefaultCategories) {
+		await ensureDefaultCategoriesForBudgetPlan({ budgetPlanId: planId });
+	}
 
 	const selectedYear = now.getFullYear();
 	const selectedMonthNum = now.getMonth() + 1; // 1-12

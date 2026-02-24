@@ -23,6 +23,7 @@ import SettingsScreen from "@/screens/SettingsScreen";
 import PaymentsScreen from "@/screens/PaymentsScreen";
 import GoalsScreen from "@/screens/GoalsScreen";
 import GoalsProjectionScreen from "@/screens/GoalsProjectionScreen";
+import AnalyticsScreen from "@/screens/AnalyticsScreen";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -64,9 +65,22 @@ function MainTabs() {
       tabBar={(props) => <PillTabBar {...props} />}
       screenOptions={({ navigation }) => ({
         headerShown: true,
-        header: () => (
-          <TopHeader onSettings={() => navigation.navigate("Settings")} />
-        ),
+        header: () => {
+          const openAnalytics = () => {
+            const parent = navigation.getParent();
+            if (parent) {
+              parent.navigate("Analytics" as never);
+            }
+          };
+
+          return (
+            <TopHeader
+              onSettings={() => navigation.navigate("Settings")}
+              onIncome={() => navigation.navigate("Income")}
+              onAnalytics={openAnalytics}
+            />
+          );
+        },
         sceneContainerStyle: { backgroundColor: T.bg },
         tabBarActiveTintColor: T.accent,
         tabBarInactiveTintColor: T.textDim,
@@ -80,15 +94,6 @@ function MainTabs() {
             <Ionicons name="home-outline" size={size} color={color} />
           ),
           tabBarLabel: "Home",
-        }}
-      />
-      <Tab.Screen
-        name="Income"
-        component={IncomeStackNavigator}
-        options={{
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="wallet-outline" size={size} color={color} />
-          ),
         }}
       />
       <Tab.Screen
@@ -107,6 +112,22 @@ function MainTabs() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="card-outline" size={size} color={color} />
           ),
+        }}
+      />
+      <Tab.Screen
+        name="Goals"
+        component={GoalsScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="flag-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Income"
+        component={IncomeStackNavigator}
+        options={{
+          tabBarButton: () => null,
         }}
       />
       <Tab.Screen
@@ -137,6 +158,7 @@ export default function RootNavigator() {
         <>
           <Stack.Screen name="Main" component={MainTabs} />
           <Stack.Screen name="Payments" component={PaymentsScreen} />
+          <Stack.Screen name="Analytics" component={AnalyticsScreen} />
           <Stack.Screen name="Goals" component={GoalsScreen} />
           <Stack.Screen name="GoalsProjection" component={GoalsProjectionScreen} />
         </>

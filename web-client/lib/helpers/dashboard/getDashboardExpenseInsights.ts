@@ -138,16 +138,22 @@ export async function getDashboardExpenseInsights({
 	const prevMonthNum = prev.getMonth() + 1;
 
 	const historyPairs = Array.from({ length: 6 }, (_, i) => addMonthsUtc(currentYear, currentMonthNum, -i));
-	const historyOr = historyPairs.map((p) => ({ year: p.year, month: p.monthNum }));
+	const upcomingMonthPairs = Array.from({ length: 3 }, (_, i) => addMonthsUtc(currentYear, currentMonthNum, i));
+	const forecastPairs = Array.from({ length: 4 }, (_, i) => addMonthsUtc(currentYear, currentMonthNum, i));
 
-	const [insightRows, historyRows, userRow] = await Promise.all([
+	const expenseWindowPairs = Array.from(
+		new Map(
+			[...historyPairs, ...upcomingMonthPairs, ...forecastPairs].map((p) => [`${p.year}-${p.monthNum}`, p])
+		).values()
+	);
+	const expenseWindowOr = expenseWindowPairs.map((p) => ({ year: p.year, month: p.monthNum }));
+	const forecastOr = forecastPairs.map((p) => ({ year: p.year, month: p.monthNum }));
+
+	const [expenseWindowRows, forecastIncomeRows, userRow] = await Promise.all([
 		prisma.expense.findMany({
 			where: {
 				budgetPlanId,
-				OR: [
-					{ year: currentYear, month: currentMonthNum },
-					{ year: prevYear, month: prevMonthNum },
-				],
+				OR: expenseWindowOr,
 			},
 			select: {
 				id: true,
@@ -160,28 +166,16 @@ export async function getDashboardExpenseInsights({
 				month: true,
 			},
 		}),
-		prisma.expense.findMany({
-			where: {
-				budgetPlanId,
-				OR: historyOr,
-			},
-			select: {
-				id: true,
-				name: true,
-				amount: true,
-				paid: true,
-				paidAmount: true,
-				dueDate: true,
-				year: true,
-				month: true,
-			},
+		prisma.income.findMany({
+			where: { budgetPlanId, OR: forecastOr },
+			select: { amount: true, year: true, month: true },
 		}),
 		userId
 			? prisma.user.findUnique({ where: { id: userId }, select: { createdAt: true } })
 			: Promise.resolve(null),
 	]);
 
-	const toExpenseItem = (e: (typeof insightRows)[number]): ExpenseItem => ({
+	const toExpenseItem = (e: (typeof expenseWindowRows)[number]): ExpenseItem => ({
 		id: e.id,
 		name: e.name,
 		amount: toNumber(e.amount),
@@ -189,52 +183,36 @@ export async function getDashboardExpenseInsights({
 		paidAmount: toNumber(e.paidAmount),
 		dueDate: e.dueDate ? e.dueDate.toISOString().split("T")[0] : undefined,
 	});
+	const yearMonthKey = (year: number, monthNum: number) => `${year}-${monthNum}`;
+	const historyKeySet = new Set(historyPairs.map((p) => yearMonthKey(p.year, p.monthNum)));
+	const forecastKeySet = new Set(forecastPairs.map((p) => yearMonthKey(p.year, p.monthNum)));
 
-	const currentMonthExpenses = insightRows
-		.filter((e) => e.year === currentYear && e.month === currentMonthNum)
-		.map(toExpenseItem);
-	const prevMonthExpenses = insightRows
-		.filter((e) => e.year === prevYear && e.month === prevMonthNum)
-		.map(toExpenseItem);
-
-	const upcomingMonthPairs = Array.from({ length: 3 }, (_, i) => addMonthsUtc(currentYear, currentMonthNum, i));
-	const upcomingMonthOr = upcomingMonthPairs.map((p) => ({ year: p.year, month: p.monthNum }));
-	const upcomingExpenseRows = await prisma.expense.findMany({
-		where: { budgetPlanId, OR: upcomingMonthOr },
-		select: {
-			id: true,
-			name: true,
-			amount: true,
-			paid: true,
-			paidAmount: true,
-			dueDate: true,
-			year: true,
-			month: true,
+	const expenseRowsByMonth = expenseWindowRows.reduce(
+		(acc, row) => {
+			const key = yearMonthKey(row.year, row.month);
+			if (!acc[key]) acc[key] = [];
+			acc[key].push(row);
+			return acc;
 		},
-	});
+		{} as Record<string, typeof expenseWindowRows>
+	);
 
-	const historyExpenses: DatedExpenseItem[] = historyRows.map((e) => ({
-		...toExpenseItem(e),
-		year: e.year,
-		monthNum: e.month,
-	}));
+	const currentMonthKey = yearMonthKey(currentYear, currentMonthNum);
+	const prevMonthKey = yearMonthKey(prevYear, prevMonthNum);
+	const currentMonthExpenses = (expenseRowsByMonth[currentMonthKey] ?? []).map(toExpenseItem);
+	const prevMonthExpenses = (expenseRowsByMonth[prevMonthKey] ?? []).map(toExpenseItem);
 
-	const forecastPairs = Array.from({ length: 4 }, (_, i) => addMonthsUtc(currentYear, currentMonthNum, i));
-	const forecastOr = forecastPairs.map((p) => ({ year: p.year, month: p.monthNum }));
-
-	const [forecastExpenseRows, forecastIncomeRows] = await Promise.all([
-		prisma.expense.findMany({
-			where: { budgetPlanId, OR: forecastOr },
-			select: { amount: true, year: true, month: true },
-		}),
-		prisma.income.findMany({
-			where: { budgetPlanId, OR: forecastOr },
-			select: { amount: true, year: true, month: true },
-		}),
-	]);
+	const historyExpenses: DatedExpenseItem[] = expenseWindowRows
+		.filter((e) => historyKeySet.has(yearMonthKey(e.year, e.month)))
+		.map((e) => ({
+			...toExpenseItem(e),
+			year: e.year,
+			monthNum: e.month,
+		}));
 
 	const expenseTotalsByMonth = new Map<string, number>();
-	for (const r of forecastExpenseRows) {
+	for (const r of expenseWindowRows) {
+		if (!forecastKeySet.has(yearMonthKey(r.year, r.month))) continue;
 		const key = `${r.year}-${r.month}`;
 		expenseTotalsByMonth.set(key, (expenseTotalsByMonth.get(key) ?? 0) + toNumber(r.amount));
 	}
@@ -276,9 +254,7 @@ export async function getDashboardExpenseInsights({
 
 	const upcomingExpenses = upcomingMonthPairs
 		.flatMap((p) => {
-			const monthExpenses = upcomingExpenseRows
-				.filter((e) => e.year === p.year && e.month === p.monthNum)
-				.map(toExpenseItem);
+			const monthExpenses = (expenseRowsByMonth[yearMonthKey(p.year, p.monthNum)] ?? []).map(toExpenseItem);
 
 			return computeUpcomingPayments(monthExpenses, {
 				year: p.year,

@@ -1,8 +1,13 @@
 import "server-only";
 
-function isRetryableConnectionError(error: unknown): boolean {
-	const code =
-		error && typeof error === "object" && "code" in error ? String((error as any).code ?? "") : "";
+type ErrorWithCode = { code?: unknown };
+
+function hasCode(error: unknown): error is ErrorWithCode {
+	return Boolean(error) && typeof error === "object" && "code" in error;
+}
+
+export function isRetryableConnectionError(error: unknown): boolean {
+	const code = hasCode(error) ? String(error.code ?? "") : "";
 	const message = error instanceof Error ? error.message : String(error ?? "");
 	return (
 		code === "P1017" ||

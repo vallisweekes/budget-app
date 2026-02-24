@@ -53,6 +53,7 @@ export async function GET(req: NextRequest) {
 		if (!userId) return unauthorized();
 
 		const { searchParams } = new URL(req.url);
+		const shouldSync = searchParams.get("sync") === "1";
 		const budgetPlanId = await resolveOwnedBudgetPlanId({
 			userId,
 			budgetPlanId: searchParams.get("budgetPlanId"),
@@ -65,11 +66,11 @@ export async function GET(req: NextRequest) {
 			try {
 				return await getDebtSummaryForPlan(budgetPlanId, {
 					includeExpenseDebts: true,
-					ensureSynced: true,
+					ensureSynced: shouldSync,
 				});
 			} catch (error) {
 				// Debt sync routines are helpful but should not hard-fail the UI.
-				console.error("Debt summary: sync failed, retrying without ensureSynced:", error);
+				console.error("Debt summary: failed, retrying without ensureSynced:", error);
 				return await getDebtSummaryForPlan(budgetPlanId, {
 					includeExpenseDebts: true,
 					ensureSynced: false,
@@ -81,26 +82,28 @@ export async function GET(req: NextRequest) {
 		const expenseIds = Array.from(
 			new Set(summary.allDebts.map((d) => String(d.sourceExpenseId ?? "").trim()).filter(Boolean))
 		);
-		const lastPaymentRows = debtIds.length
-			? await prisma.debtPayment.groupBy({
-					by: ["debtId"],
-					where: { debtId: { in: debtIds } },
-					_max: { paidAt: true },
-			  })
-			: [];
-		const lastExpensePaymentRows = expenseIds.length
-			? await prisma.expensePayment.groupBy({
-					by: ["expenseId"],
-					where: { expenseId: { in: expenseIds } },
-					_max: { paidAt: true },
-			  })
-			: [];
-		const paidExpenseRows = expenseIds.length
-			? await prisma.expense.findMany({
-					where: { id: { in: expenseIds } },
-					select: { id: true, amount: true, paidAmount: true, paid: true, updatedAt: true },
-			  })
-			: [];
+		const [lastPaymentRows, lastExpensePaymentRows, paidExpenseRows] = await Promise.all([
+			debtIds.length
+				? prisma.debtPayment.groupBy({
+						by: ["debtId"],
+						where: { debtId: { in: debtIds } },
+						_max: { paidAt: true },
+				  })
+				: Promise.resolve([]),
+			expenseIds.length
+				? prisma.expensePayment.groupBy({
+						by: ["expenseId"],
+						where: { expenseId: { in: expenseIds } },
+						_max: { paidAt: true },
+				  })
+				: Promise.resolve([]),
+			expenseIds.length
+				? prisma.expense.findMany({
+						where: { id: { in: expenseIds } },
+						select: { id: true, amount: true, paidAmount: true, paid: true, updatedAt: true },
+				  })
+				: Promise.resolve([]),
+		]);
 		const lastPaidAtByDebtId = new Map(
 			lastPaymentRows.map((row) => [row.debtId, row._max.paidAt ? row._max.paidAt.toISOString() : null])
 		);

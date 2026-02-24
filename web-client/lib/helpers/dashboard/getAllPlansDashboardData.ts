@@ -26,7 +26,7 @@ export async function getAllPlansDashboardData({
 		const planDataPairs = await Promise.all(
 			plans.map(async (plan) => {
 				if (plan.id === budgetPlanId && currentPlanData) return [plan.id, currentPlanData] as const;
-				return [plan.id, await getDashboardPlanData(plan.id, now)] as const;
+				return [plan.id, await getDashboardPlanData(plan.id, now, { ensureDefaultCategories: false })] as const;
 			})
 		);
 		return Object.fromEntries(planDataPairs);

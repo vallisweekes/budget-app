@@ -187,37 +187,92 @@ export async function getMultiPlanHealthTips(args: {
 	// 3) Event plan visibility: if a plan has no expenses this month, point to the next month with expenses (even across years).
 	const largestByPlan = args.largestExpensesByPlan ?? {};
 	if (hasOtherPlans) {
-		for (const p of plans) {
+		const eventPlans = plans.filter((p) => {
 			const key = String(p.kind ?? "").toLowerCase();
-			if (key !== "holiday" && key !== "carnival") continue;
+			return key === "holiday" || key === "carnival";
+		});
+		const eventPlanIds = eventPlans.map((p) => p.id);
+		const since = new Date(now.getTime() - 21 * 24 * 60 * 60 * 1000);
+
+		const [recentAddsByPlanRows, lastTouchedRows, recentPaymentRows] = eventPlanIds.length
+			? await Promise.all([
+				prisma.expense.groupBy({
+					by: ["budgetPlanId"],
+					where: { budgetPlanId: { in: eventPlanIds }, createdAt: { gte: since } },
+					_count: { _all: true },
+				}),
+				prisma.expense.findMany({
+					where: { budgetPlanId: { in: eventPlanIds } },
+					select: { budgetPlanId: true, name: true, updatedAt: true },
+					orderBy: [{ budgetPlanId: "asc" }, { updatedAt: "desc" }],
+					distinct: ["budgetPlanId"],
+				}),
+				prisma.expensePayment.findMany({
+					where: { createdAt: { gte: since }, expense: { budgetPlanId: { in: eventPlanIds } } },
+					select: { expense: { select: { budgetPlanId: true } } },
+				}),
+			])
+			: [[], [], [] as Array<{ expense: { budgetPlanId: string } | null }>];
+
+		const recentAddsByPlan = new Map(
+			recentAddsByPlanRows.map((row) => [row.budgetPlanId, row._count._all])
+		);
+		const lastTouchedByPlan = new Map(
+			lastTouchedRows.map((row) => [row.budgetPlanId, { name: row.name, updatedAt: row.updatedAt }])
+		);
+		const recentPaymentsByPlan = new Map<string, number>();
+		for (const row of recentPaymentRows) {
+			const planId = row.expense?.budgetPlanId;
+			if (!planId) continue;
+			recentPaymentsByPlan.set(planId, (recentPaymentsByPlan.get(planId) ?? 0) + 1);
+		}
+
+		const nextMonthKeys = Array.from(
+			new Set(
+				eventPlans
+					.map((plan) => {
+						const next = largestByPlan[plan.id];
+						if (!next) return null;
+						if (next.year === currentYear && next.month === currentMonthNum) return null;
+						return `${next.year}-${next.month}`;
+					})
+					.filter((value): value is string => Boolean(value))
+			)
+		);
+
+		const mainIncomeByMonth = new Map<string, number>();
+		if (mainPlan && nextMonthKeys.length > 0) {
+			const nextMonthOr = nextMonthKeys.map((value) => {
+				const [year, month] = value.split("-").map(Number);
+				return { year, month };
+			});
+			const incomeAggRows = await prisma.income.groupBy({
+				by: ["year", "month"],
+				where: {
+					budgetPlanId: mainPlan.id,
+					OR: nextMonthOr,
+				},
+				_sum: { amount: true },
+			});
+			for (const row of incomeAggRows) {
+				mainIncomeByMonth.set(`${row.year}-${row.month}`, toNumber(row._sum.amount));
+			}
+		}
+
+		for (const p of eventPlans) {
+			const key = String(p.kind ?? "").toLowerCase();
 			const next = largestByPlan[p.id];
 			if (!next) continue;
 			const isCurrent = next.year === currentYear && next.month === currentMonthNum;
 			if (isCurrent) continue;
-
-			const since = new Date(now.getTime() - 21 * 24 * 60 * 60 * 1000);
-			const [recentAdds, lastTouched, recentPayments] = await Promise.all([
-				prisma.expense.count({ where: { budgetPlanId: p.id, createdAt: { gte: since } } }),
-				prisma.expense.findFirst({
-					where: { budgetPlanId: p.id },
-					select: { name: true, updatedAt: true },
-					orderBy: { updatedAt: "desc" },
-				}),
-				prisma.expensePayment.count({
-					where: { expense: { budgetPlanId: p.id }, createdAt: { gte: since } },
-				}),
-			]);
+			const recentAdds = recentAddsByPlan.get(p.id) ?? 0;
+			const lastTouched = lastTouchedByPlan.get(p.id) ?? null;
+			const recentPayments = recentPaymentsByPlan.get(p.id) ?? 0;
 
 			const nextItems = Array.isArray(next.items) ? next.items : [];
 			const nextTotal = nextItems.reduce((sum, it) => sum + toNumber(it.amount), 0);
 
-			const mainIncomeAgg = mainPlan
-				? await prisma.income.aggregate({
-						where: { budgetPlanId: mainPlan.id, year: next.year, month: next.month },
-						_sum: { amount: true },
-				  })
-				: null;
-			const mainIncomeTotal = toNumber(mainIncomeAgg?._sum?.amount);
+			const mainIncomeTotal = mainPlan ? (mainIncomeByMonth.get(`${next.year}-${next.month}`) ?? 0) : 0;
 			const largest = nextItems.reduce<{ name: string; amount: number } | null>((best, it) => {
 				const amt = toNumber(it.amount);
 				if (!(amt > 0)) return best;

@@ -4,6 +4,7 @@ import { PrismaClient } from "@prisma/client";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { isRetryableConnectionError } from "@/lib/prismaRetry";
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
@@ -34,6 +35,12 @@ function withConnectionLimits(url: string | undefined): string | undefined {
     if (!parsed.searchParams.has("pool_timeout")) {
       parsed.searchParams.set("pool_timeout", "20");
     }
+    if (!parsed.searchParams.has("connect_timeout")) {
+      parsed.searchParams.set("connect_timeout", "15");
+    }
+    if (parsed.searchParams.get("pgbouncer") === "true" && !parsed.searchParams.has("statement_cache_size")) {
+      parsed.searchParams.set("statement_cache_size", "0");
+    }
     return parsed.toString();
   } catch {
     return url;
@@ -49,7 +56,43 @@ function resolvePrismaUrl(): string | undefined {
 
 const prismaSchemaHash = getPrismaSchemaHash();
 
-export const prisma =
+const RETRYABLE_READ_OPERATIONS = new Set([
+  "findUnique",
+  "findUniqueOrThrow",
+  "findFirst",
+  "findFirstOrThrow",
+  "findMany",
+  "count",
+  "aggregate",
+  "groupBy",
+  "queryRaw",
+]);
+
+let reconnectInFlight: Promise<void> | null = null;
+
+async function reconnectClient(client: PrismaClient): Promise<void> {
+  if (!reconnectInFlight) {
+    reconnectInFlight = (async () => {
+      try {
+        await client.$disconnect();
+      } catch {
+      }
+      try {
+        await client.$connect();
+      } catch {
+      }
+    })().finally(() => {
+      reconnectInFlight = null;
+    });
+  }
+  await reconnectInFlight;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+const basePrisma =
   globalForPrisma.prisma && (!prismaSchemaHash || globalForPrisma.prismaSchemaHash === prismaSchemaHash)
     ? globalForPrisma.prisma
     : new PrismaClient({
@@ -61,7 +104,28 @@ export const prisma =
     log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
   });
 
+export const prisma = basePrisma.$extends({
+  query: {
+    $allModels: {
+      async $allOperations({ operation, args, query }) {
+        try {
+          return await query(args);
+        } catch (error) {
+          const isSafeRead = RETRYABLE_READ_OPERATIONS.has(operation);
+          if (!isSafeRead || !isRetryableConnectionError(error)) {
+            throw error;
+          }
+
+          await reconnectClient(basePrisma);
+          await sleep(40);
+          return await query(args);
+        }
+      },
+    },
+  },
+});
+
 if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
+  globalForPrisma.prisma = basePrisma;
   globalForPrisma.prismaSchemaHash = prismaSchemaHash;
 }
