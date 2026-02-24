@@ -33,7 +33,7 @@ For PWA push notifications (web push):
 For Logo.dev expense logos:
 
 - `LOGO_DEV_PUBLISHABLE_KEY` (used for image CDN token param)
-- `LOGO_DEV_SECRET_KEY` (server-only; reserved for advanced Brand/Describe API usage)
+- `LOGO_DEV_SECRET_KEY` (server-only; used for Search API fallback when domain is unknown)
 
 On Vercel: add these under Project → Settings → Environment Variables, then redeploy.
 

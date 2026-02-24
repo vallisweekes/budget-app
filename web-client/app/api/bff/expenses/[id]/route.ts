@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getSessionUserId } from "@/lib/api/bffAuth";
 import { upsertExpenseDebt } from "@/lib/debts/store";
 import { monthNumberToKey } from "@/lib/helpers/monthKey";
-import { resolveExpenseLogo } from "@/lib/expenses/logoResolver";
+import { resolveExpenseLogoWithSearch } from "@/lib/expenses/logoResolver";
 
 export const runtime = "nodejs";
 
@@ -121,7 +121,10 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   }
 
   const nextName = name ?? existing.name;
-  const logo = resolveExpenseLogo(nextName, merchantDomain === undefined ? existing.merchantDomain : merchantDomain);
+  const logo = await resolveExpenseLogoWithSearch(
+    nextName,
+    merchantDomain === undefined ? existing.merchantDomain : merchantDomain
+  );
   const nextAmountNumber = amount ?? Number(existing.amount.toString());
 
   // Explicit paid toggle (from mobile client) takes priority

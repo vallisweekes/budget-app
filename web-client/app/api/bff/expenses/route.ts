@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
 import { addOrUpdateExpenseAcrossMonths } from "@/lib/expenses/store";
+import { resolveExpenseLogoWithSearch } from "@/lib/expenses/logoResolver";
 import { MONTHS } from "@/lib/constants/time";
 import type { MonthKey } from "@/types";
 
@@ -134,11 +135,13 @@ export async function POST(req: NextRequest) {
   }
 
   const sharedId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const logo = await resolveExpenseLogoWithSearch(name);
 
   for (const y of targetYears) {
     await addOrUpdateExpenseAcrossMonths(ownedBudgetPlanId, y, monthsForYear(y), {
       id: sharedId,
       name,
+      merchantDomain: logo.merchantDomain ?? undefined,
       amount,
       categoryId,
       paid,

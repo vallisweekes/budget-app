@@ -8,6 +8,7 @@ const LOGO_DEV_PUBLISHABLE_KEY =
   process.env.LOGO_DEV_PUBLISHABLE_KEY?.trim() ||
   process.env.LOGO_DEV_TOKEN?.trim() ||
   "";
+const LOGO_DEV_SECRET_KEY = process.env.LOGO_DEV_SECRET_KEY?.trim() || "";
 
 const KNOWN_DOMAINS: Array<{ pattern: RegExp; domain: string }> = [
   { pattern: /\bnetflix\b/i, domain: "netflix.com" },
@@ -70,4 +71,40 @@ export function resolveExpenseLogo(name: string, merchantDomain?: string | null)
     logoUrl: `https://img.logo.dev/${encodeURIComponent(domain)}?${params.toString()}`,
     logoSource: explicitDomain ? "manual" : "inferred",
   };
+}
+
+export async function resolveExpenseLogoWithSearch(
+  name: string,
+  merchantDomain?: string | null
+): Promise<ResolvedExpenseLogo> {
+  const base = resolveExpenseLogo(name, merchantDomain);
+  if (base.merchantDomain) return base;
+
+  const query = String(name ?? "").trim();
+  if (!query || !LOGO_DEV_SECRET_KEY) return base;
+
+  try {
+    const response = await fetch(
+      `https://api.logo.dev/search?q=${encodeURIComponent(query)}`,
+      {
+        headers: { Authorization: `Bearer ${LOGO_DEV_SECRET_KEY}` },
+        cache: "no-store",
+      }
+    );
+    if (!response.ok) return base;
+
+    const payload = (await response.json().catch(() => null)) as
+      | Array<{ domain?: string | null }>
+      | null;
+    const firstDomain = sanitizeDomain(payload?.[0]?.domain ?? null);
+    if (!firstDomain) return base;
+
+    const resolved = resolveExpenseLogo(query, firstDomain);
+    return {
+      ...resolved,
+      logoSource: "search",
+    };
+  } catch {
+    return base;
+  }
 }
