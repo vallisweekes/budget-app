@@ -168,7 +168,7 @@ async function runTests() {
   console.log("=" .repeat(60));
 
   const cookieHeader = await resolveAuthCookieHeader();
-  const authHeaders = cookieHeader ? { Cookie: cookieHeader } : {};
+  const authHeaders: Record<string, string> = cookieHeader ? { Cookie: cookieHeader } : {};
 
   if (!cookieHeader) {
     console.log("\n⚠️  No auth cookie available.");
@@ -181,7 +181,7 @@ async function runTests() {
   // Test Categories
   console.log("\n📁 Testing Categories API...");
   const categoriesTest = await testEndpoint("GET /categories", "/categories", {
-    headers: { ...authHeaders },
+    headers: authHeaders,
   });
   results.push(categoriesTest);
   console.log(
@@ -196,7 +196,7 @@ async function runTests() {
     "GET /expenses",
     "/expenses?month=2&year=2026"
     ,
-    { headers: { ...authHeaders } }
+    { headers: authHeaders }
   );
   results.push(expensesTest);
   console.log(
@@ -211,7 +211,7 @@ async function runTests() {
     "GET /income",
     "/income?month=2&year=2026"
     ,
-    { headers: { ...authHeaders } }
+    { headers: authHeaders }
   );
   results.push(incomeTest);
   console.log(
@@ -223,7 +223,7 @@ async function runTests() {
   // Test Debts
   console.log("\n💳 Testing Debts API...");
   const debtsTest = await testEndpoint("GET /debts", "/debts", {
-    headers: { ...authHeaders },
+    headers: authHeaders,
   });
   results.push(debtsTest);
   console.log(
@@ -235,7 +235,7 @@ async function runTests() {
   // Test Goals
   console.log("\n🎯 Testing Goals API...");
   const goalsTest = await testEndpoint("GET /goals", "/goals", {
-    headers: { ...authHeaders },
+    headers: authHeaders,
   });
   results.push(goalsTest);
   console.log(
@@ -247,7 +247,7 @@ async function runTests() {
   // Test Settings
   console.log("\n⚙️  Testing Settings API...");
   const settingsTest = await testEndpoint("GET /settings", "/settings", {
-    headers: { ...authHeaders },
+    headers: authHeaders,
   });
   results.push(settingsTest);
   console.log(
