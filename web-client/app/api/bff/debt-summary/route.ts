@@ -79,15 +79,25 @@ export async function GET(req: NextRequest) {
 		})();
 
 		const debtIds = summary.allDebts.map((d) => d.id);
+		const now = new Date();
+		const paymentYear = now.getUTCFullYear();
+		const paymentMonth = now.getUTCMonth() + 1;
 		const expenseIds = Array.from(
 			new Set(summary.allDebts.map((d) => String(d.sourceExpenseId ?? "").trim()).filter(Boolean))
 		);
-		const [lastPaymentRows, lastExpensePaymentRows, paidExpenseRows] = await Promise.all([
+		const [lastPaymentRows, paidThisMonthRows, lastExpensePaymentRows, paidExpenseRows] = await Promise.all([
 			debtIds.length
 				? prisma.debtPayment.groupBy({
 						by: ["debtId"],
 						where: { debtId: { in: debtIds } },
 						_max: { paidAt: true },
+				  })
+				: Promise.resolve([]),
+			debtIds.length
+				? prisma.debtPayment.groupBy({
+						by: ["debtId"],
+						where: { debtId: { in: debtIds }, year: paymentYear, month: paymentMonth },
+						_sum: { amount: true },
 				  })
 				: Promise.resolve([]),
 			expenseIds.length
@@ -110,6 +120,9 @@ export async function GET(req: NextRequest) {
 		const lastPaidAtByExpenseId = new Map(
 			lastExpensePaymentRows.map((row) => [row.expenseId, row._max.paidAt ? row._max.paidAt.toISOString() : null])
 		);
+		const paidThisMonthByDebtId = new Map(
+			paidThisMonthRows.map((row) => [row.debtId, Number(row._sum.amount ?? 0)])
+		);
 		const fallbackLastPaidAtByExpenseId = new Map(
 			paidExpenseRows
 				.filter((e) => {
@@ -121,7 +134,13 @@ export async function GET(req: NextRequest) {
 		);
 
 		// Add computed monthly payment to each debt
-		const debtsWithPayments = summary.allDebts.map((d) => ({
+		const debtsWithPayments = summary.allDebts.map((d) => {
+			const computedMonthlyPayment = getDebtMonthlyPayment(d);
+			const paidThisMonth = paidThisMonthByDebtId.get(d.id) ?? 0;
+			const dueThisMonth = Math.max(0, computedMonthlyPayment);
+			const isPaymentMonthPaid = dueThisMonth > 0 && paidThisMonth >= dueThisMonth;
+
+			return {
 			id: d.id,
 			name: d.name,
 			type: d.type,
@@ -147,9 +166,13 @@ export async function GET(req: NextRequest) {
 				lastPaidAtByExpenseId.get(String(d.sourceExpenseId ?? "").trim()) ??
 				fallbackLastPaidAtByExpenseId.get(String(d.sourceExpenseId ?? "").trim()) ??
 				null,
-			computedMonthlyPayment: getDebtMonthlyPayment(d),
+			computedMonthlyPayment,
+			dueThisMonth,
+			paidThisMonth,
+			isPaymentMonthPaid,
 			isActive: (d.currentBalance ?? 0) > 0,
-		}));
+			};
+		});
 
 		const totalMonthlyDebtPayments = getTotalMonthlyDebtPayments(summary.allDebts);
 

@@ -58,6 +58,9 @@ function DebtCard({
       ? Math.min(100, ((debt.initialBalance - debt.currentBalance) / debt.initialBalance) * 100)
       : 100;
   const isPaid = debt.paid || debt.currentBalance <= 0;
+  const dueThisMonth = Math.max(0, debt.dueThisMonth ?? debt.computedMonthlyPayment ?? 0);
+  const paidThisMonth = Math.max(0, debt.paidThisMonth ?? 0);
+  const isPaymentMonthPaid = Boolean(debt.isPaymentMonthPaid) || (dueThisMonth > 0 && paidThisMonth >= dueThisMonth);
 
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [s.card, pressed && s.cardPressed]}>
@@ -100,6 +103,11 @@ function DebtCard({
 
         {/* Footer */}
         <View style={s.cardFooter}>
+          {!isPaid && dueThisMonth > 0 && (
+            <Text style={s.cardMetaStrong}>
+              {isPaymentMonthPaid ? "Paid this month" : "Due this month"} {fmt(isPaymentMonthPaid ? paidThisMonth : dueThisMonth, currency)}
+            </Text>
+          )}
           {debt.interestRate != null && debt.interestRate > 0 && (
             <Text style={s.cardMeta}>{debt.interestRate}% APR</Text>
           )}
@@ -779,6 +787,7 @@ const s = StyleSheet.create({
   progressFill: { height: "100%", borderRadius: 3 },
   progressPct: { color: T.textDim, fontSize: 11, fontWeight: "600" },
   cardFooter: { flexDirection: "row", alignItems: "center", gap: 10 },
+  cardMetaStrong: { color: T.accent, fontSize: 12, fontWeight: "800" },
   cardMeta: { color: T.textDim, fontSize: 12, fontWeight: "600" },
   paidBadge: { flexDirection: "row", alignItems: "center", gap: 4 },
   paidBadgeText: { color: T.green, fontSize: 12, fontWeight: "600" },

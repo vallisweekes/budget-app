@@ -3,7 +3,7 @@ import "server-only";
 type ErrorWithCode = { code?: unknown };
 
 function hasCode(error: unknown): error is ErrorWithCode {
-	return Boolean(error) && typeof error === "object" && "code" in error;
+	return typeof error === "object" && error !== null && "code" in error;
 }
 
 export function isRetryableConnectionError(error: unknown): boolean {

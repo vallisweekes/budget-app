@@ -9,9 +9,10 @@ interface Props {
   onSettings: () => void;
   onIncome: () => void;
   onAnalytics: () => void;
+  onNotifications: () => void;
 }
 
-export default function TopHeader({ onSettings, onIncome, onAnalytics }: Props) {
+export default function TopHeader({ onSettings, onIncome, onAnalytics, onNotifications }: Props) {
   const insets = useSafeAreaInsets();
   const { username } = useAuth();
 
@@ -32,6 +33,9 @@ export default function TopHeader({ onSettings, onIncome, onAnalytics }: Props) 
           </Pressable>
           <Pressable onPress={onAnalytics} style={s.iconBtn} hitSlop={10}>
             <Ionicons name="stats-chart-outline" size={18} color={T.accent} />
+          </Pressable>
+          <Pressable onPress={onNotifications} style={s.iconBtn} hitSlop={10}>
+            <Ionicons name="notifications-outline" size={18} color={T.accent} />
           </Pressable>
         </View>
       </View>

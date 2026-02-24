@@ -11,9 +11,13 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  Modal,
+  TouchableOpacity,
+  Switch,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import {
   useNavigation,
   useRoute,
@@ -199,6 +203,10 @@ export default function DebtDetailScreen() {
   const [editRate, setEditRate] = useState("");
   const [editMin, setEditMin] = useState("");
   const [editDue, setEditDue] = useState("");
+  const [editInstallment, setEditInstallment] = useState("");
+  const [editDueDate, setEditDueDate] = useState("");
+  const [editAutoPay, setEditAutoPay] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
 
   const currency = currencySymbol(settings?.currency);
@@ -219,6 +227,9 @@ export default function DebtDetailScreen() {
       setEditRate(d.interestRate != null ? String(d.interestRate) : "");
       setEditMin(d.monthlyMinimum != null ? String(d.monthlyMinimum) : "");
       setEditDue(d.dueDay != null ? String(d.dueDay) : "");
+      setEditInstallment(d.installmentMonths != null ? String(d.installmentMonths) : "");
+      setEditDueDate(d.dueDate ? String(d.dueDate).slice(0, 10) : "");
+      setEditAutoPay((d.defaultPaymentSource ?? "income") === "income");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load debt");
     } finally {
@@ -295,6 +306,9 @@ export default function DebtDetailScreen() {
           interestRate: editRate ? parseFloat(editRate) : null,
           monthlyMinimum: editMin ? parseFloat(editMin) : null,
           dueDay: editDue ? parseInt(editDue, 10) : null,
+          installmentMonths: editInstallment ? parseInt(editInstallment, 10) : null,
+          dueDate: editDueDate || null,
+          defaultPaymentSource: editAutoPay ? "income" : "extra_funds",
         },
       });
       setEditing(false);
@@ -329,14 +343,26 @@ export default function DebtDetailScreen() {
   };
 
   const currentBalNum = debt ? parseFloat(debt.currentBalance) : 0;
-  const originalBalNum = debt ? parseFloat(debt.originalBalance) : 0;
+  const originalBalNum = debt ? parseFloat((debt as Debt & { initialBalance?: string }).initialBalance ?? debt.originalBalance ?? "0") : 0;
+  const paidSoFarNum = debt ? Math.max(0, parseFloat(debt.paidAmount || "0")) : 0;
   const interestRateNum = debt?.interestRate != null ? parseFloat(debt.interestRate) : null;
   const monthlyMinNum = debt?.monthlyMinimum != null ? parseFloat(debt.monthlyMinimum) : null;
+  const creditLimitNum = debt?.creditLimit != null ? parseFloat(debt.creditLimit) : null;
+  const dueDateValue = debt?.dueDate ? new Date(debt.dueDate) : null;
+  const dueDateIso = dueDateValue && Number.isFinite(dueDateValue.getTime()) ? dueDateValue.toISOString().slice(0, 10) : null;
+  const dueDateLabel = dueDateValue && Number.isFinite(dueDateValue.getTime())
+    ? dueDateValue.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+    : null;
+  const isMissed = Boolean(dueDateValue && new Date().getTime() > dueDateValue.getTime() + 5 * 24 * 60 * 60 * 1000 && currentBalNum > 0);
+  const isOverdue = Boolean(dueDateValue && !isMissed && new Date().getTime() > dueDateValue.getTime() && currentBalNum > 0);
+  const isCardDebt = debt?.type === "credit_card" || debt?.type === "store_card";
   const isPaid = debt ? (debt.paid || currentBalNum <= 0) : false;
   const progressPct =
     originalBalNum > 0
-      ? Math.min(100, ((originalBalNum - currentBalNum) / originalBalNum) * 100)
-      : 100;
+      ? Math.min(100, (paidSoFarNum / originalBalNum) * 100)
+      : currentBalNum > 0
+        ? 0
+        : 100;
 
   if (loading) {
     return (
@@ -404,26 +430,39 @@ export default function DebtDetailScreen() {
             />
           }
         >
+          <View style={s.balanceHero}>
+            <Text style={s.balanceHeroLabel}>Current balance</Text>
+            <Text style={[s.balanceHeroValue, isPaid && { color: T.green }]}>
+              {isPaid ? "Paid off" : fmt(currentBalNum, currency)}
+            </Text>
+            <View style={s.balanceHeroPctPill}>
+              <Text style={s.balanceHeroPctTxt}>{progressPct.toFixed(1)}% paid off</Text>
+            </View>
+          </View>
+
           {/* Stats card */}
           <View style={s.statCard}>
             <View style={s.statRow}>
               <View style={s.statItem}>
-                <Text style={s.statLabel}>Current Balance</Text>
-                <Text style={[s.statValue, isPaid && { color: T.green }]}>
-                  {isPaid ? "Paid off" : fmt(currentBalNum, currency)}
-                </Text>
+                <Text style={s.statLabel}>{isCardDebt && (creditLimitNum ?? 0) > 0 ? "Credit limit" : "Original"}</Text>
+                <Text style={s.statValue}>{fmt(isCardDebt && (creditLimitNum ?? 0) > 0 ? (creditLimitNum ?? 0) : originalBalNum, currency)}</Text>
               </View>
               <View style={s.statItem}>
-                <Text style={s.statLabel}>Original</Text>
-                <Text style={s.statValue}>{fmt(originalBalNum, currency)}</Text>
+                <Text style={s.statLabel}>Paid so far</Text>
+                <Text style={[s.statValue, { color: T.green }]}> 
+                  {fmt(paidSoFarNum, currency)}
+                </Text>
               </View>
             </View>
             <View style={s.statRow}>
               <View style={s.statItem}>
-                <Text style={s.statLabel}>Paid so far</Text>
-                <Text style={[s.statValue, { color: T.green }]}>
-                  {fmt(originalBalNum - currentBalNum, currency)}
+                <Text style={s.statLabel}>Due date</Text>
+                <Text style={[s.statValue, isMissed ? { color: T.red } : isOverdue ? { color: T.orange } : null]}>
+                  {dueDateLabel ?? "Not set"}
                 </Text>
+                {dueDateIso ? (
+                  <Text style={s.statSub}>{isMissed ? "Missed (+5 day grace passed)" : isOverdue ? "Overdue" : "On schedule"}</Text>
+                ) : null}
               </View>
               {monthlyMinNum != null && monthlyMinNum > 0 && (
                 <View style={s.statItem}>
@@ -438,76 +477,120 @@ export default function DebtDetailScreen() {
                 </View>
               )}
             </View>
-            {/* Progress bar */}
-            <View style={s.progressWrap}>
-              <View style={s.progressBg}>
-                <View style={[s.progressFill, { width: `${progressPct}%` as `${number}%` }]} />
-              </View>
-              <Text style={s.progressPct}>{progressPct.toFixed(1)}% repaid</Text>
-            </View>
           </View>
 
           {/* Edit form */}
-          {editing && (
-            <View style={s.sectionCard}>
-              <Text style={s.sectionTitle}>Edit Debt</Text>
-              <View style={s.formGroup}>
-                <Text style={s.inputLabel}>Name</Text>
-                <TextInput
-                  style={s.input}
-                  value={editName}
-                  onChangeText={setEditName}
-                  placeholderTextColor={T.textMuted}
-                  autoFocus
-                />
-              </View>
-              <View style={s.formRow}>
-                <View style={s.formGroup}>
-                  <Text style={s.inputLabel}>Interest Rate %</Text>
-                  <TextInput
-                    style={s.input}
-                    value={editRate}
-                    onChangeText={setEditRate}
-                    keyboardType="decimal-pad"
-                    placeholder="0.00"
-                    placeholderTextColor={T.textMuted}
-                  />
+          <Modal
+            visible={editing}
+            transparent
+            animationType="slide"
+            presentationStyle="overFullScreen"
+            onRequestClose={() => setEditing(false)}
+          >
+            <KeyboardAvoidingView style={s.sheetOverlay} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+              <Pressable style={s.sheetBackdrop} onPress={() => setEditing(false)} />
+              <View style={s.sheetCard}>
+                <View style={s.sheetHandle} />
+                <Text style={s.sectionTitle}>Edit Debt</Text>
+
+                <ScrollView style={{ maxHeight: 440 }}>
+                  <View style={s.formGroup}>
+                    <Text style={s.inputLabel}>Name</Text>
+                    <TextInput
+                      style={s.input}
+                      value={editName}
+                      onChangeText={setEditName}
+                      placeholderTextColor={T.textMuted}
+                    />
+                  </View>
+
+                  <View style={s.formRow}>
+                    <View style={s.formGroup}>
+                      <Text style={s.inputLabel}>Interest Rate %</Text>
+                      <TextInput style={s.input} value={editRate} onChangeText={setEditRate} keyboardType="decimal-pad" placeholder="0.00" placeholderTextColor={T.textMuted} />
+                    </View>
+                    <View style={s.formGroup}>
+                      <Text style={s.inputLabel}>Min Monthly</Text>
+                      <TextInput style={s.input} value={editMin} onChangeText={setEditMin} keyboardType="decimal-pad" placeholder="0.00" placeholderTextColor={T.textMuted} />
+                    </View>
+                  </View>
+
+                  <View style={s.formRow}>
+                    <View style={s.formGroup}>
+                      <Text style={s.inputLabel}>Due day (1-31)</Text>
+                      <TextInput style={s.input} value={editDue} onChangeText={setEditDue} keyboardType="number-pad" placeholder="e.g. 15" placeholderTextColor={T.textMuted} />
+                    </View>
+                    <View style={s.formGroup}>
+                      <Text style={s.inputLabel}>Due date (calendar)</Text>
+                      <TouchableOpacity style={s.input} onPress={() => setShowDatePicker(true)}>
+                        <Text style={{ color: editDueDate ? T.text : T.textMuted, fontSize: 14 }}>
+                          {editDueDate || "Select date"}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  {showDatePicker ? (
+                    <View style={{ marginBottom: 12 }}>
+                      <DateTimePicker
+                        value={editDueDate ? new Date(`${editDueDate}T00:00:00`) : new Date()}
+                        mode="date"
+                        display={Platform.OS === "ios" ? "spinner" : "default"}
+                        onChange={(event, selectedDate) => {
+                          if (Platform.OS === "android") setShowDatePicker(false);
+                          if (event.type === "set" && selectedDate) {
+                            setEditDueDate(selectedDate.toISOString().slice(0, 10));
+                          }
+                        }}
+                      />
+                      {Platform.OS === "ios" ? (
+                        <Pressable onPress={() => setShowDatePicker(false)} style={[s.saveBtn, { marginTop: 6 }]}> 
+                          <Text style={s.saveBtnTxt}>Done</Text>
+                        </Pressable>
+                      ) : null}
+                    </View>
+                  ) : null}
+
+                  <View style={s.switchRow}>
+                    <Text style={s.inputLabel}>Direct debit / standing order</Text>
+                    <Switch
+                      value={editAutoPay}
+                      onValueChange={setEditAutoPay}
+                      trackColor={{ false: T.border, true: `${T.accent}66` }}
+                      thumbColor={editAutoPay ? T.accent : T.textMuted}
+                    />
+                  </View>
+
+                  <Text style={s.inputLabel}>Spread over months</Text>
+                  <View style={s.installmentRow}>
+                    {[0, 3, 6, 12, 24, 36].map((months) => {
+                      const active = (editInstallment || "0") === String(months);
+                      return (
+                        <Pressable
+                          key={months}
+                          onPress={() => setEditInstallment(months === 0 ? "" : String(months))}
+                          style={[s.installmentChip, active && s.installmentChipActive]}
+                        >
+                          <Text style={[s.installmentChipText, active && s.installmentChipTextActive]}>
+                            {months === 0 ? "None" : `${months} months`}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </ScrollView>
+
+                <View style={s.sheetActions}>
+                  <Pressable onPress={() => setEditing(false)} style={[s.cancelBtn, editSaving && s.disabled]}>
+                    <Text style={s.cancelBtnTxt}>Cancel</Text>
+                  </Pressable>
+                  <Pressable onPress={handleEdit} disabled={editSaving} style={[s.saveBtn, editSaving && s.disabled, { flex: 1 }]}> 
+                    {editSaving ? <ActivityIndicator size="small" color={T.onAccent} /> : <Text style={s.saveBtnTxt}>Save Changes</Text>}
+                  </Pressable>
                 </View>
-                <View style={s.formGroup}>
-                  <Text style={s.inputLabel}>Min Monthly</Text>
-                  <TextInput
-                    style={s.input}
-                    value={editMin}
-                    onChangeText={setEditMin}
-                    keyboardType="decimal-pad"
-                    placeholder="0.00"
-                    placeholderTextColor={T.textMuted}
-                  />
-                </View>
               </View>
-              <View style={[s.formGroup, { width: "48%" as `${number}%` }]}>
-                <Text style={s.inputLabel}>Due day (1-31)</Text>
-                <TextInput
-                  style={s.input}
-                  value={editDue}
-                  onChangeText={setEditDue}
-                  keyboardType="number-pad"
-                  placeholder="e.g. 15"
-                  placeholderTextColor={T.textMuted}
-                />
-              </View>
-              <Pressable
-                onPress={handleEdit}
-                disabled={editSaving}
-                style={[s.saveBtn, editSaving && s.disabled]}
-              >
-                {editSaving
-                  ? <ActivityIndicator size="small" color={T.onAccent} />
-                  : <Text style={s.saveBtnTxt}>Save Changes</Text>
-                }
-              </Pressable>
-            </View>
-          )}
+            </KeyboardAvoidingView>
+          </Modal>
 
           {/* Payoff projection + payment */}
           {!isPaid && (
@@ -598,6 +681,24 @@ const s = StyleSheet.create({
   },
   scroll: { padding: 14, gap: 14, paddingBottom: 40 },
 
+  balanceHero: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 8,
+    gap: 6,
+  },
+  balanceHeroLabel: { color: T.textDim, fontSize: 12, fontWeight: "800" },
+  balanceHeroValue: { color: T.text, fontSize: 34, fontWeight: "900" },
+  balanceHeroPctPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: `${T.accent}55`,
+    backgroundColor: `${T.accent}1F`,
+  },
+  balanceHeroPctTxt: { color: T.accent, fontSize: 12, fontWeight: "800" },
+
   statCard: {
     backgroundColor: T.card, borderRadius: 14, padding: 14,
     gap: 12, borderWidth: 2, borderColor: T.accentBorder,
@@ -606,10 +707,7 @@ const s = StyleSheet.create({
   statItem: { flex: 1 },
   statLabel: { color: T.textDim, fontSize: 11, fontWeight: "800", marginBottom: 4 },
   statValue: { color: T.text, fontSize: 16, fontWeight: "900" },
-  progressWrap: { gap: 4 },
-  progressBg: { height: 9, backgroundColor: T.border, borderRadius: 5, overflow: "hidden" },
-  progressFill: { height: "100%", borderRadius: 5, backgroundColor: T.accent },
-  progressPct: { color: T.textDim, fontSize: 12, fontWeight: "600" },
+  statSub: { color: T.textMuted, fontSize: 11, fontWeight: "600", marginTop: 2 },
 
   sectionCard: {
     backgroundColor: T.card, borderRadius: 14, padding: 14,
@@ -619,6 +717,32 @@ const s = StyleSheet.create({
 
   formGroup: { flex: 1, gap: 6 },
   formRow: { flexDirection: "row", gap: 10 },
+  installmentRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 2, marginBottom: 4 },
+  installmentChip: {
+    borderWidth: 1,
+    borderColor: T.border,
+    backgroundColor: T.cardAlt,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  installmentChipActive: {
+    borderColor: T.accent,
+    backgroundColor: `${T.accent}2A`,
+  },
+  installmentChipText: { color: T.textDim, fontSize: 12, fontWeight: "700" },
+  installmentChipTextActive: { color: T.accent, fontWeight: "800" },
+  switchRow: {
+    marginBottom: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: T.border,
+    borderRadius: 10,
+    backgroundColor: T.cardAlt,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
   inputLabel: { color: T.textDim, fontSize: 12, fontWeight: "800" },
   input: {
     backgroundColor: T.cardAlt,
@@ -631,8 +755,33 @@ const s = StyleSheet.create({
     borderColor: T.border,
   },
   saveBtn: { backgroundColor: T.accent, borderRadius: 8, paddingVertical: 11, alignItems: "center" },
+  cancelBtn: { backgroundColor: T.cardAlt, borderRadius: 8, paddingVertical: 11, alignItems: "center", flex: 1 },
+  cancelBtnTxt: { color: T.textDim, fontWeight: "700", fontSize: 14 },
   saveBtnTxt: { color: T.onAccent, fontWeight: "700", fontSize: 14 },
   disabled: { opacity: 0.5 },
+
+  sheetOverlay: { flex: 1, justifyContent: "flex-end" },
+  sheetBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.55)" },
+  sheetCard: {
+    backgroundColor: T.card,
+    height: "88%",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderTopWidth: 1,
+    borderTopColor: T.border,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 20,
+    gap: 10,
+  },
+  sheetHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: "center",
+    backgroundColor: T.border,
+  },
+  sheetActions: { flexDirection: "row", gap: 8, marginTop: 4 },
 
   payRow: { flexDirection: "row", gap: 10, alignItems: "center" },
   payBtn: {

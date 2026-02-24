@@ -554,26 +554,30 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
                 <Ionicons name="calendar-outline" size={20} color={T.accent} />
               </TouchableOpacity>
               {showDatePicker && (
-                <DateTimePicker
-                  value={editState?.dueDate ? new Date(editState.dueDate + 'T00:00:00') : new Date()}
-                  mode="date"
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                  onChange={(event, selectedDate) => {
-                    if (Platform.OS === 'android') {
-                      setShowDatePicker(false);
-                    }
-                    if (event.type === 'set' && selectedDate) {
-                      const isoDate = selectedDate.toISOString().slice(0, 10);
-                      setEditState(p => p ? { ...p, dueDate: isoDate } : p);
-                      if (Platform.OS === 'ios') {
+                <View style={es.datePickerWrap}>
+                  <DateTimePicker
+                    value={editState?.dueDate ? new Date(editState.dueDate + 'T00:00:00') : new Date()}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={(event, selectedDate) => {
+                      if (Platform.OS === 'android') {
                         setShowDatePicker(false);
                       }
-                    } else if (event.type === 'dismissed') {
-                      setShowDatePicker(false);
-                    }
-                  }}
-                  themeVariant="dark"
-                />
+                      if (event.type === 'set' && selectedDate) {
+                        const isoDate = selectedDate.toISOString().slice(0, 10);
+                        setEditState(p => p ? { ...p, dueDate: isoDate } : p);
+                      } else if (event.type === 'dismissed') {
+                        setShowDatePicker(false);
+                      }
+                    }}
+                    themeVariant="dark"
+                  />
+                  {Platform.OS === 'ios' ? (
+                    <TouchableOpacity style={es.dateDoneBtn} onPress={() => setShowDatePicker(false)}>
+                      <Text style={es.dateDoneTxt}>Done</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
               )}
 
               <View style={es.switchRow}>
@@ -846,6 +850,23 @@ const es = StyleSheet.create({
   dateButtonPlaceholder: {
     color: T.textMuted,
   },
+  datePickerWrap: {
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: T.border,
+    borderRadius: 10,
+    backgroundColor: T.cardAlt,
+    overflow: "hidden",
+  },
+  dateDoneBtn: {
+    alignSelf: "flex-end",
+    margin: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: T.accent,
+  },
+  dateDoneTxt: { color: T.onAccent, fontSize: 12, fontWeight: "700" },
   switchRow: {
     flexDirection: "row",
     alignItems: "center",

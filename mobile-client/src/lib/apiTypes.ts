@@ -45,15 +45,18 @@ export interface Debt {
   id: string;
   name: string;
   currentBalance: string;
+  initialBalance?: string;
   paidAmount: string;
   originalBalance: string;
   interestRate: string | null;
   type: string;
   paid: boolean;
+  dueDate?: string | null;
   monthlyMinimum: string | null;
   installmentMonths: number | null;
   creditLimit: string | null;
   dueDay: number | null;
+  defaultPaymentSource?: "income" | "extra_funds" | "credit_card";
   sourceType: string | null;
   sourceExpenseName: string | null;
   payments?: DebtPayment[];
@@ -82,6 +85,9 @@ export interface DebtSummaryItem {
   sourceExpenseName: string | null;
   lastPaidAt?: string | null;
   computedMonthlyPayment: number;
+  dueThisMonth?: number;
+  paidThisMonth?: number;
+  isPaymentMonthPaid?: boolean;
   isActive: boolean;
 }
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUserId } from "@/lib/api/bffAuth";
+import { processMissedDebtPaymentsToAccrue } from "@/lib/debts/carryover";
 
 export const runtime = "nodejs";
 
@@ -31,7 +32,21 @@ export async function GET(
       return NextResponse.json({ error: "Debt not found" }, { status: 404 });
     }
 
-		const { budgetPlan, ...safe } = debt;
+    await processMissedDebtPaymentsToAccrue(debt.budgetPlanId);
+
+    const refreshedDebt = await prisma.debt.findUnique({
+      where: { id },
+      include: {
+        budgetPlan: { select: { userId: true } },
+        payments: { orderBy: { paidAt: "desc" } },
+      },
+    });
+
+    if (!refreshedDebt || refreshedDebt.budgetPlan.userId !== userId) {
+      return NextResponse.json({ error: "Debt not found" }, { status: 404 });
+    }
+
+		const { budgetPlan, ...safe } = refreshedDebt;
     return NextResponse.json(safe);
   } catch (error) {
     console.error("Failed to fetch debt:", error);
@@ -75,6 +90,12 @@ export async function PATCH(
     if (typeof raw.paidAmount !== "undefined") data.paidAmount = raw.paidAmount;
     if (typeof raw.monthlyMinimum !== "undefined") data.monthlyMinimum = raw.monthlyMinimum;
     if (typeof raw.interestRate !== "undefined") data.interestRate = raw.interestRate;
+    if (typeof raw.dueDate !== "undefined") data.dueDate = raw.dueDate;
+    if (typeof raw.dueDay !== "undefined") data.dueDay = raw.dueDay;
+    if (typeof raw.installmentMonths !== "undefined") data.installmentMonths = raw.installmentMonths;
+    if (typeof raw.creditLimit !== "undefined") data.creditLimit = raw.creditLimit;
+    if (typeof raw.defaultPaymentSource !== "undefined") data.defaultPaymentSource = raw.defaultPaymentSource;
+    if (typeof raw.defaultPaymentCardDebtId !== "undefined") data.defaultPaymentCardDebtId = raw.defaultPaymentCardDebtId;
     if (Object.keys(data).length === 0) {
       return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
     }

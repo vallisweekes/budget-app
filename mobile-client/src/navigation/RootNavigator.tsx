@@ -78,6 +78,7 @@ function MainTabs() {
               onSettings={() => navigation.navigate("Settings")}
               onIncome={() => navigation.navigate("Income")}
               onAnalytics={openAnalytics}
+              onNotifications={() => navigation.navigate("Settings")}
             />
           );
         },
