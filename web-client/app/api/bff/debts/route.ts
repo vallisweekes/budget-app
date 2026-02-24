@@ -8,6 +8,13 @@ function unauthorized() {
 	return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 }
 
+function withMissedPaymentFlag<T extends { sourceType?: string | null }>(debt: T): T & { isMissedPayment: boolean } {
+  return {
+    ...debt,
+    isMissedPayment: debt.sourceType === "expense",
+  };
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -32,7 +39,7 @@ export async function GET(request: Request) {
       orderBy: { createdAt: "desc" },
     });
 
-    return NextResponse.json(debts);
+    return NextResponse.json(debts.map((debt) => withMissedPaymentFlag(debt)));
   } catch (error) {
     console.error("Failed to fetch debts:", error);
     return NextResponse.json(
@@ -87,7 +94,7 @@ export async function POST(request: Request) {
       },
     });
 
-    return NextResponse.json(debt, { status: 201 });
+    return NextResponse.json(withMissedPaymentFlag(debt), { status: 201 });
   } catch (error) {
     console.error("Failed to create debt:", error);
     return NextResponse.json(

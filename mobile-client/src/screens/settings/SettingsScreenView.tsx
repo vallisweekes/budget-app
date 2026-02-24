@@ -33,11 +33,12 @@ import { applyThemeMode, T, type ThemeMode } from "@/lib/theme";
 import { cardBase, cardElevated } from "@/lib/ui";
 import type { MainTabScreenProps } from "@/navigation/types";
 import DeleteConfirmSheet from "@/components/Shared/DeleteConfirmSheet";
+import SettingsDebtGroups from "@/components/Settings/SettingsDebtGroups";
+import { useSettingsDebtBuckets } from "@/lib/hooks/useSettingsDebtBuckets";
 
 type SettingsTab = "details" | "budget" | "savings" | "locale" | "plans" | "notifications" | "danger";
 type PlanKind = "personal" | "holiday" | "carnival";
 type DebtKind = "credit_card" | "loan" | "hire_purchase";
-type DebtGroupKey = "credit_card" | "loan" | "hire_purchase" | "other";
 type BudgetField = "payDate" | "horizon";
 type SavingsField = "savings" | "emergency" | "investment";
 
@@ -74,18 +75,6 @@ const STRATEGY_OPTIONS = [
   { value: "zeroBased", label: "Zero-based", tip: "Assign every pound to a category so leftover becomes £0." },
   { value: "fiftyThirtyTwenty", label: "50/30/20", tip: "Split income into needs, wants, and savings/debt reduction." },
 ] as const;
-
-const DEBT_GROUP_META: Array<{ key: DebtGroupKey; label: string; icon: React.ComponentProps<typeof Ionicons>["name"] }> = [
-  { key: "credit_card", label: "Credit Cards", icon: "card-outline" },
-  { key: "loan", label: "Loans", icon: "document-text-outline" },
-  { key: "hire_purchase", label: "Hire Purchase", icon: "car-outline" },
-  { key: "other", label: "Other", icon: "layers-outline" },
-];
-
-function toDebtGroupKey(type: string | null | undefined): DebtGroupKey {
-  if (type === "credit_card" || type === "loan" || type === "hire_purchase") return type;
-  return "other";
-}
 
 const NOTIFICATION_PREFS_KEY = "budget_app.notification_prefs";
 
@@ -186,20 +175,7 @@ export default function SettingsScreen({ navigation }: MainTabScreenProps<"Setti
   const detectedCountry = useMemo(() => parseLocaleCountry(), []);
   const currentPlanId = settings?.id ?? null;
   const currentPlan = useMemo(() => plans.find((p) => p.id === currentPlanId) ?? null, [plans, currentPlanId]);
-  const groupedDebts = useMemo(() => {
-    const map: Record<DebtGroupKey, Debt[]> = {
-      credit_card: [],
-      loan: [],
-      hire_purchase: [],
-      other: [],
-    };
-    for (const debt of debts) {
-      map[toDebtGroupKey(debt.type)].push(debt);
-    }
-    return DEBT_GROUP_META
-      .map((meta) => ({ ...meta, items: map[meta.key] }))
-      .filter((group) => group.items.length > 0);
-  }, [debts]);
+  const { groupedDebts } = useSettingsDebtBuckets(debts);
   const cur = currencySymbol(settings?.currency);
 
   let apiBase = "";
@@ -801,34 +777,15 @@ export default function SettingsScreen({ navigation }: MainTabScreenProps<"Setti
                       <Ionicons name="add" size={20} color={T.onAccent} />
                     </Pressable>
                   </View>
-                  {debts.length === 0 ? (
+                  {groupedDebts.length === 0 ? (
                     <Text style={styles.muted}>No debts for this plan yet.</Text>
                   ) : (
-                    groupedDebts.map((group) => (
-                      <View key={group.key} style={styles.debtTypeBlock}>
-                        <View style={styles.debtTypeHead}>
-                          <View style={styles.debtTypeIconWrap}>
-                            <Ionicons name={group.icon} size={14} color={T.textDim} />
-                          </View>
-                          <Text style={styles.debtTypeTitle}>{group.label}</Text>
-                          <Text style={styles.debtTypeCount}>{group.items.length}</Text>
-                        </View>
-
-                        {group.items.map((debt) => (
-                          <Pressable key={debt.id} style={styles.debtCard} onPress={() => openDebtEditor(debt)}>
-                            <View style={styles.debtCardBody}>
-                              <Text style={styles.debtName}>{debt.name}</Text>
-                              <Text style={styles.debtSub}>{String(debt.type).replace("_", " ")}</Text>
-                              <Text style={styles.debtSub}>Current balance: {cur}{asMoneyInput(debt.currentBalance) || "0"}</Text>
-                              {debt.type === "credit_card" ? (
-                                <Text style={styles.debtSub}>Credit limit: {cur}{asMoneyInput(debt.creditLimit) || "0"}</Text>
-                              ) : null}
-                            </View>
-                            <Ionicons name="chevron-forward" size={18} color={T.textDim} />
-                          </Pressable>
-                        ))}
-                      </View>
-                    ))
+                    <SettingsDebtGroups
+                      groupedDebts={groupedDebts}
+                      currency={cur}
+                      asMoneyInput={asMoneyInput}
+                      onOpenDebtEditor={openDebtEditor}
+                    />
                   )}
                 </View>
               </>

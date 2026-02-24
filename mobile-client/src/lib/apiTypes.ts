@@ -26,6 +26,7 @@ export interface Expense {
   categoryId: string;
   category: Category | null;
   dueDate: string | null;
+  isMissedPayment?: boolean;
 }
 
 export interface Income {
@@ -86,6 +87,7 @@ export interface Debt {
   defaultPaymentSource?: "income" | "extra_funds" | "credit_card";
   sourceType: string | null;
   sourceExpenseName: string | null;
+  isMissedPayment?: boolean;
   payments?: DebtPayment[];
 }
 

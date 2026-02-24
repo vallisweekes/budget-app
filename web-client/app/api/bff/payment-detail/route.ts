@@ -118,6 +118,7 @@ export async function GET(req: NextRequest) {
 				dueDay: null,
 				overdue,
 				missed,
+				isMissedPayment: missed,
 				payments: payments.map((p) => ({
 					id: p.id,
 					amount: decimalToNumber(p.amount),
@@ -161,6 +162,7 @@ export async function GET(req: NextRequest) {
 			dueDay: debt.dueDay ?? null,
 			overdue,
 			missed,
+			isMissedPayment: debt.sourceType === "expense" || missed,
 			payments: payments.map((p) => ({
 				id: p.id,
 				amount: decimalToNumber(p.amount),

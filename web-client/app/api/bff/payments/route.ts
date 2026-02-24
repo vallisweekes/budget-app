@@ -82,12 +82,14 @@ export async function GET(req: NextRequest) {
 						id: e.id,
 						name: e.name,
 						dueAmount,
+						isMissedPayment: dueAmount > 0,
 					};
 				}),
 			debts: debtSummary.allDebts.map((d) => ({
 				id: d.id,
 				name: d.sourceType === "expense" ? String(d.sourceExpenseName ?? d.name) : d.name,
 				dueAmount: getDebtMonthlyPayment(d),
+				isMissedPayment: d.sourceType === "expense",
 			})),
 		});
 	} catch (error) {

@@ -9,6 +9,13 @@ function unauthorized() {
   return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 }
 
+function withMissedPaymentFlag<T extends { sourceType?: string | null }>(debt: T): T & { isMissedPayment: boolean } {
+  return {
+    ...debt,
+    isMissedPayment: debt.sourceType === "expense",
+  };
+}
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -47,7 +54,7 @@ export async function GET(
     }
 
 		const { budgetPlan, ...safe } = refreshedDebt;
-    return NextResponse.json(safe);
+    return NextResponse.json(withMissedPaymentFlag(safe));
   } catch (error) {
     console.error("Failed to fetch debt:", error);
     return NextResponse.json(
@@ -105,7 +112,7 @@ export async function PATCH(
       data,
     });
 
-    return NextResponse.json(debt);
+    return NextResponse.json(withMissedPaymentFlag(debt));
   } catch (error) {
     console.error("Failed to update debt:", error);
     return NextResponse.json(

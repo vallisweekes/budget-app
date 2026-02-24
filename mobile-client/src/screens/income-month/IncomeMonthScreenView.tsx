@@ -2,11 +2,8 @@ import React, { useCallback, useEffect, useState } from "react";
 import {
   View,
   Text,
-  FlatList,
   Pressable,
   ActivityIndicator,
-  StyleSheet,
-  RefreshControl,
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
@@ -20,13 +17,11 @@ import type { IncomeStackParamList } from "@/navigation/types";
 import { currencySymbol, fmt, MONTH_NAMES_LONG } from "@/lib/formatting";
 import { T } from "@/lib/theme";
 import { useIncomeCRUD } from "@/lib/hooks/useIncomeCRUD";
-import IncomeMonthStats from "@/components/Income/IncomeMonthStats";
-import IncomeBarChart from "@/components/Income/IncomeBarChart";
-import BillsSummary from "@/components/Income/BillsSummary";
-import { IncomeRow, IncomeEditRow } from "@/components/Income/IncomeSourceItem";
-import { IncomeAddForm } from "@/components/Income/IncomeAddForm";
-import IncomeSacrificeEditor from "@/components/Income/IncomeSacrificeEditor";
+import IncomeMonthHeader from "@/components/Income/IncomeMonthHeader";
+import IncomeMonthIncomeList from "@/components/Income/IncomeMonthIncomeList";
+import IncomeMonthSacrificeList from "@/components/Income/IncomeMonthSacrificeList";
 import DeleteConfirmSheet from "@/components/Shared/DeleteConfirmSheet";
+import { s } from "./incomeMonthScreenStyles";
 
 type Props = NativeStackScreenProps<IncomeStackParamList, "IncomeMonth">;
 
@@ -211,148 +206,60 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
   return (
     <SafeAreaView style={s.safe}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        {/* Header */}
-        <View style={s.header}>
-          <Pressable onPress={() => navigation.goBack()} style={s.backBtn} hitSlop={8}>
-            <Ionicons name="chevron-back" size={22} color={T.text} />
-          </Pressable>
-          <Text style={s.headerTitle}>{monthLabel}</Text>
-          {viewMode === "income" ? (
-            <Pressable
-              onPress={() => {
-                if (isLocked) return;
-                crud.setShowAddForm((v) => !v);
-              }}
-              style={s.addBtn}
-              hitSlop={8}
-              disabled={isLocked}
-            >
-              <Ionicons
-                name={isLocked ? "lock-closed-outline" : crud.showAddForm ? "close" : "add-circle-outline"}
-                size={22}
-                color={isLocked ? T.textMuted : T.text}
-              />
-            </Pressable>
-          ) : <View style={s.addBtn} />}
-        </View>
-
-        <View style={s.modeWrap}>
-          <Pressable style={[s.modePill, viewMode === "income" && s.modePillActive]} onPress={() => setViewMode("income")}>
-            <Text style={[s.modeTxt, viewMode === "income" && s.modeTxtActive]}>Income</Text>
-          </Pressable>
-          <Pressable style={[s.modePill, viewMode === "sacrifice" && s.modePillActive]} onPress={() => setViewMode("sacrifice")}>
-            <Text style={[s.modeTxt, viewMode === "sacrifice" && s.modeTxtActive]}>Income sacrifice</Text>
-          </Pressable>
-        </View>
+        <IncomeMonthHeader
+          monthLabel={monthLabel}
+          isLocked={isLocked}
+          viewMode={viewMode}
+          showAddForm={crud.showAddForm}
+          onBack={() => navigation.goBack()}
+          onToggleAdd={() => {
+            if (isLocked) return;
+            crud.setShowAddForm((v) => !v);
+          }}
+          onSetMode={setViewMode}
+        />
 
         {viewMode === "sacrifice" ? (
-          <FlatList
-            data={[]}
-            keyExtractor={(_, idx) => String(idx)}
-            contentContainerStyle={s.scroll}
-            refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); Promise.all([load(), loadSacrifice()]).finally(() => setRefreshing(false)); }} tintColor={T.accent} />
-            }
-            ListHeaderComponent={
-              sacrifice ? (
-                <IncomeSacrificeEditor
-                  currency={currency}
-                  fixed={fixedDraft}
-                  customItems={sacrifice.customItems}
-                  customTotal={sacrifice.customTotal}
-                  totalSacrifice={sacrifice.totalSacrifice}
-                  saving={sacrificeSaving}
-                  creating={sacrificeCreating}
-                  deletingId={sacrificeDeletingId}
-                  newType={newSacrificeType}
-                  newName={newSacrificeName}
-                  newAmount={newSacrificeAmount}
-                  onChangeFixed={(key, value) => setFixedDraft((prev) => ({ ...prev, [key]: Number(value) || 0 }))}
-                  onSaveFixed={saveFixedSacrifice}
-                  onChangeCustomAmount={(id, value) => setCustomDraftById((prev) => ({ ...prev, [id]: value }))}
-                  onSaveCustomAmounts={saveCustomSacrificeAmounts}
-                  onDeleteCustom={deleteSacrificeItem}
-                  onSetNewType={setNewSacrificeType}
-                  onSetNewName={setNewSacrificeName}
-                  onSetNewAmount={setNewSacrificeAmount}
-                  onCreateCustom={createSacrificeItem}
-                />
-              ) : (
-                <View style={s.center}><ActivityIndicator size="small" color={T.accent} /></View>
-              )
-            }
-            ListEmptyComponent={null}
-            renderItem={() => null}
+          <IncomeMonthSacrificeList
+            currency={currency}
+            sacrifice={sacrifice}
+            fixedDraft={fixedDraft}
+            customDraftById={customDraftById}
+            sacrificeSaving={sacrificeSaving}
+            sacrificeCreating={sacrificeCreating}
+            sacrificeDeletingId={sacrificeDeletingId}
+            newSacrificeType={newSacrificeType}
+            newSacrificeName={newSacrificeName}
+            newSacrificeAmount={newSacrificeAmount}
+            refreshing={refreshing}
+            onRefresh={() => {
+              setRefreshing(true);
+              Promise.all([load(), loadSacrifice()]).finally(() => setRefreshing(false));
+            }}
+            onChangeFixed={(key, value) => setFixedDraft((prev) => ({ ...prev, [key]: Number(value) || 0 }))}
+            onSaveFixed={saveFixedSacrifice}
+            onChangeCustomAmount={(id, value) => setCustomDraftById((prev) => ({ ...prev, [id]: value }))}
+            onSaveCustomAmounts={saveCustomSacrificeAmounts}
+            onDeleteCustom={deleteSacrificeItem}
+            onSetNewType={setNewSacrificeType}
+            onSetNewName={setNewSacrificeName}
+            onSetNewAmount={setNewSacrificeAmount}
+            onCreateCustom={createSacrificeItem}
           />
         ) : (
-
-        <FlatList
-          data={items}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={s.scroll}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={T.accent} />
-          }
-          ListHeaderComponent={
-            <>
-              {analysis && <IncomeMonthStats data={analysis} currency={currency} fmt={fmt} />}
-              {analysis && <IncomeBarChart data={analysis} currency={currency} />}
-              {analysis && <BillsSummary data={analysis} currency={currency} fmt={fmt} />}
-
-              <View style={s.sourcesHeader}>
-                <Text style={s.sourcesTitle}>Income sources</Text>
-                <Text style={s.sourcesSub}>
-                  {isLocked ? "Past month — view only." : "Add, edit, or remove income for this month."}
-                </Text>
-              </View>
-
-              {!isLocked && crud.showAddForm && (
-                <IncomeAddForm
-                  name={crud.newName}
-                  amount={crud.newAmount}
-                  setName={crud.setNewName}
-                  setAmount={crud.setNewAmount}
-                  distributeMonths={crud.distributeMonths}
-                  setDistributeMonths={crud.setDistributeMonths}
-                  distributeYears={crud.distributeYears}
-                  setDistributeYears={crud.setDistributeYears}
-                  onAdd={crud.handleAdd}
-                  saving={crud.saving}
-                />
-              )}
-            </>
-          }
-          renderItem={({ item }) =>
-            !isLocked && crud.editingId === item.id ? (
-              <IncomeEditRow
-                editName={crud.editName}
-                editAmount={crud.editAmount}
-                setEditName={crud.setEditName}
-                setEditAmount={crud.setEditAmount}
-                onSave={crud.handleSaveEdit}
-                onCancel={crud.cancelEdit}
-                saving={crud.saving}
-              />
-            ) : (
-              <IncomeRow
-                item={item}
-                currency={currency}
-                fmt={fmt}
-                onEdit={!isLocked ? () => crud.startEdit(item) : undefined}
-                onDelete={!isLocked ? () => setDeleteTarget(item) : undefined}
-              />
-            )
-          }
-          ListEmptyComponent={
-            !crud.showAddForm ? (
-              <View style={s.empty}>
-                <Ionicons name="wallet-outline" size={48} color={T.iconMuted} />
-                <Text style={s.emptyText}>No income sources yet</Text>
-                {!isLocked && <Text style={s.emptySub}>Tap + to add your first source</Text>}
-              </View>
-            ) : null
-          }
-        />
+          <IncomeMonthIncomeList
+            items={items}
+            analysis={analysis}
+            currency={currency}
+            isLocked={isLocked}
+            refreshing={refreshing}
+            onRefresh={() => {
+              setRefreshing(true);
+              load();
+            }}
+            crud={crud}
+            onRequestDelete={setDeleteTarget}
+          />
         )}
 
         <DeleteConfirmSheet
@@ -375,55 +282,3 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
   );
 }
 
-const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: T.bg },
-  center: { flex: 1, justifyContent: "center", alignItems: "center", gap: 12 },
-  scroll: { paddingBottom: 40 },
-  header: {
-    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    paddingHorizontal: 16, paddingVertical: 12,
-    backgroundColor: T.card,
-    borderBottomWidth: 1, borderBottomColor: T.border,
-  },
-  backBtn: { padding: 4 },
-  addBtn: { padding: 4 },
-  headerTitle: { color: T.text, fontSize: 17, fontWeight: "900", flex: 1, textAlign: "center" },
-  modeWrap: {
-    flexDirection: "row",
-    gap: 8,
-    marginHorizontal: 16,
-    marginTop: 12,
-    marginBottom: 8,
-    backgroundColor: T.card,
-    borderWidth: 1,
-    borderColor: T.border,
-    borderRadius: 999,
-    padding: 4,
-  },
-  modePill: {
-    flex: 1,
-    paddingVertical: 8,
-    borderRadius: 999,
-    alignItems: "center",
-  },
-  modePillActive: {
-    backgroundColor: T.accent,
-  },
-  modeTxt: {
-    color: T.textDim,
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  modeTxtActive: {
-    color: T.onAccent,
-  },
-  sourcesHeader: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 8 },
-  sourcesTitle: { color: T.text, fontSize: 15, fontWeight: "900" },
-  sourcesSub: { color: T.textDim, fontSize: 12, marginTop: 3, fontWeight: "600" },
-  empty: { alignItems: "center", paddingTop: 40, gap: 8 },
-  emptyText: { color: T.text, fontSize: 15, fontWeight: "800" },
-  emptySub: { color: T.textDim, fontSize: 13, fontWeight: "600" },
-  errorText: { color: T.red, fontSize: 14, textAlign: "center", paddingHorizontal: 32 },
-  retryBtn: { backgroundColor: T.accent, borderRadius: 8, paddingHorizontal: 24, paddingVertical: 10 },
-  retryTxt: { color: T.onAccent, fontWeight: "700" },
-});
