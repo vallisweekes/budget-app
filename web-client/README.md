@@ -30,6 +30,11 @@ For PWA push notifications (web push):
 - `VAPID_PRIVATE_KEY`
 - `VAPID_SUBJECT` (e.g. `mailto:you@domain.com`)
 
+For Logo.dev expense logos:
+
+- `LOGO_DEV_PUBLISHABLE_KEY` (used for image CDN token param)
+- `LOGO_DEV_SECRET_KEY` (server-only; reserved for advanced Brand/Describe API usage)
+
 On Vercel: add these under Project → Settings → Environment Variables, then redeploy.
 
 Note: the service worker is disabled in development (`next.config.ts`), so push notifications only work in production builds over HTTPS.

@@ -15,7 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 
 import { apiFetch } from "@/lib/api";
-import type { Income, Settings, IncomeMonthData } from "@/lib/apiTypes";
+import type { Income, Settings, IncomeMonthData, IncomeSacrificeData, IncomeSacrificeFixed } from "@/lib/apiTypes";
 import type { IncomeStackParamList } from "@/navigation/types";
 import { currencySymbol, fmt, MONTH_NAMES_LONG } from "@/lib/formatting";
 import { T } from "@/lib/theme";
@@ -25,12 +25,13 @@ import IncomeBarChart from "@/components/Income/IncomeBarChart";
 import BillsSummary from "@/components/Income/BillsSummary";
 import { IncomeRow, IncomeEditRow } from "@/components/Income/IncomeSourceItem";
 import { IncomeAddForm } from "@/components/Income/IncomeAddForm";
+import IncomeSacrificeEditor from "@/components/Income/IncomeSacrificeEditor";
 import DeleteConfirmSheet from "@/components/Shared/DeleteConfirmSheet";
 
 type Props = NativeStackScreenProps<IncomeStackParamList, "IncomeMonth">;
 
 export default function IncomeMonthScreen({ navigation, route }: Props) {
-  const { month, year, budgetPlanId } = route.params;
+  const { month, year, budgetPlanId, initialMode } = route.params;
   const monthLabel = `${MONTH_NAMES_LONG[month - 1]} ${year}`;
 
   const now = new Date();
@@ -45,6 +46,21 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError]       = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Income | null>(null);
+  const [viewMode, setViewMode] = useState<"income" | "sacrifice">(initialMode ?? "income");
+  const [sacrifice, setSacrifice] = useState<IncomeSacrificeData | null>(null);
+  const [fixedDraft, setFixedDraft] = useState<IncomeSacrificeFixed>({
+    monthlyAllowance: 0,
+    monthlySavingsContribution: 0,
+    monthlyEmergencyContribution: 0,
+    monthlyInvestmentContribution: 0,
+  });
+  const [customDraftById, setCustomDraftById] = useState<Record<string, string>>({});
+  const [sacrificeSaving, setSacrificeSaving] = useState(false);
+  const [sacrificeCreating, setSacrificeCreating] = useState(false);
+  const [sacrificeDeletingId, setSacrificeDeletingId] = useState<string | null>(null);
+  const [newSacrificeType, setNewSacrificeType] = useState<"allowance" | "savings" | "emergency" | "investment" | "custom">("custom");
+  const [newSacrificeName, setNewSacrificeName] = useState("");
+  const [newSacrificeAmount, setNewSacrificeAmount] = useState("");
 
   const currency = currencySymbol(settings?.currency);
 
@@ -52,8 +68,8 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
     try {
       setError(null);
       const [monthData, incomeList, s] = await Promise.all([
-        apiFetch<IncomeMonthData>(`/api/bff/income-month?month=${month}&year=${year}`),
-        apiFetch<Income[]>(`/api/bff/income?month=${month}&year=${year}`),
+        apiFetch<IncomeMonthData>(`/api/bff/income-month?month=${month}&year=${year}&budgetPlanId=${encodeURIComponent(budgetPlanId)}`),
+        apiFetch<Income[]>(`/api/bff/income?month=${month}&year=${year}&budgetPlanId=${encodeURIComponent(budgetPlanId)}`),
         apiFetch<Settings>("/api/bff/settings"),
       ]);
       setAnalysis(monthData);
@@ -65,9 +81,21 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [month, year]);
+  }, [month, year, budgetPlanId]);
 
-  useEffect(() => { load(); }, [load]);
+  const loadSacrifice = useCallback(async () => {
+    const data = await apiFetch<IncomeSacrificeData>(
+      `/api/bff/income-sacrifice?month=${month}&year=${year}&budgetPlanId=${encodeURIComponent(budgetPlanId)}`
+    );
+    setSacrifice(data);
+    setFixedDraft(data.fixed);
+    setCustomDraftById(Object.fromEntries((data.customItems ?? []).map((item) => [item.id, String(item.amount)])));
+  }, [month, year, budgetPlanId]);
+
+  useEffect(() => {
+    load();
+    loadSacrifice().catch(() => null);
+  }, [load, loadSacrifice]);
 
   const crud = useIncomeCRUD({ month, year, budgetPlanId, onReload: load });
 
@@ -76,6 +104,89 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
     if (crud.showAddForm) crud.setShowAddForm(false);
     if (crud.editingId) crud.cancelEdit();
   }, [crud, isLocked]);
+
+  useEffect(() => {
+    setViewMode(initialMode ?? "income");
+  }, [initialMode, month, year]);
+
+  const saveFixedSacrifice = async () => {
+    try {
+      setSacrificeSaving(true);
+      await apiFetch("/api/bff/income-sacrifice", {
+        method: "PATCH",
+        body: {
+          budgetPlanId,
+          month,
+          year,
+          fixed: {
+            monthlyAllowance: Number(fixedDraft.monthlyAllowance) || 0,
+            monthlySavingsContribution: Number(fixedDraft.monthlySavingsContribution) || 0,
+            monthlyEmergencyContribution: Number(fixedDraft.monthlyEmergencyContribution) || 0,
+            monthlyInvestmentContribution: Number(fixedDraft.monthlyInvestmentContribution) || 0,
+          },
+        },
+      });
+      await Promise.all([loadSacrifice(), load()]);
+    } finally {
+      setSacrificeSaving(false);
+    }
+  };
+
+  const saveCustomSacrificeAmounts = async () => {
+    try {
+      setSacrificeSaving(true);
+      await apiFetch("/api/bff/income-sacrifice", {
+        method: "PATCH",
+        body: {
+          budgetPlanId,
+          month,
+          year,
+          fixed: fixedDraft,
+          customAmountById: Object.fromEntries(Object.entries(customDraftById).map(([id, value]) => [id, Number(value) || 0])),
+        },
+      });
+      await Promise.all([loadSacrifice(), load()]);
+    } finally {
+      setSacrificeSaving(false);
+    }
+  };
+
+  const createSacrificeItem = async () => {
+    if (newSacrificeType === "custom" && !newSacrificeName.trim()) {
+      setError("Custom sacrifice requires a name.");
+      return;
+    }
+    try {
+      setSacrificeCreating(true);
+      await apiFetch("/api/bff/income-sacrifice/custom", {
+        method: "POST",
+        body: {
+          budgetPlanId,
+          month,
+          year,
+          type: newSacrificeType,
+          name: newSacrificeName.trim(),
+          amount: Number(newSacrificeAmount) || 0,
+        },
+      });
+      setNewSacrificeName("");
+      setNewSacrificeAmount("");
+      setNewSacrificeType("custom");
+      await Promise.all([loadSacrifice(), load()]);
+    } finally {
+      setSacrificeCreating(false);
+    }
+  };
+
+  const deleteSacrificeItem = async (id: string) => {
+    try {
+      setSacrificeDeletingId(id);
+      await apiFetch(`/api/bff/income-sacrifice/custom/${id}`, { method: "DELETE" });
+      await Promise.all([loadSacrifice(), load()]);
+    } finally {
+      setSacrificeDeletingId(null);
+    }
+  };
 
   if (loading) {
     return (
@@ -106,22 +217,74 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
             <Ionicons name="chevron-back" size={22} color={T.text} />
           </Pressable>
           <Text style={s.headerTitle}>{monthLabel}</Text>
-          <Pressable
-            onPress={() => {
-              if (isLocked) return;
-              crud.setShowAddForm((v) => !v);
-            }}
-            style={s.addBtn}
-            hitSlop={8}
-            disabled={isLocked}
-          >
-            <Ionicons
-              name={isLocked ? "lock-closed-outline" : crud.showAddForm ? "close" : "add-circle-outline"}
-              size={22}
-              color={isLocked ? T.textMuted : T.text}
-            />
+          {viewMode === "income" ? (
+            <Pressable
+              onPress={() => {
+                if (isLocked) return;
+                crud.setShowAddForm((v) => !v);
+              }}
+              style={s.addBtn}
+              hitSlop={8}
+              disabled={isLocked}
+            >
+              <Ionicons
+                name={isLocked ? "lock-closed-outline" : crud.showAddForm ? "close" : "add-circle-outline"}
+                size={22}
+                color={isLocked ? T.textMuted : T.text}
+              />
+            </Pressable>
+          ) : <View style={s.addBtn} />}
+        </View>
+
+        <View style={s.modeWrap}>
+          <Pressable style={[s.modePill, viewMode === "income" && s.modePillActive]} onPress={() => setViewMode("income")}>
+            <Text style={[s.modeTxt, viewMode === "income" && s.modeTxtActive]}>Income</Text>
+          </Pressable>
+          <Pressable style={[s.modePill, viewMode === "sacrifice" && s.modePillActive]} onPress={() => setViewMode("sacrifice")}>
+            <Text style={[s.modeTxt, viewMode === "sacrifice" && s.modeTxtActive]}>Income sacrifice</Text>
           </Pressable>
         </View>
+
+        {viewMode === "sacrifice" ? (
+          <FlatList
+            data={[]}
+            keyExtractor={(_, idx) => String(idx)}
+            contentContainerStyle={s.scroll}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); Promise.all([load(), loadSacrifice()]).finally(() => setRefreshing(false)); }} tintColor={T.accent} />
+            }
+            ListHeaderComponent={
+              sacrifice ? (
+                <IncomeSacrificeEditor
+                  currency={currency}
+                  fixed={fixedDraft}
+                  customItems={sacrifice.customItems}
+                  customTotal={sacrifice.customTotal}
+                  totalSacrifice={sacrifice.totalSacrifice}
+                  saving={sacrificeSaving}
+                  creating={sacrificeCreating}
+                  deletingId={sacrificeDeletingId}
+                  newType={newSacrificeType}
+                  newName={newSacrificeName}
+                  newAmount={newSacrificeAmount}
+                  onChangeFixed={(key, value) => setFixedDraft((prev) => ({ ...prev, [key]: Number(value) || 0 }))}
+                  onSaveFixed={saveFixedSacrifice}
+                  onChangeCustomAmount={(id, value) => setCustomDraftById((prev) => ({ ...prev, [id]: value }))}
+                  onSaveCustomAmounts={saveCustomSacrificeAmounts}
+                  onDeleteCustom={deleteSacrificeItem}
+                  onSetNewType={setNewSacrificeType}
+                  onSetNewName={setNewSacrificeName}
+                  onSetNewAmount={setNewSacrificeAmount}
+                  onCreateCustom={createSacrificeItem}
+                />
+              ) : (
+                <View style={s.center}><ActivityIndicator size="small" color={T.accent} /></View>
+              )
+            }
+            ListEmptyComponent={null}
+            renderItem={() => null}
+          />
+        ) : (
 
         <FlatList
           data={items}
@@ -190,6 +353,7 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
             ) : null
           }
         />
+        )}
 
         <DeleteConfirmSheet
           visible={deleteTarget !== null}
@@ -224,6 +388,35 @@ const s = StyleSheet.create({
   backBtn: { padding: 4 },
   addBtn: { padding: 4 },
   headerTitle: { color: T.text, fontSize: 17, fontWeight: "900", flex: 1, textAlign: "center" },
+  modeWrap: {
+    flexDirection: "row",
+    gap: 8,
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 8,
+    backgroundColor: T.card,
+    borderWidth: 1,
+    borderColor: T.border,
+    borderRadius: 999,
+    padding: 4,
+  },
+  modePill: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 999,
+    alignItems: "center",
+  },
+  modePillActive: {
+    backgroundColor: T.accent,
+  },
+  modeTxt: {
+    color: T.textDim,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  modeTxtActive: {
+    color: T.onAccent,
+  },
   sourcesHeader: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 8 },
   sourcesTitle: { color: T.text, fontSize: 15, fontWeight: "900" },
   sourcesSub: { color: T.textDim, fontSize: 12, marginTop: 3, fontWeight: "600" },

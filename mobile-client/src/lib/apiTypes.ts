@@ -14,6 +14,9 @@ export interface Category {
 export interface Expense {
   id: string;
   name: string;
+  merchantDomain: string | null;
+  logoUrl: string | null;
+  logoSource: string | null;
   amount: string;
   paid: boolean;
   paidAmount: string;
@@ -32,6 +35,30 @@ export interface Income {
   month: number;
   year: number;
   budgetPlanId: string;
+}
+
+export interface IncomeSacrificeFixed {
+  monthlyAllowance: number;
+  monthlySavingsContribution: number;
+  monthlyEmergencyContribution: number;
+  monthlyInvestmentContribution: number;
+}
+
+export interface IncomeSacrificeCustomItem {
+  id: string;
+  name: string;
+  amount: number;
+  isOverride: boolean;
+}
+
+export interface IncomeSacrificeData {
+  budgetPlanId: string;
+  year: number;
+  month: number;
+  fixed: IncomeSacrificeFixed;
+  customItems: IncomeSacrificeCustomItem[];
+  customTotal: number;
+  totalSacrifice: number;
 }
 
 export interface DebtPayment {

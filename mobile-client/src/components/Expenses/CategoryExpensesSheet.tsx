@@ -27,6 +27,7 @@ import {
   Animated,
   Dimensions,
   TouchableOpacity,
+  Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as LucideIcons from "lucide-react-native";
@@ -130,6 +131,7 @@ export default function CategoryExpensesSheet({
   const [deleting, setDeleting]     = useState<Record<string, boolean>>({});
   const [paying, setPaying]         = useState<Record<string, boolean>>({});
   const [paymentInput, setPaymentInput] = useState<PaymentInputState>({});
+  const [logoFailed, setLogoFailed] = useState<Record<string, boolean>>({});
   const [deleteConfirm, setDeleteConfirm] = useState<Expense | null>(null);
 
   // edit nested sheet
@@ -148,6 +150,7 @@ export default function CategoryExpensesSheet({
       setExpenses(
         Array.isArray(all) ? all.filter((e) => e.categoryId === category.categoryId) : []
       );
+      setLogoFailed({});
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load");
     } finally {
@@ -302,6 +305,19 @@ export default function CategoryExpensesSheet({
       <View style={[rs.card, isBusy && deleting[item.id] && { opacity: 0.4 }]}>
         {/* Row 1: name + badges + paid button + icons */}
         <View style={rs.row1}>
+          <View style={rs.logoWrap}>
+            {item.logoUrl && !logoFailed[item.id] ? (
+              <Image
+                source={{ uri: item.logoUrl }}
+                style={rs.logoImg}
+                resizeMode="contain"
+                onError={() => setLogoFailed((prev) => ({ ...prev, [item.id]: true }))}
+              />
+            ) : (
+              <Text style={rs.logoFallback}>{item.name.trim().charAt(0).toUpperCase() || "•"}</Text>
+            )}
+          </View>
+
           <View style={rs.nameCol}>
             <Text style={rs.name} numberOfLines={1}>{item.name}</Text>
             <View style={rs.badgeRow}>
@@ -629,6 +645,27 @@ const rs = StyleSheet.create({
     marginBottom: 10,
   },
   row1: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
+  logoWrap: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: T.border,
+    backgroundColor: T.card,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 1,
+    overflow: "hidden",
+  },
+  logoImg: {
+    width: 20,
+    height: 20,
+  },
+  logoFallback: {
+    color: T.textDim,
+    fontSize: 12,
+    fontWeight: "800",
+  },
   nameCol: { flex: 1, minWidth: 0 },
   name: { color: T.text, fontSize: 14, fontWeight: "800", marginBottom: 4 },
   badgeRow: { flexDirection: "row", flexWrap: "wrap", gap: 4 },

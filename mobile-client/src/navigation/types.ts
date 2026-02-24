@@ -5,7 +5,12 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 /* ── Income stack (inside Income tab) ──────────────────────── */
 export type IncomeStackParamList = {
   IncomeGrid: { year?: number } | undefined;
-  IncomeMonth: { month: number; year: number; budgetPlanId: string };
+  IncomeMonth: {
+    month: number;
+    year: number;
+    budgetPlanId: string;
+    initialMode?: "income" | "sacrifice";
+  };
 };
 
 /* ── Expenses stack (inside Expenses tab) ───────────────────── */

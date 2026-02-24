@@ -237,6 +237,9 @@ model CategoryTemplate {
 model Expense {
   id           String     @id @default(cuid())
   name         String
+  merchantDomain String?
+  logoUrl      String?
+  logoSource   String?
   amount       Decimal    @db.Decimal(12, 2)
   paid         Boolean    @default(false)
   paidAmount   Decimal    @default(0) @db.Decimal(12, 2)

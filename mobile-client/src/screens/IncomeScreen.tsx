@@ -32,6 +32,7 @@ export default function IncomeScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"income" | "sacrifice">("income");
 
   const currency = currencySymbol(settings?.currency);
   const { minYear } = useYearGuard(settings);
@@ -62,6 +63,18 @@ export default function IncomeScreen() {
   const changeYear = (delta: number) => {
     if (delta < 0 && year - 1 < minYear) return;
     setYear((y) => y + delta);
+  };
+
+  const openSacrificeSetup = () => {
+    const budgetPlanId = data?.budgetPlanId;
+    if (!budgetPlanId) return;
+    const monthToOpen = year === nowYear ? nowMonthIndex : 1;
+    navigation.navigate("IncomeMonth", {
+      month: monthToOpen,
+      year,
+      budgetPlanId,
+      initialMode: "sacrifice",
+    });
   };
 
   if (loading) {
@@ -111,6 +124,21 @@ export default function IncomeScreen() {
         </Pressable>
       </View>
 
+      <View style={s.modeWrap}>
+        <Pressable style={[s.modePill, viewMode === "income" && s.modePillActive]} onPress={() => setViewMode("income")}>
+          <Text style={[s.modeTxt, viewMode === "income" && s.modeTxtActive]}>Income</Text>
+        </Pressable>
+        <Pressable
+          style={[s.modePill, viewMode === "sacrifice" && s.modePillActive]}
+          onPress={() => {
+            setViewMode("sacrifice");
+            openSacrificeSetup();
+          }}
+        >
+          <Text style={[s.modeTxt, viewMode === "sacrifice" && s.modeTxtActive]}>Income sacrifice</Text>
+        </Pressable>
+      </View>
+
       <FlatList
         data={months}
         numColumns={2}
@@ -136,6 +164,7 @@ export default function IncomeScreen() {
                   month: item.monthIndex,
                   year,
                   budgetPlanId: data?.budgetPlanId ?? "",
+                  initialMode: viewMode,
                 })
               }
             />
@@ -166,6 +195,36 @@ const s = StyleSheet.create({
   yearArrow: { padding: 8 },
   yearArrowDisabled: { opacity: 0.4 },
   yearLabel: { color: T.text, fontSize: 18, fontWeight: "900" },
+
+  modeWrap: {
+    flexDirection: "row",
+    gap: 8,
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 8,
+    backgroundColor: T.card,
+    borderWidth: 1,
+    borderColor: T.border,
+    borderRadius: 999,
+    padding: 4,
+  },
+  modePill: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 999,
+    alignItems: "center",
+  },
+  modePillActive: {
+    backgroundColor: T.accent,
+  },
+  modeTxt: {
+    color: T.textDim,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  modeTxtActive: {
+    color: T.onAccent,
+  },
 
   grid: { padding: 12, paddingBottom: 140 },
   gridRow: { gap: 10, marginBottom: 10 },

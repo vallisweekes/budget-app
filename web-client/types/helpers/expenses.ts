@@ -3,6 +3,9 @@ import type { MonthKey } from "@/types/helpers/budget";
 export interface ExpenseItem {
 	id: string;
 	name: string;
+	merchantDomain?: string;
+	logoUrl?: string;
+	logoSource?: string;
 	amount: number;
 	categoryId?: string;
 	paid?: boolean;

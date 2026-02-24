@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Check, Pencil, Trash2 } from "lucide-react";
 import type { ExpenseItem, MonthKey } from "@/types";
 import { formatCurrency } from "@/lib/helpers/money";
@@ -63,6 +64,7 @@ export default function ExpenseRow({
 	showAllocationBadge = false,
 	showPartialPaidBadge = false,
 }: Props) {
+	const [logoBroken, setLogoBroken] = useState(false);
 	const isPaid = !!expense.paid;
 	const paidAmount = isPaid ? expense.amount : (expense.paidAmount ?? 0);
 	const remaining = Math.max(0, expense.amount - paidAmount);
@@ -73,6 +75,7 @@ export default function ExpenseRow({
 	const hasSelectedCard = Boolean((cardDebtIdValue ?? "").trim());
 	const showDebtDropdown = !isCreditCard && debtOptions.length > 0;
 	const hasSecondDropdownColumn = showDebtDropdown || isCreditCard;
+	const showLogo = Boolean(expense.logoUrl) && !logoBroken;
 	const disableMarkPaid =
 		!isPaid &&
 		isCreditCard &&
@@ -83,6 +86,18 @@ export default function ExpenseRow({
 			<div className="flex items-start justify-between gap-2 sm:gap-3">
 				<div className="flex-1 min-w-0">
 					<div className="flex items-center gap-1.5 mb-0.5 sm:mb-1 flex-wrap">
+						<span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-white/15 bg-slate-900/60 overflow-hidden shrink-0">
+							{showLogo ? (
+								<img
+									src={expense.logoUrl ?? ""}
+									alt={`${expense.name} logo`}
+									className="h-4 w-4 object-contain"
+									onError={() => setLogoBroken(true)}
+								/>
+							) : (
+								<span className="text-[10px] font-semibold text-slate-300">{expense.name.trim().charAt(0).toUpperCase() || "•"}</span>
+							)}
+						</span>
 						<div className="font-semibold text-white text-xs sm:text-sm truncate">{expense.name}</div>
 						{showAllocationBadge && expense.isAllocation ? (
 							<span className="text-[10px] sm:text-xs px-2 py-0.5 rounded-lg font-semibold shrink-0 bg-indigo-500/20 text-indigo-200 border border-indigo-400/30">

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getSessionUserId } from "@/lib/api/bffAuth";
 import { upsertExpenseDebt } from "@/lib/debts/store";
 import { monthNumberToKey } from "@/lib/helpers/monthKey";
+import { resolveExpenseLogo } from "@/lib/expenses/logoResolver";
 
 export const runtime = "nodejs";
 
@@ -27,6 +28,9 @@ function serializeExpense(expense: any) {
   return {
     id: expense.id,
     name: expense.name,
+    merchantDomain: expense.merchantDomain ?? null,
+    logoUrl: expense.logoUrl ?? null,
+    logoSource: expense.logoSource ?? null,
     amount: decimalToString(expense.amount),
     paid: expense.paid,
     paidAmount: decimalToString(expense.paidAmount),
@@ -43,6 +47,7 @@ type PatchBody = {
   name?: unknown;
   amount?: unknown;
   categoryId?: unknown;
+  merchantDomain?: unknown;
   isAllocation?: unknown;
   /** Explicitly set paid status (mobile toggle) */
   paid?: unknown;
@@ -72,6 +77,11 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
         ? body.categoryId.trim() || null
         : undefined;
 	const isAllocation = body.isAllocation == null ? undefined : Boolean(body.isAllocation);
+  const merchantDomain = body.merchantDomain == null
+    ? undefined
+    : typeof body.merchantDomain === "string"
+      ? body.merchantDomain.trim() || null
+      : null;
   const paidExplicit = body.paid == null ? undefined : Boolean(body.paid);
   const paidAmountExplicit = body.paidAmount == null ? undefined : Number(body.paidAmount);
   const dueDate =
@@ -99,6 +109,9 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       paidAmount: true,
       isAllocation: true,
       categoryId: true,
+			merchantDomain: true,
+      logoUrl: true,
+      logoSource: true,
 			budgetPlanId: true,
       budgetPlan: { select: { userId: true } },
     },
@@ -108,6 +121,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   }
 
   const nextName = name ?? existing.name;
+  const logo = resolveExpenseLogo(nextName, merchantDomain === undefined ? existing.merchantDomain : merchantDomain);
   const nextAmountNumber = amount ?? Number(existing.amount.toString());
 
   // Explicit paid toggle (from mobile client) takes priority
@@ -148,6 +162,9 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       paid: nextPaid,
       paidAmount: String(nextPaidAmountNumber),
       categoryId: categoryId === undefined ? existing.categoryId : categoryId,
+      merchantDomain: logo.merchantDomain,
+      logoUrl: logo.logoUrl,
+      logoSource: logo.logoSource,
       isAllocation: isAllocation === undefined ? undefined : isAllocation,
       dueDate: dueDate === undefined ? undefined : dueDate,
     }) as any,

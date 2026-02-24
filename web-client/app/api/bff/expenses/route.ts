@@ -34,6 +34,9 @@ function serializeExpense(expense: any) {
   return {
     id: expense.id,
     name: expense.name,
+    merchantDomain: expense.merchantDomain ?? null,
+    logoUrl: expense.logoUrl ?? null,
+    logoSource: expense.logoSource ?? null,
     amount: decimalToString(expense.amount),
     paid: expense.paid,
     paidAmount: decimalToString(expense.paidAmount),

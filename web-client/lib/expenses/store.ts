@@ -3,6 +3,7 @@ import "server-only";
 import { MONTHS } from "@/lib/constants/time";
 import { prisma } from "@/lib/prisma";
 import { monthKeyToNumber, monthNumberToKey } from "@/lib/helpers/monthKey";
+import { resolveExpenseLogo } from "@/lib/expenses/logoResolver";
 import type { ExpenseItem, ExpensesByMonth, MonthKey } from "@/types";
 
 export type { ExpenseItem, ExpensesByMonth };
@@ -26,6 +27,12 @@ function decimalToNumber(value: unknown): number {
 	if (value == null) return 0;
 	if (typeof value === "number") return value;
 	return Number((value as any).toString?.() ?? value);
+}
+
+function toOptionalString(value: unknown): string | undefined {
+  if (value == null) return undefined;
+  const trimmed = String(value).trim();
+  return trimmed || undefined;
 }
 
 function dueDateForYearMonthFromISO(iso: string, year: number, monthNumber: number): Date {
@@ -59,6 +66,7 @@ export async function updateExpenseAcrossMonthsByName(
     dueDateDay?: number;
     dueDateMonthOffset?: number;
     isAllocation?: boolean;
+    merchantDomain?: string | null;
   },
   year: number,
   months: MonthKey[]
@@ -66,6 +74,7 @@ export async function updateExpenseAcrossMonthsByName(
   const targetMonths = Array.from(new Set(months));
   const matchName = normalizeExpenseName(match.name);
   const nextName = normalizeExpenseName(updates.name);
+  const logo = resolveExpenseLogo(nextName, updates.merchantDomain);
   if (!matchName || !nextName) return;
   if (!Number.isFinite(updates.amount) || updates.amount < 0) return;
 
@@ -117,6 +126,9 @@ export async function updateExpenseAcrossMonthsByName(
           paidAmount: nextPaidAmount,
           paid: nextPaid,
           isAllocation: updates.isAllocation === undefined ? undefined : !!updates.isAllocation,
+          merchantDomain: logo.merchantDomain,
+          logoUrl: logo.logoUrl,
+          logoSource: logo.logoSource,
           dueDate: dueDateValue,
         }) as any,
       });
@@ -136,6 +148,9 @@ export async function getAllExpenses(budgetPlanId: string, year: number = curren
     month: number;
     categoryId: string | null;
     dueDate: Date | null;
+    merchantDomain: string | null;
+    logoUrl: string | null;
+    logoSource: string | null;
   };
 
   const rows = (await prisma.expense.findMany({
@@ -151,6 +166,9 @@ export async function getAllExpenses(budgetPlanId: string, year: number = curren
 			month: true,
 			categoryId: true,
 			dueDate: true,
+      merchantDomain: true,
+      logoUrl: true,
+      logoSource: true,
 		},
   } as any)) as unknown as ExpenseListRow[];
 
@@ -164,6 +182,9 @@ export async function getAllExpenses(budgetPlanId: string, year: number = curren
 			paid: row.paid,
 			paidAmount: decimalToNumber(row.paidAmount),
       isAllocation: row.isAllocation,
+      merchantDomain: row.merchantDomain ?? undefined,
+      logoUrl: row.logoUrl ?? undefined,
+      logoSource: row.logoSource ?? undefined,
 			dueDate: row.dueDate ? row.dueDate.toISOString().split('T')[0] : undefined,
 		});
 	}
@@ -177,6 +198,7 @@ export async function addExpense(
   item: Omit<ExpenseItem, "id"> & { id?: string },
   year: number = currentYear()
 ): Promise<ExpenseItem> {
+  const logo = resolveExpenseLogo(item.name, toOptionalString((item as { merchantDomain?: unknown }).merchantDomain));
   const created = (await prisma.expense.create({
     data: ({
       budgetPlanId,
@@ -187,6 +209,9 @@ export async function addExpense(
       paid: !!item.paid,
       paidAmount: item.paidAmount ?? (item.paid ? item.amount : 0),
 			isAllocation: !!item.isAllocation,
+      merchantDomain: logo.merchantDomain,
+      logoUrl: logo.logoUrl,
+      logoSource: logo.logoSource,
       categoryId: item.categoryId ?? null,
       dueDate: item.dueDate ? new Date(item.dueDate) : null,
     }) as any,
@@ -197,6 +222,9 @@ export async function addExpense(
       paid: true,
       paidAmount: true,
 			isAllocation: true,
+      merchantDomain: true,
+      logoUrl: true,
+      logoSource: true,
       categoryId: true,
       dueDate: true,
     },
@@ -210,6 +238,9 @@ export async function addExpense(
     paid: created.paid,
     paidAmount: decimalToNumber(created.paidAmount),
 		isAllocation: created.isAllocation,
+    merchantDomain: created.merchantDomain ?? undefined,
+    logoUrl: created.logoUrl ?? undefined,
+    logoSource: created.logoSource ?? undefined,
     dueDate: created.dueDate ? created.dueDate.toISOString().split('T')[0] : undefined,
   };
 }
@@ -222,6 +253,7 @@ export async function addOrUpdateExpenseAcrossMonths(
 ): Promise<void> {
 	const targetMonths = Array.from(new Set(months));
 	const targetName = normalizeExpenseName(item.name);
+  const logo = resolveExpenseLogo(targetName, toOptionalString((item as { merchantDomain?: unknown }).merchantDomain));
 
 	for (const month of targetMonths) {
 		const monthNumber = monthKeyToNumber(month);
@@ -245,6 +277,9 @@ export async function addOrUpdateExpenseAcrossMonths(
 					paid: !!item.paid,
 					paidAmount: item.paidAmount ?? (item.paid ? item.amount : 0),
           isAllocation: !!item.isAllocation,          isDirectDebit: !!item.isDirectDebit,					dueDate: item.dueDate ? new Date(item.dueDate) : null,
+          merchantDomain: logo.merchantDomain,
+          logoUrl: logo.logoUrl,
+          logoSource: logo.logoSource,
         }) as any,
 			});
 			continue;
@@ -262,6 +297,9 @@ export async function addOrUpdateExpenseAcrossMonths(
 				paidAmount: item.paidAmount ?? (item.paid ? item.amount : 0),
         isAllocation: !!item.isAllocation,
         isDirectDebit: !!item.isDirectDebit,
+        merchantDomain: logo.merchantDomain,
+        logoUrl: logo.logoUrl,
+        logoSource: logo.logoSource,
 				dueDate: item.dueDate ? new Date(item.dueDate) : null,
       }) as any,
 		});
@@ -284,6 +322,9 @@ export async function updateExpense(
       paid: true,
       paidAmount: true,
 			isAllocation: true,
+      merchantDomain: true,
+      logoUrl: true,
+      logoSource: true,
       categoryId: true,
       dueDate: true,
     },
@@ -291,6 +332,7 @@ export async function updateExpense(
   if (!existing) return null;
 
   const nextName = normalizeExpenseName(updates.name ?? existing.name);
+  const logo = resolveExpenseLogo(nextName, toOptionalString((existing as { merchantDomain?: unknown }).merchantDomain));
   const nextAmount = updates.amount ?? decimalToNumber(existing.amount);
   const nextCategoryId = updates.categoryId;
 
@@ -317,6 +359,9 @@ export async function updateExpense(
       paidAmount: nextPaidAmount,
       paid: nextPaid,
 			isAllocation: updates.isAllocation === undefined ? undefined : !!updates.isAllocation,
+      merchantDomain: logo.merchantDomain,
+      logoUrl: logo.logoUrl,
+      logoSource: logo.logoSource,
       dueDate: updates.dueDate === undefined ? undefined : (updates.dueDate ? new Date(updates.dueDate) : null),
     }) as any,
     select: {
@@ -326,6 +371,9 @@ export async function updateExpense(
       paid: true,
       paidAmount: true,
 			isAllocation: true,
+      merchantDomain: true,
+      logoUrl: true,
+      logoSource: true,
       categoryId: true,
       dueDate: true,
     },
@@ -339,6 +387,9 @@ export async function updateExpense(
     paid: updated.paid,
     paidAmount: decimalToNumber(updated.paidAmount),
 		isAllocation: updated.isAllocation,
+    merchantDomain: updated.merchantDomain ?? undefined,
+    logoUrl: updated.logoUrl ?? undefined,
+    logoSource: updated.logoSource ?? undefined,
     dueDate: updated.dueDate ? updated.dueDate.toISOString().split('T')[0] : undefined,
   };
 }
