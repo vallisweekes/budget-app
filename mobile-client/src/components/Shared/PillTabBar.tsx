@@ -26,7 +26,7 @@ const LABELS: Record<string, string> = {
   Goals:     "Goals",
 };
 
-const INDICATOR_SIZE = 64;
+const INDICATOR_SIZE = 56;
 const BAR_HORIZONTAL_PADDING = 8;
 
 export default function PillTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
@@ -53,7 +53,7 @@ export default function PillTabBar({ state, descriptors, navigation }: BottomTab
   const indicatorTop = barHeight > 0 ? (barHeight - INDICATOR_SIZE) / 2 : 4;
 
   return (
-    <View style={[s.wrapper, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+    <View style={[s.wrapper, { paddingBottom: Math.max(insets.bottom, 8) }]}>
       <View
         style={s.bar}
         onLayout={(event) => {
@@ -132,7 +132,7 @@ const s = StyleSheet.create({
     position: "relative",
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 10,
+    paddingVertical: 6,
     paddingHorizontal: BAR_HORIZONTAL_PADDING,
   },
   liquidIndicator: {
@@ -153,7 +153,7 @@ const s = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 4,
+    paddingVertical: 2,
     borderRadius: 12,
     zIndex: 1,
   },
@@ -168,9 +168,9 @@ const s = StyleSheet.create({
     height: INDICATOR_SIZE,
   },
   iconWrap: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     alignItems: "center",
     justifyContent: "center",
   },
