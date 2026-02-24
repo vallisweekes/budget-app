@@ -18,7 +18,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
-import { apiFetch } from "@/lib/api";
+import { ApiError, apiFetch } from "@/lib/api";
 import type { DashboardData, Settings } from "@/lib/apiTypes";
 import { currencySymbol, fmt } from "@/lib/formatting";
 import { T } from "@/lib/theme";
@@ -121,12 +121,22 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
       setDashboard(dash);
       setSettings(s);
     } catch (err: unknown) {
+      const isNoPlan =
+        err instanceof ApiError &&
+        err.status === 404 &&
+        /budget plan not found/i.test(err.message);
+
+      if (isNoPlan) {
+        navigation.navigate("Settings");
+        return;
+      }
+
       setError(err instanceof Error ? err.message : "Failed to load");
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [navigation]);
 
   useEffect(() => {
     load();

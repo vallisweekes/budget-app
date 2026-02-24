@@ -35,7 +35,7 @@ import * as LucideIcons from "lucide-react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import DateTimePicker from "@react-native-community/datetimepicker";
 
-import { apiFetch } from "@/lib/api";
+import { apiFetch, getApiBaseUrl } from "@/lib/api";
 import type { Expense } from "@/lib/apiTypes";
 import { resolveCategoryColor, withOpacity } from "@/lib/categoryColors";
 import { fmt } from "@/lib/formatting";
@@ -93,6 +93,17 @@ function dueDaysColor(iso: string): string {
   if (days <= 3) return "#f97316";  // very soon — orange
   if (days <= 7) return "#f4a942";  // soon — amber
   return "#3ec97e";                 // fine — green
+}
+
+function resolveLogoUri(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  if (/^https?:\/\//i.test(raw)) return raw;
+  if (!raw.startsWith("/")) return null;
+  try {
+    return `${getApiBaseUrl()}${raw}`;
+  } catch {
+    return null;
+  }
 }
 
 // ─── Main screen ─────────────────────────────────────────────────────────────
@@ -318,9 +329,9 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
         {/* Row 1: name + badges + paid button + icons */}
         <View style={rs.row1}>
           <View style={rs.logoWrap}>
-            {item.logoUrl && !logoFailed[item.id] ? (
+            {resolveLogoUri(item.logoUrl) && !logoFailed[item.id] ? (
               <Image
-                source={{ uri: item.logoUrl }}
+                source={{ uri: resolveLogoUri(item.logoUrl)! }}
                 style={rs.logoImg}
                 resizeMode="contain"
                 onError={() => setLogoFailed((prev) => ({ ...prev, [item.id]: true }))}

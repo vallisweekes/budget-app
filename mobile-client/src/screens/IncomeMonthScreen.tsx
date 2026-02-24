@@ -70,7 +70,7 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
       const [monthData, incomeList, s] = await Promise.all([
         apiFetch<IncomeMonthData>(`/api/bff/income-month?month=${month}&year=${year}&budgetPlanId=${encodeURIComponent(budgetPlanId)}`),
         apiFetch<Income[]>(`/api/bff/income?month=${month}&year=${year}&budgetPlanId=${encodeURIComponent(budgetPlanId)}`),
-        apiFetch<Settings>("/api/bff/settings"),
+        apiFetch<Settings>(`/api/bff/settings?budgetPlanId=${encodeURIComponent(budgetPlanId)}`),
       ]);
       setAnalysis(monthData);
       setItems(Array.isArray(incomeList) ? incomeList : []);

@@ -57,6 +57,10 @@ export type RootStackParamList = {
   Analytics: undefined;
   Goals: undefined;
   GoalsProjection: undefined;
+  SettingsStrategy: {
+    budgetPlanId: string;
+    strategy: string | null;
+  };
 };
 
 /* ── Typed screen props helpers ─────────────────────────────── */

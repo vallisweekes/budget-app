@@ -4,10 +4,6 @@ export type ResolvedExpenseLogo = {
   logoSource: string | null;
 };
 
-const LOGO_DEV_PUBLISHABLE_KEY =
-  process.env.LOGO_DEV_PUBLISHABLE_KEY?.trim() ||
-  process.env.LOGO_DEV_TOKEN?.trim() ||
-  "";
 const LOGO_DEV_SECRET_KEY = process.env.LOGO_DEV_SECRET_KEY?.trim() || "";
 
 const KNOWN_DOMAINS: Array<{ pattern: RegExp; domain: string }> = [
@@ -59,16 +55,9 @@ export function resolveExpenseLogo(name: string, merchantDomain?: string | null)
     return { merchantDomain: null, logoUrl: null, logoSource: null };
   }
 
-  const params = new URLSearchParams({
-    size: "128",
-    retina: "true",
-    format: "png",
-  });
-  if (LOGO_DEV_PUBLISHABLE_KEY) params.set("token", LOGO_DEV_PUBLISHABLE_KEY);
-
   return {
     merchantDomain: domain,
-    logoUrl: `https://img.logo.dev/${encodeURIComponent(domain)}?${params.toString()}`,
+    logoUrl: `/api/bff/logo?domain=${encodeURIComponent(domain)}`,
     logoSource: explicitDomain ? "manual" : "inferred",
   };
 }

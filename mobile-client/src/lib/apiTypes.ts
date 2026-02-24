@@ -152,6 +152,8 @@ export interface Settings {
   payDate: number | null;
   monthlyAllowance: string | null;
   savingsBalance: string | null;
+  emergencyBalance?: string | null;
+  investmentBalance?: string | null;
   monthlySavingsContribution: string | null;
   monthlyEmergencyContribution: string | null;
   monthlyInvestmentContribution: string | null;
@@ -175,6 +177,12 @@ export interface BudgetPlanListItem {
 
 export interface BudgetPlansResponse {
   plans: BudgetPlanListItem[];
+}
+
+export interface UserProfile {
+  id: string;
+  username: string;
+  email: string | null;
 }
 
 export interface ExpenseMonthsResponse {

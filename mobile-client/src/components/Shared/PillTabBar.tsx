@@ -32,6 +32,7 @@ const BAR_HORIZONTAL_PADDING = 8;
 export default function PillTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const [barWidth, setBarWidth] = useState(0);
   const [barHeight, setBarHeight] = useState(0);
+  const activeRouteName = state.routes[state.index]?.name;
 
   const visibleRoutes = state.routes.filter((r) => {
     const opts = descriptors[r.key].options as Record<string, unknown>;
@@ -43,6 +44,10 @@ export default function PillTabBar({ state, descriptors, navigation }: BottomTab
     const idx = visibleRoutes.findIndex((route) => route.name === activeName);
     return idx >= 0 ? idx : 0;
   }, [state.index, state.routes, visibleRoutes]);
+
+  if (activeRouteName === "Settings") {
+    return null;
+  }
 
   const innerWidth = Math.max(0, barWidth - BAR_HORIZONTAL_PADDING * 2);
   const slotWidth = innerWidth > 0 && visibleRoutes.length > 0 ? innerWidth / visibleRoutes.length : 0;

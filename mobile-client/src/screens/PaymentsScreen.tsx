@@ -144,10 +144,8 @@ export default function PaymentsScreen() {
   const load = useCallback(async () => {
     try {
       setError(null);
-      const [s, payments] = await Promise.all([
-        apiFetch<Settings>("/api/bff/settings"),
-        apiFetch<PaymentsResponse>("/api/bff/payments"),
-      ]);
+      const payments = await apiFetch<PaymentsResponse>("/api/bff/payments");
+      const s = await apiFetch<Settings>(`/api/bff/settings?budgetPlanId=${encodeURIComponent(payments.budgetPlanId)}`);
       setSettings(s);
       setData(payments);
       // Keep local month/year aligned to the server's notion of "current month".

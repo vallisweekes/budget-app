@@ -24,6 +24,7 @@ import PaymentsScreen from "@/screens/PaymentsScreen";
 import GoalsScreen from "@/screens/GoalsScreen";
 import GoalsProjectionScreen from "@/screens/GoalsProjectionScreen";
 import AnalyticsScreen from "@/screens/AnalyticsScreen";
+import SettingsStrategyScreen from "@/screens/SettingsStrategyScreen";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -162,6 +163,7 @@ export default function RootNavigator() {
           <Stack.Screen name="Analytics" component={AnalyticsScreen} />
           <Stack.Screen name="Goals" component={GoalsScreen} />
           <Stack.Screen name="GoalsProjection" component={GoalsProjectionScreen} />
+          <Stack.Screen name="SettingsStrategy" component={SettingsStrategyScreen} />
         </>
       ) : (
         <Stack.Screen name="Login" component={LoginScreen} />

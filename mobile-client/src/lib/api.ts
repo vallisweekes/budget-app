@@ -25,6 +25,20 @@ export type ApiFetchOptions = {
   cacheTtlMs?: number;
 };
 
+export class ApiError extends Error {
+  status: number;
+  code: string | null;
+  detail: string | null;
+
+  constructor(message: string, params: { status: number; code?: string | null; detail?: string | null }) {
+    super(message);
+    this.name = "ApiError";
+    this.status = params.status;
+    this.code = params.code ?? null;
+    this.detail = params.detail ?? null;
+  }
+}
+
 type CacheEntry = {
   expiresAt: number;
   value: unknown;
@@ -116,6 +130,9 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
     const serverMessage =
       typeof parsedObj?.["error"] === "string" ? parsedObj["error"] : null;
 
+    const serverCode =
+      typeof parsedObj?.["code"] === "string" ? (parsedObj["code"] as string) : null;
+
     const serverDetail =
       typeof parsedObj?.["detail"] === "string" ? (parsedObj["detail"] as string) : null;
 
@@ -125,7 +142,11 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
         ? `${serverMessage}: ${serverDetail}`
         : baseMessage;
 
-    throw new Error(message);
+    throw new ApiError(message, {
+      status: response.status,
+      code: serverCode,
+      detail: serverDetail,
+    });
   }
 
     const result = ((parsed as T) ?? ({} as T));
