@@ -8,7 +8,6 @@ import {
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { T } from "@/lib/theme";
 
 type IconName = React.ComponentProps<typeof Ionicons>["name"];
@@ -31,7 +30,6 @@ const INDICATOR_SIZE = 56;
 const BAR_HORIZONTAL_PADDING = 8;
 
 export default function PillTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
-  const insets = useSafeAreaInsets();
   const [barWidth, setBarWidth] = useState(0);
   const [barHeight, setBarHeight] = useState(0);
 
@@ -54,7 +52,7 @@ export default function PillTabBar({ state, descriptors, navigation }: BottomTab
   const indicatorTop = barHeight > 0 ? (barHeight - INDICATOR_SIZE) / 2 : 4;
 
   return (
-    <View style={[s.wrapper, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+    <View style={s.wrapper}>
       <BlurView intensity={22} tint="dark" style={s.glassBase}>
         <View style={s.glassTint} />
         <View
