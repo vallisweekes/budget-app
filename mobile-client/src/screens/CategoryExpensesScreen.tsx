@@ -25,7 +25,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
-  Switch,
   ScrollView,
   Image,
 } from "react-native";
@@ -61,6 +60,9 @@ type EditState = {
   categoryId: string;
   dueDate: string;
   isAllocation: boolean;
+  isDirectDebit: boolean;
+  distributeMonths: boolean;
+  distributeYears: boolean;
 } | null;
 
 type PaymentInputState = Record<string, string>; // expenseId → raw input value
@@ -129,6 +131,8 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError]   = useState<string | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const iosDueDateBeforeRef = useRef<string>("");
+  const [iosDueDateDraft, setIosDueDateDraft] = useState<Date>(new Date());
   const categoryScrollRef = useRef<ScrollView>(null);
 
   // delete confirmation sheet
@@ -162,6 +166,21 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
       setRefreshing(false);
     }
   }, [budgetPlanId, categoryId, month, year]);
+
+  const openDueDatePicker = useCallback(() => {
+    iosDueDateBeforeRef.current = editState?.dueDate ?? "";
+    setIosDueDateDraft(editState?.dueDate ? new Date(`${editState.dueDate}T00:00:00`) : new Date());
+    setShowDatePicker(true);
+  }, [editState]);
+
+  const cancelDueDatePicker = useCallback(() => {
+    setEditState((p) => (p ? { ...p, dueDate: iosDueDateBeforeRef.current } : p));
+    setShowDatePicker(false);
+  }, []);
+
+  const closeDueDatePicker = useCallback(() => {
+    setShowDatePicker(false);
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -236,6 +255,9 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
       categoryId: expense.categoryId || categoryId,
       dueDate: expense.dueDate ? expense.dueDate.slice(0, 10) : "",
       isAllocation: expense.isAllocation || false,
+      isDirectDebit: expense.isDirectDebit || false,
+      distributeMonths: false,
+      distributeYears: false,
     });
     setEditError(null);
   };
@@ -272,6 +294,9 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
           categoryId: editState.categoryId || null,
           dueDate: editState.dueDate || null,
           isAllocation: editState.isAllocation,
+          isDirectDebit: editState.isDirectDebit,
+          distributeMonths: editState.distributeMonths,
+          distributeYears: editState.distributeYears,
         },
       });
       setExpenses(prev => prev.map(e => e.id === updated.id ? updated : e));
@@ -573,52 +598,138 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
               <Text style={es.label}>Due Date</Text>
               <TouchableOpacity
                 style={es.dateButton}
-                onPress={() => setShowDatePicker(true)}
+                onPress={openDueDatePicker}
               >
                 <Text style={[es.dateButtonText, !editState?.dueDate && es.dateButtonPlaceholder]}>
                   {editState?.dueDate ? new Date(editState.dueDate + 'T00:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'Select date'}
                 </Text>
                 <Ionicons name="calendar-outline" size={20} color={T.accent} />
               </TouchableOpacity>
-              {showDatePicker && (
+              {showDatePicker && Platform.OS === 'android' ? (
                 <View style={es.datePickerWrap}>
                   <DateTimePicker
                     value={editState?.dueDate ? new Date(editState.dueDate + 'T00:00:00') : new Date()}
                     mode="date"
-                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    display="default"
                     onChange={(event, selectedDate) => {
-                      if (Platform.OS === 'android') {
-                        setShowDatePicker(false);
-                      }
+                      setShowDatePicker(false);
                       if (event.type === 'set' && selectedDate) {
                         const isoDate = selectedDate.toISOString().slice(0, 10);
                         setEditState(p => p ? { ...p, dueDate: isoDate } : p);
-                      } else if (event.type === 'dismissed') {
-                        setShowDatePicker(false);
                       }
                     }}
-                    themeVariant="dark"
                   />
-                  {Platform.OS === 'ios' ? (
-                    <TouchableOpacity style={es.dateDoneBtn} onPress={() => setShowDatePicker(false)}>
-                      <Text style={es.dateDoneTxt}>Done</Text>
-                    </TouchableOpacity>
-                  ) : null}
                 </View>
-              )}
+              ) : null}
 
-              <View style={es.switchRow}>
-                <View style={es.switchInfo}>
-                  <Text style={es.switchLabel}>Treat as allocation</Text>
-                  <Text style={es.switchDesc}>Check if this is an allocation, not a monthly expense</Text>
+              {Platform.OS === 'ios' ? (
+                <Modal
+                  visible={showDatePicker}
+                  transparent
+                  animationType="fade"
+                  presentationStyle="overFullScreen"
+                  onRequestClose={cancelDueDatePicker}
+                >
+                  <View style={es.dateModalOverlay}>
+                    <Pressable style={es.dateModalBackdrop} onPress={cancelDueDatePicker} />
+                    <View style={es.dateModalSheet}>
+                      <View style={es.dateModalHeader}>
+                        <TouchableOpacity onPress={cancelDueDatePicker} hitSlop={10}>
+                          <Text style={es.dateModalCancelTxt}>Cancel</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={closeDueDatePicker} hitSlop={10}>
+                          <Text style={es.dateModalDoneTxt}>Done</Text>
+                        </TouchableOpacity>
+                      </View>
+                      <DateTimePicker
+                        value={iosDueDateDraft}
+                        mode="date"
+                        display="spinner"
+                        onChange={(event, selectedDate) => {
+                          if (event.type === 'dismissed') return;
+                          const next = selectedDate ?? iosDueDateDraft;
+                          setIosDueDateDraft(next);
+                          const isoDate = next.toISOString().slice(0, 10);
+                          setEditState(p => p ? { ...p, dueDate: isoDate } : p);
+                        }}
+                        themeVariant="dark"
+                      />
+                    </View>
+                  </View>
+                </Modal>
+              ) : null}
+
+              {/* Allocation toggle */}
+              <View style={es.toggleRow}>
+                <View style={es.toggleInfo}>
+                  <Text style={es.toggleTitle}>Allocation payment</Text>
+                  <Text style={es.toggleSub}>For envelopes like groceries — never becomes a debt</Text>
                 </View>
-                <Switch
-                  value={editState?.isAllocation ?? false}
-                  onValueChange={v => setEditState(p => p ? { ...p, isAllocation: v } : p)}
-                  trackColor={{ false: T.border, true: withOpacity(T.accent, 0.5) }}
-                  thumbColor={editState?.isAllocation ? T.accent : T.textMuted}
-                />
+                <TouchableOpacity
+                  onPress={() => setEditState((p) => (p ? { ...p, isAllocation: !p.isAllocation } : p))}
+                  style={[es.toggle, editState?.isAllocation && es.toggleOn]}
+                  activeOpacity={0.8}
+                >
+                  <View style={[es.toggleThumb, editState?.isAllocation && es.toggleThumbOn]} />
+                </TouchableOpacity>
               </View>
+
+              {/* Direct Debit toggle */}
+              <View style={es.toggleRow}>
+                <View style={es.toggleInfo}>
+                  <Text style={es.toggleTitle}>Direct Debit / Standing Order</Text>
+                  <Text style={es.toggleSub}>Automatically collected each month</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setEditState((p) => (p ? { ...p, isDirectDebit: !p.isDirectDebit } : p))}
+                  style={[es.toggle, editState?.isDirectDebit && es.toggleOn]}
+                  activeOpacity={0.8}
+                >
+                  <View style={[es.toggleThumb, editState?.isDirectDebit && es.toggleThumbOn]} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Distribute remaining months toggle */}
+              <View style={es.toggleRow}>
+                <View style={es.toggleInfo}>
+                  <Text style={es.toggleTitle}>Distribute remaining months</Text>
+                  <Text style={es.toggleSub}>Add to every month from now through December</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() =>
+                    setEditState((p) =>
+                      p
+                        ? {
+                            ...p,
+                            distributeMonths: !p.distributeMonths,
+                            distributeYears: !p.distributeMonths ? p.distributeYears : false,
+                          }
+                        : p
+                    )
+                  }
+                  style={[es.toggle, editState?.distributeMonths && es.toggleOn]}
+                  activeOpacity={0.8}
+                >
+                  <View style={[es.toggleThumb, editState?.distributeMonths && es.toggleThumbOn]} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Repeat across years toggle (available when distributeMonths is on) */}
+              {editState?.distributeMonths ? (
+                <View style={es.toggleRow}>
+                  <View style={es.toggleInfo}>
+                    <Text style={es.toggleTitle}>Repeat next year too</Text>
+                    <Text style={es.toggleSub}>Also distribute across the same months next year</Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => setEditState((p) => (p ? { ...p, distributeYears: !p.distributeYears } : p))}
+                    style={[es.toggle, editState?.distributeYears && es.toggleOn]}
+                    activeOpacity={0.8}
+                  >
+                    <View style={[es.toggleThumb, editState?.distributeYears && es.toggleThumbOn]} />
+                  </TouchableOpacity>
+                </View>
+              ) : null}
             </ScrollView>
 
             {editError ? <Text style={es.errTxt}>{editError}</Text> : null}
@@ -838,6 +949,7 @@ const es = StyleSheet.create({
     borderTopLeftRadius: 20, borderTopRightRadius: 20,
     paddingHorizontal: 20, paddingTop: 12, paddingBottom: 32,
     borderTopWidth: 1, borderTopColor: T.border,
+    maxHeight: "90%",
   },
   handle: {
     width: 40, height: 4, borderRadius: 2,
@@ -854,7 +966,7 @@ const es = StyleSheet.create({
     paddingHorizontal: 14, paddingVertical: 12,
     marginBottom: 16,
   },
-  scrollContent: { maxHeight: 400, marginBottom: 12 },
+  scrollContent: { maxHeight: 560, marginBottom: 12 },
   pickerWrapper: { marginBottom: 16 },
   categoryScroll: { flexGrow: 0 },
   categoryOption: {
@@ -906,6 +1018,28 @@ const es = StyleSheet.create({
     backgroundColor: T.cardAlt,
     overflow: "hidden",
   },
+  dateModalOverlay: { flex: 1, justifyContent: "flex-end" },
+  dateModalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.55)" },
+  dateModalSheet: {
+    backgroundColor: T.card,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    borderTopWidth: 1,
+    borderTopColor: T.border,
+    paddingBottom: 16,
+    overflow: "hidden",
+  },
+  dateModalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: T.border,
+  },
+  dateModalCancelTxt: { color: T.textDim, fontSize: 14, fontWeight: "700" },
+  dateModalDoneTxt: { color: T.accent, fontSize: 14, fontWeight: "800" },
   dateDoneBtn: {
     alignSelf: "flex-end",
     margin: 8,
@@ -915,7 +1049,7 @@ const es = StyleSheet.create({
     backgroundColor: T.accent,
   },
   dateDoneTxt: { color: T.onAccent, fontSize: 12, fontWeight: "700" },
-  switchRow: {
+  toggleRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -926,10 +1060,36 @@ const es = StyleSheet.create({
     borderWidth: 1,
     borderColor: T.border,
     marginBottom: 16,
+    gap: 12,
   },
-  switchInfo: { flex: 1, marginRight: 12 },
-  switchLabel: { color: T.text, fontSize: 14, fontWeight: "700", marginBottom: 2 },
-  switchDesc: { color: T.textDim, fontSize: 11 },
+  toggleInfo: { flex: 1 },
+  toggleTitle: { color: T.text, fontSize: 14, fontWeight: "800" },
+  toggleSub: { color: T.textMuted, fontSize: 11, fontWeight: "600", marginTop: 2 },
+  toggle: {
+    width: 48,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: T.cardAlt,
+    borderWidth: 1,
+    borderColor: T.border,
+    justifyContent: "center",
+    paddingHorizontal: 3,
+  },
+  toggleOn: {
+    backgroundColor: `${T.accent}55`,
+    borderColor: T.accent,
+  },
+  toggleThumb: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: T.textMuted,
+    alignSelf: "flex-start",
+  },
+  toggleThumbOn: {
+    backgroundColor: T.accent,
+    alignSelf: "flex-end",
+  },
   errTxt: { color: T.red, fontSize: 13, marginBottom: 12 },
   actions: { flexDirection: "row", gap: 10, marginTop: 4 },
   cancelBtn: {

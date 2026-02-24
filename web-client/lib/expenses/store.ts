@@ -66,17 +66,19 @@ export async function updateExpenseAcrossMonthsByName(
     dueDateDay?: number;
     dueDateMonthOffset?: number;
     isAllocation?: boolean;
+    isDirectDebit?: boolean;
     merchantDomain?: string | null;
   },
   year: number,
   months: MonthKey[]
-): Promise<void> {
+): Promise<Array<{ id: string; monthNumber: number }>> {
   const targetMonths = Array.from(new Set(months));
+  const touched: Array<{ id: string; monthNumber: number }> = [];
   const matchName = normalizeExpenseName(match.name);
   const nextName = normalizeExpenseName(updates.name);
   const logo = resolveExpenseLogo(nextName, updates.merchantDomain);
-  if (!matchName || !nextName) return;
-  if (!Number.isFinite(updates.amount) || updates.amount < 0) return;
+  if (!matchName || !nextName) return [];
+  if (!Number.isFinite(updates.amount) || updates.amount < 0) return [];
 
   for (const month of targetMonths) {
     const monthNumber = monthKeyToNumber(month);
@@ -126,14 +128,19 @@ export async function updateExpenseAcrossMonthsByName(
           paidAmount: nextPaidAmount,
           paid: nextPaid,
           isAllocation: updates.isAllocation === undefined ? undefined : !!updates.isAllocation,
+          isDirectDebit: updates.isDirectDebit === undefined ? undefined : !!updates.isDirectDebit,
           merchantDomain: logo.merchantDomain,
           logoUrl: logo.logoUrl,
           logoSource: logo.logoSource,
           dueDate: dueDateValue,
         }) as any,
       });
+
+      touched.push({ id: row.id, monthNumber });
     }
   }
+
+  return touched;
 }
 
 export async function getAllExpenses(budgetPlanId: string, year: number = currentYear()): Promise<ExpensesByMonth> {

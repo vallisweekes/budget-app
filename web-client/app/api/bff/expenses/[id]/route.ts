@@ -4,6 +4,9 @@ import { getSessionUserId } from "@/lib/api/bffAuth";
 import { upsertExpenseDebt } from "@/lib/debts/store";
 import { monthNumberToKey } from "@/lib/helpers/monthKey";
 import { resolveExpenseLogoWithSearch } from "@/lib/expenses/logoResolver";
+import { updateExpenseAcrossMonthsByName } from "@/lib/expenses/store";
+import { MONTHS } from "@/lib/constants/time";
+import type { MonthKey } from "@/types";
 
 export const runtime = "nodejs";
 
@@ -48,6 +51,7 @@ function serializeExpense(expense: any) {
     paid: expense.paid,
     paidAmount: decimalToString(expense.paidAmount),
     isAllocation: Boolean(expense.isAllocation ?? false),
+    isDirectDebit: Boolean(expense.isDirectDebit ?? false),
     month: expense.month,
     year: expense.year,
     categoryId: expense.categoryId,
@@ -62,12 +66,17 @@ type PatchBody = {
   categoryId?: unknown;
   merchantDomain?: unknown;
   isAllocation?: unknown;
+  isDirectDebit?: unknown;
   /** Explicitly set paid status (mobile toggle) */
   paid?: unknown;
   /** Explicitly set paidAmount (mobile partial payment) */
   paidAmount?: unknown;
   /** Due date in ISO format (YYYY-MM-DD or full ISO datetime) */
   dueDate?: unknown;
+  /** Apply updates across remaining months (mobile UI parity with Add Expense) */
+  distributeMonths?: unknown;
+  /** Also apply updates to next year (only when distributeMonths is true) */
+  distributeYears?: unknown;
 };
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
@@ -90,6 +99,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
         ? body.categoryId.trim() || null
         : undefined;
   	const isAllocation = body.isAllocation == null ? undefined : toBool(body.isAllocation);
+  	const isDirectDebit = body.isDirectDebit == null ? undefined : toBool(body.isDirectDebit);
   const merchantDomain = body.merchantDomain == null
     ? undefined
     : typeof body.merchantDomain === "string"
@@ -103,6 +113,9 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       : typeof body.dueDate === "string"
         ? body.dueDate.trim() || null
         : null;
+
+    const applyRemainingMonths = toBool(body.distributeMonths);
+    const applyFutureYears = applyRemainingMonths ? toBool(body.distributeYears) : false;
 
   if (name !== undefined && !name) return badRequest("Name cannot be empty");
   if (amount !== undefined && (!Number.isFinite(amount) || amount < 0)) {
@@ -121,7 +134,10 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       paid: true,
       paidAmount: true,
       isAllocation: true,
+      isDirectDebit: true,
       categoryId: true,
+			month: true,
+			year: true,
 			merchantDomain: true,
       logoUrl: true,
       logoSource: true,
@@ -139,6 +155,10 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     merchantDomain === undefined ? existing.merchantDomain : merchantDomain
   );
   const nextAmountNumber = amount ?? Number(existing.amount.toString());
+
+  const nextCategoryId = categoryId === undefined ? existing.categoryId : categoryId;
+  const nextIsAllocation = isAllocation === undefined ? Boolean(existing.isAllocation ?? false) : isAllocation;
+  const nextIsDirectDebit = isDirectDebit === undefined ? Boolean(existing.isDirectDebit ?? false) : isDirectDebit;
 
   // Explicit paid toggle (from mobile client) takes priority
   let nextPaidAmountNumber: number;
@@ -182,6 +202,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       logoUrl: logo.logoUrl,
       logoSource: logo.logoSource,
       isAllocation: isAllocation === undefined ? undefined : isAllocation,
+      isDirectDebit: isDirectDebit === undefined ? undefined : isDirectDebit,
       dueDate: dueDate === undefined ? undefined : dueDate,
     }) as any,
     include: {
@@ -190,6 +211,85 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       },
     },
   } as any)) as any;
+
+  if (applyRemainingMonths) {
+    const monthIndex0 = Math.min(11, Math.max(0, Number(existing.month) - 1));
+    const monthsThisYear = (MONTHS as MonthKey[]).slice(monthIndex0);
+    const years = applyFutureYears ? [existing.year, existing.year + 1] : [existing.year];
+
+    // If a due date is provided, propagate it across months as:
+    // - same day-of-month
+    // - same relative month offset from the expense month
+    // Example: editing JAN expense due 2026-02-24 => FEB expense due 2026-03-24.
+    let dueDateDay: number | undefined;
+    let dueDateMonthOffset: number | undefined;
+    if (typeof dueDate === "string") {
+      const m = /^\s*(\d{4})-(\d{2})-(\d{2})\s*$/.exec(dueDate);
+      if (m) {
+        const dueYear = Number(m[1]);
+        const dueMonth = Number(m[2]);
+        const day = Number(m[3]);
+        if (
+          Number.isFinite(dueYear) &&
+          Number.isFinite(dueMonth) &&
+          dueMonth >= 1 &&
+          dueMonth <= 12 &&
+          Number.isFinite(day)
+        ) {
+          dueDateDay = day;
+          dueDateMonthOffset = (dueYear - existing.year) * 12 + (dueMonth - existing.month);
+        }
+      }
+    }
+
+    const touched: Array<{ id: string; monthNumber: number }> = [];
+    for (const y of years) {
+      const monthsForYear = y === existing.year ? monthsThisYear : (MONTHS as MonthKey[]);
+      const rows = await updateExpenseAcrossMonthsByName(
+        existing.budgetPlanId,
+        { name: existing.name, categoryId: existing.categoryId },
+        {
+          name: nextName,
+          amount: nextAmountNumber,
+          categoryId: nextCategoryId,
+          isAllocation: nextIsAllocation,
+          isDirectDebit: nextIsDirectDebit,
+          dueDateDay,
+          dueDateMonthOffset,
+          merchantDomain: logo.merchantDomain,
+        },
+        y,
+        monthsForYear
+      );
+      touched.push(...rows);
+    }
+
+    // If this is now an allocation, ensure any existing expense-backed debts are zeroed.
+    if (nextIsAllocation && touched.length) {
+      for (const row of touched) {
+        const existingDebt = await prisma.debt.findFirst({
+          where: {
+            budgetPlanId: existing.budgetPlanId,
+            sourceType: "expense",
+            sourceExpenseId: row.id,
+          },
+          select: { sourceMonthKey: true },
+        });
+
+        if (!existingDebt) continue;
+        const monthKey = existingDebt.sourceMonthKey ?? monthNumberToKey(row.monthNumber);
+        await upsertExpenseDebt({
+          budgetPlanId: existing.budgetPlanId,
+          expenseId: row.id,
+          monthKey,
+          expenseName: nextName,
+          categoryId: nextCategoryId ?? undefined,
+          categoryName: updated.category?.name ?? undefined,
+          remainingAmount: 0,
+        });
+      }
+    }
+  }
 
   if (updated.isAllocation) {
     const existingDebt = await prisma.debt.findFirst({

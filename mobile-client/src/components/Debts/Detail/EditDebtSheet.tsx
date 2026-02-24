@@ -34,6 +34,26 @@ export default function EditDebtSheet(props: Props) {
     onPickDate, onDateChange, onToggleAutoPay, onChangeInstallment, onSetShowDatePicker,
   } = props;
 
+  const iosDueDateBeforeRef = React.useRef<string>("");
+  const [iosDueDateDraft, setIosDueDateDraft] = React.useState<Date>(new Date());
+
+  React.useEffect(() => {
+    if (Platform.OS !== "ios") return;
+    if (!showDatePicker) return;
+    iosDueDateBeforeRef.current = dueDate;
+    setIosDueDateDraft(dueDate ? new Date(`${dueDate}T00:00:00`) : new Date());
+  }, [showDatePicker, dueDate]);
+
+  const cancelDueDatePicker = React.useCallback(() => {
+    onSetShowDatePicker(false);
+    if (iosDueDateBeforeRef.current !== dueDate) onDateChange(iosDueDateBeforeRef.current);
+  }, [dueDate, onDateChange, onSetShowDatePicker]);
+
+  const closeDueDatePicker = React.useCallback(() => {
+    onDateChange(iosDueDateDraft.toISOString().slice(0, 10));
+    onSetShowDatePicker(false);
+  }, [iosDueDateDraft, onDateChange, onSetShowDatePicker]);
+
   return (
     <Modal visible={visible} transparent animationType="slide" presentationStyle="overFullScreen" onRequestClose={onClose}>
       <KeyboardAvoidingView style={s.sheetOverlay} behavior={Platform.OS === "ios" ? "padding" : undefined}>
@@ -63,17 +83,50 @@ export default function EditDebtSheet(props: Props) {
 
             {showDatePicker ? (
               <View style={{ marginBottom: 12 }}>
-                <DateTimePicker
-                  value={dueDate ? new Date(`${dueDate}T00:00:00`) : new Date()}
-                  mode="date"
-                  display={Platform.OS === "ios" ? "spinner" : "default"}
-                  onChange={(event, selectedDate) => {
-                    if (Platform.OS === "android") onSetShowDatePicker(false);
-                    if (event.type === "set" && selectedDate) onDateChange(selectedDate.toISOString().slice(0, 10));
-                  }}
-                />
-                {Platform.OS === "ios" ? <Pressable onPress={() => onSetShowDatePicker(false)} style={s.dateDoneBtn}><Text style={s.saveBtnTxt}>Done</Text></Pressable> : null}
+                {Platform.OS === "android" ? (
+                  <DateTimePicker
+                    value={dueDate ? new Date(`${dueDate}T00:00:00`) : new Date()}
+                    mode="date"
+                    display="default"
+                    onChange={(event, selectedDate) => {
+                      onSetShowDatePicker(false);
+                      if (event.type === "set" && selectedDate) onDateChange(selectedDate.toISOString().slice(0, 10));
+                    }}
+                  />
+                ) : null}
               </View>
+            ) : null}
+
+            {Platform.OS === "ios" ? (
+              <Modal
+                visible={showDatePicker}
+                transparent
+                animationType="fade"
+                presentationStyle="overFullScreen"
+                onRequestClose={cancelDueDatePicker}
+              >
+                <View style={s.dateModalOverlay}>
+                  <Pressable style={s.dateModalBackdrop} onPress={cancelDueDatePicker} />
+                  <View style={s.dateModalSheet}>
+                    <View style={s.dateModalHeader}>
+                      <Pressable onPress={cancelDueDatePicker}>
+                        <Text style={s.dateModalCancelTxt}>Cancel</Text>
+                      </Pressable>
+                      <Pressable onPress={closeDueDatePicker}>
+                        <Text style={s.dateModalDoneTxt}>Done</Text>
+                      </Pressable>
+                    </View>
+                    <DateTimePicker
+                      value={iosDueDateDraft}
+                      mode="date"
+                      display="spinner"
+                      onChange={(event, selectedDate) => {
+                        if (event.type === "set" && selectedDate) setIosDueDateDraft(selectedDate);
+                      }}
+                    />
+                  </View>
+                </View>
+              </Modal>
             ) : null}
 
             <View style={s.switchRow}>
@@ -116,6 +169,28 @@ const s = StyleSheet.create({
   inputLabel: { color: T.textDim, fontSize: 12, fontWeight: "800" },
   sheetOverlay: { flex: 1, justifyContent: "flex-end" },
   sheetBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.55)" },
+  dateModalOverlay: { flex: 1, justifyContent: "flex-end" },
+  dateModalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.55)" },
+  dateModalSheet: {
+    backgroundColor: T.card,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    borderTopWidth: 1,
+    borderTopColor: T.border,
+    paddingBottom: 16,
+    overflow: "hidden",
+  },
+  dateModalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: T.border,
+  },
+  dateModalCancelTxt: { color: T.textDim, fontSize: 14, fontWeight: "700" },
+  dateModalDoneTxt: { color: T.accent, fontSize: 14, fontWeight: "800" },
   sheetCard: { backgroundColor: T.card, height: "88%", borderTopLeftRadius: 20, borderTopRightRadius: 20, borderTopWidth: 1, borderTopColor: T.border, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 20, gap: 14 },
   sheetScroll: { maxHeight: 460 },
   sheetScrollContent: { gap: 10, paddingBottom: 8 },

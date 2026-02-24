@@ -21,6 +21,7 @@ export interface Expense {
   paid: boolean;
   paidAmount: string;
   isAllocation: boolean;
+  isDirectDebit: boolean;
   month: number;
   year: number;
   categoryId: string;

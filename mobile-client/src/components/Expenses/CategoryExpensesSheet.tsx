@@ -27,6 +27,7 @@ import {
   Animated,
   Dimensions,
   TouchableOpacity,
+  ScrollView,
   Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -63,7 +64,15 @@ type Props = {
   onMutated?: () => void;
 };
 
-type EditState = { id: string; name: string; amount: string } | null;
+type EditState = {
+  id: string;
+  name: string;
+  amount: string;
+  isAllocation: boolean;
+  isDirectDebit: boolean;
+  distributeMonths: boolean;
+  distributeYears: boolean;
+} | null;
 type PaymentInputState = Record<string, string>; // expenseId → raw input value
 
 // ─── Category icon helper ────────────────────────────────────────────────────
@@ -239,7 +248,15 @@ export default function CategoryExpensesSheet({
   // ─── Edit ─────────────────────────────────────────────────────────────
 
   const openEdit = (expense: Expense) => {
-    setEditState({ id: expense.id, name: expense.name, amount: expense.amount });
+    setEditState({
+      id: expense.id,
+      name: expense.name,
+      amount: expense.amount,
+      isAllocation: expense.isAllocation || false,
+      isDirectDebit: expense.isDirectDebit || false,
+      distributeMonths: false,
+      distributeYears: false,
+    });
     setEditError(null);
   };
 
@@ -254,7 +271,14 @@ export default function CategoryExpensesSheet({
     try {
       const updated = await apiFetch<Expense>(`/api/bff/expenses/${editState.id}`, {
         method: "PATCH",
-        body: { name, amount },
+        body: {
+          name,
+          amount,
+          isAllocation: editState.isAllocation,
+          isDirectDebit: editState.isDirectDebit,
+          distributeMonths: editState.distributeMonths,
+          distributeYears: editState.distributeYears,
+        },
       });
       setExpenses(prev => prev.map(e => e.id === updated.id ? updated : e));
       setEditState(null);
@@ -524,30 +548,104 @@ export default function CategoryExpensesSheet({
             <View style={es.handle} />
             <Text style={es.title}>Edit Expense</Text>
 
-            <Text style={es.label}>Name</Text>
-            <TextInput
-              style={es.input}
-              value={editState?.name ?? ""}
-              onChangeText={t => setEditState(p => p ? { ...p, name: t } : p)}
-              placeholder="Expense name"
-              placeholderTextColor={T.textMuted}
-              selectionColor={T.accent}
-              returnKeyType="next"
-              autoFocus
-            />
+            <ScrollView keyboardShouldPersistTaps="handled" style={es.scrollContent} showsVerticalScrollIndicator={false}>
+              <Text style={es.label}>Name</Text>
+              <TextInput
+                style={es.input}
+                value={editState?.name ?? ""}
+                onChangeText={t => setEditState(p => p ? { ...p, name: t } : p)}
+                placeholder="Expense name"
+                placeholderTextColor={T.textMuted}
+                selectionColor={T.accent}
+                returnKeyType="next"
+                autoFocus
+              />
 
-            <Text style={es.label}>Amount</Text>
-            <TextInput
-              style={es.input}
-              value={editState?.amount ?? ""}
-              onChangeText={t => setEditState(p => p ? { ...p, amount: t } : p)}
-              placeholder="0.00"
-              placeholderTextColor={T.textMuted}
-              selectionColor={T.accent}
-              keyboardType="decimal-pad"
-              returnKeyType="done"
-              onSubmitEditing={handleEditSave}
-            />
+              <Text style={es.label}>Amount</Text>
+              <TextInput
+                style={es.input}
+                value={editState?.amount ?? ""}
+                onChangeText={t => setEditState(p => p ? { ...p, amount: t } : p)}
+                placeholder="0.00"
+                placeholderTextColor={T.textMuted}
+                selectionColor={T.accent}
+                keyboardType="decimal-pad"
+                returnKeyType="done"
+                onSubmitEditing={handleEditSave}
+              />
+
+              {/* Allocation toggle */}
+              <View style={es.toggleRow}>
+                <View style={es.toggleInfo}>
+                  <Text style={es.toggleTitle}>Allocation payment</Text>
+                  <Text style={es.toggleSub}>For envelopes like groceries — never becomes a debt</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setEditState((p) => (p ? { ...p, isAllocation: !p.isAllocation } : p))}
+                  style={[es.toggle, editState?.isAllocation && es.toggleOn]}
+                  activeOpacity={0.8}
+                >
+                  <View style={[es.toggleThumb, editState?.isAllocation && es.toggleThumbOn]} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Direct Debit toggle */}
+              <View style={es.toggleRow}>
+                <View style={es.toggleInfo}>
+                  <Text style={es.toggleTitle}>Direct Debit / Standing Order</Text>
+                  <Text style={es.toggleSub}>Automatically collected each month</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setEditState((p) => (p ? { ...p, isDirectDebit: !p.isDirectDebit } : p))}
+                  style={[es.toggle, editState?.isDirectDebit && es.toggleOn]}
+                  activeOpacity={0.8}
+                >
+                  <View style={[es.toggleThumb, editState?.isDirectDebit && es.toggleThumbOn]} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Distribute remaining months toggle */}
+              <View style={es.toggleRow}>
+                <View style={es.toggleInfo}>
+                  <Text style={es.toggleTitle}>Distribute remaining months</Text>
+                  <Text style={es.toggleSub}>Add to every month from now through December</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() =>
+                    setEditState((p) =>
+                      p
+                        ? {
+                            ...p,
+                            distributeMonths: !p.distributeMonths,
+                            distributeYears: !p.distributeMonths ? p.distributeYears : false,
+                          }
+                        : p
+                    )
+                  }
+                  style={[es.toggle, editState?.distributeMonths && es.toggleOn]}
+                  activeOpacity={0.8}
+                >
+                  <View style={[es.toggleThumb, editState?.distributeMonths && es.toggleThumbOn]} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Repeat across years toggle (available when distributeMonths is on) */}
+              {editState?.distributeMonths ? (
+                <View style={es.toggleRow}>
+                  <View style={es.toggleInfo}>
+                    <Text style={es.toggleTitle}>Repeat next year too</Text>
+                    <Text style={es.toggleSub}>Also distribute across the same months next year</Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => setEditState((p) => (p ? { ...p, distributeYears: !p.distributeYears } : p))}
+                    style={[es.toggle, editState?.distributeYears && es.toggleOn]}
+                    activeOpacity={0.8}
+                  >
+                    <View style={[es.toggleThumb, editState?.distributeYears && es.toggleThumbOn]} />
+                  </TouchableOpacity>
+                </View>
+              ) : null}
+            </ScrollView>
 
             {editError ? <Text style={es.errTxt}>{editError}</Text> : null}
 
@@ -742,6 +840,7 @@ const es = StyleSheet.create({
     borderTopLeftRadius: 20, borderTopRightRadius: 20,
     paddingHorizontal: 20, paddingTop: 12,
     borderTopWidth: 1, borderTopColor: T.border,
+    maxHeight: SCREEN_H * 0.9,
   },
   handle: {
     width: 40, height: 4, borderRadius: 2,
@@ -757,6 +856,48 @@ const es = StyleSheet.create({
     color: T.text, fontSize: 16,
     paddingHorizontal: 14, paddingVertical: 12,
     marginBottom: 16,
+  },
+  scrollContent: { maxHeight: 620, marginBottom: 12 },
+  toggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    backgroundColor: T.cardAlt,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: T.border,
+    marginBottom: 16,
+    gap: 12,
+  },
+  toggleInfo: { flex: 1 },
+  toggleTitle: { color: T.text, fontSize: 14, fontWeight: "800" },
+  toggleSub: { color: T.textMuted, fontSize: 11, fontWeight: "600", marginTop: 2 },
+  toggle: {
+    width: 48,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: T.cardAlt,
+    borderWidth: 1,
+    borderColor: T.border,
+    justifyContent: "center",
+    paddingHorizontal: 3,
+  },
+  toggleOn: {
+    backgroundColor: `${T.accent}55`,
+    borderColor: T.accent,
+  },
+  toggleThumb: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: T.textMuted,
+    alignSelf: "flex-start",
+  },
+  toggleThumbOn: {
+    backgroundColor: T.accent,
+    alignSelf: "flex-end",
   },
   errTxt: { color: T.red, fontSize: 13, marginBottom: 12 },
   actions: { flexDirection: "row", gap: 10, marginTop: 4 },
