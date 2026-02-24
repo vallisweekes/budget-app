@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ConfirmModal } from "@/components/Shared";
+import { DeleteConfirmModal } from "@/components/Shared";
 import type { DeleteExpenseModalProps, DeleteExpenseScopeOptions } from "@/types/expenses-manager";
 
 const DEFAULT_SCOPE: DeleteExpenseScopeOptions = {
@@ -26,7 +26,7 @@ export default function DeleteExpenseModal({
 	}, [open, initialScope]);
 
 	return (
-		<ConfirmModal
+		<DeleteConfirmModal
 			open={open}
 			title="Delete expense?"
 			description={
@@ -34,7 +34,6 @@ export default function DeleteExpenseModal({
 					? `${errorMessage ? `${errorMessage} ` : ""}This will permanently delete \"${expenseName}\".`
 					: undefined
 			}
-			tone="danger"
 			confirmText="Delete"
 			cancelText="Keep"
 			isBusy={isBusy}
@@ -91,6 +90,6 @@ export default function DeleteExpenseModal({
 					</label>
 				</div>
 			</div>
-		</ConfirmModal>
+		</DeleteConfirmModal>
 	);
 }

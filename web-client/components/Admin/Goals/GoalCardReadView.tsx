@@ -2,7 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import type { Goal } from "@/lib/goals/store";
 import type { GoalsBudgetInsights } from "@/types";
 
-import { ConfirmModal } from "@/components/Shared";
+import { DeleteConfirmModal } from "@/components/Shared";
 
 import GoalCardHeader from "@/components/Admin/Goals/GoalCardHeader";
 import GoalCardProgress from "@/components/Admin/Goals/GoalCardProgress";
@@ -56,11 +56,10 @@ export default function GoalCardReadView({
 }) {
   return (
     <div className={CARD_CLASS}>
-      <ConfirmModal
+      <DeleteConfirmModal
         open={confirmingDelete}
         title="Delete goal?"
         description={`This will permanently delete "${goal.title}".`}
-        tone="danger"
         confirmText="Delete"
         cancelText="Keep"
         isBusy={isPending}

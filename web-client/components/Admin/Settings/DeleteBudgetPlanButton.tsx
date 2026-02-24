@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
-import { ConfirmModal } from "@/components/Shared";
+import { DeleteConfirmModal } from "@/components/Shared";
 import { deleteBudgetPlanAction, getBudgetPlanDeleteImpactAction } from "@/lib/settings/actions";
 
 export default function DeleteBudgetPlanButton({
@@ -69,7 +69,7 @@ export default function DeleteBudgetPlanButton({
 				{variant === "icon" ? null : "Delete budget plan"}
 			</button>
 
-			<ConfirmModal
+			<DeleteConfirmModal
 				open={isOpen}
 				title="Delete budget plan?"
 				description={
@@ -79,7 +79,6 @@ export default function DeleteBudgetPlanButton({
 				}
 				confirmText="Delete"
 				cancelText="Cancel"
-				tone="danger"
 				isBusy={isPending}
 				confirmDisabled={confirmDisabled}
 				onClose={() => {
@@ -147,7 +146,7 @@ export default function DeleteBudgetPlanButton({
 				<p className="mt-2 text-xs text-slate-400">
 					This will delete all categories, income, expenses, debts, goals, and stored files for this plan.
 				</p>
-			</ConfirmModal>
+			</DeleteConfirmModal>
 		</>
 	);
 }

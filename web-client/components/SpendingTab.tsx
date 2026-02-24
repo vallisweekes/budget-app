@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { addSpendingAction, removeSpendingAction } from "@/lib/spending/actions";
 import { useRouter } from "next/navigation";
-import { ConfirmModal, SelectDropdown } from "@/components/Shared";
+import { DeleteConfirmModal, SelectDropdown } from "@/components/Shared";
 
 interface SpendingEntry {
   id: string;
@@ -69,7 +69,7 @@ export default function SpendingTab({ budgetPlanId, month, debts, spending, pots
 
   return (
     <div className="space-y-6">
-      <ConfirmModal
+      <DeleteConfirmModal
         open={entryPendingDelete != null}
         title="Delete spending entry?"
         description={
@@ -77,7 +77,6 @@ export default function SpendingTab({ budgetPlanId, month, debts, spending, pots
             ? `This will permanently delete \"${entryPendingDelete.description}\".`
             : undefined
         }
-        tone="danger"
         confirmText="Delete"
         cancelText="Keep"
         isBusy={isPending}

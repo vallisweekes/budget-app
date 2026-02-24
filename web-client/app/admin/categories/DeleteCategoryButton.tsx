@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { deleteCategory } from "./actions";
-import { ConfirmModal } from "@/components/Shared";
+import { DeleteConfirmModal } from "@/components/Shared";
 
 interface DeleteCategoryButtonProps {
   categoryId: string;
@@ -43,11 +43,10 @@ export default function DeleteCategoryButton({
 
   return (
     <div className="relative">
-      <ConfirmModal
+      <DeleteConfirmModal
         open={confirmingDelete}
         title="Delete category?"
         description={`This will permanently delete \"${categoryName}\".`}
-        tone="danger"
         confirmText="Delete"
         cancelText="Keep"
         isBusy={isPending}

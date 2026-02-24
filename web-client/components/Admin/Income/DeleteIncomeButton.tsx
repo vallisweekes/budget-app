@@ -1,7 +1,7 @@
 "use client";
 
 import { Trash2 } from "lucide-react";
-import { ConfirmModal } from "@/components/Shared";
+import { DeleteConfirmModal } from "@/components/Shared";
 import type { MonthKey } from "@/types";
 import { useDeleteIncomeButton } from "@/lib/hooks/income/useDeleteIncomeButton";
 
@@ -30,11 +30,10 @@ export default function DeleteIncomeButton({
 			>
 				<Trash2 className="w-3 h-3" />
 			</button>
-			<ConfirmModal
+			<DeleteConfirmModal
 				open={isOpen}
 				title="Delete Income"
 				description="Are you sure you want to delete this income source? This action cannot be undone."
-				tone="danger"
 				isBusy={isPending}
 				onConfirm={confirm}
 				onClose={close}

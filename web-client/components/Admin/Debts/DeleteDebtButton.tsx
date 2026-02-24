@@ -1,7 +1,7 @@
 "use client";
 
 import { Trash2 } from "lucide-react";
-import { ConfirmModal } from "@/components/Shared";
+import { DeleteConfirmModal } from "@/components/Shared";
 import { useDeleteDebtButton } from "@/lib/hooks/debts/useDeleteDebtButton";
 
 export default function DeleteDebtButton({
@@ -17,11 +17,10 @@ export default function DeleteDebtButton({
 
   return (
     <>
-      <ConfirmModal
+      <DeleteConfirmModal
         open={confirmingDelete}
         title="Delete debt?"
         description={`This will permanently delete \"${debtName}\".`}
-        tone="danger"
         confirmText="Delete"
         cancelText="Keep"
         isBusy={isPending}
