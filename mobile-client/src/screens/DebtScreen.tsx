@@ -214,16 +214,16 @@ export default function DebtScreen() {
 
   if (loading) {
     return (
-			<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
-        <View style={s.center}><ActivityIndicator size="large" color={T.accent} /></View>
+			<SafeAreaView style={s.safe} edges={[]}>
+        <View style={[s.center, { paddingTop: topHeaderOffset }]}><ActivityIndicator size="large" color={T.accent} /></View>
       </SafeAreaView>
     );
   }
 
   if (error) {
     return (
-			<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
-        <View style={s.center}>
+			<SafeAreaView style={s.safe} edges={[]}>
+        <View style={[s.center, { paddingTop: topHeaderOffset }]}>
           <Ionicons name="cloud-offline-outline" size={48} color={T.textDim} />
           <Text style={s.errorText}>{error}</Text>
           <Pressable onPress={load} style={s.retryBtn}><Text style={s.retryTxt}>Retry</Text></Pressable>
@@ -233,11 +233,11 @@ export default function DebtScreen() {
   }
 
   return (
-		<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
+		<SafeAreaView style={s.safe} edges={[]}>
       <FlatList
         data={visibleDebts}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={s.scroll}
+        contentContainerStyle={[s.scroll, { paddingTop: topHeaderOffset }]}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={T.accent} />
         }

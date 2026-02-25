@@ -24,7 +24,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useRoute, type RouteProp } from "@react-navigation/native";
 
 import { apiFetch } from "@/lib/api";
 import type {
@@ -40,7 +40,6 @@ import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 import { useYearGuard } from "@/lib/hooks/useYearGuard";
 import { T } from "@/lib/theme";
 import type { ExpensesStackParamList } from "@/navigation/types";
-import MonthBar from "@/components/Shared/MonthBar";
 import CategoryBreakdown from "@/components/Expenses/CategoryBreakdown";
 import AddExpenseSheet from "@/components/Expenses/AddExpenseSheet";
 
@@ -49,12 +48,16 @@ import AddExpenseSheet from "@/components/Expenses/AddExpenseSheet";
  * ════════════════════════════════════════════════════════════════ */
 
 type Props = NativeStackScreenProps<ExpensesStackParamList, "ExpensesList">;
+type ScreenRoute = RouteProp<ExpensesStackParamList, "ExpensesList">;
 
 export default function ExpensesScreen({ navigation }: Props) {
+  const route = useRoute<ScreenRoute>();
   const topHeaderOffset = useTopHeaderOffset();
   const now = new Date();
-  const [month, setMonth] = useState(now.getMonth() + 1);
-  const [year, setYear] = useState(now.getFullYear());
+  const initialMonth = Number(route.params?.month);
+  const initialYear = Number(route.params?.year);
+  const [month, setMonth] = useState(Number.isFinite(initialMonth) && initialMonth >= 1 && initialMonth <= 12 ? initialMonth : now.getMonth() + 1);
+  const [year, setYear] = useState(Number.isFinite(initialYear) ? initialYear : now.getFullYear());
 
   const [plans, setPlans] = useState<BudgetPlanListItem[]>([]);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
@@ -73,6 +76,36 @@ export default function ExpensesScreen({ navigation }: Props) {
 
   const currency = currencySymbol(settings?.currency);
   const { canDecrement } = useYearGuard(settings);
+
+  useEffect(() => {
+    const routeMonth = Number(route.params?.month);
+    const routeYear = Number(route.params?.year);
+    if (Number.isFinite(routeMonth) && routeMonth >= 1 && routeMonth <= 12 && routeMonth !== month) {
+      setMonth(routeMonth);
+    }
+    if (Number.isFinite(routeYear) && routeYear !== year) {
+      setYear(routeYear);
+    }
+  }, [month, route.params?.month, route.params?.year, year]);
+
+  useEffect(() => {
+    const prevDisabled = !canDecrement(year, month);
+    const paramsMonth = Number(route.params?.month);
+    const paramsYear = Number(route.params?.year);
+    const paramsPrevDisabled = typeof route.params?.prevDisabled === "boolean" ? route.params.prevDisabled : undefined;
+
+    const monthChanged = !(Number.isFinite(paramsMonth) && paramsMonth === month);
+    const yearChanged = !(Number.isFinite(paramsYear) && paramsYear === year);
+    const disabledChanged = paramsPrevDisabled !== prevDisabled;
+
+    if (!monthChanged && !yearChanged && !disabledChanged) return;
+
+    navigation.setParams({
+      month,
+      year,
+      prevDisabled,
+    });
+  }, [canDecrement, month, navigation, route.params?.month, route.params?.prevDisabled, route.params?.year, year]);
 
   const personalPlanId = plans.find((p) => p.kind === "personal")?.id ?? null;
   const activePlanId = selectedPlanId ?? personalPlanId;
@@ -254,33 +287,13 @@ export default function ExpensesScreen({ navigation }: Props) {
     planTotalAmount > 0;
 
   return (
-		<SafeAreaView style={[styles.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
-      <MonthBar
-        month={month} year={year}
-        onPrev={() => changeMonth(-1)}
-        onNext={() => changeMonth(1)}
-        prevDisabled={!canDecrement(year, month)}
-      />
-
-      {showTopAddExpenseCta ? (
-        <View style={styles.actionCard}>
-          <View style={styles.actionCopy}>
-            <Text style={styles.actionTitle}>Add expense</Text>
-            <Text style={styles.actionText}>Create a bill for {monthName(month)} {year}.</Text>
-          </View>
-          <Pressable onPress={() => setAddSheetOpen(true)} style={styles.actionBtn}>
-            <Ionicons name="add" size={16} color={T.onAccent} />
-            <Text style={styles.actionBtnText}>Add</Text>
-          </Pressable>
-        </View>
-      ) : null}
-
+		<SafeAreaView style={styles.safe} edges={[]}>
       {loading ? (
-        <View style={styles.center}>
+        <View style={[styles.center, { paddingTop: topHeaderOffset }]}>
           <ActivityIndicator size="large" color={T.accent} />
         </View>
       ) : error ? (
-        <View style={styles.center}>
+        <View style={[styles.center, { paddingTop: topHeaderOffset }]}>
           <Ionicons name="cloud-offline-outline" size={40} color={T.textDim} />
           <Text style={styles.errorText}>{error}</Text>
           <Pressable onPress={load} style={styles.retryBtn}>
@@ -297,37 +310,54 @@ export default function ExpensesScreen({ navigation }: Props) {
           }
           ListHeaderComponent={
             <>
-              {summary && (
-                <View style={styles.totalSummaryWrap}>
-                  <Text style={styles.totalSummaryTitle}>
-                    {showPlanTotalFallback ? "Plan expenses" : "This month expenses"}
-                  </Text>
-                  <Text style={styles.totalSummaryValue}>
-                    {fmt(showPlanTotalFallback ? planTotalAmount : (summary.totalAmount ?? 0), currency)}
-                  </Text>
-                  <Text style={styles.totalSummaryMeta}>
-                    {showPlanTotalFallback
-                      ? `${planTotalCount} bill${planTotalCount === 1 ? "" : "s"}`
-                      : `${summary.totalCount ?? 0} bill${(summary.totalCount ?? 0) === 1 ? "" : "s"}`}
-                  </Text>
-                  {(() => {
-                    if (showPlanTotalFallback) return null;
-                    const currentTotal = summary.totalAmount ?? 0;
-                    const prevTotal = previousSummary?.totalAmount ?? 0;
-                    if (prevTotal <= 0) return null;
-                    const changePct = ((currentTotal - prevTotal) / prevTotal) * 100;
-                    const up = changePct >= 0;
-                    const pctLabel = `${up ? "↗" : "↘"} ${Math.abs(changePct).toFixed(1)}%`;
-                    return (
-                      <Text style={styles.totalSummaryDelta}>
-                        <Text style={[styles.totalSummaryDeltaPct, up ? styles.deltaUp : styles.deltaDown]}>{pctLabel}</Text>
-                        <Text style={styles.totalSummaryDeltaText}> vs last month</Text>
-                      </Text>
-                    );
-                  })()}
-                </View>
-              )}
+              {/* ── Purple hero banner ── */}
+              <View style={[styles.purpleHero, { paddingTop: topHeaderOffset + 22 }]}>
+                <Text style={styles.purpleHeroLabel}>
+                  {monthName(month)} {year}
+                </Text>
+                {summary ? (
+                  <>
+                    <Text style={styles.purpleHeroAmount}>
+                      {fmt(showPlanTotalFallback ? planTotalAmount : (summary.totalAmount ?? 0), currency)}
+                    </Text>
+                    <Text style={styles.purpleHeroMeta}>
+                      {showPlanTotalFallback
+                        ? `${planTotalCount} bill${planTotalCount === 1 ? "" : "s"}`
+                        : `${summary.totalCount ?? 0} bill${(summary.totalCount ?? 0) === 1 ? "" : "s"}`}
+                    </Text>
+                    {(() => {
+                      if (showPlanTotalFallback) return null;
+                      const currentTotal = summary.totalAmount ?? 0;
+                      const prevTotal = previousSummary?.totalAmount ?? 0;
+                      if (prevTotal <= 0) return null;
+                      const changePct = ((currentTotal - prevTotal) / prevTotal) * 100;
+                      const up = changePct >= 0;
+                      const pctLabel = `${up ? "↗" : "↘"} ${Math.abs(changePct).toFixed(1)}%`;
+                      return (
+                        <View style={styles.purpleHeroDeltaRow}>
+                          <Text style={[styles.purpleHeroDeltaPct, up ? styles.purpleDeltaUp : styles.purpleDeltaDown]}>
+                            {pctLabel}
+                          </Text>
+                          <Text style={styles.purpleHeroDeltaText}> vs last month</Text>
+                        </View>
+                      );
+                    })()}
+                  </>
+                ) : null}
+              </View>
 
+              {showTopAddExpenseCta ? (
+                <View style={styles.actionCard}>
+                  <View style={styles.actionCopy}>
+                    <Text style={styles.actionTitle}>Add expense</Text>
+                    <Text style={styles.actionText}>Create a bill for {monthName(month)} {year}.</Text>
+                  </View>
+                  <Pressable onPress={() => setAddSheetOpen(true)} style={styles.actionBtn}>
+                    <Ionicons name="add" size={16} color={T.onAccent} />
+                    <Text style={styles.actionBtnText}>Add</Text>
+                  </Pressable>
+                </View>
+              ) : null}
               {plans.length > 1 && (
                 <View style={styles.planCardsWrap} {...planSwipe.panHandlers}>
 					<View style={styles.planTabsBg}>
@@ -587,47 +617,55 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
 
-  totalSummaryWrap: {
-    marginHorizontal: 12,
-    marginTop: 10,
-    marginBottom: 2,
+  // Purple hero banner
+  purpleHero: {
+    backgroundColor: "#2a0a9e",
+    paddingHorizontal: 20,
+    paddingBottom: 28,
     alignItems: "center",
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    marginBottom: 10,
   },
-  totalSummaryTitle: {
-    color: T.textDim,
+  purpleHeroLabel: {
+    color: "rgba(255,255,255,0.72)",
     fontSize: 14,
     fontWeight: "700",
+    letterSpacing: 0.4,
+    marginBottom: 4,
   },
-  totalSummaryValue: {
-    marginTop: 4,
-    color: T.text,
+  purpleHeroAmount: {
+    color: "#ffffff",
     fontSize: 52,
     fontWeight: "900",
-    letterSpacing: -0.8,
-  },
-  totalSummaryMeta: {
+    letterSpacing: -1,
     marginTop: 2,
-    color: T.textDim,
+  },
+  purpleHeroMeta: {
+    color: "rgba(255,255,255,0.72)",
     fontSize: 14,
     fontWeight: "700",
+    marginTop: 4,
   },
-  totalSummaryDelta: {
+  purpleHeroDeltaRow: {
+    flexDirection: "row",
+    alignItems: "center",
     marginTop: 8,
-    fontSize: 13,
-    fontWeight: "700",
   },
-  totalSummaryDeltaPct: {
+  purpleHeroDeltaPct: {
     fontSize: 13,
     fontWeight: "900",
   },
-  totalSummaryDeltaText: {
-    color: T.textDim,
+  purpleHeroDeltaText: {
+    color: "rgba(255,255,255,0.72)",
+    fontSize: 13,
+    fontWeight: "700",
   },
-  deltaUp: {
-    color: "#2ecf70",
+  purpleDeltaUp: {
+    color: "#7fffc0",
   },
-  deltaDown: {
-    color: T.red,
+  purpleDeltaDown: {
+    color: "#ffb3b3",
   },
 
   // (Additional-plan per-expense list styles removed; we now show the category cards instead.)

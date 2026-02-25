@@ -5,38 +5,18 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Provider as ReduxProvider } from "react-redux";
 import { StatusBar } from "expo-status-bar";
 import { registerRootComponent } from "expo";
-import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold, Inter_800ExtraBold, Inter_900Black } from "@expo-google-fonts/inter";
 
 import { store } from "@/store";
 import { AuthProvider } from "@/context/AuthContext";
 import { applyThemeMode, type ThemeMode, T } from "@/lib/theme";
 import { getStoredThemeMode } from "@/lib/storage";
-import { installInterGlobalTypography } from "@/lib/typography";
+import { installGlobalTypographyWeightNormalizer } from "@/lib/typography";
+
+installGlobalTypographyWeightNormalizer();
 
 function App() {
   const [booting, setBooting] = useState(true);
   const [mode, setMode] = useState<ThemeMode>("dark");
-
-  const [fontsLoaded] = useFonts({
-    Inter_400Regular,
-    Inter_500Medium,
-    Inter_600SemiBold,
-    Inter_700Bold,
-    Inter_800ExtraBold,
-    Inter_900Black,
-  });
-
-  useEffect(() => {
-    if (!fontsLoaded) return;
-    installInterGlobalTypography({
-      regular: "Inter_400Regular",
-      medium: "Inter_500Medium",
-      semibold: "Inter_600SemiBold",
-      bold: "Inter_700Bold",
-      extrabold: "Inter_800ExtraBold",
-      black: "Inter_900Black",
-    });
-  }, [fontsLoaded]);
 
   useEffect(() => {
     let mounted = true;
@@ -56,11 +36,11 @@ function App() {
   }, []);
 
   const RootNavigator = useMemo(() => {
-    if (booting || !fontsLoaded) return null;
+    if (booting) return null;
     // Require after theme is applied so module-level styles pick up the right tokens.
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     return require("@/navigation/RootNavigator").default as React.ComponentType;
-  }, [booting, mode, fontsLoaded]);
+  }, [booting, mode]);
 
   const navTheme: Theme = useMemo(
     () => ({
@@ -84,7 +64,7 @@ function App() {
       <ReduxProvider store={store}>
         <AuthProvider>
           <NavigationContainer theme={navTheme}>
-            {booting || !fontsLoaded || !RootNavigator ? (
+            {booting || !RootNavigator ? (
               <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: T.bg }}>
                 <ActivityIndicator size="large" color={T.accent} />
               </View>

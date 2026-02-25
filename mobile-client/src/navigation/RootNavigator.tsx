@@ -5,7 +5,13 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
 
 import { useAuth } from "@/context/AuthContext";
-import type { RootStackParamList, MainTabParamList, IncomeStackParamList, ExpensesStackParamList, DebtStackParamList } from "@/navigation/types";
+import type {
+  RootStackParamList,
+  MainTabParamList,
+  IncomeStackParamList,
+  ExpensesStackParamList,
+  DebtStackParamList,
+} from "@/navigation/types";
 import TopHeader from "@/components/Shared/TopHeader";
 import PillTabBar from "@/components/Shared/PillTabBar";
 import { T } from "@/lib/theme";
@@ -77,19 +83,22 @@ function RootTopHeader({ navigation }: { navigation: any }) {
   const isIncomeMonth = deepestRoute?.name === "IncomeMonth";
   const isIncomeGrid = deepestRoute?.name === "IncomeGrid";
   const shouldShowIncomeBack = isIncomeMonth || isIncomeGrid;
+
   const incomeGridYearParam = Number(deepestRoute?.params?.year);
   const incomeGridYear = Number.isFinite(incomeGridYearParam) ? incomeGridYearParam : new Date().getFullYear();
+
   const hasIncomeGridAddFlag = typeof deepestRoute?.params?.showAddAction === "boolean";
   const showIncomeGridAddAction = hasIncomeGridAddFlag ? Boolean(deepestRoute?.params?.showAddAction) : true;
-  const incomeGridBudgetPlanId = typeof deepestRoute?.params?.budgetPlanId === "string"
-    ? deepestRoute.params.budgetPlanId
-    : "";
+
+  const incomeGridBudgetPlanId =
+    typeof deepestRoute?.params?.budgetPlanId === "string" ? deepestRoute.params.budgetPlanId : "";
 
   const monthNum = Number(deepestRoute?.params?.month);
   const yearNum = Number(deepestRoute?.params?.year);
-  const monthLabel = (isIncomeMonth && Number.isFinite(monthNum) && monthNum >= 1 && monthNum <= 12 && Number.isFinite(yearNum))
-    ? `${MONTH_NAMES_LONG[monthNum - 1]} ${yearNum}`
-    : undefined;
+  const monthLabel =
+    isIncomeMonth && Number.isFinite(monthNum) && monthNum >= 1 && monthNum <= 12 && Number.isFinite(yearNum)
+      ? `${MONTH_NAMES_LONG[monthNum - 1]} ${yearNum}`
+      : undefined;
 
   const handleBack = () => {
     if (isIncomeMonth) {
@@ -134,27 +143,29 @@ function RootTopHeader({ navigation }: { navigation: any }) {
     });
   };
 
-  const incomeGridRightContent = isIncomeGrid ? (
-    showIncomeGridAddAction ? (
-      <Pressable
-        onPress={openIncomeGridAdd}
-        disabled={!incomeGridBudgetPlanId}
-        style={[s.headerActionBtn, s.headerActionBtnAdd, !incomeGridBudgetPlanId && s.headerActionBtnDisabled]}
-        hitSlop={10}
-      >
-        <Ionicons name="add" size={19} color={T.onAccent} />
-      </Pressable>
-    ) : (
-      <>
-        <Pressable onPress={() => navigation.navigate("Analytics")} style={s.headerActionBtn} hitSlop={10}>
-          <Ionicons name="stats-chart-outline" size={18} color={T.accent} />
+  const incomeGridRightContent = isIncomeGrid
+    ? showIncomeGridAddAction
+      ? (
+        <Pressable
+          onPress={openIncomeGridAdd}
+          disabled={!incomeGridBudgetPlanId}
+          style={[s.headerActionBtn, s.headerActionBtnAdd, !incomeGridBudgetPlanId && s.headerActionBtnDisabled]}
+          hitSlop={10}
+        >
+          <Ionicons name="add" size={19} color={T.onAccent} />
         </Pressable>
-        <Pressable onPress={() => navigation.navigate("NotificationSettings")} style={s.headerActionBtn} hitSlop={10}>
-          <Ionicons name="notifications-outline" size={18} color={T.accent} />
-        </Pressable>
-      </>
-    )
-  ) : undefined;
+      )
+      : (
+        <>
+          <Pressable onPress={() => navigation.navigate("Analytics")} style={s.headerActionBtn} hitSlop={10}>
+            <Ionicons name="stats-chart-outline" size={18} color={T.accent} />
+          </Pressable>
+          <Pressable onPress={() => navigation.navigate("NotificationSettings")} style={s.headerActionBtn} hitSlop={10}>
+            <Ionicons name="notifications-outline" size={18} color={T.accent} />
+          </Pressable>
+        </>
+      )
+    : undefined;
 
   return (
     <TopHeader
@@ -194,7 +205,7 @@ const s = StyleSheet.create({
   incomeYearText: {
     color: T.text,
     fontSize: 18,
-    fontWeight: "900",
+    fontWeight: "600",
     minWidth: 56,
     textAlign: "center",
     letterSpacing: 0.3,
@@ -216,6 +227,29 @@ const s = StyleSheet.create({
   headerActionBtnDisabled: {
     opacity: 0.5,
   },
+  expensesLeftWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 0,
+  },
+  expensesLeftText: {
+    color: T.text,
+    fontSize: 16,
+    fontWeight: "600",
+    minWidth: 78,
+    textAlign: "left",
+  },
+  expensesArrowBtn: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "transparent",
+  },
+  expensesArrowBtnDisabled: {
+    opacity: 0.4,
+  },
 });
 
 function MainTabs() {
@@ -224,10 +258,29 @@ function MainTabs() {
       tabBar={(props) => <PillTabBar {...props} />}
       screenOptions={({ navigation }) => ({
         headerShown: true,
-		headerTransparent: true,
-		headerStyle: { backgroundColor: "transparent" },
-		headerShadowVisible: false,
+        headerTransparent: true,
+        headerStyle: { backgroundColor: "transparent" },
+        headerShadowVisible: false,
         header: () => {
+          const getDeepestRoute = (state: any): any => {
+            if (!state?.routes?.length) return null;
+            const route = state.routes[state.index ?? state.routes.length - 1];
+            if (route?.state) return getDeepestRoute(route.state);
+            return route;
+          };
+
+          const deepestRoute = getDeepestRoute(navigation.getState?.());
+          const isExpensesList = deepestRoute?.name === "ExpensesList";
+          const expensesMonthRaw = Number(deepestRoute?.params?.month);
+          const expensesYearRaw = Number(deepestRoute?.params?.year);
+          const expensesMonth = Number.isFinite(expensesMonthRaw) && expensesMonthRaw >= 1 && expensesMonthRaw <= 12
+            ? expensesMonthRaw
+            : new Date().getMonth() + 1;
+          const expensesYear = Number.isFinite(expensesYearRaw)
+            ? expensesYearRaw
+            : new Date().getFullYear();
+          const expensesPrevDisabled = Boolean(deepestRoute?.params?.prevDisabled);
+
           const openIncome = () => {
             const parent = navigation.getParent();
             if (parent) {
@@ -253,12 +306,48 @@ function MainTabs() {
             navigation.navigate("Settings");
           };
 
+          const shiftExpensesMonth = (delta: number) => {
+            let nextMonth = expensesMonth + delta;
+            let nextYear = expensesYear;
+            if (nextMonth > 12) {
+              nextMonth = 1;
+              nextYear += 1;
+            }
+            if (nextMonth < 1) {
+              nextMonth = 12;
+              nextYear -= 1;
+            }
+
+            (navigation as any).navigate("Expenses", {
+              screen: "ExpensesList",
+              params: { month: nextMonth, year: nextYear },
+            });
+          };
+
+          const expensesLeftContent = isExpensesList ? (
+            <View style={s.expensesLeftWrap}>
+              <Pressable
+                onPress={() => shiftExpensesMonth(-1)}
+                disabled={expensesPrevDisabled}
+                style={[s.expensesArrowBtn, expensesPrevDisabled && s.expensesArrowBtnDisabled]}
+                hitSlop={8}
+              >
+                <Ionicons name="chevron-back" size={20} color={expensesPrevDisabled ? T.textMuted : T.text} />
+              </Pressable>
+              <Text style={s.expensesLeftText}>{`${MONTH_NAMES_LONG[expensesMonth - 1]?.slice(0, 3) ?? ""} ${expensesYear}`}</Text>
+              <Pressable onPress={() => shiftExpensesMonth(1)} style={s.expensesArrowBtn} hitSlop={8}>
+                <Ionicons name="chevron-forward" size={20} color={T.text} />
+              </Pressable>
+            </View>
+          ) : undefined;
+
           return (
             <TopHeader
               onSettings={() => navigation.navigate("Settings")}
               onIncome={openIncome}
               onAnalytics={openAnalytics}
               onNotifications={openNotifications}
+              leftContent={expensesLeftContent}
             />
           );
         },
@@ -343,9 +432,9 @@ export default function RootNavigator() {
             component={IncomeStackNavigator}
             options={({ navigation }) => ({
               headerShown: true,
-				headerTransparent: true,
-				headerStyle: { backgroundColor: "transparent" },
-				headerShadowVisible: false,
+              headerTransparent: true,
+              headerStyle: { backgroundColor: "transparent" },
+              headerShadowVisible: false,
               header: () => <RootTopHeader navigation={navigation} />,
             })}
           />
@@ -354,9 +443,9 @@ export default function RootNavigator() {
             component={NotificationSettingsScreen}
             options={({ navigation }) => ({
               headerShown: true,
-				headerTransparent: true,
-				headerStyle: { backgroundColor: "transparent" },
-				headerShadowVisible: false,
+              headerTransparent: true,
+              headerStyle: { backgroundColor: "transparent" },
+              headerShadowVisible: false,
               header: () => <RootTopHeader navigation={navigation} />,
             })}
           />
@@ -366,9 +455,9 @@ export default function RootNavigator() {
             component={AnalyticsScreen}
             options={({ navigation }) => ({
               headerShown: true,
-				headerTransparent: true,
-				headerStyle: { backgroundColor: "transparent" },
-				headerShadowVisible: false,
+              headerTransparent: true,
+              headerStyle: { backgroundColor: "transparent" },
+              headerShadowVisible: false,
               header: () => <RootTopHeader navigation={navigation} />,
             })}
           />

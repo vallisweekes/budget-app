@@ -11,6 +11,7 @@ interface Props {
   onIncome: () => void;
   onAnalytics: () => void;
   onNotifications: () => void;
+  leftContent?: React.ReactNode;
   leftVariant?: "avatar" | "back";
   onBack?: () => void;
   centerLabel?: string;
@@ -24,6 +25,7 @@ export default function TopHeader({
   onIncome,
   onAnalytics,
   onNotifications,
+  leftContent,
   leftVariant = "avatar",
   onBack,
   centerLabel,
@@ -40,7 +42,9 @@ export default function TopHeader({
     <BlurView intensity={30} tint="dark" style={[s.container, { paddingTop: insets.top }]}>
 			<View style={s.glassTint} />
 			<View style={s.inner}>
-        {leftVariant === "back" ? (
+        {leftContent ? (
+          leftContent
+        ) : leftVariant === "back" ? (
           <Pressable onPress={onBack} style={s.iconBtn} hitSlop={10}>
             <Ionicons name="chevron-back" size={20} color={T.text} />
           </Pressable>
@@ -114,7 +118,7 @@ const s = StyleSheet.create({
   centerLabel: {
     color: T.text,
     fontSize: 13,
-    fontWeight: "800",
+    fontWeight: "600",
   },
 
   avatarBtn: { position: "relative" },
@@ -128,7 +132,7 @@ const s = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: T.border,
   },
-  avatarInitial: { color: T.onAccent, fontSize: 14, fontWeight: "900" },
+  avatarInitial: { color: T.onAccent, fontSize: 14, fontWeight: "700" },
   rightActions: {
     flexDirection: "row",
     alignItems: "center",

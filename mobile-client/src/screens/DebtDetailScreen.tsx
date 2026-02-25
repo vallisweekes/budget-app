@@ -64,6 +64,7 @@ export default function DebtDetailScreen() {
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView
+          style={{ backgroundColor: T.bg }}
           contentContainerStyle={s.scroll}
           refreshControl={<RefreshControl refreshing={state.refreshing} onRefresh={() => { state.setRefreshing(true); state.load(); }} tintColor={T.accent} />}
         >

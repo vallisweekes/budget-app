@@ -21,7 +21,13 @@ export type IncomeStackParamList = {
 
 /* ── Expenses stack (inside Expenses tab) ───────────────────── */
 export type ExpensesStackParamList = {
-  ExpensesList: undefined;
+  ExpensesList:
+    | {
+        month?: number;
+        year?: number;
+        prevDisabled?: boolean;
+      }
+    | undefined;
   CategoryExpenses: {
     categoryId: string;
     categoryName: string;
