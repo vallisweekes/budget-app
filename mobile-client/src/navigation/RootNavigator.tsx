@@ -227,29 +227,6 @@ const s = StyleSheet.create({
   headerActionBtnDisabled: {
     opacity: 0.5,
   },
-  expensesLeftWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 0,
-  },
-  expensesLeftText: {
-    color: T.text,
-    fontSize: 16,
-    fontWeight: "600",
-    minWidth: 78,
-    textAlign: "left",
-  },
-  expensesArrowBtn: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "transparent",
-  },
-  expensesArrowBtnDisabled: {
-    opacity: 0.4,
-  },
 });
 
 function MainTabs() {
@@ -272,17 +249,6 @@ function MainTabs() {
           const deepestRoute = getDeepestRoute(navigation.getState?.());
           const isDebtDetail = deepestRoute?.name === "DebtDetail";
           if (isDebtDetail) return null;
-
-          const isExpensesList = deepestRoute?.name === "ExpensesList";
-          const expensesMonthRaw = Number(deepestRoute?.params?.month);
-          const expensesYearRaw = Number(deepestRoute?.params?.year);
-          const expensesMonth = Number.isFinite(expensesMonthRaw) && expensesMonthRaw >= 1 && expensesMonthRaw <= 12
-            ? expensesMonthRaw
-            : new Date().getMonth() + 1;
-          const expensesYear = Number.isFinite(expensesYearRaw)
-            ? expensesYearRaw
-            : new Date().getFullYear();
-          const expensesPrevDisabled = Boolean(deepestRoute?.params?.prevDisabled);
 
           const openIncome = () => {
             const parent = navigation.getParent();
@@ -309,48 +275,12 @@ function MainTabs() {
             navigation.navigate("Settings");
           };
 
-          const shiftExpensesMonth = (delta: number) => {
-            let nextMonth = expensesMonth + delta;
-            let nextYear = expensesYear;
-            if (nextMonth > 12) {
-              nextMonth = 1;
-              nextYear += 1;
-            }
-            if (nextMonth < 1) {
-              nextMonth = 12;
-              nextYear -= 1;
-            }
-
-            (navigation as any).navigate("Expenses", {
-              screen: "ExpensesList",
-              params: { month: nextMonth, year: nextYear },
-            });
-          };
-
-          const expensesLeftContent = isExpensesList ? (
-            <View style={s.expensesLeftWrap}>
-              <Pressable
-                onPress={() => shiftExpensesMonth(-1)}
-                disabled={expensesPrevDisabled}
-                style={[s.expensesArrowBtn, expensesPrevDisabled && s.expensesArrowBtnDisabled]}
-                hitSlop={8}
-              >
-                <Ionicons name="chevron-back" size={20} color={expensesPrevDisabled ? T.textMuted : T.text} />
-              </Pressable>
-              <Text style={s.expensesLeftText}>{`${MONTH_NAMES_LONG[expensesMonth - 1]?.slice(0, 3) ?? ""} ${expensesYear}`}</Text>
-              <Pressable onPress={() => shiftExpensesMonth(1)} style={s.expensesArrowBtn} hitSlop={8}>
-                <Ionicons name="chevron-forward" size={20} color={T.text} />
-              </Pressable>
-            </View>
-          ) : undefined;
-
           return (
             <TopHeader
               onSettings={() => navigation.navigate("Settings")}
               onIncome={openIncome}
               onAnalytics={openAnalytics}
               onNotifications={openNotifications}
-              leftContent={expensesLeftContent}
             />
           );
         },

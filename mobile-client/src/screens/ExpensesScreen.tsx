@@ -20,6 +20,7 @@ import {
   RefreshControl,
   ScrollView,
   PanResponder,
+  Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -71,8 +72,13 @@ export default function ExpensesScreen({ navigation }: Props) {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError]         = useState<string | null>(null);
 
-  // Add-expense sheet
   const [addSheetOpen, setAddSheetOpen] = useState(false);
+
+  // Month picker modal
+  const [monthPickerOpen, setMonthPickerOpen] = useState(false);
+  const [pickerYear, setPickerYear] = useState(year);
+  const SHORT_MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const openMonthPicker = () => { setPickerYear(year); setMonthPickerOpen(true); };
 
   const currency = currencySymbol(settings?.currency);
   const { canDecrement } = useYearGuard(settings);
@@ -312,9 +318,12 @@ export default function ExpensesScreen({ navigation }: Props) {
             <>
               {/* ── Purple hero banner ── */}
               <View style={[styles.purpleHero, { paddingTop: topHeaderOffset + 22 }]}>
-                <Text style={styles.purpleHeroLabel}>
-                  {monthName(month)} {year}
-                </Text>
+                <Pressable onPress={openMonthPicker} style={styles.purpleHeroLabelBtn} hitSlop={12}>
+                  <Text style={styles.purpleHeroLabel}>
+                    {monthName(month)} {year}
+                  </Text>
+                  <Ionicons name="chevron-down" size={14} color="rgba(255,255,255,0.72)" />
+                </Pressable>
                 {summary ? (
                   <>
                     <Text style={styles.purpleHeroAmount}>
@@ -462,6 +471,78 @@ export default function ExpensesScreen({ navigation }: Props) {
         onAdded={() => { setAddSheetOpen(false); load(); }}
         onClose={() => setAddSheetOpen(false)}
       />
+
+      {/* Month Picker Modal */}
+      <Modal
+        visible={monthPickerOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setMonthPickerOpen(false)}
+      >
+        <Pressable style={styles.pickerBackdrop} onPress={() => setMonthPickerOpen(false)} />
+        <View style={styles.pickerSheet}>
+          <View style={styles.pickerHandle} />
+          {/* Year navigator */}
+          <View style={styles.pickerYearRow}>
+            <Pressable
+              onPress={() => setPickerYear((y) => y - 1)}
+              hitSlop={12}
+              style={styles.pickerYearBtn}
+            >
+              <Ionicons name="chevron-back" size={22} color={T.text} />
+            </Pressable>
+            <Text style={styles.pickerYearText}>{pickerYear}</Text>
+            <Pressable
+              onPress={() => setPickerYear((y) => y + 1)}
+              hitSlop={12}
+              style={styles.pickerYearBtn}
+              disabled={pickerYear >= now.getFullYear()}
+            >
+              <Ionicons
+                name="chevron-forward"
+                size={22}
+                color={pickerYear >= now.getFullYear() ? T.textDim : T.text}
+              />
+            </Pressable>
+          </View>
+          {/* Month grid */}
+          <View style={styles.pickerGrid}>
+            {SHORT_MONTHS.map((name, idx) => {
+              const m = idx + 1;
+              const isFuture =
+                pickerYear > now.getFullYear() ||
+                (pickerYear === now.getFullYear() && m > now.getMonth() + 1);
+              const isSelected = m === month && pickerYear === year;
+              return (
+                <Pressable
+                  key={m}
+                  onPress={() => {
+                    if (isFuture) return;
+                    setMonth(m);
+                    setYear(pickerYear);
+                    setMonthPickerOpen(false);
+                  }}
+                  style={[
+                    styles.pickerCell,
+                    isSelected && styles.pickerCellSelected,
+                    isFuture && styles.pickerCellDisabled,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.pickerCellText,
+                      isSelected && styles.pickerCellSelectedText,
+                      isFuture && styles.pickerCellDisabledText,
+                    ]}
+                  >
+                    {name}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -627,12 +708,17 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 24,
     marginBottom: 10,
   },
+  purpleHeroLabelBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginBottom: 4,
+  },
   purpleHeroLabel: {
     color: "rgba(255,255,255,0.72)",
     fontSize: 14,
     fontWeight: "700",
     letterSpacing: 0.4,
-    marginBottom: 4,
   },
   purpleHeroAmount: {
     color: "#ffffff",
@@ -666,6 +752,75 @@ const styles = StyleSheet.create({
   },
   purpleDeltaDown: {
     color: "#ffb3b3",
+  },
+
+  // Month picker modal
+  pickerBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.55)",
+  },
+  pickerSheet: {
+    backgroundColor: T.card,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingBottom: 40,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+  },
+  pickerHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: T.border,
+    alignSelf: "center",
+    marginBottom: 16,
+  },
+  pickerYearRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 20,
+  },
+  pickerYearBtn: {
+    padding: 4,
+  },
+  pickerYearText: {
+    color: T.text,
+    fontSize: 20,
+    fontWeight: "900",
+    letterSpacing: -0.4,
+  },
+  pickerGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  pickerCell: {
+    width: "22%",
+    flex: 1,
+    minWidth: "22%",
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: T.cardAlt,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pickerCellSelected: {
+    backgroundColor: "#2a0a9e",
+  },
+  pickerCellDisabled: {
+    opacity: 0.28,
+  },
+  pickerCellText: {
+    color: T.text,
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  pickerCellSelectedText: {
+    color: "#ffffff",
+  },
+  pickerCellDisabledText: {
+    color: T.textDim,
   },
 
   // (Additional-plan per-expense list styles removed; we now show the category cards instead.)

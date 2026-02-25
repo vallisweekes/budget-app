@@ -29,39 +29,35 @@ export async function POST(req: NextRequest) {
 		const body = await req.json().catch(() => null);
 		if (!body || typeof body !== "object") return badRequest("Invalid JSON body");
 
-		const rawSpending = Array.isArray((body as any).spending) ? (body as any).spending : [];
-		const rawPrevSpending = Array.isArray((body as any).previousMonthSpending) ? (body as any).previousMonthSpending : [];
-		const rawAllowance = (body as any).allowanceStats ?? null;
-		const rawSavings = (body as any).savingsBalance;
-		const currentMonthLabel = typeof (body as any).currentMonthLabel === "string" ? (body as any).currentMonthLabel : undefined;
-		const previousMonthLabel = typeof (body as any).previousMonthLabel === "string" ? (body as any).previousMonthLabel : undefined;
+		const b = body as Record<string, unknown>;
+		const rawSpending = Array.isArray(b.spending) ? (b.spending as unknown[]) : [];
+		const rawPrevSpending = Array.isArray(b.previousMonthSpending) ? (b.previousMonthSpending as unknown[]) : [];
+		const rawAllowance = b.allowanceStats ?? null;
+		const rawSavings = b.savingsBalance;
+		const currentMonthLabel = typeof b.currentMonthLabel === "string" ? b.currentMonthLabel : undefined;
+		const previousMonthLabel = typeof b.previousMonthLabel === "string" ? b.previousMonthLabel : undefined;
 
-		const spending = rawSpending
-			.filter((s: any) => s && typeof s === "object")
-			.slice(0, 80)
-			.map((s: any) => ({
-				description: typeof s.description === "string" ? s.description : "",
-				amount: toNumber(s.amount),
-				date: typeof s.date === "string" ? s.date : "",
-				source: typeof s.source === "string" ? s.source : "unknown",
-			}));
+		const toEntry = (s: unknown) => {
+			if (!s || typeof s !== "object") return null;
+			const e = s as Record<string, unknown>;
+			return {
+				description: typeof e.description === "string" ? e.description : "",
+				amount: toNumber(e.amount),
+				date: typeof e.date === "string" ? e.date : "",
+				source: typeof e.source === "string" ? e.source : "unknown",
+			};
+		};
 
-		const previousMonthSpending = rawPrevSpending
-			.filter((s: any) => s && typeof s === "object")
-			.slice(0, 80)
-			.map((s: any) => ({
-				description: typeof s.description === "string" ? s.description : "",
-				amount: toNumber(s.amount),
-				date: typeof s.date === "string" ? s.date : "",
-				source: typeof s.source === "string" ? s.source : "unknown",
-			}));
+		const spending = rawSpending.map(toEntry).filter((s): s is NonNullable<typeof s> => s !== null).slice(0, 80);
+		const previousMonthSpending = rawPrevSpending.map(toEntry).filter((s): s is NonNullable<typeof s> => s !== null).slice(0, 80);
 
 		if (!rawAllowance || typeof rawAllowance !== "object") return badRequest("Missing allowanceStats");
+		const ra = rawAllowance as Record<string, unknown>;
 		const allowanceStats = {
-			monthlyAllowance: toNumber((rawAllowance as any).monthlyAllowance),
-			totalUsed: toNumber((rawAllowance as any).totalUsed),
-			remaining: toNumber((rawAllowance as any).remaining),
-			percentUsed: toNumber((rawAllowance as any).percentUsed),
+			monthlyAllowance: toNumber(ra.monthlyAllowance),
+			totalUsed: toNumber(ra.totalUsed),
+			remaining: toNumber(ra.remaining),
+			percentUsed: toNumber(ra.percentUsed),
 		};
 
 		const savingsBalance = toNumber(rawSavings);

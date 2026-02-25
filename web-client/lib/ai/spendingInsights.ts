@@ -37,7 +37,7 @@ function safeParseJsonObject(raw: string): Record<string, unknown> | null {
 }
 
 async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
-	let timeoutId: any;
+	let timeoutId: ReturnType<typeof setTimeout> | undefined;
 	try {
 		const timeout = new Promise<null>((resolve) => {
 			timeoutId = setTimeout(() => resolve(null), ms);
@@ -51,30 +51,31 @@ async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null
 function normalizeInsights(input: unknown, maxItems: number): SpendingInsight[] {
 	if (!Array.isArray(input)) return [];
 	const out: SpendingInsight[] = [];
-	for (const it of input) {
-		const type = (it as any)?.type;
-		const title = typeof (it as any)?.title === "string" ? clampText((it as any).title, 50) : "";
-		const message = typeof (it as any)?.message === "string" ? clampText((it as any).message, 160) : "";
+	for (const raw of input) {
+		const it = (raw !== null && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+		const type = it.type;
+		const title = typeof it.title === "string" ? clampText(it.title, 50) : "";
+		const message = typeof it.message === "string" ? clampText(it.message, 160) : "";
 		const recommendation =
-			typeof (it as any)?.recommendation === "string"
-				? clampText((it as any).recommendation, 160)
+			typeof it.recommendation === "string"
+				? clampText(it.recommendation, 160)
 				: "";
 
-		const color = (it as any)?.color;
-		const icon = (it as any)?.icon;
+		const color = it.color;
+		const icon = it.icon;
 
 		if (type !== "warning" && type !== "info" && type !== "success") continue;
 		if (!title || !message || !recommendation) continue;
-		if (!(["red", "orange", "amber", "blue", "emerald", "purple"] as const).includes(color)) continue;
-		if (!(["alert", "lightbulb", "trendUp", "trendDown"] as const).includes(icon)) continue;
+		if (!((["red", "orange", "amber", "blue", "emerald", "purple"] as const) as readonly unknown[]).includes(color)) continue;
+		if (!((["alert", "lightbulb", "trendUp", "trendDown"] as const) as readonly unknown[]).includes(icon)) continue;
 
 		out.push({
 			type,
 			title,
 			message,
 			recommendation,
-			color,
-			icon,
+			color: color as SpendingInsightColor,
+			icon: icon as SpendingInsightIcon,
 		});
 		if (out.length >= maxItems) break;
 	}

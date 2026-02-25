@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import type { LucideIcon } from "lucide-react";
 import { TrendingUp, TrendingDown, AlertTriangle, Lightbulb, ChevronDown, ChevronUp } from "lucide-react";
 
-import type { SpendingInsight, SpendingInsightColor, SpendingInsightIcon } from "@/lib/ai/spendingInsights";
+import type { SpendingInsight, SpendingInsightIcon } from "@/lib/ai/spendingInsights";
 
 interface SpendingEntry {
   id: string;
@@ -33,8 +34,8 @@ export default function SpendingInsights({ spending, previousMonthSpending, curr
 	const [aiInsights, setAiInsights] = useState<SpendingInsight[] | null>(null);
 
   // Analyze spending patterns
-  const analyzeSpending = () => {
-    const insights = [];
+  const analyzeSpending = (): SpendingInsight[] => {
+    const insights: SpendingInsight[] = [];
     
     // Calculate spending by source
     const bySource = spending.reduce((acc, s) => {
@@ -54,7 +55,7 @@ export default function SpendingInsights({ spending, previousMonthSpending, curr
         recommendation: allowanceStats.percentUsed >= 100 
           ? "You've exceeded your budget. Consider using savings for essential purchases only."
           : "You're approaching your limit. Try to reduce discretionary spending for the rest of the period.",
-        icon: AlertTriangle,
+        icon: "alert",
         color: "red"
       });
     } else if (allowanceStats.percentUsed > 50) {
@@ -63,7 +64,7 @@ export default function SpendingInsights({ spending, previousMonthSpending, curr
         title: "Moderate Allowance Usage",
         message: `You've used ${allowanceStats.percentUsed.toFixed(0)}% of your monthly allowance. You're on track!`,
         recommendation: "Keep monitoring your spending to stay within budget.",
-        icon: Lightbulb,
+        icon: "lightbulb",
         color: "blue"
       });
     } else {
@@ -72,7 +73,7 @@ export default function SpendingInsights({ spending, previousMonthSpending, curr
         title: "Great Budget Management!",
         message: `You've only used ${allowanceStats.percentUsed.toFixed(0)}% of your allowance. Well done!`,
         recommendation: "You're managing your budget excellently. Keep up the good work!",
-        icon: TrendingDown,
+        icon: "trendDown",
         color: "emerald"
       });
     }
@@ -102,9 +103,9 @@ export default function SpendingInsights({ spending, previousMonthSpending, curr
         title: "Spending Source Analysis",
         message: sourceMessage,
         recommendation: sourceRecommendation,
-        icon: source === "allowance" ? TrendingDown : TrendingUp,
+        icon: source === "allowance" ? "trendDown" : "trendUp",
         color: source === "allowance" ? "emerald" : source === "card" ? "orange" : "purple"
-      });
+      } as SpendingInsight);
     }
 
     // Insight 3: Transaction patterns
@@ -118,7 +119,7 @@ export default function SpendingInsights({ spending, previousMonthSpending, curr
           title: "Large Purchase Detected",
           message: `Your largest purchase was "${largestTransaction.description}" for £${largestTransaction.amount.toFixed(2)}.`,
           recommendation: "Consider planning large purchases in advance to better manage your budget.",
-          icon: AlertTriangle,
+          icon: "alert",
           color: "amber"
         });
       }
@@ -131,7 +132,7 @@ export default function SpendingInsights({ spending, previousMonthSpending, curr
         recommendation: spending.length > 10 
           ? "You're making frequent small purchases. Try batching purchases to reduce impulse spending."
           : "You're keeping unplanned purchases under control. Great discipline!",
-        icon: Lightbulb,
+        icon: "lightbulb",
         color: "blue"
       });
     }
@@ -139,7 +140,7 @@ export default function SpendingInsights({ spending, previousMonthSpending, curr
     return insights;
   };
 
-  const fallbackInsights = useMemo(() => analyzeSpending(), [spending, allowanceStats, savingsBalance]);
+  const fallbackInsights = analyzeSpending();
   const insights = aiInsights && aiInsights.length ? aiInsights : fallbackInsights;
 
   useEffect(() => {
@@ -182,7 +183,7 @@ export default function SpendingInsights({ spending, previousMonthSpending, curr
     purple: "text-purple-400"
   };
 
-	const iconByKey: Record<SpendingInsightIcon, any> = {
+	const iconByKey: Record<SpendingInsightIcon, LucideIcon> = {
 		alert: AlertTriangle,
 		lightbulb: Lightbulb,
 		trendUp: TrendingUp,
@@ -197,23 +198,19 @@ export default function SpendingInsights({ spending, previousMonthSpending, curr
       </div>
 
       {insights.map((insight, idx) => {
-    const iconValue = (insight as any).icon;
-    const Icon =
-      typeof iconValue === "string" && (iconByKey as any)[iconValue]
-        ? (iconByKey as any)[iconValue]
-        : iconValue;
+        const Icon = iconByKey[insight.icon];
         const isExpanded = expandedInsight === idx;
         
         return (
           <div
             key={idx}
-            className={`border rounded-xl overflow-hidden transition-all ${colorClasses[(insight as any).color as SpendingInsightColor]}`}
+            className={`border rounded-xl overflow-hidden transition-all ${colorClasses[insight.color]}`}
           >
             <button
               onClick={() => setExpandedInsight(isExpanded ? null : idx)}
               className="w-full p-4 flex items-start gap-3 hover:bg-white/5 transition-colors"
             >
-              <Icon className={`flex-shrink-0 mt-1 ${iconColorClasses[(insight as any).color as SpendingInsightColor]}`} size={20} />
+              <Icon className={`flex-shrink-0 mt-1 ${iconColorClasses[insight.color]}`} size={20} />
               <div className="flex-1 text-left">
                 <h3 className="font-semibold text-white mb-1">{insight.title}</h3>
                 <p className="text-sm text-slate-300">{insight.message}</p>
