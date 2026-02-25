@@ -36,6 +36,7 @@ import type {
   ExpenseMonthsResponse,
 } from "@/lib/apiTypes";
 import { currencySymbol, fmt } from "@/lib/formatting";
+import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 import { useYearGuard } from "@/lib/hooks/useYearGuard";
 import { T } from "@/lib/theme";
 import type { ExpensesStackParamList } from "@/navigation/types";
@@ -50,6 +51,7 @@ import AddExpenseSheet from "@/components/Expenses/AddExpenseSheet";
 type Props = NativeStackScreenProps<ExpensesStackParamList, "ExpensesList">;
 
 export default function ExpensesScreen({ navigation }: Props) {
+  const topHeaderOffset = useTopHeaderOffset();
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
@@ -252,7 +254,7 @@ export default function ExpensesScreen({ navigation }: Props) {
     planTotalAmount > 0;
 
   return (
-    <SafeAreaView style={styles.safe} edges={[]}>
+		<SafeAreaView style={[styles.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
       <MonthBar
         month={month} year={year}
         onPrev={() => changeMonth(-1)}

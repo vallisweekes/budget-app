@@ -28,6 +28,7 @@ import type {
   UserProfile,
 } from "@/lib/apiTypes";
 import { currencySymbol } from "@/lib/formatting";
+import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 import { getStoredThemeMode, setStoredThemeMode } from "@/lib/storage";
 import { applyThemeMode, T, type ThemeMode } from "@/lib/theme";
 import { cardBase, cardElevated } from "@/lib/ui";
@@ -118,6 +119,7 @@ function asMoneyInput(value: string | null | undefined): string {
 }
 
 export default function SettingsScreen({ navigation }: MainTabScreenProps<"Settings">) {
+  const topHeaderOffset = useTopHeaderOffset();
   const insets = useSafeAreaInsets();
   const { username: authUsername, signOut } = useAuth();
 
@@ -619,7 +621,7 @@ export default function SettingsScreen({ navigation }: MainTabScreenProps<"Setti
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={[]}>
+		<SafeAreaView style={[styles.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
       <View style={styles.header}>
         <Pressable onPress={goBack} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={22} color={T.text} />

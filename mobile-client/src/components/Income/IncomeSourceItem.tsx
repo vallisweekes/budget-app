@@ -7,7 +7,6 @@ import {
   ActivityIndicator,
   StyleSheet,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import type { Income } from "@/lib/apiTypes";
 import { T } from "@/lib/theme";
 import { cardBase } from "@/lib/ui";
@@ -16,38 +15,25 @@ import { cardBase } from "@/lib/ui";
 
 interface RowProps {
   item: Income;
-  currency: string;
-  fmt: (v: number | string | null | undefined, c: string) => string;
-  onEdit?: () => void;
-  onDelete?: () => void;
+  onPress?: () => void;
 }
 
-export function IncomeRow({ item, currency, fmt, onEdit, onDelete }: RowProps) {
-  const canEdit = typeof onEdit === "function";
-  const canDelete = typeof onDelete === "function";
+export function IncomeRow({ item, onPress }: RowProps) {
+  const isPressable = typeof onPress === "function";
 
   return (
-    <View style={s.row}>
-      <View style={s.dot} />
-      {canEdit ? (
-        <Pressable style={s.info} onPress={onEdit}>
-          <Text style={s.name}>{item.name}</Text>
-          <Text style={s.hint}>Tap to edit</Text>
-        </Pressable>
-      ) : (
-        <View style={s.info}>
-          <Text style={s.name}>{item.name}</Text>
-        </View>
-      )}
-      <Text style={s.amount}>{fmt(item.amount, currency)}</Text>
-      {canDelete ? (
-        <Pressable onPress={onDelete} hitSlop={8} style={s.del}>
-          <Ionicons name="trash-outline" size={18} color={T.red} />
-        </Pressable>
-      ) : (
-        <View style={s.delSpacer} />
-      )}
-    </View>
+    <Pressable
+      onPress={onPress}
+      disabled={!isPressable}
+      style={({ pressed }) => [s.card, pressed && isPressable && s.pressed]}
+    >
+      <View style={s.left}>
+        <Text style={s.name} numberOfLines={1}>
+          {item.name}
+        </Text>
+        {isPressable && <Text style={s.hint}>Tap to edit</Text>}
+      </View>
+    </Pressable>
   );
 }
 
@@ -115,22 +101,20 @@ export function IncomeEditRow({
 }
 
 const s = StyleSheet.create({
-  row: {
+  card: {
+    ...cardBase,
     flexDirection: "row",
     alignItems: "center",
+    marginHorizontal: 14,
+    marginVertical: 6,
     paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: T.border,
+    paddingHorizontal: 14,
     gap: 12,
   },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: T.green },
-  info: { flex: 1, minWidth: 0 },
+  pressed: { opacity: 0.75 },
+  left: { flex: 1, minWidth: 0 },
   name: { color: T.text, fontSize: 15, fontWeight: "800" },
   hint: { color: T.textDim, fontSize: 11, marginTop: 2, fontWeight: "600" },
-  amount: { color: T.text, fontSize: 15, fontWeight: "900" },
-  del: { padding: 4 },
-  delSpacer: { width: 26 },
 
   editWrap: {
     ...cardBase,

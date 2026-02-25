@@ -18,6 +18,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { apiFetch } from "@/lib/api";
 import type { DebtSummaryData, DebtSummaryItem, Settings } from "@/lib/apiTypes";
 import { currencySymbol, fmt } from "@/lib/formatting";
+import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 import type { DebtStackParamList } from "@/navigation/types";
 import { T } from "@/lib/theme";
 import { cardBase, cardElevated } from "@/lib/ui";
@@ -130,6 +131,7 @@ function DebtCard({
 
 export default function DebtScreen() {
   const navigation = useNavigation<Nav>();
+  const topHeaderOffset = useTopHeaderOffset();
 
   const [summary, setSummary] = useState<DebtSummaryData | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -212,7 +214,7 @@ export default function DebtScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={s.safe} edges={[]}>
+			<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
         <View style={s.center}><ActivityIndicator size="large" color={T.accent} /></View>
       </SafeAreaView>
     );
@@ -220,7 +222,7 @@ export default function DebtScreen() {
 
   if (error) {
     return (
-      <SafeAreaView style={s.safe} edges={[]}>
+			<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
         <View style={s.center}>
           <Ionicons name="cloud-offline-outline" size={48} color={T.textDim} />
           <Text style={s.errorText}>{error}</Text>
@@ -231,7 +233,7 @@ export default function DebtScreen() {
   }
 
   return (
-    <SafeAreaView style={s.safe} edges={[]}>
+		<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
       <FlatList
         data={visibleDebts}
         keyExtractor={(item) => item.id}

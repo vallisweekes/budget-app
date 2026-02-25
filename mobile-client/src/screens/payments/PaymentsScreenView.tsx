@@ -19,6 +19,7 @@ import { T } from "@/lib/theme";
 import PaymentDetailSheet, { type PaymentDetail } from "@/components/Payments/PaymentDetailSheet";
 import { usePaymentsSections, type PaymentsResponse } from "@/lib/hooks/usePaymentsSections";
 import PaymentsListView from "@/components/Payments/PaymentsListView";
+import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 import { s } from "./paymentsScreenStyles";
 
 type Nav = NativeStackNavigationProp<RootStackParamList, "Payments">;
@@ -26,6 +27,7 @@ type Nav = NativeStackNavigationProp<RootStackParamList, "Payments">;
 export default function PaymentsScreen() {
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
+  const topHeaderOffset = useTopHeaderOffset();
 
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth() + 1);
@@ -123,7 +125,7 @@ export default function PaymentsScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={s.safe} edges={[]}> 
+			<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]} edges={[]}> 
         <View style={s.center}>
           <ActivityIndicator size="large" color={T.accent} />
         </View>
@@ -133,7 +135,7 @@ export default function PaymentsScreen() {
 
   if (error) {
     return (
-      <SafeAreaView style={s.safe} edges={[]}> 
+			<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]} edges={[]}> 
         <View style={s.center}>
           <Ionicons name="cloud-offline-outline" size={48} color={T.textDim} />
           <Text style={s.errorText}>{error}</Text>
@@ -148,7 +150,7 @@ export default function PaymentsScreen() {
   const showEmpty = sections.length === 0;
 
   return (
-    <SafeAreaView style={s.safe} edges={["top"]}>
+		<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
       <PaymentDetailSheet
         visible={sheetOpen}
         insetsBottom={insets.bottom}
@@ -162,7 +164,7 @@ export default function PaymentsScreen() {
       />
 
       {/* Header */}
-      <View style={[s.header, { paddingTop: Math.max(10, insets.top) }]}>
+			<View style={[s.header, { paddingTop: 10 }]}>
         <Pressable onPress={handleBack} style={({ pressed }) => [s.backBtn, pressed && s.backBtnPressed]}>
           <Ionicons name="chevron-back" size={18} color={T.text} />
         </Pressable>

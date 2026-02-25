@@ -16,6 +16,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { apiFetch } from "@/lib/api";
 import type { IncomeSummaryData, Settings } from "@/lib/apiTypes";
 import { currencySymbol, fmt } from "@/lib/formatting";
+import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 import { useYearGuard } from "@/lib/hooks/useYearGuard";
 import { T } from "@/lib/theme";
 import IncomeMonthCard from "@/components/Income/IncomeMonthCard";
@@ -25,6 +26,7 @@ type Nav = NativeStackNavigationProp<IncomeStackParamList, "IncomeGrid">;
 
 export default function IncomeScreen() {
   const navigation = useNavigation<Nav>();
+  const topHeaderOffset = useTopHeaderOffset();
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [data, setData] = useState<IncomeSummaryData | null>(null);
@@ -79,7 +81,7 @@ export default function IncomeScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={s.safe} edges={[]}>
+			<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
         <View style={s.center}>
           <ActivityIndicator size="large" color={T.accent} />
           <Text style={s.loadingText}>Loading income…</Text>
@@ -90,7 +92,7 @@ export default function IncomeScreen() {
 
   if (error) {
     return (
-      <SafeAreaView style={s.safe} edges={[]}>
+			<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
         <View style={s.center}>
           <Ionicons name="cloud-offline-outline" size={48} color={T.textDim} />
           <Text style={s.errorText}>{error}</Text>
@@ -130,7 +132,7 @@ export default function IncomeScreen() {
   };
 
   return (
-    <SafeAreaView style={s.safe} edges={[]}>
+		<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
       <View style={s.stackHeader}>
         <Pressable
           onPress={onBack}

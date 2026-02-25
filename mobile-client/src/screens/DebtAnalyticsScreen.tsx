@@ -22,6 +22,7 @@ import Svg, {
 import { apiFetch } from "@/lib/api";
 import type { DebtSummaryData, DebtSummaryItem, Settings } from "@/lib/apiTypes";
 import { fmt } from "@/lib/formatting";
+import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 import type { DebtStackParamList } from "@/navigation/types";
 import { T } from "@/lib/theme";
 import { cardBase } from "@/lib/ui";
@@ -287,6 +288,7 @@ function GanttChart({
 export default function DebtAnalyticsScreen() {
   const navigation = useNavigation();
   const route = useRoute<Route>();
+  const topHeaderOffset = useTopHeaderOffset();
 
   const routeDebts = route.params?.debts;
   const routeTotalMonthly = route.params?.totalMonthly;
@@ -327,7 +329,7 @@ export default function DebtAnalyticsScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={s.safe} edges={["bottom"]}>
+			<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]} edges={["bottom"]}>
         <View style={s.loadingWrap}>
           <ActivityIndicator size="large" color={T.accent} />
           <Text style={s.loadingText}>Loading analytics…</Text>
@@ -338,7 +340,7 @@ export default function DebtAnalyticsScreen() {
 
   if (error) {
     return (
-      <SafeAreaView style={s.safe} edges={["bottom"]}>
+			<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]} edges={["bottom"]}>
         <View style={s.loadingWrap}>
           <Text style={s.errorText}>{error}</Text>
           <Pressable onPress={load} style={s.retryBtn}>
@@ -379,7 +381,7 @@ export default function DebtAnalyticsScreen() {
   const latest = ganttItems[ganttItems.length - 1];
 
   return (
-    <SafeAreaView style={s.safe} edges={["bottom"]}>
+		<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]} edges={["bottom"]}>
       {/* Header */}
       <View style={s.header}>
         {showBack ? (

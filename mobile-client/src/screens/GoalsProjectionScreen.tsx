@@ -6,10 +6,12 @@ import Svg, { Polyline } from "react-native-svg";
 
 import { apiFetch } from "@/lib/api";
 import type { DashboardData } from "@/lib/apiTypes";
+import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 import { T } from "@/lib/theme";
 import { cardElevated } from "@/lib/ui";
 
 export default function GoalsProjectionScreen({ navigation }: { navigation: any }) {
+  const topHeaderOffset = useTopHeaderOffset();
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -94,7 +96,7 @@ export default function GoalsProjectionScreen({ navigation }: { navigation: any 
 
   if (loading) {
     return (
-      <SafeAreaView style={s.safe} edges={[]}>
+			<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
         <View style={s.center}>
           <ActivityIndicator size="large" color={T.accent} />
           <Text style={s.stateText}>Loading projection…</Text>
@@ -105,7 +107,7 @@ export default function GoalsProjectionScreen({ navigation }: { navigation: any 
 
   if (error) {
     return (
-      <SafeAreaView style={s.safe} edges={[]}>
+			<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
         <View style={s.center}>
           <Ionicons name="cloud-offline-outline" size={48} color={T.textDim} />
           <Text style={s.errorText}>{error}</Text>
@@ -118,7 +120,7 @@ export default function GoalsProjectionScreen({ navigation }: { navigation: any 
   }
 
   return (
-    <SafeAreaView style={s.safe} edges={[]}>
+		<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
       <View style={s.header}>
         <Pressable onPress={() => navigation.goBack()} hitSlop={8}>
           <Ionicons name="chevron-back" size={22} color={T.text} />

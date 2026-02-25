@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
 import { apiFetch } from "@/lib/api";
@@ -8,6 +8,7 @@ import { T } from "@/lib/theme";
 import { cardBase, cardElevated } from "@/lib/ui";
 import { useAuth } from "@/context/AuthContext";
 import type { RootStackScreenProps } from "@/navigation/types";
+import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 
 const STRATEGY_OPTIONS = [
   { value: "payYourselfFirst", label: "Pay Yourself First", tip: "Prioritise savings and investment before discretionary spending." },
@@ -18,7 +19,7 @@ const STRATEGY_OPTIONS = [
 export default function SettingsStrategyScreen({ navigation, route }: RootStackScreenProps<"SettingsStrategy">) {
   const { budgetPlanId, strategy } = route.params;
   const { signOut } = useAuth();
-  const insets = useSafeAreaInsets();
+  const topHeaderOffset = useTopHeaderOffset(8);
   const [draft, setDraft] = useState(strategy ?? "payYourselfFirst");
   const [saving, setSaving] = useState(false);
 
@@ -44,7 +45,7 @@ export default function SettingsStrategyScreen({ navigation, route }: RootStackS
 
   return (
     <SafeAreaView style={styles.safe} edges={[]}>
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+      <View style={[styles.header, { paddingTop: topHeaderOffset }]}>
         <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={22} color={T.text} />
         </Pressable>

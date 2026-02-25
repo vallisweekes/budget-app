@@ -15,17 +15,20 @@ import { apiFetch } from "@/lib/api";
 import type { Income, Settings, IncomeMonthData, IncomeSacrificeData, IncomeSacrificeFixed } from "@/lib/apiTypes";
 import type { IncomeStackParamList } from "@/navigation/types";
 import { currencySymbol, fmt, MONTH_NAMES_LONG } from "@/lib/formatting";
+import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 import { T } from "@/lib/theme";
 import { useIncomeCRUD } from "@/lib/hooks/useIncomeCRUD";
 import IncomeMonthHeader from "@/components/Income/IncomeMonthHeader";
 import IncomeMonthIncomeList from "@/components/Income/IncomeMonthIncomeList";
 import IncomeMonthSacrificeList from "@/components/Income/IncomeMonthSacrificeList";
+import IncomeEditSheet from "@/components/Income/IncomeEditSheet";
 import DeleteConfirmSheet from "@/components/Shared/DeleteConfirmSheet";
 import { s } from "./incomeMonthScreenStyles";
 
 type Props = NativeStackScreenProps<IncomeStackParamList, "IncomeMonth">;
 
 export default function IncomeMonthScreen({ navigation, route }: Props) {
+  const topHeaderOffset = useTopHeaderOffset();
   const { month, year, budgetPlanId, initialMode } = route.params;
   const monthLabel = `${MONTH_NAMES_LONG[month - 1]} ${year}`;
 
@@ -92,7 +95,9 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
     loadSacrifice().catch(() => null);
   }, [load, loadSacrifice]);
 
-  const crud = useIncomeCRUD({ month, year, budgetPlanId, onReload: load });
+  const crud = useIncomeCRUD({ month, year, budgetPlanId, onReload: load, setItems });
+
+  const editingItem = crud.editingId ? items.find((i) => i.id === crud.editingId) ?? null : null;
 
   useEffect(() => {
     if (!isLocked) return;
@@ -185,7 +190,7 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
 
   if (loading) {
     return (
-      <SafeAreaView style={s.safe}>
+			<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]} edges={["bottom"]}>
         <View style={s.center}><ActivityIndicator size="large" color={T.accent} /></View>
       </SafeAreaView>
     );
@@ -193,7 +198,7 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
 
   if (error) {
     return (
-      <SafeAreaView style={s.safe}>
+			<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]} edges={["bottom"]}>
         <View style={s.center}>
           <Ionicons name="cloud-offline-outline" size={48} color={T.textDim} />
           <Text style={s.errorText}>{error}</Text>
@@ -204,7 +209,7 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
   }
 
   return (
-    <SafeAreaView style={s.safe}>
+		<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]} edges={["bottom"]}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <IncomeMonthHeader
           monthLabel={monthLabel}
@@ -258,9 +263,30 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
               load();
             }}
             crud={crud}
-            onRequestDelete={setDeleteTarget}
           />
         )}
+
+        <IncomeEditSheet
+          visible={crud.editingId !== null}
+          name={crud.editName}
+          amount={crud.editAmount}
+          currency={currency}
+          totalIncome={items.reduce((sum, i) => sum + parseFloat(String(i.amount || "0")), 0)}
+          setName={crud.setEditName}
+          setAmount={crud.setEditAmount}
+          saving={crud.saving}
+          isLocked={isLocked}
+          onCancel={crud.cancelEdit}
+          onSave={() => {
+            if (isLocked) return;
+            crud.handleSaveEdit();
+          }}
+          onDelete={() => {
+            if (!editingItem) return;
+            crud.cancelEdit();
+            setDeleteTarget(editingItem);
+          }}
+        />
 
         <DeleteConfirmSheet
           visible={deleteTarget !== null}

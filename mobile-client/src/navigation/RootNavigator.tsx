@@ -81,6 +81,9 @@ function MainTabs() {
       tabBar={(props) => <PillTabBar {...props} />}
       screenOptions={({ navigation }) => ({
         headerShown: true,
+		headerTransparent: true,
+		headerStyle: { backgroundColor: "transparent" },
+		headerShadowVisible: false,
         header: () => {
           const openIncome = () => {
             const parent = navigation.getParent();
@@ -197,6 +200,9 @@ export default function RootNavigator() {
             component={IncomeStackNavigator}
             options={({ navigation }) => ({
               headerShown: true,
+				headerTransparent: true,
+				headerStyle: { backgroundColor: "transparent" },
+				headerShadowVisible: false,
               header: () => <RootTopHeader navigation={navigation} />,
             })}
           />
@@ -205,6 +211,9 @@ export default function RootNavigator() {
             component={NotificationSettingsScreen}
             options={({ navigation }) => ({
               headerShown: true,
+				headerTransparent: true,
+				headerStyle: { backgroundColor: "transparent" },
+				headerShadowVisible: false,
               header: () => <RootTopHeader navigation={navigation} />,
             })}
           />
@@ -214,6 +223,9 @@ export default function RootNavigator() {
             component={AnalyticsScreen}
             options={({ navigation }) => ({
               headerShown: true,
+				headerTransparent: true,
+				headerStyle: { backgroundColor: "transparent" },
+				headerShadowVisible: false,
               header: () => <RootTopHeader navigation={navigation} />,
             })}
           />

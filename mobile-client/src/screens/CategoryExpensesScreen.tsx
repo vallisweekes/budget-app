@@ -38,6 +38,7 @@ import { apiFetch, getApiBaseUrl } from "@/lib/api";
 import type { Expense } from "@/lib/apiTypes";
 import { resolveCategoryColor, withOpacity } from "@/lib/categoryColors";
 import { fmt } from "@/lib/formatting";
+import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 import { T } from "@/lib/theme";
 import type { ExpensesStackParamList } from "@/navigation/types";
 
@@ -111,6 +112,7 @@ function resolveLogoUri(raw: string | null | undefined): string | null {
 // ─── Main screen ─────────────────────────────────────────────────────────────
 
 export default function CategoryExpensesScreen({ route, navigation }: Props) {
+  const topHeaderOffset = useTopHeaderOffset();
   const { categoryId, categoryName, color, icon, month, year, budgetPlanId, currency } = route.params;
 
   const [expenses, setExpenses]     = useState<Expense[]>([]);
@@ -218,7 +220,7 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
     if (!Number.isFinite(delta) || delta <= 0) {
       Alert.alert("Invalid Amount", "Enter a payment amount greater than 0.");
       return;
-    }
+		}
     const existingPaid = parseFloat(expense.paidAmount);
     const total = parseFloat(expense.amount);
     const nextPaid = Math.min(total, existingPaid + delta);
@@ -465,7 +467,7 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
   // ─── Render ───────────────────────────────────────────────────────────
 
   return (
-    <SafeAreaView style={styles.safe} edges={["bottom"]}>
+    <SafeAreaView style={[styles.safe, { paddingTop: topHeaderOffset }]} edges={["bottom"]}>
       {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} hitSlop={12} style={styles.backBtn}>

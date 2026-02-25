@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, type Dispatch, type SetStateAction } from "react";
 import { Alert, Keyboard } from "react-native";
 import { apiFetch } from "@/lib/api";
 import type { Income } from "@/lib/apiTypes";
@@ -8,9 +8,11 @@ interface Params {
   year: number;
   budgetPlanId: string;
   onReload: () => Promise<void>;
+  /** Optional: enables optimistic updates for edits/adds. */
+  setItems?: Dispatch<SetStateAction<Income[]>>;
 }
 
-export function useIncomeCRUD({ month, year, budgetPlanId, onReload }: Params) {
+export function useIncomeCRUD({ month, year, budgetPlanId, onReload, setItems }: Params) {
   // Add form
   const [showAddForm, setShowAddForm] = useState(false);
   const [newName, setNewName] = useState("");
@@ -59,7 +61,7 @@ export function useIncomeCRUD({ month, year, budgetPlanId, onReload }: Params) {
   const startEdit = useCallback((item: Income) => {
     setEditingId(item.id);
     setEditName(item.name);
-    setEditAmount(String(parseFloat(item.amount ?? "0")));
+    setEditAmount(parseFloat(item.amount ?? "0").toFixed(2));
   }, []);
 
   const cancelEdit = useCallback(() => {
@@ -71,26 +73,45 @@ export function useIncomeCRUD({ month, year, budgetPlanId, onReload }: Params) {
   const handleSaveEdit = useCallback(async () => {
     if (!editingId) return;
     const name = editName.trim();
-    const amount = parseFloat(editAmount);
+    const amount = parseFloat(String(editAmount).replace(/,/g, ""));
     if (!name || isNaN(amount) || amount <= 0) {
       Alert.alert("Invalid input", "Name and a valid amount are required.");
       return;
     }
+
+    // Optimistic update: close immediately and update the list.
+    // If the API call fails, revert the single item and show an error.
+    let snapshot: Income | null = null;
+    if (setItems) {
+      setItems((prev) => {
+        const existing = prev.find((i) => i.id === editingId) ?? null;
+        snapshot = existing;
+        return prev.map((i) =>
+          i.id === editingId
+            ? { ...i, name, amount: String(amount) }
+            : i
+        );
+      });
+    }
+
+    cancelEdit();
+    Keyboard.dismiss();
     try {
       setSaving(true);
       await apiFetch(`/api/bff/income/${editingId}`, {
         method: "PATCH",
         body: { name, amount },
       });
-      cancelEdit();
-      Keyboard.dismiss();
       await onReload();
     } catch (err: unknown) {
+      if (setItems && snapshot) {
+        setItems((prev) => prev.map((i) => (i.id === snapshot!.id ? snapshot! : i)));
+      }
       Alert.alert("Error", err instanceof Error ? err.message : "Could not update income");
     } finally {
       setSaving(false);
     }
-  }, [editingId, editName, editAmount, cancelEdit, onReload]);
+  }, [editingId, editName, editAmount, cancelEdit, onReload, setItems]);
 
   const deleteIncome = useCallback(async (item: Income) => {
     try {

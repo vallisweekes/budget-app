@@ -19,10 +19,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { apiFetch } from "@/lib/api";
 import type { DashboardData, Goal, Settings } from "@/lib/apiTypes";
 import { fmt } from "@/lib/formatting";
+import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 import { T } from "@/lib/theme";
 import { cardElevated, textLabel } from "@/lib/ui";
 
 export default function GoalsScreen({ navigation }: { navigation: any }) {
+  const topHeaderOffset = useTopHeaderOffset();
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [goals, setGoals] = useState<Goal[]>([]);
@@ -236,7 +238,7 @@ export default function GoalsScreen({ navigation }: { navigation: any }) {
 
   if (loading) {
     return (
-      <SafeAreaView style={s.safe} edges={[]}>
+			<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
         <View style={s.center}>
           <ActivityIndicator size="large" color={T.accent} />
           <Text style={s.info}>Loading goals…</Text>
@@ -247,7 +249,7 @@ export default function GoalsScreen({ navigation }: { navigation: any }) {
 
   if (error) {
     return (
-      <SafeAreaView style={s.safe} edges={[]}>
+			<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
         <View style={s.center}>
           <Ionicons name="cloud-offline-outline" size={46} color={T.textDim} />
           <Text style={s.error}>{error}</Text>
@@ -260,7 +262,7 @@ export default function GoalsScreen({ navigation }: { navigation: any }) {
   }
 
   return (
-    <SafeAreaView style={s.safe} edges={[]}>
+		<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
       <Modal
         visible={addOpen}
         transparent

@@ -17,6 +17,7 @@ import { LineChart } from "react-native-gifted-charts";
 import { apiFetch } from "@/lib/api";
 import type { DashboardData, DebtSummaryData, ExpenseSummary, IncomeSummaryData, Settings } from "@/lib/apiTypes";
 import { currencySymbol, fmt } from "@/lib/formatting";
+import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 import { T } from "@/lib/theme";
 import { cardBase, cardElevated } from "@/lib/ui";
 
@@ -25,6 +26,7 @@ const OVERVIEW_CHART_W = Math.max(240, Dimensions.get("window").width - 76);
 const OVERVIEW_CHART_H = 180;
 
 export default function AnalyticsScreen({ navigation }: { navigation: any }) {
+  const topHeaderOffset = useTopHeaderOffset();
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [debt, setDebt] = useState<DebtSummaryData | null>(null);
   const [income, setIncome] = useState<IncomeSummaryData | null>(null);
@@ -173,7 +175,7 @@ export default function AnalyticsScreen({ navigation }: { navigation: any }) {
 
   if (loading) {
     return (
-      <SafeAreaView style={s.safe} edges={["top"]}>
+			<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
         <View style={s.center}>
           <ActivityIndicator size="large" color={T.accent} />
           <Text style={s.loading}>Loading analytics…</Text>
@@ -184,7 +186,7 @@ export default function AnalyticsScreen({ navigation }: { navigation: any }) {
 
   if (error) {
     return (
-      <SafeAreaView style={s.safe} edges={["top"]}>
+			<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
         <View style={s.center}>
           <Ionicons name="cloud-offline-outline" size={42} color={T.textDim} />
           <Text style={s.error}>{error}</Text>
@@ -197,7 +199,7 @@ export default function AnalyticsScreen({ navigation }: { navigation: any }) {
   }
 
   return (
-    <SafeAreaView style={s.safe} edges={["top"]}>
+		<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
       <View style={s.header}>
         <Pressable onPress={() => navigation.goBack()} hitSlop={12} style={s.backBtn}>
           <Ionicons name="chevron-back" size={22} color={T.text} />

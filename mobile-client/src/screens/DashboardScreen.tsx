@@ -21,6 +21,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { ApiError, apiFetch } from "@/lib/api";
 import type { DashboardData, Settings } from "@/lib/apiTypes";
 import { currencySymbol, fmt } from "@/lib/formatting";
+import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 import { T } from "@/lib/theme";
 import { cardElevated, textLabel } from "@/lib/ui";
 import BudgetDonutCard from "@/components/Dashboard/BudgetDonutCard";
@@ -35,6 +36,7 @@ const GOAL_CARD = Math.max(122, Math.round((W - GOAL_SIDE * 2 - GOAL_GAP) / 2));
 const GOAL_ADD_W = Math.max(52, Math.round(GOAL_CARD * 0.34));
 
 export default function DashboardScreen({ navigation }: { navigation: any }) {
+  const topHeaderOffset = useTopHeaderOffset();
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -163,7 +165,7 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.safe} edges={[]}>
+			<SafeAreaView style={[styles.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
         <View style={styles.center}>
           <ActivityIndicator size="large" color={T.accent} />
           <Text style={styles.loadingText}>Loading dashboard…</Text>
@@ -174,7 +176,7 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
 
   if (error) {
     return (
-      <SafeAreaView style={styles.safe} edges={[]}>
+			<SafeAreaView style={[styles.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
         <View style={styles.center}>
           <Ionicons name="cloud-offline-outline" size={48} color={T.iconMuted} />
           <Text style={styles.errorText}>{error}</Text>
@@ -331,7 +333,7 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
 
       <ScrollView
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={T.accent} />}
-        contentContainerStyle={styles.scroll}
+			contentContainerStyle={[styles.scroll, { paddingTop: topHeaderOffset }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.rangePill}>
@@ -622,7 +624,7 @@ const styles = StyleSheet.create({
   sheetRowSub: { color: T.textDim, fontSize: 12, fontWeight: "700", marginTop: 2 },
   sheetRowAmt: { color: T.text, fontSize: 16, fontWeight: "900" },
   center: { flex: 1, justifyContent: "center", alignItems: "center", gap: 12 },
-  scroll: { padding: 16, paddingTop: 18, paddingBottom: 140 },
+  scroll: { padding: 16, paddingBottom: 140 },
   headerRow: { marginBottom: 14 },
   rangePill: {
     alignSelf: "flex-start",

@@ -16,6 +16,7 @@ import PaymentSheet from "@/components/Debts/Detail/PaymentSheet";
 import EditDebtSheet from "@/components/Debts/Detail/EditDebtSheet";
 import PaymentHistorySection from "@/components/Debts/Detail/PaymentHistorySection";
 import { useDebtDetailController } from "@/screens/debt-detail/useDebtDetailController";
+import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 
 type Route = RouteProp<DebtStackParamList, "DebtDetail">;
 
@@ -24,13 +25,14 @@ export default function DebtDetailScreen() {
   const { params } = useRoute<Route>();
   const { debtId, debtName } = params;
   const { height } = useWindowDimensions();
+  const topHeaderOffset = useTopHeaderOffset();
 
   const state = useDebtDetailController({ debtId, debtName, onDeleted: () => navigation.goBack() });
   const { debt, loading, error, currency, derived } = state;
 
   if (loading) {
     return (
-      <SafeAreaView style={s.safe}>
+			<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]}>
         <DebtDetailHeader title={debtName} editing={false} onBack={() => navigation.goBack()} onToggleEdit={() => {}} onDelete={() => {}} />
         <View style={s.center}><ActivityIndicator size="large" color={T.accent} /></View>
       </SafeAreaView>
@@ -39,7 +41,7 @@ export default function DebtDetailScreen() {
 
   if (error || !debt) {
     return (
-      <SafeAreaView style={s.safe}>
+			<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]}>
         <DebtDetailHeader title={debtName} editing={false} onBack={() => navigation.goBack()} onToggleEdit={() => {}} onDelete={() => {}} />
         <View style={s.center}>
           <Ionicons name="cloud-offline-outline" size={48} color={T.textDim} />
@@ -51,7 +53,7 @@ export default function DebtDetailScreen() {
   }
 
   return (
-    <SafeAreaView style={s.safe}>
+		<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]}>
       <DebtDetailHeader
         title={debt.name}
         editing={state.editing}
