@@ -7,7 +7,9 @@ import {
   ActivityIndicator,
   StyleSheet,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import type { Income } from "@/lib/apiTypes";
+import { fmt } from "@/lib/formatting";
 import { T } from "@/lib/theme";
 import { cardBase } from "@/lib/ui";
 
@@ -15,11 +17,13 @@ import { cardBase } from "@/lib/ui";
 
 interface RowProps {
   item: Income;
+  currency: string;
   onPress?: () => void;
 }
 
-export function IncomeRow({ item, onPress }: RowProps) {
+export function IncomeRow({ item, currency, onPress }: RowProps) {
   const isPressable = typeof onPress === "function";
+  const amount = Number(item.amount ?? 0);
 
   return (
     <Pressable
@@ -31,7 +35,15 @@ export function IncomeRow({ item, onPress }: RowProps) {
         <Text style={s.name} numberOfLines={1}>
           {item.name}
         </Text>
-        {isPressable && <Text style={s.hint}>Tap to edit</Text>}
+        <Text style={s.hint}>{fmt(amount, currency)}</Text>
+      </View>
+
+      <View style={s.right}>
+        <Ionicons
+          name="chevron-forward"
+          size={16}
+          color={isPressable ? T.textDim : T.textMuted}
+        />
       </View>
     </Pressable>
   );
@@ -115,6 +127,11 @@ const s = StyleSheet.create({
   left: { flex: 1, minWidth: 0 },
   name: { color: T.text, fontSize: 15, fontWeight: "800" },
   hint: { color: T.textDim, fontSize: 11, marginTop: 2, fontWeight: "600" },
+  right: {
+    width: 20,
+    alignItems: "flex-end",
+    justifyContent: "center",
+  },
 
   editWrap: {
     ...cardBase,

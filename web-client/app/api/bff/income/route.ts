@@ -77,13 +77,67 @@ export async function POST(request: Request) {
     const year = Number(body.year);
     const distributeMonths = toBool(body.distributeMonths);
     const distributeYears = toBool(body.distributeYears);
+    const distributeFullYear = typeof body.distributeFullYear === "undefined" ? distributeMonths : toBool(body.distributeFullYear);
+    const distributeHorizon = toBool(body.distributeHorizon);
 
-    const targetYears = distributeYears ? [year, year + 1] : [year];
+    if (!name) {
+      return NextResponse.json({ error: "name is required" }, { status: 400 });
+    }
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return NextResponse.json({ error: "amount must be a positive number" }, { status: 400 });
+    }
+    if (!Number.isInteger(month) || month < 1 || month > 12) {
+      return NextResponse.json({ error: "month must be an integer between 1 and 12" }, { status: 400 });
+    }
+    if (!Number.isInteger(year) || year < 1900) {
+      return NextResponse.json({ error: "year must be a valid integer" }, { status: 400 });
+    }
+
+    const plan = await prisma.budgetPlan.findUnique({
+      where: { id: budgetPlanId },
+      select: {
+        budgetHorizonYears: true,
+      } as any,
+    });
+
+    const horizonYearsRaw = Number((plan as any)?.budgetHorizonYears ?? 10);
+    const horizonYears = Number.isFinite(horizonYearsRaw) && horizonYearsRaw > 0 ? Math.floor(horizonYearsRaw) : 10;
+    const targetYears = distributeHorizon
+      ? Array.from({ length: horizonYears }, (_, index) => year + index)
+      : (distributeYears ? [year, year + 1] : [year]);
+
+    if (
+      typeof body.distributeFullYear !== "undefined" ||
+      typeof body.distributeHorizon !== "undefined"
+    ) {
+      try {
+        await prisma.budgetPlan.update({
+          where: { id: budgetPlanId },
+          data: {
+            incomeDistributeFullYearDefault: distributeFullYear,
+            incomeDistributeHorizonDefault: distributeHorizon,
+          } as any,
+        });
+      } catch {
+        try {
+          await prisma.$executeRaw`
+            UPDATE "BudgetPlan"
+            SET
+              "incomeDistributeFullYearDefault" = ${distributeFullYear},
+              "incomeDistributeHorizonDefault" = ${distributeHorizon}
+            WHERE id = ${budgetPlanId}
+          `;
+        } catch {
+          // Ignore if columns are unavailable on older DBs.
+        }
+      }
+    }
 
     let firstCreated: any = null;
     for (const y of targetYears) {
-      const startMonth = y === year ? month : (distributeMonths ? 1 : month);
-      const endMonth = distributeMonths ? 12 : month;
+      const shouldSpreadMonths = distributeFullYear || distributeMonths;
+      const startMonth = y === year ? month : (shouldSpreadMonths ? 1 : month);
+      const endMonth = shouldSpreadMonths ? 12 : month;
       for (let m = startMonth; m <= endMonth; m++) {
         // Upsert so we don't create duplicates on re-run
         const existing = await prisma.income.findFirst({

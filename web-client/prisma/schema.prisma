@@ -124,6 +124,10 @@ model BudgetPlan {
   // Planning horizon
   budgetHorizonYears            Int            @default(10)
 
+  // Income yearly add defaults
+  incomeDistributeFullYearDefault Boolean      @default(false)
+  incomeDistributeHorizonDefault  Boolean      @default(false)
+
   // Dashboard preferences
   homepageGoalIds               String[]       @default([])
   

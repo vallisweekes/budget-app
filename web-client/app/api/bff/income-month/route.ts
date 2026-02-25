@@ -1,28 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
-import { getAllIncome } from "@/lib/income/store";
-import { getMonthlyAllocationSnapshot, getMonthlyCustomAllocationsSnapshot } from "@/lib/allocations/store";
-import { monthNumberToKey } from "@/lib/helpers/monthKey";
-import { prisma } from "@/lib/prisma";
-import type { MonthKey } from "@/types";
+import { getIncomeMonthAnalysis } from "@/lib/helpers/finance/getIncomeMonthAnalysis";
 
 export const runtime = "nodejs";
 
 function unauthorized() {
 	return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-}
-
-function decimalToNumber(value: unknown): number {
-	if (value == null) return 0;
-	if (typeof value === "number") return value;
-	if (typeof value === "bigint") return Number(value);
-	if (typeof value === "string") return Number(value);
-	if (typeof value === "object") {
-		const maybeDecimal = value as { toNumber?: () => number; toString?: () => string };
-		if (typeof maybeDecimal.toNumber === "function") return maybeDecimal.toNumber();
-		if (typeof maybeDecimal.toString === "function") return Number(maybeDecimal.toString());
-	}
-	return Number(value);
 }
 
 /**
@@ -52,106 +35,56 @@ export async function GET(req: NextRequest) {
 			: new Date().getMonth() + 1;
 		const year = Number.isFinite(yearParam) ? yearParam : new Date().getFullYear();
 
-		const monthKey = monthNumberToKey(month as 1|2|3|4|5|6|7|8|9|10|11|12) as MonthKey;
+		const prevMonth = month === 1 ? 12 : month - 1;
+		const prevYear = month === 1 ? year - 1 : year;
 
-		// ── Income ──────────────────────────────────────────────
-		const incomeByMonth = await getAllIncome(budgetPlanId, year);
-		const incomeItems = incomeByMonth[monthKey] ?? [];
-		const grossIncome = incomeItems.reduce((sum, item) => sum + (item.amount ?? 0), 0);
-
-		// ── Expenses ────────────────────────────────────────────
-		const expenseAgg = await prisma.expense.aggregate({
-			where: { budgetPlanId, year, month },
-			_sum: { amount: true, paidAmount: true },
-		});
-		const plannedExpenses = decimalToNumber(expenseAgg._sum.amount);
-		const paidExpenses = decimalToNumber(expenseAgg._sum.paidAmount);
-
-		// ── Allocations (income sacrifice) ──────────────────────
-		const allocationSnapshot = await getMonthlyAllocationSnapshot(budgetPlanId, monthKey, { year });
-		const customAllocationsSnapshot = await getMonthlyCustomAllocationsSnapshot(budgetPlanId, monthKey, { year });
-
-		const monthlyAllowance = Number(allocationSnapshot.monthlyAllowance ?? 0);
-		const savingsContribution = Number(allocationSnapshot.monthlySavingsContribution ?? 0);
-		const emergencyContribution = Number(allocationSnapshot.monthlyEmergencyContribution ?? 0);
-		const investmentContribution = Number(allocationSnapshot.monthlyInvestmentContribution ?? 0);
-		const plannedSetAsideFromAllocations = savingsContribution + emergencyContribution + investmentContribution;
-		const customSetAsideTotal = Number(customAllocationsSnapshot.total ?? 0);
-		const plannedSetAside = plannedSetAsideFromAllocations + customSetAsideTotal + monthlyAllowance;
-
-		// ── Debts ───────────────────────────────────────────────
-		const dueDebts = await prisma.debt.findMany({
-			where: {
-				budgetPlanId,
-				paid: false,
-				currentBalance: { gt: 0 },
-				defaultPaymentSource: "income",
-			},
-			select: { id: true, amount: true },
-		});
-		const totalDueDebts = dueDebts.reduce((sum, d) => sum + decimalToNumber(d.amount), 0);
-
-		const paidDebtPaymentsAgg = await prisma.debtPayment.aggregate({
-			where: {
-				debt: { budgetPlanId },
-				year,
-				month,
-				source: "income",
-			},
-			_sum: { amount: true },
-		});
-		const paidDebtPaymentsFromIncome = decimalToNumber(paidDebtPaymentsAgg._sum.amount);
-		const debtsDueThisMonth = Math.max(0, totalDueDebts - paidDebtPaymentsFromIncome);
-
-		// ── Derived values (same as web IncomeMonthPage) ────────
-		const plannedBills = plannedExpenses + debtsDueThisMonth;
-		const paidBillsSoFar = paidExpenses + paidDebtPaymentsFromIncome;
-		const remainingBills = Math.max(0, plannedBills - paidBillsSoFar);
-		const moneyLeftAfterPlan = grossIncome - (plannedBills + monthlyAllowance + plannedSetAside);
-		const incomeLeftRightNow = grossIncome - paidBillsSoFar - plannedSetAside;
-		const moneyOutTotal = plannedBills + monthlyAllowance + plannedSetAside;
+		const [analysis, prevAnalysis] = await Promise.all([
+			getIncomeMonthAnalysis({ budgetPlanId, year, month }),
+			getIncomeMonthAnalysis({ budgetPlanId, year: prevYear, month: prevMonth }),
+		]);
 
 		return NextResponse.json({
 			budgetPlanId,
-			month,
-			year,
-			monthKey,
+			month: analysis.month,
+			year: analysis.year,
+			monthKey: analysis.monthKey,
 
 			// Income
-			incomeItems: incomeItems.map((i) => ({
+			incomeItems: analysis.incomeItems.map((i) => ({
 				id: i.id,
 				name: i.name,
 				amount: i.amount,
 			})),
-			grossIncome,
-			sourceCount: incomeItems.length,
+			grossIncome: analysis.grossIncome,
+			sourceCount: analysis.sourceCount,
 
 			// Expenses
-			plannedExpenses,
-			paidExpenses,
+			plannedExpenses: analysis.plannedExpenses,
+			paidExpenses: analysis.paidExpenses,
 
 			// Debts
-			plannedDebtPayments: debtsDueThisMonth,
-			paidDebtPayments: paidDebtPaymentsFromIncome,
+			plannedDebtPayments: analysis.plannedDebtPayments,
+			paidDebtPayments: analysis.paidDebtPaymentsFromIncome,
 
 			// Allocations / sacrifice
-			monthlyAllowance,
-			incomeSacrifice: plannedSetAside,
+			monthlyAllowance: analysis.monthlyAllowance,
+			incomeSacrifice: analysis.incomeSacrifice,
 			setAsideBreakdown: {
-				savings: savingsContribution,
-				emergency: emergencyContribution,
-				investments: investmentContribution,
-				custom: customSetAsideTotal,
+				savings: analysis.setAsideBreakdown.savings,
+				emergency: analysis.setAsideBreakdown.emergency,
+				investments: analysis.setAsideBreakdown.investments,
+				custom: analysis.setAsideBreakdown.custom,
 			},
 
 			// Summary
-			plannedBills,
-			paidBillsSoFar,
-			remainingBills,
-			moneyLeftAfterPlan,
-			incomeLeftRightNow,
-			moneyOutTotal,
-			isOnPlan: moneyLeftAfterPlan >= 0,
+			plannedBills: analysis.plannedBills,
+			paidBillsSoFar: analysis.paidBillsSoFar,
+			remainingBills: analysis.remainingBills,
+			moneyLeftAfterPlan: analysis.moneyLeftAfterPlan,
+			previousMoneyLeftAfterPlan: prevAnalysis.moneyLeftAfterPlan,
+			incomeLeftRightNow: analysis.incomeLeftRightNow,
+			moneyOutTotal: analysis.moneyOutTotal,
+			isOnPlan: analysis.isOnPlan,
 		});
 	} catch (error) {
 		console.error("[bff/income-month] Error:", error);

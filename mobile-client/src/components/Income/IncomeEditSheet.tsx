@@ -166,6 +166,7 @@ export default function IncomeEditSheet({
 }: Props) {
   // Two-mode sheet: view (read-only) → tap Edit → edit (inputs active)
   const [editMode, setEditMode] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
 
   // Store originals when entering edit mode so Cancel can restore them
   const originalName   = useRef(name);
@@ -176,6 +177,7 @@ export default function IncomeEditSheet({
   useEffect(() => {
     if (!visible) {
       setEditMode(false);
+      setDeleteConfirm(false);
     }
   }, [visible]);
 
@@ -218,8 +220,8 @@ export default function IncomeEditSheet({
               <View style={s.handle} />
 
               <View style={s.content}>
-                {/* Name — static text in view mode, input in edit mode */}
-                {editMode ? (
+                {/* Name — input in edit mode only */}
+                {editMode && (
                   <TextInput
                     value={name}
                     onChangeText={setName}
@@ -228,12 +230,13 @@ export default function IncomeEditSheet({
                     placeholderTextColor={T.textMuted}
                     style={s.nameInput}
                   />
-                ) : (
-                  <Text style={s.nameText} numberOfLines={1}>{name}</Text>
                 )}
 
                 {/* Amount — static in view, editable in edit */}
                 <View style={s.amountArea}>
+                  {!editMode && (
+                    <Text style={s.nameLabel} numberOfLines={1}>{name}</Text>
+                  )}
                   <View style={s.amountRow}>
                     <Text style={s.currencySign}>{currency}</Text>
                     {editMode ? (
@@ -256,7 +259,7 @@ export default function IncomeEditSheet({
                 </View>
 
                 {/* ① Edit / Delete — visible in view mode only */}
-                {!isLocked && !editMode && (
+                {!isLocked && !editMode && !deleteConfirm && (
                   <View style={s.actionRow}>
                     <Pressable
                       onPress={enterEdit}
@@ -268,13 +271,45 @@ export default function IncomeEditSheet({
                     </Pressable>
 
                     <Pressable
-                      onPress={onDelete}
+                      onPress={() => setDeleteConfirm(true)}
                       disabled={saving}
                       style={[s.pill, s.pillDelete, saving && s.disabled]}
                     >
                       <Ionicons name="trash-outline" size={15} color={T.red} />
                       <Text style={s.pillDeleteText}>Delete</Text>
                     </Pressable>
+                  </View>
+                )}
+
+                {/* ① Delete confirmation — replaces action row */}
+                {deleteConfirm && (
+                  <View style={s.confirmCard}>
+                    <Ionicons name="warning-outline" size={22} color={T.red} style={{ marginBottom: 8 }} />
+                    <Text style={s.confirmTitle}>Delete income source?</Text>
+                    <Text style={s.confirmSub}>This action cannot be undone.</Text>
+                    <View style={[s.actionRow, { marginTop: 16 }]}>
+                      <Pressable
+                        onPress={() => setDeleteConfirm(false)}
+                        disabled={saving}
+                        style={[s.pill, s.pillCancel, saving && s.disabled]}
+                      >
+                        <Text style={s.cancelText}>Keep</Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={onDelete}
+                        disabled={saving}
+                        style={[s.pill, s.pillDelete, saving && s.disabled]}
+                      >
+                        {saving ? (
+                          <ActivityIndicator size="small" color={T.red} />
+                        ) : (
+                          <>
+                            <Ionicons name="trash-outline" size={15} color={T.red} />
+                            <Text style={s.pillDeleteText}>Yes, delete</Text>
+                          </>
+                        )}
+                      </Pressable>
+                    </View>
                   </View>
                 )}
 
@@ -344,15 +379,12 @@ const s = StyleSheet.create({
     fontWeight: "800",
     backgroundColor: T.card,
   },
-  nameText: {
-    ...cardBase,
-    marginTop: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    color: T.text,
-    fontSize: 18,
-    fontWeight: "800",
-    backgroundColor: T.card,
+  nameLabel: {
+    color: T.textDim,
+    fontSize: 13,
+    fontWeight: "600",
+    textAlign: "center",
+    marginBottom: 6,
   },
 
   /* Amount — no panel, sits on raw background */
@@ -420,6 +452,19 @@ const s = StyleSheet.create({
   chartFooter:     { flexDirection: "row", alignItems: "baseline", marginTop: 2, paddingLeft: 28 },
   chartPct:        { color: T.accent,   fontSize: 13, fontWeight: "800" },
   chartSub:        { color: T.textDim,  fontSize: 11, fontWeight: "600" },
+
+  /* Delete confirmation card */
+  confirmCard: {
+    marginTop: 20,
+    backgroundColor: `${T.red}10`,
+    borderWidth: 1,
+    borderColor: `${T.red}40`,
+    borderRadius: 16,
+    padding: 18,
+    alignItems: "center",
+  },
+  confirmTitle: { color: T.text,    fontSize: 15, fontWeight: "800", marginBottom: 4 },
+  confirmSub:   { color: T.textDim, fontSize: 13, fontWeight: "600" },
 
   disabled:      { opacity: 0.55 },
   disabledInput: { opacity: 0.7 },

@@ -48,7 +48,8 @@ export default function IncomeMonthPageClient(props: {
 
 	const plannedBillsTotal = (analysis.plannedExpenses ?? 0) + (analysis.plannedDebtPayments ?? 0);
 	const billsPaidSoFar = (analysis.paidExpenses ?? 0) + (analysis.paidDebtPaymentsFromIncome ?? 0);
-	const plannedMoneyOutTotal = plannedBillsTotal + (analysis.plannedAllowances ?? 0) + (analysis.plannedSetAside ?? 0);
+	// plannedSetAside already includes monthlyAllowance — do NOT add plannedAllowances again
+	const plannedMoneyOutTotal = plannedBillsTotal + (analysis.plannedSetAside ?? 0);
 	const moneyLeftAfterPaidBillsSoFar =
 		(analysis.grossIncome ?? 0) - billsPaidSoFar - (analysis.plannedSetAside ?? 0);
 
@@ -60,17 +61,17 @@ export default function IncomeMonthPageClient(props: {
 		"Edit it in Income → Allocations.";
 	const incomeSacrificeLabel = "Income sacrifice";
 	const incomeSacrificeTooltip =
-		"Money you’re choosing to put aside before spending (savings / emergency / investment) plus any custom set-aside items for this month." +
+		"Money set aside before spending: allowance + savings + emergency + investment + custom items for this month." +
 		` (${analysis.setAsideBreakdown.customCount || 0} custom item(s), ${formatCurrency(analysis.setAsideBreakdown.customTotal || 0)}).`;
 	const totalIncomeTooltip =
 		"Total income added for this month. This does not reduce when you record bill payments — it’s your starting point.";
 	const moneyLeftTooltip =
-		"Money left = Income − (Expenses + Debts + Allowance + Income sacrifice). " +
+		"Money left = Income − (Expenses + Debts + Income sacrifice). Income sacrifice includes your allowance, savings, emergency, and investment contributions. " +
 		`This month: ${formatCurrency(analysis.grossIncome ?? 0)} − (${formatCurrency(analysis.plannedExpenses ?? 0)} + ${formatCurrency(
 			analysis.plannedDebtPayments ?? 0
-		)} + ${formatCurrency(analysis.plannedAllowances ?? 0)} + ${formatCurrency(analysis.plannedSetAside ?? 0)})`;
+		)} + ${formatCurrency(analysis.plannedSetAside ?? 0)})`;
 	const paidSoFarTooltip =
-		"Income left right now (so far) = Income − bills you’ve already paid − Allowance − Income sacrifice. " +
+		"Income left right now (so far) = Income − bills you've already paid − Income sacrifice (allowance + savings + emergency + investments). " +
 		"When you record a payment, this usually goes down.";
 
 	const chart = (() => {

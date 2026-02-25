@@ -5,25 +5,11 @@ import { notFound, redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { resolveUserId } from "@/lib/budgetPlans";
 import { prisma } from "@/lib/prisma";
-import { getAllIncome } from "@/lib/income/store";
 import { monthKeyToNumber, monthNumberToKey, normalizeMonthKey } from "@/lib/helpers/monthKey";
-import { getMonthlyAllocationSnapshot, getMonthlyCustomAllocationsSnapshot } from "@/lib/allocations/store";
+import { getIncomeMonthAnalysis } from "@/lib/helpers/finance/getIncomeMonthAnalysis";
 import { HeroCanvasLayout } from "@/components/Shared";
 import type { MonthKey } from "@/types";
 import IncomeMonthPageClient from "@/app/admin/income/IncomeMonthPageClient";
-
-function decimalToNumber(value: unknown): number {
-	if (value == null) return 0;
-	if (typeof value === "number") return value;
-	if (typeof value === "bigint") return Number(value);
-	if (typeof value === "string") return Number(value);
-	if (typeof value === "object") {
-		const maybeDecimal = value as { toNumber?: () => number; toString?: () => string };
-		if (typeof maybeDecimal.toNumber === "function") return maybeDecimal.toNumber();
-		if (typeof maybeDecimal.toString === "function") return Number(maybeDecimal.toString());
-	}
-	return Number(value);
-}
 
 function firstString(value: string | string[] | undefined): string {
 	if (Array.isArray(value)) return String(value[0] ?? "");
@@ -78,66 +64,12 @@ export default async function IncomeMonthPage(props: {
 		redirect(canonicalHref);
 	}
 
-	const incomeByMonth = await getAllIncome(props.budgetPlanId, year);
-	const incomeItems = incomeByMonth[month] ?? [];
-	const expenseAgg = await prisma.expense.aggregate({
-		where: {
-			budgetPlanId: props.budgetPlanId,
-			year,
-			month: monthKeyToNumber(month),
-			// No isAllocation filter: include all expenses
-		},
-		_sum: { amount: true, paidAmount: true },
+	const analysis = await getIncomeMonthAnalysis({
+		budgetPlanId: props.budgetPlanId,
+		year,
+		month: monthKeyToNumber(month),
 	});
-
-	// IMPORTANT: "Allowances" here means the monthly allowance settings (and custom allowance items)
-	// from the allocations system — NOT Expense rows marked as isAllocation.
-	const allocationSnapshot = await getMonthlyAllocationSnapshot(props.budgetPlanId, month, { year });
-	const customAllocationsSnapshot = await getMonthlyCustomAllocationsSnapshot(props.budgetPlanId, month, { year });
-
-
-	// Calculate total due debts for the month (scheduled + overdue), minus any paid for this month
-	const dueDebts = await prisma.debt.findMany({
-		where: {
-			budgetPlanId: props.budgetPlanId,
-			paid: false,
-			currentBalance: { gt: 0 },
-			defaultPaymentSource: "income",
-		},
-		select: { id: true, amount: true },
-	});
-	const totalDueDebts = dueDebts.reduce((sum, d) => sum + decimalToNumber(d.amount), 0);
-
-	const paidDebtPayments = await prisma.debtPayment.aggregate({
-		where: {
-			debt: { budgetPlanId: props.budgetPlanId },
-			year,
-			month: monthKeyToNumber(month),
-			source: "income",
-		},
-		_sum: { amount: true },
-	});
-	const paidDebtPaymentsFromIncome = decimalToNumber(paidDebtPayments._sum.amount);
-
-	const debtsDueThisMonth = Math.max(0, totalDueDebts - paidDebtPaymentsFromIncome);
-
-	const grossIncome = incomeItems.reduce((sum, item) => sum + (item.amount ?? 0), 0);
-	const plannedExpenses = decimalToNumber(expenseAgg._sum.amount);
-	const paidExpenses = decimalToNumber(expenseAgg._sum.paidAmount);
-	const monthlyAllowance = Number(allocationSnapshot.monthlyAllowance ?? 0);
-	const plannedSetAsideFromAllocations =
-		Number(allocationSnapshot.monthlySavingsContribution ?? 0) +
-		Number(allocationSnapshot.monthlyEmergencyContribution ?? 0) +
-		Number(allocationSnapshot.monthlyInvestmentContribution ?? 0);
-	const customSetAsideTotal = Number(customAllocationsSnapshot.total ?? 0);
-	const plannedSetAside = plannedSetAsideFromAllocations + customSetAsideTotal + monthlyAllowance;
-
-	const plannedBills = plannedExpenses + debtsDueThisMonth;
-	const paidBillsSoFar = paidExpenses + paidDebtPaymentsFromIncome;
-	const remainingBills = Math.max(0, plannedBills - paidBillsSoFar);
-	const moneyLeftAfterPlan = grossIncome - (plannedBills + monthlyAllowance + plannedSetAside);
-	const incomeLeftToBudgetAfterSacrificeAndDebtPlan = grossIncome - plannedSetAside - debtsDueThisMonth;
-	const remainingAfterRecordedExpenses = incomeLeftToBudgetAfterSacrificeAndDebtPlan - plannedExpenses;
+	const incomeItems = analysis.incomeItems;
 
 	return (
 		<HeroCanvasLayout
@@ -184,23 +116,23 @@ export default async function IncomeMonthPage(props: {
 				month={month}
 				incomeItems={incomeItems}
 				analysis={{
-					grossIncome,
-					plannedExpenses,
-					plannedDebtPayments: debtsDueThisMonth,
-					plannedAllowances: monthlyAllowance,
-					plannedSetAside,
-					incomeLeftToBudgetAfterSacrificeAndDebtPlan,
-					remainingAfterRecordedExpenses,
+					grossIncome: analysis.grossIncome,
+					plannedExpenses: analysis.plannedExpenses,
+					plannedDebtPayments: analysis.plannedDebtPayments,
+					plannedAllowances: analysis.monthlyAllowance,
+					plannedSetAside: analysis.incomeSacrifice,
+					incomeLeftToBudgetAfterSacrificeAndDebtPlan: analysis.grossIncome - analysis.incomeSacrifice - analysis.plannedDebtPayments,
+					remainingAfterRecordedExpenses: (analysis.grossIncome - analysis.incomeSacrifice - analysis.plannedDebtPayments) - analysis.plannedExpenses,
 					setAsideBreakdown: {
-						fromAllocations: plannedSetAsideFromAllocations,
-						customTotal: customSetAsideTotal,
-						customCount: customAllocationsSnapshot.items?.length ?? 0,
-						isAllowanceOverride: !!allocationSnapshot.isOverride,
+						fromAllocations: analysis.setAsideBreakdown.fromAllocations,
+						customTotal: analysis.setAsideBreakdown.custom,
+						customCount: analysis.setAsideBreakdown.customCount,
+						isAllowanceOverride: analysis.setAsideBreakdown.isAllowanceOverride,
 					},
-					paidExpenses,
-					paidDebtPaymentsFromIncome,
-					remainingBills,
-					moneyLeftAfterPlan,
+					paidExpenses: analysis.paidExpenses,
+					paidDebtPaymentsFromIncome: analysis.paidDebtPaymentsFromIncome,
+					remainingBills: analysis.remainingBills,
+					moneyLeftAfterPlan: analysis.moneyLeftAfterPlan,
 				}}
 			/>
 		</HeroCanvasLayout>

@@ -1,5 +1,5 @@
 import React from "react";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
@@ -9,6 +9,7 @@ import type { RootStackParamList, MainTabParamList, IncomeStackParamList, Expens
 import TopHeader from "@/components/Shared/TopHeader";
 import PillTabBar from "@/components/Shared/PillTabBar";
 import { T } from "@/lib/theme";
+import { MONTH_NAMES_LONG } from "@/lib/formatting";
 
 import LoginScreen from "@/screens/LoginScreen";
 import DashboardScreen from "@/screens/DashboardScreen";
@@ -65,15 +66,157 @@ function NotificationSettingsScreen(props: unknown) {
 }
 
 function RootTopHeader({ navigation }: { navigation: any }) {
+  const getDeepestRoute = (state: any): any => {
+    if (!state?.routes?.length) return null;
+    const route = state.routes[state.index ?? state.routes.length - 1];
+    if (route?.state) return getDeepestRoute(route.state);
+    return route;
+  };
+
+  const deepestRoute = getDeepestRoute(navigation.getState?.());
+  const isIncomeMonth = deepestRoute?.name === "IncomeMonth";
+  const isIncomeGrid = deepestRoute?.name === "IncomeGrid";
+  const shouldShowIncomeBack = isIncomeMonth || isIncomeGrid;
+  const incomeGridYearParam = Number(deepestRoute?.params?.year);
+  const incomeGridYear = Number.isFinite(incomeGridYearParam) ? incomeGridYearParam : new Date().getFullYear();
+  const hasIncomeGridAddFlag = typeof deepestRoute?.params?.showAddAction === "boolean";
+  const showIncomeGridAddAction = hasIncomeGridAddFlag ? Boolean(deepestRoute?.params?.showAddAction) : true;
+  const incomeGridBudgetPlanId = typeof deepestRoute?.params?.budgetPlanId === "string"
+    ? deepestRoute.params.budgetPlanId
+    : "";
+
+  const monthNum = Number(deepestRoute?.params?.month);
+  const yearNum = Number(deepestRoute?.params?.year);
+  const monthLabel = (isIncomeMonth && Number.isFinite(monthNum) && monthNum >= 1 && monthNum <= 12 && Number.isFinite(yearNum))
+    ? `${MONTH_NAMES_LONG[monthNum - 1]} ${yearNum}`
+    : undefined;
+
+  const handleBack = () => {
+    if (isIncomeMonth) {
+      navigation.navigate("IncomeFlow", { screen: "IncomeGrid" });
+      return;
+    }
+
+    if (isIncomeGrid && navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+
+    navigation.navigate("Main");
+  };
+
+  const updateIncomeGridYear = (nextYear: number) => {
+    navigation.navigate("IncomeFlow", {
+      screen: "IncomeGrid",
+      params: { year: nextYear },
+    });
+  };
+
+  const incomeGridYearControl = isIncomeGrid ? (
+    <View style={s.incomeYearWrap}>
+      <Pressable onPress={() => updateIncomeGridYear(incomeGridYear - 1)} style={s.incomeYearBtn} hitSlop={8}>
+        <Ionicons name="chevron-back" size={16} color={T.textDim} />
+      </Pressable>
+      <Text style={s.incomeYearText}>{incomeGridYear}</Text>
+      <Pressable onPress={() => updateIncomeGridYear(incomeGridYear + 1)} style={s.incomeYearBtn} hitSlop={8}>
+        <Ionicons name="chevron-forward" size={16} color={T.textDim} />
+      </Pressable>
+    </View>
+  ) : undefined;
+
+  const openIncomeGridAdd = () => {
+    navigation.navigate("IncomeFlow", {
+      screen: "IncomeGrid",
+      params: {
+        year: incomeGridYear,
+        openYearIncomeSheetAt: Date.now(),
+      },
+    });
+  };
+
+  const incomeGridRightContent = isIncomeGrid ? (
+    showIncomeGridAddAction ? (
+      <Pressable
+        onPress={openIncomeGridAdd}
+        disabled={!incomeGridBudgetPlanId}
+        style={[s.headerActionBtn, s.headerActionBtnAdd, !incomeGridBudgetPlanId && s.headerActionBtnDisabled]}
+        hitSlop={10}
+      >
+        <Ionicons name="add" size={19} color={T.onAccent} />
+      </Pressable>
+    ) : (
+      <>
+        <Pressable onPress={() => navigation.navigate("Analytics")} style={s.headerActionBtn} hitSlop={10}>
+          <Ionicons name="stats-chart-outline" size={18} color={T.accent} />
+        </Pressable>
+        <Pressable onPress={() => navigation.navigate("NotificationSettings")} style={s.headerActionBtn} hitSlop={10}>
+          <Ionicons name="notifications-outline" size={18} color={T.accent} />
+        </Pressable>
+      </>
+    )
+  ) : undefined;
+
   return (
     <TopHeader
       onSettings={() => navigation.navigate("NotificationSettings")}
       onIncome={() => navigation.navigate("IncomeFlow")}
       onAnalytics={() => navigation.navigate("Analytics")}
       onNotifications={() => navigation.navigate("NotificationSettings")}
+      leftVariant={shouldShowIncomeBack ? "back" : "avatar"}
+      onBack={handleBack}
+      centerContent={incomeGridYearControl}
+      centerLabel={monthLabel}
+      showIncomeAction={!isIncomeGrid}
+      rightContent={incomeGridRightContent}
     />
   );
 }
+
+const s = StyleSheet.create({
+  incomeYearWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    borderWidth: 1,
+    borderColor: T.border,
+    backgroundColor: `${T.cardAlt}88`,
+    borderRadius: 999,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  incomeYearBtn: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  incomeYearText: {
+    color: T.text,
+    fontSize: 18,
+    fontWeight: "900",
+    minWidth: 56,
+    textAlign: "center",
+    letterSpacing: 0.3,
+  },
+  headerActionBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: `${T.cardAlt}66`,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: T.border,
+  },
+  headerActionBtnAdd: {
+    backgroundColor: T.accent,
+    borderColor: T.accent,
+  },
+  headerActionBtnDisabled: {
+    opacity: 0.5,
+  },
+});
 
 function MainTabs() {
   return (

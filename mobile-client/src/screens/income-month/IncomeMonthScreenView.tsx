@@ -28,7 +28,7 @@ import { s } from "./incomeMonthScreenStyles";
 type Props = NativeStackScreenProps<IncomeStackParamList, "IncomeMonth">;
 
 export default function IncomeMonthScreen({ navigation, route }: Props) {
-  const topHeaderOffset = useTopHeaderOffset();
+  const topHeaderOffset = useTopHeaderOffset(-32);
   const { month, year, budgetPlanId, initialMode } = route.params;
   const monthLabel = `${MONTH_NAMES_LONG[month - 1]} ${year}`;
 
@@ -216,6 +216,7 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
           isLocked={isLocked}
           viewMode={viewMode}
           showAddForm={crud.showAddForm}
+          hideNavTitleRow
           onBack={() => navigation.goBack()}
           onToggleAdd={() => {
             if (isLocked) return;

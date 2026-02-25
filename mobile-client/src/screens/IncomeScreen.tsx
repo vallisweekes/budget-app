@@ -7,10 +7,15 @@ import {
   ActivityIndicator,
   StyleSheet,
   RefreshControl,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation, useFocusEffect } from "@react-navigation/native";
+import { useNavigation, useFocusEffect, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { apiFetch } from "@/lib/api";
@@ -23,21 +28,82 @@ import IncomeMonthCard from "@/components/Income/IncomeMonthCard";
 import type { IncomeStackParamList } from "@/navigation/types";
 
 type Nav = NativeStackNavigationProp<IncomeStackParamList, "IncomeGrid">;
+type ScreenRoute = RouteProp<IncomeStackParamList, "IncomeGrid">;
 
 export default function IncomeScreen() {
   const navigation = useNavigation<Nav>();
+  const route = useRoute<ScreenRoute>();
   const topHeaderOffset = useTopHeaderOffset();
   const now = new Date();
-  const [year, setYear] = useState(now.getFullYear());
+  const initialYear = Number.isFinite(Number(route.params?.year)) ? Number(route.params?.year) : now.getFullYear();
+  const [year, setYear] = useState(initialYear);
   const [data, setData] = useState<IncomeSummaryData | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<"income" | "sacrifice">("income");
+  const [showYearAddSheet, setShowYearAddSheet] = useState(false);
+  const [yearIncomeName, setYearIncomeName] = useState("");
+  const [yearIncomeAmount, setYearIncomeAmount] = useState("");
+  const [yearDistributeFullYear, setYearDistributeFullYear] = useState(false);
+  const [yearDistributeHorizon, setYearDistributeHorizon] = useState(false);
+  const [yearAddSaving, setYearAddSaving] = useState(false);
 
   const currency = currencySymbol(settings?.currency);
-  const { minYear } = useYearGuard(settings);
+
+  useYearGuard(settings);
+
+  useEffect(() => {
+    const routeYear = Number(route.params?.year);
+    if (Number.isFinite(routeYear) && routeYear !== year) {
+      setYear(routeYear);
+    }
+  }, [route.params?.year, year]);
+
+  useEffect(() => {
+    if (!route.params?.openYearIncomeSheetAt) return;
+    setYearDistributeFullYear(Boolean(settings?.incomeDistributeFullYearDefault));
+    setYearDistributeHorizon(Boolean(settings?.incomeDistributeHorizonDefault));
+    setShowYearAddSheet(true);
+  }, [route.params?.openYearIncomeSheetAt, settings?.incomeDistributeFullYearDefault, settings?.incomeDistributeHorizonDefault]);
+
+  useEffect(() => {
+    if (!data) return;
+
+    const currentMonthIndex = new Date().getMonth() + 1;
+
+    const monthByIndex = new Map(data.months.map((month) => [month.monthIndex, month]));
+    let firstMissingMonth: number | null = null;
+
+    for (let monthIndex = 1; monthIndex <= 12; monthIndex += 1) {
+      const month = monthByIndex.get(monthIndex);
+      if (!month || month.total <= 0 || month.items.length === 0) {
+        firstMissingMonth = monthIndex;
+        break;
+      }
+    }
+
+    const hasMissingMonths = firstMissingMonth !== null || data.monthsWithIncome < 12;
+
+    navigation.setParams({
+      year,
+      showAddAction: hasMissingMonths,
+      addIncomeMonth: firstMissingMonth ?? currentMonthIndex,
+      budgetPlanId: data.budgetPlanId,
+    });
+  }, [data, navigation, year]);
+
+  const getFirstMissingMonth = (summary: IncomeSummaryData | null): number | null => {
+    if (!summary) return 1;
+    const monthByIndex = new Map(summary.months.map((month) => [month.monthIndex, month]));
+    for (let monthIndex = 1; monthIndex <= 12; monthIndex += 1) {
+      const month = monthByIndex.get(monthIndex);
+      if (!month || month.total <= 0 || month.items.length === 0) {
+        return monthIndex;
+      }
+    }
+    return null;
+  };
 
   const load = useCallback(async () => {
     try {
@@ -62,22 +128,54 @@ export default function IncomeScreen() {
     useCallback(() => { if (!loading) load(); }, [load, loading]),
   );
 
-  const changeYear = (delta: number) => {
-    if (delta < 0 && year - 1 < minYear) return;
-    setYear((y) => y + delta);
-  };
+  const closeYearAddSheet = useCallback(() => {
+    if (yearAddSaving) return;
+    setShowYearAddSheet(false);
+    setYearIncomeName("");
+    setYearIncomeAmount("");
+    navigation.setParams({ openYearIncomeSheetAt: undefined });
+  }, [navigation, yearAddSaving]);
 
-  const openSacrificeSetup = () => {
+  const submitYearIncome = useCallback(async () => {
+    const name = yearIncomeName.trim();
+    const amount = Number(String(yearIncomeAmount).replace(/,/g, ""));
     const budgetPlanId = data?.budgetPlanId;
-    if (!budgetPlanId) return;
-    const monthToOpen = year === nowYear ? nowMonthIndex : 1;
-    navigation.navigate("IncomeMonth", {
-      month: monthToOpen,
-      year,
-      budgetPlanId,
-      initialMode: "sacrifice",
-    });
-  };
+
+    if (!budgetPlanId) {
+      Alert.alert("Missing budget plan", "Please try again after the screen reloads.");
+      return;
+    }
+    if (!name) {
+      Alert.alert("Missing name", "Please enter an income name.");
+      return;
+    }
+    if (!Number.isFinite(amount) || amount <= 0) {
+      Alert.alert("Invalid amount", "Enter a valid amount greater than 0.");
+      return;
+    }
+
+    try {
+      setYearAddSaving(true);
+      await apiFetch("/api/bff/income", {
+        method: "POST",
+        body: {
+          name,
+          amount,
+          month: 1,
+          year,
+          budgetPlanId,
+          distributeFullYear: yearDistributeFullYear,
+          distributeHorizon: yearDistributeHorizon,
+        },
+      });
+      await load();
+      closeYearAddSheet();
+    } catch (err: unknown) {
+      Alert.alert("Error", err instanceof Error ? err.message : "Could not add income for year");
+    } finally {
+      setYearAddSaving(false);
+    }
+  }, [closeYearAddSheet, data?.budgetPlanId, load, year, yearDistributeFullYear, yearDistributeHorizon, yearIncomeAmount, yearIncomeName]);
 
   if (loading) {
     return (
@@ -105,92 +203,21 @@ export default function IncomeScreen() {
   }
 
   const months = data?.months ?? [];
+  const firstMissingMonth = getFirstMissingMonth(data);
+  const hasMissingMonths = firstMissingMonth !== null || (data?.monthsWithIncome ?? 0) < 12;
   const nowMonthIndex = now.getMonth() + 1;
   const nowYear = now.getFullYear();
-  const parentNav = navigation.getParent();
-  const canGoBack = navigation.canGoBack() || Boolean(parentNav?.canGoBack());
-  const canAddIncome = Boolean(data?.budgetPlanId);
-
-  const onBack = () => {
-    if (navigation.canGoBack()) {
-      navigation.goBack();
-      return;
-    }
-    if (parentNav?.canGoBack()) {
-      parentNav.goBack();
-    }
-  };
-
-  const openAddIncome = () => {
-    if (!data?.budgetPlanId) return;
-    navigation.navigate("IncomeMonth", {
-      month: nowMonthIndex,
-      year,
-      budgetPlanId: data.budgetPlanId,
-      initialMode: "income",
-    });
-  };
 
   return (
 		<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
-      <View style={s.stackHeader}>
-        <Pressable
-          onPress={onBack}
-          disabled={!canGoBack}
-          hitSlop={10}
-          style={[s.stackHeaderBtn, !canGoBack && s.stackHeaderBtnDisabled]}
-        >
-          <Ionicons name="chevron-back" size={22} color={canGoBack ? T.text : T.textMuted} />
-        </Pressable>
-        <View style={s.stackHeaderCenter} />
-        <View style={s.stackHeaderBtn} />
-      </View>
-
-      {/* Year selector */}
-      <View style={s.yearBar}>
-        <Pressable
-          onPress={() => changeYear(-1)}
-          disabled={year - 1 < minYear}
-          style={[s.yearArrow, year - 1 < minYear && s.yearArrowDisabled]}
-          hitSlop={8}
-        >
-          <Ionicons name="chevron-back" size={20} color={year - 1 < minYear ? T.textMuted : T.text} />
-        </Pressable>
-        <Text style={s.yearLabel}>{year}</Text>
-        <Pressable onPress={() => changeYear(1)} style={s.yearArrow} hitSlop={8}>
-          <Ionicons name="chevron-forward" size={20} color={T.text} />
-        </Pressable>
-      </View>
-
-      <View style={s.modeWrap}>
-        <Pressable style={[s.modePill, viewMode === "income" && s.modePillActive]} onPress={() => setViewMode("income")}>
-          <Text style={[s.modeTxt, viewMode === "income" && s.modeTxtActive]}>Income</Text>
-        </Pressable>
-        <Pressable
-          style={[s.modePill, viewMode === "sacrifice" && s.modePillActive]}
-          onPress={() => {
-            setViewMode("sacrifice");
-            openSacrificeSetup();
-          }}
-        >
-          <Text style={[s.modeTxt, viewMode === "sacrifice" && s.modeTxtActive]}>Income sacrifice</Text>
-        </Pressable>
-      </View>
-
-      <View style={s.actionCard}>
-        <View style={s.actionCopy}>
-          <Text style={s.actionTitle}>Add income</Text>
-          <Text style={s.actionText}>Create an income item for this month.</Text>
+      {hasMissingMonths ? (
+        <View style={s.actionCard}>
+          <View style={s.actionCopy}>
+            <Text style={s.actionTitle}>Add income</Text>
+            <Text style={s.actionText}>Create an income item for this month.</Text>
+          </View>
         </View>
-        <Pressable
-          onPress={openAddIncome}
-          disabled={!canAddIncome}
-          style={[s.actionBtn, !canAddIncome && s.actionBtnDisabled]}
-        >
-          <Ionicons name="add" size={16} color={T.onAccent} />
-          <Text style={s.actionBtnText}>Add</Text>
-        </Pressable>
-      </View>
+      ) : null}
 
       <FlatList
         data={months}
@@ -217,7 +244,7 @@ export default function IncomeScreen() {
                   month: item.monthIndex,
                   year,
                   budgetPlanId: data?.budgetPlanId ?? "",
-                  initialMode: viewMode,
+                  initialMode: "income",
                 })
               }
             />
@@ -231,6 +258,84 @@ export default function IncomeScreen() {
           </View>
         }
       />
+
+      <Modal
+        visible={showYearAddSheet}
+        transparent
+        animationType="slide"
+        presentationStyle="overFullScreen"
+        onRequestClose={closeYearAddSheet}
+      >
+        <KeyboardAvoidingView
+          style={s.sheetOverlay}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+        >
+          <Pressable style={s.sheetBackdrop} onPress={closeYearAddSheet} />
+          <View style={s.sheetCard}>
+            <View style={s.sheetHandle} />
+            <View style={s.sheetHeaderRow}>
+              <Text style={s.sheetTitle}>Add income for {year}</Text>
+              <Pressable onPress={closeYearAddSheet} style={s.sheetCloseBtn}>
+                <Ionicons name="close" size={18} color={T.text} />
+              </Pressable>
+            </View>
+            <Text style={s.sheetSub}>Starts from January and applies using your selected options.</Text>
+
+            <View style={s.fieldWrap}>
+              <Text style={s.fieldLabel}>Income name</Text>
+              <TextInput
+                value={yearIncomeName}
+                onChangeText={setYearIncomeName}
+                placeholder="e.g. Salary"
+                placeholderTextColor={T.textMuted}
+                style={s.fieldInput}
+              />
+            </View>
+
+            <View style={s.fieldWrap}>
+              <Text style={s.fieldLabel}>Amount</Text>
+              <TextInput
+                value={yearIncomeAmount}
+                onChangeText={setYearIncomeAmount}
+                keyboardType="decimal-pad"
+                placeholder={`${currency}0.00`}
+                placeholderTextColor={T.textMuted}
+                style={s.fieldInput}
+              />
+            </View>
+
+            <View style={s.toggleRow}>
+              <View style={s.toggleCopy}>
+                <Text style={s.toggleTitle}>Distribute for full year</Text>
+                <Text style={s.toggleSub}>Apply this income from Jan to Dec for {year}</Text>
+              </View>
+              <Pressable
+                onPress={() => setYearDistributeFullYear((v) => !v)}
+                style={[s.toggle, yearDistributeFullYear && s.toggleOn]}
+              >
+                <View style={[s.toggleThumb, yearDistributeFullYear && s.toggleThumbOn]} />
+              </Pressable>
+            </View>
+
+            <View style={s.toggleRow}>
+              <View style={s.toggleCopy}>
+                <Text style={s.toggleTitle}>Distribute through budget horizon</Text>
+                <Text style={s.toggleSub}>Continue through the next {Math.max(1, settings?.budgetHorizonYears ?? 10)} years</Text>
+              </View>
+              <Pressable
+                onPress={() => setYearDistributeHorizon((v) => !v)}
+                style={[s.toggle, yearDistributeHorizon && s.toggleOn]}
+              >
+                <View style={[s.toggleThumb, yearDistributeHorizon && s.toggleThumbOn]} />
+              </Pressable>
+            </View>
+
+            <Pressable onPress={submitYearIncome} style={[s.saveBtn, yearAddSaving && s.saveBtnDisabled]} disabled={yearAddSaving}>
+              <Text style={s.saveBtnText}>{yearAddSaving ? "Saving..." : "Save income"}</Text>
+            </Pressable>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -239,65 +344,6 @@ const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: T.bg },
   center: { flex: 1, justifyContent: "center", alignItems: "center", gap: 12 },
   loadingText: { color: T.textDim, marginTop: 8, fontSize: 14 },
-
-  stackHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingTop: 18,
-    paddingBottom: 4,
-    backgroundColor: "transparent",
-  },
-  stackHeaderBtn: {
-    width: 28,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  stackHeaderBtnDisabled: {
-    opacity: 0.45,
-  },
-  stackHeaderCenter: { flex: 1 },
-
-  yearBar: {
-    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    paddingHorizontal: 16, paddingVertical: 14,
-    backgroundColor: T.card,
-    borderBottomWidth: 1, borderBottomColor: T.border,
-  },
-  yearArrow: { padding: 8 },
-  yearArrowDisabled: { opacity: 0.4 },
-  yearLabel: { color: T.text, fontSize: 18, fontWeight: "900" },
-
-  modeWrap: {
-    flexDirection: "row",
-    gap: 8,
-    marginHorizontal: 16,
-    marginTop: 12,
-    marginBottom: 8,
-    backgroundColor: T.card,
-    borderWidth: 1,
-    borderColor: T.border,
-    borderRadius: 999,
-    padding: 4,
-  },
-  modePill: {
-    flex: 1,
-    paddingVertical: 8,
-    borderRadius: 999,
-    alignItems: "center",
-  },
-  modePillActive: {
-    backgroundColor: T.accent,
-  },
-  modeTxt: {
-    color: T.textDim,
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  modeTxtActive: {
-    color: T.onAccent,
-  },
 
   grid: { padding: 12, paddingBottom: 140 },
   gridRow: { gap: 10, marginBottom: 10 },
@@ -318,23 +364,143 @@ const s = StyleSheet.create({
   actionCopy: { flex: 1 },
   actionTitle: { color: T.text, fontSize: 14, fontWeight: "900" },
   actionText: { marginTop: 2, color: T.textDim, fontSize: 12, fontWeight: "700" },
-  actionBtn: {
-    minWidth: 84,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: T.accent,
-  },
-  actionBtnDisabled: { opacity: 0.5 },
-  actionBtnText: { color: T.onAccent, fontSize: 13, fontWeight: "800" },
   empty: { flex: 1, justifyContent: "center", alignItems: "center", paddingTop: 80, gap: 12 },
   emptyText: { color: T.textDim, fontSize: 15, fontWeight: "700" },
   emptyHint: { color: T.textMuted, fontSize: 12, fontWeight: "600" },
   errorText: { color: T.red, fontSize: 14, textAlign: "center", paddingHorizontal: 32 },
   retryBtn: { backgroundColor: T.accent, borderRadius: 8, paddingHorizontal: 24, paddingVertical: 10 },
   retryTxt: { color: T.onAccent, fontWeight: "700" },
+
+  sheetOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  sheetBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.6)",
+  },
+  sheetCard: {
+    backgroundColor: T.card,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    borderWidth: 1,
+    borderColor: T.border,
+    paddingHorizontal: 18,
+    paddingTop: 10,
+    paddingBottom: 28,
+    gap: 14,
+  },
+  sheetHandle: {
+    alignSelf: "center",
+    width: 46,
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: T.border,
+    marginBottom: 2,
+  },
+  sheetHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  sheetTitle: {
+    color: T.text,
+    fontSize: 18,
+    fontWeight: "900",
+  },
+  sheetSub: {
+    color: T.textDim,
+    fontSize: 13,
+    fontWeight: "600",
+    marginTop: -6,
+  },
+  sheetCloseBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 1,
+    borderColor: T.border,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: T.cardAlt,
+  },
+  fieldWrap: {
+    gap: 6,
+  },
+  fieldLabel: {
+    color: T.text,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  fieldInput: {
+    height: 46,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: T.border,
+    backgroundColor: T.cardAlt,
+    color: T.text,
+    paddingHorizontal: 12,
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  toggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  toggleCopy: {
+    flex: 1,
+  },
+  toggleTitle: {
+    color: T.text,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  toggleSub: {
+    marginTop: 2,
+    color: T.textDim,
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  toggle: {
+    width: 48,
+    height: 30,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: T.border,
+    backgroundColor: T.cardAlt,
+    paddingHorizontal: 3,
+    justifyContent: "center",
+  },
+  toggleOn: {
+    backgroundColor: T.accent,
+    borderColor: T.accent,
+  },
+  toggleThumb: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: T.textMuted,
+  },
+  toggleThumbOn: {
+    backgroundColor: T.onAccent,
+    marginLeft: 18,
+  },
+  saveBtn: {
+    marginTop: 8,
+    borderRadius: 12,
+    backgroundColor: T.accent,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+  },
+  saveBtnDisabled: {
+    opacity: 0.6,
+  },
+  saveBtnText: {
+    color: T.onAccent,
+    fontSize: 15,
+    fontWeight: "900",
+  },
 });

@@ -21,6 +21,7 @@ const settingsSelect = {
   monthlyEmergencyContribution: true,
   monthlyInvestmentContribution: true,
   budgetStrategy: true,
+  budgetHorizonYears: true,
   homepageGoalIds: true,
 	country: true,
 	language: true,
@@ -35,6 +36,7 @@ const settingsSelectWithoutMonthlyEmergency = {
   monthlySavingsContribution: true,
   monthlyInvestmentContribution: true,
   budgetStrategy: true,
+  budgetHorizonYears: true,
   homepageGoalIds: true,
 	country: true,
 	language: true,
@@ -49,11 +51,48 @@ const settingsSelectLegacy = {
   monthlySavingsContribution: true,	
   monthlyInvestmentContribution: true,
   budgetStrategy: true,
+  budgetHorizonYears: true,
   homepageGoalIds: true,
   country: true,
   language: true,
   currency: true,
 } as const;
+
+async function getBudgetHorizonYearsFallback(budgetPlanId: string): Promise<number> {
+  try {
+    const rows = await prisma.$queryRaw<Array<{ budgetHorizonYears: unknown }>>`
+      SELECT "budgetHorizonYears" as "budgetHorizonYears"
+      FROM "BudgetPlan"
+      WHERE id = ${budgetPlanId}
+      LIMIT 1
+    `;
+    const value = rows?.[0]?.budgetHorizonYears;
+    const asNumber = Number((value as any)?.toString?.() ?? value);
+    return Number.isFinite(asNumber) && asNumber > 0 ? Math.floor(asNumber) : 10;
+  } catch {
+    return 10;
+  }
+}
+
+async function getIncomeDefaultsFallback(budgetPlanId: string): Promise<{ fullYear: boolean; horizon: boolean }> {
+  try {
+    const rows = await prisma.$queryRaw<Array<{ fullYear: unknown; horizon: unknown }>>`
+      SELECT
+        "incomeDistributeFullYearDefault" as "fullYear",
+        "incomeDistributeHorizonDefault" as "horizon"
+      FROM "BudgetPlan"
+      WHERE id = ${budgetPlanId}
+      LIMIT 1
+    `;
+    const row = rows?.[0];
+    return {
+      fullYear: Boolean(row?.fullYear),
+      horizon: Boolean(row?.horizon),
+    };
+  } catch {
+    return { fullYear: false, horizon: false };
+  }
+}
 
 async function getEmergencyBalanceFallback(budgetPlanId: string): Promise<number> {
   try {
@@ -113,6 +152,42 @@ async function setInvestmentBalanceFallback(budgetPlanId: string, investmentBala
   }
 }
 
+async function setIncomeDefaultsFallback(
+  budgetPlanId: string,
+  values: { fullYear?: boolean; horizon?: boolean },
+): Promise<void> {
+  try {
+    if (typeof values.fullYear === "boolean" && typeof values.horizon === "boolean") {
+      await prisma.$executeRaw`
+        UPDATE "BudgetPlan"
+        SET
+          "incomeDistributeFullYearDefault" = ${values.fullYear},
+          "incomeDistributeHorizonDefault" = ${values.horizon}
+        WHERE id = ${budgetPlanId}
+      `;
+      return;
+    }
+
+    if (typeof values.fullYear === "boolean") {
+      await prisma.$executeRaw`
+        UPDATE "BudgetPlan"
+        SET "incomeDistributeFullYearDefault" = ${values.fullYear}
+        WHERE id = ${budgetPlanId}
+      `;
+    }
+
+    if (typeof values.horizon === "boolean") {
+      await prisma.$executeRaw`
+        UPDATE "BudgetPlan"
+        SET "incomeDistributeHorizonDefault" = ${values.horizon}
+        WHERE id = ${budgetPlanId}
+      `;
+    }
+  } catch {
+    // Column may not exist in older DBs.
+  }
+}
+
 function normalizeHomepageGoalIds(value: unknown): string[] | null {
   if (!Array.isArray(value)) return null;
   const ids = value
@@ -157,10 +232,27 @@ export async function GET(req: NextRequest) {
 
     if (!plan) return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
 
-		const emergencyBalance = await getEmergencyBalanceFallback(budgetPlanId);
+    const emergencyBalance = await getEmergencyBalanceFallback(budgetPlanId);
     const investmentBalance = await getInvestmentBalanceFallback(budgetPlanId);
+    const budgetHorizonYears = Number((plan as any).budgetHorizonYears);
+    const incomeDefaultsFromPlan = {
+      fullYear: typeof (plan as any).incomeDistributeFullYearDefault === "boolean" ? (plan as any).incomeDistributeFullYearDefault : undefined,
+      horizon: typeof (plan as any).incomeDistributeHorizonDefault === "boolean" ? (plan as any).incomeDistributeHorizonDefault : undefined,
+    };
+    const incomeDefaultsFallback = await getIncomeDefaultsFallback(budgetPlanId);
     const accountCreatedAt = userRow?.createdAt?.toISOString() ?? null;
-    return NextResponse.json({ ...plan, emergencyBalance, investmentBalance, accountCreatedAt });
+    return NextResponse.json({
+      ...plan,
+      emergencyBalance,
+      investmentBalance,
+      budgetHorizonYears:
+        Number.isFinite(budgetHorizonYears) && budgetHorizonYears > 0
+          ? Math.floor(budgetHorizonYears)
+          : await getBudgetHorizonYearsFallback(budgetPlanId),
+      incomeDistributeFullYearDefault: incomeDefaultsFromPlan.fullYear ?? incomeDefaultsFallback.fullYear,
+      incomeDistributeHorizonDefault: incomeDefaultsFromPlan.horizon ?? incomeDefaultsFallback.horizon,
+      accountCreatedAt,
+    });
   } catch (error) {
     const message = String((error as any)?.message ?? error);
     const unknownMonthlyEmergency = message.includes("Unknown field `monthlyEmergencyContribution`");
@@ -189,6 +281,8 @@ export async function GET(req: NextRequest) {
         if (!plan) return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
         const emergencyBalance = await getEmergencyBalanceFallback(budgetPlanId);
         const investmentBalance = await getInvestmentBalanceFallback(budgetPlanId);
+        const budgetHorizonYearsFallback = await getBudgetHorizonYearsFallback(budgetPlanId);
+        const incomeDefaultsFallback = await getIncomeDefaultsFallback(budgetPlanId);
         const accountCreatedAt2 = userRow2?.createdAt?.toISOString() ?? null;
 
         return NextResponse.json({
@@ -196,6 +290,15 @@ export async function GET(req: NextRequest) {
 				monthlyEmergencyContribution: unknownMonthlyEmergency ? 0 : (plan as any).monthlyEmergencyContribution,
 				emergencyBalance,
 				investmentBalance,
+          budgetHorizonYears: Number((plan as any).budgetHorizonYears || 0) > 0 ? Number((plan as any).budgetHorizonYears) : budgetHorizonYearsFallback,
+          incomeDistributeFullYearDefault:
+            typeof (plan as any).incomeDistributeFullYearDefault === "boolean"
+              ? (plan as any).incomeDistributeFullYearDefault
+              : incomeDefaultsFallback.fullYear,
+          incomeDistributeHorizonDefault:
+            typeof (plan as any).incomeDistributeHorizonDefault === "boolean"
+              ? (plan as any).incomeDistributeHorizonDefault
+              : incomeDefaultsFallback.horizon,
           accountCreatedAt: accountCreatedAt2,
         });
       } catch (fallbackError) {
@@ -247,9 +350,21 @@ export async function PATCH(req: NextRequest) {
       updateData.monthlyInvestmentContribution = body.monthlyInvestmentContribution;
     }
     if (typeof body.budgetStrategy === "string") updateData.budgetStrategy = body.budgetStrategy;
+		if (typeof body.budgetHorizonYears === "number" && Number.isFinite(body.budgetHorizonYears)) {
+			const safe = Math.max(1, Math.floor(body.budgetHorizonYears));
+			updateData.budgetHorizonYears = safe;
+		}
 		if (typeof body.country === "string") updateData.country = body.country;
 		if (typeof body.language === "string") updateData.language = body.language;
 		if (typeof body.currency === "string") updateData.currency = body.currency;
+    const wantsIncomeDistributeFullYearDefault = typeof body.incomeDistributeFullYearDefault === "boolean";
+    const wantsIncomeDistributeHorizonDefault = typeof body.incomeDistributeHorizonDefault === "boolean";
+    if (wantsIncomeDistributeFullYearDefault) {
+      updateData.incomeDistributeFullYearDefault = body.incomeDistributeFullYearDefault;
+    }
+    if (wantsIncomeDistributeHorizonDefault) {
+      updateData.incomeDistributeHorizonDefault = body.incomeDistributeHorizonDefault;
+    }
 
     const homepageGoalIds = normalizeHomepageGoalIds((body as any).homepageGoalIds);
     if (homepageGoalIds !== null) {
@@ -279,6 +394,12 @@ export async function PATCH(req: NextRequest) {
         if (wantsInvestmentBalance && Number.isFinite(investmentBalance)) {
           await setInvestmentBalanceFallback(budgetPlanId, investmentBalance);
         }
+        if (wantsIncomeDistributeFullYearDefault || wantsIncomeDistributeHorizonDefault) {
+          await setIncomeDefaultsFallback(budgetPlanId, {
+            fullYear: wantsIncomeDistributeFullYearDefault ? Boolean(body.incomeDistributeFullYearDefault) : undefined,
+            horizon: wantsIncomeDistributeHorizonDefault ? Boolean(body.incomeDistributeHorizonDefault) : undefined,
+          });
+        }
         const plan = await prisma.budgetPlan.findUnique({
           where: { id: budgetPlanId },
           select: settingsSelect as any,
@@ -286,7 +407,21 @@ export async function PATCH(req: NextRequest) {
         if (!plan) return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
         const nextEmergencyBalance = await getEmergencyBalanceFallback(budgetPlanId);
         const nextInvestmentBalance = await getInvestmentBalanceFallback(budgetPlanId);
-        return NextResponse.json({ ...plan, emergencyBalance: nextEmergencyBalance, investmentBalance: nextInvestmentBalance });
+        const nextIncomeDefaults = await getIncomeDefaultsFallback(budgetPlanId);
+        return NextResponse.json({
+          ...plan,
+          emergencyBalance: nextEmergencyBalance,
+          investmentBalance: nextInvestmentBalance,
+          budgetHorizonYears: Number((plan as any).budgetHorizonYears || 0) > 0 ? Number((plan as any).budgetHorizonYears) : await getBudgetHorizonYearsFallback(budgetPlanId),
+          incomeDistributeFullYearDefault:
+            typeof (plan as any).incomeDistributeFullYearDefault === "boolean"
+              ? (plan as any).incomeDistributeFullYearDefault
+              : nextIncomeDefaults.fullYear,
+          incomeDistributeHorizonDefault:
+            typeof (plan as any).incomeDistributeHorizonDefault === "boolean"
+              ? (plan as any).incomeDistributeHorizonDefault
+              : nextIncomeDefaults.horizon,
+        });
       }
 
     try {
@@ -298,23 +433,54 @@ export async function PATCH(req: NextRequest) {
       if (wantsEmergencyBalance && Number.isFinite(emergencyBalance)) {
         await setEmergencyBalanceFallback(budgetPlanId, emergencyBalance);
       }
+      if (wantsIncomeDistributeFullYearDefault || wantsIncomeDistributeHorizonDefault) {
+        await setIncomeDefaultsFallback(budgetPlanId, {
+          fullYear: wantsIncomeDistributeFullYearDefault ? Boolean(body.incomeDistributeFullYearDefault) : undefined,
+          horizon: wantsIncomeDistributeHorizonDefault ? Boolean(body.incomeDistributeHorizonDefault) : undefined,
+        });
+      }
       const nextEmergencyBalance = await getEmergencyBalanceFallback(budgetPlanId);
       if (wantsInvestmentBalance && Number.isFinite(investmentBalance)) {
         await setInvestmentBalanceFallback(budgetPlanId, investmentBalance);
       }
       const nextInvestmentBalance = await getInvestmentBalanceFallback(budgetPlanId);
-      return NextResponse.json({ ...updated, emergencyBalance: nextEmergencyBalance, investmentBalance: nextInvestmentBalance });
+      const nextIncomeDefaults = await getIncomeDefaultsFallback(budgetPlanId);
+      return NextResponse.json({
+        ...updated,
+        emergencyBalance: nextEmergencyBalance,
+        investmentBalance: nextInvestmentBalance,
+        budgetHorizonYears: Number((updated as any).budgetHorizonYears || 0) > 0 ? Number((updated as any).budgetHorizonYears) : await getBudgetHorizonYearsFallback(budgetPlanId),
+        incomeDistributeFullYearDefault:
+          typeof (updated as any).incomeDistributeFullYearDefault === "boolean"
+            ? (updated as any).incomeDistributeFullYearDefault
+            : nextIncomeDefaults.fullYear,
+        incomeDistributeHorizonDefault:
+          typeof (updated as any).incomeDistributeHorizonDefault === "boolean"
+            ? (updated as any).incomeDistributeHorizonDefault
+            : nextIncomeDefaults.horizon,
+      });
     } catch (error) {
       const message = String((error as any)?.message ?? error);
 			const unknownMonthlyEmergency =
 				message.includes("Unknown field `monthlyEmergencyContribution`") ||
 				message.includes("Unknown argument `monthlyEmergencyContribution`");
-      if (!unknownMonthlyEmergency) throw error;
+      const unknownIncomeDefaults =
+        message.includes("Unknown field `incomeDistributeFullYearDefault`") ||
+        message.includes("Unknown argument `incomeDistributeFullYearDefault`") ||
+        message.includes("Unknown field `incomeDistributeHorizonDefault`") ||
+        message.includes("Unknown argument `incomeDistributeHorizonDefault`");
+      if (!unknownMonthlyEmergency && !unknownIncomeDefaults) throw error;
 
 			// Dev-only safety: ignore unknown fields when Prisma Client is stale.
 			if (unknownMonthlyEmergency && "monthlyEmergencyContribution" in updateData) {
 				delete updateData.monthlyEmergencyContribution;
 			}
+      if ("incomeDistributeFullYearDefault" in updateData) {
+        delete updateData.incomeDistributeFullYearDefault;
+      }
+      if ("incomeDistributeHorizonDefault" in updateData) {
+        delete updateData.incomeDistributeHorizonDefault;
+      }
       if (wantsEmergencyBalance && Number.isFinite(emergencyBalance)) {
         await setEmergencyBalanceFallback(budgetPlanId, emergencyBalance);
       }

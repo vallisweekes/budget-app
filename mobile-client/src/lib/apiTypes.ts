@@ -161,6 +161,9 @@ export interface Settings {
   monthlyEmergencyContribution: string | null;
   monthlyInvestmentContribution: string | null;
   budgetStrategy: string | null;
+  budgetHorizonYears?: number | null;
+  incomeDistributeFullYearDefault?: boolean;
+  incomeDistributeHorizonDefault?: boolean;
   homepageGoalIds: string[];
   country: string | null;
   language: string | null;
@@ -442,6 +445,7 @@ export interface IncomeMonthData {
   paidBillsSoFar: number;
   remainingBills: number;
   moneyLeftAfterPlan: number;
+  previousMoneyLeftAfterPlan?: number;
   incomeLeftRightNow: number;
   moneyOutTotal: number;
   isOnPlan: boolean;

@@ -11,9 +11,26 @@ interface Props {
   onIncome: () => void;
   onAnalytics: () => void;
   onNotifications: () => void;
+  leftVariant?: "avatar" | "back";
+  onBack?: () => void;
+  centerLabel?: string;
+  centerContent?: React.ReactNode;
+  showIncomeAction?: boolean;
+  rightContent?: React.ReactNode;
 }
 
-export default function TopHeader({ onSettings, onIncome, onAnalytics, onNotifications }: Props) {
+export default function TopHeader({
+  onSettings,
+  onIncome,
+  onAnalytics,
+  onNotifications,
+  leftVariant = "avatar",
+  onBack,
+  centerLabel,
+  centerContent,
+  showIncomeAction = true,
+  rightContent,
+}: Props) {
   const insets = useSafeAreaInsets();
   const { username } = useAuth();
 
@@ -23,23 +40,45 @@ export default function TopHeader({ onSettings, onIncome, onAnalytics, onNotific
     <BlurView intensity={30} tint="dark" style={[s.container, { paddingTop: insets.top }]}>
 			<View style={s.glassTint} />
 			<View style={s.inner}>
-				<Pressable onPress={onSettings} style={s.avatarBtn} hitSlop={10}>
-					<View style={s.avatar}>
-						<Text style={s.avatarInitial}>{initial}</Text>
-					</View>
-				</Pressable>
+        {leftVariant === "back" ? (
+          <Pressable onPress={onBack} style={s.iconBtn} hitSlop={10}>
+            <Ionicons name="chevron-back" size={20} color={T.text} />
+          </Pressable>
+        ) : (
+          <Pressable onPress={onSettings} style={s.avatarBtn} hitSlop={10}>
+            <View style={s.avatar}>
+              <Text style={s.avatarInitial}>{initial}</Text>
+            </View>
+          </Pressable>
+        )}
 
-				<View style={s.rightActions}>
-					<Pressable onPress={onIncome} style={s.iconBtn} hitSlop={10}>
-						<Ionicons name="wallet-outline" size={18} color={T.accent} />
-					</Pressable>
-					<Pressable onPress={onAnalytics} style={s.iconBtn} hitSlop={10}>
-						<Ionicons name="stats-chart-outline" size={18} color={T.accent} />
-					</Pressable>
-					<Pressable onPress={onNotifications} style={s.iconBtn} hitSlop={10}>
-						<Ionicons name="notifications-outline" size={18} color={T.accent} />
-					</Pressable>
-				</View>
+        {centerContent ? (
+          <View style={s.centerWrap}>
+            {centerContent}
+          </View>
+        ) : centerLabel ? (
+          <View pointerEvents="none" style={s.centerWrap}>
+            <Text style={s.centerLabel} numberOfLines={1}>{centerLabel}</Text>
+          </View>
+        ) : null}
+
+        {rightContent ? (
+          <View style={s.rightActions}>{rightContent}</View>
+        ) : (
+          <View style={s.rightActions}>
+            {showIncomeAction ? (
+              <Pressable onPress={onIncome} style={s.iconBtn} hitSlop={10}>
+                <Ionicons name="wallet-outline" size={18} color={T.accent} />
+              </Pressable>
+            ) : null}
+            <Pressable onPress={onAnalytics} style={s.iconBtn} hitSlop={10}>
+              <Ionicons name="stats-chart-outline" size={18} color={T.accent} />
+            </Pressable>
+            <Pressable onPress={onNotifications} style={s.iconBtn} hitSlop={10}>
+              <Ionicons name="notifications-outline" size={18} color={T.accent} />
+            </Pressable>
+          </View>
+        )}
 			</View>
 		</BlurView>
   );
@@ -64,6 +103,18 @@ const s = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 18,
     paddingVertical: 12,
+    position: "relative",
+  },
+  centerWrap: {
+    position: "absolute",
+    left: 70,
+    right: 70,
+    alignItems: "center",
+  },
+  centerLabel: {
+    color: T.text,
+    fontSize: 13,
+    fontWeight: "800",
   },
 
   avatarBtn: { position: "relative" },

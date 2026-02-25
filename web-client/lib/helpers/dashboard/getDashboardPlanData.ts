@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { monthNumberToKey } from "@/lib/helpers/monthKey";
-import { getMonthlyAllocationSnapshot } from "@/lib/allocations/store";
+import { getMonthlyAllocationSnapshot, getMonthlyCustomAllocationsSnapshot } from "@/lib/allocations/store";
+import { getMonthlyDebtPlan } from "@/lib/helpers/finance/getMonthlyDebtPlan";
 import { ensureDefaultCategoriesForBudgetPlan } from "@/lib/categories/defaultCategories";
 import type { ExpenseItem } from "@/types";
 
@@ -55,7 +56,7 @@ export async function getDashboardPlanData(
 	const selectedMonthNum = now.getMonth() + 1; // 1-12
 	const selectedMonthKey = monthNumberToKey(selectedMonthNum);
 
-	const [categories, expenses, income, goals, allocation, debtPaymentsAgg, plannedDebtPayments] =
+	const [categories, expenses, income, goals, allocation, customAllocations, debtPlan] =
 		await Promise.all([
 			prisma.category.findMany({ where: { budgetPlanId: planId } }),
 			prisma.expense.findMany({
@@ -66,18 +67,11 @@ export async function getDashboardPlanData(
 			}),
 			prisma.goal.findMany({ where: { budgetPlanId: planId } }),
 			getMonthlyAllocationSnapshot(planId, selectedMonthKey, { year: selectedYear }),
-			prisma.debtPayment.aggregate({
-				where: {
-					debt: { budgetPlanId: planId },
-					year: selectedYear,
-					month: selectedMonthNum,
-					source: "income",
-				},
-				_sum: { amount: true },
-			}),
-			prisma.debt.aggregate({
-				where: { budgetPlanId: planId, currentBalance: { gt: 0 } },
-				_sum: { amount: true },
+			getMonthlyCustomAllocationsSnapshot(planId, selectedMonthKey, { year: selectedYear }),
+			getMonthlyDebtPlan({
+				budgetPlanId: planId,
+				year: selectedYear,
+				month: selectedMonthNum,
 			}),
 		]);
 
@@ -156,22 +150,20 @@ export async function getDashboardPlanData(
 		categoryData.sort((a, b) => b.total - a.total);
 	}
 
-	const debtPaymentsFromIncome = Number(
-		debtPaymentsAgg._sum.amount?.toString?.() ?? debtPaymentsAgg._sum.amount ?? 0
-	);
-	const plannedDebtAmount = Number(
-		plannedDebtPayments._sum.amount?.toString?.() ?? plannedDebtPayments._sum.amount ?? 0
-	);
+	const plannedDebtAmount = debtPlan.plannedDebtPayments;
+	const customSetAsideTotal = Number(customAllocations.total ?? 0);
 
 	const totalExpenses = regularExpenses.reduce((a, b) => a + (b.amount || 0), 0);
 	const totalIncome = monthIncome.reduce((a, b) => a + (b.amount || 0), 0);
 	const remaining = totalIncome - totalExpenses;
 
+	// Include custom sacrifice items so this matches the income-month BFF calculation
 	const totalAllocations =
 		(allocation.monthlyAllowance ?? 0) +
 		(allocation.monthlySavingsContribution ?? 0) +
 		(allocation.monthlyEmergencyContribution ?? 0) +
-		(allocation.monthlyInvestmentContribution ?? 0);
+		(allocation.monthlyInvestmentContribution ?? 0) +
+		customSetAsideTotal;
 
 	const plannedSavingsContribution = allocation.monthlySavingsContribution ?? 0;
 	const plannedEmergencyContribution = allocation.monthlyEmergencyContribution ?? 0;
