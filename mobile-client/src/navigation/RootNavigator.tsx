@@ -270,6 +270,9 @@ function MainTabs() {
           };
 
           const deepestRoute = getDeepestRoute(navigation.getState?.());
+          const isDebtDetail = deepestRoute?.name === "DebtDetail";
+          if (isDebtDetail) return null;
+
           const isExpensesList = deepestRoute?.name === "ExpensesList";
           const expensesMonthRaw = Number(deepestRoute?.params?.month);
           const expensesYearRaw = Number(deepestRoute?.params?.year);
