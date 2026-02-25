@@ -12,12 +12,14 @@ export default function GoalCardProgress({
   goal,
   gradient,
   budgetInsights,
+	monthlyTip,
   startingBalances,
   contributionTotals,
 }: {
   goal: Goal;
   gradient: string;
   budgetInsights?: GoalsBudgetInsights | null;
+	monthlyTip?: string | null;
   startingBalances?: {
 		savings?: number;
 		emergency?: number;
@@ -54,7 +56,8 @@ export default function GoalCardProgress({
 	const effectiveCurrent = trackedAmount + startingAmount;
 
   const progress = (effectiveCurrent / goal.targetAmount) * 100;
-  const monthlyTip = getGoalMonthlyTip({ goal: { ...goal, currentAmount: effectiveCurrent }, budgetInsights });
+	const fallbackTip = getGoalMonthlyTip({ goal: { ...goal, currentAmount: effectiveCurrent }, budgetInsights });
+	const resolvedTip = (monthlyTip ?? "").trim() || fallbackTip;
 
   return (
     <div>
@@ -64,7 +67,7 @@ export default function GoalCardProgress({
 						<Currency value={effectiveCurrent} /> / <Currency value={goal.targetAmount} />
         </span>
       </div>
-			<div className="w-full bg-slate-900/10 rounded-full h-2 sm:h-4">
+			<div className="w-full bg-black/10 rounded-full h-2 sm:h-4">
         <div
 					className={`bg-gradient-to-r ${gradient} h-2 sm:h-4 rounded-full transition-all`}
           style={{ width: `${Math.min(100, progress)}%` }}
@@ -81,9 +84,9 @@ export default function GoalCardProgress({
       </div>
     ) : null}
 
-      {monthlyTip ? (
+      {resolvedTip ? (
         <div className="mt-3 rounded-xl bg-black/5 px-3 py-2 text-[11px] sm:text-xs text-slate-800">
-          <span className="font-semibold">Tip:</span> {monthlyTip}
+          <span className="font-semibold">Tip:</span> {resolvedTip}
         </div>
       ) : null}
     </div>

@@ -83,6 +83,11 @@ export default function ExpensesScreen({ navigation }: Props) {
 
   const prevIsPersonalPlanRef = useRef<boolean>(true);
 
+  // Plan tabs: keep selected pill centered when horizontally scrollable.
+  const planScrollRef = useRef<ScrollView>(null);
+  const planViewportWidthRef = useRef(0);
+  const planItemLayoutsRef = useRef<Record<string, { x: number; width: number }>>({});
+
   useEffect(() => {
     const wasPersonal = prevIsPersonalPlanRef.current;
     if (!wasPersonal && isPersonalPlan) {
@@ -112,6 +117,22 @@ export default function ExpensesScreen({ navigation }: Props) {
       else setPlanByIndex(activePlanIndex - 1);
     },
   });
+
+  const scrollPlanIntoView = useCallback(() => {
+    const selectedId = (activePlanId ?? personalPlanId) ?? null;
+    if (!selectedId) return;
+    const viewportWidth = planViewportWidthRef.current;
+    if (!viewportWidth) return;
+    const layout = planItemLayoutsRef.current[selectedId];
+    if (!layout) return;
+    const targetX = Math.max(0, layout.x + layout.width / 2 - viewportWidth / 2);
+    planScrollRef.current?.scrollTo({ x: targetX, animated: true });
+  }, [activePlanId, personalPlanId]);
+
+  useEffect(() => {
+    if (plans.length <= 1) return;
+    requestAnimationFrame(scrollPlanIntoView);
+  }, [plans.length, activePlanId, personalPlanId, scrollPlanIntoView]);
 
   const monthName = (m: number) => {
     const names = [
@@ -307,27 +328,40 @@ export default function ExpensesScreen({ navigation }: Props) {
 
               {plans.length > 1 && (
                 <View style={styles.planCardsWrap} {...planSwipe.panHandlers}>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.planCardsScroll}
-                  >
-                    {plans.map((p) => {
-                      const selected = (activePlanId ?? personalPlanId) === p.id;
-                      return (
-                        <Pressable
-                          key={p.id}
-                          onPress={() => setSelectedPlanId(p.id)}
-                          style={[styles.planCard, selected && styles.planCardSelected]}
-                          hitSlop={6}
-                        >
-                          <Text style={[styles.planCardText, selected && styles.planCardTextSelected]} numberOfLines={2}>
-                            {p.name}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </ScrollView>
+					<View style={styles.planTabsBg}>
+						<ScrollView
+              ref={planScrollRef}
+							horizontal
+							showsHorizontalScrollIndicator={false}
+							contentContainerStyle={styles.planTabsScroll}
+              onLayout={(e) => {
+                planViewportWidthRef.current = e.nativeEvent.layout.width;
+              }}
+						>
+							{plans.map((p) => {
+								const selected = (activePlanId ?? personalPlanId) === p.id;
+								return (
+									<Pressable
+										key={p.id}
+										onPress={() => setSelectedPlanId(p.id)}
+                    onLayout={(e) => {
+                      planItemLayoutsRef.current[p.id] = {
+                        x: e.nativeEvent.layout.x,
+                        width: e.nativeEvent.layout.width,
+                      };
+                      if (selected) requestAnimationFrame(scrollPlanIntoView);
+                    }}
+										style={[styles.planPill, selected && styles.planPillSelected]}
+										hitSlop={8}
+									>
+										<Text style={[styles.planPillText, selected && styles.planPillTextSelected]} numberOfLines={1}>
+											{p.name}
+										</Text>
+									</Pressable>
+								);
+							})}
+						</ScrollView>
+					</View>
                 </View>
               )}
 
@@ -441,36 +475,40 @@ const styles = StyleSheet.create({
 
   planCardsWrap: {
     marginTop: 32,
-    marginBottom: 6,
-  },
-  planCardsScroll: {
+    marginBottom: 8,
     paddingHorizontal: 12,
-    gap: 10,
   },
-  planCard: {
-    width: 116,
-    minHeight: 76,
-    borderRadius: 14,
+  planTabsBg: {
+    borderRadius: 999,
     backgroundColor: T.card,
     borderWidth: 1,
     borderColor: T.border,
-    paddingHorizontal: 10,
+    padding: 4,
+    overflow: "hidden",
+  },
+  planTabsScroll: {
+    flexGrow: 1,
+    justifyContent: "center",
+    paddingHorizontal: 6,
+    gap: 8,
+  },
+  planPill: {
+    paddingHorizontal: 14,
     paddingVertical: 10,
+    borderRadius: 999,
+    backgroundColor: "transparent",
     justifyContent: "center",
     alignItems: "center",
   },
-  planCardSelected: {
+  planPillSelected: {
     backgroundColor: T.accentDim,
-    borderColor: T.accent,
   },
-  planCardText: {
+  planPillText: {
     color: T.textDim,
-    fontWeight: "900",
-    fontSize: 15,
-    textAlign: "center",
-    lineHeight: 18,
+    fontWeight: "800",
+    fontSize: 14,
   },
-  planCardTextSelected: {
+  planPillTextSelected: {
     color: T.text,
   },
 

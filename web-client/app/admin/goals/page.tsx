@@ -10,6 +10,8 @@ import AddGoalModal from "@/components/Admin/Goals/AddGoalModal";
 import GoalsPageClient from "@/components/Admin/Goals/GoalsPageClient";
 import { getGoalsBudgetInsights } from "@/lib/helpers/goalsBudgetInsights";
 import { HeroCanvasLayout } from "@/components/Shared";
+import { getGoalMonthlyTip } from "@/lib/helpers/goals";
+import { getAiGoalMonthlyTips } from "@/lib/ai/goalMonthlyTips";
 
 export const dynamic = "force-dynamic";
 
@@ -33,14 +35,14 @@ export default async function GoalsPage({
   if (!budgetPlanId) {
     const fallback = await getDefaultBudgetPlanForUser({ userId, username });
     if (!fallback) redirect("/budgets/new");
-	redirect(`/user=${encodeURIComponent(username)}/${encodeURIComponent(fallback.id)}/goals`);
+    redirect(`/user=${encodeURIComponent(username)}/${encodeURIComponent(fallback.id)}/goals`);
   }
 
   const plan = await prisma.budgetPlan.findUnique({ where: { id: budgetPlanId } });
   if (!plan || plan.userId !== userId) {
-		const fallback = await getDefaultBudgetPlanForUser({ userId, username });
-		if (!fallback) redirect("/budgets/new");
-		redirect(`/user=${encodeURIComponent(username)}/${encodeURIComponent(fallback.id)}/goals`);
+    const fallback = await getDefaultBudgetPlanForUser({ userId, username });
+    if (!fallback) redirect("/budgets/new");
+    redirect(`/user=${encodeURIComponent(username)}/${encodeURIComponent(fallback.id)}/goals`);
   }
 
   budgetPlanId = plan.id;
@@ -71,6 +73,56 @@ export default async function GoalsPage({
 
   const budgetInsights = await getGoalsBudgetInsights({ budgetPlanId, monthsBack: 3 });
   const contributionTotals = await getContributionTotalsToDate(budgetPlanId);
+
+  const startingBalances = {
+    savings: settings.savingsBalance,
+    emergency: settings.emergencyBalance,
+    investment: (settings as any).investmentBalance,
+  };
+
+  const goalMonthlyTips = await (async () => {
+    try {
+      const now = new Date();
+      const cacheKey = `goal-monthly-tips:${budgetPlanId}:${now.getFullYear()}-${now.getMonth() + 1}:${goals.length}`;
+      const goalsForAi = goals.map((goal) => {
+        const isComputedBalanceGoal =
+          (goal as any).category === "savings" || (goal as any).category === "emergency" || (goal as any).category === "investment";
+        const trackedAmount = isComputedBalanceGoal
+          ? (goal as any).category === "savings"
+            ? (contributionTotals?.savings ?? 0)
+            : (goal as any).category === "emergency"
+              ? (contributionTotals?.emergency ?? 0)
+              : (contributionTotals?.investment ?? 0)
+          : (goal.currentAmount ?? 0);
+        const startingAmount =
+          (goal as any).category === "savings"
+            ? (startingBalances.savings ?? 0)
+            : (goal as any).category === "emergency"
+              ? (startingBalances.emergency ?? 0)
+              : (goal as any).category === "investment"
+                ? (startingBalances.investment ?? 0)
+                : 0;
+        const effectiveCurrentAmount = trackedAmount + startingAmount;
+        const existingTip = getGoalMonthlyTip({
+          goal: { ...goal, currentAmount: effectiveCurrentAmount } as any,
+          budgetInsights,
+          now,
+        });
+        return { goal, effectiveCurrentAmount, existingTip };
+      });
+
+      return await getAiGoalMonthlyTips({
+        cacheKey,
+        now,
+        goals: goalsForAi,
+        budgetInsights,
+        maxChars: 220,
+      });
+    } catch (err) {
+      console.error("Goals page: AI goal tips failed:", err);
+      return null;
+    }
+  })();
 
   return (
     <HeroCanvasLayout
@@ -108,11 +160,8 @@ export default async function GoalsPage({
           goalsByYear={goalsByYear}
           initialHomepageGoalIds={initialHomepageGoalIds}
           budgetInsights={budgetInsights}
-          startingBalances={{
-            savings: settings.savingsBalance,
-            emergency: settings.emergencyBalance,
-            investment: (settings as any).investmentBalance,
-          }}
+			goalMonthlyTips={goalMonthlyTips ?? {}}
+          startingBalances={startingBalances}
           contributionTotals={contributionTotals}
         />
       )}

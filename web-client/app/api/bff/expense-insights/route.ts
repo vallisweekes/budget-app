@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
 import { getBudgetPlanMeta } from "@/lib/helpers/dashboard/getBudgetPlanMeta";
 import { getDashboardExpenseInsights } from "@/lib/helpers/dashboard/getDashboardExpenseInsights";
+import { getAiBudgetTips } from "@/lib/ai/budgetTips";
 
 export const runtime = "nodejs";
 
@@ -41,10 +42,30 @@ export async function GET(req: NextRequest) {
 			userId,
 		});
 
+		const aiTips = await (async () => {
+			try {
+				return await getAiBudgetTips({
+					cacheKey: `expense-insights:${budgetPlanId}:${now.getFullYear()}-${now.getMonth() + 1}`,
+					budgetPlanId,
+					now,
+					context: {
+						payDate,
+						recap: insights.recap,
+						upcoming: insights.upcoming,
+						existingTips: insights.recapTips,
+					},
+					maxTips: 4,
+				});
+			} catch (err) {
+				console.error("Expense insights: AI tips failed:", err);
+				return null;
+			}
+		})();
+
 		return NextResponse.json({
 			recap: insights.recap,
 			upcoming: insights.upcoming,
-			tips: insights.recapTips,
+			tips: aiTips ?? insights.recapTips,
 		});
 	} catch (error) {
 		console.error("Failed to compute expense insights:", error);

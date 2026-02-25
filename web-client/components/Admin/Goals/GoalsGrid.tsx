@@ -9,6 +9,7 @@ export default function GoalsGrid({
   minYear,
   maxYear,
   budgetInsights,
+	goalMonthlyTips,
 	startingBalances,
 	contributionTotals,
   getToggleState,
@@ -19,6 +20,7 @@ export default function GoalsGrid({
   minYear: number;
   maxYear: number;
   budgetInsights: GoalsBudgetInsights | null;
+	goalMonthlyTips: Record<string, string>;
 	startingBalances?: {
 		savings?: number;
 		emergency?: number;
@@ -51,6 +53,7 @@ export default function GoalsGrid({
             minYear={minYear}
             maxYear={maxYear}
             budgetInsights={budgetInsights}
+				monthlyTip={goalMonthlyTips[goal.id] ?? null}
 				startingBalances={startingBalances}
 			contributionTotals={contributionTotals}
             homepageSelected={selected}

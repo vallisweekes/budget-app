@@ -13,6 +13,7 @@ import { getIncomeMonthsCoverageByPlan } from "@/lib/helpers/dashboard/getIncome
 import { getDashboardExpenseInsights } from "@/lib/helpers/dashboard/getDashboardExpenseInsights";
 import { getLargestExpensesByPlan } from "@/lib/helpers/dashboard/getLargestExpensesByPlan";
 import { getMultiPlanHealthTips } from "@/lib/helpers/dashboard/getMultiPlanHealthTips";
+import { getAiBudgetTips } from "@/lib/ai/budgetTips";
 
 export default async function DashboardView({ budgetPlanId }: { budgetPlanId: string }) {
 	const now = new Date();
@@ -64,6 +65,36 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 		...expenseInsightsBase,
 		recapTips: [...(expenseInsightsBase.recapTips ?? []), ...multiPlanTips, ...debtTips],
 	};
+
+	const aiDashboardTips = await (async () => {
+		try {
+			return await getAiBudgetTips({
+				cacheKey: `dashboard-web:${budgetPlanId}:${currentPlanData.year}-${currentPlanData.monthNum}`,
+				budgetPlanId,
+				now,
+				context: {
+					username: username ?? null,
+					totalIncome: currentPlanData.totalIncome,
+					totalExpenses: currentPlanData.totalExpenses,
+					remaining: currentPlanData.remaining,
+					plannedDebtPayments: currentPlanData.plannedDebtPayments,
+					plannedSavingsContribution: currentPlanData.plannedSavingsContribution,
+					payDate,
+					recap: expenseInsightsBase.recap,
+					upcoming: expenseInsightsBase.upcoming,
+					existingTips: expenseInsights.recapTips,
+				},
+				maxTips: 4,
+			});
+		} catch (err) {
+			console.error("DashboardView: AI tips failed:", err);
+			return null;
+		}
+	})();
+
+	if (aiDashboardTips) {
+		expenseInsights.recapTips = aiDashboardTips;
+	}
 
 	return (
 		<div className="min-h-screen pb-20 app-theme-bg">

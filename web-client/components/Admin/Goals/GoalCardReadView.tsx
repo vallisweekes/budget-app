@@ -14,6 +14,7 @@ export default function GoalCardReadView({
   gradient,
   isPending,
   budgetInsights,
+	monthlyTip,
 	startingBalances,
 	contributionTotals,
   homepageSelected = false,
@@ -31,6 +32,7 @@ export default function GoalCardReadView({
   gradient: string;
   isPending: boolean;
   budgetInsights?: GoalsBudgetInsights | null;
+	monthlyTip?: string | null;
 	startingBalances?: {
 		savings?: number;
 		emergency?: number;
@@ -89,6 +91,7 @@ export default function GoalCardReadView({
         goal={goal}
         gradient={gradient}
         budgetInsights={budgetInsights}
+		monthlyTip={monthlyTip}
         startingBalances={startingBalances}
 		contributionTotals={contributionTotals}
       />

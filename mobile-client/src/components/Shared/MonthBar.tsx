@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
 import { T } from "@/lib/theme";
 
 interface MonthBarProps {
@@ -25,33 +26,46 @@ export default function MonthBar({
   prevDisabled = false,
 }: MonthBarProps) {
   return (
-    <View style={s.bar}>
-      <Text style={s.label}>
-        {MONTH_NAMES[month - 1]} {year}
-      </Text>
+		<BlurView intensity={22} tint="dark" style={s.glassBase}>
+			<View style={s.glassTint} />
+			<View style={s.bar}>
+				<Text style={s.label}>
+					{MONTH_NAMES[month - 1]} {year}
+				</Text>
 
-      <View style={s.actions}>
-        <Pressable
-          onPress={onPrev}
-          disabled={prevDisabled}
-          style={[s.arrow, prevDisabled && s.arrowDisabled]}
-          hitSlop={8}
-        >
-          <Ionicons
-            name="chevron-back"
-            size={20}
-            color={prevDisabled ? T.textMuted : T.text}
-          />
-        </Pressable>
-        <Pressable onPress={onNext} style={s.arrow} hitSlop={8}>
-          <Ionicons name="chevron-forward" size={20} color={T.text} />
-        </Pressable>
-      </View>
-    </View>
+				<View style={s.actions}>
+					<Pressable
+						onPress={onPrev}
+						disabled={prevDisabled}
+						style={[s.arrow, prevDisabled && s.arrowDisabled]}
+						hitSlop={8}
+					>
+						<Ionicons
+							name="chevron-back"
+							size={20}
+							color={prevDisabled ? T.textMuted : T.text}
+						/>
+					</Pressable>
+					<Pressable onPress={onNext} style={s.arrow} hitSlop={8}>
+						<Ionicons name="chevron-forward" size={20} color={T.text} />
+					</Pressable>
+				</View>
+			</View>
+		</BlurView>
   );
 }
 
 const s = StyleSheet.create({
+  glassBase: {
+    overflow: "hidden",
+    borderBottomWidth: 1,
+    borderBottomColor: `${T.accent}29`,
+    backgroundColor: `${T.card}A8`,
+  },
+  glassTint: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: `${T.accent}12`,
+  },
   bar: {
     flexDirection: "row",
     alignItems: "center",

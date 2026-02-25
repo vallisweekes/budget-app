@@ -35,7 +35,7 @@ export default function GoalCardHeader({
           className={
             "inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold border " +
             "bg-[color:var(--background)] " +
-            (goal.targetYear ? "text-slate-100 border-white/10" : "text-amber-200 border-amber-400/20")
+			(goal.targetYear ? "text-slate-100 border-black/10" : "text-amber-200 border-amber-400/20")
           }
           title={goal.targetYear ? "Target year" : "No target year set"}
         >
@@ -68,7 +68,7 @@ export default function GoalCardHeader({
               aria-hidden="true"
               className={
                 "relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors " +
-                (homepageSelected ? "bg-slate-900" : "bg-slate-900/20")
+				(homepageSelected ? "bg-[color:var(--background)]" : "bg-black/10")
               }
             >
               <span

@@ -5,6 +5,7 @@ import { getBudgetPlanMeta } from "@/lib/helpers/dashboard/getBudgetPlanMeta";
 import { getDebtSummaryForPlan } from "@/lib/debts/summary";
 import { computeDebtTips } from "@/lib/debts/insights";
 import { getDashboardExpenseInsights } from "@/lib/helpers/dashboard/getDashboardExpenseInsights";
+import { getAiBudgetTips } from "@/lib/ai/budgetTips";
 import { getIncomeMonthsCoverageByPlan } from "@/lib/helpers/dashboard/getIncomeMonthsCoverageByPlan";
 import { getLargestExpensesByPlan } from "@/lib/helpers/dashboard/getLargestExpensesByPlan";
 import { getMultiPlanHealthTips } from "@/lib/helpers/dashboard/getMultiPlanHealthTips";
@@ -168,6 +169,36 @@ export async function GET(req: NextRequest) {
 				...debtTips,
 			],
 		};
+
+		const aiDashboardTips = await (async () => {
+			try {
+				return await getAiBudgetTips({
+					cacheKey: `dashboard:${budgetPlanId}:${currentPlanData.year}-${currentPlanData.monthNum}`,
+					budgetPlanId,
+					now,
+					context: {
+						username: username ?? null,
+						totalIncome: currentPlanData.totalIncome,
+						totalExpenses: currentPlanData.totalExpenses,
+						remaining: currentPlanData.remaining,
+						plannedDebtPayments: currentPlanData.plannedDebtPayments,
+						plannedSavingsContribution: currentPlanData.plannedSavingsContribution,
+						payDate,
+						recap: expenseInsightsBase.recap,
+						upcoming: expenseInsightsBase.upcoming,
+						existingTips: expenseInsights.recapTips,
+					},
+					maxTips: 4,
+				});
+			} catch (err) {
+				console.error("Dashboard: AI tips failed:", err);
+				return null;
+			}
+		})();
+
+		if (aiDashboardTips) {
+			expenseInsights.recapTips = aiDashboardTips;
+		}
 
 		return NextResponse.json({
 			budgetPlanId,

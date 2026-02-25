@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
 import { getDebtSummaryForPlan } from "@/lib/debts/summary";
 import { computeDebtTips } from "@/lib/debts/insights";
+import { getAiDebtTips } from "@/lib/ai/debtTips";
 import { getDebtMonthlyPayment, getTotalMonthlyDebtPayments } from "@/lib/debts/calculate";
 import { formatExpenseDebtCardTitle, formatYearMonthLabel } from "@/lib/helpers/debts/expenseDebtLabels";
 import { prisma } from "@/lib/prisma";
@@ -181,6 +182,40 @@ export async function GET(req: NextRequest) {
 			debts: summary.activeDebts,
 		});
 
+		const aiTips = await (async () => {
+			try {
+				const topDebts = summary.activeDebts
+					.slice()
+					.sort((a, b) => (b.currentBalance ?? 0) - (a.currentBalance ?? 0))
+					.slice(0, 5)
+					.map((d) => ({
+						name: d.name,
+						currentBalance: d.currentBalance ?? 0,
+						monthlyPayment: d.monthlyMinimum ?? null,
+						dueDay: d.dueDay ?? null,
+					}));
+
+				return await getAiDebtTips({
+					cacheKey: `debt-summary:${budgetPlanId}:${now.getFullYear()}-${now.getMonth() + 1}`,
+					now,
+					context: {
+						activeCount: summary.activeDebts.length,
+						totalDebtBalance: summary.totalDebtBalance,
+						totalMonthlyDebtPayments,
+						creditCardCount: summary.creditCards.length,
+						regularDebtCount: summary.regularDebts.length,
+						expenseDebtCount: summary.expenseDebts.length,
+						topDebts,
+						existingTips: tips,
+					},
+					maxTips: 4,
+				});
+			} catch (err) {
+				console.error("Debt summary: AI tips failed:", err);
+				return null;
+			}
+		})();
+
 		return NextResponse.json({
 			debts: debtsWithPayments,
 			activeCount: summary.activeDebts.length,
@@ -190,7 +225,7 @@ export async function GET(req: NextRequest) {
 			creditCardCount: summary.creditCards.length,
 			regularDebtCount: summary.regularDebts.length,
 			expenseDebtCount: summary.expenseDebts.length,
-			tips,
+			tips: aiTips ?? tips,
 		});
 	} catch (error) {
 		console.error("Failed to compute debt summary:", error);

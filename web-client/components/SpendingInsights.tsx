@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { TrendingUp, TrendingDown, AlertTriangle, Lightbulb, ChevronDown, ChevronUp } from "lucide-react";
+
+import type { SpendingInsight, SpendingInsightColor, SpendingInsightIcon } from "@/lib/ai/spendingInsights";
 
 interface SpendingEntry {
   id: string;
@@ -25,6 +27,7 @@ interface InsightsProps {
 
 export default function SpendingInsights({ spending, allowanceStats, savingsBalance }: InsightsProps) {
   const [expandedInsight, setExpandedInsight] = useState<number | null>(0);
+	const [aiInsights, setAiInsights] = useState<SpendingInsight[] | null>(null);
 
   // Analyze spending patterns
   const analyzeSpending = () => {
@@ -133,7 +136,30 @@ export default function SpendingInsights({ spending, allowanceStats, savingsBala
     return insights;
   };
 
-  const insights = analyzeSpending();
+  const fallbackInsights = useMemo(() => analyzeSpending(), [spending, allowanceStats, savingsBalance]);
+  const insights = aiInsights && aiInsights.length ? aiInsights : fallbackInsights;
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/insights/spending", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ spending, allowanceStats, savingsBalance }),
+        });
+        if (!res.ok) return;
+        const data = (await res.json().catch(() => null)) as { insights?: SpendingInsight[] } | null;
+        const next = Array.isArray(data?.insights) ? data!.insights : [];
+        if (!cancelled) setAiInsights(next);
+      } catch {
+        // Best-effort: keep deterministic fallback.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [spending, allowanceStats, savingsBalance]);
 
   const colorClasses = {
     red: "border-red-500/50 bg-red-500/10",
@@ -153,6 +179,13 @@ export default function SpendingInsights({ spending, allowanceStats, savingsBala
     purple: "text-purple-400"
   };
 
+	const iconByKey: Record<SpendingInsightIcon, any> = {
+		alert: AlertTriangle,
+		lightbulb: Lightbulb,
+		trendUp: TrendingUp,
+		trendDown: TrendingDown,
+	};
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2 mb-4">
@@ -161,19 +194,23 @@ export default function SpendingInsights({ spending, allowanceStats, savingsBala
       </div>
 
       {insights.map((insight, idx) => {
-        const Icon = insight.icon;
+    const iconValue = (insight as any).icon;
+    const Icon =
+      typeof iconValue === "string" && (iconByKey as any)[iconValue]
+        ? (iconByKey as any)[iconValue]
+        : iconValue;
         const isExpanded = expandedInsight === idx;
         
         return (
           <div
             key={idx}
-            className={`border rounded-xl overflow-hidden transition-all ${colorClasses[insight.color as keyof typeof colorClasses]}`}
+            className={`border rounded-xl overflow-hidden transition-all ${colorClasses[(insight as any).color as SpendingInsightColor]}`}
           >
             <button
               onClick={() => setExpandedInsight(isExpanded ? null : idx)}
               className="w-full p-4 flex items-start gap-3 hover:bg-white/5 transition-colors"
             >
-              <Icon className={`flex-shrink-0 mt-1 ${iconColorClasses[insight.color as keyof typeof iconColorClasses]}`} size={20} />
+              <Icon className={`flex-shrink-0 mt-1 ${iconColorClasses[(insight as any).color as SpendingInsightColor]}`} size={20} />
               <div className="flex-1 text-left">
                 <h3 className="font-semibold text-white mb-1">{insight.title}</h3>
                 <p className="text-sm text-slate-300">{insight.message}</p>

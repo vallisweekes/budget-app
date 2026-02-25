@@ -108,7 +108,7 @@ export default function GoalCardEditView({
 				className={
 					INPUT_CLASS +
 					(currentAmountDisabled
-						? " opacity-70 cursor-not-allowed bg-slate-50 text-slate-700"
+                  ? " opacity-70 cursor-not-allowed bg-black/5 text-slate-700"
 						: "")
 				}
                 placeholder="Current £"

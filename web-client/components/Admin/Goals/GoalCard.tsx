@@ -15,6 +15,7 @@ interface GoalCardProps {
   minYear?: number;
   maxYear?: number;
   budgetInsights?: GoalsBudgetInsights | null;
+	monthlyTip?: string | null;
 	startingBalances?: {
 		savings?: number;
 		emergency?: number;
@@ -56,6 +57,7 @@ export default function GoalCard({
   minYear,
   maxYear,
   budgetInsights,
+	monthlyTip,
 	startingBalances,
 	contributionTotals,
   homepageSelected,
@@ -161,6 +163,7 @@ export default function GoalCard({
       gradient={gradient}
       isPending={isPending}
       budgetInsights={budgetInsights}
+		monthlyTip={monthlyTip}
 		startingBalances={startingBalances}
 		contributionTotals={contributionTotals}
       homepageSelected={Boolean(homepageSelected)}

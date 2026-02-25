@@ -16,6 +16,7 @@ export default function GoalsPageClient({
   goalsByYear,
   initialHomepageGoalIds,
   budgetInsights,
+	goalMonthlyTips,
 	startingBalances,
 	contributionTotals,
 }: {
@@ -26,6 +27,7 @@ export default function GoalsPageClient({
   goalsByYear: GoalsByYear[];
   initialHomepageGoalIds: string[];
   budgetInsights: GoalsBudgetInsights | null;
+	goalMonthlyTips: Record<string, string>;
 	startingBalances?: {
 		savings?: number;
 		emergency?: number;
@@ -104,8 +106,9 @@ export default function GoalsPageClient({
                 minYear={minYear}
                 maxYear={maxYear}
                 budgetInsights={budgetInsights}
-					startingBalances={startingBalances}
-					contributionTotals={contributionTotals}
+				goalMonthlyTips={goalMonthlyTips}
+				startingBalances={startingBalances}
+				contributionTotals={contributionTotals}
                 getToggleState={getToggleState}
                 onToggleHomepage={toggleHomepage}
               />
@@ -125,7 +128,8 @@ export default function GoalsPageClient({
               minYear={minYear}
               maxYear={maxYear}
               budgetInsights={budgetInsights}
-				startingBalances={startingBalances}
+			goalMonthlyTips={goalMonthlyTips}
+			startingBalances={startingBalances}
 			contributionTotals={contributionTotals}
               getToggleState={getToggleState}
               onToggleHomepage={toggleHomepage}
