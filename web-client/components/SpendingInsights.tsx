@@ -16,6 +16,9 @@ interface SpendingEntry {
 
 interface InsightsProps {
   spending: SpendingEntry[];
+  previousMonthSpending?: SpendingEntry[];
+  currentMonthLabel?: string;
+  previousMonthLabel?: string;
   allowanceStats: {
     monthlyAllowance: number;
     totalUsed: number;
@@ -25,7 +28,7 @@ interface InsightsProps {
   savingsBalance: number;
 }
 
-export default function SpendingInsights({ spending, allowanceStats, savingsBalance }: InsightsProps) {
+export default function SpendingInsights({ spending, previousMonthSpending, currentMonthLabel, previousMonthLabel, allowanceStats, savingsBalance }: InsightsProps) {
   const [expandedInsight, setExpandedInsight] = useState<number | null>(0);
 	const [aiInsights, setAiInsights] = useState<SpendingInsight[] | null>(null);
 
@@ -146,7 +149,7 @@ export default function SpendingInsights({ spending, allowanceStats, savingsBala
         const res = await fetch("/api/insights/spending", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ spending, allowanceStats, savingsBalance }),
+          body: JSON.stringify({ spending, previousMonthSpending: previousMonthSpending ?? [], currentMonthLabel, previousMonthLabel, allowanceStats, savingsBalance }),
         });
         if (!res.ok) return;
         const data = (await res.json().catch(() => null)) as { insights?: SpendingInsight[] } | null;
@@ -159,7 +162,7 @@ export default function SpendingInsights({ spending, allowanceStats, savingsBala
     return () => {
       cancelled = true;
     };
-  }, [spending, allowanceStats, savingsBalance]);
+  }, [spending, previousMonthSpending, currentMonthLabel, previousMonthLabel, allowanceStats, savingsBalance]);
 
   const colorClasses = {
     red: "border-red-500/50 bg-red-500/10",

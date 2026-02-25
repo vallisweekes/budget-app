@@ -85,7 +85,10 @@ export async function getAiSpendingInsights(args: {
 	cacheKey: string;
 	now: Date;
 	context: {
+		currentMonthLabel?: string;
 		spending: Array<{ description: string; amount: number; date: string; source: string }>;
+		previousMonthLabel?: string;
+		previousMonthSpending?: Array<{ description: string; amount: number; date: string; source: string }>;
 		allowanceStats: {
 			monthlyAllowance: number;
 			totalUsed: number;
@@ -113,8 +116,20 @@ export async function getAiSpendingInsights(args: {
 		source: s.source,
 	}));
 
+	const previousMonthSpending = (args.context.previousMonthSpending ?? []).slice(0, 40).map((s) => ({
+		description: clampText(s.description, 60),
+		amount: s.amount,
+		date: s.date,
+		source: s.source,
+	}));
+
+	const hasPrevMonth = previousMonthSpending.length > 0;
+
 	const sys =
 		"You are a budgeting assistant. Generate actionable spending insights based ONLY on the provided data. " +
+		(hasPrevMonth
+			? "You have both this month's and last month's spending — use them to produce month-over-month comparisons where meaningful (e.g. 'You are spending 23% more on eating out this month'). "
+			: "") +
 		"Avoid shame, avoid legal/medical advice, and do not mention OpenAI. " +
 		"Return ONLY valid JSON: {\"insights\":[{\"type\":\"warning\"|\"info\"|\"success\",\"title\":string,\"message\":string,\"recommendation\":string,\"color\":\"red\"|\"orange\"|\"amber\"|\"blue\"|\"emerald\"|\"purple\",\"icon\":\"alert\"|\"lightbulb\"|\"trendUp\"|\"trendDown\"}]}. " +
 		"Constraints: max insights = " +
@@ -125,9 +140,19 @@ export async function getAiSpendingInsights(args: {
 	const user = JSON.stringify(
 		{
 			now: args.now.toISOString().slice(0, 10),
-			allowanceStats: args.context.allowanceStats,
-			savingsBalance: args.context.savingsBalance,
-			spending,
+			currentMonth: {
+				label: args.context.currentMonthLabel ?? args.now.toLocaleString("default", { month: "long" }),
+				allowanceStats: args.context.allowanceStats,
+				savingsBalance: args.context.savingsBalance,
+				spending,
+			},
+			...(hasPrevMonth && {
+				previousMonth: {
+					label: args.context.previousMonthLabel ?? "previous month",
+					spending: previousMonthSpending,
+					totalSpent: previousMonthSpending.reduce((sum, s) => sum + s.amount, 0),
+				},
+			}),
 		},
 		null,
 		2,

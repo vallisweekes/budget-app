@@ -30,10 +30,23 @@ export async function POST(req: NextRequest) {
 		if (!body || typeof body !== "object") return badRequest("Invalid JSON body");
 
 		const rawSpending = Array.isArray((body as any).spending) ? (body as any).spending : [];
+		const rawPrevSpending = Array.isArray((body as any).previousMonthSpending) ? (body as any).previousMonthSpending : [];
 		const rawAllowance = (body as any).allowanceStats ?? null;
 		const rawSavings = (body as any).savingsBalance;
+		const currentMonthLabel = typeof (body as any).currentMonthLabel === "string" ? (body as any).currentMonthLabel : undefined;
+		const previousMonthLabel = typeof (body as any).previousMonthLabel === "string" ? (body as any).previousMonthLabel : undefined;
 
 		const spending = rawSpending
+			.filter((s: any) => s && typeof s === "object")
+			.slice(0, 80)
+			.map((s: any) => ({
+				description: typeof s.description === "string" ? s.description : "",
+				amount: toNumber(s.amount),
+				date: typeof s.date === "string" ? s.date : "",
+				source: typeof s.source === "string" ? s.source : "unknown",
+			}));
+
+		const previousMonthSpending = rawPrevSpending
 			.filter((s: any) => s && typeof s === "object")
 			.slice(0, 80)
 			.map((s: any) => ({
@@ -53,7 +66,7 @@ export async function POST(req: NextRequest) {
 
 		const savingsBalance = toNumber(rawSavings);
 		const now = new Date();
-		const cacheKey = `spending-insights:${userId}:${now.getFullYear()}-${now.getMonth() + 1}:${spending.length}:${Math.round(
+		const cacheKey = `spending-insights:${userId}:${now.getFullYear()}-${now.getMonth() + 1}:${spending.length}:${previousMonthSpending.length}:${Math.round(
 			allowanceStats.percentUsed,
 		)}`;
 
@@ -62,7 +75,7 @@ export async function POST(req: NextRequest) {
 				return await getAiSpendingInsights({
 					cacheKey,
 					now,
-					context: { spending, allowanceStats, savingsBalance },
+					context: { spending, previousMonthSpending, allowanceStats, savingsBalance, currentMonthLabel, previousMonthLabel },
 					maxItems: 4,
 				});
 			} catch (err) {

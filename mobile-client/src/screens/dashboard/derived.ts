@@ -64,6 +64,8 @@ export function buildDashboardDerived(params: {
     .filter((d) => (d.currentBalance ?? 0) > 0)
     .map((d) => ({ ...d, dueAmount: getDebtDueAmount(d) }))
     .filter((d) => (d.dueAmount ?? 0) > 0)
+    // Exclude debts where this month's recorded payments already cover the due amount
+    .filter((d) => (d.paidThisMonthAmount ?? 0) < (d.dueAmount ?? 0))
     .sort((a, b) => (b.dueAmount ?? 0) - (a.dueAmount ?? 0));
 
   const formatShortDate = (iso: string | null | undefined) => {

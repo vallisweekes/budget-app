@@ -244,6 +244,8 @@ export interface DashboardDebt {
   amount: number;
   creditLimit: number | null;
   sourceType: string | null;
+  /** Total amount paid against this debt in the current calendar month */
+  paidThisMonthAmount: number;
 }
 
 /** Upcoming payment from expense insights */

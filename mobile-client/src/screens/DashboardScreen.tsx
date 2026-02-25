@@ -384,7 +384,12 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
         {/* Upcoming Payments (show 3 + See all) */}
         {upcoming.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Upcoming Expenses</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+              <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Upcoming Expenses</Text>
+              <Pressable onPress={() => navigation.navigate("Payments")} hitSlop={8}>
+                <Text style={styles.seeAllText}>See all</Text>
+              </Pressable>
+            </View>
             {upcoming.slice(0, 3).map((p) => {
               const dateLabel = formatShortDate(p.dueDate);
               const sub =
@@ -417,17 +422,19 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
                 </View>
               );
             })}
-            <Pressable onPress={() => navigation.navigate("Payments")} style={styles.seeAllBtn}>
-              <Text style={styles.seeAllText}>See all</Text>
-            </Pressable>
           </View>
         )}
 
         {/* Upcoming Debts */}
         {upcomingDebts.length > 0 && (
           <View style={[styles.section, styles.blueSection]}>
-            <Text style={[styles.sectionTitle, styles.blueSectionTitle]}>Upcoming Debts</Text>
-            {upcomingDebts.slice(0, 5).map((d) => (
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+              <Text style={[styles.sectionTitle, styles.blueSectionTitle, { marginBottom: 0 }]}>Upcoming Debts</Text>
+              <Pressable onPress={() => navigation.navigate("Debts")} hitSlop={8}>
+                <Text style={styles.seeAllText}>See all</Text>
+              </Pressable>
+            </View>
+            {upcomingDebts.slice(0, 3).map((d) => (
               <View key={d.id} style={styles.blueRow}>
                 <View style={styles.blueLeft}>
                   <View style={styles.blueAvatar}>

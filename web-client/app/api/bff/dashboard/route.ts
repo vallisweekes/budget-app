@@ -12,6 +12,7 @@ import { getMultiPlanHealthTips } from "@/lib/helpers/dashboard/getMultiPlanHeal
 import { getAllPlansDashboardData } from "@/lib/helpers/dashboard/getAllPlansDashboardData";
 import { MONTHS } from "@/lib/constants/time";
 import { currentMonthKey } from "@/lib/helpers/monthKey";
+import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 
@@ -151,6 +152,31 @@ export async function GET(req: NextRequest) {
 		})();
 
 		const debts = debtSummary.activeDebts;
+
+		// Query how much has been paid against each debt IN THE CURRENT MONTH
+		// so we can exclude already-paid debts from "Upcoming Debts".
+		const debtIds = debts.map((d) => d.id);
+		const currentMonthPaidByDebtId = new Map<string, number>();
+		if (debtIds.length > 0) {
+			try {
+				const monthPayments = await prisma.debtPayment.groupBy({
+					by: ["debtId"],
+					where: {
+						debtId: { in: debtIds },
+						year: currentPlanData.year,
+						month: currentPlanData.monthNum,
+					},
+					_sum: { amount: true },
+				});
+				for (const row of monthPayments) {
+					const total = Number(row._sum.amount ?? 0);
+					if (total > 0) currentMonthPaidByDebtId.set(row.debtId, total);
+				}
+			} catch (err) {
+				console.error("Dashboard: debt month-payment query failed:", err);
+			}
+		}
+
 		const debtTips = (() => {
 			try {
 				return computeDebtTips({ debts, totalIncome: currentPlanData.totalIncome });
@@ -239,6 +265,8 @@ export async function GET(req: NextRequest) {
 				amount: d.amount ?? 0,
 				creditLimit: d.creditLimit ?? null,
 				sourceType: d.sourceType ?? null,
+				// How much has already been paid against this debt this calendar month
+				paidThisMonthAmount: currentMonthPaidByDebtId.get(d.id) ?? 0,
 			})),
 			totalDebtBalance,
 

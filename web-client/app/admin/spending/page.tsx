@@ -10,7 +10,7 @@ import { authOptions } from "@/lib/auth";
 import { getDefaultBudgetPlanForUser, resolveUserId } from "@/lib/budgetPlans";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
-import { currentMonthKey } from "@/lib/helpers/monthKey";
+import { currentMonthKey, monthKeyToNumber, monthNumberToKey } from "@/lib/helpers/monthKey";
 import { getAllPots } from "@/lib/pots/store";
 import { HeroCanvasLayout } from "@/components/Shared";
 
@@ -52,11 +52,16 @@ export default async function SpendingPage(props: {
 	const budgetPlanId = budgetPlan.id;
 	if (!budgetPlanId) redirect("/budgets/new");
 	const month = currentMonth();
+	const prevMonthNum = monthKeyToNumber(month) - 1;
+	const prevMonth = prevMonthNum < 1 ? monthNumberToKey(12) : monthNumberToKey(prevMonthNum);
 	const debts = (await getAllDebts(budgetPlanId)).filter((d) => d.sourceType !== "expense");
-	const spending = await getSpendingForMonth(budgetPlanId, month);
-	const allowanceStats = await getAllowanceStats(month, budgetPlanId);
-	const settings = await getSettings(budgetPlanId);
-	const pots = await getAllPots(budgetPlanId, "allowance");
+	const [spending, prevSpending, allowanceStats, settings, pots] = await Promise.all([
+		getSpendingForMonth(budgetPlanId, month),
+		getSpendingForMonth(budgetPlanId, prevMonth),
+		getAllowanceStats(month, budgetPlanId),
+		getSettings(budgetPlanId),
+		getAllPots(budgetPlanId, "allowance"),
+	]);
 
 	return (
 		<HeroCanvasLayout
@@ -97,7 +102,10 @@ export default async function SpendingPage(props: {
 				{spending.length > 0 && (
 					<div className="mb-8">
 						<SpendingInsights 
-							spending={spending} 
+							spending={spending}
+							previousMonthSpending={prevSpending}
+							currentMonthLabel={month as string}
+							previousMonthLabel={prevMonth as string}
 							allowanceStats={allowanceStats}
 							savingsBalance={settings.savingsBalance || 0}
 						/>
