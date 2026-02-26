@@ -6,7 +6,7 @@ import { monthNumberToKey } from "@/lib/helpers/monthKey";
 import { resolveExpenseLogoWithSearch } from "@/lib/expenses/logoResolver";
 import { updateExpenseAcrossMonthsByName } from "@/lib/expenses/store";
 import { isNonDebtCategoryName } from "@/lib/expenses/helpers";
-import { isNonDebtCategoryName } from "@/lib/expenses/helpers";
+import { maybeSendCategoryThresholdPush } from "@/lib/push/thresholdNotifications";
 import { MONTHS } from "@/lib/constants/time";
 import type { MonthKey } from "@/types";
 
@@ -357,6 +357,27 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
         categoryId: updated.categoryId ?? undefined,
         categoryName: updated.category?.name ?? undefined,
         remainingAmount: 0,
+      });
+    }
+  }
+
+  // Fire category threshold push in background — only when amount or category changed
+  if (!updated.isAllocation && nextCategoryId) {
+    const categoryChanged = categoryId !== undefined && categoryId !== existing.categoryId;
+    const amountChanged = amount !== undefined;
+    if (categoryChanged || amountChanged) {
+      const existingAmountNumber = Number(existing.amount.toString());
+      const amountDelta = categoryChanged
+        ? nextAmountNumber                             // full amount moves to new category
+        : nextAmountNumber - existingAmountNumber;    // net change within same category
+      void maybeSendCategoryThresholdPush({
+        budgetPlanId: existing.budgetPlanId,
+        categoryId: nextCategoryId,
+        categoryName: updated.category?.name ?? null,
+        month: existing.month,
+        year: existing.year,
+        userId,
+        amountDelta,
       });
     }
   }

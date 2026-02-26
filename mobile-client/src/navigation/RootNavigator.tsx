@@ -305,7 +305,9 @@ function MainTabs() {
               onAnalytics={openAnalytics}
               onNotifications={openNotifications}
               leftVariant={isCategoryExpenses ? "back" : "avatar"}
-              onBack={() => navigation.goBack()}
+              onBack={isCategoryExpenses
+                ? () => navigation.navigate("Expenses" as any, { screen: "ExpensesList" } as any)
+                : undefined}
               centerLabel={isCategoryExpenses ? categoryExpensesName : undefined}
             />
           );

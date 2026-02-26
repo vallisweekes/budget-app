@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
 import { addOrUpdateExpenseAcrossMonths } from "@/lib/expenses/store";
 import { resolveExpenseLogoWithSearch } from "@/lib/expenses/logoResolver";
+import { maybeSendCategoryThresholdPush } from "@/lib/push/thresholdNotifications";
 import { MONTHS } from "@/lib/constants/time";
 import type { MonthKey } from "@/types";
 
@@ -177,5 +178,19 @@ export async function POST(req: NextRequest) {
   });
 
   if (!created) return NextResponse.json({ error: "Expense was not created" }, { status: 500 });
+
+  // Fire threshold push in background — never blocks the response
+  if (!isAllocation && categoryId && userId) {
+    void maybeSendCategoryThresholdPush({
+      budgetPlanId: ownedBudgetPlanId,
+      categoryId,
+      categoryName: (created as any).category?.name ?? null,
+      month,
+      year,
+      userId,
+      amountDelta: amount,
+    });
+  }
+
   return NextResponse.json(serializeExpense(created), { status: 201 });
 }

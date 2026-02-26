@@ -2,11 +2,16 @@ import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
 import { sendWebPushNotification } from "@/lib/push/webPush";
+import { sendMobilePushNotifications } from "@/lib/push/mobilePush";
 
 export const runtime = "nodejs";
 
 type WebPushSubscriptionDelegate = {
   deleteMany: (args: { where: { endpoint: { in: string[] } } }) => Promise<unknown>;
+};
+
+type MobilePushTokenDelegate = {
+  deleteMany: (args: { where: { token: { in: string[] } } }) => Promise<unknown>;
 };
 
 function startOfDayUTC(date: Date): Date {
@@ -48,9 +53,10 @@ export async function POST(req: Request) {
       dueDate: { not: null },
       budgetPlan: {
         user: {
-          webPushSubscriptions: {
-            some: {},
-          },
+          OR: [
+            { webPushSubscriptions: { some: {} } },
+            { mobilePushTokens: { some: {} } },
+          ],
         },
       },
     },
@@ -69,6 +75,11 @@ export async function POST(req: Request) {
                   auth: true,
                 },
               },
+              mobilePushTokens: {
+                select: {
+                  token: true,
+                },
+              },
             },
           },
         },
@@ -77,7 +88,9 @@ export async function POST(req: Request) {
   });
 
   let sent = 0;
+  let mobileSent = 0;
   const deadEndpoints: string[] = [];
+  const invalidMobileTokens: string[] = [];
 
   for (const debt of debts) {
     if (!debt.dueDate) continue;
@@ -124,6 +137,14 @@ export async function POST(req: Request) {
         }
       }
     }
+
+    // Mobile push fan-out
+    const mobileTokens = debt.budgetPlan.user.mobilePushTokens.map((t) => t.token);
+    if (mobileTokens.length > 0) {
+      const result = await sendMobilePushNotifications(mobileTokens, { title, body });
+      mobileSent += result.sent;
+      invalidMobileTokens.push(...result.invalidTokens);
+    }
   }
 
   if (deadEndpoints.length > 0) {
@@ -135,5 +156,20 @@ export async function POST(req: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, sent, removedSubscriptions: deadEndpoints.length });
+  if (invalidMobileTokens.length > 0) {
+    const mobilePushToken = (prisma as unknown as { mobilePushToken?: MobilePushTokenDelegate }).mobilePushToken;
+    if (mobilePushToken) {
+      await mobilePushToken.deleteMany({
+        where: { token: { in: Array.from(new Set(invalidMobileTokens)) } },
+      });
+    }
+  }
+
+  return NextResponse.json({
+    ok: true,
+    sent,
+    mobileSent,
+    removedSubscriptions: deadEndpoints.length,
+    removedMobileTokens: invalidMobileTokens.length,
+  });
 }
