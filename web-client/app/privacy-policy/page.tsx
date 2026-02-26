@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Privacy Policy | BudgetIn Check",
@@ -84,6 +85,9 @@ export default function PrivacyPolicyPage() {
             For privacy questions or requests, contact us at: <strong>privacy@yourdomain.com</strong>
           </p>
           <p className="text-sm text-slate-300">Replace this with your real monitored support/privacy email.</p>
+          <Link href="/terms" className="text-sm font-semibold text-cyan-300 hover:text-cyan-200">
+            Read Terms of Service
+          </Link>
         </section>
       </div>
     </main>
