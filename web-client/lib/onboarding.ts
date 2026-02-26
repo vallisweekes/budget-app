@@ -202,7 +202,7 @@ export async function saveOnboardingDraft(userId: string, input: OnboardingInput
   const derivedMainGoal: OnboardingGoalInput | null =
     mainGoals && mainGoals.length ? mainGoals[0] : input.mainGoal ?? null;
 
-  const updateData = {
+  const updateData: Record<string, unknown> = {
     mainGoal: derivedMainGoal ?? undefined,
     mainGoals: mainGoals ?? undefined,
     occupation: cleanText(input.occupation),
@@ -219,10 +219,48 @@ export async function saveOnboardingDraft(userId: string, input: OnboardingInput
     debtNotes: cleanText(input.debtNotes),
   };
 
-  return onboardingDelegate(prisma).update({
-    where: { userId },
-    data: updateData,
-  });
+  try {
+    return await onboardingDelegate(prisma).update({
+      where: { userId },
+      data: updateData,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+
+    // If Prisma client/schema/DB is out of sync (common during local dev), retry with legacy fields.
+    // Examples:
+    // - Unknown argument `mainGoals`
+    // - Invalid value for enum (e.g. `build_budget` before migration)
+    const shouldDropMainGoals =
+      /Unknown arg(ument)? `mainGoals`/i.test(message) || /data\.mainGoals/i.test(message);
+
+    const shouldDropBuildBudget =
+      /build_budget/i.test(message) && /enum|expected|invalid value/i.test(message);
+
+    if (!shouldDropMainGoals && !shouldDropBuildBudget) throw error;
+
+    const retryData: Record<string, unknown> = { ...updateData };
+
+    if (shouldDropMainGoals) {
+      delete retryData.mainGoals;
+    }
+
+    if (shouldDropBuildBudget) {
+      if (retryData.mainGoal === "build_budget") {
+        delete retryData.mainGoal;
+      }
+      if (Array.isArray(retryData.mainGoals)) {
+        const filtered = (retryData.mainGoals as unknown[]).filter((g) => g !== "build_budget");
+        retryData.mainGoals = filtered;
+        if (!filtered.length) delete retryData.mainGoals;
+      }
+    }
+
+    return onboardingDelegate(prisma).update({
+      where: { userId },
+      data: retryData,
+    });
+  }
 }
 
 async function ensurePersonalPlan(userId: string) {

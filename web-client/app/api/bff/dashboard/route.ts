@@ -50,24 +50,68 @@ export async function GET(req: NextRequest) {
 		});
 		const username = user?.name ?? null;
 
-		const onboarding = await prisma.userOnboardingProfile.findUnique({
-			where: { userId },
-			select: {
-				mainGoal: true,
-				mainGoals: true,
-				occupation: true,
-				monthlySalary: true,
-				expenseOneName: true,
-				expenseOneAmount: true,
-				expenseTwoName: true,
-				expenseTwoAmount: true,
-				hasAllowance: true,
-				allowanceAmount: true,
-				hasDebtsToManage: true,
-				debtAmount: true,
-				debtNotes: true,
-			},
-		});
+		// Best-effort onboarding context: never let dashboard fail due to schema/client mismatch.
+		let onboarding:
+			| {
+				mainGoal: unknown;
+				mainGoals?: unknown;
+				occupation: unknown;
+				monthlySalary: unknown;
+				expenseOneName: unknown;
+				expenseOneAmount: unknown;
+				expenseTwoName: unknown;
+				expenseTwoAmount: unknown;
+				hasAllowance: unknown;
+				allowanceAmount: unknown;
+				hasDebtsToManage: unknown;
+				debtAmount: unknown;
+				debtNotes: unknown;
+			}
+			| null = null;
+		try {
+			onboarding = await prisma.userOnboardingProfile.findUnique({
+				where: { userId },
+				select: {
+					mainGoal: true,
+					mainGoals: true,
+					occupation: true,
+					monthlySalary: true,
+					expenseOneName: true,
+					expenseOneAmount: true,
+					expenseTwoName: true,
+					expenseTwoAmount: true,
+					hasAllowance: true,
+					allowanceAmount: true,
+					hasDebtsToManage: true,
+					debtAmount: true,
+					debtNotes: true,
+				},
+			});
+		} catch (error) {
+			console.error("Dashboard: onboarding fetch failed:", error);
+			try {
+				onboarding = await prisma.userOnboardingProfile.findUnique({
+					where: { userId },
+					select: {
+						mainGoal: true,
+						occupation: true,
+						monthlySalary: true,
+						expenseOneName: true,
+						expenseOneAmount: true,
+						expenseTwoName: true,
+						expenseTwoAmount: true,
+						hasAllowance: true,
+						allowanceAmount: true,
+						hasDebtsToManage: true,
+						debtAmount: true,
+						debtNotes: true,
+					},
+				});
+			} catch (legacyError) {
+				console.error("Dashboard: onboarding legacy fetch failed:", legacyError);
+				onboarding = null;
+			}
+		}
 
 		// 1) Core plan data (income, expenses, allocations, goals, categories)
 		// This is required for the dashboard; let it throw if it truly can't compute.
@@ -218,6 +262,13 @@ export async function GET(req: NextRequest) {
 
 		const aiDashboardTips = await (async () => {
 			try {
+				const rawMainGoals = onboarding && "mainGoals" in onboarding ? (onboarding as { mainGoals?: unknown }).mainGoals : null;
+				const derivedMainGoals = Array.isArray(rawMainGoals)
+					? (rawMainGoals as unknown[])
+					: onboarding?.mainGoal
+						? [onboarding.mainGoal]
+						: [];
+
 				return await getAiBudgetTips({
 					cacheKey: `dashboard:${budgetPlanId}:${currentPlanData.year}-${currentPlanData.monthNum}`,
 					budgetPlanId,
@@ -226,23 +277,23 @@ export async function GET(req: NextRequest) {
 						username: username ?? null,
 						onboarding: onboarding
 							? {
-								mainGoal: onboarding.mainGoal ?? null,
-								mainGoals: Array.isArray(onboarding.mainGoals) ? onboarding.mainGoals : [],
-								occupation: onboarding.occupation ?? null,
+								mainGoal: (onboarding.mainGoal as string | null | undefined) ?? null,
+								mainGoals: derivedMainGoals as string[],
+								occupation: (onboarding.occupation as string | null | undefined) ?? null,
 								monthlySalary: onboarding.monthlySalary ? Number(onboarding.monthlySalary) : null,
 								expenseOne: {
-									name: onboarding.expenseOneName ?? null,
+									name: (onboarding.expenseOneName as string | null | undefined) ?? null,
 									amount: onboarding.expenseOneAmount ? Number(onboarding.expenseOneAmount) : null,
 								},
 								expenseTwo: {
-									name: onboarding.expenseTwoName ?? null,
+									name: (onboarding.expenseTwoName as string | null | undefined) ?? null,
 									amount: onboarding.expenseTwoAmount ? Number(onboarding.expenseTwoAmount) : null,
 								},
-								hasAllowance: onboarding.hasAllowance ?? null,
+								hasAllowance: (onboarding.hasAllowance as boolean | null | undefined) ?? null,
 								allowanceAmount: onboarding.allowanceAmount ? Number(onboarding.allowanceAmount) : null,
-								hasDebtsToManage: onboarding.hasDebtsToManage ?? null,
+								hasDebtsToManage: (onboarding.hasDebtsToManage as boolean | null | undefined) ?? null,
 								debtAmount: onboarding.debtAmount ? Number(onboarding.debtAmount) : null,
-								debtNotes: onboarding.debtNotes ?? null,
+								debtNotes: (onboarding.debtNotes as string | null | undefined) ?? null,
 							}
 							: null,
 						totalIncome: currentPlanData.totalIncome,

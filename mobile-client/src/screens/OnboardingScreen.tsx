@@ -125,17 +125,34 @@ export default function OnboardingScreen({
     }
   };
 
+  const goBackStep = () => {
+    setStep((prev) => Math.max(0, prev - 1));
+  };
+
   return (
     <SafeAreaView style={s.safe}>
+      {step > 0 ? (
+        <Pressable
+          onPress={goBackStep}
+          disabled={saving}
+          style={[s.floatingBackBtn, saving && s.disabled]}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
+          <Ionicons name="chevron-back" size={20} color="#ffffff" />
+        </Pressable>
+      ) : null}
+
       <ScrollView contentContainerStyle={s.wrap} keyboardShouldPersistTaps="handled">
-        <View style={s.header}>
-          <Text style={s.welcome}>
-            Welcome{displayName ? ` ${displayName}` : ""}
-          </Text>
-          <Text style={s.sub} numberOfLines={1} ellipsizeMode="tail">
-            Quick setup, then you’re in.
-          </Text>
-        </View>
+        {step === 0 ? (
+          <View style={s.header}>
+            <Text style={s.welcome}>Welcome{displayName ? ` ${displayName}` : ""}</Text>
+            <Text style={s.sub} numberOfLines={1} ellipsizeMode="tail">
+              Quick setup, then you’re in.
+            </Text>
+          </View>
+        ) : null}
 
         <View style={s.form}>
           {step === 0 ? (
@@ -316,16 +333,6 @@ export default function OnboardingScreen({
           ) : null}
 
           <View style={s.footerRow}>
-            {step === 0 ? null : (
-              <Pressable
-                onPress={() => setStep((prev) => Math.max(0, prev - 1))}
-                disabled={saving}
-                style={[s.secondaryBtn, saving && s.disabled]}
-              >
-                <Text style={s.secondaryText}>Back</Text>
-              </Pressable>
-            )}
-
             {step < 5 ? (
               <Pressable
                 onPress={async () => {
@@ -340,7 +347,7 @@ export default function OnboardingScreen({
                   }
                 }}
                 disabled={saving}
-                style={[s.primaryBtn, step === 0 && s.primaryBtnFull, saving && s.disabled]}
+                style={[s.primaryBtn, saving && s.disabled]}
               >
                 {saving ? (
                   <ActivityIndicator color={EXPENSES_TOTAL_BLUE} />
@@ -362,7 +369,21 @@ export default function OnboardingScreen({
 
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: EXPENSES_TOTAL_BLUE },
-  wrap: { flexGrow: 1, paddingHorizontal: 20, paddingVertical: 24 },
+  wrap: { flexGrow: 1, paddingHorizontal: 20, paddingVertical: 24, justifyContent: "center" },
+  floatingBackBtn: {
+    position: "absolute",
+    left: 20,
+    top: 18,
+    zIndex: 10,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "rgba(255,255,255,0.14)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.25)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   header: { minHeight: 220, alignItems: "center", justifyContent: "center", paddingVertical: 10 },
   welcome: { color: "#ffffff", fontSize: 26, fontWeight: "900", letterSpacing: -0.4, textAlign: "center" },
   sub: { color: "rgba(255,255,255,0.78)", marginTop: 10, fontSize: 13, fontWeight: "800", textAlign: "center", maxWidth: 360 },
@@ -429,34 +450,16 @@ const s = StyleSheet.create({
   },
   toggleText: { color: "#ffffff", fontWeight: "800" },
   toggleTextActive: { color: "#ffffff" },
-  footerRow: { marginTop: 12, flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 },
+  footerRow: { marginTop: 16, flexDirection: "row", justifyContent: "center", alignItems: "center" },
   primaryBtn: {
-    minWidth: 110,
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
+    width: "100%",
+    borderRadius: 999,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#ffffff",
   },
-  primaryBtnFull: {
-    flex: 1,
-    width: "100%",
-    borderRadius: 999,
-    paddingVertical: 14,
-  },
   primaryText: { color: EXPENSES_TOTAL_BLUE, fontWeight: "900" },
-  secondaryBtn: {
-    minWidth: 90,
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.40)",
-    backgroundColor: "transparent",
-  },
-  secondaryText: { color: "#ffffff", fontWeight: "800" },
   disabled: { opacity: 0.55 },
 });

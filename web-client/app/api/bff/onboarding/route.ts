@@ -79,9 +79,13 @@ export async function PATCH(request: Request) {
     const updated = await saveOnboardingDraft(userId, input);
     return NextResponse.json({ ok: true, profile: updated });
   } catch (error) {
+    console.error("Failed to update onboarding:", error);
     const message = error instanceof Error ? error.message : "Failed to update onboarding";
     const status = message === "Onboarding profile not found" ? 404 : 500;
-    return NextResponse.json({ error: message }, { status });
+
+    // Don’t expose internal Prisma/stack details to the client.
+    const clientMessage = status === 404 ? message : "Could not save right now. Please try again.";
+    return NextResponse.json({ error: clientMessage }, { status });
   }
 }
 
