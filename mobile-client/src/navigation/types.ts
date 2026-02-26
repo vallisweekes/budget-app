@@ -38,6 +38,7 @@ export type ExpensesStackParamList = {
     budgetPlanId: string | null;
     currency: string;
   };
+  UnplannedExpense: undefined;
 };
 
 /* ── Debt stack (inside Debts tab) ─────────────────────────── */

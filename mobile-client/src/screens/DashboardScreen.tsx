@@ -52,6 +52,8 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
   const [newGoalCurrent, setNewGoalCurrent] = useState("");
   const [creatingGoal, setCreatingGoal] = useState(false);
 
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+
   const currency = currencySymbol(settings?.currency);
 
   const goalIconName = (title: string): keyof typeof Ionicons.glyphMap => {
@@ -579,6 +581,47 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
           </View>
         )}
       </ScrollView>
+
+      {/* ── Quick-add FAB ── */}
+      <Pressable
+        style={styles.fab}
+        onPress={() => setQuickAddOpen(true)}
+        hitSlop={8}
+      >
+        <Ionicons name="flash" size={20} color={T.onAccent} />
+      </Pressable>
+
+      {/* ── Quick-add sheet ── */}
+      <Modal
+        visible={quickAddOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setQuickAddOpen(false)}
+      >
+        <View style={styles.qaOverlay}>
+          <Pressable style={styles.qaBackdrop} onPress={() => setQuickAddOpen(false)} />
+          <View style={styles.qaSheet}>
+            <View style={styles.qaHandle} />
+            <Text style={styles.qaTitle}>Quick Add</Text>
+            <Pressable
+              style={styles.qaOption}
+              onPress={() => {
+                setQuickAddOpen(false);
+                navigation.navigate("Expenses", { screen: "UnplannedExpense" });
+              }}
+            >
+              <View style={styles.qaOptionIcon}>
+                <Ionicons name="flash" size={18} color={T.onAccent} />
+              </View>
+              <View style={styles.qaOptionText}>
+                <Text style={styles.qaOptionTitle}>Add Expense</Text>
+                <Text style={styles.qaOptionSub}>Log something you've already spent</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={T.textDim} />
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -586,6 +629,63 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
 /* ── Styles ─────────────────────────────────────────────────── */
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: T.bg },
+
+  /* FAB */
+  fab: {
+    position: "absolute",
+    bottom: 28,
+    right: 22,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: T.accent,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: T.accent,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.45,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+
+  /* Quick-add sheet */
+  qaOverlay:  { flex: 1 },
+  qaBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)" },
+  qaSheet: {
+    backgroundColor: T.card,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 12,
+    paddingHorizontal: 18,
+    paddingBottom: 44,
+  },
+  qaHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: T.border,
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: 16,
+  },
+  qaTitle: { color: T.text, fontSize: 15, fontWeight: "700", marginBottom: 12 },
+  qaOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
+    gap: 14,
+  },
+  qaOptionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: T.accent,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  qaOptionText: { flex: 1 },
+  qaOptionTitle: { color: T.text, fontSize: 15, fontWeight: "600" },
+  qaOptionSub:   { color: T.textDim, fontSize: 12, marginTop: 1 },
+
   sheetOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.35)",

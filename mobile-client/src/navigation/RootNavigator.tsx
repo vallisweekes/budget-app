@@ -23,6 +23,7 @@ import IncomeScreen from "@/screens/IncomeScreen";
 import IncomeMonthScreen from "@/screens/IncomeMonthScreen";
 import ExpensesScreen from "@/screens/ExpensesScreen";
 import CategoryExpensesScreen from "@/screens/CategoryExpensesScreen";
+import UnplannedExpenseScreen from "@/screens/UnplannedExpenseScreen";
 import DebtScreen from "@/screens/DebtScreen";
 import DebtDetailScreen from "@/screens/DebtDetailScreen";
 import DebtAnalyticsScreen from "@/screens/DebtAnalyticsScreen";
@@ -53,6 +54,7 @@ function ExpensesStackNavigator() {
     <ExpensesStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: T.bg } }}>
       <ExpensesStack.Screen name="ExpensesList" component={ExpensesScreen} />
       <ExpensesStack.Screen name="CategoryExpenses" component={CategoryExpensesScreen} />
+      <ExpensesStack.Screen name="UnplannedExpense" component={UnplannedExpenseScreen} />
     </ExpensesStack.Navigator>
   );
 }
@@ -202,6 +204,16 @@ function RootTopHeader({ navigation }: { navigation: any }) {
 }
 
 const s = StyleSheet.create({
+  flashBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: T.accent,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: T.accentBorder,
+  },
   incomeYearWrap: {
     flexDirection: "row",
     alignItems: "center",
@@ -269,6 +281,8 @@ function MainTabs() {
           if (isDebtDetail) return null;
 
           const isCategoryExpenses = deepestRoute?.name === "CategoryExpenses";
+          const isExpensesList = deepestRoute?.name === "ExpensesList";
+          const isUnplannedExpense = deepestRoute?.name === "UnplannedExpense";
           const categoryExpensesName = typeof deepestRoute?.params?.categoryName === "string"
             ? deepestRoute.params.categoryName
             : undefined;
@@ -298,17 +312,30 @@ function MainTabs() {
             navigation.navigate("Settings");
           };
 
+          const expensesListLeftContent = isExpensesList ? (
+            <Pressable
+              onPress={() => navigation.navigate("Expenses" as any, { screen: "UnplannedExpense" } as any)}
+              style={s.flashBtn}
+              hitSlop={10}
+            >
+              <Ionicons name="flash" size={18} color={T.onAccent} />
+            </Pressable>
+          ) : undefined;
+
           return (
             <TopHeader
               onSettings={() => navigation.navigate("Settings")}
               onIncome={openIncome}
               onAnalytics={openAnalytics}
               onNotifications={openNotifications}
-              leftVariant={isCategoryExpenses ? "back" : "avatar"}
+              leftVariant={isCategoryExpenses || isUnplannedExpense ? "back" : "avatar"}
               onBack={isCategoryExpenses
                 ? () => navigation.navigate("Expenses" as any, { screen: "ExpensesList" } as any)
-                : undefined}
+                : isUnplannedExpense
+                  ? () => navigation.navigate("Expenses" as any, { screen: "ExpensesList" } as any)
+                  : undefined}
               centerLabel={isCategoryExpenses ? categoryExpensesName : undefined}
+              leftContent={expensesListLeftContent}
             />
           );
         },
