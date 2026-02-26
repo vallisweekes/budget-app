@@ -39,6 +39,7 @@ export type ExpensesStackParamList = {
     currency: string;
   };
   UnplannedExpense: undefined;
+  ScanReceipt: undefined;
 };
 
 /* ── Debt stack (inside Debts tab) ─────────────────────────── */

@@ -25,6 +25,10 @@
       "buildNumber": "1",
       "config": {
         "usesNonExemptEncryption": false
+      },
+      "infoPlist": {
+        "NSCameraUsageDescription": "BudgetIn uses your camera to scan receipts and auto-fill expense details.",
+        "NSPhotoLibraryUsageDescription": "BudgetIn accesses your photo library to import receipts."
       }
     },
     "android": {
@@ -39,7 +43,14 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-font"
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "BudgetIn accesses your photo library to import receipts.",
+          "cameraPermission": "BudgetIn uses your camera to scan receipts and auto-fill expense details."
+        }
+      ]
     ]
   }
 }

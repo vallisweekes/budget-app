@@ -8,6 +8,9 @@ import type { AddExpenseFormProps, ExpenseCategoryOption } from "@/types/expense
 import { addExpenseAction } from "@/app/admin/expenses/actions";
 import AddExpensePeriodControls from "@/components/Expenses/ExpenseManager/AddExpensePeriodControls";
 import AddExpenseDetailsFields from "@/components/Expenses/ExpenseManager/AddExpenseDetailsFields";
+import ReceiptUploadPanel from "@/components/Expenses/ExpenseManager/ReceiptUploadPanel";
+
+type Mode = "manual" | "receipt";
 
 export default function AddExpenseForm({
 	budgetPlanId,
@@ -27,6 +30,7 @@ export default function AddExpenseForm({
 	const [isPending, startTransition] = useTransition();
 	const disabled = Boolean(isBusy) || isPending;
 
+	const [mode, setMode] = useState<Mode>("manual");
 	const [error, setError] = useState<string | null>(null);
 	const [addMonth, setAddMonth] = useState<MonthKey>(month);
 	const [addYear, setAddYear] = useState<number>(year);
@@ -98,6 +102,52 @@ export default function AddExpenseForm({
 
 	return (
 		<div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl shadow-xl p-8 border border-white/10">
+			{/* Mode toggle */}
+			<div className="flex gap-1 rounded-2xl bg-slate-900/50 p-1 mb-6">
+				<button
+					type="button"
+					onClick={() => setMode("manual")}
+					className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-sm font-medium transition-all ${
+						mode === "manual"
+							? "bg-purple-600 text-white shadow"
+							: "text-slate-400 hover:text-white"
+					}`}
+				>
+					<svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+						<path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+					</svg>
+					Manual Entry
+				</button>
+				<button
+					type="button"
+					onClick={() => setMode("receipt")}
+					className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-sm font-medium transition-all ${
+						mode === "receipt"
+							? "bg-purple-600 text-white shadow"
+							: "text-slate-400 hover:text-white"
+					}`}
+				>
+					<svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+						<path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5V19a2 2 0 002 2h14a2 2 0 002-2v-2.5M16 10l-4-4m0 0L8 10m4-4v12" />
+					</svg>
+					Upload Receipt
+				</button>
+			</div>
+
+			{/* Receipt upload panel */}
+			{mode === "receipt" && (
+				<ReceiptUploadPanel
+					budgetPlanId={addBudgetPlanId}
+					month={addMonth}
+					year={addYear}
+					categories={addFormCategories}
+					onAdded={onAdded}
+					onError={onError}
+				/>
+			)}
+
+			{/* Manual entry form */}
+			{mode === "manual" && (
 			<form onSubmit={submit} className="space-y-6">
 				<input type="hidden" name="budgetPlanId" value={addBudgetPlanId} />
 				<input type="hidden" name="month" value={addMonth} />
@@ -140,6 +190,7 @@ export default function AddExpenseForm({
 
 				{error ? <p className="text-sm text-red-200">{error}</p> : null}
 			</form>
+			)}
 		</div>
 	);
 }

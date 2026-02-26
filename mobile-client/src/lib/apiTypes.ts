@@ -493,3 +493,26 @@ export interface ExpenseSummary {
   unpaidAmount: number;
   categoryBreakdown: ExpenseCategoryBreakdown[];
 }
+
+/* \u2500\u2500 Receipt scanning \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+
+/** Response from POST /api/bff/receipts/scan */
+export interface ReceiptScanResponse {
+  receiptId: string;
+  merchant: string | null;
+  amount: number | null;
+  currency: string | null;
+  /** YYYY-MM-DD */
+  date: string | null;
+  suggestedCategory: string | null;
+}
+
+/** Body for POST /api/bff/receipts/[id]/confirm */
+export interface ReceiptConfirmBody {
+  name: string;
+  amount: number;
+  month: number;
+  year: number;
+  categoryId?: string;
+  budgetPlanId?: string;
+}

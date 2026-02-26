@@ -607,6 +607,22 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
               style={styles.qaOption}
               onPress={() => {
                 setQuickAddOpen(false);
+                navigation.navigate("Expenses", { screen: "ScanReceipt" });
+              }}
+            >
+              <View style={[styles.qaOptionIcon, { backgroundColor: T.green }]}>
+                <Ionicons name="camera" size={18} color={T.onAccent} />
+              </View>
+              <View style={styles.qaOptionText}>
+                <Text style={styles.qaOptionTitle}>Scan Receipt</Text>
+                <Text style={styles.qaOptionSub}>AI reads amount, merchant &amp; date</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={T.textDim} />
+            </Pressable>
+            <Pressable
+              style={styles.qaOption}
+              onPress={() => {
+                setQuickAddOpen(false);
                 navigation.navigate("Expenses", { screen: "UnplannedExpense" });
               }}
             >

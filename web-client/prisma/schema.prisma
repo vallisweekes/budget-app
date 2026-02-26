@@ -52,6 +52,7 @@ model User {
   budgetPlans   BudgetPlan[]
   webPushSubscriptions WebPushSubscription[]
   mobilePushTokens MobilePushToken[]
+  receipts       Receipt[]
   
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
@@ -145,6 +146,7 @@ model BudgetPlan {
   monthlyAllocations MonthlyAllocation[]
   allocationDefinitions AllocationDefinition[]
   monthlyAllocationItems MonthlyAllocationItem[]
+  receipts   Receipt[]
   
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -463,4 +465,45 @@ enum BudgetStrategy {
 }
 
 // Removed Settings model - now part of BudgetPlan
+
+// ── Receipt scanning ──────────────────────────────────────────────
+
+enum ReceiptStatus {
+  pending
+  confirmed
+  failed
+}
+
+model Receipt {
+  id           String        @id @default(cuid())
+
+  userId       String
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  budgetPlanId String?
+  budgetPlan   BudgetPlan?   @relation(fields: [budgetPlanId], references: [id], onDelete: SetNull)
+
+  // AI-parsed fields (editable by user before confirming)
+  merchant     String?
+  amount       Decimal?      @db.Decimal(12, 2)
+  currency     String?       @default("GBP")
+  expenseDate  DateTime?
+  suggestedCategory String?
+
+  // Full raw JSON from AI
+  rawJson      Json?
+
+  // Lifecycle
+  status       ReceiptStatus @default(pending)
+
+  // ID of the Expense record created when user confirms
+  expenseId    String?       @unique
+
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([userId])
+  @@index([budgetPlanId])
+  @@index([userId, status])
+}
 

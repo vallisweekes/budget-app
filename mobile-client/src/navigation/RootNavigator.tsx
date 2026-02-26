@@ -24,6 +24,7 @@ import IncomeMonthScreen from "@/screens/IncomeMonthScreen";
 import ExpensesScreen from "@/screens/ExpensesScreen";
 import CategoryExpensesScreen from "@/screens/CategoryExpensesScreen";
 import UnplannedExpenseScreen from "@/screens/UnplannedExpenseScreen";
+import ScanReceiptScreen from "@/screens/ScanReceiptScreen";
 import DebtScreen from "@/screens/DebtScreen";
 import DebtDetailScreen from "@/screens/DebtDetailScreen";
 import DebtAnalyticsScreen from "@/screens/DebtAnalyticsScreen";
@@ -55,6 +56,7 @@ function ExpensesStackNavigator() {
       <ExpensesStack.Screen name="ExpensesList" component={ExpensesScreen} />
       <ExpensesStack.Screen name="CategoryExpenses" component={CategoryExpensesScreen} />
       <ExpensesStack.Screen name="UnplannedExpense" component={UnplannedExpenseScreen} />
+      <ExpensesStack.Screen name="ScanReceipt" component={ScanReceiptScreen} />
     </ExpensesStack.Navigator>
   );
 }
@@ -283,6 +285,7 @@ function MainTabs() {
           const isCategoryExpenses = deepestRoute?.name === "CategoryExpenses";
           const isExpensesList = deepestRoute?.name === "ExpensesList";
           const isUnplannedExpense = deepestRoute?.name === "UnplannedExpense";
+          const isScanReceipt = deepestRoute?.name === "ScanReceipt";
           const categoryExpensesName = typeof deepestRoute?.params?.categoryName === "string"
             ? deepestRoute.params.categoryName
             : undefined;
@@ -313,13 +316,22 @@ function MainTabs() {
           };
 
           const expensesListLeftContent = isExpensesList ? (
-            <Pressable
-              onPress={() => navigation.navigate("Expenses" as any, { screen: "UnplannedExpense" } as any)}
-              style={s.flashBtn}
-              hitSlop={10}
-            >
-              <Ionicons name="flash" size={18} color={T.onAccent} />
-            </Pressable>
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              <Pressable
+                onPress={() => navigation.navigate("Expenses" as any, { screen: "ScanReceipt" } as any)}
+                style={s.flashBtn}
+                hitSlop={10}
+              >
+                <Ionicons name="camera" size={17} color={T.onAccent} />
+              </Pressable>
+              <Pressable
+                onPress={() => navigation.navigate("Expenses" as any, { screen: "UnplannedExpense" } as any)}
+                style={s.flashBtn}
+                hitSlop={10}
+              >
+                <Ionicons name="flash" size={18} color={T.onAccent} />
+              </Pressable>
+            </View>
           ) : undefined;
 
           return (
@@ -328,10 +340,10 @@ function MainTabs() {
               onIncome={openIncome}
               onAnalytics={openAnalytics}
               onNotifications={openNotifications}
-              leftVariant={isCategoryExpenses || isUnplannedExpense ? "back" : "avatar"}
+              leftVariant={isCategoryExpenses || isUnplannedExpense || isScanReceipt ? "back" : "avatar"}
               onBack={isCategoryExpenses
                 ? () => navigation.navigate("Expenses" as any, { screen: "ExpensesList" } as any)
-                : isUnplannedExpense
+                : isUnplannedExpense || isScanReceipt
                   ? () => navigation.navigate("Expenses" as any, { screen: "ExpensesList" } as any)
                   : undefined}
               centerLabel={isCategoryExpenses ? categoryExpensesName : undefined}
