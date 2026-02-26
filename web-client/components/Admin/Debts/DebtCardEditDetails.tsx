@@ -2,11 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { formatCurrency } from "@/lib/helpers/money";
-
-function Currency({ value }: { value: number }) {
-	return <span>{formatCurrency(value)}</span>;
-}
+import { getSettingsHrefFromPathname } from "@/lib/helpers/settings/settingsHref";
+import DebtInstallmentPlanEditor from "@/components/Admin/Debts/DebtInstallmentPlanEditor";
 
 export default function DebtCardEditDetails(props: {
 	debtType: string;
@@ -32,13 +29,7 @@ export default function DebtCardEditDetails(props: {
 	creditCardOptions?: Array<{ value: string; label: string }>;
 }) {
 	const pathname = usePathname();
-	const settingsHref = (() => {
-		const parts = String(pathname ?? "").split("/").filter(Boolean);
-		if (parts.length >= 2 && parts[0].startsWith("user=")) {
-			return `/${parts[0]}/${parts[1]}/page=settings`;
-		}
-		return "/admin/settings";
-	})();
+	const settingsHref = getSettingsHrefFromPathname(pathname);
 
 	const {
 		debtType,
@@ -63,15 +54,6 @@ export default function DebtCardEditDetails(props: {
 		onEditDefaultPaymentCardDebtIdChange,
 		creditCardOptions,
 	} = props;
-
-	const installmentMonths = editInstallmentMonths ? parseFloat(editInstallmentMonths) : 0;
-	const currentBalance = parseFloat(editCurrentBalance);
-	const monthlyMinimum = editMonthlyMinimum ? parseFloat(editMonthlyMinimum) : 0;
-
-	const hasInstallment = installmentMonths > 0 && Number.isFinite(currentBalance) && currentBalance > 0;
-	const baseInstallment = hasInstallment ? currentBalance / installmentMonths : 0;
-	const minApplies =
-		Number.isFinite(monthlyMinimum) && monthlyMinimum > 0 && hasInstallment && monthlyMinimum > baseInstallment;
 
 	return (
 		<>
@@ -207,48 +189,12 @@ export default function DebtCardEditDetails(props: {
 				</div>
 			</div>
 
-			<div className="mb-3 sm:mb-4">
-				<label className="block text-[10px] sm:text-xs text-slate-400 mb-1.5 sm:mb-2">
-					Installment Plan (spread cost over time)
-				</label>
-				<div className="flex flex-wrap gap-1.5 sm:gap-2">
-					{[0, 2, 3, 4, 6, 8, 9, 12, 18, 24, 30, 36].map((months) => (
-						<button
-							key={months}
-							type="button"
-							onClick={() => onSelectInstallmentMonths(months)}
-							className={`px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg text-[10px] sm:text-sm font-medium transition-all ${
-								(months === 0 && !editInstallmentMonths) || editInstallmentMonths === String(months)
-									? "bg-purple-500 text-white"
-									: "bg-slate-800/40 text-slate-300 hover:bg-slate-700/40 border border-white/10"
-							}`}
-						>
-							{months === 0 ? "None" : `${months} months`}
-						</button>
-					))}
-				</div>
-
-				{hasInstallment && (
-					<div className="mt-2 sm:mt-3 p-2 sm:p-3 bg-purple-500/10 rounded-lg border border-purple-500/20">
-						<div className="text-xs sm:text-sm text-purple-300">
-							Installment:{" "}
-							<span className="font-bold">
-								<Currency value={baseInstallment} />
-							</span>{" "}
-							per month for {installmentMonths} months
-							<div className="text-xs text-slate-400 mt-1">💡 &quot;Due This Month&quot; will be auto-calculated based on this plan</div>
-							{minApplies && (
-								<div className="text-xs text-amber-400 mt-2 flex items-start gap-1">
-									<span>⚠️</span>
-									<span>
-										Monthly minimum (£{monthlyMinimum.toFixed(2)}) is higher than installment. The higher amount will be used.
-									</span>
-								</div>
-							)}
-						</div>
-					</div>
-				)}
-			</div>
+			<DebtInstallmentPlanEditor
+				editInstallmentMonths={editInstallmentMonths}
+				editCurrentBalance={editCurrentBalance}
+				editMonthlyMinimum={editMonthlyMinimum}
+				onSelectInstallmentMonths={onSelectInstallmentMonths}
+			/>
 		</>
 	);
 }

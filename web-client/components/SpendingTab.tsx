@@ -4,6 +4,8 @@ import { useState, useTransition } from "react";
 import { addSpendingAction, removeSpendingAction } from "@/lib/spending/actions";
 import { useRouter } from "next/navigation";
 import { DeleteConfirmModal, SelectDropdown } from "@/components/Shared";
+import SpendingEntriesList from "@/components/SpendingEntriesList";
+import SpendingAllowancePotFields from "@/components/SpendingAllowancePotFields";
 
 interface SpendingEntry {
   id: string;
@@ -163,37 +165,13 @@ export default function SpendingTab({ budgetPlanId, month, debts, spending, pots
             </label>
           </div>
 
-      {source === "allowance" && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <label className="block">
-            <span className="block text-sm font-medium text-slate-300 mb-1">Allowance Pot</span>
-            <SelectDropdown
-              name="potId"
-              value={selectedPotId}
-              onValueChange={(v) => setSelectedPotId(v)}
-              placeholder={pots.length ? "Select a pot" : "Create your first pot"}
-              options={[
-                ...pots.map((p) => ({ value: p.id, label: p.name })),
-                { value: "__new__", label: "+ New pot" },
-              ]}
-              buttonClassName="rounded-lg px-4 py-2 focus:ring-purple-500"
-              menuClassName="rounded-xl"
-            />
-          </label>
-
-          {selectedPotId === "__new__" && (
-            <label className="block">
-              <span className="block text-sm font-medium text-slate-300 mb-1">New pot name</span>
-              <input
-                name="newPotName"
-                required
-                placeholder="e.g., Jayda, Personal, Kids"
-                className="w-full px-4 py-2 bg-slate-900/40 border border-white/10 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent placeholder:text-slate-500"
-              />
-            </label>
-          )}
-        </div>
-      )}
+      {source === "allowance" ? (
+        <SpendingAllowancePotFields
+          pots={pots}
+          selectedPotId={selectedPotId}
+          onSelectedPotIdChange={setSelectedPotId}
+        />
+      ) : null}
           
           <button
             type="submit"
@@ -207,30 +185,7 @@ export default function SpendingTab({ budgetPlanId, month, debts, spending, pots
       
       <div className="bg-slate-800/40 rounded-2xl p-6 shadow-xl border border-white/10">
         <h2 className="text-xl font-semibold text-white mb-4">Spending This Month</h2>
-        <ul className="space-y-2">
-          {spending.length === 0 && <li className="text-slate-400">No spending logged yet.</li>}
-          {spending.map(entry => (
-            <li key={entry.id} className="flex items-center justify-between bg-slate-900/40 rounded-lg p-3">
-              <div>
-                <div className="text-white font-medium">{entry.description}</div>
-							<div className="text-xs text-slate-400">
-								£{entry.amount.toLocaleString()} • {entry.source.charAt(0).toUpperCase() + entry.source.slice(1)}
-								{entry.source === "allowance" && entry.potId
-									? ` • ${pots.find((p) => p.id === entry.potId)?.name ?? "Pot"}`
-									: ""}
-							</div>
-              </div>
-              <button
-                onClick={() => handleRemoveClick(entry)}
-                disabled={isPending}
-                className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-                title="Delete"
-              >
-                Remove
-              </button>
-            </li>
-          ))}
-        </ul>
+      <SpendingEntriesList spending={spending} pots={pots} isPending={isPending} onRemoveClick={handleRemoveClick} />
       </div>
     </div>
   );

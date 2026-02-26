@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { ChevronDown } from "lucide-react";
 import type { MonthKey } from "@/types";
 import { formatCurrency } from "@/lib/helpers/money";
+import PaymentStatusButtonMenu from "@/components/PaymentStatusButtonMenu";
 
 interface PaymentStatusButtonProps {
 	expenseName: string;
@@ -14,10 +14,6 @@ interface PaymentStatusButtonProps {
 	month: MonthKey;
 	id: string;
 	updatePaymentStatus: (month: MonthKey, id: string, status: "paid" | "unpaid" | "partial", partialAmount?: number) => Promise<void>;
-}
-
-function Currency({ value }: { value: number }) {
-	return <span>{formatCurrency(value)}</span>;
 }
 
 export default function PaymentStatusButton({
@@ -126,78 +122,20 @@ export default function PaymentStatusButton({
 				<ChevronDown size={12} className="sm:w-3.5 sm:h-3.5" />
 			</button>
 
-
-			{isOpen && canUseDOM && menuPosition
-				? createPortal(
-					<>
-						<div className="fixed inset-0 z-[9998]" onClick={closeMenu} />
-						<div
-							className="fixed w-64 bg-slate-950/80 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/10 z-[9999] overflow-hidden"
-							style={{ top: menuPosition.top, left: menuPosition.left }}
-							aria-label={`${expenseName} payment status`}
-						>
-							{!showPartialInput ? (
-								<div className="p-2">
-									<button
-										onClick={() => handleStatusChange("paid")}
-										className="w-full text-left px-3 py-2 hover:bg-white/10 focus:bg-white/10 rounded-xl transition-colors text-sm font-medium text-emerald-400"
-									>
-										Paid
-									</button>
-									<button
-										onClick={() => handleStatusChange("partial")}
-										className="w-full text-left px-3 py-2 hover:bg-white/10 focus:bg-white/10 rounded-xl transition-colors text-sm font-medium text-amber-400"
-									>
-										Partially Paid
-									</button>
-									<button
-										onClick={() => handleStatusChange("unpaid")}
-										className="w-full text-left px-3 py-2 hover:bg-white/10 focus:bg-white/10 rounded-xl transition-colors text-sm font-medium text-red-400"
-									>
-										Unpaid
-									</button>
-								</div>
-							) : (
-								<div className="p-4">
-									<div className="mb-3">
-										<label className="block text-sm font-medium text-slate-300 mb-2">
-											Amount Paid
-										</label>
-										<input
-											type="number"
-											value={partialValue}
-											onChange={(e) => setPartialValue(Number(e.target.value))}
-											max={amount}
-											min={0}
-											step="0.01"
-											className="w-full px-3 py-2 border border-white/10 bg-slate-900/40 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50"
-											placeholder="0.00"
-										/>
-										<p className="text-xs text-slate-400 mt-1">
-											Total: <Currency value={amount} />
-										</p>
-									</div>
-									<div className="flex gap-2">
-										<button
-											onClick={() => setShowPartialInput(false)}
-											className="flex-1 px-3 py-2 border border-white/10 bg-slate-900/40 text-slate-200 rounded-xl hover:bg-slate-900/60 transition-colors text-sm font-medium"
-										>
-											Cancel
-										</button>
-										<button
-											onClick={handlePartialSubmit}
-											className="flex-1 px-3 py-2 bg-[var(--cta)] hover:bg-[var(--cta-hover)] active:bg-[var(--cta-active)] text-white rounded-xl transition-colors text-sm font-medium shadow-lg"
-										>
-											Save
-										</button>
-									</div>
-								</div>
-							)}
-						</div>
-					</>,
-					document.body
-				)
-				: null}
+			<PaymentStatusButtonMenu
+				expenseName={expenseName}
+				amount={amount}
+				isOpen={isOpen}
+				canUseDOM={canUseDOM}
+				menuPosition={menuPosition}
+				showPartialInput={showPartialInput}
+				partialValue={partialValue}
+				onPartialValueChange={setPartialValue}
+				onClose={closeMenu}
+				onChooseStatus={handleStatusChange}
+				onSubmitPartial={handlePartialSubmit}
+				onCancelPartial={() => setShowPartialInput(false)}
+			/>
 		</div>
 	);
 }
