@@ -70,7 +70,7 @@ export default function DebtCardRecentPayments(props: {
 						>
 							<div className="flex items-center gap-2 min-w-0">
 								<span className="text-slate-400 truncate">
-									{new Date(payment.date).toLocaleDateString()}
+								{new Date(payment.date).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" })}
 									{payment.source ? (
 										<span className="ml-2 text-xs text-slate-500">
 											(

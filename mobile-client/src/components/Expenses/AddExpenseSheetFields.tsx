@@ -1,13 +1,13 @@
 import React, { useState, useCallback, useRef } from "react";
-import { Modal, Platform, Pressable, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Modal, Platform, Pressable, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Ionicons } from "@expo/vector-icons";
 
-import type { ExpenseCategoryBreakdown } from "@/lib/apiTypes";
+import type { CreditCard, ExpenseCategoryBreakdown, ExpensePaymentSource } from "@/lib/apiTypes";
 import { T } from "@/lib/theme";
 
 import AddExpenseCategoryRow from "@/components/Expenses/AddExpenseCategoryRow";
-import { s } from "@/components/Expenses/AddExpenseSheet.styles";
+import { s, pr } from "@/components/Expenses/AddExpenseSheet.styles";
 
 /** Format a YYYY-MM-DD string to DD/MM/YYYY for display */
 function isoToDMY(iso: string): string {
@@ -25,6 +25,11 @@ export default function AddExpenseSheetFields({
   setCategoryId,
   dueDate,
   setDueDate,
+  paymentSource,
+  setPaymentSource,
+  cardDebtId,
+  setCardDebtId,
+  cards,
   categories,
   currency,
 }: {
@@ -36,6 +41,11 @@ export default function AddExpenseSheetFields({
   setCategoryId: (v: string) => void;
   dueDate: string;
   setDueDate: (v: string) => void;
+  paymentSource: ExpensePaymentSource;
+  setPaymentSource: (v: ExpensePaymentSource) => void;
+  cardDebtId: string;
+  setCardDebtId: (v: string) => void;
+  cards: CreditCard[];
   categories: ExpenseCategoryBreakdown[];
   currency: string;
 }) {
@@ -101,6 +111,66 @@ export default function AddExpenseSheetFields({
       <View style={s.fieldGroup}>
         <Text style={s.label}>Category</Text>
         <AddExpenseCategoryRow categories={categories} value={categoryId} onChange={setCategoryId} />
+      </View>
+
+      {/* ── Source of Funds ── */}
+      <View style={s.fieldGroup}>
+        <Text style={s.label}>Source of funds</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={pr.row}>
+          {(
+            [
+              { value: "income",      label: "Income" },
+              { value: "credit_card", label: "Credit Card" },
+              { value: "savings",     label: "Savings" },
+              { value: "other",       label: "Other" },
+            ] as { value: ExpensePaymentSource; label: string }[]
+          ).map((opt) => {
+            const active = paymentSource === opt.value;
+            return (
+              <TouchableOpacity
+                key={opt.value}
+                onPress={() => {
+                  setPaymentSource(opt.value);
+                  if (opt.value !== "credit_card") setCardDebtId("");
+                }}
+                style={[pr.pill, active && pr.pillSelected]}
+                activeOpacity={0.75}
+              >
+                <Text style={[pr.pillTxt, active && pr.pillTxtSelected]}>{opt.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
+        {/* Card picker — shown only when credit_card is selected and >1 card */}
+        {paymentSource === "credit_card" && cards.length > 1 && (
+          <View style={{ gap: 6, marginTop: 6 }}>
+            <Text style={[s.label, { marginBottom: 0 }]}>Which card?</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={pr.row}>
+              {cards.map((card) => {
+                const active = cardDebtId === card.id;
+                return (
+                  <TouchableOpacity
+                    key={card.id}
+                    onPress={() => setCardDebtId(card.id)}
+                    style={[pr.pill, active && pr.pillSelected]}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={[pr.pillTxt, active && pr.pillTxtSelected]}>{card.name}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
+
+        {paymentSource === "credit_card" && cards.length === 0 && (
+          <View style={{ backgroundColor: "#f59e0b18", borderRadius: 10, padding: 10, marginTop: 4, borderWidth: 1, borderColor: "#f59e0b44" }}>
+            <Text style={{ color: "#f59e0b", fontSize: 12, fontWeight: "700" }}>
+              No credit cards found. Add one in Debts first.
+            </Text>
+          </View>
+        )}
       </View>
 
       <View style={s.fieldGroup}>

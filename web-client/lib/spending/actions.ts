@@ -189,8 +189,8 @@ export async function getAllowanceStats(month: string, budgetPlanId: string) {
     totalUsed,
     remaining,
     percentUsed: monthlyAllowance > 0 ? (totalUsed / monthlyAllowance) * 100 : 0,
-    periodStart: payPeriod.start.toLocaleDateString(),
-    periodEnd: payPeriod.end.toLocaleDateString(),
+    periodStart: payPeriod.start.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" }),
+    periodEnd: payPeriod.end.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" }),
     periodMonth: payPeriod.periodMonth
   };
 }

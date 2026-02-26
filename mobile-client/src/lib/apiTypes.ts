@@ -11,6 +11,17 @@ export interface Category {
   updatedAt: string;
 }
 
+/** Credit / store card from /api/bff/credit-cards */
+export interface CreditCard {
+  id: string;
+  name: string;
+  type: string;
+  creditLimit: string | null;
+  currentBalance: string | null;
+}
+
+export type ExpensePaymentSource = "income" | "credit_card" | "savings" | "other";
+
 export interface Expense {
   id: string;
   name: string;
@@ -30,6 +41,10 @@ export interface Expense {
   /** ISO timestamp of the last payment applied to this expense. null = never paid. */
   lastPaymentAt: string | null;
   isMissedPayment?: boolean;
+  /** Intended payment source stored at creation time */
+  paymentSource: ExpensePaymentSource;
+  /** Credit card debt ID when paymentSource = credit_card */
+  cardDebtId: string | null;
 }
 
 export interface Income {

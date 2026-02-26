@@ -216,9 +216,15 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
     setExpenses(prev => prev.map(e => e.id === expense.id ? { ...e, paid: newPaid, paidAmount: newPaidAmount, lastPaymentAt: newLastPaymentAt } : e));
     setToggling(t => ({ ...t, [expense.id]: true }));
     try {
+      const body: Record<string, unknown> = { paid: newPaid, paidAmount: Number(newPaidAmount) };
+      // Pass stored payment source so the server can deduct the right balance
+      if (newPaid && expense.paymentSource && expense.paymentSource !== "income") {
+        body.paymentSource = expense.paymentSource;
+        if (expense.cardDebtId) body.cardDebtId = expense.cardDebtId;
+      }
       await apiFetch<Expense>(`/api/bff/expenses/${expense.id}`, {
         method: "PATCH",
-        body: { paid: newPaid, paidAmount: Number(newPaidAmount) },
+        body,
       });
     } catch (err) {
       setExpenses(prev => prev.map(e => e.id === expense.id ? expense : e));
@@ -251,9 +257,14 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
     setPaymentInput(p => { const n = { ...p }; delete n[expense.id]; return n; });
     setPaying(p => ({ ...p, [expense.id]: true }));
     try {
+      const body: Record<string, unknown> = { paidAmount: nextPaid, paid: nextIsPaid };
+      if (nextIsPaid && expense.paymentSource && expense.paymentSource !== "income") {
+        body.paymentSource = expense.paymentSource;
+        if (expense.cardDebtId) body.cardDebtId = expense.cardDebtId;
+      }
       await apiFetch<Expense>(`/api/bff/expenses/${expense.id}`, {
         method: "PATCH",
-        body: { paidAmount: nextPaid, paid: nextIsPaid },
+        body,
       });
     } catch (err) {
       setExpenses(prev => prev.map(e => e.id === expense.id ? snapshot : e));

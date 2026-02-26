@@ -72,7 +72,14 @@ export default function AddExpenseSheetToggles({
           <Text style={s.toggleSub}>Add to every month from now through December</Text>
         </View>
         <TouchableOpacity
-          onPress={() => setDistributeMonths((v) => !v)}
+          onPress={() => {
+            setDistributeMonths((v) => {
+              const next = !v;
+              // Turning months off must also turn years off
+              if (!next) setDistributeYears(() => false);
+              return next;
+            });
+          }}
           style={[s.toggle, distributeMonths && s.toggleOn]}
           activeOpacity={0.8}
         >
@@ -80,21 +87,26 @@ export default function AddExpenseSheetToggles({
         </TouchableOpacity>
       </View>
 
-      {distributeMonths ? (
-        <View style={s.toggleRow}>
-          <View style={s.toggleInfo}>
-            <Text style={s.toggleTitle}>Repeat next year too</Text>
-            <Text style={s.toggleSub}>Also distribute across the same months next year</Text>
-          </View>
-          <TouchableOpacity
-            onPress={() => setDistributeYears((v) => !v)}
-            style={[s.toggle, distributeYears && s.toggleOn]}
-            activeOpacity={0.8}
-          >
-            <View style={[s.toggleThumb, distributeYears && s.toggleThumbOn]} />
-          </TouchableOpacity>
+      <View style={s.toggleRow}>
+        <View style={s.toggleInfo}>
+          <Text style={s.toggleTitle}>Distribute across all years</Text>
+          <Text style={s.toggleSub}>Repeat for every year remaining in the budget horizon</Text>
         </View>
-      ) : null}
+        <TouchableOpacity
+          onPress={() => {
+            setDistributeYears((v) => {
+              const next = !v;
+              // Turning years on must also turn months on
+              if (next) setDistributeMonths(() => true);
+              return next;
+            });
+          }}
+          style={[s.toggle, distributeYears && s.toggleOn]}
+          activeOpacity={0.8}
+        >
+          <View style={[s.toggleThumb, distributeYears && s.toggleThumbOn]} />
+        </TouchableOpacity>
+      </View>
     </>
   );
 }

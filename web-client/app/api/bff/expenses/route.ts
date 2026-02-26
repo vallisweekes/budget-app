@@ -5,6 +5,7 @@ import { addOrUpdateExpenseAcrossMonths } from "@/lib/expenses/store";
 import { resolveExpenseLogoWithSearch } from "@/lib/expenses/logoResolver";
 import { maybeSendCategoryThresholdPush } from "@/lib/push/thresholdNotifications";
 import { MONTHS } from "@/lib/constants/time";
+import { getSettings, saveSettings } from "@/lib/settings/store";
 import type { MonthKey } from "@/types";
 
 export const runtime = "nodejs";
@@ -63,6 +64,8 @@ function serializeExpense(expense: any) {
     category: expense.category ?? null,
     dueDate: expense.dueDate ? (expense.dueDate instanceof Date ? expense.dueDate.toISOString() : String(expense.dueDate)) : null,
     lastPaymentAt: expense.lastPaymentAt ? (expense.lastPaymentAt instanceof Date ? expense.lastPaymentAt.toISOString() : String(expense.lastPaymentAt)) : null,
+    paymentSource: expense.paymentSource ?? "income",
+    cardDebtId: expense.cardDebtId ?? null,
   };
 }
 
@@ -116,6 +119,8 @@ export async function POST(req: NextRequest) {
     distributeMonths?: unknown;
     distributeYears?: unknown;
     dueDate?: unknown;
+    paymentSource?: unknown;
+    cardDebtId?: unknown;
   };
 
   const ownedBudgetPlanId = await resolveOwnedBudgetPlanId({
@@ -139,14 +144,36 @@ export async function POST(req: NextRequest) {
       ? body.dueDate.trim()
       : undefined;
 
+  // Payment source — normalise to valid enum values
+  type PaymentSource = "income" | "credit_card" | "savings" | "extra_untracked";
+  function normalizeSource(raw: unknown): PaymentSource {
+    const v = String(raw ?? "").trim().toLowerCase();
+    if (v === "credit_card" || v === "card" || v === "credit card") return "credit_card";
+    if (v === "savings") return "savings";
+    if (v === "other" || v === "extra_untracked") return "extra_untracked";
+    return "income";
+  }
+  const paymentSource = normalizeSource(body.paymentSource);
+  const cardDebtId = typeof body.cardDebtId === "string" ? body.cardDebtId.trim() : undefined;
+
   if (!ownedBudgetPlanId) return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
   if (!name) return badRequest("Name is required");
   if (!Number.isFinite(amount) || amount < 0) return badRequest("Amount must be a number >= 0");
   if (!Number.isFinite(month) || month < 1 || month > 12) return badRequest("Invalid month");
   if (!Number.isFinite(year) || year < 1900) return badRequest("Invalid year");
 
-  // Build the list of years to distribute across (current + next if distributeYears)
-  const targetYears = distributeYears ? [year, year + 1] : [year];
+  // Build the list of years to distribute across, spanning the plan's budget horizon
+  let targetYears: number[];
+  if (distributeYears) {
+    const planMeta = await prisma.budgetPlan.findUnique({
+      where: { id: ownedBudgetPlanId },
+      select: { budgetHorizonYears: true },
+    });
+    const horizon = Math.max(2, Math.floor(Number(planMeta?.budgetHorizonYears ?? 2)));
+    targetYears = Array.from({ length: horizon }, (_, i) => year + i);
+  } else {
+    targetYears = [year];
+  }
 
   // Build the list of months for a given year
   function monthsForYear(y: number): MonthKey[] {
@@ -170,7 +197,9 @@ export async function POST(req: NextRequest) {
       isAllocation,
       isDirectDebit,
       dueDate,
-    });
+      paymentSource,
+      cardDebtId: cardDebtId || undefined,
+    } as any);
   }
 
   // Fetch back the primary record to return it
@@ -185,6 +214,68 @@ export async function POST(req: NextRequest) {
   });
 
   if (!created) return NextResponse.json({ error: "Expense was not created" }, { status: 500 });
+
+  // Record payment source when expense is marked paid, mirroring web server-action logic
+  if (paid) {
+    try {
+      const expensePayment = (prisma as any)?.expensePayment ?? null;
+      if (expensePayment && amount > 0) {
+        if (paymentSource === "credit_card") {
+          // Resolve which card to charge
+          let resolvedCardId = cardDebtId ?? "";
+          if (!resolvedCardId) {
+            const cards = await prisma.debt.findMany({
+              where: { budgetPlanId: ownedBudgetPlanId, sourceType: null, type: { in: ["credit_card", "store_card"] } },
+              select: { id: true },
+              orderBy: { createdAt: "asc" },
+            });
+            if (cards.length === 1) resolvedCardId = cards[0]!.id;
+          }
+          if (resolvedCardId) {
+            await expensePayment.create({
+              data: { expenseId: created.id, amount, source: "credit_card", paidAt: new Date() },
+            });
+            // Increase card's current balance by the charged amount
+            await prisma.$transaction(async (tx: any) => {
+              const card = await tx.debt.findFirst({
+                where: { id: resolvedCardId, budgetPlanId: ownedBudgetPlanId, sourceType: null },
+                select: { id: true, currentBalance: true, initialBalance: true, paidAmount: true },
+              });
+              if (!card) return;
+              const current = Number(card.currentBalance?.toString?.() ?? card.currentBalance ?? 0);
+              const initial = Number(card.initialBalance?.toString?.() ?? card.initialBalance ?? 0);
+              const paid_ = Number(card.paidAmount?.toString?.() ?? card.paidAmount ?? 0);
+              const nextCurrent = Math.max(0, current + amount);
+              const nextInitial = Math.max(initial, nextCurrent);
+              await tx.debt.update({
+                where: { id: card.id },
+                data: {
+                  currentBalance: String(nextCurrent),
+                  initialBalance: String(nextInitial),
+                  paidAmount: String(Math.min(Math.max(0, paid_), nextInitial)),
+                  paid: false,
+                },
+              });
+            });
+          }
+        } else if (paymentSource === "savings") {
+          await expensePayment.create({
+            data: { expenseId: created.id, amount, source: "savings", paidAt: new Date() },
+          });
+          const settings = await getSettings(ownedBudgetPlanId);
+          const current = Number(settings.savingsBalance ?? 0);
+          await saveSettings(ownedBudgetPlanId, { savingsBalance: Math.max(0, current - amount) });
+        } else {
+          // income or extra_untracked
+          await expensePayment.create({
+            data: { expenseId: created.id, amount, source: paymentSource, paidAt: new Date() },
+          });
+        }
+      }
+    } catch {
+      // Payment recording is best-effort — never fail the expense creation
+    }
+  }
 
   // Fire threshold push in background — never blocks the response
   if (!isAllocation && categoryId && userId) {

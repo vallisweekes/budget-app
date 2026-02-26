@@ -482,6 +482,7 @@ export default function ExpensesScreen({ navigation }: Props) {
         month={month}
         year={year}
         budgetPlanId={activePlanId}
+        plans={plans}
         currency={currency}
         categories={summary?.categoryBreakdown ?? []}
         onAdded={() => { setAddSheetOpen(false); load(); }}

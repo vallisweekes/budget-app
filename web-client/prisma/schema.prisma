@@ -284,6 +284,13 @@ model Expense {
   // null = no payment has been recorded yet.
   lastPaymentAt DateTime?
 
+  // Intended payment source — stored at creation time and reused when the
+  // expense is later marked as paid so the correct balance can be deducted.
+  paymentSource ExpensePaymentSource? @default(income)
+  // When paymentSource = credit_card, the specific card (Debt) to charge.
+  cardDebtId    String?
+  cardDebt      Debt?   @relation("ExpenseCard", fields: [cardDebtId], references: [id], onDelete: SetNull)
+
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
@@ -381,6 +388,7 @@ model Debt {
   payments             DebtPayment[]
   debtPaymentsAsCard   DebtPayment[]  @relation("DebtPaymentCard")
   expensePayments      ExpensePayment[]
+  expensesChargedToCard Expense[]     @relation("ExpenseCard")
   createdAt            DateTime       @default(now())
   updatedAt            DateTime       @updatedAt
   

@@ -480,7 +480,9 @@ export async function addExpenseAction(formData: FormData): Promise<void> {
       paidAmount: paid ? amount : 0,
       isAllocation,
       isDirectDebit,
-    });
+      paymentSource,
+      cardDebtId,
+    } as any);
 
     await backfillExpensePaymentAndAdjustBalances({
       budgetPlanId,

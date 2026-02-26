@@ -256,11 +256,13 @@ export async function addOrUpdateExpenseAcrossMonths(
   budgetPlanId: string,
   year: number,
   months: MonthKey[],
-  item: Omit<ExpenseItem, "id"> & { id?: string }
+  item: Omit<ExpenseItem, "id"> & { id?: string; paymentSource?: string; cardDebtId?: string }
 ): Promise<void> {
 	const targetMonths = Array.from(new Set(months));
 	const targetName = normalizeExpenseName(item.name);
   const logo = resolveExpenseLogo(targetName, toOptionalString((item as { merchantDomain?: unknown }).merchantDomain));
+	const paymentSource = (item as any).paymentSource ?? "income";
+	const cardDebtId = (item as any).cardDebtId ?? null;
 
 	for (const month of targetMonths) {
 		const monthNumber = monthKeyToNumber(month);
@@ -287,6 +289,8 @@ export async function addOrUpdateExpenseAcrossMonths(
           merchantDomain: logo.merchantDomain,
           logoUrl: logo.logoUrl,
           logoSource: logo.logoSource,
+          paymentSource,
+          cardDebtId,
         }) as any,
 			});
 			continue;
@@ -308,6 +312,8 @@ export async function addOrUpdateExpenseAcrossMonths(
         logoUrl: logo.logoUrl,
         logoSource: logo.logoSource,
 				dueDate: item.dueDate ? new Date(item.dueDate) : null,
+        paymentSource,
+        cardDebtId,
       }) as any,
 		});
 	}

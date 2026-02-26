@@ -86,6 +86,17 @@ export default function AddExpenseDetailsFields({ categories, planKind, creditCa
 				</div>
 
 				<label className="block">
+					<span className="text-sm font-medium text-slate-300 mb-2 block">
+						Due Date <span className="text-slate-500 font-normal">(optional)</span>
+					</span>
+					<input
+						name="dueDate"
+						type="date"
+						className="w-full px-4 py-3 rounded-xl border border-white/10 bg-slate-900/40 text-white placeholder-slate-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/50 focus:outline-none transition-all [color-scheme:dark]"
+					/>
+				</label>
+
+				<label className="block">
 					<span className="text-sm font-medium text-slate-300 mb-2 block">Source of Funds</span>
 					<SelectDropdown
 						name="paymentSource"
