@@ -54,6 +54,25 @@ export async function GET(
     }
 
 		const { budgetPlan, ...safe } = refreshedDebt;
+
+    // Data integrity: for regular debts, `paidAmount` should equal the sum of recorded debt payments.
+    // (Expense-derived debts can be affected by Expense payments that aren't mirrored as DebtPayment rows.)
+    if (safe.sourceType !== "expense") {
+      const paidAgg = await prisma.debtPayment.aggregate({
+        where: { debtId: safe.id },
+        _sum: { amount: true },
+      });
+      const computedPaid = Number((paidAgg._sum.amount as any)?.toString?.() ?? paidAgg._sum.amount ?? 0);
+      const currentPaid = Number((safe.paidAmount as any)?.toString?.() ?? safe.paidAmount ?? 0);
+      if (Number.isFinite(computedPaid) && Math.abs(computedPaid - currentPaid) > 0.009) {
+        await prisma.debt.update({
+          where: { id: safe.id },
+          data: { paidAmount: computedPaid },
+        });
+        (safe as any).paidAmount = String(computedPaid);
+      }
+    }
+
     return NextResponse.json(withMissedPaymentFlag(safe));
   } catch (error) {
     console.error("Failed to fetch debt:", error);

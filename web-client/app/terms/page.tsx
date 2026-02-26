@@ -17,7 +17,7 @@ export default function TermsPage() {
 
         <section className="mt-8 space-y-4 text-sm leading-6 text-slate-200">
           <p>
-            These Terms of Service ("Terms") govern your access to and use of BudgetIn Check mobile and web
+            These Terms of Service (&quot;Terms&quot;) govern your access to and use of BudgetIn Check mobile and web
             applications. By using the service, you agree to these Terms.
           </p>
           <p>
@@ -62,7 +62,7 @@ export default function TermsPage() {
         <section className="mt-8 space-y-3">
           <h2 className="text-xl font-semibold">5. Limitation of Liability</h2>
           <p className="text-sm text-slate-200">
-            To the maximum extent permitted by law, the service is provided "as is" without warranties, and we
+            To the maximum extent permitted by law, the service is provided &quot;as is&quot; without warranties, and we
             are not liable for indirect, incidental, or consequential damages arising from your use of the app.
           </p>
         </section>

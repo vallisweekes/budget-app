@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import { getSectionFromPath, getSettingsBasePath, SECTION_TO_SLUG } from "@/lib/helpers/settings/navigation";
 import type { SettingsSectionId } from "@/types/components";
@@ -17,25 +17,13 @@ export function useSettingsNavigation({
 	openSection: (section: SettingsSectionId) => void;
 	backToMenu: () => void;
 } {
-	const [activeSection, setActiveSection] = useState<SettingsSectionId>("details");
-	const [mobileView, setMobileView] = useState<"menu" | "content">("menu");
-
 	const settingsBasePath = useMemo(() => getSettingsBasePath(pathname), [pathname]);
+	const sectionFromPath = useMemo(() => getSectionFromPath(pathname) as SettingsSectionId | null, [pathname]);
+	const activeSection = sectionFromPath ?? "details";
+	const mobileView: "menu" | "content" = sectionFromPath ? "content" : "menu";
 	const isContentView = mobileView === "content";
 
-	useEffect(() => {
-		const section = getSectionFromPath(pathname) as SettingsSectionId | null;
-		if (section) {
-			setActiveSection(section);
-			setMobileView("content");
-		} else {
-			setMobileView("menu");
-		}
-	}, [pathname]);
-
 	const openSection = (section: SettingsSectionId) => {
-		setActiveSection(section);
-		setMobileView("content");
 		const next = `${settingsBasePath}/${(SECTION_TO_SLUG as Record<SettingsSectionId, string>)[section]}`;
 		router.push(next, { scroll: false });
 		try {
@@ -46,7 +34,6 @@ export function useSettingsNavigation({
 	};
 
 	const backToMenu = () => {
-		setMobileView("menu");
 		router.push(settingsBasePath, { scroll: false });
 		try {
 			window.scrollTo({ top: 0, behavior: "smooth" });

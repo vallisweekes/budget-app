@@ -38,6 +38,7 @@ export default function EditExpenseBottomSheet({
 
 	useEffect(() => {
 		if (!expense) return;
+		/* eslint-disable react-hooks/set-state-in-effect */
 		setName(expense.name);
 		setAmount(String(expense.amount));
 		setCategoryId(expense.categoryId ?? "");
@@ -48,10 +49,11 @@ export default function EditExpenseBottomSheet({
 		const rawDue = asIsoDate(expense.dueDate);
 		if (rawDue) {
 			setDueDate(rawDue);
-			return;
+		} else {
+			const defaultDueUtc = getDueDateUtc({ year, monthNumber, payDate });
+			setDueDate(defaultDueUtc.toISOString().slice(0, 10));
 		}
-		const defaultDueUtc = getDueDateUtc({ year, monthNumber, payDate });
-		setDueDate(defaultDueUtc.toISOString().slice(0, 10));
+		/* eslint-enable react-hooks/set-state-in-effect */
 	}, [expense, monthNumber, payDate, year]);
 
 

@@ -17,8 +17,8 @@ export default function PrivacyPolicyPage() {
 
         <section className="mt-8 space-y-4 text-sm leading-6 text-slate-200">
           <p>
-            This Privacy Policy describes how BudgetIn Check ("we", "our", "us") collects, uses, and
-            protects your information when you use our mobile and web applications.
+            This Privacy Policy describes how BudgetIn Check (&quot;we&quot;, &quot;our&quot;, &quot;us&quot;) collects, uses,
+            and protects your information when you use our mobile and web applications.
           </p>
           <p>
             Replace placeholders before publishing: legal entity name, support email, and business address.

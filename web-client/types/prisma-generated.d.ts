@@ -1,1 +1,3 @@
-/// <reference path="../node_modules/.prisma/client/index.d.ts" />
+import type {} from "@prisma/client";
+
+export {};

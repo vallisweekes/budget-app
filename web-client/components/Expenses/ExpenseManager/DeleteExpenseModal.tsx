@@ -22,6 +22,8 @@ export default function DeleteExpenseModal({
 
 	useEffect(() => {
 		if (!open) return;
+		// Re-initialize local state when opening with a new initial scope.
+		// eslint-disable-next-line react-hooks/set-state-in-effect
 		setScope(initialScope ?? DEFAULT_SCOPE);
 	}, [open, initialScope]);
 

@@ -39,12 +39,14 @@ export default function AddExpenseForm({
 	const [distributeAllYears, setDistributeAllYears] = useState(false);
 
 	useEffect(() => {
+		/* eslint-disable react-hooks/set-state-in-effect */
 		setError(null);
 		setAddMonth(month);
 		setAddYear(year);
 		setAddBudgetPlanId(budgetPlanId);
 		setDistributeAllMonths(false);
 		setDistributeAllYears(false);
+		/* eslint-enable react-hooks/set-state-in-effect */
 	}, [budgetPlanId, month, year]);
 
 	const baseYear = useMemo(() => new Date().getFullYear(), []);
@@ -77,6 +79,8 @@ export default function AddExpenseForm({
 
 	useEffect(() => {
 		if (selectedPlanKind === "personal") {
+			// This syncs a derived UI constraint when the plan kind changes.
+			// eslint-disable-next-line react-hooks/set-state-in-effect
 			setDistributeAllYears(false);
 		}
 	}, [selectedPlanKind]);

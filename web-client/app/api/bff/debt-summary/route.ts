@@ -86,7 +86,7 @@ export async function GET(req: NextRequest) {
 		const expenseIds = Array.from(
 			new Set(summary.allDebts.map((d) => String(d.sourceExpenseId ?? "").trim()).filter(Boolean))
 		);
-		const [lastPaymentRows, paidThisMonthRows, lastExpensePaymentRows, paidExpenseRows] = await Promise.all([
+		const [lastPaymentRows, paidThisMonthRows, paidAllTimeRows, lastExpensePaymentRows, paidExpenseRows] = await Promise.all([
 			debtIds.length
 				? prisma.debtPayment.groupBy({
 						by: ["debtId"],
@@ -98,6 +98,13 @@ export async function GET(req: NextRequest) {
 				? prisma.debtPayment.groupBy({
 						by: ["debtId"],
 						where: { debtId: { in: debtIds }, year: paymentYear, month: paymentMonth },
+						_sum: { amount: true },
+				  })
+				: Promise.resolve([]),
+			debtIds.length
+				? prisma.debtPayment.groupBy({
+						by: ["debtId"],
+						where: { debtId: { in: debtIds } },
 						_sum: { amount: true },
 				  })
 				: Promise.resolve([]),
@@ -124,6 +131,9 @@ export async function GET(req: NextRequest) {
 		const paidThisMonthByDebtId = new Map(
 			paidThisMonthRows.map((row) => [row.debtId, Number(row._sum.amount ?? 0)])
 		);
+		const paidAllTimeByDebtId = new Map(
+			paidAllTimeRows.map((row) => [row.debtId, Number(row._sum.amount ?? 0)])
+		);
 		const fallbackLastPaidAtByExpenseId = new Map(
 			paidExpenseRows
 				.filter((e) => {
@@ -140,6 +150,7 @@ export async function GET(req: NextRequest) {
 			const paidThisMonth = paidThisMonthByDebtId.get(d.id) ?? 0;
 			const dueThisMonth = Math.max(0, computedMonthlyPayment);
 			const isPaymentMonthPaid = dueThisMonth > 0 && paidThisMonth >= dueThisMonth;
+			const paidAmount = d.sourceType === "expense" ? d.paidAmount : (paidAllTimeByDebtId.get(d.id) ?? d.paidAmount);
 
 			return {
 			id: d.id,
@@ -149,7 +160,7 @@ export async function GET(req: NextRequest) {
 			displaySubtitle: getDebtDisplaySubtitle(d),
 			currentBalance: d.currentBalance,
 			initialBalance: d.initialBalance ?? d.currentBalance,
-			paidAmount: d.paidAmount,
+			paidAmount,
 			monthlyMinimum: d.monthlyMinimum ?? null,
 			interestRate: d.interestRate ?? null,
 			installmentMonths: d.installmentMonths ?? null,

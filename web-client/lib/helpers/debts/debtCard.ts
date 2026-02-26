@@ -6,8 +6,15 @@ export function canDeleteDebt(debt: DebtCardDebt): boolean {
 }
 
 export function getPercentPaid(debt: DebtCardDebt): number {
-	if (debt.initialBalance <= 0) return 0;
-	return ((debt.initialBalance - debt.currentBalance) / debt.initialBalance) * 100;
+	const paidAmount = Number.isFinite(debt.paidAmount)
+		? debt.paidAmount
+		: Math.max(0, (debt.initialBalance ?? 0) - (debt.currentBalance ?? 0));
+	const currentBalance = Number.isFinite(debt.currentBalance) ? debt.currentBalance : 0;
+	const total = paidAmount + currentBalance;
+	if (!(total > 0)) {
+		return currentBalance <= 0 ? 100 : 0;
+	}
+	return (paidAmount / total) * 100;
 }
 
 export function getPaymentMonthKeyUTC(now: Date = new Date()): string {

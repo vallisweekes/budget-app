@@ -5,6 +5,7 @@ import { CreditCard, TrendingDown, ShoppingBag, Home } from "lucide-react";
 import DebtCardCollapsedSummary from "./DebtCardCollapsedSummary";
 import type { DebtPayment } from "@/types";
 import type { DebtCardDebt } from "@/types/components/debts";
+import { getPercentPaid } from "@/lib/helpers/debts/debtCard";
 import {
 	formatExpenseDebtCardTitle,
 	formatYearMonthLabel,
@@ -27,11 +28,6 @@ function slugifySegment(value: string): string {
 		.replace(/[^a-z0-9]+/g, "-")
 		.replace(/^-+|-+$/g, "")
 		.slice(0, 80);
-}
-
-function getPercentPaid(debt: DebtCardDebt): number {
-	if (!Number.isFinite(debt.initialBalance) || debt.initialBalance <= 0) return 0;
-	return ((debt.initialBalance - debt.currentBalance) / debt.initialBalance) * 100;
 }
 
 export default function DebtCardLink(props: {

@@ -61,7 +61,11 @@ export default function DebtCategory({ debts, totalBalance }: DebtCategoryProps)
 				<div className="border-t border-zinc-100 p-4 space-y-3 bg-zinc-50">
 					{debts.map((debt) => {
 						const Icon = typeIcons[debt.type as keyof typeof typeIcons] || CreditCard;
-						const percentPaid = ((debt.initialBalance - debt.currentBalance) / debt.initialBalance) * 100;
+						const initial = Number(debt.initialBalance) || 0;
+						const current = Number(debt.currentBalance) || 0;
+						const paidAmount = debt.paidAmount != null ? Number(debt.paidAmount) : Math.max(0, initial - current);
+						const total = Math.max(0, paidAmount) + Math.max(0, current);
+						const percentPaid = total > 0 ? (Math.max(0, paidAmount) / total) * 100 : current <= 0 ? 100 : 0;
 
 						return (
 							<div
