@@ -16,6 +16,26 @@ function withMissedPaymentFlag<T extends { sourceType?: string | null }>(debt: T
   };
 }
 
+function toNumber(value: unknown): number {
+  if (typeof value === "number") return value;
+  if (typeof value === "string") return Number(value);
+  if (value && typeof value === "object" && "toNumber" in (value as any) && typeof (value as any).toNumber === "function") {
+    return Number((value as any).toNumber());
+  }
+  if (value && typeof value === "object" && "toString" in (value as any) && typeof (value as any).toString === "function") {
+    return Number((value as any).toString());
+  }
+  return Number(value as any);
+}
+
+function mapDebtPaymentSourceToExpensePaymentSource(source: unknown): "income" | "extra_untracked" {
+  return source === "income" ? "income" : "extra_untracked";
+}
+
+function paymentMatchKey(p: { amount: number; paidAt: Date }) {
+  return `${p.amount.toFixed(2)}|${p.paidAt.toISOString()}`;
+}
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -70,6 +90,96 @@ export async function GET(
           data: { paidAmount: computedPaid },
         });
         (safe as any).paidAmount = String(computedPaid);
+      }
+    } else if (safe.sourceExpenseId) {
+      const expenseId = String(safe.sourceExpenseId).trim();
+      if (expenseId) {
+        const [expense, debtPayments, expensePayments] = await Promise.all([
+          prisma.expense.findUnique({
+            where: { id: expenseId },
+            select: { id: true, amount: true },
+          }),
+          prisma.debtPayment.findMany({
+            where: { debtId: safe.id },
+            orderBy: { paidAt: "desc" },
+          }),
+          prisma.expensePayment.findMany({
+            where: { expenseId },
+            orderBy: { paidAt: "desc" },
+          }),
+        ]);
+
+        if (expense) {
+          const existingExpenseKeys = new Set(
+            expensePayments.map((p) => paymentMatchKey({ amount: toNumber(p.amount), paidAt: p.paidAt }))
+          );
+          const toBackfill = debtPayments
+            .map((p) => ({
+              amount: toNumber(p.amount),
+              paidAt: p.paidAt,
+              source: mapDebtPaymentSourceToExpensePaymentSource((p as any).source),
+            }))
+            .filter((p) => Number.isFinite(p.amount) && p.amount > 0)
+            .filter((p) => !existingExpenseKeys.has(paymentMatchKey({ amount: p.amount, paidAt: p.paidAt })));
+
+          if (toBackfill.length) {
+            await prisma.expensePayment.createMany({
+              data: toBackfill.map((p) => ({
+                expenseId,
+                amount: String(p.amount),
+                source: p.source,
+                debtId: safe.id,
+                paidAt: p.paidAt,
+              })),
+            });
+            for (const p of toBackfill) {
+              expensePayments.push({
+                id: `backfill_${p.paidAt.getTime()}_${p.amount}`,
+                expenseId,
+                amount: p.amount as any,
+                source: p.source as any,
+                debtId: safe.id,
+                paidAt: p.paidAt,
+                createdAt: p.paidAt,
+                updatedAt: p.paidAt,
+              } as any);
+            }
+          }
+
+          const totalPaidRaw = expensePayments.reduce((sum, p) => sum + toNumber(p.amount), 0);
+          const expenseAmount = toNumber(expense.amount);
+          const nextExpensePaid = Math.min(expenseAmount, Math.max(0, totalPaidRaw));
+          const nextIsPaid = expenseAmount > 0 && nextExpensePaid >= expenseAmount;
+          const nextDebtBalance = Math.max(0, expenseAmount - nextExpensePaid);
+
+          const currentPaid = toNumber(safe.paidAmount);
+          const currentBalance = toNumber(safe.currentBalance);
+          if (
+            Number.isFinite(nextExpensePaid) &&
+            (Math.abs(nextExpensePaid - currentPaid) > 0.009 || Math.abs(nextDebtBalance - currentBalance) > 0.009)
+          ) {
+            await prisma.$transaction(async (tx) => {
+              await tx.debt.update({
+                where: { id: safe.id },
+                data: {
+                  paidAmount: String(nextExpensePaid),
+                  currentBalance: String(nextDebtBalance),
+                  paid: nextDebtBalance === 0,
+                },
+              });
+              await tx.expense.update({
+                where: { id: expenseId },
+                data: {
+                  paidAmount: String(nextExpensePaid),
+                  paid: nextIsPaid,
+                },
+              });
+            });
+            (safe as any).paidAmount = String(nextExpensePaid);
+            (safe as any).currentBalance = String(nextDebtBalance);
+            (safe as any).paid = nextDebtBalance === 0;
+          }
+        }
       }
     }
 

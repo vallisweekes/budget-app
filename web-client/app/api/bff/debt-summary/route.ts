@@ -86,7 +86,7 @@ export async function GET(req: NextRequest) {
 		const expenseIds = Array.from(
 			new Set(summary.allDebts.map((d) => String(d.sourceExpenseId ?? "").trim()).filter(Boolean))
 		);
-		const [lastPaymentRows, paidThisMonthRows, paidAllTimeRows, lastExpensePaymentRows, paidExpenseRows] = await Promise.all([
+		const [lastPaymentRows, paidThisMonthRows, paidAllTimeRows, lastExpensePaymentRows, paidExpenseRows, paidExpenseAllTimeRows] = await Promise.all([
 			debtIds.length
 				? prisma.debtPayment.groupBy({
 						by: ["debtId"],
@@ -121,6 +121,13 @@ export async function GET(req: NextRequest) {
 						select: { id: true, amount: true, paidAmount: true, paid: true, updatedAt: true },
 				  })
 				: Promise.resolve([]),
+			expenseIds.length
+				? prisma.expensePayment.groupBy({
+						by: ["expenseId"],
+						where: { expenseId: { in: expenseIds } },
+						_sum: { amount: true },
+				  })
+				: Promise.resolve([]),
 		]);
 		const lastPaidAtByDebtId = new Map(
 			lastPaymentRows.map((row) => [row.debtId, row._max.paidAt ? row._max.paidAt.toISOString() : null])
@@ -134,6 +141,9 @@ export async function GET(req: NextRequest) {
 		const paidAllTimeByDebtId = new Map(
 			paidAllTimeRows.map((row) => [row.debtId, Number(row._sum.amount ?? 0)])
 		);
+		const paidAllTimeByExpenseId = new Map(
+			paidExpenseAllTimeRows.map((row) => [row.expenseId, Number(row._sum.amount ?? 0)])
+		);
 		const fallbackLastPaidAtByExpenseId = new Map(
 			paidExpenseRows
 				.filter((e) => {
@@ -143,6 +153,15 @@ export async function GET(req: NextRequest) {
 				})
 				.map((e) => [e.id, e.updatedAt?.toISOString?.() ?? null])
 		);
+		const expenseAmountById = new Map(paidExpenseRows.map((e) => [e.id, Number(e.amount)]));
+
+		const expenseDebtReconciliations: Array<{
+			debtId: string;
+			expenseId: string;
+			paidAmount: number;
+			currentBalance: number;
+			paid: boolean;
+		}> = [];
 
 		// Add computed monthly payment to each debt
 		const debtsWithPayments = summary.allDebts.map((d) => {
@@ -150,7 +169,53 @@ export async function GET(req: NextRequest) {
 			const paidThisMonth = paidThisMonthByDebtId.get(d.id) ?? 0;
 			const dueThisMonth = Math.max(0, computedMonthlyPayment);
 			const isPaymentMonthPaid = dueThisMonth > 0 && paidThisMonth >= dueThisMonth;
-			const paidAmount = d.sourceType === "expense" ? d.paidAmount : (paidAllTimeByDebtId.get(d.id) ?? d.paidAmount);
+
+			const paidAmount = (() => {
+				if (d.sourceType !== "expense") return paidAllTimeByDebtId.get(d.id) ?? d.paidAmount;
+				const expenseId = String(d.sourceExpenseId ?? "").trim();
+				const fromExpensePayments = expenseId ? paidAllTimeByExpenseId.get(expenseId) : undefined;
+				if (typeof fromExpensePayments === "number" && Number.isFinite(fromExpensePayments) && fromExpensePayments > 0) {
+					return fromExpensePayments;
+				}
+				const fromDebtPayments = paidAllTimeByDebtId.get(d.id);
+				return typeof fromDebtPayments === "number" ? fromDebtPayments : d.paidAmount;
+			})();
+
+			const computedCurrentBalance = (() => {
+				if (d.sourceType !== "expense") return d.currentBalance;
+				const expenseId = String(d.sourceExpenseId ?? "").trim();
+				const initial = expenseId ? expenseAmountById.get(expenseId) ?? Number(d.initialBalance ?? d.currentBalance ?? 0) : Number(d.initialBalance ?? d.currentBalance ?? 0);
+				const paid = Number(paidAmount ?? 0);
+				if (!Number.isFinite(initial) || initial <= 0) return d.currentBalance;
+				if (!Number.isFinite(paid) || paid < 0) return d.currentBalance;
+				return Math.max(0, initial - paid);
+			})();
+
+			if (d.sourceType === "expense") {
+				const expenseId = String(d.sourceExpenseId ?? "").trim();
+				const initial = expenseId ? expenseAmountById.get(expenseId) : undefined;
+				if (expenseId && typeof initial === "number" && Number.isFinite(initial) && initial > 0) {
+					const computedPaid = Math.min(initial, Math.max(0, Number(paidAmount ?? 0)));
+					const computedBalance = Math.max(0, initial - computedPaid);
+					const computedPaidFlag = computedBalance === 0;
+					const storedPaid = Number(d.paidAmount ?? 0);
+					const storedBalance = Number(d.currentBalance ?? 0);
+					const storedPaidFlag = Boolean(d.paid);
+					if (
+						Number.isFinite(storedPaid) &&
+						Number.isFinite(storedBalance) &&
+						(Math.abs(computedPaid - storedPaid) > 0.009 || Math.abs(computedBalance - storedBalance) > 0.009 || computedPaidFlag !== storedPaidFlag)
+					) {
+						expenseDebtReconciliations.push({
+							debtId: d.id,
+							expenseId,
+							paidAmount: computedPaid,
+							currentBalance: computedBalance,
+							paid: computedPaidFlag,
+						});
+					}
+				}
+			}
 
 			return {
 			id: d.id,
@@ -158,14 +223,14 @@ export async function GET(req: NextRequest) {
 			type: d.type,
 			displayTitle: getDebtDisplayTitle(d),
 			displaySubtitle: getDebtDisplaySubtitle(d),
-			currentBalance: d.currentBalance,
+			currentBalance: computedCurrentBalance,
 			initialBalance: d.initialBalance ?? d.currentBalance,
 			paidAmount,
 			monthlyMinimum: d.monthlyMinimum ?? null,
 			interestRate: d.interestRate ?? null,
 			installmentMonths: d.installmentMonths ?? null,
 			amount: d.amount ?? 0,
-			paid: d.paid,
+			paid: d.sourceType === "expense" ? computedCurrentBalance === 0 : d.paid,
 			creditLimit: d.creditLimit ?? null,
 			dueDay: d.dueDay ?? null,
 			sourceType: d.sourceType ?? null,
@@ -182,9 +247,36 @@ export async function GET(req: NextRequest) {
 			dueThisMonth,
 			paidThisMonth,
 			isPaymentMonthPaid,
-			isActive: (d.currentBalance ?? 0) > 0,
+			isActive: (computedCurrentBalance ?? 0) > 0,
 			};
 		});
+
+		// Persist self-heal updates for expense-derived debts (best-effort).
+		if (expenseDebtReconciliations.length) {
+			try {
+				await prisma.$transaction(async (tx) => {
+					for (const rec of expenseDebtReconciliations) {
+						await tx.debt.update({
+							where: { id: rec.debtId },
+							data: {
+								paidAmount: String(rec.paidAmount),
+								currentBalance: String(rec.currentBalance),
+								paid: rec.paid,
+							},
+						});
+						await tx.expense.update({
+							where: { id: rec.expenseId },
+							data: {
+								paidAmount: String(rec.paidAmount),
+								paid: rec.paid,
+							},
+						});
+					}
+				});
+			} catch (error) {
+				console.error("Debt summary: failed to persist expense debt reconciliations:", error);
+			}
+		}
 
 		const totalMonthlyDebtPayments = getTotalMonthlyDebtPayments(summary.allDebts);
 
