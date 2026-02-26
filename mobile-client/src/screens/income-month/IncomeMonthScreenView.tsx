@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -46,19 +47,11 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
   const [deleteTarget, setDeleteTarget] = useState<Income | null>(null);
   const [viewMode, setViewMode] = useState<"income" | "sacrifice">(initialMode ?? "income");
   const [sacrifice, setSacrifice] = useState<IncomeSacrificeData | null>(null);
-  const [fixedDraft, setFixedDraft] = useState<IncomeSacrificeFixed>({
-    monthlyAllowance: 0,
-    monthlySavingsContribution: 0,
-    monthlyEmergencyContribution: 0,
-    monthlyInvestmentContribution: 0,
-  });
-  const [customDraftById, setCustomDraftById] = useState<Record<string, string>>({});
   const [sacrificeSaving, setSacrificeSaving] = useState(false);
   const [sacrificeCreating, setSacrificeCreating] = useState(false);
   const [sacrificeDeletingId, setSacrificeDeletingId] = useState<string | null>(null);
-  const [newSacrificeType, setNewSacrificeType] = useState<"allowance" | "savings" | "emergency" | "investment" | "custom">("custom");
-  const [newSacrificeName, setNewSacrificeName] = useState("");
-  const [newSacrificeAmount, setNewSacrificeAmount] = useState("");
+  const [linkSaving, setLinkSaving] = useState(false);
+  const [confirmingTargetKey, setConfirmingTargetKey] = useState<string | null>(null);
 
   const currency = currencySymbol(settings?.currency);
 
@@ -86,8 +79,6 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
       `/api/bff/income-sacrifice?month=${month}&year=${year}&budgetPlanId=${encodeURIComponent(budgetPlanId)}`
     );
     setSacrifice(data);
-    setFixedDraft(data.fixed);
-    setCustomDraftById(Object.fromEntries((data.customItems ?? []).map((item) => [item.id, String(item.amount)])));
   }, [month, year, budgetPlanId]);
 
   useEffect(() => {
@@ -109,53 +100,188 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
     setViewMode(initialMode ?? "income");
   }, [initialMode, month, year]);
 
-  const saveFixedSacrifice = async () => {
-    try {
-      setSacrificeSaving(true);
-      await apiFetch("/api/bff/income-sacrifice", {
-        method: "PATCH",
-        body: {
-          budgetPlanId,
-          month,
-          year,
-          fixed: {
-            monthlyAllowance: Number(fixedDraft.monthlyAllowance) || 0,
-            monthlySavingsContribution: Number(fixedDraft.monthlySavingsContribution) || 0,
-            monthlyEmergencyContribution: Number(fixedDraft.monthlyEmergencyContribution) || 0,
-            monthlyInvestmentContribution: Number(fixedDraft.monthlyInvestmentContribution) || 0,
-          },
-        },
-      });
-      await Promise.all([loadSacrifice(), load()]);
-    } finally {
-      setSacrificeSaving(false);
-    }
-  };
+  type SacrificePeriod =
+    | "this_month"
+    | "next_six_months"
+    | "remaining_months"
+    | "two_years"
+    | "five_years"
+    | "ten_years";
 
-  const saveCustomSacrificeAmounts = async () => {
-    try {
-      setSacrificeSaving(true);
-      await apiFetch("/api/bff/income-sacrifice", {
-        method: "PATCH",
-        body: {
-          budgetPlanId,
-          month,
-          year,
-          fixed: fixedDraft,
-          customAmountById: Object.fromEntries(Object.entries(customDraftById).map(([id, value]) => [id, Number(value) || 0])),
-        },
-      });
-      await Promise.all([loadSacrifice(), load()]);
-    } finally {
-      setSacrificeSaving(false);
-    }
-  };
+  type FixedField = keyof IncomeSacrificeFixed;
 
-  const createSacrificeItem = async () => {
-    if (newSacrificeType === "custom" && !newSacrificeName.trim()) {
-      setError("Custom sacrifice requires a name.");
+  const buildTargetMonths = useCallback((startMonth: number, startYear: number, period: SacrificePeriod) => {
+    const safeMonth = Math.max(1, Math.min(12, Math.floor(startMonth)));
+    const safeYear = Math.max(2000, Math.floor(startYear));
+    const targets: Array<{ month: number; year: number }> = [];
+
+    const pushSequence = (count: number) => {
+      for (let index = 0; index < count; index += 1) {
+        const absolute = (safeMonth - 1) + index;
+        const nextYear = safeYear + Math.floor(absolute / 12);
+        const nextMonth = (absolute % 12) + 1;
+        targets.push({ month: nextMonth, year: nextYear });
+      }
+    };
+
+    if (period === "this_month") {
+      pushSequence(1);
+      return targets;
+    }
+    if (period === "next_six_months") {
+      pushSequence(6);
+      return targets;
+    }
+    if (period === "remaining_months") {
+      pushSequence(12 - safeMonth + 1);
+      return targets;
+    }
+    if (period === "two_years") {
+      pushSequence(24);
+      return targets;
+    }
+    if (period === "five_years") {
+      pushSequence(60);
+      return targets;
+    }
+    pushSequence(120);
+    return targets;
+  }, []);
+
+  const applySacrificeAmount = useCallback(async (args: {
+    targetType: "fixed" | "custom";
+    fixedField?: FixedField;
+    customAllocationId?: string;
+    amount: number;
+    startMonth: number;
+    startYear: number;
+    period: SacrificePeriod;
+  }) => {
+    const value = Number(args.amount);
+    if (!Number.isFinite(value) || value < 0) {
+      Alert.alert("Invalid amount", "Enter an amount greater than or equal to 0.");
       return;
     }
+
+    if (args.targetType === "fixed" && !args.fixedField) {
+      Alert.alert("Select sacrifice", "Pick a sacrifice type to update.");
+      return;
+    }
+    if (args.targetType === "custom" && !args.customAllocationId) {
+      Alert.alert("Select item", "Pick a custom sacrifice item to update.");
+      return;
+    }
+
+    const targets = buildTargetMonths(args.startMonth, args.startYear, args.period);
+    if (targets.length === 0) {
+      Alert.alert("Invalid period", "No target months were generated.");
+      return;
+    }
+
+    const affectsViewedMonth = targets.some((target) => target.month === month && target.year === year);
+    const previousSacrifice = sacrifice;
+
+    if (affectsViewedMonth && previousSacrifice) {
+      const nextFixed: IncomeSacrificeFixed = {
+        monthlyAllowance: Number(previousSacrifice.fixed.monthlyAllowance ?? 0),
+        monthlySavingsContribution: Number(previousSacrifice.fixed.monthlySavingsContribution ?? 0),
+        monthlyEmergencyContribution: Number(previousSacrifice.fixed.monthlyEmergencyContribution ?? 0),
+        monthlyInvestmentContribution: Number(previousSacrifice.fixed.monthlyInvestmentContribution ?? 0),
+      };
+
+      let nextCustomItems = [...(previousSacrifice.customItems ?? [])];
+      let nextCustomTotal = Number(previousSacrifice.customTotal ?? 0);
+
+      if (args.targetType === "fixed") {
+        nextFixed[args.fixedField as FixedField] = value;
+      } else {
+        const targetId = args.customAllocationId as string;
+        nextCustomItems = nextCustomItems.map((item) => {
+          if (item.id !== targetId) return item;
+          const oldAmount = Number(item.amount ?? 0);
+          const newAmount = value;
+          nextCustomTotal += newAmount - oldAmount;
+          return { ...item, amount: newAmount };
+        });
+      }
+
+      const fixedTotal =
+        Number(nextFixed.monthlyAllowance ?? 0) +
+        Number(nextFixed.monthlySavingsContribution ?? 0) +
+        Number(nextFixed.monthlyEmergencyContribution ?? 0) +
+        Number(nextFixed.monthlyInvestmentContribution ?? 0);
+
+      setSacrifice({
+        ...previousSacrifice,
+        fixed: nextFixed,
+        customItems: nextCustomItems,
+        customTotal: nextCustomTotal,
+        totalSacrifice: fixedTotal + nextCustomTotal,
+      });
+    }
+
+    try {
+      setSacrificeSaving(true);
+      for (const target of targets) {
+        const snapshot = await apiFetch<IncomeSacrificeData>(
+          `/api/bff/income-sacrifice?month=${target.month}&year=${target.year}&budgetPlanId=${encodeURIComponent(budgetPlanId)}`
+        );
+
+        if (args.targetType === "fixed") {
+          const nextFixed: IncomeSacrificeFixed = {
+            monthlyAllowance: Number(snapshot.fixed.monthlyAllowance ?? 0),
+            monthlySavingsContribution: Number(snapshot.fixed.monthlySavingsContribution ?? 0),
+            monthlyEmergencyContribution: Number(snapshot.fixed.monthlyEmergencyContribution ?? 0),
+            monthlyInvestmentContribution: Number(snapshot.fixed.monthlyInvestmentContribution ?? 0),
+          };
+          nextFixed[args.fixedField as FixedField] = value;
+
+          await apiFetch("/api/bff/income-sacrifice", {
+            method: "PATCH",
+            body: {
+              budgetPlanId,
+              month: target.month,
+              year: target.year,
+              fixed: nextFixed,
+            },
+          });
+        } else {
+          await apiFetch("/api/bff/income-sacrifice", {
+            method: "PATCH",
+            body: {
+              budgetPlanId,
+              month: target.month,
+              year: target.year,
+              fixed: snapshot.fixed,
+              customAmountById: {
+                [args.customAllocationId as string]: value,
+              },
+            },
+          });
+        }
+      }
+
+      await Promise.all([loadSacrifice(), load()]);
+    } catch (error) {
+      if (affectsViewedMonth && previousSacrifice) {
+        setSacrifice(previousSacrifice);
+      }
+      Alert.alert("Could not save sacrifice", error instanceof Error ? error.message : "Please try again.");
+    } finally {
+      setSacrificeSaving(false);
+    }
+  }, [budgetPlanId, buildTargetMonths, load, loadSacrifice, month, sacrifice, year]);
+
+  const createSacrificeItem = useCallback(async (args: {
+    type: "allowance" | "savings" | "emergency" | "investment" | "custom";
+    name: string;
+  }) => {
+    const trimmedName = args.name.trim();
+    if (args.type === "custom" && !trimmedName) {
+      Alert.alert("Name required", "Custom sacrifice requires a name.");
+      return;
+    }
+
     try {
       setSacrificeCreating(true);
       await apiFetch("/api/bff/income-sacrifice/custom", {
@@ -164,19 +290,16 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
           budgetPlanId,
           month,
           year,
-          type: newSacrificeType,
-          name: newSacrificeName.trim(),
-          amount: Number(newSacrificeAmount) || 0,
+          type: args.type,
+          name: trimmedName,
+          amount: 0,
         },
       });
-      setNewSacrificeName("");
-      setNewSacrificeAmount("");
-      setNewSacrificeType("custom");
       await Promise.all([loadSacrifice(), load()]);
     } finally {
       setSacrificeCreating(false);
     }
-  };
+  }, [budgetPlanId, load, loadSacrifice, month, year]);
 
   const deleteSacrificeItem = async (id: string) => {
     try {
@@ -187,6 +310,53 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
       setSacrificeDeletingId(null);
     }
   };
+
+  const saveSacrificeGoalLink = useCallback(async (args: { targetKey: string; goalId: string | null }) => {
+    if (!args.targetKey.trim()) {
+      Alert.alert("Link target", "Pick a sacrifice target first.");
+      return;
+    }
+
+    try {
+      setLinkSaving(true);
+      await apiFetch("/api/bff/income-sacrifice/goals", {
+        method: "PATCH",
+        body: {
+          budgetPlanId,
+          targetKey: args.targetKey,
+          goalId: args.goalId,
+        },
+      });
+      await loadSacrifice();
+    } catch (error) {
+      Alert.alert("Could not save link", error instanceof Error ? error.message : "Please try again.");
+    } finally {
+      setLinkSaving(false);
+    }
+  }, [budgetPlanId, loadSacrifice]);
+
+  const confirmSacrificeTransfer = useCallback(async (targetKey: string) => {
+    if (!targetKey.trim()) return;
+
+    try {
+      setConfirmingTargetKey(targetKey);
+      await apiFetch("/api/bff/income-sacrifice/goals", {
+        method: "POST",
+        body: {
+          budgetPlanId,
+          month,
+          year,
+          targetKey,
+        },
+      });
+      await Promise.all([loadSacrifice(), load()]);
+      Alert.alert("Confirmed", "Transfer confirmed and goal progress updated.");
+    } catch (error) {
+      Alert.alert("Could not confirm", error instanceof Error ? error.message : "Please try again.");
+    } finally {
+      setConfirmingTargetKey(null);
+    }
+  }, [budgetPlanId, load, loadSacrifice, month, year]);
 
   if (loading) {
     return (
@@ -228,29 +398,24 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
         {viewMode === "sacrifice" ? (
           <IncomeMonthSacrificeList
             currency={currency}
+            month={month}
+            year={year}
             sacrifice={sacrifice}
-            fixedDraft={fixedDraft}
-            customDraftById={customDraftById}
             sacrificeSaving={sacrificeSaving}
             sacrificeCreating={sacrificeCreating}
             sacrificeDeletingId={sacrificeDeletingId}
-            newSacrificeType={newSacrificeType}
-            newSacrificeName={newSacrificeName}
-            newSacrificeAmount={newSacrificeAmount}
             refreshing={refreshing}
             onRefresh={() => {
               setRefreshing(true);
               Promise.all([load(), loadSacrifice()]).finally(() => setRefreshing(false));
             }}
-            onChangeFixed={(key, value) => setFixedDraft((prev) => ({ ...prev, [key]: Number(value) || 0 }))}
-            onSaveFixed={saveFixedSacrifice}
-            onChangeCustomAmount={(id, value) => setCustomDraftById((prev) => ({ ...prev, [id]: value }))}
-            onSaveCustomAmounts={saveCustomSacrificeAmounts}
+            onApplySacrificeAmount={applySacrificeAmount}
             onDeleteCustom={deleteSacrificeItem}
-            onSetNewType={setNewSacrificeType}
-            onSetNewName={setNewSacrificeName}
-            onSetNewAmount={setNewSacrificeAmount}
-            onCreateCustom={createSacrificeItem}
+            onCreateItem={createSacrificeItem}
+            onSaveGoalLink={saveSacrificeGoalLink}
+            onConfirmTransfer={confirmSacrificeTransfer}
+            goalLinkSaving={linkSaving}
+            confirmingTargetKey={confirmingTargetKey}
           />
         ) : (
           <IncomeMonthIncomeList

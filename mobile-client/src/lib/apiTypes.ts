@@ -76,6 +76,38 @@ export interface IncomeSacrificeCustomItem {
   isOverride: boolean;
 }
 
+export interface IncomeSacrificeGoalLink {
+  id: string;
+  targetKey: string;
+  goalId: string;
+  goalTitle: string;
+  goalCategory: string;
+}
+
+export interface IncomeSacrificeTransferConfirmation {
+  id: string;
+  year: number;
+  month: number;
+  targetKey: string;
+  amount: number;
+  goalId: string;
+  confirmedAt: string;
+}
+
+export interface IncomeSacrificeGoalOption {
+  id: string;
+  title: string;
+  category: string;
+  targetAmount: string | number | null;
+  currentAmount: string | number | null;
+}
+
+export interface IncomeSacrificeLinkedTotals {
+  planned: number;
+  transferred: number;
+  pending: number;
+}
+
 export interface IncomeSacrificeData {
   budgetPlanId: string;
   year: number;
@@ -84,6 +116,10 @@ export interface IncomeSacrificeData {
   customItems: IncomeSacrificeCustomItem[];
   customTotal: number;
   totalSacrifice: number;
+  goals?: IncomeSacrificeGoalOption[];
+  goalLinks?: IncomeSacrificeGoalLink[];
+  confirmations?: IncomeSacrificeTransferConfirmation[];
+  linkedTotals?: IncomeSacrificeLinkedTotals;
 }
 
 export interface DebtPayment {

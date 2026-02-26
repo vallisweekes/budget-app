@@ -11,6 +11,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { applyThemeMode, type ThemeMode, T } from "@/lib/theme";
 import { getStoredThemeMode } from "@/lib/storage";
 import { installGlobalTypographyWeightNormalizer } from "@/lib/typography";
+import { navigationRef } from "@/navigation/navigationRef";
 
 installGlobalTypographyWeightNormalizer();
 
@@ -63,7 +64,7 @@ function App() {
     <SafeAreaProvider style={{ flex: 1, backgroundColor: T.bg }}>
       <ReduxProvider store={store}>
         <AuthProvider>
-          <NavigationContainer theme={navTheme}>
+          <NavigationContainer theme={navTheme} ref={navigationRef}>
             {booting || !RootNavigator ? (
               <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: T.bg }}>
                 <ActivityIndicator size="large" color={T.accent} />

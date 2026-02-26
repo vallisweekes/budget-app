@@ -143,6 +143,8 @@ model BudgetPlan {
   income     Income[]
   debts      Debt[]
   goals      Goal[]
+  sacrificeGoalLinks SacrificeGoalLink[]
+  sacrificeTransferConfirmations SacrificeTransferConfirmation[]
   monthlyAllocations MonthlyAllocation[]
   allocationDefinitions AllocationDefinition[]
   monthlyAllocationItems MonthlyAllocationItem[]
@@ -451,11 +453,53 @@ model Goal {
   
   budgetPlanId  String
   budgetPlan    BudgetPlan   @relation(fields: [budgetPlanId], references: [id], onDelete: Cascade)
+  sacrificeGoalLinks SacrificeGoalLink[]
+  sacrificeTransferConfirmations SacrificeTransferConfirmation[]
   
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
   
   @@index([budgetPlanId])
+}
+
+model SacrificeGoalLink {
+  id          String   @id @default(cuid())
+  targetKey   String
+
+  budgetPlanId String
+  budgetPlan   BudgetPlan @relation(fields: [budgetPlanId], references: [id], onDelete: Cascade)
+
+  goalId      String
+  goal        Goal     @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([budgetPlanId, targetKey])
+  @@index([goalId])
+  @@index([budgetPlanId])
+}
+
+model SacrificeTransferConfirmation {
+  id          String   @id @default(cuid())
+  year        Int
+  month       Int
+  targetKey   String
+  amount      Decimal  @db.Decimal(12, 2)
+  confirmedAt DateTime @default(now())
+
+  budgetPlanId String
+  budgetPlan   BudgetPlan @relation(fields: [budgetPlanId], references: [id], onDelete: Cascade)
+
+  goalId      String
+  goal        Goal     @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([budgetPlanId, year, month, targetKey])
+  @@index([goalId])
+  @@index([budgetPlanId, year, month])
 }
 
 enum BudgetStrategy {

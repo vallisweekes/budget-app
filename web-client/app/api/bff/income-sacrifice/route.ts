@@ -7,7 +7,13 @@ import {
 	upsertMonthlyAllocation,
 	upsertMonthlyCustomAllocationOverrides,
 } from "@/lib/allocations/store";
+import {
+	getPlannedAmountForTarget,
+	listSacrificeGoalLinks,
+	listSacrificeTransferConfirmations,
+} from "@/lib/income-sacrifice/goalLinks";
 import { monthNumberToKey } from "@/lib/helpers/monthKey";
+import { prisma } from "@/lib/prisma";
 import type { MonthKey } from "@/types";
 
 export const runtime = "nodejs";
@@ -53,6 +59,36 @@ export async function GET(request: NextRequest) {
 			fixed.monthlyEmergencyContribution +
 			fixed.monthlyInvestmentContribution;
 
+		const [goals, goalLinks, confirmations] = await Promise.all([
+			prisma.goal.findMany({
+				where: { budgetPlanId },
+				orderBy: [{ createdAt: "desc" }],
+				select: {
+					id: true,
+					title: true,
+					category: true,
+					targetAmount: true,
+					currentAmount: true,
+				},
+			}),
+			listSacrificeGoalLinks(budgetPlanId),
+			listSacrificeTransferConfirmations({ budgetPlanId, year, month }),
+		]);
+
+		const plannedByTarget = await Promise.all(
+			goalLinks.map(async (link) => ({
+				targetKey: link.targetKey,
+				amount: await getPlannedAmountForTarget({
+					budgetPlanId,
+					year,
+					month,
+					targetKey: link.targetKey,
+				}),
+			}))
+		);
+		const linkedPlannedTotal = plannedByTarget.reduce((sum, row) => sum + Number(row.amount ?? 0), 0);
+		const linkedTransferredTotal = confirmations.reduce((sum, row) => sum + Number(row.amount ?? 0), 0);
+
 		return NextResponse.json({
 			budgetPlanId,
 			year,
@@ -61,6 +97,14 @@ export async function GET(request: NextRequest) {
 			customItems: custom.items,
 			customTotal: Number(custom.total ?? 0),
 			totalSacrifice: fixedTotal + Number(custom.total ?? 0),
+			goals,
+			goalLinks,
+			confirmations,
+			linkedTotals: {
+				planned: linkedPlannedTotal,
+				transferred: linkedTransferredTotal,
+				pending: Math.max(0, linkedPlannedTotal - linkedTransferredTotal),
+			},
 		});
 	} catch (error) {
 		console.error("[bff/income-sacrifice] GET error", error);

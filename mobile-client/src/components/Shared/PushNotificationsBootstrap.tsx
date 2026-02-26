@@ -1,11 +1,36 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import * as Notifications from "expo-notifications";
 
 import { useAuth } from "@/context/AuthContext";
 import { registerExpoPushToken } from "@/lib/pushNotifications";
+import { openIncomeSacrificeFromReminder } from "@/navigation/navigationRef";
+
+type NotificationData = {
+  type?: unknown;
+  month?: unknown;
+  year?: unknown;
+  budgetPlanId?: unknown;
+};
 
 export function PushNotificationsBootstrap() {
   const { token, username, isLoading } = useAuth();
+  const handledIdentifiersRef = useRef<Set<string>>(new Set());
+
+  const handleReminderOpen = (identifier: string, data: NotificationData) => {
+    if (handledIdentifiersRef.current.has(identifier)) return;
+
+    const type = typeof data.type === "string" ? data.type : "";
+    if (type !== "income_sacrifice_reminder") return;
+
+    const didOpen = openIncomeSacrificeFromReminder({
+      month: data.month,
+      year: data.year,
+      budgetPlanId: data.budgetPlanId,
+    });
+    if (didOpen) {
+      handledIdentifiersRef.current.add(identifier);
+    }
+  };
 
   useEffect(() => {
     if (isLoading) return;
@@ -23,19 +48,32 @@ export function PushNotificationsBootstrap() {
   }, [isLoading, token, username]);
 
   useEffect(() => {
+    if (isLoading || !token) return;
+
+    void (async () => {
+      const response = await Notifications.getLastNotificationResponseAsync();
+      const identifier = response?.notification.request.identifier;
+      const data = (response?.notification.request.content.data ?? {}) as NotificationData;
+      if (!identifier) return;
+
+      handleReminderOpen(identifier, data);
+    })();
+
     const received = Notifications.addNotificationReceivedListener(() => {
       // no-op for now (foreground receipt)
     });
 
-    const response = Notifications.addNotificationResponseReceivedListener(() => {
-      // no-op for now (tap/open)
+    const response = Notifications.addNotificationResponseReceivedListener((event) => {
+      const identifier = event.notification.request.identifier;
+      const data = (event.notification.request.content.data ?? {}) as NotificationData;
+      handleReminderOpen(identifier, data);
     });
 
     return () => {
       received.remove();
       response.remove();
     };
-  }, []);
+  }, [isLoading, token]);
 
   return null;
 }
