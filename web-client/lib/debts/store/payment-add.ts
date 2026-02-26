@@ -7,28 +7,10 @@ import {
 	decimalToNumber,
 } from "./shared";
 import { serializePayment } from "./transforms";
-
-type DbClient = Pick<typeof prisma, "expense">;
 type PaymentCreateData = Parameters<typeof prisma.debtPayment.create>[0]["data"];
 
 function isCreditLikeDebtType(value: unknown): boolean {
 	return value === "credit_card" || value === "store_card";
-}
-
-async function syncExpensePaidFromDebt(tx: DbClient, sourceExpenseId: string, appliedAmount: number): Promise<void> {
-	const sourceExpense = await tx.expense.findUnique({
-		where: { id: sourceExpenseId },
-		select: { id: true, amount: true, paidAmount: true },
-	});
-	if (!sourceExpense) return;
-	const sourceAmount = decimalToNumber(sourceExpense.amount);
-	const sourcePaidAmount = decimalToNumber(sourceExpense.paidAmount);
-	const nextSourcePaidAmount = Math.min(sourceAmount, Math.max(0, sourcePaidAmount + appliedAmount));
-	const nextSourcePaid = sourceAmount > 0 && nextSourcePaidAmount >= sourceAmount;
-	await tx.expense.update({
-		where: { id: sourceExpense.id },
-		data: { paidAmount: nextSourcePaidAmount, paid: nextSourcePaid },
-	});
 }
 
 export async function addPayment(
@@ -91,10 +73,6 @@ export async function addPayment(
 				data: { currentBalance: nextTargetBalance, paidAmount: nextTargetPaid, paid: nextTargetBalance === 0 },
 			});
 
-			if (targetDebt.sourceType === "expense" && targetDebt.sourceExpenseId) {
-				await syncExpensePaidFromDebt(tx, targetDebt.sourceExpenseId, appliedAmount);
-			}
-
 			const nextCardBalance = Math.max(0, decimalToNumber(cardDebt.currentBalance) + appliedAmount);
 			await tx.debt.update({
 				where: { id: cardDebt.id },
@@ -135,9 +113,8 @@ export async function addPayment(
 		where: { id: debt.id },
 		data: { currentBalance: newBalance, paidAmount: newPaidAmount, paid: newBalance === 0 },
 	});
-	if (debt.sourceType === "expense" && debt.sourceExpenseId) {
-		await syncExpensePaidFromDebt(prisma, debt.sourceExpenseId, appliedAmount);
-	}
+	// NOTE: Expense-derived debts should sync their backing Expense via explicit callers
+	// (and should create ExpensePayment rows), to avoid double-counting and drift.
 
 	return serializePayment(payment);
 }

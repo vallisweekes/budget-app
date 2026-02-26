@@ -7,6 +7,7 @@ import { getAllExpenses, setExpensePaymentAmount, updateExpense } from "./store"
 import { processUnpaidExpenses } from "./carryover";
 import { prisma } from "@/lib/prisma";
 import { upsertExpenseDebt } from "@/lib/debts/store";
+import { syncExpensePaymentsToPaidAmount } from "@/lib/expenses/paymentSync";
 
 export async function updateExpenseDueDate(
 	budgetPlanId: string,
@@ -37,6 +38,16 @@ export async function updatePaymentStatus(
 		status === "paid" ? expense.amount : status === "unpaid" ? 0 : (partialAmount ?? 0);
 	const updated = await setExpensePaymentAmount(budgetPlanId, month, id, nextPaidAmount);
 	if (!updated) return;
+
+	await syncExpensePaymentsToPaidAmount({
+		expenseId: updated.expense.id,
+		budgetPlanId,
+		amount: updated.expense.amount,
+		desiredPaidAmount: updated.expense.paidAmount ?? 0,
+		paymentSource: "income",
+		adjustBalances: false,
+		resetOnDecrease: true,
+	});
 
 	if (updated.expense.isAllocation) {
 		// Allocation-tagged expenses should never create/maintain debts.

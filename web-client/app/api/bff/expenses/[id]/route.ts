@@ -7,8 +7,8 @@ import { resolveExpenseLogoWithSearch } from "@/lib/expenses/logoResolver";
 import { updateExpenseAcrossMonthsByName } from "@/lib/expenses/store";
 import { isNonDebtCategoryName } from "@/lib/expenses/helpers";
 import { maybeSendCategoryThresholdPush } from "@/lib/push/thresholdNotifications";
-import { getSettings, saveSettings } from "@/lib/settings/store";
 import { MONTHS } from "@/lib/constants/time";
+import { syncExpensePaymentsToPaidAmount } from "@/lib/expenses/paymentSync";
 import type { MonthKey } from "@/types";
 
 export const runtime = "nodejs";
@@ -214,90 +214,62 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     nextLastPaymentAt = undefined; // no change
   }
 
-  const updated = (await prisma.expense.update({
-    where: { id },
-    data: ({
-      name: nextName,
-      amount: String(nextAmountNumber),
-      paid: nextPaid,
-      paidAmount: String(nextPaidAmountNumber),
-      categoryId: categoryId === undefined ? existing.categoryId : categoryId,
-      merchantDomain: logo.merchantDomain,
-      logoUrl: logo.logoUrl,
-      logoSource: logo.logoSource,
-      isAllocation: isAllocation === undefined ? undefined : isAllocation,
-      isDirectDebit: isDirectDebit === undefined ? undefined : isDirectDebit,
-      dueDate: dueDate === undefined ? undefined : dueDate,
-      lastPaymentAt: nextLastPaymentAt,
-    }) as any,
-    include: {
-      category: {
-        select: { id: true, name: true, icon: true, color: true, featured: true },
+  const existingPaidAmountNumber = Number(existing.paidAmount.toString());
+  const isPaymentChange = paidExplicit !== undefined || paidAmountExplicit !== undefined;
+  const shouldSyncPayments =
+    isPaymentChange ||
+    nextPaid !== existing.paid ||
+    Math.abs(nextPaidAmountNumber - existingPaidAmountNumber) > 1e-9;
+
+  const updated = (await prisma.$transaction(async (tx) => {
+    // Update metadata first so subsequent logic uses the latest amount/name/etc.
+    await tx.expense.update({
+      where: { id },
+      data: ({
+        name: nextName,
+        amount: String(nextAmountNumber),
+        categoryId: categoryId === undefined ? existing.categoryId : categoryId,
+        merchantDomain: logo.merchantDomain,
+        logoUrl: logo.logoUrl,
+        logoSource: logo.logoSource,
+        isAllocation: isAllocation === undefined ? undefined : isAllocation,
+        isDirectDebit: isDirectDebit === undefined ? undefined : isDirectDebit,
+        dueDate: dueDate === undefined ? undefined : dueDate,
+      }) as any,
+    } as any);
+
+    const sync = shouldSyncPayments
+      ? await syncExpensePaymentsToPaidAmount({
+          tx,
+          expenseId: id,
+          budgetPlanId: existing.budgetPlanId,
+          amount: nextAmountNumber,
+          desiredPaidAmount: nextPaidAmountNumber,
+          paymentSource: existing.paymentSource ?? "income",
+          cardDebtId: existing.cardDebtId ?? null,
+          now: nextLastPaymentAt ?? undefined,
+          adjustBalances: isPaymentChange,
+          resetOnDecrease: true,
+        })
+      : null;
+
+    const finalPaidAmount = sync ? sync.finalPaidAmount : nextPaidAmountNumber;
+    const finalPaid = sync ? sync.finalPaid : nextPaid;
+
+    return (await tx.expense.update({
+      where: { id },
+      data: ({
+        paid: finalPaid,
+        paidAmount: String(finalPaidAmount),
+        lastPaymentAt: nextLastPaymentAt,
+      }) as any,
+      include: {
+        category: {
+          select: { id: true, name: true, icon: true, color: true, featured: true },
+        },
       },
-    },
-  } as any)) as any;
-
-  // ── Record payment source balance deduction when newly marked paid ─────
-  // Runs best-effort (never fails the response) whenever the expense
-  // transitions from unpaid → paid and there is a non-income payment source.
-  const wasUnpaid = !existing.paid;
-  const isNowPaid = nextPaid && paidExplicit === true;
-  if (isNowPaid && wasUnpaid) {
-    void (async () => {
-      try {
-        const src: string = existing.paymentSource ?? "income";
-        const delta = nextPaidAmountNumber;
-        if (delta <= 0) return;
-        const expensePayment = (prisma as any)?.expensePayment ?? null;
-
-        if (src === "credit_card") {
-          let resolvedCardId = String(existing.cardDebtId ?? "").trim();
-          if (!resolvedCardId) {
-            const cards = await prisma.debt.findMany({
-              where: { budgetPlanId: existing.budgetPlanId, sourceType: null, type: { in: ["credit_card", "store_card"] } },
-              select: { id: true },
-              orderBy: { createdAt: "asc" },
-            });
-            if (cards.length === 1) resolvedCardId = cards[0]!.id;
-          }
-          if (resolvedCardId) {
-            if (expensePayment) {
-              await expensePayment.create({ data: { expenseId: id, amount: delta, source: "credit_card", paidAt: new Date() } });
-            }
-            await prisma.$transaction(async (tx: any) => {
-              const card = await tx.debt.findFirst({
-                where: { id: resolvedCardId, budgetPlanId: existing.budgetPlanId, sourceType: null },
-                select: { id: true, currentBalance: true, initialBalance: true, paidAmount: true },
-              });
-              if (!card) return;
-              const current = Number(card.currentBalance?.toString?.() ?? card.currentBalance ?? 0);
-              const initial = Number(card.initialBalance?.toString?.() ?? card.initialBalance ?? 0);
-              const paid_ = Number(card.paidAmount?.toString?.() ?? card.paidAmount ?? 0);
-              const nextCurrent = Math.max(0, current + delta);
-              const nextInitial = Math.max(initial, nextCurrent);
-              await tx.debt.update({
-                where: { id: card.id },
-                data: { currentBalance: String(nextCurrent), initialBalance: String(nextInitial), paidAmount: String(Math.min(Math.max(0, paid_), nextInitial)), paid: false },
-              });
-            });
-          }
-        } else if (src === "savings") {
-          if (expensePayment) {
-            await expensePayment.create({ data: { expenseId: id, amount: delta, source: "savings", paidAt: new Date() } });
-          }
-          const settings = await getSettings(existing.budgetPlanId);
-          const current = Number(settings.savingsBalance ?? 0);
-          await saveSettings(existing.budgetPlanId, { savingsBalance: Math.max(0, current - delta) });
-        } else if (src !== "income") {
-          if (expensePayment) {
-            await expensePayment.create({ data: { expenseId: id, amount: delta, source: src, paidAt: new Date() } });
-          }
-        }
-      } catch {
-        // best-effort — never block the response
-      }
-    })();
-  }
+    } as any)) as any;
+  })) as any;
 
   // ── Sync expense → debt on every payment change ───────────────────────────
   // Runs whenever paid/paidAmount was explicitly provided in the request body.
@@ -307,11 +279,11 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   //   • fully paid       → zero out any existing debt
   //   • toggled unpaid   → zero out any existing debt (overdue processor
   //                        will recreate it when the due date passes)
-  const isPaymentChange = paidExplicit !== undefined || paidAmountExplicit !== undefined;
   if (isPaymentChange && !updated.isAllocation && !isNonDebtCategoryName(updated.category?.name)) {
-    const isPartial = !nextPaid && nextPaidAmountNumber > 0;
+    const nextPaidAmountNumberFinal = Number(updated.paidAmount.toString());
+    const isPartial = !updated.paid && nextPaidAmountNumberFinal > 0;
     const debtRemainingAmount = isPartial
-      ? Math.max(0, nextAmountNumber - nextPaidAmountNumber)
+      ? Math.max(0, nextAmountNumber - nextPaidAmountNumberFinal)
       : 0;
     await upsertExpenseDebt({
       budgetPlanId: existing.budgetPlanId,

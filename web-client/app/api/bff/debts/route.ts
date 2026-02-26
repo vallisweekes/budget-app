@@ -4,6 +4,59 @@ import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
 
 export const runtime = "nodejs";
 
+function parseDueDateInput(value: unknown): { ok: true; dueDate: Date | null } | { ok: false; error: string } {
+  if (value == null) return { ok: true, dueDate: null };
+
+  if (value instanceof Date) {
+    return Number.isFinite(value.getTime())
+      ? { ok: true, dueDate: value }
+      : { ok: false, error: "Invalid dueDate" };
+  }
+
+  if (typeof value === "number") {
+    const d = new Date(value);
+    return Number.isFinite(d.getTime()) ? { ok: true, dueDate: d } : { ok: false, error: "Invalid dueDate" };
+  }
+
+  if (typeof value === "string") {
+    const s = value.trim();
+    if (!s) return { ok: true, dueDate: null };
+
+    const ymd = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+    if (ymd) {
+      const d = new Date(`${ymd[1]}-${ymd[2]}-${ymd[3]}T00:00:00.000Z`);
+      return Number.isFinite(d.getTime()) ? { ok: true, dueDate: d } : { ok: false, error: "Invalid dueDate" };
+    }
+
+    const dmy = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(s);
+    if (dmy) {
+      const d = new Date(`${dmy[3]}-${dmy[2]}-${dmy[1]}T00:00:00.000Z`);
+      return Number.isFinite(d.getTime()) ? { ok: true, dueDate: d } : { ok: false, error: "Invalid dueDate" };
+    }
+
+    const d = new Date(s);
+    return Number.isFinite(d.getTime()) ? { ok: true, dueDate: d } : { ok: false, error: "Invalid dueDate" };
+  }
+
+  return { ok: false, error: "Invalid dueDate" };
+}
+
+function parseOptionalInt(value: unknown): { ok: true; int: number | null } | { ok: false; error: string } {
+  if (value == null) return { ok: true, int: null };
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) return { ok: false, error: "Invalid number" };
+    return { ok: true, int: Math.trunc(value) };
+  }
+  if (typeof value === "string") {
+    const s = value.trim();
+    if (!s) return { ok: true, int: null };
+    const parsed = Number.parseInt(s, 10);
+    if (!Number.isFinite(parsed)) return { ok: false, error: "Invalid number" };
+    return { ok: true, int: parsed };
+  }
+  return { ok: false, error: "Invalid number" };
+}
+
 function unauthorized() {
 	return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 }
@@ -56,6 +109,21 @@ export async function POST(request: Request) {
 
     const body = await request.json();
 
+    const parsedDueDate = parseDueDateInput((body as any)?.dueDate);
+    if (!parsedDueDate.ok) {
+      return NextResponse.json({ error: parsedDueDate.error }, { status: 400 });
+    }
+
+    const parsedDueDay = parseOptionalInt((body as any)?.dueDay);
+    if (!parsedDueDay.ok) {
+      return NextResponse.json({ error: "Invalid dueDay" }, { status: 400 });
+    }
+
+    const parsedInstallmentMonths = parseOptionalInt((body as any)?.installmentMonths);
+    if (!parsedInstallmentMonths.ok) {
+      return NextResponse.json({ error: "Invalid installmentMonths" }, { status: 400 });
+    }
+
     // Backward compatible mapping: older clients may still send "high_purchase".
     // The DB enum value is now "hire_purchase".
     const normalizedType = body?.type === "high_purchase" ? "hire_purchase" : body?.type;
@@ -78,9 +146,9 @@ export async function POST(request: Request) {
         paidAmount: body.paidAmount || 0,
         monthlyMinimum: body.monthlyMinimum || null,
         interestRate: body.interestRate || null,
-        installmentMonths: body.installmentMonths || null,
-        dueDate: body.dueDate || null,
-        dueDay: body.dueDay || null,
+        installmentMonths: parsedInstallmentMonths.int,
+        dueDate: parsedDueDate.dueDate,
+        dueDay: parsedDueDay.int,
         creditLimit: body.creditLimit || null,
         defaultPaymentSource: body.defaultPaymentSource || "income",
         defaultPaymentCardDebtId: body.defaultPaymentCardDebtId || null,

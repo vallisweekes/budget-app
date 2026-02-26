@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { isNonDebtCategoryName } from "../helpers";
 import { OVERDUE_GRACE_DAYS, resolveExpenseDueDate, addDays, monthNumberToKey } from "./shared";
+import { syncExpensePaymentsToPaidAmount } from "@/lib/expenses/paymentSync";
 import {
 	fetchExpenseDebtRows,
 	fetchLinkedExpenses,
@@ -21,7 +22,7 @@ export async function getExpenseDebts(budgetPlanId: string) {
 	const expenseById = new Map(expenses.map((e) => [e.id, e] as const));
 	const now = new Date();
 	const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-	const expenseUpdates: Array<{ id: string; paidAmount: number; paid: boolean }> = [];
+	const expenseUpdates: Array<{ id: string; amount: number; paidAmount: number; paid: boolean }> = [];
 
 	const visibleDebts = debts.filter((d) => {
 		const expenseId = String(d.sourceExpenseId ?? "").trim();
@@ -39,6 +40,7 @@ export async function getExpenseDebts(budgetPlanId: string) {
 			if (reconciledPaidAmount > paidAmount) {
 				expenseUpdates.push({
 					id: expense.id,
+					amount: totalAmount,
 					paidAmount: reconciledPaidAmount,
 					paid: totalAmount > 0 && reconciledPaidAmount >= totalAmount,
 				});
@@ -56,7 +58,24 @@ export async function getExpenseDebts(budgetPlanId: string) {
 	});
 
 	if (expenseUpdates.length > 0) {
-		await Promise.all(expenseUpdates.map((u) => prisma.expense.update({ where: { id: u.id }, data: { paidAmount: u.paidAmount, paid: u.paid } })));
+		await Promise.all(
+			expenseUpdates.map(async (u) => {
+				await prisma.expense.update({
+					where: { id: u.id },
+					data: { paidAmount: u.paidAmount, paid: u.paid },
+				});
+
+				await syncExpensePaymentsToPaidAmount({
+					expenseId: u.id,
+					budgetPlanId,
+					amount: u.amount,
+					desiredPaidAmount: u.paidAmount,
+					paymentSource: "extra_untracked",
+					adjustBalances: false,
+					resetOnDecrease: false,
+				});
+			})
+		);
 	}
 
 	const filtered = visibleDebts.filter((d) => !isNonDebtCategoryName(d.sourceCategoryName));

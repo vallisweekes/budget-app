@@ -5,6 +5,59 @@ import { processMissedDebtPaymentsToAccrue } from "@/lib/debts/carryover";
 
 export const runtime = "nodejs";
 
+function parseDueDateInput(value: unknown): { ok: true; dueDate: Date | null } | { ok: false; error: string } {
+  if (value == null) return { ok: true, dueDate: null };
+
+  if (value instanceof Date) {
+    return Number.isFinite(value.getTime())
+      ? { ok: true, dueDate: value }
+      : { ok: false, error: "Invalid dueDate" };
+  }
+
+  if (typeof value === "number") {
+    const d = new Date(value);
+    return Number.isFinite(d.getTime()) ? { ok: true, dueDate: d } : { ok: false, error: "Invalid dueDate" };
+  }
+
+  if (typeof value === "string") {
+    const s = value.trim();
+    if (!s) return { ok: true, dueDate: null };
+
+    const ymd = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+    if (ymd) {
+      const d = new Date(`${ymd[1]}-${ymd[2]}-${ymd[3]}T00:00:00.000Z`);
+      return Number.isFinite(d.getTime()) ? { ok: true, dueDate: d } : { ok: false, error: "Invalid dueDate" };
+    }
+
+    const dmy = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(s);
+    if (dmy) {
+      const d = new Date(`${dmy[3]}-${dmy[2]}-${dmy[1]}T00:00:00.000Z`);
+      return Number.isFinite(d.getTime()) ? { ok: true, dueDate: d } : { ok: false, error: "Invalid dueDate" };
+    }
+
+    const d = new Date(s);
+    return Number.isFinite(d.getTime()) ? { ok: true, dueDate: d } : { ok: false, error: "Invalid dueDate" };
+  }
+
+  return { ok: false, error: "Invalid dueDate" };
+}
+
+function parseOptionalInt(value: unknown): { ok: true; int: number | null } | { ok: false; error: string } {
+  if (value == null) return { ok: true, int: null };
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) return { ok: false, error: "Invalid number" };
+    return { ok: true, int: Math.trunc(value) };
+  }
+  if (typeof value === "string") {
+    const s = value.trim();
+    if (!s) return { ok: true, int: null };
+    const parsed = Number.parseInt(s, 10);
+    if (!Number.isFinite(parsed)) return { ok: false, error: "Invalid number" };
+    return { ok: true, int: parsed };
+  }
+  return { ok: false, error: "Invalid number" };
+}
+
 function unauthorized() {
   return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 }
@@ -226,9 +279,21 @@ export async function PATCH(
     if (typeof raw.paidAmount !== "undefined") data.paidAmount = raw.paidAmount;
     if (typeof raw.monthlyMinimum !== "undefined") data.monthlyMinimum = raw.monthlyMinimum;
     if (typeof raw.interestRate !== "undefined") data.interestRate = raw.interestRate;
-    if (typeof raw.dueDate !== "undefined") data.dueDate = raw.dueDate;
-    if (typeof raw.dueDay !== "undefined") data.dueDay = raw.dueDay;
-    if (typeof raw.installmentMonths !== "undefined") data.installmentMonths = raw.installmentMonths;
+    if (typeof raw.dueDate !== "undefined") {
+      const parsed = parseDueDateInput(raw.dueDate);
+      if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
+      data.dueDate = parsed.dueDate;
+    }
+    if (typeof raw.dueDay !== "undefined") {
+      const parsed = parseOptionalInt(raw.dueDay);
+      if (!parsed.ok) return NextResponse.json({ error: "Invalid dueDay" }, { status: 400 });
+      data.dueDay = parsed.int;
+    }
+    if (typeof raw.installmentMonths !== "undefined") {
+      const parsed = parseOptionalInt(raw.installmentMonths);
+      if (!parsed.ok) return NextResponse.json({ error: "Invalid installmentMonths" }, { status: 400 });
+      data.installmentMonths = parsed.int;
+    }
     if (typeof raw.creditLimit !== "undefined") data.creditLimit = raw.creditLimit;
     if (typeof raw.defaultPaymentSource !== "undefined") data.defaultPaymentSource = raw.defaultPaymentSource;
     if (typeof raw.defaultPaymentCardDebtId !== "undefined") data.defaultPaymentCardDebtId = raw.defaultPaymentCardDebtId;

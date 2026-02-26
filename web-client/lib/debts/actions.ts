@@ -10,6 +10,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { resolveUserId } from "@/lib/budgetPlans";
 import { monthKeyToNumber } from "@/lib/helpers/monthKey";
+import { mapDebtPaymentSourceToExpensePaymentSource, syncExpensePaymentsToPaidAmount } from "@/lib/expenses/paymentSync";
 
 function parseDateOnlyYYYYMMDD(value: unknown): string | undefined {
 	const raw = String(value ?? "").trim();
@@ -187,7 +188,7 @@ export async function updateDebtAction(id: string, formData: FormData) {
 	if (existing.sourceType === "expense" && existing.sourceExpenseId) {
 		const expense = await prisma.expense.findFirst({
 			where: { id: existing.sourceExpenseId, budgetPlanId },
-			select: { id: true, amount: true, paidAmount: true },
+			select: { id: true, amount: true, paidAmount: true, paymentSource: true, cardDebtId: true },
 		});
 		if (!expense) throw new Error("Source expense not found");
 
@@ -211,6 +212,17 @@ export async function updateDebtAction(id: string, formData: FormData) {
 				paidAmount: nextPaid ? nextExpenseAmount : nextPaidAmount,
 				paid: nextPaid,
 			},
+		});
+
+		await syncExpensePaymentsToPaidAmount({
+			expenseId: expense.id,
+			budgetPlanId,
+			amount: nextExpenseAmount,
+			desiredPaidAmount: nextPaid ? nextExpenseAmount : nextPaidAmount,
+			paymentSource: (expense as any).paymentSource ?? "income",
+			cardDebtId: (expense as any).cardDebtId ?? null,
+			adjustBalances: false,
+			resetOnDecrease: true,
 		});
 
 		await updateDebt(budgetPlanId, id, {
@@ -347,6 +359,16 @@ export async function makePaymentAction(budgetPlanId: string, debtId: string, am
 			appliedAmount
 		);
 		if (result) {
+			await syncExpensePaymentsToPaidAmount({
+				expenseId: result.expense.id,
+				budgetPlanId,
+				amount: result.expense.amount,
+				desiredPaidAmount: result.expense.paidAmount ?? 0,
+				paymentSource: "income",
+				adjustBalances: false,
+				resetOnDecrease: false,
+			});
+
 			await upsertExpenseDebt({
 				budgetPlanId,
 				expenseId: result.expense.id,
@@ -395,6 +417,16 @@ export async function makePaymentFromForm(formData: FormData) {
 			appliedAmount
 		);
 		if (result) {
+			await syncExpensePaymentsToPaidAmount({
+				expenseId: result.expense.id,
+				budgetPlanId,
+				amount: result.expense.amount,
+				desiredPaidAmount: result.expense.paidAmount ?? 0,
+				paymentSource: mapDebtPaymentSourceToExpensePaymentSource(source),
+				adjustBalances: false,
+				resetOnDecrease: false,
+			});
+
 			await upsertExpenseDebt({
 				budgetPlanId,
 				expenseId: result.expense.id,
@@ -439,6 +471,16 @@ export async function undoDebtPaymentFromForm(formData: FormData) {
 			const nextPaidAmount = Math.max(0, Math.min(amount, currentPaid - undone.amount));
 			const result = await setExpensePaymentAmount(budgetPlanId, monthKey, expense.id, nextPaidAmount, expense.year);
 			if (result) {
+				await syncExpensePaymentsToPaidAmount({
+					expenseId: result.expense.id,
+					budgetPlanId,
+					amount: result.expense.amount,
+					desiredPaidAmount: result.expense.paidAmount ?? 0,
+					paymentSource: "extra_untracked",
+					adjustBalances: false,
+					resetOnDecrease: true,
+				});
+
 				await upsertExpenseDebt({
 					budgetPlanId,
 					expenseId: result.expense.id,

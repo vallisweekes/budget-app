@@ -4,6 +4,7 @@ import { MONTHS } from "@/lib/constants/time";
 import { prisma } from "@/lib/prisma";
 import { monthKeyToNumber, monthNumberToKey } from "@/lib/helpers/monthKey";
 import { resolveExpenseLogo } from "@/lib/expenses/logoResolver";
+import { syncExpensePaymentsToPaidAmount } from "@/lib/expenses/paymentSync";
 import type { ExpenseItem, ExpensesByMonth, MonthKey } from "@/types";
 
 export type { ExpenseItem, ExpensesByMonth };
@@ -90,7 +91,7 @@ export async function updateExpenseAcrossMonthsByName(
         name: { equals: matchName, mode: "insensitive" },
         categoryId: match.categoryId,
       },
-      select: { id: true, paid: true, paidAmount: true, amount: true },
+      select: { id: true, paid: true, paidAmount: true, amount: true, paymentSource: true, cardDebtId: true },
     });
 
     for (const row of rows) {
@@ -105,6 +106,9 @@ export async function updateExpenseAcrossMonthsByName(
 
       const nextPaid = nextPaidAmount >= nextAmount && nextAmount > 0;
       if (nextPaid) nextPaidAmount = nextAmount;
+
+      const shouldSyncPayments =
+        nextPaid !== row.paid || Math.abs(nextPaidAmount - existingPaidAmount) > 1e-9;
 
       const dueDateValue =
     updates.dueDateDay === undefined
@@ -135,6 +139,19 @@ export async function updateExpenseAcrossMonthsByName(
           dueDate: dueDateValue,
         }) as any,
       });
+
+      if (shouldSyncPayments) {
+        await syncExpensePaymentsToPaidAmount({
+          expenseId: row.id,
+          budgetPlanId,
+          amount: nextAmount,
+          desiredPaidAmount: nextPaidAmount,
+          paymentSource: row.paymentSource ?? "income",
+          cardDebtId: (row as any).cardDebtId ?? null,
+          adjustBalances: false,
+          resetOnDecrease: true,
+        });
+      }
 
       touched.push({ id: row.id, monthNumber });
     }
@@ -340,6 +357,8 @@ export async function updateExpense(
       logoSource: true,
       categoryId: true,
       dueDate: true,
+			paymentSource: true,
+			cardDebtId: true,
     },
   } as any)) as any;
   if (!existing) return null;
@@ -362,6 +381,8 @@ export async function updateExpense(
 
   const nextPaid = nextPaidAmount >= nextAmount && nextAmount > 0;
   if (nextPaid) nextPaidAmount = nextAmount;
+
+	const shouldSyncPayments = nextPaid !== existing.paid || Math.abs(nextPaidAmount - existingPaidAmount) > 1e-9;
 
   const updated = (await prisma.expense.update({
     where: { id: existing.id },
@@ -391,6 +412,19 @@ export async function updateExpense(
       dueDate: true,
     },
   } as any)) as any;
+
+	if (shouldSyncPayments) {
+		await syncExpensePaymentsToPaidAmount({
+			expenseId: existing.id,
+			budgetPlanId,
+			amount: nextAmount,
+			desiredPaidAmount: nextPaidAmount,
+			paymentSource: (existing as any).paymentSource ?? "income",
+			cardDebtId: (existing as any).cardDebtId ?? null,
+			adjustBalances: false,
+			resetOnDecrease: true,
+		});
+	}
 
   return {
     id: updated.id,
