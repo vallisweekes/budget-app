@@ -80,10 +80,10 @@ export default function ReceiptUploadPanel({
 
 			try {
 				const base64 = await fileToBase64(file);
-				const res = await fetch("/api/bff/receipts/scan", {
+				const res = await fetch("/api/scan-receipt", {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ image: base64, budgetPlanId: budgetPlanId || undefined }),
+					body: JSON.stringify({ imageBase64: base64, budgetPlanId: budgetPlanId || undefined }),
 				});
 
 				const data = await res.json() as ScanResult & { error?: string };
@@ -146,14 +146,14 @@ export default function ReceiptUploadPanel({
 		}
 
 		try {
-			const res = await fetch(`/api/bff/receipts/${scanResult.receiptId}/confirm`, {
+			const res = await fetch("/api/confirm-expense", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
-					name: name.trim(),
+					receiptId: scanResult.receiptId,
+					merchant: name.trim(),
 					amount: parseFloat(amount),
-					month: confirmMonth,
-					year: confirmYear,
+					expenseDate: date || `${confirmYear}-${String(confirmMonth).padStart(2, "0")}-01`,
 					categoryId: categoryId || undefined,
 					budgetPlanId: budgetPlanId || undefined,
 				}),

@@ -1,27 +1,3 @@
-/**
- * POST /api/bff/receipts/scan
- *
- * Accepts a base64 receipt image, runs it through OpenAI Vision, saves a
- * Receipt record as "pending", and returns the parsed data + receiptId so
- * the mobile app can show an editable confirmation screen.
- *
- * Body:
- *   {
- *     image: string        // base64-encoded JPEG (no data-URI prefix)
- *     budgetPlanId?: string
- *   }
- *
- * Response:
- *   {
- *     receiptId: string
- *     merchant: string | null
- *     amount: number | null
- *     currency: string | null
- *     date: string | null        // YYYY-MM-DD
- *     suggestedCategory: string | null
- *   }
- */
-
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
@@ -30,18 +6,31 @@ import { sanitizeParsedReceipt, validateReceiptImage } from "@/lib/financial-eng
 
 export const runtime = "nodejs";
 
+/**
+ * POST /api/scan-receipt
+ *
+ * Public alias endpoint for all clients (mobile/web/PWA).
+ * Accepts either `imageBase64` or `image` in the request body.
+ */
 export async function POST(req: NextRequest) {
   const userId = await getSessionUserId();
   if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
-  let body: { image?: unknown; budgetPlanId?: unknown };
+  let body: { imageBase64?: unknown; image?: unknown; budgetPlanId?: unknown };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const imageError = validateReceiptImage(body.image, 5_000_000);
+  const imageBase64 =
+    typeof body.imageBase64 === "string" && body.imageBase64.trim()
+      ? body.imageBase64
+      : typeof body.image === "string"
+        ? body.image
+        : null;
+
+  const imageError = validateReceiptImage(imageBase64, 5_000_000);
   if (imageError) {
     const isTooLarge = imageError.toLowerCase().includes("too large");
     return NextResponse.json({ error: imageError }, { status: isTooLarge ? 413 : 400 });
@@ -52,7 +41,6 @@ export async function POST(req: NextRequest) {
     budgetPlanId: typeof body.budgetPlanId === "string" ? body.budgetPlanId : null,
   });
 
-  // Fetch user's category names so AI can suggest the best match
   const categoryNames: string[] = [];
   if (budgetPlanId) {
     const cats = await prisma.category.findMany({
@@ -64,16 +52,15 @@ export async function POST(req: NextRequest) {
 
   let parsed;
   try {
-    parsed = sanitizeParsedReceipt(await parseReceiptImage(body.image as string, categoryNames));
-  } catch (err) {
-    console.error("[receipts/scan] AI parse error:", err);
+    parsed = sanitizeParsedReceipt(await parseReceiptImage(imageBase64 as string, categoryNames));
+  } catch (error) {
+    console.error("[scan-receipt] AI parse error:", error);
     return NextResponse.json(
       { error: "Receipt scanning failed. Please try again or enter details manually." },
       { status: 500 },
     );
   }
 
-  // Persist a pending receipt record for later confirmation
   const receipt = await prisma.receipt.create({
     data: {
       userId,

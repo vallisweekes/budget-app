@@ -21,11 +21,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
-import { addOrUpdateExpenseAcrossMonths } from "@/lib/expenses/store";
-import { resolveExpenseLogoWithSearch } from "@/lib/expenses/logoResolver";
-import { maybeSendCategoryThresholdPush } from "@/lib/push/thresholdNotifications";
-import { MONTHS } from "@/lib/constants/time";
-import type { MonthKey } from "@/types";
+import { createExpenseFromReceipt } from "@/lib/financial-engine";
 
 export const runtime = "nodejs";
 
@@ -98,58 +94,23 @@ export async function POST(
       ? body.categoryId.trim()
       : undefined;
 
-  const sharedId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  const logo     = await resolveExpenseLogoWithSearch(name);
-
-  // Create the expense (matches existing expenses POST logic)
-  const monthKey = MONTHS[month - 1] as MonthKey;
-
-  await addOrUpdateExpenseAcrossMonths(budgetPlanId, year, [monthKey], {
-    id:             sharedId,
-    name,
-    merchantDomain: logo.merchantDomain ?? undefined,
-    amount,
-    categoryId,
-    paid:           true,
-    paidAmount:     amount,
-    isAllocation:   false,
-    isDirectDebit:  false,
-  } as any);
-
-  // Fetch the created expense
-  const created = await prisma.expense.findFirst({
-    where: { budgetPlanId, month, year, name },
-    orderBy: { createdAt: "desc" },
-    select: { id: true },
-  });
-
-  if (!created) {
-    return NextResponse.json({ error: "Expense creation failed" }, { status: 500 });
-  }
-
-  // Mark receipt confirmed + link to expense — both in one transaction
-  await prisma.receipt.update({
-    where: { id: receiptId },
-    data: {
-      status:    "confirmed",
-      expenseId: created.id,
-    },
-  });
-
-  // Trigger budget threshold notifications if applicable
   try {
-    await maybeSendCategoryThresholdPush({
+    const result = await createExpenseFromReceipt({
       budgetPlanId,
+      userId,
+      receiptId,
+      name,
+      amount,
       month,
       year,
-      userId,
-      categoryId: categoryId ?? null,
-      categoryName: null,
-      amountDelta: amount,
+      categoryId,
     });
-  } catch {
-    // Never block the response for notification failures
+    return NextResponse.json({ success: true, expenseId: result.expenseId });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Expense creation failed";
+    if (message === "Invalid month" || message === "Invalid year" || message === "Name is required" || message === "Amount must be > 0") {
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
+    return NextResponse.json({ error: "Expense creation failed" }, { status: 500 });
   }
-
-  return NextResponse.json({ success: true, expenseId: created.id });
 }
