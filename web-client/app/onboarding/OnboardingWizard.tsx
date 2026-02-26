@@ -2,9 +2,11 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { CalendarDays, CreditCard, Receipt, Sparkles, TrendingUp, CheckCircle2 } from "lucide-react";
 
 type OnboardingProfile = {
-  mainGoal: "improve_savings" | "manage_debts" | "track_spending" | null;
+  mainGoal: "improve_savings" | "manage_debts" | "track_spending" | "build_budget" | null;
+  mainGoals?: Array<"improve_savings" | "manage_debts" | "track_spending" | "build_budget">;
   occupation: string | null;
   occupationOther: string | null;
   monthlySalary: string | number | null;
@@ -38,8 +40,16 @@ export default function OnboardingWizard({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  const [mainGoal, setMainGoal] = useState<"improve_savings" | "manage_debts" | "track_spending">(
-    (initial.profile?.mainGoal as "improve_savings" | "manage_debts" | "track_spending" | null) ?? "improve_savings"
+  const initialGoals = useMemo(() => {
+    const fromProfile = initial.profile?.mainGoals;
+    const cleaned = Array.isArray(fromProfile) ? fromProfile.filter(Boolean) : [];
+    if (cleaned.length) return Array.from(new Set(cleaned));
+    const single = initial.profile?.mainGoal ?? null;
+    return single ? [single] : [];
+  }, [initial.profile?.mainGoal, initial.profile?.mainGoals]);
+
+  const [mainGoals, setMainGoals] = useState<Array<"improve_savings" | "manage_debts" | "track_spending" | "build_budget">>(
+    initialGoals.length ? initialGoals : ["improve_savings"]
   );
   const [occupation, setOccupation] = useState(initial.profile?.occupation ?? "");
   const [occupationOther, setOccupationOther] = useState(initial.profile?.occupationOther ?? "");
@@ -56,15 +66,17 @@ export default function OnboardingWizard({
 
   const goals = useMemo(
     () => [
-      { id: "improve_savings" as const, label: "Improve savings" },
-      { id: "manage_debts" as const, label: "Manage debts better" },
-      { id: "track_spending" as const, label: "Keep general track of spending" },
+      { id: "build_budget" as const, label: "Set up my monthly budget", Icon: CalendarDays, iconClass: "text-amber-300" },
+      { id: "track_spending" as const, label: "Keep an eye on my spending", Icon: Receipt, iconClass: "text-purple-300" },
+      { id: "improve_savings" as const, label: "Build my savings", Icon: TrendingUp, iconClass: "text-emerald-300" },
+      { id: "manage_debts" as const, label: "Get on top of my debts", Icon: CreditCard, iconClass: "text-rose-300" },
     ],
     []
   );
 
   const payload = {
-    mainGoal,
+    mainGoal: mainGoals[0] ?? null,
+    mainGoals,
     occupation,
     occupationOther,
     monthlySalary: salary ? Number(salary) : null,
@@ -109,33 +121,52 @@ export default function OnboardingWizard({
       <div className="mx-auto max-w-xl rounded-2xl border border-white/10 bg-slate-900/40 p-6">
         <div className="mb-5">
           <p className="text-xs uppercase tracking-widest text-slate-400">Welcome</p>
-          <h1 className="mt-2 text-2xl font-bold">Thanks for coming on this journey</h1>
-          <p className="mt-1 text-sm text-slate-300">Answer a few quick questions so we can build your first plan.</p>
+          <h1 className="mt-2 text-2xl font-bold">Welcome {username}</h1>
+          <p className="mt-1 text-sm text-slate-300">Quick setup, then you’re in.</p>
         </div>
 
         {error ? <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">{error}</div> : null}
 
         {step === 0 ? (
           <div className="space-y-3">
-            <p className="text-sm text-slate-300">What is your main goal?</p>
+            <div className="flex items-center gap-2 text-sm text-slate-200">
+              <Sparkles className="h-4 w-4 text-amber-300" />
+              <p>What do you want help with most right now?</p>
+            </div>
             {goals.map((g) => (
               <button
                 key={g.id}
                 type="button"
-                onClick={() => setMainGoal(g.id)}
+                onClick={() =>
+                  setMainGoals((prev) => {
+                    const has = prev.includes(g.id);
+                    if (has) {
+                      const next = prev.filter((x) => x !== g.id);
+                      return next.length ? next : prev;
+                    }
+                    return [...prev, g.id];
+                  })
+                }
                 className={`w-full rounded-xl border px-4 py-3 text-left ${
-                  mainGoal === g.id ? "border-purple-400 bg-purple-500/20" : "border-white/10 bg-slate-950/30"
+                  mainGoals.includes(g.id) ? "border-purple-300 bg-purple-500/20" : "border-white/10 bg-slate-950/30"
                 }`}
               >
-                {g.label}
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <g.Icon className={`h-4 w-4 ${g.iconClass}`} />
+                    <span className="font-medium">{g.label}</span>
+                  </div>
+                  {mainGoals.includes(g.id) ? <CheckCircle2 className="h-4 w-4 text-white" /> : null}
+                </div>
               </button>
             ))}
+            <p className="text-xs text-slate-300">You can pick more than one.</p>
           </div>
         ) : null}
 
         {step === 1 ? (
           <div className="space-y-3">
-            <p className="text-sm text-slate-300">What do you do for work?</p>
+            <p className="text-sm text-slate-300">What kind of work do you do?</p>
             <select
               value={occupation}
               onChange={(e) => setOccupation(e.target.value)}
@@ -161,7 +192,7 @@ export default function OnboardingWizard({
 
         {step === 2 ? (
           <div className="space-y-3">
-            <p className="text-sm text-slate-300">What is your monthly salary?</p>
+            <p className="text-sm text-slate-300">About how much do you bring in each month?</p>
             <input
               value={salary}
               onChange={(e) => setSalary(e.target.value)}
@@ -174,11 +205,11 @@ export default function OnboardingWizard({
 
         {step === 3 ? (
           <div className="space-y-3">
-            <p className="text-sm text-slate-300">What 2 expenses do you pay every month without fail?</p>
+            <p className="text-sm text-slate-300">What are two bills you pay every month?</p>
             <div className="grid grid-cols-2 gap-2">
-              <input value={expenseOneName} onChange={(e) => setExpenseOneName(e.target.value)} placeholder="Expense 1" className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2" />
+              <input value={expenseOneName} onChange={(e) => setExpenseOneName(e.target.value)} placeholder="Bill name" className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2" />
               <input value={expenseOneAmount} onChange={(e) => setExpenseOneAmount(e.target.value)} placeholder="Amount" inputMode="decimal" className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2" />
-              <input value={expenseTwoName} onChange={(e) => setExpenseTwoName(e.target.value)} placeholder="Expense 2" className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2" />
+              <input value={expenseTwoName} onChange={(e) => setExpenseTwoName(e.target.value)} placeholder="Bill name" className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2" />
               <input value={expenseTwoAmount} onChange={(e) => setExpenseTwoAmount(e.target.value)} placeholder="Amount" inputMode="decimal" className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2" />
             </div>
           </div>
@@ -186,7 +217,7 @@ export default function OnboardingWizard({
 
         {step === 4 ? (
           <div className="space-y-3">
-            <p className="text-sm text-slate-300">Do you give yourself any allowance?</p>
+            <p className="text-sm text-slate-300">Do you set aside spending money for yourself?</p>
             <div className="flex gap-2">
               <button type="button" onClick={() => setHasAllowance(true)} className={`rounded-lg border px-3 py-2 ${hasAllowance ? "border-purple-400 bg-purple-500/20" : "border-white/10"}`}>Yes</button>
               <button type="button" onClick={() => setHasAllowance(false)} className={`rounded-lg border px-3 py-2 ${!hasAllowance ? "border-purple-400 bg-purple-500/20" : "border-white/10"}`}>No</button>
@@ -195,7 +226,7 @@ export default function OnboardingWizard({
               <input
                 value={allowanceAmount}
                 onChange={(e) => setAllowanceAmount(e.target.value)}
-                placeholder="Allowance amount"
+                placeholder="How much?"
                 inputMode="decimal"
                 className="w-full rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2"
               />
@@ -205,7 +236,7 @@ export default function OnboardingWizard({
 
         {step === 5 ? (
           <div className="space-y-3">
-            <p className="text-sm text-slate-300">Any debts you want to manage?</p>
+            <p className="text-sm text-slate-300">Do you have any debts you want to pay down?</p>
             <div className="flex gap-2">
               <button type="button" onClick={() => setHasDebts(true)} className={`rounded-lg border px-3 py-2 ${hasDebts ? "border-purple-400 bg-purple-500/20" : "border-white/10"}`}>Yes</button>
               <button type="button" onClick={() => setHasDebts(false)} className={`rounded-lg border px-3 py-2 ${!hasDebts ? "border-purple-400 bg-purple-500/20" : "border-white/10"}`}>No</button>
@@ -215,14 +246,14 @@ export default function OnboardingWizard({
                 <input
                   value={debtAmount}
                   onChange={(e) => setDebtAmount(e.target.value)}
-                  placeholder="Total debt amount"
+                  placeholder="About how much?"
                   inputMode="decimal"
                   className="w-full rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2"
                 />
                 <input
                   value={debtNotes}
                   onChange={(e) => setDebtNotes(e.target.value)}
-                  placeholder="Debt note (optional)"
+                  placeholder="Any notes? (optional)"
                   className="w-full rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2"
                 />
               </>

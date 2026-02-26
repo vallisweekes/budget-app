@@ -47,11 +47,21 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
     }
 
+    const mainGoal =
+      body.mainGoal === "improve_savings" ||
+      body.mainGoal === "manage_debts" ||
+      body.mainGoal === "track_spending" ||
+      body.mainGoal === "build_budget"
+        ? body.mainGoal
+        : null;
+
+    const mainGoals = Array.isArray(body.mainGoals)
+      ? body.mainGoals.filter((v) => v === "improve_savings" || v === "manage_debts" || v === "track_spending" || v === "build_budget")
+      : null;
+
     const input: OnboardingInput = {
-      mainGoal:
-        body.mainGoal === "improve_savings" || body.mainGoal === "manage_debts" || body.mainGoal === "track_spending"
-          ? body.mainGoal
-          : null,
+      mainGoal,
+      mainGoals,
       occupation: typeof body.occupation === "string" ? body.occupation : null,
       occupationOther: typeof body.occupationOther === "string" ? body.occupationOther : null,
       monthlySalary: asNumber(body.monthlySalary),

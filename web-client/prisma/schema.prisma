@@ -64,6 +64,7 @@ enum OnboardingGoal {
   improve_savings
   manage_debts
   track_spending
+  build_budget
 }
 
 enum OnboardingStatus {
@@ -80,6 +81,7 @@ model UserOnboardingProfile {
   completedAt        DateTime?
 
   mainGoal           OnboardingGoal?
+  mainGoals          OnboardingGoal[] @default([])
   occupation         String?
   occupationOther    String?
   monthlySalary      Decimal?         @db.Decimal(12, 2)

@@ -13,7 +13,7 @@ export const runtime = "nodejs";
  * the shared financial engine.
  */
 export async function POST(req: NextRequest) {
-  const userId = await getSessionUserId();
+  const userId = await getSessionUserId(req);
   if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   let body: {

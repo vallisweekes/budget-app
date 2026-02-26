@@ -11,16 +11,39 @@ import {
   View,
 } from "react-native";
 
+import { Ionicons } from "@expo/vector-icons";
+
 import { apiFetch } from "@/lib/api";
 import type { OnboardingProfile, OnboardingStatusResponse } from "@/lib/apiTypes";
+import { useAuth } from "@/context/AuthContext";
 import { T } from "@/lib/theme";
 
-type Goal = "improve_savings" | "manage_debts" | "track_spending";
+type Goal = "improve_savings" | "manage_debts" | "track_spending" | "build_budget";
 
-const GOALS: Array<{ id: Goal; label: string }> = [
-  { id: "improve_savings", label: "Improve savings" },
-  { id: "manage_debts", label: "Manage debts better" },
-  { id: "track_spending", label: "Keep general track of spending" },
+// Match the blue/purple used for the Expenses total hero.
+const EXPENSES_TOTAL_BLUE = "#2a0a9e";
+
+const ICON_COLORS = {
+  build_budget: T.orange,
+  track_spending: T.accent,
+  improve_savings: T.green,
+  manage_debts: T.red,
+} satisfies Record<Goal, string>;
+
+const STEP_ICON_COLORS = {
+  0: T.orange,
+  1: T.onAccent,
+  2: T.green,
+  3: T.onAccent,
+  4: T.orange,
+  5: T.red,
+} satisfies Record<number, string>;
+
+const GOALS: Array<{ id: Goal; label: string; icon: keyof typeof Ionicons.glyphMap }> = [
+  { id: "build_budget", label: "Set up my monthly budget", icon: "calendar-outline" },
+  { id: "track_spending", label: "Keep an eye on my spending", icon: "receipt-outline" },
+  { id: "improve_savings", label: "Build my savings", icon: "trending-up-outline" },
+  { id: "manage_debts", label: "Get on top of my debts", icon: "card-outline" },
 ];
 
 export default function OnboardingScreen({
@@ -30,11 +53,26 @@ export default function OnboardingScreen({
   initial: OnboardingStatusResponse;
   onCompleted: () => void;
 }) {
+  const { username } = useAuth();
   const profile = initial.profile;
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
 
-  const [mainGoal, setMainGoal] = useState<Goal>((profile?.mainGoal as Goal | null) ?? "improve_savings");
+  const displayName = useMemo(() => {
+    const raw = (username ?? "").trim();
+    if (!raw) return "";
+    return raw.length <= 1 ? raw.toUpperCase() : raw.charAt(0).toUpperCase() + raw.slice(1);
+  }, [username]);
+
+  const initialGoals = useMemo(() => {
+    const fromProfile = (profile as (OnboardingProfile & { mainGoals?: Goal[] }) | null)?.mainGoals;
+    const cleaned = Array.isArray(fromProfile) ? fromProfile.filter(Boolean) : [];
+    if (cleaned.length) return Array.from(new Set(cleaned));
+    const single = (profile?.mainGoal as Goal | null) ?? null;
+    return single ? [single] : [];
+  }, [profile]);
+
+  const [mainGoals, setMainGoals] = useState<Goal[]>(initialGoals.length ? initialGoals : ["improve_savings"]);
   const [occupation, setOccupation] = useState(profile?.occupation ?? "");
   const [occupationOther, setOccupationOther] = useState(profile?.occupationOther ?? "");
   const [salary, setSalary] = useState(String(profile?.monthlySalary ?? ""));
@@ -51,7 +89,8 @@ export default function OnboardingScreen({
   const occupations = useMemo(() => initial.occupations ?? [], [initial.occupations]);
 
   const payload: Partial<OnboardingProfile> = {
-    mainGoal,
+    mainGoal: mainGoals[0] ?? null,
+    mainGoals,
     occupation,
     occupationOther,
     monthlySalary: salary ? Number(salary) : null,
@@ -89,29 +128,56 @@ export default function OnboardingScreen({
   return (
     <SafeAreaView style={s.safe}>
       <ScrollView contentContainerStyle={s.wrap} keyboardShouldPersistTaps="handled">
-        <Text style={s.kicker}>WELCOME</Text>
-        <Text style={s.title}>Thanks for coming on this journey</Text>
-        <Text style={s.sub}>Answer a few quick questions and we’ll create your first personal plan automatically.</Text>
+        <View style={s.header}>
+          <Text style={s.welcome}>
+            Welcome{displayName ? ` ${displayName}` : ""}
+          </Text>
+          <Text style={s.sub} numberOfLines={1} ellipsizeMode="tail">
+            Quick setup, then you’re in.
+          </Text>
+        </View>
 
-        <View style={s.card}>
+        <View style={s.form}>
           {step === 0 ? (
             <>
-              <Text style={s.question}>What is your main goal?</Text>
+              <View style={s.questionRow}>
+                <Ionicons name="sparkles-outline" size={20} color={STEP_ICON_COLORS[0]} />
+                <Text style={s.question}>What do you want help with most right now?</Text>
+              </View>
               {GOALS.map((goal) => (
                 <Pressable
                   key={goal.id}
-                  onPress={() => setMainGoal(goal.id)}
-                  style={[s.option, mainGoal === goal.id && s.optionActive]}
+                  onPress={() =>
+                    setMainGoals((prev) => {
+                      const has = prev.includes(goal.id);
+                      if (has) {
+                        const next = prev.filter((g) => g !== goal.id);
+                        return next.length ? next : prev;
+                      }
+                      return [...prev, goal.id];
+                    })
+                  }
+                  style={[s.option, mainGoals.includes(goal.id) && s.optionActive]}
                 >
-                  <Text style={[s.optionText, mainGoal === goal.id && s.optionTextActive]}>{goal.label}</Text>
+                  <View style={s.optionRow}>
+                    <View style={s.optionLeft}>
+                      <Ionicons name={goal.icon} size={18} color={ICON_COLORS[goal.id]} />
+                      <Text style={[s.optionText, mainGoals.includes(goal.id) && s.optionTextActive]}>{goal.label}</Text>
+                    </View>
+                    {mainGoals.includes(goal.id) ? <Ionicons name="checkmark-circle" size={18} color="#ffffff" /> : null}
+                  </View>
                 </Pressable>
               ))}
+              <Text style={s.helper}>You can pick more than one.</Text>
             </>
           ) : null}
 
           {step === 1 ? (
             <>
-              <Text style={s.question}>What do you do for work?</Text>
+              <View style={s.questionRow}>
+                <Ionicons name="briefcase-outline" size={20} color={STEP_ICON_COLORS[1]} />
+                <Text style={s.question}>What kind of work do you do?</Text>
+              </View>
               <View style={s.chipsWrap}>
                 {occupations.map((item) => {
                   const active = occupation === item;
@@ -127,7 +193,7 @@ export default function OnboardingScreen({
                   value={occupationOther}
                   onChangeText={setOccupationOther}
                   placeholder="Your occupation"
-                  placeholderTextColor={T.textMuted}
+                  placeholderTextColor="rgba(255,255,255,0.62)"
                   style={s.input}
                 />
               ) : null}
@@ -136,13 +202,16 @@ export default function OnboardingScreen({
 
           {step === 2 ? (
             <>
-              <Text style={s.question}>What is your monthly salary?</Text>
+              <View style={s.questionRow}>
+                <Ionicons name="wallet-outline" size={20} color={STEP_ICON_COLORS[2]} />
+                <Text style={s.question}>About how much do you bring in each month?</Text>
+              </View>
               <TextInput
                 value={salary}
                 onChangeText={setSalary}
                 keyboardType="decimal-pad"
                 placeholder="e.g. 2500"
-                placeholderTextColor={T.textMuted}
+                placeholderTextColor="rgba(255,255,255,0.62)"
                 style={s.input}
               />
             </>
@@ -150,21 +219,53 @@ export default function OnboardingScreen({
 
           {step === 3 ? (
             <>
-              <Text style={s.question}>What 2 expenses do you pay every month without fail?</Text>
-              <View style={s.row}>
-                <TextInput value={expenseOneName} onChangeText={setExpenseOneName} placeholder="Expense 1" placeholderTextColor={T.textMuted} style={[s.input, s.rowInput]} />
-                <TextInput value={expenseOneAmount} onChangeText={setExpenseOneAmount} keyboardType="decimal-pad" placeholder="Amount" placeholderTextColor={T.textMuted} style={[s.input, s.rowInput]} />
+              <View style={s.questionRow}>
+                <Ionicons name="receipt-outline" size={20} color={STEP_ICON_COLORS[3]} />
+                <Text style={s.question}>What are two bills you pay every month?</Text>
               </View>
               <View style={s.row}>
-                <TextInput value={expenseTwoName} onChangeText={setExpenseTwoName} placeholder="Expense 2" placeholderTextColor={T.textMuted} style={[s.input, s.rowInput]} />
-                <TextInput value={expenseTwoAmount} onChangeText={setExpenseTwoAmount} keyboardType="decimal-pad" placeholder="Amount" placeholderTextColor={T.textMuted} style={[s.input, s.rowInput]} />
+                <TextInput
+                  value={expenseOneName}
+                  onChangeText={setExpenseOneName}
+                  placeholder="Bill name"
+                  placeholderTextColor="rgba(255,255,255,0.62)"
+                  style={[s.input, s.rowInput]}
+                />
+                <TextInput
+                  value={expenseOneAmount}
+                  onChangeText={setExpenseOneAmount}
+                  keyboardType="decimal-pad"
+                  placeholder="Amount"
+                  placeholderTextColor="rgba(255,255,255,0.62)"
+                  style={[s.input, s.rowInput]}
+                />
+              </View>
+              <View style={s.row}>
+                <TextInput
+                  value={expenseTwoName}
+                  onChangeText={setExpenseTwoName}
+                  placeholder="Bill name"
+                  placeholderTextColor="rgba(255,255,255,0.62)"
+                  style={[s.input, s.rowInput]}
+                />
+                <TextInput
+                  value={expenseTwoAmount}
+                  onChangeText={setExpenseTwoAmount}
+                  keyboardType="decimal-pad"
+                  placeholder="Amount"
+                  placeholderTextColor="rgba(255,255,255,0.62)"
+                  style={[s.input, s.rowInput]}
+                />
               </View>
             </>
           ) : null}
 
           {step === 4 ? (
             <>
-              <Text style={s.question}>Do you give yourself any allowance?</Text>
+              <View style={s.questionRow}>
+                <Ionicons name="happy-outline" size={20} color={STEP_ICON_COLORS[4]} />
+                <Text style={s.question}>Do you set aside spending money for yourself?</Text>
+              </View>
               <View style={s.toggleRow}>
                 <Pressable onPress={() => setHasAllowance(true)} style={[s.toggle, hasAllowance && s.toggleActive]}><Text style={[s.toggleText, hasAllowance && s.toggleTextActive]}>Yes</Text></Pressable>
                 <Pressable onPress={() => setHasAllowance(false)} style={[s.toggle, !hasAllowance && s.toggleActive]}><Text style={[s.toggleText, !hasAllowance && s.toggleTextActive]}>No</Text></Pressable>
@@ -174,8 +275,8 @@ export default function OnboardingScreen({
                   value={allowanceAmount}
                   onChangeText={setAllowanceAmount}
                   keyboardType="decimal-pad"
-                  placeholder="Allowance amount"
-                  placeholderTextColor={T.textMuted}
+                  placeholder="How much?"
+                  placeholderTextColor="rgba(255,255,255,0.62)"
                   style={s.input}
                 />
               ) : null}
@@ -184,7 +285,10 @@ export default function OnboardingScreen({
 
           {step === 5 ? (
             <>
-              <Text style={s.question}>Any debts you want to manage?</Text>
+              <View style={s.questionRow}>
+                <Ionicons name="card-outline" size={20} color={STEP_ICON_COLORS[5]} />
+                <Text style={s.question}>Do you have any debts you want to pay down?</Text>
+              </View>
               <View style={s.toggleRow}>
                 <Pressable onPress={() => setHasDebts(true)} style={[s.toggle, hasDebts && s.toggleActive]}><Text style={[s.toggleText, hasDebts && s.toggleTextActive]}>Yes</Text></Pressable>
                 <Pressable onPress={() => setHasDebts(false)} style={[s.toggle, !hasDebts && s.toggleActive]}><Text style={[s.toggleText, !hasDebts && s.toggleTextActive]}>No</Text></Pressable>
@@ -195,15 +299,15 @@ export default function OnboardingScreen({
                     value={debtAmount}
                     onChangeText={setDebtAmount}
                     keyboardType="decimal-pad"
-                    placeholder="Debt amount"
-                    placeholderTextColor={T.textMuted}
+                    placeholder="About how much?"
+                    placeholderTextColor="rgba(255,255,255,0.62)"
                     style={s.input}
                   />
                   <TextInput
                     value={debtNotes}
                     onChangeText={setDebtNotes}
-                    placeholder="Debt note (optional)"
-                    placeholderTextColor={T.textMuted}
+                    placeholder="Any notes? (optional)"
+                    placeholderTextColor="rgba(255,255,255,0.62)"
                     style={s.input}
                   />
                 </>
@@ -212,13 +316,15 @@ export default function OnboardingScreen({
           ) : null}
 
           <View style={s.footerRow}>
-            <Pressable
-              onPress={() => setStep((prev) => Math.max(0, prev - 1))}
-              disabled={step === 0 || saving}
-              style={[s.secondaryBtn, (step === 0 || saving) && s.disabled]}
-            >
-              <Text style={s.secondaryText}>Back</Text>
-            </Pressable>
+            {step === 0 ? null : (
+              <Pressable
+                onPress={() => setStep((prev) => Math.max(0, prev - 1))}
+                disabled={saving}
+                style={[s.secondaryBtn, saving && s.disabled]}
+              >
+                <Text style={s.secondaryText}>Back</Text>
+              </Pressable>
+            )}
 
             {step < 5 ? (
               <Pressable
@@ -234,13 +340,17 @@ export default function OnboardingScreen({
                   }
                 }}
                 disabled={saving}
-                style={[s.primaryBtn, saving && s.disabled]}
+                style={[s.primaryBtn, step === 0 && s.primaryBtnFull, saving && s.disabled]}
               >
-                {saving ? <ActivityIndicator color={T.onAccent} /> : <Text style={s.primaryText}>Next</Text>}
+                {saving ? (
+                  <ActivityIndicator color={EXPENSES_TOTAL_BLUE} />
+                ) : (
+                  <Text style={s.primaryText}>{step === 0 ? "Let’s go" : "Next"}</Text>
+                )}
               </Pressable>
             ) : (
               <Pressable onPress={finish} disabled={saving} style={[s.primaryBtn, saving && s.disabled]}>
-                {saving ? <ActivityIndicator color={T.onAccent} /> : <Text style={s.primaryText}>Finish</Text>}
+                {saving ? <ActivityIndicator color={EXPENSES_TOTAL_BLUE} /> : <Text style={s.primaryText}>Finish</Text>}
               </Pressable>
             )}
           </View>
@@ -251,58 +361,55 @@ export default function OnboardingScreen({
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: T.bg },
-  wrap: { paddingHorizontal: 20, paddingVertical: 24 },
-  kicker: { color: T.textMuted, fontSize: 12, fontWeight: "700", letterSpacing: 1.2 },
-  title: { color: T.text, fontSize: 24, fontWeight: "900", marginTop: 6 },
-  sub: { color: T.textDim, marginTop: 8, marginBottom: 16, fontSize: 13 },
-  card: {
-    borderWidth: 1,
-    borderColor: T.border,
-    borderRadius: 14,
-    padding: 14,
-    backgroundColor: T.card,
-    gap: 10,
-  },
-  question: { color: T.text, fontSize: 15, fontWeight: "800", marginBottom: 6 },
+  safe: { flex: 1, backgroundColor: EXPENSES_TOTAL_BLUE },
+  wrap: { flexGrow: 1, paddingHorizontal: 20, paddingVertical: 24 },
+  header: { minHeight: 220, alignItems: "center", justifyContent: "center", paddingVertical: 10 },
+  welcome: { color: "#ffffff", fontSize: 26, fontWeight: "900", letterSpacing: -0.4, textAlign: "center" },
+  sub: { color: "rgba(255,255,255,0.78)", marginTop: 10, fontSize: 13, fontWeight: "800", textAlign: "center", maxWidth: 360 },
+  form: { gap: 10 },
+  questionRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 6 },
+  question: { color: "#ffffff", fontSize: 16, fontWeight: "900", flexShrink: 1 },
   option: {
     borderWidth: 1,
-    borderColor: T.border,
-    backgroundColor: T.cardAlt,
+    borderColor: "rgba(255,255,255,0.30)",
+    backgroundColor: "rgba(255,255,255,0.12)",
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
     marginBottom: 8,
   },
+  optionRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
+  optionLeft: { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },
   optionActive: {
-    borderColor: T.accent,
-    backgroundColor: `${T.accent}22`,
+    borderColor: "rgba(255,255,255,0.78)",
+    backgroundColor: "rgba(255,255,255,0.18)",
   },
-  optionText: { color: T.text, fontSize: 14, fontWeight: "700" },
-  optionTextActive: { color: T.accent },
+  optionText: { color: "#ffffff", fontSize: 14, fontWeight: "800" },
+  optionTextActive: { color: "#ffffff" },
+  helper: { color: "rgba(255,255,255,0.72)", fontSize: 12, fontWeight: "700", marginTop: 2 },
   chipsWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: {
     borderWidth: 1,
-    borderColor: T.border,
-    backgroundColor: T.cardAlt,
+    borderColor: "rgba(255,255,255,0.30)",
+    backgroundColor: "rgba(255,255,255,0.12)",
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
   chipActive: {
-    borderColor: T.accent,
-    backgroundColor: `${T.accent}22`,
+    borderColor: "rgba(255,255,255,0.78)",
+    backgroundColor: "rgba(255,255,255,0.18)",
   },
-  chipText: { color: T.text, fontSize: 12, fontWeight: "700" },
-  chipTextActive: { color: T.accent },
+  chipText: { color: "#ffffff", fontSize: 12, fontWeight: "800" },
+  chipTextActive: { color: "#ffffff" },
   input: {
     borderWidth: 1,
-    borderColor: T.border,
-    backgroundColor: T.cardAlt,
+    borderColor: "rgba(255,255,255,0.30)",
+    backgroundColor: "rgba(255,255,255,0.12)",
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    color: T.text,
+    color: "#ffffff",
   },
   row: { flexDirection: "row", gap: 10 },
   rowInput: { flex: 1 },
@@ -310,19 +417,19 @@ const s = StyleSheet.create({
   toggle: {
     flex: 1,
     borderWidth: 1,
-    borderColor: T.border,
-    backgroundColor: T.cardAlt,
+    borderColor: "rgba(255,255,255,0.30)",
+    backgroundColor: "rgba(255,255,255,0.12)",
     borderRadius: 10,
     paddingVertical: 10,
     alignItems: "center",
   },
   toggleActive: {
-    borderColor: T.accent,
-    backgroundColor: `${T.accent}22`,
+    borderColor: "rgba(255,255,255,0.78)",
+    backgroundColor: "rgba(255,255,255,0.18)",
   },
-  toggleText: { color: T.text, fontWeight: "700" },
-  toggleTextActive: { color: T.accent },
-  footerRow: { marginTop: 12, flexDirection: "row", justifyContent: "space-between" },
+  toggleText: { color: "#ffffff", fontWeight: "800" },
+  toggleTextActive: { color: "#ffffff" },
+  footerRow: { marginTop: 12, flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 },
   primaryBtn: {
     minWidth: 110,
     borderRadius: 10,
@@ -330,9 +437,15 @@ const s = StyleSheet.create({
     paddingHorizontal: 14,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: T.accent,
+    backgroundColor: "#ffffff",
   },
-  primaryText: { color: T.onAccent, fontWeight: "800" },
+  primaryBtnFull: {
+    flex: 1,
+    width: "100%",
+    borderRadius: 999,
+    paddingVertical: 14,
+  },
+  primaryText: { color: EXPENSES_TOTAL_BLUE, fontWeight: "900" },
   secondaryBtn: {
     minWidth: 90,
     borderRadius: 10,
@@ -341,9 +454,9 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: T.border,
-    backgroundColor: T.cardAlt,
+    borderColor: "rgba(255,255,255,0.40)",
+    backgroundColor: "transparent",
   },
-  secondaryText: { color: T.text, fontWeight: "700" },
+  secondaryText: { color: "#ffffff", fontWeight: "800" },
   disabled: { opacity: 0.55 },
 });

@@ -23,7 +23,7 @@ function toNumber(v: unknown): number {
 
 export async function POST(req: NextRequest) {
 	try {
-		const userId = await getSessionUserId();
+		const userId = await getSessionUserId(req);
 		if (!userId) return unauthorized();
 
 		const body = await req.json().catch(() => null);

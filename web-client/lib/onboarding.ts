@@ -25,10 +25,11 @@ export const COMMON_OCCUPATIONS = [
   "Other",
 ] as const;
 
-export type OnboardingGoalInput = "improve_savings" | "manage_debts" | "track_spending";
+export type OnboardingGoalInput = "improve_savings" | "manage_debts" | "track_spending" | "build_budget";
 
 export type OnboardingInput = {
   mainGoal?: OnboardingGoalInput | null;
+  mainGoals?: OnboardingGoalInput[] | null;
   occupation?: string | null;
   occupationOther?: string | null;
   monthlySalary?: number | null;
@@ -46,6 +47,7 @@ export type OnboardingInput = {
 type OnboardingProfileRecord = {
   status: "started" | "completed";
   mainGoal: OnboardingGoalInput | null;
+  mainGoals: OnboardingGoalInput[];
   occupation: string | null;
   occupationOther: string | null;
   monthlySalary: unknown;
@@ -59,6 +61,17 @@ type OnboardingProfileRecord = {
   debtAmount: unknown;
   debtNotes: string | null;
 };
+
+function isOnboardingGoal(value: unknown): value is OnboardingGoalInput {
+  return value === "improve_savings" || value === "manage_debts" || value === "track_spending" || value === "build_budget";
+}
+
+function cleanGoals(input: unknown): OnboardingGoalInput[] | null {
+  if (!Array.isArray(input)) return null;
+  const cleaned = input.filter(isOnboardingGoal);
+  if (!cleaned.length) return [];
+  return Array.from(new Set(cleaned));
+}
 
 type OnboardingDelegate = {
   create: (args: Record<string, unknown>) => Promise<unknown>;
@@ -120,6 +133,7 @@ export async function getOnboardingForUser(userId: string) {
         completed: false,
         profile: {
           mainGoal: null,
+          mainGoals: [],
           occupation: null,
           occupationOther: null,
           monthlySalary: null,
@@ -150,6 +164,12 @@ export async function getOnboardingForUser(userId: string) {
     completed: profile.status === "completed",
     profile: {
       mainGoal: profile.mainGoal,
+      mainGoals:
+        Array.isArray(profile.mainGoals) && profile.mainGoals.length
+          ? profile.mainGoals
+          : profile.mainGoal
+            ? [profile.mainGoal]
+            : [],
       occupation: profile.occupation,
       occupationOther: profile.occupationOther,
       monthlySalary: toNullableNumber(profile.monthlySalary),
@@ -178,8 +198,13 @@ export async function saveOnboardingDraft(userId: string, input: OnboardingInput
     });
   }
 
+  const mainGoals = input.mainGoals ? (cleanGoals(input.mainGoals) ?? []) : null;
+  const derivedMainGoal: OnboardingGoalInput | null =
+    mainGoals && mainGoals.length ? mainGoals[0] : input.mainGoal ?? null;
+
   const updateData = {
-    mainGoal: input.mainGoal ?? undefined,
+    mainGoal: derivedMainGoal ?? undefined,
+    mainGoals: mainGoals ?? undefined,
     occupation: cleanText(input.occupation),
     occupationOther: cleanText(input.occupationOther),
     monthlySalary: toAmount(input.monthlySalary),
@@ -309,28 +334,39 @@ export async function completeOnboarding(userId: string) {
       }
     }
 
-    if (profile.mainGoal) {
+    const selectedGoals: OnboardingGoalInput[] =
+      Array.isArray(profile.mainGoals) && profile.mainGoals.length
+        ? profile.mainGoals
+        : profile.mainGoal
+          ? [profile.mainGoal]
+          : [];
+
+    const uniqueGoals = Array.from(new Set(selectedGoals));
+    for (const goal of uniqueGoals) {
+      // "build_budget" is a useful onboarding intent but doesn't map cleanly to a measurable Goal record.
+      if (goal === "build_budget") continue;
+
       const goalTitle =
-        profile.mainGoal === "improve_savings"
+        goal === "improve_savings"
           ? "Improve savings"
-          : profile.mainGoal === "manage_debts"
+          : goal === "manage_debts"
             ? "Manage debts better"
             : "Keep track of spending";
 
       const existingGoal = await tx.goal.findFirst({ where: { budgetPlanId, title: goalTitle }, select: { id: true } });
-      if (!existingGoal) {
-        await tx.goal.create({
-          data: {
-            budgetPlanId,
-            title: goalTitle,
-            type: "short_term",
-            category: profile.mainGoal === "manage_debts" ? "debt" : "savings",
-            targetAmount: profile.mainGoal === "manage_debts" ? debtAmount || 1000 : 1000,
-            currentAmount: 0,
-            targetYear: year,
-          },
-        });
-      }
+      if (existingGoal) continue;
+
+      await tx.goal.create({
+        data: {
+          budgetPlanId,
+          title: goalTitle,
+          type: "short_term",
+          category: goal === "manage_debts" ? "debt" : "savings",
+          targetAmount: goal === "manage_debts" ? debtAmount || 1000 : 1000,
+          currentAmount: 0,
+          targetYear: year,
+        },
+      });
     }
 
     await onboardingDelegate(tx).update({

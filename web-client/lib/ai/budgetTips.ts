@@ -60,6 +60,19 @@ export async function getAiBudgetTips(args: {
 	now: Date;
 	context: {
 		username?: string | null;
+		onboarding?: {
+			mainGoal?: string | null;
+			mainGoals?: string[];
+			occupation?: string | null;
+			monthlySalary?: number | null;
+			expenseOne?: { name: string | null; amount: number | null };
+			expenseTwo?: { name: string | null; amount: number | null };
+			hasAllowance?: boolean | null;
+			allowanceAmount?: number | null;
+			hasDebtsToManage?: boolean | null;
+			debtAmount?: number | null;
+			debtNotes?: string | null;
+		} | null;
 		totalIncome?: number;
 		totalExpenses?: number;
 		remaining?: number;
@@ -113,6 +126,7 @@ export async function getAiBudgetTips(args: {
 
 	const sys =
 		"You are a budgeting assistant inside a bill-tracking app. " +
+		"Use the onboarding context (goals, salary, bills) to tailor the tips when present. " +
 		"Generate practical, friendly tips grounded in the provided numbers. " +
 		"Avoid shame, avoid legal/medical advice, and do not mention OpenAI. " +
 		"Return ONLY valid JSON: {\"tips\":[{\"title\":string,\"detail\":string,\"priority\":number}]}. " +
@@ -124,6 +138,7 @@ export async function getAiBudgetTips(args: {
 		{
 			username: args.context.username ?? null,
 			now: args.now.toISOString().slice(0, 10),
+			onboarding: args.context.onboarding ?? null,
 			totals: {
 				totalIncome: args.context.totalIncome ?? null,
 				totalExpenses: args.context.totalExpenses ?? null,

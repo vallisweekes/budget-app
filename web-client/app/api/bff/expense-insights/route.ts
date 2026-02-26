@@ -3,6 +3,7 @@ import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
 import { getBudgetPlanMeta } from "@/lib/helpers/dashboard/getBudgetPlanMeta";
 import { getDashboardExpenseInsights } from "@/lib/helpers/dashboard/getDashboardExpenseInsights";
 import { getAiBudgetTips } from "@/lib/ai/budgetTips";
+import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
@@ -35,6 +36,25 @@ export async function GET(req: NextRequest) {
 		const now = new Date();
 		const { payDate } = await getBudgetPlanMeta(budgetPlanId);
 
+		const onboarding = await prisma.userOnboardingProfile.findUnique({
+			where: { userId },
+			select: {
+				mainGoal: true,
+				mainGoals: true,
+				occupation: true,
+				monthlySalary: true,
+				expenseOneName: true,
+				expenseOneAmount: true,
+				expenseTwoName: true,
+				expenseTwoAmount: true,
+				hasAllowance: true,
+				allowanceAmount: true,
+				hasDebtsToManage: true,
+				debtAmount: true,
+				debtNotes: true,
+			},
+		});
+
 		const insights = await getDashboardExpenseInsights({
 			budgetPlanId,
 			payDate,
@@ -49,6 +69,27 @@ export async function GET(req: NextRequest) {
 					budgetPlanId,
 					now,
 					context: {
+						onboarding: onboarding
+							? {
+								mainGoal: onboarding.mainGoal ?? null,
+								mainGoals: Array.isArray(onboarding.mainGoals) ? onboarding.mainGoals : [],
+								occupation: onboarding.occupation ?? null,
+								monthlySalary: onboarding.monthlySalary ? Number(onboarding.monthlySalary) : null,
+								expenseOne: {
+									name: onboarding.expenseOneName ?? null,
+									amount: onboarding.expenseOneAmount ? Number(onboarding.expenseOneAmount) : null,
+								},
+								expenseTwo: {
+									name: onboarding.expenseTwoName ?? null,
+									amount: onboarding.expenseTwoAmount ? Number(onboarding.expenseTwoAmount) : null,
+								},
+								hasAllowance: onboarding.hasAllowance ?? null,
+								allowanceAmount: onboarding.allowanceAmount ? Number(onboarding.allowanceAmount) : null,
+								hasDebtsToManage: onboarding.hasDebtsToManage ?? null,
+								debtAmount: onboarding.debtAmount ? Number(onboarding.debtAmount) : null,
+								debtNotes: onboarding.debtNotes ?? null,
+							}
+							: null,
 						payDate,
 						recap: insights.recap,
 						upcoming: insights.upcoming,

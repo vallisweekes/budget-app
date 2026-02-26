@@ -13,7 +13,7 @@ export const runtime = "nodejs";
  * Accepts either `imageBase64` or `image` in the request body.
  */
 export async function POST(req: NextRequest) {
-  const userId = await getSessionUserId();
+  const userId = await getSessionUserId(req);
   if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   let body: { imageBase64?: unknown; image?: unknown; budgetPlanId?: unknown };

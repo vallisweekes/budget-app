@@ -50,6 +50,25 @@ export async function GET(req: NextRequest) {
 		});
 		const username = user?.name ?? null;
 
+		const onboarding = await prisma.userOnboardingProfile.findUnique({
+			where: { userId },
+			select: {
+				mainGoal: true,
+				mainGoals: true,
+				occupation: true,
+				monthlySalary: true,
+				expenseOneName: true,
+				expenseOneAmount: true,
+				expenseTwoName: true,
+				expenseTwoAmount: true,
+				hasAllowance: true,
+				allowanceAmount: true,
+				hasDebtsToManage: true,
+				debtAmount: true,
+				debtNotes: true,
+			},
+		});
+
 		// 1) Core plan data (income, expenses, allocations, goals, categories)
 		// This is required for the dashboard; let it throw if it truly can't compute.
 		const currentPlanData = await getDashboardPlanData(budgetPlanId, now);
@@ -205,6 +224,27 @@ export async function GET(req: NextRequest) {
 					now,
 					context: {
 						username: username ?? null,
+						onboarding: onboarding
+							? {
+								mainGoal: onboarding.mainGoal ?? null,
+								mainGoals: Array.isArray(onboarding.mainGoals) ? onboarding.mainGoals : [],
+								occupation: onboarding.occupation ?? null,
+								monthlySalary: onboarding.monthlySalary ? Number(onboarding.monthlySalary) : null,
+								expenseOne: {
+									name: onboarding.expenseOneName ?? null,
+									amount: onboarding.expenseOneAmount ? Number(onboarding.expenseOneAmount) : null,
+								},
+								expenseTwo: {
+									name: onboarding.expenseTwoName ?? null,
+									amount: onboarding.expenseTwoAmount ? Number(onboarding.expenseTwoAmount) : null,
+								},
+								hasAllowance: onboarding.hasAllowance ?? null,
+								allowanceAmount: onboarding.allowanceAmount ? Number(onboarding.allowanceAmount) : null,
+								hasDebtsToManage: onboarding.hasDebtsToManage ?? null,
+								debtAmount: onboarding.debtAmount ? Number(onboarding.debtAmount) : null,
+								debtNotes: onboarding.debtNotes ?? null,
+							}
+							: null,
 						totalIncome: currentPlanData.totalIncome,
 						totalExpenses: currentPlanData.totalExpenses,
 						remaining: currentPlanData.remaining,

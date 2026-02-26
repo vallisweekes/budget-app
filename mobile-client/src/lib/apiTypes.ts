@@ -251,10 +251,11 @@ export interface UserProfile {
   email: string | null;
 }
 
-export type OnboardingGoal = "improve_savings" | "manage_debts" | "track_spending";
+export type OnboardingGoal = "improve_savings" | "manage_debts" | "track_spending" | "build_budget";
 
 export interface OnboardingProfile {
   mainGoal: OnboardingGoal | null;
+  mainGoals?: OnboardingGoal[];
   occupation: string | null;
   occupationOther: string | null;
   monthlySalary: string | number | null;
