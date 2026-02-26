@@ -1,5 +1,10 @@
 import OpenAI from "openai";
-import type { RecapTip, PreviousMonthRecap, UpcomingPayment } from "@/lib/expenses/insights";
+import {
+	prioritizeRecapTips,
+	type RecapTip,
+	type PreviousMonthRecap,
+	type UpcomingPayment,
+} from "@/lib/expenses/insights";
 
 type CacheEntry = { expiresAt: number; tips: RecapTip[] };
 const cache = new Map<string, CacheEntry>();
@@ -22,7 +27,7 @@ function safeParseJsonObject(raw: string): Record<string, unknown> | null {
 }
 
 async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
-	let timeoutId: any;
+	let timeoutId: ReturnType<typeof setTimeout> | undefined;
 	try {
 		const timeout = new Promise<null>((resolve) => {
 			timeoutId = setTimeout(() => resolve(null), ms);
@@ -37,13 +42,16 @@ function normalizeTips(input: unknown, maxTips: number): RecapTip[] {
 	if (!Array.isArray(input)) return [];
 	const tips: RecapTip[] = [];
 	for (const t of input) {
-		const title = typeof (t as any)?.title === "string" ? clampText((t as any).title, 60) : "";
-		const detail = typeof (t as any)?.detail === "string" ? clampText((t as any).detail, 180) : "";
+		const item = t as Record<string, unknown>;
+		const title = typeof item.title === "string" ? clampText(item.title, 60) : "";
+		const detail = typeof item.detail === "string" ? clampText(item.detail, 180) : "";
+		const rawPriority = Number(item.priority);
+		const priority = Number.isFinite(rawPriority) ? Math.max(1, Math.min(100, Math.round(rawPriority))) : undefined;
 		if (!title || !detail) continue;
-		tips.push({ title, detail });
+		tips.push({ title, detail, priority });
 		if (tips.length >= maxTips) break;
 	}
-	return tips;
+	return prioritizeRecapTips(tips, maxTips);
 }
 
 export async function getAiBudgetTips(args: {
@@ -107,7 +115,8 @@ export async function getAiBudgetTips(args: {
 		"You are a budgeting assistant inside a bill-tracking app. " +
 		"Generate practical, friendly tips grounded in the provided numbers. " +
 		"Avoid shame, avoid legal/medical advice, and do not mention OpenAI. " +
-		"Return ONLY valid JSON: {\"tips\":[{\"title\":string,\"detail\":string}]}. " +
+		"Return ONLY valid JSON: {\"tips\":[{\"title\":string,\"detail\":string,\"priority\":number}]}. " +
+		"Set priority from 1-100 (100 = most urgent). Prioritise debt-reduction and savings-protection actions first. " +
 		"Constraints: title <= 60 chars, detail is 1 sentence <= 180 chars, max tips = " +
 		String(maxTips) + ".";
 

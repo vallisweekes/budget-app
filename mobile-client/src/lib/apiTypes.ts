@@ -148,6 +148,7 @@ export interface DebtTip {
   title: string;
   detail: string;
   urgency?: string;
+  priority?: number;
 }
 
 export interface DebtSummaryData {
@@ -302,6 +303,7 @@ export interface PreviousMonthRecap {
 export interface InsightTip {
   title: string;
   detail: string;
+  priority?: number;
 }
 
 /** Expense insights from /api/bff/expense-insights */

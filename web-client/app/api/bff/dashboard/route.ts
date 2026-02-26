@@ -6,6 +6,7 @@ import { getDebtSummaryForPlan } from "@/lib/debts/summary";
 import { computeDebtTips } from "@/lib/debts/insights";
 import { getDashboardExpenseInsights } from "@/lib/helpers/dashboard/getDashboardExpenseInsights";
 import { getAiBudgetTips } from "@/lib/ai/budgetTips";
+import { prioritizeRecapTips } from "@/lib/expenses/insights";
 import { getIncomeMonthsCoverageByPlan } from "@/lib/helpers/dashboard/getIncomeMonthsCoverageByPlan";
 import { getLargestExpensesByPlan } from "@/lib/helpers/dashboard/getLargestExpensesByPlan";
 import { getMultiPlanHealthTips } from "@/lib/helpers/dashboard/getMultiPlanHealthTips";
@@ -189,11 +190,11 @@ export async function GET(req: NextRequest) {
 
 		const expenseInsights = {
 			...expenseInsightsBase,
-			recapTips: [
+			recapTips: prioritizeRecapTips([
 				...(expenseInsightsBase.recapTips ?? []),
 				...multiPlanTips,
 				...debtTips,
-			],
+			], 6),
 		};
 
 		const aiDashboardTips = await (async () => {
@@ -223,7 +224,7 @@ export async function GET(req: NextRequest) {
 		})();
 
 		if (aiDashboardTips) {
-			expenseInsights.recapTips = aiDashboardTips;
+			expenseInsights.recapTips = prioritizeRecapTips(aiDashboardTips, 4);
 		}
 
 		return NextResponse.json({

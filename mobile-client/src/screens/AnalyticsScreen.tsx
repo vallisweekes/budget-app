@@ -327,7 +327,10 @@ export default function AnalyticsScreen({ navigation }: { navigation: any }) {
               <View key={`${tip.title}-${idx}`} style={[s.tipRow, idx > 0 && s.tipRowBorder]}>
                 <Ionicons name="sparkles-outline" size={14} color={T.accent} />
                 <View style={{ flex: 1 }}>
-                  <Text style={s.tipRowTitle}>{tip.title}</Text>
+                  <View style={s.tipTitleRow}>
+                    <Text style={s.tipRowTitle}>{tip.title}</Text>
+                    {Number(tip?.priority ?? 0) >= 80 ? <Text style={s.priorityBadge}>High priority</Text> : null}
+                  </View>
                   <Text style={s.tipText}>{tip.detail}</Text>
                 </View>
               </View>
@@ -402,8 +405,22 @@ const s = StyleSheet.create({
   tipTitle: { color: T.text, fontSize: 15, fontWeight: "900", marginBottom: 6 },
   tipRow: { flexDirection: "row", gap: 8, alignItems: "flex-start", paddingVertical: 8 },
   tipRowBorder: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: T.border },
+  tipTitleRow: { flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" },
   tipRowTitle: { color: T.text, fontSize: 13, fontWeight: "800", marginBottom: 2 },
   tipText: { color: T.textDim, fontSize: 12, fontWeight: "600" },
+  priorityBadge: {
+    color: T.red,
+    fontSize: 10,
+    fontWeight: "900",
+    textTransform: "uppercase",
+    borderWidth: 1,
+    borderColor: `${T.red}66`,
+    backgroundColor: `${T.red}24`,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 999,
+    overflow: "hidden",
+  },
 
   overviewHead: {
     flexDirection: "row",

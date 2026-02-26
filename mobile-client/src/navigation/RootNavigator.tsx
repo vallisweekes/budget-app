@@ -76,6 +76,8 @@ function NotificationSettingsScreen(props: unknown) {
 }
 
 function RootTopHeader({ navigation }: { navigation: any }) {
+  const { signOut } = useAuth();
+
   const getDeepestRoute = (state: any): any => {
     if (!state?.routes?.length) return null;
     const route = state.routes[state.index ?? state.routes.length - 1];
@@ -87,6 +89,7 @@ function RootTopHeader({ navigation }: { navigation: any }) {
   const isIncomeMonth = deepestRoute?.name === "IncomeMonth";
   const isIncomeGrid = deepestRoute?.name === "IncomeGrid";
   const isAnalytics = deepestRoute?.name === "Analytics";
+  const isNotificationSettings = deepestRoute?.name === "NotificationSettings";
   const shouldShowIncomeBack = isIncomeMonth || isIncomeGrid || isAnalytics;
 
   const incomeGridYearParam = Number(deepestRoute?.params?.year);
@@ -107,6 +110,15 @@ function RootTopHeader({ navigation }: { navigation: any }) {
       : undefined;
 
   const handleBack = () => {
+    if (isNotificationSettings) {
+      if (navigation.canGoBack()) {
+        navigation.goBack();
+        return;
+      }
+      navigation.navigate("Main", { screen: "Dashboard" });
+      return;
+    }
+
     if (isAnalytics) {
       navigation.goBack();
       return;
@@ -195,12 +207,14 @@ function RootTopHeader({ navigation }: { navigation: any }) {
       onIncome={() => navigation.navigate("IncomeFlow")}
       onAnalytics={() => navigation.navigate("Analytics")}
       onNotifications={() => navigation.navigate("NotificationSettings")}
-      leftVariant={shouldShowIncomeBack ? "back" : "avatar"}
       onBack={handleBack}
       centerContent={incomeGridYearControl}
       centerLabel={monthLabel}
-      showIncomeAction={!isIncomeGrid}
+      leftVariant={shouldShowIncomeBack || isNotificationSettings ? "back" : "avatar"}
+      showIncomeAction={!isIncomeGrid && !isNotificationSettings}
       rightContent={analyticsRightContent ?? incomeGridRightContent}
+      compactActionsMenu={isNotificationSettings}
+      onLogout={signOut}
     />
   );
 }
@@ -271,6 +285,8 @@ const s = StyleSheet.create({
 });
 
 function MainTabs() {
+  const { signOut } = useAuth();
+
   return (
     <Tab.Navigator
       tabBar={(props) => <PillTabBar {...props} />}
@@ -295,6 +311,7 @@ function MainTabs() {
           const isExpensesList = deepestRoute?.name === "ExpensesList";
           const isUnplannedExpense = deepestRoute?.name === "UnplannedExpense";
           const isScanReceipt = deepestRoute?.name === "ScanReceipt";
+          const isSettings = deepestRoute?.name === "Settings";
           const categoryExpensesName = typeof deepestRoute?.params?.categoryName === "string"
             ? deepestRoute.params.categoryName
             : undefined;
@@ -362,14 +379,19 @@ function MainTabs() {
               onIncome={openIncome}
               onAnalytics={openAnalytics}
               onNotifications={openNotifications}
-              leftVariant={isCategoryExpenses || isUnplannedExpense || isScanReceipt ? "back" : "avatar"}
+              leftVariant={isSettings || isCategoryExpenses || isUnplannedExpense || isScanReceipt ? "back" : "avatar"}
               onBack={isCategoryExpenses
                 ? () => navigation.navigate("Expenses" as any, { screen: "ExpensesList" } as any)
+                : isSettings
+                  ? () => navigation.navigate("Dashboard")
                 : isUnplannedExpense || isScanReceipt
                   ? () => navigation.navigate("Expenses" as any, { screen: "ExpensesList" } as any)
                   : undefined}
               centerLabel={expensesCenterLabel}
               leftContent={expensesListLeftContent}
+              showIncomeAction={!isSettings}
+              compactActionsMenu={isSettings}
+              onLogout={signOut}
             />
           );
         },

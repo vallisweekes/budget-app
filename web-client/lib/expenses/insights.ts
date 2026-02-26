@@ -21,6 +21,44 @@ export interface PreviousMonthRecap {
 export interface RecapTip {
 	title: string;
 	detail: string;
+	priority?: number;
+}
+
+function clampPriority(value: number): number {
+	if (!Number.isFinite(value)) return 1;
+	return Math.max(1, Math.min(100, Math.round(value)));
+}
+
+function inferTipPriority(tip: RecapTip): number {
+	if (Number.isFinite(tip.priority)) return clampPriority(Number(tip.priority));
+
+	const text = `${tip.title} ${tip.detail}`.toLowerCase();
+	let score = 45;
+
+	if (/(overdue|late fee|missed|over limit|minimum payment|due within 7 days|due today|negative gap|short by)/.test(text)) score += 34;
+	if (/(debt|apr|interest|pay down|minimum|credit)/.test(text)) score += 14;
+	if (/(save|savings|buffer|set aside|autopay|reminder)/.test(text)) score += 8;
+	if (/(today|now|this week|within 7 days|first)/.test(text)) score += 6;
+
+	return clampPriority(score);
+}
+
+export function prioritizeRecapTips(tips: RecapTip[], limit?: number): RecapTip[] {
+	if (!Array.isArray(tips) || tips.length === 0) return [];
+
+	const ranked = tips
+		.map((tip, index) => ({
+			index,
+			tip: {
+				...tip,
+				priority: inferTipPriority(tip),
+			},
+		}))
+		.sort((a, b) => (b.tip.priority ?? 0) - (a.tip.priority ?? 0) || a.index - b.index)
+		.map((entry) => entry.tip);
+
+	if (!Number.isFinite(limit)) return ranked;
+	return ranked.slice(0, Math.max(0, Number(limit)));
 }
 
 export type DatedExpenseItem = ExpenseItem & { year: number; monthNum: number };
@@ -403,5 +441,5 @@ export function computeRecapTips(args: {
 		}
 	}
 
-	return tips;
+	return prioritizeRecapTips(tips);
 }

@@ -561,6 +561,7 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
             {(() => {
               const tip = tips[aiTipIndex] ?? tips[0];
               const message = String(tip?.detail ?? tip?.title ?? "").trim();
+              const isHighPriority = Number(tip?.priority ?? 0) >= 80;
               return (
                 <View style={styles.aiCard}>
                   <View style={styles.aiHeader}>
@@ -568,6 +569,7 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
                       <Ionicons name="sparkles-outline" size={16} color={T.accent} />
                     </View>
                     <Text style={styles.aiTitle}>Ai Insight</Text>
+                    {isHighPriority ? <Text style={styles.priorityBadge}>High priority</Text> : null}
                   </View>
 
                   <Text style={styles.aiMessage} numberOfLines={3}>
@@ -963,4 +965,18 @@ const styles = StyleSheet.create({
     fontWeight: "400",
   },
   aiTitle: { color: T.text, fontSize: 16, fontWeight: "900" },
+  priorityBadge: {
+    marginLeft: 6,
+    color: T.red,
+    fontSize: 10,
+    fontWeight: "900",
+    textTransform: "uppercase",
+    borderWidth: 1,
+    borderColor: `${T.red}66`,
+    backgroundColor: `${T.red}24`,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 999,
+    overflow: "hidden",
+  },
 });

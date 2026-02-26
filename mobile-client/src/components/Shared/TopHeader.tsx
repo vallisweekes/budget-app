@@ -1,5 +1,5 @@
-import React from "react";
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import React, { useState } from "react";
+import { View, Text, Pressable, StyleSheet, Modal } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
@@ -18,6 +18,8 @@ interface Props {
   centerContent?: React.ReactNode;
   showIncomeAction?: boolean;
   rightContent?: React.ReactNode;
+  compactActionsMenu?: boolean;
+  onLogout?: () => void;
 }
 
 export default function TopHeader({
@@ -32,13 +34,20 @@ export default function TopHeader({
   centerContent,
   showIncomeAction = true,
   rightContent,
+  compactActionsMenu = false,
+  onLogout,
 }: Props) {
   const insets = useSafeAreaInsets();
   const { username } = useAuth();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const getCenterWrapStyle = () => {
     if (rightContent) {
       return null;
+    }
+
+    if (compactActionsMenu) {
+      return onLogout ? s.centerWrapWithTwoActions : s.centerWrapWithOneAction;
     }
 
     return showIncomeAction ? s.centerWrapWithThreeActions : s.centerWrapWithTwoActions;
@@ -48,7 +57,7 @@ export default function TopHeader({
   const initial = username ? username.charAt(0).toUpperCase() : "?";
 
   return (
-    <BlurView intensity={30} tint="dark" style={[s.container, { paddingTop: insets.top }]}>
+    <BlurView intensity={30} tint="dark" style={[s.container, { paddingTop: insets.top }]}> 
 			<View style={s.glassTint} />
 			<View style={s.inner}>
         {leftContent ? (
@@ -77,6 +86,29 @@ export default function TopHeader({
 
         {rightContent ? (
           <View style={s.rightActions}>{rightContent}</View>
+        ) : compactActionsMenu ? (
+          <View style={s.rightActions}>
+            {onLogout ? (
+              <Pressable
+                onPress={onLogout}
+                style={s.iconBtn}
+                hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel="Log out"
+              >
+                <Ionicons name="log-out-outline" size={18} color={T.red} />
+              </Pressable>
+            ) : null}
+            <Pressable
+              onPress={() => setMenuOpen(true)}
+              style={s.iconBtn}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel="Open quick actions menu"
+            >
+              <Ionicons name="ellipsis-horizontal" size={18} color={T.accent} />
+            </Pressable>
+          </View>
         ) : (
           <View style={s.rightActions}>
             {showIncomeAction ? (
@@ -93,6 +125,50 @@ export default function TopHeader({
           </View>
         )}
 			</View>
+
+      <Modal transparent visible={menuOpen} animationType="fade" onRequestClose={() => setMenuOpen(false)}>
+        <View style={s.menuBackdrop}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setMenuOpen(false)} />
+          <View style={[s.menuCard, { top: insets.top + 52 }]}> 
+            <Pressable
+              onPress={() => {
+                setMenuOpen(false);
+                onIncome();
+              }}
+              style={s.menuItem}
+              accessibilityRole="button"
+              accessibilityLabel="Go to Income"
+            >
+              <Ionicons name="wallet-outline" size={16} color={T.text} />
+              <Text style={s.menuItemText}>Income</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                setMenuOpen(false);
+                onAnalytics();
+              }}
+              style={s.menuItem}
+              accessibilityRole="button"
+              accessibilityLabel="Go to Analytics"
+            >
+              <Ionicons name="stats-chart-outline" size={16} color={T.text} />
+              <Text style={s.menuItemText}>Analytics</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                setMenuOpen(false);
+                onNotifications();
+              }}
+              style={[s.menuItem, s.menuItemLast]}
+              accessibilityRole="button"
+              accessibilityLabel="Go to Notifications"
+            >
+              <Ionicons name="notifications-outline" size={16} color={T.text} />
+              <Text style={s.menuItemText}>Notifications</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
 		</BlurView>
   );
 }
@@ -130,6 +206,9 @@ const s = StyleSheet.create({
   centerWrapWithTwoActions: {
     right: 96,
   },
+  centerWrapWithOneAction: {
+    right: 70,
+  },
   centerLabel: {
     color: T.text,
     fontSize: 13,
@@ -164,5 +243,36 @@ const s = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 1,
     borderColor: T.border,
+  },
+  menuBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.25)",
+  },
+  menuCard: {
+    position: "absolute",
+    right: 18,
+    width: 184,
+    borderRadius: 14,
+    backgroundColor: T.card,
+    borderWidth: 1,
+    borderColor: T.border,
+    overflow: "hidden",
+  },
+  menuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: T.border,
+  },
+  menuItemLast: {
+    borderBottomWidth: 0,
+  },
+  menuItemText: {
+    color: T.text,
+    fontSize: 14,
+    fontWeight: "700",
   },
 });

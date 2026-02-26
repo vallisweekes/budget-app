@@ -14,6 +14,7 @@ import { getDashboardExpenseInsights } from "@/lib/helpers/dashboard/getDashboar
 import { getLargestExpensesByPlan } from "@/lib/helpers/dashboard/getLargestExpensesByPlan";
 import { getMultiPlanHealthTips } from "@/lib/helpers/dashboard/getMultiPlanHealthTips";
 import { getAiBudgetTips } from "@/lib/ai/budgetTips";
+import { prioritizeRecapTips } from "@/lib/expenses/insights";
 
 export default async function DashboardView({ budgetPlanId }: { budgetPlanId: string }) {
 	const now = new Date();
@@ -63,7 +64,7 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 
 	const expenseInsights = {
 		...expenseInsightsBase,
-		recapTips: [...(expenseInsightsBase.recapTips ?? []), ...multiPlanTips, ...debtTips],
+		recapTips: prioritizeRecapTips([...(expenseInsightsBase.recapTips ?? []), ...multiPlanTips, ...debtTips], 6),
 	};
 
 	const aiDashboardTips = await (async () => {
@@ -93,7 +94,7 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 	})();
 
 	if (aiDashboardTips) {
-		expenseInsights.recapTips = aiDashboardTips;
+		expenseInsights.recapTips = prioritizeRecapTips(aiDashboardTips, 4);
 	}
 
 	return (

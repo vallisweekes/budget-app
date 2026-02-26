@@ -290,14 +290,6 @@ export default function SettingsScreen({ navigation }: MainTabScreenProps<"Setti
     })();
   }, []);
 
-  const goBack = () => {
-    if (navigation.canGoBack()) {
-      navigation.goBack();
-      return;
-    }
-    navigation.navigate("Dashboard");
-  };
-
   const toggleTheme = async (nextIsDark: boolean) => {
     const next: ThemeMode = nextIsDark ? "dark" : "light";
     setThemeMode(next);
@@ -622,17 +614,6 @@ export default function SettingsScreen({ navigation }: MainTabScreenProps<"Setti
 
   return (
 		<SafeAreaView style={[styles.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
-      <View style={styles.header}>
-        <Pressable onPress={goBack} style={styles.backBtn}>
-          <Ionicons name="chevron-back" size={22} color={T.text} />
-        </Pressable>
-        <View style={styles.headerSpacer} />
-        <Pressable onPress={signOut} style={styles.headerLogoutBtn}>
-          <Ionicons name="log-out-outline" size={16} color={T.red} />
-          <Text style={styles.headerLogoutText}>Logout</Text>
-        </Pressable>
-      </View>
-
       <View style={styles.content}>
         {loading ? (
           <View style={styles.center}>
@@ -1137,35 +1118,6 @@ export default function SettingsScreen({ navigation }: MainTabScreenProps<"Setti
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: T.bg },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 6,
-  },
-  backBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerSpacer: { flex: 1 },
-  headerLogoutBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    borderWidth: 1,
-    borderColor: `${T.red}66`,
-    backgroundColor: `${T.red}18`,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  headerLogoutText: { color: T.red, fontSize: 12, fontWeight: "800" },
-
   content: { flex: 1 },
   center: { flex: 1, justifyContent: "center", alignItems: "center", gap: 12, paddingHorizontal: 24 },
   scroll: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 86 },

@@ -158,9 +158,17 @@ export default function PaymentInsightsCards({
 
 	const activeTip = tips.length ? tips[tipIndex % tips.length] : null;
 	const shouldShowTipCard = !!activeTip && (shouldShowRecap || shouldShowUpcoming);
+	const isHighPriorityTip = Number(activeTip?.priority ?? 0) >= 80;
 	const tipBlock = activeTip ? (
 		<div>
-			<div className="text-xs uppercase tracking-wide text-slate-400">Tip</div>
+			<div className="flex items-center gap-2">
+				<div className="text-xs uppercase tracking-wide text-slate-400">Tip</div>
+				{isHighPriorityTip ? (
+					<span className="inline-flex items-center rounded-full border border-rose-400/25 bg-rose-500/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-rose-200">
+						High priority
+					</span>
+				) : null}
+			</div>
 			<div className="mt-1 text-sm font-semibold text-white">{activeTip.title}</div>
 			<div className="mt-0.5 text-xs text-slate-300">{activeTip.detail}</div>
 		</div>
