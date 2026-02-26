@@ -14,6 +14,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   Text,
   View,
 } from "react-native";
@@ -158,33 +159,44 @@ export default function AddExpenseSheet({
           {/* Header */}
           <AddExpenseSheetHeader month={month} year={year} onClose={onClose} />
 
-          <AddExpenseSheetFields
-            name={name}
-            setName={setName}
-            amount={amount}
-            setAmount={setAmount}
-            categoryId={categoryId}
-            setCategoryId={setCategoryId}
-            dueDate={dueDate}
-            setDueDate={setDueDate}
-            categories={categories}
-            currency={currency}
-          />
-
-          <View style={{ paddingHorizontal: 20, paddingBottom: 20, gap: 18 }}>
-            <AddExpenseSheetToggles
-              paid={paid}
-              setPaid={setPaid}
-              isAllocation={isAllocation}
-              setIsAllocation={setIsAllocation}
-              isDirectDebit={isDirectDebit}
-              setIsDirectDebit={setIsDirectDebit}
-              distributeMonths={distributeMonths}
-              setDistributeMonths={setDistributeMonths}
-              distributeYears={distributeYears}
-              setDistributeYears={setDistributeYears}
+          {/* Scrollable body: fields + toggles */}
+          <ScrollView
+            style={{ flex: 1 }}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: 8 }}
+          >
+            <AddExpenseSheetFields
+              name={name}
+              setName={setName}
+              amount={amount}
+              setAmount={setAmount}
+              categoryId={categoryId}
+              setCategoryId={setCategoryId}
+              dueDate={dueDate}
+              setDueDate={setDueDate}
+              categories={categories}
+              currency={currency}
             />
 
+            <View style={{ paddingHorizontal: 20, gap: 18 }}>
+              <AddExpenseSheetToggles
+                paid={paid}
+                setPaid={setPaid}
+                isAllocation={isAllocation}
+                setIsAllocation={setIsAllocation}
+                isDirectDebit={isDirectDebit}
+                setIsDirectDebit={setIsDirectDebit}
+                distributeMonths={distributeMonths}
+                setDistributeMonths={setDistributeMonths}
+                distributeYears={distributeYears}
+                setDistributeYears={setDistributeYears}
+              />
+            </View>
+          </ScrollView>
+
+          {/* Footer pinned below the scroll */}
+          <View style={{ paddingHorizontal: 20, paddingTop: 12 }}>
             <AddExpenseSheetFooter
               error={error}
               canSubmit={canSubmit}

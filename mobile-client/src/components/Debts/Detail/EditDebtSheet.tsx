@@ -77,7 +77,7 @@ export default function EditDebtSheet(props: Props) {
               <View style={s.formGroup}><Text style={s.inputLabel}>Due day (1-31)</Text><TextInput style={s.input} value={dueDay} onChangeText={onChangeDueDay} keyboardType="number-pad" placeholder="e.g. 15" placeholderTextColor={T.textMuted} /></View>
               <View style={s.formGroup}>
                 <Text style={s.inputLabel}>Due date (calendar)</Text>
-                <TouchableOpacity style={s.input} onPress={onPickDate}><Text style={[s.dateValue, !dueDate && s.dateValuePlaceholder]}>{dueDate || "Select date"}</Text></TouchableOpacity>
+                <TouchableOpacity style={s.input} onPress={onPickDate}><Text style={[s.dateValue, !dueDate && s.dateValuePlaceholder]}>{dueDate ? dueDate.replace(/^(\d{4})-(\d{2})-(\d{2})$/, "$3/$2/$1") : "Select date"}</Text></TouchableOpacity>
               </View>
             </View>
 

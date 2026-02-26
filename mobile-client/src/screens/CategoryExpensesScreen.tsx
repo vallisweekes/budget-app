@@ -620,7 +620,7 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
                 onPress={openDueDatePicker}
               >
                 <Text style={[es.dateButtonText, !editState?.dueDate && es.dateButtonPlaceholder]}>
-                  {editState?.dueDate ? new Date(editState.dueDate + 'T00:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'Select date'}
+                  {editState?.dueDate ? new Date(editState.dueDate + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'Select date'}
                 </Text>
                 <Ionicons name="calendar-outline" size={20} color={T.accent} />
               </TouchableOpacity>

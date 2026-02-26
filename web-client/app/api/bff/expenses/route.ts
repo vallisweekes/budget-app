@@ -115,6 +115,7 @@ export async function POST(req: NextRequest) {
     isDirectDebit?: unknown;
     distributeMonths?: unknown;
     distributeYears?: unknown;
+    dueDate?: unknown;
   };
 
   const ownedBudgetPlanId = await resolveOwnedBudgetPlanId({
@@ -132,6 +133,11 @@ export async function POST(req: NextRequest) {
   const isDirectDebit = toBool(body.isDirectDebit);
   const distributeMonths = toBool(body.distributeMonths);
   const distributeYears = toBool(body.distributeYears);
+  // Accept YYYY-MM-DD only; silently drop malformed values
+  const dueDate =
+    typeof body.dueDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.dueDate.trim())
+      ? body.dueDate.trim()
+      : undefined;
 
   if (!ownedBudgetPlanId) return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
   if (!name) return badRequest("Name is required");
@@ -163,6 +169,7 @@ export async function POST(req: NextRequest) {
       paidAmount: paid ? amount : 0,
       isAllocation,
       isDirectDebit,
+      dueDate,
     });
   }
 

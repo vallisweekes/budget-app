@@ -18,7 +18,7 @@ export const s = StyleSheet.create({
     backgroundColor: T.card,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    maxHeight: ADD_EXPENSE_SHEET_SCREEN_H * 0.92,
+    height: ADD_EXPENSE_SHEET_SCREEN_H * 0.92,
     borderWidth: 1,
     borderBottomWidth: 0,
     borderColor: T.border,
