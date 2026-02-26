@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import LoginForm from "./LoginForm";
 import { authOptions } from "@/lib/auth";
 import { getDefaultBudgetPlanForUser, resolveUserId } from "@/lib/budgetPlans";
+import { getOnboardingForUser } from "@/lib/onboarding";
 
 export default async function LoginSplashPage(props: {
 	searchParams?: Record<string, string | string[] | undefined> | Promise<Record<string, string | string[] | undefined>>;
@@ -12,6 +13,8 @@ export default async function LoginSplashPage(props: {
 	const username = sessionUser?.username ?? sessionUser?.name ?? "";
 	if (sessionUser && username) {
 		const userId = await resolveUserId({ userId: sessionUser.id, username });
+		const onboarding = await getOnboardingForUser(userId);
+		if (onboarding.required) redirect("/onboarding");
 		const budgetPlan = await getDefaultBudgetPlanForUser({ userId, username });
 		if (!budgetPlan) redirect("/budgets/new");
 		redirect(`/user=${encodeURIComponent(username)}/${encodeURIComponent(budgetPlan.id)}/page=home`);

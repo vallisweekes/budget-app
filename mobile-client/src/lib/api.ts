@@ -64,10 +64,10 @@ function getDefaultCacheTtlMs(path: string): number {
   return 0;
 }
 
-function buildRequestKey(path: string, options: ApiFetchOptions, hasAuth: boolean): string {
+function buildRequestKey(path: string, options: ApiFetchOptions, authIdentity: string): string {
   const method = options.method ?? "GET";
   const body = options.body === undefined ? "" : JSON.stringify(options.body);
-  return `${method}|${path}|auth:${hasAuth ? "1" : "0"}|${body}`;
+  return `${method}|${path}|auth:${authIdentity}|${body}`;
 }
 
 export function invalidateApiCache() {
@@ -80,11 +80,13 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
   const url = `${getApiBaseUrl()}${normalizedPath}`;
 
   const withAuth = options.withAuth !== false;
+  const sessionToken = withAuth ? await getSessionToken() : null;
+  const authIdentity = withAuth ? (sessionToken ?? "none") : "public";
   const method = options.method ?? "GET";
   const isGet = isGetMethod(method);
   const cacheTtlMs = isGet ? (options.cacheTtlMs ?? getDefaultCacheTtlMs(normalizedPath)) : 0;
 
-  const requestKey = buildRequestKey(normalizedPath, options, withAuth);
+  const requestKey = buildRequestKey(normalizedPath, options, authIdentity);
   if (isGet && cacheTtlMs > 0) {
     const existing = responseCache.get(requestKey);
     if (existing && existing.expiresAt > Date.now()) {
@@ -101,7 +103,6 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
   }
 
   const execute = async (): Promise<T> => {
-  const sessionToken = withAuth ? await getSessionToken() : null;
   const cookieHeader = sessionToken
     ? `next-auth.session-token=${sessionToken}`
     : undefined;

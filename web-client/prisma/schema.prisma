@@ -50,12 +50,57 @@ model User {
   accounts      Account[]
   sessions      Session[]
   budgetPlans   BudgetPlan[]
+  onboardingProfile UserOnboardingProfile?
   webPushSubscriptions WebPushSubscription[]
   mobilePushTokens MobilePushToken[]
   receipts       Receipt[]
   
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
+}
+
+enum OnboardingGoal {
+  improve_savings
+  manage_debts
+  track_spending
+}
+
+enum OnboardingStatus {
+  started
+  completed
+}
+
+model UserOnboardingProfile {
+  id                 String           @id @default(cuid())
+  userId             String           @unique
+  user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  status             OnboardingStatus @default(started)
+  completedAt        DateTime?
+
+  mainGoal           OnboardingGoal?
+  occupation         String?
+  occupationOther    String?
+  monthlySalary      Decimal?         @db.Decimal(12, 2)
+
+  expenseOneName     String?
+  expenseOneAmount   Decimal?         @db.Decimal(12, 2)
+  expenseTwoName     String?
+  expenseTwoAmount   Decimal?         @db.Decimal(12, 2)
+
+  hasAllowance       Boolean?
+  allowanceAmount    Decimal?         @db.Decimal(12, 2)
+
+  hasDebtsToManage   Boolean?
+  debtAmount         Decimal?         @db.Decimal(12, 2)
+  debtNotes          String?
+
+  generatedPlanId    String?
+
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  @@index([status])
 }
 
 model WebPushSubscription {

@@ -116,7 +116,7 @@ export default function TopHeader({
             ) : null}
             <Pressable
               onPress={() => setMenuOpen(true)}
-              style={s.iconBtn}
+              style={s.menuTriggerBtn}
               hitSlop={10}
               accessibilityRole="button"
               accessibilityLabel="Open quick actions menu"
@@ -274,6 +274,17 @@ const s = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 1,
     borderColor: T.accent,
+    position: "relative",
+  },
+  menuTriggerBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: `${T.cardAlt}4D`,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: `${T.border}B3`,
     position: "relative",
   },
   badge: {

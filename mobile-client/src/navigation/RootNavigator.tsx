@@ -17,7 +17,7 @@ import PillTabBar from "@/components/Shared/PillTabBar";
 import { T } from "@/lib/theme";
 import { MONTH_NAMES_LONG } from "@/lib/formatting";
 import { apiFetch } from "@/lib/api";
-import type { IncomeSacrificeData } from "@/lib/apiTypes";
+import type { IncomeSacrificeData, OnboardingStatusResponse } from "@/lib/apiTypes";
 
 import LoginScreen from "@/screens/LoginScreen";
 import DashboardScreen from "@/screens/DashboardScreen";
@@ -36,6 +36,7 @@ import GoalsScreen from "@/screens/GoalsScreen";
 import GoalsProjectionScreen from "@/screens/GoalsProjectionScreen";
 import AnalyticsScreen from "@/screens/AnalyticsScreen";
 import SettingsStrategyScreen from "@/screens/SettingsStrategyScreen";
+import OnboardingScreen from "@/screens/OnboardingScreen";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -726,8 +727,30 @@ function MainTabs() {
 
 export default function RootNavigator() {
   const { token, isLoading } = useAuth();
+  const [onboardingState, setOnboardingState] = useState<OnboardingStatusResponse | null>(null);
+  const [onboardingLoading, setOnboardingLoading] = useState(false);
 
-  if (isLoading) {
+  const loadOnboarding = useCallback(async () => {
+    if (!token) {
+      setOnboardingState(null);
+      return;
+    }
+    setOnboardingLoading(true);
+    try {
+      const data = await apiFetch<OnboardingStatusResponse>("/api/bff/onboarding", { cacheTtlMs: 0 });
+      setOnboardingState(data);
+    } catch {
+      setOnboardingState({ required: false, completed: false, profile: null, occupations: [] });
+    } finally {
+      setOnboardingLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    void loadOnboarding();
+  }, [loadOnboarding]);
+
+  if (isLoading || (token && onboardingLoading)) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: T.bg }}>
         <ActivityIndicator size="large" color={T.accent} />
@@ -738,46 +761,59 @@ export default function RootNavigator() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false, animation: "fade", contentStyle: { backgroundColor: T.bg } }}>
       {token ? (
-        <>
-          <Stack.Screen name="Main" component={MainTabs} />
-          <Stack.Screen
-            name="IncomeFlow"
-            component={IncomeStackNavigator}
-            options={({ navigation }) => ({
-              headerShown: true,
-              headerTransparent: true,
-              headerStyle: { backgroundColor: "transparent" },
-              headerShadowVisible: false,
-              header: () => <RootTopHeader navigation={navigation} />,
-            })}
-          />
-          <Stack.Screen
-            name="NotificationSettings"
-            component={NotificationSettingsScreen}
-            options={({ navigation }) => ({
-              headerShown: true,
-              headerTransparent: true,
-              headerStyle: { backgroundColor: "transparent" },
-              headerShadowVisible: false,
-              header: () => <RootTopHeader navigation={navigation} />,
-            })}
-          />
-          <Stack.Screen name="Payments" component={PaymentsScreen} />
-          <Stack.Screen
-            name="Analytics"
-            component={AnalyticsScreen}
-            options={({ navigation }) => ({
-              headerShown: true,
-              headerTransparent: true,
-              headerStyle: { backgroundColor: "transparent" },
-              headerShadowVisible: false,
-              header: () => <RootTopHeader navigation={navigation} />,
-            })}
-          />
-          <Stack.Screen name="Goals" component={GoalsScreen} />
-          <Stack.Screen name="GoalsProjection" component={GoalsProjectionScreen} />
-          <Stack.Screen name="SettingsStrategy" component={SettingsStrategyScreen} />
-        </>
+        onboardingState?.required ? (
+          <Stack.Screen name="Onboarding">
+            {() => (
+              <OnboardingScreen
+                initial={onboardingState}
+                onCompleted={() => {
+                  void loadOnboarding();
+                }}
+              />
+            )}
+          </Stack.Screen>
+        ) : (
+          <>
+            <Stack.Screen name="Main" component={MainTabs} />
+            <Stack.Screen
+              name="IncomeFlow"
+              component={IncomeStackNavigator}
+              options={({ navigation }) => ({
+                headerShown: true,
+                headerTransparent: true,
+                headerStyle: { backgroundColor: "transparent" },
+                headerShadowVisible: false,
+                header: () => <RootTopHeader navigation={navigation} />,
+              })}
+            />
+            <Stack.Screen
+              name="NotificationSettings"
+              component={NotificationSettingsScreen}
+              options={({ navigation }) => ({
+                headerShown: true,
+                headerTransparent: true,
+                headerStyle: { backgroundColor: "transparent" },
+                headerShadowVisible: false,
+                header: () => <RootTopHeader navigation={navigation} />,
+              })}
+            />
+            <Stack.Screen name="Payments" component={PaymentsScreen} />
+            <Stack.Screen
+              name="Analytics"
+              component={AnalyticsScreen}
+              options={({ navigation }) => ({
+                headerShown: true,
+                headerTransparent: true,
+                headerStyle: { backgroundColor: "transparent" },
+                headerShadowVisible: false,
+                header: () => <RootTopHeader navigation={navigation} />,
+              })}
+            />
+            <Stack.Screen name="Goals" component={GoalsScreen} />
+            <Stack.Screen name="GoalsProjection" component={GoalsProjectionScreen} />
+            <Stack.Screen name="SettingsStrategy" component={SettingsStrategyScreen} />
+          </>
+        )
       ) : (
         <Stack.Screen name="Login" component={LoginScreen} />
       )}

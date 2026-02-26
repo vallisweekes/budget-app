@@ -20,6 +20,7 @@ type Mode = "login" | "register";
 export default function LoginScreen() {
   const { signIn } = useAuth();
   const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [mode, setMode] = useState<Mode>("login");
   const [loading, setLoading] = useState(false);
 
@@ -30,13 +31,17 @@ export default function LoginScreen() {
       Alert.alert("Username required", "Please enter your username.");
       return;
     }
+    if (mode === "register" && !email.trim()) {
+      Alert.alert("Email required", "Please enter your email to register.");
+      return;
+    }
     if (!baseUrl) {
       Alert.alert("Setup incomplete", "EXPO_PUBLIC_API_BASE_URL is not set in your .env file.");
       return;
     }
     setLoading(true);
     try {
-      await signIn(username.trim(), mode);
+      await signIn(username.trim(), mode, email.trim());
     } catch (err: unknown) {
       Alert.alert(
         mode === "register" ? "Registration failed" : "Sign in failed",
@@ -91,6 +96,21 @@ export default function LoginScreen() {
               returnKeyType="done"
               editable={!loading}
             />
+
+            {mode === "register" ? (
+              <TextInput
+                style={styles.input}
+                placeholder="Email"
+                placeholderTextColor={T.textMuted}
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="email-address"
+                returnKeyType="done"
+                editable={!loading}
+              />
+            ) : null}
 
             <Pressable
               style={[styles.submitBtn, loading && styles.submitBtnDisabled]}

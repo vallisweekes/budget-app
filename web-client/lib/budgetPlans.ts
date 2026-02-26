@@ -11,6 +11,17 @@ export function isSupportedBudgetType(value: string): value is SupportedBudgetTy
 	return (SUPPORTED_BUDGET_TYPES as readonly string[]).includes(value);
 }
 
+function isOnboardingStorageUnavailable(error: unknown): boolean {
+	const message = String((error as { message?: unknown } | null)?.message ?? "");
+	if (!message) return false;
+	return (
+		message.includes("onboardingProfile") ||
+		message.includes("UserOnboardingProfile") ||
+		message.includes("P2021") ||
+		message.includes("does not exist")
+	);
+}
+
 function prismaBudgetPlanHasField(fieldName: string): boolean {
 	try {
 		const fields = (prisma as any)?._runtimeDataModel?.models?.BudgetPlan?.fields;
@@ -179,12 +190,30 @@ export async function registerUserByUsername(params: { username: string; email: 
 		throw new Error("User already exists");
 	}
 
-	return prisma.user.create({
-		data: {
-			name: username,
-			email,
-		},
-	});
+	try {
+		return await prisma.user.create({
+			data: {
+				name: username,
+				email,
+				onboardingProfile: {
+					create: {
+						status: "started",
+					},
+				},
+			},
+		});
+	} catch (error) {
+		if (!isOnboardingStorageUnavailable(error)) {
+			throw error;
+		}
+
+		return prisma.user.create({
+			data: {
+				name: username,
+				email,
+			},
+		});
+	}
 }
 
 export async function resolveUserId(params: {

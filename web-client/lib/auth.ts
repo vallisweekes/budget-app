@@ -1,6 +1,6 @@
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { getOrCreateUserByUsername, getUserByUsername, registerUserByUsername } from "@/lib/budgetPlans";
+import { getUserByUsername, registerUserByUsername } from "@/lib/budgetPlans";
 import { normalizeUsername } from "@/lib/helpers/username";
 
 export const authOptions: NextAuthOptions = {
@@ -47,12 +47,8 @@ export const authOptions: NextAuthOptions = {
 			}
 			if (!token.userId) token.userId = token.sub;
 
-			// Keep PWA + desktop sessions consistent. If the DB was reset or the JWT is
-			// stale, reconcile the token's userId to the DB user for token.username.
 			const normalizedUsername = normalizeUsername(String((token as any).username ?? ""));
 			if (normalizedUsername) {
-				const byUsername = await getOrCreateUserByUsername(normalizedUsername);
-				token.userId = byUsername.id;
 				token.username = normalizedUsername;
 			}
 			return token;

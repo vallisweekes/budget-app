@@ -251,6 +251,31 @@ export interface UserProfile {
   email: string | null;
 }
 
+export type OnboardingGoal = "improve_savings" | "manage_debts" | "track_spending";
+
+export interface OnboardingProfile {
+  mainGoal: OnboardingGoal | null;
+  occupation: string | null;
+  occupationOther: string | null;
+  monthlySalary: string | number | null;
+  expenseOneName: string | null;
+  expenseOneAmount: string | number | null;
+  expenseTwoName: string | null;
+  expenseTwoAmount: string | number | null;
+  hasAllowance: boolean | null;
+  allowanceAmount: string | number | null;
+  hasDebtsToManage: boolean | null;
+  debtAmount: string | number | null;
+  debtNotes: string | null;
+}
+
+export interface OnboardingStatusResponse {
+  required: boolean;
+  completed: boolean;
+  profile: OnboardingProfile | null;
+  occupations: string[];
+}
+
 export interface ExpenseMonthsResponse {
   months: Array<{
     year: number;

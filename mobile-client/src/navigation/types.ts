@@ -69,6 +69,7 @@ export type MainTabParamList = {
 /* ── Root stack ─────────────────────────────────────────────── */
 export type RootStackParamList = {
   Login: undefined;
+  Onboarding: undefined;
   Main: NavigatorScreenParams<MainTabParamList>;
   IncomeFlow: NavigatorScreenParams<IncomeStackParamList> | undefined;
   NotificationSettings: undefined;

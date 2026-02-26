@@ -19,6 +19,7 @@ import {
 	isSupportedBudgetType,
 	resolveUserId,
 } from "@/lib/budgetPlans";
+import { getOnboardingForUser } from "@/lib/onboarding";
 import { prisma } from "@/lib/prisma";
 import { currentMonthKey } from "@/lib/helpers/monthKey";
 import { ensureDefaultCategoriesForBudgetPlan } from "@/lib/categories/defaultCategories";
@@ -95,6 +96,10 @@ export default async function UserBudgetPage({
 	// Keep URLs unique per logged-in user by enforcing the username segment.
 	// If someone pastes /user=other/id/... while logged-in, normalize to their own canonical path.
 	const userId = await resolveUserId({ userId: sessionUser.id, username: sessionUsername });
+	const onboarding = await getOnboardingForUser(userId);
+	if (onboarding.required) {
+		redirect("/onboarding");
+	}
 
 	// Keep URLs unique per logged-in user by enforcing the username segment.
 	// If someone pastes /user=other/... while logged-in, normalize to their own canonical path.
