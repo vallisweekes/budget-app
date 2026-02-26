@@ -737,7 +737,7 @@ export default function RootNavigator() {
     }
     setOnboardingLoading(true);
     try {
-      const data = await apiFetch<OnboardingStatusResponse>("/api/bff/onboarding", { cacheTtlMs: 0 });
+      const data = await apiFetch<OnboardingStatusResponse>("/api/bff/onboarding", { cacheTtlMs: 0, skipOnUnauthorized: true });
       setOnboardingState(data);
     } catch {
       setOnboardingState({ required: false, completed: false, profile: null, occupations: [] });

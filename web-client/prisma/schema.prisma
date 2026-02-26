@@ -51,6 +51,7 @@ model User {
   sessions      Session[]
   budgetPlans   BudgetPlan[]
   onboardingProfile UserOnboardingProfile?
+  mobileAuthSessions MobileAuthSession[]
   webPushSubscriptions WebPushSubscription[]
   mobilePushTokens MobilePushToken[]
   receipts       Receipt[]
@@ -101,6 +102,21 @@ model UserOnboardingProfile {
   updatedAt          DateTime         @updatedAt
 
   @@index([status])
+}
+
+model MobileAuthSession {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  lastSeenAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([userId, revokedAt, expiresAt])
 }
 
 model WebPushSubscription {

@@ -24,9 +24,9 @@ function asBoolean(value: unknown): boolean | null {
   return null;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const userId = await getSessionUserId();
+    const userId = await getSessionUserId(request);
     if (!userId) return unauthorized();
 
     const data = await getOnboardingForUser(userId);
@@ -39,7 +39,7 @@ export async function GET() {
 
 export async function PATCH(request: Request) {
   try {
-    const userId = await getSessionUserId();
+    const userId = await getSessionUserId(request);
     if (!userId) return unauthorized();
 
     const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
@@ -75,9 +75,9 @@ export async function PATCH(request: Request) {
   }
 }
 
-export async function POST() {
+export async function POST(request: Request) {
   try {
-    const userId = await getSessionUserId();
+    const userId = await getSessionUserId(request);
     if (!userId) return unauthorized();
 
     const result = await completeOnboarding(userId);

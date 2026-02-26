@@ -9,9 +9,9 @@ function unauthorized() {
   return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const userId = await getSessionUserId();
+    const userId = await getSessionUserId(request);
     if (!userId) return unauthorized();
 
     const user = await prisma.user.findUnique({
@@ -34,7 +34,7 @@ export async function GET() {
 
 export async function PATCH(request: Request) {
   try {
-    const userId = await getSessionUserId();
+    const userId = await getSessionUserId(request);
     if (!userId) return unauthorized();
 
     const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;

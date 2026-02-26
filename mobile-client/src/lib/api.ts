@@ -15,6 +15,13 @@ export function setOnUnauthorized(cb: (() => void) | null) {
   _onUnauthorized = cb;
 }
 
+// When true, 401 responses do NOT trigger the global sign-out callback.
+// Used during app init / onboarding checks to avoid premature sign-out.
+let _suppressUnauthorized = false;
+export function suppressUnauthorizedCallback(value: boolean) {
+  _suppressUnauthorized = value;
+}
+
 export type ApiFetchOptions = {
   method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
   body?: unknown;
@@ -23,6 +30,8 @@ export type ApiFetchOptions = {
   withAuth?: boolean;
   /** Optional override for GET cache TTL in ms; set 0 to disable for this call */
   cacheTtlMs?: number;
+  /** If true, a 401 response will NOT trigger the global _onUnauthorized sign-out callback */
+  skipOnUnauthorized?: boolean;
 };
 
 export class ApiError extends Error {
@@ -103,28 +112,33 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
   }
 
   const execute = async (): Promise<T> => {
-  const cookieHeader = sessionToken
-    ? `next-auth.session-token=${sessionToken}`
-    : undefined;
+    const authHeaders: Record<string, string> = sessionToken
+      ? {
+          Authorization: `Bearer ${sessionToken}`,
+          // Some platforms block manually setting Cookie headers; keep as best-effort fallback.
+          Cookie: `next-auth.session-token=${sessionToken}`,
+        }
+      : {};
 
-  const response = await fetch(url, {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-      ...(cookieHeader ? { Cookie: cookieHeader } : {}),
-      ...(options.headers ?? {}),
-    },
-    body: options.body === undefined ? undefined : JSON.stringify(options.body),
-  });
+    const response = await fetch(url, {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders,
+        ...(options.headers ?? {}),
+      },
+      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+    });
 
-  const responseText = await response.text();
-  const parsed = responseText ? safeParseJson(responseText) : null;
+    const responseText = await response.text();
+    const parsed = responseText ? safeParseJson(responseText) : null;
 
-  if (!response.ok) {
-    // Auto-sign-out on 401 so the user is returned to the login screen
-    if (response.status === 401 && _onUnauthorized) {
-      _onUnauthorized();
-    }
+    if (!response.ok) {
+      // Auto-sign-out on 401 so the user is returned to the login screen.
+      // Skip if the caller opted out or if globally suppressed (e.g. during init).
+      if (response.status === 401 && _onUnauthorized && !options.skipOnUnauthorized && !_suppressUnauthorized) {
+        _onUnauthorized();
+      }
 
     const parsedObj =
       parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : null;
@@ -143,12 +157,12 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
         ? `${serverMessage}: ${serverDetail}`
         : baseMessage;
 
-    throw new ApiError(message, {
-      status: response.status,
-      code: serverCode,
-      detail: serverDetail,
-    });
-  }
+      throw new ApiError(message, {
+        status: response.status,
+        code: serverCode,
+        detail: serverDetail,
+      });
+    }
 
     const result = ((parsed as T) ?? ({} as T));
     if (isGet && cacheTtlMs > 0) {

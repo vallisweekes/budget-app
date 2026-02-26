@@ -1,11 +1,9 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
+import { getSessionUserId } from "@/lib/api/bffAuth";
 import {
 	getOrCreateBudgetPlanForUser,
 	isSupportedBudgetType,
 	listBudgetPlansForUser,
-	resolveUserId,
 	type SupportedBudgetType,
 } from "@/lib/budgetPlans";
 
@@ -22,16 +20,11 @@ function toBool(value: unknown): boolean {
 	return false;
 }
 
-export async function GET() {
-	const session = await getServerSession(authOptions);
-	const sessionUser = session?.user;
-	const username = sessionUser?.username ?? sessionUser?.name;
-	if (!sessionUser || !username) {
-		return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-	}
+export async function GET(request: Request) {
+	const userId = await getSessionUserId(request);
+	if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
-	const userId = await resolveUserId({ userId: sessionUser.id, username });
-	const plans = await listBudgetPlansForUser({ userId, username });
+	const plans = await listBudgetPlansForUser({ userId });
 
 	return NextResponse.json({
 		plans: plans.map((p) => ({
@@ -46,12 +39,8 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-	const session = await getServerSession(authOptions);
-	const sessionUser = session?.user;
-	const username = sessionUser?.username ?? sessionUser?.name;
-	if (!sessionUser || !username) {
-		return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-	}
+	const userId = await getSessionUserId(req);
+	if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
 	const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
 	const rawKind = typeof body?.kind === "string" ? body.kind.trim().toLowerCase() : "personal";
@@ -74,10 +63,8 @@ export async function POST(req: Request) {
 	}
 
 	try {
-		const userId = await resolveUserId({ userId: sessionUser.id, username });
 		const plan = await getOrCreateBudgetPlanForUser({
 			userId,
-			username,
 			budgetType: rawKind as SupportedBudgetType,
 			planName,
 			eventDate,

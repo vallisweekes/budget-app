@@ -14,8 +14,6 @@ import { getAllPlansDashboardData } from "@/lib/helpers/dashboard/getAllPlansDas
 import { MONTHS } from "@/lib/constants/time";
 import { currentMonthKey } from "@/lib/helpers/monthKey";
 import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
@@ -32,7 +30,7 @@ function unauthorized() {
  */
 export async function GET(req: NextRequest) {
 	try {
-		const userId = await getSessionUserId();
+		const userId = await getSessionUserId(req);
 		if (!userId) return unauthorized();
 
 		const { searchParams } = new URL(req.url);
@@ -46,10 +44,11 @@ export async function GET(req: NextRequest) {
 
 		const now = new Date();
 		const selectedYear = now.getFullYear();
-
-		const session = await getServerSession(authOptions);
-		const sessionUser = session?.user;
-		const username = sessionUser?.username ?? sessionUser?.name;
+		const user = await prisma.user.findUnique({
+			where: { id: userId },
+			select: { name: true },
+		});
+		const username = user?.name ?? null;
 
 		// 1) Core plan data (income, expenses, allocations, goals, categories)
 		// This is required for the dashboard; let it throw if it truly can't compute.
@@ -81,7 +80,8 @@ export async function GET(req: NextRequest) {
 						budgetPlanId,
 						currentPlanData,
 						now,
-						session,
+						userId,
+						session: null,
 						username,
 					});
 				} catch (error) {

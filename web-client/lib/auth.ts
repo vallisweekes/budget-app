@@ -51,12 +51,18 @@ export const authOptions: NextAuthOptions = {
 			if (normalizedUsername) {
 				token.username = normalizedUsername;
 			}
+
+			const sid = String((token as any).sid ?? "").trim();
+			if (sid) {
+				(token as any).sid = sid;
+			}
 			return token;
 		},
 		session: async ({ session, token }) => {
 			if (session.user) {
 				(session.user as any).id = (token.userId as string | undefined) ?? (token.sub as string | undefined);
 				(session.user as any).username = token.username as string | undefined;
+				(session.user as any).sessionId = (token as any).sid as string | undefined;
 			}
 			return session;
 		},

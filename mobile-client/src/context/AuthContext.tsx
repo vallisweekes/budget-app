@@ -7,7 +7,7 @@ import {
   setStoredUsername,
   clearStoredUsername,
 } from "@/lib/storage";
-import { apiFetch, getApiBaseUrl, invalidateApiCache, setOnUnauthorized } from "@/lib/api";
+import { apiFetch, getApiBaseUrl, invalidateApiCache, setOnUnauthorized, suppressUnauthorizedCallback } from "@/lib/api";
 import { PushNotificationsBootstrap } from "@/components/Shared/PushNotificationsBootstrap";
 
 type AuthState = {
@@ -37,6 +37,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Rehydrate from secure store on mount
   useEffect(() => {
     (async () => {
+      // Suppress auto-sign-out during rehydration — a stale token 401 should
+      // just clear silently, not race with a concurrent sign-in.
+      suppressUnauthorizedCallback(true);
       try {
         const token = await getSessionToken();
         if (!token) {
@@ -44,7 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        const profile = await apiFetch<ProfileMeResponse>("/api/bff/me", { cacheTtlMs: 0 });
+        const profile = await apiFetch<ProfileMeResponse>("/api/bff/me", { cacheTtlMs: 0, skipOnUnauthorized: true });
         const username = typeof profile?.username === "string" ? profile.username.trim() : "";
         await setStoredUsername(username);
         setState({ token, username: username || null, isLoading: false });
@@ -52,6 +55,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await Promise.all([clearSessionToken(), clearStoredUsername()]);
         invalidateApiCache();
         setState({ token: null, username: null, isLoading: false });
+      } finally {
+        suppressUnauthorizedCallback(false);
       }
     })();
   }, []);
@@ -61,6 +66,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const baseUrl = getApiBaseUrl();
       const username = usernameInput.trim();
       const email = emailInput.trim();
+
+      // Prevent any 401-triggered auto-sign-out from firing during the sign-in flow.
+      // This guards against a race where a stale rehydration 401 fires signOut() while
+      // the fresh sign-in is writing the new token to SecureStore.
+      suppressUnauthorizedCallback(true);
+      try {
 
       if (mode === "register") {
         await Promise.all([clearSessionToken(), clearStoredUsername()]);
@@ -99,11 +110,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       invalidateApiCache();
       setState({ token: sessionToken, username: sessionUsername, isLoading: false });
+      } finally {
+        // Re-enable 401 auto-sign-out only after the new token is safely persisted.
+        suppressUnauthorizedCallback(false);
+      }
     },
     []
   );
 
   const signOut = useCallback(async () => {
+    // Snapshot the token at the start of sign-out. If a concurrent signIn saves a
+    // new token before we finish, we abort so we don't wipe the fresh session.
+    const tokenSnapshot = await getSessionToken();
+
+    try {
+      if (tokenSnapshot) {
+        const baseUrl = getApiBaseUrl();
+        await fetch(`${baseUrl}/api/mobile-auth/logout`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${tokenSnapshot}`,
+            Cookie: `next-auth.session-token=${tokenSnapshot}`,
+          },
+        });
+      }
+    } catch {
+      // Ignore network/server failures during logout; local sign-out still proceeds.
+    }
+
+    // Abort if a fresher token was stored while we were awaiting above.
+    // This prevents a stale 401 sign-out from killing a just-logged-in session.
+    const currentToken = await getSessionToken();
+    if (tokenSnapshot !== currentToken) {
+      return;
+    }
+
     await Promise.all([clearSessionToken(), clearStoredUsername()]);
     invalidateApiCache();
     setState({ token: null, username: null, isLoading: false });

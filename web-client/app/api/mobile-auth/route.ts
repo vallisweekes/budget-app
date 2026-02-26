@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { encode } from "next-auth/jwt";
 import { getUserByUsername, registerUserByUsername } from "@/lib/budgetPlans";
 import { normalizeUsername } from "@/lib/helpers/username";
+import { createMobileAuthSession } from "@/lib/mobileAuthSessions";
 
 export const runtime = "nodejs";
 
@@ -42,12 +43,18 @@ export async function POST(request: Request) {
     }
 
     const maxAge = 30 * 24 * 60 * 60;
+    const { sessionId } = await createMobileAuthSession({
+      userId: user.id,
+      maxAgeSeconds: maxAge,
+    });
+
     const token = await encode({
       token: {
         sub: user.id,
         name: canonicalUsername,
         userId: user.id,
         username: canonicalUsername,
+        sid: sessionId,
       },
       secret,
       maxAge,
@@ -57,6 +64,7 @@ export async function POST(request: Request) {
       token,
       username: canonicalUsername,
       userId: user.id,
+      sessionId,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Authentication failed";
