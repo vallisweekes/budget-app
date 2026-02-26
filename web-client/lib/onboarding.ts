@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { ensureDefaultCategoriesForBudgetPlan } from "@/lib/categories/defaultCategories";
+import { suggestCategoryNameForExpense } from "@/lib/expenses/expenseCategorizer";
 
 export const COMMON_OCCUPATIONS = [
   "Accountant",
@@ -293,10 +294,36 @@ export async function completeOnboarding(userId: string) {
 
   const budgetPlanId = await ensurePersonalPlan(userId);
 
+  const month = new Date().getMonth() + 1;
+  const year = new Date().getFullYear();
+
+  const categories = await prisma.category.findMany({
+    where: { budgetPlanId },
+    select: { id: true, name: true },
+  });
+  const availableCategoryNames = categories.map((c) => c.name);
+  const categoryIdByLowerName = new Map(categories.map((c) => [c.name.toLowerCase(), c.id] as const));
+
+  const expenseSeedsRaw: Array<{ name: string | null; amount: number }> = [
+    { name: profile.expenseOneName, amount: Number(profile.expenseOneAmount ?? 0) },
+    { name: profile.expenseTwoName, amount: Number(profile.expenseTwoAmount ?? 0) },
+  ];
+
+  const expenseSeeds = await Promise.all(
+    expenseSeedsRaw.map(async (item) => {
+      if (!item.name || item.amount <= 0) return { ...item, categoryId: null as string | null };
+
+      const suggestedName = await suggestCategoryNameForExpense({
+        expenseName: item.name,
+        availableCategories: availableCategoryNames,
+      });
+      const categoryId = suggestedName ? categoryIdByLowerName.get(suggestedName.toLowerCase()) ?? null : null;
+      return { ...item, categoryId };
+    })
+  );
+
   await prisma.$transaction(async (tx) => {
     const salary = Number(profile.monthlySalary ?? 0);
-    const month = new Date().getMonth() + 1;
-    const year = new Date().getFullYear();
 
     if (salary > 0) {
       const existingSalary = await tx.income.findFirst({
@@ -324,11 +351,6 @@ export async function completeOnboarding(userId: string) {
       },
     });
 
-    const expenseSeeds: Array<{ name: string | null; amount: number }> = [
-      { name: profile.expenseOneName, amount: Number(profile.expenseOneAmount ?? 0) },
-      { name: profile.expenseTwoName, amount: Number(profile.expenseTwoAmount ?? 0) },
-    ];
-
     for (const item of expenseSeeds) {
       if (!item.name || item.amount <= 0) continue;
       const exists = await tx.expense.findFirst({
@@ -346,6 +368,7 @@ export async function completeOnboarding(userId: string) {
           paid: false,
           paidAmount: 0,
           isAllocation: false,
+          categoryId: item.categoryId ?? undefined,
         },
       });
     }

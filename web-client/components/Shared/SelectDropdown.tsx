@@ -1,33 +1,15 @@
 "use client";
 
 import React, { useEffect, useId, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import type { SelectDropdownProps, SelectOption } from "@/components/Shared/SelectDropdown.types";
+import SelectDropdownMenu from "@/components/Shared/SelectDropdownMenu";
+import { useAnchoredMenuPosition } from "@/lib/hooks/useAnchoredMenuPosition";
 
-export type SelectOption = {
-	value: string;
-	label: string;
-	disabled?: boolean;
-};
+export type { SelectDropdownProps, SelectOption };
 
 function cx(...classes: Array<string | undefined | null | false>) {
 	return classes.filter(Boolean).join(" ");
 }
-
-export type SelectDropdownProps = {
-	options: SelectOption[];
-	value?: string;
-	defaultValue?: string;
-	onValueChange?: (value: string) => void;
-	placeholder?: string;
-	name?: string;
-	disabled?: boolean;
-	required?: boolean;
-	variant?: "dark" | "light";
-	className?: string;
-	buttonClassName?: string;
-	menuClassName?: string;
-	id?: string;
-};
 
 export default function SelectDropdown({
 	options,
@@ -59,11 +41,13 @@ export default function SelectDropdown({
 		return idx >= 0 ? idx : 0;
 	});
 
-	const rootRef = useRef<HTMLDivElement | null>(null);
 	const triggerRef = useRef<HTMLButtonElement | null>(null);
-	const menuRef = useRef<HTMLDivElement | null>(null);
 	const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
-	const [menuPosition, setMenuPosition] = useState<{ left: number; top: number; width: number } | null>(null);
+	const { menuPosition, updateMenuPosition } = useAnchoredMenuPosition({
+		open,
+		anchorRef: triggerRef,
+		optionsLength: options.length,
+	});
 
 	const close = () => setOpen(false);
 	function focusOptionAt(index: number) {
@@ -82,31 +66,6 @@ export default function SelectDropdown({
 		focusOptionAt(nextActive);
 	}
 
-	function updateMenuPosition() {
-		const trigger = triggerRef.current;
-		if (!trigger) return;
-		const rect = trigger.getBoundingClientRect();
-		const width = rect.width;
-		let left = rect.left;
-		let top = rect.bottom + 8;
-
-		// Keep within viewport horizontally.
-		const viewportWidth = window.innerWidth;
-		if (left + width > viewportWidth - 8) {
-			left = Math.max(8, viewportWidth - width - 8);
-		}
-		if (left < 8) left = 8;
-
-		// If the menu would overflow the bottom, flip it above.
-		const estimatedHeight = Math.min(288, 44 * Math.max(1, options.length));
-		const viewportHeight = window.innerHeight;
-		if (top + estimatedHeight > viewportHeight - 8) {
-			top = Math.max(8, rect.top - 8 - estimatedHeight);
-		}
-
-		setMenuPosition({ left, top, width });
-	}
-
 	function toggle() {
 		if (open) {
 			close();
@@ -122,25 +81,17 @@ export default function SelectDropdown({
 
 	useEffect(() => {
 		if (!open) return;
-		updateMenuPosition();
 		function onEscape(e: KeyboardEvent) {
 			if (e.key !== "Escape") return;
 			e.preventDefault();
 			close();
 		}
-		function onScrollOrResize() {
-			updateMenuPosition();
-		}
 		window.addEventListener("keydown", onEscape);
-		window.addEventListener("scroll", onScrollOrResize, true);
-		window.addEventListener("resize", onScrollOrResize);
 		return () => {
 			window.removeEventListener("keydown", onEscape);
-			window.removeEventListener("scroll", onScrollOrResize, true);
-			window.removeEventListener("resize", onScrollOrResize);
 		};
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [open, options.length]);
+	}, [open]);
 
 	useEffect(() => {
 		if (!open) return;
@@ -150,23 +101,10 @@ export default function SelectDropdown({
 
 	const baseButton =
 		"flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left outline-none transition-all";
-	const baseMenu =
-		"max-h-72 overflow-auto rounded-2xl border shadow-2xl backdrop-blur-xl";
-
 	const isLight = variant === "light";
 	const buttonStyles = isLight
 		? "border-zinc-300 bg-white text-zinc-900 focus:ring-2 focus:ring-[var(--cta)]"
 		: "border-white/10 bg-slate-900/40 text-white focus:ring-2 focus:ring-[var(--cta)]";
-
-	const menuStyles = isLight ? "border-zinc-200 bg-white/95" : "border-white/10 bg-slate-950/80";
-
-	const optionBase = "flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm outline-none transition";
-	const optionStyles = isLight
-		? "text-zinc-900 hover:bg-zinc-100 focus:bg-zinc-100"
-		: "text-white hover:bg-white/10 focus:bg-white/10";
-
-	const optionActive = isLight ? "bg-zinc-100" : "bg-white/10";
-	const optionSelected = "text-[var(--cta)]";
 
 	function move(delta: number) {
 		if (options.length === 0) return;
@@ -180,7 +118,7 @@ export default function SelectDropdown({
 	}
 
 	return (
-		<div ref={rootRef} className={cx("relative", className)}>
+		<div className={cx("relative", className)}>
 			{name ? <input type="hidden" name={name} value={selectedValue} /> : null}
 
 			<button
@@ -229,83 +167,21 @@ export default function SelectDropdown({
 				</svg>
 			</button>
 
-			{open && menuPosition
-				? createPortal(
-					<>
-						<button
-							type="button"
-							aria-label="Close"
-							className="fixed inset-0 z-[9998] cursor-default"
-							onClick={() => close()}
-						/>
-						<div
-							ref={menuRef}
-							role="listbox"
-							aria-labelledby={controlId}
-							className={cx(baseMenu, menuStyles, "fixed z-[9999]", menuClassName)}
-							style={{ left: menuPosition.left, top: menuPosition.top, width: menuPosition.width }}
-							onKeyDown={(e) => {
-								if (e.key === "ArrowDown") {
-									e.preventDefault();
-									move(1);
-								}
-								if (e.key === "ArrowUp") {
-									e.preventDefault();
-									move(-1);
-								}
-								if (e.key === "Home") {
-									e.preventDefault();
-									setActiveIndex(0);
-									optionRefs.current[0]?.focus();
-								}
-								if (e.key === "End") {
-									e.preventDefault();
-									const last = Math.max(0, options.length - 1);
-									setActiveIndex(last);
-									optionRefs.current[last]?.focus();
-								}
-							}}
-						>
-							<div className="p-2">
-								{options.map((opt, idx) => {
-									const isSelected = opt.value === selectedValue;
-									const isActive = idx === activeIndex;
-									return (
-										<button
-											key={opt.value}
-											type="button"
-											role="option"
-											aria-selected={isSelected}
-											disabled={opt.disabled}
-											ref={(el) => {
-												optionRefs.current[idx] = el;
-											}}
-											onMouseEnter={() => setActiveIndex(idx)}
-											onClick={() => {
-												if (opt.disabled) return;
-												setValue(opt.value);
-												close();
-											}}
-											className={cx(
-												optionBase,
-												optionStyles,
-												opt.disabled && "opacity-50 cursor-not-allowed",
-												isActive && optionActive
-											)}
-										>
-											<span className={cx("truncate", isSelected && optionSelected)}>{opt.label}</span>
-											{isSelected ? (
-												<span className={cx("text-xs font-semibold", optionSelected)}>✓</span>
-											) : null}
-										</button>
-									);
-								})}
-							</div>
-						</div>
-					</>,
-					document.body
-				)
-				: null}
+			<SelectDropdownMenu
+				open={open}
+				menuPosition={menuPosition}
+				controlId={controlId}
+				options={options}
+				selectedValue={selectedValue}
+				activeIndex={activeIndex}
+				setActiveIndex={setActiveIndex}
+				setValue={setValue}
+				close={close}
+				optionRefs={optionRefs}
+				move={move}
+				variant={variant}
+				menuClassName={menuClassName}
+			/>
 		</div>
 	);
 }

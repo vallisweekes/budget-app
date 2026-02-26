@@ -6,6 +6,7 @@ import { getDebtSummaryForPlan } from "@/lib/debts/summary";
 import { computeDebtTips } from "@/lib/debts/insights";
 import { getDashboardExpenseInsights } from "@/lib/helpers/dashboard/getDashboardExpenseInsights";
 import { getAiBudgetTips } from "@/lib/ai/budgetTips";
+import { getOnboardingStarterTips } from "@/lib/ai/onboardingStarterTips";
 import { prioritizeRecapTips } from "@/lib/expenses/insights";
 import { getIncomeMonthsCoverageByPlan } from "@/lib/helpers/dashboard/getIncomeMonthsCoverageByPlan";
 import { getLargestExpensesByPlan } from "@/lib/helpers/dashboard/getLargestExpensesByPlan";
@@ -316,6 +317,40 @@ export async function GET(req: NextRequest) {
 
 		if (aiDashboardTips) {
 			expenseInsights.recapTips = prioritizeRecapTips(aiDashboardTips, 4);
+		}
+
+		// Brand-new users may have no computed recap tips yet (and AI may be disabled in dev).
+		// Always return a few onboarding-based starter tips so Home doesn't look empty.
+		if (!expenseInsights.recapTips || expenseInsights.recapTips.length === 0) {
+			expenseInsights.recapTips = getOnboardingStarterTips({
+				onboarding: onboarding
+					? {
+						mainGoal: (onboarding.mainGoal as string | null | undefined) ?? null,
+						mainGoals: (() => {
+							const raw = onboarding && "mainGoals" in onboarding ? (onboarding as { mainGoals?: unknown }).mainGoals : null;
+							if (Array.isArray(raw)) return raw as string[];
+							return onboarding.mainGoal ? [String(onboarding.mainGoal)] : [];
+						})(),
+						occupation: (onboarding.occupation as string | null | undefined) ?? null,
+						monthlySalary: onboarding.monthlySalary ? Number(onboarding.monthlySalary) : null,
+						expenseOne: {
+							name: (onboarding.expenseOneName as string | null | undefined) ?? null,
+							amount: onboarding.expenseOneAmount ? Number(onboarding.expenseOneAmount) : null,
+						},
+						expenseTwo: {
+							name: (onboarding.expenseTwoName as string | null | undefined) ?? null,
+							amount: onboarding.expenseTwoAmount ? Number(onboarding.expenseTwoAmount) : null,
+						},
+						hasAllowance: (onboarding.hasAllowance as boolean | null | undefined) ?? null,
+						allowanceAmount: onboarding.allowanceAmount ? Number(onboarding.allowanceAmount) : null,
+						hasDebtsToManage: (onboarding.hasDebtsToManage as boolean | null | undefined) ?? null,
+						debtAmount: onboarding.debtAmount ? Number(onboarding.debtAmount) : null,
+						debtNotes: (onboarding.debtNotes as string | null | undefined) ?? null,
+					}
+					: null,
+				payDate,
+				maxTips: 4,
+			});
 		}
 
 		return NextResponse.json({

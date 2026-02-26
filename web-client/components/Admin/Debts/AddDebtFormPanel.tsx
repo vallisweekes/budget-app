@@ -1,81 +1,81 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, X } from "lucide-react";
-import { SelectDropdown } from "@/components/Shared";
+import { X } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { createDebt } from "@/lib/debts/actions";
-import { getSettingsHrefFromPathname } from "@/lib/helpers/settings/settingsHref";
-import { defaultDebtDueDateIso } from "@/lib/helpers/debts/defaultDebtDueDateIso";
+
+import { SelectDropdown } from "@/components/Shared";
 import InstallmentPlanSection from "@/components/Admin/Debts/InstallmentPlanSection";
 
-interface AddDebtFormProps {
+export default function AddDebtFormPanel({
+	budgetPlanId,
+	settingsHref,
+	creditCards,
+	type,
+	onTypeChange,
+	creditLimit,
+	onCreditLimitChange,
+	dueDate,
+	onDueDateChange,
+	defaultPaymentSource,
+	onDefaultPaymentSourceChange,
+	defaultPaymentCardDebtId,
+	onDefaultPaymentCardDebtIdChange,
+	initialBalance,
+	onInitialBalanceChange,
+	installmentMonths,
+	onInstallmentMonthsChange,
+	isCardType,
+	onClose,
+	onSubmit,
+}: {
 	budgetPlanId: string;
-	payDate: number;
+	settingsHref: string;
 	creditCards: Array<{ id: string; name: string }>;
-}
-
-export default function AddDebtForm({ budgetPlanId, payDate, creditCards }: AddDebtFormProps) {
-	const pathname = usePathname();
-	const settingsHref = getSettingsHrefFromPathname(pathname);
-
-	const [isOpen, setIsOpen] = useState(false);
-	const [type, setType] = useState("loan");
-	const [creditLimit, setCreditLimit] = useState("");
-	const [initialBalance, setInitialBalance] = useState("");
-	const [installmentMonths, setInstallmentMonths] = useState("");
-	const [dueDate, setDueDate] = useState(() => defaultDebtDueDateIso(payDate));
-	const [defaultPaymentSource, setDefaultPaymentSource] = useState("income");
-	const [defaultPaymentCardDebtId, setDefaultPaymentCardDebtId] = useState("");
-
-	const isCardType = type === "credit_card" || type === "store_card";
-
-	const handleSubmit = async (formData: FormData) => {
-		await createDebt(formData);
-		setIsOpen(false);
-		setType("loan");
-		setCreditLimit("");
-		setInitialBalance("");
-		setInstallmentMonths("");
-		setDueDate(defaultDebtDueDateIso(payDate));
-		setDefaultPaymentSource("income");
-		setDefaultPaymentCardDebtId("");
-	};
-
-	if (!isOpen) {
-		return (
-			<button
-				onClick={() => setIsOpen(true)}
-				className="w-full md:w-auto px-4 py-2 sm:px-6 sm:py-3 bg-[var(--cta)] hover:bg-[var(--cta-hover)] active:bg-[var(--cta-active)] text-white rounded-lg transition-colors font-medium shadow-lg hover:shadow-xl flex items-center gap-1.5 sm:gap-2 justify-center mb-6 sm:mb-8 text-sm sm:text-base"
-			>
-				<Plus className="w-4 h-4 sm:w-5 sm:h-5" />
-				Add New Debt
-			</button>
-		);
-	}
-
+	type: string;
+	onTypeChange: (next: string) => void;
+	creditLimit: string;
+	onCreditLimitChange: (next: string) => void;
+	dueDate: string;
+	onDueDateChange: (next: string) => void;
+	defaultPaymentSource: string;
+	onDefaultPaymentSourceChange: (next: string) => void;
+	defaultPaymentCardDebtId: string;
+	onDefaultPaymentCardDebtIdChange: (next: string) => void;
+	initialBalance: string;
+	onInitialBalanceChange: (next: string) => void;
+	installmentMonths: string;
+	onInstallmentMonthsChange: (next: string) => void;
+	isCardType: boolean;
+	onClose: () => void;
+	onSubmit: (formData: FormData) => void | Promise<void>;
+}) {
 	return (
 		<div className="bg-slate-800/40 backdrop-blur-xl rounded-2xl shadow-xl border border-white/10 p-4 sm:p-6 mb-6 sm:mb-8">
 			<div className="flex items-center justify-between mb-3 sm:mb-4">
 				<h2 className="text-base sm:text-xl font-semibold text-white">Add New Debt</h2>
 				<button
-					onClick={() => setIsOpen(false)}
+					onClick={onClose}
 					className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors"
 					aria-label="Close"
 				>
 					<X className="w-5 h-5 text-slate-400" />
 				</button>
 			</div>
-			<form action={handleSubmit} className="space-y-3 sm:space-y-4">
+
+			<form action={onSubmit} className="space-y-3 sm:space-y-4">
 				<input type="hidden" name="budgetPlanId" value={budgetPlanId} />
+
 				<div className="text-xs sm:text-sm text-slate-400">
 					You can add cards here (requires a credit limit) or in{" "}
-					<Link href={settingsHref} className="text-purple-300 hover:text-purple-200 underline underline-offset-2">
+					<Link
+						href={settingsHref}
+						className="text-purple-300 hover:text-purple-200 underline underline-offset-2"
+					>
 						Settings → Savings and Cards
 					</Link>
 					.
 				</div>
+
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
 					<div>
 						<label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1 sm:mb-2">Name</label>
@@ -87,18 +87,14 @@ export default function AddDebtForm({ budgetPlanId, payDate, creditCards }: AddD
 							className="w-full px-3 py-1.5 sm:px-4 sm:py-2 bg-slate-900/40 border border-white/10 text-white placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-xs sm:text-sm"
 						/>
 					</div>
+
 					<div>
 						<label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1 sm:mb-2">Type</label>
 						<SelectDropdown
 							name="type"
 							required
 							value={type}
-							onValueChange={(next) => {
-								setType(next);
-								if (next !== "credit_card" && next !== "store_card") {
-									setCreditLimit("");
-								}
-							}}
+							onValueChange={onTypeChange}
 							options={[
 								{ value: "credit_card", label: "Credit Card" },
 								{ value: "store_card", label: "Store Card" },
@@ -110,9 +106,12 @@ export default function AddDebtForm({ budgetPlanId, payDate, creditCards }: AddD
 							buttonClassName="rounded-lg px-4 py-2 focus:ring-purple-500"
 						/>
 					</div>
+
 					{isCardType ? (
 						<div>
-							<label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1 sm:mb-2">Credit Limit</label>
+							<label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1 sm:mb-2">
+								Credit Limit
+							</label>
 							<input
 								type="number"
 								name="creditLimit"
@@ -120,7 +119,7 @@ export default function AddDebtForm({ budgetPlanId, payDate, creditCards }: AddD
 								placeholder="1200.00"
 								required
 								value={creditLimit}
-								onChange={(e) => setCreditLimit(e.target.value)}
+								onChange={(e) => onCreditLimitChange(e.target.value)}
 								className="w-full px-3 py-1.5 sm:px-4 sm:py-2 bg-slate-900/40 border border-white/10 text-white placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-xs sm:text-sm"
 							/>
 							<div className="mt-1 text-[10px] sm:text-xs text-slate-500">Required for credit/store cards.</div>
@@ -128,27 +127,30 @@ export default function AddDebtForm({ budgetPlanId, payDate, creditCards }: AddD
 					) : (
 						<input type="hidden" name="creditLimit" value="" />
 					)}
+
 					<div>
 						<label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1 sm:mb-2">Due Date</label>
 						<input
 							type="date"
 							name="dueDate"
 							value={dueDate}
-							onChange={(e) => setDueDate(e.target.value)}
+							onChange={(e) => onDueDateChange(e.target.value)}
 							className="w-full px-3 py-1.5 sm:px-4 sm:py-2 bg-slate-900/40 border border-white/10 text-white placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-xs sm:text-sm"
 						/>
-						<div className="mt-1 text-[10px] sm:text-xs text-slate-500">Missed payment triggers 5 days after this date.</div>
+						<div className="mt-1 text-[10px] sm:text-xs text-slate-500">
+							Missed payment triggers 5 days after this date.
+						</div>
 					</div>
+
 					<div>
-						<label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1 sm:mb-2">Default Payment Source</label>
+						<label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1 sm:mb-2">
+							Default Payment Source
+						</label>
 						<SelectDropdown
 							name="defaultPaymentSource"
 							required
 							value={defaultPaymentSource}
-							onValueChange={(next) => {
-								setDefaultPaymentSource(next);
-								if (next !== "credit_card") setDefaultPaymentCardDebtId("");
-							}}
+							onValueChange={onDefaultPaymentSourceChange}
 							options={[
 								{ value: "income", label: "Income (tracked)" },
 								{ value: "extra_funds", label: "Extra funds" },
@@ -157,14 +159,17 @@ export default function AddDebtForm({ budgetPlanId, payDate, creditCards }: AddD
 							buttonClassName="rounded-lg px-4 py-2 focus:ring-purple-500"
 						/>
 					</div>
+
 					{defaultPaymentSource === "credit_card" ? (
 						<div>
-							<label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1 sm:mb-2">Default Card</label>
+							<label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1 sm:mb-2">
+								Default Card
+							</label>
 							<SelectDropdown
 								name="defaultPaymentCardDebtId"
 								required
 								value={defaultPaymentCardDebtId}
-								onValueChange={setDefaultPaymentCardDebtId}
+								onValueChange={onDefaultPaymentCardDebtIdChange}
 								options={[
 									{ value: "", label: "Choose a card" },
 									...creditCards.map((c) => ({ value: c.id, label: c.name })),
@@ -175,8 +180,11 @@ export default function AddDebtForm({ budgetPlanId, payDate, creditCards }: AddD
 					) : (
 						<input type="hidden" name="defaultPaymentCardDebtId" value="" />
 					)}
+
 					<div>
-						<label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1 sm:mb-2">Initial Balance</label>
+						<label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1 sm:mb-2">
+							Initial Balance
+						</label>
 						<input
 							type="number"
 							name="initialBalance"
@@ -184,12 +192,15 @@ export default function AddDebtForm({ budgetPlanId, payDate, creditCards }: AddD
 							placeholder="450.00"
 							required
 							value={initialBalance}
-							onChange={(e) => setInitialBalance(e.target.value)}
+							onChange={(e) => onInitialBalanceChange(e.target.value)}
 							className="w-full px-3 py-1.5 sm:px-4 sm:py-2 bg-slate-900/40 border border-white/10 text-white placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-xs sm:text-sm"
 						/>
 					</div>
+
 					<div>
-						<label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1 sm:mb-2">Monthly Minimum (Optional)</label>
+						<label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1 sm:mb-2">
+							Monthly Minimum (Optional)
+						</label>
 						<input
 							type="number"
 							name="monthlyMinimum"
@@ -198,8 +209,11 @@ export default function AddDebtForm({ budgetPlanId, payDate, creditCards }: AddD
 							className="w-full px-3 py-1.5 sm:px-4 sm:py-2 bg-slate-900/40 border border-white/10 text-white placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-xs sm:text-sm"
 						/>
 					</div>
+
 					<div>
-						<label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1 sm:mb-2">Interest Rate % (Optional)</label>
+						<label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1 sm:mb-2">
+							Interest Rate % (Optional)
+						</label>
 						<input
 							type="number"
 							name="interestRate"
@@ -212,7 +226,7 @@ export default function AddDebtForm({ budgetPlanId, payDate, creditCards }: AddD
 
 				<InstallmentPlanSection
 					installmentMonths={installmentMonths}
-					onInstallmentMonthsChange={setInstallmentMonths}
+					onInstallmentMonthsChange={onInstallmentMonthsChange}
 					initialBalance={initialBalance}
 				/>
 
@@ -225,7 +239,7 @@ export default function AddDebtForm({ budgetPlanId, payDate, creditCards }: AddD
 					</button>
 					<button
 						type="button"
-						onClick={() => setIsOpen(false)}
+						onClick={onClose}
 						className="px-4 py-2 sm:px-6 sm:py-3 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors font-medium text-sm sm:text-base"
 					>
 						Cancel
