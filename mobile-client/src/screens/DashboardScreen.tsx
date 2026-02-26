@@ -509,7 +509,7 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
                         <View style={styles.goalChip}>
                           <Ionicons name={goalIconName(g.title)} size={16} color={T.accent} />
                         </View>
-                        <Text style={styles.goalTitle} numberOfLines={1}>
+                        <Text style={styles.goalTitle} numberOfLines={2}>
                           {g.title}
                         </Text>
                       </View>
@@ -949,9 +949,11 @@ const styles = StyleSheet.create({
   goalTitle: {
     color: T.text,
     fontSize: 12,
+    lineHeight: 15,
     fontWeight: "600",
     letterSpacing: -0.2,
     flex: 1,
+    flexShrink: 1,
     minWidth: 0,
   },
   goalAmountLine: {

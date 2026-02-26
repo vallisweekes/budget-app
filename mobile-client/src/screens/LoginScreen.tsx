@@ -59,7 +59,7 @@ export default function LoginScreen() {
         >
           {/* Logo / App name */}
           <View style={styles.logoArea}>
-            <Text style={styles.appName}>Budget App</Text>
+            <Text style={styles.appName}>BudgetIn Check</Text>
             <Text style={styles.tagline}>Track. Plan. Save.</Text>
           </View>
 

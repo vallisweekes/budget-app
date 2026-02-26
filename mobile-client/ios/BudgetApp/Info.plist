@@ -7,7 +7,7 @@
     <key>CFBundleDevelopmentRegion</key>
     <string>$(DEVELOPMENT_LANGUAGE)</string>
     <key>CFBundleDisplayName</key>
-    <string>Budget App</string>
+    <string>BudgetIn Check</string>
     <key>CFBundleExecutable</key>
     <string>$(EXECUTABLE_NAME)</string>
     <key>CFBundleIdentifier</key>
@@ -45,6 +45,12 @@
       <key>NSAllowsLocalNetworking</key>
       <true/>
     </dict>
+    <key>NSCameraUsageDescription</key>
+    <string>BudgetIn Check uses your camera to scan receipts and auto-fill expense details.</string>
+    <key>NSPhotoLibraryAddUsageDescription</key>
+    <string>BudgetIn Check saves receipt images to your photo library when needed.</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>BudgetIn Check accesses your photo library to import receipts.</string>
     <key>RCTNewArchEnabled</key>
     <true/>
     <key>UILaunchStoryboardName</key>

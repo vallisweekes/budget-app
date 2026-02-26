@@ -1,4 +1,4 @@
-# Budget App — Mobile Client
+# BudgetIn Check — Mobile Client
 
 React Native / Expo app that shares the **same PostgreSQL database** as `web-client` by consuming its existing `/api/bff/*` REST endpoints via the session-authenticated API client.
 

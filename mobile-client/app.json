@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Budget App",
+    "name": "BudgetIn Check",
     "slug": "budget-app",
     "version": "1.0.0",
     "runtimeVersion": {
@@ -27,8 +27,8 @@
         "usesNonExemptEncryption": false
       },
       "infoPlist": {
-        "NSCameraUsageDescription": "BudgetIn uses your camera to scan receipts and auto-fill expense details.",
-        "NSPhotoLibraryUsageDescription": "BudgetIn accesses your photo library to import receipts."
+        "NSCameraUsageDescription": "BudgetIn Check uses your camera to scan receipts and auto-fill expense details.",
+        "NSPhotoLibraryUsageDescription": "BudgetIn Check accesses your photo library to import receipts."
       }
     },
     "android": {
@@ -47,8 +47,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "BudgetIn accesses your photo library to import receipts.",
-          "cameraPermission": "BudgetIn uses your camera to scan receipts and auto-fill expense details."
+          "photosPermission": "BudgetIn Check accesses your photo library to import receipts.",
+          "cameraPermission": "BudgetIn Check uses your camera to scan receipts and auto-fill expense details."
         }
       ]
     ]

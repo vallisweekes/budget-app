@@ -36,6 +36,15 @@ export default function TopHeader({
   const insets = useSafeAreaInsets();
   const { username } = useAuth();
 
+  const getCenterWrapStyle = () => {
+    if (rightContent) {
+      return null;
+    }
+
+    return showIncomeAction ? s.centerWrapWithThreeActions : s.centerWrapWithTwoActions;
+  };
+
+  const centerWrapStyle = [s.centerWrap, getCenterWrapStyle()];
   const initial = username ? username.charAt(0).toUpperCase() : "?";
 
   return (
@@ -57,12 +66,12 @@ export default function TopHeader({
         )}
 
         {centerContent ? (
-          <View style={s.centerWrap}>
+          <View style={centerWrapStyle}>
             {centerContent}
           </View>
         ) : centerLabel ? (
-          <View pointerEvents="none" style={s.centerWrap}>
-            <Text style={s.centerLabel} numberOfLines={1}>{centerLabel}</Text>
+          <View pointerEvents="none" style={centerWrapStyle}>
+            <Text style={s.centerLabel} numberOfLines={2}>{centerLabel}</Text>
           </View>
         ) : null}
 
@@ -111,14 +120,22 @@ const s = StyleSheet.create({
   },
   centerWrap: {
     position: "absolute",
-    left: 70,
+    left: 62,
     right: 70,
     alignItems: "center",
+  },
+  centerWrapWithThreeActions: {
+    right: 138,
+  },
+  centerWrapWithTwoActions: {
+    right: 96,
   },
   centerLabel: {
     color: T.text,
     fontSize: 13,
     fontWeight: "600",
+    lineHeight: 16,
+    textAlign: "center",
   },
 
   avatarBtn: { position: "relative" },
