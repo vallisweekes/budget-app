@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -16,6 +16,8 @@ import TopHeader from "@/components/Shared/TopHeader";
 import PillTabBar from "@/components/Shared/PillTabBar";
 import { T } from "@/lib/theme";
 import { MONTH_NAMES_LONG } from "@/lib/formatting";
+import { apiFetch } from "@/lib/api";
+import type { IncomeSacrificeData } from "@/lib/apiTypes";
 
 import LoginScreen from "@/screens/LoginScreen";
 import DashboardScreen from "@/screens/DashboardScreen";
@@ -77,6 +79,43 @@ function NotificationSettingsScreen(props: unknown) {
 
 function RootTopHeader({ navigation }: { navigation: any }) {
   const { signOut } = useAuth();
+  const [incomePendingCount, setIncomePendingCount] = useState(0);
+
+  const getPendingCount = useCallback((data: IncomeSacrificeData): number => {
+    const confirmed = new Set((data.confirmations ?? []).map((item) => item.targetKey));
+
+    const amountForTarget = (targetKey: string): number => {
+      if (targetKey.startsWith("fixed:")) {
+        const field = targetKey.slice("fixed:".length) as keyof IncomeSacrificeData["fixed"];
+        return Number(data.fixed?.[field] ?? 0);
+      }
+      if (targetKey.startsWith("custom:")) {
+        const customId = targetKey.slice("custom:".length);
+        const item = (data.customItems ?? []).find((row) => row.id === customId);
+        return Number(item?.amount ?? 0);
+      }
+      return 0;
+    };
+
+    return (data.goalLinks ?? []).reduce((sum, link) => {
+      if (confirmed.has(link.targetKey)) return sum;
+      return amountForTarget(link.targetKey) > 0 ? sum + 1 : sum;
+    }, 0);
+  }, []);
+
+  const loadPendingCount = useCallback(async () => {
+    const now = new Date();
+    const month = now.getMonth() + 1;
+    const year = now.getFullYear();
+    try {
+      const data = await apiFetch<IncomeSacrificeData>(`/api/bff/income-sacrifice?month=${month}&year=${year}`, {
+        cacheTtlMs: 2_000,
+      });
+      setIncomePendingCount(getPendingCount(data));
+    } catch {
+      setIncomePendingCount(0);
+    }
+  }, [getPendingCount]);
 
   const getDeepestRoute = (state: any): any => {
     if (!state?.routes?.length) return null;
@@ -194,12 +233,21 @@ function RootTopHeader({ navigation }: { navigation: any }) {
     <>
       <Pressable onPress={() => navigation.navigate("IncomeFlow")} style={s.headerActionBtn} hitSlop={10}>
         <Ionicons name="wallet-outline" size={18} color={T.accent} />
+        {incomePendingCount > 0 ? (
+          <View style={s.headerBadge}>
+            <Text style={s.headerBadgeText}>{incomePendingCount > 9 ? "9+" : String(incomePendingCount)}</Text>
+          </View>
+        ) : null}
       </Pressable>
       <Pressable onPress={() => navigation.navigate("NotificationSettings")} style={s.headerActionBtn} hitSlop={10}>
         <Ionicons name="notifications-outline" size={18} color={T.accent} />
       </Pressable>
     </>
   ) : undefined;
+
+  useEffect(() => {
+    void loadPendingCount();
+  }, [loadPendingCount, deepestRoute?.name]);
 
   return (
     <TopHeader
@@ -215,6 +263,7 @@ function RootTopHeader({ navigation }: { navigation: any }) {
       rightContent={analyticsRightContent ?? incomeGridRightContent}
       compactActionsMenu={isNotificationSettings}
       onLogout={signOut}
+      incomePendingCount={incomePendingCount}
     />
   );
 }
@@ -274,6 +323,26 @@ const s = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 1,
     borderColor: T.border,
+    position: "relative",
+  },
+  headerBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    paddingHorizontal: 4,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: T.red,
+    borderWidth: 1,
+    borderColor: T.card,
+  },
+  headerBadgeText: {
+    color: T.onAccent,
+    fontSize: 9,
+    fontWeight: "900",
   },
   headerActionBtnAdd: {
     backgroundColor: T.accent,
@@ -286,6 +355,47 @@ const s = StyleSheet.create({
 
 function MainTabs() {
   const { signOut } = useAuth();
+  const [incomePendingCount, setIncomePendingCount] = useState(0);
+
+  const getPendingCount = useCallback((data: IncomeSacrificeData): number => {
+    const confirmed = new Set((data.confirmations ?? []).map((item) => item.targetKey));
+
+    const amountForTarget = (targetKey: string): number => {
+      if (targetKey.startsWith("fixed:")) {
+        const field = targetKey.slice("fixed:".length) as keyof IncomeSacrificeData["fixed"];
+        return Number(data.fixed?.[field] ?? 0);
+      }
+      if (targetKey.startsWith("custom:")) {
+        const customId = targetKey.slice("custom:".length);
+        const item = (data.customItems ?? []).find((row) => row.id === customId);
+        return Number(item?.amount ?? 0);
+      }
+      return 0;
+    };
+
+    return (data.goalLinks ?? []).reduce((sum, link) => {
+      if (confirmed.has(link.targetKey)) return sum;
+      return amountForTarget(link.targetKey) > 0 ? sum + 1 : sum;
+    }, 0);
+  }, []);
+
+  const loadPendingCount = useCallback(async () => {
+    const now = new Date();
+    const month = now.getMonth() + 1;
+    const year = now.getFullYear();
+    try {
+      const data = await apiFetch<IncomeSacrificeData>(`/api/bff/income-sacrifice?month=${month}&year=${year}`, {
+        cacheTtlMs: 2_000,
+      });
+      setIncomePendingCount(getPendingCount(data));
+    } catch {
+      setIncomePendingCount(0);
+    }
+  }, [getPendingCount]);
+
+  useEffect(() => {
+    void loadPendingCount();
+  }, [loadPendingCount]);
 
   return (
     <Tab.Navigator
@@ -392,6 +502,7 @@ function MainTabs() {
               showIncomeAction={!isSettings}
               compactActionsMenu={isSettings}
               onLogout={signOut}
+              incomePendingCount={incomePendingCount}
             />
           );
         },

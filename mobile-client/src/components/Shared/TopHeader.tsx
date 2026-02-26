@@ -20,6 +20,7 @@ interface Props {
   rightContent?: React.ReactNode;
   compactActionsMenu?: boolean;
   onLogout?: () => void;
+  incomePendingCount?: number;
 }
 
 export default function TopHeader({
@@ -36,6 +37,7 @@ export default function TopHeader({
   rightContent,
   compactActionsMenu = false,
   onLogout,
+  incomePendingCount = 0,
 }: Props) {
   const insets = useSafeAreaInsets();
   const { username } = useAuth();
@@ -114,6 +116,11 @@ export default function TopHeader({
             {showIncomeAction ? (
               <Pressable onPress={onIncome} style={s.iconBtn} hitSlop={10}>
                 <Ionicons name="wallet-outline" size={18} color={T.accent} />
+                {incomePendingCount > 0 ? (
+                  <View style={s.badge}>
+                    <Text style={s.badgeText}>{incomePendingCount > 9 ? "9+" : String(incomePendingCount)}</Text>
+                  </View>
+                ) : null}
               </Pressable>
             ) : null}
             <Pressable onPress={onAnalytics} style={s.iconBtn} hitSlop={10}>
@@ -243,6 +250,26 @@ const s = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 1,
     borderColor: T.border,
+    position: "relative",
+  },
+  badge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    paddingHorizontal: 4,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: T.red,
+    borderWidth: 1,
+    borderColor: T.card,
+  },
+  badgeText: {
+    color: T.onAccent,
+    fontSize: 9,
+    fontWeight: "900",
   },
   menuBackdrop: {
     flex: 1,
