@@ -5,6 +5,8 @@ import { upsertExpenseDebt } from "@/lib/debts/store";
 import { monthNumberToKey } from "@/lib/helpers/monthKey";
 import { resolveExpenseLogoWithSearch } from "@/lib/expenses/logoResolver";
 import { updateExpenseAcrossMonthsByName } from "@/lib/expenses/store";
+import { isNonDebtCategoryName } from "@/lib/expenses/helpers";
+import { isNonDebtCategoryName } from "@/lib/expenses/helpers";
 import { MONTHS } from "@/lib/constants/time";
 import type { MonthKey } from "@/types";
 
@@ -229,6 +231,32 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       },
     },
   } as any)) as any;
+
+  // ── Sync expense → debt on every payment change ───────────────────────────
+  // Runs whenever paid/paidAmount was explicitly provided in the request body.
+  // Skips allocations and expense categories that never generate debts
+  // (e.g. Savings, Income). For all other cases:
+  //   • partial payment  → upsert debt with the remaining unpaid balance
+  //   • fully paid       → zero out any existing debt
+  //   • toggled unpaid   → zero out any existing debt (overdue processor
+  //                        will recreate it when the due date passes)
+  const isPaymentChange = paidExplicit !== undefined || paidAmountExplicit !== undefined;
+  if (isPaymentChange && !updated.isAllocation && !isNonDebtCategoryName(updated.category?.name)) {
+    const isPartial = !nextPaid && nextPaidAmountNumber > 0;
+    const debtRemainingAmount = isPartial
+      ? Math.max(0, nextAmountNumber - nextPaidAmountNumber)
+      : 0;
+    await upsertExpenseDebt({
+      budgetPlanId: existing.budgetPlanId,
+      expenseId: existing.id,
+      monthKey: monthNumberToKey(existing.month),
+      year: existing.year,
+      categoryId: updated.categoryId ?? undefined,
+      categoryName: updated.category?.name ?? undefined,
+      expenseName: updated.name,
+      remainingAmount: debtRemainingAmount,
+    });
+  }
 
   if (applyRemainingMonths) {
     const monthIndex0 = Math.min(11, Math.max(0, Number(existing.month) - 1));
