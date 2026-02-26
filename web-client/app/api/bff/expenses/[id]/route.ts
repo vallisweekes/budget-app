@@ -86,7 +86,7 @@ type PatchBody = {
 };
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  const userId = await getSessionUserId();
+  const userId = await getSessionUserId(req);
   if (!userId) return unauthorized();
 
   const { id } = await ctx.params;
@@ -452,8 +452,8 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   return NextResponse.json(serializeExpense(updated));
 }
 
-export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  const userId = await getSessionUserId();
+export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const userId = await getSessionUserId(req);
   if (!userId) return unauthorized();
 
   const { id } = await ctx.params;

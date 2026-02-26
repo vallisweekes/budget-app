@@ -41,7 +41,7 @@ function toFloat(value: unknown): number {
  *   month, year       — echoed back for convenience
  */
 export async function GET(req: NextRequest) {
-	const userId = await getSessionUserId();
+	const userId = await getSessionUserId(req);
 	if (!userId) return unauthorized();
 
 	const { searchParams } = new URL(req.url);

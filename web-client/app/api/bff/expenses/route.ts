@@ -68,7 +68,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const month = toNumber(searchParams.get("month"));
   const year = toNumber(searchParams.get("year"));
-  const userId = await getSessionUserId();
+  const userId = await getSessionUserId(req);
   if (!userId) return unauthorized();
 
   const budgetPlanId = await resolveOwnedBudgetPlanId({
@@ -95,7 +95,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const userId = await getSessionUserId();
+  const userId = await getSessionUserId(req);
   if (!userId) return unauthorized();
 
   const raw = (await req.json().catch(() => null)) as unknown;

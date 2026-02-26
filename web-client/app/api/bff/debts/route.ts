@@ -18,7 +18,7 @@ function withMissedPaymentFlag<T extends { sourceType?: string | null }>(debt: T
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const userId = await getSessionUserId();
+    const userId = await getSessionUserId(request);
     if (!userId) return unauthorized();
 
 		const budgetPlanId = await resolveOwnedBudgetPlanId({
@@ -51,7 +51,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const userId = await getSessionUserId();
+    const userId = await getSessionUserId(request);
     if (!userId) return unauthorized();
 
     const body = await request.json();

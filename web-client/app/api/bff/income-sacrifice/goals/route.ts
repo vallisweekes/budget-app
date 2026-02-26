@@ -26,7 +26,7 @@ function parseMonthYear(searchParams: URLSearchParams): { month: number; year: n
 
 export async function GET(request: NextRequest) {
   try {
-    const userId = await getSessionUserId();
+		const userId = await getSessionUserId(request);
     if (!userId) return unauthorized();
 
     const { searchParams } = new URL(request.url);
@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const userId = await getSessionUserId();
+		const userId = await getSessionUserId(request);
     if (!userId) return unauthorized();
 
     const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
@@ -123,7 +123,7 @@ export async function PATCH(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const userId = await getSessionUserId();
+		const userId = await getSessionUserId(request);
     if (!userId) return unauthorized();
 
     const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;

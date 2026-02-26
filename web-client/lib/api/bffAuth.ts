@@ -1,6 +1,5 @@
 import { getServerSession } from "next-auth/next";
 import { decode } from "next-auth/jwt";
-import { headers } from "next/headers";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isMobileAuthSessionActive } from "@/lib/mobileAuthSessions";
@@ -38,18 +37,16 @@ async function getBearerIdentityFromAuthHeader(authHeader: string | null): Promi
 	return { userId, sessionId };
 }
 
-export async function getSessionUserId(request?: Request): Promise<string | null> {
+
+export async function getSessionUserId(request: Request): Promise<string | null> {
+	// Defense-in-depth: never crash auth if a non-Request is passed.
+	// (TypeScript should prevent this, but runtime safety matters.)
+	const headersGet = (request as unknown as { headers?: { get?: unknown } } | null | undefined)?.headers?.get;
+	if (typeof headersGet !== "function") return null;
+
 	// Prefer mobile Bearer auth if present. Avoids NextAuth attempting to parse
 	// Authorization in getServerSession (which can throw JWT_SESSION_ERROR).
-	let authHeader = request?.headers?.get?.("authorization") ?? null;
-	if (!authHeader) {
-		try {
-			const hdrs = await headers();
-			authHeader = hdrs.get("authorization");
-		} catch {
-			// headers() is only available in a request context.
-		}
-	}
+	const authHeader = request.headers.get("authorization");
 	if (authHeader && authHeader.toLowerCase().startsWith("bearer ")) {
 		try {
 			const bearer = await getBearerIdentityFromAuthHeader(authHeader);

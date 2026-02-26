@@ -23,7 +23,7 @@ function toBool(value: unknown): boolean {
 
 export async function GET(request: Request) {
   try {
-    const userId = await getSessionUserId();
+    const userId = await getSessionUserId(request);
     if (!userId) return unauthorized();
 
     const { searchParams } = new URL(request.url);
@@ -59,7 +59,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const userId = await getSessionUserId();
+    const userId = await getSessionUserId(request);
     if (!userId) return unauthorized();
 
     const body = await request.json();

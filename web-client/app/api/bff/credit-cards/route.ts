@@ -11,7 +11,7 @@ export const runtime = "nodejs";
  * Used by mobile to populate the "Source of Funds – Credit Card" picker.
  */
 export async function GET(req: NextRequest) {
-	const userId = await getSessionUserId();
+	const userId = await getSessionUserId(req);
 	if (!userId) {
 		return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 	}

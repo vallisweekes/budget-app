@@ -31,7 +31,7 @@ import { sanitizeParsedReceipt, validateReceiptImage } from "@/lib/financial-eng
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
-  const userId = await getSessionUserId();
+  const userId = await getSessionUserId(req);
   if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   let body: { image?: unknown; budgetPlanId?: unknown };

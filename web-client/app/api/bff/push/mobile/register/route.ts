@@ -19,7 +19,7 @@ type RegisterMobilePushTokenBody = {
 };
 
 export async function POST(req: NextRequest) {
-	const userId = await getSessionUserId();
+	const userId = await getSessionUserId(req);
 	if (!userId) return unauthorized();
 
 	let body: RegisterMobilePushTokenBody;

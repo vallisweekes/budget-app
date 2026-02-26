@@ -18,7 +18,7 @@ const TYPE_LABELS: Record<string, string> = {
 
 export async function POST(request: NextRequest) {
 	try {
-		const userId = await getSessionUserId();
+		const userId = await getSessionUserId(request);
 		if (!userId) return unauthorized();
 
 		const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;

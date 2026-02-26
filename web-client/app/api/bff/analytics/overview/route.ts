@@ -43,7 +43,7 @@ function toNumber(value: unknown): number {
  */
 export async function GET(req: NextRequest) {
 	try {
-		const userId = await getSessionUserId();
+		const userId = await getSessionUserId(req);
 		if (!userId) return unauthorized();
 
 		const { searchParams } = new URL(req.url);

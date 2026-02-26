@@ -251,7 +251,7 @@ async function syncGoalAdditionsForPlan(args: {
 
 export async function GET(req: NextRequest) {
   try {
-    const userId = await getSessionUserId();
+    const userId = await getSessionUserId(req);
     if (!userId) return unauthorized();
 
     const { searchParams } = new URL(req.url);
@@ -300,7 +300,7 @@ export async function GET(req: NextRequest) {
     const unknownMonthlyEmergency = message.includes("Unknown field `monthlyEmergencyContribution`");
 		if (unknownMonthlyEmergency) {
       try {
-        const userId = await getSessionUserId();
+        const userId = await getSessionUserId(req);
         if (!userId) return unauthorized();
 
         const { searchParams } = new URL(req.url);
@@ -356,7 +356,7 @@ export async function GET(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const userId = await getSessionUserId();
+    const userId = await getSessionUserId(req);
     if (!userId) return unauthorized();
 
     const { searchParams } = new URL(req.url);
