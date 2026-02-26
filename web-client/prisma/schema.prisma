@@ -280,6 +280,10 @@ model Expense {
 
 	payments     ExpensePayment[]
 
+  // Timestamp of the most recent manual or partial payment applied to this expense.
+  // null = no payment has been recorded yet.
+  lastPaymentAt DateTime?
+
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 

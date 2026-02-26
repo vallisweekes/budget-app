@@ -61,6 +61,7 @@ function serializeExpense(expense: any) {
     categoryId: expense.categoryId,
     category: expense.category ?? null,
     dueDate: expense.dueDate ? (expense.dueDate instanceof Date ? expense.dueDate.toISOString() : String(expense.dueDate)) : null,
+    lastPaymentAt: expense.lastPaymentAt ? (expense.lastPaymentAt instanceof Date ? expense.lastPaymentAt.toISOString() : String(expense.lastPaymentAt)) : null,
   };
 }
 

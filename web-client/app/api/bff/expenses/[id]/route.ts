@@ -57,6 +57,7 @@ function serializeExpense(expense: any) {
     categoryId: expense.categoryId,
     category: expense.category ?? null,
     dueDate: expense.dueDate ? (expense.dueDate instanceof Date ? expense.dueDate.toISOString() : String(expense.dueDate)) : null,
+    lastPaymentAt: expense.lastPaymentAt ? (expense.lastPaymentAt instanceof Date ? expense.lastPaymentAt.toISOString() : String(expense.lastPaymentAt)) : null,
   };
 }
 
@@ -190,6 +191,22 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     if (nextPaid) nextPaidAmountNumber = nextAmountNumber;
   }
 
+  // Determine whether to update lastPaymentAt:
+  //  - unpaid toggle → clear to null
+  //  - paid toggle or partial payment applied with result > 0 → stamp now
+  //  - pure metadata edit (name/amount/category etc.) → leave unchanged
+  let nextLastPaymentAt: Date | null | undefined;
+  if (paidExplicit === false) {
+    nextLastPaymentAt = null;
+  } else if (
+    (paidExplicit === true || paidAmountExplicit !== undefined) &&
+    nextPaidAmountNumber > 0
+  ) {
+    nextLastPaymentAt = new Date();
+  } else {
+    nextLastPaymentAt = undefined; // no change
+  }
+
   const updated = (await prisma.expense.update({
     where: { id },
     data: ({
@@ -204,6 +221,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       isAllocation: isAllocation === undefined ? undefined : isAllocation,
       isDirectDebit: isDirectDebit === undefined ? undefined : isDirectDebit,
       dueDate: dueDate === undefined ? undefined : dueDate,
+      lastPaymentAt: nextLastPaymentAt,
     }) as any,
     include: {
       category: {

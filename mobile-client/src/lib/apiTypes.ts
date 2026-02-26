@@ -27,6 +27,8 @@ export interface Expense {
   categoryId: string;
   category: Category | null;
   dueDate: string | null;
+  /** ISO timestamp of the last payment applied to this expense. null = never paid. */
+  lastPaymentAt: string | null;
   isMissedPayment?: boolean;
 }
 

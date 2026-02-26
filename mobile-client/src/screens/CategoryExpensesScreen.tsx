@@ -120,6 +120,7 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
   const [loading, setLoading]       = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError]           = useState<string | null>(null);
+  const [totalIncome, setTotalIncome] = useState(0);
 
   // per-expense operation states
   const [toggling, setToggling]     = useState<Record<string, boolean>>({});
@@ -151,6 +152,19 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
       console.error("Failed to load categories:", err);
     }
   }, [budgetPlanId]);
+
+  const loadIncome = useCallback(async () => {
+    try {
+      const qp = new URLSearchParams({ month: String(month), year: String(year) });
+      if (budgetPlanId) qp.set("budgetPlanId", budgetPlanId);
+      const items = await apiFetch<Array<{ amount: string | number }>>(`/api/bff/income?${qp}`);
+      if (Array.isArray(items)) {
+        setTotalIncome(items.reduce((s, i) => s + Number(i.amount), 0));
+      }
+    } catch {
+      // non-critical — badge just won't show
+    }
+  }, [budgetPlanId, month, year]);
 
   const load = useCallback(async () => {
     try {
@@ -189,7 +203,8 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
     setExpenses([]);
     load();
     loadCategories();
-  }, [load, loadCategories]);
+    loadIncome();
+  }, [load, loadCategories, loadIncome]);
 
   // ─── Toggle paid ──────────────────────────────────────────────────────
 
@@ -197,7 +212,8 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
     if (toggling[expense.id]) return;
     const newPaid = !expense.paid;
     const newPaidAmount = newPaid ? expense.amount : "0";
-    setExpenses(prev => prev.map(e => e.id === expense.id ? { ...e, paid: newPaid, paidAmount: newPaidAmount } : e));
+    const newLastPaymentAt = newPaid ? new Date().toISOString() : null;
+    setExpenses(prev => prev.map(e => e.id === expense.id ? { ...e, paid: newPaid, paidAmount: newPaidAmount, lastPaymentAt: newLastPaymentAt } : e));
     setToggling(t => ({ ...t, [expense.id]: true }));
     try {
       await apiFetch<Expense>(`/api/bff/expenses/${expense.id}`, {
@@ -229,7 +245,7 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
     const snapshot = expense;
     setExpenses(prev => prev.map(e =>
       e.id === expense.id
-        ? { ...e, paidAmount: String(nextPaid), paid: nextIsPaid }
+        ? { ...e, paidAmount: String(nextPaid), paid: nextIsPaid, lastPaymentAt: new Date().toISOString() }
         : e
     ));
     setPaymentInput(p => { const n = { ...p }; delete n[expense.id]; return n; });
@@ -335,6 +351,17 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
   const totalPaid    = expenses.reduce((s, e) => s + parseFloat(e.paidAmount), 0);
   const remaining    = Math.max(0, totalAmount - totalPaid);
   const paidCount    = expenses.filter(e => e.paid).length;
+  const paidPct      = totalIncome > 0 ? Math.round((totalAmount / totalIncome) * 100) : 0;
+
+  // Latest payment across all category expenses
+  const latestPaymentAt = expenses.reduce<string | null>((latest, e) => {
+    if (!e.lastPaymentAt) return latest;
+    if (!latest) return e.lastPaymentAt;
+    return e.lastPaymentAt > latest ? e.lastPaymentAt : latest;
+  }, null);
+  const updatedLabel = latestPaymentAt
+    ? new Date(latestPaymentAt).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" })
+    : "No payment made";
 
   // ─── Expense row ──────────────────────────────────────────────────────
 
@@ -470,8 +497,14 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
     <SafeAreaView style={styles.safe} edges={["bottom"]}>
       {/* Hero */}
       <View style={[styles.hero, { paddingTop: topHeaderOffset + 18 }]}>
-        <Text style={styles.heroLabel}>Total</Text>
+        <View style={styles.heroTopRow}>
+          <Text style={styles.heroLabel}>Total</Text>
+          <View style={styles.heroBadge}>
+            <Text style={styles.heroBadgeTxt}>{paidPct}%</Text>
+          </View>
+        </View>
         <Text style={styles.heroAmount}>{fmt(totalAmount, currency)}</Text>
+        <Text style={styles.heroUpdated}>Updated: {updatedLabel}</Text>
         <View style={styles.heroCards}>
           <View style={styles.heroCard}>
             <Text style={styles.heroCardLbl}>Paid</Text>
@@ -839,37 +872,62 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 24,
     marginBottom: 10,
   },
+  heroTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 4,
+  },
   heroLabel: {
     color: "rgba(255,255,255,0.72)",
     fontSize: 13,
     fontWeight: "700",
     letterSpacing: 0.4,
-    marginBottom: 4,
+  },
+  heroBadge: {
+    backgroundColor: "rgba(100,220,140,0.25)",
+    borderRadius: 20,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: "rgba(100,220,140,0.45)",
+  },
+  heroBadgeTxt: {
+    color: "#6ee7a0",
+    fontSize: 11,
+    fontWeight: "800",
   },
   heroAmount: {
     color: "#ffffff",
     fontSize: 48,
     fontWeight: "900",
     letterSpacing: -1,
-    marginBottom: 16,
+    marginBottom: 4,
+  },
+  heroUpdated: {
+    color: "rgba(255,255,255,0.5)",
+    fontSize: 12,
+    fontWeight: "500",
+    marginBottom: 18,
   },
   heroCards: {
     flexDirection: "row",
     gap: 10,
-    width: "100%",
+    justifyContent: "center",
   },
   heroCard: {
-    flex: 1,
+    width: 140,
+    height: 80,
     backgroundColor: "rgba(255,255,255,0.1)",
-    borderRadius: 14,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
   },
   heroCardLbl: {
     color: "rgba(255,255,255,0.65)",
     fontSize: 11,
     fontWeight: "700",
-    marginBottom: 4,
+    marginBottom: 5,
   },
   heroCardVal: {
     fontSize: 16,
