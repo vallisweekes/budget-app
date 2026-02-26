@@ -268,6 +268,11 @@ function MainTabs() {
           const isDebtDetail = deepestRoute?.name === "DebtDetail";
           if (isDebtDetail) return null;
 
+          const isCategoryExpenses = deepestRoute?.name === "CategoryExpenses";
+          const categoryExpensesName = typeof deepestRoute?.params?.categoryName === "string"
+            ? deepestRoute.params.categoryName
+            : undefined;
+
           const openIncome = () => {
             const parent = navigation.getParent();
             if (parent) {
@@ -299,6 +304,9 @@ function MainTabs() {
               onIncome={openIncome}
               onAnalytics={openAnalytics}
               onNotifications={openNotifications}
+              leftVariant={isCategoryExpenses ? "back" : "avatar"}
+              onBack={() => navigation.goBack()}
+              centerLabel={isCategoryExpenses ? categoryExpensesName : undefined}
             />
           );
         },

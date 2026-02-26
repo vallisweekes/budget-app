@@ -467,36 +467,20 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
   // ─── Render ───────────────────────────────────────────────────────────
 
   return (
-    <SafeAreaView style={[styles.safe, { paddingTop: topHeaderOffset }]} edges={["bottom"]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} hitSlop={12} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color={T.text} />
-        </Pressable>
-        <View style={styles.headerContent}>
-          <CategoryIcon name={icon} color={resolvedColor} />
-          <View style={styles.headerText}>
-            <Text style={styles.title} numberOfLines={1}>{categoryName}</Text>
-            <Text style={styles.sub}>
-              {["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][month - 1]} {year}
-            </Text>
+    <SafeAreaView style={styles.safe} edges={["bottom"]}>
+      {/* Hero */}
+      <View style={[styles.hero, { paddingTop: topHeaderOffset + 18 }]}>
+        <Text style={styles.heroLabel}>Total</Text>
+        <Text style={styles.heroAmount}>{fmt(totalAmount, currency)}</Text>
+        <View style={styles.heroCards}>
+          <View style={styles.heroCard}>
+            <Text style={styles.heroCardLbl}>Paid</Text>
+            <Text style={[styles.heroCardVal, { color: T.green }]}>{fmt(totalPaid, currency)}</Text>
           </View>
-        </View>
-      </View>
-
-      {/* Stats strip */}
-      <View style={styles.statsRow}>
-        <View style={styles.stat}>
-          <Text style={styles.statLbl}>TOTAL</Text>
-          <Text style={styles.statVal}>{fmt(totalAmount, currency)}</Text>
-        </View>
-        <View style={[styles.stat, { borderLeftWidth: 1, borderLeftColor: T.border }]}>
-          <Text style={styles.statLbl}>PAID</Text>
-          <Text style={[styles.statVal, { color: T.green }]}>{fmt(totalPaid, currency)}</Text>
-        </View>
-        <View style={[styles.stat, { borderLeftWidth: 1, borderLeftColor: T.border }]}>
-          <Text style={styles.statLbl}>REMAINING</Text>
-          <Text style={[styles.statVal, { color: T.orange }]}>{fmt(remaining, currency)}</Text>
+          <View style={styles.heroCard}>
+            <Text style={styles.heroCardLbl}>Remaining</Text>
+            <Text style={[styles.heroCardVal, { color: T.orange }]}>{fmt(remaining, currency)}</Text>
+          </View>
         </View>
       </View>
 
@@ -846,6 +830,51 @@ const styles = StyleSheet.create({
   stat: { flex: 1, paddingVertical: 10, paddingHorizontal: 14 },
   statLbl: { color: T.textDim, fontSize: 10, fontWeight: "700", marginBottom: 2 },
   statVal: { color: T.text, fontSize: 14, fontWeight: "900" },
+  hero: {
+    backgroundColor: "#2a0a9e",
+    paddingHorizontal: 20,
+    paddingBottom: 22,
+    alignItems: "center",
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    marginBottom: 10,
+  },
+  heroLabel: {
+    color: "rgba(255,255,255,0.72)",
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: 0.4,
+    marginBottom: 4,
+  },
+  heroAmount: {
+    color: "#ffffff",
+    fontSize: 48,
+    fontWeight: "900",
+    letterSpacing: -1,
+    marginBottom: 16,
+  },
+  heroCards: {
+    flexDirection: "row",
+    gap: 10,
+    width: "100%",
+  },
+  heroCard: {
+    flex: 1,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+  },
+  heroCardLbl: {
+    color: "rgba(255,255,255,0.65)",
+    fontSize: 11,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  heroCardVal: {
+    fontSize: 16,
+    fontWeight: "900",
+  },
   list: { paddingHorizontal: 14, paddingTop: 12, paddingBottom: 32 },
   center: { alignItems: "center", justifyContent: "center", paddingVertical: 40, gap: 10 },
   errTxt: { color: T.red, fontSize: 13, textAlign: "center" },
