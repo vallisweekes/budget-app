@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
-import { createExpenseFromReceipt } from "@/lib/financial-engine";
+import { createExpenseFromReceipt, normalizeFundingSource, normalizePaymentSource } from "@/lib/financial-engine";
 
 export const runtime = "nodejs";
 
@@ -28,6 +28,11 @@ export async function POST(req: NextRequest) {
     month?: unknown;
     year?: unknown;
     budgetPlanId?: unknown;
+    paymentSource?: unknown;
+    fundingSource?: unknown;
+    cardDebtId?: unknown;
+    debtId?: unknown;
+    newLoanName?: unknown;
   };
 
   try {
@@ -98,6 +103,12 @@ export async function POST(req: NextRequest) {
     categoryId = matched?.id;
   }
 
+  const paymentSource = normalizePaymentSource(body.paymentSource);
+  const fundingSource = normalizeFundingSource(body.fundingSource ?? body.paymentSource);
+  const cardDebtId = typeof body.cardDebtId === "string" && body.cardDebtId.trim() ? body.cardDebtId.trim() : undefined;
+  const debtId = typeof body.debtId === "string" && body.debtId.trim() ? body.debtId.trim() : undefined;
+  const newLoanName = typeof body.newLoanName === "string" && body.newLoanName.trim() ? body.newLoanName.trim() : undefined;
+
   try {
     const result = await createExpenseFromReceipt({
       budgetPlanId,
@@ -108,6 +119,11 @@ export async function POST(req: NextRequest) {
       month,
       year,
       categoryId,
+      paymentSource,
+      fundingSource,
+      cardDebtId,
+      debtId,
+      newLoanName,
     });
 
     return NextResponse.json({ success: true, expenseId: result.expenseId });

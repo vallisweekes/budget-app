@@ -20,7 +20,13 @@ export interface CreditCard {
   currentBalance: string | null;
 }
 
-export type ExpensePaymentSource = "income" | "credit_card" | "savings" | "other";
+export type ExpensePaymentSource =
+  | "income"
+  | "credit_card"
+  | "savings"
+  | "other"
+  | "monthly_allowance"
+  | "loan";
 
 export interface Expense {
   id: string;
@@ -515,4 +521,9 @@ export interface ReceiptConfirmBody {
   year: number;
   categoryId?: string;
   budgetPlanId?: string;
+  paymentSource?: "income" | "credit_card" | "savings" | "extra_untracked";
+  fundingSource?: "income" | "savings" | "monthly_allowance" | "credit_card" | "loan" | "other";
+  cardDebtId?: string;
+  debtId?: string;
+  newLoanName?: string;
 }

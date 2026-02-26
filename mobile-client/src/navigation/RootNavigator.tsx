@@ -206,15 +206,24 @@ function RootTopHeader({ navigation }: { navigation: any }) {
 }
 
 const s = StyleSheet.create({
-  flashBtn: {
-    width: 36,
+  quickActionBtn: {
+    minWidth: 64,
     height: 36,
     borderRadius: 18,
     backgroundColor: T.accent,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    gap: 5,
+    paddingHorizontal: 10,
     borderWidth: 1,
     borderColor: T.accentBorder,
+  },
+  quickActionText: {
+    color: T.onAccent,
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.2,
   },
   incomeYearWrap: {
     flexDirection: "row",
@@ -289,6 +298,13 @@ function MainTabs() {
           const categoryExpensesName = typeof deepestRoute?.params?.categoryName === "string"
             ? deepestRoute.params.categoryName
             : undefined;
+          const expensesCenterLabel = isCategoryExpenses
+            ? categoryExpensesName
+            : isUnplannedExpense
+              ? "Log Expense · Unplanned"
+              : isScanReceipt
+                ? "Upload Receipt"
+                : undefined;
 
           const openIncome = () => {
             const parent = navigation.getParent();
@@ -319,17 +335,23 @@ function MainTabs() {
             <View style={{ flexDirection: "row", gap: 8 }}>
               <Pressable
                 onPress={() => navigation.navigate("Expenses" as any, { screen: "ScanReceipt" } as any)}
-                style={s.flashBtn}
+                style={s.quickActionBtn}
                 hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel="Scan receipt"
               >
                 <Ionicons name="camera" size={17} color={T.onAccent} />
+                <Text style={s.quickActionText}>Scan</Text>
               </Pressable>
               <Pressable
                 onPress={() => navigation.navigate("Expenses" as any, { screen: "UnplannedExpense" } as any)}
-                style={s.flashBtn}
+                style={s.quickActionBtn}
                 hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel="Log expense"
               >
-                <Ionicons name="flash" size={18} color={T.onAccent} />
+                <Ionicons name="create-outline" size={17} color={T.onAccent} />
+                <Text style={s.quickActionText}>Log</Text>
               </Pressable>
             </View>
           ) : undefined;
@@ -346,7 +368,7 @@ function MainTabs() {
                 : isUnplannedExpense || isScanReceipt
                   ? () => navigation.navigate("Expenses" as any, { screen: "ExpensesList" } as any)
                   : undefined}
-              centerLabel={isCategoryExpenses ? categoryExpensesName : undefined}
+              centerLabel={expensesCenterLabel}
               leftContent={expensesListLeftContent}
             />
           );

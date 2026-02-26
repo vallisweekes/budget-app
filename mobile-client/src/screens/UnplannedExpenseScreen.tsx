@@ -26,7 +26,7 @@ import { Ionicons } from "@expo/vector-icons";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 
 import { apiFetch } from "@/lib/api";
-import type { Category, Settings } from "@/lib/apiTypes";
+import type { Category, Debt, Settings } from "@/lib/apiTypes";
 import { currencySymbol, fmt } from "@/lib/formatting";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 import { T } from "@/lib/theme";
@@ -41,6 +41,25 @@ const MONTH_NAMES = [
   "July","August","September","October","November","December",
 ];
 const SHORT_MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const NEW_LOAN_SENTINEL = "__new_loan__";
+
+type FundingSource = "income" | "savings" | "monthly_allowance" | "credit_card" | "loan" | "other";
+
+const FUNDING_OPTIONS: Array<{ value: FundingSource; label: string }> = [
+  { value: "income", label: "Income" },
+  { value: "savings", label: "Savings" },
+  { value: "monthly_allowance", label: "Monthly allowance" },
+  { value: "credit_card", label: "Credit card" },
+  { value: "loan", label: "Loan" },
+  { value: "other", label: "Other" },
+];
+
+function paymentSourceForFunding(funding: FundingSource): "income" | "savings" | "credit_card" | "extra_untracked" {
+  if (funding === "savings") return "savings";
+  if (funding === "credit_card") return "credit_card";
+  if (funding === "monthly_allowance" || funding === "loan" || funding === "other") return "extra_untracked";
+  return "income";
+}
 
 /* ─── Screen ─────────────────────────────────────────────────── */
 
@@ -52,16 +71,22 @@ export default function UnplannedExpenseScreen({ navigation }: Props) {
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
   const [categoryId, setCategoryId] = useState("");
+  const [fundingSource, setFundingSource] = useState<FundingSource>("income");
+  const [selectedDebtId, setSelectedDebtId] = useState("");
+  const [newLoanName, setNewLoanName] = useState("");
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
 
   /* ── Data ───────────────────────────────────────────────── */
   const [categories, setCategories] = useState<Category[]>([]);
+  const [debts, setDebts] = useState<Debt[]>([]);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [loadingData, setLoadingData] = useState(true);
 
   /* ── UI state ────────────────────────────────────────────── */
   const [catPickerOpen, setCatPickerOpen] = useState(false);
+  const [fundingPickerOpen, setFundingPickerOpen] = useState(false);
+  const [debtPickerOpen, setDebtPickerOpen] = useState(false);
   const [monthPickerOpen, setMonthPickerOpen] = useState(false);
   const [pickerYear, setPickerYear] = useState(year);
   const [submitting, setSubmitting] = useState(false);
@@ -69,18 +94,28 @@ export default function UnplannedExpenseScreen({ navigation }: Props) {
 
   const currency = currencySymbol(settings?.currency);
   const parsedAmount = parseFloat(amount.replace(/,/g, ""));
-  const canSubmit = name.trim().length > 0 && parsedAmount > 0 && !submitting;
+  const cardDebts = debts.filter((d) => d.type === "credit_card" || d.type === "store_card");
+  const loanDebts = debts.filter((d) => d.type === "loan" || d.type === "mortgage" || d.type === "hire_purchase" || d.type === "other");
+  const needsDebtChoice = fundingSource === "credit_card" || fundingSource === "loan";
+  const usingNewLoan = fundingSource === "loan" && selectedDebtId === NEW_LOAN_SENTINEL;
+  const debtChoiceValid = !needsDebtChoice || (selectedDebtId.length > 0 && (!usingNewLoan || newLoanName.trim().length > 0));
+  const canSubmit = name.trim().length > 0 && parsedAmount > 0 && debtChoiceValid && !submitting;
 
   const selectedCategory = categories.find((c) => c.id === categoryId);
+  const fundingLabel = FUNDING_OPTIONS.find((f) => f.value === fundingSource)?.label ?? "Income";
+  const debtChoices = fundingSource === "credit_card" ? cardDebts : loanDebts;
+  const selectedDebt = debtChoices.find((d) => d.id === selectedDebtId);
 
   /* ── Load categories + settings ──────────────────────────── */
   const load = useCallback(async () => {
     try {
-      const [cats, s] = await Promise.all([
+      const [cats, debtList, s] = await Promise.all([
         apiFetch<Category[]>("/api/bff/categories"),
+        apiFetch<Debt[]>("/api/bff/debts"),
         apiFetch<Settings>("/api/bff/settings"),
       ]);
       setCategories(Array.isArray(cats) ? cats : []);
+      setDebts(Array.isArray(debtList) ? debtList : []);
       setSettings(s);
     } catch {
       // non-fatal
@@ -90,6 +125,22 @@ export default function UnplannedExpenseScreen({ navigation }: Props) {
   }, []);
 
   useEffect(() => { void load(); }, [load]);
+
+  useEffect(() => {
+    if (fundingSource === "credit_card") {
+      if (cardDebts.length === 1) setSelectedDebtId(cardDebts[0]!.id);
+      else if (!cardDebts.some((d) => d.id === selectedDebtId)) setSelectedDebtId("");
+      setNewLoanName("");
+      return;
+    }
+    if (fundingSource === "loan") {
+      if (selectedDebtId === NEW_LOAN_SENTINEL) return;
+      if (!loanDebts.some((d) => d.id === selectedDebtId)) setSelectedDebtId("");
+      return;
+    }
+    setSelectedDebtId("");
+    setNewLoanName("");
+  }, [fundingSource, cardDebts, loanDebts, selectedDebtId]);
 
   /* ── Submit ──────────────────────────────────────────────── */
   const handleSubmit = async () => {
@@ -105,8 +156,22 @@ export default function UnplannedExpenseScreen({ navigation }: Props) {
         paid: true,
         isAllocation: false,
         isDirectDebit: false,
+        fundingSource,
+        paymentSource: paymentSourceForFunding(fundingSource),
       };
       if (categoryId) body.categoryId = categoryId;
+      if (fundingSource === "credit_card" && selectedDebtId) {
+        body.cardDebtId = selectedDebtId;
+        body.debtId = selectedDebtId;
+      }
+      if (fundingSource === "loan") {
+        if (selectedDebtId && selectedDebtId !== NEW_LOAN_SENTINEL) {
+          body.debtId = selectedDebtId;
+        }
+        if (selectedDebtId === NEW_LOAN_SENTINEL && newLoanName.trim()) {
+          body.newLoanName = newLoanName.trim();
+        }
+      }
       await apiFetch("/api/bff/expenses", { method: "POST", body });
       navigation.goBack();
     } catch (e) {
@@ -122,27 +187,14 @@ export default function UnplannedExpenseScreen({ navigation }: Props) {
         style={s.flex}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        {/* ── Mini inline header ── */}
-        <View style={[s.header, { paddingTop: topOffset + 12 }]}>
-          <Pressable onPress={() => navigation.goBack()} hitSlop={12} style={s.backBtn}>
-            <Ionicons name="chevron-back" size={22} color={T.text} />
-          </Pressable>
-          <View style={s.headerCenter}>
-            <Text style={s.headerTitle}>Log Expense</Text>
-            <Text style={s.headerSub}>unplanned</Text>
-          </View>
-          {/* Spacer to keep title centred */}
-          <View style={s.backBtn} />
-        </View>
-
         {loadingData ? (
-          <View style={s.center}>
+          <View style={[s.center, { paddingTop: topOffset + 12 }]}>
             <ActivityIndicator size="large" color={T.accent} />
           </View>
         ) : (
           <ScrollView
             style={s.flex}
-            contentContainerStyle={s.scrollContent}
+            contentContainerStyle={[s.scrollContent, { paddingTop: topOffset + 12 }]}
             keyboardShouldPersistTaps="handled"
           >
             {/* ── Amount hero ── */}
@@ -161,7 +213,6 @@ export default function UnplannedExpenseScreen({ navigation }: Props) {
                   placeholder="0.00"
                   placeholderTextColor={`${T.text}33`}
                   returnKeyType="done"
-                  autoFocus
                 />
               </View>
             </View>
@@ -197,6 +248,47 @@ export default function UnplannedExpenseScreen({ navigation }: Props) {
             </Pressable>
 
             {/* ── Month ── */}
+            <Pressable style={s.fieldCard} onPress={() => setFundingPickerOpen(true)}>
+              <Text style={s.fieldLabel}>Funds From</Text>
+              <View style={s.fieldRow}>
+                <Text style={s.fieldValue}>{fundingLabel}</Text>
+                <Ionicons name="chevron-forward" size={16} color={T.textDim} style={s.fieldChevron} />
+              </View>
+            </Pressable>
+
+            {needsDebtChoice ? (
+              <Pressable style={s.fieldCard} onPress={() => setDebtPickerOpen(true)}>
+                <Text style={s.fieldLabel}>{fundingSource === "credit_card" ? "Credit Card" : "Loan"}</Text>
+                <View style={s.fieldRow}>
+                  {selectedDebt ? (
+                    <Text style={s.fieldValue}>{selectedDebt.name}</Text>
+                  ) : usingNewLoan ? (
+                    <Text style={s.fieldValue}>Create new loan</Text>
+                  ) : (
+                    <Text style={s.fieldPlaceholder}>
+                      {fundingSource === "credit_card" ? "Select a card" : "Select existing or create new loan"}
+                    </Text>
+                  )}
+                  <Ionicons name="chevron-forward" size={16} color={T.textDim} style={s.fieldChevron} />
+                </View>
+              </Pressable>
+            ) : null}
+
+            {usingNewLoan ? (
+              <View style={s.fieldCard}>
+                <Text style={s.fieldLabel}>New Loan Name</Text>
+                <TextInput
+                  style={s.fieldInput}
+                  value={newLoanName}
+                  onChangeText={setNewLoanName}
+                  placeholder="e.g. Family loan"
+                  placeholderTextColor={T.textMuted}
+                  returnKeyType="done"
+                  maxLength={80}
+                />
+              </View>
+            ) : null}
+
             <Pressable
               style={s.fieldCard}
               onPress={() => { setPickerYear(year); setMonthPickerOpen(true); }}
@@ -279,6 +371,83 @@ export default function UnplannedExpenseScreen({ navigation }: Props) {
         </View>
       </Modal>
 
+      {/* ── Funding source picker modal ── */}
+      <Modal
+        visible={fundingPickerOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setFundingPickerOpen(false)}
+      >
+        <View style={s.modalOverlay}>
+          <Pressable style={s.modalBackdrop} onPress={() => setFundingPickerOpen(false)} />
+          <View style={s.modalSheet}>
+            <View style={s.sheetHandle} />
+            <Text style={s.sheetTitle}>Funds From</Text>
+            <ScrollView contentContainerStyle={s.catList}>
+              {FUNDING_OPTIONS.map((opt) => (
+                <Pressable
+                  key={opt.value}
+                  style={[s.catRow, fundingSource === opt.value && s.catRowSelected]}
+                  onPress={() => {
+                    setFundingSource(opt.value);
+                    setFundingPickerOpen(false);
+                  }}
+                >
+                  <Text style={s.catName}>{opt.label}</Text>
+                  {fundingSource === opt.value ? <Ionicons name="checkmark" size={16} color={T.accent} style={s.catCheck} /> : null}
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Credit card / loan picker modal ── */}
+      <Modal
+        visible={debtPickerOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setDebtPickerOpen(false)}
+      >
+        <View style={s.modalOverlay}>
+          <Pressable style={s.modalBackdrop} onPress={() => setDebtPickerOpen(false)} />
+          <View style={s.modalSheet}>
+            <View style={s.sheetHandle} />
+            <Text style={s.sheetTitle}>{fundingSource === "credit_card" ? "Choose Card" : "Choose Loan"}</Text>
+            <ScrollView contentContainerStyle={s.catList}>
+              {fundingSource === "loan" ? (
+                <Pressable
+                  style={[s.catRow, selectedDebtId === NEW_LOAN_SENTINEL && s.catRowSelected]}
+                  onPress={() => {
+                    setSelectedDebtId(NEW_LOAN_SENTINEL);
+                    setDebtPickerOpen(false);
+                  }}
+                >
+                  <Text style={s.catName}>+ Create new loan</Text>
+                  {selectedDebtId === NEW_LOAN_SENTINEL ? <Ionicons name="checkmark" size={16} color={T.accent} style={s.catCheck} /> : null}
+                </Pressable>
+              ) : null}
+              {debtChoices.map((d) => (
+                <Pressable
+                  key={d.id}
+                  style={[s.catRow, selectedDebtId === d.id && s.catRowSelected]}
+                  onPress={() => {
+                    setSelectedDebtId(d.id);
+                    setDebtPickerOpen(false);
+                  }}
+                >
+                  <Text style={s.catName}>{d.name}</Text>
+                  {selectedDebtId === d.id ? <Ionicons name="checkmark" size={16} color={T.accent} style={s.catCheck} /> : null}
+                </Pressable>
+              ))}
+              {debtChoices.length === 0 ? (
+                <Text style={[s.fieldPlaceholder, { paddingVertical: 8 }]}>No options found.</Text>
+              ) : null}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
       {/* ── Month picker modal ── */}
       <Modal
         visible={monthPickerOpen}
@@ -333,27 +502,6 @@ const s = StyleSheet.create({
   flex:        { flex: 1 },
   center:      { flex: 1, alignItems: "center", justifyContent: "center" },
   scrollContent: { paddingHorizontal: 18, paddingBottom: 40, gap: 12 },
-
-  /* Header */
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 18,
-    paddingBottom: 16,
-  },
-  backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: `${T.cardAlt}99`,
-    borderWidth: 1,
-    borderColor: T.border,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerCenter: { flex: 1, alignItems: "center" },
-  headerTitle: { color: T.text, fontSize: 17, fontWeight: "700" },
-  headerSub:   { color: T.accent, fontSize: 11, fontWeight: "600", marginTop: 1, textTransform: "uppercase", letterSpacing: 0.8 },
 
   /* Amount card */
   amountCard: {

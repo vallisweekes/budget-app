@@ -30,6 +30,7 @@ import type { MonthKey } from "@/types";
 // ─── Shared types ─────────────────────────────────────────────────────────────
 
 export type PaymentSource = "income" | "credit_card" | "savings" | "extra_untracked";
+export type FundingSource = "income" | "savings" | "monthly_allowance" | "credit_card" | "loan" | "other";
 
 export type CreateExpenseInput = {
   budgetPlanId: string;
@@ -46,7 +47,10 @@ export type CreateExpenseInput = {
   distributeYears?: boolean;
   dueDate?: string;       // YYYY-MM-DD
   paymentSource?: PaymentSource;
+  fundingSource?: FundingSource;
   cardDebtId?: string;
+  debtId?: string;
+  newLoanName?: string;
 };
 
 export type CreateExpenseResult = {
@@ -69,6 +73,11 @@ export type ReceiptExpenseInput = {
   month: number;
   year: number;
   categoryId?: string;
+  paymentSource?: PaymentSource;
+  fundingSource?: FundingSource;
+  cardDebtId?: string;
+  debtId?: string;
+  newLoanName?: string;
 };
 
 type ExpensePaymentDelegate = {
@@ -77,6 +86,7 @@ type ExpensePaymentDelegate = {
       expenseId: string;
       amount: number;
       source: "income" | "credit_card" | "savings" | "extra_untracked";
+      debtId?: string;
       paidAt: Date;
     };
   }) => Promise<unknown>;
@@ -103,6 +113,25 @@ export function normalizePaymentSource(raw: unknown): PaymentSource {
   if (v === "credit_card" || v === "card" || v === "credit card") return "credit_card";
   if (v === "savings") return "savings";
   if (v === "other" || v === "extra_untracked") return "extra_untracked";
+  return "income";
+}
+
+export function normalizeFundingSource(raw: unknown): FundingSource {
+  const v = String(raw ?? "").trim().toLowerCase();
+  if (v === "savings") return "savings";
+  if (v === "monthly_allowance" || v === "allowance" || v === "monthly allowance") return "monthly_allowance";
+  if (v === "credit_card" || v === "card" || v === "credit card") return "credit_card";
+  if (v === "loan" || v === "loans") return "loan";
+  if (v === "other" || v === "extra_untracked") return "other";
+  return "income";
+}
+
+function mapFundingToPaymentSource(fundingSource: FundingSource): PaymentSource {
+  if (fundingSource === "credit_card") return "credit_card";
+  if (fundingSource === "savings") return "savings";
+  if (fundingSource === "monthly_allowance" || fundingSource === "loan" || fundingSource === "other") {
+    return "extra_untracked";
+  }
   return "income";
 }
 
@@ -133,20 +162,85 @@ export async function recordPaymentSource({
   budgetPlanId,
   amount,
   paymentSource,
+  fundingSource,
   cardDebtId,
+  debtId,
+  newLoanName,
+  month,
+  year,
 }: {
   expenseId: string;
   budgetPlanId: string;
   amount: number;
   paymentSource: PaymentSource;
+  fundingSource?: FundingSource;
   cardDebtId?: string;
+  debtId?: string;
+  newLoanName?: string;
+  month: number;
+  year: number;
 }): Promise<void> {
   try {
     const expensePayment = (prisma as unknown as { expensePayment?: ExpensePaymentDelegate }).expensePayment ?? null;
     if (!expensePayment || amount <= 0) return;
 
-    if (paymentSource === "credit_card") {
-      let resolvedCardId = cardDebtId ?? "";
+    const effectiveFunding = fundingSource ?? normalizeFundingSource(paymentSource);
+
+    async function increaseDebtBalance(targetDebtId: string): Promise<void> {
+      await prisma.$transaction(async (tx) => {
+        const debt = await tx.debt.findFirst({
+          where: { id: targetDebtId, budgetPlanId },
+          select: { id: true, currentBalance: true, initialBalance: true, paidAmount: true },
+        });
+        if (!debt) return;
+        const current = Number(debt.currentBalance?.toString?.() ?? debt.currentBalance ?? 0);
+        const initial = Number(debt.initialBalance?.toString?.() ?? debt.initialBalance ?? 0);
+        const paid = Number(debt.paidAmount?.toString?.() ?? debt.paidAmount ?? 0);
+        const nextCurrent = Math.max(0, current + amount);
+        const nextInitial = Math.max(initial, nextCurrent);
+        await tx.debt.update({
+          where: { id: debt.id },
+          data: {
+            currentBalance: String(nextCurrent),
+            initialBalance: String(nextInitial),
+            paidAmount: String(Math.min(Math.max(0, paid), nextInitial)),
+            paid: false,
+          },
+        });
+      });
+    }
+
+    async function resolveOrCreateLoanId(): Promise<string | null> {
+      const candidate = (debtId ?? "").trim();
+      if (candidate) {
+        const existing = await prisma.debt.findFirst({
+          where: { id: candidate, budgetPlanId, type: { in: ["loan", "mortgage", "hire_purchase", "other"] } },
+          select: { id: true },
+        });
+        if (existing) return existing.id;
+      }
+
+      const loanName = (newLoanName ?? "").trim();
+      if (!loanName) return null;
+
+      const created = await prisma.debt.create({
+        data: {
+          name: loanName,
+          type: "loan",
+          initialBalance: "0",
+          currentBalance: "0",
+          amount: String(amount),
+          paidAmount: "0",
+          paid: false,
+          budgetPlanId,
+        },
+        select: { id: true },
+      });
+      return created.id;
+    }
+
+    if (effectiveFunding === "credit_card") {
+      let resolvedCardId = (cardDebtId ?? debtId ?? "").trim();
 
       if (!resolvedCardId) {
         const cards = await prisma.debt.findMany({
@@ -162,51 +256,53 @@ export async function recordPaymentSource({
       }
 
       await expensePayment.create({
-        data: { expenseId, amount, source: "credit_card", paidAt: new Date() },
+        data: { expenseId, amount, source: "credit_card", debtId: resolvedCardId || undefined, paidAt: new Date() },
       });
 
       if (resolvedCardId) {
-        await prisma.$transaction(async (tx) => {
-          const card = await tx.debt.findFirst({
-            where: { id: resolvedCardId, budgetPlanId, sourceType: null },
-            select: {
-              id: true,
-              currentBalance: true,
-              initialBalance: true,
-              paidAmount: true,
-            },
-          });
-          if (!card) return;
-
-          const current = Number(card.currentBalance?.toString?.() ?? card.currentBalance ?? 0);
-          const initial = Number(card.initialBalance?.toString?.() ?? card.initialBalance ?? 0);
-          const paid   = Number(card.paidAmount?.toString?.()     ?? card.paidAmount     ?? 0);
-
-          const nextCurrent = Math.max(0, current + amount);
-          const nextInitial = Math.max(initial, nextCurrent);
-
-          await tx.debt.update({
-            where: { id: card.id },
-            data: {
-              currentBalance: String(nextCurrent),
-              initialBalance: String(nextInitial),
-              paidAmount:     String(Math.min(Math.max(0, paid), nextInitial)),
-              paid:           false,
-            },
-          });
-        });
+        await increaseDebtBalance(resolvedCardId);
       }
-    } else if (paymentSource === "savings") {
+    } else if (effectiveFunding === "savings") {
       await expensePayment.create({
         data: { expenseId, amount, source: "savings", paidAt: new Date() },
       });
       const settings = await getSettings(budgetPlanId);
       const current  = Number(settings.savingsBalance ?? 0);
       await saveSettings(budgetPlanId, { savingsBalance: Math.max(0, current - amount) });
-    } else {
-      // income or extra_untracked
+    } else if (effectiveFunding === "monthly_allowance") {
       await expensePayment.create({
-        data: { expenseId, amount, source: paymentSource, paidAt: new Date() },
+        data: { expenseId, amount, source: "extra_untracked", paidAt: new Date() },
+      });
+      const allocation = await prisma.monthlyAllocation.findUnique({
+        where: { budgetPlanId_year_month: { budgetPlanId, year, month } },
+        select: { id: true, monthlyAllowance: true },
+      });
+      if (allocation) {
+        const current = Number(allocation.monthlyAllowance?.toString?.() ?? allocation.monthlyAllowance ?? 0);
+        await prisma.monthlyAllocation.update({
+          where: { id: allocation.id },
+          data: { monthlyAllowance: String(Math.max(0, current - amount)) },
+        });
+      } else {
+        const plan = await prisma.budgetPlan.findUnique({
+          where: { id: budgetPlanId },
+          select: { monthlyAllowance: true },
+        });
+        const current = Number(plan?.monthlyAllowance?.toString?.() ?? plan?.monthlyAllowance ?? 0);
+        await saveSettings(budgetPlanId, { monthlyAllowance: Math.max(0, current - amount) });
+      }
+    } else if (effectiveFunding === "loan") {
+      const loanId = await resolveOrCreateLoanId();
+      await expensePayment.create({
+        data: { expenseId, amount, source: "extra_untracked", debtId: loanId || undefined, paidAt: new Date() },
+      });
+      if (loanId) {
+        await increaseDebtBalance(loanId);
+      }
+    } else {
+      // income or other/extra_untracked
+      await expensePayment.create({
+        data: { expenseId, amount, source: mapFundingToPaymentSource(effectiveFunding), paidAt: new Date() },
       });
     }
   } catch {
@@ -276,8 +372,14 @@ export async function createExpense(input: CreateExpenseInput): Promise<CreateEx
     distributeYears  = false,
     dueDate,
     paymentSource = "income",
+    fundingSource,
     cardDebtId,
+    debtId,
+    newLoanName,
   } = input;
+
+  const effectiveFunding = fundingSource ?? normalizeFundingSource(paymentSource);
+  const effectivePaymentSource = mapFundingToPaymentSource(effectiveFunding);
 
   // Validation
   if (!name)                                          throw new Error("Name is required");
@@ -315,8 +417,8 @@ export async function createExpense(input: CreateExpenseInput): Promise<CreateEx
       isAllocation,
       isDirectDebit,
       dueDate,
-      paymentSource,
-      cardDebtId:     cardDebtId || undefined,
+      paymentSource: effectivePaymentSource,
+      cardDebtId: effectiveFunding === "credit_card" ? (cardDebtId || debtId || undefined) : undefined,
     } as AddOrUpdatePayload);
   }
 
@@ -338,8 +440,13 @@ export async function createExpense(input: CreateExpenseInput): Promise<CreateEx
       expenseId:     created.id,
       budgetPlanId,
       amount,
-      paymentSource,
+      paymentSource: effectivePaymentSource,
+      fundingSource: effectiveFunding,
       cardDebtId,
+      debtId,
+      newLoanName,
+      month,
+      year,
     });
   }
 
@@ -382,7 +489,24 @@ export async function createExpense(input: CreateExpenseInput): Promise<CreateEx
 export async function createExpenseFromReceipt(
   input: ReceiptExpenseInput,
 ): Promise<{ expenseId: string }> {
-  const { budgetPlanId, userId, receiptId, name, amount, month, year, categoryId } = input;
+  const {
+    budgetPlanId,
+    userId,
+    receiptId,
+    name,
+    amount,
+    month,
+    year,
+    categoryId,
+    paymentSource = "income",
+    fundingSource,
+    cardDebtId,
+    debtId,
+    newLoanName,
+  } = input;
+
+  const effectiveFunding = fundingSource ?? normalizeFundingSource(paymentSource);
+  const effectivePaymentSource = mapFundingToPaymentSource(effectiveFunding);
 
   // Validate
   if (!name)                                               throw new Error("Name is required");
@@ -405,6 +529,8 @@ export async function createExpenseFromReceipt(
     paidAmount:     amount,
     isAllocation:   false,
     isDirectDebit:  false,
+    paymentSource: effectivePaymentSource,
+    cardDebtId: effectiveFunding === "credit_card" ? (cardDebtId || debtId || undefined) : undefined,
   } as AddOrUpdatePayload);
 
   // Fetch the created record
@@ -415,6 +541,19 @@ export async function createExpenseFromReceipt(
   });
 
   if (!created) throw new Error("Expense creation failed");
+
+  await recordPaymentSource({
+    expenseId: created.id,
+    budgetPlanId,
+    amount,
+    paymentSource: effectivePaymentSource,
+    fundingSource: effectiveFunding,
+    cardDebtId,
+    debtId,
+    newLoanName,
+    month,
+    year,
+  });
 
   // Mark receipt confirmed + link expense in one transaction
   await prisma.$transaction([

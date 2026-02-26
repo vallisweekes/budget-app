@@ -1,9 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
-import { MONTHS } from "@/lib/constants/time";
-import { createExpense, normalizePaymentSource } from "@/lib/financial-engine";
-import type { MonthKey } from "@/types";
+import { createExpense, normalizeFundingSource, normalizePaymentSource } from "@/lib/financial-engine";
 
 export const runtime = "nodejs";
 
@@ -118,6 +116,9 @@ export async function POST(req: NextRequest) {
     dueDate?: unknown;
     paymentSource?: unknown;
     cardDebtId?: unknown;
+    fundingSource?: unknown;
+    debtId?: unknown;
+    newLoanName?: unknown;
   };
 
   const ownedBudgetPlanId = await resolveOwnedBudgetPlanId({
@@ -142,7 +143,10 @@ export async function POST(req: NextRequest) {
       : undefined;
 
   const paymentSource = normalizePaymentSource(body.paymentSource);
+  const fundingSource = normalizeFundingSource(body.fundingSource ?? body.paymentSource);
   const cardDebtId = typeof body.cardDebtId === "string" ? body.cardDebtId.trim() : undefined;
+  const debtId = typeof body.debtId === "string" ? body.debtId.trim() : undefined;
+  const newLoanName = typeof body.newLoanName === "string" ? body.newLoanName.trim() : undefined;
 
   if (!ownedBudgetPlanId) return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
   if (!name) return badRequest("Name is required");
@@ -165,7 +169,10 @@ export async function POST(req: NextRequest) {
     distributeYears,
     dueDate,
     paymentSource,
+    fundingSource,
     cardDebtId: cardDebtId || undefined,
+    debtId: debtId || undefined,
+    newLoanName: newLoanName || undefined,
   });
 
   const created = await prisma.expense.findFirst({

@@ -21,7 +21,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
-import { createExpenseFromReceipt } from "@/lib/financial-engine";
+import { createExpenseFromReceipt, normalizeFundingSource, normalizePaymentSource } from "@/lib/financial-engine";
 
 export const runtime = "nodejs";
 
@@ -57,6 +57,11 @@ export async function POST(
     year?: unknown;
     categoryId?: unknown;
     budgetPlanId?: unknown;
+    paymentSource?: unknown;
+    fundingSource?: unknown;
+    cardDebtId?: unknown;
+    debtId?: unknown;
+    newLoanName?: unknown;
   };
   try {
     body = await req.json();
@@ -93,6 +98,11 @@ export async function POST(
     typeof body.categoryId === "string" && body.categoryId.trim()
       ? body.categoryId.trim()
       : undefined;
+  const paymentSource = normalizePaymentSource(body.paymentSource);
+  const fundingSource = normalizeFundingSource(body.fundingSource ?? body.paymentSource);
+  const cardDebtId = typeof body.cardDebtId === "string" && body.cardDebtId.trim() ? body.cardDebtId.trim() : undefined;
+  const debtId = typeof body.debtId === "string" && body.debtId.trim() ? body.debtId.trim() : undefined;
+  const newLoanName = typeof body.newLoanName === "string" && body.newLoanName.trim() ? body.newLoanName.trim() : undefined;
 
   try {
     const result = await createExpenseFromReceipt({
@@ -104,6 +114,11 @@ export async function POST(
       month,
       year,
       categoryId,
+      paymentSource,
+      fundingSource,
+      cardDebtId,
+      debtId,
+      newLoanName,
     });
     return NextResponse.json({ success: true, expenseId: result.expenseId });
   } catch (error) {
