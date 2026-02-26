@@ -82,7 +82,8 @@ function RootTopHeader({ navigation }: { navigation: any }) {
   const deepestRoute = getDeepestRoute(navigation.getState?.());
   const isIncomeMonth = deepestRoute?.name === "IncomeMonth";
   const isIncomeGrid = deepestRoute?.name === "IncomeGrid";
-  const shouldShowIncomeBack = isIncomeMonth || isIncomeGrid;
+  const isAnalytics = deepestRoute?.name === "Analytics";
+  const shouldShowIncomeBack = isIncomeMonth || isIncomeGrid || isAnalytics;
 
   const incomeGridYearParam = Number(deepestRoute?.params?.year);
   const incomeGridYear = Number.isFinite(incomeGridYearParam) ? incomeGridYearParam : new Date().getFullYear();
@@ -95,12 +96,18 @@ function RootTopHeader({ navigation }: { navigation: any }) {
 
   const monthNum = Number(deepestRoute?.params?.month);
   const yearNum = Number(deepestRoute?.params?.year);
-  const monthLabel =
-    isIncomeMonth && Number.isFinite(monthNum) && monthNum >= 1 && monthNum <= 12 && Number.isFinite(yearNum)
+  const monthLabel = isAnalytics
+    ? "Analytics"
+    : isIncomeMonth && Number.isFinite(monthNum) && monthNum >= 1 && monthNum <= 12 && Number.isFinite(yearNum)
       ? `${MONTH_NAMES_LONG[monthNum - 1]} ${yearNum}`
       : undefined;
 
   const handleBack = () => {
+    if (isAnalytics) {
+      navigation.goBack();
+      return;
+    }
+
     if (isIncomeMonth) {
       navigation.navigate("IncomeFlow", { screen: "IncomeGrid" });
       return;
@@ -167,6 +174,17 @@ function RootTopHeader({ navigation }: { navigation: any }) {
       )
     : undefined;
 
+  const analyticsRightContent = isAnalytics ? (
+    <>
+      <Pressable onPress={() => navigation.navigate("IncomeFlow")} style={s.headerActionBtn} hitSlop={10}>
+        <Ionicons name="wallet-outline" size={18} color={T.accent} />
+      </Pressable>
+      <Pressable onPress={() => navigation.navigate("NotificationSettings")} style={s.headerActionBtn} hitSlop={10}>
+        <Ionicons name="notifications-outline" size={18} color={T.accent} />
+      </Pressable>
+    </>
+  ) : undefined;
+
   return (
     <TopHeader
       onSettings={() => navigation.navigate("NotificationSettings")}
@@ -178,7 +196,7 @@ function RootTopHeader({ navigation }: { navigation: any }) {
       centerContent={incomeGridYearControl}
       centerLabel={monthLabel}
       showIncomeAction={!isIncomeGrid}
-      rightContent={incomeGridRightContent}
+      rightContent={analyticsRightContent ?? incomeGridRightContent}
     />
   );
 }

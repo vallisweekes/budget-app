@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   Dimensions,
+  Animated,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -17,9 +18,10 @@ import { LineChart } from "react-native-gifted-charts";
 import { apiFetch } from "@/lib/api";
 import type { DashboardData, DebtSummaryData, ExpenseSummary, IncomeSummaryData, Settings } from "@/lib/apiTypes";
 import { currencySymbol, fmt } from "@/lib/formatting";
-import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
+
 import { T } from "@/lib/theme";
 import { cardBase, cardElevated } from "@/lib/ui";
+import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 
 const MONTH_SHORT = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const OVERVIEW_CHART_W = Math.max(240, Dimensions.get("window").width - 76);
@@ -27,6 +29,7 @@ const OVERVIEW_CHART_H = 180;
 
 export default function AnalyticsScreen({ navigation }: { navigation: any }) {
   const topHeaderOffset = useTopHeaderOffset();
+
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [debt, setDebt] = useState<DebtSummaryData | null>(null);
   const [income, setIncome] = useState<IncomeSummaryData | null>(null);
@@ -36,6 +39,16 @@ export default function AnalyticsScreen({ navigation }: { navigation: any }) {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [overviewMode, setOverviewMode] = useState<"month" | "year">("year");
+  const toggleAnim = useRef(new Animated.Value(1)).current; // 0=month, 1=year
+
+  useEffect(() => {
+    Animated.spring(toggleAnim, {
+      toValue: overviewMode === "year" ? 1 : 0,
+      useNativeDriver: true,
+      speed: 20,
+      bounciness: 4,
+    }).start();
+  }, [overviewMode, toggleAnim]);
 
   const load = useCallback(async () => {
     try {
@@ -175,8 +188,8 @@ export default function AnalyticsScreen({ navigation }: { navigation: any }) {
 
   if (loading) {
     return (
-			<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
-        <View style={s.center}>
+			<SafeAreaView style={s.safe} edges={[]}>
+        <View style={[s.center, { paddingTop: topHeaderOffset }]}>
           <ActivityIndicator size="large" color={T.accent} />
           <Text style={s.loading}>Loading analytics…</Text>
         </View>
@@ -186,8 +199,8 @@ export default function AnalyticsScreen({ navigation }: { navigation: any }) {
 
   if (error) {
     return (
-			<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
-        <View style={s.center}>
+			<SafeAreaView style={s.safe} edges={[]}>
+        <View style={[s.center, { paddingTop: topHeaderOffset }]}>
           <Ionicons name="cloud-offline-outline" size={42} color={T.textDim} />
           <Text style={s.error}>{error}</Text>
           <Pressable onPress={load} style={s.retryBtn}>
@@ -199,17 +212,9 @@ export default function AnalyticsScreen({ navigation }: { navigation: any }) {
   }
 
   return (
-		<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
-      <View style={s.header}>
-        <Pressable onPress={() => navigation.goBack()} hitSlop={12} style={s.backBtn}>
-          <Ionicons name="chevron-back" size={22} color={T.text} />
-        </Pressable>
-        <Text style={s.title}>Analytics</Text>
-        <View style={{ width: 36 }} />
-      </View>
-
+		<SafeAreaView style={s.safe} edges={[]}>
       <ScrollView
-        contentContainerStyle={s.scroll}
+        contentContainerStyle={[s.scroll, { paddingTop: topHeaderOffset }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={T.accent} />}
       >
         <View style={s.grid}>
@@ -225,20 +230,30 @@ export default function AnalyticsScreen({ navigation }: { navigation: any }) {
         <View style={s.tipCard}>
           <View style={s.overviewHead}>
             <Text style={s.tipTitle}>Overview</Text>
-            <View style={s.overviewToggle}>
-              <Pressable onPress={() => setOverviewMode("month")} style={[s.overviewModeBtn, overviewMode === "month" && s.overviewModeBtnActive]}>
-                <Text style={[s.overviewModeText, overviewMode === "month" && s.overviewModeTextActive]}>Month</Text>
-              </Pressable>
-              <Pressable onPress={() => setOverviewMode("year")} style={[s.overviewModeBtn, overviewMode === "year" && s.overviewModeBtnActive]}>
-                <Text style={[s.overviewModeText, overviewMode === "year" && s.overviewModeTextActive]}>Year</Text>
-              </Pressable>
-            </View>
+            <Pressable
+              onPress={() => setOverviewMode(overviewMode === "month" ? "year" : "month")}
+              style={s.overviewToggle}
+            >
+              <Animated.View
+                style={[
+                  s.overviewThumb,
+                  { transform: [{ translateX: toggleAnim.interpolate({ inputRange: [0, 1], outputRange: [2, 34] }) }] },
+                ]}
+              />
+              <View style={s.overviewModeBtn}>
+                <Text style={[s.overviewModeText, overviewMode === "month" && s.overviewModeTextActive]}>M</Text>
+              </View>
+              <View style={s.overviewModeBtn}>
+                <Text style={[s.overviewModeText, overviewMode === "year" && s.overviewModeTextActive]}>Y</Text>
+              </View>
+            </Pressable>
           </View>
 
           <View style={s.overviewChartWrap}>
             <LineChart
               data={overviewIncomeLine}
               data2={overviewExpenseLine}
+              curved
               color1="#2c91ff"
               color2="#ef4fa6"
               thickness={2}
@@ -402,16 +417,27 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: T.border,
     borderRadius: 999,
-    padding: 2,
     backgroundColor: T.card,
+    width: 68,
+    height: 34,
+    position: "relative",
+  },
+  overviewThumb: {
+    position: "absolute",
+    width: 30,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: T.accent,
+    top: 2,
   },
   overviewModeBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 999,
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
   },
   overviewModeBtnActive: {
     backgroundColor: T.accent,
+    borderColor: T.accent,
   },
   overviewModeText: {
     color: T.textDim,
