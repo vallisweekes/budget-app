@@ -66,6 +66,8 @@ type Props = {
   onConfirmTransfer: (targetKey: string) => Promise<void>;
   goalLinkSaving: boolean;
   confirmingTargetKey: string | null;
+  pendingNoticeText?: string;
+  onDismissPendingNotice?: () => void;
 };
 
 const PERIOD_OPTIONS: Array<{ key: SacrificePeriod; label: string }> = [
@@ -318,6 +320,20 @@ export default function IncomeMonthSacrificeList(props: Props) {
         ListHeaderComponent={
           props.sacrifice ? (
             <View style={local.wrap}>
+              {props.pendingNoticeText ? (
+                <View style={local.noticeCard}>
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text style={local.noticeTitle}>Reminder</Text>
+                    <Text style={local.noticeText}>{props.pendingNoticeText}</Text>
+                  </View>
+                  {props.onDismissPendingNotice ? (
+                    <Pressable onPress={props.onDismissPendingNotice} style={local.noticeCloseBtn}>
+                      <Ionicons name="close" size={14} color={T.textDim} />
+                    </Pressable>
+                  ) : null}
+                </View>
+              ) : null}
+
               <IncomeSacrificePieChart
                 currency={props.currency}
                 slices={pieSlices}
@@ -577,6 +593,29 @@ export default function IncomeMonthSacrificeList(props: Props) {
 
 const local = StyleSheet.create({
   wrap: { gap: 12, paddingHorizontal: 14, paddingTop: 22 },
+  noticeCard: {
+    backgroundColor: `${T.accent}15`,
+    borderWidth: 1,
+    borderColor: `${T.accent}66`,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+  },
+  noticeTitle: { color: T.text, fontSize: 12, fontWeight: "900" },
+  noticeText: { color: T.textDim, fontSize: 12, fontWeight: "700" },
+  noticeCloseBtn: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: T.border,
+    backgroundColor: T.cardAlt,
+  },
   card: {
     backgroundColor: T.card,
     borderWidth: 1,

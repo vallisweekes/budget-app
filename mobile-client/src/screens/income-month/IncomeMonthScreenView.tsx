@@ -30,7 +30,7 @@ type Props = NativeStackScreenProps<IncomeStackParamList, "IncomeMonth">;
 
 export default function IncomeMonthScreen({ navigation, route }: Props) {
   const topHeaderOffset = useTopHeaderOffset(-32);
-  const { month, year, budgetPlanId, initialMode } = route.params;
+  const { month, year, budgetPlanId, initialMode, pendingConfirmationsCount, showPendingNotice, openIncomeAddAt } = route.params;
   const monthLabel = `${MONTH_NAMES_LONG[month - 1]} ${year}`;
 
   const now = new Date();
@@ -52,6 +52,7 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
   const [sacrificeDeletingId, setSacrificeDeletingId] = useState<string | null>(null);
   const [linkSaving, setLinkSaving] = useState(false);
   const [confirmingTargetKey, setConfirmingTargetKey] = useState<string | null>(null);
+  const [pendingNoticeVisible, setPendingNoticeVisible] = useState(false);
 
   const currency = currencySymbol(settings?.currency);
 
@@ -99,6 +100,19 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
   useEffect(() => {
     setViewMode(initialMode ?? "income");
   }, [initialMode, month, year]);
+
+  useEffect(() => {
+    setPendingNoticeVisible(Boolean(showPendingNotice));
+  }, [showPendingNotice, month, year]);
+
+  useEffect(() => {
+    if (!openIncomeAddAt) return;
+    if (!isLocked) {
+      crud.setShowAddForm(true);
+      setViewMode("income");
+    }
+    navigation.setParams({ openIncomeAddAt: undefined });
+  }, [crud, isLocked, navigation, openIncomeAddAt]);
 
   type SacrificePeriod =
     | "this_month"
@@ -416,6 +430,12 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
             onConfirmTransfer={confirmSacrificeTransfer}
             goalLinkSaving={linkSaving}
             confirmingTargetKey={confirmingTargetKey}
+            pendingNoticeText={pendingNoticeVisible
+              ? (Number.isFinite(Number(pendingConfirmationsCount)) && Number(pendingConfirmationsCount) > 0
+                ? `You have ${Number(pendingConfirmationsCount)} pending transfer confirmation${Number(pendingConfirmationsCount) === 1 ? "" : "s"}. Confirm them to update linked goals.`
+                : "Confirm your transferred sacrifices to update linked goals.")
+              : undefined}
+            onDismissPendingNotice={() => setPendingNoticeVisible(false)}
           />
         ) : (
           <IncomeMonthIncomeList

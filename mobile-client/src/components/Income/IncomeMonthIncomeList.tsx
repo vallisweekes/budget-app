@@ -59,18 +59,10 @@ export default function IncomeMonthIncomeList({
             {analysis && <IncomeMonthStats data={analysis} currency={currency} fmt={fmt} />}
             {analysis && <IncomeBarChart data={analysis} currency={currency} />}
 
-            {!isLocked && (
-              <View style={s.addBtnRow}>
-                <Pressable onPress={() => crud.setShowAddForm(true)} style={s.addBtnCircle}>
-                  <Ionicons name="add" size={20} color={T.onAccent} />
-                </Pressable>
-              </View>
-            )}
-
             <View style={s.sourcesHeader}>
               <Text style={s.sourcesTitle}>Income sources</Text>
               <Text style={s.sourcesSub}>
-                {isLocked ? "Past month — view only." : "Add, edit, or remove income for this month."}
+                {isLocked ? "Past month — view only." : "Edit or remove income for this month."}
               </Text>
             </View>
           </>

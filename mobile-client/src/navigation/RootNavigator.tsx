@@ -80,6 +80,10 @@ function NotificationSettingsScreen(props: unknown) {
 function RootTopHeader({ navigation }: { navigation: any }) {
   const { signOut } = useAuth();
   const [incomePendingCount, setIncomePendingCount] = useState(0);
+  const [pendingBudgetPlanId, setPendingBudgetPlanId] = useState<string | null>(null);
+  const now = new Date();
+  const nowMonth = now.getMonth() + 1;
+  const nowYear = now.getFullYear();
 
   const getPendingCount = useCallback((data: IncomeSacrificeData): number => {
     const confirmed = new Set((data.confirmations ?? []).map((item) => item.targetKey));
@@ -112,8 +116,10 @@ function RootTopHeader({ navigation }: { navigation: any }) {
         cacheTtlMs: 2_000,
       });
       setIncomePendingCount(getPendingCount(data));
+      setPendingBudgetPlanId(typeof data.budgetPlanId === "string" && data.budgetPlanId.trim() ? data.budgetPlanId : null);
     } catch {
       setIncomePendingCount(0);
+      setPendingBudgetPlanId(null);
     }
   }, [getPendingCount]);
 
@@ -142,11 +148,78 @@ function RootTopHeader({ navigation }: { navigation: any }) {
 
   const monthNum = Number(deepestRoute?.params?.month);
   const yearNum = Number(deepestRoute?.params?.year);
+  const incomeMonthBudgetPlanId = typeof deepestRoute?.params?.budgetPlanId === "string"
+    ? deepestRoute.params.budgetPlanId
+    : "";
+  const incomeMonthInitialMode = deepestRoute?.params?.initialMode === "sacrifice" ? "sacrifice" : "income";
   const monthLabel = isAnalytics
     ? "Analytics"
     : isIncomeMonth && Number.isFinite(monthNum) && monthNum >= 1 && monthNum <= 12 && Number.isFinite(yearNum)
       ? `${MONTH_NAMES_LONG[monthNum - 1]} ${yearNum}`
       : undefined;
+
+  const canUseMonthSwitcher = isIncomeMonth
+    && Number.isFinite(monthNum)
+    && monthNum >= 1
+    && monthNum <= 12
+    && Number.isFinite(yearNum)
+    && Boolean(incomeMonthBudgetPlanId);
+
+  const isIncomeMonthLocked = Number.isFinite(monthNum) && Number.isFinite(yearNum)
+    ? (Number(yearNum) < nowYear || (Number(yearNum) === nowYear && Number(monthNum) < nowMonth))
+    : false;
+
+  const goToIncomeMonth = (nextMonth: number, nextYear: number) => {
+    if (!incomeMonthBudgetPlanId) return;
+    navigation.navigate("IncomeFlow", {
+      screen: "IncomeMonth",
+      params: {
+        month: nextMonth,
+        year: nextYear,
+        budgetPlanId: incomeMonthBudgetPlanId,
+        initialMode: incomeMonthInitialMode,
+      },
+    });
+  };
+
+  const prevMonth = Number(monthNum) - 1 < 1 ? 12 : Number(monthNum) - 1;
+  const prevYear = Number(monthNum) - 1 < 1 ? Number(yearNum) - 1 : Number(yearNum);
+  const nextMonth = Number(monthNum) + 1 > 12 ? 1 : Number(monthNum) + 1;
+  const nextYear = Number(monthNum) + 1 > 12 ? Number(yearNum) + 1 : Number(yearNum);
+
+  const prevIsPast = prevYear < nowYear || (prevYear === nowYear && prevMonth < nowMonth);
+  const disablePrev = !canUseMonthSwitcher || prevIsPast;
+  const disableNext = !canUseMonthSwitcher;
+
+  const incomeMonthSwitcher = canUseMonthSwitcher ? (
+    <View style={s.monthSwitchWrap}>
+      <Pressable
+        onPress={() => {
+          if (disablePrev) return;
+          goToIncomeMonth(prevMonth, prevYear);
+        }}
+        disabled={disablePrev}
+        style={[s.monthSwitchBtn, disablePrev && s.monthSwitchBtnDisabled]}
+        hitSlop={8}
+      >
+        <Ionicons name="chevron-back" size={13} color={disablePrev ? T.textMuted : T.text} />
+      </Pressable>
+
+      <Text style={s.monthSwitchText}>{monthLabel}</Text>
+
+      <Pressable
+        onPress={() => {
+          if (disableNext) return;
+          goToIncomeMonth(nextMonth, nextYear);
+        }}
+        disabled={disableNext}
+        style={[s.monthSwitchBtn, disableNext && s.monthSwitchBtnDisabled]}
+        hitSlop={8}
+      >
+        <Ionicons name="chevron-forward" size={13} color={disableNext ? T.textMuted : T.text} />
+      </Pressable>
+    </View>
+  ) : undefined;
 
   const handleBack = () => {
     if (isNotificationSettings) {
@@ -249,21 +322,55 @@ function RootTopHeader({ navigation }: { navigation: any }) {
     void loadPendingCount();
   }, [loadPendingCount, deepestRoute?.name]);
 
+  const openIncome = () => {
+    const now = new Date();
+    if (incomePendingCount > 0 && pendingBudgetPlanId) {
+      navigation.navigate("IncomeFlow", {
+        screen: "IncomeMonth",
+        params: {
+          month: now.getMonth() + 1,
+          year: now.getFullYear(),
+          budgetPlanId: pendingBudgetPlanId,
+          initialMode: "sacrifice",
+          pendingConfirmationsCount: incomePendingCount,
+          showPendingNotice: true,
+        },
+      });
+      return;
+    }
+    navigation.navigate("IncomeFlow");
+  };
+
+  const openAddIncomeFromHeader = () => {
+    if (!isIncomeMonth || !incomeMonthBudgetPlanId || isIncomeMonthLocked) return;
+    navigation.navigate("IncomeFlow", {
+      screen: "IncomeMonth",
+      params: {
+        month: Number(monthNum),
+        year: Number(yearNum),
+        budgetPlanId: incomeMonthBudgetPlanId,
+        initialMode: "income",
+        openIncomeAddAt: Date.now(),
+      },
+    });
+  };
+
   return (
     <TopHeader
       onSettings={() => navigation.navigate("NotificationSettings")}
-      onIncome={() => navigation.navigate("IncomeFlow")}
+      onIncome={openIncome}
       onAnalytics={() => navigation.navigate("Analytics")}
       onNotifications={() => navigation.navigate("NotificationSettings")}
       onBack={handleBack}
-      centerContent={incomeGridYearControl}
-      centerLabel={monthLabel}
+      centerContent={isIncomeMonth ? incomeMonthSwitcher : incomeGridYearControl}
+      centerLabel={isIncomeMonth ? undefined : monthLabel}
       leftVariant={shouldShowIncomeBack || isNotificationSettings ? "back" : "avatar"}
-      showIncomeAction={!isIncomeGrid && !isNotificationSettings}
+      showIncomeAction={!isIncomeGrid && !isNotificationSettings && !isIncomeMonth}
       rightContent={analyticsRightContent ?? incomeGridRightContent}
-      compactActionsMenu={isNotificationSettings}
-      onLogout={signOut}
+      compactActionsMenu={isNotificationSettings || isIncomeMonth}
+      onLogout={isNotificationSettings ? signOut : undefined}
       incomePendingCount={incomePendingCount}
+      onAddIncome={isIncomeMonth ? openAddIncomeFromHeader : undefined}
     />
   );
 }
@@ -314,6 +421,32 @@ const s = StyleSheet.create({
     textAlign: "center",
     letterSpacing: 0.3,
   },
+  monthSwitchWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 0,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+  },
+  monthSwitchBtn: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  monthSwitchBtnDisabled: {
+    opacity: 0.45,
+  },
+  monthSwitchText: {
+    color: T.text,
+    fontSize: 15,
+    fontWeight: "700",
+    minWidth: 118,
+    paddingHorizontal: 1,
+    textAlign: "center",
+    letterSpacing: 0.1,
+  },
   headerActionBtn: {
     width: 34,
     height: 34,
@@ -356,6 +489,7 @@ const s = StyleSheet.create({
 function MainTabs() {
   const { signOut } = useAuth();
   const [incomePendingCount, setIncomePendingCount] = useState(0);
+  const [pendingBudgetPlanId, setPendingBudgetPlanId] = useState<string | null>(null);
 
   const getPendingCount = useCallback((data: IncomeSacrificeData): number => {
     const confirmed = new Set((data.confirmations ?? []).map((item) => item.targetKey));
@@ -388,8 +522,10 @@ function MainTabs() {
         cacheTtlMs: 2_000,
       });
       setIncomePendingCount(getPendingCount(data));
+      setPendingBudgetPlanId(typeof data.budgetPlanId === "string" && data.budgetPlanId.trim() ? data.budgetPlanId : null);
     } catch {
       setIncomePendingCount(0);
+      setPendingBudgetPlanId(null);
     }
   }, [getPendingCount]);
 
@@ -434,6 +570,28 @@ function MainTabs() {
                 : undefined;
 
           const openIncome = () => {
+            const now = new Date();
+            if (incomePendingCount > 0 && pendingBudgetPlanId) {
+              const params = {
+                screen: "IncomeMonth",
+                params: {
+                  month: now.getMonth() + 1,
+                  year: now.getFullYear(),
+                  budgetPlanId: pendingBudgetPlanId,
+                  initialMode: "sacrifice" as const,
+                  pendingConfirmationsCount: incomePendingCount,
+                  showPendingNotice: true,
+                },
+              };
+              const parent = navigation.getParent();
+              if (parent) {
+                (parent as any).navigate("IncomeFlow", params);
+                return;
+              }
+              (navigation as any).navigate("Income", params);
+              return;
+            }
+
             const parent = navigation.getParent();
             if (parent) {
               parent.navigate("IncomeFlow" as never);

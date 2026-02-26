@@ -16,6 +16,9 @@ export type IncomeStackParamList = {
     year: number;
     budgetPlanId: string;
     initialMode?: "income" | "sacrifice";
+    pendingConfirmationsCount?: number;
+    showPendingNotice?: boolean;
+    openIncomeAddAt?: number;
   };
 };
 

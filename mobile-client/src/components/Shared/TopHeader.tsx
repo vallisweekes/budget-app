@@ -21,6 +21,7 @@ interface Props {
   compactActionsMenu?: boolean;
   onLogout?: () => void;
   incomePendingCount?: number;
+  onAddIncome?: () => void;
 }
 
 export default function TopHeader({
@@ -38,6 +39,7 @@ export default function TopHeader({
   compactActionsMenu = false,
   onLogout,
   incomePendingCount = 0,
+  onAddIncome,
 }: Props) {
   const insets = useSafeAreaInsets();
   const { username } = useAuth();
@@ -90,6 +92,17 @@ export default function TopHeader({
           <View style={s.rightActions}>{rightContent}</View>
         ) : compactActionsMenu ? (
           <View style={s.rightActions}>
+            {onAddIncome ? (
+              <Pressable
+                onPress={onAddIncome}
+                style={s.addIncomeBtn}
+                hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel="Add income"
+              >
+                <Ionicons name="add" size={18} color={T.onAccent} />
+              </Pressable>
+            ) : null}
             {onLogout ? (
               <Pressable
                 onPress={onLogout}
@@ -250,6 +263,17 @@ const s = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 1,
     borderColor: T.border,
+    position: "relative",
+  },
+  addIncomeBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: T.accent,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: T.accent,
     position: "relative",
   },
   badge: {

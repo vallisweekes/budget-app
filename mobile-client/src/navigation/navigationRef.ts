@@ -45,6 +45,7 @@ export function openIncomeSacrificeFromReminder(payload: IncomeSacrificeReminder
         year,
         budgetPlanId,
         initialMode: "sacrifice",
+        showPendingNotice: true,
       },
     });
     return true;

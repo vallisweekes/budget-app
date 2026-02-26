@@ -115,8 +115,8 @@ export default function IncomeManager({
 					disabled={isPending}
 					className={`w-full flex items-center justify-center gap-2 px-2 py-1.5 sm:p-2 text-xs sm:text-sm rounded-lg border transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${
 						isCurrentMonth
-							? "text-teal-200 hover:bg-teal-400/10 border-teal-200/30"
-							: "text-purple-400 hover:bg-purple-500/10 border-purple-500/20"
+							? "bg-purple-500/20 text-purple-100 hover:bg-purple-500/30 border-purple-400/35"
+							: "bg-purple-500/20 text-purple-100 hover:bg-purple-500/30 border-purple-400/35"
 					}`}
 				>
 					<Plus size={14} className="sm:hidden" />
