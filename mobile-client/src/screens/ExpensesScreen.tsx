@@ -86,13 +86,14 @@ export default function ExpensesScreen({ navigation }: Props) {
   useEffect(() => {
     const routeMonth = Number(route.params?.month);
     const routeYear = Number(route.params?.year);
-    if (Number.isFinite(routeMonth) && routeMonth >= 1 && routeMonth <= 12 && routeMonth !== month) {
+    if (Number.isFinite(routeMonth) && routeMonth >= 1 && routeMonth <= 12) {
       setMonth(routeMonth);
     }
-    if (Number.isFinite(routeYear) && routeYear !== year) {
+    if (Number.isFinite(routeYear)) {
       setYear(routeYear);
     }
-  }, [month, route.params?.month, route.params?.year, year]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [route.params?.month, route.params?.year]);
 
   useEffect(() => {
     const prevDisabled = !canDecrement(year, month);
@@ -318,22 +319,28 @@ export default function ExpensesScreen({ navigation }: Props) {
             <>
               {/* ── Purple hero banner ── */}
               <View style={[styles.purpleHero, { paddingTop: topHeaderOffset + 22 }]}>
-                <Pressable onPress={openMonthPicker} style={styles.purpleHeroLabelBtn} hitSlop={12}>
+                {showPlanTotalFallback ? (
                   <Text style={styles.purpleHeroLabel}>
-                    {monthName(month)} {year}
+                    Total {activePlan?.name ?? "Plan"} expenses
                   </Text>
-                  <Ionicons name="chevron-down" size={14} color="rgba(255,255,255,0.72)" />
-                </Pressable>
+                ) : (
+                  <Pressable onPress={openMonthPicker} style={styles.purpleHeroLabelBtn} hitSlop={12}>
+                    <Text style={styles.purpleHeroLabel}>
+                      {monthName(month)} {year}
+                    </Text>
+                    <Ionicons name="chevron-down" size={14} color="rgba(255,255,255,0.72)" />
+                  </Pressable>
+                )}
                 {summary ? (
                   <>
                     <Text style={styles.purpleHeroAmount}>
                       {fmt(showPlanTotalFallback ? planTotalAmount : (summary.totalAmount ?? 0), currency)}
                     </Text>
-                    <Text style={styles.purpleHeroMeta}>
-                      {showPlanTotalFallback
-                        ? `${planTotalCount} bill${planTotalCount === 1 ? "" : "s"}`
-                        : `${summary.totalCount ?? 0} bill${(summary.totalCount ?? 0) === 1 ? "" : "s"}`}
-                    </Text>
+                    {!showPlanTotalFallback && (
+                      <Text style={styles.purpleHeroMeta}>
+                        {`${summary.totalCount ?? 0} bill${(summary.totalCount ?? 0) === 1 ? "" : "s"}`}
+                      </Text>
+                    )}
                     {(() => {
                       if (showPlanTotalFallback) return null;
                       const currentTotal = summary.totalAmount ?? 0;
@@ -355,16 +362,18 @@ export default function ExpensesScreen({ navigation }: Props) {
                 ) : null}
               </View>
 
-              {showTopAddExpenseCta ? (
-                <View style={styles.actionCard}>
-                  <View style={styles.actionCopy}>
-                    <Text style={styles.actionTitle}>Add expense</Text>
-                    <Text style={styles.actionText}>Create a bill for {monthName(month)} {year}.</Text>
+              {showTopAddExpenseCta && isPersonalPlan ? (
+                <View style={styles.noExpensesCard}>
+                  <View style={styles.noExpensesCardRow}>
+                    <View style={styles.noExpensesCardCopy}>
+                      <Text style={styles.noExpensesTitle}>No expense for this month</Text>
+                      <Text style={styles.noExpensesSub}>{monthName(month)} {year}</Text>
+                      <Text style={styles.noExpensesHint}>Tap + to create your first expense.</Text>
+                    </View>
+                    <Pressable onPress={() => setAddSheetOpen(true)} style={styles.noExpensesAddBtn}>
+                      <Ionicons name="add" size={24} color={T.onAccent} />
+                    </Pressable>
                   </View>
-                  <Pressable onPress={() => setAddSheetOpen(true)} style={styles.actionBtn}>
-                    <Ionicons name="add" size={16} color={T.onAccent} />
-                    <Text style={styles.actionBtnText}>Add</Text>
-                  </Pressable>
                 </View>
               ) : null}
               {plans.length > 1 && (
@@ -408,11 +417,18 @@ export default function ExpensesScreen({ navigation }: Props) {
 
               {!isPersonalPlan && plans.length > 1 && (summary?.totalCount ?? 0) === 0 && (
                 <View style={styles.noExpensesCard}>
-                  <Text style={styles.noExpensesTitle}>No expense for this month</Text>
-                  <Text style={styles.noExpensesSub}>
-                    {monthName(month)} {year}
-                  </Text>
-                  <Text style={styles.noExpensesHint}>Tap Add above to create your first expense.</Text>
+                  <View style={styles.noExpensesCardRow}>
+                    <View style={styles.noExpensesCardCopy}>
+                      <Text style={styles.noExpensesTitle}>No expense for this month</Text>
+                      <Text style={styles.noExpensesSub}>
+                        {monthName(month)} {year}
+                      </Text>
+                      <Text style={styles.noExpensesHint}>Tap + to create your first expense.</Text>
+                    </View>
+                    <Pressable onPress={() => setAddSheetOpen(true)} style={styles.noExpensesAddBtn}>
+                      <Ionicons name="add" size={24} color={T.onAccent} />
+                    </Pressable>
+                  </View>
                 </View>
               )}
 
@@ -479,67 +495,58 @@ export default function ExpensesScreen({ navigation }: Props) {
         animationType="slide"
         onRequestClose={() => setMonthPickerOpen(false)}
       >
-        <Pressable style={styles.pickerBackdrop} onPress={() => setMonthPickerOpen(false)} />
-        <View style={styles.pickerSheet}>
-          <View style={styles.pickerHandle} />
-          {/* Year navigator */}
-          <View style={styles.pickerYearRow}>
-            <Pressable
-              onPress={() => setPickerYear((y) => y - 1)}
-              hitSlop={12}
-              style={styles.pickerYearBtn}
-            >
-              <Ionicons name="chevron-back" size={22} color={T.text} />
-            </Pressable>
-            <Text style={styles.pickerYearText}>{pickerYear}</Text>
-            <Pressable
-              onPress={() => setPickerYear((y) => y + 1)}
-              hitSlop={12}
-              style={styles.pickerYearBtn}
-              disabled={pickerYear >= now.getFullYear()}
-            >
-              <Ionicons
-                name="chevron-forward"
-                size={22}
-                color={pickerYear >= now.getFullYear() ? T.textDim : T.text}
-              />
-            </Pressable>
-          </View>
-          {/* Month grid */}
-          <View style={styles.pickerGrid}>
-            {SHORT_MONTHS.map((name, idx) => {
-              const m = idx + 1;
-              const isFuture =
-                pickerYear > now.getFullYear() ||
-                (pickerYear === now.getFullYear() && m > now.getMonth() + 1);
-              const isSelected = m === month && pickerYear === year;
-              return (
-                <Pressable
-                  key={m}
-                  onPress={() => {
-                    if (isFuture) return;
-                    setMonth(m);
-                    setYear(pickerYear);
-                    setMonthPickerOpen(false);
-                  }}
-                  style={[
-                    styles.pickerCell,
-                    isSelected && styles.pickerCellSelected,
-                    isFuture && styles.pickerCellDisabled,
-                  ]}
-                >
-                  <Text
+        <View style={styles.pickerOverlay}>
+          <Pressable style={styles.pickerBackdrop} onPress={() => setMonthPickerOpen(false)} />
+          <View style={styles.pickerSheet}>
+            <View style={styles.pickerHandle} />
+            {/* Year navigator */}
+            <View style={styles.pickerYearRow}>
+              <Pressable
+                onPress={() => setPickerYear((y) => y - 1)}
+                hitSlop={12}
+                style={styles.pickerYearBtn}
+              >
+                <Ionicons name="chevron-back" size={22} color={T.text} />
+              </Pressable>
+              <Text style={styles.pickerYearText}>{pickerYear}</Text>
+              <Pressable
+                onPress={() => setPickerYear((y) => y + 1)}
+                hitSlop={12}
+                style={styles.pickerYearBtn}
+              >
+                <Ionicons name="chevron-forward" size={22} color={T.text} />
+              </Pressable>
+            </View>
+            {/* Month grid */}
+            <View style={styles.pickerGrid}>
+              {SHORT_MONTHS.map((name, idx) => {
+                const m = idx + 1;
+                const isSelected = m === month && pickerYear === year;
+                return (
+                  <Pressable
+                    key={m}
+                    onPress={() => {
+                      setMonth(m);
+                      setYear(pickerYear);
+                      setMonthPickerOpen(false);
+                    }}
                     style={[
-                      styles.pickerCellText,
-                      isSelected && styles.pickerCellSelectedText,
-                      isFuture && styles.pickerCellDisabledText,
+                      styles.pickerCell,
+                      isSelected && styles.pickerCellSelected,
                     ]}
                   >
-                    {name}
-                  </Text>
-                </Pressable>
-              );
-            })}
+                    <Text
+                      style={[
+                        styles.pickerCellText,
+                        isSelected && styles.pickerCellSelectedText,
+                      ]}
+                    >
+                      {name}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
           </View>
         </View>
       </Modal>
@@ -634,6 +641,22 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: T.accentBorder,
   },
+  noExpensesCardRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  noExpensesCardCopy: { flex: 1 },
+  noExpensesAddBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: T.accent,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
   noExpensesTitle: {
     color: T.text,
     fontWeight: "900",
@@ -650,6 +673,25 @@ const styles = StyleSheet.create({
     color: T.textMuted,
     fontWeight: "600",
     fontSize: 12,
+  },
+
+  planTotalLabelWrap: {
+    marginHorizontal: 12,
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  planTotalLabelText: {
+    color: T.textDim,
+    fontSize: 13,
+    fontWeight: "900",
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+  },
+  planTotalLabelSub: {
+    marginTop: 3,
+    color: T.textMuted,
+    fontSize: 12,
+    fontWeight: "600",
   },
 
   monthCardsWrap: {
@@ -755,8 +797,12 @@ const styles = StyleSheet.create({
   },
 
   // Month picker modal
-  pickerBackdrop: {
+  pickerOverlay: {
     flex: 1,
+    justifyContent: "flex-end",
+  },
+  pickerBackdrop: {
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.55)",
   },
   pickerSheet: {
@@ -793,14 +839,12 @@ const styles = StyleSheet.create({
   pickerGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 10,
+    gap: 8,
   },
   pickerCell: {
     width: "22%",
-    flex: 1,
-    minWidth: "22%",
-    paddingVertical: 14,
-    borderRadius: 12,
+    height: 44,
+    borderRadius: 10,
     backgroundColor: T.cardAlt,
     alignItems: "center",
     justifyContent: "center",
