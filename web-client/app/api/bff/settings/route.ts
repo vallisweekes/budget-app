@@ -207,6 +207,48 @@ function normalizeHomepageGoalIds(value: unknown): string[] | null {
   return unique;
 }
 
+async function syncGoalAdditionsForPlan(args: {
+  budgetPlanId: string;
+  addSavings?: number;
+  addEmergency?: number;
+  addInvestment?: number;
+}) {
+  const updates: Array<{ category: "savings" | "emergency" | "investment"; amount: number }> = [];
+  if (Number.isFinite(args.addSavings) && Number(args.addSavings) > 0) {
+    updates.push({ category: "savings", amount: Number(args.addSavings) });
+  }
+  if (Number.isFinite(args.addEmergency) && Number(args.addEmergency) > 0) {
+    updates.push({ category: "emergency", amount: Number(args.addEmergency) });
+  }
+  if (Number.isFinite(args.addInvestment) && Number(args.addInvestment) > 0) {
+    updates.push({ category: "investment", amount: Number(args.addInvestment) });
+  }
+
+  if (updates.length === 0) return;
+
+  await prisma.$transaction(async (tx) => {
+    for (const item of updates) {
+      const goal = await tx.goal.findFirst({
+        where: {
+          budgetPlanId: args.budgetPlanId,
+          category: item.category,
+        },
+        select: { id: true },
+      });
+      if (!goal) continue;
+
+      await tx.goal.update({
+        where: { id: goal.id },
+        data: {
+          currentAmount: {
+            increment: item.amount,
+          },
+        },
+      });
+    }
+  });
+}
+
 export async function GET(req: NextRequest) {
   try {
     const userId = await getSessionUserId();
@@ -333,6 +375,60 @@ export async function PATCH(req: NextRequest) {
     if (!budgetPlanId) return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
 
     const updateData: Record<string, unknown> = {};
+
+    const hasAdditionalSavings = typeof body.additionalSavingsBalance !== "undefined";
+    const hasAdditionalEmergency = typeof body.additionalEmergencyBalance !== "undefined";
+    const hasAdditionalInvestment = typeof body.additionalInvestmentBalance !== "undefined";
+
+    const additionalSavings = hasAdditionalSavings ? Number(body.additionalSavingsBalance) : 0;
+    const additionalEmergency = hasAdditionalEmergency ? Number(body.additionalEmergencyBalance) : 0;
+    const additionalInvestment = hasAdditionalInvestment ? Number(body.additionalInvestmentBalance) : 0;
+
+    if (hasAdditionalSavings && (!Number.isFinite(additionalSavings) || additionalSavings <= 0)) {
+      return badRequest("additionalSavingsBalance must be a number greater than 0");
+    }
+    if (hasAdditionalEmergency && (!Number.isFinite(additionalEmergency) || additionalEmergency <= 0)) {
+      return badRequest("additionalEmergencyBalance must be a number greater than 0");
+    }
+    if (hasAdditionalInvestment && (!Number.isFinite(additionalInvestment) || additionalInvestment <= 0)) {
+      return badRequest("additionalInvestmentBalance must be a number greater than 0");
+    }
+
+    if (hasAdditionalSavings && typeof body.savingsBalance !== "undefined") {
+      return badRequest("Use savingsBalance or additionalSavingsBalance, not both");
+    }
+    if (hasAdditionalEmergency && typeof body.emergencyBalance !== "undefined") {
+      return badRequest("Use emergencyBalance or additionalEmergencyBalance, not both");
+    }
+    if (hasAdditionalInvestment && typeof body.investmentBalance !== "undefined") {
+      return badRequest("Use investmentBalance or additionalInvestmentBalance, not both");
+    }
+
+    if (hasAdditionalSavings || hasAdditionalEmergency || hasAdditionalInvestment) {
+      const currentBalances = await prisma.budgetPlan.findUnique({
+        where: { id: budgetPlanId },
+        select: {
+          savingsBalance: true,
+          emergencyBalance: true,
+          investmentBalance: true,
+        },
+      });
+      if (!currentBalances) return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
+
+      if (hasAdditionalSavings) {
+        const base = Number((currentBalances as any).savingsBalance ?? 0);
+        updateData.savingsBalance = (Number.isFinite(base) ? base : 0) + additionalSavings;
+      }
+      if (hasAdditionalEmergency) {
+        const base = Number((currentBalances as any).emergencyBalance ?? 0);
+        updateData.emergencyBalance = (Number.isFinite(base) ? base : 0) + additionalEmergency;
+      }
+      if (hasAdditionalInvestment) {
+        const base = Number((currentBalances as any).investmentBalance ?? 0);
+        updateData.investmentBalance = (Number.isFinite(base) ? base : 0) + additionalInvestment;
+      }
+    }
+
     if (typeof body.payDate === "number") updateData.payDate = body.payDate;
     if (typeof body.monthlyAllowance !== "undefined") updateData.monthlyAllowance = body.monthlyAllowance;
     if (typeof body.savingsBalance !== "undefined") updateData.savingsBalance = body.savingsBalance;
@@ -430,6 +526,12 @@ export async function PATCH(req: NextRequest) {
         data: updateData,
         select: settingsSelect as any,
       });
+      await syncGoalAdditionsForPlan({
+        budgetPlanId,
+        addSavings: hasAdditionalSavings ? additionalSavings : undefined,
+        addEmergency: hasAdditionalEmergency ? additionalEmergency : undefined,
+        addInvestment: hasAdditionalInvestment ? additionalInvestment : undefined,
+      });
       if (wantsEmergencyBalance && Number.isFinite(emergencyBalance)) {
         await setEmergencyBalanceFallback(budgetPlanId, emergencyBalance);
       }
@@ -493,6 +595,12 @@ export async function PATCH(req: NextRequest) {
 				data: updateData,
         select: (unknownMonthlyEmergency ? settingsSelectLegacy : settingsSelectWithoutMonthlyEmergency) as any,
 			});
+      await syncGoalAdditionsForPlan({
+        budgetPlanId,
+        addSavings: hasAdditionalSavings ? additionalSavings : undefined,
+        addEmergency: hasAdditionalEmergency ? additionalEmergency : undefined,
+        addInvestment: hasAdditionalInvestment ? additionalInvestment : undefined,
+      });
       const nextEmergencyBalance = await getEmergencyBalanceFallback(budgetPlanId);
       const nextInvestmentBalance = await getInvestmentBalanceFallback(budgetPlanId);
       return NextResponse.json({

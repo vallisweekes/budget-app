@@ -118,6 +118,17 @@ function asMoneyInput(value: string | null | undefined): string {
   return Number.isFinite(n) ? String(n) : String(value);
 }
 
+function asMoneyNumber(value: string | number | null | undefined): number {
+  if (value == null || value === "") return 0;
+  const n = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function asMoneyText(value: number): string {
+  if (!Number.isFinite(value)) return "0";
+  return Number.isInteger(value) ? String(value) : value.toFixed(2);
+}
+
 export default function SettingsScreen({ navigation }: MainTabScreenProps<"Settings">) {
   const topHeaderOffset = useTopHeaderOffset();
   const insets = useSafeAreaInsets();
@@ -179,6 +190,15 @@ export default function SettingsScreen({ navigation }: MainTabScreenProps<"Setti
   const currentPlan = useMemo(() => plans.find((p) => p.id === currentPlanId) ?? null, [plans, currentPlanId]);
   const { groupedDebts } = useSettingsDebtBuckets(debts);
   const cur = currencySymbol(settings?.currency);
+  const savingsBase = asMoneyNumber(settings?.savingsBalance);
+  const emergencyBase = asMoneyNumber(settings?.emergencyBalance);
+  const investmentBase = asMoneyNumber(settings?.investmentBalance);
+  const savingsMonthly = asMoneyNumber(settings?.monthlySavingsContribution);
+  const emergencyMonthly = asMoneyNumber(settings?.monthlyEmergencyContribution);
+  const investmentMonthly = asMoneyNumber(settings?.monthlyInvestmentContribution);
+  const savingsTotal = savingsBase + savingsMonthly;
+  const emergencyTotal = emergencyBase + emergencyMonthly;
+  const investmentTotal = investmentBase + investmentMonthly;
 
   let apiBase = "";
   try {
@@ -405,17 +425,15 @@ export default function SettingsScreen({ navigation }: MainTabScreenProps<"Setti
 
   const openSavingsField = (field: SavingsField) => {
     setSavingsSheetField(field);
-    if (field === "savings") setSavingsValueDraft(asMoneyInput(settings?.savingsBalance));
-    if (field === "emergency") setSavingsValueDraft(asMoneyInput(settings?.emergencyBalance));
-    if (field === "investment") setSavingsValueDraft(asMoneyInput(settings?.investmentBalance));
+    setSavingsValueDraft("");
   };
 
   const saveSavingsField = async () => {
-    if (!settings?.id) return;
+    if (!settings?.id || !savingsSheetField) return;
 
     const value = Number(savingsValueDraft || 0);
-    if (!Number.isFinite(value)) {
-      Alert.alert("Invalid values", "Please enter a valid amount.");
+    if (!Number.isFinite(value) || value <= 0) {
+      Alert.alert("Invalid amount", "Enter an additional amount greater than 0.");
       return;
     }
 
@@ -424,18 +442,19 @@ export default function SettingsScreen({ navigation }: MainTabScreenProps<"Setti
       const payload: Record<string, number | string> = {
         budgetPlanId: settings.id,
       };
-      if (savingsSheetField === "savings") payload.savingsBalance = value;
-      if (savingsSheetField === "emergency") payload.emergencyBalance = value;
-      if (savingsSheetField === "investment") payload.investmentBalance = value;
+      if (savingsSheetField === "savings") payload.additionalSavingsBalance = value;
+      if (savingsSheetField === "emergency") payload.additionalEmergencyBalance = value;
+      if (savingsSheetField === "investment") payload.additionalInvestmentBalance = value;
 
       const updated = await apiFetch<Settings>("/api/bff/settings", {
         method: "PATCH",
         body: payload,
       });
+
       setSettings(updated);
       setSavingsSheetField(null);
     } catch (err: unknown) {
-      Alert.alert("Could not save balances", err instanceof Error ? err.message : "Please try again.");
+      Alert.alert("Could not add amount", err instanceof Error ? err.message : "Please try again.");
     } finally {
       setSaveBusy(false);
     }
@@ -728,8 +747,8 @@ export default function SettingsScreen({ navigation }: MainTabScreenProps<"Setti
                       </View>
                       <Text style={styles.infoCardLabel}>Savings</Text>
                     </View>
-                    <Text style={styles.infoCardValue}>{cur}{asMoneyInput(settings?.savingsBalance) || "0"}</Text>
-                    <Text style={styles.infoCardHint}>Tap to edit amount</Text>
+                    <Text style={styles.infoCardValue}>{cur}{asMoneyText(savingsTotal)}</Text>
+                    <Text style={styles.infoCardHint}>Base {cur}{asMoneyText(savingsBase)} + monthly {cur}{asMoneyText(savingsMonthly)}. Tap to add extra.</Text>
                   </Pressable>
                   <Pressable onPress={() => openSavingsField("emergency")} style={styles.infoCard}>
                     <View style={styles.savingsCardHead}>
@@ -738,8 +757,8 @@ export default function SettingsScreen({ navigation }: MainTabScreenProps<"Setti
                       </View>
                       <Text style={styles.infoCardLabel}>Emergency</Text>
                     </View>
-                    <Text style={styles.infoCardValue}>{cur}{asMoneyInput(settings?.emergencyBalance) || "0"}</Text>
-                    <Text style={styles.infoCardHint}>Tap to edit amount</Text>
+                    <Text style={styles.infoCardValue}>{cur}{asMoneyText(emergencyTotal)}</Text>
+                    <Text style={styles.infoCardHint}>Base {cur}{asMoneyText(emergencyBase)} + monthly {cur}{asMoneyText(emergencyMonthly)}. Tap to add extra.</Text>
                   </Pressable>
                   <Pressable onPress={() => openSavingsField("investment")} style={styles.infoCard}>
                     <View style={styles.savingsCardHead}>
@@ -748,8 +767,8 @@ export default function SettingsScreen({ navigation }: MainTabScreenProps<"Setti
                       </View>
                       <Text style={styles.infoCardLabel}>Investment</Text>
                     </View>
-                    <Text style={styles.infoCardValue}>{cur}{asMoneyInput(settings?.investmentBalance) || "0"}</Text>
-                    <Text style={styles.infoCardHint}>Tap to edit amount</Text>
+                    <Text style={styles.infoCardValue}>{cur}{asMoneyText(investmentTotal)}</Text>
+                    <Text style={styles.infoCardHint}>Base {cur}{asMoneyText(investmentBase)} + monthly {cur}{asMoneyText(investmentMonthly)}. Tap to add extra.</Text>
                   </Pressable>
                 </View>
 
@@ -967,12 +986,13 @@ export default function SettingsScreen({ navigation }: MainTabScreenProps<"Setti
         <View style={styles.sheetOverlay}>
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setSavingsSheetField(null)} />
           <View style={styles.sheet}>
-            <Text style={styles.sheetTitle}>Edit {savingsSheetField ?? ""} balance</Text>
-            <Text style={styles.label}>Amount</Text>
+            <Text style={styles.sheetTitle}>Add to {savingsSheetField ?? ""} balance</Text>
+            <Text style={styles.label}>Additional amount</Text>
             <TextInput value={savingsValueDraft} onChangeText={setSavingsValueDraft} style={styles.input} keyboardType="decimal-pad" />
+            <Text style={styles.muted}>This adds to your current balance and updates matching goal progress.</Text>
             <View style={styles.sheetActions}>
               <Pressable style={styles.outlineBtnWide} onPress={() => setSavingsSheetField(null)}><Text style={styles.outlineBtnText}>Cancel</Text></Pressable>
-              <Pressable style={[styles.primaryBtnWide, saveBusy && styles.disabled]} onPress={saveSavingsField} disabled={saveBusy}><Text style={styles.primaryBtnText}>{saveBusy ? "Saving…" : "Save"}</Text></Pressable>
+              <Pressable style={[styles.primaryBtnWide, saveBusy && styles.disabled]} onPress={saveSavingsField} disabled={saveBusy}><Text style={styles.primaryBtnText}>{saveBusy ? "Saving…" : "Add"}</Text></Pressable>
             </View>
           </View>
         </View>
