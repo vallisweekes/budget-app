@@ -28,7 +28,7 @@
         <key>CFBundleURLSchemes</key>
         <array>
           <string>budgetapp</string>
-          <string>com.budgetapp.mobile</string>
+          <string>com.budgetincheck.mobile</string>
         </array>
       </dict>
     </array>

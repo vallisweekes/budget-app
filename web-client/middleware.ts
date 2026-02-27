@@ -1,8 +1,15 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
-const CANONICAL_HOST = "budgetingcheck.com";
+const CANONICAL_HOST = "budgetincheck.com";
 const REDIRECT_HOSTS = new Set([
+  // Current domain variants
+  "www.budgetincheck.com",
+  "budgetincheck.co.uk",
+  "www.budgetincheck.co.uk",
+
+  // Legacy domain variants (keep to avoid broken old links)
+  "budgetingcheck.com",
   "www.budgetingcheck.com",
   "budgetingcheck.co.uk",
   "www.budgetingcheck.co.uk",

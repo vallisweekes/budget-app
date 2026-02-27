@@ -5,7 +5,7 @@ export interface WelcomeEmailProps {
 
 export function welcomeEmailHtml({
   name,
-  appUrl = process.env.APP_URL ?? "https://budgetin.app",
+  appUrl = process.env.APP_URL ?? "https://budgetincheck.com",
 }: WelcomeEmailProps = {}): string {
   const greeting = name ? `Hi ${name},` : "Hi there,";
 
@@ -165,7 +165,7 @@ export function welcomeEmailHtml({
       <div class="footer">
         <p>
           © ${new Date().getFullYear()} BudgetIn · All rights reserved<br />
-          <a href="${appUrl}">budgetin.app</a>
+          <a href="${appUrl}">budgetincheck.com</a>
         </p>
       </div>
     </div>
@@ -175,7 +175,7 @@ export function welcomeEmailHtml({
 
 export function welcomeEmailText({
   name,
-  appUrl = process.env.APP_URL ?? "https://budgetin.app",
+  appUrl = process.env.APP_URL ?? "https://budgetincheck.com",
 }: WelcomeEmailProps = {}): string {
   const greeting = name ? `Hi ${name},` : "Hi there,";
   return `${greeting}

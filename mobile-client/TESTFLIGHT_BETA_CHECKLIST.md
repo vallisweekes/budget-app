@@ -5,7 +5,7 @@ This project is configured for EAS beta builds with profile `beta` in `eas.json`
 ## 1) One-time account setup
 
 - Enroll in Apple Developer Program.
-- In App Store Connect, create the app record for bundle id `com.budgetapp.mobile`.
+- In App Store Connect, create the app record for bundle id `com.budgetincheck.mobile`.
 - In App Store Connect Users and Access, ensure your Apple ID has permission to upload builds.
 - Log in locally:
   - `npx eas login`
@@ -61,7 +61,7 @@ If your app uses account sign-in, camera, photos, or notifications, ensure your 
 
 This app registers Expo push tokens (`expo-notifications`). For iOS TestFlight push to work:
 
-- In Apple Developer -> Identifiers -> your App ID (`com.budgetapp.mobile`), enable **Push Notifications**.
+- In Apple Developer -> Identifiers -> your App ID (`com.budgetincheck.mobile`), enable **Push Notifications**.
 - In EAS credentials, ensure iOS push key/certs are configured (EAS can create/manage this).
 - Build a new beta binary after push capability is enabled.
 
@@ -80,7 +80,7 @@ Notes:
 ## Current beta-ready configuration in this repo
 
 - `app.json`
-  - `ios.bundleIdentifier = com.budgetapp.mobile`
+  - `ios.bundleIdentifier = com.budgetincheck.mobile`
   - `ios.config.usesNonExemptEncryption = false`
   - `ios.infoPlist` includes camera + photo library usage strings
   - `expo-notifications` plugin enabled

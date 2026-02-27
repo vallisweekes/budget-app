@@ -16,12 +16,18 @@
     "beta": {
       "distribution": "store",
       "channel": "beta",
-      "autoIncrement": "buildNumber"
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://budget-app-theta-seven.vercel.app"
+      },
+      "autoIncrement": true
     },
     "production": {
       "distribution": "store",
       "channel": "production",
-      "autoIncrement": "buildNumber"
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://budgetincheck.com"
+      },
+      "autoIncrement": true
     }
   },
   "submit": {

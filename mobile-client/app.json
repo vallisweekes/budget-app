@@ -3,9 +3,7 @@
     "name": "BudgetIn Check",
     "slug": "budget-app",
     "version": "1.0.0",
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
+    "runtimeVersion": "1.0.0",
     "updates": {
       "fallbackToCacheTimeout": 0
     },
@@ -21,7 +19,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.budgetapp.mobile",
+      "bundleIdentifier": "com.budgetincheck.mobile",
       "buildNumber": "1",
       "config": {
         "usesNonExemptEncryption": false
@@ -37,8 +35,12 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0f282f"
       },
+      "package": "com.budgetincheck.mobile",
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -53,6 +55,11 @@
           "cameraPermission": "BudgetIn Check uses your camera to scan receipts and auto-fill expense details."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "031f0b35-bff9-490c-8b00-fb47b972fb44"
+      }
+    }
   }
 }

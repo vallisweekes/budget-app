@@ -23,6 +23,12 @@ This app uses NextAuth and requires a secret in production.
 - `DATABASE_URL`
 - `NEXTAUTH_URL`
 - `NEXTAUTH_SECRET`
+- `APP_URL` (used in emails and other absolute links)
+
+Production defaults should be:
+
+- `NEXTAUTH_URL=https://budgetincheck.com`
+- `APP_URL=https://budgetincheck.com`
 
 For PWA push notifications (web push):
 
