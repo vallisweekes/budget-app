@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -12,6 +13,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
@@ -47,6 +49,21 @@ type NotificationPrefs = {
   dueReminders: boolean;
   paymentAlerts: boolean;
 };
+
+function formatDateDmy(dateYmd: string): string {
+  const s = (dateYmd || "").trim();
+  if (!s) return "";
+  return s.replace(/^(\d{4})-(\d{2})-(\d{2})$/, "$3/$2/$1");
+}
+
+function normalizeDateToYmd(value: string): string | null {
+  const s = (value || "").trim();
+  if (!s) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(s);
+  if (match) return `${match[3]}-${match[2]}-${match[1]}`;
+  return null;
+}
 
 const PRIMARY_TABS: Array<{ id: SettingsTab; label: string }> = [
   { id: "details", label: "Details" },
@@ -184,6 +201,10 @@ export default function SettingsScreen({ navigation }: MainTabScreenProps<"Setti
   const [editDebtAgreementMissedMonths, setEditDebtAgreementMissedMonths] = useState("");
   const [editDebtAgreementMissedFee, setEditDebtAgreementMissedFee] = useState("");
 
+  const [showEditAgreementDatePicker, setShowEditAgreementDatePicker] = useState(false);
+  const editAgreementBeforeRef = React.useRef<string>("");
+  const [iosEditAgreementDraft, setIosEditAgreementDraft] = useState<Date>(new Date());
+
   const [addDebtName, setAddDebtName] = useState("");
   const [addDebtType, setAddDebtType] = useState<DebtKind>("credit_card");
   const [addDebtInitialBalance, setAddDebtInitialBalance] = useState("");
@@ -197,9 +218,71 @@ export default function SettingsScreen({ navigation }: MainTabScreenProps<"Setti
   const [addDebtAgreementMissedMonths, setAddDebtAgreementMissedMonths] = useState("");
   const [addDebtAgreementMissedFee, setAddDebtAgreementMissedFee] = useState("");
 
+  const [showAddAgreementDatePicker, setShowAddAgreementDatePicker] = useState(false);
+  const addAgreementBeforeRef = React.useRef<string>("");
+  const [iosAddAgreementDraft, setIosAddAgreementDraft] = useState<Date>(new Date());
+
   const [newPlanName, setNewPlanName] = useState("");
   const [newPlanType, setNewPlanType] = useState<PlanKind>("holiday");
   const [newPlanEventDate, setNewPlanEventDate] = useState("");
+
+  const [showPlanEventDatePicker, setShowPlanEventDatePicker] = useState(false);
+  const planEventBeforeRef = React.useRef<string>("");
+  const [iosPlanEventDraft, setIosPlanEventDraft] = useState<Date>(new Date());
+
+  const openEditAgreementDatePicker = useCallback(() => {
+    editAgreementBeforeRef.current = editDebtAgreementFirstPaymentDate;
+    setIosEditAgreementDraft(editDebtAgreementFirstPaymentDate ? new Date(`${editDebtAgreementFirstPaymentDate}T00:00:00`) : new Date());
+    setShowEditAgreementDatePicker(true);
+  }, [editDebtAgreementFirstPaymentDate]);
+
+  const cancelEditAgreementDatePicker = useCallback(() => {
+    setShowEditAgreementDatePicker(false);
+    if (editAgreementBeforeRef.current !== editDebtAgreementFirstPaymentDate) {
+      setEditDebtAgreementFirstPaymentDate(editAgreementBeforeRef.current);
+    }
+  }, [editDebtAgreementFirstPaymentDate]);
+
+  const closeEditAgreementDatePicker = useCallback(() => {
+    setEditDebtAgreementFirstPaymentDate(iosEditAgreementDraft.toISOString().slice(0, 10));
+    setShowEditAgreementDatePicker(false);
+  }, [iosEditAgreementDraft]);
+
+  const openAddAgreementDatePicker = useCallback(() => {
+    addAgreementBeforeRef.current = addDebtAgreementFirstPaymentDate;
+    setIosAddAgreementDraft(addDebtAgreementFirstPaymentDate ? new Date(`${addDebtAgreementFirstPaymentDate}T00:00:00`) : new Date());
+    setShowAddAgreementDatePicker(true);
+  }, [addDebtAgreementFirstPaymentDate]);
+
+  const cancelAddAgreementDatePicker = useCallback(() => {
+    setShowAddAgreementDatePicker(false);
+    if (addAgreementBeforeRef.current !== addDebtAgreementFirstPaymentDate) {
+      setAddDebtAgreementFirstPaymentDate(addAgreementBeforeRef.current);
+    }
+  }, [addDebtAgreementFirstPaymentDate]);
+
+  const closeAddAgreementDatePicker = useCallback(() => {
+    setAddDebtAgreementFirstPaymentDate(iosAddAgreementDraft.toISOString().slice(0, 10));
+    setShowAddAgreementDatePicker(false);
+  }, [iosAddAgreementDraft]);
+
+  const openPlanEventDatePicker = useCallback(() => {
+    planEventBeforeRef.current = newPlanEventDate;
+    setIosPlanEventDraft(newPlanEventDate ? new Date(`${newPlanEventDate}T00:00:00`) : new Date());
+    setShowPlanEventDatePicker(true);
+  }, [newPlanEventDate]);
+
+  const cancelPlanEventDatePicker = useCallback(() => {
+    setShowPlanEventDatePicker(false);
+    if (planEventBeforeRef.current !== newPlanEventDate) {
+      setNewPlanEventDate(planEventBeforeRef.current);
+    }
+  }, [newPlanEventDate]);
+
+  const closePlanEventDatePicker = useCallback(() => {
+    setNewPlanEventDate(iosPlanEventDraft.toISOString().slice(0, 10));
+    setShowPlanEventDatePicker(false);
+  }, [iosPlanEventDraft]);
 
   const detectedCountry = useMemo(() => parseLocaleCountry(), []);
   const currentPlanId = settings?.id ?? null;
@@ -530,7 +613,8 @@ export default function SettingsScreen({ navigation }: MainTabScreenProps<"Setti
     const monthlyPayment = Number(editDebtMonthlyPayment || 0);
     const installmentMonths = editDebtInstallmentMonths.trim() ? Number.parseInt(editDebtInstallmentMonths.trim(), 10) : null;
     const interestRate = editDebtInterestRate.trim() ? Number(editDebtInterestRate.trim()) : null;
-    const agreementFirstPaymentDate = editDebtAgreementFirstPaymentDate.trim();
+    const agreementFirstPaymentDateRaw = editDebtAgreementFirstPaymentDate.trim();
+    const agreementFirstPaymentDate = agreementFirstPaymentDateRaw ? normalizeDateToYmd(agreementFirstPaymentDateRaw) : "";
     const agreementMissedMonths = editDebtAgreementMissedMonths.trim() ? Number.parseInt(editDebtAgreementMissedMonths.trim(), 10) : 0;
     const agreementMissedPaymentFee = editDebtAgreementMissedFee.trim() ? Number(editDebtAgreementMissedFee.trim()) : 0;
 
@@ -563,8 +647,8 @@ export default function SettingsScreen({ navigation }: MainTabScreenProps<"Setti
         Alert.alert("Invalid interest rate", "Enter a valid APR (0 or more).");
         return;
       }
-      if (agreementFirstPaymentDate && !/^\d{4}-\d{2}-\d{2}$/.test(agreementFirstPaymentDate)) {
-        Alert.alert("Invalid first payment date", "Use YYYY-MM-DD (e.g. 2024-12-11).");
+      if (agreementFirstPaymentDateRaw && !agreementFirstPaymentDate) {
+        Alert.alert("Invalid first payment date", "Pick a date from the calendar.");
         return;
       }
       if (!Number.isFinite(agreementMissedMonths) || agreementMissedMonths < 0) {
@@ -629,7 +713,8 @@ export default function SettingsScreen({ navigation }: MainTabScreenProps<"Setti
     const monthlyPayment = Number(addDebtMonthlyPayment || 0);
     const installmentMonths = addDebtInstallmentMonths.trim() ? Number.parseInt(addDebtInstallmentMonths.trim(), 10) : null;
     const interestRate = addDebtInterestRate.trim() ? Number(addDebtInterestRate.trim()) : null;
-    const agreementFirstPaymentDate = addDebtAgreementFirstPaymentDate.trim();
+    const agreementFirstPaymentDateRaw = addDebtAgreementFirstPaymentDate.trim();
+    const agreementFirstPaymentDate = agreementFirstPaymentDateRaw ? normalizeDateToYmd(agreementFirstPaymentDateRaw) : "";
     const agreementMissedMonths = addDebtAgreementMissedMonths.trim() ? Number.parseInt(addDebtAgreementMissedMonths.trim(), 10) : 0;
     const agreementMissedPaymentFee = addDebtAgreementMissedFee.trim() ? Number(addDebtAgreementMissedFee.trim()) : 0;
     if (!name) {
@@ -661,8 +746,8 @@ export default function SettingsScreen({ navigation }: MainTabScreenProps<"Setti
         Alert.alert("Invalid interest rate", "Enter a valid APR (0 or more).");
         return;
       }
-      if (agreementFirstPaymentDate && !/^\d{4}-\d{2}-\d{2}$/.test(agreementFirstPaymentDate)) {
-        Alert.alert("Invalid first payment date", "Use YYYY-MM-DD (e.g. 2024-12-11).");
+      if (agreementFirstPaymentDateRaw && !agreementFirstPaymentDate) {
+        Alert.alert("Invalid first payment date", "Pick a date from the calendar.");
         return;
       }
       if (!Number.isFinite(agreementMissedMonths) || agreementMissedMonths < 0) {
@@ -735,8 +820,10 @@ export default function SettingsScreen({ navigation }: MainTabScreenProps<"Setti
       Alert.alert("Name required", "Enter a plan name.");
       return;
     }
-    if (!newPlanEventDate.trim()) {
-      Alert.alert("Event date required", "Enter an event date in YYYY-MM-DD format.");
+    const eventDateRaw = newPlanEventDate.trim();
+    const eventDate = normalizeDateToYmd(eventDateRaw);
+    if (!eventDate) {
+      Alert.alert("Event date required", "Pick an event date from the calendar.");
       return;
     }
 
@@ -747,7 +834,7 @@ export default function SettingsScreen({ navigation }: MainTabScreenProps<"Setti
         body: {
           kind: newPlanType,
           name,
-          eventDate: newPlanEventDate.trim(),
+          eventDate,
         },
       });
       setCreatePlanSheetOpen(false);
@@ -1168,27 +1255,60 @@ export default function SettingsScreen({ navigation }: MainTabScreenProps<"Setti
             </View>
             <Text style={styles.label}>Name</Text>
             <TextInput value={editDebtName} onChangeText={setEditDebtName} style={styles.input} />
-            <Text style={styles.label}>Current balance</Text>
-            <TextInput value={editDebtBalance} onChangeText={setEditDebtBalance} style={styles.input} keyboardType="decimal-pad" />
-            <Text style={styles.label}>Paid so far (optional)</Text>
-            <TextInput value={editDebtHistoricalPaid} onChangeText={setEditDebtHistoricalPaid} style={styles.input} keyboardType="decimal-pad" />
+
+            <View style={styles.twoColRow}>
+              <View style={styles.halfCol}>
+                <Text style={styles.label}>Current balance</Text>
+                <TextInput value={editDebtBalance} onChangeText={setEditDebtBalance} style={styles.input} keyboardType="decimal-pad" />
+              </View>
+              <View style={styles.halfCol}>
+                <Text style={styles.label}>Paid so far (optional)</Text>
+                <TextInput value={editDebtHistoricalPaid} onChangeText={setEditDebtHistoricalPaid} style={styles.input} keyboardType="decimal-pad" />
+              </View>
+            </View>
 
             {editDebtType !== "credit_card" ? (
               <>
-                <Text style={styles.label}>Initial amount</Text>
-                <TextInput value={editDebtInitialBalance} onChangeText={setEditDebtInitialBalance} style={styles.input} keyboardType="decimal-pad" />
-                <Text style={styles.label}>Monthly payment</Text>
-                <TextInput value={editDebtMonthlyPayment} onChangeText={setEditDebtMonthlyPayment} style={styles.input} keyboardType="decimal-pad" />
-                <Text style={styles.label}>Agreement months</Text>
-                <TextInput value={editDebtInstallmentMonths} onChangeText={setEditDebtInstallmentMonths} style={styles.input} keyboardType="number-pad" />
-                <Text style={styles.label}>APR % (optional)</Text>
-                <TextInput value={editDebtInterestRate} onChangeText={setEditDebtInterestRate} style={styles.input} keyboardType="decimal-pad" />
-                <Text style={styles.label}>1st payment date (optional, YYYY-MM-DD)</Text>
-                <TextInput value={editDebtAgreementFirstPaymentDate} onChangeText={setEditDebtAgreementFirstPaymentDate} style={styles.input} autoCapitalize="none" />
-                <Text style={styles.label}>Missed months (optional)</Text>
-                <TextInput value={editDebtAgreementMissedMonths} onChangeText={setEditDebtAgreementMissedMonths} style={styles.input} keyboardType="number-pad" />
-                <Text style={styles.label}>Missed payment fee (optional)</Text>
-                <TextInput value={editDebtAgreementMissedFee} onChangeText={setEditDebtAgreementMissedFee} style={styles.input} keyboardType="decimal-pad" />
+                <View style={styles.twoColRow}>
+                  <View style={styles.halfCol}>
+                    <Text style={styles.label}>Initial amount</Text>
+                    <TextInput value={editDebtInitialBalance} onChangeText={setEditDebtInitialBalance} style={styles.input} keyboardType="decimal-pad" />
+                  </View>
+                  <View style={styles.halfCol}>
+                    <Text style={styles.label}>Monthly payment</Text>
+                    <TextInput value={editDebtMonthlyPayment} onChangeText={setEditDebtMonthlyPayment} style={styles.input} keyboardType="decimal-pad" />
+                  </View>
+                </View>
+
+                <View style={styles.twoColRow}>
+                  <View style={styles.halfCol}>
+                    <Text style={styles.label}>Agreement months</Text>
+                    <TextInput value={editDebtInstallmentMonths} onChangeText={setEditDebtInstallmentMonths} style={styles.input} keyboardType="number-pad" />
+                  </View>
+                  <View style={styles.halfCol}>
+                    <Text style={styles.label}>APR % (optional)</Text>
+                    <TextInput value={editDebtInterestRate} onChangeText={setEditDebtInterestRate} style={styles.input} keyboardType="decimal-pad" />
+                  </View>
+                </View>
+
+                <Text style={styles.label}>1st payment date (calendar, optional)</Text>
+                <Pressable style={[styles.input, styles.dateInput]} onPress={openEditAgreementDatePicker}>
+                  <Text style={[styles.dateValue, !editDebtAgreementFirstPaymentDate && styles.dateValuePlaceholder]}>
+                    {editDebtAgreementFirstPaymentDate ? formatDateDmy(editDebtAgreementFirstPaymentDate) : "Select date"}
+                  </Text>
+                  <Ionicons name="calendar-outline" size={18} color={T.accent} />
+                </Pressable>
+
+                <View style={styles.twoColRow}>
+                  <View style={styles.halfCol}>
+                    <Text style={styles.label}>Missed months (optional)</Text>
+                    <TextInput value={editDebtAgreementMissedMonths} onChangeText={setEditDebtAgreementMissedMonths} style={styles.input} keyboardType="number-pad" />
+                  </View>
+                  <View style={styles.halfCol}>
+                    <Text style={styles.label}>Missed payment fee (optional)</Text>
+                    <TextInput value={editDebtAgreementMissedFee} onChangeText={setEditDebtAgreementMissedFee} style={styles.input} keyboardType="decimal-pad" />
+                  </View>
+                </View>
               </>
             ) : null}
             {editDebtType === "credit_card" ? (
@@ -1243,27 +1363,60 @@ export default function SettingsScreen({ navigation }: MainTabScreenProps<"Setti
             </View>
             <Text style={styles.label}>Name</Text>
             <TextInput value={addDebtName} onChangeText={setAddDebtName} style={styles.input} />
-            <Text style={styles.label}>Current balance</Text>
-            <TextInput value={addDebtBalance} onChangeText={setAddDebtBalance} style={styles.input} keyboardType="decimal-pad" />
-            <Text style={styles.label}>Paid so far (optional)</Text>
-            <TextInput value={addDebtHistoricalPaid} onChangeText={setAddDebtHistoricalPaid} style={styles.input} keyboardType="decimal-pad" />
+
+            <View style={styles.twoColRow}>
+              <View style={styles.halfCol}>
+                <Text style={styles.label}>Current balance</Text>
+                <TextInput value={addDebtBalance} onChangeText={setAddDebtBalance} style={styles.input} keyboardType="decimal-pad" />
+              </View>
+              <View style={styles.halfCol}>
+                <Text style={styles.label}>Paid so far (optional)</Text>
+                <TextInput value={addDebtHistoricalPaid} onChangeText={setAddDebtHistoricalPaid} style={styles.input} keyboardType="decimal-pad" />
+              </View>
+            </View>
 
             {addDebtType !== "credit_card" ? (
               <>
-                <Text style={styles.label}>Initial amount</Text>
-                <TextInput value={addDebtInitialBalance} onChangeText={setAddDebtInitialBalance} style={styles.input} keyboardType="decimal-pad" />
-                <Text style={styles.label}>Monthly payment</Text>
-                <TextInput value={addDebtMonthlyPayment} onChangeText={setAddDebtMonthlyPayment} style={styles.input} keyboardType="decimal-pad" />
-                <Text style={styles.label}>Agreement months</Text>
-                <TextInput value={addDebtInstallmentMonths} onChangeText={setAddDebtInstallmentMonths} style={styles.input} keyboardType="number-pad" />
-                <Text style={styles.label}>APR % (optional)</Text>
-                <TextInput value={addDebtInterestRate} onChangeText={setAddDebtInterestRate} style={styles.input} keyboardType="decimal-pad" />
-                <Text style={styles.label}>1st payment date (optional, YYYY-MM-DD)</Text>
-                <TextInput value={addDebtAgreementFirstPaymentDate} onChangeText={setAddDebtAgreementFirstPaymentDate} style={styles.input} autoCapitalize="none" />
-                <Text style={styles.label}>Missed months (optional)</Text>
-                <TextInput value={addDebtAgreementMissedMonths} onChangeText={setAddDebtAgreementMissedMonths} style={styles.input} keyboardType="number-pad" />
-                <Text style={styles.label}>Missed payment fee (optional)</Text>
-                <TextInput value={addDebtAgreementMissedFee} onChangeText={setAddDebtAgreementMissedFee} style={styles.input} keyboardType="decimal-pad" />
+                <View style={styles.twoColRow}>
+                  <View style={styles.halfCol}>
+                    <Text style={styles.label}>Initial amount</Text>
+                    <TextInput value={addDebtInitialBalance} onChangeText={setAddDebtInitialBalance} style={styles.input} keyboardType="decimal-pad" />
+                  </View>
+                  <View style={styles.halfCol}>
+                    <Text style={styles.label}>Monthly payment</Text>
+                    <TextInput value={addDebtMonthlyPayment} onChangeText={setAddDebtMonthlyPayment} style={styles.input} keyboardType="decimal-pad" />
+                  </View>
+                </View>
+
+                <View style={styles.twoColRow}>
+                  <View style={styles.halfCol}>
+                    <Text style={styles.label}>Agreement months</Text>
+                    <TextInput value={addDebtInstallmentMonths} onChangeText={setAddDebtInstallmentMonths} style={styles.input} keyboardType="number-pad" />
+                  </View>
+                  <View style={styles.halfCol}>
+                    <Text style={styles.label}>APR % (optional)</Text>
+                    <TextInput value={addDebtInterestRate} onChangeText={setAddDebtInterestRate} style={styles.input} keyboardType="decimal-pad" />
+                  </View>
+                </View>
+
+                <Text style={styles.label}>1st payment date (calendar, optional)</Text>
+                <Pressable style={[styles.input, styles.dateInput]} onPress={openAddAgreementDatePicker}>
+                  <Text style={[styles.dateValue, !addDebtAgreementFirstPaymentDate && styles.dateValuePlaceholder]}>
+                    {addDebtAgreementFirstPaymentDate ? formatDateDmy(addDebtAgreementFirstPaymentDate) : "Select date"}
+                  </Text>
+                  <Ionicons name="calendar-outline" size={18} color={T.accent} />
+                </Pressable>
+
+                <View style={styles.twoColRow}>
+                  <View style={styles.halfCol}>
+                    <Text style={styles.label}>Missed months (optional)</Text>
+                    <TextInput value={addDebtAgreementMissedMonths} onChangeText={setAddDebtAgreementMissedMonths} style={styles.input} keyboardType="number-pad" />
+                  </View>
+                  <View style={styles.halfCol}>
+                    <Text style={styles.label}>Missed payment fee (optional)</Text>
+                    <TextInput value={addDebtAgreementMissedFee} onChangeText={setAddDebtAgreementMissedFee} style={styles.input} keyboardType="decimal-pad" />
+                  </View>
+                </View>
               </>
             ) : null}
             {addDebtType === "credit_card" ? (
@@ -1301,8 +1454,27 @@ export default function SettingsScreen({ navigation }: MainTabScreenProps<"Setti
             </View>
             <Text style={styles.label}>Plan name</Text>
             <TextInput value={newPlanName} onChangeText={setNewPlanName} style={styles.input} />
-            <Text style={styles.label}>Event date (YYYY-MM-DD)</Text>
-            <TextInput value={newPlanEventDate} onChangeText={setNewPlanEventDate} style={styles.input} autoCapitalize="none" />
+            <Text style={styles.label}>Event date (calendar)</Text>
+            <Pressable style={[styles.input, styles.dateInput]} onPress={openPlanEventDatePicker}>
+              <Text style={[styles.dateValue, !newPlanEventDate && styles.dateValuePlaceholder]}>
+                {newPlanEventDate ? formatDateDmy(newPlanEventDate) : "Select date"}
+              </Text>
+              <Ionicons name="calendar-outline" size={18} color={T.accent} />
+            </Pressable>
+
+            {showPlanEventDatePicker && Platform.OS === "android" ? (
+              <View style={{ marginBottom: 6 }}>
+                <DateTimePicker
+                  value={newPlanEventDate ? new Date(`${newPlanEventDate}T00:00:00`) : new Date()}
+                  mode="date"
+                  display="calendar"
+                  onChange={(event, selectedDate) => {
+                    setShowPlanEventDatePicker(false);
+                    if (event.type === "set" && selectedDate) setNewPlanEventDate(selectedDate.toISOString().slice(0, 10));
+                  }}
+                />
+              </View>
+            ) : null}
             <View style={styles.sheetActions}>
               <Pressable style={styles.outlineBtnWide} onPress={() => setCreatePlanSheetOpen(false)}><Text style={styles.outlineBtnText}>Cancel</Text></Pressable>
               <Pressable style={[styles.primaryBtnWide, saveBusy && styles.disabled]} onPress={createSubPlan} disabled={saveBusy}><Text style={styles.primaryBtnText}>{saveBusy ? "Creating…" : "Create"}</Text></Pressable>
@@ -1322,6 +1494,119 @@ export default function SettingsScreen({ navigation }: MainTabScreenProps<"Setti
           void confirmDeletePlan();
         }}
       />
+
+      {/* Agreement 1st payment date pickers */}
+      {showEditAgreementDatePicker && Platform.OS === "android" ? (
+        <DateTimePicker
+          value={editDebtAgreementFirstPaymentDate ? new Date(`${editDebtAgreementFirstPaymentDate}T00:00:00`) : new Date()}
+          mode="date"
+          display="calendar"
+          onChange={(event, selectedDate) => {
+            setShowEditAgreementDatePicker(false);
+            if (event.type === "set" && selectedDate) setEditDebtAgreementFirstPaymentDate(selectedDate.toISOString().slice(0, 10));
+          }}
+        />
+      ) : null}
+
+      {Platform.OS === "ios" ? (
+        <Modal
+          visible={showEditAgreementDatePicker}
+          transparent
+          animationType="fade"
+          presentationStyle="overFullScreen"
+          onRequestClose={cancelEditAgreementDatePicker}
+        >
+          <View style={styles.dateModalOverlay}>
+            <Pressable style={styles.dateModalBackdrop} onPress={cancelEditAgreementDatePicker} />
+            <View style={styles.dateModalSheet}>
+              <View style={styles.dateModalHeader}>
+                <Pressable onPress={cancelEditAgreementDatePicker}><Text style={styles.dateModalCancelTxt}>Cancel</Text></Pressable>
+                <Pressable onPress={closeEditAgreementDatePicker}><Text style={styles.dateModalDoneTxt}>Done</Text></Pressable>
+              </View>
+              <DateTimePicker
+                value={iosEditAgreementDraft}
+                mode="date"
+                display="inline"
+                themeVariant="dark"
+                onChange={(event, selectedDate) => {
+                  if (event.type === "set" && selectedDate) setIosEditAgreementDraft(selectedDate);
+                }}
+              />
+            </View>
+          </View>
+        </Modal>
+      ) : null}
+
+      {showAddAgreementDatePicker && Platform.OS === "android" ? (
+        <DateTimePicker
+          value={addDebtAgreementFirstPaymentDate ? new Date(`${addDebtAgreementFirstPaymentDate}T00:00:00`) : new Date()}
+          mode="date"
+          display="calendar"
+          onChange={(event, selectedDate) => {
+            setShowAddAgreementDatePicker(false);
+            if (event.type === "set" && selectedDate) setAddDebtAgreementFirstPaymentDate(selectedDate.toISOString().slice(0, 10));
+          }}
+        />
+      ) : null}
+
+      {Platform.OS === "ios" ? (
+        <Modal
+          visible={showAddAgreementDatePicker}
+          transparent
+          animationType="fade"
+          presentationStyle="overFullScreen"
+          onRequestClose={cancelAddAgreementDatePicker}
+        >
+          <View style={styles.dateModalOverlay}>
+            <Pressable style={styles.dateModalBackdrop} onPress={cancelAddAgreementDatePicker} />
+            <View style={styles.dateModalSheet}>
+              <View style={styles.dateModalHeader}>
+                <Pressable onPress={cancelAddAgreementDatePicker}><Text style={styles.dateModalCancelTxt}>Cancel</Text></Pressable>
+                <Pressable onPress={closeAddAgreementDatePicker}><Text style={styles.dateModalDoneTxt}>Done</Text></Pressable>
+              </View>
+              <DateTimePicker
+                value={iosAddAgreementDraft}
+                mode="date"
+                display="inline"
+                themeVariant="dark"
+                onChange={(event, selectedDate) => {
+                  if (event.type === "set" && selectedDate) setIosAddAgreementDraft(selectedDate);
+                }}
+              />
+            </View>
+          </View>
+        </Modal>
+      ) : null}
+
+      {/* Plan event date picker (iOS) */}
+      {Platform.OS === "ios" ? (
+        <Modal
+          visible={showPlanEventDatePicker}
+          transparent
+          animationType="fade"
+          presentationStyle="overFullScreen"
+          onRequestClose={cancelPlanEventDatePicker}
+        >
+          <View style={styles.dateModalOverlay}>
+            <Pressable style={styles.dateModalBackdrop} onPress={cancelPlanEventDatePicker} />
+            <View style={styles.dateModalSheet}>
+              <View style={styles.dateModalHeader}>
+                <Pressable onPress={cancelPlanEventDatePicker}><Text style={styles.dateModalCancelTxt}>Cancel</Text></Pressable>
+                <Pressable onPress={closePlanEventDatePicker}><Text style={styles.dateModalDoneTxt}>Done</Text></Pressable>
+              </View>
+              <DateTimePicker
+                value={iosPlanEventDraft}
+                mode="date"
+                display="inline"
+                themeVariant="dark"
+                onChange={(event, selectedDate) => {
+                  if (event.type === "set" && selectedDate) setIosPlanEventDraft(selectedDate);
+                }}
+              />
+            </View>
+          </View>
+        </Modal>
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -1401,6 +1686,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 14,
     marginBottom: 16,
+  },
+  halfCol: {
+    flex: 1,
   },
   plainBudgetBlock: {
     marginBottom: 16,
@@ -1688,6 +1976,35 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
+  dateInput: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  dateValue: { color: T.text, fontWeight: "700" },
+  dateValuePlaceholder: { color: T.textDim, fontWeight: "700" },
+
+  dateModalOverlay: { flex: 1, justifyContent: "flex-end" },
+  dateModalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.55)" },
+  dateModalSheet: {
+    backgroundColor: T.card,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    borderTopWidth: 1,
+    borderTopColor: T.border,
+    paddingBottom: 18,
+  },
+  dateModalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: T.border,
+  },
+  dateModalCancelTxt: { color: T.textDim, fontSize: 16, fontWeight: "700" },
+  dateModalDoneTxt: { color: T.accent, fontSize: 16, fontWeight: "800" },
   choiceRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 4 },
   choiceBtn: {
     borderWidth: 1,

@@ -169,7 +169,7 @@ export function useDebtDetailController({ debtId, debtName, onDeleted }: Params)
     const creditLimitNum = debt?.creditLimit != null ? parseFloat(debt.creditLimit) : null;
     const dueDateValue = debt?.dueDate ? new Date(debt.dueDate) : null;
     const dueDateLabel = dueDateValue && Number.isFinite(dueDateValue.getTime())
-      ? dueDateValue.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+      ? dueDateValue.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" })
       : "Not set";
 
     const dueMonthKey = dueDateValue && Number.isFinite(dueDateValue.getTime())

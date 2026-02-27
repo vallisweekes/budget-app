@@ -640,7 +640,7 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
                   <DateTimePicker
                     value={editState?.dueDate ? new Date(editState.dueDate + 'T00:00:00') : new Date()}
                     mode="date"
-                    display="default"
+                    display="calendar"
                     onChange={(event, selectedDate) => {
                       setShowDatePicker(false);
                       if (event.type === 'set' && selectedDate) {
@@ -674,7 +674,7 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
                       <DateTimePicker
                         value={iosDueDateDraft}
                         mode="date"
-                        display="spinner"
+                        display="inline"
                         onChange={(event, selectedDate) => {
                           if (event.type === 'dismissed') return;
                           const next = selectedDate ?? iosDueDateDraft;

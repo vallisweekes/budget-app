@@ -29,11 +29,11 @@ export default function PaymentHistorySection({ payments, currency, open, onTogg
         ) : (
           payments.map((payment, index) => (
             <View key={payment.id} style={[s.payHistRow, index > 0 && s.payHistBorder]}>
-              <View>
-                <Text style={s.payHistDate}>
+              <View style={s.payHistLeft}>
+                <Text style={s.payHistDate} numberOfLines={1} ellipsizeMode="tail">
                   {new Date(payment.paidAt).toLocaleDateString("en-GB", {
-                    day: "numeric",
-                    month: "short",
+                    day: "2-digit",
+                    month: "2-digit",
                     year: "numeric",
                   })}
                 </Text>
@@ -41,10 +41,16 @@ export default function PaymentHistorySection({ payments, currency, open, onTogg
 					const notes = typeof payment.notes === "string" ? payment.notes.trim() : "";
 					if (!notes) return null;
 					if (/^month:\d{4}-\d{2}$/.test(notes)) return null;
-					return <Text style={s.payHistSource}>{notes}</Text>;
+					return (
+						<Text style={s.payHistSource} numberOfLines={1} ellipsizeMode="tail">
+							{notes}
+						</Text>
+					);
 				})()}
               </View>
-              <Text style={s.payHistAmt}>- {fmt(parseFloat(payment.amount), currency)}</Text>
+              <Text style={s.payHistAmt} numberOfLines={1} ellipsizeMode="clip">
+                - {fmt(parseFloat(payment.amount), currency)}
+              </Text>
             </View>
           ))
         )
@@ -79,8 +85,9 @@ const s = StyleSheet.create({
   histCountText: { color: T.textDim, fontSize: 10, fontWeight: "800" },
   payHistRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 8 },
   payHistBorder: { borderTopWidth: 1, borderTopColor: T.border },
+  payHistLeft: { flex: 1, paddingRight: 12 },
   payHistDate: { color: T.text, fontSize: 13, fontWeight: "800" },
   payHistSource: { color: T.textDim, fontSize: 12, marginTop: 2, fontWeight: "600" },
-  payHistAmt: { color: T.green, fontSize: 14, fontWeight: "800" },
+  payHistAmt: { color: T.green, fontSize: 14, fontWeight: "800", flexShrink: 0, textAlign: "right" },
   emptyHistory: { color: T.textDim, fontSize: 13, textAlign: "center", paddingVertical: 16, fontWeight: "600" },
 });

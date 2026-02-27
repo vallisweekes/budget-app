@@ -60,6 +60,40 @@ function parseOptionalInt(value: unknown): { ok: true; int: number | null } | { 
   return { ok: false, error: "Invalid number" };
 }
 
+function parseAgreementFirstPaymentDateInput(value: unknown): Date | null {
+  if (typeof value !== "string") return null;
+  const s = value.trim();
+  if (!s) return null;
+
+  // Accept either YYYY-MM-DD (legacy) or DD/MM/YYYY (global app format).
+  const ymd = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  if (ymd) {
+    const d = new Date(`${ymd[1]}-${ymd[2]}-${ymd[3]}T00:00:00.000Z`);
+    return Number.isFinite(d.getTime()) ? d : null;
+  }
+
+  const dmy = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(s);
+  if (!dmy) return null;
+  const day = Number(dmy[1]);
+  const month = Number(dmy[2]);
+  const year = Number(dmy[3]);
+  if (!Number.isFinite(day) || !Number.isFinite(month) || !Number.isFinite(year)) return null;
+  const monthIndex = month - 1;
+  const utc = new Date(Date.UTC(year, monthIndex, day, 0, 0, 0, 0));
+  if (!Number.isFinite(utc.getTime())) return null;
+  // Guard against JS date rollover (e.g. 31/02/2026).
+  if (utc.getUTCFullYear() !== year || utc.getUTCMonth() !== monthIndex || utc.getUTCDate() !== day) return null;
+  return utc;
+}
+
+function addMonthsUtcWithDay(firstPaymentDate: Date, monthOffset: number, dayOfMonth: number): Date {
+  const y = firstPaymentDate.getUTCFullYear();
+  const m = firstPaymentDate.getUTCMonth() + monthOffset;
+  const daysInMonth = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+  const clampedDay = Math.max(1, Math.min(daysInMonth, Math.trunc(dayOfMonth)));
+  return new Date(Date.UTC(y, m, clampedDay, 0, 0, 0, 0));
+}
+
 function unauthorized() {
   return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 }
@@ -302,6 +336,17 @@ export async function PATCH(
 
     const raw = body as Record<string, unknown>;
     const data: Record<string, unknown> = {};
+
+    let agreementBackfill:
+      | null
+      | {
+          firstPaymentDate: Date;
+          paymentsMade: number;
+          monthlyPayment: number;
+          dayOfMonth: number;
+          missedMonths: number;
+        } = null;
+
     if (typeof raw.name === "string") data.name = raw.name;
     if (typeof raw.type === "string") data.type = raw.type;
     if (typeof raw.initialBalance !== "undefined") data.initialBalance = raw.initialBalance;
@@ -348,6 +393,18 @@ export async function PATCH(
 
     // Agreement baseline (for loans that started before tracking in-app)
     if (typeof (raw as any).agreementFirstPaymentDate !== "undefined") {
+      const agreementFirstRaw = (raw as any).agreementFirstPaymentDate;
+
+      // Allow clearing the field.
+      if (agreementFirstRaw == null || (typeof agreementFirstRaw === "string" && !agreementFirstRaw.trim())) {
+        data.historicalPaidAmount = 0;
+        if (!hasExplicitPaidAmount) {
+          const existingTotal = toNumber((existing as any).paidAmount);
+          const existingHistorical = toNumber((existing as any).historicalPaidAmount);
+          const paymentsPaid = Math.max(0, existingTotal - Math.max(0, existingHistorical));
+          data.paidAmount = paymentsPaid;
+        }
+      } else {
       const baseline = computeAgreementBaseline({
         initialBalance: typeof raw.initialBalance !== "undefined" ? raw.initialBalance : (existing as any).initialBalance,
         monthlyPayment: typeof raw.amount !== "undefined" ? raw.amount : (existing as any).amount,
@@ -371,6 +428,34 @@ export async function PATCH(
       // Optionally override current balance based on the agreement schedule.
       data.currentBalance = baseline.computedCurrentBalance;
       data.paid = baseline.computedCurrentBalance === 0;
+
+      // If the user reports no missed payments, we can backfill the payment history into real rows.
+      // This is idempotent and avoids duplicates by month.
+      const missedMonthsRaw = toNumber((raw as any).agreementMissedMonths);
+      const missedMonths = Number.isFinite(missedMonthsRaw) ? Math.max(0, Math.trunc(missedMonthsRaw)) : 0;
+      if (existing.sourceType !== "expense") {
+        const firstPaymentDate = parseAgreementFirstPaymentDateInput(agreementFirstRaw);
+        const monthlyPayment = Math.max(0, toNumber(typeof raw.amount !== "undefined" ? raw.amount : (existing as any).amount));
+        const dayOfMonthCandidate =
+          typeof raw.dueDay !== "undefined"
+            ? (data as any).dueDay
+            : (existing as any).dueDay;
+        const dayOfMonth =
+          Number.isFinite(dayOfMonthCandidate) && Math.trunc(dayOfMonthCandidate) > 0
+            ? Math.trunc(dayOfMonthCandidate)
+            : (firstPaymentDate ? firstPaymentDate.getUTCDate() : 1);
+
+        if (firstPaymentDate && monthlyPayment > 0 && baseline.paymentsMade > 0) {
+          agreementBackfill = {
+            firstPaymentDate,
+            paymentsMade: baseline.paymentsMade,
+            monthlyPayment,
+            dayOfMonth,
+            missedMonths,
+          };
+        }
+      }
+      }
     }
     if (typeof raw.creditLimit !== "undefined") data.creditLimit = raw.creditLimit;
     if (typeof raw.defaultPaymentSource !== "undefined") data.defaultPaymentSource = raw.defaultPaymentSource;
@@ -379,9 +464,74 @@ export async function PATCH(
       return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
     }
 
-    const debt = await prisma.debt.update({
-      where: { id },
-      data,
+    const debt = await prisma.$transaction(async (tx) => {
+      const updated = await tx.debt.update({
+        where: { id },
+        data,
+      });
+
+      if (!agreementBackfill) return updated;
+
+      const now = new Date();
+      const existingPayments = await tx.debtPayment.findMany({
+        where: {
+          debtId: id,
+          paidAt: { gte: agreementBackfill.firstPaymentDate, lte: now },
+        },
+        select: { year: true, month: true },
+      });
+      const existingMonthKeys = new Set(existingPayments.map((p) => `${p.year}-${p.month}`));
+
+      const toCreate: Array<{
+        debtId: string;
+        amount: string;
+        paidAt: Date;
+        year: number;
+        month: number;
+        source: "income";
+        notes: string;
+      }> = [];
+
+      for (let i = 0; i < agreementBackfill.paymentsMade; i += 1) {
+        const paidAt = addMonthsUtcWithDay(agreementBackfill.firstPaymentDate, i, agreementBackfill.dayOfMonth);
+        if (paidAt.getTime() > now.getTime()) continue;
+        const year = paidAt.getUTCFullYear();
+        const month = paidAt.getUTCMonth() + 1;
+        const key = `${year}-${month}`;
+        if (existingMonthKeys.has(key)) continue;
+        existingMonthKeys.add(key);
+        toCreate.push({
+          debtId: id,
+          amount: String(agreementBackfill.monthlyPayment),
+          paidAt,
+          year,
+          month,
+          source: "income",
+          notes:
+            agreementBackfill.missedMonths > 0
+              ? "Backfilled from agreement (assumes missed months were most recent)"
+              : "Backfilled from agreement (assumed on-time payments)",
+        });
+      }
+
+      if (toCreate.length) {
+        await tx.debtPayment.createMany({ data: toCreate });
+      }
+
+      // Once payments are represented as rows, avoid double-counting via historicalPaidAmount.
+      const paidAgg = await tx.debtPayment.aggregate({
+        where: { debtId: id },
+        _sum: { amount: true },
+      });
+      const totalPaidFromRows = Math.max(0, toNumber(paidAgg._sum.amount ?? 0));
+
+      return await tx.debt.update({
+        where: { id },
+        data: {
+          historicalPaidAmount: 0,
+          paidAmount: String(totalPaidFromRows),
+        },
+      });
     });
 
     return NextResponse.json(withMissedPaymentFlag(debt));

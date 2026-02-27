@@ -2,7 +2,7 @@ import React from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
+import { useFocusEffect, useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 
 import type { DebtStackParamList } from "@/navigation/types";
 import { T } from "@/lib/theme";
@@ -29,6 +29,12 @@ export default function DebtDetailScreen() {
   const state = useDebtDetailController({ debtId, debtName, onDeleted: () => navigation.goBack() });
   const { debt, loading, error, currency, derived } = state;
 
+  useFocusEffect(
+    React.useCallback(() => {
+      state.load();
+    }, [state.load])
+  );
+
   if (loading) {
     return (
       <SafeAreaView style={s.safe}>
@@ -50,6 +56,9 @@ export default function DebtDetailScreen() {
       </SafeAreaView>
     );
   }
+
+  const plannedMonthlyNum = debt.amount != null ? Number(debt.amount) : NaN;
+  const showPlannedMonthly = !derived.isCardDebt && Number.isFinite(plannedMonthlyNum) && plannedMonthlyNum > 0;
 
   return (
     <SafeAreaView style={s.safe}>
@@ -85,8 +94,20 @@ export default function DebtDetailScreen() {
             dueDateLabel={derived.dueDateLabel}
             dueStatusSub={!derived.dueCoveredThisCycle && derived.dueDateLabel !== "Not set" ? (derived.isMissed ? "Missed (+5 day grace passed)" : derived.isOverdue ? "Overdue" : "On schedule") : undefined}
             dueTone={derived.dueCoveredThisCycle ? "green" : derived.isMissed ? "red" : derived.isOverdue ? "orange" : "normal"}
-            monthlyOrInterestLabel={derived.monthlyMinNum != null && derived.monthlyMinNum > 0 ? "Monthly min" : "Interest Rate"}
-            monthlyOrInterestValue={derived.monthlyMinNum != null && derived.monthlyMinNum > 0 ? fmt(derived.monthlyMinNum, currency) : (derived.interestRateNum != null && derived.interestRateNum > 0 ? `${derived.interestRateNum}%` : "—")}
+            monthlyOrInterestLabel={
+              derived.isCardDebt
+                ? (derived.monthlyMinNum != null && derived.monthlyMinNum > 0 ? "Monthly min" : "Interest Rate")
+                : (showPlannedMonthly ? "Monthly payment" : "Interest Rate")
+            }
+            monthlyOrInterestValue={
+              derived.isCardDebt
+                ? (derived.monthlyMinNum != null && derived.monthlyMinNum > 0
+                    ? fmt(derived.monthlyMinNum, currency)
+                    : (derived.interestRateNum != null && derived.interestRateNum > 0 ? `${derived.interestRateNum}%` : "—"))
+                : (showPlannedMonthly
+                    ? fmt(plannedMonthlyNum, currency)
+                    : (derived.interestRateNum != null && derived.interestRateNum > 0 ? `${derived.interestRateNum}%` : "—"))
+            }
           />
 
           {!derived.isPaid ? (

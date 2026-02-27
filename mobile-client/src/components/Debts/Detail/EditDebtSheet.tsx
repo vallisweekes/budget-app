@@ -94,7 +94,7 @@ export default function EditDebtSheet(props: Props) {
                   <DateTimePicker
                     value={dueDate ? new Date(`${dueDate}T00:00:00`) : new Date()}
                     mode="date"
-                    display="default"
+                    display="calendar"
                     onChange={(event, selectedDate) => {
                       onSetShowDatePicker(false);
                       if (event.type === "set" && selectedDate) onDateChange(selectedDate.toISOString().slice(0, 10));
@@ -126,7 +126,7 @@ export default function EditDebtSheet(props: Props) {
                     <DateTimePicker
                       value={iosDueDateDraft}
                       mode="date"
-                      display="spinner"
+                      display="inline"
                       onChange={(event, selectedDate) => {
                         if (event.type === "set" && selectedDate) setIosDueDateDraft(selectedDate);
                       }}
@@ -199,8 +199,8 @@ const s = StyleSheet.create({
   dateModalCancelTxt: { color: T.textDim, fontSize: 14, fontWeight: "700" },
   dateModalDoneTxt: { color: T.accent, fontSize: 14, fontWeight: "800" },
   sheetCard: { backgroundColor: T.card, height: "88%", borderTopLeftRadius: 20, borderTopRightRadius: 20, borderTopWidth: 1, borderTopColor: T.border, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 20, gap: 14 },
-  sheetScroll: { maxHeight: 460 },
-  sheetScrollContent: { gap: 10, paddingBottom: 8 },
+  sheetScroll: { flex: 1, minHeight: 0 },
+  sheetScrollContent: { gap: 10, paddingBottom: 8, flexGrow: 1 },
   sheetHandle: { width: 40, height: 4, borderRadius: 2, alignSelf: "center", backgroundColor: T.border },
   formGroup: { flex: 1, gap: 8 },
   formRow: { flexDirection: "row", gap: 12, marginBottom: 2 },

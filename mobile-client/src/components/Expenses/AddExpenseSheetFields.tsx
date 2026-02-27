@@ -193,7 +193,7 @@ export default function AddExpenseSheetFields({
           <DateTimePicker
             value={dueDateObj}
             mode="date"
-            display="default"
+            display="calendar"
             onChange={(event, selected) => {
               setShowPicker(false);
               if (event.type === "set" && selected) {
@@ -226,7 +226,7 @@ export default function AddExpenseSheetFields({
                 <DateTimePicker
                   value={iosDraft}
                   mode="date"
-                  display="spinner"
+                  display="inline"
                   themeVariant="dark"
                   onChange={(_, selected) => {
                     if (selected) setIosDraft(selected);

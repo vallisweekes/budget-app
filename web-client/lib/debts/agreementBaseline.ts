@@ -18,10 +18,26 @@ function parseYmd(value: unknown): Date | null {
 	if (typeof value !== "string") return null;
 	const s = value.trim();
 	if (!s) return null;
-	const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
-	if (!match) return null;
-	const d = new Date(`${match[1]}-${match[2]}-${match[3]}T00:00:00.000Z`);
-	return Number.isFinite(d.getTime()) ? d : null;
+
+	// Accept either YYYY-MM-DD (legacy) or DD/MM/YYYY (global app format).
+	const ymd = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+	if (ymd) {
+		const d = new Date(`${ymd[1]}-${ymd[2]}-${ymd[3]}T00:00:00.000Z`);
+		return Number.isFinite(d.getTime()) ? d : null;
+	}
+
+	const dmy = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(s);
+	if (!dmy) return null;
+	const day = Number(dmy[1]);
+	const month = Number(dmy[2]);
+	const year = Number(dmy[3]);
+	if (!Number.isFinite(day) || !Number.isFinite(month) || !Number.isFinite(year)) return null;
+	const monthIndex = month - 1;
+	const utc = new Date(Date.UTC(year, monthIndex, day, 0, 0, 0, 0));
+	if (!Number.isFinite(utc.getTime())) return null;
+	// Guard against JS date rollover (e.g. 31/02/2026).
+	if (utc.getUTCFullYear() !== year || utc.getUTCMonth() !== monthIndex || utc.getUTCDate() !== day) return null;
+	return utc;
 }
 
 function diffScheduledPayments(params: { firstPaymentDate: Date; now: Date; dayOfMonth: number }): number {

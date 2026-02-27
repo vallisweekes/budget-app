@@ -33,6 +33,18 @@ function paymentMatchKey(p: { amount: number; paidAt: Date }) {
   return `${p.amount.toFixed(2)}|${p.paidAt.toISOString()}`;
 }
 
+function addMonthsUtcWithDay(base: Date, monthOffset: number, dayOfMonth: number): Date {
+  const y = base.getUTCFullYear();
+  const m = base.getUTCMonth() + monthOffset;
+  const daysInMonth = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+  const clampedDay = Math.max(1, Math.min(daysInMonth, Math.trunc(dayOfMonth)));
+  return new Date(Date.UTC(y, m, clampedDay, 0, 0, 0, 0));
+}
+
+function isCardDebtType(type: unknown): boolean {
+  return type === "credit_card" || type === "store_card";
+}
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -54,6 +66,87 @@ export async function GET(
       where: { debtId: id },
       orderBy: { paidAt: "desc" },
     });
+
+    // If the user has been paying before they started tracking in-app, we may have a paid total
+    // but no payment rows. For non-card debts, we can safely backfill a month-by-month history
+    // when the paid total is an exact multiple of the planned monthly payment.
+    if (
+      debt.sourceType !== "expense" &&
+      !isCardDebtType(debt.type) &&
+      debtPayments.length === 0
+    ) {
+      const monthlyPayment = Math.max(0, toNumber((debt as any).amount));
+      const totalPaid = Math.max(0, toNumber((debt as any).paidAmount));
+
+      if (monthlyPayment > 0 && totalPaid > 0) {
+        const ratio = totalPaid / monthlyPayment;
+        const paymentsMade = Number.isFinite(ratio) ? Math.max(0, Math.round(ratio)) : 0;
+        const expectedTotal = paymentsMade * monthlyPayment;
+        const withinCents = Math.abs(expectedTotal - totalPaid) <= 0.02;
+
+        if (paymentsMade > 0 && paymentsMade <= 240 && withinCents) {
+          const now = new Date();
+          const dueDay =
+            debt.dueDay != null && Number.isFinite(debt.dueDay) && debt.dueDay > 0
+              ? Math.trunc(debt.dueDay)
+              : (debt.dueDate ? debt.dueDate.getUTCDate() : 1);
+
+          const anchor = debt.dueDate && Number.isFinite(debt.dueDate.getTime())
+            ? debt.dueDate
+            : now;
+
+          // If dueDate is in the future, treat it as the *next* payment and backfill up to the
+          // prior month. Otherwise treat it as the last scheduled payment date.
+          const lastPaidAt = anchor.getTime() > now.getTime()
+            ? addMonthsUtcWithDay(anchor, -1, dueDay)
+            : addMonthsUtcWithDay(anchor, 0, dueDay);
+
+          const toCreate: Array<{
+            debtId: string;
+            amount: string;
+            paidAt: Date;
+            year: number;
+            month: number;
+            source: "income";
+            notes: string;
+          }> = [];
+
+          for (let i = paymentsMade - 1; i >= 0; i -= 1) {
+            const paidAt = addMonthsUtcWithDay(lastPaidAt, -i, dueDay);
+            if (!Number.isFinite(paidAt.getTime()) || paidAt.getTime() > now.getTime()) continue;
+            toCreate.push({
+              debtId: id,
+              amount: String(monthlyPayment),
+              paidAt,
+              year: paidAt.getUTCFullYear(),
+              month: paidAt.getUTCMonth() + 1,
+              source: "income",
+              notes: "Backfilled from paid total (assumed on-time payments)",
+            });
+          }
+
+          if (toCreate.length) {
+            await prisma.$transaction(async (tx) => {
+              await tx.debtPayment.createMany({ data: toCreate });
+              // Avoid double-counting: move the baseline into real rows.
+              await tx.debt.update({
+                where: { id },
+                data: {
+                  historicalPaidAmount: 0,
+                  paidAmount: String(expectedTotal),
+                },
+              });
+            });
+
+            const refreshed = await prisma.debtPayment.findMany({
+              where: { debtId: id },
+              orderBy: { paidAt: "desc" },
+            });
+            return NextResponse.json(refreshed);
+          }
+        }
+      }
+    }
 
     // For expense-derived debts, `paidAmount` can drift if Expense payments were applied without
     // creating ExpensePayment rows (or vice versa). We self-heal by:
