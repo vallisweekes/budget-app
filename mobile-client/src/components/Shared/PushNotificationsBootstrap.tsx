@@ -34,10 +34,10 @@ export function PushNotificationsBootstrap() {
 
   useEffect(() => {
     if (isLoading) return;
-    if (!token || !username) return;
+    if (!token) return;
     void (async () => {
       try {
-        await registerExpoPushToken({ username });
+        await registerExpoPushToken({ username: username && username.trim() ? username : "mobile-user" });
       } catch (e) {
         if (__DEV__) {
           // eslint-disable-next-line no-console
