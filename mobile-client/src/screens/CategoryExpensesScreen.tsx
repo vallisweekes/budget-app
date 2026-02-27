@@ -619,7 +619,7 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
           <Pressable style={es.backdrop} onPress={() => setEditState(null)} />
           <View style={es.sheet}>
             <View style={es.handle} />
-            <Text style={es.title}>{`Edit ${String(editState?.name ?? "").trim() || "Expense"} expense`}</Text>
+            <Text style={es.title}>{`Edit ${String(editState?.name ?? "").trim() || "Expense"} Expense`}</Text>
 
             <ScrollView style={es.scrollContent} showsVerticalScrollIndicator={false}>
               <Text style={es.label}>Name</Text>
