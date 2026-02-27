@@ -46,7 +46,7 @@ export default function BudgetDonutCard({ totalBudget, totalExpenses, paidTotal,
   const SIZE    = Math.min(220, Math.floor((W - 80) * 0.72));
   const cx      = SIZE / 2;
   const cy      = SIZE / 2;
-  const STROKE  = Math.round(SIZE * 0.115);
+  const STROKE  = Math.round(SIZE * 0.135);
   const r       = (SIZE - STROKE) / 2;
   const C       = 2 * Math.PI * r; // full circumference
 
