@@ -17,6 +17,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
 
 import { ApiError, apiFetch } from "@/lib/api";
 import type { DashboardData, Settings } from "@/lib/apiTypes";
@@ -140,9 +141,11 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
     }
   }, [navigation]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
