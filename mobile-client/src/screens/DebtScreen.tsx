@@ -14,7 +14,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -136,6 +136,7 @@ function DebtCard({
 export default function DebtScreen() {
   const navigation = useNavigation<Nav>();
   const topHeaderOffset = useTopHeaderOffset();
+  const insets = useSafeAreaInsets();
 
   const [summary, setSummary] = useState<DebtSummaryData | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -667,7 +668,15 @@ export default function DebtScreen() {
           behavior={Platform.OS === "ios" ? "padding" : undefined}
         >
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowAddForm(false)} />
-          <View style={s.sheet}>
+          <View
+            style={[
+              s.sheet,
+              {
+                paddingTop: Math.max(10, insets.top + 8),
+                paddingBottom: Math.max(22, insets.bottom + 10),
+              },
+            ]}
+          >
             <View style={s.sheetHandle} />
             <View style={s.sheetHeader}>
               <Text style={s.sheetTitle}>Add Debt</Text>
@@ -676,7 +685,11 @@ export default function DebtScreen() {
               </Pressable>
             </View>
 
-            <ScrollView contentContainerStyle={s.sheetScrollContent} keyboardShouldPersistTaps="handled">
+            <ScrollView
+              style={s.sheetFormScroll}
+              contentContainerStyle={s.sheetScrollContent}
+              keyboardShouldPersistTaps="handled"
+            >
               <View style={s.addForm}>
                 <TextInput
                   style={s.input}
@@ -741,11 +754,11 @@ export default function DebtScreen() {
                     </Pressable>
                   ))}
                 </View>
-                <Pressable onPress={handleAdd} disabled={saving} style={[s.saveBtn, saving && s.disabled]}>
-                  {saving ? <ActivityIndicator size="small" color={T.onAccent} /> : <Text style={s.saveBtnTxt}>Add Debt</Text>}
-                </Pressable>
               </View>
             </ScrollView>
+            <Pressable onPress={handleAdd} disabled={saving} style={[s.saveBtn, saving && s.disabled]}>
+              {saving ? <ActivityIndicator size="small" color={T.onAccent} /> : <Text style={s.saveBtnTxt}>Add Debt</Text>}
+            </Pressable>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -869,7 +882,13 @@ const s = StyleSheet.create({
     borderWidth: 1, borderColor: T.border,
   },
   typeBtnTxt: { color: T.textDim, fontSize: 12, fontWeight: "800" },
-  saveBtn: { backgroundColor: T.accent, borderRadius: 8, paddingVertical: 11, alignItems: "center" },
+  saveBtn: {
+    backgroundColor: T.accent,
+    borderRadius: 8,
+    paddingVertical: 11,
+    alignItems: "center",
+    marginTop: 10,
+  },
   saveBtnTxt: { color: T.onAccent, fontWeight: "700", fontSize: 14 },
   disabled: { opacity: 0.5 },
 
@@ -917,19 +936,22 @@ const s = StyleSheet.create({
   },
   sheet: {
     backgroundColor: T.card,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    flex: 1,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
     borderTopWidth: 1,
     borderTopColor: T.border,
     paddingHorizontal: 14,
     paddingTop: 10,
     paddingBottom: 22,
     gap: 10,
-    minHeight: 560,
-    maxHeight: "90%",
   },
   sheetScrollContent: {
     paddingBottom: 6,
+  },
+  sheetFormScroll: {
+    flex: 1,
+    minHeight: 0,
   },
   sheetHandle: {
     alignSelf: "center",

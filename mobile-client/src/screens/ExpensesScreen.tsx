@@ -368,10 +368,11 @@ export default function ExpensesScreen({ navigation }: Props) {
                     <View style={styles.noExpensesCardCopy}>
                       <Text style={styles.noExpensesTitle}>No expense for this month</Text>
                       <Text style={styles.noExpensesSub}>{monthName(month)} {year}</Text>
-                      <Text style={styles.noExpensesHint}>Tap + to create your first expense.</Text>
+                      <Text style={styles.noExpensesHint}>Tap + Expense to create your first expense.</Text>
                     </View>
                     <Pressable onPress={() => setAddSheetOpen(true)} style={styles.noExpensesAddBtn}>
-                      <Ionicons name="add" size={24} color={T.onAccent} />
+                      <Ionicons name="add" size={18} color={T.onAccent} />
+                      <Text style={styles.noExpensesAddBtnTxt}>Expense</Text>
                     </Pressable>
                   </View>
                 </View>
@@ -423,10 +424,11 @@ export default function ExpensesScreen({ navigation }: Props) {
                       <Text style={styles.noExpensesSub}>
                         {monthName(month)} {year}
                       </Text>
-                      <Text style={styles.noExpensesHint}>Tap + to create your first expense.</Text>
+                      <Text style={styles.noExpensesHint}>Tap + Expense to create your first expense.</Text>
                     </View>
                     <Pressable onPress={() => setAddSheetOpen(true)} style={styles.noExpensesAddBtn}>
-                      <Ionicons name="add" size={24} color={T.onAccent} />
+                      <Ionicons name="add" size={18} color={T.onAccent} />
+                      <Text style={styles.noExpensesAddBtnTxt}>Expense</Text>
                     </Pressable>
                   </View>
                 </View>
@@ -650,13 +652,20 @@ const styles = StyleSheet.create({
   },
   noExpensesCardCopy: { flex: 1 },
   noExpensesAddBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: T.accent,
+    paddingHorizontal: 14,
     alignItems: "center",
     justifyContent: "center",
+    flexDirection: "row",
+    gap: 6,
     flexShrink: 0,
+  },
+  noExpensesAddBtnTxt: {
+    color: T.onAccent,
+    fontSize: 13,
+    fontWeight: "800",
   },
   noExpensesTitle: {
     color: T.text,
