@@ -1,13 +1,11 @@
 import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
-import LoginForm from "./LoginForm";
+import Link from "next/link";
 import { authOptions } from "@/lib/auth";
 import { getDefaultBudgetPlanForUser, resolveUserId } from "@/lib/budgetPlans";
 import { getOnboardingForUser } from "@/lib/onboarding";
 
-export default async function LoginSplashPage(props: {
-	searchParams?: Record<string, string | string[] | undefined> | Promise<Record<string, string | string[] | undefined>>;
-}) {
+export default async function HomePage() {
 	const session = await getServerSession(authOptions);
 	const sessionUser = session?.user;
 	const username = sessionUser?.username ?? sessionUser?.name ?? "";
@@ -20,55 +18,69 @@ export default async function LoginSplashPage(props: {
 		redirect(`/user=${encodeURIComponent(username)}/${encodeURIComponent(budgetPlan.id)}/page=home`);
 	}
 
-	const searchParams = await Promise.resolve(props.searchParams ?? {});
-	const authParam = searchParams.auth;
-	const authFlag = Array.isArray(authParam) ? authParam[0] : authParam;
-	const showAuthMessage = authFlag === "1" || authFlag === "true";
-	const modeParam = searchParams.mode;
-	const modeRaw = Array.isArray(modeParam) ? modeParam[0] : modeParam;
-	const initialMode = modeRaw === "register" ? "register" : "login";
-
 	return (
-		<div className="min-h-screen bg-[#0a0d14]">
-			<div className="relative mx-auto flex min-h-screen w-full max-w-6xl items-center px-4 py-16">
-				<div className="pointer-events-none absolute inset-0 overflow-hidden">
-				<div className="absolute left-1/2 top-1/4 h-[520px] w-[520px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-red-500/20 blur-3xl" />
-				<div className="absolute left-1/2 top-1/2 h-[520px] w-[520px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-blue-500/20 blur-3xl" />
-				<div className="absolute bottom-1/4 left-1/2 h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-white/5 blur-3xl" />			</div>
-				<div className="relative grid w-full grid-cols-1 items-center gap-10 lg:grid-cols-2">
-					<div className="mx-auto w-full max-w-xl">
+		<div className="min-h-screen bg-white text-slate-900">
+			<header className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-6">
+				<div className="text-xl font-bold tracking-tight">BudgetIn Check</div>
+				<Link
+					href="/login"
+					className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-100"
+				>
+					Log in
+				</Link>
+			</header>
 
-						<h1 className="mt-4 text-5xl font-bold tracking-tight text-white md:text-6xl">
-						Take control of your
-						<span className="bg-gradient-to-r from-blue-200 via-white to-blue-200 bg-clip-text text-transparent"> money</span>
+			<section className="relative mx-auto grid w-full max-w-6xl grid-cols-1 items-center gap-10 px-4 pb-20 pt-8 lg:grid-cols-2">
+				<div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+					<div className="absolute left-10 top-4 h-64 w-64 rounded-full bg-blue-200/60 blur-3xl" />
+					<div className="absolute bottom-2 right-10 h-72 w-72 rounded-full bg-cyan-200/60 blur-3xl" />
+				</div>
+
+				<div>
+					<h1 className="text-4xl font-bold tracking-tight md:text-6xl">
+						Take control of your money with one clear budget app
 					</h1>
-					<p className="mt-4 text-lg text-slate-300">
-							Know exactly where your money&apos;s going. No stress, no surprises — just real budgeting that works for you.
-						</p>
-						<div className="mt-6 flex flex-wrap gap-2">
-							{["Personal", "Holiday", "Carnival"].map((label) => (
-								<span
-									key={label}
-									className="rounded-full bg-white/5 px-3 py-1 text-sm text-slate-200 ring-1 ring-white/10"
-								>
-									{label}
-								</span>
-							))}
-						</div>
-						<div className="mt-6 grid grid-cols-1 gap-3 text-sm text-slate-300">
-							<div className="rounded-2xl bg-white/5 px-4 py-3 ring-1 ring-white/10">Simple monthly view of income, expenses, and savings.</div>
-							<div className="rounded-2xl bg-white/5 px-4 py-3 ring-1 ring-white/10">Spot trends and overspend categories at a glance.</div>
-						</div>
-					</div>
-
-					<div className="mx-auto w-full max-w-xl">
-						<LoginForm
-							initialMode={initialMode}
-							message={showAuthMessage ? "Please log in or register to continue." : undefined}
-						/>
+					<p className="mt-5 max-w-xl text-lg text-slate-600">
+						Track spending, stay ahead of bills, and keep your goals on track with a simple monthly workflow.
+					</p>
+					<ul className="mt-6 space-y-2 text-slate-700">
+						<li>• See income, expenses, debts, and goals in one view</li>
+						<li>• Keep upcoming bills visible before due dates</li>
+						<li>• Track progress with focused, mobile-first dashboards</li>
+					</ul>
+					<div className="mt-8 flex flex-wrap gap-3">
+						<Link href="/login" className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-500">
+							Get started
+						</Link>
+						<Link
+							href="/login?mode=register"
+							className="rounded-xl border border-slate-300 px-5 py-3 font-semibold text-slate-900 hover:bg-slate-100"
+						>
+							Create account
+						</Link>
 					</div>
 				</div>
-			</div>
+
+				<div className="relative h-[360px] w-full overflow-hidden rounded-[36px] border border-white/10 bg-gradient-to-br from-[#17155a] via-[#232175] to-[#17155a]">
+					<div className="absolute -left-16 top-10 h-56 w-56 rotate-12 rounded-[48px] border-[22px] border-cyan-400/75" />
+					<div className="absolute right-[-30px] top-[-26px] h-72 w-44 rounded-[34px] bg-white/95 shadow-2xl" />
+					<div className="absolute right-24 top-10 h-72 w-44 rounded-[34px] bg-white/90 shadow-2xl" />
+					<div className="absolute right-[-10px] top-[116px] rounded-2xl border border-slate-300/30 bg-white/95 px-4 py-3 text-sm font-semibold text-slate-800 shadow-lg">
+						You’ve got enough cash to cover your bills until payday
+					</div>
+					<div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#15134f] to-transparent" />
+				</div>
+			</section>
+
+			<footer className="border-t border-slate-200 bg-white">
+				<div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-4 py-6 text-sm text-slate-600 md:flex-row md:items-center md:justify-between">
+					<p>© {new Date().getFullYear()} BudgetIn Check</p>
+					<div className="flex flex-wrap items-center gap-4">
+						<Link href="/privacy-policy" className="hover:text-slate-900">Privacy Policy</Link>
+						<Link href="/terms" className="hover:text-slate-900">Terms & Conditions</Link>
+					</div>
+				</div>
+			</footer>
 		</div>
 	);
 }

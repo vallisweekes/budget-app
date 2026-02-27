@@ -2,14 +2,18 @@
 
 import { ReactNode, Suspense } from "react";
 import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 import Sidebar from "@/components/Sidebar";
 import MobileBottomNav from "@/components/MobileBottomNav";
 
 export default function AppShell({ children }: { children: ReactNode }) {
 	const pathname = usePathname();
-	const isSplash = pathname === "/";
+	const { data: session } = useSession();
+	const isAuthed = Boolean(session?.user);
+	const isUserScopedAppRoute = pathname.startsWith("/user=");
+	const showAppNav = isAuthed && isUserScopedAppRoute;
 
-	if (isSplash) {
+	if (!showAppNav) {
 		return <main className="min-h-screen">{children}</main>;
 	}
 

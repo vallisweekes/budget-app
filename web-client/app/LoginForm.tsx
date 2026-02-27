@@ -88,7 +88,7 @@ export default function LoginForm({
 						username: normalizedUsername,
 						email: mode === "register" ? normalizeEmail(email) : "",
 						mode,
-						callbackUrl: "/",
+						callbackUrl: "/login",
 					});
 					if (!result?.ok) {
 						if (mode === "register") {
