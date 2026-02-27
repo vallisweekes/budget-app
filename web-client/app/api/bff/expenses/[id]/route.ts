@@ -206,10 +206,20 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   }
 
   const nextName = name ?? existing.name;
-  const logo = await resolveExpenseLogoWithSearch(
-    nextName,
-    merchantDomain === undefined ? existing.merchantDomain : merchantDomain
-  );
+  const nameChanged = name !== undefined && nextName !== existing.name;
+  const shouldResolveLogo = nameChanged || merchantDomain !== undefined || !existing.logoUrl;
+
+  // If the existing merchantDomain came from inferred/search, treat it as non-authoritative
+  // so the resolver can correct wrong matches when the name changes or on explicit refresh.
+  const existingDomainForResolution = existing.logoSource === "manual" ? existing.merchantDomain : undefined;
+  const domainForResolution = merchantDomain === undefined ? existingDomainForResolution : merchantDomain;
+  const logo = shouldResolveLogo
+    ? await resolveExpenseLogoWithSearch(nextName, domainForResolution)
+    : {
+        merchantDomain: existing.merchantDomain ?? null,
+        logoUrl: existing.logoUrl ?? null,
+        logoSource: existing.logoSource ?? null,
+      };
   const nextAmountNumber = amount ?? Number(existing.amount.toString());
 
   const nextCategoryId = categoryId === undefined ? existing.categoryId : categoryId;

@@ -170,7 +170,7 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
     try {
       setError(null);
       const qp = budgetPlanId ? `&budgetPlanId=${encodeURIComponent(budgetPlanId)}` : "";
-      const all = await apiFetch<Expense[]>(`/api/bff/expenses?month=${month}&year=${year}${qp}`);
+      const all = await apiFetch<Expense[]>(`/api/bff/expenses?month=${month}&year=${year}&refreshLogos=1${qp}`);
       setExpenses(
         Array.isArray(all) ? all.filter((e) => e.categoryId === categoryId) : []
       );
@@ -398,7 +398,7 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
               <Image
                 source={{ uri: resolveLogoUri(item.logoUrl)! }}
                 style={rs.logoImg}
-                resizeMode="contain"
+                resizeMode="cover"
                 onError={() => setLogoFailed((prev) => ({ ...prev, [item.id]: true }))}
               />
             ) : (
@@ -964,9 +964,9 @@ const rs = StyleSheet.create({
   },
   row1: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
   logoWrap: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     borderWidth: 1,
     borderColor: T.border,
     backgroundColor: T.card,
@@ -976,8 +976,9 @@ const rs = StyleSheet.create({
     overflow: "hidden",
   },
   logoImg: {
-    width: 20,
-    height: 20,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
   },
   logoFallback: {
     color: T.textDim,

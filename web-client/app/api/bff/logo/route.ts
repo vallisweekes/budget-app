@@ -26,6 +26,8 @@ function sanitizeDomain(input: string | null): string | null {
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const domain = sanitizeDomain(searchParams.get("domain"));
+  const themeRaw = (searchParams.get("theme") ?? "").trim().toLowerCase();
+  const theme = themeRaw === "light" || themeRaw === "auto" || themeRaw === "dark" ? themeRaw : "dark";
   if (!domain) {
     return NextResponse.json({ error: "Invalid domain" }, { status: 400 });
   }
@@ -39,6 +41,9 @@ export async function GET(req: NextRequest) {
   upstream.searchParams.set("format", "png");
   upstream.searchParams.set("size", "128");
   upstream.searchParams.set("retina", "true");
+  upstream.searchParams.set("theme", theme);
+  // Avoid returning generic monograms for unknown domains.
+  upstream.searchParams.set("fallback", "404");
 
   try {
     const response = await fetch(upstream.toString(), {

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
 import { createExpense, normalizeFundingSource, normalizePaymentSource } from "@/lib/financial-engine";
+import { resolveExpenseLogoWithSearch } from "@/lib/expenses/logoResolver";
 
 export const runtime = "nodejs";
 
@@ -71,6 +72,8 @@ export async function GET(req: NextRequest) {
   const userId = await getSessionUserId(req);
   if (!userId) return unauthorized();
 
+  const refreshLogos = toBool(searchParams.get("refreshLogos"));
+
   const budgetPlanId = await resolveOwnedBudgetPlanId({
 		userId,
 		budgetPlanId: searchParams.get("budgetPlanId"),
@@ -91,7 +94,60 @@ export async function GET(req: NextRequest) {
     // dueDate is a scalar on Expense, included automatically
   });
 
-  return NextResponse.json((items as any[]).map(serializeExpense));
+  // Backfill/refresh logos.
+  // - Backfill runs when logoUrl is missing.
+  // - Refresh (opt-in) re-resolves non-manual logos to correct bad matches.
+  // Keep this bounded to avoid long response times.
+  const MAX_ENRICH = 8;
+  const MAX_REFRESH = 8;
+  let enrichedCount = 0;
+  let refreshedCount = 0;
+
+  const out: any[] = [];
+  for (const item of items as any[]) {
+    const isManual = item.logoSource === "manual";
+    const needsBackfill = !item.logoUrl;
+    const shouldRefresh = refreshLogos && !isManual;
+
+    const shouldResolve = (needsBackfill && enrichedCount < MAX_ENRICH) || (shouldRefresh && refreshedCount < MAX_REFRESH);
+    if (shouldResolve) {
+      if (needsBackfill) enrichedCount += 1;
+      else refreshedCount += 1;
+
+      const resolved = await resolveExpenseLogoWithSearch(
+        item.name,
+        // If the user explicitly set a domain, keep it stable.
+        isManual ? item.merchantDomain : undefined
+      );
+
+      const changed =
+        resolved.merchantDomain !== (item.merchantDomain ?? null) ||
+        resolved.logoUrl !== (item.logoUrl ?? null) ||
+        resolved.logoSource !== (item.logoSource ?? null);
+
+      if (changed && (resolved.merchantDomain || resolved.logoUrl || resolved.logoSource)) {
+        // Persist best-effort so future loads are instant.
+        await prisma.expense
+          .update({
+            where: { id: item.id },
+            data: {
+              merchantDomain: resolved.merchantDomain,
+              logoUrl: resolved.logoUrl,
+              logoSource: resolved.logoSource,
+            },
+          })
+          .catch(() => null);
+
+        item.merchantDomain = resolved.merchantDomain;
+        item.logoUrl = resolved.logoUrl;
+        item.logoSource = resolved.logoSource;
+      }
+    }
+
+    out.push(serializeExpense(item));
+  }
+
+  return NextResponse.json(out);
 }
 
 export async function POST(req: NextRequest) {
@@ -187,5 +243,30 @@ export async function POST(req: NextRequest) {
 
   if (!created) return NextResponse.json({ error: "Expense was not created" }, { status: 500 });
 
-  return NextResponse.json(serializeExpense(created), { status: 201 });
+  // Ensure logos appear immediately after creation (not only after a later edit).
+  // This is especially important for rows that were created before logo enrichment
+  // was fully wired up, or when the resolver can determine a domain from the name.
+  let finalCreated: any = created;
+  if (!finalCreated.logoUrl) {
+    const resolved = await resolveExpenseLogoWithSearch(finalCreated.name, finalCreated.merchantDomain);
+    if (resolved.merchantDomain || resolved.logoUrl || resolved.logoSource) {
+      finalCreated = await prisma.expense
+        .update({
+          where: { id: finalCreated.id },
+          data: {
+            merchantDomain: resolved.merchantDomain,
+            logoUrl: resolved.logoUrl,
+            logoSource: resolved.logoSource,
+          },
+          include: {
+            category: {
+              select: { id: true, name: true, icon: true, color: true, featured: true },
+            },
+          },
+        })
+        .catch(() => finalCreated);
+    }
+  }
+
+  return NextResponse.json(serializeExpense(finalCreated), { status: 201 });
 }
