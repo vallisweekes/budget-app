@@ -2,7 +2,6 @@ import React, { useMemo } from "react";
 import { Dimensions, StyleSheet, Text, View } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 import { T } from "@/lib/theme";
-import { cardBase } from "@/lib/ui";
 
 // Arc colours — matching the web client's PieCategories palette
 const COLOR_REMAINING = "#06b6d4"; // site cyan-blue — left to spend
@@ -121,12 +120,10 @@ export default function BudgetDonutCard({ totalBudget, totalExpenses, paidTotal,
 
 const s = StyleSheet.create({
   card: {
-    ...cardBase,
     marginHorizontal: 16,
     marginBottom: 16,
-    paddingTop: 24,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 8,
     alignItems: "center",
   },
   centerWrap: {

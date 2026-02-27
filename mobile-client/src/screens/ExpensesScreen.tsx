@@ -756,9 +756,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 28,
     alignItems: "center",
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    marginBottom: 10,
   },
   purpleHeroLabelBtn: {
     flexDirection: "row",
