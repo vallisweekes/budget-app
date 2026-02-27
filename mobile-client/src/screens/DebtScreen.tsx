@@ -11,6 +11,8 @@ import {
   Alert,
   TextInput,
   Modal,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -577,9 +579,9 @@ export default function DebtScreen() {
                   <Text style={[s.filterTxt, filter === "all" && s.filterTxtActive]}>All</Text>
                 </Pressable>
               </View>
-              <Pressable onPress={() => setShowAddForm((v) => !v)} style={s.addBtn}>
-                <Ionicons name="add-circle-outline" size={22} color={T.text} />
-                <Text style={s.addBtnTxt}>Add Debt</Text>
+              <Pressable onPress={() => setShowAddForm(true)} style={s.addBtn}>
+                <Ionicons name="add" size={18} color={T.onAccent} />
+                <Text style={s.addBtnTxt}>Debt</Text>
               </Pressable>
             </View>
           </>
@@ -660,12 +662,15 @@ export default function DebtScreen() {
         animationType="slide"
         onRequestClose={() => setShowAddForm(false)}
       >
-        <View style={s.sheetOverlay}>
+        <KeyboardAvoidingView
+          style={s.sheetOverlay}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+        >
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowAddForm(false)} />
           <View style={s.sheet}>
             <View style={s.sheetHandle} />
             <View style={s.sheetHeader}>
-              <Text style={s.sheetTitle}>New Debt</Text>
+              <Text style={s.sheetTitle}>Add Debt</Text>
               <Pressable onPress={() => setShowAddForm(false)} hitSlop={10} style={s.sheetCloseBtn}>
                 <Ionicons name="close" size={18} color={T.textDim} />
               </Pressable>
@@ -742,7 +747,7 @@ export default function DebtScreen() {
               </View>
             </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
@@ -830,8 +835,17 @@ const s = StyleSheet.create({
   filterBtnActive: { backgroundColor: T.accentDim, borderColor: T.accent },
   filterTxt: { color: T.textDim, fontSize: 13, fontWeight: "800" },
   filterTxtActive: { color: T.text },
-  addBtn: { flexDirection: "row", alignItems: "center", gap: 4 },
-  addBtnTxt: { color: T.text, fontSize: 14, fontWeight: "900" },
+  addBtn: {
+    backgroundColor: T.accent,
+    borderRadius: 18,
+    height: 36,
+    paddingHorizontal: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  addBtnTxt: { color: T.onAccent, fontSize: 13, fontWeight: "800" },
 
   addForm: {
     margin: 0,

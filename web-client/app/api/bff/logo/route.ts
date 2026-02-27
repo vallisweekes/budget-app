@@ -32,38 +32,47 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Invalid domain" }, { status: 400 });
   }
 
-  if (!LOGO_DEV_PUBLISHABLE_KEY) {
-    return NextResponse.json({ error: "Logo provider not configured" }, { status: 503 });
+  const upstreamCandidates: string[] = [];
+
+  if (LOGO_DEV_PUBLISHABLE_KEY) {
+    const logoDevUrl = new URL(`https://img.logo.dev/${encodeURIComponent(domain)}`);
+    logoDevUrl.searchParams.set("token", LOGO_DEV_PUBLISHABLE_KEY);
+    logoDevUrl.searchParams.set("format", "png");
+    logoDevUrl.searchParams.set("size", "128");
+    logoDevUrl.searchParams.set("retina", "true");
+    logoDevUrl.searchParams.set("theme", theme);
+    // Avoid generic monograms for unknown domains.
+    logoDevUrl.searchParams.set("fallback", "404");
+    upstreamCandidates.push(logoDevUrl.toString());
   }
 
-  const upstream = new URL(`https://img.logo.dev/${encodeURIComponent(domain)}`);
-  upstream.searchParams.set("token", LOGO_DEV_PUBLISHABLE_KEY);
-  upstream.searchParams.set("format", "png");
-  upstream.searchParams.set("size", "128");
-  upstream.searchParams.set("retina", "true");
-  upstream.searchParams.set("theme", theme);
-  // Avoid returning generic monograms for unknown domains.
-  upstream.searchParams.set("fallback", "404");
+  // Keyless fallback for environments where logo.dev is not configured.
+  // Clearbit is public and works for many domains.
+  upstreamCandidates.push(`https://logo.clearbit.com/${encodeURIComponent(domain)}?size=128`);
 
   try {
-    const response = await fetch(upstream.toString(), {
-      method: "GET",
-      cache: "no-store",
-    });
+    for (const candidate of upstreamCandidates) {
+      const response = await fetch(candidate, {
+        method: "GET",
+        cache: "no-store",
+      });
 
-    if (!response.ok) {
-      return NextResponse.json({ error: "Logo not found" }, { status: 404 });
+      if (!response.ok) {
+        continue;
+      }
+
+      const contentType = response.headers.get("content-type") || "image/png";
+      const bytes = await response.arrayBuffer();
+      return new NextResponse(bytes, {
+        status: 200,
+        headers: {
+          "Content-Type": contentType,
+          "Cache-Control": "public, max-age=86400",
+        },
+      });
     }
 
-    const contentType = response.headers.get("content-type") || "image/png";
-    const bytes = await response.arrayBuffer();
-    return new NextResponse(bytes, {
-      status: 200,
-      headers: {
-        "Content-Type": contentType,
-        "Cache-Control": "public, max-age=86400",
-      },
-    });
+    return NextResponse.json({ error: "Logo not found" }, { status: 404 });
   } catch {
     return NextResponse.json({ error: "Failed to fetch logo" }, { status: 502 });
   }
