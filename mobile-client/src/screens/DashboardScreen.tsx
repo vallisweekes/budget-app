@@ -9,10 +9,6 @@ import {
   Pressable,
   Modal,
   FlatList,
-  TextInput,
-  KeyboardAvoidingView,
-  Platform,
-  Alert,
   Dimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -47,12 +43,6 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
   const [aiTipIndex, setAiTipIndex] = useState(0);
   const [activeGoalCard, setActiveGoalCard] = useState(0);
 
-  const [addGoalOpen, setAddGoalOpen] = useState(false);
-  const [newGoalTitle, setNewGoalTitle] = useState("");
-  const [newGoalTarget, setNewGoalTarget] = useState("");
-  const [newGoalCurrent, setNewGoalCurrent] = useState("");
-  const [creatingGoal, setCreatingGoal] = useState(false);
-
   const currency = currencySymbol(settings?.currency);
 
   const goalIconName = (title: string): keyof typeof Ionicons.glyphMap => {
@@ -60,56 +50,6 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
     if (t.includes("emergency")) return "shield-outline";
     if (t.includes("saving")) return "cash-outline";
     return "flag-outline";
-  };
-
-  const parseAmount = (raw: string): number | undefined => {
-    const t = String(raw ?? "").trim().replace(/,/g, "");
-    if (!t) return undefined;
-    const n = Number(t);
-    if (!Number.isFinite(n)) return undefined;
-    if (n < 0) return undefined;
-    return Math.round(n * 100) / 100;
-  };
-
-  const openAddGoal = () => {
-    setNewGoalTitle("");
-    setNewGoalTarget("");
-    setNewGoalCurrent("");
-    setAddGoalOpen(true);
-  };
-
-  const submitNewGoal = async () => {
-    const budgetPlanId = dashboard?.budgetPlanId;
-    if (!budgetPlanId) return;
-
-    const title = newGoalTitle.trim();
-    if (!title) {
-      Alert.alert("Goal title required", "Please enter a goal name.");
-      return;
-    }
-
-    const targetAmount = parseAmount(newGoalTarget);
-    const currentAmount = parseAmount(newGoalCurrent);
-
-    setCreatingGoal(true);
-    try {
-      await apiFetch<{ goalId: string }>("/api/bff/goals", {
-        method: "POST",
-        body: {
-          budgetPlanId,
-          title,
-          targetAmount,
-          currentAmount,
-        },
-      });
-
-      setAddGoalOpen(false);
-      await load();
-    } catch (err: unknown) {
-      Alert.alert("Failed to add goal", err instanceof Error ? err.message : "Unknown error");
-    } finally {
-      setCreatingGoal(false);
-    }
   };
 
   const load = useCallback(async () => {
@@ -256,84 +196,6 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
         </View>
       </Modal>
 
-      <Modal
-        visible={addGoalOpen}
-        transparent
-        animationType="slide"
-        presentationStyle="overFullScreen"
-        onRequestClose={() => setAddGoalOpen(false)}
-      >
-        <View style={styles.sheetOverlay}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setAddGoalOpen(false)} />
-          <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : undefined}
-            style={{ width: "100%" }}
-          >
-            <View style={styles.goalSheet}>
-              <View style={styles.sheetHandle} />
-              <View style={styles.goalSheetHeader}>
-                <Text style={styles.goalSheetTitle}>Add goal</Text>
-                <Pressable onPress={() => setAddGoalOpen(false)} hitSlop={10} style={styles.goalSheetCloseBtn}>
-                  <Ionicons name="close" size={20} color={T.text} />
-                </Pressable>
-              </View>
-
-              <View style={styles.goalForm}>
-                <Text style={styles.goalLabel}>Goal name</Text>
-                <TextInput
-                  value={newGoalTitle}
-                  onChangeText={setNewGoalTitle}
-                  placeholder="e.g. Emergency Fund"
-                  placeholderTextColor={T.textMuted}
-                  style={styles.goalInput}
-                  editable={!creatingGoal}
-                  returnKeyType="next"
-                />
-
-                <Text style={styles.goalLabel}>Target amount (optional)</Text>
-                <TextInput
-                  value={newGoalTarget}
-                  onChangeText={setNewGoalTarget}
-                  placeholder="e.g. 40000"
-                  placeholderTextColor={T.textMuted}
-                  style={styles.goalInput}
-                  keyboardType="decimal-pad"
-                  editable={!creatingGoal}
-                />
-
-                <Text style={styles.goalLabel}>Current amount (optional)</Text>
-                <TextInput
-                  value={newGoalCurrent}
-                  onChangeText={setNewGoalCurrent}
-                  placeholder="e.g. 200"
-                  placeholderTextColor={T.textMuted}
-                  style={styles.goalInput}
-                  keyboardType="decimal-pad"
-                  editable={!creatingGoal}
-                />
-
-                <View style={styles.goalBtnRow}>
-                  <Pressable
-                    onPress={() => setAddGoalOpen(false)}
-                    style={[styles.goalBtn, styles.goalBtnGhost]}
-                    disabled={creatingGoal}
-                  >
-                    <Text style={styles.goalBtnGhostText}>Cancel</Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={submitNewGoal}
-                    style={[styles.goalBtn, styles.goalBtnPrimary, creatingGoal && styles.goalBtnDisabled]}
-                    disabled={creatingGoal}
-                  >
-                    <Text style={styles.goalBtnPrimaryText}>{creatingGoal ? "Adding…" : "Add"}</Text>
-                  </Pressable>
-                </View>
-              </View>
-            </View>
-          </KeyboardAvoidingView>
-        </View>
-      </Modal>
-
       <ScrollView
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={T.accent} />}
 			contentContainerStyle={[styles.scroll, { paddingTop: topHeaderOffset }]}
@@ -475,27 +337,17 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
             <FlatList
               horizontal
               data={goalCardsData}
-              keyExtractor={(i) => (i.kind === "add" ? "__add" : i.goal.id)}
+              keyExtractor={(i) => i.goal.id}
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={{ paddingHorizontal: GOAL_SIDE }}
               bounces
               onMomentumScrollEnd={(e) => {
-                // Best-effort active indicator without fixed snap (last card is half-width)
+                // Best-effort active indicator without fixed snap
                 const x = e.nativeEvent.contentOffset.x;
                 const idx = Math.round(x / (GOAL_CARD + GOAL_GAP));
                 setActiveGoalCard(Math.max(0, Math.min(goalCardsData.length - 1, idx)));
               }}
               renderItem={({ item }) => {
-                if (item.kind === "add") {
-                  return (
-                    <Pressable onPress={openAddGoal} style={[styles.goalCard, styles.goalCardAdd]}>
-                      <View style={styles.goalCardAddInner}>
-                        <Ionicons name="add" size={28} color={T.accent} />
-                      </View>
-                    </Pressable>
-                  );
-                }
-
                 const g = item.goal;
                 const hasTarget = typeof g.targetAmount === "number" && Number.isFinite(g.targetAmount);
                 const curAmt = typeof g.currentAmount === "number" && Number.isFinite(g.currentAmount) ? g.currentAmount : 0;

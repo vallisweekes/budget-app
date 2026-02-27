@@ -43,6 +43,50 @@ function decimalToString(value: unknown): string {
   return "0";
 }
 
+function parseDueDateInput(value: unknown): { value: Date | null | undefined; invalid: boolean } {
+  // undefined = no change, null = clear
+  if (value === undefined) return { value: undefined, invalid: false };
+  if (value === null) return { value: null, invalid: false };
+
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? { value: null, invalid: true } : { value, invalid: false };
+  }
+
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) return { value: null, invalid: true };
+    const dt = new Date(value);
+    return Number.isNaN(dt.getTime()) ? { value: null, invalid: true } : { value: dt, invalid: false };
+  }
+
+  if (typeof value !== "string") return { value: null, invalid: true };
+  const raw = value.trim();
+  // Backward-compat: empty string means "clear the due date"
+  if (!raw) return { value: null, invalid: false };
+
+  // YYYY-MM-DD (date only) -> UTC midnight
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
+  if (m) {
+    const y = Number(m[1]);
+    const month = Number(m[2]);
+    const day = Number(m[3]);
+    if (!Number.isFinite(y) || !Number.isFinite(month) || !Number.isFinite(day)) return { value: null, invalid: true };
+    if (month < 1 || month > 12) return { value: null, invalid: true };
+    if (day < 1 || day > 31) return { value: null, invalid: true };
+    const dt = new Date(Date.UTC(y, month - 1, day));
+    if (Number.isNaN(dt.getTime())) return { value: null, invalid: true };
+    // Reject invalid calendar dates like 2026-02-31 (Date would otherwise roll over)
+    if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== month - 1 || dt.getUTCDate() !== day) {
+      return { value: null, invalid: true };
+    }
+    return { value: dt, invalid: false };
+  }
+
+  // Full ISO date-time string (and other JS-parseable date strings for backward compatibility)
+  const dt = new Date(raw);
+  if (Number.isNaN(dt.getTime())) return { value: null, invalid: true };
+  return { value: dt, invalid: false };
+}
+
 function serializeExpense(expense: any) {
   return {
     id: expense.id,
@@ -77,7 +121,7 @@ type PatchBody = {
   paid?: unknown;
   /** Explicitly set paidAmount (mobile partial payment) */
   paidAmount?: unknown;
-  /** Due date in ISO format (YYYY-MM-DD or full ISO datetime) */
+  /** Due date in ISO format (YYYY-MM-DD or full ISO datetime). Empty string clears it. */
   dueDate?: unknown;
   /** Apply updates across remaining months (mobile UI parity with Add Expense) */
   distributeMonths?: unknown;
@@ -98,30 +142,31 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 
   const name = typeof body.name === "string" ? body.name.trim() : undefined;
   const amount = body.amount == null ? undefined : Number(body.amount);
+
   const categoryId =
-    body.categoryId == null
-      ? undefined
-      : typeof body.categoryId === "string"
-        ? body.categoryId.trim() || null
-        : undefined;
-  	const isAllocation = body.isAllocation == null ? undefined : toBool(body.isAllocation);
-  	const isDirectDebit = body.isDirectDebit == null ? undefined : toBool(body.isDirectDebit);
+    body.categoryId === null
+      ? null
+      : body.categoryId === undefined
+        ? undefined
+        : typeof body.categoryId === "string"
+          ? body.categoryId.trim() || null
+          : undefined;
+
+  const isAllocation = body.isAllocation == null ? undefined : toBool(body.isAllocation);
+  const isDirectDebit = body.isDirectDebit == null ? undefined : toBool(body.isDirectDebit);
   const merchantDomain = body.merchantDomain == null
     ? undefined
     : typeof body.merchantDomain === "string"
       ? body.merchantDomain.trim() || null
       : null;
-    const paidExplicit = body.paid == null ? undefined : toBool(body.paid);
+  const paidExplicit = body.paid == null ? undefined : toBool(body.paid);
   const paidAmountExplicit = body.paidAmount == null ? undefined : Number(body.paidAmount);
-  const dueDate =
-    body.dueDate == null
-      ? undefined
-      : typeof body.dueDate === "string"
-        ? body.dueDate.trim() || null
-        : null;
+  const dueDateString = typeof body.dueDate === "string" ? body.dueDate.trim() || null : null;
+  const dueDateParsed = parseDueDateInput(body.dueDate);
+  const dueDate = dueDateParsed.value;
 
-    const applyRemainingMonths = toBool(body.distributeMonths);
-    const applyFutureYears = applyRemainingMonths ? toBool(body.distributeYears) : false;
+  const applyRemainingMonths = toBool(body.distributeMonths);
+  const applyFutureYears = applyRemainingMonths ? toBool(body.distributeYears) : false;
 
   if (name !== undefined && !name) return badRequest("Name cannot be empty");
   if (amount !== undefined && (!Number.isFinite(amount) || amount < 0)) {
@@ -129,6 +174,9 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   }
   if (paidAmountExplicit !== undefined && (!Number.isFinite(paidAmountExplicit) || paidAmountExplicit < 0)) {
     return badRequest("paidAmount must be a number >= 0");
+  }
+  if (body.dueDate !== undefined && dueDateParsed.invalid) {
+    return badRequest("dueDate must be an ISO date (YYYY-MM-DD) or ISO datetime");
   }
 
   const existing = (await prisma.expense.findUnique({
@@ -228,12 +276,13 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       data: ({
         name: nextName,
         amount: String(nextAmountNumber),
-        categoryId: categoryId === undefined ? existing.categoryId : categoryId,
+        categoryId: categoryId === undefined ? undefined : categoryId,
         merchantDomain: logo.merchantDomain,
         logoUrl: logo.logoUrl,
         logoSource: logo.logoSource,
         isAllocation: isAllocation === undefined ? undefined : isAllocation,
         isDirectDebit: isDirectDebit === undefined ? undefined : isDirectDebit,
+
         dueDate: dueDate === undefined ? undefined : dueDate,
       }) as any,
     } as any);
@@ -308,8 +357,8 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     // Example: editing JAN expense due 2026-02-24 => FEB expense due 2026-03-24.
     let dueDateDay: number | undefined;
     let dueDateMonthOffset: number | undefined;
-    if (typeof dueDate === "string") {
-      const m = /^\s*(\d{4})-(\d{2})-(\d{2})\s*$/.exec(dueDate);
+    if (dueDateString) {
+      const m = /^\s*(\d{4})-(\d{2})-(\d{2})\s*$/.exec(dueDateString);
       if (m) {
         const dueYear = Number(m[1]);
         const dueMonth = Number(m[2]);

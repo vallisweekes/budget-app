@@ -97,7 +97,7 @@ export function buildDashboardDerived(params: {
   const fallback = goals.filter((g) => !used.has(g.id));
   const goalsToShow = (preferred.length >= 2 ? preferred.slice(0, 2) : [...preferred, ...fallback].slice(0, 2));
 
-  const goalCardsData = [{ kind: "add" as const }, ...goalsToShow.map((g) => ({ kind: "goal" as const, goal: g }))];
+  const goalCardsData = goalsToShow.map((g) => ({ kind: "goal" as const, goal: g }));
 
   return {
     totalIncome,
