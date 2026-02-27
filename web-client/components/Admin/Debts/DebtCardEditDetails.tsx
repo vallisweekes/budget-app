@@ -191,6 +191,7 @@ export default function DebtCardEditDetails(props: {
 
 			<DebtInstallmentPlanEditor
 				editInstallmentMonths={editInstallmentMonths}
+				editInitialBalance={editInitialBalance}
 				editCurrentBalance={editCurrentBalance}
 				editMonthlyMinimum={editMonthlyMinimum}
 				onSelectInstallmentMonths={onSelectInstallmentMonths}

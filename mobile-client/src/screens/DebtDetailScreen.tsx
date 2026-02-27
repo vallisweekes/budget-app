@@ -92,25 +92,14 @@ export default function DebtDetailScreen() {
           {!derived.isPaid ? (
             <View style={s.sectionCard}>
               <Text style={s.sectionTitle}>Payoff Projection</Text>
-              {(() => {
-                const monthlyMin = derived.monthlyMinNum != null && derived.monthlyMinNum > 0 ? derived.monthlyMinNum : 0;
-                const installmentMonths = debt.installmentMonths != null && debt.installmentMonths > 0 ? debt.installmentMonths : null;
-                // If the user chose “Spread over N months”, interpret that as N equal installments
-                // based on the original balance. This way, after paying month 1 the remaining
-                // projection shows N-1 months left (instead of re-spreading the remaining balance).
-                const baseInstallmentBalance = derived.originalBalNum > 0 ? derived.originalBalNum : derived.currentBalNum;
-                const installmentPayment = installmentMonths ? baseInstallmentBalance / installmentMonths : 0;
-                const monthlyPayment = monthlyMin > 0 ? monthlyMin : installmentPayment;
-
-                return (
               <PayoffChart
                 balance={derived.currentBalNum}
-                monthlyPayment={Number.isFinite(monthlyPayment) ? Math.max(0, monthlyPayment) : 0}
+                monthlyPayment={debt.computedMonthlyPayment != null ? debt.computedMonthlyPayment : (derived.monthlyMinNum ?? 0)}
+                monthsLeftOverride={debt.computedMonthsLeft}
+                paidOffByOverride={debt.computedPaidOffBy}
                 interestRate={derived.interestRateNum}
                 currency={currency}
               />
-                );
-              })()}
             </View>
           ) : null}
 

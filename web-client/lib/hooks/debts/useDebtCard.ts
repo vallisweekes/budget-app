@@ -162,9 +162,11 @@ export function useDebtCard(params: { debt: DebtCardDebt; budgetPlanId: string; 
 	const handleSelectInstallmentMonths = (months: number) => {
 		setEditInstallmentMonths(months === 0 ? "" : String(months));
 		const currentBalance = parseFloat(editCurrentBalance);
+		const initialBalance = parseFloat(editInitialBalance);
 		if (months > 0 && Number.isFinite(currentBalance) && currentBalance > 0) {
 			const monthlyMinimum = editMonthlyMinimum ? parseFloat(editMonthlyMinimum) : undefined;
 			const effective = computeInstallmentDueAmount({
+				initialBalance: Number.isFinite(initialBalance) ? initialBalance : undefined,
 				currentBalance,
 				installmentMonths: months,
 				monthlyMinimum: monthlyMinimum && Number.isFinite(monthlyMinimum) ? monthlyMinimum : undefined,

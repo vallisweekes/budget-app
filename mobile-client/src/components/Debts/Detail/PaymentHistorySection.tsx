@@ -37,7 +37,12 @@ export default function PaymentHistorySection({ payments, currency, open, onTogg
                     year: "numeric",
                   })}
                 </Text>
-                {payment.notes ? <Text style={s.payHistSource}>{payment.notes}</Text> : null}
+                {(() => {
+					const notes = typeof payment.notes === "string" ? payment.notes.trim() : "";
+					if (!notes) return null;
+					if (/^month:\d{4}-\d{2}$/.test(notes)) return null;
+					return <Text style={s.payHistSource}>{notes}</Text>;
+				})()}
               </View>
               <Text style={s.payHistAmt}>- {fmt(parseFloat(payment.amount), currency)}</Text>
             </View>

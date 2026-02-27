@@ -138,15 +138,17 @@ export function isNearPaydayDebt(debt: DebtCardDebt, daysUntilPayday: number): b
 }
 
 export function computeInstallmentDueAmount(params: {
+	initialBalance?: number;
 	currentBalance: number;
 	installmentMonths: number;
 	monthlyMinimum?: number;
 }): number {
-	const { currentBalance, installmentMonths, monthlyMinimum } = params;
+	const { initialBalance, currentBalance, installmentMonths, monthlyMinimum } = params;
 	if (!Number.isFinite(currentBalance) || currentBalance <= 0) return 0;
 	if (!Number.isFinite(installmentMonths) || installmentMonths <= 0) return 0;
 
-	const base = currentBalance / installmentMonths;
+	const principal = Number.isFinite(initialBalance) && (initialBalance ?? 0) > 0 ? (initialBalance as number) : currentBalance;
+	const base = principal / installmentMonths;
 	const min = Number.isFinite(monthlyMinimum) && (monthlyMinimum ?? 0) > 0 ? (monthlyMinimum as number) : 0;
 	return Math.max(base, min);
 }

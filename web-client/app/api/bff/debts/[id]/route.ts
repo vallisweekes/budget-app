@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUserId } from "@/lib/api/bffAuth";
 import { processMissedDebtPaymentsToAccrue } from "@/lib/debts/carryover";
+import { computeDebtPayoffProjection } from "@/lib/debts/payoffProjection";
 
 export const runtime = "nodejs";
 
@@ -66,6 +67,34 @@ function withMissedPaymentFlag<T extends { sourceType?: string | null }>(debt: T
   return {
     ...debt,
     isMissedPayment: debt.sourceType === "expense",
+  };
+}
+
+function withPayoffProjection<T extends {
+  currentBalance?: unknown;
+  amount?: unknown;
+  monthlyMinimum?: unknown;
+  installmentMonths?: unknown;
+  initialBalance?: unknown;
+  interestRate?: unknown;
+}>(debt: T): T & {
+  computedMonthlyPayment: number;
+  computedMonthsLeft: number | null;
+  computedPaidOffBy: string | null;
+} {
+  const projection = computeDebtPayoffProjection({
+    currentBalance: (debt as any).currentBalance,
+    plannedMonthlyPayment: (debt as any).amount,
+    monthlyMinimum: (debt as any).monthlyMinimum,
+    installmentMonths: (debt as any).installmentMonths,
+    initialBalance: (debt as any).initialBalance,
+    interestRatePct: (debt as any).interestRate,
+    maxMonths: 60,
+  });
+
+  return {
+    ...(debt as any),
+    ...projection,
   };
 }
 
@@ -236,7 +265,7 @@ export async function GET(
       }
     }
 
-    return NextResponse.json(withMissedPaymentFlag(safe));
+    return NextResponse.json(withPayoffProjection(withMissedPaymentFlag(safe)));
   } catch (error) {
     console.error("Failed to fetch debt:", error);
     return NextResponse.json(

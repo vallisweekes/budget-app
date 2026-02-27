@@ -149,6 +149,11 @@ export interface Debt {
   sourceExpenseName: string | null;
   isMissedPayment?: boolean;
   payments?: DebtPayment[];
+
+  /** Server-computed payoff projection fields (kept consistent across web + mobile) */
+  computedMonthlyPayment?: number;
+  computedMonthsLeft?: number | null;
+  computedPaidOffBy?: string | null;
 }
 
 /** Full debt shape from /api/bff/debt-summary — includes server-computed fields */

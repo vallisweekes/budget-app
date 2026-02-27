@@ -10,6 +10,7 @@ const INSTALLMENT_OPTIONS = [0, 2, 3, 4, 6, 8, 9, 12, 18, 24, 30, 36] as const;
 
 export interface DebtInstallmentPlanEditorProps {
 	editInstallmentMonths: string;
+	editInitialBalance: string;
 	editCurrentBalance: string;
 	editMonthlyMinimum: string;
 	onSelectInstallmentMonths: (months: number) => void;
@@ -17,16 +18,19 @@ export interface DebtInstallmentPlanEditorProps {
 
 export default function DebtInstallmentPlanEditor({
 	editInstallmentMonths,
+	editInitialBalance,
 	editCurrentBalance,
 	editMonthlyMinimum,
 	onSelectInstallmentMonths,
 }: DebtInstallmentPlanEditorProps) {
 	const installmentMonths = editInstallmentMonths ? parseFloat(editInstallmentMonths) : 0;
+	const initialBalance = parseFloat(editInitialBalance);
 	const currentBalance = parseFloat(editCurrentBalance);
 	const monthlyMinimum = editMonthlyMinimum ? parseFloat(editMonthlyMinimum) : 0;
+	const principal = Number.isFinite(initialBalance) && initialBalance > 0 ? initialBalance : currentBalance;
 
-	const hasInstallment = installmentMonths > 0 && Number.isFinite(currentBalance) && currentBalance > 0;
-	const baseInstallment = hasInstallment ? currentBalance / installmentMonths : 0;
+	const hasInstallment = installmentMonths > 0 && Number.isFinite(principal) && principal > 0;
+	const baseInstallment = hasInstallment ? principal / installmentMonths : 0;
 	const minApplies =
 		Number.isFinite(monthlyMinimum) && monthlyMinimum > 0 && hasInstallment && monthlyMinimum > baseInstallment;
 

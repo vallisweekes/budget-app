@@ -22,17 +22,21 @@ type Props = {
   monthlyPayment: number;
   interestRate: number | null;
   currency: string;
+	monthsLeftOverride?: number | null;
+	paidOffByOverride?: string | null;
 };
 
-export default function PayoffChart({ balance, monthlyPayment, interestRate, currency }: Props) {
+export default function PayoffChart({ balance, monthlyPayment, interestRate, currency, monthsLeftOverride, paidOffByOverride }: Props) {
   const [chartWidth, setChartWidth] = React.useState(300);
   const chartHeight = 150;
   const paddingX = 12;
   const paddingY = 14;
   const monthlyRate = interestRate ? interestRate / 100 / 12 : 0;
   const points = buildProjection(balance, monthlyPayment, monthlyRate);
-  const totalMonths = points.length - 1;
-  const cannotPayoff = monthlyPayment === 0 || points[points.length - 1] > 0;
+  const totalMonthsComputed = points.length - 1;
+
+  const totalMonths = monthsLeftOverride != null ? Math.max(0, monthsLeftOverride) : totalMonthsComputed;
+  const cannotPayoff = monthsLeftOverride === null ? true : monthlyPayment === 0 || points[points.length - 1] > 0;
 
   const toX = (index: number) => paddingX + (index / Math.max(1, totalMonths)) * (chartWidth - paddingX * 2);
   const toY = (value: number) => paddingY + (1 - (balance > 0 ? value / balance : 0)) * (chartHeight - paddingY * 2);
@@ -40,11 +44,18 @@ export default function PayoffChart({ balance, monthlyPayment, interestRate, cur
   const linePath = points.map((value, index) => `${index === 0 ? "M" : "L"}${toX(index).toFixed(1)},${toY(value).toFixed(1)}`).join(" ");
   const areaPath = `${linePath} L${toX(totalMonths).toFixed(1)},${(chartHeight - paddingY).toFixed(1)} L${toX(0).toFixed(1)},${(chartHeight - paddingY).toFixed(1)} Z`;
 
-  const payoffDate = new Date();
-  payoffDate.setMonth(payoffDate.getMonth() + totalMonths);
-  const payoffLabel = !cannotPayoff && totalMonths > 0
-    ? payoffDate.toLocaleDateString("en-GB", { month: "short", year: "numeric" })
-    : null;
+  const payoffLabel = (() => {
+    if (cannotPayoff || totalMonths <= 0) return null;
+    if (paidOffByOverride) {
+      const parsed = new Date(paidOffByOverride);
+      if (Number.isFinite(parsed.getTime())) {
+        return parsed.toLocaleDateString("en-GB", { month: "short", year: "numeric" });
+      }
+    }
+    const payoffDate = new Date();
+    payoffDate.setMonth(payoffDate.getMonth() + totalMonths);
+    return payoffDate.toLocaleDateString("en-GB", { month: "short", year: "numeric" });
+  })();
 
   return (
     <View>
