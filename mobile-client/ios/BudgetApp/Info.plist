@@ -51,6 +51,8 @@
     <string>BudgetIn Check saves receipt images to your photo library when needed.</string>
     <key>NSPhotoLibraryUsageDescription</key>
     <string>BudgetIn Check accesses your photo library to import receipts.</string>
+    <key>ITSAppUsesNonExemptEncryption</key>
+    <false/>
     <key>RCTNewArchEnabled</key>
     <true/>
     <key>UILaunchStoryboardName</key>
