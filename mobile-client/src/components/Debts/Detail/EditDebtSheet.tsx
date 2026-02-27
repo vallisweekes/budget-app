@@ -8,6 +8,7 @@ type Props = {
   saving: boolean;
   name: string;
   interestRate: string;
+  monthlyPayment: string;
   monthlyMinimum: string;
   dueDay: string;
   dueDate: string;
@@ -18,6 +19,7 @@ type Props = {
   onSave: () => void;
   onChangeName: (v: string) => void;
   onChangeRate: (v: string) => void;
+  onChangeMonthlyPayment: (v: string) => void;
   onChangeMin: (v: string) => void;
   onChangeDueDay: (v: string) => void;
   onPickDate: () => void;
@@ -29,8 +31,8 @@ type Props = {
 
 export default function EditDebtSheet(props: Props) {
   const {
-    visible, saving, name, interestRate, monthlyMinimum, dueDay, dueDate, installment, autoPay, showDatePicker,
-    onClose, onSave, onChangeName, onChangeRate, onChangeMin, onChangeDueDay,
+    visible, saving, name, interestRate, monthlyPayment, monthlyMinimum, dueDay, dueDate, installment, autoPay, showDatePicker,
+    onClose, onSave, onChangeName, onChangeRate, onChangeMonthlyPayment, onChangeMin, onChangeDueDay,
     onPickDate, onDateChange, onToggleAutoPay, onChangeInstallment, onSetShowDatePicker,
   } = props;
 
@@ -70,7 +72,12 @@ export default function EditDebtSheet(props: Props) {
 
             <View style={s.formRow}>
               <View style={s.formGroup}><Text style={s.inputLabel}>Interest Rate %</Text><TextInput style={s.input} value={interestRate} onChangeText={onChangeRate} keyboardType="decimal-pad" placeholder="0.00" placeholderTextColor={T.textMuted} /></View>
-              <View style={s.formGroup}><Text style={s.inputLabel}>Min Monthly</Text><TextInput style={s.input} value={monthlyMinimum} onChangeText={onChangeMin} keyboardType="decimal-pad" placeholder="0.00" placeholderTextColor={T.textMuted} /></View>
+              <View style={s.formGroup}><Text style={s.inputLabel}>Monthly payment</Text><TextInput style={s.input} value={monthlyPayment} onChangeText={onChangeMonthlyPayment} keyboardType="decimal-pad" placeholder="0.00" placeholderTextColor={T.textMuted} /></View>
+            </View>
+
+            <View style={s.formGroup}>
+              <Text style={s.inputLabel}>Min Monthly (optional)</Text>
+              <TextInput style={s.input} value={monthlyMinimum} onChangeText={onChangeMin} keyboardType="decimal-pad" placeholder="0.00" placeholderTextColor={T.textMuted} />
             </View>
 
             <View style={s.formRow}>

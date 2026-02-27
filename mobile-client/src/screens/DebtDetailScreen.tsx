@@ -128,6 +128,7 @@ export default function DebtDetailScreen() {
         saving={state.editSaving}
         name={state.editName}
         interestRate={state.editRate}
+        monthlyPayment={state.editMonthlyPayment}
         monthlyMinimum={state.editMin}
         dueDay={state.editDue}
         dueDate={state.editDueDate}
@@ -138,6 +139,7 @@ export default function DebtDetailScreen() {
         onSave={state.handleEdit}
         onChangeName={state.setEditName}
         onChangeRate={state.setEditRate}
+        onChangeMonthlyPayment={state.setEditMonthlyPayment}
         onChangeMin={state.setEditMin}
         onChangeDueDay={state.setEditDue}
         onPickDate={() => state.setShowDatePicker(true)}

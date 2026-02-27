@@ -136,6 +136,8 @@ export interface Debt {
   initialBalance?: string;
   paidAmount: string;
   originalBalance: string;
+  /** Planned monthly payment (used for payoff projection and due calculations) */
+  amount?: string | number | null;
   interestRate: string | null;
   type: string;
   paid: boolean;

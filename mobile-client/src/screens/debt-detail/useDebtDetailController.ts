@@ -28,6 +28,7 @@ export function useDebtDetailController({ debtId, debtName, onDeleted }: Params)
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState("");
   const [editRate, setEditRate] = useState("");
+  const [editMonthlyPayment, setEditMonthlyPayment] = useState("");
   const [editMin, setEditMin] = useState("");
   const [editDue, setEditDue] = useState("");
   const [editInstallment, setEditInstallment] = useState("");
@@ -51,6 +52,7 @@ export function useDebtDetailController({ debtId, debtName, onDeleted }: Params)
       setSettings(appSettings);
       setEditName(detail.name);
       setEditRate(detail.interestRate != null ? String(detail.interestRate) : "");
+      setEditMonthlyPayment((detail as any).amount != null ? String((detail as any).amount) : "");
       setEditMin(detail.monthlyMinimum != null ? String(detail.monthlyMinimum) : "");
       setEditDue(detail.dueDay != null ? String(detail.dueDay) : "");
       setEditInstallment(detail.installmentMonths != null ? String(detail.installmentMonths) : "");
@@ -127,6 +129,7 @@ export function useDebtDetailController({ debtId, debtName, onDeleted }: Params)
         method: "PATCH",
         body: {
           name,
+          amount: editMonthlyPayment ? parseFloat(editMonthlyPayment) : null,
           interestRate: editRate ? parseFloat(editRate) : null,
           monthlyMinimum: editMin ? parseFloat(editMin) : null,
           dueDay: editDue ? parseInt(editDue, 10) : null,
@@ -182,7 +185,11 @@ export function useDebtDetailController({ debtId, debtName, onDeleted }: Params)
         }, 0)
       : 0;
 
-    const dueCoveredThisCycle = Boolean(monthlyMinNum != null && monthlyMinNum > 0 && paidInDueMonth >= monthlyMinNum && dueDateValue && dueDateValue.getTime() >= Date.now());
+    const dueTarget = debt?.computedMonthlyPayment != null
+      ? debt.computedMonthlyPayment
+      : ((debt as any)?.amount != null ? parseFloat(String((debt as any).amount)) : (monthlyMinNum ?? 0));
+    const dueTargetSafe = Number.isFinite(dueTarget) ? (dueTarget as number) : 0;
+    const dueCoveredThisCycle = Boolean(dueTargetSafe > 0 && paidInDueMonth >= dueTargetSafe && dueDateValue && dueDateValue.getTime() >= Date.now());
     const isMissed = Boolean(dueDateValue && new Date().getTime() > dueDateValue.getTime() + 5 * 24 * 60 * 60 * 1000 && currentBalNum > 0);
     const isOverdue = Boolean(dueDateValue && !isMissed && new Date().getTime() > dueDateValue.getTime() && currentBalNum > 0);
     const isCardDebt = debt?.type === "credit_card" || debt?.type === "store_card";
@@ -195,6 +202,7 @@ export function useDebtDetailController({ debtId, debtName, onDeleted }: Params)
       paidSoFarNum,
       interestRateNum,
       monthlyMinNum,
+      dueTarget: dueTargetSafe,
       creditLimitNum,
       dueDateLabel,
       dueCoveredThisCycle,
@@ -232,6 +240,8 @@ export function useDebtDetailController({ debtId, debtName, onDeleted }: Params)
     setEditName,
     editRate,
     setEditRate,
+    editMonthlyPayment,
+    setEditMonthlyPayment,
     editMin,
     setEditMin,
     editDue,
