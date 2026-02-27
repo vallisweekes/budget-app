@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
 import { createExpense, normalizeFundingSource, normalizePaymentSource } from "@/lib/financial-engine";
-import { hasCustomLogoForDomain, resolveExpenseLogo, resolveExpenseLogoWithSearch } from "@/lib/expenses/logoResolver";
+import { hasCustomLogoForDomain, hasCustomLogoForName, resolveExpenseLogo, resolveExpenseLogoWithSearch } from "@/lib/expenses/logoResolver";
 
 export const runtime = "nodejs";
 
@@ -108,7 +108,7 @@ export async function GET(req: NextRequest) {
     const isManual = item.logoSource === "manual";
     const hasCustomDomainOverride = hasCustomLogoForDomain(item.merchantDomain ?? null);
     const inferredFromName = resolveExpenseLogo(item.name, undefined);
-    const hasCustomNameOverride = hasCustomLogoForDomain(inferredFromName.merchantDomain);
+    const hasCustomNameOverride = hasCustomLogoForName(item.name);
     const desiredCustomLogoUrl =
       (hasCustomDomainOverride && resolveExpenseLogo(item.name, item.merchantDomain ?? undefined).logoUrl) ||
       (hasCustomNameOverride && inferredFromName.logoUrl) ||

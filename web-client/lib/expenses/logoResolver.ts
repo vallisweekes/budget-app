@@ -19,12 +19,35 @@ const CUSTOM_LOGO_URLS: Record<string, string> = {
   "apple.com": "/logos/apple-logo.jpg",
   "southwark.gov.uk": "/logos/southwark-council.jpg",
   "zurich.co.uk":     "/logos/zurich-insurance.png",
+  "tvlicensing.co.uk": "/logos/tv-licensing.jpg",
 };
+
+/**
+ * Name-based overrides for cases where we either don't know the domain or the user data doesn't include it.
+ * These return a logo without persisting a (possibly wrong) merchantDomain.
+ */
+const CUSTOM_LOGO_NAME_OVERRIDES: Array<{ pattern: RegExp; logoUrl: string }> = [
+  { pattern: /\bplane\s*saver\b/i, logoUrl: "/logos/plane-saver-loans.webp" },
+  { pattern: /\btv\s*licen(?:s|c)e\b|\btv\s*licensing\b/i, logoUrl: "/logos/tv-licensing.jpg" },
+];
+
+function resolveCustomLogoForName(name: string): string | null {
+  const candidate = String(name ?? "").trim();
+  if (!candidate) return null;
+  for (const { pattern, logoUrl } of CUSTOM_LOGO_NAME_OVERRIDES) {
+    if (pattern.test(candidate)) return logoUrl;
+  }
+  return null;
+}
 
 export function hasCustomLogoForDomain(domain?: string | null): boolean {
   const normalized = sanitizeDomain(domain);
   if (!normalized) return false;
   return Boolean(CUSTOM_LOGO_URLS[normalized]);
+}
+
+export function hasCustomLogoForName(name?: string | null): boolean {
+  return Boolean(resolveCustomLogoForName(String(name ?? "")));
 }
 
 const KNOWN_DOMAINS: Array<{ pattern: RegExp; domain: string }> = [
@@ -125,6 +148,8 @@ const KNOWN_DOMAINS: Array<{ pattern: RegExp; domain: string }> = [
   { pattern: /\bubereats\b|uber\s*eats\b/i,           domain: "ubereats.com" },
   { pattern: /\bgorillas\b/i,                         domain: "gorillas.io" },
   { pattern: /\bgetir\b/i,                            domain: "getir.com" },
+  // ── UK services ─────────────────────────────────────────────────
+  { pattern: /\btv\s*licen(?:s|c)e\b|\btv\s*licensing\b/i, domain: "tvlicensing.co.uk" },
   // ── Retail & shopping ────────────────────────────────────────────
   { pattern: /\btesco\b/i,                            domain: "tesco.com" },
   { pattern: /\bsainsbury\b/i,                        domain: "sainsburys.co.uk" },
@@ -262,7 +287,12 @@ export function resolveExpenseLogo(name: string, merchantDomain?: string | null)
   const inferredDomain = explicitDomain ? null : inferDomainFromName(name);
   const domain = explicitDomain ?? inferredDomain;
 
+  // Name-based static overrides (no domain required).
   if (!domain) {
+    const customNameLogoUrl = resolveCustomLogoForName(name);
+    if (customNameLogoUrl) {
+      return { merchantDomain: null, logoUrl: customNameLogoUrl, logoSource: "custom-name" };
+    }
     return { merchantDomain: null, logoUrl: null, logoSource: null };
   }
 
@@ -281,7 +311,7 @@ export async function resolveExpenseLogoWithSearch(
   merchantDomain?: string | null
 ): Promise<ResolvedExpenseLogo> {
   const base = resolveExpenseLogo(name, merchantDomain);
-  if (base.merchantDomain) return base;
+  if (base.merchantDomain || base.logoUrl) return base;
 
   const query = String(name ?? "").trim();
   if (!query || !LOGO_DEV_SECRET_KEY || !shouldAttemptLogoSearch(query)) return base;
