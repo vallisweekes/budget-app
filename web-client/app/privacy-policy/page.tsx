@@ -20,9 +20,6 @@ export default function PrivacyPolicyPage() {
             This Privacy Policy describes how BudgetIn Check (&quot;we&quot;, &quot;our&quot;, &quot;us&quot;) collects, uses,
             and protects your information when you use our mobile and web applications.
           </p>
-          <p>
-            Replace placeholders before publishing: legal entity name, support email, and business address.
-          </p>
         </section>
 
         <section className="mt-8 space-y-3">
@@ -82,9 +79,8 @@ export default function PrivacyPolicyPage() {
         <section className="mt-8 space-y-3">
           <h2 className="text-xl font-semibold">Contact</h2>
           <p className="text-sm text-slate-200">
-            For privacy questions or requests, contact us at: <strong>privacy@yourdomain.com</strong>
+            For privacy questions or requests, contact us at: <strong>privacy@budgetincheck.com</strong>
           </p>
-          <p className="text-sm text-slate-300">Replace this with your real monitored support/privacy email.</p>
           <Link href="/terms" className="text-sm font-semibold text-cyan-300 hover:text-cyan-200">
             Read Terms of Service
           </Link>
