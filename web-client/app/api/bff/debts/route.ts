@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
+import { computeAgreementBaseline } from "@/lib/debts/agreementBaseline";
 
 export const runtime = "nodejs";
 
@@ -135,15 +136,44 @@ export async function POST(request: Request) {
 		if (!budgetPlanId) {
 			return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
 		}
+
+    const historicalPaidAmountRaw = typeof body?.historicalPaidAmount !== "undefined" ? body.historicalPaidAmount : 0;
+    const historicalPaidAmount = Number(historicalPaidAmountRaw);
+    if (!Number.isFinite(historicalPaidAmount) || historicalPaidAmount < 0) {
+      return NextResponse.json({ error: "Invalid historicalPaidAmount" }, { status: 400 });
+    }
+    let paidAmount = typeof body?.paidAmount !== "undefined" ? body.paidAmount : historicalPaidAmount;
+    let computedBalanceOverride: number | null = null;
+    let computedHistoricalOverride: number | null = null;
+    if (typeof (body as any)?.agreementFirstPaymentDate !== "undefined") {
+      const baseline = computeAgreementBaseline({
+        initialBalance: (body as any)?.initialBalance,
+        monthlyPayment: (body as any)?.amount,
+        annualInterestRatePct: (body as any)?.interestRate,
+        installmentMonths: parsedInstallmentMonths.int,
+        firstPaymentDate: (body as any)?.agreementFirstPaymentDate,
+        missedMonths: (body as any)?.agreementMissedMonths,
+        missedPaymentFee: (body as any)?.agreementMissedPaymentFee,
+      });
+      if ("error" in baseline) {
+        return NextResponse.json({ error: baseline.error }, { status: 400 });
+      }
+      computedBalanceOverride = baseline.computedCurrentBalance;
+      computedHistoricalOverride = baseline.historicalPaidAmount;
+      if (typeof body?.paidAmount === "undefined") {
+        paidAmount = baseline.historicalPaidAmount;
+      }
+    }
     const debt = await prisma.debt.create({
       data: {
         name: body.name,
 				type: normalizedType,
         initialBalance: body.initialBalance,
-        currentBalance: body.currentBalance || body.initialBalance,
+        currentBalance: computedBalanceOverride ?? (body.currentBalance || body.initialBalance),
         amount: body.amount,
         paid: body.paid || false,
-        paidAmount: body.paidAmount || 0,
+				paidAmount,
+        historicalPaidAmount: String(computedHistoricalOverride ?? historicalPaidAmount),
         monthlyMinimum: body.monthlyMinimum || null,
         interestRate: body.interestRate || null,
         installmentMonths: parsedInstallmentMonths.int,

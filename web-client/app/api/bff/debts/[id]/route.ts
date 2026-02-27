@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getSessionUserId } from "@/lib/api/bffAuth";
 import { processMissedDebtPaymentsToAccrue } from "@/lib/debts/carryover";
 import { computeDebtPayoffProjection } from "@/lib/debts/payoffProjection";
+import { computeAgreementBaseline } from "@/lib/debts/agreementBaseline";
 
 export const runtime = "nodejs";
 
@@ -165,13 +166,15 @@ export async function GET(
         _sum: { amount: true },
       });
       const computedPaid = Number((paidAgg._sum.amount as any)?.toString?.() ?? paidAgg._sum.amount ?? 0);
+      const historicalPaid = Number((safe as any).historicalPaidAmount?.toString?.() ?? (safe as any).historicalPaidAmount ?? 0);
+      const computedTotalPaid = computedPaid + (Number.isFinite(historicalPaid) ? historicalPaid : 0);
       const currentPaid = Number((safe.paidAmount as any)?.toString?.() ?? safe.paidAmount ?? 0);
-      if (Number.isFinite(computedPaid) && Math.abs(computedPaid - currentPaid) > 0.009) {
+      if (Number.isFinite(computedTotalPaid) && Math.abs(computedTotalPaid - currentPaid) > 0.009) {
         await prisma.debt.update({
           where: { id: safe.id },
-          data: { paidAmount: computedPaid },
+          data: { paidAmount: computedTotalPaid },
         });
-        (safe as any).paidAmount = String(computedPaid);
+        (safe as any).paidAmount = String(computedTotalPaid);
       }
     } else if (safe.sourceExpenseId) {
       const expenseId = String(safe.sourceExpenseId).trim();
@@ -306,6 +309,25 @@ export async function PATCH(
     if (typeof raw.amount !== "undefined") data.amount = raw.amount;
     if (typeof raw.paid === "boolean") data.paid = raw.paid;
     if (typeof raw.paidAmount !== "undefined") data.paidAmount = raw.paidAmount;
+    const hasExplicitPaidAmount = typeof raw.paidAmount !== "undefined";
+    const hasExplicitHistoricalPaid = typeof (raw as any).historicalPaidAmount !== "undefined";
+    if (hasExplicitHistoricalPaid) {
+      const nextHistoricalRaw = toNumber((raw as any).historicalPaidAmount);
+      if (!Number.isFinite(nextHistoricalRaw) || nextHistoricalRaw < 0) {
+        return NextResponse.json({ error: "Invalid historicalPaidAmount" }, { status: 400 });
+      }
+      data.historicalPaidAmount = nextHistoricalRaw;
+
+      // If the client is only setting a baseline (historicalPaidAmount), keep the in-app payment
+      // portion intact by adjusting total paidAmount automatically.
+      if (!hasExplicitPaidAmount) {
+        const existingTotal = toNumber((existing as any).paidAmount);
+        const existingHistorical = toNumber((existing as any).historicalPaidAmount);
+        const paymentsPaid = Math.max(0, existingTotal - Math.max(0, existingHistorical));
+        const nextHistorical = Math.max(0, nextHistoricalRaw);
+        data.paidAmount = paymentsPaid + nextHistorical;
+      }
+    }
     if (typeof raw.monthlyMinimum !== "undefined") data.monthlyMinimum = raw.monthlyMinimum;
     if (typeof raw.interestRate !== "undefined") data.interestRate = raw.interestRate;
     if (typeof raw.dueDate !== "undefined") {
@@ -322,6 +344,33 @@ export async function PATCH(
       const parsed = parseOptionalInt(raw.installmentMonths);
       if (!parsed.ok) return NextResponse.json({ error: "Invalid installmentMonths" }, { status: 400 });
       data.installmentMonths = parsed.int;
+    }
+
+    // Agreement baseline (for loans that started before tracking in-app)
+    if (typeof (raw as any).agreementFirstPaymentDate !== "undefined") {
+      const baseline = computeAgreementBaseline({
+        initialBalance: typeof raw.initialBalance !== "undefined" ? raw.initialBalance : (existing as any).initialBalance,
+        monthlyPayment: typeof raw.amount !== "undefined" ? raw.amount : (existing as any).amount,
+        annualInterestRatePct: typeof raw.interestRate !== "undefined" ? raw.interestRate : (existing as any).interestRate,
+        installmentMonths:
+          typeof raw.installmentMonths !== "undefined" ? (data as any).installmentMonths : (existing as any).installmentMonths,
+        firstPaymentDate: (raw as any).agreementFirstPaymentDate,
+        missedMonths: (raw as any).agreementMissedMonths,
+        missedPaymentFee: (raw as any).agreementMissedPaymentFee,
+      });
+      if ("error" in baseline) {
+        return NextResponse.json({ error: baseline.error }, { status: 400 });
+      }
+
+      data.historicalPaidAmount = baseline.historicalPaidAmount;
+      // Keep the in-app payment portion intact when re-baselining.
+      const existingTotal = toNumber((existing as any).paidAmount);
+      const existingHistorical = toNumber((existing as any).historicalPaidAmount);
+      const paymentsPaid = Math.max(0, existingTotal - Math.max(0, existingHistorical));
+      data.paidAmount = paymentsPaid + baseline.historicalPaidAmount;
+      // Optionally override current balance based on the agreement schedule.
+      data.currentBalance = baseline.computedCurrentBalance;
+      data.paid = baseline.computedCurrentBalance === 0;
     }
     if (typeof raw.creditLimit !== "undefined") data.creditLimit = raw.creditLimit;
     if (typeof raw.defaultPaymentSource !== "undefined") data.defaultPaymentSource = raw.defaultPaymentSource;

@@ -173,13 +173,29 @@ export default function SettingsScreen({ navigation }: MainTabScreenProps<"Setti
   const [editDebtTarget, setEditDebtTarget] = useState<Debt | null>(null);
   const [editDebtName, setEditDebtName] = useState("");
   const [editDebtType, setEditDebtType] = useState<DebtKind>("credit_card");
+  const [editDebtInitialBalance, setEditDebtInitialBalance] = useState("");
   const [editDebtBalance, setEditDebtBalance] = useState("");
   const [editDebtLimit, setEditDebtLimit] = useState("");
+  const [editDebtHistoricalPaid, setEditDebtHistoricalPaid] = useState("");
+  const [editDebtMonthlyPayment, setEditDebtMonthlyPayment] = useState("");
+  const [editDebtInstallmentMonths, setEditDebtInstallmentMonths] = useState("");
+  const [editDebtInterestRate, setEditDebtInterestRate] = useState("");
+  const [editDebtAgreementFirstPaymentDate, setEditDebtAgreementFirstPaymentDate] = useState("");
+  const [editDebtAgreementMissedMonths, setEditDebtAgreementMissedMonths] = useState("");
+  const [editDebtAgreementMissedFee, setEditDebtAgreementMissedFee] = useState("");
 
   const [addDebtName, setAddDebtName] = useState("");
   const [addDebtType, setAddDebtType] = useState<DebtKind>("credit_card");
+  const [addDebtInitialBalance, setAddDebtInitialBalance] = useState("");
   const [addDebtBalance, setAddDebtBalance] = useState("");
   const [addDebtLimit, setAddDebtLimit] = useState("");
+  const [addDebtHistoricalPaid, setAddDebtHistoricalPaid] = useState("");
+  const [addDebtMonthlyPayment, setAddDebtMonthlyPayment] = useState("");
+  const [addDebtInstallmentMonths, setAddDebtInstallmentMonths] = useState("");
+  const [addDebtInterestRate, setAddDebtInterestRate] = useState("");
+  const [addDebtAgreementFirstPaymentDate, setAddDebtAgreementFirstPaymentDate] = useState("");
+  const [addDebtAgreementMissedMonths, setAddDebtAgreementMissedMonths] = useState("");
+  const [addDebtAgreementMissedFee, setAddDebtAgreementMissedFee] = useState("");
 
   const [newPlanName, setNewPlanName] = useState("");
   const [newPlanType, setNewPlanType] = useState<PlanKind>("holiday");
@@ -491,16 +507,32 @@ export default function SettingsScreen({ navigation }: MainTabScreenProps<"Setti
     setEditDebtTarget(debt);
     setEditDebtName(debt.name);
     setEditDebtType(normalizedType);
+    setEditDebtInitialBalance(asMoneyInput(debt.initialBalance));
     setEditDebtBalance(asMoneyInput(debt.currentBalance));
     setEditDebtLimit(asMoneyInput(debt.creditLimit));
+    setEditDebtHistoricalPaid(asMoneyInput(debt.historicalPaidAmount));
+    setEditDebtMonthlyPayment(asMoneyInput(typeof debt.amount === "number" ? String(debt.amount) : debt.amount));
+    setEditDebtInstallmentMonths(debt.installmentMonths ? String(debt.installmentMonths) : "");
+    setEditDebtInterestRate(asMoneyInput(debt.interestRate));
+    setEditDebtAgreementFirstPaymentDate("");
+    setEditDebtAgreementMissedMonths("");
+    setEditDebtAgreementMissedFee("");
   };
 
   const saveDebtEdit = async () => {
     if (!editDebtTarget) return;
 
     const name = editDebtName.trim();
-    const currentBalance = Number(editDebtBalance);
+    const initialBalance = Number(editDebtInitialBalance || editDebtBalance);
+    const currentBalance = Number(editDebtBalance || editDebtInitialBalance);
     const creditLimit = Number(editDebtLimit || 0);
+    const historicalPaidAmount = Number(editDebtHistoricalPaid || 0);
+    const monthlyPayment = Number(editDebtMonthlyPayment || 0);
+    const installmentMonths = editDebtInstallmentMonths.trim() ? Number.parseInt(editDebtInstallmentMonths.trim(), 10) : null;
+    const interestRate = editDebtInterestRate.trim() ? Number(editDebtInterestRate.trim()) : null;
+    const agreementFirstPaymentDate = editDebtAgreementFirstPaymentDate.trim();
+    const agreementMissedMonths = editDebtAgreementMissedMonths.trim() ? Number.parseInt(editDebtAgreementMissedMonths.trim(), 10) : 0;
+    const agreementMissedPaymentFee = editDebtAgreementMissedFee.trim() ? Number(editDebtAgreementMissedFee.trim()) : 0;
 
     if (!name) {
       Alert.alert("Name required", "Enter a debt name.");
@@ -514,18 +546,69 @@ export default function SettingsScreen({ navigation }: MainTabScreenProps<"Setti
       Alert.alert("Invalid limit", "Credit cards require a valid credit limit.");
       return;
     }
+    if (editDebtType !== "credit_card") {
+      if (!Number.isFinite(initialBalance) || initialBalance <= 0) {
+        Alert.alert("Invalid initial amount", "Loans require a valid initial amount greater than 0.");
+        return;
+      }
+      if (!Number.isFinite(monthlyPayment) || monthlyPayment <= 0) {
+        Alert.alert("Invalid monthly payment", "Loans require a valid monthly payment greater than 0.");
+        return;
+      }
+      if (installmentMonths !== null && (!Number.isFinite(installmentMonths) || installmentMonths <= 0)) {
+        Alert.alert("Invalid agreement months", "Enter a valid number of agreement months.");
+        return;
+      }
+      if (interestRate !== null && (!Number.isFinite(interestRate) || interestRate < 0)) {
+        Alert.alert("Invalid interest rate", "Enter a valid APR (0 or more).");
+        return;
+      }
+      if (agreementFirstPaymentDate && !/^\d{4}-\d{2}-\d{2}$/.test(agreementFirstPaymentDate)) {
+        Alert.alert("Invalid first payment date", "Use YYYY-MM-DD (e.g. 2024-12-11).");
+        return;
+      }
+      if (!Number.isFinite(agreementMissedMonths) || agreementMissedMonths < 0) {
+        Alert.alert("Invalid missed months", "Enter 0 or more missed months.");
+        return;
+      }
+      if (!Number.isFinite(agreementMissedPaymentFee) || agreementMissedPaymentFee < 0) {
+        Alert.alert("Invalid missed fee", "Enter 0 or more.");
+        return;
+      }
+    }
+    if (!Number.isFinite(historicalPaidAmount) || historicalPaidAmount < 0) {
+      Alert.alert("Invalid paid amount", "Enter a valid paid-so-far amount (0 or more).");
+      return;
+    }
 
     try {
       setSaveBusy(true);
+      const body: Record<string, unknown> = {
+        name,
+        type: editDebtType,
+        currentBalance,
+        creditLimit: editDebtType === "credit_card" ? creditLimit : null,
+      };
+
+      if (editDebtType !== "credit_card") {
+        body.initialBalance = initialBalance;
+        body.amount = monthlyPayment;
+        body.installmentMonths = installmentMonths;
+        body.interestRate = interestRate;
+        if (agreementFirstPaymentDate) {
+          body.agreementFirstPaymentDate = agreementFirstPaymentDate;
+          body.agreementMissedMonths = agreementMissedMonths;
+          body.agreementMissedPaymentFee = agreementMissedPaymentFee;
+        } else {
+          body.historicalPaidAmount = historicalPaidAmount;
+        }
+      } else {
+        body.historicalPaidAmount = historicalPaidAmount;
+      }
+
       const updated = await apiFetch<Debt>(`/api/bff/debts/${encodeURIComponent(editDebtTarget.id)}`, {
         method: "PATCH",
-        body: {
-          name,
-          type: editDebtType,
-          currentBalance,
-          amount: currentBalance,
-          creditLimit: editDebtType === "credit_card" ? creditLimit : null,
-        },
+        body,
       });
       setDebts((prev) => prev.map((d) => (d.id === updated.id ? { ...d, ...updated } : d)));
       setEditDebtTarget(null);
@@ -539,13 +622,21 @@ export default function SettingsScreen({ navigation }: MainTabScreenProps<"Setti
   const addDebt = async () => {
     if (!settings?.id) return;
     const name = addDebtName.trim();
-    const balance = Number(addDebtBalance);
+    const initialBalance = Number(addDebtType === "credit_card" ? addDebtBalance : addDebtInitialBalance || addDebtBalance);
+    const currentBalance = Number(addDebtBalance || addDebtInitialBalance);
     const limit = Number(addDebtLimit || 0);
+    const historicalPaidAmount = Number(addDebtHistoricalPaid || 0);
+    const monthlyPayment = Number(addDebtMonthlyPayment || 0);
+    const installmentMonths = addDebtInstallmentMonths.trim() ? Number.parseInt(addDebtInstallmentMonths.trim(), 10) : null;
+    const interestRate = addDebtInterestRate.trim() ? Number(addDebtInterestRate.trim()) : null;
+    const agreementFirstPaymentDate = addDebtAgreementFirstPaymentDate.trim();
+    const agreementMissedMonths = addDebtAgreementMissedMonths.trim() ? Number.parseInt(addDebtAgreementMissedMonths.trim(), 10) : 0;
+    const agreementMissedPaymentFee = addDebtAgreementMissedFee.trim() ? Number(addDebtAgreementMissedFee.trim()) : 0;
     if (!name) {
       Alert.alert("Name required", "Enter a debt name.");
       return;
     }
-    if (!Number.isFinite(balance) || balance < 0) {
+    if (!Number.isFinite(currentBalance) || currentBalance < 0) {
       Alert.alert("Invalid balance", "Enter a valid current balance.");
       return;
     }
@@ -553,24 +644,81 @@ export default function SettingsScreen({ navigation }: MainTabScreenProps<"Setti
       Alert.alert("Invalid limit", "Credit cards require a valid credit limit.");
       return;
     }
+    if (addDebtType !== "credit_card") {
+      if (!Number.isFinite(initialBalance) || initialBalance <= 0) {
+        Alert.alert("Invalid initial amount", "Loans require a valid initial amount greater than 0.");
+        return;
+      }
+      if (!Number.isFinite(monthlyPayment) || monthlyPayment <= 0) {
+        Alert.alert("Invalid monthly payment", "Loans require a valid monthly payment greater than 0.");
+        return;
+      }
+      if (installmentMonths !== null && (!Number.isFinite(installmentMonths) || installmentMonths <= 0)) {
+        Alert.alert("Invalid agreement months", "Enter a valid number of agreement months.");
+        return;
+      }
+      if (interestRate !== null && (!Number.isFinite(interestRate) || interestRate < 0)) {
+        Alert.alert("Invalid interest rate", "Enter a valid APR (0 or more).");
+        return;
+      }
+      if (agreementFirstPaymentDate && !/^\d{4}-\d{2}-\d{2}$/.test(agreementFirstPaymentDate)) {
+        Alert.alert("Invalid first payment date", "Use YYYY-MM-DD (e.g. 2024-12-11).");
+        return;
+      }
+      if (!Number.isFinite(agreementMissedMonths) || agreementMissedMonths < 0) {
+        Alert.alert("Invalid missed months", "Enter 0 or more missed months.");
+        return;
+      }
+      if (!Number.isFinite(agreementMissedPaymentFee) || agreementMissedPaymentFee < 0) {
+        Alert.alert("Invalid missed fee", "Enter 0 or more.");
+        return;
+      }
+    }
+    if (!Number.isFinite(historicalPaidAmount) || historicalPaidAmount < 0) {
+      Alert.alert("Invalid paid amount", "Enter a valid paid-so-far amount (0 or more).");
+      return;
+    }
 
     try {
       setSaveBusy(true);
+      const body: Record<string, unknown> = {
+        budgetPlanId: settings.id,
+        name,
+        type: addDebtType,
+        initialBalance: addDebtType === "credit_card" ? currentBalance : initialBalance,
+        currentBalance: addDebtType === "credit_card" ? currentBalance : currentBalance || initialBalance,
+        amount: addDebtType === "credit_card" ? currentBalance : monthlyPayment,
+        creditLimit: addDebtType === "credit_card" ? limit : null,
+        historicalPaidAmount,
+      };
+
+      if (addDebtType !== "credit_card") {
+        body.installmentMonths = installmentMonths;
+        body.interestRate = interestRate;
+        if (agreementFirstPaymentDate) {
+          body.agreementFirstPaymentDate = agreementFirstPaymentDate;
+          body.agreementMissedMonths = agreementMissedMonths;
+          body.agreementMissedPaymentFee = agreementMissedPaymentFee;
+          // Server will compute historicalPaidAmount and currentBalance.
+          delete body.historicalPaidAmount;
+        }
+      }
+
       await apiFetch("/api/bff/debts", {
         method: "POST",
-        body: {
-          budgetPlanId: settings.id,
-          name,
-          type: addDebtType,
-          initialBalance: balance,
-          currentBalance: balance,
-          amount: balance,
-          creditLimit: addDebtType === "credit_card" ? limit : null,
-        },
+        body,
       });
       setAddDebtName("");
+      setAddDebtInitialBalance("");
       setAddDebtBalance("");
       setAddDebtLimit("");
+      setAddDebtHistoricalPaid("");
+      setAddDebtMonthlyPayment("");
+      setAddDebtInstallmentMonths("");
+      setAddDebtInterestRate("");
+      setAddDebtAgreementFirstPaymentDate("");
+      setAddDebtAgreementMissedMonths("");
+      setAddDebtAgreementMissedFee("");
       setAddDebtType("credit_card");
       setAddDebtSheetOpen(false);
       await switchPlan(settings.id);
@@ -1022,6 +1170,27 @@ export default function SettingsScreen({ navigation }: MainTabScreenProps<"Setti
             <TextInput value={editDebtName} onChangeText={setEditDebtName} style={styles.input} />
             <Text style={styles.label}>Current balance</Text>
             <TextInput value={editDebtBalance} onChangeText={setEditDebtBalance} style={styles.input} keyboardType="decimal-pad" />
+            <Text style={styles.label}>Paid so far (optional)</Text>
+            <TextInput value={editDebtHistoricalPaid} onChangeText={setEditDebtHistoricalPaid} style={styles.input} keyboardType="decimal-pad" />
+
+            {editDebtType !== "credit_card" ? (
+              <>
+                <Text style={styles.label}>Initial amount</Text>
+                <TextInput value={editDebtInitialBalance} onChangeText={setEditDebtInitialBalance} style={styles.input} keyboardType="decimal-pad" />
+                <Text style={styles.label}>Monthly payment</Text>
+                <TextInput value={editDebtMonthlyPayment} onChangeText={setEditDebtMonthlyPayment} style={styles.input} keyboardType="decimal-pad" />
+                <Text style={styles.label}>Agreement months</Text>
+                <TextInput value={editDebtInstallmentMonths} onChangeText={setEditDebtInstallmentMonths} style={styles.input} keyboardType="number-pad" />
+                <Text style={styles.label}>APR % (optional)</Text>
+                <TextInput value={editDebtInterestRate} onChangeText={setEditDebtInterestRate} style={styles.input} keyboardType="decimal-pad" />
+                <Text style={styles.label}>1st payment date (optional, YYYY-MM-DD)</Text>
+                <TextInput value={editDebtAgreementFirstPaymentDate} onChangeText={setEditDebtAgreementFirstPaymentDate} style={styles.input} autoCapitalize="none" />
+                <Text style={styles.label}>Missed months (optional)</Text>
+                <TextInput value={editDebtAgreementMissedMonths} onChangeText={setEditDebtAgreementMissedMonths} style={styles.input} keyboardType="number-pad" />
+                <Text style={styles.label}>Missed payment fee (optional)</Text>
+                <TextInput value={editDebtAgreementMissedFee} onChangeText={setEditDebtAgreementMissedFee} style={styles.input} keyboardType="decimal-pad" />
+              </>
+            ) : null}
             {editDebtType === "credit_card" ? (
               <>
                 <Text style={styles.label}>Credit limit</Text>
@@ -1076,6 +1245,27 @@ export default function SettingsScreen({ navigation }: MainTabScreenProps<"Setti
             <TextInput value={addDebtName} onChangeText={setAddDebtName} style={styles.input} />
             <Text style={styles.label}>Current balance</Text>
             <TextInput value={addDebtBalance} onChangeText={setAddDebtBalance} style={styles.input} keyboardType="decimal-pad" />
+            <Text style={styles.label}>Paid so far (optional)</Text>
+            <TextInput value={addDebtHistoricalPaid} onChangeText={setAddDebtHistoricalPaid} style={styles.input} keyboardType="decimal-pad" />
+
+            {addDebtType !== "credit_card" ? (
+              <>
+                <Text style={styles.label}>Initial amount</Text>
+                <TextInput value={addDebtInitialBalance} onChangeText={setAddDebtInitialBalance} style={styles.input} keyboardType="decimal-pad" />
+                <Text style={styles.label}>Monthly payment</Text>
+                <TextInput value={addDebtMonthlyPayment} onChangeText={setAddDebtMonthlyPayment} style={styles.input} keyboardType="decimal-pad" />
+                <Text style={styles.label}>Agreement months</Text>
+                <TextInput value={addDebtInstallmentMonths} onChangeText={setAddDebtInstallmentMonths} style={styles.input} keyboardType="number-pad" />
+                <Text style={styles.label}>APR % (optional)</Text>
+                <TextInput value={addDebtInterestRate} onChangeText={setAddDebtInterestRate} style={styles.input} keyboardType="decimal-pad" />
+                <Text style={styles.label}>1st payment date (optional, YYYY-MM-DD)</Text>
+                <TextInput value={addDebtAgreementFirstPaymentDate} onChangeText={setAddDebtAgreementFirstPaymentDate} style={styles.input} autoCapitalize="none" />
+                <Text style={styles.label}>Missed months (optional)</Text>
+                <TextInput value={addDebtAgreementMissedMonths} onChangeText={setAddDebtAgreementMissedMonths} style={styles.input} keyboardType="number-pad" />
+                <Text style={styles.label}>Missed payment fee (optional)</Text>
+                <TextInput value={addDebtAgreementMissedFee} onChangeText={setAddDebtAgreementMissedFee} style={styles.input} keyboardType="decimal-pad" />
+              </>
+            ) : null}
             {addDebtType === "credit_card" ? (
               <>
                 <Text style={styles.label}>Credit limit</Text>

@@ -433,6 +433,8 @@ model Debt {
   amount               Decimal        @db.Decimal(12, 2)
   paid                 Boolean        @default(false)
   paidAmount           Decimal        @default(0) @db.Decimal(12, 2)
+  // Paid before tracking in-app (does NOT create payment rows). Included in paidAmount reconciliation.
+  historicalPaidAmount Decimal        @default(0) @db.Decimal(12, 2)
   defaultPaymentSource DebtPaymentSource @default(income)
   defaultPaymentCardDebtId String?
   defaultPaymentCard   Debt?          @relation("DebtDefaultPaymentCard", fields: [defaultPaymentCardDebtId], references: [id], onDelete: SetNull)

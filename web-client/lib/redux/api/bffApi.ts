@@ -53,6 +53,7 @@ export interface BffDebt {
   amount: string;
   paid: boolean;
   paidAmount: string;
+  historicalPaidAmount: string;
   monthlyMinimum?: string | null;
   sourceType?: string | null;
   sourceExpenseId?: string | null;
@@ -140,6 +141,7 @@ export interface CreateDebtBody {
   monthlyMinimum?: number;
   paid?: boolean;
   paidAmount?: number;
+  historicalPaidAmount?: number;
 }
 
 export interface CreateDebtPaymentBody {

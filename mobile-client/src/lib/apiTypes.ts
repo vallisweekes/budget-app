@@ -135,6 +135,8 @@ export interface Debt {
   currentBalance: string;
   initialBalance?: string;
   paidAmount: string;
+  /** Paid before tracking in-app (does NOT create payment rows) */
+  historicalPaidAmount?: string;
   originalBalance: string;
   /** Planned monthly payment (used for payoff projection and due calculations) */
   amount?: string | number | null;
