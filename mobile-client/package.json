@@ -51,6 +51,7 @@
     "babel-preset-expo": "^54.0.10",
     "eas-cli": "^18.0.4",
     "expo-module-scripts": "^5.0.8",
+    "react-native-svg-transformer": "^1.5.3",
     "typescript": "~5.9.2"
   },
   "private": true,

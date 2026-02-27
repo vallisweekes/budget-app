@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Home, CreditCard, Target, Banknote, ShoppingBag } from "lucide-react";
+import { House, CreditCard, Target, Banknote, ShoppingBag } from "lucide-react";
 import { currentMonthKey } from "@/lib/helpers/monthKey";
 import { getCurrencySymbol } from "@/lib/constants/locales";
 import { DEFAULT_CURRENCY_CODE } from "@/lib/constants/money";
@@ -92,7 +92,7 @@ export default function MobileBottomNav() {
 	)}`;
 
 	const navItems: Array<{ key: string; href: string; label: string; icon: any }> = [
-		{ key: "home", href: `${baseHref}/page=home`, label: "Home", icon: Home },
+		{ key: "home", href: `${baseHref}/page=home`, label: "Home", icon: House },
 		{ key: "income", href: `${baseHref}/page=income`, label: "Income", icon: Banknote },
 		{ key: "expenses", href: expensesHref, label: "Expenses", icon: null },
 		{ key: "spending", href: `${baseHref}/page=spending`, label: "Spending", icon: ShoppingBag },
