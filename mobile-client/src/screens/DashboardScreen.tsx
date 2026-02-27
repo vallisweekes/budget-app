@@ -3,6 +3,7 @@ import {
   View,
   Text,
   ScrollView,
+  Image,
   ActivityIndicator,
   StyleSheet,
   RefreshControl,
@@ -16,6 +17,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 
 import { ApiError, apiFetch } from "@/lib/api";
+import { getApiBaseUrl } from "@/lib/api";
 import type { DashboardData, Settings } from "@/lib/apiTypes";
 import { currencySymbol, fmt } from "@/lib/formatting";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
@@ -32,6 +34,54 @@ const GOAL_SIDE = 16;
 const GOAL_CARD = Math.max(122, Math.round((W - GOAL_SIDE * 2 - GOAL_GAP) / 2));
 const GOAL_ADD_W = Math.max(52, Math.round(GOAL_CARD * 0.34));
 
+function resolveLogoUri(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  if (/^https?:\/\//i.test(raw)) return raw;
+  if (!raw.startsWith("/")) return null;
+  try {
+    return `${getApiBaseUrl()}${raw}`;
+  } catch {
+    return null;
+  }
+}
+
+function shouldUseLogoForName(name: string): boolean {
+  const cleaned = String(name ?? "").trim().toLowerCase();
+  if (!cleaned) return false;
+
+  const tokens = cleaned.split(/\s+/).filter(Boolean);
+  if (tokens.length === 0 || tokens.length > 2) return false;
+
+  const genericTerms = new Set([
+    "work",
+    "travel",
+    "barber",
+    "barbers",
+    "rent",
+    "housing",
+    "utilities",
+    "childcare",
+    "groceries",
+    "grocery",
+    "food",
+    "fuel",
+    "transport",
+    "allowance",
+    "savings",
+    "emergency",
+    "income",
+    "debt",
+    "payment",
+    "loan",
+    "mortgage",
+  ]);
+
+  const hasGenericTerm = tokens.some((t) => genericTerms.has(t));
+  if (hasGenericTerm) return false;
+
+  return /[a-z]/i.test(cleaned);
+}
+
 export default function DashboardScreen({ navigation }: { navigation: any }) {
   const topHeaderOffset = useTopHeaderOffset();
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
@@ -42,6 +92,7 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
   const [categorySheet, setCategorySheet] = useState<{ id: string; name: string } | null>(null);
   const [aiTipIndex, setAiTipIndex] = useState(0);
   const [activeGoalCard, setActiveGoalCard] = useState(0);
+  const [failedLogos, setFailedLogos] = useState<Record<string, boolean>>({});
 
   const currency = currencySymbol(settings?.currency);
 
@@ -256,6 +307,9 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
               </Pressable>
             </View>
             {upcoming.slice(0, 3).map((p) => {
+              const logoUri = resolveLogoUri(p.logoUrl);
+              const logoKey = `expense:${p.id}`;
+              const showLogo = !!logoUri && shouldUseLogoForName(p.name) && !failedLogos[logoKey];
               const dateLabel = formatShortDate(p.dueDate);
               const sub =
                 p.urgency === "overdue"
@@ -270,7 +324,16 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
                 <View key={p.id} style={styles.lightRow}>
                   <View style={styles.lightLeft}>
                     <View style={styles.lightAvatar}>
-                      <Text style={styles.lightAvatarTxt}>{(p.name?.trim()?.[0] ?? "?").toUpperCase()}</Text>
+                      {showLogo ? (
+                        <Image
+                          source={{ uri: logoUri }}
+                          style={styles.avatarLogo}
+                          resizeMode="contain"
+                          onError={() => setFailedLogos((prev) => ({ ...prev, [logoKey]: true }))}
+                        />
+                      ) : (
+                        <Text style={styles.lightAvatarTxt}>{(p.name?.trim()?.[0] ?? "?").toUpperCase()}</Text>
+                      )}
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.lightRowTitle} numberOfLines={1}>
@@ -299,26 +362,41 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
                 <Text style={styles.seeAllText}>See all</Text>
               </Pressable>
             </View>
-            {upcomingDebts.slice(0, 3).map((d) => (
-              <View key={d.id} style={styles.blueRow}>
-                <View style={styles.blueLeft}>
-                  <View style={styles.blueAvatar}>
-                    <Text style={styles.blueAvatarTxt}>{(d.name?.trim()?.[0] ?? "D").toUpperCase()}</Text>
+            {upcomingDebts.slice(0, 3).map((d) => {
+              const logoUri = resolveLogoUri(d.logoUrl);
+              const logoKey = `debt:${d.id}`;
+              const showLogo = !!logoUri && shouldUseLogoForName(d.name) && !failedLogos[logoKey];
+
+              return (
+                <View key={d.id} style={styles.blueRow}>
+                  <View style={styles.blueLeft}>
+                    <View style={styles.blueAvatar}>
+                      {showLogo ? (
+                        <Image
+                          source={{ uri: logoUri }}
+                          style={styles.avatarLogo}
+                          resizeMode="contain"
+                          onError={() => setFailedLogos((prev) => ({ ...prev, [logoKey]: true }))}
+                        />
+                      ) : (
+                        <Text style={styles.blueAvatarTxt}>{(d.name?.trim()?.[0] ?? "D").toUpperCase()}</Text>
+                      )}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.blueRowTitle} numberOfLines={1}>
+                        {d.name}
+                      </Text>
+                      <Text style={styles.blueRowSub} numberOfLines={1}>
+                        Monthly payment
+                      </Text>
+                    </View>
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.blueRowTitle} numberOfLines={1}>
-                      {d.name}
-                    </Text>
-                    <Text style={styles.blueRowSub} numberOfLines={1}>
-                      Monthly payment
-                    </Text>
-                  </View>
+                  <Text style={styles.blueRowAmt} numberOfLines={1}>
+                    {fmt(d.dueAmount, currency)}
+                  </Text>
                 </View>
-                <Text style={styles.blueRowAmt} numberOfLines={1}>
-                  {fmt(d.dueAmount, currency)}
-                </Text>
-              </View>
-            ))}
+              );
+            })}
           </View>
         )}
 
@@ -539,6 +617,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
+    overflow: "hidden",
     backgroundColor: T.cardAlt,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: T.border,
@@ -546,6 +625,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   lightAvatarTxt: { color: T.text, fontSize: 14, fontWeight: "800" },
+  avatarLogo: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 999,
+  },
   lightRowTitle: { color: T.text, fontSize: 16, fontWeight: "800", letterSpacing: -0.2 },
   lightRowSub: { color: T.textDim, fontSize: 13, fontWeight: "600", marginTop: 2 },
   lightRowAmt: { color: T.text, fontSize: 18, fontWeight: "800", letterSpacing: -0.2 },
@@ -572,6 +656,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
+    overflow: "hidden",
     backgroundColor: T.accentDim,
     alignItems: "center",
     justifyContent: "center",

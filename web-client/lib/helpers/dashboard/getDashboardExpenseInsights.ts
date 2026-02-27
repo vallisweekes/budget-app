@@ -193,6 +193,7 @@ export async function getDashboardExpenseInsights({
 			select: {
 				id: true,
 				name: true,
+				logoUrl: true,
 				amount: true,
 				paid: true,
 				paidAmount: true,
@@ -213,6 +214,7 @@ export async function getDashboardExpenseInsights({
 	const toExpenseItem = (e: (typeof expenseWindowRows)[number]): ExpenseItem => ({
 		id: e.id,
 		name: e.name,
+		logoUrl: e.logoUrl ?? undefined,
 		amount: toNumber(e.amount),
 		paid: e.paid,
 		paidAmount: toNumber(e.paidAmount),
@@ -383,13 +385,11 @@ export async function getDashboardExpenseInsights({
 	});
 
 	// If there are no unpaid upcoming expenses OR debts for the base month, show next month instead.
-	const baseKey = `${selectedBase.year}-${selectedBase.monthNum}`;
 	if (baseMonthUpcomingExpenses.length === 0 && baseDebtUpcoming.length === 0) {
 		const next = addMonthsUtc(selectedBase.year, selectedBase.monthNum, 1);
 		const nextDueIso = isoForPayDate(next.year, next.monthNum, payDate);
 		selectedBase = { year: next.year, monthNum: next.monthNum, dueIso: nextDueIso, due: parseIsoDateToUtcDateOnly(nextDueIso) };
 	}
-	const selectedKey = `${selectedBase.year}-${selectedBase.monthNum}`;
 
 	const selectedMonthPairs = Array.from({ length: 3 }, (_, i) => addMonthsUtc(selectedBase.year, selectedBase.monthNum, i));
 
@@ -406,16 +406,6 @@ export async function getDashboardExpenseInsights({
 		})
 		.filter((u) => u.status !== "paid")
 		.sort((a, b) => scoreUpcoming(a) - scoreUpcoming(b) || b.amount - a.amount);
-
-	const debtUpcoming = selectedKey === baseKey
-		? baseDebtUpcoming
-		: buildDebtUpcoming({
-			year: selectedBase.year,
-			monthNum: selectedBase.monthNum,
-			dueIso: selectedBase.dueIso,
-			due: selectedBase.due,
-			paidByDebtId: await buildPaidByDebtId(selectedBase.year, selectedBase.monthNum),
-		});
 
 	const monthKey = monthNumberToKey(selectedBase.monthNum);
 	const allocationSnapshot = await getMonthlyAllocationSnapshot(budgetPlanId, monthKey);

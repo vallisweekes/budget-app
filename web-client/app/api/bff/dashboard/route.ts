@@ -14,6 +14,7 @@ import { getMultiPlanHealthTips } from "@/lib/helpers/dashboard/getMultiPlanHeal
 import { getAllPlansDashboardData } from "@/lib/helpers/dashboard/getAllPlansDashboardData";
 import { MONTHS } from "@/lib/constants/time";
 import { currentMonthKey } from "@/lib/helpers/monthKey";
+import { resolveExpenseLogo } from "@/lib/expenses/logoResolver";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -217,6 +218,29 @@ export async function GET(req: NextRequest) {
 		})();
 
 		const debts = debtSummary.activeDebts;
+		const sourceExpenseIds = Array.from(
+			new Set(
+				debts
+					.map((d) => d.sourceExpenseId)
+					.filter((id): id is string => typeof id === "string" && id.trim().length > 0)
+			)
+		);
+		const debtLogoByExpenseId = new Map<string, string>();
+		if (sourceExpenseIds.length > 0) {
+			try {
+				const sourceExpenseRows = await prisma.expense.findMany({
+					where: { id: { in: sourceExpenseIds }, budgetPlanId },
+					select: { id: true, logoUrl: true },
+				});
+				for (const row of sourceExpenseRows) {
+					if (typeof row.logoUrl === "string" && row.logoUrl.trim().length > 0) {
+						debtLogoByExpenseId.set(row.id, row.logoUrl.trim());
+					}
+				}
+			} catch (err) {
+				console.error("Dashboard: debt logo lookup failed:", err);
+			}
+		}
 
 		// Query how much has been paid against each debt IN THE CURRENT MONTH
 		// so we can exclude already-paid debts from "Upcoming Debts".
@@ -383,6 +407,9 @@ export async function GET(req: NextRequest) {
 			debts: debts.map((d) => ({
 				id: d.id,
 				name: d.name,
+				logoUrl:
+					(d.sourceExpenseId ? debtLogoByExpenseId.get(d.sourceExpenseId) ?? null : null) ??
+					resolveExpenseLogo(d.name).logoUrl,
 				type: d.type,
 				currentBalance: d.currentBalance,
 				paidAmount: d.paidAmount,

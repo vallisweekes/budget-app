@@ -330,6 +330,7 @@ export interface DashboardGoal {
 export interface DashboardDebt {
   id: string;
   name: string;
+  logoUrl?: string | null;
   type: string;
   currentBalance: number;
   paidAmount: number;
@@ -348,6 +349,7 @@ export interface UpcomingPayment {
   id: string;
   kind: "expense" | "debt" | "allocation";
   name: string;
+  logoUrl?: string;
   amount: number;
   paidAmount: number;
   status: "paid" | "partial" | "unpaid";

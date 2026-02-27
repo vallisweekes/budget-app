@@ -110,6 +110,43 @@ function resolveLogoUri(raw: string | null | undefined): string | null {
   }
 }
 
+function shouldUseLogoForName(name: string): boolean {
+  const cleaned = String(name ?? "").trim().toLowerCase();
+  if (!cleaned) return false;
+
+  const tokens = cleaned.split(/\s+/).filter(Boolean);
+  if (tokens.length === 0 || tokens.length > 2) return false;
+
+  const genericTerms = new Set([
+    "work",
+    "travel",
+    "barber",
+    "barbers",
+    "rent",
+    "housing",
+    "utilities",
+    "childcare",
+    "groceries",
+    "grocery",
+    "food",
+    "fuel",
+    "transport",
+    "allowance",
+    "savings",
+    "emergency",
+    "income",
+    "debt",
+    "payment",
+    "loan",
+    "mortgage",
+  ]);
+
+  const hasGenericTerm = tokens.some((t) => genericTerms.has(t));
+  if (hasGenericTerm) return false;
+
+  return /[a-z]/i.test(cleaned);
+}
+
 // ─── Main screen ─────────────────────────────────────────────────────────────
 
 export default function CategoryExpensesScreen({ route, navigation }: Props) {
@@ -391,14 +428,17 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
     const statusLabel = isPaid ? "✓ Paid" : isPartial ? "Partial" : "Unpaid";
     const statusColor = isPaid ? T.green : isPartial ? T.orange : T.red;
 
+    const logoUri = resolveLogoUri(item.logoUrl);
+    const showLogo = !!logoUri && shouldUseLogoForName(item.name) && !logoFailed[item.id];
+
     return (
       <View style={[rs.card, isBusy && deleting[item.id] && { opacity: 0.4 }]}>
         {/* Row 1: name + badges + paid button + icons */}
         <View style={rs.row1}>
           <View style={rs.logoWrap}>
-            {resolveLogoUri(item.logoUrl) && !logoFailed[item.id] ? (
+            {showLogo ? (
               <Image
-                source={{ uri: resolveLogoUri(item.logoUrl)! }}
+                source={{ uri: logoUri! }}
                 style={rs.logoImg}
                 resizeMode="contain"
                 onError={() => setLogoFailed((prev) => ({ ...prev, [item.id]: true }))}
@@ -579,7 +619,7 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
           <Pressable style={es.backdrop} onPress={() => setEditState(null)} />
           <View style={es.sheet}>
             <View style={es.handle} />
-            <Text style={es.title}>Edit Expense</Text>
+            <Text style={es.title}>{`Edit ${String(editState?.name ?? "").trim() || "Expense"} expense`}</Text>
 
             <ScrollView style={es.scrollContent} showsVerticalScrollIndicator={false}>
               <Text style={es.label}>Name</Text>
@@ -1025,9 +1065,9 @@ const rs = StyleSheet.create({
     overflow: "hidden",
   },
   logoImg: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: "100%",
+    height: "100%",
+    borderRadius: 999,
   },
   logoFallback: {
     color: T.textDim,

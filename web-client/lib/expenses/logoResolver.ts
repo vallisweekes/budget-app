@@ -146,6 +146,42 @@ function inferDomainFromName(name: string): string | null {
   return null;
 }
 
+function shouldAttemptLogoSearch(name: string): boolean {
+  const query = String(name ?? "").trim().toLowerCase();
+  if (!query) return false;
+
+  const tokens = query.split(/\s+/).filter(Boolean);
+  if (tokens.length === 0 || tokens.length > 2) return false;
+
+  const genericTerms = new Set([
+    "work",
+    "travel",
+    "barber",
+    "barbers",
+    "rent",
+    "housing",
+    "utilities",
+    "childcare",
+    "groceries",
+    "grocery",
+    "food",
+    "fuel",
+    "transport",
+    "allowance",
+    "savings",
+    "emergency",
+    "income",
+    "debt",
+    "payment",
+    "loan",
+    "mortgage",
+  ]);
+
+  if (tokens.some((t) => genericTerms.has(t))) return false;
+
+  return /[a-z]/i.test(query);
+}
+
 export function resolveExpenseLogo(name: string, merchantDomain?: string | null): ResolvedExpenseLogo {
   const explicitDomain = sanitizeDomain(merchantDomain);
   const inferredDomain = explicitDomain ? null : inferDomainFromName(name);
@@ -173,7 +209,7 @@ export async function resolveExpenseLogoWithSearch(
   if (base.merchantDomain) return base;
 
   const query = String(name ?? "").trim();
-  if (!query || !LOGO_DEV_SECRET_KEY) return base;
+  if (!query || !LOGO_DEV_SECRET_KEY || !shouldAttemptLogoSearch(query)) return base;
 
   try {
     const response = await fetch(

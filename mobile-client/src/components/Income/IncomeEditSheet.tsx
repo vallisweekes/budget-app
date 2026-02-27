@@ -260,7 +260,7 @@ export default function IncomeEditSheet({
 
                 {/* ① Edit / Delete — visible in view mode only */}
                 {!isLocked && !editMode && !deleteConfirm && (
-                  <View style={s.actionRow}>
+                  <View style={[s.actionRow, s.topActionRow]}>
                     <Pressable
                       onPress={enterEdit}
                       disabled={saving}
@@ -389,7 +389,7 @@ const s = StyleSheet.create({
 
   /* Amount — no panel, sits on raw background */
   amountArea: {
-    marginTop: 28,
+    marginTop: 40,
     alignItems: "center",
   },
   amountRow: {
@@ -426,6 +426,9 @@ const s = StyleSheet.create({
     flexDirection: "row",
     gap: 10,
     marginTop: 20,
+  },
+  topActionRow: {
+    marginTop: 40,
   },
   pill: {
     flex: 1,

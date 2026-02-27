@@ -67,6 +67,7 @@ export interface UpcomingPayment {
 	id: string;
 	kind: "expense" | "debt" | "allocation";
 	name: string;
+	logoUrl?: string;
 	amount: number;
 	paidAmount: number;
 	status: PaymentStatus;
@@ -243,6 +244,7 @@ export function computeUpcomingPayments(
 			id: e.id,
 			kind: "expense",
 			name: e.name,
+			logoUrl: e.logoUrl,
 			amount,
 			paidAmount: paidAmt,
 			status,
