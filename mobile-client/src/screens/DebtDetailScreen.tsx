@@ -174,7 +174,7 @@ const s = StyleSheet.create({
     borderWidth: 2,
     borderColor: T.accentBorder,
   },
-  sectionTitle: { color: T.text, fontSize: 14, fontWeight: "900" },
+  sectionTitle: { color: T.text, fontSize: 14, fontWeight: "900", marginTop: 6 },
   errorText: { color: T.red, fontSize: 14, textAlign: "center", paddingHorizontal: 32 },
   retryBtn: { backgroundColor: T.accent, borderRadius: 8, paddingHorizontal: 24, paddingVertical: 10 },
   retryTxt: { color: T.onAccent, fontWeight: "700" },

@@ -1,6 +1,6 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
-import Svg, { Circle, Defs, Line, LinearGradient, Path, Stop } from "react-native-svg";
+import Svg, { Circle, Defs, Line, LinearGradient, Path, Stop, Text as SvgText } from "react-native-svg";
 import { fmt } from "@/lib/formatting";
 import { T } from "@/lib/theme";
 
@@ -28,9 +28,9 @@ type Props = {
 
 export default function PayoffChart({ balance, monthlyPayment, interestRate, currency, monthsLeftOverride, paidOffByOverride }: Props) {
   const [chartWidth, setChartWidth] = React.useState(300);
-  const chartHeight = 150;
+  const chartHeight = 164;
   const paddingX = 12;
-  const paddingY = 14;
+  const paddingY = 18;
   const monthlyRate = interestRate ? interestRate / 100 / 12 : 0;
   const points = buildProjection(balance, monthlyPayment, monthlyRate);
   const totalMonthsComputed = points.length - 1;
@@ -40,6 +40,13 @@ export default function PayoffChart({ balance, monthlyPayment, interestRate, cur
 
   const toX = (index: number) => paddingX + (index / Math.max(1, totalMonths)) * (chartWidth - paddingX * 2);
   const toY = (value: number) => paddingY + (1 - (balance > 0 ? value / balance : 0)) * (chartHeight - paddingY * 2);
+
+  const axisLeftX = paddingX;
+  const axisBottomY = chartHeight - paddingY;
+  const axisTopY = paddingY;
+  const axisRightX = chartWidth - paddingX;
+
+  const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
   const linePath = points.map((value, index) => `${index === 0 ? "M" : "L"}${toX(index).toFixed(1)},${toY(value).toFixed(1)}`).join(" ");
   const areaPath = `${linePath} L${toX(totalMonths).toFixed(1)},${(chartHeight - paddingY).toFixed(1)} L${toX(0).toFixed(1)},${(chartHeight - paddingY).toFixed(1)} Z`;
@@ -57,6 +64,9 @@ export default function PayoffChart({ balance, monthlyPayment, interestRate, cur
     return payoffDate.toLocaleDateString("en-GB", { month: "short", year: "numeric" });
   })();
 
+  const assumptionLabel = monthlyPayment > 0 ? `Assumes ${fmt(monthlyPayment, currency)}/month` : null;
+  const horizonLabel = cannotPayoff ? `+${totalMonthsComputed} mo` : `+${totalMonths} mo`;
+
   return (
     <View>
       <View style={s.strip}>
@@ -67,6 +77,8 @@ export default function PayoffChart({ balance, monthlyPayment, interestRate, cur
         <View style={s.stat}><Text style={s.lbl}>PAID OFF BY</Text><Text style={[s.val, { color: T.green }]}>{payoffLabel ?? "—"}</Text></View>
       </View>
 
+      {assumptionLabel ? <Text style={s.assumption}>{assumptionLabel}</Text> : null}
+
       <View onLayout={(event) => setChartWidth(event.nativeEvent.layout.width)} style={{ width: "100%", height: chartHeight, marginTop: 8 }}>
         <Svg width={chartWidth} height={chartHeight}>
           <Defs>
@@ -75,11 +87,47 @@ export default function PayoffChart({ balance, monthlyPayment, interestRate, cur
               <Stop offset="1" stopColor={T.accent} stopOpacity="0.03" />
             </LinearGradient>
           </Defs>
-          <Line x1={paddingX} y1={chartHeight - paddingY} x2={chartWidth - paddingX} y2={chartHeight - paddingY} stroke={T.border} strokeWidth={1} />
+          {/* Baseline */}
+          <Line x1={axisLeftX} y1={axisBottomY} x2={axisRightX} y2={axisBottomY} stroke={T.border} strokeWidth={1} />
+
           <Path d={areaPath} fill="url(#payGrad)" />
           <Path d={linePath} stroke={T.accent} strokeWidth={2.5} fill="none" strokeLinecap="round" strokeLinejoin="round" />
           <Circle cx={toX(0)} cy={toY(balance)} r={4.5} fill={T.accent} />
           {!cannotPayoff ? <Circle cx={toX(totalMonths)} cy={toY(0)} r={4.5} fill={T.green} /> : null}
+
+          {/* Friendly labels */}
+          <SvgText
+            x={clamp(toX(0) + 8, axisLeftX + 6, axisRightX - 6)}
+            y={clamp(toY(balance) - 12, axisTopY + 2, axisBottomY - 18)}
+            fill={T.textDim}
+            fontSize={10}
+            fontWeight={800}
+            textAnchor="start"
+            alignmentBaseline="baseline"
+          >
+            {`${fmt(balance, currency)} today`}
+          </SvgText>
+
+          {!cannotPayoff ? (
+            <SvgText
+              x={clamp(toX(totalMonths) - 8, axisLeftX + 6, axisRightX - 6)}
+              y={clamp(toY(0) - 12, axisTopY + 2, axisBottomY - 18)}
+              fill={T.textDim}
+              fontSize={10}
+              fontWeight={800}
+              textAnchor="end"
+              alignmentBaseline="baseline"
+            >
+              {fmt(0, currency)}
+            </SvgText>
+          ) : null}
+
+          <SvgText x={axisLeftX} y={axisBottomY + 14} fill={T.textDim} fontSize={10} fontWeight={800} textAnchor="start" alignmentBaseline="baseline">
+            Now
+          </SvgText>
+          <SvgText x={axisRightX} y={axisBottomY + 14} fill={T.textDim} fontSize={10} fontWeight={800} textAnchor="end" alignmentBaseline="baseline">
+            {horizonLabel}
+          </SvgText>
         </Svg>
       </View>
 
@@ -95,5 +143,6 @@ const s = StyleSheet.create({
   statDivider: { width: 1, height: 28, backgroundColor: T.border },
   lbl: { color: T.textDim, fontSize: 9, fontWeight: "800", letterSpacing: 0.5 },
   val: { color: T.text, fontSize: 14, fontWeight: "900", marginTop: 2 },
+  assumption: { color: T.textDim, fontSize: 11, fontWeight: "700", marginTop: 6, textAlign: "center" },
   warn: { color: T.orange, fontSize: 11, fontWeight: "600", marginTop: 8, textAlign: "center" },
 });
