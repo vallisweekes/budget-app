@@ -3,6 +3,7 @@ import { encode } from "next-auth/jwt";
 import { getUserByUsername, registerUserByUsername } from "@/lib/budgetPlans";
 import { normalizeUsername } from "@/lib/helpers/username";
 import { createMobileAuthSession } from "@/lib/mobileAuthSessions";
+import { consumeEmailLoginCode, isEmailLoginCodeRequired } from "@/lib/auth/loginCodes";
 
 export const runtime = "nodejs";
 
@@ -33,6 +34,13 @@ export async function POST(request: Request) {
 
     if (!user) {
       return NextResponse.json({ error: "User cannot be found" }, { status: 401 });
+    }
+
+    if (mode === "login" && isEmailLoginCodeRequired()) {
+      const code = String(body.code ?? "").trim();
+      if (!code) return NextResponse.json({ error: "Login code is required" }, { status: 400 });
+      const ok = await consumeEmailLoginCode({ userId: user.id, code });
+      if (!ok) return NextResponse.json({ error: "Invalid login code" }, { status: 400 });
     }
 
     const canonicalUsername = normalizeUsername(String(user.name ?? "")) || username;
