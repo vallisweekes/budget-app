@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
 import { createExpense, normalizeFundingSource, normalizePaymentSource } from "@/lib/financial-engine";
-import { resolveExpenseLogoWithSearch } from "@/lib/expenses/logoResolver";
+import { hasCustomLogoForDomain, resolveExpenseLogo, resolveExpenseLogoWithSearch } from "@/lib/expenses/logoResolver";
 
 export const runtime = "nodejs";
 
@@ -106,18 +106,28 @@ export async function GET(req: NextRequest) {
   const out: any[] = [];
   for (const item of items as any[]) {
     const isManual = item.logoSource === "manual";
+    const hasCustomDomainOverride = hasCustomLogoForDomain(item.merchantDomain ?? null);
+    const inferredFromName = resolveExpenseLogo(item.name, undefined);
+    const hasCustomNameOverride = hasCustomLogoForDomain(inferredFromName.merchantDomain);
     const needsBackfill = !item.logoUrl;
-    const shouldRefresh = refreshLogos && !isManual;
+    const shouldForceCustomRefresh = refreshLogos && (hasCustomDomainOverride || hasCustomNameOverride);
+    const shouldRefresh = refreshLogos && (!isManual || hasCustomDomainOverride || hasCustomNameOverride);
 
-    const shouldResolve = (needsBackfill && enrichedCount < MAX_ENRICH) || (shouldRefresh && refreshedCount < MAX_REFRESH);
+    const shouldResolve =
+      shouldForceCustomRefresh ||
+      (needsBackfill && enrichedCount < MAX_ENRICH) ||
+      (shouldRefresh && refreshedCount < MAX_REFRESH);
     if (shouldResolve) {
       if (needsBackfill) enrichedCount += 1;
-      else refreshedCount += 1;
+      else if (!shouldForceCustomRefresh) refreshedCount += 1;
+
+      // If we can infer a custom logo from the name, do not preserve stale manual domains.
+      const preserveManualDomain = isManual && !hasCustomDomainOverride && !hasCustomNameOverride;
 
       const resolved = await resolveExpenseLogoWithSearch(
         item.name,
         // If the user explicitly set a domain, keep it stable.
-        isManual ? item.merchantDomain : undefined
+        preserveManualDomain ? item.merchantDomain : undefined
       );
 
       const changed =

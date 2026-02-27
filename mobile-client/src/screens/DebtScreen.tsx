@@ -3,12 +3,14 @@ import {
   View,
   Text,
   FlatList,
+  ScrollView,
   Pressable,
   ActivityIndicator,
   StyleSheet,
   RefreshControl,
   Alert,
   TextInput,
+  Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -141,6 +143,10 @@ export default function DebtScreen() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [addName, setAddName] = useState("");
   const [addBalance, setAddBalance] = useState("");
+  const [addMonthlyPayment, setAddMonthlyPayment] = useState("");
+  const [addCreditLimit, setAddCreditLimit] = useState("");
+  const [addInterestRate, setAddInterestRate] = useState("");
+  const [addInstallmentMonths, setAddInstallmentMonths] = useState("");
   const [addType, setAddType] = useState("loan");
   const [saving, setSaving] = useState(false);
   const [filter, setFilter] = useState<"active" | "all">("active");
@@ -175,18 +181,57 @@ export default function DebtScreen() {
     }, [load])
   );
 
+  const isCreditCardType = addType === "credit_card";
+  const isLoanStyleType = addType === "loan" || addType === "mortgage";
+
   const handleAdd = async () => {
     const name = addName.trim();
     const balance = parseFloat(addBalance);
+    const monthlyPayment = parseFloat(addMonthlyPayment);
+    const creditLimit = addCreditLimit.trim() ? parseFloat(addCreditLimit) : null;
+    const interestRate = addInterestRate.trim() ? parseFloat(addInterestRate) : null;
+    const installmentMonths = addInstallmentMonths.trim() ? Number.parseInt(addInstallmentMonths, 10) : null;
     if (!name) { Alert.alert("Missing name", "Enter a debt name."); return; }
     if (isNaN(balance) || balance <= 0) { Alert.alert("Invalid amount", "Enter a valid balance."); return; }
+    if (isNaN(monthlyPayment) || monthlyPayment < 0) {
+      Alert.alert("Invalid monthly payment", "Enter a valid monthly payment (0 or more).");
+      return;
+    }
+    if (creditLimit != null && (!Number.isFinite(creditLimit) || creditLimit <= 0)) {
+      Alert.alert("Invalid credit limit", "Enter a valid credit limit.");
+      return;
+    }
+    if (interestRate != null && (!Number.isFinite(interestRate) || interestRate < 0)) {
+      Alert.alert("Invalid interest", "Enter a valid interest rate (APR). ");
+      return;
+    }
+    if (installmentMonths != null && (!Number.isFinite(installmentMonths) || installmentMonths <= 0)) {
+      Alert.alert("Invalid term", "Enter how many months to pay over.");
+      return;
+    }
     try {
       setSaving(true);
       await apiFetch("/api/bff/debts", {
         method: "POST",
-        body: { name, initialBalance: balance, currentBalance: balance, type: addType, budgetPlanId: settings?.id ?? "" },
+        body: {
+          name,
+          initialBalance: balance,
+          currentBalance: balance,
+          amount: monthlyPayment,
+          type: addType,
+          budgetPlanId: settings?.id ?? "",
+          creditLimit: isCreditCardType ? creditLimit : null,
+          interestRate,
+          installmentMonths,
+        },
       });
-      setAddName(""); setAddBalance(""); setShowAddForm(false);
+      setAddName("");
+      setAddBalance("");
+      setAddMonthlyPayment("");
+      setAddCreditLimit("");
+      setAddInterestRate("");
+      setAddInstallmentMonths("");
+      setShowAddForm(false);
       await load();
     } catch (err: unknown) {
       Alert.alert("Error", err instanceof Error ? err.message : "Could not add debt");
@@ -533,50 +578,10 @@ export default function DebtScreen() {
                 </Pressable>
               </View>
               <Pressable onPress={() => setShowAddForm((v) => !v)} style={s.addBtn}>
-                <Ionicons name={showAddForm ? "close" : "add-circle-outline"} size={22} color={T.text} />
-                <Text style={s.addBtnTxt}>{showAddForm ? "Cancel" : "Add Debt"}</Text>
+                <Ionicons name="add-circle-outline" size={22} color={T.text} />
+                <Text style={s.addBtnTxt}>Add Debt</Text>
               </Pressable>
             </View>
-
-            {/* Add form */}
-            {showAddForm && (
-              <View style={s.addForm}>
-                <Text style={s.addFormTitle}>New Debt</Text>
-                <TextInput
-                  style={s.input}
-                  placeholder="Name (e.g. Car loan)"
-                  placeholderTextColor={T.textMuted}
-                  value={addName}
-                  onChangeText={setAddName}
-                  autoFocus
-                />
-                <TextInput
-                  style={s.input}
-                  placeholder="Current balance"
-                  placeholderTextColor={T.textMuted}
-                  value={addBalance}
-                  onChangeText={setAddBalance}
-                  keyboardType="decimal-pad"
-                />
-                {/* Type selector */}
-                <View style={s.typeRow}>
-                  {Object.keys(TYPE_LABELS).map((t) => (
-                    <Pressable
-                      key={t}
-                      onPress={() => setAddType(t)}
-                      style={[s.typeBtn, addType === t && { backgroundColor: TYPE_COLORS[t] + "33", borderColor: TYPE_COLORS[t] }]}
-                    >
-                      <Text style={[s.typeBtnTxt, addType === t && { color: TYPE_COLORS[t] }]}>
-                        {TYPE_LABELS[t]}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-                <Pressable onPress={handleAdd} disabled={saving} style={[s.saveBtn, saving && s.disabled]}>
-                  {saving ? <ActivityIndicator size="small" color={T.onAccent} /> : <Text style={s.saveBtnTxt}>Add Debt</Text>}
-                </Pressable>
-              </View>
-            )}
           </>
         }
         renderItem={({ item }) => (
@@ -648,6 +653,97 @@ export default function DebtScreen() {
           </>
         }
       />
+
+      <Modal
+        visible={showAddForm}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowAddForm(false)}
+      >
+        <View style={s.sheetOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowAddForm(false)} />
+          <View style={s.sheet}>
+            <View style={s.sheetHandle} />
+            <View style={s.sheetHeader}>
+              <Text style={s.sheetTitle}>New Debt</Text>
+              <Pressable onPress={() => setShowAddForm(false)} hitSlop={10} style={s.sheetCloseBtn}>
+                <Ionicons name="close" size={18} color={T.textDim} />
+              </Pressable>
+            </View>
+
+            <ScrollView contentContainerStyle={s.sheetScrollContent} keyboardShouldPersistTaps="handled">
+              <View style={s.addForm}>
+                <TextInput
+                  style={s.input}
+                  placeholder="Name (e.g. Car loan)"
+                  placeholderTextColor={T.textMuted}
+                  value={addName}
+                  onChangeText={setAddName}
+                  autoFocus
+                />
+                <TextInput
+                  style={s.input}
+                  placeholder={isLoanStyleType ? "Loan amount" : "Current balance"}
+                  placeholderTextColor={T.textMuted}
+                  value={addBalance}
+                  onChangeText={setAddBalance}
+                  keyboardType="decimal-pad"
+                />
+                {isCreditCardType ? (
+                  <TextInput
+                    style={s.input}
+                    placeholder="Credit limit"
+                    placeholderTextColor={T.textMuted}
+                    value={addCreditLimit}
+                    onChangeText={setAddCreditLimit}
+                    keyboardType="decimal-pad"
+                  />
+                ) : null}
+                <TextInput
+                  style={s.input}
+                  placeholder="Monthly payment"
+                  placeholderTextColor={T.textMuted}
+                  value={addMonthlyPayment}
+                  onChangeText={setAddMonthlyPayment}
+                  keyboardType="decimal-pad"
+                />
+                <TextInput
+                  style={s.input}
+                  placeholder="Interest APR % (optional)"
+                  placeholderTextColor={T.textMuted}
+                  value={addInterestRate}
+                  onChangeText={setAddInterestRate}
+                  keyboardType="decimal-pad"
+                />
+                <TextInput
+                  style={s.input}
+                  placeholder="Pay over months (optional)"
+                  placeholderTextColor={T.textMuted}
+                  value={addInstallmentMonths}
+                  onChangeText={setAddInstallmentMonths}
+                  keyboardType="number-pad"
+                />
+                <View style={s.typeRow}>
+                  {Object.keys(TYPE_LABELS).map((t) => (
+                    <Pressable
+                      key={t}
+                      onPress={() => setAddType(t)}
+                      style={[s.typeBtn, addType === t && { backgroundColor: TYPE_COLORS[t] + "33", borderColor: TYPE_COLORS[t] }]}
+                    >
+                      <Text style={[s.typeBtnTxt, addType === t && { color: TYPE_COLORS[t] }]}> 
+                        {TYPE_LABELS[t]}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+                <Pressable onPress={handleAdd} disabled={saving} style={[s.saveBtn, saving && s.disabled]}>
+                  {saving ? <ActivityIndicator size="small" color={T.onAccent} /> : <Text style={s.saveBtnTxt}>Add Debt</Text>}
+                </Pressable>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -738,11 +834,9 @@ const s = StyleSheet.create({
   addBtnTxt: { color: T.text, fontSize: 14, fontWeight: "900" },
 
   addForm: {
-    margin: 14,
-    marginTop: 0,
-    padding: 14,
+    margin: 0,
+    padding: 0,
     gap: 10,
-    ...cardBase,
   },
   addFormTitle: { color: T.text, fontWeight: "900", fontSize: 15 },
   input: {
@@ -801,4 +895,50 @@ const s = StyleSheet.create({
   errorText: { color: T.red, fontSize: 14, textAlign: "center", paddingHorizontal: 32 },
   retryBtn: { backgroundColor: T.accent, borderRadius: 8, paddingHorizontal: 24, paddingVertical: 10 },
   retryTxt: { color: T.onAccent, fontWeight: "700" },
+
+  sheetOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(0, 0, 0, 0.45)",
+  },
+  sheet: {
+    backgroundColor: T.card,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    borderTopWidth: 1,
+    borderTopColor: T.border,
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: 22,
+    gap: 10,
+    minHeight: 560,
+    maxHeight: "90%",
+  },
+  sheetScrollContent: {
+    paddingBottom: 6,
+  },
+  sheetHandle: {
+    alignSelf: "center",
+    width: 44,
+    height: 4,
+    borderRadius: 999,
+    backgroundColor: T.border,
+    marginBottom: 2,
+  },
+  sheetHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  sheetTitle: { color: T.text, fontWeight: "900", fontSize: 15 },
+  sheetCloseBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: T.cardAlt,
+    borderWidth: 1,
+    borderColor: T.border,
+  },
 });

@@ -41,6 +41,8 @@ export function buildDashboardDerived(params: {
   const rangeLabel = `${start.getDate()} ${MONTH_NAMES_SHORT[start.getMonth()]} - ${end.getDate()} ${MONTH_NAMES_SHORT[end.getMonth()]}`;
 
   const upcoming = (dashboard?.expenseInsights?.upcoming ?? []).filter((u) => {
+    const id = String(u.id ?? "").toLowerCase();
+    if (id.startsWith("debt:") || id.startsWith("debt-expense:")) return false;
     const n = String(u.name ?? "").trim().toLowerCase();
     if (n === "housing: rent" || n === "houing: rent") return false;
     if (n.startsWith("housing") && n.includes("rent")) return false;

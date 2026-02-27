@@ -41,6 +41,7 @@ export default function CategoryBreakdown({ categories, currency, fmt, onCategor
         <Text style={s.sectionLabel}>By category</Text>
         <Pressable onPress={onAddPress} style={s.addBtn} hitSlop={8}>
           <Ionicons name="add" size={18} color={T.onAccent} />
+          <Text style={s.addBtnTxt}>Expense</Text>
         </Pressable>
       </View>
       {categories.map((cat) => {
@@ -94,12 +95,15 @@ const s = StyleSheet.create({
   },
   addBtn: {
     backgroundColor: T.accent,
-    width: 32,
+    paddingHorizontal: 10,
     height: 32,
     borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
+    flexDirection: "row",
+    gap: 4,
   },
+  addBtnTxt: { color: T.onAccent, fontSize: 12, fontWeight: "800" },
   sectionLabel: {
     color: T.textDim,
     fontSize: 11,

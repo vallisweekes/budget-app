@@ -65,6 +65,7 @@ export type DatedExpenseItem = ExpenseItem & { year: number; monthNum: number };
 
 export interface UpcomingPayment {
 	id: string;
+	kind: "expense" | "debt" | "allocation";
 	name: string;
 	amount: number;
 	paidAmount: number;
@@ -240,6 +241,7 @@ export function computeUpcomingPayments(
 
 		upcoming.push({
 			id: e.id,
+			kind: "expense",
 			name: e.name,
 			amount,
 			paidAmount: paidAmt,

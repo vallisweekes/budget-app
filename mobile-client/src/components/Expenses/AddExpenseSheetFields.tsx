@@ -94,18 +94,35 @@ export default function AddExpenseSheetFields({
         />
       </View>
 
-      <View style={s.fieldGroup}>
-        <Text style={s.label}>Amount ({currency})</Text>
-        <TextInput
-          style={s.input}
-          value={amount}
-          onChangeText={setAmount}
-          placeholder="0.00"
-          placeholderTextColor={T.textMuted}
-          selectionColor={T.accent}
-          keyboardType="decimal-pad"
-          returnKeyType="done"
-        />
+      <View style={s.halfRow}>
+        <View style={[s.fieldGroup, s.halfCol]}>
+          <Text style={s.label}>Amount ({currency})</Text>
+          <TextInput
+            style={s.input}
+            value={amount}
+            onChangeText={setAmount}
+            placeholder="0.00"
+            placeholderTextColor={T.textMuted}
+            selectionColor={T.accent}
+            keyboardType="decimal-pad"
+            returnKeyType="done"
+          />
+        </View>
+
+        <View style={[s.fieldGroup, s.halfCol]}>
+          <Text style={s.label}>
+            Due date <Text style={s.optional}>(optional)</Text>
+          </Text>
+
+          <TouchableOpacity style={s.input} onPress={openPicker} activeOpacity={0.7}>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+              <Text style={dueDate ? { color: T.text, fontSize: 15, fontWeight: "700" } : { color: T.textMuted, fontSize: 15, fontWeight: "700" }}>
+                {dueDate ? isoToDMY(dueDate) : "DD/MM/YYYY"}
+              </Text>
+              <Ionicons name="calendar-outline" size={18} color={T.accent} />
+            </View>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={s.fieldGroup}>
@@ -173,71 +190,55 @@ export default function AddExpenseSheetFields({
         )}
       </View>
 
-      <View style={s.fieldGroup}>
-        <Text style={s.label}>
-          Due date <Text style={s.optional}>(optional)</Text>
-        </Text>
+      {/* Android: inline picker */}
+      {showPicker && Platform.OS === "android" && (
+        <DateTimePicker
+          value={dueDateObj}
+          mode="date"
+          display="calendar"
+          onChange={(event, selected) => {
+            setShowPicker(false);
+            if (event.type === "set" && selected) {
+              setDueDate(selected.toISOString().slice(0, 10));
+            }
+          }}
+        />
+      )}
 
-        {/* Pressable trigger showing DD/MM/YYYY */}
-        <TouchableOpacity style={s.input} onPress={openPicker} activeOpacity={0.7}>
-          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-            <Text style={dueDate ? { color: T.text, fontSize: 15, fontWeight: "700" } : { color: T.textMuted, fontSize: 15, fontWeight: "700" }}>
-              {dueDate ? isoToDMY(dueDate) : "DD/MM/YYYY"}
-            </Text>
-            <Ionicons name="calendar-outline" size={18} color={T.accent} />
-          </View>
-        </TouchableOpacity>
-
-        {/* Android: inline picker */}
-        {showPicker && Platform.OS === "android" && (
-          <DateTimePicker
-            value={dueDateObj}
-            mode="date"
-            display="calendar"
-            onChange={(event, selected) => {
-              setShowPicker(false);
-              if (event.type === "set" && selected) {
-                setDueDate(selected.toISOString().slice(0, 10));
-              }
-            }}
-          />
-        )}
-
-        {/* iOS: modal spinner with Cancel / Done */}
-        {Platform.OS === "ios" && (
-          <Modal
-            visible={showPicker}
-            transparent
-            animationType="fade"
-            presentationStyle="overFullScreen"
-            onRequestClose={cancelPicker}
-          >
-            <View style={{ flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.45)" }}>
-              <Pressable style={{ flex: 1 }} onPress={cancelPicker} />
-              <View style={{ backgroundColor: T.card, borderTopLeftRadius: 16, borderTopRightRadius: 16, paddingBottom: 24 }}>
-                <View style={{ flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: T.border }}>
-                  <TouchableOpacity onPress={cancelPicker} hitSlop={10}>
-                    <Text style={{ color: T.textMuted, fontSize: 16, fontWeight: "600" }}>Cancel</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={confirmPicker} hitSlop={10}>
-                    <Text style={{ color: T.accent, fontSize: 16, fontWeight: "700" }}>Done</Text>
-                  </TouchableOpacity>
-                </View>
-                <DateTimePicker
-                  value={iosDraft}
-                  mode="date"
-                  display="inline"
-                  themeVariant="dark"
-                  onChange={(_, selected) => {
-                    if (selected) setIosDraft(selected);
-                  }}
-                  style={{ height: 200 }}
-                />
+      {/* iOS: modal spinner with Cancel / Done */}
+      {Platform.OS === "ios" && (
+        <Modal
+          visible={showPicker}
+          transparent
+          animationType="fade"
+          presentationStyle="overFullScreen"
+          onRequestClose={cancelPicker}
+        >
+          <View style={{ flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.45)" }}>
+            <Pressable style={{ flex: 1 }} onPress={cancelPicker} />
+            <View style={{ backgroundColor: T.card, borderTopLeftRadius: 16, borderTopRightRadius: 16, paddingBottom: 24 }}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: T.border }}>
+                <TouchableOpacity onPress={cancelPicker} hitSlop={10}>
+                  <Text style={{ color: T.textMuted, fontSize: 16, fontWeight: "600" }}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={confirmPicker} hitSlop={10}>
+                  <Text style={{ color: T.accent, fontSize: 16, fontWeight: "700" }}>Done</Text>
+                </TouchableOpacity>
               </View>
+              <DateTimePicker
+                value={iosDraft}
+                mode="date"
+                display="inline"
+                themeVariant="dark"
+                onChange={(_, selected) => {
+                  if (selected) setIosDraft(selected);
+                }}
+                style={{ height: 200 }}
+              />
             </View>
-          </Modal>
-        )}
-      </View>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 }

@@ -54,6 +54,16 @@ export const s = StyleSheet.create({
 
   formScroll: { padding: 20, gap: 18 },
 
+  halfRow: {
+    flexDirection: "row",
+    gap: 10,
+    alignItems: "flex-start",
+  },
+  halfCol: {
+    flex: 1,
+    minWidth: 0,
+  },
+
   fieldGroup: { gap: 8 },
   label: { color: T.textDim, fontSize: 12, fontWeight: "800", letterSpacing: 0.4 },
   optional: { color: T.textMuted, fontWeight: "600" },

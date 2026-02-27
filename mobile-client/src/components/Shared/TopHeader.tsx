@@ -51,6 +51,7 @@ export default function TopHeader({
     }
 
     if (compactActionsMenu) {
+      if (onAddIncome) return s.centerWrapWithIncomeAction;
       return onLogout ? s.centerWrapWithTwoActions : s.centerWrapWithOneAction;
     }
 
@@ -101,6 +102,7 @@ export default function TopHeader({
                 accessibilityLabel="Add income"
               >
                 <Ionicons name="add" size={18} color={T.onAccent} />
+                <Text style={s.addIncomeBtnText}>Income</Text>
               </Pressable>
             ) : null}
             {onLogout ? (
@@ -114,15 +116,17 @@ export default function TopHeader({
                 <Ionicons name="log-out-outline" size={18} color={T.red} />
               </Pressable>
             ) : null}
-            <Pressable
-              onPress={() => setMenuOpen(true)}
-              style={s.menuTriggerBtn}
-              hitSlop={10}
-              accessibilityRole="button"
-              accessibilityLabel="Open quick actions menu"
-            >
-              <Ionicons name="ellipsis-horizontal" size={18} color={T.accent} />
-            </Pressable>
+            {!onAddIncome ? (
+              <Pressable
+                onPress={() => setMenuOpen(true)}
+                style={s.menuTriggerBtn}
+                hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel="Open quick actions menu"
+              >
+                <Ionicons name="ellipsis-horizontal" size={18} color={T.accent} />
+              </Pressable>
+            ) : null}
           </View>
         ) : (
           <View style={s.rightActions}>
@@ -229,6 +233,9 @@ const s = StyleSheet.create({
   centerWrapWithOneAction: {
     right: 70,
   },
+  centerWrapWithIncomeAction: {
+    right: 122,
+  },
   centerLabel: {
     color: T.text,
     fontSize: 13,
@@ -266,15 +273,24 @@ const s = StyleSheet.create({
     position: "relative",
   },
   addIncomeBtn: {
-    width: 34,
+    minWidth: 90,
     height: 34,
     borderRadius: 17,
     backgroundColor: T.accent,
     alignItems: "center",
     justifyContent: "center",
+    flexDirection: "row",
+    gap: 4,
+    paddingHorizontal: 10,
     borderWidth: 1,
     borderColor: T.accent,
     position: "relative",
+  },
+  addIncomeBtnText: {
+    color: T.onAccent,
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0.2,
   },
   menuTriggerBtn: {
     width: 34,

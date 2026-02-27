@@ -8,6 +8,7 @@ import { s } from "@/components/Expenses/AddExpenseSheet.styles";
 export default function AddExpenseSheetHeader({
   month,
   year,
+  title = "Add Expense",
   canPrev = true,
   onPrevMonth,
   onNextMonth,
@@ -15,6 +16,7 @@ export default function AddExpenseSheetHeader({
 }: {
   month: number;
   year: number;
+  title?: string;
   canPrev?: boolean;
   onPrevMonth?: () => void;
   onNextMonth?: () => void;
@@ -28,7 +30,7 @@ export default function AddExpenseSheetHeader({
   return (
     <View style={s.header}>
       <View style={{ flex: 1 }}>
-        <Text style={s.title}>Add Expense</Text>
+        <Text style={s.title}>{title}</Text>
         <View style={{ flexDirection: "row", alignItems: "center", marginTop: 4, gap: 4 }}>
           <Pressable
             onPress={onPrevMonth}

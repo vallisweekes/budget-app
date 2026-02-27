@@ -26,8 +26,9 @@ const LABELS: Record<string, string> = {
   Goals:     "Goals",
 };
 
-const INDICATOR_SIZE = 56;
+const INDICATOR_SIZE = 46;
 const BAR_HORIZONTAL_PADDING = 8;
+const INDICATOR_VERTICAL_OFFSET = -2;
 
 export default function PillTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const [barWidth, setBarWidth] = useState(0);
@@ -54,7 +55,7 @@ export default function PillTabBar({ state, descriptors, navigation }: BottomTab
   const indicatorLeft = slotWidth > 0
     ? BAR_HORIZONTAL_PADDING + activeVisibleIndex * slotWidth + (slotWidth - INDICATOR_SIZE) / 2
     : 0;
-  const indicatorTop = barHeight > 0 ? (barHeight - INDICATOR_SIZE) / 2 : 4;
+  const indicatorTop = barHeight > 0 ? (barHeight - INDICATOR_SIZE) / 2 + INDICATOR_VERTICAL_OFFSET : 4;
 
   return (
     <View style={s.wrapper}>
@@ -199,6 +200,7 @@ const s = StyleSheet.create({
   tabContentActive: {
     width: INDICATOR_SIZE,
     height: INDICATOR_SIZE,
+    transform: [{ translateY: INDICATOR_VERTICAL_OFFSET }],
   },
   iconWrap: {
     width: 26,

@@ -41,6 +41,7 @@ import { fmt } from "@/lib/formatting";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 import { T } from "@/lib/theme";
 import type { ExpensesStackParamList } from "@/navigation/types";
+import AddExpenseSheet from "@/components/Expenses/AddExpenseSheet";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -120,6 +121,7 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
   const [loading, setLoading]       = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError]           = useState<string | null>(null);
+  const [addSheetOpen, setAddSheetOpen] = useState(false);
   const [totalIncome, setTotalIncome] = useState(0);
 
   // per-expense operation states
@@ -398,7 +400,7 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
               <Image
                 source={{ uri: resolveLogoUri(item.logoUrl)! }}
                 style={rs.logoImg}
-                resizeMode="cover"
+                resizeMode="contain"
                 onError={() => setLogoFailed((prev) => ({ ...prev, [item.id]: true }))}
               />
             ) : (
@@ -526,6 +528,11 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
             <Text style={[styles.heroCardVal, { color: T.orange }]}>{fmt(remaining, currency)}</Text>
           </View>
         </View>
+
+        <Pressable style={styles.addExpenseBtn} onPress={() => setAddSheetOpen(true)}>
+          <Ionicons name="add" size={18} color={T.onAccent} />
+          <Text style={styles.addExpenseBtnTxt}>Expense</Text>
+        </Pressable>
       </View>
 
       {/* List */}
@@ -823,6 +830,32 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
           </View>
         </View>
       </Modal>
+
+      <AddExpenseSheet
+        visible={addSheetOpen}
+        month={month}
+        year={year}
+        budgetPlanId={budgetPlanId}
+        initialCategoryId={categoryId}
+        headerTitle={`Add ${categoryName} Expense`}
+        currency={currency}
+        categories={categories.map((cat) => ({
+          categoryId: cat.id,
+          name: cat.name,
+          color: cat.color,
+          icon: cat.icon,
+          total: 0,
+          paidTotal: 0,
+          paidCount: 0,
+          totalCount: 0,
+        }))}
+        onAdded={() => {
+          setAddSheetOpen(false);
+          load();
+          loadIncome();
+        }}
+        onClose={() => setAddSheetOpen(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -926,6 +959,22 @@ const styles = StyleSheet.create({
     gap: 10,
     justifyContent: "center",
   },
+  addExpenseBtn: {
+    marginTop: 14,
+    backgroundColor: T.accent,
+    borderRadius: 18,
+    height: 36,
+    paddingHorizontal: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  addExpenseBtnTxt: {
+    color: T.onAccent,
+    fontSize: 13,
+    fontWeight: "800",
+  },
   heroCard: {
     width: 140,
     height: 80,
@@ -976,9 +1025,9 @@ const rs = StyleSheet.create({
     overflow: "hidden",
   },
   logoImg: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
   },
   logoFallback: {
     color: T.textDim,

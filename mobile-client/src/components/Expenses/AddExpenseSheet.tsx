@@ -39,6 +39,8 @@ interface Props {
   month: number;
   year: number;
   budgetPlanId?: string | null;
+  initialCategoryId?: string;
+  headerTitle?: string;
   plans?: BudgetPlanListItem[];
   currency: string;
   categories: ExpenseCategoryBreakdown[];
@@ -54,6 +56,8 @@ export default function AddExpenseSheet({
   month,
   year,
   budgetPlanId,
+  initialCategoryId,
+  headerTitle,
   plans = [],
   currency,
   categories,
@@ -65,7 +69,7 @@ export default function AddExpenseSheet({
 
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
-  const [categoryId, setCategoryId] = useState("");
+  const [categoryId, setCategoryId] = useState(initialCategoryId ?? "");
   const [paid, setPaid] = useState(false);
   const [dueDate, setDueDate] = useState("");
   // Internal month/year — user can change inside the sheet
@@ -118,12 +122,15 @@ export default function AddExpenseSheet({
       bounciness: 3,
       speed: 18,
     }).start();
+    if (visible) {
+      setCategoryId(initialCategoryId ?? "");
+    }
     if (!visible) {
       // Reset form on close
       setTimeout(() => {
         setName("");
         setAmount("");
-        setCategoryId("");
+        setCategoryId(initialCategoryId ?? "");
         setPaid(false);
         setDueDate("");
         setSheetMonth(month);
@@ -140,7 +147,7 @@ export default function AddExpenseSheet({
         setError(null);
       }, 300);
     }
-  }, [visible]);
+  }, [visible, initialCategoryId, month, year, budgetPlanId]);
 
   // Resolve the plan id to use: prefer what the user picked in the sheet
   const effectivePlanId = selectedPlanId ?? budgetPlanId ?? null;
@@ -159,6 +166,9 @@ export default function AddExpenseSheet({
           `/api/bff/categories?budgetPlanId=${encodeURIComponent(effectivePlanId)}`
         );
         if (Array.isArray(data)) {
+          const hasInitialCategory = Boolean(
+            initialCategoryId && data.some((c) => c.id === initialCategoryId)
+          );
           setPlanCategories(
             data.map((c) => ({
               categoryId: c.id,
@@ -171,14 +181,13 @@ export default function AddExpenseSheet({
               totalCount: 0,
             }))
           );
-          // Reset category since the old catId won't exist in the new plan
-          setCategoryId("");
+          setCategoryId(hasInitialCategory ? (initialCategoryId as string) : "");
         }
       } catch {
         setPlanCategories(null);
       }
     })();
-  }, [visible, effectivePlanId, budgetPlanId]);
+  }, [visible, effectivePlanId, budgetPlanId, initialCategoryId]);
 
   // Fetch credit cards so the Source of Funds picker can show card names
   useEffect(() => {
@@ -257,6 +266,7 @@ export default function AddExpenseSheet({
           <AddExpenseSheetHeader
             month={sheetMonth}
             year={sheetYear}
+            title={headerTitle}
             canPrev={canGoBack}
             onPrevMonth={handlePrevMonth}
             onNextMonth={handleNextMonth}

@@ -6,6 +6,25 @@ export type ResolvedExpenseLogo = {
 
 const LOGO_DEV_SECRET_KEY = process.env.LOGO_DEV_SECRET_KEY?.trim() || "";
 
+/**
+ * Custom static logo overrides for companies that logo.dev doesn't have or gets wrong.
+ * Keys are merchant domains (matching KNOWN_DOMAINS entries).
+ * Values are absolute URLs or root-relative paths served from the web-client /public folder.
+ * Place the corresponding PNG/SVG files in web-client/public/logos/
+ * e.g. web-client/public/logos/ee.png → accessible at /logos/ee.png
+ */
+const CUSTOM_LOGO_URLS: Record<string, string> = {
+  "ee.co.uk":  "/logos/ee.png",
+  "sky.com":   "/logos/sky.png",
+  "apple.com": "/logos/apple-logo.jpg",
+};
+
+export function hasCustomLogoForDomain(domain?: string | null): boolean {
+  const normalized = sanitizeDomain(domain);
+  if (!normalized) return false;
+  return Boolean(CUSTOM_LOGO_URLS[normalized]);
+}
+
 const KNOWN_DOMAINS: Array<{ pattern: RegExp; domain: string }> = [
   // ── Streaming ────────────────────────────────────────────────────
   { pattern: /\bnetflix\b/i,                          domain: "netflix.com" },
@@ -14,7 +33,7 @@ const KNOWN_DOMAINS: Array<{ pattern: RegExp; domain: string }> = [
   { pattern: /\bprime\s*video|amazon\s*prime\b/i,     domain: "primevideo.com" },
   { pattern: /\bamazon\b/i,                           domain: "amazon.com" },
   { pattern: /\byoutube\b/i,                          domain: "youtube.com" },
-  { pattern: /\bsky\s*(tv|sports|cinema|go|q)?\b/i,   domain: "sky.com" },
+  { pattern: /\bsky\s*(tv|sports|cinema|go|q)?\b|\bskytv\b/i, domain: "sky.com" },
   { pattern: /\bnow\s*tv\b/i,                         domain: "nowtv.com" },
   { pattern: /\bapple\s*tv\b/i,                       domain: "apple.com" },
   { pattern: /\bparamount\s*\+?\b/i,                  domain: "paramountplus.com" },
@@ -136,11 +155,12 @@ export function resolveExpenseLogo(name: string, merchantDomain?: string | null)
     return { merchantDomain: null, logoUrl: null, logoSource: null };
   }
 
+  // Prefer a static custom override (placed in public/logos/) over logo.dev.
+  const customUrl = CUSTOM_LOGO_URLS[domain] ?? null;
+
   return {
     merchantDomain: domain,
-    // Explicitly request dark-mode-friendly output and version the URL.
-    // (The logo endpoint sets a long Cache-Control header.)
-    logoUrl: `/api/bff/logo?domain=${encodeURIComponent(domain)}&theme=dark`,
+    logoUrl: customUrl ?? `/api/bff/logo?domain=${encodeURIComponent(domain)}&theme=dark`,
     logoSource: explicitDomain ? "manual" : "inferred",
   };
 }

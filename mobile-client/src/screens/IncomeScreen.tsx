@@ -34,6 +34,7 @@ export default function IncomeScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<ScreenRoute>();
   const topHeaderOffset = useTopHeaderOffset();
+  const contentTopPadding = topHeaderOffset + 10;
   const now = new Date();
   const initialYear = Number.isFinite(Number(route.params?.year)) ? Number(route.params?.year) : now.getFullYear();
   const [year, setYear] = useState(initialYear);
@@ -179,7 +180,7 @@ export default function IncomeScreen() {
 
   if (loading) {
     return (
-			<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
+			<SafeAreaView style={[s.safe, { paddingTop: contentTopPadding }]} edges={[]}>
         <View style={s.center}>
           <ActivityIndicator size="large" color={T.accent} />
           <Text style={s.loadingText}>Loading income…</Text>
@@ -190,7 +191,7 @@ export default function IncomeScreen() {
 
   if (error) {
     return (
-			<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
+			<SafeAreaView style={[s.safe, { paddingTop: contentTopPadding }]} edges={[]}>
         <View style={s.center}>
           <Ionicons name="cloud-offline-outline" size={48} color={T.textDim} />
           <Text style={s.errorText}>{error}</Text>
@@ -209,7 +210,7 @@ export default function IncomeScreen() {
   const nowYear = now.getFullYear();
 
   return (
-		<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
+  		<SafeAreaView style={[s.safe, { paddingTop: contentTopPadding }]} edges={[]}>
       {hasMissingMonths ? (
         <View style={s.actionCard}>
           <View style={s.actionCopy}>

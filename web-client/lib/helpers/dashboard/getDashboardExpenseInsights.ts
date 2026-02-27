@@ -323,6 +323,7 @@ export async function getDashboardExpenseInsights({
 				const status = getPaymentStatusFromAmounts({ dueAmount, paidAmount });
 				const item: UpcomingPayment = {
 					id: d.sourceType === "expense" ? `debt-expense:${d.id}` : `debt:${d.id}`,
+					kind: "debt",
 					name: d.name,
 					amount: dueAmount,
 					paidAmount,
@@ -450,6 +451,7 @@ export async function getDashboardExpenseInsights({
 	const allocationUpcoming: UpcomingPayment | undefined = allocationTotal > 0
 		? {
 				id: `allocation:${budgetPlanId}:${currentYear}-${currentMonthNum}`,
+				kind: "allocation",
 				name: allocationUpcomingName,
 				amount: allocationTotal,
 				paidAmount: 0,
@@ -460,13 +462,15 @@ export async function getDashboardExpenseInsights({
 			}
 		: undefined;
 
+	// Keep the expense insights list debt-free.
+	// Debts are surfaced separately via debt summary pipelines (mobile `upcomingDebts`, debt screens).
 	const upcoming = selectUpcomingWithMix({
 		expenses: upcomingExpenses,
-		debts: debtUpcoming,
+		debts: [],
 		allocation: allocationUpcoming,
 		limit: 6,
-		maxExpenses: 3,
-		maxDebts: 2,
+		maxExpenses: 6,
+		maxDebts: 0,
 	});
 
 	const recapTips = recap

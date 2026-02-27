@@ -202,10 +202,10 @@ export async function POST(request: Request) {
     }
 
     const requestedBudgetPlanId = typeof raw.budgetPlanId === "string" ? raw.budgetPlanId : "";
-		if (!requestedBudgetPlanId.trim()) {
-			return NextResponse.json({ error: "budgetPlanId is required" }, { status: 400 });
-		}
-		const budgetPlanId = await resolveOwnedBudgetPlanId({ userId, budgetPlanId: requestedBudgetPlanId });
+    const budgetPlanId = await resolveOwnedBudgetPlanId({
+      userId,
+      budgetPlanId: requestedBudgetPlanId.trim() ? requestedBudgetPlanId : null,
+    });
 		if (!budgetPlanId) {
 			return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
 		}

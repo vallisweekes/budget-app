@@ -346,6 +346,7 @@ export interface DashboardDebt {
 /** Upcoming payment from expense insights */
 export interface UpcomingPayment {
   id: string;
+  kind: "expense" | "debt" | "allocation";
   name: string;
   amount: number;
   paidAmount: number;
