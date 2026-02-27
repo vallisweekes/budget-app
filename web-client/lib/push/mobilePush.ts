@@ -11,6 +11,7 @@ export type MobilePushPayload = {
 export type MobilePushResult = {
 	sent: number;
 	invalidTokens: string[];
+	errors: string[];
 };
 
 /**
@@ -27,7 +28,7 @@ export async function sendMobilePushNotifications(
 	const validTokens = tokens.filter((t) => Expo.isExpoPushToken(t));
 
 	if (validTokens.length === 0) {
-		return { sent: 0, invalidTokens: [] };
+		return { sent: 0, invalidTokens: [], errors: [] };
 	}
 
 	const messages: ExpoPushMessage[] = validTokens.map((to) => ({
@@ -39,14 +40,24 @@ export async function sendMobilePushNotifications(
 	}));
 
 	const chunks = expo.chunkPushNotifications(messages);
-	const allTickets: ExpoPushTicket[] = [];
+	const allTickets: Array<{ token: string; ticket: ExpoPushTicket }> = [];
+	const errors: string[] = [];
+	let nextTokenIndex = 0;
 
 	for (const chunk of chunks) {
+		const chunkTokens = validTokens.slice(nextTokenIndex, nextTokenIndex + chunk.length);
+		nextTokenIndex += chunk.length;
+
 		try {
 			const tickets = await expo.sendPushNotificationsAsync(chunk);
-			allTickets.push(...tickets);
-		} catch {
-			// Network or server error for this chunk — skip, don't crash
+			for (let i = 0; i < tickets.length; i++) {
+				const ticket = tickets[i];
+				const token = chunkTokens[i] ?? "";
+				allTickets.push({ token, ticket });
+			}
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			errors.push(`chunk send failed: ${message}`);
 		}
 	}
 
@@ -54,17 +65,25 @@ export async function sendMobilePushNotifications(
 	const invalidTokens: string[] = [];
 	let sent = 0;
 
-	for (let i = 0; i < allTickets.length; i++) {
-		const ticket = allTickets[i];
+	for (const entry of allTickets) {
+		const { ticket, token } = entry;
 		if (ticket.status === "ok") {
 			sent += 1;
 		} else if (
 			ticket.status === "error" &&
 			ticket.details?.error === "DeviceNotRegistered"
 		) {
-			invalidTokens.push(validTokens[i]);
+			if (token) invalidTokens.push(token);
+		} else if (ticket.status === "error") {
+			const detail = ticket.details?.error ? ` (${ticket.details.error})` : "";
+			const msg = ticket.message ? `: ${ticket.message}` : "";
+			errors.push(`ticket error${detail}${msg}`);
 		}
 	}
 
-	return { sent, invalidTokens };
+	return {
+		sent,
+		invalidTokens: Array.from(new Set(invalidTokens)),
+		errors: Array.from(new Set(errors)),
+	};
 }

@@ -175,6 +175,7 @@ export default function SettingsScreen({ navigation }: MainTabScreenProps<"Setti
   const [createPlanSheetOpen, setCreatePlanSheetOpen] = useState(false);
 
   const [saveBusy, setSaveBusy] = useState(false);
+  const [pushTestBusy, setPushTestBusy] = useState(false);
   const [switchingPlanId, setSwitchingPlanId] = useState<string | null>(null);
   const [deletingPlanId, setDeletingPlanId] = useState<string | null>(null);
   const [planDeleteTarget, setPlanDeleteTarget] = useState<BudgetPlanListItem | null>(null);
@@ -324,6 +325,41 @@ export default function SettingsScreen({ navigation }: MainTabScreenProps<"Setti
   const saveNotifications = useCallback(async (next: NotificationPrefs) => {
     setNotifications(next);
     await SecureStore.setItemAsync(NOTIFICATION_PREFS_KEY, JSON.stringify(next));
+  }, []);
+
+  const sendTestMobilePush = useCallback(async () => {
+    try {
+      setPushTestBusy(true);
+      const result = await apiFetch<{
+        ok: boolean;
+        sent: number;
+        totalTokens: number;
+        removedTokens: number;
+        errors?: string[];
+      }>("/api/notifications/test-mobile", {
+        method: "POST",
+        body: {
+          title: "BudgetIn Check",
+          body: "Test mobile notification",
+        },
+      });
+
+      const errors = Array.isArray(result.errors) ? result.errors : [];
+      const summary = [
+        `Sent: ${result.sent}/${result.totalTokens}`,
+        `Removed stale tokens: ${result.removedTokens}`,
+      ];
+
+      if (errors.length > 0) {
+        summary.push("", "Delivery errors:", ...errors.slice(0, 5));
+      }
+
+      Alert.alert("Push test complete", summary.join("\n"));
+    } catch (err: unknown) {
+      Alert.alert("Push test failed", err instanceof Error ? err.message : "Please try again.");
+    } finally {
+      setPushTestBusy(false);
+    }
   }, []);
 
   const hydrateDrafts = useCallback((nextSettings: Settings | null, nextProfile: UserProfile | null) => {
@@ -1108,6 +1144,15 @@ export default function SettingsScreen({ navigation }: MainTabScreenProps<"Setti
                     thumbColor={notifications.paymentAlerts ? T.accent : T.card}
                   />
                 </View>
+                <Pressable
+                  onPress={() => {
+                    void sendTestMobilePush();
+                  }}
+                  style={[styles.primaryGhostBtn, pushTestBusy && styles.disabled]}
+                  disabled={pushTestBusy}
+                >
+                  <Text style={styles.primaryGhostText}>{pushTestBusy ? "Sending…" : "Send test mobile push"}</Text>
+                </Pressable>
                 <Text style={styles.muted}>These preferences are managed on this device.</Text>
               </Section>
             )}

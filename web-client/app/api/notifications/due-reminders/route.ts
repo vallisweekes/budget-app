@@ -110,6 +110,7 @@ export async function POST(req: Request) {
   let payDateReminderMobileSent = 0;
   const deadEndpoints: string[] = [];
   const invalidMobileTokens: string[] = [];
+  const mobileErrors: string[] = [];
 
   for (const debt of debts) {
     if (!debt.dueDate) continue;
@@ -163,6 +164,7 @@ export async function POST(req: Request) {
       const result = await sendMobilePushNotifications(mobileTokens, { title, body });
       mobileSent += result.sent;
       invalidMobileTokens.push(...result.invalidTokens);
+      mobileErrors.push(...result.errors);
     }
   }
 
@@ -274,6 +276,7 @@ export async function POST(req: Request) {
       });
       payDateReminderMobileSent += result.sent;
       invalidMobileTokens.push(...result.invalidTokens);
+      mobileErrors.push(...result.errors);
     }
   }
 
@@ -295,6 +298,11 @@ export async function POST(req: Request) {
     }
   }
 
+  const uniqueMobileErrors = Array.from(new Set(mobileErrors));
+  if (uniqueMobileErrors.length > 0) {
+    console.error("[due-reminders] mobile push errors", uniqueMobileErrors);
+  }
+
   return NextResponse.json({
     ok: true,
     sent,
@@ -303,5 +311,6 @@ export async function POST(req: Request) {
     payDateReminderMobileSent,
     removedSubscriptions: deadEndpoints.length,
     removedMobileTokens: invalidMobileTokens.length,
+    mobileErrors: uniqueMobileErrors,
   });
 }

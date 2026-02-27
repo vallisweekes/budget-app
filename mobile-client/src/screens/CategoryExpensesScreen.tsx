@@ -429,7 +429,8 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
     const statusColor = isPaid ? T.green : isPartial ? T.orange : T.red;
 
     const logoUri = resolveLogoUri(item.logoUrl);
-    const showLogo = !!logoUri && shouldUseLogoForName(item.name) && !logoFailed[item.id];
+    const isCustomStaticLogo = typeof item.logoUrl === "string" && item.logoUrl.startsWith("/logos/");
+    const showLogo = !!logoUri && !logoFailed[item.id] && (isCustomStaticLogo || shouldUseLogoForName(item.name));
 
     return (
       <View style={[rs.card, isBusy && deleting[item.id] && { opacity: 0.4 }]}>
@@ -1053,9 +1054,9 @@ const rs = StyleSheet.create({
   },
   row1: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
   logoWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: T.border,
     backgroundColor: T.card,

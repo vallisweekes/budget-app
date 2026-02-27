@@ -17,6 +17,8 @@ const CUSTOM_LOGO_URLS: Record<string, string> = {
   "ee.co.uk":  "/logos/ee.png",
   "sky.com":   "/logos/sky.png",
   "apple.com": "/logos/apple-logo.jpg",
+  "southwark.gov.uk": "/logos/southwark-council.jpg",
+  "zurich.co.uk":     "/logos/zurich-insurance.png",
 };
 
 export function hasCustomLogoForDomain(domain?: string | null): boolean {
@@ -77,6 +79,7 @@ const KNOWN_DOMAINS: Array<{ pattern: RegExp; domain: string }> = [
   { pattern: /\bsantander\b/i,                        domain: "santander.co.uk" },
   { pattern: /\bhalifax\b/i,                          domain: "halifax.co.uk" },
   { pattern: /\btesco\s*bank\b/i,                     domain: "tescobank.com" },
+  { pattern: /\bvanquis\s*bank\b|\bvanquis\b/i,       domain: "vanquis.co.uk" },
   { pattern: /\bklarna\b/i,                           domain: "klarna.com" },
   { pattern: /\bpaypal\b/i,                           domain: "paypal.com" },
   // ── Cloud & software ─────────────────────────────────────────────
@@ -112,6 +115,10 @@ const KNOWN_DOMAINS: Array<{ pattern: RegExp; domain: string }> = [
   { pattern: /\baviva\b/i,                            domain: "aviva.co.uk" },
   { pattern: /\badmiral\b/i,                          domain: "admiral.com" },
   { pattern: /\bcompare\s*the\s*market\b/i,           domain: "comparethemarket.com" },
+  { pattern: /\bzurich\b/i,                           domain: "zurich.co.uk" },
+  { pattern: /\bdomestic\s*(?:&|and)\s*general\b/i,    domain: "domesticandgeneral.com" },
+  // ── UK councils ─────────────────────────────────────────────────
+  { pattern: /\bsouthwark\s*council\b|\blondon\s*borough\s*of\s*southwark\b/i, domain: "southwark.gov.uk" },
   // ── Fitness ──────────────────────────────────────────────────────
   { pattern: /\bpure\s*gym\b/i,                       domain: "puregym.com" },
   { pattern: /\bjd\s*gym\b/i,                         domain: "jdgyms.co.uk" },

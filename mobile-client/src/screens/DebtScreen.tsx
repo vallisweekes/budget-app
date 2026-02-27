@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import {
   View,
   Text,
+  Image,
   FlatList,
   ScrollView,
   Pressable,
@@ -19,7 +20,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
-import { apiFetch } from "@/lib/api";
+import { apiFetch, getApiBaseUrl } from "@/lib/api";
 import type { DebtSummaryData, DebtSummaryItem, Settings } from "@/lib/apiTypes";
 import { currencySymbol, fmt } from "@/lib/formatting";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
@@ -27,6 +28,17 @@ import type { DebtStackParamList } from "@/navigation/types";
 import { T } from "@/lib/theme";
 import { cardBase, cardElevated } from "@/lib/ui";
 import Svg, { G, Path, Defs, LinearGradient, Stop, Circle, Line as SvgLine, Text as SvgText, Rect } from "react-native-svg";
+
+function resolveLogoUri(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  if (/^https?:\/\//i.test(raw)) return raw;
+  if (!raw.startsWith("/")) return null;
+  try {
+    return `${getApiBaseUrl()}${raw}`;
+  } catch {
+    return null;
+  }
+}
 
 type Nav = NativeStackNavigationProp<DebtStackParamList, "DebtList">;
 
@@ -57,6 +69,7 @@ function DebtCard({
   currency: string;
   onPress: () => void;
 }) {
+  const [logoFailed, setLogoFailed] = useState(false);
   const accentColor = TYPE_COLORS[debt.type] ?? T.accent;
   const progressPct =
     debt.initialBalance > 0
@@ -67,6 +80,11 @@ function DebtCard({
   const paidThisMonth = Math.max(0, debt.paidThisMonth ?? 0);
   const isPaymentMonthPaid = Boolean(debt.isPaymentMonthPaid) || (dueThisMonth > 0 && paidThisMonth >= dueThisMonth);
 
+  const title = debt.displayTitle ?? debt.name;
+  const logoUri = resolveLogoUri(debt.logoUrl);
+  const showLogo = !!logoUri && !logoFailed;
+  const fallbackLetter = (title?.trim()?.[0] ?? "D").toUpperCase();
+
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [s.card, pressed && s.cardPressed]}>
       <View style={[s.cardAccent, { backgroundColor: accentColor }]} />
@@ -74,7 +92,21 @@ function DebtCard({
         {/* Top row */}
         <View style={s.cardTop}>
           <View style={s.cardLeft}>
-            <Text style={s.cardName} numberOfLines={1}>{debt.displayTitle ?? debt.name}</Text>
+            <View style={s.cardTitleRow}>
+              <View style={s.avatar}>
+                {showLogo ? (
+                  <Image
+                    source={{ uri: logoUri! }}
+                    style={s.avatarLogo}
+                    resizeMode="contain"
+                    onError={() => setLogoFailed(true)}
+                  />
+                ) : (
+                  <Text style={s.avatarTxt}>{fallbackLetter}</Text>
+                )}
+              </View>
+              <Text style={s.cardName} numberOfLines={1}>{title}</Text>
+            </View>
             <Text style={[s.cardType, { color: accentColor }]}>
               {debt.displaySubtitle ?? TYPE_LABELS[debt.type] ?? debt.type}
             </Text>
@@ -906,6 +938,20 @@ const s = StyleSheet.create({
   cardTop: { flexDirection: "row", alignItems: "flex-start" },
   cardLeft: { flex: 1 },
   cardRight: { alignItems: "flex-end" },
+  cardTitleRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: T.border,
+    backgroundColor: T.cardAlt,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  avatarLogo: { width: "100%", height: "100%", borderRadius: 999 },
+  avatarTxt: { color: T.textDim, fontSize: 12, fontWeight: "800" },
   cardName: { color: T.text, fontSize: 15, fontWeight: "900" },
   cardType: { fontSize: 11, fontWeight: "600", marginTop: 2 },
   cardBalance: { color: T.text, fontSize: 17, fontWeight: "900" },

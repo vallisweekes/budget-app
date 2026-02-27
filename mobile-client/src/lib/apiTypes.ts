@@ -167,6 +167,9 @@ export interface DebtSummaryItem {
   type: string;
   displayTitle?: string;
   displaySubtitle?: string;
+  merchantDomain?: string | null;
+  logoUrl?: string | null;
+  logoSource?: string | null;
   currentBalance: number;
   initialBalance: number;
   paidAmount: number;
@@ -455,6 +458,9 @@ export interface DebtSummaryItem {
   type: string;
   displayTitle?: string;
   displaySubtitle?: string;
+  merchantDomain?: string | null;
+  logoUrl?: string | null;
+  logoSource?: string | null;
   currentBalance: number;
   initialBalance: number;
   paidAmount: number;

@@ -5,6 +5,7 @@ import { computeDebtTips } from "@/lib/debts/insights";
 import { getAiDebtTips } from "@/lib/ai/debtTips";
 import { getDebtMonthlyPayment, getTotalMonthlyDebtPayments } from "@/lib/debts/calculate";
 import { formatExpenseDebtCardTitle, formatYearMonthLabel } from "@/lib/helpers/debts/expenseDebtLabels";
+import { resolveExpenseLogo } from "@/lib/expenses/logoResolver";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -165,6 +166,8 @@ export async function GET(req: NextRequest) {
 
 		// Add computed monthly payment to each debt
 		const debtsWithPayments = summary.allDebts.map((d) => {
+			const logoBaseName = String(d.sourceExpenseName ?? d.name ?? "").trim();
+			const logo = logoBaseName ? resolveExpenseLogo(logoBaseName) : { merchantDomain: null, logoUrl: null, logoSource: null };
 			const computedMonthlyPayment = getDebtMonthlyPayment(d);
 			const paidThisMonth = paidThisMonthByDebtId.get(d.id) ?? 0;
 			const dueThisMonth = Math.max(0, computedMonthlyPayment);
@@ -221,6 +224,9 @@ export async function GET(req: NextRequest) {
 			id: d.id,
 			name: d.name,
 			type: d.type,
+			merchantDomain: logo.merchantDomain,
+			logoUrl: logo.logoUrl,
+			logoSource: logo.logoSource,
 			displayTitle: getDebtDisplayTitle(d),
 			displaySubtitle: getDebtDisplaySubtitle(d),
 			currentBalance: computedCurrentBalance,

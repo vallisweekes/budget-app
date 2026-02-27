@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
 
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { resolveUserId } from "@/lib/budgetPlans";
+import { getSessionUserId } from "@/lib/api/bffAuth";
 import { sendMobilePushNotifications } from "@/lib/push/mobilePush";
 
 type TestBody = {
@@ -17,14 +15,10 @@ type MobilePushTokenDelegate = {
 };
 
 export async function POST(req: Request) {
-	const session = await getServerSession(authOptions);
-	const sessionUser = session?.user;
-	const username = sessionUser?.username ?? sessionUser?.name;
-	if (!sessionUser || !username) {
+	const userId = await getSessionUserId(req);
+	if (!userId) {
 		return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 	}
-
-	const userId = await resolveUserId({ userId: sessionUser.id, username });
 
 	const mobilePushToken = (
 		(prisma as unknown as Record<string, unknown>)["mobilePushToken"] as MobilePushTokenDelegate | undefined
@@ -55,7 +49,7 @@ export async function POST(req: Request) {
 		body: body.body ?? "Test mobile notification",
 	};
 
-	const { sent, invalidTokens } = await sendMobilePushNotifications(tokens, payload);
+	const { sent, invalidTokens, errors } = await sendMobilePushNotifications(tokens, payload);
 
 	if (invalidTokens.length > 0) {
 		await mobilePushToken.deleteMany({
@@ -68,5 +62,6 @@ export async function POST(req: Request) {
 		sent,
 		totalTokens: tokens.length,
 		removedTokens: invalidTokens.length,
+		errors,
 	});
 }

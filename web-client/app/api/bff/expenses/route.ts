@@ -109,11 +109,20 @@ export async function GET(req: NextRequest) {
     const hasCustomDomainOverride = hasCustomLogoForDomain(item.merchantDomain ?? null);
     const inferredFromName = resolveExpenseLogo(item.name, undefined);
     const hasCustomNameOverride = hasCustomLogoForDomain(inferredFromName.merchantDomain);
+    const desiredCustomLogoUrl =
+      (hasCustomDomainOverride && resolveExpenseLogo(item.name, item.merchantDomain ?? undefined).logoUrl) ||
+      (hasCustomNameOverride && inferredFromName.logoUrl) ||
+      null;
     const needsBackfill = !item.logoUrl;
+    const shouldAutoCustomRefresh =
+      Boolean(desiredCustomLogoUrl) &&
+      item.logoUrl !== desiredCustomLogoUrl &&
+      (hasCustomDomainOverride || !isManual);
     const shouldForceCustomRefresh = refreshLogos && (hasCustomDomainOverride || hasCustomNameOverride);
     const shouldRefresh = refreshLogos && (!isManual || hasCustomDomainOverride || hasCustomNameOverride);
 
     const shouldResolve =
+      shouldAutoCustomRefresh ||
       shouldForceCustomRefresh ||
       (needsBackfill && enrichedCount < MAX_ENRICH) ||
       (shouldRefresh && refreshedCount < MAX_REFRESH);

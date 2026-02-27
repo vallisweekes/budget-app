@@ -309,7 +309,8 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
             {upcoming.slice(0, 3).map((p) => {
               const logoUri = resolveLogoUri(p.logoUrl);
               const logoKey = `expense:${p.id}`;
-              const showLogo = !!logoUri && shouldUseLogoForName(p.name) && !failedLogos[logoKey];
+              const isCustomStaticLogo = typeof p.logoUrl === "string" && p.logoUrl.startsWith("/logos/");
+              const showLogo = !!logoUri && !failedLogos[logoKey] && (isCustomStaticLogo || shouldUseLogoForName(p.name));
               const dateLabel = formatShortDate(p.dueDate);
               const sub =
                 p.urgency === "overdue"
@@ -365,7 +366,7 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
             {upcomingDebts.slice(0, 3).map((d) => {
               const logoUri = resolveLogoUri(d.logoUrl);
               const logoKey = `debt:${d.id}`;
-              const showLogo = !!logoUri && shouldUseLogoForName(d.name) && !failedLogos[logoKey];
+              const showLogo = !!logoUri && !failedLogos[logoKey];
 
               return (
                 <View key={d.id} style={styles.blueRow}>
@@ -403,14 +404,16 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
         {/* Goals (swipe cards) */}
         {dashboard ? (
           <View style={styles.goalsWrap}>
-            <View style={styles.goalsHeaderRow}>
-              <Pressable onPress={() => navigation.navigate("Goals")} hitSlop={8}>
-                <Text style={styles.seeAllGoalsText}>See all goals</Text>
-              </Pressable>
-              <Pressable onPress={() => navigation.navigate("GoalsProjection")} hitSlop={8}>
-                <Text style={styles.goalsProjectionTitle}>Goals projection</Text>
-              </Pressable>
-            </View>
+            {goalCardsData.length > 0 ? (
+              <View style={styles.goalsHeaderRow}>
+                <Pressable onPress={() => navigation.navigate("Goals")} hitSlop={8}>
+                  <Text style={styles.seeAllGoalsText}>See all goals</Text>
+                </Pressable>
+                <Pressable onPress={() => navigation.navigate("GoalsProjection")} hitSlop={8}>
+                  <Text style={styles.goalsProjectionTitle}>Goals projection</Text>
+                </Pressable>
+              </View>
+            ) : null}
 
             <FlatList
               horizontal
