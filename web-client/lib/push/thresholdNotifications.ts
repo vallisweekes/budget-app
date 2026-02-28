@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { sendMobilePushNotifications } from "@/lib/push/mobilePush";
+import { getUserNotificationPreferences } from "@/lib/push/userNotificationPreferences";
 
 type ThresholdPushParams = {
 	budgetPlanId: string;
@@ -40,6 +41,9 @@ function decimalToNumber(v: unknown): number {
 export async function maybeSendCategoryThresholdPush(params: ThresholdPushParams): Promise<void> {
 	try {
 		const { budgetPlanId, categoryId, categoryName, month, year, userId, amountDelta } = params;
+
+		const prefs = await getUserNotificationPreferences(userId);
+		if (!prefs.paymentAlerts) return;
 
 		// No category or no increase in spending → nothing to check
 		if (!categoryId || amountDelta <= 0) return;

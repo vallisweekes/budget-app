@@ -4,6 +4,10 @@ import { prisma } from "@/lib/prisma";
 import { sendWebPushNotification } from "@/lib/push/webPush";
 import { sendMobilePushNotifications } from "@/lib/push/mobilePush";
 import {
+  DEFAULT_USER_NOTIFICATION_PREFERENCES,
+  getUserNotificationPreferencesMap,
+} from "@/lib/push/userNotificationPreferences";
+import {
   getPlannedAmountForTarget,
   listSacrificeGoalLinks,
   listSacrificeTransferConfirmations,
@@ -31,6 +35,12 @@ function addDaysUTC(date: Date, days: number): Date {
   const next = new Date(date);
   next.setUTCDate(next.getUTCDate() + days);
   return next;
+}
+
+function shouldSendBudgetTipOnDate(date: Date): boolean {
+  const day = date.getUTCDay();
+  // Mon (1), Wed (3), Fri (5) => max 3 sends/week
+  return day === 1 || day === 3 || day === 5;
 }
 
 function money(value: number, currency: string): string {
@@ -85,6 +95,7 @@ export async function POST(req: Request) {
         select: {
           user: {
             select: {
+              id: true,
               webPushSubscriptions: {
                 select: {
                   endpoint: true,
@@ -108,12 +119,18 @@ export async function POST(req: Request) {
   let mobileSent = 0;
   let payDateReminderSent = 0;
   let payDateReminderMobileSent = 0;
+  let budgetTipMobileSent = 0;
   const deadEndpoints: string[] = [];
   const invalidMobileTokens: string[] = [];
   const mobileErrors: string[] = [];
+  const debtUserIds = Array.from(new Set(debts.map((d) => d.budgetPlan.user.id)));
+  const debtUserPrefs = await getUserNotificationPreferencesMap(debtUserIds);
 
   for (const debt of debts) {
     if (!debt.dueDate) continue;
+    const userPrefs = debtUserPrefs.get(debt.budgetPlan.user.id) ?? DEFAULT_USER_NOTIFICATION_PREFERENCES;
+    if (!userPrefs.dueReminders) continue;
+
     const dueDay = startOfDayUTC(new Date(debt.dueDate));
     const dueIso = isoDateUTC(dueDay);
 
@@ -187,6 +204,7 @@ export async function POST(req: Request) {
       currency: true,
       user: {
         select: {
+          id: true,
           webPushSubscriptions: {
             select: {
               endpoint: true,
@@ -204,7 +222,13 @@ export async function POST(req: Request) {
     },
   });
 
+  const payDateUserIds = Array.from(new Set(payDatePlans.map((plan) => plan.user.id)));
+  const payDateUserPrefs = await getUserNotificationPreferencesMap(payDateUserIds);
+
   for (const plan of payDatePlans) {
+    const userPrefs = payDateUserPrefs.get(plan.user.id) ?? DEFAULT_USER_NOTIFICATION_PREFERENCES;
+    if (!userPrefs.dueReminders) continue;
+
     const links = await listSacrificeGoalLinks(plan.id);
     if (links.length === 0) continue;
 
@@ -280,6 +304,127 @@ export async function POST(req: Request) {
     }
   }
 
+  if (shouldSendBudgetTipOnDate(today)) {
+    const tipPlans = await prisma.budgetPlan.findMany({
+      where: {
+        user: {
+          mobilePushTokens: { some: {} },
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        currency: true,
+        monthlySavingsContribution: true,
+        user: {
+          select: {
+            id: true,
+            mobilePushTokens: {
+              select: {
+                token: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const tipUserIds = Array.from(new Set(tipPlans.map((plan) => plan.user.id)));
+    const tipUserPrefs = await getUserNotificationPreferencesMap(tipUserIds);
+
+    for (const plan of tipPlans) {
+      const userPrefs = tipUserPrefs.get(plan.user.id) ?? DEFAULT_USER_NOTIFICATION_PREFERENCES;
+      if (!userPrefs.paymentAlerts) continue;
+
+      const mobileTokens = plan.user.mobilePushTokens.map((t) => t.token);
+      if (mobileTokens.length === 0) continue;
+
+      const [incomeAgg, expenseAgg, dueSoonCount] = await Promise.all([
+        prisma.income.aggregate({
+          where: {
+            budgetPlanId: plan.id,
+            month: currentMonth,
+            year: currentYear,
+          },
+          _sum: { amount: true },
+        }),
+        prisma.expense.aggregate({
+          where: {
+            budgetPlanId: plan.id,
+            month: currentMonth,
+            year: currentYear,
+            isAllocation: false,
+          },
+          _sum: { amount: true },
+        }),
+        prisma.debt.count({
+          where: {
+            budgetPlanId: plan.id,
+            paid: false,
+            currentBalance: { gt: 0 },
+            dueDate: {
+              gte: today,
+              lt: addDaysUTC(today, 7),
+            },
+          },
+        }),
+      ]);
+
+      const income = Number(
+        (incomeAgg._sum.amount as unknown as { toString?: () => string })?.toString?.() ?? incomeAgg._sum.amount ?? 0,
+      );
+      const expenses = Number(
+        (expenseAgg._sum.amount as unknown as { toString?: () => string })?.toString?.() ?? expenseAgg._sum.amount ?? 0,
+      );
+      const savingsContribution = Number(
+        (plan.monthlySavingsContribution as unknown as { toString?: () => string })?.toString?.() ??
+          plan.monthlySavingsContribution ??
+          0,
+      );
+
+      let title = "Budget tip";
+      let body = "Keep an eye on upcoming payments and spending trends this week.";
+
+      if (income > 0) {
+        const spendingPct = Math.round((expenses / income) * 100);
+        if (spendingPct >= 90) {
+          title = "Spending is close to your limit";
+          body = `You've used ${spendingPct}% of this month's income in ${plan.name}. Consider pausing non-essential spend.`;
+        } else if (spendingPct >= 75) {
+          title = "Spending trend alert";
+          body = `You've used ${spendingPct}% of this month's income in ${plan.name}. Stay selective with remaining purchases.`;
+        } else if (dueSoonCount >= 2) {
+          title = "Upcoming debt due dates";
+          body = `You have ${dueSoonCount} debt payments due within 7 days. Plan these now to avoid missed payments.`;
+        } else if (savingsContribution <= 0) {
+          title = "Savings habit tip";
+          body = "Set a monthly savings contribution, even a small amount, to strengthen your plan over time.";
+        } else {
+          continue;
+        }
+      } else if (dueSoonCount >= 1) {
+        title = "Upcoming debt due dates";
+        body = `You have ${dueSoonCount} debt payment${dueSoonCount > 1 ? "s" : ""} due within 7 days.`;
+      } else {
+        continue;
+      }
+
+      const result = await sendMobilePushNotifications(mobileTokens, {
+        title,
+        body,
+        data: {
+          type: "budget_tip",
+          budgetPlanId: plan.id,
+          month: currentMonth,
+          year: currentYear,
+        },
+      });
+      budgetTipMobileSent += result.sent;
+      invalidMobileTokens.push(...result.invalidTokens);
+      mobileErrors.push(...result.errors);
+    }
+  }
+
   if (deadEndpoints.length > 0) {
     const webPushSubscription = (prisma as unknown as { webPushSubscription?: WebPushSubscriptionDelegate }).webPushSubscription;
     if (webPushSubscription) {
@@ -309,6 +454,7 @@ export async function POST(req: Request) {
     mobileSent,
     payDateReminderSent,
     payDateReminderMobileSent,
+    budgetTipMobileSent,
     removedSubscriptions: deadEndpoints.length,
     removedMobileTokens: invalidMobileTokens.length,
     mobileErrors: uniqueMobileErrors,

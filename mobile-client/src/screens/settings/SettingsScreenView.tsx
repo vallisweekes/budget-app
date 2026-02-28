@@ -52,6 +52,12 @@ type NotificationPrefs = {
   paymentAlerts: boolean;
 };
 
+type NotificationPrefsResponse = {
+  ok?: boolean;
+  dueReminders?: boolean;
+  paymentAlerts?: boolean;
+};
+
 function formatDateDmy(dateYmd: string): string {
   const s = (dateYmd || "").trim();
   if (!s) return "";
@@ -364,21 +370,60 @@ export default function SettingsScreen({ navigation }: MainTabScreenProps<"Setti
   const isMoreTabActive = MORE_TABS.some((tab) => tab.id === activeTab);
 
   const loadNotifications = useCallback(async () => {
+    const readFromSecureStore = async () => {
+      try {
+        const raw = await SecureStore.getItemAsync(NOTIFICATION_PREFS_KEY);
+        if (!raw) return;
+        const parsed = JSON.parse(raw) as NotificationPrefs;
+        if (typeof parsed?.dueReminders === "boolean" && typeof parsed?.paymentAlerts === "boolean") {
+          setNotifications(parsed);
+        }
+      } catch {
+        // ignore
+      }
+    };
+
     try {
-      const raw = await SecureStore.getItemAsync(NOTIFICATION_PREFS_KEY);
-      if (!raw) return;
-      const parsed = JSON.parse(raw) as NotificationPrefs;
-      if (typeof parsed?.dueReminders === "boolean" && typeof parsed?.paymentAlerts === "boolean") {
-        setNotifications(parsed);
+      const remote = await apiFetch<NotificationPrefsResponse>("/api/bff/notifications/preferences", {
+        cacheTtlMs: 0,
+      });
+      if (typeof remote?.dueReminders === "boolean" && typeof remote?.paymentAlerts === "boolean") {
+        const next = {
+          dueReminders: remote.dueReminders,
+          paymentAlerts: remote.paymentAlerts,
+        };
+        setNotifications(next);
+        await SecureStore.setItemAsync(NOTIFICATION_PREFS_KEY, JSON.stringify(next));
+        return;
       }
     } catch {
-      // ignore
+      await readFromSecureStore();
     }
   }, []);
 
   const saveNotifications = useCallback(async (next: NotificationPrefs) => {
     setNotifications(next);
     await SecureStore.setItemAsync(NOTIFICATION_PREFS_KEY, JSON.stringify(next));
+    try {
+      const remote = await apiFetch<NotificationPrefsResponse>("/api/bff/notifications/preferences", {
+        method: "PUT",
+        body: {
+          dueReminders: next.dueReminders,
+          paymentAlerts: next.paymentAlerts,
+        },
+      });
+
+      if (typeof remote?.dueReminders === "boolean" && typeof remote?.paymentAlerts === "boolean") {
+        const synced = {
+          dueReminders: remote.dueReminders,
+          paymentAlerts: remote.paymentAlerts,
+        };
+        setNotifications(synced);
+        await SecureStore.setItemAsync(NOTIFICATION_PREFS_KEY, JSON.stringify(synced));
+      }
+    } catch (err: unknown) {
+      Alert.alert("Notification settings", err instanceof Error ? err.message : "Failed to sync settings.");
+    }
   }, []);
 
   const sendTestMobilePush = useCallback(async () => {
@@ -1207,7 +1252,7 @@ export default function SettingsScreen({ navigation }: MainTabScreenProps<"Setti
                 >
                   <Text style={styles.primaryGhostText}>{pushTestBusy ? "Sending…" : "Send test mobile push"}</Text>
                 </Pressable>
-                <Text style={styles.muted}>These preferences are managed on this device.</Text>
+                <Text style={styles.muted}>These preferences sync to your account and control automatic reminders.</Text>
               </Section>
             )}
 

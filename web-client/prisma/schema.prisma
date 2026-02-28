@@ -49,6 +49,8 @@ model User {
 
   // UI preferences
   theme         String       @default("storm-cyan")
+  notificationDueReminders Boolean @default(true)
+  notificationPaymentAlerts Boolean @default(true)
 
   // Mobile: resume last location across devices
   navStateJson      String?   @db.Text
