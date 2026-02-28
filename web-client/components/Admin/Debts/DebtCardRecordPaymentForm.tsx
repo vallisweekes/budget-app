@@ -1,8 +1,39 @@
 "use client";
 
+import { useState } from "react";
+
 import { SelectDropdown } from "@/components/Shared";
+import MoneyInput from "@/components/Shared/MoneyInput";
 import { makePaymentFromForm } from "@/lib/debts/actions";
 import type { DebtCardDebt } from "@/types/components/debts";
+
+function PaymentAmountField(props: {
+	name: string;
+	required?: boolean;
+	defaultAmount: number | null;
+	isDisabled?: boolean;
+}) {
+	const { name, required, defaultAmount, isDisabled } = props;
+	const [amountDraft, setAmountDraft] = useState(() => {
+		if (defaultAmount == null) return "";
+		return Number.isFinite(defaultAmount) ? defaultAmount.toFixed(2) : "";
+	});
+
+	return (
+		<MoneyInput
+			name={name}
+			required={required}
+			value={amountDraft}
+			onChangeValue={setAmountDraft}
+			placeholder="0.00"
+			ariaLabel="Payment amount"
+			size="sm"
+			disabled={isDisabled}
+			className="w-full rounded-lg border border-white/10 bg-slate-900/60"
+			inputClassName="text-xs sm:text-sm"
+		/>
+	);
+}
 
 export default function DebtCardRecordPaymentForm(props: {
 	debt: DebtCardDebt;
@@ -29,11 +60,16 @@ export default function DebtCardRecordPaymentForm(props: {
 		isPaymentMonthPaid,
 	} = props;
 
+	const amountSeed = defaultPaymentAmount ?? debt.amount;
+	const effectiveDefaultAmount = isPaymentMonthPaid
+		? null
+		: (Number.isFinite(defaultPaymentAmount as number) ? (defaultPaymentAmount as number) : debt.amount);
+
 	return (
 		<div className="bg-slate-900/40 rounded-xl p-2.5 sm:p-4 border border-white/5">
 			<h4 className="text-xs sm:text-sm font-semibold text-slate-300 mb-2 sm:mb-3">Record Payment</h4>
 			<form
-				key={defaultPaymentAmount ?? debt.amount}
+				key={amountSeed}
 				action={makePaymentFromForm}
 				className="grid grid-cols-1 sm:grid-cols-[180px_1fr_auto] gap-2 sm:gap-3 sm:items-end"
 			>
@@ -44,19 +80,11 @@ export default function DebtCardRecordPaymentForm(props: {
 				<input type="hidden" name="cardDebtId" value={paymentCardDebtId} />
 				<div>
 					<label className="block text-[10px] sm:text-xs font-medium text-slate-300 mb-1 sm:mb-1.5">Payment Amount</label>
-					<input
-						type="number"
+					<PaymentAmountField
+						key={amountSeed}
 						name="amount"
-						step="0.01"
-						placeholder="Amount"
-						defaultValue={
-							isPaymentMonthPaid
-								? ""
-								: (Number.isFinite(defaultPaymentAmount as number) ? defaultPaymentAmount : debt.amount)
-						}
 						required
-						aria-label="Payment amount"
-						className="h-8 sm:h-10 w-full px-2 py-1.5 sm:px-3 sm:py-2 bg-slate-900/60 border border-white/10 text-white placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-xs sm:text-sm"
+						defaultAmount={effectiveDefaultAmount}
 					/>
 				</div>
 				<div>

@@ -9,6 +9,8 @@ type Props = {
   name?: string;
   id?: string;
   required?: boolean;
+  size?: "sm" | "md";
+  variant?: "dark" | "light";
   currencyCode?: string;
   locale?: string;
   language?: string;
@@ -57,6 +59,8 @@ export default function MoneyInput({
   name,
   id,
   required,
+  size = "md",
+  variant = "dark",
   currencyCode: currencyCodeProp,
   locale: localeProp,
   language: languageProp,
@@ -108,14 +112,33 @@ export default function MoneyInput({
 
   const showClear = !disabled && (value ?? "").trim().length > 0;
 
+  const h = size === "sm" ? "h-10" : "h-12";
+  const box = size === "sm" ? "w-10" : "w-12";
+  const font = size === "sm" ? "text-sm" : "text-lg";
+  const symbolFont = size === "sm" ? "text-base" : "text-lg";
+
+  const containerTone =
+    variant === "light" ? "border-slate-200 bg-white/80" : "border-white/10 bg-slate-950/30";
+  const dividerTone = variant === "light" ? "border-slate-200" : "border-white/10";
+  const symbolTone =
+    variant === "light" ? "bg-slate-100 text-slate-700" : "bg-slate-950/40 text-white";
+  const inputTone =
+    variant === "light" ? "text-slate-900 placeholder:text-slate-400" : "text-white placeholder:text-slate-500";
+  const clearTone = variant === "light" ? "border-slate-200 bg-slate-100 text-slate-700" : "border-white/10 bg-slate-950/40 text-white";
+
   return (
     <div
       className={
-        "flex items-center overflow-hidden rounded-2xl border-2 border-white/10 bg-slate-950/30 " + (className ?? "")
+        "flex items-center overflow-hidden rounded-2xl border-2 " +
+        containerTone +
+        " " +
+        (className ?? "")
       }
     >
       {name ? <input type="hidden" name={name} value={hiddenValue} disabled={disabled} /> : null}
-      <div className="flex h-12 w-12 items-center justify-center border-r border-white/10 bg-slate-950/40 text-lg font-bold text-white">
+      <div
+        className={`flex ${h} ${box} items-center justify-center border-r ${dividerTone} ${symbolTone} ${symbolFont} font-bold`}
+      >
         {symbol}
       </div>
 
@@ -147,12 +170,12 @@ export default function MoneyInput({
         placeholder={placeholder}
         aria-label={ariaLabel}
         className={
-          "h-12 w-full bg-transparent px-3 text-lg font-semibold text-white placeholder:text-slate-500 focus:outline-none " +
+          `${h} w-full bg-transparent px-3 ${font} font-semibold ${inputTone} focus:outline-none disabled:cursor-not-allowed disabled:opacity-70 ` +
           (inputClassName ?? "")
         }
       />
 
-      <div className="flex h-12 w-12 items-center justify-center pr-2">
+      <div className={`flex ${h} ${box} items-center justify-center pr-2`}>
         {showClear ? (
           <button
             type="button"
@@ -161,7 +184,7 @@ export default function MoneyInput({
               onChangeValue("");
             }}
             aria-label="Clear amount"
-            className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-slate-950/40 text-white"
+            className={"flex h-8 w-8 items-center justify-center rounded-full border " + clearTone}
           >
             ×
           </button>

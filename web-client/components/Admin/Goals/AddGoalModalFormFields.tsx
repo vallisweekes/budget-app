@@ -1,6 +1,7 @@
 import type { Goal } from "@/lib/goals/store";
 
 import { SelectDropdown } from "@/components/Shared";
+import MoneyInput from "@/components/Shared/MoneyInput";
 
 type GoalType = Goal["type"];
 type GoalCategory = Goal["category"];
@@ -88,25 +89,25 @@ export default function AddGoalModalFormFields({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <label className="block">
-          <span className="text-xs sm:text-sm font-medium text-slate-300 mb-1 block">Target amount (£)</span>
-          <input
+          <span className="text-xs sm:text-sm font-medium text-slate-300 mb-1 block">Target amount</span>
+          <MoneyInput
             value={targetAmount}
-            onChange={(e) => onTargetAmountChange(e.target.value)}
-            type="number"
-            step="0.01"
-            className="w-full px-3 py-2 sm:px-4 sm:py-3 rounded-xl border border-white/10 bg-slate-900/40 text-white placeholder-slate-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 outline-none transition-all text-xs sm:text-sm"
-            placeholder="Optional"
+            onChangeValue={onTargetAmountChange}
+            placeholder="0.00"
+            className="w-full rounded-xl border border-white/10 bg-slate-900/40"
+            inputClassName="text-xs sm:text-sm"
+            size="md"
           />
         </label>
         <label className="block">
-          <span className="text-xs sm:text-sm font-medium text-slate-300 mb-1 block">Current amount (£)</span>
-          <input
+          <span className="text-xs sm:text-sm font-medium text-slate-300 mb-1 block">Current amount</span>
+          <MoneyInput
             value={currentAmount}
-            onChange={(e) => onCurrentAmountChange(e.target.value)}
-            type="number"
-            step="0.01"
-            className="w-full px-3 py-2 sm:px-4 sm:py-3 rounded-xl border border-white/10 bg-slate-900/40 text-white placeholder-slate-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 outline-none transition-all text-xs sm:text-sm"
-            placeholder="Optional"
+            onChangeValue={onCurrentAmountChange}
+            placeholder="0.00"
+            className="w-full rounded-xl border border-white/10 bg-slate-900/40"
+            inputClassName="text-xs sm:text-sm"
+            size="md"
           />
         </label>
       </div>

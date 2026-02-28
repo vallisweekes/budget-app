@@ -1,7 +1,10 @@
 "use client";
 
+import { useState } from "react";
+
 import { SelectDropdown } from "@/components/Shared";
 import InstallmentPlanSection from "@/components/Admin/Debts/InstallmentPlanSection";
+import MoneyInput from "@/components/Shared/MoneyInput";
 
 export interface AddDebtFormFieldsGridProps {
 	creditCards: Array<{ id: string; name: string }>;
@@ -40,6 +43,8 @@ export default function AddDebtFormFieldsGrid({
 	onInstallmentMonthsChange,
 	isCardType,
 }: AddDebtFormFieldsGridProps) {
+	const [monthlyMinimumDraft, setMonthlyMinimumDraft] = useState("");
+
 	return (
 		<>
 			<div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
@@ -78,15 +83,14 @@ export default function AddDebtFormFieldsGrid({
 						<label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1 sm:mb-2">
 							Credit Limit
 						</label>
-						<input
-							type="number"
+						<MoneyInput
 							name="creditLimit"
-							step="0.01"
-							placeholder="1200.00"
 							required
 							value={creditLimit}
-							onChange={(e) => onCreditLimitChange(e.target.value)}
-							className="w-full px-3 py-1.5 sm:px-4 sm:py-2 bg-slate-900/40 border border-white/10 text-white placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-xs sm:text-sm"
+							onChangeValue={onCreditLimitChange}
+							placeholder="1200.00"
+							className="w-full rounded-lg border border-white/10 bg-slate-900/40"
+							inputClassName="text-xs sm:text-sm"
 						/>
 						<div className="mt-1 text-[10px] sm:text-xs text-slate-500">Required for credit/store cards.</div>
 					</div>
@@ -147,15 +151,14 @@ export default function AddDebtFormFieldsGrid({
 
 				<div>
 					<label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1 sm:mb-2">Initial Balance</label>
-					<input
-						type="number"
+					<MoneyInput
 						name="initialBalance"
-						step="0.01"
-						placeholder="450.00"
 						required
 						value={initialBalance}
-						onChange={(e) => onInitialBalanceChange(e.target.value)}
-						className="w-full px-3 py-1.5 sm:px-4 sm:py-2 bg-slate-900/40 border border-white/10 text-white placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-xs sm:text-sm"
+						onChangeValue={onInitialBalanceChange}
+						placeholder="450.00"
+						className="w-full rounded-lg border border-white/10 bg-slate-900/40"
+						inputClassName="text-xs sm:text-sm"
 					/>
 				</div>
 
@@ -163,12 +166,13 @@ export default function AddDebtFormFieldsGrid({
 					<label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1 sm:mb-2">
 						Monthly Minimum (Optional)
 					</label>
-					<input
-						type="number"
+					<MoneyInput
 						name="monthlyMinimum"
-						step="0.01"
+						value={monthlyMinimumDraft}
+						onChangeValue={setMonthlyMinimumDraft}
 						placeholder="25.00"
-						className="w-full px-3 py-1.5 sm:px-4 sm:py-2 bg-slate-900/40 border border-white/10 text-white placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-xs sm:text-sm"
+						className="w-full rounded-lg border border-white/10 bg-slate-900/40"
+						inputClassName="text-xs sm:text-sm"
 					/>
 				</div>
 

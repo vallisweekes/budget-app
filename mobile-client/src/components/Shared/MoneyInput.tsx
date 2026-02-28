@@ -53,6 +53,7 @@ export default function MoneyInput({
   inputStyle,
   onFocus,
   onBlur,
+  placeholderTextColor,
   editable = true,
   ...rest
 }: Props) {
@@ -92,7 +93,7 @@ export default function MoneyInput({
         }}
         keyboardType="decimal-pad"
         placeholder={placeholder}
-        placeholderTextColor={T.textMuted}
+        placeholderTextColor={placeholderTextColor ?? s.placeholder.color}
         style={[s.input, inputStyle]}
         editable={editable}
         onFocus={(e) => {
@@ -125,7 +126,7 @@ export default function MoneyInput({
             accessibilityLabel="Clear amount"
             style={({ pressed }) => [s.clearBtn, pressed && s.clearBtnPressed]}
           >
-            <Ionicons name="close" size={16} color={T.text} />
+            <Ionicons name="close" size={16} color={s.clearIcon.color as string} />
           </Pressable>
         ) : null}
       </View>
@@ -138,8 +139,8 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 2,
-    borderColor: T.accentFaint,
-    backgroundColor: T.cardAlt,
+    borderColor: "rgba(255,255,255,0.30)",
+    backgroundColor: "rgba(255,255,255,0.12)",
     borderRadius: 18,
     overflow: "hidden",
     minHeight: 54,
@@ -150,19 +151,22 @@ const s = StyleSheet.create({
     alignSelf: "stretch",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: T.card,
+    backgroundColor: "rgba(0,0,0,0.16)",
     borderRightWidth: 1,
-    borderRightColor: T.border,
+    borderRightColor: "rgba(255,255,255,0.25)",
   },
   currencyText: {
-    color: T.text,
+    color: "#ffffff",
     fontSize: 18,
     fontWeight: "900",
     letterSpacing: -0.2,
   },
+  placeholder: {
+    color: "rgba(255,255,255,0.62)",
+  },
   input: {
     flex: 1,
-    color: T.text,
+    color: "#ffffff",
     fontSize: 22,
     fontWeight: "800",
     paddingHorizontal: 14,
@@ -182,8 +186,11 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: T.border,
-    backgroundColor: T.card,
+    borderColor: "rgba(255,255,255,0.25)",
+    backgroundColor: "rgba(0,0,0,0.22)",
   },
   clearBtnPressed: { opacity: 0.75 },
+  clearIcon: {
+    color: "#ffffff",
+  },
 });

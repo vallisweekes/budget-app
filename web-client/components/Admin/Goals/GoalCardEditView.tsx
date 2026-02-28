@@ -3,6 +3,7 @@ import type { LucideIcon } from "lucide-react";
 import { Check, X } from "lucide-react";
 
 import { CARD_CLASS, INPUT_CLASS } from "@/components/Admin/Goals/goalCardStyles";
+import MoneyInput from "@/components/Shared/MoneyInput";
 
 export default function GoalCardEditView({
   icon: Icon,
@@ -85,35 +86,35 @@ export default function GoalCardEditView({
               <span className="block text-[10px] sm:text-xs font-medium text-slate-700 mb-0.5 sm:mb-1">
                 Target Amount
               </span>
-              <input
-                type="number"
-                step="0.01"
+              <MoneyInput
                 value={targetAmount}
-                onChange={(e) => onTargetAmountChange(e.target.value)}
-                className={INPUT_CLASS}
-                placeholder="Target £"
-                aria-label="Target amount"
+                onChangeValue={onTargetAmountChange}
+                placeholder="0.00"
+                ariaLabel="Target amount"
+                size="sm"
+                variant="light"
+                className="w-full rounded-lg border bg-white/80"
+                inputClassName="text-xs sm:text-sm"
               />
             </label>
             <label>
               <span className="block text-[10px] sm:text-xs font-medium text-slate-700 mb-0.5 sm:mb-1">
                 Current Amount
               </span>
-              <input
-                type="number"
-                step="0.01"
-                value={currentAmount}
-                onChange={(e) => onCurrentAmountChange(e.target.value)}
-                disabled={currentAmountDisabled}
+			  <MoneyInput
+				value={currentAmount}
+				onChangeValue={onCurrentAmountChange}
+				disabled={currentAmountDisabled}
+				placeholder="0.00"
+				ariaLabel="Current amount"
+				size="sm"
+				variant="light"
 				className={
-					INPUT_CLASS +
-					(currentAmountDisabled
-                  ? " opacity-70 cursor-not-allowed bg-black/5 text-slate-700"
-						: "")
+					"w-full rounded-lg border bg-white/80" +
+					(currentAmountDisabled ? " opacity-70" : "")
 				}
-                placeholder="Current £"
-                aria-label="Current amount"
-              />
+				inputClassName="text-xs sm:text-sm"
+			  />
 				{currentAmountHelpText ? (
 					<p className="mt-1 text-[10px] sm:text-xs text-slate-600">{currentAmountHelpText}</p>
 				) : null}
