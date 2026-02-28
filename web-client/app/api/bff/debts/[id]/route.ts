@@ -4,6 +4,7 @@ import { getSessionUserId } from "@/lib/api/bffAuth";
 import { processMissedDebtPaymentsToAccrue } from "@/lib/debts/carryover";
 import { computeDebtPayoffProjection } from "@/lib/debts/payoffProjection";
 import { computeAgreementBaseline } from "@/lib/debts/agreementBaseline";
+import { resolveExpenseLogo } from "@/lib/expenses/logoResolver";
 
 export const runtime = "nodejs";
 
@@ -302,7 +303,12 @@ export async function GET(
       }
     }
 
-    return NextResponse.json(withPayoffProjection(withMissedPaymentFlag(safe)));
+    const logoBaseName = String((safe as any).sourceExpenseName ?? (safe as any).name ?? "").trim();
+    const logo = logoBaseName
+      ? resolveExpenseLogo(logoBaseName)
+      : { merchantDomain: null, logoUrl: null, logoSource: null };
+
+    return NextResponse.json(withPayoffProjection(withMissedPaymentFlag({ ...(safe as any), ...logo })));
   } catch (error) {
     console.error("Failed to fetch debt:", error);
     return NextResponse.json(

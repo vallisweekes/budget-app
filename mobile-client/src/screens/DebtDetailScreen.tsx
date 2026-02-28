@@ -1,8 +1,10 @@
 import React from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 
 import type { DebtStackParamList } from "@/navigation/types";
 import { T } from "@/lib/theme";
@@ -25,6 +27,8 @@ export default function DebtDetailScreen() {
   const { params } = useRoute<Route>();
   const { debtId, debtName } = params;
   const { height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
 
   const state = useDebtDetailController({ debtId, debtName, onDeleted: () => navigation.goBack() });
   const { debt, loading, error, currency, derived } = state;
@@ -38,7 +42,7 @@ export default function DebtDetailScreen() {
   if (loading) {
     return (
       <SafeAreaView style={s.safe}>
-        <DebtDetailHeader title={debtName} editing={false} onBack={() => navigation.goBack()} onToggleEdit={() => {}} onDelete={() => {}} />
+        <DebtDetailHeader title={debtName} editing={false} hideActions onBack={() => navigation.goBack()} onToggleEdit={() => {}} onDelete={() => {}} />
         <View style={s.center}><ActivityIndicator size="large" color={T.accent} /></View>
       </SafeAreaView>
     );
@@ -47,7 +51,7 @@ export default function DebtDetailScreen() {
   if (error || !debt) {
     return (
       <SafeAreaView style={s.safe}>
-        <DebtDetailHeader title={debtName} editing={false} onBack={() => navigation.goBack()} onToggleEdit={() => {}} onDelete={() => {}} />
+        <DebtDetailHeader title={debtName} editing={false} hideActions onBack={() => navigation.goBack()} onToggleEdit={() => {}} onDelete={() => {}} />
         <View style={s.center}>
           <Ionicons name="cloud-offline-outline" size={48} color={T.textDim} />
           <Text style={s.errorText}>{error ?? "Debt not found"}</Text>
@@ -65,6 +69,7 @@ export default function DebtDetailScreen() {
       <DebtDetailHeader
         title={debt.name}
         editing={state.editing}
+        hideActions
         onBack={() => navigation.goBack()}
         onToggleEdit={() => state.setEditing((prev) => !prev)}
         onDelete={() => state.setDeleteConfirmOpen(true)}
@@ -73,10 +78,12 @@ export default function DebtDetailScreen() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView
           style={{ backgroundColor: T.bg }}
-          contentContainerStyle={s.scroll}
+          contentContainerStyle={[s.scroll, { paddingBottom: 120 + tabBarHeight + 12 }]}
           refreshControl={<RefreshControl refreshing={state.refreshing} onRefresh={() => { state.setRefreshing(true); state.load(); }} tintColor={T.accent} />}
         >
           <DebtHero
+            debtName={debt.name}
+            logoUrl={debt.logoUrl}
             currentBalanceLabel="Current balance"
             currentBalanceValue={derived.isPaid ? "Paid off" : fmt(derived.currentBalNum, currency)}
             isPaid={derived.isPaid}
@@ -133,6 +140,23 @@ export default function DebtDetailScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
+      <View style={[s.bottomActionsWrap, { paddingBottom: tabBarHeight + 8 }]}>
+        <View style={s.bottomActionsRow}>
+          <Pressable
+            style={s.bottomActionBtn}
+            onPress={() => state.setEditing((prev) => !prev)}
+          >
+            <Text style={[s.bottomActionTxt, { color: T.accent }]}>{state.editing ? "Close" : "Edit"}</Text>
+          </Pressable>
+          <Pressable
+            style={s.bottomActionBtn}
+            onPress={() => state.setDeleteConfirmOpen(true)}
+          >
+            <Text style={[s.bottomActionTxt, { color: T.red }]}>Delete</Text>
+          </Pressable>
+        </View>
+      </View>
+
       <PaymentSheet
         visible={state.paySheetOpen}
         currency={currency}
@@ -188,7 +212,7 @@ export default function DebtDetailScreen() {
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: T.bg },
   center: { flex: 1, justifyContent: "center", alignItems: "center", gap: 12 },
-  scroll: { padding: 14, gap: 14, paddingBottom: 40 },
+  scroll: { paddingHorizontal: 14, paddingTop: 0, gap: 14 },
   sectionCard: {
     ...cardBase,
     borderRadius: 14,
@@ -201,4 +225,33 @@ const s = StyleSheet.create({
   errorText: { color: T.red, fontSize: 14, textAlign: "center", paddingHorizontal: 32 },
   retryBtn: { backgroundColor: T.accent, borderRadius: 8, paddingHorizontal: 24, paddingVertical: 10 },
   retryTxt: { color: T.onAccent, fontWeight: "700" },
+
+  bottomActionsWrap: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    backgroundColor: T.bg,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: T.border,
+  },
+  bottomActionsRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  bottomActionBtn: {
+    flex: 1,
+    backgroundColor: "#ffffff",
+    borderRadius: 999,
+    paddingVertical: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bottomActionTxt: {
+    fontSize: 14,
+    fontWeight: "900",
+    letterSpacing: 0.2,
+  },
 });

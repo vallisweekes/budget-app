@@ -63,6 +63,31 @@ type OnboardingProfileRecord = {
   debtNotes: string | null;
 };
 
+function isPrismaValidationError(err: unknown, contains: string): boolean {
+  if (!err || typeof err !== "object") return false;
+  const maybe = err as { name?: unknown; message?: unknown };
+  return (
+    maybe.name === "PrismaClientValidationError" &&
+    typeof maybe.message === "string" &&
+    maybe.message.includes(contains)
+  );
+}
+
+function prismaUserHasField(fieldName: string): boolean {
+  try {
+    const runtimeDataModel = (prisma as unknown as {
+      _runtimeDataModel?: {
+        models?: Record<string, { fields?: Array<{ name?: string }> }>;
+      };
+    })._runtimeDataModel;
+    const fields = runtimeDataModel?.models?.User?.fields;
+    if (!Array.isArray(fields)) return false;
+    return fields.some((f) => f?.name === fieldName);
+  } catch {
+    return false;
+  }
+}
+
 function isOnboardingGoal(value: unknown): value is OnboardingGoalInput {
   return value === "improve_savings" || value === "manage_debts" || value === "track_spending" || value === "build_budget";
 }
@@ -116,46 +141,134 @@ export async function getOnboardingForUser(userId: string) {
     where: { userId },
   });
 
-  if (!profile) {
-    const existingPlan = await prisma.budgetPlan.findFirst({
-      where: { userId },
+  const getPreferredBudgetPlanId = async (): Promise<string | null> => {
+    // Prefer "personal" (matches existing default-plan logic elsewhere).
+    const personal = await prisma.budgetPlan.findFirst({
+      where: { userId, kind: "personal" },
+      orderBy: { createdAt: "desc" },
       select: { id: true },
     });
+    if (personal) return personal.id;
 
-    if (!existingPlan) {
-      await onboardingDelegate(prisma).create({
-        data: {
-          userId,
-          status: "started",
-        },
-      });
+    const mostRecent = await prisma.budgetPlan.findFirst({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+      select: { id: true },
+    });
+    return mostRecent?.id ?? null;
+  };
+
+  const preferredPlanId = await getPreferredBudgetPlanId();
+
+  const getUserIsOnboarded = async (): Promise<boolean | null> => {
+    if (!prismaUserHasField("isOnboarded")) return null;
+    try {
+      type FindUniqueArgs = { where: { id: string }; select: { isOnboarded: true } };
+      type FindUniqueResult = { isOnboarded?: unknown } | null;
+      const delegate = (prisma as unknown as {
+        user: { findUnique: (args: FindUniqueArgs) => Promise<FindUniqueResult> };
+      }).user;
+
+      const user = await delegate.findUnique({ where: { id: userId }, select: { isOnboarded: true } });
+      return typeof user?.isOnboarded === "boolean" ? user.isOnboarded : null;
+    } catch (err) {
+      if (isPrismaValidationError(err, "isOnboarded")) return null;
+      throw err;
+    }
+  };
+
+  const userIsOnboarded = await getUserIsOnboarded();
+
+  const hasBasicSetup = async (): Promise<boolean> => {
+    if (!preferredPlanId) return false;
+    const [income, expense] = await Promise.all([
+      prisma.income.findFirst({ where: { budgetPlanId: preferredPlanId }, select: { id: true } }),
+      (async () => {
+        try {
+          return await prisma.expense.findFirst({
+            where: { budgetPlanId: preferredPlanId, isAllocation: false },
+            select: { id: true },
+          });
+        } catch (err) {
+          if (!isPrismaValidationError(err, "isAllocation")) throw err;
+          return prisma.expense.findFirst({ where: { budgetPlanId: preferredPlanId }, select: { id: true } });
+        }
+      })(),
+    ]);
+    return Boolean(income) && Boolean(expense);
+  };
+
+  const hasBasics = await hasBasicSetup();
+
+  // Fully configured users (income + expenses exist) should never be blocked by onboarding,
+  // even if they predate the onboarding profile.
+  if (hasBasics || userIsOnboarded === true) {
+    if (!profile) {
       return {
-        required: true,
+        required: false,
         completed: false,
-        profile: {
-          mainGoal: null,
-          mainGoals: [],
-          occupation: null,
-          occupationOther: null,
-          monthlySalary: null,
-          expenseOneName: null,
-          expenseOneAmount: null,
-          expenseTwoName: null,
-          expenseTwoAmount: null,
-          hasAllowance: null,
-          allowanceAmount: null,
-          hasDebtsToManage: null,
-          debtAmount: null,
-          debtNotes: null,
-        },
+        profile: null,
         occupations: COMMON_OCCUPATIONS,
       };
     }
-
     return {
       required: false,
+      completed: profile.status === "completed",
+      profile: {
+        mainGoal: profile.mainGoal,
+        mainGoals:
+          Array.isArray(profile.mainGoals) && profile.mainGoals.length
+            ? profile.mainGoals
+            : profile.mainGoal
+              ? [profile.mainGoal]
+              : [],
+        occupation: profile.occupation,
+        occupationOther: profile.occupationOther,
+        monthlySalary: toNullableNumber(profile.monthlySalary),
+        expenseOneName: profile.expenseOneName,
+        expenseOneAmount: toNullableNumber(profile.expenseOneAmount),
+        expenseTwoName: profile.expenseTwoName,
+        expenseTwoAmount: toNullableNumber(profile.expenseTwoAmount),
+        hasAllowance: profile.hasAllowance,
+        allowanceAmount: toNullableNumber(profile.allowanceAmount),
+        hasDebtsToManage: profile.hasDebtsToManage,
+        debtAmount: toNullableNumber(profile.debtAmount),
+        debtNotes: profile.debtNotes,
+      },
+      occupations: COMMON_OCCUPATIONS,
+    };
+  }
+
+  const emptyProfile = {
+    mainGoal: null,
+    mainGoals: [],
+    occupation: null,
+    occupationOther: null,
+    monthlySalary: null,
+    expenseOneName: null,
+    expenseOneAmount: null,
+    expenseTwoName: null,
+    expenseTwoAmount: null,
+    hasAllowance: null,
+    allowanceAmount: null,
+    hasDebtsToManage: null,
+    debtAmount: null,
+    debtNotes: null,
+  };
+
+  if (!profile) {
+    // No plan => new user: require onboarding.
+    // Has plan but no income/expenses => legacy partially-configured user: also require onboarding.
+    await onboardingDelegate(prisma).create({
+      data: {
+        userId,
+        status: "started",
+      },
+    });
+    return {
+      required: true,
       completed: false,
-      profile: null,
+      profile: emptyProfile,
       occupations: COMMON_OCCUPATIONS,
     };
   }
@@ -438,6 +551,21 @@ export async function completeOnboarding(userId: string) {
         generatedPlanId: budgetPlanId,
       },
     });
+
+    // Best-effort: mark user as onboarded so legacy gating can be bypassed.
+    try {
+      type UpdateArgs = { where: { id: string }; data: { isOnboarded: boolean } };
+      type UpdateResult = unknown;
+      const delegate = (tx as unknown as { user: { update: (args: UpdateArgs) => Promise<UpdateResult> } }).user;
+      await delegate.update({ where: { id: userId }, data: { isOnboarded: true } });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (isPrismaValidationError(err, "isOnboarded") || /isOnboarded/i.test(msg)) {
+        // Ignore when Prisma client/DB is temporarily out of sync.
+      } else {
+        throw err;
+      }
+    }
   });
 
   return { budgetPlanId };

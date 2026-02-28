@@ -27,7 +27,6 @@ const CUSTOM_LOGO_URLS: Record<string, string> = {
  * These return a logo without persisting a (possibly wrong) merchantDomain.
  */
 const CUSTOM_LOGO_NAME_OVERRIDES: Array<{ pattern: RegExp; logoUrl: string }> = [
-  { pattern: /\bplane\s*saver\b/i, logoUrl: "/logos/plane-saver-loans.webp" },
   { pattern: /\btv\s*licen(?:s|c)e\b|\btv\s*licensing\b/i, logoUrl: "/logos/tv-licensing.jpg" },
 ];
 
@@ -92,6 +91,11 @@ const KNOWN_DOMAINS: Array<{ pattern: RegExp; domain: string }> = [
   { pattern: /\bsso\s*energy|southern\s*electric\b/i, domain: "sse.co.uk" },
   { pattern: /\bthames\s*water\b/i,                   domain: "thameswater.co.uk" },
   // ── Finance & banking ─────────────────────────────────────────────
+  { pattern: /\bplane\s*saver\b/i,                      domain: "planesavercu.co.uk" },
+  // Novuna (formerly hit as "Novouma" typo)
+  { pattern: /\bnovuna\s*personal\s*finance\b|\bpersonal\s*finance\b.*\bnovuna\b/i, domain: "novunapersonalfinance.co.uk" },
+  { pattern: /\bnovouma\b/i,                          domain: "novunapersonalfinance.co.uk" },
+  { pattern: /\bnovuna\b/i,                           domain: "novuna.co.uk" },
   { pattern: /\brevolut\b/i,                          domain: "revolut.com" },
   { pattern: /\bmonzo\b/i,                            domain: "monzo.com" },
   { pattern: /\bstarling\b/i,                         domain: "starlingbank.com" },

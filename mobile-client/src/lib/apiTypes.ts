@@ -132,6 +132,9 @@ export interface DebtPayment {
 export interface Debt {
   id: string;
   name: string;
+  merchantDomain?: string | null;
+  logoUrl?: string | null;
+  logoSource?: string | null;
   currentBalance: string;
   initialBalance?: string;
   paidAmount: string;
