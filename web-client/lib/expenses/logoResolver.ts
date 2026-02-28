@@ -213,6 +213,8 @@ const KNOWN_DOMAINS: Array<{ pattern: RegExp; domain: string }> = [
   { pattern: /\bdomestic\s*(?:&|and)\s*general\b/i,    domain: "domesticandgeneral.com" },
   // ── UK councils ─────────────────────────────────────────────────
   { pattern: /\bsouthwark\s*council\b|\blondon\s*borough\s*of\s*southwark\b/i, domain: "southwark.gov.uk" },
+  // ── Housing associations ────────────────────────────────────────
+  { pattern: /\bsouthern\s*housing\b/i, domain: "southernhousing.org.uk" },
   // ── Fitness ──────────────────────────────────────────────────────
   { pattern: /\bpure\s*gym\b/i,                       domain: "puregym.com" },
   { pattern: /\bjd\s*gym\b/i,                         domain: "jdgyms.co.uk" },
@@ -255,15 +257,20 @@ function shouldAttemptLogoSearch(name: string): boolean {
   if (query.length > 42) return false;
 
   const tokens = query.split(/\s+/).filter(Boolean);
-  if (tokens.length === 0 || tokens.length > 4) return false;
+  if (tokens.length === 0) return false;
+  // Default safety cap is 4 tokens, but many housing associations have longer names.
+  // Allow up to 6 tokens when the query looks like a housing-association org name.
+  if (tokens.length > 6) return false;
 
-  const genericTerms = new Set([
+  // Many UK housing associations include otherwise-generic words like "housing" / "homes".
+  // Allow logo.dev search for organization-looking queries (2-4 tokens with a distinctive term),
+  // while still blocking truly generic budget-category labels.
+  const hardBlockTerms = new Set([
     "work",
     "travel",
     "barber",
     "barbers",
     "rent",
-    "housing",
     "utilities",
     "childcare",
     "groceries",
@@ -281,6 +288,15 @@ function shouldAttemptLogoSearch(name: string): boolean {
     "mortgage",
   ]);
 
+  if (tokens.some((t) => hardBlockTerms.has(t))) return false;
+
+  const housingOrgTerms = new Set(["housing", "homes", "association", "assoc", "assn", "trust", "group"]);
+  const hasHousingSignal = tokens.some((t) => housingOrgTerms.has(t));
+  const hasDistinctiveToken = tokens.some((t) => !housingOrgTerms.has(t) && /[a-z]/i.test(t) && t.length >= 4);
+  if (!hasHousingSignal && tokens.length > 4) return false;
+  if (hasHousingSignal && hasDistinctiveToken) return true;
+
+  const genericTerms = new Set(["housing"]);
   if (tokens.some((t) => genericTerms.has(t))) return false;
 
   return /[a-z]/i.test(query);

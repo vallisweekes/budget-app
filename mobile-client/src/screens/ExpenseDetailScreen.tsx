@@ -13,6 +13,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { BlurView } from "expo-blur";
 import { Ionicons } from "@expo/vector-icons";
 import Svg, { Circle, Polyline } from "react-native-svg";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -141,8 +142,17 @@ function buildExpenseTips(params: {
   if (currentPoint && !isPaid) {
     if (currentPoint.status === "partial") {
       tips.push(`This month is part-paid so far — topping up now avoids a last-minute scramble.`);
-    } else if (currentPoint.status === "unpaid") {
-      tips.push(`This month looks unpaid so far — even a small chip-in keeps it out of “missed”.`);
+    } else if (currentPoint.status === "upcoming" || currentPoint.status === "unpaid") {
+      if (dueDays != null && dueDays >= 0) {
+        tips.push(`Upcoming payment in ${dueDays} day${dueDays === 1 ? "" : "s"} — adding a small payment now keeps things smooth.`);
+      } else if (dueDays != null && dueDays >= -5) {
+        const daysOver = Math.abs(dueDays);
+        tips.push(`Payment was due ${daysOver} day${daysOver === 1 ? "" : "s"} ago — you’re still within the grace window. A quick payment now avoids a missed month.`);
+      } else {
+        tips.push(`Payment is overdue — even a small chip-in now helps recover this month quickly.`);
+      }
+    } else if (currentPoint.status === "missed") {
+      tips.push("This month is marked missed — record a payment now to get back on track.");
     }
   }
 
@@ -296,6 +306,7 @@ export default function ExpenseDetailScreen({ route, navigation }: Props) {
 
   const [frequency, setFrequency] = React.useState<ExpenseFrequencyResponse | null>(null);
   const [frequencyLoading, setFrequencyLoading] = React.useState(false);
+  const [frequencyResolved, setFrequencyResolved] = React.useState(false);
 
   const [tipIndex, setTipIndex] = React.useState(0);
 
@@ -358,9 +369,11 @@ export default function ExpenseDetailScreen({ route, navigation }: Props) {
     if (!expense) {
       setFrequency(null);
       setFrequencyLoading(false);
+      setFrequencyResolved(true);
       return;
     }
     let cancelled = false;
+    setFrequencyResolved(false);
     setFrequencyLoading(true);
     void (async () => {
       try {
@@ -377,6 +390,7 @@ export default function ExpenseDetailScreen({ route, navigation }: Props) {
       } finally {
         if (cancelled) return;
         setFrequencyLoading(false);
+        setFrequencyResolved(true);
       }
     })();
 
@@ -436,6 +450,17 @@ export default function ExpenseDetailScreen({ route, navigation }: Props) {
 
     return { kind, label: indicatorLabel(kind), color };
   }, [freqDisplay.points, frequency?.debt?.cleared, month, year]);
+
+  const showFrequencyCard = true;
+  const hasFrequencyHistory = React.useMemo(() => {
+    const points = frequency?.points ?? [];
+    const current = { month, year };
+    return points.some((p) => {
+      const isPastOrCurrent = compareMonthYear({ month: p.month, year: p.year }, current) <= 0;
+      return isPastOrCurrent && Boolean(p.present);
+    });
+  }, [frequency?.points, month, year]);
+  const showFrequencyLoadingState = !frequencyResolved || frequencyLoading;
 
   const tips = React.useMemo(() => {
     return buildExpenseTips({
@@ -572,6 +597,8 @@ export default function ExpenseDetailScreen({ route, navigation }: Props) {
   return (
     <SafeAreaView style={s.safe} edges={["bottom"]}>
       <View style={[s.header, { paddingTop: insets.top + 8 }]}>
+        <BlurView intensity={14} tint="dark" style={StyleSheet.absoluteFillObject} pointerEvents="none" />
+        <View style={s.headerGlassTint} pointerEvents="none" />
         <Pressable onPress={() => navigation.goBack()} style={s.backBtn} hitSlop={10}>
           <Ionicons name="chevron-back" size={24} color="#ffffff" />
         </Pressable>
@@ -599,7 +626,7 @@ export default function ExpenseDetailScreen({ route, navigation }: Props) {
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
           <ScrollView
             style={{ backgroundColor: EXPENSE_HERO_BLUE }}
-            contentContainerStyle={[s.scroll, { paddingBottom: 120 + tabBarHeight + 12 }]}
+            contentContainerStyle={[s.scroll, { paddingTop: insets.top + 64, paddingBottom: 120 + tabBarHeight + 12 }]}
             refreshControl={
               <RefreshControl
                 refreshing={refreshing}
@@ -634,18 +661,20 @@ export default function ExpenseDetailScreen({ route, navigation }: Props) {
               <Text style={s.heroAmount}>{fmt(amountNum, currency)}</Text>
               <Text style={s.heroUpdated}>Updated: {updatedLabel}</Text>
 
-              <View
-                style={[
-                  s.heroDueBadge,
-                  {
-                    borderColor: `${dueDateColor(expense.dueDate)}66`,
-                    backgroundColor: `${dueDateColor(expense.dueDate)}22`,
-                  },
-                ]}
-              >
-                <Ionicons name="calendar-outline" size={14} color="#ffffff" />
-                <Text style={s.heroDueTxt}>{formatDueDateLabel(expense.dueDate)}</Text>
-              </View>
+              {!isPaid ? (
+                <View
+                  style={[
+                    s.heroDueBadge,
+                    {
+                      borderColor: `${dueDateColor(expense.dueDate)}66`,
+                      backgroundColor: `${dueDateColor(expense.dueDate)}22`,
+                    },
+                  ]}
+                >
+                  <Ionicons name="calendar-outline" size={14} color="#ffffff" />
+                  <Text style={s.heroDueTxt}>{formatDueDateLabel(expense.dueDate)}</Text>
+                </View>
+              ) : null}
 
               <View style={s.heroCards}>
                 <View style={s.heroCard}>
@@ -683,7 +712,7 @@ export default function ExpenseDetailScreen({ route, navigation }: Props) {
               </View>
             </View>
 
-            {isPaid ? (
+            {showFrequencyCard ? (
               <View style={s.freqCard}>
                 <View style={s.freqHeadRow}>
                   <Text style={s.freqTitle}>Payment frequency</Text>
@@ -694,84 +723,95 @@ export default function ExpenseDetailScreen({ route, navigation }: Props) {
                     {frequencyLoading ? <ActivityIndicator size="small" color={T.accent} /> : null}
                   </View>
                 </View>
-                <Text style={s.freqSub}>{freqDisplay.subtitle}</Text>
+                <Text style={s.freqSub}>{hasFrequencyHistory ? freqDisplay.subtitle : showFrequencyLoadingState ? "Checking history..." : "No history yet"}</Text>
 
-                <View style={s.sparkWrap}>
-                  <Svg width={spark.w} height={spark.h}>
-                    {spark.lastKnownIndex >= 1 ? (
-                      <Polyline
-                        points={spark.polylinePoints}
-                        fill="none"
-                        stroke={T.accent}
-                        strokeWidth={2.5}
-                        strokeLinejoin="round"
-                        strokeLinecap="round"
-                      />
-                    ) : null}
-
-                    {freqDisplay.points.map((p, i) => {
-                      const { x, y } = spark.toXY(i);
-                      const ratio = Math.max(0, Math.min(1, Number(p.ratio) || 0));
-
-                      const dot = (() => {
-                        switch (p.status) {
-                          case "paid":
-                            return { fill: T.green, stroke: "rgba(255,255,255,0.55)" };
-                          case "partial":
-                            return { fill: T.orange, stroke: "rgba(255,255,255,0.55)" };
-                          case "unpaid":
-                            return { fill: T.red, stroke: "rgba(255,255,255,0.55)" };
-                          case "missed":
-                            return { fill: "rgba(255,255,255,0.06)", stroke: T.red };
-                          case "upcoming":
-                            return { fill: T.border, stroke: "rgba(255,255,255,0.18)" };
-                          default:
-                            return { fill: p.present ? (ratio >= 0.999 ? T.green : ratio > 0 ? T.orange : T.red) : T.border, stroke: "rgba(255,255,255,0.18)" };
-                        }
-                      })();
-
-                      const dotFill = dot.fill;
-                      const dotStroke = dot.stroke;
-                      return (
-                        <Circle
-                          key={p.key}
-                          cx={x}
-                          cy={y}
-                          r={p.present ? 4 : p.status === "missed" ? 3.75 : 3.5}
-                          fill={dotFill}
-                          stroke={dotStroke}
-                          strokeWidth={1.5}
+                {showFrequencyLoadingState ? (
+                  <View style={s.freqEmptyState}>
+                    <ActivityIndicator size="small" color={T.accent} />
+                    <Text style={s.freqEmptyText}>Checking payment history...</Text>
+                  </View>
+                ) : hasFrequencyHistory ? (
+                  <View style={s.sparkWrap}>
+                    <Svg width={spark.w} height={spark.h}>
+                      {spark.lastKnownIndex >= 1 ? (
+                        <Polyline
+                          points={spark.polylinePoints}
+                          fill="none"
+                          stroke={T.accent}
+                          strokeWidth={2.5}
+                          strokeLinejoin="round"
+                          strokeLinecap="round"
                         />
-                      );
-                    })}
-                  </Svg>
+                      ) : null}
 
-                  <View style={s.sparkLabels}>
-                    {freqDisplay.points.map((p) => (
-                      <Text key={`${p.key}-lbl`} style={s.sparkLbl}>
-                        {p.label}
-                      </Text>
-                    ))}
-                  </View>
+                      {freqDisplay.points.map((p, i) => {
+                        const { x, y } = spark.toXY(i);
+                        const ratio = Math.max(0, Math.min(1, Number(p.ratio) || 0));
 
-                  <View style={s.sparkStatuses}>
-                    {freqDisplay.points.map((p) => {
-                      const c =
-                        p.status === "paid"
-                          ? T.green
-                          : p.status === "partial"
-                            ? T.orange
-                            : p.status === "unpaid" || p.status === "missed"
-                              ? T.red
-                              : T.textMuted;
-                      return (
-                        <Text key={`${p.key}-st`} style={[s.sparkStatus, { color: c }]}>
-                          {statusLabel(p.status)}
+                        const dot = (() => {
+                          switch (p.status) {
+                            case "paid":
+                              return { fill: T.green, stroke: "rgba(255,255,255,0.55)" };
+                            case "partial":
+                              return { fill: T.orange, stroke: "rgba(255,255,255,0.55)" };
+                            case "unpaid":
+                              return { fill: T.red, stroke: "rgba(255,255,255,0.55)" };
+                            case "missed":
+                              return { fill: "rgba(255,255,255,0.06)", stroke: T.red };
+                            case "upcoming":
+                              return { fill: T.border, stroke: "rgba(255,255,255,0.18)" };
+                            default:
+                              return { fill: p.present ? (ratio >= 0.999 ? T.green : ratio > 0 ? T.orange : T.red) : T.border, stroke: "rgba(255,255,255,0.18)" };
+                          }
+                        })();
+
+                        const dotFill = dot.fill;
+                        const dotStroke = dot.stroke;
+                        return (
+                          <Circle
+                            key={p.key}
+                            cx={x}
+                            cy={y}
+                            r={p.present ? 4 : p.status === "missed" ? 3.75 : 3.5}
+                            fill={dotFill}
+                            stroke={dotStroke}
+                            strokeWidth={1.5}
+                          />
+                        );
+                      })}
+                    </Svg>
+
+                    <View style={s.sparkLabels}>
+                      {freqDisplay.points.map((p) => (
+                        <Text key={`${p.key}-lbl`} style={s.sparkLbl}>
+                          {p.label}
                         </Text>
-                      );
-                    })}
+                      ))}
+                    </View>
+
+                    <View style={s.sparkStatuses}>
+                      {freqDisplay.points.map((p) => {
+                        const c =
+                          p.status === "paid"
+                            ? T.green
+                            : p.status === "partial"
+                              ? T.orange
+                              : p.status === "unpaid" || p.status === "missed"
+                                ? T.red
+                                : T.textMuted;
+                        return (
+                          <Text key={`${p.key}-st`} style={[s.sparkStatus, { color: c }]}>
+                            {statusLabel(p.status)}
+                          </Text>
+                        );
+                      })}
+                    </View>
                   </View>
-                </View>
+                ) : (
+                  <View style={s.freqEmptyState}>
+                    <Text style={s.freqEmptyText}>No history yet — once this expense appears in another month, frequency will show here.</Text>
+                  </View>
+                )}
               </View>
             ) : null}
 
@@ -788,6 +828,8 @@ export default function ExpenseDetailScreen({ route, navigation }: Props) {
 
       {expense ? (
         <View style={[s.bottomActionsWrap, { paddingBottom: tabBarHeight + 8 }]}>
+          <BlurView intensity={14} tint="dark" style={StyleSheet.absoluteFillObject} pointerEvents="none" />
+          <View style={s.bottomGlassTint} pointerEvents="none" />
           <View style={s.bottomActionsRow}>
             {!isPaid ? (
               <Pressable style={s.bottomActionBtn} onPress={() => setEditSheetOpen(true)}>
@@ -849,11 +891,23 @@ const s = StyleSheet.create({
   retryTxt: { color: T.onAccent, fontWeight: "700" },
 
   header: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 30,
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 8,
     paddingBottom: 12,
-    backgroundColor: EXPENSE_HERO_BLUE,
+    backgroundColor: "transparent",
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "rgba(255,255,255,0.12)",
+    overflow: "hidden",
+  },
+  headerGlassTint: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(42,10,158,0.18)",
   },
   backBtn: { paddingHorizontal: 6, paddingVertical: 4 },
 
@@ -991,6 +1045,19 @@ const s = StyleSheet.create({
   sparkLbl: { color: T.textMuted, fontSize: 11, fontWeight: "800" },
   sparkStatuses: { width: "100%", flexDirection: "row", justifyContent: "space-between", marginTop: 2 },
   sparkStatus: { fontSize: 10, fontWeight: "900" },
+  freqEmptyState: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 4,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: T.border,
+    backgroundColor: "rgba(255,255,255,0.03)",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  freqEmptyText: { color: T.textDim, fontSize: 12, fontWeight: "700", lineHeight: 18 },
   freqBarsRow: { flexDirection: "row", gap: 10, justifyContent: "space-between" },
   freqBarCol: { alignItems: "center", justifyContent: "flex-end", flex: 1 },
   freqBarTrack: {
@@ -1015,9 +1082,14 @@ const s = StyleSheet.create({
     bottom: 0,
     paddingHorizontal: 14,
     paddingTop: 12,
-    backgroundColor: EXPENSE_HERO_BLUE,
+    backgroundColor: "transparent",
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: "rgba(255,255,255,0.18)",
+    overflow: "hidden",
+  },
+  bottomGlassTint: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(42,10,158,0.16)",
   },
   bottomActionsRow: { flexDirection: "row", gap: 12 },
   bottomActionBtn: {

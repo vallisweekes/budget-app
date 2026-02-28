@@ -118,6 +118,20 @@ function toNumber(value: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+function manualAliasNameKeysForBase(base: { name: string; categoryId: string | null; seriesKey?: string | null; merchantDomain?: string | null }): Set<string> {
+  const keys = new Set<string>();
+  const name = String(base.name ?? "");
+
+  // Pepper Finance was previously tracked as a generic "MORTGAGE" item.
+  // Add a conservative alias so the frequency history can bridge the rename.
+  const baseKey = normalizeSeriesKey(String(base.seriesKey ?? base.merchantDomain ?? name));
+  if (/\bpepper\s*(finance|money)\b/i.test(name) || /^pepperfinance/.test(baseKey)) {
+    keys.add(normalizeSeriesKey("mortgage"));
+  }
+
+  return keys;
+}
+
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const userId = await getSessionUserId(req);
   if (!userId) return unauthorized();
@@ -194,6 +208,12 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     )
   );
   const aliasNameKeys = new Set(aliasNames.map((n) => normalizeSeriesKey(n)).filter(Boolean));
+  const manualAliasKeys = manualAliasNameKeysForBase({
+    name: base.name,
+    categoryId: base.categoryId ?? null,
+    seriesKey: base.seriesKey ?? null,
+    merchantDomain: base.merchantDomain ?? null,
+  });
   const baseTokens = new Set(aliasNames.flatMap((n) => tokenizeName(n)));
   const baseAmount = toNumber(base.amount);
   const baseDueDate = base.dueDate;
@@ -226,6 +246,25 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
         return { score: 900 + strictProximityBonus(c), kind: "strict" };
       }
 
+      // Manual aliases for legacy naming (e.g. Pepper Finance previously recorded as "MORTGAGE").
+      // Keep this conservative: require same category and strong proximity (amount + due-day).
+      const manualAliasHit = (() => {
+        if (manualAliasKeys.size <= 0) return false;
+        const nameKey = normalizeSeriesKey(c.name);
+        if (manualAliasKeys.has(nameKey)) return true;
+        const candidateSeriesKey = typeof c.seriesKey === "string" && c.seriesKey.trim() ? normalizeSeriesKey(c.seriesKey) : "";
+        return Boolean(candidateSeriesKey && manualAliasKeys.has(candidateSeriesKey));
+      })();
+
+      if (manualAliasHit) {
+        if (base.categoryId && c.categoryId && c.categoryId === base.categoryId) {
+          const proximity = strictProximityBonus(c);
+          if (proximity >= 18) {
+            return { score: 875 + proximity, kind: "strict" };
+          }
+        }
+      }
+
       // Conservative fallback: same category + shared tokens + proximity.
       // Only used when the candidate doesn't have a domain match.
       if (base.categoryId && c.categoryId && c.categoryId === base.categoryId && baseTokens.size > 0) {
@@ -243,6 +282,24 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     // When we don't have merchantDomain, default to strict name matching,
     // then a conservative fallback: same category + shared name tokens.
     if (normalizeSeriesKey(c.name) === seriesKey) return { score: 1_000 + strictProximityBonus(c), kind: "strict" };
+
+    // Manual aliases in the no-domain world too.
+    const manualAliasHit = (() => {
+      if (manualAliasKeys.size <= 0) return false;
+      const nameKey = normalizeSeriesKey(c.name);
+      if (manualAliasKeys.has(nameKey)) return true;
+      const candidateSeriesKey = typeof c.seriesKey === "string" && c.seriesKey.trim() ? normalizeSeriesKey(c.seriesKey) : "";
+      return Boolean(candidateSeriesKey && manualAliasKeys.has(candidateSeriesKey));
+    })();
+
+    if (manualAliasHit) {
+      if (base.categoryId && c.categoryId && c.categoryId === base.categoryId) {
+        const proximity = strictProximityBonus(c);
+        if (proximity >= 18) {
+          return { score: 875 + proximity, kind: "strict" };
+        }
+      }
+    }
 
     if (base.categoryId && c.categoryId && c.categoryId === base.categoryId && baseTokens.size > 0) {
       const overlap = countTokenOverlap(baseTokens, tokenizeName(c.name));
@@ -416,9 +473,20 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     const match = byKey.get(key) ?? null;
 
     const afterCurrent = compareMonthYear(mw, current) > 0;
+    const beforeCurrent = compareMonthYear(mw, current) < 0;
+
+    const isPastDue = (dueDate: Date | null | undefined): boolean => {
+      if (dueDate instanceof Date && !Number.isNaN(dueDate.getTime())) {
+        // Grace period: treat as upcoming until 5 days after due date.
+        const graceMs = 5 * 24 * 60 * 60 * 1000;
+        return Date.now() > dueDate.getTime() + graceMs;
+      }
+      // If no due date is set, treat prior months as missed and current/future as upcoming.
+      return beforeCurrent;
+    };
 
     if (!match) {
-      const status: ExpenseFrequencyPointStatus = afterCurrent ? "upcoming" : "missed";
+      const status: ExpenseFrequencyPointStatus = beforeCurrent ? "missed" : "upcoming";
       return {
         key,
         month: mw.month,
@@ -434,17 +502,15 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     const paidAmount = Number(match.paidAmount?.toString?.() ?? match.paidAmount ?? 0);
     const ratio = toRatio(amount, paidAmount, Boolean(match.paid));
 
-    const status: ExpenseFrequencyPointStatus = afterCurrent
-      ? ratio >= 0.999
-        ? "paid"
-        : ratio > 0
-          ? "partial"
-          : "upcoming"
-      : ratio >= 0.999
-        ? "paid"
-        : ratio > 0
-          ? "partial"
-          : "unpaid";
+    const status: ExpenseFrequencyPointStatus = ratio >= 0.999
+      ? "paid"
+      : ratio > 0
+        ? "partial"
+        : afterCurrent
+          ? "upcoming"
+          : isPastDue(match.dueDate)
+            ? "missed"
+            : "upcoming";
 
     return {
       key,
