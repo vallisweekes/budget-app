@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 import type { CreditCard, ExpenseCategoryBreakdown, ExpensePaymentSource } from "@/lib/apiTypes";
 import { T } from "@/lib/theme";
+import MoneyInput from "@/components/Shared/MoneyInput";
 
 import AddExpenseCategoryRow from "@/components/Expenses/AddExpenseCategoryRow";
 import { s, pr } from "@/components/Expenses/AddExpenseSheet.styles";
@@ -97,14 +98,13 @@ export default function AddExpenseSheetFields({
       <View style={s.halfRow}>
         <View style={[s.fieldGroup, s.halfCol]}>
           <Text style={s.label}>Amount ({currency})</Text>
-          <TextInput
-            style={s.input}
+          <MoneyInput
+            currency={currency}
             value={amount}
-            onChangeText={setAmount}
+            onChangeValue={setAmount}
             placeholder="0.00"
-            placeholderTextColor={T.textMuted}
+            inputStyle={{ fontSize: 15, fontWeight: "700" }}
             selectionColor={T.accent}
-            keyboardType="decimal-pad"
             returnKeyType="done"
           />
         </View>

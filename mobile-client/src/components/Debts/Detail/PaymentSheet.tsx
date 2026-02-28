@@ -1,6 +1,7 @@
 import React from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { T } from "@/lib/theme";
+import MoneyInput from "@/components/Shared/MoneyInput";
 
 type Props = {
   visible: boolean;
@@ -33,13 +34,12 @@ export default function PaymentSheet({
 
           <View style={s.payInputGroup}>
             <Text style={s.inputLabel}>Manual payment amount ({currency})</Text>
-            <TextInput
-              style={s.payInput}
+            <MoneyInput
+              currency={currency}
               value={payAmount}
-              onChangeText={onChangeAmount}
+              onChangeValue={onChangeAmount}
               placeholder="0.00"
-              placeholderTextColor={T.textMuted}
-              keyboardType="decimal-pad"
+              inputStyle={{ fontSize: 28 }}
             />
           </View>
 

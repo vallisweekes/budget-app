@@ -3,6 +3,7 @@
 import { createPortal } from "react-dom";
 
 import { formatCurrency } from "@/lib/helpers/money";
+import MoneyInput from "@/components/Shared/MoneyInput";
 
 function Currency({ value }: { value: number }) {
 	return <span>{formatCurrency(value)}</span>;
@@ -11,12 +12,15 @@ function Currency({ value }: { value: number }) {
 export interface PaymentStatusButtonMenuProps {
 	expenseName: string;
 	amount: number;
+	currencyCode?: string;
+	country?: string;
+	language?: string;
 	isOpen: boolean;
 	canUseDOM: boolean;
 	menuPosition: { top: number; left: number } | null;
 	showPartialInput: boolean;
-	partialValue: number;
-	onPartialValueChange: (next: number) => void;
+	partialValue: string;
+	onPartialValueChange: (next: string) => void;
 	onClose: () => void;
 	onChooseStatus: (status: "paid" | "unpaid" | "partial") => void;
 	onSubmitPartial: () => void;
@@ -26,6 +30,9 @@ export interface PaymentStatusButtonMenuProps {
 export default function PaymentStatusButtonMenu({
 	expenseName,
 	amount,
+	currencyCode,
+	country,
+	language,
 	isOpen,
 	canUseDOM,
 	menuPosition,
@@ -72,15 +79,14 @@ export default function PaymentStatusButtonMenu({
 					<div className="p-4">
 						<div className="mb-3">
 							<label className="block text-sm font-medium text-slate-300 mb-2">Amount Paid</label>
-							<input
-								type="number"
+							<MoneyInput
 								value={partialValue}
-								onChange={(e) => onPartialValueChange(Number(e.target.value))}
-								max={amount}
-								min={0}
-								step="0.01"
-								className="w-full px-3 py-2 border border-white/10 bg-slate-900/40 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+								onChangeValue={onPartialValueChange}
+								currencyCode={currencyCode ?? "GBP"}
+								country={country ?? "GB"}
+								language={language ?? "en"}
 								placeholder="0.00"
+								autoFocus
 							/>
 							<p className="text-xs text-slate-400 mt-1">
 								Total: <Currency value={amount} />

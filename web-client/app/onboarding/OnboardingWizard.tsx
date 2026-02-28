@@ -1,8 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarDays, CreditCard, Receipt, Sparkles, TrendingUp, CheckCircle2 } from "lucide-react";
+
+import MoneyInput from "@/components/Shared/MoneyInput";
 
 type OnboardingProfile = {
   mainGoal: "improve_savings" | "manage_debts" | "track_spending" | "build_budget" | null;
@@ -40,9 +42,32 @@ export default function OnboardingWizard({
   initial: OnboardingPayload;
 }) {
   const router = useRouter();
+  const [settings, setSettings] = useState<{ currency: string; country: string; language: string }>({
+    currency: "GBP",
+    country: "GB",
+    language: "en",
+  });
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        const res = await fetch("/api/bff/settings", { signal: controller.signal });
+        if (!res.ok) return;
+        const body = (await res.json()) as any;
+        const currency = typeof body?.currency === "string" && body.currency.trim() ? body.currency.trim() : "GBP";
+        const country = typeof body?.country === "string" && body.country.trim() ? body.country.trim() : "GB";
+        const language = typeof body?.language === "string" && body.language.trim() ? body.language.trim() : "en";
+        setSettings({ currency, country, language });
+      } catch {
+        // ignore
+      }
+    })();
+    return () => controller.abort();
+  }, []);
 
   const initialGoals = useMemo(() => {
     const fromProfile = initial.profile?.mainGoals;
@@ -205,12 +230,15 @@ export default function OnboardingWizard({
         {step === 2 ? (
           <div className="space-y-3">
             <p className="text-sm text-slate-300">About how much do you bring in each month?</p>
-            <input
+            <MoneyInput
               value={salary}
-              onChange={(e) => setSalary(e.target.value)}
-              inputMode="decimal"
-              placeholder="e.g. 2500"
-              className="w-full rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2"
+              onChangeValue={setSalary}
+              currencyCode={settings.currency}
+              language={settings.language}
+              country={settings.country}
+              placeholder="0.00"
+              className="w-full"
+              ariaLabel="Monthly income"
             />
           </div>
         ) : null}
@@ -220,13 +248,13 @@ export default function OnboardingWizard({
             <p className="text-sm text-slate-300">What are the 4 bills you pay every month?</p>
             <div className="grid grid-cols-2 gap-2">
               <input value={expenseOneName} onChange={(e) => setExpenseOneName(e.target.value)} placeholder="Rent, mortgage" className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2" />
-              <input value={expenseOneAmount} onChange={(e) => setExpenseOneAmount(e.target.value)} placeholder="Amount" inputMode="decimal" className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2" />
+              <MoneyInput value={expenseOneAmount} onChangeValue={setExpenseOneAmount} currencyCode={settings.currency} language={settings.language} country={settings.country} placeholder="0.00" ariaLabel="Bill 1 amount" className="w-full" inputClassName="text-base" />
               <input value={expenseTwoName} onChange={(e) => setExpenseTwoName(e.target.value)} placeholder="Electricity, water" className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2" />
-              <input value={expenseTwoAmount} onChange={(e) => setExpenseTwoAmount(e.target.value)} placeholder="Amount" inputMode="decimal" className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2" />
+              <MoneyInput value={expenseTwoAmount} onChangeValue={setExpenseTwoAmount} currencyCode={settings.currency} language={settings.language} country={settings.country} placeholder="0.00" ariaLabel="Bill 2 amount" className="w-full" inputClassName="text-base" />
               <input value={expenseThreeName} onChange={(e) => setExpenseThreeName(e.target.value)} placeholder="Phone bill" className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2" />
-              <input value={expenseThreeAmount} onChange={(e) => setExpenseThreeAmount(e.target.value)} placeholder="Amount" inputMode="decimal" className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2" />
+              <MoneyInput value={expenseThreeAmount} onChangeValue={setExpenseThreeAmount} currencyCode={settings.currency} language={settings.language} country={settings.country} placeholder="0.00" ariaLabel="Bill 3 amount" className="w-full" inputClassName="text-base" />
               <input value={expenseFourName} onChange={(e) => setExpenseFourName(e.target.value)} placeholder="Subscription" className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2" />
-              <input value={expenseFourAmount} onChange={(e) => setExpenseFourAmount(e.target.value)} placeholder="Amount" inputMode="decimal" className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2" />
+              <MoneyInput value={expenseFourAmount} onChangeValue={setExpenseFourAmount} currencyCode={settings.currency} language={settings.language} country={settings.country} placeholder="0.00" ariaLabel="Bill 4 amount" className="w-full" inputClassName="text-base" />
             </div>
 
             <div className="rounded-xl border border-white/10 border-l-4 border-l-purple-400 bg-slate-950/30 px-3 py-2 text-xs font-semibold text-slate-200">
@@ -243,12 +271,15 @@ export default function OnboardingWizard({
               <button type="button" onClick={() => setHasAllowance(false)} className={`rounded-lg border px-3 py-2 ${!hasAllowance ? "border-purple-400 bg-purple-500/20" : "border-white/10"}`}>No</button>
             </div>
             {hasAllowance ? (
-              <input
+              <MoneyInput
                 value={allowanceAmount}
-                onChange={(e) => setAllowanceAmount(e.target.value)}
-                placeholder="How much?"
-                inputMode="decimal"
-                className="w-full rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2"
+                onChangeValue={setAllowanceAmount}
+                currencyCode={settings.currency}
+                language={settings.language}
+                country={settings.country}
+                placeholder="0.00"
+                className="w-full"
+                ariaLabel="Allowance amount"
               />
             ) : null}
           </div>
@@ -263,12 +294,15 @@ export default function OnboardingWizard({
             </div>
             {hasDebts ? (
               <>
-                <input
+                <MoneyInput
                   value={debtAmount}
-                  onChange={(e) => setDebtAmount(e.target.value)}
-                  placeholder="About how much?"
-                  inputMode="decimal"
-                  className="w-full rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2"
+                  onChangeValue={setDebtAmount}
+                  currencyCode={settings.currency}
+                  language={settings.language}
+                  country={settings.country}
+                  placeholder="0.00"
+                  className="w-full"
+                  ariaLabel="Debt amount"
                 />
                 <input
                   value={debtNotes}

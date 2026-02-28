@@ -98,6 +98,7 @@ export default function IncomeMonthIncomeList({
             <View style={sheet.sheet}>
               <View style={sheet.handle} />
               <IncomeAddForm
+                currency={currency}
                 name={crud.newName}
                 amount={crud.newAmount}
                 setName={crud.setNewName}

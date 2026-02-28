@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import type { MonthKey } from "@/types";
 import { formatCurrency } from "@/lib/helpers/money";
+import { parseMoney } from "@/lib/helpers/moneyInput";
 import PaymentStatusButtonMenu from "@/components/PaymentStatusButtonMenu";
 
 interface PaymentStatusButtonProps {
@@ -27,9 +28,32 @@ export default function PaymentStatusButton({
 }: PaymentStatusButtonProps) {
 	const buttonRef = useRef<HTMLButtonElement | null>(null);
 	const [isOpen, setIsOpen] = useState(false);
-	const [partialValue, setPartialValue] = useState(paidAmount || 0);
+	const [partialValueDraft, setPartialValueDraft] = useState(paidAmount > 0 ? paidAmount.toFixed(2) : "");
 	const [showPartialInput, setShowPartialInput] = useState(false);
 	const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
+	const [settings, setSettings] = useState<{ currency: string; country: string; language: string }>({
+		currency: "GBP",
+		country: "GB",
+		language: "en",
+	});
+
+	useEffect(() => {
+		const controller = new AbortController();
+		void (async () => {
+			try {
+				const res = await fetch("/api/bff/settings", { signal: controller.signal });
+				if (!res.ok) return;
+				const body = (await res.json()) as any;
+				const currency = typeof body?.currency === "string" && body.currency.trim() ? body.currency.trim() : "GBP";
+				const country = typeof body?.country === "string" && body.country.trim() ? body.country.trim() : "GB";
+				const language = typeof body?.language === "string" && body.language.trim() ? body.language.trim() : "en";
+				setSettings({ currency, country, language });
+			} catch {
+				// ignore
+			}
+		})();
+		return () => controller.abort();
+	}, []);
 
 	const menuWidth = 256;
 	const viewportPadding = 12;
@@ -81,6 +105,7 @@ export default function PaymentStatusButton({
 
 	const handleStatusChange = async (status: "paid" | "unpaid" | "partial") => {
 		if (status === "partial") {
+			setPartialValueDraft(paidAmount > 0 ? paidAmount.toFixed(2) : "");
 			setShowPartialInput(true);
 		} else {
 			await updatePaymentStatus(month, id, status);
@@ -89,7 +114,9 @@ export default function PaymentStatusButton({
 	};
 
 	const handlePartialSubmit = async () => {
-		await updatePaymentStatus(month, id, "partial", partialValue);
+		const parsed = parseMoney(partialValueDraft);
+		const clamped = parsed == null ? 0 : Math.max(0, Math.min(amount, parsed));
+		await updatePaymentStatus(month, id, "partial", clamped);
 		closeMenu();
 	};
 
@@ -125,12 +152,15 @@ export default function PaymentStatusButton({
 			<PaymentStatusButtonMenu
 				expenseName={expenseName}
 				amount={amount}
+				currencyCode={settings.currency}
+				country={settings.country}
+				language={settings.language}
 				isOpen={isOpen}
 				canUseDOM={canUseDOM}
 				menuPosition={menuPosition}
 				showPartialInput={showPartialInput}
-				partialValue={partialValue}
-				onPartialValueChange={setPartialValue}
+				partialValue={partialValueDraft}
+				onPartialValueChange={setPartialValueDraft}
 				onClose={closeMenu}
 				onChooseStatus={handleStatusChange}
 				onSubmitPartial={handlePartialSubmit}

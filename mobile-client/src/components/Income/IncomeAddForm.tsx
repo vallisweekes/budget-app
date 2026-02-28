@@ -11,8 +11,10 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { T } from "@/lib/theme";
 import { cardBase } from "@/lib/ui";
+import MoneyInput from "@/components/Shared/MoneyInput";
 
 interface Props {
+  currency: string;
   name: string;
   amount: string;
   setName: (v: string) => void;
@@ -25,7 +27,7 @@ interface Props {
   saving: boolean;
 }
 
-export function IncomeAddForm({ name, amount, setName, setAmount, distributeMonths, setDistributeMonths, distributeYears, setDistributeYears, onAdd, saving }: Props) {
+export function IncomeAddForm({ currency, name, amount, setName, setAmount, distributeMonths, setDistributeMonths, distributeYears, setDistributeYears, onAdd, saving }: Props) {
   return (
     <View style={s.wrap}>
       <Text style={s.title}>Add Income Source</Text>
@@ -39,13 +41,13 @@ export function IncomeAddForm({ name, amount, setName, setAmount, distributeMont
           autoFocus
           returnKeyType="next"
         />
-        <TextInput
-          style={[s.input, { width: 110 }]}
+        <MoneyInput
+          currency={currency}
           value={amount}
-          onChangeText={setAmount}
-          placeholder="Amount"
-          placeholderTextColor={T.textMuted}
-          keyboardType="decimal-pad"
+          onChangeValue={setAmount}
+          placeholder="0.00"
+          containerStyle={{ width: 150 }}
+          inputStyle={{ fontSize: 16 }}
           returnKeyType="done"
           onSubmitEditing={onAdd}
         />

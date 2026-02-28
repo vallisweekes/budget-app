@@ -16,6 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
 import { T } from "@/lib/theme";
+import MoneyInput from "@/components/Shared/MoneyInput";
 import { cardBase } from "@/lib/ui";
 
 const SCREEN_W = Dimensions.get("window").width;
@@ -238,22 +239,26 @@ export default function IncomeEditSheet({
                     <Text style={s.nameLabel} numberOfLines={1}>{name}</Text>
                   )}
                   <View style={s.amountRow}>
-                    <Text style={s.currencySign}>{currency}</Text>
                     {editMode ? (
-                      <TextInput
-                        ref={amountRef}
+                      <MoneyInput
+                        currency={currency}
                         value={amount}
-                        onChangeText={setAmount}
-                        editable={!saving}
-                        keyboardType="decimal-pad"
+                        onChangeValue={setAmount}
                         placeholder="0.00"
-                        placeholderTextColor={`${T.text}33`}
-                        style={s.amountInput}
+                        editable={!saving}
+                        autoFocus
                         returnKeyType="done"
-                        onSubmitEditing={() => { if (!saving) onSave(); }}
+                        onSubmitEditing={() => {
+                          if (!saving) onSave();
+                        }}
+                        containerStyle={{ width: 320 }}
+                        inputStyle={{ fontSize: 24 }}
                       />
                     ) : (
-                      <Text style={s.amountStatic}>{amount}</Text>
+                      <>
+                        <Text style={s.currencySign}>{currency}</Text>
+                        <Text style={s.amountStatic}>{amount}</Text>
+                      </>
                     )}
                   </View>
                 </View>

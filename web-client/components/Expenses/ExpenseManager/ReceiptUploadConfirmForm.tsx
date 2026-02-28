@@ -1,6 +1,7 @@
 import type { MonthKey } from "@/types";
 import type { ExpenseCategoryOption } from "@/types/expenses-manager";
 import { SelectDropdown } from "@/components/Shared";
+import MoneyInput from "@/components/Shared/MoneyInput";
 import { monthName } from "@/lib/helpers/monthName";
 
 type ScanResult = {
@@ -67,15 +68,8 @@ export default function ReceiptUploadConfirmForm(props: {
 				</label>
 
 				<label className="block">
-					<span className="text-sm font-medium text-slate-300 mb-2 block">Amount (£)</span>
-					<input
-						type="number"
-						step="0.01"
-						value={amount}
-						onChange={(e) => onChangeAmount(e.target.value)}
-						className="w-full px-4 py-3 rounded-xl border border-white/10 bg-slate-900/40 text-white placeholder-slate-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/50 focus:outline-none transition-all"
-						placeholder="0.00"
-					/>
+					<span className="text-sm font-medium text-slate-300 mb-2 block">Amount</span>
+					<MoneyInput value={amount} onChangeValue={onChangeAmount} placeholder="0.00" />
 				</label>
 			</div>
 

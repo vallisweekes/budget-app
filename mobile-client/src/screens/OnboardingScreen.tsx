@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -15,9 +15,10 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { Ionicons } from "@expo/vector-icons";
 
 import { apiFetch } from "@/lib/api";
-import type { OnboardingProfile, OnboardingStatusResponse } from "@/lib/apiTypes";
+import type { OnboardingProfile, OnboardingStatusResponse, Settings } from "@/lib/apiTypes";
 import { useAuth } from "@/context/AuthContext";
 import { T } from "@/lib/theme";
+import MoneyInput from "@/components/Shared/MoneyInput";
 
 type Goal = "improve_savings" | "manage_debts" | "track_spending" | "build_budget";
 
@@ -59,6 +60,23 @@ export default function OnboardingScreen({
   const profile = initial.profile;
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [currency, setCurrency] = useState<string | null>("GBP");
+
+  useEffect(() => {
+    let mounted = true;
+    void (async () => {
+      try {
+        const settings = await apiFetch<Settings>("/api/bff/settings");
+        if (!mounted) return;
+        setCurrency(settings?.currency ?? "GBP");
+      } catch {
+        // ignore
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const displayName = useMemo(() => {
     const raw = (username ?? "").trim();
@@ -244,13 +262,11 @@ export default function OnboardingScreen({
                 <Ionicons name="wallet-outline" size={20} color={STEP_ICON_COLORS[2]} />
                 <Text style={s.question}>About how much do you bring in each month?</Text>
               </View>
-              <TextInput
+              <MoneyInput
+                currency={currency}
                 value={salary}
-                onChangeText={setSalary}
-                keyboardType="decimal-pad"
-                placeholder="e.g. 2500"
-                placeholderTextColor="rgba(255,255,255,0.62)"
-                style={s.input}
+                onChangeValue={setSalary}
+                placeholder="0.00"
               />
             </>
           ) : null}
@@ -269,14 +285,7 @@ export default function OnboardingScreen({
                   placeholderTextColor="rgba(255,255,255,0.62)"
                   style={[s.input, s.rowInput]}
                 />
-                <TextInput
-                  value={expenseOneAmount}
-                  onChangeText={setExpenseOneAmount}
-                  keyboardType="decimal-pad"
-                  placeholder="Amount"
-                  placeholderTextColor="rgba(255,255,255,0.62)"
-                  style={[s.input, s.rowInput]}
-                />
+                <MoneyInput currency={currency} value={expenseOneAmount} onChangeValue={setExpenseOneAmount} placeholder="0.00" containerStyle={s.rowInput} inputStyle={{ fontSize: 16 }} />
               </View>
               <View style={s.row}>
                 <TextInput
@@ -286,14 +295,7 @@ export default function OnboardingScreen({
                   placeholderTextColor="rgba(255,255,255,0.62)"
                   style={[s.input, s.rowInput]}
                 />
-                <TextInput
-                  value={expenseTwoAmount}
-                  onChangeText={setExpenseTwoAmount}
-                  keyboardType="decimal-pad"
-                  placeholder="Amount"
-                  placeholderTextColor="rgba(255,255,255,0.62)"
-                  style={[s.input, s.rowInput]}
-                />
+                <MoneyInput currency={currency} value={expenseTwoAmount} onChangeValue={setExpenseTwoAmount} placeholder="0.00" containerStyle={s.rowInput} inputStyle={{ fontSize: 16 }} />
               </View>
               <View style={s.row}>
                 <TextInput
@@ -303,14 +305,7 @@ export default function OnboardingScreen({
                   placeholderTextColor="rgba(255,255,255,0.62)"
                   style={[s.input, s.rowInput]}
                 />
-                <TextInput
-                  value={expenseThreeAmount}
-                  onChangeText={setExpenseThreeAmount}
-                  keyboardType="decimal-pad"
-                  placeholder="Amount"
-                  placeholderTextColor="rgba(255,255,255,0.62)"
-                  style={[s.input, s.rowInput]}
-                />
+                <MoneyInput currency={currency} value={expenseThreeAmount} onChangeValue={setExpenseThreeAmount} placeholder="0.00" containerStyle={s.rowInput} inputStyle={{ fontSize: 16 }} />
               </View>
               <View style={s.row}>
                 <TextInput
@@ -320,14 +315,7 @@ export default function OnboardingScreen({
                   placeholderTextColor="rgba(255,255,255,0.62)"
                   style={[s.input, s.rowInput]}
                 />
-                <TextInput
-                  value={expenseFourAmount}
-                  onChangeText={setExpenseFourAmount}
-                  keyboardType="decimal-pad"
-                  placeholder="Amount"
-                  placeholderTextColor="rgba(255,255,255,0.62)"
-                  style={[s.input, s.rowInput]}
-                />
+                <MoneyInput currency={currency} value={expenseFourAmount} onChangeValue={setExpenseFourAmount} placeholder="0.00" containerStyle={s.rowInput} inputStyle={{ fontSize: 16 }} />
               </View>
 
               <View style={s.infoCard}>
@@ -349,14 +337,7 @@ export default function OnboardingScreen({
                 <Pressable onPress={() => setHasAllowance(false)} style={[s.toggle, !hasAllowance && s.toggleActive]}><Text style={[s.toggleText, !hasAllowance && s.toggleTextActive]}>No</Text></Pressable>
               </View>
               {hasAllowance ? (
-                <TextInput
-                  value={allowanceAmount}
-                  onChangeText={setAllowanceAmount}
-                  keyboardType="decimal-pad"
-                  placeholder="How much?"
-                  placeholderTextColor="rgba(255,255,255,0.62)"
-                  style={s.input}
-                />
+                <MoneyInput currency={currency} value={allowanceAmount} onChangeValue={setAllowanceAmount} placeholder="0.00" />
               ) : null}
             </>
           ) : null}
@@ -373,14 +354,7 @@ export default function OnboardingScreen({
               </View>
               {hasDebts ? (
                 <>
-                  <TextInput
-                    value={debtAmount}
-                    onChangeText={setDebtAmount}
-                    keyboardType="decimal-pad"
-                    placeholder="About how much?"
-                    placeholderTextColor="rgba(255,255,255,0.62)"
-                    style={s.input}
-                  />
+                  <MoneyInput currency={currency} value={debtAmount} onChangeValue={setDebtAmount} placeholder="0.00" />
                   <TextInput
                     value={debtNotes}
                     onChangeText={setDebtNotes}

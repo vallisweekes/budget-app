@@ -30,6 +30,7 @@ import type { Category, Debt, Settings } from "@/lib/apiTypes";
 import { currencySymbol, fmt } from "@/lib/formatting";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 import { T } from "@/lib/theme";
+import MoneyInput from "@/components/Shared/MoneyInput";
 import type { ExpensesStackParamList } from "@/navigation/types";
 
 /* ─── Types ─────────────────────────────────────────────────── */
@@ -246,18 +247,13 @@ export default function UnplannedExpenseScreen({ navigation }: Props) {
                 <Ionicons name="flash" size={15} color={T.accent} />
                 <Text style={s.amountLabel}>How much did you spend?</Text>
               </View>
-              <View style={s.amountInputRow}>
-                <Text style={s.currencySymbol}>{currency}</Text>
-                <TextInput
-                  style={s.amountInput}
-                  value={amount}
-                  onChangeText={setAmount}
-                  keyboardType="decimal-pad"
-                  placeholder="0.00"
-                  placeholderTextColor={`${T.text}33`}
-                  returnKeyType="done"
-                />
-              </View>
+              <MoneyInput
+                currency={currency}
+                value={amount}
+                onChangeValue={setAmount}
+                placeholder="0.00"
+                returnKeyType="done"
+              />
             </View>
 
             {/* ── Description ── */}

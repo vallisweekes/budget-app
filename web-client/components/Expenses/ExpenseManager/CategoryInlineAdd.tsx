@@ -1,10 +1,12 @@
 "use client";
 
 import { Plus } from "lucide-react";
+import { useState } from "react";
 
 import type { MonthKey } from "@/types";
 
 import { formatMonthKeyLabel } from "@/lib/helpers/monthKey";
+import MoneyInput from "@/components/Shared/MoneyInput";
 
 export default function CategoryInlineAdd({
 	open,
@@ -31,6 +33,8 @@ export default function CategoryInlineAdd({
 	categoryId: string;
 	categoryName: string;
 }) {
+	const [amountDraft, setAmountDraft] = useState("");
+
 	return (
 		<div className="p-2 sm:p-4 bg-slate-900/20">
 			{open ? (
@@ -39,6 +43,7 @@ export default function CategoryInlineAdd({
 						e.preventDefault();
 						const data = new FormData(e.currentTarget);
 						onSubmit(data);
+						setAmountDraft("");
 					}}
 					className="space-y-2"
 				>
@@ -55,20 +60,24 @@ export default function CategoryInlineAdd({
 							className="sm:col-span-2 w-full px-3 py-2 rounded-xl border border-white/10 bg-slate-900/40 text-white text-sm placeholder-slate-500 focus:border-purple-500 focus:ring-1 focus:ring-purple-500/50 focus:outline-none transition-all"
 							placeholder={`Add to ${categoryName}…`}
 						/>
-						<input
+						<MoneyInput
 							name="amount"
-							type="number"
-							step="0.01"
 							required
-							className="w-full px-3 py-2 rounded-xl border border-white/10 bg-slate-900/40 text-white text-sm placeholder-slate-500 focus:border-purple-500 focus:ring-1 focus:ring-purple-500/50 focus:outline-none transition-all"
+							value={amountDraft}
+							onChangeValue={setAmountDraft}
 							placeholder="0.00"
+							className="rounded-xl"
+							inputClassName="text-sm"
 						/>
 					</div>
 
 					<div className="flex items-center justify-end gap-2">
 						<button
 							type="button"
-							onClick={onCancel}
+							onClick={() => {
+								setAmountDraft("");
+								onCancel();
+							}}
 							className="px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-200 border border-white/10 bg-white/5 hover:bg-white/10 transition"
 						>
 							Cancel
@@ -92,7 +101,10 @@ export default function CategoryInlineAdd({
 					</div>
 					<button
 						type="button"
-						onClick={onOpen}
+						onClick={() => {
+							setAmountDraft("");
+							onOpen();
+						}}
 						className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[10px] sm:text-xs font-semibold text-white border border-white/10 bg-white/5 hover:bg-white/10 transition"
 					>
 						<Plus size={14} />

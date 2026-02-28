@@ -40,6 +40,7 @@ import { resolveCategoryColor, withOpacity } from "@/lib/categoryColors";
 import { fmt } from "@/lib/formatting";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 import { T } from "@/lib/theme";
+import MoneyInput from "@/components/Shared/MoneyInput";
 import type { ExpensesStackParamList } from "@/navigation/types";
 import AddExpenseSheet from "@/components/Expenses/AddExpenseSheet";
 
@@ -519,14 +520,13 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
           <View style={rs.payRow}>
             <Text style={rs.payLabel}>Payment amount ({currency})</Text>
             <View style={rs.payInputRow}>
-              <TextInput
-                style={rs.payInput}
+              <MoneyInput
+                currency={currency}
                 value={paymentInput[item.id] ?? ""}
-                onChangeText={(t) => setPaymentInput(p => ({ ...p, [item.id]: t }))}
+                onChangeValue={(t) => setPaymentInput(p => ({ ...p, [item.id]: t }))}
                 placeholder="0.00"
-                placeholderTextColor={T.textMuted}
-                keyboardType="decimal-pad"
-                selectionColor="#0f282f"
+                containerStyle={{ flex: 1 }}
+                inputStyle={{ fontSize: 15 }}
               />
               <TouchableOpacity
                 style={[rs.addPayBtn, (paying[item.id] || !(paymentInput[item.id] ?? "")) && { opacity: 0.5 }]}

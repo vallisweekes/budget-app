@@ -1,6 +1,7 @@
 "use client";
 
 import { SelectDropdown } from "@/components/Shared";
+import MoneyInput from "@/components/Shared/MoneyInput";
 import type { CreditCardOption, DebtOption } from "@/types/expenses-manager";
 
 export default function ExpenseRowPaymentControls({
@@ -42,17 +43,17 @@ export default function ExpenseRowPaymentControls({
 	return (
 		<div className="w-full">
 			<label className="block">
-				<span className="block text-[10px] sm:text-xs font-medium text-slate-300 mb-1">Payment amount (£)</span>
+				<span className="block text-[10px] sm:text-xs font-medium text-slate-300 mb-1">Payment amount</span>
 				<div className="grid grid-cols-2 sm:grid-cols-12 gap-1.5 sm:gap-2 items-stretch">
-					<input
-						type="number"
-						step="0.01"
-						min={0}
-						value={paymentValue}
-						onChange={(e) => onPaymentValueChange(e.target.value)}
-						className="w-full col-span-2 sm:col-span-3 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl border border-white/10 bg-slate-900/40 text-white text-sm placeholder-slate-500 focus:border-purple-500 focus:ring-1 focus:ring-purple-500/50 focus:outline-none transition-all"
-						placeholder="0.00"
-					/>
+					<div className="w-full col-span-2 sm:col-span-3">
+						<MoneyInput
+							value={paymentValue}
+							onChangeValue={onPaymentValueChange}
+							placeholder="0.00"
+							className="rounded-xl"
+							inputClassName="text-sm"
+						/>
+					</div>
 
 					<SelectDropdown
 						value={paymentSourceValue}
