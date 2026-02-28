@@ -42,7 +42,9 @@ function decimalToString(value: unknown): string {
   return "0";
 }
 
-function serializeExpense(expense: any) {
+function serializeExpense(expense: any, latestPaidAt: Date | null) {
+  const effectiveLastPaymentAt = latestPaidAt ?? (expense.lastPaymentAt instanceof Date ? expense.lastPaymentAt : null);
+
   return {
     id: expense.id,
     name: expense.name,
@@ -59,7 +61,7 @@ function serializeExpense(expense: any) {
     categoryId: expense.categoryId,
     category: expense.category ?? null,
     dueDate: expense.dueDate ? (expense.dueDate instanceof Date ? expense.dueDate.toISOString() : String(expense.dueDate)) : null,
-    lastPaymentAt: expense.lastPaymentAt ? (expense.lastPaymentAt instanceof Date ? expense.lastPaymentAt.toISOString() : String(expense.lastPaymentAt)) : null,
+    lastPaymentAt: effectiveLastPaymentAt ? effectiveLastPaymentAt.toISOString() : null,
     paymentSource: expense.paymentSource ?? "income",
     cardDebtId: expense.cardDebtId ?? null,
   };
@@ -93,6 +95,18 @@ export async function GET(req: NextRequest) {
     },
     // dueDate is a scalar on Expense, included automatically
   });
+
+  const ids = (items as any[]).map((e) => e.id).filter(Boolean);
+  const latestPayments = ids.length
+    ? await prisma.expensePayment.groupBy({
+        by: ["expenseId"],
+        where: { expenseId: { in: ids } },
+        _max: { paidAt: true },
+      })
+    : [];
+  const latestPaidAtByExpenseId = new Map(
+    latestPayments.map((row) => [row.expenseId, row._max.paidAt ?? null] as const)
+  );
 
   // Backfill/refresh logos.
   // - Backfill runs when logoUrl is missing.
@@ -163,7 +177,8 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    out.push(serializeExpense(item));
+    const latestPaidAt = latestPaidAtByExpenseId.get(item.id) ?? null;
+    out.push(serializeExpense(item, latestPaidAt));
   }
 
   return NextResponse.json(out);
@@ -287,5 +302,5 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  return NextResponse.json(serializeExpense(finalCreated), { status: 201 });
+  return NextResponse.json(serializeExpense(finalCreated, null), { status: 201 });
 }

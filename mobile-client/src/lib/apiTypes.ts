@@ -53,6 +53,33 @@ export interface Expense {
   cardDebtId: string | null;
 }
 
+export type ExpenseFrequencyPointStatus = "paid" | "partial" | "unpaid" | "missed" | "upcoming";
+
+export interface ExpenseFrequencyPoint {
+  key: string;
+  month: number;
+  year: number;
+  label: string;
+  present: boolean;
+  ratio: number;
+  status: ExpenseFrequencyPointStatus;
+}
+
+/** GET /api/bff/expenses/:id/frequency */
+export interface ExpenseFrequencyResponse {
+  seriesKey: string;
+  subtitle: string;
+  points: ExpenseFrequencyPoint[];
+  debt?: {
+    hasDebt: boolean;
+    cleared: boolean;
+    activeCount: number;
+    totalCount: number;
+    /** Total current balance across active linked debts (0 when none). */
+    activeBalance?: number;
+  };
+}
+
 export interface Income {
   id: string;
   name: string;

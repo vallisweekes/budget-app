@@ -24,6 +24,14 @@ function normalizeExpenseName(name: string): string {
 	return String(name ?? "").trim();
 }
 
+function normalizeSeriesKey(value: string): string {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "")
+    .slice(0, 160);
+}
+
 function decimalToNumber(value: unknown): number {
 	if (value == null) return 0;
 	if (typeof value === "number") return value;
@@ -57,7 +65,7 @@ function addMonthsToYearMonth(year: number, monthNumber: number, deltaMonths: nu
 
 export async function updateExpenseAcrossMonthsByName(
   budgetPlanId: string,
-  match: { name: string; categoryId: string | null },
+  match: { name: string; categoryId: string | null; seriesKey?: string | null },
   updates: {
     name: string;
     amount: number;
@@ -78,6 +86,7 @@ export async function updateExpenseAcrossMonthsByName(
   const matchName = normalizeExpenseName(match.name);
   const nextName = normalizeExpenseName(updates.name);
   const logo = resolveExpenseLogo(nextName, updates.merchantDomain);
+  const matchSeriesKey = match.seriesKey ? normalizeSeriesKey(match.seriesKey) : null;
   if (!matchName || !nextName) return [];
   if (!Number.isFinite(updates.amount) || updates.amount < 0) return [];
 
@@ -88,8 +97,12 @@ export async function updateExpenseAcrossMonthsByName(
         budgetPlanId,
         year,
         month: monthNumber,
-        name: { equals: matchName, mode: "insensitive" },
-        categoryId: match.categoryId,
+        ...(matchSeriesKey
+          ? { seriesKey: matchSeriesKey }
+          : {
+              name: { equals: matchName, mode: "insensitive" },
+              categoryId: match.categoryId,
+            }),
       },
       select: { id: true, paid: true, paidAmount: true, amount: true, paymentSource: true, cardDebtId: true },
     });
@@ -127,6 +140,7 @@ export async function updateExpenseAcrossMonthsByName(
         where: { id: row.id },
         data: ({
           name: nextName,
+          seriesKey: matchSeriesKey ?? undefined,
           amount: nextAmount,
           categoryId: updates.categoryId === undefined ? undefined : updates.categoryId,
           paidAmount: nextPaidAmount,
@@ -223,12 +237,14 @@ export async function addExpense(
   year: number = currentYear()
 ): Promise<ExpenseItem> {
   const logo = resolveExpenseLogo(item.name, toOptionalString((item as { merchantDomain?: unknown }).merchantDomain));
+  const seriesKey = normalizeSeriesKey(logo.merchantDomain ?? item.name);
   const created = (await prisma.expense.create({
     data: ({
       budgetPlanId,
       year,
       month: monthKeyToNumber(month),
       name: normalizeExpenseName(item.name),
+      seriesKey,
       amount: item.amount,
       paid: !!item.paid,
       paidAmount: item.paidAmount ?? (item.paid ? item.amount : 0),

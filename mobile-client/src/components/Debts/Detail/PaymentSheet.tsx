@@ -1,5 +1,5 @@
 import React from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { T } from "@/lib/theme";
 import MoneyInput from "@/components/Shared/MoneyInput";
 
@@ -26,7 +26,7 @@ export default function PaymentSheet({
 }: Props) {
   return (
     <Modal visible={visible} transparent animationType="slide" presentationStyle="overFullScreen" onRequestClose={onClose}>
-      <KeyboardAvoidingView style={s.sheetOverlay} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <KeyboardAvoidingView style={s.sheetOverlay} behavior={Platform.OS === "ios" ? "padding" : "height"}>
         <Pressable style={s.sheetBackdrop} onPress={onClose} />
         <View style={s.paySheetCard}>
           <View style={s.sheetHandle} />
@@ -68,7 +68,7 @@ const s = StyleSheet.create({
   sheetBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.55)" },
   paySheetCard: {
     backgroundColor: T.card,
-    height: "62%",
+    height: "78%",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     borderTopWidth: 1,

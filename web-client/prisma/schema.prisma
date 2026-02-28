@@ -338,6 +338,9 @@ model Expense {
   merchantDomain String?
   logoUrl      String?
   logoSource   String?
+  // Stable recurring-series key used for frequency/distribute-across-months.
+  // Set on create, and should NOT change when `name` changes.
+  seriesKey    String?
   amount       Decimal    @db.Decimal(12, 2)
   paid         Boolean    @default(false)
   paidAmount   Decimal    @default(0) @db.Decimal(12, 2)
@@ -358,6 +361,8 @@ model Expense {
 
 	payments     ExpensePayment[]
 
+  nameChanges  ExpenseNameChange[]
+
   // Timestamp of the most recent manual or partial payment applied to this expense.
   // null = no payment has been recorded yet.
   lastPaymentAt DateTime?
@@ -375,6 +380,20 @@ model Expense {
   @@index([budgetPlanId, month, year])
   @@index([categoryId])
   @@index([budgetPlanId, isAllocation])
+  @@index([budgetPlanId, seriesKey])
+}
+
+model ExpenseNameChange {
+  id        String   @id @default(cuid())
+  expenseId String
+  expense   Expense  @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+
+  fromName  String
+  toName    String
+  changedAt DateTime @default(now())
+
+  @@index([expenseId])
+  @@index([changedAt])
 }
 
 enum ExpensePaymentSource {

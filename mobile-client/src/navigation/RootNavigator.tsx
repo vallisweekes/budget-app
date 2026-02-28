@@ -554,7 +554,8 @@ function MainTabs() {
 
           const deepestRoute = getDeepestRoute(navigation.getState?.());
           const isDebtDetail = deepestRoute?.name === "DebtDetail";
-          if (isDebtDetail) return null;
+          const isExpenseDetail = deepestRoute?.name === "ExpenseDetail";
+          if (isDebtDetail || isExpenseDetail) return null;
 
           const isCategoryExpenses = deepestRoute?.name === "CategoryExpenses";
           const isExpensesList = deepestRoute?.name === "ExpensesList";

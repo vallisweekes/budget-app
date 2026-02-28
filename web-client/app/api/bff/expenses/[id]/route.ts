@@ -87,7 +87,35 @@ function parseDueDateInput(value: unknown): { value: Date | null | undefined; in
   return { value: dt, invalid: false };
 }
 
-function serializeExpense(expense: any) {
+type SerializableExpense = {
+  id: string;
+  name: string;
+  merchantDomain?: string | null;
+  logoUrl?: string | null;
+  logoSource?: string | null;
+  amount: unknown;
+  paid: boolean;
+  paidAmount: unknown;
+  isAllocation?: boolean | null;
+  isDirectDebit?: boolean | null;
+  month: number;
+  year: number;
+  categoryId?: string | null;
+  category?: { name?: string | null } | null;
+  dueDate?: Date | string | null;
+  lastPaymentAt?: Date | string | null;
+  updatedAt: Date;
+  paymentSource?: string | null;
+  cardDebtId?: string | null;
+};
+
+function serializeExpense(expense: SerializableExpense) {
+  const paidAmountNumber = Number(expense?.paidAmount?.toString?.() ?? expense?.paidAmount ?? 0);
+  const fallbackLastPaymentAt =
+    !expense.lastPaymentAt && Number.isFinite(paidAmountNumber) && paidAmountNumber > 0
+      ? expense.updatedAt
+      : null;
+
   return {
     id: expense.id,
     name: expense.name,
@@ -104,10 +132,22 @@ function serializeExpense(expense: any) {
     categoryId: expense.categoryId,
     category: expense.category ?? null,
     dueDate: expense.dueDate ? (expense.dueDate instanceof Date ? expense.dueDate.toISOString() : String(expense.dueDate)) : null,
-    lastPaymentAt: expense.lastPaymentAt ? (expense.lastPaymentAt instanceof Date ? expense.lastPaymentAt.toISOString() : String(expense.lastPaymentAt)) : null,
+    lastPaymentAt: (() => {
+      const v = expense.lastPaymentAt ?? fallbackLastPaymentAt;
+      if (!v) return null;
+      return v instanceof Date ? v.toISOString() : String(v);
+    })(),
     paymentSource: expense.paymentSource ?? "income",
     cardDebtId: expense.cardDebtId ?? null,
   };
+}
+
+function normalizeSeriesKey(value: string): string {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "")
+    .slice(0, 160);
 }
 
 type PatchBody = {
@@ -179,11 +219,12 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     return badRequest("dueDate must be an ISO date (YYYY-MM-DD) or ISO datetime");
   }
 
-  const existing = (await prisma.expense.findUnique({
+  const existing = await prisma.expense.findUnique({
     where: { id },
     select: {
       id: true,
       name: true,
+      seriesKey: true,
       amount: true,
       paid: true,
       paidAmount: true,
@@ -200,7 +241,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       cardDebtId: true,
       budgetPlan: { select: { userId: true } },
     },
-  } as any)) as any;
+  });
   if (!existing || existing.budgetPlan.userId !== userId) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
@@ -208,6 +249,10 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   const nextName = name ?? existing.name;
   const nameChanged = name !== undefined && nextName !== existing.name;
   const shouldResolveLogo = nameChanged || merchantDomain !== undefined || !existing.logoUrl;
+
+  // Stable series key: set once (if missing) and keep constant even if the display name changes.
+  const existingSeriesKey = typeof existing.seriesKey === "string" && existing.seriesKey.trim() ? existing.seriesKey.trim() : null;
+  const stableSeriesKey = existingSeriesKey ?? normalizeSeriesKey(existing.merchantDomain ?? existing.name);
 
   // If the existing merchantDomain came from inferred/search, treat it as non-authoritative
   // so the resolver can correct wrong matches when the name changes or on explicit refresh.
@@ -242,16 +287,12 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     nextPaidAmountNumber = Math.min(paidAmountExplicit, nextAmountNumber);
     nextPaid = nextAmountNumber > 0 && nextPaidAmountNumber >= nextAmountNumber;
   } else {
-    // Preserve payment intent: if it was fully paid, keep it fully paid after amount edits.
+    // Metadata-only edit (name/amount/category/etc.)
+    // Preserve the recorded paid amount; only clamp down if the amount is reduced.
+    // This ensures increasing the amount on a previously-paid expense becomes "partial"
+    // (paidAmount stays the same, remaining increases) instead of auto-generating payment.
     const existingPaidAmountNumber = Number(existing.paidAmount.toString());
-    nextPaidAmountNumber = existingPaidAmountNumber;
-
-    if (existing.paid) {
-      nextPaidAmountNumber = nextAmountNumber;
-    } else {
-      nextPaidAmountNumber = Math.min(existingPaidAmountNumber, nextAmountNumber);
-    }
-
+    nextPaidAmountNumber = Math.min(existingPaidAmountNumber, nextAmountNumber);
     nextPaid = nextAmountNumber > 0 && nextPaidAmountNumber >= nextAmountNumber;
     if (nextPaid) nextPaidAmountNumber = nextAmountNumber;
   }
@@ -279,12 +320,19 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     nextPaid !== existing.paid ||
     Math.abs(nextPaidAmountNumber - existingPaidAmountNumber) > 1e-9;
 
-  const updated = (await prisma.$transaction(async (tx) => {
+  const updated = await prisma.$transaction(async (tx) => {
+    if (nameChanged) {
+      await tx.expenseNameChange.create({
+        data: { expenseId: id, fromName: existing.name, toName: nextName },
+      });
+    }
+
     // Update metadata first so subsequent logic uses the latest amount/name/etc.
     await tx.expense.update({
       where: { id },
-      data: ({
+      data: {
         name: nextName,
+        seriesKey: existingSeriesKey ? undefined : stableSeriesKey,
         amount: String(nextAmountNumber),
         categoryId: categoryId === undefined ? undefined : categoryId,
         merchantDomain: logo.merchantDomain,
@@ -294,8 +342,8 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
         isDirectDebit: isDirectDebit === undefined ? undefined : isDirectDebit,
 
         dueDate: dueDate === undefined ? undefined : dueDate,
-      }) as any,
-    } as any);
+      },
+    });
 
     const sync = shouldSyncPayments
       ? await syncExpensePaymentsToPaidAmount({
@@ -317,18 +365,18 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 
     return (await tx.expense.update({
       where: { id },
-      data: ({
+      data: {
         paid: finalPaid,
         paidAmount: String(finalPaidAmount),
         lastPaymentAt: nextLastPaymentAt,
-      }) as any,
+      },
       include: {
         category: {
           select: { id: true, name: true, icon: true, color: true, featured: true },
         },
       },
-    } as any)) as any;
-  })) as any;
+    })) as unknown as SerializableExpense;
+  });
 
   // ── Sync expense → debt on every payment change ───────────────────────────
   // Runs whenever paid/paidAmount was explicitly provided in the request body.
@@ -339,7 +387,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   //   • toggled unpaid   → zero out any existing debt (overdue processor
   //                        will recreate it when the due date passes)
   if (isPaymentChange && !updated.isAllocation && !isNonDebtCategoryName(updated.category?.name)) {
-    const nextPaidAmountNumberFinal = Number(updated.paidAmount.toString());
+    const nextPaidAmountNumberFinal = Number(decimalToString(updated.paidAmount));
     const isPartial = !updated.paid && nextPaidAmountNumberFinal > 0;
     const debtRemainingAmount = isPartial
       ? Math.max(0, nextAmountNumber - nextPaidAmountNumberFinal)
@@ -391,7 +439,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       const monthsForYear = y === existing.year ? monthsThisYear : (MONTHS as MonthKey[]);
       const rows = await updateExpenseAcrossMonthsByName(
         existing.budgetPlanId,
-        { name: existing.name, categoryId: existing.categoryId },
+        { name: existing.name, categoryId: existing.categoryId, seriesKey: stableSeriesKey },
         {
           name: nextName,
           amount: nextAmountNumber,

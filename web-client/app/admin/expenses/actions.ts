@@ -583,7 +583,7 @@ export async function updateExpenseAction(formData: FormData): Promise<void> {
   const matchRow = monthNumber
     ? await prisma.expense.findFirst({
         where: { id, budgetPlanId, year, month: monthNumber },
-        select: { name: true, categoryId: true },
+        select: { name: true, categoryId: true, seriesKey: true },
       })
     : null;
 
@@ -622,7 +622,7 @@ export async function updateExpenseAction(formData: FormData): Promise<void> {
       const monthsForYear = y === year ? monthsThisYear : (MONTHS as MonthKey[]);
       await updateExpenseAcrossMonthsByName(
         budgetPlanId,
-        { name: matchRow.name, categoryId: matchRow.categoryId },
+      { name: matchRow.name, categoryId: matchRow.categoryId, seriesKey: matchRow.seriesKey },
 				{
 					name,
 					amount,
@@ -661,7 +661,7 @@ export async function removeExpenseAction(
   if (!monthNumber) throw new Error("Invalid month");
   const existing = await prisma.expense.findFirst({
     where: { id, budgetPlanId, year: y, month: monthNumber },
-    select: { id: true, name: true, categoryId: true },
+    select: { id: true, name: true, categoryId: true, seriesKey: true },
   });
   if (!existing) throw new Error("Expense not found");
 
@@ -693,8 +693,9 @@ export async function removeExpenseAction(
           budgetPlanId,
           year: targetYear,
           month: { in: monthNumbersForYear },
-          name: { equals: existing.name, mode: "insensitive" },
-          categoryId: existing.categoryId,
+          ...(existing.seriesKey
+            ? { seriesKey: existing.seriesKey }
+            : { name: { equals: existing.name, mode: "insensitive" }, categoryId: existing.categoryId }),
         },
         select: { id: true },
       });
