@@ -67,10 +67,14 @@ export async function POST(req: NextRequest) {
     parsed = sanitizeParsedReceipt(await parseReceiptImage(body.image as string, categoryNames));
   } catch (err) {
     console.error("[receipts/scan] AI parse error:", err);
-    return NextResponse.json(
-      { error: "Receipt scanning failed. Please try again or enter details manually." },
-      { status: 500 },
-    );
+    parsed = sanitizeParsedReceipt({
+      merchant: null,
+      amount: null,
+      currency: null,
+      date: null,
+      suggestedCategory: null,
+      notes: null,
+    });
   }
 
   // Persist a pending receipt record for later confirmation

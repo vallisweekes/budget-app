@@ -606,13 +606,19 @@ export function validateReceiptImage(
     return "image (base64) is required";
   }
 
-  // Size guard (~1.33 overhead for base64)
-  if (base64.length > maxBytes) {
-    return `Image too large — please keep receipts under ${Math.round(maxBytes * 0.75 / 1024)}KB`;
+  // Allow callers to pass a data URL (e.g. "data:image/jpeg;base64,...")
+  const normalized = base64.includes("base64,") ? (base64.split(",").pop() ?? base64) : base64;
+
+  // Size guard: estimate decoded bytes from base64 length.
+  const trimmed = normalized.trim();
+  const padding = trimmed.endsWith("==") ? 2 : trimmed.endsWith("=") ? 1 : 0;
+  const estimatedBytes = Math.max(0, Math.floor((trimmed.length * 3) / 4) - padding);
+  if (estimatedBytes > maxBytes) {
+    return `Image too large — please keep receipts under ${Math.round(maxBytes / 1024)}KB`;
   }
 
   // MIME sniff by checking the first bytes of the base64 payload
-  const prefix = base64.slice(0, 5);
+  const prefix = trimmed.slice(0, 5);
   const matched = Object.keys(ALLOWED_MIME_PREFIXES).some((p) => prefix.startsWith(p));
   if (!matched) {
     return "Only JPEG, PNG, GIF, or WebP images are accepted";

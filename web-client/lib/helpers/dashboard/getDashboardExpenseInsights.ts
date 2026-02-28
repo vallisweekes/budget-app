@@ -28,55 +28,6 @@ function isoForPayDate(year: number, monthNum: number, payDate: number): string 
 	return `${year}-${pad2(monthNum)}-${pad2(day)}`;
 }
 
-function getDebtDueAmountFromRow(row: {
-	amount: unknown;
-	currentBalance: unknown;
-	monthlyMinimum?: unknown;
-	installmentMonths?: unknown;
-}): number {
-	const currentBalance = Math.max(0, toNumber(row.currentBalance));
-	if (!(currentBalance > 0)) return 0;
-
-	const installmentMonths = Math.max(0, Math.trunc(toNumber(row.installmentMonths ?? 0)));
-	const monthlyMinimum = Math.max(0, toNumber(row.monthlyMinimum ?? 0));
-	const amount = Math.max(0, toNumber(row.amount));
-
-	if (installmentMonths > 0) {
-		const installment = currentBalance / Math.max(1, installmentMonths);
-		const eff = monthlyMinimum > installment ? monthlyMinimum : installment;
-		return Math.min(currentBalance, eff);
-	}
-
-	if (monthlyMinimum > 0) return Math.min(currentBalance, monthlyMinimum);
-	return Math.min(currentBalance, amount);
-}
-
-function getPaymentStatusFromAmounts(args: { dueAmount: number; paidAmount: number }): UpcomingPayment["status"] {
-	const due = Math.max(0, toNumber(args.dueAmount));
-	const paid = Math.max(0, toNumber(args.paidAmount));
-	if (due <= 0) return "paid";
-	if (paid >= due - 0.005) return "paid";
-	if (paid > 0) return "partial";
-	return "unpaid";
-}
-
-function resolveUpcomingPayDate(args: { now: Date; year: number; monthNum: number; payDate: number }): {
-	year: number;
-	monthNum: number;
-	dueIso: string;
-	due: Date | null;
-} {
-	const today = todayUtcDateOnly(args.now);
-	const thisDueIso = isoForPayDate(args.year, args.monthNum, args.payDate);
-	const thisDue = parseIsoDateToUtcDateOnly(thisDueIso);
-	if (!thisDue) return { year: args.year, monthNum: args.monthNum, dueIso: thisDueIso, due: null };
-	if (diffDaysUtc(thisDue, today) >= 0) return { year: args.year, monthNum: args.monthNum, dueIso: thisDueIso, due: thisDue };
-
-	const next = addMonthsUtc(args.year, args.monthNum, 1);
-	const nextIso = isoForPayDate(next.year, next.monthNum, args.payDate);
-	return { year: next.year, monthNum: next.monthNum, dueIso: nextIso, due: parseIsoDateToUtcDateOnly(nextIso) };
-}
-
 function parseIsoDateToUtcDateOnly(iso: string): Date | null {
 	if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null;
 	const [y, m, d] = iso.split("-").map((x) => Number(x));
@@ -171,9 +122,14 @@ export async function getDashboardExpenseInsights({
 	const prevMonthNum = prev.getMonth() + 1;
 
 	const historyPairs = Array.from({ length: 6 }, (_, i) => addMonthsUtc(currentYear, currentMonthNum, -i));
-	// Upcoming payments are aligned to the next pay-date cycle (not strictly the calendar month).
-	// Base month: the pay date that is today or in the future; otherwise next month.
-	const basePay = resolveUpcomingPayDate({ now, year: currentYear, monthNum: currentMonthNum, payDate });
+	// Upcoming payments should not jump ahead into next month just because the pay-date has passed.
+	// Base month is the current calendar month; we only advance to next month if the current month is fully covered.
+	const basePay = {
+		year: currentYear,
+		monthNum: currentMonthNum,
+		dueIso: isoForPayDate(currentYear, currentMonthNum, payDate),
+		due: parseIsoDateToUtcDateOnly(isoForPayDate(currentYear, currentMonthNum, payDate)),
+	};
 	const baseMonthPairs = Array.from({ length: 3 }, (_, i) => addMonthsUtc(basePay.year, basePay.monthNum, i));
 	const forecastPairs = Array.from({ length: 4 }, (_, i) => addMonthsUtc(currentYear, currentMonthNum, i));
 
@@ -290,78 +246,7 @@ export async function getDashboardExpenseInsights({
 			now,
 		});
 
-	const debtRows = await prisma.debt.findMany({
-		where: {
-			budgetPlanId,
-			paid: false,
-			currentBalance: { gt: 0 },
-		},
-		select: {
-			id: true,
-			name: true,
-			amount: true,
-			currentBalance: true,
-			monthlyMinimum: true,
-			installmentMonths: true,
-			sourceType: true,
-		},
-		orderBy: [{ currentBalance: "desc" }],
-	});
-
 	const today = todayUtcDateOnly(now);
-
-	function buildDebtUpcoming(params: {
-		year: number;
-		monthNum: number;
-		dueIso: string;
-		due: Date | null;
-		paidByDebtId: Map<string, number>;
-	}): UpcomingPayment[] {
-		const daysUntilDue = params.due ? diffDaysUtc(params.due, today) : 999;
-		return debtRows
-			.map((d) => {
-				const dueAmount = getDebtDueAmountFromRow(d);
-				if (!(dueAmount > 0)) return null;
-				const paidAmount = Math.max(0, params.paidByDebtId.get(d.id) ?? 0);
-				const status = getPaymentStatusFromAmounts({ dueAmount, paidAmount });
-				const item: UpcomingPayment = {
-					id: d.sourceType === "expense" ? `debt-expense:${d.id}` : `debt:${d.id}`,
-					kind: "debt",
-					name: d.name,
-					amount: dueAmount,
-					paidAmount,
-					status,
-					dueDate: params.dueIso,
-					daysUntilDue,
-					urgency: computeUrgency({ status, daysUntilDue }),
-				};
-				return item;
-			})
-			.filter((x): x is UpcomingPayment => x != null)
-			.filter((u) => u.status !== "paid")
-			.sort((a, b) => scoreUpcoming(a) - scoreUpcoming(b) || b.amount - a.amount);
-	}
-
-	async function buildPaidByDebtId(year: number, monthNum: number): Promise<Map<string, number>> {
-		const debtIds = debtRows.map((d) => d.id);
-		const paidByDebtId = new Map<string, number>();
-		if (!debtIds.length) return paidByDebtId;
-
-		try {
-			const rows = await prisma.debtPayment.groupBy({
-				by: ["debtId"],
-				where: { debtId: { in: debtIds }, year, month: monthNum },
-				_sum: { amount: true },
-			});
-			for (const row of rows) {
-				const total = toNumber(row._sum.amount ?? 0);
-				if (total > 0) paidByDebtId.set(row.debtId, total);
-			}
-		} catch (err) {
-			console.error("Dashboard insights: debt payment aggregation failed:", err);
-		}
-		return paidByDebtId;
-	}
 
 	const baseDueIso = isoForPayDate(basePay.year, basePay.monthNum, payDate);
 	const baseDue = parseIsoDateToUtcDateOnly(baseDueIso);
@@ -376,17 +261,8 @@ export async function getDashboardExpenseInsights({
 		limit: 50,
 	}).filter((u) => u.status !== "paid");
 
-	const basePaidByDebtId = await buildPaidByDebtId(selectedBase.year, selectedBase.monthNum);
-	const baseDebtUpcoming = buildDebtUpcoming({
-		year: selectedBase.year,
-		monthNum: selectedBase.monthNum,
-		dueIso: selectedBase.dueIso,
-		due: selectedBase.due,
-		paidByDebtId: basePaidByDebtId,
-	});
-
-	// If there are no unpaid upcoming expenses OR debts for the base month, show next month instead.
-	if (baseMonthUpcomingExpenses.length === 0 && baseDebtUpcoming.length === 0) {
+	// If there are no unpaid upcoming expenses for the base month, show next month instead.
+	if (baseMonthUpcomingExpenses.length === 0) {
 		const next = addMonthsUtc(selectedBase.year, selectedBase.monthNum, 1);
 		const nextDueIso = isoForPayDate(next.year, next.monthNum, payDate);
 		selectedBase = { year: next.year, monthNum: next.monthNum, dueIso: nextDueIso, due: parseIsoDateToUtcDateOnly(nextDueIso) };

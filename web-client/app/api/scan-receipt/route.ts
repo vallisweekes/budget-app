@@ -55,10 +55,14 @@ export async function POST(req: NextRequest) {
     parsed = sanitizeParsedReceipt(await parseReceiptImage(imageBase64 as string, categoryNames));
   } catch (error) {
     console.error("[scan-receipt] AI parse error:", error);
-    return NextResponse.json(
-      { error: "Receipt scanning failed. Please try again or enter details manually." },
-      { status: 500 },
-    );
+    parsed = sanitizeParsedReceipt({
+      merchant: null,
+      amount: null,
+      currency: null,
+      date: null,
+      suggestedCategory: null,
+      notes: null,
+    });
   }
 
   const receipt = await prisma.receipt.create({

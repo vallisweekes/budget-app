@@ -11,7 +11,8 @@ type Props = {
   onChangeAmount: (value: string) => void;
   onClose: () => void;
   onSave: () => void;
-  onMarkPaid: () => void;
+  onMarkPaid?: () => void;
+  showMarkPaid?: boolean;
 };
 
 export default function PaymentSheet({
@@ -23,6 +24,7 @@ export default function PaymentSheet({
   onClose,
   onSave,
   onMarkPaid,
+  showMarkPaid = true,
 }: Props) {
   return (
     <Modal visible={visible} transparent animationType="slide" presentationStyle="overFullScreen" onRequestClose={onClose}>
@@ -33,13 +35,14 @@ export default function PaymentSheet({
           <Text style={s.sectionTitle}>Make Payment</Text>
 
           <View style={s.payInputGroup}>
-            <Text style={s.inputLabel}>Manual payment amount ({currency})</Text>
+            <Text style={s.inputLabel}>How much did you pay?</Text>
             <MoneyInput
               currency={currency}
               value={payAmount}
               onChangeValue={onChangeAmount}
               placeholder="0.00"
-              inputStyle={{ fontSize: 28 }}
+              containerStyle={{ borderWidth: 1, borderColor: "rgba(255,255,255,0.22)" }}
+              inputStyle={{ fontSize: 28, lineHeight: 34, paddingVertical: 12 }}
             />
           </View>
 
@@ -52,9 +55,11 @@ export default function PaymentSheet({
             </Pressable>
           </View>
 
-          <Pressable onPress={onMarkPaid} disabled={paying} style={[s.markPaidBtn, paying && s.disabled]}>
-            <Text style={s.markPaidBtnTxt}>Mark as paid</Text>
-          </Pressable>
+          {showMarkPaid && onMarkPaid ? (
+            <Pressable onPress={onMarkPaid} disabled={paying} style={[s.markPaidBtn, paying && s.disabled]}>
+              <Text style={s.markPaidBtnTxt}>Mark as paid</Text>
+            </Pressable>
+          ) : null}
         </View>
       </KeyboardAvoidingView>
     </Modal>
@@ -86,7 +91,7 @@ const s = StyleSheet.create({
   saveBtnFlex: { flex: 1 },
   saveBtnTxt: { color: T.onAccent, fontWeight: "700", fontSize: 14 },
   disabled: { opacity: 0.5 },
-  payInputGroup: { gap: 10, marginTop: 2 },
+  payInputGroup: { gap: 10, marginTop: 10 },
   payInput: {
     backgroundColor: T.cardAlt,
     borderRadius: 10,

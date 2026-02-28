@@ -695,7 +695,7 @@ export default function ExpenseDetailScreen({ route, navigation }: Props) {
                       onPress={handleMarkPaid}
                       disabled={paying}
                     >
-                      <Text style={s.quickPrimaryTxt}>Pay in full</Text>
+                      <Text style={s.quickPrimaryTxt}>Mark as paid</Text>
                     </Pressable>
                     <Pressable
                       style={[s.quickBtn, s.quickBtnSecondary, paying && s.quickDisabled]}
@@ -826,17 +826,15 @@ export default function ExpenseDetailScreen({ route, navigation }: Props) {
         </KeyboardAvoidingView>
       )}
 
-      {expense ? (
+      {expense && !isPaid ? (
         <View style={[s.bottomActionsWrap, { paddingBottom: tabBarHeight + 8 }]}>
           <BlurView intensity={14} tint="dark" style={StyleSheet.absoluteFillObject} pointerEvents="none" />
           <View style={s.bottomGlassTint} pointerEvents="none" />
           <View style={s.bottomActionsRow}>
-            {!isPaid ? (
-              <Pressable style={s.bottomActionBtn} onPress={() => setEditSheetOpen(true)}>
-                <Text style={[s.bottomActionTxt, { color: EXPENSE_HERO_BLUE }]}>Edit</Text>
-              </Pressable>
-            ) : null}
-            <Pressable style={[s.bottomActionBtn, isPaid && { flex: 1 }]} onPress={() => setDeleteConfirmOpen(true)}>
+            <Pressable style={s.bottomActionBtn} onPress={() => setEditSheetOpen(true)}>
+              <Text style={[s.bottomActionTxt, { color: EXPENSE_HERO_BLUE }]}>Edit</Text>
+            </Pressable>
+            <Pressable style={s.bottomActionBtn} onPress={() => setDeleteConfirmOpen(true)}>
               <Text style={[s.bottomActionTxt, { color: T.red }]}>Delete</Text>
             </Pressable>
           </View>
@@ -855,6 +853,7 @@ export default function ExpenseDetailScreen({ route, navigation }: Props) {
         }}
         onSave={handlePay}
         onMarkPaid={handleMarkPaid}
+        showMarkPaid={false}
       />
 
       <EditExpenseSheet

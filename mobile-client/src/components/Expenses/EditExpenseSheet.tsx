@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
-  KeyboardAvoidingView,
+  Keyboard,
   Modal,
   Platform,
   Pressable,
@@ -24,6 +24,8 @@ import { T } from "@/lib/theme";
 import { ADD_EXPENSE_SHEET_SCREEN_H, pr, s } from "@/components/Expenses/AddExpenseSheet.styles";
 
 const { height: SCREEN_H } = Dimensions.get("window");
+
+const IOS_INLINE_CALENDAR_H = Math.min(380, Math.max(320, Math.round(SCREEN_H * 0.46)));
 
 function isoToDMY(iso: string): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
@@ -158,6 +160,9 @@ export default function EditExpenseSheet({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
   const [categories, setCategories] = useState<ExpenseCategoryBreakdown[]>([]);
 
   // Due date picker
@@ -198,6 +203,25 @@ export default function EditExpenseSheet({
       }, 250);
     }
   }, [expense, slideY, visible]);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+
+    const subShow = Keyboard.addListener(showEvent, (e) => {
+      setKeyboardVisible(true);
+      setKeyboardHeight(e?.endCoordinates?.height ?? 0);
+    });
+    const subHide = Keyboard.addListener(hideEvent, () => {
+      setKeyboardVisible(false);
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      subShow.remove();
+      subHide.remove();
+    };
+  }, []);
 
   useEffect(() => {
     if (!visible) return;
@@ -280,7 +304,7 @@ export default function EditExpenseSheet({
         onClose();
       }}
     >
-      <KeyboardAvoidingView style={s.overlay} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <View style={s.overlay}>
         <Pressable
           style={s.backdrop}
           onPress={() => {
@@ -289,7 +313,7 @@ export default function EditExpenseSheet({
           }}
         />
 
-        <Animated.View style={[s.sheet, { paddingBottom: insets.bottom + 24, transform: [{ translateY: slideY }] }]}>
+        <Animated.View style={[s.sheet, { transform: [{ translateY: slideY }] }]}>
           <View style={s.handle} />
 
           <View style={s.header}>
@@ -310,175 +334,186 @@ export default function EditExpenseSheet({
             </Pressable>
           </View>
 
-          <ScrollView
-            style={{ flex: 1 }}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: 8 }}
-          >
-            <View style={s.formScroll}>
-              <View style={s.fieldGroup}>
-                <Text style={s.label}>Expense name</Text>
-                <TextInput
-                  style={s.input}
-                  value={name}
-                  onChangeText={setName}
-                  placeholder="e.g. Netflix, Rent…"
-                  placeholderTextColor={T.textMuted}
-                  selectionColor={T.accent}
-                  returnKeyType="next"
-                  autoCapitalize="words"
-                  editable={!submitting}
-                />
-              </View>
-
-              <View style={s.halfRow}>
-                <View style={[s.fieldGroup, s.halfCol]}>
-                  <Text style={s.label}>Amount ({currency})</Text>
+          <View style={{ flex: 1 }}>
+            <ScrollView
+              style={{ flex: 1 }}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 8 }}
+            >
+              <View style={s.formScroll}>
+                <View style={s.fieldGroup}>
+                  <Text style={s.label}>Expense name</Text>
                   <TextInput
                     style={s.input}
-                    value={amount}
-                    onChangeText={setAmount}
-                    placeholder="0.00"
+                    value={name}
+                    onChangeText={setName}
+                    placeholder="e.g. Netflix, Rent…"
                     placeholderTextColor={T.textMuted}
                     selectionColor={T.accent}
-                    keyboardType={Platform.OS === "ios" ? "decimal-pad" : "numeric"}
-                    inputMode="decimal"
+                    returnKeyType="next"
+                    autoCapitalize="words"
                     editable={!submitting}
                   />
                 </View>
 
-                <View style={[s.fieldGroup, s.halfCol]}>
-                  <Text style={s.label}>
-                    Due date <Text style={s.optional}>(optional)</Text>
-                  </Text>
+                <View style={s.halfRow}>
+                  <View style={[s.fieldGroup, s.halfCol]}>
+                    <Text style={s.label}>Amount ({currency})</Text>
+                    <TextInput
+                      style={s.input}
+                      value={amount}
+                      onChangeText={setAmount}
+                      placeholder="0.00"
+                      placeholderTextColor={T.textMuted}
+                      selectionColor={T.accent}
+                      keyboardType={Platform.OS === "ios" ? "decimal-pad" : "numeric"}
+                      inputMode="decimal"
+                      editable={!submitting}
+                    />
+                  </View>
 
-                  <TouchableOpacity style={s.input} onPress={openPicker} activeOpacity={0.7} disabled={submitting}>
-                    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                      <Text
-                        style={
-                          dueDate
-                            ? { color: T.text, fontSize: 15, fontWeight: "700" }
-                            : { color: T.textMuted, fontSize: 15, fontWeight: "700" }
-                        }
-                      >
-                        {dueDate ? isoToDMY(dueDate) : "DD/MM/YYYY"}
-                      </Text>
-                      <Ionicons name="calendar-outline" size={18} color={T.accent} />
+                  <View style={[s.fieldGroup, s.halfCol]}>
+                    <Text style={s.label}>
+                      Due date <Text style={s.optional}>(optional)</Text>
+                    </Text>
+
+                    <TouchableOpacity style={s.input} onPress={openPicker} activeOpacity={0.7} disabled={submitting}>
+                      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                        <Text
+                          style={
+                            dueDate
+                              ? { color: T.text, fontSize: 15, fontWeight: "700" }
+                              : { color: T.textMuted, fontSize: 15, fontWeight: "700" }
+                          }
+                        >
+                          {dueDate ? isoToDMY(dueDate) : "DD/MM/YYYY"}
+                        </Text>
+                        <Ionicons name="calendar-outline" size={18} color={T.accent} />
+                      </View>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <View style={s.fieldGroup}>
+                  <Text style={s.label}>Category</Text>
+                  <CategoryChipsRow categories={categories} value={categoryId} onChange={setCategoryId} />
+                </View>
+
+                <View style={{ gap: 18 }}>
+                  <View style={s.toggleRow}>
+                    <View style={s.toggleInfo}>
+                      <Text style={s.toggleTitle}>Allocation payment</Text>
+                      <Text style={s.toggleSub}>For envelopes like groceries — never becomes a debt</Text>
                     </View>
-                  </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => setIsAllocation((v) => !v)}
+                      style={[s.toggle, isAllocation && s.toggleOn]}
+                      activeOpacity={0.8}
+                      disabled={submitting}
+                    >
+                      <View style={[s.toggleThumb, isAllocation && s.toggleThumbOn]} />
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={s.toggleRow}>
+                    <View style={s.toggleInfo}>
+                      <Text style={s.toggleTitle}>Direct Debit / Standing Order</Text>
+                      <Text style={s.toggleSub}>Automatically collected each month</Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => setIsDirectDebit((v) => !v)}
+                      style={[s.toggle, isDirectDebit && s.toggleOn]}
+                      activeOpacity={0.8}
+                      disabled={submitting}
+                    >
+                      <View style={[s.toggleThumb, isDirectDebit && s.toggleThumbOn]} />
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={s.toggleRow}>
+                    <View style={s.toggleInfo}>
+                      <Text style={s.toggleTitle}>Distribute remaining months</Text>
+                      <Text style={s.toggleSub}>Add to every month from now through December</Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() =>
+                        setDistributeMonths((v) => {
+                          const next = !v;
+                          // Turning months off must also turn years off
+                          if (!next) setDistributeYears(() => false);
+                          return next;
+                        })
+                      }
+                      style={[s.toggle, distributeMonths && s.toggleOn]}
+                      activeOpacity={0.8}
+                      disabled={submitting}
+                    >
+                      <View style={[s.toggleThumb, distributeMonths && s.toggleThumbOn]} />
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={s.toggleRow}>
+                    <View style={s.toggleInfo}>
+                      <Text style={s.toggleTitle}>Distribute across all years</Text>
+                      <Text style={s.toggleSub}>Repeat for every year remaining in the budget horizon</Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() =>
+                        setDistributeYears((v) => {
+                          const next = !v;
+                          // Turning years on must also turn months on
+                          if (next) setDistributeMonths(() => true);
+                          return next;
+                        })
+                      }
+                      style={[s.toggle, distributeYears && s.toggleOn]}
+                      activeOpacity={0.8}
+                      disabled={submitting}
+                    >
+                      <View style={[s.toggleThumb, distributeYears && s.toggleThumbOn]} />
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </View>
 
-              <View style={s.fieldGroup}>
-                <Text style={s.label}>Category</Text>
-                <CategoryChipsRow categories={categories} value={categoryId} onChange={setCategoryId} />
+            </ScrollView>
+
+            <View
+              style={{
+                paddingHorizontal: 20,
+                paddingTop: 12,
+                paddingBottom: insets.bottom + 24,
+                marginBottom: keyboardVisible ? Math.max(0, keyboardHeight - insets.bottom + 8) : 0,
+                gap: 10,
+              }}
+            >
+              {error ? (
+                <View style={s.errorRow}>
+                  <Ionicons name="warning-outline" size={14} color={T.red} />
+                  <Text style={s.errorTxt}>{error}</Text>
+                </View>
+              ) : null}
+
+              <View style={{ flexDirection: "row", gap: 14 }}>
+                <Pressable
+                  style={[s.submitBtn, { flex: 1, backgroundColor: T.cardAlt, borderWidth: 1, borderColor: T.border }]}
+                  onPress={() => {
+                    if (submitting) return;
+                    onClose();
+                  }}
+                  disabled={submitting}
+                >
+                  <Text style={[s.submitTxt, { color: T.text }]}>Cancel</Text>
+                </Pressable>
+                <Pressable
+                  style={[s.submitBtn, { flex: 1 }, (!canSubmit || submitting) && s.submitDisabled]}
+                  onPress={handleSubmit}
+                  disabled={!canSubmit || submitting}
+                >
+                  <Text style={s.submitTxt}>{submitting ? "Saving…" : "Save"}</Text>
+                </Pressable>
               </View>
-
-              <View style={{ gap: 18 }}>
-                <View style={s.toggleRow}>
-                  <View style={s.toggleInfo}>
-                    <Text style={s.toggleTitle}>Allocation payment</Text>
-                    <Text style={s.toggleSub}>For envelopes like groceries — never becomes a debt</Text>
-                  </View>
-                  <TouchableOpacity
-                    onPress={() => setIsAllocation((v) => !v)}
-                    style={[s.toggle, isAllocation && s.toggleOn]}
-                    activeOpacity={0.8}
-                    disabled={submitting}
-                  >
-                    <View style={[s.toggleThumb, isAllocation && s.toggleThumbOn]} />
-                  </TouchableOpacity>
-                </View>
-
-                <View style={s.toggleRow}>
-                  <View style={s.toggleInfo}>
-                    <Text style={s.toggleTitle}>Direct Debit / Standing Order</Text>
-                    <Text style={s.toggleSub}>Automatically collected each month</Text>
-                  </View>
-                  <TouchableOpacity
-                    onPress={() => setIsDirectDebit((v) => !v)}
-                    style={[s.toggle, isDirectDebit && s.toggleOn]}
-                    activeOpacity={0.8}
-                    disabled={submitting}
-                  >
-                    <View style={[s.toggleThumb, isDirectDebit && s.toggleThumbOn]} />
-                  </TouchableOpacity>
-                </View>
-
-                <View style={s.toggleRow}>
-                  <View style={s.toggleInfo}>
-                    <Text style={s.toggleTitle}>Distribute remaining months</Text>
-                    <Text style={s.toggleSub}>Add to every month from now through December</Text>
-                  </View>
-                  <TouchableOpacity
-                    onPress={() =>
-                      setDistributeMonths((v) => {
-                        const next = !v;
-                        // Turning months off must also turn years off
-                        if (!next) setDistributeYears(() => false);
-                        return next;
-                      })
-                    }
-                    style={[s.toggle, distributeMonths && s.toggleOn]}
-                    activeOpacity={0.8}
-                    disabled={submitting}
-                  >
-                    <View style={[s.toggleThumb, distributeMonths && s.toggleThumbOn]} />
-                  </TouchableOpacity>
-                </View>
-
-                <View style={s.toggleRow}>
-                  <View style={s.toggleInfo}>
-                    <Text style={s.toggleTitle}>Distribute across all years</Text>
-                    <Text style={s.toggleSub}>Repeat for every year remaining in the budget horizon</Text>
-                  </View>
-                  <TouchableOpacity
-                    onPress={() =>
-                      setDistributeYears((v) => {
-                        const next = !v;
-                        // Turning years on must also turn months on
-                        if (next) setDistributeMonths(() => true);
-                        return next;
-                      })
-                    }
-                    style={[s.toggle, distributeYears && s.toggleOn]}
-                    activeOpacity={0.8}
-                    disabled={submitting}
-                  >
-                    <View style={[s.toggleThumb, distributeYears && s.toggleThumbOn]} />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-          </ScrollView>
-
-          <View style={{ paddingHorizontal: 20, paddingTop: 12, gap: 10 }}>
-            {error ? (
-              <View style={s.errorRow}>
-                <Ionicons name="warning-outline" size={14} color={T.red} />
-                <Text style={s.errorTxt}>{error}</Text>
-              </View>
-            ) : null}
-
-            <View style={{ flexDirection: "row", gap: 10 }}>
-              <Pressable
-                style={[s.submitBtn, { flex: 1, backgroundColor: T.cardAlt, borderWidth: 1, borderColor: T.border }]}
-                onPress={() => {
-                  if (submitting) return;
-                  onClose();
-                }}
-                disabled={submitting}
-              >
-                <Text style={[s.submitTxt, { color: T.text }]}>Cancel</Text>
-              </Pressable>
-              <Pressable
-                style={[s.submitBtn, { flex: 1 }, (!canSubmit || submitting) && s.submitDisabled]}
-                onPress={handleSubmit}
-                disabled={!canSubmit || submitting}
-              >
-                <Text style={s.submitTxt}>{submitting ? "Saving…" : "Save"}</Text>
-              </Pressable>
             </View>
           </View>
 
@@ -504,7 +539,7 @@ export default function EditExpenseSheet({
                   backgroundColor: T.card,
                   borderTopLeftRadius: 16,
                   borderTopRightRadius: 16,
-                  paddingBottom: 24,
+                  paddingBottom: insets.bottom + 12,
                   borderTopWidth: 1,
                   borderTopColor: T.border,
                 }}
@@ -537,13 +572,13 @@ export default function EditExpenseSheet({
                   onChange={(_, selected) => {
                     if (selected) setIosDraft(selected);
                   }}
-                  style={{ height: 200 }}
+                  style={{ height: IOS_INLINE_CALENDAR_H }}
                 />
               </View>
             </View>
           ) : null}
         </Animated.View>
-      </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }

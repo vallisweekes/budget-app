@@ -297,7 +297,7 @@ export default function AddExpenseSheetFields({
                 onChange={(_, selected) => {
                   if (selected) setIosDraft(selected);
                 }}
-                style={{ height: 200 }}
+                style={{ height: 340 }}
               />
             </View>
           </View>
