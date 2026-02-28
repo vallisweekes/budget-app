@@ -41,6 +41,17 @@ export type ExpensesStackParamList = {
     budgetPlanId: string | null;
     currency: string;
   };
+  ExpenseDetail: {
+    expenseId: string;
+    expenseName: string;
+    categoryId: string;
+    categoryName: string;
+    color: string | null;
+    month: number;
+    year: number;
+    budgetPlanId: string | null;
+    currency: string;
+  };
   UnplannedExpense: undefined;
   ScanReceipt: undefined;
 };

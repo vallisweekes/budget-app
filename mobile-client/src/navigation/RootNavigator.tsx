@@ -25,6 +25,7 @@ import IncomeScreen from "@/screens/IncomeScreen";
 import IncomeMonthScreen from "@/screens/IncomeMonthScreen";
 import ExpensesScreen from "@/screens/ExpensesScreen";
 import CategoryExpensesScreen from "@/screens/CategoryExpensesScreen";
+import ExpenseDetailScreen from "@/screens/ExpenseDetailScreen";
 import UnplannedExpenseScreen from "@/screens/UnplannedExpenseScreen";
 import ScanReceiptScreen from "@/screens/ScanReceiptScreen";
 import DebtScreen from "@/screens/DebtScreen";
@@ -58,6 +59,7 @@ function ExpensesStackNavigator() {
     <ExpensesStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: T.bg } }}>
       <ExpensesStack.Screen name="ExpensesList" component={ExpensesScreen} />
       <ExpensesStack.Screen name="CategoryExpenses" component={CategoryExpensesScreen} />
+      <ExpensesStack.Screen name="ExpenseDetail" component={ExpenseDetailScreen} />
       <ExpensesStack.Screen name="UnplannedExpense" component={UnplannedExpenseScreen} />
       <ExpensesStack.Screen name="ScanReceipt" component={ScanReceiptScreen} />
     </ExpensesStack.Navigator>
