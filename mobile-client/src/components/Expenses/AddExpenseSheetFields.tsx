@@ -3,7 +3,12 @@ import { Modal, Platform, Pressable, ScrollView, Text, TextInput, TouchableOpaci
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Ionicons } from "@expo/vector-icons";
 
-import type { CreditCard, ExpenseCategoryBreakdown, ExpensePaymentSource } from "@/lib/apiTypes";
+import type {
+  CreditCard,
+  ExpenseCategoryBreakdown,
+  ExpensePaymentSource,
+  ExpenseSuggestion,
+} from "@/lib/apiTypes";
 import { T } from "@/lib/theme";
 import MoneyInput from "@/components/Shared/MoneyInput";
 
@@ -33,6 +38,9 @@ export default function AddExpenseSheetFields({
   cards,
   categories,
   currency,
+  suggestions,
+  suggestionsLoading,
+  onPickSuggestion,
 }: {
   name: string;
   setName: (v: string) => void;
@@ -49,6 +57,9 @@ export default function AddExpenseSheetFields({
   cards: CreditCard[];
   categories: ExpenseCategoryBreakdown[];
   currency: string;
+  suggestions: ExpenseSuggestion[];
+  suggestionsLoading: boolean;
+  onPickSuggestion: (s: ExpenseSuggestion) => void;
 }) {
   const [showPicker, setShowPicker] = useState(false);
   // iOS: hold a draft while the spinner is open
@@ -93,6 +104,59 @@ export default function AddExpenseSheetFields({
           returnKeyType="next"
           autoCapitalize="words"
         />
+
+        {Boolean(categoryId) && suggestionsLoading && (
+          <Text style={{ color: T.textMuted, fontSize: 12, fontWeight: "600" }}>
+            Loading previous expenses…
+          </Text>
+        )}
+
+        {Boolean(categoryId) && !suggestionsLoading && Array.isArray(suggestions) && suggestions.length > 0 && (
+          <View style={{ gap: 8 }}>
+            <Text style={[s.label, { marginTop: 2 }]}>Previous in this category</Text>
+            <View
+              style={{
+                backgroundColor: T.cardAlt,
+                borderRadius: 14,
+                borderWidth: 1,
+                borderColor: T.border,
+                overflow: "hidden",
+              }}
+            >
+              {suggestions.slice(0, 6).map((sug, idx) => {
+                const amountNum = Number.parseFloat(String(sug.amount));
+                const amountText = Number.isFinite(amountNum)
+                  ? `${currency}${amountNum.toFixed(2)}`
+                  : `${currency}${sug.amount}`;
+
+                return (
+                  <TouchableOpacity
+                    key={sug.seriesKey}
+                    onPress={() => onPickSuggestion(sug)}
+                    activeOpacity={0.75}
+                    style={{
+                      paddingHorizontal: 14,
+                      paddingVertical: 12,
+                      borderTopWidth: idx === 0 ? 0 : 1,
+                      borderTopColor: T.border,
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 10,
+                    }}
+                  >
+                    <Text style={{ color: T.text, fontSize: 14, fontWeight: "800", flex: 1 }} numberOfLines={1}>
+                      {sug.name}
+                    </Text>
+                    <Text style={{ color: T.textMuted, fontSize: 12, fontWeight: "800" }}>
+                      {amountText}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        )}
       </View>
 
       <View style={s.halfRow}>

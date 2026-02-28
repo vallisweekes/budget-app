@@ -14,63 +14,18 @@ import { Ionicons } from "@expo/vector-icons";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useFocusEffect } from "@react-navigation/native";
 
-import { apiFetch, getApiBaseUrl } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import type { Expense } from "@/lib/apiTypes";
 import { resolveCategoryColor, withOpacity } from "@/lib/categoryColors";
 import { fmt } from "@/lib/formatting";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
+import { resolveLogoUri, shouldShowExpenseLogo } from "@/lib/logoDisplay";
 import { T } from "@/lib/theme";
 import type { ExpensesStackParamList } from "@/navigation/types";
+import AddExpenseSheet from "@/components/Expenses/AddExpenseSheet";
+import type { ExpenseCategoryBreakdown } from "@/lib/apiTypes";
 
 type Props = NativeStackScreenProps<ExpensesStackParamList, "CategoryExpenses">;
-
-function resolveLogoUri(raw: string | null | undefined): string | null {
-  if (!raw) return null;
-  if (/^https?:\/\//i.test(raw)) return raw;
-  if (!raw.startsWith("/")) return null;
-  try {
-    return `${getApiBaseUrl()}${raw}`;
-  } catch {
-    return null;
-  }
-}
-
-function shouldUseLogoForName(name: string): boolean {
-  const cleaned = String(name ?? "").trim().toLowerCase();
-  if (!cleaned) return false;
-
-  const tokens = cleaned.split(/\s+/).filter(Boolean);
-  if (tokens.length === 0 || tokens.length > 2) return false;
-
-  const genericTerms = new Set([
-    "work",
-    "travel",
-    "barber",
-    "barbers",
-    "rent",
-    "housing",
-    "utilities",
-    "childcare",
-    "groceries",
-    "grocery",
-    "food",
-    "fuel",
-    "transport",
-    "allowance",
-    "savings",
-    "emergency",
-    "income",
-    "debt",
-    "payment",
-    "loan",
-    "mortgage",
-  ]);
-
-  const hasGenericTerm = tokens.some((t) => genericTerms.has(t));
-  if (hasGenericTerm) return false;
-
-  return /[a-z]/i.test(cleaned);
-}
 
 function dueDaysColor(iso: string): string {
   const days = Math.round((new Date(iso).getTime() - Date.now()) / 86_400_000);
@@ -89,6 +44,24 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
   const topHeaderOffset = useTopHeaderOffset();
   const { categoryId, categoryName, color, icon, month, year, budgetPlanId, currency } = route.params;
   const categoryColor = useMemo(() => resolveCategoryColor(color), [color]);
+
+  const [addSheetOpen, setAddSheetOpen] = useState(false);
+
+  const categoriesForAddSheet = useMemo<ExpenseCategoryBreakdown[]>(
+    () => [
+      {
+        categoryId,
+        name: categoryName,
+        color,
+        icon,
+        total: 0,
+        paidTotal: 0,
+        paidCount: 0,
+        totalCount: 0,
+      },
+    ],
+    [categoryId, categoryName, color, icon]
+  );
 
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(false);
@@ -167,10 +140,15 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
       const ratio = amount > 0 ? Math.min(paidAmount / amount, 1) : item.paid ? 1 : 0;
       const dueColor = item.dueDate ? dueDaysColor(item.dueDate) : null;
 
-      const logoUri =
-        item.logoUrl && shouldUseLogoForName(item.name) && !logoFailed[item.id]
-          ? resolveLogoUri(item.logoUrl)
-          : null;
+      const logoUri = resolveLogoUri(item.logoUrl);
+      const showLogo =
+        Boolean(logoUri) &&
+        !logoFailed[item.id] &&
+        shouldShowExpenseLogo({
+          name: item.name,
+          logoUrl: item.logoUrl,
+          merchantDomain: item.merchantDomain,
+        });
 
       const isPartial = !item.paid && paidAmount > 0;
       const statusLabel = item.paid ? "Paid" : isPartial ? "Partial" : "Unpaid";
@@ -195,9 +173,9 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
         >
           <View style={rowStyles.row1}>
             <View style={rowStyles.logoWrap}>
-              {logoUri ? (
+              {showLogo ? (
                 <Image
-                  source={{ uri: logoUri }}
+                  source={{ uri: logoUri! }}
                   style={rowStyles.logoImg}
                   onError={() => setLogoFailed((p) => ({ ...p, [item.id]: true }))}
                 />
@@ -334,7 +312,7 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
               </View>
             </View>
 
-            <Pressable style={styles.heroAddBtn} onPress={() => navigation.navigate("UnplannedExpense")}>
+            <Pressable style={styles.heroAddBtn} onPress={() => setAddSheetOpen(true)}>
               <Ionicons name="add" size={18} color={T.onAccent} />
               <Text style={styles.heroAddTxt}>Expense</Text>
             </Pressable>
@@ -365,6 +343,22 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
             </View>
           )
         }
+      />
+
+      <AddExpenseSheet
+        visible={addSheetOpen}
+        month={month}
+        year={year}
+        budgetPlanId={budgetPlanId}
+        initialCategoryId={categoryId}
+        headerTitle={categoryName}
+        currency={currency}
+        categories={categoriesForAddSheet}
+        onAdded={() => {
+          setAddSheetOpen(false);
+          void load();
+        }}
+        onClose={() => setAddSheetOpen(false)}
       />
     </SafeAreaView>
   );

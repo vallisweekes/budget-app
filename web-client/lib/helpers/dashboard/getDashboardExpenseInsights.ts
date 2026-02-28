@@ -11,6 +11,7 @@ import {
 import { addMonthsUtc, toNumber } from "@/lib/helpers/dashboard/utils";
 import { monthNumberToKey } from "@/lib/helpers/monthKey";
 import { getMonthlyAllocationSnapshot, getMonthlyCustomAllocationsSnapshot } from "@/lib/allocations/store";
+import { resolveExpenseLogo } from "@/lib/expenses/logoResolver";
 
 function pad2(n: number): string {
 	return String(n).padStart(2, "0");
@@ -214,7 +215,7 @@ export async function getDashboardExpenseInsights({
 	const toExpenseItem = (e: (typeof expenseWindowRows)[number]): ExpenseItem => ({
 		id: e.id,
 		name: e.name,
-		logoUrl: e.logoUrl ?? undefined,
+		logoUrl: (e.logoUrl ?? resolveExpenseLogo(e.name).logoUrl) ?? undefined,
 		amount: toNumber(e.amount),
 		paid: e.paid,
 		paidAmount: toNumber(e.paidAmount),
@@ -391,19 +392,16 @@ export async function getDashboardExpenseInsights({
 		selectedBase = { year: next.year, monthNum: next.monthNum, dueIso: nextDueIso, due: parseIsoDateToUtcDateOnly(nextDueIso) };
 	}
 
-	const selectedMonthPairs = Array.from({ length: 3 }, (_, i) => addMonthsUtc(selectedBase.year, selectedBase.monthNum, i));
-
-	const upcomingExpenses = selectedMonthPairs
-		.flatMap((p) => {
-			const monthExpenses = (expenseRowsByMonth[yearMonthKey(p.year, p.monthNum)] ?? []).map(toExpenseItem);
-			return computeUpcomingPayments(monthExpenses, {
-				year: p.year,
-				monthNum: p.monthNum,
-				payDate,
-				now,
-				limit: 50,
-			});
-		})
+	// Upcoming should reflect ONLY the current pay-cycle month.
+	// We intentionally do NOT include expenses created for later months, even if their due dates overlap.
+	const selectedMonthExpenses = (expenseRowsByMonth[yearMonthKey(selectedBase.year, selectedBase.monthNum)] ?? []).map(toExpenseItem);
+	const upcomingExpenses = computeUpcomingPayments(selectedMonthExpenses, {
+		year: selectedBase.year,
+		monthNum: selectedBase.monthNum,
+		payDate,
+		now,
+		limit: 50,
+	})
 		.filter((u) => u.status !== "paid")
 		.sort((a, b) => scoreUpcoming(a) - scoreUpcoming(b) || b.amount - a.amount);
 

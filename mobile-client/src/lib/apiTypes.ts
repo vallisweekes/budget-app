@@ -53,6 +53,16 @@ export interface Expense {
   cardDebtId: string | null;
 }
 
+/** GET /api/bff/expenses/suggestions?budgetPlanId=...&categoryId=... */
+export interface ExpenseSuggestion {
+  seriesKey: string;
+  name: string;
+  amount: string;
+  merchantDomain: string | null;
+  lastSeenMonth: number;
+  lastSeenYear: number;
+}
+
 export type ExpenseFrequencyPointStatus = "paid" | "partial" | "unpaid" | "missed" | "upcoming";
 
 export interface ExpenseFrequencyPoint {

@@ -22,7 +22,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
 import { apiFetch } from "@/lib/api";
-import type { BudgetPlanListItem, Category, CreditCard, ExpenseCategoryBreakdown, ExpensePaymentSource } from "@/lib/apiTypes";
+import type {
+  BudgetPlanListItem,
+  Category,
+  CreditCard,
+  ExpenseCategoryBreakdown,
+  ExpensePaymentSource,
+  ExpenseSuggestion,
+} from "@/lib/apiTypes";
 import { T } from "@/lib/theme";
 import { ADD_EXPENSE_SHEET_SCREEN_H, s } from "@/components/Expenses/AddExpenseSheet.styles";
 import AddExpenseSheetFields from "@/components/Expenses/AddExpenseSheetFields";
@@ -75,6 +82,10 @@ export default function AddExpenseSheet({
   const categoryIdRef = useRef("");
 	const suggestTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const suggestSeqRef = useRef(0);
+  const [expenseSuggestions, setExpenseSuggestions] = useState<ExpenseSuggestion[]>([]);
+  const [expenseSuggestionsLoading, setExpenseSuggestionsLoading] = useState(false);
+  const expenseSuggestionsSeqRef = useRef(0);
+  const [selectedSeriesKey, setSelectedSeriesKey] = useState<string | null>(null);
   const [paid, setPaid] = useState(false);
   const [dueDate, setDueDate] = useState("");
   // Internal month/year — user can change inside the sheet
@@ -164,6 +175,17 @@ export default function AddExpenseSheet({
   const handleManualCategoryChange = (nextId: string) => {
     setCategoryTouched(true);
     setCategoryId(nextId);
+    setSelectedSeriesKey(null);
+  };
+
+  const handleManualNameChange = (next: string) => {
+    setName(next);
+    setSelectedSeriesKey(null);
+  };
+
+  const handleManualAmountChange = (next: string) => {
+    setAmount(next);
+    setSelectedSeriesKey(null);
   };
 
   useEffect(() => {
@@ -251,6 +273,35 @@ export default function AddExpenseSheet({
     })();
   }, [visible, effectivePlanId]);
 
+  // Fetch previous expenses (deduped by seriesKey) to prevent duplicates/mismatched history
+  useEffect(() => {
+    if (!visible) return;
+    if (!effectivePlanId || !categoryId) {
+      setExpenseSuggestions([]);
+      setExpenseSuggestionsLoading(false);
+      return;
+    }
+
+    const seq = ++expenseSuggestionsSeqRef.current;
+    setExpenseSuggestionsLoading(true);
+    void (async () => {
+      try {
+        const url = `/api/bff/expenses/suggestions?budgetPlanId=${encodeURIComponent(
+          effectivePlanId
+        )}&categoryId=${encodeURIComponent(categoryId)}`;
+        const data = await apiFetch<ExpenseSuggestion[]>(url, { cacheTtlMs: 0 });
+        if (seq !== expenseSuggestionsSeqRef.current) return;
+        setExpenseSuggestions(Array.isArray(data) ? data : []);
+      } catch {
+        if (seq !== expenseSuggestionsSeqRef.current) return;
+        setExpenseSuggestions([]);
+      } finally {
+        if (seq !== expenseSuggestionsSeqRef.current) return;
+        setExpenseSuggestionsLoading(false);
+      }
+    })();
+  }, [visible, effectivePlanId, categoryId]);
+
   const canSubmit = name.trim().length > 0 && parseFloat(amount) > 0;
 
   const handleSubmit = async () => {
@@ -274,6 +325,7 @@ export default function AddExpenseSheet({
       if (dueDate.trim()) body.dueDate = dueDate.trim();
       if (effectivePlanId) body.budgetPlanId = effectivePlanId;
       if (paymentSource === "credit_card" && cardDebtId) body.cardDebtId = cardDebtId;
+      if (selectedSeriesKey) body.seriesKey = selectedSeriesKey;
 
       await apiFetch("/api/bff/expenses", { method: "POST", body });
       onAdded();
@@ -413,9 +465,9 @@ export default function AddExpenseSheet({
           >
             <AddExpenseSheetFields
               name={name}
-              setName={setName}
+              setName={handleManualNameChange}
               amount={amount}
-              setAmount={setAmount}
+              setAmount={handleManualAmountChange}
               categoryId={categoryId}
 						setCategoryId={handleManualCategoryChange}
               dueDate={dueDate}
@@ -427,6 +479,13 @@ export default function AddExpenseSheet({
               cards={cards}
               categories={planCategories ?? categories}
               currency={currency}
+              suggestions={expenseSuggestions}
+              suggestionsLoading={expenseSuggestionsLoading}
+              onPickSuggestion={(sug) => {
+                setName(sug.name);
+                setAmount(sug.amount);
+                setSelectedSeriesKey(sug.seriesKey);
+              }}
             />
 
             <View style={{ paddingHorizontal: 20, gap: 18 }}>

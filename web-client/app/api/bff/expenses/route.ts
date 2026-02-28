@@ -194,6 +194,7 @@ export async function POST(req: NextRequest) {
   const body = raw as {
     budgetPlanId?: unknown;
     name?: unknown;
+    seriesKey?: unknown;
     amount?: unknown;
     month?: unknown;
     year?: unknown;
@@ -217,6 +218,7 @@ export async function POST(req: NextRequest) {
 	});
 
   const name = typeof body.name === "string" ? body.name.trim() : "";
+  const seriesKey = typeof body.seriesKey === "string" ? body.seriesKey.trim() : "";
   const amount = Number(body.amount);
   const month = Number(body.month);
   const year = Number(body.year);
@@ -240,6 +242,7 @@ export async function POST(req: NextRequest) {
 
   if (!ownedBudgetPlanId) return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
   if (!name) return badRequest("Name is required");
+  if (seriesKey && seriesKey.length > 160) return badRequest("seriesKey is too long");
   if (!Number.isFinite(amount) || amount < 0) return badRequest("Amount must be a number >= 0");
   if (!Number.isFinite(month) || month < 1 || month > 12) return badRequest("Invalid month");
   if (!Number.isFinite(year) || year < 1900) return badRequest("Invalid year");
@@ -248,6 +251,7 @@ export async function POST(req: NextRequest) {
     budgetPlanId: ownedBudgetPlanId,
     userId,
     name,
+    seriesKey: seriesKey || undefined,
     amount,
     month,
     year,

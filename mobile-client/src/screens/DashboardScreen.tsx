@@ -17,10 +17,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 
 import { ApiError, apiFetch } from "@/lib/api";
-import { getApiBaseUrl } from "@/lib/api";
 import type { DashboardData, Settings } from "@/lib/apiTypes";
 import { currencySymbol, fmt } from "@/lib/formatting";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
+import { resolveLogoUri, shouldShowExpenseLogo } from "@/lib/logoDisplay";
 import { T } from "@/lib/theme";
 import { cardElevated, textLabel } from "@/lib/ui";
 import BudgetDonutCard from "@/components/Dashboard/BudgetDonutCard";
@@ -33,54 +33,6 @@ const GOAL_SIDE = 16;
 // Fit two cards side-by-side by default (with side padding + gap)
 const GOAL_CARD = Math.max(122, Math.round((W - GOAL_SIDE * 2 - GOAL_GAP) / 2));
 const GOAL_ADD_W = Math.max(52, Math.round(GOAL_CARD * 0.34));
-
-function resolveLogoUri(raw: string | null | undefined): string | null {
-  if (!raw) return null;
-  if (/^https?:\/\//i.test(raw)) return raw;
-  if (!raw.startsWith("/")) return null;
-  try {
-    return `${getApiBaseUrl()}${raw}`;
-  } catch {
-    return null;
-  }
-}
-
-function shouldUseLogoForName(name: string): boolean {
-  const cleaned = String(name ?? "").trim().toLowerCase();
-  if (!cleaned) return false;
-
-  const tokens = cleaned.split(/\s+/).filter(Boolean);
-  if (tokens.length === 0 || tokens.length > 2) return false;
-
-  const genericTerms = new Set([
-    "work",
-    "travel",
-    "barber",
-    "barbers",
-    "rent",
-    "housing",
-    "utilities",
-    "childcare",
-    "groceries",
-    "grocery",
-    "food",
-    "fuel",
-    "transport",
-    "allowance",
-    "savings",
-    "emergency",
-    "income",
-    "debt",
-    "payment",
-    "loan",
-    "mortgage",
-  ]);
-
-  const hasGenericTerm = tokens.some((t) => genericTerms.has(t));
-  if (hasGenericTerm) return false;
-
-  return /[a-z]/i.test(cleaned);
-}
 
 export default function DashboardScreen({ navigation }: { navigation: any }) {
   const topHeaderOffset = useTopHeaderOffset();
@@ -310,7 +262,14 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
               const logoUri = resolveLogoUri(p.logoUrl);
               const logoKey = `expense:${p.id}`;
               const isCustomStaticLogo = typeof p.logoUrl === "string" && p.logoUrl.startsWith("/logos/");
-              const showLogo = !!logoUri && !failedLogos[logoKey] && (isCustomStaticLogo || shouldUseLogoForName(p.name));
+              const showLogo =
+                !!logoUri &&
+                !failedLogos[logoKey] &&
+                (isCustomStaticLogo ||
+                  shouldShowExpenseLogo({
+                    name: p.name,
+                    logoUrl: p.logoUrl,
+                  }));
               const dateLabel = formatShortDate(p.dueDate);
               const sub =
                 p.urgency === "overdue"

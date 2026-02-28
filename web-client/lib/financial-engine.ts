@@ -36,6 +36,8 @@ export type CreateExpenseInput = {
   budgetPlanId: string;
   userId: string;
   name: string;
+  /** Optional stable series identifier to link months / avoid duplicates */
+  seriesKey?: string;
   amount: number;
   month: number;          // 1-12
   year: number;
@@ -361,6 +363,7 @@ export async function createExpense(input: CreateExpenseInput): Promise<CreateEx
     budgetPlanId,
     userId,
     name,
+    seriesKey,
     amount,
     month,
     year,
@@ -409,6 +412,7 @@ export async function createExpense(input: CreateExpenseInput): Promise<CreateEx
     await addOrUpdateExpenseAcrossMonths(budgetPlanId, y, months, {
       id:             sharedId,
       name,
+      seriesKey:       typeof seriesKey === "string" && seriesKey.trim() ? seriesKey.trim() : undefined,
       merchantDomain: logo.merchantDomain ?? undefined,
       amount,
       categoryId,
