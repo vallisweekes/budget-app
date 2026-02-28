@@ -8,7 +8,7 @@
  * up as a settled spend in the current month's summary.
  */
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -71,6 +71,11 @@ export default function UnplannedExpenseScreen({ navigation }: Props) {
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
   const [categoryId, setCategoryId] = useState("");
+  const [categoryTouched, setCategoryTouched] = useState(false);
+  const categoryTouchedRef = useRef(false);
+  const categoryIdRef = useRef("");
+  const suggestTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const suggestSeqRef = useRef(0);
   const [fundingSource, setFundingSource] = useState<FundingSource>("income");
   const [selectedDebtId, setSelectedDebtId] = useState("");
   const [newLoanName, setNewLoanName] = useState("");
@@ -123,6 +128,44 @@ export default function UnplannedExpenseScreen({ navigation }: Props) {
       setLoadingData(false);
     }
   }, []);
+
+  useEffect(() => {
+    categoryTouchedRef.current = categoryTouched;
+  }, [categoryTouched]);
+  useEffect(() => {
+    categoryIdRef.current = categoryId;
+  }, [categoryId]);
+
+  useEffect(() => {
+    if (categoryTouchedRef.current) return;
+    if (categoryIdRef.current) return;
+    const trimmed = name.trim();
+    if (trimmed.length < 2) return;
+
+    if (suggestTimerRef.current) clearTimeout(suggestTimerRef.current);
+    suggestTimerRef.current = setTimeout(async () => {
+      const seq = ++suggestSeqRef.current;
+      try {
+        const res = await apiFetch<{ categoryId: string | null }>("/api/bff/expenses/suggest-category", {
+          method: "POST",
+          body: { expenseName: trimmed },
+        });
+        if (seq !== suggestSeqRef.current) return;
+        const nextId = typeof res?.categoryId === "string" ? res.categoryId : "";
+        if (!nextId) return;
+        if (categoryTouchedRef.current) return;
+        if (categoryIdRef.current) return;
+        setCategoryId(nextId);
+      } catch {
+        // ignore
+      }
+    }, 350);
+
+    return () => {
+      if (suggestTimerRef.current) clearTimeout(suggestTimerRef.current);
+      suggestTimerRef.current = null;
+    };
+  }, [name]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -347,7 +390,7 @@ export default function UnplannedExpenseScreen({ navigation }: Props) {
               {/* No-category option */}
               <Pressable
                 style={[s.catRow, !categoryId && s.catRowSelected]}
-                onPress={() => { setCategoryId(""); setCatPickerOpen(false); }}
+					onPress={() => { setCategoryTouched(true); setCategoryId(""); setCatPickerOpen(false); }}
               >
                 <View style={[s.catDot, { backgroundColor: T.border }]} />
                 <Text style={s.catName}>None</Text>
@@ -357,7 +400,7 @@ export default function UnplannedExpenseScreen({ navigation }: Props) {
                 <Pressable
                   key={c.id}
                   style={[s.catRow, categoryId === c.id && s.catRowSelected]}
-                  onPress={() => { setCategoryId(c.id); setCatPickerOpen(false); }}
+						onPress={() => { setCategoryTouched(true); setCategoryId(c.id); setCatPickerOpen(false); }}
                 >
                   <View style={[s.catDot, { backgroundColor: c.color ?? T.accentDim }]} />
                   <Text style={s.catName}>{c.name}</Text>

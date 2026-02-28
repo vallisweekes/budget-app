@@ -49,6 +49,10 @@ model User {
 
   // UI preferences
   theme         String       @default("storm-cyan")
+
+  // Mobile: resume last location across devices
+  navStateJson      String?   @db.Text
+  navStateUpdatedAt DateTime?
   
   accounts      Account[]
   sessions      Session[]

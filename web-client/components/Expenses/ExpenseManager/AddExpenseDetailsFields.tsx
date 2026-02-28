@@ -1,17 +1,23 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { SelectDropdown } from "@/components/Shared";
 import type { CreditCardOption, ExpenseCategoryOption } from "@/types/expenses-manager";
 
 type Props = {
+	budgetPlanId: string;
 	categories: ExpenseCategoryOption[];
 	planKind?: string;
 	creditCards?: CreditCardOption[];
 };
 
-export default function AddExpenseDetailsFields({ categories, planKind, creditCards }: Props) {
+export default function AddExpenseDetailsFields({ budgetPlanId, categories, planKind, creditCards }: Props) {
 	const cards = creditCards ?? [];
+	const [name, setName] = useState("");
+	const [categoryId, setCategoryId] = useState("");
+	const categoryTouchedRef = useRef(false);
+	const suggestTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const suggestAbortRef = useRef<AbortController | null>(null);
 	const [paymentSource, setPaymentSource] = useState<string>("income");
 	const [cardDebtId, setCardDebtId] = useState<string>("");
 	const [isAllocation, setIsAllocation] = useState(false);
@@ -30,6 +36,47 @@ export default function AddExpenseDetailsFields({ categories, planKind, creditCa
 		return cards.map((c) => ({ value: c.id, label: c.name }));
 	}, [cards]);
 
+	useEffect(() => {
+		if (categoryTouchedRef.current) return;
+		if (categoryId) return;
+		const trimmed = name.trim();
+		if (trimmed.length < 2) return;
+
+		if (suggestTimerRef.current) clearTimeout(suggestTimerRef.current);
+		suggestTimerRef.current = setTimeout(async () => {
+			if (categoryTouchedRef.current) return;
+			if (categoryId) return;
+
+			try {
+				suggestAbortRef.current?.abort();
+				const controller = new AbortController();
+				suggestAbortRef.current = controller;
+
+				const res = await fetch("/api/bff/expenses/suggest-category", {
+					method: "POST",
+					headers: { "content-type": "application/json" },
+					body: JSON.stringify({ expenseName: trimmed, budgetPlanId }),
+					signal: controller.signal,
+				});
+				if (!res.ok) return;
+				const data = (await res.json()) as { categoryId?: string | null };
+				const nextId = typeof data?.categoryId === "string" ? data.categoryId : "";
+				if (!nextId) return;
+				if (categoryTouchedRef.current) return;
+				setCategoryId(nextId);
+			} catch {
+				// ignore
+			}
+		}, 350);
+
+		return () => {
+			if (suggestTimerRef.current) clearTimeout(suggestTimerRef.current);
+			suggestTimerRef.current = null;
+			suggestAbortRef.current?.abort();
+			suggestAbortRef.current = null;
+		};
+	}, [budgetPlanId, categoryId, name]);
+
 	return (
 		<>
 			<div className="space-y-6">
@@ -39,6 +86,10 @@ export default function AddExpenseDetailsFields({ categories, planKind, creditCa
 					<input
 						name="name"
 						required
+						value={name}
+						onChange={(e) => {
+							setName(e.target.value);
+						}}
 						className="w-full px-4 py-3 rounded-xl border border-white/10 bg-slate-900/40 text-white placeholder-slate-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/50 focus:outline-none transition-all"
 						placeholder="e.g., Monthly Rent"
 					/>
@@ -63,6 +114,11 @@ export default function AddExpenseDetailsFields({ categories, planKind, creditCa
 					<SelectDropdown
 						name="categoryId"
 						placeholder="Select Category"
+						value={categoryId}
+						onValueChange={(v) => {
+							categoryTouchedRef.current = true;
+							setCategoryId(v);
+						}}
 						options={[
 							...categories.map((c) => ({ value: c.id, label: c.name })),
 							{ value: "", label: "Miscellaneous" },

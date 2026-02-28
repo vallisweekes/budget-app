@@ -70,6 +70,11 @@ export default function AddExpenseSheet({
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
   const [categoryId, setCategoryId] = useState(initialCategoryId ?? "");
+	const [categoryTouched, setCategoryTouched] = useState(false);
+  const categoryTouchedRef = useRef(false);
+  const categoryIdRef = useRef("");
+	const suggestTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const suggestSeqRef = useRef(0);
   const [paid, setPaid] = useState(false);
   const [dueDate, setDueDate] = useState("");
   // Internal month/year — user can change inside the sheet
@@ -78,6 +83,8 @@ export default function AddExpenseSheet({
 
   // Sync sheet month/year when the prop changes (e.g. parent navigates)
   useEffect(() => { setSheetMonth(month); setSheetYear(year); }, [month, year]);
+	useEffect(() => { categoryTouchedRef.current = categoryTouched; }, [categoryTouched]);
+	useEffect(() => { categoryIdRef.current = categoryId; }, [categoryId]);
 
   const now = new Date();
   const currentMonth = now.getMonth() + 1;
@@ -124,6 +131,7 @@ export default function AddExpenseSheet({
     }).start();
     if (visible) {
       setCategoryId(initialCategoryId ?? "");
+			setCategoryTouched(false);
     }
     if (!visible) {
       // Reset form on close
@@ -131,6 +139,7 @@ export default function AddExpenseSheet({
         setName("");
         setAmount("");
         setCategoryId(initialCategoryId ?? "");
+			setCategoryTouched(false);
         setPaid(false);
         setDueDate("");
         setSheetMonth(month);
@@ -151,6 +160,45 @@ export default function AddExpenseSheet({
 
   // Resolve the plan id to use: prefer what the user picked in the sheet
   const effectivePlanId = selectedPlanId ?? budgetPlanId ?? null;
+
+  const handleManualCategoryChange = (nextId: string) => {
+    setCategoryTouched(true);
+    setCategoryId(nextId);
+  };
+
+  useEffect(() => {
+    if (!visible) return;
+    if (categoryTouched) return;
+    if (categoryId) return;
+    const trimmed = name.trim();
+    if (trimmed.length < 2) return;
+    if (!effectivePlanId) return;
+
+    if (suggestTimerRef.current) clearTimeout(suggestTimerRef.current);
+    suggestTimerRef.current = setTimeout(async () => {
+      const seq = ++suggestSeqRef.current;
+      try {
+        const res = await apiFetch<{ categoryId: string | null }>("/api/bff/expenses/suggest-category", {
+          method: "POST",
+          body: { expenseName: trimmed, budgetPlanId: effectivePlanId },
+        });
+        if (seq !== suggestSeqRef.current) return;
+        const nextId = typeof res?.categoryId === "string" ? res.categoryId : "";
+        if (!nextId) return;
+        // Never override a manual selection.
+        if (categoryTouchedRef.current) return;
+        if (categoryIdRef.current) return;
+        setCategoryId(nextId);
+      } catch {
+        // ignore
+      }
+    }, 350);
+
+    return () => {
+      if (suggestTimerRef.current) clearTimeout(suggestTimerRef.current);
+      suggestTimerRef.current = null;
+    };
+  }, [categoryId, categoryTouched, effectivePlanId, name, visible]);
 
   // Fetch categories whenever the user picks a plan different from the parent plan
   useEffect(() => {
@@ -369,7 +417,7 @@ export default function AddExpenseSheet({
               amount={amount}
               setAmount={setAmount}
               categoryId={categoryId}
-              setCategoryId={setCategoryId}
+						setCategoryId={handleManualCategoryChange}
               dueDate={dueDate}
               setDueDate={setDueDate}
               paymentSource={paymentSource}

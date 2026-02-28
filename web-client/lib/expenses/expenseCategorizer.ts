@@ -30,24 +30,33 @@ function heuristicCategory(expenseName: string): string | null {
 	}
 
 	// Utilities
+	const looksLikeFuelPurchase = includesAny(n, ["gas station", "petrol station", "service station"]);
 	if (
+		!looksLikeFuelPurchase &&
 		includesAny(n, [
 			"electric",
 			"electricity",
 			"power",
 			"water",
 			"sewer",
+			"gas",
 			"gas bill",
 			"broadband",
 			"internet",
 			"wifi",
 			"utility",
+			"phone",
+			"iphone",
+			"mobile",
+			"cell",
+			"cellular",
+			"phone plan",
 		])
 	) {
 		return "Utilities";
 	}
 
-	// Subscriptions (phone + streaming)
+	// Subscriptions (streaming + memberships)
 	if (
 		includesAny(n, [
 			"netflix",
@@ -60,9 +69,6 @@ function heuristicCategory(expenseName: string): string | null {
 			"youtube premium",
 			"subscription",
 			"membership",
-			"mobile",
-			"cell",
-			"phone plan",
 		])
 	) {
 		return "Subscriptions";
@@ -139,6 +145,7 @@ const cache = new Map<string, string | null>();
 export async function suggestCategoryNameForExpense(params: {
 	expenseName: string;
 	availableCategories: string[];
+	preferAi?: boolean;
 }): Promise<string | null> {
 	const expenseName = String(params.expenseName ?? "").trim();
 	if (!expenseName) return null;
@@ -146,21 +153,38 @@ export async function suggestCategoryNameForExpense(params: {
 	const available = (params.availableCategories ?? []).filter(Boolean);
 	if (!available.length) return null;
 
-	const cacheKey = `${norm(expenseName)}|${available.map((c) => c.toLowerCase()).sort().join(",")}`;
+	const preferAi = Boolean(params.preferAi);
+
+	const cacheKey = `${norm(expenseName)}|${available
+		.map((c) => c.toLowerCase())
+		.sort()
+		.join(",")}|preferAi:${preferAi ? "1" : "0"}`;
 	const cached = cache.get(cacheKey);
 	if (cached !== undefined) return cached;
 
-	const wanted = heuristicCategory(expenseName);
-	if (wanted) {
-		const match = available.find((c) => c.toLowerCase() === wanted.toLowerCase()) ?? null;
+	const apiKey = process.env.OPENAI_API_KEY;
+	const canUseAi = Boolean(apiKey);
+
+	const applyHeuristic = () => {
+		const wanted = heuristicCategory(expenseName);
+		if (!wanted) return null;
+		return available.find((c) => c.toLowerCase() === wanted.toLowerCase()) ?? null;
+	};
+
+	// If AI isn't configured, fall back to heuristics.
+	if (!canUseAi) {
+		const match = applyHeuristic();
 		cache.set(cacheKey, match);
 		return match;
 	}
 
-	const apiKey = process.env.OPENAI_API_KEY;
-	if (!apiKey) {
-		cache.set(cacheKey, null);
-		return null;
+	// Heuristic-first (default) vs AI-first (when preferAi is enabled)
+	if (!preferAi) {
+		const match = applyHeuristic();
+		if (match) {
+			cache.set(cacheKey, match);
+			return match;
+		}
 	}
 
 	// OpenAI fallback for ambiguous merchant-style names (e.g. "British Gas", "Digicel", "Flow").
@@ -199,19 +223,28 @@ export async function suggestCategoryNameForExpense(params: {
 	}
 
 	if (!completion) {
-		cache.set(cacheKey, null);
-		return null;
+		const match = preferAi ? applyHeuristic() : null;
+		cache.set(cacheKey, match);
+		return match;
 	}
 
 	const raw = completion.choices?.[0]?.message?.content ?? "";
 	const obj = safeParseJsonObject(raw);
 	const category = typeof obj?.category === "string" ? obj.category.trim() : null;
 	if (!category) {
-		cache.set(cacheKey, null);
-		return null;
+		const match = preferAi ? applyHeuristic() : null;
+		cache.set(cacheKey, match);
+		return match;
 	}
 
 	const match = available.find((c) => c.toLowerCase() === category.toLowerCase()) ?? null;
-	cache.set(cacheKey, match);
-	return match;
+	if (match) {
+		cache.set(cacheKey, match);
+		return match;
+	}
+
+	// If AI picked something outside our list (or casing mismatch), fall back to heuristic in AI-first mode.
+	const fallback = preferAi ? applyHeuristic() : null;
+	cache.set(cacheKey, fallback);
+	return fallback;
 }

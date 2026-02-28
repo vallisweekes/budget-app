@@ -179,6 +179,7 @@ export default function AddExpenseForm({
 				/>
 
 				<AddExpenseDetailsFields
+					budgetPlanId={addBudgetPlanId}
 					categories={addFormCategories}
 					planKind={selectedPlanKind}
 					creditCards={addFormCreditCards}
