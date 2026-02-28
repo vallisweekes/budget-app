@@ -36,10 +36,32 @@ Given a receipt image, extract the following as JSON — nothing else:
 }
 
 Rules:
-- amount must be the FINAL total paid, not a subtotal or VAT line
+- amount must be the FINAL total paid (a.k.a. Amount Due / Grand Total / Payment Total), not a subtotal or VAT line
+- If there are multiple totals, choose the one that represents the amount actually paid/charged
+- If there is NO explicit total but there is an itemized list with prices, sum the item prices and use that sum as amount
+- amount must be a number (e.g. 34.00), not a string like "£34.00"
 - If a field is unclear or missing, output null for that field
 - suggestedCategory should be one of: Groceries, Transport, Dining, Entertainment, Health, Housing, Utilities, Clothing, Childcare, Personal Care, Shopping, Travel, or Other
 - Do NOT include markdown, code blocks, or any text outside the JSON object`;
+
+const TOTAL_ONLY_PROMPT = `You are a receipt parsing assistant.
+Given a receipt image, extract ONLY the FINAL total paid and currency as JSON — nothing else:
+{
+  "merchant": null,
+  "amount": number | null,
+  "currency": string | null,  (ISO-4217 code, e.g. "GBP", "USD")
+  "date": null,
+  "suggestedCategory": null,
+  "notes": null
+}
+
+Rules:
+- Prefer lines like: "TOTAL", "AMOUNT DUE", "GRAND TOTAL", "PAYMENT TOTAL", "TOTAL PAID", "BALANCE"
+- Do not use VAT/tax amounts or subtotals
+- If there is NO explicit total but there is an itemized list with prices, sum the item prices and use that sum as amount
+- amount must be a number (e.g. 34.00)
+- If you cannot find a final total, set amount to null
+- Output JSON only (no markdown, no extra text)`;
 
 
 type OpenAIError = { status?: number; message?: string };
@@ -87,6 +109,39 @@ function safeParseJsonObject(raw: string): Record<string, unknown> | null {
   }
 }
 
+function parseAmount(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value) && value >= 0) return value;
+  if (typeof value !== "string") return null;
+
+  // Accept values like "£34.00", "34.00", "34", "34,00".
+  const noSpace = value.replace(/\s/g, "");
+  const cleaned =
+    // If we already have a dot, commas are likely thousands separators.
+    noSpace.includes(".") ? noSpace.replace(/,/g, "") : noSpace.replace(/,/g, ".");
+  const match = cleaned.match(/-?\d+(?:\.\d{1,2})?/);
+  if (!match) return null;
+  const n = Number.parseFloat(match[0]);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+const CURRENCY_SYMBOL_TO_ISO: Record<string, string> = {
+  "£": "GBP",
+  "$": "USD",
+  "€": "EUR",
+  "¥": "JPY",
+};
+
+function normalizeCurrency(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (trimmed.length === 1 && CURRENCY_SYMBOL_TO_ISO[trimmed]) return CURRENCY_SYMBOL_TO_ISO[trimmed]!;
+
+  const upper = trimmed.toUpperCase();
+  if (upper.length >= 3 && upper.length <= 10) return upper;
+  return null;
+}
+
 async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
   try {
@@ -114,13 +169,12 @@ function toParsedReceipt(obj: Record<string, unknown> | null, rawForDebug: strin
     return EMPTY;
   }
 
-  const amount =
-    typeof obj.amount === "number" && Number.isFinite(obj.amount) && obj.amount >= 0 ? obj.amount : null;
+  const amount = parseAmount(obj.amount);
 
   return {
     merchant: typeof obj.merchant === "string" ? obj.merchant : null,
     amount,
-    currency: typeof obj.currency === "string" ? obj.currency : null,
+    currency: normalizeCurrency(obj.currency),
     date: typeof obj.date === "string" ? obj.date : null,
     suggestedCategory: typeof obj.suggestedCategory === "string" ? obj.suggestedCategory : null,
     notes: typeof obj.notes === "string" ? obj.notes : null,
@@ -132,6 +186,7 @@ async function runVisionParse(params: {
   base64Image: string;
   userCategories: string[];
   detail: "low" | "high";
+  systemPrompt?: string;
 }): Promise<ParsedReceipt | null> {
   const categoryHint =
     params.userCategories.length > 0
@@ -145,7 +200,7 @@ async function runVisionParse(params: {
       temperature: 0,
       max_tokens: 350,
       messages: [
-        { role: "system", content: SYSTEM_PROMPT },
+        { role: "system", content: params.systemPrompt ?? SYSTEM_PROMPT },
         {
           role: "user",
           content: [
@@ -191,6 +246,18 @@ export async function parseReceiptImage(
   const mime = sniffMimeFromBase64(normalized);
   const dataUrl = `data:${mime};base64,${normalized}`;
 
+  const merge = (base: ParsedReceipt, overlay: ParsedReceipt | null): ParsedReceipt => {
+    if (!overlay) return base;
+    return {
+      merchant: overlay.merchant ?? base.merchant,
+      amount: overlay.amount ?? base.amount,
+      currency: overlay.currency ?? base.currency,
+      date: overlay.date ?? base.date,
+      suggestedCategory: overlay.suggestedCategory ?? base.suggestedCategory,
+      notes: overlay.notes ?? base.notes,
+    };
+  };
+
   try {
     const low = await runVisionParse({
       client,
@@ -200,18 +267,33 @@ export async function parseReceiptImage(
     });
     if (!low) return EMPTY;
 
-    const gotSomething = Boolean(low.merchant || low.amount || low.currency || low.date || low.suggestedCategory);
-    if (gotSomething) return low;
+    let best: ParsedReceipt = low;
 
-    // If the cheap pass returns nothing useful, retry with higher image detail.
-    const high = await runVisionParse({
-      client,
-      base64Image: dataUrl,
-      userCategories,
-      detail: "high",
-    });
+    // If amount is missing (common failure mode), retry with higher image detail even if
+    // we got other fields (merchant/date/etc).
+    if (best.amount == null) {
+      const high = await runVisionParse({
+        client,
+        base64Image: dataUrl,
+        userCategories,
+        detail: "high",
+      });
+      best = merge(best, high);
+    }
 
-    return high ?? low;
+    // Still missing total? Do a targeted total-only pass (high detail) to improve recall.
+    if (best.amount == null) {
+      const totalOnly = await runVisionParse({
+        client,
+        base64Image: dataUrl,
+        userCategories: [],
+        detail: "high",
+        systemPrompt: TOTAL_ONLY_PROMPT,
+      });
+      best = merge(best, totalOnly);
+    }
+
+    return best;
   } catch (e: unknown) {
     if (isOpenAIError(e) && e.status === 400) {
       console.warn("[receiptScanner] OpenAI rejected image (400):", e.message);
