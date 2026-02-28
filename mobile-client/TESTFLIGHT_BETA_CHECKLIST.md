@@ -27,8 +27,16 @@ From `mobile-client` run:
 
 Notes:
 - Profile `beta` uses `distribution: store` and auto-increments iOS build number.
-- App version is `expo.version` in `app.json`.
+- App version must be `1.0.x` (Marketing Version / CFBundleShortVersionString).
+  - This repo includes a committed `ios/` directory, so ensure iOS is bumped in **native** code too:
+    - `ios/BudgetInCheck/Info.plist` → `CFBundleShortVersionString`
+    - `ios/BudgetInCheck.xcodeproj/project.pbxproj` → `MARKETING_VERSION`
 - Build number is managed remotely by EAS (`appVersionSource: remote`).
+
+If EAS fails with “Provisioning Profile is malformed” in non-interactive mode:
+- Non-interactive builds require an App Store Connect (ASC) API key to regenerate credentials.
+- Fix once by running `eas credentials -p ios` interactively and letting EAS recreate the provisioning profile,
+  OR add an ASC API key in EAS credentials so non-interactive builds can self-heal.
 
 ## 4) Submit to TestFlight
 

@@ -2,8 +2,8 @@
   "expo": {
     "name": "BudgetIn Check",
     "slug": "budget-app",
-    "version": "1.0.3",
-    "runtimeVersion": "1.0.3",
+    "version": "1.0.4",
+    "runtimeVersion": "1.0.4",
     "updates": {
       "fallbackToCacheTimeout": 0
     },
