@@ -48,6 +48,7 @@ export default function PaymentsScreen() {
     id: string;
     name: string;
     dueAmount: number;
+    logoUrl?: string | null;
   } | null>(null);
   const [sheetLoading, setSheetLoading] = useState(false);
   const [sheetError, setSheetError] = useState<string | null>(null);
@@ -56,7 +57,7 @@ export default function PaymentsScreen() {
   const currency = currencySymbol(settings?.currency);
 
   const openSheet = useCallback(
-    async (item: { kind: "expense" | "debt"; id: string; name: string; dueAmount: number }) => {
+    async (item: { kind: "expense" | "debt"; id: string; name: string; dueAmount: number; logoUrl?: string | null }) => {
       setSheetItem(item);
       setSheetOpen(true);
       setSheetLoading(true);

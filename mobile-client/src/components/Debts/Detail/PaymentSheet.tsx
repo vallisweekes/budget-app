@@ -1,7 +1,8 @@
 import React from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Animated, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { T } from "@/lib/theme";
 import MoneyInput from "@/components/Shared/MoneyInput";
+import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
 
 type Props = {
   visible: boolean;
@@ -26,12 +27,14 @@ export default function PaymentSheet({
   onMarkPaid,
   showMarkPaid = true,
 }: Props) {
+  const { dragY, panHandlers } = useSwipeDownToClose({ onClose, disabled: paying });
+
   return (
     <Modal visible={visible} transparent animationType="slide" presentationStyle="overFullScreen" onRequestClose={onClose}>
       <KeyboardAvoidingView style={s.sheetOverlay} behavior={Platform.OS === "ios" ? "padding" : "height"}>
         <Pressable style={s.sheetBackdrop} onPress={onClose} />
-        <View style={s.paySheetCard}>
-          <View style={s.sheetHandle} />
+        <Animated.View style={[s.paySheetCard, { transform: [{ translateY: dragY }] }]}>
+          <View style={s.sheetHandle} {...panHandlers} />
           <Text style={s.sectionTitle}>Make Payment</Text>
 
           <View style={s.payInputGroup}>
@@ -60,7 +63,7 @@ export default function PaymentSheet({
               <Text style={s.markPaidBtnTxt}>Mark as paid</Text>
             </Pressable>
           ) : null}
-        </View>
+        </Animated.View>
       </KeyboardAvoidingView>
     </Modal>
   );

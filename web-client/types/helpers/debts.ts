@@ -3,6 +3,7 @@ export type DebtType = "credit_card" | "store_card" | "loan" | "mortgage" | "hir
 export interface DebtItem {
 	id: string;
 	name: string;
+	logoUrl?: string;
 	type: DebtType;
 	creditLimit?: number;
 	dueDay?: number;

@@ -8,6 +8,7 @@ import {
   StyleSheet,
   RefreshControl,
   Modal,
+  Animated,
   TextInput,
   KeyboardAvoidingView,
   Platform,
@@ -23,6 +24,7 @@ import type { IncomeSummaryData, Settings } from "@/lib/apiTypes";
 import { currencySymbol, fmt } from "@/lib/formatting";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 import { useYearGuard } from "@/lib/hooks/useYearGuard";
+import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
 import { T } from "@/lib/theme";
 import IncomeMonthCard from "@/components/Income/IncomeMonthCard";
 import type { IncomeStackParamList } from "@/navigation/types";
@@ -136,6 +138,17 @@ export default function IncomeScreen() {
     setYearIncomeAmount("");
     navigation.setParams({ openYearIncomeSheetAt: undefined });
   }, [navigation, yearAddSaving]);
+
+  const { dragY: yearAddDragY, panHandlers: yearAddPanHandlers, resetDrag: resetYearAddDrag } = useSwipeDownToClose({
+    onClose: closeYearAddSheet,
+    disabled: yearAddSaving,
+  });
+
+  useEffect(() => {
+    if (showYearAddSheet) {
+      resetYearAddDrag();
+    }
+  }, [resetYearAddDrag, showYearAddSheet]);
 
   const submitYearIncome = useCallback(async () => {
     const name = yearIncomeName.trim();
@@ -272,8 +285,8 @@ export default function IncomeScreen() {
           behavior={Platform.OS === "ios" ? "padding" : undefined}
         >
           <Pressable style={s.sheetBackdrop} onPress={closeYearAddSheet} />
-          <View style={s.sheetCard}>
-            <View style={s.sheetHandle} />
+          <Animated.View style={[s.sheetCard, { transform: [{ translateY: yearAddDragY }] }]}>
+            <View style={s.sheetHandle} {...yearAddPanHandlers} />
             <View style={s.sheetHeaderRow}>
               <Text style={s.sheetTitle}>Add income for {year}</Text>
               <Pressable onPress={closeYearAddSheet} style={s.sheetCloseBtn}>
@@ -334,7 +347,7 @@ export default function IncomeScreen() {
             <Pressable onPress={submitYearIncome} style={[s.saveBtn, yearAddSaving && s.saveBtnDisabled]} disabled={yearAddSaving}>
               <Text style={s.saveBtnText}>{yearAddSaving ? "Saving..." : "Save income"}</Text>
             </Pressable>
-          </View>
+          </Animated.View>
         </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>

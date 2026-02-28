@@ -1,7 +1,8 @@
 import React from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Animated, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { T } from "@/lib/theme";
+import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
 
 type Props = {
   visible: boolean;
@@ -36,6 +37,8 @@ export default function EditDebtSheet(props: Props) {
     onPickDate, onDateChange, onToggleAutoPay, onChangeInstallment, onSetShowDatePicker,
   } = props;
 
+  const { dragY, panHandlers } = useSwipeDownToClose({ onClose, disabled: saving });
+
   const iosDueDateBeforeRef = React.useRef<string>("");
   const [iosDueDateDraft, setIosDueDateDraft] = React.useState<Date>(new Date());
 
@@ -60,8 +63,8 @@ export default function EditDebtSheet(props: Props) {
     <Modal visible={visible} transparent animationType="slide" presentationStyle="overFullScreen" onRequestClose={onClose}>
       <KeyboardAvoidingView style={s.sheetOverlay} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <Pressable style={s.sheetBackdrop} onPress={onClose} />
-        <View style={s.sheetCard}>
-          <View style={s.sheetHandle} />
+        <Animated.View style={[s.sheetCard, { transform: [{ translateY: dragY }] }]}>
+          <View style={s.sheetHandle} {...panHandlers} />
           <Text style={s.sectionTitle}>Edit Debt</Text>
 
           <ScrollView style={s.sheetScroll} contentContainerStyle={s.sheetScrollContent} showsVerticalScrollIndicator={false}>
@@ -169,7 +172,7 @@ export default function EditDebtSheet(props: Props) {
               {saving ? <ActivityIndicator size="small" color={T.onAccent} /> : <Text style={s.saveBtnTxt}>Save Changes</Text>}
             </Pressable>
           </View>
-        </View>
+        </Animated.View>
       </KeyboardAvoidingView>
     </Modal>
   );

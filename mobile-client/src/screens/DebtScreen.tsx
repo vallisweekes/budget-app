@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
+  Animated,
   View,
   Text,
   Image,
@@ -24,6 +25,7 @@ import { apiFetch, getApiBaseUrl } from "@/lib/api";
 import type { DebtSummaryData, DebtSummaryItem, Settings } from "@/lib/apiTypes";
 import { currencySymbol, fmt } from "@/lib/formatting";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
+import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
 import type { DebtStackParamList } from "@/navigation/types";
 import { T } from "@/lib/theme";
 import { cardBase, cardElevated } from "@/lib/ui";
@@ -98,7 +100,7 @@ function DebtCard({
                   <Image
                     source={{ uri: logoUri! }}
                     style={s.avatarLogo}
-                    resizeMode="contain"
+                    resizeMode="cover"
                     onError={() => setLogoFailed(true)}
                   />
                 ) : (
@@ -184,6 +186,20 @@ export default function DebtScreen() {
   const [addInstallmentMonths, setAddInstallmentMonths] = useState("");
   const [addType, setAddType] = useState("loan");
   const [saving, setSaving] = useState(false);
+
+  const closeAddDebtSheet = useCallback(() => {
+    if (saving) return;
+    setShowAddForm(false);
+  }, [saving]);
+
+  const { dragY: addDebtDragY, panHandlers: addDebtPanHandlers, resetDrag: resetAddDebtDrag } = useSwipeDownToClose({
+    onClose: closeAddDebtSheet,
+    disabled: saving,
+  });
+
+  useEffect(() => {
+    if (showAddForm) resetAddDebtDrag();
+  }, [resetAddDebtDrag, showAddForm]);
   const [filter, setFilter] = useState<"active" | "all">("active");
   const [chartWidth, setChartWidth] = useState(320);
   const [selectedProjectionMonth, setSelectedProjectionMonth] = useState<number | null>(null);
@@ -693,26 +709,27 @@ export default function DebtScreen() {
         visible={showAddForm}
         transparent
         animationType="slide"
-        onRequestClose={() => setShowAddForm(false)}
+        onRequestClose={closeAddDebtSheet}
       >
         <KeyboardAvoidingView
           style={s.sheetOverlay}
           behavior={Platform.OS === "ios" ? "padding" : undefined}
         >
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowAddForm(false)} />
-          <View
+          <Pressable style={StyleSheet.absoluteFill} onPress={closeAddDebtSheet} />
+          <Animated.View
             style={[
               s.sheet,
               {
                 paddingTop: Math.max(10, insets.top + 8),
                 paddingBottom: Math.max(22, insets.bottom + 10),
+                transform: [{ translateY: addDebtDragY }],
               },
             ]}
           >
-            <View style={s.sheetHandle} />
+            <View style={s.sheetHandle} {...addDebtPanHandlers} />
             <View style={s.sheetHeader}>
               <Text style={s.sheetTitle}>Add Debt</Text>
-              <Pressable onPress={() => setShowAddForm(false)} hitSlop={10} style={s.sheetCloseBtn}>
+              <Pressable onPress={closeAddDebtSheet} hitSlop={10} style={s.sheetCloseBtn}>
                 <Ionicons name="close" size={18} color={T.textDim} />
               </Pressable>
             </View>
@@ -791,7 +808,7 @@ export default function DebtScreen() {
             <Pressable onPress={handleAdd} disabled={saving} style={[s.saveBtn, saving && s.disabled]}>
               {saving ? <ActivityIndicator size="small" color={T.onAccent} /> : <Text style={s.saveBtnTxt}>Add Debt</Text>}
             </Pressable>
-          </View>
+          </Animated.View>
         </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>

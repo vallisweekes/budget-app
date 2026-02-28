@@ -19,7 +19,7 @@ import type { Expense } from "@/lib/apiTypes";
 import { resolveCategoryColor, withOpacity } from "@/lib/categoryColors";
 import { fmt } from "@/lib/formatting";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
-import { resolveLogoUri, shouldShowExpenseLogo } from "@/lib/logoDisplay";
+import { resolveLogoUri } from "@/lib/logoDisplay";
 import { T } from "@/lib/theme";
 import type { ExpensesStackParamList } from "@/navigation/types";
 import AddExpenseSheet from "@/components/Expenses/AddExpenseSheet";
@@ -141,14 +141,7 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
       const dueColor = item.dueDate ? dueDaysColor(item.dueDate) : null;
 
       const logoUri = resolveLogoUri(item.logoUrl);
-      const showLogo =
-        Boolean(logoUri) &&
-        !logoFailed[item.id] &&
-        shouldShowExpenseLogo({
-          name: item.name,
-          logoUrl: item.logoUrl,
-          merchantDomain: item.merchantDomain,
-        });
+      const showLogo = Boolean(logoUri) && !logoFailed[item.id];
 
       const isPartial = !item.paid && paidAmount > 0;
       const statusLabel = item.paid ? "Paid" : isPartial ? "Partial" : "Unpaid";

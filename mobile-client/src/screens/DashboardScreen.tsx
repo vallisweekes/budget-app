@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
+  Animated,
   View,
   Text,
   ScrollView,
@@ -13,6 +14,7 @@ import {
   Dimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 
@@ -20,11 +22,13 @@ import { ApiError, apiFetch } from "@/lib/api";
 import type { DashboardData, Settings } from "@/lib/apiTypes";
 import { currencySymbol, fmt } from "@/lib/formatting";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
-import { resolveLogoUri, shouldShowExpenseLogo } from "@/lib/logoDisplay";
+import { resolveLogoUri } from "@/lib/logoDisplay";
 import { T } from "@/lib/theme";
 import { cardElevated, textLabel } from "@/lib/ui";
+import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
 import BudgetDonutCard from "@/components/Dashboard/BudgetDonutCard";
 import CategorySwipeCards from "@/components/Dashboard/CategorySwipeCards";
+import QuickPaymentActionSheet, { type QuickPaymentActionItem } from "@/components/Dashboard/QuickPaymentActionSheet";
 import { buildDashboardDerived } from "@/screens/dashboard/derived";
 
 const W = Dimensions.get("window").width;
@@ -36,12 +40,18 @@ const GOAL_ADD_W = Math.max(52, Math.round(GOAL_CARD * 0.34));
 
 export default function DashboardScreen({ navigation }: { navigation: any }) {
   const topHeaderOffset = useTopHeaderOffset();
+  const insets = useSafeAreaInsets();
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [categorySheet, setCategorySheet] = useState<{ id: string; name: string } | null>(null);
+  const [quickPayItem, setQuickPayItem] = useState<QuickPaymentActionItem | null>(null);
+
+  const { dragY: categorySheetDragY, panHandlers: categorySheetPanHandlers } = useSwipeDownToClose({
+    onClose: () => setCategorySheet(null),
+  });
   const [aiTipIndex, setAiTipIndex] = useState(0);
   const [activeGoalCard, setActiveGoalCard] = useState(0);
   const [failedLogos, setFailedLogos] = useState<Record<string, boolean>>({});
@@ -152,6 +162,17 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
 
   return (
     <SafeAreaView style={styles.safe} edges={[]}>
+      <QuickPaymentActionSheet
+        visible={!!quickPayItem}
+        item={quickPayItem}
+        currency={currency}
+        insetsBottom={insets.bottom}
+        onClose={() => setQuickPayItem(null)}
+        onUpdated={() => {
+          void load();
+        }}
+      />
+
       <Modal
         visible={!!categorySheet}
         transparent
@@ -161,8 +182,8 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
       >
         <View style={styles.sheetOverlay}>
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setCategorySheet(null)} />
-          <View style={styles.sheet}>
-            <View style={styles.sheetHandle} />
+          <Animated.View style={[styles.sheet, { transform: [{ translateY: categorySheetDragY }] }]}>
+            <View style={styles.sheetHandle} {...categorySheetPanHandlers} />
             <View style={styles.sheetHeader}>
               <Text style={styles.sheetTitle} numberOfLines={1}>
                 {categorySheet?.name ?? "Category"}
@@ -195,7 +216,7 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
                 </View>
               )}
             />
-          </View>
+          </Animated.View>
         </View>
       </Modal>
 
@@ -261,15 +282,7 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
             {upcoming.slice(0, 3).map((p) => {
               const logoUri = resolveLogoUri(p.logoUrl);
               const logoKey = `expense:${p.id}`;
-              const isCustomStaticLogo = typeof p.logoUrl === "string" && p.logoUrl.startsWith("/logos/");
-              const showLogo =
-                !!logoUri &&
-                !failedLogos[logoKey] &&
-                (isCustomStaticLogo ||
-                  shouldShowExpenseLogo({
-                    name: p.name,
-                    logoUrl: p.logoUrl,
-                  }));
+              const showLogo = !!logoUri && !failedLogos[logoKey];
               const dateLabel = formatShortDate(p.dueDate);
               const sub =
                 p.urgency === "overdue"
@@ -281,14 +294,28 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
                       : `In ${p.daysUntilDue}d`;
 
               return (
-                <View key={p.id} style={styles.lightRow}>
+                <Pressable
+                  key={p.id}
+                  style={styles.lightRow}
+                  onPress={() =>
+                    setQuickPayItem({
+                      kind: "expense",
+                      id: p.id,
+                      name: p.name,
+                      amount: p.amount,
+                      paidAmount: p.paidAmount,
+                      dueDate: p.dueDate,
+                      logoUrl: p.logoUrl ?? null,
+                    })
+                  }
+                >
                   <View style={styles.lightLeft}>
                     <View style={styles.lightAvatar}>
                       {showLogo ? (
                         <Image
                           source={{ uri: logoUri }}
                           style={styles.avatarLogo}
-                          resizeMode="contain"
+                          resizeMode="cover"
                           onError={() => setFailedLogos((prev) => ({ ...prev, [logoKey]: true }))}
                         />
                       ) : (
@@ -307,7 +334,7 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
                   <Text style={styles.lightRowAmt} numberOfLines={1}>
                     {fmt(p.amount, currency)}
                   </Text>
-                </View>
+                </Pressable>
               );
             })}
           </View>
@@ -328,14 +355,27 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
               const showLogo = !!logoUri && !failedLogos[logoKey];
 
               return (
-                <View key={d.id} style={styles.blueRow}>
+                <Pressable
+                  key={d.id}
+                  style={styles.blueRow}
+                  onPress={() =>
+                    setQuickPayItem({
+                      kind: "debt",
+                      id: d.id,
+                      name: d.name,
+                      amount: d.dueAmount ?? 0,
+                      logoUrl: d.logoUrl ?? null,
+                      subtitle: "Monthly payment",
+                    })
+                  }
+                >
                   <View style={styles.blueLeft}>
                     <View style={styles.blueAvatar}>
                       {showLogo ? (
                         <Image
                           source={{ uri: logoUri }}
                           style={styles.avatarLogo}
-                          resizeMode="contain"
+                          resizeMode="cover"
                           onError={() => setFailedLogos((prev) => ({ ...prev, [logoKey]: true }))}
                         />
                       ) : (
@@ -354,7 +394,7 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
                   <Text style={styles.blueRowAmt} numberOfLines={1}>
                     {fmt(d.dueAmount, currency)}
                   </Text>
-                </View>
+                </Pressable>
               );
             })}
           </View>

@@ -3,6 +3,7 @@ import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
 import { prisma } from "@/lib/prisma";
 import { getDebtSummaryForPlan } from "@/lib/debts/summary";
 import { getDebtMonthlyPayment } from "@/lib/debts/calculate";
+import { resolveExpenseLogo } from "@/lib/expenses/logoResolver";
 
 export const runtime = "nodejs";
 
@@ -47,6 +48,8 @@ export async function GET(req: NextRequest) {
 			select: {
 				id: true,
 				name: true,
+				merchantDomain: true,
+				logoUrl: true,
 				amount: true,
 				paid: true,
 				paidAmount: true,
@@ -78,19 +81,28 @@ export async function GET(req: NextRequest) {
 					const amount = decimalToNumber(e.amount);
 					const paidAmount = decimalToNumber(e.paidAmount);
 					const dueAmount = Math.max(0, amount - paidAmount);
+					const fallbackLogo = resolveExpenseLogo(e.name, e.merchantDomain).logoUrl;
 					return {
 						id: e.id,
 						name: e.name,
+						logoUrl: e.logoUrl ?? fallbackLogo ?? null,
 						dueAmount,
 						isMissedPayment: dueAmount > 0,
 					};
-				}),
-			debts: debtSummary.allDebts.map((d) => ({
-				id: d.id,
-				name: d.sourceType === "expense" ? String(d.sourceExpenseName ?? d.name) : d.name,
-				dueAmount: getDebtMonthlyPayment(d),
-				isMissedPayment: d.sourceType === "expense",
-			})),
+				})
+				.filter((e) => e.dueAmount > 0),
+			debts: debtSummary.allDebts
+				.map((d) => {
+					const dueAmount = getDebtMonthlyPayment(d);
+					return {
+						id: d.id,
+						name: d.sourceType === "expense" ? String(d.sourceExpenseName ?? d.name) : d.name,
+						logoUrl: d.logoUrl ?? resolveExpenseLogo(String(d.sourceExpenseName ?? d.name)).logoUrl ?? null,
+						dueAmount,
+						isMissedPayment: d.sourceType === "expense",
+					};
+				})
+				.filter((d) => d.dueAmount > 0),
 		});
 	} catch (error) {
 		console.error("Failed to compute payments:", error);

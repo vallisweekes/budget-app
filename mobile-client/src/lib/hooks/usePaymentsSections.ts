@@ -3,6 +3,7 @@ import { useMemo } from "react";
 export type ExpenseRow = {
   id: string;
   name: string;
+  logoUrl?: string | null;
   dueAmount: number;
   isMissedPayment?: boolean;
 };
@@ -10,6 +11,7 @@ export type ExpenseRow = {
 export type DebtRow = {
   id: string;
   name: string;
+  logoUrl?: string | null;
   dueAmount: number;
   isMissedPayment?: boolean;
 };
@@ -31,6 +33,7 @@ export function usePaymentsSections(data: PaymentsResponse | null, query: string
       .map((r) => ({
         id: String(r.id ?? ""),
         name: String(r.name ?? "").trim(),
+        logoUrl: typeof r.logoUrl === "string" ? r.logoUrl : null,
         dueAmount: Number(r.dueAmount ?? 0),
         isMissedPayment: r.isMissedPayment === true,
       }))
@@ -47,6 +50,7 @@ export function usePaymentsSections(data: PaymentsResponse | null, query: string
       .map((r) => ({
         id: String(r.id ?? ""),
         name: String(r.name ?? "").trim(),
+        logoUrl: typeof r.logoUrl === "string" ? r.logoUrl : null,
         dueAmount: Number(r.dueAmount ?? 0),
         isMissedPayment: r.isMissedPayment === true,
       }))

@@ -22,6 +22,7 @@ import type { Category, Expense, ExpenseCategoryBreakdown } from "@/lib/apiTypes
 import { resolveCategoryColor } from "@/lib/categoryColors";
 import { T } from "@/lib/theme";
 import { ADD_EXPENSE_SHEET_SCREEN_H, pr, s } from "@/components/Expenses/AddExpenseSheet.styles";
+import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
 
 const { height: SCREEN_H } = Dimensions.get("window");
 
@@ -159,6 +160,8 @@ export default function EditExpenseSheet({
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const { dragY, panHandlers } = useSwipeDownToClose({ onClose, disabled: submitting });
 
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -313,8 +316,8 @@ export default function EditExpenseSheet({
           }}
         />
 
-        <Animated.View style={[s.sheet, { transform: [{ translateY: slideY }] }]}>
-          <View style={s.handle} />
+        <Animated.View style={[s.sheet, { transform: [{ translateY: Animated.add(slideY, dragY) }] }]}>
+          <View style={s.handle} {...panHandlers} />
 
           <View style={s.header}>
             <View style={{ flex: 1, paddingRight: 12 }}>

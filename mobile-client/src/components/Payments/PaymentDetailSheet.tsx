@@ -1,10 +1,12 @@
-import React, { useMemo } from "react";
-import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Animated, FlatList, Image, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { fmt } from "@/lib/formatting";
+import { resolveLogoUri } from "@/lib/logoDisplay";
 import { T } from "@/lib/theme";
 import { CARD_RADIUS, cardBase } from "@/lib/ui";
+import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
 
 export type PaymentDetail = {
   kind: "expense" | "debt";
@@ -30,6 +32,7 @@ type SheetItem = {
   id: string;
   name: string;
   dueAmount: number;
+  logoUrl?: string | null;
 };
 
 type Props = {
@@ -69,8 +72,17 @@ export default function PaymentDetailSheet({
   onClose,
   onRetry,
 }: Props) {
+  const { dragY, panHandlers } = useSwipeDownToClose({ onClose });
+  const [logoFailed, setLogoFailed] = useState(false);
+
   const heroName = String(item?.name ?? "Payment").trim();
   const heroInitial = (heroName?.[0] ?? "?").toUpperCase();
+  const logoUri = useMemo(() => resolveLogoUri(item?.logoUrl), [item?.logoUrl]);
+  const showLogo = Boolean(logoUri) && !logoFailed;
+
+  useEffect(() => {
+    setLogoFailed(false);
+  }, [item?.id, item?.logoUrl]);
 
   const dueAmount = detail?.dueAmount ?? item?.dueAmount ?? 0;
   const paymentsTotal = useMemo(
@@ -113,8 +125,16 @@ export default function PaymentDetailSheet({
     >
       <View style={s.sheetOverlay}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-        <View style={[s.sheet, { paddingBottom: Math.max(16, insetsBottom) }]}>
-          <View style={s.sheetHandle} />
+        <Animated.View
+          style={[
+            s.sheet,
+            {
+              paddingBottom: Math.max(16, insetsBottom),
+              transform: [{ translateY: dragY }],
+            },
+          ]}
+        >
+          <View style={s.sheetHandle} {...panHandlers} />
 
           <View style={s.sheetTopBar}>
             <Pressable onPress={onClose} hitSlop={10} style={s.sheetClosePlain}>
@@ -125,7 +145,16 @@ export default function PaymentDetailSheet({
 
           <View style={s.sheetHero}>
             <View style={s.sheetAvatar}>
-              <Text style={s.sheetAvatarText}>{heroInitial}</Text>
+              {showLogo ? (
+                <Image
+                  source={{ uri: logoUri as string }}
+                  style={s.sheetAvatarLogo}
+                  resizeMode="cover"
+                  onError={() => setLogoFailed(true)}
+                />
+              ) : (
+                <Text style={s.sheetAvatarText}>{heroInitial}</Text>
+              )}
             </View>
             <Text style={s.sheetHeroName} numberOfLines={1}>
               {heroName || "Payment"}
@@ -226,7 +255,7 @@ export default function PaymentDetailSheet({
               />
             )}
           </View>
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   );
@@ -279,12 +308,17 @@ const s = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
+    overflow: "hidden",
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: T.cardAlt,
     borderWidth: 1,
     borderColor: T.border,
     marginBottom: 10,
+  },
+  sheetAvatarLogo: {
+    width: "100%",
+    height: "100%",
   },
   sheetAvatarText: {
     color: T.text,

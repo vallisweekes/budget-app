@@ -31,6 +31,7 @@ function prismaDebtPaymentHasField(fieldName: string): boolean {
 export const DEBT_HAS_CREDIT_LIMIT = prismaDebtHasField("creditLimit");
 export const DEBT_HAS_DUE_DAY = prismaDebtHasField("dueDay");
 export const DEBT_HAS_DUE_DATE = prismaDebtHasField("dueDate");
+export const DEBT_HAS_LOGO_URL = prismaDebtHasField("logoUrl");
 export const DEBT_HAS_DEFAULT_PAYMENT_SOURCE = prismaDebtHasField("defaultPaymentSource");
 export const DEBT_HAS_DEFAULT_PAYMENT_CARD_DEBT_ID = prismaDebtHasField("defaultPaymentCardDebtId");
 export const DEBT_PAYMENT_HAS_CARD_DEBT_ID = prismaDebtPaymentHasField("cardDebtId");
@@ -40,6 +41,7 @@ export function debtSelect(): Prisma.DebtSelect {
 		id: true,
 		name: true,
 		type: true,
+		...(DEBT_HAS_LOGO_URL ? { logoUrl: true } : {}),
 		...(DEBT_HAS_CREDIT_LIMIT ? { creditLimit: true } : {}),
 		...(DEBT_HAS_DUE_DAY ? { dueDay: true } : {}),
 		...(DEBT_HAS_DUE_DATE ? { dueDate: true } : {}),

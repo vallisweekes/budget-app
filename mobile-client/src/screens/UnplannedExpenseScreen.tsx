@@ -20,6 +20,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Modal,
+  Animated,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -28,6 +29,7 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { apiFetch } from "@/lib/api";
 import type { Category, Debt, Settings } from "@/lib/apiTypes";
 import { currencySymbol, fmt } from "@/lib/formatting";
+import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 import { T } from "@/lib/theme";
 import MoneyInput from "@/components/Shared/MoneyInput";
@@ -97,6 +99,21 @@ export default function UnplannedExpenseScreen({ navigation }: Props) {
   const [pickerYear, setPickerYear] = useState(year);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const closeCatPicker = useCallback(() => setCatPickerOpen(false), []);
+  const closeFundingPicker = useCallback(() => setFundingPickerOpen(false), []);
+  const closeDebtPicker = useCallback(() => setDebtPickerOpen(false), []);
+  const closeMonthPicker = useCallback(() => setMonthPickerOpen(false), []);
+
+  const { dragY: catPickerDragY, panHandlers: catPickerPanHandlers, resetDrag: resetCatPickerDrag } = useSwipeDownToClose({ onClose: closeCatPicker });
+  const { dragY: fundingPickerDragY, panHandlers: fundingPickerPanHandlers, resetDrag: resetFundingPickerDrag } = useSwipeDownToClose({ onClose: closeFundingPicker });
+  const { dragY: debtPickerDragY, panHandlers: debtPickerPanHandlers, resetDrag: resetDebtPickerDrag } = useSwipeDownToClose({ onClose: closeDebtPicker });
+  const { dragY: monthPickerDragY, panHandlers: monthPickerPanHandlers, resetDrag: resetMonthPickerDrag } = useSwipeDownToClose({ onClose: closeMonthPicker });
+
+  useEffect(() => { if (catPickerOpen) resetCatPickerDrag(); }, [catPickerOpen, resetCatPickerDrag]);
+  useEffect(() => { if (fundingPickerOpen) resetFundingPickerDrag(); }, [fundingPickerOpen, resetFundingPickerDrag]);
+  useEffect(() => { if (debtPickerOpen) resetDebtPickerDrag(); }, [debtPickerOpen, resetDebtPickerDrag]);
+  useEffect(() => { if (monthPickerOpen) resetMonthPickerDrag(); }, [monthPickerOpen, resetMonthPickerDrag]);
 
   const currency = currencySymbol(settings?.currency);
   const parsedAmount = parseFloat(amount.replace(/,/g, ""));
@@ -375,18 +392,18 @@ export default function UnplannedExpenseScreen({ navigation }: Props) {
         visible={catPickerOpen}
         transparent
         animationType="slide"
-        onRequestClose={() => setCatPickerOpen(false)}
+        onRequestClose={closeCatPicker}
       >
         <View style={s.modalOverlay}>
-          <Pressable style={s.modalBackdrop} onPress={() => setCatPickerOpen(false)} />
-          <View style={s.modalSheet}>
-            <View style={s.sheetHandle} />
+          <Pressable style={s.modalBackdrop} onPress={closeCatPicker} />
+          <Animated.View style={[s.modalSheet, { transform: [{ translateY: catPickerDragY }] }]}>
+            <View style={s.sheetHandle} {...catPickerPanHandlers} />
             <Text style={s.sheetTitle}>Category</Text>
             <ScrollView contentContainerStyle={s.catList}>
               {/* No-category option */}
               <Pressable
                 style={[s.catRow, !categoryId && s.catRowSelected]}
-					onPress={() => { setCategoryTouched(true); setCategoryId(""); setCatPickerOpen(false); }}
+					onPress={() => { setCategoryTouched(true); setCategoryId(""); closeCatPicker(); }}
               >
                 <View style={[s.catDot, { backgroundColor: T.border }]} />
                 <Text style={s.catName}>None</Text>
@@ -396,7 +413,7 @@ export default function UnplannedExpenseScreen({ navigation }: Props) {
                 <Pressable
                   key={c.id}
                   style={[s.catRow, categoryId === c.id && s.catRowSelected]}
-						onPress={() => { setCategoryTouched(true); setCategoryId(c.id); setCatPickerOpen(false); }}
+					onPress={() => { setCategoryTouched(true); setCategoryId(c.id); closeCatPicker(); }}
                 >
                   <View style={[s.catDot, { backgroundColor: c.color ?? T.accentDim }]} />
                   <Text style={s.catName}>{c.name}</Text>
@@ -406,7 +423,7 @@ export default function UnplannedExpenseScreen({ navigation }: Props) {
                 </Pressable>
               ))}
             </ScrollView>
-          </View>
+          </Animated.View>
         </View>
       </Modal>
 
@@ -415,12 +432,12 @@ export default function UnplannedExpenseScreen({ navigation }: Props) {
         visible={fundingPickerOpen}
         transparent
         animationType="slide"
-        onRequestClose={() => setFundingPickerOpen(false)}
+        onRequestClose={closeFundingPicker}
       >
         <View style={s.modalOverlay}>
-          <Pressable style={s.modalBackdrop} onPress={() => setFundingPickerOpen(false)} />
-          <View style={s.modalSheet}>
-            <View style={s.sheetHandle} />
+          <Pressable style={s.modalBackdrop} onPress={closeFundingPicker} />
+          <Animated.View style={[s.modalSheet, { transform: [{ translateY: fundingPickerDragY }] }]}>
+            <View style={s.sheetHandle} {...fundingPickerPanHandlers} />
             <Text style={s.sheetTitle}>Funds From</Text>
             <ScrollView contentContainerStyle={s.catList}>
               {FUNDING_OPTIONS.map((opt) => (
@@ -429,7 +446,7 @@ export default function UnplannedExpenseScreen({ navigation }: Props) {
                   style={[s.catRow, fundingSource === opt.value && s.catRowSelected]}
                   onPress={() => {
                     setFundingSource(opt.value);
-                    setFundingPickerOpen(false);
+                    closeFundingPicker();
                   }}
                 >
                   <Text style={s.catName}>{opt.label}</Text>
@@ -437,7 +454,7 @@ export default function UnplannedExpenseScreen({ navigation }: Props) {
                 </Pressable>
               ))}
             </ScrollView>
-          </View>
+          </Animated.View>
         </View>
       </Modal>
 
@@ -446,12 +463,12 @@ export default function UnplannedExpenseScreen({ navigation }: Props) {
         visible={debtPickerOpen}
         transparent
         animationType="slide"
-        onRequestClose={() => setDebtPickerOpen(false)}
+        onRequestClose={closeDebtPicker}
       >
         <View style={s.modalOverlay}>
-          <Pressable style={s.modalBackdrop} onPress={() => setDebtPickerOpen(false)} />
-          <View style={s.modalSheet}>
-            <View style={s.sheetHandle} />
+          <Pressable style={s.modalBackdrop} onPress={closeDebtPicker} />
+          <Animated.View style={[s.modalSheet, { transform: [{ translateY: debtPickerDragY }] }]}>
+            <View style={s.sheetHandle} {...debtPickerPanHandlers} />
             <Text style={s.sheetTitle}>{fundingSource === "credit_card" ? "Choose Card" : "Choose Loan"}</Text>
             <ScrollView contentContainerStyle={s.catList}>
               {fundingSource === "loan" ? (
@@ -459,7 +476,7 @@ export default function UnplannedExpenseScreen({ navigation }: Props) {
                   style={[s.catRow, selectedDebtId === NEW_LOAN_SENTINEL && s.catRowSelected]}
                   onPress={() => {
                     setSelectedDebtId(NEW_LOAN_SENTINEL);
-                    setDebtPickerOpen(false);
+                    closeDebtPicker();
                   }}
                 >
                   <Text style={s.catName}>+ Create new loan</Text>
@@ -472,7 +489,7 @@ export default function UnplannedExpenseScreen({ navigation }: Props) {
                   style={[s.catRow, selectedDebtId === d.id && s.catRowSelected]}
                   onPress={() => {
                     setSelectedDebtId(d.id);
-                    setDebtPickerOpen(false);
+                    closeDebtPicker();
                   }}
                 >
                   <Text style={s.catName}>{d.name}</Text>
@@ -483,7 +500,7 @@ export default function UnplannedExpenseScreen({ navigation }: Props) {
                 <Text style={[s.fieldPlaceholder, { paddingVertical: 8 }]}>No options found.</Text>
               ) : null}
             </ScrollView>
-          </View>
+          </Animated.View>
         </View>
       </Modal>
 
@@ -492,12 +509,12 @@ export default function UnplannedExpenseScreen({ navigation }: Props) {
         visible={monthPickerOpen}
         transparent
         animationType="slide"
-        onRequestClose={() => setMonthPickerOpen(false)}
+        onRequestClose={closeMonthPicker}
       >
         <View style={s.modalOverlay}>
-          <Pressable style={s.modalBackdrop} onPress={() => setMonthPickerOpen(false)} />
-          <View style={s.modalSheet}>
-            <View style={s.sheetHandle} />
+          <Pressable style={s.modalBackdrop} onPress={closeMonthPicker} />
+          <Animated.View style={[s.modalSheet, { transform: [{ translateY: monthPickerDragY }] }]}>
+            <View style={s.sheetHandle} {...monthPickerPanHandlers} />
             <View style={s.pickerYearRow}>
               <Pressable onPress={() => setPickerYear((y) => y - 1)} hitSlop={12} style={s.pickerYearBtn}>
                 <Ionicons name="chevron-back" size={22} color={T.text} />
@@ -517,7 +534,7 @@ export default function UnplannedExpenseScreen({ navigation }: Props) {
                     onPress={() => {
                       setMonth(m);
                       setYear(pickerYear);
-                      setMonthPickerOpen(false);
+                      closeMonthPicker();
                     }}
                     style={[s.pickerCell, isSelected && s.pickerCellSelected]}
                   >
@@ -528,7 +545,7 @@ export default function UnplannedExpenseScreen({ navigation }: Props) {
                 );
               })}
             </View>
-          </View>
+          </Animated.View>
         </View>
       </Modal>
     </SafeAreaView>

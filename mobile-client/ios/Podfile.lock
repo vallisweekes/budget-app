@@ -1,32 +1,4 @@
 PODS:
-  - AsyncStorage (3.0.1):
-    - boost
-    - DoubleConversion
-    - fast_float
-    - fmt
-    - glog
-    - hermes-engine
-    - RCT-Folly
-    - RCT-Folly/Fabric
-    - RCTRequired
-    - RCTTypeSafety
-    - React-Core
-    - React-debug
-    - React-Fabric
-    - React-featureflags
-    - React-graphics
-    - React-ImageManager
-    - React-jsi
-    - React-NativeModulesApple
-    - React-RCTFabric
-    - React-renderercss
-    - React-rendererdebug
-    - React-utils
-    - ReactCodegen
-    - ReactCommon/turbomodule/bridging
-    - ReactCommon/turbomodule/core
-    - SocketRocket
-    - Yoga
   - boost (1.84.0)
   - BVLinearGradient (2.8.3):
     - React-Core
@@ -2413,7 +2385,9 @@ PODS:
     - React-perflogger (= 0.81.5)
     - React-utils (= 0.81.5)
     - SocketRocket
-  - RNDateTimePicker (8.6.0):
+  - RNCAsyncStorage (2.2.0):
+    - React-Core
+  - RNDateTimePicker (8.4.4):
     - React-Core
   - RNScreens (4.16.0):
     - boost
@@ -2450,7 +2424,6 @@ PODS:
   - Yoga (0.0.0)
 
 DEPENDENCIES:
-  - "AsyncStorage (from `../node_modules/@react-native-async-storage/async-storage`)"
   - boost (from `../node_modules/react-native/third-party-podspecs/boost.podspec`)
   - BVLinearGradient (from `../node_modules/react-native-linear-gradient`)
   - DoubleConversion (from `../node_modules/react-native/third-party-podspecs/DoubleConversion.podspec`)
@@ -2544,6 +2517,7 @@ DEPENDENCIES:
   - ReactAppDependencyProvider (from `build/generated/ios`)
   - ReactCodegen (from `build/generated/ios`)
   - ReactCommon/turbomodule/core (from `../node_modules/react-native/ReactCommon`)
+  - "RNCAsyncStorage (from `../node_modules/@react-native-async-storage/async-storage`)"
   - "RNDateTimePicker (from `../node_modules/@react-native-community/datetimepicker`)"
   - RNScreens (from `../node_modules/react-native-screens`)
   - RNSVG (from `../node_modules/react-native-svg`)
@@ -2556,8 +2530,6 @@ SPEC REPOS:
     - SocketRocket
 
 EXTERNAL SOURCES:
-  AsyncStorage:
-    :path: "../node_modules/@react-native-async-storage/async-storage"
   boost:
     :podspec: "../node_modules/react-native/third-party-podspecs/boost.podspec"
   BVLinearGradient:
@@ -2743,6 +2715,8 @@ EXTERNAL SOURCES:
     :path: build/generated/ios
   ReactCommon:
     :path: "../node_modules/react-native/ReactCommon"
+  RNCAsyncStorage:
+    :path: "../node_modules/@react-native-async-storage/async-storage"
   RNDateTimePicker:
     :path: "../node_modules/@react-native-community/datetimepicker"
   RNScreens:
@@ -2753,7 +2727,6 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native/ReactCommon/yoga"
 
 SPEC CHECKSUMS:
-  AsyncStorage: 6bfdd3bd33affac8f67b46b8dc19c7a156443d73
   boost: 7e761d76ca2ce687f7cc98e698152abd03a18f90
   BVLinearGradient: cb006ba232a1f3e4f341bb62c42d1098c284da70
   DoubleConversion: cb417026b2400c8f53ae97020b2be961b59470cb
@@ -2847,7 +2820,8 @@ SPEC CHECKSUMS:
   ReactAppDependencyProvider: 1bcd3527ac0390a1c898c114f81ff954be35ed79
   ReactCodegen: 6c26f8c25d0b5ae66f86a1cce1777076ac8bcbd8
   ReactCommon: 5f0e5c09a64a2717215dd84380e1a747810406f2
-  RNDateTimePicker: 39a7b97196b9daaa1d52d71fb835da924a9c5776
+  RNCAsyncStorage: b44e8a4e798c3e1f56bffccd0f591f674fb9198f
+  RNDateTimePicker: 7d93eacf4bdf56350e4b7efd5cfc47639185e10c
   RNScreens: 35525ebfe219c8709da0d26aebbc9a5e02e1077b
   RNSVG: d3f55b1e5f680744764389119f1cb7512058672b
   SocketRocket: d4aabe649be1e368d1318fdf28a022d714d65748

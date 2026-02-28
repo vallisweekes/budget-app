@@ -16,6 +16,7 @@ import {
 type DebtRow = {
 	id: string;
 	name: string;
+	logoUrl: string | null;
 	type: string;
 	creditLimit: unknown | null;
 	dueDay: number | null;
@@ -44,6 +45,7 @@ async function getDebtsRaw(budgetPlanId: string, id?: string): Promise<DebtItem[
 		SELECT
 			"id",
 			"name",
+			"logoUrl",
 			"type"::text AS "type",
 			"creditLimit",
 			"dueDay",

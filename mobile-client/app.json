@@ -15,12 +15,10 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0f282f"
+      "backgroundColor": "#2a0a9e"
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.budgetincheck.mobile",
-      "buildNumber": "1",
       "config": {
         "usesNonExemptEncryption": false
       },
@@ -33,7 +31,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0f282f"
+        "backgroundColor": "#2a0a9e"
       },
       "package": "com.budgetincheck.mobile",
       "edgeToEdgeEnabled": true,
@@ -54,7 +52,8 @@
           "photosPermission": "BudgetIn Check accesses your photo library to import receipts.",
           "cameraPermission": "BudgetIn Check uses your camera to scan receipts and auto-fill expense details."
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "extra": {
       "eas": {

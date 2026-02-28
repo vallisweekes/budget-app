@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
   Alert,
   Modal,
   Platform,
@@ -31,6 +32,7 @@ import type {
 } from "@/lib/apiTypes";
 import { currencySymbol } from "@/lib/formatting";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
+import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
 import { getStoredThemeMode, setStoredThemeMode } from "@/lib/storage";
 import { applyThemeMode, T, type ThemeMode } from "@/lib/theme";
 import { cardBase, cardElevated } from "@/lib/ui";
@@ -189,6 +191,58 @@ export default function SettingsScreen({ navigation }: MainTabScreenProps<"Setti
   const [savingsValueDraft, setSavingsValueDraft] = useState("");
 
   const [editDebtTarget, setEditDebtTarget] = useState<Debt | null>(null);
+
+  const closeDetailsSheet = useCallback(() => setDetailsSheetOpen(false), []);
+  const closeBudgetFieldSheet = useCallback(() => setBudgetFieldSheet(null), []);
+  const closeSavingsSheet = useCallback(() => setSavingsSheetField(null), []);
+  const closeEditDebtSheet = useCallback(() => setEditDebtTarget(null), []);
+  const closeLocaleSheet = useCallback(() => setLocaleSheetOpen(false), []);
+  const closeAddDebtSheet = useCallback(() => setAddDebtSheetOpen(false), []);
+  const closeCreatePlanSheet = useCallback(() => setCreatePlanSheetOpen(false), []);
+
+  const { dragY: detailsSheetDragY, panHandlers: detailsSheetPanHandlers, resetDrag: resetDetailsSheetDrag } = useSwipeDownToClose({
+    onClose: closeDetailsSheet,
+    disabled: saveBusy,
+  });
+
+  const { dragY: budgetFieldSheetDragY, panHandlers: budgetFieldSheetPanHandlers, resetDrag: resetBudgetFieldSheetDrag } = useSwipeDownToClose({
+    onClose: closeBudgetFieldSheet,
+    disabled: saveBusy,
+  });
+
+  const { dragY: savingsSheetDragY, panHandlers: savingsSheetPanHandlers, resetDrag: resetSavingsSheetDrag } = useSwipeDownToClose({
+    onClose: closeSavingsSheet,
+    disabled: saveBusy,
+  });
+
+  const { dragY: editDebtSheetDragY, panHandlers: editDebtSheetPanHandlers, resetDrag: resetEditDebtSheetDrag } = useSwipeDownToClose({
+    onClose: closeEditDebtSheet,
+    disabled: saveBusy,
+  });
+
+  const { dragY: localeSheetDragY, panHandlers: localeSheetPanHandlers, resetDrag: resetLocaleSheetDrag } = useSwipeDownToClose({
+    onClose: closeLocaleSheet,
+    disabled: saveBusy,
+  });
+
+  const { dragY: addDebtSheetDragY, panHandlers: addDebtSheetPanHandlers, resetDrag: resetAddDebtSheetDrag } = useSwipeDownToClose({
+    onClose: closeAddDebtSheet,
+    disabled: saveBusy,
+  });
+
+  const { dragY: createPlanSheetDragY, panHandlers: createPlanSheetPanHandlers, resetDrag: resetCreatePlanSheetDrag } = useSwipeDownToClose({
+    onClose: closeCreatePlanSheet,
+    disabled: saveBusy,
+  });
+
+  useEffect(() => { if (detailsSheetOpen) resetDetailsSheetDrag(); }, [detailsSheetOpen, resetDetailsSheetDrag]);
+  useEffect(() => { if (budgetFieldSheet !== null) resetBudgetFieldSheetDrag(); }, [budgetFieldSheet, resetBudgetFieldSheetDrag]);
+  useEffect(() => { if (savingsSheetField !== null) resetSavingsSheetDrag(); }, [resetSavingsSheetDrag, savingsSheetField]);
+  useEffect(() => { if (editDebtTarget) resetEditDebtSheetDrag(); }, [editDebtTarget, resetEditDebtSheetDrag]);
+  useEffect(() => { if (localeSheetOpen) resetLocaleSheetDrag(); }, [localeSheetOpen, resetLocaleSheetDrag]);
+  useEffect(() => { if (addDebtSheetOpen) resetAddDebtSheetDrag(); }, [addDebtSheetOpen, resetAddDebtSheetDrag]);
+  useEffect(() => { if (createPlanSheetOpen) resetCreatePlanSheetDrag(); }, [createPlanSheetOpen, resetCreatePlanSheetDrag]);
+
   const [editDebtName, setEditDebtName] = useState("");
   const [editDebtType, setEditDebtType] = useState<DebtKind>("credit_card");
   const [editDebtInitialBalance, setEditDebtInitialBalance] = useState("");
@@ -1220,27 +1274,29 @@ export default function SettingsScreen({ navigation }: MainTabScreenProps<"Setti
         </View>
       </Modal>
 
-      <Modal transparent visible={detailsSheetOpen} animationType="slide" onRequestClose={() => setDetailsSheetOpen(false)}>
+      <Modal transparent visible={detailsSheetOpen} animationType="slide" onRequestClose={closeDetailsSheet}>
         <View style={styles.sheetOverlay}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setDetailsSheetOpen(false)} />
-          <View style={styles.sheet}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={closeDetailsSheet} />
+          <Animated.View style={[styles.sheet, { transform: [{ translateY: detailsSheetDragY }] }]}>
+            <View style={styles.sheetHandle} {...detailsSheetPanHandlers} />
             <Text style={styles.sheetTitle}>Edit details</Text>
             <Text style={styles.label}>Username</Text>
             <TextInput value={profile?.username ?? authUsername ?? ""} editable={false} style={styles.inputDisabled} />
             <Text style={styles.label}>Email</Text>
             <TextInput value={emailDraft} onChangeText={setEmailDraft} style={styles.input} keyboardType="email-address" autoCapitalize="none" />
             <View style={styles.sheetActions}>
-              <Pressable style={styles.outlineBtnWide} onPress={() => setDetailsSheetOpen(false)}><Text style={styles.outlineBtnText}>Cancel</Text></Pressable>
+              <Pressable style={styles.outlineBtnWide} onPress={closeDetailsSheet}><Text style={styles.outlineBtnText}>Cancel</Text></Pressable>
               <Pressable style={[styles.primaryBtnWide, saveBusy && styles.disabled]} onPress={saveDetails} disabled={saveBusy}><Text style={styles.primaryBtnText}>{saveBusy ? "Saving…" : "Save"}</Text></Pressable>
             </View>
-          </View>
+          </Animated.View>
         </View>
       </Modal>
 
-      <Modal transparent visible={budgetFieldSheet !== null} animationType="slide" onRequestClose={() => setBudgetFieldSheet(null)}>
+      <Modal transparent visible={budgetFieldSheet !== null} animationType="slide" onRequestClose={closeBudgetFieldSheet}>
         <View style={styles.sheetOverlay}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setBudgetFieldSheet(null)} />
-          <View style={styles.sheet}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={closeBudgetFieldSheet} />
+          <Animated.View style={[styles.sheet, { transform: [{ translateY: budgetFieldSheetDragY }] }]}>
+            <View style={styles.sheetHandle} {...budgetFieldSheetPanHandlers} />
             <Text style={styles.sheetTitle}>{budgetFieldSheet === "payDate" ? "Edit pay date" : "Edit budget horizon"}</Text>
             {budgetFieldSheet === "payDate" ? (
               <>
@@ -1255,33 +1311,35 @@ export default function SettingsScreen({ navigation }: MainTabScreenProps<"Setti
               </>
             ) : null}
             <View style={styles.sheetActions}>
-              <Pressable style={styles.outlineBtnWide} onPress={() => setBudgetFieldSheet(null)}><Text style={styles.outlineBtnText}>Cancel</Text></Pressable>
+              <Pressable style={styles.outlineBtnWide} onPress={closeBudgetFieldSheet}><Text style={styles.outlineBtnText}>Cancel</Text></Pressable>
               <Pressable style={[styles.primaryBtnWide, saveBusy && styles.disabled]} onPress={saveBudgetField} disabled={saveBusy}><Text style={styles.primaryBtnText}>{saveBusy ? "Saving…" : "Save"}</Text></Pressable>
             </View>
-          </View>
+          </Animated.View>
         </View>
       </Modal>
 
-      <Modal transparent visible={savingsSheetField !== null} animationType="slide" onRequestClose={() => setSavingsSheetField(null)}>
+      <Modal transparent visible={savingsSheetField !== null} animationType="slide" onRequestClose={closeSavingsSheet}>
         <View style={styles.sheetOverlay}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setSavingsSheetField(null)} />
-          <View style={styles.sheet}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={closeSavingsSheet} />
+          <Animated.View style={[styles.sheet, { transform: [{ translateY: savingsSheetDragY }] }]}>
+            <View style={styles.sheetHandle} {...savingsSheetPanHandlers} />
             <Text style={styles.sheetTitle}>Add to {savingsSheetField ?? ""} balance</Text>
             <Text style={styles.label}>Additional amount</Text>
             <TextInput value={savingsValueDraft} onChangeText={setSavingsValueDraft} style={styles.input} keyboardType="decimal-pad" />
             <Text style={styles.muted}>This adds to your current balance and updates matching goal progress.</Text>
             <View style={styles.sheetActions}>
-              <Pressable style={styles.outlineBtnWide} onPress={() => setSavingsSheetField(null)}><Text style={styles.outlineBtnText}>Cancel</Text></Pressable>
+              <Pressable style={styles.outlineBtnWide} onPress={closeSavingsSheet}><Text style={styles.outlineBtnText}>Cancel</Text></Pressable>
               <Pressable style={[styles.primaryBtnWide, saveBusy && styles.disabled]} onPress={saveSavingsField} disabled={saveBusy}><Text style={styles.primaryBtnText}>{saveBusy ? "Saving…" : "Add"}</Text></Pressable>
             </View>
-          </View>
+          </Animated.View>
         </View>
       </Modal>
 
-      <Modal transparent visible={!!editDebtTarget} animationType="slide" onRequestClose={() => setEditDebtTarget(null)}>
+      <Modal transparent visible={!!editDebtTarget} animationType="slide" onRequestClose={closeEditDebtSheet}>
         <View style={styles.sheetOverlay}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setEditDebtTarget(null)} />
-          <View style={styles.sheet}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={closeEditDebtSheet} />
+          <Animated.View style={[styles.sheet, { transform: [{ translateY: editDebtSheetDragY }] }]}>
+            <View style={styles.sheetHandle} {...editDebtSheetPanHandlers} />
             <Text style={styles.sheetTitle}>Edit card / loan</Text>
             <Text style={styles.label}>Type</Text>
             <View style={styles.choiceRow}>
@@ -1363,33 +1421,35 @@ export default function SettingsScreen({ navigation }: MainTabScreenProps<"Setti
               </>
             ) : null}
             <View style={styles.sheetActions}>
-              <Pressable style={styles.outlineBtnWide} onPress={() => setEditDebtTarget(null)}><Text style={styles.outlineBtnText}>Cancel</Text></Pressable>
+              <Pressable style={styles.outlineBtnWide} onPress={closeEditDebtSheet}><Text style={styles.outlineBtnText}>Cancel</Text></Pressable>
               <Pressable style={[styles.primaryBtnWide, saveBusy && styles.disabled]} onPress={saveDebtEdit} disabled={saveBusy}><Text style={styles.primaryBtnText}>{saveBusy ? "Saving…" : "Save"}</Text></Pressable>
             </View>
-          </View>
+          </Animated.View>
         </View>
       </Modal>
 
-      <Modal transparent visible={localeSheetOpen} animationType="slide" onRequestClose={() => setLocaleSheetOpen(false)}>
+      <Modal transparent visible={localeSheetOpen} animationType="slide" onRequestClose={closeLocaleSheet}>
         <View style={styles.sheetOverlay}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setLocaleSheetOpen(false)} />
-          <View style={styles.sheet}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={closeLocaleSheet} />
+          <Animated.View style={[styles.sheet, { transform: [{ translateY: localeSheetDragY }] }]}>
+            <View style={styles.sheetHandle} {...localeSheetPanHandlers} />
             <Text style={styles.sheetTitle}>Edit locale</Text>
             <Text style={styles.label}>Country code</Text>
             <TextInput value={countryDraft} onChangeText={(v) => setCountryDraft(v.toUpperCase())} style={styles.input} autoCapitalize="characters" maxLength={3} />
             <Text style={styles.muted}>Detected country: {detectedCountry ?? "Unknown"}</Text>
             <View style={styles.sheetActions}>
-              <Pressable style={styles.outlineBtnWide} onPress={() => setLocaleSheetOpen(false)}><Text style={styles.outlineBtnText}>Cancel</Text></Pressable>
+              <Pressable style={styles.outlineBtnWide} onPress={closeLocaleSheet}><Text style={styles.outlineBtnText}>Cancel</Text></Pressable>
               <Pressable style={[styles.primaryBtnWide, saveBusy && styles.disabled]} onPress={() => { void saveCountry(); }} disabled={saveBusy}><Text style={styles.primaryBtnText}>{saveBusy ? "Saving…" : "Save"}</Text></Pressable>
             </View>
-          </View>
+          </Animated.View>
         </View>
       </Modal>
 
-      <Modal transparent visible={addDebtSheetOpen} animationType="slide" onRequestClose={() => setAddDebtSheetOpen(false)}>
+      <Modal transparent visible={addDebtSheetOpen} animationType="slide" onRequestClose={closeAddDebtSheet}>
         <View style={styles.sheetOverlay}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setAddDebtSheetOpen(false)} />
-          <View style={styles.sheet}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={closeAddDebtSheet} />
+          <Animated.View style={[styles.sheet, { transform: [{ translateY: addDebtSheetDragY }] }]}>
+            <View style={styles.sheetHandle} {...addDebtSheetPanHandlers} />
             <Text style={styles.sheetTitle}>Add card / loan / hire purchase</Text>
             <Text style={styles.label}>Type</Text>
             <View style={styles.choiceRow}>
@@ -1471,17 +1531,18 @@ export default function SettingsScreen({ navigation }: MainTabScreenProps<"Setti
               </>
             ) : null}
             <View style={styles.sheetActions}>
-              <Pressable style={styles.outlineBtnWide} onPress={() => setAddDebtSheetOpen(false)}><Text style={styles.outlineBtnText}>Cancel</Text></Pressable>
+              <Pressable style={styles.outlineBtnWide} onPress={closeAddDebtSheet}><Text style={styles.outlineBtnText}>Cancel</Text></Pressable>
               <Pressable style={[styles.primaryBtnWide, saveBusy && styles.disabled]} onPress={addDebt} disabled={saveBusy}><Text style={styles.primaryBtnText}>{saveBusy ? "Saving…" : "Add"}</Text></Pressable>
             </View>
-          </View>
+          </Animated.View>
         </View>
       </Modal>
 
-      <Modal transparent visible={createPlanSheetOpen} animationType="slide" onRequestClose={() => setCreatePlanSheetOpen(false)}>
+      <Modal transparent visible={createPlanSheetOpen} animationType="slide" onRequestClose={closeCreatePlanSheet}>
         <View style={styles.sheetOverlay}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setCreatePlanSheetOpen(false)} />
-          <View style={styles.sheet}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={closeCreatePlanSheet} />
+          <Animated.View style={[styles.sheet, { transform: [{ translateY: createPlanSheetDragY }] }]}>
+            <View style={styles.sheetHandle} {...createPlanSheetPanHandlers} />
             <Text style={styles.sheetTitle}>Create sub plan</Text>
             <Text style={styles.label}>Type</Text>
             <View style={styles.choiceRow}>
@@ -1521,10 +1582,10 @@ export default function SettingsScreen({ navigation }: MainTabScreenProps<"Setti
               </View>
             ) : null}
             <View style={styles.sheetActions}>
-              <Pressable style={styles.outlineBtnWide} onPress={() => setCreatePlanSheetOpen(false)}><Text style={styles.outlineBtnText}>Cancel</Text></Pressable>
+              <Pressable style={styles.outlineBtnWide} onPress={closeCreatePlanSheet}><Text style={styles.outlineBtnText}>Cancel</Text></Pressable>
               <Pressable style={[styles.primaryBtnWide, saveBusy && styles.disabled]} onPress={createSubPlan} disabled={saveBusy}><Text style={styles.primaryBtnText}>{saveBusy ? "Creating…" : "Create"}</Text></Pressable>
             </View>
-          </View>
+          </Animated.View>
         </View>
       </Modal>
 
@@ -2012,6 +2073,14 @@ const styles = StyleSheet.create({
     paddingTop: 14,
     paddingBottom: 20,
     gap: 8,
+  },
+  sheetHandle: {
+    alignSelf: "center",
+    width: 46,
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: T.border,
+    marginBottom: 4,
   },
   sheetTitle: { color: T.text, fontSize: 18, fontWeight: "900", marginBottom: 6 },
   label: { color: T.textDim, fontSize: 12, fontWeight: "800" },

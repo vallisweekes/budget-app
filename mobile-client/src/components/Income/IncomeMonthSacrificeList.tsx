@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   ActivityIndicator,
+  Animated,
   FlatList,
   KeyboardAvoidingView,
   Modal,
@@ -19,6 +20,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import type { IncomeSacrificeData } from "@/lib/apiTypes";
 import { fmt, MONTH_NAMES_LONG } from "@/lib/formatting";
+import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
 import { T } from "@/lib/theme";
 import { s } from "@/screens/income-month/incomeMonthScreenStyles";
 import IncomeSacrificePieChart from "@/components/Income/IncomeSacrificePieChart";
@@ -107,6 +109,40 @@ export default function IncomeMonthSacrificeList(props: Props) {
   const [newItemName, setNewItemName] = useState("");
   const [linkTargetKey, setLinkTargetKey] = useState("");
   const [linkGoalId, setLinkGoalId] = useState<string>("");
+
+  const closeAmountSheet = useCallback(() => setAmountSheetOpen(false), []);
+  const closeAddItemSheet = useCallback(() => setAddItemSheetOpen(false), []);
+  const closeLinkSheet = useCallback(() => setLinkSheetOpen(false), []);
+
+  const {
+    dragY: amountSheetDragY,
+    panHandlers: amountSheetPanHandlers,
+    resetDrag: resetAmountSheetDrag,
+  } = useSwipeDownToClose({ onClose: closeAmountSheet, disabled: props.sacrificeSaving });
+
+  const {
+    dragY: addItemSheetDragY,
+    panHandlers: addItemSheetPanHandlers,
+    resetDrag: resetAddItemSheetDrag,
+  } = useSwipeDownToClose({ onClose: closeAddItemSheet, disabled: props.sacrificeCreating });
+
+  const {
+    dragY: linkSheetDragY,
+    panHandlers: linkSheetPanHandlers,
+    resetDrag: resetLinkSheetDrag,
+  } = useSwipeDownToClose({ onClose: closeLinkSheet, disabled: props.goalLinkSaving });
+
+  useEffect(() => {
+    if (amountSheetOpen) resetAmountSheetDrag();
+  }, [amountSheetOpen, resetAmountSheetDrag]);
+
+  useEffect(() => {
+    if (addItemSheetOpen) resetAddItemSheetDrag();
+  }, [addItemSheetOpen, resetAddItemSheetDrag]);
+
+  useEffect(() => {
+    if (linkSheetOpen) resetLinkSheetDrag();
+  }, [linkSheetOpen, resetLinkSheetDrag]);
 
   const targets = useMemo<TargetOption[]>(() => {
     const fixed = props.sacrifice?.fixed;
@@ -413,14 +449,14 @@ export default function IncomeMonthSacrificeList(props: Props) {
         renderItem={() => null}
       />
 
-      <Modal visible={amountSheetOpen} transparent animationType="slide" onRequestClose={() => setAmountSheetOpen(false)}>
+      <Modal visible={amountSheetOpen} transparent animationType="slide" onRequestClose={closeAmountSheet}>
         <KeyboardAvoidingView style={local.sheetOverlay} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-          <Pressable style={local.sheetBackdrop} onPress={() => setAmountSheetOpen(false)} />
-          <View style={[local.sheetCard, { paddingTop: Math.max(14, insets.top + 8) }]}>
-            <View style={local.sheetHandle} />
+          <Pressable style={local.sheetBackdrop} onPress={closeAmountSheet} />
+          <Animated.View style={[local.sheetCard, { paddingTop: Math.max(14, insets.top + 8), transform: [{ translateY: amountSheetDragY }] }]}>
+            <View style={local.sheetHandle} {...amountSheetPanHandlers} />
             <View style={local.sheetHeaderRow}>
               <Text style={local.sheetTitle}>Set sacrifice amount</Text>
-              <Pressable style={local.sheetCloseBtn} onPress={() => setAmountSheetOpen(false)}>
+              <Pressable style={local.sheetCloseBtn} onPress={closeAmountSheet}>
                 <Ionicons name="close" size={18} color={T.text} />
               </Pressable>
             </View>
@@ -506,18 +542,18 @@ export default function IncomeMonthSacrificeList(props: Props) {
             <Pressable style={[local.primaryBtn, props.sacrificeSaving && local.disabled]} onPress={submitAmountSheet} disabled={props.sacrificeSaving}>
               <Text style={local.primaryBtnText}>{props.sacrificeSaving ? "Saving..." : "Save amount"}</Text>
             </Pressable>
-          </View>
+          </Animated.View>
         </KeyboardAvoidingView>
       </Modal>
 
-      <Modal visible={addItemSheetOpen} transparent animationType="slide" onRequestClose={() => setAddItemSheetOpen(false)}>
+      <Modal visible={addItemSheetOpen} transparent animationType="slide" onRequestClose={closeAddItemSheet}>
         <KeyboardAvoidingView style={local.sheetOverlay} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-          <Pressable style={local.sheetBackdrop} onPress={() => setAddItemSheetOpen(false)} />
-          <View style={[local.sheetCard, { paddingTop: Math.max(14, insets.top + 8) }]}>
-            <View style={local.sheetHandle} />
+          <Pressable style={local.sheetBackdrop} onPress={closeAddItemSheet} />
+          <Animated.View style={[local.sheetCard, { paddingTop: Math.max(14, insets.top + 8), transform: [{ translateY: addItemSheetDragY }] }]}>
+            <View style={local.sheetHandle} {...addItemSheetPanHandlers} />
             <View style={local.sheetHeaderRow}>
               <Text style={local.sheetTitle}>Add sacrifice item</Text>
-              <Pressable style={local.sheetCloseBtn} onPress={() => setAddItemSheetOpen(false)}>
+              <Pressable style={local.sheetCloseBtn} onPress={closeAddItemSheet}>
                 <Ionicons name="close" size={18} color={T.text} />
               </Pressable>
             </View>
@@ -543,18 +579,18 @@ export default function IncomeMonthSacrificeList(props: Props) {
             <Pressable style={[local.primaryBtn, props.sacrificeCreating && local.disabled]} onPress={submitAddItemSheet} disabled={props.sacrificeCreating}>
               <Text style={local.primaryBtnText}>{props.sacrificeCreating ? "Saving..." : "Create item"}</Text>
             </Pressable>
-          </View>
+          </Animated.View>
         </KeyboardAvoidingView>
       </Modal>
 
-      <Modal visible={linkSheetOpen} transparent animationType="slide" onRequestClose={() => setLinkSheetOpen(false)}>
+      <Modal visible={linkSheetOpen} transparent animationType="slide" onRequestClose={closeLinkSheet}>
         <KeyboardAvoidingView style={local.sheetOverlay} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-          <Pressable style={local.sheetBackdrop} onPress={() => setLinkSheetOpen(false)} />
-          <View style={[local.sheetCard, { paddingTop: Math.max(14, insets.top + 8) }]}>
-            <View style={local.sheetHandle} />
+          <Pressable style={local.sheetBackdrop} onPress={closeLinkSheet} />
+          <Animated.View style={[local.sheetCard, { paddingTop: Math.max(14, insets.top + 8), transform: [{ translateY: linkSheetDragY }] }]}>
+            <View style={local.sheetHandle} {...linkSheetPanHandlers} />
             <View style={local.sheetHeaderRow}>
               <Text style={local.sheetTitle}>Link sacrifice to goal</Text>
-              <Pressable style={local.sheetCloseBtn} onPress={() => setLinkSheetOpen(false)}>
+              <Pressable style={local.sheetCloseBtn} onPress={closeLinkSheet}>
                 <Ionicons name="close" size={18} color={T.text} />
               </Pressable>
             </View>
@@ -584,7 +620,7 @@ export default function IncomeMonthSacrificeList(props: Props) {
             <Pressable style={[local.primaryBtn, props.goalLinkSaving && local.disabled]} onPress={submitGoalLink} disabled={props.goalLinkSaving}>
               <Text style={local.primaryBtnText}>{props.goalLinkSaving ? "Saving..." : "Save link"}</Text>
             </Pressable>
-          </View>
+          </Animated.View>
         </KeyboardAvoidingView>
       </Modal>
     </>

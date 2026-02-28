@@ -21,6 +21,7 @@ export async function resolveBudgetYear(budgetPlanId: string): Promise<number> {
 type DebtRowLike = {
 	id: string;
 	name: string;
+	logoUrl?: string | null;
 	type: DebtItem["type"] | string;
 	creditLimit?: unknown | null;
 	dueDay?: number | null;
@@ -50,6 +51,7 @@ export function serializeDebt(row: DebtRowLike): DebtItem {
 	return {
 		id: row.id,
 		name: row.name,
+		logoUrl: typeof row.logoUrl === "string" && row.logoUrl.trim() ? row.logoUrl : undefined,
 		type: row.type as DebtItem["type"],
 		creditLimit: row.creditLimit == null ? undefined : decimalToNumber(row.creditLimit),
 		dueDay: row.dueDay == null ? undefined : Number(row.dueDay),

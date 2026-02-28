@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useEffect, useRef } from "react";
 import {
   ActivityIndicator,
+  Animated,
   Dimensions,
   KeyboardAvoidingView,
   Modal,
@@ -18,6 +19,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { T } from "@/lib/theme";
 import MoneyInput from "@/components/Shared/MoneyInput";
 import { cardBase } from "@/lib/ui";
+import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
 
 const SCREEN_W = Dimensions.get("window").width;
 
@@ -203,6 +205,8 @@ export default function IncomeEditSheet({
     return Math.round((val / totalIncome) * 100);
   }, [amount, totalIncome]);
 
+  const { dragY, panHandlers } = useSwipeDownToClose({ onClose: onCancel, disabled: saving });
+
   return (
     <Modal
       visible={visible}
@@ -212,13 +216,13 @@ export default function IncomeEditSheet({
       onRequestClose={onCancel}
     >
       <View style={s.overlay}>
-        <View style={s.sheet}>
+        <Animated.View style={[s.sheet, { transform: [{ translateY: dragY }] }]}>
           <SafeAreaView style={s.safe} edges={["top", "bottom"]}>
             <KeyboardAvoidingView
               style={{ flex: 1 }}
               behavior={Platform.OS === "ios" ? "padding" : undefined}
             >
-              <View style={s.handle} />
+              <View style={s.handle} {...panHandlers} />
 
               <View style={s.content}>
                 {/* Name — input in edit mode only */}
@@ -348,7 +352,7 @@ export default function IncomeEditSheet({
               </View>
             </KeyboardAvoidingView>
           </SafeAreaView>
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   );

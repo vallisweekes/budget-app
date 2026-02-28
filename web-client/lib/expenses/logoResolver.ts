@@ -142,6 +142,7 @@ const KNOWN_DOMAINS: Array<{ pattern: RegExp; domain: string }> = [
   { pattern: /\bfigma\b/i,                            domain: "figma.com" },
   { pattern: /\bgithub\b/i,                           domain: "github.com" },
   { pattern: /\bsiteground\b|site\s*ground\b/i,       domain: "siteground.com" },
+  { pattern: /\bgo\s*-?\s*daddy\b|\bgodaddy\b/i,      domain: "godaddy.com" },
   { pattern: /\bwoo\s*commerce\b/i,                   domain: "woocommerce.com" },
   { pattern: /\bshopify\b/i,                          domain: "shopify.com" },
   { pattern: /\bwordpress\b/i,                        domain: "wordpress.com" },

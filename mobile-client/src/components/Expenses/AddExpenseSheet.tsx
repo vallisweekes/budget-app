@@ -10,7 +10,7 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
-  KeyboardAvoidingView,
+  Keyboard,
   Modal,
   Platform,
   Pressable,
@@ -22,6 +22,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
 import { apiFetch } from "@/lib/api";
+import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
 import type {
   BudgetPlanListItem,
   Category,
@@ -73,6 +74,9 @@ export default function AddExpenseSheet({
 }: Props) {
   const insets = useSafeAreaInsets();
   const slideY = useRef(new Animated.Value(ADD_EXPENSE_SHEET_SCREEN_H ?? SCREEN_H)).current;
+
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
@@ -131,6 +135,27 @@ export default function AddExpenseSheet({
   const [planDropdownOpen, setPlanDropdownOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const { dragY, panHandlers } = useSwipeDownToClose({ onClose, disabled: submitting });
+
+  useEffect(() => {
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+
+    const subShow = Keyboard.addListener(showEvent, (e) => {
+      setKeyboardVisible(true);
+      setKeyboardHeight(e?.endCoordinates?.height ?? 0);
+    });
+    const subHide = Keyboard.addListener(hideEvent, () => {
+      setKeyboardVisible(false);
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      subShow.remove();
+      subHide.remove();
+    };
+  }, []);
 
   // Animate in / out
   useEffect(() => {
@@ -345,10 +370,7 @@ export default function AddExpenseSheet({
       presentationStyle="overFullScreen"
       onRequestClose={onClose}
     >
-      <KeyboardAvoidingView
-        style={s.overlay}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
+      <View style={s.overlay}>
         {/* Backdrop */}
         <Pressable style={s.backdrop} onPress={onClose} />
 
@@ -356,11 +378,13 @@ export default function AddExpenseSheet({
         <Animated.View
           style={[
             s.sheet,
-            { paddingBottom: insets.bottom + 24, transform: [{ translateY: slideY }] },
+            {
+              transform: [{ translateY: Animated.add(slideY, dragY) }],
+            },
           ]}
         >
           {/* Handle */}
-          <View style={s.handle} />
+          <View style={s.handle} {...panHandlers} />
 
           {/* Header */}
           <AddExpenseSheetHeader
@@ -505,7 +529,14 @@ export default function AddExpenseSheet({
           </ScrollView>
 
           {/* Footer pinned below the scroll */}
-          <View style={{ paddingHorizontal: 20, paddingTop: 12 }}>
+          <View
+            style={{
+              paddingHorizontal: 20,
+              paddingTop: 12,
+              paddingBottom: insets.bottom + 24,
+              marginBottom: keyboardVisible ? Math.max(0, keyboardHeight - insets.bottom + 8) : 0,
+            }}
+          >
             <AddExpenseSheetFooter
               error={error}
               canSubmit={canSubmit}
@@ -514,7 +545,7 @@ export default function AddExpenseSheet({
             />
           </View>
         </Animated.View>
-      </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }

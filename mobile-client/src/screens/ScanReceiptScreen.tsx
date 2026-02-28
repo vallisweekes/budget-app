@@ -38,6 +38,7 @@ import type {
   ReceiptConfirmBody,
 } from "@/lib/apiTypes";
 import { currencySymbol, fmt } from "@/lib/formatting";
+import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 import { T } from "@/lib/theme";
 import type { ExpensesStackParamList } from "@/navigation/types";
@@ -123,6 +124,33 @@ export default function ScanReceiptScreen({ navigation }: Props) {
   const [debtPickerOpen, setDebtPickerOpen] = useState(false);
   const [monthPickerOpen, setMonthPickerOpen] = useState(false);
   const [pickerYear,      setPickerYear]      = useState(year);
+
+  const closeCatPicker = useCallback(() => setCatPickerOpen(false), []);
+  const closeFundingPicker = useCallback(() => setFundingPickerOpen(false), []);
+  const closeDebtPicker = useCallback(() => setDebtPickerOpen(false), []);
+  const closeMonthPicker = useCallback(() => setMonthPickerOpen(false), []);
+
+  const { dragY: catPickerDragY, panHandlers: catPickerPanHandlers, resetDrag: resetCatPickerDrag } = useSwipeDownToClose({
+    onClose: closeCatPicker,
+    disabled: stage === "saving",
+  });
+  const { dragY: fundingPickerDragY, panHandlers: fundingPickerPanHandlers, resetDrag: resetFundingPickerDrag } = useSwipeDownToClose({
+    onClose: closeFundingPicker,
+    disabled: stage === "saving",
+  });
+  const { dragY: debtPickerDragY, panHandlers: debtPickerPanHandlers, resetDrag: resetDebtPickerDrag } = useSwipeDownToClose({
+    onClose: closeDebtPicker,
+    disabled: stage === "saving",
+  });
+  const { dragY: monthPickerDragY, panHandlers: monthPickerPanHandlers, resetDrag: resetMonthPickerDrag } = useSwipeDownToClose({
+    onClose: closeMonthPicker,
+    disabled: stage === "saving",
+  });
+
+  useEffect(() => { if (catPickerOpen) resetCatPickerDrag(); }, [catPickerOpen, resetCatPickerDrag]);
+  useEffect(() => { if (fundingPickerOpen) resetFundingPickerDrag(); }, [fundingPickerOpen, resetFundingPickerDrag]);
+  useEffect(() => { if (debtPickerOpen) resetDebtPickerDrag(); }, [debtPickerOpen, resetDebtPickerDrag]);
+  useEffect(() => { if (monthPickerOpen) resetMonthPickerDrag(); }, [monthPickerOpen, resetMonthPickerDrag]);
 
   /* ── Scanning shimmer ────────────────────────────────────── */
   const shimmer = useRef(new Animated.Value(0)).current;
@@ -474,16 +502,16 @@ export default function ScanReceiptScreen({ navigation }: Props) {
         </KeyboardAvoidingView>
 
         {/* Category picker */}
-        <Modal visible={catPickerOpen} transparent animationType="slide" onRequestClose={() => setCatPickerOpen(false)}>
+        <Modal visible={catPickerOpen} transparent animationType="slide" onRequestClose={closeCatPicker}>
           <View style={s.modalOverlay}>
-            <Pressable style={s.modalBackdrop} onPress={() => setCatPickerOpen(false)} />
-            <View style={s.modalSheet}>
-              <View style={s.sheetHandle} />
+            <Pressable style={s.modalBackdrop} onPress={closeCatPicker} />
+            <Animated.View style={[s.modalSheet, { transform: [{ translateY: catPickerDragY }] }]}>
+              <View style={s.sheetHandle} {...catPickerPanHandlers} />
               <Text style={s.sheetTitle}>Category</Text>
               <ScrollView contentContainerStyle={s.catList}>
                 <Pressable
                   style={[s.catRow, !categoryId && s.catRowSelected]}
-                  onPress={() => { setCategoryId(""); setCatPickerOpen(false); }}
+                  onPress={() => { setCategoryId(""); closeCatPicker(); }}
                 >
                   <View style={[s.catDot, { backgroundColor: T.border }]} />
                   <Text style={s.catName}>None</Text>
@@ -493,7 +521,7 @@ export default function ScanReceiptScreen({ navigation }: Props) {
                   <Pressable
                     key={c.id}
                     style={[s.catRow, categoryId === c.id && s.catRowSelected]}
-                    onPress={() => { setCategoryId(c.id); setCatPickerOpen(false); }}
+                    onPress={() => { setCategoryId(c.id); closeCatPicker(); }}
                   >
                     <View style={[s.catDot, { backgroundColor: c.color ?? T.accentDim }]} />
                     <Text style={s.catName}>{c.name}</Text>
@@ -501,15 +529,15 @@ export default function ScanReceiptScreen({ navigation }: Props) {
                   </Pressable>
                 ))}
               </ScrollView>
-            </View>
+            </Animated.View>
           </View>
         </Modal>
 
-        <Modal visible={fundingPickerOpen} transparent animationType="slide" onRequestClose={() => setFundingPickerOpen(false)}>
+        <Modal visible={fundingPickerOpen} transparent animationType="slide" onRequestClose={closeFundingPicker}>
           <View style={s.modalOverlay}>
-            <Pressable style={s.modalBackdrop} onPress={() => setFundingPickerOpen(false)} />
-            <View style={s.modalSheet}>
-              <View style={s.sheetHandle} />
+            <Pressable style={s.modalBackdrop} onPress={closeFundingPicker} />
+            <Animated.View style={[s.modalSheet, { transform: [{ translateY: fundingPickerDragY }] }]}>
+              <View style={s.sheetHandle} {...fundingPickerPanHandlers} />
               <Text style={s.sheetTitle}>Funds From</Text>
               <ScrollView contentContainerStyle={s.catList}>
                 {FUNDING_OPTIONS.map((opt) => (
@@ -518,7 +546,7 @@ export default function ScanReceiptScreen({ navigation }: Props) {
                     style={[s.catRow, fundingSource === opt.value && s.catRowSelected]}
                     onPress={() => {
                       setFundingSource(opt.value);
-                      setFundingPickerOpen(false);
+                      closeFundingPicker();
                     }}
                   >
                     <Text style={s.catName}>{opt.label}</Text>
@@ -526,15 +554,15 @@ export default function ScanReceiptScreen({ navigation }: Props) {
                   </Pressable>
                 ))}
               </ScrollView>
-            </View>
+            </Animated.View>
           </View>
         </Modal>
 
-        <Modal visible={debtPickerOpen} transparent animationType="slide" onRequestClose={() => setDebtPickerOpen(false)}>
+        <Modal visible={debtPickerOpen} transparent animationType="slide" onRequestClose={closeDebtPicker}>
           <View style={s.modalOverlay}>
-            <Pressable style={s.modalBackdrop} onPress={() => setDebtPickerOpen(false)} />
-            <View style={s.modalSheet}>
-              <View style={s.sheetHandle} />
+            <Pressable style={s.modalBackdrop} onPress={closeDebtPicker} />
+            <Animated.View style={[s.modalSheet, { transform: [{ translateY: debtPickerDragY }] }]}>
+              <View style={s.sheetHandle} {...debtPickerPanHandlers} />
               <Text style={s.sheetTitle}>{fundingSource === "credit_card" ? "Choose Card" : "Choose Loan"}</Text>
               <ScrollView contentContainerStyle={s.catList}>
                 {fundingSource === "loan" ? (
@@ -542,7 +570,7 @@ export default function ScanReceiptScreen({ navigation }: Props) {
                     style={[s.catRow, selectedDebtId === NEW_LOAN_SENTINEL && s.catRowSelected]}
                     onPress={() => {
                       setSelectedDebtId(NEW_LOAN_SENTINEL);
-                      setDebtPickerOpen(false);
+                      closeDebtPicker();
                     }}
                   >
                     <Text style={s.catName}>+ Create new loan</Text>
@@ -555,7 +583,7 @@ export default function ScanReceiptScreen({ navigation }: Props) {
                     style={[s.catRow, selectedDebtId === d.id && s.catRowSelected]}
                     onPress={() => {
                       setSelectedDebtId(d.id);
-                      setDebtPickerOpen(false);
+                      closeDebtPicker();
                     }}
                   >
                     <Text style={s.catName}>{d.name}</Text>
@@ -566,16 +594,16 @@ export default function ScanReceiptScreen({ navigation }: Props) {
                   <Text style={[s.fieldPlaceholder, { paddingVertical: 8 }]}>No options found.</Text>
                 ) : null}
               </ScrollView>
-            </View>
+            </Animated.View>
           </View>
         </Modal>
 
         {/* Month picker */}
-        <Modal visible={monthPickerOpen} transparent animationType="slide" onRequestClose={() => setMonthPickerOpen(false)}>
+        <Modal visible={monthPickerOpen} transparent animationType="slide" onRequestClose={closeMonthPicker}>
           <View style={s.modalOverlay}>
-            <Pressable style={s.modalBackdrop} onPress={() => setMonthPickerOpen(false)} />
-            <View style={s.modalSheet}>
-              <View style={s.sheetHandle} />
+            <Pressable style={s.modalBackdrop} onPress={closeMonthPicker} />
+            <Animated.View style={[s.modalSheet, { transform: [{ translateY: monthPickerDragY }] }]}>
+              <View style={s.sheetHandle} {...monthPickerPanHandlers} />
               <View style={s.pickerYearRow}>
                 <Pressable onPress={() => setPickerYear((y) => y - 1)} hitSlop={12} style={s.pickerYearBtn}>
                   <Ionicons name="chevron-back" size={22} color={T.text} />
@@ -592,7 +620,7 @@ export default function ScanReceiptScreen({ navigation }: Props) {
                   return (
                     <Pressable
                       key={m}
-                      onPress={() => { setMonth(m); setYear(pickerYear); setMonthPickerOpen(false); }}
+                      onPress={() => { setMonth(m); setYear(pickerYear); closeMonthPicker(); }}
                       style={[s.pickerCell, isSelected && s.pickerCellSelected]}
                     >
                       <Text style={[s.pickerCellText, isSelected && s.pickerCellSelectedText]}>{mName}</Text>
@@ -600,7 +628,7 @@ export default function ScanReceiptScreen({ navigation }: Props) {
                   );
                 })}
               </View>
-            </View>
+            </Animated.View>
           </View>
         </Modal>
       </SafeAreaView>
