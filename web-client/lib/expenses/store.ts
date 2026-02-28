@@ -294,6 +294,34 @@ export async function addOrUpdateExpenseAcrossMonths(
 	const targetMonths = Array.from(new Set(months));
 	const targetName = normalizeExpenseName(item.name);
   const logo = resolveExpenseLogo(targetName, toOptionalString((item as { merchantDomain?: unknown }).merchantDomain));
+
+  // Prefer an explicit seriesKey if provided. Fall back to `item.id` as a legacy
+  // shared identifier used by the financial engine when distributing across months.
+  const inputSeriesKey = normalizeSeriesKey(
+    toOptionalString((item as { seriesKey?: unknown }).seriesKey) ??
+      toOptionalString((item as { id?: unknown }).id) ??
+      ""
+  );
+  let seedSeriesKey: string | null = inputSeriesKey || null;
+  if (!seedSeriesKey) {
+    const existingSeries = await prisma.expense.findFirst({
+      where: {
+        budgetPlanId,
+        seriesKey: { not: null },
+        categoryId: item.categoryId ?? null,
+        OR: [
+          { name: { equals: targetName, mode: "insensitive" } },
+          ...(logo.merchantDomain
+            ? [{ merchantDomain: { equals: logo.merchantDomain, mode: "insensitive" as const } }]
+            : []),
+        ],
+      },
+      orderBy: [{ year: "desc" }, { month: "desc" }, { createdAt: "desc" }],
+      select: { seriesKey: true },
+    });
+    seedSeriesKey = existingSeries?.seriesKey ? normalizeSeriesKey(existingSeries.seriesKey) : null;
+  }
+  if (!seedSeriesKey) seedSeriesKey = normalizeSeriesKey(logo.merchantDomain ?? targetName);
 	const paymentSource = (item as any).paymentSource ?? "income";
 	const cardDebtId = (item as any).cardDebtId ?? null;
 
@@ -306,19 +334,23 @@ export async function addOrUpdateExpenseAcrossMonths(
 				month: monthNumber,
 				name: { equals: targetName, mode: "insensitive" },
 			},
-			select: { id: true },
+      select: { id: true, seriesKey: true },
 		});
 
 		if (existing) {
 			await prisma.expense.update({
 				where: { id: existing.id },
         data: ({
+          // Only backfill; never override an existing stable seriesKey.
+          seriesKey: existing.seriesKey ? undefined : seedSeriesKey,
 					name: targetName,
 					amount: item.amount,
 					categoryId: item.categoryId ?? null,
 					paid: !!item.paid,
 					paidAmount: item.paidAmount ?? (item.paid ? item.amount : 0),
-          isAllocation: !!item.isAllocation,          isDirectDebit: !!item.isDirectDebit,					dueDate: item.dueDate ? new Date(item.dueDate) : null,
+          isAllocation: !!item.isAllocation,
+          isDirectDebit: !!item.isDirectDebit,
+          dueDate: item.dueDate ? new Date(item.dueDate) : null,
           merchantDomain: logo.merchantDomain,
           logoUrl: logo.logoUrl,
           logoSource: logo.logoSource,
@@ -334,6 +366,7 @@ export async function addOrUpdateExpenseAcrossMonths(
 				budgetPlanId,
 				year,
 				month: monthNumber,
+        seriesKey: seedSeriesKey,
 				name: targetName,
 				amount: item.amount,
 				categoryId: item.categoryId ?? null,
