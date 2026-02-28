@@ -97,6 +97,10 @@ model UserOnboardingProfile {
   expenseOneAmount   Decimal?         @db.Decimal(12, 2)
   expenseTwoName     String?
   expenseTwoAmount   Decimal?         @db.Decimal(12, 2)
+  expenseThreeName   String?
+  expenseThreeAmount Decimal?         @db.Decimal(12, 2)
+  expenseFourName    String?
+  expenseFourAmount  Decimal?         @db.Decimal(12, 2)
 
   hasAllowance       Boolean?
   allowanceAmount    Decimal?         @db.Decimal(12, 2)

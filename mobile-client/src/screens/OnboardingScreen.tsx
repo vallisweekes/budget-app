@@ -10,7 +10,7 @@ import {
   View,
 } from "react-native";
 
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Ionicons } from "@expo/vector-icons";
 
@@ -54,7 +54,8 @@ export default function OnboardingScreen({
   initial: OnboardingStatusResponse;
   onCompleted: () => void;
 }) {
-  const { username } = useAuth();
+  const insets = useSafeAreaInsets();
+  const { username, signOut } = useAuth();
   const profile = initial.profile;
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
@@ -77,10 +78,14 @@ export default function OnboardingScreen({
   const [occupation, setOccupation] = useState(profile?.occupation ?? "");
   const [occupationOther, setOccupationOther] = useState(profile?.occupationOther ?? "");
   const [salary, setSalary] = useState(String(profile?.monthlySalary ?? ""));
-  const [expenseOneName, setExpenseOneName] = useState(profile?.expenseOneName ?? "Rent");
+  const [expenseOneName, setExpenseOneName] = useState(profile?.expenseOneName ?? "");
   const [expenseOneAmount, setExpenseOneAmount] = useState(String(profile?.expenseOneAmount ?? ""));
-  const [expenseTwoName, setExpenseTwoName] = useState(profile?.expenseTwoName ?? "Utilities");
+  const [expenseTwoName, setExpenseTwoName] = useState(profile?.expenseTwoName ?? "");
   const [expenseTwoAmount, setExpenseTwoAmount] = useState(String(profile?.expenseTwoAmount ?? ""));
+  const [expenseThreeName, setExpenseThreeName] = useState(profile?.expenseThreeName ?? "");
+  const [expenseThreeAmount, setExpenseThreeAmount] = useState(String(profile?.expenseThreeAmount ?? ""));
+  const [expenseFourName, setExpenseFourName] = useState(profile?.expenseFourName ?? "");
+  const [expenseFourAmount, setExpenseFourAmount] = useState(String(profile?.expenseFourAmount ?? ""));
   const [hasAllowance, setHasAllowance] = useState(Boolean(profile?.hasAllowance));
   const [allowanceAmount, setAllowanceAmount] = useState(String(profile?.allowanceAmount ?? ""));
   const [hasDebts, setHasDebts] = useState(Boolean(profile?.hasDebtsToManage));
@@ -99,6 +104,10 @@ export default function OnboardingScreen({
     expenseOneAmount: expenseOneAmount ? Number(expenseOneAmount) : null,
     expenseTwoName,
     expenseTwoAmount: expenseTwoAmount ? Number(expenseTwoAmount) : null,
+    expenseThreeName,
+    expenseThreeAmount: expenseThreeAmount ? Number(expenseThreeAmount) : null,
+    expenseFourName,
+    expenseFourAmount: expenseFourAmount ? Number(expenseFourAmount) : null,
     hasAllowance,
     allowanceAmount: hasAllowance && allowanceAmount ? Number(allowanceAmount) : null,
     hasDebtsToManage: hasDebts,
@@ -131,13 +140,24 @@ export default function OnboardingScreen({
   };
 
   return (
-    <SafeAreaView style={s.safe}>
+    <SafeAreaView style={s.safe} edges={["top"]}>
+      <Pressable
+        onPress={() => void signOut()}
+        disabled={saving}
+        style={[s.floatingLogoutBtn, { top: insets.top + 10 }, saving && s.disabled]}
+        hitSlop={16}
+        accessibilityRole="button"
+        accessibilityLabel="Logout"
+      >
+        <Text style={s.floatingLogoutText}>Logout</Text>
+      </Pressable>
+
       {step > 0 ? (
         <Pressable
           onPress={goBackStep}
           disabled={saving}
-          style={[s.floatingBackBtn, saving && s.disabled]}
-          hitSlop={10}
+          style={[s.floatingBackBtn, { top: insets.top + 10 }, saving && s.disabled]}
+          hitSlop={16}
           accessibilityRole="button"
           accessibilityLabel="Go back"
         >
@@ -239,13 +259,13 @@ export default function OnboardingScreen({
             <>
               <View style={s.questionRow}>
                 <Ionicons name="receipt-outline" size={20} color={STEP_ICON_COLORS[3]} />
-                <Text style={s.question}>What are two bills you pay every month?</Text>
+                <Text style={s.question}>What are the 4 bills you pay every month?</Text>
               </View>
               <View style={s.row}>
                 <TextInput
                   value={expenseOneName}
                   onChangeText={setExpenseOneName}
-                  placeholder="Bill name"
+                  placeholder="Rent, mortgage"
                   placeholderTextColor="rgba(255,255,255,0.62)"
                   style={[s.input, s.rowInput]}
                 />
@@ -262,7 +282,7 @@ export default function OnboardingScreen({
                 <TextInput
                   value={expenseTwoName}
                   onChangeText={setExpenseTwoName}
-                  placeholder="Bill name"
+                  placeholder="Electricity, water"
                   placeholderTextColor="rgba(255,255,255,0.62)"
                   style={[s.input, s.rowInput]}
                 />
@@ -274,6 +294,46 @@ export default function OnboardingScreen({
                   placeholderTextColor="rgba(255,255,255,0.62)"
                   style={[s.input, s.rowInput]}
                 />
+              </View>
+              <View style={s.row}>
+                <TextInput
+                  value={expenseThreeName}
+                  onChangeText={setExpenseThreeName}
+                  placeholder="Phone bill"
+                  placeholderTextColor="rgba(255,255,255,0.62)"
+                  style={[s.input, s.rowInput]}
+                />
+                <TextInput
+                  value={expenseThreeAmount}
+                  onChangeText={setExpenseThreeAmount}
+                  keyboardType="decimal-pad"
+                  placeholder="Amount"
+                  placeholderTextColor="rgba(255,255,255,0.62)"
+                  style={[s.input, s.rowInput]}
+                />
+              </View>
+              <View style={s.row}>
+                <TextInput
+                  value={expenseFourName}
+                  onChangeText={setExpenseFourName}
+                  placeholder="Subscription"
+                  placeholderTextColor="rgba(255,255,255,0.62)"
+                  style={[s.input, s.rowInput]}
+                />
+                <TextInput
+                  value={expenseFourAmount}
+                  onChangeText={setExpenseFourAmount}
+                  keyboardType="decimal-pad"
+                  placeholder="Amount"
+                  placeholderTextColor="rgba(255,255,255,0.62)"
+                  style={[s.input, s.rowInput]}
+                />
+              </View>
+
+              <View style={s.infoCard}>
+                <Text style={s.infoCardText}>
+                  These are your regular monthly bills. If you know the company name, enter it (it helps keep things accurate).
+                </Text>
               </View>
             </>
           ) : null}
@@ -374,8 +434,8 @@ const s = StyleSheet.create({
   floatingBackBtn: {
     position: "absolute",
     left: 20,
-    top: 18,
     zIndex: 10,
+    elevation: 10,
     width: 34,
     height: 34,
     borderRadius: 17,
@@ -385,6 +445,17 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  floatingLogoutBtn: {
+    position: "absolute",
+    right: 20,
+    zIndex: 10,
+    elevation: 10,
+    paddingHorizontal: 4,
+    paddingVertical: 6,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  floatingLogoutText: { color: "#ffffff", fontSize: 12, fontWeight: "900" },
   header: { minHeight: 220, alignItems: "center", justifyContent: "center", paddingVertical: 10 },
   welcome: { color: "#ffffff", fontSize: 26, fontWeight: "900", letterSpacing: -0.4, textAlign: "center" },
   sub: { color: "rgba(255,255,255,0.78)", marginTop: 10, fontSize: 13, fontWeight: "800", textAlign: "center", maxWidth: 360 },
@@ -435,6 +506,23 @@ const s = StyleSheet.create({
   },
   row: { flexDirection: "row", gap: 10 },
   rowInput: { flex: 1 },
+  infoCard: {
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.20)",
+    backgroundColor: "rgba(255,255,255,0.10)",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderLeftWidth: 4,
+    borderLeftColor: T.accent,
+  },
+  infoCardText: {
+    color: "rgba(255,255,255,0.85)",
+    fontSize: 12,
+    fontWeight: "800",
+    lineHeight: 16,
+  },
   toggleRow: { flexDirection: "row", gap: 10 },
   toggle: {
     flex: 1,

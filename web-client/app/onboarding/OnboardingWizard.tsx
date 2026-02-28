@@ -14,6 +14,10 @@ type OnboardingProfile = {
   expenseOneAmount: string | number | null;
   expenseTwoName: string | null;
   expenseTwoAmount: string | number | null;
+  expenseThreeName: string | null;
+  expenseThreeAmount: string | number | null;
+  expenseFourName: string | null;
+  expenseFourAmount: string | number | null;
   hasAllowance: boolean | null;
   allowanceAmount: string | number | null;
   hasDebtsToManage: boolean | null;
@@ -54,10 +58,14 @@ export default function OnboardingWizard({
   const [occupation, setOccupation] = useState(initial.profile?.occupation ?? "");
   const [occupationOther, setOccupationOther] = useState(initial.profile?.occupationOther ?? "");
   const [salary, setSalary] = useState(String(initial.profile?.monthlySalary ?? ""));
-  const [expenseOneName, setExpenseOneName] = useState(initial.profile?.expenseOneName ?? "Rent");
+  const [expenseOneName, setExpenseOneName] = useState(initial.profile?.expenseOneName ?? "");
   const [expenseOneAmount, setExpenseOneAmount] = useState(String(initial.profile?.expenseOneAmount ?? ""));
-  const [expenseTwoName, setExpenseTwoName] = useState(initial.profile?.expenseTwoName ?? "Utilities");
+  const [expenseTwoName, setExpenseTwoName] = useState(initial.profile?.expenseTwoName ?? "");
   const [expenseTwoAmount, setExpenseTwoAmount] = useState(String(initial.profile?.expenseTwoAmount ?? ""));
+  const [expenseThreeName, setExpenseThreeName] = useState(initial.profile?.expenseThreeName ?? "");
+  const [expenseThreeAmount, setExpenseThreeAmount] = useState(String(initial.profile?.expenseThreeAmount ?? ""));
+  const [expenseFourName, setExpenseFourName] = useState(initial.profile?.expenseFourName ?? "");
+  const [expenseFourAmount, setExpenseFourAmount] = useState(String(initial.profile?.expenseFourAmount ?? ""));
   const [hasAllowance, setHasAllowance] = useState<boolean>(Boolean(initial.profile?.hasAllowance));
   const [allowanceAmount, setAllowanceAmount] = useState(String(initial.profile?.allowanceAmount ?? ""));
   const [hasDebts, setHasDebts] = useState<boolean>(Boolean(initial.profile?.hasDebtsToManage));
@@ -84,6 +92,10 @@ export default function OnboardingWizard({
     expenseOneAmount: expenseOneAmount ? Number(expenseOneAmount) : null,
     expenseTwoName,
     expenseTwoAmount: expenseTwoAmount ? Number(expenseTwoAmount) : null,
+    expenseThreeName,
+    expenseThreeAmount: expenseThreeAmount ? Number(expenseThreeAmount) : null,
+    expenseFourName,
+    expenseFourAmount: expenseFourAmount ? Number(expenseFourAmount) : null,
     hasAllowance,
     allowanceAmount: hasAllowance && allowanceAmount ? Number(allowanceAmount) : null,
     hasDebtsToManage: hasDebts,
@@ -205,12 +217,20 @@ export default function OnboardingWizard({
 
         {step === 3 ? (
           <div className="space-y-3">
-            <p className="text-sm text-slate-300">What are two bills you pay every month?</p>
+            <p className="text-sm text-slate-300">What are the 4 bills you pay every month?</p>
             <div className="grid grid-cols-2 gap-2">
-              <input value={expenseOneName} onChange={(e) => setExpenseOneName(e.target.value)} placeholder="Bill name" className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2" />
+              <input value={expenseOneName} onChange={(e) => setExpenseOneName(e.target.value)} placeholder="Rent, mortgage" className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2" />
               <input value={expenseOneAmount} onChange={(e) => setExpenseOneAmount(e.target.value)} placeholder="Amount" inputMode="decimal" className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2" />
-              <input value={expenseTwoName} onChange={(e) => setExpenseTwoName(e.target.value)} placeholder="Bill name" className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2" />
+              <input value={expenseTwoName} onChange={(e) => setExpenseTwoName(e.target.value)} placeholder="Electricity, water" className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2" />
               <input value={expenseTwoAmount} onChange={(e) => setExpenseTwoAmount(e.target.value)} placeholder="Amount" inputMode="decimal" className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2" />
+              <input value={expenseThreeName} onChange={(e) => setExpenseThreeName(e.target.value)} placeholder="Phone bill" className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2" />
+              <input value={expenseThreeAmount} onChange={(e) => setExpenseThreeAmount(e.target.value)} placeholder="Amount" inputMode="decimal" className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2" />
+              <input value={expenseFourName} onChange={(e) => setExpenseFourName(e.target.value)} placeholder="Subscription" className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2" />
+              <input value={expenseFourAmount} onChange={(e) => setExpenseFourAmount(e.target.value)} placeholder="Amount" inputMode="decimal" className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2" />
+            </div>
+
+            <div className="rounded-xl border border-white/10 border-l-4 border-l-purple-400 bg-slate-950/30 px-3 py-2 text-xs font-semibold text-slate-200">
+              These are your regular monthly bills. If you know the company name, enter it (it helps keep things accurate).
             </div>
           </div>
         ) : null}

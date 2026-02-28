@@ -67,6 +67,8 @@ export async function getAiBudgetTips(args: {
 			monthlySalary?: number | null;
 			expenseOne?: { name: string | null; amount: number | null };
 			expenseTwo?: { name: string | null; amount: number | null };
+			expenseThree?: { name: string | null; amount: number | null };
+			expenseFour?: { name: string | null; amount: number | null };
 			hasAllowance?: boolean | null;
 			allowanceAmount?: number | null;
 			hasDebtsToManage?: boolean | null;

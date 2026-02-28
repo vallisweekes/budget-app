@@ -38,6 +38,10 @@ export type OnboardingInput = {
   expenseOneAmount?: number | null;
   expenseTwoName?: string | null;
   expenseTwoAmount?: number | null;
+  expenseThreeName?: string | null;
+  expenseThreeAmount?: number | null;
+  expenseFourName?: string | null;
+  expenseFourAmount?: number | null;
   hasAllowance?: boolean | null;
   allowanceAmount?: number | null;
   hasDebtsToManage?: boolean | null;
@@ -56,6 +60,10 @@ type OnboardingProfileRecord = {
   expenseOneAmount: unknown;
   expenseTwoName: string | null;
   expenseTwoAmount: unknown;
+  expenseThreeName: string | null;
+  expenseThreeAmount: unknown;
+  expenseFourName: string | null;
+  expenseFourAmount: unknown;
   hasAllowance: boolean | null;
   allowanceAmount: unknown;
   hasDebtsToManage: boolean | null;
@@ -229,6 +237,10 @@ export async function getOnboardingForUser(userId: string) {
         expenseOneAmount: toNullableNumber(profile.expenseOneAmount),
         expenseTwoName: profile.expenseTwoName,
         expenseTwoAmount: toNullableNumber(profile.expenseTwoAmount),
+        expenseThreeName: profile.expenseThreeName,
+        expenseThreeAmount: toNullableNumber(profile.expenseThreeAmount),
+        expenseFourName: profile.expenseFourName,
+        expenseFourAmount: toNullableNumber(profile.expenseFourAmount),
         hasAllowance: profile.hasAllowance,
         allowanceAmount: toNullableNumber(profile.allowanceAmount),
         hasDebtsToManage: profile.hasDebtsToManage,
@@ -249,6 +261,10 @@ export async function getOnboardingForUser(userId: string) {
     expenseOneAmount: null,
     expenseTwoName: null,
     expenseTwoAmount: null,
+    expenseThreeName: null,
+    expenseThreeAmount: null,
+    expenseFourName: null,
+    expenseFourAmount: null,
     hasAllowance: null,
     allowanceAmount: null,
     hasDebtsToManage: null,
@@ -291,6 +307,10 @@ export async function getOnboardingForUser(userId: string) {
       expenseOneAmount: toNullableNumber(profile.expenseOneAmount),
       expenseTwoName: profile.expenseTwoName,
       expenseTwoAmount: toNullableNumber(profile.expenseTwoAmount),
+      expenseThreeName: profile.expenseThreeName,
+      expenseThreeAmount: toNullableNumber(profile.expenseThreeAmount),
+      expenseFourName: profile.expenseFourName,
+      expenseFourAmount: toNullableNumber(profile.expenseFourAmount),
       hasAllowance: profile.hasAllowance,
       allowanceAmount: toNullableNumber(profile.allowanceAmount),
       hasDebtsToManage: profile.hasDebtsToManage,
@@ -326,6 +346,10 @@ export async function saveOnboardingDraft(userId: string, input: OnboardingInput
     expenseOneAmount: toAmount(input.expenseOneAmount),
     expenseTwoName: cleanText(input.expenseTwoName),
     expenseTwoAmount: toAmount(input.expenseTwoAmount),
+    expenseThreeName: cleanText(input.expenseThreeName),
+    expenseThreeAmount: toAmount(input.expenseThreeAmount),
+    expenseFourName: cleanText(input.expenseFourName),
+    expenseFourAmount: toAmount(input.expenseFourAmount),
     hasAllowance: input.hasAllowance ?? undefined,
     allowanceAmount: toAmount(input.allowanceAmount),
     hasDebtsToManage: input.hasDebtsToManage ?? undefined,
@@ -351,12 +375,29 @@ export async function saveOnboardingDraft(userId: string, input: OnboardingInput
     const shouldDropBuildBudget =
       /build_budget/i.test(message) && /enum|expected|invalid value/i.test(message);
 
-    if (!shouldDropMainGoals && !shouldDropBuildBudget) throw error;
+    const shouldDropExtraBills =
+      /Unknown arg(ument)? `expenseThreeName`/i.test(message) ||
+      /Unknown arg(ument)? `expenseThreeAmount`/i.test(message) ||
+      /Unknown arg(ument)? `expenseFourName`/i.test(message) ||
+      /Unknown arg(ument)? `expenseFourAmount`/i.test(message) ||
+      /data\.expenseThreeName/i.test(message) ||
+      /data\.expenseThreeAmount/i.test(message) ||
+      /data\.expenseFourName/i.test(message) ||
+      /data\.expenseFourAmount/i.test(message);
+
+    if (!shouldDropMainGoals && !shouldDropBuildBudget && !shouldDropExtraBills) throw error;
 
     const retryData: Record<string, unknown> = { ...updateData };
 
     if (shouldDropMainGoals) {
       delete retryData.mainGoals;
+    }
+
+    if (shouldDropExtraBills) {
+      delete retryData.expenseThreeName;
+      delete retryData.expenseThreeAmount;
+      delete retryData.expenseFourName;
+      delete retryData.expenseFourAmount;
     }
 
     if (shouldDropBuildBudget) {
@@ -420,6 +461,8 @@ export async function completeOnboarding(userId: string) {
   const expenseSeedsRaw: Array<{ name: string | null; amount: number }> = [
     { name: profile.expenseOneName, amount: Number(profile.expenseOneAmount ?? 0) },
     { name: profile.expenseTwoName, amount: Number(profile.expenseTwoAmount ?? 0) },
+    { name: profile.expenseThreeName, amount: Number(profile.expenseThreeAmount ?? 0) },
+    { name: profile.expenseFourName, amount: Number(profile.expenseFourAmount ?? 0) },
   ];
 
   const expenseSeeds = await Promise.all(

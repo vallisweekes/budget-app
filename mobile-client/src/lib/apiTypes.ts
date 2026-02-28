@@ -278,6 +278,10 @@ export interface OnboardingProfile {
   expenseOneAmount: string | number | null;
   expenseTwoName: string | null;
   expenseTwoAmount: string | number | null;
+  expenseThreeName: string | null;
+  expenseThreeAmount: string | number | null;
+  expenseFourName: string | null;
+  expenseFourAmount: string | number | null;
   hasAllowance: boolean | null;
   allowanceAmount: string | number | null;
   hasDebtsToManage: boolean | null;

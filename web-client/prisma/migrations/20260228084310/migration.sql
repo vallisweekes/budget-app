@@ -1,0 +1,2 @@
+-- RenameIndex
+ALTER INDEX "SacrificeTransferConfirmation_budgetPlanId_year_month_targetKey" RENAME TO "SacrificeTransferConfirmation_budgetPlanId_year_month_targe_key";

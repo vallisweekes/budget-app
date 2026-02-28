@@ -7,6 +7,8 @@ type OnboardingContext = {
 	monthlySalary?: number | null;
 	expenseOne?: { name: string | null; amount: number | null };
 	expenseTwo?: { name: string | null; amount: number | null };
+	expenseThree?: { name: string | null; amount: number | null };
+	expenseFour?: { name: string | null; amount: number | null };
 	hasAllowance?: boolean | null;
 	allowanceAmount?: number | null;
 	hasDebtsToManage?: boolean | null;
@@ -78,7 +80,12 @@ export function getOnboardingStarterTips(args: {
 		});
 	}
 
-	const billNames = [onboarding?.expenseOne?.name, onboarding?.expenseTwo?.name]
+	const billNames = [
+		onboarding?.expenseOne?.name,
+		onboarding?.expenseTwo?.name,
+		onboarding?.expenseThree?.name,
+		onboarding?.expenseFour?.name,
+	]
 		.map((n) => (typeof n === "string" ? n.trim() : ""))
 		.filter(Boolean);
 	if (billNames.length) {

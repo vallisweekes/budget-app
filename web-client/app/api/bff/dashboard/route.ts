@@ -63,6 +63,10 @@ export async function GET(req: NextRequest) {
 				expenseOneAmount: unknown;
 				expenseTwoName: unknown;
 				expenseTwoAmount: unknown;
+				expenseThreeName: unknown;
+				expenseThreeAmount: unknown;
+				expenseFourName: unknown;
+				expenseFourAmount: unknown;
 				hasAllowance: unknown;
 				allowanceAmount: unknown;
 				hasDebtsToManage: unknown;
@@ -82,6 +86,10 @@ export async function GET(req: NextRequest) {
 					expenseOneAmount: true,
 					expenseTwoName: true,
 					expenseTwoAmount: true,
+					expenseThreeName: true,
+					expenseThreeAmount: true,
+					expenseFourName: true,
+					expenseFourAmount: true,
 					hasAllowance: true,
 					allowanceAmount: true,
 					hasDebtsToManage: true,
@@ -92,7 +100,7 @@ export async function GET(req: NextRequest) {
 		} catch (error) {
 			console.error("Dashboard: onboarding fetch failed:", error);
 			try {
-				onboarding = await prisma.userOnboardingProfile.findUnique({
+				const legacy = await prisma.userOnboardingProfile.findUnique({
 					where: { userId },
 					select: {
 						mainGoal: true,
@@ -109,6 +117,15 @@ export async function GET(req: NextRequest) {
 						debtNotes: true,
 					},
 				});
+				onboarding = legacy
+					? {
+						...legacy,
+						expenseThreeName: null as unknown,
+						expenseThreeAmount: null as unknown,
+						expenseFourName: null as unknown,
+						expenseFourAmount: null as unknown,
+					}
+					: null;
 			} catch (legacyError) {
 				console.error("Dashboard: onboarding legacy fetch failed:", legacyError);
 				onboarding = null;
@@ -314,6 +331,14 @@ export async function GET(req: NextRequest) {
 									name: (onboarding.expenseTwoName as string | null | undefined) ?? null,
 									amount: onboarding.expenseTwoAmount ? Number(onboarding.expenseTwoAmount) : null,
 								},
+								expenseThree: {
+									name: (onboarding.expenseThreeName as string | null | undefined) ?? null,
+									amount: onboarding.expenseThreeAmount ? Number(onboarding.expenseThreeAmount) : null,
+								},
+								expenseFour: {
+									name: (onboarding.expenseFourName as string | null | undefined) ?? null,
+									amount: onboarding.expenseFourAmount ? Number(onboarding.expenseFourAmount) : null,
+								},
 								hasAllowance: (onboarding.hasAllowance as boolean | null | undefined) ?? null,
 								allowanceAmount: onboarding.allowanceAmount ? Number(onboarding.allowanceAmount) : null,
 								hasDebtsToManage: (onboarding.hasDebtsToManage as boolean | null | undefined) ?? null,
@@ -365,6 +390,14 @@ export async function GET(req: NextRequest) {
 							name: (onboarding.expenseTwoName as string | null | undefined) ?? null,
 							amount: onboarding.expenseTwoAmount ? Number(onboarding.expenseTwoAmount) : null,
 						},
+					expenseThree: {
+						name: (onboarding.expenseThreeName as string | null | undefined) ?? null,
+						amount: onboarding.expenseThreeAmount ? Number(onboarding.expenseThreeAmount) : null,
+					},
+					expenseFour: {
+						name: (onboarding.expenseFourName as string | null | undefined) ?? null,
+						amount: onboarding.expenseFourAmount ? Number(onboarding.expenseFourAmount) : null,
+					},
 						hasAllowance: (onboarding.hasAllowance as boolean | null | undefined) ?? null,
 						allowanceAmount: onboarding.allowanceAmount ? Number(onboarding.allowanceAmount) : null,
 						hasDebtsToManage: (onboarding.hasDebtsToManage as boolean | null | undefined) ?? null,
