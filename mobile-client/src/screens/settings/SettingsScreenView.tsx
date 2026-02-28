@@ -1574,7 +1574,11 @@ export default function SettingsScreen({ navigation }: MainTabScreenProps<"Setti
                 display="inline"
                 themeVariant="dark"
                 onChange={(event, selectedDate) => {
-                  if (event.type === "set" && selectedDate) setIosEditAgreementDraft(selectedDate);
+                  const next =
+                    selectedDate ??
+                    // Some iOS inline picker versions only provide a timestamp on the event.
+                    (event?.nativeEvent?.timestamp ? new Date(event.nativeEvent.timestamp) : null);
+                  if (next) setIosEditAgreementDraft(next);
                 }}
               />
             </View>
@@ -1615,7 +1619,11 @@ export default function SettingsScreen({ navigation }: MainTabScreenProps<"Setti
                 display="inline"
                 themeVariant="dark"
                 onChange={(event, selectedDate) => {
-                  if (event.type === "set" && selectedDate) setIosAddAgreementDraft(selectedDate);
+                  const next =
+                    selectedDate ??
+                    // Some iOS inline picker versions only provide a timestamp on the event.
+                    (event?.nativeEvent?.timestamp ? new Date(event.nativeEvent.timestamp) : null);
+                  if (next) setIosAddAgreementDraft(next);
                 }}
               />
             </View>
@@ -1645,7 +1653,11 @@ export default function SettingsScreen({ navigation }: MainTabScreenProps<"Setti
                 display="inline"
                 themeVariant="dark"
                 onChange={(event, selectedDate) => {
-                  if (event.type === "set" && selectedDate) setIosPlanEventDraft(selectedDate);
+                  const next =
+                    selectedDate ??
+                    // Some iOS inline picker versions only provide a timestamp on the event.
+                    (event?.nativeEvent?.timestamp ? new Date(event.nativeEvent.timestamp) : null);
+                  if (next) setIosPlanEventDraft(next);
                 }}
               />
             </View>

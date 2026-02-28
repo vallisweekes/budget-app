@@ -128,7 +128,11 @@ export default function EditDebtSheet(props: Props) {
                       mode="date"
                       display="inline"
                       onChange={(event, selectedDate) => {
-                        if (event.type === "set" && selectedDate) setIosDueDateDraft(selectedDate);
+                        const next =
+                          selectedDate ??
+                          // Some iOS inline picker versions only provide a timestamp on the event.
+                          (event?.nativeEvent?.timestamp ? new Date(event.nativeEvent.timestamp) : null);
+                        if (next) setIosDueDateDraft(next);
                       }}
                     />
                   </View>

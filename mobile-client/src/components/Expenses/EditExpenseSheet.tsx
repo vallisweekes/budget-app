@@ -569,8 +569,12 @@ export default function EditExpenseSheet({
                   mode="date"
                   display="inline"
                   themeVariant="dark"
-                  onChange={(_, selected) => {
-                    if (selected) setIosDraft(selected);
+                  onChange={(event, selected) => {
+                    const next =
+                      selected ??
+                      // Some iOS inline picker versions only provide a timestamp on the event.
+                      (event?.nativeEvent?.timestamp ? new Date(event.nativeEvent.timestamp) : null);
+                    if (next) setIosDraft(next);
                   }}
                   style={{ height: IOS_INLINE_CALENDAR_H }}
                 />
