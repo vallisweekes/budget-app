@@ -25,8 +25,22 @@ async function tryGetNotifications() {
 
 function fallbackReminder(params: { expenseName: string }): { title: string; body: string } {
   const name = String(params.expenseName ?? "").trim() || "this payment";
+  const reminderTitles = [
+    `Reminder: ${name}`,
+    `Quick check: ${name}`,
+    `Payment reminder: ${name}`,
+    `Still pending: ${name}`,
+    `Budget check: ${name}`,
+    `Follow-up: ${name}`,
+    `Pending payment: ${name}`,
+    `Friendly nudge: ${name}`,
+    `Due soon: ${name}`,
+    `Action needed: ${name}`,
+    `Still open: ${name}`,
+    `Unpaid reminder: ${name}`,
+  ] as const;
   return {
-    title: `Reminder: ${name}`,
+    title: pickRandom(reminderTitles),
     body: `You marked ${name} as unpaid. Review and mark it paid when done.`,
   };
 }
@@ -49,9 +63,19 @@ const PAID_BODIES = [
 ] as const;
 
 const UNPAID_TITLES = [
-  "Marked unpaid",
   "Back to unpaid",
   "Unpaid for now",
+  "Payment pending again",
+  "Still unpaid",
+  "Pending payment",
+  "Needs attention",
+  "Unpaid update",
+  "Outstanding for now",
+  "Still to be paid",
+  "Unpaid this cycle",
+  "Pending this month",
+  "Payment reopened",
+  "Budget watch: unpaid",
 ] as const;
 
 const UNPAID_BODIES = [

@@ -4,6 +4,8 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { T } from "@/lib/theme";
 import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
 
+const TERM_PRESETS = [2, 3, 6, 12, 24, 36, 48] as const;
+
 type Props = {
   visible: boolean;
   saving: boolean;
@@ -11,7 +13,6 @@ type Props = {
   interestRate: string;
   monthlyPayment: string;
   monthlyMinimum: string;
-  dueDay: string;
   dueDate: string;
   installment: string;
   autoPay: boolean;
@@ -22,7 +23,6 @@ type Props = {
   onChangeRate: (v: string) => void;
   onChangeMonthlyPayment: (v: string) => void;
   onChangeMin: (v: string) => void;
-  onChangeDueDay: (v: string) => void;
   onPickDate: () => void;
   onDateChange: (value: string) => void;
   onToggleAutoPay: (v: boolean) => void;
@@ -32,8 +32,8 @@ type Props = {
 
 export default function EditDebtSheet(props: Props) {
   const {
-    visible, saving, name, interestRate, monthlyPayment, monthlyMinimum, dueDay, dueDate, installment, autoPay, showDatePicker,
-    onClose, onSave, onChangeName, onChangeRate, onChangeMonthlyPayment, onChangeMin, onChangeDueDay,
+    visible, saving, name, interestRate, monthlyPayment, monthlyMinimum, dueDate, installment, autoPay, showDatePicker,
+    onClose, onSave, onChangeName, onChangeRate, onChangeMonthlyPayment, onChangeMin,
     onPickDate, onDateChange, onToggleAutoPay, onChangeInstallment, onSetShowDatePicker,
   } = props;
 
@@ -41,6 +41,17 @@ export default function EditDebtSheet(props: Props) {
 
   const iosDueDateBeforeRef = React.useRef<string>("");
   const [iosDueDateDraft, setIosDueDateDraft] = React.useState<Date>(new Date());
+  const [customInstallmentMode, setCustomInstallmentMode] = React.useState(false);
+
+  const installmentTrim = (installment || "").trim();
+  const installmentNum = installmentTrim ? Number.parseInt(installmentTrim, 10) : null;
+  const isPresetInstallment = installmentNum != null && TERM_PRESETS.includes(installmentNum as any);
+
+  React.useEffect(() => {
+    // If the value is non-empty and not one of our presets, show the custom field.
+    if (installmentTrim && !isPresetInstallment) setCustomInstallmentMode(true);
+    if (!installmentTrim) setCustomInstallmentMode(false);
+  }, [installmentTrim, isPresetInstallment]);
 
   React.useEffect(() => {
     if (Platform.OS !== "ios") return;
@@ -83,12 +94,13 @@ export default function EditDebtSheet(props: Props) {
               <TextInput style={s.input} value={monthlyMinimum} onChangeText={onChangeMin} keyboardType="decimal-pad" placeholder="0.00" placeholderTextColor={T.textMuted} />
             </View>
 
-            <View style={s.formRow}>
-              <View style={s.formGroup}><Text style={s.inputLabel}>Due day (1-31)</Text><TextInput style={s.input} value={dueDay} onChangeText={onChangeDueDay} keyboardType="number-pad" placeholder="e.g. 15" placeholderTextColor={T.textMuted} /></View>
-              <View style={s.formGroup}>
-                <Text style={s.inputLabel}>Due date (calendar)</Text>
-                <TouchableOpacity style={s.input} onPress={onPickDate}><Text style={[s.dateValue, !dueDate && s.dateValuePlaceholder]}>{dueDate ? dueDate.replace(/^(\d{4})-(\d{2})-(\d{2})$/, "$3/$2/$1") : "Select date"}</Text></TouchableOpacity>
-              </View>
+            <View style={s.formGroup}>
+              <Text style={s.inputLabel}>Due date (calendar)</Text>
+              <TouchableOpacity style={s.input} onPress={onPickDate}>
+                <Text style={[s.dateValue, !dueDate && s.dateValuePlaceholder]}>
+                  {dueDate ? dueDate.replace(/^(\d{4})-(\d{2})-(\d{2})$/, "$3/$2/$1") : "Select date"}
+                </Text>
+              </TouchableOpacity>
             </View>
 
             {showDatePicker ? (
@@ -157,7 +169,7 @@ export default function EditDebtSheet(props: Props) {
 
             <Text style={s.inputLabel}>Spread over months</Text>
             <View style={s.installmentRow}>
-              {[0, 3, 6, 12, 24, 36].map((months) => {
+              {[0, ...TERM_PRESETS].map((months) => {
                 const active = (installment || "0") === String(months);
                 return (
                   <Pressable key={months} onPress={() => onChangeInstallment(months === 0 ? "" : String(months))} style={[s.installmentChip, active && s.installmentChipActive]}>
@@ -165,7 +177,35 @@ export default function EditDebtSheet(props: Props) {
                   </Pressable>
                 );
               })}
+
+              <Pressable
+                onPress={() => {
+                  setCustomInstallmentMode((v) => {
+                    const next = !v;
+                    if (!next) onChangeInstallment("");
+                    if (next && isPresetInstallment) onChangeInstallment("");
+                    return next;
+                  });
+                }}
+                style={[s.installmentChip, customInstallmentMode && s.installmentChipActive]}
+              >
+                <Text style={[s.installmentChipText, customInstallmentMode && s.installmentChipTextActive]}>Custom</Text>
+              </Pressable>
             </View>
+
+            {customInstallmentMode ? (
+              <View style={s.formGroup}>
+                <Text style={s.inputLabel}>Custom months</Text>
+                <TextInput
+                  style={s.input}
+                  value={installment}
+                  onChangeText={onChangeInstallment}
+                  keyboardType="number-pad"
+                  placeholder="e.g. 18"
+                  placeholderTextColor={T.textMuted}
+                />
+              </View>
+            ) : null}
           </ScrollView>
 
           <View style={s.sheetActions}>

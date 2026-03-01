@@ -9,6 +9,7 @@ import {
   registerExpoPushToken,
   sendInstallWelcomeNotificationOnceAsync,
 } from "@/lib/pushNotifications";
+import { appendNotificationInboxItem } from "@/lib/notificationInbox";
 import { openIncomeSacrificeFromReminder } from "@/navigation/navigationRef";
 
 type NotificationData = {
@@ -93,6 +94,19 @@ export function PushNotificationsBootstrap() {
   useEffect(() => {
     if (isLoading || !token) return;
 
+    const appendFromNotification = (notification: {
+      request?: { identifier?: string; content?: { title?: string | null; body?: string | null } };
+    }) => {
+      const identifier = notification?.request?.identifier;
+      const title = notification?.request?.content?.title ?? "BudgetIn Check";
+      const body = notification?.request?.content?.body ?? "";
+      void appendNotificationInboxItem({
+        id: typeof identifier === "string" ? identifier : null,
+        title,
+        body,
+      });
+    };
+
     void (async () => {
       const response = await Notifications.getLastNotificationResponseAsync();
       const identifier = response?.notification.request.identifier;
@@ -100,17 +114,19 @@ export function PushNotificationsBootstrap() {
       if (!identifier) return;
 
       clearAppBadgeAsync();
+      appendFromNotification(response.notification);
       handleReminderOpen(identifier, data);
     })();
 
-    const received = Notifications.addNotificationReceivedListener(() => {
-      // no-op for now (foreground receipt)
+    const received = Notifications.addNotificationReceivedListener((event) => {
+      appendFromNotification(event);
     });
 
     const response = Notifications.addNotificationResponseReceivedListener((event) => {
       const identifier = event.notification.request.identifier;
       const data = (event.notification.request.content.data ?? {}) as NotificationData;
       clearAppBadgeAsync();
+      appendFromNotification(event.notification);
       handleReminderOpen(identifier, data);
     });
 

@@ -14,10 +14,32 @@ type ReminderPayload = {
   remindInDays: number;
 };
 
+const REMINDER_TITLES = [
+  "Reminder: {name}",
+  "Quick check: {name}",
+  "Payment reminder: {name}",
+  "Still pending: {name}",
+  "Budget check: {name}",
+  "Follow-up: {name}",
+  "Pending payment: {name}",
+  "Friendly nudge: {name}",
+  "Due soon: {name}",
+  "Action needed: {name}",
+  "Still open: {name}",
+  "Keep on track: {name}",
+  "Unpaid reminder: {name}",
+  "Check this bill: {name}",
+] as const;
+
 function clamp(value: string, max: number): string {
   const normalized = String(value ?? "").trim().replace(/\s+/g, " ");
   if (!normalized) return "";
   return normalized.length <= max ? normalized : `${normalized.slice(0, Math.max(1, max - 1)).trim()}…`;
+}
+
+function pickRandom<T>(values: readonly T[]): T {
+  const idx = Math.floor(Math.random() * values.length);
+  return values[Math.max(0, Math.min(values.length - 1, idx))] as T;
 }
 
 function safeParseObject(raw: string): Record<string, unknown> | null {
@@ -88,7 +110,7 @@ function computeFallbackReminder(params: {
 
   return {
     tip,
-    reminderTitle: `Reminder: ${name}`,
+    reminderTitle: pickRandom(REMINDER_TITLES).replace("{name}", name),
     reminderBody: `You marked ${name} as unpaid. Check it and mark paid if done.`,
     remindAt: remindAt.toISOString(),
     remindInDays,
@@ -110,6 +132,7 @@ async function buildAiReminder(params: {
   const sys =
     "You are a budgeting assistant. Create one practical tip and one reminder notification for an unpaid bill. " +
     "Tone: supportive, concise, non-judgmental. No legal advice. " +
+    "Keep reminder titles varied and relevant to the unpaid status. " +
     "Return ONLY JSON with shape: {\"tip\": string, \"reminderTitle\": string, \"reminderBody\": string, \"remindInDays\": number}. " +
     "Constraints: tip <= 160 chars, reminderTitle <= 60 chars, reminderBody <= 140 chars, remindInDays integer 1..3.";
 

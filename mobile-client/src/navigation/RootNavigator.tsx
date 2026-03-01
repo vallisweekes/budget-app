@@ -19,6 +19,7 @@ import { T } from "@/lib/theme";
 import { MONTH_NAMES_LONG } from "@/lib/formatting";
 import { apiFetch } from "@/lib/api";
 import type { IncomeSacrificeData, OnboardingStatusResponse } from "@/lib/apiTypes";
+import { appendNotificationInboxItem, subscribeNotificationInbox } from "@/lib/notificationInbox";
 
 import LoginScreen from "@/screens/LoginScreen";
 import DashboardScreen from "@/screens/DashboardScreen";
@@ -316,10 +317,6 @@ function RootTopHeader({ navigation }: { navigation: any }) {
           </Pressable>
           <Pressable
             onPress={() => {
-              setHasNotificationDot(false);
-              void Notifications.setBadgeCountAsync(0).catch(() => {
-                // ignore
-              });
               navigation.navigate("NotificationSettings", { initialTab: "notifications" });
             }}
             style={s.headerActionBtn}
@@ -344,10 +341,6 @@ function RootTopHeader({ navigation }: { navigation: any }) {
       </Pressable>
       <Pressable
         onPress={() => {
-          setHasNotificationDot(false);
-          void Notifications.setBadgeCountAsync(0).catch(() => {
-            // ignore
-          });
           navigation.navigate("NotificationSettings", { initialTab: "notifications" });
         }}
         style={s.headerActionBtn}
@@ -363,43 +356,47 @@ function RootTopHeader({ navigation }: { navigation: any }) {
     void loadPendingCount();
   }, [loadPendingCount, deepestRoute?.name]);
 
-  const refreshNotificationDot = useCallback(async () => {
-    try {
-      const [presented, badgeCount] = await Promise.all([
-        Notifications.getPresentedNotificationsAsync(),
-        Notifications.getBadgeCountAsync(),
-      ]);
-      setHasNotificationDot((presented?.length ?? 0) > 0 || (badgeCount ?? 0) > 0);
-    } catch {
-      // ignore
-    }
+  useEffect(() => {
+    const unsubscribe = subscribeNotificationInbox((snapshot) => {
+      setHasNotificationDot(snapshot.unreadCount > 0);
+    });
+
+    return unsubscribe;
   }, []);
 
   useEffect(() => {
-    void refreshNotificationDot();
+    const appendFromNotification = (notification: { request?: { identifier?: string; content?: { title?: string | null; body?: string | null } } }) => {
+      const identifier = notification?.request?.identifier;
+      const title = notification?.request?.content?.title ?? "BudgetIn Check";
+      const body = notification?.request?.content?.body ?? "";
+      void appendNotificationInboxItem({
+        id: typeof identifier === "string" ? identifier : null,
+        title,
+        body,
+      });
+    };
 
-    const received = Notifications.addNotificationReceivedListener(() => {
-      setHasNotificationDot(true);
+    void Notifications.getPresentedNotificationsAsync()
+      .then((presented) => {
+        presented.forEach((entry) => appendFromNotification(entry));
+      })
+      .catch(() => {
+        // ignore
+      });
+
+    const received = Notifications.addNotificationReceivedListener((event) => {
+      appendFromNotification(event);
     });
 
-    const response = Notifications.addNotificationResponseReceivedListener(() => {
-      setHasNotificationDot(true);
+    const response = Notifications.addNotificationResponseReceivedListener((event) => {
+      appendFromNotification(event.notification);
     });
 
     return () => {
       received.remove();
       response.remove();
     };
-  }, [refreshNotificationDot]);
-
-  useEffect(() => {
-    if (isNotificationSettings) {
-      setHasNotificationDot(false);
-      void Notifications.setBadgeCountAsync(0).catch(() => {
-        // ignore
-      });
-    }
-  }, [isNotificationSettings]);
+  }, []);
 
   const openIncome = () => {
     const now = new Date();
@@ -437,19 +434,11 @@ function RootTopHeader({ navigation }: { navigation: any }) {
   return (
     <TopHeader
       onSettings={() => {
-        setHasNotificationDot(false);
-        void Notifications.setBadgeCountAsync(0).catch(() => {
-          // ignore
-        });
         navigation.navigate("NotificationSettings", { initialTab: "notifications" });
       }}
       onIncome={openIncome}
       onAnalytics={() => navigation.navigate("Analytics")}
       onNotifications={() => {
-        setHasNotificationDot(false);
-        void Notifications.setBadgeCountAsync(0).catch(() => {
-          // ignore
-        });
         navigation.navigate("NotificationSettings", { initialTab: "notifications" });
       }}
       onBack={handleBack}
@@ -637,34 +626,47 @@ function MainTabs() {
     void loadPendingCount();
   }, [loadPendingCount]);
 
-  const refreshNotificationDot = useCallback(async () => {
-    try {
-      const [presented, badgeCount] = await Promise.all([
-        Notifications.getPresentedNotificationsAsync(),
-        Notifications.getBadgeCountAsync(),
-      ]);
-      setHasNotificationDot((presented?.length ?? 0) > 0 || (badgeCount ?? 0) > 0);
-    } catch {
-      // ignore
-    }
+  useEffect(() => {
+    const unsubscribe = subscribeNotificationInbox((snapshot) => {
+      setHasNotificationDot(snapshot.unreadCount > 0);
+    });
+
+    return unsubscribe;
   }, []);
 
   useEffect(() => {
-    void refreshNotificationDot();
+    const appendFromNotification = (notification: { request?: { identifier?: string; content?: { title?: string | null; body?: string | null } } }) => {
+      const identifier = notification?.request?.identifier;
+      const title = notification?.request?.content?.title ?? "BudgetIn Check";
+      const body = notification?.request?.content?.body ?? "";
+      void appendNotificationInboxItem({
+        id: typeof identifier === "string" ? identifier : null,
+        title,
+        body,
+      });
+    };
 
-    const received = Notifications.addNotificationReceivedListener(() => {
-      setHasNotificationDot(true);
+    void Notifications.getPresentedNotificationsAsync()
+      .then((presented) => {
+        presented.forEach((entry) => appendFromNotification(entry));
+      })
+      .catch(() => {
+        // ignore
+      });
+
+    const received = Notifications.addNotificationReceivedListener((event) => {
+      appendFromNotification(event);
     });
 
-    const response = Notifications.addNotificationResponseReceivedListener(() => {
-      setHasNotificationDot(true);
+    const response = Notifications.addNotificationResponseReceivedListener((event) => {
+      appendFromNotification(event.notification);
     });
 
     return () => {
       received.remove();
       response.remove();
     };
-  }, [refreshNotificationDot]);
+  }, []);
 
   return (
     <Tab.Navigator
@@ -748,10 +750,6 @@ function MainTabs() {
           };
 
           const openNotifications = () => {
-            setHasNotificationDot(false);
-            void Notifications.setBadgeCountAsync(0).catch(() => {
-              // ignore
-            });
             const parent = navigation.getParent();
             if (parent) {
               (parent as any).navigate("NotificationSettings", { initialTab: "notifications" });

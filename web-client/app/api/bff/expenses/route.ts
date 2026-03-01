@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
 import { createExpense, normalizeFundingSource, normalizePaymentSource } from "@/lib/financial-engine";
 import { hasCustomLogoForDomain, hasCustomLogoForName, resolveExpenseLogo, resolveExpenseLogoWithSearch } from "@/lib/expenses/logoResolver";
+import { buildExpenseAddedActivity } from "@/lib/push/activityMessages";
+import { sendUserPush } from "@/lib/push/sendUserPush";
 
 export const runtime = "nodejs";
 
@@ -311,6 +313,23 @@ export async function POST(req: NextRequest) {
         })
         .catch(() => finalCreated);
     }
+  }
+
+  try {
+    const plan = await prisma.budgetPlan.findUnique({
+      where: { id: ownedBudgetPlanId },
+      select: { currency: true },
+    });
+    const currency = plan?.currency ?? "GBP";
+    const msg = await buildExpenseAddedActivity({
+      name: finalCreated.name,
+      amount,
+      currency,
+      url: "/dashboard",
+    });
+    await sendUserPush({ userId, preference: "paymentAlerts", web: msg.web, mobile: msg.mobile });
+  } catch {
+    // Best-effort
   }
 
   return NextResponse.json(serializeExpense(finalCreated, null), { status: 201 });

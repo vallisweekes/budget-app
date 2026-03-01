@@ -30,7 +30,6 @@ export function useDebtDetailController({ debtId, debtName, onDeleted }: Params)
   const [editRate, setEditRate] = useState("");
   const [editMonthlyPayment, setEditMonthlyPayment] = useState("");
   const [editMin, setEditMin] = useState("");
-  const [editDue, setEditDue] = useState("");
   const [editInstallment, setEditInstallment] = useState("");
   const [editDueDate, setEditDueDate] = useState("");
   const [editAutoPay, setEditAutoPay] = useState(false);
@@ -54,7 +53,6 @@ export function useDebtDetailController({ debtId, debtName, onDeleted }: Params)
       setEditRate(detail.interestRate != null ? String(detail.interestRate) : "");
       setEditMonthlyPayment((detail as any).amount != null ? String((detail as any).amount) : "");
       setEditMin(detail.monthlyMinimum != null ? String(detail.monthlyMinimum) : "");
-      setEditDue(detail.dueDay != null ? String(detail.dueDay) : "");
       setEditInstallment(detail.installmentMonths != null ? String(detail.installmentMonths) : "");
       setEditDueDate(detail.dueDate ? String(detail.dueDate).slice(0, 10) : "");
       setEditAutoPay((detail.defaultPaymentSource ?? "income") === "income");
@@ -123,6 +121,11 @@ export function useDebtDetailController({ debtId, debtName, onDeleted }: Params)
       return;
     }
 
+    const installmentMonthsParsed = editInstallment.trim() ? Number.parseInt(editInstallment.trim(), 10) : null;
+    const installmentMonths = Number.isFinite(installmentMonthsParsed as any) && (installmentMonthsParsed as number) > 0
+      ? (installmentMonthsParsed as number)
+      : null;
+
     try {
       setEditSaving(true);
       await apiFetch(`/api/bff/debts/${debtId}`, {
@@ -132,8 +135,7 @@ export function useDebtDetailController({ debtId, debtName, onDeleted }: Params)
           amount: editMonthlyPayment ? parseFloat(editMonthlyPayment) : null,
           interestRate: editRate ? parseFloat(editRate) : null,
           monthlyMinimum: editMin ? parseFloat(editMin) : null,
-          dueDay: editDue ? parseInt(editDue, 10) : null,
-          installmentMonths: editInstallment ? parseInt(editInstallment, 10) : null,
+          installmentMonths,
           dueDate: editDueDate || null,
           defaultPaymentSource: editAutoPay ? "income" : "extra_funds",
         },
@@ -145,7 +147,7 @@ export function useDebtDetailController({ debtId, debtName, onDeleted }: Params)
     } finally {
       setEditSaving(false);
     }
-  }, [debtId, editAutoPay, editDue, editDueDate, editInstallment, editMin, editName, editRate, load]);
+  }, [debtId, editAutoPay, editDueDate, editInstallment, editMin, editMonthlyPayment, editName, editRate, load]);
 
   const confirmDeleteDebt = useCallback(async () => {
     try {
@@ -244,8 +246,6 @@ export function useDebtDetailController({ debtId, debtName, onDeleted }: Params)
     setEditMonthlyPayment,
     editMin,
     setEditMin,
-    editDue,
-    setEditDue,
     editInstallment,
     setEditInstallment,
     editDueDate,

@@ -13,6 +13,42 @@ type MessagePayload = {
   body: string;
 };
 
+const PAID_TITLES = [
+  "Sorted — bill paid",
+  "Paid and sorted",
+  "Payment complete",
+  "Done — bill covered",
+  "All clear — paid",
+  "Bill sorted",
+  "Covered and complete",
+  "Paid — nice work",
+  "Payment sorted",
+  "Paid and done",
+  "Cleared this month",
+  "Bill handled",
+  "One less bill",
+  "Payment wrapped up",
+  "Settled and sorted",
+] as const;
+
+const UNPAID_TITLES = [
+  "Back to unpaid",
+  "Unpaid for now",
+  "Payment pending again",
+  "Still unpaid",
+  "Unpaid status set",
+  "Pending payment",
+  "Needs attention",
+  "Unpaid update",
+  "Payment not complete",
+  "Outstanding for now",
+  "Still to be paid",
+  "Unpaid this cycle",
+  "Pending this month",
+  "Payment reopened",
+  "Budget watch: unpaid",
+] as const;
+
 function clamp(value: string, max: number): string {
   const normalized = String(value ?? "").trim().replace(/\s+/g, " ");
   if (!normalized) return "";
@@ -27,6 +63,11 @@ function safeParseObject(raw: string): Record<string, unknown> | null {
   } catch {
     return null;
   }
+}
+
+function pickRandom<T>(values: readonly T[]): T {
+  const idx = Math.floor(Math.random() * values.length);
+  return values[Math.max(0, Math.min(values.length - 1, idx))] as T;
 }
 
 async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
@@ -52,7 +93,7 @@ function computeFallback(params: {
 
   if (params.status === "paid") {
     return {
-      title: "Sorted — bill paid",
+      title: pickRandom(PAID_TITLES),
       body: `${name} is all sorted. Nice one — that's more room in your monthly budget pot.`,
     };
   }
@@ -62,7 +103,7 @@ function computeFallback(params: {
     : "It can still squeeze your monthly budget if left open.";
 
   return {
-    title: "Marked unpaid",
+    title: pickRandom(UNPAID_TITLES),
     body: `${name} is now unpaid. ${impact} Keep an eye on it so it doesn't roll into debt.`,
   };
 }
@@ -85,6 +126,7 @@ async function buildAiMessage(params: {
   const systemPrompt =
     "You generate short push notification copy for a UK personal budgeting app. " +
     "Use UK English vocabulary and a fun, encouraging tone. " +
+    "Keep notification titles varied and related to status (do not repeat the same heading every time). " +
     "Always mention budget impact naturally. " +
     "No emojis. No hype. No legal advice. " +
     "Return ONLY valid JSON: {\"title\": string, \"body\": string}. " +
@@ -102,8 +144,8 @@ async function buildAiMessage(params: {
       fallback: params.fallback,
       styleHint:
         params.status === "paid"
-          ? "Celebrate completion with fresh varied wording each time."
-          : "Supportive warning that unpaid items can affect budget and become debt.",
+          ? "Celebrate completion with a fresh, varied title each time."
+          : "Use a supportive but varied unpaid heading; mention budget/debt risk.",
     },
     null,
     2

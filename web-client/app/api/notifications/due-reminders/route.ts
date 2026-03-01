@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendWebPushNotification } from "@/lib/push/webPush";
 import { sendMobilePushNotifications } from "@/lib/push/mobilePush";
+import { maybeGeneratePushCopy } from "@/lib/push/aiCopy";
 import {
   DEFAULT_USER_NOTIFICATION_PREFERENCES,
   getUserNotificationPreferencesMap,
@@ -181,9 +182,21 @@ async function runHighFrequencyTestPush(now: Date): Promise<NextResponse> {
       if (mobileTokens.length === 0) continue;
 
       const due = debt.dueDate ? isoDateUTC(startOfDayUTC(new Date(debt.dueDate))) : "soon";
+    const fallbackTitle = "Upcoming payment";
+    const fallbackBody = `${debt.name} is due on ${due}.`;
+    const copy = await maybeGeneratePushCopy({
+      event: "upcoming_payment_test",
+      context: {
+        kind: "debt",
+        name: debt.name,
+        dueDate: due,
+        tone: "calm, not scary",
+      },
+      fallback: { title: fallbackTitle, body: fallbackBody },
+    });
       const result = await sendMobilePushNotifications(mobileTokens, {
-        title: "Upcoming payment (test)",
-        body: `${debt.name} is due on ${due}.`,
+    title: copy.title,
+    body: copy.body,
         data: {
           type: "upcoming_payment_test",
           debtId: debt.id,
@@ -309,16 +322,33 @@ export async function POST(req: Request) {
 
     let title = "";
     let body = "";
+    let dueInDays: number | null = null;
 
     if (isoDateUTC(dueDay) === isoDateUTC(today)) {
-      title = "Debt payment due today";
-      body = `${debt.name} is due today (${dueIso}).`;
+    title = "Payment due today";
+    body = `${debt.name} is due today (${dueIso}). You’re on top of it.`;
+    dueInDays = 0;
     } else if (isoDateUTC(dueDay) === isoDateUTC(inThreeDays)) {
-      title = "Debt payment due in 3 days";
-      body = `${debt.name} is due on ${dueIso}.`;
+    title = "Payment coming up";
+    body = `${debt.name} is due on ${dueIso}. A quick check now keeps things smooth.`;
+    dueInDays = 3;
     } else {
       continue;
     }
+
+  const copy = await maybeGeneratePushCopy({
+    event: "debt_due_reminder",
+    context: {
+      kind: "debt",
+      name: debt.name,
+      dueDate: dueIso,
+      dueInDays,
+      tone: "calm, not scary",
+    },
+    fallback: { title, body },
+  });
+  title = copy.title;
+  body = copy.body ?? body;
 
     const subs = debt.budgetPlan.user.webPushSubscriptions;
     for (const sub of subs) {
@@ -374,6 +404,7 @@ export async function POST(req: Request) {
     },
     select: {
       id: true,
+	  name: true,
       currency: true,
       user: {
         select: {
@@ -429,8 +460,23 @@ export async function POST(req: Request) {
     const pendingTotal = pendingRows.reduce((sum, row) => sum + Number(row.amount ?? 0), 0);
     if (pendingTotal <= 0) continue;
 
+  const pendingTotalText = money(pendingTotal, plan.currency || "GBP");
     const title = "Confirm your income sacrifice";
-    const body = `You still have ${money(pendingTotal, plan.currency || "GBP")} to confirm for this month. Confirm transfers to update your goals.`;
+    const body = `You still have ${pendingTotalText} to confirm for this month. Confirm transfers to update your goals.`;
+
+  const copy = await maybeGeneratePushCopy({
+    event: "income_sacrifice_reminder",
+    context: {
+      kind: "expense",
+      budgetPlanName: plan.name,
+      pendingTotal,
+      pendingTotalText,
+      month: currentMonth,
+      year: currentYear,
+      tone: "supportive, organised",
+    },
+    fallback: { title, body },
+  });
 
     for (const sub of plan.user.webPushSubscriptions) {
       try {
@@ -441,8 +487,8 @@ export async function POST(req: Request) {
             auth: sub.auth,
           },
           payload: {
-            title,
-            body,
+            title: copy.title,
+            body: copy.body,
             url: "/dashboard",
           },
         });
@@ -462,8 +508,8 @@ export async function POST(req: Request) {
     const mobileTokens = plan.user.mobilePushTokens.map((t) => t.token);
     if (mobileTokens.length > 0) {
       const result = await sendMobilePushNotifications(mobileTokens, {
-        title,
-        body,
+        title: copy.title,
+        body: copy.body,
         data: {
           type: "income_sacrifice_reminder",
           month: currentMonth,
@@ -557,34 +603,59 @@ export async function POST(req: Request) {
 
       let title = "Budget tip";
       let body = "Keep an eye on upcoming payments and spending trends this week.";
+  		let reason: string | null = null;
 
       if (income > 0) {
         const spendingPct = Math.round((expenses / income) * 100);
         if (spendingPct >= 90) {
           title = "Spending is close to your limit";
-          body = `You've used ${spendingPct}% of this month's income in ${plan.name}. Consider pausing non-essential spend.`;
+          body = `You’ve used about ${spendingPct}% of this month’s income in ${plan.name}. You’re in a good place—want a quick review?`;
+      reason = "spending_90";
         } else if (spendingPct >= 75) {
           title = "Spending trend alert";
-          body = `You've used ${spendingPct}% of this month's income in ${plan.name}. Stay selective with remaining purchases.`;
+      body = `You’ve used about ${spendingPct}% of this month’s income in ${plan.name}. Nice tracking—keep it steady.`;
+      reason = "spending_75";
         } else if (dueSoonCount >= 2) {
           title = "Upcoming debt due dates";
-          body = `You have ${dueSoonCount} debt payments due within 7 days. Plan these now to avoid missed payments.`;
+      body = `You have ${dueSoonCount} payments due within 7 days. A quick plan now keeps things smooth.`;
+      reason = "due_soon";
         } else if (savingsContribution <= 0) {
           title = "Savings habit tip";
           body = "Set a monthly savings contribution, even a small amount, to strengthen your plan over time.";
+      reason = "savings";
         } else {
           continue;
         }
       } else if (dueSoonCount >= 1) {
         title = "Upcoming debt due dates";
-        body = `You have ${dueSoonCount} debt payment${dueSoonCount > 1 ? "s" : ""} due within 7 days.`;
+    body = `You have ${dueSoonCount} payment${dueSoonCount > 1 ? "s" : ""} due within 7 days.`;
+    reason = "due_soon";
       } else {
         continue;
       }
 
+    const copy = await maybeGeneratePushCopy({
+      event: "budget_tip",
+      context: {
+        kind: dueSoonCount > 0 ? "debt" : "expense",
+        budgetPlanId: plan.id,
+        budgetPlanName: plan.name,
+        month: currentMonth,
+        year: currentYear,
+        income,
+        expenses,
+        spendingPct: income > 0 ? Math.round((expenses / income) * 100) : null,
+        dueSoonCount,
+        savingsContribution,
+        reason,
+        goalTone: "make user feel they are in a good place",
+      },
+      fallback: { title, body },
+    });
+
       const result = await sendMobilePushNotifications(mobileTokens, {
-        title,
-        body,
+    title: copy.title,
+    body: copy.body,
         data: {
           type: "budget_tip",
           budgetPlanId: plan.id,

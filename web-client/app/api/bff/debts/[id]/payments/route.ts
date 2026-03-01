@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUserId } from "@/lib/api/bffAuth";
+import { buildPaymentMadeActivity } from "@/lib/push/activityMessages";
+import { sendUserPush } from "@/lib/push/sendUserPush";
 
 export const runtime = "nodejs";
 
@@ -83,7 +85,7 @@ export async function GET(
     const { id } = await params;
 		const debt = await prisma.debt.findUnique({
 			where: { id },
-			include: { budgetPlan: { select: { userId: true } } },
+      include: { budgetPlan: { select: { userId: true, currency: true } } },
 		});
 		if (!debt || debt.budgetPlan.userId !== userId) {
 			return NextResponse.json({ error: "Debt not found" }, { status: 404 });
@@ -453,6 +455,20 @@ export async function POST(
 
       return created;
     });
+
+    try {
+      const currency = (debt as any)?.budgetPlan?.currency ?? "GBP";
+      const msg = await buildPaymentMadeActivity({
+        name: debt.name,
+        amount: appliedAmount,
+        currency,
+        kind: "debt",
+        url: "/dashboard",
+      });
+      await sendUserPush({ userId, preference: "paymentAlerts", web: msg.web, mobile: msg.mobile });
+    } catch {
+      // Best-effort
+    }
 
     return NextResponse.json(payment, { status: 201 });
   } catch (error) {

@@ -20,6 +20,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import * as Updates from "expo-updates";
 import * as SecureStore from "expo-secure-store";
+import * as Notifications from "expo-notifications";
 
 import { useAuth } from "@/context/AuthContext";
 import { ApiError, apiFetch, getApiBaseUrl } from "@/lib/api";
@@ -36,6 +37,12 @@ import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
 import { getStoredThemeMode, setStoredThemeMode } from "@/lib/storage";
 import { applyThemeMode, T, type ThemeMode } from "@/lib/theme";
 import { cardBase, cardElevated } from "@/lib/ui";
+import {
+  deleteNotificationInboxItem,
+  markNotificationInboxItemRead,
+  subscribeNotificationInbox,
+  type NotificationInboxItem,
+} from "@/lib/notificationInbox";
 import type { MainTabScreenProps } from "@/navigation/types";
 import DeleteConfirmSheet from "@/components/Shared/DeleteConfirmSheet";
 import SettingsDebtGroups from "@/components/Settings/SettingsDebtGroups";
@@ -101,6 +108,8 @@ const STRATEGY_OPTIONS = [
   { value: "zeroBased", label: "Zero-based", tip: "Assign every pound to a category so leftover becomes £0." },
   { value: "fiftyThirtyTwenty", label: "50/30/20", tip: "Split income into needs, wants, and savings/debt reduction." },
 ] as const;
+
+const TERM_PRESETS = [2, 3, 6, 12, 24, 36, 48] as const;
 
 const NOTIFICATION_PREFS_KEY = "budget_app.notification_prefs";
 
@@ -174,6 +183,7 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
   const [moreOpen, setMoreOpen] = useState(false);
 
   const [notifications, setNotifications] = useState<NotificationPrefs>({ dueReminders: true, paymentAlerts: true });
+  const [notificationInbox, setNotificationInbox] = useState<NotificationInboxItem[]>([]);
 
   const [detailsSheetOpen, setDetailsSheetOpen] = useState(false);
   const [budgetFieldSheet, setBudgetFieldSheet] = useState<BudgetField | null>(null);
@@ -183,7 +193,6 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
   const [createPlanSheetOpen, setCreatePlanSheetOpen] = useState(false);
 
   const [saveBusy, setSaveBusy] = useState(false);
-  const [pushTestBusy, setPushTestBusy] = useState(false);
   const [switchingPlanId, setSwitchingPlanId] = useState<string | null>(null);
   const [deletingPlanId, setDeletingPlanId] = useState<string | null>(null);
   const [planDeleteTarget, setPlanDeleteTarget] = useState<BudgetPlanListItem | null>(null);
@@ -274,6 +283,7 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
   const [addDebtHistoricalPaid, setAddDebtHistoricalPaid] = useState("");
   const [addDebtMonthlyPayment, setAddDebtMonthlyPayment] = useState("");
   const [addDebtInstallmentMonths, setAddDebtInstallmentMonths] = useState("");
+  const [addDebtInstallmentPreset, setAddDebtInstallmentPreset] = useState<number | "custom" | null>(null);
   const [addDebtInterestRate, setAddDebtInterestRate] = useState("");
   const [addDebtAgreementFirstPaymentDate, setAddDebtAgreementFirstPaymentDate] = useState("");
   const [addDebtAgreementMissedMonths, setAddDebtAgreementMissedMonths] = useState("");
@@ -401,6 +411,17 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
     }
   }, []);
 
+  const formatNotificationReceivedAt = useCallback((value: string): string => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "Just now";
+    return date.toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  }, []);
+
   const saveNotifications = useCallback(async (next: NotificationPrefs) => {
     setNotifications(next);
     await SecureStore.setItemAsync(NOTIFICATION_PREFS_KEY, JSON.stringify(next));
@@ -423,41 +444,6 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
       }
     } catch (err: unknown) {
       Alert.alert("Notification settings", err instanceof Error ? err.message : "Failed to sync settings.");
-    }
-  }, []);
-
-  const sendTestMobilePush = useCallback(async () => {
-    try {
-      setPushTestBusy(true);
-      const result = await apiFetch<{
-        ok: boolean;
-        sent: number;
-        totalTokens: number;
-        removedTokens: number;
-        errors?: string[];
-      }>("/api/notifications/test-mobile", {
-        method: "POST",
-        body: {
-          title: "BudgetIn Check",
-          body: "Test mobile notification",
-        },
-      });
-
-      const errors = Array.isArray(result.errors) ? result.errors : [];
-      const summary = [
-        `Sent: ${result.sent}/${result.totalTokens}`,
-        `Removed stale tokens: ${result.removedTokens}`,
-      ];
-
-      if (errors.length > 0) {
-        summary.push("", "Delivery errors:", ...errors.slice(0, 5));
-      }
-
-      Alert.alert("Push test complete", summary.join("\n"));
-    } catch (err: unknown) {
-      Alert.alert("Push test failed", err instanceof Error ? err.message : "Please try again.");
-    } finally {
-      setPushTestBusy(false);
     }
   }, []);
 
@@ -543,6 +529,36 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
   useEffect(() => {
     loadNotifications();
   }, [loadNotifications]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeNotificationInbox((snapshot) => {
+      setNotificationInbox(snapshot.items);
+    });
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    if (activeTab !== "notifications") return;
+
+    const clearWhenViewed = () => {
+      void (async () => {
+        try {
+          await Notifications.dismissAllNotificationsAsync();
+        } catch {
+          // ignore
+        }
+        try {
+          await Notifications.setBadgeCountAsync(0);
+        } catch {
+          // ignore
+        }
+      })();
+    };
+
+    clearWhenViewed();
+    const unsubscribe = navigation.addListener("focus", clearWhenViewed);
+    return unsubscribe;
+  }, [activeTab, navigation]);
 
   useEffect(() => {
     (async () => {
@@ -914,13 +930,16 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
         type: addDebtType,
         initialBalance: addDebtType === "credit_card" ? currentBalance : initialBalance,
         currentBalance: addDebtType === "credit_card" ? currentBalance : currentBalance || initialBalance,
-        amount: addDebtType === "credit_card" ? currentBalance : monthlyPayment,
+        amount: addDebtType === "credit_card" ? 0 : monthlyPayment,
         creditLimit: addDebtType === "credit_card" ? limit : null,
         historicalPaidAmount,
       };
 
-      if (addDebtType !== "credit_card") {
+      if (installmentMonths !== null) {
         body.installmentMonths = installmentMonths;
+      }
+
+      if (addDebtType !== "credit_card") {
         body.interestRate = interestRate;
         if (agreementFirstPaymentDate) {
           body.agreementFirstPaymentDate = agreementFirstPaymentDate;
@@ -942,6 +961,7 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
       setAddDebtHistoricalPaid("");
       setAddDebtMonthlyPayment("");
       setAddDebtInstallmentMonths("");
+      setAddDebtInstallmentPreset(null);
       setAddDebtInterestRate("");
       setAddDebtAgreementFirstPaymentDate("");
       setAddDebtAgreementMissedMonths("");
@@ -1250,15 +1270,61 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
                     thumbColor={notifications.paymentAlerts ? T.accent : T.card}
                   />
                 </View>
-                <Pressable
-                  onPress={() => {
-                    void sendTestMobilePush();
-                  }}
-                  style={[styles.primaryGhostBtn, pushTestBusy && styles.disabled]}
-                  disabled={pushTestBusy}
-                >
-                  <Text style={styles.primaryGhostText}>{pushTestBusy ? "Sending…" : "Send test mobile push"}</Text>
-                </Pressable>
+                <Text style={[styles.muted, styles.notificationHeading]}>Recent notifications</Text>
+                {notificationInbox.length ? (
+                  <View style={styles.notificationList}>
+                    {notificationInbox.map((item) => (
+                      <Pressable
+                        key={item.id}
+                        onPress={() => {
+                          if (item.readAt) return;
+                          void markNotificationInboxItemRead(item.id);
+                        }}
+                        style={({ pressed }) => [
+                          styles.notificationItem,
+                          !item.readAt && styles.notificationItemUnread,
+                          pressed && styles.notificationItemPressed,
+                        ]}
+                      >
+                        <View style={styles.notificationTitleRow}>
+                          <Text style={styles.notificationTitle} numberOfLines={1}>
+                            {item.title || "BudgetIn Check"}
+                          </Text>
+                          {!item.readAt ? <View style={styles.notificationUnreadDot} /> : null}
+                        </View>
+                        {item.body ? <Text style={styles.notificationBody}>{item.body}</Text> : null}
+                        <View style={styles.notificationFooterRow}>
+                          <Text style={styles.notificationMeta}>{formatNotificationReceivedAt(item.receivedAt)}</Text>
+                          <View style={styles.notificationActions}>
+                            {!item.readAt ? (
+                              <Pressable
+                                onPress={(e) => {
+                                  e.stopPropagation();
+                                  void markNotificationInboxItemRead(item.id);
+                                }}
+                                style={styles.notificationActionBtn}
+                              >
+                                <Text style={styles.notificationActionText}>Mark read</Text>
+                              </Pressable>
+                            ) : null}
+                            <Pressable
+                              onPress={(e) => {
+                                e.stopPropagation();
+                                void deleteNotificationInboxItem(item.id);
+                              }}
+                              style={styles.notificationDeleteBtn}
+                              accessibilityLabel="Delete notification"
+                            >
+                              <Ionicons name="trash-outline" size={14} color={T.red} />
+                            </Pressable>
+                          </View>
+                        </View>
+                      </Pressable>
+                    ))}
+                  </View>
+                ) : (
+                  <Text style={styles.notificationEmpty}>No notifications yet.</Text>
+                )}
                 <Text style={styles.muted}>These preferences sync to your account and control automatic reminders.</Text>
               </Section>
             )}
@@ -1532,6 +1598,52 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
               </View>
             </View>
 
+            <Text style={styles.label}>Pay over months (optional)</Text>
+            <View style={styles.choiceRow}>
+              {TERM_PRESETS.map((m) => {
+                const selected = addDebtInstallmentPreset === m;
+                return (
+                  <Pressable
+                    key={m}
+                    onPress={() => {
+                      if (addDebtInstallmentPreset === m) {
+                        setAddDebtInstallmentPreset(null);
+                        setAddDebtInstallmentMonths("");
+                        return;
+                      }
+                      setAddDebtInstallmentPreset(m);
+                      setAddDebtInstallmentMonths(String(m));
+                    }}
+                    style={[styles.choiceBtn, selected && styles.choiceBtnActive]}
+                  >
+                    <Text style={[styles.choiceTxt, selected && styles.choiceTxtActive]}>{m}</Text>
+                  </Pressable>
+                );
+              })}
+              {(() => {
+                const selected = addDebtInstallmentPreset === "custom";
+                return (
+                  <Pressable
+                    onPress={() => {
+                      if (addDebtInstallmentPreset === "custom") {
+                        setAddDebtInstallmentPreset(null);
+                        setAddDebtInstallmentMonths("");
+                        return;
+                      }
+                      setAddDebtInstallmentPreset("custom");
+                      setAddDebtInstallmentMonths("");
+                    }}
+                    style={[styles.choiceBtn, selected && styles.choiceBtnActive]}
+                  >
+                    <Text style={[styles.choiceTxt, selected && styles.choiceTxtActive]}>Custom</Text>
+                  </Pressable>
+                );
+              })()}
+            </View>
+            {addDebtInstallmentPreset === "custom" ? (
+              <TextInput value={addDebtInstallmentMonths} onChangeText={setAddDebtInstallmentMonths} style={styles.input} keyboardType="number-pad" />
+            ) : null}
+
             {addDebtType !== "credit_card" ? (
               <>
                 <View style={styles.twoColRow}>
@@ -1545,16 +1657,8 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
                   </View>
                 </View>
 
-                <View style={styles.twoColRow}>
-                  <View style={styles.halfCol}>
-                    <Text style={styles.label}>Agreement months</Text>
-                    <TextInput value={addDebtInstallmentMonths} onChangeText={setAddDebtInstallmentMonths} style={styles.input} keyboardType="number-pad" />
-                  </View>
-                  <View style={styles.halfCol}>
-                    <Text style={styles.label}>APR % (optional)</Text>
-                    <TextInput value={addDebtInterestRate} onChangeText={setAddDebtInterestRate} style={styles.input} keyboardType="decimal-pad" />
-                  </View>
-                </View>
+                <Text style={styles.label}>APR % (optional)</Text>
+                <TextInput value={addDebtInterestRate} onChangeText={setAddDebtInterestRate} style={styles.input} keyboardType="decimal-pad" />
 
                 <Text style={styles.label}>1st payment date (calendar, optional)</Text>
                 <Pressable style={[styles.input, styles.dateInput]} onPress={openAddAgreementDatePicker}>
@@ -2046,6 +2150,95 @@ const styles = StyleSheet.create({
     borderColor: "rgba(226,92,92,0.2)",
   },
   signOutText: { color: T.red, fontSize: 15, fontWeight: "700" },
+  notificationList: {
+    gap: 8,
+    marginTop: 0,
+    marginBottom: 8,
+  },
+  notificationHeading: {
+    marginBottom: 6,
+  },
+  notificationItem: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: T.border,
+    backgroundColor: T.cardAlt,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 4,
+  },
+  notificationItemPressed: {
+    opacity: 0.9,
+  },
+  notificationItemUnread: {
+    borderColor: `${T.accent}80`,
+  },
+  notificationTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  notificationTitle: {
+    color: T.text,
+    fontSize: 13,
+    fontWeight: "700",
+    flex: 1,
+  },
+  notificationUnreadDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: T.red,
+  },
+  notificationBody: {
+    color: T.textDim,
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  notificationMeta: {
+    color: T.textMuted,
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  notificationFooterRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  notificationActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  notificationActionBtn: {
+    borderWidth: 1,
+    borderColor: T.border,
+    backgroundColor: T.card,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  notificationActionText: {
+    color: T.textDim,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  notificationDeleteBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: `${T.red}66`,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: `${T.red}14`,
+  },
+  notificationEmpty: {
+    color: T.textMuted,
+    fontSize: 12,
+  },
 
   bottomTabsGlass: {
     overflow: "hidden",

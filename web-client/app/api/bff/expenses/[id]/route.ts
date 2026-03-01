@@ -7,6 +7,8 @@ import { resolveExpenseLogoWithSearch } from "@/lib/expenses/logoResolver";
 import { updateExpenseAcrossMonthsByName } from "@/lib/expenses/store";
 import { isNonDebtCategoryName } from "@/lib/expenses/helpers";
 import { maybeSendCategoryThresholdPush } from "@/lib/push/thresholdNotifications";
+import { buildPaymentMadeActivity } from "@/lib/push/activityMessages";
+import { sendUserPush } from "@/lib/push/sendUserPush";
 import { MONTHS } from "@/lib/constants/time";
 import { syncExpensePaymentsToPaidAmount } from "@/lib/expenses/paymentSync";
 import type { MonthKey } from "@/types";
@@ -444,6 +446,28 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     })) as unknown as SerializableExpense;
   });
 
+  const updatedPaidAmountNumberFinal = Number(decimalToString(updated.paidAmount));
+  const paymentDelta = updatedPaidAmountNumberFinal - existingPaidAmountNumber;
+  if (isPaymentChange && Number.isFinite(paymentDelta) && paymentDelta > 0.005) {
+    try {
+      const plan = await prisma.budgetPlan.findUnique({
+        where: { id: existing.budgetPlanId },
+        select: { currency: true },
+      });
+      const currency = plan?.currency ?? "GBP";
+      const msg = await buildPaymentMadeActivity({
+        name: updated.name,
+        amount: paymentDelta,
+        currency,
+        kind: "expense",
+        url: "/dashboard",
+      });
+      await sendUserPush({ userId, preference: "paymentAlerts", web: msg.web, mobile: msg.mobile });
+    } catch {
+      // Best-effort
+    }
+  }
+
   // ── Sync expense → debt on every payment change ───────────────────────────
   // Runs whenever paid/paidAmount was explicitly provided in the request body.
   // Skips allocations and expense categories that never generate debts
@@ -453,7 +477,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   //   • toggled unpaid   → zero out any existing debt (overdue processor
   //                        will recreate it when the due date passes)
   if (isPaymentChange && !updated.isAllocation && !isNonDebtCategoryName(updated.category?.name)) {
-    const nextPaidAmountNumberFinal = Number(decimalToString(updated.paidAmount));
+    const nextPaidAmountNumberFinal = updatedPaidAmountNumberFinal;
     const isPartial = !updated.paid && nextPaidAmountNumberFinal > 0;
     const debtRemainingAmount = isPartial
       ? Math.max(0, nextAmountNumber - nextPaidAmountNumberFinal)

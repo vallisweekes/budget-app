@@ -9,7 +9,7 @@
     },
     "scheme": "budgetapp",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/icon-opaque.png",
     "userInterfaceStyle": "light",
     "splash": {
       "image": "./assets/splash.png",
@@ -17,7 +17,7 @@
       "backgroundColor": "#2a0a9e"
     },
     "ios": {
-      "icon": "./assets/icon.png",
+      "icon": "./assets/icon-opaque.png",
       "supportsTablet": true,
       "config": {
         "usesNonExemptEncryption": false
@@ -29,7 +29,7 @@
       }
     },
     "android": {
-      "icon": "./assets/icon.png",
+      "icon": "./assets/icon-opaque.png",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#2a0a9e"
@@ -48,7 +48,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/icon.png",
+          "icon": "./assets/icon-opaque.png",
           "color": "#2a0a9e",
           "defaultChannel": "default",
           "enableBackgroundRemoteNotifications": true

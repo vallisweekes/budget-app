@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
 import { computeAgreementBaseline } from "@/lib/debts/agreementBaseline";
+import { buildDebtAddedActivity } from "@/lib/push/activityMessages";
+import { sendUserPush } from "@/lib/push/sendUserPush";
 
 export const runtime = "nodejs";
 
@@ -358,6 +360,24 @@ export async function POST(request: Request) {
 
       return created;
     });
+
+    try {
+      const plan = await prisma.budgetPlan.findUnique({
+        where: { id: budgetPlanId },
+        select: { currency: true },
+      });
+      const currency = plan?.currency ?? "GBP";
+      const balance = Math.max(0, toNumber((debt as any).currentBalance ?? (debt as any).initialBalance ?? 0));
+      const msg = await buildDebtAddedActivity({
+        name: (debt as any).name ?? name,
+        balance,
+        currency,
+        url: "/dashboard",
+      });
+      await sendUserPush({ userId, preference: "paymentAlerts", web: msg.web, mobile: msg.mobile });
+    } catch {
+      // Best-effort
+    }
 
     return NextResponse.json(withMissedPaymentFlag(debt), { status: 201 });
   } catch (error) {

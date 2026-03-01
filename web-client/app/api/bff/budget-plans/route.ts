@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import { getSessionUserId } from "@/lib/api/bffAuth";
+import { prisma } from "@/lib/prisma";
 import {
 	getOrCreateBudgetPlanForUser,
 	isSupportedBudgetType,
 	listBudgetPlansForUser,
 	type SupportedBudgetType,
 } from "@/lib/budgetPlans";
+import { buildPlanCreatedActivity } from "@/lib/push/activityMessages";
+import { sendUserPush } from "@/lib/push/sendUserPush";
 
 function toBool(value: unknown): boolean {
 	if (value === true) return true;
@@ -63,6 +66,15 @@ export async function POST(req: Request) {
 	}
 
 	try {
+		const existing = await prisma.budgetPlan.findFirst({
+			where: {
+				userId,
+				kind: rawKind as any,
+			},
+			orderBy: { createdAt: "desc" },
+			select: { id: true },
+		});
+
 		const plan = await getOrCreateBudgetPlanForUser({
 			userId,
 			budgetType: rawKind as SupportedBudgetType,
@@ -70,6 +82,20 @@ export async function POST(req: Request) {
 			eventDate,
 			includePostEventIncome,
 		});
+
+		if (!existing) {
+			try {
+				const kind = (rawKind === "holiday" || rawKind === "carnival") ? rawKind : "personal";
+				const msg = await buildPlanCreatedActivity({
+					kind,
+					name: plan.name,
+					url: "/dashboard",
+				});
+				await sendUserPush({ userId, preference: "paymentAlerts", web: msg.web, mobile: msg.mobile });
+			} catch {
+				// Best-effort: never block plan creation on push errors
+			}
+		}
 
 		return NextResponse.json({
 			id: plan.id,

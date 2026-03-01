@@ -62,6 +62,8 @@ const TYPE_COLORS: Record<string, string> = {
   other: "#64748b",
 };
 
+const TERM_PRESETS = [2, 3, 6, 12, 24, 36, 48] as const;
+
 function DebtCard({
   debt,
   currency,
@@ -184,6 +186,7 @@ export default function DebtScreen() {
   const [addCreditLimit, setAddCreditLimit] = useState("");
   const [addInterestRate, setAddInterestRate] = useState("");
   const [addInstallmentMonths, setAddInstallmentMonths] = useState("");
+  const [addInstallmentPreset, setAddInstallmentPreset] = useState<number | "custom" | null>(null);
   const [addType, setAddType] = useState("loan");
   const [saving, setSaving] = useState(false);
 
@@ -232,18 +235,21 @@ export default function DebtScreen() {
     }, [load])
   );
 
-  const isCreditCardType = addType === "credit_card";
+  const isCardType = addType === "credit_card" || addType === "store_card";
   const isLoanStyleType = addType === "loan" || addType === "mortgage";
 
   const handleAdd = async () => {
     const name = addName.trim();
     const balance = parseFloat(addBalance);
-    const monthlyPayment = parseFloat(addMonthlyPayment);
+    const monthlyPayment = addMonthlyPayment.trim() ? parseFloat(addMonthlyPayment) : 0;
     const creditLimit = addCreditLimit.trim() ? parseFloat(addCreditLimit) : null;
     const interestRate = addInterestRate.trim() ? parseFloat(addInterestRate) : null;
     const installmentMonths = addInstallmentMonths.trim() ? Number.parseInt(addInstallmentMonths, 10) : null;
     if (!name) { Alert.alert("Missing name", "Enter a debt name."); return; }
-    if (isNaN(balance) || balance <= 0) { Alert.alert("Invalid amount", "Enter a valid balance."); return; }
+    if (isNaN(balance) || (isCardType ? balance < 0 : balance <= 0)) {
+      Alert.alert("Invalid amount", isCardType ? "Enter a valid balance (0 or more)." : "Enter a valid balance.");
+      return;
+    }
     if (isNaN(monthlyPayment) || monthlyPayment < 0) {
       Alert.alert("Invalid monthly payment", "Enter a valid monthly payment (0 or more).");
       return;
@@ -271,7 +277,7 @@ export default function DebtScreen() {
           amount: monthlyPayment,
           type: addType,
           budgetPlanId: settings?.id ?? "",
-          creditLimit: isCreditCardType ? creditLimit : null,
+          creditLimit: isCardType ? creditLimit : null,
           interestRate,
           installmentMonths,
         },
@@ -282,6 +288,7 @@ export default function DebtScreen() {
       setAddCreditLimit("");
       setAddInterestRate("");
       setAddInstallmentMonths("");
+      setAddInstallmentPreset(null);
       setShowAddForm(false);
       await load();
     } catch (err: unknown) {
@@ -756,7 +763,7 @@ export default function DebtScreen() {
                   onChangeText={setAddBalance}
                   keyboardType="decimal-pad"
                 />
-                {isCreditCardType ? (
+                {isCardType ? (
                   <TextInput
                     style={s.input}
                     placeholder="Credit limit"
@@ -768,7 +775,7 @@ export default function DebtScreen() {
                 ) : null}
                 <TextInput
                   style={s.input}
-                  placeholder="Monthly payment"
+                  placeholder="Monthly payment (optional)"
                   placeholderTextColor={T.textMuted}
                   value={addMonthlyPayment}
                   onChangeText={setAddMonthlyPayment}
@@ -782,14 +789,74 @@ export default function DebtScreen() {
                   onChangeText={setAddInterestRate}
                   keyboardType="decimal-pad"
                 />
-                <TextInput
-                  style={s.input}
-                  placeholder="Pay over months (optional)"
-                  placeholderTextColor={T.textMuted}
-                  value={addInstallmentMonths}
-                  onChangeText={setAddInstallmentMonths}
-                  keyboardType="number-pad"
-                />
+                <View style={s.termWrap}>
+                  <Text style={s.termLabel}>Spread over months</Text>
+                  <View style={s.termRow}>
+                    {(() => {
+                      const active = addInstallmentPreset == null && !addInstallmentMonths.trim();
+                      return (
+                        <Pressable
+                          onPress={() => {
+                            setAddInstallmentPreset(null);
+                            setAddInstallmentMonths("");
+                          }}
+                          style={[s.termBtn, active && s.termBtnActive]}
+                        >
+                          <Text style={[s.termBtnTxt, active && s.termBtnTxtActive]}>None</Text>
+                        </Pressable>
+                      );
+                    })()}
+                    {TERM_PRESETS.map((m) => {
+                      const active = addInstallmentPreset === m;
+                      return (
+                        <Pressable
+                          key={m}
+                          onPress={() => {
+                            if (addInstallmentPreset === m) {
+                              setAddInstallmentPreset(null);
+                              setAddInstallmentMonths("");
+                              return;
+                            }
+                            setAddInstallmentPreset(m);
+                            setAddInstallmentMonths(String(m));
+                          }}
+                          style={[s.termBtn, active && s.termBtnActive]}
+                        >
+                          <Text style={[s.termBtnTxt, active && s.termBtnTxtActive]}>{`${m} months`}</Text>
+                        </Pressable>
+                      );
+                    })}
+                    {(() => {
+                      const active = addInstallmentPreset === "custom";
+                      return (
+                        <Pressable
+                          onPress={() => {
+                            if (addInstallmentPreset === "custom") {
+                              setAddInstallmentPreset(null);
+                              setAddInstallmentMonths("");
+                              return;
+                            }
+                            setAddInstallmentPreset("custom");
+                            setAddInstallmentMonths("");
+                          }}
+                          style={[s.termBtn, active && s.termBtnActive]}
+                        >
+                          <Text style={[s.termBtnTxt, active && s.termBtnTxtActive]}>Custom</Text>
+                        </Pressable>
+                      );
+                    })()}
+                  </View>
+                  {addInstallmentPreset === "custom" ? (
+                    <TextInput
+                      style={s.input}
+                      placeholder="e.g. 18"
+                      placeholderTextColor={T.textMuted}
+                      value={addInstallmentMonths}
+                      onChangeText={setAddInstallmentMonths}
+                      keyboardType="number-pad"
+                    />
+                  ) : null}
+                </View>
                 <View style={s.typeRow}>
                   {Object.keys(TYPE_LABELS).map((t) => (
                     <Pressable
@@ -832,6 +899,21 @@ const s = StyleSheet.create({
   heroLabel: { color: T.textDim, fontSize: 10, fontWeight: "800", letterSpacing: 0.6 },
   heroValue: { fontSize: 22, fontWeight: "900", marginTop: 4 },
   heroSub: { color: T.textMuted, fontSize: 11, fontWeight: "600", marginTop: 2 },
+
+  termWrap: { width: "100%", gap: 8 },
+  termLabel: { color: T.textDim, fontSize: 12, fontWeight: "800" },
+  termRow: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 8, marginBottom: 10 },
+  termBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: T.border,
+    backgroundColor: T.cardAlt,
+  },
+  termBtnActive: { borderColor: T.accent, backgroundColor: `${T.accent}2A` },
+  termBtnTxt: { color: T.textDim, fontSize: 12, fontWeight: "700" },
+  termBtnTxtActive: { color: T.accent, fontWeight: "800" },
 
   // Analytics chart card
   chartCard: { margin: 14, marginBottom: 0, padding: 14, gap: 12, ...cardBase },

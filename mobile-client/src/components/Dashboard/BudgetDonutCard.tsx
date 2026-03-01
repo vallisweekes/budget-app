@@ -53,10 +53,11 @@ export default function BudgetDonutCard({ totalBudget, totalExpenses, paidTotal,
   const paidLen      = paidFrac      * C;
   const committedLen = committedFrac * C;
 
-  const centerTop = fmt(remaining, currency);
+  const centerKicker = isOverBudget ? "Over budget" : "Remaining";
+  const centerTop = isOverBudget ? fmt(Math.abs(remaining), currency) : fmt(remaining, currency);
   const centerSub = isOverBudget
-    ? `over budget (budget ${fmt(totalBudget, currency)})`
-    : `left of ${fmt(totalBudget, currency)}`;
+    ? `Budget ${fmt(totalBudget, currency)}`
+    : `of ${fmt(totalBudget, currency)} budget`;
 
   return (
     <View style={s.card}>
@@ -106,6 +107,7 @@ export default function BudgetDonutCard({ totalBudget, totalExpenses, paidTotal,
 
         {/* Center label */}
         <View style={[s.centerWrap, { width: SIZE, height: SIZE }]}>
+          <Text style={[s.centerKicker, isOverBudget && { color: T.red }]}>{centerKicker}</Text>
           <Text
             style={[s.centerValue, isOverBudget && { color: T.red }]}
             numberOfLines={1}
@@ -136,6 +138,14 @@ const s = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 20,
   },
+  centerKicker: {
+    color: T.textDim,
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+    marginBottom: 6,
+  },
   centerValue: {
     color: T.text,
     fontSize: 26,
@@ -143,7 +153,7 @@ const s = StyleSheet.create({
     letterSpacing: -0.5,
   },
   centerSub: {
-    marginTop: 4,
+    marginTop: 6,
     color: T.textDim,
     fontSize: 13,
     fontWeight: "600",

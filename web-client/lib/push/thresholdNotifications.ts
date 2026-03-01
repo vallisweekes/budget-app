@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { sendMobilePushNotifications } from "@/lib/push/mobilePush";
+import { maybeGeneratePushCopy } from "@/lib/push/aiCopy";
 import { getUserNotificationPreferences } from "@/lib/push/userNotificationPreferences";
 
 type ThresholdPushParams = {
@@ -79,16 +80,33 @@ export async function maybeSendCategoryThresholdPush(params: ThresholdPushParams
 		let title: string | null = null;
 		let body: string | null = null;
 		const name = categoryName ?? "A category";
+		const pctRounded = Math.round(newPct);
 
 		if (oldPct < EXCEEDED_PCT && newPct >= EXCEEDED_PCT) {
-			title = `${name} budget exceeded 🚨`;
-			body = `${name} has gone over your monthly income allocation. You may want to review.`;
+			title = `${name} is over plan`;
+			body = `You’ve used about ${pctRounded}% of your monthly income on ${name} this month. Want to review and adjust?`;
 		} else if (oldPct < THRESHOLD_PCT && newPct >= THRESHOLD_PCT) {
-			title = `${name} at ${Math.round(newPct)}% of income ⚠️`;
-			body = `You've used ${Math.round(newPct)}% of your monthly income on ${name} this month.`;
+			title = `${name} is getting close`;
+			body = `You’ve used about ${pctRounded}% of your monthly income on ${name} this month. You’re staying on top of it — quick review?`;
 		}
 
 		if (!title) return;
+
+		const ai = await maybeGeneratePushCopy({
+			event: "category_threshold",
+			context: {
+				categoryName: name,
+				pctRounded,
+				newPct,
+				oldPct,
+				threshold: newPct >= EXCEEDED_PCT ? "exceeded" : "near",
+				month,
+				year,
+			},
+			fallback: { title, body: body ?? undefined },
+		});
+		title = ai.title;
+		body = ai.body ?? body;
 
 		// 5 — Fetch user's mobile tokens
 		const tokens = await (
