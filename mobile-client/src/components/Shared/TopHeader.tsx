@@ -22,6 +22,7 @@ interface Props {
   onLogout?: () => void;
   incomePendingCount?: number;
   onAddIncome?: () => void;
+  showNotificationDot?: boolean;
 }
 
 export default function TopHeader({
@@ -40,6 +41,7 @@ export default function TopHeader({
   onLogout,
   incomePendingCount = 0,
   onAddIncome,
+  showNotificationDot = false,
 }: Props) {
   const insets = useSafeAreaInsets();
   const { username } = useAuth();
@@ -145,6 +147,7 @@ export default function TopHeader({
             </Pressable>
             <Pressable onPress={onNotifications} style={s.iconBtn} hitSlop={10}>
               <Ionicons name="notifications-outline" size={18} color={T.accent} />
+              {showNotificationDot ? <View style={s.notificationDot} /> : null}
             </Pressable>
           </View>
         )}
@@ -321,6 +324,17 @@ const s = StyleSheet.create({
     color: T.onAccent,
     fontSize: 9,
     fontWeight: "900",
+  },
+  notificationDot: {
+    position: "absolute",
+    top: 5,
+    right: 7,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: T.red,
+    borderWidth: 1,
+    borderColor: T.card,
   },
   menuBackdrop: {
     flex: 1,

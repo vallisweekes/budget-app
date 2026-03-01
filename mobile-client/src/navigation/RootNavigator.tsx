@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-nati
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
+import * as Notifications from "expo-notifications";
 
 import { useAuth } from "@/context/AuthContext";
 import type {
@@ -98,6 +99,7 @@ function RootTopHeader({ navigation }: { navigation: any }) {
   const { signOut } = useAuth();
   const [incomePendingCount, setIncomePendingCount] = useState(0);
   const [pendingBudgetPlanId, setPendingBudgetPlanId] = useState<string | null>(null);
+  const [hasNotificationDot, setHasNotificationDot] = useState(false);
   const now = new Date();
   const nowMonth = now.getMonth() + 1;
   const nowYear = now.getFullYear();
@@ -312,8 +314,19 @@ function RootTopHeader({ navigation }: { navigation: any }) {
           <Pressable onPress={() => navigation.navigate("Analytics")} style={s.headerActionBtn} hitSlop={10}>
             <Ionicons name="stats-chart-outline" size={18} color={T.accent} />
           </Pressable>
-          <Pressable onPress={() => navigation.navigate("NotificationSettings", { initialTab: "notifications" })} style={s.headerActionBtn} hitSlop={10}>
+          <Pressable
+            onPress={() => {
+              setHasNotificationDot(false);
+              void Notifications.setBadgeCountAsync(0).catch(() => {
+                // ignore
+              });
+              navigation.navigate("NotificationSettings", { initialTab: "notifications" });
+            }}
+            style={s.headerActionBtn}
+            hitSlop={10}
+          >
             <Ionicons name="notifications-outline" size={18} color={T.accent} />
+            {hasNotificationDot ? <View style={s.headerNotificationDot} /> : null}
           </Pressable>
         </>
       )
@@ -329,8 +342,19 @@ function RootTopHeader({ navigation }: { navigation: any }) {
           </View>
         ) : null}
       </Pressable>
-      <Pressable onPress={() => navigation.navigate("NotificationSettings", { initialTab: "notifications" })} style={s.headerActionBtn} hitSlop={10}>
+      <Pressable
+        onPress={() => {
+          setHasNotificationDot(false);
+          void Notifications.setBadgeCountAsync(0).catch(() => {
+            // ignore
+          });
+          navigation.navigate("NotificationSettings", { initialTab: "notifications" });
+        }}
+        style={s.headerActionBtn}
+        hitSlop={10}
+      >
         <Ionicons name="notifications-outline" size={18} color={T.accent} />
+        {hasNotificationDot ? <View style={s.headerNotificationDot} /> : null}
       </Pressable>
     </>
   ) : undefined;
@@ -338,6 +362,44 @@ function RootTopHeader({ navigation }: { navigation: any }) {
   useEffect(() => {
     void loadPendingCount();
   }, [loadPendingCount, deepestRoute?.name]);
+
+  const refreshNotificationDot = useCallback(async () => {
+    try {
+      const [presented, badgeCount] = await Promise.all([
+        Notifications.getPresentedNotificationsAsync(),
+        Notifications.getBadgeCountAsync(),
+      ]);
+      setHasNotificationDot((presented?.length ?? 0) > 0 || (badgeCount ?? 0) > 0);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshNotificationDot();
+
+    const received = Notifications.addNotificationReceivedListener(() => {
+      setHasNotificationDot(true);
+    });
+
+    const response = Notifications.addNotificationResponseReceivedListener(() => {
+      setHasNotificationDot(true);
+    });
+
+    return () => {
+      received.remove();
+      response.remove();
+    };
+  }, [refreshNotificationDot]);
+
+  useEffect(() => {
+    if (isNotificationSettings) {
+      setHasNotificationDot(false);
+      void Notifications.setBadgeCountAsync(0).catch(() => {
+        // ignore
+      });
+    }
+  }, [isNotificationSettings]);
 
   const openIncome = () => {
     const now = new Date();
@@ -374,10 +436,22 @@ function RootTopHeader({ navigation }: { navigation: any }) {
 
   return (
     <TopHeader
-      onSettings={() => navigation.navigate("NotificationSettings", { initialTab: "notifications" })}
+      onSettings={() => {
+        setHasNotificationDot(false);
+        void Notifications.setBadgeCountAsync(0).catch(() => {
+          // ignore
+        });
+        navigation.navigate("NotificationSettings", { initialTab: "notifications" });
+      }}
       onIncome={openIncome}
       onAnalytics={() => navigation.navigate("Analytics")}
-      onNotifications={() => navigation.navigate("NotificationSettings", { initialTab: "notifications" })}
+      onNotifications={() => {
+        setHasNotificationDot(false);
+        void Notifications.setBadgeCountAsync(0).catch(() => {
+          // ignore
+        });
+        navigation.navigate("NotificationSettings", { initialTab: "notifications" });
+      }}
       onBack={handleBack}
       centerContent={isIncomeMonth ? incomeMonthSwitcher : incomeGridYearControl}
       centerLabel={isIncomeMonth ? undefined : monthLabel}
@@ -388,6 +462,7 @@ function RootTopHeader({ navigation }: { navigation: any }) {
       onLogout={isNotificationSettings ? signOut : undefined}
       incomePendingCount={incomePendingCount}
       onAddIncome={isIncomeMonth ? openAddIncomeFromHeader : undefined}
+      showNotificationDot={hasNotificationDot}
     />
   );
 }
@@ -403,8 +478,8 @@ const s = StyleSheet.create({
     justifyContent: "center",
     gap: 5,
     paddingHorizontal: 10,
-    borderWidth: 1,
     borderColor: T.accentBorder,
+    borderWidth: 1,
   },
   quickActionText: {
     color: T.onAccent,
@@ -501,12 +576,24 @@ const s = StyleSheet.create({
   headerActionBtnDisabled: {
     opacity: 0.5,
   },
+  headerNotificationDot: {
+    position: "absolute",
+    top: 5,
+    right: 7,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: T.red,
+    borderWidth: 1,
+    borderColor: T.card,
+  },
 });
 
 function MainTabs() {
   const { signOut } = useAuth();
   const [incomePendingCount, setIncomePendingCount] = useState(0);
   const [pendingBudgetPlanId, setPendingBudgetPlanId] = useState<string | null>(null);
+  const [hasNotificationDot, setHasNotificationDot] = useState(false);
 
   const getPendingCount = useCallback((data: IncomeSacrificeData): number => {
     const confirmed = new Set((data.confirmations ?? []).map((item) => item.targetKey));
@@ -549,6 +636,35 @@ function MainTabs() {
   useEffect(() => {
     void loadPendingCount();
   }, [loadPendingCount]);
+
+  const refreshNotificationDot = useCallback(async () => {
+    try {
+      const [presented, badgeCount] = await Promise.all([
+        Notifications.getPresentedNotificationsAsync(),
+        Notifications.getBadgeCountAsync(),
+      ]);
+      setHasNotificationDot((presented?.length ?? 0) > 0 || (badgeCount ?? 0) > 0);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshNotificationDot();
+
+    const received = Notifications.addNotificationReceivedListener(() => {
+      setHasNotificationDot(true);
+    });
+
+    const response = Notifications.addNotificationResponseReceivedListener(() => {
+      setHasNotificationDot(true);
+    });
+
+    return () => {
+      received.remove();
+      response.remove();
+    };
+  }, [refreshNotificationDot]);
 
   return (
     <Tab.Navigator
@@ -632,6 +748,10 @@ function MainTabs() {
           };
 
           const openNotifications = () => {
+            setHasNotificationDot(false);
+            void Notifications.setBadgeCountAsync(0).catch(() => {
+              // ignore
+            });
             const parent = navigation.getParent();
             if (parent) {
               (parent as any).navigate("NotificationSettings", { initialTab: "notifications" });
@@ -696,6 +816,7 @@ function MainTabs() {
               compactActionsMenu={isSettings}
               onLogout={signOut}
               incomePendingCount={incomePendingCount}
+              showNotificationDot={hasNotificationDot}
             />
           );
         },
