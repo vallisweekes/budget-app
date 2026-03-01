@@ -7,8 +7,8 @@ import {
   Pressable,
   ActivityIndicator,
   RefreshControl,
-  Dimensions,
   Animated,
+  useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -24,11 +24,11 @@ import { cardBase, cardElevated } from "@/lib/ui";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 
 const MONTH_SHORT = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
-const OVERVIEW_CHART_W = Math.max(240, Dimensions.get("window").width - 76);
 const OVERVIEW_CHART_H = 180;
 
 export default function AnalyticsScreen({ navigation }: { navigation: any }) {
   const topHeaderOffset = useTopHeaderOffset();
+  const { width: windowWidth } = useWindowDimensions();
 
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [debt, setDebt] = useState<DebtSummaryData | null>(null);
@@ -39,6 +39,7 @@ export default function AnalyticsScreen({ navigation }: { navigation: any }) {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [overviewMode, setOverviewMode] = useState<"month" | "year">("year");
+  const [overviewWrapWidth, setOverviewWrapWidth] = useState(0);
   const toggleAnim = useRef(new Animated.Value(1)).current; // 0=month, 1=year
 
   useEffect(() => {
@@ -126,7 +127,7 @@ export default function AnalyticsScreen({ navigation }: { navigation: any }) {
     if (overviewMode === "year") {
       const maxValue = Math.max(...incomeYear, ...expensesByMonth, 1);
       return {
-        labels: MONTH_SHORT.map((label, idx) => (idx % 2 === 0 ? label : "")),
+        labels: MONTH_SHORT,
         rawLabels: MONTH_SHORT,
         incomeSeries: incomeYear,
         expenseSeries: expensesByMonth,
@@ -170,7 +171,18 @@ export default function AnalyticsScreen({ navigation }: { navigation: any }) {
     [chartData.expenseSeries]
   );
 
-  const chartSpacing = overviewMode === "year" ? 23 : 140;
+  const fallbackOverviewWidth = useMemo(() => Math.max(240, windowWidth - 76), [windowWidth]);
+  const chartWidth = useMemo(() => {
+    const base = overviewWrapWidth > 0 ? overviewWrapWidth : fallbackOverviewWidth;
+    return Math.max(220, base - 8);
+  }, [fallbackOverviewWidth, overviewWrapWidth]);
+
+  const chartSpacing = useMemo(() => {
+    if (overviewMode !== "year") return Math.max(120, Math.round((chartWidth - 28) / 2));
+    const points = Math.max(2, chartData.labels.length);
+    const usable = Math.max(180, chartWidth - 20);
+    return Math.max(14, Math.round(usable / (points - 1)));
+  }, [chartData.labels.length, chartWidth, overviewMode]);
 
   const debtDistribution = useMemo(() => {
     const topDebts = [...(debt?.debts ?? [])]
@@ -249,7 +261,15 @@ export default function AnalyticsScreen({ navigation }: { navigation: any }) {
             </Pressable>
           </View>
 
-          <View style={s.overviewChartWrap}>
+          <View
+            style={s.overviewChartWrap}
+            onLayout={(event) => {
+              const width = event.nativeEvent.layout.width;
+              if (width > 0 && Math.abs(width - overviewWrapWidth) > 1) {
+                setOverviewWrapWidth(width);
+              }
+            }}
+          >
             <LineChart
               data={overviewIncomeLine}
               data2={overviewExpenseLine}
@@ -259,15 +279,16 @@ export default function AnalyticsScreen({ navigation }: { navigation: any }) {
               thickness={2}
               thickness2={2}
               height={OVERVIEW_CHART_H}
-              width={OVERVIEW_CHART_W - 20}
-              initialSpacing={6}
+              width={chartWidth}
+              initialSpacing={0}
+              endSpacing={0}
               spacing={chartSpacing}
               noOfSections={5}
               maxValue={overviewMaxValue}
               yAxisColor={T.border}
               xAxisColor={T.border}
               yAxisTextStyle={s.chartAxisText}
-              xAxisLabelTextStyle={s.chartAxisText}
+              xAxisLabelTextStyle={s.chartAxisXText}
               rulesColor={T.border}
               rulesType="dashed"
               hideDataPoints={false}
@@ -476,6 +497,12 @@ const s = StyleSheet.create({
     color: T.textMuted,
     fontSize: 10,
     fontWeight: "700",
+  },
+  chartAxisXText: {
+    color: T.textMuted,
+    fontSize: 9,
+    fontWeight: "700",
+    letterSpacing: 0.2,
   },
   pointerTooltip: {
     backgroundColor: "#0a0a0a",

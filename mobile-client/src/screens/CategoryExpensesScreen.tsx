@@ -8,6 +8,7 @@ import {
   StyleSheet,
   RefreshControl,
   Image,
+  Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -42,8 +43,46 @@ function formatDueDate(iso: string): string {
 
 export default function CategoryExpensesScreen({ route, navigation }: Props) {
   const topHeaderOffset = useTopHeaderOffset();
-  const { categoryId, categoryName, color, icon, month, year, budgetPlanId, currency } = route.params;
+  const {
+    categoryId,
+    categoryName,
+    color,
+    icon,
+    month: routeMonth,
+    year: routeYear,
+    budgetPlanId,
+    currency,
+  } = route.params;
   const categoryColor = useMemo(() => resolveCategoryColor(color), [color]);
+
+  const [month, setMonth] = useState(routeMonth);
+  const [year, setYear] = useState(routeYear);
+  const [monthPickerOpen, setMonthPickerOpen] = useState(false);
+  const [pickerYear, setPickerYear] = useState(routeYear);
+  const shortMonths = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+  const monthName = useCallback((value: number) => {
+    const names = [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
+    ];
+    return names[Math.max(1, Math.min(12, value)) - 1] ?? "";
+  }, []);
+
+  const openMonthPicker = useCallback(() => {
+    setPickerYear(year);
+    setMonthPickerOpen(true);
+  }, [year]);
 
   const [addSheetOpen, setAddSheetOpen] = useState(false);
 
@@ -68,6 +107,16 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [logoFailed, setLogoFailed] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (routeMonth !== month) {
+      setMonth(routeMonth);
+    }
+    if (routeYear !== year) {
+      setYear(routeYear);
+      setPickerYear(routeYear);
+    }
+  }, [month, routeMonth, routeYear, year]);
 
   const load = useCallback(async () => {
     try {
@@ -286,6 +335,10 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
         }
         ListHeaderComponent={
           <View style={[styles.hero, { paddingTop: topHeaderOffset + 14 }]}>
+            <Pressable onPress={openMonthPicker} style={styles.heroMonthBtn} hitSlop={12}>
+              <Text style={styles.heroMonthText}>{monthName(month)} {year}</Text>
+              <Ionicons name="chevron-down" size={14} color={withOpacity(T.onAccent, 0.8)} />
+            </Pressable>
             <Text style={styles.heroAmount}>{fmt(plannedTotal, currency)}</Text>
             <View style={styles.heroPctPill}>
               <Text style={styles.heroPctText}>{paidPct}%</Text>
@@ -338,6 +391,61 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
         }
       />
 
+      <Modal
+        visible={monthPickerOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setMonthPickerOpen(false)}
+      >
+        <View style={styles.pickerOverlay}>
+          <Pressable style={styles.pickerBackdrop} onPress={() => setMonthPickerOpen(false)} />
+          <View style={styles.pickerSheet}>
+            <View style={styles.pickerHandle} />
+
+            <View style={styles.pickerYearRow}>
+              <Pressable
+                onPress={() => setPickerYear((value) => value - 1)}
+                hitSlop={12}
+                style={styles.pickerYearBtn}
+              >
+                <Ionicons name="chevron-back" size={22} color={T.text} />
+              </Pressable>
+              <Text style={styles.pickerYearText}>{pickerYear}</Text>
+              <Pressable
+                onPress={() => setPickerYear((value) => value + 1)}
+                hitSlop={12}
+                style={styles.pickerYearBtn}
+              >
+                <Ionicons name="chevron-forward" size={22} color={T.text} />
+              </Pressable>
+            </View>
+
+            <View style={styles.pickerGrid}>
+              {shortMonths.map((label, idx) => {
+                const selectedMonth = idx + 1;
+                const isSelected = selectedMonth === month && pickerYear === year;
+                return (
+                  <Pressable
+                    key={selectedMonth}
+                    onPress={() => {
+                      setMonth(selectedMonth);
+                      setYear(pickerYear);
+                      navigation.setParams({ month: selectedMonth, year: pickerYear });
+                      setMonthPickerOpen(false);
+                    }}
+                    style={[styles.pickerCell, isSelected && styles.pickerCellSelected]}
+                  >
+                    <Text style={[styles.pickerCellText, isSelected && styles.pickerCellSelectedText]}>
+                      {label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <AddExpenseSheet
         visible={addSheetOpen}
         month={month}
@@ -367,6 +475,17 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
     marginBottom: 10,
+  },
+  heroMonthBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 8,
+  },
+  heroMonthText: {
+    color: withOpacity(T.onAccent, 0.8),
+    fontSize: 13,
+    fontWeight: "900",
   },
   heroPctPill: {
     marginBottom: 10,
@@ -414,6 +533,84 @@ const styles = StyleSheet.create({
   retryBtn: { backgroundColor: T.accent, borderRadius: 8, paddingHorizontal: 20, paddingVertical: 8 },
   retryTxt: { color: T.onAccent, fontWeight: "700", fontSize: 13 },
   emptyTxt: { color: T.textDim, fontSize: 14, fontWeight: "600" },
+
+  pickerOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(0,0,0,0.35)",
+  },
+  pickerBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  pickerSheet: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    backgroundColor: T.card,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 20,
+    borderWidth: 1,
+    borderColor: T.border,
+  },
+  pickerHandle: {
+    alignSelf: "center",
+    width: 42,
+    height: 4,
+    borderRadius: 99,
+    backgroundColor: T.border,
+    marginBottom: 12,
+  },
+  pickerYearRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+    gap: 18,
+  },
+  pickerYearBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: T.cardAlt,
+    borderWidth: 1,
+    borderColor: T.border,
+  },
+  pickerYearText: {
+    color: T.text,
+    fontSize: 18,
+    fontWeight: "900",
+    minWidth: 70,
+    textAlign: "center",
+  },
+  pickerGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  pickerCell: {
+    width: "30%",
+    minWidth: 84,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: T.border,
+    backgroundColor: T.cardAlt,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  pickerCellSelected: {
+    borderColor: T.accent,
+    backgroundColor: T.accentDim,
+  },
+  pickerCellText: {
+    color: T.text,
+    fontWeight: "800",
+  },
+  pickerCellSelectedText: {
+    color: T.text,
+  },
 });
 
 const rowStyles = StyleSheet.create({

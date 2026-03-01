@@ -579,6 +579,12 @@ function MainTabs() {
           const categoryExpensesName = typeof deepestRoute?.params?.categoryName === "string"
             ? deepestRoute.params.categoryName
             : undefined;
+          const categoryExpensesMonth = Number(deepestRoute?.params?.month);
+          const categoryExpensesYear = Number(deepestRoute?.params?.year);
+          const hasCategoryMonthYear = Number.isFinite(categoryExpensesMonth)
+            && categoryExpensesMonth >= 1
+            && categoryExpensesMonth <= 12
+            && Number.isFinite(categoryExpensesYear);
           const expensesCenterLabel = isCategoryExpenses
             ? categoryExpensesName
             : isUnplannedExpense
@@ -667,7 +673,18 @@ function MainTabs() {
               onNotifications={openNotifications}
               leftVariant={isSettings || isCategoryExpenses || isUnplannedExpense || isScanReceipt ? "back" : "avatar"}
               onBack={isCategoryExpenses
-                ? () => navigation.navigate("Expenses" as any, { screen: "ExpensesList" } as any)
+                ? () => navigation.navigate(
+                  "Expenses" as any,
+                  hasCategoryMonthYear
+                    ? {
+                      screen: "ExpensesList",
+                      params: {
+                        month: categoryExpensesMonth,
+                        year: categoryExpensesYear,
+                      },
+                    } as any
+                    : { screen: "ExpensesList" } as any
+                )
                 : isSettings
                   ? () => navigation.navigate("Dashboard")
                 : isUnplannedExpense || isScanReceipt

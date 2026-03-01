@@ -17,6 +17,7 @@
       "backgroundColor": "#2a0a9e"
     },
     "ios": {
+      "icon": "./assets/icon.png",
       "supportsTablet": true,
       "config": {
         "usesNonExemptEncryption": false
@@ -28,6 +29,7 @@
       }
     },
     "android": {
+      "icon": "./assets/icon.png",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#2a0a9e"
@@ -46,6 +48,8 @@
       [
         "expo-notifications",
         {
+          "icon": "./assets/icon.png",
+          "color": "#2a0a9e",
           "defaultChannel": "default",
           "enableBackgroundRemoteNotifications": true
         }

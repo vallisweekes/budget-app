@@ -8,8 +8,32 @@ import { resolveLogoUri } from "@/lib/logoDisplay";
 import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
 import { T } from "@/lib/theme";
 import PaymentSheet from "@/components/Debts/Detail/PaymentSheet";
+import DeleteConfirmSheet from "@/components/Shared/DeleteConfirmSheet";
+import { notifyPaymentStatus, scheduleUnpaidFollowUpReminders } from "@/lib/unpaidReminder";
 
 const SHEET_BLUE = "#2a0a9e";
+const PAYMENT_EDIT_GRACE_DAYS = 5;
+const PAYMENT_EDIT_GRACE_MS = PAYMENT_EDIT_GRACE_DAYS * 24 * 60 * 60 * 1000;
+
+function isWithinPaymentEditGrace(lastPaymentAt: string | null | undefined): boolean {
+  if (!lastPaymentAt) return false;
+  const parsed = new Date(lastPaymentAt);
+  if (Number.isNaN(parsed.getTime())) return false;
+  return Date.now() - parsed.getTime() <= PAYMENT_EDIT_GRACE_MS;
+}
+
+function unpaidDebtWarning(daysUntilDue: number | null): string {
+  if (daysUntilDue == null) {
+    return "Making this unpaid can eventually turn this payment into debt if it is not marked as paid again.";
+  }
+  if (daysUntilDue <= 0) {
+    return "Making this unpaid means this payment is overdue and could turn into debt quickly if it is not marked as paid again.";
+  }
+  if (daysUntilDue === 1) {
+    return "Making this unpaid could eventually make this payment a debt if it is not marked as paid in 1 day.";
+  }
+  return `Making this unpaid could eventually make this payment a debt if it is not marked as paid in ${daysUntilDue} days.`;
+}
 
 export type QuickPaymentActionItem = {
   kind: "expense" | "debt";
@@ -17,6 +41,7 @@ export type QuickPaymentActionItem = {
   name: string;
   amount: number;
   paidAmount?: number;
+  lastPaymentAt?: string | null;
   logoUrl?: string | null;
   dueDate?: string | null;
   subtitle?: string | null;
@@ -47,6 +72,7 @@ export default function QuickPaymentActionSheet({ visible, item, currency, inset
   const [payAmount, setPayAmount] = useState("");
   const [paying, setPaying] = useState(false);
   const [paySheetOpen, setPaySheetOpen] = useState(false);
+  const [unpaidConfirmOpen, setUnpaidConfirmOpen] = useState(false);
   const itemId = useMemo(() => (item ? encodeURIComponent(item.id) : ""), [item]);
 
   useEffect(() => {
@@ -54,9 +80,21 @@ export default function QuickPaymentActionSheet({ visible, item, currency, inset
     resetDrag();
     setPayAmount("");
     setPaySheetOpen(false);
+    setUnpaidConfirmOpen(false);
     setExpense(null);
     setDebt(null);
   }, [resetDrag, visible]);
+
+  const dueDays = useMemo(() => {
+    const raw = expense?.dueDate ?? item?.dueDate;
+    if (!raw) return null;
+    const iso = String(raw).length >= 10 ? String(raw).slice(0, 10) : String(raw);
+    const d = new Date(`${iso}T00:00:00`);
+    if (Number.isNaN(d.getTime())) return null;
+    return Math.round((d.getTime() - Date.now()) / 86_400_000);
+  }, [expense?.dueDate, item?.dueDate]);
+
+  const unpaidWarningText = useMemo(() => unpaidDebtWarning(dueDays), [dueDays]);
 
   const heroName = String(item?.name ?? "").trim();
   const heroInitial = (heroName?.[0] ?? "?").toUpperCase();
@@ -70,19 +108,30 @@ export default function QuickPaymentActionSheet({ visible, item, currency, inset
     return subtitle || "";
   }, [item?.dueDate, item?.subtitle]);
 
+  const expensePaymentState = useMemo(() => {
+    if (!item || item.kind !== "expense") {
+      return { isPaid: false, canEditPaidPayment: false };
+    }
+
+    const amountNum = expense ? Number.parseFloat(String(expense.amount)) : item.amount;
+    const paidNum = expense ? Number.parseFloat(String(expense.paidAmount)) : (item.paidAmount ?? 0);
+    const isPaid = expense?.paid ?? (amountNum <= 0 ? true : paidNum >= amountNum - 0.005);
+    const paidAt = expense?.lastPaymentAt ?? item.lastPaymentAt ?? null;
+    const canEditPaidPayment = isPaid && isWithinPaymentEditGrace(paidAt);
+
+    return { isPaid, canEditPaidPayment };
+  }, [expense, item]);
+
   const canAct = useMemo(() => {
     if (!item) return false;
     if (item.kind === "expense") {
-      const amountNum = expense ? Number.parseFloat(String(expense.amount)) : item.amount;
-      const paidNum = expense ? Number.parseFloat(String(expense.paidAmount)) : (item.paidAmount ?? 0);
-      const isPaid = expense?.paid ?? (amountNum <= 0 ? true : paidNum >= amountNum - 0.005);
-      return !isPaid;
+      return !expensePaymentState.isPaid || expensePaymentState.canEditPaidPayment;
     }
 
     const currentBal = debt ? Number.parseFloat(String(debt.currentBalance)) : null;
     if (currentBal == null) return true;
     return currentBal > 0.005;
-  }, [debt, expense, item]);
+  }, [debt, expensePaymentState, item]);
 
   const markPaid = useCallback(async () => {
     if (!item || paying) return;
@@ -108,6 +157,12 @@ export default function QuickPaymentActionSheet({ visible, item, currency, inset
           body,
         });
 
+        void notifyPaymentStatus({
+          expenseId: e.id,
+          status: "paid",
+          expenseName: e.name,
+        });
+
         onClose();
         onUpdated();
         return;
@@ -131,6 +186,46 @@ export default function QuickPaymentActionSheet({ visible, item, currency, inset
       setPaying(false);
     }
   }, [debt, expense, item, itemId, onClose, onUpdated, paying]);
+
+  const markUnpaid = useCallback(async () => {
+    if (!item || item.kind !== "expense" || paying) return;
+
+    setPaying(true);
+    try {
+      await apiFetch<Expense>(`/api/bff/expenses/${itemId}`, {
+        method: "PATCH",
+        body: {
+          paidAmount: 0,
+          paid: false,
+        },
+      });
+
+      const currentMonth = new Date().getMonth() + 1;
+      const currentYear = new Date().getFullYear();
+      const dueDate = expense?.dueDate ?? item.dueDate ?? null;
+
+      void notifyPaymentStatus({
+        expenseId: item.id,
+        status: "unpaid",
+        expenseName: item.name,
+      });
+      void scheduleUnpaidFollowUpReminders({
+        expenseId: item.id,
+        expenseName: item.name,
+        dueDate,
+        month: currentMonth,
+        year: currentYear,
+        wasPreviouslyPaid: expensePaymentState.isPaid,
+      });
+
+      onClose();
+      onUpdated();
+    } catch (err: unknown) {
+      Alert.alert("Update failed", err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setPaying(false);
+    }
+  }, [expense?.dueDate, expensePaymentState.isPaid, item, itemId, onClose, onUpdated, paying]);
 
   const savePayment = useCallback(async () => {
     if (!item || paying) return;
@@ -230,24 +325,36 @@ export default function QuickPaymentActionSheet({ visible, item, currency, inset
 
             {canAct ? (
               <View style={s.actionsRow}>
-                <Pressable onPress={markPaid} disabled={paying} style={[s.actionBtn, s.actionBtnPrimary, paying && s.disabled]}>
-                  <Text style={s.actionPrimaryTxt}>Mark as paid</Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => {
-                    if (paying) return;
-                    setPayAmount("");
-                    setPaySheetOpen(true);
-                  }}
-                  disabled={paying}
-                  style={[s.actionBtn, s.actionBtnSecondary, paying && s.disabled]}
-                >
-                  <Text style={s.actionSecondaryTxt}>Record payment</Text>
-                </Pressable>
+                {item?.kind === "expense" && expensePaymentState.isPaid ? (
+                  <Pressable
+                    onPress={() => setUnpaidConfirmOpen(true)}
+                    disabled={paying}
+                    style={[s.actionBtn, s.actionBtnSecondary, paying && s.disabled]}
+                  >
+                    <Text style={s.actionSecondaryTxt}>Mark as unpaid</Text>
+                  </Pressable>
+                ) : (
+                  <>
+                    <Pressable onPress={markPaid} disabled={paying} style={[s.actionBtn, s.actionBtnPrimary, paying && s.disabled]}>
+                      <Text style={s.actionPrimaryTxt}>Mark as paid</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => {
+                        if (paying) return;
+                        setPayAmount("");
+                        setPaySheetOpen(true);
+                      }}
+                      disabled={paying}
+                      style={[s.actionBtn, s.actionBtnSecondary, paying && s.disabled]}
+                    >
+                      <Text style={s.actionSecondaryTxt}>Record payment</Text>
+                    </Pressable>
+                  </>
+                )}
               </View>
             ) : (
               <Text style={s.paidHint}>
-                Paid
+                {item?.kind === "expense" ? `Paid (edits lock after ${PAYMENT_EDIT_GRACE_DAYS} days)` : "Paid"}
               </Text>
             )}
           </Animated.View>
@@ -266,6 +373,23 @@ export default function QuickPaymentActionSheet({ visible, item, currency, inset
         }}
         onSave={savePayment}
         showMarkPaid={false}
+      />
+
+      <DeleteConfirmSheet
+        visible={unpaidConfirmOpen}
+        title="Mark as unpaid?"
+        description={unpaidWarningText}
+        confirmText="Unpaid"
+        cancelText="Cancel"
+        isBusy={paying}
+        onClose={() => {
+          if (paying) return;
+          setUnpaidConfirmOpen(false);
+        }}
+        onConfirm={async () => {
+          setUnpaidConfirmOpen(false);
+          await markUnpaid();
+        }}
       />
     </>
   );

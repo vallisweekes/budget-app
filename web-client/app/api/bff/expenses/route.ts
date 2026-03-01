@@ -43,7 +43,14 @@ function decimalToString(value: unknown): string {
 }
 
 function serializeExpense(expense: any, latestPaidAt: Date | null) {
-  const effectiveLastPaymentAt = latestPaidAt ?? (expense.lastPaymentAt instanceof Date ? expense.lastPaymentAt : null);
+  const paidAmountNumber = Number(expense?.paidAmount?.toString?.() ?? expense?.paidAmount ?? 0);
+  const effectiveLastPaymentAt =
+    latestPaidAt ??
+    (expense.lastPaymentAt instanceof Date
+      ? expense.lastPaymentAt
+      : Number.isFinite(paidAmountNumber) && paidAmountNumber > 0 && expense.updatedAt instanceof Date
+        ? expense.updatedAt
+        : null);
 
   return {
     id: expense.id,

@@ -13,6 +13,9 @@ import type { MonthKey } from "@/types";
 
 export const runtime = "nodejs";
 
+const PAYMENT_EDIT_GRACE_DAYS = 5;
+const PAYMENT_EDIT_GRACE_MS = PAYMENT_EDIT_GRACE_DAYS * 24 * 60 * 60 * 1000;
+
 function unauthorized() {
   return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 }
@@ -85,6 +88,21 @@ function parseDueDateInput(value: unknown): { value: Date | null | undefined; in
   const dt = new Date(raw);
   if (Number.isNaN(dt.getTime())) return { value: null, invalid: true };
   return { value: dt, invalid: false };
+}
+
+function parseDateLike(value: unknown): Date | null {
+  if (!value) return null;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+  if (typeof value === "string" || typeof value === "number") {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+  return null;
+}
+
+function isWithinPaymentEditGrace(lastPaymentAt: Date | null, now = new Date()): boolean {
+  if (!lastPaymentAt) return false;
+  return now.getTime() - lastPaymentAt.getTime() <= PAYMENT_EDIT_GRACE_MS;
 }
 
 type SerializableExpense = {
@@ -169,6 +187,30 @@ type PatchBody = {
   distributeYears?: unknown;
 };
 
+export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const userId = await getSessionUserId(req);
+  if (!userId) return unauthorized();
+
+  const { id } = await ctx.params;
+  if (!id) return badRequest("Missing id");
+
+  const expense = await prisma.expense.findUnique({
+    where: { id },
+    include: {
+      budgetPlan: { select: { userId: true } },
+      category: {
+        select: { id: true, name: true, icon: true, color: true, featured: true },
+      },
+    },
+  });
+
+  if (!expense || expense.budgetPlan.userId !== userId) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  return NextResponse.json(serializeExpense(expense as unknown as SerializableExpense));
+}
+
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const userId = await getSessionUserId(req);
   if (!userId) return unauthorized();
@@ -228,6 +270,8 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       amount: true,
       paid: true,
       paidAmount: true,
+      lastPaymentAt: true,
+      updatedAt: true,
       isAllocation: true,
       isDirectDebit: true,
       categoryId: true,
@@ -266,6 +310,18 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
         logoSource: existing.logoSource ?? null,
       };
   const nextAmountNumber = amount ?? Number(existing.amount.toString());
+
+  const existingAmountNumber = Number(existing.amount.toString());
+  const existingPaidAmountNumberRaw = Number(existing.paidAmount.toString());
+  const existingComputedPaid =
+    existingAmountNumber <= 0 ||
+    existing.paid ||
+    (Number.isFinite(existingPaidAmountNumberRaw) && existingPaidAmountNumberRaw >= existingAmountNumber - 0.005);
+  const effectiveLastPaymentAt =
+    parseDateLike(existing.lastPaymentAt) ??
+    (Number.isFinite(existingPaidAmountNumberRaw) && existingPaidAmountNumberRaw > 0
+      ? parseDateLike(existing.updatedAt)
+      : null);
 
   const nextCategoryId = categoryId === undefined ? existing.categoryId : categoryId;
   const nextIsAllocation = isAllocation === undefined ? Boolean(existing.isAllocation ?? false) : isAllocation;
@@ -315,6 +371,16 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 
   const existingPaidAmountNumber = Number(existing.paidAmount.toString());
   const isPaymentChange = paidExplicit !== undefined || paidAmountExplicit !== undefined;
+
+  if (isPaymentChange && existingComputedPaid && !isWithinPaymentEditGrace(effectiveLastPaymentAt)) {
+    return NextResponse.json(
+      {
+        error: `Paid payments can only be edited within ${PAYMENT_EDIT_GRACE_DAYS} days of the last payment.`,
+      },
+      { status: 403 }
+    );
+  }
+
   const shouldSyncPayments =
     isPaymentChange ||
     nextPaid !== existing.paid ||

@@ -84,6 +84,21 @@ export default function ExpensesScreen({ navigation }: Props) {
   const { canDecrement } = useYearGuard(settings);
 
   useEffect(() => {
+    const tabNavigation = navigation.getParent();
+    if (!tabNavigation) return;
+
+    const unsubscribe = tabNavigation.addListener("blur", () => {
+      const current = new Date();
+      const nextMonth = current.getMonth() + 1;
+      const nextYear = current.getFullYear();
+      setMonth((prev) => (prev === nextMonth ? prev : nextMonth));
+      setYear((prev) => (prev === nextYear ? prev : nextYear));
+    });
+
+    return unsubscribe;
+  }, [navigation]);
+
+  useEffect(() => {
     const routeMonth = Number(route.params?.month);
     const routeYear = Number(route.params?.year);
     if (Number.isFinite(routeMonth) && routeMonth >= 1 && routeMonth <= 12) {

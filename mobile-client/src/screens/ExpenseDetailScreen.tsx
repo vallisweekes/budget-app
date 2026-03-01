@@ -21,15 +21,39 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 
 import type { ExpensesStackParamList } from "@/navigation/types";
-import type { Expense, ExpenseFrequencyPoint, ExpenseFrequencyPointStatus, ExpenseFrequencyResponse } from "@/lib/apiTypes";
+import type { Expense, ExpenseFrequencyPoint, ExpenseFrequencyPointStatus, ExpenseFrequencyResponse, Settings } from "@/lib/apiTypes";
 import { apiFetch, getApiBaseUrl } from "@/lib/api";
 import { fmt } from "@/lib/formatting";
 import { T } from "@/lib/theme";
 import DeleteConfirmSheet from "@/components/Shared/DeleteConfirmSheet";
 import PaymentSheet from "@/components/Debts/Detail/PaymentSheet";
 import EditExpenseSheet from "@/components/Expenses/EditExpenseSheet";
+import { notifyPaymentStatus, scheduleUnpaidFollowUpReminders } from "@/lib/unpaidReminder";
 
 const EXPENSE_HERO_BLUE = "#2a0a9e";
+const PAYMENT_EDIT_GRACE_DAYS = 5;
+const PAYMENT_EDIT_GRACE_MS = PAYMENT_EDIT_GRACE_DAYS * 24 * 60 * 60 * 1000;
+
+function isWithinPaymentEditGrace(lastPaymentAt: string | null | undefined): boolean {
+  if (!lastPaymentAt) return false;
+  const parsed = new Date(lastPaymentAt);
+  if (Number.isNaN(parsed.getTime())) return false;
+  return Date.now() - parsed.getTime() <= PAYMENT_EDIT_GRACE_MS;
+}
+
+function getPaymentStatusGraceNote(lastPaymentAt: string | null | undefined): string {
+  if (!lastPaymentAt) return `Can change status for ${PAYMENT_EDIT_GRACE_DAYS} days only.`;
+  const parsed = new Date(lastPaymentAt);
+  if (Number.isNaN(parsed.getTime())) return `Can change status for ${PAYMENT_EDIT_GRACE_DAYS} days only.`;
+
+  const deadlineMs = parsed.getTime() + PAYMENT_EDIT_GRACE_MS;
+  const remainingMs = Math.max(0, deadlineMs - Date.now());
+  const oneDayMs = 24 * 60 * 60 * 1000;
+
+  if (remainingMs <= oneDayMs) return "Today is the last day to change status.";
+  if (remainingMs <= oneDayMs * 2) return "Tomorrow is the last day to change status.";
+  return `Can change status for ${PAYMENT_EDIT_GRACE_DAYS} days only.`;
+}
 
 type MonthPoint = {
   key: string;
@@ -280,6 +304,19 @@ function dueDateColor(isoOrYmd: string | null | undefined): string {
   return T.green;
 }
 
+function unpaidDebtWarning(daysUntilDue: number | null): string {
+  if (daysUntilDue == null) {
+    return "Making this unpaid can eventually turn this payment into debt if it is not marked as paid again.";
+  }
+  if (daysUntilDue <= 0) {
+    return "Making this unpaid means this payment is overdue and could turn into debt quickly if it is not marked as paid again.";
+  }
+  if (daysUntilDue === 1) {
+    return "Making this unpaid could eventually make this payment a debt if it is not marked as paid in 1 day.";
+  }
+  return `Making this unpaid could eventually make this payment a debt if it is not marked as paid in ${daysUntilDue} days.`;
+}
+
 export default function ExpenseDetailScreen({ route, navigation }: Props) {
   const { height, width } = useWindowDimensions();
   const tabBarHeight = useBottomTabBarHeight();
@@ -300,6 +337,7 @@ export default function ExpenseDetailScreen({ route, navigation }: Props) {
   const [editSheetOpen, setEditSheetOpen] = React.useState(false);
 
   const [deleteConfirmOpen, setDeleteConfirmOpen] = React.useState(false);
+  const [unpaidConfirmOpen, setUnpaidConfirmOpen] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
 
   const [logoFailed, setLogoFailed] = React.useState(false);
@@ -307,6 +345,7 @@ export default function ExpenseDetailScreen({ route, navigation }: Props) {
   const [frequency, setFrequency] = React.useState<ExpenseFrequencyResponse | null>(null);
   const [frequencyLoading, setFrequencyLoading] = React.useState(false);
   const [frequencyResolved, setFrequencyResolved] = React.useState(false);
+  const [settings, setSettings] = React.useState<Settings | null>(null);
 
   const [tipIndex, setTipIndex] = React.useState(0);
 
@@ -314,12 +353,21 @@ export default function ExpenseDetailScreen({ route, navigation }: Props) {
     try {
       setError(null);
       const qp = budgetPlanId ? `&budgetPlanId=${encodeURIComponent(budgetPlanId)}` : "";
-      const all = await apiFetch<Expense[]>(`/api/bff/expenses?month=${month}&year=${year}${qp}`);
+      const [all, settingsData] = await Promise.all([
+        apiFetch<Expense[]>(`/api/bff/expenses?month=${month}&year=${year}${qp}`),
+        apiFetch<Settings>("/api/bff/settings"),
+      ]);
       const list = Array.isArray(all) ? all : [];
-      const found = list.find((e) => e.id === expenseId) ?? null;
+      const found =
+        list.find((e) => e.id === expenseId) ??
+        (await apiFetch<Expense>(`/api/bff/expenses/${encodeURIComponent(expenseId)}`, {
+          cacheTtlMs: 0,
+          skipOnUnauthorized: true,
+        }).catch(() => null));
       const effectiveCategoryId = found?.categoryId ?? categoryId;
       const inCategory = list.filter((e) => e.categoryId === effectiveCategoryId);
       setData({ expense: found, categoryExpenses: inCategory });
+      setSettings(settingsData ?? null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load");
       setData({ expense: null, categoryExpenses: [] });
@@ -346,6 +394,11 @@ export default function ExpenseDetailScreen({ route, navigation }: Props) {
   const paidNum = expense ? Number(expense.paidAmount) : 0;
   const remainingNum = Math.max(0, amountNum - paidNum);
   const isPaid = amountNum <= 0 ? true : paidNum >= amountNum - 0.005;
+  const canEditPaidPayment = isPaid && isWithinPaymentEditGrace(expense?.lastPaymentAt);
+  const statusGraceNote = React.useMemo(
+    () => getPaymentStatusGraceNote(expense?.lastPaymentAt),
+    [expense?.lastPaymentAt]
+  );
 
   const dueDays = React.useMemo(() => {
     const raw = expense?.dueDate;
@@ -355,6 +408,17 @@ export default function ExpenseDetailScreen({ route, navigation }: Props) {
     if (Number.isNaN(d.getTime())) return null;
     return Math.round((d.getTime() - Date.now()) / 86_400_000);
   }, [expense?.dueDate]);
+
+  const shouldShowStatusGraceNote = React.useMemo(() => {
+    if (!isPaid || !canEditPaidPayment) return false;
+    if (dueDays == null || dueDays > 0) return false;
+
+    const payDate = Number(settings?.payDate);
+    if (!Number.isFinite(payDate) || payDate <= 0) return true;
+    return new Date().getDate() > payDate;
+  }, [canEditPaidPayment, dueDays, isPaid, settings?.payDate]);
+
+  const unpaidWarningText = React.useMemo(() => unpaidDebtWarning(dueDays), [dueDays]);
 
   const updatedLabel = expense ? formatUpdatedLabel(expense.lastPaymentAt) : "";
 
@@ -547,6 +611,12 @@ export default function ExpenseDetailScreen({ route, navigation }: Props) {
         body,
       });
 
+      void notifyPaymentStatus({
+        expenseId: expense.id,
+        status: "paid",
+        expenseName: expense.name,
+      });
+
       setPaySheetOpen(false);
       setPayAmount("");
       await load();
@@ -581,6 +651,41 @@ export default function ExpenseDetailScreen({ route, navigation }: Props) {
       setPaying(false);
     }
   }, [amountNum, expense, load, paying]);
+
+  const handleMarkUnpaid = React.useCallback(async () => {
+    if (!expense || paying) return;
+
+    setPaying(true);
+    try {
+      await apiFetch<Expense>(`/api/bff/expenses/${expense.id}`, {
+        method: "PATCH",
+        body: {
+          paidAmount: 0,
+          paid: false,
+        },
+      });
+
+      void notifyPaymentStatus({
+        expenseId: expense.id,
+        status: "unpaid",
+        expenseName: expense.name,
+      });
+      void scheduleUnpaidFollowUpReminders({
+        expenseId: expense.id,
+        expenseName: expense.name,
+        dueDate: expense.dueDate,
+        month,
+        year,
+        wasPreviouslyPaid: isPaid,
+      });
+
+      setPaySheetOpen(false);
+      setPayAmount("");
+      await load();
+    } finally {
+      setPaying(false);
+    }
+  }, [expense, isPaid, load, month, paying, year]);
 
   const confirmDelete = React.useCallback(async () => {
     if (!expense || deleting) return;
@@ -687,7 +792,11 @@ export default function ExpenseDetailScreen({ route, navigation }: Props) {
                 </View>
               </View>
 
-              <View style={[s.quickRow, height <= 740 && { marginTop: 18 }]}>
+              {shouldShowStatusGraceNote ? (
+                <Text style={s.statusGraceNote}>{statusGraceNote}</Text>
+              ) : null}
+
+              <View style={[s.quickRow, height <= 740 && { marginTop: 18 }, isPaid && { marginTop: 10 }]}> 
                 {!isPaid ? (
                   <>
                     <Pressable
@@ -708,8 +817,20 @@ export default function ExpenseDetailScreen({ route, navigation }: Props) {
                       <Text style={s.quickSecondaryTxt}>Record payment</Text>
                     </Pressable>
                   </>
+                ) : canEditPaidPayment ? (
+                  <Pressable
+                    style={[s.quickBtn, s.quickBtnSecondary, paying && s.quickDisabled]}
+                    onPress={() => setUnpaidConfirmOpen(true)}
+                    disabled={paying}
+                  >
+                    <Text style={s.quickSecondaryTxt}>Mark as unpaid</Text>
+                  </Pressable>
                 ) : null}
               </View>
+
+              {isPaid && !canEditPaidPayment ? (
+                <Text style={s.lockedHint}>Payment changes are locked after {PAYMENT_EDIT_GRACE_DAYS} days.</Text>
+              ) : null}
             </View>
 
             {showFrequencyCard ? (
@@ -868,6 +989,23 @@ export default function ExpenseDetailScreen({ route, navigation }: Props) {
       />
 
       <DeleteConfirmSheet
+        visible={unpaidConfirmOpen}
+        title="Mark as unpaid?"
+        description={unpaidWarningText}
+        confirmText="Unpaid"
+        cancelText="Cancel"
+        isBusy={paying}
+        onClose={() => {
+          if (paying) return;
+          setUnpaidConfirmOpen(false);
+        }}
+        onConfirm={async () => {
+          setUnpaidConfirmOpen(false);
+          await handleMarkUnpaid();
+        }}
+      />
+
+      <DeleteConfirmSheet
         visible={deleteConfirmOpen}
         title="Delete Expense"
         description={`Are you sure you want to delete "${expense?.name ?? expenseName}"? This cannot be undone.`}
@@ -1013,6 +1151,21 @@ const s = StyleSheet.create({
   quickPrimaryTxt: { color: EXPENSE_HERO_BLUE, fontSize: 15, fontWeight: "900" },
   quickSecondaryTxt: { color: "#ffffff", fontSize: 15, fontWeight: "900" },
   quickDisabled: { opacity: 0.55 },
+  statusGraceNote: {
+    width: "100%",
+    textAlign: "center",
+    color: "rgba(255,255,255,0.72)",
+    fontSize: 12,
+    fontWeight: "500",
+    marginBottom: 4,
+  },
+  lockedHint: {
+    marginTop: 10,
+    color: T.textMuted,
+    fontSize: 12,
+    fontWeight: "600",
+    textAlign: "center",
+  },
 
   aiCard: {
     backgroundColor: T.cardAlt,
