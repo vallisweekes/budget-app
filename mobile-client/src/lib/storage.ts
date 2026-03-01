@@ -7,6 +7,7 @@ export const USERNAME_KEY = "budget_app.username";
 export const THEME_MODE_KEY = "budget_app.theme_mode";
 export const EXPO_PUSH_TOKEN_KEY = "budget_app.expo_push_token";
 export const EXPO_PUSH_TOKEN_USERNAME_KEY = "budget_app.expo_push_token_username";
+export const INSTALL_WELCOME_NOTIFICATION_SENT_KEY = "budget_app.install_welcome_notification_sent";
 
 export async function getSessionToken(): Promise<string | null> {
   return SecureStore.getItemAsync(SESSION_KEY);
@@ -64,4 +65,15 @@ export async function setStoredExpoPushTokenUsername(username: string): Promise<
 
 export async function clearStoredExpoPushTokenUsername(): Promise<void> {
   return SecureStore.deleteItemAsync(EXPO_PUSH_TOKEN_USERNAME_KEY);
+}
+
+export async function getInstallWelcomeNotificationSent(): Promise<boolean> {
+  return (await SecureStore.getItemAsync(INSTALL_WELCOME_NOTIFICATION_SENT_KEY)) === "1";
+}
+
+export async function setInstallWelcomeNotificationSent(sent: boolean): Promise<void> {
+  if (sent) {
+    return SecureStore.setItemAsync(INSTALL_WELCOME_NOTIFICATION_SENT_KEY, "1");
+  }
+  return SecureStore.deleteItemAsync(INSTALL_WELCOME_NOTIFICATION_SENT_KEY);
 }

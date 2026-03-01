@@ -8,6 +8,8 @@ export type MobilePushPayload = {
 	data?: Record<string, unknown>;
 	/** iOS app icon badge number (absolute). */
 	badge?: number;
+	/** Send as a data-only push suitable for background task handling. */
+	silent?: boolean;
 };
 
 export type MobilePushResult = {
@@ -33,17 +35,27 @@ export async function sendMobilePushNotifications(
 		return { sent: 0, invalidTokens: [], errors: [] };
 	}
 
+	const isSilent = payload.silent === true;
 	const messages: ExpoPushMessage[] = validTokens.map((to) => ({
 		to,
 		// Android 8+: route notifications through a known channel.
 		channelId: "default",
-		sound: "default",
-		title: payload.title,
-		body: payload.body ?? "",
-		data: payload.data ?? {},
-		...(typeof payload.badge === "number" && Number.isFinite(payload.badge)
-			? { badge: Math.max(0, Math.floor(payload.badge)) }
-			: null),
+		...(isSilent
+			? {
+				// iOS headless/background delivery requires data-only + _contentAvailable.
+				_contentAvailable: true,
+				data: payload.data ?? {},
+				priority: "high",
+			}
+			: {
+				sound: "default",
+				title: payload.title,
+				body: payload.body ?? "",
+				data: payload.data ?? {},
+				...(typeof payload.badge === "number" && Number.isFinite(payload.badge)
+					? { badge: Math.max(0, Math.floor(payload.badge)) }
+					: null),
+			}),
 	}));
 
 	const chunks = expo.chunkPushNotifications(messages);

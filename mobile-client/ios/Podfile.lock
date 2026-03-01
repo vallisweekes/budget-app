@@ -88,6 +88,9 @@ PODS:
     - ExpoModulesCore
   - ExpoSplashScreen (55.0.10):
     - ExpoModulesCore
+  - ExpoTaskManager (55.0.9):
+    - ExpoModulesCore
+    - UMAppLoader
   - EXStructuredHeaders (55.0.0)
   - EXUpdates (55.0.12):
     - EASClient
@@ -2106,6 +2109,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
+  - UMAppLoader (55.0.2)
   - Yoga (0.0.0)
 
 DEPENDENCIES:
@@ -2130,6 +2134,7 @@ DEPENDENCIES:
   - ExpoNotifications (from `../node_modules/expo-notifications/ios`)
   - ExpoSecureStore (from `../node_modules/expo-secure-store/ios`)
   - ExpoSplashScreen (from `../node_modules/expo-splash-screen/ios`)
+  - ExpoTaskManager (from `../node_modules/expo-task-manager/ios`)
   - EXStructuredHeaders (from `../node_modules/expo-structured-headers/ios`)
   - EXUpdates (from `../node_modules/expo-updates/ios`)
   - EXUpdatesInterface (from `../node_modules/expo-updates-interface/ios`)
@@ -2211,6 +2216,7 @@ DEPENDENCIES:
   - "RNDateTimePicker (from `../node_modules/@react-native-community/datetimepicker`)"
   - RNScreens (from `../node_modules/react-native-screens`)
   - RNSVG (from `../node_modules/react-native-svg`)
+  - UMAppLoader (from `../node_modules/unimodules-app-loader/ios`)
   - Yoga (from `../node_modules/react-native/ReactCommon/yoga`)
 
 SPEC REPOS:
@@ -2260,6 +2266,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/expo-secure-store/ios"
   ExpoSplashScreen:
     :path: "../node_modules/expo-splash-screen/ios"
+  ExpoTaskManager:
+    :path: "../node_modules/expo-task-manager/ios"
   EXStructuredHeaders:
     :path: "../node_modules/expo-structured-headers/ios"
   EXUpdates:
@@ -2421,6 +2429,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-screens"
   RNSVG:
     :path: "../node_modules/react-native-svg"
+  UMAppLoader:
+    :path: "../node_modules/unimodules-app-loader/ios"
   Yoga:
     :path: "../node_modules/react-native/ReactCommon/yoga"
 
@@ -2446,6 +2456,7 @@ SPEC CHECKSUMS:
   ExpoNotifications: fa5cf77a46c8ea6bfc93bdbad9805c4f8d8a81fb
   ExpoSecureStore: ebb13e5e590b1e62ec530bd0cfe1a3e7f1867e26
   ExpoSplashScreen: 6452aefb424acc76347d62482caef9b4e613e59e
+  ExpoTaskManager: 6038b80fbe63915383dcf57fa0156b23e2615fab
   EXStructuredHeaders: aa49a5557fa24aa61dda4ac665f3987bf3e9e35d
   EXUpdates: 0f17cc3d89d18f171aecfc0a233c4f5909976b60
   EXUpdatesInterface: d48f288b92900bd95a27c6cf92a7b9aff826d49a
@@ -2527,6 +2538,7 @@ SPEC CHECKSUMS:
   RNDateTimePicker: 9c0a849bbe1c256f0854fea255734b715f5ea876
   RNScreens: 14243fa0d9842ffa7f8bb2d00b6c3cfd3ca817e8
   RNSVG: 0bd149b873018bc6e0e3321e2f6435bdba294460
+  UMAppLoader: 71b50bcc31d86495e52c0b4cd17e2708bf297be3
   Yoga: dd994d8c85dca5cc9b10f5df8c01f9ef1d0da191
 
 PODFILE CHECKSUM: 53f4cf628b478408fce50d2bbf068f1ffb6fd2a8

@@ -4,8 +4,10 @@ import * as Device from "expo-device";
 
 import { apiFetch } from "@/lib/api";
 import {
+  getInstallWelcomeNotificationSent,
   getStoredExpoPushToken,
   getStoredExpoPushTokenUsername,
+  setInstallWelcomeNotificationSent,
   setStoredExpoPushToken,
   setStoredExpoPushTokenUsername,
 } from "@/lib/storage";
@@ -76,12 +78,62 @@ async function ensureAndroidNotificationChannel() {
   });
 }
 
+function hasAllowedPermission(settings: any, Notifications: any): boolean {
+  if (settings?.granted === true) return true;
+  if (Platform.OS !== "ios") return false;
+
+  const iosStatus = settings?.ios?.status;
+  return (
+    iosStatus === Notifications.IosAuthorizationStatus.AUTHORIZED ||
+    iosStatus === Notifications.IosAuthorizationStatus.PROVISIONAL ||
+    iosStatus === Notifications.IosAuthorizationStatus.EPHEMERAL
+  );
+}
+
 export async function configureNotificationsBootstrapAsync(): Promise<void> {
   const Notifications = await tryGetNotifications();
   if (!Notifications) return;
 
   await ensureNotificationHandlerConfigured();
   await ensureAndroidNotificationChannel();
+}
+
+export async function sendInstallWelcomeNotificationOnceAsync(): Promise<void> {
+  const alreadySent = await getInstallWelcomeNotificationSent();
+  if (alreadySent) return;
+
+  const Notifications = await tryGetNotifications();
+  if (!Notifications) return;
+
+  await ensureNotificationHandlerConfigured();
+  await ensureAndroidNotificationChannel();
+
+  let settings = await Notifications.getPermissionsAsync();
+  let allowed = hasAllowedPermission(settings, Notifications);
+
+  if (!allowed) {
+    settings = await Notifications.requestPermissionsAsync({
+      ios: {
+        allowAlert: true,
+        allowSound: true,
+        allowBadge: true,
+      },
+    });
+    allowed = hasAllowedPermission(settings, Notifications);
+  }
+
+  if (!allowed) return;
+
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: "Welcome to BudgetIn Check",
+      body: "Thanks for installing! Let’s set up your first budget.",
+      sound: "default",
+    },
+    trigger: null,
+  });
+
+  await setInstallWelcomeNotificationSent(true);
 }
 
 export async function getExpoPushTokenAsync(): Promise<string | null> {
@@ -96,20 +148,8 @@ export async function getExpoPushTokenAsync(): Promise<string | null> {
   // one before requesting permissions and before fetching a push token.
   await ensureAndroidNotificationChannel();
 
-  const hasAllowedPermission = (settings: any): boolean => {
-    if (settings?.granted === true) return true;
-    if (Platform.OS !== "ios") return false;
-
-    const iosStatus = settings?.ios?.status;
-    return (
-      iosStatus === Notifications.IosAuthorizationStatus.AUTHORIZED ||
-      iosStatus === Notifications.IosAuthorizationStatus.PROVISIONAL ||
-      iosStatus === Notifications.IosAuthorizationStatus.EPHEMERAL
-    );
-  };
-
   const existingSettings = await Notifications.getPermissionsAsync();
-  let allowed = hasAllowedPermission(existingSettings);
+  let allowed = hasAllowedPermission(existingSettings, Notifications);
 
   if (!allowed) {
     const requestedSettings = await Notifications.requestPermissionsAsync({
@@ -119,7 +159,7 @@ export async function getExpoPushTokenAsync(): Promise<string | null> {
         allowBadge: true,
       },
     });
-    allowed = hasAllowedPermission(requestedSettings);
+    allowed = hasAllowedPermission(requestedSettings, Notifications);
   }
 
   if (!allowed) {

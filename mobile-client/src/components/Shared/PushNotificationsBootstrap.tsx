@@ -2,7 +2,12 @@ import { useEffect, useRef } from "react";
 import * as Notifications from "expo-notifications";
 
 import { useAuth } from "@/context/AuthContext";
-import { configureNotificationsBootstrapAsync, registerExpoPushToken } from "@/lib/pushNotifications";
+import { registerBackgroundNotificationTaskAsync } from "@/lib/backgroundNotifications";
+import {
+  configureNotificationsBootstrapAsync,
+  registerExpoPushToken,
+  sendInstallWelcomeNotificationOnceAsync,
+} from "@/lib/pushNotifications";
 import { openIncomeSacrificeFromReminder } from "@/navigation/navigationRef";
 
 type NotificationData = {
@@ -18,6 +23,8 @@ export function PushNotificationsBootstrap() {
 
   useEffect(() => {
     void configureNotificationsBootstrapAsync();
+    void registerBackgroundNotificationTaskAsync();
+    void sendInstallWelcomeNotificationOnceAsync();
   }, []);
 
   const handleReminderOpen = (identifier: string, data: NotificationData) => {
@@ -85,9 +92,16 @@ export function PushNotificationsBootstrap() {
       handleReminderOpen(identifier, data);
     });
 
+    const dropped = Notifications.addNotificationsDroppedListener(() => {
+      if (__DEV__) {
+        console.warn("[push] one or more notifications were dropped by FCM");
+      }
+    });
+
     return () => {
       received.remove();
       response.remove();
+      dropped.remove();
     };
   }, [isLoading, token]);
 
