@@ -1,6 +1,10 @@
 {
   "crons": [
     {
+      "path": "/api/notifications/due-reminders?testMode=1",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/notifications/due-reminders",
       "schedule": "0 8 * * *"
     }

@@ -55,6 +55,173 @@ function money(value: number, currency: string): string {
   }
 }
 
+async function runHighFrequencyTestPush(now: Date): Promise<NextResponse> {
+  const enabled = process.env.ENABLE_NOTIFICATION_TEST_CRON === "1";
+  if (!enabled) {
+    return NextResponse.json({
+      ok: true,
+      testMode: true,
+      skipped: true,
+      reason: "ENABLE_NOTIFICATION_TEST_CRON is not enabled",
+    });
+  }
+
+  const bucket = Math.floor(now.getTime() / (5 * 60 * 1000));
+  const variant: "tip" | "upcoming_payment" = bucket % 2 === 0 ? "tip" : "upcoming_payment";
+
+  const invalidMobileTokens: string[] = [];
+  const mobileErrors: string[] = [];
+  let sent = 0;
+
+  if (variant === "tip") {
+    const tipPlans = await prisma.budgetPlan.findMany({
+      where: {
+        user: {
+          mobilePushTokens: { some: {} },
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        user: {
+          select: {
+            id: true,
+            mobilePushTokens: {
+              select: {
+                token: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const tipUserIds = Array.from(new Set(tipPlans.map((plan) => plan.user.id)));
+    const tipUserPrefs = await getUserNotificationPreferencesMap(tipUserIds);
+    const sentUsers = new Set<string>();
+
+    for (const plan of tipPlans) {
+      if (sentUsers.has(plan.user.id)) continue;
+
+      const userPrefs = tipUserPrefs.get(plan.user.id) ?? DEFAULT_USER_NOTIFICATION_PREFERENCES;
+      if (!userPrefs.paymentAlerts) continue;
+
+      const mobileTokens = plan.user.mobilePushTokens.map((t) => t.token);
+      if (mobileTokens.length === 0) continue;
+
+      const result = await sendMobilePushNotifications(mobileTokens, {
+        title: "Budget tip (test)",
+        body: `Testing reminders: quick planning check for ${plan.name}.`,
+        data: {
+          type: "budget_tip_test",
+          budgetPlanId: plan.id,
+          sentAt: now.toISOString(),
+        },
+      });
+      sent += result.sent;
+      invalidMobileTokens.push(...result.invalidTokens);
+      mobileErrors.push(...result.errors);
+      sentUsers.add(plan.user.id);
+    }
+  } else {
+    const today = startOfDayUTC(now);
+    const inSevenDays = addDaysUTC(today, 7);
+
+    const debts = await prisma.debt.findMany({
+      where: {
+        paid: false,
+        currentBalance: { gt: 0 },
+        dueDate: {
+          not: null,
+          gte: today,
+          lt: inSevenDays,
+        },
+        budgetPlan: {
+          user: {
+            mobilePushTokens: { some: {} },
+          },
+        },
+      },
+      orderBy: {
+        dueDate: "asc",
+      },
+      select: {
+        id: true,
+        name: true,
+        dueDate: true,
+        budgetPlan: {
+          select: {
+            user: {
+              select: {
+                id: true,
+                mobilePushTokens: {
+                  select: {
+                    token: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const debtUserIds = Array.from(new Set(debts.map((debt) => debt.budgetPlan.user.id)));
+    const debtUserPrefs = await getUserNotificationPreferencesMap(debtUserIds);
+    const sentUsers = new Set<string>();
+
+    for (const debt of debts) {
+      const userId = debt.budgetPlan.user.id;
+      if (sentUsers.has(userId)) continue;
+
+      const userPrefs = debtUserPrefs.get(userId) ?? DEFAULT_USER_NOTIFICATION_PREFERENCES;
+      if (!userPrefs.dueReminders) continue;
+
+      const mobileTokens = debt.budgetPlan.user.mobilePushTokens.map((t) => t.token);
+      if (mobileTokens.length === 0) continue;
+
+      const due = debt.dueDate ? isoDateUTC(startOfDayUTC(new Date(debt.dueDate))) : "soon";
+      const result = await sendMobilePushNotifications(mobileTokens, {
+        title: "Upcoming payment (test)",
+        body: `${debt.name} is due on ${due}.`,
+        data: {
+          type: "upcoming_payment_test",
+          debtId: debt.id,
+          dueDate: due,
+          sentAt: now.toISOString(),
+        },
+      });
+      sent += result.sent;
+      invalidMobileTokens.push(...result.invalidTokens);
+      mobileErrors.push(...result.errors);
+      sentUsers.add(userId);
+    }
+  }
+
+  if (invalidMobileTokens.length > 0) {
+    const mobilePushToken = (prisma as unknown as { mobilePushToken?: MobilePushTokenDelegate }).mobilePushToken;
+    if (mobilePushToken) {
+      await mobilePushToken.deleteMany({
+        where: { token: { in: Array.from(new Set(invalidMobileTokens)) } },
+      });
+    }
+  }
+
+  const uniqueMobileErrors = Array.from(new Set(mobileErrors));
+  if (uniqueMobileErrors.length > 0) {
+    console.error("[due-reminders:test-mode] mobile push errors", uniqueMobileErrors);
+  }
+
+  return NextResponse.json({
+    ok: true,
+    testMode: true,
+    variant,
+    sent,
+    removedMobileTokens: invalidMobileTokens.length,
+    mobileErrors: uniqueMobileErrors,
+  });
+}
+
 export async function POST(req: Request) {
   const headerToken = req.headers.get("x-reminder-token") ?? "";
   const authHeader = req.headers.get("authorization") ?? "";
@@ -68,6 +235,12 @@ export async function POST(req: Request) {
 
   if (!isValidReminderToken && !isValidCronSecret) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const url = new URL(req.url);
+  const isTestMode = url.searchParams.get("testMode") === "1";
+  if (isTestMode) {
+    return runHighFrequencyTestPush(new Date());
   }
 
   const today = startOfDayUTC(new Date());
