@@ -136,14 +136,14 @@ export default function PaymentDetailSheet({
         >
           <View style={s.sheetHandle} {...panHandlers} />
 
-          <View style={s.sheetTopBar}>
+          <View style={s.sheetTopBar} {...panHandlers}>
             <Pressable onPress={onClose} hitSlop={10} style={s.sheetClosePlain}>
               <Ionicons name="close" size={22} color={T.text} />
             </Pressable>
             <View style={{ flex: 1 }} />
           </View>
 
-          <View style={s.sheetHero}>
+          <View style={s.sheetHero} {...panHandlers}>
             <View style={s.sheetAvatar}>
               {showLogo ? (
                 <Image

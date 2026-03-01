@@ -20,7 +20,7 @@ import { useFocusEffect } from "@react-navigation/native";
 
 import { ApiError, apiFetch } from "@/lib/api";
 import type { DashboardData, Settings } from "@/lib/apiTypes";
-import { currencySymbol, fmt } from "@/lib/formatting";
+import { currencySymbol, fmt, normalizeUpcomingName } from "@/lib/formatting";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 import { resolveLogoUri } from "@/lib/logoDisplay";
 import { T } from "@/lib/theme";
@@ -184,7 +184,7 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setCategorySheet(null)} />
           <Animated.View style={[styles.sheet, { transform: [{ translateY: categorySheetDragY }] }]}>
             <View style={styles.sheetHandle} {...categorySheetPanHandlers} />
-            <View style={styles.sheetHeader}>
+            <View style={styles.sheetHeader} {...categorySheetPanHandlers}>
               <Text style={styles.sheetTitle} numberOfLines={1}>
                 {categorySheet?.name ?? "Category"}
               </Text>
@@ -353,6 +353,7 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
               const logoUri = resolveLogoUri(d.logoUrl);
               const logoKey = `debt:${d.id}`;
               const showLogo = !!logoUri && !failedLogos[logoKey];
+              const displayName = normalizeUpcomingName(d.name);
 
               return (
                 <Pressable
@@ -362,7 +363,7 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
                     setQuickPayItem({
                       kind: "debt",
                       id: d.id,
-                      name: d.name,
+                      name: displayName,
                       amount: d.dueAmount ?? 0,
                       logoUrl: d.logoUrl ?? null,
                       subtitle: "Monthly payment",
@@ -384,7 +385,7 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.blueRowTitle} numberOfLines={1}>
-                        {d.name}
+                        {displayName}
                       </Text>
                       <Text style={styles.blueRowSub} numberOfLines={1}>
                         Monthly payment

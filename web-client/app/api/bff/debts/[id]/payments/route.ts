@@ -41,6 +41,33 @@ function addMonthsUtcWithDay(base: Date, monthOffset: number, dayOfMonth: number
   return new Date(Date.UTC(y, m, clampedDay, 0, 0, 0, 0));
 }
 
+function computeMonthlyDueAmount(debt: {
+  amount: unknown;
+  monthlyMinimum?: unknown;
+  installmentMonths?: unknown;
+  initialBalance?: unknown;
+  currentBalance?: { toNumber: () => number } | number;
+}): number {
+  const rawPlanned = toNumber(debt.amount);
+  let planned = Number.isFinite(rawPlanned) ? rawPlanned : 0;
+
+  const installmentMonths = Math.max(0, Math.trunc(toNumber(debt.installmentMonths)));
+  if (!(planned > 0) && installmentMonths > 0) {
+    const principal = (() => {
+      const initial = toNumber(debt.initialBalance);
+      if (Number.isFinite(initial) && initial > 0) return initial;
+      const current = typeof debt.currentBalance === "number" ? debt.currentBalance : toNumber(debt.currentBalance);
+      return Number.isFinite(current) ? current : 0;
+    })();
+    if (principal > 0) planned = principal / installmentMonths;
+  }
+
+  const monthlyMin = Math.max(0, toNumber(debt.monthlyMinimum));
+  if (monthlyMin > 0) planned = Math.max(planned, monthlyMin);
+
+  return Math.max(0, planned);
+}
+
 function isCardDebtType(type: unknown): boolean {
   return type === "credit_card" || type === "store_card";
 }
@@ -331,8 +358,48 @@ export async function POST(
           paidAmount: nextDebtPaidAmount,
           paid: nextDebtBalance === 0,
         },
-        select: { sourceType: true, sourceExpenseId: true },
+        select: {
+          sourceType: true,
+          sourceExpenseId: true,
+          dueDate: true,
+          dueDay: true,
+          amount: true,
+          monthlyMinimum: true,
+          installmentMonths: true,
+          initialBalance: true,
+          currentBalance: true,
+        },
       });
+
+      // If the user has paid enough to cover the monthly due for the current cycle,
+      // advance the due date to next month immediately (even if paid early).
+      if (updatedDebt.sourceType !== "expense" && updatedDebt.dueDate && Number.isFinite(updatedDebt.dueDate.getTime())) {
+        const dueAmount = computeMonthlyDueAmount(updatedDebt);
+        if (dueAmount > 0) {
+          const dueDay = updatedDebt.dueDay != null && Number.isFinite(updatedDebt.dueDay) && updatedDebt.dueDay > 0
+            ? Math.trunc(updatedDebt.dueDay)
+            : updatedDebt.dueDate.getUTCDate();
+          const prevDue = addMonthsUtcWithDay(updatedDebt.dueDate, -1, dueDay);
+          const paidAgg = await tx.debtPayment.aggregate({
+            where: {
+              debtId: id,
+              paidAt: {
+                gt: prevDue,
+                lte: paidAt,
+              },
+            },
+            _sum: { amount: true },
+          });
+          const paidThisCycle = Math.max(0, toNumber(paidAgg._sum.amount ?? 0));
+          if (paidThisCycle >= dueAmount) {
+            const nextDue = addMonthsUtcWithDay(updatedDebt.dueDate, 1, dueDay);
+            await tx.debt.update({
+              where: { id },
+              data: { dueDate: nextDue },
+            });
+          }
+        }
+      }
 
       if (updatedDebt.sourceType === "expense" && updatedDebt.sourceExpenseId) {
         const sourceExpense = await tx.expense.findUnique({

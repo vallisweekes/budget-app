@@ -154,7 +154,7 @@ function asMoneyText(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(2);
 }
 
-export default function SettingsScreen({ navigation }: MainTabScreenProps<"Settings">) {
+export default function SettingsScreen({ navigation, route }: MainTabScreenProps<"Settings">) {
   const topHeaderOffset = useTopHeaderOffset();
   const insets = useSafeAreaInsets();
   const { username: authUsername, signOut } = useAuth();
@@ -532,6 +532,13 @@ export default function SettingsScreen({ navigation }: MainTabScreenProps<"Setti
     });
     return unsub;
   }, [navigation, load]);
+
+  useEffect(() => {
+    const requestedTab = (route as unknown as { params?: { initialTab?: unknown } } | undefined)?.params?.initialTab;
+    if (requestedTab === "notifications") {
+      setActiveTab("notifications");
+    }
+  }, [route]);
 
   useEffect(() => {
     loadNotifications();

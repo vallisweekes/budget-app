@@ -56,7 +56,7 @@
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>BudgetIn Check accesses your photo library to import receipts.</string>
 	<key>RCTNewArchEnabled</key>
-	<false/>
+	<true/>
 	<key>UILaunchStoryboardName</key>
 	<string>SplashScreen</string>
 	<key>UIRequiredDeviceCapabilities</key>

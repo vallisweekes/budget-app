@@ -319,7 +319,7 @@ export default function EditExpenseSheet({
         <Animated.View style={[s.sheet, { transform: [{ translateY: Animated.add(slideY, dragY) }] }]}>
           <View style={s.handle} {...panHandlers} />
 
-          <View style={s.header}>
+          <View style={s.header} {...panHandlers}>
             <View style={{ flex: 1, paddingRight: 12 }}>
               <Text style={s.title}>Edit expense</Text>
               <Text style={s.sub}>Update details and save</Text>

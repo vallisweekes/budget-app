@@ -84,12 +84,16 @@ export async function upsertExpenseDebt(params: {
 
 	if (existing) {
 		const initialBalance = decimalToNumber(existing.initialBalance);
+		const existingPaidAmount = decimalToNumber(existing.paidAmount);
+		const nextInitialBalance = Math.max(initialBalance, remainingAmount + Math.max(0, existingPaidAmount));
 		const updated = await prisma.debt.update({
 			where: { id: existing.id },
 			data: {
+				initialBalance: nextInitialBalance,
 				currentBalance: remainingAmount,
 				paid: false,
-				paidAmount: Math.max(0, initialBalance - remainingAmount),
+				paidAmount: Math.max(0, nextInitialBalance - remainingAmount),
+				amount: remainingAmount,
 				sourceCategoryId: categoryId ?? undefined,
 				sourceCategoryName: categoryName ?? undefined,
 				sourceExpenseName: expenseName ?? undefined,

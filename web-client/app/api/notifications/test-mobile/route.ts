@@ -47,6 +47,8 @@ export async function POST(req: Request) {
 	const payload = {
 		title: body.title ?? "Budget App",
 		body: body.body ?? "Test mobile notification",
+		// iOS badges require an absolute number; using 1 ensures the red dot/number appears.
+		badge: 1,
 	};
 
 	const { sent, invalidTokens, errors } = await sendMobilePushNotifications(tokens, payload);

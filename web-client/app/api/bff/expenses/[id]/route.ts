@@ -404,6 +404,36 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     });
   }
 
+  // If the expense amount changes (but paid/paidAmount did not), keep any existing
+  // linked expense-backed debt in sync with the new remaining balance.
+  // Important: we do NOT create new debts here (overdue processor controls that).
+  const isAmountChange = amount !== undefined;
+  if (!isPaymentChange && isAmountChange && !updated.isAllocation && !isNonDebtCategoryName(updated.category?.name)) {
+    const existingDebt = await prisma.debt.findFirst({
+      where: {
+        budgetPlanId: existing.budgetPlanId,
+        sourceType: "expense",
+        sourceExpenseId: existing.id,
+      },
+      select: { sourceMonthKey: true },
+    });
+
+    if (existingDebt) {
+      const nextPaidAmountNumberFinal = Number(decimalToString(updated.paidAmount));
+      const debtRemainingAmount = updated.paid ? 0 : Math.max(0, nextAmountNumber - nextPaidAmountNumberFinal);
+      await upsertExpenseDebt({
+        budgetPlanId: existing.budgetPlanId,
+        expenseId: existing.id,
+        monthKey: existingDebt.sourceMonthKey ?? monthNumberToKey(existing.month),
+        year: existing.year,
+        categoryId: updated.categoryId ?? undefined,
+        categoryName: updated.category?.name ?? undefined,
+        expenseName: updated.name,
+        remainingAmount: debtRemainingAmount,
+      });
+    }
+  }
+
   if (applyRemainingMonths) {
     const monthIndex0 = Math.min(11, Math.max(0, Number(existing.month) - 1));
     const monthsThisYear = (MONTHS as MonthKey[]).slice(monthIndex0);

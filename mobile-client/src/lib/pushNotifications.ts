@@ -43,7 +43,7 @@ async function ensureNotificationHandlerConfigured() {
       shouldShowBanner: true,
       shouldShowList: true,
       shouldPlaySound: true,
-      shouldSetBadge: false,
+      shouldSetBadge: true,
     }),
   });
 
@@ -76,6 +76,14 @@ async function ensureAndroidNotificationChannel() {
   });
 }
 
+export async function configureNotificationsBootstrapAsync(): Promise<void> {
+  const Notifications = await tryGetNotifications();
+  if (!Notifications) return;
+
+  await ensureNotificationHandlerConfigured();
+  await ensureAndroidNotificationChannel();
+}
+
 export async function getExpoPushTokenAsync(): Promise<string | null> {
   if (!Device.isDevice) return null;
 
@@ -84,20 +92,43 @@ export async function getExpoPushTokenAsync(): Promise<string | null> {
 
   await ensureNotificationHandlerConfigured();
 
-  const { status: existingStatus } = await Notifications.getPermissionsAsync();
-  let finalStatus = existingStatus;
+  // Android 13+: the system prompt won't appear until a channel exists, so create
+  // one before requesting permissions and before fetching a push token.
+  await ensureAndroidNotificationChannel();
 
-  if (existingStatus !== "granted") {
-    const { status } = await Notifications.requestPermissionsAsync();
-    finalStatus = status;
+  const hasAllowedPermission = (settings: any): boolean => {
+    if (settings?.granted === true) return true;
+    if (Platform.OS !== "ios") return false;
+
+    const iosStatus = settings?.ios?.status;
+    return (
+      iosStatus === Notifications.IosAuthorizationStatus.AUTHORIZED ||
+      iosStatus === Notifications.IosAuthorizationStatus.PROVISIONAL ||
+      iosStatus === Notifications.IosAuthorizationStatus.EPHEMERAL
+    );
+  };
+
+  const existingSettings = await Notifications.getPermissionsAsync();
+  let allowed = hasAllowedPermission(existingSettings);
+
+  if (!allowed) {
+    const requestedSettings = await Notifications.requestPermissionsAsync({
+      ios: {
+        allowAlert: true,
+        allowSound: true,
+        allowBadge: true,
+      },
+    });
+    allowed = hasAllowedPermission(requestedSettings);
   }
 
-  if (finalStatus !== "granted") {
-    devLog("notification permission not granted", { status: finalStatus });
+  if (!allowed) {
+    devLog("notification permission not granted", {
+      status: existingSettings?.status,
+      iosStatus: existingSettings?.ios?.status,
+    });
     return null;
   }
-
-  await ensureAndroidNotificationChannel();
 
   const projectId = resolveExpoProjectId();
   try {

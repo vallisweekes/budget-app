@@ -130,6 +130,7 @@ export default function EditDebtSheet(props: Props) {
                       value={iosDueDateDraft}
                       mode="date"
                       display="inline"
+                      themeVariant="dark"
                       onChange={(event, selectedDate) => {
                         const next =
                           selectedDate ??
@@ -137,6 +138,7 @@ export default function EditDebtSheet(props: Props) {
                           (event?.nativeEvent?.timestamp ? new Date(event.nativeEvent.timestamp) : null);
                         if (next) setIosDueDateDraft(next);
                       }}
+                      style={{ height: 340 }}
                     />
                   </View>
                 </View>

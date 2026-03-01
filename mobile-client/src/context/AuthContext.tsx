@@ -8,7 +8,6 @@ import {
   clearStoredUsername,
 } from "@/lib/storage";
 import { apiFetch, getApiBaseUrl, invalidateApiCache, setOnUnauthorized, suppressUnauthorizedCallback } from "@/lib/api";
-import { PushNotificationsBootstrap } from "@/components/Shared/PushNotificationsBootstrap";
 
 type AuthState = {
   token: string | null;
@@ -162,7 +161,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider value={{ ...state, signIn, signOut }}>
-      <PushNotificationsBootstrap />
       {children}
     </AuthContext.Provider>
   );

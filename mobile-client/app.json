@@ -11,10 +11,9 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": false,
     "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
+      "image": "./assets/splash.png",
+      "resizeMode": "cover",
       "backgroundColor": "#2a0a9e"
     },
     "ios": {
@@ -34,7 +33,6 @@
         "backgroundColor": "#2a0a9e"
       },
       "package": "com.budgetincheck.mobile",
-      "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "permissions": [
         "android.permission.RECORD_AUDIO"
@@ -53,7 +51,8 @@
           "cameraPermission": "BudgetIn Check uses your camera to scan receipts and auto-fill expense details."
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "expo-secure-store"
     ],
     "extra": {
       "eas": {

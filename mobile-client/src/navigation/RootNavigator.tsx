@@ -77,7 +77,21 @@ function DebtStackNavigator() {
 }
 
 function NotificationSettingsScreen(props: unknown) {
-  return <SettingsScreen {...(props as React.ComponentProps<typeof SettingsScreen>)} />;
+  const p = props as React.ComponentProps<typeof SettingsScreen> & {
+    route?: { params?: Record<string, unknown> };
+  };
+  return (
+    <SettingsScreen
+      {...p}
+      route={{
+        ...(p.route as object),
+        params: {
+          ...(p.route?.params ?? {}),
+          initialTab: "notifications",
+        },
+      } as never}
+    />
+  );
 }
 
 function RootTopHeader({ navigation }: { navigation: any }) {
@@ -298,7 +312,7 @@ function RootTopHeader({ navigation }: { navigation: any }) {
           <Pressable onPress={() => navigation.navigate("Analytics")} style={s.headerActionBtn} hitSlop={10}>
             <Ionicons name="stats-chart-outline" size={18} color={T.accent} />
           </Pressable>
-          <Pressable onPress={() => navigation.navigate("NotificationSettings")} style={s.headerActionBtn} hitSlop={10}>
+          <Pressable onPress={() => navigation.navigate("NotificationSettings", { initialTab: "notifications" })} style={s.headerActionBtn} hitSlop={10}>
             <Ionicons name="notifications-outline" size={18} color={T.accent} />
           </Pressable>
         </>
@@ -315,7 +329,7 @@ function RootTopHeader({ navigation }: { navigation: any }) {
           </View>
         ) : null}
       </Pressable>
-      <Pressable onPress={() => navigation.navigate("NotificationSettings")} style={s.headerActionBtn} hitSlop={10}>
+      <Pressable onPress={() => navigation.navigate("NotificationSettings", { initialTab: "notifications" })} style={s.headerActionBtn} hitSlop={10}>
         <Ionicons name="notifications-outline" size={18} color={T.accent} />
       </Pressable>
     </>
@@ -360,10 +374,10 @@ function RootTopHeader({ navigation }: { navigation: any }) {
 
   return (
     <TopHeader
-      onSettings={() => navigation.navigate("NotificationSettings")}
+      onSettings={() => navigation.navigate("NotificationSettings", { initialTab: "notifications" })}
       onIncome={openIncome}
       onAnalytics={() => navigation.navigate("Analytics")}
-      onNotifications={() => navigation.navigate("NotificationSettings")}
+      onNotifications={() => navigation.navigate("NotificationSettings", { initialTab: "notifications" })}
       onBack={handleBack}
       centerContent={isIncomeMonth ? incomeMonthSwitcher : incomeGridYearControl}
       centerLabel={isIncomeMonth ? undefined : monthLabel}
@@ -614,10 +628,10 @@ function MainTabs() {
           const openNotifications = () => {
             const parent = navigation.getParent();
             if (parent) {
-              parent.navigate("NotificationSettings" as never);
+              (parent as any).navigate("NotificationSettings", { initialTab: "notifications" });
               return;
             }
-            navigation.navigate("Settings");
+            (navigation as any).navigate("NotificationSettings", { initialTab: "notifications" });
           };
 
           const expensesListLeftContent = isExpensesList ? (

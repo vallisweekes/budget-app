@@ -387,15 +387,17 @@ export default function AddExpenseSheet({
           <View style={s.handle} {...panHandlers} />
 
           {/* Header */}
-          <AddExpenseSheetHeader
-            month={sheetMonth}
-            year={sheetYear}
-            title={headerTitle}
-            canPrev={canGoBack}
-            onPrevMonth={handlePrevMonth}
-            onNextMonth={handleNextMonth}
-            onClose={onClose}
-          />
+          <View {...panHandlers}>
+            <AddExpenseSheetHeader
+              month={sheetMonth}
+              year={sheetYear}
+              title={headerTitle}
+              canPrev={canGoBack}
+              onPrevMonth={handlePrevMonth}
+              onNextMonth={handleNextMonth}
+              onClose={onClose}
+            />
+          </View>
 
           {/* Plan picker — compact dropdown shown only when user has multiple plans */}
           {plans.length > 1 && (

@@ -268,16 +268,21 @@ export async function getDashboardExpenseInsights({
 		selectedBase = { year: next.year, monthNum: next.monthNum, dueIso: nextDueIso, due: parseIsoDateToUtcDateOnly(nextDueIso) };
 	}
 
-	// Upcoming should reflect ONLY the current pay-cycle month.
-	// We intentionally do NOT include expenses created for later months, even if their due dates overlap.
-	const selectedMonthExpenses = (expenseRowsByMonth[yearMonthKey(selectedBase.year, selectedBase.monthNum)] ?? []).map(toExpenseItem);
-	const upcomingExpenses = computeUpcomingPayments(selectedMonthExpenses, {
-		year: selectedBase.year,
-		monthNum: selectedBase.monthNum,
-		payDate,
-		now,
-		limit: 50,
-	})
+	// Upcoming expenses are ordered by *actual effective due date*, regardless of which month the record lives under.
+	// This fixes cases where an expense is saved under a later month but has a nearer due date.
+	const upcomingExpenses = expenseWindowPairs
+		.flatMap((p) => {
+			const key = yearMonthKey(p.year, p.monthNum);
+			const rows = expenseRowsByMonth[key] ?? [];
+			if (rows.length === 0) return [];
+			return computeUpcomingPayments(rows.map(toExpenseItem), {
+				year: p.year,
+				monthNum: p.monthNum,
+				payDate,
+				now,
+				limit: 200,
+			});
+		})
 		.filter((u) => u.status !== "paid")
 		.sort((a, b) => scoreUpcoming(a) - scoreUpcoming(b) || b.amount - a.amount);
 

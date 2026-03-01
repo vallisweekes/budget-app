@@ -74,7 +74,7 @@ export type MainTabParamList = {
   Debts: NavigatorScreenParams<DebtStackParamList> | undefined;
   Goals: undefined;
   Income: NavigatorScreenParams<IncomeStackParamList> | undefined;
-  Settings: undefined;
+  Settings: { initialTab?: "notifications" } | undefined;
 };
 
 /* ── Root stack ─────────────────────────────────────────────── */
@@ -83,7 +83,7 @@ export type RootStackParamList = {
   Onboarding: undefined;
   Main: NavigatorScreenParams<MainTabParamList>;
   IncomeFlow: NavigatorScreenParams<IncomeStackParamList> | undefined;
-  NotificationSettings: undefined;
+  NotificationSettings: { initialTab?: "notifications" } | undefined;
   Payments: undefined;
   Analytics: undefined;
   Goals: undefined;

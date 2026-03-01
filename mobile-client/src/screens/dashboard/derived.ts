@@ -50,25 +50,82 @@ export function buildDashboardDerived(params: {
   });
 
   const getDebtDueAmount = (d: (typeof debts)[number]) => {
-    if ((d.installmentMonths ?? 0) > 0 && (d.currentBalance ?? 0) > 0) {
-      const installment = (d.currentBalance ?? 0) / (d.installmentMonths ?? 1);
-      const min = d.monthlyMinimum ?? 0;
-      const eff = min > installment ? min : installment;
-      return Math.min(d.currentBalance ?? 0, eff);
+    const currentBalance = d.currentBalance ?? 0;
+    if (!(currentBalance > 0)) return 0;
+
+    // Expense-derived debts (missed/partial expenses) should behave like a remaining due amount,
+    // not like an installment plan.
+    if (d.sourceType === "expense") {
+      const amt = d.amount ?? currentBalance;
+      return Math.min(currentBalance, amt > 0 ? amt : currentBalance);
     }
-    if ((d.monthlyMinimum ?? 0) > 0) {
-      return Math.min(d.currentBalance ?? 0, d.monthlyMinimum ?? 0);
+
+    // Mirror the server payoff projection's monthly payment selection:
+    // plannedMonthlyPayment (= amount) wins; otherwise fall back to installment plan using initialBalance.
+    let planned = d.amount ?? 0;
+    planned = Number.isFinite(planned) ? planned : 0;
+
+    const installmentMonths = d.installmentMonths ?? 0;
+    if (!(planned > 0) && installmentMonths > 0) {
+      const principal = (d.initialBalance ?? 0) > 0 ? (d.initialBalance as number) : currentBalance;
+      if (principal > 0) planned = principal / installmentMonths;
     }
-    return Math.min(d.currentBalance ?? 0, d.amount ?? 0);
+
+    const monthlyMinimum = d.monthlyMinimum ?? 0;
+    if (monthlyMinimum > 0) planned = Math.max(planned, monthlyMinimum);
+
+    const due = Math.max(0, planned);
+    return Math.min(currentBalance, due);
+  };
+
+  const getDebtDaysUntilDue = (d: (typeof debts)[number]) => {
+    const dueDateIso = d.dueDate ?? null;
+    const dueDay = typeof d.dueDay === "number" && Number.isFinite(d.dueDay) ? d.dueDay : null;
+
+    const now = new Date();
+    const dueDate = (() => {
+      if (dueDateIso) {
+        const parsed = new Date(dueDateIso);
+        if (!Number.isNaN(parsed.getTime())) return parsed;
+      }
+      if (dueDay != null) {
+        return clampDay(now.getFullYear(), now.getMonth(), dueDay);
+      }
+      return null;
+    })();
+
+    if (!dueDate) return Number.POSITIVE_INFINITY;
+
+    const msPerDay = 1000 * 60 * 60 * 24;
+    const days = Math.floor((dueDate.getTime() - now.getTime()) / msPerDay);
+    return Number.isFinite(days) ? days : Number.POSITIVE_INFINITY;
+  };
+
+  const urgencyRank = (daysUntilDue: number) => {
+    if (!Number.isFinite(daysUntilDue)) return 3;
+    if (daysUntilDue <= 0) return 0; // overdue / today
+    if (daysUntilDue <= 7) return 1; // soon
+    return 2; // later
   };
 
   const upcomingDebtsThisMonth = debts
     .filter((d) => (d.currentBalance ?? 0) > 0)
-    .map((d) => ({ ...d, dueAmount: getDebtDueAmount(d) }))
+    .map((d) => ({ ...d, dueAmount: getDebtDueAmount(d), daysUntilDue: getDebtDaysUntilDue(d) }))
     .filter((d) => (d.dueAmount ?? 0) > 0)
     // Exclude debts where this month's recorded payments already cover the due amount
     .filter((d) => (d.paidThisMonthAmount ?? 0) < (d.dueAmount ?? 0))
-    .sort((a, b) => (b.dueAmount ?? 0) - (a.dueAmount ?? 0));
+    .sort((a, b) => {
+      const aDays = a.daysUntilDue;
+      const bDays = b.daysUntilDue;
+
+      const aRank = urgencyRank(aDays);
+      const bRank = urgencyRank(bDays);
+      if (aRank !== bRank) return aRank - bRank;
+
+      if (aDays !== bDays) return aDays - bDays;
+
+      return (b.dueAmount ?? 0) - (a.dueAmount ?? 0);
+    });
 
   // If everything is covered for this month, show next month's upcoming debts instead.
   // (Next month payments are assumed not yet recorded, so we don't apply the paidThisMonth filter.)
@@ -76,9 +133,20 @@ export function buildDashboardDerived(params: {
     ? upcomingDebtsThisMonth
     : debts
         .filter((d) => (d.currentBalance ?? 0) > 0)
-        .map((d) => ({ ...d, dueAmount: getDebtDueAmount(d) }))
+        .map((d) => ({ ...d, dueAmount: getDebtDueAmount(d), daysUntilDue: getDebtDaysUntilDue(d) }))
         .filter((d) => (d.dueAmount ?? 0) > 0)
-        .sort((a, b) => (b.dueAmount ?? 0) - (a.dueAmount ?? 0));
+        .sort((a, b) => {
+          const aDays = a.daysUntilDue;
+          const bDays = b.daysUntilDue;
+
+          const aRank = urgencyRank(aDays);
+          const bRank = urgencyRank(bDays);
+          if (aRank !== bRank) return aRank - bRank;
+
+          if (aDays !== bDays) return aDays - bDays;
+
+          return (b.dueAmount ?? 0) - (a.dueAmount ?? 0);
+        });
 
   const formatShortDate = (iso: string | null | undefined) => {
     if (!iso) return null;

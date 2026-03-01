@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import * as Notifications from "expo-notifications";
 
 import { useAuth } from "@/context/AuthContext";
-import { registerExpoPushToken } from "@/lib/pushNotifications";
+import { configureNotificationsBootstrapAsync, registerExpoPushToken } from "@/lib/pushNotifications";
 import { openIncomeSacrificeFromReminder } from "@/navigation/navigationRef";
 
 type NotificationData = {
@@ -15,6 +15,10 @@ type NotificationData = {
 export function PushNotificationsBootstrap() {
   const { token, username, isLoading } = useAuth();
   const handledIdentifiersRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    void configureNotificationsBootstrapAsync();
+  }, []);
 
   const handleReminderOpen = (identifier: string, data: NotificationData) => {
     if (handledIdentifiersRef.current.has(identifier)) return;
@@ -45,6 +49,18 @@ export function PushNotificationsBootstrap() {
         }
       }
     })();
+  }, [isLoading, token, username]);
+
+  useEffect(() => {
+    if (isLoading || !token) return;
+
+    const sub = Notifications.addPushTokenListener(() => {
+      // In rare cases the underlying device token can roll; re-register to keep
+      // our backend in sync. `registerExpoPushToken` de-dupes using storage.
+      void registerExpoPushToken({ username: username && username.trim() ? username : "mobile-user" });
+    });
+
+    return () => sub.remove();
   }, [isLoading, token, username]);
 
   useEffect(() => {

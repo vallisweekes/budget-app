@@ -379,8 +379,11 @@ export interface DashboardDebt {
   name: string;
   logoUrl?: string | null;
   type: string;
+  initialBalance: number;
   currentBalance: number;
   paidAmount: number;
+  dueDay?: number | null;
+  dueDate?: string | null;
   monthlyMinimum: number | null;
   interestRate: number | null;
   installmentMonths: number | null;

@@ -1,14 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, Animated, StyleSheet, View } from "react-native";
 import { DefaultTheme, NavigationContainer, type InitialState, type Theme } from "@react-navigation/native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Provider as ReduxProvider } from "react-redux";
 import { StatusBar } from "expo-status-bar";
 import { registerRootComponent } from "expo";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as SplashScreen from "expo-splash-screen";
 
 import { store } from "@/store";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
+import { PushNotificationsBootstrap } from "@/components/Shared/PushNotificationsBootstrap";
 import { apiFetch } from "@/lib/api";
 import { applyThemeMode, type ThemeMode, T } from "@/lib/theme";
 import { getStoredThemeMode } from "@/lib/storage";
@@ -16,6 +18,12 @@ import { installGlobalTypographyWeightNormalizer } from "@/lib/typography";
 import { navigationRef } from "@/navigation/navigationRef";
 
 installGlobalTypographyWeightNormalizer();
+
+// Keep the native launch screen visible until we explicitly hide it.
+// This avoids a blank/flash frame before React renders.
+void SplashScreen.preventAutoHideAsync().catch(() => {
+  // ignore
+});
 
 const NAV_PERSIST_VERSION = "v1";
 const NAV_LAST_KEY = `budget_app.nav_state.last_key.${NAV_PERSIST_VERSION}`;
@@ -176,6 +184,9 @@ function App() {
   const [booting, setBooting] = useState(true);
   const [mode, setMode] = useState<ThemeMode>("dark");
 
+  const [splashVisible, setSplashVisible] = useState(true);
+  const splashOpacity = useRef(new Animated.Value(1)).current;
+
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -192,6 +203,26 @@ function App() {
       mounted = false;
     };
   }, []);
+
+  const onRootLayout = useCallback(() => {
+    // Hide the native splash as soon as our root view exists.
+    // The in-app splash overlay will remain until booting completes.
+    void SplashScreen.hideAsync().catch(() => {
+      // ignore
+    });
+  }, []);
+
+  useEffect(() => {
+    if (booting) return;
+
+    Animated.timing(splashOpacity, {
+      toValue: 0,
+      duration: 450,
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (finished) setSplashVisible(false);
+    });
+  }, [booting, splashOpacity]);
 
   const RootNavigator = useMemo(() => {
     if (booting) return null;
@@ -219,15 +250,33 @@ function App() {
 
   return (
     <SafeAreaProvider style={{ flex: 1, backgroundColor: T.bg }}>
-      <ReduxProvider store={store}>
-        <AuthProvider>
-				<AuthedNavigation navTheme={navTheme} booting={booting} RootNavigator={RootNavigator} />
-          <StatusBar style={mode === "dark" ? "light" : "dark"} />
-        </AuthProvider>
-      </ReduxProvider>
+      <View style={{ flex: 1 }} onLayout={onRootLayout}>
+        <ReduxProvider store={store}>
+          <AuthProvider>
+            <PushNotificationsBootstrap />
+            <AuthedNavigation navTheme={navTheme} booting={booting} RootNavigator={RootNavigator} />
+            <StatusBar style={mode === "dark" ? "light" : "dark"} />
+          </AuthProvider>
+        </ReduxProvider>
+
+        {splashVisible ? (
+          <Animated.Image
+            source={require("./assets/splash.png")}
+            resizeMode="cover"
+            style={[StyleSheet.absoluteFill, styles.splash, { opacity: splashOpacity }]}
+          />
+        ) : null}
+      </View>
     </SafeAreaProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  splash: {
+    width: "100%",
+    height: "100%",
+  },
+});
 
 registerRootComponent(App);
 export default App;

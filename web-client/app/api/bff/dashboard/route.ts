@@ -265,12 +265,17 @@ export async function GET(req: NextRequest) {
 		const currentMonthPaidByDebtId = new Map<string, number>();
 		if (debtIds.length > 0) {
 			try {
+				// NOTE: Mobile creates DebtPayment rows with `year/month` derived from `paidAt` (UTC),
+				// so we must group by the current UTC calendar month (not the budget plan month).
+				const paymentYear = now.getUTCFullYear();
+				const paymentMonth = now.getUTCMonth() + 1;
+
 				const monthPayments = await prisma.debtPayment.groupBy({
 					by: ["debtId"],
 					where: {
 						debtId: { in: debtIds },
-						year: currentPlanData.year,
-						month: currentPlanData.monthNum,
+						year: paymentYear,
+						month: paymentMonth,
 					},
 					_sum: { amount: true },
 				});
@@ -444,8 +449,11 @@ export async function GET(req: NextRequest) {
 					(d.sourceExpenseId ? debtLogoByExpenseId.get(d.sourceExpenseId) ?? null : null) ??
 					resolveExpenseLogo(d.name).logoUrl,
 				type: d.type,
+				initialBalance: d.initialBalance,
 				currentBalance: d.currentBalance,
 				paidAmount: d.paidAmount,
+				dueDay: d.dueDay ?? null,
+				dueDate: d.dueDate ?? null,
 				monthlyMinimum: d.monthlyMinimum ?? null,
 				interestRate: d.interestRate ?? null,
 				installmentMonths: d.installmentMonths ?? null,

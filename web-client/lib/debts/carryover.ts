@@ -50,6 +50,32 @@ function decimalToNumber(value: unknown): number {
 	return Number((value as any).toString?.() ?? value);
 }
 
+function computeMonthlyDueAmount(row: {
+	amount: unknown;
+	monthlyMinimum?: unknown;
+	installmentMonths?: unknown;
+	initialBalance?: unknown;
+	currentBalance?: unknown;
+}): number {
+	const rawPlanned = decimalToNumber(row.amount);
+	let planned = Number.isFinite(rawPlanned) ? rawPlanned : 0;
+
+	const installmentMonthsRaw = decimalToNumber(row.installmentMonths);
+	const installmentMonths = Number.isFinite(installmentMonthsRaw) ? Math.max(0, Math.trunc(installmentMonthsRaw)) : 0;
+	if (!(planned > 0) && installmentMonths > 0) {
+		const initial = decimalToNumber(row.initialBalance);
+		const current = decimalToNumber(row.currentBalance);
+		const principal = initial > 0 ? initial : current;
+		if (principal > 0) planned = principal / installmentMonths;
+	}
+
+	const rawMin = decimalToNumber(row.monthlyMinimum);
+	const min = Number.isFinite(rawMin) ? Math.max(0, rawMin) : 0;
+	if (min > 0) planned = Math.max(planned, min);
+
+	return Math.max(0, planned);
+}
+
 /**
  * Missed payment accumulation:
  * - Preferred (new) behavior: debts with a `dueDate` use a calendar date with a 5-day grace window.
@@ -76,6 +102,8 @@ export async function processMissedDebtPaymentsToAccrue(budgetPlanId: string, no
 			select: {
 				id: true,
 				amount: true,
+				monthlyMinimum: true,
+				installmentMonths: true,
 				initialBalance: true,
 				currentBalance: true,
 				dueDate: true,
@@ -89,32 +117,50 @@ export async function processMissedDebtPaymentsToAccrue(budgetPlanId: string, no
 				prevDue: Date;
 				graceEnd: Date;
 				nextDue: Date;
+				endTs: number;
+				nowPastGrace: boolean;
 			};
 
 			const evaluableDebts: EvaluableDebt[] = debts
 				.map((d) => {
 					const due = new Date(d.dueDate);
 					if (!Number.isFinite(due.getTime())) return null;
+					const dueAmount = computeMonthlyDueAmount(d);
+					if (!(dueAmount > 0)) return null;
 					const graceEnd = new Date(due.getTime() + 5 * msPerDay);
-					if (now.getTime() <= graceEnd.getTime()) return null;
+					const nowTs = now.getTime();
+					const graceEndTs = graceEnd.getTime();
+					const endTs = Math.min(nowTs, graceEndTs);
+					const nowPastGrace = nowTs > graceEndTs;
 
 					return {
 						id: d.id,
-						dueAmount: decimalToNumber(d.amount),
+						dueAmount,
 						prevDue: addMonthsUTC(due, -1),
 						graceEnd,
 						nextDue: addMonthsUTC(due, 1),
+						endTs,
+						nowPastGrace,
 					};
 				})
 				.filter((value): value is EvaluableDebt => value != null);
 
-			const updates: Array<{ id: string; remaining: number; nextDue: Date }> = [];
+			const updates: Array<{ id: string; remaining: number; nextDue: Date; accrue: boolean }> = [];
 			if (evaluableDebts.length > 0) {
 				const minPrevDueTs = Math.min(...evaluableDebts.map((d) => d.prevDue.getTime()));
-				const maxGraceEndTs = Math.max(...evaluableDebts.map((d) => d.graceEnd.getTime()));
+				const maxEndTs = Math.max(...evaluableDebts.map((d) => d.endTs));
 
 				const debtWindowById = new Map(
-					evaluableDebts.map((d) => [d.id, { prevDueTs: d.prevDue.getTime(), graceEndTs: d.graceEnd.getTime(), dueAmount: d.dueAmount, nextDue: d.nextDue }])
+					evaluableDebts.map((d) => [
+						d.id,
+						{
+							prevDueTs: d.prevDue.getTime(),
+							endTs: d.endTs,
+							dueAmount: d.dueAmount,
+							nextDue: d.nextDue,
+							nowPastGrace: d.nowPastGrace,
+						},
+					])
 				);
 
 				const candidatePayments = await prisma.debtPayment.findMany({
@@ -122,7 +168,7 @@ export async function processMissedDebtPaymentsToAccrue(budgetPlanId: string, no
 						debtId: { in: evaluableDebts.map((d) => d.id) },
 						paidAt: {
 							gt: new Date(minPrevDueTs),
-							lte: new Date(maxGraceEndTs),
+							lte: new Date(maxEndTs),
 						},
 					},
 					select: { debtId: true, amount: true, paidAt: true },
@@ -133,7 +179,7 @@ export async function processMissedDebtPaymentsToAccrue(budgetPlanId: string, no
 					const window = debtWindowById.get(payment.debtId);
 					if (!window) continue;
 					const paidAtTs = new Date(payment.paidAt).getTime();
-					if (paidAtTs <= window.prevDueTs || paidAtTs > window.graceEndTs) continue;
+					if (paidAtTs <= window.prevDueTs || paidAtTs > window.endTs) continue;
 					const amount = decimalToNumber(payment.amount);
 					if (!Number.isFinite(amount)) continue;
 					paidByDebtId.set(payment.debtId, (paidByDebtId.get(payment.debtId) ?? 0) + amount);
@@ -141,11 +187,17 @@ export async function processMissedDebtPaymentsToAccrue(budgetPlanId: string, no
 
 				for (const debt of evaluableDebts) {
 					const paid = paidByDebtId.get(debt.id) ?? 0;
-					updates.push({
-						id: debt.id,
-						remaining: Math.max(0, debt.dueAmount - paid),
-						nextDue: debt.nextDue,
-					});
+					const remaining = Math.max(0, debt.dueAmount - paid);
+					// If the cycle is fully covered, roll dueDate forward immediately.
+					// Otherwise keep dueDate until grace end; once grace has passed, accrue the remainder and roll forward.
+					if (remaining === 0 || debt.nowPastGrace) {
+						updates.push({
+							id: debt.id,
+							remaining,
+							nextDue: debt.nextDue,
+							accrue: debt.nowPastGrace && remaining > 0,
+						});
+					}
 				}
 			}
 
@@ -156,7 +208,7 @@ export async function processMissedDebtPaymentsToAccrue(budgetPlanId: string, no
 							where: { id: u.id },
 							data: {
 								dueDate: u.nextDue,
-								...(u.remaining > 0
+								...(u.accrue
 									? {
 										currentBalance: { increment: u.remaining },
 										initialBalance: { increment: u.remaining },
@@ -192,6 +244,8 @@ export async function processMissedDebtPaymentsToAccrue(budgetPlanId: string, no
 		select: {
 			id: true,
 			amount: true,
+			monthlyMinimum: true,
+			installmentMonths: true,
 			initialBalance: true,
 			currentBalance: true,
 			lastAccrualMonth: true,
@@ -218,7 +272,7 @@ export async function processMissedDebtPaymentsToAccrue(budgetPlanId: string, no
 	const updates: Array<{ id: string; remaining: number }> = debts
 		.filter((d) => (d.lastAccrualMonth ?? "") !== prevKey)
 		.map((d) => {
-			const due = decimalToNumber(d.amount);
+			const due = computeMonthlyDueAmount(d);
 			const paid = paidByDebt.get(d.id) ?? 0;
 			const remaining = Math.max(0, due - paid);
 			return { id: d.id, remaining };

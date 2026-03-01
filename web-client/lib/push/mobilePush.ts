@@ -6,6 +6,8 @@ export type MobilePushPayload = {
 	title: string;
 	body?: string;
 	data?: Record<string, unknown>;
+	/** iOS app icon badge number (absolute). */
+	badge?: number;
 };
 
 export type MobilePushResult = {
@@ -33,10 +35,15 @@ export async function sendMobilePushNotifications(
 
 	const messages: ExpoPushMessage[] = validTokens.map((to) => ({
 		to,
+		// Android 8+: route notifications through a known channel.
+		channelId: "default",
 		sound: "default",
 		title: payload.title,
 		body: payload.body ?? "",
 		data: payload.data ?? {},
+		...(typeof payload.badge === "number" && Number.isFinite(payload.badge)
+			? { badge: Math.max(0, Math.floor(payload.badge)) }
+			: null),
 	}));
 
 	const chunks = expo.chunkPushNotifications(messages);
