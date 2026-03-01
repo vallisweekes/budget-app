@@ -21,7 +21,19 @@ export function buildDashboardDerived(params: {
   const allExpenses = categories.flatMap((c) => c.expenses);
   const amountLeftToBudget = incomeAfterAllocations;
   const amountAfterExpenses = amountLeftToBudget - totalExpenses;
-  const isOverBudget = amountAfterExpenses < 0;
+  const isOverBudgetBySpending = amountAfterExpenses < 0;
+
+  const overLimitDebts = debts.filter((d) => {
+    const limit = d.creditLimit ?? 0;
+    if (!(limit > 0)) return false;
+    return (d.currentBalance ?? 0) > limit;
+  });
+  const overLimitDebtCount = overLimitDebts.length;
+  const hasOverLimitDebt = overLimitDebtCount > 0;
+
+  // Composite definition matching product semantics:
+  // "Over budget" if either (a) net monthly outgoings exceed income-left-to-budget, OR (b) any card is over its credit limit.
+  const isOverBudget = isOverBudgetBySpending || hasOverLimitDebt;
 
   const paidTotal = allExpenses.reduce((acc, e) => acc + (e.paidAmount ?? (e.paid ? e.amount : 0)), 0);
   const totalBudget = amountLeftToBudget > 0 ? amountLeftToBudget : totalIncome;
@@ -181,6 +193,9 @@ export function buildDashboardDerived(params: {
     payDate,
     amountLeftToBudget,
     amountAfterExpenses,
+    isOverBudgetBySpending,
+    hasOverLimitDebt,
+    overLimitDebtCount,
     isOverBudget,
     paidTotal,
     totalBudget,

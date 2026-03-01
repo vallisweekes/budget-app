@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { AppState } from "react-native";
 import * as Notifications from "expo-notifications";
 
 import { useAuth } from "@/context/AuthContext";
@@ -21,10 +22,29 @@ export function PushNotificationsBootstrap() {
   const { token, username, isLoading } = useAuth();
   const handledIdentifiersRef = useRef<Set<string>>(new Set());
 
+  const clearAppBadgeAsync = () => {
+    void Notifications.setBadgeCountAsync(0).catch(() => {
+      // ignore
+    });
+  };
+
   useEffect(() => {
     void configureNotificationsBootstrapAsync();
     void registerBackgroundNotificationTaskAsync();
     void sendInstallWelcomeNotificationOnceAsync();
+    clearAppBadgeAsync();
+  }, []);
+
+  useEffect(() => {
+    const appStateSub = AppState.addEventListener("change", (state) => {
+      if (state === "active") {
+        clearAppBadgeAsync();
+      }
+    });
+
+    return () => {
+      appStateSub.remove();
+    };
   }, []);
 
   const handleReminderOpen = (identifier: string, data: NotificationData) => {
@@ -79,6 +99,7 @@ export function PushNotificationsBootstrap() {
       const data = (response?.notification.request.content.data ?? {}) as NotificationData;
       if (!identifier) return;
 
+      clearAppBadgeAsync();
       handleReminderOpen(identifier, data);
     })();
 
@@ -89,6 +110,7 @@ export function PushNotificationsBootstrap() {
     const response = Notifications.addNotificationResponseReceivedListener((event) => {
       const identifier = event.notification.request.identifier;
       const data = (event.notification.request.content.data ?? {}) as NotificationData;
+      clearAppBadgeAsync();
       handleReminderOpen(identifier, data);
     });
 

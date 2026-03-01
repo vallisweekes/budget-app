@@ -76,8 +76,13 @@ export async function getAiBudgetTips(args: {
 			debtNotes?: string | null;
 		} | null;
 		totalIncome?: number;
+		totalAllocations?: number;
+		incomeAfterAllocations?: number;
 		totalExpenses?: number;
 		remaining?: number;
+		amountAfterExpenses?: number;
+		isOverBudget?: boolean;
+		overLimitDebtCount?: number;
 		plannedDebtPayments?: number;
 		plannedSavingsContribution?: number;
 		payDate?: number;
@@ -130,6 +135,8 @@ export async function getAiBudgetTips(args: {
 		"You are a budgeting assistant inside a bill-tracking app. " +
 		"Use the onboarding context (goals, salary, bills) to tailor the tips when present. " +
 		"Generate practical, friendly tips grounded in the provided numbers. " +
+		"Definition notes: amountAfterExpenses = incomeAfterAllocations − totalExpenses; a negative value means overspending vs plan. " +
+		"If overLimitDebtCount > 0, treat it as urgent (a card is over its credit limit). " +
 		"Avoid shame, avoid legal/medical advice, and do not mention OpenAI. " +
 		"Return ONLY valid JSON: {\"tips\":[{\"title\":string,\"detail\":string,\"priority\":number}]}. " +
 		"Set priority from 1-100 (100 = most urgent). Prioritise debt-reduction and savings-protection actions first. " +
@@ -143,8 +150,13 @@ export async function getAiBudgetTips(args: {
 			onboarding: args.context.onboarding ?? null,
 			totals: {
 				totalIncome: args.context.totalIncome ?? null,
+				totalAllocations: args.context.totalAllocations ?? null,
+				incomeAfterAllocations: args.context.incomeAfterAllocations ?? null,
 				totalExpenses: args.context.totalExpenses ?? null,
 				remaining: args.context.remaining ?? null,
+				amountAfterExpenses: args.context.amountAfterExpenses ?? null,
+				isOverBudget: args.context.isOverBudget ?? null,
+				overLimitDebtCount: args.context.overLimitDebtCount ?? null,
 				plannedDebtPayments: args.context.plannedDebtPayments ?? null,
 				plannedSavingsContribution: args.context.plannedSavingsContribution ?? null,
 				payDate: args.context.payDate ?? null,

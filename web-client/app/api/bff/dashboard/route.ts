@@ -316,6 +316,17 @@ export async function GET(req: NextRequest) {
 						? [onboarding.mainGoal]
 						: [];
 
+				const incomeAfterAllocations =
+					typeof currentPlanData.incomeAfterAllocations === "number"
+						? currentPlanData.incomeAfterAllocations
+						: currentPlanData.totalIncome - (currentPlanData.totalAllocations ?? 0) - (currentPlanData.plannedDebtPayments ?? 0);
+				const amountAfterExpenses = incomeAfterAllocations - (currentPlanData.totalExpenses ?? 0);
+				const overLimitDebtCount = (debts ?? []).filter((d) => {
+					const limit = typeof d.creditLimit === "number" ? d.creditLimit : 0;
+					return limit > 0 && d.currentBalance > limit;
+				}).length;
+				const isOverBudget = amountAfterExpenses < 0 || overLimitDebtCount > 0;
+
 				return await getAiBudgetTips({
 					cacheKey: `dashboard:${budgetPlanId}:${currentPlanData.year}-${currentPlanData.monthNum}`,
 					budgetPlanId,
@@ -352,8 +363,13 @@ export async function GET(req: NextRequest) {
 							}
 							: null,
 						totalIncome: currentPlanData.totalIncome,
+						totalAllocations: currentPlanData.totalAllocations,
+						incomeAfterAllocations,
 						totalExpenses: currentPlanData.totalExpenses,
 						remaining: currentPlanData.remaining,
+						amountAfterExpenses,
+						isOverBudget,
+						overLimitDebtCount,
 						plannedDebtPayments: currentPlanData.plannedDebtPayments,
 						plannedSavingsContribution: currentPlanData.plannedSavingsContribution,
 						payDate,

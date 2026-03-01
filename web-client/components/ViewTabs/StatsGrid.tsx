@@ -11,6 +11,7 @@ export default function StatsGrid(props: {
 	plannedDebtPayments: number;
 	totalExpenses: number;
 	amountAfterExpenses: number;
+	overLimitDebtCount?: number;
 	plannedSavingsContribution: number;
 	savingsRate: number;
 	spendRate: number;
@@ -26,6 +27,7 @@ export default function StatsGrid(props: {
 		plannedDebtPayments,
 		totalExpenses,
 		amountAfterExpenses,
+		overLimitDebtCount,
 		plannedSavingsContribution,
 		savingsRate,
 		spendRate,
@@ -134,6 +136,11 @@ export default function StatsGrid(props: {
 						</span>
 					)}
 				</div>
+				{(overLimitDebtCount ?? 0) > 0 && (
+					<div className="mt-2 text-xs font-semibold text-red-300">
+						{overLimitDebtCount} card{overLimitDebtCount === 1 ? "" : "s"} over credit limit
+					</div>
+				)}
 			</Card>
 
 			<Card

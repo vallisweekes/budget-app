@@ -1,5 +1,7 @@
 "use client";
 
+import { useMemo } from "react";
+
 import PaymentInsightsCards from "@/components/Insights/PaymentInsightsCards";
 import GoalsCard from "@/components/ViewTabs/GoalsCard";
 import CategoryExpensesCard from "@/components/ViewTabs/CategoryExpensesCard";
@@ -19,6 +21,14 @@ export default function ViewTabsDashboard(props: ViewTabsProps) {
 	} = props;
 
 	const model = useViewTabsDashboardModel(props);
+
+	const overLimitDebtCount = useMemo(() => {
+		return (props.debts ?? []).filter((d) => {
+			const limit = typeof d.creditLimit === "number" ? d.creditLimit : 0;
+			if (!(limit > 0)) return false;
+			return d.currentBalance > limit;
+		}).length;
+	}, [props.debts]);
 
 	return (
 		<div className="dashboard-canvas-bg dashboard-dark-cards pb-6">
@@ -40,6 +50,7 @@ export default function ViewTabsDashboard(props: ViewTabsProps) {
 							plannedDebtPayments={model.combinedData.plannedDebtPayments}
 							totalExpenses={model.combinedData.totalExpenses}
 							amountAfterExpenses={model.amountAfterExpenses}
+							overLimitDebtCount={overLimitDebtCount}
 							plannedSavingsContribution={model.combinedData.plannedSavingsContribution}
 							savingsRate={model.savingsRate}
 							spendRate={model.spendRate}

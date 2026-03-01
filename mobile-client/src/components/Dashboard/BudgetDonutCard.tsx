@@ -53,11 +53,9 @@ export default function BudgetDonutCard({ totalBudget, totalExpenses, paidTotal,
   const paidLen      = paidFrac      * C;
   const committedLen = committedFrac * C;
 
-  const centerTop = isOverBudget
-    ? "Over budget"
-    : fmt(Math.max(0, remaining), currency);
+  const centerTop = fmt(remaining, currency);
   const centerSub = isOverBudget
-    ? `by ${fmt(Math.abs(remaining), currency)}`
+    ? `over budget (budget ${fmt(totalBudget, currency)})`
     : `left of ${fmt(totalBudget, currency)}`;
 
   return (
@@ -108,7 +106,11 @@ export default function BudgetDonutCard({ totalBudget, totalExpenses, paidTotal,
 
         {/* Center label */}
         <View style={[s.centerWrap, { width: SIZE, height: SIZE }]}>
-          <Text style={s.centerValue} numberOfLines={1} adjustsFontSizeToFit>
+          <Text
+            style={[s.centerValue, isOverBudget && { color: T.red }]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+          >
             {centerTop}
           </Text>
           <Text style={s.centerSub}>{centerSub}</Text>

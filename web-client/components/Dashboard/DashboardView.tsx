@@ -67,6 +67,17 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 		recapTips: prioritizeRecapTips([...(expenseInsightsBase.recapTips ?? []), ...multiPlanTips, ...debtTips], 6),
 	};
 
+	const incomeAfterAllocations =
+		typeof currentPlanData.incomeAfterAllocations === "number"
+			? currentPlanData.incomeAfterAllocations
+			: currentPlanData.totalIncome - (currentPlanData.totalAllocations ?? 0) - (currentPlanData.plannedDebtPayments ?? 0);
+	const amountAfterExpenses = incomeAfterAllocations - (currentPlanData.totalExpenses ?? 0);
+	const overLimitDebtCount = (debts ?? []).filter((d) => {
+		const limit = typeof d.creditLimit === "number" ? d.creditLimit : 0;
+		return limit > 0 && d.currentBalance > limit;
+	}).length;
+	const isOverBudget = amountAfterExpenses < 0 || overLimitDebtCount > 0;
+
 	const aiDashboardTips = await (async () => {
 		try {
 			return await getAiBudgetTips({
@@ -76,8 +87,13 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 				context: {
 					username: username ?? null,
 					totalIncome: currentPlanData.totalIncome,
+					totalAllocations: currentPlanData.totalAllocations,
+					incomeAfterAllocations,
 					totalExpenses: currentPlanData.totalExpenses,
 					remaining: currentPlanData.remaining,
+					amountAfterExpenses,
+					isOverBudget,
+					overLimitDebtCount,
 					plannedDebtPayments: currentPlanData.plannedDebtPayments,
 					plannedSavingsContribution: currentPlanData.plannedSavingsContribution,
 					payDate,

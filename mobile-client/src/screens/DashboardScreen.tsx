@@ -150,6 +150,10 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
     categories,
     paidTotal,
     totalBudget,
+    amountAfterExpenses,
+    isOverBudgetBySpending,
+    hasOverLimitDebt,
+    overLimitDebtCount,
     rangeLabel,
     upcoming,
     upcomingDebts,
@@ -236,6 +240,22 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
           currency={currency}
           fmt={fmt}
         />
+
+        {(isOverBudgetBySpending || hasOverLimitDebt) && (
+          <View style={styles.alertCard}>
+            <Text style={styles.alertTitle}>Over budget</Text>
+            {isOverBudgetBySpending && (
+              <Text style={styles.alertText}>
+                Spending is {fmt(Math.abs(amountAfterExpenses), currency)} over your monthly plan.
+              </Text>
+            )}
+            {hasOverLimitDebt && (
+              <Text style={styles.alertText}>
+                {overLimitDebtCount} card{overLimitDebtCount === 1 ? "" : "s"} over credit limit.
+              </Text>
+            )}
+          </View>
+        )}
 
         {needsSetup ? (
           <View style={styles.setupCard}>
@@ -707,6 +727,15 @@ const styles = StyleSheet.create({
     padding: 14,
     gap: 8,
   },
+  alertCard: {
+    ...cardElevated,
+    marginTop: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: T.red,
+  },
+  alertTitle: { color: T.red, fontSize: 16, fontWeight: "900" },
+  alertText: { color: T.textDim, fontSize: 13, fontWeight: "700", marginTop: 6, lineHeight: 18 },
   setupTitle: { color: T.text, fontSize: 16, fontWeight: "900" },
   setupText: { color: T.textDim, fontSize: 13, fontWeight: "600", lineHeight: 18 },
   setupActions: { flexDirection: "row", gap: 10, marginTop: 4 },
