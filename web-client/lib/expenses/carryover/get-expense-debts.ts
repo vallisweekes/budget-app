@@ -23,6 +23,7 @@ export async function getExpenseDebts(budgetPlanId: string) {
 	const now = new Date();
 	const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 	const expenseUpdates: Array<{ id: string; amount: number; paidAmount: number; paid: boolean }> = [];
+	const movedToDebtExpenseIds: string[] = [];
 
 	const visibleDebts = debts.filter((d) => {
 		const expenseId = String(d.sourceExpenseId ?? "").trim();
@@ -31,6 +32,7 @@ export async function getExpenseDebts(budgetPlanId: string) {
 		if (!expense) return true;
 		if (expense.isAllocation || isNonDebtCategoryName(expense.category?.name)) return false;
 		if (expense.paid) return true;
+		if (expense.isMovedToDebt === true) return true;
 
 		const totalAmount = Number(expense.amount);
 		let paidAmount = Number(expense.paidAmount);
@@ -54,12 +56,26 @@ export async function getExpenseDebts(budgetPlanId: string) {
 		const overdueThreshold = addDays(expenseDueDate, OVERDUE_GRACE_DAYS);
 		const isExpenseOverdueByGrace = overdueThreshold.getTime() <= today.getTime();
 		const hasPartialPayment = Number.isFinite(paidAmount) && paidAmount > 0;
+		if (isExpenseOverdueByGrace) {
+			movedToDebtExpenseIds.push(expense.id);
+		}
 		return isExpenseOverdueByGrace || hasPartialPayment;
 	});
 
-	if (expenseUpdates.length > 0) {
+	if (movedToDebtExpenseIds.length > 0) {
+		await prisma.expense
+			.updateMany({ where: { id: { in: movedToDebtExpenseIds } }, data: { isMovedToDebt: true } })
+			.catch(() => null);
+	}
+
+	const movedToDebtSet = movedToDebtExpenseIds.length ? new Set(movedToDebtExpenseIds) : null;
+	const payableExpenseUpdates = movedToDebtSet
+		? expenseUpdates.filter((u) => !movedToDebtSet.has(u.id))
+		: expenseUpdates;
+
+	if (payableExpenseUpdates.length > 0) {
 		await Promise.all(
-			expenseUpdates.map(async (u) => {
+			payableExpenseUpdates.map(async (u) => {
 				await prisma.expense.update({
 					where: { id: u.id },
 					data: { paidAmount: u.paidAmount, paid: u.paid },
@@ -143,7 +159,7 @@ function mapDebtWithExpenseState(d: ExpenseDebtRow, expenseById: Map<string, Exp
 	const expense = expenseId ? expenseById.get(expenseId) : undefined;
 	const initialBalance = Number(d.initialBalance);
 	const computedInitial = Number.isFinite(initialBalance) && initialBalance > 0 ? initialBalance : Number(expense?.amount ?? d.amount);
-	const sourcePaidAmount = Number(expense?.paidAmount ?? d.paidAmount);
+	const sourcePaidAmount = Number(expense?.isMovedToDebt === true ? d.paidAmount : (expense?.paidAmount ?? d.paidAmount));
 	const paidAmount = Math.min(computedInitial, Math.max(0, sourcePaidAmount));
 	const currentBalance = Math.max(0, computedInitial - paidAmount);
 	const paid = Boolean(expense?.paid ?? d.paid) || currentBalance <= 0;

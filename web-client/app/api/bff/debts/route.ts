@@ -109,6 +109,12 @@ function unauthorized() {
 	return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 }
 
+function normalizeDebtPaymentSource(value: unknown): "income" | "extra_funds" | "credit_card" {
+  if (value === "credit_card") return "credit_card";
+  if (value === "extra_funds") return "extra_funds";
+  return "income";
+}
+
 function withMissedPaymentFlag<T extends { sourceType?: string | null }>(debt: T): T & { isMissedPayment: boolean } {
   return {
     ...debt,
@@ -227,14 +233,29 @@ export async function POST(request: Request) {
     const creditLimit = raw.creditLimit == null ? null : toNumber(raw.creditLimit);
     const monthlyMinimum = raw.monthlyMinimum == null ? null : toNumber(raw.monthlyMinimum);
     const interestRate = raw.interestRate == null ? null : toNumber(raw.interestRate);
-    type PaymentSourceInput = "income" | "extra_funds" | "credit_card";
-    const defaultPaymentSource: PaymentSourceInput =
-      raw.defaultPaymentSource === "extra_funds"
-        ? "extra_funds"
-        : raw.defaultPaymentSource === "credit_card"
-          ? "credit_card"
-          : "income";
-    const defaultPaymentCardDebtId = typeof raw.defaultPaymentCardDebtId === "string" ? raw.defaultPaymentCardDebtId : null;
+    const defaultPaymentSource = normalizeDebtPaymentSource(raw.defaultPaymentSource);
+    const defaultPaymentCardDebtId =
+      typeof raw.defaultPaymentCardDebtId === "string" && raw.defaultPaymentCardDebtId.trim().length > 0
+        ? raw.defaultPaymentCardDebtId.trim()
+        : null;
+
+    if (defaultPaymentSource === "credit_card") {
+      if (!defaultPaymentCardDebtId) {
+        return NextResponse.json({ error: "defaultPaymentCardDebtId is required when defaultPaymentSource is credit_card" }, { status: 400 });
+      }
+      const card = await prisma.debt.findFirst({
+        where: {
+          id: defaultPaymentCardDebtId,
+          budgetPlanId,
+          sourceType: null,
+          type: { in: ["credit_card", "store_card"] },
+        },
+        select: { id: true },
+      });
+      if (!card) {
+        return NextResponse.json({ error: "Selected default payment card is invalid" }, { status: 400 });
+      }
+    }
     const sourceExpenseId = typeof raw.sourceExpenseId === "string" ? raw.sourceExpenseId : null;
     const sourceMonthKey = typeof raw.sourceMonthKey === "string" ? raw.sourceMonthKey : null;
     const sourceCategoryId = typeof raw.sourceCategoryId === "string" ? raw.sourceCategoryId : null;
@@ -367,9 +388,9 @@ export async function POST(request: Request) {
         select: { currency: true },
       });
       const currency = plan?.currency ?? "GBP";
-      const balance = Math.max(0, toNumber((debt as any).currentBalance ?? (debt as any).initialBalance ?? 0));
+      const balance = Math.max(0, toNumber(debt.currentBalance ?? debt.initialBalance ?? 0));
       const msg = await buildDebtAddedActivity({
-        name: (debt as any).name ?? name,
+        name: debt.name ?? name,
         balance,
         currency,
         url: "/dashboard",

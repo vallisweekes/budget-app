@@ -26,8 +26,10 @@ function toNumber(value: unknown): number {
   return Number(value as any);
 }
 
-function mapDebtPaymentSourceToExpensePaymentSource(source: unknown): "income" | "extra_untracked" {
-  return source === "income" ? "income" : "extra_untracked";
+function mapDebtPaymentSourceToExpensePaymentSource(source: unknown): "income" | "extra_untracked" | "credit_card" {
+  if (source === "income") return "income";
+  if (source === "credit_card") return "credit_card";
+  return "extra_untracked";
 }
 
 function paymentMatchKey(p: { amount: number; paidAt: Date }) {
@@ -320,14 +322,57 @@ export async function POST(
       return badRequest("amount must be a number > 0");
     }
 
-		const paymentSource = body.source === "extra_funds" ? "extra_funds" : "income";
-
     const debt = await prisma.debt.findUnique({
       where: { id },
-      include: { budgetPlan: { select: { userId: true } } },
+      include: { budgetPlan: { select: { id: true, userId: true } } },
     });
     if (!debt || debt.budgetPlan.userId !== userId) {
       return NextResponse.json({ error: "Debt not found" }, { status: 404 });
+    }
+
+    type IncomingSource = "income" | "extra_funds" | "credit_card";
+    const requestedSource: IncomingSource | null =
+      body.source === "credit_card"
+        ? "credit_card"
+        : body.source === "extra_funds"
+          ? "extra_funds"
+          : body.source === "income"
+            ? "income"
+            : null;
+
+    const defaultSource =
+      debt.defaultPaymentSource === "credit_card"
+        ? "credit_card"
+        : debt.defaultPaymentSource === "extra_funds"
+          ? "extra_funds"
+          : "income";
+
+    const paymentSource: IncomingSource = requestedSource ?? defaultSource;
+
+    const requestedCardDebtId =
+      typeof body.cardDebtId === "string" && body.cardDebtId.trim().length > 0
+        ? body.cardDebtId.trim()
+        : null;
+    const defaultCardDebtId =
+      typeof debt.defaultPaymentCardDebtId === "string" && debt.defaultPaymentCardDebtId.trim().length > 0
+        ? debt.defaultPaymentCardDebtId.trim()
+        : null;
+    const paymentCardDebtId = paymentSource === "credit_card" ? (requestedCardDebtId ?? defaultCardDebtId) : null;
+
+    if (paymentSource === "credit_card") {
+      if (!paymentCardDebtId) return badRequest("cardDebtId is required when source is credit_card");
+      if (paymentCardDebtId === id) return badRequest("Select a different source card");
+
+      const card = await prisma.debt.findFirst({
+        where: {
+          id: paymentCardDebtId,
+          budgetPlanId: debt.budgetPlan.id,
+          sourceType: null,
+          type: { in: ["credit_card", "store_card"] },
+        },
+        select: { id: true },
+      });
+      if (!card) return badRequest("Selected source card is invalid");
     }
 
 		const paidAt = body.paidAt ? new Date(body.paidAt) : new Date();
@@ -346,9 +391,34 @@ export async function POST(
           year,
           month,
           source: paymentSource,
+          cardDebtId: paymentCardDebtId,
           notes: body.notes || null,
         },
       });
+
+      if (paymentSource === "credit_card" && paymentCardDebtId) {
+        const cardDebt = await tx.debt.findUnique({
+          where: { id: paymentCardDebtId },
+          select: { id: true, currentBalance: true, initialBalance: true, paidAmount: true },
+        });
+        if (!cardDebt) throw new Error("Selected source card not found");
+
+        const cardCurrent = toNumber(cardDebt.currentBalance);
+        const cardInitial = toNumber(cardDebt.initialBalance);
+        const cardPaid = toNumber(cardDebt.paidAmount);
+        const nextCardCurrent = Math.max(0, cardCurrent + appliedAmount);
+        const nextCardInitial = Math.max(cardInitial, nextCardCurrent);
+
+        await tx.debt.update({
+          where: { id: cardDebt.id },
+          data: {
+            currentBalance: String(nextCardCurrent),
+            initialBalance: String(nextCardInitial),
+            paidAmount: String(Math.min(Math.max(0, cardPaid), nextCardInitial)),
+            paid: false,
+          },
+        });
+      }
 
       const nextDebtBalance = Math.max(0, debt.currentBalance.toNumber() - appliedAmount);
       const nextDebtPaidAmount = Math.max(0, debt.paidAmount.toNumber() + appliedAmount);

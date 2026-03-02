@@ -3,10 +3,10 @@ import { Dimensions, StyleSheet, Text, View } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 import { T } from "@/lib/theme";
 
-// Arc colours — matching the web client's PieCategories palette
-const COLOR_REMAINING = "#06b6d4"; // site cyan-blue — left to spend
-const COLOR_COMMITTED = "#a855f7"; // site purple    — committed spending
-const COLOR_PAID      = T.accent;  // deep purple    — already spent
+// Arc colours — high contrast for quick scan
+const COLOR_REMAINING = T.accent; // left to spend
+const COLOR_COMMITTED = T.orange; // committed (not yet paid)
+const COLOR_PAID = T.green; // already paid
 
 interface Props {
   totalBudget: number;

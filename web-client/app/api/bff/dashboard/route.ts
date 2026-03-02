@@ -52,6 +52,10 @@ export async function GET(req: NextRequest) {
 		});
 		const username = user?.name ?? null;
 
+		// 1) Plan meta (payDate, homepageGoalIds)
+		// We need payDate early so the dashboard month matches the active pay period.
+		const { payDate, homepageGoalIds } = await getBudgetPlanMeta(budgetPlanId);
+
 		// Best-effort onboarding context: never let dashboard fail due to schema/client mismatch.
 		let onboarding:
 			| {
@@ -132,13 +136,21 @@ export async function GET(req: NextRequest) {
 			}
 		}
 
-		// 1) Core plan data (income, expenses, allocations, goals, categories)
+		// 2) Core plan data (income, expenses, allocations, goals, categories)
+		// Match the active pay period: if we haven't reached pay day yet this month,
+		// show the previous month (e.g. Mar 1 shows Feb) so income + remaining make sense.
+		const clampDay = (y: number, monthIndex: number, day: number) => {
+			const lastDay = new Date(y, monthIndex + 1, 0).getDate();
+			return new Date(y, monthIndex, Math.min(Math.max(1, day), lastDay));
+		};
+		const payDay = typeof payDate === "number" && Number.isFinite(payDate) ? payDate : 1;
+		const monthPayDate = clampDay(now.getFullYear(), now.getMonth(), payDay);
+		const planNow = now.getTime() < monthPayDate.getTime()
+			? new Date(now.getFullYear(), now.getMonth() - 1, 1)
+			: now;
 		// This is required for the dashboard; let it throw if it truly can't compute.
-		const currentPlanData = await getDashboardPlanData(budgetPlanId, now);
+		const currentPlanData = await getDashboardPlanData(budgetPlanId, planNow);
 		const month = MONTHS[currentPlanData.monthNum - 1] ?? currentMonthKey();
-
-		// 2) Plan meta (payDate, homepageGoalIds)
-		const { payDate, homepageGoalIds } = await getBudgetPlanMeta(budgetPlanId);
 
 		// Everything below is "best effort". If one section fails (e.g. debt sync),
 		// return the rest of the dashboard rather than a full 500.

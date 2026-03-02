@@ -44,6 +44,16 @@ function decimalToString(value: unknown): string {
   return "0";
 }
 
+function isUnknownMovedToDebtFieldError(error: unknown): boolean {
+  const message = String((error as { message?: unknown })?.message ?? error);
+  return (
+    message.includes("isMovedToDebt") &&
+    (message.includes("Unknown arg") ||
+      message.includes("Unknown argument") ||
+      message.includes("Unknown field"))
+  );
+}
+
 function serializeExpense(expense: any, latestPaidAt: Date | null) {
   const paidAmountNumber = Number(expense?.paidAmount?.toString?.() ?? expense?.paidAmount ?? 0);
   const effectiveLastPaymentAt =
@@ -94,16 +104,35 @@ export async function GET(req: NextRequest) {
   if (year == null || year < 1900) return badRequest("Invalid year");
   if (!budgetPlanId) return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
 
-  const items = await prisma.expense.findMany({
-    where: { budgetPlanId, month, year },
-    orderBy: [{ createdAt: "asc" }],
-    include: {
-      category: {
-        select: { id: true, name: true, icon: true, color: true, featured: true },
-      },
-    },
-    // dueDate is a scalar on Expense, included automatically
-  });
+  const items = await (async () => {
+    try {
+      return await prisma.expense.findMany({
+        where: { budgetPlanId, month, year, isMovedToDebt: false },
+        orderBy: [{ createdAt: "asc" }],
+        include: {
+          category: {
+            select: { id: true, name: true, icon: true, color: true, featured: true },
+          },
+        },
+        // dueDate is a scalar on Expense, included automatically
+      });
+    } catch (error) {
+      // If Prisma Client wasn't regenerated yet, this field won't exist.
+      // Fall back to the legacy query rather than 500'ing the endpoint.
+      if (isUnknownMovedToDebtFieldError(error)) {
+        return prisma.expense.findMany({
+          where: { budgetPlanId, month, year },
+          orderBy: [{ createdAt: "asc" }],
+          include: {
+            category: {
+              select: { id: true, name: true, icon: true, color: true, featured: true },
+            },
+          },
+        });
+      }
+      throw error;
+    }
+  })();
 
   const ids = (items as any[]).map((e) => e.id).filter(Boolean);
   const latestPayments = ids.length

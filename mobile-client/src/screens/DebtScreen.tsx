@@ -22,7 +22,7 @@ import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { apiFetch, getApiBaseUrl } from "@/lib/api";
-import type { DebtSummaryData, DebtSummaryItem, Settings } from "@/lib/apiTypes";
+import type { CreditCard, DebtSummaryData, DebtSummaryItem, Settings } from "@/lib/apiTypes";
 import { currencySymbol, fmt } from "@/lib/formatting";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
@@ -175,6 +175,7 @@ export default function DebtScreen() {
   const insets = useSafeAreaInsets();
 
   const [summary, setSummary] = useState<DebtSummaryData | null>(null);
+  const [cards, setCards] = useState<CreditCard[]>([]);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -188,6 +189,8 @@ export default function DebtScreen() {
   const [addInstallmentMonths, setAddInstallmentMonths] = useState("");
   const [addInstallmentPreset, setAddInstallmentPreset] = useState<number | "custom" | null>(null);
   const [addType, setAddType] = useState("loan");
+  const [addPaymentSource, setAddPaymentSource] = useState<"income" | "extra_funds" | "credit_card">("income");
+  const [addPaymentCardDebtId, setAddPaymentCardDebtId] = useState("");
   const [saving, setSaving] = useState(false);
 
   const closeAddDebtSheet = useCallback(() => {
@@ -213,12 +216,14 @@ export default function DebtScreen() {
   const load = useCallback(async () => {
     try {
       setError(null);
-      const [s, sets] = await Promise.all([
+      const [s, sets, cardRows] = await Promise.all([
         apiFetch<DebtSummaryData>("/api/bff/debt-summary"),
         apiFetch<Settings>("/api/bff/settings"),
+        apiFetch<CreditCard[]>("/api/bff/credit-cards"),
       ]);
       setSummary(s);
       setSettings(sets);
+      setCards(Array.isArray(cardRows) ? cardRows : []);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load debts");
     } finally {
@@ -237,6 +242,7 @@ export default function DebtScreen() {
 
   const isCardType = addType === "credit_card" || addType === "store_card";
   const isLoanStyleType = addType === "loan" || addType === "mortgage";
+  const selectablePaymentCards = cards.filter((card) => card.id !== "" && card.id !== undefined);
 
   const handleAdd = async () => {
     const name = addName.trim();
@@ -253,6 +259,16 @@ export default function DebtScreen() {
     if (isNaN(monthlyPayment) || monthlyPayment < 0) {
       Alert.alert("Invalid monthly payment", "Enter a valid monthly payment (0 or more).");
       return;
+    }
+    if (addPaymentSource === "credit_card") {
+      if (!addPaymentCardDebtId.trim()) {
+        Alert.alert("Source card required", "Select the card you’ll use to pay this debt.");
+        return;
+      }
+      if (addPaymentCardDebtId.trim() === "") {
+        Alert.alert("Source card required", "Select the card you’ll use to pay this debt.");
+        return;
+      }
     }
     if (creditLimit != null && (!Number.isFinite(creditLimit) || creditLimit <= 0)) {
       Alert.alert("Invalid credit limit", "Enter a valid credit limit.");
@@ -280,6 +296,8 @@ export default function DebtScreen() {
           creditLimit: isCardType ? creditLimit : null,
           interestRate,
           installmentMonths,
+          defaultPaymentSource: addPaymentSource,
+          defaultPaymentCardDebtId: addPaymentSource === "credit_card" ? addPaymentCardDebtId.trim() : null,
         },
       });
       setAddName("");
@@ -289,6 +307,8 @@ export default function DebtScreen() {
       setAddInterestRate("");
       setAddInstallmentMonths("");
       setAddInstallmentPreset(null);
+      setAddPaymentSource("income");
+      setAddPaymentCardDebtId("");
       setShowAddForm(false);
       await load();
     } catch (err: unknown) {
@@ -789,6 +809,58 @@ export default function DebtScreen() {
                   onChangeText={setAddInterestRate}
                   keyboardType="decimal-pad"
                 />
+
+                <View style={s.termWrap}>
+                  <Text style={s.termLabel}>Payment source</Text>
+                  <View style={s.sourceRow}>
+                    {[
+                      { key: "income", label: "Income" },
+                      { key: "extra_funds", label: "Extra funds" },
+                      { key: "credit_card", label: "Card" },
+                    ].map((opt) => {
+                      const active = addPaymentSource === opt.key;
+                      return (
+                        <Pressable
+                          key={opt.key}
+                          onPress={() => {
+                            setAddPaymentSource(opt.key as "income" | "extra_funds" | "credit_card");
+                            if (opt.key !== "credit_card") setAddPaymentCardDebtId("");
+                          }}
+                          style={[s.sourceBtn, active && s.sourceBtnActive]}
+                        >
+                          <Text style={[s.sourceBtnTxt, active && s.sourceBtnTxtActive]}>{opt.label}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+
+                {addPaymentSource === "credit_card" ? (
+                  <View style={s.termWrap}>
+                    <Text style={s.termLabel}>Select card</Text>
+                    {selectablePaymentCards.length > 0 ? (
+                      <View style={s.cardChoiceWrap}>
+                        {selectablePaymentCards.map((card) => {
+                          const active = addPaymentCardDebtId === card.id;
+                          return (
+                            <Pressable
+                              key={card.id}
+                              onPress={() => setAddPaymentCardDebtId(card.id)}
+                              style={[s.cardChoiceBtn, active && s.cardChoiceBtnActive]}
+                            >
+                              <Text style={[s.cardChoiceTxt, active && s.cardChoiceTxtActive]} numberOfLines={1}>
+                                {card.name}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    ) : (
+                      <Text style={s.cardChoiceEmpty}>No credit/store cards found yet.</Text>
+                    )}
+                  </View>
+                ) : null}
+
                 <View style={s.termWrap}>
                   <Text style={s.termLabel}>Spread over months</Text>
                   <View style={s.termRow}>
@@ -914,6 +986,32 @@ const s = StyleSheet.create({
   termBtnActive: { borderColor: T.accent, backgroundColor: `${T.accent}2A` },
   termBtnTxt: { color: T.textDim, fontSize: 12, fontWeight: "700" },
   termBtnTxtActive: { color: T.accent, fontWeight: "800" },
+  sourceRow: { flexDirection: "row", gap: 8, marginTop: 2 },
+  sourceBtn: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: T.border,
+    backgroundColor: T.cardAlt,
+    borderRadius: 8,
+    paddingVertical: 9,
+    alignItems: "center",
+  },
+  sourceBtnActive: { borderColor: T.accent, backgroundColor: `${T.accent}2A` },
+  sourceBtnTxt: { color: T.textDim, fontSize: 12, fontWeight: "700" },
+  sourceBtnTxtActive: { color: T.accent, fontWeight: "800" },
+  cardChoiceWrap: { gap: 8 },
+  cardChoiceBtn: {
+    borderWidth: 1,
+    borderColor: T.border,
+    borderRadius: 8,
+    backgroundColor: T.cardAlt,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+  },
+  cardChoiceBtnActive: { borderColor: T.accent, backgroundColor: `${T.accent}2A` },
+  cardChoiceTxt: { color: T.text, fontSize: 13, fontWeight: "700" },
+  cardChoiceTxtActive: { color: T.accent, fontWeight: "800" },
+  cardChoiceEmpty: { color: T.textDim, fontSize: 12, fontWeight: "700" },
 
   // Analytics chart card
   chartCard: { margin: 14, marginBottom: 0, padding: 14, gap: 12, ...cardBase },

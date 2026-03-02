@@ -61,8 +61,8 @@ export default function DebtDetailScreen() {
     );
   }
 
-  const plannedMonthlyNum = debt.amount != null ? Number(debt.amount) : NaN;
-  const showPlannedMonthly = !derived.isCardDebt && Number.isFinite(plannedMonthlyNum) && plannedMonthlyNum > 0;
+  const monthlyPaymentNum = derived.dueTarget;
+  const showMonthlyPayment = !derived.isCardDebt && Number.isFinite(monthlyPaymentNum) && monthlyPaymentNum > 0;
 
   return (
     <SafeAreaView style={s.safe}>
@@ -99,20 +99,24 @@ export default function DebtDetailScreen() {
             paidSoFar={fmt(derived.paidSoFarNum, currency)}
             dueCoveredThisCycle={derived.dueCoveredThisCycle}
             dueDateLabel={derived.dueDateLabel}
-            dueStatusSub={!derived.dueCoveredThisCycle && derived.dueDateLabel !== "Not set" ? (derived.isMissed ? "Missed (+5 day grace passed)" : derived.isOverdue ? "Overdue" : "On schedule") : undefined}
-            dueTone={derived.dueCoveredThisCycle ? "green" : derived.isMissed ? "red" : derived.isOverdue ? "orange" : "normal"}
+            dueStatusSub={
+              !derived.dueCoveredThisCycle && derived.dueDateLabel !== "Not set"
+                ? (derived.isOverdue ? "Overdue (+5 day grace passed)" : "On schedule")
+                : undefined
+            }
+            dueTone={derived.dueCoveredThisCycle ? "green" : derived.isOverdue ? "red" : "normal"}
             monthlyOrInterestLabel={
               derived.isCardDebt
                 ? (derived.monthlyMinNum != null && derived.monthlyMinNum > 0 ? "Monthly min" : "Interest Rate")
-                : (showPlannedMonthly ? "Monthly payment" : "Interest Rate")
+                : (showMonthlyPayment ? "Monthly payment" : "Interest Rate")
             }
             monthlyOrInterestValue={
               derived.isCardDebt
                 ? (derived.monthlyMinNum != null && derived.monthlyMinNum > 0
                     ? fmt(derived.monthlyMinNum, currency)
                     : (derived.interestRateNum != null && derived.interestRateNum > 0 ? `${derived.interestRateNum}%` : "—"))
-                : (showPlannedMonthly
-                    ? fmt(plannedMonthlyNum, currency)
+                : (showMonthlyPayment
+                    ? fmt(monthlyPaymentNum, currency)
                     : (derived.interestRateNum != null && derived.interestRateNum > 0 ? `${derived.interestRateNum}%` : "—"))
             }
           />
@@ -122,7 +126,11 @@ export default function DebtDetailScreen() {
               <Text style={s.sectionTitle}>Payoff Projection</Text>
               <PayoffChart
                 balance={derived.currentBalNum}
-                monthlyPayment={debt.computedMonthlyPayment != null ? debt.computedMonthlyPayment : (derived.monthlyMinNum ?? 0)}
+                monthlyPayment={
+                  debt.computedMonthlyPayment != null
+                    ? debt.computedMonthlyPayment
+                    : (derived.isCardDebt ? (derived.monthlyMinNum ?? 0) : monthlyPaymentNum)
+                }
                 monthsLeftOverride={debt.computedMonthsLeft}
                 paidOffByOverride={debt.computedPaidOffBy}
                 interestRate={derived.interestRateNum}
@@ -166,6 +174,8 @@ export default function DebtDetailScreen() {
         onClose={() => state.setPaySheetOpen(false)}
         onSave={state.handlePay}
         onMarkPaid={state.handleMarkPaid}
+        showMarkPaid={!derived.isPaid && derived.dueRemainingThisCycle > 0.005}
+        markPaidLabel={`Mark due as paid (${fmt(derived.dueRemainingThisCycle, currency)})`}
       />
 
       <EditDebtSheet
@@ -177,7 +187,9 @@ export default function DebtDetailScreen() {
         monthlyMinimum={state.editMin}
         dueDate={state.editDueDate}
         installment={state.editInstallment}
-        autoPay={state.editAutoPay}
+        paymentSource={state.editPaymentSource}
+        paymentCardDebtId={state.editPaymentCardDebtId}
+        paymentCards={state.availablePaymentCards}
         showDatePicker={state.showDatePicker}
         onClose={() => state.setEditing(false)}
         onSave={state.handleEdit}
@@ -187,7 +199,8 @@ export default function DebtDetailScreen() {
         onChangeMin={state.setEditMin}
         onPickDate={() => state.setShowDatePicker(true)}
         onDateChange={state.setEditDueDate}
-        onToggleAutoPay={state.setEditAutoPay}
+        onChangePaymentSource={state.setEditPaymentSource}
+        onChangePaymentCardDebtId={state.setEditPaymentCardDebtId}
         onChangeInstallment={state.setEditInstallment}
         onSetShowDatePicker={state.setShowDatePicker}
       />

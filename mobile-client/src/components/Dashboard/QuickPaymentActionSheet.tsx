@@ -35,6 +35,29 @@ function unpaidDebtWarning(daysUntilDue: number | null): string {
   return `Making this unpaid could eventually make this payment a debt if it is not marked as paid in ${daysUntilDue} days.`;
 }
 
+function computeDebtDueAmount(d: Debt): number {
+  const currentBalance = Number.parseFloat(String(d.currentBalance ?? 0));
+  if (!Number.isFinite(currentBalance) || currentBalance <= 0) return 0;
+
+  const installmentMonths = Number.parseInt(String(d.installmentMonths ?? 0), 10);
+  const initialBalance = Number.parseFloat(String((d as any).initialBalance ?? 0));
+  const amount = Number.parseFloat(String((d as any).amount ?? 0));
+  const monthlyMinimum = Number.parseFloat(String(d.monthlyMinimum ?? 0));
+
+  let planned = 0;
+  if (Number.isFinite(installmentMonths) && installmentMonths > 0) {
+    const principal = Number.isFinite(initialBalance) && initialBalance > 0 ? initialBalance : currentBalance;
+    if (principal > 0) planned = principal / installmentMonths;
+  }
+
+  if (!(planned > 0) && Number.isFinite(amount) && amount > 0) planned = amount;
+  if (!(planned > 0) && d.sourceType === "expense") planned = currentBalance;
+  if (Number.isFinite(monthlyMinimum) && monthlyMinimum > 0) planned = Math.max(planned, monthlyMinimum);
+
+  planned = Number.isFinite(planned) ? Math.max(0, planned) : 0;
+  return Math.min(currentBalance, planned);
+}
+
 export type QuickPaymentActionItem = {
   kind: "expense" | "debt";
   id: string;
@@ -176,7 +199,17 @@ export default function QuickPaymentActionSheet({ visible, item, currency, inset
         return;
       }
 
-      await apiFetch(`/api/bff/debts/${itemId}/payments`, { method: "POST", body: { amount: currentBal } });
+      const listDueAmount = Number.parseFloat(String(item.amount ?? 0));
+      const computedDueAmount = computeDebtDueAmount(d);
+      const dueNow = Number.isFinite(listDueAmount) && listDueAmount > 0 ? listDueAmount : computedDueAmount;
+      const amountToApply = Math.min(currentBal, Math.max(0, dueNow));
+      if (!(amountToApply > 0)) {
+        onClose();
+        onUpdated();
+        return;
+      }
+
+      await apiFetch(`/api/bff/debts/${itemId}/payments`, { method: "POST", body: { amount: amountToApply } });
 
       onClose();
       onUpdated();
@@ -336,7 +369,7 @@ export default function QuickPaymentActionSheet({ visible, item, currency, inset
                 ) : (
                   <>
                     <Pressable onPress={markPaid} disabled={paying} style={[s.actionBtn, s.actionBtnPrimary, paying && s.disabled]}>
-                      <Text style={s.actionPrimaryTxt}>Mark as paid</Text>
+                      <Text style={s.actionPrimaryTxt}>{item?.kind === "debt" ? "Mark due as paid" : "Mark as paid"}</Text>
                     </Pressable>
                     <Pressable
                       onPress={() => {

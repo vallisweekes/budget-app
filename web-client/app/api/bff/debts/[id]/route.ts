@@ -99,6 +99,12 @@ function unauthorized() {
   return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 }
 
+function normalizeDebtPaymentSource(value: unknown): "income" | "extra_funds" | "credit_card" {
+  if (value === "credit_card") return "credit_card";
+  if (value === "extra_funds") return "extra_funds";
+  return "income";
+}
+
 function withMissedPaymentFlag<T extends { sourceType?: string | null }>(debt: T): T & { isMissedPayment: boolean } {
   return {
     ...debt,
@@ -125,6 +131,8 @@ function withPayoffProjection<T extends {
     installmentMonths: (debt as any).installmentMonths,
     initialBalance: (debt as any).initialBalance,
     interestRatePct: (debt as any).interestRate,
+    dueDate: (debt as any).dueDate,
+    dueDay: (debt as any).dueDay,
     maxMonths: 60,
   });
 
@@ -146,8 +154,10 @@ function toNumber(value: unknown): number {
   return Number(value as any);
 }
 
-function mapDebtPaymentSourceToExpensePaymentSource(source: unknown): "income" | "extra_untracked" {
-  return source === "income" ? "income" : "extra_untracked";
+function mapDebtPaymentSourceToExpensePaymentSource(source: unknown): "income" | "extra_untracked" | "credit_card" {
+  if (source === "income") return "income";
+  if (source === "credit_card") return "credit_card";
+  return "extra_untracked";
 }
 
 function paymentMatchKey(p: { amount: number; paidAt: Date }) {
@@ -464,8 +474,45 @@ export async function PATCH(
       }
     }
     if (typeof raw.creditLimit !== "undefined") data.creditLimit = raw.creditLimit;
-    if (typeof raw.defaultPaymentSource !== "undefined") data.defaultPaymentSource = raw.defaultPaymentSource;
-    if (typeof raw.defaultPaymentCardDebtId !== "undefined") data.defaultPaymentCardDebtId = raw.defaultPaymentCardDebtId;
+    const hasDefaultSource = typeof raw.defaultPaymentSource !== "undefined";
+    const hasDefaultCard = typeof raw.defaultPaymentCardDebtId !== "undefined";
+    if (hasDefaultSource || hasDefaultCard) {
+      const nextDefaultSource = hasDefaultSource
+        ? normalizeDebtPaymentSource(raw.defaultPaymentSource)
+        : normalizeDebtPaymentSource((existing as any).defaultPaymentSource);
+
+      const nextDefaultCard = hasDefaultCard
+        ? (typeof raw.defaultPaymentCardDebtId === "string" && raw.defaultPaymentCardDebtId.trim().length > 0
+            ? raw.defaultPaymentCardDebtId.trim()
+            : null)
+        : (typeof (existing as any).defaultPaymentCardDebtId === "string" && String((existing as any).defaultPaymentCardDebtId).trim().length > 0
+            ? String((existing as any).defaultPaymentCardDebtId).trim()
+            : null);
+
+      if (nextDefaultSource === "credit_card") {
+        if (!nextDefaultCard) {
+          return NextResponse.json({ error: "defaultPaymentCardDebtId is required when defaultPaymentSource is credit_card" }, { status: 400 });
+        }
+        if (nextDefaultCard === id) {
+          return NextResponse.json({ error: "Select a different source card" }, { status: 400 });
+        }
+        const card = await prisma.debt.findFirst({
+          where: {
+            id: nextDefaultCard,
+            budgetPlanId: existing.budgetPlanId,
+            sourceType: null,
+            type: { in: ["credit_card", "store_card"] },
+          },
+          select: { id: true },
+        });
+        if (!card) {
+          return NextResponse.json({ error: "Selected default payment card is invalid" }, { status: 400 });
+        }
+      }
+
+      data.defaultPaymentSource = nextDefaultSource;
+      data.defaultPaymentCardDebtId = nextDefaultSource === "credit_card" ? nextDefaultCard : null;
+    }
     if (Object.keys(data).length === 0) {
       return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
     }

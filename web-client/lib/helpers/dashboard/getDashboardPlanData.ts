@@ -46,6 +46,16 @@ export async function getDashboardPlanData(
 	now: Date,
 	opts?: { ensureDefaultCategories?: boolean }
 ): Promise<DashboardPlanData> {
+	const isUnknownMovedToDebtFieldError = (error: unknown) => {
+		const message = String((error as { message?: unknown })?.message ?? error);
+		return (
+			message.includes("isMovedToDebt") &&
+			(message.includes("Unknown arg") ||
+				message.includes("Unknown argument") ||
+				message.includes("Unknown field"))
+		);
+	};
+
 	const ensureDefaultCategories = opts?.ensureDefaultCategories ?? true;
 	// Keep category defaults in sync even if the DB predates new defaults.
 	if (ensureDefaultCategories) {
@@ -56,12 +66,32 @@ export async function getDashboardPlanData(
 	const selectedMonthNum = now.getMonth() + 1; // 1-12
 	const selectedMonthKey = monthNumberToKey(selectedMonthNum);
 
+	const expensesPromise = (async () => {
+		try {
+			return await prisma.expense.findMany({
+				where: {
+					budgetPlanId: planId,
+					year: selectedYear,
+					month: selectedMonthNum,
+					isMovedToDebt: false,
+				},
+			});
+		} catch (error) {
+			// If Prisma Client wasn't regenerated yet, this field won't exist.
+			// Fall back to the legacy query rather than 500'ing the whole dashboard.
+			if (isUnknownMovedToDebtFieldError(error)) {
+				return prisma.expense.findMany({
+					where: { budgetPlanId: planId, year: selectedYear, month: selectedMonthNum },
+				});
+			}
+			throw error;
+		}
+	})();
+
 	const [categories, expenses, income, goals, allocation, customAllocations, debtPlan] =
 		await Promise.all([
 			prisma.category.findMany({ where: { budgetPlanId: planId } }),
-			prisma.expense.findMany({
-				where: { budgetPlanId: planId, year: selectedYear, month: selectedMonthNum },
-			}),
+			expensesPromise,
 			prisma.income.findMany({
 				where: { budgetPlanId: planId, year: selectedYear, month: selectedMonthNum },
 			}),

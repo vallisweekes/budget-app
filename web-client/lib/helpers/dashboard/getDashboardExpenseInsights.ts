@@ -4,6 +4,8 @@ import {
 	computePreviousMonthRecap,
 	computeUpcomingPayments,
 	computeRecapTips,
+	getPaymentStatus,
+	resolveEffectiveDueDateIso,
 	type ExpenseUrgency,
 	type UpcomingPayment,
 	type DatedExpenseItem,
@@ -237,7 +239,7 @@ export async function getDashboardExpenseInsights({
 		(prevYear < userStartYear || (prevYear === userStartYear && prevMonthIndex0 < userStartMonthIndex));
 
 	const shouldSuppressRecap = prevMonthBeforeSignup && prevMonthExpenses.length === 0;
-	const recap = shouldSuppressRecap
+	let recap = shouldSuppressRecap
 		? null
 		: computePreviousMonthRecap(prevMonthExpenses, {
 			year: prevYear,
@@ -245,6 +247,47 @@ export async function getDashboardExpenseInsights({
 			payDate,
 			now,
 		});
+
+	// Include unpaid/partial carryover from months before the previous month in missed-due recap.
+	// Example: a January bill still unpaid in February should be reflected in February recap missed totals.
+	if (recap) {
+		const prevMonthEnd = new Date(Date.UTC(prevYear, prevMonthNum, 0));
+		const carryover = historyExpenses
+			.filter((e) => e.year < prevYear || (e.year === prevYear && e.monthNum < prevMonthNum))
+			.reduce(
+				(acc, e) => {
+					const status = getPaymentStatus(e);
+					if (status === "paid") return acc;
+
+					const amount = toNumber(e.amount);
+					const paidAmount = toNumber(e.paidAmount);
+					const remaining = Math.max(0, amount - paidAmount);
+					if (!(amount > 0) || !(remaining > 0)) return acc;
+
+					const dueIso = resolveEffectiveDueDateIso(e, {
+						year: e.year,
+						monthNum: e.monthNum,
+						payDate,
+					});
+					const dueByEndOfPrevMonth =
+						!dueIso || new Date(`${dueIso}T00:00:00.000Z`).getTime() <= prevMonthEnd.getTime();
+					if (!dueByEndOfPrevMonth) return acc;
+
+					acc.count += 1;
+					acc.amount += amount;
+					return acc;
+				},
+				{ count: 0, amount: 0 }
+			);
+
+		if (carryover.count > 0 || carryover.amount > 0) {
+			recap = {
+				...recap,
+				missedDueCount: recap.missedDueCount + carryover.count,
+				missedDueAmount: recap.missedDueAmount + carryover.amount,
+			};
+		}
+	}
 
 	const today = todayUtcDateOnly(now);
 

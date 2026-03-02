@@ -62,7 +62,7 @@ function computeMonthlyDueAmount(row: {
 
 	const installmentMonthsRaw = decimalToNumber(row.installmentMonths);
 	const installmentMonths = Number.isFinite(installmentMonthsRaw) ? Math.max(0, Math.trunc(installmentMonthsRaw)) : 0;
-	if (!(planned > 0) && installmentMonths > 0) {
+	if (installmentMonths > 0) {
 		const initial = decimalToNumber(row.initialBalance);
 		const current = decimalToNumber(row.currentBalance);
 		const principal = initial > 0 ? initial : current;
@@ -111,11 +111,20 @@ export async function processMissedDebtPaymentsToAccrue(budgetPlanId: string, no
 		});
 
 		if (debts.length > 0) {
+			const startOfUtcDay = (date: Date) =>
+				new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 0, 0, 0, 0));
+
+			const graceEndExclusiveUtc = (dueDate: Date) => {
+				const dueStart = startOfUtcDay(dueDate);
+				// Full 5-day grace means accrual starts at the beginning of day 6 after due date.
+				return new Date(dueStart.getTime() + 6 * msPerDay);
+			};
+
 			type EvaluableDebt = {
 				id: string;
 				dueAmount: number;
 				prevDue: Date;
-				graceEnd: Date;
+				graceEndExclusive: Date;
 				nextDue: Date;
 				endTs: number;
 				nowPastGrace: boolean;
@@ -127,17 +136,17 @@ export async function processMissedDebtPaymentsToAccrue(budgetPlanId: string, no
 					if (!Number.isFinite(due.getTime())) return null;
 					const dueAmount = computeMonthlyDueAmount(d);
 					if (!(dueAmount > 0)) return null;
-					const graceEnd = new Date(due.getTime() + 5 * msPerDay);
+					const graceEndExclusive = graceEndExclusiveUtc(due);
 					const nowTs = now.getTime();
-					const graceEndTs = graceEnd.getTime();
-					const endTs = Math.min(nowTs, graceEndTs);
-					const nowPastGrace = nowTs > graceEndTs;
+					const graceEndExclusiveTs = graceEndExclusive.getTime();
+					const endTs = Math.min(nowTs, graceEndExclusiveTs - 1);
+					const nowPastGrace = nowTs >= graceEndExclusiveTs;
 
 					return {
 						id: d.id,
 						dueAmount,
 						prevDue: addMonthsUTC(due, -1),
-						graceEnd,
+						graceEndExclusive,
 						nextDue: addMonthsUTC(due, 1),
 						endTs,
 						nowPastGrace,

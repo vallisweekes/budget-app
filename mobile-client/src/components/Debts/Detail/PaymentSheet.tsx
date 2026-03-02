@@ -14,6 +14,7 @@ type Props = {
   onSave: () => void;
   onMarkPaid?: () => void;
   showMarkPaid?: boolean;
+  markPaidLabel?: string;
 };
 
 export default function PaymentSheet({
@@ -26,6 +27,7 @@ export default function PaymentSheet({
   onSave,
   onMarkPaid,
   showMarkPaid = true,
+  markPaidLabel = "Mark due as paid",
 }: Props) {
   const { dragY, panHandlers } = useSwipeDownToClose({ onClose, disabled: paying });
 
@@ -60,7 +62,7 @@ export default function PaymentSheet({
 
           {showMarkPaid && onMarkPaid ? (
             <Pressable onPress={onMarkPaid} disabled={paying} style={[s.markPaidBtn, paying && s.disabled]}>
-              <Text style={s.markPaidBtnTxt}>Mark as paid</Text>
+              <Text style={s.markPaidBtnTxt}>{markPaidLabel}</Text>
             </Pressable>
           ) : null}
         </Animated.View>

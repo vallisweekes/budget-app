@@ -163,6 +163,8 @@ export interface DebtPayment {
   id: string;
   amount: string;
   paidAt: string;
+  source?: "income" | "extra_funds" | "credit_card";
+  cardDebtId?: string | null;
   notes: string | null;
 }
 
@@ -189,6 +191,7 @@ export interface Debt {
   creditLimit: string | null;
   dueDay: number | null;
   defaultPaymentSource?: "income" | "extra_funds" | "credit_card";
+  defaultPaymentCardDebtId?: string | null;
   sourceType: string | null;
   sourceExpenseName: string | null;
   isMissedPayment?: boolean;

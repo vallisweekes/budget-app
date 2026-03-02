@@ -154,7 +154,9 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
     isOverBudgetBySpending,
     hasOverLimitDebt,
     overLimitDebtCount,
-    rangeLabel,
+    hasPayDateConfigured,
+    payPeriodLabel,
+    previousPayPeriodLabel,
     upcoming,
     upcomingDebts,
     formatShortDate,
@@ -163,6 +165,12 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
   } = buildDashboardDerived({ dashboard, settings, categorySheet });
 
   const needsSetup = totalIncome <= 0 || totalExpenses <= 0;
+  const recap = dashboard?.expenseInsights?.recap ?? null;
+  const recapTitle = recap
+    ? (hasPayDateConfigured
+        ? `${previousPayPeriodLabel} Recap`
+        : `${recap.label} Recap`)
+    : "";
 
   return (
     <SafeAreaView style={styles.safe} edges={[]}>
@@ -229,9 +237,11 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
 			contentContainerStyle={[styles.scroll, { paddingTop: topHeaderOffset }]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.rangePill}>
-          <Text style={styles.rangeText}>{rangeLabel}</Text>
-        </View>
+        {hasPayDateConfigured ? (
+          <View style={styles.currentPeriodBadge}>
+            <Text style={styles.currentPeriodBadgeText}>{payPeriodLabel}</Text>
+          </View>
+        ) : null}
 
         <BudgetDonutCard
           totalBudget={totalBudget}
@@ -243,13 +253,15 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
 
         {(isOverBudgetBySpending || hasOverLimitDebt) && (
           <View style={styles.alertCard}>
-            <Text style={styles.alertTitle}>Over budget</Text>
+            <Text style={styles.alertTitle}>
+              {isOverBudgetBySpending ? "Over budget" : "Credit limit exceeded"}
+            </Text>
             {isOverBudgetBySpending && (
               <Text style={styles.alertText}>
                 Spending is {fmt(Math.abs(amountAfterExpenses), currency)} over your monthly plan.
               </Text>
             )}
-            {hasOverLimitDebt && (
+            {hasOverLimitDebt && !isOverBudgetBySpending && (
               <Text style={styles.alertText}>
                 {overLimitDebtCount} card{overLimitDebtCount === 1 ? "" : "s"} over credit limit.
               </Text>
@@ -282,6 +294,20 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
           </View>
         ) : null}
 
+        {!hasPayDateConfigured ? (
+          <View style={styles.setupCard}>
+            <Text style={styles.setupTitle}>Set your pay date</Text>
+            <Text style={styles.setupText}>
+              Upcoming expenses and debts use your pay period. Add your pay date so this view matches your real cycle.
+            </Text>
+            <View style={styles.setupActions}>
+              <Pressable onPress={() => navigation.navigate("Settings")} style={styles.setupBtn}>
+                <Text style={styles.setupBtnText}>Set pay date</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : null}
+
         <CategorySwipeCards
           categories={categories}
           totalIncome={totalIncome}
@@ -295,7 +321,7 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
           <View style={styles.section}>
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
               <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Upcoming Expenses</Text>
-              <Pressable onPress={() => navigation.navigate("Payments")} hitSlop={8}>
+              <Pressable onPress={() => navigation.navigate("Expenses")} hitSlop={8}>
                 <Text style={styles.seeAllText}>See all</Text>
               </Pressable>
             </View>
@@ -420,6 +446,29 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
             })}
           </View>
         )}
+
+        {/* Previous Month Recap */}
+        {recap ? (
+          <View style={styles.recapWrap}>
+            <View style={styles.recapBadge}>
+              <Text style={styles.recapBadgeText}>{recapTitle}</Text>
+            </View>
+
+            <View style={styles.recapGrid}>
+              <View style={[styles.recapStatCard, styles.recapPaidCard]}>
+                <Text style={styles.recapStatLabel}>Paid</Text>
+                <Text style={styles.recapStatCount}>{recap.paidCount}</Text>
+                <Text style={styles.recapStatAmount}>{fmt(recap.paidAmount, currency)}</Text>
+              </View>
+
+              <View style={[styles.recapStatCard, styles.recapMissedCard]}>
+                <Text style={styles.recapMissedTitle}>Missed payment</Text>
+                <Text style={styles.recapMissedCount}>{recap.missedDueCount}</Text>
+                <Text style={styles.recapMissedAmount}>{fmt(recap.missedDueAmount, currency)}</Text>
+              </View>
+            </View>
+          </View>
+        ) : null}
 
         {/* Goals (swipe cards) */}
         {dashboard ? (
@@ -593,17 +642,25 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: "center", alignItems: "center", gap: 12 },
   scroll: { padding: 16, paddingBottom: 140 },
   headerRow: { marginBottom: 14 },
-  rangePill: {
-    alignSelf: "flex-start",
-    backgroundColor: T.card,
-    borderRadius: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: T.border,
-    marginBottom: 12,
+  chartMetaWrap: {
+    marginHorizontal: 16,
+    marginTop: -8,
+    marginBottom: 10,
+    gap: 4,
   },
-  rangeText: { color: T.textDim, fontSize: 12, fontWeight: "800" },
+  chartMetaText: { color: T.textDim, fontSize: 12, fontWeight: "800" },
+  debtPlanList: { marginTop: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: T.border },
+  debtPlanRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: T.border,
+  },
+  debtPlanName: { color: T.text, fontSize: 13, fontWeight: "800", flex: 1 },
+  debtPlanValue: { color: T.textDim, fontSize: 13, fontWeight: "800" },
   seeAllBtn: {
     marginTop: 6,
     alignItems: "center",
@@ -623,6 +680,20 @@ const styles = StyleSheet.create({
     ...textLabel,
     fontWeight: "800",
     marginBottom: 10,
+  },
+  currentPeriodBadge: {
+    alignSelf: "flex-start",
+    backgroundColor: T.accentDim,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginBottom: 10,
+  },
+  currentPeriodBadgeText: {
+    color: T.text,
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0.2,
   },
 
   // Upcoming Expenses (white card) rows
@@ -688,6 +759,81 @@ const styles = StyleSheet.create({
   blueRowTitle: { color: T.text, fontSize: 16, fontWeight: "800", letterSpacing: -0.2 },
   blueRowSub: { color: T.textDim, fontSize: 13, fontWeight: "600", marginTop: 2 },
   blueRowAmt: { color: T.text, fontSize: 18, fontWeight: "800", letterSpacing: -0.2 },
+
+  recapWrap: { marginTop: 12, marginBottom: 4 },
+  recapBadge: {
+    alignSelf: "flex-start",
+    backgroundColor: T.accentDim,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    marginBottom: 12,
+  },
+  recapBadgeText: {
+    color: T.text,
+    fontSize: 13,
+    fontWeight: "900",
+    letterSpacing: 0.2,
+  },
+  recapGrid: {
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 12,
+  },
+  recapStatCard: {
+    flex: 1,
+    borderRadius: 18,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 4,
+  },
+  recapPaidCard: {
+    backgroundColor: `${T.green}1A`,
+    borderColor: `${T.green}55`,
+  },
+  recapMissedCard: {
+    backgroundColor: T.cardAlt,
+    borderColor: T.border,
+  },
+  recapStatLabel: {
+    color: T.textDim,
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  recapStatCount: {
+    color: T.text,
+    fontSize: 24,
+    fontWeight: "900",
+    letterSpacing: -0.3,
+  },
+  recapStatAmount: {
+    color: T.text,
+    fontSize: 17,
+    fontWeight: "800",
+  },
+  recapMissedTitle: {
+    color: T.textDim,
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  recapMissedCount: {
+    marginTop: 4,
+    color: T.text,
+    fontSize: 24,
+    fontWeight: "900",
+    letterSpacing: -0.3,
+  },
+  recapMissedAmount: {
+    marginTop: 4,
+    color: T.text,
+    fontSize: 17,
+    fontWeight: "800",
+  },
   loadingText: { color: T.textDim, marginTop: 12, fontSize: 14 },
   errorText: { color: T.red, marginTop: 12, fontSize: 15, textAlign: "center", paddingHorizontal: 32 },
   retryBtn: { marginTop: 16, backgroundColor: T.accent, borderRadius: 10, paddingHorizontal: 28, paddingVertical: 12 },

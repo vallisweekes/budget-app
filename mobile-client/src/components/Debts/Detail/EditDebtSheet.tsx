@@ -1,8 +1,9 @@
 import React from "react";
-import { ActivityIndicator, Animated, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Animated, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { T } from "@/lib/theme";
 import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
+import type { CreditCard } from "@/lib/apiTypes";
 
 const TERM_PRESETS = [2, 3, 6, 12, 24, 36, 48] as const;
 
@@ -15,7 +16,9 @@ type Props = {
   monthlyMinimum: string;
   dueDate: string;
   installment: string;
-  autoPay: boolean;
+  paymentSource: "income" | "extra_funds" | "credit_card";
+  paymentCardDebtId: string;
+  paymentCards: CreditCard[];
   showDatePicker: boolean;
   onClose: () => void;
   onSave: () => void;
@@ -25,16 +28,17 @@ type Props = {
   onChangeMin: (v: string) => void;
   onPickDate: () => void;
   onDateChange: (value: string) => void;
-  onToggleAutoPay: (v: boolean) => void;
+  onChangePaymentSource: (v: "income" | "extra_funds" | "credit_card") => void;
+  onChangePaymentCardDebtId: (v: string) => void;
   onChangeInstallment: (v: string) => void;
   onSetShowDatePicker: (v: boolean) => void;
 };
 
 export default function EditDebtSheet(props: Props) {
   const {
-    visible, saving, name, interestRate, monthlyPayment, monthlyMinimum, dueDate, installment, autoPay, showDatePicker,
+    visible, saving, name, interestRate, monthlyPayment, monthlyMinimum, dueDate, installment, paymentSource, paymentCardDebtId, paymentCards, showDatePicker,
     onClose, onSave, onChangeName, onChangeRate, onChangeMonthlyPayment, onChangeMin,
-    onPickDate, onDateChange, onToggleAutoPay, onChangeInstallment, onSetShowDatePicker,
+    onPickDate, onDateChange, onChangePaymentSource, onChangePaymentCardDebtId, onChangeInstallment, onSetShowDatePicker,
   } = props;
 
   const { dragY, panHandlers } = useSwipeDownToClose({ onClose, disabled: saving });
@@ -157,15 +161,53 @@ export default function EditDebtSheet(props: Props) {
               </Modal>
             ) : null}
 
-            <View style={s.switchRow}>
-              <Text style={s.inputLabel}>Direct debit / standing order</Text>
-              <Switch
-                value={autoPay}
-                onValueChange={onToggleAutoPay}
-                trackColor={{ false: T.border, true: `${T.accent}66` }}
-                thumbColor={autoPay ? T.accent : T.textMuted}
-              />
+            <View style={s.formGroup}>
+              <Text style={s.inputLabel}>Payment source</Text>
+              <View style={s.sourceRow}>
+                {[
+                  { key: "income", label: "Income" },
+                  { key: "extra_funds", label: "Extra funds" },
+                  { key: "credit_card", label: "Card" },
+                ].map((opt) => {
+                  const active = paymentSource === opt.key;
+                  return (
+                    <Pressable
+                      key={opt.key}
+                      onPress={() => onChangePaymentSource(opt.key as "income" | "extra_funds" | "credit_card")}
+                      style={[s.sourceBtn, active && s.sourceBtnActive]}
+                    >
+                      <Text style={[s.sourceBtnText, active && s.sourceBtnTextActive]}>{opt.label}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
             </View>
+
+            {paymentSource === "credit_card" ? (
+              <View style={s.formGroup}>
+                <Text style={s.inputLabel}>Select card</Text>
+                {paymentCards.length > 0 ? (
+                  <View style={s.cardPickerWrap}>
+                    {paymentCards.map((card) => {
+                      const active = paymentCardDebtId === card.id;
+                      return (
+                        <Pressable
+                          key={card.id}
+                          onPress={() => onChangePaymentCardDebtId(card.id)}
+                          style={[s.cardPickBtn, active && s.cardPickBtnActive]}
+                        >
+                          <Text style={[s.cardPickTxt, active && s.cardPickTxtActive]} numberOfLines={1}>
+                            {card.name}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                ) : (
+                  <Text style={s.noCardsText}>No cards found. Add a credit/store card first.</Text>
+                )}
+              </View>
+            ) : null}
 
             <Text style={s.inputLabel}>Spread over months</Text>
             <View style={s.installmentRow}>
@@ -257,7 +299,32 @@ const s = StyleSheet.create({
   dateValue: { color: T.text, fontSize: 14 },
   dateValuePlaceholder: { color: T.textMuted },
   dateDoneBtn: { marginTop: 8 },
-  switchRow: { marginTop: 2, marginBottom: 16, padding: 12, borderWidth: 1, borderColor: T.border, borderRadius: 10, backgroundColor: T.cardAlt, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  sourceRow: { flexDirection: "row", gap: 8, marginTop: 4 },
+  sourceBtn: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: T.border,
+    backgroundColor: T.cardAlt,
+    borderRadius: 8,
+    paddingVertical: 9,
+    alignItems: "center",
+  },
+  sourceBtnActive: { borderColor: T.accent, backgroundColor: `${T.accent}2A` },
+  sourceBtnText: { color: T.textDim, fontSize: 12, fontWeight: "700" },
+  sourceBtnTextActive: { color: T.accent, fontWeight: "800" },
+  cardPickerWrap: { gap: 8, marginTop: 6 },
+  cardPickBtn: {
+    borderWidth: 1,
+    borderColor: T.border,
+    borderRadius: 8,
+    backgroundColor: T.cardAlt,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+  },
+  cardPickBtnActive: { borderColor: T.accent, backgroundColor: `${T.accent}2A` },
+  cardPickTxt: { color: T.text, fontSize: 13, fontWeight: "700" },
+  cardPickTxtActive: { color: T.accent, fontWeight: "800" },
+  noCardsText: { color: T.textDim, fontSize: 12, fontWeight: "700", marginTop: 4 },
   installmentRow: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 8, marginBottom: 10 },
   installmentChip: { borderWidth: 1, borderColor: T.border, backgroundColor: T.cardAlt, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 },
   installmentChipActive: { borderColor: T.accent, backgroundColor: `${T.accent}2A` },

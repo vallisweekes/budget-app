@@ -10,13 +10,17 @@ export function buildDashboardDerived(params: {
 
   const totalIncome = dashboard?.totalIncome ?? 0;
   const totalExpenses = dashboard?.totalExpenses ?? 0;
+  const totalAllocations = dashboard?.totalAllocations ?? 0;
+  const plannedDebtPayments = dashboard?.plannedDebtPayments ?? 0;
   const incomeAfterAllocations = dashboard?.incomeAfterAllocations ?? 0;
   const categories = dashboard?.categoryData ?? [];
   const goals = dashboard?.goals ?? [];
   const debts = dashboard?.debts ?? [];
   const monthNum = dashboard?.monthNum ?? new Date().getMonth() + 1;
   const year = dashboard?.year ?? new Date().getFullYear();
-  const payDate = dashboard?.payDate ?? settings?.payDate ?? 1;
+  const rawConfiguredPayDate = dashboard?.payDate ?? settings?.payDate ?? null;
+  const hasPayDateConfigured = Number.isFinite(rawConfiguredPayDate as number) && (rawConfiguredPayDate as number) >= 1;
+  const payDate = hasPayDateConfigured ? (rawConfiguredPayDate as number) : 1;
 
   const allExpenses = categories.flatMap((c) => c.expenses);
   const amountLeftToBudget = incomeAfterAllocations;
@@ -38,19 +42,98 @@ export function buildDashboardDerived(params: {
   const paidTotal = allExpenses.reduce((acc, e) => acc + (e.paidAmount ?? (e.paid ? e.amount : 0)), 0);
   const totalBudget = amountLeftToBudget > 0 ? amountLeftToBudget : totalIncome;
 
+  function getDebtDueAmount(d: (typeof debts)[number]) {
+    const currentBalance = d.currentBalance ?? 0;
+    if (!(currentBalance > 0)) return 0;
+
+    // Installment plans are authoritative when configured.
+    // This avoids treating stale amount values (often equal to current balance) as monthly due.
+    const installmentMonths = d.installmentMonths ?? 0;
+    let planned = 0;
+    if (installmentMonths > 0) {
+      const principal = (d.initialBalance ?? 0) > 0 ? (d.initialBalance as number) : currentBalance;
+      if (principal > 0) planned = principal / installmentMonths;
+    }
+
+    // If not installment-based, use configured monthly amount.
+    if (!(planned > 0)) {
+      planned = d.amount ?? 0;
+    }
+
+    // Expense-derived debts (missed/partial expenses) with no explicit monthly plan
+    // should behave like a remaining due amount.
+    if (!(planned > 0) && d.sourceType === "expense") {
+      planned = currentBalance;
+    }
+
+    planned = Number.isFinite(planned) ? planned : 0;
+
+    const monthlyMinimum = d.monthlyMinimum ?? 0;
+    if (monthlyMinimum > 0) planned = Math.max(planned, monthlyMinimum);
+
+    const due = Math.max(0, planned);
+    return Math.min(currentBalance, due);
+  }
+
+  const plannedDebtItems = debts
+    .filter((d) => (d.currentBalance ?? 0) > 0)
+    .map((d) => ({
+      id: String(d.id),
+      name: String(d.name ?? "").trim() || "Debt",
+      amount: getDebtDueAmount(d),
+    }))
+    .filter((d) => d.amount > 0)
+    .sort((a, b) => b.amount - a.amount);
+  const plannedDebtItemsTotal = plannedDebtItems.reduce((sum, d) => sum + d.amount, 0);
+
   const clampDay = (y: number, monthIndex: number, day: number) => {
     const lastDay = new Date(y, monthIndex + 1, 0).getDate();
     return new Date(y, monthIndex, Math.min(Math.max(1, day), lastDay));
   };
 
+  const startOfDay = (d: Date) => {
+    const x = new Date(d.getTime());
+    x.setHours(0, 0, 0, 0);
+    return x;
+  };
+
+  const endOfDay = (d: Date) => {
+    const x = new Date(d.getTime());
+    x.setHours(23, 59, 59, 999);
+    return x;
+  };
+
   const pay = payDate ?? 1;
   const monthIndex = monthNum - 1;
-  const end = clampDay(year, monthIndex, pay);
+  // For a given "dashboard month" (which follows pay-period semantics),
+  // show the inclusive range: pay day of this month → day before next pay day.
+  const start = clampDay(year, monthIndex, pay);
+  const end = clampDay(year, monthIndex + 1, pay);
   end.setDate(end.getDate() - 1);
-  const start = clampDay(year, monthIndex - 1, pay);
-  start.setDate(start.getDate() + 1);
 
   const rangeLabel = `${start.getDate()} ${MONTH_NAMES_SHORT[start.getMonth()]} - ${end.getDate()} ${MONTH_NAMES_SHORT[end.getMonth()]}`;
+
+  // Active pay period by today's date: pay date of current cycle -> day before next pay date.
+  const now = new Date();
+  const thisMonthPayDate = clampDay(now.getFullYear(), now.getMonth(), pay);
+  const periodStart = now.getTime() >= thisMonthPayDate.getTime()
+    ? thisMonthPayDate
+    : clampDay(now.getFullYear(), now.getMonth() - 1, pay);
+  const periodEnd = clampDay(periodStart.getFullYear(), periodStart.getMonth() + 1, pay);
+  periodEnd.setDate(periodEnd.getDate() - 1);
+  const payPeriodStart = startOfDay(periodStart);
+  const payPeriodEnd = endOfDay(periodEnd);
+  const payPeriodLabel = `${periodStart.getDate()} ${MONTH_NAMES_SHORT[periodStart.getMonth()]} - ${periodEnd.getDate()} ${MONTH_NAMES_SHORT[periodEnd.getMonth()]}`;
+
+  const previousPeriodEnd = new Date(periodStart.getTime());
+  previousPeriodEnd.setDate(previousPeriodEnd.getDate() - 1);
+  const previousPeriodStart = clampDay(previousPeriodEnd.getFullYear(), previousPeriodEnd.getMonth() - 1, pay);
+  const previousPayPeriodLabel = `${previousPeriodStart.getDate()} ${MONTH_NAMES_SHORT[previousPeriodStart.getMonth()]} - ${previousPeriodEnd.getDate()} ${MONTH_NAMES_SHORT[previousPeriodEnd.getMonth()]}`;
+
+  const isDateInPayPeriod = (date: Date | null) => {
+    if (!date || Number.isNaN(date.getTime())) return false;
+    return date.getTime() >= payPeriodStart.getTime() && date.getTime() <= payPeriodEnd.getTime();
+  };
 
   const upcoming = (dashboard?.expenseInsights?.upcoming ?? []).filter((u) => {
     const id = String(u.id ?? "").toLowerCase();
@@ -58,53 +141,32 @@ export function buildDashboardDerived(params: {
     const n = String(u.name ?? "").trim().toLowerCase();
     if (n === "housing: rent" || n === "houing: rent") return false;
     if (n.startsWith("housing") && n.includes("rent")) return false;
+    const isOutstanding = (u.status ?? "unpaid") !== "paid" && (Number(u.amount ?? 0) - Number(u.paidAmount ?? 0)) > 0.0001;
+    if (!isOutstanding) return false;
+    const due = u.dueDate ? new Date(u.dueDate) : null;
+    if (!isDateInPayPeriod(due)) return false;
     return true;
   });
 
-  const getDebtDueAmount = (d: (typeof debts)[number]) => {
-    const currentBalance = d.currentBalance ?? 0;
-    if (!(currentBalance > 0)) return 0;
-
-    // Expense-derived debts (missed/partial expenses) should behave like a remaining due amount,
-    // not like an installment plan.
-    if (d.sourceType === "expense") {
-      const amt = d.amount ?? currentBalance;
-      return Math.min(currentBalance, amt > 0 ? amt : currentBalance);
-    }
-
-    // Mirror the server payoff projection's monthly payment selection:
-    // plannedMonthlyPayment (= amount) wins; otherwise fall back to installment plan using initialBalance.
-    let planned = d.amount ?? 0;
-    planned = Number.isFinite(planned) ? planned : 0;
-
-    const installmentMonths = d.installmentMonths ?? 0;
-    if (!(planned > 0) && installmentMonths > 0) {
-      const principal = (d.initialBalance ?? 0) > 0 ? (d.initialBalance as number) : currentBalance;
-      if (principal > 0) planned = principal / installmentMonths;
-    }
-
-    const monthlyMinimum = d.monthlyMinimum ?? 0;
-    if (monthlyMinimum > 0) planned = Math.max(planned, monthlyMinimum);
-
-    const due = Math.max(0, planned);
-    return Math.min(currentBalance, due);
-  };
-
-  const getDebtDaysUntilDue = (d: (typeof debts)[number]) => {
+  const resolveDebtDueDate = (d: (typeof debts)[number]) => {
     const dueDateIso = d.dueDate ?? null;
     const dueDay = typeof d.dueDay === "number" && Number.isFinite(d.dueDay) ? d.dueDay : null;
 
-    const now = new Date();
-    const dueDate = (() => {
-      if (dueDateIso) {
-        const parsed = new Date(dueDateIso);
-        if (!Number.isNaN(parsed.getTime())) return parsed;
-      }
-      if (dueDay != null) {
-        return clampDay(now.getFullYear(), now.getMonth(), dueDay);
-      }
-      return null;
-    })();
+    if (dueDateIso) {
+      const parsed = new Date(dueDateIso);
+      if (!Number.isNaN(parsed.getTime())) return parsed;
+    }
+    if (dueDay != null) {
+      const thisMonthDue = clampDay(now.getFullYear(), now.getMonth(), dueDay);
+      const todayStart = startOfDay(now);
+      if (thisMonthDue.getTime() >= todayStart.getTime()) return thisMonthDue;
+      return clampDay(now.getFullYear(), now.getMonth() + 1, dueDay);
+    }
+    return null;
+  };
+
+  const getDebtDaysUntilDue = (d: (typeof debts)[number]) => {
+    const dueDate = resolveDebtDueDate(d);
 
     if (!dueDate) return Number.POSITIVE_INFINITY;
 
@@ -120,12 +182,17 @@ export function buildDashboardDerived(params: {
     return 2; // later
   };
 
-  const upcomingDebtsThisMonth = debts
+  const upcomingDebts = debts
     .filter((d) => (d.currentBalance ?? 0) > 0)
-    .map((d) => ({ ...d, dueAmount: getDebtDueAmount(d), daysUntilDue: getDebtDaysUntilDue(d) }))
+    .map((d) => {
+      const dueDate = resolveDebtDueDate(d);
+      return { ...d, dueAmount: getDebtDueAmount(d), daysUntilDue: getDebtDaysUntilDue(d), dueDateResolved: dueDate };
+    })
     .filter((d) => (d.dueAmount ?? 0) > 0)
     // Exclude debts where this month's recorded payments already cover the due amount
     .filter((d) => (d.paidThisMonthAmount ?? 0) < (d.dueAmount ?? 0))
+    // Show only debts due in the active pay period.
+    .filter((d) => isDateInPayPeriod(d.dueDateResolved ?? null))
     .sort((a, b) => {
       const aDays = a.daysUntilDue;
       const bDays = b.daysUntilDue;
@@ -138,27 +205,6 @@ export function buildDashboardDerived(params: {
 
       return (b.dueAmount ?? 0) - (a.dueAmount ?? 0);
     });
-
-  // If everything is covered for this month, show next month's upcoming debts instead.
-  // (Next month payments are assumed not yet recorded, so we don't apply the paidThisMonth filter.)
-  const upcomingDebts = upcomingDebtsThisMonth.length
-    ? upcomingDebtsThisMonth
-    : debts
-        .filter((d) => (d.currentBalance ?? 0) > 0)
-        .map((d) => ({ ...d, dueAmount: getDebtDueAmount(d), daysUntilDue: getDebtDaysUntilDue(d) }))
-        .filter((d) => (d.dueAmount ?? 0) > 0)
-        .sort((a, b) => {
-          const aDays = a.daysUntilDue;
-          const bDays = b.daysUntilDue;
-
-          const aRank = urgencyRank(aDays);
-          const bRank = urgencyRank(bDays);
-          if (aRank !== bRank) return aRank - bRank;
-
-          if (aDays !== bDays) return aDays - bDays;
-
-          return (b.dueAmount ?? 0) - (a.dueAmount ?? 0);
-        });
 
   const formatShortDate = (iso: string | null | undefined) => {
     if (!iso) return null;
@@ -184,6 +230,8 @@ export function buildDashboardDerived(params: {
   return {
     totalIncome,
     totalExpenses,
+    totalAllocations,
+    plannedDebtPayments,
     incomeAfterAllocations,
     categories,
     goals,
@@ -191,6 +239,9 @@ export function buildDashboardDerived(params: {
     monthNum,
     year,
     payDate,
+    hasPayDateConfigured,
+    payPeriodLabel,
+    previousPayPeriodLabel,
     amountLeftToBudget,
     amountAfterExpenses,
     isOverBudgetBySpending,
@@ -199,6 +250,8 @@ export function buildDashboardDerived(params: {
     isOverBudget,
     paidTotal,
     totalBudget,
+    plannedDebtItems,
+    plannedDebtItemsTotal,
     rangeLabel,
     upcoming,
     upcomingDebts,

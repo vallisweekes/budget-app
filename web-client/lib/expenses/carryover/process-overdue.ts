@@ -71,6 +71,14 @@ export async function processOverdueExpensesToDebts(budgetPlanId: string) {
 			expenseName: expense.name,
 			remainingAmount,
 		});
+
+		// If this debt was created because the expense is overdue (auto-transfer),
+		// hide the original expense from monthly expense lists/totals.
+		if (isExpenseOverdueByGrace) {
+			await prisma.expense
+				.update({ where: { id: expense.id }, data: { isMovedToDebt: true } })
+				.catch(() => null);
+		}
 		results.push(debt);
 	}
 

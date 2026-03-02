@@ -351,6 +351,9 @@ model Expense {
   isAllocation  Boolean    @default(false)
   // If true, this is a direct debit / standing order — collected automatically.
   isDirectDebit Boolean    @default(false)
+  // If true, this bill has been converted into an expense-backed debt and should
+  // not appear in month expense totals/lists (debt tracking replaces it).
+  isMovedToDebt Boolean    @default(false)
   month         Int
   year         Int
   dueDate      DateTime?  // Full due date, defaults to payDate day of the current/next month if not set

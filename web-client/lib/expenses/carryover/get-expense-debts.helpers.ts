@@ -28,6 +28,7 @@ export type ExpenseDebtVisibilityRow = {
 	paidAmount: NumericValue;
 	paid: boolean;
 	isAllocation: boolean;
+	isMovedToDebt: boolean;
 	dueDate: Date | null;
 	year: number;
 	month: number;
@@ -51,6 +52,16 @@ export type LatePaidExpenseRow = {
 function isDebtTypeEnumMismatchError(error: unknown): boolean {
 	const message = String((error as { message?: unknown })?.message ?? error);
 	return message.includes("not found in enum 'DebtType'") || message.includes('not found in enum "DebtType"');
+}
+
+function isUnknownMovedToDebtFieldError(error: unknown): boolean {
+	const message = String((error as { message?: unknown })?.message ?? error);
+	return (
+		message.includes("isMovedToDebt") &&
+		(message.includes("Unknown arg") ||
+			message.includes("Unknown argument") ||
+			message.includes("Unknown field"))
+	);
 }
 
 export async function fetchExpenseDebtRows(budgetPlanId: string): Promise<ExpenseDebtRow[]> {
@@ -95,21 +106,42 @@ export async function fetchExpenseDebtRows(budgetPlanId: string): Promise<Expens
 
 export async function fetchLinkedExpenses(budgetPlanId: string, sourceExpenseIds: string[]) {
 	if (sourceExpenseIds.length === 0) return [] as ExpenseDebtVisibilityRow[];
-	const rows = await prisma.expense.findMany({
-		where: { budgetPlanId, id: { in: sourceExpenseIds } },
-		select: {
-			id: true,
-			amount: true,
-			paidAmount: true,
-			paid: true,
-			isAllocation: true,
-			dueDate: true,
-			year: true,
-			month: true,
-			category: { select: { name: true } },
-		},
-	});
-	return rows as unknown as ExpenseDebtVisibilityRow[];
+	try {
+		const rows = await prisma.expense.findMany({
+			where: { budgetPlanId, id: { in: sourceExpenseIds } },
+			select: {
+				id: true,
+				amount: true,
+				paidAmount: true,
+				paid: true,
+				isAllocation: true,
+				isMovedToDebt: true,
+				dueDate: true,
+				year: true,
+				month: true,
+				category: { select: { name: true } },
+			},
+		});
+		return rows as unknown as ExpenseDebtVisibilityRow[];
+	} catch (error) {
+		if (!isUnknownMovedToDebtFieldError(error)) throw error;
+		type LegacyExpenseDebtVisibilityRow = Omit<ExpenseDebtVisibilityRow, "isMovedToDebt">;
+		const legacyRows = (await prisma.expense.findMany({
+			where: { budgetPlanId, id: { in: sourceExpenseIds } },
+			select: {
+				id: true,
+				amount: true,
+				paidAmount: true,
+				paid: true,
+				isAllocation: true,
+				dueDate: true,
+				year: true,
+				month: true,
+				category: { select: { name: true } },
+			},
+		})) as unknown as LegacyExpenseDebtVisibilityRow[];
+		return legacyRows.map((r) => ({ ...r, isMovedToDebt: false }));
+	}
 }
 
 export async function fetchPaidExpensesWithoutDebt(budgetPlanId: string, sourceExpenseIds: string[]) {

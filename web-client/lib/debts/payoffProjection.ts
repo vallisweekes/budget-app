@@ -4,6 +4,51 @@ export type DebtPayoffProjection = {
 	computedPaidOffBy: string | null;
 };
 
+function startOfLocalDay(date: Date): Date {
+	const out = new Date(date.getTime());
+	out.setHours(0, 0, 0, 0);
+	return out;
+}
+
+function clampDayToMonth(year: number, monthIndex: number, day: number): Date {
+	const lastDay = new Date(year, monthIndex + 1, 0).getDate();
+	const clamped = Math.min(Math.max(1, Math.trunc(day)), lastDay);
+	return new Date(year, monthIndex, clamped);
+}
+
+function toDate(value: unknown): Date | null {
+	if (value == null) return null;
+	if (value instanceof Date) return Number.isFinite(value.getTime()) ? value : null;
+	if (typeof value === "string" || typeof value === "number") {
+		const parsed = new Date(value as any);
+		return Number.isFinite(parsed.getTime()) ? parsed : null;
+	}
+	if (typeof value === "object" && value && "toString" in value && typeof (value as any).toString === "function") {
+		const parsed = new Date((value as any).toString());
+		return Number.isFinite(parsed.getTime()) ? parsed : null;
+	}
+	return null;
+}
+
+function resolveProjectionAnchorDate(params: { now: Date; dueDate: unknown; dueDay: unknown }): Date {
+	const now = startOfLocalDay(params.now);
+	const parsedDueDate = toDate(params.dueDate);
+	if (parsedDueDate) {
+		const due = startOfLocalDay(parsedDueDate);
+		return due >= now ? due : now;
+	}
+
+	const rawDueDay = clampNumber(params.dueDay);
+	const dueDay = Number.isFinite(rawDueDay) ? Math.trunc(rawDueDay) : 0;
+	if (dueDay >= 1 && dueDay <= 31) {
+		const thisMonthDue = startOfLocalDay(clampDayToMonth(now.getFullYear(), now.getMonth(), dueDay));
+		if (thisMonthDue >= now) return thisMonthDue;
+		return startOfLocalDay(clampDayToMonth(now.getFullYear(), now.getMonth() + 1, dueDay));
+	}
+
+	return now;
+}
+
 function buildProjection(balance: number, monthlyPayment: number, monthlyRate: number, maxMonths: number): number[] {
 	const points: number[] = [balance];
 	let current = balance;
@@ -33,6 +78,8 @@ export function computeDebtPayoffProjection(params: {
 	installmentMonths: unknown;
 	initialBalance: unknown;
 	interestRatePct: unknown;
+	dueDate?: unknown;
+	dueDay?: unknown;
 	maxMonths?: number;
 	now?: Date;
 }): DebtPayoffProjection {
@@ -47,9 +94,9 @@ export function computeDebtPayoffProjection(params: {
 	let planned = clampNumber(params.plannedMonthlyPayment);
 	planned = Number.isFinite(planned) ? planned : 0;
 
-	// Fallback: if the user didn't set a planned monthly payment, use the installment plan.
-	// Installment is based on the original balance so after month 1 is paid, months-left drops.
-	if (!(planned > 0) && installmentMonths > 0) {
+	// Installment plans are authoritative when configured.
+	// This prevents stale `amount` values (e.g. remaining balance) from being treated as monthly payment.
+	if (installmentMonths > 0) {
 		const principal = initialBalance > 0 ? initialBalance : currentBalance;
 		if (principal > 0) planned = principal / installmentMonths;
 	}
@@ -76,8 +123,9 @@ export function computeDebtPayoffProjection(params: {
 		};
 	}
 
-	const payoffDate = new Date(now.getTime());
-	payoffDate.setMonth(payoffDate.getMonth() + monthsLeft);
+	const anchorDate = resolveProjectionAnchorDate({ now, dueDate: params.dueDate, dueDay: params.dueDay });
+	const payoffDate = new Date(anchorDate.getTime());
+	payoffDate.setMonth(payoffDate.getMonth() + Math.max(0, monthsLeft - 1));
 
 	return {
 		computedMonthlyPayment,
