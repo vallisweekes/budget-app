@@ -3,6 +3,7 @@ import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
 import { prisma } from "@/lib/prisma";
 import { getDebtById } from "@/lib/debts/store";
 import { getDebtMonthlyPayment } from "@/lib/debts/calculate";
+import { derivePaymentDetailSummary, formatPaymentDueLabel } from "@/lib/payments/detailSummary";
 
 export const runtime = "nodejs";
 
@@ -107,6 +108,19 @@ export async function GET(req: NextRequest) {
 
 			const overdue = !!expense.dueDate && dueAmount > 0 && expense.dueDate.getTime() < now.getTime();
 			const missed = !!expense.dueDate && dueAmount > 0 && addDays(expense.dueDate, 5).getTime() < now.getTime();
+			const normalizedPayments = payments.map((p) => ({
+				id: p.id,
+				amount: decimalToNumber(p.amount),
+				date: p.paidAt.toISOString(),
+				source: String(p.source),
+			}));
+			const summary = derivePaymentDetailSummary({
+				dueAmount,
+				overdue,
+				missed,
+				isMissedPayment: missed,
+				payments: normalizedPayments,
+			});
 
 			return NextResponse.json({
 				kind,
@@ -119,12 +133,14 @@ export async function GET(req: NextRequest) {
 				overdue,
 				missed,
 				isMissedPayment: missed,
-				payments: payments.map((p) => ({
-					id: p.id,
-					amount: decimalToNumber(p.amount),
-					date: p.paidAt.toISOString(),
-					source: String(p.source),
-				})),
+				dueLabel: formatPaymentDueLabel({ dueDate: dueDateIso, dueDay: null }),
+				paymentsTotal: summary.paymentsTotal,
+				remaining: summary.remaining,
+				isPaid: summary.isPaid,
+				isPartial: summary.isPartial,
+				statusTag: summary.statusTag,
+				statusDescription: summary.statusDescription,
+				payments: normalizedPayments,
 			});
 		}
 
@@ -138,6 +154,7 @@ export async function GET(req: NextRequest) {
 		const dueDate = debt.dueDate ? new Date(debt.dueDate) : null;
 		const overdue = !!dueDate && dueAmount > 0 && dueDate.getTime() < now.getTime();
 		const missed = !!dueDate && dueAmount > 0 && addDays(dueDate, 5).getTime() < now.getTime();
+		const isMissedPayment = debt.sourceType === "expense" || missed;
 
 		const payments = await prisma.debtPayment.findMany({
 			where: { debtId: debt.id },
@@ -152,6 +169,20 @@ export async function GET(req: NextRequest) {
 			},
 		});
 
+		const normalizedPayments = payments.map((p) => ({
+			id: p.id,
+			amount: decimalToNumber(p.amount),
+			date: p.paidAt.toISOString(),
+			source: String(p.source),
+		}));
+		const summary = derivePaymentDetailSummary({
+			dueAmount,
+			overdue,
+			missed,
+			isMissedPayment,
+			payments: normalizedPayments,
+		});
+
 		return NextResponse.json({
 			kind,
 			budgetPlanId,
@@ -162,13 +193,15 @@ export async function GET(req: NextRequest) {
 			dueDay: debt.dueDay ?? null,
 			overdue,
 			missed,
-			isMissedPayment: debt.sourceType === "expense" || missed,
-			payments: payments.map((p) => ({
-				id: p.id,
-				amount: decimalToNumber(p.amount),
-				date: p.paidAt.toISOString(),
-				source: String(p.source),
-			})),
+			isMissedPayment,
+			dueLabel: formatPaymentDueLabel({ dueDate: dueDate ? dueDate.toISOString() : null, dueDay: debt.dueDay ?? null }),
+			paymentsTotal: summary.paymentsTotal,
+			remaining: summary.remaining,
+			isPaid: summary.isPaid,
+			isPartial: summary.isPartial,
+			statusTag: summary.statusTag,
+			statusDescription: summary.statusDescription,
+			payments: normalizedPayments,
 		});
 	} catch (error) {
 		console.error("Failed to compute payment detail:", error);

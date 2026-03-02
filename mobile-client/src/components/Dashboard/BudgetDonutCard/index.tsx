@@ -2,6 +2,7 @@ import React, { useMemo } from "react";
 import { Dimensions, Text, View } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 import { T } from "@/lib/theme";
+import { computeBudgetDonutMetrics, getBudgetDonutSize } from "@/lib/domain/budgetDonut";
 import type { BudgetDonutCardProps } from "@/types";
 import { styles } from "./styles";
 
@@ -13,31 +14,15 @@ const COLOR_PAID = T.green; // already paid
 const W = Dimensions.get("window").width;
 
 export default function BudgetDonutCard({ totalBudget, totalExpenses, paidTotal, currency, fmt }: BudgetDonutCardProps) {
-  const { remaining, isOverBudget, paidFrac, committedFrac } = useMemo(() => {
-    const safeBudget   = Math.max(0, totalBudget   ?? 0);
-    const safeExpenses = Math.max(0, totalExpenses ?? 0);
-    const safePaid     = Math.max(0, paidTotal     ?? 0);
+  const { remaining, isOverBudget, paidFrac, committedFrac, hasData } = useMemo(
+    () => computeBudgetDonutMetrics(totalBudget, totalExpenses, paidTotal),
+    [paidTotal, totalBudget, totalExpenses],
+  );
 
-    const paid      = Math.min(safeExpenses, safePaid);
-    const committed = Math.max(0, safeExpenses - paid);
-    const left      = safeBudget - safeExpenses;
-    const over      = left < 0;
-
-    const paidF      = safeBudget > 0 ? Math.min(1, paid / safeBudget) : 0;
-    const committedF = safeBudget > 0 ? Math.min(1 - paidF, committed / safeBudget) : 0;
-
-    return {
-      remaining:      left,
-      isOverBudget:   over,
-      paidFrac:       paidF,
-      committedFrac:  committedF,
-    };
-  }, [paidTotal, totalBudget, totalExpenses]);
-
-  if (!(totalBudget > 0) && !(totalExpenses > 0)) return null;
+  if (!hasData) return null;
 
   // Chart geometry
-  const SIZE    = Math.min(220, Math.floor((W - 80) * 0.72));
+  const SIZE    = getBudgetDonutSize(W);
   const cx      = SIZE / 2;
   const cy      = SIZE / 2;
   const STROKE  = Math.round(SIZE * 0.135);

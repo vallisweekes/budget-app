@@ -23,6 +23,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { apiFetch } from "@/lib/api";
 import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
+import { buildCreateExpenseBody, canSubmitExpense } from "@/lib/domain/expenseMutations";
 import type {
   BudgetPlanListItem,
   Category,
@@ -313,16 +314,16 @@ export default function AddExpenseSheet({
     })();
   }, [visible, effectivePlanId, categoryId]);
 
-  const canSubmit = name.trim().length > 0 && parseFloat(amount) > 0;
+  const canSubmit = canSubmitExpense(name, amount);
 
   const handleSubmit = async () => {
     if (!canSubmit || submitting) return;
     setSubmitting(true);
     setError(null);
     try {
-      const body: Record<string, unknown> = {
-        name: name.trim(),
-        amount: parseFloat(amount),
+      const body = buildCreateExpenseBody({
+        name,
+        amount,
         month: sheetMonth,
         year: sheetYear,
         paid,
@@ -330,13 +331,13 @@ export default function AddExpenseSheet({
         isDirectDebit,
         distributeMonths,
         distributeYears,
-        paymentSource: paymentSource === "other" ? "extra_untracked" : paymentSource,
-      };
-      if (categoryId) body.categoryId = categoryId;
-      if (dueDate.trim()) body.dueDate = dueDate.trim();
-      if (effectivePlanId) body.budgetPlanId = effectivePlanId;
-      if (paymentSource === "credit_card" && cardDebtId) body.cardDebtId = cardDebtId;
-      if (selectedSeriesKey) body.seriesKey = selectedSeriesKey;
+        paymentSource,
+        categoryId,
+        dueDate,
+        budgetPlanId: effectivePlanId,
+        cardDebtId,
+        seriesKey: selectedSeriesKey,
+      });
 
       await apiFetch("/api/bff/expenses", { method: "POST", body });
       onAdded();

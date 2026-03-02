@@ -205,6 +205,9 @@ export interface Debt {
   computedMonthlyPayment?: number;
   computedMonthsLeft?: number | null;
   computedPaidOffBy?: string | null;
+  computedCannotPayoff?: boolean;
+  computedPayoffLabel?: string | null;
+  computedHorizonLabel?: string;
 }
 
 /** Full debt shape from /api/bff/debt-summary — includes server-computed fields */
@@ -255,6 +258,11 @@ export interface DebtSummaryData {
   creditCardCount: number;
   regularDebtCount: number;
   expenseDebtCount: number;
+  payoffSummary?: {
+    monthsToClear: number | null;
+    payoffLabel: string | null;
+    horizonMonths: number;
+  };
   tips: DebtTip[];
 }
 
@@ -491,6 +499,18 @@ export interface DashboardData {
   largestExpensesByPlan: Record<string, unknown>;
   incomeMonthsCoverageByPlan: Record<string, number>;
 
+  // Server-derived dashboard summary helpers
+  dashboardSummary?: {
+    amountLeftToBudget: number;
+    amountAfterExpenses: number;
+    isOverBudgetBySpending: boolean;
+    overLimitDebtCount: number;
+    hasOverLimitDebt: boolean;
+    isOverBudget: boolean;
+    paidTotal: number;
+    totalBudget: number;
+  };
+
   // Meta
   payDate: number;
   payFrequency?: "monthly" | "every_2_weeks" | "weekly";
@@ -617,6 +637,13 @@ export interface IncomeMonthData {
   incomeLeftRightNow: number;
   moneyOutTotal: number;
   isOnPlan: boolean;
+
+  // Server-derived summary helpers
+  incomeSacrificePct?: number;
+  moneyLeftPctOfGross?: number;
+  moneyLeftVsLastMonthPct?: number | null;
+  planStatusTag?: "on_plan" | "over_plan";
+  planStatusDescription?: string;
 }
 
 /** /api/bff/expenses/summary — server-computed monthly expense totals */

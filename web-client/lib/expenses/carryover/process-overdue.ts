@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { upsertExpenseDebt } from "@/lib/debts/store";
 import { isNonDebtCategoryName } from "../helpers";
+import { markExpensesMovedToDebt } from "./get-expense-debts.helpers";
 import { OVERDUE_GRACE_DAYS, resolveExpenseDueDate, addDays, monthNumberToKey } from "./shared";
 
 type OverdueExpenseCarryRow = {
@@ -75,9 +76,7 @@ export async function processOverdueExpensesToDebts(budgetPlanId: string) {
 		// If this debt was created because the expense is overdue (auto-transfer),
 		// hide the original expense from monthly expense lists/totals.
 		if (isExpenseOverdueByGrace) {
-			await prisma.expense
-				.update({ where: { id: expense.id }, data: { isMovedToDebt: true } })
-				.catch(() => null);
+			await markExpensesMovedToDebt([expense.id]);
 		}
 		results.push(debt);
 	}

@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { apiFetch } from "@/lib/api";
 import type { Category, Expense, ExpenseCategoryBreakdown } from "@/lib/apiTypes";
+import { buildEditExpenseBody, parseExpenseAmount } from "@/lib/domain/expenseMutations";
 import { resolveCategoryColor } from "@/lib/categoryColors";
 import { T } from "@/lib/theme";
 import { ADD_EXPENSE_SHEET_SCREEN_H, pr, styles as s } from "@/components/Expenses/AddExpenseSheet/styles";
@@ -246,8 +247,7 @@ export default function EditExpenseSheet({
   }, [budgetPlanId, visible]);
 
   const parsedAmount = useMemo(() => {
-    const n = Number.parseFloat(String(amount ?? "").replace(/,/g, ""));
-    return Number.isFinite(n) ? n : NaN;
+    return parseExpenseAmount(String(amount ?? ""));
   }, [amount]);
 
   const canSubmit = Boolean(expense) && name.trim().length > 0 && Number.isFinite(parsedAmount) && parsedAmount >= 0 && categoryId.trim().length > 0;
@@ -288,16 +288,16 @@ export default function EditExpenseSheet({
     try {
       await apiFetch(`/api/bff/expenses/${expense.id}`, {
         method: "PATCH",
-        body: {
-          name: name.trim(),
-          amount: parsedAmount,
+        body: buildEditExpenseBody({
+          name,
+          parsedAmount,
           categoryId,
-          dueDate: dueDate.trim() ? dueDate.trim() : "",
+          dueDate,
           isAllocation,
           isDirectDebit,
           distributeMonths,
           distributeYears,
-        },
+        }),
       });
       onSaved();
       onClose();

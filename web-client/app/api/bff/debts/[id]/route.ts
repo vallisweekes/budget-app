@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getSessionUserId } from "@/lib/api/bffAuth";
 import { processMissedDebtPaymentsToAccrue } from "@/lib/debts/carryover";
 import { computeDebtPayoffProjection } from "@/lib/debts/payoffProjection";
+import { deriveDebtPayoffSummary } from "@/lib/debts/payoffSummary";
 import { computeAgreementBaseline } from "@/lib/debts/agreementBaseline";
 import { resolveExpenseLogo } from "@/lib/expenses/logoResolver";
 
@@ -130,6 +131,9 @@ function withPayoffProjection<T extends {
   computedMonthlyPayment: number;
   computedMonthsLeft: number | null;
   computedPaidOffBy: string | null;
+  computedCannotPayoff: boolean;
+  computedPayoffLabel: string | null;
+  computedHorizonLabel: string;
 } {
   const projection = computeDebtPayoffProjection({
     currentBalance: (debt as any).currentBalance,
@@ -142,10 +146,18 @@ function withPayoffProjection<T extends {
     dueDay: (debt as any).dueDay,
     maxMonths: 60,
   });
+  const summary = deriveDebtPayoffSummary({
+    computedMonthsLeft: projection.computedMonthsLeft,
+    computedPaidOffBy: projection.computedPaidOffBy,
+    maxMonths: 60,
+  });
 
   return {
     ...(debt as any),
     ...projection,
+    computedCannotPayoff: summary.cannotPayoff,
+    computedPayoffLabel: summary.payoffLabel,
+    computedHorizonLabel: summary.horizonLabel,
   };
 }
 

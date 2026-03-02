@@ -133,6 +133,9 @@ export default function DebtDetailScreen() {
                 }
                 monthsLeftOverride={debt.computedMonthsLeft}
                 paidOffByOverride={debt.computedPaidOffBy}
+                cannotPayoffOverride={debt.computedCannotPayoff}
+                payoffLabelOverride={debt.computedPayoffLabel}
+                horizonLabelOverride={debt.computedHorizonLabel}
                 interestRate={derived.interestRateNum}
                 currency={currency}
               />

@@ -2,21 +2,9 @@ import React from "react";
 import { Text, View } from "react-native";
 import Svg, { Circle, Defs, Line, LinearGradient, Path, Stop, Text as SvgText } from "react-native-svg";
 import { fmt } from "@/lib/formatting";
+import { buildProjection, derivePayoffSummary } from "@/lib/domain/debtPayoff";
 import { T } from "@/lib/theme";
 import { styles } from "./styles";
-
-function buildProjection(balance: number, monthlyPayment: number, monthlyRate: number, maxMonths = 60): number[] {
-  const points: number[] = [balance];
-  let current = balance;
-  for (let index = 0; index < maxMonths; index += 1) {
-    if (current <= 0) break;
-    current = monthlyRate > 0 ? current * (1 + monthlyRate) - monthlyPayment : current - monthlyPayment;
-    current = Math.max(0, current);
-    points.push(current);
-    if (current === 0) break;
-  }
-  return points;
-}
 
 type Props = {
   balance: number;
@@ -25,19 +13,29 @@ type Props = {
   currency: string;
 	monthsLeftOverride?: number | null;
 	paidOffByOverride?: string | null;
+  cannotPayoffOverride?: boolean;
+  payoffLabelOverride?: string | null;
+  horizonLabelOverride?: string;
 };
 
-export default function PayoffChart({ balance, monthlyPayment, interestRate, currency, monthsLeftOverride, paidOffByOverride }: Props) {
+export default function PayoffChart({ balance, monthlyPayment, interestRate, currency, monthsLeftOverride, paidOffByOverride, cannotPayoffOverride, payoffLabelOverride, horizonLabelOverride }: Props) {
   const [chartWidth, setChartWidth] = React.useState(300);
   const chartHeight = 164;
   const paddingX = 12;
   const paddingY = 18;
   const monthlyRate = interestRate ? interestRate / 100 / 12 : 0;
   const points = buildProjection(balance, monthlyPayment, monthlyRate);
-  const totalMonthsComputed = points.length - 1;
-
-  const totalMonths = monthsLeftOverride != null ? Math.max(0, monthsLeftOverride) : totalMonthsComputed;
-  const cannotPayoff = monthsLeftOverride === null ? true : monthlyPayment === 0 || points[points.length - 1] > 0;
+  const fallbackSummary = derivePayoffSummary({
+    points,
+    monthlyPayment,
+    monthsLeftOverride,
+    paidOffByOverride,
+  });
+  const totalMonthsComputed = fallbackSummary.totalMonthsComputed;
+  const totalMonths = monthsLeftOverride != null ? Math.max(0, monthsLeftOverride) : fallbackSummary.totalMonths;
+  const cannotPayoff = typeof cannotPayoffOverride === "boolean" ? cannotPayoffOverride : fallbackSummary.cannotPayoff;
+  const payoffLabel = payoffLabelOverride ?? fallbackSummary.payoffLabel;
+  const horizonLabel = horizonLabelOverride ?? fallbackSummary.horizonLabel;
 
   const toX = (index: number) => paddingX + (index / Math.max(1, totalMonths)) * (chartWidth - paddingX * 2);
   const toY = (value: number) => paddingY + (1 - (balance > 0 ? value / balance : 0)) * (chartHeight - paddingY * 2);
@@ -52,21 +50,7 @@ export default function PayoffChart({ balance, monthlyPayment, interestRate, cur
   const linePath = points.map((value, index) => `${index === 0 ? "M" : "L"}${toX(index).toFixed(1)},${toY(value).toFixed(1)}`).join(" ");
   const areaPath = `${linePath} L${toX(totalMonths).toFixed(1)},${(chartHeight - paddingY).toFixed(1)} L${toX(0).toFixed(1)},${(chartHeight - paddingY).toFixed(1)} Z`;
 
-  const payoffLabel = (() => {
-    if (cannotPayoff || totalMonths <= 0) return null;
-    if (paidOffByOverride) {
-      const parsed = new Date(paidOffByOverride);
-      if (Number.isFinite(parsed.getTime())) {
-        return parsed.toLocaleDateString("en-GB", { month: "short", year: "numeric" });
-      }
-    }
-    const payoffDate = new Date();
-    payoffDate.setMonth(payoffDate.getMonth() + totalMonths);
-    return payoffDate.toLocaleDateString("en-GB", { month: "short", year: "numeric" });
-  })();
-
   const assumptionLabel = monthlyPayment > 0 ? `Assumes ${fmt(monthlyPayment, currency)}/month` : null;
-  const horizonLabel = cannotPayoff ? `+${totalMonthsComputed} mo` : `+${totalMonths} mo`;
 
   return (
     <View>

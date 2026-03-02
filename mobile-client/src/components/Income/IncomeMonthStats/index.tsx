@@ -1,24 +1,27 @@
 import React from "react";
 import { View, Text } from "react-native";
 import type { IncomeMonthData } from "@/lib/apiTypes";
+import { computeMoneyLeftVsLastMonth, formatIncomePct } from "@/lib/domain/incomeStats";
 import { T } from "@/lib/theme";
 import { cardBase } from "@/lib/ui";
 import { styles } from "./styles";
 import type { IncomeMonthStatsProps } from "@/types";
 
 export default function IncomeMonthStats({ data: a, currency, fmt }: IncomeMonthStatsProps) {
-  const pct = (value: number) => {
-    if (!a.grossIncome || a.grossIncome <= 0) return "0.0%";
-    return `${((value / a.grossIncome) * 100).toFixed(1)}%`;
-  };
-
-  const moneyLeftVsLastMonth = (() => {
-    const prev = Number(a.previousMoneyLeftAfterPlan ?? 0);
-    const curr = Number(a.moneyLeftAfterPlan ?? 0);
-    if (!Number.isFinite(prev) || prev === 0) return null;
-    const change = ((curr - prev) / Math.abs(prev)) * 100;
-    return Number.isFinite(change) ? change : null;
-  })();
+  const moneyLeftVsLastMonth =
+    typeof a.moneyLeftVsLastMonthPct === "number"
+      ? a.moneyLeftVsLastMonthPct
+      : computeMoneyLeftVsLastMonth(a.previousMoneyLeftAfterPlan, a.moneyLeftAfterPlan);
+  const incomeSacrificePctLabel =
+    typeof a.incomeSacrificePct === "number"
+      ? `${a.incomeSacrificePct.toFixed(1)}%`
+      : formatIncomePct(a.incomeSacrifice, a.grossIncome);
+  const moneyLeftPctLabel =
+    typeof a.moneyLeftPctOfGross === "number"
+      ? `${a.moneyLeftPctOfGross.toFixed(1)}%`
+      : formatIncomePct(a.moneyLeftAfterPlan, a.grossIncome);
+  const isOnPlan = a.planStatusTag ? a.planStatusTag === "on_plan" : a.isOnPlan;
+  const planStatusDescription = a.planStatusDescription ?? (isOnPlan ? "On plan" : "Over plan");
 
   return (
     <>
@@ -29,7 +32,7 @@ export default function IncomeMonthStats({ data: a, currency, fmt }: IncomeMonth
           label="Income sacrifice"
           value={fmt(a.incomeSacrifice, currency)}
           color={T.accent}
-          subValue={pct(a.incomeSacrifice)}
+          subValue={incomeSacrificePctLabel}
           subColor={T.accent}
         />
       </View>
@@ -40,9 +43,9 @@ export default function IncomeMonthStats({ data: a, currency, fmt }: IncomeMonth
         <View style={[styles.card, { flex: 1 }]}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardLabel}>Money left</Text>
-            <View style={[styles.badge, a.isOnPlan ? styles.badgeOn : styles.badgeOver]}>
-              <Text style={[styles.badgeText, a.isOnPlan ? styles.badgeTextOn : styles.badgeTextOver]}>
-                {a.isOnPlan ? "On plan" : "Over plan"}
+            <View style={[styles.badge, isOnPlan ? styles.badgeOn : styles.badgeOver]}>
+              <Text style={[styles.badgeText, isOnPlan ? styles.badgeTextOn : styles.badgeTextOver]}>
+                {planStatusDescription}
               </Text>
             </View>
           </View>
@@ -57,7 +60,7 @@ export default function IncomeMonthStats({ data: a, currency, fmt }: IncomeMonth
             </Text>
           ) : (
             <Text style={[styles.cardSubline, a.moneyLeftAfterPlan < 0 ? styles.negative : styles.positive]}>
-              {pct(a.moneyLeftAfterPlan)}
+              {moneyLeftPctLabel}
             </Text>
           )}
         </View>

@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
 
+let supportsExpenseMovedToDebtField: boolean | null = null;
+
 type NumericValue = number | string | null;
 
 export type ExpenseDebtRow = {
@@ -106,6 +108,25 @@ export async function fetchExpenseDebtRows(budgetPlanId: string): Promise<Expens
 
 export async function fetchLinkedExpenses(budgetPlanId: string, sourceExpenseIds: string[]) {
 	if (sourceExpenseIds.length === 0) return [] as ExpenseDebtVisibilityRow[];
+	if (supportsExpenseMovedToDebtField === false) {
+		type LegacyExpenseDebtVisibilityRow = Omit<ExpenseDebtVisibilityRow, "isMovedToDebt">;
+		const legacyRows = (await prisma.expense.findMany({
+			where: { budgetPlanId, id: { in: sourceExpenseIds } },
+			select: {
+				id: true,
+				amount: true,
+				paidAmount: true,
+				paid: true,
+				isAllocation: true,
+				dueDate: true,
+				year: true,
+				month: true,
+				category: { select: { name: true } },
+			},
+		})) as unknown as LegacyExpenseDebtVisibilityRow[];
+		return legacyRows.map((row) => ({ ...row, isMovedToDebt: false }));
+	}
+
 	try {
 		const rows = await prisma.expense.findMany({
 			where: { budgetPlanId, id: { in: sourceExpenseIds } },
@@ -122,9 +143,11 @@ export async function fetchLinkedExpenses(budgetPlanId: string, sourceExpenseIds
 				category: { select: { name: true } },
 			},
 		});
+		supportsExpenseMovedToDebtField = true;
 		return rows as unknown as ExpenseDebtVisibilityRow[];
 	} catch (error) {
 		if (!isUnknownMovedToDebtFieldError(error)) throw error;
+		supportsExpenseMovedToDebtField = false;
 		type LegacyExpenseDebtVisibilityRow = Omit<ExpenseDebtVisibilityRow, "isMovedToDebt">;
 		const legacyRows = (await prisma.expense.findMany({
 			where: { budgetPlanId, id: { in: sourceExpenseIds } },
@@ -141,6 +164,25 @@ export async function fetchLinkedExpenses(budgetPlanId: string, sourceExpenseIds
 			},
 		})) as unknown as LegacyExpenseDebtVisibilityRow[];
 		return legacyRows.map((r) => ({ ...r, isMovedToDebt: false }));
+	}
+}
+
+export async function markExpensesMovedToDebt(expenseIds: string[]): Promise<void> {
+	if (expenseIds.length === 0) return;
+	if (supportsExpenseMovedToDebtField === false) return;
+
+	try {
+		await prisma.expense.updateMany({
+			where: { id: { in: expenseIds } },
+			data: { isMovedToDebt: true },
+		});
+		supportsExpenseMovedToDebtField = true;
+	} catch (error) {
+		if (isUnknownMovedToDebtFieldError(error)) {
+			supportsExpenseMovedToDebtField = false;
+			return;
+		}
+		throw error;
 	}
 }
 

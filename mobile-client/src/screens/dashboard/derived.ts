@@ -17,6 +17,7 @@ export function buildDashboardDerived(params: {
   const categories = dashboard?.categoryData ?? [];
   const goals = dashboard?.goals ?? [];
   const debts = dashboard?.debts ?? [];
+  const dashboardSummary = dashboard?.dashboardSummary;
   const monthNum = dashboard?.monthNum ?? new Date().getMonth() + 1;
   const year = dashboard?.year ?? new Date().getFullYear();
   const rawConfiguredPayDate = dashboard?.payDate ?? settings?.payDate ?? null;
@@ -25,24 +26,21 @@ export function buildDashboardDerived(params: {
   const payFrequency = normalizePayFrequency(dashboard?.payFrequency ?? settings?.payFrequency);
 
   const allExpenses = categories.flatMap((c) => c.expenses);
-  const amountLeftToBudget = incomeAfterAllocations;
-  const amountAfterExpenses = amountLeftToBudget - totalExpenses;
-  const isOverBudgetBySpending = amountAfterExpenses < 0;
+  const amountLeftToBudget = dashboardSummary?.amountLeftToBudget ?? incomeAfterAllocations;
+  const amountAfterExpenses = dashboardSummary?.amountAfterExpenses ?? (amountLeftToBudget - totalExpenses);
+  const isOverBudgetBySpending = dashboardSummary?.isOverBudgetBySpending ?? (amountAfterExpenses < 0);
 
-  const overLimitDebts = debts.filter((d) => {
+  const overLimitDebtCount = dashboardSummary?.overLimitDebtCount ?? debts.filter((d) => {
     const limit = d.creditLimit ?? 0;
     if (!(limit > 0)) return false;
     return (d.currentBalance ?? 0) > limit;
-  });
-  const overLimitDebtCount = overLimitDebts.length;
-  const hasOverLimitDebt = overLimitDebtCount > 0;
+  }).length;
+  const hasOverLimitDebt = dashboardSummary?.hasOverLimitDebt ?? (overLimitDebtCount > 0);
 
-  // Composite definition matching product semantics:
-  // "Over budget" if either (a) net monthly outgoings exceed income-left-to-budget, OR (b) any card is over its credit limit.
-  const isOverBudget = isOverBudgetBySpending || hasOverLimitDebt;
+  const isOverBudget = dashboardSummary?.isOverBudget ?? (isOverBudgetBySpending || hasOverLimitDebt);
 
-  const paidTotal = allExpenses.reduce((acc, e) => acc + (e.paidAmount ?? (e.paid ? e.amount : 0)), 0);
-  const totalBudget = amountLeftToBudget > 0 ? amountLeftToBudget : totalIncome;
+  const paidTotal = dashboardSummary?.paidTotal ?? allExpenses.reduce((acc, e) => acc + (e.paidAmount ?? (e.paid ? e.amount : 0)), 0);
+  const totalBudget = dashboardSummary?.totalBudget ?? (amountLeftToBudget > 0 ? amountLeftToBudget : totalIncome);
 
   function getDebtDueAmount(d: (typeof debts)[number]) {
     const currentBalance = d.currentBalance ?? 0;

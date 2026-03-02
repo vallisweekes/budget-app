@@ -220,21 +220,32 @@ function isUnknownCadenceFieldError(error: unknown): boolean {
   );
 }
 
+let supportsCadenceFields: boolean | null = null;
+
 async function getCadenceForUser(userId: string): Promise<{
   payFrequency: "monthly" | "every_2_weeks" | "weekly";
   billFrequency: "monthly" | "every_2_weeks";
 }> {
+  if (supportsCadenceFields === false) {
+    return {
+      payFrequency: "monthly",
+      billFrequency: "monthly",
+    };
+  }
+
   try {
     const profile = await prisma.userOnboardingProfile.findUnique({
       where: { userId },
       select: { payFrequency: true, billFrequency: true },
     });
+    supportsCadenceFields = true;
     return {
       payFrequency: normalizePayFrequency(profile?.payFrequency),
       billFrequency: normalizeBillFrequency(profile?.billFrequency),
     };
   } catch (error) {
     if (!isUnknownCadenceFieldError(error)) throw error;
+    supportsCadenceFields = false;
     return {
       payFrequency: "monthly",
       billFrequency: "monthly",
@@ -247,6 +258,7 @@ async function saveCadenceForUser(
   values: { payFrequency?: "monthly" | "every_2_weeks" | "weekly"; billFrequency?: "monthly" | "every_2_weeks" }
 ): Promise<void> {
   if (typeof values.payFrequency === "undefined" && typeof values.billFrequency === "undefined") return;
+  if (supportsCadenceFields === false) return;
 
   try {
     await prisma.userOnboardingProfile.upsert({
@@ -261,8 +273,10 @@ async function saveCadenceForUser(
         ...(typeof values.billFrequency !== "undefined" ? { billFrequency: values.billFrequency } : {}),
       },
     });
+    supportsCadenceFields = true;
   } catch (error) {
     if (!isUnknownCadenceFieldError(error)) throw error;
+    supportsCadenceFields = false;
   }
 }
 

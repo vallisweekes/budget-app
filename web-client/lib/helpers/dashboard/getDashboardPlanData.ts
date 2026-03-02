@@ -5,6 +5,8 @@ import { getMonthlyDebtPlan } from "@/lib/helpers/finance/getMonthlyDebtPlan";
 import { ensureDefaultCategoriesForBudgetPlan } from "@/lib/categories/defaultCategories";
 import type { ExpenseItem } from "@/types";
 
+let supportsDashboardIsMovedToDebtField: boolean | null = null;
+
 export type DashboardGoalLike = {
 	id: string;
 	title: string;
@@ -67,8 +69,17 @@ export async function getDashboardPlanData(
 	const selectedMonthKey = monthNumberToKey(selectedMonthNum);
 
 	const expensesPromise = (async () => {
+		const runLegacyQuery = () =>
+			prisma.expense.findMany({
+				where: { budgetPlanId: planId, year: selectedYear, month: selectedMonthNum },
+			});
+
+		if (supportsDashboardIsMovedToDebtField === false) {
+			return runLegacyQuery();
+		}
+
 		try {
-			return await prisma.expense.findMany({
+			const rows = await prisma.expense.findMany({
 				where: {
 					budgetPlanId: planId,
 					year: selectedYear,
@@ -76,13 +87,14 @@ export async function getDashboardPlanData(
 					isMovedToDebt: false,
 				},
 			});
+			supportsDashboardIsMovedToDebtField = true;
+			return rows;
 		} catch (error) {
 			// If Prisma Client wasn't regenerated yet, this field won't exist.
 			// Fall back to the legacy query rather than 500'ing the whole dashboard.
 			if (isUnknownMovedToDebtFieldError(error)) {
-				return prisma.expense.findMany({
-					where: { budgetPlanId: planId, year: selectedYear, month: selectedMonthNum },
-				});
+				supportsDashboardIsMovedToDebtField = false;
+				return runLegacyQuery();
 			}
 			throw error;
 		}

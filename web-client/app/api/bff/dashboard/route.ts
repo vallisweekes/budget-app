@@ -24,6 +24,20 @@ import {
 
 export const runtime = "nodejs";
 
+let supportsOnboardingCadenceFields: boolean | null = null;
+
+function isUnknownOnboardingCadenceFieldError(error: unknown): boolean {
+	const message = String((error as { message?: unknown })?.message ?? error);
+	return (
+		/Unknown field `payFrequency`/i.test(message) ||
+		/Unknown field `billFrequency`/i.test(message) ||
+		/Unknown arg(ument)? `payFrequency`/i.test(message) ||
+		/Unknown arg(ument)? `billFrequency`/i.test(message) ||
+		/data\.payFrequency/i.test(message) ||
+		/data\.billFrequency/i.test(message)
+	);
+}
+
 function unauthorized() {
 	return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 }
@@ -92,8 +106,7 @@ export async function GET(req: NextRequest) {
 					mainGoal: true,
 					mainGoals: true,
 					occupation: true,
-					payFrequency: true,
-					billFrequency: true,
+					...(supportsOnboardingCadenceFields === false ? {} : { payFrequency: true, billFrequency: true }),
 					monthlySalary: true,
 					expenseOneName: true,
 					expenseOneAmount: true,
@@ -110,40 +123,75 @@ export async function GET(req: NextRequest) {
 					debtNotes: true,
 				},
 			});
+			supportsOnboardingCadenceFields = supportsOnboardingCadenceFields === false ? false : true;
 		} catch (error) {
-			console.error("Dashboard: onboarding fetch failed:", error);
-			try {
-				const legacy = await prisma.userOnboardingProfile.findUnique({
-					where: { userId },
-					select: {
-						mainGoal: true,
-						occupation: true,
-						payFrequency: true,
-						billFrequency: true,
-						monthlySalary: true,
-						expenseOneName: true,
-						expenseOneAmount: true,
-						expenseTwoName: true,
-						expenseTwoAmount: true,
-						hasAllowance: true,
-						allowanceAmount: true,
-						hasDebtsToManage: true,
-						debtAmount: true,
-						debtNotes: true,
-					},
-				});
-				onboarding = legacy
-					? {
-						...legacy,
-						expenseThreeName: null as unknown,
-						expenseThreeAmount: null as unknown,
-						expenseFourName: null as unknown,
-						expenseFourAmount: null as unknown,
+			if (isUnknownOnboardingCadenceFieldError(error)) {
+				supportsOnboardingCadenceFields = false;
+				try {
+					onboarding = await prisma.userOnboardingProfile.findUnique({
+						where: { userId },
+						select: {
+							mainGoal: true,
+							mainGoals: true,
+							occupation: true,
+							monthlySalary: true,
+							expenseOneName: true,
+							expenseOneAmount: true,
+							expenseTwoName: true,
+							expenseTwoAmount: true,
+							expenseThreeName: true,
+							expenseThreeAmount: true,
+							expenseFourName: true,
+							expenseFourAmount: true,
+							hasAllowance: true,
+							allowanceAmount: true,
+							hasDebtsToManage: true,
+							debtAmount: true,
+							debtNotes: true,
+						},
+					});
+				} catch {
+					onboarding = null;
+				}
+			} else {
+				console.error("Dashboard: onboarding fetch failed:", error);
+				try {
+					const legacy = await prisma.userOnboardingProfile.findUnique({
+						where: { userId },
+						select: {
+							mainGoal: true,
+							occupation: true,
+							...(supportsOnboardingCadenceFields === false ? {} : { payFrequency: true, billFrequency: true }),
+							monthlySalary: true,
+							expenseOneName: true,
+							expenseOneAmount: true,
+							expenseTwoName: true,
+							expenseTwoAmount: true,
+							hasAllowance: true,
+							allowanceAmount: true,
+							hasDebtsToManage: true,
+							debtAmount: true,
+							debtNotes: true,
+						},
+					});
+					onboarding = legacy
+						? {
+							...legacy,
+							expenseThreeName: null as unknown,
+							expenseThreeAmount: null as unknown,
+							expenseFourName: null as unknown,
+							expenseFourAmount: null as unknown,
+						}
+						: null;
+				} catch (legacyError) {
+					if (isUnknownOnboardingCadenceFieldError(legacyError)) {
+						supportsOnboardingCadenceFields = false;
+						onboarding = null;
+					} else {
+						console.error("Dashboard: onboarding legacy fetch failed:", legacyError);
+						onboarding = null;
 					}
-					: null;
-			} catch (legacyError) {
-				console.error("Dashboard: onboarding legacy fetch failed:", legacyError);
-				onboarding = null;
+				}
 			}
 		}
 
@@ -455,7 +503,30 @@ export async function GET(req: NextRequest) {
 			});
 		}
 
+		const paidTotal = currentPlanData.categoryData
+			.flatMap((category) => category.expenses ?? [])
+			.reduce((sum, expense) => {
+				const paidAmount = typeof expense.paidAmount === "number"
+					? expense.paidAmount
+					: expense.paid
+						? expense.amount
+						: 0;
+				return sum + (Number.isFinite(paidAmount) ? paidAmount : 0);
+			}, 0);
+		const amountLeftToBudget = currentPlanData.incomeAfterAllocations;
+		const amountAfterExpenses = amountLeftToBudget - currentPlanData.totalExpenses;
+		const isOverBudgetBySpending = amountAfterExpenses < 0;
+		const overLimitDebtCount = debts.filter((d) => {
+			const limit = d.creditLimit ?? 0;
+			if (!(limit > 0)) return false;
+			return (d.currentBalance ?? 0) > limit;
+		}).length;
+		const hasOverLimitDebt = overLimitDebtCount > 0;
+		const isOverBudget = isOverBudgetBySpending || hasOverLimitDebt;
+		const totalBudget = amountLeftToBudget > 0 ? amountLeftToBudget : currentPlanData.totalIncome;
+
 		return NextResponse.json({
+
 			budgetPlanId,
 			month,
 			year: currentPlanData.year,
@@ -512,6 +583,18 @@ export async function GET(req: NextRequest) {
 			allPlansData,
 			largestExpensesByPlan,
 			incomeMonthsCoverageByPlan,
+
+			// Server-derived dashboard summary helpers (canonical for all clients)
+			dashboardSummary: {
+				amountLeftToBudget,
+				amountAfterExpenses,
+				isOverBudgetBySpending,
+				overLimitDebtCount,
+				hasOverLimitDebt,
+				isOverBudget,
+				paidTotal,
+				totalBudget,
+			},
 
 			// Meta
 			payDate,

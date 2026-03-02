@@ -20,6 +20,13 @@ export type PaymentDetail = {
   overdue: boolean;
   missed: boolean;
   isMissedPayment?: boolean;
+  dueLabel?: string;
+  paymentsTotal?: number;
+  remaining?: number;
+  isPaid?: boolean;
+  isPartial?: boolean;
+  statusTag?: "Missed" | "Overdue" | "Paid" | "Partial" | "Unpaid";
+  statusDescription?: string;
   payments: Array<{
     id: string;
     amount: number;
@@ -48,20 +55,6 @@ type Props = {
   onRetry: (item: SheetItem) => void;
 };
 
-function formatDueLabel(detail: PaymentDetail | null): string {
-  if (!detail) return "";
-  if (detail.dueDate) {
-    const d = new Date(detail.dueDate);
-    if (!Number.isNaN(d.getTime())) {
-      return `Due ${d.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`;
-    }
-  }
-  if (typeof detail.dueDay === "number" && Number.isFinite(detail.dueDay)) {
-    return `Due day ${detail.dueDay}`;
-  }
-  return "Due date not set";
-}
-
 export default function PaymentDetailSheet({
   visible,
   insetsBottom,
@@ -86,35 +79,12 @@ export default function PaymentDetailSheet({
   }, [item?.id, item?.logoUrl]);
 
   const dueAmount = detail?.dueAmount ?? item?.dueAmount ?? 0;
-  const paymentsTotal = useMemo(
-    () => (detail?.payments ?? []).reduce((acc, p) => acc + (Number(p.amount) || 0), 0),
-    [detail?.payments]
-  );
-  const remaining = Math.max(0, dueAmount - paymentsTotal);
+  const paymentsTotal = detail?.paymentsTotal ?? (detail?.payments ?? []).reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
+  const remaining = detail?.remaining ?? Math.max(0, dueAmount - paymentsTotal);
+  const statusTag = detail?.statusTag ?? "Unpaid";
+  const statusDescription = detail?.statusDescription ?? "This payment is not yet paid.";
   const paymentKind = (detail?.kind ?? item?.kind ?? "payment").toString();
-
-  const isPaid = dueAmount <= 0 ? true : paymentsTotal >= dueAmount - 0.005;
-  const isPartial = !isPaid && paymentsTotal > 0;
-  const missedState = detail?.isMissedPayment || detail?.missed;
-  const statusTag = missedState
-    ? "Missed"
-    : detail?.overdue
-      ? "Overdue"
-      : isPaid
-        ? "Paid"
-        : isPartial
-          ? "Partial"
-          : "Unpaid";
-
-  const statusDescription = missedState
-    ? "This payment is marked as missed."
-    : detail?.overdue
-      ? "This payment is overdue."
-      : isPaid
-        ? "This payment is paid in full."
-        : isPartial
-          ? "This payment has been paid partially."
-          : "This payment is not yet paid.";
+  const dueLabel = detail?.dueLabel ?? "";
 
   return (
     <Modal
@@ -164,7 +134,7 @@ export default function PaymentDetailSheet({
               {fmt(dueAmount, currency)}
             </Text>
             <Text style={styles.sheetHeroSub} numberOfLines={1}>
-              {detail ? formatDueLabel(detail) : ""}
+              {dueLabel}
             </Text>
           </View>
 
@@ -178,7 +148,7 @@ export default function PaymentDetailSheet({
             </View>
             <View style={styles.sheetCardRow}>
               <Text style={styles.sheetCardLabel}>Due</Text>
-              <Text style={styles.sheetCardValue}>{detail ? formatDueLabel(detail) : ""}</Text>
+              <Text style={styles.sheetCardValue}>{dueLabel}</Text>
             </View>
             <View style={styles.sheetCardRow}>
               <Text style={styles.sheetCardLabel}>Paid so far</Text>

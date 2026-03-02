@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { View, Text, FlatList, Dimensions, Pressable } from "react-native";
 import type { DashboardCategoryItem } from "@/lib/apiTypes";
 import { T } from "@/lib/theme";
+import { pickAccent, tintedDarkBg } from "@/lib/domain/colorUtils";
 import { cardElevated } from "@/lib/ui";
 import { styles } from "./styles";
 import type { CategorySwipeCardsProps } from "@/types";
@@ -13,42 +14,6 @@ const SIDE = 16;
 
 const ACCENT_COLORS = [T.accent, T.green, "#a78bfa", T.orange, "#38bdf8", T.red] as const;
 
-function hashString(s: string): number {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
-  return Math.abs(h);
-}
-
-function pickAccent(seed: string): string {
-  return ACCENT_COLORS[hashString(seed) % ACCENT_COLORS.length]!;
-}
-
-function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
-  const m = hex.replace("#", "");
-  if (m.length !== 6) return null;
-  const r = parseInt(m.slice(0, 2), 16);
-  const g = parseInt(m.slice(2, 4), 16);
-  const b = parseInt(m.slice(4, 6), 16);
-  if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) return null;
-  return { r, g, b };
-}
-
-function blendRgb(a: { r: number; g: number; b: number }, b: { r: number; g: number; b: number }, t: number) {
-  const tt = Math.min(1, Math.max(0, t));
-  const r = Math.round(a.r * (1 - tt) + b.r * tt);
-  const g = Math.round(a.g * (1 - tt) + b.g * tt);
-  const bb = Math.round(a.b * (1 - tt) + b.b * tt);
-  return { r, g, b: bb };
-}
-
-function tintedDarkBg(accentHex: string): string {
-  const base = hexToRgb(T.card) ?? { r: 15, g: 40, b: 47 };
-  const rgb = hexToRgb(accentHex);
-  if (!rgb) return `rgb(${base.r},${base.g},${base.b})`;
-  const mixed = blendRgb(base, rgb, 0.14);
-  return `rgb(${mixed.r},${mixed.g},${mixed.b})`;
-}
-
 export default function CategorySwipeCards({ categories, totalIncome, currency, fmt, onPressCategory }: CategorySwipeCardsProps) {
   const [active, setActive] = useState(0);
   const data = useMemo(() => {
@@ -59,7 +24,7 @@ export default function CategorySwipeCards({ categories, totalIncome, currency, 
 
     return items.map((c) => {
       const pct = totalIncome > 0 ? Math.round(((c.total ?? 0) / totalIncome) * 100) : 0;
-      const accent = pickAccent(c.id || c.name);
+      const accent = pickAccent(c.id || c.name, ACCENT_COLORS);
       return {
         id: c.id,
         name: c.name,
@@ -94,7 +59,7 @@ export default function CategorySwipeCards({ categories, totalIncome, currency, 
         renderItem={({ item }) => (
           <Pressable
             onPress={() => onPressCategory?.({ id: item.id, name: item.name })}
-            style={[styles.card, { backgroundColor: tintedDarkBg(item.accent) }]}
+            style={[styles.card, { backgroundColor: tintedDarkBg(item.accent, T.card) }]}
           >
             <View style={styles.top}>
               <View style={styles.pill}>

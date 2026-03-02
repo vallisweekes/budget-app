@@ -475,7 +475,7 @@ export default function DebtScreen() {
               }
               const months = projection.length - 1;
               const canProjectPayoff = projection.length > 0 && projection[projection.length - 1] <= 0;
-              const monthsToClear = canProjectPayoff ? months : null;
+              const monthsToClear = summary?.payoffSummary?.monthsToClear ?? (canProjectPayoff ? months : null);
 
               // SVG chart constants
               const CH = 180;
@@ -520,9 +520,13 @@ export default function DebtScreen() {
               const tipLineY2 = tipPillY + tipPillH;
 
               // Axis labels
-              const payoffDate = new Date();
-              payoffDate.setMonth(payoffDate.getMonth() + months);
-              const payoffLabel = months > 0 ? payoffDate.toLocaleDateString("en-GB", { month: "short", year: "2-digit" }) : "";
+              const payoffLabel = (() => {
+                if (summary?.payoffSummary?.payoffLabel) return summary.payoffSummary.payoffLabel;
+                if (monthsToClear == null || monthsToClear <= 0) return "";
+                const payoffDate = new Date();
+                payoffDate.setMonth(payoffDate.getMonth() + monthsToClear);
+                return payoffDate.toLocaleDateString("en-GB", { month: "short", year: "2-digit" });
+              })();
               const monthLabel = (m: number) => (m === 12 ? "1y" : m === 24 ? "2y" : `${m}m`);
 
               return (

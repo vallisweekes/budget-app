@@ -10,6 +10,9 @@ import {
 
 export const runtime = "nodejs";
 
+let supportsPayFrequencyField: boolean | null = null;
+let supportsIsMovedToDebtField: boolean | null = null;
+
 function unauthorized() {
 	return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 }
@@ -59,6 +62,33 @@ function isUnknownMovedToDebtFieldError(error: unknown): boolean {
 	);
 }
 
+function isUnknownPayFrequencyFieldError(error: unknown): boolean {
+	const message = String((error as { message?: unknown })?.message ?? error);
+	return (
+		message.includes("payFrequency") &&
+		(message.includes("Unknown arg") ||
+			message.includes("Unknown argument") ||
+			message.includes("Unknown field"))
+	);
+}
+
+async function findOnboardingPayFrequency(userId: string) {
+	if (supportsPayFrequencyField === false) return null;
+
+	try {
+		const profile = await prisma.userOnboardingProfile.findUnique({
+			where: { userId },
+			select: { payFrequency: true },
+		});
+		supportsPayFrequencyField = true;
+		return profile;
+	} catch (error) {
+		if (!isUnknownPayFrequencyFieldError(error)) throw error;
+		supportsPayFrequencyField = false;
+		return null;
+	}
+}
+
 /**
  * GET /api/bff/expenses/summary?month=N&year=N&budgetPlanId=<optional>
  *
@@ -100,10 +130,7 @@ export async function GET(req: NextRequest) {
 		where: { id: budgetPlanId },
 		select: { payDate: true },
 		}),
-		prisma.userOnboardingProfile.findUnique({
-			where: { userId },
-			select: { payFrequency: true },
-		}),
+		findOnboardingPayFrequency(userId),
 	]);
 	const payDate = Number.isFinite(Number(budgetPlan?.payDate)) && Number(budgetPlan?.payDate) >= 1
 		? Math.floor(Number(budgetPlan?.payDate))
@@ -164,8 +191,24 @@ export async function GET(req: NextRequest) {
 		const uniquePairs = Array.from(new Map(windowPairs.map((p) => [`${p.year}-${p.month}`, p])).values());
 
 		const periodRows = await (async () => {
+			const runLegacyQuery = () =>
+				prisma.expense.findMany({
+					where: {
+						budgetPlanId,
+						OR: uniquePairs,
+					},
+					include: {
+						category: { select: { id: true, name: true, color: true, icon: true } },
+					},
+					orderBy: { createdAt: "asc" },
+				});
+
+			if (supportsIsMovedToDebtField === false) {
+				return runLegacyQuery();
+			}
+
 			try {
-				return await prisma.expense.findMany({
+				const rows = await prisma.expense.findMany({
 					where: {
 						budgetPlanId,
 						OR: uniquePairs,
@@ -176,20 +219,12 @@ export async function GET(req: NextRequest) {
 					},
 					orderBy: { createdAt: "asc" },
 				});
+				supportsIsMovedToDebtField = true;
+				return rows;
 			} catch (error) {
-				if (isUnknownMovedToDebtFieldError(error)) {
-					return prisma.expense.findMany({
-						where: {
-							budgetPlanId,
-							OR: uniquePairs,
-						},
-						include: {
-							category: { select: { id: true, name: true, color: true, icon: true } },
-						},
-						orderBy: { createdAt: "asc" },
-					});
-				}
-				throw error;
+				if (!isUnknownMovedToDebtFieldError(error)) throw error;
+				supportsIsMovedToDebtField = false;
+				return runLegacyQuery();
 			}
 		})();
 

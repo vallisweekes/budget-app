@@ -43,6 +43,23 @@ export async function GET(req: NextRequest) {
 			getIncomeMonthAnalysis({ budgetPlanId, year: prevYear, month: prevMonth }),
 		]);
 
+		const grossIncome = analysis.grossIncome;
+		const incomeSacrifice = analysis.incomeSacrifice;
+		const moneyLeftAfterPlan = analysis.moneyLeftAfterPlan;
+		const previousMoneyLeftAfterPlan = prevAnalysis.moneyLeftAfterPlan;
+
+		const incomeSacrificePct = grossIncome > 0
+			? Number(((incomeSacrifice / grossIncome) * 100).toFixed(1))
+			: 0;
+		const moneyLeftPctOfGross = grossIncome > 0
+			? Number(((moneyLeftAfterPlan / grossIncome) * 100).toFixed(1))
+			: 0;
+		const moneyLeftVsLastMonthPct =
+			typeof previousMoneyLeftAfterPlan === "number" && previousMoneyLeftAfterPlan !== 0
+				? Number((((moneyLeftAfterPlan - previousMoneyLeftAfterPlan) / Math.abs(previousMoneyLeftAfterPlan)) * 100).toFixed(1))
+				: null;
+		const planStatusTag = analysis.isOnPlan ? "on_plan" : "over_plan";
+
 		return NextResponse.json({
 			budgetPlanId,
 			month: analysis.month,
@@ -80,11 +97,18 @@ export async function GET(req: NextRequest) {
 			plannedBills: analysis.plannedBills,
 			paidBillsSoFar: analysis.paidBillsSoFar,
 			remainingBills: analysis.remainingBills,
-			moneyLeftAfterPlan: analysis.moneyLeftAfterPlan,
-			previousMoneyLeftAfterPlan: prevAnalysis.moneyLeftAfterPlan,
+			moneyLeftAfterPlan,
+			previousMoneyLeftAfterPlan,
 			incomeLeftRightNow: analysis.incomeLeftRightNow,
 			moneyOutTotal: analysis.moneyOutTotal,
 			isOnPlan: analysis.isOnPlan,
+
+			// Server-derived summary helpers (canonical for all clients)
+			incomeSacrificePct,
+			moneyLeftPctOfGross,
+			moneyLeftVsLastMonthPct,
+			planStatusTag,
+			planStatusDescription: analysis.isOnPlan ? "On plan" : "Over plan",
 		});
 	} catch (error) {
 		console.error("[bff/income-month] Error:", error);

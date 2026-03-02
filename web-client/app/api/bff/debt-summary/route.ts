@@ -4,6 +4,7 @@ import { getDebtSummaryForPlan } from "@/lib/debts/summary";
 import { computeDebtTips } from "@/lib/debts/insights";
 import { getAiDebtTips } from "@/lib/ai/debtTips";
 import { getDebtMonthlyPayment, getTotalMonthlyDebtPayments } from "@/lib/debts/calculate";
+import { computePortfolioPayoffSummary } from "@/lib/debts/portfolioPayoff";
 import { formatExpenseDebtCardTitle, formatYearMonthLabel } from "@/lib/helpers/debts/expenseDebtLabels";
 import { resolveExpenseLogo } from "@/lib/expenses/logoResolver";
 import { prisma } from "@/lib/prisma";
@@ -285,6 +286,11 @@ export async function GET(req: NextRequest) {
 		}
 
 		const totalMonthlyDebtPayments = getTotalMonthlyDebtPayments(summary.allDebts);
+		const payoffSummary = computePortfolioPayoffSummary({
+			debts: debtsWithPayments,
+			totalMonthlyDebtPayments,
+			maxMonthsCap: 360,
+		});
 
 		// Compute tips
 		const tips = computeDebtTips({
@@ -334,6 +340,7 @@ export async function GET(req: NextRequest) {
 			creditCardCount: summary.creditCards.length,
 			regularDebtCount: summary.regularDebts.length,
 			expenseDebtCount: summary.expenseDebts.length,
+			payoffSummary,
 			tips: aiTips ?? tips,
 		});
 	} catch (error) {

@@ -5,6 +5,7 @@ import { syncExpensePaymentsToPaidAmount } from "@/lib/expenses/paymentSync";
 import {
 	fetchExpenseDebtRows,
 	fetchLinkedExpenses,
+	markExpensesMovedToDebt,
 	fetchPaidExpensesWithoutDebt,
 	type ExpenseDebtRow,
 	type ExpenseDebtVisibilityRow,
@@ -63,9 +64,7 @@ export async function getExpenseDebts(budgetPlanId: string) {
 	});
 
 	if (movedToDebtExpenseIds.length > 0) {
-		await prisma.expense
-			.updateMany({ where: { id: { in: movedToDebtExpenseIds } }, data: { isMovedToDebt: true } })
-			.catch(() => null);
+		await markExpensesMovedToDebt(movedToDebtExpenseIds);
 	}
 
 	const movedToDebtSet = movedToDebtExpenseIds.length ? new Set(movedToDebtExpenseIds) : null;

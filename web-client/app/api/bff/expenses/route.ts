@@ -14,6 +14,9 @@ import {
 
 export const runtime = "nodejs";
 
+let supportsPayFrequencyField: boolean | null = null;
+let supportsIsMovedToDebtField: boolean | null = null;
+
 function unauthorized() {
 	return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 }
@@ -58,6 +61,30 @@ function isUnknownMovedToDebtFieldError(error: unknown): boolean {
       message.includes("Unknown argument") ||
       message.includes("Unknown field"))
   );
+}
+
+function isUnknownPayFrequencyFieldError(error: unknown): boolean {
+  const message = String((error as { message?: unknown })?.message ?? error);
+  return (
+    message.includes("payFrequency") &&
+    (message.includes("Unknown arg") ||
+      message.includes("Unknown argument") ||
+      message.includes("Unknown field"))
+  );
+}
+
+async function findOnboardingPayFrequency(userId: string) {
+  if (supportsPayFrequencyField === false) return null;
+
+  try {
+    const profile = await prisma.userOnboardingProfile.findUnique({ where: { userId }, select: { payFrequency: true } });
+    supportsPayFrequencyField = true;
+    return profile;
+  } catch (error) {
+    if (!isUnknownPayFrequencyFieldError(error)) throw error;
+    supportsPayFrequencyField = false;
+    return null;
+  }
 }
 
 function parseIsoDate(iso: string): Date | null {
@@ -133,7 +160,7 @@ export async function GET(req: NextRequest) {
 
   const [budgetPlan, onboardingProfile] = await Promise.all([
     prisma.budgetPlan.findUnique({ where: { id: budgetPlanId }, select: { payDate: true } }),
-    prisma.userOnboardingProfile.findUnique({ where: { userId }, select: { payFrequency: true } }),
+    findOnboardingPayFrequency(userId),
   ]);
   const payDate = Number.isFinite(Number(budgetPlan?.payDate)) && Number(budgetPlan?.payDate) >= 1
     ? Math.floor(Number(budgetPlan?.payDate))
@@ -162,8 +189,25 @@ export async function GET(req: NextRequest) {
     ];
     const uniquePeriodPairs = Array.from(new Map(periodPairs.map((p) => [`${p.year}-${p.month}`, p])).values());
 
+    const runLegacyQuery = () =>
+      prisma.expense.findMany({
+        where: scope === "pay_period"
+          ? { budgetPlanId, OR: uniquePeriodPairs }
+          : { budgetPlanId, month, year },
+        orderBy: [{ createdAt: "asc" }],
+        include: {
+          category: {
+            select: { id: true, name: true, icon: true, color: true, featured: true },
+          },
+        },
+      });
+
+    if (supportsIsMovedToDebtField === false) {
+      return runLegacyQuery();
+    }
+
     try {
-      return await prisma.expense.findMany({
+      const rows = await prisma.expense.findMany({
         where: scope === "pay_period"
           ? { budgetPlanId, OR: uniquePeriodPairs, isMovedToDebt: false }
           : { budgetPlanId, month, year, isMovedToDebt: false },
@@ -175,23 +219,12 @@ export async function GET(req: NextRequest) {
         },
         // dueDate is a scalar on Expense, included automatically
       });
+      supportsIsMovedToDebtField = true;
+      return rows;
     } catch (error) {
-      // If Prisma Client wasn't regenerated yet, this field won't exist.
-      // Fall back to the legacy query rather than 500'ing the endpoint.
-      if (isUnknownMovedToDebtFieldError(error)) {
-        return prisma.expense.findMany({
-          where: scope === "pay_period"
-            ? { budgetPlanId, OR: uniquePeriodPairs }
-            : { budgetPlanId, month, year },
-          orderBy: [{ createdAt: "asc" }],
-          include: {
-            category: {
-              select: { id: true, name: true, icon: true, color: true, featured: true },
-            },
-          },
-        });
-      }
-      throw error;
+      if (!isUnknownMovedToDebtFieldError(error)) throw error;
+      supportsIsMovedToDebtField = false;
+      return runLegacyQuery();
     }
   })();
 
