@@ -4,6 +4,7 @@ import type { PlanKind } from "@/types/settings";
 
 export type SettingsCreatePlanSheetProps = {
   visible: boolean;
+  keyboardOffset: number;
   translateY: Animated.Value;
   panHandlers: Record<string, unknown>;
   newPlanType: PlanKind;

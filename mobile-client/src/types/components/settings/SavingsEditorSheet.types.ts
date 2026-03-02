@@ -6,6 +6,7 @@ import type { SavingsField, SavingsSheetMode } from "@/types/settings";
 
 export type SavingsEditorSheetProps = {
   visible: boolean;
+  keyboardOffset: number;
   mode: SavingsSheetMode;
   field: SavingsField | null;
   icon: React.ComponentProps<typeof Ionicons>["name"];

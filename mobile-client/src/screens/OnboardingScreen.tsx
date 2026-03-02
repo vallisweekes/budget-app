@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -9,6 +11,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -47,6 +50,13 @@ const GOALS: Array<{ id: Goal; label: string; icon: keyof typeof Ionicons.glyphM
   { id: "improve_savings", label: "Build my savings", icon: "trending-up-outline" },
   { id: "manage_debts", label: "Get on top of my debts", icon: "card-outline" },
 ];
+
+function formatDateDDMMYYYY(date: Date): string {
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = date.getFullYear();
+  return `${day}/${month}/${year}`;
+}
 
 export default function OnboardingScreen({
   initial,
@@ -96,6 +106,12 @@ export default function OnboardingScreen({
   const [occupation, setOccupation] = useState(profile?.occupation ?? "");
   const [occupationOther, setOccupationOther] = useState(profile?.occupationOther ?? "");
   const [payDay, setPayDay] = useState(String(profile?.payDay ?? ""));
+  const [showPayDayPicker, setShowPayDayPicker] = useState(false);
+  const [selectedPayDate, setSelectedPayDate] = useState<Date | null>(() => {
+    const raw = Number(profile?.payDay ?? 0);
+    if (!Number.isFinite(raw) || raw < 1 || raw > 31) return null;
+    return new Date(new Date().getFullYear(), new Date().getMonth(), Math.trunc(raw));
+  });
   const [payFrequency, setPayFrequency] = useState<"monthly" | "every_2_weeks" | "weekly">(
     profile?.payFrequency === "weekly" || profile?.payFrequency === "every_2_weeks" ? profile.payFrequency : "monthly"
   );
@@ -118,6 +134,47 @@ export default function OnboardingScreen({
   const [debtNotes, setDebtNotes] = useState(profile?.debtNotes ?? "");
 
   const occupations = useMemo(() => initial.occupations ?? [], [initial.occupations]);
+
+  const payDayNumber = useMemo(() => {
+    const value = Number(payDay);
+    if (!Number.isFinite(value)) return null;
+    return Math.max(1, Math.min(31, Math.trunc(value)));
+  }, [payDay]);
+
+  const payDayPickerDate = useMemo(() => {
+    if (selectedPayDate) return selectedPayDate;
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  }, [selectedPayDate]);
+
+  const [draftPayDate, setDraftPayDate] = useState<Date>(payDayPickerDate);
+
+  const openPayDayPicker = () => {
+    setDraftPayDate(payDayPickerDate);
+    setShowPayDayPicker(true);
+  };
+
+  const closePayDayPicker = () => {
+    setShowPayDayPicker(false);
+  };
+
+  const confirmPayDayPicker = () => {
+    setSelectedPayDate(draftPayDate);
+    setPayDay(String(draftPayDate.getDate()));
+    setShowPayDayPicker(false);
+  };
+
+  const onPayDayChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
+    if (Platform.OS === "android") {
+      setShowPayDayPicker(false);
+      if (event.type !== "set" || !selectedDate) return;
+      setSelectedPayDate(selectedDate);
+      setPayDay(String(selectedDate.getDate()));
+      return;
+    }
+    if (event.type !== "set" || !selectedDate) return;
+    setDraftPayDate(selectedDate);
+  };
 
   const payload: Partial<OnboardingProfile> = {
     mainGoal: mainGoals[0] ?? null,
@@ -216,30 +273,37 @@ export default function OnboardingScreen({
                 <Ionicons name="sparkles-outline" size={20} color={STEP_ICON_COLORS[0]} />
                 <Text style={s.question}>What do you want help with most right now?</Text>
               </View>
-              {GOALS.map((goal) => (
-                <Pressable
-                  key={goal.id}
-                  onPress={() =>
-                    setMainGoals((prev) => {
-                      const has = prev.includes(goal.id);
-                      if (has) {
-                        const next = prev.filter((g) => g !== goal.id);
-                        return next.length ? next : prev;
-                      }
-                      return [...prev, goal.id];
-                    })
-                  }
-                  style={[s.option, mainGoals.includes(goal.id) && s.optionActive]}
-                >
-                  <View style={s.optionRow}>
-                    <View style={s.optionLeft}>
-                      <Ionicons name={goal.icon} size={18} color={ICON_COLORS[goal.id]} />
-                      <Text style={[s.optionText, mainGoals.includes(goal.id) && s.optionTextActive]}>{goal.label}</Text>
+              {GOALS.map((goal) => {
+                const isSelected = mainGoals.includes(goal.id);
+                return (
+                  <Pressable
+                    key={goal.id}
+                    onPress={() =>
+                      setMainGoals((prev) => {
+                        const has = prev.includes(goal.id);
+                        if (has) {
+                          const next = prev.filter((g) => g !== goal.id);
+                          return next.length ? next : prev;
+                        }
+                        return [...prev, goal.id];
+                      })
+                    }
+                    style={[s.option, isSelected && s.optionActive]}
+                  >
+                    <View style={s.optionRow}>
+                      <View style={s.optionLeft}>
+                        <Ionicons name={goal.icon} size={18} color={ICON_COLORS[goal.id]} />
+                        <Text style={[s.optionText, isSelected && s.optionTextActive]}>{goal.label}</Text>
+                      </View>
+                      <Ionicons
+                        name={isSelected ? "checkmark-circle" : "ellipse-outline"}
+                        size={20}
+                        color="#ffffff"
+                      />
                     </View>
-                    {mainGoals.includes(goal.id) ? <Ionicons name="checkmark-circle" size={18} color="#ffffff" /> : null}
-                  </View>
-                </Pressable>
-              ))}
+                  </Pressable>
+                );
+              })}
               <Text style={s.helper}>You can pick more than one.</Text>
             </>
           ) : null}
@@ -278,14 +342,37 @@ export default function OnboardingScreen({
                 <Ionicons name="wallet-outline" size={20} color={STEP_ICON_COLORS[2]} />
                 <Text style={s.question}>What day of the month do you usually get paid?</Text>
               </View>
-              <TextInput
-                value={payDay}
-                onChangeText={setPayDay}
-                placeholder="For example: 27"
-                placeholderTextColor="rgba(255,255,255,0.62)"
+              <Pressable
+                onPress={openPayDayPicker}
                 style={s.input}
-                keyboardType="number-pad"
-              />
+                accessibilityRole="button"
+                accessibilityLabel="Select payday date"
+              >
+                <View style={s.calendarInputRow}>
+                  <Ionicons name="calendar-outline" size={18} color="#ffffff" />
+                  <Text style={selectedPayDate ? s.calendarInputText : s.calendarInputPlaceholder}>
+                    {selectedPayDate ? formatDateDDMMYYYY(selectedPayDate) : "DD/MM/YYYY"}
+                  </Text>
+                </View>
+              </Pressable>
+              {showPayDayPicker ? (
+                <View style={s.payDayPickerWrap}>
+                  <DateTimePicker
+                    value={payDayPickerDate}
+                    mode="date"
+                    display={Platform.OS === "ios" ? "spinner" : "default"}
+                    onChange={onPayDayChange}
+                    {...(Platform.OS === "ios"
+                      ? {
+                          textColor: "#ffffff",
+                          accentColor: "#ffffff",
+                          themeVariant: "dark" as const,
+                        }
+                      : {})}
+                  />
+                </View>
+              ) : null}
+
               <Text style={s.question}>How often do you get paid?</Text>
               <View style={s.chipsWrap}>
                 {[
@@ -305,6 +392,7 @@ export default function OnboardingScreen({
                   );
                 })}
               </View>
+
               <Text style={s.question}>How often do you usually pay most bills?</Text>
               <View style={s.chipsWrap}>
                 {[
@@ -328,6 +416,7 @@ export default function OnboardingScreen({
                 currency={currency}
                 value={salary}
                 onChangeValue={setSalary}
+                variant="light"
                 placeholder="0.00"
               />
             </>
@@ -347,7 +436,7 @@ export default function OnboardingScreen({
                   placeholderTextColor="rgba(255,255,255,0.62)"
                   style={[s.input, s.rowInput]}
                 />
-                <MoneyInput currency={currency} value={expenseOneAmount} onChangeValue={setExpenseOneAmount} placeholder="0.00" containerStyle={s.rowInput} />
+                <MoneyInput currency={currency} value={expenseOneAmount} onChangeValue={setExpenseOneAmount} variant="light" placeholder="0.00" containerStyle={s.rowInput} />
               </View>
               <View style={s.row}>
                 <TextInput
@@ -357,7 +446,7 @@ export default function OnboardingScreen({
                   placeholderTextColor="rgba(255,255,255,0.62)"
                   style={[s.input, s.rowInput]}
                 />
-                <MoneyInput currency={currency} value={expenseTwoAmount} onChangeValue={setExpenseTwoAmount} placeholder="0.00" containerStyle={s.rowInput} />
+                <MoneyInput currency={currency} value={expenseTwoAmount} onChangeValue={setExpenseTwoAmount} variant="light" placeholder="0.00" containerStyle={s.rowInput} />
               </View>
               <View style={s.row}>
                 <TextInput
@@ -367,7 +456,7 @@ export default function OnboardingScreen({
                   placeholderTextColor="rgba(255,255,255,0.62)"
                   style={[s.input, s.rowInput]}
                 />
-                <MoneyInput currency={currency} value={expenseThreeAmount} onChangeValue={setExpenseThreeAmount} placeholder="0.00" containerStyle={s.rowInput} />
+                <MoneyInput currency={currency} value={expenseThreeAmount} onChangeValue={setExpenseThreeAmount} variant="light" placeholder="0.00" containerStyle={s.rowInput} />
               </View>
               <View style={s.row}>
                 <TextInput
@@ -377,7 +466,7 @@ export default function OnboardingScreen({
                   placeholderTextColor="rgba(255,255,255,0.62)"
                   style={[s.input, s.rowInput]}
                 />
-                <MoneyInput currency={currency} value={expenseFourAmount} onChangeValue={setExpenseFourAmount} placeholder="0.00" containerStyle={s.rowInput} />
+                <MoneyInput currency={currency} value={expenseFourAmount} onChangeValue={setExpenseFourAmount} variant="light" placeholder="0.00" containerStyle={s.rowInput} />
               </View>
 
               <View style={s.infoCard}>
@@ -399,7 +488,7 @@ export default function OnboardingScreen({
                 <Pressable onPress={() => setHasAllowance(false)} style={[s.toggle, !hasAllowance && s.toggleActive]}><Text style={[s.toggleText, !hasAllowance && s.toggleTextActive]}>No</Text></Pressable>
               </View>
               {hasAllowance ? (
-                <MoneyInput currency={currency} value={allowanceAmount} onChangeValue={setAllowanceAmount} placeholder="0.00" />
+                <MoneyInput currency={currency} value={allowanceAmount} onChangeValue={setAllowanceAmount} variant="light" placeholder="0.00" />
               ) : null}
             </>
           ) : null}
@@ -416,7 +505,7 @@ export default function OnboardingScreen({
               </View>
               {hasDebts ? (
                 <>
-                  <MoneyInput currency={currency} value={debtAmount} onChangeValue={setDebtAmount} placeholder="0.00" />
+                  <MoneyInput currency={currency} value={debtAmount} onChangeValue={setDebtAmount} variant="light" placeholder="0.00" />
                   <TextInput
                     value={debtNotes}
                     onChangeText={setDebtNotes}
@@ -464,6 +553,39 @@ export default function OnboardingScreen({
           </View>
         </View>
       </ScrollView>
+
+      {Platform.OS === "ios" ? (
+        <Modal
+          visible={showPayDayPicker}
+          animationType="slide"
+          transparent
+          onRequestClose={closePayDayPicker}
+        >
+          <Pressable style={s.payDayModalBackdrop} onPress={closePayDayPicker} />
+          <View style={s.payDayModalSheet}>
+            <View style={s.payDayModalHeader}>
+              <Pressable onPress={closePayDayPicker} hitSlop={8}>
+                <Text style={s.payDayModalAction}>Cancel</Text>
+              </Pressable>
+              <Text style={s.payDayModalTitle}>Select date</Text>
+              <Pressable onPress={confirmPayDayPicker} hitSlop={8}>
+                <Text style={s.payDayModalAction}>Done</Text>
+              </Pressable>
+            </View>
+            <View style={s.payDayPickerWrap}>
+              <DateTimePicker
+                value={draftPayDate}
+                mode="date"
+                display="spinner"
+                onChange={onPayDayChange}
+                textColor="#ffffff"
+                accentColor="#ffffff"
+                themeVariant="dark"
+              />
+            </View>
+          </View>
+        </Modal>
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -503,19 +625,18 @@ const s = StyleSheet.create({
   questionRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 6 },
   question: { color: "#ffffff", fontSize: 16, fontWeight: "900", flexShrink: 1 },
   option: {
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.30)",
-    backgroundColor: "rgba(255,255,255,0.12)",
-    borderRadius: 10,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 10,
     marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.35)",
+    borderRadius: 10,
+    backgroundColor: "transparent",
   },
   optionRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
   optionLeft: { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },
   optionActive: {
-    borderColor: "rgba(255,255,255,0.78)",
-    backgroundColor: "rgba(255,255,255,0.18)",
+    borderColor: "rgba(255,255,255,0.8)",
   },
   optionText: { color: "#ffffff", fontSize: 14, fontWeight: "800" },
   optionTextActive: { color: "#ffffff" },
@@ -543,6 +664,48 @@ const s = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     color: "#ffffff",
+  },
+  calendarInputRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  calendarInputText: { color: "#ffffff", fontWeight: "800" },
+  calendarInputPlaceholder: { color: "rgba(255,255,255,0.62)", fontWeight: "700" },
+  payDayPickerWrap: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.20)",
+    backgroundColor: "rgba(255,255,255,0.08)",
+    overflow: "hidden",
+    paddingVertical: 2,
+  },
+  payDayModalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+  },
+  payDayModalSheet: {
+    backgroundColor: EXPENSES_TOTAL_BLUE,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.20)",
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: 14,
+    gap: 8,
+  },
+  payDayModalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 4,
+  },
+  payDayModalTitle: {
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  payDayModalAction: {
+    color: "#ffffff",
+    fontSize: 15,
+    fontWeight: "800",
   },
   row: { flexDirection: "row", gap: 10 },
   rowInput: { flex: 1 },

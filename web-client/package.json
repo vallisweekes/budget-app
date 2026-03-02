@@ -22,7 +22,8 @@
     "budget:test": "tsx scripts/test-budget-engine.ts",
     "migrate:debt-ids": "tsx scripts/migrate-debt-ids.ts",
     "logos:backfill": "tsx scripts/backfill-expense-logos.ts",
-    "logos:backfill:apply": "tsx scripts/backfill-expense-logos.ts --apply"
+    "logos:backfill:apply": "tsx scripts/backfill-expense-logos.ts --apply",
+    "onboarding:reset-partials": "tsx scripts/reset-partial-onboarding-users.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",

@@ -839,7 +839,7 @@ function MainTabs() {
               leftContent={expensesListLeftContent}
               showIncomeAction={!isSettings}
               compactActionsMenu={isSettings}
-              onLogout={isSettings ? undefined : signOut}
+              onLogout={isSettings ? signOut : undefined}
               incomePendingCount={incomePendingCount}
               showNotificationDot={hasNotificationDot}
             />

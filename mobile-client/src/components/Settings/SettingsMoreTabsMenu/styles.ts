@@ -1,11 +1,12 @@
 import { StyleSheet } from "react-native";
 
+import { SETTINGS_MENU_BACKDROP } from "@/lib/constants";
 import { T } from "@/lib/theme";
 
 export const styles = StyleSheet.create({
   moreBackdrop: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.45)",
+    backgroundColor: SETTINGS_MENU_BACKDROP,
     justifyContent: "flex-end",
     padding: 12,
   },

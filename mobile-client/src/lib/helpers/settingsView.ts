@@ -2,7 +2,26 @@ import { Dimensions } from "react-native";
 import type { ComponentProps } from "react";
 import type { Ionicons } from "@expo/vector-icons";
 
-import { BRAND_GREEN } from "@/lib/constants";
+import {
+  BRAND_GREEN,
+  SETTINGS_EMERGENCY_BORDER,
+  SETTINGS_EMERGENCY_CARD_RED,
+  SETTINGS_EMERGENCY_HINT,
+  SETTINGS_EMERGENCY_ICON_BG,
+  SETTINGS_EMERGENCY_TITLE,
+  SETTINGS_EMERGENCY_VALUE,
+  SETTINGS_INVESTMENT_BORDER,
+  SETTINGS_INVESTMENT_CARD_BLUE,
+  SETTINGS_INVESTMENT_HINT,
+  SETTINGS_INVESTMENT_ICON_BG,
+  SETTINGS_INVESTMENT_TITLE,
+  SETTINGS_INVESTMENT_VALUE,
+  SETTINGS_SAVINGS_BORDER,
+  SETTINGS_SAVINGS_HINT,
+  SETTINGS_SAVINGS_ICON_BG,
+  SETTINGS_SAVINGS_TITLE,
+  SETTINGS_SAVINGS_VALUE,
+} from "@/lib/constants";
 import type { SavingsField, SettingsTab } from "@/types/settings";
 
 export const PRIMARY_TABS: Array<{ id: SettingsTab; label: string }> = [
@@ -36,9 +55,6 @@ export const TAB_ICONS: Record<
 
 export const SAVINGS_TILE_SIZE = Math.min(122, Math.max(94, Math.floor(Dimensions.get("window").width * 0.3)));
 
-const EMERGENCY_CARD_RED = "#FF9E96";
-const INVESTMENT_CARD_BLUE = "#9EC9FF";
-
 export function getSavingsTilePalette(field: SavingsField): {
   cardBg: string;
   borderColor: string;
@@ -50,34 +66,34 @@ export function getSavingsTilePalette(field: SavingsField): {
 } {
   if (field === "emergency") {
     return {
-      cardBg: EMERGENCY_CARD_RED,
-      borderColor: "rgba(86,19,22,0.17)",
-      iconBg: "rgba(86,19,22,0.15)",
-      titleColor: "#5a1316",
-      valueColor: "#3f0d11",
-      hintColor: "#7a262c",
-      plusColor: "#3f0d11",
+      cardBg: SETTINGS_EMERGENCY_CARD_RED,
+      borderColor: SETTINGS_EMERGENCY_BORDER,
+      iconBg: SETTINGS_EMERGENCY_ICON_BG,
+      titleColor: SETTINGS_EMERGENCY_TITLE,
+      valueColor: SETTINGS_EMERGENCY_VALUE,
+      hintColor: SETTINGS_EMERGENCY_HINT,
+      plusColor: SETTINGS_EMERGENCY_VALUE,
     };
   }
   if (field === "investment") {
     return {
-      cardBg: INVESTMENT_CARD_BLUE,
-      borderColor: "rgba(17,45,82,0.18)",
-      iconBg: "rgba(17,45,82,0.13)",
-      titleColor: "#1b3f6d",
-      valueColor: "#122c4b",
-      hintColor: "#295a96",
-      plusColor: "#122c4b",
+      cardBg: SETTINGS_INVESTMENT_CARD_BLUE,
+      borderColor: SETTINGS_INVESTMENT_BORDER,
+      iconBg: SETTINGS_INVESTMENT_ICON_BG,
+      titleColor: SETTINGS_INVESTMENT_TITLE,
+      valueColor: SETTINGS_INVESTMENT_VALUE,
+      hintColor: SETTINGS_INVESTMENT_HINT,
+      plusColor: SETTINGS_INVESTMENT_VALUE,
     };
   }
   return {
     cardBg: BRAND_GREEN,
-    borderColor: "rgba(11,46,62,0.16)",
-    iconBg: "rgba(8,44,66,0.16)",
-    titleColor: "#0b2e3e",
-    valueColor: "#071f34",
-    hintColor: "#123e56",
-    plusColor: "#071f34",
+    borderColor: SETTINGS_SAVINGS_BORDER,
+    iconBg: SETTINGS_SAVINGS_ICON_BG,
+    titleColor: SETTINGS_SAVINGS_TITLE,
+    valueColor: SETTINGS_SAVINGS_VALUE,
+    hintColor: SETTINGS_SAVINGS_HINT,
+    plusColor: SETTINGS_SAVINGS_VALUE,
   };
 }
 

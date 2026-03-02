@@ -244,50 +244,13 @@ export async function getOnboardingForUser(userId: string) {
     return Boolean(income) && Boolean(expense);
   };
 
-  const hasAnyExistingFinancialData = async (): Promise<boolean> => {
-    const hasAnyPlan = await prisma.budgetPlan.findFirst({ where: { userId }, select: { id: true } });
-    if (!hasAnyPlan) return false;
-
-    const [incomeAny, debtAny, goalAny, expenseAny] = await Promise.all([
-      prisma.income.findFirst({
-        where: { budgetPlan: { userId } },
-        select: { id: true },
-      }),
-      prisma.debt.findFirst({
-        where: { budgetPlan: { userId } },
-        select: { id: true },
-      }),
-      prisma.goal.findFirst({
-        where: { budgetPlan: { userId } },
-        select: { id: true },
-      }),
-      (async () => {
-        try {
-          return await prisma.expense.findFirst({
-            where: { budgetPlan: { userId }, isAllocation: false },
-            select: { id: true },
-          });
-        } catch (err) {
-          if (!isPrismaValidationError(err, "isAllocation")) throw err;
-          return prisma.expense.findFirst({
-            where: { budgetPlan: { userId } },
-            select: { id: true },
-          });
-        }
-      })(),
-    ]);
-
-    return Boolean(incomeAny || expenseAny || debtAny || goalAny);
-  };
-
   const hasBasics = await hasBasicSetup();
-  const hasExistingFinancialData = await hasAnyExistingFinancialData();
-  const shouldBypassOnboarding = hasBasics || hasExistingFinancialData || userIsOnboarded === true;
+  const shouldBypassOnboarding = hasBasics || userIsOnboarded === true;
 
   // Fully configured users (income + expenses exist) should never be blocked by onboarding,
   // even if they predate the onboarding profile.
   if (shouldBypassOnboarding) {
-    if (userIsOnboarded !== true && (hasBasics || hasExistingFinancialData)) {
+    if (userIsOnboarded !== true && hasBasics) {
       await setUserIsOnboardedTrue();
     }
     if (!profile) {

@@ -16,6 +16,31 @@ bun dev
 
 Open [http://localhost:5537](http://localhost:5537) with your browser to see the result.
 
+## Onboarding Maintenance
+
+Reset users who are only partially set up (treated as new users so onboarding runs again):
+
+```bash
+npm run onboarding:reset-partials
+```
+
+Apply changes:
+
+```bash
+npm run onboarding:reset-partials -- --apply
+```
+
+Optional flags:
+
+- `--target <username>`: target username/email-local-part for suspicious-expense cleanup (default: `_tblair`)
+- `--amount <value>`: suspicious uncategorized amount to remove for target user (default: `525`)
+
+Example:
+
+```bash
+npm run onboarding:reset-partials -- --apply --target _tblair --amount 525
+```
+
 ## Environment Variables
 
 This app uses NextAuth and requires a secret in production.

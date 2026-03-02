@@ -11,6 +11,7 @@ type Props = {
   currency?: string | null;
   value: string;
   onChangeValue: (next: string) => void;
+  variant?: "default" | "light";
   placeholder?: string;
   keyboardType?: TextInputProps["keyboardType"];
   containerStyle?: any;
@@ -21,6 +22,7 @@ export default function MoneyInput({
   currency,
   value,
   onChangeValue,
+  variant = "default",
   placeholder = "0.00",
   keyboardType = "decimal-pad",
   containerStyle,
@@ -51,11 +53,14 @@ export default function MoneyInput({
   }, [value, focused]);
 
   const showClear = editable && (value ?? "").trim().length > 0;
+  const isLight = variant === "light";
+  const resolvedPlaceholderColor =
+    placeholderTextColor ?? (isLight ? (styles.placeholderLight.color as string) : (styles.placeholder.color as string));
 
   return (
-    <View style={[styles.wrap, containerStyle, !editable && styles.disabled]}>
-      <View style={styles.currencyBox}>
-        <Text style={styles.currencyText}>{sym}</Text>
+    <View style={[styles.wrap, isLight && styles.wrapLight, containerStyle, !editable && styles.disabled]}>
+      <View style={[styles.currencyBox, isLight && styles.currencyBoxLight]}>
+        <Text style={[styles.currencyText, isLight && styles.currencyTextLight]}>{sym}</Text>
       </View>
 
       <TextInput
@@ -70,8 +75,8 @@ export default function MoneyInput({
         numberOfLines={1}
         allowFontScaling={false}
         placeholder={placeholder}
-        placeholderTextColor={placeholderTextColor ?? styles.placeholder.color}
-        style={[styles.input, inputStyle]}
+        placeholderTextColor={resolvedPlaceholderColor}
+        style={[styles.input, isLight && styles.inputLight, inputStyle]}
         editable={editable}
         onFocus={(e) => {
           setFocused(true);
@@ -91,7 +96,7 @@ export default function MoneyInput({
         {...rest}
       />
 
-      <View style={styles.rightBox}>
+      <View style={[styles.rightBox, isLight && styles.rightBoxLight]}>
         {showClear ? (
           <Pressable
             onPress={() => {
@@ -101,9 +106,9 @@ export default function MoneyInput({
             hitSlop={10}
             accessibilityRole="button"
             accessibilityLabel="Clear amount"
-            style={({ pressed }) => [styles.clearBtn, pressed && styles.clearBtnPressed]}
+            style={({ pressed }) => [styles.clearBtn, isLight && styles.clearBtnLight, pressed && styles.clearBtnPressed]}
           >
-            <Ionicons name="close" size={13} color={styles.clearIcon.color as string} />
+            <Ionicons name="close" size={13} color={isLight ? (styles.clearIconLight.color as string) : (styles.clearIcon.color as string)} />
           </Pressable>
         ) : null}
       </View>

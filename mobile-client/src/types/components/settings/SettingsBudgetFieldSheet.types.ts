@@ -4,6 +4,7 @@ import type { BillFrequency, BudgetField, PayFrequency } from "@/types/settings"
 
 export type SettingsBudgetFieldSheetProps = {
   field: BudgetField | null;
+  keyboardOffset: number;
   translateY: Animated.Value;
   panHandlers: Record<string, unknown>;
   payDateDraft: string;

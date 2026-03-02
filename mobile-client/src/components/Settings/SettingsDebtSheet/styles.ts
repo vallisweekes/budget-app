@@ -1,5 +1,6 @@
 import { StyleSheet } from "react-native";
 
+import { SETTINGS_MODAL_BACKDROP } from "@/lib/constants";
 import { T } from "@/lib/theme";
 
 export const styles = StyleSheet.create({
@@ -71,7 +72,7 @@ export const styles = StyleSheet.create({
   sheetOverlay: {
     flex: 1,
     justifyContent: "flex-end",
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: SETTINGS_MODAL_BACKDROP,
   },
   sheetScroll: {
     flex: 1,

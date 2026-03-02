@@ -1,4 +1,5 @@
 import React from "react";
+import { Platform } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import SettingsBudgetFieldSheet from "@/components/Settings/SettingsBudgetFieldSheet";
@@ -10,10 +11,13 @@ import { asMoneyNumber, asMoneyText, BILL_FREQUENCY_OPTIONS, getSavingsFieldTitl
 import type { SettingsModalStackEditorsProps } from "@/types/components/settings/SettingsModalStackEditors.types";
 
 export default function SettingsModalStackEditors({ controller }: SettingsModalStackEditorsProps) {
+  const keyboardOffset = Platform.OS === "ios" ? Math.max(0, controller.topHeaderOffset - controller.insets.top) : 0;
+
   return (
     <>
       <SettingsDetailsSheet
         visible={controller.detailsSheetOpen}
+        keyboardOffset={keyboardOffset}
         translateY={controller.detailsSheetDragY}
         panHandlers={controller.detailsSheetPanHandlers as Record<string, unknown>}
         username={controller.profile?.username ?? controller.authUsername ?? ""}
@@ -26,6 +30,7 @@ export default function SettingsModalStackEditors({ controller }: SettingsModalS
 
       <SettingsBudgetFieldSheet
         field={controller.budgetFieldSheet}
+        keyboardOffset={keyboardOffset}
         translateY={controller.budgetFieldSheetDragY}
         panHandlers={controller.budgetFieldSheetPanHandlers as Record<string, unknown>}
         payDateDraft={controller.payDateDraft}
@@ -45,6 +50,7 @@ export default function SettingsModalStackEditors({ controller }: SettingsModalS
 
       <SavingsEditorSheet
         visible={controller.savingsSheetField !== null}
+        keyboardOffset={keyboardOffset}
         mode={controller.savingsSheetMode}
         field={controller.savingsSheetField}
         icon={controller.savingsSheetIcon as React.ComponentProps<typeof Ionicons>["name"]}
@@ -69,6 +75,7 @@ export default function SettingsModalStackEditors({ controller }: SettingsModalS
 
       <SettingsLocaleSheet
         visible={controller.localeSheetOpen}
+        keyboardOffset={keyboardOffset}
         translateY={controller.localeSheetDragY}
         panHandlers={controller.localeSheetPanHandlers as Record<string, unknown>}
         countryDraft={controller.countryDraft}

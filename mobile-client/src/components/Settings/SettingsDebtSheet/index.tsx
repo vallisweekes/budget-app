@@ -38,7 +38,14 @@ export default function SettingsDebtSheet(props: SettingsDebtSheetProps) {
             <View style={styles.sheetHandle} {...panHandlers} />
             <Text style={styles.sheetTitle}>{title}</Text>
             <View style={styles.sheetBody}>
-              <ScrollView style={styles.sheetScroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={styles.sheetScrollContent}>
+              <ScrollView
+                style={styles.sheetScroll}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+                automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.sheetScrollContent}
+              >
                 <Text style={styles.label}>Name</Text>
                 <TextInput value={name} onChangeText={onChangeName} style={styles.input} />
 

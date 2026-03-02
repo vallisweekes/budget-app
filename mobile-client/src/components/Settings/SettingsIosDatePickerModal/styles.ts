@@ -1,9 +1,10 @@
 import { StyleSheet } from "react-native";
 
+import { SETTINGS_DATE_MODAL_BACKDROP } from "@/lib/constants";
 import { T } from "@/lib/theme";
 
 export const styles = StyleSheet.create({
-  dateModalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.55)" },
+  dateModalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: SETTINGS_DATE_MODAL_BACKDROP },
   dateModalCancelTxt: { color: T.textDim, fontSize: 16, fontWeight: "700" },
   dateModalDoneTxt: { color: T.accent, fontSize: 16, fontWeight: "800" },
   dateModalHeader: {

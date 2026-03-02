@@ -1,13 +1,13 @@
 import { StyleSheet } from "react-native";
 
-import { BRAND_BLUE } from "@/lib/constants";
+import { BRAND_BLUE, SETTINGS_EDITOR_DELETE_BORDER, SETTINGS_EDITOR_DOCK_BORDER, SETTINGS_EDITOR_STAT_BG, SETTINGS_EDITOR_STAT_BORDER, SETTINGS_EDITOR_STAT_LABEL, SETTINGS_EDITOR_TOP_BORDER, SETTINGS_MODAL_BACKDROP, SETTINGS_WHITE } from "@/lib/constants";
 import { T } from "@/lib/theme";
 
 export const styles = StyleSheet.create({
 	sheetOverlay: {
 		flex: 1,
 		justifyContent: "flex-end",
-		backgroundColor: "rgba(0,0,0,0.5)",
+		backgroundColor: SETTINGS_MODAL_BACKDROP,
 	},
 	sheet: {
 		backgroundColor: T.card,
@@ -26,7 +26,7 @@ export const styles = StyleSheet.create({
 	},
 	moneyEditorSheet: {
 		backgroundColor: BRAND_BLUE,
-		borderTopColor: "rgba(255,255,255,0.14)",
+		borderTopColor: SETTINGS_EDITOR_TOP_BORDER,
 	},
 	sheetHandle: {
 		alignSelf: "center",
@@ -35,6 +35,10 @@ export const styles = StyleSheet.create({
 		borderRadius: 999,
 		backgroundColor: T.border,
 		marginBottom: 4,
+	},
+	sheetKeyboardWrap: {
+		flex: 1,
+		justifyContent: "flex-end",
 	},
 	sheetTitle: { color: T.text, fontSize: 18, fontWeight: "900", marginBottom: 6 },
 	sheetBody: {
@@ -91,15 +95,15 @@ export const styles = StyleSheet.create({
 		flex: 1,
 		borderRadius: 12,
 		borderWidth: 1,
-		borderColor: "rgba(255,255,255,0.22)",
-		backgroundColor: "rgba(88,64,190,0.58)",
+		borderColor: SETTINGS_EDITOR_STAT_BORDER,
+		backgroundColor: SETTINGS_EDITOR_STAT_BG,
 		paddingVertical: 10,
 		paddingHorizontal: 12,
 		alignItems: "center",
 		gap: 2,
 	},
 	moneyEditorStatLabel: {
-		color: "rgba(255,255,255,0.75)",
+		color: SETTINGS_EDITOR_STAT_LABEL,
 		fontSize: 12,
 		fontWeight: "700",
 	},
@@ -129,14 +133,14 @@ export const styles = StyleSheet.create({
 	},
 	moneyEditorDockedActions: {
 		backgroundColor: BRAND_BLUE,
-		borderTopColor: "rgba(255,255,255,0.2)",
+		borderTopColor: SETTINGS_EDITOR_DOCK_BORDER,
 	},
 	moneyDeleteBtn: {
 		flex: 1,
 		borderRadius: 10,
 		borderWidth: 1,
-		borderColor: "rgba(255,255,255,0.85)",
-		backgroundColor: "#ffffff",
+		borderColor: SETTINGS_EDITOR_DELETE_BORDER,
+		backgroundColor: SETTINGS_WHITE,
 		paddingVertical: 12,
 		alignItems: "center",
 	},

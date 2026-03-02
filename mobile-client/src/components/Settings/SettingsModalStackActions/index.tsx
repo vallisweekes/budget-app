@@ -57,6 +57,7 @@ export default function SettingsModalStackActions({ controller }: SettingsModalS
 
       <SettingsCreatePlanSheet
         visible={controller.createPlanSheetOpen}
+        keyboardOffset={Platform.OS === "ios" ? Math.max(0, controller.topHeaderOffset - controller.insets.top) : 0}
         translateY={controller.createPlanSheetDragY}
         panHandlers={controller.createPlanSheetPanHandlers as Record<string, unknown>}
         newPlanType={controller.newPlanType}
