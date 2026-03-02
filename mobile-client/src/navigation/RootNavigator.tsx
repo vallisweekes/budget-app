@@ -127,6 +127,14 @@ function RootTopHeader({ navigation }: { navigation: any }) {
     }, 0);
   }, []);
 
+  const buildNotificationId = useCallback((notification: { request?: { identifier?: string; content?: { title?: string | null; body?: string | null } } }) => {
+    const explicit = notification?.request?.identifier;
+    if (typeof explicit === "string" && explicit.trim()) return explicit.trim();
+    const title = String(notification?.request?.content?.title ?? "BudgetIn Check").trim();
+    const body = String(notification?.request?.content?.body ?? "").trim();
+    return `local:${title}::${body}`;
+  }, []);
+
   const loadPendingCount = useCallback(async () => {
     const now = new Date();
     const month = now.getMonth() + 1;
@@ -135,11 +143,13 @@ function RootTopHeader({ navigation }: { navigation: any }) {
       const data = await apiFetch<IncomeSacrificeData>(`/api/bff/income-sacrifice?month=${month}&year=${year}`, {
         cacheTtlMs: 2_000,
       });
-      setIncomePendingCount(getPendingCount(data));
-      setPendingBudgetPlanId(typeof data.budgetPlanId === "string" && data.budgetPlanId.trim() ? data.budgetPlanId : null);
+      const nextCount = getPendingCount(data);
+      const nextPlanId = typeof data.budgetPlanId === "string" && data.budgetPlanId.trim() ? data.budgetPlanId : null;
+      setIncomePendingCount((prev) => (prev === nextCount ? prev : nextCount));
+      setPendingBudgetPlanId((prev) => (prev === nextPlanId ? prev : nextPlanId));
     } catch {
-      setIncomePendingCount(0);
-      setPendingBudgetPlanId(null);
+      setIncomePendingCount((prev) => (prev === 0 ? prev : 0));
+      setPendingBudgetPlanId((prev) => (prev === null ? prev : null));
     }
   }, [getPendingCount]);
 
@@ -358,7 +368,8 @@ function RootTopHeader({ navigation }: { navigation: any }) {
 
   useEffect(() => {
     const unsubscribe = subscribeNotificationInbox((snapshot) => {
-      setHasNotificationDot(snapshot.unreadCount > 0);
+      const next = snapshot.unreadCount > 0;
+      setHasNotificationDot((prev) => (prev === next ? prev : next));
     });
 
     return unsubscribe;
@@ -366,11 +377,10 @@ function RootTopHeader({ navigation }: { navigation: any }) {
 
   useEffect(() => {
     const appendFromNotification = (notification: { request?: { identifier?: string; content?: { title?: string | null; body?: string | null } } }) => {
-      const identifier = notification?.request?.identifier;
       const title = notification?.request?.content?.title ?? "BudgetIn Check";
       const body = notification?.request?.content?.body ?? "";
       void appendNotificationInboxItem({
-        id: typeof identifier === "string" ? identifier : null,
+        id: buildNotificationId(notification),
         title,
         body,
       });
@@ -396,7 +406,7 @@ function RootTopHeader({ navigation }: { navigation: any }) {
       received.remove();
       response.remove();
     };
-  }, []);
+  }, [buildNotificationId]);
 
   const openIncome = () => {
     const now = new Date();
@@ -606,6 +616,14 @@ function MainTabs() {
     }, 0);
   }, []);
 
+  const buildNotificationId = useCallback((notification: { request?: { identifier?: string; content?: { title?: string | null; body?: string | null } } }) => {
+    const explicit = notification?.request?.identifier;
+    if (typeof explicit === "string" && explicit.trim()) return explicit.trim();
+    const title = String(notification?.request?.content?.title ?? "BudgetIn Check").trim();
+    const body = String(notification?.request?.content?.body ?? "").trim();
+    return `local:${title}::${body}`;
+  }, []);
+
   const loadPendingCount = useCallback(async () => {
     const now = new Date();
     const month = now.getMonth() + 1;
@@ -614,11 +632,13 @@ function MainTabs() {
       const data = await apiFetch<IncomeSacrificeData>(`/api/bff/income-sacrifice?month=${month}&year=${year}`, {
         cacheTtlMs: 2_000,
       });
-      setIncomePendingCount(getPendingCount(data));
-      setPendingBudgetPlanId(typeof data.budgetPlanId === "string" && data.budgetPlanId.trim() ? data.budgetPlanId : null);
+      const nextCount = getPendingCount(data);
+      const nextPlanId = typeof data.budgetPlanId === "string" && data.budgetPlanId.trim() ? data.budgetPlanId : null;
+      setIncomePendingCount((prev) => (prev === nextCount ? prev : nextCount));
+      setPendingBudgetPlanId((prev) => (prev === nextPlanId ? prev : nextPlanId));
     } catch {
-      setIncomePendingCount(0);
-      setPendingBudgetPlanId(null);
+      setIncomePendingCount((prev) => (prev === 0 ? prev : 0));
+      setPendingBudgetPlanId((prev) => (prev === null ? prev : null));
     }
   }, [getPendingCount]);
 
@@ -628,7 +648,8 @@ function MainTabs() {
 
   useEffect(() => {
     const unsubscribe = subscribeNotificationInbox((snapshot) => {
-      setHasNotificationDot(snapshot.unreadCount > 0);
+      const next = snapshot.unreadCount > 0;
+      setHasNotificationDot((prev) => (prev === next ? prev : next));
     });
 
     return unsubscribe;
@@ -636,11 +657,10 @@ function MainTabs() {
 
   useEffect(() => {
     const appendFromNotification = (notification: { request?: { identifier?: string; content?: { title?: string | null; body?: string | null } } }) => {
-      const identifier = notification?.request?.identifier;
       const title = notification?.request?.content?.title ?? "BudgetIn Check";
       const body = notification?.request?.content?.body ?? "";
       void appendNotificationInboxItem({
-        id: typeof identifier === "string" ? identifier : null,
+        id: buildNotificationId(notification),
         title,
         body,
       });
@@ -666,7 +686,7 @@ function MainTabs() {
       received.remove();
       response.remove();
     };
-  }, []);
+  }, [buildNotificationId]);
 
   return (
     <Tab.Navigator

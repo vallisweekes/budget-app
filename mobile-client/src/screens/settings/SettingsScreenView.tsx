@@ -45,6 +45,8 @@ import {
 } from "@/lib/notificationInbox";
 import type { MainTabScreenProps } from "@/navigation/types";
 import DeleteConfirmSheet from "@/components/Shared/DeleteConfirmSheet";
+import MoneyInput from "@/components/Shared/MoneyInput";
+import DatePickerInput from "@/components/Shared/DatePickerInput";
 import SettingsDebtGroups from "@/components/Settings/SettingsDebtGroups";
 import { useSettingsDebtBuckets } from "@/lib/hooks/useSettingsDebtBuckets";
 
@@ -1443,7 +1445,7 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
             <View style={styles.sheetHandle} {...savingsSheetPanHandlers} />
             <Text style={styles.sheetTitle}>Add to {savingsSheetField ?? ""} balance</Text>
             <Text style={styles.label}>Additional amount</Text>
-            <TextInput value={savingsValueDraft} onChangeText={setSavingsValueDraft} style={styles.input} keyboardType="decimal-pad" />
+            <MoneyInput currency={settings?.currency} value={savingsValueDraft} onChangeValue={setSavingsValueDraft} />
             <Text style={styles.muted}>This adds to your current balance and updates matching goal progress.</Text>
             <View style={styles.sheetActions}>
               <Pressable style={styles.outlineBtnWide} onPress={closeSavingsSheet}><Text style={styles.outlineBtnText}>Cancel</Text></Pressable>
@@ -1480,11 +1482,11 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
             <View style={styles.twoColRow}>
               <View style={styles.halfCol}>
                 <Text style={styles.label}>Current balance</Text>
-                <TextInput value={editDebtBalance} onChangeText={setEditDebtBalance} style={styles.input} keyboardType="decimal-pad" />
+                <MoneyInput currency={settings?.currency} value={editDebtBalance} onChangeValue={setEditDebtBalance} />
               </View>
               <View style={styles.halfCol}>
                 <Text style={styles.label}>Paid so far (optional)</Text>
-                <TextInput value={editDebtHistoricalPaid} onChangeText={setEditDebtHistoricalPaid} style={styles.input} keyboardType="decimal-pad" />
+                <MoneyInput currency={settings?.currency} value={editDebtHistoricalPaid} onChangeValue={setEditDebtHistoricalPaid} />
               </View>
             </View>
 
@@ -1493,11 +1495,11 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
                 <View style={styles.twoColRow}>
                   <View style={styles.halfCol}>
                     <Text style={styles.label}>Initial amount</Text>
-                    <TextInput value={editDebtInitialBalance} onChangeText={setEditDebtInitialBalance} style={styles.input} keyboardType="decimal-pad" />
+                    <MoneyInput currency={settings?.currency} value={editDebtInitialBalance} onChangeValue={setEditDebtInitialBalance} />
                   </View>
                   <View style={styles.halfCol}>
                     <Text style={styles.label}>Monthly payment</Text>
-                    <TextInput value={editDebtMonthlyPayment} onChangeText={setEditDebtMonthlyPayment} style={styles.input} keyboardType="decimal-pad" />
+                    <MoneyInput currency={settings?.currency} value={editDebtMonthlyPayment} onChangeValue={setEditDebtMonthlyPayment} />
                   </View>
                 </View>
 
@@ -1513,12 +1515,13 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
                 </View>
 
                 <Text style={styles.label}>1st payment date (calendar, optional)</Text>
-                <Pressable style={[styles.input, styles.dateInput]} onPress={openEditAgreementDatePicker}>
-                  <Text style={[styles.dateValue, !editDebtAgreementFirstPaymentDate && styles.dateValuePlaceholder]}>
-                    {editDebtAgreementFirstPaymentDate ? formatDateDmy(editDebtAgreementFirstPaymentDate) : "Select date"}
-                  </Text>
-                  <Ionicons name="calendar-outline" size={18} color={T.accent} />
-                </Pressable>
+                <DatePickerInput
+                  containerStyle={[styles.input, styles.dateInput]}
+                  onPress={openEditAgreementDatePicker}
+                  value={editDebtAgreementFirstPaymentDate ? formatDateDmy(editDebtAgreementFirstPaymentDate) : ""}
+                  valueStyle={styles.dateValue}
+                  placeholderStyle={styles.dateValuePlaceholder}
+                />
 
                 <View style={styles.twoColRow}>
                   <View style={styles.halfCol}>
@@ -1527,7 +1530,7 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
                   </View>
                   <View style={styles.halfCol}>
                     <Text style={styles.label}>Missed payment fee (optional)</Text>
-                    <TextInput value={editDebtAgreementMissedFee} onChangeText={setEditDebtAgreementMissedFee} style={styles.input} keyboardType="decimal-pad" />
+                    <MoneyInput currency={settings?.currency} value={editDebtAgreementMissedFee} onChangeValue={setEditDebtAgreementMissedFee} />
                   </View>
                 </View>
               </>
@@ -1535,7 +1538,7 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
             {editDebtType === "credit_card" ? (
               <>
                 <Text style={styles.label}>Credit limit</Text>
-                <TextInput value={editDebtLimit} onChangeText={setEditDebtLimit} style={styles.input} keyboardType="decimal-pad" />
+                <MoneyInput currency={settings?.currency} value={editDebtLimit} onChangeValue={setEditDebtLimit} />
               </>
             ) : null}
             <View style={styles.sheetActions}>
@@ -1590,11 +1593,11 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
             <View style={styles.twoColRow}>
               <View style={styles.halfCol}>
                 <Text style={styles.label}>Current balance</Text>
-                <TextInput value={addDebtBalance} onChangeText={setAddDebtBalance} style={styles.input} keyboardType="decimal-pad" />
+                <MoneyInput currency={settings?.currency} value={addDebtBalance} onChangeValue={setAddDebtBalance} />
               </View>
               <View style={styles.halfCol}>
                 <Text style={styles.label}>Paid so far (optional)</Text>
-                <TextInput value={addDebtHistoricalPaid} onChangeText={setAddDebtHistoricalPaid} style={styles.input} keyboardType="decimal-pad" />
+                <MoneyInput currency={settings?.currency} value={addDebtHistoricalPaid} onChangeValue={setAddDebtHistoricalPaid} />
               </View>
             </View>
 
@@ -1649,11 +1652,11 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
                 <View style={styles.twoColRow}>
                   <View style={styles.halfCol}>
                     <Text style={styles.label}>Initial amount</Text>
-                    <TextInput value={addDebtInitialBalance} onChangeText={setAddDebtInitialBalance} style={styles.input} keyboardType="decimal-pad" />
+                    <MoneyInput currency={settings?.currency} value={addDebtInitialBalance} onChangeValue={setAddDebtInitialBalance} />
                   </View>
                   <View style={styles.halfCol}>
                     <Text style={styles.label}>Monthly payment</Text>
-                    <TextInput value={addDebtMonthlyPayment} onChangeText={setAddDebtMonthlyPayment} style={styles.input} keyboardType="decimal-pad" />
+                    <MoneyInput currency={settings?.currency} value={addDebtMonthlyPayment} onChangeValue={setAddDebtMonthlyPayment} />
                   </View>
                 </View>
 
@@ -1661,12 +1664,13 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
                 <TextInput value={addDebtInterestRate} onChangeText={setAddDebtInterestRate} style={styles.input} keyboardType="decimal-pad" />
 
                 <Text style={styles.label}>1st payment date (calendar, optional)</Text>
-                <Pressable style={[styles.input, styles.dateInput]} onPress={openAddAgreementDatePicker}>
-                  <Text style={[styles.dateValue, !addDebtAgreementFirstPaymentDate && styles.dateValuePlaceholder]}>
-                    {addDebtAgreementFirstPaymentDate ? formatDateDmy(addDebtAgreementFirstPaymentDate) : "Select date"}
-                  </Text>
-                  <Ionicons name="calendar-outline" size={18} color={T.accent} />
-                </Pressable>
+                <DatePickerInput
+                  containerStyle={[styles.input, styles.dateInput]}
+                  onPress={openAddAgreementDatePicker}
+                  value={addDebtAgreementFirstPaymentDate ? formatDateDmy(addDebtAgreementFirstPaymentDate) : ""}
+                  valueStyle={styles.dateValue}
+                  placeholderStyle={styles.dateValuePlaceholder}
+                />
 
                 <View style={styles.twoColRow}>
                   <View style={styles.halfCol}>
@@ -1675,7 +1679,7 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
                   </View>
                   <View style={styles.halfCol}>
                     <Text style={styles.label}>Missed payment fee (optional)</Text>
-                    <TextInput value={addDebtAgreementMissedFee} onChangeText={setAddDebtAgreementMissedFee} style={styles.input} keyboardType="decimal-pad" />
+                    <MoneyInput currency={settings?.currency} value={addDebtAgreementMissedFee} onChangeValue={setAddDebtAgreementMissedFee} />
                   </View>
                 </View>
               </>
@@ -1683,7 +1687,7 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
             {addDebtType === "credit_card" ? (
               <>
                 <Text style={styles.label}>Credit limit</Text>
-                <TextInput value={addDebtLimit} onChangeText={setAddDebtLimit} style={styles.input} keyboardType="decimal-pad" />
+                <MoneyInput currency={settings?.currency} value={addDebtLimit} onChangeValue={setAddDebtLimit} />
               </>
             ) : null}
             <View style={styles.sheetActions}>
@@ -1717,12 +1721,13 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
             <Text style={styles.label}>Plan name</Text>
             <TextInput value={newPlanName} onChangeText={setNewPlanName} style={styles.input} />
             <Text style={styles.label}>Event date (calendar)</Text>
-            <Pressable style={[styles.input, styles.dateInput]} onPress={openPlanEventDatePicker}>
-              <Text style={[styles.dateValue, !newPlanEventDate && styles.dateValuePlaceholder]}>
-                {newPlanEventDate ? formatDateDmy(newPlanEventDate) : "Select date"}
-              </Text>
-              <Ionicons name="calendar-outline" size={18} color={T.accent} />
-            </Pressable>
+            <DatePickerInput
+              containerStyle={[styles.input, styles.dateInput]}
+              onPress={openPlanEventDatePicker}
+              value={newPlanEventDate ? formatDateDmy(newPlanEventDate) : ""}
+              valueStyle={styles.dateValue}
+              placeholderStyle={styles.dateValuePlaceholder}
+            />
 
             {showPlanEventDatePicker && Platform.OS === "android" ? (
               <View style={{ marginBottom: 6 }}>
@@ -1730,6 +1735,7 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
                   value={newPlanEventDate ? new Date(`${newPlanEventDate}T00:00:00`) : new Date()}
                   mode="date"
                   display="calendar"
+                  minimumDate={new Date()}
                   onChange={(event, selectedDate) => {
                     setShowPlanEventDatePicker(false);
                     if (event.type === "set" && selectedDate) setNewPlanEventDate(selectedDate.toISOString().slice(0, 10));
@@ -1763,6 +1769,7 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
           value={editDebtAgreementFirstPaymentDate ? new Date(`${editDebtAgreementFirstPaymentDate}T00:00:00`) : new Date()}
           mode="date"
           display="calendar"
+          minimumDate={new Date()}
           onChange={(event, selectedDate) => {
             setShowEditAgreementDatePicker(false);
             if (event.type === "set" && selectedDate) setEditDebtAgreementFirstPaymentDate(selectedDate.toISOString().slice(0, 10));
@@ -1790,6 +1797,7 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
                 mode="date"
                 display="inline"
                 themeVariant="dark"
+                minimumDate={new Date()}
                 onChange={(event, selectedDate) => {
                   const next =
                     selectedDate ??
@@ -1808,6 +1816,7 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
           value={addDebtAgreementFirstPaymentDate ? new Date(`${addDebtAgreementFirstPaymentDate}T00:00:00`) : new Date()}
           mode="date"
           display="calendar"
+          minimumDate={new Date()}
           onChange={(event, selectedDate) => {
             setShowAddAgreementDatePicker(false);
             if (event.type === "set" && selectedDate) setAddDebtAgreementFirstPaymentDate(selectedDate.toISOString().slice(0, 10));
@@ -1835,6 +1844,7 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
                 mode="date"
                 display="inline"
                 themeVariant="dark"
+                minimumDate={new Date()}
                 onChange={(event, selectedDate) => {
                   const next =
                     selectedDate ??
@@ -1869,6 +1879,7 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
                 mode="date"
                 display="inline"
                 themeVariant="dark"
+                minimumDate={new Date()}
                 onChange={(event, selectedDate) => {
                   const next =
                     selectedDate ??

@@ -44,6 +44,7 @@ export default function AddDebtFormFieldsGrid({
 	isCardType,
 }: AddDebtFormFieldsGridProps) {
 	const [monthlyMinimumDraft, setMonthlyMinimumDraft] = useState("");
+	const todayIso = new Date().toISOString().slice(0, 10);
 
 	return (
 		<>
@@ -104,6 +105,7 @@ export default function AddDebtFormFieldsGrid({
 						type="date"
 						name="dueDate"
 						value={dueDate}
+						min={todayIso}
 						onChange={(e) => onDueDateChange(e.target.value)}
 						className="w-full px-3 py-1.5 sm:px-4 sm:py-2 bg-slate-900/40 border border-white/10 text-white placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-xs sm:text-sm"
 					/>

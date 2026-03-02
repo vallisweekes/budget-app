@@ -61,6 +61,13 @@ function parseOptionalInt(value: unknown): { ok: true; int: number | null } | { 
   return { ok: false, error: "Invalid number" };
 }
 
+function isPastUtcDateOnly(date: Date): boolean {
+  const target = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const now = new Date();
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  return target.getTime() < today.getTime();
+}
+
 function parseAgreementFirstPaymentDateInput(value: unknown): Date | null {
   if (typeof value !== "string") return null;
   const s = value.trim();
@@ -394,6 +401,9 @@ export async function PATCH(
     if (typeof raw.dueDate !== "undefined") {
       const parsed = parseDueDateInput(raw.dueDate);
       if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
+      if (parsed.dueDate && isPastUtcDateOnly(parsed.dueDate)) {
+        return NextResponse.json({ error: "dueDate cannot be in the past" }, { status: 400 });
+      }
       data.dueDate = parsed.dueDate;
     }
     if (typeof raw.dueDay !== "undefined") {

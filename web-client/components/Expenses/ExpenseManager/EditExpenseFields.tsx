@@ -35,6 +35,7 @@ export default function EditExpenseFields({
 		...categories.map((c) => ({ value: c.id, label: c.name })),
 		{ value: "", label: "Miscellaneous" },
 	];
+	const todayIso = new Date().toISOString().slice(0, 10);
 
 	return (
 		   <div className="grid grid-cols-2 gap-4">
@@ -70,6 +71,7 @@ export default function EditExpenseFields({
 					   name="dueDate"
 					   type="date"
 					   value={dueDate}
+					   min={todayIso}
 					   onChange={(e) => onDueDateChange(e.target.value)}
 					   className="w-full px-4 py-3 rounded-xl border border-white/10 bg-slate-900/40 text-white placeholder-slate-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/50 focus:outline-none transition-all"
 					   placeholder="Optional (defaults to pay date)"

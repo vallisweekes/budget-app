@@ -11,6 +11,7 @@ import type {
 } from "@/lib/apiTypes";
 import { T } from "@/lib/theme";
 import MoneyInput from "@/components/Shared/MoneyInput";
+import DatePickerInput from "@/components/Shared/DatePickerInput";
 
 import AddExpenseCategoryRow from "@/components/Expenses/AddExpenseCategoryRow";
 import { s, pr } from "@/components/Expenses/AddExpenseSheet.styles";
@@ -62,11 +63,19 @@ export default function AddExpenseSheetFields({
   onPickSuggestion: (s: ExpenseSuggestion) => void;
 }) {
   const [showPicker, setShowPicker] = useState(false);
+  const [showSourceDropdown, setShowSourceDropdown] = useState(false);
   // iOS: hold a draft while the spinner is open
   const [iosDraft, setIosDraft] = useState<Date>(new Date());
   const iosBeforeRef = useRef("");
 
   const dueDateObj = dueDate ? new Date(`${dueDate}T00:00:00`) : new Date();
+  const sourceOptions: { value: ExpensePaymentSource; label: string }[] = [
+    { value: "income", label: "Income" },
+    { value: "credit_card", label: "Credit Card" },
+    { value: "savings", label: "Savings" },
+    { value: "other", label: "Other" },
+  ];
+  const selectedSourceLabel = sourceOptions.find((opt) => opt.value === paymentSource)?.label ?? "Income";
 
   const openPicker = useCallback(() => {
     if (Platform.OS === "ios") {
@@ -167,7 +176,6 @@ export default function AddExpenseSheetFields({
             value={amount}
             onChangeValue={setAmount}
             placeholder="0.00"
-            inputStyle={{ fontSize: 15, fontWeight: "700" }}
             selectionColor={T.accent}
             returnKeyType="done"
           />
@@ -178,14 +186,12 @@ export default function AddExpenseSheetFields({
             Due date <Text style={s.optional}>(optional)</Text>
           </Text>
 
-          <TouchableOpacity style={s.input} onPress={openPicker} activeOpacity={0.7}>
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-              <Text style={dueDate ? { color: T.text, fontSize: 15, fontWeight: "700" } : { color: T.textMuted, fontSize: 15, fontWeight: "700" }}>
-                {dueDate ? isoToDMY(dueDate) : "DD/MM/YYYY"}
-              </Text>
-              <Ionicons name="calendar-outline" size={18} color={T.accent} />
-            </View>
-          </TouchableOpacity>
+          <DatePickerInput
+            containerStyle={s.input}
+            onPress={openPicker}
+            value={dueDate ? isoToDMY(dueDate) : ""}
+            placeholder="DD/MM/YYYY"
+          />
         </View>
       </View>
 
@@ -197,31 +203,57 @@ export default function AddExpenseSheetFields({
       {/* ── Source of Funds ── */}
       <View style={s.fieldGroup}>
         <Text style={s.label}>Source of funds</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={pr.row}>
-          {(
-            [
-              { value: "income",      label: "Income" },
-              { value: "credit_card", label: "Credit Card" },
-              { value: "savings",     label: "Savings" },
-              { value: "other",       label: "Other" },
-            ] as { value: ExpensePaymentSource; label: string }[]
-          ).map((opt) => {
-            const active = paymentSource === opt.value;
-            return (
-              <TouchableOpacity
-                key={opt.value}
-                onPress={() => {
-                  setPaymentSource(opt.value);
-                  if (opt.value !== "credit_card") setCardDebtId("");
-                }}
-                style={[pr.pill, active && pr.pillSelected]}
-                activeOpacity={0.75}
-              >
-                <Text style={[pr.pillTxt, active && pr.pillTxtSelected]}>{opt.label}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+        <View style={{ position: "relative", zIndex: 30 }}>
+          <Pressable style={s.input} onPress={() => setShowSourceDropdown((open) => !open)}>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+              <Text style={{ color: T.text, fontSize: 15, fontWeight: "700" }}>{selectedSourceLabel}</Text>
+              <Ionicons name={showSourceDropdown ? "chevron-up" : "chevron-down"} size={16} color={T.textDim} />
+            </View>
+          </Pressable>
+
+          {showSourceDropdown ? (
+            <View
+              style={{
+                position: "absolute",
+                top: 52,
+                left: 0,
+                right: 0,
+                backgroundColor: T.cardAlt,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: T.border,
+                overflow: "hidden",
+                zIndex: 40,
+                elevation: 8,
+              }}
+            >
+              {sourceOptions.map((opt, idx) => {
+                const active = paymentSource === opt.value;
+                return (
+                  <Pressable
+                    key={opt.value}
+                    onPress={() => {
+                      setPaymentSource(opt.value);
+                      if (opt.value !== "credit_card") setCardDebtId("");
+                      setShowSourceDropdown(false);
+                    }}
+                    style={{
+                      paddingHorizontal: 14,
+                      paddingVertical: 11,
+                      borderBottomWidth: idx === sourceOptions.length - 1 ? 0 : 1,
+                      borderBottomColor: T.border,
+                      backgroundColor: active ? `${T.accent}20` : "transparent",
+                    }}
+                  >
+                    <Text style={{ color: active ? T.accent : T.text, fontSize: 14, fontWeight: active ? "800" : "700" }}>
+                      {opt.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : null}
+        </View>
 
         {/* Card picker — shown only when credit_card is selected and >1 card */}
         {paymentSource === "credit_card" && cards.length > 1 && (
@@ -260,6 +292,7 @@ export default function AddExpenseSheetFields({
           value={dueDateObj}
           mode="date"
           display="calendar"
+          minimumDate={new Date()}
           onChange={(event, selected) => {
             setShowPicker(false);
             if (event.type === "set" && selected) {
@@ -294,12 +327,17 @@ export default function AddExpenseSheetFields({
                 mode="date"
                 display="inline"
                 themeVariant="dark"
+                minimumDate={new Date()}
                 onChange={(event, selected) => {
                   const next =
                     selected ??
                     // Some iOS inline picker versions only provide a timestamp on the event.
                     (event?.nativeEvent?.timestamp ? new Date(event.nativeEvent.timestamp) : null);
-                  if (next) setIosDraft(next);
+                  if (next) {
+                    setIosDraft(next);
+                    setDueDate(next.toISOString().slice(0, 10));
+                    setShowPicker(false);
+                  }
                 }}
                 style={{ height: 340 }}
               />

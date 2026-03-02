@@ -30,6 +30,7 @@ export default function DebtCardEditDetails(props: {
 }) {
 	const pathname = usePathname();
 	const settingsHref = getSettingsHrefFromPathname(pathname);
+	const todayIso = new Date().toISOString().slice(0, 10);
 
 	const {
 		debtType,
@@ -63,6 +64,7 @@ export default function DebtCardEditDetails(props: {
 					<input
 						type="date"
 						value={editDueDate}
+						min={todayIso}
 						onChange={(e) => onEditDueDateChange(e.target.value)}
 						className="w-full px-2 py-1.5 sm:px-3 sm:py-2 bg-slate-900/40 border border-white/10 text-white placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-xs sm:text-sm"
 					/>

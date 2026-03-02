@@ -13,6 +13,7 @@ type Props = {
 };
 
 export default function AddExpenseDetailsFields({ budgetPlanId, categories, planKind, creditCards }: Props) {
+	const todayIso = new Date().toISOString().slice(0, 10);
 	const cards = creditCards ?? [];
 	const [name, setName] = useState("");
 	const [amountDraft, setAmountDraft] = useState("");
@@ -149,6 +150,7 @@ export default function AddExpenseDetailsFields({ budgetPlanId, categories, plan
 					<input
 						name="dueDate"
 						type="date"
+						min={todayIso}
 						className="w-full px-4 py-3 rounded-xl border border-white/10 bg-slate-900/40 text-white placeholder-slate-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/50 focus:outline-none transition-all [color-scheme:dark]"
 					/>
 				</label>

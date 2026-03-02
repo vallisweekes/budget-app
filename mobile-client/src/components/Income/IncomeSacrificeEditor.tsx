@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 
 import type { IncomeSacrificeCustomItem, IncomeSacrificeFixed } from "@/lib/apiTypes";
 import { T } from "@/lib/theme";
 import { fmt } from "@/lib/formatting";
+import MoneyInput from "@/components/Shared/MoneyInput";
 
 type SacrificeType = "allowance" | "savings" | "emergency" | "investment" | "custom";
 
@@ -70,16 +71,16 @@ export default function IncomeSacrificeEditor({
       <View style={s.card}>
         <Text style={s.cardTitle}>Fixed monthly sacrifice</Text>
         <Text style={s.label}>Monthly allowance ({currency})</Text>
-        <TextInput style={s.input} value={String(fixed.monthlyAllowance)} onChangeText={(v) => onChangeFixed("monthlyAllowance", v)} keyboardType="decimal-pad" />
+        <MoneyInput currency={currency} value={String(fixed.monthlyAllowance)} onChangeValue={(v) => onChangeFixed("monthlyAllowance", v)} />
 
         <Text style={s.label}>Savings ({currency})</Text>
-        <TextInput style={s.input} value={String(fixed.monthlySavingsContribution)} onChangeText={(v) => onChangeFixed("monthlySavingsContribution", v)} keyboardType="decimal-pad" />
+        <MoneyInput currency={currency} value={String(fixed.monthlySavingsContribution)} onChangeValue={(v) => onChangeFixed("monthlySavingsContribution", v)} />
 
         <Text style={s.label}>Emergency fund ({currency})</Text>
-        <TextInput style={s.input} value={String(fixed.monthlyEmergencyContribution)} onChangeText={(v) => onChangeFixed("monthlyEmergencyContribution", v)} keyboardType="decimal-pad" />
+        <MoneyInput currency={currency} value={String(fixed.monthlyEmergencyContribution)} onChangeValue={(v) => onChangeFixed("monthlyEmergencyContribution", v)} />
 
         <Text style={s.label}>Investments ({currency})</Text>
-        <TextInput style={s.input} value={String(fixed.monthlyInvestmentContribution)} onChangeText={(v) => onChangeFixed("monthlyInvestmentContribution", v)} keyboardType="decimal-pad" />
+        <MoneyInput currency={currency} value={String(fixed.monthlyInvestmentContribution)} onChangeValue={(v) => onChangeFixed("monthlyInvestmentContribution", v)} />
 
         <Pressable style={[s.saveBtn, saving && s.disabled]} onPress={onSaveFixed} disabled={saving}>
           {saving ? <ActivityIndicator size="small" color={T.onAccent} /> : <Text style={s.saveBtnTxt}>Save fixed</Text>}
@@ -94,12 +95,7 @@ export default function IncomeSacrificeEditor({
           <View key={item.id} style={s.customRow}>
             <View style={{ flex: 1 }}>
               <Text style={s.customName}>{item.name}</Text>
-              <TextInput
-                style={s.input}
-                value={String(item.amount)}
-                onChangeText={(v) => onChangeCustomAmount(item.id, v)}
-                keyboardType="decimal-pad"
-              />
+              <MoneyInput currency={currency} value={String(item.amount)} onChangeValue={(v) => onChangeCustomAmount(item.id, v)} />
             </View>
             <Pressable
               style={[s.deleteBtn, deletingId === item.id && s.disabled]}
@@ -146,14 +142,7 @@ export default function IncomeSacrificeEditor({
         ) : null}
 
         <Text style={s.label}>Amount ({currency})</Text>
-        <TextInput
-          style={s.input}
-          value={newAmount}
-          onChangeText={onSetNewAmount}
-          placeholder="0.00"
-          placeholderTextColor={T.textMuted}
-          keyboardType="decimal-pad"
-        />
+        <MoneyInput currency={currency} value={newAmount} onChangeValue={onSetNewAmount} placeholder="0.00" />
 
         <Pressable style={[s.saveBtn, creating && s.disabled]} onPress={onCreateCustom} disabled={creating}>
           {creating ? <ActivityIndicator size="small" color={T.onAccent} /> : <Text style={s.saveBtnTxt}>Add item</Text>}

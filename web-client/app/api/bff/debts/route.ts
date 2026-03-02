@@ -60,6 +60,13 @@ function parseOptionalInt(value: unknown): { ok: true; int: number | null } | { 
   return { ok: false, error: "Invalid number" };
 }
 
+function isPastUtcDateOnly(date: Date): boolean {
+  const target = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const now = new Date();
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  return target.getTime() < today.getTime();
+}
+
 function parseAgreementFirstPaymentDateInput(value: unknown): Date | null {
   if (typeof value !== "string") return null;
   const s = value.trim();
@@ -171,9 +178,18 @@ export async function POST(request: Request) {
     if (!parsedDueDate.ok) {
       return NextResponse.json({ error: parsedDueDate.error }, { status: 400 });
     }
+    if (!parsedDueDate.dueDate) {
+      return NextResponse.json({ error: "dueDate is required" }, { status: 400 });
+    }
+    if (isPastUtcDateOnly(parsedDueDate.dueDate)) {
+      return NextResponse.json({ error: "dueDate cannot be in the past" }, { status: 400 });
+    }
 
     const parsedDueDay = parseOptionalInt(raw.dueDay);
     if (!parsedDueDay.ok) {
+      return NextResponse.json({ error: "Invalid dueDay" }, { status: 400 });
+    }
+    if (parsedDueDay.int != null && (parsedDueDay.int < 1 || parsedDueDay.int > 31)) {
       return NextResponse.json({ error: "Invalid dueDay" }, { status: 400 });
     }
 
@@ -222,12 +238,33 @@ export async function POST(request: Request) {
     if (!Number.isFinite(initialBalance)) {
       return NextResponse.json({ error: "Invalid initialBalance" }, { status: 400 });
     }
+
+    const isCardDebtType = debtType === "credit_card" || debtType === "store_card";
+    if (isCardDebtType ? initialBalance < 0 : initialBalance <= 0) {
+      return NextResponse.json({ error: "Invalid initialBalance" }, { status: 400 });
+    }
+
     const currentBalanceRaw = toNumber(raw.currentBalance);
     const currentBalance = Number.isFinite(currentBalanceRaw) ? currentBalanceRaw : initialBalance;
+    if (!Number.isFinite(currentBalance) || currentBalance < 0) {
+      return NextResponse.json({ error: "Invalid currentBalance" }, { status: 400 });
+    }
+
     const amount = toNumber(raw.amount);
-    if (!Number.isFinite(amount)) {
+    if (!Number.isFinite(amount) || amount < 0) {
       return NextResponse.json({ error: "Invalid amount" }, { status: 400 });
     }
+
+    if (parsedInstallmentMonths.int != null && parsedInstallmentMonths.int <= 0) {
+      return NextResponse.json({ error: "Invalid installmentMonths" }, { status: 400 });
+    }
+
+    const persistedAmount =
+      parsedInstallmentMonths.int != null && parsedInstallmentMonths.int > 0
+        ? Number((Math.max(0, currentBalance) / parsedInstallmentMonths.int).toFixed(2))
+        : amount;
+
+    const normalizedDueDay = parsedDueDate.dueDate.getUTCDate();
     const paid = typeof raw.paid === "boolean" ? raw.paid : false;
     const sourceType = typeof raw.sourceType === "string" ? raw.sourceType : null;
     const creditLimit = raw.creditLimit == null ? null : toNumber(raw.creditLimit);
@@ -282,7 +319,7 @@ export async function POST(request: Request) {
     if (typeof raw.agreementFirstPaymentDate !== "undefined") {
       const baseline = computeAgreementBaseline({
         initialBalance,
-        monthlyPayment: amount,
+        monthlyPayment: persistedAmount,
         annualInterestRatePct: interestRate,
         installmentMonths: parsedInstallmentMonths.int,
         firstPaymentDate: raw.agreementFirstPaymentDate,
@@ -299,12 +336,12 @@ export async function POST(request: Request) {
       }
 
       const firstPaymentDate = parseAgreementFirstPaymentDateInput(raw.agreementFirstPaymentDate);
-      const monthlyPayment = Math.max(0, amount);
+      const monthlyPayment = Math.max(0, persistedAmount);
       const missedMonthsRaw = toNumber(raw.agreementMissedMonths ?? 0);
       const missedMonths = Number.isFinite(missedMonthsRaw) ? Math.max(0, Math.trunc(missedMonthsRaw)) : 0;
       const dayOfMonth =
-        parsedDueDay.int != null && Number.isFinite(parsedDueDay.int) && parsedDueDay.int > 0
-          ? parsedDueDay.int
+        normalizedDueDay > 0
+          ? normalizedDueDay
           : (firstPaymentDate ? firstPaymentDate.getUTCDate() : 1);
 
       if (sourceType !== "expense" && firstPaymentDate && monthlyPayment > 0 && baseline.paymentsMade > 0) {
@@ -324,7 +361,7 @@ export async function POST(request: Request) {
 					type: debtType,
           initialBalance,
           currentBalance: computedBalanceOverride ?? currentBalance,
-          amount,
+          amount: persistedAmount,
           paid,
 					paidAmount: agreementBackfill ? String(agreementBackfill.paymentsMade * agreementBackfill.monthlyPayment) : String(paidAmount),
           historicalPaidAmount: agreementBackfill ? "0" : String(computedHistoricalOverride ?? historicalPaidAmount),
@@ -332,7 +369,7 @@ export async function POST(request: Request) {
           interestRate: interestRate || null,
           installmentMonths: parsedInstallmentMonths.int,
           dueDate: parsedDueDate.dueDate,
-          dueDay: parsedDueDay.int,
+          dueDay: normalizedDueDay,
           creditLimit: creditLimit || null,
           defaultPaymentSource,
           defaultPaymentCardDebtId,

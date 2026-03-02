@@ -47,7 +47,6 @@ export function IncomeAddForm({ currency, name, amount, setName, setAmount, dist
           onChangeValue={setAmount}
           placeholder="0.00"
           containerStyle={{ width: 150 }}
-          inputStyle={{ fontSize: 16 }}
           returnKeyType="done"
           onSubmitEditing={onAdd}
         />

@@ -62,6 +62,13 @@ function parseIsoDate(iso: string): Date | null {
   return new Date(Date.UTC(y, m - 1, d));
 }
 
+function isPastUtcDateOnly(date: Date): boolean {
+  const target = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const now = new Date();
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  return target.getTime() < today.getTime();
+}
+
 function clampDayUtc(year: number, monthIndex: number, day: number): Date {
   const maxDay = new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
   const clamped = Math.max(1, Math.min(maxDay, Math.floor(day)));
@@ -361,6 +368,11 @@ export async function POST(req: NextRequest) {
   if (!Number.isFinite(amount) || amount < 0) return badRequest("Amount must be a number >= 0");
   if (!Number.isFinite(month) || month < 1 || month > 12) return badRequest("Invalid month");
   if (!Number.isFinite(year) || year < 1900) return badRequest("Invalid year");
+  if (dueDate) {
+    const parsedDueDate = parseIsoDate(dueDate);
+    if (!parsedDueDate) return badRequest("Invalid dueDate");
+    if (isPastUtcDateOnly(parsedDueDate)) return badRequest("dueDate cannot be in the past");
+  }
 
   const createdResult = await createExpense({
     budgetPlanId: ownedBudgetPlanId,

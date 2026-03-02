@@ -28,6 +28,7 @@ export function useDebtDetailController({ debtId, debtName, onDeleted }: Params)
 
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState("");
+  const [editCurrentBalance, setEditCurrentBalance] = useState("");
   const [editRate, setEditRate] = useState("");
   const [editMonthlyPayment, setEditMonthlyPayment] = useState("");
   const [editMin, setEditMin] = useState("");
@@ -39,6 +40,12 @@ export function useDebtDetailController({ debtId, debtName, onDeleted }: Params)
   const [editSaving, setEditSaving] = useState(false);
 
   const currency = currencySymbol(settings?.currency);
+
+  const asTwoDecimals = useCallback((value: unknown): string => {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return "";
+    return n.toFixed(2);
+  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -54,13 +61,14 @@ export function useDebtDetailController({ debtId, debtName, onDeleted }: Params)
       setSettings(appSettings);
       setCards(Array.isArray(cardRows) ? cardRows : []);
       setEditName(detail.name);
-      setEditRate(detail.interestRate != null ? String(detail.interestRate) : "");
+      setEditCurrentBalance(asTwoDecimals(detail.currentBalance));
+      setEditRate(detail.interestRate != null ? asTwoDecimals(detail.interestRate) : "");
       setEditMonthlyPayment(
         detail.computedMonthlyPayment != null
-          ? String(detail.computedMonthlyPayment)
-          : ((detail as any).amount != null ? String((detail as any).amount) : "")
+          ? asTwoDecimals(detail.computedMonthlyPayment)
+          : ((detail as any).amount != null ? asTwoDecimals((detail as any).amount) : "")
       );
-      setEditMin(detail.monthlyMinimum != null ? String(detail.monthlyMinimum) : "");
+      setEditMin(detail.monthlyMinimum != null ? asTwoDecimals(detail.monthlyMinimum) : "");
       setEditInstallment(detail.installmentMonths != null ? String(detail.installmentMonths) : "");
       setEditDueDate(detail.dueDate ? String(detail.dueDate).slice(0, 10) : "");
       setEditPaymentSource(detail.defaultPaymentSource ?? "income");
@@ -71,7 +79,7 @@ export function useDebtDetailController({ debtId, debtName, onDeleted }: Params)
       setLoading(false);
       setRefreshing(false);
     }
-  }, [debtId]);
+  }, [asTwoDecimals, debtId]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -125,6 +133,7 @@ export function useDebtDetailController({ debtId, debtName, onDeleted }: Params)
   }, [payAmount, submitPayment]);
 
   const handleEdit = useCallback(async () => {
+    if (!debt) return;
     const name = editName.trim();
     if (!name) {
       Alert.alert("Name required");
@@ -136,10 +145,40 @@ export function useDebtDetailController({ debtId, debtName, onDeleted }: Params)
       ? (installmentMonthsParsed as number)
       : null;
 
+    const parsedCurrentBalance = editCurrentBalance ? parseFloat(editCurrentBalance) : NaN;
+    if (!Number.isFinite(parsedCurrentBalance) || parsedCurrentBalance < 0) {
+      Alert.alert("Invalid current balance", "Enter a valid current balance.");
+      return;
+    }
+
     if (editPaymentSource === "credit_card" && !editPaymentCardDebtId.trim()) {
       Alert.alert("Card required", "Select the source card for this debt payment.");
       return;
     }
+
+    const parsedMonthlyPayment = editMonthlyPayment ? parseFloat(editMonthlyPayment) : NaN;
+    const parsedInterestRate = editRate ? parseFloat(editRate) : NaN;
+    const nextDueDate = editDueDate || null;
+    const nextDueDay = nextDueDate ? Number.parseInt(nextDueDate.slice(8, 10), 10) : null;
+
+    const optimisticDebt: Debt = {
+      ...debt,
+      name,
+      currentBalance: parsedCurrentBalance.toFixed(2),
+      paid: parsedCurrentBalance <= 0,
+      amount: Number.isFinite(parsedMonthlyPayment) ? parsedMonthlyPayment.toFixed(2) : null,
+      interestRate: Number.isFinite(parsedInterestRate) ? parsedInterestRate.toFixed(2) : null,
+      installmentMonths,
+      dueDate: nextDueDate,
+      dueDay: Number.isFinite(nextDueDay as number) ? (nextDueDay as number) : null,
+      defaultPaymentSource: editPaymentSource,
+      defaultPaymentCardDebtId: editPaymentSource === "credit_card" ? editPaymentCardDebtId.trim() : null,
+      computedMonthlyPayment: Number.isFinite(parsedMonthlyPayment) ? parsedMonthlyPayment : debt.computedMonthlyPayment,
+    };
+
+    const debtSnapshot = debt;
+    setDebt(optimisticDebt);
+    setEditing(false);
 
     try {
       setEditSaving(true);
@@ -147,34 +186,33 @@ export function useDebtDetailController({ debtId, debtName, onDeleted }: Params)
         method: "PATCH",
         body: {
           name,
-          amount: editMonthlyPayment ? parseFloat(editMonthlyPayment) : null,
-          interestRate: editRate ? parseFloat(editRate) : null,
-          monthlyMinimum: editMin ? parseFloat(editMin) : null,
+          currentBalance: Number(parsedCurrentBalance.toFixed(2)),
+          amount: editMonthlyPayment ? Number(parseFloat(editMonthlyPayment).toFixed(2)) : null,
+          interestRate: editRate ? Number(parseFloat(editRate).toFixed(2)) : null,
           installmentMonths,
           dueDate: editDueDate || null,
           defaultPaymentSource: editPaymentSource,
           defaultPaymentCardDebtId: editPaymentSource === "credit_card" ? editPaymentCardDebtId.trim() : null,
         },
       });
-      setEditing(false);
       await load();
     } catch (err: unknown) {
+      setDebt(debtSnapshot);
+      setEditing(true);
       Alert.alert("Update failed", err instanceof Error ? err.message : "Unknown error");
     } finally {
       setEditSaving(false);
     }
-  }, [debtId, editDueDate, editInstallment, editMin, editMonthlyPayment, editName, editPaymentCardDebtId, editPaymentSource, editRate, load]);
+  }, [debt, debtId, editCurrentBalance, editDueDate, editInstallment, editMonthlyPayment, editName, editPaymentCardDebtId, editPaymentSource, editRate, load]);
 
   const confirmDeleteDebt = useCallback(async () => {
+    setDeleteConfirmOpen(false);
+    onDeleted();
+
     try {
-      setDeletingDebt(true);
       await apiFetch(`/api/bff/debts/${debtId}`, { method: "DELETE" });
-      setDeleteConfirmOpen(false);
-      onDeleted();
     } catch (err: unknown) {
       Alert.alert("Delete failed", err instanceof Error ? err.message : "Unknown error");
-    } finally {
-      setDeletingDebt(false);
     }
   }, [debtId, onDeleted]);
 
@@ -272,6 +310,7 @@ export function useDebtDetailController({ debtId, debtName, onDeleted }: Params)
     debt,
     debtName,
     payments,
+    settings,
     currency,
     loading,
     refreshing,
@@ -292,6 +331,8 @@ export function useDebtDetailController({ debtId, debtName, onDeleted }: Params)
     setEditing,
     editName,
     setEditName,
+    editCurrentBalance,
+    setEditCurrentBalance,
     editRate,
     setEditRate,
     editMonthlyPayment,

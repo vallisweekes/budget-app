@@ -23,6 +23,13 @@ function toBool(value: unknown): boolean {
 	return false;
 }
 
+function isPastUtcDateOnly(date: Date): boolean {
+	const target = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+	const now = new Date();
+	const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+	return target.getTime() < today.getTime();
+}
+
 export async function GET(request: Request) {
 	const userId = await getSessionUserId(request);
 	if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
@@ -63,6 +70,9 @@ export async function POST(req: Request) {
 
 	if (rawKind !== "personal" && !eventDate) {
 		return NextResponse.json({ error: "eventDate is required for non-personal plans" }, { status: 400 });
+	}
+	if (eventDate && isPastUtcDateOnly(eventDate)) {
+		return NextResponse.json({ error: "eventDate cannot be in the past" }, { status: 400 });
 	}
 
 	try {

@@ -4,13 +4,17 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { T } from "@/lib/theme";
 import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
 import type { CreditCard } from "@/lib/apiTypes";
+import MoneyInput from "@/components/Shared/MoneyInput";
+import DatePickerInput from "@/components/Shared/DatePickerInput";
 
 const TERM_PRESETS = [2, 3, 6, 12, 24, 36, 48] as const;
 
 type Props = {
   visible: boolean;
   saving: boolean;
+  currency?: string | null;
   name: string;
+  currentBalance: string;
   interestRate: string;
   monthlyPayment: string;
   monthlyMinimum: string;
@@ -23,6 +27,7 @@ type Props = {
   onClose: () => void;
   onSave: () => void;
   onChangeName: (v: string) => void;
+  onChangeCurrentBalance: (v: string) => void;
   onChangeRate: (v: string) => void;
   onChangeMonthlyPayment: (v: string) => void;
   onChangeMin: (v: string) => void;
@@ -36,8 +41,8 @@ type Props = {
 
 export default function EditDebtSheet(props: Props) {
   const {
-    visible, saving, name, interestRate, monthlyPayment, monthlyMinimum, dueDate, installment, paymentSource, paymentCardDebtId, paymentCards, showDatePicker,
-    onClose, onSave, onChangeName, onChangeRate, onChangeMonthlyPayment, onChangeMin,
+    visible, saving, currency, name, currentBalance, interestRate, monthlyPayment, monthlyMinimum, dueDate, installment, paymentSource, paymentCardDebtId, paymentCards, showDatePicker,
+    onClose, onSave, onChangeName, onChangeCurrentBalance, onChangeRate, onChangeMonthlyPayment, onChangeMin,
     onPickDate, onDateChange, onChangePaymentSource, onChangePaymentCardDebtId, onChangeInstallment, onSetShowDatePicker,
   } = props;
 
@@ -46,6 +51,7 @@ export default function EditDebtSheet(props: Props) {
   const iosDueDateBeforeRef = React.useRef<string>("");
   const [iosDueDateDraft, setIosDueDateDraft] = React.useState<Date>(new Date());
   const [customInstallmentMode, setCustomInstallmentMode] = React.useState(false);
+  const [showSourceDropdown, setShowSourceDropdown] = React.useState(false);
 
   const installmentTrim = (installment || "").trim();
   const installmentNum = installmentTrim ? Number.parseInt(installmentTrim, 10) : null;
@@ -88,23 +94,82 @@ export default function EditDebtSheet(props: Props) {
               <TextInput style={s.input} value={name} onChangeText={onChangeName} placeholderTextColor={T.textMuted} />
             </View>
 
+            <View style={s.formGroup}>
+              <Text style={s.inputLabel}>Current balance</Text>
+              <MoneyInput
+                currency={currency}
+                value={currentBalance}
+                onChangeValue={onChangeCurrentBalance}
+                placeholder="0.00"
+              />
+            </View>
+
+            <View style={s.formGroup}>
+              <Text style={s.inputLabel}>Interest Rate % (optional)</Text>
+              <TextInput style={s.input} value={interestRate} onChangeText={onChangeRate} keyboardType="decimal-pad" placeholder="0.00" placeholderTextColor={T.textMuted} />
+            </View>
+
+            <View style={s.formGroup}>
+              <Text style={s.inputLabel}>Monthly payment</Text>
+              <MoneyInput
+                currency={currency}
+                value={monthlyPayment}
+                onChangeValue={onChangeMonthlyPayment}
+                placeholder="0.00"
+              />
+            </View>
+
             <View style={s.formRow}>
-              <View style={s.formGroup}><Text style={s.inputLabel}>Interest Rate %</Text><TextInput style={s.input} value={interestRate} onChangeText={onChangeRate} keyboardType="decimal-pad" placeholder="0.00" placeholderTextColor={T.textMuted} /></View>
-              <View style={s.formGroup}><Text style={s.inputLabel}>Monthly payment</Text><TextInput style={s.input} value={monthlyPayment} onChangeText={onChangeMonthlyPayment} keyboardType="decimal-pad" placeholder="0.00" placeholderTextColor={T.textMuted} /></View>
-            </View>
+              <View style={[s.formGroup, s.formCol]}>
+                <Text style={s.inputLabel}>Due date (calendar)</Text>
+                <DatePickerInput
+                  containerStyle={s.input}
+                  onPress={onPickDate}
+                  value={dueDate ? dueDate.replace(/^(\d{4})-(\d{2})-(\d{2})$/, "$3/$2/$1") : ""}
+                  valueStyle={s.dateValue}
+                  placeholderStyle={s.dateValuePlaceholder}
+                />
+              </View>
 
-            <View style={s.formGroup}>
-              <Text style={s.inputLabel}>Min Monthly (optional)</Text>
-              <TextInput style={s.input} value={monthlyMinimum} onChangeText={onChangeMin} keyboardType="decimal-pad" placeholder="0.00" placeholderTextColor={T.textMuted} />
-            </View>
+              <View style={[s.formGroup, s.formCol]}>
+                <Text style={s.inputLabel}>Payment source</Text>
+                <View style={s.dropdownAnchor}>
+                  <Pressable style={s.input} onPress={() => setShowSourceDropdown((v) => !v)}>
+                    <View style={s.dropdownValueRow}>
+                      <Text style={s.dateValue}>
+                        {paymentSource === "income" ? "Income" : paymentSource === "extra_funds" ? "Extra funds" : "Card"}
+                      </Text>
+                      <Text style={s.dropdownChevron}>{showSourceDropdown ? "▲" : "▼"}</Text>
+                    </View>
+                  </Pressable>
 
-            <View style={s.formGroup}>
-              <Text style={s.inputLabel}>Due date (calendar)</Text>
-              <TouchableOpacity style={s.input} onPress={onPickDate}>
-                <Text style={[s.dateValue, !dueDate && s.dateValuePlaceholder]}>
-                  {dueDate ? dueDate.replace(/^(\d{4})-(\d{2})-(\d{2})$/, "$3/$2/$1") : "Select date"}
-                </Text>
-              </TouchableOpacity>
+                  {showSourceDropdown ? (
+                    <View style={s.dropdownMenu}>
+                      {[
+                        { key: "income", label: "Income" },
+                        { key: "extra_funds", label: "Extra funds" },
+                        { key: "credit_card", label: "Card" },
+                      ].map((opt, idx, arr) => {
+                        const active = paymentSource === opt.key;
+                        const isLast = idx === arr.length - 1;
+                        return (
+                          <Pressable
+                            key={opt.key}
+                            onPress={() => {
+                              onChangePaymentSource(opt.key as "income" | "extra_funds" | "credit_card");
+                              if (opt.key !== "credit_card") onChangePaymentCardDebtId("");
+                              setShowSourceDropdown(false);
+                            }}
+                            style={[s.dropdownItem, isLast && s.dropdownItemLast, active && s.dropdownItemActive]}
+                          >
+                            <Text style={[s.dropdownItemText, active && s.dropdownItemTextActive]}>{opt.label}</Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  ) : null}
+                </View>
+              </View>
             </View>
 
             {showDatePicker ? (
@@ -114,6 +179,7 @@ export default function EditDebtSheet(props: Props) {
                     value={dueDate ? new Date(`${dueDate}T00:00:00`) : new Date()}
                     mode="date"
                     display="calendar"
+                    minimumDate={new Date()}
                     onChange={(event, selectedDate) => {
                       onSetShowDatePicker(false);
                       if (event.type === "set" && selectedDate) onDateChange(selectedDate.toISOString().slice(0, 10));
@@ -147,12 +213,17 @@ export default function EditDebtSheet(props: Props) {
                       mode="date"
                       display="inline"
                       themeVariant="dark"
+                      minimumDate={new Date()}
                       onChange={(event, selectedDate) => {
                         const next =
                           selectedDate ??
                           // Some iOS inline picker versions only provide a timestamp on the event.
                           (event?.nativeEvent?.timestamp ? new Date(event.nativeEvent.timestamp) : null);
-                        if (next) setIosDueDateDraft(next);
+                        if (next) {
+                          setIosDueDateDraft(next);
+                          onDateChange(next.toISOString().slice(0, 10));
+                          onSetShowDatePicker(false);
+                        }
                       }}
                       style={{ height: 340 }}
                     />
@@ -160,28 +231,6 @@ export default function EditDebtSheet(props: Props) {
                 </View>
               </Modal>
             ) : null}
-
-            <View style={s.formGroup}>
-              <Text style={s.inputLabel}>Payment source</Text>
-              <View style={s.sourceRow}>
-                {[
-                  { key: "income", label: "Income" },
-                  { key: "extra_funds", label: "Extra funds" },
-                  { key: "credit_card", label: "Card" },
-                ].map((opt) => {
-                  const active = paymentSource === opt.key;
-                  return (
-                    <Pressable
-                      key={opt.key}
-                      onPress={() => onChangePaymentSource(opt.key as "income" | "extra_funds" | "credit_card")}
-                      style={[s.sourceBtn, active && s.sourceBtnActive]}
-                    >
-                      <Text style={[s.sourceBtnText, active && s.sourceBtnTextActive]}>{opt.label}</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
 
             {paymentSource === "credit_card" ? (
               <View style={s.formGroup}>
@@ -293,7 +342,8 @@ const s = StyleSheet.create({
   sheetScroll: { flex: 1, minHeight: 0 },
   sheetScrollContent: { gap: 10, paddingBottom: 8, flexGrow: 1 },
   sheetHandle: { width: 40, height: 4, borderRadius: 2, alignSelf: "center", backgroundColor: T.border },
-  formGroup: { flex: 1, gap: 8 },
+  formGroup: { gap: 8 },
+  formCol: { flex: 1 },
   formRow: { flexDirection: "row", gap: 12, marginBottom: 2 },
   input: { backgroundColor: T.cardAlt, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 12, color: T.text, fontSize: 14, borderWidth: 1, borderColor: T.border },
   dateValue: { color: T.text, fontSize: 14 },
@@ -312,6 +362,32 @@ const s = StyleSheet.create({
   sourceBtnActive: { borderColor: T.accent, backgroundColor: `${T.accent}2A` },
   sourceBtnText: { color: T.textDim, fontSize: 12, fontWeight: "700" },
   sourceBtnTextActive: { color: T.accent, fontWeight: "800" },
+  dropdownAnchor: { position: "relative", zIndex: 20 },
+  dropdownValueRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  dropdownChevron: { color: T.textDim, fontSize: 11, fontWeight: "800" },
+  dropdownMenu: {
+    position: "absolute",
+    top: 46,
+    left: 0,
+    right: 0,
+    borderWidth: 1,
+    borderColor: T.border,
+    borderRadius: 8,
+    overflow: "hidden",
+    backgroundColor: T.cardAlt,
+    zIndex: 30,
+    elevation: 8,
+  },
+  dropdownItem: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: T.border,
+  },
+  dropdownItemLast: { borderBottomWidth: 0 },
+  dropdownItemActive: { backgroundColor: `${T.accent}20` },
+  dropdownItemText: { color: T.text, fontSize: 13, fontWeight: "700" },
+  dropdownItemTextActive: { color: T.accent, fontWeight: "800" },
   cardPickerWrap: { gap: 8, marginTop: 6 },
   cardPickBtn: {
     borderWidth: 1,

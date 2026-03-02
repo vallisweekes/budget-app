@@ -102,6 +102,13 @@ function parseDateLike(value: unknown): Date | null {
   return null;
 }
 
+function isPastUtcDateOnly(date: Date): boolean {
+  const target = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const now = new Date();
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  return target.getTime() < today.getTime();
+}
+
 function isWithinPaymentEditGrace(lastPaymentAt: Date | null, now = new Date()): boolean {
   if (!lastPaymentAt) return false;
   return now.getTime() - lastPaymentAt.getTime() <= PAYMENT_EDIT_GRACE_MS;
@@ -261,6 +268,9 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   }
   if (body.dueDate !== undefined && dueDateParsed.invalid) {
     return badRequest("dueDate must be an ISO date (YYYY-MM-DD) or ISO datetime");
+  }
+  if (dueDate instanceof Date && isPastUtcDateOnly(dueDate)) {
+    return badRequest("dueDate cannot be in the past");
   }
 
   const existing = await prisma.expense.findUnique({

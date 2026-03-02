@@ -23,6 +23,8 @@ import { resolveCategoryColor } from "@/lib/categoryColors";
 import { T } from "@/lib/theme";
 import { ADD_EXPENSE_SHEET_SCREEN_H, pr, s } from "@/components/Expenses/AddExpenseSheet.styles";
 import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
+import MoneyInput from "@/components/Shared/MoneyInput";
+import DatePickerInput from "@/components/Shared/DatePickerInput";
 
 const { height: SCREEN_H } = Dimensions.get("window");
 
@@ -373,16 +375,14 @@ export default function EditExpenseSheet({
                 <View style={s.halfRow}>
                   <View style={[s.fieldGroup, s.halfCol]}>
                     <Text style={s.label}>Amount ({currency})</Text>
-                    <TextInput
-                      style={s.input}
+                    <MoneyInput
+                      currency={currency}
                       value={amount}
-                      onChangeText={setAmount}
+                      onChangeValue={setAmount}
                       placeholder="0.00"
-                      placeholderTextColor={T.textMuted}
                       selectionColor={T.accent}
-                      keyboardType={Platform.OS === "ios" ? "decimal-pad" : "numeric"}
-                      inputMode="decimal"
                       editable={!submitting}
+                      returnKeyType="done"
                     />
                   </View>
 
@@ -391,20 +391,13 @@ export default function EditExpenseSheet({
                       Due date <Text style={s.optional}>(optional)</Text>
                     </Text>
 
-                    <TouchableOpacity style={s.input} onPress={openPicker} activeOpacity={0.7} disabled={submitting}>
-                      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                        <Text
-                          style={
-                            dueDate
-                              ? { color: T.text, fontSize: 15, fontWeight: "700" }
-                              : { color: T.textMuted, fontSize: 15, fontWeight: "700" }
-                          }
-                        >
-                          {dueDate ? isoToDMY(dueDate) : "DD/MM/YYYY"}
-                        </Text>
-                        <Ionicons name="calendar-outline" size={18} color={T.accent} />
-                      </View>
-                    </TouchableOpacity>
+                    <DatePickerInput
+                      containerStyle={s.input}
+                      onPress={openPicker}
+                      disabled={submitting}
+                      value={dueDate ? isoToDMY(dueDate) : ""}
+                      placeholder="DD/MM/YYYY"
+                    />
                   </View>
                 </View>
 
@@ -536,6 +529,7 @@ export default function EditExpenseSheet({
               value={dueDateObj}
               mode="date"
               display="calendar"
+              minimumDate={new Date()}
               onChange={(event, selected) => {
                 setShowPicker(false);
                 if (event.type === "set" && selected) setDueDate(selected.toISOString().slice(0, 10));
@@ -582,12 +576,17 @@ export default function EditExpenseSheet({
                   mode="date"
                   display="inline"
                   themeVariant="dark"
+                  minimumDate={new Date()}
                   onChange={(event, selected) => {
                     const next =
                       selected ??
                       // Some iOS inline picker versions only provide a timestamp on the event.
                       (event?.nativeEvent?.timestamp ? new Date(event.nativeEvent.timestamp) : null);
-                    if (next) setIosDraft(next);
+                    if (next) {
+                      setIosDraft(next);
+                      setDueDate(next.toISOString().slice(0, 10));
+                      setShowPicker(false);
+                    }
                   }}
                   style={{ height: IOS_INLINE_CALENDAR_H }}
                 />

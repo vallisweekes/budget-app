@@ -16,6 +16,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
@@ -29,6 +30,9 @@ import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
 import type { DebtStackParamList } from "@/navigation/types";
 import { T } from "@/lib/theme";
 import { cardBase, cardElevated } from "@/lib/ui";
+import MoneyInput from "@/components/Shared/MoneyInput";
+import DatePickerInput from "@/components/Shared/DatePickerInput";
+import OverlaySelectInput from "@/components/Shared/OverlaySelectInput";
 import Svg, { G, Path, Defs, LinearGradient, Stop, Circle, Line as SvgLine, Text as SvgText, Rect } from "react-native-svg";
 
 function resolveLogoUri(raw: string | null | undefined): string | null {
@@ -63,6 +67,29 @@ const TYPE_COLORS: Record<string, string> = {
 };
 
 const TERM_PRESETS = [2, 3, 6, 12, 24, 36, 48] as const;
+const PAYMENT_SOURCE_OPTIONS = [
+  { value: "income", label: "Income" },
+  { value: "extra_funds", label: "Extra funds" },
+  { value: "credit_card", label: "Card" },
+] as const;
+
+function formatYmdToDmy(ymd: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd);
+  if (!m) return ymd;
+  return `${m[3]}/${m[2]}/${m[1]}`;
+}
+
+function parseInstallmentMonthlyPayment(balanceRaw: string, monthsRaw: string): string | null {
+  const months = Number.parseInt(monthsRaw.trim(), 10);
+  if (!Number.isFinite(months) || months <= 0) return null;
+
+  const balance = Number.parseFloat(balanceRaw.trim());
+  if (!Number.isFinite(balance) || balance < 0) return null;
+
+  const monthly = balance / months;
+  if (!Number.isFinite(monthly)) return null;
+  return monthly.toFixed(2);
+}
 
 function DebtCard({
   debt,
@@ -189,12 +216,16 @@ export default function DebtScreen() {
   const [addInstallmentMonths, setAddInstallmentMonths] = useState("");
   const [addInstallmentPreset, setAddInstallmentPreset] = useState<number | "custom" | null>(null);
   const [addType, setAddType] = useState("loan");
+  const [addDueDate, setAddDueDate] = useState("");
+  const [showAddDueDatePicker, setShowAddDueDatePicker] = useState(false);
+  const [addDueDateDraft, setAddDueDateDraft] = useState<Date>(new Date());
   const [addPaymentSource, setAddPaymentSource] = useState<"income" | "extra_funds" | "credit_card">("income");
   const [addPaymentCardDebtId, setAddPaymentCardDebtId] = useState("");
   const [saving, setSaving] = useState(false);
 
   const closeAddDebtSheet = useCallback(() => {
     if (saving) return;
+    setShowAddDueDatePicker(false);
     setShowAddForm(false);
   }, [saving]);
 
@@ -206,6 +237,20 @@ export default function DebtScreen() {
   useEffect(() => {
     if (showAddForm) resetAddDebtDrag();
   }, [resetAddDebtDrag, showAddForm]);
+
+  useEffect(() => {
+    if (!showAddDueDatePicker) return;
+    setAddDueDateDraft(addDueDate ? new Date(`${addDueDate}T00:00:00`) : new Date());
+  }, [addDueDate, showAddDueDatePicker]);
+
+  useEffect(() => {
+    const nextMonthly = parseInstallmentMonthlyPayment(addBalance, addInstallmentMonths);
+    if (nextMonthly == null) return;
+    if (addMonthlyPayment !== nextMonthly) {
+      setAddMonthlyPayment(nextMonthly);
+    }
+  }, [addBalance, addInstallmentMonths, addMonthlyPayment]);
+
   const [filter, setFilter] = useState<"active" | "all">("active");
   const [chartWidth, setChartWidth] = useState(320);
   const [selectedProjectionMonth, setSelectedProjectionMonth] = useState<number | null>(null);
@@ -252,6 +297,15 @@ export default function DebtScreen() {
     const interestRate = addInterestRate.trim() ? parseFloat(addInterestRate) : null;
     const installmentMonths = addInstallmentMonths.trim() ? Number.parseInt(addInstallmentMonths, 10) : null;
     if (!name) { Alert.alert("Missing name", "Enter a debt name."); return; }
+    if (!addDueDate.trim()) {
+      Alert.alert("Missing due date", "Select a due date before adding this debt.");
+      return;
+    }
+    const dueDateObj = new Date(`${addDueDate}T00:00:00`);
+    if (!Number.isFinite(dueDateObj.getTime())) {
+      Alert.alert("Invalid due date", "Select a valid due date.");
+      return;
+    }
     if (isNaN(balance) || (isCardType ? balance < 0 : balance <= 0)) {
       Alert.alert("Invalid amount", isCardType ? "Enter a valid balance (0 or more)." : "Enter a valid balance.");
       return;
@@ -293,6 +347,8 @@ export default function DebtScreen() {
           amount: monthlyPayment,
           type: addType,
           budgetPlanId: settings?.id ?? "",
+          dueDate: addDueDate,
+          dueDay: dueDateObj.getUTCDate(),
           creditLimit: isCardType ? creditLimit : null,
           interestRate,
           installmentMonths,
@@ -307,6 +363,8 @@ export default function DebtScreen() {
       setAddInterestRate("");
       setAddInstallmentMonths("");
       setAddInstallmentPreset(null);
+      setAddDueDate("");
+      setShowAddDueDatePicker(false);
       setAddPaymentSource("income");
       setAddPaymentCardDebtId("");
       setShowAddForm(false);
@@ -767,73 +825,143 @@ export default function DebtScreen() {
               keyboardShouldPersistTaps="handled"
             >
               <View style={s.addForm}>
-                <TextInput
-                  style={s.input}
-                  placeholder="Name (e.g. Car loan)"
-                  placeholderTextColor={T.textMuted}
-                  value={addName}
-                  onChangeText={setAddName}
-                  autoFocus
-                />
-                <TextInput
-                  style={s.input}
-                  placeholder={isLoanStyleType ? "Loan amount" : "Current balance"}
-                  placeholderTextColor={T.textMuted}
-                  value={addBalance}
-                  onChangeText={setAddBalance}
-                  keyboardType="decimal-pad"
-                />
-                {isCardType ? (
+                <View style={s.termWrap}>
+                  <Text style={s.termLabel}>Debt name</Text>
                   <TextInput
                     style={s.input}
-                    placeholder="Credit limit"
+                    placeholder="e.g. Car loan"
                     placeholderTextColor={T.textMuted}
-                    value={addCreditLimit}
-                    onChangeText={setAddCreditLimit}
-                    keyboardType="decimal-pad"
+                    value={addName}
+                    onChangeText={setAddName}
+                    autoFocus
                   />
-                ) : null}
-                <TextInput
-                  style={s.input}
-                  placeholder="Monthly payment (optional)"
-                  placeholderTextColor={T.textMuted}
-                  value={addMonthlyPayment}
-                  onChangeText={setAddMonthlyPayment}
-                  keyboardType="decimal-pad"
-                />
-                <TextInput
-                  style={s.input}
-                  placeholder="Interest APR % (optional)"
-                  placeholderTextColor={T.textMuted}
-                  value={addInterestRate}
-                  onChangeText={setAddInterestRate}
-                  keyboardType="decimal-pad"
-                />
+                </View>
 
-                <View style={s.termWrap}>
-                  <Text style={s.termLabel}>Payment source</Text>
-                  <View style={s.sourceRow}>
-                    {[
-                      { key: "income", label: "Income" },
-                      { key: "extra_funds", label: "Extra funds" },
-                      { key: "credit_card", label: "Card" },
-                    ].map((opt) => {
-                      const active = addPaymentSource === opt.key;
-                      return (
-                        <Pressable
-                          key={opt.key}
-                          onPress={() => {
-                            setAddPaymentSource(opt.key as "income" | "extra_funds" | "credit_card");
-                            if (opt.key !== "credit_card") setAddPaymentCardDebtId("");
-                          }}
-                          style={[s.sourceBtn, active && s.sourceBtnActive]}
-                        >
-                          <Text style={[s.sourceBtnTxt, active && s.sourceBtnTxtActive]}>{opt.label}</Text>
-                        </Pressable>
-                      );
-                    })}
+                <View style={s.inlineRow}>
+                  <View style={[s.termWrap, { flex: 1 }]}> 
+                    <Text style={s.termLabel}>{isLoanStyleType ? "Loan amount" : "Current balance"}</Text>
+                    <MoneyInput
+                      currency={settings?.currency}
+                      value={addBalance}
+                      onChangeValue={setAddBalance}
+                      placeholder="0.00"
+                    />
+                  </View>
+
+                  <View style={[s.termWrap, { flex: 1 }]}> 
+                    <Text style={s.termLabel}>Debt type</Text>
+                    <OverlaySelectInput
+                      containerStyle={s.dropdownAnchor}
+                      triggerStyle={s.input}
+                      value={addType}
+                      onChange={setAddType}
+                      options={Object.keys(TYPE_LABELS).map((t) => ({
+                        value: t,
+                        label: TYPE_LABELS[t] ?? t,
+                        activeColor: TYPE_COLORS[t],
+                      }))}
+                      placeholder="Select type"
+                    />
                   </View>
                 </View>
+                <View style={s.inlineRow}>
+                  <View style={[s.termWrap, { flex: 1 }]}> 
+                    <Text style={s.termLabel}>Due date (required)</Text>
+                    <DatePickerInput
+                      containerStyle={s.input}
+                      onPress={() => setShowAddDueDatePicker(true)}
+                      value={addDueDate ? formatYmdToDmy(addDueDate) : ""}
+                      valueStyle={s.dateValue}
+                      placeholderStyle={s.dateValuePlaceholder}
+                    />
+                  </View>
+
+                  <View style={[s.termWrap, { flex: 1 }]}> 
+                    <Text style={s.termLabel}>
+                      {addInstallmentMonths.trim() ? "Monthly payment (auto)" : "Monthly payment (optional)"}
+                    </Text>
+                    <MoneyInput
+                      currency={settings?.currency}
+                      value={addMonthlyPayment}
+                      onChangeValue={setAddMonthlyPayment}
+                      placeholder="0.00"
+                      editable={!addInstallmentMonths.trim()}
+                    />
+                  </View>
+                </View>
+
+                {isCardType ? (
+                  <View style={s.inlineRow}>
+                    <View style={[s.termWrap, { flex: 1 }]}>
+                      <Text style={s.termLabel}>Credit limit</Text>
+                      <MoneyInput
+                        currency={settings?.currency}
+                        value={addCreditLimit}
+                        onChangeValue={setAddCreditLimit}
+                        placeholder="0.00"
+                      />
+                    </View>
+                    <View style={[s.termWrap, { flex: 1 }]}>
+                      <Text style={s.termLabel}>Interest APR % (optional)</Text>
+                      <TextInput
+                        style={s.input}
+                        placeholder="e.g. 19.9"
+                        placeholderTextColor={T.textMuted}
+                        value={addInterestRate}
+                        onChangeText={setAddInterestRate}
+                        keyboardType="decimal-pad"
+                      />
+                    </View>
+                  </View>
+                ) : (
+                  <View style={s.inlineRow}>
+                    <View style={[s.termWrap, { flex: 1 }]}>
+                      <Text style={s.termLabel}>Interest APR % (optional)</Text>
+                      <TextInput
+                        style={s.input}
+                        placeholder="e.g. 19.9"
+                        placeholderTextColor={T.textMuted}
+                        value={addInterestRate}
+                        onChangeText={setAddInterestRate}
+                        keyboardType="decimal-pad"
+                      />
+                    </View>
+
+                    <View style={[s.termWrap, { flex: 1 }]}> 
+                      <Text style={s.termLabel}>Payment source</Text>
+                      <OverlaySelectInput
+                        containerStyle={s.dropdownAnchor}
+                        triggerStyle={s.input}
+                        value={addPaymentSource}
+                        onChange={(next) => {
+                          const source = next as "income" | "extra_funds" | "credit_card";
+                          setAddPaymentSource(source);
+                          if (source !== "credit_card") setAddPaymentCardDebtId("");
+                        }}
+                        options={PAYMENT_SOURCE_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))}
+                        placeholder="Select source"
+                      />
+                    </View>
+                  </View>
+                )}
+
+                {isCardType ? (
+                  <View style={s.termWrap}>
+                    <Text style={s.termLabel}>Payment source</Text>
+                    <OverlaySelectInput
+                      containerStyle={s.dropdownAnchor}
+                      triggerStyle={s.input}
+                      value={addPaymentSource}
+                      onChange={(next) => {
+                        const source = next as "income" | "extra_funds" | "credit_card";
+                        setAddPaymentSource(source);
+                        if (source !== "credit_card") setAddPaymentCardDebtId("");
+                      }}
+                      options={PAYMENT_SOURCE_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))}
+                      placeholder="Select source"
+                    />
+                  </View>
+                ) : null}
 
                 {addPaymentSource === "credit_card" ? (
                   <View style={s.termWrap}>
@@ -929,25 +1057,64 @@ export default function DebtScreen() {
                     />
                   ) : null}
                 </View>
-                <View style={s.typeRow}>
-                  {Object.keys(TYPE_LABELS).map((t) => (
-                    <Pressable
-                      key={t}
-                      onPress={() => setAddType(t)}
-                      style={[s.typeBtn, addType === t && { backgroundColor: TYPE_COLORS[t] + "33", borderColor: TYPE_COLORS[t] }]}
-                    >
-                      <Text style={[s.typeBtnTxt, addType === t && { color: TYPE_COLORS[t] }]}> 
-                        {TYPE_LABELS[t]}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
               </View>
             </ScrollView>
             <Pressable onPress={handleAdd} disabled={saving} style={[s.saveBtn, saving && s.disabled]}>
               {saving ? <ActivityIndicator size="small" color={T.onAccent} /> : <Text style={s.saveBtnTxt}>Add Debt</Text>}
             </Pressable>
           </Animated.View>
+
+          {showAddDueDatePicker ? (
+            <View style={s.dateSheetOverlay}>
+              <Pressable style={s.dateSheetBackdrop} onPress={() => setShowAddDueDatePicker(false)} />
+              <View style={s.dateSheetCard}>
+                <View style={s.dateSheetHeader}>
+                  <Pressable onPress={() => setShowAddDueDatePicker(false)}>
+                    <Text style={s.dateSheetCancel}>Cancel</Text>
+                  </Pressable>
+                  <Text style={s.dateSheetTitle}>Select due date</Text>
+                  <Pressable
+                    onPress={() => {
+                      setAddDueDate(addDueDateDraft.toISOString().slice(0, 10));
+                      setShowAddDueDatePicker(false);
+                    }}
+                  >
+                    <Text style={s.dateSheetDone}>Done</Text>
+                  </Pressable>
+                </View>
+
+                <DateTimePicker
+                  value={addDueDateDraft}
+                  mode="date"
+                  display={Platform.OS === "ios" ? "inline" : "calendar"}
+                  themeVariant={Platform.OS === "ios" ? "dark" : undefined}
+                  minimumDate={new Date()}
+                  onChange={(event, selectedDate) => {
+                    if (Platform.OS === "android") {
+                      if (event.type === "dismissed") {
+                        setShowAddDueDatePicker(false);
+                        return;
+                      }
+                      if (selectedDate) {
+                        setAddDueDateDraft(selectedDate);
+                        setAddDueDate(selectedDate.toISOString().slice(0, 10));
+                        setShowAddDueDatePicker(false);
+                      }
+                      return;
+                    }
+
+                    const next = selectedDate ?? (event?.nativeEvent?.timestamp ? new Date(event.nativeEvent.timestamp) : null);
+                    if (next) {
+                      setAddDueDateDraft(next);
+                      setAddDueDate(next.toISOString().slice(0, 10));
+                      setShowAddDueDatePicker(false);
+                    }
+                  }}
+                  style={Platform.OS === "ios" ? { height: 340 } : undefined}
+                />
+              </View>
+            </View>
+          ) : null}
         </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
@@ -973,6 +1140,7 @@ const s = StyleSheet.create({
   heroSub: { color: T.textMuted, fontSize: 11, fontWeight: "600", marginTop: 2 },
 
   termWrap: { width: "100%", gap: 8 },
+  inlineRow: { flexDirection: "row", gap: 10, alignItems: "flex-start" },
   termLabel: { color: T.textDim, fontSize: 12, fontWeight: "800" },
   termRow: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 8, marginBottom: 10 },
   termBtn: {
@@ -986,19 +1154,6 @@ const s = StyleSheet.create({
   termBtnActive: { borderColor: T.accent, backgroundColor: `${T.accent}2A` },
   termBtnTxt: { color: T.textDim, fontSize: 12, fontWeight: "700" },
   termBtnTxtActive: { color: T.accent, fontWeight: "800" },
-  sourceRow: { flexDirection: "row", gap: 8, marginTop: 2 },
-  sourceBtn: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: T.border,
-    backgroundColor: T.cardAlt,
-    borderRadius: 8,
-    paddingVertical: 9,
-    alignItems: "center",
-  },
-  sourceBtnActive: { borderColor: T.accent, backgroundColor: `${T.accent}2A` },
-  sourceBtnTxt: { color: T.textDim, fontSize: 12, fontWeight: "700" },
-  sourceBtnTxtActive: { color: T.accent, fontWeight: "800" },
   cardChoiceWrap: { gap: 8 },
   cardChoiceBtn: {
     borderWidth: 1,
@@ -1105,12 +1260,25 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: T.border,
   },
+  dateValue: {
+    color: T.text,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  dateValuePlaceholder: {
+    color: T.textMuted,
+    fontWeight: "500",
+  },
   typeRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   typeBtn: {
     paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20,
     borderWidth: 1, borderColor: T.border,
   },
   typeBtnTxt: { color: T.textDim, fontSize: 12, fontWeight: "800" },
+  dropdownAnchor: {
+    position: "relative",
+    zIndex: 20,
+  },
   saveBtn: {
     backgroundColor: T.accent,
     borderRadius: 8,
@@ -1219,5 +1387,45 @@ const s = StyleSheet.create({
     backgroundColor: T.cardAlt,
     borderWidth: 1,
     borderColor: T.border,
+  },
+  dateSheetOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(0,0,0,0.45)",
+  },
+  dateSheetBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  dateSheetCard: {
+    backgroundColor: T.card,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    borderTopWidth: 1,
+    borderTopColor: T.border,
+    paddingBottom: 18,
+  },
+  dateSheetHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderBottomWidth: 1,
+    borderBottomColor: T.border,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  dateSheetTitle: {
+    color: T.text,
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  dateSheetCancel: {
+    color: T.textDim,
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  dateSheetDone: {
+    color: T.accent,
+    fontSize: 15,
+    fontWeight: "800",
   },
 });

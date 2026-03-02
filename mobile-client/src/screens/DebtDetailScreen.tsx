@@ -181,7 +181,9 @@ export default function DebtDetailScreen() {
       <EditDebtSheet
         visible={state.editing}
         saving={state.editSaving}
+        currency={state.settings?.currency}
         name={state.editName}
+        currentBalance={state.editCurrentBalance}
         interestRate={state.editRate}
         monthlyPayment={state.editMonthlyPayment}
         monthlyMinimum={state.editMin}
@@ -194,6 +196,7 @@ export default function DebtDetailScreen() {
         onClose={() => state.setEditing(false)}
         onSave={state.handleEdit}
         onChangeName={state.setEditName}
+        onChangeCurrentBalance={state.setEditCurrentBalance}
         onChangeRate={state.setEditRate}
         onChangeMonthlyPayment={state.setEditMonthlyPayment}
         onChangeMin={state.setEditMin}

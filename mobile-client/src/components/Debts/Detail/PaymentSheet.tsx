@@ -37,7 +37,7 @@ export default function PaymentSheet({
         <Pressable style={s.sheetBackdrop} onPress={onClose} />
         <Animated.View style={[s.paySheetCard, { transform: [{ translateY: dragY }] }]}>
           <View style={s.sheetHandle} {...panHandlers} />
-          <Text style={s.sectionTitle}>Make Payment</Text>
+          <Text style={s.sectionTitle}>Record a payment</Text>
 
           <View style={s.payInputGroup}>
             <Text style={s.inputLabel}>How much did you pay?</Text>
@@ -46,18 +46,7 @@ export default function PaymentSheet({
               value={payAmount}
               onChangeValue={onChangeAmount}
               placeholder="0.00"
-              containerStyle={{ borderWidth: 1, borderColor: "rgba(255,255,255,0.22)" }}
-              inputStyle={{ fontSize: 28, lineHeight: 34, paddingVertical: 12 }}
             />
-          </View>
-
-          <View style={s.sheetActions}>
-            <Pressable onPress={onClose} style={[s.cancelBtn, paying && s.disabled]}>
-              <Text style={s.cancelBtnTxt}>Cancel</Text>
-            </Pressable>
-            <Pressable onPress={onSave} disabled={paying} style={[s.saveBtn, s.saveBtnFlex, paying && s.disabled]}>
-              {paying ? <ActivityIndicator size="small" color={T.onAccent} /> : <Text style={s.saveBtnTxt}>Save payment</Text>}
-            </Pressable>
           </View>
 
           {showMarkPaid && onMarkPaid ? (
@@ -65,6 +54,17 @@ export default function PaymentSheet({
               <Text style={s.markPaidBtnTxt}>{markPaidLabel}</Text>
             </Pressable>
           ) : null}
+
+          <View style={s.bottomActions}>
+            <View style={s.sheetActions}>
+              <Pressable onPress={onClose} style={[s.cancelBtn, paying && s.disabled]}>
+                <Text style={s.cancelBtnTxt}>Cancel</Text>
+              </Pressable>
+              <Pressable onPress={onSave} disabled={paying} style={[s.saveBtn, s.saveBtnFlex, paying && s.disabled]}>
+                {paying ? <ActivityIndicator size="small" color={T.onAccent} /> : <Text style={s.saveBtnTxt}>Save payment</Text>}
+              </Pressable>
+            </View>
+          </View>
         </Animated.View>
       </KeyboardAvoidingView>
     </Modal>
@@ -89,7 +89,8 @@ const s = StyleSheet.create({
     gap: 16,
   },
   sheetHandle: { width: 40, height: 4, borderRadius: 2, alignSelf: "center", backgroundColor: T.border },
-  sheetActions: { flexDirection: "row", gap: 10, marginTop: 14 },
+  bottomActions: { marginTop: "auto", gap: 10, paddingTop: 10 },
+  sheetActions: { flexDirection: "row", gap: 10 },
   cancelBtn: { backgroundColor: T.cardAlt, borderRadius: 8, paddingVertical: 11, alignItems: "center", flex: 1 },
   cancelBtnTxt: { color: T.textDim, fontWeight: "700", fontSize: 14 },
   saveBtn: { backgroundColor: T.accent, borderRadius: 8, paddingVertical: 11, alignItems: "center" },
@@ -97,17 +98,6 @@ const s = StyleSheet.create({
   saveBtnTxt: { color: T.onAccent, fontWeight: "700", fontSize: 14 },
   disabled: { opacity: 0.5 },
   payInputGroup: { gap: 10, marginTop: 10 },
-  payInput: {
-    backgroundColor: T.cardAlt,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    color: T.text,
-    fontSize: 28,
-    fontWeight: "800",
-    borderWidth: 1,
-    borderColor: T.border,
-  },
   markPaidBtn: {
     marginTop: 2,
     borderRadius: 10,

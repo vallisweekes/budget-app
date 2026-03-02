@@ -16,7 +16,7 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useFocusEffect } from "@react-navigation/native";
 
 import { apiFetch } from "@/lib/api";
-import type { Expense } from "@/lib/apiTypes";
+import type { Category, Expense, ExpenseCategoryBreakdown, Settings } from "@/lib/apiTypes";
 import { resolveCategoryColor, withOpacity } from "@/lib/categoryColors";
 import { fmt } from "@/lib/formatting";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
@@ -24,7 +24,6 @@ import { resolveLogoUri } from "@/lib/logoDisplay";
 import { T } from "@/lib/theme";
 import type { ExpensesStackParamList } from "@/navigation/types";
 import AddExpenseSheet from "@/components/Expenses/AddExpenseSheet";
-import type { ExpenseCategoryBreakdown } from "@/lib/apiTypes";
 
 type Props = NativeStackScreenProps<ExpensesStackParamList, "CategoryExpenses">;
 
@@ -39,6 +38,23 @@ function dueDaysColor(iso: string): string {
 function formatDueDate(iso: string): string {
   const d = new Date(iso);
   return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+}
+
+function clampDay(year: number, monthIndex: number, day: number): Date {
+  const maxDay = new Date(year, monthIndex + 1, 0).getDate();
+  return new Date(year, monthIndex, Math.min(Math.max(1, day), maxDay));
+}
+
+function buildPayPeriodLabel(month: number, year: number, payDate: number | null | undefined): string {
+  const safePayDate = Number.isFinite(payDate as number) && (payDate as number) >= 1
+    ? Math.floor(payDate as number)
+    : 27;
+  const start = clampDay(year, month - 2, safePayDate);
+  const end = clampDay(year, month - 1, safePayDate);
+  end.setDate(end.getDate() - 1);
+  const monthShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+  return `${start.getDate()} ${monthShort[start.getMonth()]} - ${end.getDate()} ${monthShort[end.getMonth()]}`;
 }
 
 export default function CategoryExpensesScreen({ route, navigation }: Props) {
@@ -61,33 +77,20 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
   const [pickerYear, setPickerYear] = useState(routeYear);
   const shortMonths = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-  const monthName = useCallback((value: number) => {
-    const names = [
-      "January",
-      "February",
-      "March",
-      "April",
-      "May",
-      "June",
-      "July",
-      "August",
-      "September",
-      "October",
-      "November",
-      "December",
-    ];
-    return names[Math.max(1, Math.min(12, value)) - 1] ?? "";
-  }, []);
-
   const openMonthPicker = useCallback(() => {
     setPickerYear(year);
     setMonthPickerOpen(true);
   }, [year]);
 
   const [addSheetOpen, setAddSheetOpen] = useState(false);
+  const [allCategoriesForAddSheet, setAllCategoriesForAddSheet] = useState<ExpenseCategoryBreakdown[] | null>(null);
 
-  const categoriesForAddSheet = useMemo<ExpenseCategoryBreakdown[]>(
-    () => [
+  const categoriesForAddSheet = useMemo<ExpenseCategoryBreakdown[]>(() => {
+    if (Array.isArray(allCategoriesForAddSheet) && allCategoriesForAddSheet.length > 0) {
+      return allCategoriesForAddSheet;
+    }
+
+    return [
       {
         categoryId,
         name: categoryName,
@@ -98,15 +101,15 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
         paidCount: 0,
         totalCount: 0,
       },
-    ],
-    [categoryId, categoryName, color, icon]
-  );
+    ];
+  }, [allCategoriesForAddSheet, categoryId, categoryName, color, icon]);
 
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [logoFailed, setLogoFailed] = useState<Record<string, boolean>>({});
+  const [payDate, setPayDate] = useState<number | null>(null);
 
   useEffect(() => {
     if (routeMonth !== month) {
@@ -118,14 +121,47 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
     }
   }, [month, routeMonth, routeYear, year]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const qp = budgetPlanId ? `?budgetPlanId=${encodeURIComponent(budgetPlanId)}` : "";
+        const data = await apiFetch<Category[]>(`/api/bff/categories${qp}`);
+        if (cancelled || !Array.isArray(data) || data.length === 0) return;
+
+        setAllCategoriesForAddSheet(
+          data.map((c) => ({
+            categoryId: c.id,
+            name: c.name,
+            color: c.color,
+            icon: c.icon,
+            total: 0,
+            paidTotal: 0,
+            paidCount: 0,
+            totalCount: 0,
+          }))
+        );
+      } catch {
+        if (!cancelled) setAllCategoriesForAddSheet(null);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [budgetPlanId]);
+
   const load = useCallback(async () => {
     try {
       setError(null);
       const qp = budgetPlanId ? `&budgetPlanId=${encodeURIComponent(budgetPlanId)}` : "";
-      const all = await apiFetch<Expense[]>(
-        `/api/bff/expenses?month=${month}&year=${year}&scope=pay_period&refreshLogos=1${qp}`
-      );
+      const [all, appSettings] = await Promise.all([
+        apiFetch<Expense[]>(`/api/bff/expenses?month=${month}&year=${year}&scope=pay_period&refreshLogos=1${qp}`),
+        apiFetch<Settings>("/api/bff/settings"),
+      ]);
       setExpenses(Array.isArray(all) ? all.filter((e) => e.categoryId === categoryId) : []);
+      setPayDate(appSettings?.payDate ?? null);
       setLogoFailed({});
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load");
@@ -180,6 +216,8 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
     if (!latestPaymentAt) return "Updated: —";
     return `Updated: ${new Date(latestPaymentAt).toLocaleDateString("en-GB")}`;
   }, [latestPaymentAt]);
+
+  const heroPeriodLabel = useMemo(() => buildPayPeriodLabel(month, year, payDate), [month, year, payDate]);
 
   const renderItem = useCallback(
     ({ item }: { item: Expense }) => {
@@ -336,7 +374,7 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
         ListHeaderComponent={
           <View style={[styles.hero, { paddingTop: topHeaderOffset + 14 }]}>
             <Pressable onPress={openMonthPicker} style={styles.heroMonthBtn} hitSlop={12}>
-              <Text style={styles.heroMonthText}>{monthName(month)} {year}</Text>
+              <Text style={styles.heroMonthText}>{heroPeriodLabel}</Text>
               <Ionicons name="chevron-down" size={14} color={withOpacity(T.onAccent, 0.8)} />
             </Pressable>
             <Text style={styles.heroAmount}>{fmt(plannedTotal, currency)}</Text>

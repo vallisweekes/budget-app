@@ -24,6 +24,7 @@ import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
 import { T } from "@/lib/theme";
 import { s } from "@/screens/income-month/incomeMonthScreenStyles";
 import IncomeSacrificePieChart from "@/components/Income/IncomeSacrificePieChart";
+import MoneyInput from "@/components/Shared/MoneyInput";
 
 type SacrificePeriod =
   | "this_month"
@@ -485,13 +486,14 @@ export default function IncomeMonthSacrificeList(props: Props) {
               </Text>
 
               <Text style={local.fieldLabel}>{amountMode === "set" ? `Amount (${props.currency})` : `Adjust by (${props.currency})`}</Text>
-              <TextInput
-                style={local.input}
+              <MoneyInput
+                currency={props.currency}
                 value={amountDraft}
-                onChangeText={setAmountDraft}
+                onChangeValue={setAmountDraft}
                 keyboardType={amountMode === "adjust" ? "numbers-and-punctuation" : "decimal-pad"}
                 placeholder={amountMode === "adjust" ? "0.00 or -10.00" : "0.00"}
                 placeholderTextColor={T.textMuted}
+                containerStyle={local.input}
               />
 
               <Pressable style={local.removeAmountBtn} onPress={() => {

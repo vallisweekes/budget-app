@@ -33,6 +33,7 @@ export default function ReceiptUploadConfirmForm(props: {
 }) {
 	const { scanResult, preview, month, year, categories, name, amount, date, categoryId, confirming, onChangeName, onChangeAmount, onChangeDate, onChangeCategoryId, onReset, onConfirm } =
 		props;
+	const todayIso = new Date().toISOString().slice(0, 10);
 
 	return (
 		<div className="space-y-5">
@@ -79,6 +80,7 @@ export default function ReceiptUploadConfirmForm(props: {
 					<input
 						type="date"
 						value={date}
+						min={todayIso}
 						onChange={(e) => onChangeDate(e.target.value)}
 						className="w-full px-4 py-3 rounded-xl border border-white/10 bg-slate-900/40 text-white placeholder-slate-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/50 focus:outline-none transition-all [color-scheme:dark]"
 					/>

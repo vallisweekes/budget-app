@@ -35,11 +35,18 @@ function formatGroupedNumber(value: number): string {
   return `${sign}${abs.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+function truncateTail(text: string, maxChars = 10): string {
+  if (!text) return "";
+  if (text.length <= maxChars) return text;
+  return `${text.slice(0, maxChars)}…`;
+}
+
 type Props = {
   currency?: string | null;
   value: string;
   onChangeValue: (next: string) => void;
   placeholder?: string;
+  keyboardType?: TextInputProps["keyboardType"];
   containerStyle?: any;
   inputStyle?: any;
 } & Omit<TextInputProps, "value" | "onChangeText" | "placeholder" | "keyboardType">;
@@ -49,6 +56,7 @@ export default function MoneyInput({
   value,
   onChangeValue,
   placeholder = "0.00",
+  keyboardType = "decimal-pad",
   containerStyle,
   inputStyle,
   onFocus,
@@ -73,7 +81,7 @@ export default function MoneyInput({
       return;
     }
 
-    setDisplay(formatGroupedNumber(parsed));
+    setDisplay(truncateTail(formatGroupedNumber(parsed)));
   }, [value, focused]);
 
   const showClear = editable && (value ?? "").trim().length > 0;
@@ -91,7 +99,10 @@ export default function MoneyInput({
           setDisplay(nextRaw);
           onChangeValue(nextRaw);
         }}
-        keyboardType="decimal-pad"
+        keyboardType={keyboardType}
+        multiline={false}
+        numberOfLines={1}
+        allowFontScaling={false}
         placeholder={placeholder}
         placeholderTextColor={placeholderTextColor ?? s.placeholder.color}
         style={[s.input, inputStyle]}
@@ -126,7 +137,7 @@ export default function MoneyInput({
             accessibilityLabel="Clear amount"
             style={({ pressed }) => [s.clearBtn, pressed && s.clearBtnPressed]}
           >
-            <Ionicons name="close" size={16} color={s.clearIcon.color as string} />
+            <Ionicons name="close" size={13} color={s.clearIcon.color as string} />
           </Pressable>
         ) : null}
       </View>
@@ -138,59 +149,64 @@ const s = StyleSheet.create({
   wrap: {
     flexDirection: "row",
     alignItems: "center",
-    borderWidth: 2,
-    borderColor: "rgba(255,255,255,0.30)",
-    backgroundColor: "rgba(255,255,255,0.12)",
-    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: T.border,
+    backgroundColor: T.cardAlt,
+    borderRadius: 8,
     overflow: "hidden",
-    minHeight: 54,
+    minHeight: 40,
+    height: 40,
   },
   disabled: { opacity: 0.6 },
   currencyBox: {
-    width: 54,
+    width: 34,
     alignSelf: "stretch",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(0,0,0,0.16)",
+    backgroundColor: T.card,
     borderRightWidth: 1,
-    borderRightColor: "rgba(255,255,255,0.25)",
+    borderRightColor: T.border,
   },
   currencyText: {
-    color: "#ffffff",
-    fontSize: 18,
-    fontWeight: "900",
+    color: T.text,
+    fontSize: 12,
+    fontWeight: "800",
     letterSpacing: -0.2,
   },
   placeholder: {
-    color: "rgba(255,255,255,0.62)",
+    color: T.textMuted,
   },
   input: {
     flex: 1,
-    color: "#ffffff",
-    fontSize: 22,
-    fontWeight: "800",
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    minWidth: 0,
+    color: T.text,
+    fontSize: 14,
+    fontWeight: "700",
+    paddingHorizontal: 8,
+    paddingVertical: 0,
+    height: 40,
+    textAlignVertical: "center",
+    includeFontPadding: false,
   },
   rightBox: {
-    width: 54,
+    width: 28,
     alignSelf: "stretch",
     alignItems: "center",
     justifyContent: "center",
-    paddingRight: 10,
+    paddingRight: 2,
   },
   clearBtn: {
-    width: 30,
-    height: 30,
+    width: 18,
+    height: 18,
     borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.25)",
-    backgroundColor: "rgba(0,0,0,0.22)",
+    borderColor: T.border,
+    backgroundColor: T.card,
   },
   clearBtnPressed: { opacity: 0.75 },
   clearIcon: {
-    color: "#ffffff",
+    color: T.textDim,
   },
 });

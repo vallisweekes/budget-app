@@ -21,6 +21,7 @@ export default function CreateBudgetForm({
 	const [budgetType, setBudgetType] = useState<BudgetType>(initialBudgetType);
 	const [planName, setPlanName] = useState<string>(initialBudgetType === "personal" ? "Personal" : "");
 	const [eventDate, setEventDate] = useState<string>("");
+	const todayIso = new Date().toISOString().slice(0, 10);
 
 	const options = useMemo(() => {
 		const visibleTypes = hasPersonalPlan ? BUDGET_TYPES : (["personal"] as const);
@@ -48,6 +49,7 @@ export default function CreateBudgetForm({
 								type="date"
 								required
 								value={eventDate}
+								min={todayIso}
 								onChange={(e) => setEventDate(e.target.value)}
 								className="mt-1 w-full rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/60"
 							/>

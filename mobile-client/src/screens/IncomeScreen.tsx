@@ -27,6 +27,7 @@ import { useYearGuard } from "@/lib/hooks/useYearGuard";
 import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
 import { T } from "@/lib/theme";
 import IncomeMonthCard from "@/components/Income/IncomeMonthCard";
+import MoneyInput from "@/components/Shared/MoneyInput";
 import type { IncomeStackParamList } from "@/navigation/types";
 
 type Nav = NativeStackNavigationProp<IncomeStackParamList, "IncomeGrid">;
@@ -308,13 +309,11 @@ export default function IncomeScreen() {
 
             <View style={s.fieldWrap}>
               <Text style={s.fieldLabel}>Amount</Text>
-              <TextInput
+              <MoneyInput
+                currency={settings?.currency}
                 value={yearIncomeAmount}
-                onChangeText={setYearIncomeAmount}
-                keyboardType="decimal-pad"
+                onChangeValue={setYearIncomeAmount}
                 placeholder={`${currency}0.00`}
-                placeholderTextColor={T.textMuted}
-                style={s.fieldInput}
               />
             </View>
 

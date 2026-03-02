@@ -22,6 +22,7 @@ import { fmt } from "@/lib/formatting";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 import { T } from "@/lib/theme";
 import { cardElevated, textLabel } from "@/lib/ui";
+import MoneyInput from "@/components/Shared/MoneyInput";
 
 export default function GoalsScreen({ navigation }: { navigation: any }) {
   const topHeaderOffset = useTopHeaderOffset();
@@ -292,25 +293,21 @@ export default function GoalsScreen({ navigation }: { navigation: any }) {
               <View style={s.row2}>
                 <View style={{ flex: 1 }}>
                   <Text style={s.inputLabel}>Target amount</Text>
-                  <TextInput
+                  <MoneyInput
+                    currency={settings?.currency}
                     value={newTargetAmount}
-                    onChangeText={setNewTargetAmount}
+                    onChangeValue={setNewTargetAmount}
                     placeholder="e.g. 40000"
-                    placeholderTextColor={T.textMuted}
-                    style={s.input}
-                    keyboardType="decimal-pad"
                     editable={!adding}
                   />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={s.inputLabel}>Current amount</Text>
-                  <TextInput
+                  <MoneyInput
+                    currency={settings?.currency}
                     value={newCurrentAmount}
-                    onChangeText={setNewCurrentAmount}
+                    onChangeValue={setNewCurrentAmount}
                     placeholder="e.g. 200"
-                    placeholderTextColor={T.textMuted}
-                    style={s.input}
-                    keyboardType="decimal-pad"
                     editable={!adding}
                   />
                 </View>

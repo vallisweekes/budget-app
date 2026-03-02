@@ -41,6 +41,7 @@ import { currencySymbol, fmt } from "@/lib/formatting";
 import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 import { T } from "@/lib/theme";
+import MoneyInput from "@/components/Shared/MoneyInput";
 import type { ExpensesStackParamList } from "@/navigation/types";
 
 /* ─── Types ─────────────────────────────────────────────────── */
@@ -373,19 +374,15 @@ export default function ScanReceiptScreen({ navigation }: Props) {
                 <Ionicons name="receipt-outline" size={14} color={T.accent} />
                 <Text style={s.amountLabel}>Total amount</Text>
               </View>
-              <View style={s.amountInputRow}>
-                <Text style={s.currencySymbol}>{currency}</Text>
-                <TextInput
-                  style={s.amountInput}
-                  value={amount}
-                  onChangeText={setAmount}
-                  keyboardType="decimal-pad"
-                  placeholder="0.00"
-                  placeholderTextColor={`${T.text}33`}
-                  returnKeyType="done"
-                  editable={!saving}
-                />
-              </View>
+              <MoneyInput
+                currency={settings?.currency}
+                value={amount}
+                onChangeValue={setAmount}
+                placeholder="0.00"
+                placeholderTextColor={`${T.text}33`}
+                returnKeyType="done"
+                editable={!saving}
+              />
             </View>
 
             {/* Name / merchant */}

@@ -347,7 +347,7 @@ export default function OnboardingScreen({
                   placeholderTextColor="rgba(255,255,255,0.62)"
                   style={[s.input, s.rowInput]}
                 />
-                <MoneyInput currency={currency} value={expenseOneAmount} onChangeValue={setExpenseOneAmount} placeholder="0.00" containerStyle={s.rowInput} inputStyle={{ fontSize: 16 }} />
+                <MoneyInput currency={currency} value={expenseOneAmount} onChangeValue={setExpenseOneAmount} placeholder="0.00" containerStyle={s.rowInput} />
               </View>
               <View style={s.row}>
                 <TextInput
@@ -357,7 +357,7 @@ export default function OnboardingScreen({
                   placeholderTextColor="rgba(255,255,255,0.62)"
                   style={[s.input, s.rowInput]}
                 />
-                <MoneyInput currency={currency} value={expenseTwoAmount} onChangeValue={setExpenseTwoAmount} placeholder="0.00" containerStyle={s.rowInput} inputStyle={{ fontSize: 16 }} />
+                <MoneyInput currency={currency} value={expenseTwoAmount} onChangeValue={setExpenseTwoAmount} placeholder="0.00" containerStyle={s.rowInput} />
               </View>
               <View style={s.row}>
                 <TextInput
@@ -367,7 +367,7 @@ export default function OnboardingScreen({
                   placeholderTextColor="rgba(255,255,255,0.62)"
                   style={[s.input, s.rowInput]}
                 />
-                <MoneyInput currency={currency} value={expenseThreeAmount} onChangeValue={setExpenseThreeAmount} placeholder="0.00" containerStyle={s.rowInput} inputStyle={{ fontSize: 16 }} />
+                <MoneyInput currency={currency} value={expenseThreeAmount} onChangeValue={setExpenseThreeAmount} placeholder="0.00" containerStyle={s.rowInput} />
               </View>
               <View style={s.row}>
                 <TextInput
@@ -377,7 +377,7 @@ export default function OnboardingScreen({
                   placeholderTextColor="rgba(255,255,255,0.62)"
                   style={[s.input, s.rowInput]}
                 />
-                <MoneyInput currency={currency} value={expenseFourAmount} onChangeValue={setExpenseFourAmount} placeholder="0.00" containerStyle={s.rowInput} inputStyle={{ fontSize: 16 }} />
+                <MoneyInput currency={currency} value={expenseFourAmount} onChangeValue={setExpenseFourAmount} placeholder="0.00" containerStyle={s.rowInput} />
               </View>
 
               <View style={s.infoCard}>
