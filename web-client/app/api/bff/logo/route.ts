@@ -47,8 +47,7 @@ export async function GET(req: NextRequest) {
     upstreamCandidates.push(logoDevUrl.toString());
   }
 
-  // Keyless fallback for environments where logo.dev is not configured.
-  // Clearbit is public and works for many domains.
+
   upstreamCandidates.push(`https://logo.clearbit.com/${encodeURIComponent(domain)}?size=128`);
 
   // Final fallback: Google's favicon service. Often more reliable in production
