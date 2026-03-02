@@ -55,9 +55,15 @@ const IncomeStack = createNativeStackNavigator<IncomeStackParamList>();
 const ExpensesStack = createNativeStackNavigator<ExpensesStackParamList>();
 const DebtStack = createNativeStackNavigator<DebtStackParamList>();
 
+const APP_STACK_SCREEN_OPTIONS = {
+  headerShown: false,
+  contentStyle: { backgroundColor: T.bg },
+  animation: "fade_from_bottom" as const,
+};
+
 function IncomeStackNavigator() {
   return (
-    <IncomeStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: T.bg } }}>
+    <IncomeStack.Navigator screenOptions={APP_STACK_SCREEN_OPTIONS}>
       <IncomeStack.Screen name="IncomeGrid" component={IncomeScreen} />
       <IncomeStack.Screen name="IncomeMonth" component={IncomeMonthScreen} />
     </IncomeStack.Navigator>
@@ -66,7 +72,7 @@ function IncomeStackNavigator() {
 
 function ExpensesStackNavigator() {
   return (
-    <ExpensesStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: T.bg } }}>
+    <ExpensesStack.Navigator screenOptions={APP_STACK_SCREEN_OPTIONS}>
       <ExpensesStack.Screen name="ExpensesList" component={ExpensesScreen} />
       <ExpensesStack.Screen name="CategoryExpenses" component={CategoryExpensesScreen} />
       <ExpensesStack.Screen name="ExpenseDetail" component={ExpenseDetailScreen} />
@@ -78,7 +84,7 @@ function ExpensesStackNavigator() {
 
 function DebtStackNavigator() {
   return (
-    <DebtStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: T.bg } }}>
+    <DebtStack.Navigator screenOptions={APP_STACK_SCREEN_OPTIONS}>
       <DebtStack.Screen name="DebtList" component={DebtScreen} />
       <DebtStack.Screen name="DebtDetail" component={DebtDetailScreen} />
       <DebtStack.Screen name="DebtAnalytics" component={DebtAnalyticsScreen} />
@@ -593,6 +599,25 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: T.card,
   },
+  goalsHeaderAddBtn: {
+    minWidth: 78,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: T.accent,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    borderColor: T.accentBorder,
+    borderWidth: 1,
+  },
+  goalsHeaderAddText: {
+    color: T.onAccent,
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0.2,
+  },
 });
 
 function MainTabs() {
@@ -698,7 +723,8 @@ function MainTabs() {
   return (
     <Tab.Navigator
       tabBar={(props) => <PillTabBar {...props} />}
-      screenOptions={({ navigation }) => ({
+      screenOptions={({ navigation, route }) => ({
+        animation: "fade",
         headerShown: true,
         headerTransparent: true,
         headerStyle: { backgroundColor: "transparent" },
@@ -721,6 +747,7 @@ function MainTabs() {
           const isUnplannedExpense = deepestRoute?.name === "UnplannedExpense";
           const isScanReceipt = deepestRoute?.name === "ScanReceipt";
           const isSettings = deepestRoute?.name === "Settings";
+          const isGoals = route.name === "Goals";
           const categoryExpensesName = typeof deepestRoute?.params?.categoryName === "string"
             ? deepestRoute.params.categoryName
             : undefined;
@@ -810,6 +837,19 @@ function MainTabs() {
             </View>
           ) : undefined;
 
+          const goalsRightContent = isGoals ? (
+            <Pressable
+              onPress={() => (navigation as any).navigate("Goals", { openAddToken: Date.now() })}
+              style={s.goalsHeaderAddBtn}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel="Add goal"
+            >
+              <Ionicons name="add" size={18} color={T.onAccent} />
+              <Text style={s.goalsHeaderAddText}>Goal</Text>
+            </Pressable>
+          ) : undefined;
+
           return (
             <TopHeader
               onSettings={() => navigation.navigate("Settings")}
@@ -835,9 +875,10 @@ function MainTabs() {
                 : isUnplannedExpense || isScanReceipt
                   ? () => navigation.navigate("Expenses" as any, { screen: "ExpensesList" } as any)
                   : undefined}
-              centerLabel={expensesCenterLabel}
+              centerLabel={isGoals ? "Goals" : expensesCenterLabel}
               leftContent={expensesListLeftContent}
-              showIncomeAction={!isSettings}
+              rightContent={goalsRightContent}
+              showIncomeAction={!isSettings && !isGoals}
               compactActionsMenu={isSettings}
               onLogout={isSettings ? signOut : undefined}
               incomePendingCount={incomePendingCount}
@@ -939,7 +980,7 @@ export default function RootNavigator() {
   }
 
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false, animation: "fade", contentStyle: { backgroundColor: T.bg } }}>
+    <Stack.Navigator screenOptions={APP_STACK_SCREEN_OPTIONS}>
       {token ? (
         onboardingState?.required ? (
           <Stack.Screen name="Onboarding">

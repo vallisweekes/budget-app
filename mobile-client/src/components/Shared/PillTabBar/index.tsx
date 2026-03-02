@@ -1,11 +1,13 @@
 import React, { useMemo, useState } from "react";
-import { View, Pressable, Text } from "react-native";
+import { View, Pressable, Text, Platform } from "react-native";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { T } from "@/lib/theme";
 import Svg, { Path } from "react-native-svg";
 import { styles } from "./styles";
+
+type GlassEffectModule = typeof import("expo-glass-effect");
 
 function HomeIcon({ color }: { color: string }) {
   return (
@@ -42,6 +44,23 @@ export default function PillTabBar({ state, descriptors, navigation }: BottomTab
   const [barWidth, setBarWidth] = useState(0);
   const [barHeight, setBarHeight] = useState(0);
   const activeRouteName = state.routes[state.index]?.name;
+  const glassEffectModule = useMemo<GlassEffectModule | null>(() => {
+    if (Platform.OS !== "ios") return null;
+    try {
+      return require("expo-glass-effect") as GlassEffectModule;
+    } catch {
+      return null;
+    }
+  }, []);
+  const liquidGlassEnabled = useMemo(() => {
+    if (!glassEffectModule) return false;
+    try {
+      return glassEffectModule.isLiquidGlassAvailable();
+    } catch {
+      return false;
+    }
+  }, [glassEffectModule]);
+  const GlassView = glassEffectModule?.GlassView;
 
   const visibleRoutes = state.routes.filter((r) => {
     const opts = descriptors[r.key].options as Record<string, unknown>;
@@ -67,7 +86,17 @@ export default function PillTabBar({ state, descriptors, navigation }: BottomTab
 
   return (
     <View style={styles.wrapper}>
-      <BlurView intensity={22} tint="dark" style={styles.glassBase}>
+      <View style={styles.glassBase}>
+        {liquidGlassEnabled && GlassView ? (
+          <GlassView
+            pointerEvents="none"
+            glassEffectStyle="regular"
+            tintColor="rgba(255,255,255,0)"
+            style={styles.glassBackgroundFill}
+          />
+        ) : (
+          <BlurView intensity={22} tint="dark" style={styles.glassBackgroundFill} />
+        )}
         <View style={styles.glassTint} />
         <View
           style={styles.bar}
@@ -87,6 +116,14 @@ export default function PillTabBar({ state, descriptors, navigation }: BottomTab
                 },
               ]}
             >
+              {liquidGlassEnabled && GlassView ? (
+                <GlassView
+                  pointerEvents="none"
+                  glassEffectStyle="regular"
+                  tintColor="rgba(255,255,255,0)"
+                  style={styles.liquidIndicatorGlass}
+                />
+              ) : null}
               <View style={styles.liquidInner} />
             </View>
           ) : null}
@@ -143,7 +180,7 @@ export default function PillTabBar({ state, descriptors, navigation }: BottomTab
             );
           })}
         </View>
-      </BlurView>
+      </View>
     </View>
   );
 }

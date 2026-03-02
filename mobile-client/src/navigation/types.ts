@@ -72,7 +72,10 @@ export type MainTabParamList = {
   Dashboard: undefined;
   Expenses: NavigatorScreenParams<ExpensesStackParamList> | undefined;
   Debts: NavigatorScreenParams<DebtStackParamList> | undefined;
-  Goals: undefined;
+  Goals: {
+    goalsHeaderYear?: string;
+    openAddToken?: number;
+  } | undefined;
   Income: NavigatorScreenParams<IncomeStackParamList> | undefined;
   Settings: { initialTab?: "notifications" } | undefined;
 };

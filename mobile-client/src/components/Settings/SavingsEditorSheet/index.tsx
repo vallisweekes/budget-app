@@ -39,7 +39,10 @@ export default function SavingsEditorSheet(props: SavingsEditorSheetProps) {
       <View style={styles.sheetOverlay}>
         <Pressable style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0 }} onPress={onClose} />
         <KeyboardAvoidingView style={styles.sheetKeyboardWrap} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={keyboardOffset}>
-          <Animated.View style={[styles.sheet, styles.sheetTall, styles.moneyEditorSheet, { transform: [{ translateY }] }]}> 
+          <Animated.View
+            style={[styles.sheet, styles.sheetTall, styles.moneyEditorSheet, { transform: [{ translateY }] }]}
+            {...panHandlers}
+          >
             <View style={styles.sheetHandle} {...panHandlers} />
             <Text style={styles.sheetTitle}>{mode === "add" ? `Add ${field ?? ""} pot` : `Edit ${title}`}</Text>
             <View style={styles.sheetBody}>

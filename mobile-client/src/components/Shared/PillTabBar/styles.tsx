@@ -14,10 +14,14 @@ export const styles = StyleSheet.create({
     backgroundColor: "transparent",
   },
   glassBase: {
+    position: "relative",
     overflow: "hidden",
     borderTopWidth: 1,
     borderTopColor: `${T.accent}29`,
     backgroundColor: `${T.card}A8`,
+  },
+  glassBackgroundFill: {
+    ...StyleSheet.absoluteFillObject,
   },
   glassTint: {
     ...StyleSheet.absoluteFillObject,
@@ -51,6 +55,10 @@ export const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: `${T.text}14`,
     backgroundColor: `${T.text}08`,
+  },
+  liquidIndicatorGlass: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: INDICATOR_SIZE / 2,
   },
   tab: {
     flex: 1,

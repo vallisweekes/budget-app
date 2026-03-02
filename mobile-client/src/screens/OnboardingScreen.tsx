@@ -1,17 +1,24 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Animated,
   ActivityIndicator,
   Alert,
+  Easing,
+  LayoutAnimation,
   Modal,
+  PanResponder,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
+  UIManager,
   View,
 } from "react-native";
 import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
+import { Sacramento_400Regular } from "@expo-google-fonts/sacramento";
+import { useFonts } from "expo-font";
 
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -22,8 +29,11 @@ import type { OnboardingProfile, OnboardingStatusResponse, Settings } from "@/li
 import { useAuth } from "@/context/AuthContext";
 import { T } from "@/lib/theme";
 import MoneyInput from "@/components/Shared/MoneyInput";
+import NoteBadge from "@/components/Shared/NoteBadge";
 
 type Goal = "improve_savings" | "manage_debts" | "track_spending" | "build_budget";
+
+type GlassEffectModule = typeof import("expo-glass-effect");
 
 // Match the blue/purple used for the Expenses total hero.
 const EXPENSES_TOTAL_BLUE = "#2a0a9e";
@@ -66,11 +76,44 @@ export default function OnboardingScreen({
   onCompleted: () => void;
 }) {
   const insets = useSafeAreaInsets();
+  const [fontsLoaded] = useFonts({
+    Sacramento_400Regular,
+  });
   const { username, signOut } = useAuth();
   const profile = initial.profile;
   const [step, setStep] = useState(0);
+  const [stepDirection, setStepDirection] = useState<1 | -1>(1);
+  const stepTransition = useRef(new Animated.Value(1)).current;
+  const stepAdvanceLockRef = useRef(false);
+  const glassEffectModule = useMemo<GlassEffectModule | null>(() => {
+    if (Platform.OS !== "ios") return null;
+    try {
+      return require("expo-glass-effect") as GlassEffectModule;
+    } catch {
+      return null;
+    }
+  }, []);
+  const liquidGlassEnabled = useMemo(() => {
+    if (!glassEffectModule) return false;
+    try {
+      return glassEffectModule.isLiquidGlassAvailable();
+    } catch {
+      return false;
+    }
+  }, [glassEffectModule]);
+  const GlassView = glassEffectModule?.GlassView;
   const [saving, setSaving] = useState(false);
   const [currency, setCurrency] = useState<string | null>("GBP");
+
+  useEffect(() => {
+    if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+      UIManager.setLayoutAnimationEnabledExperimental(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+  }, [saving]);
 
   useEffect(() => {
     let mounted = true;
@@ -112,11 +155,17 @@ export default function OnboardingScreen({
     if (!Number.isFinite(raw) || raw < 1 || raw > 31) return null;
     return new Date(new Date().getFullYear(), new Date().getMonth(), Math.trunc(raw));
   });
-  const [payFrequency, setPayFrequency] = useState<"monthly" | "every_2_weeks" | "weekly">(
-    profile?.payFrequency === "weekly" || profile?.payFrequency === "every_2_weeks" ? profile.payFrequency : "monthly"
+  const [payFrequency, setPayFrequency] = useState<"monthly" | "every_2_weeks" | "weekly" | null>(
+    profile?.payFrequency === "weekly" ||
+      profile?.payFrequency === "every_2_weeks" ||
+      profile?.payFrequency === "monthly"
+      ? profile.payFrequency
+      : null
   );
-  const [billFrequency, setBillFrequency] = useState<"monthly" | "every_2_weeks">(
-    profile?.billFrequency === "every_2_weeks" ? "every_2_weeks" : "monthly"
+  const [billFrequency, setBillFrequency] = useState<"monthly" | "every_2_weeks" | null>(
+    profile?.billFrequency === "every_2_weeks" || profile?.billFrequency === "monthly"
+      ? profile.billFrequency
+      : null
   );
   const [salary, setSalary] = useState(String(profile?.monthlySalary ?? ""));
   const [expenseOneName, setExpenseOneName] = useState(profile?.expenseOneName ?? "");
@@ -127,9 +176,13 @@ export default function OnboardingScreen({
   const [expenseThreeAmount, setExpenseThreeAmount] = useState(String(profile?.expenseThreeAmount ?? ""));
   const [expenseFourName, setExpenseFourName] = useState(profile?.expenseFourName ?? "");
   const [expenseFourAmount, setExpenseFourAmount] = useState(String(profile?.expenseFourAmount ?? ""));
-  const [hasAllowance, setHasAllowance] = useState(Boolean(profile?.hasAllowance));
+  const [hasAllowance, setHasAllowance] = useState<boolean | null>(
+    typeof profile?.hasAllowance === "boolean" ? profile.hasAllowance : null
+  );
   const [allowanceAmount, setAllowanceAmount] = useState(String(profile?.allowanceAmount ?? ""));
-  const [hasDebts, setHasDebts] = useState(Boolean(profile?.hasDebtsToManage));
+  const [hasDebts, setHasDebts] = useState<boolean | null>(
+    typeof profile?.hasDebtsToManage === "boolean" ? profile.hasDebtsToManage : null
+  );
   const [debtAmount, setDebtAmount] = useState(String(profile?.debtAmount ?? ""));
   const [debtNotes, setDebtNotes] = useState(profile?.debtNotes ?? "");
 
@@ -182,8 +235,8 @@ export default function OnboardingScreen({
     occupation,
     occupationOther,
     payDay: payDay ? Math.max(1, Math.min(31, Number(payDay))) : null,
-    payFrequency,
-    billFrequency,
+    payFrequency: payFrequency ?? undefined,
+    billFrequency: billFrequency ?? undefined,
     monthlySalary: salary ? Number(salary) : null,
     expenseOneName,
     expenseOneAmount: expenseOneAmount ? Number(expenseOneAmount) : null,
@@ -193,11 +246,61 @@ export default function OnboardingScreen({
     expenseThreeAmount: expenseThreeAmount ? Number(expenseThreeAmount) : null,
     expenseFourName,
     expenseFourAmount: expenseFourAmount ? Number(expenseFourAmount) : null,
-    hasAllowance,
-    allowanceAmount: hasAllowance && allowanceAmount ? Number(allowanceAmount) : null,
-    hasDebtsToManage: hasDebts,
-    debtAmount: hasDebts && debtAmount ? Number(debtAmount) : null,
+    hasAllowance: hasAllowance ?? undefined,
+    allowanceAmount: hasAllowance === true && allowanceAmount ? Number(allowanceAmount) : null,
+    hasDebtsToManage: hasDebts ?? undefined,
+    debtAmount: hasDebts === true && debtAmount ? Number(debtAmount) : null,
     debtNotes,
+  };
+
+  const isPositiveNumber = (value: string) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed > 0;
+  };
+
+  const hasAllBillAmounts =
+    isPositiveNumber(expenseOneAmount) &&
+    isPositiveNumber(expenseTwoAmount) &&
+    isPositiveNumber(expenseThreeAmount) &&
+    isPositiveNumber(expenseFourAmount);
+
+  const validateStep = (currentStep: number): string | null => {
+    if (currentStep === 0 && mainGoals.length === 0) {
+      return "Please choose at least one goal to continue.";
+    }
+
+    if (currentStep === 1) {
+      if (!occupation.trim()) return "Please select what kind of work you do.";
+      if (occupation === "Other" && !occupationOther.trim()) return "Please enter your occupation.";
+    }
+
+    if (currentStep === 2) {
+      if (!selectedPayDate) return "Please choose your payday date.";
+      if (!payFrequency) return "Please choose how often you get paid.";
+      if (!billFrequency) return "Please choose how often you pay most bills.";
+      if (!isPositiveNumber(salary)) return "Please enter your monthly salary to continue.";
+    }
+
+    if (currentStep === 3) {
+      if (!hasAllBillNames) return "Please add a name for each monthly bill.";
+      if (!hasAllBillAmounts) return "Please add an amount for each monthly bill.";
+    }
+
+    if (currentStep === 4) {
+      if (hasAllowance === null) return "Please choose Yes or No for spending money.";
+      if (hasAllowance === true && !isPositiveNumber(allowanceAmount)) {
+        return "Please enter your spending money amount.";
+      }
+    }
+
+    if (currentStep === 5) {
+      if (hasDebts === null) return "Please choose Yes or No for debts.";
+      if (hasDebts === true && !isPositiveNumber(debtAmount)) {
+        return "Please enter your debt amount.";
+      }
+    }
+
+    return null;
   };
 
   const hasAllBillNames =
@@ -215,6 +318,12 @@ export default function OnboardingScreen({
 
   const finish = async () => {
     try {
+      const validationError = validateStep(5);
+      if (validationError) {
+        Alert.alert("Required", validationError);
+        return;
+      }
+
       setSaving(true);
       await saveDraft();
       await apiFetch("/api/bff/onboarding", { method: "POST" });
@@ -226,8 +335,89 @@ export default function OnboardingScreen({
     }
   };
 
-  const goBackStep = () => {
-    setStep((prev) => Math.max(0, prev - 1));
+  const transitionToStep = useCallback((nextStep: number, direction: 1 | -1) => {
+    setStepDirection(direction);
+    stepTransition.setValue(0);
+    setStep(nextStep);
+  }, [stepTransition]);
+
+  const goBackStep = useCallback(() => {
+    if (saving) return;
+    const nextStep = Math.max(0, step - 1);
+    if (nextStep === step) return;
+    transitionToStep(nextStep, -1);
+  }, [saving, step, transitionToStep]);
+
+  const goForwardStep = useCallback(async () => {
+    if (stepAdvanceLockRef.current || saving || step >= 5) return;
+
+    try {
+      const validationError = validateStep(step);
+      if (validationError) {
+        Alert.alert("Required", validationError);
+        return;
+      }
+
+      stepAdvanceLockRef.current = true;
+      setSaving(true);
+      await saveDraft();
+
+      const nextStep = Math.min(5, step + 1);
+      if (nextStep !== step) {
+        transitionToStep(nextStep, 1);
+      }
+    } catch (err: unknown) {
+      Alert.alert("Could not save", err instanceof Error ? err.message : "Please try again.");
+    } finally {
+      setSaving(false);
+      stepAdvanceLockRef.current = false;
+    }
+  }, [saving, step, transitionToStep]);
+
+  const stepPanResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_, gestureState) => {
+          if (saving) return false;
+          const absX = Math.abs(gestureState.dx);
+          const absY = Math.abs(gestureState.dy);
+          return absX > 24 && absX > absY * 1.3;
+        },
+        onPanResponderRelease: (_, gestureState) => {
+          if (saving) return;
+
+          if (gestureState.dx <= -80 || (gestureState.dx <= -50 && gestureState.vx <= -0.6)) {
+            void goForwardStep();
+            return;
+          }
+
+          if (gestureState.dx >= 80 || (gestureState.dx >= 50 && gestureState.vx >= 0.6)) {
+            goBackStep();
+          }
+        },
+      }),
+    [goBackStep, goForwardStep, saving]
+  );
+
+  useEffect(() => {
+    Animated.timing(stepTransition, {
+      toValue: 1,
+      duration: 240,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [step, stepTransition]);
+
+  const stepAnimatedStyle = {
+    opacity: stepTransition,
+    transform: [
+      {
+        translateX: stepTransition.interpolate({
+          inputRange: [0, 1],
+          outputRange: [stepDirection * 20, 0],
+        }),
+      },
+    ],
   };
 
   return (
@@ -256,17 +446,20 @@ export default function OnboardingScreen({
         </Pressable>
       ) : null}
 
-      <ScrollView contentContainerStyle={s.wrap} keyboardShouldPersistTaps="handled">
-        {step === 0 ? (
-          <View style={s.header}>
-            <Text style={s.welcome}>Welcome{displayName ? ` ${displayName}` : ""}</Text>
-            <Text style={s.sub} numberOfLines={1} ellipsizeMode="tail">
-              Quick setup, then you’re in.
-            </Text>
-          </View>
-        ) : null}
+      <View style={s.gestureWrap} {...stepPanResponder.panHandlers}>
+          <ScrollView contentContainerStyle={s.wrap} keyboardShouldPersistTaps="handled">
+            <Animated.View style={stepAnimatedStyle}>
+          {step === 0 ? (
+            <View style={s.header}>
+              <Text style={[s.welcome, fontsLoaded && s.welcomeScript]}>Welcome</Text>
+              {displayName ? <Text style={s.welcomeName}>{displayName}</Text> : null}
+              <Text style={s.sub} numberOfLines={1} ellipsizeMode="tail">
+                Quick setup, then you’re in.
+              </Text>
+            </View>
+          ) : null}
 
-        <View style={s.form}>
+          <View style={s.form}>
           {step === 0 ? (
             <>
               <View style={s.questionRow}>
@@ -318,8 +511,28 @@ export default function OnboardingScreen({
                 {occupations.map((item) => {
                   const active = occupation === item;
                   return (
-                    <Pressable key={item} onPress={() => setOccupation(item)} style={[s.chip, active && s.chipActive]}>
-                      <Text style={[s.chipText, active && s.chipTextActive]}>{item}</Text>
+                    <Pressable
+                      key={item}
+                      onPress={() => setOccupation(item)}
+                      style={[s.chip, active && s.chipActive, active && liquidGlassEnabled && s.chipActiveLiquid]}
+                    >
+                      {active && liquidGlassEnabled && GlassView ? (
+                        <GlassView
+                          pointerEvents="none"
+                          glassEffectStyle="regular"
+                          tintColor="rgba(255,255,255,0.40)"
+                          style={StyleSheet.absoluteFillObject}
+                        />
+                      ) : null}
+                      <Text
+                        style={[
+                          s.chipText,
+                          active && s.chipTextActive,
+                          active && liquidGlassEnabled && s.chipTextActiveLiquid,
+                        ]}
+                      >
+                        {item}
+                      </Text>
                     </Pressable>
                   );
                 })}
@@ -385,9 +598,25 @@ export default function OnboardingScreen({
                     <Pressable
                       key={item.id}
                       onPress={() => setPayFrequency(item.id as "monthly" | "every_2_weeks" | "weekly")}
-                      style={[s.chip, active && s.chipActive]}
+                      style={[s.chip, active && s.chipActive, active && liquidGlassEnabled && s.chipActiveLiquid]}
                     >
-                      <Text style={[s.chipText, active && s.chipTextActive]}>{item.label}</Text>
+                      {active && liquidGlassEnabled && GlassView ? (
+                        <GlassView
+                          pointerEvents="none"
+                          glassEffectStyle="regular"
+                          tintColor="rgba(255,255,255,0.40)"
+                          style={StyleSheet.absoluteFillObject}
+                        />
+                      ) : null}
+                      <Text
+                        style={[
+                          s.chipText,
+                          active && s.chipTextActive,
+                          active && liquidGlassEnabled && s.chipTextActiveLiquid,
+                        ]}
+                      >
+                        {item.label}
+                      </Text>
                     </Pressable>
                   );
                 })}
@@ -404,9 +633,25 @@ export default function OnboardingScreen({
                     <Pressable
                       key={item.id}
                       onPress={() => setBillFrequency(item.id as "monthly" | "every_2_weeks")}
-                      style={[s.chip, active && s.chipActive]}
+                      style={[s.chip, active && s.chipActive, active && liquidGlassEnabled && s.chipActiveLiquid]}
                     >
-                      <Text style={[s.chipText, active && s.chipTextActive]}>{item.label}</Text>
+                      {active && liquidGlassEnabled && GlassView ? (
+                        <GlassView
+                          pointerEvents="none"
+                          glassEffectStyle="regular"
+                          tintColor="rgba(255,255,255,0.40)"
+                          style={StyleSheet.absoluteFillObject}
+                        />
+                      ) : null}
+                      <Text
+                        style={[
+                          s.chipText,
+                          active && s.chipTextActive,
+                          active && liquidGlassEnabled && s.chipTextActiveLiquid,
+                        ]}
+                      >
+                        {item.label}
+                      </Text>
                     </Pressable>
                   );
                 })}
@@ -442,7 +687,7 @@ export default function OnboardingScreen({
                 <TextInput
                   value={expenseTwoName}
                   onChangeText={setExpenseTwoName}
-                  placeholder="Electricity, water"
+                  placeholder="Groceries, Dining"
                   placeholderTextColor="rgba(255,255,255,0.62)"
                   style={[s.input, s.rowInput]}
                 />
@@ -452,7 +697,7 @@ export default function OnboardingScreen({
                 <TextInput
                   value={expenseThreeName}
                   onChangeText={setExpenseThreeName}
-                  placeholder="Phone bill"
+                  placeholder="EE, Vodafone"
                   placeholderTextColor="rgba(255,255,255,0.62)"
                   style={[s.input, s.rowInput]}
                 />
@@ -462,18 +707,17 @@ export default function OnboardingScreen({
                 <TextInput
                   value={expenseFourName}
                   onChangeText={setExpenseFourName}
-                  placeholder="Subscription"
+                  placeholder="Netflix, Spotify"
                   placeholderTextColor="rgba(255,255,255,0.62)"
                   style={[s.input, s.rowInput]}
                 />
                 <MoneyInput currency={currency} value={expenseFourAmount} onChangeValue={setExpenseFourAmount} variant="light" placeholder="0.00" containerStyle={s.rowInput} />
               </View>
 
-              <View style={s.infoCard}>
-                <Text style={s.infoCardText}>
-                  These are your regular monthly bills. If you know the company name, enter it (it helps keep things accurate).
-                </Text>
-              </View>
+              <NoteBadge
+                text="These are your regular monthly bills. If you know the company name, enter it (it helps keep things accurate)."
+                accentStyle={{ backgroundColor: T.red, width: 8 }}
+              />
             </>
           ) : null}
 
@@ -521,38 +765,36 @@ export default function OnboardingScreen({
           <View style={s.footerRow}>
             {step < 5 ? (
               <Pressable
-                onPress={async () => {
-                  try {
-                    if (step === 3 && !hasAllBillNames) {
-                      Alert.alert("Add bill names", "Please add a name for each bill before continuing.");
-                      return;
-                    }
-                    setSaving(true);
-                    await saveDraft();
-                    setStep((prev) => Math.min(5, prev + 1));
-                  } catch (err: unknown) {
-                    Alert.alert("Could not save", err instanceof Error ? err.message : "Please try again.");
-                  } finally {
-                    setSaving(false);
-                  }
+                onPress={() => {
+                  void goForwardStep();
                 }}
                 disabled={saving}
-                style={[s.primaryBtn, saving && s.disabled]}
+                style={[saving ? s.primaryBtnCircle : s.primaryBtn, saving && s.disabled]}
+                accessibilityRole="button"
+                accessibilityLabel={step === 0 ? "Let's go" : "Next"}
               >
                 {saving ? (
                   <ActivityIndicator color={EXPENSES_TOTAL_BLUE} />
                 ) : (
-                  <Text style={s.primaryText}>{step === 0 ? "Let’s go" : "Next"}</Text>
+                  <Text style={s.primaryBtnText}>{step === 0 ? "Let's go" : "Next"}</Text>
                 )}
               </Pressable>
             ) : (
-              <Pressable onPress={finish} disabled={saving} style={[s.primaryBtn, saving && s.disabled]}>
-                {saving ? <ActivityIndicator color={EXPENSES_TOTAL_BLUE} /> : <Text style={s.primaryText}>Finish</Text>}
+              <Pressable
+                onPress={finish}
+                disabled={saving}
+                style={[saving ? s.primaryBtnCircle : s.primaryBtn, saving && s.disabled]}
+                accessibilityRole="button"
+                accessibilityLabel="Finish"
+              >
+                {saving ? <ActivityIndicator color={EXPENSES_TOTAL_BLUE} /> : <Text style={s.primaryBtnText}>Finish</Text>}
               </Pressable>
             )}
           </View>
-        </View>
-      </ScrollView>
+          </View>
+            </Animated.View>
+          </ScrollView>
+      </View>
 
       {Platform.OS === "ios" ? (
         <Modal
@@ -592,6 +834,7 @@ export default function OnboardingScreen({
 
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: EXPENSES_TOTAL_BLUE },
+  gestureWrap: { flex: 1 },
   wrap: { flexGrow: 1, paddingHorizontal: 20, paddingVertical: 24, justifyContent: "center" },
   floatingBackBtn: {
     position: "absolute",
@@ -619,7 +862,28 @@ const s = StyleSheet.create({
   },
   floatingLogoutText: { color: "#ffffff", fontSize: 12, fontWeight: "900" },
   header: { minHeight: 220, alignItems: "center", justifyContent: "center", paddingVertical: 10 },
-  welcome: { color: "#ffffff", fontSize: 26, fontWeight: "900", letterSpacing: -0.4, textAlign: "center" },
+  welcome: {
+    color: "#ffffff",
+    fontSize: 46,
+    fontWeight: "800",
+    letterSpacing: 0.2,
+    textAlign: "center",
+    lineHeight: 52,
+  },
+  welcomeScript: {
+    fontFamily: "Sacramento_400Regular",
+    fontWeight: "400",
+    lineHeight: 64,
+    paddingTop: 8,
+  },
+  welcomeName: {
+    color: "#ffffff",
+    marginTop: 2,
+    fontSize: 32,
+    fontWeight: "900",
+    letterSpacing: -0.3,
+    textAlign: "center",
+  },
   sub: { color: "rgba(255,255,255,0.78)", marginTop: 10, fontSize: 13, fontWeight: "800", textAlign: "center", maxWidth: 360 },
   form: { gap: 10 },
   questionRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 6 },
@@ -649,13 +913,20 @@ const s = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 6,
+    position: "relative",
+    overflow: "hidden",
   },
   chipActive: {
-    borderColor: "rgba(255,255,255,0.78)",
-    backgroundColor: "rgba(255,255,255,0.18)",
+    borderColor: "#ffffff",
+    backgroundColor: "#ffffff",
+  },
+  chipActiveLiquid: {
+    borderColor: "rgba(255,255,255,0.95)",
+    backgroundColor: "transparent",
   },
   chipText: { color: "#ffffff", fontSize: 12, fontWeight: "800" },
-  chipTextActive: { color: "#ffffff" },
+  chipTextActive: { color: EXPENSES_TOTAL_BLUE },
+  chipTextActiveLiquid: { color: "#ffffff" },
   input: {
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.30)",
@@ -709,23 +980,6 @@ const s = StyleSheet.create({
   },
   row: { flexDirection: "row", gap: 10 },
   rowInput: { flex: 1 },
-  infoCard: {
-    marginTop: 10,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.20)",
-    backgroundColor: "rgba(255,255,255,0.10)",
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderLeftWidth: 4,
-    borderLeftColor: T.accent,
-  },
-  infoCardText: {
-    color: "rgba(255,255,255,0.85)",
-    fontSize: 12,
-    fontWeight: "800",
-    lineHeight: 16,
-  },
   toggleRow: { flexDirection: "row", gap: 10 },
   toggle: {
     flex: 1,
@@ -745,13 +999,26 @@ const s = StyleSheet.create({
   footerRow: { marginTop: 16, flexDirection: "row", justifyContent: "center", alignItems: "center" },
   primaryBtn: {
     width: "100%",
+    height: 52,
     borderRadius: 999,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    paddingHorizontal: 26,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#ffffff",
   },
-  primaryText: { color: EXPENSES_TOTAL_BLUE, fontWeight: "900" },
+  primaryBtnText: {
+    color: EXPENSES_TOTAL_BLUE,
+    fontSize: 16,
+    fontWeight: "900",
+    letterSpacing: 0.2,
+  },
+  primaryBtnCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#ffffff",
+  },
   disabled: { opacity: 0.55 },
 });

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -24,8 +24,9 @@ import { T } from "@/lib/theme";
 import { cardElevated, textLabel } from "@/lib/ui";
 import MoneyInput from "@/components/Shared/MoneyInput";
 
-export default function GoalsScreen({ navigation }: { navigation: any }) {
+export default function GoalsScreen({ navigation, route }: { navigation: any; route: any }) {
   const topHeaderOffset = useTopHeaderOffset();
+  const listTopInset = Math.max(24, topHeaderOffset - 36);
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [goals, setGoals] = useState<Goal[]>([]);
@@ -45,6 +46,7 @@ export default function GoalsScreen({ navigation }: { navigation: any }) {
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
   const [editTargetYear, setEditTargetYear] = useState("");
   const [editPending, setEditPending] = useState(false);
+  const lastOpenAddTokenRef = useRef<number | null>(null);
 
   const budgetPlanId = dashboard?.budgetPlanId;
 
@@ -237,9 +239,17 @@ export default function GoalsScreen({ navigation }: { navigation: any }) {
     return list;
   }, [goals]);
 
+  useEffect(() => {
+    const token = Number(route?.params?.openAddToken);
+    if (!Number.isFinite(token)) return;
+    if (lastOpenAddTokenRef.current === token) return;
+    lastOpenAddTokenRef.current = token;
+    openAdd();
+  }, [openAdd, route?.params?.openAddToken]);
+
   if (loading) {
     return (
-			<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
+			<SafeAreaView style={s.safe} edges={[]}>
         <View style={s.center}>
           <ActivityIndicator size="large" color={T.accent} />
           <Text style={s.info}>Loading goals…</Text>
@@ -250,7 +260,7 @@ export default function GoalsScreen({ navigation }: { navigation: any }) {
 
   if (error) {
     return (
-			<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
+			<SafeAreaView style={s.safe} edges={[]}>
         <View style={s.center}>
           <Ionicons name="cloud-offline-outline" size={46} color={T.textDim} />
           <Text style={s.error}>{error}</Text>
@@ -263,7 +273,7 @@ export default function GoalsScreen({ navigation }: { navigation: any }) {
   }
 
   return (
-		<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
+		<SafeAreaView style={s.safe} edges={[]}>
       <Modal
         visible={addOpen}
         transparent
@@ -394,21 +404,12 @@ export default function GoalsScreen({ navigation }: { navigation: any }) {
         </View>
       </Modal>
 
-      <View style={s.header}>
-        <View style={s.headerLeftSpacer} />
-        <Text style={s.title}>Goals</Text>
-        <Pressable
-          onPress={openAdd}
-          hitSlop={10}
-          style={({ pressed }) => [s.headerAddBtn, pressed && s.pressed]}
-        >
-          <Ionicons name="add" size={18} color={T.onAccent} />
-        </Pressable>
-      </View>
-
       <SectionList
         sections={sections}
         keyExtractor={(item) => item.id}
+        stickySectionHeadersEnabled
+        stickyHeaderHiddenOnScroll={false}
+        style={{ marginTop: listTopInset }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -421,7 +422,9 @@ export default function GoalsScreen({ navigation }: { navigation: any }) {
         }
         contentContainerStyle={s.list}
         renderSectionHeader={({ section }) => (
-          <Text style={s.sectionTitle}>{section.title}</Text>
+          <View style={s.sectionHeader}>
+            <Text style={s.sectionTitle}>{section.title}</Text>
+          </View>
         )}
         renderItem={({ item }) => {
           const selected = selectedIds.includes(item.id);
@@ -498,31 +501,16 @@ const s = StyleSheet.create({
   retryBtn: { marginTop: 8, backgroundColor: T.accent, borderRadius: 10, paddingHorizontal: 20, paddingVertical: 10 },
   retryTxt: { color: T.onAccent, fontWeight: "800" },
 
-  header: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  title: { color: T.text, fontSize: 18, fontWeight: "900" },
-  headerLeftSpacer: { width: 34, height: 34 },
-  headerAddBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 999,
-    backgroundColor: T.accent,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  pressed: { opacity: 0.85 },
-
   list: { paddingHorizontal: 16, paddingBottom: 24 },
   empty: { color: T.textDim, fontStyle: "italic", paddingVertical: 12 },
 
+  sectionHeader: {
+    backgroundColor: "transparent",
+    paddingTop: 14,
+    paddingBottom: 10,
+    zIndex: 2,
+  },
   sectionTitle: {
-    marginTop: 6,
-    marginBottom: 10,
     color: T.text,
     fontSize: 18,
     fontWeight: "900",

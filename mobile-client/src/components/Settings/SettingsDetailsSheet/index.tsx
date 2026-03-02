@@ -11,7 +11,7 @@ export default function SettingsDetailsSheet({ visible, keyboardOffset, translat
       <View style={styles.sheetOverlay}>
         <Pressable style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0 }} onPress={onClose} />
         <KeyboardAvoidingView style={styles.sheetKeyboardWrap} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={keyboardOffset}>
-          <Animated.View style={[styles.sheet, { transform: [{ translateY }] }]}> 
+          <Animated.View style={[styles.sheet, { transform: [{ translateY }] }]} {...panHandlers}>
             <View style={styles.sheetHandle} {...panHandlers} />
             <Text style={styles.sheetTitle}>Edit details</Text>
             <Text style={styles.label}>Username</Text>
