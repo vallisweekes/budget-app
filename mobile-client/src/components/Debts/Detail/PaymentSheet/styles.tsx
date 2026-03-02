@@ -1,0 +1,41 @@
+import { StyleSheet } from "react-native";
+import { T } from "@/lib/theme";
+
+export const styles = StyleSheet.create({
+  sectionTitle: { color: T.text, fontSize: 14, fontWeight: "900" },
+  inputLabel: { color: T.textDim, fontSize: 12, fontWeight: "800" },
+  sheetOverlay: { flex: 1, justifyContent: "flex-end" },
+  sheetBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.55)" },
+  paySheetCard: {
+    backgroundColor: T.card,
+    height: "78%",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderTopWidth: 1,
+    borderTopColor: T.border,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 28,
+    gap: 16,
+  },
+  sheetHandle: { width: 40, height: 4, borderRadius: 2, alignSelf: "center", backgroundColor: T.border },
+  bottomActions: { marginTop: "auto", gap: 10, paddingTop: 10 },
+  sheetActions: { flexDirection: "row", gap: 10 },
+  cancelBtn: { backgroundColor: T.cardAlt, borderRadius: 8, paddingVertical: 11, alignItems: "center", flex: 1 },
+  cancelBtnTxt: { color: T.textDim, fontWeight: "700", fontSize: 14 },
+  saveBtn: { backgroundColor: T.accent, borderRadius: 8, paddingVertical: 11, alignItems: "center" },
+  saveBtnFlex: { flex: 1 },
+  saveBtnTxt: { color: T.onAccent, fontWeight: "700", fontSize: 14 },
+  disabled: { opacity: 0.5 },
+  payInputGroup: { gap: 10, marginTop: 10 },
+  markPaidBtn: {
+    marginTop: 2,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: `${T.green}88`,
+    backgroundColor: `${T.green}22`,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  markPaidBtnTxt: { color: T.green, fontSize: 14, fontWeight: "800" },
+});
