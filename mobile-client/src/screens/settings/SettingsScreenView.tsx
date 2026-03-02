@@ -3,6 +3,8 @@ import {
   ActivityIndicator,
   Animated,
   Alert,
+  Dimensions,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -57,6 +59,17 @@ type PayFrequency = "monthly" | "every_2_weeks" | "weekly";
 type BillFrequency = "monthly" | "every_2_weeks";
 type BudgetField = "payDate" | "horizon" | "payFrequency" | "billFrequency";
 type SavingsField = "savings" | "emergency" | "investment";
+type MoneyViewMode = "personal" | "cards";
+
+type SavingsPot = {
+  id: string;
+  field: SavingsField;
+  name: string;
+  amount: number;
+  allocationId?: string;
+};
+
+type SavingsPotStore = Record<string, SavingsPot[]>;
 
 type NotificationPrefs = {
   dueReminders: boolean;
@@ -69,6 +82,13 @@ type NotificationPrefsResponse = {
   dueReminders?: boolean;
   paymentAlerts?: boolean;
   dailyTips?: boolean;
+};
+
+type CreateSacrificeItemResponse = {
+  success?: boolean;
+  item?: {
+    id?: string;
+  };
 };
 
 function formatDateDmy(dateYmd: string): string {
@@ -89,7 +109,7 @@ function normalizeDateToYmd(value: string): string | null {
 const PRIMARY_TABS: Array<{ id: SettingsTab; label: string }> = [
   { id: "details", label: "Details" },
   { id: "budget", label: "Budget" },
-  { id: "savings", label: "Savings" },
+  { id: "savings", label: "Money" },
   { id: "plans", label: "Plans" },
 ];
 
@@ -102,7 +122,7 @@ const MORE_TABS: Array<{ id: SettingsTab; label: string }> = [
 const TAB_ICONS: Record<SettingsTab, { active: React.ComponentProps<typeof Ionicons>["name"]; inactive: React.ComponentProps<typeof Ionicons>["name"] }> = {
   details: { active: "person", inactive: "person-outline" },
   budget: { active: "wallet", inactive: "wallet-outline" },
-  savings: { active: "cash", inactive: "cash-outline" },
+  savings: { active: "logo-usd", inactive: "logo-usd" },
   plans: { active: "list", inactive: "list-outline" },
   locale: { active: "globe", inactive: "globe-outline" },
   notifications: { active: "notifications", inactive: "notifications-outline" },
@@ -115,8 +135,6 @@ const STRATEGY_OPTIONS = [
   { value: "fiftyThirtyTwenty", label: "50/30/20", tip: "Split income into needs, wants, and savings/debt reduction." },
 ] as const;
 
-const TERM_PRESETS = [2, 3, 6, 12, 24, 36, 48] as const;
-
 const PAY_FREQUENCY_OPTIONS: Array<{ value: PayFrequency; label: string }> = [
   { value: "monthly", label: "Monthly" },
   { value: "every_2_weeks", label: "Every 2 weeks" },
@@ -127,6 +145,69 @@ const BILL_FREQUENCY_OPTIONS: Array<{ value: BillFrequency; label: string }> = [
   { value: "monthly", label: "Monthly" },
   { value: "every_2_weeks", label: "Every 2 weeks" },
 ];
+
+const SAVINGS_TILE_SIZE = Math.min(122, Math.max(94, Math.floor(Dimensions.get("window").width * 0.30)));
+const MONEY_TOGGLE_WIDTH = Math.max(220, Dimensions.get("window").width - 32);
+const MONEY_TOGGLE_TRACK_PADDING = 4;
+const MONEY_TOGGLE_SEGMENT_WIDTH = (MONEY_TOGGLE_WIDTH - MONEY_TOGGLE_TRACK_PADDING * 2) / 2;
+const MONEY_TOP_OFFSET_REDUCTION = 8;
+const SAVINGS_CARD_GREEN = "#2EF2B3";
+const EMERGENCY_CARD_RED = "#FF9E96";
+const INVESTMENT_CARD_BLUE = "#9EC9FF";
+
+function getSavingsTilePalette(field: SavingsField): {
+  cardBg: string;
+  borderColor: string;
+  iconBg: string;
+  titleColor: string;
+  valueColor: string;
+  hintColor: string;
+  plusColor: string;
+} {
+  if (field === "emergency") {
+    return {
+      cardBg: EMERGENCY_CARD_RED,
+      borderColor: "rgba(86,19,22,0.17)",
+      iconBg: "rgba(86,19,22,0.15)",
+      titleColor: "#5a1316",
+      valueColor: "#3f0d11",
+      hintColor: "#7a262c",
+      plusColor: "#3f0d11",
+    };
+  }
+  if (field === "investment") {
+    return {
+      cardBg: INVESTMENT_CARD_BLUE,
+      borderColor: "rgba(17,45,82,0.18)",
+      iconBg: "rgba(17,45,82,0.13)",
+      titleColor: "#1b3f6d",
+      valueColor: "#122c4b",
+      hintColor: "#295a96",
+      plusColor: "#122c4b",
+    };
+  }
+  return {
+    cardBg: SAVINGS_CARD_GREEN,
+    borderColor: "rgba(11,46,62,0.16)",
+    iconBg: "rgba(8,44,66,0.16)",
+    titleColor: "#0b2e3e",
+    valueColor: "#071f34",
+    hintColor: "#123e56",
+    plusColor: "#071f34",
+  };
+}
+
+function getAddPotLabel(field: SavingsField): string {
+  if (field === "savings") return "Add Saving";
+  if (field === "emergency") return "Add Emergency";
+  return "Add Investment";
+}
+
+function mapSavingsFieldToSacrificeType(field: SavingsField): "savings" | "emergency" | "investment" {
+  if (field === "emergency") return "emergency";
+  if (field === "investment") return "investment";
+  return "savings";
+}
 
 function formatPayFrequency(value: unknown): string {
   if (value === "weekly") return "Weekly";
@@ -140,6 +221,55 @@ function formatBillFrequency(value: unknown): string {
 }
 
 const NOTIFICATION_PREFS_KEY = "budget_app.notification_prefs";
+const SAVINGS_POTS_KEY = "budget_app.savings_pots.v1";
+
+function parseSavingsPotStore(raw: string | null): SavingsPotStore {
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    const next: SavingsPotStore = {};
+    for (const [planId, pots] of Object.entries(parsed as Record<string, unknown>)) {
+      if (!Array.isArray(pots)) continue;
+      next[planId] = pots
+        .map((pot) => {
+          if (!pot || typeof pot !== "object") return null;
+          const rec = pot as Record<string, unknown>;
+          const field = rec.field;
+          const name = typeof rec.name === "string" ? rec.name.trim() : "";
+          const amountRaw = rec.amount;
+          const amount = typeof amountRaw === "number" ? amountRaw : Number(amountRaw);
+          if ((field !== "savings" && field !== "emergency" && field !== "investment") || !name || !Number.isFinite(amount) || amount < 0) {
+            return null;
+          }
+          return {
+            id: typeof rec.id === "string" && rec.id ? rec.id : `${planId}-${name.toLowerCase().replace(/\s+/g, "-")}`,
+            field,
+            name,
+            amount,
+            allocationId: typeof rec.allocationId === "string" && rec.allocationId.trim() ? rec.allocationId.trim() : undefined,
+          } as SavingsPot;
+        })
+        .filter((pot): pot is SavingsPot => Boolean(pot));
+    }
+    return next;
+  } catch {
+    return {};
+  }
+}
+
+async function readSavingsPotsForPlan(planId: string): Promise<SavingsPot[]> {
+  const raw = await SecureStore.getItemAsync(SAVINGS_POTS_KEY);
+  const store = parseSavingsPotStore(raw);
+  return Array.isArray(store[planId]) ? store[planId] : [];
+}
+
+async function writeSavingsPotsForPlan(planId: string, pots: SavingsPot[]): Promise<void> {
+  const raw = await SecureStore.getItemAsync(SAVINGS_POTS_KEY);
+  const store = parseSavingsPotStore(raw);
+  store[planId] = pots;
+  await SecureStore.setItemAsync(SAVINGS_POTS_KEY, JSON.stringify(store));
+}
 
 function Section({ title, right, children }: { title: string; right?: React.ReactNode; children: React.ReactNode }) {
   return (
@@ -208,6 +338,8 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
 
   const [themeMode, setThemeMode] = useState<ThemeMode>("dark");
   const [activeTab, setActiveTab] = useState<SettingsTab>("details");
+  const [moneyViewMode, setMoneyViewMode] = useState<MoneyViewMode>("personal");
+  const moneyToggleAnim = React.useRef(new Animated.Value(0)).current;
   const [moreOpen, setMoreOpen] = useState(false);
 
   const [notifications, setNotifications] = useState<NotificationPrefs>({ dueReminders: true, paymentAlerts: true, dailyTips: true });
@@ -234,12 +366,18 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
   const [billFrequencyDraft, setBillFrequencyDraft] = useState<BillFrequency>("monthly");
   const [strategyDraft, setStrategyDraft] = useState("payYourselfFirst");
   const [savingsValueDraft, setSavingsValueDraft] = useState("");
+  const [savingsPotNameDraft, setSavingsPotNameDraft] = useState("");
+  const [savingsPots, setSavingsPots] = useState<SavingsPot[]>([]);
 
   const [editDebtTarget, setEditDebtTarget] = useState<Debt | null>(null);
 
   const closeDetailsSheet = useCallback(() => setDetailsSheetOpen(false), []);
   const closeBudgetFieldSheet = useCallback(() => setBudgetFieldSheet(null), []);
-  const closeSavingsSheet = useCallback(() => setSavingsSheetField(null), []);
+  const closeSavingsSheet = useCallback(() => {
+    setSavingsSheetField(null);
+    setSavingsValueDraft("");
+    setSavingsPotNameDraft("");
+  }, []);
   const closeEditDebtSheet = useCallback(() => setEditDebtTarget(null), []);
   const closeLocaleSheet = useCallback(() => setLocaleSheetOpen(false), []);
   const closeAddDebtSheet = useCallback(() => setAddDebtSheetOpen(false), []);
@@ -293,35 +431,16 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
   const [editDebtInitialBalance, setEditDebtInitialBalance] = useState("");
   const [editDebtBalance, setEditDebtBalance] = useState("");
   const [editDebtLimit, setEditDebtLimit] = useState("");
-  const [editDebtHistoricalPaid, setEditDebtHistoricalPaid] = useState("");
   const [editDebtMonthlyPayment, setEditDebtMonthlyPayment] = useState("");
-  const [editDebtInstallmentMonths, setEditDebtInstallmentMonths] = useState("");
   const [editDebtInterestRate, setEditDebtInterestRate] = useState("");
-  const [editDebtAgreementFirstPaymentDate, setEditDebtAgreementFirstPaymentDate] = useState("");
-  const [editDebtAgreementMissedMonths, setEditDebtAgreementMissedMonths] = useState("");
-  const [editDebtAgreementMissedFee, setEditDebtAgreementMissedFee] = useState("");
-
-  const [showEditAgreementDatePicker, setShowEditAgreementDatePicker] = useState(false);
-  const editAgreementBeforeRef = React.useRef<string>("");
-  const [iosEditAgreementDraft, setIosEditAgreementDraft] = useState<Date>(new Date());
 
   const [addDebtName, setAddDebtName] = useState("");
   const [addDebtType, setAddDebtType] = useState<DebtKind>("credit_card");
   const [addDebtInitialBalance, setAddDebtInitialBalance] = useState("");
   const [addDebtBalance, setAddDebtBalance] = useState("");
   const [addDebtLimit, setAddDebtLimit] = useState("");
-  const [addDebtHistoricalPaid, setAddDebtHistoricalPaid] = useState("");
   const [addDebtMonthlyPayment, setAddDebtMonthlyPayment] = useState("");
-  const [addDebtInstallmentMonths, setAddDebtInstallmentMonths] = useState("");
-  const [addDebtInstallmentPreset, setAddDebtInstallmentPreset] = useState<number | "custom" | null>(null);
   const [addDebtInterestRate, setAddDebtInterestRate] = useState("");
-  const [addDebtAgreementFirstPaymentDate, setAddDebtAgreementFirstPaymentDate] = useState("");
-  const [addDebtAgreementMissedMonths, setAddDebtAgreementMissedMonths] = useState("");
-  const [addDebtAgreementMissedFee, setAddDebtAgreementMissedFee] = useState("");
-
-  const [showAddAgreementDatePicker, setShowAddAgreementDatePicker] = useState(false);
-  const addAgreementBeforeRef = React.useRef<string>("");
-  const [iosAddAgreementDraft, setIosAddAgreementDraft] = useState<Date>(new Date());
 
   const [newPlanName, setNewPlanName] = useState("");
   const [newPlanType, setNewPlanType] = useState<PlanKind>("holiday");
@@ -330,42 +449,6 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
   const [showPlanEventDatePicker, setShowPlanEventDatePicker] = useState(false);
   const planEventBeforeRef = React.useRef<string>("");
   const [iosPlanEventDraft, setIosPlanEventDraft] = useState<Date>(new Date());
-
-  const openEditAgreementDatePicker = useCallback(() => {
-    editAgreementBeforeRef.current = editDebtAgreementFirstPaymentDate;
-    setIosEditAgreementDraft(editDebtAgreementFirstPaymentDate ? new Date(`${editDebtAgreementFirstPaymentDate}T00:00:00`) : new Date());
-    setShowEditAgreementDatePicker(true);
-  }, [editDebtAgreementFirstPaymentDate]);
-
-  const cancelEditAgreementDatePicker = useCallback(() => {
-    setShowEditAgreementDatePicker(false);
-    if (editAgreementBeforeRef.current !== editDebtAgreementFirstPaymentDate) {
-      setEditDebtAgreementFirstPaymentDate(editAgreementBeforeRef.current);
-    }
-  }, [editDebtAgreementFirstPaymentDate]);
-
-  const closeEditAgreementDatePicker = useCallback(() => {
-    setEditDebtAgreementFirstPaymentDate(iosEditAgreementDraft.toISOString().slice(0, 10));
-    setShowEditAgreementDatePicker(false);
-  }, [iosEditAgreementDraft]);
-
-  const openAddAgreementDatePicker = useCallback(() => {
-    addAgreementBeforeRef.current = addDebtAgreementFirstPaymentDate;
-    setIosAddAgreementDraft(addDebtAgreementFirstPaymentDate ? new Date(`${addDebtAgreementFirstPaymentDate}T00:00:00`) : new Date());
-    setShowAddAgreementDatePicker(true);
-  }, [addDebtAgreementFirstPaymentDate]);
-
-  const cancelAddAgreementDatePicker = useCallback(() => {
-    setShowAddAgreementDatePicker(false);
-    if (addAgreementBeforeRef.current !== addDebtAgreementFirstPaymentDate) {
-      setAddDebtAgreementFirstPaymentDate(addAgreementBeforeRef.current);
-    }
-  }, [addDebtAgreementFirstPaymentDate]);
-
-  const closeAddAgreementDatePicker = useCallback(() => {
-    setAddDebtAgreementFirstPaymentDate(iosAddAgreementDraft.toISOString().slice(0, 10));
-    setShowAddAgreementDatePicker(false);
-  }, [iosAddAgreementDraft]);
 
   const openPlanEventDatePicker = useCallback(() => {
     planEventBeforeRef.current = newPlanEventDate;
@@ -399,6 +482,66 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
   const savingsTotal = savingsBase + savingsMonthly;
   const emergencyTotal = emergencyBase + emergencyMonthly;
   const investmentTotal = investmentBase + investmentMonthly;
+  const savingsCards = useMemo(
+    () => [
+      {
+        key: "savings" as const,
+        title: "Savings",
+        icon: "wallet-outline" as const,
+        total: savingsTotal,
+        base: savingsBase,
+        monthly: savingsMonthly,
+      },
+      {
+        key: "emergency" as const,
+        title: "Emergency funds",
+        icon: "shield-checkmark-outline" as const,
+        total: emergencyTotal,
+        base: emergencyBase,
+        monthly: emergencyMonthly,
+      },
+      {
+        key: "investment" as const,
+        title: "Investments",
+        icon: "trending-up-outline" as const,
+        total: investmentTotal,
+        base: investmentBase,
+        monthly: investmentMonthly,
+      },
+    ],
+    [emergencyBase, emergencyMonthly, emergencyTotal, investmentBase, investmentMonthly, investmentTotal, savingsBase, savingsMonthly, savingsTotal]
+  );
+  const savingsPotsByField = useMemo(
+    () => ({
+      savings: savingsPots.filter((pot) => pot.field === "savings"),
+      emergency: savingsPots.filter((pot) => pot.field === "emergency"),
+      investment: savingsPots.filter((pot) => pot.field === "investment"),
+    }),
+    [savingsPots]
+  );
+  const allDebtItems = useMemo(() => groupedDebts.flatMap((group) => group.items), [groupedDebts]);
+  const isStoreCardDebt = useCallback((debt: Debt) => {
+    const debtType = String(debt.type ?? "").toLowerCase();
+    const debtName = String(debt.name ?? "").toLowerCase();
+    if (debtType === "store_card") return true;
+    return /\bstore\b/.test(debtName);
+  }, []);
+  const creditCardDebts = useMemo(
+    () => allDebtItems.filter((debt) => debt.type === "credit_card" && !isStoreCardDebt(debt)),
+    [allDebtItems, isStoreCardDebt]
+  );
+  const storeCardDebts = useMemo(
+    () => allDebtItems.filter((debt) => isStoreCardDebt(debt)),
+    [allDebtItems, isStoreCardDebt]
+  );
+  const creditCardGroups = useMemo(
+    () => (creditCardDebts.length ? [{ key: "credit_card" as const, label: "Credit Cards", icon: "card-outline" as const, items: creditCardDebts }] : []),
+    [creditCardDebts]
+  );
+  const storeCardGroups = useMemo(
+    () => (storeCardDebts.length ? [{ key: "other" as const, label: "Store Cards", icon: "card-outline" as const, items: storeCardDebts }] : []),
+    [storeCardDebts]
+  );
 
   let apiBase = "";
   try {
@@ -614,6 +757,70 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
     })();
   }, []);
 
+  useEffect(() => {
+    Animated.spring(moneyToggleAnim, {
+      toValue: moneyViewMode === "cards" ? 1 : 0,
+      useNativeDriver: true,
+      speed: 18,
+      bounciness: 7,
+    }).start();
+  }, [moneyToggleAnim, moneyViewMode]);
+
+  useEffect(() => {
+    const planId = settings?.id;
+    if (!planId) {
+      setSavingsPots([]);
+      return;
+    }
+    void (async () => {
+      try {
+        const storedPots = await readSavingsPotsForPlan(planId);
+        const missingLinks = storedPots.filter((pot) => !pot.allocationId);
+        if (missingLinks.length === 0) {
+          setSavingsPots(storedPots);
+          return;
+        }
+
+        const now = new Date();
+        let didUpdate = false;
+        const syncedPots = [...storedPots];
+        for (let i = 0; i < syncedPots.length; i += 1) {
+          const pot = syncedPots[i];
+          if (!pot || pot.allocationId) continue;
+          try {
+            const created = await apiFetch<CreateSacrificeItemResponse>("/api/bff/income-sacrifice/custom", {
+              method: "POST",
+              body: {
+                budgetPlanId: planId,
+                type: mapSavingsFieldToSacrificeType(pot.field),
+                name: pot.name,
+                amount: 0,
+                month: now.getMonth() + 1,
+                year: now.getFullYear(),
+              },
+            });
+            const allocationId = typeof created?.item?.id === "string" ? created.item.id.trim() : "";
+            if (!allocationId) continue;
+            syncedPots[i] = {
+              ...pot,
+              allocationId,
+            };
+            didUpdate = true;
+          } catch {
+            // Keep existing local pot even if allocation sync fails.
+          }
+        }
+
+        if (didUpdate) {
+          await writeSavingsPotsForPlan(planId, syncedPots);
+        }
+        setSavingsPots(syncedPots);
+      } catch {
+        setSavingsPots([]);
+      }
+    })();
+  }, [settings?.id]);
+
   const toggleTheme = async (nextIsDark: boolean) => {
     const next: ThemeMode = nextIsDark ? "dark" : "light";
     setThemeMode(next);
@@ -750,10 +957,17 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
   const openSavingsField = (field: SavingsField) => {
     setSavingsSheetField(field);
     setSavingsValueDraft("");
+    setSavingsPotNameDraft("");
   };
 
   const saveSavingsField = async () => {
     if (!settings?.id || !savingsSheetField) return;
+
+    const potName = savingsPotNameDraft.trim();
+    if (!potName) {
+      Alert.alert("Pot name required", "Enter a name for this savings pot.");
+      return;
+    }
 
     const value = Number(savingsValueDraft || 0);
     if (!Number.isFinite(value) || value <= 0) {
@@ -761,8 +975,29 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
       return;
     }
 
+    let createdAllocationId: string | null = null;
+
     try {
       setSaveBusy(true);
+      const now = new Date();
+
+      const createdItem = await apiFetch<CreateSacrificeItemResponse>("/api/bff/income-sacrifice/custom", {
+        method: "POST",
+        body: {
+          budgetPlanId: settings.id,
+          type: mapSavingsFieldToSacrificeType(savingsSheetField),
+          name: potName,
+          amount: 0,
+          month: now.getMonth() + 1,
+          year: now.getFullYear(),
+        },
+      });
+      const allocationId = typeof createdItem?.item?.id === "string" ? createdItem.item.id.trim() : "";
+      if (!allocationId) {
+        throw new Error("Could not register this pot as a monthly allocation item.");
+      }
+      createdAllocationId = allocationId;
+
       const payload: Record<string, number | string> = {
         budgetPlanId: settings.id,
       };
@@ -775,9 +1010,32 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
         body: payload,
       });
 
+      const nextPots: SavingsPot[] = [
+        ...savingsPots,
+        {
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          field: savingsSheetField,
+          name: potName,
+          amount: value,
+          allocationId: createdAllocationId,
+        },
+      ];
+
+      await writeSavingsPotsForPlan(settings.id, nextPots);
+      setSavingsPots(nextPots);
       setSettings(updated);
-      setSavingsSheetField(null);
+      closeSavingsSheet();
     } catch (err: unknown) {
+      if (createdAllocationId && settings?.id) {
+        try {
+          await apiFetch(`/api/bff/income-sacrifice/custom/${encodeURIComponent(createdAllocationId)}`, {
+            method: "DELETE",
+            body: {},
+          });
+        } catch {
+          // Best-effort rollback only.
+        }
+      }
       Alert.alert("Could not add amount", err instanceof Error ? err.message : "Please try again.");
     } finally {
       setSaveBusy(false);
@@ -811,109 +1069,51 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
   };
 
   const openDebtEditor = (debt: Debt) => {
-    const normalizedType = debt.type === "loan" || debt.type === "hire_purchase" ? debt.type : "credit_card";
+    const normalizedType: DebtKind = "credit_card";
     setEditDebtTarget(debt);
     setEditDebtName(debt.name);
     setEditDebtType(normalizedType);
     setEditDebtInitialBalance(asMoneyInput(debt.initialBalance));
     setEditDebtBalance(asMoneyInput(debt.currentBalance));
     setEditDebtLimit(asMoneyInput(debt.creditLimit));
-    setEditDebtHistoricalPaid(asMoneyInput(debt.historicalPaidAmount));
     setEditDebtMonthlyPayment(asMoneyInput(typeof debt.amount === "number" ? String(debt.amount) : debt.amount));
-    setEditDebtInstallmentMonths(debt.installmentMonths ? String(debt.installmentMonths) : "");
     setEditDebtInterestRate(asMoneyInput(debt.interestRate));
-    setEditDebtAgreementFirstPaymentDate("");
-    setEditDebtAgreementMissedMonths("");
-    setEditDebtAgreementMissedFee("");
   };
 
   const saveDebtEdit = async () => {
     if (!editDebtTarget) return;
 
     const name = editDebtName.trim();
-    const initialBalance = Number(editDebtInitialBalance || editDebtBalance);
+    const debtType: DebtKind = "credit_card";
     const currentBalance = Number(editDebtBalance || editDebtInitialBalance);
     const creditLimit = Number(editDebtLimit || 0);
-    const historicalPaidAmount = Number(editDebtHistoricalPaid || 0);
-    const monthlyPayment = Number(editDebtMonthlyPayment || 0);
-    const installmentMonths = editDebtInstallmentMonths.trim() ? Number.parseInt(editDebtInstallmentMonths.trim(), 10) : null;
     const interestRate = editDebtInterestRate.trim() ? Number(editDebtInterestRate.trim()) : null;
-    const agreementFirstPaymentDateRaw = editDebtAgreementFirstPaymentDate.trim();
-    const agreementFirstPaymentDate = agreementFirstPaymentDateRaw ? normalizeDateToYmd(agreementFirstPaymentDateRaw) : "";
-    const agreementMissedMonths = editDebtAgreementMissedMonths.trim() ? Number.parseInt(editDebtAgreementMissedMonths.trim(), 10) : 0;
-    const agreementMissedPaymentFee = editDebtAgreementMissedFee.trim() ? Number(editDebtAgreementMissedFee.trim()) : 0;
 
     if (!name) {
       Alert.alert("Name required", "Enter a debt name.");
       return;
     }
     if (!Number.isFinite(currentBalance) || currentBalance < 0) {
-      Alert.alert("Invalid balance", "Enter a valid current balance.");
+      Alert.alert("Invalid balance", "Enter a valid balance.");
       return;
     }
-    if (editDebtType === "credit_card" && (!Number.isFinite(creditLimit) || creditLimit <= 0)) {
+    if (interestRate !== null && (!Number.isFinite(interestRate) || interestRate < 0)) {
+      Alert.alert("Invalid interest rate", "Enter a valid interest rate (0 or more).");
+      return;
+    }
+    if (!Number.isFinite(creditLimit) || creditLimit <= 0) {
       Alert.alert("Invalid limit", "Credit cards require a valid credit limit.");
       return;
     }
-    if (editDebtType !== "credit_card") {
-      if (!Number.isFinite(initialBalance) || initialBalance <= 0) {
-        Alert.alert("Invalid initial amount", "Loans require a valid initial amount greater than 0.");
-        return;
-      }
-      if (!Number.isFinite(monthlyPayment) || monthlyPayment <= 0) {
-        Alert.alert("Invalid monthly payment", "Loans require a valid monthly payment greater than 0.");
-        return;
-      }
-      if (installmentMonths !== null && (!Number.isFinite(installmentMonths) || installmentMonths <= 0)) {
-        Alert.alert("Invalid agreement months", "Enter a valid number of agreement months.");
-        return;
-      }
-      if (interestRate !== null && (!Number.isFinite(interestRate) || interestRate < 0)) {
-        Alert.alert("Invalid interest rate", "Enter a valid APR (0 or more).");
-        return;
-      }
-      if (agreementFirstPaymentDateRaw && !agreementFirstPaymentDate) {
-        Alert.alert("Invalid first payment date", "Pick a date from the calendar.");
-        return;
-      }
-      if (!Number.isFinite(agreementMissedMonths) || agreementMissedMonths < 0) {
-        Alert.alert("Invalid missed months", "Enter 0 or more missed months.");
-        return;
-      }
-      if (!Number.isFinite(agreementMissedPaymentFee) || agreementMissedPaymentFee < 0) {
-        Alert.alert("Invalid missed fee", "Enter 0 or more.");
-        return;
-      }
-    }
-    if (!Number.isFinite(historicalPaidAmount) || historicalPaidAmount < 0) {
-      Alert.alert("Invalid paid amount", "Enter a valid paid-so-far amount (0 or more).");
-      return;
-    }
-
     try {
       setSaveBusy(true);
       const body: Record<string, unknown> = {
         name,
-        type: editDebtType,
+        type: debtType,
         currentBalance,
-        creditLimit: editDebtType === "credit_card" ? creditLimit : null,
+        interestRate,
+        creditLimit,
       };
-
-      if (editDebtType !== "credit_card") {
-        body.initialBalance = initialBalance;
-        body.amount = monthlyPayment;
-        body.installmentMonths = installmentMonths;
-        body.interestRate = interestRate;
-        if (agreementFirstPaymentDate) {
-          body.agreementFirstPaymentDate = agreementFirstPaymentDate;
-          body.agreementMissedMonths = agreementMissedMonths;
-          body.agreementMissedPaymentFee = agreementMissedPaymentFee;
-        } else {
-          body.historicalPaidAmount = historicalPaidAmount;
-        }
-      } else {
-        body.historicalPaidAmount = historicalPaidAmount;
-      }
 
       const updated = await apiFetch<Debt>(`/api/bff/debts/${encodeURIComponent(editDebtTarget.id)}`, {
         method: "PATCH",
@@ -931,91 +1131,39 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
   const addDebt = async () => {
     if (!settings?.id) return;
     const name = addDebtName.trim();
-    const initialBalance = Number(addDebtType === "credit_card" ? addDebtBalance : addDebtInitialBalance || addDebtBalance);
+    const debtType: DebtKind = "credit_card";
+    const initialBalance = Number(addDebtBalance || addDebtInitialBalance);
     const currentBalance = Number(addDebtBalance || addDebtInitialBalance);
     const limit = Number(addDebtLimit || 0);
-    const historicalPaidAmount = Number(addDebtHistoricalPaid || 0);
-    const monthlyPayment = Number(addDebtMonthlyPayment || 0);
-    const installmentMonths = addDebtInstallmentMonths.trim() ? Number.parseInt(addDebtInstallmentMonths.trim(), 10) : null;
     const interestRate = addDebtInterestRate.trim() ? Number(addDebtInterestRate.trim()) : null;
-    const agreementFirstPaymentDateRaw = addDebtAgreementFirstPaymentDate.trim();
-    const agreementFirstPaymentDate = agreementFirstPaymentDateRaw ? normalizeDateToYmd(agreementFirstPaymentDateRaw) : "";
-    const agreementMissedMonths = addDebtAgreementMissedMonths.trim() ? Number.parseInt(addDebtAgreementMissedMonths.trim(), 10) : 0;
-    const agreementMissedPaymentFee = addDebtAgreementMissedFee.trim() ? Number(addDebtAgreementMissedFee.trim()) : 0;
     if (!name) {
       Alert.alert("Name required", "Enter a debt name.");
       return;
     }
     if (!Number.isFinite(currentBalance) || currentBalance < 0) {
-      Alert.alert("Invalid balance", "Enter a valid current balance.");
+      Alert.alert("Invalid balance", "Enter a valid balance.");
       return;
     }
-    if (addDebtType === "credit_card" && (!Number.isFinite(limit) || limit <= 0)) {
+    if (interestRate !== null && (!Number.isFinite(interestRate) || interestRate < 0)) {
+      Alert.alert("Invalid interest rate", "Enter a valid interest rate (0 or more).");
+      return;
+    }
+    if (!Number.isFinite(limit) || limit <= 0) {
       Alert.alert("Invalid limit", "Credit cards require a valid credit limit.");
       return;
     }
-    if (addDebtType !== "credit_card") {
-      if (!Number.isFinite(initialBalance) || initialBalance <= 0) {
-        Alert.alert("Invalid initial amount", "Loans require a valid initial amount greater than 0.");
-        return;
-      }
-      if (!Number.isFinite(monthlyPayment) || monthlyPayment <= 0) {
-        Alert.alert("Invalid monthly payment", "Loans require a valid monthly payment greater than 0.");
-        return;
-      }
-      if (installmentMonths !== null && (!Number.isFinite(installmentMonths) || installmentMonths <= 0)) {
-        Alert.alert("Invalid agreement months", "Enter a valid number of agreement months.");
-        return;
-      }
-      if (interestRate !== null && (!Number.isFinite(interestRate) || interestRate < 0)) {
-        Alert.alert("Invalid interest rate", "Enter a valid APR (0 or more).");
-        return;
-      }
-      if (agreementFirstPaymentDateRaw && !agreementFirstPaymentDate) {
-        Alert.alert("Invalid first payment date", "Pick a date from the calendar.");
-        return;
-      }
-      if (!Number.isFinite(agreementMissedMonths) || agreementMissedMonths < 0) {
-        Alert.alert("Invalid missed months", "Enter 0 or more missed months.");
-        return;
-      }
-      if (!Number.isFinite(agreementMissedPaymentFee) || agreementMissedPaymentFee < 0) {
-        Alert.alert("Invalid missed fee", "Enter 0 or more.");
-        return;
-      }
-    }
-    if (!Number.isFinite(historicalPaidAmount) || historicalPaidAmount < 0) {
-      Alert.alert("Invalid paid amount", "Enter a valid paid-so-far amount (0 or more).");
-      return;
-    }
-
     try {
       setSaveBusy(true);
       const body: Record<string, unknown> = {
         budgetPlanId: settings.id,
         name,
-        type: addDebtType,
-        initialBalance: addDebtType === "credit_card" ? currentBalance : initialBalance,
-        currentBalance: addDebtType === "credit_card" ? currentBalance : currentBalance || initialBalance,
-        amount: addDebtType === "credit_card" ? 0 : monthlyPayment,
-        creditLimit: addDebtType === "credit_card" ? limit : null,
-        historicalPaidAmount,
+        type: debtType,
+        initialBalance,
+        currentBalance,
+        amount: 0,
+        interestRate,
+        creditLimit: limit,
       };
-
-      if (installmentMonths !== null) {
-        body.installmentMonths = installmentMonths;
-      }
-
-      if (addDebtType !== "credit_card") {
-        body.interestRate = interestRate;
-        if (agreementFirstPaymentDate) {
-          body.agreementFirstPaymentDate = agreementFirstPaymentDate;
-          body.agreementMissedMonths = agreementMissedMonths;
-          body.agreementMissedPaymentFee = agreementMissedPaymentFee;
-          // Server will compute historicalPaidAmount and currentBalance.
-          delete body.historicalPaidAmount;
-        }
-      }
 
       await apiFetch("/api/bff/debts", {
         method: "POST",
@@ -1025,14 +1173,8 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
       setAddDebtInitialBalance("");
       setAddDebtBalance("");
       setAddDebtLimit("");
-      setAddDebtHistoricalPaid("");
       setAddDebtMonthlyPayment("");
-      setAddDebtInstallmentMonths("");
-      setAddDebtInstallmentPreset(null);
       setAddDebtInterestRate("");
-      setAddDebtAgreementFirstPaymentDate("");
-      setAddDebtAgreementMissedMonths("");
-      setAddDebtAgreementMissedFee("");
       setAddDebtType("credit_card");
       setAddDebtSheetOpen(false);
       await switchPlan(settings.id);
@@ -1095,9 +1237,17 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
     }
   };
 
-  return (
-		<SafeAreaView style={[styles.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
-      <View style={styles.content}>
+  const isMoneyTab = activeTab === "savings";
+  const moneyScrollTopPadding = Math.max(0, topHeaderOffset - MONEY_TOP_OFFSET_REDUCTION);
+  const safeTopPadding = isMoneyTab ? 0 : topHeaderOffset;
+  const moneyToggleTranslateX = moneyToggleAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, MONEY_TOGGLE_SEGMENT_WIDTH],
+  });
+
+    return (
+      <SafeAreaView style={[styles.safe, { paddingTop: safeTopPadding }]} edges={[]}>
+          <View style={styles.content}>
         {loading ? (
           <View style={styles.center}>
             <ActivityIndicator size="large" color={T.accent} />
@@ -1122,7 +1272,12 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
         ) : (
           <ScrollView
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={T.accent} />}
-            contentContainerStyle={styles.scroll}
+            contentContainerStyle={[
+              styles.scroll,
+              isMoneyTab ? [styles.scrollNoTop, { paddingTop: moneyScrollTopPadding }] : null,
+            ]}
+            contentInsetAdjustmentBehavior="never"
+            automaticallyAdjustContentInsets={false}
             showsVerticalScrollIndicator={false}
           >
             {activeTab === "details" && (
@@ -1230,60 +1385,154 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
             )}
 
             {activeTab === "savings" && (
-              <>
-                <View style={styles.plainSavingsBlock}>
-                  <Text style={styles.plainBudgetTitle}>Starting balances</Text>
-                  <Pressable onPress={() => openSavingsField("savings")} style={styles.infoCard}>
-                    <View style={styles.savingsCardHead}>
-                      <View style={styles.savingsIconWrap}>
-                        <Ionicons name="wallet-outline" size={14} color={T.textDim} />
-                      </View>
-                      <Text style={styles.infoCardLabel}>Savings</Text>
-                    </View>
-                    <Text style={styles.infoCardValue}>{cur}{asMoneyText(savingsTotal)}</Text>
-                    <Text style={styles.infoCardHint}>Base {cur}{asMoneyText(savingsBase)} + monthly {cur}{asMoneyText(savingsMonthly)}. Tap to add extra.</Text>
+              <View style={styles.moneyTabSurface}>
+                <View style={styles.moneyToggleWrap}>
+                  <Animated.View
+                    pointerEvents="none"
+                    style={[
+                      styles.moneyToggleThumb,
+                      {
+                        transform: [{ translateX: moneyToggleTranslateX }],
+                      },
+                    ]}
+                  />
+                  <Pressable
+                    onPress={() => setMoneyViewMode("personal")}
+                    style={styles.moneyTogglePill}
+                  >
+                    <Text style={[styles.moneyToggleTxt, moneyViewMode === "personal" && styles.moneyToggleTxtActive]}>Personal</Text>
                   </Pressable>
-                  <Pressable onPress={() => openSavingsField("emergency")} style={styles.infoCard}>
-                    <View style={styles.savingsCardHead}>
-                      <View style={styles.savingsIconWrap}>
-                        <Ionicons name="shield-checkmark-outline" size={14} color={T.textDim} />
-                      </View>
-                      <Text style={styles.infoCardLabel}>Emergency</Text>
-                    </View>
-                    <Text style={styles.infoCardValue}>{cur}{asMoneyText(emergencyTotal)}</Text>
-                    <Text style={styles.infoCardHint}>Base {cur}{asMoneyText(emergencyBase)} + monthly {cur}{asMoneyText(emergencyMonthly)}. Tap to add extra.</Text>
-                  </Pressable>
-                  <Pressable onPress={() => openSavingsField("investment")} style={styles.infoCard}>
-                    <View style={styles.savingsCardHead}>
-                      <View style={styles.savingsIconWrap}>
-                        <Ionicons name="trending-up-outline" size={14} color={T.textDim} />
-                      </View>
-                      <Text style={styles.infoCardLabel}>Investment</Text>
-                    </View>
-                    <Text style={styles.infoCardValue}>{cur}{asMoneyText(investmentTotal)}</Text>
-                    <Text style={styles.infoCardHint}>Base {cur}{asMoneyText(investmentBase)} + monthly {cur}{asMoneyText(investmentMonthly)}. Tap to add extra.</Text>
+                  <Pressable
+                    onPress={() => setMoneyViewMode("cards")}
+                    style={styles.moneyTogglePill}
+                  >
+                    <Text style={[styles.moneyToggleTxt, moneyViewMode === "cards" && styles.moneyToggleTxtActive]}>Cards</Text>
                   </Pressable>
                 </View>
 
-                <View style={styles.plainSavingsBlock}>
-                  <View style={styles.plainSectionHeadRow}>
-                    <Text style={styles.plainBudgetTitle}>Cards / Loans / Hire purchase</Text>
-                    <Pressable onPress={() => setAddDebtSheetOpen(true)} style={styles.circleAddBtn}>
-                      <Ionicons name="add" size={20} color={T.onAccent} />
-                    </Pressable>
+                {moneyViewMode === "personal" ? (
+                  <View style={styles.plainSavingsBlock}>
+                    {savingsCards.map((card) => (
+                      <View key={card.key} style={styles.moneySectionCard}>
+                        <View style={styles.savingsSectionStack}>
+                          <Text style={styles.savingsSectionTitle}>{card.title}</Text>
+                          <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            contentContainerStyle={styles.savingsTilesRow}
+                            decelerationRate="fast"
+                            snapToInterval={SAVINGS_TILE_SIZE + 12}
+                            snapToAlignment="start"
+                          >
+                            {(() => {
+                              const palette = getSavingsTilePalette(card.key);
+                              return (
+                                <Pressable
+                                  onPress={() => openSavingsField(card.key)}
+                                  style={[
+                                    styles.savingsTileCard,
+                                    {
+                                      width: SAVINGS_TILE_SIZE,
+                                      height: SAVINGS_TILE_SIZE,
+                                      backgroundColor: palette.cardBg,
+                                      borderColor: palette.borderColor,
+                                    },
+                                  ]}
+                                >
+                                  <View style={styles.savingsTileTopRow}>
+                                    <View style={[styles.savingsTileIconWrap, { backgroundColor: palette.iconBg }]}>
+                                      <Ionicons name={card.icon} size={18} color={palette.valueColor} />
+                                    </View>
+                                  </View>
+                                  <Text style={[styles.savingsTileValue, { color: palette.valueColor }]}>{cur}{asMoneyText(card.total)}</Text>
+                                  <Text style={[styles.savingsTileHint, { color: palette.hintColor }]}>Base {cur}{asMoneyText(card.base)} + monthly {cur}{asMoneyText(card.monthly)}</Text>
+                                </Pressable>
+                              );
+                            })()}
+                            {savingsPotsByField[card.key].map((pot) => (
+                              <View
+                                key={pot.id}
+                                style={[
+                                  styles.savingsTileCard,
+                                  {
+                                    width: SAVINGS_TILE_SIZE,
+                                    height: SAVINGS_TILE_SIZE,
+                                    backgroundColor: getSavingsTilePalette(card.key).cardBg,
+                                    borderColor: getSavingsTilePalette(card.key).borderColor,
+                                  },
+                                ]}
+                              >
+                                <View style={styles.savingsTileTopRow}>
+                                  <View style={[styles.savingsTileIconWrap, { backgroundColor: getSavingsTilePalette(card.key).iconBg }]}>
+                                    <Ionicons name={card.icon} size={18} color={getSavingsTilePalette(card.key).valueColor} />
+                                  </View>
+                                </View>
+                                <Text style={[styles.savingsTileTitle, { color: getSavingsTilePalette(card.key).titleColor }]}>{pot.name}</Text>
+                                <Text style={[styles.savingsTileValue, { color: getSavingsTilePalette(card.key).valueColor }]}>{cur}{asMoneyText(pot.amount)}</Text>
+                              </View>
+                            ))}
+                            <Pressable
+                              onPress={() => openSavingsField(card.key)}
+                              style={[
+                                styles.savingsTileAddCard,
+                                {
+                                  width: SAVINGS_TILE_SIZE,
+                                  height: SAVINGS_TILE_SIZE,
+                                  backgroundColor: getSavingsTilePalette(card.key).cardBg,
+                                  borderColor: getSavingsTilePalette(card.key).borderColor,
+                                },
+                              ]}
+                              accessibilityLabel={`Add more ${card.title.toLowerCase()}`}
+                            >
+                              <Ionicons name="add" size={30} color={getSavingsTilePalette(card.key).plusColor} />
+                              <Text style={[styles.savingsTileAddText, { color: getSavingsTilePalette(card.key).plusColor }]}>
+                                {getAddPotLabel(card.key)}
+                              </Text>
+                            </Pressable>
+                          </ScrollView>
+                        </View>
+                      </View>
+                    ))}
                   </View>
-                  {groupedDebts.length === 0 ? (
-                    <Text style={styles.muted}>No debts for this plan yet.</Text>
-                  ) : (
-                    <SettingsDebtGroups
-                      groupedDebts={groupedDebts}
-                      currency={cur}
-                      asMoneyInput={asMoneyInput}
-                      onOpenDebtEditor={openDebtEditor}
-                    />
-                  )}
-                </View>
-              </>
+                ) : (
+                  <View style={styles.plainSavingsBlock}>
+                    <View style={styles.moneySectionCard}>
+                      <View style={styles.plainSectionHeadRow}>
+                        <Text style={styles.plainBudgetTitle}>Credit cards</Text>
+                        <Pressable onPress={() => setAddDebtSheetOpen(true)} style={styles.circleAddBtn}>
+                          <Ionicons name="add" size={20} color={T.onAccent} />
+                        </Pressable>
+                      </View>
+                      {creditCardGroups.length === 0 ? (
+                        <Text style={styles.muted}>No credit cards in this plan yet.</Text>
+                      ) : (
+                        <SettingsDebtGroups
+                          groupedDebts={creditCardGroups}
+                          currency={cur}
+                          asMoneyInput={asMoneyInput}
+                          onOpenDebtEditor={openDebtEditor}
+                        />
+                      )}
+                    </View>
+
+                    <View style={styles.moneySectionCard}>
+                      <View style={styles.plainSectionHeadRow}>
+                        <Text style={styles.plainBudgetTitle}>Store cards</Text>
+                      </View>
+                      {storeCardGroups.length === 0 ? (
+                        <Text style={styles.muted}>No store cards in this plan yet.</Text>
+                      ) : (
+                        <SettingsDebtGroups
+                          groupedDebts={storeCardGroups}
+                          currency={cur}
+                          asMoneyInput={asMoneyInput}
+                          onOpenDebtEditor={openDebtEditor}
+                        />
+                      )}
+                    </View>
+                  </View>
+                )}
+              </View>
             )}
 
             {activeTab === "locale" && (
@@ -1584,10 +1833,18 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
           <Pressable style={StyleSheet.absoluteFill} onPress={closeSavingsSheet} />
           <Animated.View style={[styles.sheet, { transform: [{ translateY: savingsSheetDragY }] }]}>
             <View style={styles.sheetHandle} {...savingsSheetPanHandlers} />
-            <Text style={styles.sheetTitle}>Add to {savingsSheetField ?? ""} balance</Text>
-            <Text style={styles.label}>Additional amount</Text>
+            <Text style={styles.sheetTitle}>Add {savingsSheetField ?? ""} pot</Text>
+            <Text style={styles.label}>Pot name</Text>
+            <TextInput
+              value={savingsPotNameDraft}
+              onChangeText={setSavingsPotNameDraft}
+              style={styles.input}
+              placeholder="e.g. Holiday, Car repairs"
+              placeholderTextColor={T.textMuted}
+            />
+            <Text style={styles.label}>Amount</Text>
             <MoneyInput currency={settings?.currency} value={savingsValueDraft} onChangeValue={setSavingsValueDraft} />
-            <Text style={styles.muted}>This adds to your current balance and updates matching goal progress.</Text>
+            <Text style={styles.muted}>This creates a named pot and adds the amount to your current balance.</Text>
             <View style={styles.sheetActions}>
               <Pressable style={styles.outlineBtnWide} onPress={closeSavingsSheet}><Text style={styles.outlineBtnText}>Cancel</Text></Pressable>
               <Pressable style={[styles.primaryBtnWide, saveBusy && styles.disabled]} onPress={saveSavingsField} disabled={saveBusy}><Text style={styles.primaryBtnText}>{saveBusy ? "Saving…" : "Add"}</Text></Pressable>
@@ -1599,94 +1856,41 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
       <Modal transparent visible={!!editDebtTarget} animationType="slide" onRequestClose={closeEditDebtSheet}>
         <View style={styles.sheetOverlay}>
           <Pressable style={StyleSheet.absoluteFill} onPress={closeEditDebtSheet} />
-          <Animated.View style={[styles.sheet, { transform: [{ translateY: editDebtSheetDragY }] }]}>
-            <View style={styles.sheetHandle} {...editDebtSheetPanHandlers} />
-            <Text style={styles.sheetTitle}>Edit card / loan</Text>
-            <Text style={styles.label}>Type</Text>
-            <View style={styles.choiceRow}>
-              {([
-                { label: "Card", value: "credit_card" },
-                { label: "Loan", value: "loan" },
-                { label: "Hire purchase", value: "hire_purchase" },
-              ] as Array<{ label: string; value: DebtKind }>).map((opt) => {
-                const selected = editDebtType === opt.value;
-                return (
-                  <Pressable key={opt.value} onPress={() => setEditDebtType(opt.value)} style={[styles.choiceBtn, selected && styles.choiceBtnActive]}>
-                    <Text style={[styles.choiceTxt, selected && styles.choiceTxtActive]}>{opt.label}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-            <Text style={styles.label}>Name</Text>
-            <TextInput value={editDebtName} onChangeText={setEditDebtName} style={styles.input} />
+          <KeyboardAvoidingView
+            style={styles.sheetKeyboardWrap}
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            keyboardVerticalOffset={Platform.OS === "ios" ? Math.max(0, topHeaderOffset - insets.top) : 0}
+          >
+            <Animated.View style={[styles.sheet, styles.sheetTall, { transform: [{ translateY: editDebtSheetDragY }] }]}> 
+              <View style={styles.sheetHandle} {...editDebtSheetPanHandlers} />
+              <Text style={styles.sheetTitle}>Edit credit card</Text>
+              <View style={styles.sheetBody}>
+                <ScrollView
+                  style={styles.sheetScroll}
+                  keyboardShouldPersistTaps="handled"
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={styles.sheetScrollContent}
+                >
+                  <Text style={styles.label}>Name</Text>
+                  <TextInput value={editDebtName} onChangeText={setEditDebtName} style={styles.input} />
 
-            <View style={styles.twoColRow}>
-              <View style={styles.halfCol}>
-                <Text style={styles.label}>Current balance</Text>
-                <MoneyInput currency={settings?.currency} value={editDebtBalance} onChangeValue={setEditDebtBalance} />
+                  <Text style={styles.label}>Balance</Text>
+                  <MoneyInput currency={settings?.currency} value={editDebtBalance} onChangeValue={setEditDebtBalance} />
+
+                  <Text style={styles.label}>Interest rate % (optional)</Text>
+                  <TextInput value={editDebtInterestRate} onChangeText={setEditDebtInterestRate} style={styles.input} keyboardType="decimal-pad" />
+
+                  <Text style={styles.label}>Credit limit</Text>
+                  <MoneyInput currency={settings?.currency} value={editDebtLimit} onChangeValue={setEditDebtLimit} />
+                </ScrollView>
+
+                <View style={[styles.sheetActionsDocked, { paddingBottom: Math.max(12, insets.bottom + 6) }]}>
+                  <Pressable style={styles.outlineBtnWide} onPress={closeEditDebtSheet}><Text style={styles.outlineBtnText}>Cancel</Text></Pressable>
+                  <Pressable style={[styles.primaryBtnWide, saveBusy && styles.disabled]} onPress={saveDebtEdit} disabled={saveBusy}><Text style={styles.primaryBtnText}>{saveBusy ? "Saving…" : "Save"}</Text></Pressable>
+                </View>
               </View>
-              <View style={styles.halfCol}>
-                <Text style={styles.label}>Paid so far (optional)</Text>
-                <MoneyInput currency={settings?.currency} value={editDebtHistoricalPaid} onChangeValue={setEditDebtHistoricalPaid} />
-              </View>
-            </View>
-
-            {editDebtType !== "credit_card" ? (
-              <>
-                <View style={styles.twoColRow}>
-                  <View style={styles.halfCol}>
-                    <Text style={styles.label}>Initial amount</Text>
-                    <MoneyInput currency={settings?.currency} value={editDebtInitialBalance} onChangeValue={setEditDebtInitialBalance} />
-                  </View>
-                  <View style={styles.halfCol}>
-                    <Text style={styles.label}>Monthly payment</Text>
-                    <MoneyInput currency={settings?.currency} value={editDebtMonthlyPayment} onChangeValue={setEditDebtMonthlyPayment} />
-                  </View>
-                </View>
-
-                <View style={styles.twoColRow}>
-                  <View style={styles.halfCol}>
-                    <Text style={styles.label}>Agreement months</Text>
-                    <TextInput value={editDebtInstallmentMonths} onChangeText={setEditDebtInstallmentMonths} style={styles.input} keyboardType="number-pad" />
-                  </View>
-                  <View style={styles.halfCol}>
-                    <Text style={styles.label}>APR % (optional)</Text>
-                    <TextInput value={editDebtInterestRate} onChangeText={setEditDebtInterestRate} style={styles.input} keyboardType="decimal-pad" />
-                  </View>
-                </View>
-
-                <Text style={styles.label}>1st payment date (calendar, optional)</Text>
-                <DatePickerInput
-                  containerStyle={[styles.input, styles.dateInput]}
-                  onPress={openEditAgreementDatePicker}
-                  value={editDebtAgreementFirstPaymentDate ? formatDateDmy(editDebtAgreementFirstPaymentDate) : ""}
-                  valueStyle={styles.dateValue}
-                  placeholderStyle={styles.dateValuePlaceholder}
-                />
-
-                <View style={styles.twoColRow}>
-                  <View style={styles.halfCol}>
-                    <Text style={styles.label}>Missed months (optional)</Text>
-                    <TextInput value={editDebtAgreementMissedMonths} onChangeText={setEditDebtAgreementMissedMonths} style={styles.input} keyboardType="number-pad" />
-                  </View>
-                  <View style={styles.halfCol}>
-                    <Text style={styles.label}>Missed payment fee (optional)</Text>
-                    <MoneyInput currency={settings?.currency} value={editDebtAgreementMissedFee} onChangeValue={setEditDebtAgreementMissedFee} />
-                  </View>
-                </View>
-              </>
-            ) : null}
-            {editDebtType === "credit_card" ? (
-              <>
-                <Text style={styles.label}>Credit limit</Text>
-                <MoneyInput currency={settings?.currency} value={editDebtLimit} onChangeValue={setEditDebtLimit} />
-              </>
-            ) : null}
-            <View style={styles.sheetActions}>
-              <Pressable style={styles.outlineBtnWide} onPress={closeEditDebtSheet}><Text style={styles.outlineBtnText}>Cancel</Text></Pressable>
-              <Pressable style={[styles.primaryBtnWide, saveBusy && styles.disabled]} onPress={saveDebtEdit} disabled={saveBusy}><Text style={styles.primaryBtnText}>{saveBusy ? "Saving…" : "Save"}</Text></Pressable>
-            </View>
-          </Animated.View>
+            </Animated.View>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
 
@@ -1710,132 +1914,41 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
       <Modal transparent visible={addDebtSheetOpen} animationType="slide" onRequestClose={closeAddDebtSheet}>
         <View style={styles.sheetOverlay}>
           <Pressable style={StyleSheet.absoluteFill} onPress={closeAddDebtSheet} />
-          <Animated.View style={[styles.sheet, { transform: [{ translateY: addDebtSheetDragY }] }]}>
-            <View style={styles.sheetHandle} {...addDebtSheetPanHandlers} />
-            <Text style={styles.sheetTitle}>Add card / loan / hire purchase</Text>
-            <Text style={styles.label}>Type</Text>
-            <View style={styles.choiceRow}>
-              {([
-                { label: "Card", value: "credit_card" },
-                { label: "Loan", value: "loan" },
-                { label: "Hire purchase", value: "hire_purchase" },
-              ] as Array<{ label: string; value: DebtKind }>).map((opt) => {
-                const selected = addDebtType === opt.value;
-                return (
-                  <Pressable key={opt.value} onPress={() => setAddDebtType(opt.value)} style={[styles.choiceBtn, selected && styles.choiceBtnActive]}>
-                    <Text style={[styles.choiceTxt, selected && styles.choiceTxtActive]}>{opt.label}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-            <Text style={styles.label}>Name</Text>
-            <TextInput value={addDebtName} onChangeText={setAddDebtName} style={styles.input} />
+          <KeyboardAvoidingView
+            style={styles.sheetKeyboardWrap}
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            keyboardVerticalOffset={Platform.OS === "ios" ? Math.max(0, topHeaderOffset - insets.top) : 0}
+          >
+            <Animated.View style={[styles.sheet, styles.sheetTall, { transform: [{ translateY: addDebtSheetDragY }] }]}>
+              <View style={styles.sheetHandle} {...addDebtSheetPanHandlers} />
+              <Text style={styles.sheetTitle}>Add credit card</Text>
+              <View style={styles.sheetBody}>
+                <ScrollView
+                  style={styles.sheetScroll}
+                  keyboardShouldPersistTaps="handled"
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={styles.sheetScrollContent}
+                >
+                  <Text style={styles.label}>Name</Text>
+                  <TextInput value={addDebtName} onChangeText={setAddDebtName} style={styles.input} />
 
-            <View style={styles.twoColRow}>
-              <View style={styles.halfCol}>
-                <Text style={styles.label}>Current balance</Text>
-                <MoneyInput currency={settings?.currency} value={addDebtBalance} onChangeValue={setAddDebtBalance} />
-              </View>
-              <View style={styles.halfCol}>
-                <Text style={styles.label}>Paid so far (optional)</Text>
-                <MoneyInput currency={settings?.currency} value={addDebtHistoricalPaid} onChangeValue={setAddDebtHistoricalPaid} />
-              </View>
-            </View>
+                  <Text style={styles.label}>Balance</Text>
+                  <MoneyInput currency={settings?.currency} value={addDebtBalance} onChangeValue={setAddDebtBalance} />
 
-            <Text style={styles.label}>Pay over months (optional)</Text>
-            <View style={styles.choiceRow}>
-              {TERM_PRESETS.map((m) => {
-                const selected = addDebtInstallmentPreset === m;
-                return (
-                  <Pressable
-                    key={m}
-                    onPress={() => {
-                      if (addDebtInstallmentPreset === m) {
-                        setAddDebtInstallmentPreset(null);
-                        setAddDebtInstallmentMonths("");
-                        return;
-                      }
-                      setAddDebtInstallmentPreset(m);
-                      setAddDebtInstallmentMonths(String(m));
-                    }}
-                    style={[styles.choiceBtn, selected && styles.choiceBtnActive]}
-                  >
-                    <Text style={[styles.choiceTxt, selected && styles.choiceTxtActive]}>{m}</Text>
-                  </Pressable>
-                );
-              })}
-              {(() => {
-                const selected = addDebtInstallmentPreset === "custom";
-                return (
-                  <Pressable
-                    onPress={() => {
-                      if (addDebtInstallmentPreset === "custom") {
-                        setAddDebtInstallmentPreset(null);
-                        setAddDebtInstallmentMonths("");
-                        return;
-                      }
-                      setAddDebtInstallmentPreset("custom");
-                      setAddDebtInstallmentMonths("");
-                    }}
-                    style={[styles.choiceBtn, selected && styles.choiceBtnActive]}
-                  >
-                    <Text style={[styles.choiceTxt, selected && styles.choiceTxtActive]}>Custom</Text>
-                  </Pressable>
-                );
-              })()}
-            </View>
-            {addDebtInstallmentPreset === "custom" ? (
-              <TextInput value={addDebtInstallmentMonths} onChangeText={setAddDebtInstallmentMonths} style={styles.input} keyboardType="number-pad" />
-            ) : null}
+                  <Text style={styles.label}>Interest rate % (optional)</Text>
+                  <TextInput value={addDebtInterestRate} onChangeText={setAddDebtInterestRate} style={styles.input} keyboardType="decimal-pad" />
 
-            {addDebtType !== "credit_card" ? (
-              <>
-                <View style={styles.twoColRow}>
-                  <View style={styles.halfCol}>
-                    <Text style={styles.label}>Initial amount</Text>
-                    <MoneyInput currency={settings?.currency} value={addDebtInitialBalance} onChangeValue={setAddDebtInitialBalance} />
-                  </View>
-                  <View style={styles.halfCol}>
-                    <Text style={styles.label}>Monthly payment</Text>
-                    <MoneyInput currency={settings?.currency} value={addDebtMonthlyPayment} onChangeValue={setAddDebtMonthlyPayment} />
-                  </View>
+                  <Text style={styles.label}>Credit limit</Text>
+                  <MoneyInput currency={settings?.currency} value={addDebtLimit} onChangeValue={setAddDebtLimit} />
+                </ScrollView>
+
+                <View style={[styles.sheetActionsDocked, { paddingBottom: Math.max(12, insets.bottom + 6) }]}>
+                  <Pressable style={styles.outlineBtnWide} onPress={closeAddDebtSheet}><Text style={styles.outlineBtnText}>Cancel</Text></Pressable>
+                  <Pressable style={[styles.primaryBtnWide, saveBusy && styles.disabled]} onPress={addDebt} disabled={saveBusy}><Text style={styles.primaryBtnText}>{saveBusy ? "Saving…" : "Add"}</Text></Pressable>
                 </View>
-
-                <Text style={styles.label}>APR % (optional)</Text>
-                <TextInput value={addDebtInterestRate} onChangeText={setAddDebtInterestRate} style={styles.input} keyboardType="decimal-pad" />
-
-                <Text style={styles.label}>1st payment date (calendar, optional)</Text>
-                <DatePickerInput
-                  containerStyle={[styles.input, styles.dateInput]}
-                  onPress={openAddAgreementDatePicker}
-                  value={addDebtAgreementFirstPaymentDate ? formatDateDmy(addDebtAgreementFirstPaymentDate) : ""}
-                  valueStyle={styles.dateValue}
-                  placeholderStyle={styles.dateValuePlaceholder}
-                />
-
-                <View style={styles.twoColRow}>
-                  <View style={styles.halfCol}>
-                    <Text style={styles.label}>Missed months (optional)</Text>
-                    <TextInput value={addDebtAgreementMissedMonths} onChangeText={setAddDebtAgreementMissedMonths} style={styles.input} keyboardType="number-pad" />
-                  </View>
-                  <View style={styles.halfCol}>
-                    <Text style={styles.label}>Missed payment fee (optional)</Text>
-                    <MoneyInput currency={settings?.currency} value={addDebtAgreementMissedFee} onChangeValue={setAddDebtAgreementMissedFee} />
-                  </View>
-                </View>
-              </>
-            ) : null}
-            {addDebtType === "credit_card" ? (
-              <>
-                <Text style={styles.label}>Credit limit</Text>
-                <MoneyInput currency={settings?.currency} value={addDebtLimit} onChangeValue={setAddDebtLimit} />
-              </>
-            ) : null}
-            <View style={styles.sheetActions}>
-              <Pressable style={styles.outlineBtnWide} onPress={closeAddDebtSheet}><Text style={styles.outlineBtnText}>Cancel</Text></Pressable>
-              <Pressable style={[styles.primaryBtnWide, saveBusy && styles.disabled]} onPress={addDebt} disabled={saveBusy}><Text style={styles.primaryBtnText}>{saveBusy ? "Saving…" : "Add"}</Text></Pressable>
-            </View>
-          </Animated.View>
+              </View>
+            </Animated.View>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
 
@@ -1904,101 +2017,6 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
         }}
       />
 
-      {/* Agreement 1st payment date pickers */}
-      {showEditAgreementDatePicker && Platform.OS === "android" ? (
-        <DateTimePicker
-          value={editDebtAgreementFirstPaymentDate ? new Date(`${editDebtAgreementFirstPaymentDate}T00:00:00`) : new Date()}
-          mode="date"
-          display="calendar"
-          minimumDate={new Date()}
-          onChange={(event, selectedDate) => {
-            setShowEditAgreementDatePicker(false);
-            if (event.type === "set" && selectedDate) setEditDebtAgreementFirstPaymentDate(selectedDate.toISOString().slice(0, 10));
-          }}
-        />
-      ) : null}
-
-      {Platform.OS === "ios" ? (
-        <Modal
-          visible={showEditAgreementDatePicker}
-          transparent
-          animationType="fade"
-          presentationStyle="overFullScreen"
-          onRequestClose={cancelEditAgreementDatePicker}
-        >
-          <View style={styles.dateModalOverlay}>
-            <Pressable style={styles.dateModalBackdrop} onPress={cancelEditAgreementDatePicker} />
-            <View style={styles.dateModalSheet}>
-              <View style={styles.dateModalHeader}>
-                <Pressable onPress={cancelEditAgreementDatePicker}><Text style={styles.dateModalCancelTxt}>Cancel</Text></Pressable>
-                <Pressable onPress={closeEditAgreementDatePicker}><Text style={styles.dateModalDoneTxt}>Done</Text></Pressable>
-              </View>
-              <DateTimePicker
-                value={iosEditAgreementDraft}
-                mode="date"
-                display="inline"
-                themeVariant="dark"
-                minimumDate={new Date()}
-                onChange={(event, selectedDate) => {
-                  const next =
-                    selectedDate ??
-                    // Some iOS inline picker versions only provide a timestamp on the event.
-                    (event?.nativeEvent?.timestamp ? new Date(event.nativeEvent.timestamp) : null);
-                  if (next) setIosEditAgreementDraft(next);
-                }}
-              />
-            </View>
-          </View>
-        </Modal>
-      ) : null}
-
-      {showAddAgreementDatePicker && Platform.OS === "android" ? (
-        <DateTimePicker
-          value={addDebtAgreementFirstPaymentDate ? new Date(`${addDebtAgreementFirstPaymentDate}T00:00:00`) : new Date()}
-          mode="date"
-          display="calendar"
-          minimumDate={new Date()}
-          onChange={(event, selectedDate) => {
-            setShowAddAgreementDatePicker(false);
-            if (event.type === "set" && selectedDate) setAddDebtAgreementFirstPaymentDate(selectedDate.toISOString().slice(0, 10));
-          }}
-        />
-      ) : null}
-
-      {Platform.OS === "ios" ? (
-        <Modal
-          visible={showAddAgreementDatePicker}
-          transparent
-          animationType="fade"
-          presentationStyle="overFullScreen"
-          onRequestClose={cancelAddAgreementDatePicker}
-        >
-          <View style={styles.dateModalOverlay}>
-            <Pressable style={styles.dateModalBackdrop} onPress={cancelAddAgreementDatePicker} />
-            <View style={styles.dateModalSheet}>
-              <View style={styles.dateModalHeader}>
-                <Pressable onPress={cancelAddAgreementDatePicker}><Text style={styles.dateModalCancelTxt}>Cancel</Text></Pressable>
-                <Pressable onPress={closeAddAgreementDatePicker}><Text style={styles.dateModalDoneTxt}>Done</Text></Pressable>
-              </View>
-              <DateTimePicker
-                value={iosAddAgreementDraft}
-                mode="date"
-                display="inline"
-                themeVariant="dark"
-                minimumDate={new Date()}
-                onChange={(event, selectedDate) => {
-                  const next =
-                    selectedDate ??
-                    // Some iOS inline picker versions only provide a timestamp on the event.
-                    (event?.nativeEvent?.timestamp ? new Date(event.nativeEvent.timestamp) : null);
-                  if (next) setIosAddAgreementDraft(next);
-                }}
-              />
-            </View>
-          </View>
-        </Modal>
-      ) : null}
-
       {/* Plan event date picker (iOS) */}
       {Platform.OS === "ios" ? (
         <Modal
@@ -2042,6 +2060,7 @@ const styles = StyleSheet.create({
   content: { flex: 1 },
   center: { flex: 1, justifyContent: "center", alignItems: "center", gap: 12, paddingHorizontal: 24 },
   scroll: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 86 },
+  scrollNoTop: { paddingTop: 0 },
 
   section: {
     ...cardBase,
@@ -2122,6 +2141,124 @@ const styles = StyleSheet.create({
   plainSavingsBlock: {
     marginBottom: 16,
   },
+  moneyToggleWrap: {
+    flexDirection: "row",
+    width: MONEY_TOGGLE_WIDTH,
+    borderWidth: 1,
+    borderColor: T.border,
+    borderRadius: 999,
+    backgroundColor: T.cardAlt,
+    padding: MONEY_TOGGLE_TRACK_PADDING,
+    marginBottom: 20,
+    position: "relative",
+  },
+  moneyToggleThumb: {
+    position: "absolute",
+    left: MONEY_TOGGLE_TRACK_PADDING,
+    top: MONEY_TOGGLE_TRACK_PADDING,
+    width: MONEY_TOGGLE_SEGMENT_WIDTH,
+    height: 33,
+    borderRadius: 999,
+    backgroundColor: `${T.accent}30`,
+    borderWidth: 1,
+    borderColor: `${T.accent}73`,
+  },
+  moneyTogglePill: {
+    width: MONEY_TOGGLE_SEGMENT_WIDTH,
+    borderRadius: 999,
+    paddingVertical: 7,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  moneyToggleTxt: {
+    color: T.textDim,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  moneyToggleTxtActive: {
+    color: T.text,
+  },
+  moneySectionCard: {
+    ...cardBase,
+    padding: 12,
+    marginBottom: 12,
+  },
+  moneyTabSurface: {
+    backgroundColor: "transparent",
+    borderWidth: 0,
+    borderColor: "transparent",
+    borderRadius: 0,
+    marginHorizontal: -16,
+    paddingHorizontal: 16,
+    paddingTop: 0,
+    paddingBottom: 12,
+    marginBottom: 8,
+  },
+  savingsTilesRow: {
+    gap: 12,
+    paddingRight: 2,
+  },
+  savingsSectionStack: {
+    marginBottom: 0,
+  },
+  savingsSectionTitle: {
+    color: T.text,
+    fontSize: 13,
+    fontWeight: "800",
+    marginBottom: 8,
+    paddingHorizontal: 2,
+  },
+  savingsTileCard: {
+    ...cardBase,
+    backgroundColor: SAVINGS_CARD_GREEN,
+    borderColor: "rgba(11,46,62,0.16)",
+    borderRadius: 16,
+    padding: 12,
+    justifyContent: "space-between",
+  },
+  savingsTileTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-start",
+  },
+  savingsTileIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(8,44,66,0.16)",
+  },
+  savingsTileAddCard: {
+    ...cardBase,
+    backgroundColor: SAVINGS_CARD_GREEN,
+    borderColor: "rgba(11,46,62,0.16)",
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  savingsTileAddText: {
+    fontSize: 11,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  savingsTileTitle: {
+    color: "#0b2e3e",
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  savingsTileValue: {
+    color: "#071f34",
+    fontSize: 24,
+    fontWeight: "900",
+  },
+  savingsTileHint: {
+    color: "#123e56",
+    fontSize: 10,
+    fontWeight: "600",
+    lineHeight: 13,
+  },
   plainSectionHeadRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -2179,9 +2316,9 @@ const styles = StyleSheet.create({
   cardRowCenter: { flexDirection: "row", alignItems: "center", gap: 8 },
 
   circleAddBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 34,
+    height: 34,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: T.accent,
@@ -2460,6 +2597,10 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     backgroundColor: "rgba(0,0,0,0.5)",
   },
+  sheetKeyboardWrap: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
   sheet: {
     backgroundColor: T.card,
     borderTopLeftRadius: 18,
@@ -2470,6 +2611,21 @@ const styles = StyleSheet.create({
     paddingTop: 14,
     paddingBottom: 20,
     gap: 8,
+  },
+  sheetTall: {
+    height: "88%",
+    maxHeight: "90%",
+  },
+  sheetBody: {
+    flex: 1,
+    minHeight: 0,
+  },
+  sheetScroll: {
+    flex: 1,
+  },
+  sheetScrollContent: {
+    gap: 8,
+    paddingBottom: 10,
   },
   sheetHandle: {
     alignSelf: "center",
@@ -2544,6 +2700,15 @@ const styles = StyleSheet.create({
   choiceTxt: { color: T.textDim, fontSize: 12, fontWeight: "700" },
   choiceTxtActive: { color: T.accent },
   sheetActions: { flexDirection: "row", gap: 10, marginTop: 8 },
+  sheetActionsDocked: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 8,
+    paddingTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: T.border,
+    backgroundColor: T.card,
+  },
   outlineBtnWide: {
     flex: 1,
     borderRadius: 10,

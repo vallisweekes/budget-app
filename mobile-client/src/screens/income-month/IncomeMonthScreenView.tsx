@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -17,6 +17,7 @@ import type { Income, Settings, IncomeMonthData, IncomeSacrificeData, IncomeSacr
 import type { IncomeStackParamList } from "@/navigation/types";
 import { currencySymbol, fmt, MONTH_NAMES_LONG } from "@/lib/formatting";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
+import { buildPayPeriodFromMonthAnchor, normalizePayFrequency } from "@/lib/payPeriods";
 import { T } from "@/lib/theme";
 import { useIncomeCRUD } from "@/lib/hooks/useIncomeCRUD";
 import IncomeMonthHeader from "@/components/Income/IncomeMonthHeader";
@@ -31,12 +32,6 @@ type Props = NativeStackScreenProps<IncomeStackParamList, "IncomeMonth">;
 export default function IncomeMonthScreen({ navigation, route }: Props) {
   const topHeaderOffset = useTopHeaderOffset(-32);
   const { month, year, budgetPlanId, initialMode, pendingConfirmationsCount, showPendingNotice, openIncomeAddAt } = route.params;
-  const monthLabel = `${MONTH_NAMES_LONG[month - 1]} ${year}`;
-
-  const now = new Date();
-  const nowMonth = now.getMonth() + 1;
-  const nowYear = now.getFullYear();
-  const isLocked = year < nowYear || (year === nowYear && month < nowMonth);
 
   const [analysis, setAnalysis] = useState<IncomeMonthData | null>(null);
   const [items, setItems]       = useState<Income[]>([]);
@@ -53,6 +48,53 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
   const [linkSaving, setLinkSaving] = useState(false);
   const [confirmingTargetKey, setConfirmingTargetKey] = useState<string | null>(null);
   const [pendingNoticeVisible, setPendingNoticeVisible] = useState(false);
+
+  const periodRange = useMemo(() => {
+    return buildPayPeriodFromMonthAnchor({
+      year,
+      month,
+      payDate: settings?.payDate ?? 27,
+      payFrequency: normalizePayFrequency(settings?.payFrequency),
+    });
+  }, [month, settings?.payDate, settings?.payFrequency, year]);
+
+  const periodEndAt = useMemo(() => {
+    const end = new Date(periodRange.end.getTime());
+    end.setHours(23, 59, 59, 999);
+    return end;
+  }, [periodRange.end]);
+
+  const sacrificeManageUntil = useMemo(() => {
+    const cutoff = new Date(periodEndAt.getTime());
+    cutoff.setDate(cutoff.getDate() + 5);
+    cutoff.setHours(23, 59, 59, 999);
+    return cutoff;
+  }, [periodEndAt]);
+
+  const isLocked = Date.now() > periodEndAt.getTime();
+  const canManageSacrifice = Date.now() <= sacrificeManageUntil.getTime();
+
+  const manageSacrificeNotice = useMemo(() => {
+    if (canManageSacrifice) return undefined;
+    return `Manage sacrifice closed on ${sacrificeManageUntil.toLocaleDateString("en-GB")} (5 days after this period ended).`;
+  }, [canManageSacrifice, sacrificeManageUntil]);
+
+  const monthLabel = useMemo(() => {
+    const fallback = `${MONTH_NAMES_LONG[month - 1]} ${year}`;
+    if (!settings) return fallback;
+
+    const period = buildPayPeriodFromMonthAnchor({
+      year,
+      month,
+      payDate: settings.payDate ?? 27,
+      payFrequency: normalizePayFrequency(settings.payFrequency),
+    });
+    const startLabel = MONTH_NAMES_LONG[period.start.getMonth()];
+    const endLabel = MONTH_NAMES_LONG[period.end.getMonth()];
+    if (!startLabel || !endLabel) return fallback;
+
+    return `${startLabel} - ${endLabel} ${period.end.getFullYear()}`;
+  }, [month, settings, year]);
 
   const currency = currencySymbol(settings?.currency);
 
@@ -171,6 +213,11 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
     startYear: number;
     period: SacrificePeriod;
   }) => {
+    if (!canManageSacrifice) {
+      Alert.alert("Manage closed", "Income sacrifice can only be managed until 5 days after the period ends.");
+      return;
+    }
+
     const value = Number(args.amount);
     if (!Number.isFinite(value) || value < 0) {
       Alert.alert("Invalid amount", "Enter an amount greater than or equal to 0.");
@@ -284,12 +331,17 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
     } finally {
       setSacrificeSaving(false);
     }
-  }, [budgetPlanId, buildTargetMonths, load, loadSacrifice, month, sacrifice, year]);
+  }, [budgetPlanId, buildTargetMonths, canManageSacrifice, load, loadSacrifice, month, sacrifice, year]);
 
   const createSacrificeItem = useCallback(async (args: {
     type: "allowance" | "savings" | "emergency" | "investment" | "custom";
     name: string;
   }) => {
+    if (!canManageSacrifice) {
+      Alert.alert("Manage closed", "Income sacrifice can only be managed until 5 days after the period ends.");
+      return;
+    }
+
     const trimmedName = args.name.trim();
     if (args.type === "custom" && !trimmedName) {
       Alert.alert("Name required", "Custom sacrifice requires a name.");
@@ -313,9 +365,14 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
     } finally {
       setSacrificeCreating(false);
     }
-  }, [budgetPlanId, load, loadSacrifice, month, year]);
+  }, [budgetPlanId, canManageSacrifice, load, loadSacrifice, month, year]);
 
   const deleteSacrificeItem = async (id: string) => {
+    if (!canManageSacrifice) {
+      Alert.alert("Manage closed", "Income sacrifice can only be managed until 5 days after the period ends.");
+      return;
+    }
+
     try {
       setSacrificeDeletingId(id);
       await apiFetch(`/api/bff/income-sacrifice/custom/${id}`, { method: "DELETE" });
@@ -326,6 +383,11 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
   };
 
   const saveSacrificeGoalLink = useCallback(async (args: { targetKey: string; goalId: string | null }) => {
+    if (!canManageSacrifice) {
+      Alert.alert("Manage closed", "Income sacrifice can only be managed until 5 days after the period ends.");
+      return;
+    }
+
     if (!args.targetKey.trim()) {
       Alert.alert("Link target", "Pick a sacrifice target first.");
       return;
@@ -347,9 +409,14 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
     } finally {
       setLinkSaving(false);
     }
-  }, [budgetPlanId, loadSacrifice]);
+  }, [budgetPlanId, canManageSacrifice, loadSacrifice]);
 
   const confirmSacrificeTransfer = useCallback(async (targetKey: string) => {
+    if (!canManageSacrifice) {
+      Alert.alert("Manage closed", "Income sacrifice can only be managed until 5 days after the period ends.");
+      return;
+    }
+
     if (!targetKey.trim()) return;
 
     try {
@@ -370,7 +437,7 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
     } finally {
       setConfirmingTargetKey(null);
     }
-  }, [budgetPlanId, load, loadSacrifice, month, year]);
+  }, [budgetPlanId, canManageSacrifice, load, loadSacrifice, month, year]);
 
   if (loading) {
     return (
@@ -415,6 +482,8 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
             month={month}
             year={year}
             sacrifice={sacrifice}
+            canManage={canManageSacrifice}
+            manageUnavailableReason={manageSacrificeNotice}
             sacrificeSaving={sacrificeSaving}
             sacrificeCreating={sacrificeCreating}
             sacrificeDeletingId={sacrificeDeletingId}

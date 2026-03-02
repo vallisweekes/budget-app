@@ -26,10 +26,10 @@ function toNumber(value: unknown): number {
   return Number(value as any);
 }
 
-function mapDebtPaymentSourceToExpensePaymentSource(source: unknown): "income" | "extra_untracked" | "credit_card" {
+function mapDebtPaymentSourceToExpensePaymentSource(source: unknown): "income" | "savings" | "credit_card" {
   if (source === "income") return "income";
   if (source === "credit_card") return "credit_card";
-  return "extra_untracked";
+  return "savings";
 }
 
 function paymentMatchKey(p: { amount: number; paidAt: Date }) {
@@ -334,16 +334,17 @@ export async function POST(
     const requestedSource: IncomingSource | null =
       body.source === "credit_card"
         ? "credit_card"
-        : body.source === "extra_funds"
+        : body.source === "extra_funds" || body.source === "savings"
           ? "extra_funds"
           : body.source === "income"
             ? "income"
             : null;
 
+    const persistedDefaultSource = String(debt.defaultPaymentSource ?? "");
     const defaultSource =
-      debt.defaultPaymentSource === "credit_card"
+      persistedDefaultSource === "credit_card"
         ? "credit_card"
-        : debt.defaultPaymentSource === "extra_funds"
+        : persistedDefaultSource === "extra_funds" || persistedDefaultSource === "savings"
           ? "extra_funds"
           : "income";
 
@@ -418,6 +419,21 @@ export async function POST(
             paid: false,
           },
         });
+      }
+
+      if (paymentSource === "extra_funds") {
+        const plan = await tx.budgetPlan.findUnique({
+          where: { id: debt.budgetPlan.id },
+          select: { id: true, savingsBalance: true },
+        });
+        if (plan) {
+          const currentSavings = Math.max(0, toNumber(plan.savingsBalance));
+          const nextSavings = Math.max(0, currentSavings - appliedAmount);
+          await tx.budgetPlan.update({
+            where: { id: plan.id },
+            data: { savingsBalance: nextSavings },
+          });
+        }
       }
 
       const nextDebtBalance = Math.max(0, debt.currentBalance.toNumber() - appliedAmount);

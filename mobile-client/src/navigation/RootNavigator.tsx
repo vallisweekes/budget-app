@@ -16,7 +16,6 @@ import type {
 import TopHeader from "@/components/Shared/TopHeader";
 import PillTabBar from "@/components/Shared/PillTabBar";
 import { T } from "@/lib/theme";
-import { MONTH_NAMES_LONG } from "@/lib/formatting";
 import { apiFetch } from "@/lib/api";
 import type { IncomeSacrificeData, OnboardingStatusResponse } from "@/lib/apiTypes";
 import { appendNotificationInboxItem, subscribeNotificationInbox } from "@/lib/notificationInbox";
@@ -40,6 +39,15 @@ import GoalsProjectionScreen from "@/screens/GoalsProjectionScreen";
 import AnalyticsScreen from "@/screens/AnalyticsScreen";
 import SettingsStrategyScreen from "@/screens/SettingsStrategyScreen";
 import OnboardingScreen from "@/screens/OnboardingScreen";
+
+const MONTH_NAMES_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function formatIncomePeriodSpan(month: number): string {
+  const safeMonth = Math.max(1, Math.min(12, month));
+  const start = MONTH_NAMES_SHORT[(safeMonth + 10) % 12];
+  const end = MONTH_NAMES_SHORT[(safeMonth + 11) % 12];
+  return `${start} - ${end}`;
+}
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -185,7 +193,7 @@ function RootTopHeader({ navigation }: { navigation: any }) {
   const monthLabel = isAnalytics
     ? "Analytics"
     : isIncomeMonth && Number.isFinite(monthNum) && monthNum >= 1 && monthNum <= 12 && Number.isFinite(yearNum)
-      ? `${MONTH_NAMES_LONG[monthNum - 1]} ${yearNum}`
+      ? `${formatIncomePeriodSpan(monthNum)} ${yearNum}`
       : undefined;
 
   const canUseMonthSwitcher = isIncomeMonth
@@ -217,8 +225,7 @@ function RootTopHeader({ navigation }: { navigation: any }) {
   const nextMonth = Number(monthNum) + 1 > 12 ? 1 : Number(monthNum) + 1;
   const nextYear = Number(monthNum) + 1 > 12 ? Number(yearNum) + 1 : Number(yearNum);
 
-  const prevIsPast = prevYear < nowYear || (prevYear === nowYear && prevMonth < nowMonth);
-  const disablePrev = !canUseMonthSwitcher || prevIsPast;
+  const disablePrev = !canUseMonthSwitcher;
   const disableNext = !canUseMonthSwitcher;
 
   const incomeMonthSwitcher = canUseMonthSwitcher ? (
@@ -460,7 +467,7 @@ function RootTopHeader({ navigation }: { navigation: any }) {
       compactActionsMenu={isNotificationSettings || isIncomeMonth}
       onLogout={isNotificationSettings ? signOut : undefined}
       incomePendingCount={incomePendingCount}
-      onAddIncome={isIncomeMonth ? openAddIncomeFromHeader : undefined}
+      onAddIncome={isIncomeMonth && !isIncomeMonthLocked ? openAddIncomeFromHeader : undefined}
       showNotificationDot={hasNotificationDot}
     />
   );
@@ -832,7 +839,7 @@ function MainTabs() {
               leftContent={expensesListLeftContent}
               showIncomeAction={!isSettings}
               compactActionsMenu={isSettings}
-              onLogout={signOut}
+              onLogout={isSettings ? undefined : signOut}
               incomePendingCount={incomePendingCount}
               showNotificationDot={hasNotificationDot}
             />

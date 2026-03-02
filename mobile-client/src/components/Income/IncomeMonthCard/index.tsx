@@ -18,24 +18,25 @@ export default function IncomeMonthCard({
   onPress,
   active,
   locked,
+  periodLabel,
 }: IncomeMonthCardProps) {
   const hasIncome = item.total > 0;
 
   const cardStyle: ViewStyle = {
     borderColor: active ? T.accentFaint : T.border,
-    opacity: locked ? 0.45 : 1,
+    opacity: locked ? 0.78 : 1,
   };
 
   return (
     <Pressable
-      style={({ pressed }) => [styles.card, cardStyle, !locked && pressed && styles.cardPressed]}
-      onPress={locked ? undefined : onPress}
-      disabled={locked}
+      style={({ pressed }) => [styles.card, cardStyle, pressed && styles.cardPressed]}
+      onPress={onPress}
+      disabled={typeof onPress !== "function"}
     >
       {/* Month label + optional "Current" badge */}
       <View style={styles.monthRow}>
         <Text style={[styles.month, active && styles.monthActive]}>
-          {MONTH_NAMES_SHORT[item.monthIndex - 1]}
+          {periodLabel ?? MONTH_NAMES_SHORT[item.monthIndex - 1]}
         </Text>
         {active && (
           <View style={styles.currentBadge}>

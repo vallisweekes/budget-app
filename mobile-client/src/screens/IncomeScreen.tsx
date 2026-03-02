@@ -25,6 +25,7 @@ import { currencySymbol, fmt } from "@/lib/formatting";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 import { useYearGuard } from "@/lib/hooks/useYearGuard";
 import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
+import { buildPayPeriodFromMonthAnchor, normalizePayFrequency } from "@/lib/payPeriods";
 import { T } from "@/lib/theme";
 import IncomeMonthCard from "@/components/Income/IncomeMonthCard";
 import MoneyInput from "@/components/Shared/MoneyInput";
@@ -32,6 +33,8 @@ import type { IncomeStackParamList } from "@/navigation/types";
 
 type Nav = NativeStackNavigationProp<IncomeStackParamList, "IncomeGrid">;
 type ScreenRoute = RouteProp<IncomeStackParamList, "IncomeGrid">;
+
+const MONTH_NAMES_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 export default function IncomeScreen() {
   const navigation = useNavigation<Nav>();
@@ -66,10 +69,14 @@ export default function IncomeScreen() {
 
   useEffect(() => {
     if (!route.params?.openYearIncomeSheetAt) return;
+    if (year < new Date().getFullYear()) {
+      navigation.setParams({ openYearIncomeSheetAt: undefined });
+      return;
+    }
     setYearDistributeFullYear(Boolean(settings?.incomeDistributeFullYearDefault));
     setYearDistributeHorizon(Boolean(settings?.incomeDistributeHorizonDefault));
     setShowYearAddSheet(true);
-  }, [route.params?.openYearIncomeSheetAt, settings?.incomeDistributeFullYearDefault, settings?.incomeDistributeHorizonDefault]);
+  }, [navigation, route.params?.openYearIncomeSheetAt, settings?.incomeDistributeFullYearDefault, settings?.incomeDistributeHorizonDefault, year]);
 
   useEffect(() => {
     if (!data) return;
@@ -88,10 +95,11 @@ export default function IncomeScreen() {
     }
 
     const hasMissingMonths = firstMissingMonth !== null || data.monthsWithIncome < 12;
+    const canAddForYear = year >= new Date().getFullYear();
 
     navigation.setParams({
       year,
-      showAddAction: hasMissingMonths,
+      showAddAction: hasMissingMonths && canAddForYear,
       addIncomeMonth: firstMissingMonth ?? currentMonthIndex,
       budgetPlanId: data.budgetPlanId,
     });
@@ -222,10 +230,11 @@ export default function IncomeScreen() {
   const hasMissingMonths = firstMissingMonth !== null || (data?.monthsWithIncome ?? 0) < 12;
   const nowMonthIndex = now.getMonth() + 1;
   const nowYear = now.getFullYear();
+  const canAddForYear = year >= nowYear;
 
   return (
   		<SafeAreaView style={[s.safe, { paddingTop: contentTopPadding }]} edges={[]}>
-      {hasMissingMonths ? (
+      {hasMissingMonths && canAddForYear ? (
         <View style={s.actionCard}>
           <View style={s.actionCopy}>
             <Text style={s.actionTitle}>Add income</Text>
@@ -247,6 +256,13 @@ export default function IncomeScreen() {
           const isActive = year === nowYear && item.monthIndex === nowMonthIndex;
           const isLocked =
             year < nowYear || (year === nowYear && item.monthIndex < nowMonthIndex);
+          const period = buildPayPeriodFromMonthAnchor({
+            year,
+            month: item.monthIndex,
+            payDate: settings?.payDate ?? 27,
+            payFrequency: normalizePayFrequency(settings?.payFrequency),
+          });
+          const periodLabel = `${MONTH_NAMES_SHORT[period.start.getMonth()]} - ${MONTH_NAMES_SHORT[period.end.getMonth()]}`;
           return (
             <IncomeMonthCard
               item={item}
@@ -254,6 +270,7 @@ export default function IncomeScreen() {
               fmt={fmt}
               active={isActive}
               locked={isLocked}
+              periodLabel={periodLabel}
               onPress={() =>
                 navigation.navigate("IncomeMonth", {
                   month: item.monthIndex,

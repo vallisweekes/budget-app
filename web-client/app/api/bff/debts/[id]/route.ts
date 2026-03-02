@@ -109,7 +109,7 @@ function unauthorized() {
 
 function normalizeDebtPaymentSource(value: unknown): "income" | "extra_funds" | "credit_card" {
   if (value === "credit_card") return "credit_card";
-  if (value === "extra_funds") return "extra_funds";
+  if (value === "extra_funds" || value === "savings") return "extra_funds";
   return "income";
 }
 
@@ -173,10 +173,10 @@ function toNumber(value: unknown): number {
   return Number(value as any);
 }
 
-function mapDebtPaymentSourceToExpensePaymentSource(source: unknown): "income" | "extra_untracked" | "credit_card" {
+function mapDebtPaymentSourceToExpensePaymentSource(source: unknown): "income" | "savings" | "credit_card" {
   if (source === "income") return "income";
   if (source === "credit_card") return "credit_card";
-  return "extra_untracked";
+  return "savings";
 }
 
 function paymentMatchKey(p: { amount: number; paidAt: Date }) {

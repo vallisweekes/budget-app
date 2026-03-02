@@ -118,7 +118,7 @@ function unauthorized() {
 
 function normalizeDebtPaymentSource(value: unknown): "income" | "extra_funds" | "credit_card" {
   if (value === "credit_card") return "credit_card";
-  if (value === "extra_funds") return "extra_funds";
+  if (value === "extra_funds" || value === "savings") return "extra_funds";
   return "income";
 }
 
@@ -178,10 +178,7 @@ export async function POST(request: Request) {
     if (!parsedDueDate.ok) {
       return NextResponse.json({ error: parsedDueDate.error }, { status: 400 });
     }
-    if (!parsedDueDate.dueDate) {
-      return NextResponse.json({ error: "dueDate is required" }, { status: 400 });
-    }
-    if (isPastUtcDateOnly(parsedDueDate.dueDate)) {
+    if (parsedDueDate.dueDate && isPastUtcDateOnly(parsedDueDate.dueDate)) {
       return NextResponse.json({ error: "dueDate cannot be in the past" }, { status: 400 });
     }
 
@@ -264,7 +261,7 @@ export async function POST(request: Request) {
         ? Number((Math.max(0, currentBalance) / parsedInstallmentMonths.int).toFixed(2))
         : amount;
 
-    const normalizedDueDay = parsedDueDate.dueDate.getUTCDate();
+    const normalizedDueDay = parsedDueDay.int ?? parsedDueDate.dueDate?.getUTCDate() ?? 0;
     const paid = typeof raw.paid === "boolean" ? raw.paid : false;
     const sourceType = typeof raw.sourceType === "string" ? raw.sourceType : null;
     const creditLimit = raw.creditLimit == null ? null : toNumber(raw.creditLimit);
@@ -369,7 +366,7 @@ export async function POST(request: Request) {
           interestRate: interestRate || null,
           installmentMonths: parsedInstallmentMonths.int,
           dueDate: parsedDueDate.dueDate,
-          dueDay: normalizedDueDay,
+          dueDay: normalizedDueDay || null,
           creditLimit: creditLimit || null,
           defaultPaymentSource,
           defaultPaymentCardDebtId,

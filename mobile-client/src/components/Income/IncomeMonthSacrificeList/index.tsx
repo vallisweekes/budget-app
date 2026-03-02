@@ -35,6 +35,8 @@ type Props = {
   month: number;
   year: number;
   sacrifice: IncomeSacrificeData | null;
+  canManage?: boolean;
+  manageUnavailableReason?: string;
   sacrificeSaving: boolean;
   sacrificeCreating: boolean;
   sacrificeDeletingId: string | null;
@@ -96,6 +98,7 @@ export default function IncomeMonthSacrificeList(props: Props) {
   const [newItemName, setNewItemName] = useState("");
   const [linkTargetKey, setLinkTargetKey] = useState("");
   const [linkGoalId, setLinkGoalId] = useState<string>("");
+  const canManage = props.canManage ?? true;
 
   const closeAmountSheet = useCallback(() => setAmountSheetOpen(false), []);
   const closeAddItemSheet = useCallback(() => setAddItemSheetOpen(false), []);
@@ -206,6 +209,7 @@ export default function IncomeMonthSacrificeList(props: Props) {
   }, [props.sacrifice?.goalLinks, targetLabelMap, confirmationByTarget, props.sacrifice]);
 
   const openLinkSheet = () => {
+    if (!canManage) return;
     const firstTarget = targets[0]?.key ?? "monthlySavingsContribution";
     const firstTargetKey = toLinkedTargetKey(firstTarget);
     const existingGoalId = linkByTarget.get(firstTargetKey)?.goalId ?? "";
@@ -266,6 +270,7 @@ export default function IncomeMonthSacrificeList(props: Props) {
   }, [amountDraft, amountMode, selectedCurrentAmount]);
 
   const openAmountSheet = () => {
+    if (!canManage) return;
     const initialTargetKey = targets[0]?.key ?? "monthlySavingsContribution";
     const currentAmount = getCurrentAmountForTarget(initialTargetKey);
     setTargetKey(initialTargetKey);
@@ -365,22 +370,28 @@ export default function IncomeMonthSacrificeList(props: Props) {
 
               <View style={styles.card}>
                 <Text style={styles.cardTitle}>Manage sacrifices</Text>
-                <Text style={styles.cardSub}>Set amounts for this month, 6 months, remaining months, or multi-year periods.</Text>
+                <Text style={styles.cardSub}>
+                  {canManage
+                    ? "Set amounts for this month, 6 months, remaining months, or multi-year periods."
+                    : (props.manageUnavailableReason ?? "Manage sacrifice is no longer available for this period.")}
+                </Text>
 
-                <View style={styles.actionRow}>
-                  <Pressable style={[styles.primaryBtn, props.sacrificeSaving && styles.disabled]} onPress={openAmountSheet} disabled={props.sacrificeSaving}>
-                    <Ionicons name="create-outline" size={15} color={T.onAccent} />
-                    <Text style={styles.primaryBtnText}>Add / edit amount</Text>
-                  </Pressable>
-                  <Pressable style={[styles.secondaryBtn, props.sacrificeCreating && styles.disabled]} onPress={() => setAddItemSheetOpen(true)} disabled={props.sacrificeCreating}>
-                    <Ionicons name="add" size={15} color={T.text} />
-                    <Text style={styles.secondaryBtnText}>Add sacrifice item</Text>
-                  </Pressable>
-                  <Pressable style={[styles.secondaryBtn, props.goalLinkSaving && styles.disabled]} onPress={openLinkSheet} disabled={props.goalLinkSaving}>
-                    <Ionicons name="link-outline" size={15} color={T.text} />
-                    <Text style={styles.secondaryBtnText}>Link to goal</Text>
-                  </Pressable>
-                </View>
+                {canManage ? (
+                  <View style={styles.actionRow}>
+                    <Pressable style={[styles.primaryBtn, props.sacrificeSaving && styles.disabled]} onPress={openAmountSheet} disabled={props.sacrificeSaving}>
+                      <Ionicons name="create-outline" size={15} color={T.onAccent} />
+                      <Text style={styles.primaryBtnText}>Add / edit amount</Text>
+                    </Pressable>
+                    <Pressable style={[styles.secondaryBtn, props.sacrificeCreating && styles.disabled]} onPress={() => setAddItemSheetOpen(true)} disabled={props.sacrificeCreating}>
+                      <Ionicons name="add" size={15} color={T.text} />
+                      <Text style={styles.secondaryBtnText}>Add sacrifice item</Text>
+                    </Pressable>
+                    <Pressable style={[styles.secondaryBtn, props.goalLinkSaving && styles.disabled]} onPress={openLinkSheet} disabled={props.goalLinkSaving}>
+                      <Ionicons name="link-outline" size={15} color={T.text} />
+                      <Text style={styles.secondaryBtnText}>Link to goal</Text>
+                    </Pressable>
+                  </View>
+                ) : null}
               </View>
 
               <View style={styles.card}>
@@ -406,9 +417,9 @@ export default function IncomeMonthSacrificeList(props: Props) {
                             </Text>
                           </View>
                           <Pressable
-                            style={[styles.confirmBtn, (isConfirmed || isBusy || row.plannedAmount <= 0) && styles.disabled]}
+                            style={[styles.confirmBtn, (!canManage || isConfirmed || isBusy || row.plannedAmount <= 0) && styles.disabled]}
                             onPress={() => props.onConfirmTransfer(row.targetKey)}
-                            disabled={isConfirmed || isBusy || row.plannedAmount <= 0}
+                            disabled={!canManage || isConfirmed || isBusy || row.plannedAmount <= 0}
                           >
                             <Text style={styles.confirmBtnText}>{isBusy ? "Saving..." : isConfirmed ? "Done" : "Confirm"}</Text>
                           </Pressable>
@@ -436,7 +447,7 @@ export default function IncomeMonthSacrificeList(props: Props) {
         renderItem={() => null}
       />
 
-      <Modal visible={amountSheetOpen} transparent animationType="slide" onRequestClose={closeAmountSheet}>
+      <Modal visible={canManage && amountSheetOpen} transparent animationType="slide" onRequestClose={closeAmountSheet}>
         <KeyboardAvoidingView style={styles.sheetOverlay} behavior={Platform.OS === "ios" ? "padding" : undefined}>
           <Pressable style={styles.sheetBackdrop} onPress={closeAmountSheet} />
           <Animated.View style={[styles.sheetCard, { paddingTop: Math.max(14, insets.top + 8), transform: [{ translateY: amountSheetDragY }] }]}>
@@ -534,7 +545,7 @@ export default function IncomeMonthSacrificeList(props: Props) {
         </KeyboardAvoidingView>
       </Modal>
 
-      <Modal visible={addItemSheetOpen} transparent animationType="slide" onRequestClose={closeAddItemSheet}>
+      <Modal visible={canManage && addItemSheetOpen} transparent animationType="slide" onRequestClose={closeAddItemSheet}>
         <KeyboardAvoidingView style={styles.sheetOverlay} behavior={Platform.OS === "ios" ? "padding" : undefined}>
           <Pressable style={styles.sheetBackdrop} onPress={closeAddItemSheet} />
           <Animated.View style={[styles.sheetCard, { paddingTop: Math.max(14, insets.top + 8), transform: [{ translateY: addItemSheetDragY }] }]}>
@@ -571,7 +582,7 @@ export default function IncomeMonthSacrificeList(props: Props) {
         </KeyboardAvoidingView>
       </Modal>
 
-      <Modal visible={linkSheetOpen} transparent animationType="slide" onRequestClose={closeLinkSheet}>
+      <Modal visible={canManage && linkSheetOpen} transparent animationType="slide" onRequestClose={closeLinkSheet}>
         <KeyboardAvoidingView style={styles.sheetOverlay} behavior={Platform.OS === "ios" ? "padding" : undefined}>
           <Pressable style={styles.sheetBackdrop} onPress={closeLinkSheet} />
           <Animated.View style={[styles.sheetCard, { paddingTop: Math.max(14, insets.top + 8), transform: [{ translateY: linkSheetDragY }] }]}>

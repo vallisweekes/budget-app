@@ -7,4 +7,5 @@ export interface IncomeMonthCardProps {
   onPress: () => void;
   active?: boolean;
   locked?: boolean;
+  periodLabel?: string;
 }
