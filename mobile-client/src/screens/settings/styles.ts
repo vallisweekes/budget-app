@@ -1,13 +1,12 @@
 import { Dimensions, StyleSheet } from "react-native";
 
+import { BRAND_BLUE, BRAND_GREEN } from "@/lib/constants";
 import { T } from "@/lib/theme";
 import { cardBase, cardElevated } from "@/lib/ui";
 
 const MONEY_TOGGLE_WIDTH = Math.max(220, Dimensions.get("window").width - 32);
 const MONEY_TOGGLE_TRACK_PADDING = 4;
 const MONEY_TOGGLE_SEGMENT_WIDTH = (MONEY_TOGGLE_WIDTH - MONEY_TOGGLE_TRACK_PADDING * 2) / 2;
-const MONEY_EDITOR_HERO_BLUE = "#2a0a9e";
-const SAVINGS_CARD_GREEN = "#2EF2B3";
 
 export const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: T.bg },
@@ -164,7 +163,7 @@ export const styles = StyleSheet.create({
   },
   savingsTileCard: {
     ...cardBase,
-    backgroundColor: SAVINGS_CARD_GREEN,
+    backgroundColor: BRAND_GREEN,
     borderColor: "rgba(11,46,62,0.16)",
     borderRadius: 16,
     padding: 12,
@@ -185,7 +184,7 @@ export const styles = StyleSheet.create({
   },
   savingsTileAddCard: {
     ...cardBase,
-    backgroundColor: SAVINGS_CARD_GREEN,
+    backgroundColor: BRAND_GREEN,
     borderColor: "rgba(11,46,62,0.16)",
     borderRadius: 16,
     alignItems: "center",
@@ -602,7 +601,7 @@ export const styles = StyleSheet.create({
   },
   moneyEditorHeader: {
     borderRadius: 18,
-    backgroundColor: MONEY_EDITOR_HERO_BLUE,
+    backgroundColor: BRAND_BLUE,
     borderWidth: 1,
     borderColor: `${T.onAccent}22`,
     paddingHorizontal: 16,
@@ -613,7 +612,7 @@ export const styles = StyleSheet.create({
     gap: 6,
   },
   moneyEditorSheet: {
-    backgroundColor: MONEY_EDITOR_HERO_BLUE,
+    backgroundColor: BRAND_BLUE,
     borderTopColor: "rgba(255,255,255,0.14)",
   },
   moneyEditorIconCircle: {
@@ -679,12 +678,12 @@ export const styles = StyleSheet.create({
     alignItems: "center",
   },
   moneyDeleteBtnText: {
-    color: MONEY_EDITOR_HERO_BLUE,
+    color: BRAND_BLUE,
     fontSize: 16,
     fontWeight: "800",
   },
   moneyEditorDockedActions: {
-    backgroundColor: MONEY_EDITOR_HERO_BLUE,
+    backgroundColor: BRAND_BLUE,
     borderTopColor: "rgba(255,255,255,0.2)",
   },
   sheetTitle: { color: T.text, fontSize: 18, fontWeight: "900", marginBottom: 6 },

@@ -5,6 +5,8 @@ import { Ionicons } from "@expo/vector-icons";
 import MoneyInput from "@/components/Shared/MoneyInput";
 import NoteBadge from "@/components/Shared/NoteBadge";
 import type { SavingsEditorSheetProps } from "@/types/components/settings/SavingsEditorSheet.types";
+import { styles } from "./styles";
+import { T } from "@/lib/theme";
 
 export default function SavingsEditorSheet(props: SavingsEditorSheetProps) {
   const {
@@ -22,7 +24,6 @@ export default function SavingsEditorSheet(props: SavingsEditorSheetProps) {
     insetsBottom,
     translateY,
     panHandlers,
-    styles,
     formatMoneyText,
     parseMoneyNumber,
     onClose,
@@ -68,7 +69,7 @@ export default function SavingsEditorSheet(props: SavingsEditorSheetProps) {
                     onChangeText={onChangePotName}
                     style={styles.input}
                     placeholder="e.g. Holiday, Car repairs"
-                    placeholderTextColor={styles.textMuted}
+                    placeholderTextColor={T.textMuted}
                   />
                 </>
               ) : null}

@@ -2,6 +2,7 @@ import { Dimensions } from "react-native";
 import type { ComponentProps } from "react";
 import type { Ionicons } from "@expo/vector-icons";
 
+import { BRAND_GREEN } from "@/lib/constants";
 import type { SavingsField, SettingsTab } from "@/types/settings";
 
 export const PRIMARY_TABS: Array<{ id: SettingsTab; label: string }> = [
@@ -35,7 +36,6 @@ export const TAB_ICONS: Record<
 
 export const SAVINGS_TILE_SIZE = Math.min(122, Math.max(94, Math.floor(Dimensions.get("window").width * 0.3)));
 
-const SAVINGS_CARD_GREEN = "#2EF2B3";
 const EMERGENCY_CARD_RED = "#FF9E96";
 const INVESTMENT_CARD_BLUE = "#9EC9FF";
 
@@ -71,7 +71,7 @@ export function getSavingsTilePalette(field: SavingsField): {
     };
   }
   return {
-    cardBg: SAVINGS_CARD_GREEN,
+    cardBg: BRAND_GREEN,
     borderColor: "rgba(11,46,62,0.16)",
     iconBg: "rgba(8,44,66,0.16)",
     titleColor: "#0b2e3e",

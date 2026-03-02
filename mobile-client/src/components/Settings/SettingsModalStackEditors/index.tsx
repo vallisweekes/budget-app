@@ -6,8 +6,6 @@ import SettingsDetailsSheet from "@/components/Settings/SettingsDetailsSheet";
 import SettingsLocaleSheet from "@/components/Settings/SettingsLocaleSheet";
 import SavingsEditorSheet from "@/components/Settings/SavingsEditorSheet";
 import { asMoneyNumber, asMoneyText, BILL_FREQUENCY_OPTIONS, getSavingsFieldTitle, PAY_FREQUENCY_OPTIONS } from "@/lib/helpers/settings";
-import { styles } from "./styles";
-import { T } from "@/lib/theme";
 
 import type { SettingsModalStackEditorsProps } from "@/types/components/settings/SettingsModalStackEditors.types";
 
@@ -60,37 +58,6 @@ export default function SettingsModalStackEditors({ controller }: SettingsModalS
         insetsBottom={controller.insets.bottom}
         translateY={controller.savingsSheetDragY}
         panHandlers={controller.savingsSheetPanHandlers as Record<string, unknown>}
-        styles={{
-          sheetOverlay: styles.sheetOverlay,
-          sheet: styles.sheet,
-          sheetTall: styles.sheetTall,
-          moneyEditorSheet: styles.moneyEditorSheet,
-          sheetHandle: styles.sheetHandle,
-          sheetTitle: styles.sheetTitle,
-          sheetBody: styles.sheetBody,
-          sheetScroll: styles.sheetScroll,
-          sheetScrollContent: styles.sheetScrollContent,
-          moneyEditorHeader: styles.moneyEditorHeader,
-          moneyEditorIconCircle: styles.moneyEditorIconCircle,
-          moneyEditorHeroTitle: styles.moneyEditorHeroTitle,
-          moneyEditorHeroValue: styles.moneyEditorHeroValue,
-          moneyEditorStatsRow: styles.moneyEditorStatsRow,
-          moneyEditorStatCard: styles.moneyEditorStatCard,
-          moneyEditorStatLabel: styles.moneyEditorStatLabel,
-          moneyEditorStatValue: styles.moneyEditorStatValue,
-          label: styles.label,
-          input: styles.input,
-          textMuted: T.textMuted,
-          sheetActionsDocked: styles.sheetActionsDocked,
-          moneyEditorDockedActions: styles.moneyEditorDockedActions,
-          moneyDeleteBtn: styles.moneyDeleteBtn,
-          moneyDeleteBtnText: styles.moneyDeleteBtnText,
-          outlineBtnWide: styles.outlineBtnWide,
-          outlineBtnText: styles.outlineBtnText,
-          primaryBtnWide: styles.primaryBtnWide,
-          primaryBtnText: styles.primaryBtnText,
-          disabled: styles.disabled,
-        }}
         formatMoneyText={(value) => `${controller.cur}${asMoneyText(value)}`}
         parseMoneyNumber={asMoneyNumber}
         onClose={controller.closeSavingsSheet}
