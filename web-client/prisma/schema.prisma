@@ -93,6 +93,9 @@ model UserOnboardingProfile {
   mainGoals          OnboardingGoal[] @default([])
   occupation         String?
   occupationOther    String?
+  payDay             Int?
+  payFrequency       String?
+  billFrequency      String?
   monthlySalary      Decimal?         @db.Decimal(12, 2)
 
   expenseOneName     String?

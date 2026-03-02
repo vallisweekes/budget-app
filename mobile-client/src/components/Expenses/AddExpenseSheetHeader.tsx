@@ -22,10 +22,11 @@ export default function AddExpenseSheetHeader({
   onNextMonth?: () => void;
   onClose: () => void;
 }) {
-  const label = new Date(year, month - 1).toLocaleDateString("en-GB", {
-    month: "long",
-    year: "numeric",
-  });
+  const SHORT_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const safeMonth = Math.max(1, Math.min(12, month));
+  const start = SHORT_MONTHS[(safeMonth + 10) % 12];
+  const end = SHORT_MONTHS[(safeMonth + 11) % 12];
+  const label = `${start} - ${end}`;
 
   return (
     <View style={s.header}>

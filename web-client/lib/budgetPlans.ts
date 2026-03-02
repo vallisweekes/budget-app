@@ -125,24 +125,56 @@ async function seedStarterDataForPlan(params: { budgetPlanId: string }) {
 	}
 }
 
+async function findBestUserByNormalizedUsername(normalized: string) {
+	const candidates = await withPrismaRetry(
+		() =>
+			prisma.user.findMany({
+				where: {
+					name: {
+						equals: normalized,
+						mode: "insensitive",
+					},
+				},
+				orderBy: { updatedAt: "desc" },
+			}),
+		{ retries: 2, delayMs: 150 }
+	);
+
+	if (!candidates.length) return null;
+	if (candidates.length === 1) return candidates[0];
+
+	const ranked = await Promise.all(
+		candidates.map(async (user) => {
+			const [planCount, hasFinancialData] = await Promise.all([
+				prisma.budgetPlan.count({ where: { userId: user.id } }),
+				(async () => {
+					const [income, expense, debt, goal] = await Promise.all([
+						prisma.income.findFirst({ where: { budgetPlan: { userId: user.id } }, select: { id: true } }),
+						prisma.expense.findFirst({ where: { budgetPlan: { userId: user.id } }, select: { id: true } }),
+						prisma.debt.findFirst({ where: { budgetPlan: { userId: user.id } }, select: { id: true } }),
+						prisma.goal.findFirst({ where: { budgetPlan: { userId: user.id } }, select: { id: true } }),
+					]);
+					return Boolean(income || expense || debt || goal);
+				})(),
+			]);
+
+			const updatedAtScore = user.updatedAt instanceof Date ? user.updatedAt.getTime() : 0;
+			const score = (hasFinancialData ? 1_000_000_000_000 : 0) + planCount * 1_000_000 + updatedAtScore;
+			return { user, score };
+		})
+	);
+
+	ranked.sort((a, b) => b.score - a.score);
+	return ranked[0]?.user ?? candidates[0];
+}
+
 export async function getOrCreateUserByUsername(username: string) {
 	const normalized = normalizeUsername(username);
 	if (!normalized) {
 		throw new Error("Username is required");
 	}
 
-	const existing = await withPrismaRetry(
-		() =>
-			prisma.user.findFirst({
-		where: {
-			name: {
-				equals: normalized,
-				mode: "insensitive",
-			},
-		},
-		}),
-		{ retries: 2, delayMs: 150 }
-	);
+	const existing = await findBestUserByNormalizedUsername(normalized);
 	if (existing) return existing;
 
 	return prisma.user.create({
@@ -155,18 +187,7 @@ export async function getOrCreateUserByUsername(username: string) {
 export async function getUserByUsername(username: string) {
 	const normalized = normalizeUsername(username);
 	if (!normalized) return null;
-	return withPrismaRetry(
-		() =>
-			prisma.user.findFirst({
-				where: {
-					name: {
-						equals: normalized,
-						mode: "insensitive",
-					},
-				},
-			}),
-		{ retries: 2, delayMs: 150 }
-	);
+	return findBestUserByNormalizedUsername(normalized);
 }
 
 export async function registerUserByUsername(params: { username: string; email: string }) {

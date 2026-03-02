@@ -200,6 +200,25 @@ function monthLabel(month: number): string {
   return labels[Math.max(1, Math.min(12, month)) - 1] ?? "";
 }
 
+function clampDay(year: number, monthIndex: number, day: number): Date {
+  const maxDay = new Date(year, monthIndex + 1, 0).getDate();
+  return new Date(year, monthIndex, Math.min(Math.max(1, day), maxDay));
+}
+
+function buildPeriodLabels(month: number, year: number, payDate: number | null | undefined) {
+  const safePayDate = Number.isFinite(payDate as number) && (payDate as number) >= 1
+    ? Math.floor(payDate as number)
+    : 27;
+  const start = clampDay(year, month - 2, safePayDate);
+  const end = clampDay(year, month - 1, safePayDate);
+  end.setDate(end.getDate() - 1);
+
+  const span = `${monthLabel(start.getMonth() + 1)} - ${monthLabel(end.getMonth() + 1)}`;
+  const range = `${start.getDate()} ${monthLabel(start.getMonth() + 1)} - ${end.getDate()} ${monthLabel(end.getMonth() + 1)}`;
+
+  return { span, range };
+}
+
 function nextNMonths(fromMonth: number, fromYear: number, n: number): Array<{ month: number; year: number }> {
   const out: Array<{ month: number; year: number }> = [];
   let m = fromMonth;
@@ -354,7 +373,7 @@ export default function ExpenseDetailScreen({ route, navigation }: Props) {
       setError(null);
       const qp = budgetPlanId ? `&budgetPlanId=${encodeURIComponent(budgetPlanId)}` : "";
       const [all, settingsData] = await Promise.all([
-        apiFetch<Expense[]>(`/api/bff/expenses?month=${month}&year=${year}${qp}`),
+        apiFetch<Expense[]>(`/api/bff/expenses?month=${month}&year=${year}&scope=pay_period${qp}`),
         apiFetch<Settings>("/api/bff/settings"),
       ]);
       const list = Array.isArray(all) ? all : [];
@@ -428,6 +447,10 @@ export default function ExpenseDetailScreen({ route, navigation }: Props) {
   const showLogo = Boolean(logoUri) && !logoFailed;
 
   const monthsForFuture = React.useMemo(() => nextNMonths(month, year, 6), [month, year]);
+  const editPeriodContext = React.useMemo(
+    () => buildPeriodLabels(month, year, settings?.payDate),
+    [month, year, settings?.payDate]
+  );
 
   React.useEffect(() => {
     if (!expense) {
@@ -982,6 +1005,8 @@ export default function ExpenseDetailScreen({ route, navigation }: Props) {
         expense={expense}
         budgetPlanId={budgetPlanId}
         currency={currency}
+        periodSpanLabel={editPeriodContext.span}
+        periodRangeLabel={editPeriodContext.range}
         onClose={() => setEditSheetOpen(false)}
         onSaved={() => {
           void load();

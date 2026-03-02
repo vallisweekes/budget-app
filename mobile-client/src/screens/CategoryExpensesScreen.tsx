@@ -123,7 +123,7 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
       setError(null);
       const qp = budgetPlanId ? `&budgetPlanId=${encodeURIComponent(budgetPlanId)}` : "";
       const all = await apiFetch<Expense[]>(
-        `/api/bff/expenses?month=${month}&year=${year}&refreshLogos=1${qp}`
+        `/api/bff/expenses?month=${month}&year=${year}&scope=pay_period&refreshLogos=1${qp}`
       );
       setExpenses(Array.isArray(all) ? all.filter((e) => e.categoryId === categoryId) : []);
       setLogoFailed({});

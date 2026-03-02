@@ -95,6 +95,13 @@ export default function OnboardingScreen({
   const [mainGoals, setMainGoals] = useState<Goal[]>(initialGoals.length ? initialGoals : ["improve_savings"]);
   const [occupation, setOccupation] = useState(profile?.occupation ?? "");
   const [occupationOther, setOccupationOther] = useState(profile?.occupationOther ?? "");
+  const [payDay, setPayDay] = useState(String(profile?.payDay ?? ""));
+  const [payFrequency, setPayFrequency] = useState<"monthly" | "every_2_weeks" | "weekly">(
+    profile?.payFrequency === "weekly" || profile?.payFrequency === "every_2_weeks" ? profile.payFrequency : "monthly"
+  );
+  const [billFrequency, setBillFrequency] = useState<"monthly" | "every_2_weeks">(
+    profile?.billFrequency === "every_2_weeks" ? "every_2_weeks" : "monthly"
+  );
   const [salary, setSalary] = useState(String(profile?.monthlySalary ?? ""));
   const [expenseOneName, setExpenseOneName] = useState(profile?.expenseOneName ?? "");
   const [expenseOneAmount, setExpenseOneAmount] = useState(String(profile?.expenseOneAmount ?? ""));
@@ -117,6 +124,9 @@ export default function OnboardingScreen({
     mainGoals,
     occupation,
     occupationOther,
+    payDay: payDay ? Math.max(1, Math.min(31, Number(payDay))) : null,
+    payFrequency,
+    billFrequency,
     monthlySalary: salary ? Number(salary) : null,
     expenseOneName,
     expenseOneAmount: expenseOneAmount ? Number(expenseOneAmount) : null,
@@ -132,6 +142,12 @@ export default function OnboardingScreen({
     debtAmount: hasDebts && debtAmount ? Number(debtAmount) : null,
     debtNotes,
   };
+
+  const hasAllBillNames =
+    expenseOneName.trim().length > 0 &&
+    expenseTwoName.trim().length > 0 &&
+    expenseThreeName.trim().length > 0 &&
+    expenseFourName.trim().length > 0;
 
   const saveDraft = async () => {
     await apiFetch("/api/bff/onboarding", {
@@ -260,8 +276,54 @@ export default function OnboardingScreen({
             <>
               <View style={s.questionRow}>
                 <Ionicons name="wallet-outline" size={20} color={STEP_ICON_COLORS[2]} />
-                <Text style={s.question}>About how much do you bring in each month?</Text>
+                <Text style={s.question}>What day of the month do you usually get paid?</Text>
               </View>
+              <TextInput
+                value={payDay}
+                onChangeText={setPayDay}
+                placeholder="For example: 27"
+                placeholderTextColor="rgba(255,255,255,0.62)"
+                style={s.input}
+                keyboardType="number-pad"
+              />
+              <Text style={s.question}>How often do you get paid?</Text>
+              <View style={s.chipsWrap}>
+                {[
+                  { id: "monthly", label: "Monthly" },
+                  { id: "every_2_weeks", label: "Every 2 weeks" },
+                  { id: "weekly", label: "Weekly" },
+                ].map((item) => {
+                  const active = payFrequency === item.id;
+                  return (
+                    <Pressable
+                      key={item.id}
+                      onPress={() => setPayFrequency(item.id as "monthly" | "every_2_weeks" | "weekly")}
+                      style={[s.chip, active && s.chipActive]}
+                    >
+                      <Text style={[s.chipText, active && s.chipTextActive]}>{item.label}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <Text style={s.question}>How often do you usually pay most bills?</Text>
+              <View style={s.chipsWrap}>
+                {[
+                  { id: "monthly", label: "Monthly" },
+                  { id: "every_2_weeks", label: "Every 2 weeks" },
+                ].map((item) => {
+                  const active = billFrequency === item.id;
+                  return (
+                    <Pressable
+                      key={item.id}
+                      onPress={() => setBillFrequency(item.id as "monthly" | "every_2_weeks")}
+                      style={[s.chip, active && s.chipActive]}
+                    >
+                      <Text style={[s.chipText, active && s.chipTextActive]}>{item.label}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <Text style={s.question}>About how much do you bring in each month?</Text>
               <MoneyInput
                 currency={currency}
                 value={salary}
@@ -372,6 +434,10 @@ export default function OnboardingScreen({
               <Pressable
                 onPress={async () => {
                   try {
+                    if (step === 3 && !hasAllBillNames) {
+                      Alert.alert("Add bill names", "Please add a name for each bill before continuing.");
+                      return;
+                    }
                     setSaving(true);
                     await saveDraft();
                     setStep((prev) => Math.min(5, prev + 1));

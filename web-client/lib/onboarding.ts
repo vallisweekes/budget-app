@@ -33,6 +33,9 @@ export type OnboardingInput = {
   mainGoals?: OnboardingGoalInput[] | null;
   occupation?: string | null;
   occupationOther?: string | null;
+  payDay?: number | null;
+  payFrequency?: "monthly" | "every_2_weeks" | "weekly" | null;
+  billFrequency?: "monthly" | "every_2_weeks" | null;
   monthlySalary?: number | null;
   expenseOneName?: string | null;
   expenseOneAmount?: number | null;
@@ -55,6 +58,9 @@ type OnboardingProfileRecord = {
   mainGoals: OnboardingGoalInput[];
   occupation: string | null;
   occupationOther: string | null;
+  payDay: number | null;
+  payFrequency: "monthly" | "every_2_weeks" | "weekly" | null;
+  billFrequency: "monthly" | "every_2_weeks" | null;
   monthlySalary: unknown;
   expenseOneName: string | null;
   expenseOneAmount: unknown;
@@ -123,6 +129,21 @@ function toAmount(value: number | null | undefined): number | null {
   return Math.max(0, Number(value.toFixed(2)));
 }
 
+function clampPayDay(value: number | null | undefined): number | null {
+  if (value == null) return null;
+  if (!Number.isFinite(value)) return null;
+  const rounded = Math.trunc(value);
+  return Math.max(1, Math.min(31, rounded));
+}
+
+function cleanPayFrequency(value: unknown): "monthly" | "every_2_weeks" | "weekly" | null {
+  return value === "monthly" || value === "every_2_weeks" || value === "weekly" ? value : null;
+}
+
+function cleanBillFrequency(value: unknown): "monthly" | "every_2_weeks" | null {
+  return value === "monthly" || value === "every_2_weeks" ? value : null;
+}
+
 function cleanText(value: string | null | undefined): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
@@ -187,6 +208,23 @@ export async function getOnboardingForUser(userId: string) {
 
   const userIsOnboarded = await getUserIsOnboarded();
 
+  const setUserIsOnboardedTrue = async (): Promise<void> => {
+    if (!prismaUserHasField("isOnboarded")) return;
+    try {
+      type UpdateArgs = { where: { id: string }; data: { isOnboarded: boolean } };
+      type UpdateResult = unknown;
+      const delegate = (prisma as unknown as {
+        user: { update: (args: UpdateArgs) => Promise<UpdateResult> };
+      }).user;
+      await delegate.update({ where: { id: userId }, data: { isOnboarded: true } });
+    } catch (err) {
+      if (isPrismaValidationError(err, "isOnboarded")) return;
+      const msg = err instanceof Error ? err.message : String(err);
+      if (/isOnboarded/i.test(msg)) return;
+      throw err;
+    }
+  };
+
   const hasBasicSetup = async (): Promise<boolean> => {
     if (!preferredPlanId) return false;
     const [income, expense] = await Promise.all([
@@ -206,11 +244,52 @@ export async function getOnboardingForUser(userId: string) {
     return Boolean(income) && Boolean(expense);
   };
 
+  const hasAnyExistingFinancialData = async (): Promise<boolean> => {
+    const hasAnyPlan = await prisma.budgetPlan.findFirst({ where: { userId }, select: { id: true } });
+    if (!hasAnyPlan) return false;
+
+    const [incomeAny, debtAny, goalAny, expenseAny] = await Promise.all([
+      prisma.income.findFirst({
+        where: { budgetPlan: { userId } },
+        select: { id: true },
+      }),
+      prisma.debt.findFirst({
+        where: { budgetPlan: { userId } },
+        select: { id: true },
+      }),
+      prisma.goal.findFirst({
+        where: { budgetPlan: { userId } },
+        select: { id: true },
+      }),
+      (async () => {
+        try {
+          return await prisma.expense.findFirst({
+            where: { budgetPlan: { userId }, isAllocation: false },
+            select: { id: true },
+          });
+        } catch (err) {
+          if (!isPrismaValidationError(err, "isAllocation")) throw err;
+          return prisma.expense.findFirst({
+            where: { budgetPlan: { userId } },
+            select: { id: true },
+          });
+        }
+      })(),
+    ]);
+
+    return Boolean(incomeAny || expenseAny || debtAny || goalAny);
+  };
+
   const hasBasics = await hasBasicSetup();
+  const hasExistingFinancialData = await hasAnyExistingFinancialData();
+  const shouldBypassOnboarding = hasBasics || hasExistingFinancialData || userIsOnboarded === true;
 
   // Fully configured users (income + expenses exist) should never be blocked by onboarding,
   // even if they predate the onboarding profile.
-  if (hasBasics || userIsOnboarded === true) {
+  if (shouldBypassOnboarding) {
+    if (userIsOnboarded !== true && (hasBasics || hasExistingFinancialData)) {
+      await setUserIsOnboardedTrue();
+    }
     if (!profile) {
       return {
         required: false,
@@ -232,6 +311,9 @@ export async function getOnboardingForUser(userId: string) {
               : [],
         occupation: profile.occupation,
         occupationOther: profile.occupationOther,
+        payDay: toNullableNumber(profile.payDay),
+        payFrequency: cleanPayFrequency(profile.payFrequency),
+        billFrequency: cleanBillFrequency(profile.billFrequency),
         monthlySalary: toNullableNumber(profile.monthlySalary),
         expenseOneName: profile.expenseOneName,
         expenseOneAmount: toNullableNumber(profile.expenseOneAmount),
@@ -256,6 +338,9 @@ export async function getOnboardingForUser(userId: string) {
     mainGoals: [],
     occupation: null,
     occupationOther: null,
+    payDay: null,
+    payFrequency: null,
+    billFrequency: null,
     monthlySalary: null,
     expenseOneName: null,
     expenseOneAmount: null,
@@ -302,6 +387,9 @@ export async function getOnboardingForUser(userId: string) {
             : [],
       occupation: profile.occupation,
       occupationOther: profile.occupationOther,
+      payDay: toNullableNumber(profile.payDay),
+      payFrequency: cleanPayFrequency(profile.payFrequency),
+      billFrequency: cleanBillFrequency(profile.billFrequency),
       monthlySalary: toNullableNumber(profile.monthlySalary),
       expenseOneName: profile.expenseOneName,
       expenseOneAmount: toNullableNumber(profile.expenseOneAmount),
@@ -341,6 +429,9 @@ export async function saveOnboardingDraft(userId: string, input: OnboardingInput
     mainGoals: mainGoals ?? undefined,
     occupation: cleanText(input.occupation),
     occupationOther: cleanText(input.occupationOther),
+    payDay: clampPayDay(input.payDay),
+    payFrequency: cleanPayFrequency(input.payFrequency),
+    billFrequency: cleanBillFrequency(input.billFrequency),
     monthlySalary: toAmount(input.monthlySalary),
     expenseOneName: cleanText(input.expenseOneName),
     expenseOneAmount: toAmount(input.expenseOneAmount),
@@ -385,7 +476,15 @@ export async function saveOnboardingDraft(userId: string, input: OnboardingInput
       /data\.expenseFourName/i.test(message) ||
       /data\.expenseFourAmount/i.test(message);
 
-    if (!shouldDropMainGoals && !shouldDropBuildBudget && !shouldDropExtraBills) throw error;
+    const shouldDropPaySetup =
+      /Unknown arg(ument)? `payDay`/i.test(message) ||
+      /Unknown arg(ument)? `payFrequency`/i.test(message) ||
+      /Unknown arg(ument)? `billFrequency`/i.test(message) ||
+      /data\.payDay/i.test(message) ||
+      /data\.payFrequency/i.test(message) ||
+      /data\.billFrequency/i.test(message);
+
+    if (!shouldDropMainGoals && !shouldDropBuildBudget && !shouldDropExtraBills && !shouldDropPaySetup) throw error;
 
     const retryData: Record<string, unknown> = { ...updateData };
 
@@ -398,6 +497,12 @@ export async function saveOnboardingDraft(userId: string, input: OnboardingInput
       delete retryData.expenseThreeAmount;
       delete retryData.expenseFourName;
       delete retryData.expenseFourAmount;
+    }
+
+    if (shouldDropPaySetup) {
+      delete retryData.payDay;
+      delete retryData.payFrequency;
+      delete retryData.billFrequency;
     }
 
     if (shouldDropBuildBudget) {
@@ -458,23 +563,26 @@ export async function completeOnboarding(userId: string) {
   const availableCategoryNames = categories.map((c) => c.name);
   const categoryIdByLowerName = new Map(categories.map((c) => [c.name.toLowerCase(), c.id] as const));
 
-  const expenseSeedsRaw: Array<{ name: string | null; amount: number }> = [
-    { name: profile.expenseOneName, amount: Number(profile.expenseOneAmount ?? 0) },
-    { name: profile.expenseTwoName, amount: Number(profile.expenseTwoAmount ?? 0) },
-    { name: profile.expenseThreeName, amount: Number(profile.expenseThreeAmount ?? 0) },
-    { name: profile.expenseFourName, amount: Number(profile.expenseFourAmount ?? 0) },
+  const expenseSeedsRaw: Array<{ name: string | null; amount: number; fallbackName: string }> = [
+    { name: profile.expenseOneName, amount: Number(profile.expenseOneAmount ?? 0), fallbackName: "Bill 1" },
+    { name: profile.expenseTwoName, amount: Number(profile.expenseTwoAmount ?? 0), fallbackName: "Bill 2" },
+    { name: profile.expenseThreeName, amount: Number(profile.expenseThreeAmount ?? 0), fallbackName: "Bill 3" },
+    { name: profile.expenseFourName, amount: Number(profile.expenseFourAmount ?? 0), fallbackName: "Bill 4" },
   ];
 
   const expenseSeeds = await Promise.all(
     expenseSeedsRaw.map(async (item) => {
-      if (!item.name || item.amount <= 0) return { ...item, categoryId: null as string | null };
+      if (item.amount <= 0) return { ...item, resolvedName: null as string | null, categoryId: null as string | null };
+
+      const cleanedName = cleanText(item.name);
+      const resolvedName = cleanedName || item.fallbackName;
 
       const suggestedName = await suggestCategoryNameForExpense({
-        expenseName: item.name,
+        expenseName: resolvedName,
         availableCategories: availableCategoryNames,
       });
       const categoryId = suggestedName ? categoryIdByLowerName.get(suggestedName.toLowerCase()) ?? null : null;
-      return { ...item, categoryId };
+      return { ...item, resolvedName, categoryId };
     })
   );
 
@@ -500,24 +608,26 @@ export async function completeOnboarding(userId: string) {
     }
 
     const allowance = Number(profile.allowanceAmount ?? 0);
+    const payDay = clampPayDay(toNullableNumber(profile.payDay));
     await tx.budgetPlan.update({
       where: { id: budgetPlanId },
       data: {
+        payDate: payDay ?? undefined,
         monthlyAllowance: profile.hasAllowance ? allowance : 0,
       },
     });
 
     for (const item of expenseSeeds) {
-      if (!item.name || item.amount <= 0) continue;
+      if (!item.resolvedName || item.amount <= 0) continue;
       const exists = await tx.expense.findFirst({
-        where: { budgetPlanId, month, year, name: item.name },
+        where: { budgetPlanId, month, year, name: item.resolvedName },
         select: { id: true },
       });
       if (exists) continue;
       await tx.expense.create({
         data: {
           budgetPlanId,
-          name: item.name,
+          name: item.resolvedName,
           amount: item.amount,
           month,
           year,

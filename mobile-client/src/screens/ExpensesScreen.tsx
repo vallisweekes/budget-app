@@ -9,7 +9,7 @@
  * Upcoming payments come from /api/bff/expense-insights.
  */
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -63,6 +63,7 @@ export default function ExpensesScreen({ navigation }: Props) {
   const [plans, setPlans] = useState<BudgetPlanListItem[]>([]);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [expenseMonths, setExpenseMonths] = useState<ExpenseMonthsResponse["months"]>([]);
+  const [periodCountsByMonth, setPeriodCountsByMonth] = useState<Record<number, number>>({});
 
   const [summary, setSummary]   = useState<ExpenseSummary | null>(null);
   const [previousSummary, setPreviousSummary] = useState<ExpenseSummary | null>(null);
@@ -209,6 +210,13 @@ export default function ExpensesScreen({ navigation }: Props) {
     return names[Math.max(1, Math.min(12, m)) - 1] ?? "";
   };
 
+  const periodSpanLabel = (m: number) => {
+    const safeMonth = Math.max(1, Math.min(12, m));
+    const start = SHORT_MONTHS[(safeMonth + 10) % 12];
+    const end = SHORT_MONTHS[(safeMonth + 11) % 12];
+    return `${start} - ${end}`;
+  };
+
   useEffect(() => {
     // Default to the Personal plan when multiple plans exist.
     if (!selectedPlanId && personalPlanId) setSelectedPlanId(personalPlanId);
@@ -223,8 +231,8 @@ export default function ExpensesScreen({ navigation }: Props) {
       const prevYear = month === 1 ? year - 1 : year;
 
       const [sumData, prevData, s, bp] = await Promise.all([
-        apiFetch<ExpenseSummary>(`/api/bff/expenses/summary?month=${month}&year=${year}${planQp}`),
-        apiFetch<ExpenseSummary>(`/api/bff/expenses/summary?month=${prevMonth}&year=${prevYear}${planQp}`),
+        apiFetch<ExpenseSummary>(`/api/bff/expenses/summary?month=${month}&year=${year}&scope=pay_period${planQp}`),
+        apiFetch<ExpenseSummary>(`/api/bff/expenses/summary?month=${prevMonth}&year=${prevYear}&scope=pay_period${planQp}`),
         apiFetch<Settings>("/api/bff/settings"),
         apiFetch<BudgetPlansResponse>("/api/bff/budget-plans"),
       ]);
@@ -245,11 +253,9 @@ export default function ExpensesScreen({ navigation }: Props) {
       });
       setPlans(nextPlans);
 
-      // Only compute sparse month cards for additional (non-personal) plans.
+      // Load distinct expense months for picker filtering and sparse cards.
       const resolvedPlanId = activePlanId ?? nextPlans.find((p) => p.kind === "personal")?.id ?? null;
-      const resolvedActive = nextPlans.find((p) => p.id === resolvedPlanId) ?? null;
-      const shouldLoadMonths = Boolean(resolvedPlanId && resolvedActive && resolvedActive.kind !== "personal" && nextPlans.length > 1);
-      if (shouldLoadMonths) {
+      if (resolvedPlanId) {
         const qp = `budgetPlanId=${encodeURIComponent(resolvedPlanId!)}`;
         const monthsData = await apiFetch<ExpenseMonthsResponse>(
           `/api/bff/expenses/months?${qp}`,
@@ -308,6 +314,84 @@ export default function ExpensesScreen({ navigation }: Props) {
     expenseMonths.length > 0 &&
     planTotalAmount > 0;
 
+  const accountCreatedAt = useMemo(() => {
+    if (!settings?.accountCreatedAt) return null;
+    const parsed = new Date(settings.accountCreatedAt);
+    if (Number.isNaN(parsed.getTime())) return null;
+    parsed.setHours(0, 0, 0, 0);
+    return parsed;
+  }, [settings?.accountCreatedAt]);
+
+  const effectivePayDate = Number.isFinite(settings?.payDate as number) && (settings?.payDate as number) >= 1
+    ? Math.floor(settings?.payDate as number)
+    : 27;
+
+  const periodEndFor = useCallback((targetYear: number, targetMonth: number) => {
+    const monthIndex = targetMonth - 1;
+    const lastDay = new Date(targetYear, monthIndex + 1, 0).getDate();
+    const clampedPayDay = Math.max(1, Math.min(lastDay, effectivePayDate));
+    const periodEnd = new Date(targetYear, monthIndex, clampedPayDay);
+    periodEnd.setDate(periodEnd.getDate() - 1);
+    periodEnd.setHours(23, 59, 59, 999);
+    return periodEnd;
+  }, [effectivePayDate]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      try {
+        const planQp = activePlanId ? `&budgetPlanId=${encodeURIComponent(activePlanId)}` : "";
+        const results = await Promise.all(
+          Array.from({ length: 12 }, (_, idx) => {
+            const m = idx + 1;
+            return apiFetch<ExpenseSummary>(
+              `/api/bff/expenses/summary?month=${m}&year=${pickerYear}&scope=pay_period${planQp}`
+            ).then((res) => ({ month: m, totalCount: Number(res?.totalCount ?? 0) }));
+          })
+        );
+        if (cancelled) return;
+        const next: Record<number, number> = {};
+        for (const row of results) next[row.month] = row.totalCount;
+        setPeriodCountsByMonth(next);
+      } catch {
+        if (cancelled) return;
+        setPeriodCountsByMonth({});
+      }
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [activePlanId, pickerYear, refreshing]);
+
+  const enabledPeriodMonths = useMemo(
+    () =>
+      Array.from({ length: 12 }, (_, i) => i + 1).filter((m) => {
+        const hasData = (periodCountsByMonth[m] ?? 0) > 0;
+        if (!hasData) return false;
+        if (!accountCreatedAt) return true;
+        return periodEndFor(pickerYear, m).getTime() >= accountCreatedAt.getTime();
+      }),
+    [accountCreatedAt, periodCountsByMonth, periodEndFor, pickerYear]
+  );
+
+  const enabledPeriodSet = useMemo(
+    () => new Set(enabledPeriodMonths),
+    [enabledPeriodMonths]
+  );
+
+  const allPeriodMonths = useMemo(() => Array.from({ length: 12 }, (_, i) => i + 1), []);
+
+  useEffect(() => {
+    const monthsForSelectedYear = enabledPeriodMonths;
+    if (monthsForSelectedYear.length === 0) return;
+    if (monthsForSelectedYear.includes(month)) return;
+    const nearest = monthsForSelectedYear[monthsForSelectedYear.length - 1] ?? month;
+    if (nearest !== month) setMonth(nearest);
+  }, [enabledPeriodMonths, month, year]);
+
+  const selectedPeriodRange = summary?.periodRangeLabel?.trim() || `${monthName(month)} ${year}`;
+
   return (
 		<SafeAreaView style={styles.safe} edges={[]}>
       {loading ? (
@@ -341,7 +425,7 @@ export default function ExpensesScreen({ navigation }: Props) {
                 ) : (
                   <Pressable onPress={openMonthPicker} style={styles.purpleHeroLabelBtn} hitSlop={12}>
                     <Text style={styles.purpleHeroLabel}>
-                      {monthName(month)} {year}
+                      {selectedPeriodRange}
                     </Text>
                     <Ionicons name="chevron-down" size={14} color="rgba(255,255,255,0.72)" />
                   </Pressable>
@@ -381,8 +465,8 @@ export default function ExpensesScreen({ navigation }: Props) {
                 <View style={styles.noExpensesCard}>
                   <View style={styles.noExpensesCardRow}>
                     <View style={styles.noExpensesCardCopy}>
-                      <Text style={styles.noExpensesTitle}>No expense for this month</Text>
-                      <Text style={styles.noExpensesSub}>{monthName(month)} {year}</Text>
+                      <Text style={styles.noExpensesTitle}>No expense for this period</Text>
+                      <Text style={styles.noExpensesSub}>{selectedPeriodRange}</Text>
                       <Text style={styles.noExpensesHint}>Tap + Expense to create your first expense.</Text>
                     </View>
                     <Pressable onPress={() => setAddSheetOpen(true)} style={styles.noExpensesAddBtn}>
@@ -435,9 +519,9 @@ export default function ExpensesScreen({ navigation }: Props) {
                 <View style={styles.noExpensesCard}>
                   <View style={styles.noExpensesCardRow}>
                     <View style={styles.noExpensesCardCopy}>
-                      <Text style={styles.noExpensesTitle}>No expense for this month</Text>
+                      <Text style={styles.noExpensesTitle}>No expense for this period</Text>
                       <Text style={styles.noExpensesSub}>
-                        {monthName(month)} {year}
+                        {selectedPeriodRange}
                       </Text>
                       <Text style={styles.noExpensesHint}>Tap + Expense to create your first expense.</Text>
                     </View>
@@ -537,29 +621,33 @@ export default function ExpensesScreen({ navigation }: Props) {
             </View>
             {/* Month grid */}
             <View style={styles.pickerGrid}>
-              {SHORT_MONTHS.map((name, idx) => {
-                const m = idx + 1;
+              {allPeriodMonths.map((m) => {
+                const isEnabled = enabledPeriodSet.has(m);
                 const isSelected = m === month && pickerYear === year;
                 return (
                   <Pressable
                     key={m}
+                    disabled={!isEnabled}
                     onPress={() => {
+                      if (!isEnabled) return;
                       setMonth(m);
                       setYear(pickerYear);
                       setMonthPickerOpen(false);
                     }}
                     style={[
                       styles.pickerCell,
+                      !isEnabled && styles.pickerCellDisabled,
                       isSelected && styles.pickerCellSelected,
                     ]}
                   >
                     <Text
                       style={[
                         styles.pickerCellText,
+                        !isEnabled && styles.pickerCellDisabledText,
                         isSelected && styles.pickerCellSelectedText,
                       ]}
                     >
-                      {name}
+                      {periodSpanLabel(m)}
                     </Text>
                   </Pressable>
                 );
@@ -865,7 +953,7 @@ const styles = StyleSheet.create({
   },
   pickerCell: {
     width: "22%",
-    height: 44,
+    height: 52,
     borderRadius: 10,
     backgroundColor: T.cardAlt,
     alignItems: "center",
@@ -879,8 +967,8 @@ const styles = StyleSheet.create({
   },
   pickerCellText: {
     color: T.text,
-    fontSize: 14,
-    fontWeight: "800",
+    fontSize: 13,
+    fontWeight: "900",
   },
   pickerCellSelectedText: {
     color: "#ffffff",

@@ -136,6 +136,8 @@ export default function EditExpenseSheet({
   expense,
   budgetPlanId,
   currency,
+  periodSpanLabel,
+  periodRangeLabel,
   onSaved,
   onClose,
 }: {
@@ -143,6 +145,8 @@ export default function EditExpenseSheet({
   expense: Expense | null;
   budgetPlanId?: string | null;
   currency: string;
+  periodSpanLabel?: string;
+  periodRangeLabel?: string;
   onSaved: () => void;
   onClose: () => void;
 }) {
@@ -245,6 +249,12 @@ export default function EditExpenseSheet({
   }, [amount]);
 
   const canSubmit = Boolean(expense) && name.trim().length > 0 && Number.isFinite(parsedAmount) && parsedAmount >= 0 && categoryId.trim().length > 0;
+  const editPeriodLabel = useMemo(() => {
+    const span = String(periodSpanLabel ?? "").trim();
+    const range = String(periodRangeLabel ?? "").trim();
+    if (span && range) return `${span} · ${range}`;
+    return span || range || "";
+  }, [periodRangeLabel, periodSpanLabel]);
 
   const openPicker = () => {
     if (Platform.OS === "ios") {
@@ -322,7 +332,7 @@ export default function EditExpenseSheet({
           <View style={s.header} {...panHandlers}>
             <View style={{ flex: 1, paddingRight: 12 }}>
               <Text style={s.title}>Edit expense</Text>
-              <Text style={s.sub}>Update details and save</Text>
+              <Text style={s.sub}>{editPeriodLabel || "Update details and save"}</Text>
             </View>
 
             <Pressable

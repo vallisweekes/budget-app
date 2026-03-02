@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
+import { resolveEffectiveDueDateIso } from "@/lib/expenses/insights";
 import { createExpense, normalizeFundingSource, normalizePaymentSource } from "@/lib/financial-engine";
 import { hasCustomLogoForDomain, hasCustomLogoForName, resolveExpenseLogo, resolveExpenseLogoWithSearch } from "@/lib/expenses/logoResolver";
 import { buildExpenseAddedActivity } from "@/lib/push/activityMessages";
@@ -54,7 +55,31 @@ function isUnknownMovedToDebtFieldError(error: unknown): boolean {
   );
 }
 
-function serializeExpense(expense: any, latestPaidAt: Date | null) {
+function parseIsoDate(iso: string): Date | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null;
+  const [y, m, d] = iso.split("-").map(Number);
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
+  return new Date(Date.UTC(y, m - 1, d));
+}
+
+function clampDayUtc(year: number, monthIndex: number, day: number): Date {
+  const maxDay = new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
+  const clamped = Math.max(1, Math.min(maxDay, Math.floor(day)));
+  return new Date(Date.UTC(year, monthIndex, clamped));
+}
+
+function buildPeriodFromAnchor(anchorYear: number, anchorMonth: number, payDate: number) {
+  const start = clampDayUtc(anchorYear, anchorMonth - 2, payDate);
+  const end = clampDayUtc(anchorYear, anchorMonth - 1, payDate);
+  end.setUTCDate(end.getUTCDate() - 1);
+  return { start, end };
+}
+
+function inRange(target: Date, start: Date, end: Date): boolean {
+  return target.getTime() >= start.getTime() && target.getTime() <= end.getTime();
+}
+
+function serializeExpense(expense: any, latestPaidAt: Date | null, periodMeta?: { effectiveDueDate: string | null; inSelectedPayPeriod: boolean }) {
   const paidAmountNumber = Number(expense?.paidAmount?.toString?.() ?? expense?.paidAmount ?? 0);
   const effectiveLastPaymentAt =
     latestPaidAt ??
@@ -83,6 +108,8 @@ function serializeExpense(expense: any, latestPaidAt: Date | null) {
     lastPaymentAt: effectiveLastPaymentAt ? effectiveLastPaymentAt.toISOString() : null,
     paymentSource: expense.paymentSource ?? "income",
     cardDebtId: expense.cardDebtId ?? null,
+    effectiveDueDate: periodMeta?.effectiveDueDate ?? null,
+    inSelectedPayPeriod: periodMeta?.inSelectedPayPeriod ?? false,
   };
 }
 
@@ -90,6 +117,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const month = toNumber(searchParams.get("month"));
   const year = toNumber(searchParams.get("year"));
+  const scope = String(searchParams.get("scope") ?? "month").toLowerCase() === "pay_period" ? "pay_period" : "month";
   const userId = await getSessionUserId(req);
   if (!userId) return unauthorized();
 
@@ -104,10 +132,33 @@ export async function GET(req: NextRequest) {
   if (year == null || year < 1900) return badRequest("Invalid year");
   if (!budgetPlanId) return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
 
+  const budgetPlan = await prisma.budgetPlan.findUnique({ where: { id: budgetPlanId }, select: { payDate: true } });
+  const payDate = Number.isFinite(Number(budgetPlan?.payDate)) && Number(budgetPlan?.payDate) >= 1
+    ? Math.floor(Number(budgetPlan?.payDate))
+    : 1;
+
+  const selectedPeriod = buildPeriodFromAnchor(year, month, payDate);
+
   const items = await (async () => {
+    const periodPairs = [
+      { year: selectedPeriod.start.getUTCFullYear(), month: selectedPeriod.start.getUTCMonth() + 1 },
+      { year: selectedPeriod.end.getUTCFullYear(), month: selectedPeriod.end.getUTCMonth() + 1 },
+      {
+        year: new Date(Date.UTC(selectedPeriod.start.getUTCFullYear(), selectedPeriod.start.getUTCMonth() - 1, 1)).getUTCFullYear(),
+        month: new Date(Date.UTC(selectedPeriod.start.getUTCFullYear(), selectedPeriod.start.getUTCMonth() - 1, 1)).getUTCMonth() + 1,
+      },
+      {
+        year: new Date(Date.UTC(selectedPeriod.end.getUTCFullYear(), selectedPeriod.end.getUTCMonth() + 1, 1)).getUTCFullYear(),
+        month: new Date(Date.UTC(selectedPeriod.end.getUTCFullYear(), selectedPeriod.end.getUTCMonth() + 1, 1)).getUTCMonth() + 1,
+      },
+    ];
+    const uniquePeriodPairs = Array.from(new Map(periodPairs.map((p) => [`${p.year}-${p.month}`, p])).values());
+
     try {
       return await prisma.expense.findMany({
-        where: { budgetPlanId, month, year, isMovedToDebt: false },
+        where: scope === "pay_period"
+          ? { budgetPlanId, OR: uniquePeriodPairs, isMovedToDebt: false }
+          : { budgetPlanId, month, year, isMovedToDebt: false },
         orderBy: [{ createdAt: "asc" }],
         include: {
           category: {
@@ -121,7 +172,9 @@ export async function GET(req: NextRequest) {
       // Fall back to the legacy query rather than 500'ing the endpoint.
       if (isUnknownMovedToDebtFieldError(error)) {
         return prisma.expense.findMany({
-          where: { budgetPlanId, month, year },
+          where: scope === "pay_period"
+            ? { budgetPlanId, OR: uniquePeriodPairs }
+            : { budgetPlanId, month, year },
           orderBy: [{ createdAt: "asc" }],
           include: {
             category: {
@@ -215,8 +268,32 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    const dueIso = resolveEffectiveDueDateIso(
+      {
+        id: item.id,
+        name: item.name,
+        amount: Number(item.amount?.toString?.() ?? item.amount ?? 0),
+        paid: Boolean(item.paid),
+        paidAmount: Number(item.paidAmount?.toString?.() ?? item.paidAmount ?? 0),
+        dueDate: item.dueDate ? new Date(item.dueDate).toISOString().slice(0, 10) : undefined,
+      },
+      { year: item.year, monthNum: item.month, payDate }
+    );
+    const dueDateOnly = dueIso ? parseIsoDate(dueIso) : null;
+    const inSelectedPayPeriod =
+      scope === "pay_period" && !!dueDateOnly
+        ? inRange(dueDateOnly, selectedPeriod.start, selectedPeriod.end)
+        : true;
+
+    if (scope === "pay_period" && !inSelectedPayPeriod) {
+      continue;
+    }
+
     const latestPaidAt = latestPaidAtByExpenseId.get(item.id) ?? null;
-    out.push(serializeExpense(item, latestPaidAt));
+    out.push(serializeExpense(item, latestPaidAt, {
+      effectiveDueDate: dueIso,
+      inSelectedPayPeriod,
+    }));
   }
 
   return NextResponse.json(out);

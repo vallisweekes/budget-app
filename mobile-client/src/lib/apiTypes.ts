@@ -51,6 +51,10 @@ export interface Expense {
   paymentSource: ExpensePaymentSource;
   /** Credit card debt ID when paymentSource = credit_card */
   cardDebtId: string | null;
+  /** Effective due date used for pay-period classification (YYYY-MM-DD). */
+  effectiveDueDate?: string | null;
+  /** True when fetched with scope=pay_period and expense belongs to selected period. */
+  inSelectedPayPeriod?: boolean;
 }
 
 /** GET /api/bff/expenses/suggestions?budgetPlanId=...&categoryId=... */
@@ -313,6 +317,9 @@ export interface OnboardingProfile {
   mainGoals?: OnboardingGoal[];
   occupation: string | null;
   occupationOther: string | null;
+  payDay?: string | number | null;
+  payFrequency?: "monthly" | "every_2_weeks" | "weekly" | null;
+  billFrequency?: "monthly" | "every_2_weeks" | null;
   monthlySalary: string | number | null;
   expenseOneName: string | null;
   expenseOneAmount: string | number | null;
@@ -621,8 +628,15 @@ export interface ExpenseCategoryBreakdown {
 }
 
 export interface ExpenseSummary {
+  scope?: "month" | "pay_period";
   month: number;
   year: number;
+  periodLabel?: string | null;
+  periodIndex?: number | null;
+  periodStart?: string | null;
+  periodEnd?: string | null;
+  periodRangeLabel?: string | null;
+  payDate?: number | null;
   totalCount: number;
   totalAmount: number;
   paidCount: number;

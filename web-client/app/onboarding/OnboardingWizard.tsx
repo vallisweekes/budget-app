@@ -11,6 +11,9 @@ type OnboardingProfile = {
   mainGoals?: Array<"improve_savings" | "manage_debts" | "track_spending" | "build_budget">;
   occupation: string | null;
   occupationOther: string | null;
+  payDay?: string | number | null;
+  payFrequency?: "monthly" | "every_2_weeks" | "weekly" | null;
+  billFrequency?: "monthly" | "every_2_weeks" | null;
   monthlySalary: string | number | null;
   expenseOneName: string | null;
   expenseOneAmount: string | number | null;
@@ -57,7 +60,7 @@ export default function OnboardingWizard({
       try {
         const res = await fetch("/api/bff/settings", { signal: controller.signal });
         if (!res.ok) return;
-        const body = (await res.json()) as any;
+        const body = (await res.json()) as Record<string, unknown>;
         const currency = typeof body?.currency === "string" && body.currency.trim() ? body.currency.trim() : "GBP";
         const country = typeof body?.country === "string" && body.country.trim() ? body.country.trim() : "GB";
         const language = typeof body?.language === "string" && body.language.trim() ? body.language.trim() : "en";
@@ -82,6 +85,13 @@ export default function OnboardingWizard({
   );
   const [occupation, setOccupation] = useState(initial.profile?.occupation ?? "");
   const [occupationOther, setOccupationOther] = useState(initial.profile?.occupationOther ?? "");
+  const [payDay, setPayDay] = useState(String(initial.profile?.payDay ?? ""));
+  const [payFrequency, setPayFrequency] = useState<"monthly" | "every_2_weeks" | "weekly">(
+    initial.profile?.payFrequency === "weekly" || initial.profile?.payFrequency === "every_2_weeks" ? initial.profile.payFrequency : "monthly"
+  );
+  const [billFrequency, setBillFrequency] = useState<"monthly" | "every_2_weeks">(
+    initial.profile?.billFrequency === "every_2_weeks" ? "every_2_weeks" : "monthly"
+  );
   const [salary, setSalary] = useState(String(initial.profile?.monthlySalary ?? ""));
   const [expenseOneName, setExpenseOneName] = useState(initial.profile?.expenseOneName ?? "");
   const [expenseOneAmount, setExpenseOneAmount] = useState(String(initial.profile?.expenseOneAmount ?? ""));
@@ -112,6 +122,9 @@ export default function OnboardingWizard({
     mainGoals,
     occupation,
     occupationOther,
+    payDay: payDay ? Math.max(1, Math.min(31, Number(payDay))) : null,
+    payFrequency,
+    billFrequency,
     monthlySalary: salary ? Number(salary) : null,
     expenseOneName,
     expenseOneAmount: expenseOneAmount ? Number(expenseOneAmount) : null,
@@ -127,6 +140,12 @@ export default function OnboardingWizard({
     debtAmount: hasDebts && debtAmount ? Number(debtAmount) : null,
     debtNotes,
   };
+
+  const hasAllBillNames =
+    expenseOneName.trim().length > 0 &&
+    expenseTwoName.trim().length > 0 &&
+    expenseThreeName.trim().length > 0 &&
+    expenseFourName.trim().length > 0;
 
   async function saveDraft() {
     await fetch("/api/bff/onboarding", {
@@ -229,6 +248,53 @@ export default function OnboardingWizard({
 
         {step === 2 ? (
           <div className="space-y-3">
+            <p className="text-sm text-slate-300">What day of the month do you usually get paid?</p>
+            <input
+              type="number"
+              min={1}
+              max={31}
+              value={payDay}
+              onChange={(e) => setPayDay(e.target.value)}
+              placeholder="For example: 27"
+              className="w-full rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2"
+            />
+            <p className="text-sm text-slate-300">How often do you get paid?</p>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { id: "monthly", label: "Monthly" },
+                { id: "every_2_weeks", label: "Every 2 weeks" },
+                { id: "weekly", label: "Weekly" },
+              ].map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => setPayFrequency(option.id as "monthly" | "every_2_weeks" | "weekly")}
+                  className={`rounded-lg border px-3 py-2 text-sm ${
+                    payFrequency === option.id ? "border-purple-300 bg-purple-500/20" : "border-white/10 bg-slate-950/30"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-sm text-slate-300">How often do you usually pay most bills?</p>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { id: "monthly", label: "Monthly" },
+                { id: "every_2_weeks", label: "Every 2 weeks" },
+              ].map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => setBillFrequency(option.id as "monthly" | "every_2_weeks")}
+                  className={`rounded-lg border px-3 py-2 text-sm ${
+                    billFrequency === option.id ? "border-purple-300 bg-purple-500/20" : "border-white/10 bg-slate-950/30"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
             <p className="text-sm text-slate-300">About how much do you bring in each month?</p>
             <MoneyInput
               value={salary}
@@ -329,6 +395,11 @@ export default function OnboardingWizard({
             <button
               type="button"
               onClick={async () => {
+                if (step === 3 && !hasAllBillNames) {
+                  setError("Please add a name for each bill before continuing.");
+                  return;
+                }
+                if (error) setError("");
                 await saveDraft();
                 setStep((s) => Math.min(5, s + 1));
               }}
