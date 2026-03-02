@@ -4,13 +4,20 @@ import { T } from "@/lib/theme";
 import { cardBase } from "@/lib/ui";
 
 export const styles = StyleSheet.create({
-  circleAddBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
+  addCardBtn: {
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: T.accent,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 4,
+  },
+  addCardBtnText: {
+    color: T.onAccent,
+    fontSize: 13,
+    fontWeight: "900",
   },
   moneySectionCard: {
     ...cardBase,

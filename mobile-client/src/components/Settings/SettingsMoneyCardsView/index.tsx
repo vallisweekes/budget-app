@@ -11,11 +11,12 @@ import type { SettingsMoneyCardsViewProps } from "@/types/components/settings/Se
 export default function SettingsMoneyCardsView({ currency, creditCardGroups, storeCardGroups, onAddDebt, onOpenDebtEditor }: SettingsMoneyCardsViewProps) {
   return (
     <View style={styles.plainSavingsBlock}>
-      <View style={styles.moneySectionCard}>
+      <View>
         <View style={styles.plainSectionHeadRow}>
           <Text style={styles.plainBudgetTitle}>Credit cards</Text>
-          <Pressable onPress={onAddDebt} style={styles.circleAddBtn}>
-            <Ionicons name="add" size={20} color={T.onAccent} />
+          <Pressable onPress={onAddDebt} style={styles.addCardBtn}>
+            <Ionicons name="add" size={16} color={T.onAccent} />
+            <Text style={styles.addCardBtnText}>Card</Text>
           </Pressable>
         </View>
         {creditCardGroups.length === 0 ? (
