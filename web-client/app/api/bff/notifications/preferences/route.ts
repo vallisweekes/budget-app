@@ -24,6 +24,7 @@ function normalizeBooleanOrUndefined(value: unknown): boolean | undefined {
 type Body = {
   dueReminders?: unknown;
   paymentAlerts?: unknown;
+  dailyTips?: unknown;
 };
 
 export async function GET(req: NextRequest) {
@@ -47,18 +48,44 @@ export async function PUT(req: NextRequest) {
 
   const dueReminders = normalizeBooleanOrUndefined(body.dueReminders);
   const paymentAlerts = normalizeBooleanOrUndefined(body.paymentAlerts);
+  const dailyTips = normalizeBooleanOrUndefined(body.dailyTips);
 
-  if (typeof dueReminders !== "boolean" && typeof paymentAlerts !== "boolean") {
+  if (typeof dueReminders !== "boolean" && typeof paymentAlerts !== "boolean" && typeof dailyTips !== "boolean") {
     return badRequest("At least one notification preference must be provided");
   }
 
   try {
-    if (typeof dueReminders === "boolean" && typeof paymentAlerts === "boolean") {
+    if (typeof dueReminders === "boolean" && typeof paymentAlerts === "boolean" && typeof dailyTips === "boolean") {
+      await prisma.$executeRaw`
+        UPDATE "User"
+        SET
+          "notificationDueReminders" = ${dueReminders},
+          "notificationPaymentAlerts" = ${paymentAlerts},
+          "notificationDailyTips" = ${dailyTips}
+        WHERE id = ${userId}
+      `;
+    } else if (typeof dueReminders === "boolean" && typeof paymentAlerts === "boolean") {
       await prisma.$executeRaw`
         UPDATE "User"
         SET
           "notificationDueReminders" = ${dueReminders},
           "notificationPaymentAlerts" = ${paymentAlerts}
+        WHERE id = ${userId}
+      `;
+    } else if (typeof dueReminders === "boolean" && typeof dailyTips === "boolean") {
+      await prisma.$executeRaw`
+        UPDATE "User"
+        SET
+          "notificationDueReminders" = ${dueReminders},
+          "notificationDailyTips" = ${dailyTips}
+        WHERE id = ${userId}
+      `;
+    } else if (typeof paymentAlerts === "boolean" && typeof dailyTips === "boolean") {
+      await prisma.$executeRaw`
+        UPDATE "User"
+        SET
+          "notificationPaymentAlerts" = ${paymentAlerts},
+          "notificationDailyTips" = ${dailyTips}
         WHERE id = ${userId}
       `;
     } else if (typeof dueReminders === "boolean") {
@@ -71,6 +98,12 @@ export async function PUT(req: NextRequest) {
       await prisma.$executeRaw`
         UPDATE "User"
         SET "notificationPaymentAlerts" = ${paymentAlerts}
+        WHERE id = ${userId}
+      `;
+    } else if (typeof dailyTips === "boolean") {
+      await prisma.$executeRaw`
+        UPDATE "User"
+        SET "notificationDailyTips" = ${dailyTips}
         WHERE id = ${userId}
       `;
     }

@@ -61,12 +61,14 @@ type SavingsField = "savings" | "emergency" | "investment";
 type NotificationPrefs = {
   dueReminders: boolean;
   paymentAlerts: boolean;
+  dailyTips: boolean;
 };
 
 type NotificationPrefsResponse = {
   ok?: boolean;
   dueReminders?: boolean;
   paymentAlerts?: boolean;
+  dailyTips?: boolean;
 };
 
 function formatDateDmy(dateYmd: string): string {
@@ -208,7 +210,7 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
   const [activeTab, setActiveTab] = useState<SettingsTab>("details");
   const [moreOpen, setMoreOpen] = useState(false);
 
-  const [notifications, setNotifications] = useState<NotificationPrefs>({ dueReminders: true, paymentAlerts: true });
+  const [notifications, setNotifications] = useState<NotificationPrefs>({ dueReminders: true, paymentAlerts: true, dailyTips: true });
   const [notificationInbox, setNotificationInbox] = useState<NotificationInboxItem[]>([]);
 
   const [detailsSheetOpen, setDetailsSheetOpen] = useState(false);
@@ -413,7 +415,11 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
         const raw = await SecureStore.getItemAsync(NOTIFICATION_PREFS_KEY);
         if (!raw) return;
         const parsed = JSON.parse(raw) as NotificationPrefs;
-        if (typeof parsed?.dueReminders === "boolean" && typeof parsed?.paymentAlerts === "boolean") {
+        if (
+          typeof parsed?.dueReminders === "boolean" &&
+          typeof parsed?.paymentAlerts === "boolean" &&
+          typeof parsed?.dailyTips === "boolean"
+        ) {
           setNotifications(parsed);
         }
       } catch {
@@ -425,10 +431,15 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
       const remote = await apiFetch<NotificationPrefsResponse>("/api/bff/notifications/preferences", {
         cacheTtlMs: 0,
       });
-      if (typeof remote?.dueReminders === "boolean" && typeof remote?.paymentAlerts === "boolean") {
+      if (
+        typeof remote?.dueReminders === "boolean" &&
+        typeof remote?.paymentAlerts === "boolean" &&
+        typeof remote?.dailyTips === "boolean"
+      ) {
         const next = {
           dueReminders: remote.dueReminders,
           paymentAlerts: remote.paymentAlerts,
+          dailyTips: remote.dailyTips,
         };
         setNotifications(next);
         await SecureStore.setItemAsync(NOTIFICATION_PREFS_KEY, JSON.stringify(next));
@@ -459,13 +470,19 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
         body: {
           dueReminders: next.dueReminders,
           paymentAlerts: next.paymentAlerts,
+          dailyTips: next.dailyTips,
         },
       });
 
-      if (typeof remote?.dueReminders === "boolean" && typeof remote?.paymentAlerts === "boolean") {
+      if (
+        typeof remote?.dueReminders === "boolean" &&
+        typeof remote?.paymentAlerts === "boolean" &&
+        typeof remote?.dailyTips === "boolean"
+      ) {
         const synced = {
           dueReminders: remote.dueReminders,
           paymentAlerts: remote.paymentAlerts,
+          dailyTips: remote.dailyTips,
         };
         setNotifications(synced);
         await SecureStore.setItemAsync(NOTIFICATION_PREFS_KEY, JSON.stringify(synced));
@@ -1347,6 +1364,15 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
                     onValueChange={(v) => { void saveNotifications({ ...notifications, paymentAlerts: v }); }}
                     trackColor={{ false: T.border, true: T.accentFaint }}
                     thumbColor={notifications.paymentAlerts ? T.accent : T.card}
+                  />
+                </View>
+                <View style={styles.row}>
+                  <Text style={styles.rowLabel}>Daily tips</Text>
+                  <Switch
+                    value={notifications.dailyTips}
+                    onValueChange={(v) => { void saveNotifications({ ...notifications, dailyTips: v }); }}
+                    trackColor={{ false: T.border, true: T.accentFaint }}
+                    thumbColor={notifications.dailyTips ? T.accent : T.card}
                   />
                 </View>
                 <Text style={[styles.muted, styles.notificationHeading]}>Recent notifications</Text>

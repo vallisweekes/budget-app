@@ -1,0 +1,2 @@
+ALTER TABLE "User"
+ADD COLUMN IF NOT EXISTS "notificationDailyTips" BOOLEAN NOT NULL DEFAULT true;

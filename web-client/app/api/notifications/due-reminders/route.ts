@@ -39,10 +39,17 @@ function addDaysUTC(date: Date, days: number): Date {
 }
 
 function shouldSendBudgetTipOnDate(date: Date): boolean {
-  const day = date.getUTCDay();
-  // Mon (1), Wed (3), Fri (5) => max 3 sends/week
-  return day === 1 || day === 3 || day === 5;
+  void date;
+  return true;
 }
+
+const DAILY_FALLBACK_TIPS = [
+  "Quick win: check one upcoming payment today so nothing sneaks up on your budget.",
+  "Tiny habit, big impact: review one category and trim just one expense this week.",
+  "Tip of the day: mark paid items promptly to keep your budget totals accurate.",
+  "Momentum tip: set aside even a small amount this week to build consistency.",
+  "Stay ahead: scan debts due soon and plan one payment now.",
+] as const;
 
 function money(value: number, currency: string): string {
   try {
@@ -105,7 +112,7 @@ async function runHighFrequencyTestPush(now: Date): Promise<NextResponse> {
       if (sentUsers.has(plan.user.id)) continue;
 
       const userPrefs = tipUserPrefs.get(plan.user.id) ?? DEFAULT_USER_NOTIFICATION_PREFERENCES;
-      if (!userPrefs.paymentAlerts) continue;
+      if (!userPrefs.dailyTips) continue;
 
       const mobileTokens = plan.user.mobilePushTokens.map((t) => t.token);
       if (mobileTokens.length === 0) continue;
@@ -553,7 +560,7 @@ export async function POST(req: Request) {
 
     for (const plan of tipPlans) {
       const userPrefs = tipUserPrefs.get(plan.user.id) ?? DEFAULT_USER_NOTIFICATION_PREFERENCES;
-      if (!userPrefs.paymentAlerts) continue;
+      if (!userPrefs.dailyTips) continue;
 
       const mobileTokens = plan.user.mobilePushTokens.map((t) => t.token);
       if (mobileTokens.length === 0) continue;
@@ -624,14 +631,20 @@ export async function POST(req: Request) {
           body = "Set a monthly savings contribution, even a small amount, to strengthen your plan over time.";
       reason = "savings";
         } else {
-          continue;
+          title = "Tip of the day";
+          const tipIndex = (today.getUTCDate() + today.getUTCMonth() + plan.id.length) % DAILY_FALLBACK_TIPS.length;
+          body = DAILY_FALLBACK_TIPS[tipIndex] ?? DAILY_FALLBACK_TIPS[0];
+          reason = "daily_fallback";
         }
       } else if (dueSoonCount >= 1) {
         title = "Upcoming debt due dates";
     body = `You have ${dueSoonCount} payment${dueSoonCount > 1 ? "s" : ""} due within 7 days.`;
     reason = "due_soon";
       } else {
-        continue;
+        title = "Tip of the day";
+        const tipIndex = (today.getUTCDate() + today.getUTCMonth() + plan.id.length) % DAILY_FALLBACK_TIPS.length;
+        body = DAILY_FALLBACK_TIPS[tipIndex] ?? DAILY_FALLBACK_TIPS[0];
+        reason = "daily_fallback";
       }
 
     const copy = await maybeGeneratePushCopy({

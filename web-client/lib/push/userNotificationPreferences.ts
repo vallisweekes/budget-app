@@ -4,11 +4,13 @@ import { prisma } from "@/lib/prisma";
 export type UserNotificationPreferences = {
   dueReminders: boolean;
   paymentAlerts: boolean;
+  dailyTips: boolean;
 };
 
 export const DEFAULT_USER_NOTIFICATION_PREFERENCES: UserNotificationPreferences = {
   dueReminders: true,
   paymentAlerts: true,
+  dailyTips: true,
 };
 
 function toBool(value: unknown, fallback: boolean): boolean {
@@ -35,11 +37,13 @@ export async function getUserNotificationPreferencesMap(
       id: string;
       notificationDueReminders: unknown;
       notificationPaymentAlerts: unknown;
+      notificationDailyTips: unknown;
     }>>(Prisma.sql`
       SELECT
         id,
         "notificationDueReminders" as "notificationDueReminders",
-        "notificationPaymentAlerts" as "notificationPaymentAlerts"
+        "notificationPaymentAlerts" as "notificationPaymentAlerts",
+        "notificationDailyTips" as "notificationDailyTips"
       FROM "User"
       WHERE id IN (${Prisma.join(uniqueUserIds)})
     `);
@@ -53,6 +57,10 @@ export async function getUserNotificationPreferencesMap(
         paymentAlerts: toBool(
           row.notificationPaymentAlerts,
           DEFAULT_USER_NOTIFICATION_PREFERENCES.paymentAlerts
+        ),
+        dailyTips: toBool(
+          row.notificationDailyTips,
+          DEFAULT_USER_NOTIFICATION_PREFERENCES.dailyTips
         ),
       });
     }
