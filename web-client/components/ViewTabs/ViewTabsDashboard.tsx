@@ -18,6 +18,8 @@ export default function ViewTabsDashboard(props: ViewTabsProps) {
 		totalDebtBalance,
 		expenseInsights,
 		homepageGoalIds,
+		payPeriodLabel,
+		previousPayPeriodLabel,
 	} = props;
 
 	const model = useViewTabsDashboardModel(props);
@@ -40,6 +42,7 @@ export default function ViewTabsDashboard(props: ViewTabsProps) {
 						incomeHref={model.incomeHref}
 						shouldShowAddIncome={model.shouldShowAddIncome}
 						hasIncome={model.combinedData.totalIncome > 0}
+						payPeriodLabel={payPeriodLabel}
 					/>
 
 					<div className="mx-auto w-full max-w-[420px] sm:max-w-none">
@@ -92,6 +95,7 @@ export default function ViewTabsDashboard(props: ViewTabsProps) {
 							recap={expenseInsights?.recap}
 							recapTips={expenseInsights?.recapTips}
 							upcoming={expenseInsights?.upcoming}
+							recapTitle={previousPayPeriodLabel ? `${previousPayPeriodLabel} Recap` : undefined}
 						/>
 
 						<ExpenseDetailsSection

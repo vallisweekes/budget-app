@@ -75,6 +75,8 @@ export type ViewTabsProps = {
 		upcoming: UpcomingPayment[];
 		recapTips?: RecapTip[];
 	};
+	payPeriodLabel?: string;
+	previousPayPeriodLabel?: string;
 };
 
 export type GoalsSubTabKey = "overview" | "projection";

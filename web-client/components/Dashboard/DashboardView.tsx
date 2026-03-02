@@ -13,6 +13,7 @@ import { getIncomeMonthsCoverageByPlan } from "@/lib/helpers/dashboard/getIncome
 import { getDashboardExpenseInsights } from "@/lib/helpers/dashboard/getDashboardExpenseInsights";
 import { getLargestExpensesByPlan } from "@/lib/helpers/dashboard/getLargestExpensesByPlan";
 import { getMultiPlanHealthTips } from "@/lib/helpers/dashboard/getMultiPlanHealthTips";
+import { getDashboardPayPeriodLabels } from "@/lib/helpers/dashboard/payPeriodLabels";
 import { getAiBudgetTips } from "@/lib/ai/budgetTips";
 import { prioritizeRecapTips } from "@/lib/expenses/insights";
 
@@ -113,6 +114,8 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 		expenseInsights.recapTips = prioritizeRecapTips(aiDashboardTips, 4);
 	}
 
+	const { payPeriodLabel, previousPayPeriodLabel } = getDashboardPayPeriodLabels(now, payDate);
+
 	return (
 		<div className="min-h-screen pb-20 app-theme-bg">
 			<ViewTabs
@@ -137,6 +140,8 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 				largestExpensesByPlan={largestExpensesByPlan}
 				incomeMonthsCoverageByPlan={incomeMonthsCoverageByPlan}
 				expenseInsights={expenseInsights}
+				payPeriodLabel={payPeriodLabel}
+				previousPayPeriodLabel={previousPayPeriodLabel}
 			/>
 		</div>
 	);

@@ -8,13 +8,19 @@ export default function DashboardHeader(props: {
 	incomeHref: string;
 	shouldShowAddIncome: boolean;
 	hasIncome: boolean;
+	payPeriodLabel?: string;
 }) {
-	const { month, expensesHref, incomeHref, shouldShowAddIncome, hasIncome } = props;
+	const { month, expensesHref, incomeHref, shouldShowAddIncome, hasIncome, payPeriodLabel } = props;
 
 	return (
 		<>
 			<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 				<div>
+					{payPeriodLabel ? (
+						<div className="mb-2 inline-flex items-center rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-slate-200">
+							{payPeriodLabel}
+						</div>
+					) : null}
 					<div className="text-xl sm:text-2xl font-bold text-white">
 						<span className="sr-only">Dashboard</span>
 						This month

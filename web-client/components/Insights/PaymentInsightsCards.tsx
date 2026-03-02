@@ -12,12 +12,14 @@ export default function PaymentInsightsCards({
 	upcoming,
 	showRecap = true,
 	showUpcoming = true,
+	recapTitle,
 }: {
 	recap?: PreviousMonthRecap | null;
 	recapTips?: RecapTip[] | null;
 	upcoming?: UpcomingPayment[] | null;
 	showRecap?: boolean;
 	showUpcoming?: boolean;
+	recapTitle?: string;
 }) {
 	const shouldShowRecap = showRecap && !!recap;
 	const shouldShowUpcoming = showUpcoming;
@@ -55,7 +57,7 @@ export default function PaymentInsightsCards({
 
 	return (
 		<div className="grid grid-cols-1 lg:grid-cols-12 lg:grid-rows-[auto_1fr] gap-3">
-			{shouldShowRecap ? <RecapCard recap={recap as PreviousMonthRecap} fullWidth={!shouldShowUpcoming} /> : null}
+			{shouldShowRecap ? <RecapCard recap={recap as PreviousMonthRecap} fullWidth={!shouldShowUpcoming} title={recapTitle} /> : null}
 
 			{shouldShowUpcoming ? <UpcomingPaymentsCard upcoming={upcoming} colClass={upcomingColClass} /> : null}
 
