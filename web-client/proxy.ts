@@ -15,7 +15,7 @@ const REDIRECT_HOSTS = new Set([
   "www.budgetingcheck.co.uk",
 ]);
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const host = request.headers.get("host") ?? "";
 
   if (!REDIRECT_HOSTS.has(host)) return NextResponse.next();
