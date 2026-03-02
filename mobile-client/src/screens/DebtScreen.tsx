@@ -19,7 +19,7 @@ import {
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { apiFetch, getApiBaseUrl } from "@/lib/api";
@@ -198,6 +198,7 @@ function DebtCard({
 
 export default function DebtScreen() {
   const navigation = useNavigation<Nav>();
+  const route = useRoute<RouteProp<DebtStackParamList, "DebtList">>();
   const topHeaderOffset = useTopHeaderOffset();
   const insets = useSafeAreaInsets();
 
@@ -255,6 +256,7 @@ export default function DebtScreen() {
   const [chartWidth, setChartWidth] = useState(320);
   const [selectedProjectionMonth, setSelectedProjectionMonth] = useState<number | null>(null);
   const [paidHistoryOpen, setPaidHistoryOpen] = useState(false);
+  const [optimisticDeletedDebtIds, setOptimisticDeletedDebtIds] = useState<string[]>([]);
 
   const currency = currencySymbol(settings?.currency);
 
@@ -284,6 +286,24 @@ export default function DebtScreen() {
       load();
     }, [load])
   );
+
+  useEffect(() => {
+    const optimisticDeletedDebtId = route.params?.optimisticDeletedDebtId;
+    if (typeof optimisticDeletedDebtId === "string" && optimisticDeletedDebtId.trim()) {
+      setOptimisticDeletedDebtIds((prev) =>
+        prev.includes(optimisticDeletedDebtId) ? prev : [...prev, optimisticDeletedDebtId]
+      );
+      navigation.setParams({ optimisticDeletedDebtId: undefined });
+    }
+  }, [navigation, route.params?.optimisticDeletedDebtId]);
+
+  useEffect(() => {
+    const restoreDebtId = route.params?.restoreDebtId;
+    if (typeof restoreDebtId === "string" && restoreDebtId.trim()) {
+      setOptimisticDeletedDebtIds((prev) => prev.filter((id) => id !== restoreDebtId));
+      navigation.setParams({ restoreDebtId: undefined });
+    }
+  }, [navigation, route.params?.restoreDebtId]);
 
   const isCardType = addType === "credit_card" || addType === "store_card";
   const isLoanStyleType = addType === "loan" || addType === "mortgage";
@@ -376,10 +396,14 @@ export default function DebtScreen() {
     }
   };
 
-  const visibleDebts = (summary?.debts ?? []).filter((d) =>
+  const debtsExcludingOptimisticDeleted = (summary?.debts ?? []).filter(
+    (d) => !optimisticDeletedDebtIds.includes(d.id)
+  );
+
+  const visibleDebts = debtsExcludingOptimisticDeleted.filter((d) =>
     filter === "active" ? d.isActive && !d.paid : true,
   );
-  const paidDebts = (summary?.debts ?? [])
+  const paidDebts = debtsExcludingOptimisticDeleted
     .filter((d) => d.paid || d.currentBalance <= 0 || Boolean(d.lastPaidAt))
     .sort((a, b) => {
       const aTime = a.lastPaidAt ? new Date(a.lastPaidAt).getTime() : 0;

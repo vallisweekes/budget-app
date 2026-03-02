@@ -58,7 +58,12 @@ export type ExpensesStackParamList = {
 
 /* ── Debt stack (inside Debts tab) ─────────────────────────── */
 export type DebtStackParamList = {
-  DebtList: undefined;
+  DebtList:
+    | {
+        optimisticDeletedDebtId?: string;
+        restoreDebtId?: string;
+      }
+    | undefined;
   DebtDetail: { debtId: string; debtName: string };
   DebtAnalytics: {
     debts: import("@/lib/apiTypes").DebtSummaryItem[];

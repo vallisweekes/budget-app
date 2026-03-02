@@ -7,10 +7,11 @@ import { currencySymbol, fmt } from "@/lib/formatting";
 type Params = {
   debtId: string;
   debtName: string;
-  onDeleted: () => void;
+  onDeleted: (debtId: string) => void;
+  onDeleteFailed?: (debtId: string) => void;
 };
 
-export function useDebtDetailController({ debtId, debtName, onDeleted }: Params) {
+export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteFailed }: Params) {
   const [debt, setDebt] = useState<Debt | null>(null);
   const [payments, setPayments] = useState<DebtPayment[]>([]);
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -206,15 +207,18 @@ export function useDebtDetailController({ debtId, debtName, onDeleted }: Params)
   }, [debt, debtId, editCurrentBalance, editDueDate, editInstallment, editMonthlyPayment, editName, editPaymentCardDebtId, editPaymentSource, editRate, load]);
 
   const confirmDeleteDebt = useCallback(async () => {
+    if (deletingDebt) return;
+    setDeletingDebt(true);
     setDeleteConfirmOpen(false);
-    onDeleted();
+    onDeleted(debtId);
 
     try {
       await apiFetch(`/api/bff/debts/${debtId}`, { method: "DELETE" });
     } catch (err: unknown) {
+      onDeleteFailed?.(debtId);
       Alert.alert("Delete failed", err instanceof Error ? err.message : "Unknown error");
     }
-  }, [debtId, onDeleted]);
+  }, [debtId, deletingDebt, onDeleteFailed, onDeleted]);
 
   const derived = useMemo(() => {
     const currentBalNum = debt ? parseFloat(debt.currentBalance) : 0;

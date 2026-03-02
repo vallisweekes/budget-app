@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import type { DebtStackParamList } from "@/navigation/types";
 import { T } from "@/lib/theme";
@@ -21,16 +22,24 @@ import PaymentHistorySection from "@/components/Debts/Detail/PaymentHistorySecti
 import { useDebtDetailController } from "@/screens/debt-detail/useDebtDetailController";
 
 type Route = RouteProp<DebtStackParamList, "DebtDetail">;
+type Nav = NativeStackNavigationProp<DebtStackParamList, "DebtDetail">;
 
 export default function DebtDetailScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<Nav>();
   const { params } = useRoute<Route>();
   const { debtId, debtName } = params;
   const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
 
-  const state = useDebtDetailController({ debtId, debtName, onDeleted: () => navigation.goBack() });
+  const state = useDebtDetailController({
+    debtId,
+    debtName,
+    onDeleted: (deletedDebtId) =>
+      navigation.navigate("DebtList", { optimisticDeletedDebtId: deletedDebtId }),
+    onDeleteFailed: (failedDebtId) =>
+      navigation.navigate("DebtList", { restoreDebtId: failedDebtId }),
+  });
   const { debt, loading, error, currency, derived } = state;
 
   useFocusEffect(
