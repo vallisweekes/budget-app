@@ -39,6 +39,7 @@ import type {
 import { currencySymbol, fmt } from "@/lib/formatting";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 import { useYearGuard } from "@/lib/hooks/useYearGuard";
+import { buildPayPeriodFromMonthAnchor, normalizePayFrequency } from "@/lib/payPeriods";
 import { T } from "@/lib/theme";
 import type { ExpensesStackParamList } from "@/navigation/types";
 import CategoryBreakdown from "@/components/Expenses/CategoryBreakdown";
@@ -325,16 +326,19 @@ export default function ExpensesScreen({ navigation }: Props) {
   const effectivePayDate = Number.isFinite(settings?.payDate as number) && (settings?.payDate as number) >= 1
     ? Math.floor(settings?.payDate as number)
     : 27;
+  const effectivePayFrequency = normalizePayFrequency(settings?.payFrequency);
 
   const periodEndFor = useCallback((targetYear: number, targetMonth: number) => {
-    const monthIndex = targetMonth - 1;
-    const lastDay = new Date(targetYear, monthIndex + 1, 0).getDate();
-    const clampedPayDay = Math.max(1, Math.min(lastDay, effectivePayDate));
-    const periodEnd = new Date(targetYear, monthIndex, clampedPayDay);
-    periodEnd.setDate(periodEnd.getDate() - 1);
+    const period = buildPayPeriodFromMonthAnchor({
+      year: targetYear,
+      month: targetMonth,
+      payDate: effectivePayDate,
+      payFrequency: effectivePayFrequency,
+    });
+    const periodEnd = new Date(period.end.getTime());
     periodEnd.setHours(23, 59, 59, 999);
     return periodEnd;
-  }, [effectivePayDate]);
+  }, [effectivePayDate, effectivePayFrequency]);
 
   useEffect(() => {
     let cancelled = false;

@@ -272,6 +272,8 @@ export interface Goal {
 export interface Settings {
   id: string;
   payDate: number | null;
+  payFrequency?: "monthly" | "every_2_weeks" | "weekly" | null;
+  billFrequency?: "monthly" | "every_2_weeks" | null;
   monthlyAllowance: string | null;
   savingsBalance: string | null;
   emergencyBalance?: string | null;
@@ -491,6 +493,8 @@ export interface DashboardData {
 
   // Meta
   payDate: number;
+  payFrequency?: "monthly" | "every_2_weeks" | "weekly";
+  billFrequency?: "monthly" | "every_2_weeks";
 }
 
 /** Zero-based budget summary from /api/bff/budget-summary */

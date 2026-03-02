@@ -2,6 +2,11 @@ import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
 import { resolveEffectiveDueDateIso } from "@/lib/expenses/insights";
+import {
+	buildPayPeriodFromMonthAnchor,
+	normalizePayFrequency,
+	type PayFrequency,
+} from "@/lib/payPeriods";
 
 export const runtime = "nodejs";
 
@@ -38,29 +43,6 @@ function parseIsoDate(iso: string): Date | null {
 	const [y, m, d] = iso.split("-").map(Number);
 	if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
 	return new Date(Date.UTC(y, m - 1, d));
-}
-
-function clampDayUtc(year: number, monthIndex: number, day: number): Date {
-	const maxDay = new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
-	const clamped = Math.max(1, Math.min(maxDay, Math.floor(day)));
-	return new Date(Date.UTC(year, monthIndex, clamped));
-}
-
-function monthDiff(a: Date, b: Date): number {
-	return (a.getUTCFullYear() - b.getUTCFullYear()) * 12 + (a.getUTCMonth() - b.getUTCMonth());
-}
-
-function buildPeriodFromAnchor(anchorYear: number, anchorMonth: number, payDate: number) {
-	const start = clampDayUtc(anchorYear, anchorMonth - 2, payDate);
-	const end = clampDayUtc(anchorYear, anchorMonth - 1, payDate);
-	end.setUTCDate(end.getUTCDate() - 1);
-	return { start, end };
-}
-
-function resolveActivePeriodStart(now: Date, payDate: number): Date {
-	const thisMonthPayDate = clampDayUtc(now.getUTCFullYear(), now.getUTCMonth(), payDate);
-	if (now.getTime() >= thisMonthPayDate.getTime()) return thisMonthPayDate;
-	return clampDayUtc(now.getUTCFullYear(), now.getUTCMonth() - 1, payDate);
 }
 
 function inRange(target: Date, start: Date, end: Date): boolean {
@@ -113,13 +95,20 @@ export async function GET(req: NextRequest) {
 		return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
 	}
 
-	const budgetPlan = await prisma.budgetPlan.findUnique({
+	const [budgetPlan, onboardingProfile] = await Promise.all([
+		prisma.budgetPlan.findUnique({
 		where: { id: budgetPlanId },
 		select: { payDate: true },
-	});
+		}),
+		prisma.userOnboardingProfile.findUnique({
+			where: { userId },
+			select: { payFrequency: true },
+		}),
+	]);
 	const payDate = Number.isFinite(Number(budgetPlan?.payDate)) && Number(budgetPlan?.payDate) >= 1
 		? Math.floor(Number(budgetPlan?.payDate))
 		: 1;
+	const payFrequency: PayFrequency = normalizePayFrequency(onboardingProfile?.payFrequency);
 
 	let periodStart: Date | null = null;
 	let periodEnd: Date | null = null;
@@ -141,7 +130,12 @@ export async function GET(req: NextRequest) {
 	}> = [];
 
 	if (scope === "pay_period") {
-		const selected = buildPeriodFromAnchor(year, month, payDate);
+		const selected = buildPayPeriodFromMonthAnchor({
+			anchorYear: year,
+			anchorMonth: month,
+			payDate,
+			payFrequency,
+		});
 		periodStart = selected.start;
 		periodEnd = selected.end;
 
@@ -301,6 +295,7 @@ export async function GET(req: NextRequest) {
 		periodEnd: periodEnd ? toIsoDate(periodEnd) : null,
 		periodRangeLabel,
 		payDate,
+		payFrequency,
 		totalCount: expenses.length,
 		totalAmount: parseFloat(totalAmount.toFixed(2)),
 		paidCount,

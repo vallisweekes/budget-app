@@ -1,5 +1,6 @@
 import type { DashboardData, Settings } from "@/lib/apiTypes";
 import { MONTH_NAMES_SHORT } from "@/lib/formatting";
+import { formatPayPeriodLabel, normalizePayFrequency, resolveActivePayPeriod } from "@/lib/payPeriods";
 
 export function buildDashboardDerived(params: {
   dashboard: DashboardData | null;
@@ -21,6 +22,7 @@ export function buildDashboardDerived(params: {
   const rawConfiguredPayDate = dashboard?.payDate ?? settings?.payDate ?? null;
   const hasPayDateConfigured = Number.isFinite(rawConfiguredPayDate as number) && (rawConfiguredPayDate as number) >= 1;
   const payDate = hasPayDateConfigured ? (rawConfiguredPayDate as number) : 1;
+  const payFrequency = normalizePayFrequency(dashboard?.payFrequency ?? settings?.payFrequency);
 
   const allExpenses = categories.flatMap((c) => c.expenses);
   const amountLeftToBudget = incomeAfterAllocations;
@@ -113,22 +115,18 @@ export function buildDashboardDerived(params: {
 
   const rangeLabel = `${start.getDate()} ${MONTH_NAMES_SHORT[start.getMonth()]} - ${end.getDate()} ${MONTH_NAMES_SHORT[end.getMonth()]}`;
 
-  // Active pay period by today's date: pay date of current cycle -> day before next pay date.
   const now = new Date();
-  const thisMonthPayDate = clampDay(now.getFullYear(), now.getMonth(), pay);
-  const periodStart = now.getTime() >= thisMonthPayDate.getTime()
-    ? thisMonthPayDate
-    : clampDay(now.getFullYear(), now.getMonth() - 1, pay);
-  const periodEnd = clampDay(periodStart.getFullYear(), periodStart.getMonth() + 1, pay);
-  periodEnd.setDate(periodEnd.getDate() - 1);
+  const activePeriod = resolveActivePayPeriod({ now, payDate: pay, payFrequency });
+  const periodStart = activePeriod.start;
+  const periodEnd = activePeriod.end;
   const payPeriodStart = startOfDay(periodStart);
   const payPeriodEnd = endOfDay(periodEnd);
-  const payPeriodLabel = `${periodStart.getDate()} ${MONTH_NAMES_SHORT[periodStart.getMonth()]} - ${periodEnd.getDate()} ${MONTH_NAMES_SHORT[periodEnd.getMonth()]}`;
+  const payPeriodLabel = formatPayPeriodLabel(periodStart, periodEnd);
 
   const previousPeriodEnd = new Date(periodStart.getTime());
   previousPeriodEnd.setDate(previousPeriodEnd.getDate() - 1);
-  const previousPeriodStart = clampDay(previousPeriodEnd.getFullYear(), previousPeriodEnd.getMonth() - 1, pay);
-  const previousPayPeriodLabel = `${previousPeriodStart.getDate()} ${MONTH_NAMES_SHORT[previousPeriodStart.getMonth()]} - ${previousPeriodEnd.getDate()} ${MONTH_NAMES_SHORT[previousPeriodEnd.getMonth()]}`;
+  const previousPeriod = resolveActivePayPeriod({ now: previousPeriodEnd, payDate: pay, payFrequency });
+  const previousPayPeriodLabel = formatPayPeriodLabel(previousPeriod.start, previousPeriod.end);
 
   const isDateInPayPeriod = (date: Date | null) => {
     if (!date || Number.isNaN(date.getTime())) return false;

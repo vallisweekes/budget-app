@@ -53,7 +53,9 @@ import { useSettingsDebtBuckets } from "@/lib/hooks/useSettingsDebtBuckets";
 type SettingsTab = "details" | "budget" | "savings" | "locale" | "plans" | "notifications" | "danger";
 type PlanKind = "personal" | "holiday" | "carnival";
 type DebtKind = "credit_card" | "loan" | "hire_purchase";
-type BudgetField = "payDate" | "horizon";
+type PayFrequency = "monthly" | "every_2_weeks" | "weekly";
+type BillFrequency = "monthly" | "every_2_weeks";
+type BudgetField = "payDate" | "horizon" | "payFrequency" | "billFrequency";
 type SavingsField = "savings" | "emergency" | "investment";
 
 type NotificationPrefs = {
@@ -112,6 +114,28 @@ const STRATEGY_OPTIONS = [
 ] as const;
 
 const TERM_PRESETS = [2, 3, 6, 12, 24, 36, 48] as const;
+
+const PAY_FREQUENCY_OPTIONS: Array<{ value: PayFrequency; label: string }> = [
+  { value: "monthly", label: "Monthly" },
+  { value: "every_2_weeks", label: "Every 2 weeks" },
+  { value: "weekly", label: "Weekly" },
+];
+
+const BILL_FREQUENCY_OPTIONS: Array<{ value: BillFrequency; label: string }> = [
+  { value: "monthly", label: "Monthly" },
+  { value: "every_2_weeks", label: "Every 2 weeks" },
+];
+
+function formatPayFrequency(value: unknown): string {
+  if (value === "weekly") return "Weekly";
+  if (value === "every_2_weeks") return "Every 2 weeks";
+  return "Monthly";
+}
+
+function formatBillFrequency(value: unknown): string {
+  if (value === "every_2_weeks") return "Every 2 weeks";
+  return "Monthly";
+}
 
 const NOTIFICATION_PREFS_KEY = "budget_app.notification_prefs";
 
@@ -204,6 +228,8 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
 
   const [payDateDraft, setPayDateDraft] = useState("");
   const [horizonDraft, setHorizonDraft] = useState("");
+  const [payFrequencyDraft, setPayFrequencyDraft] = useState<PayFrequency>("monthly");
+  const [billFrequencyDraft, setBillFrequencyDraft] = useState<BillFrequency>("monthly");
   const [strategyDraft, setStrategyDraft] = useState("payYourselfFirst");
   const [savingsValueDraft, setSavingsValueDraft] = useState("");
 
@@ -454,6 +480,8 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
     setCountryDraft((nextSettings?.country ?? "").toUpperCase());
     setPayDateDraft(nextSettings?.payDate ? String(nextSettings.payDate) : "");
     setHorizonDraft(currentPlan?.budgetHorizonYears ? String(currentPlan.budgetHorizonYears) : "10");
+    setPayFrequencyDraft(nextSettings?.payFrequency === "weekly" || nextSettings?.payFrequency === "every_2_weeks" ? nextSettings.payFrequency : "monthly");
+    setBillFrequencyDraft(nextSettings?.billFrequency === "every_2_weeks" ? "every_2_weeks" : "monthly");
     setStrategyDraft(nextSettings?.budgetStrategy ?? "payYourselfFirst");
   }, [currentPlan?.budgetHorizonYears]);
 
@@ -669,6 +697,26 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
           method: "PATCH",
           body: {
             budgetHorizonYears: years,
+          },
+        });
+      }
+
+      if (budgetFieldSheet === "payFrequency") {
+        await apiFetch<Settings>("/api/bff/settings", {
+          method: "PATCH",
+          body: {
+            budgetPlanId: settings.id,
+            payFrequency: payFrequencyDraft,
+          },
+        });
+      }
+
+      if (budgetFieldSheet === "billFrequency") {
+        await apiFetch<Settings>("/api/bff/settings", {
+          method: "PATCH",
+          body: {
+            budgetPlanId: settings.id,
+            billFrequency: billFrequencyDraft,
           },
         });
       }
@@ -1111,6 +1159,35 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
                   </Pressable>
                 </View>
 
+                <View style={styles.twoColRow}>
+                  <Pressable
+                    onPress={() => setBudgetFieldSheet("payFrequency")}
+                    style={[styles.infoCard, styles.halfCard]}
+                  >
+                    <View style={styles.cardMiniActionRow}>
+                      <View />
+                      <View style={styles.cardMiniIconBtn}>
+                        <Ionicons name="pencil-outline" size={13} color={T.textDim} />
+                      </View>
+                    </View>
+                    <Text style={styles.infoCardLabel}>Pay schedule</Text>
+                    <Text style={styles.infoCardValue}>{formatPayFrequency(settings?.payFrequency)}</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => setBudgetFieldSheet("billFrequency")}
+                    style={[styles.infoCard, styles.halfCard]}
+                  >
+                    <View style={styles.cardMiniActionRow}>
+                      <View />
+                      <View style={styles.cardMiniIconBtn}>
+                        <Ionicons name="pencil-outline" size={13} color={T.textDim} />
+                      </View>
+                    </View>
+                    <Text style={styles.infoCardLabel}>Bill schedule</Text>
+                    <Text style={styles.infoCardValue}>{formatBillFrequency(settings?.billFrequency)}</Text>
+                  </Pressable>
+                </View>
+
                 <Pressable
                   onPress={() => {
                     if (!settings?.id) return;
@@ -1417,7 +1494,15 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
           <Pressable style={StyleSheet.absoluteFill} onPress={closeBudgetFieldSheet} />
           <Animated.View style={[styles.sheet, { transform: [{ translateY: budgetFieldSheetDragY }] }]}>
             <View style={styles.sheetHandle} {...budgetFieldSheetPanHandlers} />
-            <Text style={styles.sheetTitle}>{budgetFieldSheet === "payDate" ? "Edit pay date" : "Edit budget horizon"}</Text>
+            <Text style={styles.sheetTitle}>
+              {budgetFieldSheet === "payDate"
+                ? "Edit pay date"
+                : budgetFieldSheet === "horizon"
+                  ? "Edit budget horizon"
+                  : budgetFieldSheet === "payFrequency"
+                    ? "Edit pay schedule"
+                    : "Edit bill schedule"}
+            </Text>
             {budgetFieldSheet === "payDate" ? (
               <>
                 <Text style={styles.label}>Pay date</Text>
@@ -1428,6 +1513,36 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
               <>
                 <Text style={styles.label}>Budget horizon (years)</Text>
                 <TextInput value={horizonDraft} onChangeText={setHorizonDraft} style={styles.input} keyboardType="number-pad" />
+              </>
+            ) : null}
+            {budgetFieldSheet === "payFrequency" ? (
+              <>
+                <Text style={styles.label}>Pay schedule</Text>
+                <View style={styles.choiceRow}>
+                  {PAY_FREQUENCY_OPTIONS.map((opt) => {
+                    const selected = payFrequencyDraft === opt.value;
+                    return (
+                      <Pressable key={opt.value} onPress={() => setPayFrequencyDraft(opt.value)} style={[styles.choiceBtn, selected && styles.choiceBtnActive]}>
+                        <Text style={[styles.choiceTxt, selected && styles.choiceTxtActive]}>{opt.label}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </>
+            ) : null}
+            {budgetFieldSheet === "billFrequency" ? (
+              <>
+                <Text style={styles.label}>Bill schedule</Text>
+                <View style={styles.choiceRow}>
+                  {BILL_FREQUENCY_OPTIONS.map((opt) => {
+                    const selected = billFrequencyDraft === opt.value;
+                    return (
+                      <Pressable key={opt.value} onPress={() => setBillFrequencyDraft(opt.value)} style={[styles.choiceBtn, selected && styles.choiceBtnActive]}>
+                        <Text style={[styles.choiceTxt, selected && styles.choiceTxtActive]}>{opt.label}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
               </>
             ) : null}
             <View style={styles.sheetActions}>

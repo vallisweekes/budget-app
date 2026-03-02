@@ -16,6 +16,11 @@ import { MONTHS } from "@/lib/constants/time";
 import { currentMonthKey } from "@/lib/helpers/monthKey";
 import { resolveExpenseLogo } from "@/lib/expenses/logoResolver";
 import { prisma } from "@/lib/prisma";
+import {
+	normalizeBillFrequency,
+	normalizePayFrequency,
+	resolveActivePayPeriodWindow,
+} from "@/lib/payPeriods";
 
 export const runtime = "nodejs";
 
@@ -62,6 +67,8 @@ export async function GET(req: NextRequest) {
 				mainGoal: unknown;
 				mainGoals?: unknown;
 				occupation: unknown;
+				payFrequency?: unknown;
+				billFrequency?: unknown;
 				monthlySalary: unknown;
 				expenseOneName: unknown;
 				expenseOneAmount: unknown;
@@ -85,6 +92,8 @@ export async function GET(req: NextRequest) {
 					mainGoal: true,
 					mainGoals: true,
 					occupation: true,
+					payFrequency: true,
+					billFrequency: true,
 					monthlySalary: true,
 					expenseOneName: true,
 					expenseOneAmount: true,
@@ -109,6 +118,8 @@ export async function GET(req: NextRequest) {
 					select: {
 						mainGoal: true,
 						occupation: true,
+						payFrequency: true,
+						billFrequency: true,
 						monthlySalary: true,
 						expenseOneName: true,
 						expenseOneAmount: true,
@@ -139,15 +150,15 @@ export async function GET(req: NextRequest) {
 		// 2) Core plan data (income, expenses, allocations, goals, categories)
 		// Match the active pay period: if we haven't reached pay day yet this month,
 		// show the previous month (e.g. Mar 1 shows Feb) so income + remaining make sense.
-		const clampDay = (y: number, monthIndex: number, day: number) => {
-			const lastDay = new Date(y, monthIndex + 1, 0).getDate();
-			return new Date(y, monthIndex, Math.min(Math.max(1, day), lastDay));
-		};
 		const payDay = typeof payDate === "number" && Number.isFinite(payDate) ? payDate : 1;
-		const monthPayDate = clampDay(now.getFullYear(), now.getMonth(), payDay);
-		const planNow = now.getTime() < monthPayDate.getTime()
-			? new Date(now.getFullYear(), now.getMonth() - 1, 1)
-			: now;
+		const payFrequency = normalizePayFrequency(onboarding?.payFrequency);
+		const billFrequency = normalizeBillFrequency(onboarding?.billFrequency);
+		const activePeriod = resolveActivePayPeriodWindow({
+			now,
+			payDate: payDay,
+			payFrequency,
+		});
+		const planNow = new Date(activePeriod.start.getTime());
 		// This is required for the dashboard; let it throw if it truly can't compute.
 		const currentPlanData = await getDashboardPlanData(budgetPlanId, planNow);
 		const month = MONTHS[currentPlanData.monthNum - 1] ?? currentMonthKey();
@@ -160,6 +171,7 @@ export async function GET(req: NextRequest) {
 					return await getDashboardExpenseInsights({
 						budgetPlanId,
 						payDate,
+						payFrequency,
 						now,
 						userId,
 					});
@@ -503,6 +515,8 @@ export async function GET(req: NextRequest) {
 
 			// Meta
 			payDate,
+			payFrequency,
+			billFrequency,
 		});
 	} catch (error) {
 		console.error("Failed to compute dashboard:", error);

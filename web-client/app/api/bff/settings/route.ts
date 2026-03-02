@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
+import { normalizeBillFrequency, normalizePayFrequency } from "@/lib/payPeriods";
 
 export const runtime = "nodejs";
 
@@ -207,6 +208,64 @@ function normalizeHomepageGoalIds(value: unknown): string[] | null {
   return unique;
 }
 
+function isUnknownCadenceFieldError(error: unknown): boolean {
+  const message = String((error as any)?.message ?? error);
+  return (
+    /Unknown field `payFrequency`/i.test(message) ||
+    /Unknown field `billFrequency`/i.test(message) ||
+    /Unknown arg(ument)? `payFrequency`/i.test(message) ||
+    /Unknown arg(ument)? `billFrequency`/i.test(message) ||
+    /data\.payFrequency/i.test(message) ||
+    /data\.billFrequency/i.test(message)
+  );
+}
+
+async function getCadenceForUser(userId: string): Promise<{
+  payFrequency: "monthly" | "every_2_weeks" | "weekly";
+  billFrequency: "monthly" | "every_2_weeks";
+}> {
+  try {
+    const profile = await prisma.userOnboardingProfile.findUnique({
+      where: { userId },
+      select: { payFrequency: true, billFrequency: true },
+    });
+    return {
+      payFrequency: normalizePayFrequency(profile?.payFrequency),
+      billFrequency: normalizeBillFrequency(profile?.billFrequency),
+    };
+  } catch (error) {
+    if (!isUnknownCadenceFieldError(error)) throw error;
+    return {
+      payFrequency: "monthly",
+      billFrequency: "monthly",
+    };
+  }
+}
+
+async function saveCadenceForUser(
+  userId: string,
+  values: { payFrequency?: "monthly" | "every_2_weeks" | "weekly"; billFrequency?: "monthly" | "every_2_weeks" }
+): Promise<void> {
+  if (typeof values.payFrequency === "undefined" && typeof values.billFrequency === "undefined") return;
+
+  try {
+    await prisma.userOnboardingProfile.upsert({
+      where: { userId },
+      update: {
+        ...(typeof values.payFrequency !== "undefined" ? { payFrequency: values.payFrequency } : {}),
+        ...(typeof values.billFrequency !== "undefined" ? { billFrequency: values.billFrequency } : {}),
+      },
+      create: {
+        userId,
+        ...(typeof values.payFrequency !== "undefined" ? { payFrequency: values.payFrequency } : {}),
+        ...(typeof values.billFrequency !== "undefined" ? { billFrequency: values.billFrequency } : {}),
+      },
+    });
+  } catch (error) {
+    if (!isUnknownCadenceFieldError(error)) throw error;
+  }
+}
+
 async function syncGoalAdditionsForPlan(args: {
   budgetPlanId: string;
   addSavings?: number;
@@ -283,6 +342,7 @@ export async function GET(req: NextRequest) {
     };
     const incomeDefaultsFallback = await getIncomeDefaultsFallback(budgetPlanId);
     const accountCreatedAt = userRow?.createdAt?.toISOString() ?? null;
+    const cadence = await getCadenceForUser(userId);
     return NextResponse.json({
       ...plan,
       emergencyBalance,
@@ -294,6 +354,8 @@ export async function GET(req: NextRequest) {
       incomeDistributeFullYearDefault: incomeDefaultsFromPlan.fullYear ?? incomeDefaultsFallback.fullYear,
       incomeDistributeHorizonDefault: incomeDefaultsFromPlan.horizon ?? incomeDefaultsFallback.horizon,
       accountCreatedAt,
+      payFrequency: cadence.payFrequency,
+      billFrequency: cadence.billFrequency,
     });
   } catch (error) {
     const message = String((error as any)?.message ?? error);
@@ -326,6 +388,7 @@ export async function GET(req: NextRequest) {
         const budgetHorizonYearsFallback = await getBudgetHorizonYearsFallback(budgetPlanId);
         const incomeDefaultsFallback = await getIncomeDefaultsFallback(budgetPlanId);
         const accountCreatedAt2 = userRow2?.createdAt?.toISOString() ?? null;
+        const cadence = await getCadenceForUser(userId!);
 
         return NextResponse.json({
           ...plan,
@@ -342,6 +405,8 @@ export async function GET(req: NextRequest) {
               ? (plan as any).incomeDistributeHorizonDefault
               : incomeDefaultsFallback.horizon,
           accountCreatedAt: accountCreatedAt2,
+          payFrequency: cadence.payFrequency,
+          billFrequency: cadence.billFrequency,
         });
       } catch (fallbackError) {
         console.error("Failed to fetch settings (fallback):", fallbackError);
@@ -375,6 +440,19 @@ export async function PATCH(req: NextRequest) {
     if (!budgetPlanId) return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
 
     const updateData: Record<string, unknown> = {};
+    const payFrequencyInput = body.payFrequency;
+    const billFrequencyInput = body.billFrequency;
+    const hasPayFrequency = typeof payFrequencyInput !== "undefined";
+    const hasBillFrequency = typeof billFrequencyInput !== "undefined";
+
+    let nextPayFrequency: "monthly" | "every_2_weeks" | "weekly" = "monthly";
+    let nextBillFrequency: "monthly" | "every_2_weeks" = "monthly";
+    if (hasPayFrequency) {
+      nextPayFrequency = normalizePayFrequency(payFrequencyInput);
+    }
+    if (hasBillFrequency) {
+      nextBillFrequency = normalizeBillFrequency(billFrequencyInput);
+    }
 
     const hasAdditionalSavings = typeof body.additionalSavingsBalance !== "undefined";
     const hasAdditionalEmergency = typeof body.additionalEmergencyBalance !== "undefined";
@@ -480,10 +558,10 @@ export async function PATCH(req: NextRequest) {
     }
 
       if (Object.keys(updateData).length === 0 && !wantsEmergencyBalance) {
-        if (!wantsInvestmentBalance) return badRequest("No valid fields to update");
+        if (!wantsInvestmentBalance && !hasPayFrequency && !hasBillFrequency) return badRequest("No valid fields to update");
       }
 
-      if (Object.keys(updateData).length === 0 && (wantsEmergencyBalance || wantsInvestmentBalance)) {
+      if (Object.keys(updateData).length === 0 && (wantsEmergencyBalance || wantsInvestmentBalance || hasPayFrequency || hasBillFrequency)) {
         if (Number.isFinite(emergencyBalance)) {
           await setEmergencyBalanceFallback(budgetPlanId, emergencyBalance);
         }
@@ -496,6 +574,10 @@ export async function PATCH(req: NextRequest) {
             horizon: wantsIncomeDistributeHorizonDefault ? Boolean(body.incomeDistributeHorizonDefault) : undefined,
           });
         }
+        await saveCadenceForUser(userId, {
+          payFrequency: hasPayFrequency ? nextPayFrequency : undefined,
+          billFrequency: hasBillFrequency ? nextBillFrequency : undefined,
+        });
         const plan = await prisma.budgetPlan.findUnique({
           where: { id: budgetPlanId },
           select: settingsSelect as any,
@@ -504,6 +586,7 @@ export async function PATCH(req: NextRequest) {
         const nextEmergencyBalance = await getEmergencyBalanceFallback(budgetPlanId);
         const nextInvestmentBalance = await getInvestmentBalanceFallback(budgetPlanId);
         const nextIncomeDefaults = await getIncomeDefaultsFallback(budgetPlanId);
+        const cadence = await getCadenceForUser(userId);
         return NextResponse.json({
           ...plan,
           emergencyBalance: nextEmergencyBalance,
@@ -517,6 +600,8 @@ export async function PATCH(req: NextRequest) {
             typeof (plan as any).incomeDistributeHorizonDefault === "boolean"
               ? (plan as any).incomeDistributeHorizonDefault
               : nextIncomeDefaults.horizon,
+          payFrequency: cadence.payFrequency,
+          billFrequency: cadence.billFrequency,
         });
       }
 
@@ -541,12 +626,17 @@ export async function PATCH(req: NextRequest) {
           horizon: wantsIncomeDistributeHorizonDefault ? Boolean(body.incomeDistributeHorizonDefault) : undefined,
         });
       }
+      await saveCadenceForUser(userId, {
+        payFrequency: hasPayFrequency ? nextPayFrequency : undefined,
+        billFrequency: hasBillFrequency ? nextBillFrequency : undefined,
+      });
       const nextEmergencyBalance = await getEmergencyBalanceFallback(budgetPlanId);
       if (wantsInvestmentBalance && Number.isFinite(investmentBalance)) {
         await setInvestmentBalanceFallback(budgetPlanId, investmentBalance);
       }
       const nextInvestmentBalance = await getInvestmentBalanceFallback(budgetPlanId);
       const nextIncomeDefaults = await getIncomeDefaultsFallback(budgetPlanId);
+      const cadence = await getCadenceForUser(userId);
       return NextResponse.json({
         ...updated,
         emergencyBalance: nextEmergencyBalance,
@@ -560,6 +650,8 @@ export async function PATCH(req: NextRequest) {
           typeof (updated as any).incomeDistributeHorizonDefault === "boolean"
             ? (updated as any).incomeDistributeHorizonDefault
             : nextIncomeDefaults.horizon,
+        payFrequency: cadence.payFrequency,
+        billFrequency: cadence.billFrequency,
       });
     } catch (error) {
       const message = String((error as any)?.message ?? error);
@@ -589,6 +681,10 @@ export async function PATCH(req: NextRequest) {
       if (wantsInvestmentBalance && Number.isFinite(investmentBalance)) {
         await setInvestmentBalanceFallback(budgetPlanId, investmentBalance);
       }
+      await saveCadenceForUser(userId, {
+        payFrequency: hasPayFrequency ? nextPayFrequency : undefined,
+        billFrequency: hasBillFrequency ? nextBillFrequency : undefined,
+      });
 
 			const updated = await prisma.budgetPlan.update({
 				where: { id: budgetPlanId },
@@ -603,11 +699,14 @@ export async function PATCH(req: NextRequest) {
       });
       const nextEmergencyBalance = await getEmergencyBalanceFallback(budgetPlanId);
       const nextInvestmentBalance = await getInvestmentBalanceFallback(budgetPlanId);
+      const cadence = await getCadenceForUser(userId);
       return NextResponse.json({
         ...updated,
         monthlyEmergencyContribution: unknownMonthlyEmergency ? 0 : (updated as any).monthlyEmergencyContribution,
       emergencyBalance: nextEmergencyBalance,
       investmentBalance: nextInvestmentBalance,
+      payFrequency: cadence.payFrequency,
+      billFrequency: cadence.billFrequency,
       });
     }
   } catch (error) {

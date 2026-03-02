@@ -6,6 +6,11 @@ import { createExpense, normalizeFundingSource, normalizePaymentSource } from "@
 import { hasCustomLogoForDomain, hasCustomLogoForName, resolveExpenseLogo, resolveExpenseLogoWithSearch } from "@/lib/expenses/logoResolver";
 import { buildExpenseAddedActivity } from "@/lib/push/activityMessages";
 import { sendUserPush } from "@/lib/push/sendUserPush";
+import {
+  buildPayPeriodFromMonthAnchor,
+  normalizePayFrequency,
+  type PayFrequency,
+} from "@/lib/payPeriods";
 
 export const runtime = "nodejs";
 
@@ -69,19 +74,6 @@ function isPastUtcDateOnly(date: Date): boolean {
   return target.getTime() < today.getTime();
 }
 
-function clampDayUtc(year: number, monthIndex: number, day: number): Date {
-  const maxDay = new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
-  const clamped = Math.max(1, Math.min(maxDay, Math.floor(day)));
-  return new Date(Date.UTC(year, monthIndex, clamped));
-}
-
-function buildPeriodFromAnchor(anchorYear: number, anchorMonth: number, payDate: number) {
-  const start = clampDayUtc(anchorYear, anchorMonth - 2, payDate);
-  const end = clampDayUtc(anchorYear, anchorMonth - 1, payDate);
-  end.setUTCDate(end.getUTCDate() - 1);
-  return { start, end };
-}
-
 function inRange(target: Date, start: Date, end: Date): boolean {
   return target.getTime() >= start.getTime() && target.getTime() <= end.getTime();
 }
@@ -139,12 +131,21 @@ export async function GET(req: NextRequest) {
   if (year == null || year < 1900) return badRequest("Invalid year");
   if (!budgetPlanId) return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
 
-  const budgetPlan = await prisma.budgetPlan.findUnique({ where: { id: budgetPlanId }, select: { payDate: true } });
+  const [budgetPlan, onboardingProfile] = await Promise.all([
+    prisma.budgetPlan.findUnique({ where: { id: budgetPlanId }, select: { payDate: true } }),
+    prisma.userOnboardingProfile.findUnique({ where: { userId }, select: { payFrequency: true } }),
+  ]);
   const payDate = Number.isFinite(Number(budgetPlan?.payDate)) && Number(budgetPlan?.payDate) >= 1
     ? Math.floor(Number(budgetPlan?.payDate))
     : 1;
+  const payFrequency: PayFrequency = normalizePayFrequency(onboardingProfile?.payFrequency);
 
-  const selectedPeriod = buildPeriodFromAnchor(year, month, payDate);
+  const selectedPeriod = buildPayPeriodFromMonthAnchor({
+    anchorYear: year,
+    anchorMonth: month,
+    payDate,
+    payFrequency,
+  });
 
   const items = await (async () => {
     const periodPairs = [

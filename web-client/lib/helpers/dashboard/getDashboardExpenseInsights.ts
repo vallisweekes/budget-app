@@ -10,6 +10,7 @@ import {
 	type UpcomingPayment,
 	type DatedExpenseItem,
 } from "@/lib/expenses/insights";
+import type { PayFrequency } from "@/lib/payPeriods";
 import { addMonthsUtc, toNumber } from "@/lib/helpers/dashboard/utils";
 import { monthNumberToKey } from "@/lib/helpers/monthKey";
 import { getMonthlyAllocationSnapshot, getMonthlyCustomAllocationsSnapshot } from "@/lib/allocations/store";
@@ -104,11 +105,13 @@ function selectUpcomingWithMix(args: {
 export async function getDashboardExpenseInsights({
 	budgetPlanId,
 	payDate,
+	payFrequency,
 	now,
 	userId,
 }: {
 	budgetPlanId: string;
 	payDate: number;
+	payFrequency?: PayFrequency;
 	now: Date;
 	userId?: string | null;
 }): Promise<{
@@ -116,6 +119,7 @@ export async function getDashboardExpenseInsights({
 	upcoming: ReturnType<typeof computeUpcomingPayments>;
 	recapTips: ReturnType<typeof computeRecapTips>;
 }> {
+	void payFrequency;
 	const currentYear = now.getFullYear();
 	const currentMonthNum = now.getMonth() + 1;
 	const prev = new Date(now);

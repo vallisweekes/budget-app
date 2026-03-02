@@ -21,6 +21,7 @@ import { resolveCategoryColor, withOpacity } from "@/lib/categoryColors";
 import { fmt } from "@/lib/formatting";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 import { resolveLogoUri } from "@/lib/logoDisplay";
+import { buildPayPeriodFromMonthAnchor, formatPayPeriodLabel, normalizePayFrequency, type PayFrequency } from "@/lib/payPeriods";
 import { T } from "@/lib/theme";
 import type { ExpensesStackParamList } from "@/navigation/types";
 import AddExpenseSheet from "@/components/Expenses/AddExpenseSheet";
@@ -38,23 +39,6 @@ function dueDaysColor(iso: string): string {
 function formatDueDate(iso: string): string {
   const d = new Date(iso);
   return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
-}
-
-function clampDay(year: number, monthIndex: number, day: number): Date {
-  const maxDay = new Date(year, monthIndex + 1, 0).getDate();
-  return new Date(year, monthIndex, Math.min(Math.max(1, day), maxDay));
-}
-
-function buildPayPeriodLabel(month: number, year: number, payDate: number | null | undefined): string {
-  const safePayDate = Number.isFinite(payDate as number) && (payDate as number) >= 1
-    ? Math.floor(payDate as number)
-    : 27;
-  const start = clampDay(year, month - 2, safePayDate);
-  const end = clampDay(year, month - 1, safePayDate);
-  end.setDate(end.getDate() - 1);
-  const monthShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-  return `${start.getDate()} ${monthShort[start.getMonth()]} - ${end.getDate()} ${monthShort[end.getMonth()]}`;
 }
 
 export default function CategoryExpensesScreen({ route, navigation }: Props) {
@@ -110,6 +94,7 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [logoFailed, setLogoFailed] = useState<Record<string, boolean>>({});
   const [payDate, setPayDate] = useState<number | null>(null);
+  const [payFrequency, setPayFrequency] = useState<PayFrequency>("monthly");
 
   useEffect(() => {
     if (routeMonth !== month) {
@@ -162,6 +147,7 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
       ]);
       setExpenses(Array.isArray(all) ? all.filter((e) => e.categoryId === categoryId) : []);
       setPayDate(appSettings?.payDate ?? null);
+      setPayFrequency(normalizePayFrequency(appSettings?.payFrequency));
       setLogoFailed({});
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load");
@@ -217,7 +203,15 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
     return `Updated: ${new Date(latestPaymentAt).toLocaleDateString("en-GB")}`;
   }, [latestPaymentAt]);
 
-  const heroPeriodLabel = useMemo(() => buildPayPeriodLabel(month, year, payDate), [month, year, payDate]);
+  const heroPeriodLabel = useMemo(() => {
+    const range = buildPayPeriodFromMonthAnchor({
+      year,
+      month,
+      payDate: payDate ?? 27,
+      payFrequency,
+    });
+    return formatPayPeriodLabel(range.start, range.end);
+  }, [month, payDate, payFrequency, year]);
 
   const renderItem = useCallback(
     ({ item }: { item: Expense }) => {
