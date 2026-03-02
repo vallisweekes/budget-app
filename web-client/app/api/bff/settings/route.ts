@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { supportsOnboardingCadenceFields as detectOnboardingCadenceFields } from "@/lib/prisma/capabilities";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
 import { normalizeBillFrequency, normalizePayFrequency } from "@/lib/payPeriods";
 
@@ -233,6 +234,14 @@ async function getCadenceForUser(userId: string): Promise<{
     };
   }
 
+  if (!(await detectOnboardingCadenceFields())) {
+    supportsCadenceFields = false;
+    return {
+      payFrequency: "monthly",
+      billFrequency: "monthly",
+    };
+  }
+
   try {
     const profile = await prisma.userOnboardingProfile.findUnique({
       where: { userId },
@@ -259,6 +268,10 @@ async function saveCadenceForUser(
 ): Promise<void> {
   if (typeof values.payFrequency === "undefined" && typeof values.billFrequency === "undefined") return;
   if (supportsCadenceFields === false) return;
+  if (!(await detectOnboardingCadenceFields())) {
+    supportsCadenceFields = false;
+    return;
+  }
 
   try {
     await prisma.userOnboardingProfile.upsert({

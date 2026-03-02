@@ -16,6 +16,7 @@ import { MONTHS } from "@/lib/constants/time";
 import { currentMonthKey } from "@/lib/helpers/monthKey";
 import { resolveExpenseLogo } from "@/lib/expenses/logoResolver";
 import { prisma } from "@/lib/prisma";
+import { supportsOnboardingCadenceFields as detectOnboardingCadenceFields } from "@/lib/prisma/capabilities";
 import {
 	normalizeBillFrequency,
 	normalizePayFrequency,
@@ -23,20 +24,6 @@ import {
 } from "@/lib/payPeriods";
 
 export const runtime = "nodejs";
-
-let supportsOnboardingCadenceFields: boolean | null = null;
-
-function isUnknownOnboardingCadenceFieldError(error: unknown): boolean {
-	const message = String((error as { message?: unknown })?.message ?? error);
-	return (
-		/Unknown field `payFrequency`/i.test(message) ||
-		/Unknown field `billFrequency`/i.test(message) ||
-		/Unknown arg(ument)? `payFrequency`/i.test(message) ||
-		/Unknown arg(ument)? `billFrequency`/i.test(message) ||
-		/data\.payFrequency/i.test(message) ||
-		/data\.billFrequency/i.test(message)
-	);
-}
 
 function unauthorized() {
 	return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
@@ -99,6 +86,7 @@ export async function GET(req: NextRequest) {
 				debtNotes: unknown;
 			}
 			| null = null;
+		const includeCadenceFields = await detectOnboardingCadenceFields();
 		try {
 			onboarding = await prisma.userOnboardingProfile.findUnique({
 				where: { userId },
@@ -106,7 +94,7 @@ export async function GET(req: NextRequest) {
 					mainGoal: true,
 					mainGoals: true,
 					occupation: true,
-					...(supportsOnboardingCadenceFields === false ? {} : { payFrequency: true, billFrequency: true }),
+					...(includeCadenceFields ? { payFrequency: true, billFrequency: true } : {}),
 					monthlySalary: true,
 					expenseOneName: true,
 					expenseOneAmount: true,
@@ -123,75 +111,39 @@ export async function GET(req: NextRequest) {
 					debtNotes: true,
 				},
 			});
-			supportsOnboardingCadenceFields = supportsOnboardingCadenceFields === false ? false : true;
 		} catch (error) {
-			if (isUnknownOnboardingCadenceFieldError(error)) {
-				supportsOnboardingCadenceFields = false;
-				try {
-					onboarding = await prisma.userOnboardingProfile.findUnique({
-						where: { userId },
-						select: {
-							mainGoal: true,
-							mainGoals: true,
-							occupation: true,
-							monthlySalary: true,
-							expenseOneName: true,
-							expenseOneAmount: true,
-							expenseTwoName: true,
-							expenseTwoAmount: true,
-							expenseThreeName: true,
-							expenseThreeAmount: true,
-							expenseFourName: true,
-							expenseFourAmount: true,
-							hasAllowance: true,
-							allowanceAmount: true,
-							hasDebtsToManage: true,
-							debtAmount: true,
-							debtNotes: true,
-						},
-					});
-				} catch {
-					onboarding = null;
-				}
-			} else {
-				console.error("Dashboard: onboarding fetch failed:", error);
-				try {
-					const legacy = await prisma.userOnboardingProfile.findUnique({
-						where: { userId },
-						select: {
-							mainGoal: true,
-							occupation: true,
-							...(supportsOnboardingCadenceFields === false ? {} : { payFrequency: true, billFrequency: true }),
-							monthlySalary: true,
-							expenseOneName: true,
-							expenseOneAmount: true,
-							expenseTwoName: true,
-							expenseTwoAmount: true,
-							hasAllowance: true,
-							allowanceAmount: true,
-							hasDebtsToManage: true,
-							debtAmount: true,
-							debtNotes: true,
-						},
-					});
-					onboarding = legacy
-						? {
-							...legacy,
-							expenseThreeName: null as unknown,
-							expenseThreeAmount: null as unknown,
-							expenseFourName: null as unknown,
-							expenseFourAmount: null as unknown,
-						}
-						: null;
-				} catch (legacyError) {
-					if (isUnknownOnboardingCadenceFieldError(legacyError)) {
-						supportsOnboardingCadenceFields = false;
-						onboarding = null;
-					} else {
-						console.error("Dashboard: onboarding legacy fetch failed:", legacyError);
-						onboarding = null;
+			console.error("Dashboard: onboarding fetch failed:", error);
+			try {
+				const legacy = await prisma.userOnboardingProfile.findUnique({
+					where: { userId },
+					select: {
+						mainGoal: true,
+						occupation: true,
+						...(includeCadenceFields ? { payFrequency: true, billFrequency: true } : {}),
+						monthlySalary: true,
+						expenseOneName: true,
+						expenseOneAmount: true,
+						expenseTwoName: true,
+						expenseTwoAmount: true,
+						hasAllowance: true,
+						allowanceAmount: true,
+						hasDebtsToManage: true,
+						debtAmount: true,
+						debtNotes: true,
+					},
+				});
+				onboarding = legacy
+					? {
+						...legacy,
+						expenseThreeName: null as unknown,
+						expenseThreeAmount: null as unknown,
+						expenseFourName: null as unknown,
+						expenseFourAmount: null as unknown,
 					}
-				}
+					: null;
+			} catch (legacyError) {
+				console.error("Dashboard: onboarding legacy fetch failed:", legacyError);
+				onboarding = null;
 			}
 		}
 

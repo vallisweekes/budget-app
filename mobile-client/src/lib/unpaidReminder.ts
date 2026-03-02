@@ -1,4 +1,5 @@
 import { apiFetch } from "@/lib/api";
+import { configureNotificationsBootstrapAsync } from "@/lib/pushNotifications";
 
 type UnpaidReminderResponse = {
   tip?: string | null;
@@ -189,6 +190,8 @@ export async function notifyPaymentStatus(params: {
   status: PaymentStatus;
   expenseName: string;
 }): Promise<void> {
+  await configureNotificationsBootstrapAsync();
+
   const Notifications = await tryGetNotifications();
   if (!Notifications) return;
 

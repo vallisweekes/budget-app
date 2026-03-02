@@ -3,6 +3,7 @@ import { monthNumberToKey } from "@/lib/helpers/monthKey";
 import { getMonthlyAllocationSnapshot, getMonthlyCustomAllocationsSnapshot } from "@/lib/allocations/store";
 import { getMonthlyDebtPlan } from "@/lib/helpers/finance/getMonthlyDebtPlan";
 import { ensureDefaultCategoriesForBudgetPlan } from "@/lib/categories/defaultCategories";
+import { supportsExpenseMovedToDebtField } from "@/lib/prisma/capabilities";
 import type { ExpenseItem } from "@/types";
 
 let supportsDashboardIsMovedToDebtField: boolean | null = null;
@@ -74,7 +75,8 @@ export async function getDashboardPlanData(
 				where: { budgetPlanId: planId, year: selectedYear, month: selectedMonthNum },
 			});
 
-		if (supportsDashboardIsMovedToDebtField === false) {
+		if (supportsDashboardIsMovedToDebtField === false || !(await supportsExpenseMovedToDebtField())) {
+			supportsDashboardIsMovedToDebtField = false;
 			return runLegacyQuery();
 		}
 

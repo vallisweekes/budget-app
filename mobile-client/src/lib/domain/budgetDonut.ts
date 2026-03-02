@@ -32,5 +32,5 @@ export function computeBudgetDonutMetrics(
 }
 
 export function getBudgetDonutSize(viewportWidth: number): number {
-  return Math.min(220, Math.floor((viewportWidth - 80) * 0.72));
+  return Math.min(250, Math.floor((viewportWidth - 64) * 0.8));
 }

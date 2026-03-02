@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { supportsExpenseMovedToDebtField as detectExpenseMovedToDebtFieldSupport } from "@/lib/prisma/capabilities";
 
 let supportsExpenseMovedToDebtField: boolean | null = null;
 
@@ -108,7 +109,8 @@ export async function fetchExpenseDebtRows(budgetPlanId: string): Promise<Expens
 
 export async function fetchLinkedExpenses(budgetPlanId: string, sourceExpenseIds: string[]) {
 	if (sourceExpenseIds.length === 0) return [] as ExpenseDebtVisibilityRow[];
-	if (supportsExpenseMovedToDebtField === false) {
+	if (supportsExpenseMovedToDebtField === false || !(await detectExpenseMovedToDebtFieldSupport())) {
+		supportsExpenseMovedToDebtField = false;
 		type LegacyExpenseDebtVisibilityRow = Omit<ExpenseDebtVisibilityRow, "isMovedToDebt">;
 		const legacyRows = (await prisma.expense.findMany({
 			where: { budgetPlanId, id: { in: sourceExpenseIds } },
@@ -169,7 +171,10 @@ export async function fetchLinkedExpenses(budgetPlanId: string, sourceExpenseIds
 
 export async function markExpensesMovedToDebt(expenseIds: string[]): Promise<void> {
 	if (expenseIds.length === 0) return;
-	if (supportsExpenseMovedToDebtField === false) return;
+	if (supportsExpenseMovedToDebtField === false || !(await detectExpenseMovedToDebtFieldSupport())) {
+		supportsExpenseMovedToDebtField = false;
+		return;
+	}
 
 	try {
 		await prisma.expense.updateMany({

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { supportsExpenseMovedToDebtField, supportsOnboardingPayFrequencyField } from "@/lib/prisma/capabilities";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
 import { resolveEffectiveDueDateIso } from "@/lib/expenses/insights";
 import { createExpense, normalizeFundingSource, normalizePaymentSource } from "@/lib/financial-engine";
@@ -13,9 +14,6 @@ import {
 } from "@/lib/payPeriods";
 
 export const runtime = "nodejs";
-
-let supportsPayFrequencyField: boolean | null = null;
-let supportsIsMovedToDebtField: boolean | null = null;
 
 function unauthorized() {
 	return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
@@ -74,15 +72,13 @@ function isUnknownPayFrequencyFieldError(error: unknown): boolean {
 }
 
 async function findOnboardingPayFrequency(userId: string) {
-  if (supportsPayFrequencyField === false) return null;
+  if (!(await supportsOnboardingPayFrequencyField())) return null;
 
   try {
     const profile = await prisma.userOnboardingProfile.findUnique({ where: { userId }, select: { payFrequency: true } });
-    supportsPayFrequencyField = true;
     return profile;
   } catch (error) {
     if (!isUnknownPayFrequencyFieldError(error)) throw error;
-    supportsPayFrequencyField = false;
     return null;
   }
 }
@@ -202,7 +198,7 @@ export async function GET(req: NextRequest) {
         },
       });
 
-    if (supportsIsMovedToDebtField === false) {
+    if (!(await supportsExpenseMovedToDebtField())) {
       return runLegacyQuery();
     }
 
@@ -219,11 +215,9 @@ export async function GET(req: NextRequest) {
         },
         // dueDate is a scalar on Expense, included automatically
       });
-      supportsIsMovedToDebtField = true;
       return rows;
     } catch (error) {
       if (!isUnknownMovedToDebtFieldError(error)) throw error;
-      supportsIsMovedToDebtField = false;
       return runLegacyQuery();
     }
   })();
