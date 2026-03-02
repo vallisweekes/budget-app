@@ -1,0 +1,62 @@
+import type React from "react";
+import type { Animated, StyleProp, TextStyle, ViewStyle } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+
+import type { SavingsField, SavingsSheetMode } from "@/types/settings";
+
+export type SavingsEditorSheetStyles = {
+  sheetOverlay: StyleProp<ViewStyle>;
+  sheet: StyleProp<ViewStyle>;
+  sheetTall: StyleProp<ViewStyle>;
+  moneyEditorSheet: StyleProp<ViewStyle>;
+  sheetHandle: StyleProp<ViewStyle>;
+  sheetTitle: StyleProp<TextStyle>;
+  sheetBody: StyleProp<ViewStyle>;
+  sheetScroll: StyleProp<ViewStyle>;
+  sheetScrollContent: StyleProp<ViewStyle>;
+  moneyEditorHeader: StyleProp<ViewStyle>;
+  moneyEditorIconCircle: StyleProp<ViewStyle>;
+  moneyEditorHeroTitle: StyleProp<TextStyle>;
+  moneyEditorHeroValue: StyleProp<TextStyle>;
+  moneyEditorStatsRow: StyleProp<ViewStyle>;
+  moneyEditorStatCard: StyleProp<ViewStyle>;
+  moneyEditorStatLabel: StyleProp<TextStyle>;
+  moneyEditorStatValue: StyleProp<TextStyle>;
+  label: StyleProp<TextStyle>;
+  input: StyleProp<TextStyle>;
+  textMuted: string;
+  sheetActionsDocked: StyleProp<ViewStyle>;
+  moneyEditorDockedActions: StyleProp<ViewStyle>;
+  moneyDeleteBtn: StyleProp<ViewStyle>;
+  moneyDeleteBtnText: StyleProp<TextStyle>;
+  outlineBtnWide: StyleProp<ViewStyle>;
+  outlineBtnText: StyleProp<TextStyle>;
+  primaryBtnWide: StyleProp<ViewStyle>;
+  primaryBtnText: StyleProp<TextStyle>;
+  disabled: StyleProp<ViewStyle>;
+};
+
+export type SavingsEditorSheetProps = {
+  visible: boolean;
+  mode: SavingsSheetMode;
+  field: SavingsField | null;
+  icon: React.ComponentProps<typeof Ionicons>["name"];
+  title: string;
+  currency?: string | null;
+  currentAmount: number;
+  valueDraft: string;
+  potNameDraft: string;
+  goalImpactNote: string | null;
+  saveBusy: boolean;
+  insetsBottom: number;
+  translateY: Animated.Value;
+  panHandlers: Record<string, unknown>;
+  styles: SavingsEditorSheetStyles;
+  formatMoneyText: (value: number) => string;
+  parseMoneyNumber: (value: string | number | null | undefined) => number;
+  onClose: () => void;
+  onChangeValue: (next: string) => void;
+  onChangePotName: (next: string) => void;
+  onDelete: () => void;
+  onSave: () => void;
+};

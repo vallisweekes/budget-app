@@ -3,31 +3,15 @@ import { Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { styles } from "./styles";
 
-import type { Debt } from "@/lib/apiTypes";
 import { T } from "@/lib/theme";
-import { cardBase } from "@/lib/ui";
-import type { DebtGroupKey } from "@/lib/hooks/useSettingsDebtBuckets";
-
-type Group = {
-  key: DebtGroupKey;
-  label: string;
-  icon: React.ComponentProps<typeof Ionicons>["name"];
-  items: Debt[];
-};
-
-type Props = {
-  groupedDebts: Group[];
-  currency: string;
-  asMoneyInput: (value: string | null | undefined) => string;
-  onOpenDebtEditor: (debt: Debt) => void;
-};
+import type { SettingsDebtGroupsProps } from "@/types/components/settings/SettingsDebtGroups.types";
 
 export default function SettingsDebtGroups({
   groupedDebts,
   currency,
   asMoneyInput,
   onOpenDebtEditor,
-}: Props) {
+}: SettingsDebtGroupsProps) {
   return (
     <>
       {groupedDebts.map((group) => (
