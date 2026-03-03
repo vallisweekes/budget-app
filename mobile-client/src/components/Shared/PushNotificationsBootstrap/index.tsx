@@ -23,30 +23,24 @@ export function PushNotificationsBootstrap() {
   const { token, username, isLoading } = useAuth();
   const handledIdentifiersRef = useRef<Set<string>>(new Set());
 
-  const clearAppBadgeAsync = () => {
-    void Notifications.setBadgeCountAsync(0).catch(() => {
-      // ignore
-    });
-  };
-
   useEffect(() => {
     void configureNotificationsBootstrapAsync();
     void registerBackgroundNotificationTaskAsync();
     void sendInstallWelcomeNotificationOnceAsync();
-    clearAppBadgeAsync();
   }, []);
 
   useEffect(() => {
     const appStateSub = AppState.addEventListener("change", (state) => {
-      if (state === "active") {
-        clearAppBadgeAsync();
-      }
+      if (state !== "active") return;
+      if (isLoading || !token) return;
+
+      void registerExpoPushToken({ username: username && username.trim() ? username : "mobile-user" });
     });
 
     return () => {
       appStateSub.remove();
     };
-  }, []);
+  }, [isLoading, token, username]);
 
   const handleReminderOpen = (identifier: string, data: NotificationData) => {
     if (handledIdentifiersRef.current.has(identifier)) return;
@@ -113,7 +107,6 @@ export function PushNotificationsBootstrap() {
       const data = (response?.notification.request.content.data ?? {}) as NotificationData;
       if (!identifier) return;
 
-      clearAppBadgeAsync();
       appendFromNotification(response.notification);
       handleReminderOpen(identifier, data);
     })();
@@ -125,7 +118,6 @@ export function PushNotificationsBootstrap() {
     const response = Notifications.addNotificationResponseReceivedListener((event) => {
       const identifier = event.notification.request.identifier;
       const data = (event.notification.request.content.data ?? {}) as NotificationData;
-      clearAppBadgeAsync();
       appendFromNotification(event.notification);
       handleReminderOpen(identifier, data);
     });

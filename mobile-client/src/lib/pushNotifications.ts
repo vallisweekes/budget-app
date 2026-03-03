@@ -218,6 +218,15 @@ export async function registerExpoPushToken(params: { username: string }): Promi
     },
   });
 
+  if (!result?.ok) {
+    devLog("registration request returned non-ok response", {
+      ok: Boolean(result?.ok),
+      token: maskToken(expoToken),
+      username: params.username,
+    });
+    throw new Error("Failed to register Expo push token");
+  }
+
   devLog("registration request complete", { ok: Boolean(result?.ok), token: maskToken(expoToken), username: params.username });
 
   await Promise.all([
