@@ -17,7 +17,7 @@ import TopHeader from "@/components/Shared/TopHeader";
 import PillTabBar from "@/components/Shared/PillTabBar";
 import { T } from "@/lib/theme";
 import { apiFetch } from "@/lib/api";
-import type { IncomeSacrificeData, OnboardingStatusResponse } from "@/lib/apiTypes";
+import type { IncomeSacrificeData, OnboardingStatusResponse, Settings } from "@/lib/apiTypes";
 import { appendNotificationInboxItem, subscribeNotificationInbox } from "@/lib/notificationInbox";
 
 import LoginScreen from "@/screens/LoginScreen";
@@ -621,104 +621,8 @@ const s = StyleSheet.create({
 });
 
 function MainTabs() {
-  const { signOut } = useAuth();
-  const [incomePendingCount, setIncomePendingCount] = useState(0);
-  const [pendingBudgetPlanId, setPendingBudgetPlanId] = useState<string | null>(null);
-  const [hasNotificationDot, setHasNotificationDot] = useState(false);
-
-  const getPendingCount = useCallback((data: IncomeSacrificeData): number => {
-    const confirmed = new Set((data.confirmations ?? []).map((item) => item.targetKey));
-
-    const amountForTarget = (targetKey: string): number => {
-      if (targetKey.startsWith("fixed:")) {
-        const field = targetKey.slice("fixed:".length) as keyof IncomeSacrificeData["fixed"];
-        return Number(data.fixed?.[field] ?? 0);
-      }
-      if (targetKey.startsWith("custom:")) {
-        const customId = targetKey.slice("custom:".length);
-        const item = (data.customItems ?? []).find((row) => row.id === customId);
-        return Number(item?.amount ?? 0);
-      }
-      return 0;
-    };
-
-    return (data.goalLinks ?? []).reduce((sum, link) => {
-      if (confirmed.has(link.targetKey)) return sum;
-      return amountForTarget(link.targetKey) > 0 ? sum + 1 : sum;
-    }, 0);
-  }, []);
-
-  const buildNotificationId = useCallback((notification: { request?: { identifier?: string; content?: { title?: string | null; body?: string | null } } }) => {
-    const explicit = notification?.request?.identifier;
-    if (typeof explicit === "string" && explicit.trim()) return explicit.trim();
-    const title = String(notification?.request?.content?.title ?? "BudgetIn Check").trim();
-    const body = String(notification?.request?.content?.body ?? "").trim();
-    return `local:${title}::${body}`;
-  }, []);
-
-  const loadPendingCount = useCallback(async () => {
-    const now = new Date();
-    const month = now.getMonth() + 1;
-    const year = now.getFullYear();
-    try {
-      const data = await apiFetch<IncomeSacrificeData>(`/api/bff/income-sacrifice?month=${month}&year=${year}`, {
-        cacheTtlMs: 2_000,
-      });
-      const nextCount = getPendingCount(data);
-      const nextPlanId = typeof data.budgetPlanId === "string" && data.budgetPlanId.trim() ? data.budgetPlanId : null;
-      setIncomePendingCount((prev) => (prev === nextCount ? prev : nextCount));
-      setPendingBudgetPlanId((prev) => (prev === nextPlanId ? prev : nextPlanId));
-    } catch {
-      setIncomePendingCount((prev) => (prev === 0 ? prev : 0));
-      setPendingBudgetPlanId((prev) => (prev === null ? prev : null));
-    }
-  }, [getPendingCount]);
-
-  useEffect(() => {
-    void loadPendingCount();
-  }, [loadPendingCount]);
-
-  useEffect(() => {
-    const unsubscribe = subscribeNotificationInbox((snapshot) => {
-      const next = snapshot.unreadCount > 0;
-      setHasNotificationDot((prev) => (prev === next ? prev : next));
-    });
-
-    return unsubscribe;
-  }, []);
-
-  useEffect(() => {
-    const appendFromNotification = (notification: { request?: { identifier?: string; content?: { title?: string | null; body?: string | null } } }) => {
-      const title = notification?.request?.content?.title ?? "BudgetIn Check";
-      const body = notification?.request?.content?.body ?? "";
-      void appendNotificationInboxItem({
-        id: buildNotificationId(notification),
-        title,
-        body,
-      });
-    };
-
-    void Notifications.getPresentedNotificationsAsync()
-      .then((presented) => {
-        presented.forEach((entry) => appendFromNotification(entry));
-      })
-      .catch(() => {
-        // ignore
-      });
-
-    const received = Notifications.addNotificationReceivedListener((event) => {
-      appendFromNotification(event);
-    });
-
-    const response = Notifications.addNotificationResponseReceivedListener((event) => {
-      appendFromNotification(event.notification);
-    });
-
-    return () => {
-      received.remove();
-      response.remove();
-    };
-  }, [buildNotificationId]);
+  const incomePendingCount = 0;
+  const hasNotificationDot = false;
 
   return (
     <Tab.Navigator
@@ -766,28 +670,6 @@ function MainTabs() {
                 : undefined;
 
           const openIncome = () => {
-            const now = new Date();
-            if (incomePendingCount > 0 && pendingBudgetPlanId) {
-              const params = {
-                screen: "IncomeMonth",
-                params: {
-                  month: now.getMonth() + 1,
-                  year: now.getFullYear(),
-                  budgetPlanId: pendingBudgetPlanId,
-                  initialMode: "sacrifice" as const,
-                  pendingConfirmationsCount: incomePendingCount,
-                  showPendingNotice: true,
-                },
-              };
-              const parent = navigation.getParent();
-              if (parent) {
-                (parent as any).navigate("IncomeFlow", params);
-                return;
-              }
-              (navigation as any).navigate("Income", params);
-              return;
-            }
-
             const parent = navigation.getParent();
             if (parent) {
               parent.navigate("IncomeFlow" as never);
@@ -880,7 +762,7 @@ function MainTabs() {
               rightContent={goalsRightContent}
               showIncomeAction={!isSettings && !isGoals}
               compactActionsMenu={isSettings}
-              onLogout={isSettings ? signOut : undefined}
+              onLogout={undefined}
               incomePendingCount={incomePendingCount}
               showNotificationDot={hasNotificationDot}
             />
@@ -950,31 +832,86 @@ export default function RootNavigator() {
   const { token, isLoading } = useAuth();
   const [onboardingState, setOnboardingState] = useState<OnboardingStatusResponse | null>(null);
   const [onboardingLoading, setOnboardingLoading] = useState(false);
-
-  const loadOnboarding = useCallback(async () => {
-    if (!token) {
-      setOnboardingState(null);
-      return;
-    }
-    setOnboardingLoading(true);
-    try {
-      const data = await apiFetch<OnboardingStatusResponse>("/api/bff/onboarding", { cacheTtlMs: 0, skipOnUnauthorized: true });
-      setOnboardingState(data);
-    } catch {
-      setOnboardingState({ required: false, completed: false, profile: null, occupations: [] });
-    } finally {
-      setOnboardingLoading(false);
-    }
-  }, [token]);
+  const [completingOnboarding, setCompletingOnboarding] = useState(false);
+  const [onboardingRefreshKey, setOnboardingRefreshKey] = useState(0);
 
   useEffect(() => {
-    void loadOnboarding();
-  }, [loadOnboarding]);
+    let cancelled = false;
 
-  if (isLoading || (token && onboardingLoading)) {
+    if (!token) {
+      setOnboardingState(null);
+      setOnboardingLoading(false);
+      return;
+    }
+
+    setOnboardingLoading(true);
+
+    void (async () => {
+      try {
+        const data = await apiFetch<OnboardingStatusResponse>("/api/bff/onboarding", {
+          cacheTtlMs: 0,
+          skipOnUnauthorized: true,
+        });
+        if (!cancelled) setOnboardingState(data);
+      } catch {
+        if (!cancelled) setOnboardingState({ required: false, completed: false, profile: null, occupations: [] });
+      } finally {
+        if (!cancelled) setOnboardingLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token, onboardingRefreshKey]);
+
+  const completeOnboardingAndHydrate = useCallback(async () => {
+    setCompletingOnboarding(true);
+    try {
+      const now = new Date();
+      const month = now.getMonth() + 1;
+      const year = now.getFullYear();
+
+      for (let attempt = 0; attempt < 4; attempt += 1) {
+        try {
+          await Promise.all([
+            apiFetch<Settings>("/api/bff/settings", { cacheTtlMs: 0, skipOnUnauthorized: true }),
+            apiFetch(`/api/bff/expenses/summary?month=${month}&year=${year}&scope=pay_period`, {
+              cacheTtlMs: 0,
+              skipOnUnauthorized: true,
+            }),
+            apiFetch<OnboardingStatusResponse>("/api/bff/onboarding", { cacheTtlMs: 0, skipOnUnauthorized: true }),
+          ]);
+          break;
+        } catch {
+          if (attempt === 3) break;
+          await new Promise((resolve) => setTimeout(resolve, 700));
+        }
+      }
+
+      try {
+        const latest = await apiFetch<OnboardingStatusResponse>("/api/bff/onboarding", {
+          cacheTtlMs: 0,
+          skipOnUnauthorized: true,
+        });
+        setOnboardingState(latest);
+      } catch {
+        setOnboardingState({ required: false, completed: false, profile: null, occupations: [] });
+      }
+
+      setOnboardingRefreshKey((prev) => prev + 1);
+    } finally {
+      setCompletingOnboarding(false);
+    }
+  }, []);
+
+  if (isLoading || (token && (onboardingLoading || completingOnboarding))) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: T.bg }}>
         <ActivityIndicator size="large" color={T.accent} />
+        {completingOnboarding ? (
+          <Text style={{ marginTop: 10, color: T.textDim, fontSize: 14, fontWeight: "600" }}>Setting up your plan…</Text>
+        ) : null}
       </View>
     );
   }
@@ -988,7 +925,7 @@ export default function RootNavigator() {
               <OnboardingScreen
                 initial={onboardingState}
                 onCompleted={() => {
-                  void loadOnboarding();
+                  void completeOnboardingAndHydrate();
                 }}
               />
             )}

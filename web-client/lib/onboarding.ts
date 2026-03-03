@@ -518,6 +518,9 @@ export async function completeOnboarding(userId: string) {
 
   const month = new Date().getMonth() + 1;
   const year = new Date().getFullYear();
+  const payDay = clampPayDay(toNullableNumber(profile.payDay));
+
+  const seededMonths = Array.from({ length: month }, (_, idx) => idx + 1);
 
   const categories = await prisma.category.findMany({
     where: { budgetPlanId },
@@ -553,17 +556,19 @@ export async function completeOnboarding(userId: string) {
     const salary = Number(profile.monthlySalary ?? 0);
 
     if (salary > 0) {
-      const existingSalary = await tx.income.findFirst({
-        where: { budgetPlanId, month, year },
-        select: { id: true },
-      });
-      if (!existingSalary) {
+      for (const targetMonth of seededMonths) {
+        const existingSalary = await tx.income.findFirst({
+          where: { budgetPlanId, month: targetMonth, year },
+          select: { id: true },
+        });
+        if (existingSalary) continue;
+
         await tx.income.create({
           data: {
             budgetPlanId,
             name: "Salary",
             amount: salary,
-            month,
+            month: targetMonth,
             year,
           },
         });
@@ -571,7 +576,6 @@ export async function completeOnboarding(userId: string) {
     }
 
     const allowance = Number(profile.allowanceAmount ?? 0);
-    const payDay = clampPayDay(toNullableNumber(profile.payDay));
     await tx.budgetPlan.update({
       where: { id: budgetPlanId },
       data: {
@@ -594,6 +598,9 @@ export async function completeOnboarding(userId: string) {
           amount: item.amount,
           month,
           year,
+          dueDate: payDay
+            ? new Date(Date.UTC(year, month - 1, Math.min(payDay, new Date(Date.UTC(year, month, 0)).getUTCDate())))
+            : undefined,
           paid: false,
           paidAmount: 0,
           isAllocation: false,
