@@ -35,11 +35,12 @@ import type {
   BudgetPlansResponse,
   BudgetPlanListItem,
   ExpenseMonthsResponse,
+  ExpenseInsights,
 } from "@/lib/apiTypes";
 import { currencySymbol, fmt } from "@/lib/formatting";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 import { useYearGuard } from "@/lib/hooks/useYearGuard";
-import { buildPayPeriodFromMonthAnchor, normalizePayFrequency } from "@/lib/payPeriods";
+import { buildPayPeriodFromMonthAnchor, normalizePayFrequency, resolveActivePayPeriod } from "@/lib/payPeriods";
 import { T } from "@/lib/theme";
 import type { ExpensesStackParamList } from "@/navigation/types";
 import CategoryBreakdown from "@/components/Expenses/CategoryBreakdown";
@@ -244,6 +245,11 @@ export default function ExpensesScreen({ navigation }: Props) {
       ]);
       setSettings(s);
 
+      const payDateForResolution = Number.isFinite(s?.payDate as number) && (s?.payDate as number) >= 1
+        ? Math.floor(s.payDate as number)
+        : 27;
+      const payFrequencyForResolution = normalizePayFrequency(s?.payFrequency);
+
       const rawPlans = Array.isArray(bp?.plans) ? bp.plans : [];
       const nextPlans = rawPlans.slice().sort((a, b) => {
         const aPersonal = a.kind === "personal";
@@ -280,37 +286,58 @@ export default function ExpensesScreen({ navigation }: Props) {
         setExpenseMonths([]);
       }
 
-      // Prefer the current period when it has data. If it doesn't, prefer the nearest
-      // future period with data (so "Upcoming Expenses" and this screen align), else
-      // fall back to the most recent past period with data.
-      let targetMonth = month;
-      let targetYear = year;
-      const nonEmpty = months.filter((m) => Number(m.totalCount ?? 0) > 0);
-      if (nonEmpty.length > 0) {
-        const hasCurrent = nonEmpty.some((m) => m.month === month && m.year === year);
-        if (!hasCurrent) {
-          const future = nonEmpty
-            .filter((m) => (m.year > year) || (m.year === year && m.month > month))
-            .sort((a, b) => (a.year - b.year) || (a.month - b.month))[0];
-          const past = nonEmpty
-            .filter((m) => (m.year < year) || (m.year === year && m.month < month))
-            .sort((a, b) => (b.year - a.year) || (b.month - a.month))[0];
-          const chosen = future ?? past;
-          if (chosen) {
-            targetMonth = chosen.month;
-            targetYear = chosen.year;
+      // 1) Load the current pay-period summary for the selected plan.
+      // NOTE: /expenses/months groups by the expense's stored month/year (due-date month),
+      // which can differ from pay-period anchor months, so we do NOT use it to choose
+      // a pay-period window.
+      const planQp = resolvedPlanId ? `&budgetPlanId=${encodeURIComponent(resolvedPlanId)}` : "";
+      const initialMonth = month;
+      const initialYear = year;
+      const initialPrevMonth = initialMonth === 1 ? 12 : initialMonth - 1;
+      const initialPrevYear = initialMonth === 1 ? initialYear - 1 : initialYear;
+
+      let [sumData, prevData] = await Promise.all([
+        apiFetch<ExpenseSummary>(`/api/bff/expenses/summary?month=${initialMonth}&year=${initialYear}&scope=pay_period${planQp}`, { cacheTtlMs: 0 }),
+        apiFetch<ExpenseSummary>(`/api/bff/expenses/summary?month=${initialPrevMonth}&year=${initialPrevYear}&scope=pay_period${planQp}`, { cacheTtlMs: 0 }),
+      ]);
+
+      let targetMonth = initialMonth;
+      let targetYear = initialYear;
+
+      // 2) If the current pay period is empty but we have upcoming payments (like on Home),
+      // jump straight to the pay-period that contains the earliest upcoming due date.
+      if ((Number(sumData?.totalCount ?? 0) <= 0) && resolvedPlanId) {
+        try {
+          const qp = `budgetPlanId=${encodeURIComponent(resolvedPlanId)}`;
+          const insights = await apiFetch<ExpenseInsights>(`/api/bff/expense-insights?${qp}`, { cacheTtlMs: 0 });
+          const upcoming = Array.isArray(insights?.upcoming) ? insights.upcoming : [];
+          const nextDue = upcoming
+            .map((u) => (u?.dueDate ? new Date(u.dueDate) : null))
+            .filter((d): d is Date => Boolean(d && !Number.isNaN(d.getTime())))
+            .sort((a, b) => a.getTime() - b.getTime())[0];
+
+          if (nextDue) {
+            const period = resolveActivePayPeriod({ now: nextDue, payDate: payDateForResolution, payFrequency: payFrequencyForResolution });
+            const anchorDate = payFrequencyForResolution === "monthly" ? period.end : period.start;
+            const suggestedMonth = anchorDate.getMonth() + 1;
+            const suggestedYear = anchorDate.getFullYear();
+
+            if (suggestedMonth !== initialMonth || suggestedYear !== initialYear) {
+              targetMonth = suggestedMonth;
+              targetYear = suggestedYear;
+              const prevMonth = targetMonth === 1 ? 12 : targetMonth - 1;
+              const prevYear = targetMonth === 1 ? targetYear - 1 : targetYear;
+              [sumData, prevData] = await Promise.all([
+                apiFetch<ExpenseSummary>(`/api/bff/expenses/summary?month=${targetMonth}&year=${targetYear}&scope=pay_period${planQp}`, { cacheTtlMs: 0 }),
+                apiFetch<ExpenseSummary>(`/api/bff/expenses/summary?month=${prevMonth}&year=${prevYear}&scope=pay_period${planQp}`, { cacheTtlMs: 0 }),
+              ]);
+            }
           }
+        } catch {
+          // Best-effort only; fall back to the initial period.
         }
       }
 
-      const planQp = resolvedPlanId ? `&budgetPlanId=${encodeURIComponent(resolvedPlanId)}` : "";
-      const prevMonth = targetMonth === 1 ? 12 : targetMonth - 1;
-      const prevYear = targetMonth === 1 ? targetYear - 1 : targetYear;
-
-      const [sumData, prevData] = await Promise.all([
-        apiFetch<ExpenseSummary>(`/api/bff/expenses/summary?month=${targetMonth}&year=${targetYear}&scope=pay_period${planQp}`, { cacheTtlMs: 0 }),
-        apiFetch<ExpenseSummary>(`/api/bff/expenses/summary?month=${prevMonth}&year=${prevYear}&scope=pay_period${planQp}`, { cacheTtlMs: 0 }),
-      ]);
       setSummary(sumData);
       setPreviousSummary(prevData);
 
