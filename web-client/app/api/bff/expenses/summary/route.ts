@@ -8,6 +8,7 @@ import {
 	normalizePayFrequency,
 	type PayFrequency,
 } from "@/lib/payPeriods";
+import { isLegacyPlaceholderExpenseRow } from "@/lib/expenses/legacyPlaceholders";
 
 export const runtime = "nodejs";
 
@@ -222,7 +223,9 @@ export async function GET(req: NextRequest) {
 			}
 		})();
 
-		expenses = periodRows.filter((exp) => {
+		const seen = new Map<string, { exp: (typeof periodRows)[number]; rank: number }>();
+		for (const exp of periodRows) {
+			if (isLegacyPlaceholderExpenseRow(exp)) continue;
 			const dueIso = resolveEffectiveDueDateIso(
 				{
 					id: exp.id,
@@ -234,11 +237,31 @@ export async function GET(req: NextRequest) {
 				},
 				{ year: exp.year, monthNum: exp.month, payDate }
 			);
-			if (!dueIso || !periodStart || !periodEnd) return false;
+			if (!dueIso || !periodStart || !periodEnd) continue;
 			const due = parseIsoDate(dueIso);
-			if (!due) return false;
-			return inRange(due, periodStart, periodEnd);
-		});
+			if (!due) continue;
+			if (!inRange(due, periodStart, periodEnd)) continue;
+
+			const series = String((exp as any).seriesKey ?? exp.name ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+			const amount = toFloat(exp.amount);
+			const isAllocation = Boolean((exp as any).isAllocation ?? false);
+			const key = `${series}|${dueIso}|${amount}|${isAllocation ? 1 : 0}`;
+			const ym = /^\d{4}-\d{2}-\d{2}$/.test(dueIso)
+				? { year: Number(dueIso.slice(0, 4)), month: Number(dueIso.slice(5, 7)) }
+				: null;
+			const rank = ym && Number.isFinite(ym.year) && Number.isFinite(ym.month) && exp.year === ym.year && exp.month === ym.month ? 0 : 1;
+
+			const existing = seen.get(key);
+			if (!existing) {
+				seen.set(key, { exp, rank });
+				continue;
+			}
+			if (rank < existing.rank) {
+				seen.set(key, { exp, rank });
+			}
+		}
+
+		expenses = Array.from(seen.values()).map((v) => v.exp);
 	} else {
 		expenses = await prisma.expense.findMany({
 			where: { budgetPlanId, month, year },

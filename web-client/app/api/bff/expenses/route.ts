@@ -7,6 +7,7 @@ import { createExpense, normalizeFundingSource, normalizePaymentSource } from "@
 import { hasCustomLogoForDomain, hasCustomLogoForName, resolveExpenseLogo, resolveExpenseLogoWithSearch } from "@/lib/expenses/logoResolver";
 import { buildExpenseAddedActivity } from "@/lib/push/activityMessages";
 import { sendUserPush } from "@/lib/push/sendUserPush";
+import { isLegacyPlaceholderExpenseRow } from "@/lib/expenses/legacyPlaceholders";
 import {
   buildPayPeriodFromMonthAnchor,
   normalizePayFrequency,
@@ -244,7 +245,11 @@ export async function GET(req: NextRequest) {
   let refreshedCount = 0;
 
   const out: any[] = [];
+  const seenPayPeriod = new Map<string, { rank: number }>();
   for (const item of items as any[]) {
+    if (scope === "pay_period" && isLegacyPlaceholderExpenseRow(item)) {
+      continue;
+    }
     const isManual = item.logoSource === "manual";
     const hasCustomDomainOverride = hasCustomLogoForDomain(item.merchantDomain ?? null);
     const inferredFromName = resolveExpenseLogo(item.name, undefined);
@@ -322,6 +327,27 @@ export async function GET(req: NextRequest) {
 
     if (scope === "pay_period" && !inSelectedPayPeriod) {
       continue;
+    }
+
+    // Prevent duplicates in pay-period scope when the same recurring bill exists
+    // across multiple month rows (e.g. distributed across months with a fixed dueDate).
+    if (scope === "pay_period" && dueIso) {
+      const series = String(item.seriesKey ?? item.name ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+      const amount = Number(item.amount?.toString?.() ?? item.amount ?? 0);
+      const isAllocation = Boolean(item.isAllocation ?? false);
+      const key = `${series}|${dueIso}|${amount}|${isAllocation ? 1 : 0}`;
+      const ym = /^\d{4}-\d{2}-\d{2}$/.test(dueIso)
+        ? { year: Number(dueIso.slice(0, 4)), month: Number(dueIso.slice(5, 7)) }
+        : null;
+      const rank = ym && Number.isFinite(ym.year) && Number.isFinite(ym.month) && item.year === ym.year && item.month === ym.month ? 0 : 1;
+      const existing = seenPayPeriod.get(key);
+      if (existing) {
+        // Prefer the row whose stored month/year matches the due month/year.
+        if (!(rank < existing.rank)) {
+          continue;
+        }
+      }
+      seenPayPeriod.set(key, { rank });
     }
 
     const latestPaidAt = latestPaidAtByExpenseId.get(item.id) ?? null;

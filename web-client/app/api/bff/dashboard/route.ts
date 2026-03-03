@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
-import { getDashboardPlanData } from "@/lib/helpers/dashboard/getDashboardPlanData";
+import { getDashboardPlanDataForActivePayPeriod } from "@/lib/helpers/dashboard/getDashboardPlanData";
 import { getBudgetPlanMeta } from "@/lib/helpers/dashboard/getBudgetPlanMeta";
 import { getDebtSummaryForPlan } from "@/lib/debts/summary";
 import { computeDebtTips } from "@/lib/debts/insights";
@@ -148,31 +148,16 @@ export async function GET(req: NextRequest) {
 		}
 
 		// 2) Core plan data (income, expenses, allocations, goals, categories)
-		// Match the active pay period: if we haven't reached pay day yet this month,
-		// show the previous month (e.g. Mar 1 shows Feb) so income + remaining make sense.
+		// Compute using the ACTIVE pay-period window so totals match the period label.
 		const payDay = typeof payDate === "number" && Number.isFinite(payDate) ? payDate : 1;
 		const payFrequency = normalizePayFrequency(onboarding?.payFrequency);
 		const billFrequency = normalizeBillFrequency(onboarding?.billFrequency);
-		const activePeriod = resolveActivePayPeriodWindow({
+		// This is required for the dashboard; let it throw if it truly can't compute.
+		const currentPlanData = await getDashboardPlanDataForActivePayPeriod(budgetPlanId, {
 			now,
 			payDate: payDay,
 			payFrequency,
 		});
-		const planNow = new Date(activePeriod.start.getTime());
-		// This is required for the dashboard; let it throw if it truly can't compute.
-		let currentPlanData = await getDashboardPlanData(budgetPlanId, planNow);
-
-		// On newly onboarded users, expenses can exist in current calendar month while
-		// the active pay-period anchor resolves to the previous month (e.g. before payday).
-		// Fallback to the calendar month only when the active-month snapshot is empty.
-		if (currentPlanData.totalExpenses <= 0) {
-			const calendarPlanData = await getDashboardPlanData(budgetPlanId, now, {
-				ensureDefaultCategories: false,
-			});
-			if (calendarPlanData.totalExpenses > 0 || calendarPlanData.totalIncome > currentPlanData.totalIncome) {
-				currentPlanData = calendarPlanData;
-			}
-		}
 		const month = MONTHS[currentPlanData.monthNum - 1] ?? currentMonthKey();
 
 		// Everything below is "best effort". If one section fails (e.g. debt sync),
