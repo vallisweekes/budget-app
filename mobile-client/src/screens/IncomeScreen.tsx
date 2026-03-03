@@ -270,6 +270,7 @@ export default function IncomeScreen() {
           const isActive = year === nowYear && item.monthIndex === nowMonthIndex;
           const isLocked =
             year < nowYear || (year === nowYear && item.monthIndex < nowMonthIndex);
+          const hasBudgetPlanId = typeof data?.budgetPlanId === "string" && data.budgetPlanId.trim().length > 0;
           const period = buildPayPeriodFromMonthAnchor({
             year,
             month: item.monthIndex,
@@ -285,14 +286,19 @@ export default function IncomeScreen() {
               active={isActive}
               locked={isLocked}
               periodLabel={periodLabel}
-              onPress={() =>
+              onPress={() => {
+                if (!hasBudgetPlanId) {
+                  Alert.alert("Income unavailable", "Budget plan is still syncing. Please pull to refresh and try again.");
+                  return;
+                }
+
                 navigation.navigate("IncomeMonth", {
                   month: item.monthIndex,
                   year,
-                  budgetPlanId: data?.budgetPlanId ?? "",
+                  budgetPlanId: data.budgetPlanId,
                   initialMode: "income",
-                })
-              }
+                });
+              }}
             />
           );
         }}

@@ -485,12 +485,19 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
     return unsub;
   }, [navigation, load]);
 
+  const requestedInitialTab = (route as unknown as { params?: { initialTab?: unknown } } | undefined)?.params?.initialTab;
+
   useEffect(() => {
-    const requestedTab = (route as unknown as { params?: { initialTab?: unknown } } | undefined)?.params?.initialTab;
-    if (requestedTab === "notifications") {
-      setActiveTab("notifications");
-    }
-  }, [route]);
+    if (requestedInitialTab !== "notifications") return;
+
+    setActiveTab((prev) => (prev === "notifications" ? prev : "notifications"));
+
+    const currentRoute = navigation.getState()?.routes?.find((entry) => entry.key === route.key);
+    const params = (currentRoute?.params as { initialTab?: unknown } | undefined) ?? undefined;
+    if (!params || params.initialTab !== "notifications") return;
+
+    navigation.setParams({ initialTab: undefined });
+  }, [navigation, requestedInitialTab, route.key]);
 
   useEffect(() => {
     loadNotifications();
