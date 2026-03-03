@@ -1,26 +1,14 @@
 {
-  "AUGUST ": [],
-  "SEPTEMBER": [],
-  "OCTOBER": [],
-  "NOVEMBER": [],
-  "DECEMBER": [],
-  "JANUARY": [
-    {
-      "id": "1770945093992-7sz90w0wy0j",
-      "name": "Personal Transfer",
-      "amount": 800
-    }
-  ],
-  "FEBURARY": [
-    {
-      "id": "1770945093992-7sz90w0wy0j",
-      "name": "Personal Transfer",
-      "amount": 800
-    }
-  ],
+  "JANUARY": [],
+  "FEBURARY": [],
   "MARCH": [],
   "APRIL": [],
   "MAY": [],
   "JUNE": [],
-  "JULY": []
+  "JULY": [],
+  "AUGUST ": [],
+  "SEPTEMBER": [],
+  "OCTOBER": [],
+  "NOVEMBER": [],
+  "DECEMBER": []
 }

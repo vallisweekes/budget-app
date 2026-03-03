@@ -131,7 +131,7 @@ export function buildDashboardDerived(params: {
     return date.getTime() >= payPeriodStart.getTime() && date.getTime() <= payPeriodEnd.getTime();
   };
 
-  const upcoming = (dashboard?.expenseInsights?.upcoming ?? []).filter((u) => {
+  const upcomingBase = (dashboard?.expenseInsights?.upcoming ?? []).filter((u) => {
     const id = String(u.id ?? "").toLowerCase();
     if (id.startsWith("debt:") || id.startsWith("debt-expense:")) return false;
     const n = String(u.name ?? "").trim().toLowerCase();
@@ -139,10 +139,15 @@ export function buildDashboardDerived(params: {
     if (n.startsWith("housing") && n.includes("rent")) return false;
     const isOutstanding = (u.status ?? "unpaid") !== "paid" && (Number(u.amount ?? 0) - Number(u.paidAmount ?? 0)) > 0.0001;
     if (!isOutstanding) return false;
-    const due = u.dueDate ? new Date(u.dueDate) : null;
-    if (!isDateInPayPeriod(due)) return false;
     return true;
   });
+
+  const upcomingInPeriod = upcomingBase.filter((u) => {
+    const due = u.dueDate ? new Date(u.dueDate) : null;
+    return isDateInPayPeriod(due);
+  });
+
+  const upcoming = upcomingInPeriod.length > 0 ? upcomingInPeriod : upcomingBase;
 
   const resolveDebtDueDate = (d: (typeof debts)[number]) => {
     const dueDateIso = d.dueDate ?? null;

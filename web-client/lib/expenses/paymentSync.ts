@@ -1,4 +1,6 @@
-import "server-only";
+import { enforceServerOnlyRuntime } from "@/lib/serverOnly";
+
+enforceServerOnlyRuntime();
 
 import { prisma } from "@/lib/prisma";
 import { getSettings, saveSettings } from "@/lib/settings/store";

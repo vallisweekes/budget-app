@@ -1,4 +1,6 @@
-import "server-only";
+import { enforceServerOnlyRuntime } from "@/lib/serverOnly";
+
+enforceServerOnlyRuntime();
 
 import { PrismaClient } from "@prisma/client";
 import { createHash } from "node:crypto";

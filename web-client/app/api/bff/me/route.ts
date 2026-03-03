@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSessionUserId } from "@/lib/api/bffAuth";
+import { getSessionIdentity } from "@/lib/api/bffAuth";
 import { isValidEmail, normalizeEmail } from "@/lib/helpers/email";
+import { runOnboardingRepairPass } from "@/lib/onboarding";
+import { touchMobileAuthSessionAndDetectFirstSeen } from "@/lib/mobileAuthSessions";
 
 export const runtime = "nodejs";
 
@@ -11,11 +13,27 @@ function unauthorized() {
 
 export async function GET(request: Request) {
   try {
-    const userId = await getSessionUserId(request);
-    if (!userId) return unauthorized();
+    const identity = await getSessionIdentity(request);
+    if (!identity?.userId) return unauthorized();
+
+    // One-time per mobile login session: repair older onboarding test data
+    // (missing due dates / missing seeded periods) so Home + Expenses stay consistent.
+    if (identity.sessionId) {
+      try {
+        const firstSeen = await touchMobileAuthSessionAndDetectFirstSeen({
+          userId: identity.userId,
+          sessionId: identity.sessionId,
+        });
+        if (firstSeen) {
+          await runOnboardingRepairPass(identity.userId);
+        }
+      } catch (error) {
+        console.error("Onboarding repair pass failed:", error);
+      }
+    }
 
     const user = await prisma.user.findUnique({
-      where: { id: userId },
+      where: { id: identity.userId },
       select: { id: true, name: true, email: true },
     });
 
@@ -34,7 +52,8 @@ export async function GET(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const userId = await getSessionUserId(request);
+    const identity = await getSessionIdentity(request);
+    const userId = identity?.userId ?? null;
     if (!userId) return unauthorized();
 
     const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;

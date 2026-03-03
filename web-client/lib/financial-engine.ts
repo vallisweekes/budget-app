@@ -17,7 +17,9 @@
  * fireCategoryThresholdPush — background budget-alert notifications
  */
 
-import "server-only";
+import { enforceServerOnlyRuntime } from "@/lib/serverOnly";
+
+enforceServerOnlyRuntime();
 
 import { prisma } from "@/lib/prisma";
 import { addOrUpdateExpenseAcrossMonths } from "@/lib/expenses/store";

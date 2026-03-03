@@ -58,19 +58,21 @@ export default function ExpensesScreen({ navigation }: Props) {
   const route = useRoute<ScreenRoute>();
   const topHeaderOffset = useTopHeaderOffset();
   const now = new Date();
-  const initialMonth = Number(route.params?.month);
-  const initialYear = Number(route.params?.year);
-  const [month, setMonth] = useState(Number.isFinite(initialMonth) && initialMonth >= 1 && initialMonth <= 12 ? initialMonth : now.getMonth() + 1);
-  const [year, setYear] = useState(Number.isFinite(initialYear) ? initialYear : now.getFullYear());
+  const [month, setMonth] = useState(now.getMonth() + 1);
+  const [year, setYear] = useState(now.getFullYear());
+  const hasSyncedRouteParamsRef = useRef(false);
 
   const [plans, setPlans] = useState<BudgetPlanListItem[]>([]);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [expenseMonths, setExpenseMonths] = useState<ExpenseMonthsResponse["months"]>([]);
   const [periodCountsByMonth, setPeriodCountsByMonth] = useState<Record<number, number>>({});
+  const skipFirstFocusReloadRef = useRef(true);
 
   const [summary, setSummary]   = useState<ExpenseSummary | null>(null);
   const [previousSummary, setPreviousSummary] = useState<ExpenseSummary | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
+
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
 
   const [loading, setLoading]     = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -105,6 +107,14 @@ export default function ExpensesScreen({ navigation }: Props) {
   useEffect(() => {
     const routeMonth = Number(route.params?.month);
     const routeYear = Number(route.params?.year);
+
+    // Ignore the first pass to avoid restoring stale persisted tab params
+    // (causes first-open blank until tab blur/focus cycle).
+    if (!hasSyncedRouteParamsRef.current) {
+      hasSyncedRouteParamsRef.current = true;
+      return;
+    }
+
     if (Number.isFinite(routeMonth) && routeMonth >= 1 && routeMonth <= 12) {
       setMonth(routeMonth);
     }
@@ -228,19 +238,10 @@ export default function ExpensesScreen({ navigation }: Props) {
   const load = useCallback(async () => {
     try {
       setError(null);
-      const planQp = activePlanId ? `&budgetPlanId=${encodeURIComponent(activePlanId)}` : "";
-
-      const prevMonth = month === 1 ? 12 : month - 1;
-      const prevYear = month === 1 ? year - 1 : year;
-
-      const [sumData, prevData, s, bp] = await Promise.all([
-        apiFetch<ExpenseSummary>(`/api/bff/expenses/summary?month=${month}&year=${year}&scope=pay_period${planQp}`),
-        apiFetch<ExpenseSummary>(`/api/bff/expenses/summary?month=${prevMonth}&year=${prevYear}&scope=pay_period${planQp}`),
-        apiFetch<Settings>("/api/bff/settings"),
-        apiFetch<BudgetPlansResponse>("/api/bff/budget-plans"),
+      const [s, bp] = await Promise.all([
+        apiFetch<Settings>("/api/bff/settings", { cacheTtlMs: 0 }),
+        apiFetch<BudgetPlansResponse>("/api/bff/budget-plans", { cacheTtlMs: 0 }),
       ]);
-      setSummary(sumData);
-      setPreviousSummary(prevData);
       setSettings(s);
 
       const rawPlans = Array.isArray(bp?.plans) ? bp.plans : [];
@@ -256,34 +257,90 @@ export default function ExpensesScreen({ navigation }: Props) {
       });
       setPlans(nextPlans);
 
-      // Load distinct expense months for picker filtering and sparse cards.
-      const resolvedPlanId = activePlanId ?? nextPlans.find((p) => p.kind === "personal")?.id ?? null;
-      if (resolvedPlanId) {
-        const qp = `budgetPlanId=${encodeURIComponent(resolvedPlanId!)}`;
-        const monthsData = await apiFetch<ExpenseMonthsResponse>(
-          `/api/bff/expenses/months?${qp}`,
-        );
+      const resolvedPlanId = activePlanId
+        ?? nextPlans.find((p) => p.kind === "personal")?.id
+        ?? nextPlans[0]?.id
+        ?? null;
 
-        const months = Array.isArray(monthsData?.months) ? monthsData.months : [];
-        // Show in chronological order (earliest → latest)
+      if (!selectedPlanId && resolvedPlanId) {
+        setSelectedPlanId(resolvedPlanId);
+      }
+
+      // Load distinct expense months early so we can choose the best initial period
+      // before rendering an empty state (prevents a £0/0 bills flash).
+      let months: ExpenseMonthsResponse["months"] = [];
+      if (resolvedPlanId) {
+        const qp = `budgetPlanId=${encodeURIComponent(resolvedPlanId)}`;
+        const monthsData = await apiFetch<ExpenseMonthsResponse>(`/api/bff/expenses/months?${qp}`, { cacheTtlMs: 0 });
+        months = Array.isArray(monthsData?.months) ? monthsData.months : [];
+        // chronological order (earliest → latest)
         months.sort((a, b) => (a.year - b.year) || (a.month - b.month));
         setExpenseMonths(months);
       } else {
         setExpenseMonths([]);
       }
+
+      // Prefer the current period when it has data. If it doesn't, prefer the nearest
+      // future period with data (so "Upcoming Expenses" and this screen align), else
+      // fall back to the most recent past period with data.
+      let targetMonth = month;
+      let targetYear = year;
+      const nonEmpty = months.filter((m) => Number(m.totalCount ?? 0) > 0);
+      if (nonEmpty.length > 0) {
+        const hasCurrent = nonEmpty.some((m) => m.month === month && m.year === year);
+        if (!hasCurrent) {
+          const future = nonEmpty
+            .filter((m) => (m.year > year) || (m.year === year && m.month > month))
+            .sort((a, b) => (a.year - b.year) || (a.month - b.month))[0];
+          const past = nonEmpty
+            .filter((m) => (m.year < year) || (m.year === year && m.month < month))
+            .sort((a, b) => (b.year - a.year) || (b.month - a.month))[0];
+          const chosen = future ?? past;
+          if (chosen) {
+            targetMonth = chosen.month;
+            targetYear = chosen.year;
+          }
+        }
+      }
+
+      const planQp = resolvedPlanId ? `&budgetPlanId=${encodeURIComponent(resolvedPlanId)}` : "";
+      const prevMonth = targetMonth === 1 ? 12 : targetMonth - 1;
+      const prevYear = targetMonth === 1 ? targetYear - 1 : targetYear;
+
+      const [sumData, prevData] = await Promise.all([
+        apiFetch<ExpenseSummary>(`/api/bff/expenses/summary?month=${targetMonth}&year=${targetYear}&scope=pay_period${planQp}`, { cacheTtlMs: 0 }),
+        apiFetch<ExpenseSummary>(`/api/bff/expenses/summary?month=${prevMonth}&year=${prevYear}&scope=pay_period${planQp}`, { cacheTtlMs: 0 }),
+      ]);
+      setSummary(sumData);
+      setPreviousSummary(prevData);
+
+      if (targetMonth !== month) setMonth(targetMonth);
+      if (targetYear !== year) setYear(targetYear);
+
+      setLoadedKey(`${resolvedPlanId ?? "none"}:${targetYear}-${targetMonth}`);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load expenses");
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [activePlanId, month, year]);
+  }, [activePlanId, month, selectedPlanId, year]);
 
-  useEffect(() => { setLoading(true); load(); }, [load]);
+  const currentViewKey = `${activePlanId ?? "none"}:${year}-${month}`;
+  useEffect(() => {
+    // Avoid redundant fetches when we update month/year inside `load()`.
+    if (loadedKey && loadedKey === currentViewKey && summary) return;
+    setLoading(true);
+    load();
+  }, [currentViewKey, load, loadedKey, summary]);
 
   // Refresh when navigating back from CategoryExpensesScreen
   useFocusEffect(
     useCallback(() => {
+      if (skipFirstFocusReloadRef.current) {
+        skipFirstFocusReloadRef.current = false;
+        return;
+      }
       load();
     }, [load])
   );
@@ -343,6 +400,7 @@ export default function ExpensesScreen({ navigation }: Props) {
   }, [effectivePayDate, effectivePayFrequency]);
 
   useEffect(() => {
+    if (!monthPickerOpen) return;
     let cancelled = false;
     const run = async () => {
       try {
@@ -351,7 +409,8 @@ export default function ExpensesScreen({ navigation }: Props) {
           Array.from({ length: 12 }, (_, idx) => {
             const m = idx + 1;
             return apiFetch<ExpenseSummary>(
-              `/api/bff/expenses/summary?month=${m}&year=${pickerYear}&scope=pay_period${planQp}`
+              `/api/bff/expenses/summary?month=${m}&year=${pickerYear}&scope=pay_period${planQp}`,
+              { cacheTtlMs: 0 }
             ).then((res) => ({ month: m, totalCount: Number(res?.totalCount ?? 0) }));
           })
         );
@@ -368,7 +427,7 @@ export default function ExpensesScreen({ navigation }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [activePlanId, pickerYear, refreshing]);
+  }, [activePlanId, monthPickerOpen, pickerYear, refreshing]);
 
   const enabledPeriodMonths = useMemo(
     () =>
@@ -387,14 +446,6 @@ export default function ExpensesScreen({ navigation }: Props) {
   );
 
   const allPeriodMonths = useMemo(() => Array.from({ length: 12 }, (_, i) => i + 1), []);
-
-  useEffect(() => {
-    const monthsForSelectedYear = enabledPeriodMonths;
-    if (monthsForSelectedYear.length === 0) return;
-    if (monthsForSelectedYear.includes(month)) return;
-    const nearest = monthsForSelectedYear[monthsForSelectedYear.length - 1] ?? month;
-    if (nearest !== month) setMonth(nearest);
-  }, [enabledPeriodMonths, month, year]);
 
   const selectedPeriodRange = summary?.periodRangeLabel?.trim() || `${monthName(month)} ${year}`;
 

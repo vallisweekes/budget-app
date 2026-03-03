@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { ensureDefaultCategoriesForBudgetPlan } from "@/lib/categories/defaultCategories";
 import { suggestCategoryNameForExpense } from "@/lib/expenses/expenseCategorizer";
+import { ensureUkMobileProviderMappingsSeeded } from "@/lib/expenses/providerMappings";
+import { normalizePayFrequency, resolveActivePayPeriodWindow } from "@/lib/payPeriods";
 
 export const COMMON_OCCUPATIONS = [
   "Accountant",
@@ -37,6 +39,9 @@ export type OnboardingInput = {
   payFrequency?: "monthly" | "every_2_weeks" | "weekly" | null;
   billFrequency?: "monthly" | "every_2_weeks" | null;
   monthlySalary?: number | null;
+  planningYears?: number | null;
+  savingsGoalAmount?: number | null;
+  savingsGoalYear?: number | null;
   expenseOneName?: string | null;
   expenseOneAmount?: number | null;
   expenseTwoName?: string | null;
@@ -62,6 +67,9 @@ type OnboardingProfileRecord = {
   payFrequency: "monthly" | "every_2_weeks" | "weekly" | null;
   billFrequency: "monthly" | "every_2_weeks" | null;
   monthlySalary: unknown;
+  planningYears: number | null;
+  savingsGoalAmount: unknown;
+  savingsGoalYear: number | null;
   expenseOneName: string | null;
   expenseOneAmount: unknown;
   expenseTwoName: string | null;
@@ -75,6 +83,7 @@ type OnboardingProfileRecord = {
   hasDebtsToManage: boolean | null;
   debtAmount: unknown;
   debtNotes: string | null;
+  generatedPlanId: string | null;
 };
 
 function isPrismaValidationError(err: unknown, contains: string): boolean {
@@ -154,6 +163,28 @@ function toNullableNumber(value: unknown): number | null {
   if (value == null) return null;
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
+}
+
+function clampIntRange(value: number | null | undefined, min: number, max: number): number | null {
+  if (value == null || !Number.isFinite(value)) return null;
+  const rounded = Math.trunc(value);
+  return Math.max(min, Math.min(max, rounded));
+}
+
+function buildForwardSeedMonths(startDate: Date, planningYears: number): Array<{ month: number; year: number }> {
+  const safeYears = Math.max(1, Math.min(30, Math.trunc(planningYears)));
+  const count = safeYears * 12;
+  const startMonthIndex = startDate.getMonth();
+  const startYear = startDate.getFullYear();
+  const out: Array<{ month: number; year: number }> = [];
+  for (let offset = 0; offset < count; offset += 1) {
+    const absolute = startMonthIndex + offset;
+    out.push({
+      month: (absolute % 12) + 1,
+      year: startYear + Math.floor(absolute / 12),
+    });
+  }
+  return out;
 }
 
 export async function createOnboardingForNewUser(userId: string) {
@@ -278,6 +309,9 @@ export async function getOnboardingForUser(userId: string) {
         payFrequency: cleanPayFrequency(profile.payFrequency),
         billFrequency: cleanBillFrequency(profile.billFrequency),
         monthlySalary: toNullableNumber(profile.monthlySalary),
+        planningYears: toNullableNumber(profile.planningYears),
+        savingsGoalAmount: toNullableNumber(profile.savingsGoalAmount),
+        savingsGoalYear: toNullableNumber(profile.savingsGoalYear),
         expenseOneName: profile.expenseOneName,
         expenseOneAmount: toNullableNumber(profile.expenseOneAmount),
         expenseTwoName: profile.expenseTwoName,
@@ -305,6 +339,9 @@ export async function getOnboardingForUser(userId: string) {
     payFrequency: null,
     billFrequency: null,
     monthlySalary: null,
+    planningYears: null,
+    savingsGoalAmount: null,
+    savingsGoalYear: null,
     expenseOneName: null,
     expenseOneAmount: null,
     expenseTwoName: null,
@@ -354,6 +391,9 @@ export async function getOnboardingForUser(userId: string) {
       payFrequency: cleanPayFrequency(profile.payFrequency),
       billFrequency: cleanBillFrequency(profile.billFrequency),
       monthlySalary: toNullableNumber(profile.monthlySalary),
+      planningYears: toNullableNumber(profile.planningYears),
+      savingsGoalAmount: toNullableNumber(profile.savingsGoalAmount),
+      savingsGoalYear: toNullableNumber(profile.savingsGoalYear),
       expenseOneName: profile.expenseOneName,
       expenseOneAmount: toNullableNumber(profile.expenseOneAmount),
       expenseTwoName: profile.expenseTwoName,
@@ -396,6 +436,9 @@ export async function saveOnboardingDraft(userId: string, input: OnboardingInput
     payFrequency: cleanPayFrequency(input.payFrequency),
     billFrequency: cleanBillFrequency(input.billFrequency),
     monthlySalary: toAmount(input.monthlySalary),
+    planningYears: clampIntRange(input.planningYears, 1, 30),
+    savingsGoalAmount: toAmount(input.savingsGoalAmount),
+    savingsGoalYear: clampIntRange(input.savingsGoalYear, 2000, 2200),
     expenseOneName: cleanText(input.expenseOneName),
     expenseOneAmount: toAmount(input.expenseOneAmount),
     expenseTwoName: cleanText(input.expenseTwoName),
@@ -447,7 +490,15 @@ export async function saveOnboardingDraft(userId: string, input: OnboardingInput
       /data\.payFrequency/i.test(message) ||
       /data\.billFrequency/i.test(message);
 
-    if (!shouldDropMainGoals && !shouldDropBuildBudget && !shouldDropExtraBills && !shouldDropPaySetup) throw error;
+    const shouldDropPlanningProjection =
+      /Unknown arg(ument)? `planningYears`/i.test(message) ||
+      /Unknown arg(ument)? `savingsGoalAmount`/i.test(message) ||
+      /Unknown arg(ument)? `savingsGoalYear`/i.test(message) ||
+      /data\.planningYears/i.test(message) ||
+      /data\.savingsGoalAmount/i.test(message) ||
+      /data\.savingsGoalYear/i.test(message);
+
+    if (!shouldDropMainGoals && !shouldDropBuildBudget && !shouldDropExtraBills && !shouldDropPaySetup && !shouldDropPlanningProjection) throw error;
 
     const retryData: Record<string, unknown> = { ...updateData };
 
@@ -466,6 +517,12 @@ export async function saveOnboardingDraft(userId: string, input: OnboardingInput
       delete retryData.payDay;
       delete retryData.payFrequency;
       delete retryData.billFrequency;
+    }
+
+    if (shouldDropPlanningProjection) {
+      delete retryData.planningYears;
+      delete retryData.savingsGoalAmount;
+      delete retryData.savingsGoalYear;
     }
 
     if (shouldDropBuildBudget) {
@@ -509,6 +566,8 @@ async function ensurePersonalPlan(userId: string) {
 }
 
 export async function completeOnboarding(userId: string) {
+  await ensureUkMobileProviderMappingsSeeded();
+
   const profile = await onboardingDelegate(prisma).findUnique({ where: { userId } });
   if (!profile) {
     throw new Error("Onboarding profile not found. Save onboarding draft first.");
@@ -516,11 +575,31 @@ export async function completeOnboarding(userId: string) {
 
   const budgetPlanId = await ensurePersonalPlan(userId);
 
-  const month = new Date().getMonth() + 1;
+  const planningYears = clampIntRange(toNullableNumber(profile.planningYears), 1, 30) ?? 10;
+  const savingsGoalAmount = Number(profile.savingsGoalAmount ?? 0);
+  const savingsGoalYear = clampIntRange(toNullableNumber(profile.savingsGoalYear), 2000, 2200);
+
   const year = new Date().getFullYear();
   const payDay = clampPayDay(toNullableNumber(profile.payDay));
 
-  const seededMonths = Array.from({ length: month }, (_, idx) => idx + 1);
+  const now = new Date();
+  const activePayPeriod = resolveActivePayPeriodWindow({
+    now,
+    payDate: payDay ?? 1,
+    payFrequency: normalizePayFrequency(profile.payFrequency),
+  });
+  const activePeriodMonth = activePayPeriod.start.getUTCMonth() + 1;
+  const activePeriodYear = activePayPeriod.start.getUTCFullYear();
+
+  const seededIncomePeriods = buildForwardSeedMonths(now, planningYears);
+  const seededExpensePeriods = Array.from(
+    new Map(
+      [
+        { month: now.getMonth() + 1, year: now.getFullYear() },
+        { month: activePeriodMonth, year: activePeriodYear },
+      ].map((entry) => [`${entry.year}-${entry.month}`, entry])
+    ).values()
+  );
 
   const categories = await prisma.category.findMany({
     where: { budgetPlanId },
@@ -556,9 +635,9 @@ export async function completeOnboarding(userId: string) {
     const salary = Number(profile.monthlySalary ?? 0);
 
     if (salary > 0) {
-      for (const targetMonth of seededMonths) {
+      for (const period of seededIncomePeriods) {
         const existingSalary = await tx.income.findFirst({
-          where: { budgetPlanId, month: targetMonth, year },
+          where: { budgetPlanId, month: period.month, year: period.year },
           select: { id: true },
         });
         if (existingSalary) continue;
@@ -568,8 +647,8 @@ export async function completeOnboarding(userId: string) {
             budgetPlanId,
             name: "Salary",
             amount: salary,
-            month: targetMonth,
-            year,
+            month: period.month,
+            year: period.year,
           },
         });
       }
@@ -580,33 +659,43 @@ export async function completeOnboarding(userId: string) {
       where: { id: budgetPlanId },
       data: {
         payDate: payDay ?? undefined,
+        budgetHorizonYears: planningYears,
         monthlyAllowance: profile.hasAllowance ? allowance : 0,
       },
     });
 
-    for (const item of expenseSeeds) {
-      if (!item.resolvedName || item.amount <= 0) continue;
-      const exists = await tx.expense.findFirst({
-        where: { budgetPlanId, month, year, name: item.resolvedName },
-        select: { id: true },
-      });
-      if (exists) continue;
-      await tx.expense.create({
-        data: {
-          budgetPlanId,
-          name: item.resolvedName,
-          amount: item.amount,
-          month,
-          year,
-          dueDate: payDay
-            ? new Date(Date.UTC(year, month - 1, Math.min(payDay, new Date(Date.UTC(year, month, 0)).getUTCDate())))
-            : undefined,
-          paid: false,
-          paidAmount: 0,
-          isAllocation: false,
-          categoryId: item.categoryId ?? undefined,
-        },
-      });
+    for (const period of seededExpensePeriods) {
+      for (const item of expenseSeeds) {
+        if (!item.resolvedName || item.amount <= 0) continue;
+        const exists = await tx.expense.findFirst({
+          where: { budgetPlanId, month: period.month, year: period.year, name: item.resolvedName },
+          select: { id: true },
+        });
+        if (exists) continue;
+
+        await tx.expense.create({
+          data: {
+            budgetPlanId,
+            name: item.resolvedName,
+            amount: item.amount,
+            month: period.month,
+            year: period.year,
+            dueDate: payDay
+              ? new Date(
+                Date.UTC(
+                  period.year,
+                  period.month - 1,
+                  Math.min(payDay, new Date(Date.UTC(period.year, period.month, 0)).getUTCDate())
+                )
+              )
+              : undefined,
+            paid: false,
+            paidAmount: 0,
+            isAllocation: false,
+            categoryId: item.categoryId ?? undefined,
+          },
+        });
+      }
     }
 
     const debtAmount = Number(profile.debtAmount ?? 0);
@@ -659,9 +748,14 @@ export async function completeOnboarding(userId: string) {
           title: goalTitle,
           type: "short_term",
           category: goal === "manage_debts" ? "debt" : "savings",
-          targetAmount: goal === "manage_debts" ? debtAmount || 1000 : 1000,
+          targetAmount:
+            goal === "manage_debts"
+              ? debtAmount || 1000
+              : savingsGoalAmount > 0
+                ? savingsGoalAmount
+                : 1000,
           currentAmount: 0,
-          targetYear: year,
+          targetYear: goal === "manage_debts" ? year : savingsGoalYear ?? year,
         },
       });
     }
@@ -692,4 +786,133 @@ export async function completeOnboarding(userId: string) {
   });
 
   return { budgetPlanId };
+}
+
+export async function runOnboardingRepairPass(userId: string) {
+  await ensureUkMobileProviderMappingsSeeded();
+
+  const profile = await onboardingDelegate(prisma).findUnique({ where: { userId } });
+  if (!profile || profile.status !== "completed") return;
+
+  const budgetPlanId = (typeof profile.generatedPlanId === "string" && profile.generatedPlanId.trim())
+    ? profile.generatedPlanId.trim()
+    : await ensurePersonalPlan(userId);
+
+  const now = new Date();
+  const planningYears = clampIntRange(toNullableNumber(profile.planningYears), 1, 30) ?? 10;
+  const payDay = clampPayDay(toNullableNumber(profile.payDay));
+  const payFrequency = normalizePayFrequency(profile.payFrequency);
+  const activePayPeriod = resolveActivePayPeriodWindow({
+    now,
+    payDate: payDay ?? 1,
+    payFrequency,
+  });
+  const activePeriodMonth = activePayPeriod.start.getUTCMonth() + 1;
+  const activePeriodYear = activePayPeriod.start.getUTCFullYear();
+
+  const seededIncomePeriods = buildForwardSeedMonths(now, planningYears);
+  const seededExpensePeriods = Array.from(
+    new Map(
+      [
+        { month: now.getMonth() + 1, year: now.getFullYear() },
+        { month: activePeriodMonth, year: activePeriodYear },
+      ].map((entry) => [`${entry.year}-${entry.month}`, entry])
+    ).values()
+  );
+
+  const expenseSeedsRaw: Array<{ name: string | null; amount: number; fallbackName: string }> = [
+    { name: profile.expenseOneName, amount: Number(profile.expenseOneAmount ?? 0), fallbackName: "Bill 1" },
+    { name: profile.expenseTwoName, amount: Number(profile.expenseTwoAmount ?? 0), fallbackName: "Bill 2" },
+    { name: profile.expenseThreeName, amount: Number(profile.expenseThreeAmount ?? 0), fallbackName: "Bill 3" },
+    { name: profile.expenseFourName, amount: Number(profile.expenseFourAmount ?? 0), fallbackName: "Bill 4" },
+  ];
+
+  const expenseSeeds = expenseSeedsRaw
+    .filter((item) => item.amount > 0)
+    .map((item) => ({
+      name: cleanText(item.name) || item.fallbackName,
+      amount: item.amount,
+    }));
+
+  await prisma.$transaction(async (tx) => {
+    const salary = Number(profile.monthlySalary ?? 0);
+
+    if (salary > 0) {
+      for (const period of seededIncomePeriods) {
+        const existingSalary = await tx.income.findFirst({
+          where: { budgetPlanId, month: period.month, year: period.year },
+          select: { id: true },
+        });
+        if (existingSalary) continue;
+
+        await tx.income.create({
+          data: {
+            budgetPlanId,
+            name: "Salary",
+            amount: salary,
+            month: period.month,
+            year: period.year,
+          },
+        });
+      }
+    }
+
+    if (payDay) {
+      await tx.budgetPlan.update({
+        where: { id: budgetPlanId },
+        data: {
+          payDate: payDay,
+          budgetHorizonYears: planningYears,
+        },
+      });
+    }
+
+    for (const period of seededExpensePeriods) {
+      for (const item of expenseSeeds) {
+        const dueDate = payDay
+          ? new Date(
+            Date.UTC(
+              period.year,
+              period.month - 1,
+              Math.min(payDay, new Date(Date.UTC(period.year, period.month, 0)).getUTCDate())
+            )
+          )
+          : null;
+
+        const existing = await tx.expense.findFirst({
+          where: {
+            budgetPlanId,
+            month: period.month,
+            year: period.year,
+            name: item.name,
+          },
+          select: { id: true, dueDate: true },
+        });
+
+        if (existing) {
+          if (!existing.dueDate && dueDate) {
+            await tx.expense.update({
+              where: { id: existing.id },
+              data: { dueDate },
+            });
+          }
+          continue;
+        }
+
+        await tx.expense.create({
+          data: {
+            budgetPlanId,
+            name: item.name,
+            amount: item.amount,
+            month: period.month,
+            year: period.year,
+            dueDate: dueDate ?? undefined,
+            paid: false,
+            paidAmount: 0,
+            isAllocation: false,
+          },
+        });
+      }
+    }
+  });
 }

@@ -98,6 +98,10 @@ model UserOnboardingProfile {
   payFrequency       String?
   billFrequency      String?
   monthlySalary      Decimal?         @db.Decimal(12, 2)
+  planningYears      Int?
+
+  savingsGoalAmount  Decimal?         @db.Decimal(12, 2)
+  savingsGoalYear    Int?
 
   expenseOneName     String?
   expenseOneAmount   Decimal?         @db.Decimal(12, 2)
@@ -121,6 +125,21 @@ model UserOnboardingProfile {
   updatedAt          DateTime         @updatedAt
 
   @@index([status])
+}
+
+model ExpenseProviderMapping {
+  id           String   @id @default(cuid())
+  countryCode  String   @default("GB")
+  providerName String
+  aliases      String[] @default([])
+  categoryName String   @default("Utilities")
+  isActive     Boolean  @default(true)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([countryCode, providerName])
+  @@index([countryCode, isActive])
 }
 
 model MobileAuthSession {

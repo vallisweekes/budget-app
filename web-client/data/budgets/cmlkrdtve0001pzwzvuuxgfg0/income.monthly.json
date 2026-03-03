@@ -1,0 +1,91 @@
+{
+  "AUGUST ": [
+    {
+      "id": "SALARY-AUGUST ",
+      "name": "SALARY",
+      "amount": 5040
+    },
+    {
+      "id": "GIGS-AUGUST ",
+      "name": "GIGS",
+      "amount": 800
+    }
+  ],
+  "SEPTEMBER": [
+    {
+      "id": "SALARY-SEPTEMBER",
+      "name": "SALARY",
+      "amount": 5040
+    }
+  ],
+  "OCTOBER": [
+    {
+      "id": "SALARY-OCTOBER",
+      "name": "SALARY",
+      "amount": 5040
+    }
+  ],
+  "NOVEMBER": [
+    {
+      "id": "SALARY-NOVEMBER",
+      "name": "SALARY",
+      "amount": 5040
+    }
+  ],
+  "DECEMBER": [
+    {
+      "id": "SALARY-DECEMBER",
+      "name": "SALARY",
+      "amount": 5040
+    }
+  ],
+  "JANUARY": [
+    {
+      "id": "SALARY-JANUARY",
+      "name": "SALARY",
+      "amount": 5040
+    }
+  ],
+  "FEBURARY": [
+    {
+      "id": "SALARY-FEBURARY",
+      "name": "SALARY",
+      "amount": 5040
+    }
+  ],
+  "MARCH": [
+    {
+      "id": "SALARY-MARCH",
+      "name": "SALARY",
+      "amount": 4850
+    }
+  ],
+  "APRIL": [
+    {
+      "id": "SALARY-APRIL",
+      "name": "SALARY",
+      "amount": 4850
+    }
+  ],
+  "MAY": [
+    {
+      "id": "SALARY-MAY",
+      "name": "SALARY",
+      "amount": 14500
+    }
+  ],
+  "JUNE": [
+    {
+      "id": "SALARY-JUNE",
+      "name": "SALARY",
+      "amount": 5000
+    }
+  ],
+  "JULY": [
+    {
+      "id": "SALARY-JULY",
+      "name": "SALARY",
+      "amount": 5000
+    }
+  ]
+}

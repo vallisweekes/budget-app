@@ -1,0 +1,32 @@
+[
+  {
+    "id": "goal-1",
+    "title": "Pay Back Debts",
+    "type": "yearly",
+    "category": "debt",
+    "description": "Focus on reducing credit card and loan balances this year",
+    "createdAt": "2026-02-11T00:00:00.000Z"
+  },
+  {
+    "id": "goal-2",
+    "title": "Emergency Fund Goal",
+    "targetAmount": 40000,
+    "currentAmount": 0,
+    "type": "long-term",
+    "category": "emergency",
+    "targetYear": 2035,
+    "description": "Build a comprehensive emergency fund",
+    "createdAt": "2026-02-11T00:00:00.000Z"
+  },
+  {
+    "id": "goal-3",
+    "title": "Savings Goal",
+    "targetAmount": 60000,
+    "currentAmount": 0,
+    "type": "long-term",
+    "category": "savings",
+    "targetYear": 2035,
+    "description": "Long-term savings target for financial security",
+    "createdAt": "2026-02-11T00:00:00.000Z"
+  }
+]

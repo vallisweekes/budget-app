@@ -168,6 +168,14 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
 
   const needsSetup = totalIncome <= 0 || totalExpenses <= 0;
   const recap = dashboard?.expenseInsights?.recap ?? null;
+  const hasRecapData = Boolean(
+    recap && (
+      (recap.paidCount ?? 0) > 0
+      || (recap.paidAmount ?? 0) > 0
+      || (recap.missedDueCount ?? 0) > 0
+      || (recap.missedDueAmount ?? 0) > 0
+    )
+  );
   const recapTitle = recap
     ? (hasPayDateConfigured
         ? `${previousPayPeriodLabel} Recap`
@@ -453,7 +461,7 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
         )}
 
         {/* Previous Month Recap */}
-        {recap ? (
+        {recap && hasRecapData ? (
           <View style={styles.recapWrap}>
             <View style={styles.recapBadge}>
               <Text style={styles.recapBadgeText}>{recapTitle}</Text>
@@ -476,18 +484,16 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
         ) : null}
 
         {/* Goals (swipe cards) */}
-        {dashboard ? (
+        {goalCardsData.length > 0 ? (
           <View style={styles.goalsWrap}>
-            {goalCardsData.length > 0 ? (
-              <View style={styles.goalsHeaderRow}>
-                <Pressable onPress={() => navigation.navigate("Goals")} hitSlop={8}>
-                  <Text style={styles.seeAllGoalsText}>See all goals</Text>
-                </Pressable>
-                <Pressable onPress={() => navigation.navigate("GoalsProjection")} hitSlop={8}>
-                  <Text style={styles.goalsProjectionTitle}>Goals projection</Text>
-                </Pressable>
-              </View>
-            ) : null}
+            <View style={styles.goalsHeaderRow}>
+              <Pressable onPress={() => navigation.navigate("Goals")} hitSlop={8}>
+                <Text style={styles.seeAllGoalsText}>See all goals</Text>
+              </Pressable>
+              <Pressable onPress={() => navigation.navigate("GoalsProjection")} hitSlop={8}>
+                <Text style={styles.goalsProjectionTitle}>Goals projection</Text>
+              </Pressable>
+            </View>
 
             <FlatList
               horizontal

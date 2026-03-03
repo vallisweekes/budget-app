@@ -293,6 +293,20 @@ export async function getDashboardExpenseInsights({
 		}
 	}
 
+	if (recap && userCreatedAt) {
+		const prevMonthEndUtc = new Date(Date.UTC(prevYear, prevMonthNum, 0, 23, 59, 59, 999));
+		const signedUpAfterPrevMonth = userCreatedAt.getTime() > prevMonthEndUtc.getTime();
+		const recapIsEmpty =
+			(recap.paidCount ?? 0) <= 0 &&
+			(recap.paidAmount ?? 0) <= 0 &&
+			(recap.missedDueCount ?? 0) <= 0 &&
+			(recap.missedDueAmount ?? 0) <= 0;
+
+		if (signedUpAfterPrevMonth && recapIsEmpty) {
+			recap = null;
+		}
+	}
+
 	const today = todayUtcDateOnly(now);
 
 	const baseDueIso = isoForPayDate(basePay.year, basePay.monthNum, payDate);

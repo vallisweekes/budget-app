@@ -54,6 +54,12 @@ const Tab = createBottomTabNavigator<MainTabParamList>();
 const IncomeStack = createNativeStackNavigator<IncomeStackParamList>();
 const ExpensesStack = createNativeStackNavigator<ExpensesStackParamList>();
 const DebtStack = createNativeStackNavigator<DebtStackParamList>();
+const ONBOARDING_FALLBACK: OnboardingStatusResponse = {
+  required: false,
+  completed: false,
+  profile: null,
+  occupations: [],
+};
 
 const APP_STACK_SCREEN_OPTIONS = {
   headerShown: false,
@@ -92,22 +98,8 @@ function DebtStackNavigator() {
   );
 }
 
-function NotificationSettingsScreen(props: unknown) {
-  const p = props as React.ComponentProps<typeof SettingsScreen> & {
-    route?: { params?: Record<string, unknown> };
-  };
-  return (
-    <SettingsScreen
-      {...p}
-      route={{
-        ...(p.route as object),
-        params: {
-          ...(p.route?.params ?? {}),
-          initialTab: "notifications",
-        },
-      } as never}
-    />
-  );
+function NotificationSettingsScreenAdapter(props: unknown) {
+  return <SettingsScreen {...(props as any)} />;
 }
 
 function RootTopHeader({ navigation }: { navigation: any }) {
@@ -833,18 +825,17 @@ export default function RootNavigator() {
   const [onboardingState, setOnboardingState] = useState<OnboardingStatusResponse | null>(null);
   const [onboardingLoading, setOnboardingLoading] = useState(false);
   const [completingOnboarding, setCompletingOnboarding] = useState(false);
-  const [onboardingRefreshKey, setOnboardingRefreshKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
 
     if (!token) {
-      setOnboardingState(null);
-      setOnboardingLoading(false);
+      setOnboardingState((prev) => (prev === null ? prev : null));
+      setOnboardingLoading((prev) => (prev ? false : prev));
       return;
     }
 
-    setOnboardingLoading(true);
+    setOnboardingLoading((prev) => (prev ? prev : true));
 
     void (async () => {
       try {
@@ -852,18 +843,32 @@ export default function RootNavigator() {
           cacheTtlMs: 0,
           skipOnUnauthorized: true,
         });
-        if (!cancelled) setOnboardingState(data);
+        if (!cancelled) {
+          setOnboardingState((prev) => {
+            if (
+              prev?.required === data.required
+              && prev?.completed === data.completed
+              && prev?.profile === data.profile
+              && prev?.occupations === data.occupations
+            ) {
+              return prev;
+            }
+            return data;
+          });
+        }
       } catch {
-        if (!cancelled) setOnboardingState({ required: false, completed: false, profile: null, occupations: [] });
+        if (!cancelled) {
+          setOnboardingState((prev) => (prev === ONBOARDING_FALLBACK ? prev : ONBOARDING_FALLBACK));
+        }
       } finally {
-        if (!cancelled) setOnboardingLoading(false);
+        if (!cancelled) setOnboardingLoading((prev) => (prev ? false : prev));
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [token, onboardingRefreshKey]);
+  }, [token]);
 
   const completeOnboardingAndHydrate = useCallback(async () => {
     setCompletingOnboarding(true);
@@ -894,12 +899,21 @@ export default function RootNavigator() {
           cacheTtlMs: 0,
           skipOnUnauthorized: true,
         });
-        setOnboardingState(latest);
+        setOnboardingState((prev) => {
+          if (
+            prev?.required === latest.required
+            && prev?.completed === latest.completed
+            && prev?.profile === latest.profile
+            && prev?.occupations === latest.occupations
+          ) {
+            return prev;
+          }
+          return latest;
+        });
       } catch {
-        setOnboardingState({ required: false, completed: false, profile: null, occupations: [] });
+        setOnboardingState((prev) => (prev === ONBOARDING_FALLBACK ? prev : ONBOARDING_FALLBACK));
       }
 
-      setOnboardingRefreshKey((prev) => prev + 1);
     } finally {
       setCompletingOnboarding(false);
     }
@@ -946,7 +960,7 @@ export default function RootNavigator() {
             />
             <Stack.Screen
               name="NotificationSettings"
-              component={NotificationSettingsScreen}
+              component={NotificationSettingsScreenAdapter}
               options={({ navigation }) => ({
                 headerShown: true,
                 headerTransparent: true,
@@ -967,7 +981,6 @@ export default function RootNavigator() {
                 header: () => <RootTopHeader navigation={navigation} />,
               })}
             />
-            <Stack.Screen name="Goals" component={GoalsScreen} />
             <Stack.Screen name="GoalsProjection" component={GoalsProjectionScreen} />
             <Stack.Screen name="SettingsStrategy" component={SettingsStrategyScreen} />
           </>

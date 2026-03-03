@@ -1,4 +1,6 @@
-import "server-only";
+import { enforceServerOnlyRuntime } from "@/lib/serverOnly";
+
+enforceServerOnlyRuntime();
 
 type ErrorWithCode = { code?: unknown };
 

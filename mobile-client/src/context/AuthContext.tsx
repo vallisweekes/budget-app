@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import {
   getSessionToken,
@@ -32,6 +32,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     username: null,
     isLoading: true,
   });
+  const signOutInFlightRef = useRef(false);
+
+  const setAuthState = useCallback((next: AuthState) => {
+    setState((prev) => (
+      prev.token === next.token
+      && prev.username === next.username
+      && prev.isLoading === next.isLoading
+        ? prev
+        : next
+    ));
+  }, []);
 
   // Rehydrate from secure store on mount
   useEffect(() => {
@@ -42,23 +53,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const token = await getSessionToken();
         if (!token) {
-          setState({ token: null, username: null, isLoading: false });
+          setAuthState({ token: null, username: null, isLoading: false });
           return;
         }
 
         const profile = await apiFetch<ProfileMeResponse>("/api/bff/me", { cacheTtlMs: 0, skipOnUnauthorized: true });
         const username = typeof profile?.username === "string" ? profile.username.trim() : "";
         await setStoredUsername(username);
-        setState({ token, username: username || null, isLoading: false });
+        setAuthState({ token, username: username || null, isLoading: false });
       } catch {
         await Promise.all([clearSessionToken(), clearStoredUsername()]);
         invalidateApiCache();
-        setState({ token: null, username: null, isLoading: false });
+        setAuthState({ token: null, username: null, isLoading: false });
       } finally {
         suppressUnauthorizedCallback(false);
       }
     })();
-  }, []);
+  }, [setAuthState]);
 
   const signIn = useCallback(
     async (usernameInput: string, mode: "login" | "register" = "login", emailInput = "") => {
@@ -75,7 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (mode === "register") {
         await Promise.all([clearSessionToken(), clearStoredUsername()]);
         invalidateApiCache();
-        setState({ token: null, username: null, isLoading: false });
+        setAuthState({ token: null, username: null, isLoading: false });
       }
 
       const res = await fetch(`${baseUrl}/api/mobile-auth`, {
@@ -108,47 +119,54 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await Promise.all([setSessionToken(sessionToken), setStoredUsername(sessionUsername)]);
 
       invalidateApiCache();
-      setState({ token: sessionToken, username: sessionUsername, isLoading: false });
+      setAuthState({ token: sessionToken, username: sessionUsername, isLoading: false });
       } finally {
         // Re-enable 401 auto-sign-out only after the new token is safely persisted.
         suppressUnauthorizedCallback(false);
       }
     },
-    []
+    [setAuthState]
   );
 
   const signOut = useCallback(async () => {
+    if (signOutInFlightRef.current) return;
+    signOutInFlightRef.current = true;
+
     // Snapshot the token at the start of sign-out. If a concurrent signIn saves a
     // new token before we finish, we abort so we don't wipe the fresh session.
     const tokenSnapshot = await getSessionToken();
 
     try {
-      if (tokenSnapshot) {
-        const baseUrl = getApiBaseUrl();
-        await fetch(`${baseUrl}/api/mobile-auth/logout`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${tokenSnapshot}`,
-            Cookie: `next-auth.session-token=${tokenSnapshot}`,
-          },
-        });
+      try {
+        if (tokenSnapshot) {
+          const baseUrl = getApiBaseUrl();
+          await fetch(`${baseUrl}/api/mobile-auth/logout`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${tokenSnapshot}`,
+              Cookie: `next-auth.session-token=${tokenSnapshot}`,
+            },
+          });
+        }
+      } catch {
+        // Ignore network/server failures during logout; local sign-out still proceeds.
       }
-    } catch {
-      // Ignore network/server failures during logout; local sign-out still proceeds.
-    }
 
-    // Abort if a fresher token was stored while we were awaiting above.
-    // This prevents a stale 401 sign-out from killing a just-logged-in session.
-    const currentToken = await getSessionToken();
-    if (tokenSnapshot !== currentToken) {
-      return;
-    }
+      // Abort if a fresher token was stored while we were awaiting above.
+      // This prevents a stale 401 sign-out from killing a just-logged-in session.
+      const currentToken = await getSessionToken();
+      if (tokenSnapshot !== currentToken) {
+        return;
+      }
 
-    await Promise.all([clearSessionToken(), clearStoredUsername()]);
-    invalidateApiCache();
-    setState({ token: null, username: null, isLoading: false });
-  }, []);
+      await Promise.all([clearSessionToken(), clearStoredUsername()]);
+      invalidateApiCache();
+      setAuthState({ token: null, username: null, isLoading: false });
+    } finally {
+      signOutInFlightRef.current = false;
+    }
+  }, [setAuthState]);
 
   // Register a global callback so apiFetch can trigger sign-out on 401
   useEffect(() => {

@@ -9,6 +9,67 @@ import { getAllExpenses, addOrUpdateExpenseAcrossMonths } from "@/lib/expenses/s
 
 const prisma = new PrismaClient();
 
+const UK_PROVIDER_MAPPINGS: Array<{ providerName: string; aliases: string[]; categoryName: string }> = [
+  { providerName: "EE", aliases: ["ee"], categoryName: "Utilities" },
+  { providerName: "Vodafone", aliases: ["vodafone"], categoryName: "Utilities" },
+  { providerName: "O2", aliases: ["o2", "telefonica o2"], categoryName: "Utilities" },
+  { providerName: "Three", aliases: ["three", "3"], categoryName: "Utilities" },
+  { providerName: "giffgaff", aliases: ["giffgaff"], categoryName: "Utilities" },
+  { providerName: "VOXI", aliases: ["voxi"], categoryName: "Utilities" },
+  { providerName: "SMARTY", aliases: ["smarty"], categoryName: "Utilities" },
+  { providerName: "Lebara", aliases: ["lebara"], categoryName: "Utilities" },
+  { providerName: "Lyca Mobile", aliases: ["lyca", "lycamobile", "lyca mobile"], categoryName: "Utilities" },
+  { providerName: "Tesco Mobile", aliases: ["tesco mobile"], categoryName: "Utilities" },
+  { providerName: "Sky Mobile", aliases: ["sky mobile"], categoryName: "Utilities" },
+  { providerName: "iD Mobile", aliases: ["id mobile", "i d mobile"], categoryName: "Utilities" },
+  { providerName: "Virgin Media", aliases: ["virgin media", "virgin"], categoryName: "Utilities" },
+  { providerName: "BT Mobile", aliases: ["bt mobile"], categoryName: "Utilities" },
+  { providerName: "Talkmobile", aliases: ["talkmobile", "talk mobile"], categoryName: "Utilities" },
+  { providerName: "ASDA Mobile", aliases: ["asda mobile"], categoryName: "Utilities" },
+];
+
+async function seedExpenseProviderMappings() {
+  const runtimeDataModel = (prisma as unknown as {
+    _runtimeDataModel?: { models?: Record<string, unknown> };
+  })._runtimeDataModel;
+
+  if (!runtimeDataModel?.models?.ExpenseProviderMapping) {
+    console.log("ℹ️ Skipping provider mapping seed (model not available in this Prisma client)");
+    return;
+  }
+
+  const delegate = (prisma as unknown as {
+    expenseProviderMapping: {
+      upsert: (args: Record<string, unknown>) => Promise<unknown>;
+    };
+  }).expenseProviderMapping;
+
+  for (const item of UK_PROVIDER_MAPPINGS) {
+    await delegate.upsert({
+      where: {
+        countryCode_providerName: {
+          countryCode: "GB",
+          providerName: item.providerName,
+        },
+      },
+      update: {
+        aliases: item.aliases,
+        categoryName: item.categoryName,
+        isActive: true,
+      },
+      create: {
+        countryCode: "GB",
+        providerName: item.providerName,
+        aliases: item.aliases,
+        categoryName: item.categoryName,
+        isActive: true,
+      },
+    });
+  }
+
+  console.log(`✅ Seeded ${UK_PROVIDER_MAPPINGS.length} UK provider mappings`);
+}
+
 async function ensureEmptyFileBackedStores(budgetPlanId: string) {
   await ensureBudgetDataDir(budgetPlanId);
 
@@ -272,6 +333,8 @@ async function seedDemoFileData(params: {
 
 async function main() {
   console.log("🌱 Starting database seed...\n");
+
+  await seedExpenseProviderMappings();
 
   // 0. Seed default user + budget plan
   console.log("👤 Seeding default user + budget plan...");

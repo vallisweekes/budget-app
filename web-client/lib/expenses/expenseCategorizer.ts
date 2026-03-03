@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { suggestProviderMappedCategory } from "@/lib/expenses/providerMappings";
 
 function norm(s: string): string {
 	return String(s ?? "").trim().toLowerCase();
@@ -164,6 +165,15 @@ export async function suggestCategoryNameForExpense(params: {
 
 	const apiKey = process.env.OPENAI_API_KEY;
 	const canUseAi = Boolean(apiKey);
+
+	const mappedProviderCategory = await suggestProviderMappedCategory({
+		expenseName,
+		availableCategories: available,
+	});
+	if (mappedProviderCategory) {
+		cache.set(cacheKey, mappedProviderCategory);
+		return mappedProviderCategory;
+	}
 
 	const applyHeuristic = () => {
 		const wanted = heuristicCategory(expenseName);

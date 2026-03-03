@@ -163,6 +163,16 @@ export default function OnboardingScreen({
   );
   const [salary, setSalary] = useState(String(profile?.monthlySalary ?? ""));
   const salaryRef = useRef(String(profile?.monthlySalary ?? ""));
+  const [planningYears, setPlanningYears] = useState<string>(() => {
+    const raw = Number(profile?.planningYears ?? 0);
+    if (!Number.isFinite(raw) || raw < 1) return "10";
+    return String(Math.min(30, Math.trunc(raw)));
+  });
+  const planningYearsRef = useRef<string>(planningYears);
+  const [savingsGoalAmount, setSavingsGoalAmount] = useState(String(profile?.savingsGoalAmount ?? ""));
+  const savingsGoalAmountRef = useRef(String(profile?.savingsGoalAmount ?? ""));
+  const [savingsGoalYear, setSavingsGoalYear] = useState(String(profile?.savingsGoalYear ?? ""));
+  const savingsGoalYearRef = useRef(String(profile?.savingsGoalYear ?? ""));
   const [expenseOneName, setExpenseOneName] = useState(profile?.expenseOneName ?? "");
   const expenseOneNameRef = useRef(profile?.expenseOneName ?? "");
   const [expenseOneAmount, setExpenseOneAmount] = useState(String(profile?.expenseOneAmount ?? ""));
@@ -254,6 +264,9 @@ export default function OnboardingScreen({
     payFrequency: payFrequencyRef.current ?? undefined,
     billFrequency: billFrequencyRef.current ?? undefined,
     monthlySalary: salaryRef.current ? Number(salaryRef.current) : null,
+    planningYears: planningYearsRef.current ? Number(planningYearsRef.current) : null,
+    savingsGoalAmount: savingsGoalAmountRef.current ? Number(savingsGoalAmountRef.current) : null,
+    savingsGoalYear: savingsGoalYearRef.current ? Number(savingsGoalYearRef.current) : null,
     expenseOneName: expenseOneNameRef.current,
     expenseOneAmount: expenseOneAmountRef.current ? Number(expenseOneAmountRef.current) : null,
     expenseTwoName: expenseTwoNameRef.current,
@@ -291,6 +304,10 @@ export default function OnboardingScreen({
       if (!payFrequencyRef.current) return "Please choose how often you get paid.";
       if (!billFrequencyRef.current) return "Please choose how often you pay most bills.";
       if (!isPositiveNumber(salaryRef.current)) return "Please enter your monthly salary to continue.";
+      const years = Number(planningYearsRef.current);
+      if (!Number.isInteger(years) || years < 1 || years > 30) {
+        return "Please choose how far ahead you want to plan.";
+      }
     }
 
     if (currentStep === 3) {
@@ -319,6 +336,22 @@ export default function OnboardingScreen({
       if (hasDebtsRef.current === null) return "Please choose Yes or No for debts.";
       if (hasDebtsRef.current === true && !isPositiveNumber(debtAmountRef.current)) {
         return "Please enter your debt amount.";
+      }
+
+      const isSavingsFocus = mainGoalsRef.current.includes("improve_savings");
+      const goalAmount = Number(savingsGoalAmountRef.current);
+      const goalYear = Number(savingsGoalYearRef.current);
+      const currentYear = new Date().getFullYear();
+
+      if (isSavingsFocus && !(Number.isFinite(goalAmount) && goalAmount > 0)) {
+        return "Please enter a savings goal amount so we can build your projection.";
+      }
+      if (isSavingsFocus && !(Number.isInteger(goalYear) && goalYear >= currentYear && goalYear <= currentYear + 30)) {
+        return "Please enter a valid savings target year.";
+      }
+
+      if (savingsGoalYearRef.current.trim().length > 0 && !(Number.isInteger(goalYear) && goalYear >= 2000 && goalYear <= 2200)) {
+        return "Please enter a valid year for your savings goal.";
       }
     }
 
@@ -356,6 +389,18 @@ export default function OnboardingScreen({
   useEffect(() => {
     salaryRef.current = salary;
   }, [salary]);
+
+  useEffect(() => {
+    planningYearsRef.current = planningYears;
+  }, [planningYears]);
+
+  useEffect(() => {
+    savingsGoalAmountRef.current = savingsGoalAmount;
+  }, [savingsGoalAmount]);
+
+  useEffect(() => {
+    savingsGoalYearRef.current = savingsGoalYear;
+  }, [savingsGoalYear]);
 
   useEffect(() => {
     expenseOneNameRef.current = expenseOneName;
@@ -734,6 +779,30 @@ export default function OnboardingScreen({
                 variant="light"
                 placeholder="0.00"
               />
+
+              <Text style={s.question}>How many years ahead do you want to plan your income?</Text>
+              <View style={s.chipsWrap}>
+                {[
+                  { id: "1", label: "1 year" },
+                  { id: "3", label: "3 years" },
+                  { id: "5", label: "5 years" },
+                  { id: "10", label: "10 years" },
+                ].map((item) => {
+                  const active = planningYears === item.id;
+                  return (
+                    <Pressable
+                      key={item.id}
+                      onPress={() => {
+                        planningYearsRef.current = item.id;
+                        setPlanningYears(item.id);
+                      }}
+                      style={[s.chip, active && s.chipActive]}
+                    >
+                      <Text style={[s.chipText, active && s.chipTextActive]}>{item.label}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
             </>
           ) : null}
 
@@ -926,6 +995,32 @@ export default function OnboardingScreen({
                   />
                 </>
               ) : null}
+
+              <Text style={s.question}>Savings goal amount (for your projection)</Text>
+              <MoneyInput
+                currency={currency}
+                value={savingsGoalAmount}
+                onChangeValue={(value) => {
+                  savingsGoalAmountRef.current = value;
+                  setSavingsGoalAmount(value);
+                }}
+                variant="light"
+                placeholder="0.00"
+              />
+
+              <Text style={s.question}>What year do you want to hit that goal?</Text>
+              <TextInput
+                value={savingsGoalYear}
+                onChangeText={(value) => {
+                  const next = value.replace(/[^0-9]/g, "").slice(0, 4);
+                  savingsGoalYearRef.current = next;
+                  setSavingsGoalYear(next);
+                }}
+                placeholder="e.g. 2028"
+                placeholderTextColor="rgba(255,255,255,0.62)"
+                keyboardType="number-pad"
+                style={s.input}
+              />
             </>
           ) : null}
 

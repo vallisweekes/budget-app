@@ -9,6 +9,11 @@ type BearerIdentity = {
 	sessionId: string | null;
 };
 
+export type SessionIdentity = {
+	userId: string;
+	sessionId: string | null;
+};
+
 async function getBearerIdentityFromAuthHeader(authHeader: string | null): Promise<BearerIdentity | null> {
 	const auth = (authHeader ?? "").trim();
 	const prefix = "bearer ";
@@ -38,7 +43,7 @@ async function getBearerIdentityFromAuthHeader(authHeader: string | null): Promi
 }
 
 
-export async function getSessionUserId(request: Request): Promise<string | null> {
+export async function getSessionIdentity(request: Request): Promise<SessionIdentity | null> {
 	// Defense-in-depth: never crash auth if a non-Request is passed.
 	// (TypeScript should prevent this, but runtime safety matters.)
 	const headersGet = (request as unknown as { headers?: { get?: unknown } } | null | undefined)?.headers?.get;
@@ -55,7 +60,7 @@ export async function getSessionUserId(request: Request): Promise<string | null>
 				const active = await isMobileAuthSessionActive({ userId: bearer.userId, sessionId: bearer.sessionId });
 				if (!active) return null;
 			}
-			return bearer.userId;
+			return { userId: bearer.userId, sessionId: bearer.sessionId };
 		} catch {
 			return null;
 		}
@@ -73,10 +78,15 @@ export async function getSessionUserId(request: Request): Promise<string | null>
 			const active = await isMobileAuthSessionActive({ userId: sessionUserId, sessionId: sessionIdFromSession });
 			if (!active) return null;
 		}
-		return sessionUserId;
+		return { userId: sessionUserId, sessionId: sessionIdFromSession || null };
 	} catch {
 		return null;
 	}
+}
+
+export async function getSessionUserId(request: Request): Promise<string | null> {
+	const identity = await getSessionIdentity(request);
+	return identity?.userId ?? null;
 }
 
 export async function resolveOwnedBudgetPlanId(params: {

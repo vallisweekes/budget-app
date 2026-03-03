@@ -160,7 +160,19 @@ export async function GET(req: NextRequest) {
 		});
 		const planNow = new Date(activePeriod.start.getTime());
 		// This is required for the dashboard; let it throw if it truly can't compute.
-		const currentPlanData = await getDashboardPlanData(budgetPlanId, planNow);
+		let currentPlanData = await getDashboardPlanData(budgetPlanId, planNow);
+
+		// On newly onboarded users, expenses can exist in current calendar month while
+		// the active pay-period anchor resolves to the previous month (e.g. before payday).
+		// Fallback to the calendar month only when the active-month snapshot is empty.
+		if (currentPlanData.totalExpenses <= 0) {
+			const calendarPlanData = await getDashboardPlanData(budgetPlanId, now, {
+				ensureDefaultCategories: false,
+			});
+			if (calendarPlanData.totalExpenses > 0 || calendarPlanData.totalIncome > currentPlanData.totalIncome) {
+				currentPlanData = calendarPlanData;
+			}
+		}
 		const month = MONTHS[currentPlanData.monthNum - 1] ?? currentMonthKey();
 
 		// Everything below is "best effort". If one section fails (e.g. debt sync),

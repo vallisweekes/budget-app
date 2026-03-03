@@ -1,4 +1,6 @@
-import "server-only";
+import { enforceServerOnlyRuntime } from "@/lib/serverOnly";
+
+enforceServerOnlyRuntime();
 
 import { MONTHS } from "@/lib/constants/time";
 import { prisma } from "@/lib/prisma";

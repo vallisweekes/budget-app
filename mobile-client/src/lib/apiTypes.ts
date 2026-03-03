@@ -331,6 +331,9 @@ export interface OnboardingProfile {
   payFrequency?: "monthly" | "every_2_weeks" | "weekly" | null;
   billFrequency?: "monthly" | "every_2_weeks" | null;
   monthlySalary: string | number | null;
+  planningYears?: string | number | null;
+  savingsGoalAmount?: string | number | null;
+  savingsGoalYear?: string | number | null;
   expenseOneName: string | null;
   expenseOneAmount: string | number | null;
   expenseTwoName: string | null;
