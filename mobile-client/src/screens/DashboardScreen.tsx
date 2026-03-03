@@ -320,7 +320,7 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
         />
 
         {/* Upcoming Payments (show 3 + See all) */}
-        {upcoming.length > 0 && (
+        {
           <View style={styles.section}>
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
               <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Upcoming Expenses</Text>
@@ -328,7 +328,7 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
                 <Text style={styles.seeAllText}>See all</Text>
               </Pressable>
             </View>
-            {upcoming.slice(0, 3).map((p) => {
+            {upcoming.length > 0 ? upcoming.slice(0, 3).map((p) => {
               const logoUri = resolveLogoUri(p.logoUrl);
               const logoKey = `expense:${p.id}`;
               const showLogo = !!logoUri && !failedLogos[logoKey];
@@ -385,9 +385,11 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
                   </Text>
                 </Pressable>
               );
-            })}
+            }) : (
+              <Text style={styles.emptyUpcomingText}>No upcoming expenses yet. Add or schedule expenses to see them here.</Text>
+            )}
           </View>
-        )}
+        }
 
         {/* Upcoming Debts */}
         {upcomingDebts.length > 0 && (
@@ -564,11 +566,11 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
         ) : null}
 
         {/* Tips / Insights */}
-        {tips.length > 0 && (
+        {
           <View style={styles.section}>
             {(() => {
-              const tip = tips[aiTipIndex] ?? tips[0];
-              const message = String(tip?.detail ?? tip?.title ?? "").trim();
+              const tip = tips[aiTipIndex] ?? tips[0] ?? null;
+              const message = String(tip?.detail ?? tip?.title ?? "Track your upcoming bills and confirm income each period to keep totals accurate.").trim();
               const isHighPriority = Number(tip?.priority ?? 0) >= 80;
               return (
                 <View style={styles.aiCard}>
@@ -587,7 +589,7 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
               );
             })()}
           </View>
-        )}
+        }
       </ScrollView>
 
     </SafeAreaView>
@@ -730,6 +732,12 @@ const styles = StyleSheet.create({
   lightRowTitle: { color: T.text, fontSize: 16, fontWeight: "800", letterSpacing: -0.2 },
   lightRowSub: { color: T.textDim, fontSize: 13, fontWeight: "600", marginTop: 2 },
   lightRowAmt: { color: T.text, fontSize: 18, fontWeight: "800", letterSpacing: -0.2 },
+  emptyUpcomingText: {
+    color: T.textDim,
+    fontSize: 13,
+    fontWeight: "600",
+    lineHeight: 20,
+  },
 
   // Upcoming Debts (blue card)
   blueSection: {

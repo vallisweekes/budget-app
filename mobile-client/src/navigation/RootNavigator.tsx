@@ -377,7 +377,7 @@ function RootTopHeader({ navigation }: { navigation: any }) {
 
   useEffect(() => {
     void loadPendingCount();
-  }, [loadPendingCount, deepestRoute?.name]);
+  }, [loadPendingCount]);
 
   useEffect(() => {
     const unsubscribe = subscribeNotificationInbox((snapshot) => {

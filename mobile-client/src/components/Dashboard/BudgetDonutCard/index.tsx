@@ -14,12 +14,10 @@ const COLOR_PAID = T.green; // already paid
 const W = Dimensions.get("window").width;
 
 export default function BudgetDonutCard({ totalBudget, totalExpenses, paidTotal, currency, fmt }: BudgetDonutCardProps) {
-  const { remaining, isOverBudget, paidFrac, committedFrac, hasData } = useMemo(
+  const { remaining, isOverBudget, paidFrac, committedFrac } = useMemo(
     () => computeBudgetDonutMetrics(totalBudget, totalExpenses, paidTotal),
     [paidTotal, totalBudget, totalExpenses],
   );
-
-  if (!hasData) return null;
 
   // Chart geometry
   const SIZE    = getBudgetDonutSize(W);

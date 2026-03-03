@@ -97,13 +97,27 @@ export default function IncomeScreen() {
     const hasMissingMonths = firstMissingMonth !== null || data.monthsWithIncome < 12;
     const canAddForYear = year >= new Date().getFullYear();
 
+    const nextShowAddAction = hasMissingMonths && canAddForYear;
+    const nextAddIncomeMonth = firstMissingMonth ?? currentMonthIndex;
+    const currentYear = Number(route.params?.year);
+    const currentShowAddAction = typeof route.params?.showAddAction === "boolean" ? route.params.showAddAction : undefined;
+    const currentAddIncomeMonth = Number(route.params?.addIncomeMonth);
+    const currentBudgetPlanId = typeof route.params?.budgetPlanId === "string" ? route.params.budgetPlanId : "";
+
+    const yearChanged = !(Number.isFinite(currentYear) && currentYear === year);
+    const showAddActionChanged = currentShowAddAction !== nextShowAddAction;
+    const addIncomeMonthChanged = !(Number.isFinite(currentAddIncomeMonth) && currentAddIncomeMonth === nextAddIncomeMonth);
+    const budgetPlanChanged = currentBudgetPlanId !== data.budgetPlanId;
+
+    if (!yearChanged && !showAddActionChanged && !addIncomeMonthChanged && !budgetPlanChanged) return;
+
     navigation.setParams({
       year,
-      showAddAction: hasMissingMonths && canAddForYear,
-      addIncomeMonth: firstMissingMonth ?? currentMonthIndex,
+      showAddAction: nextShowAddAction,
+      addIncomeMonth: nextAddIncomeMonth,
       budgetPlanId: data.budgetPlanId,
     });
-  }, [data, navigation, year]);
+  }, [data, navigation, route.params?.addIncomeMonth, route.params?.budgetPlanId, route.params?.showAddAction, route.params?.year, year]);
 
   const getFirstMissingMonth = (summary: IncomeSummaryData | null): number | null => {
     if (!summary) return 1;
