@@ -1,9 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Animated,
   ActivityIndicator,
   Alert,
-  Easing,
   LayoutAnimation,
   Modal,
   PanResponder,
@@ -32,8 +30,6 @@ import MoneyInput from "@/components/Shared/MoneyInput";
 import NoteBadge from "@/components/Shared/NoteBadge";
 
 type Goal = "improve_savings" | "manage_debts" | "track_spending" | "build_budget";
-
-type GlassEffectModule = typeof import("expo-glass-effect");
 
 // Match the blue/purple used for the Expenses total hero.
 const EXPENSES_TOTAL_BLUE = "#2a0a9e";
@@ -82,26 +78,7 @@ export default function OnboardingScreen({
   const { username, signOut } = useAuth();
   const profile = initial.profile;
   const [step, setStep] = useState(0);
-  const [stepDirection, setStepDirection] = useState<1 | -1>(1);
-  const stepTransition = useRef(new Animated.Value(1)).current;
   const stepAdvanceLockRef = useRef(false);
-  const glassEffectModule = useMemo<GlassEffectModule | null>(() => {
-    if (Platform.OS !== "ios") return null;
-    try {
-      return require("expo-glass-effect") as GlassEffectModule;
-    } catch {
-      return null;
-    }
-  }, []);
-  const liquidGlassEnabled = useMemo(() => {
-    if (!glassEffectModule) return false;
-    try {
-      return glassEffectModule.isLiquidGlassAvailable();
-    } catch {
-      return false;
-    }
-  }, [glassEffectModule]);
-  const GlassView = glassEffectModule?.GlassView;
   const [saving, setSaving] = useState(false);
   const [currency, setCurrency] = useState<string | null>("GBP");
 
@@ -146,16 +123,28 @@ export default function OnboardingScreen({
   }, [profile]);
 
   const [mainGoals, setMainGoals] = useState<Goal[]>(initialGoals.length ? initialGoals : ["improve_savings"]);
+  const mainGoalsRef = useRef<Goal[]>(initialGoals.length ? initialGoals : ["improve_savings"]);
   const [occupation, setOccupation] = useState(profile?.occupation ?? "");
   const [occupationOther, setOccupationOther] = useState(profile?.occupationOther ?? "");
+  const occupationRef = useRef(profile?.occupation ?? "");
+  const occupationOtherRef = useRef(profile?.occupationOther ?? "");
   const [payDay, setPayDay] = useState(String(profile?.payDay ?? ""));
+  const payDayRef = useRef(String(profile?.payDay ?? ""));
   const [showPayDayPicker, setShowPayDayPicker] = useState(false);
   const [selectedPayDate, setSelectedPayDate] = useState<Date | null>(() => {
     const raw = Number(profile?.payDay ?? 0);
     if (!Number.isFinite(raw) || raw < 1 || raw > 31) return null;
     return new Date(new Date().getFullYear(), new Date().getMonth(), Math.trunc(raw));
   });
+  const selectedPayDateRef = useRef<Date | null>(selectedPayDate);
   const [payFrequency, setPayFrequency] = useState<"monthly" | "every_2_weeks" | "weekly" | null>(
+    profile?.payFrequency === "weekly" ||
+      profile?.payFrequency === "every_2_weeks" ||
+      profile?.payFrequency === "monthly"
+      ? profile.payFrequency
+      : null
+  );
+  const payFrequencyRef = useRef<"monthly" | "every_2_weeks" | "weekly" | null>(
     profile?.payFrequency === "weekly" ||
       profile?.payFrequency === "every_2_weeks" ||
       profile?.payFrequency === "monthly"
@@ -167,24 +156,47 @@ export default function OnboardingScreen({
       ? profile.billFrequency
       : null
   );
+  const billFrequencyRef = useRef<"monthly" | "every_2_weeks" | null>(
+    profile?.billFrequency === "every_2_weeks" || profile?.billFrequency === "monthly"
+      ? profile.billFrequency
+      : null
+  );
   const [salary, setSalary] = useState(String(profile?.monthlySalary ?? ""));
+  const salaryRef = useRef(String(profile?.monthlySalary ?? ""));
   const [expenseOneName, setExpenseOneName] = useState(profile?.expenseOneName ?? "");
+  const expenseOneNameRef = useRef(profile?.expenseOneName ?? "");
   const [expenseOneAmount, setExpenseOneAmount] = useState(String(profile?.expenseOneAmount ?? ""));
+  const expenseOneAmountRef = useRef(String(profile?.expenseOneAmount ?? ""));
   const [expenseTwoName, setExpenseTwoName] = useState(profile?.expenseTwoName ?? "");
+  const expenseTwoNameRef = useRef(profile?.expenseTwoName ?? "");
   const [expenseTwoAmount, setExpenseTwoAmount] = useState(String(profile?.expenseTwoAmount ?? ""));
+  const expenseTwoAmountRef = useRef(String(profile?.expenseTwoAmount ?? ""));
   const [expenseThreeName, setExpenseThreeName] = useState(profile?.expenseThreeName ?? "");
+  const expenseThreeNameRef = useRef(profile?.expenseThreeName ?? "");
   const [expenseThreeAmount, setExpenseThreeAmount] = useState(String(profile?.expenseThreeAmount ?? ""));
+  const expenseThreeAmountRef = useRef(String(profile?.expenseThreeAmount ?? ""));
   const [expenseFourName, setExpenseFourName] = useState(profile?.expenseFourName ?? "");
+  const expenseFourNameRef = useRef(profile?.expenseFourName ?? "");
   const [expenseFourAmount, setExpenseFourAmount] = useState(String(profile?.expenseFourAmount ?? ""));
+  const expenseFourAmountRef = useRef(String(profile?.expenseFourAmount ?? ""));
   const [hasAllowance, setHasAllowance] = useState<boolean | null>(
     typeof profile?.hasAllowance === "boolean" ? profile.hasAllowance : null
   );
+  const hasAllowanceRef = useRef<boolean | null>(
+    typeof profile?.hasAllowance === "boolean" ? profile.hasAllowance : null
+  );
   const [allowanceAmount, setAllowanceAmount] = useState(String(profile?.allowanceAmount ?? ""));
+  const allowanceAmountRef = useRef(String(profile?.allowanceAmount ?? ""));
   const [hasDebts, setHasDebts] = useState<boolean | null>(
     typeof profile?.hasDebtsToManage === "boolean" ? profile.hasDebtsToManage : null
   );
+  const hasDebtsRef = useRef<boolean | null>(
+    typeof profile?.hasDebtsToManage === "boolean" ? profile.hasDebtsToManage : null
+  );
   const [debtAmount, setDebtAmount] = useState(String(profile?.debtAmount ?? ""));
+  const debtAmountRef = useRef(String(profile?.debtAmount ?? ""));
   const [debtNotes, setDebtNotes] = useState(profile?.debtNotes ?? "");
+  const debtNotesRef = useRef(profile?.debtNotes ?? "");
 
   const occupations = useMemo(() => initial.occupations ?? [], [initial.occupations]);
 
@@ -212,6 +224,8 @@ export default function OnboardingScreen({
   };
 
   const confirmPayDayPicker = () => {
+    selectedPayDateRef.current = draftPayDate;
+    payDayRef.current = String(draftPayDate.getDate());
     setSelectedPayDate(draftPayDate);
     setPayDay(String(draftPayDate.getDate()));
     setShowPayDayPicker(false);
@@ -221,6 +235,8 @@ export default function OnboardingScreen({
     if (Platform.OS === "android") {
       setShowPayDayPicker(false);
       if (event.type !== "set" || !selectedDate) return;
+      selectedPayDateRef.current = selectedDate;
+      payDayRef.current = String(selectedDate.getDate());
       setSelectedPayDate(selectedDate);
       setPayDay(String(selectedDate.getDate()));
       return;
@@ -230,27 +246,27 @@ export default function OnboardingScreen({
   };
 
   const payload: Partial<OnboardingProfile> = {
-    mainGoal: mainGoals[0] ?? null,
-    mainGoals,
-    occupation,
-    occupationOther,
-    payDay: payDay ? Math.max(1, Math.min(31, Number(payDay))) : null,
-    payFrequency: payFrequency ?? undefined,
-    billFrequency: billFrequency ?? undefined,
-    monthlySalary: salary ? Number(salary) : null,
-    expenseOneName,
-    expenseOneAmount: expenseOneAmount ? Number(expenseOneAmount) : null,
-    expenseTwoName,
-    expenseTwoAmount: expenseTwoAmount ? Number(expenseTwoAmount) : null,
-    expenseThreeName,
-    expenseThreeAmount: expenseThreeAmount ? Number(expenseThreeAmount) : null,
-    expenseFourName,
-    expenseFourAmount: expenseFourAmount ? Number(expenseFourAmount) : null,
-    hasAllowance: hasAllowance ?? undefined,
-    allowanceAmount: hasAllowance === true && allowanceAmount ? Number(allowanceAmount) : null,
-    hasDebtsToManage: hasDebts ?? undefined,
-    debtAmount: hasDebts === true && debtAmount ? Number(debtAmount) : null,
-    debtNotes,
+    mainGoal: mainGoalsRef.current[0] ?? null,
+    mainGoals: mainGoalsRef.current,
+    occupation: occupationRef.current,
+    occupationOther: occupationOtherRef.current,
+    payDay: payDayRef.current ? Math.max(1, Math.min(31, Number(payDayRef.current))) : null,
+    payFrequency: payFrequencyRef.current ?? undefined,
+    billFrequency: billFrequencyRef.current ?? undefined,
+    monthlySalary: salaryRef.current ? Number(salaryRef.current) : null,
+    expenseOneName: expenseOneNameRef.current,
+    expenseOneAmount: expenseOneAmountRef.current ? Number(expenseOneAmountRef.current) : null,
+    expenseTwoName: expenseTwoNameRef.current,
+    expenseTwoAmount: expenseTwoAmountRef.current ? Number(expenseTwoAmountRef.current) : null,
+    expenseThreeName: expenseThreeNameRef.current,
+    expenseThreeAmount: expenseThreeAmountRef.current ? Number(expenseThreeAmountRef.current) : null,
+    expenseFourName: expenseFourNameRef.current,
+    expenseFourAmount: expenseFourAmountRef.current ? Number(expenseFourAmountRef.current) : null,
+    hasAllowance: hasAllowanceRef.current ?? undefined,
+    allowanceAmount: hasAllowanceRef.current === true && allowanceAmountRef.current ? Number(allowanceAmountRef.current) : null,
+    hasDebtsToManage: hasDebtsRef.current ?? undefined,
+    debtAmount: hasDebtsRef.current === true && debtAmountRef.current ? Number(debtAmountRef.current) : null,
+    debtNotes: debtNotesRef.current,
   };
 
   const isPositiveNumber = (value: string) => {
@@ -258,44 +274,50 @@ export default function OnboardingScreen({
     return Number.isFinite(parsed) && parsed > 0;
   };
 
-  const hasAllBillAmounts =
-    isPositiveNumber(expenseOneAmount) &&
-    isPositiveNumber(expenseTwoAmount) &&
-    isPositiveNumber(expenseThreeAmount) &&
-    isPositiveNumber(expenseFourAmount);
-
   const validateStep = (currentStep: number): string | null => {
-    if (currentStep === 0 && mainGoals.length === 0) {
+    if (currentStep === 0 && mainGoalsRef.current.length === 0) {
       return "Please choose at least one goal to continue.";
     }
 
     if (currentStep === 1) {
-      if (!occupation.trim()) return "Please select what kind of work you do.";
-      if (occupation === "Other" && !occupationOther.trim()) return "Please enter your occupation.";
+      const selectedOccupation = occupationRef.current.trim();
+      const selectedOccupationOther = occupationOtherRef.current.trim();
+      if (!selectedOccupation) return "Please select what kind of work you do.";
+      if (selectedOccupation === "Other" && !selectedOccupationOther) return "Please enter your occupation.";
     }
 
     if (currentStep === 2) {
-      if (!selectedPayDate) return "Please choose your payday date.";
-      if (!payFrequency) return "Please choose how often you get paid.";
-      if (!billFrequency) return "Please choose how often you pay most bills.";
-      if (!isPositiveNumber(salary)) return "Please enter your monthly salary to continue.";
+      if (!selectedPayDateRef.current) return "Please choose your payday date.";
+      if (!payFrequencyRef.current) return "Please choose how often you get paid.";
+      if (!billFrequencyRef.current) return "Please choose how often you pay most bills.";
+      if (!isPositiveNumber(salaryRef.current)) return "Please enter your monthly salary to continue.";
     }
 
     if (currentStep === 3) {
-      if (!hasAllBillNames) return "Please add a name for each monthly bill.";
-      if (!hasAllBillAmounts) return "Please add an amount for each monthly bill.";
+      const hasAllBillNamesNow =
+        expenseOneNameRef.current.trim().length > 0 &&
+        expenseTwoNameRef.current.trim().length > 0 &&
+        expenseThreeNameRef.current.trim().length > 0 &&
+        expenseFourNameRef.current.trim().length > 0;
+      const hasAllBillAmountsNow =
+        isPositiveNumber(expenseOneAmountRef.current) &&
+        isPositiveNumber(expenseTwoAmountRef.current) &&
+        isPositiveNumber(expenseThreeAmountRef.current) &&
+        isPositiveNumber(expenseFourAmountRef.current);
+      if (!hasAllBillNamesNow) return "Please add a name for each monthly bill.";
+      if (!hasAllBillAmountsNow) return "Please add an amount for each monthly bill.";
     }
 
     if (currentStep === 4) {
-      if (hasAllowance === null) return "Please choose Yes or No for spending money.";
-      if (hasAllowance === true && !isPositiveNumber(allowanceAmount)) {
+      if (hasAllowanceRef.current === null) return "Please choose Yes or No for spending money.";
+      if (hasAllowanceRef.current === true && !isPositiveNumber(allowanceAmountRef.current)) {
         return "Please enter your spending money amount.";
       }
     }
 
     if (currentStep === 5) {
-      if (hasDebts === null) return "Please choose Yes or No for debts.";
-      if (hasDebts === true && !isPositiveNumber(debtAmount)) {
+      if (hasDebtsRef.current === null) return "Please choose Yes or No for debts.";
+      if (hasDebtsRef.current === true && !isPositiveNumber(debtAmountRef.current)) {
         return "Please enter your debt amount.";
       }
     }
@@ -303,11 +325,89 @@ export default function OnboardingScreen({
     return null;
   };
 
-  const hasAllBillNames =
-    expenseOneName.trim().length > 0 &&
-    expenseTwoName.trim().length > 0 &&
-    expenseThreeName.trim().length > 0 &&
-    expenseFourName.trim().length > 0;
+  useEffect(() => {
+    mainGoalsRef.current = mainGoals;
+  }, [mainGoals]);
+
+  useEffect(() => {
+    occupationRef.current = occupation;
+  }, [occupation]);
+
+  useEffect(() => {
+    occupationOtherRef.current = occupationOther;
+  }, [occupationOther]);
+
+  useEffect(() => {
+    payDayRef.current = payDay;
+  }, [payDay]);
+
+  useEffect(() => {
+    selectedPayDateRef.current = selectedPayDate;
+  }, [selectedPayDate]);
+
+  useEffect(() => {
+    payFrequencyRef.current = payFrequency;
+  }, [payFrequency]);
+
+  useEffect(() => {
+    billFrequencyRef.current = billFrequency;
+  }, [billFrequency]);
+
+  useEffect(() => {
+    salaryRef.current = salary;
+  }, [salary]);
+
+  useEffect(() => {
+    expenseOneNameRef.current = expenseOneName;
+  }, [expenseOneName]);
+
+  useEffect(() => {
+    expenseOneAmountRef.current = expenseOneAmount;
+  }, [expenseOneAmount]);
+
+  useEffect(() => {
+    expenseTwoNameRef.current = expenseTwoName;
+  }, [expenseTwoName]);
+
+  useEffect(() => {
+    expenseTwoAmountRef.current = expenseTwoAmount;
+  }, [expenseTwoAmount]);
+
+  useEffect(() => {
+    expenseThreeNameRef.current = expenseThreeName;
+  }, [expenseThreeName]);
+
+  useEffect(() => {
+    expenseThreeAmountRef.current = expenseThreeAmount;
+  }, [expenseThreeAmount]);
+
+  useEffect(() => {
+    expenseFourNameRef.current = expenseFourName;
+  }, [expenseFourName]);
+
+  useEffect(() => {
+    expenseFourAmountRef.current = expenseFourAmount;
+  }, [expenseFourAmount]);
+
+  useEffect(() => {
+    hasAllowanceRef.current = hasAllowance;
+  }, [hasAllowance]);
+
+  useEffect(() => {
+    allowanceAmountRef.current = allowanceAmount;
+  }, [allowanceAmount]);
+
+  useEffect(() => {
+    hasDebtsRef.current = hasDebts;
+  }, [hasDebts]);
+
+  useEffect(() => {
+    debtAmountRef.current = debtAmount;
+  }, [debtAmount]);
+
+  useEffect(() => {
+    debtNotesRef.current = debtNotes;
+  }, [debtNotes]);
 
   const saveDraft = async () => {
     await apiFetch("/api/bff/onboarding", {
@@ -335,17 +435,15 @@ export default function OnboardingScreen({
     }
   };
 
-  const transitionToStep = useCallback((nextStep: number, direction: 1 | -1) => {
-    setStepDirection(direction);
-    stepTransition.setValue(0);
+  const transitionToStep = useCallback((nextStep: number) => {
     setStep(nextStep);
-  }, [stepTransition]);
+  }, []);
 
   const goBackStep = useCallback(() => {
     if (saving) return;
     const nextStep = Math.max(0, step - 1);
     if (nextStep === step) return;
-    transitionToStep(nextStep, -1);
+    transitionToStep(nextStep);
   }, [saving, step, transitionToStep]);
 
   const goForwardStep = useCallback(async () => {
@@ -364,7 +462,7 @@ export default function OnboardingScreen({
 
       const nextStep = Math.min(5, step + 1);
       if (nextStep !== step) {
-        transitionToStep(nextStep, 1);
+        transitionToStep(nextStep);
       }
     } catch (err: unknown) {
       Alert.alert("Could not save", err instanceof Error ? err.message : "Please try again.");
@@ -399,27 +497,6 @@ export default function OnboardingScreen({
     [goBackStep, goForwardStep, saving]
   );
 
-  useEffect(() => {
-    Animated.timing(stepTransition, {
-      toValue: 1,
-      duration: 240,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start();
-  }, [step, stepTransition]);
-
-  const stepAnimatedStyle = {
-    opacity: stepTransition,
-    transform: [
-      {
-        translateX: stepTransition.interpolate({
-          inputRange: [0, 1],
-          outputRange: [stepDirection * 20, 0],
-        }),
-      },
-    ],
-  };
-
   return (
     <SafeAreaView style={s.safe} edges={["top"]}>
       <Pressable
@@ -448,7 +525,7 @@ export default function OnboardingScreen({
 
       <View style={s.gestureWrap} {...stepPanResponder.panHandlers}>
           <ScrollView contentContainerStyle={s.wrap} keyboardShouldPersistTaps="handled">
-            <Animated.View style={stepAnimatedStyle}>
+            <View>
           {step === 0 ? (
             <View style={s.header}>
               <Text style={[s.welcome, fontsLoaded && s.welcomeScript]}>Welcome</Text>
@@ -471,16 +548,19 @@ export default function OnboardingScreen({
                 return (
                   <Pressable
                     key={goal.id}
-                    onPress={() =>
-                      setMainGoals((prev) => {
-                        const has = prev.includes(goal.id);
-                        if (has) {
-                          const next = prev.filter((g) => g !== goal.id);
-                          return next.length ? next : prev;
-                        }
-                        return [...prev, goal.id];
-                      })
-                    }
+                    onPress={() => {
+                      const prev = mainGoalsRef.current;
+                      const has = prev.includes(goal.id);
+                      let next = prev;
+                      if (has) {
+                        const filtered = prev.filter((g) => g !== goal.id);
+                        next = filtered.length ? filtered : prev;
+                      } else {
+                        next = [...prev, goal.id];
+                      }
+                      mainGoalsRef.current = next;
+                      setMainGoals(next);
+                    }}
                     style={[s.option, isSelected && s.optionActive]}
                   >
                     <View style={s.optionRow}>
@@ -513,22 +593,16 @@ export default function OnboardingScreen({
                   return (
                     <Pressable
                       key={item}
-                      onPress={() => setOccupation(item)}
-                      style={[s.chip, active && s.chipActive, active && liquidGlassEnabled && s.chipActiveLiquid]}
+                        onPress={() => {
+                          occupationRef.current = item;
+                          setOccupation(item);
+                        }}
+                      style={[s.chip, active && s.chipActive]}
                     >
-                      {active && liquidGlassEnabled && GlassView ? (
-                        <GlassView
-                          pointerEvents="none"
-                          glassEffectStyle="regular"
-                          tintColor="rgba(255,255,255,0.40)"
-                          style={StyleSheet.absoluteFillObject}
-                        />
-                      ) : null}
                       <Text
                         style={[
                           s.chipText,
                           active && s.chipTextActive,
-                          active && liquidGlassEnabled && s.chipTextActiveLiquid,
                         ]}
                       >
                         {item}
@@ -540,7 +614,10 @@ export default function OnboardingScreen({
               {occupation === "Other" ? (
                 <TextInput
                   value={occupationOther}
-                  onChangeText={setOccupationOther}
+                  onChangeText={(value) => {
+                    occupationOtherRef.current = value;
+                    setOccupationOther(value);
+                  }}
                   placeholder="Your occupation"
                   placeholderTextColor="rgba(255,255,255,0.62)"
                   style={s.input}
@@ -597,22 +674,17 @@ export default function OnboardingScreen({
                   return (
                     <Pressable
                       key={item.id}
-                      onPress={() => setPayFrequency(item.id as "monthly" | "every_2_weeks" | "weekly")}
-                      style={[s.chip, active && s.chipActive, active && liquidGlassEnabled && s.chipActiveLiquid]}
+                      onPress={() => {
+                        const next = item.id as "monthly" | "every_2_weeks" | "weekly";
+                        payFrequencyRef.current = next;
+                        setPayFrequency(next);
+                      }}
+                      style={[s.chip, active && s.chipActive]}
                     >
-                      {active && liquidGlassEnabled && GlassView ? (
-                        <GlassView
-                          pointerEvents="none"
-                          glassEffectStyle="regular"
-                          tintColor="rgba(255,255,255,0.40)"
-                          style={StyleSheet.absoluteFillObject}
-                        />
-                      ) : null}
                       <Text
                         style={[
                           s.chipText,
                           active && s.chipTextActive,
-                          active && liquidGlassEnabled && s.chipTextActiveLiquid,
                         ]}
                       >
                         {item.label}
@@ -632,22 +704,17 @@ export default function OnboardingScreen({
                   return (
                     <Pressable
                       key={item.id}
-                      onPress={() => setBillFrequency(item.id as "monthly" | "every_2_weeks")}
-                      style={[s.chip, active && s.chipActive, active && liquidGlassEnabled && s.chipActiveLiquid]}
+                      onPress={() => {
+                        const next = item.id as "monthly" | "every_2_weeks";
+                        billFrequencyRef.current = next;
+                        setBillFrequency(next);
+                      }}
+                      style={[s.chip, active && s.chipActive]}
                     >
-                      {active && liquidGlassEnabled && GlassView ? (
-                        <GlassView
-                          pointerEvents="none"
-                          glassEffectStyle="regular"
-                          tintColor="rgba(255,255,255,0.40)"
-                          style={StyleSheet.absoluteFillObject}
-                        />
-                      ) : null}
                       <Text
                         style={[
                           s.chipText,
                           active && s.chipTextActive,
-                          active && liquidGlassEnabled && s.chipTextActiveLiquid,
                         ]}
                       >
                         {item.label}
@@ -660,7 +727,10 @@ export default function OnboardingScreen({
               <MoneyInput
                 currency={currency}
                 value={salary}
-                onChangeValue={setSalary}
+                onChangeValue={(value) => {
+                  salaryRef.current = value;
+                  setSalary(value);
+                }}
                 variant="light"
                 placeholder="0.00"
               />
@@ -676,42 +746,94 @@ export default function OnboardingScreen({
               <View style={s.row}>
                 <TextInput
                   value={expenseOneName}
-                  onChangeText={setExpenseOneName}
+                  onChangeText={(value) => {
+                    expenseOneNameRef.current = value;
+                    setExpenseOneName(value);
+                  }}
                   placeholder="Rent, mortgage"
                   placeholderTextColor="rgba(255,255,255,0.62)"
                   style={[s.input, s.rowInput]}
                 />
-                <MoneyInput currency={currency} value={expenseOneAmount} onChangeValue={setExpenseOneAmount} variant="light" placeholder="0.00" containerStyle={s.rowInput} />
+                <MoneyInput
+                  currency={currency}
+                  value={expenseOneAmount}
+                  onChangeValue={(value) => {
+                    expenseOneAmountRef.current = value;
+                    setExpenseOneAmount(value);
+                  }}
+                  variant="light"
+                  placeholder="0.00"
+                  containerStyle={s.rowInput}
+                />
               </View>
               <View style={s.row}>
                 <TextInput
                   value={expenseTwoName}
-                  onChangeText={setExpenseTwoName}
+                  onChangeText={(value) => {
+                    expenseTwoNameRef.current = value;
+                    setExpenseTwoName(value);
+                  }}
                   placeholder="Groceries, Dining"
                   placeholderTextColor="rgba(255,255,255,0.62)"
                   style={[s.input, s.rowInput]}
                 />
-                <MoneyInput currency={currency} value={expenseTwoAmount} onChangeValue={setExpenseTwoAmount} variant="light" placeholder="0.00" containerStyle={s.rowInput} />
+                <MoneyInput
+                  currency={currency}
+                  value={expenseTwoAmount}
+                  onChangeValue={(value) => {
+                    expenseTwoAmountRef.current = value;
+                    setExpenseTwoAmount(value);
+                  }}
+                  variant="light"
+                  placeholder="0.00"
+                  containerStyle={s.rowInput}
+                />
               </View>
               <View style={s.row}>
                 <TextInput
                   value={expenseThreeName}
-                  onChangeText={setExpenseThreeName}
+                  onChangeText={(value) => {
+                    expenseThreeNameRef.current = value;
+                    setExpenseThreeName(value);
+                  }}
                   placeholder="EE, Vodafone"
                   placeholderTextColor="rgba(255,255,255,0.62)"
                   style={[s.input, s.rowInput]}
                 />
-                <MoneyInput currency={currency} value={expenseThreeAmount} onChangeValue={setExpenseThreeAmount} variant="light" placeholder="0.00" containerStyle={s.rowInput} />
+                <MoneyInput
+                  currency={currency}
+                  value={expenseThreeAmount}
+                  onChangeValue={(value) => {
+                    expenseThreeAmountRef.current = value;
+                    setExpenseThreeAmount(value);
+                  }}
+                  variant="light"
+                  placeholder="0.00"
+                  containerStyle={s.rowInput}
+                />
               </View>
               <View style={s.row}>
                 <TextInput
                   value={expenseFourName}
-                  onChangeText={setExpenseFourName}
+                  onChangeText={(value) => {
+                    expenseFourNameRef.current = value;
+                    setExpenseFourName(value);
+                  }}
                   placeholder="Netflix, Spotify"
                   placeholderTextColor="rgba(255,255,255,0.62)"
                   style={[s.input, s.rowInput]}
                 />
-                <MoneyInput currency={currency} value={expenseFourAmount} onChangeValue={setExpenseFourAmount} variant="light" placeholder="0.00" containerStyle={s.rowInput} />
+                <MoneyInput
+                  currency={currency}
+                  value={expenseFourAmount}
+                  onChangeValue={(value) => {
+                    expenseFourAmountRef.current = value;
+                    setExpenseFourAmount(value);
+                  }}
+                  variant="light"
+                  placeholder="0.00"
+                  containerStyle={s.rowInput}
+                />
               </View>
 
               <NoteBadge
@@ -728,11 +850,32 @@ export default function OnboardingScreen({
                 <Text style={s.question}>Do you set aside spending money for yourself?</Text>
               </View>
               <View style={s.toggleRow}>
-                <Pressable onPress={() => setHasAllowance(true)} style={[s.toggle, hasAllowance && s.toggleActive]}><Text style={[s.toggleText, hasAllowance && s.toggleTextActive]}>Yes</Text></Pressable>
-                <Pressable onPress={() => setHasAllowance(false)} style={[s.toggle, !hasAllowance && s.toggleActive]}><Text style={[s.toggleText, !hasAllowance && s.toggleTextActive]}>No</Text></Pressable>
+                <Pressable
+                  onPress={() => {
+                    hasAllowanceRef.current = true;
+                    setHasAllowance(true);
+                  }}
+                  style={[s.toggle, hasAllowance && s.toggleActive]}
+                ><Text style={[s.toggleText, hasAllowance && s.toggleTextActive]}>Yes</Text></Pressable>
+                <Pressable
+                  onPress={() => {
+                    hasAllowanceRef.current = false;
+                    setHasAllowance(false);
+                  }}
+                  style={[s.toggle, !hasAllowance && s.toggleActive]}
+                ><Text style={[s.toggleText, !hasAllowance && s.toggleTextActive]}>No</Text></Pressable>
               </View>
               {hasAllowance ? (
-                <MoneyInput currency={currency} value={allowanceAmount} onChangeValue={setAllowanceAmount} variant="light" placeholder="0.00" />
+                <MoneyInput
+                  currency={currency}
+                  value={allowanceAmount}
+                  onChangeValue={(value) => {
+                    allowanceAmountRef.current = value;
+                    setAllowanceAmount(value);
+                  }}
+                  variant="light"
+                  placeholder="0.00"
+                />
               ) : null}
             </>
           ) : null}
@@ -744,15 +887,39 @@ export default function OnboardingScreen({
                 <Text style={s.question}>Do you have any debts you want to pay down?</Text>
               </View>
               <View style={s.toggleRow}>
-                <Pressable onPress={() => setHasDebts(true)} style={[s.toggle, hasDebts && s.toggleActive]}><Text style={[s.toggleText, hasDebts && s.toggleTextActive]}>Yes</Text></Pressable>
-                <Pressable onPress={() => setHasDebts(false)} style={[s.toggle, !hasDebts && s.toggleActive]}><Text style={[s.toggleText, !hasDebts && s.toggleTextActive]}>No</Text></Pressable>
+                <Pressable
+                  onPress={() => {
+                    hasDebtsRef.current = true;
+                    setHasDebts(true);
+                  }}
+                  style={[s.toggle, hasDebts && s.toggleActive]}
+                ><Text style={[s.toggleText, hasDebts && s.toggleTextActive]}>Yes</Text></Pressable>
+                <Pressable
+                  onPress={() => {
+                    hasDebtsRef.current = false;
+                    setHasDebts(false);
+                  }}
+                  style={[s.toggle, !hasDebts && s.toggleActive]}
+                ><Text style={[s.toggleText, !hasDebts && s.toggleTextActive]}>No</Text></Pressable>
               </View>
               {hasDebts ? (
                 <>
-                  <MoneyInput currency={currency} value={debtAmount} onChangeValue={setDebtAmount} variant="light" placeholder="0.00" />
+                  <MoneyInput
+                    currency={currency}
+                    value={debtAmount}
+                    onChangeValue={(value) => {
+                      debtAmountRef.current = value;
+                      setDebtAmount(value);
+                    }}
+                    variant="light"
+                    placeholder="0.00"
+                  />
                   <TextInput
                     value={debtNotes}
-                    onChangeText={setDebtNotes}
+                    onChangeText={(value) => {
+                      debtNotesRef.current = value;
+                      setDebtNotes(value);
+                    }}
                     placeholder="Any notes? (optional)"
                     placeholderTextColor="rgba(255,255,255,0.62)"
                     style={s.input}
@@ -792,7 +959,7 @@ export default function OnboardingScreen({
             )}
           </View>
           </View>
-            </Animated.View>
+            </View>
           </ScrollView>
       </View>
 

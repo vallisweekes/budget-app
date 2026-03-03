@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
   View,
@@ -16,7 +16,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useScrollToTop } from "@react-navigation/native";
 
 import { ApiError, apiFetch } from "@/lib/api";
 import type { DashboardData, Settings } from "@/lib/apiTypes";
@@ -39,6 +39,8 @@ const GOAL_CARD = Math.max(122, Math.round((W - GOAL_SIDE * 2 - GOAL_GAP) / 2));
 const GOAL_ADD_W = Math.max(52, Math.round(GOAL_CARD * 0.34));
 
 export default function DashboardScreen({ navigation }: { navigation: any }) {
+  const scrollRef = useRef<ScrollView>(null);
+  useScrollToTop(scrollRef);
   const topHeaderOffset = useTopHeaderOffset();
   const insets = useSafeAreaInsets();
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
@@ -233,6 +235,7 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
       </Modal>
 
       <ScrollView
+        ref={scrollRef}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={T.accent} />}
 			contentContainerStyle={[styles.scroll, { paddingTop: topHeaderOffset }]}
         showsVerticalScrollIndicator={false}

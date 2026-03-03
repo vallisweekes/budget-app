@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
   View,
@@ -19,7 +19,7 @@ import {
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect, useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
+import { useFocusEffect, useNavigation, useRoute, useScrollToTop, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { apiFetch, getApiBaseUrl } from "@/lib/api";
@@ -197,6 +197,8 @@ function DebtCard({
 }
 
 export default function DebtScreen() {
+  const listRef = useRef<FlatList<DebtSummaryItem>>(null);
+  useScrollToTop(listRef);
   const navigation = useNavigation<Nav>();
   const route = useRoute<RouteProp<DebtStackParamList, "DebtList">>();
   const topHeaderOffset = useTopHeaderOffset();
@@ -440,6 +442,7 @@ export default function DebtScreen() {
   return (
 		<SafeAreaView style={s.safe} edges={[]}>
       <FlatList
+        ref={listRef}
         data={visibleDebts}
         keyExtractor={(item) => item.id}
         contentContainerStyle={[s.scroll, { paddingTop: topHeaderOffset }]}

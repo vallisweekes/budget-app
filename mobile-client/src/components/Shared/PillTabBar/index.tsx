@@ -40,6 +40,18 @@ const INDICATOR_SIZE = 46;
 const BAR_HORIZONTAL_PADDING = 8;
 const INDICATOR_VERTICAL_OFFSET = -2;
 
+function getDeepestRouteName(state: unknown): string | null {
+  let current = state as { routes?: Array<{ name?: string; state?: unknown }>; index?: number } | undefined;
+  while (current?.routes && current.routes.length > 0) {
+    const idx = typeof current.index === "number" ? current.index : current.routes.length - 1;
+    const route = current.routes[idx];
+    if (!route) return null;
+    if (!route.state) return typeof route.name === "string" ? route.name : null;
+    current = route.state as { routes?: Array<{ name?: string; state?: unknown }>; index?: number };
+  }
+  return null;
+}
+
 export default function PillTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const [barWidth, setBarWidth] = useState(0);
   const [barHeight, setBarHeight] = useState(0);
@@ -133,12 +145,29 @@ export default function PillTabBar({ state, descriptors, navigation }: BottomTab
             const label = LABELS[route.name] ?? route.name;
 
             const onPress = () => {
+              const focused = isFocused;
+              const nestedRouteName = getDeepestRouteName(route.state);
+              const isNestedExpenses = route.name === "Expenses" && focused && nestedRouteName !== "ExpensesList";
+              const isNestedDebts = route.name === "Debts" && focused && nestedRouteName !== "DebtList";
+
+              if (isNestedExpenses) {
+                navigation.navigate("Expenses", { screen: "ExpensesList" });
+                return;
+              }
+
+              if (isNestedDebts) {
+                navigation.navigate("Debts", { screen: "DebtList" });
+                return;
+              }
+
               const event = navigation.emit({
                 type: "tabPress",
                 target: route.key,
                 canPreventDefault: true,
               });
-              if (!event.defaultPrevented) {
+              if (event.defaultPrevented) return;
+
+              if (!focused) {
                 if (route.name === "Expenses") {
                   navigation.navigate("Expenses", { screen: "ExpensesList" });
                 } else if (route.name === "Debts") {

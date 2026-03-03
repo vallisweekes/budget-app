@@ -25,7 +25,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { useFocusEffect, useRoute, type RouteProp } from "@react-navigation/native";
+import { useFocusEffect, useRoute, useScrollToTop, type RouteProp } from "@react-navigation/native";
 
 import { apiFetch } from "@/lib/api";
 import type {
@@ -53,6 +53,8 @@ type Props = NativeStackScreenProps<ExpensesStackParamList, "ExpensesList">;
 type ScreenRoute = RouteProp<ExpensesStackParamList, "ExpensesList">;
 
 export default function ExpensesScreen({ navigation }: Props) {
+  const listRef = useRef<FlatList<never>>(null);
+  useScrollToTop(listRef);
   const route = useRoute<ScreenRoute>();
   const topHeaderOffset = useTopHeaderOffset();
   const now = new Date();
@@ -412,6 +414,7 @@ export default function ExpensesScreen({ navigation }: Props) {
         </View>
       ) : (
         <FlatList
+          ref={listRef}
           data={[]}
           keyExtractor={() => ""}
           contentContainerStyle={styles.scrollContent}

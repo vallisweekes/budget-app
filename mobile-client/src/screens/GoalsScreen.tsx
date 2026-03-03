@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { useScrollToTop } from "@react-navigation/native";
 
 import { apiFetch } from "@/lib/api";
 import type { DashboardData, Goal, Settings } from "@/lib/apiTypes";
@@ -25,6 +26,8 @@ import { cardElevated, textLabel } from "@/lib/ui";
 import MoneyInput from "@/components/Shared/MoneyInput";
 
 export default function GoalsScreen({ navigation, route }: { navigation: any; route: any }) {
+  const listRef = useRef<SectionList<Goal>>(null);
+  useScrollToTop(listRef);
   const topHeaderOffset = useTopHeaderOffset();
   const listTopInset = Math.max(24, topHeaderOffset - 36);
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
@@ -405,6 +408,7 @@ export default function GoalsScreen({ navigation, route }: { navigation: any; ro
       </Modal>
 
       <SectionList
+        ref={listRef}
         sections={sections}
         keyExtractor={(item) => item.id}
         stickySectionHeadersEnabled
