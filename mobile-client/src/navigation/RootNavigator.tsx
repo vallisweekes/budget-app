@@ -613,6 +613,7 @@ const s = StyleSheet.create({
 });
 
 function MainTabs() {
+  const { signOut } = useAuth();
   const incomePendingCount = 0;
   const hasNotificationDot = false;
 
@@ -754,7 +755,7 @@ function MainTabs() {
               rightContent={goalsRightContent}
               showIncomeAction={!isSettings && !isGoals}
               compactActionsMenu={isSettings}
-              onLogout={undefined}
+              onLogout={isSettings ? signOut : undefined}
               incomePendingCount={incomePendingCount}
               showNotificationDot={hasNotificationDot}
             />
