@@ -15,6 +15,7 @@ import { addMonthsUtc, toNumber } from "@/lib/helpers/dashboard/utils";
 import { monthNumberToKey } from "@/lib/helpers/monthKey";
 import { getMonthlyAllocationSnapshot, getMonthlyCustomAllocationsSnapshot } from "@/lib/allocations/store";
 import { resolveExpenseLogo } from "@/lib/expenses/logoResolver";
+import { isLegacyPlaceholderExpenseRow } from "@/lib/expenses/legacyPlaceholders";
 
 function pad2(n: number): string {
 	return String(n).padStart(2, "0");
@@ -36,6 +37,89 @@ function parseIsoDateToUtcDateOnly(iso: string): Date | null {
 	const [y, m, d] = iso.split("-").map((x) => Number(x));
 	if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
 	return new Date(Date.UTC(y, m - 1, d));
+}
+
+function normalizeSeriesOrName(seriesKey: unknown, name: unknown): string {
+	const raw = typeof seriesKey === "string" && seriesKey.trim()
+		? seriesKey
+		: typeof name === "string"
+			? name
+			: "";
+	return raw.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function parseIsoYearMonth(iso: string): { year: number; month: number } | null {
+	if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null;
+	const year = Number(iso.slice(0, 4));
+	const month = Number(iso.slice(5, 7));
+	if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) return null;
+	return { year, month };
+}
+
+function dedupeExpenseRowsForInsights<T extends {
+	id: string;
+	name: string;
+	seriesKey?: string | null;
+	merchantDomain?: string | null;
+	logoUrl?: string | null;
+	amount: unknown;
+	paid: boolean;
+	paidAmount: unknown;
+	isAllocation?: boolean | null;
+	isMovedToDebt?: boolean | null;
+	dueDate: Date | null;
+	year: number;
+	month: number;
+	updatedAt?: Date;
+}>(rows: T[], payDate: number): T[] {
+	const seen = new Map<string, { row: T; rank: number; paidScore: number; updatedAtMs: number }>();
+
+	for (const row of rows) {
+		if (row.isMovedToDebt) continue;
+		if (row.isAllocation) continue;
+		if (isLegacyPlaceholderExpenseRow(row)) continue;
+		// Only scheduled bills participate in pay-period insights.
+		if (!row.dueDate) continue;
+
+		const dueIso = resolveEffectiveDueDateIso(
+			{
+				id: row.id,
+				name: row.name,
+				amount: toNumber(row.amount),
+				paid: row.paid,
+				paidAmount: toNumber(row.paidAmount),
+				dueDate: row.dueDate ? row.dueDate.toISOString().slice(0, 10) : undefined,
+			},
+			{ year: row.year, monthNum: row.month, payDate }
+		);
+		if (!dueIso) continue;
+
+		const series = normalizeSeriesOrName(row.seriesKey, row.name);
+		const amount = toNumber(row.amount);
+		const key = `${series}|${dueIso}|${amount}`;
+
+		const ym = parseIsoYearMonth(dueIso);
+		const rank = ym && row.year === ym.year && row.month === ym.month ? 0 : 1;
+		const paidAmount = toNumber(row.paidAmount);
+		const paidScore = (row.paid ? 1 : 0) * 1_000_000 + paidAmount;
+		const updatedAtMs = row.updatedAt instanceof Date ? row.updatedAt.getTime() : 0;
+
+		const existing = seen.get(key);
+		if (!existing) {
+			seen.set(key, { row, rank, paidScore, updatedAtMs });
+			continue;
+		}
+
+		// Prefer: due-month match, then highest paidScore, then most recently updated.
+		const better =
+			rank < existing.rank ||
+			(rank === existing.rank && (paidScore > existing.paidScore || (paidScore === existing.paidScore && updatedAtMs > existing.updatedAtMs)));
+		if (better) {
+			seen.set(key, { row, rank, paidScore, updatedAtMs });
+		}
+	}
+
+	return Array.from(seen.values()).map((v) => v.row);
 }
 
 function todayUtcDateOnly(now: Date = new Date()): Date {
@@ -156,13 +240,18 @@ export async function getDashboardExpenseInsights({
 			select: {
 				id: true,
 				name: true,
+				seriesKey: true,
+				merchantDomain: true,
 				logoUrl: true,
 				amount: true,
 				paid: true,
 				paidAmount: true,
+				isAllocation: true,
+				isMovedToDebt: true,
 				dueDate: true,
 				year: true,
 				month: true,
+				updatedAt: true,
 			},
 		}),
 		prisma.income.findMany({
@@ -174,10 +263,12 @@ export async function getDashboardExpenseInsights({
 			: Promise.resolve(null),
 	]);
 
-	const toExpenseItem = (e: (typeof expenseWindowRows)[number]): ExpenseItem => ({
+	const dedupedExpenseRows = dedupeExpenseRowsForInsights(expenseWindowRows, payDate);
+
+	const toExpenseItem = (e: (typeof dedupedExpenseRows)[number]): ExpenseItem => ({
 		id: e.id,
 		name: e.name,
-		logoUrl: (e.logoUrl ?? resolveExpenseLogo(e.name).logoUrl) ?? undefined,
+		logoUrl: (e.logoUrl ?? resolveExpenseLogo(e.name, e.merchantDomain ?? undefined).logoUrl) ?? undefined,
 		amount: toNumber(e.amount),
 		paid: e.paid,
 		paidAmount: toNumber(e.paidAmount),
@@ -187,14 +278,14 @@ export async function getDashboardExpenseInsights({
 	const historyKeySet = new Set(historyPairs.map((p) => yearMonthKey(p.year, p.monthNum)));
 	const forecastKeySet = new Set(forecastPairs.map((p) => yearMonthKey(p.year, p.monthNum)));
 
-	const expenseRowsByMonth = expenseWindowRows.reduce(
+	const expenseRowsByMonth = dedupedExpenseRows.reduce(
 		(acc, row) => {
 			const key = yearMonthKey(row.year, row.month);
 			if (!acc[key]) acc[key] = [];
 			acc[key].push(row);
 			return acc;
 		},
-		{} as Record<string, typeof expenseWindowRows>
+		{} as Record<string, typeof dedupedExpenseRows>
 	);
 
 	const currentMonthKey = yearMonthKey(currentYear, currentMonthNum);
@@ -202,7 +293,7 @@ export async function getDashboardExpenseInsights({
 	const currentMonthExpenses = (expenseRowsByMonth[currentMonthKey] ?? []).map(toExpenseItem);
 	const prevMonthExpenses = (expenseRowsByMonth[prevMonthKey] ?? []).map(toExpenseItem);
 
-	const historyExpenses: DatedExpenseItem[] = expenseWindowRows
+	const historyExpenses: DatedExpenseItem[] = dedupedExpenseRows
 		.filter((e) => historyKeySet.has(yearMonthKey(e.year, e.month)))
 		.map((e) => ({
 			...toExpenseItem(e),
@@ -211,7 +302,7 @@ export async function getDashboardExpenseInsights({
 		}));
 
 	const expenseTotalsByMonth = new Map<string, number>();
-	for (const r of expenseWindowRows) {
+	for (const r of dedupedExpenseRows) {
 		if (!forecastKeySet.has(yearMonthKey(r.year, r.month))) continue;
 		const key = `${r.year}-${r.month}`;
 		expenseTotalsByMonth.set(key, (expenseTotalsByMonth.get(key) ?? 0) + toNumber(r.amount));

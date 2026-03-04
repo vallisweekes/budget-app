@@ -170,6 +170,8 @@ export async function GET(req: NextRequest) {
     payDate,
     payFrequency,
   });
+  const selectedAnchorYear = year;
+  const selectedAnchorMonth = month;
 
   const items = await (async () => {
     const periodPairs = [
@@ -250,6 +252,11 @@ export async function GET(req: NextRequest) {
     if (scope === "pay_period" && isLegacyPlaceholderExpenseRow(item)) {
       continue;
     }
+
+    // Allocations/envelopes are not bills and should not appear in Expenses lists.
+    if (Boolean(item.isAllocation ?? false)) {
+      continue;
+    }
     const isManual = item.logoSource === "manual";
     const hasCustomDomainOverride = hasCustomLogoForDomain(item.merchantDomain ?? null);
     const inferredFromName = resolveExpenseLogo(item.name, undefined);
@@ -308,22 +315,25 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const dueIso = resolveEffectiveDueDateIso(
-      {
-        id: item.id,
-        name: item.name,
-        amount: Number(item.amount?.toString?.() ?? item.amount ?? 0),
-        paid: Boolean(item.paid),
-        paidAmount: Number(item.paidAmount?.toString?.() ?? item.paidAmount ?? 0),
-        dueDate: item.dueDate ? new Date(item.dueDate).toISOString().slice(0, 10) : undefined,
-      },
-      { year: item.year, monthNum: item.month, payDate }
-    );
+    const dueIso = item.dueDate
+      ? resolveEffectiveDueDateIso(
+          {
+            id: item.id,
+            name: item.name,
+            amount: Number(item.amount?.toString?.() ?? item.amount ?? 0),
+            paid: Boolean(item.paid),
+            paidAmount: Number(item.paidAmount?.toString?.() ?? item.paidAmount ?? 0),
+            dueDate: item.dueDate ? new Date(item.dueDate).toISOString().slice(0, 10) : undefined,
+          },
+          { year: item.year, monthNum: item.month, payDate }
+        )
+      : null;
     const dueDateOnly = dueIso ? parseIsoDate(dueIso) : null;
-    const inSelectedPayPeriod =
-      scope === "pay_period" && !!dueDateOnly
-        ? inRange(dueDateOnly, selectedPeriod.start, selectedPeriod.end)
-        : true;
+    const inSelectedPayPeriod = scope === "pay_period"
+      ? (dueDateOnly
+          ? inRange(dueDateOnly, selectedPeriod.start, selectedPeriod.end)
+          : (item.year === selectedAnchorYear && item.month === selectedAnchorMonth))
+      : true;
 
     if (scope === "pay_period" && !inSelectedPayPeriod) {
       continue;
@@ -334,8 +344,7 @@ export async function GET(req: NextRequest) {
     if (scope === "pay_period" && dueIso) {
       const series = String(item.seriesKey ?? item.name ?? "").trim().toLowerCase().replace(/\s+/g, " ");
       const amount = Number(item.amount?.toString?.() ?? item.amount ?? 0);
-      const isAllocation = Boolean(item.isAllocation ?? false);
-      const key = `${series}|${dueIso}|${amount}|${isAllocation ? 1 : 0}`;
+      const key = `${series}|${dueIso}|${amount}`;
       const ym = /^\d{4}-\d{2}-\d{2}$/.test(dueIso)
         ? { year: Number(dueIso.slice(0, 4)), month: Number(dueIso.slice(5, 7)) }
         : null;

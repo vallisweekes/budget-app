@@ -50,11 +50,12 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
   const [pendingNoticeVisible, setPendingNoticeVisible] = useState(false);
 
   const periodRange = useMemo(() => {
+    const payFrequency = normalizePayFrequency(settings?.payFrequency);
     return buildPayPeriodFromMonthAnchor({
       year,
       month,
       payDate: settings?.payDate ?? 27,
-      payFrequency: normalizePayFrequency(settings?.payFrequency),
+      payFrequency,
     });
   }, [month, settings?.payDate, settings?.payFrequency, year]);
 
@@ -83,11 +84,12 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
     const fallback = `${MONTH_NAMES_LONG[month - 1]} ${year}`;
     if (!settings) return fallback;
 
+    const payFrequency = normalizePayFrequency(settings.payFrequency);
     const period = buildPayPeriodFromMonthAnchor({
       year,
       month,
       payDate: settings.payDate ?? 27,
-      payFrequency: normalizePayFrequency(settings.payFrequency),
+      payFrequency,
     });
     const startLabel = MONTH_NAMES_LONG[period.start.getMonth()];
     const endLabel = MONTH_NAMES_LONG[period.end.getMonth()];

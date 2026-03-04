@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { monthNumberToKey } from "@/lib/helpers/monthKey";
 import { getMonthlyAllocationSnapshot, getMonthlyCustomAllocationsSnapshot } from "@/lib/allocations/store";
 import { getMonthlyDebtPlan } from "@/lib/helpers/finance/getMonthlyDebtPlan";
+import { getAllIncome } from "@/lib/income/store";
 import { ensureDefaultCategoriesForBudgetPlan } from "@/lib/categories/defaultCategories";
 import { supportsExpenseMovedToDebtField } from "@/lib/prisma/capabilities";
 import { resolveEffectiveDueDateIso } from "@/lib/expenses/insights";
@@ -262,10 +263,17 @@ function parseIsoYearMonth(iso: string): { year: number; month: number } | null 
 	return { year: y, month: m };
 }
 
+function normalizeIncomeKey(name: unknown): string {
+	return String(name ?? "")
+		.trim()
+		.toLowerCase()
+		.replace(/\s+/g, " ");
+}
+
 /**
  * Pay-period-aware version of dashboard plan data.
  *
- * - Income/allocations/debt plans are taken from the pay-period *start* month.
+ * - Income/allocations/debt plans are taken from the pay-period *end* month.
  * - Expenses are filtered to only those due within the active pay-period window.
  */
 export async function getDashboardPlanDataForActivePayPeriod(
@@ -292,10 +300,13 @@ export async function getDashboardPlanDataForActivePayPeriod(
 	});
 
 	// Monthly snapshots (income, allocations, debt plan) remain month-based,
-	// and should correspond to the pay-period *start* month.
-	const selectedYear = window.start.getUTCFullYear();
-	const selectedMonthNum = window.start.getUTCMonth() + 1;
+	// and should correspond to the pay-period *end* month.
+	const selectedYear = window.end.getUTCFullYear();
+	const selectedMonthNum = window.end.getUTCMonth() + 1;
 	const selectedMonthKey = monthNumberToKey(selectedMonthNum);
+	const startYear = window.start.getUTCFullYear();
+	const startMonthNum = window.start.getUTCMonth() + 1;
+	const startMonthKey = monthNumberToKey(startMonthNum);
 
 	const isUnknownMovedToDebtFieldError = (error: unknown) => {
 		const message = String((error as { message?: unknown })?.message ?? error);
@@ -380,9 +391,37 @@ export async function getDashboardPlanDataForActivePayPeriod(
 					return runLegacyQuery();
 				}
 			})(),
-			prisma.income.findMany({
-				where: { budgetPlanId: planId, year: selectedYear, month: selectedMonthNum },
-			}),
+			(async () => {
+				// Income rows are month-scoped (no date range), but pay periods can span 2 calendar
+				// months. To avoid "missing" carryover/one-off income due to the historic month
+				// shifting bug, we merge:
+				// - canonical income for the pay-period end month
+				// - plus any additional canonical income items from the start month that don't
+				//   already exist in the end-month snapshot (by normalized name)
+				if (payFrequency !== "monthly") {
+					const incomeByMonth = await getAllIncome(planId, selectedYear);
+					return incomeByMonth[selectedMonthKey] ?? [];
+				}
+
+				const [incomeEndYear, incomeStartYear] = await Promise.all([
+					getAllIncome(planId, selectedYear),
+					startYear === selectedYear ? Promise.resolve(null) : getAllIncome(planId, startYear),
+				]);
+
+				const endItems = incomeEndYear[selectedMonthKey] ?? [];
+				const startItems =
+					(startYear === selectedYear
+						? incomeEndYear[startMonthKey]
+						: incomeStartYear?.[startMonthKey]) ?? [];
+
+				const endKeys = new Set(endItems.map((i) => normalizeIncomeKey(i.name)).filter(Boolean));
+				const extraStartItems = startItems.filter((i) => {
+					const key = normalizeIncomeKey(i.name);
+					return Boolean(key) && !endKeys.has(key);
+				});
+
+				return [...endItems, ...extraStartItems];
+			})(),
 			prisma.goal.findMany({ where: { budgetPlanId: planId } }),
 			getMonthlyAllocationSnapshot(planId, selectedMonthKey, { year: selectedYear }),
 			getMonthlyCustomAllocationsSnapshot(planId, selectedMonthKey, { year: selectedYear }),
@@ -413,6 +452,8 @@ export async function getDashboardPlanDataForActivePayPeriod(
 
 	for (const exp of expenses as any[]) {
 		if (isLegacyPlaceholderExpenseRow(exp)) continue;
+		// Only scheduled bills participate in pay-period totals.
+		if (!exp.dueDate) continue;
 		const dueIso = resolveEffectiveDueDateIso(
 			{
 				id: exp.id,
@@ -429,10 +470,12 @@ export async function getDashboardPlanDataForActivePayPeriod(
 		if (!due) continue;
 		if (!inRangeUtc(due, window.start, window.end)) continue;
 
+		// Allocations/envelopes are tracked separately and should not appear as bills.
+		if (Boolean(exp.isAllocation ?? false)) continue;
+
 		const series = normalizeSeriesOrName(exp.seriesKey, exp.name);
 		const amount = Number(exp.amount ?? 0);
-		const isAllocation = Boolean(exp.isAllocation ?? false);
-		const key = `${series}|${dueIso}|${amount}|${isAllocation ? 1 : 0}`;
+		const key = `${series}|${dueIso}|${amount}`;
 		const dueYm = parseIsoYearMonth(dueIso);
 		const rank = dueYm && exp.year === dueYm.year && exp.month === dueYm.month ? 0 : 1;
 

@@ -25,7 +25,7 @@ import { currencySymbol, fmt } from "@/lib/formatting";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 import { useYearGuard } from "@/lib/hooks/useYearGuard";
 import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
-import { buildPayPeriodFromMonthAnchor, normalizePayFrequency } from "@/lib/payPeriods";
+import { buildPayPeriodFromMonthAnchor, normalizePayFrequency, resolveActivePayPeriod } from "@/lib/payPeriods";
 import { T } from "@/lib/theme";
 import IncomeMonthCard from "@/components/Income/IncomeMonthCard";
 import MoneyInput from "@/components/Shared/MoneyInput";
@@ -214,6 +214,22 @@ export default function IncomeScreen() {
     }
   }, [closeYearAddSheet, data?.budgetPlanId, load, year, yearDistributeFullYear, yearDistributeHorizon, yearIncomeAmount, yearIncomeName]);
 
+  const months = data?.months ?? [];
+  const payFrequency = normalizePayFrequency(settings?.payFrequency);
+  const displayMonths = React.useMemo(() => {
+    if (payFrequency !== "monthly") return months;
+
+    // For monthly pay periods, the server's `monthIndex` is the *anchor/end month*.
+    // Convert that to a cycle index where Jan–Feb = 1, Feb–Mar = 2, ..., Dec–Jan = 12.
+    const cycleIndexForAnchorMonth = (anchorMonth: number) => (anchorMonth === 1 ? 12 : anchorMonth - 1);
+
+    return [...months].sort((a, b) => {
+      const aCycle = cycleIndexForAnchorMonth(a.monthIndex);
+      const bCycle = cycleIndexForAnchorMonth(b.monthIndex);
+      return aCycle - bCycle;
+    });
+  }, [months, payFrequency]);
+
   if (loading) {
     return (
 			<SafeAreaView style={[s.safe, { paddingTop: contentTopPadding }]} edges={[]}>
@@ -239,10 +255,15 @@ export default function IncomeScreen() {
     );
   }
 
-  const months = data?.months ?? [];
   const firstMissingMonth = getFirstMissingMonth(data);
   const hasMissingMonths = firstMissingMonth !== null || (data?.monthsWithIncome ?? 0) < 12;
-  const nowMonthIndex = now.getMonth() + 1;
+  const activePayPeriod = resolveActivePayPeriod({
+    now,
+    payDate: settings?.payDate ?? 27,
+    payFrequency,
+  });
+  const activePeriodAnchorMonth = activePayPeriod.end.getMonth() + 1;
+  const activePeriodAnchorYear = activePayPeriod.end.getFullYear();
   const nowYear = now.getFullYear();
   const canAddForYear = year >= nowYear;
 
@@ -258,7 +279,7 @@ export default function IncomeScreen() {
       ) : null}
 
       <FlatList
-        data={months}
+        data={displayMonths}
         numColumns={2}
         keyExtractor={(item) => item.monthKey}
         contentContainerStyle={s.grid}
@@ -267,16 +288,17 @@ export default function IncomeScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={T.accent} />
         }
         renderItem={({ item }) => {
-          const isActive = year === nowYear && item.monthIndex === nowMonthIndex;
-          const isLocked =
-            year < nowYear || (year === nowYear && item.monthIndex < nowMonthIndex);
+          const isActive = year === activePeriodAnchorYear && item.monthIndex === activePeriodAnchorMonth;
           const hasBudgetPlanId = typeof data?.budgetPlanId === "string" && data.budgetPlanId.trim().length > 0;
           const period = buildPayPeriodFromMonthAnchor({
             year,
             month: item.monthIndex,
             payDate: settings?.payDate ?? 27,
-            payFrequency: normalizePayFrequency(settings?.payFrequency),
+            payFrequency,
           });
+          const periodEndAt = new Date(period.end.getTime());
+          periodEndAt.setHours(23, 59, 59, 999);
+          const isLocked = periodEndAt.getTime() < now.getTime();
           const periodLabel = `${MONTH_NAMES_SHORT[period.start.getMonth()]} - ${MONTH_NAMES_SHORT[period.end.getMonth()]}`;
           return (
             <IncomeMonthCard

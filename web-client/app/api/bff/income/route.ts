@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
+import { getAllIncome } from "@/lib/income/store";
+import { monthNumberToKey } from "@/lib/helpers/monthKey";
+import { normalizePayFrequency } from "@/lib/payPeriods";
 
 export const runtime = "nodejs";
 
@@ -21,6 +24,45 @@ function toBool(value: unknown): boolean {
   return false;
 }
 
+function normalizeName(name: unknown): string {
+  return String(name ?? "").trim().replace(/\s+/g, " ");
+}
+
+function isAllCapsName(name: string): boolean {
+  const trimmed = String(name ?? "").trim();
+  if (!trimmed) return false;
+  const letters = trimmed.replace(/[^a-zA-Z]+/g, "");
+  if (!letters) return false;
+  return letters === letters.toUpperCase();
+}
+
+function pickCanonicalRow<T extends { id: string; name: string; updatedAt: Date; createdAt: Date }>(rows: T[]): T {
+  let best = rows[0];
+  for (const row of rows) {
+    const bestLegacy = isAllCapsName(best.name);
+    const rowLegacy = isAllCapsName(row.name);
+    if (bestLegacy !== rowLegacy) {
+      best = rowLegacy ? best : row;
+      continue;
+    }
+    if (row.updatedAt.getTime() !== best.updatedAt.getTime()) {
+      best = row.updatedAt > best.updatedAt ? row : best;
+      continue;
+    }
+    if (row.createdAt.getTime() !== best.createdAt.getTime()) {
+      best = row.createdAt > best.createdAt ? row : best;
+    }
+  }
+  return best;
+}
+
+function normalizeIncomeKey(name: unknown): string {
+  return String(name ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
 export async function GET(request: Request) {
   try {
     const userId = await getSessionUserId(request);
@@ -38,9 +80,62 @@ export async function GET(request: Request) {
 			return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
 		}
 
+    const parsedMonth = month ? Number(month) : null;
+    const parsedYear = year ? Number(year) : null;
+
+    // When a specific month/year is requested, return the canonical (deduped) list.
+    if (
+      parsedMonth &&
+      parsedYear &&
+      Number.isInteger(parsedMonth) &&
+      parsedMonth >= 1 &&
+      parsedMonth <= 12 &&
+      Number.isInteger(parsedYear)
+    ) {
+      const monthKey = monthNumberToKey(parsedMonth);
+      const prevMonth = parsedMonth === 1 ? 12 : parsedMonth - 1;
+      const prevYear = parsedMonth === 1 ? parsedYear - 1 : parsedYear;
+      const prevMonthKey = monthNumberToKey(prevMonth as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12);
+
+      const [incomeByMonth, prevIncomeByMonth, profile] = await Promise.all([
+        getAllIncome(budgetPlanId, parsedYear),
+        prevYear === parsedYear ? Promise.resolve(null) : getAllIncome(budgetPlanId, prevYear),
+        prisma.userOnboardingProfile.findUnique({ where: { userId }, select: { payFrequency: true } }).catch(() => null),
+      ]);
+
+      const payFrequency = normalizePayFrequency(profile?.payFrequency);
+      const endItems = incomeByMonth[monthKey] ?? [];
+      const startItems = payFrequency === "monthly"
+        ? ((prevYear === parsedYear
+          ? (incomeByMonth[prevMonthKey] ?? [])
+          : (prevIncomeByMonth?.[prevMonthKey] ?? [])))
+        : [];
+
+      const endKeys = new Set(endItems.map((i) => normalizeIncomeKey(i.name)).filter(Boolean));
+      const extraStartItems = startItems.filter((i) => {
+        const key = normalizeIncomeKey(i.name);
+        return Boolean(key) && !endKeys.has(key);
+      });
+
+      const extraIds = new Set(extraStartItems.map((i) => i.id));
+
+      const items = payFrequency === "monthly" ? [...endItems, ...extraStartItems] : endItems;
+
+      return NextResponse.json(
+        items.map((i) => ({
+          id: i.id,
+          name: i.name,
+          amount: i.amount,
+          month: extraIds.has(i.id) ? prevMonth : parsedMonth,
+          year: extraIds.has(i.id) ? prevYear : parsedYear,
+          budgetPlanId,
+        }))
+      );
+    }
+
     const where: any = { budgetPlanId };
-    if (month) where.month = parseInt(month);
-    if (year) where.year = parseInt(year);
+    if (parsedMonth) where.month = parseInt(String(parsedMonth));
+    if (parsedYear) where.year = parseInt(String(parsedYear));
 
     const income = await prisma.income.findMany({
       where,
@@ -71,7 +166,7 @@ export async function POST(request: Request) {
 			return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
 		}
 
-    const name: string = String(body.name ?? "").trim();
+    const name: string = normalizeName(body.name);
     const amount = Number(body.amount);
     const month = Number(body.month);
     const year = Number(body.year);
@@ -139,18 +234,34 @@ export async function POST(request: Request) {
       const startMonth = y === year ? month : (shouldSpreadMonths ? 1 : month);
       const endMonth = shouldSpreadMonths ? 12 : month;
       for (let m = startMonth; m <= endMonth; m++) {
-        // Upsert so we don't create duplicates on re-run
-        const existing = await prisma.income.findFirst({
-          where: { budgetPlanId, month: m, year: y, name },
+      // Upsert (case-insensitive) so we don't create duplicates on re-run.
+      // If duplicates already exist, update ONE canonical row and delete the rest.
+      const existing = await prisma.income.findMany({
+        where: {
+          budgetPlanId,
+          month: m,
+          year: y,
+          name: { equals: name, mode: "insensitive" },
+        },
+        orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
+      });
+      if (existing.length > 0) {
+        const canonical = pickCanonicalRow(existing);
+        const updated = await prisma.income.update({
+          where: { id: canonical.id },
+          data: { name, amount },
         });
-        if (existing) {
-          if (!firstCreated) firstCreated = existing;
-          continue;
+        const toDelete = existing.filter((r) => r.id !== canonical.id).map((r) => r.id);
+        if (toDelete.length > 0) {
+          await prisma.income.deleteMany({ where: { id: { in: toDelete } } });
         }
-        const record = await prisma.income.create({
-          data: { name, amount, month: m, year: y, budgetPlanId },
-        });
-        if (!firstCreated) firstCreated = record;
+        if (!firstCreated) firstCreated = updated;
+        continue;
+      }
+      const record = await prisma.income.create({
+        data: { name, amount, month: m, year: y, budgetPlanId },
+      });
+      if (!firstCreated) firstCreated = record;
       }
     }
 

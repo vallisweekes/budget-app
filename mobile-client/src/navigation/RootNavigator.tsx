@@ -23,6 +23,7 @@ import { appendNotificationInboxItem, subscribeNotificationInbox } from "@/lib/n
 import LoginScreen from "@/screens/LoginScreen";
 import DashboardScreen from "@/screens/DashboardScreen";
 import IncomeScreen from "@/screens/IncomeScreen";
+import IncomeHomeScreen from "@/screens/IncomeHomeScreen";
 import IncomeMonthScreen from "@/screens/IncomeMonthScreen";
 import ExpensesScreen from "@/screens/ExpensesScreen";
 import CategoryExpensesScreen from "@/screens/CategoryExpensesScreen";
@@ -44,8 +45,8 @@ const MONTH_NAMES_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug
 
 function formatIncomePeriodSpan(month: number): string {
   const safeMonth = Math.max(1, Math.min(12, month));
-  const start = MONTH_NAMES_SHORT[(safeMonth + 10) % 12];
-  const end = MONTH_NAMES_SHORT[(safeMonth + 11) % 12];
+  const start = MONTH_NAMES_SHORT[(safeMonth - 2 + 12) % 12];
+  const end = MONTH_NAMES_SHORT[(safeMonth - 1) % 12];
   return `${start} - ${end}`;
 }
 
@@ -70,6 +71,7 @@ const APP_STACK_SCREEN_OPTIONS = {
 function IncomeStackNavigator() {
   return (
     <IncomeStack.Navigator screenOptions={APP_STACK_SCREEN_OPTIONS}>
+      <IncomeStack.Screen name="IncomeHome" component={IncomeHomeScreen} />
       <IncomeStack.Screen name="IncomeGrid" component={IncomeScreen} />
       <IncomeStack.Screen name="IncomeMonth" component={IncomeMonthScreen} />
     </IncomeStack.Navigator>
@@ -168,26 +170,17 @@ function RootTopHeader({ navigation }: { navigation: any }) {
 
   const deepestRoute = getDeepestRoute(navigation.getState?.());
   const isIncomeMonth = deepestRoute?.name === "IncomeMonth";
-  const isIncomeGrid = deepestRoute?.name === "IncomeGrid";
   const isAnalytics = deepestRoute?.name === "Analytics";
   const isNotificationSettings = deepestRoute?.name === "NotificationSettings";
-  const shouldShowIncomeBack = isIncomeMonth || isIncomeGrid || isAnalytics;
+  const shouldShowIncomeBack = isAnalytics;
 
-  const incomeGridYearParam = Number(deepestRoute?.params?.year);
-  const incomeGridYear = Number.isFinite(incomeGridYearParam) ? incomeGridYearParam : new Date().getFullYear();
-
-  const hasIncomeGridAddFlag = typeof deepestRoute?.params?.showAddAction === "boolean";
-  const showIncomeGridAddAction = hasIncomeGridAddFlag ? Boolean(deepestRoute?.params?.showAddAction) : true;
-
-  const incomeGridBudgetPlanId =
-    typeof deepestRoute?.params?.budgetPlanId === "string" ? deepestRoute.params.budgetPlanId : "";
+  const incomeMonthInitialMode = deepestRoute?.params?.initialMode === "sacrifice" ? "sacrifice" : "income";
 
   const monthNum = Number(deepestRoute?.params?.month);
   const yearNum = Number(deepestRoute?.params?.year);
   const incomeMonthBudgetPlanId = typeof deepestRoute?.params?.budgetPlanId === "string"
     ? deepestRoute.params.budgetPlanId
     : "";
-  const incomeMonthInitialMode = deepestRoute?.params?.initialMode === "sacrifice" ? "sacrifice" : "income";
   const monthLabel = isAnalytics
     ? "Analytics"
     : isIncomeMonth && Number.isFinite(monthNum) && monthNum >= 1 && monthNum <= 12 && Number.isFinite(yearNum)
@@ -207,13 +200,16 @@ function RootTopHeader({ navigation }: { navigation: any }) {
 
   const goToIncomeMonth = (nextMonth: number, nextYear: number) => {
     if (!incomeMonthBudgetPlanId) return;
-    navigation.navigate("IncomeFlow", {
-      screen: "IncomeMonth",
+    navigation.navigate("Main", {
+      screen: "Income",
       params: {
-        month: nextMonth,
-        year: nextYear,
-        budgetPlanId: incomeMonthBudgetPlanId,
-        initialMode: incomeMonthInitialMode,
+        screen: "IncomeMonth",
+        params: {
+          month: nextMonth,
+          year: nextYear,
+          budgetPlanId: incomeMonthBudgetPlanId,
+          initialMode: incomeMonthInitialMode,
+        },
       },
     });
   };
@@ -271,100 +267,20 @@ function RootTopHeader({ navigation }: { navigation: any }) {
       return;
     }
 
-    if (isIncomeMonth) {
-      navigation.navigate("IncomeFlow", { screen: "IncomeGrid" });
-      return;
-    }
-
-    if (isIncomeGrid && navigation.canGoBack()) {
-      navigation.goBack();
-      return;
-    }
-
     navigation.navigate("Main");
   };
 
-  const updateIncomeGridYear = (nextYear: number) => {
-    navigation.navigate("IncomeFlow", {
-      screen: "IncomeGrid",
-      params: { year: nextYear },
-    });
-  };
-
-  const incomeGridYearControl = isIncomeGrid ? (
-    <View style={s.incomeYearWrap}>
-      <Pressable onPress={() => updateIncomeGridYear(incomeGridYear - 1)} style={s.incomeYearBtn} hitSlop={8}>
-        <Ionicons name="chevron-back" size={16} color={T.textDim} />
-      </Pressable>
-      <Text style={s.incomeYearText}>{incomeGridYear}</Text>
-      <Pressable onPress={() => updateIncomeGridYear(incomeGridYear + 1)} style={s.incomeYearBtn} hitSlop={8}>
-        <Ionicons name="chevron-forward" size={16} color={T.textDim} />
-      </Pressable>
-    </View>
-  ) : undefined;
-
-  const openIncomeGridAdd = () => {
-    navigation.navigate("IncomeFlow", {
-      screen: "IncomeGrid",
-      params: {
-        year: incomeGridYear,
-        openYearIncomeSheetAt: Date.now(),
-      },
-    });
-  };
-
-  const incomeGridRightContent = isIncomeGrid
-    ? showIncomeGridAddAction
-      ? (
-        <Pressable
-          onPress={openIncomeGridAdd}
-          disabled={!incomeGridBudgetPlanId}
-          style={[s.headerActionBtn, s.headerActionBtnAdd, !incomeGridBudgetPlanId && s.headerActionBtnDisabled]}
-          hitSlop={10}
-        >
-          <Ionicons name="add" size={19} color={T.onAccent} />
-        </Pressable>
-      )
-      : (
-        <>
-          <Pressable onPress={() => navigation.navigate("Analytics")} style={s.headerActionBtn} hitSlop={10}>
-            <Ionicons name="stats-chart-outline" size={18} color={T.accent} />
-          </Pressable>
-          <Pressable
-            onPress={() => {
-              navigation.navigate("NotificationSettings", { initialTab: "notifications" });
-            }}
-            style={s.headerActionBtn}
-            hitSlop={10}
-          >
-            <Ionicons name="notifications-outline" size={18} color={T.accent} />
-            {hasNotificationDot ? <View style={s.headerNotificationDot} /> : null}
-          </Pressable>
-        </>
-      )
-    : undefined;
-
   const analyticsRightContent = isAnalytics ? (
-    <>
-      <Pressable onPress={() => navigation.navigate("IncomeFlow")} style={s.headerActionBtn} hitSlop={10}>
-        <Ionicons name="wallet-outline" size={18} color={T.accent} />
-        {incomePendingCount > 0 ? (
-          <View style={s.headerBadge}>
-            <Text style={s.headerBadgeText}>{incomePendingCount > 9 ? "9+" : String(incomePendingCount)}</Text>
-          </View>
-        ) : null}
-      </Pressable>
-      <Pressable
-        onPress={() => {
-          navigation.navigate("NotificationSettings", { initialTab: "notifications" });
-        }}
-        style={s.headerActionBtn}
-        hitSlop={10}
-      >
-        <Ionicons name="notifications-outline" size={18} color={T.accent} />
-        {hasNotificationDot ? <View style={s.headerNotificationDot} /> : null}
-      </Pressable>
-    </>
+    <Pressable
+      onPress={() => {
+        navigation.navigate("NotificationSettings", { initialTab: "notifications" });
+      }}
+      style={s.headerActionBtn}
+      hitSlop={10}
+    >
+      <Ionicons name="notifications-outline" size={18} color={T.accent} />
+      {hasNotificationDot ? <View style={s.headerNotificationDot} /> : null}
+    </Pressable>
   ) : undefined;
 
   useEffect(() => {
@@ -413,35 +329,19 @@ function RootTopHeader({ navigation }: { navigation: any }) {
     };
   }, [buildNotificationId]);
 
-  const openIncome = () => {
-    const now = new Date();
-    if (incomePendingCount > 0 && pendingBudgetPlanId) {
-      navigation.navigate("IncomeFlow", {
-        screen: "IncomeMonth",
-        params: {
-          month: now.getMonth() + 1,
-          year: now.getFullYear(),
-          budgetPlanId: pendingBudgetPlanId,
-          initialMode: "sacrifice",
-          pendingConfirmationsCount: incomePendingCount,
-          showPendingNotice: true,
-        },
-      });
-      return;
-    }
-    navigation.navigate("IncomeFlow");
-  };
-
   const openAddIncomeFromHeader = () => {
     if (!isIncomeMonth || !incomeMonthBudgetPlanId || isIncomeMonthLocked) return;
-    navigation.navigate("IncomeFlow", {
-      screen: "IncomeMonth",
+    navigation.navigate("Main", {
+      screen: "Income",
       params: {
-        month: Number(monthNum),
-        year: Number(yearNum),
-        budgetPlanId: incomeMonthBudgetPlanId,
-        initialMode: "income",
-        openIncomeAddAt: Date.now(),
+        screen: "IncomeMonth",
+        params: {
+          month: Number(monthNum),
+          year: Number(yearNum),
+          budgetPlanId: incomeMonthBudgetPlanId,
+          initialMode: "income",
+          openIncomeAddAt: Date.now(),
+        },
       },
     });
   };
@@ -451,17 +351,17 @@ function RootTopHeader({ navigation }: { navigation: any }) {
       onSettings={() => {
         navigation.navigate("NotificationSettings", { initialTab: "notifications" });
       }}
-      onIncome={openIncome}
+      onIncome={() => {}}
       onAnalytics={() => navigation.navigate("Analytics")}
       onNotifications={() => {
         navigation.navigate("NotificationSettings", { initialTab: "notifications" });
       }}
       onBack={handleBack}
-      centerContent={isIncomeMonth ? incomeMonthSwitcher : incomeGridYearControl}
+      centerContent={isIncomeMonth ? incomeMonthSwitcher : undefined}
       centerLabel={isIncomeMonth ? undefined : monthLabel}
       leftVariant={shouldShowIncomeBack || isNotificationSettings ? "back" : "avatar"}
-      showIncomeAction={!isIncomeGrid && !isNotificationSettings && !isIncomeMonth}
-      rightContent={analyticsRightContent ?? incomeGridRightContent}
+      showIncomeAction={false}
+      rightContent={analyticsRightContent}
       compactActionsMenu={isNotificationSettings || isIncomeMonth}
       onLogout={isNotificationSettings ? signOut : undefined}
       incomePendingCount={incomePendingCount}
@@ -645,6 +545,63 @@ function MainTabs() {
           const isScanReceipt = deepestRoute?.name === "ScanReceipt";
           const isSettings = deepestRoute?.name === "Settings";
           const isGoals = route.name === "Goals";
+          const isIncomeTab = route.name === "Income";
+          const isIncomeMonth = deepestRoute?.name === "IncomeMonth";
+
+          const monthNum = Number(deepestRoute?.params?.month);
+          const yearNum = Number(deepestRoute?.params?.year);
+          const incomeMonthBudgetPlanId = typeof deepestRoute?.params?.budgetPlanId === "string"
+            ? deepestRoute.params.budgetPlanId
+            : "";
+          const incomeMonthInitialMode = deepestRoute?.params?.initialMode === "sacrifice" ? "sacrifice" : "income";
+
+          const canUseIncomeMonthSwitcher = isIncomeTab
+            && isIncomeMonth
+            && Number.isFinite(monthNum)
+            && monthNum >= 1
+            && monthNum <= 12
+            && Number.isFinite(yearNum)
+            && Boolean(incomeMonthBudgetPlanId);
+
+          const goToIncomeMonth = (nextMonth: number, nextYear: number) => {
+            if (!incomeMonthBudgetPlanId) return;
+            navigation.navigate("Income" as any, {
+              screen: "IncomeMonth",
+              params: {
+                month: nextMonth,
+                year: nextYear,
+                budgetPlanId: incomeMonthBudgetPlanId,
+                initialMode: incomeMonthInitialMode,
+              },
+            } as any);
+          };
+
+          const prevMonth = Number(monthNum) - 1 < 1 ? 12 : Number(monthNum) - 1;
+          const prevYear = Number(monthNum) - 1 < 1 ? Number(yearNum) - 1 : Number(yearNum);
+          const nextMonth = Number(monthNum) + 1 > 12 ? 1 : Number(monthNum) + 1;
+          const nextYear = Number(monthNum) + 1 > 12 ? Number(yearNum) + 1 : Number(yearNum);
+
+          const incomeMonthSwitcher = canUseIncomeMonthSwitcher ? (
+            <View style={s.monthSwitchWrap}>
+              <Pressable
+                onPress={() => goToIncomeMonth(prevMonth, prevYear)}
+                style={s.monthSwitchBtn}
+                hitSlop={8}
+              >
+                <Ionicons name="chevron-back" size={13} color={T.text} />
+              </Pressable>
+
+              <Text style={s.monthSwitchText}>{`${formatIncomePeriodSpan(Number(monthNum))} ${Number(yearNum)}`}</Text>
+
+              <Pressable
+                onPress={() => goToIncomeMonth(nextMonth, nextYear)}
+                style={s.monthSwitchBtn}
+                hitSlop={8}
+              >
+                <Ionicons name="chevron-forward" size={13} color={T.text} />
+              </Pressable>
+            </View>
+          ) : undefined;
           const categoryExpensesName = typeof deepestRoute?.params?.categoryName === "string"
             ? deepestRoute.params.categoryName
             : undefined;
@@ -661,15 +618,6 @@ function MainTabs() {
               : isScanReceipt
                 ? "Upload Receipt"
                 : undefined;
-
-          const openIncome = () => {
-            const parent = navigation.getParent();
-            if (parent) {
-              parent.navigate("IncomeFlow" as never);
-              return;
-            }
-            navigation.navigate("Income");
-          };
 
           const openAnalytics = () => {
             const parent = navigation.getParent();
@@ -728,7 +676,7 @@ function MainTabs() {
           return (
             <TopHeader
               onSettings={() => navigation.navigate("Settings")}
-              onIncome={openIncome}
+              onIncome={() => {}}
               onAnalytics={openAnalytics}
               onNotifications={openNotifications}
               leftVariant={isSettings || isCategoryExpenses || isUnplannedExpense || isScanReceipt ? "back" : "avatar"}
@@ -751,13 +699,29 @@ function MainTabs() {
                   ? () => navigation.navigate("Expenses" as any, { screen: "ExpensesList" } as any)
                   : undefined}
               centerLabel={isGoals ? "Goals" : expensesCenterLabel}
+              centerContent={incomeMonthSwitcher}
               leftContent={expensesListLeftContent}
               rightContent={goalsRightContent}
-              showIncomeAction={!isSettings && !isGoals}
-              compactActionsMenu={isSettings}
+              showIncomeAction={false}
+              compactActionsMenu={isSettings || (isIncomeTab && isIncomeMonth)}
               onLogout={isSettings ? signOut : undefined}
               incomePendingCount={incomePendingCount}
               showNotificationDot={hasNotificationDot}
+              onAddIncome={(isIncomeTab && isIncomeMonth)
+                ? () => {
+                  if (!incomeMonthBudgetPlanId) return;
+                  navigation.navigate("Income" as any, {
+                    screen: "IncomeMonth",
+                    params: {
+                      month: Number(monthNum),
+                      year: Number(yearNum),
+                      budgetPlanId: incomeMonthBudgetPlanId,
+                      initialMode: "income",
+                      openIncomeAddAt: Date.now(),
+                    },
+                  } as any);
+                }
+                : undefined}
             />
           );
         },
@@ -795,19 +759,22 @@ function MainTabs() {
         }}
       />
       <Tab.Screen
+        name="Income"
+        component={IncomeStackNavigator}
+        options={{
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="wallet-outline" size={size} color={color} />
+          ),
+          tabBarLabel: "Income",
+        }}
+      />
+      <Tab.Screen
         name="Goals"
         component={GoalsScreen}
         options={{
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="flag-outline" size={size} color={color} />
           ),
-        }}
-      />
-      <Tab.Screen
-        name="Income"
-        component={IncomeStackNavigator}
-        options={{
-          tabBarButton: () => null,
         }}
       />
       <Tab.Screen
@@ -948,17 +915,6 @@ export default function RootNavigator() {
         ) : (
           <>
             <Stack.Screen name="Main" component={MainTabs} />
-            <Stack.Screen
-              name="IncomeFlow"
-              component={IncomeStackNavigator}
-              options={({ navigation }) => ({
-                headerShown: true,
-                headerTransparent: true,
-                headerStyle: { backgroundColor: "transparent" },
-                headerShadowVisible: false,
-                header: () => <RootTopHeader navigation={navigation} />,
-              })}
-            />
             <Stack.Screen
               name="NotificationSettings"
               component={NotificationSettingsScreenAdapter}

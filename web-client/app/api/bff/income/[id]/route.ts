@@ -8,6 +8,10 @@ function unauthorized() {
   return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 }
 
+function normalizeName(name: unknown): string {
+	return String(name ?? "").trim().replace(/\s+/g, " ");
+}
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -61,20 +65,46 @@ export async function PATCH(
 
     const raw = body as Record<string, unknown>;
     const data: Record<string, unknown> = {};
-    if (typeof raw.name === "string") data.name = raw.name;
-    if (typeof raw.amount !== "undefined") data.amount = raw.amount;
+    if (typeof raw.name === "string") data.name = normalizeName(raw.name);
+    if (typeof raw.amount !== "undefined") {
+      const nextAmount = Number(raw.amount);
+      if (!Number.isFinite(nextAmount)) {
+        return NextResponse.json({ error: "amount must be a number" }, { status: 400 });
+      }
+      data.amount = nextAmount;
+    }
     if (typeof raw.month === "number") data.month = raw.month;
     if (typeof raw.year === "number") data.year = raw.year;
     if (Object.keys(data).length === 0) {
       return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
     }
 
-    const income = await prisma.income.update({
-      where: { id },
-      data,
+    const nextName = typeof data.name === "string" && data.name.trim() ? (data.name as string) : existing.name;
+
+    const merged = await prisma.$transaction(async (tx) => {
+      const updated = await tx.income.update({
+        where: { id },
+        data,
+      });
+
+      // After updating, collapse any legacy duplicates (case-insensitive name match)
+      // in the *resulting* month/year, keeping the row the user edited.
+      await tx.income.deleteMany({
+        where: {
+          budgetPlanId: updated.budgetPlanId,
+          year: updated.year,
+          month: updated.month,
+          name: { equals: nextName, mode: "insensitive" },
+          id: { not: updated.id },
+        },
+      });
+
+      // Ensure we return the current row (with any coerced amount)
+      const refreshed = await tx.income.findUnique({ where: { id: updated.id } });
+      return refreshed ?? updated;
     });
 
-    return NextResponse.json(income);
+    return NextResponse.json(merged);
   } catch (error) {
     console.error("Failed to update income:", error);
     return NextResponse.json(
@@ -101,9 +131,8 @@ export async function DELETE(
 			return NextResponse.json({ error: "Income not found" }, { status: 404 });
 		}
 
-    await prisma.income.delete({
-      where: { id },
-    });
+    // Delete only the requested row.
+    await prisma.income.delete({ where: { id } });
 
     return NextResponse.json({ success: true });
   } catch (error) {

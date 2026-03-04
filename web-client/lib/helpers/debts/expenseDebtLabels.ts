@@ -50,10 +50,16 @@ export function cleanExpenseDebtBaseName(rawName: string, categoryName?: string 
 }
 
 export function formatExpenseDebtCardTitle(debt: DebtCardDebt): string {
-	const base = cleanExpenseDebtBaseName(
-		(debt.sourceExpenseName ?? "").trim() || debt.name,
-		debt.sourceCategoryName ?? null,
-	);
+	const sourceExpenseName = String(debt.sourceExpenseName ?? "").trim();
+	const debtName = String(debt.name ?? "").trim();
+	const cleanedSource = cleanExpenseDebtBaseName(sourceExpenseName, debt.sourceCategoryName ?? null);
+	const cleanedDebtName = cleanExpenseDebtBaseName(debtName, debt.sourceCategoryName ?? null);
+
+	const hasCustomDebtName =
+		cleanedDebtName.length > 0 &&
+		(cleanedSource.length === 0 || cleanedDebtName.toLowerCase() !== cleanedSource.toLowerCase());
+
+	const base = hasCustomDebtName ? cleanedDebtName : cleanedSource || cleanedDebtName;
 	const monthLabel = formatYearMonthLabel(debt.sourceMonthKey);
 	return monthLabel ? `${base} – ${monthLabel}` : base;
 }

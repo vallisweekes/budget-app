@@ -34,6 +34,61 @@ function prismaBudgetPlanHasField(fieldName: string): boolean {
   }
 }
 
+function normalizeIncomeName(name: unknown): string {
+  return String(name ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function isAllCapsName(name: string): boolean {
+  const trimmed = String(name ?? "").trim();
+  if (!trimmed) return false;
+  // Only consider letters when deciding casing.
+  const letters = trimmed.replace(/[^a-zA-Z]+/g, "");
+  if (!letters) return false;
+  return letters === letters.toUpperCase();
+}
+
+function pickCanonicalIncomeRow<T extends { name: string; amount: unknown; updatedAt: Date; createdAt: Date }>(
+  rows: T[],
+  desiredAmountKey?: string,
+): T | null {
+  if (!rows || rows.length === 0) return null;
+  let best: T | null = null;
+  for (const row of rows) {
+    if (!best) {
+      best = row;
+      continue;
+    }
+    const bestLegacy = isAllCapsName(best.name);
+    const rowLegacy = isAllCapsName(row.name);
+    if (bestLegacy !== rowLegacy) {
+      // Prefer non-legacy casing (e.g. Salary over SALARY).
+      best = rowLegacy ? best : row;
+      continue;
+    }
+
+    if (desiredAmountKey) {
+      const bestAmtKey: string = decimalToNumber(best.amount).toFixed(2);
+      const rowAmtKey: string = decimalToNumber(row.amount).toFixed(2);
+      const bestMatches: boolean = bestAmtKey === desiredAmountKey;
+      const rowMatches: boolean = rowAmtKey === desiredAmountKey;
+      if (bestMatches !== rowMatches) {
+        best = rowMatches ? row : best;
+        continue;
+      }
+    }
+
+    // Prefer the most recently updated row.
+    if (row.updatedAt.getTime() !== best.updatedAt.getTime()) {
+      best = row.updatedAt > best.updatedAt ? row : best;
+      continue;
+    }
+    if (row.createdAt.getTime() !== best.createdAt.getTime()) {
+      best = row.createdAt > best.createdAt ? row : best;
+    }
+  }
+  return best;
+}
+
 type EventIncomeScope = {
   kind: string;
   eventYear: number;
@@ -96,9 +151,14 @@ export async function getAllIncome(budgetPlanId: string, year?: number): Promise
 
   const rows = await prisma.income.findMany({
     where: { budgetPlanId, year: resolvedYear },
-    orderBy: [{ month: "asc" }, { createdAt: "asc" }],
-    select: { id: true, name: true, amount: true, month: true },
+    orderBy: [{ month: "asc" }, { updatedAt: "asc" }, { createdAt: "asc" }],
+    select: { id: true, name: true, amount: true, month: true, createdAt: true, updatedAt: true },
   });
+
+  const candidatesByMonth = new Map<MonthKey, Map<string, Array<(typeof rows)[number]>>>(
+    MONTHS.map((m) => [m, new Map()])
+  );
+  const amountCountsByKey = new Map<string, Map<string, number>>();
 
   for (const row of rows) {
 		if (scope && resolvedYear === scope.eventYear && row.month > scope.eventMonth) {
@@ -106,7 +166,45 @@ export async function getAllIncome(budgetPlanId: string, year?: number): Promise
 			continue;
 		}
     const monthKey = monthNumberToKey(row.month);
-    empty[monthKey].push({ id: row.id, name: row.name, amount: decimalToNumber(row.amount) });
+    const key = normalizeIncomeName(row.name);
+    if (!key) continue;
+    const monthMap = candidatesByMonth.get(monthKey);
+    if (!monthMap) continue;
+    const list = monthMap.get(key) ?? [];
+    list.push(row);
+    monthMap.set(key, list);
+
+    const amount = decimalToNumber(row.amount);
+    const amountKey = Number.isFinite(amount) ? amount.toFixed(2) : "0.00";
+    const counts = amountCountsByKey.get(key) ?? new Map<string, number>();
+    counts.set(amountKey, (counts.get(amountKey) ?? 0) + 1);
+    amountCountsByKey.set(key, counts);
+  }
+
+  const modeAmountByKey = new Map<string, string>();
+  for (const [key, counts] of amountCountsByKey.entries()) {
+    let bestAmt = "0.00";
+    let bestCount = -1;
+    for (const [amt, count] of counts.entries()) {
+      if (count > bestCount) {
+        bestCount = count;
+        bestAmt = amt;
+      }
+    }
+    modeAmountByKey.set(key, bestAmt);
+  }
+
+  for (const monthKey of MONTHS) {
+    const monthMap = candidatesByMonth.get(monthKey);
+    if (!monthMap) continue;
+    const chosen: IncomeItem[] = [];
+    for (const [key, list] of monthMap.entries()) {
+      const desiredAmt = modeAmountByKey.get(key);
+      const row = pickCanonicalIncomeRow(list, desiredAmt);
+      if (!row) continue;
+      chosen.push({ id: row.id, name: row.name, amount: decimalToNumber(row.amount) });
+    }
+    empty[monthKey] = chosen;
   }
 
   return empty;
@@ -140,7 +238,7 @@ export async function addIncome(
   });
 }
 
-function normalizeIncomeName(name: string): string {
+function normalizeIncomeNameForWrite(name: string): string {
   return String(name ?? "").trim().toLowerCase();
 }
 
@@ -156,7 +254,7 @@ export async function addOrUpdateIncomeAcrossMonths(
 			: await resolveIncomeYear(budgetPlanId);
 	const scope = await getEventIncomeScope(budgetPlanId);
   const targetMonths = Array.from(new Set(months));
-  const targetName = normalizeIncomeName(item.name);
+  const targetName = normalizeIncomeNameForWrite(item.name);
 
   for (const monthKey of targetMonths) {
 		if (scope) {

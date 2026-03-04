@@ -38,27 +38,22 @@ export function openIncomeSacrificeFromReminder(payload: IncomeSacrificeReminder
   if (!navigationRef.isReady()) return false;
 
   if (month && year && budgetPlanId) {
-    navigationRef.navigate("IncomeFlow", {
-      screen: "IncomeMonth",
+    navigationRef.navigate("Main", {
+      screen: "Income",
       params: {
-        month,
-        year,
-        budgetPlanId,
-        initialMode: "sacrifice",
-        showPendingNotice: true,
+        screen: "IncomeMonth",
+        params: {
+          month,
+          year,
+          budgetPlanId,
+          initialMode: "sacrifice",
+          showPendingNotice: true,
+        },
       },
     });
     return true;
   }
 
-  if (year) {
-    navigationRef.navigate("IncomeFlow", {
-      screen: "IncomeGrid",
-      params: { year },
-    });
-    return true;
-  }
-
-  navigationRef.navigate("IncomeFlow");
+  navigationRef.navigate("Main", { screen: "Income" });
   return true;
 }

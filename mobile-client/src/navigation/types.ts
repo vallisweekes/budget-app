@@ -4,6 +4,7 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 
 /* ── Income stack (inside Income tab) ──────────────────────── */
 export type IncomeStackParamList = {
+  IncomeHome: undefined;
   IncomeGrid: {
     year?: number;
     showAddAction?: boolean;
@@ -90,7 +91,6 @@ export type RootStackParamList = {
   Login: undefined;
   Onboarding: undefined;
   Main: NavigatorScreenParams<MainTabParamList>;
-  IncomeFlow: NavigatorScreenParams<IncomeStackParamList> | undefined;
   NotificationSettings: { initialTab?: "notifications" } | undefined;
   Payments: undefined;
   Analytics: undefined;

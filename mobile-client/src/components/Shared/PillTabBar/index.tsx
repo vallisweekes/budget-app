@@ -27,6 +27,7 @@ const ICONS: Record<string, { active: IconName; inactive: IconName }> = {
   Expenses:  { active: "receipt", inactive: "receipt-outline" },
   Debts:     { active: "card", inactive: "card-outline" },
   Goals:     { active: "flag", inactive: "flag-outline" },
+  Income:    { active: "wallet", inactive: "wallet-outline" },
 };
 
 const LABELS: Record<string, string> = {
@@ -34,6 +35,7 @@ const LABELS: Record<string, string> = {
   Expenses:  "Expenses",
   Debts:     "Debts",
   Goals:     "Goals",
+  Income:    "Income",
 };
 
 const INDICATOR_SIZE = 46;
@@ -176,6 +178,8 @@ export default function PillTabBar({ state, descriptors, navigation }: BottomTab
                   navigation.navigate("Dashboard");
                 } else if (route.name === "Goals") {
                   navigation.navigate("Goals");
+                } else if (route.name === "Income") {
+                  navigation.navigate("Income", { screen: "IncomeHome" });
                 }
               }
             };

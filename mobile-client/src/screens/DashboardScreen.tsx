@@ -287,11 +287,6 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
             <View style={styles.setupActions}>
               <Pressable
                 onPress={() => {
-                  const parent = navigation.getParent?.();
-                  if (parent) {
-                    parent.navigate("IncomeFlow");
-                    return;
-                  }
                   navigation.navigate("Income");
                 }}
                 style={styles.setupBtn}

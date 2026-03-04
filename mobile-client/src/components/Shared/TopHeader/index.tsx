@@ -140,18 +140,20 @@ export default function TopHeader({
         <View style={styles.menuBackdrop}>
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setMenuOpen(false)} />
           <View style={[styles.menuCard, { top: insets.top + 52 }]}> 
-            <Pressable
-              onPress={() => {
-                setMenuOpen(false);
-                onIncome();
-              }}
-              style={styles.menuItem}
-              accessibilityRole="button"
-              accessibilityLabel="Go to Income"
-            >
-              <Ionicons name="wallet-outline" size={16} color={T.text} />
-              <Text style={styles.menuItemText}>Income</Text>
-            </Pressable>
+            {showIncomeAction ? (
+              <Pressable
+                onPress={() => {
+                  setMenuOpen(false);
+                  onIncome();
+                }}
+                style={styles.menuItem}
+                accessibilityRole="button"
+                accessibilityLabel="Go to Income"
+              >
+                <Ionicons name="wallet-outline" size={16} color={T.text} />
+                <Text style={styles.menuItemText}>Income</Text>
+              </Pressable>
+            ) : null}
             <Pressable
               onPress={() => {
                 setMenuOpen(false);

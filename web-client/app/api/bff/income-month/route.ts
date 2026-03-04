@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
 import { getIncomeMonthAnalysis } from "@/lib/helpers/finance/getIncomeMonthAnalysis";
+import { prisma } from "@/lib/prisma";
+import { normalizePayFrequency } from "@/lib/payPeriods";
 
 export const runtime = "nodejs";
 
@@ -18,6 +20,18 @@ export async function GET(req: NextRequest) {
 	try {
 		const userId = await getSessionUserId(req);
 		if (!userId) return unauthorized();
+
+		let payFrequency: ReturnType<typeof normalizePayFrequency> = "monthly";
+		try {
+			const profile = await prisma.userOnboardingProfile.findUnique({
+				where: { userId },
+				select: { payFrequency: true },
+			});
+			payFrequency = normalizePayFrequency(profile?.payFrequency);
+		} catch {
+			// Default to monthly if cadence fields aren't available.
+			payFrequency = "monthly";
+		}
 
 		const { searchParams } = new URL(req.url);
 		const budgetPlanId = await resolveOwnedBudgetPlanId({
@@ -39,8 +53,8 @@ export async function GET(req: NextRequest) {
 		const prevYear = month === 1 ? year - 1 : year;
 
 		const [analysis, prevAnalysis] = await Promise.all([
-			getIncomeMonthAnalysis({ budgetPlanId, year, month }),
-			getIncomeMonthAnalysis({ budgetPlanId, year: prevYear, month: prevMonth }),
+			getIncomeMonthAnalysis({ budgetPlanId, year, month, payFrequency }),
+			getIncomeMonthAnalysis({ budgetPlanId, year: prevYear, month: prevMonth, payFrequency }),
 		]);
 
 		const grossIncome = analysis.grossIncome;

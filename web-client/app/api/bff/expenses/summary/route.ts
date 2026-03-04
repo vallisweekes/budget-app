@@ -122,12 +122,16 @@ export async function GET(req: NextRequest) {
 		return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
 	}
 
-	const [budgetPlan, onboardingProfile] = await Promise.all([
+	const [budgetPlan, onboardingProfile, planCategories] = await Promise.all([
 		prisma.budgetPlan.findUnique({
 		where: { id: budgetPlanId },
 		select: { payDate: true },
 		}),
 		findOnboardingPayFrequency(userId),
+		prisma.category.findMany({
+			where: { budgetPlanId },
+			select: { id: true, name: true, color: true, icon: true },
+		}),
 	]);
 	const payDate = Number.isFinite(Number(budgetPlan?.payDate)) && Number(budgetPlan?.payDate) >= 1
 		? Math.floor(Number(budgetPlan?.payDate))
@@ -160,6 +164,8 @@ export async function GET(req: NextRequest) {
 			payDate,
 			payFrequency,
 		});
+		const selectedAnchorYear = year;
+		const selectedAnchorMonth = month;
 		periodStart = selected.start;
 		periodEnd = selected.end;
 
@@ -226,30 +232,42 @@ export async function GET(req: NextRequest) {
 		const seen = new Map<string, { exp: (typeof periodRows)[number]; rank: number }>();
 		for (const exp of periodRows) {
 			if (isLegacyPlaceholderExpenseRow(exp)) continue;
-			const dueIso = resolveEffectiveDueDateIso(
-				{
-					id: exp.id,
-					name: exp.name,
-					amount: toFloat(exp.amount),
-					paid: exp.paid,
-					paidAmount: toFloat(exp.paidAmount),
-					dueDate: exp.dueDate ? exp.dueDate.toISOString().slice(0, 10) : undefined,
-				},
-				{ year: exp.year, monthNum: exp.month, payDate }
-			);
-			if (!dueIso || !periodStart || !periodEnd) continue;
-			const due = parseIsoDate(dueIso);
-			if (!due) continue;
-			if (!inRange(due, periodStart, periodEnd)) continue;
+			// Allocations/envelopes are not bills and should not impact expense totals.
+			if (Boolean((exp as any).isAllocation ?? false)) continue;
+
+			let dedupeScope = "";
+			let rank = 1;
+			if (exp.dueDate) {
+				const dueIso = resolveEffectiveDueDateIso(
+					{
+						id: exp.id,
+						name: exp.name,
+						amount: toFloat(exp.amount),
+						paid: exp.paid,
+						paidAmount: toFloat(exp.paidAmount),
+						dueDate: exp.dueDate ? exp.dueDate.toISOString().slice(0, 10) : undefined,
+					},
+					{ year: exp.year, monthNum: exp.month, payDate }
+				);
+				if (!dueIso || !periodStart || !periodEnd) continue;
+				const due = parseIsoDate(dueIso);
+				if (!due) continue;
+				if (!inRange(due, periodStart, periodEnd)) continue;
+				dedupeScope = dueIso;
+				const ym = /^\d{4}-\d{2}-\d{2}$/.test(dueIso)
+					? { year: Number(dueIso.slice(0, 4)), month: Number(dueIso.slice(5, 7)) }
+					: null;
+				rank = ym && Number.isFinite(ym.year) && Number.isFinite(ym.month) && exp.year === ym.year && exp.month === ym.month ? 0 : 1;
+			} else {
+				// Unscheduled expenses are still part of period totals when saved under the selected anchor month.
+				if (exp.year !== selectedAnchorYear || exp.month !== selectedAnchorMonth) continue;
+				dedupeScope = `unscheduled:${exp.year}-${exp.month}`;
+				rank = 0;
+			}
 
 			const series = String((exp as any).seriesKey ?? exp.name ?? "").trim().toLowerCase().replace(/\s+/g, " ");
 			const amount = toFloat(exp.amount);
-			const isAllocation = Boolean((exp as any).isAllocation ?? false);
-			const key = `${series}|${dueIso}|${amount}|${isAllocation ? 1 : 0}`;
-			const ym = /^\d{4}-\d{2}-\d{2}$/.test(dueIso)
-				? { year: Number(dueIso.slice(0, 4)), month: Number(dueIso.slice(5, 7)) }
-				: null;
-			const rank = ym && Number.isFinite(ym.year) && Number.isFinite(ym.month) && exp.year === ym.year && exp.month === ym.month ? 0 : 1;
+			const key = `${series}|${dedupeScope}|${amount}`;
 
 			const existing = seen.get(key);
 			if (!existing) {
@@ -274,6 +292,12 @@ export async function GET(req: NextRequest) {
 		});
 	}
 
+	// Allocations/envelopes are not bills and should not impact expense totals.
+	expenses = expenses.filter((e: any) => !Boolean(e?.isAllocation ?? false));
+
+	// In pay-period views, only treat explicitly scheduled items as bills.
+	// Note: pay-period scope includes both scheduled and unscheduled expenses.
+
 	// ── Server-side aggregations ──────────────────────────────────────────────
 
 	let totalAmount = 0;
@@ -295,6 +319,19 @@ export async function GET(req: NextRequest) {
 			totalCount: number;
 		}
 	>();
+
+	for (const category of planCategories) {
+		catMap.set(category.id, {
+			categoryId: category.id,
+			name: category.name,
+			color: category.color ?? null,
+			icon: category.icon ?? null,
+			total: 0,
+			paidTotal: 0,
+			paidCount: 0,
+			totalCount: 0,
+		});
+	}
 
 	for (const exp of expenses) {
 		const amount = toFloat(exp.amount);
@@ -333,9 +370,9 @@ export async function GET(req: NextRequest) {
 		if (exp.paid) cat.paidCount += 1;
 	}
 
-	const categoryBreakdown = Array.from(catMap.values()).sort(
-		(a, b) => b.total - a.total,
-	);
+	const categoryBreakdown = Array.from(catMap.values())
+		.filter((c) => c.totalCount > 0)
+		.sort((a, b) => b.total - a.total);
 
 	return NextResponse.json({
 		scope,

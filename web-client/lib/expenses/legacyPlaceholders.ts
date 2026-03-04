@@ -3,6 +3,12 @@ export const LEGACY_PLACEHOLDER_EXPENSE_NAMES = new Set([
 	"mortgage",
 	"council tax",
 	"counciltax",
+
+	// Early app seed placeholders (generic / unscheduled)
+	"emergency funds",
+	"single saving",
+	"home deposit",
+	"monthly allowance",
 ]);
 
 function normalizeExpenseName(name: unknown): string {
