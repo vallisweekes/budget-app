@@ -39,7 +39,8 @@ export default function CategoryBreakdown({ categories, currency, fmt, onCategor
         </Pressable>
       </View>
       {categories.map((cat) => {
-        const pct = cat.total > 0 ? Math.round((cat.paidTotal / cat.total) * 100) : 0;
+        const paidClamped = cat.total > 0 ? Math.min(cat.paidTotal, cat.total) : 0;
+        const pct = cat.total > 0 ? Math.round((paidClamped / cat.total) * 100) : 0;
         const color = resolveCategoryColor(cat.color);
         return (
           <Pressable
@@ -61,7 +62,7 @@ export default function CategoryBreakdown({ categories, currency, fmt, onCategor
 
             {/* Row 2: paid summary */}
             <Text style={styles.sub}>
-              {fmt(cat.paidTotal, currency)} paid · {cat.paidCount}/{cat.totalCount}
+              {fmt(paidClamped, currency)} paid · {cat.paidCount}/{cat.totalCount}
             </Text>
 
             {/* Row 3: full-width progress bar */}

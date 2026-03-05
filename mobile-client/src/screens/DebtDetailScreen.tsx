@@ -116,17 +116,22 @@ export default function DebtDetailScreen() {
             dueTone={derived.dueCoveredThisCycle ? "green" : derived.isOverdue ? "red" : "normal"}
             monthlyOrInterestLabel={
               derived.isCardDebt
-                ? (derived.monthlyMinNum != null && derived.monthlyMinNum > 0 ? "Monthly min" : "Interest Rate")
+                ? (derived.dueTarget > 0 ? "Monthly payment" : (derived.interestRateNum != null && derived.interestRateNum > 0 ? "Interest Rate" : "Monthly min"))
                 : (showMonthlyPayment ? "Monthly payment" : "Interest Rate")
             }
             monthlyOrInterestValue={
               derived.isCardDebt
-                ? (derived.monthlyMinNum != null && derived.monthlyMinNum > 0
-                    ? fmt(derived.monthlyMinNum, currency)
+                ? (derived.dueTarget > 0
+                    ? fmt(derived.dueTarget, currency)
                     : (derived.interestRateNum != null && derived.interestRateNum > 0 ? `${derived.interestRateNum}%` : "—"))
                 : (showMonthlyPayment
                     ? fmt(monthlyPaymentNum, currency)
                     : (derived.interestRateNum != null && derived.interestRateNum > 0 ? `${derived.interestRateNum}%` : "—"))
+            }
+            monthlyOrInterestSub={
+              derived.isCardDebt && derived.monthlyMinNum != null && derived.monthlyMinNum > 0 && derived.dueTarget > derived.monthlyMinNum
+                ? `Min ${fmt(derived.monthlyMinNum, currency)}`
+                : undefined
             }
           />
 

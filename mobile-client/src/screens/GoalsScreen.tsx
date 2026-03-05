@@ -19,7 +19,9 @@ import { useScrollToTop } from "@react-navigation/native";
 
 import { apiFetch } from "@/lib/api";
 import type { DashboardData, Goal, Settings } from "@/lib/apiTypes";
+import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { fmt } from "@/lib/formatting";
+import { asMoneyNumber } from "@/lib/helpers/settings";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 import { T } from "@/lib/theme";
 import { cardElevated, textLabel } from "@/lib/ui";
@@ -30,12 +32,20 @@ export default function GoalsScreen({ navigation, route }: { navigation: any; ro
   useScrollToTop(listRef);
   const topHeaderOffset = useTopHeaderOffset();
   const listTopInset = Math.max(24, topHeaderOffset - 36);
-  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
-  const [settings, setSettings] = useState<Settings | null>(null);
+
+  const {
+    dashboard,
+    settings,
+    isLoading: bootstrapLoading,
+    error: bootstrapError,
+    refresh: refreshBootstrap,
+    ensureLoaded,
+  } = useBootstrapData();
+
   const [goals, setGoals] = useState<Goal[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [loadingGoals, setLoadingGoals] = useState(true);
+  const [refreshingGoals, setRefreshingGoals] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
@@ -52,6 +62,9 @@ export default function GoalsScreen({ navigation, route }: { navigation: any; ro
   const lastOpenAddTokenRef = useRef<number | null>(null);
 
   const budgetPlanId = dashboard?.budgetPlanId;
+
+  const loading = bootstrapLoading || loadingGoals;
+  const refreshing = refreshingGoals;
 
   const parseAmount = (raw: string): number | undefined => {
     const t = String(raw ?? "").trim().replace(/,/g, "");
@@ -72,17 +85,21 @@ export default function GoalsScreen({ navigation, route }: { navigation: any; ro
     return y;
   };
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (options?: { force?: boolean }) => {
     try {
       setError(null);
-      const [dash, s] = await Promise.all([
-        apiFetch<DashboardData>("/api/bff/dashboard"),
-        apiFetch<Settings>("/api/bff/settings"),
-      ]);
-      setDashboard(dash);
-      setSettings(s);
 
-      const planId = dash?.budgetPlanId;
+      if (options?.force) setRefreshingGoals(true);
+      const { dashboard: dash, settings: s } = options?.force
+        ? await refreshBootstrap({ force: true })
+        : await ensureLoaded();
+
+      if (!dash || !s) {
+        if (bootstrapError) throw bootstrapError;
+        throw new Error("Failed to load");
+      }
+
+      const planId = dash.budgetPlanId;
       if (planId) {
         const g = await apiFetch<Goal[]>(`/api/bff/goals?budgetPlanId=${encodeURIComponent(planId)}`);
         setGoals(Array.isArray(g) ? g : []);
@@ -99,13 +116,13 @@ export default function GoalsScreen({ navigation, route }: { navigation: any; ro
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load goals");
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      setLoadingGoals(false);
+      setRefreshingGoals(false);
     }
-  }, []);
+  }, [bootstrapError, ensureLoaded, refreshBootstrap]);
 
   useEffect(() => {
-    load();
+    void load();
   }, [load]);
 
   const toggleDashboardGoal = async (goalId: string) => {
@@ -131,6 +148,9 @@ export default function GoalsScreen({ navigation, route }: { navigation: any; ro
           homepageGoalIds: next,
         },
       });
+
+      // Keep the app-wide cache in sync.
+      await refreshBootstrap({ force: true });
     } catch (err: unknown) {
       // revert
       setSelectedIds(selectedIds);
@@ -177,7 +197,7 @@ export default function GoalsScreen({ navigation, route }: { navigation: any; ro
         },
       });
       setAddOpen(false);
-      await load();
+      await load({ force: true });
     } catch (err: unknown) {
       Alert.alert("Failed to add goal", err instanceof Error ? err.message : "Unknown error");
     } finally {
@@ -211,7 +231,7 @@ export default function GoalsScreen({ navigation, route }: { navigation: any; ro
       );
       setEditYearOpen(false);
       setEditingGoal(null);
-      await load();
+      await load({ force: true });
     } catch (err: unknown) {
       Alert.alert("Failed to update goal", err instanceof Error ? err.message : "Unknown error");
     } finally {
@@ -267,7 +287,7 @@ export default function GoalsScreen({ navigation, route }: { navigation: any; ro
         <View style={s.center}>
           <Ionicons name="cloud-offline-outline" size={46} color={T.textDim} />
           <Text style={s.error}>{error}</Text>
-          <Pressable onPress={load} style={s.retryBtn}>
+          <Pressable onPress={() => void load({ force: true })} style={s.retryBtn}>
             <Text style={s.retryTxt}>Retry</Text>
           </Pressable>
         </View>
@@ -418,8 +438,7 @@ export default function GoalsScreen({ navigation, route }: { navigation: any; ro
           <RefreshControl
             refreshing={refreshing}
             onRefresh={() => {
-              setRefreshing(true);
-              load();
+              void load({ force: true });
             }}
             tintColor={T.accent}
           />
@@ -432,8 +451,18 @@ export default function GoalsScreen({ navigation, route }: { navigation: any; ro
         )}
         renderItem={({ item }) => {
           const selected = selectedIds.includes(item.id);
-          const target = Number((item as any).targetAmount ?? 0);
-          const current = Number((item as any).currentAmount ?? 0);
+          const target = asMoneyNumber((item as any).targetAmount);
+          const rawCurrent = asMoneyNumber((item as any).currentAmount);
+          const category = String((item as any).category ?? "").trim().toLowerCase();
+          const settingsFallback =
+            category === "emergency"
+              ? asMoneyNumber(settings?.emergencyBalance)
+              : category === "savings"
+                ? asMoneyNumber(settings?.savingsBalance)
+                : category === "investment"
+                  ? asMoneyNumber(settings?.investmentBalance)
+                  : 0;
+          const current = rawCurrent > 0 ? rawCurrent : (settingsFallback > 0 ? settingsFallback : 0);
           const showProgress = Number.isFinite(target) && target > 0;
           const progress = showProgress && Number.isFinite(current) ? Math.max(0, Math.min(1, current / target)) : 0;
 

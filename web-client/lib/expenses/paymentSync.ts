@@ -4,6 +4,7 @@ enforceServerOnlyRuntime();
 
 import { prisma } from "@/lib/prisma";
 import { getSettings, saveSettings } from "@/lib/settings/store";
+import { getPaymentPeriodKey, resolvePayDate } from "@/lib/helpers/periodKey";
 
 export type NormalizedExpensePaymentSource =
   | "income"
@@ -14,6 +15,7 @@ export type NormalizedExpensePaymentSource =
 
 type PaymentSyncDbClient = {
   expensePayment: typeof prisma.expensePayment;
+  expense: typeof prisma.expense;
   debt: typeof prisma.debt;
 };
 
@@ -148,6 +150,17 @@ export async function syncExpensePaymentsToPaidAmount(params: {
 
   const source = normalizeExpensePaymentSource(params.paymentSource);
 
+  // Always attribute the payment to the expense's intended pay period.
+  // This makes paying an upcoming-period expense slightly early still count
+  // for that period in all period-based summaries.
+  const expenseRow = await tx.expense.findFirst({
+    where: { id: params.expenseId, budgetPlanId: params.budgetPlanId },
+    select: { periodKey: true },
+  });
+  const expensePeriodKey = String(expenseRow?.periodKey ?? "").trim();
+  const payDate = expensePeriodKey ? null : await resolvePayDate(params.budgetPlanId);
+  const periodKey = expensePeriodKey || getPaymentPeriodKey(now, payDate ?? 1);
+
   let didChangePayments = false;
 
   if (recorded > desired && params.resetOnDecrease) {
@@ -161,6 +174,7 @@ export async function syncExpensePaymentsToPaidAmount(params: {
           amount: desired,
           source,
           paidAt: now,
+          periodKey,
         },
       });
     }
@@ -173,6 +187,7 @@ export async function syncExpensePaymentsToPaidAmount(params: {
           amount: delta,
           source,
           paidAt: now,
+          periodKey,
         },
       });
       didChangePayments = true;

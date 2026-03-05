@@ -10,6 +10,7 @@ import * as SplashScreen from "expo-splash-screen";
 
 import { store } from "@/store";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
+import { BootstrapDataProvider } from "@/context/BootstrapDataContext";
 import { PushNotificationsBootstrap } from "@/components/Shared/PushNotificationsBootstrap";
 import { apiFetch } from "@/lib/api";
 import { applyThemeMode, type ThemeMode, T } from "@/lib/theme";
@@ -173,7 +174,9 @@ function AuthedNavigation({
         </View>
       ) : (
         <View style={{ flex: 1, backgroundColor: T.bg }}>
-          <RootNavigator />
+          <BootstrapDataProvider>
+            <RootNavigator />
+          </BootstrapDataProvider>
         </View>
       )}
     </NavigationContainer>

@@ -381,6 +381,10 @@ model Expense {
   year         Int
   dueDate      DateTime?  // Full due date, defaults to payDate day of the current/next month if not set
 
+  // Pay-period this expense belongs to, formatted as the period start date (ISO: "YYYY-MM-DD").
+  // e.g. "2026-02-27" means the Feb 27 – Mar 26 period. Nullable during migration.
+  periodKey     String?
+
   budgetPlanId String
   budgetPlan   BudgetPlan @relation(fields: [budgetPlanId], references: [id], onDelete: Cascade)
   
@@ -409,6 +413,7 @@ model Expense {
   @@index([categoryId])
   @@index([budgetPlanId, isAllocation])
   @@index([budgetPlanId, seriesKey])
+  @@index([budgetPlanId, periodKey])
 }
 
 model ExpenseNameChange {
@@ -441,6 +446,10 @@ model ExpensePayment {
   debtId    String?
   debt      Debt?                @relation(fields: [debtId], references: [id], onDelete: SetNull)
   paidAt    DateTime
+
+  // Pay-period this payment belongs to (ISO date of period start: "YYYY-MM-DD").
+  periodKey String?
+
   createdAt DateTime             @default(now())
   updatedAt DateTime             @updatedAt
 
@@ -448,6 +457,7 @@ model ExpensePayment {
   @@index([paidAt])
   @@index([source])
   @@index([debtId])
+  @@index([periodKey])
 }
 
 model Income {
@@ -456,7 +466,10 @@ model Income {
   amount       Decimal    @db.Decimal(12, 2)
   month        Int
   year         Int
-  
+
+  // Pay-period this income belongs to (ISO date of period start: "YYYY-MM-DD").
+  periodKey    String?
+
   budgetPlanId String
   budgetPlan   BudgetPlan @relation(fields: [budgetPlanId], references: [id], onDelete: Cascade)
   
@@ -464,6 +477,7 @@ model Income {
   updatedAt    DateTime   @updatedAt
 
   @@index([budgetPlanId, month, year])
+  @@index([budgetPlanId, periodKey])
 }
 
 enum DebtType {
@@ -530,6 +544,10 @@ model DebtPayment {
   paidAt      DateTime
   year        Int
   month       Int
+
+  // Pay-period this payment belongs to (ISO date of period start: "YYYY-MM-DD").
+  periodKey   String?
+
   source      DebtPaymentSource @default(income)
   cardDebtId  String?
   cardDebt    Debt?    @relation("DebtPaymentCard", fields: [cardDebtId], references: [id], onDelete: SetNull)
@@ -542,6 +560,7 @@ model DebtPayment {
   @@index([debtId, year, month])
   @@index([year, month, source])
   @@index([cardDebtId])
+  @@index([periodKey])
 }
 
 enum DebtPaymentSource {

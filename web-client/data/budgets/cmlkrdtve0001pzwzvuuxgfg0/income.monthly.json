@@ -2,7 +2,7 @@
   "AUGUST ": [
     {
       "id": "SALARY-AUGUST ",
-      "name": "SALARY",
+      "name": "Salary",
       "amount": 5040
     },
     {
@@ -14,77 +14,77 @@
   "SEPTEMBER": [
     {
       "id": "SALARY-SEPTEMBER",
-      "name": "SALARY",
+      "name": "Salary",
       "amount": 5040
     }
   ],
   "OCTOBER": [
     {
       "id": "SALARY-OCTOBER",
-      "name": "SALARY",
+      "name": "Salary",
       "amount": 5040
     }
   ],
   "NOVEMBER": [
     {
       "id": "SALARY-NOVEMBER",
-      "name": "SALARY",
+      "name": "Salary",
       "amount": 5040
     }
   ],
   "DECEMBER": [
     {
       "id": "SALARY-DECEMBER",
-      "name": "SALARY",
+      "name": "Salary",
       "amount": 5040
     }
   ],
   "JANUARY": [
     {
       "id": "SALARY-JANUARY",
-      "name": "SALARY",
+      "name": "Salary",
       "amount": 5040
     }
   ],
   "FEBURARY": [
     {
       "id": "SALARY-FEBURARY",
-      "name": "SALARY",
+      "name": "Salary",
       "amount": 5040
     }
   ],
   "MARCH": [
     {
       "id": "SALARY-MARCH",
-      "name": "SALARY",
+      "name": "Salary",
       "amount": 4850
     }
   ],
   "APRIL": [
     {
       "id": "SALARY-APRIL",
-      "name": "SALARY",
+      "name": "Salary",
       "amount": 4850
     }
   ],
   "MAY": [
     {
       "id": "SALARY-MAY",
-      "name": "SALARY",
+      "name": "Salary",
       "amount": 14500
     }
   ],
   "JUNE": [
     {
       "id": "SALARY-JUNE",
-      "name": "SALARY",
+      "name": "Salary",
       "amount": 5000
     }
   ],
   "JULY": [
     {
       "id": "SALARY-JULY",
-      "name": "SALARY",
+      "name": "Salary",
       "amount": 5000
     }
   ]

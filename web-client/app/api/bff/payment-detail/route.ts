@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getDebtById } from "@/lib/debts/store";
 import { getDebtMonthlyPayment } from "@/lib/debts/calculate";
 import { derivePaymentDetailSummary, formatPaymentDueLabel } from "@/lib/payments/detailSummary";
+import { getExpensePaidMap } from "@/lib/expenses/paidSummary";
 
 export const runtime = "nodejs";
 
@@ -89,7 +90,8 @@ export async function GET(req: NextRequest) {
 			}
 
 			const amount = decimalToNumber(expense.amount);
-			const paidAmount = decimalToNumber(expense.paidAmount);
+			const canonicalPaid = await getExpensePaidMap([{ id: expense.id, amount }]);
+			const paidAmount = canonicalPaid.get(expense.id)?.paidAmount ?? decimalToNumber(expense.paidAmount);
 			const dueAmount = Math.max(0, amount - paidAmount);
 			const dueDateIso = expense.dueDate ? expense.dueDate.toISOString() : null;
 

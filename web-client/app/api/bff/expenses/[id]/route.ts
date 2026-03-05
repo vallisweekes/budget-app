@@ -11,6 +11,7 @@ import { buildPaymentMadeActivity } from "@/lib/push/activityMessages";
 import { sendUserPush } from "@/lib/push/sendUserPush";
 import { MONTHS } from "@/lib/constants/time";
 import { syncExpensePaymentsToPaidAmount } from "@/lib/expenses/paymentSync";
+import { getExpensePeriodKey, resolvePayDate } from "@/lib/helpers/periodKey";
 import type { MonthKey } from "@/types";
 
 export const runtime = "nodejs";
@@ -295,6 +296,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 			budgetPlanId: true,
       paymentSource: true,
       cardDebtId: true,
+      dueDate: true,
       budgetPlan: { select: { userId: true } },
     },
   });
@@ -405,6 +407,11 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       });
     }
 
+    // Recompute periodKey when dueDate changes
+    const expPayDate = await resolvePayDate(existing.budgetPlanId);
+    const nextDueDate = dueDate === undefined ? (existing.dueDate ?? null) : dueDate;
+    const periodKey = getExpensePeriodKey({ dueDate: nextDueDate, year: existing.year, month: existing.month }, expPayDate);
+
     // Update metadata first so subsequent logic uses the latest amount/name/etc.
     await tx.expense.update({
       where: { id },
@@ -420,6 +427,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
         isDirectDebit: isDirectDebit === undefined ? undefined : isDirectDebit,
 
         dueDate: dueDate === undefined ? undefined : dueDate,
+        periodKey,
       },
     });
 

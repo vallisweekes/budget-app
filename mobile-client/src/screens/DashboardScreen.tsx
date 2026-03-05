@@ -18,9 +18,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useScrollToTop } from "@react-navigation/native";
 
-import { ApiError, apiFetch } from "@/lib/api";
-import type { DashboardData, Settings } from "@/lib/apiTypes";
+import { useBootstrapData, isNoBudgetPlanError } from "@/context/BootstrapDataContext";
 import { currencySymbol, fmt, normalizeUpcomingName } from "@/lib/formatting";
+import { asMoneyNumber } from "@/lib/helpers/settings";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 import { resolveLogoUri } from "@/lib/logoDisplay";
 import { T } from "@/lib/theme";
@@ -43,11 +43,17 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
   useScrollToTop(scrollRef);
   const topHeaderOffset = useTopHeaderOffset();
   const insets = useSafeAreaInsets();
-  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
-  const [settings, setSettings] = useState<Settings | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+
+  const {
+    dashboard,
+    settings,
+    isLoading: loading,
+    isRefreshing: refreshing,
+    error,
+    refresh,
+    ensureLoaded,
+  } = useBootstrapData();
+
   const [categorySheet, setCategorySheet] = useState<{ id: string; name: string } | null>(null);
   const [quickPayItem, setQuickPayItem] = useState<QuickPaymentActionItem | null>(null);
 
@@ -67,44 +73,24 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
     return "flag-outline";
   };
 
-  const load = useCallback(async () => {
-    try {
-      setError(null);
-      // Fetch computed dashboard + settings in parallel.
-      // All budget calculations happen server-side — same logic as the web client.
-      const [dash, s] = await Promise.all([
-        apiFetch<DashboardData>("/api/bff/dashboard"),
-        apiFetch<Settings>("/api/bff/settings"),
-      ]);
-      setDashboard(dash);
-      setSettings(s);
-    } catch (err: unknown) {
-      const isNoPlan =
-        err instanceof ApiError &&
-        err.status === 404 &&
-        /budget plan not found/i.test(err.message);
-
-      if (isNoPlan) {
-        navigation.navigate("Settings");
-        return;
-      }
-
-      setError(err instanceof Error ? err.message : "Failed to load");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+  useEffect(() => {
+    if (isNoBudgetPlanError(error)) {
+      navigation.navigate("Settings");
     }
-  }, [navigation]);
+  }, [error, navigation]);
+
+  const load = useCallback((options?: { force?: boolean }) => {
+    return refresh({ force: options?.force === true });
+  }, [refresh]);
 
   useFocusEffect(
     useCallback(() => {
-      load();
-    }, [load])
+      void ensureLoaded();
+    }, [ensureLoaded])
   );
 
   const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    load();
+    void load({ force: true });
   }, [load]);
 
   const tips = dashboard?.expenseInsights?.recapTips ?? [];
@@ -133,12 +119,22 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
   }
 
   if (error) {
+    if (isNoBudgetPlanError(error)) {
+      return (
+				<SafeAreaView style={[styles.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color={T.accent} />
+          </View>
+        </SafeAreaView>
+      );
+    }
+
     return (
 			<SafeAreaView style={[styles.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
         <View style={styles.center}>
           <Ionicons name="cloud-offline-outline" size={48} color={T.iconMuted} />
-          <Text style={styles.errorText}>{error}</Text>
-          <Pressable onPress={load} style={styles.retryBtn}>
+          <Text style={styles.errorText}>{error.message}</Text>
+          <Pressable onPress={() => load({ force: true })} style={styles.retryBtn}>
             <Text style={styles.retryText}>Retry</Text>
           </Pressable>
         </View>
@@ -191,7 +187,7 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
         insetsBottom={insets.bottom}
         onClose={() => setQuickPayItem(null)}
         onUpdated={() => {
-          void load();
+          void load({ force: true });
         }}
       />
 
@@ -506,7 +502,17 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
               renderItem={({ item }) => {
                 const g = item.goal;
                 const hasTarget = typeof g.targetAmount === "number" && Number.isFinite(g.targetAmount);
-                const curAmt = typeof g.currentAmount === "number" && Number.isFinite(g.currentAmount) ? g.currentAmount : 0;
+                const rawCurAmt = typeof g.currentAmount === "number" && Number.isFinite(g.currentAmount) ? g.currentAmount : 0;
+                const category = String((g as any).category ?? "").trim().toLowerCase();
+                const settingsFallback =
+                  category === "emergency"
+                    ? asMoneyNumber(settings?.emergencyBalance)
+                    : category === "savings"
+                      ? asMoneyNumber(settings?.savingsBalance)
+                      : category === "investment"
+                        ? asMoneyNumber(settings?.investmentBalance)
+                        : 0;
+                const curAmt = rawCurAmt > 0 ? rawCurAmt : (settingsFallback > 0 ? settingsFallback : 0);
                 const tgtAmt = hasTarget ? (g.targetAmount as number) : null;
                 const pct = tgtAmt && tgtAmt > 0 ? Math.min(100, Math.max(0, (curAmt / tgtAmt) * 100)) : 0;
                 const primaryAmount = fmt(curAmt, currency);

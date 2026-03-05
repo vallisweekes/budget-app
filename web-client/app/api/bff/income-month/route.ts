@@ -1,8 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
+import { resolveUserPayPeriodContext } from "@/lib/api/payPeriodContext";
 import { getIncomeMonthAnalysis } from "@/lib/helpers/finance/getIncomeMonthAnalysis";
-import { prisma } from "@/lib/prisma";
-import { normalizePayFrequency } from "@/lib/payPeriods";
 
 export const runtime = "nodejs";
 
@@ -21,18 +20,6 @@ export async function GET(req: NextRequest) {
 		const userId = await getSessionUserId(req);
 		if (!userId) return unauthorized();
 
-		let payFrequency: ReturnType<typeof normalizePayFrequency> = "monthly";
-		try {
-			const profile = await prisma.userOnboardingProfile.findUnique({
-				where: { userId },
-				select: { payFrequency: true },
-			});
-			payFrequency = normalizePayFrequency(profile?.payFrequency);
-		} catch {
-			// Default to monthly if cadence fields aren't available.
-			payFrequency = "monthly";
-		}
-
 		const { searchParams } = new URL(req.url);
 		const budgetPlanId = await resolveOwnedBudgetPlanId({
 			userId,
@@ -42,12 +29,12 @@ export async function GET(req: NextRequest) {
 			return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
 		}
 
-		const monthParam = Number(searchParams.get("month"));
-		const yearParam = Number(searchParams.get("year"));
-		const month = Number.isFinite(monthParam) && monthParam >= 1 && monthParam <= 12
-			? monthParam
-			: new Date().getMonth() + 1;
-		const year = Number.isFinite(yearParam) ? yearParam : new Date().getFullYear();
+		const { month, year, payFrequency } = await resolveUserPayPeriodContext({
+			userId,
+			budgetPlanId,
+			requestedMonth: searchParams.get("month"),
+			requestedYear: searchParams.get("year"),
+		});
 
 		const prevMonth = month === 1 ? 12 : month - 1;
 		const prevYear = month === 1 ? year - 1 : year;

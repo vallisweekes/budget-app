@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getSessionUserId } from "@/lib/api/bffAuth";
 import { buildPaymentMadeActivity } from "@/lib/push/activityMessages";
 import { sendUserPush } from "@/lib/push/sendUserPush";
+import { getPaymentPeriodKey, getPeriodKey, resolvePayDate } from "@/lib/helpers/periodKey";
 
 export const runtime = "nodejs";
 
@@ -93,6 +94,8 @@ export async function GET(
 			return NextResponse.json({ error: "Debt not found" }, { status: 404 });
 		}
 
+    const payDate = await resolvePayDate(debt.budgetPlanId);
+
     const debtPayments = await prisma.debtPayment.findMany({
       where: { debtId: id },
       orderBy: { paidAt: "desc" },
@@ -140,6 +143,7 @@ export async function GET(
             month: number;
             source: "income";
             notes: string;
+            periodKey: string;
           }> = [];
 
           for (let i = paymentsMade - 1; i >= 0; i -= 1) {
@@ -153,6 +157,7 @@ export async function GET(
               month: paidAt.getUTCMonth() + 1,
               source: "income",
               notes: "Backfilled from paid total (assumed on-time payments)",
+              periodKey: getPaymentPeriodKey(paidAt, payDate),
             });
           }
 
@@ -221,6 +226,7 @@ export async function GET(
             source: p.source,
             debtId: p.debtId,
             paidAt: p.paidAt,
+            periodKey: getPaymentPeriodKey(p.paidAt, payDate),
           })),
         });
 
@@ -379,6 +385,10 @@ export async function POST(
 		const paidAt = body.paidAt ? new Date(body.paidAt) : new Date();
 		const year = paidAt.getUTCFullYear();
 		const month = paidAt.getUTCMonth() + 1;
+    const postPayDate = await resolvePayDate(debt.budgetPlan.id);
+    const periodKey = debt.dueDate && Number.isFinite(debt.dueDate.getTime())
+      ? getPeriodKey(debt.dueDate, postPayDate)
+      : getPaymentPeriodKey(paidAt, postPayDate);
 
     const appliedAmount = Math.min(paymentAmount, debt.currentBalance.toNumber());
 
@@ -394,6 +404,7 @@ export async function POST(
           source: paymentSource,
           cardDebtId: paymentCardDebtId,
           notes: body.notes || null,
+          periodKey,
         },
       });
 
@@ -492,7 +503,7 @@ export async function POST(
       if (updatedDebt.sourceType === "expense" && updatedDebt.sourceExpenseId) {
         const sourceExpense = await tx.expense.findUnique({
           where: { id: updatedDebt.sourceExpenseId },
-          select: { id: true, amount: true, paidAmount: true },
+          select: { id: true, amount: true, paidAmount: true, periodKey: true },
         });
 
         if (sourceExpense) {
@@ -506,6 +517,7 @@ export async function POST(
               paidAt,
               debtId: id,
               source: mapDebtPaymentSourceToExpensePaymentSource(paymentSource),
+              periodKey: sourceExpense.periodKey ?? periodKey,
             },
           });
 

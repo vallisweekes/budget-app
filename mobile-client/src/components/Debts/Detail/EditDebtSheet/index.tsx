@@ -110,14 +110,26 @@ export default function EditDebtSheet(props: Props) {
               <TextInput style={styles.input} value={interestRate} onChangeText={onChangeRate} keyboardType="decimal-pad" placeholder="0.00" placeholderTextColor={T.textMuted} />
             </View>
 
-            <View style={styles.formGroup}>
-              <Text style={styles.inputLabel}>Monthly payment</Text>
-              <MoneyInput
-                currency={currency}
-                value={monthlyPayment}
-                onChangeValue={onChangeMonthlyPayment}
-                placeholder="0.00"
-              />
+            <View style={styles.formRow}>
+              <View style={[styles.formGroup, styles.formCol]}>
+                <Text style={styles.inputLabel}>Monthly payment</Text>
+                <MoneyInput
+                  currency={currency}
+                  value={monthlyPayment}
+                  onChangeValue={onChangeMonthlyPayment}
+                  placeholder="0.00"
+                />
+              </View>
+
+              <View style={[styles.formGroup, styles.formCol]}>
+                <Text style={styles.inputLabel}>Monthly minimum</Text>
+                <MoneyInput
+                  currency={currency}
+                  value={monthlyMinimum}
+                  onChangeValue={onChangeMin}
+                  placeholder="0.00"
+                />
+              </View>
             </View>
 
             <View style={styles.formRow}>

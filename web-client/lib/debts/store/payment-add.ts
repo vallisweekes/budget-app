@@ -7,6 +7,7 @@ import {
 	decimalToNumber,
 } from "./shared";
 import { serializePayment } from "./transforms";
+import { getPaymentPeriodKey, getPeriodKey, resolvePayDate } from "@/lib/helpers/periodKey";
 type PaymentCreateData = Parameters<typeof prisma.debtPayment.create>[0]["data"];
 
 function isCreditLikeDebtType(value: unknown): boolean {
@@ -25,6 +26,7 @@ export async function addPayment(
 	const parsed = parseYearMonthKey(month);
 	const year = parsed?.year ?? paidAt.getUTCFullYear();
 	const monthNum = parsed?.month ?? paidAt.getUTCMonth() + 1;
+	const payDate = await resolvePayDate(budgetPlanId);
 
 	if (source === "credit_card") {
 		const trimmedCardId = String(cardDebtId ?? "").trim();
@@ -34,7 +36,7 @@ export async function addPayment(
 		const [targetDebt, cardDebt] = await prisma.$transaction([
 			prisma.debt.findFirst({
 				where: { id: debtId, budgetPlanId },
-				select: { id: true, type: true, currentBalance: true, paidAmount: true, sourceType: true, sourceExpenseId: true },
+				select: { id: true, type: true, currentBalance: true, paidAmount: true, sourceType: true, sourceExpenseId: true, dueDate: true },
 			}),
 			prisma.debt.findFirst({
 				where: { id: trimmedCardId, budgetPlanId },
@@ -50,6 +52,9 @@ export async function addPayment(
 		const targetCurrentBalance = decimalToNumber(targetDebt.currentBalance);
 		if (targetCurrentBalance <= 0) throw new Error("Debt is already paid");
 		const appliedAmount = Math.min(amount, targetCurrentBalance);
+		const periodKey = targetDebt.dueDate && Number.isFinite(targetDebt.dueDate.getTime())
+			? getPeriodKey(targetDebt.dueDate, payDate)
+			: getPaymentPeriodKey(paidAt, payDate);
 
 		const payment = await prisma.$transaction(async (tx) => {
 			const createdPayment = await tx.debtPayment.create({
@@ -62,6 +67,7 @@ export async function addPayment(
 					source: "credit_card" as PaymentCreateData["source"],
 					...(DEBT_PAYMENT_HAS_CARD_DEBT_ID ? { cardDebtId: trimmedCardId } : {}),
 					notes: month ? `month:${month}` : null,
+					periodKey,
 				},
 				select: paymentSelect(),
 			});
@@ -85,9 +91,12 @@ export async function addPayment(
 
 	const debt = await prisma.debt.findFirst({
 		where: { id: debtId, budgetPlanId },
-		select: { id: true, currentBalance: true, paidAmount: true, sourceType: true, sourceExpenseId: true },
+		select: { id: true, currentBalance: true, paidAmount: true, sourceType: true, sourceExpenseId: true, dueDate: true },
 	});
 	if (!debt) return null;
+	const periodKey = debt.dueDate && Number.isFinite(debt.dueDate.getTime())
+		? getPeriodKey(debt.dueDate, payDate)
+		: getPaymentPeriodKey(paidAt, payDate);
 
 	const currentBalance = decimalToNumber(debt.currentBalance);
 	if (currentBalance <= 0) throw new Error("Debt is already paid");
@@ -103,6 +112,7 @@ export async function addPayment(
 			source: source === "extra_funds" ? "extra_funds" : "income",
 			...(DEBT_PAYMENT_HAS_CARD_DEBT_ID ? { cardDebtId: cardDebtId ?? null } : {}),
 			notes: month ? `month:${month}` : null,
+			periodKey,
 		},
 		select: paymentSelect(),
 	});

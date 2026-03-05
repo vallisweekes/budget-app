@@ -23,7 +23,8 @@ import { useFocusEffect, useNavigation, useRoute, useScrollToTop, type RouteProp
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { apiFetch, getApiBaseUrl } from "@/lib/api";
-import type { CreditCard, DebtSummaryData, DebtSummaryItem, Settings } from "@/lib/apiTypes";
+import type { CreditCard, DebtSummaryData, DebtSummaryItem } from "@/lib/apiTypes";
+import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { currencySymbol, fmt } from "@/lib/formatting";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
@@ -173,7 +174,7 @@ function DebtCard({
         <View style={s.cardFooter}>
           {!isPaid && dueThisMonth > 0 && (
             <Text style={s.cardMetaStrong}>
-              {isPaymentMonthPaid ? "Paid this month" : "Due this month"} {fmt(isPaymentMonthPaid ? paidThisMonth : dueThisMonth, currency)}
+              {isPaymentMonthPaid ? "Paid this period" : "Due this period"} {fmt(isPaymentMonthPaid ? paidThisMonth : dueThisMonth, currency)}
             </Text>
           )}
           {debt.interestRate != null && debt.interestRate > 0 && (
@@ -203,11 +204,17 @@ export default function DebtScreen() {
   const route = useRoute<RouteProp<DebtStackParamList, "DebtList">>();
   const topHeaderOffset = useTopHeaderOffset();
   const insets = useSafeAreaInsets();
+  const {
+    settings,
+    isLoading: bootstrapLoading,
+    error: bootstrapError,
+    refresh: refreshBootstrap,
+    ensureLoaded,
+  } = useBootstrapData();
 
   const [summary, setSummary] = useState<DebtSummaryData | null>(null);
   const [cards, setCards] = useState<CreditCard[]>([]);
-  const [settings, setSettings] = useState<Settings | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loadingDebts, setLoadingDebts] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -262,32 +269,37 @@ export default function DebtScreen() {
 
   const currency = currencySymbol(settings?.currency);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (options?: { force?: boolean }) => {
     try {
       setError(null);
-      const [s, sets, cardRows] = await Promise.all([
+      const [{ settings: bootSettings }, s, cardRows] = await Promise.all([
+        options?.force ? refreshBootstrap({ force: true }) : ensureLoaded(),
         apiFetch<DebtSummaryData>("/api/bff/debt-summary"),
-        apiFetch<Settings>("/api/bff/settings"),
         apiFetch<CreditCard[]>("/api/bff/credit-cards"),
       ]);
+
+      if (!bootSettings) {
+        throw bootstrapError ?? new Error("Failed to load settings");
+      }
       setSummary(s);
-      setSettings(sets);
       setCards(Array.isArray(cardRows) ? cardRows : []);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load debts");
     } finally {
-      setLoading(false);
+      setLoadingDebts(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [bootstrapError, ensureLoaded, refreshBootstrap]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
   useFocusEffect(
     useCallback(() => {
-      load();
+      void load();
     }, [load])
   );
+
+  const loading = bootstrapLoading || loadingDebts;
 
   useEffect(() => {
     const optimisticDeletedDebtId = route.params?.optimisticDeletedDebtId;
@@ -433,7 +445,7 @@ export default function DebtScreen() {
         <View style={[s.center, { paddingTop: topHeaderOffset }]}>
           <Ionicons name="cloud-offline-outline" size={48} color={T.textDim} />
           <Text style={s.errorText}>{error}</Text>
-          <Pressable onPress={load} style={s.retryBtn}><Text style={s.retryTxt}>Retry</Text></Pressable>
+          <Pressable onPress={() => { setRefreshing(true); void load({ force: true }); }} style={s.retryBtn}><Text style={s.retryTxt}>Retry</Text></Pressable>
         </View>
       </SafeAreaView>
     );
@@ -447,7 +459,7 @@ export default function DebtScreen() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={[s.scroll, { paddingTop: topHeaderOffset }]}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={T.accent} />
+          <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load({ force: true }); }} tintColor={T.accent} />
         }
         ListHeaderComponent={
           <>

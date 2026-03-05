@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
+import { resolveUserPayPeriodContext } from "@/lib/api/payPeriodContext";
 import {
   confirmSacrificeTransfer,
   listSacrificeGoalLinks,
@@ -14,14 +15,6 @@ export const runtime = "nodejs";
 
 function unauthorized() {
   return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-}
-
-function parseMonthYear(searchParams: URLSearchParams): { month: number; year: number } {
-  const monthRaw = Number(searchParams.get("month"));
-  const yearRaw = Number(searchParams.get("year"));
-  const month = Number.isFinite(monthRaw) && monthRaw >= 1 && monthRaw <= 12 ? monthRaw : new Date().getMonth() + 1;
-  const year = Number.isFinite(yearRaw) ? yearRaw : new Date().getFullYear();
-  return { month, year };
 }
 
 export async function GET(request: NextRequest) {
@@ -38,7 +31,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
     }
 
-    const { month, year } = parseMonthYear(searchParams);
+    const { month, year } = await resolveUserPayPeriodContext({
+      userId,
+      budgetPlanId,
+      requestedMonth: searchParams.get("month"),
+      requestedYear: searchParams.get("year"),
+    });
 
     const [goals, links, confirmations] = await Promise.all([
       prisma.goal.findMany({
@@ -145,10 +143,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid target key" }, { status: 400 });
     }
 
-    const monthRaw = Number(body.month);
-    const yearRaw = Number(body.year);
-    const month = Number.isFinite(monthRaw) && monthRaw >= 1 && monthRaw <= 12 ? monthRaw : new Date().getMonth() + 1;
-    const year = Number.isFinite(yearRaw) ? yearRaw : new Date().getFullYear();
+    const { month, year } = await resolveUserPayPeriodContext({
+      userId,
+      budgetPlanId,
+      requestedMonth: body.month,
+      requestedYear: body.year,
+      now: new Date(),
+    });
 
     const result = await confirmSacrificeTransfer({
       budgetPlanId,

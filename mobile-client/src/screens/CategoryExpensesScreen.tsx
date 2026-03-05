@@ -170,7 +170,16 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
   }, [load]);
 
   const plannedTotal = useMemo(() => expenses.reduce((s, e) => s + Number(e.amount), 0), [expenses]);
-  const paidTotal = useMemo(() => expenses.reduce((s, e) => s + Number(e.paidAmount), 0), [expenses]);
+  const paidTotal = useMemo(
+    () =>
+      expenses.reduce((s, e) => {
+        const amount = Number(e.amount);
+        const paid = Number(e.paidAmount);
+        const paidClamped = amount > 0 ? Math.min(paid, amount) : 0;
+        return s + paidClamped;
+      }, 0),
+    [expenses]
+  );
   const remainingTotal = useMemo(() => Math.max(plannedTotal - paidTotal, 0), [plannedTotal, paidTotal]);
 
   const paidPct = useMemo(() => {
@@ -217,6 +226,7 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
     ({ item }: { item: Expense }) => {
       const amount = Number(item.amount);
       const paidAmount = Number(item.paidAmount);
+      const paidAmountClamped = amount > 0 ? Math.min(paidAmount, amount) : 0;
       const remainingAmount = Math.max(amount - paidAmount, 0);
       const ratio = amount > 0 ? Math.min(paidAmount / amount, 1) : item.paid ? 1 : 0;
       const dueColor = item.dueDate ? dueDaysColor(item.dueDate) : null;
@@ -315,7 +325,7 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
             <Text style={rowStyles.amount}>{fmt(amount, currency)}</Text>
             <View style={rowStyles.snapshotCol}>
               <View style={rowStyles.snapshotRow}>
-                <Text style={rowStyles.snapshotTxt}>Paid: {fmt(paidAmount, currency)}</Text>
+                <Text style={rowStyles.snapshotTxt}>Paid: {fmt(paidAmountClamped, currency)}</Text>
                 <Text style={[rowStyles.snapshotTxt, rowStyles.snapshotRemaining]}>
                   Remaining: {fmt(remainingAmount, currency)}
                 </Text>

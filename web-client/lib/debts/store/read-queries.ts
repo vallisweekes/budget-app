@@ -116,16 +116,20 @@ export async function getPaymentsByDebt(budgetPlanId: string, debtId: string): P
 export async function getPaymentsByMonth(
 	budgetPlanId: string,
 	month: string,
-	yearOverride?: number
+	yearOverride?: number,
+	periodKey?: string
 ): Promise<DebtPayment[]> {
 	const monthKey = month as MonthKey;
 	const year = yearOverride ?? (await resolveBudgetYear(budgetPlanId));
 	const monthNum = monthKeyToNumber(monthKey);
+	// Prefer periodKey when available; fall back to year/month columns.
+	const dateFilter = periodKey
+		? { periodKey }
+		: { year, month: monthNum };
 	const rows = await prisma.debtPayment.findMany({
 		where: {
 			debt: { budgetPlanId },
-			year,
-			month: monthNum,
+			...dateFilter,
 			source: "income",
 		},
 		orderBy: [{ paidAt: "asc" }],

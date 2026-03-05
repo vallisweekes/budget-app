@@ -162,12 +162,23 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
     const nextDueDate = editDueDate || null;
     const nextDueDay = nextDueDate ? Number.parseInt(nextDueDate.slice(8, 10), 10) : null;
 
+    const parsedMin = editMin ? parseFloat(editMin) : NaN;
+    const monthlyMinimum = Number.isFinite(parsedMin) && parsedMin > 0 ? parsedMin : null;
+
+    // For credit/store cards the monthly minimum IS the planned payment.
+    // Keep amount in sync so the list card and detail page always agree.
+    const isCardType = debt.type === "credit_card" || debt.type === "store_card";
+    const effectiveAmount = isCardType && monthlyMinimum != null
+      ? monthlyMinimum
+      : (Number.isFinite(parsedMonthlyPayment) ? parsedMonthlyPayment : null);
+
     const optimisticDebt: Debt = {
       ...debt,
       name,
       currentBalance: parsedCurrentBalance.toFixed(2),
       paid: parsedCurrentBalance <= 0,
-      amount: Number.isFinite(parsedMonthlyPayment) ? parsedMonthlyPayment.toFixed(2) : null,
+      amount: effectiveAmount != null ? effectiveAmount.toFixed(2) : null,
+      monthlyMinimum: monthlyMinimum != null ? monthlyMinimum.toFixed(2) : null,
       interestRate: Number.isFinite(parsedInterestRate) ? parsedInterestRate.toFixed(2) : null,
       installmentMonths,
       dueDate: nextDueDate,
@@ -188,7 +199,8 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
         body: {
           name,
           currentBalance: Number(parsedCurrentBalance.toFixed(2)),
-          amount: editMonthlyPayment ? Number(parseFloat(editMonthlyPayment).toFixed(2)) : null,
+          amount: effectiveAmount != null ? Number(effectiveAmount.toFixed(2)) : null,
+          monthlyMinimum: monthlyMinimum != null ? Number(monthlyMinimum.toFixed(2)) : null,
           interestRate: editRate ? Number(parseFloat(editRate).toFixed(2)) : null,
           installmentMonths,
           dueDate: editDueDate || null,
@@ -204,7 +216,7 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
     } finally {
       setEditSaving(false);
     }
-  }, [debt, debtId, editCurrentBalance, editDueDate, editInstallment, editMonthlyPayment, editName, editPaymentCardDebtId, editPaymentSource, editRate, load]);
+  }, [debt, debtId, editCurrentBalance, editDueDate, editInstallment, editMin, editMonthlyPayment, editName, editPaymentCardDebtId, editPaymentSource, editRate, load]);
 
   const confirmDeleteDebt = useCallback(async () => {
     if (deletingDebt) return;
@@ -261,7 +273,14 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
 
       if (!(planned > 0) && Number.isFinite(amount) && amount > 0) planned = amount;
       if (!(planned > 0) && debt.sourceType === "expense") planned = currentBalance;
-      if (monthlyMinNum != null && monthlyMinNum > 0) planned = Math.max(planned, monthlyMinNum);
+
+      // For credit/store cards the monthly minimum IS the planned payment.
+      const isCardType = debt.type === "credit_card" || debt.type === "store_card";
+      if (isCardType && monthlyMinNum != null && monthlyMinNum > 0) {
+        planned = monthlyMinNum;
+      } else if (monthlyMinNum != null && monthlyMinNum > 0) {
+        planned = Math.max(planned, monthlyMinNum);
+      }
 
       planned = Number.isFinite(planned) ? Math.max(0, planned) : 0;
       return Math.min(currentBalance, planned);

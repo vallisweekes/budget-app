@@ -3,6 +3,7 @@ import { ensureDefaultCategoriesForBudgetPlan } from "@/lib/categories/defaultCa
 import { suggestCategoryNameForExpense } from "@/lib/expenses/expenseCategorizer";
 import { ensureUkMobileProviderMappingsSeeded } from "@/lib/expenses/providerMappings";
 import { normalizePayFrequency, resolveActivePayPeriodWindow } from "@/lib/payPeriods";
+import { getExpensePeriodKey, getIncomePeriodKey } from "@/lib/helpers/periodKey";
 
 export const COMMON_OCCUPATIONS = [
   "Accountant",
@@ -649,6 +650,7 @@ export async function completeOnboarding(userId: string) {
             amount: salary,
             month: period.month,
             year: period.year,
+            periodKey: getIncomePeriodKey({ year: period.year, month: period.month }, payDay ?? 1),
           },
         });
       }
@@ -673,14 +675,7 @@ export async function completeOnboarding(userId: string) {
         });
         if (exists) continue;
 
-        await tx.expense.create({
-          data: {
-            budgetPlanId,
-            name: item.resolvedName,
-            amount: item.amount,
-            month: period.month,
-            year: period.year,
-            dueDate: payDay
+        const expDueDate = payDay
               ? new Date(
                 Date.UTC(
                   period.year,
@@ -688,11 +683,20 @@ export async function completeOnboarding(userId: string) {
                   Math.min(payDay, new Date(Date.UTC(period.year, period.month, 0)).getUTCDate())
                 )
               )
-              : undefined,
+              : undefined;
+        await tx.expense.create({
+          data: {
+            budgetPlanId,
+            name: item.resolvedName,
+            amount: item.amount,
+            month: period.month,
+            year: period.year,
+            dueDate: expDueDate,
             paid: false,
             paidAmount: 0,
             isAllocation: false,
             categoryId: item.categoryId ?? undefined,
+            periodKey: getExpensePeriodKey({ dueDate: expDueDate ?? null, year: period.year, month: period.month }, payDay ?? 1),
           },
         });
       }
@@ -852,6 +856,7 @@ export async function runOnboardingRepairPass(userId: string) {
             amount: salary,
             month: period.month,
             year: period.year,
+            periodKey: getIncomePeriodKey({ year: period.year, month: period.month }, payDay ?? 1),
           },
         });
       }
@@ -910,6 +915,7 @@ export async function runOnboardingRepairPass(userId: string) {
             paid: false,
             paidAmount: 0,
             isAllocation: false,
+            periodKey: getExpensePeriodKey({ dueDate, year: period.year, month: period.month }, payDay ?? 1),
           },
         });
       }

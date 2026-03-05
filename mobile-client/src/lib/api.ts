@@ -65,11 +65,11 @@ function getDefaultCacheTtlMs(path: string): number {
   if (normalized.startsWith("/api/bff/settings")) return 6_000;
   if (normalized.startsWith("/api/bff/budget-plans")) return 6_000;
   if (normalized.startsWith("/api/bff/categories")) return 4_000;
-  if (normalized.startsWith("/api/bff/expenses/summary")) return 3_000;
-  if (normalized.startsWith("/api/bff/expenses?")) return 3_000;
-  if (normalized.startsWith("/api/bff/debt-summary")) return 4_000;
-  if (normalized.startsWith("/api/bff/dashboard")) return 3_000;
-  if (normalized.startsWith("/api/bff/income-summary")) return 4_000;
+  if (normalized.startsWith("/api/bff/expenses/summary")) return 0;
+  if (normalized.startsWith("/api/bff/expenses?")) return 0;
+  if (normalized.startsWith("/api/bff/debt-summary")) return 0;
+  if (normalized.startsWith("/api/bff/dashboard")) return 0;
+  if (normalized.startsWith("/api/bff/income-summary")) return 0;
   return 0;
 }
 

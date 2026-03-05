@@ -62,16 +62,20 @@ async function seedStarterDataForPlan(params: { budgetPlanId: string }) {
 	if (!existingIncome) {
 		writes.push(
 			withPrismaRetry(
-				() =>
-					prisma.income.create({
+				async () => {
+					const { getIncomePeriodKey, resolvePayDate: rp } = await import("@/lib/helpers/periodKey");
+					const pd = await rp(budgetPlanId);
+					return prisma.income.create({
 						data: {
 							budgetPlanId,
 							name: "Starter income (Edit me)",
 							amount: 3000,
 							month,
 							year,
+							periodKey: getIncomePeriodKey({ year, month }, pd),
 						},
-					}),
+					});
+				},
 				{ retries: 2, delayMs: 150 }
 			)
 		);
@@ -80,8 +84,10 @@ async function seedStarterDataForPlan(params: { budgetPlanId: string }) {
 	if (!existingExpense) {
 		writes.push(
 			withPrismaRetry(
-				() =>
-					prisma.expense.create({
+				async () => {
+					const { getExpensePeriodKey, resolvePayDate: rp } = await import("@/lib/helpers/periodKey");
+					const pd = await rp(budgetPlanId);
+					return prisma.expense.create({
 						data: {
 							budgetPlanId,
 							name: "Starter expense (Edit me)",
@@ -92,8 +98,10 @@ async function seedStarterDataForPlan(params: { budgetPlanId: string }) {
 							month,
 							year,
 							categoryId: firstCategory?.id ?? null,
+							periodKey: getExpensePeriodKey({ dueDate: null, year, month }, pd),
 						},
-					}),
+					});
+				},
 				{ retries: 2, delayMs: 150 }
 			)
 		);

@@ -19,6 +19,7 @@ import { prisma } from "@/lib/prisma";
 import { resolveUserId } from "@/lib/budgetPlans";
 import { getSettings, saveSettings } from "@/lib/settings/store";
 import { upsertExpenseDebt } from "@/lib/debts/store";
+import { getPaymentPeriodKey, resolvePayDate } from "@/lib/helpers/periodKey";
 
 function getExpensePaymentDelegate(): any | null {
   return (prisma as any)?.expensePayment ?? null;
@@ -157,7 +158,7 @@ async function backfillExpensePaymentAndAdjustBalances(args: {
         name: { equals: args.name, mode: "insensitive" },
         ...(args.categoryId ? { categoryId: args.categoryId } : {}),
       },
-      select: { id: true, paidAmount: true },
+      select: { id: true, paidAmount: true, periodKey: true },
     });
     if (!expense) continue;
 
@@ -190,6 +191,7 @@ async function backfillExpensePaymentAndAdjustBalances(args: {
         amount: delta,
         source: args.paymentSource,
         paidAt: now,
+        periodKey: expense.periodKey ?? getPaymentPeriodKey(now, await resolvePayDate(args.budgetPlanId)),
       },
     });
 
@@ -281,10 +283,17 @@ async function recordExpensePaymentAndAdjustBalances(args: {
 }) {
   if (!Number.isFinite(args.amount) || args.amount <= 0) return;
 
+  const expenseForPeriod = await prisma.expense.findFirst({
+    where: { id: args.expenseId, budgetPlanId: args.budgetPlanId },
+    select: { periodKey: true },
+  });
+  const expensePeriodKey = expenseForPeriod?.periodKey ?? null;
+
   if (args.paymentSource === "credit_card") {
     const debtId = await resolveCreditCardDebtId({ budgetPlanId: args.budgetPlanId, requestedDebtId: args.cardDebtId });
     const expensePayment = getExpensePaymentDelegate();
     if (expensePayment) {
+      const pd = await resolvePayDate(args.budgetPlanId);
       await expensePayment.create({
         data: {
           expenseId: args.expenseId,
@@ -292,6 +301,7 @@ async function recordExpensePaymentAndAdjustBalances(args: {
           source: args.paymentSource,
           ...(EXPENSE_PAYMENT_HAS_DEBT_ID ? { debtId } : {}),
           paidAt: new Date(),
+          periodKey: expensePeriodKey ?? getPaymentPeriodKey(new Date(), pd),
         },
       });
     }
@@ -308,6 +318,7 @@ async function recordExpensePaymentAndAdjustBalances(args: {
       amount: args.amount,
       source: args.paymentSource,
       paidAt: new Date(),
+      periodKey: expensePeriodKey ?? getPaymentPeriodKey(new Date(), await resolvePayDate(args.budgetPlanId)),
     },
   });
 

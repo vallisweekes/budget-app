@@ -2,8 +2,10 @@ import { getAllIncome } from "@/lib/income/store";
 import { getMonthlyAllocationSnapshot, getMonthlyCustomAllocationsSnapshot } from "@/lib/allocations/store";
 import { monthNumberToKey } from "@/lib/helpers/monthKey";
 import { getMonthlyDebtPlan } from "@/lib/helpers/finance/getMonthlyDebtPlan";
+import { getDashboardPlanDataForActivePayPeriod } from "@/lib/helpers/dashboard/getDashboardPlanData";
 import { buildPayPeriodFromMonthAnchor, normalizePayFrequency, type PayFrequency } from "@/lib/payPeriods";
 import { prisma } from "@/lib/prisma";
+import { getPeriodKey } from "@/lib/helpers/periodKey";
 import type { MonthKey } from "@/types";
 
 function decimalToNumber(value: unknown): number {
@@ -62,13 +64,20 @@ export async function getIncomeMonthAnalysis({ budgetPlanId, year, month, payFre
 	const prevMonthKey = monthNumberToKey(prevMonth as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12) as MonthKey;
 	const cadence = normalizePayFrequency(payFrequency);
 
-	const [incomeByMonth, prevIncomeByMonth, plan, allocationSnapshot, customAllocationsSnapshot, debtPlan] = await Promise.all([
+	// Fetch payDate first so we can compute the pay-period window for period-based queries.
+	const plan = await prisma.budgetPlan.findUnique({ where: { id: budgetPlanId }, select: { payDate: true } });
+	const payDate = Number(plan?.payDate ?? 27);
+	const periodWindow = cadence === "monthly"
+		? buildPayPeriodFromMonthAnchor({ anchorYear: year, anchorMonth: month, payDate, payFrequency: cadence })
+		: null;
+	const periodKey = periodWindow ? getPeriodKey(periodWindow.start, payDate) : undefined;
+
+	const [incomeByMonth, prevIncomeByMonth, allocationSnapshot, customAllocationsSnapshot, debtPlan] = await Promise.all([
 		getAllIncome(budgetPlanId, year),
 		prevYear === year ? Promise.resolve(null) : getAllIncome(budgetPlanId, prevYear),
-		prisma.budgetPlan.findUnique({ where: { id: budgetPlanId }, select: { payDate: true } }),
 		getMonthlyAllocationSnapshot(budgetPlanId, monthKey, { year }),
 		getMonthlyCustomAllocationsSnapshot(budgetPlanId, monthKey, { year }),
-		getMonthlyDebtPlan({ budgetPlanId, year, month }),
+		getMonthlyDebtPlan({ budgetPlanId, year, month, periodKey, periodStart: periodWindow?.start }),
 	]);
 
 	const endItems = incomeByMonth[monthKey] ?? [];
@@ -89,54 +98,40 @@ export async function getIncomeMonthAnalysis({ budgetPlanId, year, month, payFre
 
 	let plannedExpenses = 0;
 	let paidExpenses = 0;
+	let periodPaidDebtFromIncome: number | null = null;
 	if (cadence === "monthly") {
-		const payDate = Number(plan?.payDate ?? 27);
-		const window = buildPayPeriodFromMonthAnchor({
-			anchorYear: year,
-			anchorMonth: month,
+		const window = periodWindow!;
+
+		const dashboardNow = new Date(window.start.getTime() + 12 * 60 * 60 * 1000);
+		const dashboardSnapshot = await getDashboardPlanDataForActivePayPeriod(budgetPlanId, {
+			now: dashboardNow,
 			payDate,
 			payFrequency: cadence,
+			ensureDefaultCategories: false,
 		});
+		plannedExpenses = Number(dashboardSnapshot.totalExpenses ?? 0);
 
-		const candidates = await prisma.expense.findMany({
-			where: {
-				budgetPlanId,
-				isAllocation: false,
-				isMovedToDebt: false,
-				OR: [
-					{ year, month },
-					{ year: prevYear, month: prevMonth },
-				],
-			},
-			select: {
-				amount: true,
-				paidAmount: true,
-				paid: true,
-				dueDate: true,
-				year: true,
-				month: true,
-			},
-		});
+		// Paid expenses: get ALL income-sourced payments for this period's expenses,
+		// regardless of when the payment was made. If the user paid a bill early
+		// (before payday), it should still reduce "income remaining".
+		const periodExpenseIds = dashboardSnapshot.categoryData
+			.flatMap((category) => category.expenses ?? [])
+			.map((expense) => String(expense.id ?? "").trim())
+			.filter(Boolean);
 
-		const startMs = utcDateOnly(window.start).getTime();
-		const endMs = utcDateOnly(window.end).getTime();
-		for (const exp of candidates) {
-			const due = resolveEffectiveExpenseDueDateUtc(
-				{ dueDate: exp.dueDate, year: exp.year, month: exp.month },
-				payDate,
-			);
-			if (!due) continue;
-			const dueMs = due.getTime();
-			if (dueMs < startMs || dueMs > endMs) continue;
-			const amount = decimalToNumber(exp.amount);
-			if (!(amount > 0)) continue;
-			plannedExpenses += amount;
-			const rawPaid = decimalToNumber(exp.paidAmount);
-			const paidContribution = exp.paid
-				? amount
-				: Math.max(0, Math.min(amount, rawPaid));
-			paidExpenses += paidContribution;
+		if (periodExpenseIds.length > 0) {
+			const paidAgg = await prisma.expensePayment.aggregate({
+				where: {
+					expenseId: { in: periodExpenseIds },
+					source: "income",
+				},
+				_sum: { amount: true },
+			});
+			paidExpenses = decimalToNumber(paidAgg._sum.amount);
 		}
+
+		// Debt payments from income are already period-scoped via getMonthlyDebtPlan.
+		periodPaidDebtFromIncome = debtPlan.paidDebtPaymentsFromIncome;
 	} else {
 		const expenseAgg = await prisma.expense.aggregate({
 			where: { budgetPlanId, year, month, isAllocation: false, isMovedToDebt: false },
@@ -155,7 +150,9 @@ export async function getIncomeMonthAnalysis({ budgetPlanId, year, month, payFre
 	const plannedSetAside = plannedSetAsideFromAllocations + customSetAsideTotal + monthlyAllowance;
 
 	const plannedDebtPayments = debtPlan.plannedDebtPayments;
-	const paidDebtPaymentsFromIncome = debtPlan.paidDebtPaymentsFromIncome;
+	// Use period-based debt payment total when available (monthly cadence);
+	// otherwise fall back to the calendar year/month from getMonthlyDebtPlan.
+	const paidDebtPaymentsFromIncome = periodPaidDebtFromIncome ?? debtPlan.paidDebtPaymentsFromIncome;
 
 	const plannedBills = plannedExpenses + plannedDebtPayments;
 	const paidBillsSoFar = paidExpenses + paidDebtPaymentsFromIncome;

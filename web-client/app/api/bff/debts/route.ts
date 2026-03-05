@@ -4,6 +4,7 @@ import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
 import { computeAgreementBaseline } from "@/lib/debts/agreementBaseline";
 import { buildDebtAddedActivity } from "@/lib/push/activityMessages";
 import { sendUserPush } from "@/lib/push/sendUserPush";
+import { getPaymentPeriodKey, resolvePayDate } from "@/lib/helpers/periodKey";
 
 export const runtime = "nodejs";
 
@@ -383,6 +384,7 @@ export async function POST(request: Request) {
       if (!agreementBackfill) return created;
 
       const now = new Date();
+      const debtPayDate = await resolvePayDate(budgetPlanId);
       const toCreate: Array<{
         debtId: string;
         amount: string;
@@ -391,6 +393,7 @@ export async function POST(request: Request) {
         month: number;
         source: "income";
         notes: string;
+        periodKey: string;
       }> = [];
       for (let i = 0; i < agreementBackfill.paymentsMade; i += 1) {
         const paidAt = addMonthsUtcWithDay(agreementBackfill.firstPaymentDate, i, agreementBackfill.dayOfMonth);
@@ -406,6 +409,7 @@ export async function POST(request: Request) {
             agreementBackfill.missedMonths > 0
               ? "Backfilled from agreement (assumes missed months were most recent)"
               : "Backfilled from agreement (assumed on-time payments)",
+          periodKey: getPaymentPeriodKey(paidAt, debtPayDate),
         });
       }
 

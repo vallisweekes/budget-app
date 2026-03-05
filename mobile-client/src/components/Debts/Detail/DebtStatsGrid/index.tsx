@@ -14,6 +14,7 @@ type Props = {
   dueTone: "normal" | "green" | "orange" | "red";
   monthlyOrInterestLabel: string;
   monthlyOrInterestValue: string;
+  monthlyOrInterestSub?: string;
 };
 
 export default function DebtStatsGrid({
@@ -27,6 +28,7 @@ export default function DebtStatsGrid({
   dueTone,
   monthlyOrInterestLabel,
   monthlyOrInterestValue,
+  monthlyOrInterestSub,
 }: Props) {
   const dueColor = dueTone === "green" ? T.green : dueTone === "orange" ? T.orange : dueTone === "red" ? T.red : T.text;
 
@@ -51,6 +53,7 @@ export default function DebtStatsGrid({
       <View style={styles.statCardMini}>
         <Text style={styles.statLabel}>{monthlyOrInterestLabel}</Text>
         <Text style={styles.statValue}>{monthlyOrInterestValue}</Text>
+        {monthlyOrInterestSub ? <Text style={styles.statSub}>{monthlyOrInterestSub}</Text> : null}
       </View>
     </View>
   );

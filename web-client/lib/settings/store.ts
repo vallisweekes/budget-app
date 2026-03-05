@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import type { BudgetStrategy as PrismaBudgetStrategy } from "@prisma/client";
+import { syncGoalCurrentAmountsFromBalances } from "@/lib/goals/syncGoalCurrentAmountsFromBalances";
 
 export type BudgetStrategy = "zeroBased" | "fiftyThirtyTwenty" | "payYourselfFirst";
 
@@ -222,6 +223,7 @@ export async function getSettings(budgetPlanId: string): Promise<Settings> {
  */
 export async function saveSettings(budgetPlanId: string, settings: Partial<Settings>): Promise<void> {
   const updateData: any = {};
+  const wantsSavingsBalance = settings.savingsBalance !== undefined;
   const wantsEmergencyBalance = settings.emergencyBalance !== undefined;
   const emergencyBalanceValue = wantsEmergencyBalance ? Number(settings.emergencyBalance) : null;
 	const wantsInvestmentBalance = settings.investmentBalance !== undefined;
@@ -277,6 +279,15 @@ export async function saveSettings(budgetPlanId: string, settings: Partial<Setti
 		if (wantsInvestmentBalance) {
 			await setInvestmentBalanceFallback(budgetPlanId, investmentBalanceValue ?? 0);
 		}
+
+    await syncGoalCurrentAmountsFromBalances({
+      budgetPlanId,
+      balances: {
+        ...(wantsSavingsBalance ? { savings: Number(settings.savingsBalance) } : {}),
+        ...(wantsEmergencyBalance ? { emergency: Number(emergencyBalanceValue ?? 0) } : {}),
+        ...(wantsInvestmentBalance ? { investment: Number(investmentBalanceValue ?? 0) } : {}),
+      },
+    });
     return;
   }
 
@@ -292,6 +303,15 @@ export async function saveSettings(budgetPlanId: string, settings: Partial<Setti
     if (wantsInvestmentBalance && !prismaBudgetPlanHasField("investmentBalance")) {
       await setInvestmentBalanceFallback(budgetPlanId, investmentBalanceValue ?? 0);
     }
+
+    await syncGoalCurrentAmountsFromBalances({
+      budgetPlanId,
+      balances: {
+        ...(wantsSavingsBalance ? { savings: Number(settings.savingsBalance) } : {}),
+        ...(wantsEmergencyBalance ? { emergency: Number(emergencyBalanceValue ?? 0) } : {}),
+        ...(wantsInvestmentBalance ? { investment: Number(investmentBalanceValue ?? 0) } : {}),
+      },
+    });
   } catch (error) {
     const message = String((error as any)?.message ?? error);
 
@@ -340,5 +360,14 @@ export async function saveSettings(budgetPlanId: string, settings: Partial<Setti
     if (wantsInvestmentBalance) {
       await setInvestmentBalanceFallback(budgetPlanId, investmentBalanceValue ?? 0);
     }
+
+    await syncGoalCurrentAmountsFromBalances({
+      budgetPlanId,
+      balances: {
+        ...(wantsSavingsBalance ? { savings: Number(settings.savingsBalance) } : {}),
+        ...(wantsEmergencyBalance ? { emergency: Number(emergencyBalanceValue ?? 0) } : {}),
+        ...(wantsInvestmentBalance ? { investment: Number(investmentBalanceValue ?? 0) } : {}),
+      },
+    });
   }
 }

@@ -16,7 +16,8 @@ import Svg, { Rect } from "react-native-svg";
 import { LineChart } from "react-native-gifted-charts";
 
 import { apiFetch } from "@/lib/api";
-import type { DashboardData, DebtSummaryData, ExpenseSummary, IncomeSummaryData, Settings } from "@/lib/apiTypes";
+import type { DebtSummaryData, ExpenseSummary, IncomeSummaryData } from "@/lib/apiTypes";
+import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { currencySymbol, fmt } from "@/lib/formatting";
 
 import { T } from "@/lib/theme";
@@ -30,12 +31,19 @@ export default function AnalyticsScreen({ navigation }: { navigation: any }) {
   const topHeaderOffset = useTopHeaderOffset();
   const { width: windowWidth } = useWindowDimensions();
 
-  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
+  const {
+    dashboard,
+    settings,
+    isLoading: bootstrapLoading,
+    error: bootstrapError,
+    refresh: refreshBootstrap,
+    ensureLoaded,
+  } = useBootstrapData();
+
   const [debt, setDebt] = useState<DebtSummaryData | null>(null);
   const [income, setIncome] = useState<IncomeSummaryData | null>(null);
   const [expensesByMonth, setExpensesByMonth] = useState<number[]>(Array(12).fill(0));
-  const [settings, setSettings] = useState<Settings | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loadingScreen, setLoadingScreen] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [overviewMode, setOverviewMode] = useState<"month" | "year">("year");
@@ -51,16 +59,19 @@ export default function AnalyticsScreen({ navigation }: { navigation: any }) {
     }).start();
   }, [overviewMode, toggleAnim]);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (options?: { force?: boolean }) => {
     try {
       setError(null);
       const year = new Date().getFullYear();
-      const [dash, debtSummary, incomeSummary, s] = await Promise.all([
-        apiFetch<DashboardData>("/api/bff/dashboard"),
+      const [{ dashboard: dash, settings: s }, debtSummary, incomeSummary] = await Promise.all([
+        options?.force ? refreshBootstrap({ force: true }) : ensureLoaded(),
         apiFetch<DebtSummaryData>("/api/bff/debt-summary"),
         apiFetch<IncomeSummaryData>(`/api/bff/income-summary?year=${year}`),
-        apiFetch<Settings>("/api/bff/settings"),
       ]);
+
+      if (!dash || !s) {
+        throw bootstrapError ?? new Error("Failed to load");
+      }
 
       const planQp = dash?.budgetPlanId ? `&budgetPlanId=${encodeURIComponent(dash.budgetPlanId)}` : "";
       const expenseSeries = await Promise.all(
@@ -74,21 +85,19 @@ export default function AnalyticsScreen({ navigation }: { navigation: any }) {
         })
       );
 
-      setDashboard(dash);
       setDebt(debtSummary);
       setIncome(incomeSummary);
       setExpensesByMonth(expenseSeries);
-      setSettings(s);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load analytics");
     } finally {
-      setLoading(false);
+      setLoadingScreen(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [bootstrapError, ensureLoaded, refreshBootstrap]);
 
   useEffect(() => {
-    load();
+    void load();
   }, [load]);
 
   const currency = currencySymbol(settings?.currency);
@@ -198,6 +207,8 @@ export default function AnalyticsScreen({ navigation }: { navigation: any }) {
     }));
   }, [debt?.debts]);
 
+  const loading = bootstrapLoading || loadingScreen;
+
   if (loading) {
     return (
 			<SafeAreaView style={s.safe} edges={[]}>
@@ -215,7 +226,7 @@ export default function AnalyticsScreen({ navigation }: { navigation: any }) {
         <View style={[s.center, { paddingTop: topHeaderOffset }]}>
           <Ionicons name="cloud-offline-outline" size={42} color={T.textDim} />
           <Text style={s.error}>{error}</Text>
-          <Pressable onPress={load} style={s.retryBtn}>
+          <Pressable onPress={() => { setRefreshing(true); void load({ force: true }); }} style={s.retryBtn}>
             <Text style={s.retryTxt}>Retry</Text>
           </Pressable>
         </View>
@@ -227,7 +238,7 @@ export default function AnalyticsScreen({ navigation }: { navigation: any }) {
 		<SafeAreaView style={s.safe} edges={[]}>
       <ScrollView
         contentContainerStyle={[s.scroll, { paddingTop: topHeaderOffset }]}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={T.accent} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load({ force: true }); }} tintColor={T.accent} />}
       >
         <View style={s.grid}>
           {insightRows.map((row) => (

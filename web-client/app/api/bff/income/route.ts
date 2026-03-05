@@ -4,6 +4,7 @@ import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
 import { getAllIncome } from "@/lib/income/store";
 import { monthNumberToKey } from "@/lib/helpers/monthKey";
 import { normalizePayFrequency } from "@/lib/payPeriods";
+import { getIncomePeriodKey, resolvePayDate } from "@/lib/helpers/periodKey";
 
 export const runtime = "nodejs";
 
@@ -229,6 +230,7 @@ export async function POST(request: Request) {
     }
 
     let firstCreated: any = null;
+    const payDate = await resolvePayDate(budgetPlanId);
     for (const y of targetYears) {
       const shouldSpreadMonths = distributeFullYear || distributeMonths;
       const startMonth = y === year ? month : (shouldSpreadMonths ? 1 : month);
@@ -249,7 +251,7 @@ export async function POST(request: Request) {
         const canonical = pickCanonicalRow(existing);
         const updated = await prisma.income.update({
           where: { id: canonical.id },
-          data: { name, amount },
+          data: { name, amount, periodKey: getIncomePeriodKey({ year: y, month: m }, payDate) },
         });
         const toDelete = existing.filter((r) => r.id !== canonical.id).map((r) => r.id);
         if (toDelete.length > 0) {
@@ -259,7 +261,7 @@ export async function POST(request: Request) {
         continue;
       }
       const record = await prisma.income.create({
-        data: { name, amount, month: m, year: y, budgetPlanId },
+        data: { name, amount, month: m, year: y, budgetPlanId, periodKey: getIncomePeriodKey({ year: y, month: m }, payDate) },
       });
       if (!firstCreated) firstCreated = record;
       }

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
+import { resolveUserPayPeriodContext } from "@/lib/api/payPeriodContext";
 import {
 	getMonthlyAllocationSnapshot,
 	getMonthlyCustomAllocationsSnapshot,
@@ -22,15 +23,6 @@ function unauthorized() {
 	return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 }
 
-function parseMonthYear(searchParams: URLSearchParams): { month: number; year: number; monthKey: MonthKey } {
-	const monthRaw = Number(searchParams.get("month"));
-	const yearRaw = Number(searchParams.get("year"));
-	const month = Number.isFinite(monthRaw) && monthRaw >= 1 && monthRaw <= 12 ? monthRaw : new Date().getMonth() + 1;
-	const year = Number.isFinite(yearRaw) ? yearRaw : new Date().getFullYear();
-	const monthKey = monthNumberToKey(month as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12) as MonthKey;
-	return { month, year, monthKey };
-}
-
 export async function GET(request: NextRequest) {
 	try {
 		const userId = await getSessionUserId(request);
@@ -43,7 +35,13 @@ export async function GET(request: NextRequest) {
 		});
 		if (!budgetPlanId) return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
 
-		const { month, year, monthKey } = parseMonthYear(searchParams);
+		const { month, year } = await resolveUserPayPeriodContext({
+			userId,
+			budgetPlanId,
+			requestedMonth: searchParams.get("month"),
+			requestedYear: searchParams.get("year"),
+		});
+		const monthKey = monthNumberToKey(month as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12) as MonthKey;
 		const allocation = await getMonthlyAllocationSnapshot(budgetPlanId, monthKey, { year });
 		const custom = await getMonthlyCustomAllocationsSnapshot(budgetPlanId, monthKey, { year });
 
@@ -128,10 +126,15 @@ export async function PATCH(request: NextRequest) {
 		});
 		if (!budgetPlanId) return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
 
-		const monthRaw = Number(body.month);
-		const yearRaw = Number(body.year);
-		const month = Number.isFinite(monthRaw) && monthRaw >= 1 && monthRaw <= 12 ? monthRaw : new Date().getMonth() + 1;
-		const year = Number.isFinite(yearRaw) ? yearRaw : await resolveActiveBudgetYear(budgetPlanId);
+		const { month, year } = await resolveUserPayPeriodContext({
+			userId,
+			budgetPlanId,
+			requestedMonth: body.month,
+			requestedYear: body.year,
+			now: new Date(),
+		});
+		const fallbackYear = await resolveActiveBudgetYear(budgetPlanId);
+		const safeYear = Number.isFinite(Number(body.year)) ? year : fallbackYear;
 
 		const toMoney = (value: unknown) => {
 			const parsed = Number(value);
@@ -139,7 +142,7 @@ export async function PATCH(request: NextRequest) {
 		};
 
 		const fixed = body.fixed && typeof body.fixed === "object" ? (body.fixed as Record<string, unknown>) : {};
-		await upsertMonthlyAllocation(budgetPlanId, year, month, {
+		await upsertMonthlyAllocation(budgetPlanId, safeYear, month, {
 			monthlyAllowance: toMoney(fixed.monthlyAllowance),
 			monthlySavingsContribution: toMoney(fixed.monthlySavingsContribution),
 			monthlyEmergencyContribution: toMoney(fixed.monthlyEmergencyContribution),
@@ -157,7 +160,7 @@ export async function PATCH(request: NextRequest) {
 		if (Object.keys(customAmountById).length > 0) {
 			await upsertMonthlyCustomAllocationOverrides({
 				budgetPlanId,
-				year,
+				year: safeYear,
 				month,
 				amountsByAllocationId: customAmountById,
 			});

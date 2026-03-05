@@ -8,6 +8,7 @@ import { supportsExpenseMovedToDebtField } from "@/lib/prisma/capabilities";
 import { resolveEffectiveDueDateIso } from "@/lib/expenses/insights";
 import { isLegacyPlaceholderExpenseRow } from "@/lib/expenses/legacyPlaceholders";
 import { resolveActivePayPeriodWindow, type PayFrequency } from "@/lib/payPeriods";
+import { getPeriodKey } from "@/lib/helpers/periodKey";
 import type { ExpenseItem } from "@/types";
 
 let supportsDashboardIsMovedToDebtField: boolean | null = null;
@@ -425,7 +426,13 @@ export async function getDashboardPlanDataForActivePayPeriod(
 			prisma.goal.findMany({ where: { budgetPlanId: planId } }),
 			getMonthlyAllocationSnapshot(planId, selectedMonthKey, { year: selectedYear }),
 			getMonthlyCustomAllocationsSnapshot(planId, selectedMonthKey, { year: selectedYear }),
-			getMonthlyDebtPlan({ budgetPlanId: planId, year: selectedYear, month: selectedMonthNum }),
+			getMonthlyDebtPlan({
+				budgetPlanId: planId,
+				year: selectedYear,
+				month: selectedMonthNum,
+				periodKey: getPeriodKey(window.start, payDate),
+				periodStart: window.start,
+			}),
 		]);
 
 	const serializedGoals: DashboardGoalLike[] = goals.map((g) => ({
@@ -452,40 +459,59 @@ export async function getDashboardPlanDataForActivePayPeriod(
 
 	for (const exp of expenses as any[]) {
 		if (isLegacyPlaceholderExpenseRow(exp)) continue;
-		// Only scheduled bills participate in pay-period totals.
-		if (!exp.dueDate) continue;
-		const dueIso = resolveEffectiveDueDateIso(
-			{
-				id: exp.id,
-				name: exp.name,
-				amount: Number(exp.amount ?? 0),
-				paid: Boolean(exp.paid),
-				paidAmount: Number(exp.paidAmount ?? 0),
-				dueDate: exp.dueDate ? new Date(exp.dueDate).toISOString().slice(0, 10) : undefined,
-			},
-			{ year: exp.year, monthNum: exp.month, payDate }
-		);
-		if (!dueIso) continue;
-		const due = parseIsoDateOnlyToUtc(dueIso);
-		if (!due) continue;
-		if (!inRangeUtc(due, window.start, window.end)) continue;
 
 		// Allocations/envelopes are tracked separately and should not appear as bills.
 		if (Boolean(exp.isAllocation ?? false)) continue;
 
 		const series = normalizeSeriesOrName(exp.seriesKey, exp.name);
 		const amount = Number(exp.amount ?? 0);
-		const key = `${series}|${dueIso}|${amount}`;
-		const dueYm = parseIsoYearMonth(dueIso);
-		const rank = dueYm && exp.year === dueYm.year && exp.month === dueYm.month ? 0 : 1;
+
+		if (exp.dueDate) {
+			const dueIso = resolveEffectiveDueDateIso(
+				{
+					id: exp.id,
+					name: exp.name,
+					amount,
+					paid: Boolean(exp.paid),
+					paidAmount: Number(exp.paidAmount ?? 0),
+					dueDate: exp.dueDate ? new Date(exp.dueDate).toISOString().slice(0, 10) : undefined,
+				},
+				{ year: exp.year, monthNum: exp.month, payDate }
+			);
+			if (!dueIso) continue;
+			const due = parseIsoDateOnlyToUtc(dueIso);
+			if (!due) continue;
+			if (!inRangeUtc(due, window.start, window.end)) continue;
+
+			const key = `${series}|${dueIso}|${amount}`;
+			const dueYm = parseIsoYearMonth(dueIso);
+			const rank = dueYm && exp.year === dueYm.year && exp.month === dueYm.month ? 0 : 1;
+
+			const existing = seen.get(key);
+			if (!existing) {
+				seen.set(key, { exp: { ...exp, __effectiveDueIso: dueIso }, rank });
+				continue;
+			}
+			if (rank < existing.rank) {
+				seen.set(key, { exp: { ...exp, __effectiveDueIso: dueIso }, rank });
+			}
+			continue;
+		}
+
+		// Unscheduled expenses (no due date) are still part of pay-period totals
+		// when they are saved under the pay-period anchor (end) month.
+		if (exp.year !== selectedYear || exp.month !== selectedMonthNum) continue;
+		const dedupeScope = `unscheduled:${selectedYear}-${selectedMonthNum}`;
+		const key = `${series}|${dedupeScope}|${amount}`;
+		const rank = 0;
 
 		const existing = seen.get(key);
 		if (!existing) {
-			seen.set(key, { exp: { ...exp, __effectiveDueIso: dueIso }, rank });
+			seen.set(key, { exp, rank });
 			continue;
 		}
 		if (rank < existing.rank) {
-			seen.set(key, { exp: { ...exp, __effectiveDueIso: dueIso }, rank });
+			seen.set(key, { exp, rank });
 		}
 	}
 

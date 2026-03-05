@@ -1,9 +1,15 @@
 import { prisma } from "@/lib/prisma";
+import { getEarlyPaymentWindowStart } from "@/lib/helpers/finance/earlyPaymentWindow";
 
 type Params = {
 	budgetPlanId: string;
 	year: number;
 	month: number;
+	/** When provided, paid totals are scoped by periodKey instead of year/month columns. */
+	periodKey?: string;
+	/** @deprecated Use periodKey. When provided and periodKey is absent, uses paidAt range. */
+	periodStart?: Date;
+	periodEnd?: Date;
 };
 
 function decimalToNumber(value: unknown): number {
@@ -27,7 +33,7 @@ function decimalToNumber(value: unknown): number {
  * - Tracks paid amounts separately (for "paid so far" style UI)
  * - Also returns income-sourced paid amount for UI breakdowns
  */
-export async function getMonthlyDebtPlan({ budgetPlanId, year, month }: Params) {
+export async function getMonthlyDebtPlan({ budgetPlanId, year, month, periodKey, periodStart, periodEnd }: Params) {
 	const computeMonthlyPlannedPayment = (d: {
 		amount: unknown;
 		currentBalance: unknown;
@@ -35,6 +41,7 @@ export async function getMonthlyDebtPlan({ budgetPlanId, year, month }: Params) 
 		installmentMonths: unknown;
 		monthlyMinimum: unknown;
 		sourceType: unknown;
+		type: unknown;
 	}) => {
 		const currentBalance = Math.max(0, decimalToNumber(d.currentBalance));
 		if (!(currentBalance > 0)) return 0;
@@ -60,8 +67,13 @@ export async function getMonthlyDebtPlan({ budgetPlanId, year, month }: Params) 
 			planned = amount;
 		}
 
-		// Monthly minimum can raise the planned payment.
-		if (monthlyMinimum > 0) planned = Math.max(planned, monthlyMinimum);
+		// For credit/store cards the monthly minimum IS the planned payment.
+		const isCardType = d.type === "credit_card" || d.type === "store_card";
+		if (isCardType && monthlyMinimum > 0) {
+			planned = monthlyMinimum;
+		} else if (monthlyMinimum > 0) {
+			planned = Math.max(planned, monthlyMinimum);
+		}
 
 		// Expense-derived debts: if no monthly plan is configured, treat the remaining balance as due.
 		// (This preserves previous behavior for auto-transferred overdue bills.)
@@ -72,6 +84,28 @@ export async function getMonthlyDebtPlan({ budgetPlanId, year, month }: Params) 
 		planned = Number.isFinite(planned) ? Math.max(0, planned) : 0;
 		return Math.min(currentBalance, planned);
 	};
+
+	// Build payment filter: prefer periodKey > paidAt range > year/month
+	const paymentFilter = (() => {
+		if (periodKey) {
+			// When a pay-period boundary is available, include a small lookback window
+			// so early payments count toward the intended upcoming period.
+			if (periodStart) {
+				const earlyPaymentStart = getEarlyPaymentWindowStart(periodStart);
+				return {
+					debt: { budgetPlanId },
+					OR: [{ periodKey }, { paidAt: { gte: earlyPaymentStart, lt: periodStart } }],
+				};
+			}
+			return { debt: { budgetPlanId }, periodKey };
+		}
+
+		if (periodStart && periodEnd) {
+			return { debt: { budgetPlanId }, paidAt: { gte: periodStart, lte: periodEnd } };
+		}
+
+		return { debt: { budgetPlanId }, year, month };
+	})();
 
 	const [dueDebts, paidAllAgg, paidIncomeAgg] = await Promise.all([
 		prisma.debt.findMany({
@@ -88,14 +122,15 @@ export async function getMonthlyDebtPlan({ budgetPlanId, year, month }: Params) 
 				installmentMonths: true,
 				monthlyMinimum: true,
 				sourceType: true,
+				type: true,
 			},
 		}),
 		prisma.debtPayment.aggregate({
-			where: { debt: { budgetPlanId }, year, month },
+			where: paymentFilter,
 			_sum: { amount: true },
 		}),
 		prisma.debtPayment.aggregate({
-			where: { debt: { budgetPlanId }, year, month, source: "income" },
+			where: { ...paymentFilter, source: "income" },
 			_sum: { amount: true },
 		}),
 	]);

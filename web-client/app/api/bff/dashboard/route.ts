@@ -15,6 +15,7 @@ import { getAllPlansDashboardData } from "@/lib/helpers/dashboard/getAllPlansDas
 import { MONTHS } from "@/lib/constants/time";
 import { currentMonthKey } from "@/lib/helpers/monthKey";
 import { resolveExpenseLogo } from "@/lib/expenses/logoResolver";
+import { getExpensePaidMap } from "@/lib/expenses/paidSummary";
 import { prisma } from "@/lib/prisma";
 import { supportsOnboardingCadenceFields as detectOnboardingCadenceFields } from "@/lib/prisma/capabilities";
 import {
@@ -22,6 +23,8 @@ import {
 	normalizePayFrequency,
 	resolveActivePayPeriodWindow,
 } from "@/lib/payPeriods";
+import { getCurrentPeriodKey, getPeriodKey, parsePeriodKeyRange } from "@/lib/helpers/periodKey";
+import { getEarlyPaymentWindowStart } from "@/lib/helpers/finance/earlyPaymentWindow";
 
 export const runtime = "nodejs";
 
@@ -280,23 +283,30 @@ export async function GET(req: NextRequest) {
 			}
 		}
 
-		// Query how much has been paid against each debt IN THE CURRENT MONTH
+		// Query how much has been paid against each debt IN THE CURRENT PAY PERIOD
 		// so we can exclude already-paid debts from "Upcoming Debts".
 		const debtIds = debts.map((d) => d.id);
 		const currentMonthPaidByDebtId = new Map<string, number>();
 		if (debtIds.length > 0) {
 			try {
-				// NOTE: Mobile creates DebtPayment rows with `year/month` derived from `paidAt` (UTC),
-				// so we must group by the current UTC calendar month (not the budget plan month).
-				const paymentYear = now.getUTCFullYear();
-				const paymentMonth = now.getUTCMonth() + 1;
+				// Use periodKey so debt tracking is consistent with the period-based
+				// pattern used everywhere else.
+				const periodKey = getCurrentPeriodKey(payDay);
+				const { start: periodStart } = parsePeriodKeyRange(periodKey, payDay);
+				const prevPeriodKey = getPeriodKey(new Date(periodStart.getTime() - 24 * 60 * 60 * 1000), payDay);
+				const earlyPaymentStart = getEarlyPaymentWindowStart(periodStart);
 
 				const monthPayments = await prisma.debtPayment.groupBy({
 					by: ["debtId"],
 					where: {
 						debtId: { in: debtIds },
-						year: paymentYear,
-						month: paymentMonth,
+						OR: [
+							{ periodKey },
+							{
+								periodKey: prevPeriodKey,
+								paidAt: { gte: earlyPaymentStart, lt: periodStart },
+							},
+						],
 					},
 					_sum: { amount: true },
 				});
@@ -452,16 +462,15 @@ export async function GET(req: NextRequest) {
 			});
 		}
 
-		const paidTotal = currentPlanData.categoryData
-			.flatMap((category) => category.expenses ?? [])
-			.reduce((sum, expense) => {
-				const paidAmount = typeof expense.paidAmount === "number"
-					? expense.paidAmount
-					: expense.paid
-						? expense.amount
-						: 0;
-				return sum + (Number.isFinite(paidAmount) ? paidAmount : 0);
-			}, 0);
+		// Derive paidTotal from expensePayment transaction records — single source of truth.
+		const allExpenses = currentPlanData.categoryData.flatMap((category) => category.expenses ?? []);
+		const dashboardPaidMap = await getExpensePaidMap(
+			allExpenses.map((e) => ({ id: String(e.id), amount: Number(e.amount ?? 0) })),
+		);
+		const paidTotal = allExpenses.reduce((sum, expense) => {
+			const info = dashboardPaidMap.get(String(expense.id));
+			return sum + (info?.paidAmount ?? 0);
+		}, 0);
 		const amountLeftToBudget = currentPlanData.incomeAfterAllocations;
 		const amountAfterExpenses = amountLeftToBudget - currentPlanData.totalExpenses;
 		const isOverBudgetBySpending = amountAfterExpenses < 0;
@@ -494,8 +503,15 @@ export async function GET(req: NextRequest) {
 			plannedInvestments: currentPlanData.plannedInvestments,
 			incomeAfterAllocations: currentPlanData.incomeAfterAllocations,
 
-			// Categories with expense breakdowns
-			categoryData: currentPlanData.categoryData,
+			// Categories with expense breakdowns — patch paid data from transaction records
+			categoryData: currentPlanData.categoryData.map((cat) => ({
+				...cat,
+				expenses: (cat.expenses ?? []).map((exp) => {
+					const info = dashboardPaidMap.get(String(exp.id));
+					if (!info) return exp;
+					return { ...exp, paid: info.isPaid, paidAmount: info.paidAmount };
+				}),
+			})),
 
 			// Goals
 			goals: currentPlanData.goals,

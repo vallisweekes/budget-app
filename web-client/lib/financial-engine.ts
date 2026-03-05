@@ -26,6 +26,7 @@ import { addOrUpdateExpenseAcrossMonths } from "@/lib/expenses/store";
 import { resolveExpenseLogoWithSearch } from "@/lib/expenses/logoResolver";
 import { maybeSendCategoryThresholdPush } from "@/lib/push/thresholdNotifications";
 import { getSettings, saveSettings } from "@/lib/settings/store";
+import { getPaymentPeriodKey, resolvePayDate } from "@/lib/helpers/periodKey";
 import { MONTHS } from "@/lib/constants/time";
 import type { MonthKey } from "@/types";
 
@@ -92,6 +93,7 @@ type ExpensePaymentDelegate = {
       source: "income" | "credit_card" | "savings" | "extra_untracked";
       debtId?: string;
       paidAt: Date;
+      periodKey?: string;
     };
   }) => Promise<unknown>;
 };
@@ -189,6 +191,7 @@ export async function recordPaymentSource({
     if (!expensePayment || amount <= 0) return;
 
     const effectiveFunding = fundingSource ?? normalizeFundingSource(paymentSource);
+    const payDate = await resolvePayDate(budgetPlanId);
 
     async function increaseDebtBalance(targetDebtId: string): Promise<void> {
       await prisma.$transaction(async (tx) => {
@@ -259,8 +262,19 @@ export async function recordPaymentSource({
         if (cards.length === 1) resolvedCardId = cards[0]!.id;
       }
 
+      const expensePeriodKey = await prisma.expense
+        .findUnique({ where: { id: expenseId }, select: { periodKey: true } })
+        .then((row) => row?.periodKey ?? null)
+        .catch(() => null);
       await expensePayment.create({
-        data: { expenseId, amount, source: "credit_card", debtId: resolvedCardId || undefined, paidAt: new Date() },
+        data: {
+          expenseId,
+          amount,
+          source: "credit_card",
+          debtId: resolvedCardId || undefined,
+          paidAt: new Date(),
+          periodKey: expensePeriodKey ?? getPaymentPeriodKey(new Date(), payDate),
+        },
       });
 
       if (resolvedCardId) {
@@ -268,14 +282,28 @@ export async function recordPaymentSource({
       }
     } else if (effectiveFunding === "savings") {
       await expensePayment.create({
-        data: { expenseId, amount, source: "savings", paidAt: new Date() },
+        data: {
+          expenseId,
+          amount,
+          source: "savings",
+          paidAt: new Date(),
+          periodKey: (await prisma.expense.findUnique({ where: { id: expenseId }, select: { periodKey: true } }).then((r) => r?.periodKey ?? null).catch(() => null)) ??
+            getPaymentPeriodKey(new Date(), payDate),
+        },
       });
       const settings = await getSettings(budgetPlanId);
       const current  = Number(settings.savingsBalance ?? 0);
       await saveSettings(budgetPlanId, { savingsBalance: Math.max(0, current - amount) });
     } else if (effectiveFunding === "monthly_allowance") {
       await expensePayment.create({
-        data: { expenseId, amount, source: "extra_untracked", paidAt: new Date() },
+        data: {
+          expenseId,
+          amount,
+          source: "extra_untracked",
+          paidAt: new Date(),
+          periodKey: (await prisma.expense.findUnique({ where: { id: expenseId }, select: { periodKey: true } }).then((r) => r?.periodKey ?? null).catch(() => null)) ??
+            getPaymentPeriodKey(new Date(), payDate),
+        },
       });
       const allocation = await prisma.monthlyAllocation.findUnique({
         where: { budgetPlanId_year_month: { budgetPlanId, year, month } },
@@ -298,7 +326,15 @@ export async function recordPaymentSource({
     } else if (effectiveFunding === "loan") {
       const loanId = await resolveOrCreateLoanId();
       await expensePayment.create({
-        data: { expenseId, amount, source: "extra_untracked", debtId: loanId || undefined, paidAt: new Date() },
+        data: {
+          expenseId,
+          amount,
+          source: "extra_untracked",
+          debtId: loanId || undefined,
+          paidAt: new Date(),
+          periodKey: (await prisma.expense.findUnique({ where: { id: expenseId }, select: { periodKey: true } }).then((r) => r?.periodKey ?? null).catch(() => null)) ??
+            getPaymentPeriodKey(new Date(), payDate),
+        },
       });
       if (loanId) {
         await increaseDebtBalance(loanId);
@@ -306,7 +342,14 @@ export async function recordPaymentSource({
     } else {
       // income or other/extra_untracked
       await expensePayment.create({
-        data: { expenseId, amount, source: mapFundingToPaymentSource(effectiveFunding), paidAt: new Date() },
+        data: {
+          expenseId,
+          amount,
+          source: mapFundingToPaymentSource(effectiveFunding),
+          paidAt: new Date(),
+          periodKey: (await prisma.expense.findUnique({ where: { id: expenseId }, select: { periodKey: true } }).then((r) => r?.periodKey ?? null).catch(() => null)) ??
+            getPaymentPeriodKey(new Date(), payDate),
+        },
       });
     }
   } catch {

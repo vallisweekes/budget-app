@@ -98,7 +98,7 @@ export default function PaymentsListView({
         ListEmptyComponent={
           showEmpty ? (
             <View style={s.empty}>
-              <Text style={s.emptyText}>No payments due this month</Text>
+              <Text style={s.emptyText}>No payments due this period</Text>
             </View>
           ) : null
         }

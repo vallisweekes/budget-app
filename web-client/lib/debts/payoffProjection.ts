@@ -80,6 +80,8 @@ export function computeDebtPayoffProjection(params: {
 	interestRatePct: unknown;
 	dueDate?: unknown;
 	dueDay?: unknown;
+	/** When provided, credit_card / store_card uses monthlyMinimum as the planned payment */
+	debtType?: string;
 	maxMonths?: number;
 	now?: Date;
 }): DebtPayoffProjection {
@@ -103,7 +105,14 @@ export function computeDebtPayoffProjection(params: {
 
 	const monthlyMinimum = clampNumber(params.monthlyMinimum);
 	const min = Number.isFinite(monthlyMinimum) ? monthlyMinimum : 0;
-	if (min > 0) planned = Math.max(planned, min);
+
+	// For credit/store cards the monthly minimum IS the planned payment.
+	const isCardType = params.debtType === "credit_card" || params.debtType === "store_card";
+	if (isCardType && min > 0) {
+		planned = min;
+	} else if (min > 0) {
+		planned = Math.max(planned, min);
+	}
 
 	const computedMonthlyPayment = Math.max(0, planned);
 

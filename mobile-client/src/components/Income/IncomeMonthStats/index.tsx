@@ -42,7 +42,7 @@ export default function IncomeMonthStats({ data: a, currency, fmt }: IncomeMonth
         {/* Money left with badge */}
         <View style={[styles.card, { flex: 1 }]}>
           <View style={styles.cardHeader}>
-            <Text style={styles.cardLabel}>Money left</Text>
+              <Text style={styles.cardLabel}>Money left (after plan)</Text>
             <View style={[styles.badge, isOnPlan ? styles.badgeOn : styles.badgeOver]}>
               <Text style={[styles.badgeText, isOnPlan ? styles.badgeTextOn : styles.badgeTextOver]}>
                 {planStatusDescription}
@@ -64,7 +64,7 @@ export default function IncomeMonthStats({ data: a, currency, fmt }: IncomeMonth
             </Text>
           )}
         </View>
-        <Card label="Remaining income" value={fmt(a.incomeLeftRightNow, currency)} color={T.accent} />
+        <Card label="Income left (right now)" value={fmt(a.incomeLeftRightNow, currency)} color={T.accent} />
       </View>
 
     </>

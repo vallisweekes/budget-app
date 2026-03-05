@@ -72,17 +72,27 @@ const RETRYABLE_READ_OPERATIONS = new Set([
 
 let reconnectInFlight: Promise<void> | null = null;
 
-async function reconnectClient(client: PrismaClient): Promise<void> {
-  if (!reconnectInFlight) {
-    reconnectInFlight = (async () => {
-      try {
-        await client.$disconnect();
-      } catch {
-      }
+let connectInFlight: Promise<void> | null = null;
+
+async function ensureConnected(client: PrismaClient): Promise<void> {
+  if (!connectInFlight) {
+    connectInFlight = (async () => {
       try {
         await client.$connect();
       } catch {
+        // Best-effort: actual query retry will surface persistent failures.
       }
+    })().finally(() => {
+      connectInFlight = null;
+    });
+  }
+  await connectInFlight;
+}
+
+async function reconnectClient(client: PrismaClient): Promise<void> {
+  if (!reconnectInFlight) {
+    reconnectInFlight = (async () => {
+      await ensureConnected(client);
     })().finally(() => {
       reconnectInFlight = null;
     });
@@ -126,6 +136,11 @@ export const prisma: PrismaClient = basePrisma.$extends({
     },
   },
 }) as unknown as PrismaClient;
+
+// Proactively start the Prisma engine in dev so the first request doesn't race it.
+if (process.env.NODE_ENV !== "production") {
+  void ensureConnected(basePrisma);
+}
 
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = basePrisma;

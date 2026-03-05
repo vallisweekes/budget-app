@@ -83,7 +83,7 @@ export default function DebtCardAmountsGrid(props: {
 			) : null}
 			<div className="bg-amber-500/10 rounded-lg p-2 sm:p-3 border border-amber-500/20">
 				<div className="text-[10px] sm:text-xs text-amber-300 mb-0.5 sm:mb-1 font-medium flex items-center justify-between">
-					<span>{showPaidThisMonth ? "Paid This Month" : "Due This Month"}</span>
+					<span>{showPaidThisMonth ? "Paid This Period" : "Due This Period"}</span>
 					{!isEditingAmount && !lockDueAmountEdit ? (
 						<button
 							onClick={() => {

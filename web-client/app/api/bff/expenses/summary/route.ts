@@ -9,6 +9,7 @@ import {
 	type PayFrequency,
 } from "@/lib/payPeriods";
 import { isLegacyPlaceholderExpenseRow } from "@/lib/expenses/legacyPlaceholders";
+import { getExpensePaidMap } from "@/lib/expenses/paidSummary";
 
 export const runtime = "nodejs";
 
@@ -298,7 +299,14 @@ export async function GET(req: NextRequest) {
 	// In pay-period views, only treat explicitly scheduled items as bills.
 	// Note: pay-period scope includes both scheduled and unscheduled expenses.
 
-	// ── Server-side aggregations ──────────────────────────────────────────────
+	// ── Server-side aggregations (from expensePayment transaction records) ────
+
+	// Resolve actual paid amounts from the expensePayment table — the single
+	// source of truth.  The scalar `expense.paid` / `expense.paidAmount` fields
+	// are a denormalized cache that can drift and must NOT be used here.
+	const paidMap = await getExpensePaidMap(
+		expenses.map((e) => ({ id: e.id, amount: toFloat(e.amount) })),
+	);
 
 	let totalAmount = 0;
 	let paidAmount = 0;
@@ -335,13 +343,19 @@ export async function GET(req: NextRequest) {
 
 	for (const exp of expenses) {
 		const amount = toFloat(exp.amount);
-		const paid = toFloat(exp.paidAmount);
+		const info = paidMap.get(exp.id);
+		const paidRaw = info?.paidAmount ?? 0;
+		// For planning/progress UI, cap paid-attributed-to-plan at the planned amount.
+		// Raw payments can exceed planned (overpayment/duplicate logs), but should not
+		// inflate "paid" totals beyond what was actually due for the period.
+		const paid = amount > 0 ? Math.min(paidRaw, amount) : 0;
+		const isPaid = info?.isPaid ?? false;
 		const unpaid = Math.max(0, amount - paid);
 
 		totalAmount += amount;
 		paidAmount += paid;
 		unpaidAmount += unpaid;
-		if (exp.paid) paidCount++;
+		if (isPaid) paidCount++;
 		else unpaidCount++;
 
 		// Category grouping
@@ -367,7 +381,7 @@ export async function GET(req: NextRequest) {
 		cat.total += amount;
 		cat.paidTotal += paid;
 		cat.totalCount += 1;
-		if (exp.paid) cat.paidCount += 1;
+		if (isPaid) cat.paidCount += 1;
 	}
 
 	const categoryBreakdown = Array.from(catMap.values())

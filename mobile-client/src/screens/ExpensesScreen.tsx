@@ -29,7 +29,6 @@ import { useFocusEffect, useRoute, useScrollToTop, type RouteProp } from "@react
 
 import { apiFetch } from "@/lib/api";
 import type {
-  Settings,
   ExpenseSummary,
   ExpenseCategoryBreakdown,
   BudgetPlansResponse,
@@ -37,6 +36,7 @@ import type {
   ExpenseMonthsResponse,
   ExpenseInsights,
 } from "@/lib/apiTypes";
+import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { currencySymbol, fmt } from "@/lib/formatting";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 import { useYearGuard } from "@/lib/hooks/useYearGuard";
@@ -63,6 +63,13 @@ export default function ExpensesScreen({ navigation }: Props) {
   const [year, setYear] = useState(now.getFullYear());
   const hasSyncedRouteParamsRef = useRef(false);
 
+  const {
+    settings,
+    isLoading: bootstrapLoading,
+    error: bootstrapError,
+    refresh: refreshBootstrap,
+  } = useBootstrapData();
+
   const [plans, setPlans] = useState<BudgetPlanListItem[]>([]);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [expenseMonths, setExpenseMonths] = useState<ExpenseMonthsResponse["months"]>([]);
@@ -71,7 +78,6 @@ export default function ExpensesScreen({ navigation }: Props) {
 
   const [summary, setSummary]   = useState<ExpenseSummary | null>(null);
   const [previousSummary, setPreviousSummary] = useState<ExpenseSummary | null>(null);
-  const [settings, setSettings] = useState<Settings | null>(null);
 
   const [loadedKey, setLoadedKey] = useState<string | null>(null);
 
@@ -239,11 +245,14 @@ export default function ExpensesScreen({ navigation }: Props) {
   const load = useCallback(async () => {
     try {
       setError(null);
-      const [s, bp] = await Promise.all([
-        apiFetch<Settings>("/api/bff/settings", { cacheTtlMs: 0 }),
+      const [{ settings: s }, bp] = await Promise.all([
+        refreshBootstrap({ force: true }),
         apiFetch<BudgetPlansResponse>("/api/bff/budget-plans", { cacheTtlMs: 0 }),
       ]);
-      setSettings(s);
+
+      if (!s) {
+        throw bootstrapError ?? new Error("Failed to load settings");
+      }
 
       const payDateForResolution = Number.isFinite(s?.payDate as number) && (s?.payDate as number) >= 1
         ? Math.floor(s.payDate as number)
@@ -351,7 +360,7 @@ export default function ExpensesScreen({ navigation }: Props) {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [activePlanId, month, selectedPlanId, year]);
+  }, [activePlanId, bootstrapError, month, refreshBootstrap, selectedPlanId, year]);
 
   const currentViewKey = `${activePlanId ?? "none"}:${year}-${month}`;
   useEffect(() => {
@@ -475,10 +484,11 @@ export default function ExpensesScreen({ navigation }: Props) {
   const allPeriodMonths = useMemo(() => Array.from({ length: 12 }, (_, i) => i + 1), []);
 
   const selectedPeriodRange = summary?.periodRangeLabel?.trim() || `${monthName(month)} ${year}`;
+  const loadingUi = loading || bootstrapLoading;
 
   return (
 		<SafeAreaView style={styles.safe} edges={[]}>
-      {loading ? (
+      {loadingUi ? (
         <View style={[styles.center, { paddingTop: topHeaderOffset }]}>
           <ActivityIndicator size="large" color={T.accent} />
         </View>

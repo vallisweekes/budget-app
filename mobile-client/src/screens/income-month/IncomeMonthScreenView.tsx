@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { useFocusEffect } from "@react-navigation/native";
 
 import { apiFetch } from "@/lib/api";
 import type { Income, Settings, IncomeMonthData, IncomeSacrificeData, IncomeSacrificeFixed } from "@/lib/apiTypes";
@@ -130,6 +131,13 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
     load();
     loadSacrifice().catch(() => null);
   }, [load, loadSacrifice]);
+
+  useFocusEffect(
+    useCallback(() => {
+      load();
+      loadSacrifice().catch(() => null);
+    }, [load, loadSacrifice])
+  );
 
   const crud = useIncomeCRUD({ month, year, budgetPlanId, onReload: load, setItems });
 

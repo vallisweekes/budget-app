@@ -6,6 +6,7 @@ import { computeDebtPayoffProjection } from "@/lib/debts/payoffProjection";
 import { deriveDebtPayoffSummary } from "@/lib/debts/payoffSummary";
 import { computeAgreementBaseline } from "@/lib/debts/agreementBaseline";
 import { resolveExpenseLogo } from "@/lib/expenses/logoResolver";
+import { getPaymentPeriodKey, resolvePayDate } from "@/lib/helpers/periodKey";
 
 export const runtime = "nodejs";
 
@@ -144,6 +145,7 @@ function withPayoffProjection<T extends {
     interestRatePct: (debt as any).interestRate,
     dueDate: (debt as any).dueDate,
     dueDay: (debt as any).dueDay,
+    debtType: (debt as any).type,
     maxMonths: 60,
   });
   const summary = deriveDebtPayoffSummary({
@@ -272,6 +274,7 @@ export async function GET(
             .filter((p) => !existingExpenseKeys.has(paymentMatchKey({ amount: p.amount, paidAt: p.paidAt })));
 
           if (toBackfill.length) {
+            const getPayDate = await resolvePayDate(safe.budgetPlanId);
             await prisma.expensePayment.createMany({
               data: toBackfill.map((p) => ({
                 expenseId,
@@ -279,6 +282,7 @@ export async function GET(
                 source: p.source,
                 debtId: safe.id,
                 paidAt: p.paidAt,
+                periodKey: getPaymentPeriodKey(p.paidAt, getPayDate),
               })),
             });
             for (const p of toBackfill) {
@@ -408,7 +412,18 @@ export async function PATCH(
         data.paidAmount = paymentsPaid + nextHistorical;
       }
     }
-    if (typeof raw.monthlyMinimum !== "undefined") data.monthlyMinimum = raw.monthlyMinimum;
+    if (typeof raw.monthlyMinimum !== "undefined") {
+      data.monthlyMinimum = raw.monthlyMinimum;
+      // For credit/store cards the monthly minimum IS the planned payment.
+      // Keep `amount` in sync so every calculation uses a single source of truth.
+      const isCardType = existing.type === "credit_card" || existing.type === "store_card";
+      if (isCardType && raw.monthlyMinimum != null) {
+        const minVal = toNumber(raw.monthlyMinimum);
+        if (Number.isFinite(minVal) && minVal > 0) {
+          data.amount = minVal;
+        }
+      }
+    }
     if (typeof raw.interestRate !== "undefined") data.interestRate = raw.interestRate;
     if (typeof raw.dueDate !== "undefined") {
       const parsed = parseDueDateInput(raw.dueDate);
@@ -548,6 +563,7 @@ export async function PATCH(
       if (!agreementBackfill) return updated;
 
       const now = new Date();
+      const updatePayDate = await resolvePayDate(existing.budgetPlanId);
       const existingPayments = await tx.debtPayment.findMany({
         where: {
           debtId: id,
@@ -565,6 +581,7 @@ export async function PATCH(
         month: number;
         source: "income";
         notes: string;
+        periodKey: string;
       }> = [];
 
       for (let i = 0; i < agreementBackfill.paymentsMade; i += 1) {
@@ -586,6 +603,7 @@ export async function PATCH(
             agreementBackfill.missedMonths > 0
               ? "Backfilled from agreement (assumes missed months were most recent)"
               : "Backfilled from agreement (assumed on-time payments)",
+          periodKey: getPaymentPeriodKey(paidAt, updatePayDate),
         });
       }
 

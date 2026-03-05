@@ -8,6 +8,9 @@ import { computePortfolioPayoffSummary } from "@/lib/debts/portfolioPayoff";
 import { formatExpenseDebtCardTitle, formatYearMonthLabel } from "@/lib/helpers/debts/expenseDebtLabels";
 import { resolveExpenseLogo } from "@/lib/expenses/logoResolver";
 import { prisma } from "@/lib/prisma";
+import { normalizePayFrequency } from "@/lib/payPeriods";
+import { getCurrentPeriodKey, getPeriodKey, parsePeriodKeyRange } from "@/lib/helpers/periodKey";
+import { getEarlyPaymentWindowStart } from "@/lib/helpers/finance/earlyPaymentWindow";
 
 export const runtime = "nodejs";
 
@@ -83,8 +86,21 @@ export async function GET(req: NextRequest) {
 
 		const debtIds = summary.allDebts.map((d) => d.id);
 		const now = new Date();
-		const paymentYear = now.getUTCFullYear();
-		const paymentMonth = now.getUTCMonth() + 1;
+
+		// Resolve pay period so "paid this period" matches the user's pay schedule.
+		// We also treat small "early payments" (paid shortly before the period starts)
+		// as satisfying the upcoming period, to support paying a bill right after
+		// getting paid early.
+		const planMeta = await prisma.budgetPlan.findUnique({
+			where: { id: budgetPlanId },
+			select: { payDate: true },
+		});
+		const payDay = Number(planMeta?.payDate ?? 27);
+		const periodKey = getCurrentPeriodKey(payDay);
+		const { start: periodStart } = parsePeriodKeyRange(periodKey, payDay);
+		const prevPeriodKey = getPeriodKey(new Date(periodStart.getTime() - 24 * 60 * 60 * 1000), payDay);
+		const earlyPaymentStart = getEarlyPaymentWindowStart(periodStart);
+
 		const expenseIds = Array.from(
 			new Set(summary.allDebts.map((d) => String(d.sourceExpenseId ?? "").trim()).filter(Boolean))
 		);
@@ -99,7 +115,16 @@ export async function GET(req: NextRequest) {
 			debtIds.length
 				? prisma.debtPayment.groupBy({
 						by: ["debtId"],
-						where: { debtId: { in: debtIds }, year: paymentYear, month: paymentMonth },
+						where: {
+							debtId: { in: debtIds },
+							OR: [
+								{ periodKey },
+								{
+									periodKey: prevPeriodKey,
+									paidAt: { gte: earlyPaymentStart, lt: periodStart },
+								},
+							],
+						},
 						_sum: { amount: true },
 				  })
 				: Promise.resolve([]),

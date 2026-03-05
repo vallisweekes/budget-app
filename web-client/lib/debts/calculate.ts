@@ -9,6 +9,13 @@ import type { DebtItem } from "@/types";
  * - `monthlyMinimum` (when set) floors the payment.
  */
 export function getDebtMonthlyPayment(debt: DebtItem): number {
+	const rawMin = typeof debt.monthlyMinimum === "number" ? debt.monthlyMinimum : Number(debt.monthlyMinimum);
+	const monthlyMin = Number.isFinite(rawMin) ? rawMin : 0;
+
+	// For credit/store cards the monthly minimum IS the planned payment.
+	const isCardDebt = debt.type === "credit_card" || debt.type === "store_card";
+	if (isCardDebt && monthlyMin > 0) return Math.max(0, monthlyMin);
+
 	const rawPlanned = typeof debt.amount === "number" ? debt.amount : Number(debt.amount);
 	let planned = Number.isFinite(rawPlanned) ? rawPlanned : 0;
 
@@ -20,8 +27,6 @@ export function getDebtMonthlyPayment(debt: DebtItem): number {
 		}
 	}
 
-	const rawMin = typeof debt.monthlyMinimum === "number" ? debt.monthlyMinimum : Number(debt.monthlyMinimum);
-	const monthlyMin = Number.isFinite(rawMin) ? rawMin : 0;
 	if (monthlyMin > 0) planned = Math.max(planned, monthlyMin);
 
 	return Math.max(0, planned);

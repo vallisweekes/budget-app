@@ -69,7 +69,14 @@ export function buildDashboardDerived(params: {
     planned = Number.isFinite(planned) ? planned : 0;
 
     const monthlyMinimum = d.monthlyMinimum ?? 0;
-    if (monthlyMinimum > 0) planned = Math.max(planned, monthlyMinimum);
+
+    // For credit/store cards the monthly minimum IS the planned payment.
+    const isCardType = (d as any).type === "credit_card" || (d as any).type === "store_card";
+    if (isCardType && monthlyMinimum > 0) {
+      planned = monthlyMinimum;
+    } else if (monthlyMinimum > 0) {
+      planned = Math.max(planned, monthlyMinimum);
+    }
 
     const due = Math.max(0, planned);
     return Math.min(currentBalance, due);

@@ -8,6 +8,7 @@ import { hasCustomLogoForDomain, hasCustomLogoForName, resolveExpenseLogo, resol
 import { buildExpenseAddedActivity } from "@/lib/push/activityMessages";
 import { sendUserPush } from "@/lib/push/sendUserPush";
 import { isLegacyPlaceholderExpenseRow } from "@/lib/expenses/legacyPlaceholders";
+import { getExpensePaidMap } from "@/lib/expenses/paidSummary";
 import {
   buildPayPeriodFromMonthAnchor,
   normalizePayFrequency,
@@ -102,8 +103,36 @@ function inRange(target: Date, start: Date, end: Date): boolean {
   return target.getTime() >= start.getTime() && target.getTime() <= end.getTime();
 }
 
-function serializeExpense(expense: any, latestPaidAt: Date | null, periodMeta?: { effectiveDueDate: string | null; inSelectedPayPeriod: boolean }) {
-  const paidAmountNumber = Number(expense?.paidAmount?.toString?.() ?? expense?.paidAmount ?? 0);
+async function bestEffortWithin<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+  let timeout: ReturnType<typeof setTimeout> | null = null;
+  try {
+    const result = await Promise.race([
+      promise,
+      new Promise<null>((resolve) => {
+        timeout = setTimeout(() => resolve(null), ms);
+      }),
+    ]);
+    return result as T | null;
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+}
+
+function toFloat(value: unknown): number {
+  if (typeof value === "number") return value;
+  const n = parseFloat(String(value ?? "0"));
+  return isNaN(n) ? 0 : n;
+}
+
+function serializeExpense(
+  expense: any,
+  latestPaidAt: Date | null,
+  periodMeta?: { effectiveDueDate: string | null; inSelectedPayPeriod: boolean },
+  paidOverride?: { paid: boolean; paidAmount: number },
+) {
+  const paidAmountNumber = paidOverride
+    ? paidOverride.paidAmount
+    : Number(expense?.paidAmount?.toString?.() ?? expense?.paidAmount ?? 0);
   const effectiveLastPaymentAt =
     latestPaidAt ??
     (expense.lastPaymentAt instanceof Date
@@ -119,8 +148,8 @@ function serializeExpense(expense: any, latestPaidAt: Date | null, periodMeta?: 
     logoUrl: expense.logoUrl ?? null,
     logoSource: expense.logoSource ?? null,
     amount: decimalToString(expense.amount),
-    paid: expense.paid,
-    paidAmount: decimalToString(expense.paidAmount),
+    paid: paidOverride ? paidOverride.paid : expense.paid,
+    paidAmount: paidOverride ? decimalToString(paidOverride.paidAmount) : decimalToString(expense.paidAmount),
     isAllocation: Boolean(expense.isAllocation ?? false),
     isDirectDebit: Boolean(expense.isDirectDebit ?? false),
     month: expense.month,
@@ -237,6 +266,15 @@ export async function GET(req: NextRequest) {
     latestPayments.map((row) => [row.expenseId, row._max.paidAt ?? null] as const)
   );
 
+  // Canonical paid status/amounts from the expensePayment transaction table.
+  // This keeps /api/bff/expenses consistent with /api/bff/expenses/summary.
+  const paidCandidates = (items as any[])
+    .filter((item) => !(scope === "pay_period" && isLegacyPlaceholderExpenseRow(item)))
+    .filter((item) => !Boolean(item?.isAllocation ?? false));
+  const paidMap = await getExpensePaidMap(
+    paidCandidates.map((e) => ({ id: String(e.id), amount: toFloat(e.amount) })),
+  );
+
   // Backfill/refresh logos.
   // - Backfill runs when logoUrl is missing.
   // - Refresh (opt-in) re-resolves non-manual logos to correct bad matches.
@@ -315,14 +353,20 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    const canonicalPaidInfo = paidMap.get(String(item.id));
+    const canonicalPaidAmountRaw = canonicalPaidInfo?.paidAmount ?? toFloat(item.paidAmount);
+    const canonicalIsPaid = canonicalPaidInfo?.isPaid ?? Boolean(item.paid);
+    const amountNumber = toFloat(item.amount);
+    const canonicalPaidAmount = amountNumber > 0 ? Math.min(canonicalPaidAmountRaw, amountNumber) : 0;
+
     const dueIso = item.dueDate
       ? resolveEffectiveDueDateIso(
           {
             id: item.id,
             name: item.name,
             amount: Number(item.amount?.toString?.() ?? item.amount ?? 0),
-            paid: Boolean(item.paid),
-            paidAmount: Number(item.paidAmount?.toString?.() ?? item.paidAmount ?? 0),
+            paid: canonicalIsPaid,
+            paidAmount: canonicalPaidAmount,
             dueDate: item.dueDate ? new Date(item.dueDate).toISOString().slice(0, 10) : undefined,
           },
           { year: item.year, monthNum: item.month, payDate }
@@ -363,6 +407,9 @@ export async function GET(req: NextRequest) {
     out.push(serializeExpense(item, latestPaidAt, {
       effectiveDueDate: dueIso,
       inSelectedPayPeriod,
+    }, {
+      paid: canonicalIsPaid,
+      paidAmount: canonicalPaidAmount,
     }));
   }
 
@@ -471,47 +518,55 @@ export async function POST(req: NextRequest) {
 
   if (!created) return NextResponse.json({ error: "Expense was not created" }, { status: 500 });
 
-  // Ensure logos appear immediately after creation (not only after a later edit).
-  // This is especially important for rows that were created before logo enrichment
-  // was fully wired up, or when the resolver can determine a domain from the name.
-  let finalCreated: any = created;
-  if (!finalCreated.logoUrl) {
-    const resolved = await resolveExpenseLogoWithSearch(finalCreated.name, finalCreated.merchantDomain);
-    if (resolved.merchantDomain || resolved.logoUrl || resolved.logoSource) {
-      finalCreated = await prisma.expense
-        .update({
-          where: { id: finalCreated.id },
-          data: {
-            merchantDomain: resolved.merchantDomain,
-            logoUrl: resolved.logoUrl,
-            logoSource: resolved.logoSource,
-          },
-          include: {
-            category: {
-              select: { id: true, name: true, icon: true, color: true, featured: true },
-            },
-          },
-        })
-        .catch(() => finalCreated);
-    }
-  }
+  // NOTE: Mobile UX depends on this endpoint returning quickly.
+  // We bound any enrichment / push work so it can't hang the Add sheet.
 
-  try {
-    const plan = await prisma.budgetPlan.findUnique({
-      where: { id: ownedBudgetPlanId },
-      select: { currency: true },
-    });
-    const currency = plan?.currency ?? "GBP";
-    const msg = await buildExpenseAddedActivity({
-      name: finalCreated.name,
-      amount,
-      currency,
-      url: "/dashboard",
-    });
-    await sendUserPush({ userId, preference: "paymentAlerts", web: msg.web, mobile: msg.mobile });
-  } catch {
-    // Best-effort
-  }
+  // Ensure logos appear quickly when possible, but never block the response for long.
+  // If the enrichment takes too long, we return immediately and it can be refreshed later.
+  const maybeEnriched = !created.logoUrl
+    ? await bestEffortWithin(
+        (async () => {
+          const resolved = await resolveExpenseLogoWithSearch(created.name, created.merchantDomain);
+          if (!(resolved.merchantDomain || resolved.logoUrl || resolved.logoSource)) return created;
+          const updated = await prisma.expense.update({
+            where: { id: created.id },
+            data: {
+              merchantDomain: resolved.merchantDomain,
+              logoUrl: resolved.logoUrl,
+              logoSource: resolved.logoSource,
+            },
+            include: {
+              category: {
+                select: { id: true, name: true, icon: true, color: true, featured: true },
+              },
+            },
+          });
+          return updated;
+        })().catch(() => created),
+        900,
+      )
+    : created;
+
+  const finalCreated: any = maybeEnriched ?? created;
+
+  // Push notifications are best-effort and should not delay the response.
+  void bestEffortWithin(
+    (async () => {
+      const plan = await prisma.budgetPlan.findUnique({
+        where: { id: ownedBudgetPlanId },
+        select: { currency: true },
+      });
+      const planCurrency = plan?.currency ?? "GBP";
+      const msg = await buildExpenseAddedActivity({
+        name: finalCreated.name,
+        amount,
+        currency: planCurrency,
+        url: "/dashboard",
+      });
+      await sendUserPush({ userId, preference: "paymentAlerts", web: msg.web, mobile: msg.mobile });
+    })().catch(() => null),
+    900,
+  );
 
   return NextResponse.json(serializeExpense(finalCreated, null), { status: 201 });
 }

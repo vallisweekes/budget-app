@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { monthKeyToNumber, monthNumberToKey } from "@/lib/helpers/monthKey";
 import { resolveExpenseLogo } from "@/lib/expenses/logoResolver";
 import { syncExpensePaymentsToPaidAmount } from "@/lib/expenses/paymentSync";
+import { getExpensePeriodKey, resolvePayDate } from "@/lib/helpers/periodKey";
 import type { ExpenseItem, ExpensesByMonth, MonthKey } from "@/types";
 
 export type { ExpenseItem, ExpensesByMonth };
@@ -240,11 +241,14 @@ export async function addExpense(
 ): Promise<ExpenseItem> {
   const logo = resolveExpenseLogo(item.name, toOptionalString((item as { merchantDomain?: unknown }).merchantDomain));
   const seriesKey = normalizeSeriesKey(logo.merchantDomain ?? item.name);
+  const monthNum = monthKeyToNumber(month);
+  const payDate = await resolvePayDate(budgetPlanId);
+  const periodKey = getExpensePeriodKey({ dueDate: item.dueDate ? new Date(item.dueDate) : null, year, month: monthNum }, payDate);
   const created = (await prisma.expense.create({
     data: ({
       budgetPlanId,
       year,
-      month: monthKeyToNumber(month),
+      month: monthNum,
       name: normalizeExpenseName(item.name),
       seriesKey,
       amount: item.amount,
@@ -256,6 +260,7 @@ export async function addExpense(
       logoSource: logo.logoSource,
       categoryId: item.categoryId ?? null,
       dueDate: item.dueDate ? new Date(item.dueDate) : null,
+      periodKey,
     }) as any,
     select: {
       id: true,
@@ -326,6 +331,7 @@ export async function addOrUpdateExpenseAcrossMonths(
   if (!seedSeriesKey) seedSeriesKey = normalizeSeriesKey(logo.merchantDomain ?? targetName);
 	const paymentSource = (item as any).paymentSource ?? "income";
 	const cardDebtId = (item as any).cardDebtId ?? null;
+	const payDate = await resolvePayDate(budgetPlanId);
 
 	for (const month of targetMonths) {
 		const monthNumber = monthKeyToNumber(month);
@@ -338,6 +344,8 @@ export async function addOrUpdateExpenseAcrossMonths(
 			},
       select: { id: true, seriesKey: true },
 		});
+
+		const periodKey = getExpensePeriodKey({ dueDate: item.dueDate ? new Date(item.dueDate) : null, year, month: monthNumber }, payDate);
 
 		if (existing) {
 			await prisma.expense.update({
@@ -358,6 +366,7 @@ export async function addOrUpdateExpenseAcrossMonths(
           logoSource: logo.logoSource,
           paymentSource,
           cardDebtId,
+          periodKey,
         }) as any,
 			});
 			continue;
@@ -382,6 +391,7 @@ export async function addOrUpdateExpenseAcrossMonths(
 				dueDate: item.dueDate ? new Date(item.dueDate) : null,
         paymentSource,
         cardDebtId,
+        periodKey,
       }) as any,
 		});
 	}
@@ -500,15 +510,31 @@ export async function toggleExpensePaid(
 ): Promise<void> {
   const existing = await prisma.expense.findFirst({
     where: { id, budgetPlanId, year, month: monthKeyToNumber(month) },
-    select: { id: true, paid: true, amount: true },
+    select: { id: true, paid: true, amount: true, paymentSource: true, cardDebtId: true },
   });
   if (!existing) return;
   const nextPaid = !existing.paid;
+  const amount = Number(existing.amount ?? 0);
+  const desiredPaidAmount = nextPaid ? amount : 0;
+
+  // Use syncExpensePaymentsToPaidAmount to keep expensePayment records
+  // (the single source of truth) in sync with the scalar flags.
+  const { finalPaid, finalPaidAmount } = await syncExpensePaymentsToPaidAmount({
+    expenseId: existing.id,
+    budgetPlanId,
+    amount,
+    desiredPaidAmount,
+    paymentSource: existing.paymentSource ?? "income",
+    cardDebtId: existing.cardDebtId,
+    adjustBalances: true,
+    resetOnDecrease: true,
+  });
+
   await prisma.expense.update({
     where: { id: existing.id },
     data: {
-      paid: nextPaid,
-      paidAmount: nextPaid ? existing.amount : 0,
+      paid: finalPaid,
+      paidAmount: finalPaidAmount,
     },
   });
 }

@@ -9,6 +9,28 @@ import { getAllExpenses, addOrUpdateExpenseAcrossMonths } from "@/lib/expenses/s
 
 const prisma = new PrismaClient();
 
+function normalizeSeedIncomeName(name: unknown): string {
+  const raw = String(name ?? "").trim();
+  if (!raw) return raw;
+  if (/^salary$/i.test(raw)) return "Salary";
+  return raw;
+}
+
+function normalizeSeedIncomeMonthly(data: Record<string, unknown>): Record<string, unknown> {
+  const normalized: Record<string, unknown> = {};
+  for (const [monthKey, value] of Object.entries(data ?? {})) {
+    const rows = Array.isArray(value) ? value : [];
+    normalized[monthKey] = rows.map((row) => {
+      const item = (row ?? {}) as Record<string, unknown>;
+      return {
+        ...item,
+        name: normalizeSeedIncomeName(item.name),
+      };
+    });
+  }
+  return normalized;
+}
+
 const UK_PROVIDER_MAPPINGS: Array<{ providerName: string; aliases: string[]; categoryName: string }> = [
   { providerName: "EE", aliases: ["ee"], categoryName: "Utilities" },
   { providerName: "Vodafone", aliases: ["vodafone"], categoryName: "Utilities" },
@@ -394,9 +416,10 @@ async function main() {
   const rootExpensesMonthly = JSON.parse(
     await fs.readFile(path.join(process.cwd(), "data", "expenses.monthly.json"), "utf-8")
   );
-  const rootIncomeMonthly = JSON.parse(
+  const rootIncomeMonthlyRaw = JSON.parse(
     await fs.readFile(path.join(process.cwd(), "data", "income.monthly.json"), "utf-8")
   );
+  const rootIncomeMonthly = normalizeSeedIncomeMonthly(rootIncomeMonthlyRaw);
   const rootDebts = JSON.parse(await fs.readFile(path.join(process.cwd(), "data", "debts.json"), "utf-8"));
   const rootGoals = JSON.parse(await fs.readFile(path.join(process.cwd(), "data", "goals.json"), "utf-8"));
 
@@ -736,39 +759,45 @@ async function main() {
 
   // 3. Seed Income
   console.log("\n💵 Seeding income...");
-  const incomeData = JSON.parse(
+  const incomeDataRaw = JSON.parse(
     await fs.readFile(path.join(process.cwd(), "data", "income.monthly.json"), "utf-8")
   );
+  const incomeData = normalizeSeedIncomeMonthly(incomeDataRaw);
 
-  let incomeCount = 0;
-  
-  for (const monthKey of MONTHS) {
-    const monthIncome = incomeData[monthKey] || [];
-    const monthIndex = MONTHS.indexOf(monthKey as MonthKey) + 1;
+  const existingIncomeCount = await prisma.income.count({ where: { budgetPlanId: budgetPlan.id } });
+  if (existingIncomeCount > 0) {
+    console.log(`  ↷ Skipped income JSON seed (DB already has ${existingIncomeCount} income rows)`);
+  } else {
+    let incomeCount = 0;
+    
+    for (const monthKey of MONTHS) {
+      const monthIncome = incomeData[monthKey] || [];
+      const monthIndex = MONTHS.indexOf(monthKey as MonthKey) + 1;
 
-    for (const income of monthIncome) {
-      await prisma.income.upsert({
-        where: { id: income.id },
-        update: {
-          name: income.name,
-          amount: income.amount,
-          month: monthIndex,
-          year: currentYear,
-				budgetPlanId: budgetPlan.id,
-        },
-        create: {
-          id: income.id,
-          name: income.name,
-          amount: income.amount,
-          month: monthIndex,
-          year: currentYear,
-				budgetPlanId: budgetPlan.id,
-        },
-      });
-      incomeCount++;
+      for (const income of monthIncome as any[]) {
+        await prisma.income.upsert({
+          where: { id: income.id },
+          update: {
+            name: normalizeSeedIncomeName(income.name),
+            amount: income.amount,
+            month: monthIndex,
+            year: currentYear,
+            budgetPlanId: budgetPlan.id,
+          },
+          create: {
+            id: income.id,
+            name: normalizeSeedIncomeName(income.name),
+            amount: income.amount,
+            month: monthIndex,
+            year: currentYear,
+            budgetPlanId: budgetPlan.id,
+          },
+        });
+        incomeCount++;
+      }
     }
+    console.log(`  ✓ ${incomeCount} income entries`);
   }
-  console.log(`  ✓ ${incomeCount} income entries`);
 
   // 4. Seed Debts
   console.log("\n💳 Seeding debts...");

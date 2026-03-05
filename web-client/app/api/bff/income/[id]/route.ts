@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUserId } from "@/lib/api/bffAuth";
+import { getIncomePeriodKey, resolvePayDate } from "@/lib/helpers/periodKey";
 
 export const runtime = "nodejs";
 
@@ -82,9 +83,15 @@ export async function PATCH(
     const nextName = typeof data.name === "string" && data.name.trim() ? (data.name as string) : existing.name;
 
     const merged = await prisma.$transaction(async (tx) => {
+      // Recompute periodKey if month or year changed
+      const nextYear = typeof data.year === "number" ? data.year : existing.year;
+      const nextMonth = typeof data.month === "number" ? data.month : existing.month;
+      const payDate = await resolvePayDate(existing.budgetPlanId);
+      const periodKey = getIncomePeriodKey({ year: nextYear, month: nextMonth }, payDate);
+
       const updated = await tx.income.update({
         where: { id },
-        data,
+        data: { ...data, periodKey },
       });
 
       // After updating, collapse any legacy duplicates (case-insensitive name match)

@@ -8,6 +8,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import {
+  Alert,
   Animated,
   Dimensions,
   Keyboard,
@@ -339,11 +340,15 @@ export default function AddExpenseSheet({
         seriesKey: selectedSeriesKey,
       });
 
+      // Optimistic UX: close immediately so the sheet never gets stuck on "Adding...".
+      // We'll refresh the parent list once the mutation completes.
+      onClose();
       await apiFetch("/api/bff/expenses", { method: "POST", body });
       onAdded();
-      onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to add expense. Try again.");
+      const message = e instanceof Error ? e.message : "Failed to add expense. Try again.";
+      setError(message);
+      Alert.alert("Couldn't add expense", message);
     } finally {
       setSubmitting(false);
     }

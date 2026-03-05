@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { supportsOnboardingCadenceFields as detectOnboardingCadenceFields } from "@/lib/prisma/capabilities";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
 import { normalizeBillFrequency, normalizePayFrequency } from "@/lib/payPeriods";
+import { syncGoalCurrentAmountsFromBalances } from "@/lib/goals/syncGoalCurrentAmountsFromBalances";
 
 export const runtime = "nodejs";
 
@@ -293,46 +294,20 @@ async function saveCadenceForUser(
   }
 }
 
-async function syncGoalAdditionsForPlan(args: {
-  budgetPlanId: string;
-  addSavings?: number;
-  addEmergency?: number;
-  addInvestment?: number;
+async function syncGoalsFromBalances(args: {
+	budgetPlanId: string;
+	savingsBalance?: unknown;
+	emergencyBalance?: unknown;
+	investmentBalance?: unknown;
 }) {
-  const updates: Array<{ category: "savings" | "emergency" | "investment"; amount: number }> = [];
-  if (Number.isFinite(args.addSavings) && Number(args.addSavings) > 0) {
-    updates.push({ category: "savings", amount: Number(args.addSavings) });
-  }
-  if (Number.isFinite(args.addEmergency) && Number(args.addEmergency) > 0) {
-    updates.push({ category: "emergency", amount: Number(args.addEmergency) });
-  }
-  if (Number.isFinite(args.addInvestment) && Number(args.addInvestment) > 0) {
-    updates.push({ category: "investment", amount: Number(args.addInvestment) });
-  }
-
-  if (updates.length === 0) return;
-
-  await prisma.$transaction(async (tx) => {
-    for (const item of updates) {
-      const goal = await tx.goal.findFirst({
-        where: {
-          budgetPlanId: args.budgetPlanId,
-          category: item.category,
-        },
-        select: { id: true },
-      });
-      if (!goal) continue;
-
-      await tx.goal.update({
-        where: { id: goal.id },
-        data: {
-          currentAmount: {
-            increment: item.amount,
-          },
-        },
-      });
-    }
-  });
+	const balances: { savings?: number; emergency?: number; investment?: number } = {};
+	const s = Number(args.savingsBalance);
+	const e = Number(args.emergencyBalance);
+	const i = Number(args.investmentBalance);
+	if (Number.isFinite(s)) balances.savings = s;
+	if (Number.isFinite(e)) balances.emergency = e;
+	if (Number.isFinite(i)) balances.investment = i;
+	await syncGoalCurrentAmountsFromBalances({ budgetPlanId: args.budgetPlanId, balances });
 }
 
 export async function GET(req: NextRequest) {
@@ -595,6 +570,13 @@ export async function PATCH(req: NextRequest) {
         if (wantsInvestmentBalance && Number.isFinite(investmentBalance)) {
           await setInvestmentBalanceFallback(budgetPlanId, investmentBalance);
         }
+
+			await syncGoalsFromBalances({
+				budgetPlanId,
+				savingsBalance: undefined,
+				emergencyBalance: wantsEmergencyBalance ? emergencyBalance : undefined,
+				investmentBalance: wantsInvestmentBalance ? investmentBalance : undefined,
+			});
         if (wantsIncomeDistributeFullYearDefault || wantsIncomeDistributeHorizonDefault) {
           await setIncomeDefaultsFallback(budgetPlanId, {
             fullYear: wantsIncomeDistributeFullYearDefault ? Boolean(body.incomeDistributeFullYearDefault) : undefined,
@@ -638,12 +620,6 @@ export async function PATCH(req: NextRequest) {
         data: updateData,
         select: settingsSelect as any,
       });
-      await syncGoalAdditionsForPlan({
-        budgetPlanId,
-        addSavings: hasAdditionalSavings ? additionalSavings : undefined,
-        addEmergency: hasAdditionalEmergency ? additionalEmergency : undefined,
-        addInvestment: hasAdditionalInvestment ? additionalInvestment : undefined,
-      });
       if (wantsEmergencyBalance && Number.isFinite(emergencyBalance)) {
         await setEmergencyBalanceFallback(budgetPlanId, emergencyBalance);
       }
@@ -662,6 +638,12 @@ export async function PATCH(req: NextRequest) {
         await setInvestmentBalanceFallback(budgetPlanId, investmentBalance);
       }
       const nextInvestmentBalance = await getInvestmentBalanceFallback(budgetPlanId);
+      await syncGoalsFromBalances({
+        budgetPlanId,
+        savingsBalance: (updated as any).savingsBalance,
+        emergencyBalance: nextEmergencyBalance,
+        investmentBalance: nextInvestmentBalance,
+      });
       const nextIncomeDefaults = await getIncomeDefaultsFallback(budgetPlanId);
       const cadence = await getCadenceForUser(userId);
       return NextResponse.json({
@@ -718,14 +700,14 @@ export async function PATCH(req: NextRequest) {
 				data: updateData,
         select: (unknownMonthlyEmergency ? settingsSelectLegacy : settingsSelectWithoutMonthlyEmergency) as any,
 			});
-      await syncGoalAdditionsForPlan({
-        budgetPlanId,
-        addSavings: hasAdditionalSavings ? additionalSavings : undefined,
-        addEmergency: hasAdditionalEmergency ? additionalEmergency : undefined,
-        addInvestment: hasAdditionalInvestment ? additionalInvestment : undefined,
-      });
       const nextEmergencyBalance = await getEmergencyBalanceFallback(budgetPlanId);
       const nextInvestmentBalance = await getInvestmentBalanceFallback(budgetPlanId);
+      await syncGoalsFromBalances({
+        budgetPlanId,
+        savingsBalance: (updated as any).savingsBalance,
+        emergencyBalance: nextEmergencyBalance,
+        investmentBalance: nextInvestmentBalance,
+      });
       const cadence = await getCadenceForUser(userId);
       return NextResponse.json({
         ...updated,

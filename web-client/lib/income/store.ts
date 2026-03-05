@@ -1,6 +1,7 @@
 import { MONTHS } from "@/lib/constants/time";
 import { prisma } from "@/lib/prisma";
 import { monthKeyToNumber, monthNumberToKey } from "@/lib/helpers/monthKey";
+import { getIncomePeriodKey, resolvePayDate } from "@/lib/helpers/periodKey";
 import type { MonthKey } from "@/types";
 
 export interface IncomeItem {
@@ -234,6 +235,7 @@ export async function addIncome(
       month: monthKeyToNumber(month),
       name: item.name,
       amount: item.amount,
+      periodKey: getIncomePeriodKey({ year, month: monthKeyToNumber(month) }, await resolvePayDate(budgetPlanId)),
     },
   });
 }
@@ -277,13 +279,13 @@ export async function addOrUpdateIncomeAcrossMonths(
     if (existing) {
       await prisma.income.update({
         where: { id: existing.id },
-        data: { name: item.name, amount: item.amount },
+        data: { name: item.name, amount: item.amount, periodKey: getIncomePeriodKey({ year, month }, await resolvePayDate(budgetPlanId)) },
       });
       continue;
     }
 
     await prisma.income.create({
-      data: { budgetPlanId, year, month, name: item.name, amount: item.amount },
+      data: { budgetPlanId, year, month, name: item.name, amount: item.amount, periodKey: getIncomePeriodKey({ year, month }, await resolvePayDate(budgetPlanId)) },
     });
   }
 }
