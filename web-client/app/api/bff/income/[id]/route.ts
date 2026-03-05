@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUserId } from "@/lib/api/bffAuth";
 import { getIncomePeriodKey, resolvePayDate } from "@/lib/helpers/periodKey";
+import { canonicalizeIncomeName } from "@/lib/income/name";
 
 export const runtime = "nodejs";
 
@@ -10,7 +11,7 @@ function unauthorized() {
 }
 
 function normalizeName(name: unknown): string {
-	return String(name ?? "").trim().replace(/\s+/g, " ");
+  return canonicalizeIncomeName(name);
 }
 
 export async function GET(

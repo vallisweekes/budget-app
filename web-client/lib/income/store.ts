@@ -2,6 +2,7 @@ import { MONTHS } from "@/lib/constants/time";
 import { prisma } from "@/lib/prisma";
 import { monthKeyToNumber, monthNumberToKey } from "@/lib/helpers/monthKey";
 import { getIncomePeriodKey, resolvePayDate } from "@/lib/helpers/periodKey";
+import { canonicalizeIncomeName } from "@/lib/income/name";
 import type { MonthKey } from "@/types";
 
 export interface IncomeItem {
@@ -233,7 +234,7 @@ export async function addIncome(
       budgetPlanId,
       year,
       month: monthKeyToNumber(month),
-      name: item.name,
+      name: canonicalizeIncomeName(item.name),
       amount: item.amount,
       periodKey: getIncomePeriodKey({ year, month: monthKeyToNumber(month) }, await resolvePayDate(budgetPlanId)),
     },
@@ -241,7 +242,7 @@ export async function addIncome(
 }
 
 function normalizeIncomeNameForWrite(name: string): string {
-  return String(name ?? "").trim().toLowerCase();
+  return canonicalizeIncomeName(name).toLowerCase();
 }
 
 export async function addOrUpdateIncomeAcrossMonths(
@@ -256,7 +257,8 @@ export async function addOrUpdateIncomeAcrossMonths(
 			: await resolveIncomeYear(budgetPlanId);
 	const scope = await getEventIncomeScope(budgetPlanId);
   const targetMonths = Array.from(new Set(months));
-  const targetName = normalizeIncomeNameForWrite(item.name);
+  const canonicalName = canonicalizeIncomeName(item.name);
+  const targetName = normalizeIncomeNameForWrite(canonicalName);
 
   for (const monthKey of targetMonths) {
 		if (scope) {
@@ -279,13 +281,13 @@ export async function addOrUpdateIncomeAcrossMonths(
     if (existing) {
       await prisma.income.update({
         where: { id: existing.id },
-        data: { name: item.name, amount: item.amount, periodKey: getIncomePeriodKey({ year, month }, await resolvePayDate(budgetPlanId)) },
+        data: { name: canonicalName, amount: item.amount, periodKey: getIncomePeriodKey({ year, month }, await resolvePayDate(budgetPlanId)) },
       });
       continue;
     }
 
     await prisma.income.create({
-      data: { budgetPlanId, year, month, name: item.name, amount: item.amount, periodKey: getIncomePeriodKey({ year, month }, await resolvePayDate(budgetPlanId)) },
+      data: { budgetPlanId, year, month, name: canonicalName, amount: item.amount, periodKey: getIncomePeriodKey({ year, month }, await resolvePayDate(budgetPlanId)) },
     });
   }
 }

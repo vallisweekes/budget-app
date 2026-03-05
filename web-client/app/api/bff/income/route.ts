@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
 import { getAllIncome } from "@/lib/income/store";
+import { canonicalizeIncomeName } from "@/lib/income/name";
 import { monthNumberToKey } from "@/lib/helpers/monthKey";
 import { normalizePayFrequency } from "@/lib/payPeriods";
 import { getIncomePeriodKey, resolvePayDate } from "@/lib/helpers/periodKey";
@@ -26,7 +27,7 @@ function toBool(value: unknown): boolean {
 }
 
 function normalizeName(name: unknown): string {
-  return String(name ?? "").trim().replace(/\s+/g, " ");
+  return canonicalizeIncomeName(name);
 }
 
 function isAllCapsName(name: string): boolean {

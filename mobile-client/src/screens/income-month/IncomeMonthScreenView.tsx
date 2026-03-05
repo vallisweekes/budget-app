@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -14,7 +14,7 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useFocusEffect } from "@react-navigation/native";
 
 import { apiFetch } from "@/lib/api";
-import type { Income, Settings, IncomeMonthData, IncomeSacrificeData, IncomeSacrificeFixed } from "@/lib/apiTypes";
+import type { Income, Settings, IncomeMonthData, IncomeSacrificeData, IncomeSacrificeFixed, IncomeSummaryData } from "@/lib/apiTypes";
 import type { IncomeStackParamList } from "@/navigation/types";
 import { currencySymbol, fmt, MONTH_NAMES_LONG } from "@/lib/formatting";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
@@ -29,6 +29,21 @@ import DeleteConfirmSheet from "@/components/Shared/DeleteConfirmSheet";
 import { s } from "./incomeMonthScreenStyles";
 
 type Props = NativeStackScreenProps<IncomeStackParamList, "IncomeMonth">;
+
+type MonthRef = { month: number; year: number };
+type IncomeMutationMeta =
+  | {
+      type: "add";
+      month: number;
+      year: number;
+      distributeMonths: boolean;
+      distributeYears: boolean;
+    }
+  | {
+      type: "edit" | "delete";
+      month: number;
+      year: number;
+    };
 
 export default function IncomeMonthScreen({ navigation, route }: Props) {
   const topHeaderOffset = useTopHeaderOffset(-32);
@@ -49,6 +64,12 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
   const [linkSaving, setLinkSaving] = useState(false);
   const [confirmingTargetKey, setConfirmingTargetKey] = useState<string | null>(null);
   const [pendingNoticeVisible, setPendingNoticeVisible] = useState(false);
+
+  const analysisCacheRef = useRef<Record<number, Record<number, IncomeMonthData>>>({});
+  const itemsCacheRef = useRef<Record<number, Record<number, Income[]>>>({});
+  const sacrificeCacheRef = useRef<Record<number, Record<number, IncomeSacrificeData>>>({});
+  const settingsCacheRef = useRef<Record<string, Settings>>({});
+  const yearPrefetchStateRef = useRef<Record<number, "idle" | "loading" | "loaded">>({});
 
   const periodRange = useMemo(() => {
     const payFrequency = normalizePayFrequency(settings?.payFrequency);
@@ -101,45 +122,212 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
 
   const currency = currencySymbol(settings?.currency);
 
-  const load = useCallback(async () => {
+  const toIncomeItems = useCallback((summary: Array<{ id: string; name: string; amount: number }>, targetMonth: number, targetYear: number): Income[] => {
+    return summary.map((item) => ({
+      id: item.id,
+      name: item.name,
+      amount: String(item.amount ?? 0),
+      month: targetMonth,
+      year: targetYear,
+      budgetPlanId,
+    }));
+  }, [budgetPlanId]);
+
+  const getCachedAnalysis = useCallback((targetYear: number, targetMonth: number) => {
+    return analysisCacheRef.current[targetYear]?.[targetMonth] ?? null;
+  }, []);
+
+  const getCachedItems = useCallback((targetYear: number, targetMonth: number) => {
+    return itemsCacheRef.current[targetYear]?.[targetMonth] ?? null;
+  }, []);
+
+  const setCachedAnalysis = useCallback((targetYear: number, targetMonth: number, data: IncomeMonthData) => {
+    if (!analysisCacheRef.current[targetYear]) analysisCacheRef.current[targetYear] = {};
+    analysisCacheRef.current[targetYear][targetMonth] = data;
+  }, []);
+
+  const setCachedItems = useCallback((targetYear: number, targetMonth: number, data: Income[]) => {
+    if (!itemsCacheRef.current[targetYear]) itemsCacheRef.current[targetYear] = {};
+    itemsCacheRef.current[targetYear][targetMonth] = data;
+  }, []);
+
+  const invalidateMonthCaches = useCallback((targets: MonthRef[], options?: { analysis?: boolean; items?: boolean; sacrifice?: boolean }) => {
+    const { analysis: dropAnalysis = true, items: dropItems = true, sacrifice: dropSacrifice = true } = options ?? {};
+
+    for (const target of targets) {
+      if (dropAnalysis && analysisCacheRef.current[target.year]) {
+        delete analysisCacheRef.current[target.year][target.month];
+      }
+      if (dropItems && itemsCacheRef.current[target.year]) {
+        delete itemsCacheRef.current[target.year][target.month];
+      }
+      if (dropSacrifice && sacrificeCacheRef.current[target.year]) {
+        delete sacrificeCacheRef.current[target.year][target.month];
+      }
+      yearPrefetchStateRef.current[target.year] = "idle";
+    }
+  }, []);
+
+  const getAffectedMonthsForIncomeMutation = useCallback((meta: IncomeMutationMeta): MonthRef[] => {
+    if (meta.type !== "add") {
+      return [{ month: meta.month, year: meta.year }];
+    }
+
+    if (!meta.distributeMonths && !meta.distributeYears) {
+      return [{ month: meta.month, year: meta.year }];
+    }
+
+    const cachedYears = new Set<number>([
+      ...Object.keys(analysisCacheRef.current).map((value) => Number(value)).filter((value) => Number.isFinite(value)),
+      ...Object.keys(itemsCacheRef.current).map((value) => Number(value)).filter((value) => Number.isFinite(value)),
+      meta.year,
+    ]);
+
+    const targets: MonthRef[] = [];
+    for (const cachedYear of cachedYears) {
+      if (meta.distributeYears) {
+        if (cachedYear < meta.year) continue;
+        const monthStart = cachedYear === meta.year ? meta.month : 1;
+        for (let monthIndex = monthStart; monthIndex <= 12; monthIndex += 1) {
+          targets.push({ month: monthIndex, year: cachedYear });
+        }
+        continue;
+      }
+
+      if (cachedYear !== meta.year) continue;
+      for (let monthIndex = meta.month; monthIndex <= 12; monthIndex += 1) {
+        targets.push({ month: monthIndex, year: cachedYear });
+      }
+    }
+
+    return targets.length ? targets : [{ month: meta.month, year: meta.year }];
+  }, []);
+
+  const handleIncomeMutationSuccess = useCallback((meta: IncomeMutationMeta) => {
+    const affected = getAffectedMonthsForIncomeMutation(meta);
+    invalidateMonthCaches(affected, { analysis: true, items: true, sacrifice: false });
+  }, [getAffectedMonthsForIncomeMutation, invalidateMonthCaches]);
+
+  const loadSettings = useCallback(async () => {
+    const cached = settingsCacheRef.current[budgetPlanId];
+    if (cached) {
+      setSettings(cached);
+      return;
+    }
+    const next = await apiFetch<Settings>(`/api/bff/settings?budgetPlanId=${encodeURIComponent(budgetPlanId)}`);
+    settingsCacheRef.current[budgetPlanId] = next;
+    setSettings(next);
+  }, [budgetPlanId]);
+
+  const preloadYear = useCallback(async (targetYear: number) => {
+    const state = yearPrefetchStateRef.current[targetYear] ?? "idle";
+    if (state === "loading" || state === "loaded") return;
+
+    yearPrefetchStateRef.current[targetYear] = "loading";
+    try {
+      const summary = await apiFetch<IncomeSummaryData>(`/api/bff/income-summary?year=${targetYear}`);
+      const summaryByMonth = new Map((summary.months ?? []).map((entry) => [entry.monthIndex, entry.items ?? []]));
+
+      for (let monthIndex = 1; monthIndex <= 12; monthIndex += 1) {
+        const summaryItems = summaryByMonth.get(monthIndex) ?? [];
+        setCachedItems(targetYear, monthIndex, toIncomeItems(summaryItems, monthIndex, targetYear));
+      }
+
+      const monthRequests = Array.from({ length: 12 }, (_, idx) => idx + 1).map(async (monthIndex) => {
+        const monthData = await apiFetch<IncomeMonthData>(
+          `/api/bff/income-month?month=${monthIndex}&year=${targetYear}&budgetPlanId=${encodeURIComponent(budgetPlanId)}`
+        );
+        setCachedAnalysis(targetYear, monthIndex, monthData);
+      });
+
+      await Promise.allSettled(monthRequests);
+      yearPrefetchStateRef.current[targetYear] = "loaded";
+    } catch {
+      yearPrefetchStateRef.current[targetYear] = "idle";
+    }
+  }, [budgetPlanId, setCachedAnalysis, setCachedItems, toIncomeItems]);
+
+  const load = useCallback(async (options?: { force?: boolean }) => {
+    const force = Boolean(options?.force);
     try {
       setError(null);
-      const [monthData, incomeList, s] = await Promise.all([
+
+      if (!force) {
+        const cachedMonthData = getCachedAnalysis(year, month);
+        const cachedIncome = getCachedItems(year, month);
+        if (cachedMonthData && cachedIncome) {
+          setAnalysis(cachedMonthData);
+          setItems(cachedIncome);
+          setLoading(false);
+          setRefreshing(false);
+          void preloadYear(year);
+          return;
+        }
+      }
+
+      const [monthData, incomeList] = await Promise.all([
         apiFetch<IncomeMonthData>(`/api/bff/income-month?month=${month}&year=${year}&budgetPlanId=${encodeURIComponent(budgetPlanId)}`),
         apiFetch<Income[]>(`/api/bff/income?month=${month}&year=${year}&budgetPlanId=${encodeURIComponent(budgetPlanId)}`),
-        apiFetch<Settings>(`/api/bff/settings?budgetPlanId=${encodeURIComponent(budgetPlanId)}`),
       ]);
+      const normalizedIncome = Array.isArray(incomeList) ? incomeList : [];
       setAnalysis(monthData);
-      setItems(Array.isArray(incomeList) ? incomeList : []);
-      setSettings(s);
+      setItems(normalizedIncome);
+      setCachedAnalysis(year, month, monthData);
+      setCachedItems(year, month, normalizedIncome);
+      void preloadYear(year);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load");
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [month, year, budgetPlanId]);
+  }, [month, year, budgetPlanId, getCachedAnalysis, getCachedItems, preloadYear, setCachedAnalysis, setCachedItems]);
 
-  const loadSacrifice = useCallback(async () => {
+  const loadSacrifice = useCallback(async (options?: { force?: boolean }) => {
+    const force = Boolean(options?.force);
+    if (!force) {
+      const cached = sacrificeCacheRef.current[year]?.[month] ?? null;
+      if (cached) {
+        setSacrifice(cached);
+        return;
+      }
+    }
     const data = await apiFetch<IncomeSacrificeData>(
       `/api/bff/income-sacrifice?month=${month}&year=${year}&budgetPlanId=${encodeURIComponent(budgetPlanId)}`
     );
+    if (!sacrificeCacheRef.current[year]) sacrificeCacheRef.current[year] = {};
+    sacrificeCacheRef.current[year][month] = data;
     setSacrifice(data);
   }, [month, year, budgetPlanId]);
 
   useEffect(() => {
-    load();
+    void loadSettings();
+  }, [loadSettings]);
+
+  useEffect(() => {
+    void load();
     loadSacrifice().catch(() => null);
   }, [load, loadSacrifice]);
 
+  useEffect(() => {
+    void preloadYear(year);
+  }, [preloadYear, year]);
+
   useFocusEffect(
     useCallback(() => {
-      load();
+      void load();
       loadSacrifice().catch(() => null);
     }, [load, loadSacrifice])
   );
 
-  const crud = useIncomeCRUD({ month, year, budgetPlanId, onReload: load, setItems });
+  const crud = useIncomeCRUD({
+    month,
+    year,
+    budgetPlanId,
+    onReload: () => load({ force: true }),
+    onMutationSuccess: handleIncomeMutationSuccess,
+    setItems,
+  });
 
   const editingItem = crud.editingId ? items.find((i) => i.id === crud.editingId) ?? null : null;
 
@@ -332,7 +520,8 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
         }
       }
 
-      await Promise.all([loadSacrifice(), load()]);
+      invalidateMonthCaches(targets, { analysis: true, items: false, sacrifice: true });
+      await Promise.all([loadSacrifice({ force: true }), load({ force: true })]);
     } catch (error) {
       if (affectsViewedMonth && previousSacrifice) {
         setSacrifice(previousSacrifice);
@@ -371,7 +560,8 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
           amount: 0,
         },
       });
-      await Promise.all([loadSacrifice(), load()]);
+      invalidateMonthCaches([{ month, year }], { analysis: true, items: false, sacrifice: true });
+      await Promise.all([loadSacrifice({ force: true }), load({ force: true })]);
     } finally {
       setSacrificeCreating(false);
     }
@@ -386,7 +576,8 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
     try {
       setSacrificeDeletingId(id);
       await apiFetch(`/api/bff/income-sacrifice/custom/${id}`, { method: "DELETE" });
-      await Promise.all([loadSacrifice(), load()]);
+      invalidateMonthCaches([{ month, year }], { analysis: true, items: false, sacrifice: true });
+      await Promise.all([loadSacrifice({ force: true }), load({ force: true })]);
     } finally {
       setSacrificeDeletingId(null);
     }
@@ -440,7 +631,8 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
           targetKey,
         },
       });
-      await Promise.all([loadSacrifice(), load()]);
+      invalidateMonthCaches([{ month, year }], { analysis: true, items: false, sacrifice: true });
+      await Promise.all([loadSacrifice({ force: true }), load({ force: true })]);
       Alert.alert("Confirmed", "Transfer confirmed and goal progress updated.");
     } catch (error) {
       Alert.alert("Could not confirm", error instanceof Error ? error.message : "Please try again.");
@@ -463,7 +655,7 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
         <View style={s.center}>
           <Ionicons name="cloud-offline-outline" size={48} color={T.textDim} />
           <Text style={s.errorText}>{error}</Text>
-          <Pressable onPress={load} style={s.retryBtn}><Text style={s.retryTxt}>Retry</Text></Pressable>
+          <Pressable onPress={() => { void load({ force: true }); }} style={s.retryBtn}><Text style={s.retryTxt}>Retry</Text></Pressable>
         </View>
       </SafeAreaView>
     );
@@ -500,7 +692,7 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
             refreshing={refreshing}
             onRefresh={() => {
               setRefreshing(true);
-              Promise.all([load(), loadSacrifice()]).finally(() => setRefreshing(false));
+              Promise.all([load({ force: true }), loadSacrifice({ force: true })]).finally(() => setRefreshing(false));
             }}
             onApplySacrificeAmount={applySacrificeAmount}
             onDeleteCustom={deleteSacrificeItem}
@@ -525,7 +717,7 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
             refreshing={refreshing}
             onRefresh={() => {
               setRefreshing(true);
-              load();
+              void load({ force: true });
             }}
             crud={crud}
           />

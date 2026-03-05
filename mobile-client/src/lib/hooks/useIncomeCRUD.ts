@@ -3,16 +3,31 @@ import { Alert, Keyboard } from "react-native";
 import { apiFetch } from "@/lib/api";
 import type { Income } from "@/lib/apiTypes";
 
+type IncomeMutationMeta =
+  | {
+      type: "add";
+      month: number;
+      year: number;
+      distributeMonths: boolean;
+      distributeYears: boolean;
+    }
+  | {
+      type: "edit" | "delete";
+      month: number;
+      year: number;
+    };
+
 interface Params {
   month: number;
   year: number;
   budgetPlanId: string;
   onReload: () => Promise<void>;
+  onMutationSuccess?: (meta: IncomeMutationMeta) => void;
   /** Optional: enables optimistic updates for edits/adds. */
   setItems?: Dispatch<SetStateAction<Income[]>>;
 }
 
-export function useIncomeCRUD({ month, year, budgetPlanId, onReload, setItems }: Params) {
+export function useIncomeCRUD({ month, year, budgetPlanId, onReload, onMutationSuccess, setItems }: Params) {
   // Add form
   const [showAddForm, setShowAddForm] = useState(false);
   const [newName, setNewName] = useState("");
@@ -50,13 +65,20 @@ export function useIncomeCRUD({ month, year, budgetPlanId, onReload, setItems }:
       setDistributeYears(false);
       setShowAddForm(false);
       Keyboard.dismiss();
+      onMutationSuccess?.({
+        type: "add",
+        month,
+        year,
+        distributeMonths,
+        distributeYears,
+      });
       await onReload();
     } catch (err: unknown) {
       Alert.alert("Error", err instanceof Error ? err.message : "Could not add income");
     } finally {
       setSaving(false);
     }
-  }, [newName, newAmount, month, year, budgetPlanId, distributeMonths, distributeYears, onReload]);
+  }, [newName, newAmount, month, year, budgetPlanId, distributeMonths, distributeYears, onMutationSuccess, onReload]);
 
   const startEdit = useCallback((item: Income) => {
     setEditingId(item.id);
@@ -102,6 +124,11 @@ export function useIncomeCRUD({ month, year, budgetPlanId, onReload, setItems }:
         method: "PATCH",
         body: { name, amount },
       });
+      onMutationSuccess?.({
+        type: "edit",
+        month,
+        year,
+      });
       await onReload();
     } catch (err: unknown) {
       if (setItems && snapshot) {
@@ -111,19 +138,24 @@ export function useIncomeCRUD({ month, year, budgetPlanId, onReload, setItems }:
     } finally {
       setSaving(false);
     }
-  }, [editingId, editName, editAmount, cancelEdit, onReload, setItems]);
+  }, [editingId, editName, editAmount, cancelEdit, month, onMutationSuccess, onReload, setItems, year]);
 
   const deleteIncome = useCallback(async (item: Income) => {
     try {
       setDeletingId(item.id);
       await apiFetch(`/api/bff/income/${item.id}`, { method: "DELETE" });
+      onMutationSuccess?.({
+        type: "delete",
+        month,
+        year,
+      });
       await onReload();
     } catch (err: unknown) {
       Alert.alert("Error", err instanceof Error ? err.message : "Could not delete");
     } finally {
       setDeletingId(null);
     }
-  }, [onReload]);
+  }, [month, onMutationSuccess, onReload, year]);
 
   return {
     // Add form
