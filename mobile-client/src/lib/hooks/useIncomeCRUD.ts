@@ -55,10 +55,24 @@ export function useIncomeCRUD({ month, year, budgetPlanId, onReload, onMutationS
     }
     try {
       setSaving(true);
-      await apiFetch("/api/bff/income", {
+      const created = await apiFetch<Income>("/api/bff/income", {
         method: "POST",
         body: { name, amount, month, year, budgetPlanId, distributeMonths, distributeYears },
       });
+      if (setItems) {
+        const optimistic: Income = {
+          id: String(created?.id ?? `${Date.now()}`),
+          name: String(created?.name ?? name),
+          amount: String(created?.amount ?? amount),
+          month: Number(created?.month ?? month),
+          year: Number(created?.year ?? year),
+          budgetPlanId: String(created?.budgetPlanId ?? budgetPlanId),
+        };
+        setItems((prev) => {
+          if (prev.some((item) => item.id === optimistic.id)) return prev;
+          return [...prev, optimistic];
+        });
+      }
       setNewName("");
       setNewAmount("");
       setDistributeMonths(false);
@@ -72,7 +86,7 @@ export function useIncomeCRUD({ month, year, budgetPlanId, onReload, onMutationS
         distributeMonths,
         distributeYears,
       });
-      await onReload();
+      void onReload();
     } catch (err: unknown) {
       Alert.alert("Error", err instanceof Error ? err.message : "Could not add income");
     } finally {
@@ -129,7 +143,7 @@ export function useIncomeCRUD({ month, year, budgetPlanId, onReload, onMutationS
         month,
         year,
       });
-      await onReload();
+      void onReload();
     } catch (err: unknown) {
       if (setItems && snapshot) {
         setItems((prev) => prev.map((i) => (i.id === snapshot!.id ? snapshot! : i)));
@@ -141,6 +155,15 @@ export function useIncomeCRUD({ month, year, budgetPlanId, onReload, onMutationS
   }, [editingId, editName, editAmount, cancelEdit, month, onMutationSuccess, onReload, setItems, year]);
 
   const deleteIncome = useCallback(async (item: Income) => {
+    let removedSnapshot: Income | null = null;
+    if (setItems) {
+      setItems((prev) => {
+        const target = prev.find((row) => row.id === item.id) ?? null;
+        removedSnapshot = target;
+        return prev.filter((row) => row.id !== item.id);
+      });
+    }
+
     try {
       setDeletingId(item.id);
       await apiFetch(`/api/bff/income/${item.id}`, { method: "DELETE" });
@@ -149,13 +172,19 @@ export function useIncomeCRUD({ month, year, budgetPlanId, onReload, onMutationS
         month,
         year,
       });
-      await onReload();
+      void onReload();
     } catch (err: unknown) {
+      if (setItems && removedSnapshot) {
+        setItems((prev) => {
+          if (prev.some((row) => row.id === removedSnapshot!.id)) return prev;
+          return [...prev, removedSnapshot!];
+        });
+      }
       Alert.alert("Error", err instanceof Error ? err.message : "Could not delete");
     } finally {
       setDeletingId(null);
     }
-  }, [month, onMutationSuccess, onReload, year]);
+  }, [month, onMutationSuccess, onReload, setItems, year]);
 
   return {
     // Add form

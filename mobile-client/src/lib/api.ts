@@ -32,6 +32,8 @@ export type ApiFetchOptions = {
   cacheTtlMs?: number;
   /** If true, a 401 response will NOT trigger the global _onUnauthorized sign-out callback */
   skipOnUnauthorized?: boolean;
+  /** Request timeout in milliseconds (default 15000) */
+  timeoutMs?: number;
 };
 
 export class ApiError extends Error {
@@ -120,15 +122,34 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
         }
       : {};
 
-    const response = await fetch(url, {
-      method,
-      headers: {
-        "Content-Type": "application/json",
-        ...authHeaders,
-        ...(options.headers ?? {}),
-      },
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
-    });
+    const controller = new AbortController();
+    const timeoutMs = Math.max(1, options.timeoutMs ?? 15_000);
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders,
+          ...(options.headers ?? {}),
+        },
+        body: options.body === undefined ? undefined : JSON.stringify(options.body),
+        signal: controller.signal,
+      });
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        throw new ApiError("Request timed out. Please try again.", {
+          status: 408,
+          code: "REQUEST_TIMEOUT",
+          detail: `${method} ${normalizedPath} timed out after ${timeoutMs}ms`,
+        });
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
 
     const responseText = await response.text();
     const parsed = responseText ? safeParseJson(responseText) : null;
