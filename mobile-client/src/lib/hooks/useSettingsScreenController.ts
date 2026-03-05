@@ -488,13 +488,13 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
   const requestedInitialTab = (route as unknown as { params?: { initialTab?: unknown } } | undefined)?.params?.initialTab;
 
   useEffect(() => {
-    if (requestedInitialTab !== "notifications") return;
+    if (requestedInitialTab !== "notifications" && requestedInitialTab !== "budget") return;
 
-    setActiveTab((prev) => (prev === "notifications" ? prev : "notifications"));
+    setActiveTab((prev) => (prev === requestedInitialTab ? prev : requestedInitialTab));
 
     const currentRoute = navigation.getState()?.routes?.find((entry) => entry.key === route.key);
     const params = (currentRoute?.params as { initialTab?: unknown } | undefined) ?? undefined;
-    if (!params || params.initialTab !== "notifications") return;
+    if (!params || params.initialTab !== requestedInitialTab) return;
 
     navigation.setParams({ initialTab: undefined });
   }, [navigation, requestedInitialTab, route.key]);

@@ -145,7 +145,12 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
         apiFetch<Expense[]>(`/api/bff/expenses?month=${month}&year=${year}&scope=pay_period&refreshLogos=1${qp}`),
         apiFetch<Settings>("/api/bff/settings"),
       ]);
-      setExpenses(Array.isArray(all) ? all.filter((e) => e.categoryId === categoryId) : []);
+      const isUncategorisedBucket = categoryId === "__none__";
+      setExpenses(
+        Array.isArray(all)
+          ? all.filter((e) => (isUncategorisedBucket ? !e.categoryId : e.categoryId === categoryId))
+          : []
+      );
       setPayDate(appSettings?.payDate ?? null);
       setPayFrequency(normalizePayFrequency(appSettings?.payFrequency));
       setLogoFailed({});

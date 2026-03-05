@@ -248,7 +248,7 @@ export async function GET(
         const [expense, debtPayments, expensePayments] = await Promise.all([
           prisma.expense.findUnique({
             where: { id: expenseId },
-            select: { id: true, amount: true },
+            select: { id: true, amount: true, periodKey: true },
           }),
           prisma.debtPayment.findMany({
             where: { debtId: safe.id },
@@ -282,7 +282,7 @@ export async function GET(
                 source: p.source,
                 debtId: safe.id,
                 paidAt: p.paidAt,
-                periodKey: getPaymentPeriodKey(p.paidAt, getPayDate),
+                periodKey: expense.periodKey ?? getPaymentPeriodKey(p.paidAt, getPayDate),
               })),
             });
             for (const p of toBackfill) {

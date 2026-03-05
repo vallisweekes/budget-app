@@ -193,7 +193,7 @@ export async function GET(
 
       const expense = await prisma.expense.findUnique({
         where: { id: expenseId },
-        select: { id: true, amount: true },
+        select: { id: true, amount: true, periodKey: true },
       });
       if (!expense) {
         return NextResponse.json(debtPayments);
@@ -226,7 +226,7 @@ export async function GET(
             source: p.source,
             debtId: p.debtId,
             paidAt: p.paidAt,
-            periodKey: getPaymentPeriodKey(p.paidAt, payDate),
+            periodKey: expense.periodKey ?? getPaymentPeriodKey(p.paidAt, payDate),
           })),
         });
 

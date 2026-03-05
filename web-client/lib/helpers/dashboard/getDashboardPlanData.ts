@@ -456,6 +456,10 @@ export async function getDashboardPlanDataForActivePayPeriod(
 
 	const filteredAndDeduped: any[] = [];
 	const seen = new Map<string, { exp: any; rank: number }>();
+	const allowedUnscheduledYm = new Set([
+		`${window.start.getUTCFullYear()}-${window.start.getUTCMonth() + 1}`,
+		`${window.end.getUTCFullYear()}-${window.end.getUTCMonth() + 1}`,
+	]);
 
 	for (const exp of expenses as any[]) {
 		if (isLegacyPlaceholderExpenseRow(exp)) continue;
@@ -498,10 +502,10 @@ export async function getDashboardPlanDataForActivePayPeriod(
 			continue;
 		}
 
-		// Unscheduled expenses (no due date) are still part of pay-period totals
-		// when they are saved under the pay-period anchor (end) month.
-		if (exp.year !== selectedYear || exp.month !== selectedMonthNum) continue;
-		const dedupeScope = `unscheduled:${selectedYear}-${selectedMonthNum}`;
+		// Unscheduled expenses (no due date) are still part of pay-period totals when they are saved
+		// under a month that falls within the pay-period window.
+		if (!allowedUnscheduledYm.has(`${exp.year}-${exp.month}`)) continue;
+		const dedupeScope = `unscheduled:${exp.year}-${exp.month}`;
 		const key = `${series}|${dedupeScope}|${amount}`;
 		const rank = 0;
 

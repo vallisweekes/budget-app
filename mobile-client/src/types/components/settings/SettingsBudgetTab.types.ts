@@ -8,4 +8,5 @@ export type SettingsBudgetTabProps = {
   strategyDraft: string;
   onOpenField: (field: BudgetField) => void;
   onOpenStrategy: () => void;
+  onOpenIncomeSettings: () => void;
 };

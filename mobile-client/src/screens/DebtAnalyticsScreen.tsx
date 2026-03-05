@@ -6,13 +6,13 @@ import {
   Pressable,
   StyleSheet,
   ActivityIndicator,
+  GestureResponderEvent,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
+import { useRoute, type RouteProp } from "@react-navigation/native";
 import Svg, {
   G,
-  Path,
   Circle,
   Line as SvgLine,
   Text as SvgText,
@@ -90,79 +90,140 @@ function DonutChart({
   colors: string[];
   currency: string;
 }) {
-  const SIZE = 180;
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+
+  const SIZE = 282;
   const CX = SIZE / 2;
   const CY = SIZE / 2;
-  const R = 72;
-  const INNER = 44;
+  const STROKE = Math.round(SIZE * 0.14);
+  const R = (SIZE - STROKE) / 2;
+  const C = 2 * Math.PI * R;
 
   const total = debts.reduce((s, d) => s + d.currentBalance, 0);
   if (total === 0) return null;
+  const activeDebt = activeIndex != null ? debts[activeIndex] ?? null : null;
+  const centerTop = activeDebt
+    ? fmt(activeDebt.currentBalance, currency)
+    : `${currency}${total.toLocaleString("en-GB", { maximumFractionDigits: 0 })}`;
+  const centerKicker = activeDebt ? "SELECTED" : "TOTAL";
+  const centerSubRaw = activeDebt ? (activeDebt.displayTitle ?? activeDebt.name) : `${debts.length} active debts · tap segment`;
+  const centerSub = centerSubRaw.length > 28 ? `${centerSubRaw.slice(0, 27)}…` : centerSubRaw;
 
-  const slices: { path: string; color: string; pct: number }[] = [];
-  let startAngle = -Math.PI / 2;
-
+  const gapLen = Math.max(2, C * 0.004);
+  const slices: { len: number; offset: number; rawLen: number; color: string }[] = [];
+  let accLen = 0;
   debts.forEach((debt, i) => {
-    const fraction = debt.currentBalance / total;
-    const sweep = fraction * 2 * Math.PI;
-    const endAngle = startAngle + sweep;
-    const gap = 0.025;
-    const s0 = startAngle + gap;
-    const e0 = endAngle - gap;
-
-    const x1 = CX + R * Math.cos(s0);
-    const y1 = CY + R * Math.sin(s0);
-    const x2 = CX + R * Math.cos(e0);
-    const y2 = CY + R * Math.sin(e0);
-    const ix1 = CX + INNER * Math.cos(e0);
-    const iy1 = CY + INNER * Math.sin(e0);
-    const ix2 = CX + INNER * Math.cos(s0);
-    const iy2 = CY + INNER * Math.sin(s0);
-    const large = sweep - 2 * gap > Math.PI ? 1 : 0;
-
-    const path =
-      `M ${x1.toFixed(2)} ${y1.toFixed(2)} ` +
-      `A ${R} ${R} 0 ${large} 1 ${x2.toFixed(2)} ${y2.toFixed(2)} ` +
-      `L ${ix1.toFixed(2)} ${iy1.toFixed(2)} ` +
-      `A ${INNER} ${INNER} 0 ${large} 0 ${ix2.toFixed(2)} ${iy2.toFixed(2)} Z`;
-
-    slices.push({ path, color: colors[i], pct: fraction * 100 });
-    startAngle = endAngle;
+    const rawLen = (debt.currentBalance / total) * C;
+    const len = Math.max(0, rawLen - gapLen);
+    slices.push({ len, offset: accLen, rawLen, color: colors[i] });
+    accLen += rawLen;
   });
+
+  const handleRingPress = (event: GestureResponderEvent) => {
+    const { locationX, locationY } = event.nativeEvent;
+    const dx = locationX - CX;
+    const dy = locationY - CY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    const halfStroke = STROKE / 2;
+    const isInsideRing = distance >= R - halfStroke - 6 && distance <= R + halfStroke + 6;
+    if (!isInsideRing) {
+      setActiveIndex(null);
+      return;
+    }
+
+    const theta = Math.atan2(dy, dx);
+    const angleFromTopClockwise = (theta * 180 / Math.PI + 90 + 360) % 360;
+    const targetLen = (angleFromTopClockwise / 360) * C;
+
+    let selected: number | null = null;
+    let running = 0;
+    for (let i = 0; i < slices.length; i += 1) {
+      const next = running + slices[i].rawLen;
+      if (targetLen >= running && targetLen <= next) {
+        selected = i;
+        break;
+      }
+      running = next;
+    }
+    setActiveIndex((prev) => (prev === selected ? null : selected));
+  };
 
   return (
     <View style={{ alignItems: "center" }}>
-      <Svg width={SIZE} height={SIZE}>
-        {slices.map((sl, i) => (
-          <Path key={i} d={sl.path} fill={sl.color} />
-        ))}
-        <SvgText
-          x={CX} y={CY - 8}
-          fontSize={11} fill={T.textMuted}
-          textAnchor="middle" fontWeight="700"
-        >
-          TOTAL
-        </SvgText>
-        <SvgText
-          x={CX} y={CY + 10}
-          fontSize={16} fill={T.text}
-          textAnchor="middle" fontWeight="900"
-        >
-          {currency}{(total / 1000).toFixed(1)}k
-        </SvgText>
-      </Svg>
+      <Pressable onPress={handleRingPress} hitSlop={8}>
+        <Svg width={SIZE} height={SIZE}>
+          <Circle
+            cx={CX}
+            cy={CY}
+            r={R}
+            fill="none"
+            stroke={T.border}
+            strokeWidth={STROKE}
+            opacity={0.35}
+          />
+          {slices.map((sl, i) => (
+            <Circle
+              key={i}
+              cx={CX}
+              cy={CY}
+              r={R}
+              fill="none"
+              stroke={sl.color}
+              strokeWidth={activeIndex === i ? STROKE + 2 : STROKE}
+              strokeDasharray={`${sl.len} ${C}`}
+              strokeDashoffset={-sl.offset}
+              strokeLinecap="round"
+              rotation={-90}
+              originX={CX}
+              originY={CY}
+              opacity={activeIndex == null || activeIndex === i ? 1 : 0.45}
+            />
+          ))}
+          <SvgText
+            x={CX} y={CY - 14}
+            fontSize={12} fill={T.textMuted}
+            textAnchor="middle" fontWeight="700"
+            letterSpacing={0.6}
+          >
+            {centerKicker}
+          </SvgText>
+          <SvgText
+            x={CX} y={CY + 14}
+            fontSize={26} fill={T.text}
+            textAnchor="middle" fontWeight="900"
+          >
+            {centerTop}
+          </SvgText>
+          <SvgText
+            x={CX} y={CY + 34}
+            fontSize={12} fill={T.textMuted}
+            textAnchor="middle" fontWeight="600"
+          >
+            {centerSub}
+          </SvgText>
+        </Svg>
+      </Pressable>
 
       <View style={ds.legendGrid}>
         {debts.map((d, i) => {
           const pct = ((d.currentBalance / total) * 100).toFixed(0);
           return (
-            <View key={d.id} style={ds.legendItem}>
+            <Pressable
+              key={d.id}
+              style={({ pressed }) => [
+                ds.legendItem,
+                activeIndex != null && activeIndex !== i ? ds.legendItemDimmed : null,
+                pressed ? ds.legendItemPressed : null,
+              ]}
+              onPress={() => setActiveIndex((prev) => (prev === i ? null : i))}
+              hitSlop={6}
+            >
               <View style={[ds.legendDot, { backgroundColor: colors[i] }]} />
               <View style={{ flex: 1 }}>
                 <Text style={ds.legendName} numberOfLines={1}>{d.displayTitle ?? d.name}</Text>
                 <Text style={ds.legendSub}>{fmt(d.currentBalance, currency)} · {pct}%</Text>
               </View>
-            </View>
+            </Pressable>
           );
         })}
       </View>
@@ -286,9 +347,8 @@ function GanttChart({
 // ── Screen ────────────────────────────────────────────────────────────────────
 
 export default function DebtAnalyticsScreen() {
-  const navigation = useNavigation();
   const route = useRoute<Route>();
-  const topHeaderOffset = useTopHeaderOffset();
+  const topContentInset = useTopHeaderOffset(-8);
 
   const routeDebts = route.params?.debts;
   const routeTotalMonthly = route.params?.totalMonthly;
@@ -325,11 +385,9 @@ export default function DebtAnalyticsScreen() {
     }
   }, [hasRoutePayload, load]);
 
-  const showBack = typeof navigation.canGoBack === "function" ? navigation.canGoBack() : false;
-
   if (loading) {
     return (
-			<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]} edges={["bottom"]}>
+			<SafeAreaView style={s.safe} edges={["bottom"]}>
         <View style={s.loadingWrap}>
           <ActivityIndicator size="large" color={T.accent} />
           <Text style={s.loadingText}>Loading analytics…</Text>
@@ -340,7 +398,7 @@ export default function DebtAnalyticsScreen() {
 
   if (error) {
     return (
-			<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]} edges={["bottom"]}>
+			<SafeAreaView style={s.safe} edges={["bottom"]}>
         <View style={s.loadingWrap}>
           <Text style={s.errorText}>{error}</Text>
           <Pressable onPress={load} style={s.retryBtn}>
@@ -381,27 +439,8 @@ export default function DebtAnalyticsScreen() {
   const latest = ganttItems[ganttItems.length - 1];
 
   return (
-		<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]} edges={["bottom"]}>
-      {/* Header */}
-      <View style={s.header}>
-        {showBack ? (
-          <Pressable onPress={() => navigation.goBack()} style={s.backBtn}>
-            <Ionicons name="chevron-back" size={24} color={T.text} />
-          </Pressable>
-        ) : (
-          <View style={s.backBtn} />
-        )}
-        <View style={{ alignItems: "center" }}>
-          <Text style={s.headerTitle}>Debt Analytics</Text>
-          <Text style={s.headerSub}>
-            {activeDebts.length} active · {currency}
-            {total.toLocaleString("en-GB", { maximumFractionDigits: 0 })} total
-          </Text>
-        </View>
-        <View style={{ width: 40 }} />
-      </View>
-
-      <ScrollView contentContainerStyle={s.scroll}>
+  		<SafeAreaView style={s.safe} edges={["bottom"]}>
+      <ScrollView contentContainerStyle={[s.scroll, { paddingTop: topContentInset }]}>
 
         {/* Summary strip */}
         <View style={s.summaryRow}>
@@ -531,15 +570,6 @@ const s = StyleSheet.create({
   errorText: { color: T.red, textAlign: "center", fontSize: 14, fontWeight: "700" },
   retryBtn: { marginTop: 8, backgroundColor: T.accent, borderRadius: 10, paddingHorizontal: 20, paddingVertical: 10 },
   retryTxt: { color: T.onAccent, fontWeight: "800" },
-  header: {
-    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    paddingHorizontal: 8, paddingVertical: 12,
-    backgroundColor: T.card,
-    borderBottomWidth: 1, borderBottomColor: T.border,
-  },
-  backBtn: { paddingHorizontal: 6, paddingVertical: 4 },
-  headerTitle: { color: T.text, fontSize: 17, fontWeight: "900" },
-  headerSub: { color: T.textMuted, fontSize: 11, fontWeight: "600", marginTop: 1 },
 
   scroll: { padding: 14, gap: 12, paddingBottom: 48 },
 
@@ -576,6 +606,8 @@ const s = StyleSheet.create({
 const ds = StyleSheet.create({
   legendGrid: { width: "100%", flexDirection: "row", flexWrap: "wrap", gap: 10, paddingHorizontal: 8, marginTop: 4 },
   legendItem: { flexDirection: "row", alignItems: "center", gap: 8, width: "46%" },
+  legendItemPressed: { opacity: 0.9 },
+  legendItemDimmed: { opacity: 0.5 },
   legendDot: { width: 10, height: 10, borderRadius: 5 },
   legendName: { color: T.text, fontSize: 12, fontWeight: "800" },
   legendSub: { color: T.textMuted, fontSize: 10, fontWeight: "600" },

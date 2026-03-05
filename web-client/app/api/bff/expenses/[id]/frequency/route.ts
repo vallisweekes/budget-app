@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUserId } from "@/lib/api/bffAuth";
+import { getExpensePaidMap } from "@/lib/expenses/paidSummary";
 
 export const runtime = "nodejs";
 
@@ -405,6 +406,11 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     .map((m) => m.expense)
     .sort((a, b) => compareMonthYear(a, b));
 
+  // Canonical paid amounts (ExpensePayment is the source of truth).
+  const paidMap = await getExpensePaidMap(
+    matches.map((m) => ({ id: m.id, amount: toNumber(m.amount) })),
+  );
+
   // Opportunistic backfill: ensure the base expense has a seriesKey, and if we
   // found high-confidence matches with missing seriesKey, stamp them with the base seriesKey.
   // This makes future reads / distribute-across-months resilient to renames.
@@ -499,8 +505,9 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     }
 
     const amount = Number(match.amount?.toString?.() ?? match.amount ?? 0);
-    const paidAmount = Number(match.paidAmount?.toString?.() ?? match.paidAmount ?? 0);
-    const ratio = toRatio(amount, paidAmount, Boolean(match.paid));
+    const canonicalPaidAmount = paidMap.get(match.id)?.paidAmount ?? 0;
+    const canonicalIsPaid = paidMap.get(match.id)?.isPaid ?? false;
+    const ratio = toRatio(amount, canonicalPaidAmount, canonicalIsPaid);
 
     const status: ExpenseFrequencyPointStatus = ratio >= 0.999
       ? "paid"

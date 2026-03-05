@@ -21,6 +21,7 @@ export default function SettingsBudgetTab({
   strategyDraft,
   onOpenField,
   onOpenStrategy,
+  onOpenIncomeSettings,
 }: SettingsBudgetTabProps) {
   return (
     <View style={styles.plainBudgetBlock}>
@@ -50,6 +51,17 @@ export default function SettingsBudgetTab({
           <Text style={styles.infoCardValue}>{billFrequencyLabel}</Text>
         </Pressable>
       </View>
+
+      <Pressable onPress={onOpenIncomeSettings} style={styles.infoCard}>
+        <View style={styles.cardRowCenter}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.infoCardLabel}>Income settings</Text>
+            <Text style={styles.infoCardValue}>Salary & bonuses</Text>
+            <Text style={styles.infoCardHint}>Set monthly income and bonus month adjustments</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={T.textDim} />
+        </View>
+      </Pressable>
 
       <Pressable onPress={onOpenStrategy} style={styles.infoCard}>
         <View style={styles.cardRowCenter}>

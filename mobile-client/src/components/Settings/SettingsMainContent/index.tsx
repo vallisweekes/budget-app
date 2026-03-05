@@ -68,6 +68,20 @@ export default function SettingsMainContent({ controller, navigation, savingsTil
           billFrequencyLabel={formatBillFrequency(controller.settings?.billFrequency)}
           strategyDraft={controller.strategyDraft}
           onOpenField={controller.setBudgetFieldSheet}
+          onOpenIncomeSettings={() => {
+            const budgetPlanId = controller.settings?.id;
+            if (!budgetPlanId) return;
+            const now = new Date();
+            navigation.navigate("Income" as any, {
+              screen: "IncomeMonth",
+              params: {
+                month: now.getMonth() + 1,
+                year: now.getFullYear(),
+                budgetPlanId,
+                initialMode: "income",
+              },
+            } as any);
+          }}
           onOpenStrategy={() => {
             if (!controller.settings?.id) return;
             navigation.navigate("SettingsStrategy", { budgetPlanId: controller.settings.id, strategy: controller.strategyDraft });

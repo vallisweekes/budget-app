@@ -39,6 +39,7 @@ async function main() {
       month: true,
       year: true,
       dueDate: true,
+      periodKey: true,
       budgetPlanId: true,
     },
   });
@@ -92,6 +93,7 @@ async function main() {
             amount: gap,
             source: source as any,
             paidAt,
+            periodKey: exp.periodKey ?? undefined,
           },
         });
         console.log(

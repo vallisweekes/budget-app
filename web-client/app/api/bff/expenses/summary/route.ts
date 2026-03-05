@@ -165,8 +165,10 @@ export async function GET(req: NextRequest) {
 			payDate,
 			payFrequency,
 		});
-		const selectedAnchorYear = year;
-		const selectedAnchorMonth = month;
+		const allowedUnscheduledYm = new Set([
+			`${selected.start.getUTCFullYear()}-${selected.start.getUTCMonth() + 1}`,
+			`${selected.end.getUTCFullYear()}-${selected.end.getUTCMonth() + 1}`,
+		]);
 		periodStart = selected.start;
 		periodEnd = selected.end;
 
@@ -260,8 +262,9 @@ export async function GET(req: NextRequest) {
 					: null;
 				rank = ym && Number.isFinite(ym.year) && Number.isFinite(ym.month) && exp.year === ym.year && exp.month === ym.month ? 0 : 1;
 			} else {
-				// Unscheduled expenses are still part of period totals when saved under the selected anchor month.
-				if (exp.year !== selectedAnchorYear || exp.month !== selectedAnchorMonth) continue;
+				// Unscheduled expenses are part of period totals when saved under a month that falls within the
+				// selected pay-period window (e.g. Feb or Mar for a 27 Feb–26 Mar period).
+				if (!allowedUnscheduledYm.has(`${exp.year}-${exp.month}`)) continue;
 				dedupeScope = `unscheduled:${exp.year}-${exp.month}`;
 				rank = 0;
 			}

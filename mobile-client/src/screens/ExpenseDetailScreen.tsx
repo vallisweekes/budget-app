@@ -24,6 +24,7 @@ import type { ExpensesStackParamList } from "@/navigation/types";
 import type { Expense, ExpenseFrequencyPoint, ExpenseFrequencyPointStatus, ExpenseFrequencyResponse, Settings } from "@/lib/apiTypes";
 import { apiFetch, getApiBaseUrl } from "@/lib/api";
 import { fmt } from "@/lib/formatting";
+import { normalizePayFrequency } from "@/lib/payPeriods";
 import { T } from "@/lib/theme";
 import DeleteConfirmSheet from "@/components/Shared/DeleteConfirmSheet";
 import PaymentSheet from "@/components/Debts/Detail/PaymentSheet";
@@ -232,6 +233,27 @@ function nextNMonths(fromMonth: number, fromYear: number, n: number): Array<{ mo
     }
   }
   return out;
+}
+
+function addMonths(fromMonth: number, fromYear: number, delta: number): { month: number; year: number } {
+  let m = fromMonth;
+  let y = fromYear;
+  for (let i = 0; i < Math.abs(delta); i += 1) {
+    if (delta >= 0) {
+      m += 1;
+      if (m >= 13) {
+        m = 1;
+        y += 1;
+      }
+    } else {
+      m -= 1;
+      if (m <= 0) {
+        m = 12;
+        y -= 1;
+      }
+    }
+  }
+  return { month: m, year: y };
 }
 
 function compareMonthYear(a: { month: number; year: number }, b: { month: number; year: number }): number {
@@ -446,7 +468,19 @@ export default function ExpenseDetailScreen({ route, navigation }: Props) {
   const logoUri = React.useMemo(() => resolveLogoUri(expense?.logoUrl), [expense?.logoUrl]);
   const showLogo = Boolean(logoUri) && !logoFailed;
 
-  const monthsForFuture = React.useMemo(() => nextNMonths(month, year, 6), [month, year]);
+  // Pay periods in this app are anchored by the *end* month (e.g. month=Mar => 27 Feb–26 Mar).
+  // For charts/timelines that read as "this period", users expect the label to start at the
+  // pay-period start month (Feb in the example). We shift display months back by 1 for monthly.
+  const payFrequency = React.useMemo(() => normalizePayFrequency(settings?.payFrequency), [settings?.payFrequency]);
+  const shouldShiftPeriodMonthLabels = payFrequency === "monthly";
+  const displayPeriodMonthYear = React.useMemo(() => {
+    return shouldShiftPeriodMonthLabels ? addMonths(month, year, -1) : { month, year };
+  }, [month, shouldShiftPeriodMonthLabels, year]);
+
+  const monthsForFuture = React.useMemo(
+    () => nextNMonths(displayPeriodMonthYear.month, displayPeriodMonthYear.year, 6),
+    [displayPeriodMonthYear.month, displayPeriodMonthYear.year]
+  );
   const editPeriodContext = React.useMemo(
     () => buildPeriodLabels(month, year, settings?.payDate),
     [month, year, settings?.payDate]
@@ -488,17 +522,17 @@ export default function ExpenseDetailScreen({ route, navigation }: Props) {
 
   const missedBefore = React.useMemo(() => {
     const points = frequency?.points ?? [];
-    const current = { month, year };
+    const current = displayPeriodMonthYear;
     return points.some((p) => {
       const isPastOrCurrent = compareMonthYear({ month: p.month, year: p.year }, current) <= 0;
       if (!isPastOrCurrent) return false;
       return p.status === "missed" || p.status === "unpaid" || p.status === "partial";
     });
-  }, [frequency?.points, month, year]);
+  }, [displayPeriodMonthYear, frequency?.points]);
 
   const freqDisplay = React.useMemo(() => {
     if (frequency?.points?.length) {
-      const points = (frequency.points as ExpenseFrequencyPoint[]).map((p) => ({
+      const raw = (frequency.points as ExpenseFrequencyPoint[]).map((p) => ({
         key: p.key,
         month: p.month,
         year: p.year,
@@ -507,7 +541,25 @@ export default function ExpenseDetailScreen({ route, navigation }: Props) {
         present: Boolean(p.present),
         status: p.status,
       }));
-      return { subtitle: frequency.subtitle || "Payment frequency", points };
+
+      const points: MonthPoint[] = shouldShiftPeriodMonthLabels
+        ? raw.map((p) => {
+            const shifted = addMonths(p.month, p.year, -1);
+            return {
+              ...p,
+              month: shifted.month,
+              year: shifted.year,
+              label: monthLabel(shifted.month),
+            };
+          })
+        : raw;
+
+      const subtitleRaw = frequency.subtitle || "Payment frequency";
+      const subtitle = shouldShiftPeriodMonthLabels && /^from\s+/i.test(subtitleRaw)
+        ? `From ${monthLabel(displayPeriodMonthYear.month)}`
+        : subtitleRaw;
+
+      return { subtitle, points };
     }
 
     const points: MonthPoint[] = monthsForFuture.map(({ month: m, year: y }) => ({
@@ -520,11 +572,11 @@ export default function ExpenseDetailScreen({ route, navigation }: Props) {
       status: "upcoming",
     }));
     return { subtitle: "Next 6 months", points };
-  }, [frequency, monthsForFuture]);
+  }, [displayPeriodMonthYear.month, frequency, monthsForFuture, shouldShiftPeriodMonthLabels]);
 
   const freqIndicator = React.useMemo(() => {
     const points = freqDisplay.points;
-    const current = { month, year };
+    const current = displayPeriodMonthYear;
     const historyOnly = points.filter((p) => compareMonthYear({ month: p.month, year: p.year }, current) <= 0);
     if (!historyOnly.length) return null;
 
@@ -536,17 +588,17 @@ export default function ExpenseDetailScreen({ route, navigation }: Props) {
     const color = kind === "good" ? T.green : kind === "bad" ? T.red : T.orange;
 
     return { kind, label: indicatorLabel(kind), color };
-  }, [freqDisplay.points, frequency?.debt?.cleared, month, year]);
+  }, [displayPeriodMonthYear, freqDisplay.points, frequency?.debt?.cleared]);
 
   const showFrequencyCard = true;
   const hasFrequencyHistory = React.useMemo(() => {
-    const points = frequency?.points ?? [];
-    const current = { month, year };
+    const points = freqDisplay.points ?? [];
+    const current = displayPeriodMonthYear;
     return points.some((p) => {
       const isPastOrCurrent = compareMonthYear({ month: p.month, year: p.year }, current) <= 0;
       return isPastOrCurrent && Boolean(p.present);
     });
-  }, [frequency?.points, month, year]);
+  }, [displayPeriodMonthYear, freqDisplay.points]);
   const showFrequencyLoadingState = !frequencyResolved || frequencyLoading;
 
   const tips = React.useMemo(() => {

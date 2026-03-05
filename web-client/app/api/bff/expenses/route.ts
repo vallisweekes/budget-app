@@ -199,8 +199,10 @@ export async function GET(req: NextRequest) {
     payDate,
     payFrequency,
   });
-  const selectedAnchorYear = year;
-  const selectedAnchorMonth = month;
+  const allowedUnscheduledYm = new Set([
+    `${selectedPeriod.start.getUTCFullYear()}-${selectedPeriod.start.getUTCMonth() + 1}`,
+    `${selectedPeriod.end.getUTCFullYear()}-${selectedPeriod.end.getUTCMonth() + 1}`,
+  ]);
 
   const items = await (async () => {
     const periodPairs = [
@@ -373,11 +375,12 @@ export async function GET(req: NextRequest) {
         )
       : null;
     const dueDateOnly = dueIso ? parseIsoDate(dueIso) : null;
-    const inSelectedPayPeriod = scope === "pay_period"
-      ? (dueDateOnly
+    const inSelectedPayPeriod =
+      scope === "pay_period"
+        ? dueDateOnly
           ? inRange(dueDateOnly, selectedPeriod.start, selectedPeriod.end)
-          : (item.year === selectedAnchorYear && item.month === selectedAnchorMonth))
-      : true;
+          : allowedUnscheduledYm.has(`${item.year}-${item.month}`)
+        : true;
 
     if (scope === "pay_period" && !inSelectedPayPeriod) {
       continue;

@@ -510,6 +510,26 @@ const s = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: 0.2,
   },
+  debtAnalyticsCenterWrap: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 1,
+    maxWidth: "100%",
+  },
+  debtAnalyticsCenterTitle: {
+    color: T.text,
+    fontSize: 13,
+    fontWeight: "800",
+    lineHeight: 16,
+    textAlign: "center",
+  },
+  debtAnalyticsCenterSub: {
+    color: T.textMuted,
+    fontSize: 10,
+    fontWeight: "600",
+    lineHeight: 12,
+    textAlign: "center",
+  },
 });
 
 function MainTabs() {
@@ -544,6 +564,7 @@ function MainTabs() {
           const isUnplannedExpense = deepestRoute?.name === "UnplannedExpense";
           const isScanReceipt = deepestRoute?.name === "ScanReceipt";
           const isSettings = deepestRoute?.name === "Settings";
+          const isDebtAnalytics = deepestRoute?.name === "DebtAnalytics";
           const isGoals = route.name === "Goals";
           const isIncomeTab = route.name === "Income";
           const isIncomeMonth = deepestRoute?.name === "IncomeMonth";
@@ -619,6 +640,33 @@ function MainTabs() {
                 ? "Upload Receipt"
                 : undefined;
 
+          const debtAnalyticsDebts = Array.isArray(deepestRoute?.params?.debts)
+            ? deepestRoute.params.debts
+            : null;
+          const debtAnalyticsCurrency = typeof deepestRoute?.params?.currency === "string"
+            ? deepestRoute.params.currency
+            : "£";
+          const debtAnalyticsActiveCount = debtAnalyticsDebts
+            ? debtAnalyticsDebts.filter((d: any) => d?.isActive && !d?.paid && Number(d?.currentBalance) > 0).length
+            : 0;
+          const debtAnalyticsTotal = debtAnalyticsDebts
+            ? debtAnalyticsDebts.reduce((sum: number, d: any) => sum + Math.max(0, Number(d?.currentBalance ?? 0)), 0)
+            : 0;
+          const debtAnalyticsSubtitle = debtAnalyticsDebts
+            ? `${debtAnalyticsActiveCount} active · ${debtAnalyticsCurrency}${debtAnalyticsTotal.toLocaleString("en-GB", { maximumFractionDigits: 0 })} total`
+            : undefined;
+
+          const headerCenterContent = isDebtAnalytics
+            ? (
+              <View style={s.debtAnalyticsCenterWrap}>
+                <Text style={s.debtAnalyticsCenterTitle}>Debt Analytics</Text>
+                {debtAnalyticsSubtitle ? (
+                  <Text style={s.debtAnalyticsCenterSub} numberOfLines={1}>{debtAnalyticsSubtitle}</Text>
+                ) : null}
+              </View>
+            )
+            : incomeMonthSwitcher;
+
           const openAnalytics = () => {
             const parent = navigation.getParent();
             if (parent) {
@@ -679,7 +727,7 @@ function MainTabs() {
               onIncome={() => {}}
               onAnalytics={openAnalytics}
               onNotifications={openNotifications}
-              leftVariant={isSettings || isCategoryExpenses || isUnplannedExpense || isScanReceipt ? "back" : "avatar"}
+              leftVariant={isSettings || isCategoryExpenses || isUnplannedExpense || isScanReceipt || isDebtAnalytics ? "back" : "avatar"}
               onBack={isCategoryExpenses
                 ? () => navigation.navigate(
                   "Expenses" as any,
@@ -695,11 +743,13 @@ function MainTabs() {
                 )
                 : isSettings
                   ? () => navigation.navigate("Dashboard")
+                : isDebtAnalytics
+                  ? () => navigation.navigate("Debts" as any, { screen: "DebtList" } as any)
                 : isUnplannedExpense || isScanReceipt
                   ? () => navigation.navigate("Expenses" as any, { screen: "ExpensesList" } as any)
                   : undefined}
               centerLabel={isGoals ? "Goals" : expensesCenterLabel}
-              centerContent={incomeMonthSwitcher}
+              centerContent={headerCenterContent}
               leftContent={expensesListLeftContent}
               rightContent={goalsRightContent}
               showIncomeAction={false}
@@ -793,6 +843,7 @@ export default function RootNavigator() {
   const [onboardingState, setOnboardingState] = useState<OnboardingStatusResponse | null>(null);
   const [onboardingLoading, setOnboardingLoading] = useState(false);
   const [completingOnboarding, setCompletingOnboarding] = useState(false);
+  const [openBudgetSettingsAfterOnboarding, setOpenBudgetSettingsAfterOnboarding] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -800,6 +851,7 @@ export default function RootNavigator() {
     if (!token) {
       setOnboardingState((prev) => (prev === null ? prev : null));
       setOnboardingLoading((prev) => (prev ? false : prev));
+      setOpenBudgetSettingsAfterOnboarding((prev) => (prev ? false : prev));
       return;
     }
 
@@ -907,6 +959,7 @@ export default function RootNavigator() {
               <OnboardingScreen
                 initial={onboardingState}
                 onCompleted={() => {
+                    setOpenBudgetSettingsAfterOnboarding(true);
                   void completeOnboardingAndHydrate();
                 }}
               />
@@ -914,7 +967,13 @@ export default function RootNavigator() {
           </Stack.Screen>
         ) : (
           <>
-            <Stack.Screen name="Main" component={MainTabs} />
+            <Stack.Screen
+              name="Main"
+              component={MainTabs}
+              initialParams={openBudgetSettingsAfterOnboarding
+                ? { screen: "Settings", params: { initialTab: "budget" } }
+                : undefined}
+            />
             <Stack.Screen
               name="NotificationSettings"
               component={NotificationSettingsScreenAdapter}

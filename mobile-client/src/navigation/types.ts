@@ -83,7 +83,7 @@ export type MainTabParamList = {
     openAddToken?: number;
   } | undefined;
   Income: NavigatorScreenParams<IncomeStackParamList> | undefined;
-  Settings: { initialTab?: "notifications" } | undefined;
+  Settings: { initialTab?: "notifications" | "budget" } | undefined;
 };
 
 /* ── Root stack ─────────────────────────────────────────────── */
