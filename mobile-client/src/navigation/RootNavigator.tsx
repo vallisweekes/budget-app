@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Animated, Easing, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
@@ -48,6 +48,186 @@ function formatIncomePeriodSpan(month: number): string {
   const start = MONTH_NAMES_SHORT[(safeMonth - 2 + 12) % 12];
   const end = MONTH_NAMES_SHORT[(safeMonth - 1) % 12];
   return `${start} - ${end}`;
+}
+
+function IncomeMonthSwitcher({
+  month,
+  year,
+  budgetPlanId,
+  onNavigate,
+}: {
+  month: number;
+  year: number;
+  budgetPlanId: string;
+  onNavigate: (nextMonth: number, nextYear: number) => void;
+}) {
+  const [isYearPickerVisible, setIsYearPickerVisible] = useState(false);
+  const [budgetHorizonYears, setBudgetHorizonYears] = useState(10);
+  const yearPickerAnim = React.useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadBudgetHorizon = async () => {
+      if (!budgetPlanId) return;
+      try {
+        const settings = await apiFetch<Settings>(`/api/bff/settings?budgetPlanId=${encodeURIComponent(budgetPlanId)}`, {
+          cacheTtlMs: 60_000,
+        });
+        if (cancelled) return;
+        const parsed = Number(settings?.budgetHorizonYears);
+        const safe = Number.isFinite(parsed) && parsed >= 1 ? Math.floor(parsed) : 10;
+        setBudgetHorizonYears((prev) => (prev === safe ? prev : safe));
+      } catch {
+        if (cancelled) return;
+        setBudgetHorizonYears((prev) => (prev === 10 ? prev : 10));
+      }
+    };
+
+    void loadBudgetHorizon();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [budgetPlanId]);
+
+  const nowYear = new Date().getFullYear();
+  const safeHorizon = Math.max(1, Math.min(30, Number.isFinite(budgetHorizonYears) ? Math.floor(budgetHorizonYears) : 10));
+  const horizonYears = Array.from({ length: safeHorizon }, (_, index) => nowYear + index);
+  const allowedYears = horizonYears.includes(year)
+    ? horizonYears
+    : [...horizonYears, year].sort((a, b) => a - b);
+
+  const prevMonth = month - 1 < 1 ? 12 : month - 1;
+  const prevYear = month - 1 < 1 ? year - 1 : year;
+  const nextMonth = month + 1 > 12 ? 1 : month + 1;
+  const nextYear = month + 1 > 12 ? year + 1 : year;
+
+  const allowedYearSet = new Set(allowedYears);
+  const disablePrev = !allowedYearSet.has(prevYear);
+  const disableNext = !allowedYearSet.has(nextYear);
+
+  const openYearPicker = () => {
+    setIsYearPickerVisible(true);
+    yearPickerAnim.setValue(0);
+    Animated.spring(yearPickerAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      damping: 18,
+      stiffness: 260,
+      mass: 0.7,
+    }).start();
+  };
+
+  const closeYearPicker = (onClosed?: () => void) => {
+    Animated.timing(yearPickerAnim, {
+      toValue: 0,
+      duration: 190,
+      easing: Easing.inOut(Easing.quad),
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (finished) {
+        setIsYearPickerVisible(false);
+        onClosed?.();
+      }
+    });
+  };
+
+  const backdropOpacity = yearPickerAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1],
+  });
+
+  const cardTranslateY = yearPickerAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-18, 0],
+  });
+
+  const cardScale = yearPickerAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.98, 1],
+  });
+
+  return (
+    <>
+      <View style={s.monthSwitchWrap}>
+        <Pressable
+          onPress={() => {
+            if (disablePrev) return;
+            onNavigate(prevMonth, prevYear);
+          }}
+          disabled={disablePrev}
+          style={[s.monthSwitchBtn, disablePrev && s.monthSwitchBtnDisabled]}
+          hitSlop={8}
+        >
+          <Ionicons name="chevron-back" size={13} color={disablePrev ? T.textMuted : T.text} />
+        </Pressable>
+
+        <Pressable
+          onPress={openYearPicker}
+          style={s.monthSwitchLabelBtn}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Select year"
+        >
+          <Text style={s.monthSwitchText}>{`${formatIncomePeriodSpan(month)} ${year}`}</Text>
+        </Pressable>
+
+        <Pressable
+          onPress={() => {
+            if (disableNext) return;
+            onNavigate(nextMonth, nextYear);
+          }}
+          disabled={disableNext}
+          style={[s.monthSwitchBtn, disableNext && s.monthSwitchBtnDisabled]}
+          hitSlop={8}
+        >
+          <Ionicons name="chevron-forward" size={13} color={disableNext ? T.textMuted : T.text} />
+        </Pressable>
+      </View>
+
+      <Modal
+        visible={isYearPickerVisible}
+        transparent
+        animationType="none"
+        onRequestClose={() => closeYearPicker()}
+      >
+        <Pressable style={s.yearPickerBackdrop} onPress={() => closeYearPicker()}>
+          <Animated.View style={[s.yearPickerBackdropShade, { opacity: backdropOpacity }]} />
+          <Animated.View
+            style={[
+              s.yearPickerCard,
+              {
+                transform: [{ translateY: cardTranslateY }, { scale: cardScale }],
+              },
+            ]}
+          >
+            <Pressable onPress={() => {}}>
+              <Text style={s.yearPickerTitle}>Select year</Text>
+              <View style={s.yearPickerGrid}>
+                {allowedYears.map((optionYear) => {
+                  const isSelected = optionYear === year;
+                  return (
+                    <Pressable
+                      key={String(optionYear)}
+                      style={[s.yearPickerItem, isSelected && s.yearPickerItemSelected]}
+                      onPress={() => {
+                        closeYearPicker(() => onNavigate(month, optionYear));
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Select ${optionYear}`}
+                    >
+                      <Text style={[s.yearPickerItemText, isSelected && s.yearPickerItemTextSelected]}>{optionYear}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </Pressable>
+          </Animated.View>
+        </Pressable>
+      </Modal>
+    </>
+  );
 }
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -173,6 +353,7 @@ function RootTopHeader({ navigation }: { navigation: any }) {
   const isAnalytics = deepestRoute?.name === "Analytics";
   const isNotificationSettings = deepestRoute?.name === "NotificationSettings";
   const shouldShowIncomeBack = isAnalytics;
+  const monthLabel = isAnalytics ? "Analytics" : undefined;
 
   const incomeMonthInitialMode = deepestRoute?.params?.initialMode === "sacrifice" ? "sacrifice" : "income";
 
@@ -181,11 +362,6 @@ function RootTopHeader({ navigation }: { navigation: any }) {
   const incomeMonthBudgetPlanId = typeof deepestRoute?.params?.budgetPlanId === "string"
     ? deepestRoute.params.budgetPlanId
     : "";
-  const monthLabel = isAnalytics
-    ? "Analytics"
-    : isIncomeMonth && Number.isFinite(monthNum) && monthNum >= 1 && monthNum <= 12 && Number.isFinite(yearNum)
-      ? `${formatIncomePeriodSpan(monthNum)} ${yearNum}`
-      : undefined;
 
   const canUseMonthSwitcher = isIncomeMonth
     && Number.isFinite(monthNum)
@@ -214,42 +390,13 @@ function RootTopHeader({ navigation }: { navigation: any }) {
     });
   };
 
-  const prevMonth = Number(monthNum) - 1 < 1 ? 12 : Number(monthNum) - 1;
-  const prevYear = Number(monthNum) - 1 < 1 ? Number(yearNum) - 1 : Number(yearNum);
-  const nextMonth = Number(monthNum) + 1 > 12 ? 1 : Number(monthNum) + 1;
-  const nextYear = Number(monthNum) + 1 > 12 ? Number(yearNum) + 1 : Number(yearNum);
-
-  const disablePrev = !canUseMonthSwitcher;
-  const disableNext = !canUseMonthSwitcher;
-
   const incomeMonthSwitcher = canUseMonthSwitcher ? (
-    <View style={s.monthSwitchWrap}>
-      <Pressable
-        onPress={() => {
-          if (disablePrev) return;
-          goToIncomeMonth(prevMonth, prevYear);
-        }}
-        disabled={disablePrev}
-        style={[s.monthSwitchBtn, disablePrev && s.monthSwitchBtnDisabled]}
-        hitSlop={8}
-      >
-        <Ionicons name="chevron-back" size={13} color={disablePrev ? T.textMuted : T.text} />
-      </Pressable>
-
-      <Text style={s.monthSwitchText}>{monthLabel}</Text>
-
-      <Pressable
-        onPress={() => {
-          if (disableNext) return;
-          goToIncomeMonth(nextMonth, nextYear);
-        }}
-        disabled={disableNext}
-        style={[s.monthSwitchBtn, disableNext && s.monthSwitchBtnDisabled]}
-        hitSlop={8}
-      >
-        <Ionicons name="chevron-forward" size={13} color={disableNext ? T.textMuted : T.text} />
-      </Pressable>
-    </View>
+    <IncomeMonthSwitcher
+      month={Number(monthNum)}
+      year={Number(yearNum)}
+      budgetPlanId={incomeMonthBudgetPlanId}
+      onNavigate={goToIncomeMonth}
+    />
   ) : undefined;
 
   const handleBack = () => {
@@ -443,6 +590,65 @@ const s = StyleSheet.create({
     textAlign: "center",
     letterSpacing: 0.1,
   },
+  monthSwitchLabelBtn: {
+    alignItems: "center",
+  },
+  yearPickerBackdrop: {
+    flex: 1,
+    alignItems: "stretch",
+    justifyContent: "flex-start",
+    position: "relative",
+  },
+  yearPickerBackdropShade: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.2)",
+  },
+  yearPickerCard: {
+    width: "100%",
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: T.border,
+    backgroundColor: T.card,
+    paddingTop: 56,
+    paddingBottom: 14,
+  },
+  yearPickerTitle: {
+    color: T.textMuted,
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.2,
+    textAlign: "center",
+    paddingTop: 10,
+    paddingBottom: 6,
+  },
+  yearPickerGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    paddingHorizontal: 12,
+    paddingTop: 4,
+    rowGap: 8,
+  },
+  yearPickerItem: {
+    width: "33.33%",
+    minHeight: 44,
+    paddingHorizontal: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  yearPickerItemSelected: {
+    backgroundColor: `${T.accent}22`,
+  },
+  yearPickerItemText: {
+    color: T.text,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  yearPickerItemTextSelected: {
+    color: T.accent,
+    fontWeight: "700",
+  },
   headerActionBtn: {
     width: 34,
     height: 34,
@@ -597,31 +803,13 @@ function MainTabs() {
             } as any);
           };
 
-          const prevMonth = Number(monthNum) - 1 < 1 ? 12 : Number(monthNum) - 1;
-          const prevYear = Number(monthNum) - 1 < 1 ? Number(yearNum) - 1 : Number(yearNum);
-          const nextMonth = Number(monthNum) + 1 > 12 ? 1 : Number(monthNum) + 1;
-          const nextYear = Number(monthNum) + 1 > 12 ? Number(yearNum) + 1 : Number(yearNum);
-
           const incomeMonthSwitcher = canUseIncomeMonthSwitcher ? (
-            <View style={s.monthSwitchWrap}>
-              <Pressable
-                onPress={() => goToIncomeMonth(prevMonth, prevYear)}
-                style={s.monthSwitchBtn}
-                hitSlop={8}
-              >
-                <Ionicons name="chevron-back" size={13} color={T.text} />
-              </Pressable>
-
-              <Text style={s.monthSwitchText}>{`${formatIncomePeriodSpan(Number(monthNum))} ${Number(yearNum)}`}</Text>
-
-              <Pressable
-                onPress={() => goToIncomeMonth(nextMonth, nextYear)}
-                style={s.monthSwitchBtn}
-                hitSlop={8}
-              >
-                <Ionicons name="chevron-forward" size={13} color={T.text} />
-              </Pressable>
-            </View>
+            <IncomeMonthSwitcher
+              month={Number(monthNum)}
+              year={Number(yearNum)}
+              budgetPlanId={incomeMonthBudgetPlanId}
+              onNavigate={goToIncomeMonth}
+            />
           ) : undefined;
           const categoryExpensesName = typeof deepestRoute?.params?.categoryName === "string"
             ? deepestRoute.params.categoryName

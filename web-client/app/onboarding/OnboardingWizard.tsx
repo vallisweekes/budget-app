@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarDays, CreditCard, Receipt, Sparkles, TrendingUp, CheckCircle2 } from "lucide-react";
+import { CalendarDays, CreditCard, Receipt, Sparkles, TrendingUp, CheckCircle2, LogOut } from "lucide-react";
+import { signOut } from "next-auth/react";
 
 import MoneyInput from "@/components/Shared/MoneyInput";
 
@@ -176,9 +177,21 @@ export default function OnboardingWizard({
     <div className="min-h-screen bg-[#0a0d14] px-4 py-10 text-white">
       <div className="mx-auto max-w-xl rounded-2xl border border-white/10 bg-slate-900/40 p-6">
         <div className="mb-5">
-          <p className="text-xs uppercase tracking-widest text-slate-400">Welcome</p>
-          <h1 className="mt-2 text-2xl font-bold">Welcome {username}</h1>
-          <p className="mt-1 text-sm text-slate-300">Quick setup, then you’re in.</p>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs uppercase tracking-widest text-slate-400">Welcome</p>
+              <h1 className="mt-2 text-2xl font-bold">Welcome {username}</h1>
+              <p className="mt-1 text-sm text-slate-300">Quick setup, then you’re in.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => signOut({ callbackUrl: "/" })}
+              className="inline-flex items-center gap-2 rounded-lg border border-white/15 bg-slate-950/40 px-3 py-2 text-xs font-medium text-slate-200 hover:bg-slate-900/60"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              Log out
+            </button>
+          </div>
         </div>
 
         {error ? <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">{error}</div> : null}
