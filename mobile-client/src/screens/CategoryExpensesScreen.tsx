@@ -28,6 +28,13 @@ import AddExpenseSheet from "@/components/Expenses/AddExpenseSheet";
 
 type Props = NativeStackScreenProps<ExpensesStackParamList, "CategoryExpenses">;
 
+const expensesListCache = new Map<string, Expense[]>();
+const settingsSliceCache = new Map<string, { payDate: number | null; payFrequency: PayFrequency }>();
+
+function expenseCacheKey(planId: string | null, month: number, year: number): string {
+  return `${planId ?? "none"}:${year}-${month}`;
+}
+
 function dueDaysColor(iso: string): string {
   const days = Math.round((new Date(iso).getTime() - Date.now()) / 86_400_000);
   if (days < 0) return T.red;
@@ -137,22 +144,49 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
     };
   }, [budgetPlanId]);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (options?: { force?: boolean }) => {
+    const force = Boolean(options?.force);
     try {
       setError(null);
+      const cacheKey = expenseCacheKey(budgetPlanId, month, year);
+      const settingsKey = budgetPlanId ?? "none";
+      const isUncategorisedBucket = categoryId === "__none__";
+
+      if (!force) {
+        const cachedAll = expensesListCache.get(cacheKey);
+        const cachedSettings = settingsSliceCache.get(settingsKey);
+        if (cachedAll && cachedSettings) {
+          setExpenses(
+            cachedAll.filter((e) => (isUncategorisedBucket ? !e.categoryId : e.categoryId === categoryId))
+          );
+          setPayDate(cachedSettings.payDate);
+          setPayFrequency(cachedSettings.payFrequency);
+          setLogoFailed({});
+          setLoading(false);
+          setRefreshing(false);
+          return;
+        }
+      }
+
       const qp = budgetPlanId ? `&budgetPlanId=${encodeURIComponent(budgetPlanId)}` : "";
       const [all, appSettings] = await Promise.all([
         apiFetch<Expense[]>(`/api/bff/expenses?month=${month}&year=${year}&scope=pay_period&refreshLogos=1${qp}`),
         apiFetch<Settings>("/api/bff/settings"),
       ]);
-      const isUncategorisedBucket = categoryId === "__none__";
+      const allExpenses = Array.isArray(all) ? all : [];
+      expensesListCache.set(cacheKey, allExpenses);
+
+      const settingsSlice = {
+        payDate: appSettings?.payDate ?? null,
+        payFrequency: normalizePayFrequency(appSettings?.payFrequency),
+      };
+      settingsSliceCache.set(settingsKey, settingsSlice);
+
       setExpenses(
-        Array.isArray(all)
-          ? all.filter((e) => (isUncategorisedBucket ? !e.categoryId : e.categoryId === categoryId))
-          : []
+        allExpenses.filter((e) => (isUncategorisedBucket ? !e.categoryId : e.categoryId === categoryId))
       );
-      setPayDate(appSettings?.payDate ?? null);
-      setPayFrequency(normalizePayFrequency(appSettings?.payFrequency));
+      setPayDate(settingsSlice.payDate);
+      setPayFrequency(settingsSlice.payFrequency);
       setLogoFailed({});
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load");
@@ -169,10 +203,15 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
   );
 
   useEffect(() => {
-    setLoading(true);
-    setExpenses([]);
+    const cacheKey = expenseCacheKey(budgetPlanId, month, year);
+    const settingsKey = budgetPlanId ?? "none";
+    const hasCache = expensesListCache.has(cacheKey) && settingsSliceCache.has(settingsKey);
+    if (!hasCache) {
+      setLoading(true);
+      setExpenses([]);
+    }
     void load();
-  }, [load]);
+  }, [budgetPlanId, load, month, year]);
 
   const plannedTotal = useMemo(() => expenses.reduce((s, e) => s + Number(e.amount), 0), [expenses]);
   const paidTotal = useMemo(
@@ -375,7 +414,7 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
             refreshing={refreshing}
             onRefresh={() => {
               setRefreshing(true);
-              void load();
+              void load({ force: true });
             }}
             tintColor={T.textDim}
           />
@@ -424,7 +463,7 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
                 style={styles.retryBtn}
                 onPress={() => {
                   setRefreshing(true);
-                  void load();
+                  void load({ force: true });
                 }}
               >
                 <Text style={styles.retryTxt}>Retry</Text>
@@ -504,7 +543,7 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
         categories={categoriesForAddSheet}
         onAdded={() => {
           setAddSheetOpen(false);
-          void load();
+          void load({ force: true });
         }}
         onClose={() => setAddSheetOpen(false)}
       />

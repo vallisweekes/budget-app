@@ -49,9 +49,8 @@ function isAllCapsName(name: string): boolean {
   return letters === letters.toUpperCase();
 }
 
-function pickCanonicalIncomeRow<T extends { name: string; amount: unknown; updatedAt: Date; createdAt: Date }>(
+function pickCanonicalIncomeRow<T extends { name: string; updatedAt: Date; createdAt: Date }>(
   rows: T[],
-  desiredAmountKey?: string,
 ): T | null {
   if (!rows || rows.length === 0) return null;
   let best: T | null = null;
@@ -68,24 +67,15 @@ function pickCanonicalIncomeRow<T extends { name: string; amount: unknown; updat
       continue;
     }
 
-    if (desiredAmountKey) {
-      const bestAmtKey: string = decimalToNumber(best.amount).toFixed(2);
-      const rowAmtKey: string = decimalToNumber(row.amount).toFixed(2);
-      const bestMatches: boolean = bestAmtKey === desiredAmountKey;
-      const rowMatches: boolean = rowAmtKey === desiredAmountKey;
-      if (bestMatches !== rowMatches) {
-        best = rowMatches ? row : best;
-        continue;
-      }
-    }
-
-    // Prefer the most recently updated row.
-    if (row.updatedAt.getTime() !== best.updatedAt.getTime()) {
-      best = row.updatedAt > best.updatedAt ? row : best;
+    // For same-name duplicates in the same month, keep the earliest created row
+    // so historical month values remain stable and later accidental duplicates
+    // don't override the original amount.
+    if (row.createdAt.getTime() !== best.createdAt.getTime()) {
+      best = row.createdAt < best.createdAt ? row : best;
       continue;
     }
-    if (row.createdAt.getTime() !== best.createdAt.getTime()) {
-      best = row.createdAt > best.createdAt ? row : best;
+    if (row.updatedAt.getTime() !== best.updatedAt.getTime()) {
+      best = row.updatedAt < best.updatedAt ? row : best;
     }
   }
   return best;
@@ -160,8 +150,6 @@ export async function getAllIncome(budgetPlanId: string, year?: number): Promise
   const candidatesByMonth = new Map<MonthKey, Map<string, Array<(typeof rows)[number]>>>(
     MONTHS.map((m) => [m, new Map()])
   );
-  const amountCountsByKey = new Map<string, Map<string, number>>();
-
   for (const row of rows) {
 		if (scope && resolvedYear === scope.eventYear && row.month > scope.eventMonth) {
 			// Ignore income after the event month.
@@ -176,24 +164,6 @@ export async function getAllIncome(budgetPlanId: string, year?: number): Promise
     list.push(row);
     monthMap.set(key, list);
 
-    const amount = decimalToNumber(row.amount);
-    const amountKey = Number.isFinite(amount) ? amount.toFixed(2) : "0.00";
-    const counts = amountCountsByKey.get(key) ?? new Map<string, number>();
-    counts.set(amountKey, (counts.get(amountKey) ?? 0) + 1);
-    amountCountsByKey.set(key, counts);
-  }
-
-  const modeAmountByKey = new Map<string, string>();
-  for (const [key, counts] of amountCountsByKey.entries()) {
-    let bestAmt = "0.00";
-    let bestCount = -1;
-    for (const [amt, count] of counts.entries()) {
-      if (count > bestCount) {
-        bestCount = count;
-        bestAmt = amt;
-      }
-    }
-    modeAmountByKey.set(key, bestAmt);
   }
 
   for (const monthKey of MONTHS) {
@@ -201,8 +171,7 @@ export async function getAllIncome(budgetPlanId: string, year?: number): Promise
     if (!monthMap) continue;
     const chosen: IncomeItem[] = [];
     for (const [key, list] of monthMap.entries()) {
-      const desiredAmt = modeAmountByKey.get(key);
-      const row = pickCanonicalIncomeRow(list, desiredAmt);
+      const row = pickCanonicalIncomeRow(list);
       if (!row) continue;
       chosen.push({ id: row.id, name: row.name, amount: decimalToNumber(row.amount) });
     }

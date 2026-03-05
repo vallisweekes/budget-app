@@ -75,6 +75,10 @@ export default function ExpensesScreen({ navigation }: Props) {
   const [expenseMonths, setExpenseMonths] = useState<ExpenseMonthsResponse["months"]>([]);
   const [periodCountsByMonth, setPeriodCountsByMonth] = useState<Record<number, number>>({});
   const skipFirstFocusReloadRef = useRef(true);
+  const summaryCacheRef = useRef<Record<string, Record<number, Record<number, ExpenseSummary>>>>({});
+  const monthsCacheRef = useRef<Record<string, ExpenseMonthsResponse["months"]>>({});
+  const prefetchStateRef = useRef<Record<string, "idle" | "loading" | "loaded">>({});
+  const cacheSignatureRef = useRef<string | null>(null);
 
   const [summary, setSummary]   = useState<ExpenseSummary | null>(null);
   const [previousSummary, setPreviousSummary] = useState<ExpenseSummary | null>(null);
@@ -242,7 +246,74 @@ export default function ExpensesScreen({ navigation }: Props) {
     if (!selectedPlanId && personalPlanId) setSelectedPlanId(personalPlanId);
   }, [personalPlanId, selectedPlanId]);
 
-  const load = useCallback(async () => {
+  const clearExpenseCaches = useCallback(() => {
+    summaryCacheRef.current = {};
+    monthsCacheRef.current = {};
+    prefetchStateRef.current = {};
+    setLoadedKey(null);
+  }, []);
+
+  const planCacheKey = useCallback((planId: string | null | undefined) => planId ?? "none", []);
+
+  const getCachedSummary = useCallback((planId: string | null | undefined, targetYear: number, targetMonth: number) => {
+    const key = planCacheKey(planId);
+    return summaryCacheRef.current[key]?.[targetYear]?.[targetMonth] ?? null;
+  }, [planCacheKey]);
+
+  const setCachedSummary = useCallback((planId: string | null | undefined, targetYear: number, targetMonth: number, value: ExpenseSummary) => {
+    const key = planCacheKey(planId);
+    if (!summaryCacheRef.current[key]) summaryCacheRef.current[key] = {};
+    if (!summaryCacheRef.current[key][targetYear]) summaryCacheRef.current[key][targetYear] = {};
+    summaryCacheRef.current[key][targetYear][targetMonth] = value;
+  }, [planCacheKey]);
+
+  const getOrFetchSummary = useCallback(async (params: {
+    planId: string | null;
+    month: number;
+    year: number;
+    force?: boolean;
+  }): Promise<ExpenseSummary> => {
+    const { planId, month: targetMonth, year: targetYear, force = false } = params;
+    if (!force) {
+      const cached = getCachedSummary(planId, targetYear, targetMonth);
+      if (cached) return cached;
+    }
+
+    const planQp = planId ? `&budgetPlanId=${encodeURIComponent(planId)}` : "";
+    const fresh = await apiFetch<ExpenseSummary>(
+      `/api/bff/expenses/summary?month=${targetMonth}&year=${targetYear}&scope=pay_period${planQp}`,
+      { cacheTtlMs: 0 }
+    );
+    setCachedSummary(planId, targetYear, targetMonth, fresh);
+    return fresh;
+  }, [getCachedSummary, setCachedSummary]);
+
+  const prefetchAllPlansForYear = useCallback(async (targetYear: number, planIds: string[]) => {
+    const sorted = [...planIds].sort();
+    const groupKey = `${targetYear}:${sorted.join(",")}`;
+    const current = prefetchStateRef.current[groupKey] ?? "idle";
+    if (current === "loading" || current === "loaded") return;
+
+    prefetchStateRef.current[groupKey] = "loading";
+    try {
+      const jobs: Promise<void>[] = [];
+      for (const planId of sorted) {
+        for (let m = 1; m <= 12; m += 1) {
+          if (getCachedSummary(planId, targetYear, m)) continue;
+          jobs.push(
+            getOrFetchSummary({ planId, month: m, year: targetYear }).then(() => undefined).catch(() => undefined)
+          );
+        }
+      }
+      await Promise.all(jobs);
+      prefetchStateRef.current[groupKey] = "loaded";
+    } catch {
+      prefetchStateRef.current[groupKey] = "idle";
+    }
+  }, [getCachedSummary, getOrFetchSummary]);
+
+  const load = useCallback(async (options?: { force?: boolean }) => {
+    const force = Boolean(options?.force);
     try {
       setError(null);
       const [{ settings: s }, bp] = await Promise.all([
@@ -258,6 +329,13 @@ export default function ExpensesScreen({ navigation }: Props) {
         ? Math.floor(s.payDate as number)
         : 27;
       const payFrequencyForResolution = normalizePayFrequency(s?.payFrequency);
+      const nextSignature = `${payDateForResolution}:${payFrequencyForResolution}`;
+      if (cacheSignatureRef.current !== nextSignature) {
+        cacheSignatureRef.current = nextSignature;
+        summaryCacheRef.current = {};
+        prefetchStateRef.current = {};
+        setLoadedKey(null);
+      }
 
       const rawPlans = Array.isArray(bp?.plans) ? bp.plans : [];
       const nextPlans = rawPlans.slice().sort((a, b) => {
@@ -285,9 +363,15 @@ export default function ExpensesScreen({ navigation }: Props) {
       // before rendering an empty state (prevents a £0/0 bills flash).
       let months: ExpenseMonthsResponse["months"] = [];
       if (resolvedPlanId) {
-        const qp = `budgetPlanId=${encodeURIComponent(resolvedPlanId)}`;
-        const monthsData = await apiFetch<ExpenseMonthsResponse>(`/api/bff/expenses/months?${qp}`, { cacheTtlMs: 0 });
-        months = Array.isArray(monthsData?.months) ? monthsData.months : [];
+        const monthsKey = planCacheKey(resolvedPlanId);
+        if (!force && monthsCacheRef.current[monthsKey]) {
+          months = [...monthsCacheRef.current[monthsKey]];
+        } else {
+          const qp = `budgetPlanId=${encodeURIComponent(resolvedPlanId)}`;
+          const monthsData = await apiFetch<ExpenseMonthsResponse>(`/api/bff/expenses/months?${qp}`, { cacheTtlMs: 0 });
+          months = Array.isArray(monthsData?.months) ? monthsData.months : [];
+          monthsCacheRef.current[monthsKey] = months;
+        }
         // chronological order (earliest → latest)
         months.sort((a, b) => (a.year - b.year) || (a.month - b.month));
         setExpenseMonths(months);
@@ -299,15 +383,14 @@ export default function ExpensesScreen({ navigation }: Props) {
       // NOTE: /expenses/months groups by the expense's stored month/year (due-date month),
       // which can differ from pay-period anchor months, so we do NOT use it to choose
       // a pay-period window.
-      const planQp = resolvedPlanId ? `&budgetPlanId=${encodeURIComponent(resolvedPlanId)}` : "";
       const initialMonth = month;
       const initialYear = year;
       const initialPrevMonth = initialMonth === 1 ? 12 : initialMonth - 1;
       const initialPrevYear = initialMonth === 1 ? initialYear - 1 : initialYear;
 
       let [sumData, prevData] = await Promise.all([
-        apiFetch<ExpenseSummary>(`/api/bff/expenses/summary?month=${initialMonth}&year=${initialYear}&scope=pay_period${planQp}`, { cacheTtlMs: 0 }),
-        apiFetch<ExpenseSummary>(`/api/bff/expenses/summary?month=${initialPrevMonth}&year=${initialPrevYear}&scope=pay_period${planQp}`, { cacheTtlMs: 0 }),
+        getOrFetchSummary({ planId: resolvedPlanId, month: initialMonth, year: initialYear, force }),
+        getOrFetchSummary({ planId: resolvedPlanId, month: initialPrevMonth, year: initialPrevYear, force }),
       ]);
 
       let targetMonth = initialMonth;
@@ -337,8 +420,8 @@ export default function ExpensesScreen({ navigation }: Props) {
               const prevMonth = targetMonth === 1 ? 12 : targetMonth - 1;
               const prevYear = targetMonth === 1 ? targetYear - 1 : targetYear;
               [sumData, prevData] = await Promise.all([
-                apiFetch<ExpenseSummary>(`/api/bff/expenses/summary?month=${targetMonth}&year=${targetYear}&scope=pay_period${planQp}`, { cacheTtlMs: 0 }),
-                apiFetch<ExpenseSummary>(`/api/bff/expenses/summary?month=${prevMonth}&year=${prevYear}&scope=pay_period${planQp}`, { cacheTtlMs: 0 }),
+                getOrFetchSummary({ planId: resolvedPlanId, month: targetMonth, year: targetYear, force }),
+                getOrFetchSummary({ planId: resolvedPlanId, month: prevMonth, year: prevYear, force }),
               ]);
             }
           }
@@ -353,6 +436,7 @@ export default function ExpensesScreen({ navigation }: Props) {
       if (targetMonth !== month) setMonth(targetMonth);
       if (targetYear !== year) setYear(targetYear);
 
+      void prefetchAllPlansForYear(targetYear, nextPlans.map((p) => p.id));
       setLoadedKey(`${resolvedPlanId ?? "none"}:${targetYear}-${targetMonth}`);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load expenses");
@@ -360,15 +444,16 @@ export default function ExpensesScreen({ navigation }: Props) {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [activePlanId, bootstrapError, month, refreshBootstrap, selectedPlanId, year]);
+  }, [activePlanId, bootstrapError, getOrFetchSummary, month, planCacheKey, prefetchAllPlansForYear, refreshBootstrap, selectedPlanId, year]);
 
   const currentViewKey = `${activePlanId ?? "none"}:${year}-${month}`;
   useEffect(() => {
     // Avoid redundant fetches when we update month/year inside `load()`.
     if (loadedKey && loadedKey === currentViewKey && summary) return;
-    setLoading(true);
-    load();
-  }, [currentViewKey, load, loadedKey, summary]);
+    const hasCachedCurrent = Boolean(getCachedSummary(activePlanId, year, month));
+    if (!hasCachedCurrent) setLoading(true);
+    void load();
+  }, [activePlanId, currentViewKey, getCachedSummary, load, loadedKey, month, summary, year]);
 
   // Refresh when navigating back from CategoryExpensesScreen
   useFocusEffect(
@@ -377,7 +462,7 @@ export default function ExpensesScreen({ navigation }: Props) {
         skipFirstFocusReloadRef.current = false;
         return;
       }
-      load();
+      void load();
     }, [load])
   );
 
@@ -440,14 +525,11 @@ export default function ExpensesScreen({ navigation }: Props) {
     let cancelled = false;
     const run = async () => {
       try {
-        const planQp = activePlanId ? `&budgetPlanId=${encodeURIComponent(activePlanId)}` : "";
         const results = await Promise.all(
           Array.from({ length: 12 }, (_, idx) => {
             const m = idx + 1;
-            return apiFetch<ExpenseSummary>(
-              `/api/bff/expenses/summary?month=${m}&year=${pickerYear}&scope=pay_period${planQp}`,
-              { cacheTtlMs: 0 }
-            ).then((res) => ({ month: m, totalCount: Number(res?.totalCount ?? 0) }));
+            return getOrFetchSummary({ planId: activePlanId, month: m, year: pickerYear })
+              .then((res) => ({ month: m, totalCount: Number(res?.totalCount ?? 0) }));
           })
         );
         if (cancelled) return;
@@ -463,7 +545,7 @@ export default function ExpensesScreen({ navigation }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [activePlanId, monthPickerOpen, pickerYear, refreshing]);
+  }, [activePlanId, getOrFetchSummary, monthPickerOpen, pickerYear, refreshing]);
 
   const enabledPeriodMonths = useMemo(
     () =>
@@ -507,7 +589,15 @@ export default function ExpensesScreen({ navigation }: Props) {
           keyExtractor={() => ""}
           contentContainerStyle={styles.scrollContent}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={T.accent} />
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => {
+                clearExpenseCaches();
+                setRefreshing(true);
+                void load({ force: true });
+              }}
+              tintColor={T.accent}
+            />
           }
           ListHeaderComponent={
             <>
@@ -681,7 +771,12 @@ export default function ExpensesScreen({ navigation }: Props) {
         plans={plans}
         currency={currency}
         categories={summary?.categoryBreakdown ?? []}
-        onAdded={() => { setAddSheetOpen(false); load(); }}
+        onAdded={() => {
+          clearExpenseCaches();
+          setAddSheetOpen(false);
+          setRefreshing(true);
+          void load({ force: true });
+        }}
         onClose={() => setAddSheetOpen(false)}
       />
 

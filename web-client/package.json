@@ -23,7 +23,9 @@
     "migrate:debt-ids": "tsx scripts/migrate-debt-ids.ts",
     "logos:backfill": "tsx scripts/backfill-expense-logos.ts",
     "logos:backfill:apply": "tsx scripts/backfill-expense-logos.ts --apply",
-    "onboarding:reset-partials": "tsx scripts/reset-partial-onboarding-users.ts"
+    "onboarding:reset-partials": "tsx scripts/reset-partial-onboarding-users.ts",
+    "income:dedupe": "tsx scripts/dedupe-income-rows.ts",
+    "income:dedupe:apply": "APPLY=1 tsx scripts/dedupe-income-rows.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",

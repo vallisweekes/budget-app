@@ -41,7 +41,7 @@ const GOAL_ADD_W = Math.max(52, Math.round(GOAL_CARD * 0.34));
 export default function DashboardScreen({ navigation }: { navigation: any }) {
   const scrollRef = useRef<ScrollView>(null);
   useScrollToTop(scrollRef);
-  const topHeaderOffset = useTopHeaderOffset();
+  const topHeaderOffset = useTopHeaderOffset(-56);
   const insets = useSafeAreaInsets();
 
   const {

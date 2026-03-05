@@ -65,11 +65,11 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
   const [confirmingTargetKey, setConfirmingTargetKey] = useState<string | null>(null);
   const [pendingNoticeVisible, setPendingNoticeVisible] = useState(false);
 
-  const analysisCacheRef = useRef<Record<number, Record<number, IncomeMonthData>>>({});
-  const itemsCacheRef = useRef<Record<number, Record<number, Income[]>>>({});
-  const sacrificeCacheRef = useRef<Record<number, Record<number, IncomeSacrificeData>>>({});
+  const analysisCacheRef = useRef<Record<string, Record<number, Record<number, IncomeMonthData>>>>({});
+  const itemsCacheRef = useRef<Record<string, Record<number, Record<number, Income[]>>>>({});
+  const sacrificeCacheRef = useRef<Record<string, Record<number, Record<number, IncomeSacrificeData>>>>({});
   const settingsCacheRef = useRef<Record<string, Settings>>({});
-  const yearPrefetchStateRef = useRef<Record<number, "idle" | "loading" | "loaded">>({});
+  const yearPrefetchStateRef = useRef<Record<string, "idle" | "loading" | "loaded">>({});
 
   const periodRange = useMemo(() => {
     const payFrequency = normalizePayFrequency(settings?.payFrequency);
@@ -121,6 +121,7 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
   }, [month, settings, year]);
 
   const currency = currencySymbol(settings?.currency);
+  const planCacheKey = budgetPlanId || "none";
 
   const toIncomeItems = useCallback((summary: Array<{ id: string; name: string; amount: number }>, targetMonth: number, targetYear: number): Income[] => {
     return summary.map((item) => ({
@@ -134,39 +135,47 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
   }, [budgetPlanId]);
 
   const getCachedAnalysis = useCallback((targetYear: number, targetMonth: number) => {
-    return analysisCacheRef.current[targetYear]?.[targetMonth] ?? null;
-  }, []);
+    return analysisCacheRef.current[planCacheKey]?.[targetYear]?.[targetMonth] ?? null;
+  }, [planCacheKey]);
 
   const getCachedItems = useCallback((targetYear: number, targetMonth: number) => {
-    return itemsCacheRef.current[targetYear]?.[targetMonth] ?? null;
-  }, []);
+    return itemsCacheRef.current[planCacheKey]?.[targetYear]?.[targetMonth] ?? null;
+  }, [planCacheKey]);
 
   const setCachedAnalysis = useCallback((targetYear: number, targetMonth: number, data: IncomeMonthData) => {
-    if (!analysisCacheRef.current[targetYear]) analysisCacheRef.current[targetYear] = {};
-    analysisCacheRef.current[targetYear][targetMonth] = data;
-  }, []);
+    if (!analysisCacheRef.current[planCacheKey]) analysisCacheRef.current[planCacheKey] = {};
+    if (!analysisCacheRef.current[planCacheKey][targetYear]) analysisCacheRef.current[planCacheKey][targetYear] = {};
+    analysisCacheRef.current[planCacheKey][targetYear][targetMonth] = data;
+  }, [planCacheKey]);
 
   const setCachedItems = useCallback((targetYear: number, targetMonth: number, data: Income[]) => {
-    if (!itemsCacheRef.current[targetYear]) itemsCacheRef.current[targetYear] = {};
-    itemsCacheRef.current[targetYear][targetMonth] = data;
-  }, []);
+    if (!itemsCacheRef.current[planCacheKey]) itemsCacheRef.current[planCacheKey] = {};
+    if (!itemsCacheRef.current[planCacheKey][targetYear]) itemsCacheRef.current[planCacheKey][targetYear] = {};
+    itemsCacheRef.current[planCacheKey][targetYear][targetMonth] = data;
+  }, [planCacheKey]);
 
   const invalidateMonthCaches = useCallback((targets: MonthRef[], options?: { analysis?: boolean; items?: boolean; sacrifice?: boolean }) => {
     const { analysis: dropAnalysis = true, items: dropItems = true, sacrifice: dropSacrifice = true } = options ?? {};
+    const analysisPlanBucket = analysisCacheRef.current[planCacheKey] ?? {};
+    const itemsPlanBucket = itemsCacheRef.current[planCacheKey] ?? {};
+    const sacrificePlanBucket = sacrificeCacheRef.current[planCacheKey] ?? {};
 
     for (const target of targets) {
-      if (dropAnalysis && analysisCacheRef.current[target.year]) {
-        delete analysisCacheRef.current[target.year][target.month];
+      if (dropAnalysis && analysisPlanBucket[target.year]) {
+        delete analysisPlanBucket[target.year][target.month];
       }
-      if (dropItems && itemsCacheRef.current[target.year]) {
-        delete itemsCacheRef.current[target.year][target.month];
+      if (dropItems && itemsPlanBucket[target.year]) {
+        delete itemsPlanBucket[target.year][target.month];
       }
-      if (dropSacrifice && sacrificeCacheRef.current[target.year]) {
-        delete sacrificeCacheRef.current[target.year][target.month];
+      if (dropSacrifice && sacrificePlanBucket[target.year]) {
+        delete sacrificePlanBucket[target.year][target.month];
       }
-      yearPrefetchStateRef.current[target.year] = "idle";
+      yearPrefetchStateRef.current[`${planCacheKey}:${target.year}`] = "idle";
     }
-  }, []);
+    analysisCacheRef.current[planCacheKey] = analysisPlanBucket;
+    itemsCacheRef.current[planCacheKey] = itemsPlanBucket;
+    sacrificeCacheRef.current[planCacheKey] = sacrificePlanBucket;
+  }, [planCacheKey]);
 
   const getAffectedMonthsForIncomeMutation = useCallback((meta: IncomeMutationMeta): MonthRef[] => {
     if (meta.type !== "add") {
@@ -178,8 +187,8 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
     }
 
     const cachedYears = new Set<number>([
-      ...Object.keys(analysisCacheRef.current).map((value) => Number(value)).filter((value) => Number.isFinite(value)),
-      ...Object.keys(itemsCacheRef.current).map((value) => Number(value)).filter((value) => Number.isFinite(value)),
+      ...Object.keys(analysisCacheRef.current[planCacheKey] ?? {}).map((value) => Number(value)).filter((value) => Number.isFinite(value)),
+      ...Object.keys(itemsCacheRef.current[planCacheKey] ?? {}).map((value) => Number(value)).filter((value) => Number.isFinite(value)),
       meta.year,
     ]);
 
@@ -201,7 +210,7 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
     }
 
     return targets.length ? targets : [{ month: meta.month, year: meta.year }];
-  }, []);
+  }, [planCacheKey]);
 
   const handleIncomeMutationSuccess = useCallback((meta: IncomeMutationMeta) => {
     const affected = getAffectedMonthsForIncomeMutation(meta);
@@ -220,12 +229,13 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
   }, [budgetPlanId]);
 
   const preloadYear = useCallback(async (targetYear: number) => {
-    const state = yearPrefetchStateRef.current[targetYear] ?? "idle";
+    const stateKey = `${planCacheKey}:${targetYear}`;
+    const state = yearPrefetchStateRef.current[stateKey] ?? "idle";
     if (state === "loading" || state === "loaded") return;
 
-    yearPrefetchStateRef.current[targetYear] = "loading";
+    yearPrefetchStateRef.current[stateKey] = "loading";
     try {
-      const summary = await apiFetch<IncomeSummaryData>(`/api/bff/income-summary?year=${targetYear}`);
+      const summary = await apiFetch<IncomeSummaryData>(`/api/bff/income-summary?year=${targetYear}&budgetPlanId=${encodeURIComponent(budgetPlanId)}`);
       const summaryByMonth = new Map((summary.months ?? []).map((entry) => [entry.monthIndex, entry.items ?? []]));
 
       for (let monthIndex = 1; monthIndex <= 12; monthIndex += 1) {
@@ -241,11 +251,11 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
       });
 
       await Promise.allSettled(monthRequests);
-      yearPrefetchStateRef.current[targetYear] = "loaded";
+      yearPrefetchStateRef.current[stateKey] = "loaded";
     } catch {
-      yearPrefetchStateRef.current[targetYear] = "idle";
+      yearPrefetchStateRef.current[stateKey] = "idle";
     }
-  }, [budgetPlanId, setCachedAnalysis, setCachedItems, toIncomeItems]);
+  }, [budgetPlanId, planCacheKey, setCachedAnalysis, setCachedItems, toIncomeItems]);
 
   const load = useCallback(async (options?: { force?: boolean }) => {
     const force = Boolean(options?.force);
@@ -286,7 +296,7 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
   const loadSacrifice = useCallback(async (options?: { force?: boolean }) => {
     const force = Boolean(options?.force);
     if (!force) {
-      const cached = sacrificeCacheRef.current[year]?.[month] ?? null;
+      const cached = sacrificeCacheRef.current[planCacheKey]?.[year]?.[month] ?? null;
       if (cached) {
         setSacrifice(cached);
         return;
@@ -295,10 +305,11 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
     const data = await apiFetch<IncomeSacrificeData>(
       `/api/bff/income-sacrifice?month=${month}&year=${year}&budgetPlanId=${encodeURIComponent(budgetPlanId)}`
     );
-    if (!sacrificeCacheRef.current[year]) sacrificeCacheRef.current[year] = {};
-    sacrificeCacheRef.current[year][month] = data;
+    if (!sacrificeCacheRef.current[planCacheKey]) sacrificeCacheRef.current[planCacheKey] = {};
+    if (!sacrificeCacheRef.current[planCacheKey][year]) sacrificeCacheRef.current[planCacheKey][year] = {};
+    sacrificeCacheRef.current[planCacheKey][year][month] = data;
     setSacrifice(data);
-  }, [month, year, budgetPlanId]);
+  }, [month, year, budgetPlanId, planCacheKey]);
 
   useEffect(() => {
     void loadSettings();
