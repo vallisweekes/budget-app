@@ -138,6 +138,63 @@ export function buildDashboardDerived(params: {
     return date.getTime() >= payPeriodStart.getTime() && date.getTime() <= payPeriodEnd.getTime();
   };
 
+  const UPCOMING_TARGET_COUNT = 3;
+
+  const pickCurrentAndTopUpItems = <T,>(
+    items: T[],
+    resolveDate: (item: T) => Date | null,
+    targetCount: number,
+  ) => {
+    const inCurrent = items.filter((item) => isDateInPayPeriod(resolveDate(item)));
+    if (inCurrent.length >= targetCount) return inCurrent;
+
+    const inCurrentSet = new Set(inCurrent);
+    const futureSorted = items
+      .filter((item) => !inCurrentSet.has(item))
+      .map((item) => ({ item, due: resolveDate(item) }))
+      .filter((it): it is { item: T; due: Date } => it.due instanceof Date && !Number.isNaN(it.due.getTime()) && it.due.getTime() > payPeriodEnd.getTime())
+      .sort((a, b) => a.due.getTime() - b.due.getTime())
+      .map((it) => it.item);
+
+    if (inCurrent.length === 0) {
+      if (futureSorted.length > 0) return futureSorted;
+      return items;
+    }
+
+    const needed = Math.max(0, targetCount - inCurrent.length);
+    if (needed === 0 || futureSorted.length === 0) return inCurrent;
+
+    return [...inCurrent, ...futureSorted.slice(0, needed)];
+  };
+
+  const pickCurrentOrNextPeriodItems = <T,>(
+    items: T[],
+    resolveDate: (item: T) => Date | null,
+  ) => {
+    const currentAndTopUp = pickCurrentAndTopUpItems(items, resolveDate, UPCOMING_TARGET_COUNT);
+    if (currentAndTopUp.length > 0) return currentAndTopUp;
+
+    const nextDueDate = items
+      .map((item) => resolveDate(item))
+      .filter((d): d is Date => d instanceof Date && !Number.isNaN(d.getTime()) && d.getTime() > payPeriodEnd.getTime())
+      .sort((a, b) => a.getTime() - b.getTime())[0];
+
+    if (!nextDueDate) return items;
+
+    const nextPeriod = resolveActivePayPeriod({ now: nextDueDate, payDate: pay, payFrequency });
+    const nextStart = startOfDay(nextPeriod.start).getTime();
+    const nextEnd = endOfDay(nextPeriod.end).getTime();
+
+    const inNext = items.filter((item) => {
+      const due = resolveDate(item);
+      if (!due || Number.isNaN(due.getTime())) return false;
+      const t = due.getTime();
+      return t >= nextStart && t <= nextEnd;
+    });
+
+    return inNext.length > 0 ? inNext : items;
+  };
+
   const upcomingBase = (dashboard?.expenseInsights?.upcoming ?? []).filter((u) => {
     const id = String(u.id ?? "").toLowerCase();
     if (id.startsWith("debt:") || id.startsWith("debt-expense:")) return false;
@@ -149,12 +206,15 @@ export function buildDashboardDerived(params: {
     return true;
   });
 
-  const upcomingInPeriod = upcomingBase.filter((u) => {
-    const due = u.dueDate ? new Date(u.dueDate) : null;
-    return isDateInPayPeriod(due);
+  const upcoming = pickCurrentOrNextPeriodItems(
+    upcomingBase,
+    (u) => (u.dueDate ? new Date(u.dueDate) : null),
+  ).sort((a, b) => {
+    const aDue = a.dueDate ? new Date(a.dueDate).getTime() : Number.POSITIVE_INFINITY;
+    const bDue = b.dueDate ? new Date(b.dueDate).getTime() : Number.POSITIVE_INFINITY;
+    if (aDue !== bDue) return aDue - bDue;
+    return (Number(b.amount ?? 0) - Number(b.paidAmount ?? 0)) - (Number(a.amount ?? 0) - Number(a.paidAmount ?? 0));
   });
-
-  const upcoming = upcomingInPeriod.length > 0 ? upcomingInPeriod : upcomingBase;
 
   const resolveDebtDueDate = (d: (typeof debts)[number]) => {
     const dueDateIso = d.dueDate ?? null;
@@ -190,7 +250,7 @@ export function buildDashboardDerived(params: {
     return 2; // later
   };
 
-  const upcomingDebts = debts
+  const debtCandidates = debts
     .filter((d) => (d.currentBalance ?? 0) > 0)
     .map((d) => {
       const dueDate = resolveDebtDueDate(d);
@@ -198,9 +258,12 @@ export function buildDashboardDerived(params: {
     })
     .filter((d) => (d.dueAmount ?? 0) > 0)
     // Exclude debts where this month's recorded payments already cover the due amount
-    .filter((d) => (d.paidThisMonthAmount ?? 0) < (d.dueAmount ?? 0))
-    // Show only debts due in the active pay period.
-    .filter((d) => isDateInPayPeriod(d.dueDateResolved ?? null))
+    .filter((d) => (d.paidThisMonthAmount ?? 0) < (d.dueAmount ?? 0));
+
+  const upcomingDebts = pickCurrentOrNextPeriodItems(
+    debtCandidates,
+    (d) => d.dueDateResolved ?? null,
+  )
     .sort((a, b) => {
       const aDays = a.daysUntilDue;
       const bDays = b.daysUntilDue;

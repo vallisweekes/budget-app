@@ -65,6 +65,11 @@ function normalizeIncomeKey(name: unknown): string {
     .replace(/\s+/g, " ");
 }
 
+function isCarryOverIncome(name: unknown): boolean {
+  const normalized = normalizeIncomeKey(name);
+  return normalized === "carry over" || normalized === "carryover";
+}
+
 export async function GET(request: Request) {
   try {
     const userId = await getSessionUserId(request);
@@ -116,7 +121,7 @@ export async function GET(request: Request) {
       const endKeys = new Set(endItems.map((i) => normalizeIncomeKey(i.name)).filter(Boolean));
       const extraStartItems = startItems.filter((i) => {
         const key = normalizeIncomeKey(i.name);
-        return Boolean(key) && !endKeys.has(key);
+        return Boolean(key) && !endKeys.has(key) && !isCarryOverIncome(i.name);
       });
 
       const extraIds = new Set(extraStartItems.map((i) => i.id));

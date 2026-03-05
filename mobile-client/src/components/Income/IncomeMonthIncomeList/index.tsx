@@ -46,10 +46,19 @@ export default function IncomeMonthIncomeList({
   onRefresh,
   crud,
 }: Props) {
+  const sortedItems = React.useMemo(() => {
+    return [...items].sort((a, b) => {
+      const aIsSalary = String(a.name ?? "").trim().toLowerCase() === "salary";
+      const bIsSalary = String(b.name ?? "").trim().toLowerCase() === "salary";
+      if (aIsSalary === bIsSalary) return 0;
+      return aIsSalary ? -1 : 1;
+    });
+  }, [items]);
+
   return (
     <>
       <FlatList
-        data={items}
+        data={sortedItems}
         keyExtractor={(item) => item.id}
         contentContainerStyle={s.scroll}
         keyboardShouldPersistTaps="handled"

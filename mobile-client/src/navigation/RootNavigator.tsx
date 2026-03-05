@@ -166,7 +166,7 @@ function IncomeMonthSwitcher({
         <Pressable
           onPress={openYearPicker}
           style={s.monthSwitchLabelBtn}
-          hitSlop={8}
+          hitSlop={{ top: 8, bottom: 8, left: 0, right: 0 }}
           accessibilityRole="button"
           accessibilityLabel="Select year"
         >
