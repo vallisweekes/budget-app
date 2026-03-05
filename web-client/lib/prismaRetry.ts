@@ -12,10 +12,14 @@ export function isRetryableConnectionError(error: unknown): boolean {
 	const code = hasCode(error) ? String(error.code ?? "") : "";
 	const message = error instanceof Error ? error.message : String(error ?? "");
 	return (
+		code === "P1001" ||
+		code === "P2024" ||
 		code === "P1017" ||
 		message.includes("Engine is not yet connected") ||
 		message.includes("Server has closed the connection") ||
 		message.includes("Error in PostgreSQL connection") ||
+		message.includes("Timed out fetching a new connection from the connection pool") ||
+		message.includes("Can't reach database server") ||
 		message.includes("kind: Closed") ||
 		message.toLowerCase().includes("econnreset") ||
 		message.toLowerCase().includes("connection terminated")

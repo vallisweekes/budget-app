@@ -100,17 +100,7 @@ export default function PillTabBar({ state, descriptors, navigation }: BottomTab
 
   return (
     <View style={styles.wrapper}>
-      <View style={styles.glassBase}>
-        {liquidGlassEnabled && GlassView ? (
-          <GlassView
-            pointerEvents="none"
-            glassEffectStyle="regular"
-            tintColor="rgba(255,255,255,0)"
-            style={styles.glassBackgroundFill}
-          />
-        ) : (
-          <BlurView intensity={22} tint="dark" style={styles.glassBackgroundFill} />
-        )}
+      <BlurView intensity={30} tint="dark" style={styles.glassBase}>
         <View style={styles.glassTint} />
         <View
           style={styles.bar}
@@ -213,7 +203,7 @@ export default function PillTabBar({ state, descriptors, navigation }: BottomTab
             );
           })}
         </View>
-      </View>
+      </BlurView>
     </View>
   );
 }

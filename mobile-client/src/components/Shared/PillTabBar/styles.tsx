@@ -14,15 +14,11 @@ export const styles = StyleSheet.create({
     backgroundColor: "transparent",
   },
   glassBase: {
-    position: "relative",
     overflow: "hidden",
     borderTopWidth: 1,
     borderTopColor: `${T.accent}29`,
-    backgroundColor: `${T.card}A8`,
+    backgroundColor: `${T.card}66`,
     paddingBottom: 8,
-  },
-  glassBackgroundFill: {
-    ...StyleSheet.absoluteFillObject,
   },
   glassTint: {
     ...StyleSheet.absoluteFillObject,

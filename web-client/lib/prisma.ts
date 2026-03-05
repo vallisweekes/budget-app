@@ -32,7 +32,7 @@ function withConnectionLimits(url: string | undefined): string | undefined {
     // (especially with Turbopack / RSC which can trigger many parallel renders).
     if (!parsed.searchParams.has("connection_limit")) {
       const isDev = process.env.NODE_ENV !== "production";
-      parsed.searchParams.set("connection_limit", isDev ? "5" : "10");
+      parsed.searchParams.set("connection_limit", isDev ? "1" : "10");
     }
     if (!parsed.searchParams.has("pool_timeout")) {
       parsed.searchParams.set("pool_timeout", "20");

@@ -884,6 +884,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     textAlign: "center",
     lineHeight: 18,
+    minHeight: 54,
   },
   setupCard: {
     ...cardElevated,
