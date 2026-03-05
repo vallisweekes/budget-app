@@ -19,6 +19,7 @@ export const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: `${T.accent}29`,
     backgroundColor: `${T.card}A8`,
+    paddingBottom: 8,
   },
   glassBackgroundFill: {
     ...StyleSheet.absoluteFillObject,
