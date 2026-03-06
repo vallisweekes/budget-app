@@ -12,6 +12,7 @@ import { getIncomeMonthsCoverageByPlan } from "@/lib/helpers/dashboard/getIncome
 import { getLargestExpensesByPlan } from "@/lib/helpers/dashboard/getLargestExpensesByPlan";
 import { getMultiPlanHealthTips } from "@/lib/helpers/dashboard/getMultiPlanHealthTips";
 import { getAllPlansDashboardData } from "@/lib/helpers/dashboard/getAllPlansDashboardData";
+import { getDashboardPayPeriodLabels } from "@/lib/helpers/dashboard/payPeriodLabels";
 import { MONTHS } from "@/lib/constants/time";
 import { currentMonthKey } from "@/lib/helpers/monthKey";
 import { resolveExpenseLogo } from "@/lib/expenses/logoResolver";
@@ -63,7 +64,7 @@ export async function GET(req: NextRequest) {
 
 		// 1) Plan meta (payDate, homepageGoalIds)
 		// We need payDate early so the dashboard month matches the active pay period.
-		const { payDate, homepageGoalIds } = await getBudgetPlanMeta(budgetPlanId);
+		const { payDate, homepageGoalIds, createdAt: planCreatedAt } = await getBudgetPlanMeta(budgetPlanId);
 
 		// Best-effort onboarding context: never let dashboard fail due to schema/client mismatch.
 		let onboarding:
@@ -160,8 +161,10 @@ export async function GET(req: NextRequest) {
 			now,
 			payDate: payDay,
 			payFrequency,
+			planCreatedAt,
 		});
 		const month = MONTHS[currentPlanData.monthNum - 1] ?? currentMonthKey();
+		const { payPeriodLabel, previousPayPeriodLabel } = getDashboardPayPeriodLabels(now, payDay, planCreatedAt);
 
 		// Everything below is "best effort". If one section fails (e.g. debt sync),
 		// return the rest of the dashboard rather than a full 500.
@@ -565,6 +568,8 @@ export async function GET(req: NextRequest) {
 			payDate,
 			payFrequency,
 			billFrequency,
+			payPeriodLabel,
+			previousPayPeriodLabel,
 		});
 	} catch (error) {
 		console.error("Failed to compute dashboard:", error);

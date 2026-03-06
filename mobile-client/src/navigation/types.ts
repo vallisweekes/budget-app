@@ -30,6 +30,9 @@ export type ExpensesStackParamList = {
         month?: number;
         year?: number;
         prevDisabled?: boolean;
+        budgetPlanId?: string | null;
+        currency?: string;
+        loggedExpensesCount?: number;
       }
     | undefined;
   CategoryExpenses: {
@@ -42,7 +45,16 @@ export type ExpensesStackParamList = {
     budgetPlanId: string | null;
     currency: string;
     loggedPaymentsCount?: number;
-    openLoggedPaymentsAt?: number;
+  };
+  LoggedExpenses: {
+    categoryId?: string | null;
+    categoryName?: string;
+    color: string | null;
+    icon: string | null;
+    month: number;
+    year: number;
+    budgetPlanId: string | null;
+    currency: string;
   };
   ExpenseDetail: {
     expenseId: string;

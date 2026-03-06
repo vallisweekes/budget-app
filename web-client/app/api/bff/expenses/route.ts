@@ -160,7 +160,7 @@ function serializeExpense(
     lastPaymentAt: effectiveLastPaymentAt ? effectiveLastPaymentAt.toISOString() : null,
     paymentSource: expense.paymentSource ?? "income",
     cardDebtId: expense.cardDebtId ?? null,
-    isExtraLoggedExpense: !expense.dueDate && !Boolean(expense.isAllocation ?? false) && !Boolean(expense.isDirectDebit ?? false),
+    isExtraLoggedExpense: Boolean((expense as { isExtraLoggedExpense?: unknown }).isExtraLoggedExpense ?? false),
     effectiveDueDate: periodMeta?.effectiveDueDate ?? null,
     inSelectedPayPeriod: periodMeta?.inSelectedPayPeriod ?? false,
   };
@@ -380,7 +380,9 @@ export async function GET(req: NextRequest) {
       scope === "pay_period"
         ? dueDateOnly
           ? inRange(dueDateOnly, selectedPeriod.start, selectedPeriod.end)
-          : allowedUnscheduledYm.has(`${item.year}-${item.month}`)
+          : item.periodKey
+            ? item.periodKey === selectedPeriod.start.toISOString().slice(0, 10)
+            : allowedUnscheduledYm.has(`${item.year}-${item.month}`)
         : true;
 
     if (scope === "pay_period" && !inSelectedPayPeriod) {
@@ -439,6 +441,7 @@ export async function POST(req: NextRequest) {
     paid?: unknown;
     isAllocation?: unknown;
     isDirectDebit?: unknown;
+    isExtraLoggedExpense?: unknown;
     distributeMonths?: unknown;
     distributeYears?: unknown;
     dueDate?: unknown;
@@ -467,6 +470,7 @@ export async function POST(req: NextRequest) {
   const paid = toBool(body.paid);
   const isAllocation = toBool(body.isAllocation);
   const isDirectDebit = toBool(body.isDirectDebit);
+  const isExtraLoggedExpense = toBool(body.isExtraLoggedExpense);
   const distributeMonths = toBool(body.distributeMonths);
   const distributeYears = toBool(body.distributeYears);
   // Accept YYYY-MM-DD only; silently drop malformed values
@@ -506,6 +510,7 @@ export async function POST(req: NextRequest) {
     paid,
     isAllocation,
     isDirectDebit,
+    isExtraLoggedExpense,
     distributeMonths,
     distributeYears,
     dueDate,

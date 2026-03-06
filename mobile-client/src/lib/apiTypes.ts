@@ -367,6 +367,19 @@ export interface ExpenseMonthsResponse {
   }>;
 }
 
+export interface ExpensePayPeriodMonthsResponse {
+  year: number;
+  payDate?: number | null;
+  payFrequency?: "monthly" | "every_2_weeks" | "weekly";
+  months: Array<{
+    year: number;
+    month: number;
+    periodKey: string;
+    totalCount: number;
+    totalAmount: number;
+  }>;
+}
+
 // ─── Computed / Aggregated API types ─────────────────────────
 
 /** Category data with pre-computed expense totals from /api/bff/dashboard */
@@ -520,6 +533,8 @@ export interface DashboardData {
   payDate: number;
   payFrequency?: "monthly" | "every_2_weeks" | "weekly";
   billFrequency?: "monthly" | "every_2_weeks";
+  payPeriodLabel?: string;
+  previousPayPeriodLabel?: string;
 }
 
 /** Zero-based budget summary from /api/bff/budget-summary */

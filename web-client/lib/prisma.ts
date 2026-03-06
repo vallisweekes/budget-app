@@ -16,7 +16,13 @@ const globalForPrisma = globalThis as unknown as {
 function getPrismaSchemaHash(): string | undefined {
   if (process.env.NODE_ENV === "production") return undefined;
   try {
-    const schemaPath = path.join(process.cwd(), "prisma", "schema.prisma");
+    const cwd = process.cwd();
+    const candidates = [
+      path.join(cwd, "prisma", "schema.prisma"),
+      path.join(cwd, "web-client", "prisma", "schema.prisma"),
+    ];
+    const schemaPath = candidates.find((candidate) => fs.existsSync(candidate));
+    if (!schemaPath) return undefined;
     const schema = fs.readFileSync(schemaPath, "utf8");
     return createHash("sha1").update(schema).digest("hex");
   } catch {

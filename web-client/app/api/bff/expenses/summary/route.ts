@@ -33,6 +33,64 @@ function toFloat(value: unknown): number {
 	return isNaN(n) ? 0 : n;
 }
 
+function includeInMainExpenseSummary(expense: {
+	isExtraLoggedExpense?: boolean | null;
+	paymentSource?: string | null;
+}): boolean {
+	// Keep summary in sync with CategoryExpensesScreen:
+	// - income-sourced logged payments behave like normal expenses
+	// - non-income logged payments live in the separate "Logged payments" bucket
+	if (!Boolean(expense.isExtraLoggedExpense ?? false)) return true;
+	return String(expense.paymentSource ?? "income").trim().toLowerCase() === "income";
+}
+
+type CategoryBreakdownRow = {
+	categoryId: string;
+	name: string;
+	color: string | null;
+	icon: string | null;
+	total: number;
+	paidTotal: number;
+	paidCount: number;
+	totalCount: number;
+};
+
+function latestDate(...dates: Array<Date | null | undefined>): Date | null {
+	const valid = dates.filter((d): d is Date => d instanceof Date);
+	if (valid.length === 0) return null;
+	return valid.reduce((acc, curr) => (curr.getTime() > acc.getTime() ? curr : acc));
+}
+
+function normalizeCategoryBreakdown(raw: unknown): CategoryBreakdownRow[] {
+	if (!Array.isArray(raw)) return [];
+	return raw
+		.map((row) => {
+			if (typeof row !== "object" || row === null) return null;
+			const candidate = row as Record<string, unknown>;
+			return {
+				categoryId: String(candidate.categoryId ?? "__none__"),
+				name: String(candidate.name ?? "Uncategorised"),
+				color: candidate.color == null ? null : String(candidate.color),
+				icon: candidate.icon == null ? null : String(candidate.icon),
+				total: toFloat(candidate.total),
+				paidTotal: toFloat(candidate.paidTotal),
+				paidCount: Math.max(0, Math.floor(toFloat(candidate.paidCount))),
+				totalCount: Math.max(0, Math.floor(toFloat(candidate.totalCount))),
+			};
+		})
+		.filter((row): row is CategoryBreakdownRow => row !== null);
+}
+
+function getExpenseSummarySnapshotDelegate() {
+	const client = prisma as unknown as {
+		expenseSummarySnapshot?: {
+			findUnique: (...args: unknown[]) => Promise<unknown>;
+			upsert: (...args: unknown[]) => Promise<unknown>;
+		};
+	};
+	return client.expenseSummarySnapshot;
+}
+
 function pad2(n: number): string {
 	return String(n).padStart(2, "0");
 }
@@ -144,6 +202,9 @@ export async function GET(req: NextRequest) {
 	let periodLabel: string | null = null;
 	let periodRangeLabel: string | null = null;
 	let periodIndex: number | null = null;
+	let periodKey: string | null = null;
+	let sourceWindowPairs: Array<{ year: number; month: number }> = [{ year, month }];
+	const allowedUnscheduledYm = new Set<string>();
 
 	let expenses: Array<{
 		id: string;
@@ -151,6 +212,11 @@ export async function GET(req: NextRequest) {
 		amount: unknown;
 		paid: boolean;
 		paidAmount: unknown;
+		isAllocation?: boolean | null;
+		seriesKey?: string | null;
+		periodKey?: string | null;
+		isExtraLoggedExpense?: boolean | null;
+		paymentSource?: string | null;
 		dueDate: Date | null;
 		year: number;
 		month: number;
@@ -165,12 +231,11 @@ export async function GET(req: NextRequest) {
 			payDate,
 			payFrequency,
 		});
-		const allowedUnscheduledYm = new Set([
-			`${selected.start.getUTCFullYear()}-${selected.start.getUTCMonth() + 1}`,
-			`${selected.end.getUTCFullYear()}-${selected.end.getUTCMonth() + 1}`,
-		]);
+		allowedUnscheduledYm.add(`${selected.start.getUTCFullYear()}-${selected.start.getUTCMonth() + 1}`);
+		allowedUnscheduledYm.add(`${selected.end.getUTCFullYear()}-${selected.end.getUTCMonth() + 1}`);
 		periodStart = selected.start;
 		periodEnd = selected.end;
+		periodKey = toIsoDate(selected.start);
 
 		periodIndex = Math.max(1, Math.min(12, month) - 1);
 		periodLabel = `Pay period ${periodIndex}`;
@@ -195,6 +260,95 @@ export async function GET(req: NextRequest) {
 			},
 		];
 		const uniquePairs = Array.from(new Map(windowPairs.map((p) => [`${p.year}-${p.month}`, p])).values());
+		sourceWindowPairs = uniquePairs;
+	}
+
+	const snapshotDelegate = getExpenseSummarySnapshotDelegate();
+
+	const snapshot = snapshotDelegate
+		? await snapshotDelegate.findUnique({
+				where: {
+					budgetPlanId_scope_month_year: {
+						budgetPlanId,
+						scope,
+						month,
+						year,
+					},
+				},
+		  }) as {
+				periodLabel: string | null;
+				periodIndex: number | null;
+				periodStart: Date | null;
+				periodEnd: Date | null;
+				periodRangeLabel: string | null;
+				payDate: number;
+				payFrequency: string;
+				totalCount: number;
+				totalAmount: unknown;
+				paidCount: number;
+				paidAmount: unknown;
+				unpaidCount: number;
+				unpaidAmount: unknown;
+				categoryBreakdown: unknown;
+				sourceMaxUpdatedAt: Date | null;
+			} | null
+		: null;
+
+	const sourceWhere =
+		scope === "month"
+			? { budgetPlanId, month, year }
+			: { budgetPlanId, OR: sourceWindowPairs };
+
+	const sourceRows = await prisma.expense.findMany({
+		where: sourceWhere,
+		select: { id: true, updatedAt: true },
+	});
+
+	const expenseMaxUpdatedAt = latestDate(...sourceRows.map((row) => row.updatedAt));
+	const sourceExpenseIds = sourceRows.map((row) => row.id);
+
+	let paymentMaxUpdatedAt: Date | null = null;
+	if (sourceExpenseIds.length > 0) {
+		const paymentAggregate = await prisma.expensePayment.aggregate({
+			where: { expenseId: { in: sourceExpenseIds } },
+			_max: { updatedAt: true },
+		});
+		paymentMaxUpdatedAt = paymentAggregate._max.updatedAt ?? null;
+	}
+
+	const sourceMaxUpdatedAt = latestDate(expenseMaxUpdatedAt, paymentMaxUpdatedAt);
+
+	const snapshotIsFresh =
+		snapshot != null &&
+		((snapshot.sourceMaxUpdatedAt == null && sourceMaxUpdatedAt == null) ||
+			(snapshot.sourceMaxUpdatedAt != null &&
+				sourceMaxUpdatedAt != null &&
+				snapshot.sourceMaxUpdatedAt.getTime() >= sourceMaxUpdatedAt.getTime()));
+
+	if (snapshotIsFresh && snapshot) {
+		return NextResponse.json({
+			scope,
+			month,
+			year,
+			periodLabel: snapshot.periodLabel,
+			periodIndex: snapshot.periodIndex,
+			periodStart: snapshot.periodStart ? toIsoDate(snapshot.periodStart) : null,
+			periodEnd: snapshot.periodEnd ? toIsoDate(snapshot.periodEnd) : null,
+			periodRangeLabel: snapshot.periodRangeLabel,
+			payDate: snapshot.payDate,
+			payFrequency: snapshot.payFrequency,
+			totalCount: snapshot.totalCount,
+			totalAmount: parseFloat(toFloat(snapshot.totalAmount).toFixed(2)),
+			paidCount: snapshot.paidCount,
+			paidAmount: parseFloat(toFloat(snapshot.paidAmount).toFixed(2)),
+			unpaidCount: snapshot.unpaidCount,
+			unpaidAmount: parseFloat(toFloat(snapshot.unpaidAmount).toFixed(2)),
+			categoryBreakdown: normalizeCategoryBreakdown(snapshot.categoryBreakdown),
+		});
+	}
+
+	if (scope === "pay_period") {
+		const uniquePairs = sourceWindowPairs;
 
 		const periodRows = await (async () => {
 			const runLegacyQuery = () =>
@@ -236,7 +390,7 @@ export async function GET(req: NextRequest) {
 		for (const exp of periodRows) {
 			if (isLegacyPlaceholderExpenseRow(exp)) continue;
 			// Allocations/envelopes are not bills and should not impact expense totals.
-			if (Boolean((exp as any).isAllocation ?? false)) continue;
+			if (Boolean(exp.isAllocation ?? false)) continue;
 
 			let dedupeScope = "";
 			let rank = 1;
@@ -262,14 +416,19 @@ export async function GET(req: NextRequest) {
 					: null;
 				rank = ym && Number.isFinite(ym.year) && Number.isFinite(ym.month) && exp.year === ym.year && exp.month === ym.month ? 0 : 1;
 			} else {
-				// Unscheduled expenses are part of period totals when saved under a month that falls within the
-				// selected pay-period window (e.g. Feb or Mar for a 27 Feb–26 Mar period).
-				if (!allowedUnscheduledYm.has(`${exp.year}-${exp.month}`)) continue;
-				dedupeScope = `unscheduled:${exp.year}-${exp.month}`;
+				// Prefer the persisted pay-period assignment for unscheduled/logged expenses.
+				// Fall back to month/year only for legacy rows that do not have a periodKey.
+				if (exp.periodKey) {
+					if (!periodKey || exp.periodKey !== periodKey) continue;
+					dedupeScope = `unscheduled:${exp.periodKey}`;
+				} else {
+					if (!allowedUnscheduledYm.has(`${exp.year}-${exp.month}`)) continue;
+					dedupeScope = `unscheduled:${exp.year}-${exp.month}`;
+				}
 				rank = 0;
 			}
 
-			const series = String((exp as any).seriesKey ?? exp.name ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+			const series = String(exp.seriesKey ?? exp.name ?? "").trim().toLowerCase().replace(/\s+/g, " ");
 			const amount = toFloat(exp.amount);
 			const key = `${series}|${dedupeScope}|${amount}`;
 
@@ -297,7 +456,7 @@ export async function GET(req: NextRequest) {
 	}
 
 	// Allocations/envelopes are not bills and should not impact expense totals.
-	expenses = expenses.filter((e: any) => !Boolean(e?.isAllocation ?? false));
+	expenses = expenses.filter((e) => !Boolean(e.isAllocation ?? false));
 
 	// In pay-period views, only treat explicitly scheduled items as bills.
 	// Note: pay-period scope includes both scheduled and unscheduled expenses.
@@ -317,19 +476,7 @@ export async function GET(req: NextRequest) {
 	let paidCount = 0;
 	let unpaidCount = 0;
 
-	const catMap = new Map<
-		string,
-		{
-			categoryId: string;
-			name: string;
-			color: string | null;
-			icon: string | null;
-			total: number;
-			paidTotal: number;
-			paidCount: number;
-			totalCount: number;
-		}
-	>();
+	const catMap = new Map<string, CategoryBreakdownRow>();
 
 	for (const category of planCategories) {
 		catMap.set(category.id, {
@@ -344,7 +491,9 @@ export async function GET(req: NextRequest) {
 		});
 	}
 
-	for (const exp of expenses) {
+	const mainExpenses = expenses.filter(includeInMainExpenseSummary);
+
+	for (const exp of mainExpenses) {
 		const amount = toFloat(exp.amount);
 		const info = paidMap.get(exp.id);
 		const paidRaw = info?.paidAmount ?? 0;
@@ -391,6 +540,59 @@ export async function GET(req: NextRequest) {
 		.filter((c) => c.totalCount > 0)
 		.sort((a, b) => b.total - a.total);
 
+	if (snapshotDelegate) {
+		await snapshotDelegate.upsert({
+			where: {
+				budgetPlanId_scope_month_year: {
+					budgetPlanId,
+					scope,
+					month,
+					year,
+				},
+			},
+			create: {
+				budgetPlanId,
+				scope,
+				month,
+				year,
+				payDate,
+				payFrequency,
+				periodKey,
+				periodLabel,
+				periodIndex,
+				periodStart,
+				periodEnd,
+				periodRangeLabel,
+				totalCount: mainExpenses.length,
+				totalAmount: parseFloat(totalAmount.toFixed(2)),
+				paidCount,
+				paidAmount: parseFloat(paidAmount.toFixed(2)),
+				unpaidCount,
+				unpaidAmount: parseFloat(unpaidAmount.toFixed(2)),
+				categoryBreakdown,
+				sourceMaxUpdatedAt,
+			},
+			update: {
+				payDate,
+				payFrequency,
+				periodKey,
+				periodLabel,
+				periodIndex,
+				periodStart,
+				periodEnd,
+				periodRangeLabel,
+				totalCount: mainExpenses.length,
+				totalAmount: parseFloat(totalAmount.toFixed(2)),
+				paidCount,
+				paidAmount: parseFloat(paidAmount.toFixed(2)),
+				unpaidCount,
+				unpaidAmount: parseFloat(unpaidAmount.toFixed(2)),
+				categoryBreakdown,
+				sourceMaxUpdatedAt,
+			},
+		});
+	}
+
 	return NextResponse.json({
 		scope,
 		month,
@@ -402,7 +604,7 @@ export async function GET(req: NextRequest) {
 		periodRangeLabel,
 		payDate,
 		payFrequency,
-		totalCount: expenses.length,
+		totalCount: mainExpenses.length,
 		totalAmount: parseFloat(totalAmount.toFixed(2)),
 		paidCount,
 		paidAmount: parseFloat(paidAmount.toFixed(2)),

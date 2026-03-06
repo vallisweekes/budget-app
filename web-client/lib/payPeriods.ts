@@ -29,15 +29,31 @@ function addUtcDays(date: Date, days: number): Date {
   return next;
 }
 
+function isValidDate(value: Date | null | undefined): value is Date {
+  return value instanceof Date && !Number.isNaN(value.getTime());
+}
+
 export function resolveActivePayPeriodWindow(params: {
   now: Date;
   payDate: number;
   payFrequency: PayFrequency;
+  planCreatedAt?: Date | null;
 }): { start: Date; end: Date } {
-  const { now, payDate, payFrequency } = params;
+  const { now, payDate, payFrequency, planCreatedAt } = params;
 
   if (payFrequency === "monthly") {
     const thisMonthPayDate = clampDayUtc(now.getUTCFullYear(), now.getUTCMonth(), payDate);
+    const previousMonthPayDate = clampDayUtc(now.getUTCFullYear(), now.getUTCMonth() - 1, payDate);
+    if (
+      isValidDate(planCreatedAt) &&
+      now.getTime() < thisMonthPayDate.getTime() &&
+      planCreatedAt.getTime() > previousMonthPayDate.getTime() &&
+      planCreatedAt.getTime() <= now.getTime()
+    ) {
+      const end = clampDayUtc(thisMonthPayDate.getUTCFullYear(), thisMonthPayDate.getUTCMonth() + 1, payDate);
+      end.setUTCDate(end.getUTCDate() - 1);
+      return { start: thisMonthPayDate, end };
+    }
     const start = now.getTime() >= thisMonthPayDate.getTime()
       ? thisMonthPayDate
       : clampDayUtc(now.getUTCFullYear(), now.getUTCMonth() - 1, payDate);

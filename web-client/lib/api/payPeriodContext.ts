@@ -31,7 +31,7 @@ export async function resolveUserPayPeriodContext(params: {
   const { userId, budgetPlanId } = params;
 
   const [plan, profile] = await Promise.all([
-    prisma.budgetPlan.findUnique({ where: { id: budgetPlanId }, select: { payDate: true, userId: true } }),
+    prisma.budgetPlan.findUnique({ where: { id: budgetPlanId }, select: { payDate: true, userId: true, createdAt: true } }),
     prisma.userOnboardingProfile.findUnique({ where: { userId }, select: { payFrequency: true } }).catch(() => null),
   ]);
 
@@ -44,7 +44,7 @@ export async function resolveUserPayPeriodContext(params: {
   const payFrequency = normalizePayFrequency(profile?.payFrequency);
 
   const now = params.now ?? new Date();
-  const window = resolveActivePayPeriodWindow({ now, payDate, payFrequency });
+  const window = resolveActivePayPeriodWindow({ now, payDate, payFrequency, planCreatedAt: plan.createdAt });
   const fallbackMonth = window.end.getUTCMonth() + 1;
   const fallbackYear = window.end.getUTCFullYear();
 

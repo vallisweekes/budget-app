@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   Alert,
   LayoutAnimation,
-  Modal,
   PanResponder,
   Platform,
   Pressable,
@@ -14,7 +13,6 @@ import {
   UIManager,
   View,
 } from "react-native";
-import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { Sacramento_400Regular } from "@expo-google-fonts/sacramento";
 import { useFonts } from "expo-font";
 
@@ -56,13 +54,6 @@ const GOALS: Array<{ id: Goal; label: string; icon: keyof typeof Ionicons.glyphM
   { id: "improve_savings", label: "Build my savings", icon: "trending-up-outline" },
   { id: "manage_debts", label: "Get on top of my debts", icon: "card-outline" },
 ];
-
-function formatDateDDMMYYYY(date: Date): string {
-  const day = String(date.getDate()).padStart(2, "0");
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const year = date.getFullYear();
-  return `${day}/${month}/${year}`;
-}
 
 export default function OnboardingScreen({
   initial,
@@ -130,13 +121,6 @@ export default function OnboardingScreen({
   const occupationOtherRef = useRef(profile?.occupationOther ?? "");
   const [payDay, setPayDay] = useState(String(profile?.payDay ?? ""));
   const payDayRef = useRef(String(profile?.payDay ?? ""));
-  const [showPayDayPicker, setShowPayDayPicker] = useState(false);
-  const [selectedPayDate, setSelectedPayDate] = useState<Date | null>(() => {
-    const raw = Number(profile?.payDay ?? 0);
-    if (!Number.isFinite(raw) || raw < 1 || raw > 31) return null;
-    return new Date(new Date().getFullYear(), new Date().getMonth(), Math.trunc(raw));
-  });
-  const selectedPayDateRef = useRef<Date | null>(selectedPayDate);
   const [payFrequency, setPayFrequency] = useState<"monthly" | "every_2_weeks" | "weekly" | null>(
     profile?.payFrequency === "weekly" ||
       profile?.payFrequency === "every_2_weeks" ||
@@ -213,47 +197,10 @@ export default function OnboardingScreen({
   const payDayNumber = useMemo(() => {
     const value = Number(payDay);
     if (!Number.isFinite(value)) return null;
-    return Math.max(1, Math.min(31, Math.trunc(value)));
+    const wholeDay = Math.trunc(value);
+    if (wholeDay < 1 || wholeDay > 31) return null;
+    return wholeDay;
   }, [payDay]);
-
-  const payDayPickerDate = useMemo(() => {
-    if (selectedPayDate) return selectedPayDate;
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), 1);
-  }, [selectedPayDate]);
-
-  const [draftPayDate, setDraftPayDate] = useState<Date>(payDayPickerDate);
-
-  const openPayDayPicker = () => {
-    setDraftPayDate(payDayPickerDate);
-    setShowPayDayPicker(true);
-  };
-
-  const closePayDayPicker = () => {
-    setShowPayDayPicker(false);
-  };
-
-  const confirmPayDayPicker = () => {
-    selectedPayDateRef.current = draftPayDate;
-    payDayRef.current = String(draftPayDate.getDate());
-    setSelectedPayDate(draftPayDate);
-    setPayDay(String(draftPayDate.getDate()));
-    setShowPayDayPicker(false);
-  };
-
-  const onPayDayChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
-    if (Platform.OS === "android") {
-      setShowPayDayPicker(false);
-      if (event.type !== "set" || !selectedDate) return;
-      selectedPayDateRef.current = selectedDate;
-      payDayRef.current = String(selectedDate.getDate());
-      setSelectedPayDate(selectedDate);
-      setPayDay(String(selectedDate.getDate()));
-      return;
-    }
-    if (event.type !== "set" || !selectedDate) return;
-    setDraftPayDate(selectedDate);
-  };
 
   const payload: Partial<OnboardingProfile> = {
     mainGoal: mainGoalsRef.current[0] ?? null,
@@ -300,7 +247,7 @@ export default function OnboardingScreen({
     }
 
     if (currentStep === 2) {
-      if (!selectedPayDateRef.current) return "Please choose your payday date.";
+      if (!payDayNumber) return "Please enter the day of the month you get paid.";
       if (!payFrequencyRef.current) return "Please choose how often you get paid.";
       if (!billFrequencyRef.current) return "Please choose how often you pay most bills.";
       if (!isPositiveNumber(salaryRef.current)) return "Please enter your monthly salary to continue.";
@@ -373,10 +320,6 @@ export default function OnboardingScreen({
   useEffect(() => {
     payDayRef.current = payDay;
   }, [payDay]);
-
-  useEffect(() => {
-    selectedPayDateRef.current = selectedPayDate;
-  }, [selectedPayDate]);
 
   useEffect(() => {
     payFrequencyRef.current = payFrequency;
@@ -677,36 +620,20 @@ export default function OnboardingScreen({
                 <Ionicons name="wallet-outline" size={20} color={STEP_ICON_COLORS[2]} />
                 <Text style={s.question}>What day of the month do you usually get paid?</Text>
               </View>
-              <Pressable
-                onPress={openPayDayPicker}
+              <TextInput
+                value={payDay}
+                onChangeText={(value) => {
+                  const next = value.replace(/[^0-9]/g, "").slice(0, 2);
+                  payDayRef.current = next;
+                  setPayDay(next);
+                }}
+                placeholder="For example: 15"
+                placeholderTextColor="rgba(255,255,255,0.62)"
+                keyboardType="number-pad"
                 style={s.input}
-                accessibilityRole="button"
-                accessibilityLabel="Select payday date"
-              >
-                <View style={s.calendarInputRow}>
-                  <Ionicons name="calendar-outline" size={18} color="#ffffff" />
-                  <Text style={selectedPayDate ? s.calendarInputText : s.calendarInputPlaceholder}>
-                    {selectedPayDate ? formatDateDDMMYYYY(selectedPayDate) : "DD/MM/YYYY"}
-                  </Text>
-                </View>
-              </Pressable>
-              {showPayDayPicker ? (
-                <View style={s.payDayPickerWrap}>
-                  <DateTimePicker
-                    value={payDayPickerDate}
-                    mode="date"
-                    display={Platform.OS === "ios" ? "spinner" : "default"}
-                    onChange={onPayDayChange}
-                    {...(Platform.OS === "ios"
-                      ? {
-                          textColor: "#ffffff",
-                          accentColor: "#ffffff",
-                          themeVariant: "dark" as const,
-                        }
-                      : {})}
-                  />
-                </View>
-              ) : null}
+                accessibilityLabel="Enter your payday as a day of the month"
+              />
+              <Text style={s.helper}>Enter just the day number, from 1 to 31.</Text>
 
               <Text style={s.question}>How often do you get paid?</Text>
               <View style={s.chipsWrap}>
@@ -1057,39 +984,6 @@ export default function OnboardingScreen({
             </View>
           </ScrollView>
       </View>
-
-      {Platform.OS === "ios" ? (
-        <Modal
-          visible={showPayDayPicker}
-          animationType="slide"
-          transparent
-          onRequestClose={closePayDayPicker}
-        >
-          <Pressable style={s.payDayModalBackdrop} onPress={closePayDayPicker} />
-          <View style={s.payDayModalSheet}>
-            <View style={s.payDayModalHeader}>
-              <Pressable onPress={closePayDayPicker} hitSlop={8}>
-                <Text style={s.payDayModalAction}>Cancel</Text>
-              </Pressable>
-              <Text style={s.payDayModalTitle}>Select date</Text>
-              <Pressable onPress={confirmPayDayPicker} hitSlop={8}>
-                <Text style={s.payDayModalAction}>Done</Text>
-              </Pressable>
-            </View>
-            <View style={s.payDayPickerWrap}>
-              <DateTimePicker
-                value={draftPayDate}
-                mode="date"
-                display="spinner"
-                onChange={onPayDayChange}
-                textColor="#ffffff"
-                accentColor="#ffffff"
-                themeVariant="dark"
-              />
-            </View>
-          </View>
-        </Modal>
-      ) : null}
     </SafeAreaView>
   );
 }
@@ -1197,48 +1091,6 @@ const s = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     color: "#ffffff",
-  },
-  calendarInputRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  calendarInputText: { color: "#ffffff", fontWeight: "800" },
-  calendarInputPlaceholder: { color: "rgba(255,255,255,0.62)", fontWeight: "700" },
-  payDayPickerWrap: {
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.20)",
-    backgroundColor: "rgba(255,255,255,0.08)",
-    overflow: "hidden",
-    paddingVertical: 2,
-  },
-  payDayModalBackdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.45)",
-  },
-  payDayModalSheet: {
-    backgroundColor: EXPENSES_TOTAL_BLUE,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(255,255,255,0.20)",
-    paddingHorizontal: 14,
-    paddingTop: 10,
-    paddingBottom: 14,
-    gap: 8,
-  },
-  payDayModalHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 4,
-  },
-  payDayModalTitle: {
-    color: "#ffffff",
-    fontSize: 14,
-    fontWeight: "800",
-  },
-  payDayModalAction: {
-    color: "#ffffff",
-    fontSize: 15,
-    fontWeight: "800",
   },
   row: { flexDirection: "row", gap: 10 },
   rowInput: { flex: 1 },

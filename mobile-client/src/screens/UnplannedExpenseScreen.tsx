@@ -271,6 +271,22 @@ export default function UnplannedExpenseScreen({ navigation }: Props) {
             contentContainerStyle={[s.scrollContent, { paddingTop: topOffset + 12 }]}
             keyboardShouldPersistTaps="handled"
           >
+            <Pressable
+              style={s.scanShortcutCard}
+              onPress={() => navigation.navigate("ScanReceipt")}
+              accessibilityRole="button"
+              accessibilityLabel="Scan receipt"
+            >
+              <View style={s.scanShortcutIconWrap}>
+                <Ionicons name="camera" size={18} color={T.accent} />
+              </View>
+              <View style={s.scanShortcutCopy}>
+                <Text style={s.scanShortcutTitle}>Scan receipt instead</Text>
+                <Text style={s.scanShortcutSub}>Use the camera to prefill amount, merchant, and date.</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={T.textDim} />
+            </Pressable>
+
             {/* ── Amount hero ── */}
             <View style={s.amountCard}>
               <View style={s.amountLabelRow}>
@@ -571,6 +587,41 @@ const s = StyleSheet.create({
   flex:        { flex: 1 },
   center:      { flex: 1, alignItems: "center", justifyContent: "center" },
   scrollContent: { paddingHorizontal: 18, paddingBottom: 40, gap: 12 },
+
+  scanShortcutCard: {
+    backgroundColor: T.card,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: T.border,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  scanShortcutIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: `${T.accent}18`,
+  },
+  scanShortcutCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  scanShortcutTitle: {
+    color: T.text,
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  scanShortcutSub: {
+    color: T.textDim,
+    fontSize: 12,
+    fontWeight: "600",
+    marginTop: 2,
+  },
 
   /* Amount card */
   amountCard: {

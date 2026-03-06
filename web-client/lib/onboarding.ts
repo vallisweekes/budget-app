@@ -544,14 +544,14 @@ export async function saveOnboardingDraft(userId: string, input: OnboardingInput
   }
 }
 
-async function ensurePersonalPlan(userId: string) {
+async function ensurePersonalPlan(userId: string): Promise<{ id: string; createdAt: Date }> {
   const existing = await prisma.budgetPlan.findFirst({
     where: { userId, kind: "personal" },
     orderBy: { createdAt: "desc" },
-    select: { id: true },
+    select: { id: true, createdAt: true },
   });
 
-  if (existing) return existing.id;
+  if (existing) return existing;
 
   const created = await prisma.budgetPlan.create({
     data: {
@@ -559,11 +559,11 @@ async function ensurePersonalPlan(userId: string) {
       kind: "personal",
       name: "Personal",
     },
-    select: { id: true },
+    select: { id: true, createdAt: true },
   });
 
   await ensureDefaultCategoriesForBudgetPlan({ budgetPlanId: created.id });
-  return created.id;
+  return created;
 }
 
 export async function completeOnboarding(userId: string) {
@@ -574,7 +574,8 @@ export async function completeOnboarding(userId: string) {
     throw new Error("Onboarding profile not found. Save onboarding draft first.");
   }
 
-  const budgetPlanId = await ensurePersonalPlan(userId);
+  const budgetPlan = await ensurePersonalPlan(userId);
+  const budgetPlanId = budgetPlan.id;
 
   const planningYears = clampIntRange(toNullableNumber(profile.planningYears), 1, 30) ?? 10;
   const savingsGoalAmount = Number(profile.savingsGoalAmount ?? 0);
@@ -588,6 +589,7 @@ export async function completeOnboarding(userId: string) {
     now,
     payDate: payDay ?? 1,
     payFrequency: normalizePayFrequency(profile.payFrequency),
+    planCreatedAt: budgetPlan.createdAt,
   });
   const activePeriodMonth = activePayPeriod.start.getUTCMonth() + 1;
   const activePeriodYear = activePayPeriod.start.getUTCFullYear();
@@ -798,9 +800,14 @@ export async function runOnboardingRepairPass(userId: string) {
   const profile = await onboardingDelegate(prisma).findUnique({ where: { userId } });
   if (!profile || profile.status !== "completed") return;
 
-  const budgetPlanId = (typeof profile.generatedPlanId === "string" && profile.generatedPlanId.trim())
-    ? profile.generatedPlanId.trim()
+  const budgetPlan = (typeof profile.generatedPlanId === "string" && profile.generatedPlanId.trim())
+    ? await prisma.budgetPlan.findUnique({
+        where: { id: profile.generatedPlanId.trim() },
+        select: { id: true, createdAt: true },
+      })
     : await ensurePersonalPlan(userId);
+  const ensuredBudgetPlan = budgetPlan ?? await ensurePersonalPlan(userId);
+  const budgetPlanId = ensuredBudgetPlan.id;
 
   const now = new Date();
   const planningYears = clampIntRange(toNullableNumber(profile.planningYears), 1, 30) ?? 10;
@@ -810,6 +817,7 @@ export async function runOnboardingRepairPass(userId: string) {
     now,
     payDate: payDay ?? 1,
     payFrequency,
+    planCreatedAt: ensuredBudgetPlan.createdAt,
   });
   const activePeriodMonth = activePayPeriod.start.getUTCMonth() + 1;
   const activePeriodYear = activePayPeriod.start.getUTCFullYear();

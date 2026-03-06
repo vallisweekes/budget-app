@@ -247,6 +247,7 @@ model BudgetPlan {
   monthlyAllocations MonthlyAllocation[]
   allocationDefinitions AllocationDefinition[]
   monthlyAllocationItems MonthlyAllocationItem[]
+  expenseSummarySnapshots ExpenseSummarySnapshot[]
   receipts   Receipt[]
   
   createdAt  DateTime @default(now())
@@ -374,6 +375,8 @@ model Expense {
   isAllocation  Boolean    @default(false)
   // If true, this is a direct debit / standing order — collected automatically.
   isDirectDebit Boolean    @default(false)
+  // True only for user-logged extra/unplanned payments.
+  isExtraLoggedExpense Boolean @default(false)
   // If true, this bill has been converted into an expense-backed debt and should
   // not appear in month expense totals/lists (debt tracking replaces it).
   isMovedToDebt Boolean    @default(false)
@@ -458,6 +461,36 @@ model ExpensePayment {
   @@index([source])
   @@index([debtId])
   @@index([periodKey])
+}
+
+model ExpenseSummarySnapshot {
+  id               String     @id @default(cuid())
+  budgetPlanId     String
+  budgetPlan       BudgetPlan @relation(fields: [budgetPlanId], references: [id], onDelete: Cascade)
+  scope            String
+  month            Int
+  year             Int
+  payDate          Int
+  payFrequency     String
+  periodKey        String?
+  periodLabel      String?
+  periodIndex      Int?
+  periodStart      DateTime?
+  periodEnd        DateTime?
+  periodRangeLabel String?
+  totalCount       Int
+  totalAmount      Decimal    @db.Decimal(12, 2)
+  paidCount        Int
+  paidAmount       Decimal    @db.Decimal(12, 2)
+  unpaidCount      Int
+  unpaidAmount     Decimal    @db.Decimal(12, 2)
+  categoryBreakdown Json
+  sourceMaxUpdatedAt DateTime?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  @@unique([budgetPlanId, scope, month, year])
+  @@index([budgetPlanId, scope, periodKey])
 }
 
 model Income {

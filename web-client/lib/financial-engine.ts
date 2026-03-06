@@ -49,6 +49,7 @@ export type CreateExpenseInput = {
   paid?: boolean;
   isAllocation?: boolean;
   isDirectDebit?: boolean;
+  isExtraLoggedExpense?: boolean;
   distributeMonths?: boolean;
   distributeYears?: boolean;
   dueDate?: string;       // YYYY-MM-DD
@@ -418,6 +419,7 @@ export async function createExpense(input: CreateExpenseInput): Promise<CreateEx
     paid    = false,
     isAllocation  = false,
     isDirectDebit = false,
+    isExtraLoggedExpense = false,
     distributeMonths = false,
     distributeYears  = false,
     dueDate,
@@ -467,6 +469,7 @@ export async function createExpense(input: CreateExpenseInput): Promise<CreateEx
       paidAmount:     paid ? amount : 0,
       isAllocation,
       isDirectDebit,
+      isExtraLoggedExpense,
       dueDate,
       paymentSource: effectivePaymentSource,
       cardDebtId: effectiveFunding === "credit_card" ? (cardDebtId || debtId || undefined) : undefined,

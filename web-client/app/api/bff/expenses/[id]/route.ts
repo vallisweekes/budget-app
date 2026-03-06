@@ -135,15 +135,8 @@ type SerializableExpense = {
   updatedAt: Date;
   paymentSource?: string | null;
   cardDebtId?: string | null;
+  isExtraLoggedExpense?: boolean | null;
 };
-
-function isExtraLoggedExpense(expense: {
-  dueDate?: Date | string | null;
-  isAllocation?: boolean | null;
-  isDirectDebit?: boolean | null;
-}): boolean {
-  return !expense.dueDate && !Boolean(expense.isAllocation ?? false) && !Boolean(expense.isDirectDebit ?? false);
-}
 
 function normalizeExpensePaymentSource(value: unknown): "income" | "credit_card" | "savings" | "extra_untracked" {
   const v = String(value ?? "").trim().toLowerCase();
@@ -183,7 +176,7 @@ function serializeExpense(expense: SerializableExpense) {
     })(),
     paymentSource: expense.paymentSource ?? "income",
     cardDebtId: expense.cardDebtId ?? null,
-    isExtraLoggedExpense: isExtraLoggedExpense(expense),
+    isExtraLoggedExpense: Boolean(expense.isExtraLoggedExpense ?? false),
   };
 }
 

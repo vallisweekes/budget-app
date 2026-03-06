@@ -126,12 +126,12 @@ export function buildDashboardDerived(params: {
   const periodEnd = activePeriod.end;
   const payPeriodStart = startOfDay(periodStart);
   const payPeriodEnd = endOfDay(periodEnd);
-  const payPeriodLabel = formatPayPeriodLabel(periodStart, periodEnd);
+  const payPeriodLabel = dashboard?.payPeriodLabel ?? formatPayPeriodLabel(periodStart, periodEnd);
 
   const previousPeriodEnd = new Date(periodStart.getTime());
   previousPeriodEnd.setDate(previousPeriodEnd.getDate() - 1);
   const previousPeriod = resolveActivePayPeriod({ now: previousPeriodEnd, payDate: pay, payFrequency });
-  const previousPayPeriodLabel = formatPayPeriodLabel(previousPeriod.start, previousPeriod.end);
+  const previousPayPeriodLabel = dashboard?.previousPayPeriodLabel ?? formatPayPeriodLabel(previousPeriod.start, previousPeriod.end);
 
   const isDateInPayPeriod = (date: Date | null) => {
     if (!date || Number.isNaN(date.getTime())) return false;

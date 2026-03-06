@@ -27,6 +27,7 @@ import IncomeHomeScreen from "@/screens/IncomeHomeScreen";
 import IncomeMonthScreen from "@/screens/IncomeMonthScreen";
 import ExpensesScreen from "@/screens/ExpensesScreen";
 import CategoryExpensesScreen from "@/screens/CategoryExpensesScreen";
+import LoggedExpensesScreen from "@/screens/LoggedExpensesScreen";
 import ExpenseDetailScreen from "@/screens/ExpenseDetailScreen";
 import UnplannedExpenseScreen from "@/screens/UnplannedExpenseScreen";
 import ScanReceiptScreen from "@/screens/ScanReceiptScreen";
@@ -263,6 +264,7 @@ function ExpensesStackNavigator() {
     <ExpensesStack.Navigator screenOptions={APP_STACK_SCREEN_OPTIONS}>
       <ExpensesStack.Screen name="ExpensesList" component={ExpensesScreen} />
       <ExpensesStack.Screen name="CategoryExpenses" component={CategoryExpensesScreen} />
+      <ExpensesStack.Screen name="LoggedExpenses" component={LoggedExpensesScreen} />
       <ExpensesStack.Screen name="ExpenseDetail" component={ExpenseDetailScreen} />
       <ExpensesStack.Screen name="UnplannedExpense" component={UnplannedExpenseScreen} />
       <ExpensesStack.Screen name="ScanReceipt" component={ScanReceiptScreen} />
@@ -797,6 +799,7 @@ function MainTabs() {
           if (isDebtDetail || isExpenseDetail) return null;
 
           const isCategoryExpenses = deepestRoute?.name === "CategoryExpenses";
+          const isLoggedExpenses = deepestRoute?.name === "LoggedExpenses";
           const isExpensesList = deepestRoute?.name === "ExpensesList";
           const isUnplannedExpense = deepestRoute?.name === "UnplannedExpense";
           const isScanReceipt = deepestRoute?.name === "ScanReceipt";
@@ -847,13 +850,23 @@ function MainTabs() {
             : undefined;
           const categoryExpensesMonth = Number(deepestRoute?.params?.month);
           const categoryExpensesYear = Number(deepestRoute?.params?.year);
+          const expensesListMonth = Number(deepestRoute?.params?.month);
+          const expensesListYear = Number(deepestRoute?.params?.year);
+          const expensesListLoggedExpensesCountRaw = Number(deepestRoute?.params?.loggedExpensesCount);
+          const expensesListLoggedExpensesCount = Number.isFinite(expensesListLoggedExpensesCountRaw)
+            ? Math.max(0, Math.floor(expensesListLoggedExpensesCountRaw))
+            : 0;
           const hasCategoryMonthYear = Number.isFinite(categoryExpensesMonth)
             && categoryExpensesMonth >= 1
             && categoryExpensesMonth <= 12
             && Number.isFinite(categoryExpensesYear);
-          const categoryLoggedPaymentsCount = Number(deepestRoute?.params?.loggedPaymentsCount);
-          const hasCategoryLoggedPayments = Number.isFinite(categoryLoggedPaymentsCount) && categoryLoggedPaymentsCount > 0;
-          const expensesCenterLabel = isCategoryExpenses
+          const categoryLoggedPaymentsCountRaw = Number(deepestRoute?.params?.loggedPaymentsCount);
+          const categoryLoggedPaymentsCount = Number.isFinite(categoryLoggedPaymentsCountRaw)
+            ? Math.max(0, Math.floor(categoryLoggedPaymentsCountRaw))
+            : 0;
+          const expensesCenterLabel = isLoggedExpenses
+            ? "Logged expense"
+            : isCategoryExpenses
             ? categoryExpensesName
             : isUnplannedExpense
               ? "Log Expense · Unplanned"
@@ -904,36 +917,72 @@ function MainTabs() {
             (navigation as any).navigate("NotificationSettings", { initialTab: "notifications" });
           };
 
-          const categoryLoggedPaymentsRightContent = isCategoryExpenses && hasCategoryLoggedPayments ? (
+          const categoryLoggedPaymentsRightContent = isCategoryExpenses ? (
             <Pressable
               onPress={() => {
-                (navigation as any).setParams({ openLoggedPaymentsAt: Date.now() });
+                (navigation as any).navigate("Expenses" as any, {
+                  screen: "LoggedExpenses",
+                  params: {
+                    categoryId: deepestRoute?.params?.categoryId,
+                    categoryName: deepestRoute?.params?.categoryName,
+                    color: deepestRoute?.params?.color ?? null,
+                    icon: deepestRoute?.params?.icon ?? null,
+                    month: categoryExpensesMonth,
+                    year: categoryExpensesYear,
+                    budgetPlanId: deepestRoute?.params?.budgetPlanId ?? null,
+                    currency: deepestRoute?.params?.currency,
+                  },
+                });
               }}
               style={s.loggedPaymentsBtn}
               hitSlop={10}
               accessibilityRole="button"
-              accessibilityLabel="Open logged payments"
+              accessibilityLabel="Open logged expense"
             >
               <Ionicons name="list-outline" size={14} color={T.onAccent} />
-              <Text style={s.loggedPaymentsBtnText}>Logged payments</Text>
+              <Text style={s.loggedPaymentsBtnText}>Logged expense</Text>
               <View style={s.loggedPaymentsCountPill}>
                 <Text style={s.loggedPaymentsCountText}>{categoryLoggedPaymentsCount}</Text>
               </View>
             </Pressable>
           ) : undefined;
 
+          const categoryHeaderRightContent = isCategoryExpenses
+            ? (categoryLoggedPaymentsRightContent ?? <View style={{ width: 34, height: 34 }} />)
+            : undefined;
+
+          const expensesLoggedRightContent = isExpensesList && expensesListLoggedExpensesCount > 0 ? (
+            <Pressable
+              onPress={() => {
+                (navigation as any).navigate("Expenses" as any, {
+                  screen: "LoggedExpenses",
+                  params: {
+                    categoryId: null,
+                    categoryName: "All categories",
+                    color: null,
+                    icon: null,
+                    month: Number.isFinite(expensesListMonth) ? expensesListMonth : new Date().getMonth() + 1,
+                    year: Number.isFinite(expensesListYear) ? expensesListYear : new Date().getFullYear(),
+                    budgetPlanId: deepestRoute?.params?.budgetPlanId ?? null,
+                    currency: deepestRoute?.params?.currency ?? "£",
+                  },
+                });
+              }}
+              style={s.loggedPaymentsBtn}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel="Open logged expenses"
+            >
+              <Ionicons name="list-outline" size={14} color={T.onAccent} />
+              <Text style={s.loggedPaymentsBtnText}>Logged expenses</Text>
+              <View style={s.loggedPaymentsCountPill}>
+                <Text style={s.loggedPaymentsCountText}>{expensesListLoggedExpensesCount}</Text>
+              </View>
+            </Pressable>
+          ) : undefined;
+
           const expensesListLeftContent = isExpensesList ? (
             <View style={{ flexDirection: "row", gap: 8 }}>
-              <Pressable
-                onPress={() => navigation.navigate("Expenses" as any, { screen: "ScanReceipt" } as any)}
-                style={s.quickActionBtn}
-                hitSlop={10}
-                accessibilityRole="button"
-                accessibilityLabel="Scan receipt"
-              >
-                <Ionicons name="camera" size={17} color={T.onAccent} />
-                <Text style={s.quickActionText}>Scan</Text>
-              </Pressable>
               <Pressable
                 onPress={() => navigation.navigate("Expenses" as any, { screen: "UnplannedExpense" } as any)}
                 style={s.quickActionBtn}
@@ -966,8 +1015,42 @@ function MainTabs() {
               onIncome={() => {}}
               onAnalytics={openAnalytics}
               onNotifications={openNotifications}
-              leftVariant={isSettings || isCategoryExpenses || isUnplannedExpense || isScanReceipt || isDebtAnalytics ? "back" : "avatar"}
-              onBack={isCategoryExpenses
+              leftVariant={isSettings || isCategoryExpenses || isLoggedExpenses || isUnplannedExpense || isScanReceipt || isDebtAnalytics ? "back" : "avatar"}
+              onBack={isLoggedExpenses
+                ? () => {
+                  if (deepestRoute?.params?.categoryId) {
+                    navigation.navigate(
+                      "Expenses" as any,
+                      {
+                        screen: "CategoryExpenses",
+                        params: {
+                          categoryId: deepestRoute?.params?.categoryId,
+                          categoryName: deepestRoute?.params?.categoryName,
+                          color: deepestRoute?.params?.color ?? null,
+                          icon: deepestRoute?.params?.icon ?? null,
+                          month: Number(deepestRoute?.params?.month),
+                          year: Number(deepestRoute?.params?.year),
+                          budgetPlanId: deepestRoute?.params?.budgetPlanId ?? null,
+                          currency: deepestRoute?.params?.currency,
+                        },
+                      } as any
+                    );
+                    return;
+                  }
+                  navigation.navigate(
+                    "Expenses" as any,
+                    {
+                      screen: "ExpensesList",
+                      params: {
+                        month: Number(deepestRoute?.params?.month),
+                        year: Number(deepestRoute?.params?.year),
+                        budgetPlanId: deepestRoute?.params?.budgetPlanId ?? null,
+                        currency: deepestRoute?.params?.currency,
+                      },
+                    } as any
+                  );
+                }
+                : isCategoryExpenses
                 ? () => navigation.navigate(
                   "Expenses" as any,
                   hasCategoryMonthYear
@@ -990,7 +1073,7 @@ function MainTabs() {
               centerLabel={isGoals ? "Goals" : expensesCenterLabel}
               centerContent={headerCenterContent}
               leftContent={expensesListLeftContent}
-              rightContent={categoryLoggedPaymentsRightContent ?? goalsRightContent}
+              rightContent={(isLoggedExpenses ? undefined : categoryHeaderRightContent ?? expensesLoggedRightContent) ?? goalsRightContent}
               showIncomeAction={false}
               compactActionsMenu={isSettings || (isIncomeTab && isIncomeMonth)}
               onLogout={isSettings ? signOut : undefined}

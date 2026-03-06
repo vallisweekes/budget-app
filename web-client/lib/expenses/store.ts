@@ -296,7 +296,7 @@ export async function addOrUpdateExpenseAcrossMonths(
   budgetPlanId: string,
   year: number,
   months: MonthKey[],
-  item: Omit<ExpenseItem, "id"> & { id?: string; paymentSource?: string; cardDebtId?: string; periodKey?: string }
+  item: Omit<ExpenseItem, "id"> & { id?: string; paymentSource?: string; cardDebtId?: string; periodKey?: string; isExtraLoggedExpense?: boolean }
 ): Promise<void> {
 	const targetMonths = Array.from(new Set(months));
 	const targetName = normalizeExpenseName(item.name);
@@ -331,6 +331,7 @@ export async function addOrUpdateExpenseAcrossMonths(
   if (!seedSeriesKey) seedSeriesKey = normalizeSeriesKey(logo.merchantDomain ?? targetName);
 	const paymentSource = (item as any).paymentSource ?? "income";
 	const cardDebtId = (item as any).cardDebtId ?? null;
+  const isExtraLoggedExpense = (item as any).isExtraLoggedExpense === true;
 	const payDate = await resolvePayDate(budgetPlanId);
 
 	for (const month of targetMonths) {
@@ -371,6 +372,7 @@ export async function addOrUpdateExpenseAcrossMonths(
           logoSource: logo.logoSource,
           paymentSource,
           cardDebtId,
+          isExtraLoggedExpense: (item as any).isExtraLoggedExpense === undefined ? undefined : isExtraLoggedExpense,
           periodKey,
         }) as any,
 			});
@@ -396,6 +398,7 @@ export async function addOrUpdateExpenseAcrossMonths(
 				dueDate: item.dueDate ? new Date(item.dueDate) : null,
         paymentSource,
         cardDebtId,
+        isExtraLoggedExpense,
         periodKey,
       }) as any,
 		});
