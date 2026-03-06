@@ -18,7 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { apiFetch } from "@/lib/api";
-import type { Category, Expense, ExpenseCategoryBreakdown } from "@/lib/apiTypes";
+import type { Category, CreditCard, Expense, ExpenseCategoryBreakdown, ExpensePaymentSource } from "@/lib/apiTypes";
 import { buildEditExpenseBody, parseExpenseAmount } from "@/lib/domain/expenseMutations";
 import { resolveCategoryColor } from "@/lib/categoryColors";
 import { T } from "@/lib/theme";
@@ -164,6 +164,9 @@ export default function EditExpenseSheet({
   const [isDirectDebit, setIsDirectDebit] = useState(false);
   const [distributeMonths, setDistributeMonths] = useState(false);
   const [distributeYears, setDistributeYears] = useState(false);
+  const [paymentSource, setPaymentSource] = useState<ExpensePaymentSource>("income");
+  const [cardDebtId, setCardDebtId] = useState("");
+  const [cards, setCards] = useState<CreditCard[]>([]);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -197,6 +200,8 @@ export default function EditExpenseSheet({
       setIsDirectDebit(Boolean(expense.isDirectDebit));
       setDistributeMonths(false);
       setDistributeYears(false);
+      setPaymentSource((expense.paymentSource as ExpensePaymentSource) ?? "income");
+      setCardDebtId(expense.cardDebtId ?? "");
       setSubmitting(false);
       setError(null);
       setShowPicker(false);
@@ -210,9 +215,41 @@ export default function EditExpenseSheet({
         setShowPicker(false);
         setDistributeMonths(false);
         setDistributeYears(false);
+        setCards([]);
       }, 250);
     }
   }, [expense, slideY, visible]);
+
+    useEffect(() => {
+      if (!visible) return;
+      if (!expense?.isExtraLoggedExpense) {
+        setCards([]);
+        return;
+      }
+      void (async () => {
+        try {
+          const qp = budgetPlanId ? `?budgetPlanId=${encodeURIComponent(budgetPlanId)}` : "";
+          const data = await apiFetch<CreditCard[]>(`/api/bff/credit-cards${qp}`);
+          const nextCards = Array.isArray(data) ? data : [];
+          setCards(nextCards);
+          if (paymentSource === "credit_card") {
+            if (nextCards.length === 1) {
+              setCardDebtId((prev) => prev || nextCards[0]!.id);
+            } else if (!nextCards.some((c) => c.id === (cardDebtId || ""))) {
+              setCardDebtId("");
+            }
+          }
+        } catch {
+          setCards([]);
+        }
+      })();
+    }, [budgetPlanId, cardDebtId, expense?.isExtraLoggedExpense, paymentSource, visible]);
+
+    useEffect(() => {
+      if (paymentSource !== "credit_card" && cardDebtId) {
+        setCardDebtId("");
+      }
+    }, [cardDebtId, paymentSource]);
 
   useEffect(() => {
     const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
@@ -250,7 +287,14 @@ export default function EditExpenseSheet({
     return parseExpenseAmount(String(amount ?? ""));
   }, [amount]);
 
-  const canSubmit = Boolean(expense) && name.trim().length > 0 && Number.isFinite(parsedAmount) && parsedAmount >= 0 && categoryId.trim().length > 0;
+  const needsCardSelection = Boolean(expense?.isExtraLoggedExpense) && paymentSource === "credit_card";
+  const canSubmit =
+    Boolean(expense) &&
+    name.trim().length > 0 &&
+    Number.isFinite(parsedAmount) &&
+    parsedAmount >= 0 &&
+    categoryId.trim().length > 0 &&
+    (!needsCardSelection || cardDebtId.trim().length > 0);
   const editPeriodLabel = useMemo(() => {
     const span = String(periodSpanLabel ?? "").trim();
     const range = String(periodRangeLabel ?? "").trim();
@@ -297,6 +341,8 @@ export default function EditExpenseSheet({
           isDirectDebit,
           distributeMonths,
           distributeYears,
+          paymentSource: expense.isExtraLoggedExpense ? paymentSource : undefined,
+          cardDebtId: expense.isExtraLoggedExpense ? cardDebtId : undefined,
         }),
       });
       onSaved();
@@ -421,6 +467,56 @@ export default function EditExpenseSheet({
                       <View style={[s.toggleThumb, isAllocation && s.toggleThumbOn]} />
                     </TouchableOpacity>
                   </View>
+
+                  {expense?.isExtraLoggedExpense ? (
+                    <View style={es.sourceWrap}>
+                      <Text style={s.label}>Funds from</Text>
+                      <View style={es.sourceRow}>
+                        {[
+                          { key: "income", label: "Income" },
+                          { key: "savings", label: "Savings" },
+                          { key: "credit_card", label: "Card" },
+                          { key: "extra_untracked", label: "Other" },
+                        ].map((opt) => {
+                          const active = paymentSource === (opt.key as ExpensePaymentSource);
+                          return (
+                            <Pressable
+                              key={opt.key}
+                              style={[es.sourceChip, active && es.sourceChipActive]}
+                              onPress={() => setPaymentSource(opt.key as ExpensePaymentSource)}
+                              disabled={submitting}
+                            >
+                              <Text style={[es.sourceChipTxt, active && es.sourceChipTxtActive]}>{opt.label}</Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+
+                      {paymentSource === "credit_card" ? (
+                        <View style={{ marginTop: 10 }}>
+                          <Text style={[s.label, { marginBottom: 8 }]}>Card</Text>
+                          <View style={es.cardRow}>
+                            {cards.map((card) => {
+                              const active = cardDebtId === card.id;
+                              return (
+                                <Pressable
+                                  key={card.id}
+                                  style={[es.cardChip, active && es.cardChipActive]}
+                                  onPress={() => setCardDebtId(card.id)}
+                                  disabled={submitting}
+                                >
+                                  <Text style={[es.cardChipTxt, active && es.cardChipTxtActive]} numberOfLines={1}>
+                                    {card.name}
+                                  </Text>
+                                </Pressable>
+                              );
+                            })}
+                          </View>
+                          {cards.length === 0 ? <Text style={es.helpTxt}>No credit cards available.</Text> : null}
+                        </View>
+                      ) : null}
+                    </View>
+                  ) : null}
 
                   <View style={s.toggleRow}>
                     <View style={s.toggleInfo}>
@@ -598,3 +694,64 @@ export default function EditExpenseSheet({
     </Modal>
   );
 }
+
+const es = StyleSheet.create({
+  sourceWrap: {
+    marginTop: 2,
+    gap: 6,
+  },
+  sourceRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  sourceChip: {
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.16)",
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: "rgba(255,255,255,0.04)",
+  },
+  sourceChipActive: {
+    borderColor: T.accent,
+    backgroundColor: "rgba(79,112,255,0.20)",
+  },
+  sourceChipTxt: {
+    color: T.textMuted,
+    fontWeight: "700",
+  },
+  sourceChipTxtActive: {
+    color: "#ffffff",
+  },
+  cardRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  cardChip: {
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.16)",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: "rgba(255,255,255,0.03)",
+    maxWidth: "100%",
+  },
+  cardChipActive: {
+    borderColor: T.accent,
+    backgroundColor: "rgba(79,112,255,0.20)",
+  },
+  cardChipTxt: {
+    color: T.text,
+    fontWeight: "700",
+  },
+  cardChipTxtActive: {
+    color: "#ffffff",
+  },
+  helpTxt: {
+    marginTop: 6,
+    color: T.textMuted,
+    fontSize: 12,
+  },
+});

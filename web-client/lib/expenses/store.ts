@@ -296,7 +296,7 @@ export async function addOrUpdateExpenseAcrossMonths(
   budgetPlanId: string,
   year: number,
   months: MonthKey[],
-  item: Omit<ExpenseItem, "id"> & { id?: string; paymentSource?: string; cardDebtId?: string }
+  item: Omit<ExpenseItem, "id"> & { id?: string; paymentSource?: string; cardDebtId?: string; periodKey?: string }
 ): Promise<void> {
 	const targetMonths = Array.from(new Set(months));
 	const targetName = normalizeExpenseName(item.name);
@@ -345,7 +345,12 @@ export async function addOrUpdateExpenseAcrossMonths(
       select: { id: true, seriesKey: true },
 		});
 
-		const periodKey = getExpensePeriodKey({ dueDate: item.dueDate ? new Date(item.dueDate) : null, year, month: monthNumber }, payDate);
+    const explicitPeriodKey =
+      typeof (item as any).periodKey === "string" && /^\d{4}-\d{2}-\d{2}$/.test(String((item as any).periodKey).trim())
+        ? String((item as any).periodKey).trim()
+        : null;
+    const periodKey =
+      explicitPeriodKey ?? getExpensePeriodKey({ dueDate: item.dueDate ? new Date(item.dueDate) : null, year, month: monthNumber }, payDate);
 
 		if (existing) {
 			await prisma.expense.update({

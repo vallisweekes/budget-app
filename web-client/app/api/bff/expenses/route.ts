@@ -160,6 +160,7 @@ function serializeExpense(
     lastPaymentAt: effectiveLastPaymentAt ? effectiveLastPaymentAt.toISOString() : null,
     paymentSource: expense.paymentSource ?? "income",
     cardDebtId: expense.cardDebtId ?? null,
+    isExtraLoggedExpense: !expense.dueDate && !Boolean(expense.isAllocation ?? false) && !Boolean(expense.isDirectDebit ?? false),
     effectiveDueDate: periodMeta?.effectiveDueDate ?? null,
     inSelectedPayPeriod: periodMeta?.inSelectedPayPeriod ?? false,
   };
@@ -433,6 +434,7 @@ export async function POST(req: NextRequest) {
     amount?: unknown;
     month?: unknown;
     year?: unknown;
+    periodKey?: unknown;
     categoryId?: unknown;
     paid?: unknown;
     isAllocation?: unknown;
@@ -455,8 +457,12 @@ export async function POST(req: NextRequest) {
   const name = typeof body.name === "string" ? body.name.trim() : "";
   const seriesKey = typeof body.seriesKey === "string" ? body.seriesKey.trim() : "";
   const amount = Number(body.amount);
-  const month = Number(body.month);
-  const year = Number(body.year);
+  const inputMonth = Number(body.month);
+  const inputYear = Number(body.year);
+  const periodKey = typeof body.periodKey === "string" ? body.periodKey.trim() : "";
+  const periodDate = /^\d{4}-\d{2}-\d{2}$/.test(periodKey) ? parseIsoDate(periodKey) : null;
+  const month = Number.isFinite(inputMonth) ? inputMonth : (periodDate ? periodDate.getUTCMonth() + 1 : Number.NaN);
+  const year = Number.isFinite(inputYear) ? inputYear : (periodDate ? periodDate.getUTCFullYear() : Number.NaN);
   const categoryId = typeof body.categoryId === "string" ? body.categoryId.trim() : undefined;
   const paid = toBool(body.paid);
   const isAllocation = toBool(body.isAllocation);
@@ -479,6 +485,7 @@ export async function POST(req: NextRequest) {
   if (!name) return badRequest("Name is required");
   if (seriesKey && seriesKey.length > 160) return badRequest("seriesKey is too long");
   if (!Number.isFinite(amount) || amount < 0) return badRequest("Amount must be a number >= 0");
+  if (periodKey && !periodDate) return badRequest("Invalid periodKey");
   if (!Number.isFinite(month) || month < 1 || month > 12) return badRequest("Invalid month");
   if (!Number.isFinite(year) || year < 1900) return badRequest("Invalid year");
   if (dueDate) {
@@ -507,6 +514,7 @@ export async function POST(req: NextRequest) {
     cardDebtId: cardDebtId || undefined,
     debtId: debtId || undefined,
     newLoanName: newLoanName || undefined,
+    periodKey: periodDate ? periodDate.toISOString().slice(0, 10) : undefined,
   });
 
   const created = await prisma.expense.findFirst({

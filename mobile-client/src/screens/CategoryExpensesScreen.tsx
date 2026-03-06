@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -96,6 +96,10 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
   }, [allCategoriesForAddSheet, categoryId, categoryName, color, icon]);
 
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [loggedPayments, setLoggedPayments] = useState<Expense[]>([]);
+  const [loggedPaymentsOpen, setLoggedPaymentsOpen] = useState(false);
+  const lastOpenLoggedPaymentsTokenRef = useRef<number | null>(null);
+  const lastSyncedLoggedCountRef = useRef<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -156,9 +160,11 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
         const cachedAll = expensesListCache.get(cacheKey);
         const cachedSettings = settingsSliceCache.get(settingsKey);
         if (cachedAll && cachedSettings) {
-          setExpenses(
-            cachedAll.filter((e) => (isUncategorisedBucket ? !e.categoryId : e.categoryId === categoryId))
-          );
+          const matchingCategory = cachedAll.filter((e) => (isUncategorisedBucket ? !e.categoryId : e.categoryId === categoryId));
+          const nextMain = matchingCategory.filter((entry) => !entry.isExtraLoggedExpense || entry.paymentSource === "income");
+          const nextLogged = matchingCategory.filter((entry) => entry.isExtraLoggedExpense && entry.paymentSource !== "income");
+          setExpenses(nextMain);
+          setLoggedPayments(nextLogged);
           setPayDate(cachedSettings.payDate);
           setPayFrequency(cachedSettings.payFrequency);
           setLogoFailed({});
@@ -182,9 +188,11 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
       };
       settingsSliceCache.set(settingsKey, settingsSlice);
 
-      setExpenses(
-        allExpenses.filter((e) => (isUncategorisedBucket ? !e.categoryId : e.categoryId === categoryId))
-      );
+      const matchingCategory = allExpenses.filter((e) => (isUncategorisedBucket ? !e.categoryId : e.categoryId === categoryId));
+      const nextMain = matchingCategory.filter((entry) => !entry.isExtraLoggedExpense || entry.paymentSource === "income");
+      const nextLogged = matchingCategory.filter((entry) => entry.isExtraLoggedExpense && entry.paymentSource !== "income");
+      setExpenses(nextMain);
+      setLoggedPayments(nextLogged);
       setPayDate(settingsSlice.payDate);
       setPayFrequency(settingsSlice.payFrequency);
       setLogoFailed({});
@@ -212,6 +220,21 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
     }
     void load();
   }, [budgetPlanId, load, month, year]);
+
+  useEffect(() => {
+    const nextCount = loggedPayments.length;
+    if (lastSyncedLoggedCountRef.current === nextCount) return;
+    lastSyncedLoggedCountRef.current = nextCount;
+    navigation.setParams({ loggedPaymentsCount: nextCount });
+  }, [loggedPayments.length, navigation]);
+
+  useEffect(() => {
+    const openAt = Number(route.params?.openLoggedPaymentsAt);
+    if (!Number.isFinite(openAt)) return;
+    if (lastOpenLoggedPaymentsTokenRef.current === openAt) return;
+    lastOpenLoggedPaymentsTokenRef.current = openAt;
+    setLoggedPaymentsOpen(true);
+  }, [route.params?.openLoggedPaymentsAt]);
 
   const plannedTotal = useMemo(() => expenses.reduce((s, e) => s + Number(e.amount), 0), [expenses]);
   const paidTotal = useMemo(
@@ -547,6 +570,61 @@ export default function CategoryExpensesScreen({ route, navigation }: Props) {
         }}
         onClose={() => setAddSheetOpen(false)}
       />
+
+      <Modal
+        visible={loggedPaymentsOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setLoggedPaymentsOpen(false)}
+      >
+        <View style={styles.pickerOverlay}>
+          <Pressable style={styles.pickerBackdrop} onPress={() => setLoggedPaymentsOpen(false)} />
+          <View style={styles.loggedSheet}>
+            <View style={styles.pickerHandle} />
+            <View style={styles.loggedHeaderRow}>
+              <Text style={styles.loggedTitle}>Logged payments</Text>
+              <Text style={styles.loggedCount}>{loggedPayments.length}</Text>
+            </View>
+
+            {loggedPayments.length === 0 ? (
+              <View style={styles.loggedEmptyWrap}>
+                <Text style={styles.emptyTxt}>No logged payments in this period.</Text>
+              </View>
+            ) : (
+              <FlatList
+                data={loggedPayments}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={styles.loggedList}
+                renderItem={({ item }) => (
+                  <Pressable
+                    style={styles.loggedRow}
+                    onPress={() => {
+                      setLoggedPaymentsOpen(false);
+                      navigation.navigate("ExpenseDetail", {
+                        expenseId: item.id,
+                        expenseName: item.name,
+                        categoryId,
+                        categoryName,
+                        color,
+                        month,
+                        year,
+                        budgetPlanId,
+                        currency,
+                      });
+                    }}
+                  >
+                    <View style={styles.loggedRowTextWrap}>
+                      <Text style={styles.loggedRowName} numberOfLines={1}>{item.name}</Text>
+                      <Text style={styles.loggedRowMeta}>{item.paymentSource.replace("_", " ")}</Text>
+                    </View>
+                    <Text style={styles.loggedRowAmount}>{fmt(Number(item.amount), currency)}</Text>
+                  </Pressable>
+                )}
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -637,6 +715,84 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
     borderWidth: 1,
     borderColor: T.border,
+  },
+  loggedSheet: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    backgroundColor: T.card,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 20,
+    borderWidth: 1,
+    borderColor: T.border,
+    minHeight: 260,
+    maxHeight: "70%",
+  },
+  loggedHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  loggedTitle: {
+    color: T.text,
+    fontSize: 17,
+    fontWeight: "900",
+  },
+  loggedCount: {
+    minWidth: 24,
+    textAlign: "center",
+    color: T.text,
+    fontSize: 13,
+    fontWeight: "800",
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: T.border,
+    backgroundColor: T.cardAlt,
+  },
+  loggedList: {
+    paddingBottom: 8,
+    gap: 8,
+  },
+  loggedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderWidth: 1,
+    borderColor: T.border,
+    borderRadius: 10,
+    backgroundColor: T.cardAlt,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 12,
+  },
+  loggedRowTextWrap: {
+    flex: 1,
+    minWidth: 0,
+  },
+  loggedRowName: {
+    color: T.text,
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  loggedRowMeta: {
+    color: T.textDim,
+    fontSize: 11,
+    fontWeight: "700",
+    marginTop: 2,
+    textTransform: "capitalize",
+  },
+  loggedRowAmount: {
+    color: T.text,
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  loggedEmptyWrap: {
+    paddingTop: 20,
+    alignItems: "center",
+    justifyContent: "center",
   },
   pickerHandle: {
     alignSelf: "center",

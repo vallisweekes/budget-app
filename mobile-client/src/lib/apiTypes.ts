@@ -51,6 +51,8 @@ export interface Expense {
   paymentSource: ExpensePaymentSource;
   /** Credit card debt ID when paymentSource = credit_card */
   cardDebtId: string | null;
+  /** True for quick/unplanned logged expenses (no due date, not allocation/direct debit). */
+  isExtraLoggedExpense?: boolean;
   /** Effective due date used for pay-period classification (YYYY-MM-DD). */
   effectiveDueDate?: string | null;
   /** True when fetched with scope=pay_period and expense belongs to selected period. */

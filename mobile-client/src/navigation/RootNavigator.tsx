@@ -716,6 +716,37 @@ const s = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: 0.2,
   },
+  loggedPaymentsBtn: {
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: T.accent,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+    paddingHorizontal: 10,
+    borderColor: T.accentBorder,
+    borderWidth: 1,
+  },
+  loggedPaymentsBtnText: {
+    color: T.onAccent,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  loggedPaymentsCountPill: {
+    minWidth: 18,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.22)",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+  },
+  loggedPaymentsCountText: {
+    color: T.onAccent,
+    fontSize: 10,
+    fontWeight: "900",
+  },
   debtAnalyticsCenterWrap: {
     alignItems: "center",
     justifyContent: "center",
@@ -820,6 +851,8 @@ function MainTabs() {
             && categoryExpensesMonth >= 1
             && categoryExpensesMonth <= 12
             && Number.isFinite(categoryExpensesYear);
+          const categoryLoggedPaymentsCount = Number(deepestRoute?.params?.loggedPaymentsCount);
+          const hasCategoryLoggedPayments = Number.isFinite(categoryLoggedPaymentsCount) && categoryLoggedPaymentsCount > 0;
           const expensesCenterLabel = isCategoryExpenses
             ? categoryExpensesName
             : isUnplannedExpense
@@ -870,6 +903,24 @@ function MainTabs() {
             }
             (navigation as any).navigate("NotificationSettings", { initialTab: "notifications" });
           };
+
+          const categoryLoggedPaymentsRightContent = isCategoryExpenses && hasCategoryLoggedPayments ? (
+            <Pressable
+              onPress={() => {
+                (navigation as any).setParams({ openLoggedPaymentsAt: Date.now() });
+              }}
+              style={s.loggedPaymentsBtn}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel="Open logged payments"
+            >
+              <Ionicons name="list-outline" size={14} color={T.onAccent} />
+              <Text style={s.loggedPaymentsBtnText}>Logged payments</Text>
+              <View style={s.loggedPaymentsCountPill}>
+                <Text style={s.loggedPaymentsCountText}>{categoryLoggedPaymentsCount}</Text>
+              </View>
+            </Pressable>
+          ) : undefined;
 
           const expensesListLeftContent = isExpensesList ? (
             <View style={{ flexDirection: "row", gap: 8 }}>
@@ -939,7 +990,7 @@ function MainTabs() {
               centerLabel={isGoals ? "Goals" : expensesCenterLabel}
               centerContent={headerCenterContent}
               leftContent={expensesListLeftContent}
-              rightContent={goalsRightContent}
+              rightContent={categoryLoggedPaymentsRightContent ?? goalsRightContent}
               showIncomeAction={false}
               compactActionsMenu={isSettings || (isIncomeTab && isIncomeMonth)}
               onLogout={isSettings ? signOut : undefined}

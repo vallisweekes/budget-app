@@ -29,6 +29,7 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { apiFetch } from "@/lib/api";
 import type { Category, Debt, Settings } from "@/lib/apiTypes";
 import { currencySymbol, fmt } from "@/lib/formatting";
+import { buildPayPeriodFromMonthAnchor, normalizePayFrequency } from "@/lib/payPeriods";
 import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 import { T } from "@/lib/theme";
@@ -217,9 +218,21 @@ export default function UnplannedExpenseScreen({ navigation }: Props) {
         paid: true,
         isAllocation: false,
         isDirectDebit: false,
+        isExtraLoggedExpense: true,
         fundingSource,
         paymentSource: paymentSourceForFunding(fundingSource),
       };
+      const payDateForResolution = Number.isFinite(settings?.payDate as number) && (settings?.payDate as number) >= 1
+        ? Math.floor(settings?.payDate as number)
+        : 1;
+      const payFrequencyForResolution = normalizePayFrequency(settings?.payFrequency);
+      const payPeriod = buildPayPeriodFromMonthAnchor({
+        year,
+        month,
+        payDate: payDateForResolution,
+        payFrequency: payFrequencyForResolution,
+      });
+      body.periodKey = payPeriod.start.toISOString().slice(0, 10);
       if (categoryId) body.categoryId = categoryId;
       if (fundingSource === "credit_card" && selectedDebtId) {
         body.cardDebtId = selectedDebtId;

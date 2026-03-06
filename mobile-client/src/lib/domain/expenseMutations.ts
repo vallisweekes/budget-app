@@ -63,8 +63,10 @@ export function buildEditExpenseBody(args: {
   isDirectDebit: boolean;
   distributeMonths: boolean;
   distributeYears: boolean;
+  paymentSource?: ExpensePaymentSource;
+  cardDebtId?: string;
 }): Record<string, unknown> {
-  return {
+  const body: Record<string, unknown> = {
     name: args.name.trim(),
     amount: args.parsedAmount,
     categoryId: args.categoryId,
@@ -74,4 +76,13 @@ export function buildEditExpenseBody(args: {
     distributeMonths: args.distributeMonths,
     distributeYears: args.distributeYears,
   };
+
+  if (args.paymentSource) {
+    body.paymentSource = args.paymentSource === "other" ? "extra_untracked" : args.paymentSource;
+    if (body.paymentSource === "credit_card") {
+      body.cardDebtId = args.cardDebtId?.trim() || null;
+    }
+  }
+
+  return body;
 }

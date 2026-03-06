@@ -44,6 +44,7 @@ export type CreateExpenseInput = {
   amount: number;
   month: number;          // 1-12
   year: number;
+  periodKey?: string;
   categoryId?: string;
   paid?: boolean;
   isAllocation?: boolean;
@@ -412,6 +413,7 @@ export async function createExpense(input: CreateExpenseInput): Promise<CreateEx
     amount,
     month,
     year,
+    periodKey,
     categoryId,
     paid    = false,
     isAllocation  = false,
@@ -468,6 +470,7 @@ export async function createExpense(input: CreateExpenseInput): Promise<CreateEx
       dueDate,
       paymentSource: effectivePaymentSource,
       cardDebtId: effectiveFunding === "credit_card" ? (cardDebtId || debtId || undefined) : undefined,
+      periodKey: !dueDate && !distributeMonths && !distributeYears && periodKey ? periodKey : undefined,
     } as AddOrUpdatePayload);
   }
 
