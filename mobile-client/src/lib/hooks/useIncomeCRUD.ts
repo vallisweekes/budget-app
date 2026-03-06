@@ -86,7 +86,9 @@ export function useIncomeCRUD({ month, year, budgetPlanId, onReload, onMutationS
         distributeMonths,
         distributeYears,
       });
-      void onReload();
+      void onReload().catch(() => {
+        // Background refresh failed; optimistic/local state already updated.
+      });
     } catch (err: unknown) {
       Alert.alert("Error", err instanceof Error ? err.message : "Could not add income");
     } finally {
@@ -143,7 +145,9 @@ export function useIncomeCRUD({ month, year, budgetPlanId, onReload, onMutationS
         month,
         year,
       });
-      void onReload();
+      void onReload().catch(() => {
+        // Background refresh failed; optimistic/local state already updated.
+      });
     } catch (err: unknown) {
       if (setItems && snapshot) {
         setItems((prev) => prev.map((i) => (i.id === snapshot!.id ? snapshot! : i)));
@@ -172,7 +176,9 @@ export function useIncomeCRUD({ month, year, budgetPlanId, onReload, onMutationS
         month,
         year,
       });
-      void onReload();
+      void onReload().catch(() => {
+        // Background refresh failed; optimistic/local state already updated.
+      });
     } catch (err: unknown) {
       if (setItems && removedSnapshot) {
         setItems((prev) => {

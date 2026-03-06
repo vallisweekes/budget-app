@@ -242,20 +242,11 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
         const summaryItems = summaryByMonth.get(monthIndex) ?? [];
         setCachedItems(targetYear, monthIndex, toIncomeItems(summaryItems, monthIndex, targetYear));
       }
-
-      const monthRequests = Array.from({ length: 12 }, (_, idx) => idx + 1).map(async (monthIndex) => {
-        const monthData = await apiFetch<IncomeMonthData>(
-          `/api/bff/income-month?month=${monthIndex}&year=${targetYear}&budgetPlanId=${encodeURIComponent(budgetPlanId)}`
-        );
-        setCachedAnalysis(targetYear, monthIndex, monthData);
-      });
-
-      await Promise.allSettled(monthRequests);
       yearPrefetchStateRef.current[stateKey] = "loaded";
     } catch {
       yearPrefetchStateRef.current[stateKey] = "idle";
     }
-  }, [budgetPlanId, planCacheKey, setCachedAnalysis, setCachedItems, toIncomeItems]);
+  }, [budgetPlanId, planCacheKey, setCachedItems, toIncomeItems]);
 
   const load = useCallback(async (options?: { force?: boolean }) => {
     const force = Boolean(options?.force);

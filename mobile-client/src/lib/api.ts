@@ -32,7 +32,7 @@ export type ApiFetchOptions = {
   cacheTtlMs?: number;
   /** If true, a 401 response will NOT trigger the global _onUnauthorized sign-out callback */
   skipOnUnauthorized?: boolean;
-  /** Request timeout in milliseconds (default 15000) */
+  /** Request timeout in milliseconds (default 25000) */
   timeoutMs?: number;
 };
 
@@ -123,7 +123,7 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
       : {};
 
     const controller = new AbortController();
-    const timeoutMs = Math.max(1, options.timeoutMs ?? 15_000);
+    const timeoutMs = Math.max(1, options.timeoutMs ?? 25_000);
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
     let response: Response;
