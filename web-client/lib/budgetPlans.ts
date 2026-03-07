@@ -64,7 +64,19 @@ async function seedStarterDataForPlan(params: { budgetPlanId: string }) {
 			withPrismaRetry(
 				async () => {
 					const { getIncomePeriodKey, resolvePayDate: rp } = await import("@/lib/helpers/periodKey");
+					const { normalizePayFrequency } = await import("@/lib/payPeriods");
 					const pd = await rp(budgetPlanId);
+					const plan = await prisma.budgetPlan.findUnique({
+						where: { id: budgetPlanId },
+						select: { userId: true },
+					});
+					const profile = plan?.userId
+						? await prisma.userOnboardingProfile.findUnique({
+							where: { userId: plan.userId },
+							select: { payFrequency: true },
+						}).catch(() => null)
+						: null;
+					const payFrequency = normalizePayFrequency(profile?.payFrequency);
 					return prisma.income.create({
 						data: {
 							budgetPlanId,
@@ -72,7 +84,7 @@ async function seedStarterDataForPlan(params: { budgetPlanId: string }) {
 							amount: 3000,
 							month,
 							year,
-							periodKey: getIncomePeriodKey({ year, month }, pd),
+							periodKey: getIncomePeriodKey({ year, month }, pd, payFrequency),
 						},
 					});
 				},

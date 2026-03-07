@@ -1,11 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
-import { getAllIncome } from "@/lib/income/store";
+import { getAllIncome, getIncomeForAnchorMonth, upsertIncomeForAnchorMonth } from "@/lib/income/store";
 import { canonicalizeIncomeName } from "@/lib/income/name";
 import { monthNumberToKey } from "@/lib/helpers/monthKey";
-import { normalizePayFrequency } from "@/lib/payPeriods";
-import { getIncomePeriodKey, resolvePayDate } from "@/lib/helpers/periodKey";
 
 export const runtime = "nodejs";
 
@@ -28,34 +26,6 @@ function toBool(value: unknown): boolean {
 
 function normalizeName(name: unknown): string {
   return canonicalizeIncomeName(name);
-}
-
-function isAllCapsName(name: string): boolean {
-  const trimmed = String(name ?? "").trim();
-  if (!trimmed) return false;
-  const letters = trimmed.replace(/[^a-zA-Z]+/g, "");
-  if (!letters) return false;
-  return letters === letters.toUpperCase();
-}
-
-function pickCanonicalRow<T extends { id: string; name: string; updatedAt: Date; createdAt: Date }>(rows: T[]): T {
-  let best = rows[0];
-  for (const row of rows) {
-    const bestLegacy = isAllCapsName(best.name);
-    const rowLegacy = isAllCapsName(row.name);
-    if (bestLegacy !== rowLegacy) {
-      best = rowLegacy ? best : row;
-      continue;
-    }
-    if (row.updatedAt.getTime() !== best.updatedAt.getTime()) {
-      best = row.updatedAt > best.updatedAt ? row : best;
-      continue;
-    }
-    if (row.createdAt.getTime() !== best.createdAt.getTime()) {
-      best = row.createdAt > best.createdAt ? row : best;
-    }
-  }
-  return best;
 }
 
 function normalizeIncomeKey(name: unknown): string {
@@ -99,42 +69,18 @@ export async function GET(request: Request) {
       parsedMonth <= 12 &&
       Number.isInteger(parsedYear)
     ) {
-      const monthKey = monthNumberToKey(parsedMonth);
-      const prevMonth = parsedMonth === 1 ? 12 : parsedMonth - 1;
-      const prevYear = parsedMonth === 1 ? parsedYear - 1 : parsedYear;
-      const prevMonthKey = monthNumberToKey(prevMonth as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12);
-
-      const [incomeByMonth, prevIncomeByMonth, profile] = await Promise.all([
-        getAllIncome(budgetPlanId, parsedYear),
-        prevYear === parsedYear ? Promise.resolve(null) : getAllIncome(budgetPlanId, prevYear),
+      const [items, profile] = await Promise.all([
+        getIncomeForAnchorMonth({ budgetPlanId, year: parsedYear, month: parsedMonth }),
         prisma.userOnboardingProfile.findUnique({ where: { userId }, select: { payFrequency: true } }).catch(() => null),
       ]);
-
-      const payFrequency = normalizePayFrequency(profile?.payFrequency);
-      const endItems = incomeByMonth[monthKey] ?? [];
-      const startItems = payFrequency === "monthly"
-        ? ((prevYear === parsedYear
-          ? (incomeByMonth[prevMonthKey] ?? [])
-          : (prevIncomeByMonth?.[prevMonthKey] ?? [])))
-        : [];
-
-      const endKeys = new Set(endItems.map((i) => normalizeIncomeKey(i.name)).filter(Boolean));
-      const extraStartItems = startItems.filter((i) => {
-        const key = normalizeIncomeKey(i.name);
-        return Boolean(key) && !endKeys.has(key) && !isCarryOverIncome(i.name);
-      });
-
-      const extraIds = new Set(extraStartItems.map((i) => i.id));
-
-      const items = payFrequency === "monthly" ? [...endItems, ...extraStartItems] : endItems;
 
       return NextResponse.json(
         items.map((i) => ({
           id: i.id,
           name: i.name,
           amount: i.amount,
-          month: extraIds.has(i.id) ? prevMonth : parsedMonth,
-          year: extraIds.has(i.id) ? prevYear : parsedYear,
+          month: parsedMonth,
+          year: parsedYear,
           budgetPlanId,
         }))
       );
@@ -236,39 +182,12 @@ export async function POST(request: Request) {
     }
 
     let firstCreated: any = null;
-    const payDate = await resolvePayDate(budgetPlanId);
     for (const y of targetYears) {
       const shouldSpreadMonths = distributeFullYear || distributeMonths;
       const startMonth = y === year ? month : (shouldSpreadMonths ? 1 : month);
       const endMonth = shouldSpreadMonths ? 12 : month;
       for (let m = startMonth; m <= endMonth; m++) {
-      // Upsert (case-insensitive) so we don't create duplicates on re-run.
-      // If duplicates already exist, update ONE canonical row and delete the rest.
-      const existing = await prisma.income.findMany({
-        where: {
-          budgetPlanId,
-          month: m,
-          year: y,
-          name: { equals: name, mode: "insensitive" },
-        },
-        orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
-      });
-      if (existing.length > 0) {
-        const canonical = pickCanonicalRow(existing);
-        const updated = await prisma.income.update({
-          where: { id: canonical.id },
-          data: { name, amount, periodKey: getIncomePeriodKey({ year: y, month: m }, payDate) },
-        });
-        const toDelete = existing.filter((r) => r.id !== canonical.id).map((r) => r.id);
-        if (toDelete.length > 0) {
-          await prisma.income.deleteMany({ where: { id: { in: toDelete } } });
-        }
-        if (!firstCreated) firstCreated = updated;
-        continue;
-      }
-      const record = await prisma.income.create({
-        data: { name, amount, month: m, year: y, budgetPlanId, periodKey: getIncomePeriodKey({ year: y, month: m }, payDate) },
-      });
+      const record = await upsertIncomeForAnchorMonth({ budgetPlanId, year: y, month: m, name, amount });
       if (!firstCreated) firstCreated = record;
       }
     }

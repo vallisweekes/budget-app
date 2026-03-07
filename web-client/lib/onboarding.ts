@@ -638,6 +638,7 @@ export async function completeOnboarding(userId: string) {
     const salary = Number(profile.monthlySalary ?? 0);
 
     if (salary > 0) {
+      const seededPayFrequency = normalizePayFrequency(profile.payFrequency);
       for (const period of seededIncomePeriods) {
         const existingSalary = await tx.income.findFirst({
           where: { budgetPlanId, month: period.month, year: period.year },
@@ -652,7 +653,7 @@ export async function completeOnboarding(userId: string) {
             amount: salary,
             month: period.month,
             year: period.year,
-            periodKey: getIncomePeriodKey({ year: period.year, month: period.month }, payDay ?? 1),
+            periodKey: getIncomePeriodKey({ year: period.year, month: period.month }, payDay ?? 1, seededPayFrequency),
           },
         });
       }
@@ -850,6 +851,7 @@ export async function runOnboardingRepairPass(userId: string) {
     const salary = Number(profile.monthlySalary ?? 0);
 
     if (salary > 0) {
+      const seededPayFrequency = normalizePayFrequency(profile.payFrequency);
       for (const period of seededIncomePeriods) {
         const existingSalary = await tx.income.findFirst({
           where: { budgetPlanId, month: period.month, year: period.year },
@@ -864,7 +866,7 @@ export async function runOnboardingRepairPass(userId: string) {
             amount: salary,
             month: period.month,
             year: period.year,
-            periodKey: getIncomePeriodKey({ year: period.year, month: period.month }, payDay ?? 1),
+            periodKey: getIncomePeriodKey({ year: period.year, month: period.month }, payDay ?? 1, seededPayFrequency),
           },
         });
       }

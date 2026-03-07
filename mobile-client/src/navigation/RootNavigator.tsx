@@ -860,10 +860,6 @@ function MainTabs() {
             && categoryExpensesMonth >= 1
             && categoryExpensesMonth <= 12
             && Number.isFinite(categoryExpensesYear);
-          const categoryLoggedPaymentsCountRaw = Number(deepestRoute?.params?.loggedPaymentsCount);
-          const categoryLoggedPaymentsCount = Number.isFinite(categoryLoggedPaymentsCountRaw)
-            ? Math.max(0, Math.floor(categoryLoggedPaymentsCountRaw))
-            : 0;
           const expensesCenterLabel = isLoggedExpenses
             ? "Logged expense"
             : isCategoryExpenses
@@ -917,38 +913,8 @@ function MainTabs() {
             (navigation as any).navigate("NotificationSettings", { initialTab: "notifications" });
           };
 
-          const categoryLoggedPaymentsRightContent = isCategoryExpenses ? (
-            <Pressable
-              onPress={() => {
-                (navigation as any).navigate("Expenses" as any, {
-                  screen: "LoggedExpenses",
-                  params: {
-                    categoryId: deepestRoute?.params?.categoryId,
-                    categoryName: deepestRoute?.params?.categoryName,
-                    color: deepestRoute?.params?.color ?? null,
-                    icon: deepestRoute?.params?.icon ?? null,
-                    month: categoryExpensesMonth,
-                    year: categoryExpensesYear,
-                    budgetPlanId: deepestRoute?.params?.budgetPlanId ?? null,
-                    currency: deepestRoute?.params?.currency,
-                  },
-                });
-              }}
-              style={s.loggedPaymentsBtn}
-              hitSlop={10}
-              accessibilityRole="button"
-              accessibilityLabel="Open logged expense"
-            >
-              <Ionicons name="list-outline" size={14} color={T.onAccent} />
-              <Text style={s.loggedPaymentsBtnText}>Logged expense</Text>
-              <View style={s.loggedPaymentsCountPill}>
-                <Text style={s.loggedPaymentsCountText}>{categoryLoggedPaymentsCount}</Text>
-              </View>
-            </Pressable>
-          ) : undefined;
-
           const categoryHeaderRightContent = isCategoryExpenses
-            ? (categoryLoggedPaymentsRightContent ?? <View style={{ width: 34, height: 34 }} />)
+            ? <View style={{ width: 34, height: 34 }} />
             : undefined;
 
           const expensesLoggedRightContent = isExpensesList && expensesListLoggedExpensesCount > 0 ? (

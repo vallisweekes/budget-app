@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { monthNumberToKey } from "@/lib/helpers/monthKey";
 import { getMonthlyAllocationSnapshot, getMonthlyCustomAllocationsSnapshot } from "@/lib/allocations/store";
 import { getMonthlyDebtPlan } from "@/lib/helpers/finance/getMonthlyDebtPlan";
-import { getAllIncome } from "@/lib/income/store";
+import { getAllIncome, getIncomeForAnchorMonth } from "@/lib/income/store";
 import { ensureDefaultCategoriesForBudgetPlan } from "@/lib/categories/defaultCategories";
 import { supportsExpenseMovedToDebtField } from "@/lib/prisma/capabilities";
 import { resolveEffectiveDueDateIso } from "@/lib/expenses/insights";
@@ -395,35 +395,16 @@ export async function getDashboardPlanDataForActivePayPeriod(
 				}
 			})(),
 			(async () => {
-				// Income rows are month-scoped (no date range), but pay periods can span 2 calendar
-				// months. To avoid "missing" carryover/one-off income due to the historic month
-				// shifting bug, we merge:
-				// - canonical income for the pay-period end month
-				// - plus any additional canonical income items from the start month that don't
-				//   already exist in the end-month snapshot (by normalized name)
-				if (payFrequency !== "monthly") {
-					const incomeByMonth = await getAllIncome(planId, selectedYear);
-					return incomeByMonth[selectedMonthKey] ?? [];
+				if (payFrequency === "monthly") {
+					return getIncomeForAnchorMonth({
+						budgetPlanId: planId,
+						year: selectedYear,
+						month: selectedMonthNum,
+					});
 				}
 
-				const [incomeEndYear, incomeStartYear] = await Promise.all([
-					getAllIncome(planId, selectedYear),
-					startYear === selectedYear ? Promise.resolve(null) : getAllIncome(planId, startYear),
-				]);
-
-				const endItems = incomeEndYear[selectedMonthKey] ?? [];
-				const startItems =
-					(startYear === selectedYear
-						? incomeEndYear[startMonthKey]
-						: incomeStartYear?.[startMonthKey]) ?? [];
-
-				const endKeys = new Set(endItems.map((i) => normalizeIncomeKey(i.name)).filter(Boolean));
-				const extraStartItems = startItems.filter((i) => {
-					const key = normalizeIncomeKey(i.name);
-					return Boolean(key) && !endKeys.has(key);
-				});
-
-				return [...endItems, ...extraStartItems];
+				const incomeByMonth = await getAllIncome(planId, selectedYear);
+				return incomeByMonth[selectedMonthKey] ?? [];
 			})(),
 			prisma.goal.findMany({ where: { budgetPlanId: planId } }),
 			getMonthlyAllocationSnapshot(planId, selectedMonthKey, { year: selectedYear }),

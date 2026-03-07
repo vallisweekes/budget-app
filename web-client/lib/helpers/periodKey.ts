@@ -108,10 +108,39 @@ export function getPaymentPeriodKey(paidAt: Date, payDate: number): string {
 }
 
 /**
- * Get the period key for an income record based on its year/month.
- * Income for month M belongs to the period starting on payDate of month M.
+ * Get the canonical period key for an income record based on its anchor month/year.
+ *
+ * For monthly pay cycles the income UI uses the pay-period end/anchor month:
+ *   Mar 2026 means the pay period 27 Feb 2026 - 26 Mar 2026.
+ * So the stored periodKey must point to the previous month's payday.
+ *
+ * For non-monthly cadences we keep the existing anchor-month behavior.
  */
-export function getIncomePeriodKey(income: { year: number; month: number }, payDate: number): string {
+export function getIncomePeriodKey(
+	income: { year: number; month: number },
+	payDate: number,
+	payFrequency: "monthly" | "every_2_weeks" | "weekly" = "monthly"
+): string {
+	const safePayDate = Number.isFinite(payDate) && payDate >= 1 ? Math.floor(payDate) : 1;
+
+	if (payFrequency === "monthly") {
+		const startMonth0 = income.month - 2;
+		const year = new Date(Date.UTC(income.year, startMonth0, 1)).getUTCFullYear();
+		const month0 = new Date(Date.UTC(income.year, startMonth0, 1)).getUTCMonth();
+		const day = clampDay(year, month0, safePayDate);
+		return new Date(Date.UTC(year, month0, day)).toISOString().slice(0, 10);
+	}
+
+	const m0 = income.month - 1;
+	const day = clampDay(income.year, m0, safePayDate);
+	return new Date(Date.UTC(income.year, m0, day)).toISOString().slice(0, 10);
+}
+
+/**
+ * Legacy monthly income period key used by older rows before income moved to
+ * pay-period anchored storage. Kept for read-side compatibility.
+ */
+export function getLegacyIncomePeriodKey(income: { year: number; month: number }, payDate: number): string {
 	const safePayDate = Number.isFinite(payDate) && payDate >= 1 ? Math.floor(payDate) : 1;
 	const m0 = income.month - 1;
 	const day = clampDay(income.year, m0, safePayDate);

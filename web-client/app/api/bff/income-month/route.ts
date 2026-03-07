@@ -39,15 +39,11 @@ export async function GET(req: NextRequest) {
 		const prevMonth = month === 1 ? 12 : month - 1;
 		const prevYear = month === 1 ? year - 1 : year;
 
-		const [analysis, prevAnalysis] = await Promise.all([
-			getIncomeMonthAnalysis({ budgetPlanId, year, month, payFrequency }),
-			getIncomeMonthAnalysis({ budgetPlanId, year: prevYear, month: prevMonth, payFrequency }),
-		]);
+		const analysis = await getIncomeMonthAnalysis({ budgetPlanId, year, month, payFrequency });
 
 		const grossIncome = analysis.grossIncome;
 		const incomeSacrifice = analysis.incomeSacrifice;
 		const moneyLeftAfterPlan = analysis.moneyLeftAfterPlan;
-		const previousMoneyLeftAfterPlan = prevAnalysis.moneyLeftAfterPlan;
 
 		const incomeSacrificePct = grossIncome > 0
 			? Number(((incomeSacrifice / grossIncome) * 100).toFixed(1))
@@ -55,10 +51,6 @@ export async function GET(req: NextRequest) {
 		const moneyLeftPctOfGross = grossIncome > 0
 			? Number(((moneyLeftAfterPlan / grossIncome) * 100).toFixed(1))
 			: 0;
-		const moneyLeftVsLastMonthPct =
-			typeof previousMoneyLeftAfterPlan === "number" && previousMoneyLeftAfterPlan !== 0
-				? Number((((moneyLeftAfterPlan - previousMoneyLeftAfterPlan) / Math.abs(previousMoneyLeftAfterPlan)) * 100).toFixed(1))
-				: null;
 		const planStatusTag = analysis.isOnPlan ? "on_plan" : "over_plan";
 
 		return NextResponse.json({
@@ -99,7 +91,6 @@ export async function GET(req: NextRequest) {
 			paidBillsSoFar: analysis.paidBillsSoFar,
 			remainingBills: analysis.remainingBills,
 			moneyLeftAfterPlan,
-			previousMoneyLeftAfterPlan,
 			incomeLeftRightNow: analysis.incomeLeftRightNow,
 			moneyOutTotal: analysis.moneyOutTotal,
 			isOnPlan: analysis.isOnPlan,
@@ -107,7 +98,7 @@ export async function GET(req: NextRequest) {
 			// Server-derived summary helpers (canonical for all clients)
 			incomeSacrificePct,
 			moneyLeftPctOfGross,
-			moneyLeftVsLastMonthPct,
+			moneyLeftVsLastMonthPct: null,
 			planStatusTag,
 			planStatusDescription: analysis.isOnPlan ? "On plan" : "Over plan",
 		});

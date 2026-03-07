@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
   View,
@@ -38,6 +38,34 @@ const GOAL_SIDE = 16;
 const GOAL_CARD = Math.max(122, Math.round((W - GOAL_SIDE * 2 - GOAL_GAP) / 2));
 const GOAL_ADD_W = Math.max(52, Math.round(GOAL_CARD * 0.34));
 
+function AiInsightCard({ tips }: { tips: Array<{ title?: string | null; detail?: string | null; priority?: number | null }> }) {
+  const tip = tips.reduce<typeof tips[number] | null>((best, current) => {
+    if (!current) return best;
+    if (!best) return current;
+    return Number(current.priority ?? 0) > Number(best.priority ?? 0) ? current : best;
+  }, null) ?? tips[0] ?? null;
+  const message = String(tip?.detail ?? tip?.title ?? "Track your upcoming bills and confirm income each period to keep totals accurate.").trim();
+  const isHighPriority = Number(tip?.priority ?? 0) >= 80;
+
+  return (
+    <View style={styles.section}>
+      <View style={styles.aiCard}>
+        <View style={styles.aiHeader}>
+          <View style={styles.aiIconWrap}>
+            <Ionicons name="sparkles-outline" size={16} color={T.accent} />
+          </View>
+          <Text style={styles.aiTitle}>Ai Insight</Text>
+          {isHighPriority ? <Text style={styles.priorityBadge}>High priority</Text> : null}
+        </View>
+
+        <Text style={styles.aiMessage} numberOfLines={3}>
+          {message}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 export default function DashboardScreen({ navigation }: { navigation: any }) {
   const scrollRef = useRef<ScrollView>(null);
   useScrollToTop(scrollRef);
@@ -60,7 +88,6 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
   const { dragY: categorySheetDragY, panHandlers: categorySheetPanHandlers } = useSwipeDownToClose({
     onClose: () => setCategorySheet(null),
   });
-  const [aiTipIndex, setAiTipIndex] = useState(0);
   const [activeGoalCard, setActiveGoalCard] = useState(0);
   const [failedLogos, setFailedLogos] = useState<Record<string, boolean>>({});
 
@@ -95,17 +122,28 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
 
   const tips = dashboard?.expenseInsights?.recapTips ?? [];
 
-  useEffect(() => {
-    if (aiTipIndex >= tips.length) setAiTipIndex(0);
-  }, [tips.length, aiTipIndex]);
-
-  useEffect(() => {
-    if (tips.length <= 1) return;
-    const id = setInterval(() => {
-      setAiTipIndex((i) => (i + 1) % tips.length);
-    }, 20_000);
-    return () => clearInterval(id);
-  }, [tips.length]);
+  const {
+    totalIncome,
+    totalExpenses,
+    categories,
+    paidTotal,
+    totalBudget,
+    amountAfterExpenses,
+    isOverBudgetBySpending,
+    hasOverLimitDebt,
+    overLimitDebtCount,
+    hasPayDateConfigured,
+    payPeriodLabel,
+    previousPayPeriodLabel,
+    upcoming,
+    upcomingDebts,
+    formatShortDate,
+    selectedExpenses,
+    goalCardsData,
+  } = useMemo(
+    () => buildDashboardDerived({ dashboard, settings, categorySheet }),
+    [dashboard, settings, categorySheet]
+  );
 
   if (loading) {
     return (
@@ -141,26 +179,6 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
       </SafeAreaView>
     );
   }
-
-  const {
-    totalIncome,
-    totalExpenses,
-    categories,
-    paidTotal,
-    totalBudget,
-    amountAfterExpenses,
-    isOverBudgetBySpending,
-    hasOverLimitDebt,
-    overLimitDebtCount,
-    hasPayDateConfigured,
-    payPeriodLabel,
-    previousPayPeriodLabel,
-    upcoming,
-    upcomingDebts,
-    formatShortDate,
-    selectedExpenses,
-    goalCardsData,
-  } = buildDashboardDerived({ dashboard, settings, categorySheet });
 
   const needsSetup = totalIncome <= 0 || totalExpenses <= 0;
   const recap = dashboard?.expenseInsights?.recap ?? null;
@@ -572,31 +590,7 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
           </View>
         ) : null}
 
-        {/* Tips / Insights */}
-        {
-          <View style={styles.section}>
-            {(() => {
-              const tip = tips[aiTipIndex] ?? tips[0] ?? null;
-              const message = String(tip?.detail ?? tip?.title ?? "Track your upcoming bills and confirm income each period to keep totals accurate.").trim();
-              const isHighPriority = Number(tip?.priority ?? 0) >= 80;
-              return (
-                <View style={styles.aiCard}>
-                  <View style={styles.aiHeader}>
-                    <View style={styles.aiIconWrap}>
-                      <Ionicons name="sparkles-outline" size={16} color={T.accent} />
-                    </View>
-                    <Text style={styles.aiTitle}>Ai Insight</Text>
-                    {isHighPriority ? <Text style={styles.priorityBadge}>High priority</Text> : null}
-                  </View>
-
-                  <Text style={styles.aiMessage} numberOfLines={3}>
-                    {message}
-                  </Text>
-                </View>
-              );
-            })()}
-          </View>
-        }
+        <AiInsightCard tips={tips} />
       </ScrollView>
 
     </SafeAreaView>

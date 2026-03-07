@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getSessionUserId } from "@/lib/api/bffAuth";
 import { getIncomePeriodKey, resolvePayDate } from "@/lib/helpers/periodKey";
 import { canonicalizeIncomeName } from "@/lib/income/name";
+import { normalizePayFrequency } from "@/lib/payPeriods";
 
 export const runtime = "nodejs";
 
@@ -87,8 +88,12 @@ export async function PATCH(
       // Recompute periodKey if month or year changed
       const nextYear = typeof data.year === "number" ? data.year : existing.year;
       const nextMonth = typeof data.month === "number" ? data.month : existing.month;
-      const payDate = await resolvePayDate(existing.budgetPlanId);
-      const periodKey = getIncomePeriodKey({ year: nextYear, month: nextMonth }, payDate);
+      const [payDate, profile] = await Promise.all([
+        resolvePayDate(existing.budgetPlanId),
+        prisma.userOnboardingProfile.findUnique({ where: { userId }, select: { payFrequency: true } }).catch(() => null),
+      ]);
+      const payFrequency = normalizePayFrequency(profile?.payFrequency);
+      const periodKey = getIncomePeriodKey({ year: nextYear, month: nextMonth }, payDate, payFrequency);
 
       const updated = await tx.income.update({
         where: { id },
@@ -100,10 +105,12 @@ export async function PATCH(
       await tx.income.deleteMany({
         where: {
           budgetPlanId: updated.budgetPlanId,
-          year: updated.year,
-          month: updated.month,
           name: { equals: nextName, mode: "insensitive" },
           id: { not: updated.id },
+          OR: [
+            { year: updated.year, month: updated.month },
+            { periodKey },
+          ],
         },
       });
 
