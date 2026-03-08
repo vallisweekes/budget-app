@@ -1,0 +1,55 @@
+import React from "react";
+
+import SettingsLinkRow from "@/components/Settings/SettingsLinkRow";
+import SettingsSection from "@/components/Settings/SettingsSection";
+
+import type { SettingsOverviewTabProps } from "@/types/components/settings/SettingsOverviewTab.types";
+
+export default function SettingsOverviewTab({
+  email,
+  payDateLabel,
+  payFrequencyLabel,
+  currencyLabel,
+  notificationsLabel,
+  versionLabel,
+  onEditProfile,
+  onOpenBudget,
+  onOpenIncomeSettings,
+  onOpenSavings,
+  onOpenPlans,
+  onOpenLocale,
+  onOpenNotifications,
+  onOpenDanger,
+  onOpenAbout,
+  onOpenPrivacy,
+}: SettingsOverviewTabProps) {
+  return (
+    <>
+      <SettingsSection title="Account">
+        <SettingsLinkRow label="Profile details" value={email} onPress={onEditProfile} />
+      </SettingsSection>
+
+      <SettingsSection title="Budgeting">
+        <SettingsLinkRow label="Budget setup" value={payDateLabel} onPress={onOpenBudget} />
+        <SettingsLinkRow label="Pay schedule" value={payFrequencyLabel} onPress={onOpenBudget} />
+        <SettingsLinkRow label="Income settings" onPress={onOpenIncomeSettings} />
+        <SettingsLinkRow label="Savings & debts" onPress={onOpenSavings} />
+        <SettingsLinkRow label="Plans" onPress={onOpenPlans} />
+      </SettingsSection>
+
+      <SettingsSection title="App Preferences">
+        <SettingsLinkRow label="Locale & currency" value={currencyLabel} onPress={onOpenLocale} />
+        <SettingsLinkRow label="Notifications" value={notificationsLabel} onPress={onOpenNotifications} />
+      </SettingsSection>
+
+      <SettingsSection title="About">
+        <SettingsLinkRow label="About BudgetIn Check" value={versionLabel} onPress={onOpenAbout} />
+        <SettingsLinkRow label="Privacy Policy" onPress={onOpenPrivacy} />
+      </SettingsSection>
+
+      <SettingsSection title="Danger Zone">
+        <SettingsLinkRow label="Reset & sign out" onPress={onOpenDanger} danger />
+      </SettingsSection>
+    </>
+  );
+}

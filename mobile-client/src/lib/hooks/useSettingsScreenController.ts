@@ -93,6 +93,7 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
   const [createPlanSheetOpen, setCreatePlanSheetOpen] = useState(false);
 
   const [saveBusy, setSaveBusy] = useState(false);
+  const [resettingData, setResettingData] = useState(false);
   const [switchingPlanId, setSwitchingPlanId] = useState<string | null>(null);
   const [deletingPlanId, setDeletingPlanId] = useState<string | null>(null);
   const [planDeleteTarget, setPlanDeleteTarget] = useState<BudgetPlanListItem | null>(null);
@@ -193,6 +194,8 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
   const [showPlanEventDatePicker, setShowPlanEventDatePicker] = useState(false);
   const planEventBeforeRef = React.useRef<string>("");
   const [iosPlanEventDraft, setIosPlanEventDraft] = useState<Date>(new Date());
+  const currentPlanIdRef = React.useRef<string | null>(null);
+  const skipFirstFocusReloadRef = React.useRef(true);
 
   const openPlanEventDatePicker = useCallback(() => {
     planEventBeforeRef.current = newPlanEventDate;
@@ -215,6 +218,10 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
   const detectedCountry = useMemo(() => parseLocaleCountry(), []);
   const currentPlanId = settings?.id ?? null;
   const currentPlan = useMemo(() => plans.find((p) => p.id === currentPlanId) ?? null, [plans, currentPlanId]);
+
+  useEffect(() => {
+    currentPlanIdRef.current = currentPlanId;
+  }, [currentPlanId]);
   const { groupedDebts } = useSettingsDebtBuckets(debts);
   const cur = currencySymbol(settings?.currency);
   const savingsBase = asMoneyNumber(settings?.savingsBalance);
@@ -411,15 +418,15 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
     }
   }, []);
 
-  const hydrateDrafts = useCallback((nextSettings: Settings | null, nextProfile: UserProfile | null) => {
+  const hydrateDrafts = useCallback((nextSettings: Settings | null, nextProfile: UserProfile | null, nextHorizonYears?: number | null) => {
     setEmailDraft(nextProfile?.email ?? "");
     setCountryDraft((nextSettings?.country ?? "").toUpperCase());
     setPayDateDraft(nextSettings?.payDate ? String(nextSettings.payDate) : "");
-    setHorizonDraft(currentPlan?.budgetHorizonYears ? String(currentPlan.budgetHorizonYears) : "10");
+    setHorizonDraft(nextHorizonYears ? String(nextHorizonYears) : "10");
     setPayFrequencyDraft(nextSettings?.payFrequency === "weekly" || nextSettings?.payFrequency === "every_2_weeks" ? nextSettings.payFrequency : "monthly");
     setBillFrequencyDraft(nextSettings?.billFrequency === "every_2_weeks" ? "every_2_weeks" : "monthly");
     setStrategyDraft(nextSettings?.budgetStrategy ?? "payYourselfFirst");
-  }, [currentPlan?.budgetHorizonYears]);
+  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -438,14 +445,15 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
         setNoPlan(true);
         setSettings(null);
         setDebts([]);
-        hydrateDrafts(null, me);
+        hydrateDrafts(null, me, null);
         return;
       }
 
       const preferredPlanId =
-        currentPlanId && nextPlans.some((p) => p.id === currentPlanId)
-          ? currentPlanId
+        currentPlanIdRef.current && nextPlans.some((p) => p.id === currentPlanIdRef.current)
+          ? currentPlanIdRef.current
           : nextPlans.find((p) => p.kind === "personal")?.id ?? nextPlans[0].id;
+      const preferredPlan = nextPlans.find((plan) => plan.id === preferredPlanId) ?? null;
 
       const [nextSettings, nextDebts] = await Promise.all([
         apiFetch<Settings>(`/api/bff/settings?budgetPlanId=${encodeURIComponent(preferredPlanId)}`),
@@ -455,7 +463,7 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
       setSettings(nextSettings);
       setDebts(Array.isArray(nextDebts) ? nextDebts : []);
       setNoPlan(false);
-      hydrateDrafts(nextSettings, me);
+      hydrateDrafts(nextSettings, me, preferredPlan?.budgetHorizonYears ?? null);
     } catch (err: unknown) {
       const isNoPlanError =
         err instanceof ApiError &&
@@ -472,7 +480,7 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
       setLoading(false);
       setRefreshing(false);
     }
-  }, [currentPlanId, hydrateDrafts]);
+  }, [hydrateDrafts]);
 
   useEffect(() => {
     load();
@@ -480,12 +488,17 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
 
   useEffect(() => {
     const unsub = navigation.addListener("focus", () => {
+      if (skipFirstFocusReloadRef.current) {
+        skipFirstFocusReloadRef.current = false;
+        return;
+      }
       void load();
     });
     return unsub;
   }, [navigation, load]);
 
   const requestedInitialTab = (route as unknown as { params?: { initialTab?: unknown } } | undefined)?.params?.initialTab;
+  const requestedSubTab = (route as unknown as { params?: { subTab?: unknown } } | undefined)?.params?.subTab;
 
   useEffect(() => {
     if (requestedInitialTab !== "notifications" && requestedInitialTab !== "budget") return;
@@ -498,6 +511,29 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
 
     navigation.setParams({ initialTab: undefined });
   }, [navigation, requestedInitialTab, route.key]);
+
+  useEffect(() => {
+    if (
+      requestedSubTab !== "details"
+      && requestedSubTab !== "budget"
+      && requestedSubTab !== "savings"
+      && requestedSubTab !== "locale"
+      && requestedSubTab !== "plans"
+      && requestedSubTab !== "notifications"
+      && requestedSubTab !== "danger"
+    ) {
+      return;
+    }
+
+    setActiveTab((prev) => (prev === requestedSubTab ? prev : requestedSubTab));
+  }, [requestedSubTab]);
+
+  useEffect(() => {
+    const currentRoute = navigation.getState()?.routes?.find((entry) => entry.key === route.key);
+    const params = (currentRoute?.params as { subTab?: unknown } | undefined) ?? undefined;
+    if (params?.subTab === activeTab) return;
+    navigation.setParams({ subTab: activeTab });
+  }, [activeTab, navigation, route.key]);
 
   useEffect(() => {
     loadNotifications();
@@ -651,7 +687,8 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
       ]);
       setSettings(nextSettings);
       setDebts(Array.isArray(nextDebts) ? nextDebts : []);
-      hydrateDrafts(nextSettings, profile);
+      const nextPlan = plans.find((plan) => plan.id === budgetPlanId) ?? null;
+      hydrateDrafts(nextSettings, profile, nextPlan?.budgetHorizonYears ?? null);
     } catch (err: unknown) {
       Alert.alert("Could not open plan", err instanceof Error ? err.message : "Please try again.");
     } finally {
@@ -1167,9 +1204,37 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
     }
   };
 
+  const resetData = useCallback(() => {
+    if (resettingData) return;
+
+    Alert.alert(
+      "Reset data?",
+      "This removes all budget plans, income, expenses, debts, goals, categories, allocations, snapshots, and receipt scans. Your account stays active, but you will be signed out and onboarding will restart the next time you sign in.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Reset Data",
+          style: "destructive",
+          onPress: () => {
+            void (async () => {
+              try {
+                setResettingData(true);
+                await apiFetch("/api/bff/account/reset-data", { method: "POST" });
+                await signOut();
+              } catch (err: unknown) {
+                Alert.alert("Could not reset data", err instanceof Error ? err.message : "Please try again.");
+              } finally {
+                setResettingData(false);
+              }
+            })();
+          },
+        },
+      ]
+    );
+  }, [resettingData, signOut]);
+
   const isMoneyTab = activeTab === "savings";
   const moneyScrollTopPadding = Math.max(0, topHeaderOffset - MONEY_TOP_OFFSET_REDUCTION);
-  const safeTopPadding = isMoneyTab ? 0 : topHeaderOffset;
   const moneyToggleTranslateX = moneyToggleAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [0, MONEY_TOGGLE_SEGMENT_WIDTH],
@@ -1210,6 +1275,7 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
     createPlanSheetOpen,
     setCreatePlanSheetOpen,
     saveBusy,
+    resettingData,
     switchingPlanId,
     deletingPlanId,
     planDeleteTarget,
@@ -1286,7 +1352,6 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
     isMoreTabActive,
     isMoneyTab,
     moneyScrollTopPadding,
-    safeTopPadding,
     moneyToggleTranslateX,
     closeDetailsSheet,
     closeBudgetFieldSheet,
@@ -1316,6 +1381,7 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
     addDebt,
     createSubPlan,
     confirmDeletePlan,
+    resetData,
     markNotificationInboxItemRead,
     deleteNotificationInboxItem,
   };

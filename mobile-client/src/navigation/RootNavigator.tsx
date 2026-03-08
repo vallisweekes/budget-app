@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Animated, Easing, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -976,6 +976,74 @@ function MainTabs() {
             </Pressable>
           ) : undefined;
 
+          const settingsBackHandler = () => {
+            const currentSettingsSubTab = typeof deepestRoute?.params?.subTab === "string"
+              ? deepestRoute.params.subTab
+              : "details";
+            if (currentSettingsSubTab !== "details") {
+              navigation.navigate("Settings", { subTab: "details" });
+              return;
+            }
+            navigation.navigate("Dashboard");
+          };
+
+          const headerBackHandler = isLoggedExpenses
+            ? () => {
+              if (deepestRoute?.params?.categoryId) {
+                navigation.navigate(
+                  "Expenses" as any,
+                  {
+                    screen: "CategoryExpenses",
+                    params: {
+                      categoryId: deepestRoute?.params?.categoryId,
+                      categoryName: deepestRoute?.params?.categoryName,
+                      color: deepestRoute?.params?.color ?? null,
+                      icon: deepestRoute?.params?.icon ?? null,
+                      month: Number(deepestRoute?.params?.month),
+                      year: Number(deepestRoute?.params?.year),
+                      budgetPlanId: deepestRoute?.params?.budgetPlanId ?? null,
+                      currency: deepestRoute?.params?.currency,
+                      skipFocusReloadAt: Date.now(),
+                    },
+                  } as any
+                );
+                return;
+              }
+              navigation.navigate(
+                "Expenses" as any,
+                {
+                  screen: "ExpensesList",
+                  params: {
+                    month: Number(deepestRoute?.params?.month),
+                    year: Number(deepestRoute?.params?.year),
+                    budgetPlanId: deepestRoute?.params?.budgetPlanId ?? null,
+                    currency: deepestRoute?.params?.currency,
+                  },
+                } as any
+              );
+            }
+            : isCategoryExpenses
+              ? () => navigation.navigate(
+                "Expenses" as any,
+                hasCategoryMonthYear
+                  ? {
+                    screen: "ExpensesList",
+                    params: {
+                      month: categoryExpensesMonth,
+                      year: categoryExpensesYear,
+                      skipFocusReloadAt: Date.now(),
+                    },
+                  } as any
+                  : { screen: "ExpensesList", params: { skipFocusReloadAt: Date.now() } } as any
+              )
+              : isSettings
+                ? settingsBackHandler
+                : isDebtAnalytics
+                  ? () => navigation.navigate("Debts" as any, { screen: "DebtList" } as any)
+                  : isUnplannedExpense || isScanReceipt
+                    ? () => navigation.navigate("Expenses" as any, { screen: "ExpensesList" } as any)
+                    : undefined;
+
           return (
             <TopHeader
               onSettings={() => navigation.navigate("Settings")}
@@ -983,68 +1051,15 @@ function MainTabs() {
               onAnalytics={openAnalytics}
               onNotifications={openNotifications}
               leftVariant={isSettings || isCategoryExpenses || isLoggedExpenses || isUnplannedExpense || isScanReceipt || isDebtAnalytics ? "back" : "avatar"}
-              onBack={isLoggedExpenses
-                ? () => {
-                  if (deepestRoute?.params?.categoryId) {
-                    navigation.navigate(
-                      "Expenses" as any,
-                      {
-                        screen: "CategoryExpenses",
-                        params: {
-                          categoryId: deepestRoute?.params?.categoryId,
-                          categoryName: deepestRoute?.params?.categoryName,
-                          color: deepestRoute?.params?.color ?? null,
-                          icon: deepestRoute?.params?.icon ?? null,
-                          month: Number(deepestRoute?.params?.month),
-                          year: Number(deepestRoute?.params?.year),
-                          budgetPlanId: deepestRoute?.params?.budgetPlanId ?? null,
-                          currency: deepestRoute?.params?.currency,
-                          skipFocusReloadAt: Date.now(),
-                        },
-                      } as any
-                    );
-                    return;
-                  }
-                  navigation.navigate(
-                    "Expenses" as any,
-                    {
-                      screen: "ExpensesList",
-                      params: {
-                        month: Number(deepestRoute?.params?.month),
-                        year: Number(deepestRoute?.params?.year),
-                        budgetPlanId: deepestRoute?.params?.budgetPlanId ?? null,
-                        currency: deepestRoute?.params?.currency,
-                      },
-                    } as any
-                  );
-                }
-                : isCategoryExpenses
-                ? () => navigation.navigate(
-                  "Expenses" as any,
-                  hasCategoryMonthYear
-                    ? {
-                      screen: "ExpensesList",
-                      params: {
-                        month: categoryExpensesMonth,
-                        year: categoryExpensesYear,
-                        skipFocusReloadAt: Date.now(),
-                      },
-                    } as any
-                    : { screen: "ExpensesList", params: { skipFocusReloadAt: Date.now() } } as any
-                )
-                : isSettings
-                  ? () => navigation.navigate("Dashboard")
-                : isDebtAnalytics
-                  ? () => navigation.navigate("Debts" as any, { screen: "DebtList" } as any)
-                : isUnplannedExpense || isScanReceipt
-                  ? () => navigation.navigate("Expenses" as any, { screen: "ExpensesList" } as any)
-                  : undefined}
+              onBack={headerBackHandler}
               centerLabel={isGoals ? "Goals" : expensesCenterLabel}
               centerContent={headerCenterContent}
               leftContent={expensesListLeftContent}
               rightContent={(isLoggedExpenses ? undefined : categoryHeaderRightContent ?? expensesLoggedRightContent) ?? goalsRightContent}
               showIncomeAction={false}
               compactActionsMenu={isSettings || (isIncomeTab && isIncomeMonth)}
+              showAnalyticsAction={!isSettings}
+              showNotificationAction={!isSettings}
               onLogout={isSettings ? signOut : undefined}
               incomePendingCount={incomePendingCount}
               showNotificationDot={hasNotificationDot}
@@ -1135,16 +1150,24 @@ export default function RootNavigator() {
   const [onboardingLoading, setOnboardingLoading] = useState(false);
   const [completingOnboarding, setCompletingOnboarding] = useState(false);
   const [openBudgetSettingsAfterOnboarding, setOpenBudgetSettingsAfterOnboarding] = useState(false);
+  const lastOnboardingTokenRef = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
     if (!token) {
+      lastOnboardingTokenRef.current = null;
       setOnboardingState((prev) => (prev === null ? prev : null));
       setOnboardingLoading((prev) => (prev ? false : prev));
       setOpenBudgetSettingsAfterOnboarding((prev) => (prev ? false : prev));
       return;
     }
+
+    if (lastOnboardingTokenRef.current === token && onboardingState !== null) {
+      return;
+    }
+
+    lastOnboardingTokenRef.current = token;
 
     setOnboardingLoading((prev) => (prev ? prev : true));
 
@@ -1179,7 +1202,7 @@ export default function RootNavigator() {
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [onboardingState, token]);
 
   const completeOnboardingAndHydrate = useCallback(async () => {
     setCompletingOnboarding(true);

@@ -11,7 +11,7 @@ const COLOR_TRACK = "rgba(255,255,255,0.09)";
 const COLOR_REMAINING = T.accent; // left to spend
 const COLOR_USED = T.green; // budget already used
 const COLOR_OVERSPEND = T.red;
-const MIN_VISIBLE_REMAINING_MARKER_FRAC = 0.08;
+const MIN_VISIBLE_REMAINING_FRAC = 0.12;
 
 const W = Dimensions.get("window").width;
 
@@ -37,17 +37,16 @@ export default function BudgetDonutCard({ totalBudget, totalExpenses, paidTotal,
   const STROKE  = Math.round(SIZE * 0.135);
   const r       = (SIZE - STROKE) / 2;
   const C       = 2 * Math.PI * r; // full circumference
-  const outerR  = r + STROKE * 0.68;
-  const outerC  = 2 * Math.PI * outerR;
 
-  const usedLen      = usedFrac      * C;
-  const remainingLen = remainingFrac * C;
-  const overspendLen = overspendFrac * outerC;
-  const remainingOffset = -usedLen;
-  const shouldShowRemainingMarker = !isOverBudget && remainingFrac > 0 && remainingFrac < MIN_VISIBLE_REMAINING_MARKER_FRAC;
-  const markerRadius = Math.max(6, Math.round(STROKE * 0.18));
-  const markerCx = cx;
-  const markerCy = cy - r;
+  const visibleRemainingFrac = !isOverBudget && remainingFrac > 0 && remainingFrac < MIN_VISIBLE_REMAINING_FRAC
+    ? MIN_VISIBLE_REMAINING_FRAC
+    : remainingFrac;
+  const visibleUsedFrac = !isOverBudget && remainingFrac > 0 && remainingFrac < MIN_VISIBLE_REMAINING_FRAC
+    ? Math.max(0, 1 - visibleRemainingFrac)
+    : usedFrac;
+  const visibleUsedLen = visibleUsedFrac * C;
+  const remainingLen = visibleRemainingFrac * C;
+  const remainingOffset = -visibleUsedLen;
 
   const centerKicker = isOverBudget ? "Over budget" : "Remaining";
   const centerTop = isOverBudget ? fmt(Math.abs(remaining), currency) : fmt(remaining, currency);
@@ -68,8 +67,17 @@ export default function BudgetDonutCard({ totalBudget, totalExpenses, paidTotal,
             strokeWidth={STROKE}
           />
 
+          {isOverBudget ? (
+            <Circle
+              cx={cx} cy={cy} r={r}
+              fill="none"
+              stroke={COLOR_OVERSPEND}
+              strokeWidth={STROKE}
+            />
+          ) : null}
+
           {/* Remaining arc */}
-          {remainingFrac > 0.005 && (
+          {!isOverBudget && remainingFrac > 0.005 && (
             <Circle
               cx={cx} cy={cy} r={r}
               fill="none"
@@ -84,25 +92,14 @@ export default function BudgetDonutCard({ totalBudget, totalExpenses, paidTotal,
             />
           )}
 
-          {shouldShowRemainingMarker ? (
-            <Circle
-              cx={markerCx}
-              cy={markerCy}
-              r={markerRadius}
-              fill={COLOR_REMAINING}
-              stroke={T.bg}
-              strokeWidth={Math.max(2, Math.round(markerRadius * 0.45))}
-            />
-          ) : null}
-
           {/* Used arc */}
-          {usedFrac > 0.005 && (
+          {!isOverBudget && visibleUsedFrac > 0.005 && (
             <Circle
               cx={cx} cy={cy} r={r}
               fill="none"
               stroke={COLOR_USED}
               strokeWidth={STROKE}
-              strokeDasharray={`${usedLen} ${C}`}
+              strokeDasharray={`${visibleUsedLen} ${C}`}
               strokeDashoffset={0}
               strokeLinecap="round"
               rotation={-90}
@@ -111,30 +108,6 @@ export default function BudgetDonutCard({ totalBudget, totalExpenses, paidTotal,
             />
           )}
 
-          {/* Overspend ring: shows how far beyond budget current spending has gone */}
-          {isOverBudget ? (
-            <Circle
-              cx={cx} cy={cy} r={outerR}
-              fill="none"
-              stroke="rgba(226,92,92,0.18)"
-              strokeWidth={Math.max(6, Math.round(STROKE * 0.3))}
-            />
-          ) : null}
-
-          {isOverBudget && overspendFrac > 0.005 ? (
-            <Circle
-              cx={cx} cy={cy} r={outerR}
-              fill="none"
-              stroke={COLOR_OVERSPEND}
-              strokeWidth={Math.max(6, Math.round(STROKE * 0.3))}
-              strokeDasharray={`${overspendLen} ${outerC}`}
-              strokeDashoffset={0}
-              strokeLinecap="round"
-              rotation={-90}
-              originX={cx}
-              originY={cy}
-            />
-          ) : null}
         </Svg>
 
         {/* Center label */}
@@ -152,8 +125,14 @@ export default function BudgetDonutCard({ totalBudget, totalExpenses, paidTotal,
       </View>
 
       <View style={styles.legendRow}>
-        <LegendChip label="Used" value={fmt(usedWithinBudget, currency)} color={COLOR_USED} />
-        <LegendChip label={isOverBudget ? "Over" : "Left"} value={fmt(isOverBudget ? overspend : remainingBudget, currency)} color={isOverBudget ? COLOR_OVERSPEND : COLOR_REMAINING} />
+        {isOverBudget ? (
+          <LegendChip label="Over" value={fmt(overspend, currency)} color={COLOR_OVERSPEND} />
+        ) : (
+          <>
+            <LegendChip label="Used" value={fmt(usedWithinBudget, currency)} color={COLOR_USED} />
+            <LegendChip label="Left" value={fmt(remainingBudget, currency)} color={COLOR_REMAINING} />
+          </>
+        )}
       </View>
     </View>
   );

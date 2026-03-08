@@ -21,6 +21,8 @@ export default function TopHeader({
   showIncomeAction = true,
   rightContent,
   compactActionsMenu = false,
+  showAnalyticsAction = true,
+  showNotificationAction = true,
   onLogout,
   incomePendingCount = 0,
   onAddIncome,
@@ -29,6 +31,7 @@ export default function TopHeader({
   const insets = useSafeAreaInsets();
   const { username } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+  const shouldShowCompactMenuTrigger = !onAddIncome && (showIncomeAction || showAnalyticsAction || showNotificationAction);
 
   const getCenterWrapStyle = () => {
     if (rightContent) {
@@ -101,7 +104,7 @@ export default function TopHeader({
                 <Ionicons name="log-out-outline" size={18} color={T.red} />
               </Pressable>
             ) : null}
-            {!onAddIncome ? (
+            {shouldShowCompactMenuTrigger ? (
               <Pressable
                 onPress={() => setMenuOpen(true)}
                 style={styles.menuTriggerBtn}
@@ -125,13 +128,17 @@ export default function TopHeader({
                 ) : null}
               </Pressable>
             ) : null}
-            <Pressable onPress={onAnalytics} style={styles.iconBtn} hitSlop={10}>
-              <Ionicons name="stats-chart-outline" size={18} color={T.accent} />
-            </Pressable>
-            <Pressable onPress={onNotifications} style={styles.iconBtn} hitSlop={10}>
-              <Ionicons name="notifications-outline" size={18} color={T.accent} />
-              {showNotificationDot ? <View style={styles.notificationDot} /> : null}
-            </Pressable>
+            {showAnalyticsAction ? (
+              <Pressable onPress={onAnalytics} style={styles.iconBtn} hitSlop={10}>
+                <Ionicons name="stats-chart-outline" size={18} color={T.accent} />
+              </Pressable>
+            ) : null}
+            {showNotificationAction ? (
+              <Pressable onPress={onNotifications} style={styles.iconBtn} hitSlop={10}>
+                <Ionicons name="notifications-outline" size={18} color={T.accent} />
+                {showNotificationDot ? <View style={styles.notificationDot} /> : null}
+              </Pressable>
+            ) : null}
           </View>
         )}
 			</View>
@@ -154,30 +161,34 @@ export default function TopHeader({
                 <Text style={styles.menuItemText}>Income</Text>
               </Pressable>
             ) : null}
-            <Pressable
-              onPress={() => {
-                setMenuOpen(false);
-                onAnalytics();
-              }}
-              style={styles.menuItem}
-              accessibilityRole="button"
-              accessibilityLabel="Go to Analytics"
-            >
-              <Ionicons name="stats-chart-outline" size={16} color={T.text} />
-              <Text style={styles.menuItemText}>Analytics</Text>
-            </Pressable>
-            <Pressable
-              onPress={() => {
-                setMenuOpen(false);
-                onNotifications();
-              }}
-              style={[styles.menuItem, styles.menuItemLast]}
-              accessibilityRole="button"
-              accessibilityLabel="Go to Notifications"
-            >
-              <Ionicons name="notifications-outline" size={16} color={T.text} />
-              <Text style={styles.menuItemText}>Notifications</Text>
-            </Pressable>
+            {showAnalyticsAction ? (
+              <Pressable
+                onPress={() => {
+                  setMenuOpen(false);
+                  onAnalytics();
+                }}
+                style={styles.menuItem}
+                accessibilityRole="button"
+                accessibilityLabel="Go to Analytics"
+              >
+                <Ionicons name="stats-chart-outline" size={16} color={T.text} />
+                <Text style={styles.menuItemText}>Analytics</Text>
+              </Pressable>
+            ) : null}
+            {showNotificationAction ? (
+              <Pressable
+                onPress={() => {
+                  setMenuOpen(false);
+                  onNotifications();
+                }}
+                style={[styles.menuItem, styles.menuItemLast]}
+                accessibilityRole="button"
+                accessibilityLabel="Go to Notifications"
+              >
+                <Ionicons name="notifications-outline" size={16} color={T.text} />
+                <Text style={styles.menuItemText}>Notifications</Text>
+              </Pressable>
+            ) : null}
           </View>
         </View>
       </Modal>

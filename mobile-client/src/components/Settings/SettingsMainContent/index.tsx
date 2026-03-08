@@ -4,18 +4,37 @@ import { Ionicons } from "@expo/vector-icons";
 
 import SettingsBudgetTab from "@/components/Settings/SettingsBudgetTab";
 import SettingsDangerTab from "@/components/Settings/SettingsDangerTab";
-import SettingsDetailsTab from "@/components/Settings/SettingsDetailsTab";
 import SettingsLocaleTab from "@/components/Settings/SettingsLocaleTab";
 import SettingsMoneyTab from "@/components/Settings/SettingsMoneyTab";
 import SettingsNotificationsTab from "@/components/Settings/SettingsNotificationsTab";
+import SettingsOverviewTab from "@/components/Settings/SettingsOverviewTab";
 import SettingsPlansTab from "@/components/Settings/SettingsPlansTab";
+import SettingsSubpageHeader from "@/components/Settings/SettingsSubpageHeader";
 import { asMoneyText, formatBillFrequency, formatPayFrequency } from "@/lib/helpers/settings";
+import {
+  getSettingsAppVersionLabel,
+  openSettingsExternalUrl,
+  SETTINGS_TAB_TITLES,
+  SETTINGS_WEBSITE_URL,
+} from "@/lib/helpers/settingsOverview";
 import { styles } from "./styles";
 import { T } from "@/lib/theme";
-
 import type { SettingsMainContentProps } from "@/types/components/settings/SettingsMainContent.types";
 
 export default function SettingsMainContent({ controller, navigation, savingsTileSize, getAddPotLabel, getSavingsTilePalette }: SettingsMainContentProps) {
+  const scrollRef = React.useRef<ScrollView | null>(null);
+
+  React.useEffect(() => {
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [controller.activeTab]);
+
+  React.useEffect(() => {
+    const unsubscribe = navigation.addListener("focus", () => {
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
+    });
+    return unsubscribe;
+  }, [navigation]);
+
   if (controller.loading) {
     return <View style={styles.center}><ActivityIndicator size="large" color={T.accent} /></View>;
   }
@@ -45,18 +64,49 @@ export default function SettingsMainContent({ controller, navigation, savingsTil
 
   return (
     <ScrollView
+      ref={scrollRef}
       refreshControl={<RefreshControl refreshing={controller.refreshing} onRefresh={() => { controller.setRefreshing(true); controller.load(); }} tintColor={T.accent} />}
-      contentContainerStyle={[styles.scroll, controller.isMoneyTab ? [styles.scrollNoTop, { paddingTop: controller.moneyScrollTopPadding }] : null]}
+      contentContainerStyle={[styles.scroll, { paddingTop: controller.isMoneyTab ? controller.moneyScrollTopPadding : controller.topHeaderOffset }]}
       contentInsetAdjustmentBehavior="never"
       automaticallyAdjustContentInsets={false}
       showsVerticalScrollIndicator={false}
     >
+      {controller.activeTab !== "details" ? (
+        <SettingsSubpageHeader
+          title={SETTINGS_TAB_TITLES[controller.activeTab]}
+          onBack={() => controller.setActiveTab("details")}
+        />
+      ) : null}
       {controller.activeTab === "details" ? (
-        <SettingsDetailsTab
-          username={controller.profile?.username ?? controller.authUsername ?? "User"}
+        <SettingsOverviewTab
           email={controller.profile?.email ?? "No email set"}
-          country={(controller.settings?.country ?? "").toUpperCase()}
-          onEdit={() => controller.setDetailsSheetOpen(true)}
+          payDateLabel={controller.settings?.payDate ? `Day ${controller.settings.payDate}` : "Not set"}
+          payFrequencyLabel={formatPayFrequency(controller.settings?.payFrequency)}
+          currencyLabel={controller.settings?.currency ?? "GBP"}
+          notificationsLabel={controller.notifications.dueReminders || controller.notifications.paymentAlerts || controller.notifications.dailyTips ? "On" : "Off"}
+          versionLabel={getSettingsAppVersionLabel()}
+          onEditProfile={() => controller.setDetailsSheetOpen(true)}
+          onOpenBudget={() => controller.setActiveTab("budget")}
+          onOpenIncomeSettings={() => {
+            const budgetPlanId = controller.settings?.id;
+            if (!budgetPlanId) return;
+            const now = new Date();
+            navigation.navigate("Income" as any, {
+              screen: "IncomeMonth",
+              params: {
+                month: now.getMonth() + 1,
+                year: now.getFullYear(),
+                budgetPlanId,
+                initialMode: "income",
+              },
+            } as any);
+          }}
+          onOpenSavings={() => controller.setActiveTab("savings")}
+          onOpenPlans={() => controller.setActiveTab("plans")}
+          onOpenLocale={() => controller.setActiveTab("locale")}
+          onOpenNotifications={() => controller.setActiveTab("notifications")}
+          onOpenDanger={() => controller.setActiveTab("danger")}
+          onOpenAbout={() => { void openSettingsExternalUrl(SETTINGS_WEBSITE_URL); }} onOpenPrivacy={() => { void openSettingsExternalUrl(`${SETTINGS_WEBSITE_URL}/privacy-policy`); }}
         />
       ) : null}
 
@@ -156,8 +206,7 @@ export default function SettingsMainContent({ controller, navigation, savingsTil
           onDelete={(id) => { void controller.deleteNotificationInboxItem(id); }}
         />
       ) : null}
-
-      {controller.activeTab === "danger" ? <SettingsDangerTab onSignOut={controller.signOut} /> : null}
+      {controller.activeTab === "danger" ? <SettingsDangerTab onResetData={controller.resetData} resettingData={controller.resettingData} onSignOut={controller.signOut} /> : null}
     </ScrollView>
   );
 }

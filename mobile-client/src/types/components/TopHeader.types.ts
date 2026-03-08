@@ -13,6 +13,8 @@ export interface TopHeaderProps {
   showIncomeAction?: boolean;
   rightContent?: ReactNode;
   compactActionsMenu?: boolean;
+  showAnalyticsAction?: boolean;
+  showNotificationAction?: boolean;
   onLogout?: () => void;
   incomePendingCount?: number;
   onAddIncome?: () => void;

@@ -1,6 +1,7 @@
 import type { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
 import type { CompositeScreenProps, NavigatorScreenParams } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import type { SettingsTab } from "@/types/settings";
 
 /* ── Income stack (inside Income tab) ──────────────────────── */
 export type IncomeStackParamList = {
@@ -98,7 +99,7 @@ export type MainTabParamList = {
     openAddToken?: number;
   } | undefined;
   Income: NavigatorScreenParams<IncomeStackParamList> | undefined;
-  Settings: { initialTab?: "notifications" | "budget" } | undefined;
+  Settings: { initialTab?: "notifications" | "budget"; subTab?: SettingsTab } | undefined;
 };
 
 /* ── Root stack ─────────────────────────────────────────────── */

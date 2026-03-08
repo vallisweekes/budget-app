@@ -15,6 +15,5 @@ export const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   primaryBtnText: { color: T.onAccent, fontWeight: "800", fontSize: 13 },
-  scroll: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 86 },
-  scrollNoTop: { paddingTop: 0 },
+  scroll: { paddingHorizontal: 16, paddingBottom: 34 },
 });
