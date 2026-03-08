@@ -8,6 +8,8 @@ import {
   clearStoredUsername,
 } from "@/lib/storage";
 import { apiFetch, getApiBaseUrl, invalidateApiCache, setOnUnauthorized, suppressUnauthorizedCallback } from "@/lib/api";
+import { store } from "@/store";
+import { mobileApi } from "@/store/api";
 
 type AuthState = {
   token: string | null;
@@ -64,6 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch {
         await Promise.all([clearSessionToken(), clearStoredUsername()]);
         invalidateApiCache();
+        store.dispatch(mobileApi.util.resetApiState());
         setAuthState({ token: null, username: null, isLoading: false });
       } finally {
         suppressUnauthorizedCallback(false);
@@ -119,6 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await Promise.all([setSessionToken(sessionToken), setStoredUsername(sessionUsername)]);
 
       invalidateApiCache();
+      store.dispatch(mobileApi.util.resetApiState());
       setAuthState({ token: sessionToken, username: sessionUsername, isLoading: false });
       } finally {
         // Re-enable 401 auto-sign-out only after the new token is safely persisted.
@@ -162,6 +166,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       await Promise.all([clearSessionToken(), clearStoredUsername()]);
       invalidateApiCache();
+      store.dispatch(mobileApi.util.resetApiState());
       setAuthState({ token: null, username: null, isLoading: false });
     } finally {
       signOutInFlightRef.current = false;

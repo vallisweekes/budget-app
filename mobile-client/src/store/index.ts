@@ -2,6 +2,8 @@ import { configureStore, createSlice } from "@reduxjs/toolkit";
 import type { TypedUseSelectorHook } from "react-redux";
 import { useDispatch, useSelector } from "react-redux";
 
+import { mobileApi } from "@/store/api";
+
 // Placeholder slice — replace with real slices as the app grows
 const appSlice = createSlice({
   name: "app",
@@ -12,13 +14,14 @@ const appSlice = createSlice({
 export const store = configureStore({
   reducer: {
     app: appSlice.reducer,
+    [mobileApi.reducerPath]: mobileApi.reducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
       serializableCheck: {
         ignoredActions: [],
       },
-    }),
+    }).concat(mobileApi.middleware),
 });
 
 export type RootState = ReturnType<typeof store.getState>;

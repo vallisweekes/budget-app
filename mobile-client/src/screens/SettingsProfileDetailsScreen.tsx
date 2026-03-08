@@ -3,31 +3,24 @@ import { Alert, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, Tex
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
-import { apiFetch } from "@/lib/api";
+import { useUpdateProfileMutation } from "@/store/api";
 import { T } from "@/lib/theme";
 import { cardBase } from "@/lib/ui";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 import type { RootStackScreenProps } from "@/navigation/types";
-import type { UserProfile } from "@/lib/apiTypes";
 
 export default function SettingsProfileDetailsScreen({ navigation, route }: RootStackScreenProps<"SettingsProfileDetails">) {
   const topHeaderOffset = useTopHeaderOffset(8);
   const [email, setEmail] = useState(route.params?.email ?? "");
   const [username] = useState(route.params?.username ?? "");
-  const [saving, setSaving] = useState(false);
+  const [updateProfile, { isLoading: saving }] = useUpdateProfileMutation();
 
   const save = async () => {
     try {
-      setSaving(true);
-      await apiFetch<UserProfile>("/api/bff/me", {
-        method: "PATCH",
-        body: { email: email.trim() || null },
-      });
+      await updateProfile({ email: email.trim() || null }).unwrap();
       navigation.goBack();
     } catch (err: unknown) {
       Alert.alert("Could not save details", err instanceof Error ? err.message : "Please try again.");
-    } finally {
-      setSaving(false);
     }
   };
 

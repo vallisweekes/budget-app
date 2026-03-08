@@ -11,7 +11,6 @@ import type {
   BudgetPlansResponse,
   Debt,
   Settings,
-  SubscriptionSummaryResponse,
   UserProfile,
 } from "@/lib/apiTypes";
 import { currencySymbol } from "@/lib/formatting";
@@ -25,6 +24,7 @@ import {
   subscribeNotificationInbox,
   type NotificationInboxItem,
 } from "@/lib/notificationInbox";
+import { useGetSubscriptionQuery, useUpdateSettingsMutation } from "@/store/api";
 import type { MainTabScreenProps } from "@/navigation/types";
 import {
   asMoneyInput,
@@ -70,9 +70,6 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
   const [settings, setSettings] = useState<Settings | null>(null);
   const [plans, setPlans] = useState<BudgetPlanListItem[]>([]);
   const [debts, setDebts] = useState<Debt[]>([]);
-  const [subscription, setSubscription] = useState<SubscriptionSummaryResponse | null>(null);
-  const [subscriptionLoading, setSubscriptionLoading] = useState(false);
-  const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -200,6 +197,11 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
   const [iosPlanEventDraft, setIosPlanEventDraft] = useState<Date>(new Date());
   const currentPlanIdRef = React.useRef<string | null>(null);
   const skipFirstFocusReloadRef = React.useRef(true);
+  const subscriptionQuery = useGetSubscriptionQuery(undefined, {
+    skip: activeTab !== "subscription",
+    refetchOnMountOrArgChange: true,
+  });
+  const [updateSettingsMutation] = useUpdateSettingsMutation();
 
   const openPlanEventDatePicker = useCallback(() => {
     planEventBeforeRef.current = newPlanEventDate;
@@ -544,19 +546,17 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
     loadNotifications();
   }, [loadNotifications]);
 
-  const loadSubscription = useCallback(async (force = false) => {
-    if (!force && subscription) return;
-    try {
-      setSubscriptionLoading(true);
-      setSubscriptionError(null);
-      const next = await apiFetch<SubscriptionSummaryResponse>("/api/bff/subscription", { cacheTtlMs: 0 });
-      setSubscription(next);
-    } catch (err: unknown) {
-      setSubscriptionError(err instanceof Error ? err.message : "Failed to load subscription");
-    } finally {
-      setSubscriptionLoading(false);
-    }
-  }, [subscription]);
+  const subscription = subscriptionQuery.data ?? null;
+  const subscriptionLoading = subscriptionQuery.isLoading || subscriptionQuery.isFetching;
+  const subscriptionError = subscriptionQuery.error instanceof Error
+    ? subscriptionQuery.error.message
+    : subscriptionQuery.error
+      ? "Failed to load subscription"
+      : null;
+
+  const loadSubscription = useCallback(async (_force = false) => {
+    await subscriptionQuery.refetch();
+  }, [subscriptionQuery]);
 
   useEffect(() => {
     if (activeTab !== "subscription") return;
@@ -780,23 +780,21 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
       }
 
       if (budgetFieldSheet === "payFrequency") {
-        await apiFetch<Settings>("/api/bff/settings", {
-          method: "PATCH",
-          body: {
-            budgetPlanId: settings.id,
+        await updateSettingsMutation({
+          budgetPlanId: settings.id,
+          changes: {
             payFrequency: payFrequencyDraft,
           },
-        });
+        }).unwrap();
       }
 
       if (budgetFieldSheet === "billFrequency") {
-        await apiFetch<Settings>("/api/bff/settings", {
-          method: "PATCH",
-          body: {
-            budgetPlanId: settings.id,
+        await updateSettingsMutation({
+          budgetPlanId: settings.id,
+          changes: {
             billFrequency: billFrequencyDraft,
           },
-        });
+        }).unwrap();
       }
 
       setBudgetFieldSheet(null);
@@ -1043,13 +1041,12 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
 
     try {
       setSaveBusy(true);
-      const updated = await apiFetch<Settings>("/api/bff/settings", {
-        method: "PATCH",
-        body: {
-          budgetPlanId: settings.id,
+      const updated = await updateSettingsMutation({
+        budgetPlanId: settings.id,
+        changes: {
           country: nextCountry,
         },
-      });
+      }).unwrap();
       setSettings(updated);
       setLocaleSheetOpen(false);
     } catch (err: unknown) {

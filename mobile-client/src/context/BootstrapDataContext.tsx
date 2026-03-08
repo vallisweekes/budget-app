@@ -1,9 +1,10 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { AppState, type AppStateStatus } from "react-native";
 
-import { ApiError, apiFetch } from "@/lib/api";
+import { ApiError } from "@/lib/api";
 import type { DashboardData, Settings } from "@/lib/apiTypes";
 import { useAuth } from "@/context/AuthContext";
+import { useGetDashboardQuery, useGetSettingsQuery } from "@/store/api";
 
 export type BootstrapRefreshResult = {
   dashboard: DashboardData | null;
@@ -25,13 +26,31 @@ const BootstrapDataContext = createContext<BootstrapDataContextValue | null>(nul
 
 export function BootstrapDataProvider({ children }: { children: React.ReactNode }) {
   const { token, isLoading: authLoading } = useAuth();
-
-  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
-  const [settings, setSettings] = useState<Settings | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
-  const [lastLoadedAt, setLastLoadedAt] = useState<number | null>(null);
+  const shouldSkip = authLoading || !token;
+
+  const dashboardQuery = useGetDashboardQuery(undefined, { skip: shouldSkip, refetchOnMountOrArgChange: true });
+  const settingsQuery = useGetSettingsQuery(undefined, { skip: shouldSkip, refetchOnMountOrArgChange: true });
+
+  const dashboard = shouldSkip ? null : dashboardQuery.data ?? null;
+  const settings = shouldSkip ? null : settingsQuery.data ?? null;
+  const isLoading = authLoading
+    ? true
+    : !token
+      ? false
+      : Boolean((dashboardQuery.isLoading || settingsQuery.isLoading) && !dashboard && !settings);
+  const error = useMemo<Error | null>(() => {
+    const nextError = dashboardQuery.error ?? settingsQuery.error;
+    if (!nextError) return null;
+    if (nextError instanceof Error) return nextError;
+    return new Error("Failed to load app data");
+  }, [dashboardQuery.error, settingsQuery.error]);
+  const lastLoadedAt = useMemo<number | null>(() => {
+    const dashboardStamp = dashboardQuery.fulfilledTimeStamp ?? 0;
+    const settingsStamp = settingsQuery.fulfilledTimeStamp ?? 0;
+    const nextStamp = Math.max(dashboardStamp, settingsStamp);
+    return nextStamp > 0 ? nextStamp : null;
+  }, [dashboardQuery.fulfilledTimeStamp, settingsQuery.fulfilledTimeStamp]);
 
   const inflightRef = useRef<Promise<BootstrapRefreshResult> | null>(null);
   const dashboardRef = useRef<DashboardData | null>(null);
@@ -55,21 +74,6 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
     tokenRef.current = token;
   }, [token]);
 
-  const doFetch = useCallback(async (): Promise<BootstrapRefreshResult> => {
-    // Fetch computed dashboard + settings in parallel.
-    const [dash, s] = await Promise.all([
-      apiFetch<DashboardData>("/api/bff/dashboard", { cacheTtlMs: 0 }),
-      apiFetch<Settings>("/api/bff/settings"),
-    ]);
-
-    setDashboard(dash);
-    setSettings(s);
-    setLastLoadedAt(Date.now());
-    dashboardRef.current = dash;
-    settingsRef.current = s;
-    return { dashboard: dash, settings: s };
-  }, []);
-
   const refresh = useCallback(
     async (options?: { force?: boolean }): Promise<BootstrapRefreshResult> => {
       const currentDashboard = dashboardRef.current;
@@ -90,18 +94,28 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
       if (inflightRef.current) return inflightRef.current;
 
       const promise = (async () => {
-        setError(null);
-        if (!hasData) setIsLoading(true);
-        else setIsRefreshing(true);
+        if (hasData) setIsRefreshing(true);
 
         try {
-          return await doFetch();
+          const [dashResult, settingsResult] = await Promise.all([
+            dashboardQuery.refetch(),
+            settingsQuery.refetch(),
+          ]);
+
+          if (dashResult.error) {
+            throw dashResult.error;
+          }
+          if (settingsResult.error) {
+            throw settingsResult.error;
+          }
+
+          return {
+            dashboard: dashResult.data ?? null,
+            settings: settingsResult.data ?? null,
+          };
         } catch (err: unknown) {
-          const e = err instanceof Error ? err : new Error("Failed to load");
-          setError(e);
           return { dashboard: currentDashboard, settings: currentSettings };
         } finally {
-          setIsLoading(false);
           setIsRefreshing(false);
           inflightRef.current = null;
         }
@@ -110,7 +124,7 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
       inflightRef.current = promise;
       return promise;
     },
-    [doFetch]
+    [dashboardQuery, settingsQuery]
   );
 
   const ensureLoaded = useCallback(async (): Promise<BootstrapRefreshResult> => {
@@ -122,18 +136,11 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
     if (authLoading) return;
 
     if (!token) {
-      setDashboard(null);
-      setSettings(null);
-      setError(null);
-      setLastLoadedAt(null);
-      setIsLoading(false);
       setIsRefreshing(false);
       inflightRef.current = null;
       return;
     }
-
-    void refresh({ force: true });
-  }, [authLoading, refresh, token]);
+  }, [authLoading, token]);
 
   // Opportunistic refresh when app returns to foreground.
   useEffect(() => {
