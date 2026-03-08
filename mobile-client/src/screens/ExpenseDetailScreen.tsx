@@ -24,7 +24,6 @@ import type { ExpensesStackParamList } from "@/navigation/types";
 import type { Expense, ExpenseFrequencyPoint, ExpenseFrequencyPointStatus, ExpenseFrequencyResponse, Settings } from "@/lib/apiTypes";
 import { apiFetch, getApiBaseUrl } from "@/lib/api";
 import { fmt } from "@/lib/formatting";
-import { normalizePayFrequency } from "@/lib/payPeriods";
 import { T } from "@/lib/theme";
 import DeleteConfirmSheet from "@/components/Shared/DeleteConfirmSheet";
 import PaymentSheet from "@/components/Debts/Detail/PaymentSheet";
@@ -468,14 +467,7 @@ export default function ExpenseDetailScreen({ route, navigation }: Props) {
   const logoUri = React.useMemo(() => resolveLogoUri(expense?.logoUrl), [expense?.logoUrl]);
   const showLogo = Boolean(logoUri) && !logoFailed;
 
-  // Pay periods in this app are anchored by the *end* month (e.g. month=Mar => 27 Feb–26 Mar).
-  // For charts/timelines that read as "this period", users expect the label to start at the
-  // pay-period start month (Feb in the example). We shift display months back by 1 for monthly.
-  const payFrequency = React.useMemo(() => normalizePayFrequency(settings?.payFrequency), [settings?.payFrequency]);
-  const shouldShiftPeriodMonthLabels = payFrequency === "monthly";
-  const displayPeriodMonthYear = React.useMemo(() => {
-    return shouldShiftPeriodMonthLabels ? addMonths(month, year, -1) : { month, year };
-  }, [month, shouldShiftPeriodMonthLabels, year]);
+  const displayPeriodMonthYear = React.useMemo(() => ({ month, year }), [month, year]);
 
   const monthsForFuture = React.useMemo(
     () => nextNMonths(displayPeriodMonthYear.month, displayPeriodMonthYear.year, 6),
@@ -532,7 +524,7 @@ export default function ExpenseDetailScreen({ route, navigation }: Props) {
 
   const freqDisplay = React.useMemo(() => {
     if (frequency?.points?.length) {
-      const raw = (frequency.points as ExpenseFrequencyPoint[]).map((p) => ({
+      const points: MonthPoint[] = (frequency.points as ExpenseFrequencyPoint[]).map((p) => ({
         key: p.key,
         month: p.month,
         year: p.year,
@@ -542,22 +534,7 @@ export default function ExpenseDetailScreen({ route, navigation }: Props) {
         status: p.status,
       }));
 
-      const points: MonthPoint[] = shouldShiftPeriodMonthLabels
-        ? raw.map((p) => {
-            const shifted = addMonths(p.month, p.year, -1);
-            return {
-              ...p,
-              month: shifted.month,
-              year: shifted.year,
-              label: monthLabel(shifted.month),
-            };
-          })
-        : raw;
-
-      const subtitleRaw = frequency.subtitle || "Payment frequency";
-      const subtitle = shouldShiftPeriodMonthLabels && /^from\s+/i.test(subtitleRaw)
-        ? `From ${monthLabel(displayPeriodMonthYear.month)}`
-        : subtitleRaw;
+      const subtitle = frequency.subtitle || "Payment frequency";
 
       return { subtitle, points };
     }
@@ -572,7 +549,7 @@ export default function ExpenseDetailScreen({ route, navigation }: Props) {
       status: "upcoming",
     }));
     return { subtitle: "Next 6 months", points };
-  }, [displayPeriodMonthYear.month, frequency, monthsForFuture, shouldShiftPeriodMonthLabels]);
+  }, [frequency, monthsForFuture]);
 
   const freqIndicator = React.useMemo(() => {
     const points = freqDisplay.points;

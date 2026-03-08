@@ -69,6 +69,7 @@ export default function ExpensesScreen({ navigation }: Props) {
     settings,
     isLoading: bootstrapLoading,
     error: bootstrapError,
+    ensureLoaded,
     refresh: refreshBootstrap,
   } = useBootstrapData();
 
@@ -77,6 +78,8 @@ export default function ExpensesScreen({ navigation }: Props) {
   const [expenseMonths, setExpenseMonths] = useState<ExpenseMonthsResponse["months"]>([]);
   const [periodCountsByMonth, setPeriodCountsByMonth] = useState<Record<number, number>>({});
   const skipFirstFocusReloadRef = useRef(true);
+  const skipNextTabFocusReloadRef = useRef(false);
+  const plansRef = useRef<BudgetPlanListItem[]>([]);
   const summaryCacheRef = useRef<Record<string, Record<number, Record<number, ExpenseSummary>>>>({});
   const monthsCacheRef = useRef<Record<string, ExpenseMonthsResponse["months"]>>({});
   const cacheSignatureRef = useRef<string | null>(null);
@@ -107,6 +110,7 @@ export default function ExpensesScreen({ navigation }: Props) {
     if (!tabNavigation) return;
 
     const unsubscribe = tabNavigation.addListener("blur", () => {
+      skipNextTabFocusReloadRef.current = true;
       const current = new Date();
       const nextMonth = current.getMonth() + 1;
       const nextYear = current.getFullYear();
@@ -183,6 +187,10 @@ export default function ExpensesScreen({ navigation }: Props) {
   const planTotalCount = expenseMonths.reduce((sum, m) => sum + (m.totalCount ?? 0), 0);
 
   const prevIsPersonalPlanRef = useRef<boolean>(true);
+
+  useEffect(() => {
+    plansRef.current = plans;
+  }, [plans]);
 
   // Plan tabs: keep selected pill centered when horizontally scrollable.
   const planScrollRef = useRef<ScrollView>(null);
@@ -261,11 +269,6 @@ export default function ExpensesScreen({ navigation }: Props) {
     const end = SHORT_MONTHS[(safeMonth + 11) % 12];
     return `${start} - ${end}`;
   };
-
-  useEffect(() => {
-    // Default to the Personal plan when multiple plans exist.
-    if (!selectedPlanId && personalPlanId) setSelectedPlanId(personalPlanId);
-  }, [personalPlanId, selectedPlanId]);
 
   const clearExpenseCaches = useCallback(() => {
     summaryCacheRef.current = {};
@@ -369,10 +372,14 @@ export default function ExpensesScreen({ navigation }: Props) {
     const force = Boolean(options?.force);
     try {
       setError(null);
-      const [{ settings: s }, bp] = await Promise.all([
-        refreshBootstrap({ force: true }),
-        apiFetch<BudgetPlansResponse>("/api/bff/budget-plans", { cacheTtlMs: 0 }),
+      const [bootstrapResult, bp] = await Promise.all([
+        force ? refreshBootstrap({ force: true }) : ensureLoaded(),
+        !force && plansRef.current.length > 0
+          ? Promise.resolve<BudgetPlansResponse>({ plans: plansRef.current })
+          : apiFetch<BudgetPlansResponse>("/api/bff/budget-plans", { cacheTtlMs: force ? 0 : 6_000 }),
       ]);
+
+      const s = bootstrapResult.settings;
 
       if (!s) {
         throw bootstrapError ?? new Error("Failed to load settings");
@@ -400,16 +407,24 @@ export default function ExpensesScreen({ navigation }: Props) {
         const bCreated = new Date(b.createdAt).getTime();
         return aCreated - bCreated;
       });
-      setPlans(nextPlans);
+      setPlans((prev) => {
+        if (
+          prev.length === nextPlans.length
+          && prev.every((plan, index) => (
+            plan.id === nextPlans[index]?.id
+            && plan.kind === nextPlans[index]?.kind
+            && plan.createdAt === nextPlans[index]?.createdAt
+          ))
+        ) {
+          return prev;
+        }
+        return nextPlans;
+      });
 
       const resolvedPlanId = activePlanId
         ?? nextPlans.find((p) => p.kind === "personal")?.id
         ?? nextPlans[0]?.id
         ?? null;
-
-      if (!selectedPlanId && resolvedPlanId) {
-        setSelectedPlanId(resolvedPlanId);
-      }
 
       const resolvedPlanCreatedAt = latestResolvedDate(
         parsePlanCreatedAt(nextPlans.find((plan) => plan.id === resolvedPlanId)?.createdAt),
@@ -545,7 +560,7 @@ export default function ExpensesScreen({ navigation }: Props) {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [activePlanId, bootstrapError, getOrFetchSummary, latestResolvedDate, month, planCacheKey, refreshBootstrap, selectedPlanId, setupCompletedAt, year]);
+  }, [activePlanId, bootstrapError, ensureLoaded, getOrFetchSummary, latestResolvedDate, month, planCacheKey, refreshBootstrap, selectedPlanId, setupCompletedAt, year]);
 
   const currentViewKey = `${activePlanId ?? "none"}:${year}-${month}`;
   useEffect(() => {
@@ -561,6 +576,10 @@ export default function ExpensesScreen({ navigation }: Props) {
     useCallback(() => {
       if (skipFirstFocusReloadRef.current) {
         skipFirstFocusReloadRef.current = false;
+        return;
+      }
+      if (skipNextTabFocusReloadRef.current) {
+        skipNextTabFocusReloadRef.current = false;
         return;
       }
       void load();

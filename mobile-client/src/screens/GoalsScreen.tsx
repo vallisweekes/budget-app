@@ -54,6 +54,7 @@ export default function GoalsScreen({ navigation, route }: MainTabScreenProps<"G
   const [newCurrentAmount, setNewCurrentAmount] = useState("");
   const [newTargetYear, setNewTargetYear] = useState("");
   const lastOpenAddTokenRef = useRef<number | null>(null);
+  const skipNextTabFocusReloadRef = useRef(false);
 
   const budgetPlanId = dashboard?.budgetPlanId;
 
@@ -109,8 +110,23 @@ export default function GoalsScreen({ navigation, route }: MainTabScreenProps<"G
     }
   }, [bootstrapError, ensureLoaded, refreshBootstrap]);
 
+  useEffect(() => {
+    const tabNavigation = navigation.getParent();
+    if (!tabNavigation) return;
+
+    const unsubscribe = tabNavigation.addListener("blur", () => {
+      skipNextTabFocusReloadRef.current = true;
+    });
+
+    return unsubscribe;
+  }, [navigation]);
+
   useFocusEffect(
     useCallback(() => {
+      if (skipNextTabFocusReloadRef.current) {
+        skipNextTabFocusReloadRef.current = false;
+        return;
+      }
       void load();
     }, [load])
   );

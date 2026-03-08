@@ -265,6 +265,7 @@ export default function DebtScreen() {
   const [chartWidth, setChartWidth] = useState(320);
   const [selectedProjectionMonth, setSelectedProjectionMonth] = useState<number | null>(null);
   const [optimisticDeletedDebtIds, setOptimisticDeletedDebtIds] = useState<string[]>([]);
+  const skipNextTabFocusReloadRef = useRef(false);
 
   const currency = currencySymbol(settings?.currency);
 
@@ -292,8 +293,23 @@ export default function DebtScreen() {
 
   useEffect(() => { void load(); }, [load]);
 
+  useEffect(() => {
+    const tabNavigation = navigation.getParent();
+    if (!tabNavigation) return;
+
+    const unsubscribe = tabNavigation.addListener("blur", () => {
+      skipNextTabFocusReloadRef.current = true;
+    });
+
+    return unsubscribe;
+  }, [navigation]);
+
   useFocusEffect(
     useCallback(() => {
+      if (skipNextTabFocusReloadRef.current) {
+        skipNextTabFocusReloadRef.current = false;
+        return;
+      }
       void load();
     }, [load])
   );

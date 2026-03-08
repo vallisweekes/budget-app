@@ -38,38 +38,10 @@ const GOAL_SIDE = 16;
 const GOAL_CARD = Math.max(122, Math.round((W - GOAL_SIDE * 2 - GOAL_GAP) / 2));
 const GOAL_ADD_W = Math.max(52, Math.round(GOAL_CARD * 0.34));
 
-function AiInsightCard({ tips }: { tips: Array<{ title?: string | null; detail?: string | null; priority?: number | null }> }) {
-  const tip = tips.reduce<typeof tips[number] | null>((best, current) => {
-    if (!current) return best;
-    if (!best) return current;
-    return Number(current.priority ?? 0) > Number(best.priority ?? 0) ? current : best;
-  }, null) ?? tips[0] ?? null;
-  const message = String(tip?.detail ?? tip?.title ?? "Track your upcoming bills and confirm income each period to keep totals accurate.").trim();
-  const isHighPriority = Number(tip?.priority ?? 0) >= 80;
-
-  return (
-    <View style={styles.section}>
-      <View style={styles.aiCard}>
-        <View style={styles.aiHeader}>
-          <View style={styles.aiIconWrap}>
-            <Ionicons name="sparkles-outline" size={16} color={T.accent} />
-          </View>
-          <Text style={styles.aiTitle}>Ai Insight</Text>
-          {isHighPriority ? <Text style={styles.priorityBadge}>High priority</Text> : null}
-        </View>
-
-        <Text style={styles.aiMessage} numberOfLines={3}>
-          {message}
-        </Text>
-      </View>
-    </View>
-  );
-}
-
 export default function DashboardScreen({ navigation }: { navigation: any }) {
   const scrollRef = useRef<ScrollView>(null);
   useScrollToTop(scrollRef);
-  const topHeaderOffset = useTopHeaderOffset(-56);
+  const topHeaderOffset = useTopHeaderOffset(-24);
   const insets = useSafeAreaInsets();
 
   const {
@@ -119,8 +91,6 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
   const onRefresh = useCallback(() => {
     void load({ force: true });
   }, [load]);
-
-  const tips = dashboard?.expenseInsights?.recapTips ?? [];
 
   const {
     totalIncome,
@@ -259,7 +229,7 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
       <ScrollView
         ref={scrollRef}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={T.accent} />}
-			contentContainerStyle={[styles.scroll, { paddingTop: topHeaderOffset }]}
+			contentContainerStyle={[styles.scroll, { paddingTop: topHeaderOffset + 8 }]}
         showsVerticalScrollIndicator={false}
       >
         {hasPayDateConfigured ? (
@@ -580,8 +550,6 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
             ) : null}
           </View>
         ) : null}
-
-        <AiInsightCard tips={tips} />
       </ScrollView>
 
     </SafeAreaView>

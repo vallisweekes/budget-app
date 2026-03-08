@@ -34,6 +34,26 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
   const [lastLoadedAt, setLastLoadedAt] = useState<number | null>(null);
 
   const inflightRef = useRef<Promise<BootstrapRefreshResult> | null>(null);
+  const dashboardRef = useRef<DashboardData | null>(null);
+  const settingsRef = useRef<Settings | null>(null);
+  const authLoadingRef = useRef(authLoading);
+  const tokenRef = useRef<string | null | undefined>(token);
+
+  useEffect(() => {
+    dashboardRef.current = dashboard;
+  }, [dashboard]);
+
+  useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
+
+  useEffect(() => {
+    authLoadingRef.current = authLoading;
+  }, [authLoading]);
+
+  useEffect(() => {
+    tokenRef.current = token;
+  }, [token]);
 
   const doFetch = useCallback(async (): Promise<BootstrapRefreshResult> => {
     // Fetch computed dashboard + settings in parallel.
@@ -45,19 +65,26 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
     setDashboard(dash);
     setSettings(s);
     setLastLoadedAt(Date.now());
+    dashboardRef.current = dash;
+    settingsRef.current = s;
     return { dashboard: dash, settings: s };
   }, []);
 
   const refresh = useCallback(
     async (options?: { force?: boolean }): Promise<BootstrapRefreshResult> => {
-      if (authLoading) return { dashboard, settings };
-      if (!token) return { dashboard: null, settings: null };
+      const currentDashboard = dashboardRef.current;
+      const currentSettings = settingsRef.current;
+      const currentAuthLoading = authLoadingRef.current;
+      const currentToken = tokenRef.current;
 
-      const hasData = Boolean(dashboard && settings);
+      if (currentAuthLoading) return { dashboard: currentDashboard, settings: currentSettings };
+      if (!currentToken) return { dashboard: null, settings: null };
+
+      const hasData = Boolean(currentDashboard && currentSettings);
       const force = options?.force === true;
 
       if (!force && hasData) {
-        return { dashboard, settings };
+        return { dashboard: currentDashboard, settings: currentSettings };
       }
 
       if (inflightRef.current) return inflightRef.current;
@@ -72,7 +99,7 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
         } catch (err: unknown) {
           const e = err instanceof Error ? err : new Error("Failed to load");
           setError(e);
-          return { dashboard, settings };
+          return { dashboard: currentDashboard, settings: currentSettings };
         } finally {
           setIsLoading(false);
           setIsRefreshing(false);
@@ -83,7 +110,7 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
       inflightRef.current = promise;
       return promise;
     },
-    [authLoading, dashboard, doFetch, settings, token]
+    [doFetch]
   );
 
   const ensureLoaded = useCallback(async (): Promise<BootstrapRefreshResult> => {

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -55,6 +55,7 @@ export default function IncomeScreen() {
   const [yearDistributeFullYear, setYearDistributeFullYear] = useState(false);
   const [yearDistributeHorizon, setYearDistributeHorizon] = useState(false);
   const [yearAddSaving, setYearAddSaving] = useState(false);
+  const skipNextTabFocusReloadRef = useRef(false);
 
   const currency = currencySymbol(settings?.currency);
 
@@ -150,8 +151,25 @@ export default function IncomeScreen() {
 
   useEffect(() => { setLoading(true); load(); }, [load]);
 
+  useEffect(() => {
+    const tabNavigation = navigation.getParent();
+    if (!tabNavigation) return;
+
+    const unsubscribe = tabNavigation.addListener("blur", () => {
+      skipNextTabFocusReloadRef.current = true;
+    });
+
+    return unsubscribe;
+  }, [navigation]);
+
   useFocusEffect(
-    useCallback(() => { if (!loading) load(); }, [load, loading]),
+    useCallback(() => {
+      if (skipNextTabFocusReloadRef.current) {
+        skipNextTabFocusReloadRef.current = false;
+        return;
+      }
+      if (!loading) load();
+    }, [load, loading]),
   );
 
   const closeYearAddSheet = useCallback(() => {
