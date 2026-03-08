@@ -24,7 +24,21 @@ import {
   subscribeNotificationInbox,
   type NotificationInboxItem,
 } from "@/lib/notificationInbox";
-import { useGetSubscriptionQuery, useUpdateSettingsMutation } from "@/store/api";
+import {
+  useCreateBudgetPlanMutation,
+  useCreateIncomeSacrificeCustomMutation,
+  useDeleteBudgetPlanMutation,
+  useDeleteIncomeSacrificeCustomMutation,
+  useGetSubscriptionQuery,
+    useLazyGetBudgetPlansQuery,
+    useLazyGetPlanDebtsQuery,
+    useLazyGetPlanSettingsQuery,
+    useLazyGetUserProfileQuery,
+  useResetAccountDataMutation,
+  useUpdateBudgetPlanMutation,
+  useUpdateProfileMutation,
+  useUpdateSettingsMutation,
+} from "@/store/api";
 import type { MainTabScreenProps } from "@/navigation/types";
 import {
   asMoneyInput,
@@ -202,6 +216,17 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
     refetchOnMountOrArgChange: true,
   });
   const [updateSettingsMutation] = useUpdateSettingsMutation();
+  const [updateProfileMutation] = useUpdateProfileMutation();
+  const [createIncomeSacrificeCustomMutation] = useCreateIncomeSacrificeCustomMutation();
+  const [deleteIncomeSacrificeCustomMutation] = useDeleteIncomeSacrificeCustomMutation();
+  const [createBudgetPlanMutation] = useCreateBudgetPlanMutation();
+  const [updateBudgetPlanMutation] = useUpdateBudgetPlanMutation();
+  const [deleteBudgetPlanMutation] = useDeleteBudgetPlanMutation();
+  const [resetAccountDataMutation] = useResetAccountDataMutation();
+  const [fetchBudgetPlans] = useLazyGetBudgetPlansQuery();
+  const [fetchUserProfile] = useLazyGetUserProfileQuery();
+  const [fetchPlanSettings] = useLazyGetPlanSettingsQuery();
+  const [fetchPlanDebts] = useLazyGetPlanDebtsQuery();
 
   const openPlanEventDatePicker = useCallback(() => {
     planEventBeforeRef.current = newPlanEventDate;
@@ -439,8 +464,8 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
       setError(null);
 
       const [plansResp, me] = await Promise.all([
-        apiFetch<BudgetPlansResponse>("/api/bff/budget-plans"),
-        apiFetch<UserProfile>("/api/bff/me"),
+        fetchBudgetPlans(undefined, true).unwrap(),
+        fetchUserProfile(undefined, true).unwrap(),
       ]);
 
       const nextPlans = Array.isArray(plansResp?.plans) ? plansResp.plans : [];
@@ -462,8 +487,8 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
       const preferredPlan = nextPlans.find((plan) => plan.id === preferredPlanId) ?? null;
 
       const [nextSettings, nextDebts] = await Promise.all([
-        apiFetch<Settings>(`/api/bff/settings?budgetPlanId=${encodeURIComponent(preferredPlanId)}`),
-        apiFetch<Debt[]>(`/api/bff/debts?budgetPlanId=${encodeURIComponent(preferredPlanId)}`),
+        fetchPlanSettings(preferredPlanId, true).unwrap(),
+        fetchPlanDebts(preferredPlanId, true).unwrap(),
       ]);
 
       setSettings(nextSettings);
@@ -689,10 +714,7 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
   const createPersonalPlan = async () => {
     try {
       setSaveBusy(true);
-      await apiFetch("/api/bff/budget-plans", {
-        method: "POST",
-        body: { kind: "personal", name: "Personal" },
-      });
+      await createBudgetPlanMutation({ kind: "personal", name: "Personal" }).unwrap();
       await load();
     } catch (err: unknown) {
       Alert.alert("Could not create plan", err instanceof Error ? err.message : "Please try again.");
@@ -706,8 +728,8 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
       setSwitchingPlanId(budgetPlanId);
       setError(null);
       const [nextSettings, nextDebts] = await Promise.all([
-        apiFetch<Settings>(`/api/bff/settings?budgetPlanId=${encodeURIComponent(budgetPlanId)}`),
-        apiFetch<Debt[]>(`/api/bff/debts?budgetPlanId=${encodeURIComponent(budgetPlanId)}`),
+        fetchPlanSettings(budgetPlanId, true).unwrap(),
+        fetchPlanDebts(budgetPlanId, true).unwrap(),
       ]);
       setSettings(nextSettings);
       setDebts(Array.isArray(nextDebts) ? nextDebts : []);
@@ -723,10 +745,7 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
   const saveDetails = async () => {
     try {
       setSaveBusy(true);
-      const next = await apiFetch<UserProfile>("/api/bff/me", {
-        method: "PATCH",
-        body: { email: emailDraft.trim() || null },
-      });
+      const next = await updateProfileMutation({ email: emailDraft.trim() || null }).unwrap();
       setProfile(next);
       setDetailsSheetOpen(false);
     } catch (err: unknown) {
@@ -749,19 +768,18 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
           return;
         }
         await Promise.all([
-          apiFetch("/api/bff/settings", {
-            method: "PATCH",
-            body: {
-              budgetPlanId: settings.id,
+          updateSettingsMutation({
+            budgetPlanId: settings.id,
+            changes: {
               payDate,
             },
-          }),
-          apiFetch(`/api/bff/budget-plans/${encodeURIComponent(settings.id)}`, {
-            method: "PATCH",
-            body: {
+          }).unwrap(),
+          updateBudgetPlanMutation({
+            id: settings.id,
+            changes: {
               payDate,
             },
-          }),
+          }).unwrap(),
         ]);
       }
 
@@ -771,12 +789,12 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
           Alert.alert("Invalid horizon", "Budget horizon must be between 1 and 50 years.");
           return;
         }
-        await apiFetch(`/api/bff/budget-plans/${encodeURIComponent(settings.id)}`, {
-          method: "PATCH",
-          body: {
+        await updateBudgetPlanMutation({
+          id: settings.id,
+          changes: {
             budgetHorizonYears: years,
           },
-        });
+        }).unwrap();
       }
 
       if (budgetFieldSheet === "payFrequency") {
@@ -857,13 +875,12 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
           }
 
           const nextBalance = Math.max(0, currentBalance - asMoneyNumber(pot.amount) + value);
-          const updated = await apiFetch<Settings>("/api/bff/settings", {
-            method: "PATCH",
-            body: {
-              budgetPlanId: settings.id,
+          const updated = await updateSettingsMutation({
+            budgetPlanId: settings.id,
+            changes: {
               [balanceField]: nextBalance,
             },
-          });
+          }).unwrap();
 
           const nextPots = savingsPots.map((entry) => (
             entry.id === pot.id
@@ -877,13 +894,12 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
           return;
         }
 
-        const updated = await apiFetch<Settings>("/api/bff/settings", {
-          method: "PATCH",
-          body: {
-            budgetPlanId: settings.id,
+        const updated = await updateSettingsMutation({
+          budgetPlanId: settings.id,
+          changes: {
             [balanceField]: value,
           },
-        });
+        }).unwrap();
         setSettings(updated);
         closeSavingsSheet();
         return;
@@ -911,17 +927,14 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
       setSaveBusy(true);
       const now = new Date();
 
-      const createdItem = await apiFetch<CreateSacrificeItemResponse>("/api/bff/income-sacrifice/custom", {
-        method: "POST",
-        body: {
-          budgetPlanId: settings.id,
-          type: mapSavingsFieldToSacrificeType(savingsSheetField),
-          name: potName,
-          amount: 0,
-          month: now.getMonth() + 1,
-          year: now.getFullYear(),
-        },
-      });
+      const createdItem = await createIncomeSacrificeCustomMutation({
+        budgetPlanId: settings.id,
+        type: mapSavingsFieldToSacrificeType(savingsSheetField),
+        name: potName,
+        amount: 0,
+        month: now.getMonth() + 1,
+        year: now.getFullYear(),
+      }).unwrap();
       const allocationId = typeof createdItem?.item?.id === "string" ? createdItem.item.id.trim() : "";
       if (!allocationId) {
         throw new Error("Could not register this pot as a monthly allocation item.");
@@ -935,10 +948,10 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
       if (savingsSheetField === "emergency") payload.additionalEmergencyBalance = value;
       if (savingsSheetField === "investment") payload.additionalInvestmentBalance = value;
 
-      const updated = await apiFetch<Settings>("/api/bff/settings", {
-        method: "PATCH",
-        body: payload,
-      });
+      const updated = await updateSettingsMutation({
+        budgetPlanId: settings.id,
+        changes: payload,
+      }).unwrap();
 
       const nextPots: SavingsPot[] = [
         ...savingsPots,
@@ -958,10 +971,7 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
     } catch (err: unknown) {
       if (createdAllocationId && settings?.id) {
         try {
-          await apiFetch(`/api/bff/income-sacrifice/custom/${encodeURIComponent(createdAllocationId)}`, {
-            method: "DELETE",
-            body: {},
-          });
+          await deleteIncomeSacrificeCustomMutation({ id: createdAllocationId }).unwrap();
         } catch {
           // Best-effort rollback only.
         }
@@ -988,20 +998,16 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
         }
 
         const nextBalance = Math.max(0, currentBalance - asMoneyNumber(pot.amount));
-        const updated = await apiFetch<Settings>("/api/bff/settings", {
-          method: "PATCH",
-          body: {
-            budgetPlanId: settings.id,
+        const updated = await updateSettingsMutation({
+          budgetPlanId: settings.id,
+          changes: {
             [balanceField]: nextBalance,
           },
-        });
+        }).unwrap();
 
         if (pot.allocationId) {
           try {
-            await apiFetch(`/api/bff/income-sacrifice/custom/${encodeURIComponent(pot.allocationId)}`, {
-              method: "DELETE",
-              body: {},
-            });
+            await deleteIncomeSacrificeCustomMutation({ id: pot.allocationId }).unwrap();
           } catch {
             // Best-effort cleanup.
           }
@@ -1015,13 +1021,12 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
         return;
       }
 
-      const updated = await apiFetch<Settings>("/api/bff/settings", {
-        method: "PATCH",
-        body: {
-          budgetPlanId: settings.id,
+      const updated = await updateSettingsMutation({
+        budgetPlanId: settings.id,
+        changes: {
           [balanceField]: 0,
         },
-      });
+      }).unwrap();
       setSettings(updated);
       closeSavingsSheet();
     } catch (err: unknown) {
@@ -1188,14 +1193,11 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
 
     try {
       setSaveBusy(true);
-      await apiFetch("/api/bff/budget-plans", {
-        method: "POST",
-        body: {
-          kind: newPlanType,
-          name,
-          eventDate,
-        },
-      });
+      await createBudgetPlanMutation({
+        kind: newPlanType,
+        name,
+        eventDate,
+      }).unwrap();
       setCreatePlanSheetOpen(false);
       setNewPlanName("");
       setNewPlanType("holiday");
@@ -1212,7 +1214,7 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
     if (!planDeleteTarget) return;
     try {
       setDeletingPlanId(planDeleteTarget.id);
-      await apiFetch(`/api/bff/budget-plans/${encodeURIComponent(planDeleteTarget.id)}`, { method: "DELETE" });
+      await deleteBudgetPlanMutation({ id: planDeleteTarget.id }).unwrap();
       setPlanDeleteTarget(null);
       await load();
       if (currentPlanId === planDeleteTarget.id) {
@@ -1240,7 +1242,7 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
             void (async () => {
               try {
                 setResettingData(true);
-                await apiFetch("/api/bff/account/reset-data", { method: "POST" });
+                await resetAccountDataMutation().unwrap();
                 await signOut();
               } catch (err: unknown) {
                 Alert.alert("Could not reset data", err instanceof Error ? err.message : "Please try again.");
