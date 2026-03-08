@@ -21,23 +21,36 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { Ionicons } from "@expo/vector-icons";
 
 import { apiFetch } from "@/lib/api";
-import type { OnboardingProfile, OnboardingStatusResponse, Settings } from "@/lib/apiTypes";
+import type { OnboardingGoal, OnboardingProfile, OnboardingStatusResponse, Settings } from "@/lib/apiTypes";
 import { useAuth } from "@/context/AuthContext";
 import { T } from "@/lib/theme";
 import MoneyInput from "@/components/Shared/MoneyInput";
 import NoteBadge from "@/components/Shared/NoteBadge";
 
-type Goal = "improve_savings" | "manage_debts" | "track_spending" | "build_budget";
+type VisibleGoal = "improve_savings" | "emergency_fund" | "investments";
+
+const DEFAULT_VISIBLE_GOALS: VisibleGoal[] = ["improve_savings"];
+
+function toVisibleGoal(value: OnboardingGoal | null | undefined): VisibleGoal | null {
+  if (value === "improve_savings" || value === "build_budget") return "improve_savings";
+  if (value === "emergency_fund" || value === "track_spending") return "emergency_fund";
+  if (value === "investments" || value === "manage_debts") return "investments";
+  return null;
+}
+
+function normalizeVisibleGoals(values: Array<OnboardingGoal | null | undefined>): VisibleGoal[] {
+  const filtered = values.map((value) => toVisibleGoal(value)).filter((value): value is VisibleGoal => value !== null);
+  return filtered.length ? Array.from(new Set(filtered)) : DEFAULT_VISIBLE_GOALS;
+}
 
 // Match the blue/purple used for the Expenses total hero.
 const EXPENSES_TOTAL_BLUE = "#2a0a9e";
 
 const ICON_COLORS = {
-  build_budget: T.orange,
-  track_spending: T.accent,
+  emergency_fund: T.orange,
   improve_savings: T.green,
-  manage_debts: T.red,
-} satisfies Record<Goal, string>;
+  investments: EXPENSES_TOTAL_BLUE,
+} satisfies Record<VisibleGoal, string>;
 
 const STEP_ICON_COLORS = {
   0: T.orange,
@@ -48,11 +61,10 @@ const STEP_ICON_COLORS = {
   5: T.red,
 } satisfies Record<number, string>;
 
-const GOALS: Array<{ id: Goal; label: string; icon: keyof typeof Ionicons.glyphMap }> = [
-  { id: "build_budget", label: "Set up my monthly budget", icon: "calendar-outline" },
-  { id: "track_spending", label: "Keep an eye on my spending", icon: "receipt-outline" },
+const GOALS: Array<{ id: VisibleGoal; label: string; icon: keyof typeof Ionicons.glyphMap }> = [
   { id: "improve_savings", label: "Build my savings", icon: "trending-up-outline" },
-  { id: "manage_debts", label: "Get on top of my debts", icon: "card-outline" },
+  { id: "emergency_fund", label: "Build an emergency fund", icon: "shield-checkmark-outline" },
+  { id: "investments", label: "Grow my investments", icon: "pie-chart-outline" },
 ];
 
 export default function OnboardingScreen({
@@ -105,16 +117,16 @@ export default function OnboardingScreen({
     return raw.length <= 1 ? raw.toUpperCase() : raw.charAt(0).toUpperCase() + raw.slice(1);
   }, [username]);
 
-  const initialGoals = useMemo(() => {
-    const fromProfile = (profile as (OnboardingProfile & { mainGoals?: Goal[] }) | null)?.mainGoals;
+  const initialGoals = useMemo<VisibleGoal[]>(() => {
+    const fromProfile = profile?.mainGoals;
     const cleaned = Array.isArray(fromProfile) ? fromProfile.filter(Boolean) : [];
-    if (cleaned.length) return Array.from(new Set(cleaned));
-    const single = (profile?.mainGoal as Goal | null) ?? null;
-    return single ? [single] : [];
+    if (cleaned.length) return normalizeVisibleGoals(cleaned);
+    const single = profile?.mainGoal ?? null;
+    return single ? normalizeVisibleGoals([single]) : DEFAULT_VISIBLE_GOALS;
   }, [profile]);
 
-  const [mainGoals, setMainGoals] = useState<Goal[]>(initialGoals.length ? initialGoals : ["improve_savings"]);
-  const mainGoalsRef = useRef<Goal[]>(initialGoals.length ? initialGoals : ["improve_savings"]);
+  const [mainGoals, setMainGoals] = useState<VisibleGoal[]>(initialGoals);
+  const mainGoalsRef = useRef<VisibleGoal[]>(initialGoals);
   const [occupation, setOccupation] = useState(profile?.occupation ?? "");
   const [occupationOther, setOccupationOther] = useState(profile?.occupationOther ?? "");
   const occupationRef = useRef(profile?.occupation ?? "");

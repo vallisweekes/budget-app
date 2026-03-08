@@ -15,19 +15,20 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useScrollToTop } from "@react-navigation/native";
+import { useFocusEffect, useScrollToTop } from "@react-navigation/native";
 
 import { apiFetch } from "@/lib/api";
 import type { DashboardData, Goal, Settings } from "@/lib/apiTypes";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { fmt } from "@/lib/formatting";
-import { asMoneyNumber } from "@/lib/helpers/settings";
+import { asMoneyNumber, resolveGoalCurrentAmount } from "@/lib/helpers/settings";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
+import type { MainTabScreenProps } from "@/navigation/types";
 import { T } from "@/lib/theme";
 import { cardElevated, textLabel } from "@/lib/ui";
 import MoneyInput from "@/components/Shared/MoneyInput";
 
-export default function GoalsScreen({ navigation, route }: { navigation: any; route: any }) {
+export default function GoalsScreen({ navigation, route }: MainTabScreenProps<"Goals">) {
   const listRef = useRef<SectionList<Goal>>(null);
   useScrollToTop(listRef);
   const topHeaderOffset = useTopHeaderOffset();
@@ -43,10 +44,8 @@ export default function GoalsScreen({ navigation, route }: { navigation: any; ro
   } = useBootstrapData();
 
   const [goals, setGoals] = useState<Goal[]>([]);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [loadingGoals, setLoadingGoals] = useState(true);
   const [refreshingGoals, setRefreshingGoals] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -54,11 +53,6 @@ export default function GoalsScreen({ navigation, route }: { navigation: any; ro
   const [newTargetAmount, setNewTargetAmount] = useState("");
   const [newCurrentAmount, setNewCurrentAmount] = useState("");
   const [newTargetYear, setNewTargetYear] = useState("");
-
-  const [editYearOpen, setEditYearOpen] = useState(false);
-  const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
-  const [editTargetYear, setEditTargetYear] = useState("");
-  const [editPending, setEditPending] = useState(false);
   const lastOpenAddTokenRef = useRef<number | null>(null);
 
   const budgetPlanId = dashboard?.budgetPlanId;
@@ -107,12 +101,6 @@ export default function GoalsScreen({ navigation, route }: { navigation: any; ro
         setGoals([]);
       }
 
-      const nextSelected = (Array.isArray(dash.homepageGoalIds) && dash.homepageGoalIds.length > 0
-        ? dash.homepageGoalIds
-        : s.homepageGoalIds ?? [])
-        .filter((id) => typeof id === "string")
-        .slice(0, 2);
-      setSelectedIds(nextSelected);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load goals");
     } finally {
@@ -121,44 +109,11 @@ export default function GoalsScreen({ navigation, route }: { navigation: any; ro
     }
   }, [bootstrapError, ensureLoaded, refreshBootstrap]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  const toggleDashboardGoal = async (goalId: string) => {
-    if (!budgetPlanId) return;
-    if (saving) return;
-
-    const next = (() => {
-      if (selectedIds.includes(goalId)) return selectedIds.filter((id) => id !== goalId);
-      if (selectedIds.length >= 2) return selectedIds;
-      return [...selectedIds, goalId];
-    })();
-
-    // no-op
-    if (next.length === selectedIds.length && next.every((v, i) => v === selectedIds[i])) return;
-
-    setSelectedIds(next);
-    try {
-      setSaving(true);
-      await apiFetch<Settings>("/api/bff/settings", {
-        method: "PATCH",
-        body: {
-          budgetPlanId,
-          homepageGoalIds: next,
-        },
-      });
-
-      // Keep the app-wide cache in sync.
-      await refreshBootstrap({ force: true });
-    } catch (err: unknown) {
-      // revert
-      setSelectedIds(selectedIds);
-      Alert.alert("Failed to update dashboard goals", err instanceof Error ? err.message : "Unknown error");
-    } finally {
-      setSaving(false);
-    }
-  };
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load])
+  );
 
   const openAdd = () => {
     setNewTitle("");
@@ -202,40 +157,6 @@ export default function GoalsScreen({ navigation, route }: { navigation: any; ro
       Alert.alert("Failed to add goal", err instanceof Error ? err.message : "Unknown error");
     } finally {
       setAdding(false);
-    }
-  };
-
-  const openEditYear = (goal: Goal) => {
-    setEditingGoal(goal);
-    setEditTargetYear(goal.targetYear ? String(goal.targetYear) : "");
-    setEditYearOpen(true);
-  };
-
-  const submitEditYear = async () => {
-    if (!editingGoal) return;
-    const nextYear = parseYear(editTargetYear);
-    if (nextYear === undefined) {
-      Alert.alert("Invalid target year", "Please enter a valid year (or leave it blank). ");
-      return;
-    }
-
-    setEditPending(true);
-    try {
-      await apiFetch<Goal>(`/api/bff/goals/${encodeURIComponent(editingGoal.id)}`,
-        {
-          method: "PATCH",
-          body: {
-            targetYear: nextYear,
-          },
-        }
-      );
-      setEditYearOpen(false);
-      setEditingGoal(null);
-      await load({ force: true });
-    } catch (err: unknown) {
-      Alert.alert("Failed to update goal", err instanceof Error ? err.message : "Unknown error");
-    } finally {
-      setEditPending(false);
     }
   };
 
@@ -378,55 +299,6 @@ export default function GoalsScreen({ navigation, route }: { navigation: any; ro
         </View>
       </Modal>
 
-      <Modal
-        visible={editYearOpen}
-        transparent
-        animationType="slide"
-        presentationStyle="overFullScreen"
-        onRequestClose={() => {
-          if (!editPending) setEditYearOpen(false);
-        }}
-      >
-        <View style={s.modalOverlay}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => (!editPending ? setEditYearOpen(false) : null)} />
-          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={s.modalCardWrap}>
-            <View style={s.modalCard}>
-              <View style={s.modalHandle} />
-              <Text style={s.modalTitle}>Target year</Text>
-              <Text style={s.modalSubtitle}>{editingGoal?.title ?? ""}</Text>
-
-              <Text style={s.inputLabel}>Year (leave blank to clear)</Text>
-              <TextInput
-                value={editTargetYear}
-                onChangeText={setEditTargetYear}
-                placeholder="e.g. 2035"
-                placeholderTextColor={T.textMuted}
-                style={s.input}
-                keyboardType="number-pad"
-                editable={!editPending}
-              />
-
-              <View style={s.modalBtns}>
-                <Pressable
-                  onPress={() => setEditYearOpen(false)}
-                  disabled={editPending}
-                  style={[s.modalBtn, s.modalBtnGhost, editPending && s.disabled]}
-                >
-                  <Text style={s.modalBtnGhostText}>Cancel</Text>
-                </Pressable>
-                <Pressable
-                  onPress={submitEditYear}
-                  disabled={editPending}
-                  style={[s.modalBtn, s.modalBtnPrimary, editPending && s.disabled]}
-                >
-                  {editPending ? <ActivityIndicator size="small" color={T.onAccent} /> : <Text style={s.modalBtnPrimaryText}>Save</Text>}
-                </Pressable>
-              </View>
-            </View>
-          </KeyboardAvoidingView>
-        </View>
-      </Modal>
-
       <SectionList
         ref={listRef}
         sections={sections}
@@ -450,47 +322,27 @@ export default function GoalsScreen({ navigation, route }: { navigation: any; ro
           </View>
         )}
         renderItem={({ item }) => {
-          const selected = selectedIds.includes(item.id);
           const target = asMoneyNumber((item as any).targetAmount);
-          const rawCurrent = asMoneyNumber((item as any).currentAmount);
           const category = String((item as any).category ?? "").trim().toLowerCase();
-          const settingsFallback =
-            category === "emergency"
-              ? asMoneyNumber(settings?.emergencyBalance)
-              : category === "savings"
-                ? asMoneyNumber(settings?.savingsBalance)
-                : category === "investment"
-                  ? asMoneyNumber(settings?.investmentBalance)
-                  : 0;
-          const current = rawCurrent > 0 ? rawCurrent : (settingsFallback > 0 ? settingsFallback : 0);
+          const current = resolveGoalCurrentAmount(category, (item as any).currentAmount, settings);
           const showProgress = Number.isFinite(target) && target > 0;
           const progress = showProgress && Number.isFinite(current) ? Math.max(0, Math.min(1, current / target)) : 0;
 
           return (
-            <View style={s.card}>
+            <Pressable
+              onPress={() => navigation.navigate("GoalDetail", { goalId: item.id, goalTitle: item.title })}
+              style={({ pressed }) => [s.card, pressed && s.cardPressed]}
+            >
               <View style={s.cardTop}>
-                <Pressable
-                  onPress={() => openEditYear(item)}
-                  hitSlop={8}
-                  style={[s.pill, item.targetYear ? null : s.pillWarn]}
-                >
+                <View style={[s.pill, item.targetYear ? null : s.pillWarn]}>
                   <Text style={[s.pillText, item.targetYear ? null : s.pillWarnText]}>
                     {item.targetYear ? `Target ${item.targetYear}` : "Set target year"}
                   </Text>
-                </Pressable>
+                </View>
 
-                <Pressable
-                  onPress={() => toggleDashboardGoal(item.id)}
-                  disabled={saving}
-                  hitSlop={10}
-                  style={s.dashToggle}
-                >
-                  <Ionicons
-                    name={selected ? "checkmark-circle" : "ellipse-outline"}
-                    size={22}
-                    color={selected ? T.accent : T.iconMuted}
-                  />
-                </Pressable>
+                <View style={s.chevronWrap}>
+                  <Ionicons name="chevron-forward" size={20} color={T.iconMuted} />
+                </View>
               </View>
 
               <Text style={s.cardTitle} numberOfLines={2}>
@@ -517,7 +369,7 @@ export default function GoalsScreen({ navigation, route }: { navigation: any; ro
                   <Text style={s.progressPct}>{(progress * 100).toFixed(1)}% complete</Text>
                 </View>
               ) : null}
-            </View>
+            </Pressable>
           );
         }}
         ListEmptyComponent={<Text style={s.empty}>No goals yet.</Text>}
@@ -555,6 +407,10 @@ const s = StyleSheet.create({
     paddingVertical: 12,
     marginBottom: 12,
   },
+  cardPressed: {
+    opacity: 0.94,
+    transform: [{ scale: 0.995 }],
+  },
   cardTop: {
     flexDirection: "row",
     alignItems: "center",
@@ -580,8 +436,15 @@ const s = StyleSheet.create({
   pillWarnText: {
     color: T.orange,
   },
-  dashToggle: {
-    padding: 4,
+  chevronWrap: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: `${T.cardAlt}88`,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: T.border,
   },
   cardTitle: {
     color: T.text,

@@ -110,6 +110,10 @@ export type RootStackParamList = {
   Analytics: undefined;
   Goals: undefined;
   GoalsProjection: undefined;
+  GoalDetail: {
+    goalId: string;
+    goalTitle?: string;
+  };
   SettingsStrategy: {
     budgetPlanId: string;
     strategy: string | null;

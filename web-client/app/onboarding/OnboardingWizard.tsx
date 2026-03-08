@@ -8,8 +8,8 @@ import { signOut } from "next-auth/react";
 import MoneyInput from "@/components/Shared/MoneyInput";
 
 type OnboardingProfile = {
-  mainGoal: "improve_savings" | "manage_debts" | "track_spending" | "build_budget" | null;
-  mainGoals?: Array<"improve_savings" | "manage_debts" | "track_spending" | "build_budget">;
+  mainGoal: "improve_savings" | "emergency_fund" | "investments" | "manage_debts" | "track_spending" | "build_budget" | null;
+  mainGoals?: Array<"improve_savings" | "emergency_fund" | "investments" | "manage_debts" | "track_spending" | "build_budget">;
   occupation: string | null;
   occupationOther: string | null;
   payDay?: string | number | null;
@@ -37,6 +37,22 @@ type OnboardingPayload = {
   profile: OnboardingProfile | null;
   occupations: readonly string[];
 };
+
+type VisibleGoal = "improve_savings" | "emergency_fund" | "investments";
+
+const DEFAULT_VISIBLE_GOALS: VisibleGoal[] = ["improve_savings"];
+
+function toVisibleGoal(value: OnboardingProfile["mainGoal"] | undefined | null): VisibleGoal | null {
+  if (value === "improve_savings" || value === "build_budget") return "improve_savings";
+  if (value === "emergency_fund" || value === "track_spending") return "emergency_fund";
+  if (value === "investments" || value === "manage_debts") return "investments";
+  return null;
+}
+
+function normalizeVisibleGoals(values: Array<OnboardingProfile["mainGoal"] | undefined | null>): VisibleGoal[] {
+  const filtered = values.map((value) => toVisibleGoal(value)).filter((value): value is VisibleGoal => value !== null);
+  return filtered.length ? Array.from(new Set(filtered)) : DEFAULT_VISIBLE_GOALS;
+}
 
 export default function OnboardingWizard({
   username,
@@ -73,17 +89,15 @@ export default function OnboardingWizard({
     return () => controller.abort();
   }, []);
 
-  const initialGoals = useMemo(() => {
+  const initialGoals = useMemo<VisibleGoal[]>(() => {
     const fromProfile = initial.profile?.mainGoals;
     const cleaned = Array.isArray(fromProfile) ? fromProfile.filter(Boolean) : [];
-    if (cleaned.length) return Array.from(new Set(cleaned));
+    if (cleaned.length) return normalizeVisibleGoals(cleaned);
     const single = initial.profile?.mainGoal ?? null;
-    return single ? [single] : [];
+    return single ? normalizeVisibleGoals([single]) : DEFAULT_VISIBLE_GOALS;
   }, [initial.profile?.mainGoal, initial.profile?.mainGoals]);
 
-  const [mainGoals, setMainGoals] = useState<Array<"improve_savings" | "manage_debts" | "track_spending" | "build_budget">>(
-    initialGoals.length ? initialGoals : ["improve_savings"]
-  );
+  const [mainGoals, setMainGoals] = useState<VisibleGoal[]>(initialGoals);
   const [occupation, setOccupation] = useState(initial.profile?.occupation ?? "");
   const [occupationOther, setOccupationOther] = useState(initial.profile?.occupationOther ?? "");
   const [payDay, setPayDay] = useState(String(initial.profile?.payDay ?? ""));
@@ -110,10 +124,9 @@ export default function OnboardingWizard({
 
   const goals = useMemo(
     () => [
-      { id: "build_budget" as const, label: "Set up my monthly budget", Icon: CalendarDays, iconClass: "text-amber-300" },
-      { id: "track_spending" as const, label: "Keep an eye on my spending", Icon: Receipt, iconClass: "text-purple-300" },
       { id: "improve_savings" as const, label: "Build my savings", Icon: TrendingUp, iconClass: "text-emerald-300" },
-      { id: "manage_debts" as const, label: "Get on top of my debts", Icon: CreditCard, iconClass: "text-rose-300" },
+      { id: "emergency_fund" as const, label: "Build an emergency fund", Icon: CalendarDays, iconClass: "text-amber-300" },
+      { id: "investments" as const, label: "Grow my investments", Icon: Receipt, iconClass: "text-purple-300" },
     ],
     []
   );

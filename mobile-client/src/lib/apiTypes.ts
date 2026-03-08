@@ -270,6 +270,7 @@ export interface DebtSummaryData {
 
 export interface Goal {
   id: string;
+  budgetPlanId?: string;
   title: string;
   type: string;
   category: string | null;
@@ -301,6 +302,8 @@ export interface Settings {
   currency: string | null;
   /** ISO date string of when the user account was created — used to guard year navigation */
   accountCreatedAt?: string | null;
+  /** ISO date string of when onboarding/setup completed — used for first pay-period resolution. */
+  setupCompletedAt?: string | null;
 }
 
 export interface BudgetPlanListItem {
@@ -322,7 +325,7 @@ export interface UserProfile {
   email: string | null;
 }
 
-export type OnboardingGoal = "improve_savings" | "manage_debts" | "track_spending" | "build_budget";
+export type OnboardingGoal = "improve_savings" | "emergency_fund" | "investments" | "manage_debts" | "track_spending" | "build_budget";
 
 export interface OnboardingProfile {
   mainGoal: OnboardingGoal | null;

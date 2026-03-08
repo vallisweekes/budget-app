@@ -80,6 +80,25 @@ export function resolveActivePayPeriod(params: {
   return { start, end };
 }
 
+export function getPayPeriodAnchorFromWindow(params: {
+  period: { start: Date; end: Date };
+  payFrequency: PayFrequency;
+}): { month: number; year: number } {
+  const { period, payFrequency } = params;
+
+  if (payFrequency === "monthly") {
+    return {
+      month: period.end.getMonth() + 1,
+      year: period.end.getFullYear(),
+    };
+  }
+
+  return {
+    month: period.start.getMonth() + 1,
+    year: period.start.getFullYear(),
+  };
+}
+
 export function buildPayPeriodFromMonthAnchor(params: {
   year: number;
   month: number;

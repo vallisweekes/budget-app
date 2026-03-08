@@ -5,6 +5,12 @@ import { ensureUkMobileProviderMappingsSeeded } from "@/lib/expenses/providerMap
 import { normalizePayFrequency, resolveActivePayPeriodWindow } from "@/lib/payPeriods";
 import { getExpensePeriodKey, getIncomePeriodKey } from "@/lib/helpers/periodKey";
 
+function latestDate(...dates: Array<Date | null | undefined>): Date | null {
+  const valid = dates.filter((date): date is Date => date instanceof Date && !Number.isNaN(date.getTime()));
+  if (valid.length === 0) return null;
+  return valid.reduce((latest, current) => (current.getTime() > latest.getTime() ? current : latest));
+}
+
 export const COMMON_OCCUPATIONS = [
   "Accountant",
   "Administrator",
@@ -29,7 +35,43 @@ export const COMMON_OCCUPATIONS = [
   "Other",
 ] as const;
 
-export type OnboardingGoalInput = "improve_savings" | "manage_debts" | "track_spending" | "build_budget";
+export type OnboardingGoalInput =
+  | "improve_savings"
+  | "emergency_fund"
+  | "investments"
+  | "manage_debts"
+  | "track_spending"
+  | "build_budget";
+
+type VisibleOnboardingGoal = "improve_savings" | "emergency_fund" | "investments";
+
+type GoalConfig = {
+  title: string;
+  type: "short_term" | "long_term";
+  category: "savings" | "emergency" | "investment";
+  legacyTitles: string[];
+};
+
+const ONBOARDING_GOAL_CONFIG: Record<VisibleOnboardingGoal, GoalConfig> = {
+  improve_savings: {
+    title: "Savings",
+    type: "short_term",
+    category: "savings",
+    legacyTitles: ["Improve savings", "Set up my monthly budget"],
+  },
+  emergency_fund: {
+    title: "Emergency fund",
+    type: "short_term",
+    category: "emergency",
+    legacyTitles: ["Keep track of spending"],
+  },
+  investments: {
+    title: "Investments",
+    type: "long_term",
+    category: "investment",
+    legacyTitles: ["Manage debts better"],
+  },
+};
 
 export type OnboardingInput = {
   mainGoal?: OnboardingGoalInput | null;
@@ -60,6 +102,8 @@ export type OnboardingInput = {
 
 type OnboardingProfileRecord = {
   status: "started" | "completed";
+  completedAt?: Date | null;
+  updatedAt?: Date | null;
   mainGoal: OnboardingGoalInput | null;
   mainGoals: OnboardingGoalInput[];
   occupation: string | null;
@@ -113,7 +157,12 @@ function prismaUserHasField(fieldName: string): boolean {
 }
 
 function isOnboardingGoal(value: unknown): value is OnboardingGoalInput {
-  return value === "improve_savings" || value === "manage_debts" || value === "track_spending" || value === "build_budget";
+  return value === "improve_savings"
+    || value === "emergency_fund"
+    || value === "investments"
+    || value === "manage_debts"
+    || value === "track_spending"
+    || value === "build_budget";
 }
 
 function cleanGoals(input: unknown): OnboardingGoalInput[] | null {
@@ -121,6 +170,90 @@ function cleanGoals(input: unknown): OnboardingGoalInput[] | null {
   const cleaned = input.filter(isOnboardingGoal);
   if (!cleaned.length) return [];
   return Array.from(new Set(cleaned));
+}
+
+function toVisibleOnboardingGoal(goal: OnboardingGoalInput | null | undefined): VisibleOnboardingGoal | null {
+  if (goal === "improve_savings" || goal === "build_budget") return "improve_savings";
+  if (goal === "emergency_fund" || goal === "track_spending") return "emergency_fund";
+  if (goal === "investments" || goal === "manage_debts") return "investments";
+  return null;
+}
+
+function normalizeSelectedGoals(goals: OnboardingGoalInput[]): VisibleOnboardingGoal[] {
+  const normalized = goals
+    .map((goal) => toVisibleOnboardingGoal(goal))
+    .filter((goal): goal is VisibleOnboardingGoal => goal !== null);
+  return Array.from(new Set(normalized));
+}
+
+async function syncGeneratedGoals(options: {
+  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
+  budgetPlanId: string;
+  selectedGoals: OnboardingGoalInput[];
+  savingsGoalAmount: number;
+  targetYear: number;
+}) {
+  const { tx, budgetPlanId, selectedGoals, savingsGoalAmount, targetYear } = options;
+  const visibleGoals = normalizeSelectedGoals(selectedGoals);
+  const desiredConfigs = visibleGoals.map((goal) => ONBOARDING_GOAL_CONFIG[goal]);
+  const relevantTitles = Array.from(
+    new Set(
+      Object.values(ONBOARDING_GOAL_CONFIG).flatMap((config) => [config.title, ...config.legacyTitles])
+    )
+  );
+
+  const existingGoals = await tx.goal.findMany({
+    where: {
+      budgetPlanId,
+      title: { in: relevantTitles },
+    },
+    select: { id: true, title: true },
+  });
+
+  const takenGoalIds = new Set<string>();
+  for (const config of desiredConfigs) {
+    const match = existingGoals.find((goal) => (
+      !takenGoalIds.has(goal.id) && (goal.title === config.title || config.legacyTitles.includes(goal.title))
+    ));
+
+    if (match) {
+      takenGoalIds.add(match.id);
+      await tx.goal.update({
+        where: { id: match.id },
+        data: {
+          title: config.title,
+          type: config.type,
+          category: config.category,
+          targetAmount: savingsGoalAmount > 0 ? savingsGoalAmount : 1000,
+          targetYear,
+        },
+      });
+      continue;
+    }
+
+    const created = await tx.goal.create({
+      data: {
+        budgetPlanId,
+        title: config.title,
+        type: config.type,
+        category: config.category,
+        targetAmount: savingsGoalAmount > 0 ? savingsGoalAmount : 1000,
+        currentAmount: 0,
+        targetYear,
+      },
+      select: { id: true },
+    });
+    takenGoalIds.add(created.id);
+  }
+
+  const obsoleteGoals = existingGoals.filter((goal) => !takenGoalIds.has(goal.id));
+  if (obsoleteGoals.length) {
+    await tx.goal.deleteMany({
+      where: {
+        id: { in: obsoleteGoals.map((goal) => goal.id) },
+      },
+    });
+  }
 }
 
 type OnboardingDelegate = {
@@ -170,6 +303,18 @@ function clampIntRange(value: number | null | undefined, min: number, max: numbe
   if (value == null || !Number.isFinite(value)) return null;
   const rounded = Math.trunc(value);
   return Math.max(min, Math.min(max, rounded));
+}
+
+function getBudgetHorizonTargetYear(params: {
+  planningYears: number;
+  referenceDate: Date | null | undefined;
+  fallbackYear: number;
+}): number {
+  const safeYears = Math.max(1, Math.min(30, Math.trunc(params.planningYears)));
+  const baseYear = params.referenceDate instanceof Date && !Number.isNaN(params.referenceDate.getTime())
+    ? params.referenceDate.getUTCFullYear()
+    : params.fallbackYear;
+  return baseYear + safeYears - 1;
 }
 
 function buildForwardSeedMonths(startDate: Date, planningYears: number): Array<{ month: number; year: number }> {
@@ -424,7 +569,8 @@ export async function saveOnboardingDraft(userId: string, input: OnboardingInput
     });
   }
 
-  const mainGoals = input.mainGoals ? (cleanGoals(input.mainGoals) ?? []) : null;
+  const cleanedMainGoals = input.mainGoals ? (cleanGoals(input.mainGoals) ?? []) : null;
+  const mainGoals = cleanedMainGoals ? normalizeSelectedGoals(cleanedMainGoals) : null;
   const derivedMainGoal: OnboardingGoalInput | null =
     mainGoals && mainGoals.length ? mainGoals[0] : input.mainGoal ?? null;
 
@@ -579,20 +725,25 @@ export async function completeOnboarding(userId: string) {
 
   const planningYears = clampIntRange(toNullableNumber(profile.planningYears), 1, 30) ?? 10;
   const savingsGoalAmount = Number(profile.savingsGoalAmount ?? 0);
-  const savingsGoalYear = clampIntRange(toNullableNumber(profile.savingsGoalYear), 2000, 2200);
 
   const year = new Date().getFullYear();
   const payDay = clampPayDay(toNullableNumber(profile.payDay));
 
   const now = new Date();
+  const effectiveSetupAt = latestDate(budgetPlan.createdAt, now) ?? now;
   const activePayPeriod = resolveActivePayPeriodWindow({
     now,
     payDate: payDay ?? 1,
     payFrequency: normalizePayFrequency(profile.payFrequency),
-    planCreatedAt: budgetPlan.createdAt,
+    planCreatedAt: effectiveSetupAt,
   });
   const activePeriodMonth = activePayPeriod.start.getUTCMonth() + 1;
   const activePeriodYear = activePayPeriod.start.getUTCFullYear();
+  const generatedGoalTargetYear = getBudgetHorizonTargetYear({
+    planningYears,
+    referenceDate: effectiveSetupAt,
+    fallbackYear: year,
+  });
 
   const seededIncomePeriods = buildForwardSeedMonths(now, planningYears);
   const seededExpensePeriods = Array.from(
@@ -733,45 +884,22 @@ export async function completeOnboarding(userId: string) {
         : profile.mainGoal
           ? [profile.mainGoal]
           : [];
-
-    const uniqueGoals = Array.from(new Set(selectedGoals));
-    for (const goal of uniqueGoals) {
-      // "build_budget" is a useful onboarding intent but doesn't map cleanly to a measurable Goal record.
-      if (goal === "build_budget") continue;
-
-      const goalTitle =
-        goal === "improve_savings"
-          ? "Improve savings"
-          : goal === "manage_debts"
-            ? "Manage debts better"
-            : "Keep track of spending";
-
-      const existingGoal = await tx.goal.findFirst({ where: { budgetPlanId, title: goalTitle }, select: { id: true } });
-      if (existingGoal) continue;
-
-      await tx.goal.create({
-        data: {
-          budgetPlanId,
-          title: goalTitle,
-          type: "short_term",
-          category: goal === "manage_debts" ? "debt" : "savings",
-          targetAmount:
-            goal === "manage_debts"
-              ? debtAmount || 1000
-              : savingsGoalAmount > 0
-                ? savingsGoalAmount
-                : 1000,
-          currentAmount: 0,
-          targetYear: goal === "manage_debts" ? year : savingsGoalYear ?? year,
-        },
-      });
-    }
+    const normalizedGoals = normalizeSelectedGoals(selectedGoals);
+    await syncGeneratedGoals({
+      tx,
+      budgetPlanId,
+      selectedGoals,
+      savingsGoalAmount,
+      targetYear: generatedGoalTargetYear,
+    });
 
     await onboardingDelegate(tx).update({
       where: { userId },
       data: {
         status: "completed",
         completedAt: new Date(),
+        mainGoal: normalizedGoals[0] ?? null,
+        mainGoals: normalizedGoals,
         generatedPlanId: budgetPlanId,
       },
     });
@@ -814,14 +942,24 @@ export async function runOnboardingRepairPass(userId: string) {
   const planningYears = clampIntRange(toNullableNumber(profile.planningYears), 1, 30) ?? 10;
   const payDay = clampPayDay(toNullableNumber(profile.payDay));
   const payFrequency = normalizePayFrequency(profile.payFrequency);
+  const effectiveSetupAt = latestDate(
+    ensuredBudgetPlan.createdAt,
+    profile.completedAt ?? null,
+    profile.status === "completed" ? profile.updatedAt ?? null : null,
+  );
   const activePayPeriod = resolveActivePayPeriodWindow({
     now,
     payDate: payDay ?? 1,
     payFrequency,
-    planCreatedAt: ensuredBudgetPlan.createdAt,
+    planCreatedAt: effectiveSetupAt,
   });
   const activePeriodMonth = activePayPeriod.start.getUTCMonth() + 1;
   const activePeriodYear = activePayPeriod.start.getUTCFullYear();
+  const generatedGoalTargetYear = getBudgetHorizonTargetYear({
+    planningYears,
+    referenceDate: effectiveSetupAt,
+    fallbackYear: now.getUTCFullYear(),
+  });
 
   const seededIncomePeriods = buildForwardSeedMonths(now, planningYears);
   const seededExpensePeriods = Array.from(
@@ -849,6 +987,14 @@ export async function runOnboardingRepairPass(userId: string) {
 
   await prisma.$transaction(async (tx) => {
     const salary = Number(profile.monthlySalary ?? 0);
+    const savingsGoalAmount = Number(profile.savingsGoalAmount ?? 0);
+    const selectedGoals: OnboardingGoalInput[] =
+      Array.isArray(profile.mainGoals) && profile.mainGoals.length
+        ? profile.mainGoals
+        : profile.mainGoal
+          ? [profile.mainGoal]
+          : [];
+    const normalizedGoals = normalizeSelectedGoals(selectedGoals);
 
     if (salary > 0) {
       const seededPayFrequency = normalizePayFrequency(profile.payFrequency);
@@ -930,5 +1076,21 @@ export async function runOnboardingRepairPass(userId: string) {
         });
       }
     }
+
+    await syncGeneratedGoals({
+      tx,
+      budgetPlanId,
+      selectedGoals,
+      savingsGoalAmount,
+      targetYear: generatedGoalTargetYear,
+    });
+
+    await onboardingDelegate(tx).update({
+      where: { userId },
+      data: {
+        mainGoal: normalizedGoals[0] ?? null,
+        mainGoals: normalizedGoals,
+      },
+    });
   });
 }

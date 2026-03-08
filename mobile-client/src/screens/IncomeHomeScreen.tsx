@@ -6,7 +6,7 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { apiFetch } from "@/lib/api";
 import type { Settings } from "@/lib/apiTypes";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
-import { normalizePayFrequency, resolveActivePayPeriod } from "@/lib/payPeriods";
+import { getPayPeriodAnchorFromWindow, normalizePayFrequency, resolveActivePayPeriod } from "@/lib/payPeriods";
 import { T } from "@/lib/theme";
 import type { IncomeStackParamList } from "@/navigation/types";
 
@@ -33,11 +33,15 @@ export default function IncomeHomeScreen({ navigation }: Props) {
         now: new Date(),
         payDate: settings?.payDate ?? 27,
         payFrequency,
-        planCreatedAt: settings?.accountCreatedAt ? new Date(settings.accountCreatedAt) : null,
+        planCreatedAt: settings?.setupCompletedAt
+          ? new Date(settings.setupCompletedAt)
+          : settings?.accountCreatedAt
+            ? new Date(settings.accountCreatedAt)
+            : null,
       });
-
-      const month = active.end.getMonth() + 1;
-      const year = active.end.getFullYear();
+      const anchor = getPayPeriodAnchorFromWindow({ period: active, payFrequency });
+      const month = anchor.month;
+      const year = anchor.year;
 
       navigation.replace("IncomeMonth", {
         month,

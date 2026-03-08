@@ -6,6 +6,7 @@ import type {
   SavingsPot,
   SavingsPotStore,
 } from "@/types/settings";
+import type { Settings } from "@/lib/apiTypes";
 
 export function formatDateDmy(dateYmd: string): string {
   const s = (dateYmd || "").trim();
@@ -78,6 +79,28 @@ export function asMoneyNumber(value: string | number | null | undefined): number
   if (value == null || value === "") return 0;
   const n = typeof value === "number" ? value : Number(value);
   return Number.isFinite(n) ? n : 0;
+}
+
+export function resolveGoalCurrentAmount(
+  category: string | null | undefined,
+  goalCurrentAmount: string | number | null | undefined,
+  settings: Pick<Settings, "savingsBalance" | "emergencyBalance" | "investmentBalance"> | null | undefined,
+): number {
+  const normalizedCategory = String(category ?? "").trim().toLowerCase();
+
+  if (normalizedCategory === "emergency") {
+    return Math.max(0, asMoneyNumber(settings?.emergencyBalance));
+  }
+
+  if (normalizedCategory === "savings") {
+    return Math.max(0, asMoneyNumber(settings?.savingsBalance));
+  }
+
+  if (normalizedCategory === "investment") {
+    return Math.max(0, asMoneyNumber(settings?.investmentBalance));
+  }
+
+  return Math.max(0, asMoneyNumber(goalCurrentAmount));
 }
 
 export function asMoneyText(value: number): string {

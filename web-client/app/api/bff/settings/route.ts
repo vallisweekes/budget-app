@@ -7,6 +7,12 @@ import { syncGoalCurrentAmountsFromBalances } from "@/lib/goals/syncGoalCurrentA
 
 export const runtime = "nodejs";
 
+function latestDate(...dates: Array<Date | null | undefined>): Date | null {
+  const valid = dates.filter((date): date is Date => date instanceof Date && !Number.isNaN(date.getTime()));
+  if (valid.length === 0) return null;
+  return valid.reduce((latest, current) => (current.getTime() > latest.getTime() ? current : latest));
+}
+
 function unauthorized() {
   return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 }
@@ -322,7 +328,7 @@ export async function GET(req: NextRequest) {
 		});
     if (!budgetPlanId) return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
 
-    const [plan, userRow] = await Promise.all([
+    const [plan, userRow, profile] = await Promise.all([
       prisma.budgetPlan.findUnique({
         where: { id: budgetPlanId },
         select: settingsSelect as any,
@@ -331,6 +337,10 @@ export async function GET(req: NextRequest) {
         where: { id: userId },
         select: { createdAt: true },
       }),
+      prisma.userOnboardingProfile.findUnique({
+        where: { userId },
+        select: { completedAt: true, updatedAt: true, status: true },
+      }).catch(() => null),
     ]);
 
     if (!plan) return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
@@ -344,6 +354,10 @@ export async function GET(req: NextRequest) {
     };
     const incomeDefaultsFallback = await getIncomeDefaultsFallback(budgetPlanId);
     const accountCreatedAt = userRow?.createdAt?.toISOString() ?? null;
+    const setupCompletedAt = latestDate(
+      profile?.completedAt ?? null,
+      profile?.status === "completed" ? profile?.updatedAt ?? null : null,
+    )?.toISOString() ?? null;
     const cadence = await getCadenceForUser(userId);
     return NextResponse.json({
       ...plan,
@@ -356,6 +370,7 @@ export async function GET(req: NextRequest) {
       incomeDistributeFullYearDefault: incomeDefaultsFromPlan.fullYear ?? incomeDefaultsFallback.fullYear,
       incomeDistributeHorizonDefault: incomeDefaultsFromPlan.horizon ?? incomeDefaultsFallback.horizon,
       accountCreatedAt,
+      setupCompletedAt,
       payFrequency: cadence.payFrequency,
       billFrequency: cadence.billFrequency,
     });
@@ -374,7 +389,7 @@ export async function GET(req: NextRequest) {
         });
         if (!budgetPlanId) return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
 
-        const [plan, userRow2] = await Promise.all([
+        const [plan, userRow2, profile2] = await Promise.all([
           prisma.budgetPlan.findUnique({
             where: { id: budgetPlanId },
             select: (unknownMonthlyEmergency ? settingsSelectLegacy : settingsSelectWithoutMonthlyEmergency) as any,
@@ -383,6 +398,10 @@ export async function GET(req: NextRequest) {
             where: { id: userId! },
             select: { createdAt: true },
           }),
+          prisma.userOnboardingProfile.findUnique({
+            where: { userId: userId! },
+            select: { completedAt: true, updatedAt: true, status: true },
+          }).catch(() => null),
         ]);
         if (!plan) return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
         const emergencyBalance = await getEmergencyBalanceFallback(budgetPlanId);
@@ -390,6 +409,10 @@ export async function GET(req: NextRequest) {
         const budgetHorizonYearsFallback = await getBudgetHorizonYearsFallback(budgetPlanId);
         const incomeDefaultsFallback = await getIncomeDefaultsFallback(budgetPlanId);
         const accountCreatedAt2 = userRow2?.createdAt?.toISOString() ?? null;
+        const setupCompletedAt2 = latestDate(
+          profile2?.completedAt ?? null,
+          profile2?.status === "completed" ? profile2?.updatedAt ?? null : null,
+        )?.toISOString() ?? null;
         const cadence = await getCadenceForUser(userId!);
 
         return NextResponse.json({
@@ -407,6 +430,7 @@ export async function GET(req: NextRequest) {
               ? (plan as any).incomeDistributeHorizonDefault
               : incomeDefaultsFallback.horizon,
           accountCreatedAt: accountCreatedAt2,
+          setupCompletedAt: setupCompletedAt2,
           payFrequency: cadence.payFrequency,
           billFrequency: cadence.billFrequency,
         });

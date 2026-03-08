@@ -2,6 +2,17 @@ import type { DashboardData, Settings } from "@/lib/apiTypes";
 import { MONTH_NAMES_SHORT } from "@/lib/formatting";
 import { formatPayPeriodLabel, normalizePayFrequency, resolveActivePayPeriod } from "@/lib/payPeriods";
 
+export function getEffectiveHomepageGoals<T extends { id: string }>(goals: T[], homepageGoalIds: string[] | null | undefined): T[] {
+  const preferredGoalIds = Array.isArray(homepageGoalIds) ? homepageGoalIds : [];
+  const byId = new Map(goals.map((goal) => [goal.id, goal] as const));
+  const preferred = preferredGoalIds
+    .map((id) => byId.get(id))
+    .filter((goal): goal is T => Boolean(goal));
+  const used = new Set(preferred.map((goal) => goal.id));
+  const fallback = goals.filter((goal) => !used.has(goal.id));
+  return preferred.length >= 2 ? preferred.slice(0, 2) : [...preferred, ...fallback].slice(0, 2);
+}
+
 export function buildDashboardDerived(params: {
   dashboard: DashboardData | null;
   settings: Settings | null;
@@ -121,7 +132,11 @@ export function buildDashboardDerived(params: {
   const rangeLabel = `${start.getDate()} ${MONTH_NAMES_SHORT[start.getMonth()]} - ${end.getDate()} ${MONTH_NAMES_SHORT[end.getMonth()]}`;
 
   const now = new Date();
-  const planCreatedAt = settings?.accountCreatedAt ? new Date(settings.accountCreatedAt) : null;
+  const planCreatedAt = settings?.setupCompletedAt
+    ? new Date(settings.setupCompletedAt)
+    : settings?.accountCreatedAt
+      ? new Date(settings.accountCreatedAt)
+      : null;
   const activePeriod = resolveActivePayPeriod({ now, payDate: pay, payFrequency, planCreatedAt });
   const periodStart = activePeriod.start;
   const periodEnd = activePeriod.end;
@@ -288,14 +303,7 @@ export function buildDashboardDerived(params: {
   const selectedCategory = categorySheet ? categories.find((c) => c.id === categorySheet.id) : undefined;
   const selectedExpenses = (selectedCategory?.expenses ?? []).slice().sort((a, b) => (b.amount ?? 0) - (a.amount ?? 0));
 
-  const preferredGoalIds = Array.isArray(dashboard?.homepageGoalIds) ? dashboard.homepageGoalIds : [];
-  const byId = new Map(goals.map((g) => [g.id, g] as const));
-  const preferred = preferredGoalIds
-    .map((id) => byId.get(id))
-    .filter((g): g is NonNullable<typeof g> => Boolean(g));
-  const used = new Set(preferred.map((g) => g.id));
-  const fallback = goals.filter((g) => !used.has(g.id));
-  const goalsToShow = (preferred.length >= 2 ? preferred.slice(0, 2) : [...preferred, ...fallback].slice(0, 2));
+  const goalsToShow = getEffectiveHomepageGoals(goals, dashboard?.homepageGoalIds);
 
   const goalCardsData = goalsToShow.map((g) => ({ kind: "goal" as const, goal: g }));
 

@@ -25,7 +25,7 @@ import { currencySymbol, fmt } from "@/lib/formatting";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 import { useYearGuard } from "@/lib/hooks/useYearGuard";
 import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
-import { buildPayPeriodFromMonthAnchor, normalizePayFrequency, resolveActivePayPeriod } from "@/lib/payPeriods";
+import { buildPayPeriodFromMonthAnchor, getPayPeriodAnchorFromWindow, normalizePayFrequency, resolveActivePayPeriod } from "@/lib/payPeriods";
 import { T } from "@/lib/theme";
 import IncomeMonthCard from "@/components/Income/IncomeMonthCard";
 import MoneyInput from "@/components/Shared/MoneyInput";
@@ -261,10 +261,15 @@ export default function IncomeScreen() {
     now,
     payDate: settings?.payDate ?? 27,
     payFrequency,
-    planCreatedAt: settings?.accountCreatedAt ? new Date(settings.accountCreatedAt) : null,
+    planCreatedAt: settings?.setupCompletedAt
+      ? new Date(settings.setupCompletedAt)
+      : settings?.accountCreatedAt
+        ? new Date(settings.accountCreatedAt)
+        : null,
   });
-  const activePeriodAnchorMonth = activePayPeriod.end.getMonth() + 1;
-  const activePeriodAnchorYear = activePayPeriod.end.getFullYear();
+  const activePeriodAnchor = getPayPeriodAnchorFromWindow({ period: activePayPeriod, payFrequency });
+  const activePeriodAnchorMonth = activePeriodAnchor.month;
+  const activePeriodAnchorYear = activePeriodAnchor.year;
   const nowYear = now.getFullYear();
   const canAddForYear = year >= nowYear;
 

@@ -72,6 +72,8 @@ model User {
 
 enum OnboardingGoal {
   improve_savings
+  emergency_fund
+  investments
   manage_debts
   track_spending
   build_budget

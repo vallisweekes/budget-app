@@ -10,7 +10,7 @@ import {
 	type UpcomingPayment,
 	type DatedExpenseItem,
 } from "@/lib/expenses/insights";
-import type { PayFrequency } from "@/lib/payPeriods";
+import { normalizePayFrequency, resolveActivePayPeriodWindow, type PayFrequency } from "@/lib/payPeriods";
 import { addMonthsUtc, toNumber } from "@/lib/helpers/dashboard/utils";
 import { monthNumberToKey } from "@/lib/helpers/monthKey";
 import { getMonthlyAllocationSnapshot, getMonthlyCustomAllocationsSnapshot } from "@/lib/allocations/store";
@@ -186,24 +186,38 @@ function selectUpcomingWithMix(args: {
 		.slice(0, Math.max(0, args.limit));
 }
 
+function latestDate(...dates: Array<Date | null | undefined>): Date | null {
+	const valid = dates.filter((date): date is Date => date instanceof Date && !Number.isNaN(date.getTime()));
+	if (valid.length === 0) return null;
+	return valid.reduce((latest, current) => (current.getTime() > latest.getTime() ? current : latest));
+}
+
 export async function getDashboardExpenseInsights({
 	budgetPlanId,
 	payDate,
 	payFrequency,
 	now,
 	userId,
+	planCreatedAt,
 }: {
 	budgetPlanId: string;
 	payDate: number;
 	payFrequency?: PayFrequency;
 	now: Date;
 	userId?: string | null;
+	planCreatedAt?: Date | null;
 }): Promise<{
 	recap: ReturnType<typeof computePreviousMonthRecap> | null;
 	upcoming: ReturnType<typeof computeUpcomingPayments>;
 	recapTips: ReturnType<typeof computeRecapTips>;
 }> {
-	void payFrequency;
+	const normalizedPayFrequency = normalizePayFrequency(payFrequency);
+	const activeWindow = resolveActivePayPeriodWindow({
+		now,
+		payDate,
+		payFrequency: normalizedPayFrequency,
+		planCreatedAt,
+	});
 	const currentYear = now.getFullYear();
 	const currentMonthNum = now.getMonth() + 1;
 	const prev = new Date(now);
@@ -325,15 +339,18 @@ export async function getDashboardExpenseInsights({
 	});
 
 	const userCreatedAt = userRow?.createdAt ?? null;
-	const userStartYear = userCreatedAt ? userCreatedAt.getUTCFullYear() : null;
-	const userStartMonthIndex = userCreatedAt ? userCreatedAt.getUTCMonth() : null;
+	const effectiveStartAt = latestDate(userCreatedAt, planCreatedAt ?? null);
+	const userStartYear = effectiveStartAt ? effectiveStartAt.getUTCFullYear() : null;
+	const userStartMonthIndex = effectiveStartAt ? effectiveStartAt.getUTCMonth() : null;
 	const prevMonthIndex0 = prevMonthNum - 1;
 	const prevMonthBeforeSignup =
 		userStartYear != null &&
 		userStartMonthIndex != null &&
 		(prevYear < userStartYear || (prevYear === userStartYear && prevMonthIndex0 < userStartMonthIndex));
 
-	const shouldSuppressRecap = prevMonthBeforeSignup && prevMonthExpenses.length === 0;
+	const prevMonthEndUtc = new Date(Date.UTC(prevYear, prevMonthNum, 0, 23, 59, 59, 999));
+	const setupStartedAfterPrevMonth = effectiveStartAt ? effectiveStartAt.getTime() > prevMonthEndUtc.getTime() : false;
+	const shouldSuppressRecap = setupStartedAfterPrevMonth || (prevMonthBeforeSignup && prevMonthExpenses.length === 0);
 	let recap = shouldSuppressRecap
 		? null
 		: computePreviousMonthRecap(prevMonthExpenses, {
@@ -384,9 +401,8 @@ export async function getDashboardExpenseInsights({
 		}
 	}
 
-	if (recap && userCreatedAt) {
-		const prevMonthEndUtc = new Date(Date.UTC(prevYear, prevMonthNum, 0, 23, 59, 59, 999));
-		const signedUpAfterPrevMonth = userCreatedAt.getTime() > prevMonthEndUtc.getTime();
+	if (recap && effectiveStartAt) {
+		const signedUpAfterPrevMonth = effectiveStartAt.getTime() > prevMonthEndUtc.getTime();
 		const recapIsEmpty =
 			(recap.paidCount ?? 0) <= 0 &&
 			(recap.paidAmount ?? 0) <= 0 &&
@@ -436,6 +452,12 @@ export async function getDashboardExpenseInsights({
 			});
 		})
 		.filter((u) => u.status !== "paid")
+		.filter((u) => {
+			if (!u.dueDate) return true;
+			const due = parseIsoDateToUtcDateOnly(u.dueDate);
+			if (!due) return true;
+			return due.getTime() >= activeWindow.start.getTime();
+		})
 		.sort((a, b) => scoreUpcoming(a) - scoreUpcoming(b) || b.amount - a.amount);
 
 	const monthKey = monthNumberToKey(selectedBase.monthNum);

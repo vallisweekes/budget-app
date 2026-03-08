@@ -4,29 +4,33 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import Svg, { Polyline } from "react-native-svg";
 
-import { apiFetch } from "@/lib/api";
 import type { DashboardData } from "@/lib/apiTypes";
+import { useBootstrapData } from "@/context/BootstrapDataContext";
+import { resolveGoalCurrentAmount } from "@/lib/helpers/settings";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 import { T } from "@/lib/theme";
 import { cardElevated } from "@/lib/ui";
 
 export default function GoalsProjectionScreen({ navigation }: { navigation: any }) {
   const topHeaderOffset = useTopHeaderOffset();
+  const { dashboard: bootstrapDashboard, settings, ensureLoaded, refresh: refreshBootstrap } = useBootstrapData();
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (options?: { force?: boolean }) => {
     try {
       setError(null);
-      const dash = await apiFetch<DashboardData>("/api/bff/dashboard");
+      const next = options?.force ? await refreshBootstrap({ force: true }) : await ensureLoaded();
+      const dash = next.dashboard ?? bootstrapDashboard;
+      if (!dash) throw new Error("Failed to load projection");
       setDashboard(dash);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load projection");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [bootstrapDashboard, ensureLoaded, refreshBootstrap]);
 
   useEffect(() => {
     load();
@@ -69,7 +73,7 @@ export default function GoalsProjectionScreen({ navigation }: { navigation: any 
         const goal = goalsByType.get(cfg.type);
         if (!goal) return null;
 
-        const current = Math.max(0, goal.currentAmount ?? 0);
+        const current = resolveGoalCurrentAmount(goal.category, goal.currentAmount, settings);
         const target = Math.max(0, goal.targetAmount ?? 0);
         const monthly = monthlyByType[cfg.type];
 
@@ -111,7 +115,7 @@ export default function GoalsProjectionScreen({ navigation }: { navigation: any 
         <View style={s.center}>
           <Ionicons name="cloud-offline-outline" size={48} color={T.textDim} />
           <Text style={s.errorText}>{error}</Text>
-          <Pressable onPress={load} style={s.retryBtn}>
+          <Pressable onPress={() => void load({ force: true })} style={s.retryBtn}>
             <Text style={s.retryTxt}>Retry</Text>
           </Pressable>
         </View>

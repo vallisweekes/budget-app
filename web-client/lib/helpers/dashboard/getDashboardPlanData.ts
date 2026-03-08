@@ -7,7 +7,7 @@ import { ensureDefaultCategoriesForBudgetPlan } from "@/lib/categories/defaultCa
 import { supportsExpenseMovedToDebtField } from "@/lib/prisma/capabilities";
 import { resolveEffectiveDueDateIso } from "@/lib/expenses/insights";
 import { isLegacyPlaceholderExpenseRow } from "@/lib/expenses/legacyPlaceholders";
-import { resolveActivePayPeriodWindow, type PayFrequency } from "@/lib/payPeriods";
+import { getPayPeriodAnchorFromWindow, resolveActivePayPeriodWindow, type PayFrequency } from "@/lib/payPeriods";
 import { getPeriodKey } from "@/lib/helpers/periodKey";
 import type { ExpenseItem } from "@/types";
 
@@ -274,7 +274,7 @@ function normalizeIncomeKey(name: unknown): string {
 /**
  * Pay-period-aware version of dashboard plan data.
  *
- * - Income/allocations/debt plans are taken from the pay-period *end* month.
+ * - Income/allocations/debt plans are taken from the pay-period anchor month.
  * - Expenses are filtered to only those due within the active pay-period window.
  */
 export async function getDashboardPlanDataForActivePayPeriod(
@@ -302,10 +302,12 @@ export async function getDashboardPlanDataForActivePayPeriod(
 		planCreatedAt,
 	});
 
+	const anchor = getPayPeriodAnchorFromWindow({ window, payFrequency });
+
 	// Monthly snapshots (income, allocations, debt plan) remain month-based,
-	// and should correspond to the pay-period *end* month.
-	const selectedYear = window.end.getUTCFullYear();
-	const selectedMonthNum = window.end.getUTCMonth() + 1;
+	// and should correspond to the canonical pay-period anchor month.
+	const selectedYear = anchor.anchorYear;
+	const selectedMonthNum = anchor.anchorMonth;
 	const selectedMonthKey = monthNumberToKey(selectedMonthNum);
 	const startYear = window.start.getUTCFullYear();
 	const startMonthNum = window.start.getUTCMonth() + 1;

@@ -64,18 +64,18 @@ export function getOnboardingStarterTips(args: {
 		});
 	}
 
-	if (hasGoal(goals, "track_spending")) {
+	if (hasGoal(goals, "emergency_fund")) {
 		tips.push({
-			title: "Add your first few spends",
-			detail: "Log your next 3–5 purchases to see where your money really goes.",
+			title: "Build a small buffer",
+			detail: "Start your emergency fund with a small monthly amount so unexpected costs don’t derail your plan.",
 			priority: 60,
 		});
 	}
 
-	if (hasGoal(goals, "build_budget")) {
+	if (hasGoal(goals, "investments")) {
 		tips.push({
-			title: "Lock in the basics",
-			detail: "Start with rent, utilities, and transport. Once the basics are covered, split what’s left across goals.",
+			title: "Invest consistently",
+			detail: "A steady monthly investment habit matters more than starting big. Set an amount you can keep up.",
 			priority: 65,
 		});
 	}

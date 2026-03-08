@@ -37,6 +37,7 @@ import DebtAnalyticsScreen from "@/screens/DebtAnalyticsScreen";
 import SettingsScreen from "@/screens/SettingsScreen";
 import PaymentsScreen from "@/screens/PaymentsScreen";
 import GoalsScreen from "@/screens/GoalsScreen";
+import GoalDetailScreen from "@/screens/GoalDetailScreen";
 import GoalsProjectionScreen from "@/screens/GoalsProjectionScreen";
 import AnalyticsScreen from "@/screens/AnalyticsScreen";
 import SettingsStrategyScreen from "@/screens/SettingsStrategyScreen";
@@ -1286,6 +1287,29 @@ export default function RootNavigator() {
               })}
             />
             <Stack.Screen name="GoalsProjection" component={GoalsProjectionScreen} />
+            <Stack.Screen
+              name="GoalDetail"
+              component={GoalDetailScreen}
+              options={({ navigation, route }) => ({
+                headerShown: true,
+                headerTransparent: true,
+                headerStyle: { backgroundColor: "transparent" },
+                headerShadowVisible: false,
+                header: () => (
+                  <TopHeader
+                    onSettings={() => {}}
+                    onIncome={() => {}}
+                    onAnalytics={() => {}}
+                    onNotifications={() => {}}
+                    onBack={() => navigation.goBack()}
+                    leftVariant="back"
+                    centerLabel={typeof route.params?.goalTitle === "string" && route.params.goalTitle.trim() ? route.params.goalTitle : "Goal"}
+                    showIncomeAction={false}
+                    rightContent={<View style={{ width: 34, height: 34 }} />}
+                  />
+                ),
+              })}
+            />
             <Stack.Screen name="SettingsStrategy" component={SettingsStrategyScreen} />
           </>
         )

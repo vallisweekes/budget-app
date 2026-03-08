@@ -20,7 +20,7 @@ import { useFocusEffect, useScrollToTop } from "@react-navigation/native";
 
 import { useBootstrapData, isNoBudgetPlanError } from "@/context/BootstrapDataContext";
 import { currencySymbol, fmt, normalizeUpcomingName } from "@/lib/formatting";
-import { asMoneyNumber } from "@/lib/helpers/settings";
+import { asMoneyNumber, resolveGoalCurrentAmount } from "@/lib/helpers/settings";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 import { resolveLogoUri } from "@/lib/logoDisplay";
 import { T } from "@/lib/theme";
@@ -520,18 +520,9 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
               renderItem={({ item }) => {
                 const g = item.goal;
                 const hasTarget = typeof g.targetAmount === "number" && Number.isFinite(g.targetAmount);
-                const rawCurAmt = typeof g.currentAmount === "number" && Number.isFinite(g.currentAmount) ? g.currentAmount : 0;
                 const category = String((g as any).category ?? "").trim().toLowerCase();
-                const settingsFallback =
-                  category === "emergency"
-                    ? asMoneyNumber(settings?.emergencyBalance)
-                    : category === "savings"
-                      ? asMoneyNumber(settings?.savingsBalance)
-                      : category === "investment"
-                        ? asMoneyNumber(settings?.investmentBalance)
-                        : 0;
-                const curAmt = rawCurAmt > 0 ? rawCurAmt : (settingsFallback > 0 ? settingsFallback : 0);
-                const tgtAmt = hasTarget ? (g.targetAmount as number) : null;
+                const curAmt = resolveGoalCurrentAmount(category, g.currentAmount, settings);
+                const tgtAmt = hasTarget ? Number(g.targetAmount) : null;
                 const pct = tgtAmt && tgtAmt > 0 ? Math.min(100, Math.max(0, (curAmt / tgtAmt) * 100)) : 0;
                 const primaryAmount = fmt(curAmt, currency);
                 const amountLine = tgtAmt ? `Target ${fmt(tgtAmt, currency)}` : String(g.type ?? "");

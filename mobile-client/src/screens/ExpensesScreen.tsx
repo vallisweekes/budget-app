@@ -42,7 +42,7 @@ import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { currencySymbol, fmt } from "@/lib/formatting";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 import { useYearGuard } from "@/lib/hooks/useYearGuard";
-import { buildPayPeriodFromMonthAnchor, normalizePayFrequency, resolveActivePayPeriod } from "@/lib/payPeriods";
+import { buildPayPeriodFromMonthAnchor, getPayPeriodAnchorFromWindow, normalizePayFrequency, resolveActivePayPeriod } from "@/lib/payPeriods";
 import { T } from "@/lib/theme";
 import type { ExpensesStackParamList } from "@/navigation/types";
 import CategoryBreakdown from "@/components/Expenses/CategoryBreakdown";
@@ -249,6 +249,12 @@ export default function ExpensesScreen({ navigation }: Props) {
     return Number.isNaN(parsed.getTime()) ? null : parsed;
   }, []);
 
+  const latestResolvedDate = useCallback((...dates: Array<Date | null | undefined>) => {
+    const valid = dates.filter((date): date is Date => Boolean(date && !Number.isNaN(date.getTime())));
+    if (valid.length === 0) return null;
+    return valid.reduce((latest, current) => (current.getTime() > latest.getTime() ? current : latest));
+  }, []);
+
   const periodSpanLabel = (m: number) => {
     const safeMonth = Math.max(1, Math.min(12, m));
     const start = SHORT_MONTHS[(safeMonth + 10) % 12];
@@ -271,9 +277,13 @@ export default function ExpensesScreen({ navigation }: Props) {
     ? Math.floor(settings?.payDate as number)
     : 27;
   const effectivePayFrequency = normalizePayFrequency(settings?.payFrequency);
+  const setupCompletedAt = useMemo(
+    () => parsePlanCreatedAt(settings?.setupCompletedAt ?? settings?.accountCreatedAt),
+    [parsePlanCreatedAt, settings?.accountCreatedAt, settings?.setupCompletedAt]
+  );
   const activePlanCreatedAt = useMemo(
-    () => parsePlanCreatedAt(activePlan?.createdAt),
-    [activePlan?.createdAt, parsePlanCreatedAt]
+    () => latestResolvedDate(parsePlanCreatedAt(activePlan?.createdAt), setupCompletedAt),
+    [activePlan?.createdAt, latestResolvedDate, parsePlanCreatedAt, setupCompletedAt]
   );
   const defaultActivePeriod = useMemo(
     () => resolveActivePayPeriod({
@@ -284,8 +294,12 @@ export default function ExpensesScreen({ navigation }: Props) {
     }),
     [activePlanCreatedAt, effectivePayDate, effectivePayFrequency]
   );
-  const defaultActiveMonth = defaultActivePeriod.end.getMonth() + 1;
-  const defaultActiveYear = defaultActivePeriod.end.getFullYear();
+  const defaultActiveAnchor = useMemo(
+    () => getPayPeriodAnchorFromWindow({ period: defaultActivePeriod, payFrequency: effectivePayFrequency }),
+    [defaultActivePeriod, effectivePayFrequency]
+  );
+  const defaultActiveMonth = defaultActiveAnchor.month;
+  const defaultActiveYear = defaultActiveAnchor.year;
 
   useEffect(() => {
     const wasPersonal = prevIsPersonalPlanRef.current;
@@ -397,8 +411,9 @@ export default function ExpensesScreen({ navigation }: Props) {
         setSelectedPlanId(resolvedPlanId);
       }
 
-      const resolvedPlanCreatedAt = parsePlanCreatedAt(
-        nextPlans.find((plan) => plan.id === resolvedPlanId)?.createdAt
+      const resolvedPlanCreatedAt = latestResolvedDate(
+        parsePlanCreatedAt(nextPlans.find((plan) => plan.id === resolvedPlanId)?.createdAt),
+        setupCompletedAt
       );
       const resolvedActivePeriod = resolveActivePayPeriod({
         now: new Date(),
@@ -406,8 +421,12 @@ export default function ExpensesScreen({ navigation }: Props) {
         payFrequency: payFrequencyForResolution,
         planCreatedAt: resolvedPlanCreatedAt,
       });
-      const resolvedDefaultMonth = resolvedActivePeriod.end.getMonth() + 1;
-      const resolvedDefaultYear = resolvedActivePeriod.end.getFullYear();
+      const resolvedDefaultAnchor = getPayPeriodAnchorFromWindow({
+        period: resolvedActivePeriod,
+        payFrequency: payFrequencyForResolution,
+      });
+      const resolvedDefaultMonth = resolvedDefaultAnchor.month;
+      const resolvedDefaultYear = resolvedDefaultAnchor.year;
       const routeMonth = Number(route.params?.month);
       const routeYear = Number(route.params?.year);
       const hasRouteMonth = Number.isFinite(routeMonth) && routeMonth >= 1 && routeMonth <= 12;
@@ -480,9 +499,12 @@ export default function ExpensesScreen({ navigation }: Props) {
               payFrequency: payFrequencyForResolution,
               planCreatedAt: resolvedPlanCreatedAt,
             });
-            const anchorDate = payFrequencyForResolution === "monthly" ? period.end : period.start;
-            const suggestedMonth = anchorDate.getMonth() + 1;
-            const suggestedYear = anchorDate.getFullYear();
+            const anchor = getPayPeriodAnchorFromWindow({
+              period,
+              payFrequency: payFrequencyForResolution,
+            });
+            const suggestedMonth = anchor.month;
+            const suggestedYear = anchor.year;
 
             if (suggestedMonth !== initialMonth || suggestedYear !== initialYear) {
               targetMonth = suggestedMonth;
@@ -523,7 +545,7 @@ export default function ExpensesScreen({ navigation }: Props) {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [activePlanId, bootstrapError, getOrFetchSummary, month, planCacheKey, refreshBootstrap, selectedPlanId, year]);
+  }, [activePlanId, bootstrapError, getOrFetchSummary, latestResolvedDate, month, planCacheKey, refreshBootstrap, selectedPlanId, setupCompletedAt, year]);
 
   const currentViewKey = `${activePlanId ?? "none"}:${year}-${month}`;
   useEffect(() => {

@@ -29,6 +29,12 @@ import { getEarlyPaymentWindowStart } from "@/lib/helpers/finance/earlyPaymentWi
 
 export const runtime = "nodejs";
 
+function latestDate(...dates: Array<Date | null | undefined>): Date | null {
+	const valid = dates.filter((date): date is Date => date instanceof Date && !Number.isNaN(date.getTime()));
+	if (valid.length === 0) return null;
+	return valid.reduce((latest, current) => (current.getTime() > latest.getTime() ? current : latest));
+}
+
 function unauthorized() {
 	return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 }
@@ -58,7 +64,7 @@ export async function GET(req: NextRequest) {
 		const selectedYear = now.getFullYear();
 		const user = await prisma.user.findUnique({
 			where: { id: userId },
-			select: { name: true },
+			select: { name: true, createdAt: true },
 		});
 		const username = user?.name ?? null;
 
@@ -69,6 +75,9 @@ export async function GET(req: NextRequest) {
 		// Best-effort onboarding context: never let dashboard fail due to schema/client mismatch.
 		let onboarding:
 			| {
+				status?: unknown;
+				completedAt?: unknown;
+				updatedAt?: unknown;
 				mainGoal: unknown;
 				mainGoals?: unknown;
 				occupation: unknown;
@@ -95,6 +104,9 @@ export async function GET(req: NextRequest) {
 			onboarding = await prisma.userOnboardingProfile.findUnique({
 				where: { userId },
 				select: {
+						status: true,
+						completedAt: true,
+						updatedAt: true,
 					mainGoal: true,
 					mainGoals: true,
 					occupation: true,
@@ -121,6 +133,9 @@ export async function GET(req: NextRequest) {
 				const legacy = await prisma.userOnboardingProfile.findUnique({
 					where: { userId },
 					select: {
+						status: true,
+						completedAt: true,
+						updatedAt: true,
 						mainGoal: true,
 						occupation: true,
 						...(includeCadenceFields ? { payFrequency: true, billFrequency: true } : {}),
@@ -151,6 +166,12 @@ export async function GET(req: NextRequest) {
 			}
 		}
 
+		const onboardingCompletedAt = latestDate(
+			onboarding?.completedAt instanceof Date ? onboarding.completedAt : null,
+			onboarding?.status === "completed" && onboarding?.updatedAt instanceof Date ? onboarding.updatedAt : null,
+		);
+		const effectiveCreatedAt = latestDate(planCreatedAt, user?.createdAt ?? null, onboardingCompletedAt);
+
 		// 2) Core plan data (income, expenses, allocations, goals, categories)
 		// Compute using the ACTIVE pay-period window so totals match the period label.
 		const payDay = typeof payDate === "number" && Number.isFinite(payDate) ? payDate : 1;
@@ -161,10 +182,10 @@ export async function GET(req: NextRequest) {
 			now,
 			payDate: payDay,
 			payFrequency,
-			planCreatedAt,
+			planCreatedAt: effectiveCreatedAt,
 		});
 		const month = MONTHS[currentPlanData.monthNum - 1] ?? currentMonthKey();
-		const { payPeriodLabel, previousPayPeriodLabel } = getDashboardPayPeriodLabels(now, payDay, planCreatedAt);
+		const { payPeriodLabel, previousPayPeriodLabel } = getDashboardPayPeriodLabels(now, payDay, effectiveCreatedAt);
 
 		// Everything below is "best effort". If one section fails (e.g. debt sync),
 		// return the rest of the dashboard rather than a full 500.
@@ -177,6 +198,7 @@ export async function GET(req: NextRequest) {
 						payFrequency,
 						now,
 						userId,
+						planCreatedAt: effectiveCreatedAt,
 					});
 				} catch (error) {
 					console.error("Dashboard: expense insights failed:", error);
