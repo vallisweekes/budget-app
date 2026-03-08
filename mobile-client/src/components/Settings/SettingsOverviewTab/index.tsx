@@ -6,7 +6,7 @@ import SettingsSection from "@/components/Settings/SettingsSection";
 import type { SettingsOverviewTabProps } from "@/types/components/settings/SettingsOverviewTab.types";
 
 export default function SettingsOverviewTab({
-  email,
+  profileLabel,
   subscriptionLabel,
   payDateLabel,
   payFrequencyLabel,
@@ -28,7 +28,7 @@ export default function SettingsOverviewTab({
   return (
     <>
       <SettingsSection title="Account">
-        <SettingsLinkRow label="Profile details" value={email} onPress={onEditProfile} />
+        <SettingsLinkRow label="Profile details" value={profileLabel} onPress={onEditProfile} />
         <SettingsLinkRow label="Subscription" value={subscriptionLabel} onPress={onOpenSubscription} />
       </SettingsSection>
 

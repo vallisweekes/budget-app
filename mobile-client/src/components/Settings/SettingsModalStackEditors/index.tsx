@@ -3,7 +3,6 @@ import { Platform } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import SettingsBudgetFieldSheet from "@/components/Settings/SettingsBudgetFieldSheet";
-import SettingsDetailsSheet from "@/components/Settings/SettingsDetailsSheet";
 import SettingsLocaleSheet from "@/components/Settings/SettingsLocaleSheet";
 import SavingsEditorSheet from "@/components/Settings/SavingsEditorSheet";
 import { asMoneyNumber, asMoneyText, BILL_FREQUENCY_OPTIONS, getSavingsFieldTitle, PAY_FREQUENCY_OPTIONS } from "@/lib/helpers/settings";
@@ -15,19 +14,6 @@ export default function SettingsModalStackEditors({ controller }: SettingsModalS
 
   return (
     <>
-      <SettingsDetailsSheet
-        visible={controller.detailsSheetOpen}
-        keyboardOffset={keyboardOffset}
-        translateY={controller.detailsSheetDragY}
-        panHandlers={controller.detailsSheetPanHandlers as Record<string, unknown>}
-        username={controller.profile?.username ?? controller.authUsername ?? ""}
-        emailDraft={controller.emailDraft}
-        saveBusy={controller.saveBusy}
-        onClose={controller.closeDetailsSheet}
-        onChangeEmail={controller.setEmailDraft}
-        onSave={controller.saveDetails}
-      />
-
       <SettingsBudgetFieldSheet
         field={controller.budgetFieldSheet}
         keyboardOffset={keyboardOffset}

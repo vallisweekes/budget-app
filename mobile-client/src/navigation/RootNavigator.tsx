@@ -41,6 +41,8 @@ import GoalsScreen from "@/screens/GoalsScreen";
 import GoalDetailScreen from "@/screens/GoalDetailScreen";
 import GoalsProjectionScreen from "@/screens/GoalsProjectionScreen";
 import AnalyticsScreen from "@/screens/AnalyticsScreen";
+import PrivacyPolicyScreen from "@/screens/PrivacyPolicyScreen";
+import SettingsProfileDetailsScreen from "@/screens/SettingsProfileDetailsScreen";
 import SettingsStrategyScreen from "@/screens/SettingsStrategyScreen";
 import OnboardingScreen from "@/screens/OnboardingScreen";
 
@@ -1357,6 +1359,8 @@ export default function RootNavigator() {
                 ),
               })}
             />
+            <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
+            <Stack.Screen name="SettingsProfileDetails" component={SettingsProfileDetailsScreen} />
             <Stack.Screen name="SettingsStrategy" component={SettingsStrategyScreen} />
           </>
         )

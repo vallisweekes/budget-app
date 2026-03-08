@@ -2,6 +2,7 @@ const path = require('path');
 const { getDefaultConfig } = require('expo/metro-config');
 
 const projectRoot = __dirname;
+const workspaceRoot = path.resolve(projectRoot, '..');
 const config = getDefaultConfig(projectRoot);
 
 // Allow importing `.svg` as React components (requires `react-native-svg`).
@@ -20,5 +21,7 @@ config.resolver.nodeModulesPaths = [
   path.resolve(projectRoot, 'node_modules'),
   ...(config.resolver.nodeModulesPaths || []),
 ];
+
+config.watchFolders = Array.from(new Set([...(config.watchFolders || []), workspaceRoot]));
 
 module.exports = config;

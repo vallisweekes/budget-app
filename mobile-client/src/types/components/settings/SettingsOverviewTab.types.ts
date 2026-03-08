@@ -1,5 +1,5 @@
 export type SettingsOverviewTabProps = {
-  email: string;
+  profileLabel: string;
   subscriptionLabel: string;
   payDateLabel: string;
   payFrequencyLabel: string;

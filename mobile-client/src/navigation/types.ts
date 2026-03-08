@@ -116,6 +116,11 @@ export type RootStackParamList = {
     goalId: string;
     goalTitle?: string;
   };
+  PrivacyPolicy: undefined;
+  SettingsProfileDetails: {
+    username?: string;
+    email?: string;
+  };
   SettingsStrategy: {
     budgetPlanId: string;
     strategy: string | null;

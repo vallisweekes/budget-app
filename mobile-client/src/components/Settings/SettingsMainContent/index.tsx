@@ -88,14 +88,14 @@ export default function SettingsMainContent({ controller, navigation, savingsTil
       {controller.activeTab !== "details" ? <SettingsSubpageHeader title={SETTINGS_TAB_TITLES[controller.activeTab]} onBack={() => controller.setActiveTab("details")} /> : null}
       {controller.activeTab === "details" ? (
         <SettingsOverviewTab
-          email={controller.profile?.email ?? "No email set"}
+          profileLabel={controller.profile?.username ?? controller.authUsername ?? controller.profile?.email ?? "No name set"}
           subscriptionLabel={controller.subscription?.current.planLabel ?? "Free"}
           payDateLabel={controller.settings?.payDate ? `Day ${controller.settings.payDate}` : "Not set"}
           payFrequencyLabel={formatPayFrequency(controller.settings?.payFrequency)}
           currencyLabel={controller.settings?.currency ?? "GBP"}
           notificationsLabel={controller.notifications.dueReminders || controller.notifications.paymentAlerts || controller.notifications.dailyTips ? "On" : "Off"}
           versionLabel={getSettingsAppVersionLabel()}
-          onEditProfile={() => controller.setDetailsSheetOpen(true)}
+          onEditProfile={() => navigation.navigate("SettingsProfileDetails", { username: controller.profile?.username ?? controller.authUsername ?? "", email: controller.profile?.email ?? "" })}
           onOpenSubscription={() => controller.setActiveTab("subscription")}
           onOpenBudget={() => controller.setActiveTab("budget")}
           onOpenIncomeSettings={openIncomeSettings}
@@ -105,7 +105,7 @@ export default function SettingsMainContent({ controller, navigation, savingsTil
           onOpenNotifications={() => controller.setActiveTab("notifications")}
           onOpenDanger={() => controller.setActiveTab("danger")}
           onOpenAbout={() => { void openSettingsExternalUrl(SETTINGS_WEBSITE_URL); }}
-          onOpenPrivacy={() => { void openSettingsExternalUrl(`${SETTINGS_WEBSITE_URL}/privacy-policy`); }}
+          onOpenPrivacy={() => navigation.navigate("PrivacyPolicy")}
         />
       ) : null}
 
