@@ -226,6 +226,7 @@ model BudgetPlan {
   kind        BudgetPlanKind @default(personal)
   userId      String
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notificationDeliveries NotificationDelivery[]
 
   // Holiday/Carnival metadata
   eventDate                     DateTime?

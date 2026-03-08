@@ -6,6 +6,12 @@ import { sendWebPushNotification } from "@/lib/push/webPush";
 import { sendMobilePushNotifications } from "@/lib/push/mobilePush";
 import { maybeGeneratePushCopy } from "@/lib/push/aiCopy";
 import {
+  canSendLowPriorityNotification,
+  getPersonalizationContext,
+  getUserNotificationPersonalizationMap,
+  logNotificationDelivery,
+} from "@/lib/push/personalization";
+import {
   DEFAULT_USER_NOTIFICATION_PREFERENCES,
   getUserNotificationPreferencesMap,
 } from "@/lib/push/userNotificationPreferences";
@@ -25,6 +31,11 @@ type MobilePushTokenDelegate = {
   deleteMany: (args: { where: { token: { in: string[] } } }) => Promise<unknown>;
 };
 
+type SentPushSummary = {
+  webSent: number;
+  mobileSent: number;
+};
+
 function startOfDayUTC(date: Date): Date {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
 }
@@ -42,6 +53,111 @@ function addDaysUTC(date: Date, days: number): Date {
 function shouldSendBudgetTipOnDate(date: Date): boolean {
   void date;
   return true;
+}
+
+function hasMeaningfulOnboardingProgress(profile: {
+  occupation?: string | null;
+  occupationOther?: string | null;
+  payDay?: number | null;
+  payFrequency?: string | null;
+  billFrequency?: string | null;
+  monthlySalary?: unknown;
+  planningYears?: number | null;
+  mainGoal?: string | null;
+  mainGoals?: string[] | null;
+  hasAllowance?: boolean | null;
+  hasDebtsToManage?: boolean | null;
+}): boolean {
+  const monthlySalary = Number(
+    (profile.monthlySalary as { toString?: () => string } | null | undefined)?.toString?.() ?? profile.monthlySalary ?? 0,
+  );
+  return Boolean(
+    profile.occupation ||
+      profile.occupationOther ||
+      profile.payDay ||
+      profile.payFrequency ||
+      profile.billFrequency ||
+      profile.planningYears ||
+      profile.mainGoal ||
+      (Array.isArray(profile.mainGoals) && profile.mainGoals.length > 0) ||
+      monthlySalary > 0 ||
+      profile.hasAllowance !== null ||
+      profile.hasDebtsToManage !== null,
+  );
+}
+
+async function sendLoggedNotifications(params: {
+  userId: string;
+  budgetPlanId?: string | null;
+  type: string;
+  priority: "high" | "low";
+  reason?: string | null;
+  metadata?: Record<string, unknown> | null;
+  title: string;
+  body?: string;
+  url?: string;
+  webSubscriptions: Array<{ endpoint: string; p256dh: string; auth: string }>;
+  mobileTokens: string[];
+  deadEndpoints: string[];
+  invalidMobileTokens: string[];
+  mobileErrors: string[];
+  mobileData?: Record<string, unknown>;
+}): Promise<SentPushSummary> {
+  let webSent = 0;
+  let mobileSent = 0;
+
+  for (const sub of params.webSubscriptions) {
+    try {
+      await sendWebPushNotification({
+        subscription: {
+          endpoint: sub.endpoint,
+          p256dh: sub.p256dh,
+          auth: sub.auth,
+        },
+        payload: {
+          title: params.title,
+          body: params.body,
+          url: params.url ?? "/dashboard",
+        },
+      });
+      webSent += 1;
+    } catch (error: unknown) {
+      const status = Number(
+        typeof error === "object" && error !== null && "statusCode" in error
+          ? (error as { statusCode?: number }).statusCode ?? 0
+          : 0,
+      );
+      if (status === 404 || status === 410) {
+        params.deadEndpoints.push(sub.endpoint);
+      }
+    }
+  }
+
+  if (params.mobileTokens.length > 0) {
+    const result = await sendMobilePushNotifications(params.mobileTokens, {
+      title: params.title,
+      body: params.body,
+      data: params.mobileData,
+    });
+    mobileSent += result.sent;
+    params.invalidMobileTokens.push(...result.invalidTokens);
+    params.mobileErrors.push(...result.errors);
+  }
+
+  if (webSent > 0 || mobileSent > 0) {
+    await logNotificationDelivery({
+      userId: params.userId,
+      budgetPlanId: params.budgetPlanId ?? null,
+      type: params.type,
+      priority: params.priority,
+      channel: webSent > 0 && mobileSent > 0 ? "mixed" : webSent > 0 ? "web" : "mobile",
+      title: params.title,
+      reason: params.reason ?? null,
+      metadata: params.metadata ?? null,
+    });
+  }
+
+  return { webSent, mobileSent };
 }
 
 const DAILY_FALLBACK_TIPS = [
@@ -346,6 +462,7 @@ async function handleDueReminders(req: Request) {
   const mobileErrors: string[] = [];
   const debtUserIds = Array.from(new Set(debts.map((d) => d.budgetPlan.user.id)));
   const debtUserPrefs = await getUserNotificationPreferencesMap(debtUserIds);
+  const debtUserPersonalization = await getUserNotificationPersonalizationMap(debtUserIds, today);
 
   for (const debt of debts) {
     if (!debt.dueDate) continue;
@@ -379,48 +496,47 @@ async function handleDueReminders(req: Request) {
       dueDate: dueIso,
       dueInDays,
       tone: "calm, not scary",
+      ...getPersonalizationContext(
+        debtUserPersonalization.get(debt.budgetPlan.user.id) ?? {
+          userId: debt.budgetPlan.user.id,
+          lastSentAt: null,
+          lastLowPrioritySentAt: null,
+          recentSendCount7d: 0,
+          lastActiveAt: null,
+          daysSinceLastActive: null,
+          preferredSendHour: null,
+        },
+      ),
     },
     fallback: { title, body },
   });
   title = copy.title;
   body = copy.body ?? body;
 
-    const subs = debt.budgetPlan.user.webPushSubscriptions;
-    for (const sub of subs) {
-      try {
-        await sendWebPushNotification({
-          subscription: {
-            endpoint: sub.endpoint,
-            p256dh: sub.p256dh,
-            auth: sub.auth,
-          },
-          payload: {
-            title,
-            body,
-            url: "/dashboard",
-          },
-        });
-        sent += 1;
-      } catch (error: unknown) {
-        const status = Number(
-          typeof error === "object" && error !== null && "statusCode" in error
-            ? (error as { statusCode?: number }).statusCode ?? 0
-            : 0
-        );
-        if (status === 404 || status === 410) {
-          deadEndpoints.push(sub.endpoint);
-        }
-      }
-    }
-
-    // Mobile push fan-out
-    const mobileTokens = debt.budgetPlan.user.mobilePushTokens.map((t) => t.token);
-    if (mobileTokens.length > 0) {
-      const result = await sendMobilePushNotifications(mobileTokens, { title, body });
-      mobileSent += result.sent;
-      invalidMobileTokens.push(...result.invalidTokens);
-      mobileErrors.push(...result.errors);
-    }
+    const sentSummary = await sendLoggedNotifications({
+      userId: debt.budgetPlan.user.id,
+      budgetPlanId: null,
+      type: "debt_due_reminder",
+      priority: "high",
+      reason: dueInDays === 0 ? "due_today" : "due_in_3_days",
+      metadata: { debtId: debt.id, dueDate: dueIso, dueInDays },
+      title,
+      body,
+      url: "/dashboard",
+      webSubscriptions: debt.budgetPlan.user.webPushSubscriptions,
+      mobileTokens: debt.budgetPlan.user.mobilePushTokens.map((t) => t.token),
+      deadEndpoints,
+      invalidMobileTokens,
+      mobileErrors,
+      mobileData: {
+        type: "debt_due_reminder",
+        debtId: debt.id,
+        dueDate: dueIso,
+        dueInDays,
+      },
+    });
+    sent += sentSummary.webSent;
+    mobileSent += sentSummary.mobileSent;
   }
 
   const currentMonth = today.getUTCMonth() + 1;
@@ -463,6 +579,7 @@ async function handleDueReminders(req: Request) {
 
   const payDateUserIds = Array.from(new Set(payDatePlans.map((plan) => plan.user.id)));
   const payDateUserPrefs = await getUserNotificationPreferencesMap(payDateUserIds);
+  const payDateUserPersonalization = await getUserNotificationPersonalizationMap(payDateUserIds, today);
 
   for (const plan of payDatePlans) {
     const userPrefs = payDateUserPrefs.get(plan.user.id) ?? DEFAULT_USER_NOTIFICATION_PREFERENCES;
@@ -509,53 +626,50 @@ async function handleDueReminders(req: Request) {
       month: currentMonth,
       year: currentYear,
       tone: "supportive, organised",
+      ...getPersonalizationContext(
+        payDateUserPersonalization.get(plan.user.id) ?? {
+          userId: plan.user.id,
+          lastSentAt: null,
+          lastLowPrioritySentAt: null,
+          recentSendCount7d: 0,
+          lastActiveAt: null,
+          daysSinceLastActive: null,
+          preferredSendHour: null,
+        },
+      ),
     },
     fallback: { title, body },
   });
 
-    for (const sub of plan.user.webPushSubscriptions) {
-      try {
-        await sendWebPushNotification({
-          subscription: {
-            endpoint: sub.endpoint,
-            p256dh: sub.p256dh,
-            auth: sub.auth,
-          },
-          payload: {
-            title: copy.title,
-            body: copy.body,
-            url: "/dashboard",
-          },
-        });
-        payDateReminderSent += 1;
-      } catch (error: unknown) {
-        const status = Number(
-          typeof error === "object" && error !== null && "statusCode" in error
-            ? (error as { statusCode?: number }).statusCode ?? 0
-            : 0,
-        );
-        if (status === 404 || status === 410) {
-          deadEndpoints.push(sub.endpoint);
-        }
-      }
-    }
-
-    const mobileTokens = plan.user.mobilePushTokens.map((t) => t.token);
-    if (mobileTokens.length > 0) {
-      const result = await sendMobilePushNotifications(mobileTokens, {
-        title: copy.title,
-        body: copy.body,
-        data: {
-          type: "income_sacrifice_reminder",
-          month: currentMonth,
-          year: currentYear,
-          budgetPlanId: plan.id,
-        },
-      });
-      payDateReminderMobileSent += result.sent;
-      invalidMobileTokens.push(...result.invalidTokens);
-      mobileErrors.push(...result.errors);
-    }
+    const payDateSentSummary = await sendLoggedNotifications({
+      userId: plan.user.id,
+      budgetPlanId: plan.id,
+      type: "income_sacrifice_reminder",
+      priority: "high",
+      reason: "payday_pending_transfers",
+      metadata: {
+        month: currentMonth,
+        year: currentYear,
+        pendingTotal,
+        pendingTotalText,
+      },
+      title: copy.title,
+      body: copy.body,
+      url: "/dashboard",
+      webSubscriptions: plan.user.webPushSubscriptions,
+      mobileTokens: plan.user.mobilePushTokens.map((t) => t.token),
+      deadEndpoints,
+      invalidMobileTokens,
+      mobileErrors,
+      mobileData: {
+        type: "income_sacrifice_reminder",
+        month: currentMonth,
+        year: currentYear,
+        budgetPlanId: plan.id,
+      },
+    });
+    payDateReminderSent += payDateSentSummary.webSent;
+    payDateReminderMobileSent += payDateSentSummary.mobileSent;
   }
 
   if (shouldSendBudgetTipOnDate(today)) {
@@ -585,10 +699,14 @@ async function handleDueReminders(req: Request) {
 
     const tipUserIds = Array.from(new Set(tipPlans.map((plan) => plan.user.id)));
     const tipUserPrefs = await getUserNotificationPreferencesMap(tipUserIds);
+    const tipUserPersonalization = await getUserNotificationPersonalizationMap(tipUserIds, today);
 
     for (const plan of tipPlans) {
       const userPrefs = tipUserPrefs.get(plan.user.id) ?? DEFAULT_USER_NOTIFICATION_PREFERENCES;
       if (!userPrefs.dailyTips) continue;
+
+      const personalization = tipUserPersonalization.get(plan.user.id);
+      if (!personalization || !canSendLowPriorityNotification(personalization, today, 3)) continue;
 
       const mobileTokens = plan.user.mobilePushTokens.map((t) => t.token);
       if (mobileTokens.length === 0) continue;
@@ -690,24 +808,150 @@ async function handleDueReminders(req: Request) {
         savingsContribution,
         reason,
         goalTone: "make user feel they are in a good place",
+        ...getPersonalizationContext(personalization),
       },
       fallback: { title, body },
     });
 
-      const result = await sendMobilePushNotifications(mobileTokens, {
-    title: copy.title,
-    body: copy.body,
-        data: {
+      const tipSentSummary = await sendLoggedNotifications({
+        userId: plan.user.id,
+        budgetPlanId: plan.id,
+        type: "budget_tip",
+        priority: "low",
+        reason,
+        metadata: {
+          month: currentMonth,
+          year: currentYear,
+          dueSoonCount,
+          savingsContribution,
+          daysSinceLastActive: personalization.daysSinceLastActive,
+          preferredSendHour: personalization.preferredSendHour,
+        },
+        title: copy.title,
+        body: copy.body,
+        webSubscriptions: [],
+        mobileTokens,
+        deadEndpoints,
+        invalidMobileTokens,
+        mobileErrors,
+        mobileData: {
           type: "budget_tip",
           budgetPlanId: plan.id,
           month: currentMonth,
           year: currentYear,
         },
       });
-      budgetTipMobileSent += result.sent;
-      invalidMobileTokens.push(...result.invalidTokens);
-      mobileErrors.push(...result.errors);
+      budgetTipMobileSent += tipSentSummary.mobileSent;
     }
+  }
+
+  const onboardingProfiles = await withPrismaRetry(() => prisma.userOnboardingProfile.findMany({
+    where: {
+      status: "started",
+      user: {
+        mobilePushTokens: { some: {} },
+      },
+    },
+    select: {
+      id: true,
+      updatedAt: true,
+      createdAt: true,
+      mainGoal: true,
+      mainGoals: true,
+      occupation: true,
+      occupationOther: true,
+      payDay: true,
+      payFrequency: true,
+      billFrequency: true,
+      monthlySalary: true,
+      planningYears: true,
+      hasAllowance: true,
+      hasDebtsToManage: true,
+      user: {
+        select: {
+          id: true,
+          mobilePushTokens: {
+            select: { token: true },
+          },
+        },
+      },
+    },
+  }), { retries: 2, delayMs: 150 });
+
+  const onboardingUserIds = Array.from(new Set(onboardingProfiles.map((profile) => profile.user.id)));
+  const onboardingUserPrefs = await getUserNotificationPreferencesMap(onboardingUserIds);
+  const onboardingPersonalization = await getUserNotificationPersonalizationMap(onboardingUserIds, today);
+  let onboardingReminderMobileSent = 0;
+
+  for (const profile of onboardingProfiles) {
+    const userPrefs = onboardingUserPrefs.get(profile.user.id) ?? DEFAULT_USER_NOTIFICATION_PREFERENCES;
+    if (!userPrefs.dailyTips) continue;
+
+    const personalization = onboardingPersonalization.get(profile.user.id);
+    if (!personalization || !canSendLowPriorityNotification(personalization, today, 3)) continue;
+
+    const lastTouchedAt = profile.updatedAt ?? profile.createdAt;
+    const daysInactive = Math.max(0, Math.floor((today.getTime() - lastTouchedAt.getTime()) / (24 * 60 * 60 * 1000)));
+    if (daysInactive < 1) continue;
+
+    let stage: "day_1" | "day_3" | "day_7" | null = null;
+    if (daysInactive >= 7) stage = "day_7";
+    else if (daysInactive >= 3) stage = "day_3";
+    else stage = "day_1";
+
+    const progressLabel = hasMeaningfulOnboardingProgress(profile)
+      ? "continue_setup"
+      : "start_setup";
+    let title = "Finish setting up your budget";
+    let body = "Pick up where you left off and get your reminders and plan working for you.";
+
+    if (stage === "day_3") {
+      title = "Your budget setup is waiting";
+      body = "A quick return now can make upcoming payments easier to stay on top of.";
+    } else if (stage === "day_7") {
+      title = "Take the next budget step";
+      body = "Finish one more setup step and let the app start working around your routine.";
+    }
+
+    const copy = await maybeGeneratePushCopy({
+      event: "onboarding_reengagement",
+      context: {
+        kind: "onboarding",
+        stage,
+        progressLabel,
+        daysInactive,
+        mainGoal: profile.mainGoal,
+        mainGoals: profile.mainGoals,
+        tone: "supportive, encouraging",
+        ...getPersonalizationContext(personalization),
+      },
+      fallback: { title, body },
+    });
+
+    const onboardingSentSummary = await sendLoggedNotifications({
+      userId: profile.user.id,
+      type: "onboarding_reengagement",
+      priority: "low",
+      reason: stage,
+      metadata: {
+        onboardingProfileId: profile.id,
+        stage,
+        daysInactive,
+        progressLabel,
+      },
+      title: copy.title,
+      body: copy.body,
+      webSubscriptions: [],
+      mobileTokens: profile.user.mobilePushTokens.map((token) => token.token),
+      deadEndpoints,
+      invalidMobileTokens,
+      mobileErrors,
+      mobileData: {
+        type: "onboarding_reengagement",
+        onboardingStage: stage,
+      },
+    });
+    onboardingReminderMobileSent += onboardingSentSummary.mobileSent;
   }
 
   if (deadEndpoints.length > 0) {
@@ -740,6 +984,7 @@ async function handleDueReminders(req: Request) {
     payDateReminderSent,
     payDateReminderMobileSent,
     budgetTipMobileSent,
+    onboardingReminderMobileSent,
     removedSubscriptions: deadEndpoints.length,
     removedMobileTokens: invalidMobileTokens.length,
     mobileErrors: uniqueMobileErrors,
