@@ -360,6 +360,7 @@ function RootTopHeader({ navigation }: { navigation: any }) {
   const isNotificationSettings = deepestRoute?.name === "NotificationSettings";
   const shouldShowIncomeBack = isAnalytics;
   const monthLabel = isAnalytics ? "Analytics" : undefined;
+  const analyticsOverviewMode = deepestRoute?.params?.overviewMode === "month" ? "month" : "year";
 
   const incomeMonthInitialMode = deepestRoute?.params?.initialMode === "sacrifice" ? "sacrifice" : "income";
 
@@ -424,16 +425,33 @@ function RootTopHeader({ navigation }: { navigation: any }) {
   };
 
   const analyticsRightContent = isAnalytics ? (
-    <Pressable
-      onPress={() => {
-        navigation.navigate("NotificationSettings", { initialTab: "notifications" });
-      }}
-      style={s.headerActionBtn}
-      hitSlop={10}
-    >
-      <Ionicons name="notifications-outline" size={18} color={T.accent} />
-      {hasNotificationDot ? <View style={s.headerNotificationDot} /> : null}
-    </Pressable>
+    <View style={s.analyticsModeToggle}>
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          s.analyticsModeThumb,
+          { transform: [{ translateX: analyticsOverviewMode === "year" ? 34 : 2 }] },
+        ]}
+      />
+      <Pressable
+        onPress={() => {
+          navigation.setParams({ overviewMode: "month" });
+        }}
+        style={s.analyticsModeBtn}
+        hitSlop={10}
+      >
+        <Text style={[s.analyticsModeText, analyticsOverviewMode === "month" && s.analyticsModeTextActive]}>M</Text>
+      </Pressable>
+      <Pressable
+        onPress={() => {
+          navigation.setParams({ overviewMode: "year" });
+        }}
+        style={s.analyticsModeBtn}
+        hitSlop={10}
+      >
+        <Text style={[s.analyticsModeText, analyticsOverviewMode === "year" && s.analyticsModeTextActive]}>Y</Text>
+      </Pressable>
+    </View>
   ) : undefined;
 
   useEffect(() => {
@@ -702,6 +720,39 @@ const s = StyleSheet.create({
     backgroundColor: T.red,
     borderWidth: 1,
     borderColor: T.card,
+  },
+  analyticsModeToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: T.border,
+    borderRadius: 999,
+    backgroundColor: `${T.cardAlt}66`,
+    width: 68,
+    height: 34,
+    position: "relative",
+    overflow: "hidden",
+  },
+  analyticsModeThumb: {
+    position: "absolute",
+    width: 30,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: T.accent,
+    top: 2,
+  },
+  analyticsModeBtn: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  analyticsModeText: {
+    color: T.textDim,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  analyticsModeTextActive: {
+    color: T.onAccent,
   },
   goalsHeaderAddBtn: {
     minWidth: 78,

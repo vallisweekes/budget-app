@@ -109,7 +109,7 @@ export type RootStackParamList = {
   Main: NavigatorScreenParams<MainTabParamList>;
   NotificationSettings: { initialTab?: "notifications" } | undefined;
   Payments: undefined;
-  Analytics: undefined;
+  Analytics: { overviewMode?: "month" | "year" } | undefined;
   Goals: undefined;
   GoalsProjection: undefined;
   GoalDetail: {

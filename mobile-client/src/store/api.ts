@@ -1,7 +1,7 @@
 import { createApi, fakeBaseQuery } from "@reduxjs/toolkit/query/react";
 
 import { ApiError, apiFetch } from "@/lib/api";
-import type { BudgetPlanListItem, BudgetPlansResponse, CreditCard, DashboardData, Debt, DebtPayment, DebtSummaryData, Settings, SubscriptionSummaryResponse, UserProfile } from "@/lib/apiTypes";
+import type { BudgetPlanListItem, BudgetPlansResponse, CreditCard, DashboardData, Debt, DebtPayment, DebtSummaryData, ExpenseSummary, IncomeSummaryData, Settings, SubscriptionSummaryResponse, UserProfile } from "@/lib/apiTypes";
 import type { CreateSacrificeItemResponse } from "@/types/settings";
 
 function normalizeApiError(err: unknown): ApiError {
@@ -93,6 +93,55 @@ export const mobileApi = createApi({
         }
       },
       providesTags: ["Debts"],
+    }),
+    getIncomeSummary: builder.query<IncomeSummaryData, number>({
+      async queryFn(year) {
+        try {
+          const data = await apiFetch<IncomeSummaryData>(`/api/bff/income-summary?year=${year}`, { cacheTtlMs: 0 });
+          return { data };
+        } catch (err: unknown) {
+          return { error: normalizeApiError(err) };
+        }
+      },
+      providesTags: ["Dashboard"],
+    }),
+    getExpenseSummary: builder.query<ExpenseSummary, {
+      month: number;
+      year: number;
+      budgetPlanId?: string | null;
+      scope?: "month" | "pay_period";
+    }>({
+      async queryFn({ month, year, budgetPlanId, scope = "pay_period" }) {
+        try {
+          const planQp = budgetPlanId ? `&budgetPlanId=${encodeURIComponent(budgetPlanId)}` : "";
+          const data = await apiFetch<ExpenseSummary>(`/api/bff/expenses/summary?month=${month}&year=${year}&scope=${scope}${planQp}`, { cacheTtlMs: 0 });
+          return { data };
+        } catch (err: unknown) {
+          return { error: normalizeApiError(err) };
+        }
+      },
+      providesTags: ["Dashboard"],
+    }),
+    getAnalyticsExpenseSeries: builder.query<number[], {
+      year: number;
+      budgetPlanId?: string | null;
+    }>({
+      async queryFn({ year, budgetPlanId }) {
+        try {
+          const series = await Promise.all(
+            Array.from({ length: 12 }, async (_, idx) => {
+              const month = idx + 1;
+              const planQp = budgetPlanId ? `&budgetPlanId=${encodeURIComponent(budgetPlanId)}` : "";
+              const summary = await apiFetch<ExpenseSummary>(`/api/bff/expenses/summary?month=${month}&year=${year}&scope=pay_period${planQp}`, { cacheTtlMs: 0 });
+              return summary?.totalAmount ?? 0;
+            })
+          );
+          return { data: series };
+        } catch (err: unknown) {
+          return { error: normalizeApiError(err) };
+        }
+      },
+      providesTags: ["Dashboard"],
     }),
     getDebtDetail: builder.query<Debt, string>({
       async queryFn(debtId) {
@@ -339,8 +388,11 @@ export const mobileApi = createApi({
 
 export const {
   useGetDashboardQuery,
+  useGetExpenseSummaryQuery,
+  useGetAnalyticsExpenseSeriesQuery,
   useGetDebtSummaryQuery,
   useGetCreditCardsQuery,
+  useGetIncomeSummaryQuery,
   useGetSettingsQuery,
   useLazyGetDebtDetailQuery,
   useLazyGetDebtPaymentsQuery,
