@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Notifications from "expo-notifications";
 
 import { useAuth } from "@/context/AuthContext";
+import { useBootstrapData } from "@/context/BootstrapDataContext";
 import type {
   RootStackParamList,
   MainTabParamList,
@@ -1146,11 +1147,17 @@ function MainTabs() {
 
 export default function RootNavigator() {
   const { token, isLoading } = useAuth();
+  const {
+    dashboard,
+    settings: bootstrapSettings,
+    isLoading: bootstrapLoading,
+  } = useBootstrapData();
   const [onboardingState, setOnboardingState] = useState<OnboardingStatusResponse | null>(null);
   const [onboardingLoading, setOnboardingLoading] = useState(false);
   const [completingOnboarding, setCompletingOnboarding] = useState(false);
   const [openBudgetSettingsAfterOnboarding, setOpenBudgetSettingsAfterOnboarding] = useState(false);
   const lastOnboardingTokenRef = useRef<string | null>(null);
+  const hasBootstrapSetup = Boolean(dashboard?.budgetPlanId) || Boolean(bootstrapSettings?.id);
 
   useEffect(() => {
     let cancelled = false;
@@ -1160,6 +1167,21 @@ export default function RootNavigator() {
       setOnboardingState((prev) => (prev === null ? prev : null));
       setOnboardingLoading((prev) => (prev ? false : prev));
       setOpenBudgetSettingsAfterOnboarding((prev) => (prev ? false : prev));
+      return;
+    }
+
+    if (bootstrapLoading && !hasBootstrapSetup && onboardingState === null) {
+      setOnboardingLoading((prev) => (prev ? prev : true));
+      return;
+    }
+
+    if (hasBootstrapSetup) {
+      lastOnboardingTokenRef.current = token;
+      setOnboardingLoading((prev) => (prev ? false : prev));
+      setOnboardingState((prev) => {
+        if (prev?.required === false) return prev;
+        return ONBOARDING_FALLBACK;
+      });
       return;
     }
 
@@ -1202,7 +1224,7 @@ export default function RootNavigator() {
     return () => {
       cancelled = true;
     };
-  }, [onboardingState, token]);
+  }, [bootstrapLoading, hasBootstrapSetup, onboardingState, token]);
 
   const completeOnboardingAndHydrate = useCallback(async () => {
     setCompletingOnboarding(true);

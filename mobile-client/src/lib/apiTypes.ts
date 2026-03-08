@@ -361,6 +361,32 @@ export interface OnboardingStatusResponse {
   occupations: string[];
 }
 
+export interface SubscriptionOffer {
+  id: string;
+  title: string;
+  priceLabel: string;
+  billingLabel: string;
+  highlight: boolean;
+  bullets: string[];
+}
+
+export interface SubscriptionSummaryResponse {
+  current: {
+    status: "free" | "active" | "past_due" | "canceled";
+    planKey: string;
+    planLabel: string;
+    billingLabel: string;
+    renewalLabel: string | null;
+    manageLabel: string | null;
+  };
+  offers: SubscriptionOffer[];
+  launchState: {
+    mode: "soft_launch";
+    canPurchase: boolean;
+    message: string;
+  };
+}
+
 export interface ExpenseMonthsResponse {
   months: Array<{
     year: number;

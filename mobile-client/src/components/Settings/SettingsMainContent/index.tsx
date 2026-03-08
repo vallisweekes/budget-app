@@ -9,6 +9,7 @@ import SettingsMoneyTab from "@/components/Settings/SettingsMoneyTab";
 import SettingsNotificationsTab from "@/components/Settings/SettingsNotificationsTab";
 import SettingsOverviewTab from "@/components/Settings/SettingsOverviewTab";
 import SettingsPlansTab from "@/components/Settings/SettingsPlansTab";
+import SettingsSubscriptionTab from "@/components/Settings/SettingsSubscriptionTab";
 import SettingsSubpageHeader from "@/components/Settings/SettingsSubpageHeader";
 import { asMoneyText, formatBillFrequency, formatPayFrequency } from "@/lib/helpers/settings";
 import {
@@ -23,6 +24,19 @@ import type { SettingsMainContentProps } from "@/types/components/settings/Setti
 
 export default function SettingsMainContent({ controller, navigation, savingsTileSize, getAddPotLabel, getSavingsTilePalette }: SettingsMainContentProps) {
   const scrollRef = React.useRef<ScrollView | null>(null);
+  const openIncomeSettings = React.useCallback(() => {
+    const budgetPlanId = controller.settings?.id;
+    if (!budgetPlanId) return;
+    navigation.navigate("Income" as any, {
+      screen: "IncomeMonth",
+      params: {
+        month: new Date().getMonth() + 1,
+        year: new Date().getFullYear(),
+        budgetPlanId,
+        initialMode: "income",
+      },
+    } as any);
+  }, [controller.settings?.id, navigation]);
 
   React.useEffect(() => {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
@@ -71,42 +85,27 @@ export default function SettingsMainContent({ controller, navigation, savingsTil
       automaticallyAdjustContentInsets={false}
       showsVerticalScrollIndicator={false}
     >
-      {controller.activeTab !== "details" ? (
-        <SettingsSubpageHeader
-          title={SETTINGS_TAB_TITLES[controller.activeTab]}
-          onBack={() => controller.setActiveTab("details")}
-        />
-      ) : null}
+      {controller.activeTab !== "details" ? <SettingsSubpageHeader title={SETTINGS_TAB_TITLES[controller.activeTab]} onBack={() => controller.setActiveTab("details")} /> : null}
       {controller.activeTab === "details" ? (
         <SettingsOverviewTab
           email={controller.profile?.email ?? "No email set"}
+          subscriptionLabel={controller.subscription?.current.planLabel ?? "Free"}
           payDateLabel={controller.settings?.payDate ? `Day ${controller.settings.payDate}` : "Not set"}
           payFrequencyLabel={formatPayFrequency(controller.settings?.payFrequency)}
           currencyLabel={controller.settings?.currency ?? "GBP"}
           notificationsLabel={controller.notifications.dueReminders || controller.notifications.paymentAlerts || controller.notifications.dailyTips ? "On" : "Off"}
           versionLabel={getSettingsAppVersionLabel()}
           onEditProfile={() => controller.setDetailsSheetOpen(true)}
+          onOpenSubscription={() => controller.setActiveTab("subscription")}
           onOpenBudget={() => controller.setActiveTab("budget")}
-          onOpenIncomeSettings={() => {
-            const budgetPlanId = controller.settings?.id;
-            if (!budgetPlanId) return;
-            const now = new Date();
-            navigation.navigate("Income" as any, {
-              screen: "IncomeMonth",
-              params: {
-                month: now.getMonth() + 1,
-                year: now.getFullYear(),
-                budgetPlanId,
-                initialMode: "income",
-              },
-            } as any);
-          }}
+          onOpenIncomeSettings={openIncomeSettings}
           onOpenSavings={() => controller.setActiveTab("savings")}
           onOpenPlans={() => controller.setActiveTab("plans")}
           onOpenLocale={() => controller.setActiveTab("locale")}
           onOpenNotifications={() => controller.setActiveTab("notifications")}
           onOpenDanger={() => controller.setActiveTab("danger")}
-          onOpenAbout={() => { void openSettingsExternalUrl(SETTINGS_WEBSITE_URL); }} onOpenPrivacy={() => { void openSettingsExternalUrl(`${SETTINGS_WEBSITE_URL}/privacy-policy`); }}
+          onOpenAbout={() => { void openSettingsExternalUrl(SETTINGS_WEBSITE_URL); }}
+          onOpenPrivacy={() => { void openSettingsExternalUrl(`${SETTINGS_WEBSITE_URL}/privacy-policy`); }}
         />
       ) : null}
 
@@ -118,26 +117,15 @@ export default function SettingsMainContent({ controller, navigation, savingsTil
           billFrequencyLabel={formatBillFrequency(controller.settings?.billFrequency)}
           strategyDraft={controller.strategyDraft}
           onOpenField={controller.setBudgetFieldSheet}
-          onOpenIncomeSettings={() => {
-            const budgetPlanId = controller.settings?.id;
-            if (!budgetPlanId) return;
-            const now = new Date();
-            navigation.navigate("Income" as any, {
-              screen: "IncomeMonth",
-              params: {
-                month: now.getMonth() + 1,
-                year: now.getFullYear(),
-                budgetPlanId,
-                initialMode: "income",
-              },
-            } as any);
-          }}
+          onOpenIncomeSettings={openIncomeSettings}
           onOpenStrategy={() => {
             if (!controller.settings?.id) return;
             navigation.navigate("SettingsStrategy", { budgetPlanId: controller.settings.id, strategy: controller.strategyDraft });
           }}
         />
       ) : null}
+
+      {controller.activeTab === "subscription" ? <SettingsSubscriptionTab subscription={controller.subscription} loading={controller.subscriptionLoading} error={controller.subscriptionError} onRetry={() => { void controller.loadSubscription(true); }} /> : null}
 
       {controller.activeTab === "savings" ? (
         <SettingsMoneyTab

@@ -10,6 +10,7 @@ export const SETTINGS_TAB_TITLES: Record<Exclude<SettingsTab, "details">, string
   savings: "Money",
   locale: "Locale & Currency",
   plans: "Plans",
+  subscription: "Subscription",
   notifications: "Notifications",
   danger: "Danger Zone",
 };

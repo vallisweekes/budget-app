@@ -11,6 +11,7 @@ import type {
   BudgetPlansResponse,
   Debt,
   Settings,
+  SubscriptionSummaryResponse,
   UserProfile,
 } from "@/lib/apiTypes";
 import { currencySymbol } from "@/lib/formatting";
@@ -69,6 +70,9 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
   const [settings, setSettings] = useState<Settings | null>(null);
   const [plans, setPlans] = useState<BudgetPlanListItem[]>([]);
   const [debts, setDebts] = useState<Debt[]>([]);
+  const [subscription, setSubscription] = useState<SubscriptionSummaryResponse | null>(null);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(false);
+  const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -519,6 +523,7 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
       && requestedSubTab !== "savings"
       && requestedSubTab !== "locale"
       && requestedSubTab !== "plans"
+      && requestedSubTab !== "subscription"
       && requestedSubTab !== "notifications"
       && requestedSubTab !== "danger"
     ) {
@@ -538,6 +543,25 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
   useEffect(() => {
     loadNotifications();
   }, [loadNotifications]);
+
+  const loadSubscription = useCallback(async (force = false) => {
+    if (!force && subscription) return;
+    try {
+      setSubscriptionLoading(true);
+      setSubscriptionError(null);
+      const next = await apiFetch<SubscriptionSummaryResponse>("/api/bff/subscription", { cacheTtlMs: 0 });
+      setSubscription(next);
+    } catch (err: unknown) {
+      setSubscriptionError(err instanceof Error ? err.message : "Failed to load subscription");
+    } finally {
+      setSubscriptionLoading(false);
+    }
+  }, [subscription]);
+
+  useEffect(() => {
+    if (activeTab !== "subscription") return;
+    void loadSubscription();
+  }, [activeTab, loadSubscription]);
 
   useEffect(() => {
     const unsubscribe = subscribeNotificationInbox((snapshot) => {
@@ -1248,6 +1272,9 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
     profile,
     settings,
     plans,
+    subscription,
+    subscriptionLoading,
+    subscriptionError,
     loading,
     refreshing,
     setRefreshing,
@@ -1364,6 +1391,7 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
     cancelPlanEventDatePicker,
     closePlanEventDatePicker,
     load,
+    loadSubscription,
     loadNotifications,
     formatNotificationReceivedAt,
     saveNotifications,

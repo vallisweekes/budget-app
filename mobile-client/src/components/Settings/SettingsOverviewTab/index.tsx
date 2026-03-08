@@ -7,12 +7,14 @@ import type { SettingsOverviewTabProps } from "@/types/components/settings/Setti
 
 export default function SettingsOverviewTab({
   email,
+  subscriptionLabel,
   payDateLabel,
   payFrequencyLabel,
   currencyLabel,
   notificationsLabel,
   versionLabel,
   onEditProfile,
+  onOpenSubscription,
   onOpenBudget,
   onOpenIncomeSettings,
   onOpenSavings,
@@ -27,6 +29,7 @@ export default function SettingsOverviewTab({
     <>
       <SettingsSection title="Account">
         <SettingsLinkRow label="Profile details" value={email} onPress={onEditProfile} />
+        <SettingsLinkRow label="Subscription" value={subscriptionLabel} onPress={onOpenSubscription} />
       </SettingsSection>
 
       <SettingsSection title="Budgeting">

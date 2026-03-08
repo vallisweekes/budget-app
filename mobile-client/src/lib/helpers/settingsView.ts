@@ -34,6 +34,7 @@ export const PRIMARY_TABS: Array<{ id: SettingsTab; label: string }> = [
 export const MORE_TABS: Array<{ id: SettingsTab; label: string }> = [
   { id: "locale", label: "Locale" },
   { id: "notifications", label: "Notifications" },
+  { id: "subscription", label: "Subscription" },
   { id: "danger", label: "Danger Zone" },
 ];
 
@@ -50,6 +51,7 @@ export const TAB_ICONS: Record<
   plans: { active: "list", inactive: "list-outline" },
   locale: { active: "globe", inactive: "globe-outline" },
   notifications: { active: "notifications", inactive: "notifications-outline" },
+  subscription: { active: "card", inactive: "card-outline" },
   danger: { active: "warning", inactive: "warning-outline" },
 };
 

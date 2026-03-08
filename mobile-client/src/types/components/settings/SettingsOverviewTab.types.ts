@@ -1,11 +1,13 @@
 export type SettingsOverviewTabProps = {
   email: string;
+  subscriptionLabel: string;
   payDateLabel: string;
   payFrequencyLabel: string;
   currencyLabel: string;
   notificationsLabel: string;
   versionLabel: string;
   onEditProfile: () => void;
+  onOpenSubscription: () => void;
   onOpenBudget: () => void;
   onOpenIncomeSettings: () => void;
   onOpenSavings: () => void;
