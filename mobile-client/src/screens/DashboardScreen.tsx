@@ -1,201 +1,42 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  Animated,
-  View,
-  Text,
-  ScrollView,
-  Image,
-  ActivityIndicator,
-  StyleSheet,
-  RefreshControl,
-  Pressable,
-  Modal,
-  FlatList,
-  Dimensions,
-} from "react-native";
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect, useScrollToTop } from "@react-navigation/native";
 
-import { useBootstrapData, isNoBudgetPlanError } from "@/context/BootstrapDataContext";
-import { currencySymbol, fmt, normalizeUpcomingName } from "@/lib/formatting";
-import { asMoneyNumber, resolveGoalCurrentAmount } from "@/lib/helpers/settings";
-import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
-import { resolveLogoUri } from "@/lib/logoDisplay";
-import { T } from "@/lib/theme";
-import { cardElevated, textLabel } from "@/lib/ui";
-import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
 import BudgetDonutCard from "@/components/Dashboard/BudgetDonutCard";
 import CategorySwipeCards from "@/components/Dashboard/CategorySwipeCards";
-import QuickPaymentActionSheet, { type QuickPaymentActionItem } from "@/components/Dashboard/QuickPaymentActionSheet";
-import { buildDashboardDerived } from "@/screens/dashboard/derived";
+import QuickPaymentActionSheet from "@/components/Dashboard/QuickPaymentActionSheet";
+import { fmt } from "@/lib/formatting";
+import { useDashboardScreenController } from "@/lib/hooks/useDashboardScreenController";
+import { T } from "@/lib/theme";
+import type { MainTabScreenProps } from "@/navigation/types";
+import DashboardAiTipsCard from "@/screens/dashboard/DashboardAiTipsCard";
+import DashboardCategorySheet from "@/screens/dashboard/DashboardCategorySheet";
+import DashboardGoalsSection from "@/screens/dashboard/DashboardGoalsSection";
+import DashboardRecapSection from "@/screens/dashboard/DashboardRecapSection";
+import DashboardUpcomingDebtsSection from "@/screens/dashboard/DashboardUpcomingDebtsSection";
+import DashboardUpcomingExpensesSection from "@/screens/dashboard/DashboardUpcomingExpensesSection";
+import { styles } from "@/screens/dashboard/styles";
 
-const W = Dimensions.get("window").width;
-const GOAL_GAP = 12;
-const GOAL_SIDE = 16;
-// Fit two cards side-by-side by default (with side padding + gap)
-const GOAL_CARD = Math.max(122, Math.round((W - GOAL_SIDE * 2 - GOAL_GAP) / 2));
-const GOAL_ADD_W = Math.max(52, Math.round(GOAL_CARD * 0.34));
+type DashboardScreenProps = MainTabScreenProps<"Dashboard">;
 
-function DashboardAiTipsCard({
-  tips,
-}: {
-  tips: Array<{ title: string; detail: string; priority?: number }>;
-}) {
-  const validTips = useMemo(
-    () => tips.filter((tip) => String(tip?.title ?? "").trim() && String(tip?.detail ?? "").trim()),
-    [tips]
-  );
-  const [activeTipIndex, setActiveTipIndex] = useState(0);
+export default function DashboardScreen(props: DashboardScreenProps) {
+  const controller = useDashboardScreenController(props);
 
-  useEffect(() => {
-    setActiveTipIndex(0);
-  }, [validTips]);
-
-  useFocusEffect(
-    useCallback(() => {
-      if (validTips.length <= 1) return undefined;
-
-      const timer = setInterval(() => {
-        setActiveTipIndex((current) => (current + 1) % validTips.length);
-      }, 20000);
-
-      return () => clearInterval(timer);
-    }, [validTips.length])
-  );
-
-  const activeTip = validTips.length ? validTips[activeTipIndex % validTips.length] : null;
-
-  if (!activeTip) return null;
-
-  return (
-    <View style={styles.aiTipsCard}>
-      <View style={styles.aiTipsHeader}>
-        <View style={styles.aiTipsTitleWrap}>
-          <View style={styles.aiTipsIconWrap}>
-            <Ionicons name="bulb-outline" size={16} color={T.accent} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.aiTipsTitle}>AI Tips</Text>
-          </View>
-        </View>
-      </View>
-
-      <View style={styles.aiTipsBody}>
-        <View style={styles.aiTipsMetaRow}>
-          <Text style={styles.aiTipHeadline}>{activeTip.title}</Text>
-          {Number(activeTip.priority ?? 0) >= 80 ? <Text style={styles.aiTipPriority}>High priority</Text> : null}
-        </View>
-        <Text style={styles.aiTipDetail}>{activeTip.detail}</Text>
-      </View>
-
-      {validTips.length > 1 ? (
-        <View style={styles.aiTipsDots}>
-          {validTips.map((tip, idx) => (
-            <View
-              key={`${tip.title}-${idx}`}
-              style={[styles.aiTipsDot, idx === activeTipIndex ? styles.aiTipsDotActive : null]}
-            />
-          ))}
-        </View>
-      ) : null}
-    </View>
-  );
-}
-
-export default function DashboardScreen({ navigation }: { navigation: any }) {
-  const scrollRef = useRef<ScrollView>(null);
-  useScrollToTop(scrollRef);
-  const topHeaderOffset = useTopHeaderOffset(-24);
-  const insets = useSafeAreaInsets();
-
-  const {
-    dashboard,
-    settings,
-    isLoading: loading,
-    isRefreshing: refreshing,
-    error,
-    refresh,
-    ensureLoaded,
-  } = useBootstrapData();
-
-  const [categorySheet, setCategorySheet] = useState<{ id: string; name: string } | null>(null);
-  const [quickPayItem, setQuickPayItem] = useState<QuickPaymentActionItem | null>(null);
-
-  const { dragY: categorySheetDragY, panHandlers: categorySheetPanHandlers } = useSwipeDownToClose({
-    onClose: () => setCategorySheet(null),
-  });
-  const [activeGoalCard, setActiveGoalCard] = useState(0);
-  const [failedLogos, setFailedLogos] = useState<Record<string, boolean>>({});
-
-  const currency = currencySymbol(settings?.currency);
-
-  const goalIconName = (title: string): keyof typeof Ionicons.glyphMap => {
-    const t = String(title ?? "").toLowerCase();
-    if (t.includes("emergency")) return "shield-outline";
-    if (t.includes("saving")) return "cash-outline";
-    return "flag-outline";
-  };
-
-  useEffect(() => {
-    if (isNoBudgetPlanError(error)) {
-      navigation.navigate("Settings");
-    }
-  }, [error, navigation]);
-
-  const load = useCallback((options?: { force?: boolean }) => {
-    return refresh({ force: options?.force === true });
-  }, [refresh]);
-
-  useFocusEffect(
-    useCallback(() => {
-      void ensureLoaded();
-    }, [ensureLoaded])
-  );
-
-  const onRefresh = useCallback(() => {
-    void load({ force: true });
-  }, [load]);
-
-  const {
-    totalIncome,
-    totalExpenses,
-    categories,
-    paidTotal,
-    totalBudget,
-    amountAfterExpenses,
-    isOverBudgetBySpending,
-    hasOverLimitDebt,
-    overLimitDebtCount,
-    hasPayDateConfigured,
-    payPeriodLabel,
-    previousPayPeriodLabel,
-    upcoming,
-    upcomingDebts,
-    formatShortDate,
-    selectedExpenses,
-    goalCardsData,
-  } = useMemo(
-    () => buildDashboardDerived({ dashboard, settings, categorySheet }),
-    [dashboard, settings, categorySheet]
-  );
-
-  if (loading) {
+  if (controller.loading) {
     return (
-			<SafeAreaView style={[styles.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
+      <SafeAreaView style={[styles.safe, { paddingTop: controller.topHeaderOffset }]} edges={[]}>
         <View style={styles.center}>
           <ActivityIndicator size="large" color={T.accent} />
-          <Text style={styles.loadingText}>Loading dashboard…</Text>
+          <Text style={styles.loadingText}>Loading dashboard...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
-  if (error) {
-    if (isNoBudgetPlanError(error)) {
+  if (controller.error) {
+    if (controller.isRedirectingForSetup) {
       return (
-				<SafeAreaView style={[styles.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
+        <SafeAreaView style={[styles.safe, { paddingTop: controller.topHeaderOffset }]} edges={[]}>
           <View style={styles.center}>
             <ActivityIndicator size="large" color={T.accent} />
           </View>
@@ -204,11 +45,11 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
     }
 
     return (
-			<SafeAreaView style={[styles.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
+      <SafeAreaView style={[styles.safe, { paddingTop: controller.topHeaderOffset }]} edges={[]}>
         <View style={styles.center}>
           <Ionicons name="cloud-offline-outline" size={48} color={T.iconMuted} />
-          <Text style={styles.errorText}>{error.message}</Text>
-          <Pressable onPress={() => load({ force: true })} style={styles.retryBtn}>
+          <Text style={styles.errorText}>{controller.error.message}</Text>
+          <Pressable onPress={() => void controller.load({ force: true })} style={styles.retryBtn}>
             <Text style={styles.retryText}>Retry</Text>
           </Pressable>
         </View>
@@ -216,149 +57,83 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
     );
   }
 
-  const needsSetup = totalIncome <= 0 || totalExpenses <= 0;
-  const recap = dashboard?.expenseInsights?.recap ?? null;
-  const dashboardTips = dashboard?.expenseInsights?.recapTips ?? [];
-  const hasRecapData = Boolean(
-    recap && (
-      (recap.paidCount ?? 0) > 0
-      || (recap.paidAmount ?? 0) > 0
-      || (recap.missedDueCount ?? 0) > 0
-      || (recap.missedDueAmount ?? 0) > 0
-    )
-  );
-  const recapTitle = recap
-    ? (hasPayDateConfigured
-        ? `${previousPayPeriodLabel} Recap`
-        : `${recap.label} Recap`)
-    : "";
-
   return (
     <SafeAreaView style={styles.safe} edges={[]}>
       <QuickPaymentActionSheet
-        visible={!!quickPayItem}
-        item={quickPayItem}
-        currency={currency}
-        insetsBottom={insets.bottom}
-        onClose={() => setQuickPayItem(null)}
-        onUpdated={() => {
-          void load({ force: true });
-        }}
+        visible={Boolean(controller.quickPayItem)}
+        item={controller.quickPayItem}
+        currency={controller.currency}
+        insetsBottom={controller.insetsBottom}
+        onClose={controller.closeQuickPay}
+        onUpdated={controller.handleQuickPayUpdated}
       />
 
-      <Modal
-        visible={!!categorySheet}
-        transparent
-        animationType="slide"
-        presentationStyle="overFullScreen"
-        onRequestClose={() => setCategorySheet(null)}
-      >
-        <View style={styles.sheetOverlay}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setCategorySheet(null)} />
-          <Animated.View style={[styles.sheet, { transform: [{ translateY: categorySheetDragY }] }]}>
-            <View style={styles.sheetHandle} {...categorySheetPanHandlers} />
-            <View style={styles.sheetHeader} {...categorySheetPanHandlers}>
-              <Text style={styles.sheetTitle} numberOfLines={1}>
-                {categorySheet?.name ?? "Category"}
-              </Text>
-              <Pressable onPress={() => setCategorySheet(null)} hitSlop={10} style={styles.sheetCloseBtn}>
-                <Ionicons name="close" size={22} color={T.text} />
-              </Pressable>
-            </View>
-
-            <FlatList
-              data={selectedExpenses}
-              keyExtractor={(i) => i.id}
-              contentContainerStyle={styles.sheetList}
-              ListEmptyComponent={() => (
-                <Text style={styles.sheetEmpty}>No expenses in this category.</Text>
-              )}
-              renderItem={({ item }) => (
-                <View style={styles.sheetRow}>
-                  <View style={{ flex: 1, marginRight: 12 }}>
-                    <Text style={styles.sheetRowName} numberOfLines={1}>
-                      {item.name}
-                    </Text>
-                    <Text style={styles.sheetRowSub}>
-                      {item.paid ? "paid" : (item.paidAmount ?? 0) > 0 ? "partial" : "unpaid"}
-                    </Text>
-                  </View>
-                  <Text style={styles.sheetRowAmt} numberOfLines={1}>
-                    {fmt(item.amount, currency)}
-                  </Text>
-                </View>
-              )}
-            />
-          </Animated.View>
-        </View>
-      </Modal>
+      <DashboardCategorySheet
+        visible={Boolean(controller.categorySheet)}
+        categoryName={controller.categorySheet?.name ?? "Category"}
+        expenses={controller.selectedExpenses}
+        currency={controller.currency}
+        dragY={controller.categorySheetDragY}
+        panHandlers={controller.categorySheetPanHandlers}
+        onClose={controller.closeCategorySheet}
+      />
 
       <ScrollView
-        ref={scrollRef}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={T.accent} />}
-			contentContainerStyle={[styles.scroll, { paddingTop: topHeaderOffset + 8 }]}
+        ref={controller.scrollRef}
+        refreshControl={<RefreshControl refreshing={controller.refreshing} onRefresh={controller.onRefresh} tintColor={T.accent} />}
+        contentContainerStyle={[styles.scroll, { paddingTop: controller.topHeaderOffset + 8 }]}
         showsVerticalScrollIndicator={false}
       >
-        {hasPayDateConfigured ? (
+        {controller.hasPayDateConfigured ? (
           <View style={styles.currentPeriodBadge}>
-            <Text style={styles.currentPeriodBadgeText}>{payPeriodLabel}</Text>
+            <Text style={styles.currentPeriodBadgeText}>{controller.payPeriodLabel}</Text>
           </View>
         ) : null}
 
         <BudgetDonutCard
-          totalBudget={totalBudget}
-          totalExpenses={totalExpenses}
-          paidTotal={paidTotal}
-          currency={currency}
+          totalBudget={controller.totalBudget}
+          totalExpenses={controller.totalExpenses}
+          paidTotal={controller.paidTotal}
+          currency={controller.currency}
           fmt={fmt}
         />
 
-        {(isOverBudgetBySpending || hasOverLimitDebt) && (
+        {(controller.isOverBudgetBySpending || controller.hasOverLimitDebt) ? (
           <View style={styles.alertCard}>
-            <Text style={styles.alertTitle}>
-              {isOverBudgetBySpending ? "Over budget" : "Credit limit exceeded"}
-            </Text>
-            {isOverBudgetBySpending && (
+            <Text style={styles.alertTitle}>{controller.isOverBudgetBySpending ? "Over budget" : "Credit limit exceeded"}</Text>
+            {controller.isOverBudgetBySpending ? (
               <Text style={styles.alertText}>
-                Spending is {fmt(Math.abs(amountAfterExpenses), currency)} over your monthly plan.
+                Spending is {fmt(Math.abs(controller.amountAfterExpenses), controller.currency)} over your monthly plan.
               </Text>
-            )}
-            {hasOverLimitDebt && !isOverBudgetBySpending && (
+            ) : (
               <Text style={styles.alertText}>
-                {overLimitDebtCount} card{overLimitDebtCount === 1 ? "" : "s"} over credit limit.
+                {controller.overLimitDebtCount} card{controller.overLimitDebtCount === 1 ? "" : "s"} over credit limit.
               </Text>
             )}
           </View>
-        )}
+        ) : null}
 
-        {needsSetup ? (
+        {controller.needsSetup ? (
           <View style={styles.setupCard}>
             <Text style={styles.setupTitle}>Get your plan ready</Text>
             <Text style={styles.setupText}>Add or update your income and expenses so your dashboard can calculate real totals.</Text>
             <View style={styles.setupActions}>
-              <Pressable
-                onPress={() => {
-                  navigation.navigate("Income");
-                }}
-                style={styles.setupBtn}
-              >
+              <Pressable onPress={controller.goToIncome} style={styles.setupBtn}>
                 <Text style={styles.setupBtnText}>Go to Income</Text>
               </Pressable>
-              <Pressable onPress={() => navigation.navigate("Expenses")} style={styles.setupBtn}>
+              <Pressable onPress={controller.goToExpenses} style={styles.setupBtn}>
                 <Text style={styles.setupBtnText}>Go to Expenses</Text>
               </Pressable>
             </View>
           </View>
         ) : null}
 
-        {!hasPayDateConfigured ? (
+        {!controller.hasPayDateConfigured ? (
           <View style={styles.setupCard}>
             <Text style={styles.setupTitle}>Set your pay date</Text>
-            <Text style={styles.setupText}>
-              Upcoming expenses and debts use your pay period. Add your pay date so this view matches your real cycle.
-            </Text>
+            <Text style={styles.setupText}>Upcoming expenses and debts use your pay period. Add your pay date so this view matches your real cycle.</Text>
             <View style={styles.setupActions}>
-              <Pressable onPress={() => navigation.navigate("Settings")} style={styles.setupBtn}>
+              <Pressable onPress={controller.goToSettings} style={styles.setupBtn}>
                 <Text style={styles.setupBtnText}>Set pay date</Text>
               </Pressable>
             </View>
@@ -366,862 +141,51 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
         ) : null}
 
         <CategorySwipeCards
-          categories={categories}
-          totalIncome={totalIncome}
-          currency={currency}
+          categories={controller.categories}
+          totalIncome={controller.totalIncome}
+          currency={controller.currency}
           fmt={fmt}
-          onPressCategory={(c) => setCategorySheet(c)}
+          onPressCategory={controller.openCategorySheet}
         />
 
-        {/* Upcoming Payments (show 3 + See all) */}
-        {
-          <View style={styles.section}>
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-              <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Upcoming Expenses</Text>
-              <Pressable onPress={() => navigation.navigate("Expenses")} hitSlop={8}>
-                <Text style={styles.seeAllText}>See all</Text>
-              </Pressable>
-            </View>
-            {upcoming.length > 0 ? upcoming.slice(0, 3).map((p) => {
-              const logoUri = resolveLogoUri(p.logoUrl);
-              const logoKey = `expense:${p.id}`;
-              const showLogo = !!logoUri && !failedLogos[logoKey];
-              const dateLabel = formatShortDate(p.dueDate);
-              const sub =
-                p.urgency === "overdue"
-                  ? "Overdue"
-                  : p.urgency === "today"
-                    ? "Due today"
-                    : dateLabel
-                      ? `Next on ${dateLabel}`
-                      : `In ${p.daysUntilDue}d`;
+        <DashboardUpcomingExpensesSection
+          items={controller.upcoming}
+          currency={controller.currency}
+          formatShortDate={controller.formatShortDate}
+          isLogoFailed={controller.isLogoFailed}
+          onLogoError={controller.markLogoFailed}
+          onOpenQuickPay={controller.openExpenseQuickPay}
+          onSeeAll={controller.goToExpenses}
+        />
 
-              return (
-                <Pressable
-                  key={p.id}
-                  style={styles.lightRow}
-                  onPress={() =>
-                    setQuickPayItem({
-                      kind: "expense",
-                      id: p.id,
-                      name: p.name,
-                      amount: p.amount,
-                      paidAmount: p.paidAmount,
-                      dueDate: p.dueDate,
-                      logoUrl: p.logoUrl ?? null,
-                    })
-                  }
-                >
-                  <View style={styles.lightLeft}>
-                    <View style={styles.lightAvatar}>
-                      {showLogo ? (
-                        <Image
-                          source={{ uri: logoUri }}
-                          style={styles.avatarLogo}
-                          resizeMode="cover"
-                          onError={() => setFailedLogos((prev) => ({ ...prev, [logoKey]: true }))}
-                        />
-                      ) : (
-                        <Text style={styles.lightAvatarTxt}>{(p.name?.trim()?.[0] ?? "?").toUpperCase()}</Text>
-                      )}
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.lightRowTitle} numberOfLines={1}>
-                        {p.name}
-                      </Text>
-                      <Text style={styles.lightRowSub} numberOfLines={1}>
-                        {sub}
-                      </Text>
-                    </View>
-                  </View>
-                  <Text style={styles.lightRowAmt} numberOfLines={1}>
-                    {fmt(p.amount, currency)}
-                  </Text>
-                </Pressable>
-              );
-            }) : (
-              <Text style={styles.emptyUpcomingText}>No upcoming expenses yet. Add or schedule expenses to see them here.</Text>
-            )}
-          </View>
-        }
+        <DashboardAiTipsCard tips={controller.dashboardTips} />
 
-        <DashboardAiTipsCard tips={dashboardTips} />
+        <DashboardUpcomingDebtsSection
+          items={controller.upcomingDebts}
+          currency={controller.currency}
+          isLogoFailed={controller.isLogoFailed}
+          onLogoError={controller.markLogoFailed}
+          onOpenQuickPay={controller.openDebtQuickPay}
+          onSeeAll={controller.goToDebts}
+        />
 
-        {/* Upcoming Debts */}
-        {upcomingDebts.length > 0 && (
-          <View style={[styles.section, styles.blueSection]}>
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-              <Text style={[styles.sectionTitle, styles.blueSectionTitle, { marginBottom: 0 }]}>Upcoming Debts</Text>
-              <Pressable onPress={() => navigation.navigate("Debts")} hitSlop={8}>
-                <Text style={styles.seeAllText}>See all</Text>
-              </Pressable>
-            </View>
-            {upcomingDebts.slice(0, 3).map((d) => {
-              const logoUri = resolveLogoUri(d.logoUrl);
-              const logoKey = `debt:${d.id}`;
-              const showLogo = !!logoUri && !failedLogos[logoKey];
-              const displayName = normalizeUpcomingName(d.name);
+        <DashboardRecapSection
+          recap={controller.recap}
+          hasRecapData={controller.hasRecapData}
+          recapTitle={controller.recapTitle}
+          currency={controller.currency}
+        />
 
-              return (
-                <Pressable
-                  key={d.id}
-                  style={styles.blueRow}
-                  onPress={() =>
-                    setQuickPayItem({
-                      kind: "debt",
-                      id: d.id,
-                      name: displayName,
-                      amount: d.dueAmount ?? 0,
-                      logoUrl: d.logoUrl ?? null,
-                      subtitle: "Monthly payment",
-                    })
-                  }
-                >
-                  <View style={styles.blueLeft}>
-                    <View style={styles.blueAvatar}>
-                      {showLogo ? (
-                        <Image
-                          source={{ uri: logoUri }}
-                          style={styles.avatarLogo}
-                          resizeMode="cover"
-                          onError={() => setFailedLogos((prev) => ({ ...prev, [logoKey]: true }))}
-                        />
-                      ) : (
-                        <Text style={styles.blueAvatarTxt}>{(d.name?.trim()?.[0] ?? "D").toUpperCase()}</Text>
-                      )}
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.blueRowTitle} numberOfLines={1}>
-                        {displayName}
-                      </Text>
-                      <Text style={styles.blueRowSub} numberOfLines={1}>
-                        Monthly payment
-                      </Text>
-                    </View>
-                  </View>
-                  <Text style={styles.blueRowAmt} numberOfLines={1}>
-                    {fmt(d.dueAmount, currency)}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        )}
-
-        {/* Previous Month Recap */}
-        {recap && hasRecapData ? (
-          <View style={styles.recapWrap}>
-            <View style={styles.recapBadge}>
-              <Text style={styles.recapBadgeText}>{recapTitle}</Text>
-            </View>
-
-            <View style={styles.recapGrid}>
-              <View style={[styles.recapStatCard, styles.recapPaidCard]}>
-                <Text style={styles.recapStatLabel}>Paid</Text>
-                <Text style={styles.recapStatCount}>{recap.paidCount}</Text>
-                <Text style={styles.recapStatAmount}>{fmt(recap.paidAmount, currency)}</Text>
-              </View>
-
-              <View style={[styles.recapStatCard, styles.recapMissedCard]}>
-                <Text style={styles.recapMissedTitle}>Missed payment</Text>
-                <Text style={styles.recapMissedCount}>{recap.missedDueCount}</Text>
-                <Text style={styles.recapMissedAmount}>{fmt(recap.missedDueAmount, currency)}</Text>
-              </View>
-            </View>
-          </View>
-        ) : null}
-
-        {/* Goals (swipe cards) */}
-        {goalCardsData.length > 0 ? (
-          <View style={styles.goalsWrap}>
-            <View style={styles.goalsHeaderRow}>
-              <Pressable onPress={() => navigation.navigate("Goals")} hitSlop={8}>
-                <Text style={styles.seeAllGoalsText}>See all goals</Text>
-              </Pressable>
-              <Pressable onPress={() => navigation.navigate("GoalsProjection")} hitSlop={8}>
-                <Text style={styles.goalsProjectionTitle}>Goals projection</Text>
-              </Pressable>
-            </View>
-
-            <FlatList
-              horizontal
-              data={goalCardsData}
-              keyExtractor={(i) => i.goal.id}
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ paddingHorizontal: GOAL_SIDE }}
-              bounces
-              onMomentumScrollEnd={(e) => {
-                // Best-effort active indicator without fixed snap
-                const x = e.nativeEvent.contentOffset.x;
-                const idx = Math.round(x / (GOAL_CARD + GOAL_GAP));
-                setActiveGoalCard(Math.max(0, Math.min(goalCardsData.length - 1, idx)));
-              }}
-              renderItem={({ item }) => {
-                const g = item.goal;
-                const hasTarget = typeof g.targetAmount === "number" && Number.isFinite(g.targetAmount);
-                const category = String((g as any).category ?? "").trim().toLowerCase();
-                const curAmt = resolveGoalCurrentAmount(category, g.currentAmount, settings);
-                const tgtAmt = hasTarget ? Number(g.targetAmount) : null;
-                const pct = tgtAmt && tgtAmt > 0 ? Math.min(100, Math.max(0, (curAmt / tgtAmt) * 100)) : 0;
-                const primaryAmount = fmt(curAmt, currency);
-                const amountLine = tgtAmt ? `Target ${fmt(tgtAmt, currency)}` : String(g.type ?? "");
-                const pctLabel = tgtAmt ? `${pct.toFixed(0)}%` : "";
-
-                return (
-                  <View style={styles.goalCard}>
-                    <View style={styles.goalHeaderRow}>
-                      <View style={styles.goalHeaderLeft}>
-                        <View style={styles.goalChip}>
-                          <Ionicons name={goalIconName(g.title)} size={16} color={T.accent} />
-                        </View>
-                        <Text style={styles.goalTitle} numberOfLines={2}>
-                          {g.title}
-                        </Text>
-                      </View>
-                    </View>
-
-                    <View style={styles.goalMainBlock}>
-                      <Text style={styles.goalPrimaryAmt} numberOfLines={1}>
-                        {primaryAmount}
-                      </Text>
-                      <Text style={styles.goalAmountLine} numberOfLines={1}>
-                        {amountLine}
-                      </Text>
-                      {tgtAmt ? (
-                        <View style={styles.goalPctRow}>
-                          <View style={styles.goalPctPill}>
-                            <Ionicons name="arrow-up" size={12} color={T.accent} />
-                            <Text style={styles.goalPctText}>{pctLabel}</Text>
-                          </View>
-                        </View>
-                      ) : null}
-                    </View>
-
-                    {tgtAmt ? (
-                      <View style={styles.goalBarBg}>
-                        <View style={[styles.goalBarFill, { width: `${pct}%` as `${number}%` }]} />
-                      </View>
-                    ) : (
-                      <View style={{ height: 10 }} />
-                    )}
-                  </View>
-                );
-              }}
-              ItemSeparatorComponent={() => <View style={{ width: GOAL_GAP }} />}
-            />
-
-            {goalCardsData.length > 1 ? (
-              <View style={styles.goalIndicatorWrap}>
-                {goalCardsData.map((_, i) => (
-                  <View key={i} style={[styles.goalIndicatorDot, i === activeGoalCard ? styles.goalIndicatorDotActive : null]} />
-                ))}
-              </View>
-            ) : null}
-          </View>
-        ) : null}
+        <DashboardGoalsSection
+          items={controller.goalCardsData}
+          settings={controller.settings}
+          currency={controller.currency}
+          activeGoalCard={controller.activeGoalCard}
+          onMomentumEnd={controller.handleGoalMomentumEnd}
+          onPressGoals={controller.goToGoals}
+          onPressProjection={controller.goToGoalsProjection}
+        />
       </ScrollView>
-
     </SafeAreaView>
   );
 }
-
-/* ── Styles ─────────────────────────────────────────────────── */
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: T.bg },
-
-  sheetOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.35)",
-    justifyContent: "flex-end",
-  },
-  sheet: {
-    backgroundColor: T.cardAlt,
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
-    paddingTop: 8,
-    maxHeight: "82%",
-  },
-  sheetHandle: {
-    alignSelf: "center",
-    width: 48,
-    height: 5,
-    borderRadius: 999,
-    backgroundColor: T.textMuted,
-    marginBottom: 10,
-  },
-  sheetHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingBottom: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: T.border,
-  },
-  sheetTitle: { color: T.text, fontSize: 18, fontWeight: "900", flex: 1 },
-  sheetCloseBtn: { marginLeft: 12 },
-  sheetList: { paddingHorizontal: 16, paddingBottom: 24 },
-  sheetEmpty: { color: T.textDim, fontSize: 13, fontStyle: "italic", paddingVertical: 12 },
-  sheetRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: T.border,
-  },
-  sheetRowName: { color: T.text, fontSize: 14, fontWeight: "800" },
-  sheetRowSub: { color: T.textDim, fontSize: 12, fontWeight: "700", marginTop: 2 },
-  sheetRowAmt: { color: T.text, fontSize: 16, fontWeight: "900" },
-  center: { flex: 1, justifyContent: "center", alignItems: "center", gap: 12 },
-  scroll: { padding: 16, paddingBottom: 140 },
-  headerRow: { marginBottom: 14 },
-  chartMetaWrap: {
-    marginHorizontal: 16,
-    marginTop: -8,
-    marginBottom: 10,
-    gap: 4,
-  },
-  chartMetaText: { color: T.textDim, fontSize: 12, fontWeight: "800" },
-  debtPlanList: { marginTop: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: T.border },
-  debtPlanRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-    paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: T.border,
-  },
-  debtPlanName: { color: T.text, fontSize: 13, fontWeight: "800", flex: 1 },
-  debtPlanValue: { color: T.textDim, fontSize: 13, fontWeight: "800" },
-  seeAllBtn: {
-    marginTop: 6,
-    alignItems: "center",
-    paddingVertical: 10,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: T.border,
-  },
-  seeAllText: { color: T.accent, fontSize: 14, fontWeight: "900" },
-  period: { color: T.text, fontSize: 22, fontWeight: "900", letterSpacing: -0.4 },
-  grid: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginBottom: 12 },
-  section: {
-    ...cardElevated,
-    padding: 16,
-    marginTop: 12,
-  },
-  sectionTitle: {
-    ...textLabel,
-    fontWeight: "800",
-    marginBottom: 10,
-  },
-  aiTipsCard: {
-    ...cardElevated,
-    marginTop: 12,
-    padding: 16,
-    gap: 14,
-  },
-  aiTipsHeader: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: 12,
-  },
-  aiTipsTitleWrap: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 10,
-  },
-  aiTipsIconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: T.accentDim,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 1,
-  },
-  aiTipsTitle: {
-    color: T.text,
-    fontSize: 16,
-    fontWeight: "900",
-    letterSpacing: -0.2,
-  },
-  aiTipsBody: {
-    borderRadius: 16,
-    backgroundColor: T.cardAlt,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: T.border,
-    padding: 14,
-    gap: 8,
-  },
-  aiTipsMetaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 10,
-  },
-  aiTipHeadline: {
-    flex: 1,
-    color: T.text,
-    fontSize: 15,
-    fontWeight: "900",
-    letterSpacing: -0.2,
-  },
-  aiTipPriority: {
-    color: T.accent,
-    fontSize: 11,
-    fontWeight: "900",
-    backgroundColor: T.accentDim,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 999,
-    overflow: "hidden",
-  },
-  aiTipDetail: {
-    color: T.textDim,
-    fontSize: 13,
-    fontWeight: "600",
-    lineHeight: 20,
-  },
-  aiTipsDots: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-  },
-  aiTipsDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 999,
-    backgroundColor: T.border,
-  },
-  aiTipsDotActive: {
-    width: 18,
-    backgroundColor: T.accent,
-  },
-  currentPeriodBadge: {
-    alignSelf: "flex-start",
-    backgroundColor: T.accentDim,
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    marginBottom: 10,
-  },
-  currentPeriodBadgeText: {
-    color: T.text,
-    fontSize: 12,
-    fontWeight: "800",
-    letterSpacing: 0.2,
-  },
-
-  // Upcoming Expenses (white card) rows
-  lightRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: T.border,
-    gap: 12,
-  },
-  lightLeft: { flexDirection: "row", alignItems: "center", flex: 1, gap: 12 },
-  lightAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    overflow: "hidden",
-    backgroundColor: T.cardAlt,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: T.border,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  lightAvatarTxt: { color: T.text, fontSize: 14, fontWeight: "800" },
-  avatarLogo: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 999,
-  },
-  lightRowTitle: { color: T.text, fontSize: 16, fontWeight: "800", letterSpacing: -0.2 },
-  lightRowSub: { color: T.textDim, fontSize: 13, fontWeight: "600", marginTop: 2 },
-  lightRowAmt: { color: T.text, fontSize: 18, fontWeight: "800", letterSpacing: -0.2 },
-  emptyUpcomingText: {
-    color: T.textDim,
-    fontSize: 13,
-    fontWeight: "600",
-    lineHeight: 20,
-  },
-
-  // Upcoming Debts (blue card)
-  blueSection: {
-    backgroundColor: T.cardAlt,
-    borderColor: T.border,
-  },
-  blueSectionTitle: {
-    color: T.textDim,
-  },
-  blueRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: T.border,
-    gap: 14,
-  },
-  blueLeft: { flexDirection: "row", alignItems: "center", flex: 1, gap: 14 },
-  blueAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    overflow: "hidden",
-    backgroundColor: T.accentDim,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  blueAvatarTxt: { color: T.accent, fontSize: 14, fontWeight: "800" },
-  blueRowTitle: { color: T.text, fontSize: 16, fontWeight: "800", letterSpacing: -0.2 },
-  blueRowSub: { color: T.textDim, fontSize: 13, fontWeight: "600", marginTop: 2 },
-  blueRowAmt: { color: T.text, fontSize: 18, fontWeight: "800", letterSpacing: -0.2 },
-
-  recapWrap: { marginTop: 12, marginBottom: 4 },
-  recapBadge: {
-    alignSelf: "flex-start",
-    backgroundColor: T.accentDim,
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    marginBottom: 12,
-  },
-  recapBadgeText: {
-    color: T.text,
-    fontSize: 13,
-    fontWeight: "900",
-    letterSpacing: 0.2,
-  },
-  recapGrid: {
-    flexDirection: "row",
-    gap: 10,
-    marginBottom: 12,
-  },
-  recapStatCard: {
-    flex: 1,
-    borderRadius: 18,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    gap: 4,
-  },
-  recapPaidCard: {
-    backgroundColor: `${T.green}1A`,
-    borderColor: `${T.green}55`,
-  },
-  recapMissedCard: {
-    backgroundColor: T.cardAlt,
-    borderColor: T.border,
-  },
-  recapStatLabel: {
-    color: T.textDim,
-    fontSize: 12,
-    fontWeight: "800",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  recapStatCount: {
-    color: T.text,
-    fontSize: 24,
-    fontWeight: "900",
-    letterSpacing: -0.3,
-  },
-  recapStatAmount: {
-    color: T.text,
-    fontSize: 17,
-    fontWeight: "800",
-  },
-  recapMissedTitle: {
-    color: T.textDim,
-    fontSize: 12,
-    fontWeight: "800",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  recapMissedCount: {
-    marginTop: 4,
-    color: T.text,
-    fontSize: 24,
-    fontWeight: "900",
-    letterSpacing: -0.3,
-  },
-  recapMissedAmount: {
-    marginTop: 4,
-    color: T.text,
-    fontSize: 17,
-    fontWeight: "800",
-  },
-  loadingText: { color: T.textDim, marginTop: 12, fontSize: 14 },
-  errorText: { color: T.red, marginTop: 12, fontSize: 15, textAlign: "center", paddingHorizontal: 32 },
-  retryBtn: { marginTop: 16, backgroundColor: T.accent, borderRadius: 10, paddingHorizontal: 28, paddingVertical: 12 },
-  retryText: { color: T.onAccent, fontWeight: "700" },
-  emptyText: { color: T.textDim, fontSize: 13, fontStyle: "italic", paddingVertical: 6, fontWeight: "600" },
-  divider: { height: StyleSheet.hairlineWidth, backgroundColor: T.border, marginVertical: 10 },
-
-  aiCard: {
-    backgroundColor: "transparent",
-    borderRadius: 0,
-    paddingHorizontal: 0,
-    paddingVertical: 0,
-    borderWidth: 0,
-    borderColor: "transparent",
-    alignItems: "center",
-  },
-  aiHeader: { flexDirection: "row", alignItems: "center", gap: 8 },
-  aiIconWrap: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: T.accentDim,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  aiMessage: {
-    marginTop: 10,
-    color: T.textDim,
-    fontSize: 13,
-    fontWeight: "700",
-    textAlign: "center",
-    lineHeight: 18,
-    minHeight: 54,
-  },
-  setupCard: {
-    ...cardElevated,
-    marginTop: 12,
-    padding: 14,
-    gap: 8,
-  },
-  alertCard: {
-    ...cardElevated,
-    marginTop: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: T.red,
-  },
-  alertTitle: { color: T.red, fontSize: 16, fontWeight: "900" },
-  alertText: { color: T.textDim, fontSize: 13, fontWeight: "700", marginTop: 6, lineHeight: 18 },
-  setupTitle: { color: T.text, fontSize: 16, fontWeight: "900" },
-  setupText: { color: T.textDim, fontSize: 13, fontWeight: "600", lineHeight: 18 },
-  setupActions: { flexDirection: "row", gap: 10, marginTop: 4 },
-  setupBtn: {
-    flex: 1,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: T.border,
-    backgroundColor: T.cardAlt,
-    paddingVertical: 10,
-    alignItems: "center",
-  },
-  setupBtnText: { color: T.accent, fontSize: 12, fontWeight: "900" },
-
-  // Goals swipe cards
-  goalsWrap: { marginTop: 12, marginHorizontal: -16 },
-  goalsHeaderRow: {
-    paddingHorizontal: GOAL_SIDE,
-    marginBottom: 10,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  seeAllGoalsText: {
-    color: T.accent,
-    fontSize: 13,
-    fontWeight: "900",
-  },
-  goalsProjectionTitle: {
-    color: T.accent,
-    fontSize: 12,
-    fontWeight: "900",
-  },
-  goalCard: {
-    width: GOAL_CARD,
-    height: GOAL_CARD,
-    ...cardElevated,
-    padding: 14,
-    justifyContent: "space-between",
-  },
-  goalCardAdd: {
-    width: GOAL_ADD_W,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  goalCardAddInner: { alignItems: "center", justifyContent: "center", gap: 8 },
-  goalHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  goalHeaderLeft: { flexDirection: "row", alignItems: "center", flex: 1, minWidth: 0, gap: 10 },
-  goalChip: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: T.accentDim,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  goalMainBlock: { flex: 1, justifyContent: "center" },
-  goalPrimaryAmt: {
-    marginTop: 10,
-    color: T.text,
-    fontSize: 22,
-    fontWeight: "900",
-    letterSpacing: -0.4,
-  },
-  goalPctRow: { marginTop: 8, flexDirection: "row", alignItems: "center", justifyContent: "flex-start" },
-  goalPctPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 999,
-    backgroundColor: T.accentDim,
-  },
-  goalPctText: { color: T.accent, fontSize: 11, fontWeight: "700" },
-  goalIndicatorWrap: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    paddingTop: 10,
-    gap: 6,
-  },
-  goalIndicatorDot: {
-    height: 4,
-    width: 6,
-    borderRadius: 999,
-    backgroundColor: T.textMuted,
-  },
-  goalIndicatorDotActive: {
-    width: 18,
-    backgroundColor: T.accent,
-  },
-
-  // Add goal sheet
-  goalSheet: {
-    backgroundColor: T.cardAlt,
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
-    paddingTop: 10,
-    paddingBottom: 18,
-    maxHeight: "82%",
-  },
-  goalSheetHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: T.border,
-  },
-  goalSheetTitle: { color: T.text, fontSize: 18, fontWeight: "900", flex: 1 },
-  goalSheetCloseBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: T.card,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: T.border,
-  },
-  goalForm: { paddingHorizontal: 16, paddingTop: 14, gap: 10 },
-  goalLabel: { color: T.textDim, fontSize: 12, fontWeight: "800" },
-  goalInput: {
-    backgroundColor: T.card,
-    color: T.text,
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: T.border,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
-  },
-  goalBtnRow: { flexDirection: "row", gap: 10, marginTop: 8 },
-  goalBtn: { flex: 1, borderRadius: 12, paddingVertical: 14, alignItems: "center" },
-  goalBtnGhost: {
-    backgroundColor: T.card,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: T.border,
-  },
-  goalBtnGhostText: { color: T.text, fontSize: 15, fontWeight: "800" },
-  goalBtnPrimary: { backgroundColor: T.accent },
-  goalBtnPrimaryText: { color: T.onAccent, fontSize: 15, fontWeight: "900" },
-  goalBtnDisabled: { opacity: 0.6 },
-  goalBarBg: {
-    height: 12,
-    borderRadius: 999,
-    backgroundColor: T.border,
-    overflow: "hidden",
-    marginTop: 10,
-    marginBottom: 8,
-  },
-  goalBarFill: {
-    height: "100%",
-    borderRadius: 999,
-    backgroundColor: T.accent,
-  },
-
-  goalItem: {
-    paddingVertical: 14,
-  },
-  goalItemDivider: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: T.border,
-  },
-  goalTopRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  goalIconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: T.card,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: T.border,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  goalTextCol: {
-    flex: 1,
-    minWidth: 0,
-  },
-  goalTitle: {
-    color: T.text,
-    fontSize: 12,
-    lineHeight: 15,
-    fontWeight: "600",
-    letterSpacing: -0.2,
-    flex: 1,
-    flexShrink: 1,
-    minWidth: 0,
-  },
-  goalAmountLine: {
-    marginTop: 2,
-    color: T.textDim,
-    fontSize: 11,
-    fontWeight: "400",
-  },
-  aiTitle: { color: T.text, fontSize: 16, fontWeight: "900" },
-  priorityBadge: {
-    marginLeft: 6,
-    color: T.red,
-    fontSize: 10,
-    fontWeight: "900",
-    textTransform: "uppercase",
-    borderWidth: 1,
-    borderColor: `${T.red}66`,
-    backgroundColor: `${T.red}24`,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 999,
-    overflow: "hidden",
-  },
-});
