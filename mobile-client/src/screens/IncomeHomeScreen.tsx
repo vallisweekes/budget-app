@@ -33,6 +33,7 @@ export default function IncomeHomeScreen({ navigation }: Props) {
         now: new Date(),
         payDate: settings?.payDate ?? 27,
         payFrequency,
+        planCreatedAt: settings?.accountCreatedAt ? new Date(settings.accountCreatedAt) : null,
       });
 
       const month = active.end.getMonth() + 1;

@@ -261,6 +261,7 @@ export default function IncomeScreen() {
     now,
     payDate: settings?.payDate ?? 27,
     payFrequency,
+    planCreatedAt: settings?.accountCreatedAt ? new Date(settings.accountCreatedAt) : null,
   });
   const activePeriodAnchorMonth = activePayPeriod.end.getMonth() + 1;
   const activePeriodAnchorYear = activePayPeriod.end.getFullYear();

@@ -96,9 +96,9 @@ export function computeDebtPayoffProjection(params: {
 	let planned = clampNumber(params.plannedMonthlyPayment);
 	planned = Number.isFinite(planned) ? planned : 0;
 
-	// Installment plans are authoritative when configured.
-	// This prevents stale `amount` values (e.g. remaining balance) from being treated as monthly payment.
-	if (installmentMonths > 0) {
+	// `amount` is the planned monthly payment when present.
+	// Installment months only suggest a payment when `amount` is missing.
+	if (!(planned > 0) && installmentMonths > 0) {
 		const principal = initialBalance > 0 ? initialBalance : currentBalance;
 		if (principal > 0) planned = principal / installmentMonths;
 	}

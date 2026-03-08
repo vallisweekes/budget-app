@@ -189,16 +189,6 @@ export default function ExpensesScreen({ navigation }: Props) {
   const planViewportWidthRef = useRef(0);
   const planItemLayoutsRef = useRef<Record<string, { x: number; width: number }>>({});
 
-  useEffect(() => {
-    const wasPersonal = prevIsPersonalPlanRef.current;
-    if (!wasPersonal && isPersonalPlan) {
-      const d = new Date();
-      setMonth(d.getMonth() + 1);
-      setYear(d.getFullYear());
-    }
-    prevIsPersonalPlanRef.current = isPersonalPlan;
-  }, [isPersonalPlan]);
-
   const activePlanIndex = Math.max(0, plans.findIndex((p) => p.id === activePlanId));
   const setPlanByIndex = (idx: number) => {
     if (!plans.length) return;
@@ -253,6 +243,12 @@ export default function ExpensesScreen({ navigation }: Props) {
     return names[Math.max(1, Math.min(12, m)) - 1] ?? "";
   };
 
+  const parsePlanCreatedAt = useCallback((value: string | null | undefined) => {
+    if (!value) return null;
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }, []);
+
   const periodSpanLabel = (m: number) => {
     const safeMonth = Math.max(1, Math.min(12, m));
     const start = SHORT_MONTHS[(safeMonth + 10) % 12];
@@ -270,6 +266,47 @@ export default function ExpensesScreen({ navigation }: Props) {
     monthsCacheRef.current = {};
     setLoadedKey(null);
   }, []);
+
+  const effectivePayDate = Number.isFinite(settings?.payDate as number) && (settings?.payDate as number) >= 1
+    ? Math.floor(settings?.payDate as number)
+    : 27;
+  const effectivePayFrequency = normalizePayFrequency(settings?.payFrequency);
+  const activePlanCreatedAt = useMemo(
+    () => parsePlanCreatedAt(activePlan?.createdAt),
+    [activePlan?.createdAt, parsePlanCreatedAt]
+  );
+  const defaultActivePeriod = useMemo(
+    () => resolveActivePayPeriod({
+      now: new Date(),
+      payDate: effectivePayDate,
+      payFrequency: effectivePayFrequency,
+      planCreatedAt: activePlanCreatedAt,
+    }),
+    [activePlanCreatedAt, effectivePayDate, effectivePayFrequency]
+  );
+  const defaultActiveMonth = defaultActivePeriod.end.getMonth() + 1;
+  const defaultActiveYear = defaultActivePeriod.end.getFullYear();
+
+  useEffect(() => {
+    const wasPersonal = prevIsPersonalPlanRef.current;
+    if (!wasPersonal && isPersonalPlan) {
+      setMonth(defaultActiveMonth);
+      setYear(defaultActiveYear);
+    }
+    prevIsPersonalPlanRef.current = isPersonalPlan;
+  }, [defaultActiveMonth, defaultActiveYear, isPersonalPlan]);
+
+  useEffect(() => {
+    const tabNavigation = navigation.getParent();
+    if (!tabNavigation) return;
+
+    const unsubscribe = tabNavigation.addListener("blur", () => {
+      setMonth((prev) => (prev === defaultActiveMonth ? prev : defaultActiveMonth));
+      setYear((prev) => (prev === defaultActiveYear ? prev : defaultActiveYear));
+    });
+
+    return unsubscribe;
+  }, [defaultActiveMonth, defaultActiveYear, navigation]);
 
   const planCacheKey = useCallback((planId: string | null | undefined) => planId ?? "none", []);
 
@@ -360,6 +397,33 @@ export default function ExpensesScreen({ navigation }: Props) {
         setSelectedPlanId(resolvedPlanId);
       }
 
+      const resolvedPlanCreatedAt = parsePlanCreatedAt(
+        nextPlans.find((plan) => plan.id === resolvedPlanId)?.createdAt
+      );
+      const resolvedActivePeriod = resolveActivePayPeriod({
+        now: new Date(),
+        payDate: payDateForResolution,
+        payFrequency: payFrequencyForResolution,
+        planCreatedAt: resolvedPlanCreatedAt,
+      });
+      const resolvedDefaultMonth = resolvedActivePeriod.end.getMonth() + 1;
+      const resolvedDefaultYear = resolvedActivePeriod.end.getFullYear();
+      const routeMonth = Number(route.params?.month);
+      const routeYear = Number(route.params?.year);
+      const hasRouteMonth = Number.isFinite(routeMonth) && routeMonth >= 1 && routeMonth <= 12;
+      const hasRouteYear = Number.isFinite(routeYear) && routeYear >= 1900;
+      const currentCalendarMonth = new Date().getMonth() + 1;
+      const currentCalendarYear = new Date().getFullYear();
+      const routeLooksLikeRawCalendarDefault = hasRouteMonth
+        && hasRouteYear
+        && routeMonth === currentCalendarMonth
+        && routeYear === currentCalendarYear;
+      const shouldUseResolvedDefaultPeriod = (!hasRouteMonth
+        && !hasRouteYear
+        || routeLooksLikeRawCalendarDefault)
+        && month === currentCalendarMonth
+        && year === currentCalendarYear;
+
       // Load distinct expense months early so we can choose the best initial period
       // before rendering an empty state (prevents a £0/0 bills flash).
       let months: ExpenseMonthsResponse["months"] = [];
@@ -384,8 +448,8 @@ export default function ExpensesScreen({ navigation }: Props) {
       // NOTE: /expenses/months groups by the expense's stored month/year (due-date month),
       // which can differ from pay-period anchor months, so we do NOT use it to choose
       // a pay-period window.
-      const initialMonth = month;
-      const initialYear = year;
+      const initialMonth = shouldUseResolvedDefaultPeriod ? resolvedDefaultMonth : month;
+      const initialYear = shouldUseResolvedDefaultPeriod ? resolvedDefaultYear : year;
       const initialPrevMonth = initialMonth === 1 ? 12 : initialMonth - 1;
       const initialPrevYear = initialMonth === 1 ? initialYear - 1 : initialYear;
 
@@ -410,7 +474,12 @@ export default function ExpensesScreen({ navigation }: Props) {
             .sort((a, b) => a.getTime() - b.getTime())[0];
 
           if (nextDue) {
-            const period = resolveActivePayPeriod({ now: nextDue, payDate: payDateForResolution, payFrequency: payFrequencyForResolution });
+            const period = resolveActivePayPeriod({
+              now: nextDue,
+              payDate: payDateForResolution,
+              payFrequency: payFrequencyForResolution,
+              planCreatedAt: resolvedPlanCreatedAt,
+            });
             const anchorDate = payFrequencyForResolution === "monthly" ? period.end : period.start;
             const suggestedMonth = anchorDate.getMonth() + 1;
             const suggestedYear = anchorDate.getFullYear();
@@ -512,11 +581,6 @@ export default function ExpensesScreen({ navigation }: Props) {
     parsed.setHours(0, 0, 0, 0);
     return parsed;
   }, [settings?.accountCreatedAt]);
-
-  const effectivePayDate = Number.isFinite(settings?.payDate as number) && (settings?.payDate as number) >= 1
-    ? Math.floor(settings?.payDate as number)
-    : 27;
-  const effectivePayFrequency = normalizePayFrequency(settings?.payFrequency);
 
   const periodEndFor = useCallback((targetYear: number, targetMonth: number) => {
     const period = buildPayPeriodFromMonthAnchor({

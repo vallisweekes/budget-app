@@ -62,7 +62,7 @@ function computeMonthlyDueAmount(row: {
 
 	const installmentMonthsRaw = decimalToNumber(row.installmentMonths);
 	const installmentMonths = Number.isFinite(installmentMonthsRaw) ? Math.max(0, Math.trunc(installmentMonthsRaw)) : 0;
-	if (installmentMonths > 0) {
+	if (!(planned > 0) && installmentMonths > 0) {
 		const initial = decimalToNumber(row.initialBalance);
 		const current = decimalToNumber(row.currentBalance);
 		const principal = initial > 0 ? initial : current;

@@ -7,6 +7,10 @@ export function normalizePayFrequency(value: unknown): PayFrequency {
   return "monthly";
 }
 
+function isValidDate(value: Date | null | undefined): value is Date {
+  return value instanceof Date && !Number.isNaN(value.getTime());
+}
+
 function clampDay(year: number, monthIndex: number, day: number): Date {
   const lastDay = new Date(year, monthIndex + 1, 0).getDate();
   return new Date(year, monthIndex, Math.min(Math.max(1, Math.floor(day)), lastDay));
@@ -28,13 +32,26 @@ export function resolveActivePayPeriod(params: {
   now?: Date;
   payDate: number;
   payFrequency: PayFrequency;
+  planCreatedAt?: Date | null;
 }): { start: Date; end: Date } {
   const now = params.now ?? new Date();
   const payDate = Number.isFinite(params.payDate) && params.payDate >= 1 ? Math.floor(params.payDate) : 1;
   const payFrequency = params.payFrequency;
+  const planCreatedAt = params.planCreatedAt;
 
   if (payFrequency === "monthly") {
     const thisMonthPayDate = clampDay(now.getFullYear(), now.getMonth(), payDate);
+    const previousMonthPayDate = clampDay(now.getFullYear(), now.getMonth() - 1, payDate);
+    if (
+      isValidDate(planCreatedAt) &&
+      now.getTime() < thisMonthPayDate.getTime() &&
+      planCreatedAt.getTime() > previousMonthPayDate.getTime() &&
+      planCreatedAt.getTime() <= now.getTime()
+    ) {
+      const end = clampDay(thisMonthPayDate.getFullYear(), thisMonthPayDate.getMonth() + 1, payDate);
+      end.setDate(end.getDate() - 1);
+      return { start: thisMonthPayDate, end };
+    }
     const start = now.getTime() >= thisMonthPayDate.getTime()
       ? thisMonthPayDate
       : clampDay(now.getFullYear(), now.getMonth() - 1, payDate);

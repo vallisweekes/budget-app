@@ -89,7 +89,7 @@ function parseInstallmentMonthlyPayment(balanceRaw: string, monthsRaw: string): 
 
   const monthly = balance / months;
   if (!Number.isFinite(monthly)) return null;
-  return monthly.toFixed(2);
+  return (Math.ceil(monthly * 100) / 100).toFixed(2);
 }
 
 function DebtCard({
@@ -261,10 +261,9 @@ export default function DebtScreen() {
     }
   }, [addBalance, addInstallmentMonths, addMonthlyPayment]);
 
-  const [filter, setFilter] = useState<"active" | "all">("active");
+  const [filter, setFilter] = useState<"active" | "paid_off">("active");
   const [chartWidth, setChartWidth] = useState(320);
   const [selectedProjectionMonth, setSelectedProjectionMonth] = useState<number | null>(null);
-  const [paidHistoryOpen, setPaidHistoryOpen] = useState(false);
   const [optimisticDeletedDebtIds, setOptimisticDeletedDebtIds] = useState<string[]>([]);
 
   const currency = currencySymbol(settings?.currency);
@@ -414,22 +413,23 @@ export default function DebtScreen() {
     (d) => !optimisticDeletedDebtIds.includes(d.id)
   );
 
-  const visibleDebts = debtsExcludingOptimisticDeleted.filter((d) =>
-    filter === "active" ? d.isActive && !d.paid : true,
-  );
+  const activeDebts = debtsExcludingOptimisticDeleted.filter((d) => d.isActive && !d.paid);
   const paidDebts = debtsExcludingOptimisticDeleted
-    .filter((d) => d.paid || d.currentBalance <= 0 || Boolean(d.lastPaidAt))
+    .filter((d) => d.paid || d.currentBalance <= 0)
     .sort((a, b) => {
       const aTime = a.lastPaidAt ? new Date(a.lastPaidAt).getTime() : 0;
       const bTime = b.lastPaidAt ? new Date(b.lastPaidAt).getTime() : 0;
       return bTime - aTime;
     });
-  const formatPaidDate = (iso?: string | null) => {
-    if (!iso) return null;
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return null;
-    return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-  };
+  const hasPaidOffDebts = paidDebts.length > 0;
+
+  useEffect(() => {
+    if (filter === "paid_off" && !hasPaidOffDebts) {
+      setFilter("active");
+    }
+  }, [filter, hasPaidOffDebts]);
+
+  const visibleDebts = filter === "paid_off" ? paidDebts : activeDebts;
 
   if (loading) {
     return (
@@ -465,7 +465,6 @@ export default function DebtScreen() {
           <>
             {/* Hero stat cards + chart */}
             {(() => {
-              const activeDebts = (summary?.debts ?? []).filter(d => d.isActive && !d.paid);
               const total = summary?.totalDebtBalance ?? 0;
               const monthly = summary?.totalMonthlyDebtPayments ?? 0;
               const highestAPR = activeDebts
@@ -742,20 +741,24 @@ export default function DebtScreen() {
 
             {/* Filter + Add header */}
             <View style={s.listHeader}>
-              <View style={s.filterRow}>
-                <Pressable
-                  onPress={() => setFilter("active")}
-                  style={[s.filterBtn, filter === "active" && s.filterBtnActive]}
-                >
-                  <Text style={[s.filterTxt, filter === "active" && s.filterTxtActive]}>Active</Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => setFilter("all")}
-                  style={[s.filterBtn, filter === "all" && s.filterBtnActive]}
-                >
-                  <Text style={[s.filterTxt, filter === "all" && s.filterTxtActive]}>All</Text>
-                </Pressable>
-              </View>
+              {hasPaidOffDebts ? (
+                <View style={s.filterToggle}>
+                  <Pressable
+                    onPress={() => setFilter("active")}
+                    style={[s.filterToggleOption, filter === "active" && s.filterToggleOptionActive]}
+                  >
+                    <Text style={[s.filterToggleText, filter === "active" && s.filterToggleTextActive]}>Active</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => setFilter("paid_off")}
+                    style={[s.filterToggleOption, filter === "paid_off" && s.filterToggleOptionActive]}
+                  >
+                    <Text style={[s.filterToggleText, filter === "paid_off" && s.filterToggleTextActive]}>Paid Off</Text>
+                  </Pressable>
+                </View>
+              ) : (
+                <View style={s.listHeaderSpacer} />
+              )}
               <Pressable onPress={() => setShowAddForm(true)} style={s.addBtn}>
                 <Ionicons name="add" size={18} color={T.onAccent} />
                 <Text style={s.addBtnTxt}>Debt</Text>
@@ -773,46 +776,14 @@ export default function DebtScreen() {
         ListEmptyComponent={
           <View style={s.empty}>
             <Ionicons name="card-outline" size={52} color={T.iconMuted} />
-            <Text style={s.emptyTitle}>No active debts</Text>
-            <Text style={s.emptySubtitle}>Tap "Add Debt" to track a debt</Text>
+            <Text style={s.emptyTitle}>{filter === "paid_off" ? "No paid off debts" : "No active debts"}</Text>
+            <Text style={s.emptySubtitle}>
+              {filter === "paid_off" ? "Paid debts will appear here once they are cleared." : "Tap \"Add Debt\" to track a debt"}
+            </Text>
           </View>
         }
         ListFooterComponent={
           <>
-            <View style={s.historyCard}>
-              <Pressable style={s.historyHeader} onPress={() => setPaidHistoryOpen((v) => !v)}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flex: 1 }}>
-                  <Ionicons name="checkmark-done-circle-outline" size={15} color={T.green} />
-                  <Text style={s.historyHeading}>Paid History</Text>
-                  <Text style={s.historyCount}>({paidDebts.length})</Text>
-                </View>
-                <Ionicons
-                  name={paidHistoryOpen ? "chevron-up" : "chevron-down"}
-                  size={16}
-                  color={T.textMuted}
-                />
-              </Pressable>
-
-              {paidHistoryOpen && paidDebts.length === 0 && (
-                <Text style={s.historyEmpty}>No paid debts yet.</Text>
-              )}
-
-              {paidHistoryOpen && paidDebts.map((debt, i) => (
-                <View key={debt.id} style={[s.historyRow, i > 0 && s.tipBorder]}>
-                  <View style={{ flex: 1, paddingRight: 10 }}>
-                    <Text style={s.historyTitle} numberOfLines={1}>{debt.displayTitle ?? debt.name}</Text>
-                    <Text style={s.historyDetail} numberOfLines={1}>{debt.displaySubtitle ?? TYPE_LABELS[debt.type] ?? debt.type}</Text>
-                    <Text style={s.historyDate} numberOfLines={1}>
-                      {`${debt.paid || debt.currentBalance <= 0 ? "Paid" : "Last payment"} ${formatPaidDate(debt.lastPaidAt) ?? "date unavailable"}`}
-                    </Text>
-                  </View>
-                  <Text style={s.historyAmount}>
-                    {fmt(debt.paid || debt.currentBalance <= 0 ? debt.initialBalance : debt.paidAmount, currency)}
-                  </Text>
-                </View>
-              ))}
-            </View>
-
             {(summary?.tips ?? []).length > 0 ? (
               <View style={s.tipsCard}>
                 <View style={s.tipsHeader}>
@@ -1244,17 +1215,6 @@ const s = StyleSheet.create({
   chipLabel: { color: T.textMuted, fontSize: 9, fontWeight: "800", letterSpacing: 0.4 },
   chipValue: { color: T.text, fontSize: 11, fontWeight: "800", marginTop: 1 },
 
-  historyCard: { margin: 14, marginTop: 6, padding: 14, ...cardBase },
-  historyHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
-  historyHeading: { color: T.text, fontSize: 13, fontWeight: "900" },
-  historyCount: { color: T.textMuted, fontSize: 12, fontWeight: "700" },
-  historyRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 8 },
-  historyTitle: { color: T.text, fontSize: 13, fontWeight: "800" },
-  historyDetail: { color: T.textDim, fontSize: 12, marginTop: 2, fontWeight: "600" },
-  historyDate: { color: T.textMuted, fontSize: 11, marginTop: 2, fontWeight: "600" },
-  historyAmount: { color: T.green, fontSize: 13, fontWeight: "900" },
-  historyEmpty: { color: T.textDim, fontSize: 12, fontWeight: "600", fontStyle: "italic", paddingTop: 2 },
-
   tipsCard: { margin: 14, marginTop: 6, padding: 14, ...cardBase },
   tipsHeader: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 },
   tipsHeading: { color: T.text, fontSize: 13, fontWeight: "900" },
@@ -1267,14 +1227,32 @@ const s = StyleSheet.create({
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     paddingHorizontal: 14, paddingTop: 14, paddingBottom: 8,
   },
-  filterRow: { flexDirection: "row", gap: 6 },
-  filterBtn: {
-    paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20,
-    backgroundColor: T.card, borderWidth: 1, borderColor: T.border,
+  listHeaderSpacer: { width: 1, height: 1 },
+  filterToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    padding: 4,
+    borderRadius: 24,
+    backgroundColor: T.card,
+    borderWidth: 1,
+    borderColor: T.border,
   },
-  filterBtnActive: { backgroundColor: T.accentDim, borderColor: T.accent },
-  filterTxt: { color: T.textDim, fontSize: 13, fontWeight: "800" },
-  filterTxtActive: { color: T.text },
+  filterToggleOption: {
+    minWidth: 84,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  filterToggleOptionActive: {
+    backgroundColor: T.accentDim,
+    borderWidth: 1,
+    borderColor: T.accent,
+  },
+  filterToggleText: { color: T.textDim, fontSize: 13, fontWeight: "800" },
+  filterToggleTextActive: { color: T.text },
   addBtn: {
     backgroundColor: T.accent,
     borderRadius: 18,

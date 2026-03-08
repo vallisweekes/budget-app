@@ -58,13 +58,13 @@ export async function getMonthlyDebtPlan({ budgetPlanId, year, month, periodKey,
 		const initialBalance = Math.max(0, decimalToNumber(d.initialBalance));
 		const principal = initialBalance > 0 ? initialBalance : currentBalance;
 
-		// If the debt is configured as an installment plan, prefer that monthly payment.
+		// `amount` is the planned monthly payment when present.
+		// Installment months only provide a fallback when the payment amount isn't stored.
 		let planned = 0;
-		if (safeInstallmentMonths > 0 && principal > 0) {
-			planned = principal / safeInstallmentMonths;
-		} else if (amount > 0) {
-			// Otherwise, use the configured monthly amount.
+		if (amount > 0) {
 			planned = amount;
+		} else if (safeInstallmentMonths > 0 && principal > 0) {
+			planned = principal / safeInstallmentMonths;
 		}
 
 		// For credit/store cards the monthly minimum IS the planned payment.

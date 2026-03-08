@@ -213,15 +213,15 @@ export default function DebtDetailScreen() {
         onClose={() => state.setEditing(false)}
         onSave={state.handleEdit}
         onChangeName={state.setEditName}
-        onChangeCurrentBalance={state.setEditCurrentBalance}
+        onChangeCurrentBalance={state.handleEditCurrentBalanceChange}
         onChangeRate={state.setEditRate}
-        onChangeMonthlyPayment={state.setEditMonthlyPayment}
-        onChangeMin={state.setEditMin}
+        onChangeMonthlyPayment={state.handleEditMonthlyPaymentChange}
+        onChangeMin={state.handleEditMinChange}
         onPickDate={() => state.setShowDatePicker(true)}
         onDateChange={state.setEditDueDate}
         onChangePaymentSource={state.setEditPaymentSource}
         onChangePaymentCardDebtId={state.setEditPaymentCardDebtId}
-        onChangeInstallment={state.setEditInstallment}
+        onChangeInstallment={state.handleEditInstallmentChange}
         onSetShowDatePicker={state.setShowDatePicker}
       />
 

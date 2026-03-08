@@ -121,7 +121,8 @@ export function buildDashboardDerived(params: {
   const rangeLabel = `${start.getDate()} ${MONTH_NAMES_SHORT[start.getMonth()]} - ${end.getDate()} ${MONTH_NAMES_SHORT[end.getMonth()]}`;
 
   const now = new Date();
-  const activePeriod = resolveActivePayPeriod({ now, payDate: pay, payFrequency });
+  const planCreatedAt = settings?.accountCreatedAt ? new Date(settings.accountCreatedAt) : null;
+  const activePeriod = resolveActivePayPeriod({ now, payDate: pay, payFrequency, planCreatedAt });
   const periodStart = activePeriod.start;
   const periodEnd = activePeriod.end;
   const payPeriodStart = startOfDay(periodStart);
@@ -130,7 +131,7 @@ export function buildDashboardDerived(params: {
 
   const previousPeriodEnd = new Date(periodStart.getTime());
   previousPeriodEnd.setDate(previousPeriodEnd.getDate() - 1);
-  const previousPeriod = resolveActivePayPeriod({ now: previousPeriodEnd, payDate: pay, payFrequency });
+  const previousPeriod = resolveActivePayPeriod({ now: previousPeriodEnd, payDate: pay, payFrequency, planCreatedAt });
   const previousPayPeriodLabel = dashboard?.previousPayPeriodLabel ?? formatPayPeriodLabel(previousPeriod.start, previousPeriod.end);
 
   const isDateInPayPeriod = (date: Date | null) => {
@@ -181,7 +182,7 @@ export function buildDashboardDerived(params: {
 
     if (!nextDueDate) return items;
 
-    const nextPeriod = resolveActivePayPeriod({ now: nextDueDate, payDate: pay, payFrequency });
+    const nextPeriod = resolveActivePayPeriod({ now: nextDueDate, payDate: pay, payFrequency, planCreatedAt });
     const nextStart = startOfDay(nextPeriod.start).getTime();
     const nextEnd = endOfDay(nextPeriod.end).getTime();
 

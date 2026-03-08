@@ -48,6 +48,29 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
     return n.toFixed(2);
   }, []);
 
+  const roundMoney = useCallback((value: number): number => {
+    if (!Number.isFinite(value)) return 0;
+    return Math.round(value * 100) / 100;
+  }, []);
+
+  const roundMoneyUp = useCallback((value: number): number => {
+    if (!Number.isFinite(value)) return 0;
+    return Math.ceil(value * 100) / 100;
+  }, []);
+
+  const computeInstallmentPayment = useCallback((balance: number, months: number, minimum: number) => {
+    if (!Number.isFinite(balance) || balance < 0) return null;
+    if (!Number.isFinite(months) || months <= 0) return null;
+    const floor = Number.isFinite(minimum) && minimum > 0 ? minimum : 0;
+    return roundMoneyUp(Math.max(balance / months, floor));
+  }, [roundMoneyUp]);
+
+  const computeRemainingInstallmentMonths = useCallback((balance: number, payment: number) => {
+    if (!Number.isFinite(balance) || balance < 0) return null;
+    if (!Number.isFinite(payment) || payment <= 0) return null;
+    return Math.max(1, Math.ceil((balance - 0.000001) / payment));
+  }, []);
+
   const load = useCallback(async () => {
     try {
       setError(null);
@@ -89,6 +112,72 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
       setEditPaymentCardDebtId("");
     }
   }, [editPaymentCardDebtId, editPaymentSource]);
+
+  const handleEditCurrentBalanceChange = useCallback((value: string) => {
+    setEditCurrentBalance(value);
+
+    const months = editInstallment.trim() ? Number.parseInt(editInstallment.trim(), 10) : NaN;
+    if (!Number.isFinite(months) || months <= 0) return;
+
+    const balance = value.trim() ? Number.parseFloat(value) : NaN;
+    const payment = editMonthlyPayment.trim() ? Number.parseFloat(editMonthlyPayment) : NaN;
+    const minimum = editMin.trim() ? Number.parseFloat(editMin) : 0;
+    const effectivePayment = Number.isFinite(payment) && payment > 0
+      ? Math.max(payment, Number.isFinite(minimum) ? minimum : 0)
+      : NaN;
+
+    const nextMonths = computeRemainingInstallmentMonths(balance, effectivePayment);
+    if (nextMonths != null) {
+      setEditInstallment(String(nextMonths));
+    }
+  }, [computeRemainingInstallmentMonths, editInstallment, editMin, editMonthlyPayment]);
+
+  const handleEditInstallmentChange = useCallback((value: string) => {
+    setEditInstallment(value);
+
+    const months = value.trim() ? Number.parseInt(value.trim(), 10) : NaN;
+    if (!Number.isFinite(months) || months <= 0) return;
+
+    const balance = editCurrentBalance.trim() ? Number.parseFloat(editCurrentBalance) : NaN;
+    const minimum = editMin.trim() ? Number.parseFloat(editMin) : 0;
+    const nextPayment = computeInstallmentPayment(balance, months, minimum);
+    if (nextPayment != null) {
+      setEditMonthlyPayment(nextPayment.toFixed(2));
+    }
+  }, [computeInstallmentPayment, editCurrentBalance, editMin]);
+
+  const handleEditMonthlyPaymentChange = useCallback((value: string) => {
+    setEditMonthlyPayment(value);
+
+    const months = editInstallment.trim() ? Number.parseInt(editInstallment.trim(), 10) : NaN;
+    if (!Number.isFinite(months) || months <= 0) return;
+
+    const balance = editCurrentBalance.trim() ? Number.parseFloat(editCurrentBalance) : NaN;
+    const payment = value.trim() ? Number.parseFloat(value) : NaN;
+    const minimum = editMin.trim() ? Number.parseFloat(editMin) : 0;
+    const effectivePayment = Number.isFinite(payment) && payment > 0
+      ? Math.max(payment, Number.isFinite(minimum) ? minimum : 0)
+      : NaN;
+
+    const nextMonths = computeRemainingInstallmentMonths(balance, effectivePayment);
+    if (nextMonths != null) {
+      setEditInstallment(String(nextMonths));
+    }
+  }, [computeRemainingInstallmentMonths, editCurrentBalance, editInstallment, editMin]);
+
+  const handleEditMinChange = useCallback((value: string) => {
+    setEditMin(value);
+
+    const months = editInstallment.trim() ? Number.parseInt(editInstallment.trim(), 10) : NaN;
+    if (!Number.isFinite(months) || months <= 0) return;
+
+    const balance = editCurrentBalance.trim() ? Number.parseFloat(editCurrentBalance) : NaN;
+    const minimum = value.trim() ? Number.parseFloat(value) : 0;
+    const nextPayment = computeInstallmentPayment(balance, months, minimum);
+    if (nextPayment != null) {
+      setEditMonthlyPayment(nextPayment.toFixed(2));
+    }
+  }, [computeInstallmentPayment, editCurrentBalance, editInstallment]);
 
   const submitPayment = useCallback(async (amount: number) => {
     if (!debt) return;
@@ -168,9 +257,29 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
     // For credit/store cards the monthly minimum IS the planned payment.
     // Keep amount in sync so the list card and detail page always agree.
     const isCardType = debt.type === "credit_card" || debt.type === "store_card";
+    const installmentChanged = installmentMonths !== (debt.installmentMonths ?? null);
+    const normalizedMonthlyPayment = !isCardType && installmentMonths != null
+      ? (installmentChanged
+          ? computeInstallmentPayment(parsedCurrentBalance, installmentMonths, monthlyMinimum ?? 0)
+          : (() => {
+              const effective = Number.isFinite(parsedMonthlyPayment)
+                ? Math.max(parsedMonthlyPayment, monthlyMinimum ?? 0)
+                : NaN;
+              return Number.isFinite(effective) && effective > 0 ? effective : null;
+            })())
+      : null;
+    const normalizedInstallmentMonths = !isCardType && installmentMonths != null
+      ? (installmentChanged
+          ? installmentMonths
+          : computeRemainingInstallmentMonths(
+              parsedCurrentBalance,
+              normalizedMonthlyPayment ?? (Number.isFinite(parsedMonthlyPayment) ? parsedMonthlyPayment : NaN)
+            ))
+      : installmentMonths;
+
     const effectiveAmount = isCardType && monthlyMinimum != null
       ? monthlyMinimum
-      : (Number.isFinite(parsedMonthlyPayment) ? parsedMonthlyPayment : null);
+      : (normalizedMonthlyPayment ?? (Number.isFinite(parsedMonthlyPayment) ? parsedMonthlyPayment : null));
 
     const optimisticDebt: Debt = {
       ...debt,
@@ -180,12 +289,12 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
       amount: effectiveAmount != null ? effectiveAmount.toFixed(2) : null,
       monthlyMinimum: monthlyMinimum != null ? monthlyMinimum.toFixed(2) : null,
       interestRate: Number.isFinite(parsedInterestRate) ? parsedInterestRate.toFixed(2) : null,
-      installmentMonths,
+      installmentMonths: normalizedInstallmentMonths ?? installmentMonths,
       dueDate: nextDueDate,
       dueDay: Number.isFinite(nextDueDay as number) ? (nextDueDay as number) : null,
       defaultPaymentSource: editPaymentSource,
       defaultPaymentCardDebtId: editPaymentSource === "credit_card" ? editPaymentCardDebtId.trim() : null,
-      computedMonthlyPayment: Number.isFinite(parsedMonthlyPayment) ? parsedMonthlyPayment : debt.computedMonthlyPayment,
+      computedMonthlyPayment: effectiveAmount ?? debt.computedMonthlyPayment,
     };
 
     const debtSnapshot = debt;
@@ -202,7 +311,7 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
           amount: effectiveAmount != null ? Number(effectiveAmount.toFixed(2)) : null,
           monthlyMinimum: monthlyMinimum != null ? Number(monthlyMinimum.toFixed(2)) : null,
           interestRate: editRate ? Number(parseFloat(editRate).toFixed(2)) : null,
-          installmentMonths,
+          installmentMonths: normalizedInstallmentMonths ?? installmentMonths,
           dueDate: editDueDate || null,
           defaultPaymentSource: editPaymentSource,
           defaultPaymentCardDebtId: editPaymentSource === "credit_card" ? editPaymentCardDebtId.trim() : null,
@@ -216,7 +325,7 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
     } finally {
       setEditSaving(false);
     }
-  }, [debt, debtId, editCurrentBalance, editDueDate, editInstallment, editMin, editMonthlyPayment, editName, editPaymentCardDebtId, editPaymentSource, editRate, load]);
+  }, [computeInstallmentPayment, computeRemainingInstallmentMonths, debt, debtId, editCurrentBalance, editDueDate, editInstallment, editMin, editMonthlyPayment, editName, editPaymentCardDebtId, editPaymentSource, editRate, load]);
 
   const confirmDeleteDebt = useCallback(async () => {
     if (deletingDebt) return;
@@ -355,15 +464,15 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
     editName,
     setEditName,
     editCurrentBalance,
-    setEditCurrentBalance,
+    handleEditCurrentBalanceChange,
     editRate,
     setEditRate,
     editMonthlyPayment,
-    setEditMonthlyPayment,
+    handleEditMonthlyPaymentChange,
     editMin,
-    setEditMin,
+    handleEditMinChange,
     editInstallment,
-    setEditInstallment,
+    handleEditInstallmentChange,
     editDueDate,
     setEditDueDate,
     editPaymentSource,

@@ -175,6 +175,29 @@ function toNumber(value: unknown): number {
   return Number(value as any);
 }
 
+function roundMoney(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.round(value * 100) / 100;
+}
+
+function roundMoneyUp(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.ceil(value * 100) / 100;
+}
+
+function computeInstallmentPayment(balance: number, months: number, monthlyMinimum: number): number | null {
+  if (!Number.isFinite(balance) || balance < 0) return null;
+  if (!Number.isFinite(months) || months <= 0) return null;
+  const floor = Number.isFinite(monthlyMinimum) && monthlyMinimum > 0 ? monthlyMinimum : 0;
+  return roundMoneyUp(Math.max(balance / months, floor));
+}
+
+function computeRemainingInstallmentMonths(balance: number, payment: number): number | null {
+  if (!Number.isFinite(balance) || balance < 0) return null;
+  if (!Number.isFinite(payment) || payment <= 0) return null;
+  return Math.max(1, Math.ceil((balance - 0.000001) / payment));
+}
+
 function mapDebtPaymentSourceToExpensePaymentSource(source: unknown): "income" | "savings" | "credit_card" {
   if (source === "income") return "income";
   if (source === "credit_card") return "credit_card";
@@ -442,6 +465,40 @@ export async function PATCH(
       const parsed = parseOptionalInt(raw.installmentMonths);
       if (!parsed.ok) return NextResponse.json({ error: "Invalid installmentMonths" }, { status: 400 });
       data.installmentMonths = parsed.int;
+    }
+
+    const isCardType = existing.type === "credit_card" || existing.type === "store_card";
+    const nextCurrentBalance = typeof data.currentBalance !== "undefined"
+      ? Math.max(0, toNumber(data.currentBalance))
+      : Math.max(0, toNumber((existing as any).currentBalance));
+    const nextMonthlyMinimum = typeof data.monthlyMinimum !== "undefined"
+      ? Math.max(0, toNumber(data.monthlyMinimum))
+      : Math.max(0, toNumber((existing as any).monthlyMinimum));
+    const existingInstallmentMonths = Number.isFinite(toNumber((existing as any).installmentMonths))
+      ? Math.max(0, Math.trunc(toNumber((existing as any).installmentMonths)))
+      : 0;
+    const requestedInstallmentMonths = typeof data.installmentMonths !== "undefined"
+      ? Math.max(0, Math.trunc(toNumber(data.installmentMonths)))
+      : existingInstallmentMonths;
+    const requestedAmount = typeof data.amount !== "undefined"
+      ? Math.max(0, toNumber(data.amount))
+      : Math.max(0, toNumber((existing as any).amount));
+
+    if (!isCardType && requestedInstallmentMonths > 0) {
+      const installmentChanged = typeof data.installmentMonths !== "undefined" && requestedInstallmentMonths !== existingInstallmentMonths;
+      if (installmentChanged) {
+        const normalizedAmount = computeInstallmentPayment(nextCurrentBalance, requestedInstallmentMonths, nextMonthlyMinimum);
+        if (normalizedAmount != null) {
+          data.amount = normalizedAmount;
+        }
+      } else {
+        const effectivePayment = Math.max(requestedAmount, nextMonthlyMinimum);
+        const normalizedInstallmentMonths = computeRemainingInstallmentMonths(nextCurrentBalance, effectivePayment);
+        if (normalizedInstallmentMonths != null) {
+          data.installmentMonths = normalizedInstallmentMonths;
+          data.amount = roundMoney(effectivePayment);
+        }
+      }
     }
 
     // Agreement baseline (for loans that started before tracking in-app)

@@ -32,7 +32,7 @@ export default function CategoryBreakdown({ categories, currency, fmt, onCategor
   return (
     <View style={styles.wrap}>
       <View style={styles.labelRow}>
-        <Text style={styles.sectionLabel}>By category</Text>
+        <View />
         <Pressable onPress={onAddPress} style={styles.addBtn} hitSlop={8}>
           <Ionicons name="add" size={18} color={T.onAccent} />
           <Text style={styles.addBtnTxt}>Expense</Text>
