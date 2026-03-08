@@ -257,8 +257,31 @@ function isAuthorizedCronRequest(req: Request): boolean {
   return isValidReminderToken || isValidCronSecret;
 }
 
+function logCronAuthorizationFailure(req: Request): void {
+  const authHeader = req.headers.get("authorization") ?? "";
+  const headerToken = req.headers.get("x-reminder-token") ?? "";
+  const userAgent = req.headers.get("user-agent") ?? "";
+  const xVercelId = req.headers.get("x-vercel-id") ?? "";
+  const bearerToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+
+  console.warn("[due-reminders] unauthorized cron request", {
+    hasCronSecretEnv: Boolean(process.env.CRON_SECRET),
+    hasReminderTokenEnv: Boolean(process.env.DUE_REMINDER_TOKEN),
+    hasAuthorizationHeader: Boolean(authHeader),
+    hasBearerPrefix: authHeader.startsWith("Bearer "),
+    bearerTokenLength: bearerToken.length,
+    hasReminderHeader: Boolean(headerToken),
+    reminderHeaderLength: headerToken.length,
+    userAgent,
+    xVercelId,
+    method: req.method,
+    url: req.url,
+  });
+}
+
 async function handleDueReminders(req: Request) {
   if (!isAuthorizedCronRequest(req)) {
+    logCronAuthorizationFailure(req);
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
