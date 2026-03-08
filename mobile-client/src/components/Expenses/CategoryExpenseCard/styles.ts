@@ -1,0 +1,51 @@
+import { StyleSheet } from "react-native";
+
+import { T } from "@/lib/theme";
+
+export const styles = StyleSheet.create({
+  list: { paddingTop: 0, paddingBottom: 32 },
+  card: {
+    backgroundColor: T.cardAlt,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: T.border,
+    padding: 14,
+    marginBottom: 10,
+    marginHorizontal: 14,
+  },
+  row1: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
+  logoWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: T.border,
+    backgroundColor: T.card,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 1,
+    overflow: "hidden",
+  },
+  logoImg: { width: "100%", height: "100%", borderRadius: 999 },
+  logoFallback: { color: T.textDim, fontSize: 12, fontWeight: "800" },
+  nameCol: { flex: 1, minWidth: 0 },
+  name: { color: T.text, fontSize: 14, fontWeight: "800", marginBottom: 4 },
+  badgeRow: { flexDirection: "row", flexWrap: "wrap", gap: 4 },
+  badge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1 },
+  badgeTxt: { fontSize: 11, fontWeight: "600" },
+  rightCol: { alignItems: "flex-end", gap: 6, paddingLeft: 8 },
+  row2: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 10,
+    marginBottom: 6,
+  },
+  amount: { color: T.text, fontSize: 15, fontWeight: "900" },
+  snapshotCol: { alignItems: "flex-end" },
+  snapshotRow: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", flexWrap: "wrap", gap: 10 },
+  snapshotTxt: { color: T.textDim, fontSize: 12, fontWeight: "700" },
+  snapshotRemaining: { color: T.orange },
+  progressBg: { height: 7, borderRadius: 4, backgroundColor: T.border, overflow: "hidden" },
+  progressFill: { height: 7, borderRadius: 4 },
+});
