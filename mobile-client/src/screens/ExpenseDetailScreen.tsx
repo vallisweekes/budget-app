@@ -28,7 +28,7 @@ import { T } from "@/lib/theme";
 import DeleteConfirmSheet from "@/components/Shared/DeleteConfirmSheet";
 import PaymentSheet from "@/components/Debts/Detail/PaymentSheet";
 import EditExpenseSheet from "@/components/Expenses/EditExpenseSheet";
-import { notifyPaymentStatus, scheduleUnpaidFollowUpReminders } from "@/lib/unpaidReminder";
+import { clearScheduledUnpaidReminders, notifyPaymentStatus, scheduleUnpaidFollowUpReminders, scheduleUnpaidReminder } from "@/lib/unpaidReminder";
 
 const EXPENSE_HERO_BLUE = "#2a0a9e";
 const PAYMENT_EDIT_GRACE_DAYS = 5;
@@ -664,6 +664,10 @@ export default function ExpenseDetailScreen({ route, navigation }: Props) {
         body,
       });
 
+      if (nextIsPaid) {
+        void clearScheduledUnpaidReminders({ expenseId: expense.id });
+      }
+
       void notifyPaymentStatus({
         expenseId: expense.id,
         status: "paid",
@@ -697,6 +701,8 @@ export default function ExpenseDetailScreen({ route, navigation }: Props) {
         body,
       });
 
+      void clearScheduledUnpaidReminders({ expenseId: expense.id });
+
       setPaySheetOpen(false);
       setPayAmount("");
       await load();
@@ -721,6 +727,10 @@ export default function ExpenseDetailScreen({ route, navigation }: Props) {
       void notifyPaymentStatus({
         expenseId: expense.id,
         status: "unpaid",
+        expenseName: expense.name,
+      });
+      void scheduleUnpaidReminder({
+        expenseId: expense.id,
         expenseName: expense.name,
       });
       void scheduleUnpaidFollowUpReminders({

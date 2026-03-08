@@ -126,6 +126,8 @@ export async function scheduleUnpaidReminder(params: {
   expenseId: string;
   expenseName: string;
 }): Promise<void> {
+  await configureNotificationsBootstrapAsync();
+
   const reminder = await apiFetch<UnpaidReminderResponse>(`/api/bff/expenses/${encodeURIComponent(params.expenseId)}/unpaid-reminder`, {
     method: "POST",
     body: {},
@@ -147,6 +149,13 @@ export async function scheduleUnpaidReminder(params: {
     });
   }
   if (!hasPermission(settings, Notifications)) return;
+
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  const toCancel = scheduled.filter((item: any) => {
+    const data = item?.content?.data as Record<string, unknown> | undefined;
+    return data?.type === "expense-unpaid-reminder" && data?.expenseId === params.expenseId;
+  });
+  await Promise.all(toCancel.map((item: any) => Notifications.cancelScheduledNotificationAsync(item.identifier)));
 
   const fallback = fallbackReminder({ expenseName: params.expenseName });
   const title = String(reminder?.reminderTitle ?? "").trim() || fallback.title;
@@ -250,14 +259,21 @@ export async function scheduleUnpaidFollowUpReminders(params: {
   year: number;
   wasPreviouslyPaid: boolean;
 }): Promise<void> {
+  const Notifications = await tryGetNotifications();
+  if (!Notifications) return;
+
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  const toCancel = scheduled.filter((item: any) => {
+    const data = item?.content?.data as Record<string, unknown> | undefined;
+    return data?.type === "expense-unpaid-followup" && data?.expenseId === params.expenseId;
+  });
+  await Promise.all(toCancel.map((item: any) => Notifications.cancelScheduledNotificationAsync(item.identifier)));
+
   if (!params.wasPreviouslyPaid) return;
   if (!isCurrentViewedMonth(params.month, params.year)) return;
 
   const dueDayDelta = parseDueDay(params.dueDate);
   if (dueDayDelta == null || dueDayDelta > 0) return;
-
-  const Notifications = await tryGetNotifications();
-  if (!Notifications) return;
 
   let settings = await Notifications.getPermissionsAsync();
   if (!hasPermission(settings, Notifications)) {
@@ -280,13 +296,6 @@ export async function scheduleUnpaidFollowUpReminders(params: {
 
   const prefix = String(reminder?.tip ?? "").trim() || `Reminder for ${params.expenseName}: still unpaid.`;
   const baseTitle = String(reminder?.reminderTitle ?? "").trim() || `Reminder: ${params.expenseName}`;
-
-  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
-  const toCancel = scheduled.filter((item: any) => {
-    const data = item?.content?.data as Record<string, unknown> | undefined;
-    return data?.type === "expense-unpaid-followup" && data?.expenseId === params.expenseId;
-  });
-  await Promise.all(toCancel.map((item: any) => Notifications.cancelScheduledNotificationAsync(item.identifier)));
 
   const now = Date.now();
   for (const offset of [2, 3, 4, 5]) {
@@ -314,4 +323,20 @@ export async function scheduleUnpaidFollowUpReminders(params: {
       },
     });
   }
+}
+
+export async function clearScheduledUnpaidReminders(params: { expenseId: string }): Promise<void> {
+  const Notifications = await tryGetNotifications();
+  if (!Notifications) return;
+
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  const toCancel = scheduled.filter((item: any) => {
+    const data = item?.content?.data as Record<string, unknown> | undefined;
+    return (
+      data?.expenseId === params.expenseId
+      && (data?.type === "expense-unpaid-reminder" || data?.type === "expense-unpaid-followup")
+    );
+  });
+
+  await Promise.all(toCancel.map((item: any) => Notifications.cancelScheduledNotificationAsync(item.identifier)));
 }

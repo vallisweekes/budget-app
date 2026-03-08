@@ -100,7 +100,18 @@ async function ensureConnected(client: PrismaClient): Promise<void> {
 async function reconnectClient(client: PrismaClient): Promise<void> {
   if (!reconnectInFlight) {
     reconnectInFlight = (async () => {
-      await ensureConnected(client);
+      try {
+        await client.$disconnect();
+      } catch {
+        // ignore; we only need a clean reconnect attempt
+      }
+
+      try {
+        await client.$connect();
+      } catch {
+        await sleep(75);
+        await client.$connect();
+      }
     })().finally(() => {
       reconnectInFlight = null;
     });
@@ -136,9 +147,21 @@ export const prisma: PrismaClient = basePrisma.$extends({
             throw error;
           }
 
-          await reconnectClient(basePrisma);
-          await sleep(40);
-          return await query(args);
+          let lastError: unknown = error;
+          for (let attempt = 0; attempt < 2; attempt += 1) {
+            await reconnectClient(basePrisma);
+            await sleep(40 + attempt * 60);
+            try {
+              return await query(args);
+            } catch (retryError) {
+              lastError = retryError;
+              if (!isRetryableConnectionError(retryError)) {
+                throw retryError;
+              }
+            }
+          }
+
+          throw lastError;
         }
       },
     },

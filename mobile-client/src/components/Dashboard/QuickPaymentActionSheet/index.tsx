@@ -18,7 +18,7 @@ import {
 } from "@/lib/domain/paymentRules";
 import PaymentSheet from "@/components/Debts/Detail/PaymentSheet";
 import DeleteConfirmSheet from "@/components/Shared/DeleteConfirmSheet";
-import { notifyPaymentStatus, scheduleUnpaidFollowUpReminders } from "@/lib/unpaidReminder";
+import { clearScheduledUnpaidReminders, notifyPaymentStatus, scheduleUnpaidFollowUpReminders, scheduleUnpaidReminder } from "@/lib/unpaidReminder";
 
 const SHEET_BLUE = "#2a0a9e";
 
@@ -139,6 +139,8 @@ export default function QuickPaymentActionSheet({ visible, item, currency, inset
           body,
         });
 
+        void clearScheduledUnpaidReminders({ expenseId: e.id });
+
         void notifyPaymentStatus({
           expenseId: e.id,
           status: "paid",
@@ -200,6 +202,10 @@ export default function QuickPaymentActionSheet({ visible, item, currency, inset
       void notifyPaymentStatus({
         expenseId: item.id,
         status: "unpaid",
+        expenseName: item.name,
+      });
+      void scheduleUnpaidReminder({
+        expenseId: item.id,
         expenseName: item.name,
       });
       void scheduleUnpaidFollowUpReminders({

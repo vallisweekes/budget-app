@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
+import { withPrismaRetry } from "@/lib/prismaRetry";
 import { sendWebPushNotification } from "@/lib/push/webPush";
 import { sendMobilePushNotifications } from "@/lib/push/mobilePush";
 import { maybeGeneratePushCopy } from "@/lib/push/aiCopy";
@@ -82,7 +83,7 @@ async function runHighFrequencyTestPush(now: Date): Promise<NextResponse> {
   let sent = 0;
 
   if (variant === "tip") {
-    const tipPlans = await prisma.budgetPlan.findMany({
+    const tipPlans = await withPrismaRetry(() => prisma.budgetPlan.findMany({
       where: {
         user: {
           mobilePushTokens: { some: {} },
@@ -102,7 +103,7 @@ async function runHighFrequencyTestPush(now: Date): Promise<NextResponse> {
           },
         },
       },
-    });
+    }), { retries: 2, delayMs: 150 });
 
     const tipUserIds = Array.from(new Set(tipPlans.map((plan) => plan.user.id)));
     const tipUserPrefs = await getUserNotificationPreferencesMap(tipUserIds);
@@ -135,7 +136,7 @@ async function runHighFrequencyTestPush(now: Date): Promise<NextResponse> {
     const today = startOfDayUTC(now);
     const inSevenDays = addDaysUTC(today, 7);
 
-    const debts = await prisma.debt.findMany({
+    const debts = await withPrismaRetry(() => prisma.debt.findMany({
       where: {
         paid: false,
         currentBalance: { gt: 0 },
@@ -172,7 +173,7 @@ async function runHighFrequencyTestPush(now: Date): Promise<NextResponse> {
           },
         },
       },
-    });
+    }), { retries: 2, delayMs: 150 });
 
     const debtUserIds = Array.from(new Set(debts.map((debt) => debt.budgetPlan.user.id)));
     const debtUserPrefs = await getUserNotificationPreferencesMap(debtUserIds);
@@ -242,7 +243,7 @@ async function runHighFrequencyTestPush(now: Date): Promise<NextResponse> {
   });
 }
 
-export async function POST(req: Request) {
+function isAuthorizedCronRequest(req: Request): boolean {
   const headerToken = req.headers.get("x-reminder-token") ?? "";
   const authHeader = req.headers.get("authorization") ?? "";
   const bearerToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
@@ -253,7 +254,11 @@ export async function POST(req: Request) {
   const isValidReminderToken = Boolean(expectedReminderToken) && headerToken === expectedReminderToken;
   const isValidCronSecret = Boolean(expectedCronSecret) && bearerToken === expectedCronSecret;
 
-  if (!isValidReminderToken && !isValidCronSecret) {
+  return isValidReminderToken || isValidCronSecret;
+}
+
+async function handleDueReminders(req: Request) {
+  if (!isAuthorizedCronRequest(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -266,7 +271,7 @@ export async function POST(req: Request) {
   const today = startOfDayUTC(new Date());
   const inThreeDays = addDaysUTC(today, 3);
 
-  const debts = await prisma.debt.findMany({
+  const debts = await withPrismaRetry(() => prisma.debt.findMany({
     where: {
       paid: false,
       currentBalance: { gt: 0 },
@@ -306,7 +311,7 @@ export async function POST(req: Request) {
         },
       },
     },
-  });
+  }), { retries: 2, delayMs: 150 });
 
   let sent = 0;
   let mobileSent = 0;
@@ -399,7 +404,7 @@ export async function POST(req: Request) {
   const currentYear = today.getUTCFullYear();
   const todayDay = today.getUTCDate();
 
-  const payDatePlans = await prisma.budgetPlan.findMany({
+  const payDatePlans = await withPrismaRetry(() => prisma.budgetPlan.findMany({
     where: {
       payDate: todayDay,
       user: {
@@ -431,7 +436,7 @@ export async function POST(req: Request) {
         },
       },
     },
-  });
+  }), { retries: 2, delayMs: 150 });
 
   const payDateUserIds = Array.from(new Set(payDatePlans.map((plan) => plan.user.id)));
   const payDateUserPrefs = await getUserNotificationPreferencesMap(payDateUserIds);
@@ -531,7 +536,7 @@ export async function POST(req: Request) {
   }
 
   if (shouldSendBudgetTipOnDate(today)) {
-    const tipPlans = await prisma.budgetPlan.findMany({
+    const tipPlans = await withPrismaRetry(() => prisma.budgetPlan.findMany({
       where: {
         user: {
           mobilePushTokens: { some: {} },
@@ -553,7 +558,7 @@ export async function POST(req: Request) {
           },
         },
       },
-    });
+    }), { retries: 2, delayMs: 150 });
 
     const tipUserIds = Array.from(new Set(tipPlans.map((plan) => plan.user.id)));
     const tipUserPrefs = await getUserNotificationPreferencesMap(tipUserIds);
@@ -566,15 +571,15 @@ export async function POST(req: Request) {
       if (mobileTokens.length === 0) continue;
 
       const [incomeAgg, expenseAgg, dueSoonCount] = await Promise.all([
-        prisma.income.aggregate({
+        withPrismaRetry(() => prisma.income.aggregate({
           where: {
             budgetPlanId: plan.id,
             month: currentMonth,
             year: currentYear,
           },
           _sum: { amount: true },
-        }),
-        prisma.expense.aggregate({
+        }), { retries: 2, delayMs: 150 }),
+        withPrismaRetry(() => prisma.expense.aggregate({
           where: {
             budgetPlanId: plan.id,
             month: currentMonth,
@@ -582,8 +587,8 @@ export async function POST(req: Request) {
             isAllocation: false,
           },
           _sum: { amount: true },
-        }),
-        prisma.debt.count({
+        }), { retries: 2, delayMs: 150 }),
+        withPrismaRetry(() => prisma.debt.count({
           where: {
             budgetPlanId: plan.id,
             paid: false,
@@ -593,7 +598,7 @@ export async function POST(req: Request) {
               lt: addDaysUTC(today, 7),
             },
           },
-        }),
+        }), { retries: 2, delayMs: 150 }),
       ]);
 
       const income = Number(
@@ -716,4 +721,12 @@ export async function POST(req: Request) {
     removedMobileTokens: invalidMobileTokens.length,
     mobileErrors: uniqueMobileErrors,
   });
+}
+
+export async function GET(req: Request) {
+  return handleDueReminders(req);
+}
+
+export async function POST(req: Request) {
+  return handleDueReminders(req);
 }
