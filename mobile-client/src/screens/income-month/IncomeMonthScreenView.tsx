@@ -11,8 +11,9 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { useFocusEffect } from "@react-navigation/native";
 
-import { apiFetch } from "@/lib/api";
+import { apiFetch, getApiMutationVersion } from "@/lib/api";
 import type { Income, Settings, IncomeMonthData, IncomeSacrificeData, IncomeSacrificeFixed } from "@/lib/apiTypes";
 import { computeMoneyLeftVsLastMonth } from "@/lib/domain/incomeStats";
 import type { IncomeStackParamList } from "@/navigation/types";
@@ -70,6 +71,7 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
   const sacrificeCacheRef = useRef<Record<string, Record<number, Record<number, IncomeSacrificeData>>>>({});
   const settingsCacheRef = useRef<Record<string, Settings>>({});
   const monthPrefetchStateRef = useRef<Record<string, "idle" | "loading" | "loaded">>({});
+  const seenMutationVersionRef = useRef<number>(getApiMutationVersion());
 
   const periodRange = useMemo(() => {
     const payFrequency = normalizePayFrequency(settings?.payFrequency);
@@ -351,6 +353,20 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
     void load();
   }, [load]);
 
+  useFocusEffect(
+    useCallback(() => {
+      const latestMutationVersion = getApiMutationVersion();
+      if (latestMutationVersion === seenMutationVersionRef.current) {
+        return;
+      }
+
+      seenMutationVersionRef.current = latestMutationVersion;
+      const targets = [{ month, year }, ...getAdjacentMonths(month, year)];
+      invalidateMonthCaches(targets, { analysis: true, items: true, sacrifice: false });
+      void load({ force: true });
+    }, [getAdjacentMonths, invalidateMonthCaches, load, month, year])
+  );
+
   useEffect(() => {
     if (viewMode !== "sacrifice") return;
     loadSacrifice().catch(() => null);
@@ -558,6 +574,7 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
 
       invalidateMonthCaches(targets, { analysis: true, items: false, sacrifice: true });
       await Promise.all([loadSacrifice({ force: true }), load({ force: true })]);
+      seenMutationVersionRef.current = getApiMutationVersion();
     } catch (error) {
       if (affectsViewedMonth && previousSacrifice) {
         setSacrifice(previousSacrifice);
@@ -598,6 +615,7 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
       });
       invalidateMonthCaches([{ month, year }], { analysis: true, items: false, sacrifice: true });
       await Promise.all([loadSacrifice({ force: true }), load({ force: true })]);
+      seenMutationVersionRef.current = getApiMutationVersion();
     } finally {
       setSacrificeCreating(false);
     }
@@ -614,6 +632,7 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
       await apiFetch(`/api/bff/income-sacrifice/custom/${id}`, { method: "DELETE" });
       invalidateMonthCaches([{ month, year }], { analysis: true, items: false, sacrifice: true });
       await Promise.all([loadSacrifice({ force: true }), load({ force: true })]);
+      seenMutationVersionRef.current = getApiMutationVersion();
     } finally {
       setSacrificeDeletingId(null);
     }
@@ -641,6 +660,7 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
         },
       });
       await loadSacrifice();
+      seenMutationVersionRef.current = getApiMutationVersion();
     } catch (error) {
       Alert.alert("Could not save link", error instanceof Error ? error.message : "Please try again.");
     } finally {
@@ -669,6 +689,7 @@ export default function IncomeMonthScreen({ navigation, route }: Props) {
       });
       invalidateMonthCaches([{ month, year }], { analysis: true, items: false, sacrifice: true });
       await Promise.all([loadSacrifice({ force: true }), load({ force: true })]);
+      seenMutationVersionRef.current = getApiMutationVersion();
       Alert.alert("Confirmed", "Transfer confirmed and goal progress updated.");
     } catch (error) {
       Alert.alert("Could not confirm", error instanceof Error ? error.message : "Please try again.");

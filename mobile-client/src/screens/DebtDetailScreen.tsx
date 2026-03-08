@@ -64,7 +64,7 @@ export default function DebtDetailScreen() {
         <View style={s.center}>
           <Ionicons name="cloud-offline-outline" size={48} color={T.textDim} />
           <Text style={s.errorText}>{error ?? "Debt not found"}</Text>
-          <Pressable onPress={state.load} style={s.retryBtn}><Text style={s.retryTxt}>Retry</Text></Pressable>
+          <Pressable onPress={() => { void state.load(); }} style={s.retryBtn}><Text style={s.retryTxt}>Retry</Text></Pressable>
         </View>
       </SafeAreaView>
     );
@@ -160,7 +160,7 @@ export default function DebtDetailScreen() {
             payments={state.payments}
             currency={currency}
             open={state.paymentHistoryOpen}
-            onToggle={() => state.setPaymentHistoryOpen((value) => !value)}
+            onToggle={state.togglePaymentHistory}
           />
         </ScrollView>
       </KeyboardAvoidingView>

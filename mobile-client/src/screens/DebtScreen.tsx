@@ -31,6 +31,7 @@ import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
 import type { DebtStackParamList } from "@/navigation/types";
 import { T } from "@/lib/theme";
 import { cardBase, cardElevated } from "@/lib/ui";
+import { setCachedDebtListData } from "@/lib/debtDetailCache";
 import MoneyInput from "@/components/Shared/MoneyInput";
 import DatePickerInput from "@/components/Shared/DatePickerInput";
 import OverlaySelectInput from "@/components/Shared/OverlaySelectInput";
@@ -283,6 +284,7 @@ export default function DebtScreen() {
       }
       setSummary(s);
       setCards(Array.isArray(cardRows) ? cardRows : []);
+      setCachedDebtListData(s, Array.isArray(cardRows) ? cardRows : []);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load debts");
     } finally {

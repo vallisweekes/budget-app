@@ -434,6 +434,7 @@ export default function ExpenseDetailScreen({ route, navigation }: Props) {
   const paidNum = expense ? Number(expense.paidAmount) : 0;
   const remainingNum = Math.max(0, amountNum - paidNum);
   const isPaid = amountNum <= 0 ? true : paidNum >= amountNum - 0.005;
+  const isLoggedNonIncomeExpense = Boolean(expense?.isExtraLoggedExpense) && String(expense?.paymentSource ?? "income") !== "income";
   const canEditPaidPayment = isPaid && isWithinPaymentEditGrace(expense?.lastPaymentAt);
   const statusGraceNote = React.useMemo(
     () => getPaymentStatusGraceNote(expense?.lastPaymentAt),
@@ -848,6 +849,7 @@ export default function ExpenseDetailScreen({ route, navigation }: Props) {
                 <Text style={s.statusGraceNote}>{statusGraceNote}</Text>
               ) : null}
 
+              {!isLoggedNonIncomeExpense ? (
               <View style={[s.quickRow, height <= 740 && { marginTop: 18 }, isPaid && { marginTop: 10 }]}> 
                 {!isPaid ? (
                   <>
@@ -879,8 +881,9 @@ export default function ExpenseDetailScreen({ route, navigation }: Props) {
                   </Pressable>
                 ) : null}
               </View>
+              ) : null}
 
-              {isPaid && !canEditPaidPayment ? (
+              {isPaid && !canEditPaidPayment && !isLoggedNonIncomeExpense ? (
                 <Text style={s.lockedHint}>Payment changes are locked after {PAYMENT_EDIT_GRACE_DAYS} days.</Text>
               ) : null}
             </View>

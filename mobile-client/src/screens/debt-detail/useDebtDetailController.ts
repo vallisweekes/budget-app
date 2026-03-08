@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert } from "react-native";
 import { apiFetch } from "@/lib/api";
-import type { CreditCard, Debt, DebtPayment, Settings } from "@/lib/apiTypes";
+import type { CreditCard, Debt, DebtPayment, DebtSummaryItem, Settings } from "@/lib/apiTypes";
 import { currencySymbol, fmt } from "@/lib/formatting";
+import { useBootstrapData } from "@/context/BootstrapDataContext";
+import { getCachedDebtCreditCards, getCachedDebtSummaryItem } from "@/lib/debtDetailCache";
 
 type Params = {
   debtId: string;
@@ -12,13 +14,16 @@ type Params = {
 };
 
 export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteFailed }: Params) {
+  const { settings: bootstrapSettings, ensureLoaded } = useBootstrapData();
+  const [summarySnapshot, setSummarySnapshot] = useState<DebtSummaryItem | null>(() => getCachedDebtSummaryItem(debtId));
   const [debt, setDebt] = useState<Debt | null>(null);
   const [payments, setPayments] = useState<DebtPayment[]>([]);
-  const [settings, setSettings] = useState<Settings | null>(null);
-  const [cards, setCards] = useState<CreditCard[]>([]);
+  const [settings, setSettings] = useState<Settings | null>(bootstrapSettings);
+  const [cards, setCards] = useState<CreditCard[]>(() => getCachedDebtCreditCards());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [paymentsLoaded, setPaymentsLoaded] = useState(false);
 
   const [payAmount, setPayAmount] = useState("");
   const [paySheetOpen, setPaySheetOpen] = useState(false);
@@ -71,19 +76,47 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
     return Math.max(1, Math.ceil((balance - 0.000001) / payment));
   }, []);
 
-  const load = useCallback(async () => {
+  useEffect(() => {
+    if (!bootstrapSettings) return;
+    setSettings((prev) => prev ?? bootstrapSettings);
+  }, [bootstrapSettings]);
+
+  const loadPayments = useCallback(async () => {
+    const paymentRows = await apiFetch<DebtPayment[]>(`/api/bff/debts/${debtId}/payments`);
+    setPayments(paymentRows);
+    setPaymentsLoaded(true);
+    return paymentRows;
+  }, [debtId]);
+
+  const load = useCallback(async (options?: { includePayments?: boolean }) => {
     try {
       setError(null);
-      const [detail, paymentRows, appSettings, cardRows] = await Promise.all([
+      const shouldLoadPayments = options?.includePayments === true;
+      const shouldLoadCards = cards.length === 0;
+      const shouldEnsureSettings = !bootstrapSettings && !settings;
+
+      const [detail, paymentRows, bootstrapResult, cardRows] = await Promise.all([
         apiFetch<Debt>(`/api/bff/debts/${debtId}`),
-        apiFetch<DebtPayment[]>(`/api/bff/debts/${debtId}/payments`),
-        apiFetch<Settings>("/api/bff/settings"),
-        apiFetch<CreditCard[]>("/api/bff/credit-cards"),
+        shouldLoadPayments ? loadPayments() : Promise.resolve<DebtPayment[] | null>(null),
+        shouldEnsureSettings
+          ? ensureLoaded()
+          : Promise.resolve({ dashboard: null, settings: bootstrapSettings ?? settings }),
+        shouldLoadCards ? apiFetch<CreditCard[]>("/api/bff/credit-cards") : Promise.resolve<CreditCard[] | null>(null),
       ]);
+
+      const nextSettings = bootstrapResult.settings ?? bootstrapSettings ?? settings;
       setDebt(detail);
-      setPayments(paymentRows);
-      setSettings(appSettings);
-      setCards(Array.isArray(cardRows) ? cardRows : []);
+      if (paymentRows) {
+        setPayments(paymentRows);
+        setPaymentsLoaded(true);
+      }
+      if (nextSettings) {
+        setSettings(nextSettings);
+      }
+      if (cardRows) {
+        setCards(Array.isArray(cardRows) ? cardRows : []);
+      }
+      setSummarySnapshot((prev) => prev ?? getCachedDebtSummaryItem(debtId));
       setEditName(detail.name);
       setEditCurrentBalance(asTwoDecimals(detail.currentBalance));
       setEditRate(detail.interestRate != null ? asTwoDecimals(detail.interestRate) : "");
@@ -103,9 +136,7 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
       setLoading(false);
       setRefreshing(false);
     }
-  }, [asTwoDecimals, debtId]);
-
-  useEffect(() => { load(); }, [load]);
+  }, [asTwoDecimals, bootstrapSettings, cards.length, debtId, ensureLoaded, loadPayments, settings]);
 
   useEffect(() => {
     if (editPaymentSource !== "credit_card" && editPaymentCardDebtId) {
@@ -200,6 +231,7 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
     const paymentsSnapshot = payments;
 
     setDebt({ ...debt, currentBalance: String(nextBalance), paidAmount: String(nextPaidAmount), paid: nextBalance <= 0 });
+    setPaymentsLoaded(true);
     setPayments((prev) => [{ id: `optimistic-${Date.now()}`, amount: String(appliedAmount), paidAt: new Date().toISOString(), notes: null }, ...prev]);
     setPayAmount("");
     setPaySheetOpen(false);
@@ -207,7 +239,7 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
     try {
       setPaying(true);
       await apiFetch(`/api/bff/debts/${debtId}/payments`, { method: "POST", body: { amount: appliedAmount } });
-      await load();
+      await Promise.all([load(), loadPayments()]);
     } catch (err: unknown) {
       setDebt(debtSnapshot);
       setPayments(paymentsSnapshot);
@@ -357,17 +389,23 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
       ? `${dueDateValue.getUTCFullYear()}-${String(dueDateValue.getUTCMonth() + 1).padStart(2, "0")}`
       : null;
 
-    const paidInDueMonth = dueMonthKey
-      ? payments.reduce((sum, payment) => {
-          const paidAt = new Date(payment.paidAt);
-          if (!Number.isFinite(paidAt.getTime())) return sum;
-          const key = `${paidAt.getUTCFullYear()}-${String(paidAt.getUTCMonth() + 1).padStart(2, "0")}`;
-          return key === dueMonthKey ? sum + parseFloat(payment.amount) : sum;
-        }, 0)
-      : 0;
+    const summaryPaidThisMonth = Number(summarySnapshot?.paidThisMonth ?? 0);
+    const paidInDueMonth = paymentsLoaded
+      ? (dueMonthKey
+          ? payments.reduce((sum, payment) => {
+              const paidAt = new Date(payment.paidAt);
+              if (!Number.isFinite(paidAt.getTime())) return sum;
+              const key = `${paidAt.getUTCFullYear()}-${String(paidAt.getUTCMonth() + 1).padStart(2, "0")}`;
+              return key === dueMonthKey ? sum + parseFloat(payment.amount) : sum;
+            }, 0)
+          : 0)
+      : Math.max(0, summaryPaidThisMonth);
 
     const dueTarget = (() => {
       if (!debt) return 0;
+      if (summarySnapshot?.dueThisMonth != null) {
+        return Math.max(0, Number(summarySnapshot.dueThisMonth));
+      }
       if (debt.computedMonthlyPayment != null) return debt.computedMonthlyPayment;
 
       const currentBalance = currentBalNum;
@@ -395,7 +433,9 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
       return Math.min(currentBalance, planned);
     })();
     const dueTargetSafe = Number.isFinite(dueTarget) ? (dueTarget as number) : 0;
-    const dueCoveredThisCycle = Boolean(dueTargetSafe > 0 && paidInDueMonth >= dueTargetSafe && dueDateValue && dueDateValue.getTime() >= Date.now());
+    const dueCoveredThisCycle = paymentsLoaded
+      ? Boolean(dueTargetSafe > 0 && paidInDueMonth >= dueTargetSafe && dueDateValue && dueDateValue.getTime() >= Date.now())
+      : Boolean(summarySnapshot?.isPaymentMonthPaid ?? (dueTargetSafe > 0 && paidInDueMonth >= dueTargetSafe && dueDateValue && dueDateValue.getTime() >= Date.now()));
     const dueRemainingThisCycle = Math.max(0, dueTargetSafe - paidInDueMonth);
     const isOverdue = Boolean(
       dueDateValue &&
@@ -422,7 +462,17 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
       isPaid,
       progressPct,
     };
-  }, [debt, payments]);
+  }, [debt, payments, paymentsLoaded, summarySnapshot]);
+
+  const togglePaymentHistory = useCallback(() => {
+    setPaymentHistoryOpen((prev) => {
+      const next = !prev;
+      if (next && !paymentsLoaded) {
+        void loadPayments();
+      }
+      return next;
+    });
+  }, [loadPayments, paymentsLoaded]);
 
   const handleMarkPaid = useCallback(async () => {
     if (!debt) return;
@@ -456,6 +506,7 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
     paying,
     paymentHistoryOpen,
     setPaymentHistoryOpen,
+    togglePaymentHistory,
     deleteConfirmOpen,
     setDeleteConfirmOpen,
     deletingDebt,

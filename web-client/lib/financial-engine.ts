@@ -584,6 +584,7 @@ export async function createExpenseFromReceipt(
     paidAmount:     amount,
     isAllocation:   false,
     isDirectDebit:  false,
+    isExtraLoggedExpense: true,
     paymentSource: effectivePaymentSource,
     cardDebtId: effectiveFunding === "credit_card" ? (cardDebtId || debtId || undefined) : undefined,
   } as AddOrUpdatePayload);

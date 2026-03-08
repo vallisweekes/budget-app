@@ -49,6 +49,14 @@ export type DashboardPlanData = {
 	goals: DashboardGoalLike[];
 };
 
+function includeInPlannedExpenseTotals(expense: {
+	isExtraLoggedExpense?: boolean | null;
+	paymentSource?: string | null;
+}): boolean {
+	if (!Boolean(expense.isExtraLoggedExpense ?? false)) return true;
+	return String(expense.paymentSource ?? "income").trim().toLowerCase() === "income";
+}
+
 export async function getDashboardPlanData(
 	planId: string,
 	now: Date,
@@ -152,23 +160,27 @@ export async function getDashboardPlanData(
 		categoryId: e.categoryId ?? undefined,
 	}));
 
+	const budgetedExpenses = regularExpenses.filter((expense, index) =>
+		includeInPlannedExpenseTotals(expenses[index] as { isExtraLoggedExpense?: boolean | null; paymentSource?: string | null })
+	);
+
 	const monthIncome = income.map((i) => ({
 		id: i.id,
 		name: i.name,
 		amount: Number(i.amount),
 	}));
 
-	const categoryTotals = regularExpenses.reduce((acc, e) => {
+	const categoryTotals = budgetedExpenses.reduce((acc, e) => {
 		if (e.categoryId) {
 			acc[e.categoryId] = (acc[e.categoryId] || 0) + e.amount;
 		}
 		return acc;
 	}, {} as Record<string, number>);
 
-	const uncategorizedExpenses = regularExpenses.filter((e) => !e.categoryId);
+	const uncategorizedExpenses = budgetedExpenses.filter((e) => !e.categoryId);
 	const uncategorizedTotal = uncategorizedExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
 
-	const expensesByCategory = regularExpenses.reduce((acc, e) => {
+	const expensesByCategory = budgetedExpenses.reduce((acc, e) => {
 		if (e.categoryId) {
 			if (!acc[e.categoryId]) acc[e.categoryId] = [];
 			acc[e.categoryId].push(e);
@@ -202,7 +214,7 @@ export async function getDashboardPlanData(
 	const plannedDebtAmount = debtPlan.plannedDebtPayments;
 	const customSetAsideTotal = Number(customAllocations.total ?? 0);
 
-	const totalExpenses = regularExpenses.reduce((a, b) => a + (b.amount || 0), 0);
+	const totalExpenses = budgetedExpenses.reduce((a, b) => a + (b.amount || 0), 0);
 	const totalIncome = monthIncome.reduce((a, b) => a + (b.amount || 0), 0);
 	const remaining = totalIncome - totalExpenses;
 
@@ -357,6 +369,8 @@ export async function getDashboardPlanDataForActivePayPeriod(
 							categoryId: true,
 							isAllocation: true,
 							isDirectDebit: true,
+							isExtraLoggedExpense: true,
+							paymentSource: true,
 							dueDate: true,
 							year: true,
 							month: true,
@@ -384,6 +398,8 @@ export async function getDashboardPlanDataForActivePayPeriod(
 							categoryId: true,
 							isAllocation: true,
 							isDirectDebit: true,
+							isExtraLoggedExpense: true,
+							paymentSource: true,
 							dueDate: true,
 							year: true,
 							month: true,
@@ -451,6 +467,7 @@ export async function getDashboardPlanDataForActivePayPeriod(
 
 		// Allocations/envelopes are tracked separately and should not appear as bills.
 		if (Boolean(exp.isAllocation ?? false)) continue;
+		if (!includeInPlannedExpenseTotals(exp)) continue;
 
 		const series = normalizeSeriesOrName(exp.seriesKey, exp.name);
 		const amount = Number(exp.amount ?? 0);

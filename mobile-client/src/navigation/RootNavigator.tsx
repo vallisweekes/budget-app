@@ -999,6 +999,7 @@ function MainTabs() {
                           year: Number(deepestRoute?.params?.year),
                           budgetPlanId: deepestRoute?.params?.budgetPlanId ?? null,
                           currency: deepestRoute?.params?.currency,
+                          skipFocusReloadAt: Date.now(),
                         },
                       } as any
                     );
@@ -1026,9 +1027,10 @@ function MainTabs() {
                       params: {
                         month: categoryExpensesMonth,
                         year: categoryExpensesYear,
+                        skipFocusReloadAt: Date.now(),
                       },
                     } as any
-                    : { screen: "ExpensesList" } as any
+                    : { screen: "ExpensesList", params: { skipFocusReloadAt: Date.now() } } as any
                 )
                 : isSettings
                   ? () => navigation.navigate("Dashboard")

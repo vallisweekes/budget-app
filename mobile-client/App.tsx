@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Animated, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Animated, AppState, type AppStateStatus, StyleSheet, View } from "react-native";
 import { DefaultTheme, NavigationContainer, type InitialState, type Theme } from "@react-navigation/native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Provider as ReduxProvider } from "react-redux";
@@ -47,13 +47,22 @@ function AuthedNavigation({
   const { token, username, isLoading } = useAuth();
   const [navBooting, setNavBooting] = useState(true);
   const [initialNavState, setInitialNavState] = useState<InitialState | undefined>(undefined);
+  const persistKey = useMemo(() => navStateKeyForUser(username), [username]);
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedJsonRef = useRef<string>("");
-  const remoteSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastRemoteJsonRef = useRef<string>("");
+  const pendingRemoteJsonRef = useRef<string>("");
+  const tokenRef = useRef(token);
+  const persistKeyRef = useRef(persistKey);
 
-  const persistKey = useMemo(() => navStateKeyForUser(username), [username]);
+  useEffect(() => {
+    tokenRef.current = token;
+  }, [token]);
+
+  useEffect(() => {
+    persistKeyRef.current = persistKey;
+  }, [persistKey]);
 
   useEffect(() => {
     let mounted = true;
@@ -97,12 +106,18 @@ function AuthedNavigation({
           raw = typeof remote?.stateJson === "string" ? remote.stateJson : "";
           if (raw) {
             await AsyncStorage.setItem(persistKey, raw);
+            lastSavedJsonRef.current = raw;
+            lastRemoteJsonRef.current = raw;
+            pendingRemoteJsonRef.current = raw;
           }
         }
 
         if (raw) {
           const parsed = JSON.parse(raw) as InitialState;
           if (mounted) setInitialNavState(parsed);
+          lastSavedJsonRef.current = raw;
+          lastRemoteJsonRef.current = raw;
+          pendingRemoteJsonRef.current = raw;
         }
 
         await AsyncStorage.setItem(NAV_LAST_KEY, persistKey);
@@ -122,10 +137,40 @@ function AuthedNavigation({
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
       saveTimerRef.current = null;
-      if (remoteSaveTimerRef.current) clearTimeout(remoteSaveTimerRef.current);
-      remoteSaveTimerRef.current = null;
     };
   }, []);
+
+  const flushRemoteState = useCallback(() => {
+    const nextJson = pendingRemoteJsonRef.current;
+    const nextToken = tokenRef.current;
+    const nextPersistKey = persistKeyRef.current;
+
+    if (!nextToken || !nextPersistKey || !nextJson) return;
+    if (nextJson === lastRemoteJsonRef.current) return;
+
+    lastRemoteJsonRef.current = nextJson;
+    void apiFetch("/api/bff/navigation/state", {
+      method: "PUT",
+      body: { stateJson: nextJson },
+      cacheTtlMs: 0,
+      skipOnUnauthorized: true,
+    }).catch(() => {
+      // ignore
+    });
+  }, []);
+
+  useEffect(() => {
+    const onAppStateChange = (nextState: AppStateStatus) => {
+      if (nextState === "inactive" || nextState === "background") {
+        flushRemoteState();
+      }
+    };
+
+    const sub = AppState.addEventListener("change", onAppStateChange);
+    return () => {
+      sub.remove();
+    };
+  }, [flushRemoteState]);
 
   const onStateChange = useCallback(
     (state: unknown) => {
@@ -148,20 +193,7 @@ function AuthedNavigation({
         void AsyncStorage.setItem(NAV_LAST_KEY, persistKey);
       }, 250);
 
-      // Cross-device sync: debounced remote save.
-      if (json === lastRemoteJsonRef.current) return;
-      if (remoteSaveTimerRef.current) clearTimeout(remoteSaveTimerRef.current);
-      remoteSaveTimerRef.current = setTimeout(() => {
-        lastRemoteJsonRef.current = json;
-        void apiFetch("/api/bff/navigation/state", {
-          method: "PUT",
-          body: { stateJson: json },
-          cacheTtlMs: 0,
-          skipOnUnauthorized: true,
-        }).catch(() => {
-          // ignore
-        });
-      }, 2000);
+      pendingRemoteJsonRef.current = json;
     },
     [persistKey, token]
   );

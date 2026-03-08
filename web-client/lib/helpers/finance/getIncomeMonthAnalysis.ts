@@ -69,6 +69,14 @@ function normalizeSeriesOrName(seriesKey: unknown, name: unknown): string {
 	return raw.replace(/\s+/g, " ");
 }
 
+function includeInPlannedExpenseTotals(expense: {
+	isExtraLoggedExpense?: boolean | null;
+	paymentSource?: string | null;
+}): boolean {
+	if (!Boolean(expense.isExtraLoggedExpense ?? false)) return true;
+	return String(expense.paymentSource ?? "income").trim().toLowerCase() === "income";
+}
+
 async function getPeriodExpenseSnapshot(params: {
 	budgetPlanId: string;
 	windowStart: Date;
@@ -101,6 +109,8 @@ async function getPeriodExpenseSnapshot(params: {
 		month: true,
 		isAllocation: true,
 		isDirectDebit: true,
+		isExtraLoggedExpense: true,
+		paymentSource: true,
 	} as const;
 
 	const rows = await (async () => {
@@ -131,6 +141,7 @@ async function getPeriodExpenseSnapshot(params: {
 	for (const expense of rows as any[]) {
 		if (isLegacyPlaceholderExpenseRow(expense)) continue;
 		if (Boolean(expense.isAllocation ?? false)) continue;
+		if (!includeInPlannedExpenseTotals(expense)) continue;
 
 		const series = normalizeSeriesOrName(expense.seriesKey, expense.name);
 		const amount = Number(expense.amount ?? 0);
@@ -254,12 +265,18 @@ export async function getIncomeMonthAnalysis({ budgetPlanId, year, month, payFre
 		// Debt payments from income are already period-scoped via getMonthlyDebtPlan.
 		periodPaidDebtFromIncome = debtPlan.paidDebtPaymentsFromIncome;
 	} else {
-		const expenseAgg = await prisma.expense.aggregate({
+		const expenseRows = await prisma.expense.findMany({
 			where: { budgetPlanId, year, month, isAllocation: false, isMovedToDebt: false },
-			_sum: { amount: true, paidAmount: true },
+			select: {
+				amount: true,
+				paidAmount: true,
+				isExtraLoggedExpense: true,
+				paymentSource: true,
+			},
 		});
-		plannedExpenses = decimalToNumber(expenseAgg._sum.amount);
-		paidExpenses = decimalToNumber(expenseAgg._sum.paidAmount);
+		const includedExpenseRows = expenseRows.filter((expense) => includeInPlannedExpenseTotals(expense));
+		plannedExpenses = includedExpenseRows.reduce((sum, expense) => sum + decimalToNumber(expense.amount), 0);
+		paidExpenses = includedExpenseRows.reduce((sum, expense) => sum + decimalToNumber(expense.paidAmount), 0);
 	}
 
 	const monthlyAllowance = Number(allocationSnapshot.monthlyAllowance ?? 0);

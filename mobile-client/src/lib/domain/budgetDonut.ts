@@ -1,8 +1,12 @@
 type BudgetDonutMetrics = {
   remaining: number;
   isOverBudget: boolean;
-  paidFrac: number;
-  committedFrac: number;
+  usedWithinBudget: number;
+  remainingBudget: number;
+  overspend: number;
+  usedFrac: number;
+  remainingFrac: number;
+  overspendFrac: number;
   hasData: boolean;
 };
 
@@ -18,15 +22,23 @@ export function computeBudgetDonutMetrics(
   const paid = Math.min(safeExpenses, safePaid);
   const committed = Math.max(0, safeExpenses - paid);
   const left = safeBudget - safeExpenses;
+  const spentWithinBudget = Math.min(safeBudget, safeExpenses);
+  const remainingBudget = Math.max(0, safeBudget - spentWithinBudget);
+  const overspend = Math.max(0, safeExpenses - safeBudget);
 
-  const paidFrac = safeBudget > 0 ? Math.min(1, paid / safeBudget) : 0;
-  const committedFrac = safeBudget > 0 ? Math.min(1 - paidFrac, committed / safeBudget) : 0;
+  const usedFrac = safeBudget > 0 ? Math.min(1, spentWithinBudget / safeBudget) : 0;
+  const remainingFrac = safeBudget > 0 ? Math.min(1, remainingBudget / safeBudget) : 0;
+  const overspendFrac = safeBudget > 0 ? Math.min(1, overspend / safeBudget) : 0;
 
   return {
     remaining: left,
     isOverBudget: left < 0,
-    paidFrac,
-    committedFrac,
+    usedWithinBudget: spentWithinBudget,
+    remainingBudget,
+    overspend,
+    usedFrac,
+    remainingFrac,
+    overspendFrac,
     hasData: safeBudget > 0 || safeExpenses > 0,
   };
 }

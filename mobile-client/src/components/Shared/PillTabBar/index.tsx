@@ -169,7 +169,7 @@ export default function PillTabBar({ state, descriptors, navigation }: BottomTab
                 } else if (route.name === "Goals") {
                   navigation.navigate("Goals");
                 } else if (route.name === "Income") {
-                  navigation.navigate("Income", { screen: "IncomeHome" });
+                  navigation.navigate("Income");
                 }
               }
             };

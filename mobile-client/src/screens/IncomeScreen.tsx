@@ -21,6 +21,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { apiFetch } from "@/lib/api";
 import type { IncomeSummaryData, Settings } from "@/lib/apiTypes";
+import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { currencySymbol, fmt } from "@/lib/formatting";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 import { useYearGuard } from "@/lib/hooks/useYearGuard";
@@ -45,7 +46,6 @@ export default function IncomeScreen() {
   const initialYear = Number.isFinite(Number(route.params?.year)) ? Number(route.params?.year) : now.getFullYear();
   const [year, setYear] = useState(initialYear);
   const [data, setData] = useState<IncomeSummaryData | null>(null);
-  const [settings, setSettings] = useState<Settings | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,6 +56,14 @@ export default function IncomeScreen() {
   const [yearDistributeHorizon, setYearDistributeHorizon] = useState(false);
   const [yearAddSaving, setYearAddSaving] = useState(false);
   const skipNextTabFocusReloadRef = useRef(false);
+
+  const {
+    settings,
+    isLoading: bootstrapLoading,
+    error: bootstrapError,
+    refresh: refreshBootstrap,
+    ensureLoaded,
+  } = useBootstrapData();
 
   const currency = currencySymbol(settings?.currency);
 
@@ -135,19 +143,23 @@ export default function IncomeScreen() {
   const load = useCallback(async () => {
     try {
       setError(null);
-      const [incData, s] = await Promise.all([
-        apiFetch<IncomeSummaryData>(`/api/bff/income-summary?year=${year}`),
-        apiFetch<Settings>("/api/bff/settings"),
-      ]);
+      const { settings: loadedSettings } = refreshing
+        ? await refreshBootstrap({ force: true })
+        : await ensureLoaded();
+
+      if (!loadedSettings) {
+        throw bootstrapError ?? new Error("Failed to load settings");
+      }
+
+      const incData = await apiFetch<IncomeSummaryData>(`/api/bff/income-summary?year=${year}`);
       setData(incData);
-      setSettings(s);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load income");
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [year]);
+  }, [bootstrapError, ensureLoaded, refreshBootstrap, refreshing, year]);
 
   useEffect(() => { setLoading(true); load(); }, [load]);
 
@@ -248,7 +260,7 @@ export default function IncomeScreen() {
     });
   }, [months, payFrequency]);
 
-  if (loading) {
+  if (bootstrapLoading || loading) {
     return (
 			<SafeAreaView style={[s.safe, { paddingTop: contentTopPadding }]} edges={[]}>
         <View style={s.center}>

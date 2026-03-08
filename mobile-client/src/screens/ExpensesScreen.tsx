@@ -39,6 +39,7 @@ import type {
   Expense,
 } from "@/lib/apiTypes";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
+import { clearCachedPayPeriodExpenses, setCachedPayPeriodExpenses } from "@/lib/expensePeriodCache";
 import { currencySymbol, fmt } from "@/lib/formatting";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 import { useYearGuard } from "@/lib/hooks/useYearGuard";
@@ -79,6 +80,8 @@ export default function ExpensesScreen({ navigation }: Props) {
   const [periodCountsByMonth, setPeriodCountsByMonth] = useState<Record<number, number>>({});
   const skipFirstFocusReloadRef = useRef(true);
   const skipNextTabFocusReloadRef = useRef(false);
+  const skipNextChildFocusReloadRef = useRef(false);
+  const lastHandledSkipFocusReloadAtRef = useRef<number | null>(null);
   const plansRef = useRef<BudgetPlanListItem[]>([]);
   const summaryCacheRef = useRef<Record<string, Record<number, Record<number, ExpenseSummary>>>>({});
   const monthsCacheRef = useRef<Record<string, ExpenseMonthsResponse["months"]>>({});
@@ -273,8 +276,17 @@ export default function ExpensesScreen({ navigation }: Props) {
   const clearExpenseCaches = useCallback(() => {
     summaryCacheRef.current = {};
     monthsCacheRef.current = {};
+    clearCachedPayPeriodExpenses();
     setLoadedKey(null);
   }, []);
+
+  useEffect(() => {
+    const skipToken = Number(route.params?.skipFocusReloadAt);
+    if (!Number.isFinite(skipToken)) return;
+    if (lastHandledSkipFocusReloadAtRef.current === skipToken) return;
+    lastHandledSkipFocusReloadAtRef.current = skipToken;
+    skipNextChildFocusReloadRef.current = true;
+  }, [route.params?.skipFocusReloadAt]);
 
   const effectivePayDate = Number.isFinite(settings?.payDate as number) && (settings?.payDate as number) >= 1
     ? Math.floor(settings?.payDate as number)
@@ -542,6 +554,10 @@ export default function ExpensesScreen({ navigation }: Props) {
         `/api/bff/expenses?month=${targetMonth}&year=${targetYear}&scope=pay_period${expensesPlanQp}`,
         { cacheTtlMs: 0 }
       );
+      setCachedPayPeriodExpenses(
+        { budgetPlanId: resolvedPlanId, month: targetMonth, year: targetYear },
+        Array.isArray(payPeriodExpenses) ? payPeriodExpenses : []
+      );
       const nextLoggedExpensesCount = (Array.isArray(payPeriodExpenses) ? payPeriodExpenses : []).filter((entry) => (
         entry.isExtraLoggedExpense && entry.paymentSource !== "income"
       )).length;
@@ -576,6 +592,10 @@ export default function ExpensesScreen({ navigation }: Props) {
     useCallback(() => {
       if (skipFirstFocusReloadRef.current) {
         skipFirstFocusReloadRef.current = false;
+        return;
+      }
+      if (skipNextChildFocusReloadRef.current) {
+        skipNextChildFocusReloadRef.current = false;
         return;
       }
       if (skipNextTabFocusReloadRef.current) {

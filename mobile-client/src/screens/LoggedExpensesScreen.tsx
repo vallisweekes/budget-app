@@ -9,6 +9,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { apiFetch } from "@/lib/api";
 import type { Expense } from "@/lib/apiTypes";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
+import { getCachedPayPeriodExpenses, setCachedPayPeriodExpenses } from "@/lib/expensePeriodCache";
 import { resolveCategoryColor, withOpacity } from "@/lib/categoryColors";
 import { fmt } from "@/lib/formatting";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
@@ -47,10 +48,23 @@ export default function LoggedExpensesScreen({ route, navigation }: Props) {
       setError(null);
       if (force) setRefreshing(true);
       else setLoading(true);
-      const qp = budgetPlanId ? `&budgetPlanId=${encodeURIComponent(budgetPlanId)}` : "";
-      const all = await apiFetch<Expense[]>(`/api/bff/expenses?month=${month}&year=${year}&scope=pay_period${qp}`);
-      const allExpenses = Array.isArray(all) ? all : [];
-      const next = allExpenses.filter((entry) => (
+      const cached = !force
+        ? getCachedPayPeriodExpenses({ budgetPlanId, month, year })
+        : null;
+      const allExpenses = (() => {
+        if (cached) return cached;
+        return null;
+      })();
+
+      const nextAllExpenses = allExpenses ?? await (async () => {
+        const qp = budgetPlanId ? `&budgetPlanId=${encodeURIComponent(budgetPlanId)}` : "";
+        const all = await apiFetch<Expense[]>(`/api/bff/expenses?month=${month}&year=${year}&scope=pay_period${qp}`);
+        const resolved = Array.isArray(all) ? all : [];
+        setCachedPayPeriodExpenses({ budgetPlanId, month, year }, resolved);
+        return resolved;
+      })();
+
+      const next = nextAllExpenses.filter((entry) => (
         (categoryId ? entry.categoryId === categoryId : true)
         && entry.isExtraLoggedExpense
         && entry.paymentSource !== "income"
