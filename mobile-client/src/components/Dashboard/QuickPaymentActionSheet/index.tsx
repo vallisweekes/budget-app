@@ -7,6 +7,7 @@ import type { Debt, Expense } from "@/lib/apiTypes";
 import { fmt } from "@/lib/formatting";
 import { resolveLogoUri } from "@/lib/logoDisplay";
 import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
+import { useCreateDebtPaymentMutation, useLazyGetDebtDetailQuery } from "@/store/api";
 import { T } from "@/lib/theme";
 import {
   computeDebtDueAmount,
@@ -53,6 +54,8 @@ export default function QuickPaymentActionSheet({ visible, item, currency, inset
   const [paySheetOpen, setPaySheetOpen] = useState(false);
   const [unpaidConfirmOpen, setUnpaidConfirmOpen] = useState(false);
   const itemId = useMemo(() => (item ? encodeURIComponent(item.id) : ""), [item]);
+  const [fetchDebtDetail] = useLazyGetDebtDetailQuery();
+  const [createDebtPayment] = useCreateDebtPaymentMutation();
 
   useEffect(() => {
     if (!visible) return;
@@ -147,7 +150,8 @@ export default function QuickPaymentActionSheet({ visible, item, currency, inset
         return;
       }
 
-      const d = debt ?? (await apiFetch<Debt>(`/api/bff/debts/${itemId}`));
+      const d = debt ?? (await fetchDebtDetail(item!.id, true).unwrap());
+      setDebt(d);
       const currentBal = Number.parseFloat(String(d.currentBalance));
       if (!Number.isFinite(currentBal) || currentBal <= 0) {
         onClose();
@@ -165,7 +169,7 @@ export default function QuickPaymentActionSheet({ visible, item, currency, inset
         return;
       }
 
-      await apiFetch(`/api/bff/debts/${itemId}/payments`, { method: "POST", body: { amount: amountToApply } });
+      await createDebtPayment({ debtId: item!.id, amount: amountToApply }).unwrap();
 
       onClose();
       onUpdated();
@@ -174,7 +178,7 @@ export default function QuickPaymentActionSheet({ visible, item, currency, inset
     } finally {
       setPaying(false);
     }
-  }, [debt, expense, item, itemId, onClose, onUpdated, paying]);
+  }, [createDebtPayment, debt, expense, fetchDebtDetail, item, onClose, onUpdated, paying]);
 
   const markUnpaid = useCallback(async () => {
     if (!item || item.kind !== "expense" || paying) return;
@@ -253,14 +257,15 @@ export default function QuickPaymentActionSheet({ visible, item, currency, inset
         return;
       }
 
-      const d = debt ?? (await apiFetch<Debt>(`/api/bff/debts/${itemId}`));
+      const d = debt ?? (await fetchDebtDetail(item!.id, true).unwrap());
+      setDebt(d);
       const currentBal = Number.parseFloat(String(d.currentBalance));
       if (Number.isFinite(currentBal) && delta > currentBal) {
         Alert.alert("Amount too high", `Balance remaining is ${fmt(currentBal, currency)}.`);
         return;
       }
 
-      await apiFetch(`/api/bff/debts/${itemId}/payments`, { method: "POST", body: { amount: delta } });
+      await createDebtPayment({ debtId: item!.id, amount: delta }).unwrap();
 
       setPaySheetOpen(false);
       onClose();
@@ -270,7 +275,7 @@ export default function QuickPaymentActionSheet({ visible, item, currency, inset
     } finally {
       setPaying(false);
     }
-  }, [currency, debt, expense, item, itemId, onClose, onUpdated, payAmount, paying]);
+  }, [createDebtPayment, currency, debt, expense, fetchDebtDetail, item, onClose, onUpdated, payAmount, paying]);
 
   return (
     <>

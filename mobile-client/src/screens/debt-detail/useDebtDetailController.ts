@@ -5,6 +5,14 @@ import type { CreditCard, Debt, DebtPayment, DebtSummaryItem, Settings } from "@
 import { currencySymbol, fmt } from "@/lib/formatting";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { getCachedDebtCreditCards, getCachedDebtSummaryItem } from "@/lib/debtDetailCache";
+import {
+  useCreateDebtPaymentMutation,
+  useDeleteDebtMutation,
+  useGetCreditCardsQuery,
+  useLazyGetDebtDetailQuery,
+  useLazyGetDebtPaymentsQuery,
+  useUpdateDebtMutation,
+} from "@/store/api";
 
 type Params = {
   debtId: string;
@@ -44,6 +52,12 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
   const [editPaymentCardDebtId, setEditPaymentCardDebtId] = useState("");
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
+  const [createDebtPaymentMutation] = useCreateDebtPaymentMutation();
+  const [updateDebtMutation] = useUpdateDebtMutation();
+  const [deleteDebtMutation] = useDeleteDebtMutation();
+  const [fetchDebtDetail] = useLazyGetDebtDetailQuery();
+  const [fetchDebtPayments] = useLazyGetDebtPaymentsQuery();
+  const creditCardsQuery = useGetCreditCardsQuery();
 
   const currency = currencySymbol(settings?.currency);
 
@@ -81,12 +95,17 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
     setSettings((prev) => prev ?? bootstrapSettings);
   }, [bootstrapSettings]);
 
+  useEffect(() => {
+    if (!Array.isArray(creditCardsQuery.data)) return;
+    setCards(creditCardsQuery.data);
+  }, [creditCardsQuery.data]);
+
   const loadPayments = useCallback(async () => {
-    const paymentRows = await apiFetch<DebtPayment[]>(`/api/bff/debts/${debtId}/payments`);
+    const paymentRows = await fetchDebtPayments(debtId, true).unwrap();
     setPayments(paymentRows);
     setPaymentsLoaded(true);
     return paymentRows;
-  }, [debtId]);
+  }, [debtId, fetchDebtPayments]);
 
   const load = useCallback(async (options?: { includePayments?: boolean }) => {
     try {
@@ -96,12 +115,14 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
       const shouldEnsureSettings = !bootstrapSettings && !settings;
 
       const [detail, paymentRows, bootstrapResult, cardRows] = await Promise.all([
-        apiFetch<Debt>(`/api/bff/debts/${debtId}`),
+        fetchDebtDetail(debtId, true).unwrap(),
         shouldLoadPayments ? loadPayments() : Promise.resolve<DebtPayment[] | null>(null),
         shouldEnsureSettings
           ? ensureLoaded()
           : Promise.resolve({ dashboard: null, settings: bootstrapSettings ?? settings }),
-        shouldLoadCards ? apiFetch<CreditCard[]>("/api/bff/credit-cards") : Promise.resolve<CreditCard[] | null>(null),
+        shouldLoadCards
+          ? creditCardsQuery.refetch().then((result) => (Array.isArray(result.data) ? result.data : null))
+          : Promise.resolve<CreditCard[] | null>(null),
       ]);
 
       const nextSettings = bootstrapResult.settings ?? bootstrapSettings ?? settings;
@@ -136,7 +157,7 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
       setLoading(false);
       setRefreshing(false);
     }
-  }, [asTwoDecimals, bootstrapSettings, cards.length, debtId, ensureLoaded, loadPayments, settings]);
+  }, [asTwoDecimals, bootstrapSettings, cards.length, creditCardsQuery, debtId, ensureLoaded, fetchDebtDetail, loadPayments, settings]);
 
   useEffect(() => {
     if (editPaymentSource !== "credit_card" && editPaymentCardDebtId) {
@@ -238,7 +259,7 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
 
     try {
       setPaying(true);
-      await apiFetch(`/api/bff/debts/${debtId}/payments`, { method: "POST", body: { amount: appliedAmount } });
+      await createDebtPaymentMutation({ debtId, amount: appliedAmount }).unwrap();
       await Promise.all([load(), loadPayments()]);
     } catch (err: unknown) {
       setDebt(debtSnapshot);
@@ -335,9 +356,9 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
 
     try {
       setEditSaving(true);
-      await apiFetch(`/api/bff/debts/${debtId}`, {
-        method: "PATCH",
-        body: {
+      await updateDebtMutation({
+        id: debtId,
+        changes: {
           name,
           currentBalance: Number(parsedCurrentBalance.toFixed(2)),
           amount: effectiveAmount != null ? Number(effectiveAmount.toFixed(2)) : null,
@@ -348,7 +369,7 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
           defaultPaymentSource: editPaymentSource,
           defaultPaymentCardDebtId: editPaymentSource === "credit_card" ? editPaymentCardDebtId.trim() : null,
         },
-      });
+      }).unwrap();
       await load();
     } catch (err: unknown) {
       setDebt(debtSnapshot);
@@ -366,12 +387,13 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
     onDeleted(debtId);
 
     try {
-      await apiFetch(`/api/bff/debts/${debtId}`, { method: "DELETE" });
+      await deleteDebtMutation({ id: debtId }).unwrap();
     } catch (err: unknown) {
+      setDeletingDebt(false);
       onDeleteFailed?.(debtId);
       Alert.alert("Delete failed", err instanceof Error ? err.message : "Unknown error");
     }
-  }, [debtId, deletingDebt, onDeleteFailed, onDeleted]);
+  }, [debtId, deleteDebtMutation, deletingDebt, onDeleteFailed, onDeleted]);
 
   const derived = useMemo(() => {
     const currentBalNum = debt ? parseFloat(debt.currentBalance) : 0;

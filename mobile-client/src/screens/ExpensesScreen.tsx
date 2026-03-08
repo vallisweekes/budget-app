@@ -351,6 +351,23 @@ export default function ExpensesScreen({ navigation }: Props) {
     summaryCacheRef.current[key][targetYear][targetMonth] = value;
   }, [planCacheKey]);
 
+  const shiftPayPeriodAnchor = useCallback((targetMonth: number, targetYear: number, delta: number) => {
+    let nextMonth = targetMonth + delta;
+    let nextYear = targetYear;
+
+    while (nextMonth > 12) {
+      nextMonth -= 12;
+      nextYear += 1;
+    }
+
+    while (nextMonth < 1) {
+      nextMonth += 12;
+      nextYear -= 1;
+    }
+
+    return { month: nextMonth, year: nextYear };
+  }, []);
+
   const getOrFetchSummary = useCallback(async (params: {
     planId: string | null;
     month: number;
@@ -371,6 +388,41 @@ export default function ExpensesScreen({ navigation }: Props) {
     setCachedSummary(planId, targetYear, targetMonth, fresh);
     return fresh;
   }, [getCachedSummary, setCachedSummary]);
+
+  const preloadSummaryWindow = useCallback(async (params: {
+    planId: string | null;
+    month: number;
+    year: number;
+    force?: boolean;
+  }): Promise<{ current: ExpenseSummary; previous: ExpenseSummary }> => {
+    const { planId, month: targetMonth, year: targetYear, force = false } = params;
+    const previousPeriod = shiftPayPeriodAnchor(targetMonth, targetYear, -1);
+    const nextPeriod = shiftPayPeriodAnchor(targetMonth, targetYear, 1);
+
+    const previousPromise = getOrFetchSummary({
+      planId,
+      month: previousPeriod.month,
+      year: previousPeriod.year,
+      force,
+    });
+    const currentPromise = getOrFetchSummary({
+      planId,
+      month: targetMonth,
+      year: targetYear,
+      force,
+    });
+    void getOrFetchSummary({
+      planId,
+      month: nextPeriod.month,
+      year: nextPeriod.year,
+      force,
+    }).catch(() => {
+      // Best-effort prefetch only.
+    });
+
+    const [previous, current] = await Promise.all([previousPromise, currentPromise]);
+    return { current, previous };
+  }, [getOrFetchSummary, shiftPayPeriodAnchor]);
 
   const fetchPayPeriodMonths = useCallback(async (targetYear: number, planId: string | null) => {
     const planQp = planId ? `&budgetPlanId=${encodeURIComponent(planId)}` : "";
@@ -496,13 +548,15 @@ export default function ExpensesScreen({ navigation }: Props) {
       // a pay-period window.
       const initialMonth = shouldUseResolvedDefaultPeriod ? resolvedDefaultMonth : month;
       const initialYear = shouldUseResolvedDefaultPeriod ? resolvedDefaultYear : year;
-      const initialPrevMonth = initialMonth === 1 ? 12 : initialMonth - 1;
-      const initialPrevYear = initialMonth === 1 ? initialYear - 1 : initialYear;
+      const initialWindow = await preloadSummaryWindow({
+        planId: resolvedPlanId,
+        month: initialMonth,
+        year: initialYear,
+        force,
+      });
 
-      let [sumData, prevData] = await Promise.all([
-        getOrFetchSummary({ planId: resolvedPlanId, month: initialMonth, year: initialYear, force }),
-        getOrFetchSummary({ planId: resolvedPlanId, month: initialPrevMonth, year: initialPrevYear, force }),
-      ]);
+      let sumData = initialWindow.current;
+      let prevData = initialWindow.previous;
 
       let targetMonth = initialMonth;
       let targetYear = initialYear;
@@ -536,12 +590,14 @@ export default function ExpensesScreen({ navigation }: Props) {
             if (suggestedMonth !== initialMonth || suggestedYear !== initialYear) {
               targetMonth = suggestedMonth;
               targetYear = suggestedYear;
-              const prevMonth = targetMonth === 1 ? 12 : targetMonth - 1;
-              const prevYear = targetMonth === 1 ? targetYear - 1 : targetYear;
-              [sumData, prevData] = await Promise.all([
-                getOrFetchSummary({ planId: resolvedPlanId, month: targetMonth, year: targetYear, force }),
-                getOrFetchSummary({ planId: resolvedPlanId, month: prevMonth, year: prevYear, force }),
-              ]);
+              const targetWindow = await preloadSummaryWindow({
+                planId: resolvedPlanId,
+                month: targetMonth,
+                year: targetYear,
+                force,
+              });
+              sumData = targetWindow.current;
+              prevData = targetWindow.previous;
             }
           }
         } catch {
@@ -576,7 +632,7 @@ export default function ExpensesScreen({ navigation }: Props) {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [activePlanId, bootstrapError, ensureLoaded, getOrFetchSummary, latestResolvedDate, month, planCacheKey, refreshBootstrap, selectedPlanId, setupCompletedAt, year]);
+  }, [activePlanId, bootstrapError, ensureLoaded, latestResolvedDate, month, planCacheKey, preloadSummaryWindow, refreshBootstrap, selectedPlanId, setupCompletedAt, year]);
 
   const currentViewKey = `${activePlanId ?? "none"}:${year}-${month}`;
   useEffect(() => {

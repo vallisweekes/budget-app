@@ -29,6 +29,7 @@ import { currencySymbol, fmt } from "@/lib/formatting";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
 import type { DebtStackParamList } from "@/navigation/types";
+import { useCreateDebtMutation, useGetCreditCardsQuery, useGetDebtSummaryQuery } from "@/store/api";
 import { T } from "@/lib/theme";
 import { cardBase, cardElevated } from "@/lib/ui";
 import { setCachedDebtListData } from "@/lib/debtDetailCache";
@@ -212,12 +213,11 @@ export default function DebtScreen() {
     refresh: refreshBootstrap,
     ensureLoaded,
   } = useBootstrapData();
+  const debtSummaryQuery = useGetDebtSummaryQuery(undefined, { refetchOnMountOrArgChange: true });
+  const creditCardsQuery = useGetCreditCardsQuery(undefined, { refetchOnMountOrArgChange: true });
+  const [createDebtMutation] = useCreateDebtMutation();
 
-  const [summary, setSummary] = useState<DebtSummaryData | null>(null);
-  const [cards, setCards] = useState<CreditCard[]>([]);
-  const [loadingDebts, setLoadingDebts] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [addName, setAddName] = useState("");
   const [addBalance, setAddBalance] = useState("");
@@ -268,32 +268,37 @@ export default function DebtScreen() {
   const [optimisticDeletedDebtIds, setOptimisticDeletedDebtIds] = useState<string[]>([]);
   const skipNextTabFocusReloadRef = useRef(false);
 
+  const summary = debtSummaryQuery.data ?? null;
+  const cards = Array.isArray(creditCardsQuery.data) ? creditCardsQuery.data : [];
+  const loadingDebts = Boolean((debtSummaryQuery.isLoading || creditCardsQuery.isLoading) && !summary);
+  const error = (() => {
+    const nextError = debtSummaryQuery.error ?? creditCardsQuery.error;
+    if (!nextError) return null;
+    return nextError instanceof Error ? nextError.message : "Failed to load debts";
+  })();
+
   const currency = currencySymbol(settings?.currency);
 
   const load = useCallback(async (options?: { force?: boolean }) => {
     try {
-      setError(null);
-      const [{ settings: bootSettings }, s, cardRows] = await Promise.all([
+      const [{ settings: bootSettings }, summaryResult, cardsResult] = await Promise.all([
         options?.force ? refreshBootstrap({ force: true }) : ensureLoaded(),
-        apiFetch<DebtSummaryData>("/api/bff/debt-summary"),
-        apiFetch<CreditCard[]>("/api/bff/credit-cards"),
+        debtSummaryQuery.refetch(),
+        creditCardsQuery.refetch(),
       ]);
 
       if (!bootSettings) {
         throw bootstrapError ?? new Error("Failed to load settings");
       }
-      setSummary(s);
-      setCards(Array.isArray(cardRows) ? cardRows : []);
-      setCachedDebtListData(s, Array.isArray(cardRows) ? cardRows : []);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to load debts");
     } finally {
-      setLoadingDebts(false);
       setRefreshing(false);
     }
-  }, [bootstrapError, ensureLoaded, refreshBootstrap]);
+  }, [bootstrapError, creditCardsQuery, debtSummaryQuery, ensureLoaded, refreshBootstrap]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    if (!summary) return;
+    setCachedDebtListData(summary, cards);
+  }, [cards, summary]);
 
   useEffect(() => {
     const tabNavigation = navigation.getParent();
@@ -340,7 +345,7 @@ export default function DebtScreen() {
   const isLoanStyleType = addType === "loan" || addType === "mortgage";
   const selectablePaymentCards = cards.filter((card) => card.id !== "" && card.id !== undefined);
 
-  const handleAdd = async () => {
+  const handleAdd = useCallback(async () => {
     const name = addName.trim();
     const balance = parseFloat(addBalance);
     const monthlyPayment = addMonthlyPayment.trim() ? parseFloat(addMonthlyPayment) : 0;
@@ -389,24 +394,21 @@ export default function DebtScreen() {
     }
     try {
       setSaving(true);
-      await apiFetch("/api/bff/debts", {
-        method: "POST",
-        body: {
-          name,
-          initialBalance: balance,
-          currentBalance: balance,
-          amount: monthlyPayment,
-          type: addType,
-          budgetPlanId: settings?.id ?? "",
-          dueDate: addDueDate,
-          dueDay: dueDateObj.getUTCDate(),
-          creditLimit: isCardType ? creditLimit : null,
-          interestRate,
-          installmentMonths,
-          defaultPaymentSource: addPaymentSource,
-          defaultPaymentCardDebtId: addPaymentSource === "credit_card" ? addPaymentCardDebtId.trim() : null,
-        },
-      });
+      await createDebtMutation({
+        name,
+        initialBalance: balance,
+        currentBalance: balance,
+        amount: monthlyPayment,
+        type: addType,
+        budgetPlanId: settings?.id ?? "",
+        dueDate: addDueDate,
+        dueDay: dueDateObj.getUTCDate(),
+        interestRate,
+        creditLimit: isCardType ? creditLimit : null,
+        installmentMonths,
+        defaultPaymentSource: addPaymentSource,
+        defaultPaymentCardDebtId: addPaymentSource === "credit_card" ? addPaymentCardDebtId.trim() : null,
+      }).unwrap();
       setAddName("");
       setAddBalance("");
       setAddMonthlyPayment("");
@@ -419,13 +421,12 @@ export default function DebtScreen() {
       setAddPaymentSource("income");
       setAddPaymentCardDebtId("");
       setShowAddForm(false);
-      await load();
     } catch (err: unknown) {
       Alert.alert("Error", err instanceof Error ? err.message : "Could not add debt");
     } finally {
       setSaving(false);
     }
-  };
+  }, [addBalance, addCreditLimit, addDueDate, addInstallmentMonths, addInterestRate, addMonthlyPayment, addName, addPaymentCardDebtId, addPaymentSource, addType, createDebtMutation, isCardType, settings?.id]);
 
   const debtsExcludingOptimisticDeleted = (summary?.debts ?? []).filter(
     (d) => !optimisticDeletedDebtIds.includes(d.id)

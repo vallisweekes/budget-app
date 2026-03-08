@@ -26,6 +26,7 @@ import {
 } from "@/lib/notificationInbox";
 import {
   useCreateBudgetPlanMutation,
+  useCreateDebtMutation,
   useCreateIncomeSacrificeCustomMutation,
   useDeleteBudgetPlanMutation,
   useDeleteIncomeSacrificeCustomMutation,
@@ -36,6 +37,7 @@ import {
     useLazyGetUserProfileQuery,
   useResetAccountDataMutation,
   useUpdateBudgetPlanMutation,
+  useUpdateDebtMutation,
   useUpdateProfileMutation,
   useUpdateSettingsMutation,
 } from "@/store/api";
@@ -217,6 +219,8 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
   });
   const [updateSettingsMutation] = useUpdateSettingsMutation();
   const [updateProfileMutation] = useUpdateProfileMutation();
+  const [createDebtMutation] = useCreateDebtMutation();
+  const [updateDebtMutation] = useUpdateDebtMutation();
   const [createIncomeSacrificeCustomMutation] = useCreateIncomeSacrificeCustomMutation();
   const [deleteIncomeSacrificeCustomMutation] = useDeleteIncomeSacrificeCustomMutation();
   const [createBudgetPlanMutation] = useCreateBudgetPlanMutation();
@@ -458,6 +462,35 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
     setBillFrequencyDraft(nextSettings?.billFrequency === "every_2_weeks" ? "every_2_weeks" : "monthly");
     setStrategyDraft(nextSettings?.budgetStrategy ?? "payYourselfFirst");
   }, []);
+
+  const upsertPlanState = useCallback((nextPlan: BudgetPlanListItem) => {
+    setPlans((prev) => {
+      const index = prev.findIndex((plan) => plan.id === nextPlan.id);
+      if (index < 0) return [...prev, nextPlan];
+      const next = [...prev];
+      next[index] = nextPlan;
+      return next;
+    });
+  }, []);
+
+  const loadPlanState = useCallback(async (
+    budgetPlanId: string,
+    nextPlansOverride?: BudgetPlanListItem[],
+    nextProfileOverride?: UserProfile | null,
+  ) => {
+    const [nextSettings, nextDebts] = await Promise.all([
+      fetchPlanSettings(budgetPlanId, true).unwrap(),
+      fetchPlanDebts(budgetPlanId, true).unwrap(),
+    ]);
+    const nextPlans = nextPlansOverride ?? plans;
+    const nextProfile = nextProfileOverride ?? profile;
+    const nextPlan = nextPlans.find((plan) => plan.id === budgetPlanId) ?? null;
+
+    setSettings(nextSettings);
+    setDebts(Array.isArray(nextDebts) ? nextDebts : []);
+    setNoPlan(false);
+    hydrateDrafts(nextSettings, nextProfile, nextPlan?.budgetHorizonYears ?? null);
+  }, [fetchPlanDebts, fetchPlanSettings, hydrateDrafts, plans, profile]);
 
   const load = useCallback(async () => {
     try {
@@ -714,8 +747,10 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
   const createPersonalPlan = async () => {
     try {
       setSaveBusy(true);
-      await createBudgetPlanMutation({ kind: "personal", name: "Personal" }).unwrap();
-      await load();
+      const createdPlan = await createBudgetPlanMutation({ kind: "personal", name: "Personal" }).unwrap();
+      const nextPlans = [createdPlan];
+      setPlans(nextPlans);
+      await loadPlanState(createdPlan.id, nextPlans, profile);
     } catch (err: unknown) {
       Alert.alert("Could not create plan", err instanceof Error ? err.message : "Please try again.");
     } finally {
@@ -760,6 +795,8 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
 
     try {
       setSaveBusy(true);
+      let nextSettings: Settings | null = settings;
+      let nextPlan: BudgetPlanListItem | null = currentPlan;
 
       if (budgetFieldSheet === "payDate") {
         const payDate = Number(payDateDraft);
@@ -767,7 +804,7 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
           Alert.alert("Invalid pay date", "Pay date must be between 1 and 31.");
           return;
         }
-        await Promise.all([
+        const [updatedSettings, updatedPlan] = await Promise.all([
           updateSettingsMutation({
             budgetPlanId: settings.id,
             changes: {
@@ -781,6 +818,8 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
             },
           }).unwrap(),
         ]);
+        nextSettings = updatedSettings;
+        nextPlan = updatedPlan;
       }
 
       if (budgetFieldSheet === "horizon") {
@@ -789,7 +828,7 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
           Alert.alert("Invalid horizon", "Budget horizon must be between 1 and 50 years.");
           return;
         }
-        await updateBudgetPlanMutation({
+        nextPlan = await updateBudgetPlanMutation({
           id: settings.id,
           changes: {
             budgetHorizonYears: years,
@@ -798,7 +837,7 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
       }
 
       if (budgetFieldSheet === "payFrequency") {
-        await updateSettingsMutation({
+        nextSettings = await updateSettingsMutation({
           budgetPlanId: settings.id,
           changes: {
             payFrequency: payFrequencyDraft,
@@ -807,7 +846,7 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
       }
 
       if (budgetFieldSheet === "billFrequency") {
-        await updateSettingsMutation({
+        nextSettings = await updateSettingsMutation({
           budgetPlanId: settings.id,
           changes: {
             billFrequency: billFrequencyDraft,
@@ -815,8 +854,14 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
         }).unwrap();
       }
 
+      if (nextSettings) {
+        setSettings(nextSettings);
+      }
+      if (nextPlan) {
+        upsertPlanState(nextPlan);
+      }
+      hydrateDrafts(nextSettings, profile, nextPlan?.budgetHorizonYears ?? null);
       setBudgetFieldSheet(null);
-      await load();
     } catch (err: unknown) {
       Alert.alert("Could not save budget settings", err instanceof Error ? err.message : "Please try again.");
     } finally {
@@ -1108,10 +1153,10 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
         creditLimit,
       };
 
-      const updated = await apiFetch<Debt>(`/api/bff/debts/${encodeURIComponent(editDebtTarget.id)}`, {
-        method: "PATCH",
-        body,
-      });
+      const updated = await updateDebtMutation({
+        id: editDebtTarget.id,
+        changes: body,
+      }).unwrap();
       setDebts((prev) => prev.map((d) => (d.id === updated.id ? { ...d, ...updated } : d)));
       setEditDebtTarget(null);
     } catch (err: unknown) {
@@ -1147,7 +1192,7 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
     }
     try {
       setSaveBusy(true);
-      const body: Record<string, unknown> = {
+      const createdDebt = await createDebtMutation({
         budgetPlanId: settings.id,
         name,
         type: debtType,
@@ -1156,12 +1201,8 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
         amount: 0,
         interestRate,
         creditLimit: limit,
-      };
-
-      await apiFetch("/api/bff/debts", {
-        method: "POST",
-        body,
-      });
+      }).unwrap();
+      setDebts((prev) => [createdDebt, ...prev]);
       setAddDebtName("");
       setAddDebtInitialBalance("");
       setAddDebtBalance("");
@@ -1170,7 +1211,6 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
       setAddDebtInterestRate("");
       setAddDebtType("credit_card");
       setAddDebtSheetOpen(false);
-      await switchPlan(settings.id);
     } catch (err: unknown) {
       Alert.alert("Could not add debt", err instanceof Error ? err.message : "Please try again.");
     } finally {
@@ -1193,16 +1233,16 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
 
     try {
       setSaveBusy(true);
-      await createBudgetPlanMutation({
+      const createdPlan = await createBudgetPlanMutation({
         kind: newPlanType,
         name,
         eventDate,
       }).unwrap();
+      upsertPlanState(createdPlan);
       setCreatePlanSheetOpen(false);
       setNewPlanName("");
       setNewPlanType("holiday");
       setNewPlanEventDate("");
-      await load();
     } catch (err: unknown) {
       Alert.alert("Could not create plan", err instanceof Error ? err.message : "Please try again.");
     } finally {
@@ -1215,9 +1255,23 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
     try {
       setDeletingPlanId(planDeleteTarget.id);
       await deleteBudgetPlanMutation({ id: planDeleteTarget.id }).unwrap();
+      const deletedPlanId = planDeleteTarget.id;
+      const deletedWasCurrent = currentPlanId === deletedPlanId;
+      const nextPlans = plans.filter((plan) => plan.id !== deletedPlanId);
+
+      setPlans(nextPlans);
       setPlanDeleteTarget(null);
-      await load();
-      if (currentPlanId === planDeleteTarget.id) {
+
+      if (deletedWasCurrent) {
+        const fallbackPlan = nextPlans.find((plan) => plan.kind === "personal") ?? nextPlans[0] ?? null;
+        if (!fallbackPlan) {
+          setNoPlan(true);
+          setSettings(null);
+          setDebts([]);
+          hydrateDrafts(null, profile, null);
+        } else {
+          await loadPlanState(fallbackPlan.id, nextPlans, profile);
+        }
         setActiveTab("plans");
       }
     } catch (err: unknown) {
