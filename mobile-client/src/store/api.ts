@@ -1,7 +1,7 @@
 import { createApi, fakeBaseQuery } from "@reduxjs/toolkit/query/react";
 
 import { ApiError, apiFetch } from "@/lib/api";
-import type { BudgetPlanListItem, BudgetPlansResponse, CreditCard, DashboardData, Debt, DebtPayment, DebtSummaryData, ExpenseSummary, IncomeSummaryData, Settings, SubscriptionSummaryResponse, UserProfile } from "@/lib/apiTypes";
+import type { BudgetPlanListItem, BudgetPlansResponse, CreditCard, DashboardData, Debt, DebtPayment, DebtSummaryData, ExpenseSummary, IncomeSummaryData, OnboardingProfile, OnboardingStatusResponse, Settings, SubscriptionSummaryResponse, UserProfile } from "@/lib/apiTypes";
 import type { CreateSacrificeItemResponse } from "@/types/settings";
 
 function normalizeApiError(err: unknown): ApiError {
@@ -15,7 +15,7 @@ function normalizeApiError(err: unknown): ApiError {
 export const mobileApi = createApi({
   reducerPath: "mobileApi",
   baseQuery: fakeBaseQuery<ApiError>(),
-  tagTypes: ["Dashboard", "Settings", "Subscription", "UserProfile", "BudgetPlans", "Debts", "CreditCards"],
+  tagTypes: ["Dashboard", "Settings", "Subscription", "UserProfile", "BudgetPlans", "Debts", "CreditCards", "Onboarding"],
   endpoints: (builder) => ({
     getDashboard: builder.query<DashboardData, void>({
       async queryFn() {
@@ -71,6 +71,17 @@ export const mobileApi = createApi({
         }
       },
       providesTags: ["UserProfile"],
+    }),
+    getOnboardingStatus: builder.query<OnboardingStatusResponse, void>({
+      async queryFn() {
+        try {
+          const data = await apiFetch<OnboardingStatusResponse>("/api/bff/onboarding", { cacheTtlMs: 0 });
+          return { data };
+        } catch (err: unknown) {
+          return { error: normalizeApiError(err) };
+        }
+      },
+      providesTags: ["Onboarding"],
     }),
     getPlanDebts: builder.query<Debt[], string>({
       async queryFn(budgetPlanId) {
@@ -277,6 +288,20 @@ export const mobileApi = createApi({
       },
       invalidatesTags: ["UserProfile"],
     }),
+    updateOnboardingProfile: builder.mutation<{ ok?: boolean; profile?: OnboardingProfile }, Partial<OnboardingProfile>>({
+      async queryFn(body) {
+        try {
+          const data = await apiFetch<{ ok?: boolean; profile?: OnboardingProfile }>("/api/bff/onboarding", {
+            method: "PATCH",
+            body,
+          });
+          return { data };
+        } catch (err: unknown) {
+          return { error: normalizeApiError(err) };
+        }
+      },
+      invalidatesTags: ["Onboarding", "Dashboard"],
+    }),
     updateSettings: builder.mutation<Settings, { budgetPlanId: string; changes: Record<string, unknown> }>({
       async queryFn({ budgetPlanId, changes }) {
         try {
@@ -393,6 +418,7 @@ export const {
   useGetDebtSummaryQuery,
   useGetCreditCardsQuery,
   useGetIncomeSummaryQuery,
+  useGetOnboardingStatusQuery,
   useGetSettingsQuery,
   useLazyGetDebtDetailQuery,
   useLazyGetDebtPaymentsQuery,
@@ -404,6 +430,7 @@ export const {
   useCreateDebtMutation,
   useCreateDebtPaymentMutation,
   useUpdateProfileMutation,
+  useUpdateOnboardingProfileMutation,
   useUpdateDebtMutation,
   useUpdateSettingsMutation,
   useCreateIncomeSacrificeCustomMutation,

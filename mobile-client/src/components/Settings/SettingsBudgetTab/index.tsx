@@ -56,8 +56,8 @@ export default function SettingsBudgetTab({
         <View style={styles.cardRowCenter}>
           <View style={{ flex: 1 }}>
             <Text style={styles.infoCardLabel}>Income settings</Text>
-            <Text style={styles.infoCardValue}>Salary & bonuses</Text>
-            <Text style={styles.infoCardHint}>Set monthly income and bonus month adjustments</Text>
+            <Text style={styles.infoCardValue}>Primary income setup</Text>
+            <Text style={styles.infoCardHint}>Choose the income type your budget should mainly follow</Text>
           </View>
           <Ionicons name="chevron-forward" size={18} color={T.textDim} />
         </View>

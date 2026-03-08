@@ -258,6 +258,7 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
     currentPlanIdRef.current = currentPlanId;
   }, [currentPlanId]);
   const { groupedDebts } = useSettingsDebtBuckets(debts);
+  const hasAnyDebts = debts.some((debt) => Number(debt.currentBalance ?? 0) > 0);
   const cur = currencySymbol(settings?.currency);
   const savingsBase = asMoneyNumber(settings?.savingsBalance);
   const emergencyBase = asMoneyNumber(settings?.emergencyBalance);
@@ -1420,6 +1421,7 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
     setIosPlanEventDraft,
     currentPlan,
     currentPlanId,
+    hasAnyDebts,
     detectedCountry,
     cur,
     savingsCards,

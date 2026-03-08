@@ -3,6 +3,7 @@ export type SettingsOverviewTabProps = {
   subscriptionLabel: string;
   payDateLabel: string;
   payFrequencyLabel: string;
+  debtManagementLabel: string;
   currencyLabel: string;
   notificationsLabel: string;
   versionLabel: string;
@@ -10,6 +11,7 @@ export type SettingsOverviewTabProps = {
   onOpenSubscription: () => void;
   onOpenBudget: () => void;
   onOpenIncomeSettings: () => void;
+  onOpenDebtManagement: () => void;
   onOpenSavings: () => void;
   onOpenPlans: () => void;
   onOpenLocale: () => void;

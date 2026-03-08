@@ -912,6 +912,7 @@ export default function OnboardingScreen({
               </View>
               {hasDebts ? (
                 <>
+                  <Text style={s.helper}>Choose yes if you want debt tracking turned on. You can change this later in Settings.</Text>
                   <MoneyInput
                     currency={currency}
                     value={debtAmount}

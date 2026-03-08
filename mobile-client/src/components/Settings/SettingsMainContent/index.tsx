@@ -21,22 +21,18 @@ import {
 import { styles } from "./styles";
 import { T } from "@/lib/theme";
 import type { SettingsMainContentProps } from "@/types/components/settings/SettingsMainContent.types";
+import { useGetOnboardingStatusQuery } from "@/store/api";
 
 export default function SettingsMainContent({ controller, navigation, savingsTileSize, getAddPotLabel, getSavingsTilePalette }: SettingsMainContentProps) {
   const scrollRef = React.useRef<ScrollView | null>(null);
+  const onboardingQuery = useGetOnboardingStatusQuery();
   const openIncomeSettings = React.useCallback(() => {
-    const budgetPlanId = controller.settings?.id;
-    if (!budgetPlanId) return;
-    navigation.navigate("Income" as any, {
-      screen: "IncomeMonth",
-      params: {
-        month: new Date().getMonth() + 1,
-        year: new Date().getFullYear(),
-        budgetPlanId,
-        initialMode: "income",
-      },
-    } as any);
-  }, [controller.settings?.id, navigation]);
+    navigation.navigate("SettingsIncomeSettings");
+  }, [navigation]);
+  const openDebtManagement = React.useCallback(() => {
+    navigation.navigate("SettingsDebtManagement");
+  }, [navigation]);
+  const debtManagementEnabled = controller.hasAnyDebts || onboardingQuery.data?.profile?.hasDebtsToManage === true;
 
   React.useEffect(() => {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
@@ -92,6 +88,7 @@ export default function SettingsMainContent({ controller, navigation, savingsTil
           subscriptionLabel={controller.subscription?.current.planLabel ?? "Free"}
           payDateLabel={controller.settings?.payDate ? `Day ${controller.settings.payDate}` : "Not set"}
           payFrequencyLabel={formatPayFrequency(controller.settings?.payFrequency)}
+          debtManagementLabel={debtManagementEnabled ? "On" : "Off"}
           currencyLabel={controller.settings?.currency ?? "GBP"}
           notificationsLabel={controller.notifications.dueReminders || controller.notifications.paymentAlerts || controller.notifications.dailyTips ? "On" : "Off"}
           versionLabel={getSettingsAppVersionLabel()}
@@ -99,6 +96,7 @@ export default function SettingsMainContent({ controller, navigation, savingsTil
           onOpenSubscription={() => controller.setActiveTab("subscription")}
           onOpenBudget={() => controller.setActiveTab("budget")}
           onOpenIncomeSettings={openIncomeSettings}
+          onOpenDebtManagement={openDebtManagement}
           onOpenSavings={() => controller.setActiveTab("savings")}
           onOpenPlans={() => controller.setActiveTab("plans")}
           onOpenLocale={() => controller.setActiveTab("locale")}

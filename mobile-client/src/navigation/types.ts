@@ -121,6 +121,8 @@ export type RootStackParamList = {
     username?: string;
     email?: string;
   };
+  SettingsDebtManagement: undefined;
+  SettingsIncomeSettings: undefined;
   SettingsStrategy: {
     budgetPlanId: string;
     strategy: string | null;

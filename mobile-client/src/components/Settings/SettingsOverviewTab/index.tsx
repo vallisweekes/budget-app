@@ -10,6 +10,7 @@ export default function SettingsOverviewTab({
   subscriptionLabel,
   payDateLabel,
   payFrequencyLabel,
+  debtManagementLabel,
   currencyLabel,
   notificationsLabel,
   versionLabel,
@@ -17,6 +18,7 @@ export default function SettingsOverviewTab({
   onOpenSubscription,
   onOpenBudget,
   onOpenIncomeSettings,
+  onOpenDebtManagement,
   onOpenSavings,
   onOpenPlans,
   onOpenLocale,
@@ -36,7 +38,8 @@ export default function SettingsOverviewTab({
         <SettingsLinkRow label="Budget setup" value={payDateLabel} onPress={onOpenBudget} />
         <SettingsLinkRow label="Pay schedule" value={payFrequencyLabel} onPress={onOpenBudget} />
         <SettingsLinkRow label="Income settings" onPress={onOpenIncomeSettings} />
-        <SettingsLinkRow label="Savings & debts" onPress={onOpenSavings} />
+        <SettingsLinkRow label="Debt management" value={debtManagementLabel} onPress={onOpenDebtManagement} />
+        <SettingsLinkRow label="Savings and cards" onPress={onOpenSavings} />
         <SettingsLinkRow label="Plans" onPress={onOpenPlans} />
       </SettingsSection>
 

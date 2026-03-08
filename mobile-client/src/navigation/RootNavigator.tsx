@@ -36,15 +36,18 @@ import DebtScreen from "@/screens/DebtScreen";
 import DebtDetailScreen from "@/screens/DebtDetailScreen";
 import DebtAnalyticsScreen from "@/screens/DebtAnalyticsScreen";
 import SettingsScreen from "@/screens/SettingsScreen";
+import SettingsDebtManagementScreen from "@/screens/SettingsDebtManagementScreen";
 import PaymentsScreen from "@/screens/PaymentsScreen";
 import GoalsScreen from "@/screens/GoalsScreen";
 import GoalDetailScreen from "@/screens/GoalDetailScreen";
 import GoalsProjectionScreen from "@/screens/GoalsProjectionScreen";
 import AnalyticsScreen from "@/screens/AnalyticsScreen";
 import PrivacyPolicyScreen from "@/screens/PrivacyPolicyScreen";
+import SettingsIncomeSettingsScreen from "@/screens/SettingsIncomeSettingsScreen";
 import SettingsProfileDetailsScreen from "@/screens/SettingsProfileDetailsScreen";
 import SettingsStrategyScreen from "@/screens/SettingsStrategyScreen";
 import OnboardingScreen from "@/screens/OnboardingScreen";
+import { useGetOnboardingStatusQuery } from "@/store/api";
 
 const MONTH_NAMES_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -827,9 +830,14 @@ const s = StyleSheet.create({
 });
 
 function MainTabs() {
-  const { signOut } = useAuth();
+  const { signOut, token } = useAuth();
+  const { dashboard } = useBootstrapData();
+  const onboardingQuery = useGetOnboardingStatusQuery(undefined, { skip: !token });
   const incomePendingCount = 0;
   const hasNotificationDot = false;
+  const hasActualDebts = (dashboard?.debts ?? []).some((debt) => Number(debt?.currentBalance ?? 0) > 0);
+  const debtManagementEnabled = onboardingQuery.data?.profile?.hasDebtsToManage === true;
+  const showDebtsTab = hasActualDebts || debtManagementEnabled;
 
   return (
     <Tab.Navigator
@@ -1159,15 +1167,17 @@ function MainTabs() {
           ),
         }}
       />
-      <Tab.Screen
-        name="Debts"
-        component={DebtStackNavigator}
-        options={{
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="card-outline" size={size} color={color} />
-          ),
-        }}
-      />
+      {showDebtsTab ? (
+        <Tab.Screen
+          name="Debts"
+          component={DebtStackNavigator}
+          options={{
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="card-outline" size={size} color={color} />
+            ),
+          }}
+        />
+      ) : null}
       <Tab.Screen
         name="Income"
         component={IncomeStackNavigator}
@@ -1412,6 +1422,8 @@ export default function RootNavigator() {
             />
             <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
             <Stack.Screen name="SettingsProfileDetails" component={SettingsProfileDetailsScreen} />
+            <Stack.Screen name="SettingsDebtManagement" component={SettingsDebtManagementScreen} />
+            <Stack.Screen name="SettingsIncomeSettings" component={SettingsIncomeSettingsScreen} />
             <Stack.Screen name="SettingsStrategy" component={SettingsStrategyScreen} />
           </>
         )
