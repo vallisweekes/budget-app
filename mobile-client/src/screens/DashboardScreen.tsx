@@ -38,6 +38,72 @@ const GOAL_SIDE = 16;
 const GOAL_CARD = Math.max(122, Math.round((W - GOAL_SIDE * 2 - GOAL_GAP) / 2));
 const GOAL_ADD_W = Math.max(52, Math.round(GOAL_CARD * 0.34));
 
+function DashboardAiTipsCard({
+  tips,
+}: {
+  tips: Array<{ title: string; detail: string; priority?: number }>;
+}) {
+  const validTips = useMemo(
+    () => tips.filter((tip) => String(tip?.title ?? "").trim() && String(tip?.detail ?? "").trim()),
+    [tips]
+  );
+  const [activeTipIndex, setActiveTipIndex] = useState(0);
+
+  useEffect(() => {
+    setActiveTipIndex(0);
+  }, [validTips]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (validTips.length <= 1) return undefined;
+
+      const timer = setInterval(() => {
+        setActiveTipIndex((current) => (current + 1) % validTips.length);
+      }, 20000);
+
+      return () => clearInterval(timer);
+    }, [validTips.length])
+  );
+
+  const activeTip = validTips.length ? validTips[activeTipIndex % validTips.length] : null;
+
+  if (!activeTip) return null;
+
+  return (
+    <View style={styles.aiTipsCard}>
+      <View style={styles.aiTipsHeader}>
+        <View style={styles.aiTipsTitleWrap}>
+          <View style={styles.aiTipsIconWrap}>
+            <Ionicons name="bulb-outline" size={16} color={T.accent} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.aiTipsTitle}>AI Tips</Text>
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.aiTipsBody}>
+        <View style={styles.aiTipsMetaRow}>
+          <Text style={styles.aiTipHeadline}>{activeTip.title}</Text>
+          {Number(activeTip.priority ?? 0) >= 80 ? <Text style={styles.aiTipPriority}>High priority</Text> : null}
+        </View>
+        <Text style={styles.aiTipDetail}>{activeTip.detail}</Text>
+      </View>
+
+      {validTips.length > 1 ? (
+        <View style={styles.aiTipsDots}>
+          {validTips.map((tip, idx) => (
+            <View
+              key={`${tip.title}-${idx}`}
+              style={[styles.aiTipsDot, idx === activeTipIndex ? styles.aiTipsDotActive : null]}
+            />
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 export default function DashboardScreen({ navigation }: { navigation: any }) {
   const scrollRef = useRef<ScrollView>(null);
   useScrollToTop(scrollRef);
@@ -152,6 +218,7 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
 
   const needsSetup = totalIncome <= 0 || totalExpenses <= 0;
   const recap = dashboard?.expenseInsights?.recap ?? null;
+  const dashboardTips = dashboard?.expenseInsights?.recapTips ?? [];
   const hasRecapData = Boolean(
     recap && (
       (recap.paidCount ?? 0) > 0
@@ -377,6 +444,8 @@ export default function DashboardScreen({ navigation }: { navigation: any }) {
             )}
           </View>
         }
+
+        <DashboardAiTipsCard tips={dashboardTips} />
 
         {/* Upcoming Debts */}
         {upcomingDebts.length > 0 && (
@@ -645,6 +714,92 @@ const styles = StyleSheet.create({
     ...textLabel,
     fontWeight: "800",
     marginBottom: 10,
+  },
+  aiTipsCard: {
+    ...cardElevated,
+    marginTop: 12,
+    padding: 16,
+    gap: 14,
+  },
+  aiTipsHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  aiTipsTitleWrap: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+  },
+  aiTipsIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: T.accentDim,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 1,
+  },
+  aiTipsTitle: {
+    color: T.text,
+    fontSize: 16,
+    fontWeight: "900",
+    letterSpacing: -0.2,
+  },
+  aiTipsBody: {
+    borderRadius: 16,
+    backgroundColor: T.cardAlt,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: T.border,
+    padding: 14,
+    gap: 8,
+  },
+  aiTipsMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  aiTipHeadline: {
+    flex: 1,
+    color: T.text,
+    fontSize: 15,
+    fontWeight: "900",
+    letterSpacing: -0.2,
+  },
+  aiTipPriority: {
+    color: T.accent,
+    fontSize: 11,
+    fontWeight: "900",
+    backgroundColor: T.accentDim,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    overflow: "hidden",
+  },
+  aiTipDetail: {
+    color: T.textDim,
+    fontSize: 13,
+    fontWeight: "600",
+    lineHeight: 20,
+  },
+  aiTipsDots: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  aiTipsDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 999,
+    backgroundColor: T.border,
+  },
+  aiTipsDotActive: {
+    width: 18,
+    backgroundColor: T.accent,
   },
   currentPeriodBadge: {
     alignSelf: "flex-start",
