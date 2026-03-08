@@ -64,6 +64,7 @@ model User {
   mobileAuthSessions MobileAuthSession[]
   webPushSubscriptions WebPushSubscription[]
   mobilePushTokens MobilePushToken[]
+  notificationDeliveries NotificationDelivery[]
   receipts       Receipt[]
   
   createdAt     DateTime     @default(now())
@@ -187,6 +188,27 @@ model MobilePushToken {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+model NotificationDelivery {
+  id           String     @id @default(cuid())
+  userId       String
+  budgetPlanId String?
+  type         String
+  priority     String     @default("low")
+  channel      String
+  title        String
+  reason       String?
+  metadataJson String?    @db.Text
+  sentAt       DateTime   @default(now())
+  createdAt    DateTime   @default(now())
+
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  budgetPlan   BudgetPlan? @relation(fields: [budgetPlanId], references: [id], onDelete: SetNull)
+
+  @@index([userId, sentAt])
+  @@index([userId, type, sentAt])
+  @@index([budgetPlanId, sentAt])
 }
 
 model VerificationToken {
