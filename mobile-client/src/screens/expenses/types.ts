@@ -1,0 +1,47 @@
+import type React from "react";
+import type { PanResponderInstance, ScrollView } from "react-native";
+
+import type { BudgetPlanListItem, ExpenseCategoryBreakdown, ExpenseMonthsResponse, ExpenseSummary } from "@/lib/apiTypes";
+
+export type ExpensesScreenControllerState = {
+  activePlan: BudgetPlanListItem | null;
+  addSheetOpen: boolean;
+  allPeriodMonths: number[];
+  categoriesForAddSheet: ExpenseCategoryBreakdown[];
+  currency: string;
+  enabledPeriodSet: Set<number>;
+  error: string | null;
+  expenseMonths: ExpenseMonthsResponse["months"];
+  isPersonalPlan: boolean;
+  loadingUi: boolean;
+  month: number;
+  monthPickerOpen: boolean;
+  pickerYear: number;
+  planScrollRef: React.RefObject<ScrollView | null>;
+  planSwipeHandlers: PanResponderInstance["panHandlers"];
+  planTotalAmount: number;
+  plans: BudgetPlanListItem[];
+  previousSummary: ExpenseSummary | null;
+  refreshing: boolean;
+  selectedPeriodRange: string;
+  selectedPlanTabId: string | null;
+  showPlanTotalFallback: boolean;
+  showTopAddExpenseCta: boolean;
+  summary: ExpenseSummary | null;
+  topHeaderOffset: number;
+  year: number;
+  closeAddSheet: () => void;
+  closeMonthPicker: () => void;
+  onAddComplete: () => void;
+  onOpenAddSheet: () => void;
+  onOpenMonthPicker: () => void;
+  onPlanItemLayout: (planId: string, x: number, width: number, selected: boolean) => void;
+  onPlanTabsLayout: (width: number) => void;
+  onPressCategory: (category: ExpenseCategoryBreakdown) => void;
+  onPressPlan: (planId: string) => void;
+  onPressUpcomingMonth: (targetMonth: number, targetYear: number) => void;
+  onRefresh: () => void;
+  onRetry: () => void;
+  onSelectPickerMonth: (targetMonth: number) => void;
+  setPickerYear: React.Dispatch<React.SetStateAction<number>>;
+};
