@@ -18,9 +18,7 @@ import {
 import PaymentSheet from "@/components/Debts/Detail/PaymentSheet";
 import DeleteConfirmSheet from "@/components/Shared/DeleteConfirmSheet";
 import { clearScheduledUnpaidReminders, notifyPaymentStatus, scheduleUnpaidFollowUpReminders, scheduleUnpaidReminder } from "@/lib/unpaidReminder";
-import type { QuickPaymentActionItem, QuickPaymentActionSheetProps } from "@/types";
-
-const SHEET_BLUE = "#2a0a9e";
+import type { QuickPaymentActionSheetProps } from "@/types";
 
 export default function QuickPaymentActionSheet({ visible, item, currency, insetsBottom, onClose, onUpdated }: QuickPaymentActionSheetProps) {
   const { dragY, panHandlers, resetDrag } = useSwipeDownToClose({ onClose });

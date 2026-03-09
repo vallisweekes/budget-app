@@ -185,19 +185,19 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
   useEffect(() => { if (createPlanSheetOpen) resetCreatePlanSheetDrag(); }, [createPlanSheetOpen, resetCreatePlanSheetDrag]);
 
   const [editDebtName, setEditDebtName] = useState("");
-  const [editDebtType, setEditDebtType] = useState<DebtKind>("credit_card");
+  const [, setEditDebtType] = useState<DebtKind>("credit_card");
   const [editDebtInitialBalance, setEditDebtInitialBalance] = useState("");
   const [editDebtBalance, setEditDebtBalance] = useState("");
   const [editDebtLimit, setEditDebtLimit] = useState("");
-  const [editDebtMonthlyPayment, setEditDebtMonthlyPayment] = useState("");
+  const [, setEditDebtMonthlyPayment] = useState("");
   const [editDebtInterestRate, setEditDebtInterestRate] = useState("");
 
   const [addDebtName, setAddDebtName] = useState("");
-  const [addDebtType, setAddDebtType] = useState<DebtKind>("credit_card");
+  const [, setAddDebtType] = useState<DebtKind>("credit_card");
   const [addDebtInitialBalance, setAddDebtInitialBalance] = useState("");
   const [addDebtBalance, setAddDebtBalance] = useState("");
   const [addDebtLimit, setAddDebtLimit] = useState("");
-  const [addDebtMonthlyPayment, setAddDebtMonthlyPayment] = useState("");
+  const [, setAddDebtMonthlyPayment] = useState("");
   const [addDebtInterestRate, setAddDebtInterestRate] = useState("");
 
   const [newPlanName, setNewPlanName] = useState("");

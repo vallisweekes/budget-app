@@ -21,7 +21,6 @@ export default function PayoffChart({ balance, monthlyPayment, interestRate, cur
     monthsLeftOverride,
     paidOffByOverride,
   });
-  const totalMonthsComputed = fallbackSummary.totalMonthsComputed;
   const totalMonths = monthsLeftOverride != null ? Math.max(0, monthsLeftOverride) : fallbackSummary.totalMonths;
   const cannotPayoff = typeof cannotPayoffOverride === "boolean" ? cannotPayoffOverride : fallbackSummary.cannotPayoff;
   const payoffLabel = payoffLabelOverride ?? fallbackSummary.payoffLabel;

@@ -3,7 +3,6 @@ import { Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as LucideIcons from "lucide-react-native";
 
-import type { Expense } from "@/lib/apiTypes";
 import { resolveCategoryColor, withOpacity } from "@/lib/categoryColors";
 import { fmt } from "@/lib/formatting";
 import { T } from "@/lib/theme";

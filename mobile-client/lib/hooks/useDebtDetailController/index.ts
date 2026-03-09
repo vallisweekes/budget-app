@@ -66,11 +66,6 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
     return n.toFixed(2);
   }, []);
 
-  const roundMoney = useCallback((value: number): number => {
-    if (!Number.isFinite(value)) return 0;
-    return Math.round(value * 100) / 100;
-  }, []);
-
   const roundMoneyUp = useCallback((value: number): number => {
     if (!Number.isFinite(value)) return 0;
     return Math.ceil(value * 100) / 100;

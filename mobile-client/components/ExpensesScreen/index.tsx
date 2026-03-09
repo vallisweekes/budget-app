@@ -22,7 +22,6 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useScrollToTop } from "@react-navigation/native";
 
 import AddExpenseSheet from "@/components/Expenses/AddExpenseSheet";

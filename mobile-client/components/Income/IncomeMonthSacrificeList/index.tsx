@@ -4,7 +4,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { styles } from "./styles";
 
-import type { IncomeSacrificeData } from "@/lib/apiTypes";
 import { fmt, MONTH_NAMES_LONG } from "@/lib/formatting";
 import { useSwipeDownToClose } from "@/hooks";
 import { T } from "@/lib/theme";

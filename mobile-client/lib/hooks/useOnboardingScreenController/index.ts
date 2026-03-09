@@ -248,6 +248,7 @@ export function useOnboardingScreenController({ initial, onCompleted }: Onboardi
         if (!mounted) return;
         setCurrency(settings?.currency ?? "GBP");
       } catch {
+        // Best effort only; onboarding can continue with the default currency.
       }
     })();
     return () => {

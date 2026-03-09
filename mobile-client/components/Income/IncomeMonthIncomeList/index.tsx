@@ -1,8 +1,7 @@
 import React from "react";
-import { FlatList, Modal, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { FlatList, Modal, Pressable, RefreshControl, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-import type { Income, IncomeMonthData } from "@/lib/apiTypes";
 import { fmt } from "@/lib/formatting";
 import { T } from "@/lib/theme";
 import IncomeMonthStats from "@/components/Income/IncomeMonthStats";
@@ -11,6 +10,8 @@ import { IncomeRow } from "@/components/Income/IncomeSourceItem";
 import { IncomeAddForm } from "@/components/Income/IncomeAddForm";
 import { s } from "@/components/IncomeMonthScreen/style";
 import type { IncomeMonthIncomeListProps } from "@/types";
+
+import { incomeMonthIncomeListSheet as sheet } from "./style";
 
 export default function IncomeMonthIncomeList({
   items,
@@ -101,32 +102,3 @@ export default function IncomeMonthIncomeList({
     </>
   );
 }
-
-const sheet = {
-  overlay: {
-    flex: 1,
-    justifyContent: "flex-end",
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.45)",
-  },
-  sheet: {
-    backgroundColor: T.bg,
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
-    borderWidth: 1,
-    borderColor: T.border,
-    height: "82%",
-    paddingBottom: 16,
-  },
-  handle: {
-    width: 42,
-    height: 4,
-    borderRadius: 2,
-    alignSelf: "center",
-    marginTop: 8,
-    marginBottom: 4,
-    backgroundColor: T.border,
-  },
-} as const;

@@ -1,6 +1,5 @@
 import React from "react";
 import { ActivityIndicator, Pressable, Text, TextInput, View } from "react-native";
-import type { IncomeSacrificeCustomItem, IncomeSacrificeFixed } from "@/lib/apiTypes";
 import { T } from "@/lib/theme";
 import { fmt } from "@/lib/formatting";
 import MoneyInput from "@/components/Shared/MoneyInput";

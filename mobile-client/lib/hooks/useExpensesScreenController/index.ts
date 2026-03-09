@@ -24,8 +24,6 @@ import type { ExpensesScreenControllerState } from "@/types/ExpensesScreen.types
 
 type Props = NativeStackScreenProps<ExpensesStackParamList, "ExpensesList">;
 
-const SHORT_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
 export function useExpensesScreenController({ navigation, route }: Props): ExpensesScreenControllerState {
   const topHeaderOffset = useTopHeaderOffset();
   const now = new Date();
@@ -203,13 +201,6 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     const valid = dates.filter((date): date is Date => Boolean(date && !Number.isNaN(date.getTime())));
     if (valid.length === 0) return null;
     return valid.reduce((latest, current) => (current.getTime() > latest.getTime() ? current : latest));
-  }, []);
-
-  const periodSpanLabel = useCallback((targetMonth: number) => {
-    const safeMonth = Math.max(1, Math.min(12, targetMonth));
-    const start = SHORT_MONTHS[(safeMonth + 10) % 12];
-    const end = SHORT_MONTHS[(safeMonth + 11) % 12];
-    return `${start} - ${end}`;
   }, []);
 
   const clearExpenseCaches = useCallback(() => {

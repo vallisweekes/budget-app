@@ -3,7 +3,6 @@
  *
  * Bottom sheet that slides almost to the top of the screen.
  * Fields: Name · Amount · Category · Paid toggle · Due date (optional)
- * Calls POST /api/bff/expenses then triggers onAdded so the parent can refresh.
  */
 
 import React, { useEffect, useRef, useState } from "react";
@@ -308,8 +307,9 @@ export default function AddExpenseSheet({
         if (seq !== expenseSuggestionsSeqRef.current) return;
         setExpenseSuggestions([]);
       } finally {
-        if (seq !== expenseSuggestionsSeqRef.current) return;
-        setExpenseSuggestionsLoading(false);
+        if (seq === expenseSuggestionsSeqRef.current) {
+          setExpenseSuggestionsLoading(false);
+        }
       }
     })();
   }, [visible, effectivePlanId, categoryId]);

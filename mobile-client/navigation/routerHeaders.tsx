@@ -161,7 +161,7 @@ export function IncomeMonthSwitcher({
 export function RootTopHeader({ navigation }: { navigation: any }) {
   const { signOut } = useAuth();
   const [incomePendingCount, setIncomePendingCount] = useState(0);
-  const [pendingBudgetPlanId, setPendingBudgetPlanId] = useState<string | null>(null);
+  const [, setPendingBudgetPlanId] = useState<string | null>(null);
   const [hasNotificationDot, setHasNotificationDot] = useState(false);
   const now = new Date();
   const nowMonth = now.getMonth() + 1;

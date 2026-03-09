@@ -14,7 +14,6 @@ import { styles } from "./style";
 export default function UnplannedExpenseForm({
   amount,
   canSubmit,
-  categoryId,
   currency,
   fundingLabel,
   fundingSource,

@@ -17,10 +17,7 @@ export function computeBudgetDonutMetrics(
 ): BudgetDonutMetrics {
   const safeBudget = Math.max(0, totalBudget ?? 0);
   const safeExpenses = Math.max(0, totalExpenses ?? 0);
-  const safePaid = Math.max(0, paidTotal ?? 0);
-
-  const paid = Math.min(safeExpenses, safePaid);
-  const committed = Math.max(0, safeExpenses - paid);
+  void paidTotal;
   const left = safeBudget - safeExpenses;
   const spentWithinBudget = Math.min(safeBudget, safeExpenses);
   const remainingBudget = Math.max(0, safeBudget - spentWithinBudget);

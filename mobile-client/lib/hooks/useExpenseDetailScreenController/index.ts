@@ -50,7 +50,7 @@ export function useExpenseDetailScreenController({ route, navigation }: Props): 
   const [logoFailed, setLogoFailed] = useState(false);
   const [frequency, setFrequency] = useState<ExpenseFrequencyResponse | null>(null);
   const [frequencyLoading, setFrequencyLoading] = useState(false);
-  const [frequencyResolved, setFrequencyResolved] = useState(false);
+  const [, setFrequencyResolved] = useState(false);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [tipIndex, setTipIndex] = useState(0);
 
@@ -148,9 +148,10 @@ export function useExpenseDetailScreenController({ route, navigation }: Props): 
       } catch {
         if (!cancelled) setFrequency(null);
       } finally {
-        if (cancelled) return;
-        setFrequencyLoading(false);
-        setFrequencyResolved(true);
+        if (!cancelled) {
+          setFrequencyLoading(false);
+          setFrequencyResolved(true);
+        }
       }
     })();
     return () => {

@@ -1,6 +1,4 @@
 import type {
-  BillFrequency,
-  PayFrequency,
   SavingsBalanceField,
   SavingsField,
   SavingsPot,

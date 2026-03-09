@@ -2,10 +2,10 @@ export function sanitizeMoneyDraft(text: string): string {
   const raw = String(text ?? "")
     .replace(/\s+/g, "")
     .replace(/,/g, ".")
-    .replace(/[^0-9.\-]/g, "");
+    .replace(/[^0-9.-]/g, "");
 
   const sign = raw.startsWith("-") ? "-" : "";
-  const withoutSign = raw.replace(/\-/g, "");
+  const withoutSign = raw.replace(/-/g, "");
 
   const parts = withoutSign.split(".");
   const intPart = (parts[0] ?? "").replace(/^0+(?=\d)/, "0");

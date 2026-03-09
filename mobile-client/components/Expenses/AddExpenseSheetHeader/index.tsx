@@ -8,7 +8,7 @@ import { styles as s } from "@/components/Expenses/AddExpenseSheet/styles";
 
 export default function AddExpenseSheetHeader({
   month,
-  year,
+  year: _year,
   title = "Add Expense",
   canPrev = true,
   onPrevMonth,

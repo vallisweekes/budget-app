@@ -118,7 +118,7 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
             dashboard: dashResult.data ?? null,
             settings: settingsResult.data ?? null,
           };
-        } catch (err: unknown) {
+        } catch {
           return { dashboard: currentDashboard, settings: currentSettings };
         } finally {
           setIsRefreshing(false);

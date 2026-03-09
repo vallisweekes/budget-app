@@ -1,5 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
-
 import type { OnboardingGoal, OnboardingProfile } from "@/lib/apiTypes";
 import { DEFAULT_VISIBLE_GOALS } from "@/lib/constants";
 
