@@ -5,9 +5,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import type { SelectionItem, UnplannedExpenseScreenProps } from "@/types";
 import { FUNDING_OPTIONS, NEW_LOAN_SENTINEL } from "@/lib/constants";
 import { currencySymbol } from "@/lib/formatting";
-import { useTopHeaderOffset } from "@/hooks";
+import { useTopHeaderOffset, useUnplannedExpenseScreenController } from "@/hooks";
 import { T } from "@/lib/theme";
-import { useUnplannedExpenseScreenController } from "@/hooks";
 
 import MonthPickerSheet from "./MonthPickerSheet";
 import SelectionSheet from "./SelectionSheet";

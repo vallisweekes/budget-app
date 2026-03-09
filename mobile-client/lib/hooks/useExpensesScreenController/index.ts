@@ -17,8 +17,7 @@ import type {
 } from "@/lib/apiTypes";
 import { clearCachedPayPeriodExpenses, setCachedPayPeriodExpenses } from "@/lib/expensePeriodCache";
 import { currencySymbol } from "@/lib/formatting";
-import { useTopHeaderOffset } from "@/hooks";
-import { useYearGuard } from "@/hooks";
+import { useTopHeaderOffset, useYearGuard } from "@/hooks";
 import { buildPayPeriodFromMonthAnchor, getPayPeriodAnchorFromWindow, normalizePayFrequency, resolveActivePayPeriod } from "@/lib/payPeriods";
 import type { ExpensesStackParamList } from "@/navigation/types";
 import type { ExpensesScreenControllerState } from "@/types/ExpensesScreen.types";

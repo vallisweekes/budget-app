@@ -5,8 +5,7 @@ import { useFocusEffect, useScrollToTop } from "@react-navigation/native";
 
 import { useBootstrapData, isNoBudgetPlanError } from "@/context/BootstrapDataContext";
 import { currencySymbol, normalizeUpcomingName } from "@/lib/formatting";
-import { useTopHeaderOffset } from "@/hooks";
-import { useSwipeDownToClose } from "@/hooks";
+import { useSwipeDownToClose, useTopHeaderOffset } from "@/hooks";
 import type { MainTabScreenProps } from "@/navigation/types";
 import type { QuickPaymentActionItem } from "@/types";
 import { buildDashboardDerived } from "@/components/DashboardScreen/derived";

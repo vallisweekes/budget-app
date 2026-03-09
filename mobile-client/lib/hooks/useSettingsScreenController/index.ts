@@ -13,10 +13,7 @@ import type {
   UserProfile,
 } from "@/lib/apiTypes";
 import { currencySymbol } from "@/lib/formatting";
-import { useSavingsPotStore } from "@/hooks";
-import { useSettingsDebtBuckets } from "@/hooks";
-import { useSwipeDownToClose } from "@/hooks";
-import { useTopHeaderOffset } from "@/hooks";
+import { useSavingsPotStore, useSettingsDebtBuckets, useSwipeDownToClose, useTopHeaderOffset } from "@/hooks";
 import {
   deleteNotificationInboxItem,
   markNotificationInboxItemRead,
