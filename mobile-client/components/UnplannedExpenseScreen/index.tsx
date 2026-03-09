@@ -13,9 +13,15 @@ import SelectionSheet from "./SelectionSheet";
 import { styles } from "./style";
 import UnplannedExpenseForm from "./UnplannedExpenseForm";
 
+type UseUnplannedExpenseScreenControllerCompat = (
+  onSuccess: () => void,
+  initialPeriod?: { month?: number; year?: number },
+) => ReturnType<typeof useUnplannedExpenseScreenController>;
+
 export default function UnplannedExpenseScreen({ navigation, route }: UnplannedExpenseScreenProps) {
   const topOffset = useTopHeaderOffset();
-  const controller = useUnplannedExpenseScreenController(() => navigation.goBack(), {
+  const useUnplannedExpenseScreenControllerCompat = useUnplannedExpenseScreenController as UseUnplannedExpenseScreenControllerCompat;
+  const controller = useUnplannedExpenseScreenControllerCompat(() => navigation.goBack(), {
     month: route.params?.month,
     year: route.params?.year,
   });

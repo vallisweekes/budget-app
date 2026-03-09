@@ -18,7 +18,30 @@ function paymentSourceForFunding(funding: FundingSource): "income" | "savings" |
 export function useUnplannedExpenseScreenController(
   onSuccess: () => void,
   initialPeriod?: { month?: number; year?: number },
+): ReturnType<typeof useUnplannedExpenseScreenControllerImpl>;
+export function useUnplannedExpenseScreenController(params: {
+  onSuccess: () => void;
+  initialPeriod?: { month?: number; year?: number };
+}): ReturnType<typeof useUnplannedExpenseScreenControllerImpl>;
+export function useUnplannedExpenseScreenController(
+  onSuccessOrParams: (() => void) | {
+    onSuccess: () => void;
+    initialPeriod?: { month?: number; year?: number };
+  },
+  initialPeriodArg?: { month?: number; year?: number },
 ) {
+  const params = typeof onSuccessOrParams === "function"
+    ? { onSuccess: onSuccessOrParams, initialPeriod: initialPeriodArg }
+    : onSuccessOrParams;
+
+  return useUnplannedExpenseScreenControllerImpl(params);
+}
+
+function useUnplannedExpenseScreenControllerImpl(params: {
+  onSuccess: () => void;
+  initialPeriod?: { month?: number; year?: number };
+}) {
+  const { onSuccess, initialPeriod } = params;
   const now = new Date();
   const initialMonth = Number(initialPeriod?.month);
   const initialYear = Number(initialPeriod?.year);

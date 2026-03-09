@@ -13,6 +13,7 @@ export * from "./useOnboardingScreenController";
 export * from "./usePaymentsSections";
 export * from "./useSavingsPotStore";
 export * from "./useSettingsDebtBuckets";
+export * from "./useSettingsIncomeSettingsScreenController";
 export * from "./useSettingsScreenController";
 export * from "./useSwipeDownToClose";
 export * from "./useTopHeaderOffset";

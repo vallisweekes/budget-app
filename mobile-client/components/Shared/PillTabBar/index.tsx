@@ -58,7 +58,7 @@ function getDeepestRouteName(state: unknown): string | null {
   return null;
 }
 
-export default function PillTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
+export default function PillTabBar({ state, descriptors: _descriptors, navigation }: BottomTabBarProps) {
   const [barWidth, setBarWidth] = useState(0);
   const [barHeight, setBarHeight] = useState(0);
   const activeRouteName = getRouteBaseName(state.routes[state.index]?.name);
