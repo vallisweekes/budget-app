@@ -19,7 +19,10 @@ export const store = configureStore({
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
       serializableCheck: {
-        ignoredActions: [],
+        ignoredActions: [
+          `${mobileApi.reducerPath}/executeQuery/rejected`,
+          `${mobileApi.reducerPath}/executeMutation/rejected`,
+        ],
       },
     }).concat(mobileApi.middleware),
 });

@@ -18,6 +18,7 @@ import type {
 } from "@/lib/apiTypes";
 import { clearCachedPayPeriodExpenses, getCachedPayPeriodExpenses, setCachedPayPeriodExpenses } from "@/lib/expensePeriodCache";
 import { currencySymbol } from "@/lib/formatting";
+import { consumeSkipExpensesFocusReload } from "@/lib/helpers/expensesFocusReload";
 import { useTopHeaderOffset, useYearGuard } from "@/hooks";
 import { buildPayPeriodFromMonthAnchor, getPayPeriodAnchorFromWindow, normalizePayFrequency, resolveActivePayPeriod } from "@/lib/payPeriods";
 import type { ExpensesStackParamList } from "@/navigation/types";
@@ -712,6 +713,9 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     useCallback(() => {
       if (skipFirstFocusReloadRef.current) {
         skipFirstFocusReloadRef.current = false;
+        return;
+      }
+      if (consumeSkipExpensesFocusReload()) {
         return;
       }
       if (skipNextChildFocusReloadRef.current) {

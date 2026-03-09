@@ -1,5 +1,6 @@
 import React from "react";
 import { Ionicons } from "@expo/vector-icons";
+import { StackActions } from "@react-navigation/native";
 import { Pressable, Text, View } from "react-native";
 import { Tabs } from "expo-router";
 import { useRouter } from "expo-router";
@@ -8,6 +9,7 @@ import PillTabBar from "@/components/Shared/PillTabBar";
 import TopHeader from "@/components/Shared/TopHeader";
 import { useActiveBudgetPlan } from "@/context/ActiveBudgetPlanContext";
 import { useAuth } from "@/context/AuthContext";
+import { markSkipExpensesFocusReload } from "@/lib/helpers/expensesFocusReload";
 import { T } from "@/lib/theme";
 
 function getDeepestRoute(state: any): any {
@@ -40,6 +42,19 @@ function TabsHeader({ navigation, route }: { navigation: any; route: any }) {
     const routeName = findTabRouteName(baseName);
     if (!routeName) return false;
     navigation.navigate(routeName, params);
+    return true;
+  };
+
+  const popCurrentTabStack = () => {
+    const routes = Array.isArray(navigationState?.routes) ? navigationState.routes : [];
+    const currentTabRoute = routes.find((entry: { name?: string }) => getRouteBaseName(entry?.name) === currentTabName) as { state?: { index?: number; key?: string } } | undefined;
+    const stackKey = currentTabRoute?.state?.key;
+    const stackIndex = Number(currentTabRoute?.state?.index);
+    if (!stackKey || !Number.isFinite(stackIndex) || stackIndex <= 0) return false;
+    navigation.dispatch({
+      ...StackActions.pop(1),
+      target: stackKey,
+    });
     return true;
   };
 
@@ -128,6 +143,10 @@ function TabsHeader({ navigation, route }: { navigation: any; route: any }) {
     }
 
     if (isCategoryExpenses) {
+      markSkipExpensesFocusReload();
+      if (popCurrentTabStack()) {
+        return;
+      }
       if (!navigateToTab("expenses", {
         screen: "ExpensesList",
         params: hasCategoryMonthYear

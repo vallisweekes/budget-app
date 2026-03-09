@@ -4,17 +4,37 @@ import { ApiError, apiFetch } from "@/lib/api";
 import type { BudgetPlanListItem, BudgetPlansResponse, CreditCard, DashboardData, Debt, DebtPayment, DebtSummaryData, ExpenseSummary, IncomeSummaryData, OnboardingProfile, OnboardingStatusResponse, Settings, SubscriptionSummaryResponse, UserProfile } from "@/lib/apiTypes";
 import type { CreateSacrificeItemResponse } from "@/types/settings";
 
-function normalizeApiError(err: unknown): ApiError {
-  if (err instanceof ApiError) return err;
-  return new ApiError(err instanceof Error ? err.message : "Request failed", {
+type MobileApiError = {
+  name: string;
+  message: string;
+  status: number;
+  code: string | null;
+  detail: string | null;
+};
+
+function normalizeApiError(err: unknown): MobileApiError {
+  if (err instanceof ApiError) {
+    return {
+      name: err.name,
+      message: err.message,
+      status: err.status,
+      code: err.code,
+      detail: err.detail,
+    };
+  }
+
+  return {
+    name: err instanceof Error && err.name ? err.name : "ApiError",
+    message: err instanceof Error ? err.message : "Request failed",
     status: 500,
     code: "UNKNOWN_ERROR",
-  });
+    detail: null,
+  };
 }
 
 export const mobileApi = createApi({
   reducerPath: "mobileApi",
-  baseQuery: fakeBaseQuery<ApiError>(),
+  baseQuery: fakeBaseQuery<MobileApiError>(),
   tagTypes: ["Dashboard", "Settings", "Subscription", "UserProfile", "BudgetPlans", "Debts", "CreditCards", "Onboarding"],
   endpoints: (builder) => ({
     getDashboard: builder.query<DashboardData, void>({

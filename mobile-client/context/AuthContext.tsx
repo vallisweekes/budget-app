@@ -141,6 +141,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const tokenSnapshot = await getSessionToken();
 
     try {
+      suppressUnauthorizedCallback(true);
+
+      await Promise.all([clearSessionToken(), clearStoredUsername()]);
+      invalidateApiCache();
+      store.dispatch(mobileApi.util.resetApiState());
+      setAuthState({ token: null, username: null, isLoading: false });
+
       try {
         if (tokenSnapshot) {
           const baseUrl = getApiBaseUrl();
@@ -156,19 +163,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch {
         // Ignore network/server failures during logout; local sign-out still proceeds.
       }
-
-      // Abort if a fresher token was stored while we were awaiting above.
-      // This prevents a stale 401 sign-out from killing a just-logged-in session.
-      const currentToken = await getSessionToken();
-      if (tokenSnapshot !== currentToken) {
-        return;
-      }
-
-      await Promise.all([clearSessionToken(), clearStoredUsername()]);
-      invalidateApiCache();
-      store.dispatch(mobileApi.util.resetApiState());
-      setAuthState({ token: null, username: null, isLoading: false });
     } finally {
+      suppressUnauthorizedCallback(false);
       signOutInFlightRef.current = false;
     }
   }, [setAuthState]);

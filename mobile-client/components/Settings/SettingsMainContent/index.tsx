@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } 
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 
+import { useBootstrapData } from "@/context/BootstrapDataContext";
 import SettingsBudgetTab from "@/components/Settings/SettingsBudgetTab";
 import SettingsDangerTab from "@/components/Settings/SettingsDangerTab";
 import SettingsLocaleTab from "@/components/Settings/SettingsLocaleTab";
@@ -27,6 +28,7 @@ import { useGetOnboardingStatusQuery } from "@/store/api";
 export default function SettingsMainContent({ controller, navigation, savingsTileSize, getAddPotLabel, getSavingsTilePalette }: SettingsMainContentProps) {
   const scrollRef = React.useRef<ScrollView | null>(null);
   const router = useRouter();
+  const { dashboard } = useBootstrapData();
   const onboardingQuery = useGetOnboardingStatusQuery();
   const openIncomeSettings = React.useCallback(() => {
     router.push("/settings-income-settings");
@@ -34,7 +36,11 @@ export default function SettingsMainContent({ controller, navigation, savingsTil
   const openDebtManagement = React.useCallback(() => {
     router.push("/settings-debt-management");
   }, [router]);
-  const debtManagementEnabled = controller.hasAnyDebts || onboardingQuery.data?.profile?.hasDebtsToManage === true;
+  const hasDashboardDebts = React.useMemo(
+    () => (dashboard?.debts ?? []).some((debt) => Number(debt?.currentBalance ?? 0) > 0),
+    [dashboard?.debts],
+  );
+  const debtManagementEnabled = hasDashboardDebts || controller.hasAnyDebts || onboardingQuery.data?.profile?.hasDebtsToManage === true;
 
   React.useEffect(() => {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
