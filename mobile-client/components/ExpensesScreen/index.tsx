@@ -210,7 +210,7 @@ export default function ExpensesScreen({ navigation, route }: ExpensesScreenProp
                           style={styles.monthCard}
                         >
                           <View style={styles.monthCardRow}>
-                            <Text style={styles.monthCardTitle}>{MONTH_NAMES_SHORT[item.month - 1]} {item.year}</Text>
+                            <Text style={styles.monthCardTitle}>{controller.getPeriodOptionLabel(item.month, item.year)}</Text>
                             <Text style={styles.monthCardAmount}>{fmt(item.totalAmount ?? 0, controller.currency)}</Text>
                           </View>
                           <Text style={styles.monthCardMeta}>{item.totalCount} expense{item.totalCount === 1 ? "" : "s"}</Text>
@@ -268,7 +268,7 @@ export default function ExpensesScreen({ navigation, route }: ExpensesScreenProp
               {controller.allPeriodMonths.map((item) => {
                 const isEnabled = controller.enabledPeriodSet.has(item);
                 const isSelected = item === controller.month && controller.pickerYear === controller.year;
-                const periodLabel = `${MONTH_NAMES_SHORT[(item + 10) % 12]} - ${MONTH_NAMES_SHORT[(item + 11) % 12]}`;
+                const periodLabel = controller.getPeriodOptionLabel(item, controller.pickerYear);
                 return (
                   <Pressable
                     key={item}

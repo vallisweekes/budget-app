@@ -179,6 +179,11 @@ function RootShell() {
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="(auth)" options={{ headerShown: false }} />
           <Stack.Screen name="(modals)" options={{ headerShown: false }} />
+          <Stack.Screen name="settings-profile-details" options={{ headerShown: false }} />
+          <Stack.Screen name="settings-income-settings" options={{ headerShown: false }} />
+          <Stack.Screen name="settings-debt-management" options={{ headerShown: false }} />
+          <Stack.Screen name="settings-strategy" options={{ headerShown: false }} />
+          <Stack.Screen name="privacy-policy" options={{ headerShown: false }} />
           <Stack.Screen name="+not-found" options={{ headerShown: false }} />
         </Stack>
         <StatusBar style={mode === "dark" ? "light" : "dark"} />

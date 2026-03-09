@@ -13,9 +13,12 @@ import SelectionSheet from "./SelectionSheet";
 import { styles } from "./style";
 import UnplannedExpenseForm from "./UnplannedExpenseForm";
 
-export default function UnplannedExpenseScreen({ navigation }: UnplannedExpenseScreenProps) {
+export default function UnplannedExpenseScreen({ navigation, route }: UnplannedExpenseScreenProps) {
   const topOffset = useTopHeaderOffset();
-  const controller = useUnplannedExpenseScreenController(() => navigation.goBack());
+  const controller = useUnplannedExpenseScreenController(() => navigation.goBack(), {
+    month: route.params?.month,
+    year: route.params?.year,
+  });
   const currency = currencySymbol(controller.settings?.currency);
   const categoryItems: SelectionItem[] = [
     { id: "", label: "None", color: T.border },

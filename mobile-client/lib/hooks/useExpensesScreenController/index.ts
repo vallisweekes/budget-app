@@ -49,6 +49,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
   const skipNextChildFocusReloadRef = useRef(false);
   const lastHandledSkipFocusReloadAtRef = useRef<number | null>(null);
   const plansRef = useRef<BudgetPlanListItem[]>([]);
+  const preferredPeriodByPlanRef = useRef<Record<string, { month: number; year: number }>>({});
   const summaryCacheRef = useRef<Record<string, Record<number, Record<number, ExpenseSummary>>>>({});
   const monthsCacheRef = useRef<Record<string, ExpenseMonthsResponse["months"]>>({});
   const cacheSignatureRef = useRef<string | null>(null);
@@ -131,23 +132,6 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     if (!fallbackPlanId) return;
     setActiveBudgetPlanId(fallbackPlanId);
   }, [personalPlanId, plans, setActiveBudgetPlanId, sharedActiveBudgetPlanId]);
-
-  useEffect(() => {
-    const paramsBudgetPlanId = typeof route.params?.budgetPlanId === "string" ? route.params.budgetPlanId : null;
-    const paramsCurrency = typeof route.params?.currency === "string" ? route.params.currency : undefined;
-    const paramsLoggedExpensesCount = Number(route.params?.loggedExpensesCount);
-    const planChanged = paramsBudgetPlanId !== activePlanId;
-    const currencyChanged = paramsCurrency !== currency;
-    const loggedCountChanged = !(Number.isFinite(paramsLoggedExpensesCount) && paramsLoggedExpensesCount === loggedExpensesCount);
-
-    if (!planChanged && !currencyChanged && !loggedCountChanged) return;
-
-    navigation.setParams({
-      budgetPlanId: activePlanId,
-      currency,
-      loggedExpensesCount,
-    });
-  }, [activePlanId, currency, loggedExpensesCount, navigation, route.params?.budgetPlanId, route.params?.currency, route.params?.loggedExpensesCount]);
 
   const planTotalAmount = expenseMonths.reduce((sum, item) => sum + (item.totalAmount ?? 0), 0);
   const prevIsPersonalPlanRef = useRef(true);
@@ -259,6 +243,32 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
   const defaultActiveYear = defaultActiveAnchor.year;
 
   useEffect(() => {
+    const paramsBudgetPlanId = typeof route.params?.budgetPlanId === "string" ? route.params.budgetPlanId : null;
+    const paramsCurrency = typeof route.params?.currency === "string" ? route.params.currency : undefined;
+    const paramsLoggedExpensesCount = Number(route.params?.loggedExpensesCount);
+    const paramsIsPersonalPlan = typeof route.params?.isPersonalPlan === "boolean" ? route.params.isPersonalPlan : undefined;
+    const paramsCurrentPeriodMonth = Number(route.params?.currentPeriodMonth);
+    const paramsCurrentPeriodYear = Number(route.params?.currentPeriodYear);
+    const planChanged = paramsBudgetPlanId !== activePlanId;
+    const currencyChanged = paramsCurrency !== currency;
+    const loggedCountChanged = !(Number.isFinite(paramsLoggedExpensesCount) && paramsLoggedExpensesCount === loggedExpensesCount);
+    const isPersonalPlanChanged = paramsIsPersonalPlan !== isPersonalPlan;
+    const currentPeriodMonthChanged = !(Number.isFinite(paramsCurrentPeriodMonth) && paramsCurrentPeriodMonth === defaultActiveMonth);
+    const currentPeriodYearChanged = !(Number.isFinite(paramsCurrentPeriodYear) && paramsCurrentPeriodYear === defaultActiveYear);
+
+    if (!planChanged && !currencyChanged && !loggedCountChanged && !isPersonalPlanChanged && !currentPeriodMonthChanged && !currentPeriodYearChanged) return;
+
+    navigation.setParams({
+      budgetPlanId: activePlanId,
+      currency,
+      loggedExpensesCount,
+      isPersonalPlan,
+      currentPeriodMonth: defaultActiveMonth,
+      currentPeriodYear: defaultActiveYear,
+    });
+  }, [activePlanId, currency, defaultActiveMonth, defaultActiveYear, isPersonalPlan, loggedExpensesCount, navigation, route.params?.budgetPlanId, route.params?.currency, route.params?.currentPeriodMonth, route.params?.currentPeriodYear, route.params?.isPersonalPlan, route.params?.loggedExpensesCount]);
+
+  useEffect(() => {
     const wasPersonal = prevIsPersonalPlanRef.current;
     if (!wasPersonal && isPersonalPlan) {
       setMonth(defaultActiveMonth);
@@ -309,6 +319,39 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
 
     return { month: nextMonth, year: nextYear };
   }, []);
+
+  const resolvePlanTargetPeriod = useCallback((params: {
+    planId: string | null;
+    months: ExpenseMonthsResponse["months"];
+    fallbackMonth: number;
+    fallbackYear: number;
+  }) => {
+    const { planId, fallbackMonth, fallbackYear } = params;
+    if (!planId) return { month: fallbackMonth, year: fallbackYear };
+
+    const preferred = preferredPeriodByPlanRef.current[planId];
+    if (preferred) return preferred;
+
+    return { month: fallbackMonth, year: fallbackYear };
+  }, []);
+
+  const getPeriodOptionLabel = useCallback((targetMonth: number, targetYear: number) => {
+    const period = buildPayPeriodFromMonthAnchor({
+      month: targetMonth,
+      year: targetYear,
+      payDate: effectivePayDate,
+      payFrequency: effectivePayFrequency,
+    });
+    const startLabel = period.start.toLocaleString("en-GB", { month: "short" });
+    const endLabel = period.end.toLocaleString("en-GB", { month: "short" });
+    const sameYear = period.start.getFullYear() === period.end.getFullYear();
+
+    if (sameYear) {
+      return `${startLabel} - ${endLabel}`;
+    }
+
+    return `${startLabel} ${period.start.getFullYear()} - ${endLabel} ${period.end.getFullYear()}`;
+  }, [effectivePayDate, effectivePayFrequency]);
 
   const getOrFetchSummary = useCallback(async (params: {
     planId: string | null;
@@ -399,11 +442,19 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       monthsCacheRef.current[monthsKey] = nextMonths;
     }
 
+    const cachedMonths = monthsCacheRef.current[monthsKey] ?? [];
+    const target = resolvePlanTargetPeriod({
+      planId,
+      months: cachedMonths,
+      fallbackMonth: targetMonth,
+      fallbackYear: targetYear,
+    });
+
     await Promise.all([
-      preloadSummaryWindow({ planId, month: targetMonth, year: targetYear, force }),
-      getOrFetchPayPeriodExpenses({ planId, month: targetMonth, year: targetYear, force }),
+      preloadSummaryWindow({ planId, month: target.month, year: target.year, force }),
+      getOrFetchPayPeriodExpenses({ planId, month: target.month, year: target.year, force }),
     ]);
-  }, [getOrFetchPayPeriodExpenses, planCacheKey, preloadSummaryWindow]);
+  }, [getOrFetchPayPeriodExpenses, planCacheKey, preloadSummaryWindow, resolvePlanTargetPeriod]);
 
   const applyCachedViewState = useCallback((planId: string | null, targetMonth: number, targetYear: number) => {
     const cachedSummary = getCachedSummary(planId, targetYear, targetMonth);
@@ -482,6 +533,8 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
         ?? nextPlans.find((plan) => plan.kind === "personal")?.id
         ?? nextPlans[0]?.id
         ?? null;
+      const resolvedPlan = nextPlans.find((plan) => plan.id === resolvedPlanId) ?? null;
+      const resolvedIsAdditionalPlan = Boolean(resolvedPlan && resolvedPlan.kind !== "personal" && nextPlans.length > 1);
 
       const resolvedPlanCreatedAt = latestResolvedDate(
         parsePlanCreatedAt(nextPlans.find((plan) => plan.id === resolvedPlanId)?.createdAt),
@@ -530,8 +583,15 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
         setExpenseMonths([]);
       }
 
-      const initialMonth = shouldUseResolvedDefaultPeriod ? resolvedDefaultMonth : month;
-      const initialYear = shouldUseResolvedDefaultPeriod ? resolvedDefaultYear : year;
+      const resolvedTargetPeriod = resolvePlanTargetPeriod({
+        planId: resolvedPlanId,
+        months,
+        fallbackMonth: shouldUseResolvedDefaultPeriod ? resolvedDefaultMonth : month,
+        fallbackYear: shouldUseResolvedDefaultPeriod ? resolvedDefaultYear : year,
+      });
+
+      const initialMonth = resolvedTargetPeriod.month;
+      const initialYear = resolvedTargetPeriod.year;
       const initialWindow = await preloadSummaryWindow({
         planId: resolvedPlanId,
         month: initialMonth,
@@ -544,7 +604,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       let targetMonth = initialMonth;
       let targetYear = initialYear;
 
-      if ((Number(summaryData?.totalCount ?? 0) <= 0) && resolvedPlanId) {
+      if ((Number(summaryData?.totalCount ?? 0) <= 0) && resolvedPlanId && !resolvedIsAdditionalPlan) {
         try {
           const query = `budgetPlanId=${encodeURIComponent(resolvedPlanId)}`;
           const insights = await apiFetch<ExpenseInsights>(`/api/bff/expense-insights?${query}`, { cacheTtlMs: 0 });
@@ -598,6 +658,10 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       if (targetMonth !== month) setMonth(targetMonth);
       if (targetYear !== year) setYear(targetYear);
 
+      if (resolvedPlanId) {
+        preferredPeriodByPlanRef.current[resolvedPlanId] = { month: targetMonth, year: targetYear };
+      }
+
       setLoadedKey(`${resolvedPlanId ?? "none"}:${targetYear}-${targetMonth}`);
     } catch (loadError: unknown) {
       setError(loadError instanceof Error ? loadError.message : "Failed to load expenses");
@@ -618,6 +682,11 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     if (!hasCachedCurrent) setLoading(true);
     void load();
   }, [activePlanId, currentViewKey, getCachedSummary, load, loadedKey, month, summary, year]);
+
+  useEffect(() => {
+    if (!activePlanId) return;
+    preferredPeriodByPlanRef.current[activePlanId] = { month, year };
+  }, [activePlanId, month, year]);
 
   useEffect(() => {
     const inactivePlans = plans.filter((plan) => plan.id !== activePlanId);
@@ -778,7 +847,21 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
         currency,
       });
     },
-    onPressPlan: (planId: string) => setActiveBudgetPlanId(planId),
+    onPressPlan: (planId: string) => {
+      const monthsKey = planCacheKey(planId);
+      const cachedMonths = monthsCacheRef.current[monthsKey] ?? [];
+      const target = resolvePlanTargetPeriod({
+        planId,
+        months: cachedMonths,
+        fallbackMonth: month,
+        fallbackYear: year,
+      });
+
+      if (target.month !== month) setMonth(target.month);
+      if (target.year !== year) setYear(target.year);
+      applyCachedViewState(planId, target.month, target.year);
+      setActiveBudgetPlanId(planId);
+    },
     onPressUpcomingMonth: (targetMonth: number, targetYear: number) => {
       setMonth(targetMonth);
       setYear(targetYear);
@@ -797,6 +880,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       setYear(pickerYear);
       setMonthPickerOpen(false);
     },
+    getPeriodOptionLabel,
     setPickerYear,
   };
 }

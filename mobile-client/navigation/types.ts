@@ -34,6 +34,9 @@ export type ExpensesStackParamList = {
         budgetPlanId?: string | null;
         currency?: string;
         loggedExpensesCount?: number;
+        isPersonalPlan?: boolean;
+        currentPeriodMonth?: number;
+        currentPeriodYear?: number;
         skipFocusReloadAt?: number;
       }
     | undefined;
@@ -69,7 +72,12 @@ export type ExpensesStackParamList = {
     budgetPlanId: string | null;
     currency: string;
   };
-  UnplannedExpense: undefined;
+  UnplannedExpense:
+    | {
+        month?: number;
+        year?: number;
+      }
+    | undefined;
   ScanReceipt: undefined;
 };
 

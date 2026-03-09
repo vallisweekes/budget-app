@@ -15,8 +15,19 @@ function paymentSourceForFunding(funding: FundingSource): "income" | "savings" |
   return "income";
 }
 
-export function useUnplannedExpenseScreenController(onSuccess: () => void) {
+export function useUnplannedExpenseScreenController(
+  onSuccess: () => void,
+  initialPeriod?: { month?: number; year?: number },
+) {
   const now = new Date();
+  const initialMonth = Number(initialPeriod?.month);
+  const initialYear = Number(initialPeriod?.year);
+  const resolvedInitialMonth = Number.isFinite(initialMonth) && initialMonth >= 1 && initialMonth <= 12
+    ? Math.floor(initialMonth)
+    : now.getMonth() + 1;
+  const resolvedInitialYear = Number.isFinite(initialYear)
+    ? Math.floor(initialYear)
+    : now.getFullYear();
 
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
@@ -29,8 +40,8 @@ export function useUnplannedExpenseScreenController(onSuccess: () => void) {
   const [fundingSource, setFundingSource] = useState<FundingSource>("income");
   const [selectedDebtId, setSelectedDebtId] = useState("");
   const [newLoanName, setNewLoanName] = useState("");
-  const [month, setMonth] = useState(now.getMonth() + 1);
-  const [year, setYear] = useState(now.getFullYear());
+  const [month, setMonth] = useState(resolvedInitialMonth);
+  const [year, setYear] = useState(resolvedInitialYear);
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [debts, setDebts] = useState<Debt[]>([]);
@@ -41,7 +52,7 @@ export function useUnplannedExpenseScreenController(onSuccess: () => void) {
   const [fundingPickerOpen, setFundingPickerOpen] = useState(false);
   const [debtPickerOpen, setDebtPickerOpen] = useState(false);
   const [monthPickerOpen, setMonthPickerOpen] = useState(false);
-  const [pickerYear, setPickerYear] = useState(now.getFullYear());
+  const [pickerYear, setPickerYear] = useState(resolvedInitialYear);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 

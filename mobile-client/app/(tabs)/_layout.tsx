@@ -6,6 +6,7 @@ import { useRouter } from "expo-router";
 
 import PillTabBar from "@/components/Shared/PillTabBar";
 import TopHeader from "@/components/Shared/TopHeader";
+import { useActiveBudgetPlan } from "@/context/ActiveBudgetPlanContext";
 import { useAuth } from "@/context/AuthContext";
 import { T } from "@/lib/theme";
 
@@ -24,6 +25,7 @@ function getRouteBaseName(name: unknown): string {
 function TabsHeader({ navigation, route }: { navigation: any; route: any }) {
   const router = useRouter();
   const { signOut } = useAuth();
+  const { activeBudgetPlanId, bootstrapBudgetPlanId } = useActiveBudgetPlan();
   const navigationState = navigation.getState?.();
   const deepestRoute = getDeepestRoute(navigationState) ?? route;
   const currentTabName = getRouteBaseName(route?.name);
@@ -49,6 +51,18 @@ function TabsHeader({ navigation, route }: { navigation: any; route: any }) {
   const isDebtAnalytics = deepestRoute?.name === "DebtAnalytics";
   const isSettings = currentTabName === "settings";
   const isGoals = currentTabName === "goals";
+  const isSelectedPersonalPlan = activeBudgetPlanId === bootstrapBudgetPlanId;
+  const isPersonalPlan = typeof deepestRoute?.params?.isPersonalPlan === "boolean"
+    ? deepestRoute.params.isPersonalPlan
+    : isSelectedPersonalPlan;
+  const currentPeriodMonth = Number(deepestRoute?.params?.currentPeriodMonth);
+  const currentPeriodYear = Number(deepestRoute?.params?.currentPeriodYear);
+  const resolvedCurrentPeriodMonth = Number.isFinite(currentPeriodMonth) && currentPeriodMonth >= 1 && currentPeriodMonth <= 12
+    ? Math.floor(currentPeriodMonth)
+    : new Date().getMonth() + 1;
+  const resolvedCurrentPeriodYear = Number.isFinite(currentPeriodYear)
+    ? Math.floor(currentPeriodYear)
+    : new Date().getFullYear();
 
   const categoryExpensesName = typeof deepestRoute?.params?.categoryName === "string"
     ? deepestRoute.params.categoryName
@@ -187,11 +201,17 @@ function TabsHeader({ navigation, route }: { navigation: any; route: any }) {
     </Pressable>
   ) : undefined;
 
-  const expensesListLeftContent = isExpensesList ? (
+  const expensesListLeftContent = isExpensesList && isPersonalPlan ? (
     <View style={{ flexDirection: "row", gap: 8 }}>
       <Pressable
         onPress={() => {
-          if (!navigateToTab("expenses", { screen: "UnplannedExpense" })) {
+          if (!navigateToTab("expenses", {
+            screen: "UnplannedExpense",
+            params: {
+              month: resolvedCurrentPeriodMonth,
+              year: resolvedCurrentPeriodYear,
+            },
+          })) {
             router.push("/(tabs)/expenses");
           }
         }}
@@ -220,7 +240,7 @@ function TabsHeader({ navigation, route }: { navigation: any; route: any }) {
     ? Math.max(0, Math.floor(Number(deepestRoute?.params?.loggedExpensesCount)))
     : 0;
 
-  const expensesLoggedRightContent = isExpensesList ? (
+  const expensesLoggedRightContent = isExpensesList && isPersonalPlan ? (
     <Pressable
       onPress={() => {
         if (!navigateToTab("expenses", {
@@ -230,8 +250,8 @@ function TabsHeader({ navigation, route }: { navigation: any; route: any }) {
             categoryName: "All categories",
             color: null,
             icon: null,
-            month: Number(deepestRoute?.params?.month) || new Date().getMonth() + 1,
-            year: Number(deepestRoute?.params?.year) || new Date().getFullYear(),
+            month: resolvedCurrentPeriodMonth,
+            year: resolvedCurrentPeriodYear,
             budgetPlanId: deepestRoute?.params?.budgetPlanId ?? null,
             currency: deepestRoute?.params?.currency ?? "£",
           },
@@ -319,7 +339,7 @@ export default function MainTabsLayout() {
         headerStyle: { backgroundColor: "transparent" },
         header: () => <TabsHeader navigation={navigation} route={route} />,
         animation: "none",
-        lazy: false,
+        lazy: true,
       })}
       tabBar={(props) => <PillTabBar {...props} />}
     >

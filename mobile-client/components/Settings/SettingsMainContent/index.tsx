@@ -1,6 +1,7 @@
 import React from "react";
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 
 import SettingsBudgetTab from "@/components/Settings/SettingsBudgetTab";
 import SettingsDangerTab from "@/components/Settings/SettingsDangerTab";
@@ -25,13 +26,14 @@ import { useGetOnboardingStatusQuery } from "@/store/api";
 
 export default function SettingsMainContent({ controller, navigation, savingsTileSize, getAddPotLabel, getSavingsTilePalette }: SettingsMainContentProps) {
   const scrollRef = React.useRef<ScrollView | null>(null);
+  const router = useRouter();
   const onboardingQuery = useGetOnboardingStatusQuery();
   const openIncomeSettings = React.useCallback(() => {
-    navigation.navigate("SettingsIncomeSettings");
-  }, [navigation]);
+    router.push("/settings-income-settings");
+  }, [router]);
   const openDebtManagement = React.useCallback(() => {
-    navigation.navigate("SettingsDebtManagement");
-  }, [navigation]);
+    router.push("/settings-debt-management");
+  }, [router]);
   const debtManagementEnabled = controller.hasAnyDebts || onboardingQuery.data?.profile?.hasDebtsToManage === true;
 
   React.useEffect(() => {
@@ -92,7 +94,13 @@ export default function SettingsMainContent({ controller, navigation, savingsTil
           currencyLabel={controller.settings?.currency ?? "GBP"}
           notificationsLabel={controller.notifications.dueReminders || controller.notifications.paymentAlerts || controller.notifications.dailyTips ? "On" : "Off"}
           versionLabel={getSettingsAppVersionLabel()}
-          onEditProfile={() => navigation.navigate("SettingsProfileDetails", { username: controller.profile?.username ?? controller.authUsername ?? "", email: controller.profile?.email ?? "" })}
+          onEditProfile={() => router.push({
+            pathname: "/settings-profile-details",
+            params: {
+              username: controller.profile?.username ?? controller.authUsername ?? "",
+              email: controller.profile?.email ?? "",
+            },
+          })}
           onOpenSubscription={() => controller.setActiveTab("subscription")}
           onOpenBudget={() => controller.setActiveTab("budget")}
           onOpenIncomeSettings={openIncomeSettings}
@@ -103,7 +111,7 @@ export default function SettingsMainContent({ controller, navigation, savingsTil
           onOpenNotifications={() => controller.setActiveTab("notifications")}
           onOpenDanger={() => controller.setActiveTab("danger")}
           onOpenAbout={() => { void openSettingsExternalUrl(SETTINGS_WEBSITE_URL); }}
-          onOpenPrivacy={() => navigation.navigate("PrivacyPolicy")}
+          onOpenPrivacy={() => router.push("/privacy-policy")}
         />
       ) : null}
 
@@ -118,7 +126,13 @@ export default function SettingsMainContent({ controller, navigation, savingsTil
           onOpenIncomeSettings={openIncomeSettings}
           onOpenStrategy={() => {
             if (!controller.settings?.id) return;
-            navigation.navigate("SettingsStrategy", { budgetPlanId: controller.settings.id, strategy: controller.strategyDraft });
+            router.push({
+              pathname: "/settings-strategy",
+              params: {
+                budgetPlanId: controller.settings.id,
+                strategy: controller.strategyDraft ?? "",
+              },
+            });
           }}
         />
       ) : null}

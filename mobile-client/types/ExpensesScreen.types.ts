@@ -47,5 +47,6 @@ export type ExpensesScreenControllerState = {
   onRefresh: () => void;
   onRetry: () => void;
   onSelectPickerMonth: (targetMonth: number) => void;
+  getPeriodOptionLabel: (targetMonth: number, targetYear: number) => string;
   setPickerYear: React.Dispatch<React.SetStateAction<number>>;
 };
