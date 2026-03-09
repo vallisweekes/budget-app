@@ -1,5 +1,10 @@
 
+import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+
 import type { Expense, ExpenseFrequencyPointStatus } from "@/lib/apiTypes";
+import type { ExpensesStackParamList } from "@/navigation/types";
+
+export type ExpenseDetailScreenProps = NativeStackScreenProps<ExpensesStackParamList, "ExpenseDetail">;
 
 export type MonthPoint = {
   key: string;

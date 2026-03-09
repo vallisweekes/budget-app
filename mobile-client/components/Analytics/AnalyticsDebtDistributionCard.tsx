@@ -5,16 +5,9 @@ import Svg, { Rect } from "react-native-svg";
 import { fmt } from "@/lib/formatting";
 import { T } from "@/lib/theme";
 import { analyticsStyles as s } from "@/components/AnalyticsScreen/style";
-import type { AnalyticsDebtDistributionItem, AnalyticsOverviewMode } from "@/types/AnalyticsScreen.types";
+import type { AnalyticsDebtDistributionCardProps } from "@/types";
 
-type Props = {
-  currency: string;
-  items: AnalyticsDebtDistributionItem[];
-  overviewMode: AnalyticsOverviewMode;
-  title: string;
-};
-
-export default function AnalyticsDebtDistributionCard({ currency, items, overviewMode, title }: Props) {
+export default function AnalyticsDebtDistributionCard({ currency, items, overviewMode, title }: AnalyticsDebtDistributionCardProps) {
   return (
     <View style={s.tipCard}>
       <Text style={s.tipTitle}>{title}</Text>

@@ -1,6 +1,6 @@
 import { StyleSheet } from "react-native";
 
-import { EXPENSES_TOTAL_BLUE } from "@/components/OnboardingScreen/utils";
+import { EXPENSES_TOTAL_BLUE } from "@/lib/constants";
 
 export const onboardingStyles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: EXPENSES_TOTAL_BLUE },

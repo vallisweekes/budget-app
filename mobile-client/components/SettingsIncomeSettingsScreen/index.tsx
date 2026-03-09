@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import MoneyInput from "@/components/Shared/MoneyInput";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { apiFetch } from "@/lib/api";
+import { INCOME_SOURCE_OPTIONS } from "@/lib/constants";
 import type { IncomeMonthData } from "@/lib/apiTypes";
 import { currencySymbol, fmt } from "@/lib/formatting";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
@@ -13,53 +14,7 @@ import { T } from "@/lib/theme";
 import { cardBase, cardElevated } from "@/lib/ui";
 import type { RootStackScreenProps } from "@/navigation/types";
 import { useGetOnboardingStatusQuery, useUpdateOnboardingProfileMutation } from "@/store/api";
-
-const INCOME_SOURCE_OPTIONS = [
-  {
-    id: "salary",
-    label: "Salary or wages",
-    detail: "Best for users who mainly budget around a regular employer paycheck.",
-    icon: "briefcase-outline",
-    canonicalName: "Salary",
-  },
-  {
-    id: "business",
-    label: "Business income",
-    detail: "For owners drawing income from a business, shop, or company profits.",
-    icon: "storefront-outline",
-    canonicalName: "Business income",
-  },
-  {
-    id: "freelance",
-    label: "Freelance or contract",
-    detail: "Useful when income lands from client work and timing or amounts can vary.",
-    icon: "laptop-outline",
-    canonicalName: "Freelance",
-  },
-  {
-    id: "benefits",
-    label: "Benefits or pension",
-    detail: "For users whose main monthly support is government, pension, or assistance income.",
-    icon: "shield-checkmark-outline",
-    canonicalName: "Benefits",
-  },
-  {
-    id: "investments",
-    label: "Rental or investment income",
-    detail: "For income driven mostly by rent, dividends, or other asset-based payments.",
-    icon: "trending-up-outline",
-    canonicalName: "Investment income",
-  },
-  {
-    id: "mixed",
-    label: "Mixed income",
-    detail: "Best when no single source clearly dominates and budgeting needs to stay flexible.",
-    icon: "git-merge-outline",
-    canonicalName: "Mixed income",
-  },
-] as const;
-
-type IncomeSourceId = (typeof INCOME_SOURCE_OPTIONS)[number]["id"];
+import type { IncomeSourceId } from "@/types";
 
 function detectIncomeSourceId(name: string | null | undefined): IncomeSourceId {
   const normalized = String(name ?? "").trim().toLowerCase();

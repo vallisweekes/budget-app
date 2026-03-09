@@ -1,5 +1,7 @@
 /** Shared currency / number formatting used across all screens */
 
+import { MONTH_NAMES_LONG, MONTH_NAMES_SHORT } from "@/lib/constants";
+
 const CURRENCY_SYMBOLS: Record<string, string> = {
   GBP: "£",
   USD: "$",
@@ -40,15 +42,7 @@ export function fmt(
   })}`;
 }
 
-export const MONTH_NAMES_SHORT = [
-  "Jan","Feb","Mar","Apr","May","Jun",
-  "Jul","Aug","Sep","Oct","Nov","Dec",
-] as const;
-
-export const MONTH_NAMES_LONG = [
-  "January","February","March","April","May","June",
-  "July","August","September","October","November","December",
-] as const;
+export { MONTH_NAMES_SHORT, MONTH_NAMES_LONG };
 
 export function ordinalSuffix(n: number): string {
   const s = ["th", "st", "nd", "rd"];

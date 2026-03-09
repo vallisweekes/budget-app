@@ -23,13 +23,11 @@ import DeleteConfirmSheet from "@/components/Shared/DeleteConfirmSheet";
 import { fmt } from "@/lib/formatting";
 import { useExpenseDetailScreenController } from "@/lib/hooks/useExpenseDetailScreenController";
 import { T } from "@/lib/theme";
-import type { ExpensesStackParamList } from "@/navigation/types";
 import { expenseDetailStyles as styles, EXPENSE_HERO_BLUE } from "@/components/ExpenseDetailScreen/style";
 import { statusLabel } from "@/components/ExpenseDetailScreen/utils";
+import type { ExpenseDetailScreenProps } from "@/types";
 
-type Props = NativeStackScreenProps<ExpensesStackParamList, "ExpenseDetail">;
-
-export default function ExpenseDetailScreen({ route, navigation }: Props) {
+export default function ExpenseDetailScreen({ route, navigation }: ExpenseDetailScreenProps) {
   const controller = useExpenseDetailScreenController({ route, navigation });
 
   return (

@@ -8,8 +8,9 @@ import { resolveCategoryColor, withOpacity } from "@/lib/categoryColors";
 import { fmt } from "@/lib/formatting";
 import { T } from "@/lib/theme";
 import { loggedExpensesStyles as s } from "@/components/LoggedExpensesScreen/style";
+import type { LoggedExpenseCardCategoryIconProps, LoggedExpenseCardProps } from "@/types";
 
-function CategoryIcon({ name, color }: { name: string | null | undefined; color: string }) {
+function CategoryIcon({ name, color }: LoggedExpenseCardCategoryIconProps) {
   const Icon = name
     ? ((LucideIcons as Record<string, unknown>)[name] as
         | React.ComponentType<{ size: number; color: string; strokeWidth?: number }>
@@ -23,15 +24,7 @@ function CategoryIcon({ name, color }: { name: string | null | undefined; color:
   );
 }
 
-type Props = {
-  categoryColor: string;
-  categoryName?: string;
-  currency: string;
-  item: Expense;
-  onPress: (item: Expense) => void;
-};
-
-export default function LoggedExpenseCard(props: Props) {
+export default function LoggedExpenseCard(props: LoggedExpenseCardProps) {
   return (
     <Pressable style={({ pressed }) => [s.card, pressed && s.cardPressed]} onPress={() => props.onPress(props.item)}>
       <View style={s.topRow}>

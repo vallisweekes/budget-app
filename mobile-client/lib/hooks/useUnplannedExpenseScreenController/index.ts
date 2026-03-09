@@ -3,27 +3,13 @@ import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
 
 import { apiFetch } from "@/lib/api";
 import type { Category, Debt, Settings } from "@/lib/apiTypes";
+import { FUNDING_OPTIONS, MONTH_NAMES_LONG, MONTH_NAMES_SHORT, NEW_LOAN_SENTINEL } from "@/lib/constants";
 import { buildPayPeriodFromMonthAnchor, normalizePayFrequency } from "@/lib/payPeriods";
-
-const NEW_LOAN_SENTINEL = "__new_loan__";
 
 export type FundingSource = "income" | "savings" | "monthly_allowance" | "credit_card" | "loan" | "other";
 
-export const FUNDING_OPTIONS: Array<{ value: FundingSource; label: string }> = [
-  { value: "income", label: "Income" },
-  { value: "savings", label: "Savings" },
-  { value: "monthly_allowance", label: "Monthly allowance" },
-  { value: "credit_card", label: "Credit card" },
-  { value: "loan", label: "Loan" },
-  { value: "other", label: "Other" },
-];
-
-export const MONTH_NAMES = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-];
-
-export const SHORT_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONTH_NAMES = MONTH_NAMES_LONG;
+const SHORT_MONTHS = MONTH_NAMES_SHORT;
 
 function paymentSourceForFunding(funding: FundingSource): "income" | "savings" | "credit_card" | "extra_untracked" {
   if (funding === "savings") return "savings";
@@ -280,5 +266,3 @@ export function useUnplannedExpenseScreenController(onSuccess: () => void) {
     year,
   };
 }
-
-export { NEW_LOAN_SENTINEL };

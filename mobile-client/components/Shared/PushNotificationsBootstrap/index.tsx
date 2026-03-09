@@ -11,13 +11,7 @@ import {
 } from "@/lib/pushNotifications";
 import { appendNotificationInboxItem } from "@/lib/notificationInbox";
 import { openIncomeSacrificeFromReminder } from "@/navigation/navigationRef";
-
-type NotificationData = {
-  type?: unknown;
-  month?: unknown;
-  year?: unknown;
-  budgetPlanId?: unknown;
-};
+import type { NotificationData, PushNotificationInboxEvent } from "@/types";
 
 export function PushNotificationsBootstrap() {
   const { token, username, isLoading } = useAuth();
@@ -88,9 +82,7 @@ export function PushNotificationsBootstrap() {
   useEffect(() => {
     if (isLoading || !token) return;
 
-    const appendFromNotification = (notification: {
-      request?: { identifier?: string; content?: { title?: string | null; body?: string | null } };
-    }) => {
+    const appendFromNotification = (notification: PushNotificationInboxEvent) => {
       const identifier = notification?.request?.identifier;
       const title = notification?.request?.content?.title ?? "BudgetIn Check";
       const body = notification?.request?.content?.body ?? "";

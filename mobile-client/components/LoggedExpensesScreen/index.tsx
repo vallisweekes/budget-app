@@ -1,24 +1,21 @@
 import React from "react";
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 
 import type { Expense } from "@/lib/apiTypes";
 import LoggedExpenseCard from "@/components/Expenses/LoggedExpenseCard";
 import LoggedExpensesHero from "@/components/Expenses/LoggedExpensesHero";
 import { useLoggedExpensesScreenController } from "@/lib/hooks/useLoggedExpensesScreenController";
 import { T } from "@/lib/theme";
-import type { ExpensesStackParamList } from "@/navigation/types";
 import { loggedExpensesStyles as styles } from "@/components/LoggedExpensesScreen/style";
+import type { LoggedExpensesScreenProps } from "@/types";
 
-type Props = NativeStackScreenProps<ExpensesStackParamList, "LoggedExpenses">;
-
-export default function LoggedExpensesScreen({ route, navigation }: Props) {
+export default function LoggedExpensesScreen({ route, navigation }: LoggedExpensesScreenProps) {
   const controller = useLoggedExpensesScreenController({ route, navigation });
 
   return (
     <SafeAreaView style={styles.safe} edges={[]}>
-      <FlatList
+      <FlatList<Expense>
         data={controller.items}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.content}
@@ -35,7 +32,7 @@ export default function LoggedExpensesScreen({ route, navigation }: Props) {
             total={controller.total}
           />
         }
-        renderItem={({ item }: { item: Expense }) => (
+        renderItem={({ item }) => (
           <LoggedExpenseCard
             categoryColor={controller.categoryColor}
             categoryName={controller.categoryName}

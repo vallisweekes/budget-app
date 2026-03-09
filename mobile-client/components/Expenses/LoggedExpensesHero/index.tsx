@@ -3,17 +3,9 @@ import { Text, View } from "react-native";
 
 import { fmt } from "@/lib/formatting";
 import { loggedExpensesStyles as s } from "@/components/LoggedExpensesScreen/style";
+import type { LoggedExpensesHeroProps } from "@/types";
 
-type Props = {
-  currency: string;
-  itemCount: number;
-  periodLabel: string;
-  screenKicker: string;
-  topHeaderOffset: number;
-  total: number;
-};
-
-export default function LoggedExpensesHero(props: Props) {
+export default function LoggedExpensesHero(props: LoggedExpensesHeroProps) {
   return (
     <>
       <View style={[s.purpleHero, { paddingTop: props.topHeaderOffset + 22 }]}>

@@ -10,32 +10,7 @@ import IncomeBarChart from "@/components/Income/IncomeBarChart";
 import { IncomeRow } from "@/components/Income/IncomeSourceItem";
 import { IncomeAddForm } from "@/components/Income/IncomeAddForm";
 import { s } from "@/components/IncomeMonthScreen/style";
-
-type CrudLike = {
-  showAddForm: boolean;
-  setShowAddForm: React.Dispatch<React.SetStateAction<boolean>>;
-  newName: string;
-  newAmount: string;
-  setNewName: (value: string) => void;
-  setNewAmount: (value: string) => void;
-  distributeMonths: boolean;
-  setDistributeMonths: (value: boolean) => void;
-  distributeYears: boolean;
-  setDistributeYears: (value: boolean) => void;
-  handleAdd: () => Promise<void>;
-  saving: boolean;
-  startEdit: (item: Income) => void;
-};
-
-type Props = {
-  items: Income[];
-  analysis: IncomeMonthData | null;
-  currency: string;
-  isLocked: boolean;
-  refreshing: boolean;
-  onRefresh: () => void;
-  crud: CrudLike;
-};
+import type { IncomeMonthIncomeListProps } from "@/types";
 
 export default function IncomeMonthIncomeList({
   items,
@@ -45,7 +20,7 @@ export default function IncomeMonthIncomeList({
   refreshing,
   onRefresh,
   crud,
-}: Props) {
+}: IncomeMonthIncomeListProps) {
   const sortedItems = React.useMemo(() => {
     return [...items].sort((a, b) => {
       const aIsSalary = String(a.name ?? "").trim().toLowerCase() === "salary";

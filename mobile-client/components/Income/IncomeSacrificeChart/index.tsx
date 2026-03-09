@@ -4,22 +4,11 @@ import Svg, { Circle, Line, Path, Rect, Text as SvgText } from "react-native-svg
 import { styles } from "./styles";
 
 import { T } from "@/lib/theme";
-
-type PointRow = {
-  key: string;
-  label: string;
-  value: number;
-  color: string;
-};
-
-type Props = {
-  rows: PointRow[];
-  currency: string;
-};
+import type { IncomeSacrificeChartProps } from "@/types";
 
 const W = Dimensions.get("window").width;
 
-export default function IncomeSacrificeChart({ rows, currency }: Props) {
+export default function IncomeSacrificeChart({ rows, currency }: IncomeSacrificeChartProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [didUserSelectPoint, setDidUserSelectPoint] = useState(false);
 

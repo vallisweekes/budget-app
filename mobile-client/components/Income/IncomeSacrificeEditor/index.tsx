@@ -5,31 +5,7 @@ import { T } from "@/lib/theme";
 import { fmt } from "@/lib/formatting";
 import MoneyInput from "@/components/Shared/MoneyInput";
 import { styles } from "./styles";
-
-type SacrificeType = "allowance" | "savings" | "emergency" | "investment" | "custom";
-
-type Props = {
-  currency: string;
-  fixed: IncomeSacrificeFixed;
-  customItems: IncomeSacrificeCustomItem[];
-  customTotal: number;
-  totalSacrifice: number;
-  saving: boolean;
-  creating: boolean;
-  deletingId: string | null;
-  newType: SacrificeType;
-  newName: string;
-  newAmount: string;
-  onChangeFixed: (key: keyof IncomeSacrificeFixed, value: string) => void;
-  onSaveFixed: () => void;
-  onChangeCustomAmount: (id: string, value: string) => void;
-  onSaveCustomAmounts: () => void;
-  onDeleteCustom: (id: string) => void;
-  onSetNewType: (value: SacrificeType) => void;
-  onSetNewName: (value: string) => void;
-  onSetNewAmount: (value: string) => void;
-  onCreateCustom: () => void;
-};
+import type { IncomeSacrificeEditorProps, SacrificeType } from "@/types";
 
 const TYPE_OPTIONS: Array<{ key: SacrificeType; label: string }> = [
   { key: "allowance", label: "Allowance" },
@@ -60,7 +36,7 @@ export default function IncomeSacrificeEditor({
   onSetNewName,
   onSetNewAmount,
   onCreateCustom,
-}: Props) {
+}: IncomeSacrificeEditorProps) {
   return (
     <View style={styles.wrap}>
       <View style={styles.summaryCard}>

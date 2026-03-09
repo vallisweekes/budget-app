@@ -9,29 +9,22 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
-import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { apiFetch } from "@/lib/api";
 import type { Settings } from "@/lib/apiTypes";
 import { currencySymbol } from "@/lib/formatting";
-import type { RootStackParamList } from "@/navigation/types";
 import { T } from "@/lib/theme";
-import PaymentDetailSheet, { type PaymentDetail } from "@/components/Payments/PaymentDetailSheet";
+import PaymentDetailSheet from "@/components/Payments/PaymentDetailSheet";
 import { usePaymentsSections, type PaymentsResponse } from "@/lib/hooks/usePaymentsSections";
 import PaymentsListView from "@/components/Payments/PaymentsListView";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 import { s } from "./style";
-
-type Nav = NativeStackNavigationProp<RootStackParamList, "Payments">;
+import type { PaymentDetail, PaymentsScreenNavigation, PaymentsScreenOpenItem } from "@/types";
 
 export default function PaymentsScreen() {
-  const navigation = useNavigation<Nav>();
+  const navigation = useNavigation<PaymentsScreenNavigation>();
   const insets = useSafeAreaInsets();
   const topHeaderOffset = useTopHeaderOffset();
-
-  const now = new Date();
-  const [month, setMonth] = useState(now.getMonth() + 1);
-  const [year, setYear] = useState(now.getFullYear());
 
   const [settings, setSettings] = useState<Settings | null>(null);
   const [data, setData] = useState<PaymentsResponse | null>(null);
@@ -43,13 +36,7 @@ export default function PaymentsScreen() {
   const [query, setQuery] = useState("");
 
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [sheetItem, setSheetItem] = useState<{
-    kind: "expense" | "debt";
-    id: string;
-    name: string;
-    dueAmount: number;
-    logoUrl?: string | null;
-  } | null>(null);
+  const [sheetItem, setSheetItem] = useState<PaymentsScreenOpenItem | null>(null);
   const [sheetLoading, setSheetLoading] = useState(false);
   const [sheetError, setSheetError] = useState<string | null>(null);
   const [sheetDetail, setSheetDetail] = useState<PaymentDetail | null>(null);
@@ -57,7 +44,7 @@ export default function PaymentsScreen() {
   const currency = currencySymbol(settings?.currency);
 
   const openSheet = useCallback(
-    async (item: { kind: "expense" | "debt"; id: string; name: string; dueAmount: number; logoUrl?: string | null }) => {
+    async (item: PaymentsScreenOpenItem) => {
       setSheetItem(item);
       setSheetOpen(true);
       setSheetLoading(true);
@@ -96,18 +83,13 @@ export default function PaymentsScreen() {
       const s = await apiFetch<Settings>(`/api/bff/settings?budgetPlanId=${encodeURIComponent(payments.budgetPlanId)}`);
       setSettings(s);
       setData(payments);
-      // Keep local month/year aligned to the server's notion of "current month".
-      if (payments?.month && payments?.year) {
-        setMonth(payments.month);
-        setYear(payments.year);
-      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load payments");
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [month, year]);
+  }, []);
 
   useEffect(() => {
     setLoading(true);

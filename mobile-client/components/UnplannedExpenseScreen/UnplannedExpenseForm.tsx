@@ -3,11 +3,10 @@ import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 
 import { Ionicons } from "@expo/vector-icons";
 
 import type { UnplannedExpenseFormProps } from "@/types";
+import { MONTH_NAMES_LONG } from "@/lib/constants";
 import { fmt } from "@/lib/formatting";
 import { T } from "@/lib/theme";
 import MoneyInput from "@/components/Shared/MoneyInput";
-
-import { MONTH_NAMES } from "@/lib/hooks/useUnplannedExpenseScreenController";
 
 import ScanReceiptShortcut from "./ScanReceiptShortcut";
 import { styles } from "./style";
@@ -133,7 +132,7 @@ export default function UnplannedExpenseForm({
       <Pressable style={styles.fieldCard} onPress={onMonthPress}>
         <Text style={styles.fieldLabel}>Month</Text>
         <View style={styles.fieldRow}>
-          <Text style={styles.fieldValue}>{MONTH_NAMES[month - 1]} {year}</Text>
+          <Text style={styles.fieldValue}>{MONTH_NAMES_LONG[month - 1]} {year}</Text>
           <Ionicons name="chevron-forward" size={16} color={T.textDim} style={styles.fieldChevron} />
         </View>
       </Pressable>

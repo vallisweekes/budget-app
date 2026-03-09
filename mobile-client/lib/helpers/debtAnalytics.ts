@@ -1,14 +1,6 @@
 import type { DebtSummaryItem } from "@/lib/apiTypes";
+import { TYPE_COLORS } from "@/lib/constants";
 import { T } from "@/lib/theme";
-
-export const TYPE_COLORS: Record<string, string> = {
-  credit_card: "#e25c5c",
-  store_card: "#f4a942",
-  loan: "#a78bfa",
-  mortgage: "#38bdf8",
-  hire_purchase: "#f4a942",
-  other: "#64748b",
-};
 
 export function assignDebtColors(debts: DebtSummaryItem[]): string[] {
   const palette = [

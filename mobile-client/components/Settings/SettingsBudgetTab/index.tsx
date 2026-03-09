@@ -2,16 +2,11 @@ import React from "react";
 import { Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
+import { STRATEGY_OPTIONS } from "@/lib/constants";
 import { T } from "@/lib/theme";
 import { styles } from "./styles";
 
 import type { SettingsBudgetTabProps } from "@/types/components/settings/SettingsBudgetTab.types";
-
-const STRATEGY_OPTIONS = [
-  { value: "payYourselfFirst", label: "Pay Yourself First" },
-  { value: "zeroBased", label: "Zero-based" },
-  { value: "fiftyThirtyTwenty", label: "50/30/20" },
-] as const;
 
 export default function SettingsBudgetTab({
   payDate,

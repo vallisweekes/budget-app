@@ -27,17 +27,14 @@ import { useScrollToTop } from "@react-navigation/native";
 
 import AddExpenseSheet from "@/components/Expenses/AddExpenseSheet";
 import CategoryBreakdown from "@/components/Expenses/CategoryBreakdown";
+import { MONTH_NAMES_SHORT } from "@/lib/constants";
 import { fmt } from "@/lib/formatting";
 import { useExpensesScreenController } from "@/lib/hooks/useExpensesScreenController";
 import { T } from "@/lib/theme";
-import type { ExpensesStackParamList } from "@/navigation/types";
 import { expensesStyles as styles } from "@/components/ExpensesScreen/style";
+import type { ExpensesScreenProps } from "@/types";
 
-type Props = NativeStackScreenProps<ExpensesStackParamList, "ExpensesList">;
-
-const SHORT_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-export default function ExpensesScreen({ navigation, route }: Props) {
+export default function ExpensesScreen({ navigation, route }: ExpensesScreenProps) {
   const listRef = useRef<FlatList<never>>(null);
   useScrollToTop(listRef);
 
@@ -214,7 +211,7 @@ export default function ExpensesScreen({ navigation, route }: Props) {
                           style={styles.monthCard}
                         >
                           <View style={styles.monthCardRow}>
-                            <Text style={styles.monthCardTitle}>{SHORT_MONTHS[item.month - 1]} {item.year}</Text>
+                            <Text style={styles.monthCardTitle}>{MONTH_NAMES_SHORT[item.month - 1]} {item.year}</Text>
                             <Text style={styles.monthCardAmount}>{fmt(item.totalAmount ?? 0, controller.currency)}</Text>
                           </View>
                           <Text style={styles.monthCardMeta}>{item.totalCount} expense{item.totalCount === 1 ? "" : "s"}</Text>
@@ -272,7 +269,7 @@ export default function ExpensesScreen({ navigation, route }: Props) {
               {controller.allPeriodMonths.map((item) => {
                 const isEnabled = controller.enabledPeriodSet.has(item);
                 const isSelected = item === controller.month && controller.pickerYear === controller.year;
-                const periodLabel = `${SHORT_MONTHS[(item + 10) % 12]} - ${SHORT_MONTHS[(item + 11) % 12]}`;
+                const periodLabel = `${MONTH_NAMES_SHORT[(item + 10) % 12]} - ${MONTH_NAMES_SHORT[(item + 11) % 12]}`;
                 return (
                   <Pressable
                     key={item}

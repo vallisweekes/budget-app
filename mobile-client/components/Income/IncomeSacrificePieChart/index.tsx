@@ -5,19 +5,7 @@ import { styles } from "./styles";
 
 import { fmt } from "@/lib/formatting";
 import { T } from "@/lib/theme";
-
-type Slice = {
-  key: string;
-  label: string;
-  value: number;
-  color: string;
-};
-
-type Props = {
-  currency: string;
-  slices: Slice[];
-  centerTitle: string;
-};
+import type { IncomeSacrificePieChartProps } from "@/types";
 
 const SIZE = 210;
 const STROKE = 30;
@@ -39,7 +27,7 @@ function arcPath(cx: number, cy: number, r: number, startDeg: number, endDeg: nu
   return `M ${start.x} ${start.y} A ${r} ${r} 0 ${largeArcFlag} 0 ${end.x} ${end.y}`;
 }
 
-export default function IncomeSacrificePieChart({ currency, slices, centerTitle }: Props) {
+export default function IncomeSacrificePieChart({ currency, slices, centerTitle }: IncomeSacrificePieChartProps) {
   const positiveSlices = useMemo(
     () => slices.filter((slice) => Number(slice.value) > 0),
     [slices],

@@ -7,52 +7,7 @@ import { fmt } from "@/lib/formatting";
 import { resolveLogoUri } from "@/lib/logoDisplay";
 import { T } from "@/lib/theme";
 import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
-
-export type PaymentDetail = {
-  kind: "expense" | "debt";
-  budgetPlanId: string;
-  id: string;
-  name: string;
-  dueAmount: number;
-  dueDate: string | null;
-  dueDay: number | null;
-  overdue: boolean;
-  missed: boolean;
-  isMissedPayment?: boolean;
-  dueLabel?: string;
-  paymentsTotal?: number;
-  remaining?: number;
-  isPaid?: boolean;
-  isPartial?: boolean;
-  statusTag?: "Missed" | "Overdue" | "Paid" | "Partial" | "Unpaid";
-  statusDescription?: string;
-  payments: Array<{
-    id: string;
-    amount: number;
-    date: string;
-    source: string;
-  }>;
-};
-
-type SheetItem = {
-  kind: "expense" | "debt";
-  id: string;
-  name: string;
-  dueAmount: number;
-  logoUrl?: string | null;
-};
-
-type Props = {
-  visible: boolean;
-  insetsBottom: number;
-  currency: string;
-  item: SheetItem | null;
-  detail: PaymentDetail | null;
-  loading: boolean;
-  error: string | null;
-  onClose: () => void;
-  onRetry: (item: SheetItem) => void;
-};
+import type { PaymentDetailSheetProps } from "@/types";
 
 export default function PaymentDetailSheet({
   visible,
@@ -64,7 +19,7 @@ export default function PaymentDetailSheet({
   error,
   onClose,
   onRetry,
-}: Props) {
+}: PaymentDetailSheetProps) {
   const { dragY, panHandlers } = useSwipeDownToClose({ onClose });
   const [logoFailed, setLogoFailed] = useState(false);
 

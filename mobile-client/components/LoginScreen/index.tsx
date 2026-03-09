@@ -14,14 +14,13 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/context/AuthContext";
 import { T } from "@/lib/theme";
-
-type Mode = "login" | "register";
+import type { LoginScreenMode } from "@/types";
 
 export default function LoginScreen() {
   const { signIn } = useAuth();
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
-  const [mode, setMode] = useState<Mode>("login");
+  const [mode, setMode] = useState<LoginScreenMode>("login");
   const [loading, setLoading] = useState(false);
 
   const baseUrl = (process.env.EXPO_PUBLIC_API_BASE_URL ?? "").trim();
@@ -71,7 +70,7 @@ export default function LoginScreen() {
           <View style={styles.card}>
             {/* Mode toggle */}
             <View style={styles.modeRow}>
-              {(["login", "register"] as Mode[]).map((m) => (
+              {(["login", "register"] as LoginScreenMode[]).map((m) => (
                 <Pressable
                   key={m}
                   style={[styles.modeBtn, mode === m && styles.modeBtnActive]}

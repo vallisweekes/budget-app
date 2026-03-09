@@ -2,6 +2,7 @@ import React from "react";
 import { Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
+import { MONTH_NAMES_SHORT } from "@/lib/constants";
 import { T } from "@/lib/theme";
 import { styles as s } from "@/components/Expenses/AddExpenseSheet/styles";
 
@@ -22,10 +23,9 @@ export default function AddExpenseSheetHeader({
   onNextMonth?: () => void;
   onClose: () => void;
 }) {
-  const SHORT_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const safeMonth = Math.max(1, Math.min(12, month));
-  const start = SHORT_MONTHS[(safeMonth + 10) % 12];
-  const end = SHORT_MONTHS[(safeMonth + 11) % 12];
+  const start = MONTH_NAMES_SHORT[(safeMonth + 10) % 12];
+  const end = MONTH_NAMES_SHORT[(safeMonth + 11) % 12];
   const label = `${start} - ${end}`;
 
   return (

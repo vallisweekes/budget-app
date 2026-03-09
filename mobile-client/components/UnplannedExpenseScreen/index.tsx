@@ -3,14 +3,11 @@ import { KeyboardAvoidingView, Platform, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import type { SelectionItem, UnplannedExpenseScreenProps } from "@/types";
+import { FUNDING_OPTIONS, NEW_LOAN_SENTINEL } from "@/lib/constants";
 import { currencySymbol } from "@/lib/formatting";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 import { T } from "@/lib/theme";
-import {
-  FUNDING_OPTIONS,
-  NEW_LOAN_SENTINEL,
-  useUnplannedExpenseScreenController,
-} from "@/lib/hooks/useUnplannedExpenseScreenController";
+import { useUnplannedExpenseScreenController } from "@/lib/hooks/useUnplannedExpenseScreenController";
 
 import MonthPickerSheet from "./MonthPickerSheet";
 import SelectionSheet from "./SelectionSheet";

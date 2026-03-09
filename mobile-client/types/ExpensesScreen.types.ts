@@ -1,7 +1,11 @@
 import type React from "react";
 import type { PanResponderInstance, ScrollView } from "react-native";
+import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 
 import type { BudgetPlanListItem, ExpenseCategoryBreakdown, ExpenseMonthsResponse, ExpenseSummary } from "@/lib/apiTypes";
+import type { ExpensesStackParamList } from "@/navigation/types";
+
+export type ExpensesScreenProps = NativeStackScreenProps<ExpensesStackParamList, "ExpensesList">;
 
 export type ExpensesScreenControllerState = {
   activePlan: BudgetPlanListItem | null;

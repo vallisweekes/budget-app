@@ -1,25 +1,6 @@
 import type { DebtSummaryData, DebtSummaryItem } from "@/lib/apiTypes";
 import { getApiBaseUrl } from "@/lib/api";
-import { payoffDateLabel, TYPE_COLORS } from "@/lib/helpers/debtAnalytics";
-
-export { TYPE_COLORS };
-
-export const TYPE_LABELS: Record<string, string> = {
-  credit_card: "Credit Card",
-  store_card: "Store Card",
-  loan: "Loan",
-  mortgage: "Mortgage",
-  hire_purchase: "Hire Purchase",
-  other: "Other",
-};
-
-export const TERM_PRESETS = [2, 3, 6, 12, 24, 36, 48] as const;
-
-export const PAYMENT_SOURCE_OPTIONS = [
-  { value: "income", label: "Income" },
-  { value: "extra_funds", label: "Extra funds" },
-  { value: "credit_card", label: "Card" },
-] as const;
+import { payoffDateLabel } from "@/lib/helpers/debtAnalytics";
 
 export function resolveLogoUri(raw: string | null | undefined): string | null {
   if (!raw) return null;

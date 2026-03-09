@@ -1,7 +1,6 @@
 import React from "react";
 import { View, Text, FlatList, Pressable, ActivityIndicator, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 
 import type { Expense } from "@/lib/apiTypes";
 import AddExpenseSheet from "@/components/Expenses/AddExpenseSheet";
@@ -10,21 +9,19 @@ import CategoryExpensesHero from "@/components/Expenses/CategoryExpensesHero";
 import CategoryExpensesMonthPicker from "@/components/Expenses/CategoryExpensesMonthPicker";
 import { useCategoryExpensesScreenController } from "@/lib/hooks/useCategoryExpensesScreenController";
 import { T } from "@/lib/theme";
-import type { ExpensesStackParamList } from "@/navigation/types";
 import { categoryExpensesStyles as styles } from "@/components/CategoryExpensesScreen/style";
 import { styles as rowStyles } from "@/components/Expenses/CategoryExpenseCard/styles";
+import type { CategoryExpensesScreenProps } from "@/types";
 
-type Props = NativeStackScreenProps<ExpensesStackParamList, "CategoryExpenses">;
-
-export default function CategoryExpensesScreen({ route, navigation }: Props) {
+export default function CategoryExpensesScreen({ route, navigation }: CategoryExpensesScreenProps) {
   const controller = useCategoryExpensesScreenController({ navigation, route });
 
   return (
     <SafeAreaView style={styles.safe} edges={[]}>
-      <FlatList
+      <FlatList<Expense>
         data={controller.expenses}
         keyExtractor={(e) => e.id}
-        renderItem={({ item }: { item: Expense }) => (
+        renderItem={({ item }) => (
           <CategoryExpenseCard
             categoryColor={controller.categoryColor}
             currency={controller.currency}

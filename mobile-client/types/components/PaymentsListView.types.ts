@@ -1,0 +1,24 @@
+import type { DebtRow, ExpenseRow } from "@/lib/hooks/usePaymentsSections";
+
+import type { PaymentDetailSheetItem } from "./PaymentDetailSheet.types";
+
+export type PaymentsListSection = {
+  title: string;
+  data: Array<ExpenseRow | DebtRow>;
+};
+
+export type PaymentsListViewRenderRowArgs = {
+  item: ExpenseRow | DebtRow;
+  section: { title: string };
+};
+
+export type PaymentsListViewProps = {
+  query: string;
+  onQueryChange: (value: string) => void;
+  sections: PaymentsListSection[];
+  refreshing: boolean;
+  onRefresh: () => void;
+  currency: string;
+  showEmpty: boolean;
+  onOpenItem: (item: PaymentDetailSheetItem) => void;
+};

@@ -10,7 +10,6 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useFocusEffect } from "@react-navigation/native";
 
 import { apiFetch, getApiMutationVersion } from "@/lib/api";
@@ -28,25 +27,9 @@ import IncomeMonthSacrificeList from "@/components/Income/IncomeMonthSacrificeLi
 import IncomeEditSheet from "@/components/Income/IncomeEditSheet";
 import DeleteConfirmSheet from "@/components/Shared/DeleteConfirmSheet";
 import { s } from "./style";
+import type { IncomeMonthScreenProps, IncomeMutationMeta, MonthRef } from "@/types";
 
-type Props = NativeStackScreenProps<IncomeStackParamList, "IncomeMonth">;
-
-type MonthRef = { month: number; year: number };
-type IncomeMutationMeta =
-  | {
-      type: "add";
-      month: number;
-      year: number;
-      distributeMonths: boolean;
-      distributeYears: boolean;
-    }
-  | {
-      type: "edit" | "delete";
-      month: number;
-      year: number;
-    };
-
-export default function IncomeMonthScreen({ navigation, route }: Props) {
+export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScreenProps) {
   const topHeaderOffset = useTopHeaderOffset(-32);
   const { month, year, budgetPlanId, initialMode, pendingConfirmationsCount, showPendingNotice, openIncomeAddAt } = route.params;
 

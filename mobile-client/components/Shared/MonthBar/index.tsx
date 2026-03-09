@@ -1,14 +1,10 @@
 import React from "react";
 import { View, Text, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { MONTH_NAMES_SHORT } from "@/lib/constants";
 import { T } from "@/lib/theme";
 import type { MonthBarProps } from "@/types";
 import { styles } from "./styles";
-
-const MONTH_NAMES = [
-  "Jan","Feb","Mar","Apr","May","Jun",
-  "Jul","Aug","Sep","Oct","Nov","Dec",
-];
 
 export default function MonthBar({
   month,
@@ -20,7 +16,7 @@ export default function MonthBar({
   return (
     <View style={styles.bar}>
       <Text style={styles.label}>
-        {MONTH_NAMES[month - 1]} {year}
+        {MONTH_NAMES_SHORT[month - 1]} {year}
       </Text>
 
       <View style={styles.actions}>

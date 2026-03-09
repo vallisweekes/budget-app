@@ -8,7 +8,7 @@ import { currencySymbol, normalizeUpcomingName } from "@/lib/formatting";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
 import type { MainTabScreenProps } from "@/navigation/types";
-import type { QuickPaymentActionItem } from "@/components/Dashboard/QuickPaymentActionSheet";
+import type { QuickPaymentActionItem } from "@/types";
 import { buildDashboardDerived } from "@/components/DashboardScreen/derived";
 import { GOAL_CARD, GOAL_GAP } from "@/components/DashboardScreen/style";
 

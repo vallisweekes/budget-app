@@ -4,17 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { styles } from "./styles";
 
 import { T } from "@/lib/theme";
-
-type Props = {
-  monthLabel: string;
-  isLocked: boolean;
-  viewMode: "income" | "sacrifice";
-  showAddForm: boolean;
-  hideNavTitleRow?: boolean;
-  onBack: () => void;
-  onToggleAdd: () => void;
-  onSetMode: (mode: "income" | "sacrifice") => void;
-};
+import type { IncomeMonthHeaderProps } from "@/types";
 
 export default function IncomeMonthHeader({
   monthLabel,
@@ -25,7 +15,7 @@ export default function IncomeMonthHeader({
   onBack,
   onToggleAdd,
   onSetMode,
-}: Props) {
+}: IncomeMonthHeaderProps) {
   const slideAnim = useRef(new Animated.Value(0)).current; // 0=income, 1=sacrifice
   const [pillWidth, setPillWidth] = useState(0);
 

@@ -6,22 +6,9 @@ import { T } from "@/lib/theme";
 import { withOpacity } from "@/lib/categoryColors";
 import { fmt } from "@/lib/formatting";
 import { categoryExpensesStyles as s } from "@/components/CategoryExpensesScreen/style";
+import type { CategoryExpensesHeroProps } from "@/types";
 
-type Props = {
-  currency: string;
-  heroPeriodLabel: string;
-  onPressAdd: () => void;
-  onPressMonth: () => void;
-  paidPct: number;
-  paidTotal: number;
-  plannedTotal: number;
-  remainingPct: number;
-  remainingTotal: number;
-  topHeaderOffset: number;
-  updatedLabel: string;
-};
-
-export default function CategoryExpensesHero(props: Props) {
+export default function CategoryExpensesHero(props: CategoryExpensesHeroProps) {
   return (
     <View style={[s.hero, { paddingTop: props.topHeaderOffset + 14 }]}>
       <Pressable onPress={props.onPressMonth} style={s.heroMonthBtn} hitSlop={12}>

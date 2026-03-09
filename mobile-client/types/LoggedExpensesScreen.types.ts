@@ -1,4 +1,9 @@
+import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+
 import type { Expense } from "@/lib/apiTypes";
+import type { ExpensesStackParamList } from "@/navigation/types";
+
+export type LoggedExpensesScreenProps = NativeStackScreenProps<ExpensesStackParamList, "LoggedExpenses">;
 
 export type LoggedExpensesControllerState = {
   categoryColor: string;

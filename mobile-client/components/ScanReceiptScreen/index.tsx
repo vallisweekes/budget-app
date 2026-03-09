@@ -1,13 +1,4 @@
-/**
- * ScanReceiptScreen
- *
- * Flow:
- *  1. User picks camera or gallery
- *  2. Image compressed + sent to POST /api/bff/receipts/scan (OpenAI Vision)
- *  3. Editable confirmation form shown with AI-prefilled fields
- *  4. On confirm → POST /api/bff/receipts/[id]/confirm creates the Expense
- *  5. Navigate back with success
- */
+
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -27,9 +18,9 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
-import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 
 import { apiFetch } from "@/lib/api";
+import { FUNDING_OPTIONS, MONTH_NAMES_LONG, MONTH_NAMES_SHORT, NEW_LOAN_SENTINEL } from "@/lib/constants";
 import type {
   Category,
   Debt,
@@ -42,37 +33,15 @@ import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 import { T } from "@/lib/theme";
 import MoneyInput from "@/components/Shared/MoneyInput";
-import type { ExpensesStackParamList } from "@/navigation/types";
+import type {
+  ScanReceiptDateFields,
+  ScanReceiptFundingSource,
+  ScanReceiptPaymentSource,
+  ScanReceiptScreenProps,
+  ScanReceiptStage,
+} from "@/types";
 
-/* ─── Types ─────────────────────────────────────────────────── */
-
-type Props = NativeStackScreenProps<ExpensesStackParamList, "ScanReceipt">;
-
-type Stage =
-  | "pick"        // Initial pick method screen
-  | "scanning"    // Uploading + AI processing
-  | "confirm"     // Editable confirmation form
-  | "saving";     // Saving to backend
-
-const MONTH_NAMES = [
-  "January","February","March","April","May","June",
-  "July","August","September","October","November","December",
-];
-const SHORT_MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-const NEW_LOAN_SENTINEL = "__new_loan__";
-
-type FundingSource = "income" | "savings" | "monthly_allowance" | "credit_card" | "loan" | "other";
-
-const FUNDING_OPTIONS: Array<{ value: FundingSource; label: string }> = [
-  { value: "income", label: "Income" },
-  { value: "savings", label: "Savings" },
-  { value: "monthly_allowance", label: "Monthly allowance" },
-  { value: "credit_card", label: "Credit card" },
-  { value: "loan", label: "Loan" },
-  { value: "other", label: "Other" },
-];
-
-function paymentSourceForFunding(funding: FundingSource): "income" | "savings" | "credit_card" | "extra_untracked" {
+function paymentSourceForFunding(funding: ScanReceiptFundingSource): ScanReceiptPaymentSource {
   if (funding === "savings") return "savings";
   if (funding === "credit_card") return "credit_card";
   if (funding === "monthly_allowance" || funding === "loan" || funding === "other") return "extra_untracked";
@@ -81,7 +50,7 @@ function paymentSourceForFunding(funding: FundingSource): "income" | "savings" |
 
 /* ─── Helpers ───────────────────────────────────────────────── */
 
-function parseDateFields(isoDate: string | null): { month: number; year: number } {
+function parseDateFields(isoDate: string | null): ScanReceiptDateFields {
   const now = new Date();
   if (!isoDate) return { month: now.getMonth() + 1, year: now.getFullYear() };
   const d = new Date(isoDate);
@@ -91,12 +60,12 @@ function parseDateFields(isoDate: string | null): { month: number; year: number 
 
 /* ─── Screen ─────────────────────────────────────────────────── */
 
-export default function ScanReceiptScreen({ navigation }: Props) {
+export default function ScanReceiptScreen({ navigation }: ScanReceiptScreenProps) {
   const topOffset = useTopHeaderOffset();
   const now = new Date();
 
   /* ── Stage ──────────────────────────────────────────────── */
-  const [stage,    setStage]    = useState<Stage>("pick");
+  const [stage,    setStage]    = useState<ScanReceiptStage>("pick");
   const [scanError, setScanError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -108,7 +77,7 @@ export default function ScanReceiptScreen({ navigation }: Props) {
   const [name,         setName]        = useState("");
   const [amount,       setAmount]      = useState("");
   const [categoryId,   setCategoryId]  = useState("");
-  const [fundingSource, setFundingSource] = useState<FundingSource>("income");
+  const [fundingSource, setFundingSource] = useState<ScanReceiptFundingSource>("income");
   const [selectedDebtId, setSelectedDebtId] = useState("");
   const [newLoanName, setNewLoanName] = useState("");
   const [month,        setMonth]       = useState(now.getMonth() + 1);
@@ -466,7 +435,7 @@ export default function ScanReceiptScreen({ navigation }: Props) {
             >
               <Text style={s.fieldLabel}>Month</Text>
               <View style={s.fieldRow}>
-                <Text style={s.fieldValue}>{MONTH_NAMES[month - 1]} {year}</Text>
+                <Text style={s.fieldValue}>{MONTH_NAMES_LONG[month - 1]} {year}</Text>
                 <Ionicons name="chevron-forward" size={16} color={T.textDim} style={s.fieldChevron} />
               </View>
             </Pressable>
@@ -611,7 +580,7 @@ export default function ScanReceiptScreen({ navigation }: Props) {
                 </Pressable>
               </View>
               <View style={s.pickerGrid}>
-                {SHORT_MONTHS.map((mName, idx) => {
+                {MONTH_NAMES_SHORT.map((mName, idx) => {
                   const m = idx + 1;
                   const isSelected = m === month && pickerYear === year;
                   return (

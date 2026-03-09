@@ -7,19 +7,10 @@ import { dueDaysColor, formatDueDate } from "@/lib/helpers/categoryExpenses";
 import { fmt } from "@/lib/formatting";
 import { resolveLogoUri } from "@/lib/logoDisplay";
 import { T } from "@/lib/theme";
-import type { Expense } from "@/lib/apiTypes";
+import type { CategoryExpenseCardProps } from "@/types";
 import { styles } from "./styles";
 
-type Props = {
-  categoryColor: string;
-  currency: string;
-  expense: Expense;
-  onLogoError: (expenseId: string) => void;
-  onPress: (expense: Expense) => void;
-  logoFailed: boolean;
-};
-
-export default function CategoryExpenseCard(props: Props) {
+export default function CategoryExpenseCard(props: CategoryExpenseCardProps) {
   const amount = Number(props.expense.amount);
   const paidAmount = Number(props.expense.paidAmount);
   const paidAmountClamped = amount > 0 ? Math.min(paidAmount, amount) : 0;

@@ -5,13 +5,11 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { fmt } from "@/lib/formatting";
 import { T } from "@/lib/theme";
-import type { useDebtScreenController } from "@/lib/hooks/useDebtScreenController";
 import { debtStyles as styles } from "@/components/DebtScreen/style";
 import { projectionMonthLabel } from "@/components/DebtScreen/utils";
+import type { DebtProjectionCardProps } from "@/types";
 
-type DebtScreenController = ReturnType<typeof useDebtScreenController>;
-
-export function DebtProjectionCard({ controller }: { controller: DebtScreenController }) {
+export function DebtProjectionCard({ controller }: DebtProjectionCardProps) {
   const { projectionSummary } = controller;
   if (projectionSummary.months <= 1) return null;
 

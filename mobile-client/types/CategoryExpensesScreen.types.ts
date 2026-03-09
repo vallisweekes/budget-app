@@ -1,5 +1,11 @@
+import type React from "react";
+import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+
 import type { Expense, ExpenseCategoryBreakdown } from "@/lib/apiTypes";
 import type { PayFrequency } from "@/lib/payPeriods";
+import type { ExpensesStackParamList } from "@/navigation/types";
+
+export type CategoryExpensesScreenProps = NativeStackScreenProps<ExpensesStackParamList, "CategoryExpenses">;
 
 export type CategoryExpensesSettingsSlice = {
   payDate: number | null;

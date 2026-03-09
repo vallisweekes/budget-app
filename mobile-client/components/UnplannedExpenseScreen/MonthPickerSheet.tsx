@@ -3,8 +3,8 @@ import { Animated, Modal, Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import type { MonthPickerSheetProps } from "@/types";
+import { MONTH_NAMES_SHORT } from "@/lib/constants";
 import { T } from "@/lib/theme";
-import { SHORT_MONTHS } from "@/lib/hooks/useUnplannedExpenseScreenController";
 
 import { styles } from "./style";
 
@@ -25,7 +25,7 @@ export default function MonthPickerSheet({ dragY, month, onClose, onMonthSelect,
             </Pressable>
           </View>
           <View style={styles.pickerGrid}>
-            {SHORT_MONTHS.map((name, idx) => {
+            {MONTH_NAMES_SHORT.map((name, idx) => {
               const monthValue = idx + 1;
               const isSelected = monthValue === month && pickerYear === year;
 

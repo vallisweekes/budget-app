@@ -11,55 +11,13 @@ import { T } from "@/lib/theme";
 import { s } from "@/components/IncomeMonthScreen/style";
 import IncomeSacrificePieChart from "@/components/Income/IncomeSacrificePieChart";
 import MoneyInput from "@/components/Shared/MoneyInput";
-
-type SacrificePeriod =
-  | "this_month"
-  | "next_six_months"
-  | "remaining_months"
-  | "two_years"
-  | "five_years"
-  | "ten_years";
-
-type AmountEntryMode = "set" | "adjust";
-
-type TargetOption = {
-  key: string;
-  label: string;
-  kind: "fixed" | "custom";
-  fixedField?: "monthlyAllowance" | "monthlySavingsContribution" | "monthlyEmergencyContribution" | "monthlyInvestmentContribution";
-  customAllocationId?: string;
-};
-
-type Props = {
-  currency: string;
-  month: number;
-  year: number;
-  sacrifice: IncomeSacrificeData | null;
-  canManage?: boolean;
-  manageUnavailableReason?: string;
-  sacrificeSaving: boolean;
-  sacrificeCreating: boolean;
-  sacrificeDeletingId: string | null;
-  refreshing: boolean;
-  onRefresh: () => void;
-  onApplySacrificeAmount: (args: {
-    targetType: "fixed" | "custom";
-    fixedField?: "monthlyAllowance" | "monthlySavingsContribution" | "monthlyEmergencyContribution" | "monthlyInvestmentContribution";
-    customAllocationId?: string;
-    amount: number;
-    startMonth: number;
-    startYear: number;
-    period: SacrificePeriod;
-  }) => Promise<void>;
-  onDeleteCustom: (id: string) => Promise<void>;
-  onCreateItem: (args: { type: "allowance" | "savings" | "emergency" | "investment" | "custom"; name: string }) => Promise<void>;
-  onSaveGoalLink: (args: { targetKey: string; goalId: string | null }) => Promise<void>;
-  onConfirmTransfer: (targetKey: string) => Promise<void>;
-  goalLinkSaving: boolean;
-  confirmingTargetKey: string | null;
-  pendingNoticeText?: string;
-  onDismissPendingNotice?: () => void;
-};
+import type {
+  AmountEntryMode,
+  IncomeMonthSacrificeListProps,
+  IncomeSacrificeItemType,
+  SacrificePeriod,
+  TargetOption,
+} from "@/types";
 
 const PERIOD_OPTIONS: Array<{ key: SacrificePeriod; label: string }> = [
   { key: "this_month", label: "This month" },
@@ -70,7 +28,7 @@ const PERIOD_OPTIONS: Array<{ key: SacrificePeriod; label: string }> = [
   { key: "ten_years", label: "10 years" },
 ];
 
-const ADD_ITEM_TYPES: Array<{ key: "allowance" | "savings" | "emergency" | "investment" | "custom"; label: string }> = [
+const ADD_ITEM_TYPES: Array<{ key: IncomeSacrificeItemType; label: string }> = [
   { key: "allowance", label: "Allowance" },
   { key: "savings", label: "Savings" },
   { key: "emergency", label: "Emergency" },
@@ -82,7 +40,7 @@ const MONTH_CHIPS = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ];
 
-export default function IncomeMonthSacrificeList(props: Props) {
+export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeListProps) {
   const insets = useSafeAreaInsets();
   const [amountSheetOpen, setAmountSheetOpen] = useState(false);
   const [addItemSheetOpen, setAddItemSheetOpen] = useState(false);
@@ -94,7 +52,7 @@ export default function IncomeMonthSacrificeList(props: Props) {
   const [startMonth, setStartMonth] = useState(props.month);
   const [startYear, setStartYear] = useState(props.year);
 
-  const [newItemType, setNewItemType] = useState<"allowance" | "savings" | "emergency" | "investment" | "custom">("custom");
+  const [newItemType, setNewItemType] = useState<IncomeSacrificeItemType>("custom");
   const [newItemName, setNewItemName] = useState("");
   const [linkTargetKey, setLinkTargetKey] = useState("");
   const [linkGoalId, setLinkGoalId] = useState<string>("");

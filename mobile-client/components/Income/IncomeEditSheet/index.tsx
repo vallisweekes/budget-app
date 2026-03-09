@@ -8,26 +8,12 @@ import { styles } from "./styles";
 import { T } from "@/lib/theme";
 import MoneyInput from "@/components/Shared/MoneyInput";
 import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
+import type { IncomeEditSheetPctChartProps, IncomeEditSheetProps } from "@/types";
 
 const SCREEN_W = Dimensions.get("window").width;
 
-type Props = {
-  visible: boolean;
-  name: string;
-  amount: string;
-  currency: string;
-  totalIncome: number;
-  setName: (value: string) => void;
-  setAmount: (value: string) => void;
-  onCancel: () => void;
-  onSave: () => void;
-  onDelete: () => void;
-  saving: boolean;
-  isLocked: boolean;
-};
-
 // Line chart showing percentage of total income with smooth curve + area fill
-function PctChart({ pct }: { pct: number | null }) {
+function PctChart({ pct }: IncomeEditSheetPctChartProps) {
   const W = SCREEN_W - 40;
   const H = 110;
   const PAD_L = 28;
@@ -154,7 +140,7 @@ export default function IncomeEditSheet({
   onDelete,
   saving,
   isLocked,
-}: Props) {
+}: IncomeEditSheetProps) {
   // Two-mode sheet: view (read-only) → tap Edit → edit (inputs active)
   const [editMode, setEditMode] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);

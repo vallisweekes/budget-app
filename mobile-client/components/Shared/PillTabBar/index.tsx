@@ -6,10 +6,9 @@ import { BlurView } from "expo-blur";
 import { T } from "@/lib/theme";
 import Svg, { Path } from "react-native-svg";
 import { styles } from "./styles";
+import type { GlassEffectModule, PillTabBarHomeIconProps, PillTabBarIconName } from "@/types";
 
-type GlassEffectModule = typeof import("expo-glass-effect");
-
-function HomeIcon({ color }: { color: string }) {
+function HomeIcon({ color }: PillTabBarHomeIconProps) {
   return (
     <Svg width={20} height={20} viewBox="0 0 48 48">
       <Path
@@ -20,9 +19,7 @@ function HomeIcon({ color }: { color: string }) {
   );
 }
 
-type IconName = React.ComponentProps<typeof Ionicons>["name"];
-
-const ICONS: Record<string, { active: IconName; inactive: IconName }> = {
+const ICONS: Record<string, { active: PillTabBarIconName; inactive: PillTabBarIconName }> = {
   Dashboard: { active: "home", inactive: "home-outline" },
   Expenses:  { active: "receipt", inactive: "receipt-outline" },
   Debts:     { active: "card", inactive: "card-outline" },

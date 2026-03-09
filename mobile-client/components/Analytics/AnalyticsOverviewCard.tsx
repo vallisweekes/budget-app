@@ -6,21 +6,7 @@ import { fmt } from "@/lib/formatting";
 import { OVERVIEW_CHART_H } from "@/lib/helpers/analytics";
 import { T } from "@/lib/theme";
 import { analyticsStyles as s } from "@/components/AnalyticsScreen/style";
-import type { AnalyticsChartData, AnalyticsOverviewLinePoint, AnalyticsOverviewMode } from "@/types/AnalyticsScreen.types";
-
-type Props = {
-  chartData: AnalyticsChartData;
-  chartSpacing: number;
-  chartWidth: number;
-  currency: string;
-  currentMonthLabel: string;
-  expenseLine: AnalyticsOverviewLinePoint[];
-  incomeLine: AnalyticsOverviewLinePoint[];
-  onWrapWidthChange: (width: number) => void;
-  overviewMaxValue: number;
-  overviewMode: AnalyticsOverviewMode;
-  overviewWrapWidth: number;
-};
+import type { AnalyticsOverviewCardProps, AnalyticsOverviewPointerItem } from "@/types";
 
 export default function AnalyticsOverviewCard({
   chartData,
@@ -34,7 +20,7 @@ export default function AnalyticsOverviewCard({
   overviewMaxValue,
   overviewMode,
   overviewWrapWidth,
-}: Props) {
+}: AnalyticsOverviewCardProps) {
   return (
     <View style={s.tipCard}>
       <View style={s.overviewHead}>
@@ -92,7 +78,7 @@ export default function AnalyticsOverviewCard({
             radius: 4,
             pointerLabelWidth: 128,
             pointerLabelHeight: 64,
-            pointerLabelComponent: (items: Array<{ value: number; index: number }>) => {
+            pointerLabelComponent: (items: AnalyticsOverviewPointerItem[]) => {
               const item = items?.[0];
               if (!item) return null;
               const index = Number.isFinite(item.index) ? item.index : 0;

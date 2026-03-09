@@ -1,0 +1,1 @@
+export type IncomeSourceId = "salary" | "business" | "freelance" | "benefits" | "investments" | "mixed";

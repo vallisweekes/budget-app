@@ -5,19 +5,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { fmt } from "@/lib/formatting";
 import { resolveLogoUri } from "@/lib/logoDisplay";
 import { T } from "@/lib/theme";
-import type { DebtRow, ExpenseRow } from "@/lib/hooks/usePaymentsSections";
 import { s } from "@/components/PaymentsScreen/style";
-
-type Props = {
-  query: string;
-  onQueryChange: (value: string) => void;
-  sections: Array<{ title: string; data: Array<ExpenseRow | DebtRow> }>;
-  refreshing: boolean;
-  onRefresh: () => void;
-  currency: string;
-  showEmpty: boolean;
-  onOpenItem: (item: { kind: "expense" | "debt"; id: string; name: string; dueAmount: number; logoUrl?: string | null }) => void;
-};
+import type { PaymentsListViewProps, PaymentsListViewRenderRowArgs } from "@/types";
 
 export default function PaymentsListView({
   query,
@@ -28,11 +17,11 @@ export default function PaymentsListView({
   currency,
   showEmpty,
   onOpenItem,
-}: Props) {
+}: PaymentsListViewProps) {
   const [failedLogos, setFailedLogos] = React.useState<Record<string, boolean>>({});
 
   const renderRow = React.useCallback(
-    ({ item, section }: { item: ExpenseRow | DebtRow; section: { title: string } }) => {
+    ({ item, section }: PaymentsListViewRenderRowArgs) => {
       const kind = String(section?.title).toLowerCase() === "debts" ? "debt" : "expense";
       const logoKey = `${kind}:${item.id}`;
       const logoUri = resolveLogoUri(item.logoUrl ?? null);
@@ -89,7 +78,7 @@ export default function PaymentsListView({
 
       <SectionList
         sections={sections as any}
-        keyExtractor={(item: ExpenseRow | DebtRow) => item.id}
+        keyExtractor={(item) => item.id}
         contentContainerStyle={s.listContent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={T.accent} />}
         renderSectionHeader={({ section }) => <Text style={s.sectionTitle}>{section.title}</Text>}

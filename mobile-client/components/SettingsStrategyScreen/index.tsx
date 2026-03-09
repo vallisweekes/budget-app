@@ -4,17 +4,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
 import { apiFetch } from "@/lib/api";
+import { STRATEGY_OPTIONS } from "@/lib/constants";
 import { T } from "@/lib/theme";
 import { cardBase, cardElevated } from "@/lib/ui";
 import { useAuth } from "@/context/AuthContext";
 import type { RootStackScreenProps } from "@/navigation/types";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
-
-const STRATEGY_OPTIONS = [
-  { value: "payYourselfFirst", label: "Pay Yourself First", tip: "Prioritise savings and investment before discretionary spending." },
-  { value: "zeroBased", label: "Zero-based", tip: "Assign every pound to a category so leftover becomes £0." },
-  { value: "fiftyThirtyTwenty", label: "50/30/20", tip: "Split income into needs, wants, and savings/debt reduction." },
-] as const;
 
 export default function SettingsStrategyScreen({ navigation, route }: RootStackScreenProps<"SettingsStrategy">) {
   const { budgetPlanId, strategy } = route.params;

@@ -8,11 +8,9 @@ import type { Settings } from "@/lib/apiTypes";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 import { getPayPeriodAnchorFromWindow, normalizePayFrequency, resolveActivePayPeriod } from "@/lib/payPeriods";
 import { T } from "@/lib/theme";
-import type { IncomeStackParamList } from "@/navigation/types";
+import type { IncomeHomeScreenProps } from "@/types";
 
-type Props = NativeStackScreenProps<IncomeStackParamList, "IncomeHome">;
-
-export default function IncomeHomeScreen({ navigation }: Props) {
+export default function IncomeHomeScreen({ navigation }: IncomeHomeScreenProps) {
   const topHeaderOffset = useTopHeaderOffset(-32);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

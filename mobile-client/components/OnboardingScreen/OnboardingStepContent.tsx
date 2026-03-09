@@ -5,13 +5,11 @@ import { Ionicons } from "@expo/vector-icons";
 import MoneyInput from "@/components/Shared/MoneyInput";
 import NoteBadge from "@/components/Shared/NoteBadge";
 import { onboardingStyles as styles } from "@/components/OnboardingScreen/style";
-import { BILL_FREQUENCY_OPTIONS, EXPENSES_TOTAL_BLUE, GOALS, ICON_COLORS, PAY_FREQUENCY_OPTIONS, PLANNING_YEARS_OPTIONS, STEP_ICON_COLORS } from "@/components/OnboardingScreen/utils";
+import { BILL_FREQUENCY_OPTIONS, EXPENSES_TOTAL_BLUE, GOALS, ICON_COLORS, PAY_FREQUENCY_OPTIONS, PLANNING_YEARS_OPTIONS, STEP_ICON_COLORS } from "@/lib/constants";
 import { T } from "@/lib/theme";
-import type { useOnboardingScreenController } from "@/lib/hooks/useOnboardingScreenController";
+import type { OnboardingStepContentProps } from "@/types";
 
-type OnboardingController = ReturnType<typeof useOnboardingScreenController>;
-
-export function OnboardingStepContent({ controller }: { controller: OnboardingController }) {
+export function OnboardingStepContent({ controller }: OnboardingStepContentProps) {
   return (
     <>
       {controller.step === 0 ? (
@@ -86,9 +84,9 @@ export function OnboardingStepContent({ controller }: { controller: OnboardingCo
           <Text style={styles.question}>How often do you get paid?</Text>
           <View style={styles.chipsWrap}>
             {PAY_FREQUENCY_OPTIONS.map((item) => {
-              const active = controller.payFrequency === item.id;
+              const active = controller.payFrequency === item.value;
               return (
-                <Pressable key={item.id} onPress={() => controller.setPayFrequency(item.id)} style={[styles.chip, active && styles.chipActive]}>
+                <Pressable key={item.value} onPress={() => controller.setPayFrequency(item.value)} style={[styles.chip, active && styles.chipActive]}>
                   <Text style={[styles.chipText, active && styles.chipTextActive]}>{item.label}</Text>
                 </Pressable>
               );
@@ -98,9 +96,9 @@ export function OnboardingStepContent({ controller }: { controller: OnboardingCo
           <Text style={styles.question}>How often do you usually pay most bills?</Text>
           <View style={styles.chipsWrap}>
             {BILL_FREQUENCY_OPTIONS.map((item) => {
-              const active = controller.billFrequency === item.id;
+              const active = controller.billFrequency === item.value;
               return (
-                <Pressable key={item.id} onPress={() => controller.setBillFrequency(item.id)} style={[styles.chip, active && styles.chipActive]}>
+                <Pressable key={item.value} onPress={() => controller.setBillFrequency(item.value)} style={[styles.chip, active && styles.chipActive]}>
                   <Text style={[styles.chipText, active && styles.chipTextActive]}>{item.label}</Text>
                 </Pressable>
               );

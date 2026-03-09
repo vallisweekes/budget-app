@@ -5,7 +5,8 @@ import { Ionicons } from "@expo/vector-icons";
 import SettingsBudgetFieldSheet from "@/components/Settings/SettingsBudgetFieldSheet";
 import SettingsLocaleSheet from "@/components/Settings/SettingsLocaleSheet";
 import SavingsEditorSheet from "@/components/Settings/SavingsEditorSheet";
-import { asMoneyNumber, asMoneyText, BILL_FREQUENCY_OPTIONS, getSavingsFieldTitle, PAY_FREQUENCY_OPTIONS } from "@/lib/helpers/settings";
+import { BILL_FREQUENCY_OPTIONS, PAY_FREQUENCY_OPTIONS } from "@/lib/constants";
+import { asMoneyNumber, asMoneyText, getSavingsFieldTitle } from "@/lib/helpers/settings";
 
 import type { SettingsModalStackEditorsProps } from "@/types/components/settings/SettingsModalStackEditors.types";
 

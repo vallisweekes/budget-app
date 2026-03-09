@@ -16,12 +16,12 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation, useFocusEffect, useRoute, type RouteProp } from "@react-navigation/native";
-import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { useNavigation, useFocusEffect, useRoute } from "@react-navigation/native";
 
 import { apiFetch } from "@/lib/api";
 import type { IncomeSummaryData } from "@/lib/apiTypes";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
+import { MONTH_NAMES_SHORT } from "@/lib/constants";
 import { currencySymbol, fmt } from "@/lib/formatting";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 import { useYearGuard } from "@/lib/hooks/useYearGuard";
@@ -30,16 +30,11 @@ import { buildPayPeriodFromMonthAnchor, getPayPeriodAnchorFromWindow, normalizeP
 import { T } from "@/lib/theme";
 import IncomeMonthCard from "@/components/Income/IncomeMonthCard";
 import MoneyInput from "@/components/Shared/MoneyInput";
-import type { IncomeStackParamList } from "@/navigation/types";
-
-type Nav = NativeStackNavigationProp<IncomeStackParamList, "IncomeGrid">;
-type ScreenRoute = RouteProp<IncomeStackParamList, "IncomeGrid">;
-
-const MONTH_NAMES_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+import type { IncomeScreenNavigation, IncomeScreenRoute } from "@/types";
 
 export default function IncomeScreen() {
-  const navigation = useNavigation<Nav>();
-  const route = useRoute<ScreenRoute>();
+  const navigation = useNavigation<IncomeScreenNavigation>();
+  const route = useRoute<IncomeScreenRoute>();
   const topHeaderOffset = useTopHeaderOffset();
   const contentTopPadding = topHeaderOffset + 10;
   const now = new Date();

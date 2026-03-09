@@ -3,10 +3,11 @@ import { Image, Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import type { DebtSummaryItem } from "@/lib/apiTypes";
+import { TYPE_COLORS, TYPE_LABELS } from "@/lib/constants";
 import { fmt } from "@/lib/formatting";
 import { T } from "@/lib/theme";
 import { debtStyles as styles } from "@/components/DebtScreen/style";
-import { resolveLogoUri, TYPE_COLORS, TYPE_LABELS } from "@/components/DebtScreen/utils";
+import { resolveLogoUri } from "@/components/DebtScreen/utils";
 
 export function DebtCard({
   debt,

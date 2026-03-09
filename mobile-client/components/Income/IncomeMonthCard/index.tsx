@@ -1,13 +1,9 @@
 import React from "react";
 import { Text, View, Pressable, ViewStyle } from "react-native";
+import { MONTH_NAMES_SHORT } from "@/lib/constants";
 import { T } from "@/lib/theme";
 import { styles } from "./styles";
 import type { IncomeMonthCardProps } from "@/types";
-
-const MONTH_NAMES_SHORT = [
-  "Jan","Feb","Mar","Apr","May","Jun",
-  "Jul","Aug","Sep","Oct","Nov","Dec",
-];
 
 export default function IncomeMonthCard({
   item,

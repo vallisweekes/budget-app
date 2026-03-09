@@ -3,13 +3,12 @@ import { ActivityIndicator, Animated, KeyboardAvoidingView, Modal, Platform, Pre
 import DateTimePicker from "@react-native-community/datetimepicker";
 
 import type { EditDebtSheetProps } from "@/types";
+import { TERM_PRESETS } from "@/lib/constants";
 import { T } from "@/lib/theme";
 import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
 import MoneyInput from "@/components/Shared/MoneyInput";
 import DatePickerInput from "@/components/Shared/DatePickerInput";
 import { styles } from "./styles";
-
-const TERM_PRESETS = [2, 3, 6, 12, 24, 36, 48] as const;
 
 export default function EditDebtSheet(props: EditDebtSheetProps) {
   const {

@@ -18,14 +18,13 @@ import { Ionicons } from "@expo/vector-icons";
 import MoneyInput from "@/components/Shared/MoneyInput";
 import DatePickerInput from "@/components/Shared/DatePickerInput";
 import OverlaySelectInput from "@/components/Shared/OverlaySelectInput";
+import { PAYMENT_SOURCE_OPTIONS, TERM_PRESETS, TYPE_COLORS, TYPE_LABELS } from "@/lib/constants";
 import { T } from "@/lib/theme";
-import type { useDebtScreenController } from "@/lib/hooks/useDebtScreenController";
 import { debtStyles as styles } from "@/components/DebtScreen/style";
-import { formatYmdToDmy, PAYMENT_SOURCE_OPTIONS, TERM_PRESETS, TYPE_LABELS, TYPE_COLORS } from "@/components/DebtScreen/utils";
+import { formatYmdToDmy } from "@/components/DebtScreen/utils";
+import type { AddDebtSheetProps } from "@/types";
 
-type DebtScreenController = ReturnType<typeof useDebtScreenController>;
-
-export function AddDebtSheet({ controller }: { controller: DebtScreenController }) {
+export function AddDebtSheet({ controller }: AddDebtSheetProps) {
   return (
     <Modal
       visible={controller.showAddForm}
