@@ -14,7 +14,7 @@ import {
   getPayPeriodLabel,
   getPreviousAnalyticsAnchor,
 } from "@/lib/helpers/analytics";
-import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
+import { useTopHeaderOffset } from "@/hooks";
 import { normalizePayFrequency } from "@/lib/payPeriods";
 import type { RootStackScreenProps } from "@/navigation/types";
 import type { AnalyticsOverviewLinePoint, AnalyticsOverviewMode, AnalyticsScreenControllerState } from "@/types/AnalyticsScreen.types";

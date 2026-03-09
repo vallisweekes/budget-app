@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
+import { useSwipeDownToClose } from "@/hooks";
 
 import { apiFetch } from "@/lib/api";
 import type { Category, Debt, Settings } from "@/lib/apiTypes";

@@ -11,7 +11,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
 import { fmt } from "@/lib/formatting";
-import { useDebtScreenController } from "@/lib/hooks/useDebtScreenController";
+import { useDebtScreenController } from "@/hooks";
 import { T } from "@/lib/theme";
 import AddDebtSheet from "@/components/DebtScreen/AddDebtSheet";
 import DebtCard from "@/components/DebtScreen/DebtCard";

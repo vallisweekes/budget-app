@@ -29,8 +29,8 @@ import type {
   ReceiptConfirmBody,
 } from "@/lib/apiTypes";
 import { currencySymbol, fmt } from "@/lib/formatting";
-import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
-import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
+import { useSwipeDownToClose } from "@/hooks";
+import { useTopHeaderOffset } from "@/hooks";
 import { T } from "@/lib/theme";
 import MoneyInput from "@/components/Shared/MoneyInput";
 import type {

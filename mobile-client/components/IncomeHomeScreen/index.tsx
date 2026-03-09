@@ -5,7 +5,7 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 
 import { apiFetch } from "@/lib/api";
 import type { Settings } from "@/lib/apiTypes";
-import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
+import { useTopHeaderOffset } from "@/hooks";
 import { getPayPeriodAnchorFromWindow, normalizePayFrequency, resolveActivePayPeriod } from "@/lib/payPeriods";
 import { T } from "@/lib/theme";
 import type { IncomeHomeScreenProps } from "@/types";

@@ -4,7 +4,7 @@ import { useRoute, type RouteProp } from "@react-navigation/native";
 import { apiFetch } from "@/lib/api";
 import type { DebtSummaryData, DebtSummaryItem, Settings } from "@/lib/apiTypes";
 import { assignDebtColors, projectDebtMonths } from "@/lib/helpers/debtAnalytics";
-import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
+import { useTopHeaderOffset } from "@/hooks";
 import type { DebtStackParamList } from "@/navigation/types";
 import type { DebtAnalyticsControllerState } from "@/types/DebtAnalyticsScreen.types";
 

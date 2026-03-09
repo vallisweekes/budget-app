@@ -18,7 +18,7 @@ import PayoffChart from "@/components/Debts/Detail/PayoffChart";
 import PaymentSheet from "@/components/Debts/Detail/PaymentSheet";
 import EditDebtSheet from "@/components/Debts/Detail/EditDebtSheet";
 import PaymentHistorySection from "@/components/Debts/Detail/PaymentHistorySection";
-import { useDebtDetailController } from "@/lib/hooks/useDebtDetailController";
+import { useDebtDetailController } from "@/hooks";
 
 export default function DebtDetailScreen() {
   const navigation = useNavigation<DebtDetailNav>();

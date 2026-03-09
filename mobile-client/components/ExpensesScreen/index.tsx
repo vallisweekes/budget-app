@@ -29,7 +29,7 @@ import AddExpenseSheet from "@/components/Expenses/AddExpenseSheet";
 import CategoryBreakdown from "@/components/Expenses/CategoryBreakdown";
 import { MONTH_NAMES_SHORT } from "@/lib/constants";
 import { fmt } from "@/lib/formatting";
-import { useExpensesScreenController } from "@/lib/hooks/useExpensesScreenController";
+import { useExpensesScreenController } from "@/hooks";
 import { T } from "@/lib/theme";
 import { expensesStyles as styles } from "@/components/ExpensesScreen/style";
 import type { ExpensesScreenProps } from "@/types";

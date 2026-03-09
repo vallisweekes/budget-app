@@ -22,7 +22,7 @@ import type { Goal } from "@/lib/apiTypes";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { fmt } from "@/lib/formatting";
 import { asMoneyNumber, resolveGoalCurrentAmount } from "@/lib/helpers/settings";
-import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
+import { useTopHeaderOffset } from "@/hooks";
 import type { MainTabScreenProps } from "@/navigation/types";
 import { T } from "@/lib/theme";
 import { cardElevated, textLabel } from "@/lib/ui";

@@ -5,7 +5,7 @@ import { apiFetch } from "@/lib/api";
 import type { Category, Expense, ExpenseCategoryBreakdown, Settings } from "@/lib/apiTypes";
 import { resolveCategoryColor } from "@/lib/categoryColors";
 import { expenseCacheKey, getLatestPaymentAt, splitCategoryExpenses } from "@/lib/helpers/categoryExpenses";
-import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
+import { useTopHeaderOffset } from "@/hooks";
 import { buildPayPeriodFromMonthAnchor, formatPayPeriodLabel, normalizePayFrequency, type PayFrequency } from "@/lib/payPeriods";
 import type { ExpensesStackParamList } from "@/navigation/types";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";

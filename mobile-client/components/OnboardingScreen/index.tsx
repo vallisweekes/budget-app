@@ -3,7 +3,7 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { useOnboardingScreenController } from "@/lib/hooks/useOnboardingScreenController";
+import { useOnboardingScreenController } from "@/hooks";
 import OnboardingStepContent from "@/components/OnboardingScreen/OnboardingStepContent";
 import { onboardingStyles as styles } from "@/components/OnboardingScreen/style";
 import type { OnboardingScreenProps } from "@/types/OnboardingScreen.types";

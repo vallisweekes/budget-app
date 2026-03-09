@@ -1,7 +1,7 @@
 import type { Animated } from "react-native";
 
 import type { Debt } from "@/lib/apiTypes";
-import type { DebtGroupKey } from "@/lib/hooks/useSettingsDebtBuckets";
+import type { DebtGroupKey } from "@/hooks";
 import type { MoneyViewMode, SavingsField, SavingsPot } from "@/types/settings";
 
 export type SettingsMoneyTabDebtGroup = {

@@ -5,7 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import type { Expense } from "@/lib/apiTypes";
 import LoggedExpenseCard from "@/components/Expenses/LoggedExpenseCard";
 import LoggedExpensesHero from "@/components/Expenses/LoggedExpensesHero";
-import { useLoggedExpensesScreenController } from "@/lib/hooks/useLoggedExpensesScreenController";
+import { useLoggedExpensesScreenController } from "@/hooks";
 import { T } from "@/lib/theme";
 import { loggedExpensesStyles as styles } from "@/components/LoggedExpensesScreen/style";
 import type { LoggedExpensesScreenProps } from "@/types";

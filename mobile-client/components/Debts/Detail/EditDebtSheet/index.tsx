@@ -5,7 +5,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import type { EditDebtSheetProps } from "@/types";
 import { TERM_PRESETS } from "@/lib/constants";
 import { T } from "@/lib/theme";
-import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
+import { useSwipeDownToClose } from "@/hooks";
 import MoneyInput from "@/components/Shared/MoneyInput";
 import DatePickerInput from "@/components/Shared/DatePickerInput";
 import { styles } from "./styles";

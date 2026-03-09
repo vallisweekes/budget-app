@@ -9,7 +9,7 @@ import { T } from "@/lib/theme";
 import { cardBase, cardElevated } from "@/lib/ui";
 import { useAuth } from "@/context/AuthContext";
 import type { RootStackScreenProps } from "@/navigation/types";
-import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
+import { useTopHeaderOffset } from "@/hooks";
 
 export default function SettingsStrategyScreen({ navigation, route }: RootStackScreenProps<"SettingsStrategy">) {
   const { budgetPlanId, strategy } = route.params;

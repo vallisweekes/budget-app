@@ -24,7 +24,6 @@ export default function BudgetDonutCard({ totalBudget, totalExpenses, paidTotal,
     overspend,
     usedFrac,
     remainingFrac,
-    overspendFrac,
   } = useMemo(
     () => computeBudgetDonutMetrics(totalBudget, totalExpenses, paidTotal),
     [paidTotal, totalBudget, totalExpenses],

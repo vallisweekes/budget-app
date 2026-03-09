@@ -23,7 +23,7 @@ import { buildEditExpenseBody, parseExpenseAmount } from "@/lib/domain/expenseMu
 import { resolveCategoryColor } from "@/lib/categoryColors";
 import { T } from "@/lib/theme";
 import { ADD_EXPENSE_SHEET_SCREEN_H, pr, styles as s } from "@/components/Expenses/AddExpenseSheet/styles";
-import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
+import { useSwipeDownToClose } from "@/hooks";
 import MoneyInput from "@/components/Shared/MoneyInput";
 import DatePickerInput from "@/components/Shared/DatePickerInput";
 

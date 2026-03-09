@@ -7,7 +7,7 @@ import AddExpenseSheet from "@/components/Expenses/AddExpenseSheet";
 import CategoryExpenseCard from "@/components/Expenses/CategoryExpenseCard";
 import CategoryExpensesHero from "@/components/Expenses/CategoryExpensesHero";
 import CategoryExpensesMonthPicker from "@/components/Expenses/CategoryExpensesMonthPicker";
-import { useCategoryExpensesScreenController } from "@/lib/hooks/useCategoryExpensesScreenController";
+import { useCategoryExpensesScreenController } from "@/hooks";
 import { T } from "@/lib/theme";
 import { categoryExpensesStyles as styles } from "@/components/CategoryExpensesScreen/style";
 import { styles as rowStyles } from "@/components/Expenses/CategoryExpenseCard/styles";

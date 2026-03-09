@@ -5,8 +5,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRoute } from "@react-navigation/native";
 
 import type { GoalDetailRoute } from "@/types";
-import { useGoalDetailScreenController } from "@/lib/hooks/useGoalDetailScreenController";
-import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
+import { useGoalDetailScreenController } from "@/hooks";
+import { useTopHeaderOffset } from "@/hooks";
 import { T } from "@/lib/theme";
 import DeleteConfirmSheet from "@/components/Shared/DeleteConfirmSheet";
 

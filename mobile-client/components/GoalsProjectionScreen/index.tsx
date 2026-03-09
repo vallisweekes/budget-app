@@ -7,7 +7,7 @@ import Svg, { Polyline } from "react-native-svg";
 import type { DashboardData } from "@/lib/apiTypes";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { resolveGoalCurrentAmount } from "@/lib/helpers/settings";
-import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
+import { useTopHeaderOffset } from "@/hooks";
 import { T } from "@/lib/theme";
 
 import { styles } from "./style";

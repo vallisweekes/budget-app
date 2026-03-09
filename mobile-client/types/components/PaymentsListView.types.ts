@@ -1,4 +1,4 @@
-import type { DebtRow, ExpenseRow } from "@/lib/hooks/usePaymentsSections";
+import type { DebtRow, ExpenseRow } from "@/hooks";
 
 import type { PaymentDetailSheetItem } from "./PaymentDetailSheet.types";
 

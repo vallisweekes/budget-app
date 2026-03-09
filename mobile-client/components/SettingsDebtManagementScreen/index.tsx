@@ -4,7 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
 import { useBootstrapData } from "@/context/BootstrapDataContext";
-import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
+import { useTopHeaderOffset } from "@/hooks";
 import { T } from "@/lib/theme";
 import type { RootStackScreenProps } from "@/navigation/types";
 import { useGetOnboardingStatusQuery, useUpdateOnboardingProfileMutation } from "@/store/api";

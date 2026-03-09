@@ -3,7 +3,7 @@ import { View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import type { MainTabScreenProps } from "@/navigation/types";
-import useSettingsScreenController from "@/lib/hooks/useSettingsScreenController";
+import useSettingsScreenController from "@/hooks";
 import SettingsMainContent from "@/components/Settings/SettingsMainContent";
 import SettingsModalStack from "@/components/Settings/SettingsModalStack";
 import {

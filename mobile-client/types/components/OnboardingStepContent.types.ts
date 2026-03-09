@@ -1,4 +1,4 @@
-import type { useOnboardingScreenController } from "@/lib/hooks/useOnboardingScreenController";
+import type { useOnboardingScreenController } from "@/hooks";
 
 export type OnboardingController = ReturnType<typeof useOnboardingScreenController>;
 

@@ -9,7 +9,7 @@ import { apiFetch } from "@/lib/api";
 import { INCOME_SOURCE_OPTIONS } from "@/lib/constants";
 import type { IncomeMonthData } from "@/lib/apiTypes";
 import { currencySymbol, fmt } from "@/lib/formatting";
-import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
+import { useTopHeaderOffset } from "@/hooks";
 import { T } from "@/lib/theme";
 import { cardBase, cardElevated } from "@/lib/ui";
 import type { RootStackScreenProps } from "@/navigation/types";

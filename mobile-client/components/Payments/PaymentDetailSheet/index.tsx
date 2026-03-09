@@ -6,7 +6,7 @@ import { styles } from "./styles";
 import { fmt } from "@/lib/formatting";
 import { resolveLogoUri } from "@/lib/logoDisplay";
 import { T } from "@/lib/theme";
-import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
+import { useSwipeDownToClose } from "@/hooks";
 import type { PaymentDetailSheetProps } from "@/types";
 
 export default function PaymentDetailSheet({

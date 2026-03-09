@@ -2,7 +2,7 @@ import type React from "react";
 import { Ionicons } from "@expo/vector-icons";
 
 import type { Debt } from "@/lib/apiTypes";
-import type { DebtGroupKey } from "@/lib/hooks/useSettingsDebtBuckets";
+import type { DebtGroupKey } from "@/hooks";
 
 export type SettingsMoneyCardsViewDebtGroup = {
   key: DebtGroupKey;

@@ -23,7 +23,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
 import { apiFetch } from "@/lib/api";
-import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
+import { useSwipeDownToClose } from "@/hooks";
 import { buildCreateExpenseBody, canSubmitExpense } from "@/lib/domain/expenseMutations";
 import type {
   Category,

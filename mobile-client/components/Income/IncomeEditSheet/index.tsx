@@ -7,7 +7,7 @@ import { styles } from "./styles";
 
 import { T } from "@/lib/theme";
 import MoneyInput from "@/components/Shared/MoneyInput";
-import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
+import { useSwipeDownToClose } from "@/hooks";
 import type { IncomeEditSheetPctChartProps, IncomeEditSheetProps } from "@/types";
 
 const SCREEN_W = Dimensions.get("window").width;

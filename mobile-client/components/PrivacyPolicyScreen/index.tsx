@@ -9,7 +9,7 @@ import {
   PRIVACY_POLICY_SECTIONS,
 } from "@/lib/legal/privacyPolicy";
 import { openSettingsExternalUrl, SETTINGS_WEBSITE_URL } from "@/lib/helpers/settingsOverview";
-import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
+import { useTopHeaderOffset } from "@/hooks";
 import { T } from "@/lib/theme";
 import { cardBase } from "@/lib/ui";
 import type { RootStackScreenProps } from "@/navigation/types";

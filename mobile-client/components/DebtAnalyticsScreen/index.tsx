@@ -7,7 +7,7 @@ import DebtAnalyticsInsights from "@/components/Debts/DebtAnalyticsInsights";
 import DebtAnalyticsProgressList from "@/components/Debts/DebtAnalyticsProgressList";
 import DebtAnalyticsSummaryStrip from "@/components/Debts/DebtAnalyticsSummaryStrip";
 import DebtAnalyticsTimelineChart from "@/components/Debts/DebtAnalyticsTimelineChart";
-import { useDebtAnalyticsScreenController } from "@/lib/hooks/useDebtAnalyticsScreenController";
+import { useDebtAnalyticsScreenController } from "@/hooks";
 import { T } from "@/lib/theme";
 import { debtAnalyticsStyles as s } from "@/components/DebtAnalyticsScreen/style";
 

@@ -21,7 +21,7 @@ import PaymentSheet from "@/components/Debts/Detail/PaymentSheet";
 import EditExpenseSheet from "@/components/Expenses/EditExpenseSheet";
 import DeleteConfirmSheet from "@/components/Shared/DeleteConfirmSheet";
 import { fmt } from "@/lib/formatting";
-import { useExpenseDetailScreenController } from "@/lib/hooks/useExpenseDetailScreenController";
+import { useExpenseDetailScreenController } from "@/hooks";
 import { T } from "@/lib/theme";
 import { expenseDetailStyles as styles, EXPENSE_HERO_BLUE } from "@/components/ExpenseDetailScreen/style";
 import { statusLabel } from "@/components/ExpenseDetailScreen/utils";

@@ -7,7 +7,7 @@ import AnalyticsDebtDistributionCard from "@/components/Analytics/AnalyticsDebtD
 import AnalyticsInsightGrid from "@/components/Analytics/AnalyticsInsightGrid";
 import AnalyticsOverviewCard from "@/components/Analytics/AnalyticsOverviewCard";
 import AnalyticsTipsCard from "@/components/Analytics/AnalyticsTipsCard";
-import { useAnalyticsScreenController } from "@/lib/hooks/useAnalyticsScreenController";
+import { useAnalyticsScreenController } from "@/hooks";
 import type { RootStackScreenProps } from "@/navigation/types";
 import { T } from "@/lib/theme";
 import { analyticsStyles as s } from "@/components/AnalyticsScreen/style";

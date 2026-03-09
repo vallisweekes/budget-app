@@ -6,7 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useUpdateProfileMutation } from "@/store/api";
 import { T } from "@/lib/theme";
 import { cardBase } from "@/lib/ui";
-import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
+import { useTopHeaderOffset } from "@/hooks";
 import type { RootStackScreenProps } from "@/navigation/types";
 
 export default function SettingsProfileDetailsScreen({ navigation, route }: RootStackScreenProps<"SettingsProfileDetails">) {

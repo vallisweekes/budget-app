@@ -17,10 +17,10 @@ import type { Income, Settings, IncomeMonthData, IncomeSacrificeData, IncomeSacr
 import { computeMoneyLeftVsLastMonth } from "@/lib/domain/incomeStats";
 import type { IncomeStackParamList } from "@/navigation/types";
 import { currencySymbol, fmt, MONTH_NAMES_LONG } from "@/lib/formatting";
-import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
+import { useTopHeaderOffset } from "@/hooks";
 import { buildPayPeriodFromMonthAnchor, normalizePayFrequency } from "@/lib/payPeriods";
 import { T } from "@/lib/theme";
-import { useIncomeCRUD } from "@/lib/hooks/useIncomeCRUD";
+import { useIncomeCRUD } from "@/hooks";
 import IncomeMonthHeader from "@/components/Income/IncomeMonthHeader";
 import IncomeMonthIncomeList from "@/components/Income/IncomeMonthIncomeList";
 import IncomeMonthSacrificeList from "@/components/Income/IncomeMonthSacrificeList";

@@ -6,7 +6,7 @@ import { apiFetch } from "@/lib/api";
 import type { Debt, Expense } from "@/lib/apiTypes";
 import { fmt } from "@/lib/formatting";
 import { resolveLogoUri } from "@/lib/logoDisplay";
-import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
+import { useSwipeDownToClose } from "@/hooks";
 import { useCreateDebtPaymentMutation, useLazyGetDebtDetailQuery } from "@/store/api";
 import {
   computeDebtDueAmount,

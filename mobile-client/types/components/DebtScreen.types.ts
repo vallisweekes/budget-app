@@ -1,4 +1,4 @@
-import type { useDebtScreenController } from "@/lib/hooks/useDebtScreenController";
+import type { useDebtScreenController } from "@/hooks";
 
 export type DebtScreenController = ReturnType<typeof useDebtScreenController>;
 

@@ -1,4 +1,4 @@
-import type { SettingsScreenController } from "@/lib/hooks/useSettingsScreenController";
+import type { SettingsScreenController } from "@/hooks";
 
 export type SettingsModalStackProps = {
   controller: SettingsScreenController;

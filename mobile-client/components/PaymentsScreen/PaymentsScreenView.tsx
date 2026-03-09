@@ -15,9 +15,9 @@ import type { Settings } from "@/lib/apiTypes";
 import { currencySymbol } from "@/lib/formatting";
 import { T } from "@/lib/theme";
 import PaymentDetailSheet from "@/components/Payments/PaymentDetailSheet";
-import { usePaymentsSections, type PaymentsResponse } from "@/lib/hooks/usePaymentsSections";
+import { usePaymentsSections, type PaymentsResponse } from "@/hooks";
 import PaymentsListView from "@/components/Payments/PaymentsListView";
-import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
+import { useTopHeaderOffset } from "@/hooks";
 import { s } from "./style";
 import type { PaymentDetail, PaymentsScreenNavigation, PaymentsScreenOpenItem } from "@/types";
 

@@ -4,7 +4,7 @@ import { ActivityIndicator, Animated, KeyboardAvoidingView, Modal, Platform, Pre
 import type { PaymentSheetProps } from "@/types";
 import { T } from "@/lib/theme";
 import MoneyInput from "@/components/Shared/MoneyInput";
-import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
+import { useSwipeDownToClose } from "@/hooks";
 import { styles } from "./styles";
 
 export default function PaymentSheet({

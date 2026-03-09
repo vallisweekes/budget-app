@@ -1,4 +1,4 @@
-import type { SettingsScreenController } from "@/lib/hooks/useSettingsScreenController";
+import type { SettingsScreenController } from "@/hooks";
 import type { MainTabScreenProps } from "@/navigation/types";
 
 export type SettingsMainContentProps = {

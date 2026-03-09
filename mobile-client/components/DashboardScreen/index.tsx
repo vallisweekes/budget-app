@@ -7,7 +7,7 @@ import BudgetDonutCard from "@/components/Dashboard/BudgetDonutCard";
 import CategorySwipeCards from "@/components/Dashboard/CategorySwipeCards";
 import QuickPaymentActionSheet from "@/components/Dashboard/QuickPaymentActionSheet";
 import { fmt } from "@/lib/formatting";
-import { useDashboardScreenController } from "@/lib/hooks/useDashboardScreenController";
+import { useDashboardScreenController } from "@/hooks";
 import { T } from "@/lib/theme";
 import DashboardAiTipsCard from "@/components/DashboardScreen/DashboardAiTipsCard";
 import DashboardCategorySheet from "@/components/DashboardScreen/DashboardCategorySheet";

@@ -6,7 +6,7 @@ import { styles } from "./styles";
 
 import type { IncomeSacrificeData } from "@/lib/apiTypes";
 import { fmt, MONTH_NAMES_LONG } from "@/lib/formatting";
-import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
+import { useSwipeDownToClose } from "@/hooks";
 import { T } from "@/lib/theme";
 import { s } from "@/components/IncomeMonthScreen/style";
 import IncomeSacrificePieChart from "@/components/Income/IncomeSacrificePieChart";
