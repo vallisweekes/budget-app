@@ -3,10 +3,9 @@ import { Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 
+import type { DashboardTip } from "@/types";
 import { T } from "@/lib/theme";
 import { styles } from "@/components/DashboardScreen/style";
-
-type DashboardTip = { title: string; detail: string; priority?: number };
 
 export default function DashboardAiTipsCard({ tips }: { tips: DashboardTip[] }) {
   const validTips = useMemo(

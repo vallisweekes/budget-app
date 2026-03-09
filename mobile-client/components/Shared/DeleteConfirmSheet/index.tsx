@@ -1,19 +1,10 @@
 import React from "react";
 import { Animated, Modal, Pressable, Text, View } from "react-native";
+
+import type { DeleteConfirmSheetProps } from "@/types";
 import { T } from "@/lib/theme";
 import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
 import { styles } from "./styles";
-
-type Props = {
-  visible: boolean;
-  title: string;
-  description: string;
-  confirmText?: string;
-  cancelText?: string;
-  isBusy?: boolean;
-  onClose: () => void;
-  onConfirm: () => void;
-};
 
 export default function DeleteConfirmSheet({
   visible,
@@ -24,7 +15,7 @@ export default function DeleteConfirmSheet({
   isBusy = false,
   onClose,
   onConfirm,
-}: Props) {
+}: DeleteConfirmSheetProps) {
   const { dragY, panHandlers } = useSwipeDownToClose({ onClose, disabled: isBusy });
 
   return (

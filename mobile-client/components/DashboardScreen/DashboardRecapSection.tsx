@@ -1,21 +1,8 @@
 import { Text, View } from "react-native";
 
+import type { DashboardRecapSectionProps } from "@/types";
 import { fmt } from "@/lib/formatting";
 import { styles } from "@/components/DashboardScreen/style";
-
-type DashboardRecap = {
-  paidCount?: number;
-  paidAmount?: number;
-  missedDueCount?: number;
-  missedDueAmount?: number;
-};
-
-type DashboardRecapSectionProps = {
-  recap: DashboardRecap | null;
-  hasRecapData: boolean;
-  recapTitle: string;
-  currency: string;
-};
 
 export default function DashboardRecapSection({
   recap,

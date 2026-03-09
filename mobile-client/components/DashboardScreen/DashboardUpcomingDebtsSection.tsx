@@ -1,24 +1,9 @@
 import { Image, Pressable, Text, View } from "react-native";
 
+import type { DashboardUpcomingDebtsSectionProps } from "@/types";
 import { fmt, normalizeUpcomingName } from "@/lib/formatting";
 import { resolveLogoUri } from "@/lib/logoDisplay";
 import { styles } from "@/components/DashboardScreen/style";
-
-type UpcomingDebt = {
-  id: string;
-  name: string;
-  dueAmount?: number | null;
-  logoUrl?: string | null;
-};
-
-type DashboardUpcomingDebtsSectionProps = {
-  items: UpcomingDebt[];
-  currency: string;
-  isLogoFailed: (key: string) => boolean;
-  onLogoError: (key: string) => void;
-  onOpenQuickPay: (debt: UpcomingDebt) => void;
-  onSeeAll: () => void;
-};
 
 export default function DashboardUpcomingDebtsSection({
   items,

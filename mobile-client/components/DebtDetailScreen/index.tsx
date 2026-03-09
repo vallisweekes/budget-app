@@ -3,11 +3,10 @@ import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, RefreshCo
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect, useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
+import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
-import type { DebtStackParamList } from "@/navigation/types";
+import type { DebtDetailNav, DebtDetailRoute } from "@/types";
 import { T } from "@/lib/theme";
 import { fmt } from "@/lib/formatting";
 import { cardBase } from "@/lib/ui";
@@ -21,12 +20,9 @@ import EditDebtSheet from "@/components/Debts/Detail/EditDebtSheet";
 import PaymentHistorySection from "@/components/Debts/Detail/PaymentHistorySection";
 import { useDebtDetailController } from "@/lib/hooks/useDebtDetailController";
 
-type Route = RouteProp<DebtStackParamList, "DebtDetail">;
-type Nav = NativeStackNavigationProp<DebtStackParamList, "DebtDetail">;
-
 export default function DebtDetailScreen() {
-  const navigation = useNavigation<Nav>();
-  const { params } = useRoute<Route>();
+  const navigation = useNavigation<DebtDetailNav>();
+  const { params } = useRoute<DebtDetailRoute>();
   const { debtId, debtName } = params;
   const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();

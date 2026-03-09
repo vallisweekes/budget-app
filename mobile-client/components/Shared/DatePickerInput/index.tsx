@@ -3,19 +3,8 @@ import { Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { styles } from "./styles";
 
+import type { DatePickerInputProps } from "@/types";
 import { T } from "@/lib/theme";
-
-type Props = {
-  value?: string;
-  placeholder?: string;
-  onPress: () => void;
-  disabled?: boolean;
-  containerStyle?: any;
-  valueStyle?: any;
-  placeholderStyle?: any;
-  iconColor?: string;
-  iconSize?: number;
-};
 
 export default function DatePickerInput({
   value,
@@ -27,7 +16,7 @@ export default function DatePickerInput({
   placeholderStyle,
   iconColor = T.accent,
   iconSize = 18,
-}: Props) {
+}: DatePickerInputProps) {
   const hasValue = Boolean(String(value ?? "").trim());
 
   return (

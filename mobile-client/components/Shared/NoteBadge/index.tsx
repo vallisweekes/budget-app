@@ -1,16 +1,10 @@
 import React from "react";
-import { Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
+import { Text, View } from "react-native";
 
+import type { NoteBadgeProps } from "@/types";
 import { styles } from "./styles";
 
-type Props = {
-  text: string;
-  containerStyle?: StyleProp<ViewStyle>;
-  textStyle?: StyleProp<TextStyle>;
-  accentStyle?: StyleProp<ViewStyle>;
-};
-
-export default function NoteBadge({ text, containerStyle, textStyle, accentStyle }: Props) {
+export default function NoteBadge({ text, containerStyle, textStyle, accentStyle }: NoteBadgeProps) {
   return (
     <View style={[styles.badge, containerStyle]}>
       <View style={[styles.accent, accentStyle]} />

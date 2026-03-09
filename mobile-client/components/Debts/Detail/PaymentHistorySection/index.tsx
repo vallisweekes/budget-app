@@ -1,19 +1,13 @@
 import React from "react";
 import { Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import type { DebtPayment } from "@/lib/apiTypes";
+
+import type { PaymentHistorySectionProps } from "@/types";
 import { fmt } from "@/lib/formatting";
 import { T } from "@/lib/theme";
 import { styles } from "./styles";
 
-type Props = {
-  payments: DebtPayment[];
-  currency: string;
-  open: boolean;
-  onToggle: () => void;
-};
-
-export default function PaymentHistorySection({ payments, currency, open, onToggle }: Props) {
+export default function PaymentHistorySection({ payments, currency, open, onToggle }: PaymentHistorySectionProps) {
   return (
     <View style={styles.sectionCard}>
       <Pressable style={styles.histHeader} onPress={onToggle}>

@@ -1,46 +1,17 @@
 import React from "react";
 import { ActivityIndicator, Animated, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
+
+import type { EditDebtSheetProps } from "@/types";
 import { T } from "@/lib/theme";
 import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
-import type { CreditCard } from "@/lib/apiTypes";
 import MoneyInput from "@/components/Shared/MoneyInput";
 import DatePickerInput from "@/components/Shared/DatePickerInput";
 import { styles } from "./styles";
 
 const TERM_PRESETS = [2, 3, 6, 12, 24, 36, 48] as const;
 
-type Props = {
-  visible: boolean;
-  saving: boolean;
-  currency?: string | null;
-  name: string;
-  currentBalance: string;
-  interestRate: string;
-  monthlyPayment: string;
-  monthlyMinimum: string;
-  dueDate: string;
-  installment: string;
-  paymentSource: "income" | "extra_funds" | "credit_card";
-  paymentCardDebtId: string;
-  paymentCards: CreditCard[];
-  showDatePicker: boolean;
-  onClose: () => void;
-  onSave: () => void;
-  onChangeName: (v: string) => void;
-  onChangeCurrentBalance: (v: string) => void;
-  onChangeRate: (v: string) => void;
-  onChangeMonthlyPayment: (v: string) => void;
-  onChangeMin: (v: string) => void;
-  onPickDate: () => void;
-  onDateChange: (value: string) => void;
-  onChangePaymentSource: (v: "income" | "extra_funds" | "credit_card") => void;
-  onChangePaymentCardDebtId: (v: string) => void;
-  onChangeInstallment: (v: string) => void;
-  onSetShowDatePicker: (v: boolean) => void;
-};
-
-export default function EditDebtSheet(props: Props) {
+export default function EditDebtSheet(props: EditDebtSheetProps) {
   const {
     visible, saving, currency, name, currentBalance, interestRate, monthlyPayment, monthlyMinimum, dueDate, installment, paymentSource, paymentCardDebtId, paymentCards, showDatePicker,
     onClose, onSave, onChangeName, onChangeCurrentBalance, onChangeRate, onChangeMonthlyPayment, onChangeMin,

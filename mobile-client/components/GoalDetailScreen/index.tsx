@@ -2,11 +2,11 @@ import React from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useRoute, type RouteProp } from "@react-navigation/native";
+import { useRoute } from "@react-navigation/native";
 
+import type { GoalDetailRoute } from "@/types";
 import { useGoalDetailScreenController } from "@/lib/hooks/useGoalDetailScreenController";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
-import type { RootStackParamList } from "@/navigation/types";
 import { T } from "@/lib/theme";
 import DeleteConfirmSheet from "@/components/Shared/DeleteConfirmSheet";
 
@@ -15,8 +15,6 @@ import GoalDetailForm from "./GoalDetailForm";
 import GoalDetailHero from "./GoalDetailHero";
 import GoalDetailHomeToggle from "./GoalDetailHomeToggle";
 import { styles } from "./style";
-
-type GoalDetailRoute = RouteProp<RootStackParamList, "GoalDetail">;
 
 export default function GoalDetailScreen() {
   const { params } = useRoute<GoalDetailRoute>();

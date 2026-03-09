@@ -1,22 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Pressable, Text, TextInput, View, type TextInputProps } from "react-native";
+import { Pressable, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { styles } from "./styles";
 
+import type { MoneyInputProps } from "@/types";
 import { currencySymbol } from "@/lib/formatting";
 import { formatGroupedNumber, parseMoney, sanitizeMoneyDraft, truncateTail } from "@/lib/domain/moneyInput";
 import { T } from "@/lib/theme";
-
-type Props = {
-  currency?: string | null;
-  value: string;
-  onChangeValue: (next: string) => void;
-  variant?: "default" | "light";
-  placeholder?: string;
-  keyboardType?: TextInputProps["keyboardType"];
-  containerStyle?: any;
-  inputStyle?: any;
-} & Omit<TextInputProps, "value" | "onChangeText" | "placeholder" | "keyboardType">;
 
 export default function MoneyInput({
   currency,
@@ -32,7 +22,7 @@ export default function MoneyInput({
   placeholderTextColor,
   editable = true,
   ...rest
-}: Props) {
+}: MoneyInputProps) {
   const sym = useMemo(() => currencySymbol(currency), [currency]);
   const [focused, setFocused] = useState(false);
   const [display, setDisplay] = useState<string>(value ? value : "");

@@ -1,21 +1,9 @@
 import React from "react";
 import { Text, View } from "react-native";
+
+import type { DebtStatsGridProps } from "@/types";
 import { T } from "@/lib/theme";
 import { styles } from "./styles";
-
-type Props = {
-  isCardDebt: boolean;
-  creditLimit: string;
-  original: string;
-  paidSoFar: string;
-  dueCoveredThisCycle: boolean;
-  dueDateLabel: string;
-  dueStatusSub?: string;
-  dueTone: "normal" | "green" | "orange" | "red";
-  monthlyOrInterestLabel: string;
-  monthlyOrInterestValue: string;
-  monthlyOrInterestSub?: string;
-};
 
 export default function DebtStatsGrid({
   isCardDebt,
@@ -29,7 +17,7 @@ export default function DebtStatsGrid({
   monthlyOrInterestLabel,
   monthlyOrInterestValue,
   monthlyOrInterestSub,
-}: Props) {
+}: DebtStatsGridProps) {
   const dueColor = dueTone === "green" ? T.green : dueTone === "orange" ? T.orange : dueTone === "red" ? T.red : T.text;
 
   return (

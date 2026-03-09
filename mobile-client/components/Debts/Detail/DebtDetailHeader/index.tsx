@@ -1,18 +1,11 @@
 import React from "react";
 import { Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+
+import type { DebtDetailHeaderProps } from "@/types";
 import { styles } from "./styles";
 
-type Props = {
-  title: string;
-  editing: boolean;
-  onBack: () => void;
-  onToggleEdit: () => void;
-  onDelete: () => void;
-  hideActions?: boolean;
-};
-
-export default function DebtDetailHeader({ title, editing, onBack, onToggleEdit, onDelete, hideActions }: Props) {
+export default function DebtDetailHeader({ title, editing, onBack, onToggleEdit, onDelete, hideActions }: DebtDetailHeaderProps) {
   return (
     <View style={styles.header}>
       <Pressable onPress={onBack} style={styles.backBtn}>

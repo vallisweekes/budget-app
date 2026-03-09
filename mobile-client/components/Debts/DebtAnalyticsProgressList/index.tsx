@@ -1,18 +1,13 @@
 import React from "react";
 import { Text, View } from "react-native";
 
+import type { DebtAnalyticsProgressListProps } from "@/types";
 import { fmt } from "@/lib/formatting";
 import { payoffDateLabel } from "@/lib/helpers/debtAnalytics";
 import { T } from "@/lib/theme";
 import { debtAnalyticsStyles as s } from "@/components/DebtAnalyticsScreen/style";
-import type { DebtAnalyticsStat } from "@/types/DebtAnalyticsScreen.types";
 
-type Props = {
-  currency: string;
-  items: DebtAnalyticsStat[];
-};
-
-export default function DebtAnalyticsProgressList({ currency, items }: Props) {
+export default function DebtAnalyticsProgressList({ currency, items }: DebtAnalyticsProgressListProps) {
   return (
     <View style={s.card}>
       <Text style={s.sectionTitle}>Progress</Text>

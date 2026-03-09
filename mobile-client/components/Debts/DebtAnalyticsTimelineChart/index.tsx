@@ -2,16 +2,11 @@ import React, { useState } from "react";
 import { View } from "react-native";
 import Svg, { Circle, G, Line as SvgLine, Rect, Text as SvgText } from "react-native-svg";
 
+import type { DebtAnalyticsTimelineChartProps } from "@/types";
 import { T } from "@/lib/theme";
-import type { DebtAnalyticsGanttItem } from "@/types/DebtAnalyticsScreen.types";
 import { payoffDateLabel } from "@/lib/helpers/debtAnalytics";
 
-type Props = {
-  items: DebtAnalyticsGanttItem[];
-  maxMonths: number;
-};
-
-export default function DebtAnalyticsTimelineChart({ items, maxMonths }: Props) {
+export default function DebtAnalyticsTimelineChart({ items, maxMonths }: DebtAnalyticsTimelineChartProps) {
   const [containerWidth, setContainerWidth] = useState(320);
   const barHeight = 16;
   const rowHeight = 40;

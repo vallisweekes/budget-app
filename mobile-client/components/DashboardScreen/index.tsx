@@ -2,13 +2,13 @@ import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } 
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
+import type { DashboardScreenProps } from "@/types";
 import BudgetDonutCard from "@/components/Dashboard/BudgetDonutCard";
 import CategorySwipeCards from "@/components/Dashboard/CategorySwipeCards";
 import QuickPaymentActionSheet from "@/components/Dashboard/QuickPaymentActionSheet";
 import { fmt } from "@/lib/formatting";
 import { useDashboardScreenController } from "@/lib/hooks/useDashboardScreenController";
 import { T } from "@/lib/theme";
-import type { MainTabScreenProps } from "@/navigation/types";
 import DashboardAiTipsCard from "@/components/DashboardScreen/DashboardAiTipsCard";
 import DashboardCategorySheet from "@/components/DashboardScreen/DashboardCategorySheet";
 import DashboardGoalsSection from "@/components/DashboardScreen/DashboardGoalsSection";
@@ -16,8 +16,6 @@ import DashboardRecapSection from "@/components/DashboardScreen/DashboardRecapSe
 import DashboardUpcomingDebtsSection from "@/components/DashboardScreen/DashboardUpcomingDebtsSection";
 import DashboardUpcomingExpensesSection from "@/components/DashboardScreen/DashboardUpcomingExpensesSection";
 import { styles } from "@/components/DashboardScreen/style";
-
-type DashboardScreenProps = MainTabScreenProps<"Dashboard">;
 
 export default function DashboardScreen(props: DashboardScreenProps) {
   const controller = useDashboardScreenController(props);

@@ -1,17 +1,10 @@
 import React from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 
+import type { GoalDetailFooterProps } from "@/types";
 import { T } from "@/lib/theme";
 
 import { styles } from "./style";
-
-type GoalDetailFooterProps = {
-  isDirty: boolean;
-  saving: boolean;
-  deleting: boolean;
-  onDelete: () => void;
-  onSave: () => void;
-};
 
 export default function GoalDetailFooter({ isDirty, saving, deleting, onDelete, onSave }: GoalDetailFooterProps) {
   return (

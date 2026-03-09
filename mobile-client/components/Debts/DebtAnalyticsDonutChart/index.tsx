@@ -2,19 +2,12 @@ import React, { useMemo, useState } from "react";
 import { Pressable, Text, View, type GestureResponderEvent } from "react-native";
 import Svg, { Circle, Text as SvgText } from "react-native-svg";
 
+import type { DebtAnalyticsDonutChartProps, DebtAnalyticsColorSlice } from "@/types";
 import { fmt } from "@/lib/formatting";
 import { T } from "@/lib/theme";
-import type { DebtSummaryItem } from "@/lib/apiTypes";
-import type { DebtAnalyticsColorSlice } from "@/types/DebtAnalyticsScreen.types";
 import { debtAnalyticsStyles as s } from "@/components/DebtAnalyticsScreen/style";
 
-type Props = {
-  colors: string[];
-  currency: string;
-  debts: DebtSummaryItem[];
-};
-
-export default function DebtAnalyticsDonutChart({ colors, currency, debts }: Props) {
+export default function DebtAnalyticsDonutChart({ colors, currency, debts }: DebtAnalyticsDonutChartProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const size = 282;
   const centerX = size / 2;

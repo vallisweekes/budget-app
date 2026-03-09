@@ -2,19 +2,12 @@ import React from "react";
 import { Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-import type { DebtSummaryItem } from "@/lib/apiTypes";
-import type { DebtAnalyticsStat } from "@/types/DebtAnalyticsScreen.types";
+import type { DebtAnalyticsInsightsProps } from "@/types";
 import { payoffDateLabel } from "@/lib/helpers/debtAnalytics";
 import { T } from "@/lib/theme";
 import { debtAnalyticsStyles as s } from "@/components/DebtAnalyticsScreen/style";
 
-type Props = {
-  earliest?: DebtAnalyticsStat;
-  highestAPR?: DebtSummaryItem;
-  latest?: DebtAnalyticsStat;
-};
-
-export default function DebtAnalyticsInsights({ earliest, highestAPR, latest }: Props) {
+export default function DebtAnalyticsInsights({ earliest, highestAPR, latest }: DebtAnalyticsInsightsProps) {
   return (
     <>
       <View style={s.chipRow}>

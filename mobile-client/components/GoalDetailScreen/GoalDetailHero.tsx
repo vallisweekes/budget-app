@@ -2,18 +2,11 @@ import React from "react";
 import { Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
+import type { GoalDetailHeroProps } from "@/types";
 import { fmt } from "@/lib/formatting";
 import { T } from "@/lib/theme";
 
 import { styles } from "./style";
-
-type GoalDetailHeroProps = {
-  title: string;
-  currentAmount: number;
-  targetAmount: number;
-  currency?: string | null;
-  progress: number;
-};
 
 export default function GoalDetailHero({ title, currentAmount, targetAmount, currency, progress }: GoalDetailHeroProps) {
   return (

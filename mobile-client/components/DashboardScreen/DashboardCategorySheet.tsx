@@ -1,20 +1,10 @@
 import { Animated, FlatList, Modal, Pressable, StyleSheet, Text, View } from "react-native";
-import type { GestureResponderHandlers } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
+import type { CategorySheetProps } from "@/types";
 import { T } from "@/lib/theme";
 import { fmt } from "@/lib/formatting";
 import { styles } from "@/components/DashboardScreen/style";
-
-type CategorySheetProps = {
-  visible: boolean;
-  categoryName: string;
-  expenses: Array<{ id: string; name: string; amount: number; paid?: boolean; paidAmount?: number | null }>;
-  currency: string;
-  dragY: Animated.Value;
-  panHandlers: GestureResponderHandlers;
-  onClose: () => void;
-};
 
 export default function DashboardCategorySheet({
   visible,

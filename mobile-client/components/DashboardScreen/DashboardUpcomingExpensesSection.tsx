@@ -1,29 +1,9 @@
 import { Image, Pressable, Text, View } from "react-native";
 
+import type { DashboardUpcomingExpensesSectionProps } from "@/types";
 import { fmt } from "@/lib/formatting";
 import { resolveLogoUri } from "@/lib/logoDisplay";
 import { styles } from "@/components/DashboardScreen/style";
-
-type UpcomingExpense = {
-  id: string;
-  name: string;
-  amount: number;
-  paidAmount?: number | null;
-  dueDate?: string | null;
-  logoUrl?: string | null;
-  urgency?: string;
-  daysUntilDue: number;
-};
-
-type DashboardUpcomingExpensesSectionProps = {
-  items: UpcomingExpense[];
-  currency: string;
-  formatShortDate: (iso: string | null | undefined) => string | null;
-  isLogoFailed: (key: string) => boolean;
-  onLogoError: (key: string) => void;
-  onOpenQuickPay: (expense: UpcomingExpense) => void;
-  onSeeAll: () => void;
-};
 
 export default function DashboardUpcomingExpensesSection({
   items,

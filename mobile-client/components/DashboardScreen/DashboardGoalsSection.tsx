@@ -1,33 +1,12 @@
 import { FlatList, Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
+import type { DashboardGoalsSectionProps } from "@/types";
 import { fmt } from "@/lib/formatting";
 import { resolveGoalCurrentAmount } from "@/lib/helpers/settings";
 import { T } from "@/lib/theme";
 import { GOAL_GAP, GOAL_SIDE, styles } from "@/components/DashboardScreen/style";
 import { getGoalIconName } from "@/components/DashboardScreen/utils";
-import type { Settings } from "@/lib/apiTypes";
-
-type GoalCard = {
-  goal: {
-    id: string;
-    title: string;
-    targetAmount?: number | null;
-    currentAmount?: number | null;
-    type?: string | null;
-    category?: string | null;
-  };
-};
-
-type DashboardGoalsSectionProps = {
-  items: GoalCard[];
-  settings: Settings | null;
-  currency: string;
-  activeGoalCard: number;
-  onMomentumEnd: (offsetX: number) => void;
-  onPressGoals: () => void;
-  onPressProjection: () => void;
-};
 
 export default function DashboardGoalsSection({
   items,

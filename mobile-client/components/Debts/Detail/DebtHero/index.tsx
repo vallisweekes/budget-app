@@ -1,5 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { Image, Pressable, Text, View } from "react-native";
+
+import type { DebtHeroProps } from "@/types";
 import { getApiBaseUrl } from "@/lib/api";
 import { T } from "@/lib/theme";
 import { styles } from "./styles";
@@ -15,17 +17,6 @@ function resolveLogoUri(raw: string | null | undefined): string | null {
   }
 }
 
-type Props = {
-  debtName: string;
-  logoUrl?: string | null;
-  currentBalanceLabel: string;
-  currentBalanceValue: string;
-  isPaid: boolean;
-  progressPct: number;
-  isVerySmallScreen: boolean;
-  onRecordPayment: () => void;
-};
-
 export default function DebtHero({
   debtName,
   logoUrl,
@@ -35,7 +26,7 @@ export default function DebtHero({
   progressPct,
   isVerySmallScreen,
   onRecordPayment,
-}: Props) {
+}: DebtHeroProps) {
   const [logoFailed, setLogoFailed] = useState(false);
   const logoUri = useMemo(() => resolveLogoUri(logoUrl), [logoUrl]);
   const showLogo = Boolean(logoUri) && !logoFailed;

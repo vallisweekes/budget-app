@@ -3,22 +3,8 @@ import { Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { styles } from "./styles";
 
+import type { OverlaySelectInputProps } from "@/types";
 import { T } from "@/lib/theme";
-
-type Option = {
-  value: string;
-  label: string;
-  activeColor?: string;
-};
-
-type Props = {
-  value: string;
-  options: Option[];
-  onChange: (next: string) => void;
-  placeholder?: string;
-  containerStyle?: any;
-  triggerStyle?: any;
-};
 
 export default function OverlaySelectInput({
   value,
@@ -27,7 +13,7 @@ export default function OverlaySelectInput({
   placeholder = "Select",
   containerStyle,
   triggerStyle,
-}: Props) {
+}: OverlaySelectInputProps) {
   const [open, setOpen] = React.useState(false);
   const selected = options.find((opt) => opt.value === value);
 

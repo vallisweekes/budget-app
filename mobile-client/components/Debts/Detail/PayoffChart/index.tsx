@@ -1,24 +1,14 @@
 import React from "react";
 import { Text, View } from "react-native";
 import Svg, { Circle, Defs, Line, LinearGradient, Path, Stop, Text as SvgText } from "react-native-svg";
+
+import type { PayoffChartProps } from "@/types";
 import { fmt } from "@/lib/formatting";
 import { buildProjection, derivePayoffSummary } from "@/lib/domain/debtPayoff";
 import { T } from "@/lib/theme";
 import { styles } from "./styles";
 
-type Props = {
-  balance: number;
-  monthlyPayment: number;
-  interestRate: number | null;
-  currency: string;
-	monthsLeftOverride?: number | null;
-	paidOffByOverride?: string | null;
-  cannotPayoffOverride?: boolean;
-  payoffLabelOverride?: string | null;
-  horizonLabelOverride?: string;
-};
-
-export default function PayoffChart({ balance, monthlyPayment, interestRate, currency, monthsLeftOverride, paidOffByOverride, cannotPayoffOverride, payoffLabelOverride, horizonLabelOverride }: Props) {
+export default function PayoffChart({ balance, monthlyPayment, interestRate, currency, monthsLeftOverride, paidOffByOverride, cannotPayoffOverride, payoffLabelOverride, horizonLabelOverride }: PayoffChartProps) {
   const [chartWidth, setChartWidth] = React.useState(300);
   const chartHeight = 164;
   const paddingX = 12;

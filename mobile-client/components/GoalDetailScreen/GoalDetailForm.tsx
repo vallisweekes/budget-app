@@ -1,25 +1,12 @@
 import React from "react";
 import { Text, TextInput, View } from "react-native";
 
+import type { GoalDetailFormProps } from "@/types";
 import { fmt } from "@/lib/formatting";
 import { T } from "@/lib/theme";
 import MoneyInput from "@/components/Shared/MoneyInput";
 
 import { styles } from "./style";
-
-type GoalDetailFormProps = {
-  title: string;
-  description: string;
-  targetAmount: string;
-  targetYear: string;
-  currentAmount: number;
-  currency?: string | null;
-  disabled: boolean;
-  onTitleChange: (value: string) => void;
-  onDescriptionChange: (value: string) => void;
-  onTargetAmountChange: (value: string) => void;
-  onTargetYearChange: (value: string) => void;
-};
 
 export default function GoalDetailForm(props: GoalDetailFormProps) {
   const {

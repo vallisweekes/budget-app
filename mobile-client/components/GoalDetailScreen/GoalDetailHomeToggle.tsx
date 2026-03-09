@@ -1,13 +1,8 @@
 import React from "react";
 import { Pressable, Text, View } from "react-native";
 
+import type { GoalDetailHomeToggleProps } from "@/types";
 import { styles } from "./style";
-
-type GoalDetailHomeToggleProps = {
-  showOnHome: boolean;
-  disabled: boolean;
-  onPress: () => void;
-};
 
 export default function GoalDetailHomeToggle({ showOnHome, disabled, onPress }: GoalDetailHomeToggleProps) {
   return (

@@ -1,18 +1,12 @@
 import React from "react";
 import { Text, View } from "react-native";
 
+import type { DebtAnalyticsSummaryStripProps } from "@/types";
 import { fmt } from "@/lib/formatting";
 import { T } from "@/lib/theme";
 import { debtAnalyticsStyles as s } from "@/components/DebtAnalyticsScreen/style";
 
-type Props = {
-  currency: string;
-  paidTotal: number;
-  total: number;
-  totalMonthly: number;
-};
-
-export default function DebtAnalyticsSummaryStrip({ currency, paidTotal, total, totalMonthly }: Props) {
+export default function DebtAnalyticsSummaryStrip({ currency, paidTotal, total, totalMonthly }: DebtAnalyticsSummaryStripProps) {
   return (
     <View style={s.summaryRow}>
       <View style={s.summaryCard}>

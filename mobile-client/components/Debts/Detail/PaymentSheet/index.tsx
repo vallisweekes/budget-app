@@ -1,22 +1,11 @@
 import React from "react";
 import { ActivityIndicator, Animated, KeyboardAvoidingView, Modal, Platform, Pressable, Text, View } from "react-native";
+
+import type { PaymentSheetProps } from "@/types";
 import { T } from "@/lib/theme";
 import MoneyInput from "@/components/Shared/MoneyInput";
 import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
 import { styles } from "./styles";
-
-type Props = {
-  visible: boolean;
-  currency: string;
-  payAmount: string;
-  paying: boolean;
-  onChangeAmount: (value: string) => void;
-  onClose: () => void;
-  onSave: () => void;
-  onMarkPaid?: () => void;
-  showMarkPaid?: boolean;
-  markPaidLabel?: string;
-};
 
 export default function PaymentSheet({
   visible,
@@ -29,7 +18,7 @@ export default function PaymentSheet({
   onMarkPaid,
   showMarkPaid = true,
   markPaidLabel = "Mark due as paid",
-}: Props) {
+}: PaymentSheetProps) {
   const { dragY, panHandlers } = useSwipeDownToClose({ onClose, disabled: paying });
 
   return (
