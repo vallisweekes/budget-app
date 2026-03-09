@@ -8,6 +8,7 @@ import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
 
 import { store } from "@/store";
+import { ActiveBudgetPlanProvider } from "@/context/ActiveBudgetPlanContext";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { BootstrapDataProvider } from "@/context/BootstrapDataContext";
 import { PushNotificationsBootstrap } from "@/components/Shared/PushNotificationsBootstrap";
@@ -210,10 +211,12 @@ export default function ExpoRootLayout() {
       <ReduxProvider store={store}>
         <AuthProvider>
           <BootstrapDataProvider>
-            <OnboardingGateProvider>
-              <PushNotificationsBootstrap />
-              <RootShell />
-            </OnboardingGateProvider>
+            <ActiveBudgetPlanProvider>
+              <OnboardingGateProvider>
+                <PushNotificationsBootstrap />
+                <RootShell />
+              </OnboardingGateProvider>
+            </ActiveBudgetPlanProvider>
           </BootstrapDataProvider>
         </AuthProvider>
       </ReduxProvider>

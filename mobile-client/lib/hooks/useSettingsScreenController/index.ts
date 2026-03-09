@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Animated, Dimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import * as SecureStore from "expo-secure-store";
 import * as Notifications from "expo-notifications";
 
+import { useActiveBudgetPlan } from "@/context/ActiveBudgetPlanContext";
 import { useAuth } from "@/context/AuthContext";
 import { ApiError, apiFetch } from "@/lib/api";
 import type {
@@ -17,8 +17,6 @@ import { useSavingsPotStore, useSettingsDebtBuckets, useSwipeDownToClose, useTop
 import {
   deleteNotificationInboxItem,
   markNotificationInboxItemRead,
-  subscribeNotificationInbox,
-  type NotificationInboxItem,
 } from "@/lib/notificationInbox";
 import {
   useCreateBudgetPlanMutation,
@@ -55,8 +53,6 @@ import type {
   CreateSacrificeItemResponse,
   DebtKind,
   MoneyViewMode,
-  NotificationPrefs,
-  NotificationPrefsResponse,
   PayFrequency,
   PlanKind,
   SacrificeGoalsResponse,
@@ -65,8 +61,8 @@ import type {
   SavingsSheetMode,
   SettingsTab,
 } from "@/types/settings";
+import { useSettingsNotifications } from "@/lib/hooks/useSettingsScreenController/notifications";
 
-const NOTIFICATION_PREFS_KEY = "budget_app.notification_prefs";
 const MONEY_TOGGLE_SEGMENT_WIDTH = (Math.max(220, Dimensions.get("window").width - 32) - 8) / 2;
 const MONEY_TOP_OFFSET_REDUCTION = 8;
 
@@ -76,7 +72,15 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
   const topHeaderOffset = useTopHeaderOffset();
   const insets = useSafeAreaInsets();
   const { username: authUsername, signOut } = useAuth();
+  const { activeBudgetPlanId, setActiveBudgetPlanId, clearActiveBudgetPlanId } = useActiveBudgetPlan();
   const { readSavingsPotsForPlan, writeSavingsPotsForPlan } = useSavingsPotStore();
+  const {
+    notifications,
+    notificationInbox,
+    loadNotifications,
+    formatNotificationReceivedAt,
+    saveNotifications,
+  } = useSettingsNotifications();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -92,9 +96,6 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
   const [moneyViewMode, setMoneyViewMode] = useState<MoneyViewMode>("personal");
   const moneyToggleAnim = React.useRef(new Animated.Value(0)).current;
   const [moreOpen, setMoreOpen] = useState(false);
-
-  const [notifications, setNotifications] = useState<NotificationPrefs>({ dueReminders: true, paymentAlerts: true, dailyTips: true });
-  const [notificationInbox, setNotificationInbox] = useState<NotificationInboxItem[]>([]);
 
   const [detailsSheetOpen, setDetailsSheetOpen] = useState(false);
   const [budgetFieldSheet, setBudgetFieldSheet] = useState<BudgetField | null>(null);
@@ -247,7 +248,7 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
   }, [iosPlanEventDraft]);
 
   const detectedCountry = useMemo(() => parseLocaleCountry(), []);
-  const currentPlanId = settings?.id ?? null;
+  const currentPlanId = activeBudgetPlanId ?? settings?.id ?? null;
   const currentPlan = useMemo(() => plans.find((p) => p.id === currentPlanId) ?? null, [plans, currentPlanId]);
 
   useEffect(() => {
@@ -367,89 +368,6 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
     [activeTab]
   );
 
-  const loadNotifications = useCallback(async () => {
-    const readFromSecureStore = async () => {
-      try {
-        const raw = await SecureStore.getItemAsync(NOTIFICATION_PREFS_KEY);
-        if (!raw) return;
-        const parsed = JSON.parse(raw) as NotificationPrefs;
-        if (
-          typeof parsed?.dueReminders === "boolean" &&
-          typeof parsed?.paymentAlerts === "boolean" &&
-          typeof parsed?.dailyTips === "boolean"
-        ) {
-          setNotifications(parsed);
-        }
-      } catch {
-        // ignore
-      }
-    };
-
-    try {
-      const remote = await apiFetch<NotificationPrefsResponse>("/api/bff/notifications/preferences", {
-        cacheTtlMs: 0,
-      });
-      if (
-        typeof remote?.dueReminders === "boolean" &&
-        typeof remote?.paymentAlerts === "boolean" &&
-        typeof remote?.dailyTips === "boolean"
-      ) {
-        const next = {
-          dueReminders: remote.dueReminders,
-          paymentAlerts: remote.paymentAlerts,
-          dailyTips: remote.dailyTips,
-        };
-        setNotifications(next);
-        await SecureStore.setItemAsync(NOTIFICATION_PREFS_KEY, JSON.stringify(next));
-        return;
-      }
-    } catch {
-      await readFromSecureStore();
-    }
-  }, []);
-
-  const formatNotificationReceivedAt = useCallback((value: string): string => {
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "Just now";
-    return date.toLocaleString(undefined, {
-      month: "short",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    });
-  }, []);
-
-  const saveNotifications = useCallback(async (next: NotificationPrefs) => {
-    setNotifications(next);
-    await SecureStore.setItemAsync(NOTIFICATION_PREFS_KEY, JSON.stringify(next));
-    try {
-      const remote = await apiFetch<NotificationPrefsResponse>("/api/bff/notifications/preferences", {
-        method: "PUT",
-        body: {
-          dueReminders: next.dueReminders,
-          paymentAlerts: next.paymentAlerts,
-          dailyTips: next.dailyTips,
-        },
-      });
-
-      if (
-        typeof remote?.dueReminders === "boolean" &&
-        typeof remote?.paymentAlerts === "boolean" &&
-        typeof remote?.dailyTips === "boolean"
-      ) {
-        const synced = {
-          dueReminders: remote.dueReminders,
-          paymentAlerts: remote.paymentAlerts,
-          dailyTips: remote.dailyTips,
-        };
-        setNotifications(synced);
-        await SecureStore.setItemAsync(NOTIFICATION_PREFS_KEY, JSON.stringify(synced));
-      }
-    } catch (err: unknown) {
-      Alert.alert("Notification settings", err instanceof Error ? err.message : "Failed to sync settings.");
-    }
-  }, []);
-
   const hydrateDrafts = useCallback((nextSettings: Settings | null, nextProfile: UserProfile | null, nextHorizonYears?: number | null) => {
     setEmailDraft(nextProfile?.email ?? "");
     setCountryDraft((nextSettings?.country ?? "").toUpperCase());
@@ -486,8 +404,9 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
     setSettings(nextSettings);
     setDebts(Array.isArray(nextDebts) ? nextDebts : []);
     setNoPlan(false);
+    setActiveBudgetPlanId(budgetPlanId);
     hydrateDrafts(nextSettings, nextProfile, nextPlan?.budgetHorizonYears ?? null);
-  }, [fetchPlanDebts, fetchPlanSettings, hydrateDrafts, plans, profile]);
+  }, [fetchPlanDebts, fetchPlanSettings, hydrateDrafts, plans, profile, setActiveBudgetPlanId]);
 
   const load = useCallback(async () => {
     try {
@@ -506,6 +425,7 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
         setNoPlan(true);
         setSettings(null);
         setDebts([]);
+        clearActiveBudgetPlanId();
         hydrateDrafts(null, me, null);
         return;
       }
@@ -524,6 +444,7 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
       setSettings(nextSettings);
       setDebts(Array.isArray(nextDebts) ? nextDebts : []);
       setNoPlan(false);
+      setActiveBudgetPlanId(preferredPlanId);
       hydrateDrafts(nextSettings, me, preferredPlan?.budgetHorizonYears ?? null);
     } catch (err: unknown) {
       const isNoPlanError =
@@ -534,6 +455,7 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
         setNoPlan(true);
         setSettings(null);
         setDebts([]);
+        clearActiveBudgetPlanId();
         return;
       }
       setError(err instanceof Error ? err.message : "Failed to load settings");
@@ -541,7 +463,7 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
       setLoading(false);
       setRefreshing(false);
     }
-  }, [hydrateDrafts]);
+  }, [clearActiveBudgetPlanId, hydrateDrafts, setActiveBudgetPlanId]);
 
   useEffect(() => {
     load();
@@ -596,11 +518,6 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
     if (params?.subTab === activeTab) return;
     navigation.setParams({ subTab: activeTab });
   }, [activeTab, navigation, route.key]);
-
-  useEffect(() => {
-    loadNotifications();
-  }, [loadNotifications]);
-
   const subscription = subscriptionQuery.data ?? null;
   const subscriptionLoading = subscriptionQuery.isLoading || subscriptionQuery.isFetching;
   const subscriptionError = subscriptionQuery.error instanceof Error
@@ -617,14 +534,6 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
     if (activeTab !== "subscription") return;
     void loadSubscription();
   }, [activeTab, loadSubscription]);
-
-  useEffect(() => {
-    const unsubscribe = subscribeNotificationInbox((snapshot) => {
-      setNotificationInbox(snapshot.items);
-    });
-    return unsubscribe;
-  }, []);
-
   useEffect(() => {
     if (activeTab !== "notifications") return;
 
@@ -765,6 +674,7 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
       ]);
       setSettings(nextSettings);
       setDebts(Array.isArray(nextDebts) ? nextDebts : []);
+      setActiveBudgetPlanId(budgetPlanId);
       const nextPlan = plans.find((plan) => plan.id === budgetPlanId) ?? null;
       hydrateDrafts(nextSettings, profile, nextPlan?.budgetHorizonYears ?? null);
     } catch (err: unknown) {
@@ -1265,6 +1175,7 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
           setNoPlan(true);
           setSettings(null);
           setDebts([]);
+          clearActiveBudgetPlanId();
           hydrateDrafts(null, profile, null);
         } else {
           await loadPlanState(fallbackPlan.id, nextPlans, profile);

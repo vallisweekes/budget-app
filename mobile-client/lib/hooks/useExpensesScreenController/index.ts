@@ -3,6 +3,7 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PanResponder, ScrollView } from "react-native";
 
+import { useActiveBudgetPlan } from "@/context/ActiveBudgetPlanContext";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { apiFetch } from "@/lib/api";
 import type {
@@ -38,9 +39,9 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     ensureLoaded,
     refresh: refreshBootstrap,
   } = useBootstrapData();
+  const { activeBudgetPlanId: sharedActiveBudgetPlanId, setActiveBudgetPlanId } = useActiveBudgetPlan();
 
   const [plans, setPlans] = useState<BudgetPlanListItem[]>([]);
-  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [expenseMonths, setExpenseMonths] = useState<ExpenseMonthsResponse["months"]>([]);
   const [periodCountsByMonth, setPeriodCountsByMonth] = useState<Record<number, number>>({});
   const skipFirstFocusReloadRef = useRef(true);
@@ -115,10 +116,21 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
   }, [canDecrement, month, navigation, route.params?.month, route.params?.prevDisabled, route.params?.year, year]);
 
   const personalPlanId = plans.find((plan) => plan.kind === "personal")?.id ?? null;
-  const activePlanId = selectedPlanId ?? personalPlanId;
+  const activePlanId = sharedActiveBudgetPlanId && plans.some((plan) => plan.id === sharedActiveBudgetPlanId)
+    ? sharedActiveBudgetPlanId
+    : personalPlanId;
   const activePlan = plans.find((plan) => plan.id === activePlanId) ?? null;
   const isPersonalPlan = !activePlan || activePlan.kind === "personal";
   const isAdditionalPlan = !isPersonalPlan && plans.length > 1;
+
+  useEffect(() => {
+    if (plans.length === 0) return;
+    if (sharedActiveBudgetPlanId && plans.some((plan) => plan.id === sharedActiveBudgetPlanId)) return;
+
+    const fallbackPlanId = personalPlanId ?? plans[0]?.id ?? null;
+    if (!fallbackPlanId) return;
+    setActiveBudgetPlanId(fallbackPlanId);
+  }, [personalPlanId, plans, setActiveBudgetPlanId, sharedActiveBudgetPlanId]);
 
   useEffect(() => {
     const paramsBudgetPlanId = typeof route.params?.budgetPlanId === "string" ? route.params.budgetPlanId : null;
@@ -153,8 +165,8 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     if (!plans.length) return;
     const clamped = Math.max(0, Math.min(plans.length - 1, index));
     const next = plans[clamped];
-    if (next?.id) setSelectedPlanId(next.id);
-  }, [plans]);
+    if (next?.id) setActiveBudgetPlanId(next.id);
+  }, [plans, setActiveBudgetPlanId]);
 
   const planSwipe = useMemo(() => PanResponder.create({
     onMoveShouldSetPanResponder: (_event, gestureState) => (
@@ -673,7 +685,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
         currency,
       });
     },
-    onPressPlan: (planId: string) => setSelectedPlanId(planId),
+    onPressPlan: (planId: string) => setActiveBudgetPlanId(planId),
     onPressUpcomingMonth: (targetMonth: number, targetYear: number) => {
       setMonth(targetMonth);
       setYear(targetYear);
