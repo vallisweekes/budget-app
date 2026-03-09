@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, Switch, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
+import { styles } from "@/components/SettingsIncomeSettingsScreen/style";
 import MoneyInput from "@/components/Shared/MoneyInput";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { apiFetch } from "@/lib/api";
@@ -11,7 +12,6 @@ import type { IncomeMonthData } from "@/lib/apiTypes";
 import { currencySymbol, fmt } from "@/lib/formatting";
 import { useTopHeaderOffset } from "@/hooks";
 import { T } from "@/lib/theme";
-import { cardBase, cardElevated } from "@/lib/ui";
 import type { RootStackScreenProps } from "@/navigation/types";
 import { useGetOnboardingStatusQuery, useUpdateOnboardingProfileMutation } from "@/store/api";
 import type { IncomeSourceId } from "@/types";
@@ -288,123 +288,3 @@ export default function SettingsIncomeSettingsScreen({ navigation }: RootStackSc
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: T.bg },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingBottom: 8,
-    gap: 10,
-  },
-  backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerTitle: { color: T.text, fontSize: 18, fontWeight: "800" },
-  headerSpacer: { flex: 1 },
-  scroll: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 120, gap: 14 },
-  heroCard: {
-    ...cardElevated,
-    padding: 18,
-    gap: 8,
-  },
-  eyebrow: { color: T.accent, fontSize: 12, fontWeight: "900", textTransform: "uppercase", letterSpacing: 0.4 },
-  heroTitle: { color: T.text, fontSize: 20, fontWeight: "900", lineHeight: 26 },
-  heroText: { color: T.textDim, fontSize: 14, lineHeight: 21, fontWeight: "600" },
-  section: { gap: 10 },
-  sectionTitle: { color: T.text, fontSize: 15, fontWeight: "800", marginTop: 4 },
-  optionCard: {
-    ...cardBase,
-    padding: 14,
-    flexDirection: "row",
-    gap: 12,
-    alignItems: "flex-start",
-  },
-  optionCardActive: {
-    borderColor: T.accent,
-    backgroundColor: T.accentDim,
-  },
-  optionIconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: T.cardAlt,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: T.border,
-  },
-  optionIconWrapActive: {
-    backgroundColor: T.card,
-    borderColor: `${T.accent}66`,
-  },
-  optionBody: { flex: 1, gap: 4 },
-  optionTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 8,
-  },
-  optionTitle: { color: T.text, fontSize: 15, fontWeight: "800" },
-  optionTitleActive: { color: T.accent },
-  optionDetail: { color: T.textDim, fontSize: 13, fontWeight: "600", lineHeight: 19 },
-  previewCard: {
-    ...cardElevated,
-    padding: 16,
-    gap: 6,
-  },
-  previewLabel: { color: T.textDim, fontSize: 12, fontWeight: "800", textTransform: "uppercase", letterSpacing: 0.3 },
-  previewTitle: { color: T.text, fontSize: 17, fontWeight: "900" },
-  previewAmount: { color: T.accent, fontSize: 16, fontWeight: "900" },
-  previewText: { color: T.textDim, fontSize: 13, fontWeight: "600", lineHeight: 19 },
-  editorCard: {
-    ...cardElevated,
-    padding: 16,
-    gap: 12,
-    marginBottom: 10,
-  },
-  editorTitle: { color: T.text, fontSize: 15, fontWeight: "800" },
-  editorText: { color: T.textDim, fontSize: 13, fontWeight: "600", lineHeight: 19 },
-  switchCard: { ...cardBase, paddingHorizontal: 14, paddingVertical: 6 },
-  switchRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 12 },
-  switchTextWrap: { flex: 1, gap: 3 },
-  switchTitle: { color: T.text, fontSize: 14, fontWeight: "800" },
-  switchHint: { color: T.textDim, fontSize: 12, fontWeight: "600", lineHeight: 18 },
-  switchDivider: { height: StyleSheet.hairlineWidth, backgroundColor: T.border },
-  footer: {
-    flexDirection: "row",
-    gap: 14,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 24,
-    borderTopWidth: 1,
-    borderTopColor: T.border,
-    backgroundColor: `${T.bg}F2`,
-  },
-  cancelBtn: {
-    flex: 1,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: T.border,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 16,
-    backgroundColor: T.card,
-  },
-  cancelBtnText: { color: T.textMuted, fontSize: 14, fontWeight: "800" },
-  saveBtn: {
-    flex: 1,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 16,
-    backgroundColor: T.accent,
-  },
-  saveBtnText: { color: T.onAccent, fontSize: 14, fontWeight: "800" },
-  disabled: { opacity: 0.6 },
-});
