@@ -49,9 +49,18 @@ PODS:
     - ExpoModulesCore
   - ExpoGlassEffect (55.0.7):
     - ExpoModulesCore
+  - ExpoImage (55.0.6):
+    - ExpoModulesCore
+    - libavif/libdav1d
+    - SDWebImage (~> 5.21.0)
+    - SDWebImageAVIFCoder (~> 0.11.0)
+    - SDWebImageSVGCoder (~> 1.7.0)
+    - SDWebImageWebPCoder (~> 0.14.6)
   - ExpoImagePicker (55.0.10):
     - ExpoModulesCore
   - ExpoKeepAwake (55.0.4):
+    - ExpoModulesCore
+  - ExpoLinking (55.0.7):
     - ExpoModulesCore
   - ExpoLogBox (55.0.7):
     - React-Core
@@ -87,9 +96,14 @@ PODS:
     - ReactCommon
   - ExpoNotifications (55.0.10):
     - ExpoModulesCore
+  - ExpoRouter (55.0.4):
+    - ExpoModulesCore
+    - RNScreens
   - ExpoSecureStore (55.0.8):
     - ExpoModulesCore
   - ExpoSplashScreen (55.0.10):
+    - ExpoModulesCore
+  - ExpoSymbols (55.0.5):
     - ExpoModulesCore
   - ExpoTaskManager (55.0.9):
     - ExpoModulesCore
@@ -129,6 +143,23 @@ PODS:
   - hermes-engine (0.14.1):
     - hermes-engine/Pre-built (= 0.14.1)
   - hermes-engine/Pre-built (0.14.1)
+  - libavif/core (1.0.0)
+  - libavif/libdav1d (1.0.0):
+    - libavif/core
+    - libdav1d (>= 0.6.0)
+  - libdav1d (1.2.0)
+  - libwebp (1.5.0):
+    - libwebp/demux (= 1.5.0)
+    - libwebp/mux (= 1.5.0)
+    - libwebp/sharpyuv (= 1.5.0)
+    - libwebp/webp (= 1.5.0)
+  - libwebp/demux (1.5.0):
+    - libwebp/webp
+  - libwebp/mux (1.5.0):
+    - libwebp/demux
+  - libwebp/sharpyuv (1.5.0)
+  - libwebp/webp (1.5.0):
+    - libwebp/sharpyuv
   - RCTDeprecation (0.83.2)
   - RCTRequired (0.83.2)
   - RCTSwiftUI (0.83.2)
@@ -2279,6 +2310,17 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
+  - SDWebImage (5.21.7):
+    - SDWebImage/Core (= 5.21.7)
+  - SDWebImage/Core (5.21.7)
+  - SDWebImageAVIFCoder (0.11.1):
+    - libavif/core (>= 0.11.0)
+    - SDWebImage (~> 5.10)
+  - SDWebImageSVGCoder (1.7.0):
+    - SDWebImage/Core (~> 5.6)
+  - SDWebImageWebPCoder (0.14.6):
+    - libwebp (~> 1.0)
+    - SDWebImage/Core (~> 5.17)
   - UMAppLoader (55.0.2)
   - Yoga (0.0.0)
 
@@ -2293,18 +2335,22 @@ DEPENDENCIES:
   - ExpoAsset (from `../node_modules/expo/node_modules/expo-asset/ios`)
   - ExpoBlur (from `../node_modules/expo-blur/ios`)
   - ExpoDevice (from `../node_modules/expo-device/ios`)
-  - "ExpoDomWebView (from `../node_modules/expo/node_modules/@expo/log-box/node_modules/@expo/dom-webview/ios`)"
+  - "ExpoDomWebView (from `../node_modules/@expo/dom-webview/ios`)"
   - ExpoFileSystem (from `../node_modules/expo/node_modules/expo-file-system/ios`)
   - ExpoFont (from `../node_modules/expo-font/ios`)
   - ExpoGlassEffect (from `../node_modules/expo-glass-effect/ios`)
+  - ExpoImage (from `../node_modules/expo-image/ios`)
   - ExpoImagePicker (from `../node_modules/expo-image-picker/ios`)
   - ExpoKeepAwake (from `../node_modules/expo/node_modules/expo-keep-awake/ios`)
-  - "ExpoLogBox (from `../node_modules/expo/node_modules/@expo/log-box`)"
+  - ExpoLinking (from `../node_modules/expo-linking/ios`)
+  - "ExpoLogBox (from `../node_modules/@expo/log-box`)"
   - ExpoModulesCore (from `../node_modules/expo-modules-core`)
   - ExpoModulesJSI (from `../node_modules/expo-modules-core`)
   - ExpoNotifications (from `../node_modules/expo-notifications/ios`)
+  - ExpoRouter (from `../node_modules/expo-router/ios`)
   - ExpoSecureStore (from `../node_modules/expo-secure-store/ios`)
   - ExpoSplashScreen (from `../node_modules/expo-splash-screen/ios`)
+  - ExpoSymbols (from `../node_modules/expo-symbols/ios`)
   - ExpoTaskManager (from `../node_modules/expo-task-manager/ios`)
   - EXStructuredHeaders (from `../node_modules/expo-structured-headers/ios`)
   - EXUpdates (from `../node_modules/expo-updates/ios`)
@@ -2395,7 +2441,14 @@ DEPENDENCIES:
 
 SPEC REPOS:
   trunk:
+    - libavif
+    - libdav1d
+    - libwebp
     - ReachabilitySwift
+    - SDWebImage
+    - SDWebImageAVIFCoder
+    - SDWebImageSVGCoder
+    - SDWebImageWebPCoder
 
 EXTERNAL SOURCES:
   BVLinearGradient:
@@ -2419,29 +2472,37 @@ EXTERNAL SOURCES:
   ExpoDevice:
     :path: "../node_modules/expo-device/ios"
   ExpoDomWebView:
-    :path: "../node_modules/expo/node_modules/@expo/log-box/node_modules/@expo/dom-webview/ios"
+    :path: "../node_modules/@expo/dom-webview/ios"
   ExpoFileSystem:
     :path: "../node_modules/expo/node_modules/expo-file-system/ios"
   ExpoFont:
     :path: "../node_modules/expo-font/ios"
   ExpoGlassEffect:
     :path: "../node_modules/expo-glass-effect/ios"
+  ExpoImage:
+    :path: "../node_modules/expo-image/ios"
   ExpoImagePicker:
     :path: "../node_modules/expo-image-picker/ios"
   ExpoKeepAwake:
     :path: "../node_modules/expo/node_modules/expo-keep-awake/ios"
+  ExpoLinking:
+    :path: "../node_modules/expo-linking/ios"
   ExpoLogBox:
-    :path: "../node_modules/expo/node_modules/@expo/log-box"
+    :path: "../node_modules/@expo/log-box"
   ExpoModulesCore:
     :path: "../node_modules/expo-modules-core"
   ExpoModulesJSI:
     :path: "../node_modules/expo-modules-core"
   ExpoNotifications:
     :path: "../node_modules/expo-notifications/ios"
+  ExpoRouter:
+    :path: "../node_modules/expo-router/ios"
   ExpoSecureStore:
     :path: "../node_modules/expo-secure-store/ios"
   ExpoSplashScreen:
     :path: "../node_modules/expo-splash-screen/ios"
+  ExpoSymbols:
+    :path: "../node_modules/expo-symbols/ios"
   ExpoTaskManager:
     :path: "../node_modules/expo-task-manager/ios"
   EXStructuredHeaders:
@@ -2631,20 +2692,27 @@ SPEC CHECKSUMS:
   ExpoFileSystem: e1a42d7f69f7faae33f4d7d01708f7861f7bd757
   ExpoFont: 1aa465cf9f8ac6b670405becba8b15473581b2dd
   ExpoGlassEffect: b11cb2bf51bf6d4dc6309c421ca8cec086b4b9db
+  ExpoImage: 53ab717157f29bb5139f9f75b259f93f784b6847
   ExpoImagePicker: 550f22a1db18bf74a6fe81e87c934001d67b5074
   ExpoKeepAwake: 7f3b28c361c37389b18841bb52a58003b39fcb33
+  ExpoLinking: 88ba36a28c83525e564b8229e02d451347accb70
   ExpoLogBox: 89b634d5a8a64c4a6a7caad8f9985a28463c7002
   ExpoModulesCore: 8934d83ba557344022eff47658dd43d197cb481e
   ExpoModulesJSI: 59a126dc51164e603242ee9a38c19339c5c79da0
   ExpoNotifications: fa5cf77a46c8ea6bfc93bdbad9805c4f8d8a81fb
+  ExpoRouter: 6b8875b84c8eef1359039c5b703c8ed18f536825
   ExpoSecureStore: ebb13e5e590b1e62ec530bd0cfe1a3e7f1867e26
   ExpoSplashScreen: 6452aefb424acc76347d62482caef9b4e613e59e
+  ExpoSymbols: 3d67a96643245a5d933ce7fbf535f95eb541f617
   ExpoTaskManager: 6038b80fbe63915383dcf57fa0156b23e2615fab
   EXStructuredHeaders: aa49a5557fa24aa61dda4ac665f3987bf3e9e35d
   EXUpdates: 0f17cc3d89d18f171aecfc0a233c4f5909976b60
   EXUpdatesInterface: d48f288b92900bd95a27c6cf92a7b9aff826d49a
   FBLazyVector: 32e9ed0301d0fcbc1b2b341dd7fcbf291f51eb83
   hermes-engine: 1321b1a6aec42024500eafb52b7bc1c0779195ce
+  libavif: 5f8e715bea24debec477006f21ef9e95432e254d
+  libdav1d: 23581a4d8ec811ff171ed5e2e05cd27bad64c39f
+  libwebp: 02b23773aedb6ff1fd38cec7a77b81414c6842a8
   RCTDeprecation: a522c536d2c7be8f518dd834883cf6dce1d4f545
   RCTRequired: 44337def23abb244c025e9e7ab58f9cd3d63ec7d
   RCTSwiftUI: b2f0c2f2761631b8cd605767536cbb1cbf8d020f
@@ -2724,6 +2792,10 @@ SPEC CHECKSUMS:
   RNScreens: 14243fa0d9842ffa7f8bb2d00b6c3cfd3ca817e8
   RNSVG: 0bd149b873018bc6e0e3321e2f6435bdba294460
   RNWorklets: 5eddf924d11308d62920405addeddc3dfe1daaaa
+  SDWebImage: e9fc87c1aab89a8ab1bbd74eba378c6f53be8abf
+  SDWebImageAVIFCoder: afe194a084e851f70228e4be35ef651df0fc5c57
+  SDWebImageSVGCoder: 15a300a97ec1c8ac958f009c02220ac0402e936c
+  SDWebImageWebPCoder: e38c0a70396191361d60c092933e22c20d5b1380
   UMAppLoader: 71b50bcc31d86495e52c0b4cd17e2708bf297be3
   Yoga: dd994d8c85dca5cc9b10f5df8c01f9ef1d0da191
 

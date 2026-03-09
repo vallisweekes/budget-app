@@ -9,7 +9,14 @@ React Native / Expo app that shares the **same PostgreSQL database** as `web-cli
 ```
 mobile-client/
 ├── App.tsx                    # Entry: NavigationContainer + SafeAreaProvider + Redux
-├── src/
+├── app/
+├── components/
+├── context/
+├── lib/
+├── navigation/
+├── screens/
+├── store/
+├── types/
 │   ├── context/
 │   │   └── AuthContext.tsx    # NextAuth credentials sign-in, SecureStore session token
 │   ├── lib/

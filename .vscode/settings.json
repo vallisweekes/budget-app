@@ -6,5 +6,8 @@
         "pkey",
         "Prioritise",
         "UNPOOLED"
-    ]
+    ],
+    "chat.tools.terminal.autoApprove": {
+        "npx expo": true
+    }
 }
