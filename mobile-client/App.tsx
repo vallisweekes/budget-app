@@ -1,6 +1,6 @@
 import { registerRootComponent } from "expo";
-import LegacyAppRoot from "@/navigation/LegacyAppRoot";
+import ExpoRootLayout from "@/navigation/ExpoRootLayout";
 
-registerRootComponent(LegacyAppRoot);
+registerRootComponent(ExpoRootLayout);
 
-export default LegacyAppRoot;
+export default ExpoRootLayout;

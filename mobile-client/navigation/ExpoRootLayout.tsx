@@ -175,20 +175,10 @@ function RootShell() {
       <View style={{ flex: 1 }} onLayout={onRootLayout}>
         <NavigationPersistenceObserver />
         <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: T.bg } }}>
-          <Stack.Screen name="index" />
+          <Stack.Screen name="index" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="Login" options={{ headerShown: false }} />
-          <Stack.Screen name="Onboarding" options={{ headerShown: false }} />
-          <Stack.Screen name="NotificationSettings" options={{ headerShown: false }} />
-          <Stack.Screen name="Payments" options={{ headerShown: false }} />
-          <Stack.Screen name="Analytics" options={{ headerShown: false }} />
-          <Stack.Screen name="GoalsProjection" options={{ headerShown: false }} />
-          <Stack.Screen name="GoalDetail" options={{ headerShown: false }} />
-          <Stack.Screen name="PrivacyPolicy" options={{ headerShown: false }} />
-          <Stack.Screen name="SettingsProfileDetails" options={{ headerShown: false }} />
-          <Stack.Screen name="SettingsDebtManagement" options={{ headerShown: false }} />
-          <Stack.Screen name="SettingsIncomeSettings" options={{ headerShown: false }} />
-          <Stack.Screen name="SettingsStrategy" options={{ headerShown: false }} />
+          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+          <Stack.Screen name="(modals)" options={{ headerShown: false }} />
           <Stack.Screen name="+not-found" options={{ headerShown: false }} />
         </Stack>
         <StatusBar style={mode === "dark" ? "light" : "dark"} />

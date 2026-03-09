@@ -26,11 +26,11 @@ export function withProtectedScreen<Props extends object>(ScreenComponent: Compo
     }
 
     if (!token) {
-      return <Redirect href="/Login" />;
+      return <Redirect href="/(auth)/login" />;
     }
 
     if (onboarding.required && !options?.allowDuringOnboarding) {
-      return <Redirect href="/Onboarding" />;
+      return <Redirect href="/(auth)/onboarding" />;
     }
 
     return React.createElement(ScreenComponent, props);
