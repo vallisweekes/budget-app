@@ -13,7 +13,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { apiFetch } from "@/lib/api";
 import type { Settings } from "@/lib/apiTypes";
-import { currencySymbol, fmt } from "@/lib/formatting";
+import { currencySymbol } from "@/lib/formatting";
 import type { RootStackParamList } from "@/navigation/types";
 import { T } from "@/lib/theme";
 import PaymentDetailSheet, { type PaymentDetail } from "@/components/Payments/PaymentDetailSheet";

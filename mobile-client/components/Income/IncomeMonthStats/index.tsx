@@ -1,9 +1,7 @@
 import React from "react";
 import { View, Text } from "react-native";
-import type { IncomeMonthData } from "@/lib/apiTypes";
 import { computeMoneyLeftVsLastMonth, formatIncomePct } from "@/lib/domain/incomeStats";
 import { T } from "@/lib/theme";
-import { cardBase } from "@/lib/ui";
 import { styles } from "./styles";
 import type { IncomeMonthStatsProps } from "@/types";
 

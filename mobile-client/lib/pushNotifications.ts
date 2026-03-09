@@ -20,7 +20,7 @@ function maskToken(token: string): string {
 
 function devLog(message: string, extra?: Record<string, unknown>) {
   if (!__DEV__) return;
-  // eslint-disable-next-line no-console
+   
   console.log(`[push] ${message}`, extra ?? "");
 }
 

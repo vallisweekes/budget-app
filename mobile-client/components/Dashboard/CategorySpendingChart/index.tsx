@@ -1,7 +1,6 @@
 import React, { useMemo } from "react";
 import { View, Text, Dimensions } from "react-native";
 import { PieChart } from "react-native-gifted-charts";
-import type { DashboardCategoryItem } from "@/lib/apiTypes";
 import { T } from "@/lib/theme";
 import { styles } from "./styles";
 import type { CategorySpendingChartProps } from "@/types";

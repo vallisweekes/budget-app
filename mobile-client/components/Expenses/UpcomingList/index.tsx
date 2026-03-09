@@ -1,8 +1,6 @@
 import React from "react";
 import { View, Text } from "react-native";
-import type { UpcomingPayment } from "@/lib/apiTypes";
 import { T } from "@/lib/theme";
-import { CARD_RADIUS, cardBase, textLabel } from "@/lib/ui";
 import { styles } from "./styles";
 import type { UpcomingListProps } from "@/types";
 export default function UpcomingList({ payments, currency, fmt }: UpcomingListProps) {

@@ -6,7 +6,6 @@ import { styles } from "./styles";
 import type { MoneyInputProps } from "@/types";
 import { currencySymbol } from "@/lib/formatting";
 import { formatGroupedNumber, parseMoney, sanitizeMoneyDraft, truncateTail } from "@/lib/domain/moneyInput";
-import { T } from "@/lib/theme";
 
 export default function MoneyInput({
   currency,

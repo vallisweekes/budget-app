@@ -2,10 +2,8 @@ import React from "react";
 import { View, Text, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as LucideIcons from "lucide-react-native";
-import type { ExpenseCategoryBreakdown } from "@/lib/apiTypes";
 import { resolveCategoryColor, withOpacity } from "@/lib/categoryColors";
 import { T } from "@/lib/theme";
-import { cardElevated } from "@/lib/ui";
 import { styles } from "./styles";
 import type { CategoryBreakdownProps } from "@/types";
 

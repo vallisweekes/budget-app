@@ -1,6 +1,5 @@
 import React from "react";
 import { View, Text } from "react-native";
-import type { Expense } from "@/lib/apiTypes";
 import { resolveCategoryColor } from "@/lib/categoryColors";
 import { T } from "@/lib/theme";
 import { styles } from "./styles";

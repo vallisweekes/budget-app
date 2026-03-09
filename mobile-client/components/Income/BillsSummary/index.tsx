@@ -1,8 +1,5 @@
 import React from "react";
 import { View, Text } from "react-native";
-import type { IncomeMonthData } from "@/lib/apiTypes";
-import { T } from "@/lib/theme";
-import { cardBase } from "@/lib/ui";
 import { styles } from "./styles";
 import type { BillsSummaryProps } from "@/types";
 

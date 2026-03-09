@@ -20,7 +20,7 @@ import { useNavigation, useFocusEffect, useRoute, type RouteProp } from "@react-
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { apiFetch } from "@/lib/api";
-import type { IncomeSummaryData, Settings } from "@/lib/apiTypes";
+import type { IncomeSummaryData } from "@/lib/apiTypes";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { currencySymbol, fmt } from "@/lib/formatting";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";

@@ -18,7 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useScrollToTop } from "@react-navigation/native";
 
 import { apiFetch } from "@/lib/api";
-import type { DashboardData, Goal, Settings } from "@/lib/apiTypes";
+import type { Goal } from "@/lib/apiTypes";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { fmt } from "@/lib/formatting";
 import { asMoneyNumber, resolveGoalCurrentAmount } from "@/lib/helpers/settings";

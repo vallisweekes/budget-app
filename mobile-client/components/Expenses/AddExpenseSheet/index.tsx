@@ -26,7 +26,6 @@ import { apiFetch } from "@/lib/api";
 import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
 import { buildCreateExpenseBody, canSubmitExpense } from "@/lib/domain/expenseMutations";
 import type {
-  BudgetPlanListItem,
   Category,
   CreditCard,
   ExpenseCategoryBreakdown,

@@ -6,7 +6,6 @@ import { styles } from "./styles";
 import { fmt } from "@/lib/formatting";
 import { resolveLogoUri } from "@/lib/logoDisplay";
 import { T } from "@/lib/theme";
-import { CARD_RADIUS, cardBase } from "@/lib/ui";
 import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
 
 export type PaymentDetail = {

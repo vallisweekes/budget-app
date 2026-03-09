@@ -1,9 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { View, Text, FlatList, Dimensions, Pressable } from "react-native";
-import type { DashboardCategoryItem } from "@/lib/apiTypes";
 import { T } from "@/lib/theme";
 import { pickAccent, tintedDarkBg } from "@/lib/domain/colorUtils";
-import { cardElevated } from "@/lib/ui";
 import { styles } from "./styles";
 import type { CategorySwipeCardsProps } from "@/types";
 

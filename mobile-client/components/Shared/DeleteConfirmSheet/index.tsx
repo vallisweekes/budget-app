@@ -2,7 +2,6 @@ import React from "react";
 import { Animated, Modal, Pressable, Text, View } from "react-native";
 
 import type { DeleteConfirmSheetProps } from "@/types";
-import { T } from "@/lib/theme";
 import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
 import { styles } from "./styles";
 

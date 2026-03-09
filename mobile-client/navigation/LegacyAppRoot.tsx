@@ -260,7 +260,7 @@ export default function LegacyAppRoot() {
   const RootNavigator = useMemo(() => {
     if (booting) return null;
     // Require after theme is applied so module-level styles pick up the right tokens.
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+     
     return require("@/navigation/RootNavigator").default as React.ComponentType;
   }, [booting, mode]);
 

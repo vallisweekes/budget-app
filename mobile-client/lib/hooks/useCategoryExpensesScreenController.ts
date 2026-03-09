@@ -1,7 +1,6 @@
 import { useFocusEffect } from "@react-navigation/native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import AddExpenseSheet from "@/components/Expenses/AddExpenseSheet";
 import { apiFetch } from "@/lib/api";
 import type { Category, Expense, ExpenseCategoryBreakdown, Settings } from "@/lib/apiTypes";
 import { resolveCategoryColor } from "@/lib/categoryColors";

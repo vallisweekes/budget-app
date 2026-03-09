@@ -1,8 +1,6 @@
 import React from "react";
 import { Text, View, Pressable, ViewStyle } from "react-native";
-import type { IncomeSummaryMonth } from "@/lib/apiTypes";
 import { T } from "@/lib/theme";
-import { cardElevated } from "@/lib/ui";
 import { styles } from "./styles";
 import type { IncomeMonthCardProps } from "@/types";
 

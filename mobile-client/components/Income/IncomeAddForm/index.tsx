@@ -2,7 +2,6 @@ import React from "react";
 import { View, Text, Pressable, TextInput, TouchableOpacity, ActivityIndicator } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { T } from "@/lib/theme";
-import { cardBase } from "@/lib/ui";
 import MoneyInput from "@/components/Shared/MoneyInput";
 import { styles } from "./styles";
 import type { IncomeAddFormProps } from "@/types";

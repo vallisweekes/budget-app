@@ -1,10 +1,8 @@
 import React from "react";
 import { View, Text, Pressable, TextInput, ActivityIndicator } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import type { Income } from "@/lib/apiTypes";
 import { fmt } from "@/lib/formatting";
 import { T } from "@/lib/theme";
-import { cardBase } from "@/lib/ui";
 import type { IncomeEditRowProps, IncomeRowProps } from "@/types";
 import { styles } from "./styles";
 

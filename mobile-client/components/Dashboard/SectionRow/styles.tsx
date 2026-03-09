@@ -1,5 +1,4 @@
 import { StyleSheet } from "react-native";
-import { T } from "@/lib/theme";
 
 export const styles = StyleSheet.create({
   row: {

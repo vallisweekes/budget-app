@@ -245,7 +245,7 @@ function main() {
   }
 
   if (createdCount > 0) {
-    // eslint-disable-next-line no-console
+     
     console.log(`[fix-expo-metro-shims] Created ${createdCount} shim file(s) in @expo/metro`);
   }
 }
@@ -254,6 +254,6 @@ try {
   main();
 } catch (error) {
   // Don't fail installs for this best-effort repair.
-  // eslint-disable-next-line no-console
+   
   console.warn('[fix-expo-metro-shims] Failed:', error && error.message ? error.message : error);
 }

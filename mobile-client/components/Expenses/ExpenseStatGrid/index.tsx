@@ -1,7 +1,6 @@
 import React from "react";
 import { View, Text } from "react-native";
 import { T } from "@/lib/theme";
-import { cardBase } from "@/lib/ui";
 import { styles } from "./styles";
 import type { ExpenseStatGridProps } from "@/types";
 

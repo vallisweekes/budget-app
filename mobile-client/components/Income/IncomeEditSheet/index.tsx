@@ -7,7 +7,6 @@ import { styles } from "./styles";
 
 import { T } from "@/lib/theme";
 import MoneyInput from "@/components/Shared/MoneyInput";
-import { cardBase } from "@/lib/ui";
 import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
 
 const SCREEN_W = Dimensions.get("window").width;

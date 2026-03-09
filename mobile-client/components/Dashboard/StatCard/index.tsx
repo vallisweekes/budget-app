@@ -1,8 +1,6 @@
 import React from "react";
 import { View, Text } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { T } from "@/lib/theme";
-import { cardElevated, textLabel, textValue } from "@/lib/ui";
 import { styles } from "./styles";
 import type { StatCardProps } from "@/types";
 

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Animated, Dimensions, Platform } from "react-native";
+import { Alert, Animated, Dimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as SecureStore from "expo-secure-store";
 import * as Notifications from "expo-notifications";
@@ -8,7 +8,6 @@ import { useAuth } from "@/context/AuthContext";
 import { ApiError, apiFetch } from "@/lib/api";
 import type {
   BudgetPlanListItem,
-  BudgetPlansResponse,
   Debt,
   Settings,
   UserProfile,

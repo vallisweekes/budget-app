@@ -1,7 +1,6 @@
 import React from "react";
 import { View, Text } from "react-native";
 import { T } from "@/lib/theme";
-import { cardBase, textCaption, textLabel } from "@/lib/ui";
 import { styles } from "./styles";
 import type { BudgetProgressProps } from "@/types";
 

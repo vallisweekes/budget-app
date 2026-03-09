@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Animated, Image, Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Animated, Image, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { styles } from "./styles";
 
 import { apiFetch } from "@/lib/api";
@@ -8,7 +8,6 @@ import { fmt } from "@/lib/formatting";
 import { resolveLogoUri } from "@/lib/logoDisplay";
 import { useSwipeDownToClose } from "@/lib/hooks/useSwipeDownToClose";
 import { useCreateDebtPaymentMutation, useLazyGetDebtDetailQuery } from "@/store/api";
-import { T } from "@/lib/theme";
 import {
   computeDebtDueAmount,
   formatShortDate,

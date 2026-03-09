@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert } from "react-native";
-import { apiFetch } from "@/lib/api";
 import type { CreditCard, Debt, DebtPayment, DebtSummaryItem, Settings } from "@/lib/apiTypes";
 import { currencySymbol, fmt } from "@/lib/formatting";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
