@@ -408,6 +408,13 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
     hydrateDrafts(nextSettings, nextProfile, nextPlan?.budgetHorizonYears ?? null);
   }, [fetchPlanDebts, fetchPlanSettings, hydrateDrafts, plans, profile, setActiveBudgetPlanId]);
 
+  const prefetchPlanState = useCallback(async (budgetPlanId: string) => {
+    await Promise.all([
+      fetchPlanSettings(budgetPlanId, true).unwrap(),
+      fetchPlanDebts(budgetPlanId, true).unwrap(),
+    ]);
+  }, [fetchPlanDebts, fetchPlanSettings]);
+
   const load = useCallback(async () => {
     try {
       setError(null);
@@ -468,6 +475,26 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    const inactivePlans = plans.filter((plan) => plan.id !== currentPlanId);
+    if (inactivePlans.length === 0) return;
+
+    let cancelled = false;
+
+    void Promise.all(inactivePlans.map(async (plan) => {
+      if (cancelled) return;
+      try {
+        await prefetchPlanState(plan.id);
+      } catch {
+        // Best-effort prefetch only.
+      }
+    }));
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentPlanId, plans, prefetchPlanState]);
 
   useEffect(() => {
     const unsub = navigation.addListener("focus", () => {

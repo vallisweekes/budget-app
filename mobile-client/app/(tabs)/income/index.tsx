@@ -1,7 +1,7 @@
 import React from "react";
 
-import IncomeHomeScreen from "@/components/IncomeHomeScreen";
+import { IncomeStackNavigator } from "@/navigation/RootNavigator";
 
-export default function IncomeRoute(props: any) {
-  return <IncomeHomeScreen {...props} />;
+export default function IncomeRoute() {
+  return <IncomeStackNavigator />;
 }

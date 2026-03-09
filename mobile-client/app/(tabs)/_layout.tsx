@@ -1,16 +1,326 @@
 import React from "react";
 import { Ionicons } from "@expo/vector-icons";
+import { Pressable, Text, View } from "react-native";
 import { Tabs } from "expo-router";
+import { useRouter } from "expo-router";
 
 import PillTabBar from "@/components/Shared/PillTabBar";
+import TopHeader from "@/components/Shared/TopHeader";
+import { useAuth } from "@/context/AuthContext";
+import { T } from "@/lib/theme";
+
+function getDeepestRoute(state: any): any {
+  if (!state?.routes?.length) return null;
+  const route = state.routes[state.index ?? state.routes.length - 1];
+  if (route?.state) return getDeepestRoute(route.state);
+  return route;
+}
+
+function getRouteBaseName(name: unknown): string {
+  if (typeof name !== "string") return "";
+  return name.split("/")[0] ?? "";
+}
+
+function TabsHeader({ navigation, route }: { navigation: any; route: any }) {
+  const router = useRouter();
+  const { signOut } = useAuth();
+  const navigationState = navigation.getState?.();
+  const deepestRoute = getDeepestRoute(navigationState) ?? route;
+  const currentTabName = getRouteBaseName(route?.name);
+
+  const findTabRouteName = (baseName: string) => {
+    const routes = Array.isArray(navigationState?.routes) ? navigationState.routes : [];
+    const match = routes.find((entry: { name?: string }) => getRouteBaseName(entry?.name) === baseName);
+    return typeof match?.name === "string" ? match.name : null;
+  };
+
+  const navigateToTab = (baseName: string, params?: Record<string, unknown>) => {
+    const routeName = findTabRouteName(baseName);
+    if (!routeName) return false;
+    navigation.navigate(routeName, params);
+    return true;
+  };
+
+  const isCategoryExpenses = deepestRoute?.name === "CategoryExpenses";
+  const isLoggedExpenses = deepestRoute?.name === "LoggedExpenses";
+  const isExpensesList = deepestRoute?.name === "ExpensesList";
+  const isUnplannedExpense = deepestRoute?.name === "UnplannedExpense";
+  const isScanReceipt = deepestRoute?.name === "ScanReceipt";
+  const isDebtAnalytics = deepestRoute?.name === "DebtAnalytics";
+  const isSettings = currentTabName === "settings";
+  const isGoals = currentTabName === "goals";
+
+  const categoryExpensesName = typeof deepestRoute?.params?.categoryName === "string"
+    ? deepestRoute.params.categoryName
+    : undefined;
+  const categoryExpensesMonth = Number(deepestRoute?.params?.month);
+  const categoryExpensesYear = Number(deepestRoute?.params?.year);
+  const hasCategoryMonthYear = Number.isFinite(categoryExpensesMonth)
+    && categoryExpensesMonth >= 1
+    && categoryExpensesMonth <= 12
+    && Number.isFinite(categoryExpensesYear);
+  const expensesListMonth = Number(deepestRoute?.params?.month);
+  const expensesListYear = Number(deepestRoute?.params?.year);
+
+  const centerLabel = isCategoryExpenses
+    ? categoryExpensesName ?? "Category"
+    : isLoggedExpenses
+      ? "Logged expense"
+      : isUnplannedExpense
+        ? "Log Expense"
+        : isScanReceipt
+          ? "Upload Receipt"
+          : isDebtAnalytics
+            ? "Debt Analytics"
+            : isGoals
+              ? "Goals"
+              : undefined;
+
+  const handleBack = () => {
+    if (isLoggedExpenses) {
+      if (deepestRoute?.params?.categoryId) {
+        if (!navigateToTab("expenses", {
+          screen: "CategoryExpenses",
+          params: {
+            categoryId: deepestRoute.params.categoryId,
+            categoryName: deepestRoute.params.categoryName,
+            color: deepestRoute.params.color ?? null,
+            icon: deepestRoute.params.icon ?? null,
+            month: Number(deepestRoute.params.month),
+            year: Number(deepestRoute.params.year),
+            budgetPlanId: deepestRoute.params.budgetPlanId ?? null,
+            currency: deepestRoute.params.currency,
+            skipFocusReloadAt: Date.now(),
+          },
+        })) {
+          router.replace("/(tabs)/expenses");
+        }
+        return;
+      }
+
+      if (!navigateToTab("expenses", {
+        screen: "ExpensesList",
+        params: {
+          month: Number(deepestRoute?.params?.month),
+          year: Number(deepestRoute?.params?.year),
+          budgetPlanId: deepestRoute?.params?.budgetPlanId ?? null,
+          currency: deepestRoute?.params?.currency ?? "£",
+          skipFocusReloadAt: Date.now(),
+        },
+      })) {
+        router.replace("/(tabs)/expenses");
+      }
+      return;
+    }
+
+    if (isCategoryExpenses) {
+      if (!navigateToTab("expenses", {
+        screen: "ExpensesList",
+        params: hasCategoryMonthYear
+          ? {
+            month: categoryExpensesMonth,
+            year: categoryExpensesYear,
+            skipFocusReloadAt: Date.now(),
+          }
+          : {
+            skipFocusReloadAt: Date.now(),
+          },
+      })) {
+        router.replace("/(tabs)/expenses");
+      }
+      return;
+    }
+
+    if (isUnplannedExpense || isScanReceipt) {
+      if (!navigateToTab("expenses", {
+        screen: "ExpensesList",
+        params: {
+          month: Number.isFinite(expensesListMonth) ? expensesListMonth : undefined,
+          year: Number.isFinite(expensesListYear) ? expensesListYear : undefined,
+          skipFocusReloadAt: Date.now(),
+        },
+      })) {
+        router.replace("/(tabs)/expenses");
+      }
+      return;
+    }
+
+    if (isDebtAnalytics) {
+      if (!navigateToTab("debts", { screen: "DebtList" })) {
+        router.replace("/(tabs)/debts");
+      }
+      return;
+    }
+
+    if (isSettings) {
+      if (!navigateToTab("dashboard")) {
+        router.replace("/(tabs)/dashboard");
+      }
+      return;
+    }
+
+    if (navigation.canGoBack?.()) {
+      navigation.goBack();
+    }
+  };
+
+  const goalsRightContent = isGoals ? (
+    <Pressable
+      onPress={() => navigation.setParams?.({ openAddToken: Date.now() })}
+      hitSlop={10}
+      accessibilityRole="button"
+      accessibilityLabel="Add goal"
+      style={{
+        minWidth: 72,
+        height: 34,
+        borderRadius: 17,
+        backgroundColor: T.accent,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        paddingHorizontal: 12,
+        gap: 4,
+      }}
+    >
+      <Ionicons name="add" size={18} color={T.onAccent} />
+      <Text style={{ color: T.onAccent, fontSize: 13, fontWeight: "800" }}>Goal</Text>
+    </Pressable>
+  ) : undefined;
+
+  const expensesListLeftContent = isExpensesList ? (
+    <View style={{ flexDirection: "row", gap: 8 }}>
+      <Pressable
+        onPress={() => {
+          if (!navigateToTab("expenses", { screen: "UnplannedExpense" })) {
+            router.push("/(tabs)/expenses");
+          }
+        }}
+        hitSlop={10}
+        accessibilityRole="button"
+        accessibilityLabel="Log expense"
+        style={{
+          minWidth: 68,
+          height: 34,
+          borderRadius: 17,
+          backgroundColor: T.accent,
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "center",
+          paddingHorizontal: 12,
+          gap: 4,
+        }}
+      >
+        <Ionicons name="create-outline" size={17} color={T.onAccent} />
+        <Text style={{ color: T.onAccent, fontSize: 13, fontWeight: "800" }}>Log</Text>
+      </Pressable>
+    </View>
+  ) : undefined;
+
+  const expensesListLoggedExpensesCount = Number.isFinite(Number(deepestRoute?.params?.loggedExpensesCount))
+    ? Math.max(0, Math.floor(Number(deepestRoute?.params?.loggedExpensesCount)))
+    : 0;
+
+  const expensesLoggedRightContent = isExpensesList ? (
+    <Pressable
+      onPress={() => {
+        if (!navigateToTab("expenses", {
+          screen: "LoggedExpenses",
+          params: {
+            categoryId: null,
+            categoryName: "All categories",
+            color: null,
+            icon: null,
+            month: Number(deepestRoute?.params?.month) || new Date().getMonth() + 1,
+            year: Number(deepestRoute?.params?.year) || new Date().getFullYear(),
+            budgetPlanId: deepestRoute?.params?.budgetPlanId ?? null,
+            currency: deepestRoute?.params?.currency ?? "£",
+          },
+        })) {
+          router.push("/(tabs)/expenses");
+        }
+      }}
+      hitSlop={10}
+      accessibilityRole="button"
+      accessibilityLabel="Open logged expenses"
+      style={{
+        minWidth: 88,
+        height: 34,
+        borderRadius: 17,
+        backgroundColor: T.accent,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        paddingHorizontal: 10,
+        gap: 4,
+      }}
+    >
+      <Ionicons name="list-outline" size={14} color={T.onAccent} />
+      <Text style={{ color: T.onAccent, fontSize: 12, fontWeight: "800" }}>Logged</Text>
+      {expensesListLoggedExpensesCount > 0 ? (
+        <View
+          style={{
+            minWidth: 20,
+            height: 20,
+            borderRadius: 10,
+            backgroundColor: `${T.onAccent}22`,
+            alignItems: "center",
+            justifyContent: "center",
+            paddingHorizontal: 6,
+          }}
+        >
+          <Text style={{ color: T.onAccent, fontSize: 11, fontWeight: "900" }}>
+            {expensesListLoggedExpensesCount}
+          </Text>
+        </View>
+      ) : null}
+    </Pressable>
+  ) : undefined;
+
+  return (
+    <TopHeader
+      onSettings={() => {
+        if (!navigateToTab("settings")) {
+          router.push("/(tabs)/settings");
+        }
+      }}
+      onIncome={() => {
+        if (!navigateToTab("income")) {
+          router.push("/(tabs)/income");
+        }
+      }}
+      onAnalytics={() => router.push("/(modals)/analytics")}
+      onNotifications={() => {
+        if (!navigateToTab("settings")) {
+          router.push("/(tabs)/settings");
+        }
+      }}
+      leftContent={expensesListLeftContent}
+      leftVariant={isSettings || isCategoryExpenses || isLoggedExpenses || isUnplannedExpense || isScanReceipt || isDebtAnalytics ? "back" : "avatar"}
+      onBack={handleBack}
+      centerLabel={centerLabel}
+      rightContent={expensesLoggedRightContent ?? goalsRightContent}
+      showIncomeAction={false}
+      compactActionsMenu={isSettings}
+      showAnalyticsAction={!isSettings}
+      showNotificationAction={!isSettings}
+      onLogout={isSettings ? signOut : undefined}
+    />
+  );
+}
 
 export default function MainTabsLayout() {
   return (
     <Tabs
-      screenOptions={{
-        headerShown: false,
-        animation: "fade",
-      }}
+      detachInactiveScreens={false}
+      screenOptions={({ navigation, route }) => ({
+        headerShown: true,
+        headerTransparent: true,
+        headerShadowVisible: false,
+        headerStyle: { backgroundColor: "transparent" },
+        header: () => <TabsHeader navigation={navigation} route={route} />,
+        animation: "none",
+        lazy: false,
+      })}
       tabBar={(props) => <PillTabBar {...props} />}
     >
       <Tabs.Screen

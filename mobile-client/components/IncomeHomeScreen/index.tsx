@@ -2,8 +2,8 @@ import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { apiFetch } from "@/lib/api";
-import type { Settings } from "@/lib/apiTypes";
+import { useActiveBudgetPlan } from "@/context/ActiveBudgetPlanContext";
+import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { useTopHeaderOffset } from "@/hooks";
 import { getPayPeriodAnchorFromWindow, normalizePayFrequency, resolveActivePayPeriod } from "@/lib/payPeriods";
 import { T } from "@/lib/theme";
@@ -11,6 +11,8 @@ import type { IncomeHomeScreenProps } from "@/types";
 
 export default function IncomeHomeScreen({ navigation }: IncomeHomeScreenProps) {
   const topHeaderOffset = useTopHeaderOffset(-32);
+  const { activeBudgetPlanId } = useActiveBudgetPlan();
+  const { settings, ensureLoaded } = useBootstrapData();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -19,21 +21,22 @@ export default function IncomeHomeScreen({ navigation }: IncomeHomeScreenProps) 
       setError(null);
       setLoading(true);
 
-      const settings = await apiFetch<Settings>("/api/bff/settings", { cacheTtlMs: 0 });
-      const budgetPlanId = typeof settings?.id === "string" ? settings.id : "";
+      const bootstrap = settings ? { settings } : await ensureLoaded();
+      const resolvedSettings = bootstrap.settings;
+      const budgetPlanId = activeBudgetPlanId || (typeof resolvedSettings?.id === "string" ? resolvedSettings.id : "");
       if (!budgetPlanId) {
         throw new Error("Missing budget plan");
       }
 
-      const payFrequency = normalizePayFrequency(settings?.payFrequency);
+      const payFrequency = normalizePayFrequency(resolvedSettings?.payFrequency);
       const active = resolveActivePayPeriod({
         now: new Date(),
-        payDate: settings?.payDate ?? 27,
+        payDate: resolvedSettings?.payDate ?? 27,
         payFrequency,
-        planCreatedAt: settings?.setupCompletedAt
-          ? new Date(settings.setupCompletedAt)
-          : settings?.accountCreatedAt
-            ? new Date(settings.accountCreatedAt)
+        planCreatedAt: resolvedSettings?.setupCompletedAt
+          ? new Date(resolvedSettings.setupCompletedAt)
+          : resolvedSettings?.accountCreatedAt
+            ? new Date(resolvedSettings.accountCreatedAt)
             : null,
       });
       const anchor = getPayPeriodAnchorFromWindow({ period: active, payFrequency });
@@ -50,7 +53,7 @@ export default function IncomeHomeScreen({ navigation }: IncomeHomeScreenProps) 
       setError(err instanceof Error ? err.message : "Failed to open income");
       setLoading(false);
     }
-  }, [navigation]);
+  }, [activeBudgetPlanId, ensureLoaded, navigation, settings]);
 
   useEffect(() => {
     void loadAndRedirect();

@@ -16,7 +16,7 @@ import type {
   ExpensePayPeriodMonthsResponse,
   ExpenseSummary,
 } from "@/lib/apiTypes";
-import { clearCachedPayPeriodExpenses, setCachedPayPeriodExpenses } from "@/lib/expensePeriodCache";
+import { clearCachedPayPeriodExpenses, getCachedPayPeriodExpenses, setCachedPayPeriodExpenses } from "@/lib/expensePeriodCache";
 import { currencySymbol } from "@/lib/formatting";
 import { useTopHeaderOffset, useYearGuard } from "@/hooks";
 import { buildPayPeriodFromMonthAnchor, getPayPeriodAnchorFromWindow, normalizePayFrequency, resolveActivePayPeriod } from "@/lib/payPeriods";
@@ -331,6 +331,28 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     return fresh;
   }, [getCachedSummary, setCachedSummary]);
 
+  const getOrFetchPayPeriodExpenses = useCallback(async (params: {
+    planId: string | null;
+    month: number;
+    year: number;
+    force?: boolean;
+  }): Promise<Expense[]> => {
+    const { planId, month: targetMonth, year: targetYear, force = false } = params;
+    if (!force) {
+      const cached = getCachedPayPeriodExpenses({ budgetPlanId: planId, month: targetMonth, year: targetYear });
+      if (cached) return cached;
+    }
+
+    const planQp = planId ? `&budgetPlanId=${encodeURIComponent(planId)}` : "";
+    const payPeriodExpenses = await apiFetch<Expense[]>(
+      `/api/bff/expenses?month=${targetMonth}&year=${targetYear}&scope=pay_period${planQp}`,
+      { cacheTtlMs: 0 },
+    );
+    const resolvedExpenses = Array.isArray(payPeriodExpenses) ? payPeriodExpenses : [];
+    setCachedPayPeriodExpenses({ budgetPlanId: planId, month: targetMonth, year: targetYear }, resolvedExpenses);
+    return resolvedExpenses;
+  }, []);
+
   const preloadSummaryWindow = useCallback(async (params: {
     planId: string | null;
     month: number;
@@ -358,6 +380,54 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       { cacheTtlMs: 0 },
     );
   }, []);
+
+  const warmPlanCaches = useCallback(async (params: {
+    planId: string | null;
+    month: number;
+    year: number;
+    force?: boolean;
+  }) => {
+    const { planId, month: targetMonth, year: targetYear, force = false } = params;
+    if (!planId) return;
+
+    const monthsKey = planCacheKey(planId);
+    if (force || !monthsCacheRef.current[monthsKey]) {
+      const query = `budgetPlanId=${encodeURIComponent(planId)}`;
+      const monthsData = await apiFetch<ExpenseMonthsResponse>(`/api/bff/expenses/months?${query}`, { cacheTtlMs: 0 });
+      const nextMonths = Array.isArray(monthsData?.months) ? [...monthsData.months] : [];
+      nextMonths.sort((left, right) => (left.year - right.year) || (left.month - right.month));
+      monthsCacheRef.current[monthsKey] = nextMonths;
+    }
+
+    await Promise.all([
+      preloadSummaryWindow({ planId, month: targetMonth, year: targetYear, force }),
+      getOrFetchPayPeriodExpenses({ planId, month: targetMonth, year: targetYear, force }),
+    ]);
+  }, [getOrFetchPayPeriodExpenses, planCacheKey, preloadSummaryWindow]);
+
+  const applyCachedViewState = useCallback((planId: string | null, targetMonth: number, targetYear: number) => {
+    const cachedSummary = getCachedSummary(planId, targetYear, targetMonth);
+    if (!cachedSummary) return false;
+
+    const previousPeriod = shiftPayPeriodAnchor(targetMonth, targetYear, -1);
+    const cachedPrevious = getCachedSummary(planId, previousPeriod.year, previousPeriod.month);
+    const cachedExpenses = getCachedPayPeriodExpenses({ budgetPlanId: planId, month: targetMonth, year: targetYear });
+    const monthsKey = planCacheKey(planId);
+    const cachedMonths = monthsCacheRef.current[monthsKey] ?? null;
+
+    setSummary(cachedSummary);
+    setPreviousSummary(cachedPrevious);
+    setLoggedExpensesCount(
+      Array.isArray(cachedExpenses)
+        ? cachedExpenses.filter((entry) => entry.isExtraLoggedExpense && entry.paymentSource !== "income").length
+        : 0,
+    );
+    if (cachedMonths) {
+      setExpenseMonths([...cachedMonths]);
+    }
+    setLoadedKey(`${planId ?? "none"}:${targetYear}-${targetMonth}`);
+    return true;
+  }, [getCachedSummary, planCacheKey, shiftPayPeriodAnchor]);
 
   const load = useCallback(async (options?: { force?: boolean }) => {
     const force = Boolean(options?.force);
@@ -451,10 +521,10 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
         } else {
           const query = `budgetPlanId=${encodeURIComponent(resolvedPlanId)}`;
           const monthsData = await apiFetch<ExpenseMonthsResponse>(`/api/bff/expenses/months?${query}`, { cacheTtlMs: 0 });
-          months = Array.isArray(monthsData?.months) ? monthsData.months : [];
+          months = Array.isArray(monthsData?.months) ? [...monthsData.months] : [];
+          months.sort((left, right) => (left.year - right.year) || (left.month - right.month));
           monthsCacheRef.current[monthsKey] = months;
         }
-        months.sort((left, right) => (left.year - right.year) || (left.month - right.month));
         setExpenseMonths(months);
       } else {
         setExpenseMonths([]);
@@ -511,13 +581,12 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
         }
       }
 
-      const expensesPlanQp = resolvedPlanId ? `&budgetPlanId=${encodeURIComponent(resolvedPlanId)}` : "";
-      const payPeriodExpenses = await apiFetch<Expense[]>(
-        `/api/bff/expenses?month=${targetMonth}&year=${targetYear}&scope=pay_period${expensesPlanQp}`,
-        { cacheTtlMs: 0 },
-      );
-      const resolvedExpenses = Array.isArray(payPeriodExpenses) ? payPeriodExpenses : [];
-      setCachedPayPeriodExpenses({ budgetPlanId: resolvedPlanId, month: targetMonth, year: targetYear }, resolvedExpenses);
+      const resolvedExpenses = await getOrFetchPayPeriodExpenses({
+        planId: resolvedPlanId,
+        month: targetMonth,
+        year: targetYear,
+        force,
+      });
       const nextLoggedExpensesCount = resolvedExpenses.filter((entry) => (
         entry.isExtraLoggedExpense && entry.paymentSource !== "income"
       )).length;
@@ -536,15 +605,39 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       setLoading(false);
       setRefreshing(false);
     }
-  }, [activePlanId, bootstrapError, ensureLoaded, latestResolvedDate, month, parsePlanCreatedAt, planCacheKey, preloadSummaryWindow, refreshBootstrap, route.params?.month, route.params?.year, setupCompletedAt, year]);
+  }, [activePlanId, bootstrapError, ensureLoaded, getOrFetchPayPeriodExpenses, latestResolvedDate, month, parsePlanCreatedAt, planCacheKey, preloadSummaryWindow, refreshBootstrap, route.params?.month, route.params?.year, setupCompletedAt, year]);
 
   const currentViewKey = `${activePlanId ?? "none"}:${year}-${month}`;
+  useEffect(() => {
+    applyCachedViewState(activePlanId, month, year);
+  }, [activePlanId, applyCachedViewState, month, year]);
+
   useEffect(() => {
     if (loadedKey && loadedKey === currentViewKey && summary) return;
     const hasCachedCurrent = Boolean(getCachedSummary(activePlanId, year, month));
     if (!hasCachedCurrent) setLoading(true);
     void load();
   }, [activePlanId, currentViewKey, getCachedSummary, load, loadedKey, month, summary, year]);
+
+  useEffect(() => {
+    const inactivePlans = plans.filter((plan) => plan.id !== activePlanId);
+    if (inactivePlans.length === 0) return;
+
+    let cancelled = false;
+
+    void Promise.all(inactivePlans.map(async (plan) => {
+      if (cancelled) return;
+      try {
+        await warmPlanCaches({ planId: plan.id, month, year });
+      } catch {
+        // Best-effort prefetch only.
+      }
+    }));
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activePlanId, month, plans, warmPlanCaches, year]);
 
   useFocusEffect(
     useCallback(() => {

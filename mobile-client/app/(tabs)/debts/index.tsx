@@ -1,7 +1,7 @@
 import React from "react";
 
-import DebtScreen from "@/components/DebtScreen";
+import { DebtStackNavigator } from "@/navigation/RootNavigator";
 
-export default function DebtsRoute(props: any) {
-  return <DebtScreen {...props} />;
+export default function DebtsRoute() {
+  return <DebtStackNavigator />;
 }

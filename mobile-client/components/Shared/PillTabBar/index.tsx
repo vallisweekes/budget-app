@@ -20,24 +20,31 @@ function HomeIcon({ color }: PillTabBarHomeIconProps) {
 }
 
 const ICONS: Record<string, { active: PillTabBarIconName; inactive: PillTabBarIconName }> = {
-  Dashboard: { active: "home", inactive: "home-outline" },
-  Expenses:  { active: "receipt", inactive: "receipt-outline" },
-  Debts:     { active: "card", inactive: "card-outline" },
-  Goals:     { active: "flag", inactive: "flag-outline" },
-  Income:    { active: "wallet", inactive: "wallet-outline" },
+  dashboard: { active: "home", inactive: "home-outline" },
+  expenses:  { active: "receipt", inactive: "receipt-outline" },
+  debts:     { active: "card", inactive: "card-outline" },
+  goals:     { active: "flag", inactive: "flag-outline" },
+  income:    { active: "wallet", inactive: "wallet-outline" },
 };
 
 const LABELS: Record<string, string> = {
-  Dashboard: "Home",
-  Expenses:  "Expenses",
-  Debts:     "Debts",
-  Goals:     "Goals",
-  Income:    "Income",
+  dashboard: "Home",
+  expenses:  "Expenses",
+  debts:     "Debts",
+  goals:     "Goals",
+  income:    "Income",
 };
+
+const PRIMARY_TABS = ["dashboard", "expenses", "debts", "income", "goals"] as const;
 
 const INDICATOR_SIZE = 46;
 const BAR_HORIZONTAL_PADDING = 8;
 const INDICATOR_VERTICAL_OFFSET = -2;
+
+function getRouteBaseName(name: unknown): string {
+  if (typeof name !== "string") return "";
+  return name.split("/")[0] ?? "";
+}
 
 function getDeepestRouteName(state: unknown): string | null {
   let current = state as { routes?: Array<{ name?: string; state?: unknown }>; index?: number } | undefined;
@@ -54,7 +61,7 @@ function getDeepestRouteName(state: unknown): string | null {
 export default function PillTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const [barWidth, setBarWidth] = useState(0);
   const [barHeight, setBarHeight] = useState(0);
-  const activeRouteName = state.routes[state.index]?.name;
+  const activeRouteName = getRouteBaseName(state.routes[state.index]?.name);
   const glassEffectModule = useMemo<GlassEffectModule | null>(() => {
     if (Platform.OS !== "ios") return null;
     try {
@@ -73,18 +80,32 @@ export default function PillTabBar({ state, descriptors, navigation }: BottomTab
   }, [glassEffectModule]);
   const GlassView = glassEffectModule?.GlassView;
 
-  const visibleRoutes = state.routes.filter((r) => {
-    const opts = descriptors[r.key].options as Record<string, unknown>;
-    return opts.tabBarButton == null;
-  });
+  const visibleRoutes = useMemo(() => {
+    const allowed = new Set<string>(PRIMARY_TABS);
+    const preferredOrder = new Map<string, number>(PRIMARY_TABS.map((name, index) => [name, index]));
+    const seen = new Set<string>();
+
+    return state.routes
+      .filter((route) => {
+        const baseName = getRouteBaseName(route.name);
+        if (!allowed.has(baseName) || seen.has(baseName)) return false;
+        seen.add(baseName);
+        return true;
+      })
+      .sort((left, right) => {
+        const leftName = getRouteBaseName(left.name);
+        const rightName = getRouteBaseName(right.name);
+        return (preferredOrder.get(leftName) ?? Number.MAX_SAFE_INTEGER) - (preferredOrder.get(rightName) ?? Number.MAX_SAFE_INTEGER);
+      });
+  }, [state.routes]);
 
   const activeVisibleIndex = useMemo(() => {
-    const activeName = state.routes[state.index]?.name;
-    const idx = visibleRoutes.findIndex((route) => route.name === activeName);
+    const activeName = getRouteBaseName(state.routes[state.index]?.name);
+    const idx = visibleRoutes.findIndex((route) => getRouteBaseName(route.name) === activeName);
     return idx >= 0 ? idx : 0;
   }, [state.index, state.routes, visibleRoutes]);
 
-  if (activeRouteName === "Settings") {
+  if (activeRouteName === "settings") {
     return null;
   }
 
@@ -129,23 +150,24 @@ export default function PillTabBar({ state, descriptors, navigation }: BottomTab
             </View>
           ) : null}
           {visibleRoutes.map((route) => {
-            const isFocused = state.routes[state.index].name === route.name;
-            const icons = ICONS[route.name] ?? { active: "ellipse", inactive: "ellipse-outline" };
-            const label = LABELS[route.name] ?? route.name;
+            const baseName = getRouteBaseName(route.name);
+            const isFocused = getRouteBaseName(state.routes[state.index].name) === baseName;
+            const icons = ICONS[baseName] ?? { active: "ellipse", inactive: "ellipse-outline" };
+            const label = LABELS[baseName] ?? baseName;
 
             const onPress = () => {
               const focused = isFocused;
               const nestedRouteName = getDeepestRouteName(route.state);
-              const isNestedExpenses = route.name === "Expenses" && focused && nestedRouteName !== "ExpensesList";
-              const isNestedDebts = route.name === "Debts" && focused && nestedRouteName !== "DebtList";
+              const isNestedExpenses = baseName === "expenses" && focused && nestedRouteName !== "ExpensesList";
+              const isNestedDebts = baseName === "debts" && focused && nestedRouteName !== "DebtList";
 
               if (isNestedExpenses) {
-                navigation.navigate("Expenses", { screen: "ExpensesList" });
+                navigation.navigate("expenses", { screen: "ExpensesList" });
                 return;
               }
 
               if (isNestedDebts) {
-                navigation.navigate("Debts", { screen: "DebtList" });
+                navigation.navigate("debts", { screen: "DebtList" });
                 return;
               }
 
@@ -157,17 +179,7 @@ export default function PillTabBar({ state, descriptors, navigation }: BottomTab
               if (event.defaultPrevented) return;
 
               if (!focused) {
-                if (route.name === "Expenses") {
-                  navigation.navigate("Expenses", { screen: "ExpensesList" });
-                } else if (route.name === "Debts") {
-                  navigation.navigate("Debts", { screen: "DebtList" });
-                } else if (route.name === "Dashboard") {
-                  navigation.navigate("Dashboard");
-                } else if (route.name === "Goals") {
-                  navigation.navigate("Goals");
-                } else if (route.name === "Income") {
-                  navigation.navigate("Income");
-                }
+                navigation.navigate(route.name);
               }
             };
 
@@ -180,7 +192,7 @@ export default function PillTabBar({ state, descriptors, navigation }: BottomTab
               >
                 <View style={[styles.tabContent, isFocused && styles.tabContentActive]}>
                   <View style={styles.iconWrap}>
-                    {route.name === "Dashboard" ? (
+                    {baseName === "dashboard" ? (
                       <HomeIcon color={isFocused ? T.text : T.textDim} />
                     ) : (
                       <Ionicons

@@ -1,7 +1,7 @@
 import React from "react";
 
-import ExpensesScreen from "@/components/ExpensesScreen";
+import { ExpensesStackNavigator } from "@/navigation/RootNavigator";
 
-export default function ExpensesRoute(props: any) {
-  return <ExpensesScreen {...props} />;
+export default function ExpensesRoute() {
+  return <ExpensesStackNavigator />;
 }

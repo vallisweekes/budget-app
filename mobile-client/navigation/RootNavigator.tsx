@@ -256,7 +256,7 @@ const APP_STACK_SCREEN_OPTIONS = {
   animation: "fade_from_bottom" as const,
 };
 
-function IncomeStackNavigator() {
+export function IncomeStackNavigator() {
   return (
     <IncomeStack.Navigator screenOptions={APP_STACK_SCREEN_OPTIONS}>
       <IncomeStack.Screen name="IncomeHome" component={IncomeHomeScreen} />
@@ -266,7 +266,7 @@ function IncomeStackNavigator() {
   );
 }
 
-function ExpensesStackNavigator() {
+export function ExpensesStackNavigator() {
   return (
     <ExpensesStack.Navigator screenOptions={APP_STACK_SCREEN_OPTIONS}>
       <ExpensesStack.Screen name="ExpensesList" component={ExpensesScreen} />
@@ -279,7 +279,7 @@ function ExpensesStackNavigator() {
   );
 }
 
-function DebtStackNavigator() {
+export function DebtStackNavigator() {
   return (
     <DebtStack.Navigator screenOptions={APP_STACK_SCREEN_OPTIONS}>
       <DebtStack.Screen name="DebtList" component={DebtScreen} />
