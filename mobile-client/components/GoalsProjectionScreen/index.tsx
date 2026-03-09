@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { View, Text, StyleSheet, Pressable, ActivityIndicator, ScrollView } from "react-native";
+import { View, Text, Pressable, ActivityIndicator, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import Svg, { Polyline } from "react-native-svg";
@@ -9,7 +9,8 @@ import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { resolveGoalCurrentAmount } from "@/lib/helpers/settings";
 import { useTopHeaderOffset } from "@/lib/hooks/useTopHeaderOffset";
 import { T } from "@/lib/theme";
-import { cardElevated } from "@/lib/ui";
+
+import { styles } from "./style";
 
 export default function GoalsProjectionScreen({ navigation }: { navigation: any }) {
   const topHeaderOffset = useTopHeaderOffset();
@@ -100,10 +101,10 @@ export default function GoalsProjectionScreen({ navigation }: { navigation: any 
 
   if (loading) {
     return (
-			<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
-        <View style={s.center}>
+			<SafeAreaView style={[styles.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
+        <View style={styles.center}>
           <ActivityIndicator size="large" color={T.accent} />
-          <Text style={s.stateText}>Loading projection…</Text>
+          <Text style={styles.stateText}>Loading projection…</Text>
         </View>
       </SafeAreaView>
     );
@@ -111,12 +112,12 @@ export default function GoalsProjectionScreen({ navigation }: { navigation: any 
 
   if (error) {
     return (
-			<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
-        <View style={s.center}>
+			<SafeAreaView style={[styles.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
+        <View style={styles.center}>
           <Ionicons name="cloud-offline-outline" size={48} color={T.textDim} />
-          <Text style={s.errorText}>{error}</Text>
-          <Pressable onPress={() => void load({ force: true })} style={s.retryBtn}>
-            <Text style={s.retryTxt}>Retry</Text>
+          <Text style={styles.errorText}>{error}</Text>
+          <Pressable onPress={() => void load({ force: true })} style={styles.retryBtn}>
+            <Text style={styles.retryTxt}>Retry</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -124,23 +125,23 @@ export default function GoalsProjectionScreen({ navigation }: { navigation: any 
   }
 
   return (
-		<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
-      <View style={s.header}>
+		<SafeAreaView style={[styles.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
+      <View style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} hitSlop={8}>
           <Ionicons name="chevron-back" size={22} color={T.text} />
         </Pressable>
-        <Text style={s.title}>Goals projection</Text>
-        <View style={{ width: 22 }} />
+        <Text style={styles.title}>Goals projection</Text>
+        <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {projection ? (
-          <View style={s.chartCard}>
-            <View style={s.legendRow}>
+          <View style={styles.chartCard}>
+            <View style={styles.legendRow}>
               {projection.lines.map((line) => (
-                <View key={line.label} style={s.legendItem}>
-                  <View style={[s.legendDot, { backgroundColor: line.color }]} />
-                  <Text style={s.legendTxt}>{line.label}</Text>
+                <View key={line.label} style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: line.color }]} />
+                  <Text style={styles.legendTxt}>{line.label}</Text>
                 </View>
               ))}
             </View>
@@ -169,56 +170,18 @@ export default function GoalsProjectionScreen({ navigation }: { navigation: any 
               })}
             </Svg>
 
-            <View style={s.axisRow}>
-              <Text style={s.axisTxt}>Now</Text>
-              <Text style={s.axisTxt}>12 months</Text>
+            <View style={styles.axisRow}>
+              <Text style={styles.axisTxt}>Now</Text>
+              <Text style={styles.axisTxt}>12 months</Text>
             </View>
           </View>
         ) : (
-          <View style={s.emptyCard}>
-            <Text style={s.emptyTitle}>No projection data yet</Text>
-            <Text style={s.emptyDetail}>Set up savings, emergency, or investment goals with amounts and contributions to see the chart.</Text>
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyTitle}>No projection data yet</Text>
+            <Text style={styles.emptyDetail}>Set up savings, emergency, or investment goals with amounts and contributions to see the chart.</Text>
           </View>
         )}
       </ScrollView>
     </SafeAreaView>
   );
 }
-
-const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: T.bg },
-  center: { flex: 1, justifyContent: "center", alignItems: "center", gap: 10, paddingHorizontal: 24 },
-  stateText: { color: T.textDim, fontSize: 14, fontWeight: "700" },
-  errorText: { color: T.red, fontSize: 14, textAlign: "center" },
-  retryBtn: { marginTop: 10, backgroundColor: T.accent, borderRadius: 10, paddingHorizontal: 20, paddingVertical: 10 },
-  retryTxt: { color: T.onAccent, fontWeight: "800" },
-
-  header: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  title: { color: T.text, fontSize: 18, fontWeight: "900" },
-
-  scroll: { padding: 16, paddingBottom: 40 },
-  chartCard: {
-    ...cardElevated,
-    padding: 14,
-  },
-  legendRow: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 10 },
-  legendItem: { flexDirection: "row", alignItems: "center", gap: 6 },
-  legendDot: { width: 8, height: 8, borderRadius: 999 },
-  legendTxt: { color: T.textDim, fontSize: 11, fontWeight: "700" },
-  axisRow: { marginTop: 8, flexDirection: "row", justifyContent: "space-between" },
-  axisTxt: { color: T.textMuted, fontSize: 11, fontWeight: "700" },
-
-  emptyCard: {
-    ...cardElevated,
-    padding: 16,
-    gap: 6,
-  },
-  emptyTitle: { color: T.text, fontSize: 15, fontWeight: "900" },
-  emptyDetail: { color: T.textDim, fontSize: 13, fontWeight: "600", lineHeight: 18 },
-});
