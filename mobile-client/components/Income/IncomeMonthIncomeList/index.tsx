@@ -8,10 +8,9 @@ import IncomeMonthStats from "@/components/Income/IncomeMonthStats";
 import IncomeBarChart from "@/components/Income/IncomeBarChart";
 import { IncomeRow } from "@/components/Income/IncomeSourceItem";
 import { IncomeAddForm } from "@/components/Income/IncomeAddForm";
+import { incomeMonthIncomeListSheet as sheet } from "@/components/Income/IncomeMonthIncomeList/style";
 import { s } from "@/components/IncomeMonthScreen/style";
 import type { IncomeMonthIncomeListProps } from "@/types";
-
-import { incomeMonthIncomeListSheet as sheet } from "./style";
 
 export default function IncomeMonthIncomeList({
   items,
