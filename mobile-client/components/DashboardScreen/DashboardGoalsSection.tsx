@@ -15,9 +15,12 @@ export default function DashboardGoalsSection({
   activeGoalCard,
   onMomentumEnd,
   onPressGoals,
+  onPressAddGoal,
   onPressProjection,
 }: DashboardGoalsSectionProps) {
   if (items.length === 0) return null;
+
+  const showAddGoalTile = items.length === 1;
 
   return (
     <View style={styles.goalsWrap}>
@@ -25,9 +28,11 @@ export default function DashboardGoalsSection({
         <Pressable onPress={onPressGoals} hitSlop={8}>
           <Text style={styles.seeAllGoalsText}>See all goals</Text>
         </Pressable>
-        <Pressable onPress={onPressProjection} hitSlop={8}>
-          <Text style={styles.goalsProjectionTitle}>Goals projection</Text>
-        </Pressable>
+        <View style={styles.goalsHeaderActions}>
+          <Pressable onPress={onPressProjection} hitSlop={8}>
+            <Text style={styles.goalsProjectionTitle}>Goals projection</Text>
+          </Pressable>
+        </View>
       </View>
 
       <FlatList
@@ -88,6 +93,20 @@ export default function DashboardGoalsSection({
             </View>
           );
         }}
+        ListFooterComponent={showAddGoalTile ? (
+          <Pressable
+            onPress={onPressAddGoal}
+            accessibilityRole="button"
+            accessibilityLabel="Add goal"
+            style={styles.goalAddCard}
+          >
+            <View style={styles.goalAddIconWrap}>
+              <Ionicons name="add" size={26} color={T.accent} />
+            </View>
+            <Text style={styles.goalAddTitle}>Add goal</Text>
+            <Text style={styles.goalAddText}>Create another goal</Text>
+          </Pressable>
+        ) : null}
         ItemSeparatorComponent={() => <View style={{ width: GOAL_GAP }} />}
       />
 

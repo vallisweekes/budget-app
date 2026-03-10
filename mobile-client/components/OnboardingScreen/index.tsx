@@ -10,32 +10,52 @@ import type { OnboardingScreenProps } from "@/types/OnboardingScreen.types";
 
 export default function OnboardingScreen(props: OnboardingScreenProps) {
   const controller = useOnboardingScreenController(props);
+  const totalSteps = 6;
+  const progressStep = controller.step + 1;
+  const progressRatio = Math.max(0, Math.min(1, progressStep / totalSteps));
+  const showProgress = controller.step > 0;
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
-      <Pressable
-        onPress={controller.onSignOut}
-        disabled={controller.saving}
-        style={[styles.floatingLogoutBtn, { top: controller.insets.top + 10 }, controller.saving && styles.disabled]}
-        hitSlop={16}
-        accessibilityRole="button"
-        accessibilityLabel="Logout"
-      >
-        <Text style={styles.floatingLogoutText}>Logout</Text>
-      </Pressable>
+      <View style={[styles.topBar, { top: controller.insets.top + 10 }]}> 
+        <View style={styles.topBarSide}>
+          {showProgress ? (
+            <Pressable
+              onPress={controller.onGoBackStep}
+              disabled={controller.saving}
+              style={[styles.floatingBackBtn, controller.saving && styles.disabled]}
+              hitSlop={16}
+              accessibilityRole="button"
+              accessibilityLabel="Go back"
+            >
+              <Ionicons name="chevron-back" size={20} color="#ffffff" />
+            </Pressable>
+          ) : null}
+        </View>
 
-      {controller.step > 0 ? (
-        <Pressable
-          onPress={controller.onGoBackStep}
-          disabled={controller.saving}
-          style={[styles.floatingBackBtn, { top: controller.insets.top + 10 }, controller.saving && styles.disabled]}
-          hitSlop={16}
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
-        >
-          <Ionicons name="chevron-back" size={20} color="#ffffff" />
-        </Pressable>
-      ) : null}
+        <View style={styles.topBarCenter} pointerEvents="none">
+          {showProgress ? (
+            <View style={styles.progressWrap}>
+              <View style={styles.progressTrack}>
+                <View style={[styles.progressFill, { width: `${progressRatio * 100}%` }]} />
+              </View>
+            </View>
+          ) : null}
+        </View>
+
+        <View style={[styles.topBarSide, styles.topBarSideRight]}>
+          <Pressable
+            onPress={controller.onSignOut}
+            disabled={controller.saving}
+            style={[styles.floatingLogoutBtn, controller.saving && styles.disabled]}
+            hitSlop={16}
+            accessibilityRole="button"
+            accessibilityLabel="Logout"
+          >
+            <Text style={styles.floatingLogoutText}>Logout</Text>
+          </Pressable>
+        </View>
+      </View>
 
       <View style={styles.gestureWrap} {...controller.stepPanHandlers}>
         <ScrollView contentContainerStyle={styles.wrap} keyboardShouldPersistTaps="handled">

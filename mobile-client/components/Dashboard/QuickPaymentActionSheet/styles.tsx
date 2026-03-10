@@ -1,7 +1,7 @@
 import { StyleSheet } from "react-native";
 import { T } from "@/lib/theme";
 
-const SHEET_BLUE = "#2a0a9e";
+const SHEET_BLUE = "#080080";
 
 export const styles = StyleSheet.create({
   overlay: {

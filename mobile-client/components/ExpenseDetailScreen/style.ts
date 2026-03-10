@@ -2,7 +2,7 @@ import { StyleSheet } from "react-native";
 
 import { T } from "@/lib/theme";
 
-export const EXPENSE_HERO_BLUE = "#2a0a9e";
+export const EXPENSE_HERO_BLUE = "#080080";
 
 export const expenseDetailStyles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: EXPENSE_HERO_BLUE },
@@ -27,7 +27,7 @@ export const expenseDetailStyles = StyleSheet.create({
   },
   headerGlassTint: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(42,10,158,0.18)",
+    backgroundColor: "rgba(8,0,128,0.18)",
   },
   backBtn: { paddingHorizontal: 6, paddingVertical: 4 },
   scroll: { paddingHorizontal: 14, paddingTop: 0, gap: 14 },
@@ -216,7 +216,7 @@ export const expenseDetailStyles = StyleSheet.create({
   },
   bottomGlassTint: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(42,10,158,0.16)",
+    backgroundColor: "rgba(8,0,128,0.16)",
   },
   bottomActionsRow: { flexDirection: "row", gap: 12 },
   bottomActionBtn: {

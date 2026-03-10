@@ -4,6 +4,7 @@ import { AppState, type AppStateStatus } from "react-native";
 import { ApiError } from "@/lib/api";
 import type { DashboardData, Settings } from "@/lib/apiTypes";
 import { useAuth } from "@/context/AuthContext";
+import { useOnboardingGate } from "@/navigation/OnboardingGateContext";
 import { useGetDashboardQuery, useGetSettingsQuery } from "@/store/api";
 
 export type BootstrapRefreshResult = {
@@ -26,8 +27,9 @@ const BootstrapDataContext = createContext<BootstrapDataContextValue | null>(nul
 
 export function BootstrapDataProvider({ children }: { children: React.ReactNode }) {
   const { token, isLoading: authLoading } = useAuth();
+  const onboarding = useOnboardingGate();
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const shouldSkip = authLoading || !token;
+  const shouldSkip = authLoading || !token || onboarding.busy || onboarding.required;
 
   const dashboardQuery = useGetDashboardQuery(undefined, { skip: shouldSkip, refetchOnMountOrArgChange: true });
   const settingsQuery = useGetSettingsQuery(undefined, { skip: shouldSkip, refetchOnMountOrArgChange: true });
@@ -39,6 +41,8 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
     ? true
     : !token
       ? false
+      : onboarding.busy || onboarding.required
+        ? false
       : !dashboardQuery.error && !settingsQuery.error && Boolean(
         dashboardQuery.isLoading
         || settingsQuery.isLoading
@@ -62,6 +66,8 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
   const settingsRef = useRef<Settings | null>(null);
   const authLoadingRef = useRef(authLoading);
   const tokenRef = useRef<string | null | undefined>(token);
+  const onboardingBusyRef = useRef(onboarding.busy);
+  const onboardingRequiredRef = useRef(onboarding.required);
 
   useEffect(() => {
     dashboardRef.current = dashboard;
@@ -79,15 +85,28 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
     tokenRef.current = token;
   }, [token]);
 
+  useEffect(() => {
+    onboardingBusyRef.current = onboarding.busy;
+  }, [onboarding.busy]);
+
+  useEffect(() => {
+    onboardingRequiredRef.current = onboarding.required;
+  }, [onboarding.required]);
+
   const refresh = useCallback(
     async (options?: { force?: boolean }): Promise<BootstrapRefreshResult> => {
       const currentDashboard = dashboardRef.current;
       const currentSettings = settingsRef.current;
       const currentAuthLoading = authLoadingRef.current;
       const currentToken = tokenRef.current;
+      const currentOnboardingBusy = onboardingBusyRef.current;
+      const currentOnboardingRequired = onboardingRequiredRef.current;
 
       if (currentAuthLoading) return { dashboard: currentDashboard, settings: currentSettings };
       if (!currentToken) return { dashboard: null, settings: null };
+      if (currentOnboardingBusy || currentOnboardingRequired) {
+        return { dashboard: currentDashboard, settings: currentSettings };
+      }
 
       const hasData = Boolean(currentDashboard && currentSettings);
       const force = options?.force === true;
@@ -151,6 +170,7 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
   useEffect(() => {
     if (authLoading) return;
     if (!token) return;
+    if (onboarding.busy || onboarding.required) return;
 
     const onChange = (next: AppStateStatus) => {
       if (next !== "active") return;
@@ -169,7 +189,7 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
     return () => {
       sub.remove();
     };
-  }, [authLoading, lastLoadedAt, refresh, token]);
+  }, [authLoading, lastLoadedAt, onboarding.busy, onboarding.required, refresh, token]);
 
   const value = useMemo<BootstrapDataContextValue>(
     () => ({

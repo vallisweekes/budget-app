@@ -112,6 +112,8 @@ export async function POST(request: Request) {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to complete onboarding";
     const status = message === "Onboarding profile not found" ? 404 : 500;
-    return NextResponse.json({ error: message }, { status });
+    console.error("Failed to complete onboarding:", error);
+    const clientMessage = status === 404 ? message : "Could not complete onboarding right now. Please try again.";
+    return NextResponse.json({ error: clientMessage }, { status });
   }
 }

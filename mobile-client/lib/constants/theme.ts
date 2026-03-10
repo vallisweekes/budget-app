@@ -1,4 +1,4 @@
-export const BRAND_BLUE = "#2a0a9e";
+export const BRAND_BLUE = "#080080";
 export const BRAND_GREEN = "#2EF2B3";
 
 export const SETTINGS_MODAL_BACKDROP = "rgba(0,0,0,0.5)";

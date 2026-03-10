@@ -785,29 +785,88 @@ export async function completeOnboarding(userId: string) {
     })
   );
 
-  await prisma.$transaction(async (tx) => {
-    const salary = Number(profile.monthlySalary ?? 0);
-
-    if (salary > 0) {
-      const seededPayFrequency = normalizePayFrequency(profile.payFrequency);
-      for (const period of seededIncomePeriods) {
-        const existingSalary = await tx.income.findFirst({
-          where: { budgetPlanId, month: period.month, year: period.year },
-          select: { id: true },
-        });
-        if (existingSalary) continue;
-
-        await tx.income.create({
-          data: {
+  const salary = Number(profile.monthlySalary ?? 0);
+  const seededPayFrequency = normalizePayFrequency(profile.payFrequency);
+  const incomeSeedKeys = seededIncomePeriods.map((period) => ({ month: period.month, year: period.year }));
+  const existingIncomeKeys = salary > 0
+    ? new Set(
+        (await prisma.income.findMany({
+          where: {
             budgetPlanId,
-            name: "Salary",
-            amount: salary,
-            month: period.month,
-            year: period.year,
-            periodKey: getIncomePeriodKey({ year: period.year, month: period.month }, payDay ?? 1, seededPayFrequency),
+            OR: incomeSeedKeys,
           },
-        });
-      }
+          select: { month: true, year: true },
+        })).map((income) => `${income.year}-${income.month}`),
+      )
+    : new Set<string>();
+  const incomesToCreate = salary > 0
+    ? seededIncomePeriods
+        .filter((period) => !existingIncomeKeys.has(`${period.year}-${period.month}`))
+        .map((period) => ({
+          budgetPlanId,
+          name: "Salary",
+          amount: salary,
+          month: period.month,
+          year: period.year,
+          periodKey: getIncomePeriodKey({ year: period.year, month: period.month }, payDay ?? 1, seededPayFrequency),
+        }))
+    : [];
+
+  const expenseSeedCandidates = seededExpensePeriods.flatMap((period) => (
+    expenseSeeds.flatMap((item) => {
+      if (!item.resolvedName || item.amount <= 0) return [];
+      const dueDate = payDay
+        ? new Date(
+            Date.UTC(
+              period.year,
+              period.month - 1,
+              Math.min(payDay, new Date(Date.UTC(period.year, period.month, 0)).getUTCDate()),
+            ),
+          )
+        : undefined;
+
+      return [{
+        key: `${period.year}-${period.month}-${item.resolvedName}`,
+        data: {
+          budgetPlanId,
+          name: item.resolvedName,
+          amount: item.amount,
+          month: period.month,
+          year: period.year,
+          dueDate,
+          paid: false,
+          paidAmount: 0,
+          isAllocation: false,
+          categoryId: item.categoryId ?? undefined,
+          periodKey: getExpensePeriodKey({ dueDate: dueDate ?? null, year: period.year, month: period.month }, payDay ?? 1),
+        },
+      }];
+    })
+  ));
+  const existingExpenseKeys = expenseSeedCandidates.length > 0
+    ? new Set(
+        (await prisma.expense.findMany({
+          where: {
+            budgetPlanId,
+            OR: expenseSeedCandidates.map((item) => ({
+              month: item.data.month,
+              year: item.data.year,
+              name: item.data.name,
+            })),
+          },
+          select: { month: true, year: true, name: true },
+        })).map((expense) => `${expense.year}-${expense.month}-${expense.name}`),
+      )
+    : new Set<string>();
+  const expensesToCreate = expenseSeedCandidates
+    .filter((item) => !existingExpenseKeys.has(item.key))
+    .map((item) => item.data);
+
+  await prisma.$transaction(async (tx) => {
+    if (incomesToCreate.length > 0) {
+      await tx.income.createMany({
+        data: incomesToCreate,
+      });
     }
 
     const allowance = Number(profile.allowanceAmount ?? 0);
@@ -820,40 +879,10 @@ export async function completeOnboarding(userId: string) {
       },
     });
 
-    for (const period of seededExpensePeriods) {
-      for (const item of expenseSeeds) {
-        if (!item.resolvedName || item.amount <= 0) continue;
-        const exists = await tx.expense.findFirst({
-          where: { budgetPlanId, month: period.month, year: period.year, name: item.resolvedName },
-          select: { id: true },
-        });
-        if (exists) continue;
-
-        const expDueDate = payDay
-              ? new Date(
-                Date.UTC(
-                  period.year,
-                  period.month - 1,
-                  Math.min(payDay, new Date(Date.UTC(period.year, period.month, 0)).getUTCDate())
-                )
-              )
-              : undefined;
-        await tx.expense.create({
-          data: {
-            budgetPlanId,
-            name: item.resolvedName,
-            amount: item.amount,
-            month: period.month,
-            year: period.year,
-            dueDate: expDueDate,
-            paid: false,
-            paidAmount: 0,
-            isAllocation: false,
-            categoryId: item.categoryId ?? undefined,
-            periodKey: getExpensePeriodKey({ dueDate: expDueDate ?? null, year: period.year, month: period.month }, payDay ?? 1),
-          },
-        });
-      }
+    if (expensesToCreate.length > 0) {
+      await tx.expense.createMany({
+        data: expensesToCreate,
+      });
     }
 
     const debtAmount = Number(profile.debtAmount ?? 0);
@@ -918,6 +947,9 @@ export async function completeOnboarding(userId: string) {
         throw err;
       }
     }
+  }, {
+    maxWait: 10_000,
+    timeout: 30_000,
   });
 
   return { budgetPlanId };
@@ -985,8 +1017,100 @@ export async function runOnboardingRepairPass(userId: string) {
       amount: item.amount,
     }));
 
+  const salary = Number(profile.monthlySalary ?? 0);
+  const incomesToCreate = salary > 0
+    ? (() => {
+        const seededPayFrequency = normalizePayFrequency(profile.payFrequency);
+        return prisma.income.findMany({
+          where: {
+            budgetPlanId,
+            OR: seededIncomePeriods.map((period) => ({ month: period.month, year: period.year })),
+          },
+          select: { month: true, year: true },
+        }).then((existing) => {
+          const existingKeys = new Set(existing.map((income) => `${income.year}-${income.month}`));
+          return seededIncomePeriods
+            .filter((period) => !existingKeys.has(`${period.year}-${period.month}`))
+            .map((period) => ({
+              budgetPlanId,
+              name: "Salary",
+              amount: salary,
+              month: period.month,
+              year: period.year,
+              periodKey: getIncomePeriodKey({ year: period.year, month: period.month }, payDay ?? 1, seededPayFrequency),
+            }));
+        });
+      })()
+    : Promise.resolve([] as Array<{
+        budgetPlanId: string;
+        name: string;
+        amount: number;
+        month: number;
+        year: number;
+        periodKey: string;
+      }>);
+
+  const expenseSeedCandidates = seededExpensePeriods.flatMap((period) => (
+    expenseSeeds.map((item) => {
+      const dueDate = payDay
+        ? new Date(
+            Date.UTC(
+              period.year,
+              period.month - 1,
+              Math.min(payDay, new Date(Date.UTC(period.year, period.month, 0)).getUTCDate()),
+            ),
+          )
+        : null;
+      return {
+        key: `${period.year}-${period.month}-${item.name}`,
+        data: {
+          budgetPlanId,
+          name: item.name,
+          amount: item.amount,
+          month: period.month,
+          year: period.year,
+          dueDate,
+          paid: false,
+          paidAmount: 0,
+          isAllocation: false,
+          periodKey: getExpensePeriodKey({ dueDate, year: period.year, month: period.month }, payDay ?? 1),
+        },
+      };
+    })
+  ));
+  const expensesToCreate = expenseSeedCandidates.length > 0
+    ? prisma.expense.findMany({
+        where: {
+          budgetPlanId,
+          OR: expenseSeedCandidates.map((item) => ({
+            month: item.data.month,
+            year: item.data.year,
+            name: item.data.name,
+          })),
+        },
+        select: { month: true, year: true, name: true },
+      }).then((existing) => {
+        const existingKeys = new Set(existing.map((expense) => `${expense.year}-${expense.month}-${expense.name}`));
+        return expenseSeedCandidates
+          .filter((item) => !existingKeys.has(item.key))
+          .map((item) => item.data);
+      })
+    : Promise.resolve([] as Array<{
+        budgetPlanId: string;
+        name: string;
+        amount: number;
+        month: number;
+        year: number;
+        dueDate: Date | null;
+        paid: boolean;
+        paidAmount: number;
+        isAllocation: boolean;
+        periodKey: string;
+      }>);
+
+  const [preparedIncomesToCreate, preparedExpensesToCreate] = await Promise.all([incomesToCreate, expensesToCreate]);
+
   await prisma.$transaction(async (tx) => {
-    const salary = Number(profile.monthlySalary ?? 0);
     const savingsGoalAmount = Number(profile.savingsGoalAmount ?? 0);
     const selectedGoals: OnboardingGoalInput[] =
       Array.isArray(profile.mainGoals) && profile.mainGoals.length
@@ -996,26 +1120,10 @@ export async function runOnboardingRepairPass(userId: string) {
           : [];
     const normalizedGoals = normalizeSelectedGoals(selectedGoals);
 
-    if (salary > 0) {
-      const seededPayFrequency = normalizePayFrequency(profile.payFrequency);
-      for (const period of seededIncomePeriods) {
-        const existingSalary = await tx.income.findFirst({
-          where: { budgetPlanId, month: period.month, year: period.year },
-          select: { id: true },
-        });
-        if (existingSalary) continue;
-
-        await tx.income.create({
-          data: {
-            budgetPlanId,
-            name: "Salary",
-            amount: salary,
-            month: period.month,
-            year: period.year,
-            periodKey: getIncomePeriodKey({ year: period.year, month: period.month }, payDay ?? 1, seededPayFrequency),
-          },
-        });
-      }
+    if (preparedIncomesToCreate.length > 0) {
+      await tx.income.createMany({
+        data: preparedIncomesToCreate,
+      });
     }
 
     if (payDay) {
@@ -1028,53 +1136,10 @@ export async function runOnboardingRepairPass(userId: string) {
       });
     }
 
-    for (const period of seededExpensePeriods) {
-      for (const item of expenseSeeds) {
-        const dueDate = payDay
-          ? new Date(
-            Date.UTC(
-              period.year,
-              period.month - 1,
-              Math.min(payDay, new Date(Date.UTC(period.year, period.month, 0)).getUTCDate())
-            )
-          )
-          : null;
-
-        const existing = await tx.expense.findFirst({
-          where: {
-            budgetPlanId,
-            month: period.month,
-            year: period.year,
-            name: item.name,
-          },
-          select: { id: true, dueDate: true },
-        });
-
-        if (existing) {
-          if (!existing.dueDate && dueDate) {
-            await tx.expense.update({
-              where: { id: existing.id },
-              data: { dueDate },
-            });
-          }
-          continue;
-        }
-
-        await tx.expense.create({
-          data: {
-            budgetPlanId,
-            name: item.name,
-            amount: item.amount,
-            month: period.month,
-            year: period.year,
-            dueDate: dueDate ?? undefined,
-            paid: false,
-            paidAmount: 0,
-            isAllocation: false,
-            periodKey: getExpensePeriodKey({ dueDate, year: period.year, month: period.month }, payDay ?? 1),
-          },
-        });
-      }
+    if (preparedExpensesToCreate.length > 0) {
+      await tx.expense.createMany({
+        data: preparedExpensesToCreate,
+      });
     }
 
     await syncGeneratedGoals({
@@ -1092,5 +1157,8 @@ export async function runOnboardingRepairPass(userId: string) {
         mainGoals: normalizedGoals,
       },
     });
+  }, {
+    maxWait: 10_000,
+    timeout: 30_000,
   });
 }

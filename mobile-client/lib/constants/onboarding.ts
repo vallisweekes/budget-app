@@ -1,11 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 
+import { BRAND_BLUE } from "@/lib/constants/theme";
 import { T } from "@/lib/theme";
 
 import type { VisibleGoal } from "@/types/OnboardingScreen.types";
 
 export const DEFAULT_VISIBLE_GOALS: VisibleGoal[] = ["improve_savings"];
-export const EXPENSES_TOTAL_BLUE = "#2a0a9e";
+export const EXPENSES_TOTAL_BLUE = BRAND_BLUE;
 
 export const ICON_COLORS = {
   emergency_fund: T.orange,

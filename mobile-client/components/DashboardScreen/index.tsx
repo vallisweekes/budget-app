@@ -153,7 +153,7 @@ export default function DashboardScreen(props: DashboardScreenProps) {
           isLogoFailed={controller.isLogoFailed}
           onLogoError={controller.markLogoFailed}
           onOpenQuickPay={controller.openExpenseQuickPay}
-          onSeeAll={controller.goToExpenses}
+          onSeeAll={controller.goToPayments}
         />
 
         <DashboardAiTipsCard tips={controller.dashboardTips} />
@@ -164,7 +164,7 @@ export default function DashboardScreen(props: DashboardScreenProps) {
           isLogoFailed={controller.isLogoFailed}
           onLogoError={controller.markLogoFailed}
           onOpenQuickPay={controller.openDebtQuickPay}
-          onSeeAll={controller.goToDebts}
+          onSeeAll={controller.goToPayments}
         />
 
         <DashboardRecapSection
@@ -181,6 +181,7 @@ export default function DashboardScreen(props: DashboardScreenProps) {
           activeGoalCard={controller.activeGoalCard}
           onMomentumEnd={controller.handleGoalMomentumEnd}
           onPressGoals={controller.goToGoals}
+          onPressAddGoal={controller.goToGoalsAdd}
           onPressProjection={controller.goToGoalsProjection}
         />
       </ScrollView>

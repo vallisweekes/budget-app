@@ -1,7 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 import { useAuth } from "@/context/AuthContext";
-import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { apiFetch } from "@/lib/api";
 import type { OnboardingStatusResponse, Settings } from "@/lib/apiTypes";
 
@@ -23,16 +22,10 @@ const OnboardingGateContext = createContext<OnboardingGateContextValue | null>(n
 
 export function OnboardingGateProvider({ children }: { children: React.ReactNode }) {
   const { token, isLoading } = useAuth();
-  const {
-    dashboard,
-    settings: bootstrapSettings,
-    isLoading: bootstrapLoading,
-  } = useBootstrapData();
   const [onboardingState, setOnboardingState] = useState<OnboardingStatusResponse | null>(null);
   const [onboardingLoading, setOnboardingLoading] = useState(false);
   const [completingOnboarding, setCompletingOnboarding] = useState(false);
   const lastOnboardingTokenRef = useRef<string | null>(null);
-  const hasBootstrapSetup = Boolean(dashboard?.budgetPlanId) || Boolean(bootstrapSettings?.id);
 
   useEffect(() => {
     let cancelled = false;
@@ -44,60 +37,35 @@ export function OnboardingGateProvider({ children }: { children: React.ReactNode
       return;
     }
 
-    if (bootstrapLoading && !hasBootstrapSetup && onboardingState === null) {
-      setOnboardingLoading((prev) => (prev ? prev : true));
-      return;
-    }
-
-    if (hasBootstrapSetup) {
-      lastOnboardingTokenRef.current = token;
-      setOnboardingLoading((prev) => (prev ? false : prev));
-      setOnboardingState((prev) => {
-        if (prev?.required === false) return prev;
-        return ONBOARDING_FALLBACK;
-      });
-      return;
-    }
-
-    if (lastOnboardingTokenRef.current === token && onboardingState !== null) {
-      return;
-    }
-
     lastOnboardingTokenRef.current = token;
-    setOnboardingLoading((prev) => (prev ? prev : true));
+    setOnboardingState((prev) => (prev === null ? prev : null));
+    setOnboardingLoading(true);
 
     void (async () => {
       try {
         const data = await apiFetch<OnboardingStatusResponse>("/api/bff/onboarding", {
           cacheTtlMs: 0,
           skipOnUnauthorized: true,
+          timeoutMs: 15_000,
         });
         if (!cancelled) {
-          setOnboardingState((prev) => {
-            if (
-              prev?.required === data.required
-              && prev?.completed === data.completed
-              && prev?.profile === data.profile
-              && prev?.occupations === data.occupations
-            ) {
-              return prev;
-            }
-            return data;
-          });
+          setOnboardingState(data);
         }
       } catch {
         if (!cancelled) {
           setOnboardingState((prev) => (prev === ONBOARDING_FALLBACK ? prev : ONBOARDING_FALLBACK));
         }
       } finally {
-        if (!cancelled) setOnboardingLoading((prev) => (prev ? false : prev));
+        if (!cancelled) setOnboardingLoading(false);
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [bootstrapLoading, hasBootstrapSetup, onboardingState, token]);
+  }, [token]);
+
+  const awaitingInitialResolution = Boolean(token) && onboardingState === null;
 
   const completeOnboardingAndHydrate = useCallback(async () => {
     setCompletingOnboarding(true);
@@ -149,12 +117,12 @@ export function OnboardingGateProvider({ children }: { children: React.ReactNode
 
   const value = useMemo<OnboardingGateContextValue>(
     () => ({
-      busy: isLoading || Boolean(token && (onboardingLoading || completingOnboarding)),
+      busy: isLoading || Boolean(token && (awaitingInitialResolution || onboardingLoading || completingOnboarding)),
       required: Boolean(token && onboardingState?.required),
       state: onboardingState ?? ONBOARDING_FALLBACK,
       completeOnboardingAndHydrate,
     }),
-    [completeOnboardingAndHydrate, completingOnboarding, isLoading, onboardingLoading, onboardingState, token]
+    [awaitingInitialResolution, completeOnboardingAndHydrate, completingOnboarding, isLoading, onboardingLoading, onboardingState, token]
   );
 
   return <OnboardingGateContext.Provider value={value}>{children}</OnboardingGateContext.Provider>;

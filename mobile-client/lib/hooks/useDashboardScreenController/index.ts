@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useScrollToTop } from "@react-navigation/native";
+import { useRouter } from "expo-router";
 
 import { useBootstrapData, isNoBudgetPlanError } from "@/context/BootstrapDataContext";
 import { currencySymbol, normalizeUpcomingName } from "@/lib/formatting";
@@ -15,6 +16,7 @@ type DashboardScreenProps = MainTabScreenProps<"Dashboard">;
 type CategorySheetState = { id: string; name: string } | null;
 
 export function useDashboardScreenController({ navigation }: DashboardScreenProps) {
+  const router = useRouter();
   const scrollRef = useRef<ScrollView>(null);
   useScrollToTop(scrollRef);
 
@@ -167,12 +169,17 @@ export function useDashboardScreenController({ navigation }: DashboardScreenProp
     markLogoFailed,
     isLogoFailed,
     handleGoalMomentumEnd,
-    goToIncome: () => navigation.navigate("Income"),
-    goToExpenses: () => navigation.navigate("Expenses"),
-    goToDebts: () => navigation.navigate("Debts"),
-    goToGoals: () => navigation.navigate("Goals"),
-    goToGoalsProjection: () => navigation.navigate("GoalsProjection"),
-    goToSettings: () => navigation.navigate("Settings"),
+    goToPayments: () => router.push("/(modals)/payments"),
+    goToIncome: () => router.push("/(tabs)/income"),
+    goToExpenses: () => router.push("/(tabs)/expenses"),
+    goToDebts: () => router.push("/(tabs)/debts"),
+    goToGoals: () => router.push("/(tabs)/goals"),
+    goToGoalsAdd: () => router.push({
+      pathname: "/(tabs)/goals",
+      params: { openAddToken: String(Date.now()) },
+    }),
+    goToGoalsProjection: () => router.push("/goals-projection"),
+    goToSettings: () => router.push("/(tabs)/settings"),
     ...derived,
   };
 }

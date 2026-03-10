@@ -371,7 +371,7 @@ export function useOnboardingScreenController({ initial, onCompleted }: Onboardi
       }
       setSaving(true);
       await saveDraft();
-      await apiFetch("/api/bff/onboarding", { method: "POST" });
+      await apiFetch("/api/bff/onboarding", { method: "POST", timeoutMs: 60_000 });
       onCompleted();
     } catch (err: unknown) {
       Alert.alert("Could not complete onboarding", err instanceof Error ? err.message : "Please try again.");

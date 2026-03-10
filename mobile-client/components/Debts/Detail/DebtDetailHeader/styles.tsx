@@ -6,7 +6,7 @@ export const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 8,
     paddingVertical: 12,
-    backgroundColor: "#2a0a9e",
+    backgroundColor: "#080080",
   },
   headerTitle: { flex: 1, color: "#ffffff", fontSize: 17, fontWeight: "900", marginLeft: 4 },
   headerActions: { flexDirection: "row", gap: 4 },

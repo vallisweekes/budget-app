@@ -47,6 +47,7 @@ export type DashboardGoalsSectionProps = {
   activeGoalCard: number;
   onMomentumEnd: (offsetX: number) => void;
   onPressGoals: () => void;
+  onPressAddGoal: () => void;
   onPressProjection: () => void;
 };
 

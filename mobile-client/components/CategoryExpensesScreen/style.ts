@@ -88,7 +88,7 @@ export const categoryExpensesStyles = StyleSheet.create({
     color: T.text,
   },
   hero: {
-    backgroundColor: "#2a0a9e",
+    backgroundColor: "#080080",
     paddingHorizontal: 20,
     paddingBottom: 22,
     alignItems: "center",

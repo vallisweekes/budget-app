@@ -11,7 +11,7 @@ export const styles = StyleSheet.create({
     marginHorizontal: -14,
     marginBottom: 0,
     gap: 6,
-    backgroundColor: "#2a0a9e",
+    backgroundColor: "#080080",
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
   },
@@ -31,7 +31,7 @@ export const styles = StyleSheet.create({
     borderRadius: 999,
   },
   brandLetter: {
-    color: "#2a0a9e",
+    color: "#080080",
     fontSize: 18,
     fontWeight: "900",
   },
@@ -49,5 +49,5 @@ export const styles = StyleSheet.create({
     alignItems: "center",
   },
   heroPayBtnSmall: { marginTop: 18 },
-  heroPayBtnTxt: { color: "#2a0a9e", fontSize: 15, fontWeight: "900" },
+  heroPayBtnTxt: { color: "#080080", fontSize: 15, fontWeight: "900" },
 });

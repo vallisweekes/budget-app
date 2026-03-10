@@ -3,7 +3,7 @@ import { ActivityIndicator, Animated, AppState, type AppStateStatus, StyleSheet,
 import { DefaultTheme, ThemeProvider, type Theme } from "@react-navigation/native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Provider as ReduxProvider } from "react-redux";
-import { Stack, useGlobalSearchParams, usePathname } from "expo-router";
+import { Redirect, Stack, useGlobalSearchParams, usePathname, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
 
@@ -16,6 +16,7 @@ import { applyThemeMode, type ThemeMode, T } from "@/lib/theme";
 import { getStoredThemeMode } from "@/lib/storage";
 import { installGlobalTypographyWeightNormalizer } from "@/lib/typography";
 import { OnboardingGateProvider } from "@/navigation/OnboardingGateContext";
+import { useOnboardingGate } from "@/navigation/OnboardingGateContext";
 import { buildPersistedHref, clearPersistedRoute, flushPersistedHrefRemote, savePersistedHrefLocal } from "@/navigation/routePersistence";
 
 installGlobalTypographyWeightNormalizer();
@@ -56,7 +57,7 @@ function NavigationPersistenceObserver() {
       return;
     }
 
-    if (!href || href === "/" || href === "/Login" || href === "/Onboarding") {
+    if (!href || href === "/" || href === "/login" || href === "/onboarding" || href === "/Login" || href === "/Onboarding") {
       return;
     }
 
@@ -102,11 +103,44 @@ function NavigationPersistenceObserver() {
   return null;
 }
 
+function useSessionRouteGuardState() {
+  const pathname = usePathname();
+  const segments = useSegments() as string[];
+  const { token, isLoading } = useAuth();
+  const onboarding = useOnboardingGate();
+
+  const rootSegment = typeof segments[0] === "string" ? segments[0] : "";
+  const childSegment = typeof segments[1] === "string" ? segments[1] : "";
+  const inAuthGroup = rootSegment === "(auth)" || pathname === "/login" || pathname === "/onboarding";
+  const onOnboardingRoute = (rootSegment === "(auth)" && childSegment === "onboarding") || pathname === "/onboarding";
+
+  if (isLoading || (token && onboarding.busy)) {
+    return { mode: "loading" as const };
+  }
+
+  if (!token) {
+    return inAuthGroup ? { mode: "ready" as const } : { mode: "redirect" as const, href: "/(auth)/login" };
+  }
+
+  if (onboarding.required) {
+    return onOnboardingRoute
+      ? { mode: "ready" as const }
+      : { mode: "redirect" as const, href: "/(auth)/onboarding" };
+  }
+
+  if (inAuthGroup || pathname === "/") {
+    return { mode: "redirect" as const, href: "/(tabs)/dashboard" };
+  }
+
+  return { mode: "ready" as const };
+}
+
 function RootShell() {
   const [booting, setBooting] = useState(true);
   const [mode, setMode] = useState<ThemeMode>("dark");
   const [splashVisible, setSplashVisible] = useState(true);
   const splashOpacity = useRef(new Animated.Value(1)).current;
+  const guard = useSessionRouteGuardState();
 
   useEffect(() => {
     let mounted = true;
@@ -170,6 +204,24 @@ function RootShell() {
     );
   }
 
+  if (guard.mode === "loading") {
+    return (
+      <ThemeProvider value={navTheme}>
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: T.bg }} onLayout={onRootLayout}>
+          <ActivityIndicator size="large" color={T.accent} />
+        </View>
+      </ThemeProvider>
+    );
+  }
+
+  if (guard.mode === "redirect") {
+    return (
+      <ThemeProvider value={navTheme}>
+        <Redirect href={guard.href} />
+      </ThemeProvider>
+    );
+  }
+
   return (
     <ThemeProvider value={navTheme}>
       <View style={{ flex: 1 }} onLayout={onRootLayout}>
@@ -205,14 +257,14 @@ export default function ExpoRootLayout() {
     <SafeAreaProvider style={{ flex: 1, backgroundColor: T.bg }}>
       <ReduxProvider store={store}>
         <AuthProvider>
-          <BootstrapDataProvider>
-            <ActiveBudgetPlanProvider>
-              <OnboardingGateProvider>
+          <OnboardingGateProvider>
+            <BootstrapDataProvider>
+              <ActiveBudgetPlanProvider>
                 <PushNotificationsBootstrap />
                 <RootShell />
-              </OnboardingGateProvider>
-            </ActiveBudgetPlanProvider>
-          </BootstrapDataProvider>
+              </ActiveBudgetPlanProvider>
+            </BootstrapDataProvider>
+          </OnboardingGateProvider>
         </AuthProvider>
       </ReduxProvider>
     </SafeAreaProvider>

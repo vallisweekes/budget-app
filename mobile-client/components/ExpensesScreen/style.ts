@@ -190,7 +190,7 @@ export const expensesStyles = StyleSheet.create({
     fontSize: 12,
   },
   purpleHero: {
-    backgroundColor: "#2a0a9e",
+    backgroundColor: "#080080",
     paddingHorizontal: 20,
     paddingBottom: 28,
     alignItems: "center",
@@ -293,7 +293,7 @@ export const expensesStyles = StyleSheet.create({
     justifyContent: "center",
   },
   pickerCellSelected: {
-    backgroundColor: "#2a0a9e",
+    backgroundColor: "#080080",
   },
   pickerCellDisabled: {
     opacity: 0.28,
