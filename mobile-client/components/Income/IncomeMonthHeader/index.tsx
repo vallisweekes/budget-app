@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Animated, Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
 import { styles } from "./styles";
 
 import { T } from "@/lib/theme";
@@ -12,6 +13,7 @@ export default function IncomeMonthHeader({
   viewMode,
   showAddForm,
   hideNavTitleRow = false,
+  onHeightChange,
   onBack,
   onToggleAdd,
   onSetMode,
@@ -28,7 +30,13 @@ export default function IncomeMonthHeader({
     }).start();
   }, [viewMode, slideAnim]);
   return (
-    <>
+    <BlurView
+      intensity={28}
+      tint="dark"
+      style={styles.glassShell}
+      onLayout={(event) => onHeightChange?.(event.nativeEvent.layout.height)}
+    >
+      <View style={styles.glassTint} pointerEvents="none" />
       {!hideNavTitleRow ? (
         <View style={styles.header}>
           <Pressable onPress={onBack} style={styles.backBtn} hitSlop={8}>
@@ -78,6 +86,6 @@ export default function IncomeMonthHeader({
           <Text style={[styles.modeTxt, viewMode === "sacrifice" && styles.modeTxtActive]}>Income sacrifice</Text>
         </Pressable>
       </View>
-    </>
+    </BlurView>
   );
 }

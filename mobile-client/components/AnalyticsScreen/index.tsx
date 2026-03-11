@@ -8,12 +8,11 @@ import AnalyticsInsightGrid from "@/components/Analytics/AnalyticsInsightGrid";
 import AnalyticsOverviewCard from "@/components/Analytics/AnalyticsOverviewCard";
 import AnalyticsTipsCard from "@/components/Analytics/AnalyticsTipsCard";
 import { useAnalyticsScreenController } from "@/hooks";
-import type { RootStackScreenProps } from "@/navigation/types";
 import { T } from "@/lib/theme";
 import { analyticsStyles as s } from "@/components/AnalyticsScreen/style";
 
-export default function AnalyticsScreen({ navigation }: RootStackScreenProps<"Analytics">) {
-  const controller = useAnalyticsScreenController(navigation);
+export default function AnalyticsScreen() {
+  const controller = useAnalyticsScreenController();
 
   if (controller.loading) {
     return (

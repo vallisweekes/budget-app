@@ -17,6 +17,7 @@ export default function IncomeMonthIncomeList({
   analysis,
   currency,
   isLocked,
+  topInset = 0,
   refreshing,
   onRefresh,
   crud,
@@ -35,7 +36,7 @@ export default function IncomeMonthIncomeList({
       <FlatList
         data={sortedItems}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={s.scroll}
+        contentContainerStyle={[s.scroll, { paddingTop: topInset }]}
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={T.accent} />}
         ListHeaderComponent={

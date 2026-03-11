@@ -2,11 +2,27 @@ import { StyleSheet } from "react-native";
 import { T } from "@/lib/theme";
 
 export const styles = StyleSheet.create({
+  glassShell: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 20,
+    overflow: "hidden",
+    paddingBottom: 8,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+    borderBottomWidth: 1,
+    borderColor: "rgba(138, 92, 255, 0.16)",
+  },
+  glassTint: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(10, 14, 34, 0.72)",
+  },
   header: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     paddingHorizontal: 16, paddingVertical: 12,
-    backgroundColor: T.card,
-    borderBottomWidth: 1, borderBottomColor: T.border,
+    backgroundColor: "transparent",
   },
   backBtn: { padding: 4 },
   headerSlim: {
@@ -14,7 +30,7 @@ export const styles = StyleSheet.create({
     justifyContent: "flex-end",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingTop: 10,
     paddingBottom: 2,
   },
   sideSpacer: { flex: 1 },
@@ -34,9 +50,9 @@ export const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginTop: 12,
     marginBottom: 8,
-    backgroundColor: T.card,
+    backgroundColor: "rgba(13, 18, 43, 0.72)",
     borderWidth: 1,
-    borderColor: T.border,
+    borderColor: "rgba(255,255,255,0.08)",
     borderRadius: 999,
     padding: 4,
     position: "relative",

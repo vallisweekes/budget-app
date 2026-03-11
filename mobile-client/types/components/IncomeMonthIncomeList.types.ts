@@ -23,6 +23,7 @@ export type IncomeMonthIncomeListProps = {
   analysis: IncomeMonthData | null;
   currency: string;
   isLocked: boolean;
+  topInset?: number;
   refreshing: boolean;
   onRefresh: () => void;
   crud: IncomeMonthIncomeListCrudLike;

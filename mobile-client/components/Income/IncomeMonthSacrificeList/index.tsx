@@ -300,7 +300,7 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
       <FlatList
         data={[]}
         keyExtractor={(_, idx) => String(idx)}
-        contentContainerStyle={s.scroll}
+        contentContainerStyle={[s.scroll, { paddingTop: props.topInset ?? 0 }]}
         refreshControl={<RefreshControl refreshing={props.refreshing} onRefresh={props.onRefresh} tintColor={T.accent} />}
         ListHeaderComponent={
           props.sacrifice ? (

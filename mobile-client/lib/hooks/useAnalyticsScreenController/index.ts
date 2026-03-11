@@ -1,4 +1,4 @@
-import { useRoute } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useWindowDimensions } from "react-native";
 
@@ -21,10 +21,10 @@ import type { AnalyticsOverviewLinePoint, AnalyticsOverviewMode, AnalyticsScreen
 import { useGetAnalyticsExpenseSeriesQuery, useGetDebtSummaryQuery, useGetExpenseSummaryQuery, useGetIncomeSummaryQuery } from "@/store/api";
 
 export function useAnalyticsScreenController(
-  navigation: RootStackScreenProps<"Analytics">["navigation"],
 ): AnalyticsScreenControllerState {
   const topHeaderOffset = useTopHeaderOffset();
   const { width: windowWidth } = useWindowDimensions();
+  const navigation = useNavigation<RootStackScreenProps<"Analytics">["navigation"]>();
   const route = useRoute<RootStackScreenProps<"Analytics">["route"]>();
   const { dashboard, settings, isLoading: bootstrapLoading, refresh: refreshBootstrap } = useBootstrapData();
   const [refreshing, setRefreshing] = useState(false);

@@ -25,6 +25,7 @@ export type IncomeMonthSacrificeListProps = {
   month: number;
   year: number;
   sacrifice: IncomeSacrificeData | null;
+  topInset?: number;
   canManage?: boolean;
   manageUnavailableReason?: string;
   sacrificeSaving: boolean;

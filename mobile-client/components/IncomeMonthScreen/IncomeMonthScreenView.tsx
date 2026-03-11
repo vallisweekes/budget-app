@@ -30,6 +30,7 @@ import type { IncomeMonthScreenProps, IncomeMutationMeta, MonthRef } from "@/typ
 export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScreenProps) {
   const topHeaderOffset = useTopHeaderOffset(-32);
   const { month, year, budgetPlanId, initialMode, pendingConfirmationsCount, showPendingNotice, openIncomeAddAt } = route.params;
+  const [headerHeight, setHeaderHeight] = useState(118);
 
   const [analysis, setAnalysis] = useState<IncomeMonthData | null>(null);
   const [items, setItems]       = useState<Income[]>([]);
@@ -708,6 +709,7 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
           viewMode={viewMode}
           showAddForm={crud.showAddForm}
           hideNavTitleRow
+          onHeightChange={setHeaderHeight}
           onBack={() => navigation.goBack()}
           onToggleAdd={() => {
             if (isLocked) return;
@@ -722,6 +724,7 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
             month={month}
             year={year}
             sacrifice={sacrifice}
+            topInset={headerHeight + 8}
             canManage={canManageSacrifice}
             manageUnavailableReason={manageSacrificeNotice}
             sacrificeSaving={sacrificeSaving}
@@ -752,6 +755,7 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
             analysis={analysis}
             currency={currency}
             isLocked={isLocked}
+            topInset={headerHeight + 8}
             refreshing={refreshing}
             onRefresh={() => {
               setRefreshing(true);
