@@ -6,7 +6,7 @@ import * as Notifications from "expo-notifications";
 
 import { useActiveBudgetPlan } from "@/context/ActiveBudgetPlanContext";
 import { useAuth } from "@/context/AuthContext";
-import { ApiError, apiFetch } from "@/lib/api";
+import { ApiError, apiFetch, getApiMutationVersion } from "@/lib/api";
 import type {
   BudgetPlanListItem,
   Debt,
@@ -72,6 +72,7 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
   const topHeaderOffset = useTopHeaderOffset();
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
+  const [activeTab, setActiveTab] = useState<SettingsTab>("details");
   const { username: authUsername, signOut, hydrateProfile, profile: authProfile, isLoading: authLoading } = useAuth();
   const { activeBudgetPlanId, setActiveBudgetPlanId, clearActiveBudgetPlanId } = useActiveBudgetPlan();
   const { readSavingsPotsForPlan, writeSavingsPotsForPlan } = useSavingsPotStore();
@@ -81,7 +82,7 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
     loadNotifications,
     formatNotificationReceivedAt,
     saveNotifications,
-  } = useSettingsNotifications();
+  } = useSettingsNotifications({ enabled: activeTab === "notifications" });
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -92,10 +93,10 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
   const [refreshing, setRefreshing] = useState(false);
   const loadInFlightRef = useRef(false);
   const hasLoadedOnceRef = useRef(false);
+  const seenMutationVersionRef = useRef<number>(getApiMutationVersion());
   const [error, setError] = useState<string | null>(null);
   const [noPlan, setNoPlan] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<SettingsTab>("details");
   const [moneyViewMode, setMoneyViewMode] = useState<MoneyViewMode>("personal");
   const moneyToggleAnim = React.useRef(new Animated.Value(0)).current;
   const [moreOpen, setMoreOpen] = useState(false);
@@ -430,12 +431,12 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
     try {
       setError(null);
 
-      const [plansResp, me] = await Promise.all([
-        fetchBudgetPlans(undefined, true).unwrap(),
-        Promise.resolve(authProfile),
-      ]);
-
-      const nextPlans = Array.isArray(plansResp?.plans) ? plansResp.plans : [];
+      const me = authProfile;
+      const hasMutationChanges = getApiMutationVersion() !== seenMutationVersionRef.current;
+      const shouldFetchPlans = hasMutationChanges || !Array.isArray(me?.plans) || me.plans.length === 0;
+      const nextPlans = shouldFetchPlans
+        ? ((await fetchBudgetPlans(undefined, true).unwrap())?.plans ?? [])
+        : me.plans;
       setPlans(nextPlans);
       setProfile(me);
 
@@ -455,8 +456,14 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
           : nextPlans.find((p) => p.kind === "personal")?.id ?? nextPlans[0].id;
       const preferredPlan = nextPlans.find((plan) => plan.id === preferredPlanId) ?? null;
 
+      const meSettingsForPreferredPlan = authProfile?.settings?.id === preferredPlanId
+        ? authProfile.settings
+        : null;
+
       const [nextSettings, nextDebts] = await Promise.all([
-        fetchPlanSettings(preferredPlanId, true).unwrap(),
+        meSettingsForPreferredPlan
+          ? Promise.resolve(meSettingsForPreferredPlan)
+          : fetchPlanSettings(preferredPlanId, true).unwrap(),
         fetchPlanDebts(preferredPlanId, true).unwrap(),
       ]);
 
@@ -466,6 +473,7 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
       setActiveBudgetPlanId(preferredPlanId);
       hydrateDrafts(nextSettings, me, preferredPlan?.budgetHorizonYears ?? null);
       hasLoadedOnceRef.current = true;
+      seenMutationVersionRef.current = getApiMutationVersion();
     } catch (err: unknown) {
       const isNoPlanError =
         err instanceof ApiError &&
@@ -485,7 +493,7 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
       setRefreshing(false);
       loadInFlightRef.current = false;
     }
-  }, [authProfile, clearActiveBudgetPlanId, fetchBudgetPlans, hydrateDrafts, setActiveBudgetPlanId]);
+  }, [authProfile, clearActiveBudgetPlanId, fetchBudgetPlans, fetchPlanSettings, hydrateDrafts, setActiveBudgetPlanId]);
 
   useEffect(() => {
     // Only load once when screen is ACTUALLY focused (user navigated to it) AND auth is ready
@@ -500,23 +508,8 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
   }, [isFocused, authLoading, authProfile, load]);
 
   useEffect(() => {
-    const inactivePlans = plans.filter((plan) => plan.id !== currentPlanId);
-    if (inactivePlans.length === 0) return;
-
-    let cancelled = false;
-
-    void Promise.all(inactivePlans.map(async (plan) => {
-      if (cancelled) return;
-      try {
-        await prefetchPlanState(plan.id);
-      } catch {
-        // Best-effort prefetch only.
-      }
-    }));
-
-    return () => {
-      cancelled = true;
-    };
+    // Intentionally skip prefetching inactive plan settings/debts here.
+    // Avatar-open should fetch only the active plan and load others on demand.
   }, [currentPlanId, plans, prefetchPlanState]);
 
   useEffect(() => {
@@ -525,6 +518,12 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
         skipFirstFocusReloadRef.current = false;
         return;
       }
+
+      const hasMutationChanges = getApiMutationVersion() !== seenMutationVersionRef.current;
+      if (!hasMutationChanges && hasLoadedOnceRef.current) {
+        return;
+      }
+
       void load();
     });
     return unsub;
@@ -672,6 +671,13 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
   }, [readSavingsPotsForPlan, settings?.id, writeSavingsPotsForPlan]);
 
   useEffect(() => {
+    const shouldLoadSacrificeGoals = activeTab === "savings" || Boolean(savingsSheetField);
+    if (!shouldLoadSacrificeGoals) {
+      setSacrificeLinkedTargetKeys([]);
+      setSacrificeGoalsCount(0);
+      return;
+    }
+
     const planId = settings?.id;
     if (!planId) {
       setSacrificeLinkedTargetKeys([]);
@@ -698,7 +704,7 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
         setSacrificeGoalsCount(0);
       }
     })();
-  }, [settings?.id]);
+  }, [activeTab, savingsSheetField, settings?.id]);
 
   const createPersonalPlan = async () => {
     try {

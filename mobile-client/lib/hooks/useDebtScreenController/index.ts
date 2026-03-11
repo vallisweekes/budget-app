@@ -6,6 +6,7 @@ import { Alert, FlatList, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useBootstrapData } from "@/context/BootstrapDataContext";
+import { getApiMutationVersion } from "@/lib/api";
 import type { CreditCard, DebtSummaryItem } from "@/lib/apiTypes";
 import { currencySymbol } from "@/lib/formatting";
 import { setCachedDebtListData } from "@/lib/debtDetailCache";
@@ -32,9 +33,10 @@ export function useDebtScreenController() {
     refresh: refreshBootstrap,
     ensureLoaded,
   } = useBootstrapData();
-  const debtSummaryQuery = useGetDebtSummaryQuery(undefined, { refetchOnMountOrArgChange: true });
-  const creditCardsQuery = useGetCreditCardsQuery(undefined, { refetchOnMountOrArgChange: true });
+  const debtSummaryQuery = useGetDebtSummaryQuery();
+  const creditCardsQuery = useGetCreditCardsQuery();
   const [createDebtMutation] = useCreateDebtMutation();
+  const seenMutationVersionRef = useRef<number>(getApiMutationVersion());
 
   const [refreshing, setRefreshing] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -98,15 +100,21 @@ export function useDebtScreenController() {
 
   const load = useCallback(async (options?: { force?: boolean }) => {
     try {
+      const force = Boolean(options?.force);
+      const hasDebtSummary = Boolean(debtSummaryQuery.data);
+      const hasCreditCards = Array.isArray(creditCardsQuery.data);
+
       const [{ settings: bootSettings }] = await Promise.all([
-        options?.force ? refreshBootstrap({ force: true }) : ensureLoaded(),
-        debtSummaryQuery.refetch(),
-        creditCardsQuery.refetch(),
+        force ? refreshBootstrap({ force: true }) : ensureLoaded(),
+        force || !hasDebtSummary ? debtSummaryQuery.refetch() : Promise.resolve(),
+        force || !hasCreditCards ? creditCardsQuery.refetch() : Promise.resolve(),
       ]);
 
       if (!bootSettings) {
         throw bootstrapError ?? new Error("Failed to load settings");
       }
+
+      seenMutationVersionRef.current = getApiMutationVersion();
     } finally {
       setRefreshing(false);
     }
@@ -134,8 +142,18 @@ export function useDebtScreenController() {
         skipNextTabFocusReloadRef.current = false;
         return;
       }
-      void load();
-    }, [load]),
+
+      const latestMutationVersion = getApiMutationVersion();
+      const hasMutationChanges = latestMutationVersion !== seenMutationVersionRef.current;
+      const hasDebtSummary = Boolean(summary);
+      const hasCreditCards = Array.isArray(creditCardsQuery.data);
+
+      if (!hasMutationChanges && hasDebtSummary && hasCreditCards) {
+        return;
+      }
+
+      void load({ force: hasMutationChanges });
+    }, [creditCardsQuery.data, load, summary]),
   );
 
   const loading = bootstrapLoading || loadingDebts;

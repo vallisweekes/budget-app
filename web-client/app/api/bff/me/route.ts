@@ -7,6 +7,7 @@ import { getOnboardingForUser, runOnboardingRepairPass } from "@/lib/onboarding"
 import { normalizeBillFrequency, normalizePayFrequency } from "@/lib/payPeriods";
 import { touchMobileAuthSessionAndDetectFirstSeen } from "@/lib/mobileAuthSessions";
 import { getBootstrapSettingsForUser } from "@/lib/settings/bootstrap";
+import { listBudgetPlansForUser } from "@/lib/budgetPlans";
 
 export const runtime = "nodejs";
 
@@ -49,7 +50,7 @@ function normalizeProfileOnMe<T extends { occupation?: unknown; occupationOther?
 }
 
 async function buildProfileResponse(userId: string) {
-  const [user, verification, onboarding, onboardingMeta, settings] = await Promise.all([
+  const [user, verification, onboarding, onboardingMeta, settings, plans] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
       select: { id: true, name: true, email: true, createdAt: true },
@@ -67,6 +68,7 @@ async function buildProfileResponse(userId: string) {
       },
     }).catch(() => null),
     getBootstrapSettingsForUser({ userId }).catch(() => null),
+    listBudgetPlansForUser({ userId }).catch(() => []),
   ]);
 
   if (!user) return null;
@@ -92,6 +94,14 @@ async function buildProfileResponse(userId: string) {
     emailVerificationDeadlineAt: verification.deadlineAt?.toISOString() ?? null,
     onboarding: normalizedOnboarding,
     settings,
+    plans: plans.map((plan) => ({
+      id: plan.id,
+      name: plan.name,
+      kind: plan.kind,
+      payDate: plan.payDate,
+      budgetHorizonYears: plan.budgetHorizonYears,
+      createdAt: plan.createdAt,
+    })),
     accountCreatedAt: user.createdAt?.toISOString() ?? null,
     setupCompletedAt,
     payFrequency: normalizePayFrequency(onboardingMeta?.payFrequency ?? normalizedOnboarding.profile?.payFrequency ?? null),

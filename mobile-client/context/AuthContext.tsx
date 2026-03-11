@@ -95,6 +95,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const seedBootstrapCaches = useCallback((profile: UserProfile | null) => {
     if (!profile?.settings) return;
     store.dispatch(mobileApi.util.upsertQueryData("getSettings", undefined, profile.settings));
+    if (Array.isArray(profile.plans)) {
+      store.dispatch(mobileApi.util.upsertQueryData("getBudgetPlans", undefined, { plans: profile.plans }));
+    }
   }, []);
 
   const setAuthState = useCallback((next: AuthState) => {

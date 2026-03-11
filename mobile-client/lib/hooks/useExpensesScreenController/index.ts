@@ -26,6 +26,13 @@ import type { ExpensesScreenControllerState } from "@/types/ExpensesScreen.types
 
 type Props = NativeStackScreenProps<ExpensesStackParamList, "ExpensesList">;
 
+let sharedExpensesPlansCache: BudgetPlanListItem[] = [];
+let sharedExpensesSummaryCache: Record<string, Record<number, Record<number, ExpenseSummary>>> = {};
+let sharedExpensesMonthsCache: Record<string, ExpenseMonthsResponse["months"]> = {};
+let sharedPreferredPeriodByPlanCache: Record<string, { month: number; year: number }> = {};
+let sharedExpensesLoadedKey: string | null = null;
+let sharedExpensesCacheSignature: string | null = null;
+
 export function useExpensesScreenController({ navigation, route }: Props): ExpensesScreenControllerState {
   const topHeaderOffset = useTopHeaderOffset();
   const now = new Date();
@@ -42,24 +49,24 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
   } = useBootstrapData();
   const { activeBudgetPlanId: sharedActiveBudgetPlanId, setActiveBudgetPlanId } = useActiveBudgetPlan();
 
-  const [plans, setPlans] = useState<BudgetPlanListItem[]>([]);
+  const [plans, setPlans] = useState<BudgetPlanListItem[]>(() => sharedExpensesPlansCache);
   const [expenseMonths, setExpenseMonths] = useState<ExpenseMonthsResponse["months"]>([]);
   const [periodCountsByMonth, setPeriodCountsByMonth] = useState<Record<number, number>>({});
   const skipFirstFocusReloadRef = useRef(true);
   const skipNextTabFocusReloadRef = useRef(false);
   const skipNextChildFocusReloadRef = useRef(false);
   const lastHandledSkipFocusReloadAtRef = useRef<number | null>(null);
-  const plansRef = useRef<BudgetPlanListItem[]>([]);
-  const preferredPeriodByPlanRef = useRef<Record<string, { month: number; year: number }>>({});
-  const summaryCacheRef = useRef<Record<string, Record<number, Record<number, ExpenseSummary>>>>({});
-  const monthsCacheRef = useRef<Record<string, ExpenseMonthsResponse["months"]>>({});
-  const cacheSignatureRef = useRef<string | null>(null);
+  const plansRef = useRef<BudgetPlanListItem[]>(sharedExpensesPlansCache);
+  const preferredPeriodByPlanRef = useRef<Record<string, { month: number; year: number }>>(sharedPreferredPeriodByPlanCache);
+  const summaryCacheRef = useRef<Record<string, Record<number, Record<number, ExpenseSummary>>>>(sharedExpensesSummaryCache);
+  const monthsCacheRef = useRef<Record<string, ExpenseMonthsResponse["months"]>>(sharedExpensesMonthsCache);
+  const cacheSignatureRef = useRef<string | null>(sharedExpensesCacheSignature);
   const seenMutationVersionRef = useRef<number>(getApiMutationVersion());
 
   const [summary, setSummary] = useState<ExpenseSummary | null>(null);
   const [previousSummary, setPreviousSummary] = useState<ExpenseSummary | null>(null);
   const [loggedExpensesCount, setLoggedExpensesCount] = useState(0);
-  const [loadedKey, setLoadedKey] = useState<string | null>(null);
+  const [loadedKey, setLoadedKey] = useState<string | null>(sharedExpensesLoadedKey);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -140,7 +147,12 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
 
   useEffect(() => {
     plansRef.current = plans;
+    sharedExpensesPlansCache = plans;
   }, [plans]);
+
+  useEffect(() => {
+    sharedExpensesLoadedKey = loadedKey;
+  }, [loadedKey]);
 
   const planScrollRef = useRef<ScrollView | null>(null);
   const planViewportWidthRef = useRef(0);
@@ -204,6 +216,10 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
   const clearExpenseCaches = useCallback(() => {
     summaryCacheRef.current = {};
     monthsCacheRef.current = {};
+    sharedExpensesSummaryCache = summaryCacheRef.current;
+    sharedExpensesMonthsCache = monthsCacheRef.current;
+    preferredPeriodByPlanRef.current = {};
+    sharedPreferredPeriodByPlanCache = preferredPeriodByPlanRef.current;
     clearCachedPayPeriodExpenses();
     setLoadedKey(null);
   }, []);
@@ -303,6 +319,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     if (!summaryCacheRef.current[key]) summaryCacheRef.current[key] = {};
     if (!summaryCacheRef.current[key][targetYear]) summaryCacheRef.current[key][targetYear] = {};
     summaryCacheRef.current[key][targetYear][targetMonth] = value;
+    sharedExpensesSummaryCache = summaryCacheRef.current;
   }, [planCacheKey]);
 
   const shiftPayPeriodAnchor = useCallback((targetMonth: number, targetYear: number, delta: number) => {
@@ -442,6 +459,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       const nextMonths = Array.isArray(monthsData?.months) ? [...monthsData.months] : [];
       nextMonths.sort((left, right) => (left.year - right.year) || (left.month - right.month));
       monthsCacheRef.current[monthsKey] = nextMonths;
+      sharedExpensesMonthsCache = monthsCacheRef.current;
     }
 
     const cachedMonths = monthsCacheRef.current[monthsKey] ?? [];
@@ -505,7 +523,9 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       const nextSignature = `${payDateForResolution}:${payFrequencyForResolution}`;
       if (cacheSignatureRef.current !== nextSignature) {
         cacheSignatureRef.current = nextSignature;
+        sharedExpensesCacheSignature = nextSignature;
         summaryCacheRef.current = {};
+        sharedExpensesSummaryCache = summaryCacheRef.current;
         setLoadedKey(null);
       }
 
@@ -579,6 +599,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
           months = Array.isArray(monthsData?.months) ? [...monthsData.months] : [];
           months.sort((left, right) => (left.year - right.year) || (left.month - right.month));
           monthsCacheRef.current[monthsKey] = months;
+          sharedExpensesMonthsCache = monthsCacheRef.current;
         }
         setExpenseMonths(months);
       } else {
@@ -594,15 +615,24 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
 
       const initialMonth = resolvedTargetPeriod.month;
       const initialYear = resolvedTargetPeriod.year;
-      const initialWindow = await preloadSummaryWindow({
+      const initialWindowPromise = preloadSummaryWindow({
+        planId: resolvedPlanId,
+        month: initialMonth,
+        year: initialYear,
+        force,
+      });
+      const initialExpensesPromise = getOrFetchPayPeriodExpenses({
         planId: resolvedPlanId,
         month: initialMonth,
         year: initialYear,
         force,
       });
 
+      const initialWindow = await initialWindowPromise;
+
       let summaryData = initialWindow.current;
       let previousData = initialWindow.previous;
+      let resolvedExpensesPromise: Promise<Expense[]> = initialExpensesPromise;
       let targetMonth = initialMonth;
       let targetYear = initialYear;
 
@@ -628,12 +658,19 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
             if (anchor.month !== initialMonth || anchor.year !== initialYear) {
               targetMonth = anchor.month;
               targetYear = anchor.year;
+              const targetExpensesPromise = getOrFetchPayPeriodExpenses({
+                planId: resolvedPlanId,
+                month: targetMonth,
+                year: targetYear,
+                force,
+              });
               const targetWindow = await preloadSummaryWindow({
                 planId: resolvedPlanId,
                 month: targetMonth,
                 year: targetYear,
                 force,
               });
+              resolvedExpensesPromise = targetExpensesPromise;
               summaryData = targetWindow.current;
               previousData = targetWindow.previous;
             }
@@ -643,29 +680,31 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
         }
       }
 
-      const resolvedExpenses = await getOrFetchPayPeriodExpenses({
-        planId: resolvedPlanId,
-        month: targetMonth,
-        year: targetYear,
-        force,
-      });
-      const nextLoggedExpensesCount = resolvedExpenses.filter((entry) => (
-        entry.isExtraLoggedExpense && entry.paymentSource !== "income"
-      )).length;
-
       setSummary(summaryData);
       setPreviousSummary(previousData);
-      setLoggedExpensesCount(nextLoggedExpensesCount);
 
       if (targetMonth !== month) setMonth(targetMonth);
       if (targetYear !== year) setYear(targetYear);
 
       if (resolvedPlanId) {
         preferredPeriodByPlanRef.current[resolvedPlanId] = { month: targetMonth, year: targetYear };
+        sharedPreferredPeriodByPlanCache = preferredPeriodByPlanRef.current;
       }
 
       seenMutationVersionRef.current = getApiMutationVersion();
       setLoadedKey(`${resolvedPlanId ?? "none"}:${targetYear}-${targetMonth}`);
+
+      // Logged-expense count is not needed for first paint; resolve it asynchronously.
+      void resolvedExpensesPromise
+        .then((resolvedExpenses) => {
+          const nextLoggedExpensesCount = resolvedExpenses.filter((entry) => (
+            entry.isExtraLoggedExpense && entry.paymentSource !== "income"
+          )).length;
+          setLoggedExpensesCount(nextLoggedExpensesCount);
+        })
+        .catch(() => {
+          // Best-effort only.
+        });
     } catch (loadError: unknown) {
       setError(loadError instanceof Error ? loadError.message : "Failed to load expenses");
     } finally {
@@ -681,10 +720,19 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
 
   useEffect(() => {
     if (loadedKey && loadedKey === currentViewKey && summary) return;
+
+    const latestMutationVersion = getApiMutationVersion();
+    const hasMutationChanges = latestMutationVersion !== seenMutationVersionRef.current;
     const hasCachedCurrent = Boolean(getCachedSummary(activePlanId, year, month));
+    if (hasCachedCurrent && !hasMutationChanges) {
+      applyCachedViewState(activePlanId, month, year);
+      setLoading(false);
+      return;
+    }
+
     if (!hasCachedCurrent) setLoading(true);
     void load();
-  }, [activePlanId, currentViewKey, getCachedSummary, load, loadedKey, month, summary, year]);
+  }, [activePlanId, applyCachedViewState, currentViewKey, getCachedSummary, load, loadedKey, month, summary, year]);
 
   useEffect(() => {
     if (!activePlanId) return;
@@ -692,23 +740,8 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
   }, [activePlanId, month, year]);
 
   useEffect(() => {
-    const inactivePlans = plans.filter((plan) => plan.id !== activePlanId);
-    if (inactivePlans.length === 0) return;
-
-    let cancelled = false;
-
-    void Promise.all(inactivePlans.map(async (plan) => {
-      if (cancelled) return;
-      try {
-        await warmPlanCaches({ planId: plan.id, month, year });
-      } catch {
-        // Best-effort prefetch only.
-      }
-    }));
-
-    return () => {
-      cancelled = true;
-    };
+    // Intentionally skip warming inactive plan caches on initial load.
+    // This avoids extra startup requests for plans the user is not viewing.
   }, [activePlanId, month, plans, warmPlanCaches, year]);
 
   useFocusEffect(
@@ -796,7 +829,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
   const enabledPeriodSet = useMemo(() => new Set(enabledPeriodMonths), [enabledPeriodMonths]);
   const allPeriodMonths = useMemo(() => Array.from({ length: 12 }, (_, index) => index + 1), []);
   const selectedPeriodRange = summary?.periodRangeLabel?.trim() || `${monthName(month)} ${year}`;
-  const loadingUi = loading || bootstrapLoading;
+  const loadingUi = (loading || bootstrapLoading) && !summary;
   const showTopAddExpenseCta = !loading && !error && (summary?.totalCount ?? 0) === 0;
   const showPlanTotalFallback = isAdditionalPlan && (summary?.totalCount ?? 0) === 0 && expenseMonths.length > 0 && planTotalAmount > 0;
 

@@ -23,7 +23,6 @@ import {
 import { styles } from "./styles";
 import { T } from "@/lib/theme";
 import type { SettingsMainContentProps } from "@/types/components/settings/SettingsMainContent.types";
-import { useGetOnboardingStatusQuery } from "@/store/api";
 
 function getVerificationLabel(profile: SettingsMainContentProps["controller"]["profile"]): string {
   if (!profile) return "Unavailable";
@@ -45,7 +44,6 @@ export default function SettingsMainContent({ controller, navigation, savingsTil
   const scrollRef = React.useRef<ScrollView | null>(null);
   const router = useRouter();
   const { dashboard } = useBootstrapData();
-  const onboardingQuery = useGetOnboardingStatusQuery();
   const openIncomeSettings = React.useCallback(() => {
     router.push("/settings-income-settings");
   }, [router]);
@@ -56,7 +54,7 @@ export default function SettingsMainContent({ controller, navigation, savingsTil
     () => (dashboard?.debts ?? []).some((debt) => Number(debt?.currentBalance ?? 0) > 0),
     [dashboard?.debts],
   );
-  const debtManagementEnabled = hasDashboardDebts || controller.hasAnyDebts || onboardingQuery.data?.profile?.hasDebtsToManage === true;
+  const debtManagementEnabled = hasDashboardDebts || controller.hasAnyDebts || controller.profile?.onboarding?.profile?.hasDebtsToManage === true;
 
   React.useEffect(() => {
     scrollRef.current?.scrollTo({ y: 0, animated: false });

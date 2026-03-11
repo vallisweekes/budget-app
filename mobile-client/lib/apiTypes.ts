@@ -334,6 +334,7 @@ export interface UserProfile {
     profile: OnboardingProfile | null;
   };
   settings: Settings | null;
+  plans: BudgetPlanListItem[];
   accountCreatedAt: string | null;
   setupCompletedAt: string | null;
   payFrequency: "monthly" | "every_2_weeks" | "weekly";

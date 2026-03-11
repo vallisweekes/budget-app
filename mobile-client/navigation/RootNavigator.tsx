@@ -20,6 +20,7 @@ import { T } from "@/lib/theme";
 import { apiFetch } from "@/lib/api";
 import type { IncomeSacrificeData, OnboardingStatusResponse, Settings } from "@/lib/apiTypes";
 import { appendNotificationInboxItem, subscribeNotificationInbox } from "@/lib/notificationInbox";
+import { markSkipExpensesFocusReload } from "@/lib/helpers/expensesFocusReload";
 
 import LoginScreen from "@/components/LoginScreen";
 import DashboardScreen from "@/components/DashboardScreen";
@@ -47,7 +48,6 @@ import SettingsIncomeSettingsScreen from "@/components/SettingsIncomeSettingsScr
 import SettingsProfileDetailsScreen from "@/components/SettingsProfileDetailsScreen";
 import SettingsStrategyScreen from "@/components/SettingsStrategyScreen";
 import OnboardingScreen from "@/components/OnboardingScreen";
-import { useGetOnboardingStatusQuery } from "@/store/api";
 
 const MONTH_NAMES_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -830,13 +830,12 @@ const s = StyleSheet.create({
 });
 
 function MainTabs() {
-  const { signOut, token } = useAuth();
+  const { signOut, profile } = useAuth();
   const { dashboard } = useBootstrapData();
-  const onboardingQuery = useGetOnboardingStatusQuery(undefined, { skip: !token });
   const incomePendingCount = 0;
   const hasNotificationDot = false;
   const hasActualDebts = (dashboard?.debts ?? []).some((debt) => Number(debt?.currentBalance ?? 0) > 0);
-  const debtManagementEnabled = onboardingQuery.data?.profile?.hasDebtsToManage === true;
+  const debtManagementEnabled = profile?.onboarding?.profile?.hasDebtsToManage === true;
   const showDebtsTab = hasActualDebts || debtManagementEnabled;
 
   return (
@@ -1085,19 +1084,10 @@ function MainTabs() {
               );
             }
             : isCategoryExpenses
-              ? () => navigation.navigate(
-                "Expenses" as any,
-                hasCategoryMonthYear
-                  ? {
-                    screen: "ExpensesList",
-                    params: {
-                      month: categoryExpensesMonth,
-                      year: categoryExpensesYear,
-                      skipFocusReloadAt: Date.now(),
-                    },
-                  } as any
-                  : { screen: "ExpensesList", params: { skipFocusReloadAt: Date.now() } } as any
-              )
+              ? () => {
+                markSkipExpensesFocusReload();
+                navigation.goBack();
+              }
               : isSettings
                 ? settingsBackHandler
                 : isDebtAnalytics

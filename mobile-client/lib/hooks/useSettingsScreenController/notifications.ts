@@ -11,7 +11,8 @@ import type { NotificationPrefs, NotificationPrefsResponse } from "@/types/setti
 
 const NOTIFICATION_PREFS_KEY = "budget_app.notification_prefs";
 
-export function useSettingsNotifications() {
+export function useSettingsNotifications(options?: { enabled?: boolean }) {
+  const enabled = options?.enabled ?? true;
   const [notifications, setNotifications] = useState<NotificationPrefs>({
     dueReminders: true,
     paymentAlerts: true,
@@ -102,9 +103,14 @@ export function useSettingsNotifications() {
     }
   }, []);
 
+  const [hasLoadedRemote, setHasLoadedRemote] = useState(false);
+
   useEffect(() => {
+    if (!enabled) return;
+    if (hasLoadedRemote) return;
+    setHasLoadedRemote(true);
     void loadNotifications();
-  }, [loadNotifications]);
+  }, [enabled, hasLoadedRemote, loadNotifications]);
 
   useEffect(() => {
     const unsubscribe = subscribeNotificationInbox((snapshot) => {
