@@ -33,7 +33,13 @@ export default function AnalyticsOverviewCard({
   overviewMode,
   overviewWrapWidth,
 }: AnalyticsOverviewCardProps) {
-  const chartRenderWidth = Math.max(220, chartWidth - 28);
+  const chartRenderWidth = Math.max(220, chartWidth - 20);
+  const chartRenderSpacing = React.useMemo(() => {
+    if (overviewMode !== "year") return chartSpacing;
+    const points = Math.max(2, chartData.labels.length);
+    const usable = Math.max(176, chartRenderWidth - 29);
+    return Math.max(12, Math.floor(usable / (points - 1)));
+  }, [chartData.labels.length, chartRenderWidth, chartSpacing, overviewMode]);
 
   const visualYAxisLabels = React.useMemo(() => {
     const sections = 5;
@@ -75,8 +81,8 @@ export default function AnalyticsOverviewCard({
           height={OVERVIEW_CHART_H}
           width={chartRenderWidth}
           initialSpacing={10}
-          endSpacing={24}
-          spacing={chartSpacing}
+          endSpacing={20}
+          spacing={chartRenderSpacing}
           noOfSections={5}
           maxValue={overviewMaxValue}
           yAxisLabelWidth={24}
