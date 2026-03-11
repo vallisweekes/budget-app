@@ -62,6 +62,7 @@ export default function PillTabBar({ state, descriptors: _descriptors, navigatio
   const [barWidth, setBarWidth] = useState(0);
   const [barHeight, setBarHeight] = useState(0);
   const activeRouteName = getRouteBaseName(state.routes[state.index]?.name);
+  const deepestRouteName = getDeepestRouteName(state.routes[state.index]?.state);
   const glassEffectModule = useMemo<GlassEffectModule | null>(() => {
     if (Platform.OS !== "ios") return null;
     try {
@@ -105,7 +106,12 @@ export default function PillTabBar({ state, descriptors: _descriptors, navigatio
     return idx >= 0 ? idx : 0;
   }, [state.index, state.routes, visibleRoutes]);
 
-  if (activeRouteName === "settings") {
+  if (
+    activeRouteName === "settings"
+    || deepestRouteName === "DebtDetail"
+    || deepestRouteName === "ExpenseDetail"
+    || deepestRouteName === "CategoryExpenses"
+  ) {
     return null;
   }
 

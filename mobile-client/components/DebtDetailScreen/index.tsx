@@ -1,9 +1,9 @@
 import React from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, RefreshControl, ScrollView, Text, useWindowDimensions, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { BlurView } from "expo-blur";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
-import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 
 import { s } from "@/components/DebtDetailScreen/style";
 import type { DebtDetailNav, DebtDetailRoute } from "@/types";
@@ -24,7 +24,7 @@ export default function DebtDetailScreen() {
   const { params } = useRoute<DebtDetailRoute>();
   const { debtId, debtName } = params;
   const { height } = useWindowDimensions();
-  const tabBarHeight = useBottomTabBarHeight();
+  const insets = useSafeAreaInsets();
 
   const state = useDebtDetailController({
     debtId,
@@ -44,7 +44,7 @@ export default function DebtDetailScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={s.safe}>
+      <SafeAreaView style={s.safe} edges={["bottom"]}>
         <DebtDetailHeader title={debtName} editing={false} hideActions onBack={() => navigation.goBack()} onToggleEdit={() => {}} onDelete={() => {}} />
         <View style={s.center}><ActivityIndicator size="large" color={T.accent} /></View>
       </SafeAreaView>
@@ -53,7 +53,7 @@ export default function DebtDetailScreen() {
 
   if (error || !debt) {
     return (
-      <SafeAreaView style={s.safe}>
+      <SafeAreaView style={s.safe} edges={["bottom"]}>
         <DebtDetailHeader title={debtName} editing={false} hideActions onBack={() => navigation.goBack()} onToggleEdit={() => {}} onDelete={() => {}} />
         <View style={s.center}>
           <Ionicons name="cloud-offline-outline" size={48} color={T.textDim} />
@@ -68,7 +68,7 @@ export default function DebtDetailScreen() {
   const showMonthlyPayment = !derived.isCardDebt && Number.isFinite(monthlyPaymentNum) && monthlyPaymentNum > 0;
 
   return (
-    <SafeAreaView style={s.safe}>
+    <SafeAreaView style={s.safe} edges={["bottom"]}>
       <DebtDetailHeader
         title={debt.name}
         editing={state.editing}
@@ -81,7 +81,7 @@ export default function DebtDetailScreen() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView
           style={{ backgroundColor: T.bg }}
-          contentContainerStyle={[s.scroll, { paddingBottom: 120 + tabBarHeight + 12 }]}
+          contentContainerStyle={[s.scroll, { paddingBottom: 120 + insets.bottom + 12 }]}
           refreshControl={<RefreshControl refreshing={state.refreshing} onRefresh={() => { state.setRefreshing(true); state.load(); }} tintColor={T.accent} />}
         >
           <DebtHero
@@ -92,6 +92,7 @@ export default function DebtDetailScreen() {
             isPaid={derived.isPaid}
             progressPct={derived.progressPct}
             isVerySmallScreen={height <= 740}
+            topInset={insets.top + 52}
             onRecordPayment={() => state.setPaySheetOpen(true)}
           />
 
@@ -159,7 +160,8 @@ export default function DebtDetailScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      <View style={[s.bottomActionsWrap, { paddingBottom: tabBarHeight + 8 }]}>
+      <BlurView intensity={30} tint="dark" style={[s.bottomActionsWrap, { paddingBottom: insets.bottom + 8 }]}> 
+        <View style={s.bottomActionsTint} pointerEvents="none" />
         <View style={s.bottomActionsRow}>
           <Pressable
             style={s.bottomActionBtn}
@@ -174,7 +176,7 @@ export default function DebtDetailScreen() {
             <Text style={[s.bottomActionTxt, { color: T.red }]}>Delete</Text>
           </Pressable>
         </View>
-      </View>
+      </BlurView>
 
       <PaymentSheet
         visible={state.paySheetOpen}

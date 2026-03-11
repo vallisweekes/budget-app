@@ -89,9 +89,13 @@ export async function GET(req: NextRequest) {
 			// Summary
 			plannedBills: analysis.plannedBills,
 			paidBillsSoFar: analysis.paidBillsSoFar,
+			remainingExpenseBills: analysis.remainingExpenseBills,
+			remainingDebtBills: analysis.remainingDebtBills,
 			remainingBills: analysis.remainingBills,
+			leftToPayRightNow: analysis.leftToPayRightNow,
 			moneyLeftAfterPlan,
 			incomeLeftRightNow: analysis.incomeLeftRightNow,
+			spendableIncomeRightNow: analysis.spendableIncomeRightNow,
 			moneyOutTotal: analysis.moneyOutTotal,
 			isOnPlan: analysis.isOnPlan,
 

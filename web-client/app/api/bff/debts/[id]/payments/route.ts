@@ -77,6 +77,26 @@ function isCardDebtType(type: unknown): boolean {
   return type === "credit_card" || type === "store_card";
 }
 
+function buildSyntheticBaselinePayment(params: {
+  debtId: string;
+  amount: number;
+  paidAt: Date;
+  notes: string;
+}) {
+  return {
+    id: `baseline-${params.debtId}`,
+    debtId: params.debtId,
+    amount: String(params.amount),
+    paidAt: params.paidAt,
+    year: params.paidAt.getUTCFullYear(),
+    month: params.paidAt.getUTCMonth() + 1,
+    source: undefined,
+    notes: params.notes,
+    createdAt: params.paidAt,
+    updatedAt: params.paidAt,
+  };
+}
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -181,6 +201,30 @@ export async function GET(
             return NextResponse.json(refreshed);
           }
         }
+      }
+    }
+
+    if (debt.sourceType !== "expense" && debtPayments.length === 0) {
+      const historicalPaid = Math.max(0, toNumber((debt as any).historicalPaidAmount));
+      const totalPaid = Math.max(0, toNumber((debt as any).paidAmount));
+      const baselineAmount = historicalPaid > 0 ? historicalPaid : totalPaid;
+
+      if (baselineAmount > 0) {
+        const baselinePaidAt = debt.createdAt instanceof Date && Number.isFinite(debt.createdAt.getTime())
+          ? debt.createdAt
+          : new Date();
+        const baselineNotes = historicalPaid > 0
+          ? "Starting paid amount before tracking"
+          : "Opening paid amount";
+
+        return NextResponse.json([
+          buildSyntheticBaselinePayment({
+            debtId: id,
+            amount: baselineAmount,
+            paidAt: baselinePaidAt,
+            notes: baselineNotes,
+          }),
+        ]);
       }
     }
 

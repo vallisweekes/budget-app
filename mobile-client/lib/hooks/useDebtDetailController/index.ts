@@ -104,7 +104,7 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
   const load = useCallback(async (options?: { includePayments?: boolean }) => {
     try {
       setError(null);
-      const shouldLoadPayments = options?.includePayments === true;
+      const shouldLoadPayments = options?.includePayments === true || !paymentsLoaded;
       const shouldLoadCards = cards.length === 0;
       const shouldEnsureSettings = !bootstrapSettings && !settings;
 
@@ -151,7 +151,7 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
       setLoading(false);
       setRefreshing(false);
     }
-  }, [asTwoDecimals, bootstrapSettings, cards.length, creditCardsQuery, debtId, ensureLoaded, fetchDebtDetail, loadPayments, settings]);
+  }, [asTwoDecimals, bootstrapSettings, cards.length, creditCardsQuery, debtId, ensureLoaded, fetchDebtDetail, loadPayments, paymentsLoaded, settings]);
 
   useEffect(() => {
     if (editPaymentSource !== "credit_card" && editPaymentCardDebtId) {

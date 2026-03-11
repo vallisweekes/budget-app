@@ -1,6 +1,5 @@
 import React from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { CommonActions } from "@react-navigation/native";
 import { StackActions } from "@react-navigation/native";
 import { Pressable, Text, View } from "react-native";
 import { Tabs } from "expo-router";
@@ -59,22 +58,9 @@ function TabsHeader({ navigation, route }: { navigation: any; route: any }) {
     return true;
   };
 
-  const resetCurrentTabStack = (screen: string, params?: Record<string, unknown>) => {
-    const routes = Array.isArray(navigationState?.routes) ? navigationState.routes : [];
-    const currentTabRoute = routes.find((entry: { name?: string }) => getRouteBaseName(entry?.name) === currentTabName) as { state?: { key?: string } } | undefined;
-    const stackKey = currentTabRoute?.state?.key;
-    if (!stackKey) return false;
-    navigation.dispatch({
-      ...CommonActions.reset({
-        index: 0,
-        routes: [{ name: screen, params }],
-      }),
-      target: stackKey,
-    });
-    return true;
-  };
-
   const isCategoryExpenses = deepestRoute?.name === "CategoryExpenses";
+  const isDebtDetail = deepestRoute?.name === "DebtDetail";
+  const isExpenseDetail = deepestRoute?.name === "ExpenseDetail";
   const isLoggedExpenses = deepestRoute?.name === "LoggedExpenses";
   const isExpensesList = deepestRoute?.name === "ExpensesList";
   const isUnplannedExpense = deepestRoute?.name === "UnplannedExpense";
@@ -160,27 +146,6 @@ function TabsHeader({ navigation, route }: { navigation: any; route: any }) {
 
     if (isCategoryExpenses) {
       markSkipExpensesFocusReload();
-      if (popCurrentTabStack()) {
-        return;
-      }
-      if (resetCurrentTabStack(
-        "ExpensesList",
-        hasCategoryMonthYear
-          ? {
-            month: categoryExpensesMonth,
-            year: categoryExpensesYear,
-            skipFocusReloadAt: Date.now(),
-          }
-          : {
-            skipFocusReloadAt: Date.now(),
-          },
-      )) {
-        return;
-      }
-      if (navigation.canGoBack?.()) {
-        navigation.goBack();
-        return;
-      }
       if (!navigateToTab("expenses", {
         screen: "ExpensesList",
         params: hasCategoryMonthYear
@@ -193,7 +158,27 @@ function TabsHeader({ navigation, route }: { navigation: any; route: any }) {
             skipFocusReloadAt: Date.now(),
           },
       })) {
-        router.replace("/(tabs)/expenses");
+        if (popCurrentTabStack()) {
+          return;
+        }
+        if (navigation.canGoBack?.()) {
+          navigation.goBack();
+          return;
+        }
+        if (!navigateToTab("expenses", {
+          screen: "ExpensesList",
+          params: hasCategoryMonthYear
+            ? {
+              month: categoryExpensesMonth,
+              year: categoryExpensesYear,
+              skipFocusReloadAt: Date.now(),
+            }
+            : {
+              skipFocusReloadAt: Date.now(),
+            },
+        })) {
+          router.replace("/(tabs)/expenses");
+        }
       }
       return;
     }
@@ -348,6 +333,10 @@ function TabsHeader({ navigation, route }: { navigation: any; route: any }) {
       ) : null}
     </Pressable>
   ) : undefined;
+
+  if (isDebtDetail || isExpenseDetail) {
+    return null;
+  }
 
   return (
     <TopHeader

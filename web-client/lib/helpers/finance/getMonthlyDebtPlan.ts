@@ -158,12 +158,12 @@ export async function getMonthlyDebtPlan({ budgetPlanId, year, month, periodKey,
 	const paymentFilter = (() => {
 		if (periodKey) {
 			// When a pay-period boundary is available, include a small lookback window
-			// so early payments count toward the intended upcoming period.
+				// so early payments count toward the intended upcoming period.
 			if (periodStart) {
 				const earlyPaymentStart = getEarlyPaymentWindowStart(periodStart);
 				return {
 					debt: { budgetPlanId },
-					OR: [{ periodKey }, { paidAt: { gte: earlyPaymentStart, lt: periodStart } }],
+						OR: [{ periodKey }, { paidAt: { gte: earlyPaymentStart, lt: periodStart } }],
 				};
 			}
 			return { debt: { budgetPlanId }, periodKey };

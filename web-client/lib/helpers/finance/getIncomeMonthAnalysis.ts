@@ -110,9 +110,12 @@ export async function getIncomeMonthAnalysis({ budgetPlanId, year, month, payFre
 
 	let plannedExpenses = 0;
 	let paidExpenses = 0;
+	let paidExpensesFromIncome = 0;
 	let periodPaidDebtFromIncome: number | null = null;
+	let periodPaidDebtAllSources: number | null = null;
 	if (cadence === "monthly") {
 		plannedExpenses = expenseSnapshot?.plannedExpenses ?? 0;
+		paidExpenses = expenseSnapshot?.paidExpenses ?? 0;
 
 		// Paid expenses: get ALL income-sourced payments for this period's expenses,
 		// regardless of when the payment was made. If the user paid a bill early
@@ -127,10 +130,11 @@ export async function getIncomeMonthAnalysis({ budgetPlanId, year, month, payFre
 				},
 				_sum: { amount: true },
 			});
-			paidExpenses = decimalToNumber(paidAgg._sum.amount);
+			paidExpensesFromIncome = decimalToNumber(paidAgg._sum.amount);
 		}
 
-		// Debt payments from income are already period-scoped via getMonthlyDebtPlan.
+		// Debt payment totals are already period-scoped via getMonthlyDebtPlan.
+		periodPaidDebtAllSources = debtPlan.totalPaidDebtPayments;
 		periodPaidDebtFromIncome = debtPlan.paidDebtPaymentsFromIncome;
 	} else {
 		const expenseRows = await prisma.expense.findMany({
@@ -145,6 +149,7 @@ export async function getIncomeMonthAnalysis({ budgetPlanId, year, month, payFre
 		const includedExpenseRows = expenseRows.filter((expense) => includeInPlannedExpenseTotals(expense));
 		plannedExpenses = includedExpenseRows.reduce((sum, expense) => sum + decimalToNumber(expense.amount), 0);
 		paidExpenses = includedExpenseRows.reduce((sum, expense) => sum + decimalToNumber(expense.paidAmount), 0);
+		paidExpensesFromIncome = paidExpenses;
 	}
 
 	const monthlyAllowance = Number(allocationSnapshot.monthlyAllowance ?? 0);
@@ -156,15 +161,19 @@ export async function getIncomeMonthAnalysis({ budgetPlanId, year, month, payFre
 	const plannedSetAside = plannedSetAsideFromAllocations + customSetAsideTotal + monthlyAllowance;
 
 	const plannedDebtPayments = debtPlan.plannedDebtPayments;
+	const totalPaidDebtPayments = periodPaidDebtAllSources ?? debtPlan.totalPaidDebtPayments;
 	// Use period-based debt payment total when available (monthly cadence);
 	// otherwise fall back to the calendar year/month from getMonthlyDebtPlan.
 	const paidDebtPaymentsFromIncome = periodPaidDebtFromIncome ?? debtPlan.paidDebtPaymentsFromIncome;
 
 	const plannedBills = plannedExpenses + plannedDebtPayments;
-	const paidBillsSoFar = paidExpenses + paidDebtPaymentsFromIncome;
-	const remainingBills = Math.max(0, plannedBills - paidBillsSoFar);
+	const paidBillsSoFar = paidExpenses + totalPaidDebtPayments;
+	const remainingExpenseBills = Math.max(0, plannedExpenses - paidExpenses);
+	const remainingDebtBills = Math.max(0, plannedDebtPayments - totalPaidDebtPayments);
+	const remainingBills = remainingExpenseBills + remainingDebtBills;
 	const moneyLeftAfterPlan = grossIncome - plannedBills - plannedSetAside;
-	const incomeLeftRightNow = grossIncome - paidBillsSoFar - plannedSetAside;
+	const spendableIncomeRightNow = grossIncome - paidExpensesFromIncome - paidDebtPaymentsFromIncome - plannedSetAside;
+	const leftToPayRightNow = remainingBills;
 	const moneyOutTotal = plannedBills + plannedSetAside;
 
 	return {
@@ -191,9 +200,13 @@ export async function getIncomeMonthAnalysis({ budgetPlanId, year, month, payFre
 		},
 		plannedBills,
 		paidBillsSoFar,
+		remainingExpenseBills,
+		remainingDebtBills,
 		remainingBills,
 		moneyLeftAfterPlan,
-		incomeLeftRightNow,
+		incomeLeftRightNow: spendableIncomeRightNow,
+		spendableIncomeRightNow,
+		leftToPayRightNow,
 		moneyOutTotal,
 		isOnPlan: moneyLeftAfterPlan >= 0,
 	};

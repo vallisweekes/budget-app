@@ -62,7 +62,7 @@ export default function IncomeMonthStats({ data: a, currency, fmt }: IncomeMonth
             </Text>
           )}
         </View>
-        <Card label="Income left (right now)" value={fmt(a.incomeLeftRightNow, currency)} color={T.accent} />
+        <Card label="Left to pay (right now)" value={fmt(a.leftToPayRightNow, currency)} color={T.accent} />
       </View>
 
     </>

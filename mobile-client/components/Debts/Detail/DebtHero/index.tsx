@@ -25,6 +25,7 @@ export default function DebtHero({
   isPaid,
   progressPct,
   isVerySmallScreen,
+  topInset = 0,
   onRecordPayment,
 }: DebtHeroProps) {
   const [logoFailed, setLogoFailed] = useState(false);
@@ -32,7 +33,7 @@ export default function DebtHero({
   const showLogo = Boolean(logoUri) && !logoFailed;
 
   return (
-    <View style={styles.balanceHero}>
+    <View style={[styles.balanceHero, { paddingTop: styles.balanceHero.paddingTop + topInset }]}>
       <View style={styles.brandCircle}>
         {showLogo ? (
           <Image

@@ -680,10 +680,15 @@ export interface IncomeMonthData {
   // Summary
   plannedBills: number;
   paidBillsSoFar: number;
+  remainingExpenseBills: number;
+  remainingDebtBills: number;
   remainingBills: number;
+  leftToPayRightNow: number;
   moneyLeftAfterPlan: number;
   previousMoneyLeftAfterPlan?: number;
+  /** Back-compat cash-left metric after paid bills and sacrifice. Prefer leftToPayRightNow for the income tile. */
   incomeLeftRightNow: number;
+  spendableIncomeRightNow: number;
   moneyOutTotal: number;
   isOnPlan: boolean;
 

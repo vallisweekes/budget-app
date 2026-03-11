@@ -15,6 +15,7 @@ export type DebtHeroProps = {
   isPaid: boolean;
   progressPct: number;
   isVerySmallScreen: boolean;
+  topInset?: number;
   onRecordPayment: () => void;
 };
 
