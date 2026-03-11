@@ -79,8 +79,12 @@ function isDateWithinInclusiveRange(target: Date, start: Date, end: Date): boole
 function shouldIncludeDebtInPlannedPeriod(params: {
 	debt: DueDebtRow;
 	regularDebts: DueDebtRow[];
+	year: number;
+	month: number;
+	periodStart?: Date;
+	periodEnd?: Date;
 }): boolean {
-	const { debt, regularDebts } = params;
+	const { debt, regularDebts, year, month, periodStart, periodEnd } = params;
 
 	if (debt.sourceType === "expense") {
 		if (isNonDebtCategoryName(debt.sourceCategoryName)) return false;
@@ -90,6 +94,23 @@ function shouldIncludeDebtInPlannedPeriod(params: {
 			regularDebts,
 		})) {
 			return false;
+		}
+
+		// Expense-derived debts should only count when their due date falls in the
+		// selected reporting window; otherwise future migrated debts inflate
+		// the current month's planned debt total.
+		const dueDateUtc = resolveDebtDueDateUtc({ debt, year, month });
+		if (!(dueDateUtc instanceof Date)) return false;
+
+		if (periodStart instanceof Date && periodEnd instanceof Date) {
+			if (!isDateWithinInclusiveRange(dueDateUtc, periodStart, periodEnd)) return false;
+		} else {
+			if (
+				dueDateUtc.getUTCFullYear() !== year ||
+				dueDateUtc.getUTCMonth() + 1 !== month
+			) {
+				return false;
+			}
 		}
 	}
 
@@ -216,6 +237,10 @@ export async function getMonthlyDebtPlan({ budgetPlanId, year, month, periodKey,
 	const visibleDueDebts = dueDebts.filter((debt) => shouldIncludeDebtInPlannedPeriod({
 		debt,
 		regularDebts,
+		year,
+		month,
+		periodStart,
+		periodEnd,
 	}));
 
 	const totalDueDebts = visibleDueDebts.reduce((sum, d) => sum + computeMonthlyPlannedPayment(d), 0);
