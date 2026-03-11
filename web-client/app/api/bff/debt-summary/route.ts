@@ -10,6 +10,12 @@ import { resolveExpenseLogo } from "@/lib/expenses/logoResolver";
 import { prisma } from "@/lib/prisma";
 import { getCurrentPeriodKey, getPeriodKey, parsePeriodKeyRange } from "@/lib/helpers/periodKey";
 import { getEarlyPaymentWindowStart } from "@/lib/helpers/finance/earlyPaymentWindow";
+import { getJsonCache, setJsonCache } from "@/lib/cache/redisJsonCache";
+import {
+	DEBT_SUMMARY_CACHE_TTL_SECONDS,
+	getDebtSummaryCacheKey,
+	logDerivedSummaryCacheEvent,
+} from "@/lib/cache/dashboardCache";
 
 export const runtime = "nodejs";
 
@@ -97,6 +103,29 @@ export async function GET(req: NextRequest) {
 		});
 		const payDay = Number(planMeta?.payDate ?? 27);
 		const periodKey = getCurrentPeriodKey(payDay);
+		const debtSummaryCacheKey = getDebtSummaryCacheKey({
+			budgetPlanId,
+			periodKey,
+			includeExpenseDebts,
+		});
+		if (!shouldSync) {
+			const cachedSummary = await getJsonCache<Record<string, unknown>>(debtSummaryCacheKey);
+			if (cachedSummary) {
+				logDerivedSummaryCacheEvent({
+					route: "debt-summary",
+					status: "hit",
+					key: debtSummaryCacheKey,
+					budgetPlanId,
+				});
+				return NextResponse.json(cachedSummary);
+			}
+			logDerivedSummaryCacheEvent({
+				route: "debt-summary",
+				status: "miss",
+				key: debtSummaryCacheKey,
+				budgetPlanId,
+			});
+		}
 		const { start: periodStart } = parsePeriodKeyRange(periodKey, payDay);
 		const prevPeriodKey = getPeriodKey(new Date(periodStart.getTime() - 24 * 60 * 60 * 1000), payDay);
 		const earlyPaymentStart = getEarlyPaymentWindowStart(periodStart);
@@ -356,7 +385,7 @@ export async function GET(req: NextRequest) {
 			}
 		})();
 
-		return NextResponse.json({
+		const responseBody = {
 			debts: debtsWithPayments,
 			activeCount: summary.activeDebts.length,
 			paidCount: summary.allDebts.length - summary.activeDebts.length,
@@ -367,7 +396,17 @@ export async function GET(req: NextRequest) {
 			expenseDebtCount: summary.expenseDebts.length,
 			payoffSummary,
 			tips: aiTips ?? tips,
+		};
+
+		await setJsonCache(debtSummaryCacheKey, responseBody, DEBT_SUMMARY_CACHE_TTL_SECONDS);
+		logDerivedSummaryCacheEvent({
+			route: "debt-summary",
+			status: "store",
+			key: debtSummaryCacheKey,
+			budgetPlanId,
 		});
+
+		return NextResponse.json(responseBody);
 	} catch (error) {
 		console.error("Failed to compute debt summary:", error);
 		const isProd = process.env.NODE_ENV === "production";

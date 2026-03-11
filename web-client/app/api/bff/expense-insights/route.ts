@@ -5,6 +5,13 @@ import { getDashboardExpenseInsights } from "@/lib/helpers/dashboard/getDashboar
 import { getAiBudgetTips } from "@/lib/ai/budgetTips";
 import { getOnboardingStarterTips } from "@/lib/ai/onboardingStarterTips";
 import { prisma } from "@/lib/prisma";
+import { getCurrentPeriodKey } from "@/lib/helpers/periodKey";
+import { getJsonCache, setJsonCache } from "@/lib/cache/redisJsonCache";
+import {
+	EXPENSE_INSIGHTS_CACHE_TTL_SECONDS,
+	getExpenseInsightsCacheKey,
+	logDerivedSummaryCacheEvent,
+} from "@/lib/cache/dashboardCache";
 
 export const runtime = "nodejs";
 
@@ -36,6 +43,22 @@ export async function GET(req: NextRequest) {
 
 		const now = new Date();
 		const { payDate } = await getBudgetPlanMeta(budgetPlanId);
+		const payDay = Number.isFinite(Number(payDate)) ? Number(payDate) : 27;
+		const periodKey = getCurrentPeriodKey(payDay);
+		const expenseInsightsCacheKey = getExpenseInsightsCacheKey({
+			budgetPlanId,
+			periodKey,
+		});
+		const cachedInsights = await getJsonCache<Record<string, unknown>>(expenseInsightsCacheKey);
+		if (cachedInsights) {
+			logDerivedSummaryCacheEvent({
+				route: "expense-insights",
+				status: "hit",
+				key: expenseInsightsCacheKey,
+				budgetPlanId,
+			});
+			return NextResponse.json(cachedInsights);
+		}
 
 		// Best-effort onboarding context: never let insights fail due to schema/client mismatch.
 		let onboarding:
@@ -116,6 +139,12 @@ export async function GET(req: NextRequest) {
 				onboarding = null;
 			}
 		}
+		logDerivedSummaryCacheEvent({
+			route: "expense-insights",
+			status: "miss",
+			key: expenseInsightsCacheKey,
+			budgetPlanId,
+		});
 
 		const insights = await getDashboardExpenseInsights({
 			budgetPlanId,
@@ -220,11 +249,21 @@ export async function GET(req: NextRequest) {
 
 		const bestTips = (aiTips ?? insights.recapTips ?? []).slice(0, 4);
 
-		return NextResponse.json({
+		const responseBody = {
 			recap: insights.recap,
 			upcoming: insights.upcoming,
 			tips: bestTips.length ? bestTips : fallbackTips,
+		};
+
+		await setJsonCache(expenseInsightsCacheKey, responseBody, EXPENSE_INSIGHTS_CACHE_TTL_SECONDS);
+		logDerivedSummaryCacheEvent({
+			route: "expense-insights",
+			status: "store",
+			key: expenseInsightsCacheKey,
+			budgetPlanId,
 		});
+
+		return NextResponse.json(responseBody);
 	} catch (error) {
 		console.error("Failed to compute expense insights:", error);
 		return NextResponse.json(

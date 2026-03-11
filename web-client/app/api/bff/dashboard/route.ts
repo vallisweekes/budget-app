@@ -30,6 +30,7 @@ import { getJsonCache, setJsonCache } from "@/lib/cache/redisJsonCache";
 import {
 	DASHBOARD_CACHE_TTL_SECONDS,
 	getDashboardCacheKey,
+	logDerivedSummaryCacheEvent,
 } from "@/lib/cache/dashboardCache";
 
 export const runtime = "nodejs";
@@ -198,8 +199,20 @@ export async function GET(req: NextRequest) {
 		});
 		const cachedDashboard = await getJsonCache<Record<string, unknown>>(dashboardCacheKey);
 		if (cachedDashboard) {
+			logDerivedSummaryCacheEvent({
+				route: "dashboard",
+				status: "hit",
+				key: dashboardCacheKey,
+				budgetPlanId,
+			});
 			return NextResponse.json(cachedDashboard);
 		}
+		logDerivedSummaryCacheEvent({
+			route: "dashboard",
+			status: "miss",
+			key: dashboardCacheKey,
+			budgetPlanId,
+		});
 		// This is required for the dashboard; let it throw if it truly can't compute.
 		const currentPlanData = await getDashboardPlanDataForActivePayPeriod(budgetPlanId, {
 			now,
@@ -618,6 +631,12 @@ export async function GET(req: NextRequest) {
 		};
 
 		await setJsonCache(dashboardCacheKey, responseBody, DASHBOARD_CACHE_TTL_SECONDS);
+		logDerivedSummaryCacheEvent({
+			route: "dashboard",
+			status: "store",
+			key: dashboardCacheKey,
+			budgetPlanId,
+		});
 
 		return NextResponse.json(responseBody);
 	} catch (error) {
