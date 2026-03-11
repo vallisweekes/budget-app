@@ -11,6 +11,7 @@ import { prisma } from "@/lib/prisma";
 import { resolveUserId } from "@/lib/budgetPlans";
 import { monthKeyToNumber } from "@/lib/helpers/monthKey";
 import { mapDebtPaymentSourceToExpensePaymentSource, syncExpensePaymentsToPaidAmount } from "@/lib/expenses/paymentSync";
+import { invalidateDashboardCache } from "@/lib/cache/dashboardCache";
 
 function parseDateOnlyYYYYMMDD(value: unknown): string | undefined {
 	const raw = String(value ?? "").trim();
@@ -113,6 +114,7 @@ export async function createDebt(formData: FormData) {
 		interestRate,
 		installmentMonths,
 	});
+	await invalidateDashboardCache(budgetPlanId);
 
 	revalidatePath("/admin/debts");
 	revalidatePath("/");
@@ -266,6 +268,8 @@ export async function updateDebtAction(id: string, formData: FormData) {
 		});
 	}
 
+	await invalidateDashboardCache(budgetPlanId);
+
 	revalidatePath("/admin/debts");
 	revalidatePath("/");
 }
@@ -317,6 +321,7 @@ export async function updateCardSettingsAction(cardDebtId: string, formData: For
 		paidAmount,
 		paid,
 	});
+	await invalidateDashboardCache(budgetPlanId);
 
 	const settingsPath = `/user=${encodeURIComponent(username)}/${encodeURIComponent(budgetPlanId)}/page=settings`;
 	const debtsPath = `/user=${encodeURIComponent(username)}/${encodeURIComponent(budgetPlanId)}/page=debts`;
@@ -335,6 +340,7 @@ export async function deleteDebtAction(budgetPlanId: string, id: string) {
 		throw new Error("Cannot delete an unpaid expense debt. Mark the expense as paid first.");
 	}
 	await deleteDebt(budgetPlanId, id);
+	await invalidateDashboardCache(budgetPlanId);
 	revalidatePath("/admin/debts");
 	revalidatePath("/");
 }
@@ -380,6 +386,8 @@ export async function makePaymentAction(budgetPlanId: string, debtId: string, am
 			});
 		}
 	}
+
+	await invalidateDashboardCache(budgetPlanId);
 
 	revalidatePath("/admin/debts");
 	revalidatePath("/");
@@ -439,6 +447,8 @@ export async function makePaymentFromForm(formData: FormData) {
 		}
 	}
 
+	await invalidateDashboardCache(budgetPlanId);
+
 	revalidatePath("/admin/debts");
 	revalidatePath("/");
 }
@@ -494,6 +504,8 @@ export async function undoDebtPaymentFromForm(formData: FormData) {
 			}
 		}
 	}
+
+	await invalidateDashboardCache(budgetPlanId);
 
 	const debtsPath = `/user=${encodeURIComponent(username)}/${encodeURIComponent(budgetPlanId)}/page=debts`;
 	revalidatePath(debtsPath);

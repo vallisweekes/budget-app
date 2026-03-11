@@ -13,6 +13,7 @@ import { getBudgetDataDir } from "@/lib/storage/budgetDataPath";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { isThemeKey } from "@/components/Admin/Settings/theme";
+import { invalidateDashboardCache } from "@/lib/cache/dashboardCache";
 
 function prismaUserHasField(fieldName: string): boolean {
 	try {
@@ -160,6 +161,7 @@ export async function saveSettingsAction(formData: FormData): Promise<void> {
 	}
 
 	await saveSettings(budgetPlanId, updates);
+	await invalidateDashboardCache(budgetPlanId);
 	revalidatePath(`/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(budgetPlanId)}/settings`);
 }
 
@@ -208,6 +210,7 @@ export async function updateUserDetailsAction(formData: FormData): Promise<void>
 
 	if (hasPlan && Object.keys(settingsUpdates).length > 0) {
 		await saveSettings(budgetPlanId, settingsUpdates);
+		await invalidateDashboardCache(budgetPlanId);
 	}
 
 	const settingsScopeId = hasPlan ? budgetPlanId : sessionUser.id;
@@ -312,6 +315,7 @@ export async function applyFiftyThirtyTwentyTargetsAction(formData: FormData): P
 		monthlyEmergencyContribution: keepEmergency,
 		monthlyInvestmentContribution: keepInvestments,
 	});
+	await invalidateDashboardCache(budgetPlanId);
 
 	const settingsPath = `/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(budgetPlanId)}/page=settings`;
 	const incomePath = `/user=${encodeURIComponent(sessionUsername)}/${encodeURIComponent(budgetPlanId)}/income`;
@@ -358,6 +362,7 @@ export async function deleteBudgetPlanAction(
 
 	await prisma.budgetPlan.delete({ where: { id: planId } });
 	await fs.rm(getBudgetDataDir(planId), { recursive: true, force: true });
+	await invalidateDashboardCache(planId);
 
 	const fallback = await prisma.budgetPlan.findFirst({
 		where: { userId },

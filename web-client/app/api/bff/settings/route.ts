@@ -4,6 +4,7 @@ import { supportsOnboardingCadenceFields as detectOnboardingCadenceFields } from
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
 import { normalizeBillFrequency, normalizePayFrequency } from "@/lib/payPeriods";
 import { syncGoalCurrentAmountsFromBalances } from "@/lib/goals/syncGoalCurrentAmountsFromBalances";
+import { invalidateDashboardCache } from "@/lib/cache/dashboardCache";
 
 export const runtime = "nodejs";
 
@@ -611,6 +612,7 @@ export async function PATCH(req: NextRequest) {
           payFrequency: hasPayFrequency ? nextPayFrequency : undefined,
           billFrequency: hasBillFrequency ? nextBillFrequency : undefined,
         });
+        await invalidateDashboardCache(budgetPlanId);
         const plan = await prisma.budgetPlan.findUnique({
           where: { id: budgetPlanId },
           select: settingsSelect as any,
@@ -668,6 +670,7 @@ export async function PATCH(req: NextRequest) {
         emergencyBalance: nextEmergencyBalance,
         investmentBalance: nextInvestmentBalance,
       });
+		await invalidateDashboardCache(budgetPlanId);
       const nextIncomeDefaults = await getIncomeDefaultsFallback(budgetPlanId);
       const cadence = await getCadenceForUser(userId);
       return NextResponse.json({
@@ -732,6 +735,7 @@ export async function PATCH(req: NextRequest) {
         emergencyBalance: nextEmergencyBalance,
         investmentBalance: nextInvestmentBalance,
       });
+		await invalidateDashboardCache(budgetPlanId);
       const cadence = await getCadenceForUser(userId);
       return NextResponse.json({
         ...updated,

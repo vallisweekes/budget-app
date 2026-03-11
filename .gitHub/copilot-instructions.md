@@ -14,6 +14,15 @@ This repository contains two product clients that share one backend system:
 - Keep business logic close to the server/BFF when payloads are computed, aggregated, or reused across screens.
 - Keep volatile presentation state local to small mobile child components instead of screen-level controllers when possible.
 
+## Scaling Direction
+
+- Keep `web-client` on Next.js App Router and keep Neon/PostgreSQL as the primary system of record unless a specific scaling bottleneck proves they are insufficient.
+- Treat Redis as the first scaling layer for cached computed reads, short-TTL summary payloads, rate limiting, and queue-backed background work; do not use it as the source of truth for budget data.
+- Prefer a staged scaling path over an early rewrite: first add indexes, query measurement, request fan-out control, and server-side caching; then move heavy background work into workers or queue consumers.
+- Move notifications, reminders, and other batch or fan-out jobs out of request-time BFF execution before considering a dedicated backend split.
+- When adding caching, prefer cache keys scoped by `budgetPlanId` plus period context, and ensure expense, income, debt, allocation, onboarding, and settings mutations invalidate affected cached summaries.
+- Do not introduce microservices or replace Postgres by default. Split services only when deployment independence, worker isolation, or sustained throughput requirements justify the added operational complexity.
+
 ## How The App Works
 
 - `mobile-client` does not talk directly to the database. It talks to `web-client/app/api/bff/*` through `mobile-client/lib/api.ts`.

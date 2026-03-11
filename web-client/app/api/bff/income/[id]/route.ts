@@ -4,6 +4,7 @@ import { getSessionUserId } from "@/lib/api/bffAuth";
 import { getIncomePeriodKey, resolvePayDate } from "@/lib/helpers/periodKey";
 import { canonicalizeIncomeName } from "@/lib/income/name";
 import { normalizePayFrequency } from "@/lib/payPeriods";
+import { invalidateDashboardCache } from "@/lib/cache/dashboardCache";
 
 export const runtime = "nodejs";
 
@@ -43,7 +44,6 @@ export async function GET(
     );
   }
 }
-
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -119,6 +119,8 @@ export async function PATCH(
       return refreshed ?? updated;
     });
 
+    await invalidateDashboardCache(existing.budgetPlanId);
+
     return NextResponse.json(merged);
   } catch (error) {
     console.error("Failed to update income:", error);
@@ -148,6 +150,7 @@ export async function DELETE(
 
     // Delete only the requested row.
     await prisma.income.delete({ where: { id } });
+  	await invalidateDashboardCache(existing.budgetPlanId);
 
     return NextResponse.json({ success: true });
   } catch (error) {

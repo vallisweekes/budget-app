@@ -4,6 +4,7 @@ import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
 import { getAllIncome, getIncomeForAnchorMonth, upsertIncomeForAnchorMonth } from "@/lib/income/store";
 import { canonicalizeIncomeName } from "@/lib/income/name";
 import { monthNumberToKey } from "@/lib/helpers/monthKey";
+import { invalidateDashboardCache } from "@/lib/cache/dashboardCache";
 
 export const runtime = "nodejs";
 
@@ -191,6 +192,8 @@ export async function POST(request: Request) {
       if (!firstCreated) firstCreated = record;
       }
     }
+
+	await invalidateDashboardCache(budgetPlanId);
 
     return NextResponse.json(firstCreated, { status: 201 });
   } catch (error) {

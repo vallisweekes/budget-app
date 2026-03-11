@@ -22,6 +22,7 @@ import {
 } from "@/lib/allocations/store";
 import { isMonthKey } from "@/lib/budget/zero-based";
 import { currentMonthKey } from "@/lib/helpers/monthKey";
+import { invalidateDashboardCache } from "@/lib/cache/dashboardCache";
 
 function isPastMonth(month: MonthKey, year?: number, now: Date = new Date()): boolean {
 	const currentYear = now.getFullYear();
@@ -126,6 +127,7 @@ export async function addIncomeAction(formData: FormData): Promise<void> {
 				continue;
 			}
 			await addOrUpdateIncomeAcrossMonths(p.id, targetMonths, { id: sharedId, name, amount }, year);
+			await invalidateDashboardCache(p.id);
 			if (sessionUsername) revalidateUserScopedBudgetPaths(sessionUsername, p.id);
 		}
 		revalidatePath("/");
@@ -134,6 +136,7 @@ export async function addIncomeAction(formData: FormData): Promise<void> {
 	}
 
 	await addOrUpdateIncomeAcrossMonths(budgetPlanId, targetMonths, { id: sharedId, name, amount }, year);
+	await invalidateDashboardCache(budgetPlanId);
 	if (sessionUsername) revalidateUserScopedBudgetPaths(sessionUsername, budgetPlanId);
 	revalidatePath("/");
 	revalidatePath("/admin/income");
@@ -157,6 +160,7 @@ export async function updateIncomeItemAction(
 	const { userId, sessionUsername } = await requireAuthenticatedUser();
 	await requireOwnedBudgetPlan(budgetPlanId, userId);
 	await updateIncome(budgetPlanId, month, id, { name: name.trim(), amount }, year);
+	await invalidateDashboardCache(budgetPlanId);
 	if (sessionUsername) revalidateUserScopedBudgetPaths(sessionUsername, budgetPlanId);
 	revalidatePath("/");
 	revalidatePath("/admin/income");
@@ -172,6 +176,7 @@ export async function removeIncomeAction(budgetPlanId: string, year: number, mon
 	const { userId, sessionUsername } = await requireAuthenticatedUser();
 	await requireOwnedBudgetPlan(budgetPlanId, userId);
 	await removeIncome(budgetPlanId, month, id, year);
+	await invalidateDashboardCache(budgetPlanId);
 	if (sessionUsername) revalidateUserScopedBudgetPaths(sessionUsername, budgetPlanId);
 	revalidatePath("/");
 	revalidatePath("/admin/income");
@@ -245,6 +250,7 @@ export async function saveAllocationsAction(formData: FormData): Promise<void> {
 		month,
 		amountsByAllocationId,
 	});
+	await invalidateDashboardCache(budgetPlanId);
 
 	const session = await getServerSession(authOptions);
 	const sessionUser = session?.user;
@@ -282,6 +288,7 @@ export async function resetAllocationsToPlanDefaultAction(formData: FormData): P
 
 	await removeMonthlyAllocationOverride({ budgetPlanId, year, month });
 	await removeAllMonthlyCustomAllocationOverrides({ budgetPlanId, year, month });
+	await invalidateDashboardCache(budgetPlanId);
 
 	const session = await getServerSession(authOptions);
 	const sessionUser = session?.user;
@@ -318,6 +325,7 @@ export async function createCustomAllowanceAction(formData: FormData): Promise<v
 	if (!name) return;
 
 	await createAllocationDefinition({ budgetPlanId, name, defaultAmount });
+	await invalidateDashboardCache(budgetPlanId);
 
 	const session = await getServerSession(authOptions);
 	const sessionUser = session?.user;

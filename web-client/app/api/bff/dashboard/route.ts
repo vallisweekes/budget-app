@@ -26,6 +26,11 @@ import {
 } from "@/lib/payPeriods";
 import { getCurrentPeriodKey, getPeriodKey, parsePeriodKeyRange } from "@/lib/helpers/periodKey";
 import { getEarlyPaymentWindowStart } from "@/lib/helpers/finance/earlyPaymentWindow";
+import { getJsonCache, setJsonCache } from "@/lib/cache/redisJsonCache";
+import {
+	DASHBOARD_CACHE_TTL_SECONDS,
+	getDashboardCacheKey,
+} from "@/lib/cache/dashboardCache";
 
 export const runtime = "nodejs";
 
@@ -177,6 +182,24 @@ export async function GET(req: NextRequest) {
 		const payDay = typeof payDate === "number" && Number.isFinite(payDate) ? payDate : 1;
 		const payFrequency = normalizePayFrequency(onboarding?.payFrequency);
 		const billFrequency = normalizeBillFrequency(onboarding?.billFrequency);
+		const activePayPeriodWindow = resolveActivePayPeriodWindow({
+			now,
+			payDate: payDay,
+			payFrequency,
+			planCreatedAt: effectiveCreatedAt,
+		});
+		const dashboardCacheKey = getDashboardCacheKey({
+			budgetPlanId,
+			year: selectedYear,
+			payDate: payDay,
+			payFrequency,
+			periodStart: activePayPeriodWindow.start,
+			periodEnd: activePayPeriodWindow.end,
+		});
+		const cachedDashboard = await getJsonCache<Record<string, unknown>>(dashboardCacheKey);
+		if (cachedDashboard) {
+			return NextResponse.json(cachedDashboard);
+		}
 		// This is required for the dashboard; let it throw if it truly can't compute.
 		const currentPlanData = await getDashboardPlanDataForActivePayPeriod(budgetPlanId, {
 			now,
@@ -508,7 +531,7 @@ export async function GET(req: NextRequest) {
 		const isOverBudget = isOverBudgetBySpending || hasOverLimitDebt;
 		const totalBudget = amountLeftToBudget > 0 ? amountLeftToBudget : currentPlanData.totalIncome;
 
-		return NextResponse.json({
+		const responseBody = {
 
 			budgetPlanId,
 			month,
@@ -592,7 +615,11 @@ export async function GET(req: NextRequest) {
 			billFrequency,
 			payPeriodLabel,
 			previousPayPeriodLabel,
-		});
+		};
+
+		await setJsonCache(dashboardCacheKey, responseBody, DASHBOARD_CACHE_TTL_SECONDS);
+
+		return NextResponse.json(responseBody);
 	} catch (error) {
 		console.error("Failed to compute dashboard:", error);
 		const isProd = process.env.NODE_ENV === "production";

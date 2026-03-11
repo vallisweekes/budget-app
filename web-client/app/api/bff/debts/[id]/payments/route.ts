@@ -4,6 +4,7 @@ import { getSessionUserId } from "@/lib/api/bffAuth";
 import { buildPaymentMadeActivity } from "@/lib/push/activityMessages";
 import { sendUserPush } from "@/lib/push/sendUserPush";
 import { getPaymentPeriodKey, getPeriodKey, resolvePayDate } from "@/lib/helpers/periodKey";
+import { invalidateDashboardCache } from "@/lib/cache/dashboardCache";
 
 export const runtime = "nodejs";
 
@@ -611,6 +612,8 @@ export async function POST(
     } catch {
       // Best-effort
     }
+
+	await invalidateDashboardCache(debt.budgetPlan.id);
 
     return NextResponse.json(payment, { status: 201 });
   } catch (error) {

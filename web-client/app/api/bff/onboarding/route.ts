@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSessionUserId } from "@/lib/api/bffAuth";
 import { completeOnboarding, getOnboardingForUser, saveOnboardingDraft, type OnboardingInput } from "@/lib/onboarding";
+import { invalidateDashboardCache, invalidateDashboardCacheForUser } from "@/lib/cache/dashboardCache";
 
 export const runtime = "nodejs";
 
@@ -90,6 +91,7 @@ export async function PATCH(request: Request) {
     };
 
     const updated = await saveOnboardingDraft(userId, input);
+    await invalidateDashboardCacheForUser(userId);
     return NextResponse.json({ ok: true, profile: updated });
   } catch (error) {
     console.error("Failed to update onboarding:", error);
@@ -108,6 +110,7 @@ export async function POST(request: Request) {
     if (!userId) return unauthorized();
 
     const result = await completeOnboarding(userId);
+    await invalidateDashboardCache(result.budgetPlanId);
     return NextResponse.json({ ok: true, budgetPlanId: result.budgetPlanId });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to complete onboarding";

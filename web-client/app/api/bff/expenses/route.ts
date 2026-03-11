@@ -14,6 +14,7 @@ import {
   normalizePayFrequency,
   type PayFrequency,
 } from "@/lib/payPeriods";
+import { invalidateDashboardCache } from "@/lib/cache/dashboardCache";
 
 export const runtime = "nodejs";
 
@@ -583,6 +584,8 @@ export async function POST(req: NextRequest) {
     })().catch(() => null),
     900,
   );
+
+  await invalidateDashboardCache(ownedBudgetPlanId);
 
   return NextResponse.json(serializeExpense(finalCreated, null), { status: 201 });
 }

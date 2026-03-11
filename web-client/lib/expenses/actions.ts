@@ -8,6 +8,7 @@ import { processUnpaidExpenses } from "./carryover";
 import { prisma } from "@/lib/prisma";
 import { upsertExpenseDebt } from "@/lib/debts/store";
 import { syncExpensePaymentsToPaidAmount } from "@/lib/expenses/paymentSync";
+import { invalidateDashboardCache } from "@/lib/cache/dashboardCache";
 
 export async function updateExpenseDueDate(
 	budgetPlanId: string,
@@ -18,6 +19,7 @@ export async function updateExpenseDueDate(
 	await updateExpense(budgetPlanId, month, expenseId, {
 		dueDate: dueDate ?? undefined,
 	});
+	await invalidateDashboardCache(budgetPlanId);
 
 	revalidatePath("/");
 	revalidatePath("/admin/expenses");
@@ -71,6 +73,8 @@ export async function updatePaymentStatus(
 			});
 		}
 
+		await invalidateDashboardCache(budgetPlanId);
+
 		revalidatePath("/");
 		revalidatePath("/admin/expenses");
 		revalidatePath("/admin/debts");
@@ -92,6 +96,8 @@ export async function updatePaymentStatus(
 			onlyPartialPayments: true,
 			forceExpenseIds: [id],
 		});
+
+		await invalidateDashboardCache(budgetPlanId);
 
 		revalidatePath("/");
 		revalidatePath("/admin/expenses");
@@ -123,6 +129,8 @@ export async function updatePaymentStatus(
 			remainingAmount: updated.remaining,
 		});
 	}
+
+	await invalidateDashboardCache(budgetPlanId);
 
   revalidatePath("/");
   revalidatePath("/admin/expenses");

@@ -13,6 +13,7 @@ import { MONTHS } from "@/lib/constants/time";
 import { syncExpensePaymentsToPaidAmount } from "@/lib/expenses/paymentSync";
 import { getExpensePeriodKey, resolvePayDate } from "@/lib/helpers/periodKey";
 import type { MonthKey } from "@/types";
+import { invalidateDashboardCache } from "@/lib/cache/dashboardCache";
 
 export const runtime = "nodejs";
 
@@ -719,6 +720,8 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     }
   }
 
+	await invalidateDashboardCache(existing.budgetPlanId);
+
   return NextResponse.json(serializeExpense(updated));
 }
 
@@ -731,12 +734,13 @@ export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: stri
 
 	const existing = await prisma.expense.findUnique({
 		where: { id },
-		select: { id: true, budgetPlan: { select: { userId: true } } },
+    select: { id: true, budgetPlanId: true, budgetPlan: { select: { userId: true } } },
 	});
 	if (!existing || existing.budgetPlan.userId !== userId) {
 		return NextResponse.json({ error: "Not found" }, { status: 404 });
 	}
 
   await prisma.expense.delete({ where: { id } }).catch(() => null);
+	await invalidateDashboardCache(existing.budgetPlanId);
   return NextResponse.json({ success: true as const });
 }

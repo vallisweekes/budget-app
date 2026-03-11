@@ -7,6 +7,7 @@ import { deriveDebtPayoffSummary } from "@/lib/debts/payoffSummary";
 import { computeAgreementBaseline } from "@/lib/debts/agreementBaseline";
 import { resolveExpenseLogo } from "@/lib/expenses/logoResolver";
 import { getPaymentPeriodKey, resolvePayDate } from "@/lib/helpers/periodKey";
+import { invalidateDashboardCache } from "@/lib/cache/dashboardCache";
 
 export const runtime = "nodejs";
 
@@ -684,6 +685,8 @@ export async function PATCH(
       });
     });
 
+    await invalidateDashboardCache(existing.budgetPlanId);
+
     return NextResponse.json(withMissedPaymentFlag(debt));
   } catch (error) {
     console.error("Failed to update debt:", error);
@@ -720,6 +723,8 @@ export async function DELETE(
     await prisma.debt.delete({
       where: { id },
     });
+
+    await invalidateDashboardCache(existing.budgetPlanId);
 
     return NextResponse.json({ success: true });
   } catch (error) {

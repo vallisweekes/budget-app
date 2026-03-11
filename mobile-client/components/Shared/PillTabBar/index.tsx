@@ -168,12 +168,12 @@ export default function PillTabBar({ state, descriptors: _descriptors, navigatio
               const isNestedDebts = baseName === "debts" && focused && nestedRouteName !== "DebtList";
 
               if (isNestedExpenses) {
-                navigation.navigate("expenses", { screen: "ExpensesList" });
+                navigation.navigate(route.name, { screen: "ExpensesList" });
                 return;
               }
 
               if (isNestedDebts) {
-                navigation.navigate("debts", { screen: "DebtList" });
+                navigation.navigate(route.name, { screen: "DebtList" });
                 return;
               }
 

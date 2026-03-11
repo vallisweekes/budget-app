@@ -7,6 +7,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { resolveUserId } from "@/lib/budgetPlans";
 import { getSettings } from "@/lib/settings/store";
+import { invalidateDashboardCache } from "@/lib/cache/dashboardCache";
 
 async function requireAuthenticatedUser() {
   const session = await getServerSession(authOptions);
@@ -69,6 +70,7 @@ export async function createGoal(formData: FormData) {
     targetYear,
     description,
   });
+  await invalidateDashboardCache(budgetPlanId);
 
   revalidatePath(`/admin/goals?plan=${encodeURIComponent(budgetPlanId)}`);
   revalidatePath("/");
@@ -116,6 +118,7 @@ export async function updateGoalAction(id: string, formData: FormData) {
     targetYear,
     description,
   });
+  await invalidateDashboardCache(budgetPlanId);
 
   revalidatePath(`/admin/goals?plan=${encodeURIComponent(budgetPlanId)}`);
   revalidatePath("/");
@@ -128,6 +131,7 @@ export async function deleteGoalAction(budgetPlanId: string, id: string) {
 	const { userId } = await requireAuthenticatedUser();
 	await requireOwnedBudgetPlan(budgetPlanId, userId);
   await deleteGoal(budgetPlanId, id);
+  await invalidateDashboardCache(budgetPlanId);
   revalidatePath(`/admin/goals?plan=${encodeURIComponent(budgetPlanId)}`);
   revalidatePath("/");
 }

@@ -61,6 +61,10 @@ For PWA push notifications (web push):
 - `VAPID_PRIVATE_KEY`
 - `VAPID_SUBJECT` (e.g. `mailto:you@domain.com`)
 
+For Redis-backed server caching:
+
+- `REDIS_URL`
+
 For Logo.dev expense logos:
 
 - `LOGO_DEV_PUBLISHABLE_KEY` (used for image CDN token param)

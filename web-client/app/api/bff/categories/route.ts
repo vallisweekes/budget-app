@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
 import { ensureDefaultCategoriesForBudgetPlan } from "@/lib/categories/defaultCategories";
+import { invalidateDashboardCache } from "@/lib/cache/dashboardCache";
 
 export const runtime = "nodejs";
 
@@ -56,6 +57,7 @@ export async function POST(request: Request) {
         budgetPlanId,
       },
     });
+	await invalidateDashboardCache(budgetPlanId);
 
     return NextResponse.json(category, { status: 201 });
   } catch (error) {

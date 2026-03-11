@@ -1,10 +1,10 @@
 import OpenAI from "openai";
+import { getJsonCache, setJsonCache } from "@/lib/cache/redisJsonCache";
 
 import type { Goal } from "@/lib/goals/store";
 import type { GoalsBudgetInsights } from "@/types";
 
-type CacheEntry = { expiresAt: number; tipsById: Record<string, string> };
-const cache = new Map<string, CacheEntry>();
+const CACHE_TTL_SECONDS = 2 * 60 * 60;
 
 function clampText(s: string, max: number): string {
 	const t = String(s ?? "").trim().replace(/\s+/g, " ");
@@ -24,7 +24,7 @@ function safeParseJsonObject(raw: string): Record<string, unknown> | null {
 }
 
 async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
-	let timeoutId: any;
+	let timeoutId: ReturnType<typeof setTimeout> | undefined;
 	try {
 		const timeout = new Promise<null>((resolve) => {
 			timeoutId = setTimeout(() => resolve(null), ms);
@@ -39,13 +39,19 @@ function normalizeTipsById(input: unknown, maxChars: number): Record<string, str
 	const out: Record<string, string> = {};
 	if (!Array.isArray(input)) return out;
 	for (const it of input) {
-		const goalId = typeof (it as any)?.goalId === "string" ? (it as any).goalId : "";
-		const tip = typeof (it as any)?.tip === "string" ? clampText((it as any).tip, maxChars) : "";
+		const item = (it !== null && typeof it === "object" ? it : {}) as Record<string, unknown>;
+		const goalId = typeof item.goalId === "string" ? item.goalId : "";
+		const tip = typeof item.tip === "string" ? clampText(item.tip, maxChars) : "";
 		if (!goalId || !tip) continue;
 		out[goalId] = tip;
 	}
 	return out;
 }
+
+type GoalLike = Goal & {
+	category?: string | null;
+	targetYear?: number | null;
+};
 
 export async function getAiGoalMonthlyTips(args: {
 	cacheKey: string;
@@ -62,20 +68,23 @@ export async function getAiGoalMonthlyTips(args: {
 	if (!apiKey) return null;
 
 	const maxChars = Math.max(120, Math.min(320, args.maxChars ?? 220));
-	const cached = cache.get(args.cacheKey);
-	if (cached && cached.expiresAt > Date.now()) return cached.tipsById;
+	const cached = await getJsonCache<Record<string, string>>(args.cacheKey);
+	if (cached && Object.keys(cached).length > 0) return cached;
 
 	const openai = new OpenAI({ apiKey });
 
-	const goals = args.goals.slice(0, 24).map((g) => ({
-		goalId: g.goal.id,
-		title: clampText(g.goal.title, 60),
-		category: (g.goal as any).category ?? null,
-		targetAmount: g.goal.targetAmount ?? null,
-		currentAmount: g.effectiveCurrentAmount,
-		targetYear: (g.goal as any).targetYear ?? null,
-		existingTip: g.existingTip,
-	}));
+	const goals = args.goals.slice(0, 24).map((g) => {
+		const goal = g.goal as GoalLike;
+		return {
+			goalId: g.goal.id,
+			title: clampText(g.goal.title, 60),
+			category: goal.category ?? null,
+			targetAmount: g.goal.targetAmount ?? null,
+			currentAmount: g.effectiveCurrentAmount,
+			targetYear: goal.targetYear ?? null,
+			existingTip: g.existingTip,
+		};
+	});
 
 	const budget = args.budgetInsights
 		? {
@@ -123,6 +132,6 @@ export async function getAiGoalMonthlyTips(args: {
 	const tipsById = normalizeTipsById(obj?.tips, maxChars);
 	if (!Object.keys(tipsById).length) return null;
 
-	cache.set(args.cacheKey, { tipsById, expiresAt: Date.now() + 2 * 60 * 60 * 1000 });
+	await setJsonCache(args.cacheKey, tipsById, CACHE_TTL_SECONDS);
 	return tipsById;
 }

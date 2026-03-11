@@ -5,9 +5,9 @@ import {
 	type PreviousMonthRecap,
 	type UpcomingPayment,
 } from "@/lib/expenses/insights";
+import { getJsonCache, setJsonCache } from "@/lib/cache/redisJsonCache";
 
-type CacheEntry = { expiresAt: number; tips: RecapTip[] };
-const cache = new Map<string, CacheEntry>();
+const CACHE_TTL_SECONDS = 2 * 60 * 60;
 
 function clampText(s: string, max: number): string {
 	const t = String(s ?? "").trim().replace(/\s+/g, " ");
@@ -96,8 +96,8 @@ export async function getAiBudgetTips(args: {
 	if (!apiKey) return null;
 
 	const maxTips = Math.max(1, Math.min(6, args.maxTips ?? 4));
-	const cached = cache.get(args.cacheKey);
-	if (cached && cached.expiresAt > Date.now()) return cached.tips;
+	const cached = await getJsonCache<RecapTip[]>(args.cacheKey);
+	if (cached?.length) return cached;
 
 	const openai = new OpenAI({ apiKey });
 
@@ -187,6 +187,6 @@ export async function getAiBudgetTips(args: {
 	const tips = normalizeTips(obj?.tips, maxTips);
 	if (!tips.length) return null;
 
-	cache.set(args.cacheKey, { tips, expiresAt: Date.now() + 2 * 60 * 60 * 1000 });
+	await setJsonCache(args.cacheKey, tips, CACHE_TTL_SECONDS);
 	return tips;
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUserId } from "@/lib/api/bffAuth";
+import { invalidateDashboardCache } from "@/lib/cache/dashboardCache";
 
 export const runtime = "nodejs";
 
@@ -76,6 +77,7 @@ export async function PATCH(
       where: { id },
       data,
     });
+	await invalidateDashboardCache(existing.budgetPlanId);
 
     return NextResponse.json(goal);
   } catch (error) {
@@ -107,6 +109,7 @@ export async function DELETE(
     await prisma.goal.delete({
       where: { id },
     });
+	await invalidateDashboardCache(existing.budgetPlanId);
 
     return NextResponse.json({ success: true });
   } catch (error) {

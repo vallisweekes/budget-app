@@ -7,6 +7,7 @@ import { sendUserPush } from "@/lib/push/sendUserPush";
 import { getPaymentPeriodKey, resolvePayDate } from "@/lib/helpers/periodKey";
 import { isLegacyPlaceholderExpenseRow } from "@/lib/expenses/legacyPlaceholders";
 import { isNonDebtCategoryName } from "@/lib/expenses/helpers";
+import { invalidateDashboardCache } from "@/lib/cache/dashboardCache";
 
 export const runtime = "nodejs";
 
@@ -455,6 +456,8 @@ export async function POST(request: Request) {
       // Best-effort
     }
 
+
+	await invalidateDashboardCache(budgetPlanId);
     return NextResponse.json(withMissedPaymentFlag(debt), { status: 201 });
   } catch (error) {
     console.error("Failed to create debt:", error);

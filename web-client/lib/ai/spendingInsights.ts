@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { getJsonCache, setJsonCache } from "@/lib/cache/redisJsonCache";
 
 export type SpendingInsightColor = "red" | "orange" | "amber" | "blue" | "emerald" | "purple";
 export type SpendingInsightIcon =
@@ -16,8 +17,7 @@ export type SpendingInsight = {
 	icon: SpendingInsightIcon;
 };
 
-type CacheEntry = { expiresAt: number; insights: SpendingInsight[] };
-const cache = new Map<string, CacheEntry>();
+const CACHE_TTL_SECONDS = 2 * 60 * 60;
 
 function clampText(s: string, max: number): string {
 	const t = String(s ?? "").trim().replace(/\s+/g, " ");
@@ -104,8 +104,8 @@ export async function getAiSpendingInsights(args: {
 	if (!apiKey) return null;
 
 	const maxItems = Math.max(1, Math.min(6, args.maxItems ?? 4));
-	const cached = cache.get(args.cacheKey);
-	if (cached && cached.expiresAt > Date.now()) return cached.insights;
+	const cached = await getJsonCache<SpendingInsight[]>(args.cacheKey);
+	if (cached?.length) return cached;
 
 	const openai = new OpenAI({ apiKey });
 
@@ -177,6 +177,6 @@ export async function getAiSpendingInsights(args: {
 	const insights = normalizeInsights(obj?.insights, maxItems);
 	if (!insights.length) return null;
 
-	cache.set(args.cacheKey, { insights, expiresAt: Date.now() + 2 * 60 * 60 * 1000 });
+	await setJsonCache(args.cacheKey, insights, CACHE_TTL_SECONDS);
 	return insights;
 }

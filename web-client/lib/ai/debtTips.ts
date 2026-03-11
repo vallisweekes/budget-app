@@ -1,9 +1,9 @@
 import OpenAI from "openai";
+import { getJsonCache, setJsonCache } from "@/lib/cache/redisJsonCache";
 
 export type DebtTip = { title: string; detail: string; urgency?: string };
 
-type CacheEntry = { expiresAt: number; tips: DebtTip[] };
-const cache = new Map<string, CacheEntry>();
+const CACHE_TTL_SECONDS = 6 * 60 * 60;
 
 function clampText(s: string, max: number): string {
 	const t = String(s ?? "").trim().replace(/\s+/g, " ");
@@ -23,7 +23,7 @@ function safeParseJsonObject(raw: string): Record<string, unknown> | null {
 }
 
 async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
-	let timeoutId: any;
+	let timeoutId: ReturnType<typeof setTimeout> | undefined;
 	try {
 		const timeout = new Promise<null>((resolve) => {
 			timeoutId = setTimeout(() => resolve(null), ms);
@@ -38,8 +38,9 @@ function normalizeTips(input: unknown, maxTips: number): DebtTip[] {
 	if (!Array.isArray(input)) return [];
 	const tips: DebtTip[] = [];
 	for (const t of input) {
-		const title = typeof (t as any)?.title === "string" ? clampText((t as any).title, 60) : "";
-		const detail = typeof (t as any)?.detail === "string" ? clampText((t as any).detail, 180) : "";
+		const item = (t !== null && typeof t === "object" ? t : {}) as Record<string, unknown>;
+		const title = typeof item.title === "string" ? clampText(item.title, 60) : "";
+		const detail = typeof item.detail === "string" ? clampText(item.detail, 180) : "";
 		if (!title || !detail) continue;
 		tips.push({ title, detail });
 		if (tips.length >= maxTips) break;
@@ -66,8 +67,8 @@ export async function getAiDebtTips(args: {
 	if (!apiKey) return null;
 
 	const maxTips = Math.max(1, Math.min(6, args.maxTips ?? 4));
-	const cached = cache.get(args.cacheKey);
-	if (cached && cached.expiresAt > Date.now()) return cached.tips;
+	const cached = await getJsonCache<DebtTip[]>(args.cacheKey);
+	if (cached?.length) return cached;
 
 	if (!(args.context.totalDebtBalance > 0) || args.context.activeCount <= 0) return null;
 
@@ -107,6 +108,6 @@ export async function getAiDebtTips(args: {
 	const tips = normalizeTips(obj?.tips, maxTips);
 	if (!tips.length) return null;
 
-	cache.set(args.cacheKey, { tips, expiresAt: Date.now() + 6 * 60 * 60 * 1000 });
+	await setJsonCache(args.cacheKey, tips, CACHE_TTL_SECONDS);
 	return tips;
 }

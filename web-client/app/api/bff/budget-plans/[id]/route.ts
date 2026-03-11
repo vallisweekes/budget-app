@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUserId } from "@/lib/api/bffAuth";
+import { invalidateDashboardCache } from "@/lib/cache/dashboardCache";
 
 export const runtime = "nodejs";
 
@@ -96,6 +97,7 @@ export async function PATCH(
         createdAt: true,
       },
     });
+	await invalidateDashboardCache(id);
 
     return NextResponse.json(updated);
   } catch (error) {
@@ -126,6 +128,7 @@ export async function DELETE(
     }
 
     await prisma.budgetPlan.delete({ where: { id } });
+  	await invalidateDashboardCache(id);
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Failed to delete budget plan:", error);
