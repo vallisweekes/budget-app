@@ -71,7 +71,7 @@ type SettingsScreenControllerParams = Pick<MainTabScreenProps<"Settings">, "navi
 export function useSettingsScreenController({ navigation, route }: SettingsScreenControllerParams) {
   const topHeaderOffset = useTopHeaderOffset();
   const insets = useSafeAreaInsets();
-  const { username: authUsername, signOut } = useAuth();
+  const { username: authUsername, signOut, hydrateProfile } = useAuth();
   const { activeBudgetPlanId, setActiveBudgetPlanId, clearActiveBudgetPlanId } = useActiveBudgetPlan();
   const { readSavingsPotsForPlan, writeSavingsPotsForPlan } = useSavingsPotStore();
   const {
@@ -715,6 +715,7 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
     try {
       setSaveBusy(true);
       const next = await updateProfileMutation({ email: emailDraft.trim() || null }).unwrap();
+      hydrateProfile(next);
       setProfile(next);
       setDetailsSheetOpen(false);
     } catch (err: unknown) {

@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import React, { createContext, useCallback, useContext, useMemo, useState } from "react";
 
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/lib/api";
@@ -21,51 +21,10 @@ type OnboardingGateContextValue = {
 const OnboardingGateContext = createContext<OnboardingGateContextValue | null>(null);
 
 export function OnboardingGateProvider({ children }: { children: React.ReactNode }) {
-  const { token, isLoading } = useAuth();
-  const [onboardingState, setOnboardingState] = useState<OnboardingStatusResponse | null>(null);
-  const [onboardingLoading, setOnboardingLoading] = useState(false);
+  const { token, isLoading, profile, refreshProfile } = useAuth();
   const [completingOnboarding, setCompletingOnboarding] = useState(false);
-  const lastOnboardingTokenRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    if (!token) {
-      lastOnboardingTokenRef.current = null;
-      setOnboardingState((prev) => (prev === null ? prev : null));
-      setOnboardingLoading((prev) => (prev ? false : prev));
-      return;
-    }
-
-    lastOnboardingTokenRef.current = token;
-    setOnboardingState((prev) => (prev === null ? prev : null));
-    setOnboardingLoading(true);
-
-    void (async () => {
-      try {
-        const data = await apiFetch<OnboardingStatusResponse>("/api/bff/onboarding", {
-          cacheTtlMs: 0,
-          skipOnUnauthorized: true,
-          timeoutMs: 15_000,
-        });
-        if (!cancelled) {
-          setOnboardingState(data);
-        }
-      } catch {
-        if (!cancelled) {
-          setOnboardingState((prev) => (prev === ONBOARDING_FALLBACK ? prev : ONBOARDING_FALLBACK));
-        }
-      } finally {
-        if (!cancelled) setOnboardingLoading(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [token]);
-
-  const awaitingInitialResolution = Boolean(token) && onboardingState === null;
+  const onboardingState = token ? (profile?.onboarding ?? null) : null;
+  const awaitingInitialResolution = Boolean(token) && !profile;
 
   const completeOnboardingAndHydrate = useCallback(async () => {
     setCompletingOnboarding(true);
@@ -92,37 +51,21 @@ export function OnboardingGateProvider({ children }: { children: React.ReactNode
       }
 
       try {
-        const latest = await apiFetch<OnboardingStatusResponse>("/api/bff/onboarding", {
-          cacheTtlMs: 0,
-          skipOnUnauthorized: true,
-        });
-        setOnboardingState((prev) => {
-          if (
-            prev?.required === latest.required
-            && prev?.completed === latest.completed
-            && prev?.profile === latest.profile
-            && prev?.occupations === latest.occupations
-          ) {
-            return prev;
-          }
-          return latest;
-        });
-      } catch {
-        setOnboardingState((prev) => (prev === ONBOARDING_FALLBACK ? prev : ONBOARDING_FALLBACK));
-      }
+        await refreshProfile();
+      } catch {}
     } finally {
       setCompletingOnboarding(false);
     }
-  }, []);
+  }, [refreshProfile]);
 
   const value = useMemo<OnboardingGateContextValue>(
     () => ({
-      busy: isLoading || Boolean(token && (awaitingInitialResolution || onboardingLoading || completingOnboarding)),
+      busy: isLoading || Boolean(token && (awaitingInitialResolution || completingOnboarding)),
       required: Boolean(token && onboardingState?.required),
       state: onboardingState ?? ONBOARDING_FALLBACK,
       completeOnboardingAndHydrate,
     }),
-    [awaitingInitialResolution, completeOnboardingAndHydrate, completingOnboarding, isLoading, onboardingLoading, onboardingState, token]
+    [awaitingInitialResolution, completeOnboardingAndHydrate, completingOnboarding, isLoading, onboardingState, token]
   );
 
   return <OnboardingGateContext.Provider value={value}>{children}</OnboardingGateContext.Provider>;

@@ -1,10 +1,12 @@
 import { useFocusEffect } from "@react-navigation/native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { apiFetch } from "@/lib/api";
-import type { Category, Expense, ExpenseCategoryBreakdown, Settings } from "@/lib/apiTypes";
+import { useBootstrapData } from "@/context/BootstrapDataContext";
+import { apiFetch, getApiMutationVersion } from "@/lib/api";
+import type { Category, Expense, ExpenseCategoryBreakdown } from "@/lib/apiTypes";
 import { resolveCategoryColor } from "@/lib/categoryColors";
-import { expenseCacheKey, getLatestPaymentAt, splitCategoryExpenses } from "@/lib/helpers/categoryExpenses";
+import { getCachedPayPeriodExpenses, setCachedPayPeriodExpenses } from "@/lib/expensePeriodCache";
+import { getLatestPaymentAt, splitCategoryExpenses } from "@/lib/helpers/categoryExpenses";
 import { useTopHeaderOffset } from "@/hooks";
 import { buildPayPeriodFromMonthAnchor, formatPayPeriodLabel, normalizePayFrequency, type PayFrequency } from "@/lib/payPeriods";
 import type { ExpensesStackParamList } from "@/navigation/types";
@@ -13,11 +15,9 @@ import type { CategoryExpensesControllerState, CategoryExpensesSettingsSlice } f
 
 type Props = NativeStackScreenProps<ExpensesStackParamList, "CategoryExpenses">;
 
-const expensesListCache = new Map<string, Expense[]>();
-const settingsSliceCache = new Map<string, CategoryExpensesSettingsSlice>();
-
 export function useCategoryExpensesScreenController({ navigation, route }: Props): CategoryExpensesControllerState {
   const topHeaderOffset = useTopHeaderOffset();
+  const { settings } = useBootstrapData();
   const {
     categoryId,
     categoryName,
@@ -46,6 +46,7 @@ export function useCategoryExpensesScreenController({ navigation, route }: Props
   const [logoFailed, setLogoFailed] = useState<Record<string, boolean>>({});
   const [payDate, setPayDate] = useState<number | null>(null);
   const [payFrequency, setPayFrequency] = useState<PayFrequency>("monthly");
+  const seenMutationVersionRef = useRef<number>(getApiMutationVersion());
 
   useEffect(() => {
     if (routeMonth !== month) setMonth(routeMonth);
@@ -95,39 +96,32 @@ export function useCategoryExpensesScreenController({ navigation, route }: Props
     const force = Boolean(options?.force);
     try {
       setError(null);
-      const cacheKey = expenseCacheKey(budgetPlanId, month, year);
-      const settingsKey = budgetPlanId ?? "none";
+      const settingsSlice = {
+        payDate: settings?.payDate ?? null,
+        payFrequency: normalizePayFrequency(settings?.payFrequency),
+      } satisfies CategoryExpensesSettingsSlice;
 
-      if (!force) {
-        const cachedAll = expensesListCache.get(cacheKey);
-        const cachedSettings = settingsSliceCache.get(settingsKey);
-        if (cachedAll && cachedSettings) {
-          const split = splitCategoryExpenses(cachedAll, categoryId);
-          setExpenses(split.main);
-          setLoggedPayments(split.logged);
-          setPayDate(cachedSettings.payDate);
-          setPayFrequency(cachedSettings.payFrequency);
-          setLogoFailed({});
-          setLoading(false);
-          setRefreshing(false);
-          return;
-        }
+      const cachedAll = !force
+        ? getCachedPayPeriodExpenses({ budgetPlanId, month, year })
+        : null;
+
+      if (cachedAll) {
+        const split = splitCategoryExpenses(cachedAll, categoryId);
+        setExpenses(split.main);
+        setLoggedPayments(split.logged);
+        setPayDate(settingsSlice.payDate);
+        setPayFrequency(settingsSlice.payFrequency);
+        setLogoFailed({});
+        setLoading(false);
+        setRefreshing(false);
+        return;
       }
 
       const qp = budgetPlanId ? `&budgetPlanId=${encodeURIComponent(budgetPlanId)}` : "";
-      const [all, appSettings] = await Promise.all([
-        apiFetch<Expense[]>(`/api/bff/expenses?month=${month}&year=${year}&scope=pay_period&refreshLogos=1${qp}`),
-        apiFetch<Settings>("/api/bff/settings"),
-      ]);
+      const all = await apiFetch<Expense[]>(`/api/bff/expenses?month=${month}&year=${year}&scope=pay_period&refreshLogos=1${qp}`);
 
       const allExpenses = Array.isArray(all) ? all : [];
-      expensesListCache.set(cacheKey, allExpenses);
-
-      const settingsSlice = {
-        payDate: appSettings?.payDate ?? null,
-        payFrequency: normalizePayFrequency(appSettings?.payFrequency),
-      } satisfies CategoryExpensesSettingsSlice;
-      settingsSliceCache.set(settingsKey, settingsSlice);
+      setCachedPayPeriodExpenses({ budgetPlanId, month, year }, allExpenses);
 
       const split = splitCategoryExpenses(allExpenses, categoryId);
       setExpenses(split.main);
@@ -135,24 +129,24 @@ export function useCategoryExpensesScreenController({ navigation, route }: Props
       setPayDate(settingsSlice.payDate);
       setPayFrequency(settingsSlice.payFrequency);
       setLogoFailed({});
+      seenMutationVersionRef.current = getApiMutationVersion();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load");
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [budgetPlanId, categoryId, month, year]);
+  }, [budgetPlanId, categoryId, month, settings?.payDate, settings?.payFrequency, year]);
 
   useFocusEffect(
     useCallback(() => {
-      void load();
+      if (getApiMutationVersion() === seenMutationVersionRef.current) return;
+      void load({ force: true });
     }, [load]),
   );
 
   useEffect(() => {
-    const cacheKey = expenseCacheKey(budgetPlanId, month, year);
-    const settingsKey = budgetPlanId ?? "none";
-    const hasCache = expensesListCache.has(cacheKey) && settingsSliceCache.has(settingsKey);
+    const hasCache = Boolean(getCachedPayPeriodExpenses({ budgetPlanId, month, year }));
     if (!hasCache) {
       setLoading(true);
       setExpenses([]);

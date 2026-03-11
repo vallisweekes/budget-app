@@ -13,8 +13,6 @@ import { getLargestExpensesByPlan } from "@/lib/helpers/dashboard/getLargestExpe
 import { getMultiPlanHealthTips } from "@/lib/helpers/dashboard/getMultiPlanHealthTips";
 import { getAllPlansDashboardData } from "@/lib/helpers/dashboard/getAllPlansDashboardData";
 import { getDashboardPayPeriodLabels } from "@/lib/helpers/dashboard/payPeriodLabels";
-import { MONTHS } from "@/lib/constants/time";
-import { currentMonthKey } from "@/lib/helpers/monthKey";
 import { resolveExpenseLogo } from "@/lib/expenses/logoResolver";
 import { getExpensePaidMap } from "@/lib/expenses/paidSummary";
 import { prisma } from "@/lib/prisma";
@@ -220,7 +218,6 @@ export async function GET(req: NextRequest) {
 			payFrequency,
 			planCreatedAt: effectiveCreatedAt,
 		});
-		const month = MONTHS[currentPlanData.monthNum - 1] ?? currentMonthKey();
 		const { payPeriodLabel, previousPayPeriodLabel } = getDashboardPayPeriodLabels(now, payDay, effectiveCreatedAt);
 
 		// Everything below is "best effort". If one section fails (e.g. debt sync),
@@ -547,7 +544,6 @@ export async function GET(req: NextRequest) {
 		const responseBody = {
 
 			budgetPlanId,
-			month,
 			year: currentPlanData.year,
 			monthNum: currentPlanData.monthNum,
 

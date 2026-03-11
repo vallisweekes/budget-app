@@ -328,6 +328,11 @@ export interface UserProfile {
   emailVerificationRequired: boolean;
   emailVerificationBlocked: boolean;
   emailVerificationDeadlineAt: string | null;
+  onboarding: OnboardingStatusResponse;
+  accountCreatedAt: string | null;
+  setupCompletedAt: string | null;
+  payFrequency: "monthly" | "every_2_weeks" | "weekly";
+  billFrequency: "monthly" | "every_2_weeks";
 }
 
 export type OnboardingGoal = "improve_savings" | "emergency_fund" | "investments" | "manage_debts" | "track_spending" | "build_budget";
@@ -515,7 +520,6 @@ export interface ExpenseInsights {
  */
 export interface DashboardData {
   budgetPlanId: string;
-  month: string;
   year: number;
   monthNum: number;
 

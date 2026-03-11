@@ -8,22 +8,22 @@ import {
   clearStoredUsername,
 } from "@/lib/storage";
 import { apiFetch, getApiBaseUrl, invalidateApiCache, setOnUnauthorized, suppressUnauthorizedCallback } from "@/lib/api";
+import type { UserProfile } from "@/lib/apiTypes";
 import { store } from "@/store";
 import { mobileApi } from "@/store/api";
 
 type AuthState = {
   token: string | null;
   username: string | null;
+  profile: UserProfile | null;
   isLoading: boolean;
 };
 
 type AuthContextValue = AuthState & {
   signIn: (username: string, mode?: "login" | "register", email?: string) => Promise<void>;
   signOut: () => Promise<void>;
-};
-
-type ProfileMeResponse = {
-  username?: string | null;
+  refreshProfile: () => Promise<UserProfile | null>;
+  hydrateProfile: (profile: UserProfile | null) => void;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -32,19 +32,71 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({
     token: null,
     username: null,
+    profile: null,
     isLoading: true,
   });
   const signOutInFlightRef = useRef(false);
+  const tokenRef = useRef<string | null>(null);
+  const usernameRef = useRef<string | null>(null);
 
   const setAuthState = useCallback((next: AuthState) => {
     setState((prev) => (
       prev.token === next.token
       && prev.username === next.username
+      && prev.profile === next.profile
       && prev.isLoading === next.isLoading
         ? prev
         : next
     ));
   }, []);
+
+  useEffect(() => {
+    tokenRef.current = state.token;
+  }, [state.token]);
+
+  useEffect(() => {
+    usernameRef.current = state.username;
+  }, [state.username]);
+
+  const hydrateProfile = useCallback((profile: UserProfile | null) => {
+    const username = typeof profile?.username === "string" ? profile.username.trim() : "";
+    const nextUsername = username || usernameRef.current || null;
+    if (nextUsername) {
+      void setStoredUsername(nextUsername);
+    }
+
+    setAuthState({
+      token: tokenRef.current,
+      username: nextUsername,
+      profile,
+      isLoading: false,
+    });
+  }, [setAuthState]);
+
+  const refreshProfile = useCallback(async (): Promise<UserProfile | null> => {
+    const token = await getSessionToken();
+    if (!token) return null;
+
+    const currentProfile = state.profile;
+    const currentUsername = usernameRef.current;
+
+    try {
+      const profile = await apiFetch<UserProfile>("/api/bff/me", {
+        cacheTtlMs: 0,
+        skipOnUnauthorized: true,
+        timeoutMs: 15_000,
+      });
+      const username = typeof profile?.username === "string" ? profile.username.trim() : "";
+      const nextUsername = username || currentUsername || null;
+      if (nextUsername) {
+        await setStoredUsername(nextUsername);
+      }
+      setAuthState({ token, username: nextUsername, profile, isLoading: false });
+      return profile;
+    } catch {
+      return currentProfile;
+    }
+  }, [setAuthState, state.profile]);
 
   // Rehydrate from secure store on mount
   useEffect(() => {
@@ -55,19 +107,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const token = await getSessionToken();
         if (!token) {
-          setAuthState({ token: null, username: null, isLoading: false });
+          setAuthState({ token: null, username: null, profile: null, isLoading: false });
           return;
         }
 
-        const profile = await apiFetch<ProfileMeResponse>("/api/bff/me", { cacheTtlMs: 0, skipOnUnauthorized: true });
+        const profile = await apiFetch<UserProfile>("/api/bff/me", {
+          cacheTtlMs: 0,
+          skipOnUnauthorized: true,
+          timeoutMs: 15_000,
+        });
         const username = typeof profile?.username === "string" ? profile.username.trim() : "";
         await setStoredUsername(username);
-        setAuthState({ token, username: username || null, isLoading: false });
+        setAuthState({ token, username: username || null, profile, isLoading: false });
       } catch {
         await Promise.all([clearSessionToken(), clearStoredUsername()]);
         invalidateApiCache();
         store.dispatch(mobileApi.util.resetApiState());
-        setAuthState({ token: null, username: null, isLoading: false });
+        setAuthState({ token: null, username: null, profile: null, isLoading: false });
       } finally {
         suppressUnauthorizedCallback(false);
       }
@@ -86,44 +142,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       suppressUnauthorizedCallback(true);
       try {
 
-      if (mode === "register") {
-        await Promise.all([clearSessionToken(), clearStoredUsername()]);
-        invalidateApiCache();
-        setAuthState({ token: null, username: null, isLoading: false });
-      }
-
-      const res = await fetch(`${baseUrl}/api/mobile-auth`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username,
-          email,
-          mode,
-        }),
-      });
-
-      const parsed = (await res.json().catch(() => null)) as { token?: unknown; username?: unknown; error?: unknown } | null;
-      if (!res.ok) {
-        const serverError = typeof parsed?.error === "string" ? parsed.error : "";
         if (mode === "register") {
-          throw new Error(serverError || "Registration failed. Please try again.");
+          await Promise.all([clearSessionToken(), clearStoredUsername()]);
+          invalidateApiCache();
+          setAuthState({ token: null, username: null, profile: null, isLoading: false });
         }
-        throw new Error(serverError || "Sign in failed — invalid username or server unreachable.");
-      }
 
-      const sessionToken = typeof parsed?.token === "string" ? parsed.token : "";
-      if (!sessionToken) {
-        throw new Error("Sign in failed — missing session token.");
-      }
+        const res = await fetch(`${baseUrl}/api/mobile-auth`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username,
+            email,
+            mode,
+          }),
+        });
 
-      const sessionUsernameRaw = typeof parsed?.username === "string" ? parsed.username : username;
-      const sessionUsername = sessionUsernameRaw.trim() || username;
+        const parsed = (await res.json().catch(() => null)) as { token?: unknown; username?: unknown; error?: unknown } | null;
+        if (!res.ok) {
+          const serverError = typeof parsed?.error === "string" ? parsed.error : "";
+          if (mode === "register") {
+            throw new Error(serverError || "Registration failed. Please try again.");
+          }
+          throw new Error(serverError || "Sign in failed — invalid username or server unreachable.");
+        }
 
-      await Promise.all([setSessionToken(sessionToken), setStoredUsername(sessionUsername)]);
+        const sessionToken = typeof parsed?.token === "string" ? parsed.token : "";
+        if (!sessionToken) {
+          throw new Error("Sign in failed — missing session token.");
+        }
 
-      invalidateApiCache();
-      store.dispatch(mobileApi.util.resetApiState());
-      setAuthState({ token: sessionToken, username: sessionUsername, isLoading: false });
+        const sessionUsernameRaw = typeof parsed?.username === "string" ? parsed.username : username;
+        const sessionUsername = sessionUsernameRaw.trim() || username;
+
+        await Promise.all([setSessionToken(sessionToken), setStoredUsername(sessionUsername)]);
+
+        const profile = await apiFetch<UserProfile>("/api/bff/me", {
+          cacheTtlMs: 0,
+          skipOnUnauthorized: true,
+          timeoutMs: 15_000,
+        });
+        const profileUsername = typeof profile?.username === "string" ? profile.username.trim() : "";
+
+        invalidateApiCache();
+        store.dispatch(mobileApi.util.resetApiState());
+        setAuthState({
+          token: sessionToken,
+          username: profileUsername || sessionUsername,
+          profile,
+          isLoading: false,
+        });
       } finally {
         // Re-enable 401 auto-sign-out only after the new token is safely persisted.
         suppressUnauthorizedCallback(false);
@@ -146,7 +214,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await Promise.all([clearSessionToken(), clearStoredUsername()]);
       invalidateApiCache();
       store.dispatch(mobileApi.util.resetApiState());
-      setAuthState({ token: null, username: null, isLoading: false });
+      setAuthState({ token: null, username: null, profile: null, isLoading: false });
 
       try {
         if (tokenSnapshot) {
@@ -179,7 +247,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [signOut]);
 
   return (
-    <AuthContext.Provider value={{ ...state, signIn, signOut }}>
+    <AuthContext.Provider value={{ ...state, signIn, signOut, refreshProfile, hydrateProfile }}>
       {children}
     </AuthContext.Provider>
   );

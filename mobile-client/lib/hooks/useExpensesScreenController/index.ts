@@ -5,7 +5,7 @@ import { PanResponder, ScrollView } from "react-native";
 
 import { useActiveBudgetPlan } from "@/context/ActiveBudgetPlanContext";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, getApiMutationVersion } from "@/lib/api";
 import type {
   BudgetPlanListItem,
   BudgetPlansResponse,
@@ -54,6 +54,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
   const summaryCacheRef = useRef<Record<string, Record<number, Record<number, ExpenseSummary>>>>({});
   const monthsCacheRef = useRef<Record<string, ExpenseMonthsResponse["months"]>>({});
   const cacheSignatureRef = useRef<string | null>(null);
+  const seenMutationVersionRef = useRef<number>(getApiMutationVersion());
 
   const [summary, setSummary] = useState<ExpenseSummary | null>(null);
   const [previousSummary, setPreviousSummary] = useState<ExpenseSummary | null>(null);
@@ -663,6 +664,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
         preferredPeriodByPlanRef.current[resolvedPlanId] = { month: targetMonth, year: targetYear };
       }
 
+      seenMutationVersionRef.current = getApiMutationVersion();
       setLoadedKey(`${resolvedPlanId ?? "none"}:${targetYear}-${targetMonth}`);
     } catch (loadError: unknown) {
       setError(loadError instanceof Error ? loadError.message : "Failed to load expenses");
@@ -670,7 +672,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       setLoading(false);
       setRefreshing(false);
     }
-  }, [activePlanId, bootstrapError, ensureLoaded, getOrFetchPayPeriodExpenses, latestResolvedDate, month, parsePlanCreatedAt, planCacheKey, preloadSummaryWindow, refreshBootstrap, route.params?.month, route.params?.year, setupCompletedAt, year]);
+  }, [activePlanId, bootstrapError, ensureLoaded, getOrFetchPayPeriodExpenses, latestResolvedDate, month, parsePlanCreatedAt, planCacheKey, preloadSummaryWindow, refreshBootstrap, resolvePlanTargetPeriod, route.params?.month, route.params?.year, setupCompletedAt, year]);
 
   const currentViewKey = `${activePlanId ?? "none"}:${year}-${month}`;
   useEffect(() => {
@@ -711,6 +713,9 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
 
   useFocusEffect(
     useCallback(() => {
+      const latestMutationVersion = getApiMutationVersion();
+      const hasMutationChanges = latestMutationVersion !== seenMutationVersionRef.current;
+
       if (skipFirstFocusReloadRef.current) {
         skipFirstFocusReloadRef.current = false;
         return;
@@ -720,13 +725,16 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       }
       if (skipNextChildFocusReloadRef.current) {
         skipNextChildFocusReloadRef.current = false;
-        return;
+        if (!hasMutationChanges) return;
       }
       if (skipNextTabFocusReloadRef.current) {
         skipNextTabFocusReloadRef.current = false;
-        return;
+        if (!hasMutationChanges) return;
       }
-      void load();
+
+      if (!hasMutationChanges) return;
+
+      void load({ force: true });
     }, [load]),
   );
 
@@ -840,6 +848,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       planViewportWidthRef.current = width;
     },
     onPressCategory: (category: ExpenseCategoryBreakdown) => {
+      skipNextChildFocusReloadRef.current = true;
       navigation.navigate("CategoryExpenses", {
         categoryId: category.categoryId,
         categoryName: category.name,

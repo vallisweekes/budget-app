@@ -424,6 +424,46 @@ export async function getOnboardingForUser(userId: string) {
   const hasBasics = await hasBasicSetup();
   const shouldBypassOnboarding = hasBasics || userIsOnboarded === true;
 
+  const emptyProfile = {
+    mainGoal: null,
+    mainGoals: [],
+    occupation: null,
+    occupationOther: null,
+    payDay: null,
+    payFrequency: null,
+    billFrequency: null,
+    monthlySalary: null,
+    planningYears: null,
+    savingsGoalAmount: null,
+    savingsGoalYear: null,
+    expenseOneName: null,
+    expenseOneAmount: null,
+    expenseTwoName: null,
+    expenseTwoAmount: null,
+    expenseThreeName: null,
+    expenseThreeAmount: null,
+    expenseFourName: null,
+    expenseFourAmount: null,
+    hasAllowance: null,
+    allowanceAmount: null,
+    hasDebtsToManage: null,
+    debtAmount: null,
+    debtNotes: null,
+  };
+
+  const normalizeReturnedProfile = (source: typeof emptyProfile) => {
+    const occupation = source.occupation ?? "Other";
+    const occupationOther = occupation === "Other"
+      ? (source.occupationOther ?? "Other")
+      : source.occupationOther;
+
+    return {
+      ...source,
+      occupation,
+      occupationOther,
+    };
+  };
+
   // Fully configured users (income + expenses exist) should never be blocked by onboarding,
   // even if they predate the onboarding profile.
   if (shouldBypassOnboarding) {
@@ -433,15 +473,15 @@ export async function getOnboardingForUser(userId: string) {
     if (!profile) {
       return {
         required: false,
-        completed: false,
-        profile: null,
+        completed: true,
+        profile: normalizeReturnedProfile(emptyProfile),
         occupations: COMMON_OCCUPATIONS,
       };
     }
     return {
       required: false,
       completed: profile.status === "completed",
-      profile: {
+      profile: normalizeReturnedProfile({
         mainGoal: profile.mainGoal,
         mainGoals:
           Array.isArray(profile.mainGoals) && profile.mainGoals.length
@@ -471,37 +511,10 @@ export async function getOnboardingForUser(userId: string) {
         hasDebtsToManage: profile.hasDebtsToManage,
         debtAmount: toNullableNumber(profile.debtAmount),
         debtNotes: profile.debtNotes,
-      },
+      }),
       occupations: COMMON_OCCUPATIONS,
     };
   }
-
-  const emptyProfile = {
-    mainGoal: null,
-    mainGoals: [],
-    occupation: null,
-    occupationOther: null,
-    payDay: null,
-    payFrequency: null,
-    billFrequency: null,
-    monthlySalary: null,
-    planningYears: null,
-    savingsGoalAmount: null,
-    savingsGoalYear: null,
-    expenseOneName: null,
-    expenseOneAmount: null,
-    expenseTwoName: null,
-    expenseTwoAmount: null,
-    expenseThreeName: null,
-    expenseThreeAmount: null,
-    expenseFourName: null,
-    expenseFourAmount: null,
-    hasAllowance: null,
-    allowanceAmount: null,
-    hasDebtsToManage: null,
-    debtAmount: null,
-    debtNotes: null,
-  };
 
   if (!profile) {
     // No plan => new user: require onboarding.
@@ -523,7 +536,7 @@ export async function getOnboardingForUser(userId: string) {
   return {
     required: profile.status !== "completed",
     completed: profile.status === "completed",
-    profile: {
+    profile: normalizeReturnedProfile({
       mainGoal: profile.mainGoal,
       mainGoals:
         Array.isArray(profile.mainGoals) && profile.mainGoals.length
@@ -553,7 +566,7 @@ export async function getOnboardingForUser(userId: string) {
       hasDebtsToManage: profile.hasDebtsToManage,
       debtAmount: toNullableNumber(profile.debtAmount),
       debtNotes: profile.debtNotes,
-    },
+    }),
     occupations: COMMON_OCCUPATIONS,
   };
 }

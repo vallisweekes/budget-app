@@ -1,6 +1,6 @@
 import { useFocusEffect } from "@react-navigation/native";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, getApiMutationVersion } from "@/lib/api";
 import type { Expense } from "@/lib/apiTypes";
 import { getCachedPayPeriodExpenses, setCachedPayPeriodExpenses } from "@/lib/expensePeriodCache";
 import { resolveCategoryColor } from "@/lib/categoryColors";
@@ -8,7 +8,7 @@ import { useTopHeaderOffset } from "@/hooks";
 import { buildPayPeriodFromMonthAnchor, formatPayPeriodLabel, normalizePayFrequency } from "@/lib/payPeriods";
 import type { ExpensesStackParamList } from "@/navigation/types";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import type { LoggedExpensesControllerState } from "@/types/LoggedExpensesScreen.types";
 
 type Props = NativeStackScreenProps<ExpensesStackParamList, "LoggedExpenses">;
@@ -21,6 +21,7 @@ export function useLoggedExpensesScreenController({ route, navigation }: Props):
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const seenMutationVersionRef = useRef<number>(getApiMutationVersion());
 
   const load = useCallback(async (force = false) => {
     try {
@@ -43,6 +44,7 @@ export function useLoggedExpensesScreenController({ route, navigation }: Props):
         && entry.paymentSource !== "income"
       ));
       setItems(next);
+      seenMutationVersionRef.current = getApiMutationVersion();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load logged expenses");
     } finally {
@@ -53,7 +55,8 @@ export function useLoggedExpensesScreenController({ route, navigation }: Props):
 
   useFocusEffect(
     useCallback(() => {
-      void load();
+      if (getApiMutationVersion() === seenMutationVersionRef.current) return;
+      void load(true);
     }, [load]),
   );
 

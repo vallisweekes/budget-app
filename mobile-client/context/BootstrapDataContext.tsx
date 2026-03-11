@@ -62,12 +62,14 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
   }, [dashboardQuery.fulfilledTimeStamp, settingsQuery.fulfilledTimeStamp]);
 
   const inflightRef = useRef<Promise<BootstrapRefreshResult> | null>(null);
+  const pendingInitialLoadResolversRef = useRef<Array<(result: BootstrapRefreshResult) => void>>([]);
   const dashboardRef = useRef<DashboardData | null>(null);
   const settingsRef = useRef<Settings | null>(null);
   const authLoadingRef = useRef(authLoading);
   const tokenRef = useRef<string | null | undefined>(token);
   const onboardingBusyRef = useRef(onboarding.busy);
   const onboardingRequiredRef = useRef(onboarding.required);
+  const bootstrapQueriesBusyRef = useRef(false);
 
   useEffect(() => {
     dashboardRef.current = dashboard;
@@ -93,6 +95,35 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
     onboardingRequiredRef.current = onboarding.required;
   }, [onboarding.required]);
 
+  useEffect(() => {
+    bootstrapQueriesBusyRef.current = !shouldSkip && Boolean(
+      dashboardQuery.isLoading
+      || dashboardQuery.isFetching
+      || settingsQuery.isLoading
+      || settingsQuery.isFetching
+    );
+  }, [dashboardQuery.isFetching, dashboardQuery.isLoading, settingsQuery.isFetching, settingsQuery.isLoading, shouldSkip]);
+
+  useEffect(() => {
+    const queriesStillBusy = !shouldSkip && Boolean(
+      dashboardQuery.isLoading
+      || dashboardQuery.isFetching
+      || settingsQuery.isLoading
+      || settingsQuery.isFetching
+    );
+    if (queriesStillBusy) return;
+
+    if (pendingInitialLoadResolversRef.current.length === 0) return;
+
+    const result = {
+      dashboard: dashboardRef.current,
+      settings: settingsRef.current,
+    };
+    const resolvers = pendingInitialLoadResolversRef.current.splice(0);
+    inflightRef.current = null;
+    resolvers.forEach((resolve) => resolve(result));
+  }, [dashboard, dashboardQuery.isFetching, dashboardQuery.isLoading, settings, settingsQuery.isFetching, settingsQuery.isLoading, shouldSkip]);
+
   const refresh = useCallback(
     async (options?: { force?: boolean }): Promise<BootstrapRefreshResult> => {
       const currentDashboard = dashboardRef.current;
@@ -110,12 +141,21 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
 
       const hasData = Boolean(currentDashboard && currentSettings);
       const force = options?.force === true;
+      const queriesBusy = bootstrapQueriesBusyRef.current;
 
       if (!force && hasData) {
         return { dashboard: currentDashboard, settings: currentSettings };
       }
 
       if (inflightRef.current) return inflightRef.current;
+
+      if (!force && !hasData && queriesBusy) {
+        const promise = new Promise<BootstrapRefreshResult>((resolve) => {
+          pendingInitialLoadResolversRef.current.push(resolve);
+        });
+        inflightRef.current = promise;
+        return promise;
+      }
 
       const promise = (async () => {
         if (hasData) setIsRefreshing(true);
@@ -174,10 +214,7 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
 
     const onChange = (next: AppStateStatus) => {
       if (next !== "active") return;
-      if (!lastLoadedAt) {
-        void refresh({ force: true });
-        return;
-      }
+      if (!lastLoadedAt) return;
       // Avoid hammering the API when users switch apps quickly.
       const ageMs = Date.now() - lastLoadedAt;
       if (ageMs > 15_000) {

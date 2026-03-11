@@ -3,6 +3,7 @@ import { Alert, KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
+import { useAuth } from "@/context/AuthContext";
 import { useResendEmailVerificationMutation, useUpdateProfileMutation } from "@/store/api";
 import { T } from "@/lib/theme";
 import { useTopHeaderOffset } from "@/hooks";
@@ -11,6 +12,7 @@ import type { RootStackScreenProps } from "@/navigation/types";
 
 export default function SettingsProfileDetailsScreen({ navigation, route }: RootStackScreenProps<"SettingsProfileDetails">) {
   const topHeaderOffset = useTopHeaderOffset(8);
+  const { hydrateProfile } = useAuth();
   const [email, setEmail] = useState(route.params?.email ?? "");
   const [username] = useState(route.params?.username ?? "");
   const [updateProfile, { isLoading: saving }] = useUpdateProfileMutation();
@@ -46,7 +48,8 @@ export default function SettingsProfileDetailsScreen({ navigation, route }: Root
 
   const save = async () => {
     try {
-      await updateProfile({ email: email.trim() || null }).unwrap();
+      const next = await updateProfile({ email: email.trim() || null }).unwrap();
+      hydrateProfile(next);
       navigation.goBack();
     } catch (err: unknown) {
       Alert.alert("Could not save details", err instanceof Error ? err.message : "Please try again.");

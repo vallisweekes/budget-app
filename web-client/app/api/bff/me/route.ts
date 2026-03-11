@@ -3,13 +3,96 @@ import { prisma } from "@/lib/prisma";
 import { getSessionIdentity } from "@/lib/api/bffAuth";
 import { isValidEmail, normalizeEmail } from "@/lib/helpers/email";
 import { getEmailVerificationState, sendEmailVerificationEmail } from "@/lib/auth/emailVerification";
-import { runOnboardingRepairPass } from "@/lib/onboarding";
+import { getOnboardingForUser, runOnboardingRepairPass } from "@/lib/onboarding";
+import { normalizeBillFrequency, normalizePayFrequency } from "@/lib/payPeriods";
 import { touchMobileAuthSessionAndDetectFirstSeen } from "@/lib/mobileAuthSessions";
 
 export const runtime = "nodejs";
 
 function unauthorized() {
   return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+}
+
+function latestDate(...dates: Array<Date | null | undefined>): Date | null {
+  const valid = dates.filter((date): date is Date => date instanceof Date && !Number.isNaN(date.getTime()));
+  if (valid.length === 0) return null;
+  return valid.reduce((latest, current) => (current.getTime() > latest.getTime() ? current : latest));
+}
+
+function normalizeProfileOnMe<T extends { occupation?: unknown; occupationOther?: unknown }>(
+  profile: T | null | undefined,
+  options: { required: boolean }
+): T | null {
+  if (!profile) {
+    if (options.required) return null;
+    return {
+      occupation: "Other",
+      occupationOther: "Other",
+    } as T;
+  }
+
+  const occupation = typeof profile.occupation === "string" && profile.occupation.trim().length > 0
+    ? profile.occupation
+    : "Other";
+  const occupationOther = occupation === "Other"
+    ? (typeof profile.occupationOther === "string" && profile.occupationOther.trim().length > 0
+      ? profile.occupationOther
+      : "Other")
+    : (typeof profile.occupationOther === "string" ? profile.occupationOther : null);
+
+  return {
+    ...profile,
+    occupation,
+    occupationOther,
+  };
+}
+
+async function buildProfileResponse(userId: string) {
+  const [user, verification, onboarding, onboardingMeta] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, name: true, email: true, createdAt: true },
+    }),
+    getEmailVerificationState(userId),
+    getOnboardingForUser(userId),
+    prisma.userOnboardingProfile.findUnique({
+      where: { userId },
+      select: {
+        status: true,
+        completedAt: true,
+        updatedAt: true,
+        payFrequency: true,
+        billFrequency: true,
+      },
+    }).catch(() => null),
+  ]);
+
+  if (!user) return null;
+
+  const setupCompletedAt = latestDate(
+    onboardingMeta?.completedAt ?? null,
+    onboardingMeta?.status === "completed" ? onboardingMeta?.updatedAt ?? null : null,
+  )?.toISOString() ?? null;
+  const normalizedOnboarding = {
+    ...onboarding,
+    profile: normalizeProfileOnMe(onboarding.profile, { required: onboarding.required }),
+  };
+
+  return {
+    id: user.id,
+    username: String(user.name ?? "").trim(),
+    email: user.email,
+    emailVerifiedAt: verification.emailVerifiedAt?.toISOString() ?? null,
+    emailVerificationStatus: verification.status,
+    emailVerificationRequired: verification.required,
+    emailVerificationBlocked: verification.blocked,
+    emailVerificationDeadlineAt: verification.deadlineAt?.toISOString() ?? null,
+    onboarding: normalizedOnboarding,
+    accountCreatedAt: user.createdAt?.toISOString() ?? null,
+    setupCompletedAt,
+    payFrequency: normalizePayFrequency(onboardingMeta?.payFrequency ?? normalizedOnboarding.profile?.payFrequency ?? null),
+    billFrequency: normalizeBillFrequency(onboardingMeta?.billFrequency ?? normalizedOnboarding.profile?.billFrequency ?? null),
+  };
 }
 
 export async function GET(request: Request) {
@@ -33,25 +116,10 @@ export async function GET(request: Request) {
       }
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: identity.userId },
-      select: { id: true, name: true, email: true },
-    });
+    const response = await buildProfileResponse(identity.userId);
+    if (!response) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
-
-    const verification = await getEmailVerificationState(identity.userId);
-
-    return NextResponse.json({
-      id: user.id,
-      username: String(user.name ?? "").trim(),
-      email: user.email,
-      emailVerifiedAt: verification.emailVerifiedAt?.toISOString() ?? null,
-      emailVerificationStatus: verification.status,
-      emailVerificationRequired: verification.required,
-      emailVerificationBlocked: verification.blocked,
-      emailVerificationDeadlineAt: verification.deadlineAt?.toISOString() ?? null,
-    });
+    return NextResponse.json(response);
   } catch (error) {
     console.error("Failed to fetch profile:", error);
     return NextResponse.json({ error: "Failed to fetch profile" }, { status: 500 });
@@ -89,13 +157,13 @@ export async function PATCH(request: Request) {
 
     const emailChanged = (currentUser.email ?? null) !== (normalized || null);
 
-    const updated = await prisma.user.update({
+    const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: {
         email: normalized || null,
         emailVerified: emailChanged ? null : undefined,
       },
-      select: { id: true, name: true, email: true },
+      select: { email: true },
     });
 
     if (emailChanged) {
@@ -105,7 +173,7 @@ export async function PATCH(request: Request) {
         },
       });
 
-      if (updated.email) {
+      if (updatedUser.email) {
         try {
           await sendEmailVerificationEmail(userId, { resetDeadline: true });
         } catch (error) {
@@ -114,18 +182,10 @@ export async function PATCH(request: Request) {
       }
     }
 
-    const verification = await getEmailVerificationState(userId);
+    const response = await buildProfileResponse(userId);
+    if (!response) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-    return NextResponse.json({
-      id: updated.id,
-      username: String(updated.name ?? "").trim(),
-      email: updated.email,
-      emailVerifiedAt: verification.emailVerifiedAt?.toISOString() ?? null,
-      emailVerificationStatus: verification.status,
-      emailVerificationRequired: verification.required,
-      emailVerificationBlocked: verification.blocked,
-      emailVerificationDeadlineAt: verification.deadlineAt?.toISOString() ?? null,
-    });
+    return NextResponse.json(response);
   } catch (error) {
     const message = String((error as { message?: unknown })?.message ?? "");
     if (message.includes("Unique constraint") || message.includes("P2002")) {
