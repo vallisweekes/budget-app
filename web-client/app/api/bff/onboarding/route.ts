@@ -3,6 +3,7 @@ import { getSessionUserId } from "@/lib/api/bffAuth";
 import { sendEmailVerificationEmail } from "@/lib/auth/emailVerification";
 import { completeOnboarding, getOnboardingForUser, saveOnboardingDraft, type OnboardingInput } from "@/lib/onboarding";
 import { invalidateDashboardCache, invalidateDashboardCacheForUser } from "@/lib/cache/dashboardCache";
+import { invalidateProfileCache } from "@/lib/cache/profileCache";
 
 export const runtime = "nodejs";
 
@@ -93,6 +94,7 @@ export async function PATCH(request: Request) {
 
     const updated = await saveOnboardingDraft(userId, input);
     await invalidateDashboardCacheForUser(userId);
+    await invalidateProfileCache(userId);
     return NextResponse.json({ ok: true, profile: updated });
   } catch (error) {
     console.error("Failed to update onboarding:", error);
@@ -117,6 +119,7 @@ export async function POST(request: Request) {
       console.error("Failed to send onboarding verification email:", verificationError);
     }
     await invalidateDashboardCache(result.budgetPlanId);
+    await invalidateProfileCache(userId);
     return NextResponse.json({ ok: true, budgetPlanId: result.budgetPlanId });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to complete onboarding";

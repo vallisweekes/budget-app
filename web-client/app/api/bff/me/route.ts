@@ -8,6 +8,13 @@ import { normalizeBillFrequency, normalizePayFrequency } from "@/lib/payPeriods"
 import { touchMobileAuthSessionAndDetectFirstSeen } from "@/lib/mobileAuthSessions";
 import { getBootstrapSettingsForUser } from "@/lib/settings/bootstrap";
 import { listBudgetPlansForUser } from "@/lib/budgetPlans";
+import { getJsonCache, setJsonCache } from "@/lib/cache/redisJsonCache";
+import { isRedisConfigured } from "@/lib/redis";
+import {
+  getProfileCacheKey,
+  PROFILE_CACHE_TTL_SECONDS,
+  invalidateProfileCache,
+} from "@/lib/cache/profileCache";
 
 export const runtime = "nodejs";
 
@@ -130,10 +137,28 @@ export async function GET(request: Request) {
       }
     }
 
+    const profileCacheKey = getProfileCacheKey(identity.userId);
+    const cachedProfile = await getJsonCache<Record<string, unknown>>(profileCacheKey);
+    if (cachedProfile) {
+      return NextResponse.json(cachedProfile, {
+        headers: {
+          "x-me-cache": "hit",
+          "x-me-redis": isRedisConfigured() ? "configured" : "not-configured",
+        },
+      });
+    }
+
     const response = await buildProfileResponse(identity.userId);
     if (!response) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-    return NextResponse.json(response);
+    await setJsonCache(profileCacheKey, response, PROFILE_CACHE_TTL_SECONDS);
+
+    return NextResponse.json(response, {
+      headers: {
+        "x-me-cache": "miss",
+        "x-me-redis": isRedisConfigured() ? "configured" : "not-configured",
+      },
+    });
   } catch (error) {
     console.error("Failed to fetch profile:", error);
     return NextResponse.json({ error: "Failed to fetch profile" }, { status: 500 });
@@ -196,10 +221,19 @@ export async function PATCH(request: Request) {
       }
     }
 
+    await invalidateProfileCache(userId);
+
     const response = await buildProfileResponse(userId);
     if (!response) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-    return NextResponse.json(response);
+    await setJsonCache(getProfileCacheKey(userId), response, PROFILE_CACHE_TTL_SECONDS);
+
+    return NextResponse.json(response, {
+      headers: {
+        "x-me-cache": "miss",
+        "x-me-redis": isRedisConfigured() ? "configured" : "not-configured",
+      },
+    });
   } catch (error) {
     const message = String((error as { message?: unknown })?.message ?? "");
     if (message.includes("Unique constraint") || message.includes("P2002")) {

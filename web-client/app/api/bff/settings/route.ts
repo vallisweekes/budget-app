@@ -5,6 +5,7 @@ import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
 import { normalizeBillFrequency, normalizePayFrequency } from "@/lib/payPeriods";
 import { syncGoalCurrentAmountsFromBalances } from "@/lib/goals/syncGoalCurrentAmountsFromBalances";
 import { invalidateDashboardCache } from "@/lib/cache/dashboardCache";
+import { invalidateProfileCache } from "@/lib/cache/profileCache";
 
 export const runtime = "nodejs";
 
@@ -613,6 +614,7 @@ export async function PATCH(req: NextRequest) {
           billFrequency: hasBillFrequency ? nextBillFrequency : undefined,
         });
         await invalidateDashboardCache(budgetPlanId);
+        await invalidateProfileCache(userId);
         const plan = await prisma.budgetPlan.findUnique({
           where: { id: budgetPlanId },
           select: settingsSelect as any,
@@ -671,6 +673,7 @@ export async function PATCH(req: NextRequest) {
         investmentBalance: nextInvestmentBalance,
       });
 		await invalidateDashboardCache(budgetPlanId);
+    await invalidateProfileCache(userId);
       const nextIncomeDefaults = await getIncomeDefaultsFallback(budgetPlanId);
       const cadence = await getCadenceForUser(userId);
       return NextResponse.json({
@@ -736,6 +739,7 @@ export async function PATCH(req: NextRequest) {
         investmentBalance: nextInvestmentBalance,
       });
 		await invalidateDashboardCache(budgetPlanId);
+    await invalidateProfileCache(userId);
       const cadence = await getCadenceForUser(userId);
       return NextResponse.json({
         ...updated,

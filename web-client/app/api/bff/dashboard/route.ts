@@ -25,6 +25,7 @@ import {
 import { getCurrentPeriodKey, getPeriodKey, parsePeriodKeyRange } from "@/lib/helpers/periodKey";
 import { getEarlyPaymentWindowStart } from "@/lib/helpers/finance/earlyPaymentWindow";
 import { getJsonCache, setJsonCache } from "@/lib/cache/redisJsonCache";
+import { isRedisConfigured } from "@/lib/redis";
 import {
 	DASHBOARD_CACHE_TTL_SECONDS,
 	getDashboardCacheKey,
@@ -203,7 +204,12 @@ export async function GET(req: NextRequest) {
 				key: dashboardCacheKey,
 				budgetPlanId,
 			});
-			return NextResponse.json(cachedDashboard);
+			return NextResponse.json(cachedDashboard, {
+				headers: {
+					"x-dashboard-cache": "hit",
+					"x-dashboard-redis": isRedisConfigured() ? "configured" : "not-configured",
+				},
+			});
 		}
 		logDerivedSummaryCacheEvent({
 			route: "dashboard",
@@ -634,7 +640,12 @@ export async function GET(req: NextRequest) {
 			budgetPlanId,
 		});
 
-		return NextResponse.json(responseBody);
+		return NextResponse.json(responseBody, {
+			headers: {
+				"x-dashboard-cache": "miss",
+				"x-dashboard-redis": isRedisConfigured() ? "configured" : "not-configured",
+			},
+		});
 	} catch (error) {
 		console.error("Failed to compute dashboard:", error);
 		const isProd = process.env.NODE_ENV === "production";

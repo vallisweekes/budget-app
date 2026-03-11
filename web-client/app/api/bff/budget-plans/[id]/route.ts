@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUserId } from "@/lib/api/bffAuth";
 import { invalidateDashboardCache } from "@/lib/cache/dashboardCache";
+import { invalidateProfileCache } from "@/lib/cache/profileCache";
 
 export const runtime = "nodejs";
 
@@ -97,6 +98,7 @@ export async function PATCH(
         createdAt: true,
       },
     });
+    await invalidateProfileCache(userId);
 	await invalidateDashboardCache(id);
 
     return NextResponse.json(updated);
@@ -128,6 +130,7 @@ export async function DELETE(
     }
 
     await prisma.budgetPlan.delete({ where: { id } });
+    await invalidateProfileCache(userId);
   	await invalidateDashboardCache(id);
     return NextResponse.json({ success: true });
   } catch (error) {

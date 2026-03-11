@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Animated, AppState, type AppStateStatus, StyleSheet, View } from "react-native";
+import { Animated, AppState, type AppStateStatus, StyleSheet, View } from "react-native";
 import { DefaultTheme, ThemeProvider, type Theme } from "@react-navigation/native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Provider as ReduxProvider } from "react-redux";
@@ -10,7 +10,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { store } from "@/store";
 import { ActiveBudgetPlanProvider } from "@/context/ActiveBudgetPlanContext";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
-import { BootstrapDataProvider } from "@/context/BootstrapDataContext";
+import { BootstrapDataProvider, useBootstrapData } from "@/context/BootstrapDataContext";
 import { PushNotificationsBootstrap } from "@/components/Shared/PushNotificationsBootstrap";
 import { applyThemeMode, type ThemeMode, T } from "@/lib/theme";
 import { getStoredThemeMode } from "@/lib/storage";
@@ -108,6 +108,7 @@ function useSessionRouteGuardState() {
   const pathname = usePathname();
   const segments = useSegments() as string[];
   const { token, isLoading } = useAuth();
+  const { isLoading: bootstrapLoading } = useBootstrapData();
   const onboarding = useOnboardingGate();
   const verification = useEmailVerificationGate();
 
@@ -118,6 +119,10 @@ function useSessionRouteGuardState() {
   const onVerificationRoute = (rootSegment === "(auth)" && childSegment === "verify-email") || pathname === "/verify-email";
 
   if (isLoading || (token && (onboarding.busy || verification.busy))) {
+    return { mode: "loading" as const };
+  }
+
+  if (token && !onboarding.required && !verification.blocked && bootstrapLoading) {
     return { mode: "loading" as const };
   }
 
@@ -150,6 +155,7 @@ function RootShell() {
   const [splashVisible, setSplashVisible] = useState(true);
   const splashOpacity = useRef(new Animated.Value(1)).current;
   const guard = useSessionRouteGuardState();
+  const shouldHoldSplash = booting || guard.mode === "loading";
 
   useEffect(() => {
     let mounted = true;
@@ -177,7 +183,12 @@ function RootShell() {
   }, []);
 
   useEffect(() => {
-    if (booting) return;
+    if (shouldHoldSplash) {
+      setSplashVisible(true);
+      splashOpacity.stopAnimation();
+      splashOpacity.setValue(1);
+      return;
+    }
 
     Animated.timing(splashOpacity, {
       toValue: 0,
@@ -186,7 +197,7 @@ function RootShell() {
     }).start(({ finished }) => {
       if (finished) setSplashVisible(false);
     });
-  }, [booting, splashOpacity]);
+  }, [shouldHoldSplash, splashOpacity]);
 
   const navTheme: Theme = useMemo(
     () => ({
@@ -205,19 +216,15 @@ function RootShell() {
     [mode]
   );
 
-  if (booting) {
-    return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: T.bg }} onLayout={onRootLayout}>
-        <ActivityIndicator size="large" color={T.accent} />
-      </View>
-    );
-  }
-
-  if (guard.mode === "loading") {
+  if (shouldHoldSplash) {
     return (
       <ThemeProvider value={navTheme}>
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: T.bg }} onLayout={onRootLayout}>
-          <ActivityIndicator size="large" color={T.accent} />
+        <View style={{ flex: 1, backgroundColor: T.bg }} onLayout={onRootLayout}>
+          <Animated.Image
+            source={require("../assets/splash.png")}
+            resizeMode="cover"
+            style={[StyleSheet.absoluteFill, styles.splash, { opacity: splashOpacity }]}
+          />
         </View>
       </ThemeProvider>
     );

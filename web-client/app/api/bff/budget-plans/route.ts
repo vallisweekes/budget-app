@@ -9,6 +9,7 @@ import {
 } from "@/lib/budgetPlans";
 import { buildPlanCreatedActivity } from "@/lib/push/activityMessages";
 import { sendUserPush } from "@/lib/push/sendUserPush";
+import { invalidateProfileCache } from "@/lib/cache/profileCache";
 
 function toBool(value: unknown): boolean {
 	if (value === true) return true;
@@ -92,6 +93,8 @@ export async function POST(req: Request) {
 			eventDate,
 			includePostEventIncome,
 		});
+
+		await invalidateProfileCache(userId);
 
 		if (!existing) {
 			try {
