@@ -1,5 +1,6 @@
 import React from "react";
 import { Ionicons } from "@expo/vector-icons";
+import { CommonActions } from "@react-navigation/native";
 import { StackActions } from "@react-navigation/native";
 import { Pressable, Text, View } from "react-native";
 import { Tabs } from "expo-router";
@@ -53,6 +54,21 @@ function TabsHeader({ navigation, route }: { navigation: any; route: any }) {
     if (!stackKey || !Number.isFinite(stackIndex) || stackIndex <= 0) return false;
     navigation.dispatch({
       ...StackActions.pop(1),
+      target: stackKey,
+    });
+    return true;
+  };
+
+  const resetCurrentTabStack = (screen: string, params?: Record<string, unknown>) => {
+    const routes = Array.isArray(navigationState?.routes) ? navigationState.routes : [];
+    const currentTabRoute = routes.find((entry: { name?: string }) => getRouteBaseName(entry?.name) === currentTabName) as { state?: { key?: string } } | undefined;
+    const stackKey = currentTabRoute?.state?.key;
+    if (!stackKey) return false;
+    navigation.dispatch({
+      ...CommonActions.reset({
+        index: 0,
+        routes: [{ name: screen, params }],
+      }),
       target: stackKey,
     });
     return true;
@@ -145,6 +161,24 @@ function TabsHeader({ navigation, route }: { navigation: any; route: any }) {
     if (isCategoryExpenses) {
       markSkipExpensesFocusReload();
       if (popCurrentTabStack()) {
+        return;
+      }
+      if (resetCurrentTabStack(
+        "ExpensesList",
+        hasCategoryMonthYear
+          ? {
+            month: categoryExpensesMonth,
+            year: categoryExpensesYear,
+            skipFocusReloadAt: Date.now(),
+          }
+          : {
+            skipFocusReloadAt: Date.now(),
+          },
+      )) {
+        return;
+      }
+      if (navigation.canGoBack?.()) {
+        navigation.goBack();
         return;
       }
       if (!navigateToTab("expenses", {

@@ -5,8 +5,7 @@ import { getMonthlyDebtPlan } from "@/lib/helpers/finance/getMonthlyDebtPlan";
 import { getAllIncome, getIncomeForAnchorMonth } from "@/lib/income/store";
 import { ensureDefaultCategoriesForBudgetPlan } from "@/lib/categories/defaultCategories";
 import { supportsExpenseMovedToDebtField } from "@/lib/prisma/capabilities";
-import { resolveEffectiveDueDateIso } from "@/lib/expenses/insights";
-import { isLegacyPlaceholderExpenseRow } from "@/lib/expenses/legacyPlaceholders";
+import { getPayPeriodExpenses, includeInPlannedExpenseTotals } from "@/lib/helpers/finance/payPeriodExpenses";
 import { getPayPeriodAnchorFromWindow, resolveActivePayPeriodWindow, type PayFrequency } from "@/lib/payPeriods";
 import { getPeriodKey } from "@/lib/helpers/periodKey";
 import type { ExpenseItem } from "@/types";
@@ -48,14 +47,6 @@ export type DashboardPlanData = {
 	remaining: number;
 	goals: DashboardGoalLike[];
 };
-
-function includeInPlannedExpenseTotals(expense: {
-	isExtraLoggedExpense?: boolean | null;
-	paymentSource?: string | null;
-}): boolean {
-	if (!Boolean(expense.isExtraLoggedExpense ?? false)) return true;
-	return String(expense.paymentSource ?? "income").trim().toLowerCase() === "income";
-}
 
 export async function getDashboardPlanData(
 	planId: string,
@@ -324,8 +315,6 @@ export async function getDashboardPlanDataForActivePayPeriod(
 	const startYear = window.start.getUTCFullYear();
 	const startMonthNum = window.start.getUTCMonth() + 1;
 	const startMonthKey = monthNumberToKey(startMonthNum);
-	const currentPeriodKey = getPeriodKey(window.start, payDate);
-
 	const isUnknownMovedToDebtFieldError = (error: unknown) => {
 		const message = String((error as { message?: unknown })?.message ?? error);
 		return (
@@ -339,82 +328,12 @@ export async function getDashboardPlanDataForActivePayPeriod(
 	const [categories, expenses, income, goals, allocation, customAllocations, debtPlan] =
 		await Promise.all([
 			prisma.category.findMany({ where: { budgetPlanId: planId } }),
-			(async () => {
-				const periodPairs = [
-					{ year: window.start.getUTCFullYear(), month: window.start.getUTCMonth() + 1 },
-					{ year: window.end.getUTCFullYear(), month: window.end.getUTCMonth() + 1 },
-					{
-						year: new Date(Date.UTC(window.start.getUTCFullYear(), window.start.getUTCMonth() - 1, 1)).getUTCFullYear(),
-						month: new Date(Date.UTC(window.start.getUTCFullYear(), window.start.getUTCMonth() - 1, 1)).getUTCMonth() + 1,
-					},
-					{
-						year: new Date(Date.UTC(window.end.getUTCFullYear(), window.end.getUTCMonth() + 1, 1)).getUTCFullYear(),
-						month: new Date(Date.UTC(window.end.getUTCFullYear(), window.end.getUTCMonth() + 1, 1)).getUTCMonth() + 1,
-					},
-				];
-				const uniquePairs = Array.from(new Map(periodPairs.map((p) => [`${p.year}-${p.month}`, p])).values());
-
-				const runLegacyQuery = () =>
-					prisma.expense.findMany({
-						where: { budgetPlanId: planId, OR: uniquePairs },
-						select: {
-							id: true,
-							name: true,
-							seriesKey: true,
-							merchantDomain: true,
-							logoUrl: true,
-							logoSource: true,
-							amount: true,
-							paid: true,
-							paidAmount: true,
-							categoryId: true,
-							isAllocation: true,
-							isDirectDebit: true,
-							isExtraLoggedExpense: true,
-							paymentSource: true,
-							periodKey: true,
-							dueDate: true,
-							year: true,
-							month: true,
-						},
-						orderBy: [{ year: "asc" }, { month: "asc" }, { createdAt: "asc" }],
-					});
-
-				if (!(await supportsExpenseMovedToDebtField())) {
-					return runLegacyQuery();
-				}
-
-				try {
-					return await prisma.expense.findMany({
-						where: { budgetPlanId: planId, OR: uniquePairs, isMovedToDebt: false },
-						select: {
-							id: true,
-							name: true,
-							seriesKey: true,
-							merchantDomain: true,
-							logoUrl: true,
-							logoSource: true,
-							amount: true,
-							paid: true,
-							paidAmount: true,
-							categoryId: true,
-							isAllocation: true,
-							isDirectDebit: true,
-							isExtraLoggedExpense: true,
-							paymentSource: true,
-							periodKey: true,
-							dueDate: true,
-							year: true,
-							month: true,
-							isMovedToDebt: true,
-						},
-						orderBy: [{ year: "asc" }, { month: "asc" }, { createdAt: "asc" }],
-					});
-				} catch (error) {
-					if (!isUnknownMovedToDebtFieldError(error)) throw error;
-					return runLegacyQuery();
-				}
-			})(),
+			getPayPeriodExpenses({
+				budgetPlanId: planId,
+				windowStart: window.start,
+				windowEnd: window.end,
+				payDate,
+			}),
 			(async () => {
 				if (payFrequency === "monthly") {
 					return getIncomeForAnchorMonth({
@@ -459,81 +378,7 @@ export async function getDashboardPlanDataForActivePayPeriod(
 		{} as Record<string, (typeof categories)[number]>
 	);
 
-	const filteredAndDeduped: any[] = [];
-	const seen = new Map<string, { exp: any; rank: number }>();
-	const allowedUnscheduledYm = new Set([
-		`${window.start.getUTCFullYear()}-${window.start.getUTCMonth() + 1}`,
-		`${window.end.getUTCFullYear()}-${window.end.getUTCMonth() + 1}`,
-	]);
-
-	for (const exp of expenses as any[]) {
-		if (isLegacyPlaceholderExpenseRow(exp)) continue;
-
-		// Allocations/envelopes are tracked separately and should not appear as bills.
-		if (Boolean(exp.isAllocation ?? false)) continue;
-		if (!includeInPlannedExpenseTotals(exp)) continue;
-
-		const series = normalizeSeriesOrName(exp.seriesKey, exp.name);
-		const amount = Number(exp.amount ?? 0);
-
-		if (exp.dueDate) {
-			const dueIso = resolveEffectiveDueDateIso(
-				{
-					id: exp.id,
-					name: exp.name,
-					amount,
-					paid: Boolean(exp.paid),
-					paidAmount: Number(exp.paidAmount ?? 0),
-					dueDate: exp.dueDate ? new Date(exp.dueDate).toISOString().slice(0, 10) : undefined,
-				},
-				{ year: exp.year, monthNum: exp.month, payDate }
-			);
-			if (!dueIso) continue;
-			const due = parseIsoDateOnlyToUtc(dueIso);
-			if (!due) continue;
-			if (!inRangeUtc(due, window.start, window.end)) continue;
-
-			const key = `${series}|${dueIso}|${amount}`;
-			const dueYm = parseIsoYearMonth(dueIso);
-			const rank = dueYm && exp.year === dueYm.year && exp.month === dueYm.month ? 0 : 1;
-
-			const existing = seen.get(key);
-			if (!existing) {
-				seen.set(key, { exp: { ...exp, __effectiveDueIso: dueIso }, rank });
-				continue;
-			}
-			if (rank < existing.rank) {
-				seen.set(key, { exp: { ...exp, __effectiveDueIso: dueIso }, rank });
-			}
-			continue;
-		}
-
-		// Keep unscheduled/logged expense selection aligned with the expense summary and income-month BFFs.
-		const expensePeriodKey = String(exp.periodKey ?? "").trim();
-		let dedupeScope = "";
-		if (expensePeriodKey) {
-			if (expensePeriodKey !== currentPeriodKey) continue;
-			dedupeScope = `unscheduled:${expensePeriodKey}`;
-		} else {
-			if (!allowedUnscheduledYm.has(`${exp.year}-${exp.month}`)) continue;
-			dedupeScope = `unscheduled:${exp.year}-${exp.month}`;
-		}
-		const key = `${series}|${dedupeScope}|${amount}`;
-		const rank = 0;
-
-		const existing = seen.get(key);
-		if (!existing) {
-			seen.set(key, { exp, rank });
-			continue;
-		}
-		if (rank < existing.rank) {
-			seen.set(key, { exp, rank });
-		}
-	}
-
-	for (const v of seen.values()) filteredAndDeduped.push(v.exp);
-
-	const regularExpenses: ExpenseItem[] = filteredAndDeduped.map((e) => ({
+	const regularExpenses: ExpenseItem[] = expenses.map((e) => ({
 		id: e.id,
 		name: e.name,
 		merchantDomain: e.merchantDomain ?? undefined,

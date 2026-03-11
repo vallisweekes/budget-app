@@ -2,12 +2,10 @@ import { getAllIncome, getIncomeForAnchorMonth } from "@/lib/income/store";
 import { getMonthlyAllocationSnapshot, getMonthlyCustomAllocationsSnapshot } from "@/lib/allocations/store";
 import { monthNumberToKey } from "@/lib/helpers/monthKey";
 import { getMonthlyDebtPlan } from "@/lib/helpers/finance/getMonthlyDebtPlan";
-import { resolveEffectiveDueDateIso } from "@/lib/expenses/insights";
-import { isLegacyPlaceholderExpenseRow } from "@/lib/expenses/legacyPlaceholders";
 import { buildPayPeriodFromMonthAnchor, normalizePayFrequency, type PayFrequency } from "@/lib/payPeriods";
-import { supportsExpenseMovedToDebtField } from "@/lib/prisma/capabilities";
 import { prisma } from "@/lib/prisma";
 import { getPeriodKey } from "@/lib/helpers/periodKey";
+import { getPayPeriodExpenses, includeInPlannedExpenseTotals } from "@/lib/helpers/finance/payPeriodExpenses";
 import type { MonthKey } from "@/types";
 
 function decimalToNumber(value: unknown): number {
@@ -37,169 +35,13 @@ function normalizeIncomeKey(name: unknown): string {
 		.replace(/\s+/g, " ");
 }
 
-function daysInMonthUtc(year: number, monthIndex0: number): number {
-	return new Date(Date.UTC(year, monthIndex0 + 1, 0)).getUTCDate();
-}
-
-function clampDayUtc(year: number, monthIndex0: number, day: number): Date {
-	const maxDay = daysInMonthUtc(year, monthIndex0);
-	const clamped = Math.max(1, Math.min(maxDay, Math.floor(day)));
-	return new Date(Date.UTC(year, monthIndex0, clamped));
-}
-
-function utcDateOnly(date: Date): Date {
-	return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
-}
-
-function resolveEffectiveExpenseDueDateUtc(expense: { dueDate: Date | null; year: number; month: number }, payDate: number): Date | null {
-	if (expense.dueDate) return utcDateOnly(expense.dueDate);
-	if (!Number.isFinite(expense.year) || !Number.isFinite(expense.month)) return null;
-	if (expense.month < 1 || expense.month > 12) return null;
-	const safePayDate = Number.isFinite(payDate) ? Math.max(1, Math.floor(payDate)) : 27;
-	return clampDayUtc(expense.year, expense.month - 1, safePayDate);
-}
-
-function inRangeUtc(target: Date, start: Date, end: Date): boolean {
-	const time = target.getTime();
-	return time >= start.getTime() && time <= end.getTime();
-}
-
-function normalizeSeriesOrName(seriesKey: unknown, name: unknown): string {
-	const raw = String(seriesKey ?? name ?? "").trim().toLowerCase();
-	return raw.replace(/\s+/g, " ");
-}
-
-function includeInPlannedExpenseTotals(expense: {
-	isExtraLoggedExpense?: boolean | null;
-	paymentSource?: string | null;
-}): boolean {
-	if (!Boolean(expense.isExtraLoggedExpense ?? false)) return true;
-	return String(expense.paymentSource ?? "income").trim().toLowerCase() === "income";
-}
-
 async function getPeriodExpenseSnapshot(params: {
 	budgetPlanId: string;
 	windowStart: Date;
 	windowEnd: Date;
 	payDate: number;
 }): Promise<{ plannedExpenses: number; paidExpenses: number; expenseIds: string[] }> {
-	const { budgetPlanId, windowStart, windowEnd, payDate } = params;
-	const periodPairs = [
-		{ year: windowStart.getUTCFullYear(), month: windowStart.getUTCMonth() + 1 },
-		{ year: windowEnd.getUTCFullYear(), month: windowEnd.getUTCMonth() + 1 },
-		{
-			year: new Date(Date.UTC(windowStart.getUTCFullYear(), windowStart.getUTCMonth() - 1, 1)).getUTCFullYear(),
-			month: new Date(Date.UTC(windowStart.getUTCFullYear(), windowStart.getUTCMonth() - 1, 1)).getUTCMonth() + 1,
-		},
-		{
-			year: new Date(Date.UTC(windowEnd.getUTCFullYear(), windowEnd.getUTCMonth() + 1, 1)).getUTCFullYear(),
-			month: new Date(Date.UTC(windowEnd.getUTCFullYear(), windowEnd.getUTCMonth() + 1, 1)).getUTCMonth() + 1,
-		},
-	];
-	const uniquePairs = Array.from(new Map(periodPairs.map((pair) => [`${pair.year}-${pair.month}`, pair])).values());
-	const currentPeriodKey = getPeriodKey(windowStart, payDate);
-	const expenseWhere = {
-		budgetPlanId,
-		OR: [
-			...uniquePairs,
-			{ dueDate: { gte: windowStart, lte: windowEnd } },
-		],
-	};
-
-	const baseSelect = {
-		id: true,
-		name: true,
-		seriesKey: true,
-		amount: true,
-		paidAmount: true,
-		paid: true,
-		dueDate: true,
-		year: true,
-		month: true,
-		isAllocation: true,
-		isDirectDebit: true,
-		isExtraLoggedExpense: true,
-		paymentSource: true,
-		periodKey: true,
-	} as const;
-
-	const rows = await (async () => {
-		if (!(await supportsExpenseMovedToDebtField())) {
-			return prisma.expense.findMany({
-				where: expenseWhere,
-				select: baseSelect,
-				orderBy: [{ year: "asc" }, { month: "asc" }, { createdAt: "asc" }],
-			});
-		}
-
-		return prisma.expense.findMany({
-			where: { ...expenseWhere, isMovedToDebt: false },
-			select: {
-				...baseSelect,
-				isMovedToDebt: true,
-			},
-			orderBy: [{ year: "asc" }, { month: "asc" }, { createdAt: "asc" }],
-		});
-	})();
-
-	const allowedUnscheduledYm = new Set([
-		`${windowStart.getUTCFullYear()}-${windowStart.getUTCMonth() + 1}`,
-		`${windowEnd.getUTCFullYear()}-${windowEnd.getUTCMonth() + 1}`,
-	]);
-
-	const seen = new Map<string, { expense: (typeof rows)[number]; rank: number }>();
-	for (const expense of rows as any[]) {
-		if (isLegacyPlaceholderExpenseRow(expense)) continue;
-		if (Boolean(expense.isAllocation ?? false)) continue;
-		if (!includeInPlannedExpenseTotals(expense)) continue;
-
-		const series = normalizeSeriesOrName(expense.seriesKey, expense.name);
-		const amount = Number(expense.amount ?? 0);
-
-		if (expense.dueDate) {
-			const dueIso = resolveEffectiveDueDateIso(
-				{
-					id: expense.id,
-					name: expense.name,
-					amount,
-					paid: Boolean(expense.paid),
-					paidAmount: Number(expense.paidAmount ?? 0),
-					dueDate: expense.dueDate ? new Date(expense.dueDate).toISOString().slice(0, 10) : undefined,
-				},
-				{ year: expense.year, monthNum: expense.month, payDate }
-			);
-			if (!dueIso) continue;
-			const due = new Date(`${dueIso}T00:00:00.000Z`);
-			if (!Number.isFinite(due.getTime()) || !inRangeUtc(due, windowStart, windowEnd)) continue;
-
-			const dueMonth = due.getUTCMonth() + 1;
-			const dueYear = due.getUTCFullYear();
-			const rank = expense.year === dueYear && expense.month === dueMonth ? 0 : 1;
-			const key = `${series}|${dueIso}|${amount}`;
-			const existing = seen.get(key);
-			if (!existing || rank < existing.rank) {
-				seen.set(key, { expense, rank });
-			}
-			continue;
-		}
-
-		const expensePeriodKey = String((expense as { periodKey?: string | null }).periodKey ?? "").trim();
-		let dedupeScope = "";
-		if (expensePeriodKey) {
-			if (expensePeriodKey !== currentPeriodKey) continue;
-			dedupeScope = `unscheduled:${expensePeriodKey}`;
-		} else {
-			if (!allowedUnscheduledYm.has(`${expense.year}-${expense.month}`)) continue;
-			dedupeScope = `unscheduled:${expense.year}-${expense.month}`;
-		}
-
-		const key = `${series}|${dedupeScope}|${amount}`;
-		if (!seen.has(key)) {
-			seen.set(key, { expense, rank: 0 });
-		}
-	}
-
-	const selectedExpenses = Array.from(seen.values()).map((entry) => entry.expense);
+	const selectedExpenses = await getPayPeriodExpenses(params);
 	return {
 		plannedExpenses: selectedExpenses.reduce((sum, expense) => sum + Number(expense.amount ?? 0), 0),
 		paidExpenses: selectedExpenses.reduce((sum, expense) => sum + Number(expense.paidAmount ?? 0), 0),
