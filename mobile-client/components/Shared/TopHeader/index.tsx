@@ -12,7 +12,6 @@ export default function TopHeader({
   onSettings,
   onIncome,
   onAnalytics,
-  onNotifications,
   leftContent,
   leftVariant = "avatar",
   onBack,
@@ -22,16 +21,15 @@ export default function TopHeader({
   rightContent,
   compactActionsMenu = false,
   showAnalyticsAction = true,
-  showNotificationAction = true,
   onLogout,
   incomePendingCount = 0,
   onAddIncome,
-  showNotificationDot = false,
 }: TopHeaderProps) {
   const insets = useSafeAreaInsets();
   const { username } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
-  const shouldShowCompactMenuTrigger = !onAddIncome && (showIncomeAction || showAnalyticsAction || showNotificationAction);
+  const visibleActionCount = (showIncomeAction ? 1 : 0) + (showAnalyticsAction ? 1 : 0);
+  const shouldShowCompactMenuTrigger = !onAddIncome && visibleActionCount > 0;
 
   const getCenterWrapStyle = () => {
     if (rightContent) {
@@ -43,7 +41,8 @@ export default function TopHeader({
       return onLogout ? styles.centerWrapWithTwoActions : styles.centerWrapWithOneAction;
     }
 
-    return showIncomeAction ? styles.centerWrapWithThreeActions : styles.centerWrapWithTwoActions;
+    if (visibleActionCount >= 2) return styles.centerWrapWithTwoActions;
+    return styles.centerWrapWithOneAction;
   };
 
   const centerWrapStyle = [styles.centerWrap, getCenterWrapStyle()];
@@ -133,12 +132,6 @@ export default function TopHeader({
                 <Ionicons name="stats-chart-outline" size={18} color={T.accent} />
               </Pressable>
             ) : null}
-            {showNotificationAction ? (
-              <Pressable onPress={onNotifications} style={styles.iconBtn} hitSlop={10}>
-                <Ionicons name="notifications-outline" size={18} color={T.accent} />
-                {showNotificationDot ? <View style={styles.notificationDot} /> : null}
-              </Pressable>
-            ) : null}
           </View>
         )}
 			</View>
@@ -173,20 +166,6 @@ export default function TopHeader({
               >
                 <Ionicons name="stats-chart-outline" size={16} color={T.text} />
                 <Text style={styles.menuItemText}>Analytics</Text>
-              </Pressable>
-            ) : null}
-            {showNotificationAction ? (
-              <Pressable
-                onPress={() => {
-                  setMenuOpen(false);
-                  onNotifications();
-                }}
-                style={[styles.menuItem, styles.menuItemLast]}
-                accessibilityRole="button"
-                accessibilityLabel="Go to Notifications"
-              >
-                <Ionicons name="notifications-outline" size={16} color={T.text} />
-                <Text style={styles.menuItemText}>Notifications</Text>
               </Pressable>
             ) : null}
           </View>
