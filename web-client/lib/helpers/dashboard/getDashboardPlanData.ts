@@ -324,6 +324,7 @@ export async function getDashboardPlanDataForActivePayPeriod(
 	const startYear = window.start.getUTCFullYear();
 	const startMonthNum = window.start.getUTCMonth() + 1;
 	const startMonthKey = monthNumberToKey(startMonthNum);
+	const currentPeriodKey = getPeriodKey(window.start, payDate);
 
 	const isUnknownMovedToDebtFieldError = (error: unknown) => {
 		const message = String((error as { message?: unknown })?.message ?? error);
@@ -371,6 +372,7 @@ export async function getDashboardPlanDataForActivePayPeriod(
 							isDirectDebit: true,
 							isExtraLoggedExpense: true,
 							paymentSource: true,
+							periodKey: true,
 							dueDate: true,
 							year: true,
 							month: true,
@@ -400,6 +402,7 @@ export async function getDashboardPlanDataForActivePayPeriod(
 							isDirectDebit: true,
 							isExtraLoggedExpense: true,
 							paymentSource: true,
+							periodKey: true,
 							dueDate: true,
 							year: true,
 							month: true,
@@ -433,6 +436,7 @@ export async function getDashboardPlanDataForActivePayPeriod(
 				month: selectedMonthNum,
 				periodKey: getPeriodKey(window.start, payDate),
 				periodStart: window.start,
+				periodEnd: window.end,
 			}),
 		]);
 
@@ -504,10 +508,16 @@ export async function getDashboardPlanDataForActivePayPeriod(
 			continue;
 		}
 
-		// Unscheduled expenses (no due date) are still part of pay-period totals when they are saved
-		// under a month that falls within the pay-period window.
-		if (!allowedUnscheduledYm.has(`${exp.year}-${exp.month}`)) continue;
-		const dedupeScope = `unscheduled:${exp.year}-${exp.month}`;
+		// Keep unscheduled/logged expense selection aligned with the expense summary and income-month BFFs.
+		const expensePeriodKey = String(exp.periodKey ?? "").trim();
+		let dedupeScope = "";
+		if (expensePeriodKey) {
+			if (expensePeriodKey !== currentPeriodKey) continue;
+			dedupeScope = `unscheduled:${expensePeriodKey}`;
+		} else {
+			if (!allowedUnscheduledYm.has(`${exp.year}-${exp.month}`)) continue;
+			dedupeScope = `unscheduled:${exp.year}-${exp.month}`;
+		}
 		const key = `${series}|${dedupeScope}|${amount}`;
 		const rank = 0;
 

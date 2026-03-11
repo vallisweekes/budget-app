@@ -8,7 +8,6 @@ import { computePortfolioPayoffSummary } from "@/lib/debts/portfolioPayoff";
 import { formatExpenseDebtCardTitle, formatYearMonthLabel } from "@/lib/helpers/debts/expenseDebtLabels";
 import { resolveExpenseLogo } from "@/lib/expenses/logoResolver";
 import { prisma } from "@/lib/prisma";
-import { normalizePayFrequency } from "@/lib/payPeriods";
 import { getCurrentPeriodKey, getPeriodKey, parsePeriodKeyRange } from "@/lib/helpers/periodKey";
 import { getEarlyPaymentWindowStart } from "@/lib/helpers/finance/earlyPaymentWindow";
 
@@ -47,7 +46,7 @@ function unauthorized() {
  * GET /api/bff/debt-summary?budgetPlanId=<optional>
  *
  * Returns a comprehensive debt summary with:
- * - All debts (regular + expense-generated) with computed monthly payment amounts
+	 * - Regular debts by default, with optional expense-generated carryovers when explicitly requested
  * - Active vs paid breakdown
  * - Total debt balance
  * - Credit card debts
@@ -60,6 +59,7 @@ export async function GET(req: NextRequest) {
 
 		const { searchParams } = new URL(req.url);
 		const shouldSync = searchParams.get("sync") === "1";
+		const includeExpenseDebts = searchParams.get("includeExpenseDebts") === "1";
 		const budgetPlanId = await resolveOwnedBudgetPlanId({
 			userId,
 			budgetPlanId: searchParams.get("budgetPlanId"),
@@ -71,14 +71,14 @@ export async function GET(req: NextRequest) {
 		const summary = await (async () => {
 			try {
 				return await getDebtSummaryForPlan(budgetPlanId, {
-					includeExpenseDebts: true,
+					includeExpenseDebts,
 					ensureSynced: shouldSync,
 				});
 			} catch (error) {
 				// Debt sync routines are helpful but should not hard-fail the UI.
 				console.error("Debt summary: failed, retrying without ensureSynced:", error);
 				return await getDebtSummaryForPlan(budgetPlanId, {
-					includeExpenseDebts: true,
+					includeExpenseDebts,
 					ensureSynced: false,
 				});
 			}

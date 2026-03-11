@@ -2,6 +2,7 @@ import type { DebtItem } from "@/types/helpers/debts";
 import { processMissedDebtPaymentsToAccrue } from "@/lib/debts/carryover";
 import { getAllDebts } from "@/lib/debts/store";
 import { getExpenseDebts, processOverdueExpensesToDebts } from "@/lib/expenses/carryover";
+import { isExpenseDebtCoveredByRegularDebt } from "@/lib/helpers/debts/expenseDebtDuplicates";
 import { prisma } from "@/lib/prisma";
 
 export type DebtSummary = {
@@ -22,13 +23,13 @@ export async function getDebtSummaryForPlan(
 		ensureSynced?: boolean;
 	}
 ): Promise<DebtSummary> {
-	const includeExpenseDebts = opts?.includeExpenseDebts ?? true;
+	const includeExpenseDebts = opts?.includeExpenseDebts ?? false;
 	const ensureSynced = opts?.ensureSynced ?? true;
 
 	if (ensureSynced) {
 		await Promise.all([
-			// Ensure overdue/part-paid expenses are reflected as debts.
-			processOverdueExpensesToDebts(budgetPlanId),
+			// Keep the 5-day overdue carryover behavior for real non-allocation expenses.
+			includeExpenseDebts ? processOverdueExpensesToDebts(budgetPlanId) : Promise.resolve([]),
 			// Ensure missed debt payments (due date + grace) accumulate into balances.
 			processMissedDebtPaymentsToAccrue(budgetPlanId),
 		]);
@@ -59,18 +60,23 @@ export async function getDebtSummaryForPlan(
 			? d
 			: { ...d, paidAmount: computedPaid };
 	});
-	const allDebts = [...regularDebts, ...expenseDebts];
+	const visibleExpenseDebts = expenseDebts.filter((debt) => !isExpenseDebtCoveredByRegularDebt({
+		expenseName: debt.sourceExpenseName ?? debt.name,
+		sourceCategoryName: debt.sourceCategoryName,
+		regularDebts,
+	}));
+	const allDebts = [...regularDebts, ...visibleExpenseDebts];
 
 	const activeDebts = allDebts.filter((d) => (d.currentBalance ?? 0) > 0);
 	const activeRegularDebts = regularDebts.filter((d) => (d.currentBalance ?? 0) > 0);
-	const activeExpenseDebts = expenseDebts.filter((d) => (d.currentBalance ?? 0) > 0);
+	const activeExpenseDebts = visibleExpenseDebts.filter((d) => (d.currentBalance ?? 0) > 0);
 
 	const creditCards = regularDebts.filter((d) => d.type === "credit_card" || d.type === "store_card");
 	const totalDebtBalance = allDebts.reduce((sum, debt) => sum + (debt.currentBalance || 0), 0);
 
 	return {
 		regularDebts,
-		expenseDebts,
+		expenseDebts: visibleExpenseDebts,
 		allDebts,
 		activeDebts,
 		activeRegularDebts,

@@ -7,14 +7,12 @@ import Svg, { Circle, Defs, Line, LinearGradient, Path, Polyline, Stop } from "r
 
 import type { DashboardData } from "@/lib/apiTypes";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
-import { fmt } from "@/lib/formatting";
+import { currencySymbol, fmt } from "@/lib/formatting";
 import { T } from "@/lib/theme";
 
 import { buildGoalsProjection } from "./projection";
 import ScenarioSlider from "./ScenarioSlider";
 import { styles } from "./style";
-
-const GOALS_PROJECTION_BG_BLUE = "#2a0a9e";
 const CHART_WIDTH = 320;
 const CHART_HEIGHT = 220;
 const CHART_TOP = 18;
@@ -23,6 +21,15 @@ const CHART_BOTTOM = 168;
 function getChartY(value: number, maxY: number) {
   const usableHeight = CHART_BOTTOM - CHART_TOP;
   return CHART_BOTTOM - (value / maxY) * usableHeight;
+}
+
+function fmtCompactCurrency(value: number, currency?: string) {
+  const sym = currencySymbol(currency);
+  const compact = new Intl.NumberFormat("en-US", {
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(Math.abs(value)).toLowerCase();
+  return `${value < 0 ? "-" : ""}${sym}${compact}`;
 }
 
 export default function GoalsProjectionScreen({ navigation }: { navigation: any }) {
@@ -107,14 +114,14 @@ export default function GoalsProjectionScreen({ navigation }: { navigation: any 
         <BlurView intensity={14} tint="dark" style={styles.headerBlur} pointerEvents="none" />
         <View style={styles.headerGlassTint} pointerEvents="none" />
         <Pressable onPress={() => navigation.goBack()} style={styles.backBtn} hitSlop={10}>
-          <Ionicons name="chevron-back" size={24} color="#ffffff" />
+          <Ionicons name="chevron-back" size={24} color={T.text} />
         </Pressable>
         <Text style={styles.headerTitle}>Goals projection</Text>
         <View style={styles.headerSpacer} />
       </View>
 
       <ScrollView
-        style={{ backgroundColor: GOALS_PROJECTION_BG_BLUE }}
+        style={styles.scrollView}
         contentContainerStyle={[styles.scroll, { paddingTop: topInset + 56 }]}
         showsVerticalScrollIndicator={false}
       >
@@ -195,7 +202,7 @@ export default function GoalsProjectionScreen({ navigation }: { navigation: any 
                 <View style={styles.yAxisCol}>
                   {yTicks.map((tick, index) => (
                     <Text key={`${tick}-${index}`} style={styles.yAxisTxt}>
-                      {fmt(tick, currency)}
+                      {fmtCompactCurrency(tick, currency)}
                     </Text>
                   ))}
                 </View>

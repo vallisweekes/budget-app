@@ -5,6 +5,8 @@ import { computeAgreementBaseline } from "@/lib/debts/agreementBaseline";
 import { buildDebtAddedActivity } from "@/lib/push/activityMessages";
 import { sendUserPush } from "@/lib/push/sendUserPush";
 import { getPaymentPeriodKey, resolvePayDate } from "@/lib/helpers/periodKey";
+import { isLegacyPlaceholderExpenseRow } from "@/lib/expenses/legacyPlaceholders";
+import { isNonDebtCategoryName } from "@/lib/expenses/helpers";
 
 export const runtime = "nodejs";
 
@@ -130,6 +132,17 @@ function withMissedPaymentFlag<T extends { sourceType?: string | null }>(debt: T
   };
 }
 
+function shouldHideAllocationLikeDebt(debt: {
+  sourceType?: string | null;
+  sourceCategoryName?: string | null;
+  sourceExpenseName?: string | null;
+  name?: string | null;
+}) {
+  if (debt.sourceType !== "expense") return false;
+  if (isNonDebtCategoryName(debt.sourceCategoryName)) return true;
+  return isLegacyPlaceholderExpenseRow({ name: debt.sourceExpenseName ?? debt.name });
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -154,7 +167,11 @@ export async function GET(request: Request) {
       orderBy: { createdAt: "desc" },
     });
 
-    return NextResponse.json(debts.map((debt) => withMissedPaymentFlag(debt)));
+    return NextResponse.json(
+      debts
+        .filter((debt) => !shouldHideAllocationLikeDebt(debt))
+        .map((debt) => withMissedPaymentFlag(debt)),
+    );
   } catch (error) {
     console.error("Failed to fetch debts:", error);
     return NextResponse.json(

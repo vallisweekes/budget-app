@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getEarlyPaymentWindowStart } from "@/lib/helpers/finance/earlyPaymentWindow";
+import { isNonDebtCategoryName } from "@/lib/expenses/helpers";
+import { isExpenseDebtCoveredByRegularDebt } from "@/lib/helpers/debts/expenseDebtDuplicates";
 
 type Params = {
 	budgetPlanId: string;
@@ -10,6 +12,23 @@ type Params = {
 	/** @deprecated Use periodKey. When provided and periodKey is absent, uses paidAt range. */
 	periodStart?: Date;
 	periodEnd?: Date;
+};
+
+type DueDebtRow = {
+	id: string;
+	name: string | null;
+	amount: unknown;
+	currentBalance: unknown;
+	initialBalance: unknown;
+	installmentMonths: unknown;
+	monthlyMinimum: unknown;
+	sourceType: string | null;
+	type: string | null;
+	paid: boolean;
+	sourceExpenseName: string | null;
+	sourceCategoryName: string | null;
+	dueDate: Date | null;
+	dueDay: number | null;
 };
 
 function decimalToNumber(value: unknown): number {
@@ -23,6 +42,56 @@ function decimalToNumber(value: unknown): number {
 		if (typeof maybeDecimal.toString === "function") return Number(maybeDecimal.toString());
 	}
 	return Number(value);
+}
+
+function clampDay(year: number, monthIndex0: number, day: number): number {
+	const maxDay = new Date(Date.UTC(year, monthIndex0 + 1, 0)).getUTCDate();
+	return Math.max(1, Math.min(maxDay, Math.floor(day)));
+}
+
+function resolveDebtDueDateUtc(params: {
+	debt: Pick<DueDebtRow, "dueDate" | "dueDay">;
+	year: number;
+	month: number;
+}): Date | null {
+	if (params.debt.dueDate instanceof Date && Number.isFinite(params.debt.dueDate.getTime())) {
+		return new Date(Date.UTC(
+			params.debt.dueDate.getUTCFullYear(),
+			params.debt.dueDate.getUTCMonth(),
+			params.debt.dueDate.getUTCDate(),
+		));
+	}
+
+	const dueDay = Number(params.debt.dueDay ?? 0);
+	if (!Number.isFinite(dueDay) || dueDay < 1) return null;
+
+	const monthIndex0 = params.month - 1;
+	return new Date(Date.UTC(params.year, monthIndex0, clampDay(params.year, monthIndex0, dueDay)));
+}
+
+function isDateWithinInclusiveRange(target: Date, start: Date, end: Date): boolean {
+	const time = target.getTime();
+	return time >= start.getTime() && time <= end.getTime();
+}
+
+function shouldIncludeDebtInPlannedPeriod(params: {
+	debt: DueDebtRow;
+	regularDebts: DueDebtRow[];
+}): boolean {
+	const { debt, regularDebts } = params;
+
+	if (debt.sourceType === "expense") {
+		if (isNonDebtCategoryName(debt.sourceCategoryName)) return false;
+		if (isExpenseDebtCoveredByRegularDebt({
+			expenseName: debt.sourceExpenseName,
+			sourceCategoryName: debt.sourceCategoryName,
+			regularDebts,
+		})) {
+			return false;
+		}
+	}
+
+	return true;
 }
 
 /**
@@ -116,12 +185,18 @@ export async function getMonthlyDebtPlan({ budgetPlanId, year, month, periodKey,
 			},
 			select: {
 				id: true,
+				name: true,
 				amount: true,
 				currentBalance: true,
 				initialBalance: true,
 				installmentMonths: true,
 				monthlyMinimum: true,
 				sourceType: true,
+				sourceExpenseName: true,
+				sourceCategoryName: true,
+				dueDate: true,
+				dueDay: true,
+				paid: true,
 				type: true,
 			},
 		}),
@@ -135,7 +210,13 @@ export async function getMonthlyDebtPlan({ budgetPlanId, year, month, periodKey,
 		}),
 	]);
 
-	const totalDueDebts = dueDebts.reduce((sum, d) => sum + computeMonthlyPlannedPayment(d), 0);
+	const regularDebts = dueDebts.filter((debt) => debt.sourceType !== "expense");
+	const visibleDueDebts = dueDebts.filter((debt) => shouldIncludeDebtInPlannedPeriod({
+		debt,
+		regularDebts,
+	}));
+
+	const totalDueDebts = visibleDueDebts.reduce((sum, d) => sum + computeMonthlyPlannedPayment(d), 0);
 	const totalPaidDebtPayments = decimalToNumber(paidAllAgg._sum.amount);
 	const paidDebtPaymentsFromIncome = decimalToNumber(paidIncomeAgg._sum.amount);
 	const plannedDebtPayments = totalDueDebts;

@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { upsertExpenseDebt } from "@/lib/debts/store";
+import { isExpenseDebtCoveredByRegularDebt } from "@/lib/helpers/debts/expenseDebtDuplicates";
+import { isLegacyPlaceholderExpenseRow } from "@/lib/expenses/legacyPlaceholders";
 import type { MonthKey } from "@/types";
 import { isNonDebtCategoryName } from "../helpers";
 import { OVERDUE_GRACE_DAYS, resolveExpenseDueDate, addDays, monthNumberToKey } from "./shared";
@@ -69,10 +71,21 @@ export async function processUnpaidExpenses(params: {
 		},
 	})) as unknown as ExpenseCarryRow[];
 
+	const regularDebts = await prisma.debt.findMany({
+		where: { budgetPlanId, sourceType: null, paid: false },
+		select: { name: true, sourceType: true, currentBalance: true, paid: true },
+	});
+
 	const results = [];
 	for (const expense of unpaidExpenses) {
 		if (expense.isAllocation) continue;
 		if (isNonDebtCategoryName(expense.category?.name)) continue;
+		if (isLegacyPlaceholderExpenseRow({ name: expense.name, isAllocation: expense.isAllocation })) continue;
+		if (isExpenseDebtCoveredByRegularDebt({
+			expenseName: expense.name,
+			sourceCategoryName: expense.category?.name,
+			regularDebts,
+		})) continue;
 
 		const totalAmount = Number(expense.amount);
 		const paidAmount = Number(expense.paidAmount);

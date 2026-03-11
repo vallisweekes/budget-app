@@ -87,8 +87,17 @@ async function getPeriodExpenseSnapshot(params: {
 	const periodPairs = [
 		{ year: windowStart.getUTCFullYear(), month: windowStart.getUTCMonth() + 1 },
 		{ year: windowEnd.getUTCFullYear(), month: windowEnd.getUTCMonth() + 1 },
+		{
+			year: new Date(Date.UTC(windowStart.getUTCFullYear(), windowStart.getUTCMonth() - 1, 1)).getUTCFullYear(),
+			month: new Date(Date.UTC(windowStart.getUTCFullYear(), windowStart.getUTCMonth() - 1, 1)).getUTCMonth() + 1,
+		},
+		{
+			year: new Date(Date.UTC(windowEnd.getUTCFullYear(), windowEnd.getUTCMonth() + 1, 1)).getUTCFullYear(),
+			month: new Date(Date.UTC(windowEnd.getUTCFullYear(), windowEnd.getUTCMonth() + 1, 1)).getUTCMonth() + 1,
+		},
 	];
 	const uniquePairs = Array.from(new Map(periodPairs.map((pair) => [`${pair.year}-${pair.month}`, pair])).values());
+	const currentPeriodKey = getPeriodKey(windowStart, payDate);
 	const expenseWhere = {
 		budgetPlanId,
 		OR: [
@@ -111,6 +120,7 @@ async function getPeriodExpenseSnapshot(params: {
 		isDirectDebit: true,
 		isExtraLoggedExpense: true,
 		paymentSource: true,
+		periodKey: true,
 	} as const;
 
 	const rows = await (async () => {
@@ -173,8 +183,17 @@ async function getPeriodExpenseSnapshot(params: {
 			continue;
 		}
 
-		if (!allowedUnscheduledYm.has(`${expense.year}-${expense.month}`)) continue;
-		const key = `${series}|unscheduled:${expense.year}-${expense.month}|${amount}`;
+		const expensePeriodKey = String((expense as { periodKey?: string | null }).periodKey ?? "").trim();
+		let dedupeScope = "";
+		if (expensePeriodKey) {
+			if (expensePeriodKey !== currentPeriodKey) continue;
+			dedupeScope = `unscheduled:${expensePeriodKey}`;
+		} else {
+			if (!allowedUnscheduledYm.has(`${expense.year}-${expense.month}`)) continue;
+			dedupeScope = `unscheduled:${expense.year}-${expense.month}`;
+		}
+
+		const key = `${series}|${dedupeScope}|${amount}`;
 		if (!seen.has(key)) {
 			seen.set(key, { expense, rank: 0 });
 		}
@@ -231,7 +250,14 @@ export async function getIncomeMonthAnalysis({ budgetPlanId, year, month, payFre
 			: Promise.resolve(null),
 		getMonthlyAllocationSnapshot(budgetPlanId, monthKey, { year }),
 		getMonthlyCustomAllocationsSnapshot(budgetPlanId, monthKey, { year }),
-		getMonthlyDebtPlan({ budgetPlanId, year, month, periodKey, periodStart: periodWindow?.start }),
+		getMonthlyDebtPlan({
+			budgetPlanId,
+			year,
+			month,
+			periodKey,
+			periodStart: periodWindow?.start,
+			periodEnd: periodWindow?.end,
+		}),
 		expenseSnapshotPromise,
 	]);
 

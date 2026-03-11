@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { isNonDebtCategoryName } from "../helpers";
+import { isLegacyPlaceholderExpenseRow } from "@/lib/expenses/legacyPlaceholders";
 import { OVERDUE_GRACE_DAYS, resolveExpenseDueDate, addDays, monthNumberToKey } from "./shared";
 import { syncExpensePaymentsToPaidAmount } from "@/lib/expenses/paymentSync";
 import {
@@ -28,10 +29,17 @@ export async function getExpenseDebts(budgetPlanId: string) {
 
 	const visibleDebts = debts.filter((d) => {
 		const expenseId = String(d.sourceExpenseId ?? "").trim();
+		if (isNonDebtCategoryName(d.sourceCategoryName) || isLegacyPlaceholderExpenseRow({ name: d.sourceExpenseName ?? d.name })) {
+			return false;
+		}
 		if (!expenseId) return true;
 		const expense = expenseById.get(expenseId);
 		if (!expense) return true;
-		if (expense.isAllocation || isNonDebtCategoryName(expense.category?.name)) return false;
+		if (
+			expense.isAllocation ||
+			isNonDebtCategoryName(expense.category?.name) ||
+			isLegacyPlaceholderExpenseRow({ name: d.sourceExpenseName ?? d.name, isAllocation: expense.isAllocation })
+		) return false;
 		if (expense.paid) return true;
 		if (expense.isMovedToDebt === true) return true;
 
@@ -93,7 +101,7 @@ export async function getExpenseDebts(budgetPlanId: string) {
 		);
 	}
 
-	const filtered = visibleDebts.filter((d) => !isNonDebtCategoryName(d.sourceCategoryName));
+	const filtered = visibleDebts.filter((d) => !isNonDebtCategoryName(d.sourceCategoryName) && !isLegacyPlaceholderExpenseRow({ name: d.sourceExpenseName ?? d.name }));
 	const syntheticPaidCarryovers = await buildSyntheticPaidCarryovers({ budgetPlanId, sourceExpenseIds, defaultDueDay });
 	const mappedDebts = filtered.map((d) => mapDebtWithExpenseState(d, expenseById));
 	return [...mappedDebts, ...syntheticPaidCarryovers];
@@ -115,6 +123,7 @@ async function buildSyntheticPaidCarryovers(params: {
 	return paidExpensesWithoutDebt
 		.filter((expense) => {
 			if (isNonDebtCategoryName(expense.category?.name)) return false;
+			if (isLegacyPlaceholderExpenseRow({ name: expense.name, isAllocation: expense.isAllocation })) return false;
 			const totalAmount = Number(expense.amount);
 			const paidAmount = Number(expense.paidAmount);
 			if (!(Number.isFinite(totalAmount - paidAmount) && totalAmount - paidAmount <= 0)) return false;

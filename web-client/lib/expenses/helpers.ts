@@ -12,6 +12,15 @@ const NON_DEBT_CATEGORY_NAMES = new Set(
 		"travel",
 		"transport / travel",
 		"transport/travel",
+		"savings",
+		"saving",
+		"emergency",
+		"emergency fund",
+		"emergency funds",
+		"investment",
+		"investments",
+		"money",
+		"allowance",
 	].map((s) => s.toLowerCase())
 );
 
@@ -24,5 +33,7 @@ export function isNonDebtCategoryName(name: string | null | undefined): boolean 
 	if (NON_DEBT_CATEGORY_NAMES.has(normalized)) return true;
 	if (normalized.includes("food") && normalized.includes("dining")) return true;
 	if (normalized.includes("transport") || normalized.includes("travel")) return true;
+	if (normalized.includes("saving") || normalized.includes("investment")) return true;
+	if (normalized.includes("emergency") && normalized.includes("fund")) return true;
 	return false;
 }

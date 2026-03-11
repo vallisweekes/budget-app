@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 
 export const MOBILE_AUTH_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
@@ -26,21 +27,30 @@ export async function createMobileAuthSession(params: {
     : MOBILE_AUTH_MAX_AGE_SECONDS;
   const expiresAt = new Date(Date.now() + maxAgeSeconds * 1000);
 
-  const row = await mobileAuthSessionDelegate(prisma).create({
-    data: {
-      userId: params.userId,
-      expiresAt,
-    },
-    select: {
-      id: true,
-      expiresAt: true,
-    },
-  });
+  try {
+    const row = await mobileAuthSessionDelegate(prisma).create({
+      data: {
+        userId: params.userId,
+        expiresAt,
+      },
+      select: {
+        id: true,
+        expiresAt: true,
+      },
+    });
 
-  return {
-    sessionId: row.id,
-    expiresAt: row.expiresAt,
-  };
+    return {
+      sessionId: row.id,
+      expiresAt: row.expiresAt,
+    };
+  } catch (error) {
+    if (!isSessionTableMissing(error)) throw error;
+
+    return {
+      sessionId: randomUUID(),
+      expiresAt,
+    };
+  }
 }
 
 export async function revokeMobileAuthSession(params: {
