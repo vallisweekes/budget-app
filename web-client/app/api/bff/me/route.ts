@@ -6,6 +6,7 @@ import { getEmailVerificationState, sendEmailVerificationEmail } from "@/lib/aut
 import { getOnboardingForUser, runOnboardingRepairPass } from "@/lib/onboarding";
 import { normalizeBillFrequency, normalizePayFrequency } from "@/lib/payPeriods";
 import { touchMobileAuthSessionAndDetectFirstSeen } from "@/lib/mobileAuthSessions";
+import { getBootstrapSettingsForUser } from "@/lib/settings/bootstrap";
 
 export const runtime = "nodejs";
 
@@ -48,7 +49,7 @@ function normalizeProfileOnMe<T extends { occupation?: unknown; occupationOther?
 }
 
 async function buildProfileResponse(userId: string) {
-  const [user, verification, onboarding, onboardingMeta] = await Promise.all([
+  const [user, verification, onboarding, onboardingMeta, settings] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
       select: { id: true, name: true, email: true, createdAt: true },
@@ -65,6 +66,7 @@ async function buildProfileResponse(userId: string) {
         billFrequency: true,
       },
     }).catch(() => null),
+    getBootstrapSettingsForUser({ userId }).catch(() => null),
   ]);
 
   if (!user) return null;
@@ -74,7 +76,8 @@ async function buildProfileResponse(userId: string) {
     onboardingMeta?.status === "completed" ? onboardingMeta?.updatedAt ?? null : null,
   )?.toISOString() ?? null;
   const normalizedOnboarding = {
-    ...onboarding,
+    required: onboarding.required,
+    completed: onboarding.completed,
     profile: normalizeProfileOnMe(onboarding.profile, { required: onboarding.required }),
   };
 
@@ -88,6 +91,7 @@ async function buildProfileResponse(userId: string) {
     emailVerificationBlocked: verification.blocked,
     emailVerificationDeadlineAt: verification.deadlineAt?.toISOString() ?? null,
     onboarding: normalizedOnboarding,
+    settings,
     accountCreatedAt: user.createdAt?.toISOString() ?? null,
     setupCompletedAt,
     payFrequency: normalizePayFrequency(onboardingMeta?.payFrequency ?? normalizedOnboarding.profile?.payFrequency ?? null),

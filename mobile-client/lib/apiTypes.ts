@@ -328,7 +328,12 @@ export interface UserProfile {
   emailVerificationRequired: boolean;
   emailVerificationBlocked: boolean;
   emailVerificationDeadlineAt: string | null;
-  onboarding: OnboardingStatusResponse;
+  onboarding: {
+    required: boolean;
+    completed: boolean;
+    profile: OnboardingProfile | null;
+  };
+  settings: Settings | null;
   accountCreatedAt: string | null;
   setupCompletedAt: string | null;
   payFrequency: "monthly" | "every_2_weeks" | "weekly";

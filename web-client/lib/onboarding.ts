@@ -299,6 +299,303 @@ function toNullableNumber(value: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+type NormalizedOnboardingProfile = {
+  mainGoal: OnboardingGoalInput | null;
+  mainGoals: OnboardingGoalInput[];
+  occupation: string | null;
+  occupationOther: string | null;
+  payDay: number | null;
+  payFrequency: "monthly" | "every_2_weeks" | "weekly" | null;
+  billFrequency: "monthly" | "every_2_weeks" | null;
+  monthlySalary: number | null;
+  planningYears: number | null;
+  savingsGoalAmount: number | null;
+  savingsGoalYear: number | null;
+  expenseOneName: string | null;
+  expenseOneAmount: number | null;
+  expenseTwoName: string | null;
+  expenseTwoAmount: number | null;
+  expenseThreeName: string | null;
+  expenseThreeAmount: number | null;
+  expenseFourName: string | null;
+  expenseFourAmount: number | null;
+  hasAllowance: boolean | null;
+  allowanceAmount: number | null;
+  hasDebtsToManage: boolean | null;
+  debtAmount: number | null;
+  debtNotes: string | null;
+};
+
+const EMPTY_ONBOARDING_PROFILE: NormalizedOnboardingProfile = {
+  mainGoal: null,
+  mainGoals: [],
+  occupation: null,
+  occupationOther: null,
+  payDay: null,
+  payFrequency: null,
+  billFrequency: null,
+  monthlySalary: null,
+  planningYears: null,
+  savingsGoalAmount: null,
+  savingsGoalYear: null,
+  expenseOneName: null,
+  expenseOneAmount: null,
+  expenseTwoName: null,
+  expenseTwoAmount: null,
+  expenseThreeName: null,
+  expenseThreeAmount: null,
+  expenseFourName: null,
+  expenseFourAmount: null,
+  hasAllowance: null,
+  allowanceAmount: null,
+  hasDebtsToManage: null,
+  debtAmount: null,
+  debtNotes: null,
+};
+
+function normalizeReturnedProfile(source: NormalizedOnboardingProfile): NormalizedOnboardingProfile {
+  const occupation = source.occupation ?? "Other";
+  const occupationOther = occupation === "Other"
+    ? (source.occupationOther ?? "Other")
+    : source.occupationOther;
+
+  return {
+    ...source,
+    occupation,
+    occupationOther,
+  };
+}
+
+function mapStoredProfile(profile: OnboardingProfileRecord): NormalizedOnboardingProfile {
+  return {
+    mainGoal: profile.mainGoal,
+    mainGoals:
+      Array.isArray(profile.mainGoals) && profile.mainGoals.length
+        ? profile.mainGoals
+        : profile.mainGoal
+          ? [profile.mainGoal]
+          : [],
+    occupation: profile.occupation,
+    occupationOther: profile.occupationOther,
+    payDay: toNullableNumber(profile.payDay),
+    payFrequency: cleanPayFrequency(profile.payFrequency),
+    billFrequency: cleanBillFrequency(profile.billFrequency),
+    monthlySalary: toNullableNumber(profile.monthlySalary),
+    planningYears: toNullableNumber(profile.planningYears),
+    savingsGoalAmount: toNullableNumber(profile.savingsGoalAmount),
+    savingsGoalYear: toNullableNumber(profile.savingsGoalYear),
+    expenseOneName: profile.expenseOneName,
+    expenseOneAmount: toNullableNumber(profile.expenseOneAmount),
+    expenseTwoName: profile.expenseTwoName,
+    expenseTwoAmount: toNullableNumber(profile.expenseTwoAmount),
+    expenseThreeName: profile.expenseThreeName,
+    expenseThreeAmount: toNullableNumber(profile.expenseThreeAmount),
+    expenseFourName: profile.expenseFourName,
+    expenseFourAmount: toNullableNumber(profile.expenseFourAmount),
+    hasAllowance: profile.hasAllowance,
+    allowanceAmount: toNullableNumber(profile.allowanceAmount),
+    hasDebtsToManage: profile.hasDebtsToManage,
+    debtAmount: toNullableNumber(profile.debtAmount),
+    debtNotes: profile.debtNotes,
+  };
+}
+
+function mergeMissingProfileFields(
+  base: NormalizedOnboardingProfile,
+  fallback: NormalizedOnboardingProfile,
+): NormalizedOnboardingProfile {
+  const merged = { ...base };
+
+  for (const key of Object.keys(fallback) as Array<keyof NormalizedOnboardingProfile>) {
+    const current = merged[key];
+    const next = fallback[key];
+    const shouldReplace = current == null
+      || (typeof current === "string" && current.trim().length === 0)
+      || (Array.isArray(current) && current.length === 0);
+
+    if (shouldReplace && next != null) {
+      merged[key] = next as never;
+    }
+  }
+
+  return merged;
+}
+
+function toPositiveAmount(value: unknown): number | null {
+  const numeric = toNullableNumber(value);
+  if (numeric == null || numeric <= 0) return null;
+  return Number(numeric.toFixed(2));
+}
+
+function isIgnoredLegacyExpenseName(name: string): boolean {
+  const normalized = name.trim().toLowerCase();
+  if (!normalized) return true;
+
+  return [
+    "allowance",
+    "saving",
+    "savings",
+    "groceries",
+    "lunch",
+    "barber",
+    "barbers",
+    "carry over",
+    "spending money",
+    "cash",
+  ].some((token) => normalized.includes(token));
+}
+
+function isIgnoredLegacyDebtName(name: string): boolean {
+  const normalized = name.trim().toLowerCase();
+  return normalized.startsWith("savings:");
+}
+
+type DerivedExpenseCandidate = {
+  name: string;
+  amount: number;
+  count: number;
+  hasDueDate: boolean;
+  isDirectDebit: boolean;
+  latestYear: number;
+  latestMonth: number;
+};
+
+function compareDerivedExpenseCandidates(a: DerivedExpenseCandidate, b: DerivedExpenseCandidate): number {
+  const score = (candidate: DerivedExpenseCandidate) => {
+    const recurrence = Math.min(candidate.count, 12) * 10;
+    const dueDate = candidate.hasDueDate ? 6 : 0;
+    const directDebit = candidate.isDirectDebit ? 3 : 0;
+    const amount = candidate.amount >= 500 ? 5 : candidate.amount >= 100 ? 4 : candidate.amount >= 25 ? 2 : candidate.amount >= 10 ? 1 : 0;
+    return recurrence + dueDate + directDebit + amount;
+  };
+
+  const scoreDiff = score(b) - score(a);
+  if (scoreDiff !== 0) return scoreDiff;
+  if (b.latestYear !== a.latestYear) return b.latestYear - a.latestYear;
+  if (b.latestMonth !== a.latestMonth) return b.latestMonth - a.latestMonth;
+  return b.amount - a.amount;
+}
+
+async function deriveLegacyOnboardingProfile(userId: string, preferredPlanId: string | null): Promise<NormalizedOnboardingProfile> {
+  if (!preferredPlanId) return EMPTY_ONBOARDING_PROFILE;
+
+  const [plan, incomes, expenses, debts] = await Promise.all([
+    prisma.budgetPlan.findUnique({
+      where: { id: preferredPlanId },
+      select: {
+        payDate: true,
+        monthlyAllowance: true,
+        budgetHorizonYears: true,
+      },
+    }),
+    prisma.income.findMany({
+      where: { budgetPlanId: preferredPlanId },
+      select: {
+        name: true,
+        amount: true,
+        month: true,
+        year: true,
+      },
+      orderBy: [{ year: "desc" }, { month: "desc" }],
+      take: 24,
+    }),
+    prisma.expense.findMany({
+      where: {
+        budgetPlanId: preferredPlanId,
+        isAllocation: false,
+        isMovedToDebt: false,
+        isExtraLoggedExpense: false,
+      },
+      select: {
+        name: true,
+        amount: true,
+        dueDate: true,
+        isDirectDebit: true,
+        month: true,
+        year: true,
+      },
+      orderBy: [{ year: "desc" }, { month: "desc" }],
+      take: 400,
+    }),
+    prisma.debt.findMany({
+      where: { budgetPlanId: preferredPlanId, paid: false },
+      select: {
+        name: true,
+        currentBalance: true,
+      },
+    }),
+  ]);
+
+  const salaryEntries = incomes.filter((income) => /salary/i.test(income.name ?? ""));
+  const salaryPeriods = new Set(salaryEntries.map((income) => `${income.year}-${income.month}`));
+  const recurringSalaryAmount = salaryPeriods.size >= 3 ? toPositiveAmount(salaryEntries[0]?.amount) : null;
+
+  const expenseCandidates = new Map<string, DerivedExpenseCandidate>();
+  for (const expense of expenses) {
+    const name = cleanText(expense.name);
+    const amount = toPositiveAmount(expense.amount);
+    if (!name || amount == null || isIgnoredLegacyExpenseName(name)) continue;
+
+    const key = `${name}::${amount.toFixed(2)}`;
+    const existing = expenseCandidates.get(key);
+    if (existing) {
+      existing.count += 1;
+      existing.hasDueDate = existing.hasDueDate || Boolean(expense.dueDate);
+      existing.isDirectDebit = existing.isDirectDebit || Boolean(expense.isDirectDebit);
+      if (
+        expense.year > existing.latestYear
+        || (expense.year === existing.latestYear && expense.month > existing.latestMonth)
+      ) {
+        existing.latestYear = expense.year;
+        existing.latestMonth = expense.month;
+      }
+      continue;
+    }
+
+    expenseCandidates.set(key, {
+      name,
+      amount,
+      count: 1,
+      hasDueDate: Boolean(expense.dueDate),
+      isDirectDebit: Boolean(expense.isDirectDebit),
+      latestYear: expense.year,
+      latestMonth: expense.month,
+    });
+  }
+
+  const recurringBills = Array.from(expenseCandidates.values())
+    .filter((candidate) => candidate.count >= 3)
+    .sort(compareDerivedExpenseCandidates)
+    .slice(0, 4);
+
+  const activeDebts = debts.filter((debt) => !isIgnoredLegacyDebtName(debt.name));
+  const totalDebtAmount = activeDebts.reduce((sum, debt) => sum + (toPositiveAmount(debt.currentBalance) ?? 0), 0);
+  const allowanceAmount = toPositiveAmount(plan?.monthlyAllowance);
+
+  return {
+    ...EMPTY_ONBOARDING_PROFILE,
+    occupation: "Other",
+    occupationOther: "Other",
+    payDay: clampPayDay(plan?.payDate ?? null),
+    payFrequency: recurringSalaryAmount != null ? "monthly" : null,
+    billFrequency: recurringBills.length > 0 ? "monthly" : null,
+    monthlySalary: recurringSalaryAmount,
+    planningYears: clampIntRange(plan?.budgetHorizonYears ?? null, 1, 30),
+    expenseOneName: recurringBills[0]?.name ?? null,
+    expenseOneAmount: recurringBills[0]?.amount ?? null,
+    expenseTwoName: recurringBills[1]?.name ?? null,
+    expenseTwoAmount: recurringBills[1]?.amount ?? null,
+    expenseThreeName: recurringBills[2]?.name ?? null,
+    expenseThreeAmount: recurringBills[2]?.amount ?? null,
+    expenseFourName: recurringBills[3]?.name ?? null,
+    expenseFourAmount: recurringBills[3]?.amount ?? null,
+    hasAllowance: allowanceAmount != null ? allowanceAmount > 0 : null,
+    allowanceAmount,
+    hasDebtsToManage: activeDebts.length > 0 ? true : false,
+    debtAmount: totalDebtAmount > 0 ? Number(totalDebtAmount.toFixed(2)) : null,
+  };
+}
+
 function clampIntRange(value: number | null | undefined, min: number, max: number): number | null {
   if (value == null || !Number.isFinite(value)) return null;
   const rounded = Math.trunc(value);
@@ -423,46 +720,9 @@ export async function getOnboardingForUser(userId: string) {
 
   const hasBasics = await hasBasicSetup();
   const shouldBypassOnboarding = hasBasics || userIsOnboarded === true;
-
-  const emptyProfile = {
-    mainGoal: null,
-    mainGoals: [],
-    occupation: null,
-    occupationOther: null,
-    payDay: null,
-    payFrequency: null,
-    billFrequency: null,
-    monthlySalary: null,
-    planningYears: null,
-    savingsGoalAmount: null,
-    savingsGoalYear: null,
-    expenseOneName: null,
-    expenseOneAmount: null,
-    expenseTwoName: null,
-    expenseTwoAmount: null,
-    expenseThreeName: null,
-    expenseThreeAmount: null,
-    expenseFourName: null,
-    expenseFourAmount: null,
-    hasAllowance: null,
-    allowanceAmount: null,
-    hasDebtsToManage: null,
-    debtAmount: null,
-    debtNotes: null,
-  };
-
-  const normalizeReturnedProfile = (source: typeof emptyProfile) => {
-    const occupation = source.occupation ?? "Other";
-    const occupationOther = occupation === "Other"
-      ? (source.occupationOther ?? "Other")
-      : source.occupationOther;
-
-    return {
-      ...source,
-      occupation,
-      occupationOther,
-    };
-  };
+  const derivedLegacyProfile = shouldBypassOnboarding
+    ? await deriveLegacyOnboardingProfile(userId, preferredPlanId)
+    : EMPTY_ONBOARDING_PROFILE;
 
   // Fully configured users (income + expenses exist) should never be blocked by onboarding,
   // even if they predate the onboarding profile.
@@ -474,44 +734,14 @@ export async function getOnboardingForUser(userId: string) {
       return {
         required: false,
         completed: true,
-        profile: normalizeReturnedProfile(emptyProfile),
+        profile: normalizeReturnedProfile(mergeMissingProfileFields(EMPTY_ONBOARDING_PROFILE, derivedLegacyProfile)),
         occupations: COMMON_OCCUPATIONS,
       };
     }
     return {
       required: false,
       completed: profile.status === "completed",
-      profile: normalizeReturnedProfile({
-        mainGoal: profile.mainGoal,
-        mainGoals:
-          Array.isArray(profile.mainGoals) && profile.mainGoals.length
-            ? profile.mainGoals
-            : profile.mainGoal
-              ? [profile.mainGoal]
-              : [],
-        occupation: profile.occupation,
-        occupationOther: profile.occupationOther,
-        payDay: toNullableNumber(profile.payDay),
-        payFrequency: cleanPayFrequency(profile.payFrequency),
-        billFrequency: cleanBillFrequency(profile.billFrequency),
-        monthlySalary: toNullableNumber(profile.monthlySalary),
-        planningYears: toNullableNumber(profile.planningYears),
-        savingsGoalAmount: toNullableNumber(profile.savingsGoalAmount),
-        savingsGoalYear: toNullableNumber(profile.savingsGoalYear),
-        expenseOneName: profile.expenseOneName,
-        expenseOneAmount: toNullableNumber(profile.expenseOneAmount),
-        expenseTwoName: profile.expenseTwoName,
-        expenseTwoAmount: toNullableNumber(profile.expenseTwoAmount),
-        expenseThreeName: profile.expenseThreeName,
-        expenseThreeAmount: toNullableNumber(profile.expenseThreeAmount),
-        expenseFourName: profile.expenseFourName,
-        expenseFourAmount: toNullableNumber(profile.expenseFourAmount),
-        hasAllowance: profile.hasAllowance,
-        allowanceAmount: toNullableNumber(profile.allowanceAmount),
-        hasDebtsToManage: profile.hasDebtsToManage,
-        debtAmount: toNullableNumber(profile.debtAmount),
-        debtNotes: profile.debtNotes,
-      }),
+      profile: normalizeReturnedProfile(mergeMissingProfileFields(mapStoredProfile(profile), derivedLegacyProfile)),
       occupations: COMMON_OCCUPATIONS,
     };
   }
@@ -528,7 +758,7 @@ export async function getOnboardingForUser(userId: string) {
     return {
       required: true,
       completed: false,
-      profile: emptyProfile,
+      profile: EMPTY_ONBOARDING_PROFILE,
       occupations: COMMON_OCCUPATIONS,
     };
   }
@@ -536,37 +766,7 @@ export async function getOnboardingForUser(userId: string) {
   return {
     required: profile.status !== "completed",
     completed: profile.status === "completed",
-    profile: normalizeReturnedProfile({
-      mainGoal: profile.mainGoal,
-      mainGoals:
-        Array.isArray(profile.mainGoals) && profile.mainGoals.length
-          ? profile.mainGoals
-          : profile.mainGoal
-            ? [profile.mainGoal]
-            : [],
-      occupation: profile.occupation,
-      occupationOther: profile.occupationOther,
-      payDay: toNullableNumber(profile.payDay),
-      payFrequency: cleanPayFrequency(profile.payFrequency),
-      billFrequency: cleanBillFrequency(profile.billFrequency),
-      monthlySalary: toNullableNumber(profile.monthlySalary),
-      planningYears: toNullableNumber(profile.planningYears),
-      savingsGoalAmount: toNullableNumber(profile.savingsGoalAmount),
-      savingsGoalYear: toNullableNumber(profile.savingsGoalYear),
-      expenseOneName: profile.expenseOneName,
-      expenseOneAmount: toNullableNumber(profile.expenseOneAmount),
-      expenseTwoName: profile.expenseTwoName,
-      expenseTwoAmount: toNullableNumber(profile.expenseTwoAmount),
-      expenseThreeName: profile.expenseThreeName,
-      expenseThreeAmount: toNullableNumber(profile.expenseThreeAmount),
-      expenseFourName: profile.expenseFourName,
-      expenseFourAmount: toNullableNumber(profile.expenseFourAmount),
-      hasAllowance: profile.hasAllowance,
-      allowanceAmount: toNullableNumber(profile.allowanceAmount),
-      hasDebtsToManage: profile.hasDebtsToManage,
-      debtAmount: toNullableNumber(profile.debtAmount),
-      debtNotes: profile.debtNotes,
-    }),
+    profile: normalizeReturnedProfile(mapStoredProfile(profile)),
     occupations: COMMON_OCCUPATIONS,
   };
 }

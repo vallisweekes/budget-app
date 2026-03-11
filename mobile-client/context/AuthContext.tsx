@@ -28,6 +28,42 @@ type AuthContextValue = AuthState & {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+let rehydrateMeInFlight: Promise<UserProfile> | null = null;
+let rehydrateMeToken: string | null = null;
+let rehydrateMeCachedProfile: UserProfile | null = null;
+
+function fetchRehydrateProfileOnce(token: string): Promise<UserProfile> {
+  if (rehydrateMeCachedProfile && rehydrateMeToken === token) {
+    return Promise.resolve(rehydrateMeCachedProfile);
+  }
+
+  if (rehydrateMeInFlight && rehydrateMeToken === token) {
+    return rehydrateMeInFlight;
+  }
+
+  rehydrateMeToken = token;
+  rehydrateMeInFlight = apiFetch<UserProfile>("/api/bff/me", {
+    cacheTtlMs: 0,
+    skipOnUnauthorized: true,
+    timeoutMs: 15_000,
+  })
+    .then((profile) => {
+      rehydrateMeCachedProfile = profile;
+      return profile;
+    })
+    .finally(() => {
+      rehydrateMeInFlight = null;
+    });
+
+  return rehydrateMeInFlight;
+}
+
+function clearRehydrateProfileCache() {
+  rehydrateMeInFlight = null;
+  rehydrateMeToken = null;
+  rehydrateMeCachedProfile = null;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({
     token: null,
@@ -36,8 +72,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isLoading: true,
   });
   const signOutInFlightRef = useRef(false);
+  const didRehydrateRef = useRef(false);
   const tokenRef = useRef<string | null>(null);
   const usernameRef = useRef<string | null>(null);
+  const meRequestInFlightRef = useRef<Promise<UserProfile> | null>(null);
+
+  const fetchMeOnce = useCallback((): Promise<UserProfile> => {
+    if (meRequestInFlightRef.current) return meRequestInFlightRef.current;
+
+    const request = apiFetch<UserProfile>("/api/bff/me", {
+      cacheTtlMs: 0,
+      skipOnUnauthorized: true,
+      timeoutMs: 15_000,
+    }).finally(() => {
+      meRequestInFlightRef.current = null;
+    });
+
+    meRequestInFlightRef.current = request;
+    return request;
+  }, []);
+
+  const seedBootstrapCaches = useCallback((profile: UserProfile | null) => {
+    if (!profile?.settings) return;
+    store.dispatch(mobileApi.util.upsertQueryData("getSettings", undefined, profile.settings));
+  }, []);
 
   const setAuthState = useCallback((next: AuthState) => {
     setState((prev) => (
@@ -65,13 +123,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       void setStoredUsername(nextUsername);
     }
 
+    seedBootstrapCaches(profile);
+
     setAuthState({
       token: tokenRef.current,
       username: nextUsername,
       profile,
       isLoading: false,
     });
-  }, [setAuthState]);
+  }, [seedBootstrapCaches, setAuthState]);
 
   const refreshProfile = useCallback(async (): Promise<UserProfile | null> => {
     const token = await getSessionToken();
@@ -81,25 +141,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const currentUsername = usernameRef.current;
 
     try {
-      const profile = await apiFetch<UserProfile>("/api/bff/me", {
-        cacheTtlMs: 0,
-        skipOnUnauthorized: true,
-        timeoutMs: 15_000,
-      });
+      if (rehydrateMeCachedProfile && rehydrateMeToken === token) {
+        const profile = rehydrateMeCachedProfile;
+        const username = typeof profile?.username === "string" ? profile.username.trim() : "";
+        const nextUsername = username || currentUsername || null;
+        if (nextUsername) {
+          await setStoredUsername(nextUsername);
+        }
+        seedBootstrapCaches(profile);
+        setAuthState({ token, username: nextUsername, profile, isLoading: false });
+        return profile;
+      }
+
+      const profile = await fetchMeOnce();
       const username = typeof profile?.username === "string" ? profile.username.trim() : "";
       const nextUsername = username || currentUsername || null;
       if (nextUsername) {
         await setStoredUsername(nextUsername);
       }
+      seedBootstrapCaches(profile);
       setAuthState({ token, username: nextUsername, profile, isLoading: false });
       return profile;
     } catch {
       return currentProfile;
     }
-  }, [setAuthState, state.profile]);
+  }, [fetchMeOnce, seedBootstrapCaches, setAuthState, state.profile]);
 
   // Rehydrate from secure store on mount
   useEffect(() => {
+    if (didRehydrateRef.current) return;
+    didRehydrateRef.current = true;
+
     (async () => {
       // Suppress auto-sign-out during rehydration — a stale token 401 should
       // just clear silently, not race with a concurrent sign-in.
@@ -107,20 +179,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const token = await getSessionToken();
         if (!token) {
+          clearRehydrateProfileCache();
           setAuthState({ token: null, username: null, profile: null, isLoading: false });
           return;
         }
 
-        const profile = await apiFetch<UserProfile>("/api/bff/me", {
-          cacheTtlMs: 0,
-          skipOnUnauthorized: true,
-          timeoutMs: 15_000,
-        });
+        const profile = await fetchRehydrateProfileOnce(token);
         const username = typeof profile?.username === "string" ? profile.username.trim() : "";
         await setStoredUsername(username);
+        seedBootstrapCaches(profile);
         setAuthState({ token, username: username || null, profile, isLoading: false });
       } catch {
         await Promise.all([clearSessionToken(), clearStoredUsername()]);
+        clearRehydrateProfileCache();
         invalidateApiCache();
         store.dispatch(mobileApi.util.resetApiState());
         setAuthState({ token: null, username: null, profile: null, isLoading: false });
@@ -128,7 +199,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         suppressUnauthorizedCallback(false);
       }
     })();
-  }, [setAuthState]);
+  }, [fetchMeOnce, seedBootstrapCaches, setAuthState]);
 
   const signIn = useCallback(
     async (usernameInput: string, mode: "login" | "register" = "login", emailInput = "") => {
@@ -144,6 +215,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (mode === "register") {
           await Promise.all([clearSessionToken(), clearStoredUsername()]);
+          clearRehydrateProfileCache();
           invalidateApiCache();
           setAuthState({ token: null, username: null, profile: null, isLoading: false });
         }
@@ -177,15 +249,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         await Promise.all([setSessionToken(sessionToken), setStoredUsername(sessionUsername)]);
 
-        const profile = await apiFetch<UserProfile>("/api/bff/me", {
-          cacheTtlMs: 0,
-          skipOnUnauthorized: true,
-          timeoutMs: 15_000,
-        });
+        const profile = await fetchMeOnce();
         const profileUsername = typeof profile?.username === "string" ? profile.username.trim() : "";
 
         invalidateApiCache();
+        clearRehydrateProfileCache();
         store.dispatch(mobileApi.util.resetApiState());
+        seedBootstrapCaches(profile);
         setAuthState({
           token: sessionToken,
           username: profileUsername || sessionUsername,
@@ -197,7 +267,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         suppressUnauthorizedCallback(false);
       }
     },
-    [setAuthState]
+    [fetchMeOnce, seedBootstrapCaches, setAuthState]
   );
 
   const signOut = useCallback(async () => {
@@ -212,6 +282,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       suppressUnauthorizedCallback(true);
 
       await Promise.all([clearSessionToken(), clearStoredUsername()]);
+      clearRehydrateProfileCache();
       invalidateApiCache();
       store.dispatch(mobileApi.util.resetApiState());
       setAuthState({ token: null, username: null, profile: null, isLoading: false });

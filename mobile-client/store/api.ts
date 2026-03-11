@@ -81,17 +81,6 @@ export const mobileApi = createApi({
       },
       providesTags: ["BudgetPlans"],
     }),
-    getUserProfile: builder.query<UserProfile, void>({
-      async queryFn() {
-        try {
-          const data = await apiFetch<UserProfile>("/api/bff/me", { cacheTtlMs: 0 });
-          return { data };
-        } catch (err: unknown) {
-          return { error: normalizeApiError(err) };
-        }
-      },
-      providesTags: ["UserProfile"],
-    }),
     getOnboardingStatus: builder.query<OnboardingStatusResponse, void>({
       async queryFn() {
         try {
@@ -470,7 +459,6 @@ export const {
   useLazyGetBudgetPlansQuery,
   useLazyGetPlanDebtsQuery,
   useLazyGetPlanSettingsQuery,
-  useLazyGetUserProfileQuery,
   useGetSubscriptionQuery,
   useCreateDebtMutation,
   useCreateDebtPaymentMutation,

@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Animated, Dimensions } from "react-native";
+import { useIsFocused } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Notifications from "expo-notifications";
 
@@ -28,7 +29,6 @@ import {
     useLazyGetBudgetPlansQuery,
     useLazyGetPlanDebtsQuery,
     useLazyGetPlanSettingsQuery,
-    useLazyGetUserProfileQuery,
   useResetAccountDataMutation,
   useUpdateBudgetPlanMutation,
   useUpdateDebtMutation,
@@ -71,7 +71,8 @@ type SettingsScreenControllerParams = Pick<MainTabScreenProps<"Settings">, "navi
 export function useSettingsScreenController({ navigation, route }: SettingsScreenControllerParams) {
   const topHeaderOffset = useTopHeaderOffset();
   const insets = useSafeAreaInsets();
-  const { username: authUsername, signOut, hydrateProfile } = useAuth();
+  const isFocused = useIsFocused();
+  const { username: authUsername, signOut, hydrateProfile, profile: authProfile, isLoading: authLoading } = useAuth();
   const { activeBudgetPlanId, setActiveBudgetPlanId, clearActiveBudgetPlanId } = useActiveBudgetPlan();
   const { readSavingsPotsForPlan, writeSavingsPotsForPlan } = useSavingsPotStore();
   const {
@@ -89,6 +90,8 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const loadInFlightRef = useRef(false);
+  const hasLoadedOnceRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [noPlan, setNoPlan] = useState(false);
 
@@ -225,7 +228,6 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
   const [deleteBudgetPlanMutation] = useDeleteBudgetPlanMutation();
   const [resetAccountDataMutation] = useResetAccountDataMutation();
   const [fetchBudgetPlans] = useLazyGetBudgetPlansQuery();
-  const [fetchUserProfile] = useLazyGetUserProfileQuery();
   const [fetchPlanSettings] = useLazyGetPlanSettingsQuery();
   const [fetchPlanDebts] = useLazyGetPlanDebtsQuery();
 
@@ -416,12 +418,21 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
   }, [fetchPlanDebts, fetchPlanSettings]);
 
   const load = useCallback(async () => {
+    if (!authProfile) {
+      setLoading(false);
+      return;
+    }
+
+    // Prevent duplicate concurrent loads
+    if (loadInFlightRef.current) return;
+    
+    loadInFlightRef.current = true;
     try {
       setError(null);
 
       const [plansResp, me] = await Promise.all([
         fetchBudgetPlans(undefined, true).unwrap(),
-        fetchUserProfile(undefined, true).unwrap(),
+        Promise.resolve(authProfile),
       ]);
 
       const nextPlans = Array.isArray(plansResp?.plans) ? plansResp.plans : [];
@@ -434,6 +445,7 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
         setDebts([]);
         clearActiveBudgetPlanId();
         hydrateDrafts(null, me, null);
+        hasLoadedOnceRef.current = true;
         return;
       }
 
@@ -453,6 +465,7 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
       setNoPlan(false);
       setActiveBudgetPlanId(preferredPlanId);
       hydrateDrafts(nextSettings, me, preferredPlan?.budgetHorizonYears ?? null);
+      hasLoadedOnceRef.current = true;
     } catch (err: unknown) {
       const isNoPlanError =
         err instanceof ApiError &&
@@ -463,18 +476,28 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
         setSettings(null);
         setDebts([]);
         clearActiveBudgetPlanId();
+        hasLoadedOnceRef.current = true;
         return;
       }
       setError(err instanceof Error ? err.message : "Failed to load settings");
     } finally {
       setLoading(false);
       setRefreshing(false);
+      loadInFlightRef.current = false;
     }
-  }, [clearActiveBudgetPlanId, hydrateDrafts, setActiveBudgetPlanId]);
+  }, [authProfile, clearActiveBudgetPlanId, fetchBudgetPlans, hydrateDrafts, setActiveBudgetPlanId]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    // Only load once when screen is ACTUALLY focused (user navigated to it) AND auth is ready
+    // Skip if already loaded or if auth is still initializing
+    if (!isFocused || authLoading || hasLoadedOnceRef.current) return;
+    
+    // Additional guard: only trigger load if this is a real user navigation, not initial mount
+    // We do this by checking if we have a profile - if we don't, auth hasn't completed yet
+    if (!authProfile) return;
+    
+    void load();
+  }, [isFocused, authLoading, authProfile, load]);
 
   useEffect(() => {
     const inactivePlans = plans.filter((plan) => plan.id !== currentPlanId);

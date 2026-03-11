@@ -23,7 +23,14 @@ const OnboardingGateContext = createContext<OnboardingGateContextValue | null>(n
 export function OnboardingGateProvider({ children }: { children: React.ReactNode }) {
   const { token, isLoading, profile, refreshProfile } = useAuth();
   const [completingOnboarding, setCompletingOnboarding] = useState(false);
-  const onboardingState = token ? (profile?.onboarding ?? null) : null;
+  const onboardingState = token && profile
+    ? {
+      required: profile.onboarding.required,
+      completed: profile.onboarding.completed,
+      profile: profile.onboarding.profile,
+      occupations: [],
+    }
+    : null;
   const awaitingInitialResolution = Boolean(token) && !profile;
 
   const completeOnboardingAndHydrate = useCallback(async () => {

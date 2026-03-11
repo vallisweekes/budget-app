@@ -26,16 +26,16 @@ type BootstrapDataContextValue = {
 const BootstrapDataContext = createContext<BootstrapDataContextValue | null>(null);
 
 export function BootstrapDataProvider({ children }: { children: React.ReactNode }) {
-  const { token, isLoading: authLoading } = useAuth();
+  const { token, isLoading: authLoading, profile } = useAuth();
   const onboarding = useOnboardingGate();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const shouldSkip = authLoading || !token || onboarding.busy || onboarding.required;
 
-  const dashboardQuery = useGetDashboardQuery(undefined, { skip: shouldSkip, refetchOnMountOrArgChange: true });
-  const settingsQuery = useGetSettingsQuery(undefined, { skip: shouldSkip, refetchOnMountOrArgChange: true });
+  const dashboardQuery = useGetDashboardQuery(undefined, { skip: shouldSkip });
+  const settingsQuery = useGetSettingsQuery(undefined, { skip: shouldSkip });
 
   const dashboard = shouldSkip ? null : dashboardQuery.data ?? null;
-  const settings = shouldSkip ? null : settingsQuery.data ?? null;
+  const settings = shouldSkip ? null : settingsQuery.data ?? profile?.settings ?? null;
   const hasBootstrapData = Boolean(dashboard && settings);
   const isLoading = authLoading
     ? true
