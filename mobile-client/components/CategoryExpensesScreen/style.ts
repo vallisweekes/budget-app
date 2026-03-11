@@ -129,7 +129,7 @@ export const categoryExpensesStyles = StyleSheet.create({
   heroCard: {
     width: 140,
     height: 80,
-    backgroundColor: withOpacity(T.onAccent, 0.12),
+    backgroundColor: "#03045E",
     borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",

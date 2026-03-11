@@ -101,7 +101,7 @@ export const expenseDetailStyles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 0,
   },
-  heroUpdated: { color: "rgba(255,255,255,0.5)", fontSize: 12, fontWeight: "500", marginBottom: 18 },
+  heroUpdated: { color: "rgba(255,255,255,0.72)", fontSize: 12, fontWeight: "500", marginBottom: 18 },
   heroDueBadge: {
     flexDirection: "row",
     alignItems: "center",
@@ -117,7 +117,7 @@ export const expenseDetailStyles = StyleSheet.create({
   heroCard: {
     width: 140,
     height: 80,
-    backgroundColor: "rgba(255,255,255,0.1)",
+    backgroundColor: "#03045E",
     borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
@@ -141,13 +141,13 @@ export const expenseDetailStyles = StyleSheet.create({
   },
   lockedHint: {
     marginTop: 10,
-    color: T.textMuted,
+    color: "rgba(255,255,255,0.72)",
     fontSize: 12,
     fontWeight: "600",
     textAlign: "center",
   },
   aiCard: {
-    backgroundColor: T.cardAlt,
+    backgroundColor: "#03045E",
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: T.border,
@@ -158,7 +158,7 @@ export const expenseDetailStyles = StyleSheet.create({
   aiTitle: { color: T.text, fontSize: 13, fontWeight: "900", letterSpacing: 0.2 },
   aiText: { color: T.textDim, fontSize: 13, fontWeight: "600", lineHeight: 18 },
   freqCard: {
-    backgroundColor: T.cardAlt,
+    backgroundColor: "#03045E",
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: T.border,
