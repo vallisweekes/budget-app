@@ -7,6 +7,8 @@ import type { SettingsOverviewTabProps } from "@/types/components/settings/Setti
 
 export default function SettingsOverviewTab({
   profileLabel,
+  emailVerificationLabel,
+  emailVerificationColor,
   subscriptionLabel,
   payDateLabel,
   payFrequencyLabel,
@@ -15,6 +17,7 @@ export default function SettingsOverviewTab({
   notificationsLabel,
   versionLabel,
   onEditProfile,
+  onOpenEmailVerification,
   onOpenSubscription,
   onOpenBudget,
   onOpenIncomeSettings,
@@ -31,6 +34,7 @@ export default function SettingsOverviewTab({
     <>
       <SettingsSection title="Account">
         <SettingsLinkRow label="Profile details" value={profileLabel} onPress={onEditProfile} />
+        <SettingsLinkRow label="Email verification" value={emailVerificationLabel} valueColor={emailVerificationColor} onPress={onOpenEmailVerification} />
         <SettingsLinkRow label="Subscription" value={subscriptionLabel} onPress={onOpenSubscription} />
       </SettingsSection>
 

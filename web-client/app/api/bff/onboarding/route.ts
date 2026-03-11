@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSessionUserId } from "@/lib/api/bffAuth";
+import { sendEmailVerificationEmail } from "@/lib/auth/emailVerification";
 import { completeOnboarding, getOnboardingForUser, saveOnboardingDraft, type OnboardingInput } from "@/lib/onboarding";
 import { invalidateDashboardCache, invalidateDashboardCacheForUser } from "@/lib/cache/dashboardCache";
 
@@ -110,6 +111,11 @@ export async function POST(request: Request) {
     if (!userId) return unauthorized();
 
     const result = await completeOnboarding(userId);
+    try {
+      await sendEmailVerificationEmail(userId, { resetDeadline: true });
+    } catch (verificationError) {
+      console.error("Failed to send onboarding verification email:", verificationError);
+    }
     await invalidateDashboardCache(result.budgetPlanId);
     return NextResponse.json({ ok: true, budgetPlanId: result.budgetPlanId });
   } catch (error) {

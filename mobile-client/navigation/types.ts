@@ -128,6 +128,8 @@ export type RootStackParamList = {
   SettingsProfileDetails: {
     username?: string;
     email?: string;
+    emailVerificationStatus?: "verified" | "pending" | "missing_email" | "not_required";
+    emailVerificationDeadlineAt?: string | null;
   };
   SettingsDebtManagement: undefined;
   SettingsIncomeSettings: undefined;

@@ -323,6 +323,11 @@ export interface UserProfile {
   id: string;
   username: string;
   email: string | null;
+  emailVerifiedAt: string | null;
+  emailVerificationStatus: "verified" | "pending" | "missing_email" | "not_required";
+  emailVerificationRequired: boolean;
+  emailVerificationBlocked: boolean;
+  emailVerificationDeadlineAt: string | null;
 }
 
 export type OnboardingGoal = "improve_savings" | "emergency_fund" | "investments" | "manage_debts" | "track_spending" | "build_budget";

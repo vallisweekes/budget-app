@@ -15,6 +15,7 @@ import { PushNotificationsBootstrap } from "@/components/Shared/PushNotification
 import { applyThemeMode, type ThemeMode, T } from "@/lib/theme";
 import { getStoredThemeMode } from "@/lib/storage";
 import { installGlobalTypographyWeightNormalizer } from "@/lib/typography";
+import { EmailVerificationGateProvider, useEmailVerificationGate } from "@/navigation/EmailVerificationGateContext";
 import { OnboardingGateProvider } from "@/navigation/OnboardingGateContext";
 import { useOnboardingGate } from "@/navigation/OnboardingGateContext";
 import { buildPersistedHref, clearPersistedRoute, flushPersistedHrefRemote, savePersistedHrefLocal } from "@/navigation/routePersistence";
@@ -108,13 +109,15 @@ function useSessionRouteGuardState() {
   const segments = useSegments() as string[];
   const { token, isLoading } = useAuth();
   const onboarding = useOnboardingGate();
+  const verification = useEmailVerificationGate();
 
   const rootSegment = typeof segments[0] === "string" ? segments[0] : "";
   const childSegment = typeof segments[1] === "string" ? segments[1] : "";
   const inAuthGroup = rootSegment === "(auth)" || pathname === "/login" || pathname === "/onboarding";
   const onOnboardingRoute = (rootSegment === "(auth)" && childSegment === "onboarding") || pathname === "/onboarding";
+  const onVerificationRoute = (rootSegment === "(auth)" && childSegment === "verify-email") || pathname === "/verify-email";
 
-  if (isLoading || (token && onboarding.busy)) {
+  if (isLoading || (token && (onboarding.busy || verification.busy))) {
     return { mode: "loading" as const };
   }
 
@@ -126,6 +129,12 @@ function useSessionRouteGuardState() {
     return onOnboardingRoute
       ? { mode: "ready" as const }
       : { mode: "redirect" as const, href: "/(auth)/onboarding" };
+  }
+
+  if (verification.blocked) {
+    return onVerificationRoute
+      ? { mode: "ready" as const }
+      : { mode: "redirect" as const, href: "/(auth)/verify-email" };
   }
 
   if (inAuthGroup || pathname === "/") {
@@ -258,12 +267,14 @@ export default function ExpoRootLayout() {
       <ReduxProvider store={store}>
         <AuthProvider>
           <OnboardingGateProvider>
-            <BootstrapDataProvider>
-              <ActiveBudgetPlanProvider>
-                <PushNotificationsBootstrap />
-                <RootShell />
-              </ActiveBudgetPlanProvider>
-            </BootstrapDataProvider>
+            <EmailVerificationGateProvider>
+              <BootstrapDataProvider>
+                <ActiveBudgetPlanProvider>
+                  <PushNotificationsBootstrap />
+                  <RootShell />
+                </ActiveBudgetPlanProvider>
+              </BootstrapDataProvider>
+            </EmailVerificationGateProvider>
           </OnboardingGateProvider>
         </AuthProvider>
       </ReduxProvider>

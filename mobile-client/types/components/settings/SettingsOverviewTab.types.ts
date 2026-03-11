@@ -1,5 +1,7 @@
 export type SettingsOverviewTabProps = {
   profileLabel: string;
+  emailVerificationLabel: string;
+  emailVerificationColor?: string;
   subscriptionLabel: string;
   payDateLabel: string;
   payFrequencyLabel: string;
@@ -8,6 +10,7 @@ export type SettingsOverviewTabProps = {
   notificationsLabel: string;
   versionLabel: string;
   onEditProfile: () => void;
+  onOpenEmailVerification: () => void;
   onOpenSubscription: () => void;
   onOpenBudget: () => void;
   onOpenIncomeSettings: () => void;

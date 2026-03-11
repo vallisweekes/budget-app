@@ -25,6 +25,22 @@ import { T } from "@/lib/theme";
 import type { SettingsMainContentProps } from "@/types/components/settings/SettingsMainContent.types";
 import { useGetOnboardingStatusQuery } from "@/store/api";
 
+function getVerificationLabel(profile: SettingsMainContentProps["controller"]["profile"]): string {
+  if (!profile) return "Unavailable";
+  if (profile.emailVerificationStatus === "verified") return "Verified";
+  if (profile.emailVerificationStatus === "pending") return "Pending";
+  if (profile.emailVerificationStatus === "missing_email") return "Add email";
+  return "Not required";
+}
+
+function getVerificationColor(profile: SettingsMainContentProps["controller"]["profile"]): string | undefined {
+  if (!profile) return undefined;
+  if (profile.emailVerificationStatus === "verified") return T.green;
+  if (profile.emailVerificationStatus === "pending") return T.orange;
+  if (profile.emailVerificationStatus === "missing_email") return T.red;
+  return undefined;
+}
+
 export default function SettingsMainContent({ controller, navigation, savingsTileSize, getAddPotLabel, getSavingsTilePalette }: SettingsMainContentProps) {
   const scrollRef = React.useRef<ScrollView | null>(null);
   const router = useRouter();
@@ -93,6 +109,8 @@ export default function SettingsMainContent({ controller, navigation, savingsTil
       {controller.activeTab === "details" ? (
         <SettingsOverviewTab
           profileLabel={controller.profile?.username ?? controller.authUsername ?? controller.profile?.email ?? "No name set"}
+          emailVerificationLabel={getVerificationLabel(controller.profile)}
+          emailVerificationColor={getVerificationColor(controller.profile)}
           subscriptionLabel={controller.subscription?.current.planLabel ?? "Free"}
           payDateLabel={controller.settings?.payDate ? `Day ${controller.settings.payDate}` : "Not set"}
           payFrequencyLabel={formatPayFrequency(controller.settings?.payFrequency)}
@@ -105,6 +123,17 @@ export default function SettingsMainContent({ controller, navigation, savingsTil
             params: {
               username: controller.profile?.username ?? controller.authUsername ?? "",
               email: controller.profile?.email ?? "",
+              emailVerificationStatus: controller.profile?.emailVerificationStatus ?? "not_required",
+              emailVerificationDeadlineAt: controller.profile?.emailVerificationDeadlineAt ?? null,
+            },
+          })}
+          onOpenEmailVerification={() => router.push({
+            pathname: "/settings-profile-details",
+            params: {
+              username: controller.profile?.username ?? controller.authUsername ?? "",
+              email: controller.profile?.email ?? "",
+              emailVerificationStatus: controller.profile?.emailVerificationStatus ?? "not_required",
+              emailVerificationDeadlineAt: controller.profile?.emailVerificationDeadlineAt ?? null,
             },
           })}
           onOpenSubscription={() => controller.setActiveTab("subscription")}

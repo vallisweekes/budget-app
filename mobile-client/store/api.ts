@@ -308,6 +308,31 @@ export const mobileApi = createApi({
       },
       invalidatesTags: ["UserProfile"],
     }),
+    resendEmailVerification: builder.mutation<{
+      ok: boolean;
+      status: "verified" | "pending" | "missing_email" | "not_required";
+      deadlineAt: string | null;
+      required: boolean;
+      blocked: boolean;
+    }, void>({
+      async queryFn() {
+        try {
+          const data = await apiFetch<{
+            ok: boolean;
+            status: "verified" | "pending" | "missing_email" | "not_required";
+            deadlineAt: string | null;
+            required: boolean;
+            blocked: boolean;
+          }>("/api/bff/email-verification/resend", {
+            method: "POST",
+          });
+          return { data };
+        } catch (err: unknown) {
+          return { error: normalizeApiError(err) };
+        }
+      },
+      invalidatesTags: ["UserProfile"],
+    }),
     updateOnboardingProfile: builder.mutation<{ ok?: boolean; profile?: OnboardingProfile }, Partial<OnboardingProfile>>({
       async queryFn(body) {
         try {
@@ -449,6 +474,7 @@ export const {
   useGetSubscriptionQuery,
   useCreateDebtMutation,
   useCreateDebtPaymentMutation,
+  useResendEmailVerificationMutation,
   useUpdateProfileMutation,
   useUpdateOnboardingProfileMutation,
   useUpdateDebtMutation,

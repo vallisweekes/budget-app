@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionIdentity } from "@/lib/api/bffAuth";
 import { isValidEmail, normalizeEmail } from "@/lib/helpers/email";
+import { getEmailVerificationState, sendEmailVerificationEmail } from "@/lib/auth/emailVerification";
 import { runOnboardingRepairPass } from "@/lib/onboarding";
 import { touchMobileAuthSessionAndDetectFirstSeen } from "@/lib/mobileAuthSessions";
 
@@ -39,10 +40,17 @@ export async function GET(request: Request) {
 
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
+    const verification = await getEmailVerificationState(identity.userId);
+
     return NextResponse.json({
       id: user.id,
       username: String(user.name ?? "").trim(),
       email: user.email,
+      emailVerifiedAt: verification.emailVerifiedAt?.toISOString() ?? null,
+      emailVerificationStatus: verification.status,
+      emailVerificationRequired: verification.required,
+      emailVerificationBlocked: verification.blocked,
+      emailVerificationDeadlineAt: verification.deadlineAt?.toISOString() ?? null,
     });
   } catch (error) {
     console.error("Failed to fetch profile:", error);
@@ -71,18 +79,52 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Invalid email address" }, { status: 400 });
     }
 
+    const currentUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true },
+    });
+    if (!currentUser) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    const emailChanged = (currentUser.email ?? null) !== (normalized || null);
+
     const updated = await prisma.user.update({
       where: { id: userId },
       data: {
         email: normalized || null,
+        emailVerified: emailChanged ? null : undefined,
       },
       select: { id: true, name: true, email: true },
     });
+
+    if (emailChanged) {
+      await prisma.verificationToken.deleteMany({
+        where: {
+          identifier: `email_verification:${userId}`,
+        },
+      });
+
+      if (updated.email) {
+        try {
+          await sendEmailVerificationEmail(userId, { resetDeadline: true });
+        } catch (error) {
+          console.error("Failed to send verification email after profile update:", error);
+        }
+      }
+    }
+
+    const verification = await getEmailVerificationState(userId);
 
     return NextResponse.json({
       id: updated.id,
       username: String(updated.name ?? "").trim(),
       email: updated.email,
+      emailVerifiedAt: verification.emailVerifiedAt?.toISOString() ?? null,
+      emailVerificationStatus: verification.status,
+      emailVerificationRequired: verification.required,
+      emailVerificationBlocked: verification.blocked,
+      emailVerificationDeadlineAt: verification.deadlineAt?.toISOString() ?? null,
     });
   } catch (error) {
     const message = String((error as { message?: unknown })?.message ?? "");
