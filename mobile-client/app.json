@@ -23,6 +23,9 @@
         "usesNonExemptEncryption": false
       },
       "infoPlist": {
+        "UIBackgroundModes": [
+          "remote-notification"
+        ],
         "NSCameraUsageDescription": "BudgetIn Check uses your camera to scan receipts and auto-fill expense details.",
         "NSPhotoLibraryUsageDescription": "BudgetIn Check accesses your photo library to import receipts.",
         "NSPhotoLibraryAddUsageDescription": "BudgetIn Check saves receipt images to your photo library when needed."
