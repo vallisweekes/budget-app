@@ -78,8 +78,6 @@ function dedupeExpenseRowsForInsights<T extends {
 		if (row.isMovedToDebt) continue;
 		if (row.isAllocation) continue;
 		if (isLegacyPlaceholderExpenseRow(row)) continue;
-		// Only scheduled bills participate in pay-period insights.
-		if (!row.dueDate) continue;
 
 		const dueIso = resolveEffectiveDueDateIso(
 			{
@@ -151,6 +149,22 @@ function scoreUpcoming(u: UpcomingPayment): number {
 		default:
 			return 100 + u.daysUntilDue;
 	}
+}
+
+function filterUpcomingForWindow(
+	items: UpcomingPayment[],
+	window: { start: Date; end: Date }
+): UpcomingPayment[] {
+	const startMs = window.start.getTime();
+	const endMs = window.end.getTime();
+
+	return items.filter((item) => {
+		if (!item.dueDate) return false;
+		const due = parseIsoDateToUtcDateOnly(item.dueDate);
+		if (!due) return false;
+		const dueMs = due.getTime();
+		return dueMs >= startMs && dueMs <= endMs;
+	});
 }
 
 function selectUpcomingWithMix(args: {
@@ -279,15 +293,29 @@ export async function getDashboardExpenseInsights({
 
 	const dedupedExpenseRows = dedupeExpenseRowsForInsights(expenseWindowRows, payDate);
 
-	const toExpenseItem = (e: (typeof dedupedExpenseRows)[number]): ExpenseItem => ({
-		id: e.id,
-		name: e.name,
-		logoUrl: (e.logoUrl ?? resolveExpenseLogo(e.name, e.merchantDomain ?? undefined).logoUrl) ?? undefined,
-		amount: toNumber(e.amount),
-		paid: e.paid,
-		paidAmount: toNumber(e.paidAmount),
-		dueDate: e.dueDate ? e.dueDate.toISOString().split("T")[0] : undefined,
-	});
+	const toExpenseItem = (e: (typeof dedupedExpenseRows)[number]): ExpenseItem => {
+		const effectiveDueDate = resolveEffectiveDueDateIso(
+			{
+				id: e.id,
+				name: e.name,
+				amount: toNumber(e.amount),
+				paid: e.paid,
+				paidAmount: toNumber(e.paidAmount),
+				dueDate: e.dueDate ? e.dueDate.toISOString().split("T")[0] : undefined,
+			},
+			{ year: e.year, monthNum: e.month, payDate }
+		);
+
+		return {
+			id: e.id,
+			name: e.name,
+			logoUrl: (e.logoUrl ?? resolveExpenseLogo(e.name, e.merchantDomain ?? undefined).logoUrl) ?? undefined,
+			amount: toNumber(e.amount),
+			paid: e.paid,
+			paidAmount: toNumber(e.paidAmount),
+			dueDate: effectiveDueDate ?? undefined,
+		};
+	};
 	const yearMonthKey = (year: number, monthNum: number) => `${year}-${monthNum}`;
 	const historyKeySet = new Set(historyPairs.map((p) => yearMonthKey(p.year, p.monthNum)));
 	const forecastKeySet = new Set(forecastPairs.map((p) => yearMonthKey(p.year, p.monthNum)));
@@ -460,6 +488,22 @@ export async function getDashboardExpenseInsights({
 		})
 		.sort((a, b) => scoreUpcoming(a) - scoreUpcoming(b) || b.amount - a.amount);
 
+	const selectedWindow = resolveActivePayPeriodWindow({
+		now: selectedBase.due ?? now,
+		payDate,
+		payFrequency: normalizedPayFrequency,
+		planCreatedAt,
+	});
+	const selectedWindowUpcomingExpenses = filterUpcomingForWindow(upcomingExpenses, selectedWindow);
+	const prioritizedUpcomingExpenses = selectedBase.year === basePay.year && selectedBase.monthNum === basePay.monthNum
+		? upcomingExpenses
+		: selectedWindowUpcomingExpenses.length > 0
+			? [
+				...selectedWindowUpcomingExpenses,
+				...upcomingExpenses.filter((item) => !selectedWindowUpcomingExpenses.some((selected) => selected.id === item.id)),
+			]
+			: upcomingExpenses;
+
 	const monthKey = monthNumberToKey(selectedBase.monthNum);
 	const allocationSnapshot = await getMonthlyAllocationSnapshot(budgetPlanId, monthKey);
 	const customAllocationsSnapshot = await getMonthlyCustomAllocationsSnapshot(budgetPlanId, monthKey, {
@@ -508,7 +552,7 @@ export async function getDashboardExpenseInsights({
 	// Keep the expense insights list debt-free.
 	// Debts are surfaced separately via debt summary pipelines (mobile `upcomingDebts`, debt screens).
 	const upcoming = selectUpcomingWithMix({
-		expenses: upcomingExpenses,
+		expenses: prioritizedUpcomingExpenses,
 		debts: [],
 		allocation: allocationUpcoming,
 		limit: 6,

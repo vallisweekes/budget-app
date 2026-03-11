@@ -5,7 +5,7 @@ export async function getBudgetPlanMeta(budgetPlanId: string): Promise<{
 	homepageGoalIds: string[];
 	createdAt: Date | null;
 }> {
-	let payDate = 1;
+	let payDate = 27;
 	let homepageGoalIds: string[] = [];
 	let createdAt: Date | null = null;
 
@@ -16,7 +16,7 @@ export async function getBudgetPlanMeta(budgetPlanId: string): Promise<{
 			select: { payDate: true, homepageGoalIds: true, createdAt: true } as any,
 		})) as unknown as { payDate?: unknown; homepageGoalIds?: unknown; createdAt?: unknown } | null;
 
-		payDate = Number(planMeta?.payDate ?? 1);
+		payDate = Number(planMeta?.payDate ?? 27);
 		const rawHomepageGoalIds = planMeta?.homepageGoalIds;
 		homepageGoalIds = Array.isArray(rawHomepageGoalIds)
 			? rawHomepageGoalIds.filter((v: unknown): v is string => typeof v === "string")
@@ -27,7 +27,7 @@ export async function getBudgetPlanMeta(budgetPlanId: string): Promise<{
 			where: { id: budgetPlanId },
 			select: { payDate: true, createdAt: true },
 		})) as unknown as { payDate?: unknown; createdAt?: unknown } | null;
-		payDate = Number(planMeta?.payDate ?? 1);
+		payDate = Number(planMeta?.payDate ?? 27);
 		createdAt = planMeta?.createdAt instanceof Date ? planMeta.createdAt : null;
 		homepageGoalIds = [];
 	}
