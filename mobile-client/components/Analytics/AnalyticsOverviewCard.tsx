@@ -8,6 +8,18 @@ import { T } from "@/lib/theme";
 import { analyticsStyles as s } from "@/components/AnalyticsScreen/style";
 import type { AnalyticsOverviewCardProps, AnalyticsOverviewPointerItem } from "@/types";
 
+function formatCompactAxisValue(value: number) {
+  if (!Number.isFinite(value)) return "0";
+  const absolute = Math.abs(value);
+  if (absolute < 1000) return String(Math.round(value));
+  if (absolute < 1_000_000) {
+    const compact = (value / 1000).toFixed(1).replace(/\.0$/, "");
+    return `${compact}k`;
+  }
+  const compact = (value / 1_000_000).toFixed(1).replace(/\.0$/, "");
+  return `${compact}m`;
+}
+
 export default function AnalyticsOverviewCard({
   chartData,
   chartSpacing,
@@ -21,6 +33,14 @@ export default function AnalyticsOverviewCard({
   overviewMode,
   overviewWrapWidth,
 }: AnalyticsOverviewCardProps) {
+  const chartRenderWidth = Math.max(220, chartWidth - 28);
+
+  const visualYAxisLabels = React.useMemo(() => {
+    const sections = 5;
+    const step = overviewMaxValue / sections;
+    return Array.from({ length: sections + 1 }, (_, index) => formatCompactAxisValue(step * (sections - index)));
+  }, [overviewMaxValue]);
+
   return (
     <View style={s.tipCard}>
       <View style={s.overviewHead}>
@@ -37,6 +57,13 @@ export default function AnalyticsOverviewCard({
           }
         }}
       >
+        <View pointerEvents="none" style={s.overviewYAxisOverlay}>
+          {visualYAxisLabels.map((label) => (
+            <Text key={label} style={s.overviewYAxisLabel}>
+              {label}
+            </Text>
+          ))}
+        </View>
         <LineChart
           data={incomeLine}
           data2={expenseLine}
@@ -46,15 +73,16 @@ export default function AnalyticsOverviewCard({
           thickness={2}
           thickness2={2}
           height={OVERVIEW_CHART_H}
-          width={chartWidth}
-          initialSpacing={0}
-          endSpacing={0}
+          width={chartRenderWidth}
+          initialSpacing={10}
+          endSpacing={24}
           spacing={chartSpacing}
           noOfSections={5}
           maxValue={overviewMaxValue}
-          yAxisColor={T.border}
+          yAxisLabelWidth={24}
+          yAxisColor="transparent"
           xAxisColor={T.border}
-          yAxisTextStyle={s.chartAxisText}
+          yAxisTextStyle={[s.chartAxisText, { color: "transparent" }]}
           xAxisLabelTextStyle={s.chartAxisXText}
           rulesColor={T.border}
           rulesType="dashed"
@@ -81,8 +109,8 @@ export default function AnalyticsOverviewCard({
             pointerLabelComponent: (items: AnalyticsOverviewPointerItem[]) => {
               const item = items?.[0];
               if (!item) return null;
-              const index = Number.isFinite(item.index) ? item.index : 0;
-              const monthLabel = chartData.rawLabels[index] ?? chartData.labels[index] ?? "";
+              const safeIndex = typeof item.index === "number" && Number.isFinite(item.index) ? item.index : 0;
+              const monthLabel = item.rawLabel ?? item.label ?? chartData.rawLabels[safeIndex] ?? chartData.labels[safeIndex] ?? "";
               return (
                 <View style={s.pointerTooltip}>
                   <Text style={s.pointerTooltipValue}>{fmt(item.value ?? 0, currency)}</Text>

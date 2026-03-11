@@ -33,6 +33,7 @@ export type AnalyticsDebtDistributionItem = {
 export type AnalyticsOverviewLinePoint = {
   value: number;
   label?: string;
+  rawLabel?: string;
 };
 
 export type AnalyticsScreenControllerState = {

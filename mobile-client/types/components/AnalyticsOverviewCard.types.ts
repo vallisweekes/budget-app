@@ -2,7 +2,9 @@ import type { AnalyticsChartData, AnalyticsOverviewLinePoint, AnalyticsOverviewM
 
 export type AnalyticsOverviewPointerItem = {
   value: number;
-  index: number;
+  index?: number;
+  label?: string;
+  rawLabel?: string;
 };
 
 export type AnalyticsOverviewCardProps = {

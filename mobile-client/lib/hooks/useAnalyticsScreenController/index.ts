@@ -183,12 +183,20 @@ export function useAnalyticsScreenController(
   }, [chartData.maxValue]);
 
   const overviewIncomeLine = useMemo<AnalyticsOverviewLinePoint[]>(
-    () => chartData.incomeSeries.map((value, idx) => ({ value, label: chartData.labels[idx] ?? "" })),
-    [chartData.incomeSeries, chartData.labels],
+    () => chartData.incomeSeries.map((value, idx) => ({
+      value,
+      label: chartData.labels[idx] ?? "",
+      rawLabel: chartData.rawLabels[idx] ?? chartData.labels[idx] ?? "",
+    })),
+    [chartData.incomeSeries, chartData.labels, chartData.rawLabels],
   );
   const overviewExpenseLine = useMemo<AnalyticsOverviewLinePoint[]>(
-    () => chartData.expenseSeries.map((value) => ({ value })),
-    [chartData.expenseSeries],
+    () => chartData.expenseSeries.map((value, idx) => ({
+      value,
+      label: chartData.labels[idx] ?? "",
+      rawLabel: chartData.rawLabels[idx] ?? chartData.labels[idx] ?? "",
+    })),
+    [chartData.expenseSeries, chartData.labels, chartData.rawLabels],
   );
   const fallbackOverviewWidth = useMemo(() => Math.max(240, windowWidth - 76), [windowWidth]);
   const chartWidth = useMemo(() => {
