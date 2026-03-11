@@ -110,7 +110,7 @@ export async function getPayPeriodExpenses(params: {
 		`${windowEnd.getUTCFullYear()}-${windowEnd.getUTCMonth() + 1}`,
 	]);
 
-	const seen = new Map<string, { expense: (typeof rows)[number]; rank: number }>();
+	const seen = new Map<string, { expense: PayPeriodExpenseRow; rank: number }>();
 	for (const expense of rows as PayPeriodExpenseRow[]) {
 		if (isLegacyPlaceholderExpenseRow(expense)) continue;
 		if (Boolean(expense.isAllocation ?? false)) continue;
@@ -162,5 +162,5 @@ export async function getPayPeriodExpenses(params: {
 		}
 	}
 
-	return Array.from(seen.values()).map((entry) => entry.expense as PayPeriodExpenseRow);
+	return Array.from(seen.values()).map((entry) => entry.expense);
 }

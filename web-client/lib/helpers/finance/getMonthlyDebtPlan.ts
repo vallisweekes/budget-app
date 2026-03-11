@@ -3,6 +3,8 @@ import { getEarlyPaymentWindowStart } from "@/lib/helpers/finance/earlyPaymentWi
 import { isNonDebtCategoryName } from "@/lib/expenses/helpers";
 import { isExpenseDebtCoveredByRegularDebt } from "@/lib/helpers/debts/expenseDebtDuplicates";
 
+type MoneyLike = number | string | null | undefined | { toString?: () => string };
+
 type Params = {
 	budgetPlanId: string;
 	year: number;
@@ -18,7 +20,7 @@ type DueDebtRow = {
 	id: string;
 	name: string | null;
 	amount: unknown;
-	currentBalance: unknown;
+	currentBalance: MoneyLike;
 	initialBalance: unknown;
 	installmentMonths: unknown;
 	monthlyMinimum: unknown;
