@@ -103,7 +103,7 @@ export default function PillTabBar({ state, descriptors: _descriptors, navigatio
   const activeVisibleIndex = useMemo(() => {
     const activeName = getRouteBaseName(state.routes[state.index]?.name);
     const idx = visibleRoutes.findIndex((route) => getRouteBaseName(route.name) === activeName);
-    return idx >= 0 ? idx : 0;
+    return idx >= 0 ? idx : -1;
   }, [state.index, state.routes, visibleRoutes]);
 
   if (
@@ -117,7 +117,7 @@ export default function PillTabBar({ state, descriptors: _descriptors, navigatio
 
   const innerWidth = Math.max(0, barWidth - BAR_HORIZONTAL_PADDING * 2);
   const slotWidth = innerWidth > 0 && visibleRoutes.length > 0 ? innerWidth / visibleRoutes.length : 0;
-  const indicatorLeft = slotWidth > 0
+  const indicatorLeft = slotWidth > 0 && activeVisibleIndex >= 0
     ? BAR_HORIZONTAL_PADDING + activeVisibleIndex * slotWidth + (slotWidth - INDICATOR_SIZE) / 2
     : 0;
   const indicatorTop = barHeight > 0 ? (barHeight - INDICATOR_SIZE) / 2 + INDICATOR_VERTICAL_OFFSET : 4;
@@ -133,7 +133,7 @@ export default function PillTabBar({ state, descriptors: _descriptors, navigatio
             setBarHeight(event.nativeEvent.layout.height);
           }}
         >
-          {slotWidth > 0 ? (
+          {slotWidth > 0 && activeVisibleIndex >= 0 ? (
             <View
               pointerEvents="none"
               style={[

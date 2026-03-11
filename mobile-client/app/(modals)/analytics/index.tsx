@@ -1,7 +1,6 @@
 import React from "react";
+import { Redirect } from "expo-router";
 
-import AnalyticsScreen from "@/components/AnalyticsScreen";
-
-export default function AnalyticsRoute(props: any) {
-  return <AnalyticsScreen {...props} />;
+export default function AnalyticsRoute() {
+  return <Redirect href="/(tabs)/analytics" />;
 }

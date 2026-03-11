@@ -1,7 +1,7 @@
 import React from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { StackActions } from "@react-navigation/native";
-import { Pressable, Text, View } from "react-native";
+import { Animated, Pressable, Text, View } from "react-native";
 import { Tabs } from "expo-router";
 import { useRouter } from "expo-router";
 
@@ -61,6 +61,7 @@ function TabsHeader({ navigation, route }: { navigation: any; route: any }) {
   const isCategoryExpenses = deepestRoute?.name === "CategoryExpenses";
   const isDebtDetail = deepestRoute?.name === "DebtDetail";
   const isExpenseDetail = deepestRoute?.name === "ExpenseDetail";
+  const isAnalytics = currentTabName === "analytics";
   const isLoggedExpenses = deepestRoute?.name === "LoggedExpenses";
   const isExpensesList = deepestRoute?.name === "ExpensesList";
   const isUnplannedExpense = deepestRoute?.name === "UnplannedExpense";
@@ -103,9 +104,12 @@ function TabsHeader({ navigation, route }: { navigation: any; route: any }) {
           ? "Upload Receipt"
           : isDebtAnalytics
             ? "Debt Analytics"
+            : isAnalytics
+              ? "Analytics"
             : isGoals
               ? "Goals"
               : undefined;
+  const analyticsOverviewMode = deepestRoute?.params?.overviewMode === "month" ? "month" : "year";
 
   const handleBack = () => {
     if (isLoggedExpenses) {
@@ -204,6 +208,15 @@ function TabsHeader({ navigation, route }: { navigation: any; route: any }) {
       return;
     }
 
+    if (isAnalytics) {
+      if (navigation.canGoBack?.()) {
+        navigation.goBack();
+        return;
+      }
+      router.replace("/(tabs)/dashboard");
+      return;
+    }
+
     if (isSettings) {
       if (!navigateToTab("dashboard")) {
         router.replace("/(tabs)/dashboard");
@@ -237,6 +250,42 @@ function TabsHeader({ navigation, route }: { navigation: any; route: any }) {
       <Ionicons name="add" size={18} color={T.onAccent} />
       <Text style={{ color: T.onAccent, fontSize: 13, fontWeight: "800" }}>Goal</Text>
     </Pressable>
+  ) : undefined;
+
+  const analyticsRightContent = isAnalytics ? (
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        borderWidth: 1,
+        borderColor: T.border,
+        borderRadius: 999,
+        backgroundColor: `${T.cardAlt}66`,
+        width: 68,
+        height: 34,
+        position: "relative",
+        overflow: "hidden",
+      }}
+    >
+      <Animated.View
+        pointerEvents="none"
+        style={{
+          position: "absolute",
+          width: 30,
+          height: 28,
+          borderRadius: 14,
+          backgroundColor: T.accent,
+          top: 2,
+          transform: [{ translateX: analyticsOverviewMode === "year" ? 34 : 2 }],
+        }}
+      />
+      <Pressable onPress={() => navigation.setParams?.({ overviewMode: "month" })} style={{ flex: 1, alignItems: "center", justifyContent: "center" }} hitSlop={10}>
+        <Text style={{ color: analyticsOverviewMode === "month" ? T.onAccent : T.textDim, fontSize: 12, fontWeight: "800" }}>M</Text>
+      </Pressable>
+      <Pressable onPress={() => navigation.setParams?.({ overviewMode: "year" })} style={{ flex: 1, alignItems: "center", justifyContent: "center" }} hitSlop={10}>
+        <Text style={{ color: analyticsOverviewMode === "year" ? T.onAccent : T.textDim, fontSize: 12, fontWeight: "800" }}>Y</Text>
+      </Pressable>
+    </View>
   ) : undefined;
 
   const expensesListLeftContent = isExpensesList && isPersonalPlan ? (
@@ -350,7 +399,7 @@ function TabsHeader({ navigation, route }: { navigation: any; route: any }) {
           router.push("/(tabs)/income");
         }
       }}
-      onAnalytics={() => router.push("/(modals)/analytics")}
+      onAnalytics={() => router.push("/(tabs)/analytics")}
       onNotifications={() => {
         if (!navigateToTab("settings")) {
           router.push("/(tabs)/settings");
@@ -360,11 +409,11 @@ function TabsHeader({ navigation, route }: { navigation: any; route: any }) {
       leftVariant={isSettings || isCategoryExpenses || isLoggedExpenses || isUnplannedExpense || isScanReceipt || isDebtAnalytics ? "back" : "avatar"}
       onBack={handleBack}
       centerLabel={centerLabel}
-      rightContent={expensesLoggedRightContent ?? goalsRightContent}
+      rightContent={analyticsRightContent ?? expensesLoggedRightContent ?? goalsRightContent}
       showIncomeAction={false}
       compactActionsMenu={isSettings}
-      showAnalyticsAction={!isSettings}
-      showNotificationAction={!isSettings}
+      showAnalyticsAction={!isSettings && !isAnalytics}
+      showNotificationAction={!isSettings && !isAnalytics}
       onLogout={isSettings ? signOut : undefined}
     />
   );
@@ -426,6 +475,13 @@ export default function MainTabsLayout() {
         name="settings"
         options={{
           title: "Settings",
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="analytics"
+        options={{
+          title: "Analytics",
           href: null,
         }}
       />
