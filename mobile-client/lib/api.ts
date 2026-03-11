@@ -1,11 +1,89 @@
+import Constants from "expo-constants";
+import * as Device from "expo-device";
+
 import { getSessionToken } from "@/lib/storage";
 
-export function getApiBaseUrl(): string {
+type ApiBaseUrlInfo = {
+  configuredUrl: string;
+  resolvedUrl: string;
+  wasAutoResolved: boolean;
+};
+
+const LOCALHOST_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
+
+function getConfiguredApiBaseUrl(): string {
   const baseUrl = (process.env.EXPO_PUBLIC_API_BASE_URL ?? "").trim().replace(/\/$/, "");
   if (!baseUrl) {
     throw new Error("Missing EXPO_PUBLIC_API_BASE_URL in .env");
   }
   return baseUrl;
+}
+
+function extractHost(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+
+  try {
+    return new URL(trimmed.includes("://") ? trimmed : `http://${trimmed}`).hostname.trim();
+  } catch {
+    return trimmed.replace(/^https?:\/\//, "").split(":")[0]?.trim() ?? "";
+  }
+}
+
+function resolveExpoDevHost(): string {
+  const candidates = [
+    Constants.expoGoConfig?.debuggerHost,
+    Constants.expoConfig?.hostUri,
+    Constants.platform?.hostUri,
+    Constants.linkingUri,
+  ];
+
+  for (const candidate of candidates) {
+    const host = typeof candidate === "string" ? extractHost(candidate) : "";
+    if (host && !LOCALHOST_HOSTS.has(host)) {
+      return host;
+    }
+  }
+
+  return "";
+}
+
+export function getApiBaseUrlInfo(): ApiBaseUrlInfo {
+  const configuredUrl = getConfiguredApiBaseUrl();
+
+  let parsed: URL;
+  try {
+    parsed = new URL(configuredUrl);
+  } catch {
+    throw new Error("EXPO_PUBLIC_API_BASE_URL must be a full URL like http://localhost:5537");
+  }
+
+  if (!Device.isDevice || !LOCALHOST_HOSTS.has(parsed.hostname)) {
+    return {
+      configuredUrl,
+      resolvedUrl: parsed.toString().replace(/\/$/, ""),
+      wasAutoResolved: false,
+    };
+  }
+
+  const expoDevHost = resolveExpoDevHost();
+  if (!expoDevHost) {
+    throw new Error(
+      "EXPO_PUBLIC_API_BASE_URL points to localhost, which does not work on a physical device. Set it to http://<YOUR_MAC_IP>:5537."
+    );
+  }
+
+  parsed.hostname = expoDevHost;
+
+  return {
+    configuredUrl,
+    resolvedUrl: parsed.toString().replace(/\/$/, ""),
+    wasAutoResolved: true,
+  };
+}
+
+export function getApiBaseUrl(): string {
+  return getApiBaseUrlInfo().resolvedUrl;
 }
 
 // Global callback invoked when the server returns 401.

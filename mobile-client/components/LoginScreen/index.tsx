@@ -14,6 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { styles } from "@/components/LoginScreen/style";
 import { useAuth } from "@/context/AuthContext";
+import { getApiBaseUrlInfo } from "@/lib/api";
 import { T } from "@/lib/theme";
 import type { LoginScreenMode } from "@/types";
 
@@ -24,7 +25,15 @@ export default function LoginScreen() {
   const [mode, setMode] = useState<LoginScreenMode>("login");
   const [loading, setLoading] = useState(false);
 
-  const baseUrl = (process.env.EXPO_PUBLIC_API_BASE_URL ?? "").trim();
+  const apiInfo = (() => {
+    try {
+      return getApiBaseUrlInfo();
+    } catch {
+      return null;
+    }
+  })();
+
+  const baseUrl = apiInfo?.resolvedUrl ?? (process.env.EXPO_PUBLIC_API_BASE_URL ?? "").trim();
 
   const handleSubmit = async () => {
     if (!username.trim()) {
@@ -127,7 +136,10 @@ export default function LoginScreen() {
             </Pressable>
 
             {baseUrl ? (
-              <Text style={styles.apiNote}>API: {baseUrl}</Text>
+              <Text style={styles.apiNote}>
+                API: {baseUrl}
+                {apiInfo?.wasAutoResolved ? " (auto-resolved from Expo dev host)" : ""}
+              </Text>
             ) : (
               <Text style={[styles.apiNote, styles.apiNoteError]}>
                 ⚠ Set EXPO_PUBLIC_API_BASE_URL in .env
