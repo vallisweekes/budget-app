@@ -36,9 +36,16 @@ let sharedExpensesCacheSignature: string | null = null;
 export function useExpensesScreenController({ navigation, route }: Props): ExpensesScreenControllerState {
   const topHeaderOffset = useTopHeaderOffset();
   const now = new Date();
-  const [month, setMonth] = useState(now.getMonth() + 1);
-  const [year, setYear] = useState(now.getFullYear());
-  const hasSyncedRouteParamsRef = useRef(false);
+  const routeMonth = Number(route.params?.month);
+  const routeYear = Number(route.params?.year);
+  const initialMonth = Number.isFinite(routeMonth) && routeMonth >= 1 && routeMonth <= 12
+    ? Math.floor(routeMonth)
+    : now.getMonth() + 1;
+  const initialYear = Number.isFinite(routeYear) && routeYear >= 1900
+    ? Math.floor(routeYear)
+    : now.getFullYear();
+  const [month, setMonth] = useState(initialMonth);
+  const [year, setYear] = useState(initialYear);
 
   const {
     settings,
@@ -83,32 +90,19 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
 
     const unsubscribe = tabNavigation.addListener("blur", () => {
       skipNextTabFocusReloadRef.current = true;
-      const current = new Date();
-      const nextMonth = current.getMonth() + 1;
-      const nextYear = current.getFullYear();
-      setMonth((prev) => (prev === nextMonth ? prev : nextMonth));
-      setYear((prev) => (prev === nextYear ? prev : nextYear));
     });
 
     return unsubscribe;
   }, [navigation]);
 
   useEffect(() => {
-    const routeMonth = Number(route.params?.month);
-    const routeYear = Number(route.params?.year);
-
-    if (!hasSyncedRouteParamsRef.current) {
-      hasSyncedRouteParamsRef.current = true;
-      return;
-    }
-
     if (Number.isFinite(routeMonth) && routeMonth >= 1 && routeMonth <= 12) {
-      setMonth(routeMonth);
+      setMonth((prev) => (prev === routeMonth ? prev : routeMonth));
     }
     if (Number.isFinite(routeYear)) {
-      setYear(routeYear);
+      setYear((prev) => (prev === routeYear ? prev : routeYear));
     }
-  }, [route.params?.month, route.params?.year]);
+  }, [routeMonth, routeYear]);
 
   useEffect(() => {
     const prevDisabled = !canDecrement(year, month);
@@ -294,18 +288,6 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     }
     prevIsPersonalPlanRef.current = isPersonalPlan;
   }, [defaultActiveMonth, defaultActiveYear, isPersonalPlan]);
-
-  useEffect(() => {
-    const tabNavigation = navigation.getParent();
-    if (!tabNavigation) return;
-
-    const unsubscribe = tabNavigation.addListener("blur", () => {
-      setMonth((prev) => (prev === defaultActiveMonth ? prev : defaultActiveMonth));
-      setYear((prev) => (prev === defaultActiveYear ? prev : defaultActiveYear));
-    });
-
-    return unsubscribe;
-  }, [defaultActiveMonth, defaultActiveYear, navigation]);
 
   const planCacheKey = useCallback((planId: string | null | undefined) => planId ?? "none", []);
 
@@ -832,6 +814,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
   const loadingUi = (loading || bootstrapLoading) && !summary;
   const showTopAddExpenseCta = !loading && !error && (summary?.totalCount ?? 0) === 0;
   const showPlanTotalFallback = isAdditionalPlan && (summary?.totalCount ?? 0) === 0 && expenseMonths.length > 0 && planTotalAmount > 0;
+  const isPastSelectedPeriod = year < defaultActiveYear || (year === defaultActiveYear && month < defaultActiveMonth);
 
   return {
     activePlan,
@@ -843,6 +826,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     error,
     expenseMonths,
     isPersonalPlan,
+    isPastSelectedPeriod,
     loadingUi,
     month,
     monthPickerOpen,
@@ -905,12 +889,14 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
 
       if (target.month !== month) setMonth(target.month);
       if (target.year !== year) setYear(target.year);
+      navigation.setParams({ month: target.month, year: target.year, prevDisabled: !canDecrement(target.year, target.month) });
       applyCachedViewState(planId, target.month, target.year);
       setActiveBudgetPlanId(planId);
     },
     onPressUpcomingMonth: (targetMonth: number, targetYear: number) => {
       setMonth(targetMonth);
       setYear(targetYear);
+      navigation.setParams({ month: targetMonth, year: targetYear, prevDisabled: !canDecrement(targetYear, targetMonth) });
     },
     onRefresh: () => {
       clearExpenseCaches();
@@ -924,6 +910,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       if (!enabledPeriodSet.has(targetMonth)) return;
       setMonth(targetMonth);
       setYear(pickerYear);
+      navigation.setParams({ month: targetMonth, year: pickerYear, prevDisabled: !canDecrement(pickerYear, targetMonth) });
       setMonthPickerOpen(false);
     },
     getPeriodOptionLabel,

@@ -599,9 +599,8 @@ const s = StyleSheet.create({
     paddingVertical: 0,
   },
   monthSwitchBtn: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
+    paddingHorizontal: 2,
+    paddingVertical: 2,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -610,10 +609,10 @@ const s = StyleSheet.create({
   },
   monthSwitchText: {
     color: T.text,
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "700",
     minWidth: 118,
-    paddingHorizontal: 1,
+    paddingHorizontal: 4,
     textAlign: "center",
     letterSpacing: 0.1,
   },
@@ -848,14 +847,17 @@ function MainTabs() {
         headerStyle: { backgroundColor: "transparent" },
         headerShadowVisible: false,
         header: () => {
-          const getDeepestRoute = (state: any): any => {
-            if (!state?.routes?.length) return null;
-            const route = state.routes[state.index ?? state.routes.length - 1];
-            if (route?.state) return getDeepestRoute(route.state);
-            return route;
+          const getDeepestRoute = (node: any): any => {
+            const state = node?.state ?? node;
+            if (!state?.routes?.length) {
+              return node?.name ? node : null;
+            }
+            const activeRoute = state.routes[state.index ?? state.routes.length - 1];
+            if (activeRoute?.state) return getDeepestRoute(activeRoute);
+            return activeRoute;
           };
 
-          const deepestRoute = getDeepestRoute(navigation.getState?.());
+          const deepestRoute = getDeepestRoute(route);
           const isDebtDetail = deepestRoute?.name === "DebtDetail";
           const isExpenseDetail = deepestRoute?.name === "ExpenseDetail";
           if (isDebtDetail || isExpenseDetail) return null;
@@ -869,14 +871,23 @@ function MainTabs() {
           const isDebtAnalytics = deepestRoute?.name === "DebtAnalytics";
           const isGoals = route.name === "Goals";
           const isIncomeTab = route.name === "Income";
-          const isIncomeMonth = deepestRoute?.name === "IncomeMonth";
+          const nestedTarget = route?.params && typeof route.params === "object"
+            ? (route.params as any)
+            : null;
+          const nestedIncomeMonthParams = nestedTarget?.screen === "IncomeMonth" && nestedTarget?.params
+            ? nestedTarget.params
+            : null;
+          const activeIncomeParams = deepestRoute?.name === "IncomeMonth"
+            ? deepestRoute?.params
+            : nestedIncomeMonthParams;
+          const isIncomeMonth = Boolean(activeIncomeParams);
 
-          const monthNum = Number(deepestRoute?.params?.month);
-          const yearNum = Number(deepestRoute?.params?.year);
-          const incomeMonthBudgetPlanId = typeof deepestRoute?.params?.budgetPlanId === "string"
-            ? deepestRoute.params.budgetPlanId
+          const monthNum = Number(activeIncomeParams?.month);
+          const yearNum = Number(activeIncomeParams?.year);
+          const incomeMonthBudgetPlanId = typeof activeIncomeParams?.budgetPlanId === "string"
+            ? activeIncomeParams.budgetPlanId
             : "";
-          const incomeMonthInitialMode = deepestRoute?.params?.initialMode === "sacrifice" ? "sacrifice" : "income";
+          const incomeMonthInitialMode = activeIncomeParams?.initialMode === "sacrifice" ? "sacrifice" : "income";
 
           const canUseIncomeMonthSwitcher = isIncomeTab
             && isIncomeMonth
@@ -914,6 +925,25 @@ function MainTabs() {
           const categoryExpensesYear = Number(deepestRoute?.params?.year);
           const expensesListMonth = Number(deepestRoute?.params?.month);
           const expensesListYear = Number(deepestRoute?.params?.year);
+          const currentPeriodMonth = Number(deepestRoute?.params?.currentPeriodMonth);
+          const currentPeriodYear = Number(deepestRoute?.params?.currentPeriodYear);
+          const resolvedCurrentPeriodMonth = Number.isFinite(currentPeriodMonth) && currentPeriodMonth >= 1 && currentPeriodMonth <= 12
+            ? Math.floor(currentPeriodMonth)
+            : new Date().getMonth() + 1;
+          const resolvedCurrentPeriodYear = Number.isFinite(currentPeriodYear)
+            ? Math.floor(currentPeriodYear)
+            : new Date().getFullYear();
+          const resolvedSelectedPeriodMonth = Number.isFinite(expensesListMonth) && expensesListMonth >= 1 && expensesListMonth <= 12
+            ? Math.floor(expensesListMonth)
+            : resolvedCurrentPeriodMonth;
+          const resolvedSelectedPeriodYear = Number.isFinite(expensesListYear)
+            ? Math.floor(expensesListYear)
+            : resolvedCurrentPeriodYear;
+          const isPastExpensesPeriod = isExpensesList
+            && (
+              resolvedSelectedPeriodYear < resolvedCurrentPeriodYear
+              || (resolvedSelectedPeriodYear === resolvedCurrentPeriodYear && resolvedSelectedPeriodMonth < resolvedCurrentPeriodMonth)
+            );
           const expensesListLoggedExpensesCountRaw = Number(deepestRoute?.params?.loggedExpensesCount);
           const expensesListLoggedExpensesCount = Number.isFinite(expensesListLoggedExpensesCountRaw)
             ? Math.max(0, Math.floor(expensesListLoggedExpensesCountRaw))
@@ -979,7 +1009,7 @@ function MainTabs() {
             ? <View style={{ width: 34, height: 34 }} />
             : undefined;
 
-          const expensesLoggedRightContent = isExpensesList && expensesListLoggedExpensesCount > 0 ? (
+          const expensesLoggedRightContent = isExpensesList && !isPastExpensesPeriod && expensesListLoggedExpensesCount > 0 ? (
             <Pressable
               onPress={() => {
                 (navigation as any).navigate("Expenses" as any, {
@@ -989,8 +1019,8 @@ function MainTabs() {
                     categoryName: "All categories",
                     color: null,
                     icon: null,
-                    month: Number.isFinite(expensesListMonth) ? expensesListMonth : new Date().getMonth() + 1,
-                    year: Number.isFinite(expensesListYear) ? expensesListYear : new Date().getFullYear(),
+                    month: resolvedSelectedPeriodMonth,
+                    year: resolvedSelectedPeriodYear,
                     budgetPlanId: deepestRoute?.params?.budgetPlanId ?? null,
                     currency: deepestRoute?.params?.currency ?? "£",
                   },
@@ -1009,10 +1039,16 @@ function MainTabs() {
             </Pressable>
           ) : undefined;
 
-          const expensesListLeftContent = isExpensesList ? (
+          const expensesListLeftContent = isExpensesList && !isPastExpensesPeriod ? (
             <View style={{ flexDirection: "row", gap: 8 }}>
               <Pressable
-                onPress={() => navigation.navigate("Expenses" as any, { screen: "UnplannedExpense" } as any)}
+                onPress={() => navigation.navigate("Expenses" as any, {
+                  screen: "UnplannedExpense",
+                  params: {
+                    month: resolvedCurrentPeriodMonth,
+                    year: resolvedCurrentPeriodYear,
+                  },
+                } as any)}
                 style={s.quickActionBtn}
                 hitSlop={10}
                 accessibilityRole="button"
@@ -1086,7 +1122,21 @@ function MainTabs() {
             : isCategoryExpenses
               ? () => {
                 markSkipExpensesFocusReload();
-                navigation.goBack();
+                navigation.navigate(
+                  "Expenses" as any,
+                  {
+                    screen: "ExpensesList",
+                    params: hasCategoryMonthYear
+                      ? {
+                          month: categoryExpensesMonth,
+                          year: categoryExpensesYear,
+                          skipFocusReloadAt: Date.now(),
+                        }
+                      : {
+                          skipFocusReloadAt: Date.now(),
+                        },
+                  } as any
+                );
               }
               : isSettings
                 ? settingsBackHandler
@@ -1109,27 +1159,13 @@ function MainTabs() {
               leftContent={expensesListLeftContent}
               rightContent={(isLoggedExpenses ? undefined : categoryHeaderRightContent ?? expensesLoggedRightContent) ?? goalsRightContent}
               showIncomeAction={false}
-              compactActionsMenu={isSettings || (isIncomeTab && isIncomeMonth)}
+              compactActionsMenu={isSettings}
               showAnalyticsAction={!isSettings}
               showNotificationAction={!isSettings}
               onLogout={isSettings ? signOut : undefined}
               incomePendingCount={incomePendingCount}
               showNotificationDot={hasNotificationDot}
-              onAddIncome={(isIncomeTab && isIncomeMonth)
-                ? () => {
-                  if (!incomeMonthBudgetPlanId) return;
-                  navigation.navigate("Income" as any, {
-                    screen: "IncomeMonth",
-                    params: {
-                      month: Number(monthNum),
-                      year: Number(yearNum),
-                      budgetPlanId: incomeMonthBudgetPlanId,
-                      initialMode: "income",
-                      openIncomeAddAt: Date.now(),
-                    },
-                  } as any);
-                }
-                : undefined}
+              onAddIncome={undefined}
             />
           );
         },

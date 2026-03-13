@@ -27,7 +27,7 @@ export const styles = StyleSheet.create({
   backBtn: { padding: 4 },
   headerSlim: {
     flexDirection: "row",
-    justifyContent: "flex-end",
+    justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 16,
     paddingTop: 10,

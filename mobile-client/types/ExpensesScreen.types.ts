@@ -17,6 +17,7 @@ export type ExpensesScreenControllerState = {
   error: string | null;
   expenseMonths: ExpenseMonthsResponse["months"];
   isPersonalPlan: boolean;
+  isPastSelectedPeriod: boolean;
   loadingUi: boolean;
   month: number;
   monthPickerOpen: boolean;

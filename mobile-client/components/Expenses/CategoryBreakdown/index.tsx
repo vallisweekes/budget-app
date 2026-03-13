@@ -25,16 +25,18 @@ function CategoryIcon({ name, color }: { name: string | null; color: string }) {
   );
 }
 
-export default function CategoryBreakdown({ categories, currency, fmt, onCategoryPress, onAddPress }: CategoryBreakdownProps) {
+export default function CategoryBreakdown({ categories, currency, fmt, onCategoryPress, onAddPress, showAddAction = true }: CategoryBreakdownProps) {
   if (categories.length === 0) return null;
   return (
     <View style={styles.wrap}>
       <View style={styles.labelRow}>
         <View />
-        <Pressable onPress={onAddPress} style={styles.addBtn} hitSlop={8}>
-          <Ionicons name="add" size={18} color={T.onAccent} />
-          <Text style={styles.addBtnTxt}>Expense</Text>
-        </Pressable>
+        {showAddAction && onAddPress ? (
+          <Pressable onPress={onAddPress} style={styles.addBtn} hitSlop={8}>
+            <Ionicons name="add" size={18} color={T.onAccent} />
+            <Text style={styles.addBtnTxt}>Expense</Text>
+          </Pressable>
+        ) : null}
       </View>
       {categories.map((cat) => {
         const paidClamped = cat.total > 0 ? Math.min(cat.paidTotal, cat.total) : 0;

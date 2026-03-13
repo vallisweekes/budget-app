@@ -6,4 +6,5 @@ export interface CategoryBreakdownProps {
   fmt: (v: number, c: string) => string;
   onCategoryPress?: (cat: ExpenseCategoryBreakdown) => void;
   onAddPress?: () => void;
+  showAddAction?: boolean;
 }

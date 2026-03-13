@@ -113,7 +113,7 @@ export default function ExpensesScreen({ navigation, route }: ExpensesScreenProp
                 ) : null}
               </View>
 
-              {controller.showTopAddExpenseCta && controller.isPersonalPlan ? (
+              {controller.showTopAddExpenseCta && controller.isPersonalPlan && !controller.isPastSelectedPeriod ? (
                 <View style={styles.noExpensesCard}>
                   <View style={styles.noExpensesCardRow}>
                     <View style={styles.noExpensesCardCopy}>
@@ -169,7 +169,7 @@ export default function ExpensesScreen({ navigation, route }: ExpensesScreenProp
                 </View>
               )}
 
-              {!controller.isPersonalPlan && controller.plans.length > 1 && (controller.summary?.totalCount ?? 0) === 0 && (
+              {!controller.isPersonalPlan && controller.plans.length > 1 && (controller.summary?.totalCount ?? 0) === 0 && !controller.isPastSelectedPeriod && (
                 <View style={styles.noExpensesCard}>
                   <View style={styles.noExpensesCardRow}>
                     <View style={styles.noExpensesCardCopy}>
@@ -192,6 +192,7 @@ export default function ExpensesScreen({ navigation, route }: ExpensesScreenProp
                   fmt={fmt}
                   onCategoryPress={controller.onPressCategory}
                   onAddPress={controller.onOpenAddSheet}
+                  showAddAction={!controller.isPastSelectedPeriod}
                 />
               )}
 

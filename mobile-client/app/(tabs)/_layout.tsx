@@ -81,6 +81,19 @@ function TabsHeader({ navigation, route }: { navigation: any; route: any }) {
   const resolvedCurrentPeriodYear = Number.isFinite(currentPeriodYear)
     ? Math.floor(currentPeriodYear)
     : new Date().getFullYear();
+  const selectedPeriodMonth = Number(deepestRoute?.params?.month);
+  const selectedPeriodYear = Number(deepestRoute?.params?.year);
+  const resolvedSelectedPeriodMonth = Number.isFinite(selectedPeriodMonth) && selectedPeriodMonth >= 1 && selectedPeriodMonth <= 12
+    ? Math.floor(selectedPeriodMonth)
+    : resolvedCurrentPeriodMonth;
+  const resolvedSelectedPeriodYear = Number.isFinite(selectedPeriodYear)
+    ? Math.floor(selectedPeriodYear)
+    : resolvedCurrentPeriodYear;
+  const isPastExpensesPeriod = isExpensesList
+    && (
+      resolvedSelectedPeriodYear < resolvedCurrentPeriodYear
+      || (resolvedSelectedPeriodYear === resolvedCurrentPeriodYear && resolvedSelectedPeriodMonth < resolvedCurrentPeriodMonth)
+    );
 
   const categoryExpensesName = typeof deepestRoute?.params?.categoryName === "string"
     ? deepestRoute.params.categoryName
@@ -288,7 +301,7 @@ function TabsHeader({ navigation, route }: { navigation: any; route: any }) {
     </View>
   ) : undefined;
 
-  const expensesListLeftContent = isExpensesList && isPersonalPlan ? (
+  const expensesListLeftContent = isExpensesList && isPersonalPlan && !isPastExpensesPeriod ? (
     <View style={{ flexDirection: "row", gap: 8 }}>
       <Pressable
         onPress={() => {
@@ -327,7 +340,7 @@ function TabsHeader({ navigation, route }: { navigation: any; route: any }) {
     ? Math.max(0, Math.floor(Number(deepestRoute?.params?.loggedExpensesCount)))
     : 0;
 
-  const expensesLoggedRightContent = isExpensesList && isPersonalPlan ? (
+  const expensesLoggedRightContent = isExpensesList && isPersonalPlan && !isPastExpensesPeriod ? (
     <Pressable
       onPress={() => {
         if (!navigateToTab("expenses", {
