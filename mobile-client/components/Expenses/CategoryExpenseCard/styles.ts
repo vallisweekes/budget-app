@@ -45,7 +45,6 @@ export const styles = StyleSheet.create({
   snapshotCol: { alignItems: "flex-end" },
   snapshotRow: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", flexWrap: "wrap", gap: 10 },
   snapshotTxt: { color: T.textDim, fontSize: 12, fontWeight: "700" },
-  snapshotRemaining: { color: T.orange },
   progressBg: { height: 7, borderRadius: 4, backgroundColor: T.border, overflow: "hidden" },
   progressFill: { height: 7, borderRadius: 4 },
 });

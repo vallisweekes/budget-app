@@ -6,7 +6,7 @@ export type CategoryExpensesMonthPickerProps = {
   onSelectMonth: (month: number) => void;
   pickerYear: number;
   setPickerYear: React.Dispatch<React.SetStateAction<number>>;
-  shortMonths: string[];
+  getPeriodOptionLabel: (targetMonth: number, targetYear: number) => string;
   visible: boolean;
   year: number;
 };

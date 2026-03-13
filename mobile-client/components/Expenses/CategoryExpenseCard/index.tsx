@@ -3,6 +3,7 @@ import { Image, Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { withOpacity } from "@/lib/categoryColors";
+import { isWithinPaymentEditGrace } from "@/lib/domain/paymentRules";
 import { dueDaysColor, formatDueDate } from "@/lib/helpers/categoryExpenses";
 import { fmt } from "@/lib/formatting";
 import { resolveLogoUri } from "@/lib/logoDisplay";
@@ -14,9 +15,10 @@ export default function CategoryExpenseCard(props: CategoryExpenseCardProps) {
   const amount = Number(props.expense.amount);
   const paidAmount = Number(props.expense.paidAmount);
   const paidAmountClamped = amount > 0 ? Math.min(paidAmount, amount) : 0;
-  const remainingAmount = Math.max(amount - paidAmount, 0);
   const ratio = amount > 0 ? Math.min(paidAmount / amount, 1) : props.expense.paid ? 1 : 0;
-  const dueColor = props.expense.dueDate ? dueDaysColor(props.expense.dueDate) : null;
+  const showDueBadge = Boolean(props.expense.dueDate)
+    && (!props.expense.paid || isWithinPaymentEditGrace(props.expense.lastPaymentAt));
+  const dueColor = showDueBadge && props.expense.dueDate ? dueDaysColor(props.expense.dueDate) : null;
   const logoUri = resolveLogoUri(props.expense.logoUrl);
   const showLogo = Boolean(logoUri) && !props.logoFailed;
   const isPartial = !props.expense.paid && paidAmount > 0;
@@ -37,7 +39,7 @@ export default function CategoryExpenseCard(props: CategoryExpenseCardProps) {
         <View style={styles.nameCol}>
           <Text style={styles.name} numberOfLines={1}>{props.expense.name}</Text>
           <View style={styles.badgeRow}>
-            {props.expense.dueDate ? (
+            {showDueBadge && props.expense.dueDate ? (
               <View
                 style={[
                   styles.badge,
@@ -72,7 +74,6 @@ export default function CategoryExpenseCard(props: CategoryExpenseCardProps) {
         <View style={styles.snapshotCol}>
           <View style={styles.snapshotRow}>
             <Text style={styles.snapshotTxt}>Paid: {fmt(paidAmountClamped, props.currency)}</Text>
-            <Text style={[styles.snapshotTxt, styles.snapshotRemaining]}>Remaining: {fmt(remainingAmount, props.currency)}</Text>
           </View>
         </View>
       </View>

@@ -47,7 +47,7 @@ export type CategoryExpensesControllerState = {
   setLogoFailed: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   setMonthPickerOpen: (value: boolean) => void;
   setPickerYear: React.Dispatch<React.SetStateAction<number>>;
-  shortMonths: string[];
+  getPeriodOptionLabel: (targetMonth: number, targetYear: number) => string;
   topHeaderOffset: number;
   updatedLabel: string;
   year: number;

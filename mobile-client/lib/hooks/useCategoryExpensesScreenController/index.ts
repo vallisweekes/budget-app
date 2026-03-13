@@ -35,7 +35,6 @@ export function useCategoryExpensesScreenController({ navigation, route }: Props
   const [year, setYear] = useState(routeYear);
   const [monthPickerOpen, setMonthPickerOpen] = useState(false);
   const [pickerYear, setPickerYear] = useState(routeYear);
-  const shortMonths = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const [addSheetOpen, setAddSheetOpen] = useState(false);
   const [allCategoriesForAddSheet, setAllCategoriesForAddSheet] = useState<ExpenseCategoryBreakdown[] | null>(null);
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -179,6 +178,21 @@ export function useCategoryExpensesScreenController({ navigation, route }: Props
     return formatPayPeriodLabel(range.start, range.end);
   }, [month, payDate, payFrequency, year]);
 
+  const getPeriodOptionLabel = useCallback((targetMonth: number, targetYear: number) => {
+    const period = buildPayPeriodFromMonthAnchor({
+      month: targetMonth,
+      year: targetYear,
+      payDate: payDate ?? 27,
+      payFrequency,
+    });
+    const startLabel = period.start.toLocaleString("en-GB", { month: "short" });
+    const endLabel = period.end.toLocaleString("en-GB", { month: "short" });
+    if (period.start.getFullYear() === period.end.getFullYear()) {
+      return `${startLabel} - ${endLabel}`;
+    }
+    return `${startLabel} ${period.start.getFullYear()} - ${endLabel} ${period.end.getFullYear()}`;
+  }, [payDate, payFrequency]);
+
   return {
     addSheetOpen,
     budgetPlanId,
@@ -217,7 +231,7 @@ export function useCategoryExpensesScreenController({ navigation, route }: Props
     setLogoFailed,
     setMonthPickerOpen,
     setPickerYear,
-    shortMonths,
+    getPeriodOptionLabel,
     topHeaderOffset,
     updatedLabel,
     year,

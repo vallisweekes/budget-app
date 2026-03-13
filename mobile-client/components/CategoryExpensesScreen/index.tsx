@@ -77,7 +77,7 @@ export default function CategoryExpensesScreen({ route, navigation }: CategoryEx
         onSelectMonth={controller.onChangeMonth}
         pickerYear={controller.pickerYear}
         setPickerYear={controller.setPickerYear}
-        shortMonths={controller.shortMonths}
+        getPeriodOptionLabel={controller.getPeriodOptionLabel}
         visible={controller.monthPickerOpen}
         year={controller.year}
       />
