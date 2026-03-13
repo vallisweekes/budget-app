@@ -12,6 +12,15 @@ import { useAuth } from "@/context/AuthContext";
 import { markSkipExpensesFocusReload } from "@/lib/helpers/expensesFocusReload";
 import { T } from "@/lib/theme";
 
+const MONTH_NAMES_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function formatIncomePeriodSpan(month: number): string {
+  const safeMonth = Math.max(1, Math.min(12, month));
+  const start = MONTH_NAMES_SHORT[(safeMonth - 2 + 12) % 12];
+  const end = MONTH_NAMES_SHORT[(safeMonth - 1) % 12];
+  return `${start} - ${end}`;
+}
+
 function getDeepestRoute(state: any): any {
   if (!state?.routes?.length) return null;
   const route = state.routes[state.index ?? state.routes.length - 1];
@@ -67,8 +76,30 @@ function TabsHeader({ navigation, route }: { navigation: any; route: any }) {
   const isUnplannedExpense = deepestRoute?.name === "UnplannedExpense";
   const isScanReceipt = deepestRoute?.name === "ScanReceipt";
   const isDebtAnalytics = deepestRoute?.name === "DebtAnalytics";
+  const isIncomeTab = currentTabName === "income";
   const isSettings = currentTabName === "settings";
   const isGoals = currentTabName === "goals";
+  const nestedTarget = route?.params && typeof route.params === "object"
+    ? (route.params as { screen?: unknown; params?: unknown })
+    : null;
+  const nestedIncomeMonthParams = nestedTarget?.screen === "IncomeMonth" && nestedTarget?.params && typeof nestedTarget.params === "object"
+    ? (nestedTarget.params as Record<string, unknown>)
+    : null;
+  const activeIncomeParams = deepestRoute?.name === "IncomeMonth"
+    ? deepestRoute?.params
+    : nestedIncomeMonthParams;
+  const monthNum = Number(activeIncomeParams?.month);
+  const yearNum = Number(activeIncomeParams?.year);
+  const incomeMonthBudgetPlanId = typeof activeIncomeParams?.budgetPlanId === "string"
+    ? activeIncomeParams.budgetPlanId
+    : "";
+  const incomeMonthInitialMode = activeIncomeParams?.initialMode === "sacrifice" ? "sacrifice" : "income";
+  const canUseIncomeMonthSwitcher = isIncomeTab
+    && Number.isFinite(monthNum)
+    && monthNum >= 1
+    && monthNum <= 12
+    && Number.isFinite(yearNum)
+    && Boolean(incomeMonthBudgetPlanId);
   const isSelectedPersonalPlan = activeBudgetPlanId === bootstrapBudgetPlanId;
   const isPersonalPlan = typeof deepestRoute?.params?.isPersonalPlan === "boolean"
     ? deepestRoute.params.isPersonalPlan
@@ -122,6 +153,55 @@ function TabsHeader({ navigation, route }: { navigation: any; route: any }) {
             : isGoals
               ? "Goals"
               : undefined;
+  const incomeMonthSwitcher = canUseIncomeMonthSwitcher ? (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+      <Pressable
+        onPress={() => {
+          const previousMonth = Number(monthNum) - 1 < 1 ? 12 : Number(monthNum) - 1;
+          const previousYear = Number(monthNum) - 1 < 1 ? Number(yearNum) - 1 : Number(yearNum);
+          navigateToTab("income", {
+            screen: "IncomeMonth",
+            params: {
+              month: previousMonth,
+              year: previousYear,
+              budgetPlanId: incomeMonthBudgetPlanId,
+              initialMode: incomeMonthInitialMode,
+            },
+          });
+        }}
+        hitSlop={10}
+        accessibilityRole="button"
+        accessibilityLabel="Previous income period"
+        style={{ paddingHorizontal: 2, paddingVertical: 2, alignItems: "center", justifyContent: "center" }}
+      >
+        <Ionicons name="chevron-back" size={18} color={T.text} />
+      </Pressable>
+      <Text style={{ color: T.text, fontSize: 16, fontWeight: "700", minWidth: 118, textAlign: "center" }}>
+        {formatIncomePeriodSpan(Number(monthNum))}
+      </Text>
+      <Pressable
+        onPress={() => {
+          const nextMonth = Number(monthNum) + 1 > 12 ? 1 : Number(monthNum) + 1;
+          const nextYear = Number(monthNum) + 1 > 12 ? Number(yearNum) + 1 : Number(yearNum);
+          navigateToTab("income", {
+            screen: "IncomeMonth",
+            params: {
+              month: nextMonth,
+              year: nextYear,
+              budgetPlanId: incomeMonthBudgetPlanId,
+              initialMode: incomeMonthInitialMode,
+            },
+          });
+        }}
+        hitSlop={10}
+        accessibilityRole="button"
+        accessibilityLabel="Next income period"
+        style={{ paddingHorizontal: 2, paddingVertical: 2, alignItems: "center", justifyContent: "center" }}
+      >
+        <Ionicons name="chevron-forward" size={18} color={T.text} />
+      </Pressable>
+    </View>
+  ) : undefined;
   const analyticsOverviewMode = deepestRoute?.params?.overviewMode === "month" ? "month" : "year";
 
   const handleBack = () => {
@@ -422,6 +502,7 @@ function TabsHeader({ navigation, route }: { navigation: any; route: any }) {
       leftVariant={isSettings || isCategoryExpenses || isLoggedExpenses || isUnplannedExpense || isScanReceipt || isDebtAnalytics ? "back" : "avatar"}
       onBack={handleBack}
       centerLabel={centerLabel}
+      centerContent={incomeMonthSwitcher}
       rightContent={analyticsRightContent ?? expensesLoggedRightContent ?? goalsRightContent}
       showIncomeAction={false}
       compactActionsMenu={isSettings}
