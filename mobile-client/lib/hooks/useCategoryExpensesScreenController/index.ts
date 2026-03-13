@@ -5,6 +5,7 @@ import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { apiFetch, getApiMutationVersion } from "@/lib/api";
 import type { Category, Expense, ExpenseCategoryBreakdown } from "@/lib/apiTypes";
 import { resolveCategoryColor } from "@/lib/categoryColors";
+import { PAYMENT_EDIT_GRACE_DAYS } from "@/lib/domain/paymentRules";
 import { getCachedPayPeriodExpenses, setCachedPayPeriodExpenses } from "@/lib/expensePeriodCache";
 import { getLatestPaymentAt, splitCategoryExpenses } from "@/lib/helpers/categoryExpenses";
 import { useTopHeaderOffset } from "@/hooks";
@@ -178,6 +179,14 @@ export function useCategoryExpensesScreenController({ navigation, route }: Props
     return formatPayPeriodLabel(range.start, range.end);
   }, [month, payDate, payFrequency, year]);
 
+  const canAddExpenseInSelectedPeriod = useMemo(() => {
+    const range = buildPayPeriodFromMonthAnchor({ year, month, payDate: payDate ?? 27, payFrequency });
+    const graceCutoff = new Date(range.end.getTime());
+    graceCutoff.setHours(23, 59, 59, 999);
+    graceCutoff.setDate(graceCutoff.getDate() + PAYMENT_EDIT_GRACE_DAYS);
+    return Date.now() <= graceCutoff.getTime();
+  }, [month, payDate, payFrequency, year]);
+
   const getPeriodOptionLabel = useCallback((targetMonth: number, targetYear: number) => {
     const period = buildPayPeriodFromMonthAnchor({
       month: targetMonth,
@@ -187,10 +196,7 @@ export function useCategoryExpensesScreenController({ navigation, route }: Props
     });
     const startLabel = period.start.toLocaleString("en-GB", { month: "short" });
     const endLabel = period.end.toLocaleString("en-GB", { month: "short" });
-    if (period.start.getFullYear() === period.end.getFullYear()) {
-      return `${startLabel} - ${endLabel}`;
-    }
-    return `${startLabel} ${period.start.getFullYear()} - ${endLabel} ${period.end.getFullYear()}`;
+    return `${startLabel} - ${endLabel}`;
   }, [payDate, payFrequency]);
 
   return {
@@ -210,7 +216,11 @@ export function useCategoryExpensesScreenController({ navigation, route }: Props
     logoFailed,
     month,
     monthPickerOpen,
-    openAddSheet: () => setAddSheetOpen(true),
+    canAddExpenseInSelectedPeriod,
+    openAddSheet: () => {
+      if (!canAddExpenseInSelectedPeriod) return;
+      setAddSheetOpen(true);
+    },
     openMonthPicker: () => {
       setPickerYear(year);
       setMonthPickerOpen(true);

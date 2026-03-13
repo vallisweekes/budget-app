@@ -34,10 +34,12 @@ export default function CategoryExpensesHero(props: CategoryExpensesHeroProps) {
         </View>
       </View>
 
-      <Pressable style={s.heroAddBtn} onPress={props.onPressAdd}>
-        <Ionicons name="add" size={18} color={T.onAccent} />
-        <Text style={s.heroAddTxt}>Expense</Text>
-      </Pressable>
+      {props.canAddExpenseInSelectedPeriod ? (
+        <Pressable style={s.heroAddBtn} onPress={props.onPressAdd}>
+          <Ionicons name="add" size={18} color={T.onAccent} />
+          <Text style={s.heroAddTxt}>Expense</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }

@@ -346,13 +346,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     });
     const startLabel = period.start.toLocaleString("en-GB", { month: "short" });
     const endLabel = period.end.toLocaleString("en-GB", { month: "short" });
-    const sameYear = period.start.getFullYear() === period.end.getFullYear();
-
-    if (sameYear) {
-      return `${startLabel} - ${endLabel}`;
-    }
-
-    return `${startLabel} ${period.start.getFullYear()} - ${endLabel} ${period.end.getFullYear()}`;
+    return `${startLabel} - ${endLabel}`;
   }, [effectivePayDate, effectivePayFrequency]);
 
   const getOrFetchSummary = useCallback(async (params: {
@@ -810,7 +804,19 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
   );
 
   const enabledPeriodSet = useMemo(() => new Set(enabledPeriodMonths), [enabledPeriodMonths]);
-  const allPeriodMonths = useMemo(() => Array.from({ length: 12 }, (_, index) => index + 1), []);
+  const allPeriodMonths = useMemo(
+    () => Array.from({ length: 12 }, (_, index) => index + 1).filter((targetMonth) => {
+      if (effectivePayFrequency !== "monthly") return true;
+      const period = buildPayPeriodFromMonthAnchor({
+        year: pickerYear,
+        month: targetMonth,
+        payDate: effectivePayDate,
+        payFrequency: effectivePayFrequency,
+      });
+      return period.start.getFullYear() === pickerYear;
+    }),
+    [effectivePayDate, effectivePayFrequency, pickerYear],
+  );
   const selectedPeriodRange = summary?.periodRangeLabel?.trim() || `${monthName(month)} ${year}`;
   const loadingUi = (loading || bootstrapLoading) && !summary;
   const showTopAddExpenseCta = !loading && !error && (summary?.totalCount ?? 0) === 0;

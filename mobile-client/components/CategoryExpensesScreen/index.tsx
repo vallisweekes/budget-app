@@ -37,6 +37,7 @@ export default function CategoryExpensesScreen({ route, navigation }: CategoryEx
         }
         ListHeaderComponent={
           <CategoryExpensesHero
+            canAddExpenseInSelectedPeriod={controller.canAddExpenseInSelectedPeriod}
             currency={controller.currency}
             heroPeriodLabel={controller.heroPeriodLabel}
             onPressAdd={controller.openAddSheet}

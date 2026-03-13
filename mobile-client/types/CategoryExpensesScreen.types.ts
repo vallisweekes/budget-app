@@ -32,11 +32,13 @@ export type CategoryExpensesControllerState = {
   logoFailed: Record<string, boolean>;
   month: number;
   monthPickerOpen: boolean;
+  canAddExpenseInSelectedPeriod: boolean;
   openAddSheet: () => void;
   openMonthPicker: () => void;
   paidPct: number;
   paidTotal: number;
   pickerYear: number;
+  pickerMonths: number[];
   plannedTotal: number;
   refreshing: boolean;
   remainingPct: number;
