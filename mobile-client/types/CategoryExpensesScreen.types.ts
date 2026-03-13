@@ -4,6 +4,7 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { Expense, ExpenseCategoryBreakdown } from "@/lib/apiTypes";
 import type { PayFrequency } from "@/lib/payPeriods";
 import type { ExpensesStackParamList } from "@/navigation/types";
+import type { AddExpenseSheetAddedPayload } from "@/types/components/AddExpenseSheet.types";
 
 export type CategoryExpensesScreenProps = NativeStackScreenProps<ExpensesStackParamList, "CategoryExpenses">;
 
@@ -50,7 +51,7 @@ export type CategoryExpensesControllerState = {
   topHeaderOffset: number;
   updatedLabel: string;
   year: number;
-  onAddComplete: () => void;
+  onAddComplete: (payload: AddExpenseSheetAddedPayload) => void;
   onChangeMonth: (selectedMonth: number) => void;
   onRefresh: () => void;
   onPressExpense: (item: Expense) => void;

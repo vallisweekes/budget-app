@@ -23,6 +23,7 @@ import { useTopHeaderOffset, useYearGuard } from "@/hooks";
 import { buildPayPeriodFromMonthAnchor, getPayPeriodAnchorFromWindow, normalizePayFrequency, resolveActivePayPeriod } from "@/lib/payPeriods";
 import type { ExpensesStackParamList } from "@/navigation/types";
 import type { ExpensesScreenControllerState } from "@/types/ExpensesScreen.types";
+import type { AddExpenseSheetAddedPayload } from "@/types/components/AddExpenseSheet.types";
 
 type Props = NativeStackScreenProps<ExpensesStackParamList, "ExpensesList">;
 
@@ -816,6 +817,67 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
   const showPlanTotalFallback = isAdditionalPlan && (summary?.totalCount ?? 0) === 0 && expenseMonths.length > 0 && planTotalAmount > 0;
   const isPastSelectedPeriod = year < defaultActiveYear || (year === defaultActiveYear && month < defaultActiveMonth);
 
+  const applyOptimisticExpense = useCallback((expense: Expense) => {
+    if (!summary) return;
+
+    const expenseMonth = Number(expense.month);
+    const expenseYear = Number(expense.year);
+    if (!Number.isFinite(expenseMonth) || !Number.isFinite(expenseYear)) return;
+    if (expenseMonth !== month || expenseYear !== year) return;
+
+    const expensePlanId = typeof expense.category?.budgetPlanId === "string" ? expense.category.budgetPlanId : activePlanId;
+    if ((expensePlanId ?? null) !== (activePlanId ?? null)) return;
+
+    const amount = Number(expense.amount ?? 0);
+    if (!Number.isFinite(amount) || amount <= 0) return;
+    const paidAmount = expense.paid ? amount : 0;
+
+    const nextSummary: ExpenseSummary = {
+      ...summary,
+      totalCount: Math.max(0, (summary.totalCount ?? 0) + 1),
+      totalAmount: Number(summary.totalAmount ?? 0) + amount,
+      paidCount: Math.max(0, (summary.paidCount ?? 0) + (expense.paid ? 1 : 0)),
+      paidAmount: Number(summary.paidAmount ?? 0) + paidAmount,
+      unpaidCount: Math.max(0, (summary.unpaidCount ?? 0) + (expense.paid ? 0 : 1)),
+      unpaidAmount: Number(summary.unpaidAmount ?? 0) + (expense.paid ? 0 : amount),
+      categoryBreakdown: (() => {
+        const existingIndex = summary.categoryBreakdown.findIndex((entry) => entry.categoryId === expense.categoryId);
+        if (existingIndex < 0) {
+          return [
+            ...summary.categoryBreakdown,
+            {
+              categoryId: expense.categoryId,
+              name: expense.category?.name ?? "Category",
+              color: expense.category?.color ?? null,
+              icon: expense.category?.icon ?? null,
+              total: amount,
+              paidTotal: paidAmount,
+              paidCount: expense.paid ? 1 : 0,
+              totalCount: 1,
+            },
+          ];
+        }
+
+        return summary.categoryBreakdown.map((entry, index) => {
+          if (index !== existingIndex) return entry;
+          return {
+            ...entry,
+            total: Number(entry.total ?? 0) + amount,
+            paidTotal: Number(entry.paidTotal ?? 0) + paidAmount,
+            paidCount: Number(entry.paidCount ?? 0) + (expense.paid ? 1 : 0),
+            totalCount: Number(entry.totalCount ?? 0) + 1,
+          };
+        });
+      })(),
+    };
+
+    setSummary(nextSummary);
+    setCachedSummary(activePlanId, year, month, nextSummary);
+
+    const cachedExpenses = getCachedPayPeriodExpenses({ budgetPlanId: activePlanId, month, year }) ?? [];
+    setCachedPayPeriodExpenses({ budgetPlanId: activePlanId, month, year }, [...cachedExpenses, expense]);
+  }, [activePlanId, month, setCachedSummary, summary, year]);
+
   return {
     activePlan,
     addSheetOpen,
@@ -846,11 +908,43 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     year,
     closeAddSheet: () => setAddSheetOpen(false),
     closeMonthPicker: () => setMonthPickerOpen(false),
-    onAddComplete: () => {
-      clearExpenseCaches();
+    onAddComplete: (payload: AddExpenseSheetAddedPayload) => {
       setAddSheetOpen(false);
-      setRefreshing(true);
-      void load({ force: true });
+
+      if (payload.phase === "optimistic" && payload.expense) {
+        applyOptimisticExpense(payload.expense);
+      }
+
+      if (payload.phase === "confirmed") {
+        // Silently settle the optimistic state with server-confirmed data.
+        // Avoids a full bootstrap reload and a visible refresh spinner — the
+        // optimistic update already shows the new expense immediately.
+        void (async () => {
+          try {
+            const [freshSummary, freshExpenses] = await Promise.all([
+              getOrFetchSummary({ planId: activePlanId, month, year, force: true }),
+              getOrFetchPayPeriodExpenses({ planId: activePlanId, month, year, force: true }),
+            ]);
+            setSummary(freshSummary);
+            const nextLoggedCount = freshExpenses.filter(
+              (e) => e.isExtraLoggedExpense && e.paymentSource !== "income",
+            ).length;
+            setLoggedExpensesCount(nextLoggedCount);
+            seenMutationVersionRef.current = getApiMutationVersion();
+          } catch {
+            // Silent refresh failed — fall back to a full reload.
+            clearExpenseCaches();
+            setRefreshing(true);
+            void load({ force: true });
+          }
+        })();
+      }
+
+      if (payload.phase === "revert") {
+        clearExpenseCaches();
+        setRefreshing(true);
+        void load({ force: true });
+      }
     },
     onOpenAddSheet: () => setAddSheetOpen(true),
     onOpenMonthPicker: () => {

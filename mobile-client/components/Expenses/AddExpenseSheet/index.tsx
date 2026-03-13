@@ -27,6 +27,7 @@ import { buildCreateExpenseBody, canSubmitExpense } from "@/lib/domain/expenseMu
 import type {
   Category,
   CreditCard,
+  Expense,
   ExpenseCategoryBreakdown,
   ExpensePaymentSource,
   ExpenseSuggestion,
@@ -320,6 +321,7 @@ export default function AddExpenseSheet({
     if (!canSubmit || submitting) return;
     setSubmitting(true);
     setError(null);
+    let optimisticId: string | undefined;
     try {
       const body = buildCreateExpenseBody({
         name,
@@ -339,13 +341,53 @@ export default function AddExpenseSheet({
         seriesKey: selectedSeriesKey,
       });
 
+      optimisticId = `tmp-expense-${Date.now()}`;
+      const optimisticCategory = (planCategories ?? categories).find((entry) => entry.categoryId === categoryId);
+      const parsedAmount = Number((body.amount as number) ?? 0);
+      const optimisticExpense: Expense = {
+        id: optimisticId,
+        name: String(body.name ?? name.trim()),
+        merchantDomain: null,
+        logoUrl: null,
+        logoSource: null,
+        amount: String(parsedAmount),
+        paid,
+        paidAmount: paid ? String(parsedAmount) : "0",
+        isAllocation,
+        isDirectDebit,
+        month: sheetMonth,
+        year: sheetYear,
+        categoryId,
+        category: optimisticCategory
+          ? {
+              id: optimisticCategory.categoryId,
+              name: optimisticCategory.name,
+              icon: optimisticCategory.icon,
+              color: optimisticCategory.color,
+              budgetAmount: null,
+              budgetPlanId: effectivePlanId ?? "",
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            }
+          : null,
+        dueDate: typeof body.dueDate === "string" ? body.dueDate : null,
+        lastPaymentAt: null,
+        paymentSource: paymentSource === "other" ? "other" : paymentSource,
+        cardDebtId: paymentSource === "credit_card" ? (cardDebtId || null) : null,
+        isExtraLoggedExpense: false,
+        effectiveDueDate: typeof body.dueDate === "string" ? body.dueDate : null,
+        inSelectedPayPeriod: true,
+      };
+
       // Optimistic UX: close immediately so the sheet never gets stuck on "Adding...".
       // We'll refresh the parent list once the mutation completes.
       onClose();
-      await apiFetch("/api/bff/expenses", { method: "POST", body });
-      onAdded();
+      onAdded({ phase: "optimistic", expense: optimisticExpense, optimisticId });
+      const created = await apiFetch<Expense>("/api/bff/expenses", { method: "POST", body });
+      onAdded({ phase: "confirmed", expense: created, optimisticId });
     } catch (e) {
       const message = e instanceof Error ? e.message : "Failed to add expense. Try again.";
+      onAdded({ phase: "revert", optimisticId });
       setError(message);
       Alert.alert("Couldn't add expense", message);
     } finally {

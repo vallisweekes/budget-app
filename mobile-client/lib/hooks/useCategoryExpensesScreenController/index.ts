@@ -12,6 +12,7 @@ import { buildPayPeriodFromMonthAnchor, formatPayPeriodLabel, normalizePayFreque
 import type { ExpensesStackParamList } from "@/navigation/types";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { CategoryExpensesControllerState, CategoryExpensesSettingsSlice } from "@/types/CategoryExpensesScreen.types";
+import type { AddExpenseSheetAddedPayload } from "@/types/components/AddExpenseSheet.types";
 
 type Props = NativeStackScreenProps<ExpensesStackParamList, "CategoryExpenses">;
 
@@ -220,9 +221,21 @@ export function useCategoryExpensesScreenController({ navigation, route }: Props
     topHeaderOffset,
     updatedLabel,
     year,
-    onAddComplete: () => {
+    onAddComplete: (payload: AddExpenseSheetAddedPayload) => {
       setAddSheetOpen(false);
-      void load({ force: true });
+
+      if (payload.phase === "optimistic" && payload.expense) {
+        const optimistic = payload.expense;
+        const isSamePeriod = optimistic.month === month && optimistic.year === year;
+        const isSamePlan = (budgetPlanId ?? null) === (optimistic.category?.budgetPlanId ?? budgetPlanId ?? null);
+        if (isSamePeriod && isSamePlan && optimistic.categoryId === categoryId && !optimistic.isExtraLoggedExpense) {
+          setExpenses((prev) => [optimistic, ...prev]);
+        }
+      }
+
+      if (payload.phase !== "optimistic") {
+        void load({ force: true });
+      }
     },
     onChangeMonth: (selectedMonth: number) => {
       setMonth(selectedMonth);

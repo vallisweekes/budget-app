@@ -4,6 +4,7 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 
 import type { BudgetPlanListItem, ExpenseCategoryBreakdown, ExpenseMonthsResponse, ExpenseSummary } from "@/lib/apiTypes";
 import type { ExpensesStackParamList } from "@/navigation/types";
+import type { AddExpenseSheetAddedPayload } from "@/types/components/AddExpenseSheet.types";
 
 export type ExpensesScreenProps = NativeStackScreenProps<ExpensesStackParamList, "ExpensesList">;
 
@@ -37,7 +38,7 @@ export type ExpensesScreenControllerState = {
   year: number;
   closeAddSheet: () => void;
   closeMonthPicker: () => void;
-  onAddComplete: () => void;
+  onAddComplete: (payload: AddExpenseSheetAddedPayload) => void;
   onOpenAddSheet: () => void;
   onOpenMonthPicker: () => void;
   onPlanItemLayout: (planId: string, x: number, width: number, selected: boolean) => void;

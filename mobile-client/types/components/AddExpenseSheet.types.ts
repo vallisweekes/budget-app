@@ -1,4 +1,10 @@
-import type { BudgetPlanListItem, ExpenseCategoryBreakdown } from "@/lib/apiTypes";
+import type { BudgetPlanListItem, Expense, ExpenseCategoryBreakdown } from "@/lib/apiTypes";
+
+export type AddExpenseSheetAddedPayload = {
+  phase: "optimistic" | "confirmed" | "revert";
+  expense?: Expense;
+  optimisticId?: string;
+};
 
 export interface AddExpenseSheetProps {
   visible: boolean;
@@ -10,6 +16,6 @@ export interface AddExpenseSheetProps {
   plans?: BudgetPlanListItem[];
   currency: string;
   categories: ExpenseCategoryBreakdown[];
-  onAdded: () => void;
+  onAdded: (payload: AddExpenseSheetAddedPayload) => void;
   onClose: () => void;
 }
