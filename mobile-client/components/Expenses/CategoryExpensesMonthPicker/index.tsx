@@ -25,8 +25,8 @@ export default function CategoryExpensesMonthPicker(props: CategoryExpensesMonth
           </View>
 
           <View style={s.pickerGrid}>
-            {Array.from({ length: 12 }, (_, idx) => idx + 1).map((targetMonth) => {
-              const isSelected = targetMonth === props.month && props.pickerYear === props.year;
+            {props.months.map((targetMonth) => {
+              const isSelected = targetMonth === props.month && props.pickerYear === props.selectedPickerYear;
               const label = props.getPeriodOptionLabel(targetMonth, props.pickerYear);
               return (
                 <Pressable

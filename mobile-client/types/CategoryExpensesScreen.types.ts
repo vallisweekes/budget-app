@@ -39,6 +39,7 @@ export type CategoryExpensesControllerState = {
   paidTotal: number;
   pickerYear: number;
   pickerMonths: number[];
+  selectedPickerYear: number;
   plannedTotal: number;
   refreshing: boolean;
   remainingPct: number;

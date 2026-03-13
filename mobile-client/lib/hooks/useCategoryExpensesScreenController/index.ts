@@ -53,7 +53,6 @@ export function useCategoryExpensesScreenController({ navigation, route }: Props
     if (routeMonth !== month) setMonth(routeMonth);
     if (routeYear !== year) {
       setYear(routeYear);
-      setPickerYear(routeYear);
     }
   }, [month, routeMonth, routeYear, year]);
 
@@ -179,6 +178,38 @@ export function useCategoryExpensesScreenController({ navigation, route }: Props
     return formatPayPeriodLabel(range.start, range.end);
   }, [month, payDate, payFrequency, year]);
 
+  const resolvePickerActualYear = useCallback((targetMonth: number, displayYear: number) => {
+    if (payFrequency === "monthly" && targetMonth === 1) {
+      return displayYear + 1;
+    }
+    return displayYear;
+  }, [payFrequency]);
+
+  const resolvePickerDisplayYear = useCallback((targetMonth: number, actualYear: number) => {
+    if (payFrequency === "monthly" && targetMonth === 1) {
+      return actualYear - 1;
+    }
+    return actualYear;
+  }, [payFrequency]);
+
+  useEffect(() => {
+    setPickerYear((prev) => {
+      const next = resolvePickerDisplayYear(month, year);
+      return prev === next ? prev : next;
+    });
+  }, [month, resolvePickerDisplayYear, year]);
+
+  const pickerMonths = useMemo(() => {
+    if (payFrequency !== "monthly") {
+      return Array.from({ length: 12 }, (_, index) => index + 1);
+    }
+
+    return [
+      ...Array.from({ length: 11 }, (_, index) => index + 2),
+      1,
+    ];
+  }, [payFrequency]);
+
   const canAddExpenseInSelectedPeriod = useMemo(() => {
     const range = buildPayPeriodFromMonthAnchor({ year, month, payDate: payDate ?? 27, payFrequency });
     const graceCutoff = new Date(range.end.getTime());
@@ -188,16 +219,19 @@ export function useCategoryExpensesScreenController({ navigation, route }: Props
   }, [month, payDate, payFrequency, year]);
 
   const getPeriodOptionLabel = useCallback((targetMonth: number, targetYear: number) => {
+    const actualYear = resolvePickerActualYear(targetMonth, targetYear);
     const period = buildPayPeriodFromMonthAnchor({
       month: targetMonth,
-      year: targetYear,
+      year: actualYear,
       payDate: payDate ?? 27,
       payFrequency,
     });
     const startLabel = period.start.toLocaleString("en-GB", { month: "short" });
     const endLabel = period.end.toLocaleString("en-GB", { month: "short" });
     return `${startLabel} - ${endLabel}`;
-  }, [payDate, payFrequency]);
+  }, [payDate, payFrequency, resolvePickerActualYear]);
+
+  const selectedPickerYear = resolvePickerDisplayYear(month, year);
 
   return {
     addSheetOpen,
@@ -222,12 +256,14 @@ export function useCategoryExpensesScreenController({ navigation, route }: Props
       setAddSheetOpen(true);
     },
     openMonthPicker: () => {
-      setPickerYear(year);
+      setPickerYear(resolvePickerDisplayYear(month, year));
       setMonthPickerOpen(true);
     },
     paidPct,
     paidTotal,
     pickerYear,
+    pickerMonths,
+    selectedPickerYear,
     plannedTotal,
     refreshing,
     remainingPct,
@@ -262,9 +298,10 @@ export function useCategoryExpensesScreenController({ navigation, route }: Props
       }
     },
     onChangeMonth: (selectedMonth: number) => {
+      const actualYear = resolvePickerActualYear(selectedMonth, pickerYear);
       setMonth(selectedMonth);
-      setYear(pickerYear);
-      navigation.setParams({ month: selectedMonth, year: pickerYear });
+      setYear(actualYear);
+      navigation.setParams({ month: selectedMonth, year: actualYear });
       setMonthPickerOpen(false);
     },
     onRefresh: () => {

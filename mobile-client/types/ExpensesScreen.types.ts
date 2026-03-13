@@ -23,6 +23,7 @@ export type ExpensesScreenControllerState = {
   month: number;
   monthPickerOpen: boolean;
   pickerYear: number;
+  selectedPickerYear: number;
   planScrollRef: React.RefObject<ScrollView | null>;
   planSwipeHandlers: PanResponderInstance["panHandlers"];
   planTotalAmount: number;

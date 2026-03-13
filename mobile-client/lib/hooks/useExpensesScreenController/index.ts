@@ -80,7 +80,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
   const [error, setError] = useState<string | null>(null);
   const [addSheetOpen, setAddSheetOpen] = useState(false);
   const [monthPickerOpen, setMonthPickerOpen] = useState(false);
-  const [pickerYear, setPickerYear] = useState(year);
+  const [pickerYear, setPickerYear] = useState(initialYear);
 
   const currency = currencySymbol(settings?.currency);
   const { canDecrement } = useYearGuard(settings);
@@ -231,6 +231,24 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     ? Math.floor(settings?.payDate as number)
     : 27;
   const effectivePayFrequency = normalizePayFrequency(settings?.payFrequency);
+  const resolvePickerActualYear = useCallback((targetMonth: number, displayYear: number) => {
+    if (effectivePayFrequency === "monthly" && targetMonth === 1) {
+      return displayYear + 1;
+    }
+    return displayYear;
+  }, [effectivePayFrequency]);
+  const resolvePickerDisplayYear = useCallback((targetMonth: number, actualYear: number) => {
+    if (effectivePayFrequency === "monthly" && targetMonth === 1) {
+      return actualYear - 1;
+    }
+    return actualYear;
+  }, [effectivePayFrequency]);
+  useEffect(() => {
+    setPickerYear((prev) => {
+      const next = resolvePickerDisplayYear(month, year);
+      return prev === next ? prev : next;
+    });
+  }, [month, resolvePickerDisplayYear, year]);
   const setupCompletedAt = useMemo(
     () => parsePlanCreatedAt(settings?.setupCompletedAt ?? settings?.accountCreatedAt),
     [parsePlanCreatedAt, settings?.accountCreatedAt, settings?.setupCompletedAt],
@@ -338,16 +356,17 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
   }, []);
 
   const getPeriodOptionLabel = useCallback((targetMonth: number, targetYear: number) => {
+    const actualYear = resolvePickerActualYear(targetMonth, targetYear);
     const period = buildPayPeriodFromMonthAnchor({
       month: targetMonth,
-      year: targetYear,
+      year: actualYear,
       payDate: effectivePayDate,
       payFrequency: effectivePayFrequency,
     });
     const startLabel = period.start.toLocaleString("en-GB", { month: "short" });
     const endLabel = period.end.toLocaleString("en-GB", { month: "short" });
     return `${startLabel} - ${endLabel}`;
-  }, [effectivePayDate, effectivePayFrequency]);
+  }, [effectivePayDate, effectivePayFrequency, resolvePickerActualYear]);
 
   const getOrFetchSummary = useCallback(async (params: {
     planId: string | null;
@@ -774,11 +793,22 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
 
     const run = async () => {
       try {
-        const response = await fetchPayPeriodMonths(pickerYear, activePlanId);
+        const [response, nextYearResponse] = await Promise.all([
+          fetchPayPeriodMonths(pickerYear, activePlanId),
+          effectivePayFrequency === "monthly"
+            ? fetchPayPeriodMonths(pickerYear + 1, activePlanId)
+            : Promise.resolve(null),
+        ]);
         if (cancelled) return;
         const next: Record<number, number> = {};
         for (const row of Array.isArray(response?.months) ? response.months : []) {
           next[row.month] = Number(row.totalCount ?? 0);
+        }
+        if (effectivePayFrequency === "monthly") {
+          const januaryNextYear = Array.isArray(nextYearResponse?.months)
+            ? nextYearResponse.months.find((row) => row.month === 1)
+            : null;
+          next[1] = Number(januaryNextYear?.totalCount ?? 0);
         }
         setPeriodCountsByMonth(next);
       } catch {
@@ -791,37 +821,37 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     return () => {
       cancelled = true;
     };
-  }, [activePlanId, fetchPayPeriodMonths, monthPickerOpen, pickerYear, refreshing]);
+  }, [activePlanId, effectivePayFrequency, fetchPayPeriodMonths, monthPickerOpen, pickerYear, refreshing]);
 
   const enabledPeriodMonths = useMemo(
     () => Array.from({ length: 12 }, (_, index) => index + 1).filter((targetMonth) => {
       const hasData = (periodCountsByMonth[targetMonth] ?? 0) > 0;
-      if (!hasData) return false;
+      const isMonthlyYearWrapPeriod = effectivePayFrequency === "monthly" && targetMonth === 1;
+      if (!hasData && !isMonthlyYearWrapPeriod) return false;
       if (!accountCreatedAt) return true;
-      return periodEndFor(pickerYear, targetMonth).getTime() >= accountCreatedAt.getTime();
+      const actualYear = resolvePickerActualYear(targetMonth, pickerYear);
+      return periodEndFor(actualYear, targetMonth).getTime() >= accountCreatedAt.getTime();
     }),
-    [accountCreatedAt, periodCountsByMonth, periodEndFor, pickerYear],
+    [accountCreatedAt, effectivePayFrequency, periodCountsByMonth, periodEndFor, pickerYear, resolvePickerActualYear],
   );
 
   const enabledPeriodSet = useMemo(() => new Set(enabledPeriodMonths), [enabledPeriodMonths]);
-  const allPeriodMonths = useMemo(
-    () => Array.from({ length: 12 }, (_, index) => index + 1).filter((targetMonth) => {
-      if (effectivePayFrequency !== "monthly") return true;
-      const period = buildPayPeriodFromMonthAnchor({
-        year: pickerYear,
-        month: targetMonth,
-        payDate: effectivePayDate,
-        payFrequency: effectivePayFrequency,
-      });
-      return period.start.getFullYear() === pickerYear;
-    }),
-    [effectivePayDate, effectivePayFrequency, pickerYear],
-  );
+  const allPeriodMonths = useMemo(() => {
+    if (effectivePayFrequency !== "monthly") {
+      return Array.from({ length: 12 }, (_, index) => index + 1);
+    }
+
+    return [
+      ...Array.from({ length: 11 }, (_, index) => index + 2),
+      1,
+    ];
+  }, [effectivePayFrequency]);
   const selectedPeriodRange = summary?.periodRangeLabel?.trim() || `${monthName(month)} ${year}`;
   const loadingUi = (loading || bootstrapLoading) && !summary;
   const showTopAddExpenseCta = !loading && !error && (summary?.totalCount ?? 0) === 0;
   const showPlanTotalFallback = isAdditionalPlan && (summary?.totalCount ?? 0) === 0 && expenseMonths.length > 0 && planTotalAmount > 0;
   const isPastSelectedPeriod = year < defaultActiveYear || (year === defaultActiveYear && month < defaultActiveMonth);
+  const selectedPickerYear = resolvePickerDisplayYear(month, year);
 
   const applyOptimisticExpense = useCallback((expense: Expense) => {
     if (!summary) return;
@@ -899,6 +929,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     month,
     monthPickerOpen,
     pickerYear,
+    selectedPickerYear,
     planScrollRef,
     planSwipeHandlers: planSwipe.panHandlers,
     planTotalAmount,
@@ -954,7 +985,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     },
     onOpenAddSheet: () => setAddSheetOpen(true),
     onOpenMonthPicker: () => {
-      setPickerYear(year);
+      setPickerYear(resolvePickerDisplayYear(month, year));
       setMonthPickerOpen(true);
     },
     onPlanItemLayout: (planId: string, x: number, width: number, selected: boolean) => {
@@ -1008,9 +1039,10 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     },
     onSelectPickerMonth: (targetMonth: number) => {
       if (!enabledPeriodSet.has(targetMonth)) return;
+      const actualYear = resolvePickerActualYear(targetMonth, pickerYear);
       setMonth(targetMonth);
-      setYear(pickerYear);
-      navigation.setParams({ month: targetMonth, year: pickerYear, prevDisabled: !canDecrement(pickerYear, targetMonth) });
+      setYear(actualYear);
+      navigation.setParams({ month: targetMonth, year: actualYear, prevDisabled: !canDecrement(actualYear, targetMonth) });
       setMonthPickerOpen(false);
     },
     getPeriodOptionLabel,

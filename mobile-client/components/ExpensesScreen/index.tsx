@@ -268,7 +268,7 @@ export default function ExpensesScreen({ navigation, route }: ExpensesScreenProp
             <View style={styles.pickerGrid}>
               {controller.allPeriodMonths.map((item) => {
                 const isEnabled = controller.enabledPeriodSet.has(item);
-                const isSelected = item === controller.month && controller.pickerYear === controller.year;
+                const isSelected = item === controller.month && controller.pickerYear === controller.selectedPickerYear;
                 const periodLabel = controller.getPeriodOptionLabel(item, controller.pickerYear);
                 return (
                   <Pressable
