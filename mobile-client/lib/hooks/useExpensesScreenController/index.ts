@@ -30,6 +30,7 @@ type Props = NativeStackScreenProps<ExpensesStackParamList, "ExpensesList">;
 let sharedExpensesPlansCache: BudgetPlanListItem[] = [];
 let sharedExpensesSummaryCache: Record<string, Record<number, Record<number, ExpenseSummary>>> = {};
 let sharedExpensesMonthsCache: Record<string, ExpenseMonthsResponse["months"]> = {};
+let sharedExpensePayPeriodMonthsCache: Record<string, ExpensePayPeriodMonthsResponse> = {};
 let sharedPreferredPeriodByPlanCache: Record<string, { month: number; year: number }> = {};
 let sharedExpensesLoadedKey: string | null = null;
 let sharedExpensesCacheSignature: string | null = null;
@@ -64,10 +65,12 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
   const skipNextTabFocusReloadRef = useRef(false);
   const skipNextChildFocusReloadRef = useRef(false);
   const lastHandledSkipFocusReloadAtRef = useRef<number | null>(null);
+  const didNormalizeInitialPeriodRef = useRef(false);
   const plansRef = useRef<BudgetPlanListItem[]>(sharedExpensesPlansCache);
   const preferredPeriodByPlanRef = useRef<Record<string, { month: number; year: number }>>(sharedPreferredPeriodByPlanCache);
   const summaryCacheRef = useRef<Record<string, Record<number, Record<number, ExpenseSummary>>>>(sharedExpensesSummaryCache);
   const monthsCacheRef = useRef<Record<string, ExpenseMonthsResponse["months"]>>(sharedExpensesMonthsCache);
+  const payPeriodMonthsCacheRef = useRef<Record<string, ExpensePayPeriodMonthsResponse>>(sharedExpensePayPeriodMonthsCache);
   const cacheSignatureRef = useRef<string | null>(sharedExpensesCacheSignature);
   const seenMutationVersionRef = useRef<number>(getApiMutationVersion());
 
@@ -211,8 +214,10 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
   const clearExpenseCaches = useCallback(() => {
     summaryCacheRef.current = {};
     monthsCacheRef.current = {};
+    payPeriodMonthsCacheRef.current = {};
     sharedExpensesSummaryCache = summaryCacheRef.current;
     sharedExpensesMonthsCache = monthsCacheRef.current;
+    sharedExpensePayPeriodMonthsCache = payPeriodMonthsCacheRef.current;
     preferredPeriodByPlanRef.current = {};
     sharedPreferredPeriodByPlanCache = preferredPeriodByPlanRef.current;
     clearCachedPayPeriodExpenses();
@@ -274,6 +279,46 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
   const defaultActiveYear = defaultActiveAnchor.year;
 
   useEffect(() => {
+    if (didNormalizeInitialPeriodRef.current) return;
+
+    const selectedIsFuture = year > defaultActiveYear || (year === defaultActiveYear && month > defaultActiveMonth);
+    const preferredPeriod = activePlanId ? preferredPeriodByPlanRef.current[activePlanId] : null;
+    const preferredIsFuture = Boolean(
+      preferredPeriod
+      && (
+        preferredPeriod.year > defaultActiveYear
+        || (preferredPeriod.year === defaultActiveYear && preferredPeriod.month > defaultActiveMonth)
+      ),
+    );
+
+    if (!selectedIsFuture && !preferredIsFuture) {
+      if (activePlanId || plans.length > 0) {
+        didNormalizeInitialPeriodRef.current = true;
+      }
+      return;
+    }
+
+    didNormalizeInitialPeriodRef.current = true;
+
+    preferredPeriodByPlanRef.current = activePlanId
+      ? {
+          ...preferredPeriodByPlanRef.current,
+          [activePlanId]: { month: defaultActiveMonth, year: defaultActiveYear },
+        }
+      : {};
+    sharedPreferredPeriodByPlanCache = preferredPeriodByPlanRef.current;
+
+    setLoadedKey(null);
+    setMonth(defaultActiveMonth);
+    setYear(defaultActiveYear);
+    navigation.setParams({
+      month: defaultActiveMonth,
+      year: defaultActiveYear,
+      prevDisabled: !canDecrement(defaultActiveYear, defaultActiveMonth),
+    });
+  }, [activePlanId, canDecrement, defaultActiveMonth, defaultActiveYear, month, navigation, plans.length, year]);
+
+  useEffect(() => {
     const paramsBudgetPlanId = typeof route.params?.budgetPlanId === "string" ? route.params.budgetPlanId : null;
     const paramsCurrency = typeof route.params?.currency === "string" ? route.params.currency : undefined;
     const paramsLoggedExpensesCount = Number(route.params?.loggedExpensesCount);
@@ -309,6 +354,10 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
   }, [defaultActiveMonth, defaultActiveYear, isPersonalPlan]);
 
   const planCacheKey = useCallback((planId: string | null | undefined) => planId ?? "none", []);
+
+  const payPeriodMonthsCacheKey = useCallback((planId: string | null, targetYear: number) => {
+    return `${planCacheKey(planId)}:${targetYear}`;
+  }, [planCacheKey]);
 
   const getCachedSummary = useCallback((planId: string | null | undefined, targetYear: number, targetMonth: number) => {
     const key = planCacheKey(planId);
@@ -439,6 +488,25 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     );
   }, []);
 
+  const getOrFetchPayPeriodMonths = useCallback(async (params: {
+    year: number;
+    planId: string | null;
+    force?: boolean;
+  }) => {
+    const { year: targetYear, planId, force = false } = params;
+    const key = payPeriodMonthsCacheKey(planId, targetYear);
+
+    if (!force) {
+      const cached = payPeriodMonthsCacheRef.current[key];
+      if (cached) return cached;
+    }
+
+    const fresh = await fetchPayPeriodMonths(targetYear, planId);
+    payPeriodMonthsCacheRef.current[key] = fresh;
+    sharedExpensePayPeriodMonthsCache = payPeriodMonthsCacheRef.current;
+    return fresh;
+  }, [fetchPayPeriodMonths, payPeriodMonthsCacheKey]);
+
   const warmPlanCaches = useCallback(async (params: {
     planId: string | null;
     month: number;
@@ -521,7 +589,9 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
         cacheSignatureRef.current = nextSignature;
         sharedExpensesCacheSignature = nextSignature;
         summaryCacheRef.current = {};
+        payPeriodMonthsCacheRef.current = {};
         sharedExpensesSummaryCache = summaryCacheRef.current;
+        sharedExpensePayPeriodMonthsCache = payPeriodMonthsCacheRef.current;
         setLoadedKey(null);
       }
 
@@ -580,7 +650,24 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
         && hasRouteYear
         && routeMonth === currentCalendarMonth
         && routeYear === currentCalendarYear;
-      const shouldUseResolvedDefaultPeriod = (!hasRouteMonth && !hasRouteYear || routeLooksLikeRawCalendarDefault)
+      const routeIsFuturePeriod = hasRouteMonth
+        && hasRouteYear
+        && (
+          routeYear > resolvedDefaultYear
+          || (routeYear === resolvedDefaultYear && routeMonth > resolvedDefaultMonth)
+        );
+      const preferredPeriod = resolvedPlanId ? preferredPeriodByPlanRef.current[resolvedPlanId] : undefined;
+      const preferredIsFuturePeriod = Boolean(
+        !didNormalizeInitialPeriodRef.current
+        && preferredPeriod
+        && (
+          preferredPeriod.year > resolvedDefaultYear
+          || (preferredPeriod.year === resolvedDefaultYear && preferredPeriod.month > resolvedDefaultMonth)
+        ),
+      );
+      const shouldNormalizeInitialPeriod = !didNormalizeInitialPeriodRef.current
+        && (routeIsFuturePeriod || preferredIsFuturePeriod);
+      const shouldUseResolvedDefaultPeriod = (!hasRouteMonth && !hasRouteYear || routeLooksLikeRawCalendarDefault || shouldNormalizeInitialPeriod)
         && month === currentCalendarMonth
         && year === currentCalendarYear;
 
@@ -602,12 +689,14 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
         setExpenseMonths([]);
       }
 
-      const resolvedTargetPeriod = resolvePlanTargetPeriod({
-        planId: resolvedPlanId,
-        months,
-        fallbackMonth: shouldUseResolvedDefaultPeriod ? resolvedDefaultMonth : month,
-        fallbackYear: shouldUseResolvedDefaultPeriod ? resolvedDefaultYear : year,
-      });
+      const resolvedTargetPeriod = shouldNormalizeInitialPeriod
+        ? { month: resolvedDefaultMonth, year: resolvedDefaultYear }
+        : resolvePlanTargetPeriod({
+            planId: resolvedPlanId,
+            months,
+            fallbackMonth: shouldUseResolvedDefaultPeriod ? resolvedDefaultMonth : month,
+            fallbackYear: shouldUseResolvedDefaultPeriod ? resolvedDefaultYear : year,
+          });
 
       const initialMonth = resolvedTargetPeriod.month;
       const initialYear = resolvedTargetPeriod.year;
@@ -686,6 +775,8 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
         preferredPeriodByPlanRef.current[resolvedPlanId] = { month: targetMonth, year: targetYear };
         sharedPreferredPeriodByPlanCache = preferredPeriodByPlanRef.current;
       }
+
+      didNormalizeInitialPeriodRef.current = true;
 
       seenMutationVersionRef.current = getApiMutationVersion();
       setLoadedKey(`${resolvedPlanId ?? "none"}:${targetYear}-${targetMonth}`);
@@ -793,22 +884,14 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
 
     const run = async () => {
       try {
-        const [response, nextYearResponse] = await Promise.all([
-          fetchPayPeriodMonths(pickerYear, activePlanId),
-          effectivePayFrequency === "monthly"
-            ? fetchPayPeriodMonths(pickerYear + 1, activePlanId)
-            : Promise.resolve(null),
-        ]);
+        const response = await getOrFetchPayPeriodMonths({
+          year: pickerYear,
+          planId: activePlanId,
+        });
         if (cancelled) return;
         const next: Record<number, number> = {};
         for (const row of Array.isArray(response?.months) ? response.months : []) {
           next[row.month] = Number(row.totalCount ?? 0);
-        }
-        if (effectivePayFrequency === "monthly") {
-          const januaryNextYear = Array.isArray(nextYearResponse?.months)
-            ? nextYearResponse.months.find((row) => row.month === 1)
-            : null;
-          next[1] = Number(januaryNextYear?.totalCount ?? 0);
         }
         setPeriodCountsByMonth(next);
       } catch {
@@ -821,18 +904,17 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     return () => {
       cancelled = true;
     };
-  }, [activePlanId, effectivePayFrequency, fetchPayPeriodMonths, monthPickerOpen, pickerYear, refreshing]);
+  }, [activePlanId, effectivePayFrequency, getOrFetchPayPeriodMonths, monthPickerOpen, pickerYear, refreshing]);
 
   const enabledPeriodMonths = useMemo(
     () => Array.from({ length: 12 }, (_, index) => index + 1).filter((targetMonth) => {
       const hasData = (periodCountsByMonth[targetMonth] ?? 0) > 0;
-      const isMonthlyYearWrapPeriod = effectivePayFrequency === "monthly" && targetMonth === 1;
-      if (!hasData && !isMonthlyYearWrapPeriod) return false;
+      if (!hasData) return false;
       if (!accountCreatedAt) return true;
       const actualYear = resolvePickerActualYear(targetMonth, pickerYear);
       return periodEndFor(actualYear, targetMonth).getTime() >= accountCreatedAt.getTime();
     }),
-    [accountCreatedAt, effectivePayFrequency, periodCountsByMonth, periodEndFor, pickerYear, resolvePickerActualYear],
+    [accountCreatedAt, periodCountsByMonth, periodEndFor, pickerYear, resolvePickerActualYear],
   );
 
   const enabledPeriodSet = useMemo(() => new Set(enabledPeriodMonths), [enabledPeriodMonths]);
@@ -840,11 +922,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     if (effectivePayFrequency !== "monthly") {
       return Array.from({ length: 12 }, (_, index) => index + 1);
     }
-
-    return [
-      ...Array.from({ length: 11 }, (_, index) => index + 2),
-      1,
-    ];
+    return [...Array.from({ length: 11 }, (_, index) => index + 2), 1];
   }, [effectivePayFrequency]);
   const selectedPeriodRange = summary?.periodRangeLabel?.trim() || `${monthName(month)} ${year}`;
   const loadingUi = (loading || bootstrapLoading) && !summary;

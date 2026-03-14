@@ -203,11 +203,7 @@ export function useCategoryExpensesScreenController({ navigation, route }: Props
     if (payFrequency !== "monthly") {
       return Array.from({ length: 12 }, (_, index) => index + 1);
     }
-
-    return [
-      ...Array.from({ length: 11 }, (_, index) => index + 2),
-      1,
-    ];
+    return [...Array.from({ length: 11 }, (_, index) => index + 2), 1];
   }, [payFrequency]);
 
   const canAddExpenseInSelectedPeriod = useMemo(() => {

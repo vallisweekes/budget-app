@@ -4,7 +4,7 @@ import {
   PRIVACY_POLICY_INTRO,
   PRIVACY_POLICY_LAST_UPDATED,
   PRIVACY_POLICY_SECTIONS,
-} from "../../../shared/legal/privacyPolicy";
+} from "@/lib/legal/privacyPolicy";
 
 export const metadata: Metadata = {
   title: "Privacy Policy | BudgetIn Check",

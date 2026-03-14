@@ -63,6 +63,18 @@ function isUnknownPayFrequencyFieldError(error: unknown): boolean {
   );
 }
 
+function resolvePickerAnchorYear(params: {
+  displayYear: number;
+  month: number;
+  payFrequency: PayFrequency;
+}): number {
+  const { displayYear, month, payFrequency } = params;
+  if (payFrequency === "monthly" && month === 1) {
+    return displayYear + 1;
+  }
+  return displayYear;
+}
+
 async function findOnboardingPayFrequency(userId: string) {
   if (!(await supportsOnboardingPayFrequencyField())) return null;
 
@@ -122,8 +134,13 @@ export async function GET(req: NextRequest) {
 
   const periods = Array.from({ length: 12 }, (_, index) => {
     const month = index + 1;
+    const anchorYear = resolvePickerAnchorYear({
+      displayYear: year,
+      month,
+      payFrequency,
+    });
     const selected = buildPayPeriodFromMonthAnchor({
-      anchorYear: year,
+      anchorYear,
       anchorMonth: month,
       payDate,
       payFrequency,

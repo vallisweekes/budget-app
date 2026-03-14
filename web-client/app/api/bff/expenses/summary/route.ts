@@ -325,7 +325,25 @@ export async function GET(req: NextRequest) {
 				sourceMaxUpdatedAt != null &&
 				snapshot.sourceMaxUpdatedAt.getTime() >= sourceMaxUpdatedAt.getTime()));
 
-	if (snapshotIsFresh && snapshot) {
+	const snapshotMatchesComputedPeriod =
+		scope !== "pay_period"
+			? true
+			: Boolean(
+				snapshot
+				&& periodStart
+				&& periodEnd
+				&& snapshot.periodStart
+				&& snapshot.periodEnd
+				&& snapshot.periodStart.getTime() === periodStart.getTime()
+				&& snapshot.periodEnd.getTime() === periodEnd.getTime(),
+			);
+
+	const snapshotMatchesPayContext =
+		snapshot != null
+			? snapshot.payDate === payDate && normalizePayFrequency(snapshot.payFrequency) === payFrequency
+			: false;
+
+	if (snapshotIsFresh && snapshotMatchesComputedPeriod && snapshotMatchesPayContext && snapshot) {
 		return NextResponse.json({
 			scope,
 			month,
