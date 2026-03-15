@@ -1,6 +1,7 @@
 import Constants from "expo-constants";
 import * as Device from "expo-device";
 
+import { clearOfflineApiCache, readOfflineApiCache, writeOfflineApiCache } from "@/lib/apiOfflineCache";
 import { getSessionToken } from "@/lib/storage";
 
 type ApiBaseUrlInfo = {
@@ -160,9 +161,22 @@ function buildRequestKey(path: string, options: ApiFetchOptions, authIdentity: s
   return `${method}|${path}|auth:${authIdentity}|${body}`;
 }
 
+function createNetworkApiError(error: unknown, params: { method: string; path: string }): ApiError {
+  if (error instanceof ApiError) {
+    return error;
+  }
+
+  return new ApiError("Can't reach the server. Check your internet connection and try again.", {
+    status: 0,
+    code: "NETWORK_UNAVAILABLE",
+    detail: error instanceof Error ? error.message : `${params.method} ${params.path} failed before a response was received`,
+  });
+}
+
 export function invalidateApiCache() {
   responseCache.clear();
   inflightRequests.clear();
+  void clearOfflineApiCache();
 }
 
 export function getApiMutationVersion(): number {
@@ -222,6 +236,13 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
         signal: controller.signal,
       });
     } catch (error) {
+      if (isGet) {
+        const persisted = await readOfflineApiCache<T>(requestKey);
+        if (persisted) {
+          return persisted.value;
+        }
+      }
+
       if (error instanceof Error && error.name === "AbortError") {
         throw new ApiError("Request timed out. Please try again.", {
           status: 408,
@@ -229,7 +250,7 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
           detail: `${method} ${normalizedPath} timed out after ${timeoutMs}ms`,
         });
       }
-      throw error;
+      throw createNetworkApiError(error, { method, path: normalizedPath });
     } finally {
       clearTimeout(timeout);
     }
@@ -274,6 +295,9 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
         value: result,
         expiresAt: Date.now() + cacheTtlMs,
       });
+      void writeOfflineApiCache(requestKey, result);
+    } else if (isGet) {
+      void writeOfflineApiCache(requestKey, result);
     } else if (!isGet) {
       // Any successful mutation can invalidate stale aggregates/list responses.
       invalidateApiCache();
