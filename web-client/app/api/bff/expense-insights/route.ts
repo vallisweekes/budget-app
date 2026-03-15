@@ -161,9 +161,14 @@ export async function GET(req: NextRequest) {
 					: onboarding?.mainGoal
 						? [onboarding.mainGoal]
 						: [];
+				const loggedExpenseSignalKey = [
+					insights.loggedExpenseHabits.currentPeriod.count,
+					Math.round(insights.loggedExpenseHabits.currentPeriod.amount * 100),
+					Math.round(insights.loggedExpenseHabits.recentAverage.amount * 100),
+				].join("-");
 
 				return await getAiBudgetTips({
-					cacheKey: `expense-insights:${budgetPlanId}:${now.getFullYear()}-${now.getMonth() + 1}`,
+					cacheKey: `expense-insights:${budgetPlanId}:${now.getFullYear()}-${now.getMonth() + 1}:${loggedExpenseSignalKey}`,
 					budgetPlanId,
 					now,
 					context: {
@@ -199,6 +204,7 @@ export async function GET(req: NextRequest) {
 						payDate,
 						recap: insights.recap,
 						upcoming: insights.upcoming,
+							loggedExpenseHabits: insights.loggedExpenseHabits,
 						existingTips: insights.recapTips,
 					},
 					maxTips: 4,

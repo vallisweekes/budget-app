@@ -241,7 +241,19 @@ export async function GET(req: NextRequest) {
 					});
 				} catch (error) {
 					console.error("Dashboard: expense insights failed:", error);
-					return { recap: null, upcoming: [], recapTips: [] };
+					return {
+						recap: null,
+						upcoming: [],
+						recapTips: [],
+						loggedExpenseHabits: {
+							currentPeriod: { count: 0, amount: 0 },
+							recentAverage: { months: 3, count: 0, amount: 0 },
+							recentMonths: [],
+							recurringMerchants: [],
+							topCategories: [],
+							paymentSources: [],
+						},
+					};
 				}
 			})(),
 			(async () => {
@@ -421,9 +433,14 @@ export async function GET(req: NextRequest) {
 					return limit > 0 && d.currentBalance > limit;
 				}).length;
 				const isOverBudget = amountAfterExpenses < 0 || overLimitDebtCount > 0;
+				const loggedExpenseSignalKey = [
+					expenseInsightsBase.loggedExpenseHabits.currentPeriod.count,
+					Math.round(expenseInsightsBase.loggedExpenseHabits.currentPeriod.amount * 100),
+					Math.round(expenseInsightsBase.loggedExpenseHabits.recentAverage.amount * 100),
+				].join("-");
 
 				return await getAiBudgetTips({
-					cacheKey: `dashboard:${budgetPlanId}:${currentPlanData.year}-${currentPlanData.monthNum}`,
+					cacheKey: `dashboard:${budgetPlanId}:${currentPlanData.year}-${currentPlanData.monthNum}:${Math.round((currentPlanData.totalExpenses ?? 0) * 100)}:${loggedExpenseSignalKey}`,
 					budgetPlanId,
 					now,
 					context: {
@@ -470,6 +487,7 @@ export async function GET(req: NextRequest) {
 						payDate,
 						recap: expenseInsightsBase.recap,
 						upcoming: expenseInsightsBase.upcoming,
+						loggedExpenseHabits: expenseInsightsBase.loggedExpenseHabits,
 						existingTips: expenseInsights.recapTips,
 					},
 					maxTips: 4,

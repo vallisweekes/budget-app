@@ -81,8 +81,13 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 
 	const aiDashboardTips = await (async () => {
 		try {
+			const loggedExpenseSignalKey = [
+				expenseInsightsBase.loggedExpenseHabits.currentPeriod.count,
+				Math.round(expenseInsightsBase.loggedExpenseHabits.currentPeriod.amount * 100),
+				Math.round(expenseInsightsBase.loggedExpenseHabits.recentAverage.amount * 100),
+			].join("-");
 			return await getAiBudgetTips({
-				cacheKey: `dashboard-web:${budgetPlanId}:${currentPlanData.year}-${currentPlanData.monthNum}`,
+				cacheKey: `dashboard-web:${budgetPlanId}:${currentPlanData.year}-${currentPlanData.monthNum}:${Math.round(currentPlanData.totalExpenses * 100)}:${loggedExpenseSignalKey}`,
 				budgetPlanId,
 				now,
 				context: {
@@ -100,6 +105,7 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 					payDate,
 					recap: expenseInsightsBase.recap,
 					upcoming: expenseInsightsBase.upcoming,
+					loggedExpenseHabits: expenseInsightsBase.loggedExpenseHabits,
 					existingTips: expenseInsights.recapTips,
 				},
 				maxTips: 4,

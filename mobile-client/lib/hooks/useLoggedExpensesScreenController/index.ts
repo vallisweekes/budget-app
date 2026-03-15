@@ -8,7 +8,7 @@ import { useTopHeaderOffset } from "@/hooks";
 import { buildPayPeriodFromMonthAnchor, formatPayPeriodLabel, normalizePayFrequency } from "@/lib/payPeriods";
 import type { ExpensesStackParamList } from "@/navigation/types";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { LoggedExpensesControllerState } from "@/types/LoggedExpensesScreen.types";
 
 type Props = NativeStackScreenProps<ExpensesStackParamList, "LoggedExpenses">;
@@ -59,6 +59,15 @@ export function useLoggedExpensesScreenController({ route, navigation }: Props):
       void load(true);
     }, [load]),
   );
+
+  useEffect(() => {
+    const hasCache = Boolean(getCachedPayPeriodExpenses({ budgetPlanId, month, year }));
+    if (!hasCache) {
+      setLoading(true);
+      setItems([]);
+    }
+    void load();
+  }, [budgetPlanId, load, month, year]);
 
   const total = useMemo(() => items.reduce((sum, item) => sum + Number(item.amount), 0), [items]);
   const payDate = Number.isFinite(settings?.payDate as number) && (settings?.payDate as number) >= 1

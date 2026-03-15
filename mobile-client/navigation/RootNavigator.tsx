@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Animated, Easing, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, Octicons } from "@expo/vector-icons";
 import * as Notifications from "expo-notifications";
 
 import { useAuth } from "@/context/AuthContext";
@@ -1060,6 +1060,29 @@ function MainTabs() {
             </View>
           ) : undefined;
 
+          const loggedExpensesRightContent = isLoggedExpenses ? (
+            <Pressable
+              onPress={() => navigation.navigate("Expenses" as any, {
+                screen: "UnplannedExpense",
+                params: {
+                  month: Number.isFinite(Number(deepestRoute?.params?.month))
+                    ? Math.floor(Number(deepestRoute?.params?.month))
+                    : resolvedCurrentPeriodMonth,
+                  year: Number.isFinite(Number(deepestRoute?.params?.year))
+                    ? Math.floor(Number(deepestRoute?.params?.year))
+                    : resolvedCurrentPeriodYear,
+                },
+              } as any)}
+              style={s.quickActionBtn}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel="Log expense"
+            >
+              <Ionicons name="create-outline" size={17} color={T.onAccent} />
+              <Text style={s.quickActionText}>Log</Text>
+            </Pressable>
+          ) : undefined;
+
           const goalsRightContent = isGoals ? (
             <Pressable
               onPress={() => (navigation as any).navigate("Goals", { openAddToken: Date.now() })}
@@ -1157,7 +1180,7 @@ function MainTabs() {
               centerLabel={isGoals ? "Goals" : expensesCenterLabel}
               centerContent={headerCenterContent}
               leftContent={expensesListLeftContent}
-              rightContent={(isLoggedExpenses ? undefined : categoryHeaderRightContent ?? expensesLoggedRightContent) ?? goalsRightContent}
+              rightContent={loggedExpensesRightContent ?? (isLoggedExpenses ? undefined : categoryHeaderRightContent ?? expensesLoggedRightContent) ?? goalsRightContent}
               showIncomeAction={false}
               compactActionsMenu={isSettings}
               showAnalyticsAction={!isSettings}
@@ -1219,7 +1242,7 @@ function MainTabs() {
         component={GoalsScreen}
         options={{
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="flag-outline" size={size} color={color} />
+            <Octicons name="goal" size={size} color={color} />
           ),
         }}
       />

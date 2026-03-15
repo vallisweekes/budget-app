@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { View, Pressable, Text, Platform } from "react-native";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, Octicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { T } from "@/lib/theme";
 import Svg, { Path } from "react-native-svg";
@@ -23,7 +23,7 @@ const ICONS: Record<string, { active: PillTabBarIconName; inactive: PillTabBarIc
   dashboard: { active: "home", inactive: "home-outline" },
   expenses:  { active: "receipt", inactive: "receipt-outline" },
   debts:     { active: "card", inactive: "card-outline" },
-  goals:     { active: "flag", inactive: "flag-outline" },
+  goals:     { active: "ellipse", inactive: "ellipse-outline" },
   income:    { active: "wallet", inactive: "wallet-outline" },
 };
 
@@ -200,6 +200,12 @@ export default function PillTabBar({ state, descriptors: _descriptors, navigatio
                   <View style={styles.iconWrap}>
                     {baseName === "dashboard" ? (
                       <HomeIcon color={isFocused ? T.text : T.textDim} />
+                    ) : baseName === "goals" ? (
+                      <Octicons
+                        name="goal"
+                        size={20}
+                        color={isFocused ? T.text : T.textDim}
+                      />
                     ) : (
                       <Ionicons
                         name={isFocused ? icons.active : icons.inactive}

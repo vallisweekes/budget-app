@@ -89,6 +89,14 @@ export async function getAiBudgetTips(args: {
 		recap?: PreviousMonthRecap | null;
 		upcoming?: UpcomingPayment[];
 		existingTips?: RecapTip[];
+		loggedExpenseHabits?: {
+			currentPeriod?: { count?: number; amount?: number };
+			recentAverage?: { months?: number; count?: number; amount?: number };
+			recentMonths?: Array<{ year: number; month: number; count: number; amount: number }>;
+			recurringMerchants?: Array<{ name: string; count: number; amount: number }>;
+			topCategories?: Array<{ name: string; count: number; amount: number }>;
+			paymentSources?: Array<{ name: string; count: number; amount: number }>;
+		};
 	};
 	maxTips?: number;
 }): Promise<RecapTip[] | null> {
@@ -130,13 +138,32 @@ export async function getAiBudgetTips(args: {
 		title: t.title,
 		detail: t.detail,
 	}));
+	const loggedExpenseHabits = args.context.loggedExpenseHabits
+		? {
+			currentPeriod: {
+				count: args.context.loggedExpenseHabits.currentPeriod?.count ?? 0,
+				amount: args.context.loggedExpenseHabits.currentPeriod?.amount ?? 0,
+			},
+			recentAverage: {
+				months: args.context.loggedExpenseHabits.recentAverage?.months ?? 0,
+				count: args.context.loggedExpenseHabits.recentAverage?.count ?? 0,
+				amount: args.context.loggedExpenseHabits.recentAverage?.amount ?? 0,
+			},
+			recentMonths: (args.context.loggedExpenseHabits.recentMonths ?? []).slice(0, 3),
+			recurringMerchants: (args.context.loggedExpenseHabits.recurringMerchants ?? []).slice(0, 3),
+			topCategories: (args.context.loggedExpenseHabits.topCategories ?? []).slice(0, 3),
+			paymentSources: (args.context.loggedExpenseHabits.paymentSources ?? []).slice(0, 3),
+		}
+		: null;
 
 	const sys =
 		"You are a budgeting assistant inside a bill-tracking app. " +
 		"Use the onboarding context (goals, salary, bills) to tailor the tips when present. " +
+		"If loggedExpenseHabits are present, use them to identify recurring extra-spend habits and compare them against income, planned expenses, and affordability. " +
 		"Generate practical, friendly tips grounded in the provided numbers. " +
 		"Definition notes: amountAfterExpenses = incomeAfterAllocations − totalExpenses; a negative value means overspending vs plan. " +
 		"If overLimitDebtCount > 0, treat it as urgent (a card is over its credit limit). " +
+		"Treat extra logged expenses as unplanned spending signals, especially when they recur with the same merchant/category or consume a noticeable share of income. " +
 		"Avoid shame, avoid legal/medical advice, and do not mention OpenAI. " +
 		"Return ONLY valid JSON: {\"tips\":[{\"title\":string,\"detail\":string,\"priority\":number}]}. " +
 		"Set priority from 1-100 (100 = most urgent). Prioritise debt-reduction and savings-protection actions first. " +
@@ -164,6 +191,7 @@ export async function getAiBudgetTips(args: {
 			recap,
 			upcoming,
 			existingTips,
+			loggedExpenseHabits,
 		},
 		null,
 		2

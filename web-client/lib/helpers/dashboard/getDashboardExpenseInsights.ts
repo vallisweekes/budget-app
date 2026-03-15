@@ -10,7 +10,7 @@ import {
 	type UpcomingPayment,
 	type DatedExpenseItem,
 } from "@/lib/expenses/insights";
-import { normalizePayFrequency, resolveActivePayPeriodWindow, type PayFrequency } from "@/lib/payPeriods";
+import { getPayPeriodAnchorFromWindow, normalizePayFrequency, resolveActivePayPeriodWindow, type PayFrequency } from "@/lib/payPeriods";
 import { addMonthsUtc, toNumber } from "@/lib/helpers/dashboard/utils";
 import { monthNumberToKey } from "@/lib/helpers/monthKey";
 import { getMonthlyAllocationSnapshot, getMonthlyCustomAllocationsSnapshot } from "@/lib/allocations/store";
@@ -206,6 +206,178 @@ function latestDate(...dates: Array<Date | null | undefined>): Date | null {
 	return valid.reduce((latest, current) => (current.getTime() > latest.getTime() ? current : latest));
 }
 
+type LoggedExpenseHabitBreakdown = {
+	name: string;
+	count: number;
+	amount: number;
+};
+
+export type LoggedExpenseHabits = {
+	currentPeriod: {
+		count: number;
+		amount: number;
+	};
+	recentAverage: {
+		months: number;
+		count: number;
+		amount: number;
+	};
+	recentMonths: Array<{
+		year: number;
+		month: number;
+		count: number;
+		amount: number;
+	}>;
+	recurringMerchants: LoggedExpenseHabitBreakdown[];
+	topCategories: LoggedExpenseHabitBreakdown[];
+	paymentSources: LoggedExpenseHabitBreakdown[];
+};
+
+type LoggedExpenseSourceRow = {
+	id: string;
+	name: string;
+	amount: unknown;
+	isAllocation?: boolean | null;
+	isMovedToDebt?: boolean | null;
+	isExtraLoggedExpense?: boolean | null;
+	paymentSource?: string | null;
+	category?: { name?: string | null } | null;
+	dueDate?: Date | null;
+	periodKey?: string | null;
+	year: number;
+	month: number;
+};
+
+function normalizeBreakdownName(value: unknown, fallback: string): string {
+	const label = typeof value === "string" ? value.trim() : "";
+	return label || fallback;
+}
+
+function paymentSourceLabel(value: unknown): string {
+	if (value === "credit_card") return "Credit card";
+	if (value === "extra_funds") return "Extra funds";
+	if (value === "income") return "Income";
+	return "Unknown";
+}
+
+function sortLoggedBreakdown(entries: LoggedExpenseHabitBreakdown[], limit: number): LoggedExpenseHabitBreakdown[] {
+	return entries
+		.filter((entry) => entry.count > 0 || entry.amount > 0)
+		.sort((left, right) => right.amount - left.amount || right.count - left.count || left.name.localeCompare(right.name))
+		.slice(0, Math.max(0, limit));
+}
+
+function computeLoggedExpenseHabits(args: {
+	rows: LoggedExpenseSourceRow[];
+	activeWindow: { start: Date; end: Date };
+	payDate: number;
+	payFrequency: PayFrequency;
+}): LoggedExpenseHabits {
+	const currentPeriodKey = args.activeWindow.start.toISOString().slice(0, 10);
+	const currentAnchor = getPayPeriodAnchorFromWindow({
+		window: args.activeWindow,
+		payFrequency: args.payFrequency,
+	});
+	const recentMonthPairs = Array.from({ length: 3 }, (_, index) =>
+		addMonthsUtc(currentAnchor.anchorYear, currentAnchor.anchorMonth, -index)
+	);
+	const recentMonthKeys = new Set(recentMonthPairs.map((pair) => `${pair.year}-${pair.monthNum}`));
+	const recentMonths = recentMonthPairs.map((pair) => ({
+		year: pair.year,
+		month: pair.monthNum,
+		count: 0,
+		amount: 0,
+	}));
+	const recentMonthSummaryByKey = new Map(recentMonths.map((entry) => [`${entry.year}-${entry.month}`, entry]));
+
+	const merchantMap = new Map<string, LoggedExpenseHabitBreakdown>();
+	const categoryMap = new Map<string, LoggedExpenseHabitBreakdown>();
+	const paymentSourceMap = new Map<string, LoggedExpenseHabitBreakdown>();
+
+	let currentPeriodCount = 0;
+	let currentPeriodAmount = 0;
+
+	for (const row of args.rows) {
+		if (row.isMovedToDebt || row.isAllocation) continue;
+		if (!Boolean(row.isExtraLoggedExpense ?? false)) continue;
+		if ((row.paymentSource ?? "income") === "income") continue;
+
+		const amount = toNumber(row.amount);
+		if (!(amount > 0)) continue;
+
+		const effectiveDueIso = resolveEffectiveDueDateIso(
+			{
+				id: row.id,
+				name: row.name,
+				amount,
+				paid: false,
+				paidAmount: 0,
+				dueDate: row.dueDate ? row.dueDate.toISOString().slice(0, 10) : undefined,
+			},
+			{ year: row.year, monthNum: row.month, payDate: args.payDate }
+		);
+		const effectiveDue = effectiveDueIso ? parseIsoDateToUtcDateOnly(effectiveDueIso) : null;
+		const inCurrentPeriod = row.periodKey === currentPeriodKey || Boolean(
+			effectiveDue &&
+			effectiveDue.getTime() >= args.activeWindow.start.getTime() &&
+			effectiveDue.getTime() <= args.activeWindow.end.getTime()
+		);
+		if (inCurrentPeriod) {
+			currentPeriodCount += 1;
+			currentPeriodAmount += amount;
+		}
+
+		const recentKey = `${row.year}-${row.month}`;
+		if (recentMonthKeys.has(recentKey)) {
+			const summary = recentMonthSummaryByKey.get(recentKey);
+			if (summary) {
+				summary.count += 1;
+				summary.amount += amount;
+			}
+		}
+
+		const merchantName = normalizeBreakdownName(row.name, "Other");
+		const merchantEntry = merchantMap.get(merchantName) ?? { name: merchantName, count: 0, amount: 0 };
+		merchantEntry.count += 1;
+		merchantEntry.amount += amount;
+		merchantMap.set(merchantName, merchantEntry);
+
+		const categoryName = normalizeBreakdownName(row.category?.name, "Uncategorised");
+		const categoryEntry = categoryMap.get(categoryName) ?? { name: categoryName, count: 0, amount: 0 };
+		categoryEntry.count += 1;
+		categoryEntry.amount += amount;
+		categoryMap.set(categoryName, categoryEntry);
+
+		const sourceName = paymentSourceLabel(row.paymentSource);
+		const sourceEntry = paymentSourceMap.get(sourceName) ?? { name: sourceName, count: 0, amount: 0 };
+		sourceEntry.count += 1;
+		sourceEntry.amount += amount;
+		paymentSourceMap.set(sourceName, sourceEntry);
+	}
+
+	const recentAverageCount = recentMonths.reduce((sum, entry) => sum + entry.count, 0) / Math.max(1, recentMonths.length);
+	const recentAverageAmount = recentMonths.reduce((sum, entry) => sum + entry.amount, 0) / Math.max(1, recentMonths.length);
+
+	return {
+		currentPeriod: {
+			count: currentPeriodCount,
+			amount: currentPeriodAmount,
+		},
+		recentAverage: {
+			months: recentMonths.length,
+			count: Number(recentAverageCount.toFixed(2)),
+			amount: Number(recentAverageAmount.toFixed(2)),
+		},
+		recentMonths,
+		recurringMerchants: sortLoggedBreakdown(
+			Array.from(merchantMap.values()).filter((entry) => entry.count >= 2),
+			3
+		),
+		topCategories: sortLoggedBreakdown(Array.from(categoryMap.values()), 3),
+		paymentSources: sortLoggedBreakdown(Array.from(paymentSourceMap.values()), 3),
+	};
+}
+
 export async function getDashboardExpenseInsights({
 	budgetPlanId,
 	payDate,
@@ -224,6 +396,7 @@ export async function getDashboardExpenseInsights({
 	recap: ReturnType<typeof computePreviousMonthRecap> | null;
 	upcoming: ReturnType<typeof computeUpcomingPayments>;
 	recapTips: ReturnType<typeof computeRecapTips>;
+	loggedExpenseHabits: LoggedExpenseHabits;
 }> {
 	const normalizedPayFrequency = normalizePayFrequency(payFrequency);
 	const activeWindow = resolveActivePayPeriodWindow({
@@ -276,10 +449,18 @@ export async function getDashboardExpenseInsights({
 				paidAmount: true,
 				isAllocation: true,
 				isMovedToDebt: true,
+				isExtraLoggedExpense: true,
+				paymentSource: true,
+				periodKey: true,
 				dueDate: true,
 				year: true,
 				month: true,
 				updatedAt: true,
+				category: {
+					select: {
+						name: true,
+					},
+				},
 			},
 		}),
 		prisma.income.findMany({
@@ -569,6 +750,12 @@ export async function getDashboardExpenseInsights({
 			historyExpenses,
 		})
 		: [];
+	const loggedExpenseHabits = computeLoggedExpenseHabits({
+		rows: expenseWindowRows,
+		activeWindow,
+		payDate,
+		payFrequency: normalizedPayFrequency,
+	});
 
-	return { recap, upcoming, recapTips };
+	return { recap, upcoming, recapTips, loggedExpenseHabits };
 }

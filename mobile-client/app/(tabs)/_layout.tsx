@@ -1,5 +1,5 @@
 import React from "react";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, Octicons } from "@expo/vector-icons";
 import { StackActions } from "@react-navigation/native";
 import { Animated, Pressable, Text, View } from "react-native";
 import { Tabs } from "expo-router";
@@ -476,6 +476,43 @@ function TabsHeader({ navigation, route }: { navigation: any; route: any }) {
     </Pressable>
   ) : undefined;
 
+  const loggedExpensesRightContent = isLoggedExpenses ? (
+    <Pressable
+      onPress={() => {
+        if (!navigateToTab("expenses", {
+          screen: "UnplannedExpense",
+          params: {
+            month: Number.isFinite(Number(deepestRoute?.params?.month))
+              ? Math.floor(Number(deepestRoute?.params?.month))
+              : resolvedCurrentPeriodMonth,
+            year: Number.isFinite(Number(deepestRoute?.params?.year))
+              ? Math.floor(Number(deepestRoute?.params?.year))
+              : resolvedCurrentPeriodYear,
+          },
+        })) {
+          router.push("/(tabs)/expenses");
+        }
+      }}
+      hitSlop={10}
+      accessibilityRole="button"
+      accessibilityLabel="Log expense"
+      style={{
+        minWidth: 68,
+        height: 34,
+        borderRadius: 17,
+        backgroundColor: T.accent,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        paddingHorizontal: 12,
+        gap: 4,
+      }}
+    >
+      <Ionicons name="create-outline" size={17} color={T.onAccent} />
+      <Text style={{ color: T.onAccent, fontSize: 13, fontWeight: "800" }}>Log</Text>
+    </Pressable>
+  ) : undefined;
+
   if (isDebtDetail || isExpenseDetail) {
     return null;
   }
@@ -503,7 +540,7 @@ function TabsHeader({ navigation, route }: { navigation: any; route: any }) {
       onBack={handleBack}
       centerLabel={centerLabel}
       centerContent={incomeMonthSwitcher}
-      rightContent={analyticsRightContent ?? expensesLoggedRightContent ?? goalsRightContent}
+      rightContent={loggedExpensesRightContent ?? analyticsRightContent ?? expensesLoggedRightContent ?? goalsRightContent}
       showIncomeAction={false}
       compactActionsMenu={isSettings}
       showAnalyticsAction={!isSettings && !isAnalytics}
@@ -562,7 +599,7 @@ export default function MainTabsLayout() {
         name="goals"
         options={{
           title: "Goals",
-          tabBarIcon: ({ color, size }) => <Ionicons name="flag-outline" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <Octicons name="goal" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
