@@ -43,9 +43,9 @@ export function useDashboardScreenController({ navigation }: DashboardScreenProp
 
   useEffect(() => {
     if (isNoBudgetPlanError(error)) {
-      navigation.navigate("Settings");
+      router.push("/settings");
     }
-  }, [error, navigation]);
+  }, [error, router]);
 
   const load = useCallback(
     (options?: { force?: boolean }) => refresh({ force: options?.force === true }),
@@ -179,7 +179,7 @@ export function useDashboardScreenController({ navigation }: DashboardScreenProp
       params: { openAddToken: String(Date.now()) },
     }),
     goToGoalsProjection: () => router.push("/goals-projection"),
-    goToSettings: () => router.push("/(tabs)/settings"),
+    goToSettings: () => router.push("/settings"),
     ...derived,
   };
 }

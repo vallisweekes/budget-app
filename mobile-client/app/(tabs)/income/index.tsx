@@ -1,7 +1,5 @@
-import React from "react";
-
-import { IncomeStackNavigator } from "@/navigation/RootNavigator";
+import { Redirect } from "expo-router";
 
 export default function IncomeRoute() {
-  return <IncomeStackNavigator />;
+  return <Redirect href="/(tabs)/income/IncomeHome" />;
 }

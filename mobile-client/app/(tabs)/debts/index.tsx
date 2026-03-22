@@ -1,7 +1,5 @@
-import React from "react";
-
-import { DebtStackNavigator } from "@/navigation/RootNavigator";
+import { Redirect } from "expo-router";
 
 export default function DebtsRoute() {
-  return <DebtStackNavigator />;
+  return <Redirect href="/(tabs)/debts/DebtList" />;
 }

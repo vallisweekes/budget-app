@@ -1,7 +1,5 @@
-import React from "react";
-
-import { ExpensesStackNavigator } from "@/navigation/RootNavigator";
+import { Redirect } from "expo-router";
 
 export default function ExpensesRoute() {
-  return <ExpensesStackNavigator />;
+  return <Redirect href="/(tabs)/expenses/ExpensesList" />;
 }

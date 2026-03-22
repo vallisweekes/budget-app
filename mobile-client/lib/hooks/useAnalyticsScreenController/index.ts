@@ -1,5 +1,5 @@
-import { useNavigation, useRoute } from "@react-navigation/native";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useLocalSearchParams } from "expo-router";
+import { useCallback, useMemo, useState } from "react";
 import { useWindowDimensions } from "react-native";
 
 import { useBootstrapData } from "@/context/BootstrapDataContext";
@@ -16,7 +16,6 @@ import {
 } from "@/lib/helpers/analytics";
 import { useTopHeaderOffset } from "@/hooks";
 import { normalizePayFrequency } from "@/lib/payPeriods";
-import type { RootStackScreenProps } from "@/navigation/types";
 import type { AnalyticsOverviewLinePoint, AnalyticsOverviewMode, AnalyticsScreenControllerState } from "@/types/AnalyticsScreen.types";
 import { useGetAnalyticsExpenseSeriesQuery, useGetDebtSummaryQuery, useGetExpenseSummaryQuery, useGetIncomeSummaryQuery } from "@/store/api";
 
@@ -24,17 +23,11 @@ export function useAnalyticsScreenController(
 ): AnalyticsScreenControllerState {
   const topHeaderOffset = useTopHeaderOffset();
   const { width: windowWidth } = useWindowDimensions();
-  const navigation = useNavigation<RootStackScreenProps<"Analytics">["navigation"]>();
-  const route = useRoute<RootStackScreenProps<"Analytics">["route"]>();
+  const params = useLocalSearchParams<{ overviewMode?: string }>();
   const { dashboard, settings, isLoading: bootstrapLoading, refresh: refreshBootstrap } = useBootstrapData();
   const [refreshing, setRefreshing] = useState(false);
   const [overviewWrapWidth, setOverviewWrapWidth] = useState(0);
-  const overviewMode: AnalyticsOverviewMode = route.params?.overviewMode === "month" ? "month" : "year";
-
-  useEffect(() => {
-    if (route.params?.overviewMode === "month" || route.params?.overviewMode === "year") return;
-    navigation.setParams({ overviewMode: "year" });
-  }, [navigation, route.params?.overviewMode]);
+  const overviewMode: AnalyticsOverviewMode = params.overviewMode === "month" ? "month" : "year";
 
   const currency = currencySymbol(settings?.currency);
   const activeAnchor = useMemo(() => getActiveAnalyticsAnchor(dashboard?.monthNum, dashboard?.year), [dashboard?.monthNum, dashboard?.year]);
