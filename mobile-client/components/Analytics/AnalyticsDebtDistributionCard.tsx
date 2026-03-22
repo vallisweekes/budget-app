@@ -6,7 +6,7 @@ import { fmt } from "@/lib/formatting";
 import { T } from "@/lib/theme";
 import { analyticsStyles as s } from "@/components/AnalyticsScreen/style";
 import type { AnalyticsDebtDistributionCardProps } from "@/types";
-
+// Judt a test 
 export default function AnalyticsDebtDistributionCard({ currency, items, overviewMode, title }: AnalyticsDebtDistributionCardProps) {
   return (
     <View style={s.tipCard}>
