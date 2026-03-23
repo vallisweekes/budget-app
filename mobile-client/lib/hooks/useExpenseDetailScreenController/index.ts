@@ -1,5 +1,4 @@
 import { useFocusEffect } from "@react-navigation/native";
-import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, useWindowDimensions } from "react-native";
@@ -32,8 +31,8 @@ type Props = NativeStackScreenProps<ExpensesStackParamList, "ExpenseDetail">;
 
 export function useExpenseDetailScreenController({ route, navigation }: Props): ExpenseDetailScreenControllerState {
   const { height, width } = useWindowDimensions();
-  const tabBarHeight = useBottomTabBarHeight();
   const insets = useSafeAreaInsets();
+  const tabBarHeight = useMemo(() => Math.max(insets.bottom, 56), [insets.bottom]);
   const { expenseId, expenseName, categoryId, month, year, budgetPlanId, currency } = route.params;
 
   const [loading, setLoading] = useState(true);

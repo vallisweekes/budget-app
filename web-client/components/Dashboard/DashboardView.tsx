@@ -78,6 +78,30 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 		return limit > 0 && d.currentBalance > limit;
 	}).length;
 	const isOverBudget = amountAfterExpenses < 0 || overLimitDebtCount > 0;
+	const dueSoonDebtCount = (debts ?? []).filter((d) => {
+		if (!(d.dueDate instanceof Date)) return false;
+		const diffDays = Math.floor((d.dueDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
+		return diffDays >= 0 && diffDays < 7;
+	}).length;
+	const highestInterestDebt = (debts ?? []).reduce<typeof debts[number] | null>((best, debt) => {
+		if (!Number.isFinite(debt.interestRate ?? Number.NaN)) return best;
+		if (!best) return debt;
+		return (debt.interestRate ?? 0) > (best.interestRate ?? 0) ? debt : best;
+	}, null);
+	const recurringChargeCandidates = Array.from(
+		new Map(
+			currentPlanData.categoryData
+				.flatMap((category) => category.expenses ?? [])
+				.filter((expense) => Boolean(expense?.isDirectDebit) && Number(expense?.amount ?? 0) > 0)
+				.sort((a, b) => Number(b.amount ?? 0) - Number(a.amount ?? 0))
+				.map((expense) => {
+					const name = String(expense.name ?? "").trim();
+					if (!name) return null;
+					return [name.toLowerCase(), { name, amount: Number(expense.amount ?? 0) }] as const;
+				})
+				.filter((row): row is readonly [string, { name: string; amount: number }] => Boolean(row)),
+		).values(),
+	).slice(0, 4);
 
 	const aiDashboardTips = await (async () => {
 		try {
@@ -85,6 +109,8 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 				expenseInsightsBase.loggedExpenseHabits.currentPeriod.count,
 				Math.round(expenseInsightsBase.loggedExpenseHabits.currentPeriod.amount * 100),
 				Math.round(expenseInsightsBase.loggedExpenseHabits.recentAverage.amount * 100),
+				Math.round(totalDebtBalance * 100),
+				recurringChargeCandidates.length,
 			].join("-");
 			return await getAiBudgetTips({
 				cacheKey: `dashboard-web:${budgetPlanId}:${currentPlanData.year}-${currentPlanData.monthNum}:${Math.round(currentPlanData.totalExpenses * 100)}:${loggedExpenseSignalKey}`,
@@ -106,6 +132,14 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 					recap: expenseInsightsBase.recap,
 					upcoming: expenseInsightsBase.upcoming,
 					loggedExpenseHabits: expenseInsightsBase.loggedExpenseHabits,
+					subscriptionCandidates: recurringChargeCandidates,
+					debtSnapshot: {
+						totalBalance: totalDebtBalance,
+						activeCount: debts.length,
+						dueSoonCount: dueSoonDebtCount,
+						highestInterestDebtName: highestInterestDebt?.name ?? null,
+						highestInterestRate: highestInterestDebt?.interestRate ?? null,
+					},
 					existingTips: expenseInsights.recapTips,
 				},
 				maxTips: 4,

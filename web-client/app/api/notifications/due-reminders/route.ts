@@ -163,8 +163,9 @@ async function sendLoggedNotifications(params: {
 const DAILY_FALLBACK_TIPS = [
   "Quick win: check one upcoming payment today so nothing sneaks up on your budget.",
   "Tiny habit, big impact: review one category and trim just one expense this week.",
+  "Recurring-charge check: cancel or pause one subscription you no longer use.",
   "Tip of the day: mark paid items promptly to keep your budget totals accurate.",
-  "Momentum tip: set aside even a small amount this week to build consistency.",
+  "Debt momentum: add a small extra payment to your highest-interest balance this week.",
   "Stay ahead: scan debts due soon and plan one payment now.",
 ] as const;
 
@@ -711,7 +712,7 @@ async function handleDueReminders(req: Request) {
       const mobileTokens = plan.user.mobilePushTokens.map((t) => t.token);
       if (mobileTokens.length === 0) continue;
 
-      const [incomeAgg, expenseAgg, dueSoonCount] = await Promise.all([
+      const [incomeAgg, expenseAgg, dueSoonCount, debtAgg, recurringCharges] = await Promise.all([
         withPrismaRetry(() => prisma.income.aggregate({
           where: {
             budgetPlanId: plan.id,
@@ -740,6 +741,32 @@ async function handleDueReminders(req: Request) {
             },
           },
         }), { retries: 2, delayMs: 150 }),
+        withPrismaRetry(() => prisma.debt.aggregate({
+          where: {
+            budgetPlanId: plan.id,
+            paid: false,
+            currentBalance: { gt: 0 },
+          },
+          _sum: { currentBalance: true },
+          _count: { id: true },
+        }), { retries: 2, delayMs: 150 }),
+        withPrismaRetry(() => prisma.expense.findMany({
+          where: {
+            budgetPlanId: plan.id,
+            month: currentMonth,
+            year: currentYear,
+            isAllocation: false,
+            isDirectDebit: true,
+          },
+          select: {
+            name: true,
+            amount: true,
+          },
+          orderBy: {
+            amount: "desc",
+          },
+          take: 8,
+        }), { retries: 2, delayMs: 150 }),
       ]);
 
       const income = Number(
@@ -753,6 +780,22 @@ async function handleDueReminders(req: Request) {
           plan.monthlySavingsContribution ??
           0,
       );
+      const totalDebtBalance = Number(
+        (debtAgg._sum.currentBalance as unknown as { toString?: () => string })?.toString?.() ?? debtAgg._sum.currentBalance ?? 0,
+      );
+      const activeDebtCount = Number(debtAgg._count.id ?? 0);
+      const recurringChargeCandidates = Array.from(
+        new Map(
+          recurringCharges
+            .map((row) => {
+              const name = String(row.name ?? "").trim();
+              if (!name) return null;
+              const amount = Number((row.amount as unknown as { toString?: () => string })?.toString?.() ?? row.amount ?? 0);
+              return [name.toLowerCase(), { name, amount: Number.isFinite(amount) ? amount : 0 }] as const;
+            })
+            .filter((row): row is readonly [string, { name: string; amount: number }] => Boolean(row)),
+        ).values(),
+      ).slice(0, 3);
 
       let title = "Budget tip";
       let body = "Keep an eye on upcoming payments and spending trends this week.";
@@ -772,6 +815,14 @@ async function handleDueReminders(req: Request) {
           title = "Upcoming debt due dates";
       body = `You have ${dueSoonCount} payments due within 7 days. A quick plan now keeps things smooth.`;
       reason = "due_soon";
+        } else if (activeDebtCount > 0 && totalDebtBalance > 0) {
+          title = "Debt momentum tip";
+          body = "Add a small extra payment to one debt this week to speed up payoff and free cash sooner.";
+          reason = "debt_accelerate";
+        } else if (recurringChargeCandidates.length >= 2) {
+          title = "Recurring charge check";
+          body = "Review your recurring charges and cancel one you no longer use to free up monthly cash.";
+          reason = "subscription_review";
         } else if (savingsContribution <= 0) {
           title = "Savings habit tip";
           body = "Set a monthly savings contribution, even a small amount, to strengthen your plan over time.";
@@ -805,6 +856,9 @@ async function handleDueReminders(req: Request) {
         expenses,
         spendingPct: income > 0 ? Math.round((expenses / income) * 100) : null,
         dueSoonCount,
+        activeDebtCount,
+        totalDebtBalance,
+        subscriptionCandidates: recurringChargeCandidates,
         savingsContribution,
         reason,
         goalTone: "make user feel they are in a good place",
@@ -823,6 +877,9 @@ async function handleDueReminders(req: Request) {
           month: currentMonth,
           year: currentYear,
           dueSoonCount,
+          activeDebtCount,
+          totalDebtBalance,
+          recurringChargeCandidates,
           savingsContribution,
           daysSinceLastActive: personalization.daysSinceLastActive,
           preferredSendHour: personalization.preferredSendHour,

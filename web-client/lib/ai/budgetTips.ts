@@ -97,6 +97,14 @@ export async function getAiBudgetTips(args: {
 			topCategories?: Array<{ name: string; count: number; amount: number }>;
 			paymentSources?: Array<{ name: string; count: number; amount: number }>;
 		};
+		subscriptionCandidates?: Array<{ name: string; amount?: number }>;
+		debtSnapshot?: {
+			totalBalance?: number;
+			activeCount?: number;
+			dueSoonCount?: number;
+			highestInterestDebtName?: string | null;
+			highestInterestRate?: number | null;
+		};
 	};
 	maxTips?: number;
 }): Promise<RecapTip[] | null> {
@@ -156,10 +164,30 @@ export async function getAiBudgetTips(args: {
 		}
 		: null;
 
+	const subscriptionCandidates = (args.context.subscriptionCandidates ?? [])
+		.slice(0, 4)
+		.map((item) => ({
+			name: clampText(String(item?.name ?? ""), 48),
+			amount: Number(item?.amount ?? 0) || 0,
+		}))
+		.filter((item) => item.name);
+
+	const debtSnapshot = args.context.debtSnapshot
+		? {
+			totalBalance: Number(args.context.debtSnapshot.totalBalance ?? 0) || 0,
+			activeCount: Number(args.context.debtSnapshot.activeCount ?? 0) || 0,
+			dueSoonCount: Number(args.context.debtSnapshot.dueSoonCount ?? 0) || 0,
+			highestInterestDebtName: args.context.debtSnapshot.highestInterestDebtName ?? null,
+			highestInterestRate: Number(args.context.debtSnapshot.highestInterestRate ?? 0) || 0,
+		}
+		: null;
+
 	const sys =
 		"You are a budgeting assistant inside a bill-tracking app. " +
 		"Use the onboarding context (goals, salary, bills) to tailor the tips when present. " +
 		"If loggedExpenseHabits are present, use them to identify recurring extra-spend habits and compare them against income, planned expenses, and affordability. " +
+		"If recurring charges look subscription-like, include at least one tip to cancel, pause, or downgrade unnecessary subscriptions. " +
+		"If debt balances exist, include at least one tip to speed up payoff with a concrete action (for example: one targeted extra payment on highest-interest debt while keeping minimums elsewhere). " +
 		"Generate practical, friendly tips grounded in the provided numbers. " +
 		"Definition notes: amountAfterExpenses = incomeAfterAllocations − totalExpenses; a negative value means overspending vs plan. " +
 		"If overLimitDebtCount > 0, treat it as urgent (a card is over its credit limit). " +
@@ -192,6 +220,8 @@ export async function getAiBudgetTips(args: {
 			upcoming,
 			existingTips,
 			loggedExpenseHabits,
+			subscriptionCandidates,
+			debtSnapshot,
 		},
 		null,
 		2

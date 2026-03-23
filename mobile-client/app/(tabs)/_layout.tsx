@@ -1,23 +1,13 @@
 import React from "react";
 import { Feather, Ionicons, Octicons } from "@expo/vector-icons";
 import { NativeTabs } from "expo-router/unstable-native-tabs";
-import { DynamicColorIOS } from "react-native";
 
 import { T } from "@/lib/theme";
 
 export default function MainTabsLayout() {
-  const tabBarBackgroundColor = DynamicColorIOS({
-    dark: "rgba(27, 31, 43, 0.9)",
-    light: "rgba(255, 255, 255, 0.92)",
-  });
-  const tabBarShadowColor = DynamicColorIOS({
-    dark: "rgba(8, 10, 18, 0.18)",
-    light: "rgba(15, 40, 47, 0.12)",
-  });
-  const selectedTintColor = DynamicColorIOS({
-    dark: T.onAccent,
-    light: "#0f282f",
-  });
+  const tabBarBackgroundColor = T.card;
+  const tabBarShadowColor = T.border;
+  const selectedTintColor = T.onAccent;
   const inactiveIconColor = "#8E95A3";
   const inactiveLabelColor = "#8E95A3";
   const selectedTabLabelStyle = {
@@ -50,6 +40,7 @@ export default function MainTabsLayout() {
         name="dashboard"
         contentStyle={tabContentStyle}
         unstable_nativeProps={tabNativeProps}
+        disableTransparentOnScrollEdge
       >
         <NativeTabs.Trigger.Icon
           src={<NativeTabs.Trigger.VectorIcon family={Feather} name="home" />}
@@ -62,6 +53,7 @@ export default function MainTabsLayout() {
         name="expenses"
         contentStyle={tabContentStyle}
         unstable_nativeProps={tabNativeProps}
+        disableTransparentOnScrollEdge
       >
         <NativeTabs.Trigger.Icon
           src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name="receipt-outline" />}
@@ -74,6 +66,7 @@ export default function MainTabsLayout() {
         name="debts"
         contentStyle={tabContentStyle}
         unstable_nativeProps={tabNativeProps}
+        disableTransparentOnScrollEdge
       >
         <NativeTabs.Trigger.Icon
           src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name="card-outline" />}
@@ -86,6 +79,7 @@ export default function MainTabsLayout() {
         name="income"
         contentStyle={tabContentStyle}
         unstable_nativeProps={tabNativeProps}
+        disableTransparentOnScrollEdge
       >
         <NativeTabs.Trigger.Icon
           src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name="wallet-outline" />}
@@ -98,6 +92,7 @@ export default function MainTabsLayout() {
         name="goals"
         contentStyle={tabContentStyle}
         unstable_nativeProps={tabNativeProps}
+        disableTransparentOnScrollEdge
       >
         <NativeTabs.Trigger.Icon
           src={<NativeTabs.Trigger.VectorIcon family={Octicons} name="goal" />}

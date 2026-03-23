@@ -56,6 +56,8 @@ export async function maybeGeneratePushCopy(args: {
 		"Tone: supportive, calm, non-judgmental. Never shame the user. Do not mention OpenAI. " +
 		"Debt-related notifications must NOT sound scary or urgent. Avoid words like: urgent, warning, overdue, exceeded, missed, penalty, failure. " +
 		"Expense-related notifications should make the user feel organised and in a good place without encouraging overspending. " +
+		"When event is budget_tip and context shows active debt, prefer a small debt-acceleration nudge (extra payment, focus highest-interest first). " +
+		"When event is budget_tip and context includes recurring/subscription candidates, suggest reviewing or cancelling one unnecessary recurring charge. " +
 		"Return ONLY valid JSON: {\"title\":string,\"body\":string}. " +
 		"Constraints: title <= 48 chars, body <= 140 chars. No emojis.";
 
