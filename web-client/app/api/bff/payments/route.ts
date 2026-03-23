@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { getDebtSummaryForPlan } from "@/lib/debts/summary";
 import { getDebtMonthlyPayment } from "@/lib/debts/calculate";
 import { resolveExpenseLogo } from "@/lib/expenses/logoResolver";
+import { tryMonthNumberFromKey } from "@/lib/helpers/monthKey";
+import type { DebtItem } from "@/types/helpers/debts";
 
 export const runtime = "nodejs";
 
@@ -47,6 +49,19 @@ function mapDueExpenses(rows: Array<{
 			};
 		})
 		.filter((e) => e.dueAmount > 0);
+}
+
+function isDebtVisibleForPeriod(debt: DebtItem, month: number, year: number): boolean {
+	if (debt.sourceType !== "expense") return true;
+
+	const sourceYear = typeof debt.sourceYear === "number" ? debt.sourceYear : Number(debt.sourceYear);
+	const sourceMonth = debt.sourceMonthKey ? tryMonthNumberFromKey(debt.sourceMonthKey) : null;
+
+	if (!Number.isFinite(sourceYear)) return true;
+	if (!sourceMonth || !Number.isFinite(sourceMonth)) return sourceYear <= year;
+	if (sourceYear < year) return true;
+	if (sourceYear > year) return false;
+	return sourceMonth <= month;
 }
 
 /**
@@ -126,9 +141,10 @@ export async function GET(req: NextRequest) {
 			month: resultMonth,
 			isNextPeriodFallback,
 			expenses: dueExpenses,
-			debts: debtSummary.allDebts
+			debts: debtSummary.activeDebts
+				.filter((d) => isDebtVisibleForPeriod(d, resultMonth, resultYear))
 				.map((d) => {
-					const dueAmount = getDebtMonthlyPayment(d);
+					const dueAmount = Math.min(getDebtMonthlyPayment(d), Math.max(0, Number(d.currentBalance ?? 0)));
 					return {
 						id: d.id,
 						name: d.sourceType === "expense" ? String(d.sourceExpenseName ?? d.name) : d.name,
