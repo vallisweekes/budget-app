@@ -79,8 +79,10 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 	}).length;
 	const isOverBudget = amountAfterExpenses < 0 || overLimitDebtCount > 0;
 	const dueSoonDebtCount = (debts ?? []).filter((d) => {
-		if (!(d.dueDate instanceof Date)) return false;
-		const diffDays = Math.floor((d.dueDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
+		if (!d.dueDate) return false;
+		const dueDate = new Date(d.dueDate);
+		if (Number.isNaN(dueDate.getTime())) return false;
+		const diffDays = Math.floor((dueDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
 		return diffDays >= 0 && diffDays < 7;
 	}).length;
 	const highestInterestDebt = (debts ?? []).reduce<typeof debts[number] | null>((best, debt) => {
