@@ -1,5 +1,5 @@
 import React from "react";
-import { Ionicons, Octicons } from "@expo/vector-icons";
+import { Feather, Ionicons, Octicons } from "@expo/vector-icons";
 import { NativeTabs } from "expo-router/unstable-native-tabs";
 
 import { T } from "@/lib/theme";
@@ -11,17 +11,17 @@ export default function MainTabsLayout() {
       blurEffect="systemChromeMaterialDark"
       shadowColor="rgba(0, 0, 0, 0.28)"
       tintColor={T.accent}
-      iconColor={{ default: "#9399a6", selected: T.accent }}
+      iconColor={{ default: T.textDim, selected: T.accent }}
       labelStyle={{
-        default: { color: "#9399a6", fontSize: 12, fontWeight: "700" },
-        selected: { color: T.accent, fontSize: 12, fontWeight: "700" },
+        default: { color: T.textDim, fontSize: 12, fontWeight: "600" },
+        selected: { color: T.accent, fontSize: 12, fontWeight: "600" },
       }}
       disableTransparentOnScrollEdge
       backBehavior="history"
     >
       <NativeTabs.Trigger name="dashboard">
         <NativeTabs.Trigger.Icon
-          src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name="home-outline" />}
+          src={<NativeTabs.Trigger.VectorIcon family={Feather} name="home" />}
           renderingMode="template"
           selectedColor={T.accent}
         />
