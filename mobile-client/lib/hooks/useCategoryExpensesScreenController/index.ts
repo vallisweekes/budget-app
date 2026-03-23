@@ -7,6 +7,7 @@ import type { Category, Expense, ExpenseCategoryBreakdown } from "@/lib/apiTypes
 import { resolveCategoryColor } from "@/lib/categoryColors";
 import { PAYMENT_EDIT_GRACE_DAYS } from "@/lib/domain/paymentRules";
 import { getCachedPayPeriodExpenses, setCachedPayPeriodExpenses } from "@/lib/expensePeriodCache";
+import { toExpenseCategoryBreakdowns } from "@/lib/helpers/expenseCategories";
 import { getLatestPaymentAt, splitCategoryExpenses } from "@/lib/helpers/categoryExpenses";
 import { useTopHeaderOffset } from "@/hooks";
 import { buildPayPeriodFromMonthAnchor, formatPayPeriodLabel, normalizePayFrequency, type PayFrequency } from "@/lib/payPeriods";
@@ -65,18 +66,7 @@ export function useCategoryExpensesScreenController({ navigation, route }: Props
         const data = await apiFetch<Category[]>(`/api/bff/categories${qp}`);
         if (cancelled || !Array.isArray(data) || data.length === 0) return;
 
-        setAllCategoriesForAddSheet(
-          data.map((category) => ({
-            categoryId: category.id,
-            name: category.name,
-            color: category.color,
-            icon: category.icon,
-            total: 0,
-            paidTotal: 0,
-            paidCount: 0,
-            totalCount: 0,
-          })),
-        );
+        setAllCategoriesForAddSheet(toExpenseCategoryBreakdowns(data));
       } catch {
         if (!cancelled) setAllCategoriesForAddSheet(null);
       }

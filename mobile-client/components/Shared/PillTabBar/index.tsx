@@ -199,18 +199,18 @@ export default function PillTabBar({ state, descriptors: _descriptors, navigatio
                 <View style={[styles.tabContent, isFocused && styles.tabContentActive]}>
                   <View style={styles.iconWrap}>
                     {baseName === "dashboard" ? (
-                      <HomeIcon color={isFocused ? T.text : T.textDim} />
+                      <HomeIcon color={isFocused ? T.accent : T.textDim} />
                     ) : baseName === "goals" ? (
                       <Octicons
                         name="goal"
                         size={20}
-                        color={isFocused ? T.text : T.textDim}
+                        color={isFocused ? T.accent : T.textDim}
                       />
                     ) : (
                       <Ionicons
                         name={isFocused ? icons.active : icons.inactive}
                         size={20}
-                        color={isFocused ? T.text : T.textDim}
+                        color={isFocused ? T.accent : T.textDim}
                       />
                     )}
                   </View>

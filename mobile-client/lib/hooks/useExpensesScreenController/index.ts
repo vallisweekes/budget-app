@@ -8,6 +8,7 @@ import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { apiFetch, getApiMutationVersion } from "@/lib/api";
 import type {
   BudgetPlanListItem,
+  Category,
   BudgetPlansResponse,
   Expense,
   ExpenseCategoryBreakdown,
@@ -18,6 +19,7 @@ import type {
 } from "@/lib/apiTypes";
 import { clearCachedPayPeriodExpenses, getCachedPayPeriodExpenses, setCachedPayPeriodExpenses } from "@/lib/expensePeriodCache";
 import { currencySymbol } from "@/lib/formatting";
+import { toExpenseCategoryBreakdowns } from "@/lib/helpers/expenseCategories";
 import { consumeSkipExpensesFocusReload } from "@/lib/helpers/expensesFocusReload";
 import { useTopHeaderOffset, useYearGuard } from "@/hooks";
 import { buildPayPeriodFromMonthAnchor, getPayPeriodAnchorFromWindow, normalizePayFrequency, resolveActivePayPeriod } from "@/lib/payPeriods";
@@ -76,6 +78,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
 
   const [summary, setSummary] = useState<ExpenseSummary | null>(null);
   const [previousSummary, setPreviousSummary] = useState<ExpenseSummary | null>(null);
+  const [allCategoriesForAddSheet, setAllCategoriesForAddSheet] = useState<ExpenseCategoryBreakdown[] | null>(null);
   const [loggedExpensesCount, setLoggedExpensesCount] = useState(0);
   const [loadedKey, setLoadedKey] = useState<string | null>(sharedExpensesLoadedKey);
   const [loading, setLoading] = useState(true);
@@ -931,6 +934,32 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
   const isPastSelectedPeriod = year < defaultActiveYear || (year === defaultActiveYear && month < defaultActiveMonth);
   const selectedPickerYear = resolvePickerDisplayYear(month, year);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      if (!activePlanId) {
+        setAllCategoriesForAddSheet(null);
+        return;
+      }
+
+      try {
+        const data = await apiFetch<Category[]>(`/api/bff/categories?budgetPlanId=${encodeURIComponent(activePlanId)}`);
+        if (cancelled || !Array.isArray(data) || data.length === 0) {
+          if (!cancelled) setAllCategoriesForAddSheet(null);
+          return;
+        }
+        setAllCategoriesForAddSheet(toExpenseCategoryBreakdowns(data));
+      } catch {
+        if (!cancelled) setAllCategoriesForAddSheet(null);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activePlanId]);
+
   const applyOptimisticExpense = useCallback((expense: Expense) => {
     if (!summary) return;
 
@@ -996,7 +1025,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     activePlan,
     addSheetOpen,
     allPeriodMonths,
-    categoriesForAddSheet: summary?.categoryBreakdown ?? [],
+    categoriesForAddSheet: allCategoriesForAddSheet ?? summary?.categoryBreakdown ?? [],
     currency,
     enabledPeriodSet,
     error,

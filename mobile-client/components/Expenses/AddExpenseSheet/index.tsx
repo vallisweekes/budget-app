@@ -24,6 +24,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { apiFetch } from "@/lib/api";
 import { useSwipeDownToClose } from "@/hooks";
 import { buildCreateExpenseBody, canSubmitExpense } from "@/lib/domain/expenseMutations";
+import { findFallbackExpenseCategoryId, toExpenseCategoryBreakdowns } from "@/lib/helpers/expenseCategories";
 import type {
   Category,
   CreditCard,
@@ -123,6 +124,20 @@ export default function AddExpenseSheet({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Resolve the plan id to use: prefer what the user picked in the sheet
+  const effectivePlanId = selectedPlanId ?? budgetPlanId ?? null;
+  const resolvedCategories = planCategories ?? categories;
+
+  const resolveInitialCategoryId = React.useCallback((availableCategories: ExpenseCategoryBreakdown[]) => {
+    if (initialCategoryId && availableCategories.some((entry) => entry.categoryId === initialCategoryId)) {
+      return initialCategoryId;
+    }
+
+    return findFallbackExpenseCategoryId(availableCategories)
+      ?? availableCategories[0]?.categoryId
+      ?? "";
+  }, [initialCategoryId]);
+
   const { dragY, panHandlers } = useSwipeDownToClose({ onClose, disabled: submitting });
 
   useEffect(() => {
@@ -153,7 +168,7 @@ export default function AddExpenseSheet({
       speed: 18,
     }).start();
     if (visible) {
-      setCategoryId(initialCategoryId ?? "");
+      setCategoryId(resolveInitialCategoryId(resolvedCategories));
 			setCategoryTouched(false);
     }
     if (!visible) {
@@ -161,7 +176,7 @@ export default function AddExpenseSheet({
       setTimeout(() => {
         setName("");
         setAmount("");
-        setCategoryId(initialCategoryId ?? "");
+			setCategoryId(resolveInitialCategoryId(resolvedCategories));
 			setCategoryTouched(false);
         setPaid(false);
         setDueDate("");
@@ -179,10 +194,7 @@ export default function AddExpenseSheet({
         setError(null);
       }, 300);
     }
-  }, [visible, initialCategoryId, month, year, budgetPlanId]);
-
-  // Resolve the plan id to use: prefer what the user picked in the sheet
-  const effectivePlanId = selectedPlanId ?? budgetPlanId ?? null;
+  }, [visible, month, year, budgetPlanId, resolveInitialCategoryId, resolvedCategories]);
 
   const handleManualCategoryChange = (nextId: string) => {
     setCategoryTouched(true);
@@ -248,28 +260,26 @@ export default function AddExpenseSheet({
           `/api/bff/categories?budgetPlanId=${encodeURIComponent(effectivePlanId)}`
         );
         if (Array.isArray(data)) {
-          const hasInitialCategory = Boolean(
-            initialCategoryId && data.some((c) => c.id === initialCategoryId)
-          );
-          setPlanCategories(
-            data.map((c) => ({
-              categoryId: c.id,
-              name: c.name,
-              color: c.color,
-              icon: c.icon,
-              total: 0,
-              paidTotal: 0,
-              paidCount: 0,
-              totalCount: 0,
-            }))
-          );
-          setCategoryId(hasInitialCategory ? (initialCategoryId as string) : "");
+          const nextCategories = toExpenseCategoryBreakdowns(data);
+          setPlanCategories(nextCategories);
+          setCategoryId(resolveInitialCategoryId(nextCategories));
         }
       } catch {
         setPlanCategories(null);
       }
     })();
-  }, [visible, effectivePlanId, budgetPlanId, initialCategoryId]);
+  }, [visible, effectivePlanId, budgetPlanId, resolveInitialCategoryId]);
+
+  useEffect(() => {
+    if (!visible) return;
+    if (categoryTouched) return;
+    if (categoryId) return;
+
+    const nextCategoryId = resolveInitialCategoryId(resolvedCategories);
+    if (!nextCategoryId) return;
+
+    setCategoryId(nextCategoryId);
+  }, [categoryId, categoryTouched, resolveInitialCategoryId, resolvedCategories, visible]);
 
   // Fetch credit cards so the Source of Funds picker can show card names
   useEffect(() => {
@@ -334,7 +344,7 @@ export default function AddExpenseSheet({
         distributeMonths,
         distributeYears,
         paymentSource,
-        categoryId,
+        categoryId: categoryId || findFallbackExpenseCategoryId(resolvedCategories) || undefined,
         dueDate,
         budgetPlanId: effectivePlanId,
         cardDebtId,
@@ -342,7 +352,8 @@ export default function AddExpenseSheet({
       });
 
       optimisticId = `tmp-expense-${Date.now()}`;
-      const optimisticCategory = (planCategories ?? categories).find((entry) => entry.categoryId === categoryId);
+      const resolvedCategoryId = typeof body.categoryId === "string" ? body.categoryId : "";
+      const optimisticCategory = resolvedCategories.find((entry) => entry.categoryId === resolvedCategoryId);
       const parsedAmount = Number((body.amount as number) ?? 0);
       const optimisticExpense: Expense = {
         id: optimisticId,
@@ -357,7 +368,7 @@ export default function AddExpenseSheet({
         isDirectDebit,
         month: sheetMonth,
         year: sheetYear,
-        categoryId,
+        categoryId: resolvedCategoryId,
         category: optimisticCategory
           ? {
               id: optimisticCategory.categoryId,

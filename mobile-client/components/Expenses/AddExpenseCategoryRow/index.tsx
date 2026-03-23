@@ -22,10 +22,6 @@ export default function AddExpenseCategoryRow({
       contentContainerStyle={pr.row}
       keyboardShouldPersistTaps="handled"
     >
-      <Pressable style={[pr.pill, value === "" && pr.pillSelected]} onPress={() => onChange("")}>
-        <Text style={[pr.pillTxt, value === "" && pr.pillTxtSelected]}>None</Text>
-      </Pressable>
-
       {categories.map((c) => {
         const active = value === c.categoryId;
         const color = resolveCategoryColor(c.color);
