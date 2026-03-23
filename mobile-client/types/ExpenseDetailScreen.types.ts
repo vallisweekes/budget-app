@@ -83,6 +83,7 @@ export type ExpenseDetailScreenControllerState = {
   shouldShowFrequencyCard: boolean;
   shouldShowStatusGraceNote: boolean;
   showBottomActions: boolean;
+  showDeleteScopeChoices: boolean;
   showLogo: boolean;
   showQuickActions: boolean;
   showRetryState: boolean;
@@ -95,12 +96,14 @@ export type ExpenseDetailScreenControllerState = {
   unpaidConfirmOpen: boolean;
   unpaidWarningText: string;
   updatedLabel: string;
+  deleteConfirmDescription: string;
   onChangePayAmount: (value: string) => void;
   onCloseDeleteConfirm: () => void;
   onCloseEditSheet: () => void;
   onClosePaymentSheet: () => void;
   onCloseUnpaidConfirm: () => void;
   onConfirmDelete: () => Promise<void>;
+  onConfirmDeleteFuture: () => Promise<void>;
   onConfirmUnpaid: () => Promise<void>;
   onGoBack: () => void;
   onLogoError: () => void;

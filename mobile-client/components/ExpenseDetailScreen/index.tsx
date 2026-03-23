@@ -310,10 +310,13 @@ export default function ExpenseDetailScreen({ route, navigation }: ExpenseDetail
       <DeleteConfirmSheet
         visible={controller.deleteConfirmOpen}
         title="Delete Expense"
-        description={`Are you sure you want to delete "${controller.expense?.name ?? controller.expenseName}"? This cannot be undone.`}
+        description={controller.deleteConfirmDescription}
+        confirmText={controller.showDeleteScopeChoices ? "Only this month" : "Delete"}
+        secondaryConfirmText={controller.showDeleteScopeChoices ? "This and future months" : undefined}
         isBusy={controller.deleting}
         onClose={controller.onCloseDeleteConfirm}
         onConfirm={controller.onConfirmDelete}
+        onSecondaryConfirm={controller.showDeleteScopeChoices ? controller.onConfirmDeleteFuture : undefined}
       />
     </SafeAreaView>
   );

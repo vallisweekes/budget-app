@@ -1,7 +1,7 @@
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, useWindowDimensions } from "react-native";
+import { useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { apiFetch } from "@/lib/api";
@@ -215,6 +215,22 @@ export function useExpenseDetailScreenController({ route, navigation }: Props): 
     });
   }, [frequency?.points, month, year]);
 
+  const shouldOfferFutureDeleteScope = useMemo(() => {
+    if (!expense) return false;
+    // Regular planned expenses may belong to a recurring series even when future points are not yet resolved.
+    return !Boolean(expense.isExtraLoggedExpense);
+  }, [expense]);
+
+  const deleteConfirmDescription = useMemo(() => {
+    if (!shouldOfferFutureDeleteScope) {
+      return `Are you sure you want to delete "${expense?.name ?? expenseName}"? This cannot be undone.`;
+    }
+    if (hasFutureSpread) {
+      return `Choose how to delete "${expense?.name ?? expenseName}": only this month, or this and future months/years.`;
+    }
+    return `Choose how to delete "${expense?.name ?? expenseName}": only this month, or this and future months/years with the same schedule.`;
+  }, [expense?.name, expenseName, hasFutureSpread, shouldOfferFutureDeleteScope]);
+
   const tips = useMemo(() => buildExpenseTips({
     displayName,
     currency,
@@ -352,33 +368,14 @@ export function useExpenseDetailScreenController({ route, navigation }: Props): 
   const onConfirmDelete = useCallback(async () => {
     if (!expense || deleting) return;
     setDeleteConfirmOpen(false);
-    if (!hasFutureSpread) {
-      await deleteExpenseWithScope("single");
-      return;
-    }
+    await deleteExpenseWithScope("single");
+  }, [deleteExpenseWithScope, deleting, expense]);
 
-    Alert.alert(
-      "Delete recurring expense?",
-      "This expense appears in future months. Do you want to delete only this month or this and future months?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Only this month",
-          style: "destructive",
-          onPress: () => {
-            void deleteExpenseWithScope("single");
-          },
-        },
-        {
-          text: "This and future months",
-          style: "destructive",
-          onPress: () => {
-            void deleteExpenseWithScope("future");
-          },
-        },
-      ]
-    );
-  }, [deleteExpenseWithScope, deleting, expense, hasFutureSpread]);
+  const onConfirmDeleteFuture = useCallback(async () => {
+    if (!expense || deleting) return;
+    setDeleteConfirmOpen(false);
+    await deleteExpenseWithScope("future");
+  }, [deleteExpenseWithScope, deleting, expense]);
 
   return {
     amountNum,
@@ -417,6 +414,7 @@ export function useExpenseDetailScreenController({ route, navigation }: Props): 
     shouldShowFrequencyCard: true,
     shouldShowStatusGraceNote,
     showBottomActions: Boolean(expense && !isPaid),
+    showDeleteScopeChoices: shouldOfferFutureDeleteScope,
     showLogo,
     showQuickActions: !isLoggedNonIncomeExpense,
     showRetryState: Boolean(error || !expense),
@@ -429,6 +427,7 @@ export function useExpenseDetailScreenController({ route, navigation }: Props): 
     unpaidConfirmOpen,
     unpaidWarningText,
     updatedLabel,
+    deleteConfirmDescription,
     onChangePayAmount: setPayAmount,
     onCloseDeleteConfirm: () => {
       if (deleting) return;
@@ -444,6 +443,7 @@ export function useExpenseDetailScreenController({ route, navigation }: Props): 
       setUnpaidConfirmOpen(false);
     },
     onConfirmDelete,
+    onConfirmDeleteFuture,
     onConfirmUnpaid: async () => {
       setUnpaidConfirmOpen(false);
       await markUnpaid();

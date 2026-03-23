@@ -10,10 +10,14 @@ export default function DeleteConfirmSheet({
   title,
   description,
   confirmText = "Delete",
+  confirmHint,
+  secondaryConfirmText,
+  secondaryConfirmHint,
   cancelText = "Cancel",
   isBusy = false,
   onClose,
   onConfirm,
+  onSecondaryConfirm,
 }: DeleteConfirmSheetProps) {
   const { dragY, panHandlers } = useSwipeDownToClose({ onClose, disabled: isBusy });
 
@@ -32,14 +36,34 @@ export default function DeleteConfirmSheet({
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.description}>{description}</Text>
 
-          <View style={styles.actions}>
-            <Pressable style={[styles.cancelBtn, isBusy && styles.disabled]} onPress={onClose} disabled={isBusy}>
-              <Text style={styles.cancelText}>{cancelText}</Text>
-            </Pressable>
-            <Pressable style={[styles.deleteBtn, isBusy && styles.disabled]} onPress={onConfirm} disabled={isBusy}>
-              <Text style={styles.deleteText}>{confirmText}</Text>
-            </Pressable>
-          </View>
+          {secondaryConfirmText && onSecondaryConfirm ? (
+            <View style={styles.scopeActions}>
+              <Pressable style={[styles.cancelBtnWide, isBusy && styles.disabled]} onPress={onClose} disabled={isBusy}>
+                <Text style={styles.cancelText}>{cancelText}</Text>
+              </Pressable>
+
+              <View style={styles.scopeChoiceRow}>
+                <Pressable style={[styles.secondaryDeleteBtnWide, isBusy && styles.disabled]} onPress={onSecondaryConfirm} disabled={isBusy}>
+                  <Text style={styles.secondaryDeleteText}>{secondaryConfirmText}</Text>
+                  {secondaryConfirmHint ? <Text style={styles.secondaryDeleteHint}>{secondaryConfirmHint}</Text> : null}
+                </Pressable>
+
+                <Pressable style={[styles.deleteBtnWide, isBusy && styles.disabled]} onPress={onConfirm} disabled={isBusy}>
+                  <Text style={styles.deleteText}>{confirmText}</Text>
+                  {confirmHint ? <Text style={styles.deleteHint}>{confirmHint}</Text> : null}
+                </Pressable>
+              </View>
+            </View>
+          ) : (
+            <View style={styles.actions}>
+              <Pressable style={[styles.cancelBtn, isBusy && styles.disabled]} onPress={onClose} disabled={isBusy}>
+                <Text style={styles.cancelText}>{cancelText}</Text>
+              </Pressable>
+              <Pressable style={[styles.deleteBtn, isBusy && styles.disabled]} onPress={onConfirm} disabled={isBusy}>
+                <Text style={styles.deleteText}>{confirmText}</Text>
+              </Pressable>
+            </View>
+          )}
         </Animated.View>
       </View>
     </Modal>
