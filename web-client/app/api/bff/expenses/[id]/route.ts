@@ -729,18 +729,69 @@ export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: stri
   const userId = await getSessionUserId(req);
   if (!userId) return unauthorized();
 
+  const scopeParam = req.nextUrl.searchParams.get("scope");
+  if (scopeParam && scopeParam !== "single" && scopeParam !== "future") {
+    return badRequest("scope must be one of: single, future");
+  }
+  const deleteScope = scopeParam === "future" ? "future" : "single";
+
   const { id } = await ctx.params;
   if (!id) return badRequest("Missing id");
 
 	const existing = await prisma.expense.findUnique({
 		where: { id },
-    select: { id: true, budgetPlanId: true, budgetPlan: { select: { userId: true } } },
+		select: {
+      id: true,
+      name: true,
+      categoryId: true,
+      amount: true,
+      month: true,
+      year: true,
+      seriesKey: true,
+      merchantDomain: true,
+      budgetPlanId: true,
+      budgetPlan: { select: { userId: true } },
+    },
 	});
 	if (!existing || existing.budgetPlan.userId !== userId) {
 		return NextResponse.json({ error: "Not found" }, { status: 404 });
 	}
 
-  await prisma.expense.delete({ where: { id } }).catch(() => null);
+  if (deleteScope === "future") {
+    const existingSeriesKey = typeof existing.seriesKey === "string" && existing.seriesKey.trim() ? existing.seriesKey.trim() : null;
+    const stableSeriesKey = normalizeSeriesKey(existingSeriesKey ?? existing.merchantDomain ?? existing.name);
+
+    const futureMatches = await prisma.expense.findMany({
+      where: {
+        budgetPlanId: existing.budgetPlanId,
+        OR: [
+          { seriesKey: stableSeriesKey },
+          {
+            name: { equals: existing.name, mode: "insensitive" },
+            categoryId: existing.categoryId,
+            amount: existing.amount,
+          },
+        ],
+        AND: [
+          {
+            OR: [
+              { year: { gt: existing.year } },
+              {
+                year: existing.year,
+                month: { gte: existing.month },
+              },
+            ],
+          },
+        ],
+      },
+      select: { id: true },
+    });
+
+    const ids = Array.from(new Set([existing.id, ...futureMatches.map((row) => row.id)]));
+    await prisma.expense.deleteMany({ where: { budgetPlanId: existing.budgetPlanId, id: { in: ids } } });
+  } else {
+    await prisma.expense.delete({ where: { id } }).catch(() => null);
+  }
 	await invalidateDashboardCache(existing.budgetPlanId);
-  return NextResponse.json({ success: true as const });
+  return NextResponse.json({ success: true as const, scope: deleteScope });
 }

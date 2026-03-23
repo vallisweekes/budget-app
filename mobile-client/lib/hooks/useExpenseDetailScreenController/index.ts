@@ -2,7 +2,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useWindowDimensions } from "react-native";
+import { Alert, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { apiFetch } from "@/lib/api";
@@ -208,6 +208,14 @@ export function useExpenseDetailScreenController({ route, navigation }: Props): 
     return freqDisplay.points.some((point) => compareMonthYear({ month: point.month, year: point.year }, { month, year }) <= 0 && Boolean(point.present));
   }, [freqDisplay.points, month, year]);
 
+  const hasFutureSpread = useMemo(() => {
+    if (!frequency?.points?.length) return false;
+    return frequency.points.some((point) => {
+      if (!point.present) return false;
+      return compareMonthYear({ month: point.month, year: point.year }, { month, year }) > 0;
+    });
+  }, [frequency?.points, month, year]);
+
   const tips = useMemo(() => buildExpenseTips({
     displayName,
     currency,
@@ -331,16 +339,47 @@ export function useExpenseDetailScreenController({ route, navigation }: Props): 
     }
   }, [expense, isPaid, loadAndClosePaymentSheet, month, paying, year]);
 
-  const onConfirmDelete = useCallback(async () => {
+  const deleteExpenseWithScope = useCallback(async (scope: "single" | "future") => {
     if (!expense || deleting) return;
     setDeleting(true);
     try {
-      await apiFetch(`/api/bff/expenses/${expense.id}`, { method: "DELETE" });
+      await apiFetch(`/api/bff/expenses/${expense.id}?scope=${scope}`, { method: "DELETE" });
       navigation.goBack();
     } finally {
       setDeleting(false);
     }
   }, [deleting, expense, navigation]);
+
+  const onConfirmDelete = useCallback(async () => {
+    if (!expense || deleting) return;
+    setDeleteConfirmOpen(false);
+    if (!hasFutureSpread) {
+      await deleteExpenseWithScope("single");
+      return;
+    }
+
+    Alert.alert(
+      "Delete recurring expense?",
+      "This expense appears in future months. Do you want to delete only this month or this and future months?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Only this month",
+          style: "destructive",
+          onPress: () => {
+            void deleteExpenseWithScope("single");
+          },
+        },
+        {
+          text: "This and future months",
+          style: "destructive",
+          onPress: () => {
+            void deleteExpenseWithScope("future");
+          },
+        },
+      ]
+    );
+  }, [deleteExpenseWithScope, deleting, expense, hasFutureSpread]);
 
   return {
     amountNum,
