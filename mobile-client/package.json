@@ -17,7 +17,7 @@
     "build:ios:beta": "eas build --platform ios --profile beta",
     "submit:ios:beta": "eas submit --platform ios --profile beta",
     "web": "EXPO_NO_DEPENDENCY_VALIDATION=1 node node_modules/expo/bin/cli start --web",
-    "postinstall": "node scripts/fix-expo-metro-shims.cjs"
+    "postinstall": "node scripts/fix-expo-metro-shims.cjs && patch-package"
   },
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.2",
@@ -72,6 +72,7 @@
     "expo-mcp": "~0.2.1",
     "expo-module-scripts": "^5.0.8",
     "globals": "^17.4.0",
+    "patch-package": "^8.0.0",
     "react-native-svg-transformer": "^1.5.3",
     "typescript": "~5.9.2",
     "typescript-eslint": "^8.56.1"

@@ -25,6 +25,10 @@ export default function MainTabsLayout() {
     fontSize: 11,
     fontWeight: "500" as const,
   };
+  const tabContentStyle = { backgroundColor: T.bg };
+  const tabNativeProps = {
+    nativeContainerBackgroundColor: T.bg,
+  } as unknown as Record<string, unknown>;
 
   return (
     <NativeTabs
@@ -42,7 +46,11 @@ export default function MainTabsLayout() {
       disableTransparentOnScrollEdge
       backBehavior="history"
     >
-      <NativeTabs.Trigger name="dashboard">
+      <NativeTabs.Trigger
+        name="dashboard"
+        contentStyle={tabContentStyle}
+        unstable_nativeProps={tabNativeProps}
+      >
         <NativeTabs.Trigger.Icon
           src={<NativeTabs.Trigger.VectorIcon family={Feather} name="home" />}
           renderingMode="template"
@@ -50,7 +58,11 @@ export default function MainTabsLayout() {
         />
         <NativeTabs.Trigger.Label selectedStyle={selectedTabLabelStyle}>Home</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="expenses">
+      <NativeTabs.Trigger
+        name="expenses"
+        contentStyle={tabContentStyle}
+        unstable_nativeProps={tabNativeProps}
+      >
         <NativeTabs.Trigger.Icon
           src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name="receipt-outline" />}
           renderingMode="template"
@@ -58,7 +70,11 @@ export default function MainTabsLayout() {
         />
         <NativeTabs.Trigger.Label selectedStyle={selectedTabLabelStyle}>Expenses</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="debts">
+      <NativeTabs.Trigger
+        name="debts"
+        contentStyle={tabContentStyle}
+        unstable_nativeProps={tabNativeProps}
+      >
         <NativeTabs.Trigger.Icon
           src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name="card-outline" />}
           renderingMode="template"
@@ -66,7 +82,11 @@ export default function MainTabsLayout() {
         />
         <NativeTabs.Trigger.Label selectedStyle={selectedTabLabelStyle}>Debts</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="income">
+      <NativeTabs.Trigger
+        name="income"
+        contentStyle={tabContentStyle}
+        unstable_nativeProps={tabNativeProps}
+      >
         <NativeTabs.Trigger.Icon
           src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name="wallet-outline" />}
           renderingMode="template"
@@ -74,7 +94,11 @@ export default function MainTabsLayout() {
         />
         <NativeTabs.Trigger.Label selectedStyle={selectedTabLabelStyle}>Income</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="goals">
+      <NativeTabs.Trigger
+        name="goals"
+        contentStyle={tabContentStyle}
+        unstable_nativeProps={tabNativeProps}
+      >
         <NativeTabs.Trigger.Icon
           src={<NativeTabs.Trigger.VectorIcon family={Octicons} name="goal" />}
           renderingMode="template"
