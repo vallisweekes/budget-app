@@ -18,14 +18,8 @@ export default function MainTabsLayout() {
     dark: T.onAccent,
     light: "#0f282f",
   });
-  const inactiveIconColor = DynamicColorIOS({
-    dark: "#9399A6",
-    light: "rgba(15, 40, 47, 0.58)",
-  });
-  const inactiveLabelColor = DynamicColorIOS({
-    dark: "#9399A6",
-    light: "rgba(15, 40, 47, 0.72)",
-  });
+  const inactiveIconColor = "#9399A6";
+  const inactiveLabelColor = "#9399A6";
 
   return (
     <NativeTabs
@@ -33,7 +27,7 @@ export default function MainTabsLayout() {
       blurEffect="systemUltraThinMaterialDark"
       shadowColor={tabBarShadowColor}
       tintColor={selectedTintColor}
-      iconColor={inactiveIconColor}
+      iconColor={{ default: inactiveIconColor, selected: selectedTintColor }}
       labelStyle={{
         default: { color: inactiveLabelColor, fontSize: 12, fontWeight: "500" },
         selected: { color: selectedTintColor, fontSize: 12, fontWeight: "600" },
