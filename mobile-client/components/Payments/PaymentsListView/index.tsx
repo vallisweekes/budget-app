@@ -11,6 +11,7 @@ import type { PaymentsListViewProps, PaymentsListViewRenderRowArgs } from "@/typ
 export default function PaymentsListView({
   query,
   onQueryChange,
+  showSearch = true,
   sections,
   fallbackNotice,
   refreshing,
@@ -63,19 +64,21 @@ export default function PaymentsListView({
 
   return (
     <>
-      <View style={[s.searchWrap, { marginTop: 10 }]}>
-        <Ionicons name="search" size={16} color={T.textDim} />
-        <TextInput
-          value={query}
-          onChangeText={onQueryChange}
-          placeholder="Search"
-          placeholderTextColor={T.textMuted}
-          style={s.searchInput}
-          autoCorrect={false}
-          autoCapitalize="none"
-          clearButtonMode="while-editing"
-        />
-      </View>
+      {showSearch ? (
+        <View style={[s.searchWrap, { marginTop: 10 }]}> 
+          <Ionicons name="search" size={16} color={T.textDim} />
+          <TextInput
+            value={query}
+            onChangeText={onQueryChange}
+            placeholder="Search"
+            placeholderTextColor={T.textMuted}
+            style={s.searchInput}
+            autoCorrect={false}
+            autoCapitalize="none"
+            clearButtonMode="while-editing"
+          />
+        </View>
+      ) : null}
 
       <SectionList
         sections={sections as any}

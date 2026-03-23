@@ -15,6 +15,7 @@ export type PaymentsListViewRenderRowArgs = {
 export type PaymentsListViewProps = {
   query: string;
   onQueryChange: (value: string) => void;
+  showSearch?: boolean;
   sections: PaymentsListSection[];
   fallbackNotice?: string | null;
   refreshing: boolean;

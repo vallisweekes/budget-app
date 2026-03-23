@@ -8,7 +8,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
+import { useRouter } from "expo-router";
 
 import { apiFetch } from "@/lib/api";
 import type { Settings } from "@/lib/apiTypes";
@@ -17,13 +17,18 @@ import { T } from "@/lib/theme";
 import { usePaymentsSections, useTopHeaderOffset, type PaymentsResponse } from "@/hooks";
 import PaymentDetailSheet from "@/components/Payments/PaymentDetailSheet";
 import PaymentsListView from "@/components/Payments/PaymentsListView";
+import TopHeader from "@/components/Shared/TopHeader";
 import { s } from "./style";
-import type { PaymentDetail, PaymentsScreenNavigation, PaymentsScreenOpenItem } from "@/types";
+import type { PaymentDetail, PaymentsScreenOpenItem } from "@/types";
 
-export default function PaymentsScreen() {
-  const navigation = useNavigation<PaymentsScreenNavigation>();
+type PaymentsScreenProps = {
+  query?: string;
+};
+
+export default function PaymentsScreen({ query = "" }: PaymentsScreenProps) {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
-  const topHeaderOffset = useTopHeaderOffset();
+  useTopHeaderOffset();
 
   const [settings, setSettings] = useState<Settings | null>(null);
   const [data, setData] = useState<PaymentsResponse | null>(null);
@@ -31,8 +36,6 @@ export default function PaymentsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const [query, setQuery] = useState("");
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetItem, setSheetItem] = useState<PaymentsScreenOpenItem | null>(null);
@@ -100,17 +103,23 @@ export default function PaymentsScreen() {
     ? "No payments left in this period. Showing upcoming items for the next period."
     : null;
 
-  const handleBack = () => {
-    if (navigation.canGoBack()) {
-      navigation.goBack();
-      return;
-    }
-    navigation.navigate("Main", { screen: "Dashboard" } as any);
-  };
+  const topNav = (
+    <TopHeader
+      onSettings={() => router.push("/settings")}
+      onIncome={() => {}}
+      onAnalytics={() => router.push("/analytics")}
+      onNotifications={() => router.push("/settings")}
+      centerLabel="Payments"
+      showIncomeAction={false}
+      showAnalyticsAction
+      showNotificationAction={false}
+    />
+  );
 
   if (loading) {
     return (
-			<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]} edges={[]}> 
+      <SafeAreaView style={s.safe} edges={[]}> 
+        {topNav}
         <View style={s.center}>
           <ActivityIndicator size="large" color={T.accent} />
         </View>
@@ -120,7 +129,8 @@ export default function PaymentsScreen() {
 
   if (error) {
     return (
-			<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]} edges={[]}> 
+      <SafeAreaView style={s.safe} edges={[]}> 
+        {topNav}
         <View style={s.center}>
           <Ionicons name="cloud-offline-outline" size={48} color={T.textDim} />
           <Text style={s.errorText}>{error}</Text>
@@ -135,7 +145,7 @@ export default function PaymentsScreen() {
   const showEmpty = sections.length === 0;
 
   return (
-		<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
+    <SafeAreaView style={s.safe} edges={[]}>
       <PaymentDetailSheet
         visible={sheetOpen}
         insetsBottom={insets.bottom}
@@ -148,18 +158,12 @@ export default function PaymentsScreen() {
         onRetry={openSheet}
       />
 
-      {/* Header */}
-			<View style={[s.header, { paddingTop: 10 }]}>
-        <Pressable onPress={handleBack} style={({ pressed }) => [s.backBtn, pressed && s.backBtnPressed]}>
-          <Ionicons name="chevron-back" size={18} color={T.text} />
-        </Pressable>
-        <Text style={s.title}>Payments</Text>
-        <View style={{ width: 40 }} />
-      </View>
+      {topNav}
 
       <PaymentsListView
-        query={query}
-        onQueryChange={setQuery}
+        query=""
+        onQueryChange={() => {}}
+        showSearch={false}
         sections={sections}
         fallbackNotice={fallbackNotice}
         refreshing={refreshing}

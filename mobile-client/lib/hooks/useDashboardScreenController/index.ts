@@ -169,7 +169,7 @@ export function useDashboardScreenController({ navigation }: DashboardScreenProp
     markLogoFailed,
     isLogoFailed,
     handleGoalMomentumEnd,
-    goToPayments: () => router.push("/(modals)/payments"),
+    goToPayments: () => router.push("/(payments-tabs)/search"),
     goToIncome: () => router.push("/(tabs)/income"),
     goToExpenses: () => router.push("/(tabs)/expenses"),
     goToDebts: () => router.push("/(tabs)/debts"),

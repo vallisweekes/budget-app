@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { getDebtSummaryForPlan } from "@/lib/debts/summary";
 import { getDebtMonthlyPayment } from "@/lib/debts/calculate";
 import { resolveExpenseLogo } from "@/lib/expenses/logoResolver";
+import { isLegacyPlaceholderExpenseRow } from "@/lib/expenses/legacyPlaceholders";
+import { isNonDebtCategoryName } from "@/lib/expenses/helpers";
 import type { DebtItem } from "@/types/helpers/debts";
 
 export const runtime = "nodejs";
@@ -31,9 +33,48 @@ function mapDueExpenses(rows: Array<{
 	amount: unknown;
 	paidAmount: unknown;
 	isAllocation: boolean;
+ 	isMovedToDebt: boolean;
+	dueDate: Date | null;
+	category: { name: string } | null;
 }>): Array<{ id: string; name: string; logoUrl: string | null; dueAmount: number; isMissedPayment: boolean }> {
+	const isIncomeSacrificeByName = (name: string): boolean => {
+		const normalized = name.trim().toLowerCase();
+		return (
+			normalized === "home deposit" ||
+			normalized === "emergency funds" ||
+			normalized === "single saving" ||
+			normalized === "monthly allowance" ||
+			normalized.endsWith(" allowance")
+		);
+	};
+
+	const shouldHideExpenseFromUpcoming = (expense: {
+		name: string;
+		merchantDomain: string | null;
+		logoUrl: string | null;
+		isAllocation: boolean;
+		isMovedToDebt: boolean;
+		dueDate: Date | null;
+		category: { name: string } | null;
+	}) => {
+		if (expense.isAllocation) return true;
+		if (isNonDebtCategoryName(expense.category?.name)) return true;
+		if (
+			isLegacyPlaceholderExpenseRow({
+				name: expense.name,
+				dueDate: expense.dueDate,
+				isAllocation: expense.isAllocation,
+				isMovedToDebt: expense.isMovedToDebt,
+				merchantDomain: expense.merchantDomain,
+				logoUrl: expense.logoUrl,
+			})
+		)
+			return true;
+		return isIncomeSacrificeByName(expense.name);
+	};
+
 	return rows
-		.filter((e) => !e.isAllocation)
+		.filter((e) => !shouldHideExpenseFromUpcoming(e))
 		.map((e) => {
 			const amount = decimalToNumber(e.amount);
 			const paidAmount = decimalToNumber(e.paidAmount);
@@ -54,6 +95,17 @@ function isPeriodAtOrBefore(period: { year: number; month: number }, selected: {
 	if (period.year < selected.year) return true;
 	if (period.year > selected.year) return false;
 	return period.month <= selected.month;
+}
+
+function shouldHideAllocationLikeDebt(debt: {
+	sourceType?: string | null;
+	sourceCategoryName?: string | null;
+	sourceExpenseName?: string | null;
+	name?: string | null;
+}) {
+	if (debt.sourceType !== "expense") return false;
+	if (isNonDebtCategoryName(debt.sourceCategoryName)) return true;
+	return isLegacyPlaceholderExpenseRow({ name: debt.sourceExpenseName ?? debt.name });
 }
 
 async function filterDebtsForSelectedPeriod(params: {
@@ -127,6 +179,9 @@ export async function GET(req: NextRequest) {
 			paid: true,
 			paidAmount: true,
 			isAllocation: true,
+			isMovedToDebt: true,
+			dueDate: true,
+			category: { select: { name: true } },
 		} as const;
 
 		const expenses = await prisma.expense.findMany({
@@ -166,7 +221,7 @@ export async function GET(req: NextRequest) {
 
 		const visibleDebts = await filterDebtsForSelectedPeriod({
 			budgetPlanId,
-			debts: debtSummary.activeDebts,
+			debts: debtSummary.activeDebts.filter((debt) => !shouldHideAllocationLikeDebt(debt)),
 			selectedMonth: resultMonth,
 			selectedYear: resultYear,
 		});
