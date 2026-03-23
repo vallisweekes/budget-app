@@ -4,7 +4,6 @@ import { prisma } from "@/lib/prisma";
 import { getDebtSummaryForPlan } from "@/lib/debts/summary";
 import { getDebtMonthlyPayment } from "@/lib/debts/calculate";
 import { resolveExpenseLogo } from "@/lib/expenses/logoResolver";
-import { tryMonthNumberFromKey } from "@/lib/helpers/monthKey";
 import type { DebtItem } from "@/types/helpers/debts";
 
 export const runtime = "nodejs";
@@ -51,17 +50,47 @@ function mapDueExpenses(rows: Array<{
 		.filter((e) => e.dueAmount > 0);
 }
 
-function isDebtVisibleForPeriod(debt: DebtItem, month: number, year: number): boolean {
-	if (debt.sourceType !== "expense") return true;
+function isPeriodAtOrBefore(period: { year: number; month: number }, selected: { year: number; month: number }): boolean {
+	if (period.year < selected.year) return true;
+	if (period.year > selected.year) return false;
+	return period.month <= selected.month;
+}
 
-	const sourceYear = typeof debt.sourceYear === "number" ? debt.sourceYear : Number(debt.sourceYear);
-	const sourceMonth = debt.sourceMonthKey ? tryMonthNumberFromKey(debt.sourceMonthKey) : null;
+async function filterDebtsForSelectedPeriod(params: {
+	budgetPlanId: string;
+	debts: DebtItem[];
+	selectedMonth: number;
+	selectedYear: number;
+}): Promise<DebtItem[]> {
+	const { budgetPlanId, debts, selectedMonth, selectedYear } = params;
+	const expenseDebtSourceIds = Array.from(
+		new Set(
+			debts
+				.filter((d) => d.sourceType === "expense")
+				.map((d) => String(d.sourceExpenseId ?? "").trim())
+				.filter(Boolean)
+		)
+	);
 
-	if (!Number.isFinite(sourceYear)) return true;
-	if (!sourceMonth || !Number.isFinite(sourceMonth)) return sourceYear <= year;
-	if (sourceYear < year) return true;
-	if (sourceYear > year) return false;
-	return sourceMonth <= month;
+	if (expenseDebtSourceIds.length === 0) return debts;
+
+	const sourceExpenses = await prisma.expense.findMany({
+		where: { budgetPlanId, id: { in: expenseDebtSourceIds } },
+		select: { id: true, year: true, month: true },
+	});
+
+	const sourcePeriodByExpenseId = new Map(
+		sourceExpenses.map((expense) => [expense.id, { year: expense.year, month: expense.month }] as const)
+	);
+
+	return debts.filter((debt) => {
+		if (debt.sourceType !== "expense") return true;
+		const sourceExpenseId = String(debt.sourceExpenseId ?? "").trim();
+		if (!sourceExpenseId) return false;
+		const sourcePeriod = sourcePeriodByExpenseId.get(sourceExpenseId);
+		if (!sourcePeriod) return false;
+		return isPeriodAtOrBefore(sourcePeriod, { year: selectedYear, month: selectedMonth });
+	});
 }
 
 /**
@@ -135,14 +164,20 @@ export async function GET(req: NextRequest) {
 			ensureSynced: false,
 		});
 
+		const visibleDebts = await filterDebtsForSelectedPeriod({
+			budgetPlanId,
+			debts: debtSummary.activeDebts,
+			selectedMonth: resultMonth,
+			selectedYear: resultYear,
+		});
+
 		return NextResponse.json({
 			budgetPlanId,
 			year: resultYear,
 			month: resultMonth,
 			isNextPeriodFallback,
 			expenses: dueExpenses,
-			debts: debtSummary.activeDebts
-				.filter((d) => isDebtVisibleForPeriod(d, resultMonth, resultYear))
+			debts: visibleDebts
 				.map((d) => {
 					const dueAmount = Math.min(getDebtMonthlyPayment(d), Math.max(0, Number(d.currentBalance ?? 0)));
 					return {
