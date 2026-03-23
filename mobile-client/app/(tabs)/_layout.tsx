@@ -18,8 +18,13 @@ export default function MainTabsLayout() {
     dark: T.onAccent,
     light: "#0f282f",
   });
-  const inactiveIconColor = "#9399A6";
-  const inactiveLabelColor = "#9399A6";
+  const inactiveIconColor = "#8E95A3";
+  const inactiveLabelColor = "#8E95A3";
+  const selectedTabLabelStyle = {
+    color: selectedTintColor,
+    fontSize: 11,
+    fontWeight: "500" as const,
+  };
 
   return (
     <NativeTabs
@@ -27,12 +32,13 @@ export default function MainTabsLayout() {
       blurEffect="systemUltraThinMaterialDark"
       shadowColor={tabBarShadowColor}
       tintColor={selectedTintColor}
-      iconColor={{ default: inactiveIconColor, selected: selectedTintColor }}
+      iconColor={inactiveIconColor}
       labelStyle={{
-        default: { color: inactiveLabelColor, fontSize: 12, fontWeight: "500" },
-        selected: { color: selectedTintColor, fontSize: 12, fontWeight: "600" },
+        color: inactiveLabelColor,
+        fontSize: 11,
+        fontWeight: "500",
       }}
-      titlePositionAdjustment={{ vertical: 2 }}
+      titlePositionAdjustment={{ vertical: 1 }}
       disableTransparentOnScrollEdge
       backBehavior="history"
     >
@@ -42,7 +48,7 @@ export default function MainTabsLayout() {
           renderingMode="template"
           selectedColor={selectedTintColor}
         />
-        <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Label selectedStyle={selectedTabLabelStyle}>Home</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="expenses">
         <NativeTabs.Trigger.Icon
@@ -50,7 +56,7 @@ export default function MainTabsLayout() {
           renderingMode="template"
           selectedColor={selectedTintColor}
         />
-        <NativeTabs.Trigger.Label>Expenses</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Label selectedStyle={selectedTabLabelStyle}>Expenses</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="debts">
         <NativeTabs.Trigger.Icon
@@ -58,7 +64,7 @@ export default function MainTabsLayout() {
           renderingMode="template"
           selectedColor={selectedTintColor}
         />
-        <NativeTabs.Trigger.Label>Debts</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Label selectedStyle={selectedTabLabelStyle}>Debts</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="income">
         <NativeTabs.Trigger.Icon
@@ -66,7 +72,7 @@ export default function MainTabsLayout() {
           renderingMode="template"
           selectedColor={selectedTintColor}
         />
-        <NativeTabs.Trigger.Label>Income</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Label selectedStyle={selectedTabLabelStyle}>Income</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="goals">
         <NativeTabs.Trigger.Icon
@@ -74,7 +80,7 @@ export default function MainTabsLayout() {
           renderingMode="template"
           selectedColor={selectedTintColor}
         />
-        <NativeTabs.Trigger.Label>Goals</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Label selectedStyle={selectedTabLabelStyle}>Goals</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
     </NativeTabs>
   );

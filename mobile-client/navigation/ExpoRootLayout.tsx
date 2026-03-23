@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, AppState, type AppStateStatus, StyleSheet, View } from "react-native";
-import { DefaultTheme, ThemeProvider, type Theme } from "@react-navigation/native";
+import { DarkTheme, DefaultTheme, ThemeProvider, type Theme } from "@react-navigation/native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Provider as ReduxProvider } from "react-redux";
 import { Redirect, Stack, useGlobalSearchParams, usePathname, useSegments } from "expo-router";
@@ -201,10 +201,10 @@ function RootShell() {
 
   const navTheme: Theme = useMemo(
     () => ({
-      ...DefaultTheme,
+      ...(mode === "dark" ? DarkTheme : DefaultTheme),
       dark: mode === "dark",
       colors: {
-        ...DefaultTheme.colors,
+        ...(mode === "dark" ? DarkTheme.colors : DefaultTheme.colors),
         primary: T.accent,
         background: T.bg,
         card: T.card,
@@ -240,7 +240,7 @@ function RootShell() {
 
   return (
     <ThemeProvider value={navTheme}>
-      <View style={{ flex: 1 }} onLayout={onRootLayout}>
+      <View style={{ flex: 1, backgroundColor: T.bg }} onLayout={onRootLayout}>
         <NavigationPersistenceObserver />
         <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: T.bg } }}>
           <Stack.Screen name="index" options={{ headerShown: false }} />
