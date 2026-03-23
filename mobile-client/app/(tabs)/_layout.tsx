@@ -19,11 +19,11 @@ export default function MainTabsLayout() {
     light: "#0f282f",
   });
   const inactiveIconColor = DynamicColorIOS({
-    dark: "rgba(244, 246, 255, 0.68)",
+    dark: "#9399A6",
     light: "rgba(15, 40, 47, 0.58)",
   });
   const inactiveLabelColor = DynamicColorIOS({
-    dark: "rgba(244, 246, 255, 0.72)",
+    dark: "#9399A6",
     light: "rgba(15, 40, 47, 0.72)",
   });
 
@@ -33,7 +33,7 @@ export default function MainTabsLayout() {
       blurEffect="systemUltraThinMaterialDark"
       shadowColor={tabBarShadowColor}
       tintColor={selectedTintColor}
-      iconColor={{ default: inactiveIconColor, selected: selectedTintColor }}
+      iconColor={inactiveIconColor}
       labelStyle={{
         default: { color: inactiveLabelColor, fontSize: 12, fontWeight: "500" },
         selected: { color: selectedTintColor, fontSize: 12, fontWeight: "600" },
@@ -44,10 +44,7 @@ export default function MainTabsLayout() {
     >
       <NativeTabs.Trigger name="dashboard">
         <NativeTabs.Trigger.Icon
-          src={{
-            default: <NativeTabs.Trigger.VectorIcon family={Feather} name="home" />,
-            selected: <NativeTabs.Trigger.VectorIcon family={Feather} name="home" />,
-          }}
+          src={<NativeTabs.Trigger.VectorIcon family={Feather} name="home" />}
           renderingMode="template"
           selectedColor={selectedTintColor}
         />
@@ -55,10 +52,7 @@ export default function MainTabsLayout() {
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="expenses">
         <NativeTabs.Trigger.Icon
-          src={{
-            default: <NativeTabs.Trigger.VectorIcon family={Ionicons} name="receipt-outline" />,
-            selected: <NativeTabs.Trigger.VectorIcon family={Ionicons} name="receipt" />,
-          }}
+          src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name="receipt-outline" />}
           renderingMode="template"
           selectedColor={selectedTintColor}
         />
@@ -66,10 +60,7 @@ export default function MainTabsLayout() {
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="debts">
         <NativeTabs.Trigger.Icon
-          src={{
-            default: <NativeTabs.Trigger.VectorIcon family={Ionicons} name="card-outline" />,
-            selected: <NativeTabs.Trigger.VectorIcon family={Ionicons} name="card" />,
-          }}
+          src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name="card-outline" />}
           renderingMode="template"
           selectedColor={selectedTintColor}
         />
@@ -77,10 +68,7 @@ export default function MainTabsLayout() {
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="income">
         <NativeTabs.Trigger.Icon
-          src={{
-            default: <NativeTabs.Trigger.VectorIcon family={Ionicons} name="wallet-outline" />,
-            selected: <NativeTabs.Trigger.VectorIcon family={Ionicons} name="wallet" />,
-          }}
+          src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name="wallet-outline" />}
           renderingMode="template"
           selectedColor={selectedTintColor}
         />
@@ -88,10 +76,7 @@ export default function MainTabsLayout() {
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="goals">
         <NativeTabs.Trigger.Icon
-          src={{
-            default: <NativeTabs.Trigger.VectorIcon family={Octicons} name="goal" />,
-            selected: <NativeTabs.Trigger.VectorIcon family={Octicons} name="goal" />,
-          }}
+          src={<NativeTabs.Trigger.VectorIcon family={Octicons} name="goal" />}
           renderingMode="template"
           selectedColor={selectedTintColor}
         />
