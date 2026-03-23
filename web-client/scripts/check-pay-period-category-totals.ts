@@ -2,6 +2,15 @@ import { PrismaClient } from "@prisma/client";
 import fs from "node:fs";
 import path from "node:path";
 import { buildPayPeriodFromMonthAnchor, normalizePayFrequency, type PayFrequency } from "../lib/payPeriods";
+import { resolveEffectiveDueDateIso } from "../lib/expenses/insights";
+
+function includeInMainExpenseSummary(expense: {
+  isExtraLoggedExpense?: boolean | null;
+  paymentSource?: string | null;
+}): boolean {
+  if (!Boolean(expense.isExtraLoggedExpense ?? false)) return true;
+  return String(expense.paymentSource ?? "income").trim().toLowerCase() === "income";
+}
 
 function loadDotEnvIfPresent(cwd: string) {
   const envFiles = [
@@ -138,12 +147,26 @@ async function main() {
 
   for (const exp of rows) {
     if (Boolean((exp as unknown as { isAllocation?: unknown }).isAllocation)) continue;
+    if (!includeInMainExpenseSummary(exp as unknown as { isExtraLoggedExpense?: boolean | null; paymentSource?: string | null })) {
+      continue;
+    }
 
     let dedupeScope = "";
     let rank = 1;
 
     if (exp.dueDate) {
-      const dueIso = exp.dueDate.toISOString().slice(0, 10);
+      const dueIso = resolveEffectiveDueDateIso(
+        {
+          id: exp.id,
+          name: exp.name,
+          amount: toNum(exp.amount),
+          paid: Boolean(exp.paid),
+          paidAmount: toNum(exp.paidAmount),
+          dueDate: exp.dueDate.toISOString().slice(0, 10),
+        },
+        { year: exp.year, monthNum: exp.month, payDate }
+      );
+      if (!dueIso) continue;
       const due = parseIsoDate(dueIso);
       if (!due) continue;
       if (!inRange(due, period.start, period.end)) continue;

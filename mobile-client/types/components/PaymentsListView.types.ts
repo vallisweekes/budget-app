@@ -16,6 +16,7 @@ export type PaymentsListViewProps = {
   query: string;
   onQueryChange: (value: string) => void;
   sections: PaymentsListSection[];
+  fallbackNotice?: string | null;
   refreshing: boolean;
   onRefresh: () => void;
   currency: string;

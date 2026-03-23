@@ -226,9 +226,9 @@ export function useExpenseDetailScreenController({ route, navigation }: Props): 
       return `Are you sure you want to delete "${expense?.name ?? expenseName}"? This cannot be undone.`;
     }
     if (hasFutureSpread) {
-      return `Choose how to delete "${expense?.name ?? expenseName}": only this month, or this and future months/years.`;
+      return `Choose how to delete "${expense?.name ?? expenseName}": only this month, or this month plus all future months/years.`;
     }
-    return `Choose how to delete "${expense?.name ?? expenseName}": only this month, or this and future months/years with the same schedule.`;
+    return `Choose how to delete "${expense?.name ?? expenseName}": only this month, or this month plus all future months/years with the same schedule.`;
   }, [expense?.name, expenseName, hasFutureSpread, shouldOfferFutureDeleteScope]);
 
   const tips = useMemo(() => buildExpenseTips({

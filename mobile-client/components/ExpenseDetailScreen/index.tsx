@@ -312,7 +312,7 @@ export default function ExpenseDetailScreen({ route, navigation }: ExpenseDetail
         title="Delete Expense"
         description={controller.deleteConfirmDescription}
         confirmText={controller.showDeleteScopeChoices ? "Only this month" : "Delete"}
-        secondaryConfirmText={controller.showDeleteScopeChoices ? "This and future months" : undefined}
+        secondaryConfirmText={controller.showDeleteScopeChoices ? "This month + future" : undefined}
         isBusy={controller.deleting}
         onClose={controller.onCloseDeleteConfirm}
         onConfirm={controller.onConfirmDelete}

@@ -12,6 +12,7 @@ export default function PaymentsListView({
   query,
   onQueryChange,
   sections,
+  fallbackNotice,
   refreshing,
   onRefresh,
   currency,
@@ -81,6 +82,14 @@ export default function PaymentsListView({
         keyExtractor={(item) => item.id}
         contentContainerStyle={s.listContent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={T.accent} />}
+        ListHeaderComponent={
+          fallbackNotice ? (
+            <View style={s.fallbackNoticeWrap}>
+              <Ionicons name="calendar-outline" size={14} color={T.orange} />
+              <Text style={s.fallbackNoticeText}>{fallbackNotice}</Text>
+            </View>
+          ) : null
+        }
         renderSectionHeader={({ section }) => <Text style={s.sectionTitle}>{section.title}</Text>}
         renderItem={renderRow}
         ItemSeparatorComponent={() => <View style={s.sep} />}

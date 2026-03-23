@@ -17,6 +17,38 @@ function decimalToNumber(value: unknown): number {
 	return Number((value as any).toString?.() ?? value);
 }
 
+function nextMonthYear(month: number, year: number): { month: number; year: number } {
+	if (month >= 12) return { month: 1, year: year + 1 };
+	return { month: month + 1, year };
+}
+
+function mapDueExpenses(rows: Array<{
+	id: string;
+	name: string;
+	merchantDomain: string | null;
+	logoUrl: string | null;
+	amount: unknown;
+	paidAmount: unknown;
+	isAllocation: boolean;
+}>): Array<{ id: string; name: string; logoUrl: string | null; dueAmount: number; isMissedPayment: boolean }> {
+	return rows
+		.filter((e) => !e.isAllocation)
+		.map((e) => {
+			const amount = decimalToNumber(e.amount);
+			const paidAmount = decimalToNumber(e.paidAmount);
+			const dueAmount = Math.max(0, amount - paidAmount);
+			const fallbackLogo = resolveExpenseLogo(e.name, e.merchantDomain ?? undefined).logoUrl;
+			return {
+				id: e.id,
+				name: e.name,
+				logoUrl: e.logoUrl ?? fallbackLogo ?? null,
+				dueAmount,
+				isMissedPayment: dueAmount > 0,
+			};
+		})
+		.filter((e) => e.dueAmount > 0);
+}
+
 /**
  * GET /api/bff/payments?budgetPlanId=<optional>
  *
@@ -42,55 +74,58 @@ export async function GET(req: NextRequest) {
 		const year = now.getFullYear();
 		const month = now.getMonth() + 1;
 
+		const expenseSelect = {
+			id: true,
+			name: true,
+			merchantDomain: true,
+			logoUrl: true,
+			amount: true,
+			paid: true,
+			paidAmount: true,
+			isAllocation: true,
+		} as const;
+
 		const expenses = await prisma.expense.findMany({
 			where: { budgetPlanId, year, month },
 			orderBy: [{ createdAt: "asc" }],
-			select: {
-				id: true,
-				name: true,
-				merchantDomain: true,
-				logoUrl: true,
-				amount: true,
-				paid: true,
-				paidAmount: true,
-				isAllocation: true,
-			},
+			select: expenseSelect,
 		});
 
-		let debtSummary;
-		try {
-			debtSummary = await getDebtSummaryForPlan(budgetPlanId, {
-				includeExpenseDebts: true,
-				ensureSynced: true,
+		let dueExpenses = mapDueExpenses(expenses);
+		let resultMonth = month;
+		let resultYear = year;
+		let isNextPeriodFallback = false;
+
+		if (dueExpenses.length === 0) {
+			const next = nextMonthYear(month, year);
+			const nextExpenses = await prisma.expense.findMany({
+				where: { budgetPlanId, year: next.year, month: next.month },
+				orderBy: [{ createdAt: "asc" }],
+				select: expenseSelect,
 			});
-		} catch (error) {
-			console.error("Payments: debt sync failed, retrying without ensureSynced:", error);
-			debtSummary = await getDebtSummaryForPlan(budgetPlanId, {
-				includeExpenseDebts: true,
-				ensureSynced: false,
-			});
+			const nextDueExpenses = mapDueExpenses(nextExpenses);
+			if (nextDueExpenses.length > 0) {
+				dueExpenses = nextDueExpenses;
+				resultMonth = next.month;
+				resultYear = next.year;
+				isNextPeriodFallback = true;
+			}
 		}
+
+		// Keep this endpoint fast for modal navigation from Dashboard "See all".
+		// Full debt sync can exceed mobile timeout on large plans and is not required
+		// for a read-only due-amount list.
+		const debtSummary = await getDebtSummaryForPlan(budgetPlanId, {
+			includeExpenseDebts: true,
+			ensureSynced: false,
+		});
 
 		return NextResponse.json({
 			budgetPlanId,
-			year,
-			month,
-			expenses: expenses
-				.filter((e) => !e.isAllocation)
-				.map((e) => {
-					const amount = decimalToNumber(e.amount);
-					const paidAmount = decimalToNumber(e.paidAmount);
-					const dueAmount = Math.max(0, amount - paidAmount);
-					const fallbackLogo = resolveExpenseLogo(e.name, e.merchantDomain).logoUrl;
-					return {
-						id: e.id,
-						name: e.name,
-						logoUrl: e.logoUrl ?? fallbackLogo ?? null,
-						dueAmount,
-						isMissedPayment: dueAmount > 0,
-					};
-				})
-				.filter((e) => e.dueAmount > 0),
+			year: resultYear,
+			month: resultMonth,
+			isNextPeriodFallback,
+			expenses: dueExpenses,
 			debts: debtSummary.allDebts
 				.map((d) => {
 					const dueAmount = getDebtMonthlyPayment(d);

@@ -66,6 +66,25 @@ export const s = StyleSheet.create({
     color: T.textDim,
   },
 
+  fallbackNoticeWrap: {
+    marginBottom: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: `${T.orange}66`,
+    backgroundColor: `${T.orange}14`,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  fallbackNoticeText: {
+    flex: 1,
+    color: T.text,
+    fontSize: 12,
+    fontWeight: "600",
+  },
+
   row: {
     ...cardBase,
     paddingHorizontal: 12,

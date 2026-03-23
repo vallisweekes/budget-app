@@ -20,6 +20,7 @@ export type PaymentsResponse = {
   budgetPlanId: string;
   year: number;
   month: number;
+  isNextPeriodFallback?: boolean;
   expenses: ExpenseRow[];
   debts: DebtRow[];
 };

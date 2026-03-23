@@ -78,8 +78,8 @@ export default function PaymentsScreen() {
   const load = useCallback(async () => {
     try {
       setError(null);
-      const payments = await apiFetch<PaymentsResponse>("/api/bff/payments");
-      const s = await apiFetch<Settings>(`/api/bff/settings?budgetPlanId=${encodeURIComponent(payments.budgetPlanId)}`);
+      const payments = await apiFetch<PaymentsResponse>("/api/bff/payments", { timeoutMs: 60_000 });
+      const s = await apiFetch<Settings>(`/api/bff/settings?budgetPlanId=${encodeURIComponent(payments.budgetPlanId)}`, { timeoutMs: 30_000 });
       setSettings(s);
       setData(payments);
     } catch (err: unknown) {
@@ -96,6 +96,9 @@ export default function PaymentsScreen() {
   }, [load]);
 
   const { sections } = usePaymentsSections(data, query);
+  const fallbackNotice = data?.isNextPeriodFallback
+    ? "No payments left in this period. Showing upcoming items for the next period."
+    : null;
 
   const handleBack = () => {
     if (navigation.canGoBack()) {
@@ -158,6 +161,7 @@ export default function PaymentsScreen() {
         query={query}
         onQueryChange={setQuery}
         sections={sections}
+        fallbackNotice={fallbackNotice}
         refreshing={refreshing}
         onRefresh={() => {
           setRefreshing(true);
