@@ -6,6 +6,7 @@ import { PanResponder, ScrollView } from "react-native";
 import { useActiveBudgetPlan } from "@/context/ActiveBudgetPlanContext";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { apiFetch, getApiMutationVersion } from "@/lib/api";
+import { resolveDisplayedPayPeriodAnchor } from "@/lib/helpers/resolveDisplayedPayPeriodAnchor";
 import type {
   BudgetPlanListItem,
   Category,
@@ -721,44 +722,35 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       let targetMonth = initialMonth;
       let targetYear = initialYear;
 
-      const canAutoAdvanceFromCurrentPeriod = (() => {
-        const usingAutoResolvedPeriod = shouldNormalizeInitialPeriod || shouldUseResolvedDefaultPeriod;
-        if (!usingAutoResolvedPeriod) return false;
-        if (targetMonth !== resolvedDefaultMonth || targetYear !== resolvedDefaultYear) return false;
-
-        const period = buildPayPeriodFromMonthAnchor({
-          year: targetYear,
-          month: targetMonth,
+      const usingAutoResolvedPeriod = shouldNormalizeInitialPeriod || shouldUseResolvedDefaultPeriod;
+      if (usingAutoResolvedPeriod && resolvedPlanId && targetMonth === resolvedDefaultMonth && targetYear === resolvedDefaultYear) {
+        const displayedAnchor = await resolveDisplayedPayPeriodAnchor({
+          budgetPlanId: resolvedPlanId,
           payDate: payDateForResolution,
           payFrequency: payFrequencyForResolution,
-        });
-        const periodEnd = new Date(period.end.getTime());
-        periodEnd.setHours(23, 59, 59, 999);
-
-        const hasOutstanding = Number(summaryData?.unpaidCount ?? 0) > 0;
-        return !hasOutstanding && Date.now() <= periodEnd.getTime();
-      })();
-
-      if (canAutoAdvanceFromCurrentPeriod) {
-        const nextPeriod = shiftPayPeriodAnchor(targetMonth, targetYear, 1);
-        const nextExpensesPromise = getOrFetchPayPeriodExpenses({
-          planId: resolvedPlanId,
-          month: nextPeriod.month,
-          year: nextPeriod.year,
-          force,
-        });
-        const nextWindow = await preloadSummaryWindow({
-          planId: resolvedPlanId,
-          month: nextPeriod.month,
-          year: nextPeriod.year,
-          force,
+          planCreatedAt: resolvedPlanCreatedAt,
         });
 
-        targetMonth = nextPeriod.month;
-        targetYear = nextPeriod.year;
-        summaryData = nextWindow.current;
-        previousData = nextWindow.previous;
-        resolvedExpensesPromise = nextExpensesPromise;
+        if (displayedAnchor.month !== targetMonth || displayedAnchor.year !== targetYear) {
+          const nextExpensesPromise = getOrFetchPayPeriodExpenses({
+            planId: resolvedPlanId,
+            month: displayedAnchor.month,
+            year: displayedAnchor.year,
+            force,
+          });
+          const nextWindow = await preloadSummaryWindow({
+            planId: resolvedPlanId,
+            month: displayedAnchor.month,
+            year: displayedAnchor.year,
+            force,
+          });
+
+          targetMonth = displayedAnchor.month;
+          targetYear = displayedAnchor.year;
+          summaryData = nextWindow.current;
+          previousData = nextWindow.previous;
+          resolvedExpensesPromise = nextExpensesPromise;
+        }
       }
 
       if ((Number(summaryData?.totalCount ?? 0) <= 0) && resolvedPlanId && !resolvedIsAdditionalPlan) {

@@ -18,28 +18,11 @@ import { getExpensePaidMap } from "@/lib/expenses/paidSummary";
 import { prisma } from "@/lib/prisma";
 import { supportsOnboardingCadenceFields as detectOnboardingCadenceFields } from "@/lib/prisma/capabilities";
 import {
+	buildPayPeriodFromMonthAnchor,
 	normalizeBillFrequency,
 	normalizePayFrequency,
 	resolveActivePayPeriodWindow,
 } from "@/lib/payPeriods";
-import { getCurrentPeriodKey, getPeriodKey, parsePeriodKeyRange } from "@/lib/helpers/periodKey";
-import { getEarlyPaymentWindowStart } from "@/lib/helpers/finance/earlyPaymentWindow";
-import { getJsonCache, setJsonCache } from "@/lib/cache/redisJsonCache";
-import { isRedisConfigured } from "@/lib/redis";
-import {
-	DASHBOARD_CACHE_TTL_SECONDS,
-	getDashboardCacheKey,
-	logDerivedSummaryCacheEvent,
-} from "@/lib/cache/dashboardCache";
-
-export const runtime = "nodejs";
-
-function latestDate(...dates: Array<Date | null | undefined>): Date | null {
-	const valid = dates.filter((date): date is Date => date instanceof Date && !Number.isNaN(date.getTime()));
-	if (valid.length === 0) return null;
-	return valid.reduce((latest, current) => (current.getTime() > latest.getTime() ? current : latest));
-}
-
 function unauthorized() {
 	return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 }
@@ -66,7 +49,6 @@ export async function GET(req: NextRequest) {
 		}
 
 		const now = new Date();
-		const selectedYear = now.getFullYear();
 		const user = await prisma.user.findUnique({
 			where: { id: userId },
 			select: { name: true, createdAt: true },
@@ -182,8 +164,30 @@ export async function GET(req: NextRequest) {
 		const payDay = typeof payDate === "number" && Number.isFinite(payDate) ? payDate : 1;
 		const payFrequency = normalizePayFrequency(onboarding?.payFrequency);
 		const billFrequency = normalizeBillFrequency(onboarding?.billFrequency);
+		const requestedMonthRaw = Number(searchParams.get("month"));
+		const requestedYearRaw = Number(searchParams.get("year"));
+		const hasRequestedAnchor = Number.isFinite(requestedMonthRaw)
+			&& requestedMonthRaw >= 1
+			&& requestedMonthRaw <= 12
+			&& Number.isFinite(requestedYearRaw)
+			&& requestedYearRaw >= 1900;
+		const requestedAnchorMonth = hasRequestedAnchor ? Math.floor(requestedMonthRaw) : null;
+		const requestedAnchorYear = hasRequestedAnchor ? Math.floor(requestedYearRaw) : null;
+		const dashboardNow = (() => {
+			if (requestedAnchorMonth == null || requestedAnchorYear == null) return now;
+			const window = buildPayPeriodFromMonthAnchor({
+				anchorMonth: requestedAnchorMonth,
+				anchorYear: requestedAnchorYear,
+				payDate: payDay,
+				payFrequency,
+			});
+			const pointInWindow = new Date(window.start.getTime());
+			pointInWindow.setUTCHours(12, 0, 0, 0);
+			return pointInWindow;
+		})();
+		const selectedYear = dashboardNow.getFullYear();
 		const activePayPeriodWindow = resolveActivePayPeriodWindow({
-			now,
+			now: dashboardNow,
 			payDate: payDay,
 			payFrequency,
 			planCreatedAt: effectiveCreatedAt,
@@ -219,12 +223,12 @@ export async function GET(req: NextRequest) {
 		});
 		// This is required for the dashboard; let it throw if it truly can't compute.
 		const currentPlanData = await getDashboardPlanDataForActivePayPeriod(budgetPlanId, {
-			now,
+			now: dashboardNow,
 			payDate: payDay,
 			payFrequency,
 			planCreatedAt: effectiveCreatedAt,
 		});
-		const { payPeriodLabel, previousPayPeriodLabel } = getDashboardPayPeriodLabels(now, payDay, effectiveCreatedAt);
+		const { payPeriodLabel, previousPayPeriodLabel } = getDashboardPayPeriodLabels(dashboardNow, payDay, effectiveCreatedAt);
 
 		// Everything below is "best effort". If one section fails (e.g. debt sync),
 		// return the rest of the dashboard rather than a full 500.
@@ -235,7 +239,7 @@ export async function GET(req: NextRequest) {
 						budgetPlanId,
 						payDate,
 						payFrequency,
-						now,
+						now: dashboardNow,
 						userId,
 						planCreatedAt: effectiveCreatedAt,
 					});
@@ -261,7 +265,7 @@ export async function GET(req: NextRequest) {
 					return await getAllPlansDashboardData({
 						budgetPlanId,
 						currentPlanData,
-						now,
+						now: dashboardNow,
 						userId,
 						session: null,
 						username,
@@ -299,7 +303,7 @@ export async function GET(req: NextRequest) {
 				try {
 					return await getLargestExpensesByPlan({
 						planIds,
-						now,
+						now: dashboardNow,
 						perPlanLimit: 3,
 					});
 				} catch (error) {
@@ -324,7 +328,7 @@ export async function GET(req: NextRequest) {
 			try {
 				return await getMultiPlanHealthTips({
 					planIds,
-					now,
+					now: dashboardNow,
 					payDate,
 					largestExpensesByPlan,
 				});

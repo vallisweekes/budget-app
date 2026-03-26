@@ -5,7 +5,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useActiveBudgetPlan } from "@/context/ActiveBudgetPlanContext";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { useTopHeaderOffset } from "@/hooks";
-import { getPayPeriodAnchorFromWindow, normalizePayFrequency, resolveActivePayPeriod } from "@/lib/payPeriods";
+import { resolveDisplayedPayPeriodAnchor } from "@/lib/helpers/resolveDisplayedPayPeriodAnchor";
+import { normalizePayFrequency } from "@/lib/payPeriods";
 import { T } from "@/lib/theme";
 import type { IncomeHomeScreenProps } from "@/types";
 
@@ -29,8 +30,8 @@ export default function IncomeHomeScreen({ navigation }: IncomeHomeScreenProps) 
       }
 
       const payFrequency = normalizePayFrequency(resolvedSettings?.payFrequency);
-      const active = resolveActivePayPeriod({
-        now: new Date(),
+      const anchor = await resolveDisplayedPayPeriodAnchor({
+        budgetPlanId,
         payDate: resolvedSettings?.payDate ?? 27,
         payFrequency,
         planCreatedAt: resolvedSettings?.setupCompletedAt
@@ -39,7 +40,6 @@ export default function IncomeHomeScreen({ navigation }: IncomeHomeScreenProps) 
             ? new Date(resolvedSettings.accountCreatedAt)
             : null,
       });
-      const anchor = getPayPeriodAnchorFromWindow({ period: active, payFrequency });
       const month = anchor.month;
       const year = anchor.year;
 

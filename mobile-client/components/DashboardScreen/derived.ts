@@ -1,6 +1,6 @@
 import type { DashboardData, Settings } from "@/lib/apiTypes";
 import { MONTH_NAMES_SHORT } from "@/lib/formatting";
-import { formatPayPeriodLabel, normalizePayFrequency, resolveActivePayPeriod } from "@/lib/payPeriods";
+import { buildPayPeriodFromMonthAnchor, formatPayPeriodLabel, getPayPeriodAnchorFromWindow, normalizePayFrequency, resolveActivePayPeriod } from "@/lib/payPeriods";
 
 export function getEffectiveHomepageGoals<T extends { id: string }>(goals: T[], homepageGoalIds: string[] | null | undefined): T[] {
   const preferredGoalIds = Array.isArray(homepageGoalIds) ? homepageGoalIds : [];
@@ -17,8 +17,9 @@ export function buildDashboardDerived(params: {
   dashboard: DashboardData | null;
   settings: Settings | null;
   categorySheet: { id: string; name: string } | null;
+  displayedAnchor?: { month: number; year: number } | null;
 }) {
-  const { dashboard, settings, categorySheet } = params;
+  const { dashboard, settings, categorySheet, displayedAnchor } = params;
 
   const totalIncome = dashboard?.totalIncome ?? 0;
   const totalExpenses = dashboard?.totalExpenses ?? 0;
@@ -138,16 +139,34 @@ export function buildDashboardDerived(params: {
       ? new Date(settings.accountCreatedAt)
       : null;
   const activePeriod = resolveActivePayPeriod({ now, payDate: pay, payFrequency, planCreatedAt });
-  const periodStart = activePeriod.start;
-  const periodEnd = activePeriod.end;
+  const activeAnchor = getPayPeriodAnchorFromWindow({ period: activePeriod, payFrequency });
+  const effectiveAnchor = displayedAnchor ?? activeAnchor;
+  const effectivePeriod = buildPayPeriodFromMonthAnchor({
+    year: effectiveAnchor.year,
+    month: effectiveAnchor.month,
+    payDate: pay,
+    payFrequency,
+  });
+  const periodStart = effectivePeriod.start;
+  const periodEnd = effectivePeriod.end;
   const payPeriodStart = startOfDay(periodStart);
   const payPeriodEnd = endOfDay(periodEnd);
-  const payPeriodLabel = dashboard?.payPeriodLabel ?? formatPayPeriodLabel(periodStart, periodEnd);
+  const payPeriodLabel = displayedAnchor
+    ? formatPayPeriodLabel(periodStart, periodEnd)
+    : (dashboard?.payPeriodLabel ?? formatPayPeriodLabel(periodStart, periodEnd));
 
-  const previousPeriodEnd = new Date(periodStart.getTime());
-  previousPeriodEnd.setDate(previousPeriodEnd.getDate() - 1);
-  const previousPeriod = resolveActivePayPeriod({ now: previousPeriodEnd, payDate: pay, payFrequency, planCreatedAt });
-  const previousPayPeriodLabel = dashboard?.previousPayPeriodLabel ?? formatPayPeriodLabel(previousPeriod.start, previousPeriod.end);
+  const previousAnchor = effectiveAnchor.month === 1
+    ? { month: 12, year: effectiveAnchor.year - 1 }
+    : { month: effectiveAnchor.month - 1, year: effectiveAnchor.year };
+  const previousPeriod = buildPayPeriodFromMonthAnchor({
+    year: previousAnchor.year,
+    month: previousAnchor.month,
+    payDate: pay,
+    payFrequency,
+  });
+  const previousPayPeriodLabel = displayedAnchor
+    ? formatPayPeriodLabel(previousPeriod.start, previousPeriod.end)
+    : (dashboard?.previousPayPeriodLabel ?? formatPayPeriodLabel(previousPeriod.start, previousPeriod.end));
 
   const isDateInPayPeriod = (date: Date | null) => {
     if (!date || Number.isNaN(date.getTime())) return false;

@@ -24,6 +24,7 @@ import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { MONTH_NAMES_SHORT } from "@/lib/constants";
 import { currencySymbol, fmt } from "@/lib/formatting";
 import { useSwipeDownToClose, useTopHeaderOffset, useYearGuard } from "@/hooks";
+import { resolveDisplayedPayPeriodAnchor } from "@/lib/helpers/resolveDisplayedPayPeriodAnchor";
 import { buildPayPeriodFromMonthAnchor, getPayPeriodAnchorFromWindow, normalizePayFrequency, resolveActivePayPeriod } from "@/lib/payPeriods";
 import { T } from "@/lib/theme";
 import IncomeMonthCard from "@/components/Income/IncomeMonthCard";
@@ -42,6 +43,7 @@ export default function IncomeScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [displayedActiveAnchor, setDisplayedActiveAnchor] = useState<{ month: number; year: number } | null>(null);
   const [showYearAddSheet, setShowYearAddSheet] = useState(false);
   const [yearIncomeName, setYearIncomeName] = useState("");
   const [yearIncomeAmount, setYearIncomeAmount] = useState("");
@@ -146,6 +148,19 @@ export default function IncomeScreen() {
 
       const incData = await apiFetch<IncomeSummaryData>(`/api/bff/income-summary?year=${year}`);
       setData(incData);
+
+      const payFrequency = normalizePayFrequency(loadedSettings?.payFrequency);
+      const nextDisplayedAnchor = await resolveDisplayedPayPeriodAnchor({
+        budgetPlanId: incData.budgetPlanId,
+        payDate: loadedSettings?.payDate ?? 27,
+        payFrequency,
+        planCreatedAt: loadedSettings?.setupCompletedAt
+          ? new Date(loadedSettings.setupCompletedAt)
+          : loadedSettings?.accountCreatedAt
+            ? new Date(loadedSettings.accountCreatedAt)
+            : null,
+      });
+      setDisplayedActiveAnchor(nextDisplayedAnchor);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load income");
     } finally {
@@ -291,8 +306,8 @@ export default function IncomeScreen() {
         : null,
   });
   const activePeriodAnchor = getPayPeriodAnchorFromWindow({ period: activePayPeriod, payFrequency });
-  const activePeriodAnchorMonth = activePeriodAnchor.month;
-  const activePeriodAnchorYear = activePeriodAnchor.year;
+  const activePeriodAnchorMonth = displayedActiveAnchor?.month ?? activePeriodAnchor.month;
+  const activePeriodAnchorYear = displayedActiveAnchor?.year ?? activePeriodAnchor.year;
   const nowYear = now.getFullYear();
   const canAddForYear = year >= nowYear;
 
