@@ -123,3 +123,18 @@ export function buildPayPeriodFromMonthAnchor(params: {
 export function formatPayPeriodLabel(start: Date, end: Date): string {
   return `${start.getDate()} ${MONTH_NAMES_SHORT[start.getMonth()]} - ${end.getDate()} ${MONTH_NAMES_SHORT[end.getMonth()]}`;
 }
+
+export function getPayPeriodRangeLabelFromAnchor(params: {
+  year: number;
+  month: number;
+  payDate: number;
+  payFrequency: PayFrequency;
+}): string {
+  const period = buildPayPeriodFromMonthAnchor({
+    year: params.year,
+    month: params.month,
+    payDate: params.payDate,
+    payFrequency: params.payFrequency,
+  });
+  return formatPayPeriodLabel(period.start, period.end);
+}

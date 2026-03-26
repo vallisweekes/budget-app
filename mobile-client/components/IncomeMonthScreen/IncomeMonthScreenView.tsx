@@ -13,11 +13,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 
 import { apiFetch, getApiMutationVersion } from "@/lib/api";
-import type { Income, Settings, IncomeMonthData, IncomeSacrificeData, IncomeSacrificeFixed } from "@/lib/apiTypes";
+import type { Income, Settings, IncomeMonthData, IncomeSacrificeData, IncomeSacrificeFixed, ExpensePayPeriodMonthsResponse } from "@/lib/apiTypes";
 import { computeMoneyLeftVsLastMonth } from "@/lib/domain/incomeStats";
 import { currencySymbol, fmt, MONTH_NAMES_LONG } from "@/lib/formatting";
 import { useIncomeCRUD, useTopHeaderOffset } from "@/hooks";
-import { buildPayPeriodFromMonthAnchor, normalizePayFrequency } from "@/lib/payPeriods";
+import { buildPayPeriodFromMonthAnchor, getPayPeriodRangeLabelFromAnchor, normalizePayFrequency } from "@/lib/payPeriods";
 import { T } from "@/lib/theme";
 import IncomeMonthHeader from "@/components/Income/IncomeMonthHeader";
 import IncomeMonthIncomeList from "@/components/Income/IncomeMonthIncomeList";
@@ -47,12 +47,14 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
   const [linkSaving, setLinkSaving] = useState(false);
   const [confirmingTargetKey, setConfirmingTargetKey] = useState<string | null>(null);
   const [pendingNoticeVisible, setPendingNoticeVisible] = useState(false);
+  const [prevPeriodHasExpenses, setPrevPeriodHasExpenses] = useState(false);
 
   const analysisCacheRef = useRef<Record<string, Record<number, Record<number, IncomeMonthData>>>>({});
   const itemsCacheRef = useRef<Record<string, Record<number, Record<number, Income[]>>>>({});
   const sacrificeCacheRef = useRef<Record<string, Record<number, Record<number, IncomeSacrificeData>>>>({});
   const settingsCacheRef = useRef<Record<string, Settings>>({});
   const monthPrefetchStateRef = useRef<Record<string, "idle" | "loading" | "loaded">>({});
+  const payPeriodExpenseCountsRef = useRef<Record<number, Record<number, number>>>({});
   const seenMutationVersionRef = useRef<number>(getApiMutationVersion());
 
   const periodRange = useMemo(() => {
@@ -90,18 +92,12 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
     const fallback = `${MONTH_NAMES_LONG[month - 1]} ${year}`;
     if (!settings) return fallback;
 
-    const payFrequency = normalizePayFrequency(settings.payFrequency);
-    const period = buildPayPeriodFromMonthAnchor({
+    return getPayPeriodRangeLabelFromAnchor({
       year,
       month,
       payDate: settings.payDate ?? 27,
-      payFrequency,
+      payFrequency: normalizePayFrequency(settings.payFrequency),
     });
-    const startLabel = MONTH_NAMES_LONG[period.start.getMonth()];
-    const endLabel = MONTH_NAMES_LONG[period.end.getMonth()];
-    if (!startLabel || !endLabel) return fallback;
-
-    return `${startLabel} - ${endLabel} ${period.end.getFullYear()}`;
   }, [month, settings, year]);
 
   const currency = currencySymbol(settings?.currency);
@@ -233,6 +229,112 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
       : { month: targetMonth + 1, year: targetYear };
     return [previous, next];
   }, []);
+
+  const accountCreatedAt = useMemo(() => {
+    const raw = settings?.accountCreatedAt ?? settings?.setupCompletedAt ?? null;
+    if (!raw) return null;
+    const parsed = new Date(raw);
+    if (Number.isNaN(parsed.getTime())) return null;
+    parsed.setHours(0, 0, 0, 0);
+    return parsed;
+  }, [settings?.accountCreatedAt, settings?.setupCompletedAt]);
+
+  const periodEndFor = useCallback((targetYear: number, targetMonth: number) => {
+    const period = buildPayPeriodFromMonthAnchor({
+      year: targetYear,
+      month: targetMonth,
+      payDate: settings?.payDate ?? 27,
+      payFrequency: normalizePayFrequency(settings?.payFrequency),
+    });
+    const periodEnd = new Date(period.end.getTime());
+    periodEnd.setHours(23, 59, 59, 999);
+    return periodEnd;
+  }, [settings?.payDate, settings?.payFrequency]);
+
+  const canGoPrevByCreationDate = useMemo(() => {
+    const previous = month === 1
+      ? { month: 12, year: year - 1 }
+      : { month: month - 1, year };
+
+    if (!accountCreatedAt) return true;
+    return periodEndFor(previous.year, previous.month).getTime() >= accountCreatedAt.getTime();
+  }, [accountCreatedAt, month, periodEndFor, year]);
+
+  const getExpenseCountsForYear = useCallback(async (targetYear: number) => {
+    const cached = payPeriodExpenseCountsRef.current[targetYear];
+    if (cached) return cached;
+
+    const response = await apiFetch<ExpensePayPeriodMonthsResponse>(
+      `/api/bff/expenses/pay-period-months?year=${targetYear}&budgetPlanId=${encodeURIComponent(budgetPlanId)}`,
+      { cacheTtlMs: 0 },
+    );
+
+    const counts: Record<number, number> = {};
+    for (const row of Array.isArray(response?.months) ? response.months : []) {
+      counts[row.month] = Number(row.totalCount ?? 0);
+    }
+
+    payPeriodExpenseCountsRef.current[targetYear] = counts;
+    return counts;
+  }, [budgetPlanId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const run = async () => {
+      try {
+        const previous = month === 1
+          ? { month: 12, year: year - 1 }
+          : { month: month - 1, year };
+        const counts = await getExpenseCountsForYear(previous.year);
+        if (cancelled) return;
+        setPrevPeriodHasExpenses((counts[previous.month] ?? 0) > 0);
+      } catch {
+        if (cancelled) return;
+        setPrevPeriodHasExpenses(false);
+      }
+    };
+
+    void run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [getExpenseCountsForYear, month, year]);
+
+  const canGoToPreviousPeriod = canGoPrevByCreationDate || prevPeriodHasExpenses;
+
+  const handleGoToPreviousPeriod = useCallback(() => {
+    if (!canGoToPreviousPeriod) return;
+
+    const previous = month === 1
+      ? { month: 12, year: year - 1 }
+      : { month: month - 1, year };
+
+    navigation.setParams({
+      month: previous.month,
+      year: previous.year,
+      initialMode: viewMode,
+      showPendingNotice: undefined,
+      pendingConfirmationsCount: undefined,
+      openIncomeAddAt: undefined,
+    });
+  }, [canGoToPreviousPeriod, month, navigation, viewMode, year]);
+
+  const handleGoToNextPeriod = useCallback(() => {
+    const next = month === 12
+      ? { month: 1, year: year + 1 }
+      : { month: month + 1, year };
+
+    navigation.setParams({
+      month: next.month,
+      year: next.year,
+      initialMode: viewMode,
+      showPendingNotice: undefined,
+      pendingConfirmationsCount: undefined,
+      openIncomeAddAt: undefined,
+    });
+  }, [month, navigation, viewMode, year]);
 
   const prefetchMonthAnalysis = useCallback(async (targetYear: number, targetMonth: number) => {
     if (getCachedAnalysis(targetYear, targetMonth)) return;
@@ -711,6 +813,8 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
           hideNavTitleRow
           onHeightChange={setHeaderHeight}
           onBack={() => navigation.goBack()}
+          onPrevPeriod={canGoToPreviousPeriod ? handleGoToPreviousPeriod : undefined}
+          onNextPeriod={handleGoToNextPeriod}
           onToggleAdd={() => {
             if (isLocked) return;
             crud.setShowAddForm((v) => !v);

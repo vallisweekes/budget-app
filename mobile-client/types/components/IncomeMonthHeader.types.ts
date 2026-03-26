@@ -8,6 +8,8 @@ export type IncomeMonthHeaderProps = {
   hideNavTitleRow?: boolean;
   onHeightChange?: (height: number) => void;
   onBack: () => void;
+  onPrevPeriod?: () => void;
+  onNextPeriod?: () => void;
   onToggleAdd: () => void;
   onSetMode: (mode: IncomeMonthViewMode) => void;
 };

@@ -22,7 +22,7 @@ import { currencySymbol } from "@/lib/formatting";
 import { toExpenseCategoryBreakdowns } from "@/lib/helpers/expenseCategories";
 import { consumeSkipExpensesFocusReload } from "@/lib/helpers/expensesFocusReload";
 import { useTopHeaderOffset, useYearGuard } from "@/hooks";
-import { buildPayPeriodFromMonthAnchor, getPayPeriodAnchorFromWindow, normalizePayFrequency, resolveActivePayPeriod } from "@/lib/payPeriods";
+import { buildPayPeriodFromMonthAnchor, getPayPeriodAnchorFromWindow, getPayPeriodRangeLabelFromAnchor, normalizePayFrequency, resolveActivePayPeriod } from "@/lib/payPeriods";
 import type { ExpensesStackParamList } from "@/navigation/types";
 import type { ExpensesScreenControllerState } from "@/types/ExpensesScreen.types";
 import type { AddExpenseSheetAddedPayload } from "@/types/components/AddExpenseSheet.types";
@@ -409,15 +409,12 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
 
   const getPeriodOptionLabel = useCallback((targetMonth: number, targetYear: number) => {
     const actualYear = resolvePickerActualYear(targetMonth, targetYear);
-    const period = buildPayPeriodFromMonthAnchor({
-      month: targetMonth,
+    return getPayPeriodRangeLabelFromAnchor({
       year: actualYear,
+      month: targetMonth,
       payDate: effectivePayDate,
       payFrequency: effectivePayFrequency,
     });
-    const startLabel = period.start.toLocaleString("en-GB", { month: "short" });
-    const endLabel = period.end.toLocaleString("en-GB", { month: "short" });
-    return `${startLabel} - ${endLabel}`;
   }, [effectivePayDate, effectivePayFrequency, resolvePickerActualYear]);
 
   const getOrFetchSummary = useCallback(async (params: {
@@ -724,6 +721,46 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       let targetMonth = initialMonth;
       let targetYear = initialYear;
 
+      const canAutoAdvanceFromCurrentPeriod = (() => {
+        const usingAutoResolvedPeriod = shouldNormalizeInitialPeriod || shouldUseResolvedDefaultPeriod;
+        if (!usingAutoResolvedPeriod) return false;
+        if (targetMonth !== resolvedDefaultMonth || targetYear !== resolvedDefaultYear) return false;
+
+        const period = buildPayPeriodFromMonthAnchor({
+          year: targetYear,
+          month: targetMonth,
+          payDate: payDateForResolution,
+          payFrequency: payFrequencyForResolution,
+        });
+        const periodEnd = new Date(period.end.getTime());
+        periodEnd.setHours(23, 59, 59, 999);
+
+        const hasOutstanding = Number(summaryData?.unpaidCount ?? 0) > 0;
+        return !hasOutstanding && Date.now() <= periodEnd.getTime();
+      })();
+
+      if (canAutoAdvanceFromCurrentPeriod) {
+        const nextPeriod = shiftPayPeriodAnchor(targetMonth, targetYear, 1);
+        const nextExpensesPromise = getOrFetchPayPeriodExpenses({
+          planId: resolvedPlanId,
+          month: nextPeriod.month,
+          year: nextPeriod.year,
+          force,
+        });
+        const nextWindow = await preloadSummaryWindow({
+          planId: resolvedPlanId,
+          month: nextPeriod.month,
+          year: nextPeriod.year,
+          force,
+        });
+
+        targetMonth = nextPeriod.month;
+        targetYear = nextPeriod.year;
+        summaryData = nextWindow.current;
+        previousData = nextWindow.previous;
+        resolvedExpensesPromise = nextExpensesPromise;
+      }
+
       if ((Number(summaryData?.totalCount ?? 0) <= 0) && resolvedPlanId && !resolvedIsAdditionalPlan) {
         try {
           const query = `budgetPlanId=${encodeURIComponent(resolvedPlanId)}`;
@@ -927,7 +964,12 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     }
     return [...Array.from({ length: 11 }, (_, index) => index + 2), 1];
   }, [effectivePayFrequency]);
-  const selectedPeriodRange = summary?.periodRangeLabel?.trim() || `${monthName(month)} ${year}`;
+  const selectedPeriodRange = getPayPeriodRangeLabelFromAnchor({
+    year,
+    month,
+    payDate: effectivePayDate,
+    payFrequency: effectivePayFrequency,
+  });
   const loadingUi = (loading || bootstrapLoading) && !summary;
   const showTopAddExpenseCta = !loading && !error && (summary?.totalCount ?? 0) === 0;
   const showPlanTotalFallback = isAdditionalPlan && (summary?.totalCount ?? 0) === 0 && expenseMonths.length > 0 && planTotalAmount > 0;

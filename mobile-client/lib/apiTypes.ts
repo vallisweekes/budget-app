@@ -668,6 +668,10 @@ export interface IncomeMonthData {
   month: number;
   year: number;
   monthKey: string;
+  periodLabel?: string | null;
+  periodStart?: string | null;
+  periodEnd?: string | null;
+  periodRangeLabel?: string | null;
 
   // Income
   incomeItems: IncomeSummaryItem[];

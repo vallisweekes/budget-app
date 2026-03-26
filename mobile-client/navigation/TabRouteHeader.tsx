@@ -48,18 +48,38 @@ export default function TabRouteHeader() {
   const isUnplannedExpense = leafSegment === "UnplannedExpense";
   const isScanReceipt = leafSegment === "ScanReceipt";
   const isDebtAnalytics = leafSegment === "DebtAnalytics";
-  const isIncomeMonth = leafSegment === "IncomeMonth";
+  const getDeepestRoute = (state: any): any => {
+    if (!state?.routes?.length) return null;
+    const route = state.routes[state.index ?? state.routes.length - 1];
+    if (route?.state) return getDeepestRoute(route.state);
+    return route;
+  };
+  const deepestRoute = getDeepestRoute(navigation.getState?.());
+  const deepestRouteName = typeof deepestRoute?.name === "string" ? deepestRoute.name : "";
+  const routeParams = deepestRoute?.params ?? {};
+  const isIncomeMonth = leafSegment === "IncomeMonth" || deepestRouteName === "IncomeMonth";
 
   if (isDebtDetail || isExpenseDetail) {
     return null;
   }
 
-  const monthNum = getNumberParam(params.month);
-  const yearNum = getNumberParam(params.year);
-  const incomeMonthBudgetPlanId = getStringParam(params.budgetPlanId) ?? "";
-  const incomeMonthInitialMode = getStringParam(params.initialMode) === "sacrifice" ? "sacrifice" : "income";
-  const canUseIncomeMonthSwitcher = isIncomeTab
-    && isIncomeMonth
+  const monthNum = (() => {
+    const fromLocal = getNumberParam(params.month);
+    if (Number.isFinite(fromLocal)) return fromLocal;
+    return Number(routeParams?.month);
+  })();
+  const yearNum = (() => {
+    const fromLocal = getNumberParam(params.year);
+    if (Number.isFinite(fromLocal)) return fromLocal;
+    return Number(routeParams?.year);
+  })();
+  const incomeMonthBudgetPlanId = getStringParam(params.budgetPlanId)
+    ?? (typeof routeParams?.budgetPlanId === "string" ? routeParams.budgetPlanId : "");
+  const incomeMonthInitialMode = (getStringParam(params.initialMode)
+    ?? (routeParams?.initialMode === "sacrifice" ? "sacrifice" : "income")) === "sacrifice"
+    ? "sacrifice"
+    : "income";
+  const canUseIncomeMonthSwitcher = isIncomeMonth
     && Number.isFinite(monthNum)
     && monthNum >= 1
     && monthNum <= 12

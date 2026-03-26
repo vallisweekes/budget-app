@@ -15,6 +15,8 @@ export default function IncomeMonthHeader({
   hideNavTitleRow = false,
   onHeightChange,
   onBack,
+  onPrevPeriod,
+  onNextPeriod,
   onToggleAdd,
   onSetMode,
 }: IncomeMonthHeaderProps) {
@@ -53,11 +55,7 @@ export default function IncomeMonthHeader({
             </Pressable>
           ) : <View style={styles.addBtn} />}
         </View>
-      ) : (
-        <View style={styles.headerSlim}>
-          <View style={styles.sideSpacer} />
-        </View>
-      )}
+      ) : null}
 
       <View
         style={styles.modeWrap}

@@ -27,13 +27,18 @@ export const styles = StyleSheet.create({
   backBtn: { padding: 4 },
   headerSlim: {
     flexDirection: "row",
-    justifyContent: "center",
+    justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 16,
     paddingTop: 10,
     paddingBottom: 2,
   },
-  sideSpacer: { flex: 1 },
+  periodNavBtn: {
+    width: 28,
+    height: 28,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   addBtn: {
     width: 36,
     height: 36,
