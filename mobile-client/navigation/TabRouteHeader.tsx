@@ -40,6 +40,7 @@ export default function TabRouteHeader() {
   const isSettings = rootSegment === "settings";
   const isGoals = tabSegment === "goals";
   const isIncomeTab = tabSegment === "income";
+  const isIncomeGrid = leafSegment === "IncomeGrid" || deepestRouteName === "IncomeGrid";
   const isCategoryExpenses = leafSegment === "CategoryExpenses";
   const isDebtDetail = leafSegment === "DebtDetail";
   const isExpenseDetail = leafSegment === "ExpenseDetail";
@@ -304,6 +305,29 @@ export default function TabRouteHeader() {
     </View>
   ) : undefined;
 
+  const incomeRightContent = isIncomeTab ? (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+      <Pressable
+        onPress={() => pushRoute("/analytics")}
+        style={{
+          width: 36,
+          height: 36,
+          borderRadius: 18,
+          borderWidth: 1,
+          borderColor: T.border,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: `${T.cardAlt}66`,
+        }}
+        hitSlop={10}
+        accessibilityRole="button"
+        accessibilityLabel="Open analytics"
+      >
+        <Ionicons name="stats-chart-outline" size={18} color={T.accent} />
+      </Pressable>
+    </View>
+  ) : undefined;
+
   const expensesListLeftContent = isExpensesList && isPersonalPlan && !isPastExpensesPeriod ? (
     <View style={{ flexDirection: "row", gap: 8 }}>
       <Pressable
@@ -425,7 +449,7 @@ export default function TabRouteHeader() {
       onBack={handleBack}
       centerLabel={centerLabel}
       centerContent={incomeMonthSwitcher}
-      rightContent={loggedExpensesRightContent ?? analyticsRightContent ?? expensesLoggedRightContent ?? goalsRightContent}
+      rightContent={loggedExpensesRightContent ?? analyticsRightContent ?? incomeRightContent ?? expensesLoggedRightContent ?? goalsRightContent}
       showIncomeAction={false}
       compactActionsMenu={isSettings}
       showAnalyticsAction={!isSettings && !isAnalytics}

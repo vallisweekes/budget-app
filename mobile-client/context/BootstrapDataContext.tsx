@@ -51,9 +51,10 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
   const error = useMemo<Error | null>(() => {
     const nextError = dashboardQuery.error ?? settingsQuery.error;
     if (!nextError) return null;
+    if (hasBootstrapData && !isNoBudgetPlanError(nextError)) return null;
     if (nextError instanceof Error) return nextError;
     return new Error("Failed to load app data");
-  }, [dashboardQuery.error, settingsQuery.error]);
+  }, [dashboardQuery.error, hasBootstrapData, settingsQuery.error]);
   const lastLoadedAt = useMemo<number | null>(() => {
     const dashboardStamp = dashboardQuery.fulfilledTimeStamp ?? 0;
     const settingsStamp = settingsQuery.fulfilledTimeStamp ?? 0;

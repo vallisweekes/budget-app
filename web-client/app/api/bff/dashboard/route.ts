@@ -15,8 +15,17 @@ import { getAllPlansDashboardData } from "@/lib/helpers/dashboard/getAllPlansDas
 import { getDashboardPayPeriodLabels } from "@/lib/helpers/dashboard/payPeriodLabels";
 import { resolveExpenseLogo } from "@/lib/expenses/logoResolver";
 import { getExpensePaidMap } from "@/lib/expenses/paidSummary";
+import { getJsonCache, setJsonCache } from "@/lib/cache/redisJsonCache";
+import {
+	DASHBOARD_CACHE_TTL_SECONDS,
+	getDashboardCacheKey,
+	logDerivedSummaryCacheEvent,
+} from "@/lib/cache/dashboardCache";
+import { getEarlyPaymentWindowStart } from "@/lib/helpers/finance/earlyPaymentWindow";
+import { getCurrentPeriodKey, getPeriodKey, parsePeriodKeyRange } from "@/lib/helpers/periodKey";
 import { prisma } from "@/lib/prisma";
 import { supportsOnboardingCadenceFields as detectOnboardingCadenceFields } from "@/lib/prisma/capabilities";
+import { isRedisConfigured } from "@/lib/redis";
 import {
 	buildPayPeriodFromMonthAnchor,
 	normalizeBillFrequency,
@@ -25,6 +34,12 @@ import {
 } from "@/lib/payPeriods";
 function unauthorized() {
 	return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+}
+
+function latestDate(...dates: Array<Date | null | undefined>): Date | null {
+	const valid = dates.filter((date): date is Date => date instanceof Date && !Number.isNaN(date.getTime()));
+	if (valid.length === 0) return null;
+	return valid.reduce((latest, current) => (current.getTime() > latest.getTime() ? current : latest));
 }
 
 /**
@@ -230,9 +245,32 @@ export async function GET(req: NextRequest) {
 		});
 		const { payPeriodLabel, previousPayPeriodLabel } = getDashboardPayPeriodLabels(dashboardNow, payDay, effectiveCreatedAt);
 
+		const debtSummary = await (async () => {
+			try {
+				// Sync overdue expense carryover first so grace-expired bills leave
+				// upcoming expenses and appear under debts in the same dashboard load.
+				return await getDebtSummaryForPlan(budgetPlanId, {
+					includeExpenseDebts: true,
+					ensureSynced: true,
+				});
+			} catch (error) {
+				console.error("Dashboard: debt summary failed:", error);
+				return {
+					regularDebts: [],
+					expenseDebts: [],
+					allDebts: [],
+					activeDebts: [],
+					activeRegularDebts: [],
+					activeExpenseDebts: [],
+					creditCards: [],
+					totalDebtBalance: 0,
+				};
+			}
+		})();
+
 		// Everything below is "best effort". If one section fails (e.g. debt sync),
 		// return the rest of the dashboard rather than a full 500.
-		const [expenseInsightsBase, allPlansData, debtSummary] = await Promise.all([
+		const [expenseInsightsBase, allPlansData] = await Promise.all([
 			(async () => {
 				try {
 					return await getDashboardExpenseInsights({
@@ -273,26 +311,6 @@ export async function GET(req: NextRequest) {
 				} catch (error) {
 					console.error("Dashboard: all plans data failed:", error);
 					return { [budgetPlanId]: currentPlanData };
-				}
-			})(),
-			(async () => {
-				try {
-					return await getDebtSummaryForPlan(budgetPlanId, {
-						includeExpenseDebts: true,
-						ensureSynced: false,
-					});
-				} catch (error) {
-					console.error("Dashboard: debt summary failed:", error);
-					return {
-						regularDebts: [],
-						expenseDebts: [],
-						allDebts: [],
-						activeDebts: [],
-						activeRegularDebts: [],
-						activeExpenseDebts: [],
-						creditCards: [],
-						totalDebtBalance: 0,
-					};
 				}
 			})(),
 		]);

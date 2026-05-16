@@ -61,11 +61,13 @@ export default function QuickPaymentActionSheet({ visible, item, currency, inset
   const showLogo = Boolean(logoUri);
 
   const dueLabel = useMemo(() => {
+    if (dueDays != null && dueDays < 0) return "Payment overdue";
+    if (dueDays === 0) return "Due today";
     const formatted = formatShortDate(item?.dueDate);
     if (formatted) return `Next on ${formatted}`;
     const subtitle = String(item?.subtitle ?? "").trim();
     return subtitle || "";
-  }, [item?.dueDate, item?.subtitle]);
+  }, [dueDays, item?.dueDate, item?.subtitle]);
 
   const expensePaymentState = useMemo(() => {
     if (!item || item.kind !== "expense") {

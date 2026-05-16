@@ -2,27 +2,26 @@
   "extends": "expo/tsconfig.base.json",
   "compilerOptions": {
     "strict": true,
+    "forceConsistentCasingInFileNames": true,
     "target": "ESNext",
     "module": "ESNext",
     "moduleResolution": "bundler",
     "jsx": "react-native",
-    "lib": ["ESNext"],
     "allowJs": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "noEmit": true,
-    "baseUrl": ".",
     "paths": {
-      "@/hooks": ["lib/hooks/index.ts"],
-      "@/*": ["*"],
-      "@/app/*": ["app/*"],
-      "@/screens/*": ["screens/*"],
-      "@/components/*": ["components/*"],
-      "@/context/*": ["context/*"],
-      "@/lib/*": ["lib/*"],
-      "@/navigation/*": ["navigation/*"],
-      "@/store/*": ["store/*"],
-      "@/types/*": ["types/*"]
+      "@/hooks": ["./lib/hooks/index.ts"],
+      "@/*": ["./*"],
+      "@/app/*": ["./app/*"],
+      "@/screens/*": ["./screens/*"],
+      "@/components/*": ["./components/*"],
+      "@/context/*": ["./context/*"],
+      "@/lib/*": ["./lib/*"],
+      "@/navigation/*": ["./navigation/*"],
+      "@/store/*": ["./store/*"],
+      "@/types/*": ["./types/*"]
     }
   },
   "include": [

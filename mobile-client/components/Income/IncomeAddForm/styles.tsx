@@ -1,15 +1,15 @@
 import { StyleSheet } from "react-native";
 import { T } from "@/lib/theme";
-import { cardBase } from "@/lib/ui";
+
+const SHEET_BLUE = "#080080";
 
 export const styles = StyleSheet.create({
   wrap: {
-    ...cardBase,
-    padding: 14,
-    marginHorizontal: 14,
-    marginVertical: 8,
-    gap: 10,
-    borderColor: T.accentFaint,
+    flex: 1,
+    paddingHorizontal: 4,
+    paddingTop: 6,
+    paddingBottom: 12,
+    gap: 14,
   },
   title: { color: T.text, fontWeight: "900", fontSize: 15 },
   row: { flexDirection: "row", gap: 10 },
@@ -24,26 +24,26 @@ export const styles = StyleSheet.create({
     borderColor: T.border,
   },
   btn: {
-    backgroundColor: T.accent,
-    borderRadius: 8,
-    paddingVertical: 10,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    paddingVertical: 14,
+    marginTop: "auto",
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "center",
     gap: 6,
   },
-  btnText: { color: T.onAccent, fontWeight: "700", fontSize: 14 },
-  disabled: { opacity: 0.45 },
+  btnDisabled: {
+    backgroundColor: "rgba(255, 255, 255, 0.92)",
+  },
+  btnText: { color: SHEET_BLUE, fontWeight: "800", fontSize: 14 },
+  btnTextDisabled: { color: "rgba(8, 0, 128, 0.45)" },
 
   toggleRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: T.cardAlt,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: T.border,
-    padding: 12,
+    paddingVertical: 4,
     gap: 12,
   },
   toggleInfo: { flex: 1 },

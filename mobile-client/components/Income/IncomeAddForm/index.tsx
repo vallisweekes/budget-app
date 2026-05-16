@@ -6,7 +6,11 @@ import MoneyInput from "@/components/Shared/MoneyInput";
 import { styles } from "./styles";
 import type { IncomeAddFormProps } from "@/types";
 
+const SHEET_BLUE = "#080080";
+
 export function IncomeAddForm({ currency, name, amount, setName, setAmount, distributeMonths, setDistributeMonths, distributeYears, setDistributeYears, onAdd, saving }: IncomeAddFormProps) {
+  const isDisabled = saving || !name.trim() || !amount.trim();
+
   return (
     <View style={styles.wrap}>
       <Text style={styles.title}>Add Income Source</Text>
@@ -62,18 +66,18 @@ export function IncomeAddForm({ currency, name, amount, setName, setAmount, dist
 
       <Pressable
         onPress={onAdd}
-        disabled={saving || !name.trim() || !amount.trim()}
+        disabled={isDisabled}
         style={[
           styles.btn,
-          (saving || !name.trim() || !amount.trim()) && styles.disabled,
+          isDisabled && styles.btnDisabled,
         ]}
       >
         {saving ? (
-          <ActivityIndicator size="small" color={T.onAccent} />
+          <ActivityIndicator size="small" color={SHEET_BLUE} />
         ) : (
           <>
-            <Ionicons name="add-circle-outline" size={17} color={T.onAccent} />
-            <Text style={styles.btnText}>Add Source</Text>
+            <Ionicons name="add-circle-outline" size={17} color={isDisabled ? "rgba(8, 0, 128, 0.45)" : SHEET_BLUE} />
+            <Text style={[styles.btnText, isDisabled && styles.btnTextDisabled]}>Add Source</Text>
           </>
         )}
       </Pressable>
