@@ -17,6 +17,10 @@ export const styles = StyleSheet.create({
   chartArea: {
     position: "relative",
   },
+  chartTouchLayer: {
+    position: "absolute",
+    zIndex: 2,
+  },
   tooltipSlot: {
     justifyContent: "flex-start",
     marginBottom: 8,
@@ -41,22 +45,38 @@ export const styles = StyleSheet.create({
     paddingLeft: 42,
     paddingRight: 12,
     marginTop: -6,
+    gap: 6,
+  },
+  xLabelButton: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 6,
+    gap: 5,
+  },
+  xLabelDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 999,
   },
   xLabelText: {
     color: T.textDim,
     fontSize: 11,
     fontWeight: "700",
   },
+  xLabelTextActive: {
+    color: T.text,
+  },
   tooltipCard: {
-    backgroundColor: "rgba(20, 20, 20, 0.96)",
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    backgroundColor: "rgba(24, 24, 24, 0.97)",
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     shadowColor: "#000",
-    shadowOpacity: 0.24,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 8,
+    shadowOpacity: 0.28,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 10,
   },
   tooltipCardInline: {
     position: "relative",
@@ -75,36 +95,43 @@ export const styles = StyleSheet.create({
     marginTop: 4,
   },
   tooltipExpenseBlock: {
-    marginTop: 10,
+    marginTop: 2,
+    marginBottom: 10,
   },
   tooltipExpenseName: {
     color: T.onAccent,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "800",
   },
-  tooltipExpenseMetaRow: {
+  tooltipExpenseMetricRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: 3,
+    marginTop: 4,
     gap: 8,
   },
-  tooltipExpensePlan: {
-    flex: 1,
+  tooltipMetricLabel: {
     color: "rgba(255,255,255,0.72)",
     fontSize: 11,
     fontWeight: "600",
   },
-  tooltipExpenseAmount: {
+  tooltipMetricValueMuted: {
+    flex: 1,
+    textAlign: "right",
+    color: "rgba(255,255,255,0.78)",
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  tooltipMetricValue: {
     color: T.onAccent,
     fontSize: 11,
     fontWeight: "800",
   },
   tooltipMore: {
     color: T.onAccent,
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "800",
-    marginTop: 10,
+    marginTop: 2,
   },
   tooltipMeta: {
     color: T.onAccent,

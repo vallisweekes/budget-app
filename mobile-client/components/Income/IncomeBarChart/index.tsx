@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { View, Text, Dimensions } from "react-native";
+import { View, Text, Dimensions, PanResponder, Pressable } from "react-native";
 import Svg, { Circle, Line, Path, Rect, Text as SvgText } from "react-native-svg";
 import type { IncomeMonthData } from "@/lib/apiTypes";
 import { T } from "@/lib/theme";
@@ -63,8 +63,8 @@ export default function IncomeBarChart({ data: a, currency }: IncomeBarChartProp
     setActiveIndex(highestIndex);
   }, [didUserSelectPoint, highestIndex]);
 
-  const totalIncome = Number(a.grossIncome) || 0;
-  const maxVal = Math.max(1, totalIncome);
+  const totalIncome = Math.max(0, Number(a.grossIncome) || 0);
+  const maxVal = Math.max(1, totalIncome, ...values);
 
   const chartW = W - 56;
   const chartH = 182;
@@ -84,6 +84,31 @@ export default function IncomeBarChart({ data: a, currency }: IncomeBarChartProp
     const y = yValue(value);
     return { x, y, value };
   }), [values, leftPad, plotInnerW]);
+
+  const selectPoint = (index: number) => {
+    setDidUserSelectPoint(true);
+    setActiveIndex(index);
+  };
+
+  const selectNearestPoint = (locationX: number) => {
+    if (points.length === 0) return;
+    const nearestIndex = points.reduce((bestIndex, point, index) => {
+      const bestDistance = Math.abs(points[bestIndex]!.x - locationX);
+      const nextDistance = Math.abs(point.x - locationX);
+      return nextDistance < bestDistance ? index : bestIndex;
+    }, 0);
+    selectPoint(nearestIndex);
+  };
+
+  const pointDragResponder = useMemo(
+    () => PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_event, gestureState) => Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
+      onPanResponderGrant: (event) => selectNearestPoint(event.nativeEvent.locationX),
+      onPanResponderMove: (event) => selectNearestPoint(event.nativeEvent.locationX),
+    }),
+    [points],
+  );
 
   const curvePath = points.reduce((path, point, index) => {
     if (index === 0) return `M ${point.x} ${point.y}`;
@@ -119,9 +144,9 @@ export default function IncomeBarChart({ data: a, currency }: IncomeBarChartProp
   const showExpenseTooltipPreview = Boolean(activeExpensePreview?.items.length);
   const showDebtPayableLine = activeMetric?.key === "plannedDebtPayments";
 
-  const tooltipW = showExpenseTooltipPreview ? 212 : 174;
+  const tooltipW = showExpenseTooltipPreview ? 232 : 174;
   const tooltipH = showExpenseTooltipPreview
-    ? 56 + ((activeExpensePreview?.items.length ?? 0) * 42) + ((activeExpensePreview?.remainingCount ?? 0) > 0 ? 18 : 0)
+    ? 22 + ((activeExpensePreview?.items.length ?? 0) * 58) + ((activeExpensePreview?.remainingCount ?? 0) > 0 ? 24 : 0)
     : showDebtPayableLine
       ? 64
       : 48;
@@ -139,26 +164,35 @@ export default function IncomeBarChart({ data: a, currency }: IncomeBarChartProp
       <View pointerEvents="none" style={[styles.tooltipSlot, { height: TOOLTIP_SLOT_HEIGHT, alignItems: tooltipAlignment }]}> 
         {activePoint ? (
           <View style={[styles.tooltipCard, styles.tooltipCardInline, { width: tooltipW, minHeight: tooltipH }]}> 
-            <Text style={styles.tooltipTitle}>{activeMetric ? `${activeMetric.label} total` : "Amount"}</Text>
-            <Text style={styles.tooltipTotal}>{fmtAmount(activePoint.value)}</Text>
+            {showExpenseTooltipPreview ? (
+              <>
+                {activeExpensePreview?.items.map((item) => (
+                  <View key={`${item.planId}:${item.expenseId}`} style={styles.tooltipExpenseBlock}>
+                    <Text numberOfLines={1} style={styles.tooltipExpenseName}>{item.expenseName}</Text>
+                    <View style={styles.tooltipExpenseMetricRow}>
+                      <Text style={styles.tooltipMetricLabel}>Plan</Text>
+                      <Text numberOfLines={1} style={styles.tooltipMetricValueMuted}>{item.planName}</Text>
+                    </View>
+                    <View style={styles.tooltipExpenseMetricRow}>
+                      <Text style={styles.tooltipMetricLabel}>Total</Text>
+                      <Text style={styles.tooltipMetricValue}>{fmtAmount(item.amount)}</Text>
+                    </View>
+                  </View>
+                ))}
 
-            {showExpenseTooltipPreview ? activeExpensePreview?.items.map((item) => (
-              <View key={`${item.planId}:${item.expenseId}`} style={styles.tooltipExpenseBlock}>
-                <Text numberOfLines={1} style={styles.tooltipExpenseName}>{item.expenseName}</Text>
-                <View style={styles.tooltipExpenseMetaRow}>
-                  <Text numberOfLines={1} style={styles.tooltipExpensePlan}>{item.planName}</Text>
-                  <Text style={styles.tooltipExpenseAmount}>{fmtAmount(item.amount)}</Text>
-                </View>
-              </View>
-            )) : null}
-
-            {showExpenseTooltipPreview && (activeExpensePreview?.remainingCount ?? 0) > 0 ? (
-              <Text style={styles.tooltipMore}>{`+${activeExpensePreview?.remainingCount ?? 0} other`}</Text>
-            ) : null}
-
-            {showDebtPayableLine ? (
-              <Text style={styles.tooltipMeta}>{`Debt payable ${fmtAmount(plannedDebtPayable)}`}</Text>
-            ) : null}
+                {(activeExpensePreview?.remainingCount ?? 0) > 0 ? (
+                  <Text style={styles.tooltipMore}>{`+ ${activeExpensePreview?.remainingCount ?? 0} other`}</Text>
+                ) : null}
+              </>
+            ) : (
+              <>
+                <Text style={styles.tooltipTitle}>{activeMetric ? `${activeMetric.label} total` : "Amount"}</Text>
+                <Text style={styles.tooltipTotal}>{fmtAmount(activePoint.value)}</Text>
+                {showDebtPayableLine ? (
+                  <Text style={styles.tooltipMeta}>{`Debt payable ${fmtAmount(plannedDebtPayable)}`}</Text>
+                ) : null}
+              </>
+            )}
           </View>
         ) : null}
       </View>
@@ -203,10 +237,7 @@ export default function IncomeBarChart({ data: a, currency }: IncomeBarChartProp
                 cy={point.y}
                 r={activeIndex === index ? 6 : 5}
                 fill={chartPoints[index]!.color}
-                onPress={() => {
-                  setDidUserSelectPoint(true);
-                  setActiveIndex(index);
-                }}
+                onPress={() => selectPoint(index)}
               />
               {activeIndex === index ? (
                 <Circle cx={point.x} cy={point.y} r={3} fill={T.onAccent} />
@@ -214,6 +245,19 @@ export default function IncomeBarChart({ data: a, currency }: IncomeBarChartProp
             </React.Fragment>
           ))}
         </Svg>
+
+        <View
+          style={[
+            styles.chartTouchLayer,
+            {
+              left: leftPad,
+              right: rightPad,
+              top: topPad,
+              height: plotH,
+            },
+          ]}
+          {...pointDragResponder.panHandlers}
+        />
 
         <View style={styles.yAxisLabels} pointerEvents="none">
           {yTicks.map((tick) => (
@@ -225,8 +269,16 @@ export default function IncomeBarChart({ data: a, currency }: IncomeBarChartProp
       </View>
 
       <View style={styles.xLabels}>
-        {chartPoints.map((point) => (
-          <Text key={point.key} style={styles.xLabelText}>{point.label}</Text>
+        {chartPoints.map((point, index) => (
+          <Pressable
+            key={point.key}
+            onPress={() => selectPoint(index)}
+            style={styles.xLabelButton}
+            hitSlop={8}
+          >
+            <View style={[styles.xLabelDot, { backgroundColor: point.color, opacity: activeIndex === index ? 1 : 0.45 }]} />
+            <Text style={[styles.xLabelText, activeIndex === index ? styles.xLabelTextActive : null]}>{point.label}</Text>
+          </Pressable>
         ))}
       </View>
     </View>
