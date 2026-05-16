@@ -40,7 +40,6 @@ export default function TabRouteHeader() {
   const isSettings = rootSegment === "settings";
   const isGoals = tabSegment === "goals";
   const isIncomeTab = tabSegment === "income";
-  const isIncomeGrid = leafSegment === "IncomeGrid" || deepestRouteName === "IncomeGrid";
   const isCategoryExpenses = leafSegment === "CategoryExpenses";
   const isDebtDetail = leafSegment === "DebtDetail";
   const isExpenseDetail = leafSegment === "ExpenseDetail";
@@ -57,6 +56,7 @@ export default function TabRouteHeader() {
   };
   const deepestRoute = getDeepestRoute(navigation.getState?.());
   const deepestRouteName = typeof deepestRoute?.name === "string" ? deepestRoute.name : "";
+  const isIncomeGrid = leafSegment === "IncomeGrid" || deepestRouteName === "IncomeGrid";
   const routeParams = deepestRoute?.params ?? {};
   const isIncomeMonth = leafSegment === "IncomeMonth" || deepestRouteName === "IncomeMonth";
 

@@ -27,12 +27,24 @@ export async function getDebtSummaryForPlan(
 	const ensureSynced = opts?.ensureSynced ?? true;
 
 	if (ensureSynced) {
-		await Promise.all([
-			// Keep the 5-day overdue carryover behavior for real non-allocation expenses.
-			includeExpenseDebts ? processOverdueExpensesToDebts(budgetPlanId) : Promise.resolve([]),
-			// Ensure missed debt payments (due date + grace) accumulate into balances.
-			processMissedDebtPaymentsToAccrue(budgetPlanId),
-		]);
+		const syncTasks: Promise<unknown>[] = [];
+
+		if (includeExpenseDebts) {
+			syncTasks.push(
+				processOverdueExpensesToDebts(budgetPlanId).catch((error) => {
+					console.error("Debt summary: expense carryover sync failed", error);
+					return [];
+				})
+			);
+		}
+
+		syncTasks.push(
+			processMissedDebtPaymentsToAccrue(budgetPlanId).catch((error) => {
+				console.error("Debt summary: missed debt payment sync failed", error);
+			})
+		);
+
+		await Promise.all(syncTasks);
 	}
 
 	const [allDebtsRaw, expenseDebts] = await Promise.all([

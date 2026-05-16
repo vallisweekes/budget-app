@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { upsertExpenseDebt } from "@/lib/debts/store";
 import { isExpenseDebtCoveredByRegularDebt } from "@/lib/helpers/debts/expenseDebtDuplicates";
 import { isLegacyPlaceholderExpenseRow } from "@/lib/expenses/legacyPlaceholders";
+import { getExpensePaidMap } from "@/lib/expenses/paidSummary";
 import { isNonDebtCategoryName } from "../helpers";
 import { markExpensesMovedToDebt } from "./get-expense-debts.helpers";
 import { OVERDUE_GRACE_DAYS, resolveExpenseDueDate, addDays, monthNumberToKey } from "./shared";
@@ -21,6 +22,8 @@ type OverdueExpenseCarryRow = {
 export async function processOverdueExpensesToDebts(budgetPlanId: string) {
 	const now = new Date();
 	const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+	const currentYear = today.getFullYear();
+	const currentMonth = today.getMonth() + 1;
 
 	const budgetPlan = await prisma.budgetPlan.findUnique({
 		where: { id: budgetPlanId },
@@ -29,7 +32,15 @@ export async function processOverdueExpensesToDebts(budgetPlanId: string) {
 	const defaultDueDate = budgetPlan?.payDate ?? 27;
 
 	const unpaidExpenses = (await prisma.expense.findMany({
-		where: { budgetPlanId, paid: false },
+		where: {
+			budgetPlanId,
+			isAllocation: false,
+			isMovedToDebt: false,
+			OR: [
+				{ year: { lt: currentYear } },
+				{ year: currentYear, month: { lte: currentMonth } },
+			],
+		},
 		select: {
 			id: true,
 			name: true,
@@ -42,6 +53,13 @@ export async function processOverdueExpensesToDebts(budgetPlanId: string) {
 			category: { select: { id: true, name: true } },
 		},
 	})) as unknown as OverdueExpenseCarryRow[];
+
+	const paidMap = await getExpensePaidMap(
+		unpaidExpenses.map((expense) => ({
+			id: expense.id,
+			amount: Number(expense.amount ?? 0),
+		})),
+	);
 
 	const regularDebts = await prisma.debt.findMany({
 		where: { budgetPlanId, sourceType: null, paid: false },
@@ -60,7 +78,8 @@ export async function processOverdueExpensesToDebts(budgetPlanId: string) {
 		})) continue;
 
 		const totalAmount = Number(expense.amount);
-		const paidAmount = Number(expense.paidAmount);
+		const paidInfo = paidMap.get(expense.id);
+		const paidAmount = paidInfo?.paidAmount ?? Number(expense.paidAmount);
 		const remainingAmount = totalAmount - paidAmount;
 		if (!(Number.isFinite(remainingAmount) && remainingAmount > 0)) continue;
 
@@ -72,8 +91,7 @@ export async function processOverdueExpensesToDebts(budgetPlanId: string) {
 		});
 		const overdueThreshold = addDays(expenseDueDate, OVERDUE_GRACE_DAYS);
 		const isExpenseOverdueByGrace = overdueThreshold.getTime() <= today.getTime();
-		const hasPartialPayment = Number.isFinite(paidAmount) && paidAmount > 0;
-		if (!isExpenseOverdueByGrace && !hasPartialPayment) continue;
+		if (!isExpenseOverdueByGrace) continue;
 
 		const debt = await upsertExpenseDebt({
 			budgetPlanId,

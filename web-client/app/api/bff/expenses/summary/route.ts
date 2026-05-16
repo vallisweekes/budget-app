@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { supportsExpenseMovedToDebtField, supportsOnboardingPayFrequencyField } from "@/lib/prisma/capabilities";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
+import { processOverdueExpensesToDebts } from "@/lib/expenses/carryover";
 import { resolveEffectiveDueDateIso } from "@/lib/expenses/insights";
 import {
 	buildPayPeriodFromMonthAnchor,
@@ -179,6 +180,12 @@ export async function GET(req: NextRequest) {
 	});
 	if (!budgetPlanId) {
 		return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
+	}
+
+	try {
+		await processOverdueExpensesToDebts(budgetPlanId);
+	} catch (error) {
+		console.error("Expense summary: overdue carryover sync failed:", error);
 	}
 
 	const [budgetPlan, onboardingProfile, planCategories] = await Promise.all([
@@ -462,15 +469,36 @@ export async function GET(req: NextRequest) {
 
 		expenses = Array.from(seen.values()).map((v) => v.exp);
 	} else {
-		expenses = await prisma.expense.findMany({
-			where: { budgetPlanId, month, year },
-			include: {
-				category: {
-					select: { id: true, name: true, color: true, icon: true },
+		expenses = await (async () => {
+			const runLegacyQuery = () => prisma.expense.findMany({
+				where: { budgetPlanId, month, year },
+				include: {
+					category: {
+						select: { id: true, name: true, color: true, icon: true },
+					},
 				},
-			},
-			orderBy: { createdAt: "asc" },
-		});
+				orderBy: { createdAt: "asc" },
+			});
+
+			if (!(await supportsExpenseMovedToDebtField())) {
+				return runLegacyQuery();
+			}
+
+			try {
+				return await prisma.expense.findMany({
+					where: { budgetPlanId, month, year, isMovedToDebt: false },
+					include: {
+						category: {
+							select: { id: true, name: true, color: true, icon: true },
+						},
+					},
+					orderBy: { createdAt: "asc" },
+				});
+			} catch (error) {
+				if (!isUnknownMovedToDebtFieldError(error)) throw error;
+				return runLegacyQuery();
+			}
+		})();
 	}
 
 	// Allocations/envelopes are not bills and should not impact expense totals.

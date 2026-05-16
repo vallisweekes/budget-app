@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { supportsExpenseMovedToDebtField, supportsOnboardingPayFrequencyField } from "@/lib/prisma/capabilities";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
+import { processOverdueExpensesToDebts } from "@/lib/expenses/carryover";
 import { resolveEffectiveDueDateIso } from "@/lib/expenses/insights";
 import { buildPayPeriodFromMonthAnchor, normalizePayFrequency, type PayFrequency } from "@/lib/payPeriods";
 import { isLegacyPlaceholderExpenseRow } from "@/lib/expenses/legacyPlaceholders";
@@ -117,6 +118,12 @@ export async function GET(req: NextRequest) {
   });
   if (!budgetPlanId) {
     return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
+  }
+
+  try {
+    await processOverdueExpensesToDebts(budgetPlanId);
+  } catch (error) {
+    console.error("Expense pay-period months: overdue carryover sync failed:", error);
   }
 
   const [budgetPlan, onboardingProfile] = await Promise.all([

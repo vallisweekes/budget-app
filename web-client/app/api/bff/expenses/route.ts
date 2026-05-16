@@ -5,6 +5,7 @@ import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
 import { resolveEffectiveDueDateIso } from "@/lib/expenses/insights";
 import { createExpense, normalizeFundingSource, normalizePaymentSource } from "@/lib/financial-engine";
 import { hasCustomLogoForDomain, hasCustomLogoForName, resolveExpenseLogo, resolveExpenseLogoWithSearch } from "@/lib/expenses/logoResolver";
+import { processOverdueExpensesToDebts } from "@/lib/expenses/carryover";
 import { buildExpenseAddedActivity } from "@/lib/push/activityMessages";
 import { sendUserPush } from "@/lib/push/sendUserPush";
 import { isLegacyPlaceholderExpenseRow } from "@/lib/expenses/legacyPlaceholders";
@@ -185,6 +186,12 @@ export async function GET(req: NextRequest) {
   if (month == null || month < 1 || month > 12) return badRequest("Invalid month");
   if (year == null || year < 1900) return badRequest("Invalid year");
   if (!budgetPlanId) return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
+
+  try {
+    await processOverdueExpensesToDebts(budgetPlanId);
+  } catch (error) {
+    console.error("Expenses: overdue carryover sync failed:", error);
+  }
 
   const [budgetPlan, onboardingProfile] = await Promise.all([
     prisma.budgetPlan.findUnique({ where: { id: budgetPlanId }, select: { payDate: true } }),

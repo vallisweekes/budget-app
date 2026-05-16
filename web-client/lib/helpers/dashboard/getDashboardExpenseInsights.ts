@@ -16,6 +16,7 @@ import { monthNumberToKey } from "@/lib/helpers/monthKey";
 import { getMonthlyAllocationSnapshot, getMonthlyCustomAllocationsSnapshot } from "@/lib/allocations/store";
 import { resolveExpenseLogo } from "@/lib/expenses/logoResolver";
 import { isLegacyPlaceholderExpenseRow } from "@/lib/expenses/legacyPlaceholders";
+import { getExpensePaidMap } from "@/lib/expenses/paidSummary";
 
 function pad2(n: number): string {
 	return String(n).padStart(2, "0");
@@ -472,7 +473,23 @@ export async function getDashboardExpenseInsights({
 			: Promise.resolve(null),
 	]);
 
-	const dedupedExpenseRows = dedupeExpenseRowsForInsights(expenseWindowRows, payDate);
+	const paidMap = await getExpensePaidMap(
+		expenseWindowRows
+			.filter((row) => !Boolean(row.isAllocation ?? false) && !isLegacyPlaceholderExpenseRow(row))
+			.map((row) => ({ id: row.id, amount: toNumber(row.amount) })),
+	);
+
+	const canonicalExpenseWindowRows = expenseWindowRows.map((row) => {
+		const paidInfo = paidMap.get(row.id);
+		if (!paidInfo) return row;
+		return {
+			...row,
+			paid: paidInfo.isPaid,
+			paidAmount: paidInfo.paidAmount,
+		};
+	});
+
+	const dedupedExpenseRows = dedupeExpenseRowsForInsights(canonicalExpenseWindowRows, payDate);
 
 	const toExpenseItem = (e: (typeof dedupedExpenseRows)[number]): ExpenseItem => {
 		const effectiveDueDate = resolveEffectiveDueDateIso(
@@ -751,7 +768,7 @@ export async function getDashboardExpenseInsights({
 		})
 		: [];
 	const loggedExpenseHabits = computeLoggedExpenseHabits({
-		rows: expenseWindowRows,
+		rows: canonicalExpenseWindowRows,
 		activeWindow,
 		payDate,
 		payFrequency: normalizedPayFrequency,

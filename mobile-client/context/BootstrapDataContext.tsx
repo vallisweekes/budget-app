@@ -17,6 +17,7 @@ type BootstrapDataContextValue = {
   settings: Settings | null;
   isLoading: boolean;
   isRefreshing: boolean;
+  isRecoveringInitialLoad: boolean;
   error: Error | null;
   lastLoadedAt: number | null;
   refresh: (options?: { force?: boolean }) => Promise<BootstrapRefreshResult>;
@@ -33,6 +34,7 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
 
   const dashboardQuery = useGetDashboardQuery(undefined, { skip: shouldSkip });
   const settingsQuery = useGetSettingsQuery(undefined, { skip: shouldSkip });
+  const [isRecoveringInitialLoad, setIsRecoveringInitialLoad] = useState(false);
 
   const dashboard = shouldSkip ? null : dashboardQuery.data ?? null;
   const settings = shouldSkip ? null : settingsQuery.data ?? profile?.settings ?? null;
@@ -43,18 +45,19 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
       ? false
       : onboarding.busy || onboarding.required
         ? false
-      : !dashboardQuery.error && !settingsQuery.error && Boolean(
-        dashboardQuery.isLoading
-        || settingsQuery.isLoading
-        || !hasBootstrapData
-      );
+        : isRecoveringInitialLoad || (!dashboardQuery.error && !settingsQuery.error && Boolean(
+          dashboardQuery.isLoading
+          || settingsQuery.isLoading
+          || !hasBootstrapData
+        ));
   const error = useMemo<Error | null>(() => {
     const nextError = dashboardQuery.error ?? settingsQuery.error;
     if (!nextError) return null;
+    if (isRecoveringInitialLoad) return null;
     if (hasBootstrapData && !isNoBudgetPlanError(nextError)) return null;
     if (nextError instanceof Error) return nextError;
     return new Error("Failed to load app data");
-  }, [dashboardQuery.error, hasBootstrapData, settingsQuery.error]);
+  }, [dashboardQuery.error, hasBootstrapData, isRecoveringInitialLoad, settingsQuery.error]);
   const lastLoadedAt = useMemo<number | null>(() => {
     const dashboardStamp = dashboardQuery.fulfilledTimeStamp ?? 0;
     const settingsStamp = settingsQuery.fulfilledTimeStamp ?? 0;
@@ -71,6 +74,7 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
   const onboardingBusyRef = useRef(onboarding.busy);
   const onboardingRequiredRef = useRef(onboarding.required);
   const bootstrapQueriesBusyRef = useRef(false);
+  const initialRecoveryAttemptedRef = useRef(false);
 
   useEffect(() => {
     dashboardRef.current = dashboard;
@@ -196,11 +200,39 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
     return await refresh({ force: false });
   }, [refresh]);
 
+  useEffect(() => {
+    if (shouldSkip) {
+      initialRecoveryAttemptedRef.current = false;
+      setIsRecoveringInitialLoad(false);
+      return;
+    }
+
+    if (hasBootstrapData) {
+      initialRecoveryAttemptedRef.current = false;
+      setIsRecoveringInitialLoad(false);
+      return;
+    }
+
+    const nextError = dashboardQuery.error ?? settingsQuery.error;
+    if (!nextError || isNoBudgetPlanError(nextError) || initialRecoveryAttemptedRef.current) {
+      setIsRecoveringInitialLoad(false);
+      return;
+    }
+
+    initialRecoveryAttemptedRef.current = true;
+    setIsRecoveringInitialLoad(true);
+
+    void refresh({ force: true }).finally(() => {
+      setIsRecoveringInitialLoad(false);
+    });
+  }, [dashboardQuery.error, hasBootstrapData, refresh, settingsQuery.error, shouldSkip]);
+
   // Reset on sign-out and bootstrap on sign-in.
   useEffect(() => {
     if (authLoading) return;
 
     if (!token) {
+      setIsRecoveringInitialLoad(false);
       setIsRefreshing(false);
       inflightRef.current = null;
       return;
@@ -235,12 +267,13 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
       settings,
       isLoading,
       isRefreshing,
+      isRecoveringInitialLoad,
       error,
       lastLoadedAt,
       refresh,
       ensureLoaded,
     }),
-    [dashboard, ensureLoaded, error, isLoading, isRefreshing, lastLoadedAt, refresh, settings]
+    [dashboard, ensureLoaded, error, isLoading, isRecoveringInitialLoad, isRefreshing, lastLoadedAt, refresh, settings]
   );
 
   return <BootstrapDataContext.Provider value={value}>{children}</BootstrapDataContext.Provider>;

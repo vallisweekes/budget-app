@@ -81,9 +81,10 @@ export default function IncomeBarChart({ data: a, currency }: IncomeBarChartProp
   const activePoint = activeIndex !== null ? points[activeIndex] : null;
   const activeMetric = activeIndex !== null ? POINTS[activeIndex] : null;
   const plannedDebtPayable = Math.max(0, Number(a.plannedDebtPayments) || 0);
+  const showDebtPayableLine = activeMetric?.key !== "plannedExpenses";
 
   const tooltipW = 174;
-  const tooltipH = 60;
+  const tooltipH = showDebtPayableLine ? 60 : 46;
   const highlightW = 40;
   const tooltipX = activePoint
     ? Math.min(
@@ -176,16 +177,18 @@ export default function IncomeBarChart({ data: a, currency }: IncomeBarChartProp
             >
               {fmtAmount(activePoint.value)}
             </SvgText>
-            <SvgText
-              x={tooltipX + tooltipW / 2}
-              y={tooltipY + 50}
-              fill={T.bg}
-              fontSize={9}
-              fontWeight="700"
-              textAnchor="middle"
-            >
-              {`Debt payable ${fmtAmount(plannedDebtPayable)}`}
-            </SvgText>
+            {showDebtPayableLine ? (
+              <SvgText
+                x={tooltipX + tooltipW / 2}
+                y={tooltipY + 50}
+                fill={T.bg}
+                fontSize={9}
+                fontWeight="700"
+                textAnchor="middle"
+              >
+                {`Debt payable ${fmtAmount(plannedDebtPayable)}`}
+              </SvgText>
+            ) : null}
           </>
         ) : null}
       </Svg>

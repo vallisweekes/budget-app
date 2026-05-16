@@ -286,9 +286,11 @@ export const expensesStyles = StyleSheet.create({
   },
   pickerCell: {
     width: "22%",
-    height: 52,
+    minHeight: 60,
     borderRadius: 10,
     backgroundColor: T.cardAlt,
+    paddingHorizontal: 8,
+    paddingVertical: 10,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -302,6 +304,8 @@ export const expensesStyles = StyleSheet.create({
     color: T.text,
     fontSize: 13,
     fontWeight: "900",
+    lineHeight: 18,
+    textAlign: "center",
   },
   pickerCellSelectedText: {
     color: "#ffffff",
