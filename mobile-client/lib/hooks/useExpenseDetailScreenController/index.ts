@@ -57,15 +57,16 @@ export function useExpenseDetailScreenController({ route, navigation }: Props): 
     try {
       setError(null);
       const query = budgetPlanId ? `&budgetPlanId=${encodeURIComponent(budgetPlanId)}` : "";
-      const [all, settingsData] = await Promise.all([
+      const [all, expenseDetail, settingsData] = await Promise.all([
         apiFetch<Expense[]>(`/api/bff/expenses?month=${month}&year=${year}&scope=pay_period${query}`),
+        apiFetch<Expense>(`/api/bff/expenses/${encodeURIComponent(expenseId)}`, {
+          cacheTtlMs: 0,
+          skipOnUnauthorized: true,
+        }).catch(() => null),
         apiFetch<Settings>("/api/bff/settings"),
       ]);
       const list = Array.isArray(all) ? all : [];
-      const found = list.find((entry) => entry.id === expenseId) ?? await apiFetch<Expense>(`/api/bff/expenses/${encodeURIComponent(expenseId)}`, {
-        cacheTtlMs: 0,
-        skipOnUnauthorized: true,
-      }).catch(() => null);
+      const found = expenseDetail ?? list.find((entry) => entry.id === expenseId) ?? null;
       const effectiveCategoryId = found?.categoryId ?? categoryId;
       const inCategory = list.filter((entry) => entry.categoryId === effectiveCategoryId);
       setData({ expense: found, categoryExpenses: inCategory });
