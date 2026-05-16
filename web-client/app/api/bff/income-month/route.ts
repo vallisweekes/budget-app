@@ -71,6 +71,12 @@ export async function GET(req: NextRequest) {
 			// Expenses
 			plannedExpenses: analysis.plannedExpenses,
 			paidExpenses: analysis.paidExpenses,
+			expenseBreakdown: {
+				selectedPlanExpenses: analysis.expenseBreakdown.selectedPlanExpenses,
+				additionalPlansExpenses: analysis.expenseBreakdown.additionalPlansExpenses,
+				selectedPlanPreview: analysis.expenseBreakdown.selectedPlanPreview,
+				additionalPlansPreview: analysis.expenseBreakdown.additionalPlansPreview,
+			},
 
 			// Debts
 			plannedDebtPayments: analysis.plannedDebtPayments,

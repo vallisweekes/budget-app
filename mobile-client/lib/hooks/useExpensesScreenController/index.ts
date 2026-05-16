@@ -962,6 +962,13 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     payDate: effectivePayDate,
     payFrequency: effectivePayFrequency,
   });
+  const upcomingExpenseMonths = useMemo(
+    () => expenseMonths.filter((item) => (
+      item.year > defaultActiveYear
+      || (item.year === defaultActiveYear && item.month > defaultActiveMonth)
+    )),
+    [defaultActiveMonth, defaultActiveYear, expenseMonths],
+  );
   const loadingUi = (loading || bootstrapLoading) && !summary;
   const showTopAddExpenseCta = !loading && !error && (summary?.totalCount ?? 0) === 0;
   const showPlanTotalFallback = isAdditionalPlan && (summary?.totalCount ?? 0) === 0 && expenseMonths.length > 0 && planTotalAmount > 0;
@@ -1083,6 +1090,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     showTopAddExpenseCta,
     summary,
     topHeaderOffset,
+    upcomingExpenseMonths,
     year,
     closeAddSheet: () => setAddSheetOpen(false),
     closeMonthPicker: () => setMonthPickerOpen(false),

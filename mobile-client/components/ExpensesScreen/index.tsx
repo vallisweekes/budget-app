@@ -196,15 +196,13 @@ export default function ExpensesScreen({ navigation, route }: ExpensesScreenProp
                 />
               )}
 
-              {!controller.isPersonalPlan && controller.plans.length > 1 && controller.expenseMonths.length > 0 && (
+              {!controller.isPersonalPlan && controller.plans.length > 1 && controller.upcomingExpenseMonths.length > 0 && (
                 <>
                   <View style={styles.sectionHeadingWrap}>
                     <Text style={styles.sectionHeading}>Upcoming Months Expenses</Text>
                   </View>
                   <View style={styles.monthCardsWrap}>
-                    {controller.expenseMonths
-                      .filter((item) => !(item.month === controller.month && item.year === controller.year))
-                      .map((item) => (
+                    {controller.upcomingExpenseMonths.map((item) => (
                         <Pressable
                           key={`${item.year}-${item.month}`}
                           onPress={() => controller.onPressUpcomingMonth(item.month, item.year)}

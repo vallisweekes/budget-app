@@ -28,6 +28,19 @@ type Params = {
 	payFrequency?: PayFrequency | null | undefined;
 };
 
+type ExpenseTooltipPreviewItem = {
+	expenseId: string;
+	expenseName: string;
+	planId: string;
+	planName: string;
+	amount: number;
+};
+
+type ExpenseTooltipPreview = {
+	items: ExpenseTooltipPreviewItem[];
+	remainingCount: number;
+};
+
 function normalizeIncomeKey(name: unknown): string {
 	return String(name ?? "")
 		.trim()
@@ -35,17 +48,86 @@ function normalizeIncomeKey(name: unknown): string {
 		.replace(/\s+/g, " ");
 }
 
+function buildExpenseTooltipPreview(
+	expenses: Array<{ id: string; name: string; amount: unknown; budgetPlanId: string }>,
+	planNamesById: Map<string, string>
+): ExpenseTooltipPreview {
+	const sortedExpenses = [...expenses].sort((left, right) => {
+		const amountDifference = decimalToNumber(right.amount) - decimalToNumber(left.amount);
+		if (amountDifference !== 0) return amountDifference;
+		return String(left.name ?? "").localeCompare(String(right.name ?? ""));
+	});
+	const previewItems = sortedExpenses.slice(0, 2).map((expense) => ({
+		expenseId: String(expense.id ?? "").trim(),
+		expenseName: String(expense.name ?? "Expense").trim() || "Expense",
+		planId: expense.budgetPlanId,
+		planName: planNamesById.get(expense.budgetPlanId) ?? "Budget plan",
+		amount: decimalToNumber(expense.amount),
+	}));
+
+	return {
+		items: previewItems,
+		remainingCount: Math.max(0, sortedExpenses.length - previewItems.length),
+	};
+}
+
 async function getPeriodExpenseSnapshot(params: {
-	budgetPlanId: string;
+	budgetPlanIds: string[];
+	selectedBudgetPlanId: string;
+	planNamesById: Map<string, string>;
 	windowStart: Date;
 	windowEnd: Date;
 	payDate: number;
-}): Promise<{ plannedExpenses: number; paidExpenses: number; expenseIds: string[] }> {
-	const selectedExpenses = await getPayPeriodExpenses(params);
+}): Promise<{
+	plannedExpenses: number;
+	paidExpenses: number;
+	expenseIds: string[];
+	selectedPlanExpenses: number;
+	additionalPlansExpenses: number;
+	selectedPlanPreview: ExpenseTooltipPreview;
+	additionalPlansPreview: ExpenseTooltipPreview;
+}> {
+	const snapshots = await Promise.all(
+		params.budgetPlanIds.map((budgetPlanId) =>
+			getPayPeriodExpenses({
+				budgetPlanId,
+				windowStart: params.windowStart,
+				windowEnd: params.windowEnd,
+				payDate: params.payDate,
+			})
+		)
+	);
+	const perPlanSnapshots = snapshots.map((expenses, index) => ({
+		budgetPlanId: params.budgetPlanIds[index] ?? "",
+		expenses,
+	}));
+	const allPeriodExpenses = perPlanSnapshots.flatMap((snapshot) =>
+		snapshot.expenses.map((expense) => ({
+			budgetPlanId: snapshot.budgetPlanId,
+			id: String(expense.id ?? "").trim(),
+			name: String(expense.name ?? "Expense").trim() || "Expense",
+			amount: expense.amount,
+			paidAmount: expense.paidAmount,
+		}))
+	);
+	const selectedPlanExpenseRows = allPeriodExpenses.filter((expense) => expense.budgetPlanId === params.selectedBudgetPlanId);
+	const additionalPlanExpenseRows = allPeriodExpenses.filter((expense) => expense.budgetPlanId !== params.selectedBudgetPlanId);
+	const selectedPlanExpenses = perPlanSnapshots
+		.filter((snapshot) => snapshot.budgetPlanId === params.selectedBudgetPlanId)
+		.flatMap((snapshot) => snapshot.expenses)
+		.reduce((sum, expense) => sum + Number(expense.amount ?? 0), 0);
+	const additionalPlansExpenses = perPlanSnapshots
+		.filter((snapshot) => snapshot.budgetPlanId !== params.selectedBudgetPlanId)
+		.flatMap((snapshot) => snapshot.expenses)
+		.reduce((sum, expense) => sum + Number(expense.amount ?? 0), 0);
 	return {
-		plannedExpenses: selectedExpenses.reduce((sum, expense) => sum + Number(expense.amount ?? 0), 0),
-		paidExpenses: selectedExpenses.reduce((sum, expense) => sum + Number(expense.paidAmount ?? 0), 0),
-		expenseIds: selectedExpenses.map((expense) => String(expense.id ?? "").trim()).filter(Boolean),
+		plannedExpenses: allPeriodExpenses.reduce((sum, expense) => sum + Number(expense.amount ?? 0), 0),
+		paidExpenses: allPeriodExpenses.reduce((sum, expense) => sum + Number(expense.paidAmount ?? 0), 0),
+		expenseIds: allPeriodExpenses.map((expense) => expense.id).filter(Boolean),
+		selectedPlanExpenses,
+		additionalPlansExpenses,
+		selectedPlanPreview: buildExpenseTooltipPreview(selectedPlanExpenseRows, params.planNamesById),
+		additionalPlansPreview: buildExpenseTooltipPreview(additionalPlanExpenseRows, params.planNamesById),
 	};
 }
 
@@ -58,9 +140,32 @@ export async function getIncomeMonthAnalysis({ budgetPlanId, year, month, payFre
 	// Fetch payDate first so we can compute the pay-period window for period-based queries.
 	const plan = await prisma.budgetPlan.findUnique({
 		where: { id: budgetPlanId },
-		select: { payDate: true, kind: true, eventDate: true },
+		select: { payDate: true, kind: true, eventDate: true, userId: true, name: true },
 	});
 	const payDate = Number(plan?.payDate ?? 27);
+	const { expensePlanIds, expensePlanNamesById } = await (async () => {
+		if (!plan?.userId || plan.kind !== "personal") {
+			return {
+				expensePlanIds: [budgetPlanId],
+				expensePlanNamesById: new Map([[budgetPlanId, String(plan?.name ?? "My Budget").trim() || "My Budget"]]),
+			};
+		}
+
+		const ownedPlans = await prisma.budgetPlan.findMany({
+			where: { userId: plan.userId },
+			select: { id: true, name: true },
+		});
+		const ids = ownedPlans.map((ownedPlan) => ownedPlan.id).filter(Boolean);
+		return {
+			expensePlanIds: ids.length > 0 ? ids : [budgetPlanId],
+			expensePlanNamesById: new Map(
+				ownedPlans.map((ownedPlan) => [
+					ownedPlan.id,
+					String(ownedPlan.name ?? "My Budget").trim() || "My Budget",
+				])
+			),
+		};
+	})();
 	const eventScope = (() => {
 		const kind = String(plan?.kind ?? "");
 		const eventDate = plan?.eventDate instanceof Date ? plan.eventDate : null;
@@ -78,7 +183,9 @@ export async function getIncomeMonthAnalysis({ budgetPlanId, year, month, payFre
 	const periodKey = periodWindow ? getPeriodKey(periodWindow.start, payDate) : undefined;
 	const expenseSnapshotPromise = cadence === "monthly" && periodWindow
 		? getPeriodExpenseSnapshot({
-			budgetPlanId,
+			budgetPlanIds: expensePlanIds,
+			selectedBudgetPlanId: budgetPlanId,
+			planNamesById: expensePlanNamesById,
 			windowStart: periodWindow.start,
 			windowEnd: periodWindow.end,
 			payDate,
@@ -110,12 +217,20 @@ export async function getIncomeMonthAnalysis({ budgetPlanId, year, month, payFre
 
 	let plannedExpenses = 0;
 	let paidExpenses = 0;
+	let selectedPlanExpenses = 0;
+	let additionalPlansExpenses = 0;
+	let selectedPlanPreview: ExpenseTooltipPreview = { items: [], remainingCount: 0 };
+	let additionalPlansPreview: ExpenseTooltipPreview = { items: [], remainingCount: 0 };
 	let paidExpensesFromIncome = 0;
 	let periodPaidDebtFromIncome: number | null = null;
 	let periodPaidDebtAllSources: number | null = null;
 	if (cadence === "monthly") {
 		plannedExpenses = expenseSnapshot?.plannedExpenses ?? 0;
 		paidExpenses = expenseSnapshot?.paidExpenses ?? 0;
+		selectedPlanExpenses = expenseSnapshot?.selectedPlanExpenses ?? 0;
+		additionalPlansExpenses = expenseSnapshot?.additionalPlansExpenses ?? 0;
+		selectedPlanPreview = expenseSnapshot?.selectedPlanPreview ?? selectedPlanPreview;
+		additionalPlansPreview = expenseSnapshot?.additionalPlansPreview ?? additionalPlansPreview;
 
 		// Paid expenses: get ALL income-sourced payments for this period's expenses,
 		// regardless of when the payment was made. If the user paid a bill early
@@ -138,8 +253,11 @@ export async function getIncomeMonthAnalysis({ budgetPlanId, year, month, payFre
 		periodPaidDebtFromIncome = debtPlan.paidDebtPaymentsFromIncome;
 	} else {
 		const expenseRows = await prisma.expense.findMany({
-			where: { budgetPlanId, year, month, isAllocation: false, isMovedToDebt: false },
+			where: { budgetPlanId: { in: expensePlanIds }, year, month, isAllocation: false, isMovedToDebt: false },
 			select: {
+				id: true,
+				name: true,
+				budgetPlanId: true,
 				amount: true,
 				paidAmount: true,
 				isExtraLoggedExpense: true,
@@ -149,6 +267,20 @@ export async function getIncomeMonthAnalysis({ budgetPlanId, year, month, payFre
 		const includedExpenseRows = expenseRows.filter((expense) => includeInPlannedExpenseTotals(expense));
 		plannedExpenses = includedExpenseRows.reduce((sum, expense) => sum + decimalToNumber(expense.amount), 0);
 		paidExpenses = includedExpenseRows.reduce((sum, expense) => sum + decimalToNumber(expense.paidAmount), 0);
+		selectedPlanExpenses = includedExpenseRows
+			.filter((expense) => expense.budgetPlanId === budgetPlanId)
+			.reduce((sum, expense) => sum + decimalToNumber(expense.amount), 0);
+		additionalPlansExpenses = includedExpenseRows
+			.filter((expense) => expense.budgetPlanId !== budgetPlanId)
+			.reduce((sum, expense) => sum + decimalToNumber(expense.amount), 0);
+		selectedPlanPreview = buildExpenseTooltipPreview(
+			includedExpenseRows.filter((expense) => expense.budgetPlanId === budgetPlanId),
+			expensePlanNamesById
+		);
+		additionalPlansPreview = buildExpenseTooltipPreview(
+			includedExpenseRows.filter((expense) => expense.budgetPlanId !== budgetPlanId),
+			expensePlanNamesById
+		);
 		paidExpensesFromIncome = paidExpenses;
 	}
 
@@ -185,6 +317,12 @@ export async function getIncomeMonthAnalysis({ budgetPlanId, year, month, payFre
 		sourceCount: incomeItems.length,
 		plannedExpenses,
 		paidExpenses,
+		expenseBreakdown: {
+			selectedPlanExpenses,
+			additionalPlansExpenses,
+			selectedPlanPreview,
+			additionalPlansPreview,
+		},
 		plannedDebtPayments,
 		paidDebtPaymentsFromIncome,
 		monthlyAllowance,

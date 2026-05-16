@@ -681,6 +681,30 @@ export interface IncomeMonthData {
   // Expenses
   plannedExpenses: number;
   paidExpenses: number;
+  expenseBreakdown?: {
+    selectedPlanExpenses: number;
+    additionalPlansExpenses: number;
+    selectedPlanPreview: {
+      items: Array<{
+        expenseId: string;
+        expenseName: string;
+        planId: string;
+        planName: string;
+        amount: number;
+      }>;
+      remainingCount: number;
+    };
+    additionalPlansPreview: {
+      items: Array<{
+        expenseId: string;
+        expenseName: string;
+        planId: string;
+        planName: string;
+        amount: number;
+      }>;
+      remainingCount: number;
+    };
+  };
 
   // Debts
   plannedDebtPayments: number;

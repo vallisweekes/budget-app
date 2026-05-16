@@ -36,6 +36,7 @@ export type ExpensesScreenControllerState = {
   showTopAddExpenseCta: boolean;
   summary: ExpenseSummary | null;
   topHeaderOffset: number;
+  upcomingExpenseMonths: ExpenseMonthsResponse["months"];
   year: number;
   closeAddSheet: () => void;
   closeMonthPicker: () => void;
