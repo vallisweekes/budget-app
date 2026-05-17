@@ -162,6 +162,10 @@ export const styles = StyleSheet.create({
     gap: 10,
     justifyContent: "space-between",
   },
+  legendCardPressed: {
+    transform: [{ scale: 0.985 }],
+    opacity: 0.92,
+  },
   legendCardMuted: {
     opacity: 0.7,
   },

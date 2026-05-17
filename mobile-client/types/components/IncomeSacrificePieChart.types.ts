@@ -9,4 +9,5 @@ export type IncomeSacrificePieChartProps = {
   currency: string;
   slices: IncomeSacrificePieChartSlice[];
   centerTitle: string;
+  onSlicePress?: (key: string) => void;
 };

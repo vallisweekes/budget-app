@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, ActivityIndicator, Animated, FlatList, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
+import { Alert, ActivityIndicator, Animated, FlatList, Platform, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { styles } from "./styles";
 
@@ -12,6 +13,7 @@ import { s } from "@/components/IncomeMonthScreen/style";
 import IncomeSacrificePieChart from "@/components/Income/IncomeSacrificePieChart";
 import type {
   AmountEntryMode,
+  GlassEffectModule,
   IncomeMonthSacrificeListProps,
   IncomeSacrificeItemType,
   SacrificePeriod,
@@ -68,10 +70,30 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
   const [linkTargetKey, setLinkTargetKey] = useState("");
   const [linkGoalId, setLinkGoalId] = useState<string>("");
   const [activeTipIndex, setActiveTipIndex] = useState(0);
+  const [mainFooterBlurActive, setMainFooterBlurActive] = useState(false);
+  const [manageFooterBlurActive, setManageFooterBlurActive] = useState(false);
   const canManage = props.canManage ?? true;
   const isMonthlyCadence = props.payFrequency === "monthly";
   const chooserIntro = useRef(new Animated.Value(0)).current;
   const detailIntro = useRef(new Animated.Value(0)).current;
+  const footerBackdropOpacity = useRef(new Animated.Value(0)).current;
+  const glassEffectModule = useMemo<GlassEffectModule | null>(() => {
+    if (Platform.OS !== "ios") return null;
+    try {
+      return require("expo-glass-effect") as GlassEffectModule;
+    } catch {
+      return null;
+    }
+  }, []);
+  const liquidGlassEnabled = useMemo(() => {
+    if (!glassEffectModule) return false;
+    try {
+      return glassEffectModule.isLiquidGlassAvailable();
+    } catch {
+      return false;
+    }
+  }, [glassEffectModule]);
+  const GlassView = glassEffectModule?.GlassView;
 
   useEffect(() => {
     props.onManageFlowActiveChange?.(Boolean(manageScreen));
@@ -103,6 +125,16 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
       useNativeDriver: true,
     }).start();
   }, [detailIntro, manageScreen]);
+
+  useEffect(() => {
+    const shouldShowBackdrop = manageScreen ? manageFooterBlurActive : mainFooterBlurActive;
+
+    Animated.timing(footerBackdropOpacity, {
+      toValue: shouldShowBackdrop ? 1 : 0,
+      duration: 180,
+      useNativeDriver: true,
+    }).start();
+  }, [footerBackdropOpacity, mainFooterBlurActive, manageFooterBlurActive, manageScreen]);
 
   const targets = useMemo<TargetOption[]>(() => {
     const fixed = props.sacrifice?.fixed;
@@ -446,6 +478,60 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
     [period, periodOptions],
   );
 
+  const renderFooterButton = useCallback(({
+    label,
+    onPress,
+    disabled,
+    accent,
+  }: {
+    label: string;
+    onPress?: (() => void) | null;
+    disabled?: boolean;
+    accent?: boolean;
+  }) => {
+    const isDisabled = Boolean(disabled || !onPress);
+
+    return (
+      <Pressable
+        style={({ pressed }) => [
+          styles.mainFooterBtn,
+          accent && styles.mainFooterBtnAccent,
+          pressed && styles.mainFooterBtnPressed,
+          isDisabled && styles.disabled,
+        ]}
+        onPress={onPress ?? undefined}
+        disabled={isDisabled}
+      >
+        <BlurView
+          intensity={accent ? 42 : 34}
+          tint={accent ? "dark" : "systemChromeMaterialLight"}
+          style={[styles.mainFooterBtnBlur, accent && styles.mainFooterBtnBlurAccent]}
+        >
+          {liquidGlassEnabled && GlassView ? (
+            <GlassView
+              pointerEvents="none"
+              glassEffectStyle="regular"
+              tintColor="rgba(255,255,255,0)"
+              style={styles.mainFooterBtnGlass}
+            />
+          ) : null}
+          <View style={[styles.mainFooterBtnInner, accent && styles.mainFooterBtnInnerAccent]} />
+          <Text style={[styles.mainFooterBtnText, accent && styles.mainFooterBtnTextAccent]}>{label}</Text>
+        </BlurView>
+      </Pressable>
+    );
+  }, [GlassView, liquidGlassEnabled]);
+
+  const handleMainScroll = useCallback((event: { nativeEvent: { contentOffset: { y: number } } }) => {
+    const nextVisible = event.nativeEvent.contentOffset.y > 8;
+    setMainFooterBlurActive((current) => (current === nextVisible ? current : nextVisible));
+  }, []);
+
+  const handleManageScroll = useCallback((event: { nativeEvent: { contentOffset: { y: number } } }) => {
+    const nextVisible = event.nativeEvent.contentOffset.y > 8;
+    setManageFooterBlurActive((current) => (current === nextVisible ? current : nextVisible));
+  }, []);
+
   const openManageFlow = () => {
     if (!canManage) return;
     const initialTargetKey = targets[0]?.key ?? "monthlySavingsContribution";
@@ -467,6 +553,37 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
     setIsInlineAmountEditing(false);
     setManageScreen("detail");
   };
+
+  const handleOverviewSlicePress = useCallback((sliceKey: string) => {
+    if (!canManage) return;
+
+    if (sliceKey === "allowance") {
+      openTargetEditor("monthlyAllowance");
+      return;
+    }
+
+    if (sliceKey === "savings") {
+      openTargetEditor("monthlySavingsContribution");
+      return;
+    }
+
+    if (sliceKey === "emergency") {
+      openTargetEditor("monthlyEmergencyContribution");
+      return;
+    }
+
+    if (sliceKey === "investments") {
+      openTargetEditor("monthlyInvestmentContribution");
+      return;
+    }
+
+    if (sliceKey === "custom" && customTargetCards.length === 1) {
+      openTargetEditor(customTargetCards[0]!.key);
+      return;
+    }
+
+    openManageFlow();
+  }, [canManage, customTargetCards, openManageFlow, openTargetEditor]);
 
   const goBackFromManageScreen = () => {
     setIsInlineAmountEditing(false);
@@ -947,16 +1064,22 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
       return (
         <View style={styles.manageFooterRow}>
           <View style={styles.manageFooterLeftGroup}>
-            <Pressable style={[styles.mainFooterBtn, styles.mainFooterBtnAccent, props.sacrificeSaving && styles.disabled]} onPress={submitAmountSheet} disabled={props.sacrificeSaving}>
-              <Text style={[styles.mainFooterBtnText, styles.mainFooterBtnTextAccent]}>{props.sacrificeSaving ? "Saving" : "Save"}</Text>
-            </Pressable>
-            <Pressable style={styles.mainFooterBtn} onPress={toggleInlineAmountEdit}>
-              <Text style={styles.mainFooterBtnText}>{isInlineAmountEditing ? "Cancel" : "Edit"}</Text>
-            </Pressable>
+            {renderFooterButton({
+              label: props.sacrificeSaving ? "Saving" : "Save",
+              onPress: submitAmountSheet,
+              disabled: props.sacrificeSaving,
+              accent: true,
+            })}
+            {renderFooterButton({
+              label: isInlineAmountEditing ? "Cancel" : "Edit",
+              onPress: toggleInlineAmountEdit,
+            })}
           </View>
-          <Pressable style={[styles.mainFooterBtn, props.goalLinkSaving && styles.disabled]} onPress={openSelectedTargetLinkScreen} disabled={props.goalLinkSaving}>
-            <Text style={styles.mainFooterBtnText}>Link</Text>
-          </Pressable>
+          {renderFooterButton({
+            label: "Link",
+            onPress: openSelectedTargetLinkScreen,
+            disabled: props.goalLinkSaving,
+          })}
         </View>
       );
     }
@@ -1008,6 +1131,8 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
 
         <ScrollView
           style={[styles.manageScroll, manageScreen === "detail" && styles.manageScrollDetail]}
+          onScroll={handleManageScroll}
+          scrollEventThrottle={16}
           showsVerticalScrollIndicator={false}
           bounces={false}
           contentContainerStyle={[
@@ -1020,6 +1145,10 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
         </ScrollView>
 
         <View style={[styles.fixedFooter, { paddingBottom: Math.max(insets.bottom, 14) }]}> 
+          <Animated.View pointerEvents="none" style={[styles.fixedFooterBackdrop, { opacity: footerBackdropOpacity }]}> 
+            <BlurView intensity={26} tint="dark" style={styles.fixedFooterBackdropBlur} />
+            <View style={styles.fixedFooterBackdropTint} />
+          </Animated.View>
           {renderManageFooter()}
         </View>
       </View>
@@ -1033,6 +1162,8 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
           data={[]}
           keyExtractor={(_, idx) => String(idx)}
           style={styles.mainList}
+          onScroll={handleMainScroll}
+          scrollEventThrottle={16}
           bounces={false}
           contentContainerStyle={[s.scroll, { paddingTop: props.topInset ?? 0, paddingBottom: canManage ? 72 + insets.bottom : 40 }]}
           refreshControl={<RefreshControl refreshing={props.refreshing} onRefresh={props.onRefresh} tintColor={T.accent} />}
@@ -1046,6 +1177,7 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
                 currency={props.currency}
                 slices={pieSlices}
                 centerTitle={`${MONTH_NAMES_LONG[props.month - 1]} sacrifice`}
+                onSlicePress={canManage ? handleOverviewSlicePress : undefined}
               />
 
               {activeSacrificeTip ? (
@@ -1096,25 +1228,28 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
 
       {canManage ? (
         <View style={[styles.fixedFooter, { paddingBottom: Math.max(insets.bottom, 14) }]}> 
+          <Animated.View pointerEvents="none" style={[styles.fixedFooterBackdrop, { opacity: footerBackdropOpacity }]}> 
+            <BlurView intensity={26} tint="dark" style={styles.fixedFooterBackdropBlur} />
+            <View style={styles.fixedFooterBackdropTint} />
+          </Animated.View>
           <View style={styles.mainFooterRow}>
-            <Pressable style={[styles.mainFooterBtn, props.sacrificeSaving && styles.disabled]} onPress={openManageFlow} disabled={props.sacrificeSaving}>
-              <Text style={styles.mainFooterBtnText}>Edit</Text>
-            </Pressable>
+            {renderFooterButton({
+              label: "Edit",
+              onPress: openManageFlow,
+              disabled: props.sacrificeSaving,
+            })}
             <View style={styles.mainFooterRightGroup}>
-              <Pressable
-                style={styles.mainFooterBtn}
-                onPress={props.onGoToCurrentPeriod}
-                disabled={!props.onGoToCurrentPeriod}
-              >
-                <Text style={styles.mainFooterBtnText}>Current</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.mainFooterBtn, styles.mainFooterBtnAccent]}
-                onPress={props.onGoToNextPeriod}
-                disabled={!props.onGoToNextPeriod}
-              >
-                <Text style={[styles.mainFooterBtnText, styles.mainFooterBtnTextAccent]}>Next</Text>
-              </Pressable>
+              {renderFooterButton({
+                label: "Current",
+                onPress: props.onGoToCurrentPeriod,
+                disabled: !props.onGoToCurrentPeriod,
+              })}
+              {renderFooterButton({
+                label: "Next",
+                onPress: props.onGoToNextPeriod,
+                disabled: !props.onGoToNextPeriod,
+                accent: true,
+              })}
             </View>
           </View>
         </View>

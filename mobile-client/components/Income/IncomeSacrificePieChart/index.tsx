@@ -1,10 +1,9 @@
 import React, { useMemo } from "react";
-import { Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 import { styles } from "./styles";
 
 import { fmt } from "@/lib/formatting";
-import { T } from "@/lib/theme";
 import type { IncomeSacrificePieChartProps } from "@/types";
 
 const SIZE = 210;
@@ -27,7 +26,7 @@ function arcPath(cx: number, cy: number, r: number, startDeg: number, endDeg: nu
   return `M ${start.x} ${start.y} A ${r} ${r} 0 ${largeArcFlag} 0 ${end.x} ${end.y}`;
 }
 
-export default function IncomeSacrificePieChart({ currency, slices, centerTitle }: IncomeSacrificePieChartProps) {
+export default function IncomeSacrificePieChart({ currency, slices, centerTitle, onSlicePress }: IncomeSacrificePieChartProps) {
   const positiveSlices = useMemo(
     () => slices.filter((slice) => Number(slice.value) > 0),
     [slices],
@@ -73,7 +72,6 @@ export default function IncomeSacrificePieChart({ currency, slices, centerTitle 
           <Text style={styles.heroBadgeText}>Sacrifice split</Text>
         </View>
         <Text style={styles.heroTitle}>{centerTitle}</Text>
-        <Text style={styles.heroSubtitle}>A premium view of how this period is being allocated.</Text>
 
         <View style={styles.chartShell}>
           <View style={styles.chartHalo} />
@@ -124,7 +122,16 @@ export default function IncomeSacrificePieChart({ currency, slices, centerTitle 
 
       <View style={styles.legend}>
         {slices.map((slice) => (
-          <View key={slice.key} style={[styles.legendCard, Number(slice.value) <= 0 && styles.legendCardMuted]}>
+          <Pressable
+            key={slice.key}
+            disabled={!onSlicePress}
+            onPress={() => onSlicePress?.(slice.key)}
+            style={({ pressed }) => [
+              styles.legendCard,
+              Number(slice.value) <= 0 && styles.legendCardMuted,
+              pressed && onSlicePress ? styles.legendCardPressed : null,
+            ]}
+          >
             <View style={styles.legendTopRow}>
               <View style={styles.legendLabelWrap}>
                 <View style={[styles.dot, { backgroundColor: slice.color }]} />
@@ -146,7 +153,7 @@ export default function IncomeSacrificePieChart({ currency, slices, centerTitle 
                 ]}
               />
             </View>
-          </View>
+          </Pressable>
         ))}
       </View>
     </View>
