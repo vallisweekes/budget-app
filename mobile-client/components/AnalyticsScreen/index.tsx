@@ -43,13 +43,11 @@ export default function AnalyticsScreen() {
 		<SafeAreaView style={s.safe} edges={[]}>
       <View style={s.screenShell}>
         <View pointerEvents="none" style={s.screenGlowPrimary} />
-        <View pointerEvents="none" style={s.screenGlowSecondary} />
         <ScrollView
           contentContainerStyle={[s.scroll, { paddingTop: controller.topHeaderOffset }]}
           refreshControl={<RefreshControl refreshing={controller.refreshing} onRefresh={controller.onRefresh} tintColor={T.accent} />}
           showsVerticalScrollIndicator={false}
         >
-          <AnalyticsInsightGrid rows={controller.insightRows} />
           <AnalyticsOverviewCard
             chartData={controller.chartData}
             chartSpacing={controller.chartSpacing}
@@ -63,6 +61,7 @@ export default function AnalyticsScreen() {
             overviewMode={controller.overviewMode}
             overviewWrapWidth={controller.overviewWrapWidth}
           />
+          <AnalyticsInsightGrid rows={controller.insightRows} />
           <AnalyticsTipsCard tips={controller.topTips} />
           <AnalyticsDebtDistributionCard
             currency={controller.currency}

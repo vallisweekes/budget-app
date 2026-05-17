@@ -35,7 +35,7 @@ export default function AnalyticsOverviewCard({
 }: AnalyticsOverviewCardProps) {
   const incomeColor = "#4da2ff";
   const expenseColor = "#ff5ca8";
-  const chartRenderWidth = Math.max(220, chartWidth - 14);
+  const chartRenderWidth = Math.max(240, chartWidth - 2);
   const chartRenderSpacing = React.useMemo(() => {
     if (overviewMode !== "year") return chartSpacing;
     const points = Math.max(2, chartData.labels.length);
@@ -50,19 +50,17 @@ export default function AnalyticsOverviewCard({
   }, [overviewMaxValue]);
 
   return (
-    <View style={s.tipCard}>
-      <View style={[s.sectionGlow, s.overviewGlowPrimary]} />
-      <View style={[s.sectionGlow, s.overviewGlowSecondary]} />
-      <View style={s.overviewHead}>
+    <View style={s.overviewHero}>
+      <View style={s.overviewHeroHead}>
         <View>
           <Text style={s.sectionEyebrow}>Cashflow intelligence</Text>
-          <Text style={s.tipTitle}>Overview</Text>
+          <Text style={s.overviewHeroTitle}>Overview</Text>
         </View>
         <Text style={s.overviewModeBadge}>{overviewMode === "year" ? "Yearly view" : `${currentMonthLabel} snapshot`}</Text>
       </View>
 
       <View
-        style={s.overviewChartWrap}
+        style={s.overviewFlatChartWrap}
         onLayout={(event) => {
           const width = event.nativeEvent.layout.width;
           if (width > 0 && Math.abs(width - overviewWrapWidth) > 1) {
@@ -92,7 +90,7 @@ export default function AnalyticsOverviewCard({
           spacing={chartRenderSpacing}
           noOfSections={5}
           maxValue={overviewMaxValue}
-          yAxisLabelWidth={24}
+          yAxisLabelWidth={2}
           yAxisColor="transparent"
           xAxisColor={T.border}
           yAxisTextStyle={[s.chartAxisText, { color: "transparent" }]}
@@ -135,7 +133,7 @@ export default function AnalyticsOverviewCard({
         />
       </View>
 
-      <View style={s.legendRow}>
+      <View style={s.overviewLegendRow}>
         <View style={s.legendItem}>
           <View style={[s.legendDot, { backgroundColor: incomeColor }]} />
           <Text style={s.legendText}>Income</Text>

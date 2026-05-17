@@ -197,10 +197,10 @@ export function useAnalyticsScreenController(
     })),
     [chartData.expenseSeries, chartData.labels, chartData.rawLabels],
   );
-  const fallbackOverviewWidth = useMemo(() => Math.max(240, windowWidth - 76), [windowWidth]);
+  const fallbackOverviewWidth = useMemo(() => Math.max(260, windowWidth - 48), [windowWidth]);
   const chartWidth = useMemo(() => {
     const base = overviewWrapWidth > 0 ? overviewWrapWidth : fallbackOverviewWidth;
-    return Math.max(220, base - 8);
+    return Math.max(240, base);
   }, [fallbackOverviewWidth, overviewWrapWidth]);
   const chartSpacing = useMemo(() => {
     if (overviewMode !== "year") return Math.max(120, Math.round((chartWidth - 28) / 2));
