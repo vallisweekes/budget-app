@@ -1268,7 +1268,7 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
 
     return (
       <Pressable style={[styles.addPillButton, props.sacrificeCreating && styles.disabled]} onPress={openAddItemScreen} disabled={props.sacrificeCreating}>
-        <Ionicons name="add" size={14} color={T.text} />
+        <Ionicons name="add" size={14} color="#0f282f" />
         <Text style={styles.addPillButtonText}>Add</Text>
       </Pressable>
     );
