@@ -57,45 +57,95 @@ export default function IncomeSacrificePieChart({ currency, slices, centerTitle 
     });
   }, [positiveSlices, total]);
 
+  const dominantSlice = useMemo(() => {
+    return positiveSlices.reduce<typeof positiveSlices[number] | null>((largest, slice) => {
+      if (!largest || Number(slice.value) > Number(largest.value)) return slice;
+      return largest;
+    }, null);
+  }, [positiveSlices]);
+
   return (
     <View style={styles.wrap}>
-      <View style={styles.chartWrap}>
-        <Svg width={SIZE} height={SIZE}>
-          <Circle cx={C} cy={C} r={R} stroke={T.cardAlt} strokeWidth={STROKE} fill="none" />
-          {positiveSlices.length === 1 ? (
-            <Circle
-              cx={C}
-              cy={C}
-              r={R}
-              stroke={positiveSlices[0]!.color}
-              strokeWidth={STROKE}
-              fill="none"
-              strokeLinecap="round"
-            />
-          ) : null}
-          {arcs.map((arc) => (
-            <Path
-              key={arc.key}
-              d={arc.path}
-              stroke={arc.color}
-              strokeWidth={STROKE}
-              strokeLinecap="round"
-              fill="none"
-            />
-          ))}
-        </Svg>
-        <View style={styles.centerLabel} pointerEvents="none">
-          <Text style={styles.centerTitle}>{centerTitle}</Text>
-          <Text style={styles.centerValue}>{fmt(total, currency)}</Text>
+      <View style={styles.heroCard}>
+        <View style={[styles.heroGlow, styles.heroGlowPrimary]} />
+        <View style={[styles.heroGlow, styles.heroGlowSecondary]} />
+        <View style={styles.heroBadge}>
+          <Text style={styles.heroBadgeText}>Sacrifice split</Text>
+        </View>
+        <Text style={styles.heroTitle}>{centerTitle}</Text>
+        <Text style={styles.heroSubtitle}>A premium view of how this period is being allocated.</Text>
+
+        <View style={styles.chartShell}>
+          <View style={styles.chartHalo} />
+          <View style={styles.chartWrap}>
+            <Svg width={SIZE} height={SIZE}>
+              <Circle cx={C} cy={C} r={R} stroke="rgba(255,255,255,0.07)" strokeWidth={STROKE} fill="none" />
+              {positiveSlices.length === 1 ? (
+                <Circle
+                  cx={C}
+                  cy={C}
+                  r={R}
+                  stroke={positiveSlices[0]!.color}
+                  strokeWidth={STROKE}
+                  fill="none"
+                  strokeLinecap="round"
+                />
+              ) : null}
+              {arcs.map((arc) => (
+                <Path
+                  key={arc.key}
+                  d={arc.path}
+                  stroke={arc.color}
+                  strokeWidth={STROKE}
+                  strokeLinecap="round"
+                  fill="none"
+                />
+              ))}
+            </Svg>
+            <View style={styles.centerLabel} pointerEvents="none">
+              <Text style={styles.centerEyebrow}>This period</Text>
+              <Text style={styles.centerTitle}>{centerTitle}</Text>
+              <Text style={styles.centerValue}>{fmt(total, currency)}</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.heroStatsRow}>
+          <View style={styles.heroStatCard}>
+            <Text style={styles.heroStatLabel}>Active pots</Text>
+            <Text style={styles.heroStatValue}>{positiveSlices.length}</Text>
+          </View>
+          <View style={styles.heroStatCard}>
+            <Text style={styles.heroStatLabel}>Largest share</Text>
+            <Text style={styles.heroStatValue}>{dominantSlice?.label ?? "None"}</Text>
+          </View>
         </View>
       </View>
 
       <View style={styles.legend}>
         {slices.map((slice) => (
-          <View key={slice.key} style={styles.legendRow}>
-            <View style={[styles.dot, { backgroundColor: slice.color }]} />
-            <Text style={styles.legendLabel}>{slice.label}</Text>
-            <Text style={styles.legendValue}>{fmt(Number(slice.value), currency)}</Text>
+          <View key={slice.key} style={[styles.legendCard, Number(slice.value) <= 0 && styles.legendCardMuted]}>
+            <View style={styles.legendTopRow}>
+              <View style={styles.legendLabelWrap}>
+                <View style={[styles.dot, { backgroundColor: slice.color }]} />
+                <Text style={styles.legendLabel}>{slice.label}</Text>
+              </View>
+              <View style={styles.legendValueWrap}>
+                <Text style={styles.legendPct}>{total > 0 ? `${Math.round((Number(slice.value) / total) * 100)}%` : "0%"}</Text>
+                <Text style={styles.legendValue}>{fmt(Number(slice.value), currency)}</Text>
+              </View>
+            </View>
+            <View style={styles.legendBarBg}>
+              <View
+                style={[
+                  styles.legendBarFill,
+                  {
+                    backgroundColor: slice.color,
+                    width: `${total > 0 && Number(slice.value) > 0 ? Math.max((Number(slice.value) / total) * 100, 4) : 0}%` as `${number}%`,
+                  },
+                ]}
+              />
+            </View>
           </View>
         ))}
       </View>
