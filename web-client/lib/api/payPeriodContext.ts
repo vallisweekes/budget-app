@@ -29,21 +29,54 @@ export async function resolveUserPayPeriodContext(params: {
   window: { start: Date; end: Date };
 }> {
   const { userId, budgetPlanId } = params;
+  const { userId: ownerUserId, payDate, payFrequency, window } = await resolveBudgetPlanPayPeriodContext({
+    budgetPlanId,
+    now: params.now,
+  });
 
-  const latestDate = (...dates: Array<Date | null | undefined>): Date | null => {
-    const valid = dates.filter((date): date is Date => date instanceof Date && !Number.isNaN(date.getTime()));
-    if (valid.length === 0) return null;
-    return valid.reduce((latest, current) => (current.getTime() > latest.getTime() ? current : latest));
-  };
-
-  const [plan, profile] = await Promise.all([
-    prisma.budgetPlan.findUnique({ where: { id: budgetPlanId }, select: { payDate: true, userId: true, createdAt: true } }),
-    prisma.userOnboardingProfile.findUnique({ where: { userId }, select: { payFrequency: true, completedAt: true, updatedAt: true, status: true } }).catch(() => null),
-  ]);
-
-  if (!plan || plan.userId !== userId) {
+  if (ownerUserId !== userId) {
     throw new Error("Budget plan not found");
   }
+
+  const fallbackAnchor = getPayPeriodAnchorFromWindow({ window, payFrequency });
+  const fallbackMonth = fallbackAnchor.anchorMonth;
+  const fallbackYear = fallbackAnchor.anchorYear;
+
+  const month = parseMonth(params.requestedMonth) ?? fallbackMonth;
+  const year = parseYear(params.requestedYear) ?? fallbackYear;
+
+  return { month, year, payDate, payFrequency, window };
+}
+
+function latestDate(...dates: Array<Date | null | undefined>): Date | null {
+  const valid = dates.filter((date): date is Date => date instanceof Date && !Number.isNaN(date.getTime()));
+  if (valid.length === 0) return null;
+  return valid.reduce((latest, current) => (current.getTime() > latest.getTime() ? current : latest));
+}
+
+export async function resolveBudgetPlanPayPeriodContext(params: {
+  budgetPlanId: string;
+  now?: Date;
+}): Promise<{
+  userId: string;
+  payDate: number;
+  payFrequency: PayFrequency;
+  window: { start: Date; end: Date };
+  effectiveStartAt: Date | null;
+}> {
+  const plan = await prisma.budgetPlan.findUnique({
+    where: { id: params.budgetPlanId },
+    select: { payDate: true, userId: true, createdAt: true },
+  });
+
+  if (!plan) {
+    throw new Error("Budget plan not found");
+  }
+
+  const profile = await prisma.userOnboardingProfile.findUnique({
+    where: { userId: plan.userId },
+    select: { payFrequency: true, completedAt: true, updatedAt: true, status: true },
+  }).catch(() => null);
 
   const payDateRaw = Number(plan.payDate ?? 27);
   const payDate = Number.isFinite(payDateRaw) && payDateRaw >= 1 ? Math.floor(payDateRaw) : 27;
@@ -53,15 +86,13 @@ export async function resolveUserPayPeriodContext(params: {
     profile?.completedAt ?? null,
     profile?.status === "completed" ? profile?.updatedAt ?? null : null,
   );
-
   const now = params.now ?? new Date();
-  const window = resolveActivePayPeriodWindow({ now, payDate, payFrequency, planCreatedAt: effectiveStartAt });
-  const fallbackAnchor = getPayPeriodAnchorFromWindow({ window, payFrequency });
-  const fallbackMonth = fallbackAnchor.anchorMonth;
-  const fallbackYear = fallbackAnchor.anchorYear;
 
-  const month = parseMonth(params.requestedMonth) ?? fallbackMonth;
-  const year = parseYear(params.requestedYear) ?? fallbackYear;
-
-  return { month, year, payDate, payFrequency, window };
+  return {
+    userId: plan.userId,
+    payDate,
+    payFrequency,
+    window: resolveActivePayPeriodWindow({ now, payDate, payFrequency, planCreatedAt: effectiveStartAt }),
+    effectiveStartAt,
+  };
 }

@@ -7,6 +7,7 @@ import { updateDebt, getDebtById } from "@/lib/debts/store";
 import { getMonthlyAllocationSnapshot } from "@/lib/allocations/store";
 import { monthNumberToKey } from "@/lib/helpers/monthKey";
 import { createPot } from "@/lib/pots/store";
+import { resolveBudgetPlanPayPeriodContext } from "@/lib/api/payPeriodContext";
 
 function requireBudgetPlanId(formData: FormData): string {
   const raw = formData.get("budgetPlanId");
@@ -15,35 +16,15 @@ function requireBudgetPlanId(formData: FormData): string {
   return budgetPlanId;
 }
 
-// Helper to get the pay period for a given date
-function getPayPeriod(date: Date, payDate: number): { start: Date; end: Date; periodMonth: string } {
-  const currentDay = date.getDate();
-  const currentMonth = date.getMonth();
-  const currentYear = date.getFullYear();
-  
-  let periodStartMonth: number;
-  let periodStartYear: number;
-  
-  if (currentDay >= payDate) {
-    // We're after the pay date this month, so period started this month
-    periodStartMonth = currentMonth;
-    periodStartYear = currentYear;
-  } else {
-    // We're before the pay date this month, so period started last month
-    periodStartMonth = currentMonth - 1;
-    periodStartYear = currentYear;
-    if (periodStartMonth < 0) {
-      periodStartMonth = 11;
-      periodStartYear--;
-    }
-  }
-  
-  const start = new Date(periodStartYear, periodStartMonth, payDate);
-  const end = new Date(periodStartYear, periodStartMonth + 1, payDate - 1);
-  
-  const monthNames = ["JANUARY", "FEBURARY", "MARCH", "APRIL", "MAY", "JUNE", "JULY", "AUGUST ", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"];
-  const periodMonth = monthNames[periodStartMonth];
-  
+function toInclusivePeriodWindow(window: { start: Date; end: Date }): { start: Date; end: Date; periodMonth: string } {
+  const start = new Date(window.start.getTime());
+  start.setUTCHours(0, 0, 0, 0);
+
+  const end = new Date(window.end.getTime());
+  end.setUTCHours(23, 59, 59, 999);
+
+  const periodMonth = start.toLocaleString("en-GB", { month: "long", timeZone: "UTC" }).toUpperCase();
+
   return { start, end, periodMonth };
 }
 
@@ -63,6 +44,7 @@ export async function addSpendingAction(formData: FormData) {
 
   const settings = await getSettings(budgetPlanId);
   const now = new Date();
+  const payPeriodContext = await resolveBudgetPlanPayPeriodContext({ budgetPlanId, now });
 
   let potId: string | undefined = potIdRaw || undefined;
   if (source === "allowance") {
@@ -78,10 +60,10 @@ export async function addSpendingAction(formData: FormData) {
 
   // Handle allowance tracking by pay period
   if (source === "allowance") {
-    const payPeriod = getPayPeriod(now, settings.payDate);
-    const allocationMonthKey = monthNumberToKey(payPeriod.start.getMonth() + 1);
+    const payPeriod = toInclusivePeriodWindow(payPeriodContext.window);
+    const allocationMonthKey = monthNumberToKey(payPeriod.start.getUTCMonth() + 1);
     const allocation = await getMonthlyAllocationSnapshot(budgetPlanId, allocationMonthKey, {
-		year: payPeriod.start.getFullYear(),
+		year: payPeriod.start.getUTCFullYear(),
 	});
     const monthlyAllowance = allocation.monthlyAllowance || settings.monthlyAllowance || 0;
     
@@ -99,7 +81,7 @@ export async function addSpendingAction(formData: FormData) {
     if (amount > remainingAllowance) {
       return { 
         error: "Warning",
-        message: `You are spending £${amount.toFixed(2)} but only have £${remainingAllowance.toFixed(2)} remaining in your current allowance period (£${monthlyAllowance} total, period: ${payPeriod.periodMonth} ${payPeriod.start.getDate()} - ${payPeriod.end.toLocaleString('default', { month: 'long' })} ${payPeriod.end.getDate()}). You will exceed your allowance by £${(amount - remainingAllowance).toFixed(2)}.`
+        message: `You are spending £${amount.toFixed(2)} but only have £${remainingAllowance.toFixed(2)} remaining in your current allowance period (£${monthlyAllowance} total, period: ${payPeriod.periodMonth} ${payPeriod.start.getUTCDate()} - ${payPeriod.end.toLocaleString("en-GB", { month: "long", timeZone: "UTC" })} ${payPeriod.end.getUTCDate()}). You will exceed your allowance by £${(amount - remainingAllowance).toFixed(2)}.`
       };
     }
   }
@@ -166,10 +148,11 @@ export async function getAllowanceStats(month: string, budgetPlanId: string) {
       ? new Date(parsedYear, Math.max(0, Math.min(11, parsedMonth - 1)), 15)
       : new Date();
 
-  const payPeriod = getPayPeriod(baseDate, settings.payDate);
-  const allocationMonthKey = monthNumberToKey(payPeriod.start.getMonth() + 1);
+  const payPeriodContext = await resolveBudgetPlanPayPeriodContext({ budgetPlanId, now: baseDate });
+  const payPeriod = toInclusivePeriodWindow(payPeriodContext.window);
+  const allocationMonthKey = monthNumberToKey(payPeriod.start.getUTCMonth() + 1);
   const allocation = await getMonthlyAllocationSnapshot(budgetPlanId, allocationMonthKey, {
-		year: payPeriod.start.getFullYear(),
+		year: payPeriod.start.getUTCFullYear(),
 	});
   const monthlyAllowance = allocation.monthlyAllowance || settings.monthlyAllowance || 0;
   
@@ -189,8 +172,8 @@ export async function getAllowanceStats(month: string, budgetPlanId: string) {
     totalUsed,
     remaining,
     percentUsed: monthlyAllowance > 0 ? (totalUsed / monthlyAllowance) * 100 : 0,
-    periodStart: payPeriod.start.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" }),
-    periodEnd: payPeriod.end.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" }),
+    periodStart: payPeriod.start.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" }),
+    periodEnd: payPeriod.end.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" }),
     periodMonth: payPeriod.periodMonth
   };
 }

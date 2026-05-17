@@ -1,4 +1,4 @@
-import { resolveActivePayPeriodWindow } from "@/lib/payPeriods";
+import { resolveActivePayPeriodWindow, type PayFrequency } from "@/lib/payPeriods";
 
 const MONTH_NAMES_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -6,7 +6,12 @@ function formatRange(start: Date, end: Date): string {
 	return `${start.getDate()} ${MONTH_NAMES_SHORT[start.getMonth()]} - ${end.getDate()} ${MONTH_NAMES_SHORT[end.getMonth()]}`;
 }
 
-export function getDashboardPayPeriodLabels(now: Date, payDate: number, planCreatedAt?: Date | null): {
+export function getDashboardPayPeriodLabels(
+	now: Date,
+	payDate: number,
+	payFrequency: PayFrequency = "monthly",
+	planCreatedAt?: Date | null,
+): {
 	payPeriodLabel: string;
 	previousPayPeriodLabel: string;
 } {
@@ -14,7 +19,7 @@ export function getDashboardPayPeriodLabels(now: Date, payDate: number, planCrea
 	const currentWindow = resolveActivePayPeriodWindow({
 		now,
 		payDate: safePayDate,
-		payFrequency: "monthly",
+		payFrequency,
 		planCreatedAt,
 	});
 
@@ -23,7 +28,7 @@ export function getDashboardPayPeriodLabels(now: Date, payDate: number, planCrea
 	const previousWindow = resolveActivePayPeriodWindow({
 		now: previousPeriodEnd,
 		payDate: safePayDate,
-		payFrequency: "monthly",
+		payFrequency,
 	});
 
 	return {

@@ -243,7 +243,12 @@ export async function GET(req: NextRequest) {
 			payFrequency,
 			planCreatedAt: effectiveCreatedAt,
 		});
-		const { payPeriodLabel, previousPayPeriodLabel } = getDashboardPayPeriodLabels(dashboardNow, payDay, effectiveCreatedAt);
+		const { payPeriodLabel, previousPayPeriodLabel } = getDashboardPayPeriodLabels(
+			dashboardNow,
+			payDay,
+			payFrequency,
+			effectiveCreatedAt,
+		);
 
 		const debtSummary = await (async () => {
 			try {
