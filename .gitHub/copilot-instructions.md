@@ -7,6 +7,13 @@ This repository contains two product clients that share one backend system:
 - `web-client/app/api/bff/*` is the backend-for-frontend layer consumed by mobile.
 - Persistence is handled through Prisma against PostgreSQL.
 
+## Instruction Map
+
+- Use `.github/instructions/full-app-architecture.instructions.md` when a task needs an end-to-end understanding of how the full product works across mobile, web, BFF, Prisma, onboarding, dashboard, expenses, income, debts, settings, notifications, or receipts.
+- Use `.github/instructions/mobile-client.instructions.md` for mobile-only implementation details.
+- Use `.github/instructions/web-bff.instructions.md` for Next.js BFF, Prisma, and server-helper work.
+- Use `.github/instructions/cross-stack-contracts.instructions.md` when the mobile contract and server behavior move together.
+
 ## Architecture Priorities
 
 - Treat `web-client` as the server architecture for product work unless a task is explicitly mobile-only.

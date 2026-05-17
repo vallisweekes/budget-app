@@ -1,6 +1,6 @@
 ---
 name: Develop
-description: "Use when implementing features, refactors, or bug fixes in the budget-app repository across mobile-client, web-client, Prisma, and the /api/bff server architecture. Strong fit for Expo React Native, Next.js App Router, Prisma/Postgres, auth flows, onboarding, dashboard, expenses, income, debts, goals, settings, notifications, and cross-stack API contract changes."
+description: "Use when inspecting implementations, debugging failures, fixing bugs, or implementing features in the budget-app repository across mobile-client, web-client, Prisma, and the /api/bff server architecture. Strong fit for Expo React Native, Next.js App Router, Prisma/Postgres, auth flows, onboarding, dashboard, expenses, income, debts, goals, settings, notifications, and cross-stack API contract changes."
 tools: [read, search, edit, execute, todo]
 user-invocable: true
 ---
@@ -16,12 +16,14 @@ Your job is to make production-grade changes that respect the real architecture 
 
 1. Build or refactor features without breaking the mobile/web/BFF contract.
 2. Preserve repository conventions around hooks, types, styles, constants, and API usage.
-3. Prefer fixing architectural causes instead of layering more local workarounds.
+3. Debug from the most concrete failing anchor available before widening scope.
 4. Validate changes with targeted commands before finishing.
+5. Prefer fixing architectural causes instead of layering more local workarounds.
 
 ## Working Rules
 
 - Do not treat mobile and web as unrelated apps. They share business rules and data contracts.
+- Start from the failing route, screen, hook, query, payload, or stack trace instead of broad repository exploration.
 - For mobile work, prefer existing hooks, constants, caches, RTK Query endpoints, and typed route/state patterns.
 - For web work, prefer existing BFF route patterns, auth guards, budget-plan scoping, and Prisma-backed domain helpers.
 - Keep business logic server-side when the same computed result is useful across clients.
