@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Alert, ActivityIndicator, Animated, FlatList, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { styles } from "./styles";
@@ -10,7 +10,6 @@ import { getPayPeriodRangeLabelFromSelection, getPayPeriodSelectionFromAnchor } 
 import { T } from "@/lib/theme";
 import { s } from "@/components/IncomeMonthScreen/style";
 import IncomeSacrificePieChart from "@/components/Income/IncomeSacrificePieChart";
-import MoneyInput from "@/components/Shared/MoneyInput";
 import type {
   AmountEntryMode,
   IncomeMonthSacrificeListProps,
@@ -71,6 +70,8 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
   const [activeTipIndex, setActiveTipIndex] = useState(0);
   const canManage = props.canManage ?? true;
   const isMonthlyCadence = props.payFrequency === "monthly";
+  const chooserIntro = useRef(new Animated.Value(0)).current;
+  const detailIntro = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     props.onManageFlowActiveChange?.(Boolean(manageScreen));
@@ -78,6 +79,30 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
       props.onManageFlowActiveChange?.(false);
     };
   }, [manageScreen, props]);
+
+  useEffect(() => {
+    if (manageScreen !== "chooser") return;
+
+    chooserIntro.setValue(0);
+    Animated.spring(chooserIntro, {
+      toValue: 1,
+      tension: 42,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+  }, [chooserIntro, manageScreen]);
+
+  useEffect(() => {
+    if (manageScreen !== "detail") return;
+
+    detailIntro.setValue(0);
+    Animated.spring(detailIntro, {
+      toValue: 1,
+      tension: 44,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+  }, [detailIntro, manageScreen]);
 
   const targets = useMemo<TargetOption[]>(() => {
     const fixed = props.sacrifice?.fixed;
@@ -239,6 +264,12 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
     () => targetCards.reduce((sum, target) => sum + Number(target.totalAmount ?? 0), 0),
     [targetCards],
   );
+  const chooserTargetCount = targetCards.length;
+  const chooserHeroTranslateY = useMemo(() => chooserIntro.interpolate({ inputRange: [0, 1], outputRange: [26, 0] }), [chooserIntro]);
+  const chooserCardsTranslateY = useMemo(() => chooserIntro.interpolate({ inputRange: [0, 1], outputRange: [42, 0] }), [chooserIntro]);
+  const chooserCardsScale = useMemo(() => chooserIntro.interpolate({ inputRange: [0, 1], outputRange: [0.985, 1] }), [chooserIntro]);
+  const detailHeroTranslateY = useMemo(() => detailIntro.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }), [detailIntro]);
+  const detailContentTranslateY = useMemo(() => detailIntro.interpolate({ inputRange: [0, 1], outputRange: [38, 0] }), [detailIntro]);
 
   const selectedTarget = useMemo(() => {
     return targets.find((target) => target.key === targetKey) ?? null;
@@ -410,6 +441,10 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
       option.key === "two_years" || option.key === "five_years" || option.key === "ten_years"
     ));
   }, [periodOptions]);
+  const selectedPeriodLabel = useMemo(
+    () => periodOptions.find((option) => option.key === period)?.label ?? "This period",
+    [period, periodOptions],
+  );
 
   const openManageFlow = () => {
     if (!canManage) return;
@@ -524,13 +559,27 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
     if (manageScreen === "detail") {
       return (
         <>
-          <View style={styles.detailHero}>
+          <Animated.View
+            style={[
+              styles.detailHero,
+              {
+                opacity: detailIntro,
+                transform: [{ translateY: detailHeroTranslateY }],
+              },
+            ]}
+          >
+            <View style={[styles.detailHeroGlow, styles.detailHeroGlowPrimary]} />
+            <View style={[styles.detailHeroGlow, styles.detailHeroGlowSecondary]} />
+            <View style={styles.detailHeroBadge}>
+              <Ionicons name="sparkles-outline" size={13} color={selectedTargetCard?.iconTone ?? T.accent} />
+              <Text style={styles.detailHeroBadgeText}>{selectedTarget?.kind === "fixed" ? "Fixed target" : "Custom target"}</Text>
+            </View>
             <View
               style={[
                 styles.detailHeroIcon,
                 {
-                  backgroundColor: `${selectedTargetCard?.iconTone ?? T.accent}22`,
-                  borderColor: `${selectedTargetCard?.iconTone ?? T.accent}55`,
+                  backgroundColor: `${selectedTargetCard?.iconTone ?? T.accent}18`,
+                  borderColor: `${selectedTargetCard?.iconTone ?? T.accent}3d`,
                 },
               ]}
             >
@@ -538,9 +587,22 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
             </View>
             <Text style={styles.detailHeroTitle}>{selectedTargetTitle}</Text>
             <Text style={styles.detailHeroAmount}>{fmt(previewDisplayTotal, props.currency)}</Text>
+            <Text style={styles.detailHeroMeta}>Overall saved for this sacrifice target.</Text>
+            <View style={styles.detailHeroStatsRow}>
+              <View style={styles.detailHeroStatCard}>
+                <Text style={styles.detailHeroStatLabel}>{selectedTarget?.kind === "fixed" ? "Due this period" : "Target type"}</Text>
+                <Text style={styles.detailHeroStatValue}>
+                  {selectedTarget?.kind === "fixed" ? fmt(previewCurrentAmount, props.currency) : "Custom"}
+                </Text>
+              </View>
+              <View style={styles.detailHeroStatCard}>
+                <Text style={styles.detailHeroStatLabel}>Applying across</Text>
+                <Text style={styles.detailHeroStatValueSmall}>{selectedPeriodLabel}</Text>
+              </View>
+            </View>
             {selectedTarget?.kind === "fixed" ? (
-              <>
-                <Text style={styles.detailHeroDueLabel}>Due this pay period</Text>
+              <View style={styles.detailEditorCard}>
+                <Text style={styles.detailEditorLabel}>Due this pay period</Text>
                 {isInlineAmountEditing ? (
                   <View style={styles.detailHeroInlineEditWrap}>
                     <Text style={styles.detailHeroInlineCurrency}>{props.currency}</Text>
@@ -555,12 +617,10 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
                     />
                   </View>
                 ) : (
-                  <Text style={styles.detailHeroDueValue}>{fmt(previewCurrentAmount, props.currency)}</Text>
+                  <Text style={styles.detailEditorValue}>{fmt(previewCurrentAmount, props.currency)}</Text>
                 )}
-              </>
-            ) : (
-              <Text style={styles.detailHeroMeta}>Current amount for this sacrifice target.</Text>
-            )}
+              </View>
+            ) : null}
             {isInlineAmountEditing ? (
               <Pressable style={styles.detailHeroRemoveBtn} onPress={() => {
                 setAmountMode("set");
@@ -569,34 +629,46 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
                 <Text style={styles.detailHeroRemoveText}>Set to 0</Text>
               </Pressable>
             ) : null}
-          </View>
+          </Animated.View>
 
-          <View style={styles.sectionCard}>
-            <Text style={styles.fieldLabel}>Apply across</Text>
-            <Text style={styles.fieldHelpText}>
-              {isMonthlyCadence
-                ? "These options follow your pay-period anchor for each saved month."
-                : "Sacrifice amounts are currently saved by pay-period anchor month, so weekly and biweekly periods inside the same anchor month share one saved value."}
-            </Text>
-            <View style={styles.optionGrid}>
-              {primaryPeriodOptions.map((option) => (
-                <Pressable
-                  key={option.key}
-                  style={[styles.optionCard, option.key === period && styles.optionCardActive]}
-                  onPress={() => setPeriod(option.key)}
-                >
-                  <Text style={[styles.optionCardTitle, option.key === period && styles.optionCardTitleActive]}>{option.label}</Text>
-                </Pressable>
-              ))}
+          <Animated.View
+            style={{
+              opacity: detailIntro,
+              transform: [{ translateY: detailContentTranslateY }],
+            }}
+          >
+            <View style={styles.detailSectionCard}>
+              <View style={styles.detailSectionHeader}>
+                <Text style={styles.detailSectionTitle}>Apply across</Text>
+                <View style={styles.detailSectionPill}>
+                  <Text style={styles.detailSectionPillText}>{selectedPeriodLabel}</Text>
+                </View>
+              </View>
+              <Text style={styles.detailSectionHelp}>
+                {isMonthlyCadence
+                  ? "These options follow your pay-period anchor for each saved month."
+                  : "Sacrifice amounts are saved by pay-period anchor month, so weekly and biweekly periods inside the same anchor month share one saved value."}
+              </Text>
+              <View style={styles.detailOptionGrid}>
+                {primaryPeriodOptions.map((option) => (
+                  <Pressable
+                    key={option.key}
+                    style={[styles.detailOptionCard, option.key === period && styles.detailOptionCardActive]}
+                    onPress={() => setPeriod(option.key)}
+                  >
+                    <Text style={[styles.detailOptionCardTitle, option.key === period && styles.detailOptionCardTitleActive]}>{option.label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+              <View style={styles.detailPillWrap}>
+                {secondaryPeriodOptions.map((option) => (
+                  <Pressable key={option.key} style={[styles.detailPill, option.key === period && styles.detailPillActive]} onPress={() => setPeriod(option.key)}>
+                    <Text style={[styles.detailPillText, option.key === period && styles.detailPillTextActive]}>{option.label}</Text>
+                  </Pressable>
+                ))}
+              </View>
             </View>
-            <View style={styles.pillWrap}>
-              {secondaryPeriodOptions.map((option) => (
-                <Pressable key={option.key} style={[styles.pill, option.key === period && styles.pillActive]} onPress={() => setPeriod(option.key)}>
-                  <Text style={[styles.pillText, option.key === period && styles.pillTextActive]}>{option.label}</Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
+          </Animated.View>
         </>
       );
     }
@@ -659,76 +731,60 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
 
     return (
       <View style={styles.chooserStack}>
-        <View style={styles.chooserSummary}>
-          <Text style={styles.chooserSummaryEyebrow}>This period</Text>
-          <Text style={styles.chooserSummaryPrimary}>{fmt(chooserPeriodTotal, props.currency)}</Text>
-          <Text style={styles.chooserSummaryMeta}>Overall total so far</Text>
-          <Text style={styles.chooserSummarySecondary}>{fmt(chooserOverallTotal, props.currency)}</Text>
-        </View>
+        <Animated.View
+          style={[
+            styles.chooserHero,
+            {
+              opacity: chooserIntro,
+              transform: [{ translateY: chooserHeroTranslateY }],
+            },
+          ]}
+        >
+          <View style={[styles.chooserHeroGlow, styles.chooserHeroGlowPrimary]} />
+          <View style={[styles.chooserHeroGlow, styles.chooserHeroGlowSecondary]} />
+          <View style={styles.chooserHeroBadge}>
+            <Ionicons name="sparkles-outline" size={13} color={T.accent} />
+            <Text style={styles.chooserHeroBadgeText}>Sacrifices</Text>
+          </View>
+          <Text style={styles.chooserHeroAmount}>{fmt(chooserPeriodTotal, props.currency)}</Text>
+          <Text style={styles.chooserHeroCaption}>Total set aside for this period</Text>
+          <View style={styles.chooserHeroStatsRow}>
+            <View style={styles.chooserHeroStatCard}>
+              <Text style={styles.chooserHeroStatLabel}>Overall total so far</Text>
+              <Text style={styles.chooserHeroStatValue}>{fmt(chooserOverallTotal, props.currency)}</Text>
+            </View>
+            <View style={styles.chooserHeroStatCard}>
+              <Text style={styles.chooserHeroStatLabel}>Active targets</Text>
+              <Text style={styles.chooserHeroStatValue}>{chooserTargetCount}</Text>
+            </View>
+          </View>
+        </Animated.View>
 
-        <View style={styles.targetCardList}>
-          {coreTargetCards.map((target) => (
-            <Pressable key={target.key} style={styles.targetCard} onPress={() => openTargetEditor(target.key)}>
-              <View style={styles.targetCardMainRow}>
-                <View style={styles.targetCardLead}>
-                  <View style={[styles.targetCardIcon, { backgroundColor: `${target.iconTone}22` }]}> 
-                    <Ionicons name={target.iconName as any} size={18} color={target.iconTone} />
-                  </View>
-                  <View style={styles.targetCardCopy}>
-                    <Text style={styles.targetCardTitle}>{target.title}</Text>
-                    <Text style={styles.targetCardMeta}>{target.meta}</Text>
-                  </View>
-                </View>
-                <View style={styles.targetCardAmountWrap}>
-                  <Text style={styles.targetCardAmount}>{fmt(target.totalAmount, props.currency)}</Text>
-                </View>
-              </View>
-              <View style={styles.targetCardMetaRow}>
-                <Text style={styles.targetCardDueText}>Due this pay period: {fmt(target.dueAmount, props.currency)}</Text>
-                {target.linkedGoal ? (
-                  <Text style={styles.targetCardGoalText} numberOfLines={1}>Goal: {target.linkedGoal.title}</Text>
-                ) : null}
-              </View>
-              {target.linkedGoal && target.linkedGoal.targetAmount > 0 ? (
-                <>
-                  <View style={styles.targetCardProgressMeta}>
-                    <Text style={styles.targetCardProgressLabel}>Goal progress</Text>
-                    <Text style={styles.targetCardProgressValue}>
-                      {fmt(target.linkedGoal.currentAmount, props.currency)} / {fmt(target.linkedGoal.targetAmount, props.currency)}
-                    </Text>
-                  </View>
-                  <View style={styles.targetCardProgressBg}>
-                    <View
-                      style={[
-                        styles.targetCardProgressFill,
-                        {
-                          width: `${target.linkedGoal.progressPct}%` as `${number}%`,
-                          backgroundColor: target.iconTone,
-                        },
-                      ]}
-                    />
-                  </View>
-                </>
-              ) : null}
-              <View style={styles.targetCardChevronWrap}>
-                <Ionicons name="chevron-forward" size={18} color={T.textMuted} />
-              </View>
-            </Pressable>
-          ))}
-        </View>
-
-        <View style={styles.targetSectionDivider}>
-          <Text style={styles.fieldLabel}>Custom sacrifices</Text>
-          <Text style={styles.inlineMetaText}>{customTargetCards.length} item{customTargetCards.length === 1 ? "" : "s"}</Text>
-        </View>
-
-        {customTargetCards.length > 0 ? (
+        <Animated.View
+          style={{
+            opacity: chooserIntro,
+            transform: [{ translateY: chooserCardsTranslateY }, { scale: chooserCardsScale }],
+          }}
+        >
           <View style={styles.targetCardList}>
-            {customTargetCards.map((target) => (
-              <Pressable key={target.key} style={styles.targetCard} onPress={() => openTargetEditor(target.key)}>
+            {coreTargetCards.map((target) => (
+              <Pressable
+                key={target.key}
+                style={({ pressed }) => [styles.targetCard, pressed && styles.targetCardPressed]}
+                onPress={() => openTargetEditor(target.key)}
+              >
+                <View style={[styles.targetCardGlow, { backgroundColor: `${target.iconTone}12` }]} />
                 <View style={styles.targetCardMainRow}>
                   <View style={styles.targetCardLead}>
-                    <View style={[styles.targetCardIcon, { backgroundColor: `${target.iconTone}22` }]}> 
+                    <View
+                      style={[
+                        styles.targetCardIcon,
+                        {
+                          backgroundColor: `${target.iconTone}18`,
+                          borderColor: `${target.iconTone}3d`,
+                        },
+                      ]}
+                    >
                       <Ionicons name={target.iconName as any} size={18} color={target.iconTone} />
                     </View>
                     <View style={styles.targetCardCopy}>
@@ -736,14 +792,28 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
                       <Text style={styles.targetCardMeta}>{target.meta}</Text>
                     </View>
                   </View>
-                  <View style={styles.targetCardAmountWrap}>
+                  <View
+                    style={[
+                      styles.targetCardAmountBadge,
+                      {
+                        backgroundColor: `${target.iconTone}14`,
+                        borderColor: `${target.iconTone}33`,
+                      },
+                    ]}
+                  >
                     <Text style={styles.targetCardAmount}>{fmt(target.totalAmount, props.currency)}</Text>
                   </View>
                 </View>
                 <View style={styles.targetCardMetaRow}>
-                  <Text style={styles.targetCardDueText}>Due this pay period: {fmt(target.dueAmount, props.currency)}</Text>
+                  <View style={styles.targetCardDuePill}>
+                    <Text style={styles.targetCardDueLabel}>Due this period</Text>
+                    <Text style={styles.targetCardDueText}>{fmt(target.dueAmount, props.currency)}</Text>
+                  </View>
                   {target.linkedGoal ? (
-                    <Text style={styles.targetCardGoalText} numberOfLines={1}>Goal: {target.linkedGoal.title}</Text>
+                    <View style={styles.targetCardGoalPill}>
+                      <Ionicons name="flag-outline" size={12} color={T.textMuted} />
+                      <Text style={styles.targetCardGoalText} numberOfLines={1}>{target.linkedGoal.title}</Text>
+                    </View>
                   ) : null}
                 </View>
                 {target.linkedGoal && target.linkedGoal.targetAmount > 0 ? (
@@ -768,14 +838,106 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
                   </>
                 ) : null}
                 <View style={styles.targetCardChevronWrap}>
-                  <Ionicons name="chevron-forward" size={18} color={T.textMuted} />
+                  <Ionicons name="chevron-forward" size={16} color={T.textMuted} />
                 </View>
+                <View style={[styles.targetCardAccentLine, { backgroundColor: target.iconTone }]} />
               </Pressable>
             ))}
           </View>
-        ) : (
-          <Text style={styles.emptyText}>No custom sacrifices yet.</Text>
-        )}
+
+          <View style={styles.targetSectionDivider}>
+            <Text style={styles.targetSectionTitle}>Custom sacrifices</Text>
+            <View style={styles.targetSectionCountPill}>
+              <Text style={styles.targetSectionCountText}>{customTargetCards.length} item{customTargetCards.length === 1 ? "" : "s"}</Text>
+            </View>
+          </View>
+
+          {customTargetCards.length > 0 ? (
+            <View style={styles.targetCardList}>
+              {customTargetCards.map((target) => (
+                <Pressable
+                  key={target.key}
+                  style={({ pressed }) => [styles.targetCard, pressed && styles.targetCardPressed]}
+                  onPress={() => openTargetEditor(target.key)}
+                >
+                  <View style={[styles.targetCardGlow, { backgroundColor: `${target.iconTone}12` }]} />
+                  <View style={styles.targetCardMainRow}>
+                    <View style={styles.targetCardLead}>
+                      <View
+                        style={[
+                          styles.targetCardIcon,
+                          {
+                            backgroundColor: `${target.iconTone}18`,
+                            borderColor: `${target.iconTone}3d`,
+                          },
+                        ]}
+                      >
+                        <Ionicons name={target.iconName as any} size={18} color={target.iconTone} />
+                      </View>
+                      <View style={styles.targetCardCopy}>
+                        <Text style={styles.targetCardTitle}>{target.title}</Text>
+                        <Text style={styles.targetCardMeta}>{target.meta}</Text>
+                      </View>
+                    </View>
+                    <View
+                      style={[
+                        styles.targetCardAmountBadge,
+                        {
+                          backgroundColor: `${target.iconTone}14`,
+                          borderColor: `${target.iconTone}33`,
+                        },
+                      ]}
+                    >
+                      <Text style={styles.targetCardAmount}>{fmt(target.totalAmount, props.currency)}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.targetCardMetaRow}>
+                    <View style={styles.targetCardDuePill}>
+                      <Text style={styles.targetCardDueLabel}>Due this period</Text>
+                      <Text style={styles.targetCardDueText}>{fmt(target.dueAmount, props.currency)}</Text>
+                    </View>
+                    {target.linkedGoal ? (
+                      <View style={styles.targetCardGoalPill}>
+                        <Ionicons name="flag-outline" size={12} color={T.textMuted} />
+                        <Text style={styles.targetCardGoalText} numberOfLines={1}>{target.linkedGoal.title}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  {target.linkedGoal && target.linkedGoal.targetAmount > 0 ? (
+                    <>
+                      <View style={styles.targetCardProgressMeta}>
+                        <Text style={styles.targetCardProgressLabel}>Goal progress</Text>
+                        <Text style={styles.targetCardProgressValue}>
+                          {fmt(target.linkedGoal.currentAmount, props.currency)} / {fmt(target.linkedGoal.targetAmount, props.currency)}
+                        </Text>
+                      </View>
+                      <View style={styles.targetCardProgressBg}>
+                        <View
+                          style={[
+                            styles.targetCardProgressFill,
+                            {
+                              width: `${target.linkedGoal.progressPct}%` as `${number}%`,
+                              backgroundColor: target.iconTone,
+                            },
+                          ]}
+                        />
+                      </View>
+                    </>
+                  ) : null}
+                  <View style={styles.targetCardChevronWrap}>
+                    <Ionicons name="chevron-forward" size={16} color={T.textMuted} />
+                  </View>
+                  <View style={[styles.targetCardAccentLine, { backgroundColor: target.iconTone }]} />
+                </Pressable>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.emptyStateCard}>
+              <Ionicons name="sparkles-outline" size={18} color={T.textMuted} />
+              <Text style={styles.emptyStateText}>No custom sacrifices yet.</Text>
+            </View>
+          )}
+        </Animated.View>
       </View>
     );
   };
@@ -785,8 +947,8 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
       return (
         <View style={styles.manageFooterRow}>
           <View style={styles.manageFooterLeftGroup}>
-            <Pressable style={[styles.mainFooterBtn, props.sacrificeSaving && styles.disabled]} onPress={submitAmountSheet} disabled={props.sacrificeSaving}>
-              <Text style={styles.mainFooterBtnText}>{props.sacrificeSaving ? "Saving" : "Save"}</Text>
+            <Pressable style={[styles.mainFooterBtn, styles.mainFooterBtnAccent, props.sacrificeSaving && styles.disabled]} onPress={submitAmountSheet} disabled={props.sacrificeSaving}>
+              <Text style={[styles.mainFooterBtnText, styles.mainFooterBtnTextAccent]}>{props.sacrificeSaving ? "Saving" : "Save"}</Text>
             </Pressable>
             <Pressable style={styles.mainFooterBtn} onPress={toggleInlineAmountEdit}>
               <Text style={styles.mainFooterBtnText}>{isInlineAmountEditing ? "Cancel" : "Edit"}</Text>
