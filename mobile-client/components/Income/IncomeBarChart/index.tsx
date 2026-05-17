@@ -63,8 +63,6 @@ export default function IncomeBarChart({ data: a, currency }: IncomeBarChartProp
   }, [didUserSelectPoint, highestIndex]);
 
   const totalIncome = Math.max(0, Number(a.grossIncome) || 0);
-  const allocatedTotal = Math.max(0, Number(a.plannedExpenses) || 0) + Math.max(0, Number(a.plannedDebtPayments) || 0) + Math.max(0, Number(a.incomeSacrifice) || 0);
-  const allocatedPct = totalIncome > 0 ? Math.min(999, (allocatedTotal / totalIncome) * 100) : 0;
   const maxVal = Math.max(1, totalIncome, ...values);
 
   const chartW = W - 24;
@@ -136,6 +134,9 @@ export default function IncomeBarChart({ data: a, currency }: IncomeBarChartProp
 
   const activePoint = activeIndex !== null ? points[activeIndex] : null;
   const activeMetric = activeIndex !== null ? chartPoints[activeIndex] : null;
+  const activePointPct = totalIncome > 0 && activePoint
+    ? (activePoint.value / totalIncome) * 100
+    : 0;
   const highlightW = 40;
 
   return (
@@ -145,10 +146,12 @@ export default function IncomeBarChart({ data: a, currency }: IncomeBarChartProp
           <Text style={styles.headerEyebrow}>Cash flow</Text>
           <Text style={styles.headerTitle}>{activeMetric ? `${activeMetric.label} total` : "Total"}</Text>
           <Text style={styles.headerSubValue}>{fmtAmount(activePoint?.value ?? 0)}</Text>
-        </View>
-        <View style={styles.headerPill}>
-          <Text style={styles.headerPillValue}>{allocatedPct.toFixed(0)}%</Text>
-          <Text style={styles.headerPillLabel}>allocated</Text>
+          <Text style={styles.headerPct}>
+            <Text style={[styles.headerPctValue, activePointPct < 60 ? styles.headerPctValueGood : null]}>
+              {`${activePointPct.toFixed(1)}%`}
+            </Text>
+            <Text style={styles.headerPctSuffix}> of total income</Text>
+          </Text>
         </View>
       </View>
 

@@ -13,8 +13,7 @@ export const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: 12,
+    justifyContent: "flex-start",
     paddingHorizontal: 2,
     marginBottom: 10,
   },
@@ -46,6 +45,25 @@ export const styles = StyleSheet.create({
     letterSpacing: -0.5,
     marginTop: 6,
   },
+  headerPct: {
+    color: T.textDim,
+    fontSize: 12,
+    fontWeight: "700",
+    marginTop: 6,
+  },
+  headerPctValue: {
+    color: T.textDim,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  headerPctValueGood: {
+    color: T.green,
+  },
+  headerPctSuffix: {
+    color: T.text,
+    fontSize: 12,
+    fontWeight: "700",
+  },
   headerSub: {
     color: T.textDim,
     fontSize: 12,
@@ -53,29 +71,6 @@ export const styles = StyleSheet.create({
     lineHeight: 18,
     marginTop: 6,
     maxWidth: 220,
-  },
-  headerPill: {
-    minWidth: 84,
-    borderRadius: 20,
-    backgroundColor: "rgba(255,255,255,0.05)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerPillValue: {
-    color: T.text,
-    fontSize: 18,
-    fontWeight: "900",
-  },
-  headerPillLabel: {
-    color: T.textMuted,
-    fontSize: 10,
-    fontWeight: "800",
-    letterSpacing: 0.6,
-    textTransform: "uppercase",
   },
   chartArea: {
     position: "relative",
