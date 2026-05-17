@@ -59,110 +59,122 @@ export default function EditDebtSheet(props: EditDebtSheetProps) {
           <View style={styles.sheetHandle} {...panHandlers} />
           <Text style={styles.sectionTitle}>Edit Debt</Text>
 
-          <ScrollView style={styles.sheetScroll} contentContainerStyle={styles.sheetScrollContent} showsVerticalScrollIndicator={false}>
-            <View style={styles.formGroup}>
-              <Text style={styles.inputLabel}>Name</Text>
-              <TextInput style={styles.input} value={name} onChangeText={onChangeName} placeholderTextColor={T.textMuted} />
-            </View>
+          <ScrollView style={styles.sheetScroll} contentContainerStyle={styles.sheetScrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            <View style={styles.sectionCard}>
+              <Text style={styles.sectionEyebrow}>Overview</Text>
 
-            <View style={styles.formGroup}>
-              <Text style={styles.inputLabel}>Current balance</Text>
-              <MoneyInput
-                currency={currency}
-                value={currentBalance}
-                onChangeValue={onChangeCurrentBalance}
-                placeholder="0.00"
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.inputLabel}>Interest Rate % (optional)</Text>
-              <TextInput style={styles.input} value={interestRate} onChangeText={onChangeRate} keyboardType="decimal-pad" placeholder="0.00" placeholderTextColor={T.textMuted} />
-            </View>
-
-            <View style={styles.formRow}>
-              <View style={[styles.formGroup, styles.formCol]}>
-                <Text style={styles.inputLabel}>Monthly payment</Text>
-                <MoneyInput
-                  currency={currency}
-                  value={monthlyPayment}
-                  onChangeValue={onChangeMonthlyPayment}
-                  placeholder="0.00"
-                />
-                <Text style={styles.helperText}>Recurring base payment for future periods.</Text>
+              <View style={styles.formGroup}>
+                <Text style={styles.inputLabel}>Name</Text>
+                <TextInput style={styles.input} value={name} onChangeText={onChangeName} placeholderTextColor={T.textMuted} />
               </View>
 
-              <View style={[styles.formGroup, styles.formCol]}>
-                <Text style={styles.inputLabel}>Monthly minimum</Text>
+              <View style={styles.formGroup}>
+                <Text style={styles.inputLabel}>Current balance</Text>
                 <MoneyInput
                   currency={currency}
-                  value={monthlyMinimum}
-                  onChangeValue={onChangeMin}
+                  value={currentBalance}
+                  onChangeValue={onChangeCurrentBalance}
                   placeholder="0.00"
                 />
               </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.inputLabel}>APR %</Text>
+                <TextInput style={styles.input} value={interestRate} onChangeText={onChangeRate} keyboardType="decimal-pad" placeholder="0.00" placeholderTextColor={T.textMuted} />
+              </View>
             </View>
 
-            <View style={styles.formGroup}>
-              <Text style={styles.inputLabel}>This due period only</Text>
-              <MoneyInput
-                currency={currency}
-                value={plannedPaymentOverride}
-                onChangeValue={onChangePlannedPaymentOverride}
-                placeholder="Use recurring payment"
-              />
-              <Text style={styles.helperText}>Optional one-off amount for this due period. Leave blank to keep the recurring payment unchanged.</Text>
-            </View>
+            <View style={styles.sectionCard}>
+              <Text style={styles.sectionEyebrow}>Payment plan</Text>
 
-            <View style={styles.formRow}>
-              <View style={[styles.formGroup, styles.formCol]}>
-                <Text style={styles.inputLabel}>Due date (calendar)</Text>
-                <DatePickerInput
-                  containerStyle={styles.input}
-                  onPress={onPickDate}
-                  value={dueDate ? dueDate.replace(/^(\d{4})-(\d{2})-(\d{2})$/, "$3/$2/$1") : ""}
-                  valueStyle={styles.dateValue}
-                  placeholderStyle={styles.dateValuePlaceholder}
-                />
+              <View style={styles.formRow}>
+                <View style={[styles.formGroup, styles.formCol]}>
+                  <Text style={styles.inputLabel}>Monthly payment</Text>
+                  <MoneyInput
+                    currency={currency}
+                    value={monthlyPayment}
+                    onChangeValue={onChangeMonthlyPayment}
+                    placeholder="0.00"
+                  />
+                  <Text style={styles.helperText}>Recurring amount.</Text>
+                </View>
+
+                <View style={[styles.formGroup, styles.formCol]}>
+                  <Text style={styles.inputLabel}>Minimum</Text>
+                  <MoneyInput
+                    currency={currency}
+                    value={monthlyMinimum}
+                    onChangeValue={onChangeMin}
+                    placeholder="0.00"
+                  />
+                </View>
               </View>
 
-              <View style={[styles.formGroup, styles.formCol]}>
-                <Text style={styles.inputLabel}>Payment source</Text>
-                <View style={styles.dropdownAnchor}>
-                  <Pressable style={styles.input} onPress={() => setShowSourceDropdown((v) => !v)}>
-                    <View style={styles.dropdownValueRow}>
-                      <Text style={styles.dateValue}>
-                        {paymentSource === "income" ? "Income" : paymentSource === "extra_funds" ? "Extra funds" : "Card"}
-                      </Text>
-                      <Text style={styles.dropdownChevron}>{showSourceDropdown ? "▲" : "▼"}</Text>
-                    </View>
-                  </Pressable>
+              <View style={styles.formGroup}>
+                <Text style={styles.inputLabel}>This period only</Text>
+                <MoneyInput
+                  currency={currency}
+                  value={plannedPaymentOverride}
+                  onChangeValue={onChangePlannedPaymentOverride}
+                  placeholder="Use recurring payment"
+                />
+                <Text style={styles.helperText}>Leave blank to keep the recurring amount.</Text>
+              </View>
+            </View>
 
-                  {showSourceDropdown ? (
-                    <View style={styles.dropdownMenu}>
-                      {[
-                        { key: "income", label: "Income" },
-                        { key: "extra_funds", label: "Extra funds" },
-                        { key: "credit_card", label: "Card" },
-                      ].map((opt, idx, arr) => {
-                        const active = paymentSource === opt.key;
-                        const isLast = idx === arr.length - 1;
-                        return (
-                          <Pressable
-                            key={opt.key}
-                            onPress={() => {
-                              onChangePaymentSource(opt.key as "income" | "extra_funds" | "credit_card");
-                              if (opt.key !== "credit_card") onChangePaymentCardDebtId("");
-                              setShowSourceDropdown(false);
-                            }}
-                            style={[styles.dropdownItem, isLast && styles.dropdownItemLast, active && styles.dropdownItemActive]}
-                          >
-                            <Text style={[styles.dropdownItemText, active && styles.dropdownItemTextActive]}>{opt.label}</Text>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-                  ) : null}
+            <View style={styles.sectionCard}>
+              <Text style={styles.sectionEyebrow}>Schedule</Text>
+
+              <View style={styles.formRow}>
+                <View style={[styles.formGroup, styles.formCol]}>
+                  <Text style={styles.inputLabel}>Due date</Text>
+                  <DatePickerInput
+                    containerStyle={styles.input}
+                    onPress={onPickDate}
+                    value={dueDate ? dueDate.replace(/^(\d{4})-(\d{2})-(\d{2})$/, "$3/$2/$1") : ""}
+                    valueStyle={styles.dateValue}
+                    placeholderStyle={styles.dateValuePlaceholder}
+                  />
+                </View>
+
+                <View style={[styles.formGroup, styles.formCol]}>
+                  <Text style={styles.inputLabel}>Payment source</Text>
+                  <View style={styles.dropdownAnchor}>
+                    <Pressable style={styles.input} onPress={() => setShowSourceDropdown((v) => !v)}>
+                      <View style={styles.dropdownValueRow}>
+                        <Text style={styles.dateValue}>
+                          {paymentSource === "income" ? "Income" : paymentSource === "extra_funds" ? "Extra funds" : "Card"}
+                        </Text>
+                        <Text style={styles.dropdownChevron}>{showSourceDropdown ? "▲" : "▼"}</Text>
+                      </View>
+                    </Pressable>
+
+                    {showSourceDropdown ? (
+                      <View style={styles.dropdownMenu}>
+                        {[
+                          { key: "income", label: "Income" },
+                          { key: "extra_funds", label: "Extra funds" },
+                          { key: "credit_card", label: "Card" },
+                        ].map((opt, idx, arr) => {
+                          const active = paymentSource === opt.key;
+                          const isLast = idx === arr.length - 1;
+                          return (
+                            <Pressable
+                              key={opt.key}
+                              onPress={() => {
+                                onChangePaymentSource(opt.key as "income" | "extra_funds" | "credit_card");
+                                if (opt.key !== "credit_card") onChangePaymentCardDebtId("");
+                                setShowSourceDropdown(false);
+                              }}
+                              style={[styles.dropdownItem, isLast && styles.dropdownItemLast, active && styles.dropdownItemActive]}
+                            >
+                              <Text style={[styles.dropdownItemText, active && styles.dropdownItemTextActive]}>{opt.label}</Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    ) : null}
+                  </View>
                 </View>
               </View>
             </View>
@@ -228,7 +240,8 @@ export default function EditDebtSheet(props: EditDebtSheetProps) {
             ) : null}
 
             {paymentSource === "credit_card" ? (
-              <View style={styles.formGroup}>
+              <View style={styles.sectionCard}>
+                <Text style={styles.sectionEyebrow}>Funding card</Text>
                 <Text style={styles.inputLabel}>Select card</Text>
                 {paymentCards.length > 0 ? (
                   <View style={styles.cardPickerWrap}>
@@ -253,45 +266,48 @@ export default function EditDebtSheet(props: EditDebtSheetProps) {
               </View>
             ) : null}
 
-            <Text style={styles.inputLabel}>Spread over months</Text>
-            <View style={styles.installmentRow}>
-              {[0, ...TERM_PRESETS].map((months) => {
-                const active = (installment || "0") === String(months);
-                return (
-                  <Pressable key={months} onPress={() => onChangeInstallment(months === 0 ? "" : String(months))} style={[styles.installmentChip, active && styles.installmentChipActive]}>
-                    <Text style={[styles.installmentChipText, active && styles.installmentChipTextActive]}>{months === 0 ? "None" : `${months} months`}</Text>
-                  </Pressable>
-                );
-              })}
+            <View style={styles.sectionCard}>
+              <Text style={styles.sectionEyebrow}>Term</Text>
+              <Text style={styles.inputLabel}>Spread over months</Text>
+              <View style={styles.installmentRow}>
+                {[0, ...TERM_PRESETS].map((months) => {
+                  const active = (installment || "0") === String(months);
+                  return (
+                    <Pressable key={months} onPress={() => onChangeInstallment(months === 0 ? "" : String(months))} style={[styles.installmentChip, active && styles.installmentChipActive]}>
+                      <Text style={[styles.installmentChipText, active && styles.installmentChipTextActive]}>{months === 0 ? "None" : `${months} months`}</Text>
+                    </Pressable>
+                  );
+                })}
 
-              <Pressable
-                onPress={() => {
-                  setCustomInstallmentMode((v) => {
-                    const next = !v;
-                    if (!next) onChangeInstallment("");
-                    if (next && isPresetInstallment) onChangeInstallment("");
-                    return next;
-                  });
-                }}
-                style={[styles.installmentChip, customInstallmentMode && styles.installmentChipActive]}
-              >
-                <Text style={[styles.installmentChipText, customInstallmentMode && styles.installmentChipTextActive]}>Custom</Text>
-              </Pressable>
-            </View>
-
-            {customInstallmentMode ? (
-              <View style={styles.formGroup}>
-                <Text style={styles.inputLabel}>Custom months</Text>
-                <TextInput
-                  style={styles.input}
-                  value={installment}
-                  onChangeText={onChangeInstallment}
-                  keyboardType="number-pad"
-                  placeholder="e.g. 18"
-                  placeholderTextColor={T.textMuted}
-                />
+                <Pressable
+                  onPress={() => {
+                    setCustomInstallmentMode((v) => {
+                      const next = !v;
+                      if (!next) onChangeInstallment("");
+                      if (next && isPresetInstallment) onChangeInstallment("");
+                      return next;
+                    });
+                  }}
+                  style={[styles.installmentChip, customInstallmentMode && styles.installmentChipActive]}
+                >
+                  <Text style={[styles.installmentChipText, customInstallmentMode && styles.installmentChipTextActive]}>Custom</Text>
+                </Pressable>
               </View>
-            ) : null}
+
+              {customInstallmentMode ? (
+                <View style={styles.formGroup}>
+                  <Text style={styles.inputLabel}>Custom months</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={installment}
+                    onChangeText={onChangeInstallment}
+                    keyboardType="number-pad"
+                    placeholder="e.g. 18"
+                    placeholderTextColor={T.textMuted}
+                  />
+                </View>
+              ) : null}
+            </View>
           </ScrollView>
 
           <View style={styles.sheetActions}>
