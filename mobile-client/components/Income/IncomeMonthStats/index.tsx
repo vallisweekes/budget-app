@@ -44,12 +44,12 @@ export default function IncomeMonthStats({ data: a, currency, fmt, onPressIncome
         <View style={[styles.card, { flex: 1 }]}>
           <View style={[styles.cardGlow, { backgroundColor: `${a.moneyLeftAfterPlan < 0 ? T.red : T.green}16` }]} />
           <View style={styles.cardInnerBorder} />
-          <View style={styles.cardHeader}>
+          <View style={styles.cardHeaderStack}>
             <View style={styles.cardTitleWrap}>
               <View style={[styles.iconPill, { backgroundColor: `${a.moneyLeftAfterPlan < 0 ? T.red : T.green}14`, borderColor: `${a.moneyLeftAfterPlan < 0 ? T.red : T.green}33` }]}>
                 <Ionicons name="wallet-outline" size={14} color={a.moneyLeftAfterPlan < 0 ? T.red : T.green} />
               </View>
-              <Text style={styles.cardLabel}>Money left (after plan)</Text>
+              <Text style={styles.cardLabel}>Money left</Text>
             </View>
             <View style={[styles.badge, isOnPlan ? styles.badgeOn : styles.badgeOver]}>
               <Text style={[styles.badgeText, isOnPlan ? styles.badgeTextOn : styles.badgeTextOver]}>
@@ -72,7 +72,7 @@ export default function IncomeMonthStats({ data: a, currency, fmt, onPressIncome
             </Text>
           )}
         </View>
-        <Card label="Left to pay (right now)" value={fmt(a.leftToPayRightNow, currency)} color={T.accent} iconName="receipt-outline" />
+        <Card label="Left to pay" value={fmt(a.leftToPayRightNow, currency)} color={T.accent} iconName="receipt-outline" />
       </View>
 
     </>

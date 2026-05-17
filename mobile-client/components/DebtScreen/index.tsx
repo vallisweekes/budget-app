@@ -59,6 +59,9 @@ export default function DebtScreen() {
           <>
             <View style={styles.heroRow}>
               <View style={[styles.heroCard, { borderColor: `${T.red}44` }]}>
+                <View style={[styles.heroCardGlow, styles.heroCardGlowStart, { backgroundColor: `${T.red}20` }]} />
+                <View style={[styles.heroCardGlow, styles.heroCardGlowEnd, { backgroundColor: `${T.red}14` }]} />
+                <View style={styles.heroCardInnerBorder} />
                 <Text style={styles.heroLabel}>TOTAL DEBT</Text>
                 <Text style={[styles.heroValue, { color: T.red }]}>{fmt(controller.projectionSummary.total, controller.currency)}</Text>
                 <Text style={styles.heroSub}>
@@ -66,6 +69,9 @@ export default function DebtScreen() {
                 </Text>
               </View>
               <View style={[styles.heroCard, { borderColor: `${T.orange}44` }]}>
+                <View style={[styles.heroCardGlow, styles.heroCardGlowStart, { backgroundColor: `${T.orange}1c` }]} />
+                <View style={[styles.heroCardGlow, styles.heroCardGlowEnd, { backgroundColor: `${T.orange}12` }]} />
+                <View style={styles.heroCardInnerBorder} />
                 <Text style={styles.heroLabel}>MONTHLY</Text>
                 <Text style={[styles.heroValue, { color: T.orange }]}>{fmt(controller.projectionSummary.monthly, controller.currency)}</Text>
                 <Text style={styles.heroSub}>

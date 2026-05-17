@@ -35,6 +35,8 @@ export function DebtCard({
 
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}>
+      <View style={[styles.cardGlow, { backgroundColor: `${accentColor}18` }]} />
+      <View style={styles.cardInnerBorder} />
       <View style={[styles.cardAccent, { backgroundColor: accentColor }]} />
       <View style={styles.cardBody}>
         <View style={styles.cardTop}>

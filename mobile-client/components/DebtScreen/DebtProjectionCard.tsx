@@ -49,6 +49,9 @@ export function DebtProjectionCard({ controller }: DebtProjectionCardProps) {
 
   return (
     <View style={styles.chartCard}>
+      <View style={[styles.chartGlow, styles.chartGlowPrimary]} />
+      <View style={[styles.chartGlow, styles.chartGlowSecondary]} />
+      <View style={styles.chartInnerBorder} />
       <View style={styles.chartHeader}>
         <View>
           <Text style={styles.chartTitle}>Debt Payoff Projection</Text>

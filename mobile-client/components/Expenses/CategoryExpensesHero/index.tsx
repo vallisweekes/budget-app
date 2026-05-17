@@ -11,6 +11,12 @@ import type { CategoryExpensesHeroProps } from "@/types";
 export default function CategoryExpensesHero(props: CategoryExpensesHeroProps) {
   return (
     <View style={[s.hero, { paddingTop: props.topHeaderOffset + 14 }]}>
+      <View style={[s.heroGlow, s.heroGlowPrimary]} />
+      <View style={[s.heroGlow, s.heroGlowSecondary]} />
+      <View style={s.heroInnerBorder} />
+      <View style={s.heroBadge}>
+        <Text style={s.heroBadgeText}>Category focus</Text>
+      </View>
       <Pressable onPress={props.onPressMonth} style={s.heroMonthBtn} hitSlop={12}>
         <Text style={s.heroMonthText}>{props.heroPeriodLabel}</Text>
         <Ionicons name="chevron-down" size={14} color={withOpacity(T.onAccent, 0.8)} />
@@ -31,6 +37,17 @@ export default function CategoryExpensesHero(props: CategoryExpensesHeroProps) {
           <Text style={s.heroCardLbl}>Remaining</Text>
           <Text style={[s.heroCardVal, { color: T.onAccent }]}>{fmt(props.remainingTotal, props.currency)}</Text>
           <Text style={s.heroCardPct}>{props.remainingPct}%</Text>
+        </View>
+      </View>
+
+      <View style={s.heroSummaryRow}>
+        <View style={s.heroSummaryChip}>
+          <Text style={s.heroSummaryLabel}>Coverage</Text>
+          <Text style={s.heroSummaryValue}>{props.paidPct}% funded</Text>
+        </View>
+        <View style={s.heroSummaryChip}>
+          <Text style={s.heroSummaryLabel}>Left</Text>
+          <Text style={s.heroSummaryValue}>{fmt(props.remainingTotal, props.currency)}</Text>
         </View>
       </View>
 

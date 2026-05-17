@@ -19,6 +19,7 @@ import { styles } from "@/components/DashboardScreen/style";
 
 export default function DashboardScreen(props: DashboardScreenProps) {
   const controller = useDashboardScreenController(props);
+  const contentTopPadding = Math.max(24, controller.topHeaderOffset - 28);
 
   if (controller.loading) {
     return (
@@ -79,7 +80,7 @@ export default function DashboardScreen(props: DashboardScreenProps) {
       <ScrollView
         ref={controller.scrollRef}
         refreshControl={<RefreshControl refreshing={controller.refreshing} onRefresh={controller.onRefresh} tintColor={T.accent} />}
-        contentContainerStyle={[styles.scroll, { paddingTop: controller.topHeaderOffset + 8 }]}
+        contentContainerStyle={[styles.scroll, { paddingTop: contentTopPadding }]}
         showsVerticalScrollIndicator={false}
       >
         {controller.hasPayDateConfigured ? (
