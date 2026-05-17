@@ -42,6 +42,13 @@ export async function getDebtPlannedPaymentOverridesForPeriod(params: {
 }): Promise<Map<string, number>> {
   if (!params.debtIds.length) return new Map();
 
+  const debtPlannedPaymentOverrideModel = (prisma as typeof prisma & {
+    debtPlannedPaymentOverride?: {
+      findMany: typeof prisma.debtPayment.findMany;
+    };
+  }).debtPlannedPaymentOverride;
+  if (!debtPlannedPaymentOverrideModel?.findMany) return new Map();
+
   const where = params.periodKey
     ? { debtId: { in: params.debtIds }, periodKey: params.periodKey }
     : (Number.isFinite(params.year) && Number.isFinite(params.month)
@@ -54,7 +61,7 @@ export async function getDebtPlannedPaymentOverridesForPeriod(params: {
 
   if (!where) return new Map();
 
-  const rows = await prisma.debtPlannedPaymentOverride.findMany({
+  const rows = await debtPlannedPaymentOverrideModel.findMany({
     where,
     select: {
       debtId: true,

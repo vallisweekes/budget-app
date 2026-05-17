@@ -169,23 +169,32 @@ export default function DebtDetailScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      <BlurView intensity={30} tint="dark" style={[s.bottomActionsWrap, { paddingBottom: insets.bottom + 8 }]}> 
-        <View style={s.bottomActionsTint} pointerEvents="none" />
+      <View style={[s.bottomActionsWrap, { paddingBottom: insets.bottom + 10 }]}> 
         <View style={s.bottomActionsRow}>
           <Pressable
             style={s.bottomActionBtn}
             onPress={() => state.setEditing((prev) => !prev)}
           >
-            <Text style={[s.bottomActionTxt, { color: T.accent }]}>{state.editing ? "Close" : "Edit"}</Text>
+            <BlurView intensity={34} tint="light" style={s.bottomActionGlass}>
+              <View style={[s.bottomActionTint, s.bottomActionTintEdit]} pointerEvents="none" />
+              <View style={[s.bottomActionGlow, s.bottomActionGlowEdit]} pointerEvents="none" />
+              <View style={s.bottomActionInnerBorder} pointerEvents="none" />
+              <Text style={s.bottomActionTxt}>{state.editing ? "Close" : "Edit"}</Text>
+            </BlurView>
           </Pressable>
           <Pressable
             style={s.bottomActionBtn}
             onPress={() => state.setDeleteConfirmOpen(true)}
           >
-            <Text style={[s.bottomActionTxt, { color: T.red }]}>Delete</Text>
+            <BlurView intensity={34} tint="light" style={s.bottomActionGlass}>
+              <View style={[s.bottomActionTint, s.bottomActionTintDelete]} pointerEvents="none" />
+              <View style={[s.bottomActionGlow, s.bottomActionGlowDelete]} pointerEvents="none" />
+              <View style={s.bottomActionInnerBorder} pointerEvents="none" />
+              <Text style={s.bottomActionTxt}>Delete</Text>
+            </BlurView>
           </Pressable>
         </View>
-      </BlurView>
+      </View>
 
       <PaymentSheet
         visible={state.paySheetOpen}

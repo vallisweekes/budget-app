@@ -1,6 +1,7 @@
 import React from "react";
 import { StackActions } from "@react-navigation/native";
 import { Feather, Ionicons, Octicons } from "@expo/vector-icons";
+import { useSegments } from "expo-router";
 import { NativeTabs } from "expo-router/unstable-native-tabs";
 
 import { T } from "@/lib/theme";
@@ -42,11 +43,13 @@ function createResetOnBlurListeners() {
 }
 
 export default function MainTabsLayout() {
+  const segments = useSegments() as string[];
   const tabBarBackgroundColor = T.card;
   const tabBarShadowColor = T.border;
   const selectedTintColor = T.onAccent;
   const inactiveIconColor = "#8E95A3";
   const inactiveLabelColor = "#8E95A3";
+  const isDebtDetailRoute = segments[0] === "(tabs)" && segments[1] === "debts" && segments[2] === "DebtDetail";
   const selectedTabLabelStyle = {
     color: selectedTintColor,
     fontSize: 11,
@@ -64,6 +67,7 @@ export default function MainTabsLayout() {
     <NativeTabs
       backgroundColor={tabBarBackgroundColor}
       blurEffect="systemUltraThinMaterialDark"
+      hidden={isDebtDetailRoute}
       shadowColor={tabBarShadowColor}
       tintColor={selectedTintColor}
       iconColor={inactiveIconColor}

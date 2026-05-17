@@ -306,7 +306,8 @@ export async function GET(
       return NextResponse.json({ error: "Debt not found" }, { status: 404 });
     }
 
-		const { budgetPlan, ...safe } = refreshedDebt;
+    const { budgetPlan, ...safe } = refreshedDebt;
+    void budgetPlan;
 
     // Data integrity: for regular debts, `paidAmount` should equal the sum of recorded debt payments.
     // (Expense-derived debts can be affected by Expense payments that aren't mirrored as DebtPayment rows.)

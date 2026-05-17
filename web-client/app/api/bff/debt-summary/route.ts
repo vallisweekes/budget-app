@@ -231,7 +231,6 @@ export async function GET(req: NextRequest) {
 			const computedMonthlyPayment = getDebtMonthlyPayment(d);
 			const paidThisMonth = paidThisMonthByDebtId.get(d.id) ?? 0;
 			const overrideAmount = currentPeriodOverrides.get(d.id);
-			const isPaymentMonthPaid = dueThisMonth > 0 && paidThisMonth >= dueThisMonth;
 
 			const paidAmount = (() => {
 				if (d.sourceType !== "expense") return paidAllTimeByDebtId.get(d.id) ?? d.paidAmount;
