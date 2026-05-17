@@ -7,6 +7,25 @@ export const s = StyleSheet.create({
   body: { flex: 1, backgroundColor: T.bg },
   center: { flex: 1, justifyContent: "center", alignItems: "center", gap: 12 },
   scroll: { flexGrow: 1, paddingBottom: 40 },
+  sourcesHeadingWrap: {
+    marginTop: 28,
+    marginBottom: 16,
+    paddingHorizontal: 14,
+  },
+  sourcesHeading: {
+    color: T.text,
+    fontSize: 16,
+    fontWeight: "800",
+    letterSpacing: -0.2,
+  },
+  sourcesHeadingRule: {
+    height: 1,
+    marginTop: 12,
+    backgroundColor: "rgba(255,255,255,0.08)",
+  },
+  firstIncomeRowWrap: {
+    marginTop: 6,
+  },
   sourcesButtonRow: {
     marginHorizontal: 14,
     marginTop: 18,

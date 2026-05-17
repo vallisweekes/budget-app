@@ -54,19 +54,30 @@ export default function MainTabsLayout() {
   const router = useRouter();
   const segments = useSegments() as string[];
   const incomeAddTokenRef = React.useRef(0);
-  const tabBarBackgroundColor = T.card;
-  const tabBarShadowColor = T.border;
   const selectedTintColor = T.onAccent;
   const inactiveIconColor = "#8E95A3";
   const inactiveLabelColor = "#8E95A3";
   const isDebtDetailRoute = segments[0] === "(tabs)" && segments[1] === "debts" && segments[2] === "DebtDetail";
   const isGoalDetailRoute = segments[0] === "(tabs)" && segments[1] === "goals" && segments[2] === "GoalDetail";
-  const isIncomeAddSurfaceRoute = segments[0] === "(tabs)"
+  const isIncomeSplitRoute = segments[0] === "(tabs)"
     && segments[1] === "income"
     && (segments[2] === "IncomeMonth" || segments[2] === "IncomeGrid");
+  const tabBarBackgroundColor = isIncomeSplitRoute ? undefined : T.card;
+  const tabBarBlurEffect = isIncomeSplitRoute ? undefined : "systemUltraThinMaterialDark";
+  const tabBarShadowColor = isIncomeSplitRoute ? undefined : T.border;
+  const splitRouteLabelStyle = {
+    color: inactiveLabelColor,
+    fontSize: 10,
+    fontWeight: "500" as const,
+  };
   const selectedTabLabelStyle = {
     color: selectedTintColor,
     fontSize: 11,
+    fontWeight: "500" as const,
+  };
+  const splitRouteSelectedTabLabelStyle = {
+    color: selectedTintColor,
+    fontSize: 10,
     fontWeight: "500" as const,
   };
   const tabContentStyle = { backgroundColor: T.bg };
@@ -76,8 +87,8 @@ export default function MainTabsLayout() {
   const resetOnBlurScreenProps = {
     listeners: createTabListeners(),
   } as Record<string, unknown>;
-  const incomeTriggerListeners = {
-    listeners: createTabListeners(isIncomeAddSurfaceRoute
+  const incomeTriggerScreenProps = {
+    listeners: createTabListeners(isIncomeSplitRoute
       ? {
           onTabPress: () => {
             incomeAddTokenRef.current += 1;
@@ -97,96 +108,142 @@ export default function MainTabsLayout() {
       : undefined),
   } as Record<string, unknown>;
 
+  if (isIncomeSplitRoute) {
+    return (
+      <NativeTabs
+        hidden={isDebtDetailRoute || isGoalDetailRoute}
+        tintColor={selectedTintColor}
+        iconColor={inactiveIconColor}
+        labelStyle={splitRouteLabelStyle}
+        titlePositionAdjustment={{ vertical: -1 }}
+        backBehavior="history"
+      >
+        <NativeTabs.Trigger
+          {...resetOnBlurScreenProps}
+          name="dashboard"
+          contentStyle={tabContentStyle}
+          unstable_nativeProps={tabNativeProps}
+        >
+          <NativeTabs.Trigger.Icon
+            src={<NativeTabs.Trigger.VectorIcon family={Feather} name="home" />}
+            renderingMode="template"
+            selectedColor={selectedTintColor}
+          />
+          <NativeTabs.Trigger.Label selectedStyle={splitRouteSelectedTabLabelStyle}>Home</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger
+          {...resetOnBlurScreenProps}
+          name="expenses"
+          contentStyle={tabContentStyle}
+          unstable_nativeProps={tabNativeProps}
+        >
+          <NativeTabs.Trigger.Icon
+            src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name="receipt-outline" />}
+            renderingMode="template"
+            selectedColor={selectedTintColor}
+          />
+          <NativeTabs.Trigger.Label selectedStyle={splitRouteSelectedTabLabelStyle}>Expenses</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger
+          {...incomeTriggerScreenProps}
+          name="income"
+          role="search"
+          contentStyle={tabContentStyle}
+          unstable_nativeProps={tabNativeProps}
+        >
+          <NativeTabs.Trigger.Icon
+            src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name="add" />}
+            renderingMode="template"
+            selectedColor={selectedTintColor}
+          />
+        </NativeTabs.Trigger>
+      </NativeTabs>
+    );
+  }
+
   return (
-    <NativeTabs
-      backgroundColor={tabBarBackgroundColor}
-      blurEffect="systemUltraThinMaterialDark"
-      hidden={isDebtDetailRoute || isGoalDetailRoute}
-      shadowColor={tabBarShadowColor}
-      tintColor={selectedTintColor}
-      iconColor={inactiveIconColor}
-      labelStyle={{
-        color: inactiveLabelColor,
-        fontSize: 11,
-        fontWeight: "500",
-      }}
-      titlePositionAdjustment={{ vertical: 1 }}
-      disableTransparentOnScrollEdge
-      backBehavior="history"
-    >
-      <NativeTabs.Trigger
-        {...resetOnBlurScreenProps}
-        name="dashboard"
-        contentStyle={tabContentStyle}
-        unstable_nativeProps={tabNativeProps}
-        disableTransparentOnScrollEdge
+    <>
+      <NativeTabs
+        backgroundColor={tabBarBackgroundColor}
+        blurEffect={tabBarBlurEffect}
+        hidden={isDebtDetailRoute || isGoalDetailRoute}
+        shadowColor={tabBarShadowColor}
+        tintColor={selectedTintColor}
+        iconColor={inactiveIconColor}
+        labelStyle={{
+          color: inactiveLabelColor,
+          fontSize: 11,
+          fontWeight: "500",
+        }}
+        titlePositionAdjustment={{ vertical: 1 }}
+        backBehavior="history"
       >
-        <NativeTabs.Trigger.Icon
-          src={<NativeTabs.Trigger.VectorIcon family={Feather} name="home" />}
-          renderingMode="template"
-          selectedColor={selectedTintColor}
-        />
-        <NativeTabs.Trigger.Label selectedStyle={selectedTabLabelStyle}>Home</NativeTabs.Trigger.Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger
-        {...resetOnBlurScreenProps}
-        name="expenses"
-        contentStyle={tabContentStyle}
-        unstable_nativeProps={tabNativeProps}
-        disableTransparentOnScrollEdge
-      >
-        <NativeTabs.Trigger.Icon
-          src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name="receipt-outline" />}
-          renderingMode="template"
-          selectedColor={selectedTintColor}
-        />
-        <NativeTabs.Trigger.Label selectedStyle={selectedTabLabelStyle}>Expenses</NativeTabs.Trigger.Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger
-        {...resetOnBlurScreenProps}
-        name="debts"
-        hidden={isIncomeAddSurfaceRoute}
-        contentStyle={tabContentStyle}
-        unstable_nativeProps={tabNativeProps}
-        disableTransparentOnScrollEdge
-      >
-        <NativeTabs.Trigger.Icon
-          src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name="card-outline" />}
-          renderingMode="template"
-          selectedColor={selectedTintColor}
-        />
-        <NativeTabs.Trigger.Label selectedStyle={selectedTabLabelStyle}>Debts</NativeTabs.Trigger.Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger
-        {...incomeTriggerListeners}
-        name="income"
-        role={isIncomeAddSurfaceRoute ? "search" : undefined}
-        contentStyle={tabContentStyle}
-        unstable_nativeProps={tabNativeProps}
-        disableTransparentOnScrollEdge
-      >
-        <NativeTabs.Trigger.Icon
-          src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name={isIncomeAddSurfaceRoute ? "add" : "wallet-outline"} />}
-          renderingMode="template"
-          selectedColor={selectedTintColor}
-        />
-        {!isIncomeAddSurfaceRoute ? <NativeTabs.Trigger.Label selectedStyle={selectedTabLabelStyle}>Income</NativeTabs.Trigger.Label> : null}
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger
-        {...resetOnBlurScreenProps}
-        name="goals"
-        hidden={isIncomeAddSurfaceRoute}
-        contentStyle={tabContentStyle}
-        unstable_nativeProps={tabNativeProps}
-        disableTransparentOnScrollEdge
-      >
-        <NativeTabs.Trigger.Icon
-          src={<NativeTabs.Trigger.VectorIcon family={Octicons} name="goal" />}
-          renderingMode="template"
-          selectedColor={selectedTintColor}
-        />
-        <NativeTabs.Trigger.Label selectedStyle={selectedTabLabelStyle}>Goals</NativeTabs.Trigger.Label>
-      </NativeTabs.Trigger>
-    </NativeTabs>
+        <NativeTabs.Trigger
+          {...resetOnBlurScreenProps}
+          name="dashboard"
+          contentStyle={tabContentStyle}
+          unstable_nativeProps={tabNativeProps}
+        >
+          <NativeTabs.Trigger.Icon
+            src={<NativeTabs.Trigger.VectorIcon family={Feather} name="home" />}
+            renderingMode="template"
+            selectedColor={selectedTintColor}
+          />
+          <NativeTabs.Trigger.Label selectedStyle={selectedTabLabelStyle}>Home</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger
+          {...resetOnBlurScreenProps}
+          name="expenses"
+          contentStyle={tabContentStyle}
+          unstable_nativeProps={tabNativeProps}
+        >
+          <NativeTabs.Trigger.Icon
+            src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name="receipt-outline" />}
+            renderingMode="template"
+            selectedColor={selectedTintColor}
+          />
+          <NativeTabs.Trigger.Label selectedStyle={selectedTabLabelStyle}>Expenses</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger
+          {...resetOnBlurScreenProps}
+          name="debts"
+          contentStyle={tabContentStyle}
+          unstable_nativeProps={tabNativeProps}
+        >
+          <NativeTabs.Trigger.Icon
+            src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name="card-outline" />}
+            renderingMode="template"
+            selectedColor={selectedTintColor}
+          />
+          <NativeTabs.Trigger.Label selectedStyle={selectedTabLabelStyle}>Debts</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger
+          {...resetOnBlurScreenProps}
+          name="income"
+          contentStyle={tabContentStyle}
+          unstable_nativeProps={tabNativeProps}
+        >
+          <NativeTabs.Trigger.Icon
+            src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name="wallet-outline" />}
+            renderingMode="template"
+            selectedColor={selectedTintColor}
+          />
+          <NativeTabs.Trigger.Label selectedStyle={selectedTabLabelStyle}>Income</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger
+          {...resetOnBlurScreenProps}
+          name="goals"
+          contentStyle={tabContentStyle}
+          unstable_nativeProps={tabNativeProps}
+        >
+          <NativeTabs.Trigger.Icon
+            src={<NativeTabs.Trigger.VectorIcon family={Octicons} name="goal" />}
+            renderingMode="template"
+            selectedColor={selectedTintColor}
+          />
+          <NativeTabs.Trigger.Label selectedStyle={selectedTabLabelStyle}>Goals</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+      </NativeTabs>
+    </>
   );
 }

@@ -11,7 +11,7 @@ import type {
 } from "@/types/AnalyticsScreen.types";
 
 export const MONTH_SHORT = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
-export const OVERVIEW_CHART_H = 180;
+export const OVERVIEW_CHART_H = 148;
 
 export function getAnalyticsMonthLabel(date: Date): string {
   return MONTH_SHORT[date.getMonth()] ?? "THIS MONTH";

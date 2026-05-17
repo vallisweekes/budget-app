@@ -7,7 +7,6 @@ import { styles } from "./styles";
 import type { IncomeBarChartProps } from "@/types";
 
 const W = Dimensions.get("window").width;
-const TOOLTIP_SLOT_HEIGHT = 158;
 
 export default function IncomeBarChart({ data: a, currency }: IncomeBarChartProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
@@ -137,76 +136,20 @@ export default function IncomeBarChart({ data: a, currency }: IncomeBarChartProp
 
   const activePoint = activeIndex !== null ? points[activeIndex] : null;
   const activeMetric = activeIndex !== null ? chartPoints[activeIndex] : null;
-  const activeExpensePreview = activeMetric?.key === "selectedPlanExpenses"
-    ? a.expenseBreakdown?.selectedPlanPreview
-    : activeMetric?.key === "additionalPlansExpenses"
-      ? a.expenseBreakdown?.additionalPlansPreview
-      : null;
-  const plannedDebtPayable = Math.max(0, Number(a.plannedDebtPayments) || 0);
-  const showExpenseTooltipPreview = Boolean(activeExpensePreview?.items.length);
-  const showDebtPayableLine = activeMetric?.key === "plannedDebtPayments";
-
-  const tooltipW = showExpenseTooltipPreview ? 232 : 174;
-  const tooltipH = showExpenseTooltipPreview
-    ? 22 + ((activeExpensePreview?.items.length ?? 0) * 58) + ((activeExpensePreview?.remainingCount ?? 0) > 0 ? 24 : 0)
-    : showDebtPayableLine
-      ? 64
-      : 48;
   const highlightW = 40;
-  const tooltipAlignment = activePoint
-    ? activePoint.x < chartW * 0.35
-      ? "flex-start"
-      : activePoint.x > chartW * 0.7
-        ? "flex-end"
-        : "center"
-    : "center";
 
   return (
     <View style={styles.wrap}>
       <View style={styles.header}>
         <View style={styles.headerCopy}>
           <Text style={styles.headerEyebrow}>Cash flow</Text>
+          <Text style={styles.headerTitle}>{activeMetric ? `${activeMetric.label} total` : "Total"}</Text>
+          <Text style={styles.headerSubValue}>{fmtAmount(activePoint?.value ?? 0)}</Text>
         </View>
         <View style={styles.headerPill}>
           <Text style={styles.headerPillValue}>{allocatedPct.toFixed(0)}%</Text>
           <Text style={styles.headerPillLabel}>allocated</Text>
         </View>
-      </View>
-
-      <View pointerEvents="none" style={[styles.tooltipSlot, { height: TOOLTIP_SLOT_HEIGHT, alignItems: tooltipAlignment }]}> 
-        {activePoint ? (
-          <View style={[styles.tooltipCard, styles.tooltipCardInline, { width: tooltipW, minHeight: tooltipH }]}> 
-            {showExpenseTooltipPreview ? (
-              <>
-                {activeExpensePreview?.items.map((item) => (
-                  <View key={`${item.planId}:${item.expenseId}`} style={styles.tooltipExpenseBlock}>
-                    <Text numberOfLines={1} style={styles.tooltipExpenseName}>{item.expenseName}</Text>
-                    <View style={styles.tooltipExpenseMetricRow}>
-                      <Text style={styles.tooltipMetricLabel}>Plan</Text>
-                      <Text numberOfLines={1} style={styles.tooltipMetricValueMuted}>{item.planName}</Text>
-                    </View>
-                    <View style={styles.tooltipExpenseMetricRow}>
-                      <Text style={styles.tooltipMetricLabel}>Total</Text>
-                      <Text style={styles.tooltipMetricValue}>{fmtAmount(item.amount)}</Text>
-                    </View>
-                  </View>
-                ))}
-
-                {(activeExpensePreview?.remainingCount ?? 0) > 0 ? (
-                  <Text style={styles.tooltipMore}>{`+ ${activeExpensePreview?.remainingCount ?? 0} other`}</Text>
-                ) : null}
-              </>
-            ) : (
-              <>
-                <Text style={styles.tooltipTitle}>{activeMetric ? `${activeMetric.label} total` : "Amount"}</Text>
-                <Text style={styles.tooltipTotal}>{fmtAmount(activePoint.value)}</Text>
-                {showDebtPayableLine ? (
-                  <Text style={styles.tooltipMeta}>{`Debt payable ${fmtAmount(plannedDebtPayable)}`}</Text>
-                ) : null}
-              </>
-            )}
-          </View>
-        ) : null}
       </View>
 
       <View style={[styles.chartArea, { width: chartW, height: chartH }]}> 

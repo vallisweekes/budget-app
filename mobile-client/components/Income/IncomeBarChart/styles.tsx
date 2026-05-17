@@ -39,6 +39,13 @@ export const styles = StyleSheet.create({
     marginTop: 4,
     letterSpacing: -0.3,
   },
+  headerSubValue: {
+    color: T.text,
+    fontSize: 24,
+    fontWeight: "900",
+    letterSpacing: -0.5,
+    marginTop: 6,
+  },
   headerSub: {
     color: T.textDim,
     fontSize: 12,
@@ -76,10 +83,6 @@ export const styles = StyleSheet.create({
   chartTouchLayer: {
     position: "absolute",
     zIndex: 2,
-  },
-  tooltipSlot: {
-    justifyContent: "flex-start",
-    marginBottom: 8,
   },
   yAxisLabels: {
     position: "absolute",
@@ -128,79 +131,5 @@ export const styles = StyleSheet.create({
   },
   xLabelTextActive: {
     color: T.text,
-  },
-  tooltipCard: {
-    backgroundColor: "rgba(16,18,28,0.96)",
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    shadowColor: "#000",
-    shadowOpacity: 0.28,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 12 },
-    elevation: 10,
-  },
-  tooltipCardInline: {
-    position: "relative",
-  },
-  tooltipTitle: {
-    color: T.textMuted,
-    fontSize: 10,
-    fontWeight: "800",
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
-  },
-  tooltipTotal: {
-    color: T.text,
-    fontSize: 18,
-    fontWeight: "900",
-    marginTop: 4,
-  },
-  tooltipExpenseBlock: {
-    marginTop: 2,
-    marginBottom: 10,
-  },
-  tooltipExpenseName: {
-    color: T.text,
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  tooltipExpenseMetricRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: 4,
-    gap: 8,
-  },
-  tooltipMetricLabel: {
-    color: T.textMuted,
-    fontSize: 11,
-    fontWeight: "600",
-  },
-  tooltipMetricValueMuted: {
-    flex: 1,
-    textAlign: "right",
-    color: T.textDim,
-    fontSize: 11,
-    fontWeight: "600",
-  },
-  tooltipMetricValue: {
-    color: T.text,
-    fontSize: 11,
-    fontWeight: "800",
-  },
-  tooltipMore: {
-    color: T.text,
-    fontSize: 12,
-    fontWeight: "800",
-    marginTop: 2,
-  },
-  tooltipMeta: {
-    color: T.textDim,
-    fontSize: 10,
-    fontWeight: "700",
-    marginTop: 8,
   },
 });

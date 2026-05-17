@@ -10,7 +10,7 @@
     "scheme": "budgetapp",
     "orientation": "portrait",
     "icon": "./assets/icon-opaque.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "cover",

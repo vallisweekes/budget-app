@@ -46,15 +46,21 @@ export default function IncomeMonthIncomeList({
           <>
             {analysis && <IncomeBarChart data={analysis} currency={currency} />}
             {analysis && <IncomeMonthStats data={analysis} currency={currency} fmt={fmt} onPressIncomeSacrifice={onPressIncomeSacrifice} />}
+            <View style={s.sourcesHeadingWrap}>
+              <Text style={s.sourcesHeading}>Income source</Text>
+              <View style={s.sourcesHeadingRule} />
+            </View>
           </>
         }
-        renderItem={({ item }) =>
+        renderItem={({ item, index }) =>
           (
-            <IncomeRow
-              item={item}
-              currency={currency}
-              onPress={!isLocked ? () => crud.startEdit(item) : undefined}
-            />
+            <View style={index === 0 ? s.firstIncomeRowWrap : undefined}>
+              <IncomeRow
+                item={item}
+                currency={currency}
+                onPress={!isLocked ? () => crud.startEdit(item) : undefined}
+              />
+            </View>
           )
         }
         ListEmptyComponent={
