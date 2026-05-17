@@ -4,6 +4,7 @@ import { getDebtSummaryForPlan } from "@/lib/debts/summary";
 import { computeDebtTips } from "@/lib/debts/insights";
 import { getAiDebtTips } from "@/lib/ai/debtTips";
 import { getDebtMonthlyPayment, getTotalMonthlyDebtPayments } from "@/lib/debts/calculate";
+import { getDebtPlannedPaymentOverridesForPeriod } from "@/lib/debts/plannedPaymentOverrides";
 import { computePortfolioPayoffSummary } from "@/lib/debts/portfolioPayoff";
 import { formatExpenseDebtCardTitle, formatYearMonthLabel } from "@/lib/helpers/debts/expenseDebtLabels";
 import { resolveExpenseLogo } from "@/lib/expenses/logoResolver";
@@ -185,6 +186,10 @@ export async function GET(req: NextRequest) {
 				  })
 				: Promise.resolve([]),
 		]);
+		const currentPeriodOverrides = await getDebtPlannedPaymentOverridesForPeriod({
+			debtIds,
+			periodKey,
+		});
 		const lastPaidAtByDebtId = new Map(
 			lastPaymentRows.map((row) => [row.debtId, row._max.paidAt ? row._max.paidAt.toISOString() : null])
 		);
@@ -225,7 +230,7 @@ export async function GET(req: NextRequest) {
 			const logo = logoBaseName ? resolveExpenseLogo(logoBaseName) : { merchantDomain: null, logoUrl: null, logoSource: null };
 			const computedMonthlyPayment = getDebtMonthlyPayment(d);
 			const paidThisMonth = paidThisMonthByDebtId.get(d.id) ?? 0;
-			const dueThisMonth = Math.max(0, computedMonthlyPayment);
+			const overrideAmount = currentPeriodOverrides.get(d.id);
 			const isPaymentMonthPaid = dueThisMonth > 0 && paidThisMonth >= dueThisMonth;
 
 			const paidAmount = (() => {
@@ -248,6 +253,11 @@ export async function GET(req: NextRequest) {
 				if (!Number.isFinite(paid) || paid < 0) return d.currentBalance;
 				return Math.max(0, initial - paid);
 			})();
+			const dueThisMonth = Math.min(
+				Math.max(0, Number(computedCurrentBalance ?? 0)),
+				Math.max(0, typeof overrideAmount === "number" ? overrideAmount : computedMonthlyPayment)
+			);
+			const isPaymentMonthPaid = dueThisMonth > 0 && paidThisMonth >= dueThisMonth;
 
 			if (d.sourceType === "expense") {
 				const expenseId = String(d.sourceExpenseId ?? "").trim();

@@ -12,9 +12,9 @@ import { styles } from "./styles";
 
 export default function EditDebtSheet(props: EditDebtSheetProps) {
   const {
-    visible, saving, currency, name, currentBalance, interestRate, monthlyPayment, monthlyMinimum, dueDate, installment, paymentSource, paymentCardDebtId, paymentCards, showDatePicker,
+    visible, saving, currency, name, currentBalance, interestRate, monthlyPayment, plannedPaymentOverride, monthlyMinimum, dueDate, installment, paymentSource, paymentCardDebtId, paymentCards, showDatePicker,
     onClose, onSave, onChangeName, onChangeCurrentBalance, onChangeRate, onChangeMonthlyPayment, onChangeMin,
-    onPickDate, onDateChange, onChangePaymentSource, onChangePaymentCardDebtId, onChangeInstallment, onSetShowDatePicker,
+    onChangePlannedPaymentOverride, onPickDate, onDateChange, onChangePaymentSource, onChangePaymentCardDebtId, onChangeInstallment, onSetShowDatePicker,
   } = props;
 
   const { dragY, panHandlers } = useSwipeDownToClose({ onClose, disabled: saving });
@@ -89,6 +89,7 @@ export default function EditDebtSheet(props: EditDebtSheetProps) {
                   onChangeValue={onChangeMonthlyPayment}
                   placeholder="0.00"
                 />
+                <Text style={styles.helperText}>Recurring base payment for future periods.</Text>
               </View>
 
               <View style={[styles.formGroup, styles.formCol]}>
@@ -100,6 +101,17 @@ export default function EditDebtSheet(props: EditDebtSheetProps) {
                   placeholder="0.00"
                 />
               </View>
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.inputLabel}>This due period only</Text>
+              <MoneyInput
+                currency={currency}
+                value={plannedPaymentOverride}
+                onChangeValue={onChangePlannedPaymentOverride}
+                placeholder="Use recurring payment"
+              />
+              <Text style={styles.helperText}>Optional one-off amount for this due period. Leave blank to keep the recurring payment unchanged.</Text>
             </View>
 
             <View style={styles.formRow}>

@@ -213,6 +213,11 @@ export interface Debt {
 
   /** Server-computed payoff projection fields (kept consistent across web + mobile) */
   computedMonthlyPayment?: number;
+  dueThisMonth?: number;
+  paidThisMonth?: number;
+  isPaymentMonthPaid?: boolean;
+  plannedPaymentOverrideAmount?: number | null;
+  plannedPaymentOverridePeriodKey?: string | null;
   computedMonthsLeft?: number | null;
   computedPaidOffBy?: string | null;
   computedCannotPayoff?: boolean;

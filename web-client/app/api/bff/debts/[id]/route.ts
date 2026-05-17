@@ -2,11 +2,13 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUserId } from "@/lib/api/bffAuth";
 import { processMissedDebtPaymentsToAccrue } from "@/lib/debts/carryover";
+import { getDebtPlannedPaymentOverridesForPeriod, resolveDebtPlannedPaymentTarget } from "@/lib/debts/plannedPaymentOverrides";
 import { computeDebtPayoffProjection } from "@/lib/debts/payoffProjection";
 import { deriveDebtPayoffSummary } from "@/lib/debts/payoffSummary";
 import { computeAgreementBaseline } from "@/lib/debts/agreementBaseline";
 import { resolveExpenseLogo } from "@/lib/expenses/logoResolver";
-import { getPaymentPeriodKey, resolvePayDate } from "@/lib/helpers/periodKey";
+import { getCurrentPeriodKey, getPaymentPeriodKey, getPeriodKey, parsePeriodKeyRange, resolvePayDate } from "@/lib/helpers/periodKey";
+import { getEarlyPaymentWindowStart } from "@/lib/helpers/finance/earlyPaymentWindow";
 import { invalidateDashboardCache } from "@/lib/cache/dashboardCache";
 
 export const runtime = "nodejs";
@@ -62,6 +64,22 @@ function parseOptionalInt(value: unknown): { ok: true; int: number | null } | { 
     return { ok: true, int: parsed };
   }
   return { ok: false, error: "Invalid number" };
+}
+
+function parseOptionalMoney(value: unknown): { ok: true; amount: number | null } | { ok: false; error: string } {
+  if (value == null) return { ok: true, amount: null };
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return { ok: true, amount: null };
+    const parsed = Number(trimmed);
+    if (!Number.isFinite(parsed) || parsed < 0) return { ok: false, error: "Invalid plannedPaymentOverrideAmount" };
+    return { ok: true, amount: roundMoney(parsed) };
+  }
+  if (typeof value === "number") {
+    if (!Number.isFinite(value) || value < 0) return { ok: false, error: "Invalid plannedPaymentOverrideAmount" };
+    return { ok: true, amount: roundMoney(value) };
+  }
+  return { ok: false, error: "Invalid plannedPaymentOverrideAmount" };
 }
 
 function isPastUtcDateOnly(date: Date): boolean {
@@ -197,6 +215,48 @@ function computeRemainingInstallmentMonths(balance: number, payment: number): nu
   if (!Number.isFinite(balance) || balance < 0) return null;
   if (!Number.isFinite(payment) || payment <= 0) return null;
   return Math.max(1, Math.ceil((balance - 0.000001) / payment));
+}
+
+function getDebtPlannedMonthlyPayment(debt: {
+  currentBalance?: unknown;
+  amount?: unknown;
+  monthlyMinimum?: unknown;
+  installmentMonths?: unknown;
+  initialBalance?: unknown;
+  sourceType?: unknown;
+  type?: unknown;
+}): number {
+  const currentBalance = Math.max(0, toNumber(debt.currentBalance));
+  if (!(currentBalance > 0)) return 0;
+
+  const rawAmount = toNumber(debt.amount);
+  const amount = Number.isFinite(rawAmount) ? Math.max(0, rawAmount) : 0;
+  const rawMonthlyMinimum = toNumber(debt.monthlyMinimum);
+  const monthlyMinimum = Number.isFinite(rawMonthlyMinimum) ? Math.max(0, rawMonthlyMinimum) : 0;
+  const installmentMonths = Number(debt.installmentMonths ?? 0);
+  const safeInstallmentMonths = Number.isFinite(installmentMonths) ? Math.max(0, Math.floor(installmentMonths)) : 0;
+  const initialBalance = Math.max(0, toNumber(debt.initialBalance));
+  const principal = initialBalance > 0 ? initialBalance : currentBalance;
+
+  let planned = 0;
+  if (amount > 0) {
+    planned = amount;
+  } else if (safeInstallmentMonths > 0 && principal > 0) {
+    planned = principal / safeInstallmentMonths;
+  }
+
+  const isCardType = debt.type === "credit_card" || debt.type === "store_card";
+  if (isCardType && monthlyMinimum > 0) {
+    planned = monthlyMinimum;
+  } else if (monthlyMinimum > 0) {
+    planned = Math.max(planned, monthlyMinimum);
+  }
+
+  if (planned <= 0 && debt.sourceType === "expense") {
+    planned = amount > 0 ? amount : currentBalance;
+  }
+
+  return Math.min(currentBalance, Math.max(0, planned));
 }
 
 function mapDebtPaymentSourceToExpensePaymentSource(source: unknown): "income" | "savings" | "credit_card" {
@@ -365,7 +425,60 @@ export async function GET(
       ? resolveExpenseLogo(logoBaseName)
       : { merchantDomain: null, logoUrl: null, logoSource: null };
 
-    return NextResponse.json(withPayoffProjection(withMissedPaymentFlag({ ...(safe as any), ...logo })));
+    const payDate = await resolvePayDate(safe.budgetPlanId);
+    const currentPeriodKey = getCurrentPeriodKey(payDate);
+    const { start: currentPeriodStart } = parsePeriodKeyRange(currentPeriodKey, payDate);
+    const previousPeriodKey = getPeriodKey(new Date(currentPeriodStart.getTime() - 24 * 60 * 60 * 1000), payDate);
+    const earlyPaymentStart = getEarlyPaymentWindowStart(currentPeriodStart);
+    const editableOverrideTarget = await resolveDebtPlannedPaymentTarget({
+      budgetPlanId: safe.budgetPlanId,
+      dueDate: safe.dueDate,
+    });
+    const reuseCurrentOverride = editableOverrideTarget.periodKey === currentPeriodKey;
+    const [paidThisPeriodAgg, currentPeriodOverrides, editablePeriodOverrides] = await Promise.all([
+      prisma.debtPayment.aggregate({
+        where: {
+          debtId: safe.id,
+          OR: [
+            { periodKey: currentPeriodKey },
+            {
+              periodKey: previousPeriodKey,
+              paidAt: { gte: earlyPaymentStart, lt: currentPeriodStart },
+            },
+          ],
+        },
+        _sum: { amount: true },
+      }),
+      getDebtPlannedPaymentOverridesForPeriod({ debtIds: [safe.id], periodKey: currentPeriodKey }),
+      reuseCurrentOverride
+        ? Promise.resolve(new Map<string, number>())
+        : getDebtPlannedPaymentOverridesForPeriod({ debtIds: [safe.id], periodKey: editableOverrideTarget.periodKey }),
+    ]);
+
+    const baseDebt = withPayoffProjection(withMissedPaymentFlag({ ...(safe as any), ...logo }));
+    const baseMonthlyPayment = typeof baseDebt.computedMonthlyPayment === "number"
+      ? Math.max(0, baseDebt.computedMonthlyPayment)
+      : getDebtPlannedMonthlyPayment(safe as any);
+    const currentBalance = Math.max(0, toNumber(safe.currentBalance));
+    const currentPeriodOverrideAmount = currentPeriodOverrides.get(safe.id);
+    const plannedPaymentOverrideAmount = reuseCurrentOverride
+      ? (currentPeriodOverrideAmount ?? null)
+      : (editablePeriodOverrides.get(safe.id) ?? null);
+    const dueThisMonth = Math.min(
+      currentBalance,
+      Math.max(0, typeof currentPeriodOverrideAmount === "number" ? currentPeriodOverrideAmount : baseMonthlyPayment)
+    );
+    const paidThisMonth = Math.max(0, toNumber(paidThisPeriodAgg._sum.amount ?? 0));
+    const isPaymentMonthPaid = dueThisMonth > 0 && paidThisMonth >= dueThisMonth;
+
+    return NextResponse.json({
+      ...baseDebt,
+      dueThisMonth,
+      paidThisMonth,
+      isPaymentMonthPaid,
+      plannedPaymentOverrideAmount,
+      plannedPaymentOverridePeriodKey: editableOverrideTarget.periodKey,
+    });
   } catch (error) {
     console.error("Failed to fetch debt:", error);
     return NextResponse.json(
@@ -409,6 +522,7 @@ export async function PATCH(
           dayOfMonth: number;
           missedMonths: number;
         } = null;
+      let plannedPaymentOverrideInput: number | null | undefined = undefined;
 
     if (typeof raw.name === "string") data.name = raw.name;
     if (typeof raw.type === "string") data.type = raw.type;
@@ -466,6 +580,11 @@ export async function PATCH(
       const parsed = parseOptionalInt(raw.installmentMonths);
       if (!parsed.ok) return NextResponse.json({ error: "Invalid installmentMonths" }, { status: 400 });
       data.installmentMonths = parsed.int;
+    }
+    if (typeof raw.plannedPaymentOverrideAmount !== "undefined") {
+      const parsed = parseOptionalMoney(raw.plannedPaymentOverrideAmount);
+      if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
+      plannedPaymentOverrideInput = parsed.amount;
     }
 
     const isCardType = existing.type === "credit_card" || existing.type === "store_card";
@@ -608,15 +727,61 @@ export async function PATCH(
       data.defaultPaymentSource = nextDefaultSource;
       data.defaultPaymentCardDebtId = nextDefaultSource === "credit_card" ? nextDefaultCard : null;
     }
-    if (Object.keys(data).length === 0) {
+    if (Object.keys(data).length === 0 && typeof plannedPaymentOverrideInput === "undefined") {
       return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
     }
 
     const debt = await prisma.$transaction(async (tx) => {
-      const updated = await tx.debt.update({
-        where: { id },
-        data,
-      });
+      const updated = Object.keys(data).length
+        ? await tx.debt.update({
+            where: { id },
+            data,
+          })
+        : existing;
+
+      if (typeof plannedPaymentOverrideInput !== "undefined") {
+        const overrideTarget = await resolveDebtPlannedPaymentTarget({
+          budgetPlanId: updated.budgetPlanId,
+          dueDate: updated.dueDate,
+        });
+        const clampedOverrideAmount = plannedPaymentOverrideInput == null
+          ? null
+          : Math.min(Math.max(0, plannedPaymentOverrideInput), Math.max(0, toNumber(updated.currentBalance)));
+        const baseMonthlyPayment = getDebtPlannedMonthlyPayment(updated as any);
+        const shouldDeleteOverride =
+          clampedOverrideAmount == null ||
+          Math.abs(clampedOverrideAmount - baseMonthlyPayment) <= 0.009;
+
+        if (shouldDeleteOverride) {
+          await tx.debtPlannedPaymentOverride.deleteMany({
+            where: {
+              debtId: id,
+              periodKey: overrideTarget.periodKey,
+            },
+          });
+        } else {
+          await tx.debtPlannedPaymentOverride.upsert({
+            where: {
+              debtId_periodKey: {
+                debtId: id,
+                periodKey: overrideTarget.periodKey,
+              },
+            },
+            update: {
+              amount: String(clampedOverrideAmount),
+              year: overrideTarget.year,
+              month: overrideTarget.month,
+            },
+            create: {
+              debtId: id,
+              amount: String(clampedOverrideAmount),
+              year: overrideTarget.year,
+              month: overrideTarget.month,
+              periodKey: overrideTarget.periodKey,
+            },
+          });
+        }
+      }
 
       if (!agreementBackfill) return updated;
 

@@ -585,6 +585,7 @@ model Debt {
   sourceExpenseName    String?
   
   payments             DebtPayment[]
+  plannedPaymentOverrides DebtPlannedPaymentOverride[]
   debtPaymentsAsCard   DebtPayment[]  @relation("DebtPaymentCard")
   expensePayments      ExpensePayment[]
   expensesChargedToCard Expense[]     @relation("ExpenseCard")
@@ -592,6 +593,22 @@ model Debt {
   updatedAt            DateTime       @updatedAt
   
   @@index([budgetPlanId])
+}
+
+model DebtPlannedPaymentOverride {
+  id        String   @id @default(cuid())
+  debtId     String
+  debt       Debt     @relation(fields: [debtId], references: [id], onDelete: Cascade)
+  amount     Decimal  @db.Decimal(12, 2)
+  year       Int
+  month      Int
+  periodKey  String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([debtId, periodKey])
+  @@index([periodKey])
+  @@index([year, month])
 }
 
 model DebtPayment {

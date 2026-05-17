@@ -65,6 +65,10 @@ export default function DebtDetailScreen() {
   }
 
   const monthlyPaymentNum = derived.dueTarget;
+  const hasCurrentPeriodPaymentOverride =
+    debt.dueThisMonth != null &&
+    debt.computedMonthlyPayment != null &&
+    Math.abs(Number(debt.dueThisMonth) - Number(debt.computedMonthlyPayment)) > 0.009;
   const showMonthlyPayment = !derived.isCardDebt && Number.isFinite(monthlyPaymentNum) && monthlyPaymentNum > 0;
 
   return (
@@ -111,8 +115,8 @@ export default function DebtDetailScreen() {
             dueTone={derived.dueCoveredThisCycle ? "green" : derived.isOverdue ? "red" : "normal"}
             monthlyOrInterestLabel={
               derived.isCardDebt
-                ? (derived.dueTarget > 0 ? "Monthly payment" : (derived.interestRateNum != null && derived.interestRateNum > 0 ? "Interest Rate" : "Monthly min"))
-                : (showMonthlyPayment ? "Monthly payment" : "Interest Rate")
+                ? (derived.dueTarget > 0 ? (hasCurrentPeriodPaymentOverride ? "This period payment" : "Monthly payment") : (derived.interestRateNum != null && derived.interestRateNum > 0 ? "Interest Rate" : "Monthly min"))
+                : (showMonthlyPayment ? (hasCurrentPeriodPaymentOverride ? "This period payment" : "Monthly payment") : "Interest Rate")
             }
             monthlyOrInterestValue={
               derived.isCardDebt
@@ -124,14 +128,19 @@ export default function DebtDetailScreen() {
                     : (derived.interestRateNum != null && derived.interestRateNum > 0 ? `${derived.interestRateNum}%` : "—"))
             }
             monthlyOrInterestSub={
-              derived.isCardDebt && derived.monthlyMinNum != null && derived.monthlyMinNum > 0 && derived.dueTarget > derived.monthlyMinNum
-                ? `Min ${fmt(derived.monthlyMinNum, currency)}`
-                : undefined
+              hasCurrentPeriodPaymentOverride && debt.computedMonthlyPayment != null
+                ? `Recurring ${fmt(debt.computedMonthlyPayment, currency)}`
+                : (derived.isCardDebt && derived.monthlyMinNum != null && derived.monthlyMinNum > 0 && derived.dueTarget > derived.monthlyMinNum
+                    ? `Min ${fmt(derived.monthlyMinNum, currency)}`
+                    : undefined)
             }
           />
 
           {!derived.isPaid ? (
             <View style={s.sectionCard}>
+              <View style={[s.sectionGlow, s.sectionGlowPrimary]} />
+              <View style={[s.sectionGlow, s.sectionGlowSecondary]} />
+              <View style={s.sectionInnerBorder} />
               <Text style={s.sectionTitle}>Payoff Projection</Text>
               <PayoffChart
                 balance={derived.currentBalNum}
@@ -199,6 +208,7 @@ export default function DebtDetailScreen() {
         currentBalance={state.editCurrentBalance}
         interestRate={state.editRate}
         monthlyPayment={state.editMonthlyPayment}
+        plannedPaymentOverride={state.editPlannedPaymentOverride}
         monthlyMinimum={state.editMin}
         dueDate={state.editDueDate}
         installment={state.editInstallment}
@@ -212,6 +222,7 @@ export default function DebtDetailScreen() {
         onChangeCurrentBalance={state.handleEditCurrentBalanceChange}
         onChangeRate={state.setEditRate}
         onChangeMonthlyPayment={state.handleEditMonthlyPaymentChange}
+        onChangePlannedPaymentOverride={state.setEditPlannedPaymentOverride}
         onChangeMin={state.handleEditMinChange}
         onPickDate={() => state.setShowDatePicker(true)}
         onDateChange={state.setEditDueDate}

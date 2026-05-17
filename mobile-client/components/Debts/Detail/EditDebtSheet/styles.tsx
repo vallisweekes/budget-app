@@ -36,6 +36,7 @@ export const styles = StyleSheet.create({
   formCol: { flex: 1 },
   formRow: { flexDirection: "row", gap: 12, marginBottom: 2 },
   input: { backgroundColor: T.cardAlt, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 12, color: T.text, fontSize: 14, borderWidth: 1, borderColor: T.border },
+  helperText: { color: T.textMuted, fontSize: 11, lineHeight: 16 },
   dateValue: { color: T.text, fontSize: 14 },
   dateValuePlaceholder: { color: T.textMuted },
   dateDoneBtn: { marginTop: 8 },

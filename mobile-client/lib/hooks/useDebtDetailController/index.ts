@@ -44,6 +44,7 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
   const [editCurrentBalance, setEditCurrentBalance] = useState("");
   const [editRate, setEditRate] = useState("");
   const [editMonthlyPayment, setEditMonthlyPayment] = useState("");
+  const [editPlannedPaymentOverride, setEditPlannedPaymentOverride] = useState("");
   const [editMin, setEditMin] = useState("");
   const [editInstallment, setEditInstallment] = useState("");
   const [editDueDate, setEditDueDate] = useState("");
@@ -140,6 +141,7 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
           ? asTwoDecimals(detail.computedMonthlyPayment)
           : ((detail as any).amount != null ? asTwoDecimals((detail as any).amount) : "")
       );
+      setEditPlannedPaymentOverride(detail.plannedPaymentOverrideAmount != null ? asTwoDecimals(detail.plannedPaymentOverrideAmount) : "");
       setEditMin(detail.monthlyMinimum != null ? asTwoDecimals(detail.monthlyMinimum) : "");
       setEditInstallment(detail.installmentMonths != null ? String(detail.installmentMonths) : "");
       setEditDueDate(detail.dueDate ? String(detail.dueDate).slice(0, 10) : "");
@@ -297,9 +299,15 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
     const parsedInterestRate = editRate ? parseFloat(editRate) : NaN;
     const nextDueDate = editDueDate || null;
     const nextDueDay = nextDueDate ? Number.parseInt(nextDueDate.slice(8, 10), 10) : null;
+    const parsedPlannedPaymentOverride = editPlannedPaymentOverride.trim() ? parseFloat(editPlannedPaymentOverride) : NaN;
 
     const parsedMin = editMin ? parseFloat(editMin) : NaN;
     const monthlyMinimum = Number.isFinite(parsedMin) && parsedMin > 0 ? parsedMin : null;
+
+    if (editPlannedPaymentOverride.trim() && (!Number.isFinite(parsedPlannedPaymentOverride) || parsedPlannedPaymentOverride < 0)) {
+      Alert.alert("Invalid one-off payment", "Enter a valid amount for this due period.");
+      return;
+    }
 
     // For credit/store cards the monthly minimum IS the planned payment.
     // Keep amount in sync so the list card and detail page always agree.
@@ -327,6 +335,9 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
     const effectiveAmount = isCardType && monthlyMinimum != null
       ? monthlyMinimum
       : (normalizedMonthlyPayment ?? (Number.isFinite(parsedMonthlyPayment) ? parsedMonthlyPayment : null));
+    const plannedPaymentOverride = Number.isFinite(parsedPlannedPaymentOverride)
+      ? Number(parsedPlannedPaymentOverride.toFixed(2))
+      : null;
 
     const optimisticDebt: Debt = {
       ...debt,
@@ -341,6 +352,7 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
       dueDay: Number.isFinite(nextDueDay as number) ? (nextDueDay as number) : null,
       defaultPaymentSource: editPaymentSource,
       defaultPaymentCardDebtId: editPaymentSource === "credit_card" ? editPaymentCardDebtId.trim() : null,
+      plannedPaymentOverrideAmount: plannedPaymentOverride,
       computedMonthlyPayment: effectiveAmount ?? debt.computedMonthlyPayment,
     };
 
@@ -362,6 +374,7 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
           dueDate: editDueDate || null,
           defaultPaymentSource: editPaymentSource,
           defaultPaymentCardDebtId: editPaymentSource === "credit_card" ? editPaymentCardDebtId.trim() : null,
+          plannedPaymentOverrideAmount: plannedPaymentOverride,
         },
       }).unwrap();
       await load();
@@ -372,7 +385,7 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
     } finally {
       setEditSaving(false);
     }
-  }, [computeInstallmentPayment, computeRemainingInstallmentMonths, debt, debtId, editCurrentBalance, editDueDate, editInstallment, editMin, editMonthlyPayment, editName, editPaymentCardDebtId, editPaymentSource, editRate, load]);
+  }, [computeInstallmentPayment, computeRemainingInstallmentMonths, debt, debtId, editCurrentBalance, editDueDate, editInstallment, editMin, editMonthlyPayment, editName, editPaymentCardDebtId, editPaymentSource, editPlannedPaymentOverride, editRate, load]);
 
   const confirmDeleteDebt = useCallback(async () => {
     if (deletingDebt) return;
@@ -419,6 +432,9 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
 
     const dueTarget = (() => {
       if (!debt) return 0;
+      if (debt.dueThisMonth != null) {
+        return Math.max(0, Number(debt.dueThisMonth));
+      }
       if (summarySnapshot?.dueThisMonth != null) {
         return Math.max(0, Number(summarySnapshot.dueThisMonth));
       }
@@ -536,6 +552,8 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
     setEditRate,
     editMonthlyPayment,
     handleEditMonthlyPaymentChange,
+    editPlannedPaymentOverride,
+    setEditPlannedPaymentOverride,
     editMin,
     handleEditMinChange,
     editInstallment,

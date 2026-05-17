@@ -34,6 +34,9 @@ export default function DebtHero({
 
   return (
     <View style={[styles.balanceHero, { paddingTop: styles.balanceHero.paddingTop + topInset }]}>
+      <View style={[styles.heroGlow, styles.heroGlowPrimary]} />
+      <View style={[styles.heroGlow, styles.heroGlowSecondary]} />
+      <View style={styles.heroInnerBorder} />
       <View style={styles.brandCircle}>
         {showLogo ? (
           <Image
