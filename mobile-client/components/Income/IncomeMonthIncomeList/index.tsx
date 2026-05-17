@@ -37,7 +37,9 @@ export default function IncomeMonthIncomeList({
       <FlatList
         data={sortedItems}
         keyExtractor={(item) => item.id}
+        style={s.body}
         contentContainerStyle={[s.scroll, { paddingTop: topInset }]}
+        bounces={false}
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={T.accent} />}
         ListHeaderComponent={

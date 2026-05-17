@@ -81,7 +81,7 @@ export default function IncomeMonthHeader({
           <Text style={[styles.modeTxt, viewMode === "income" && styles.modeTxtActive]}>Income</Text>
         </Pressable>
         <Pressable style={styles.modePill} onPress={() => onSetMode("sacrifice")}>
-          <Text style={[styles.modeTxt, viewMode === "sacrifice" && styles.modeTxtActive]}>Income sacrifice</Text>
+          <Text style={[styles.modeTxt, viewMode === "sacrifice" && styles.modeTxtActive]}>Sacrifices</Text>
         </Pressable>
       </View>
     </BlurView>

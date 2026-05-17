@@ -4,8 +4,9 @@ import { T } from "@/lib/theme";
 
 export const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: T.bg },
+  body: { flex: 1, backgroundColor: T.bg },
   center: { flex: 1, justifyContent: "center", alignItems: "center", gap: 12 },
-  scroll: { paddingBottom: 40 },
+  scroll: { flexGrow: 1, paddingBottom: 40 },
   sourcesHeader: {
     paddingHorizontal: 16,
     paddingTop: 20,

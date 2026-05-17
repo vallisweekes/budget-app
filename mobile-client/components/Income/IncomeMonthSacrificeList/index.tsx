@@ -486,7 +486,7 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
       ? "Add sacrifice item"
       : manageScreen === "link"
         ? "Link sacrifice to goal"
-        : "Choose sacrifice";
+        : null;
 
   const manageHeaderSubtitle = manageScreen === "detail"
     ? "Edit this sacrifice allocation and period settings."
@@ -831,16 +831,17 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
             <Pressable style={styles.manageBackBtn} onPress={goBackFromManageScreen}>
               <Ionicons name="chevron-back" size={20} color={T.text} />
             </Pressable>
-            <View style={styles.manageHeaderCopy}>
-              <Text style={styles.manageTitle}>{manageHeaderTitle}</Text>
-              <Text style={styles.manageSubtitle}>{manageHeaderSubtitle}</Text>
+            <View pointerEvents="none" style={styles.manageHeaderCenterWrap}>
+              {manageHeaderTitle ? <Text style={styles.manageTitle} numberOfLines={1}>{manageHeaderTitle}</Text> : null}
             </View>
+            <View style={styles.manageHeaderSpacer} />
           </View>
         </View>
 
         <ScrollView
           style={styles.manageScroll}
           showsVerticalScrollIndicator={false}
+          bounces={false}
           contentContainerStyle={[styles.manageScrollContent, { paddingBottom: 140 + insets.bottom }]}
         >
           {renderManageContent()}
@@ -860,6 +861,7 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
           data={[]}
           keyExtractor={(_, idx) => String(idx)}
           style={styles.mainList}
+          bounces={false}
           contentContainerStyle={[s.scroll, { paddingTop: props.topInset ?? 0, paddingBottom: canManage ? 132 + insets.bottom : 40 }]}
           refreshControl={<RefreshControl refreshing={props.refreshing} onRefresh={props.onRefresh} tintColor={T.accent} />}
           ListHeaderComponent={
@@ -922,9 +924,8 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
 
       {canManage ? (
         <View style={[styles.fixedFooter, { paddingBottom: Math.max(insets.bottom, 14) }]}> 
-          <Pressable style={[styles.primaryBtn, props.sacrificeSaving && styles.disabled]} onPress={openManageFlow} disabled={props.sacrificeSaving}>
-            <Ionicons name="create-outline" size={15} color="#0f282f" />
-            <Text style={styles.primaryBtnText}>Add / edit sacrifice</Text>
+          <Pressable style={[styles.mainFooterBtn, props.sacrificeSaving && styles.disabled]} onPress={openManageFlow} disabled={props.sacrificeSaving}>
+            <Text style={styles.mainFooterBtnText}>Edit</Text>
           </Pressable>
         </View>
       ) : null}

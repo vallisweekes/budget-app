@@ -52,7 +52,7 @@ export const styles = StyleSheet.create({
   headerTitle: { color: T.text, fontSize: 17, fontWeight: "900", flex: 1, textAlign: "center" },
   modeWrap: {
     flexDirection: "row",
-    marginHorizontal: 16,
+    alignSelf: "center",
     marginTop: 12,
     marginBottom: 8,
     backgroundColor: "rgba(13, 18, 43, 0.72)",
@@ -71,7 +71,8 @@ export const styles = StyleSheet.create({
     backgroundColor: T.accent,
   },
   modePill: {
-    flex: 1,
+    minWidth: 116,
+    paddingHorizontal: 18,
     paddingVertical: 8,
     borderRadius: 999,
     alignItems: "center",

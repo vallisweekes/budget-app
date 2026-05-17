@@ -925,14 +925,16 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
     );
   }
 
-  const safeAreaPaddingTop = isStandaloneSacrifice
-    ? (isSacrificeManageActive ? insets.top : 0)
-    : (isSacrificeManageActive ? insets.top : topHeaderOffset);
+  const safeAreaPaddingTop = isSacrificeManageActive
+    ? 0
+    : isStandaloneSacrifice
+      ? 0
+      : topHeaderOffset;
 
   return (
 		<SafeAreaView style={[s.safe, { paddingTop: safeAreaPaddingTop }]} edges={["bottom"]}>
       {isStandaloneSacrifice && !isSacrificeManageActive ? <TabRouteHeader /> : null}
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <KeyboardAvoidingView style={s.body} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         {!isSacrificeManageActive ? (
           <IncomeMonthHeader
             monthLabel={monthLabel}
@@ -960,7 +962,7 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
             payDate={settings?.payDate ?? 27}
             payFrequency={normalizedPayFrequency}
             sacrifice={sacrifice}
-            topInset={isSacrificeManageActive ? 0 : headerHeight + 8}
+            topInset={isSacrificeManageActive ? insets.top : headerHeight + 8}
             onManageFlowActiveChange={setIsSacrificeManageActive}
             canManage={canManageSacrifice}
             manageUnavailableReason={manageSacrificeNotice}

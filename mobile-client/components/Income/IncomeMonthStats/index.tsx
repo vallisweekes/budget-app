@@ -27,7 +27,7 @@ export default function IncomeMonthStats({ data: a, currency, fmt, onPressIncome
       <View style={styles.row}>
         <Card label="Total income" value={fmt(a.grossIncome, currency)} color={T.green} />
         <Card
-          label="Income sacrifice"
+          label="Sacrifices"
           value={fmt(a.incomeSacrifice, currency)}
           color={T.accent}
           subValue={incomeSacrificePctLabel}
