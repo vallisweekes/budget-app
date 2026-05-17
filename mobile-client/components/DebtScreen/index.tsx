@@ -57,6 +57,8 @@ export default function DebtScreen() {
         }
         ListHeaderComponent={
           <>
+            <DebtProjectionCard controller={controller} />
+
             <View style={styles.heroRow}>
               <View style={[styles.heroCard, { borderColor: `${T.red}44` }]}>
                 <View style={[styles.heroCardGlow, styles.heroCardGlowStart, { backgroundColor: `${T.red}20` }]} />
@@ -81,8 +83,6 @@ export default function DebtScreen() {
                 </Text>
               </View>
             </View>
-
-            <DebtProjectionCard controller={controller} />
 
             <View style={styles.listHeader}>
               {controller.hasPaidOffDebts ? (
