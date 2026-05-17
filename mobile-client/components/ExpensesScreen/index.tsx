@@ -69,6 +69,12 @@ export default function ExpensesScreen({ navigation, route }: ExpensesScreenProp
           ListHeaderComponent={
             <>
               <View style={[styles.purpleHero, { paddingTop: controller.topHeaderOffset + 22 }]}>
+                <View style={[styles.heroGlow, styles.heroGlowPrimary]} />
+                <View style={[styles.heroGlow, styles.heroGlowSecondary]} />
+                <View style={styles.heroInnerBorder} />
+                <View style={styles.heroBadge}>
+                  <Text style={styles.heroBadgeText}>Expense overview</Text>
+                </View>
                 {controller.showPlanTotalFallback ? (
                   <Text style={styles.purpleHeroLabel}>
                     Total {controller.activePlan?.name ?? "Plan"} expenses
@@ -109,6 +115,16 @@ export default function ExpensesScreen({ navigation, route }: ExpensesScreenProp
                         </View>
                       );
                     })()}
+                    <View style={styles.heroStatRow}>
+                      <View style={styles.heroStatCard}>
+                        <Text style={styles.heroStatLabel}>Active plan</Text>
+                        <Text style={styles.heroStatValue} numberOfLines={1}>{controller.activePlan?.name ?? "Personal"}</Text>
+                      </View>
+                      <View style={styles.heroStatCard}>
+                        <Text style={styles.heroStatLabel}>Status</Text>
+                        <Text style={styles.heroStatValue}>{controller.isPastSelectedPeriod ? "Past" : "Live"}</Text>
+                      </View>
+                    </View>
                   </>
                 ) : null}
               </View>
