@@ -12,6 +12,7 @@ applyTo: "web-client/{app,lib,prisma,scripts}/**/*.{ts,tsx,js,mjs,prisma}"
 - Keep server-only code in server-only modules.
 - Preserve existing error shape conventions: structured JSON responses with status codes and stable error semantics.
 - Prefer narrow refetches and targeted invalidation over expensive broad reload patterns.
+- Production still runs on this Next.js BFF path, but matching server behavior in the sibling `budgetin-check-api` repo should be kept in sync while the `.NET` migration is active.
 
 ## Server Architecture Details
 
@@ -34,9 +35,11 @@ applyTo: "web-client/{app,lib,prisma,scripts}/**/*.{ts,tsx,js,mjs,prisma}"
 - Mobile expects normalized, typed JSON payloads suitable for direct screen consumption.
 - If you change a payload shape, update mobile consumer types and screen logic in the same task.
 - Preserve route semantics that keep computed values canonical on the server, especially for dashboard, summaries, and income analysis.
+- If you change a BFF route's core behavior, auth expectation, response shape, or finance rule, mirror that change in the `.NET` migration repo or explicitly leave a parity note there.
 
 ## Server Architecture Notes
 
 - `mobile-client` talks to these routes through `apiFetch`.
 - Prisma uses pooled runtime connections and retry handling in `web-client/lib/prisma.ts`.
 - Auth/session behavior must remain compatible with both web and mobile session flows.
+- Local mobile testing can target either this Next.js server at `http://localhost:5537` or the staged `.NET` backend at `http://localhost:5262` via `EXPO_PUBLIC_API_BASE_URL`.

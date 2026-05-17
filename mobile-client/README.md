@@ -39,13 +39,22 @@ mobile-client/
 
 ---
 
-## 1. Start the web backend
+## 1. Start a local backend
 
 ```bash
 cd web-client
 npm install
 npm run dev          # http://localhost:5537  (runs migrations + Prisma generate)
 ```
+
+Or run the staged `.NET` backend:
+
+```bash
+cd /Users/shakerhd/Documents/Developer/budgetin-check-api
+~/.dotnet/dotnet run --project src/BudgetinCheck.Api --launch-profile http
+```
+
+The `.NET` backend runs on `http://localhost:5262` and still expects the local Next.js backend to be available for unmigrated `/api/bff/*` routes.
 
 ## 2. Configure mobile env
 
@@ -58,8 +67,10 @@ Edit `.env`:
 
 | Situation | Value |
 |-----------|-------|
-| iOS Simulator / Android Emulator (same Mac) | `EXPO_PUBLIC_API_BASE_URL=http://localhost:5537` |
-| Physical device on same Wi-Fi | `EXPO_PUBLIC_API_BASE_URL=http://<YOUR_MAC_IP>:5537` |
+| iOS Simulator / Android Emulator with Next.js backend | `EXPO_PUBLIC_API_BASE_URL=http://localhost:5537` |
+| iOS Simulator / Android Emulator with `.NET` backend | `EXPO_PUBLIC_API_BASE_URL=http://localhost:5262` |
+| Physical device on same Wi-Fi using Next.js backend | `EXPO_PUBLIC_API_BASE_URL=http://<YOUR_MAC_IP>:5537` |
+| Physical device on same Wi-Fi using `.NET` backend | `EXPO_PUBLIC_API_BASE_URL=http://<YOUR_MAC_IP>:5262` |
 
 Get your local IP on macOS:
 ```bash
@@ -92,6 +103,13 @@ The app uses **native credential sign-in** through the existing NextAuth setup:
 5. All API calls inject the token as a `Cookie` header automatically
 
 > Sign in with the same username you use on the web app — same account, same data.
+
+## Backend migration workflow
+
+- Production still uses the Next.js backend deployed from `web-client` on Vercel.
+- The local `.NET` backend is the staged migration target and should be kept behaviorally aligned with the current Next.js BFF.
+- When you change BFF behavior in `web-client`, update the corresponding implementation in `/Users/shakerhd/Documents/Developer/budgetin-check-api` as part of the same local workflow.
+- Use `EXPO_PUBLIC_API_BASE_URL` to switch local mobile testing between the two backends.
 
 ---
 

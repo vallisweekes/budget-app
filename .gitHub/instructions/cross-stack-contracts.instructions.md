@@ -8,6 +8,7 @@ description: "Use when a task spans mobile-client and web-client, especially API
 - If a mobile screen computes data that is also needed elsewhere, consider moving that computation into the BFF.
 - Be explicit about whether behavior is verified in code or inferred from surrounding architecture.
 - For onboarding goals, pay-period logic, debt/payment rules, notifications, and receipt flows, check for schema, enum, cache, and normalization impacts before finishing.
+- While the `.NET` backend migration is incomplete, check whether the same server-side behavior also needs to be updated in `budgetin-check-api`.
 
 ## Period And Cadence Checks
 
@@ -34,3 +35,4 @@ description: "Use when a task spans mobile-client and web-client, especially API
 4. Run focused validation in both clients when the contract changed.
 5. Check pay-period, cadence, and plan-created-at effects where relevant.
 6. Check Prisma schema or enum migration impact where relevant.
+7. Mirror significant BFF contract changes into the staged `.NET` backend repo when the behavior is part of the migration surface.

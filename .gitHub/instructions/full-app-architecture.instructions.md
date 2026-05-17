@@ -11,6 +11,13 @@ This repository is one product with two clients and one active server layer.
 - `web-client/app/api/bff/*` is the backend-for-frontend consumed by mobile.
 - Prisma plus PostgreSQL are the system of record for persisted budget data.
 
+## Staged Backend Migration
+
+- The current production backend is still the Next.js BFF in `web-client`.
+- The sibling repository `budgetin-check-api` is the staged `.NET` replacement for that BFF.
+- Until the cutover is complete, important BFF behavior changes should be mirrored into the `.NET` repo as part of normal server-side work.
+- Production deployment assumptions should continue to target the current Next.js/Vercel path unless a task explicitly covers deployment migration.
+
 ## Runtime Boundaries
 
 - Mobile does not talk directly to the database.
@@ -28,6 +35,15 @@ This repository is one product with two clients and one active server layer.
 5. Mobile consumes that payload through typed API contracts and local caches.
 
 For most product changes, the controlling source of truth should stay on the server.
+
+## Local Development Switching
+
+- Mobile can point at either local backend through `EXPO_PUBLIC_API_BASE_URL`.
+- Current local backend URLs are:
+  - Next.js BFF: `http://localhost:5537`
+  - `.NET` API: `http://localhost:5262`
+- The `.NET` API still relies on the legacy Next.js backend for unmigrated routes, so local `.NET` testing usually requires both servers running.
+- If a task changes BFF behavior, verify whether local switching between these two backends still behaves correctly.
 
 ## Auth Model
 
@@ -96,6 +112,7 @@ For most product changes, the controlling source of truth should stay on the ser
 - When a BFF payload changes, update the dependent mobile types and consumers in the same task.
 - Keep shared business rules on the server when more than one screen or client depends on them.
 - Keep Prisma schema, migrations, and API payloads aligned for structural changes.
+- While the `.NET` migration is incomplete, keep the staged `.NET` implementation aligned with significant Next.js BFF contract changes.
 
 ## Caching And Invalidation
 

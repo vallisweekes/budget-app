@@ -21,6 +21,23 @@ This repository contains two product clients that share one backend system:
 - Keep business logic close to the server/BFF when payloads are computed, aggregated, or reused across screens.
 - Keep volatile presentation state local to small mobile child components instead of screen-level controllers when possible.
 
+## Staged Backend Migration
+
+- Production remains on the Next.js BFF deployed from `web-client` on Vercel until the `.NET` backend is fully ready.
+- The sibling repository `budgetin-check-api` is the staged `.NET` backend migration target and should be kept in sync with server-side behavior changes.
+- When changing current Next.js BFF logic, route semantics, auth behavior, payload shape, or shared finance rules, update the corresponding `.NET` implementation or migration placeholder in `budgetin-check-api` in the same task when practical.
+- Do not treat `.NET` parity work as optional backlog for core BFF behavior changes during local development.
+- Do not switch production deployment assumptions away from Next.js/Vercel unless the user explicitly asks for deployment migration work.
+
+## Local Backend Switching
+
+- Local development may run either backend behind the mobile client:
+	- Next.js BFF: `http://localhost:5537`
+	- `.NET` API: `http://localhost:5262`
+- Mobile backend selection is controlled by `EXPO_PUBLIC_API_BASE_URL`.
+- When testing the `.NET` API locally, keep the legacy Next.js server available as well because the `.NET` API still proxies unmigrated `/api/bff/*` routes.
+- When testing production-like behavior or deployment assumptions, prefer the current Next.js backend path.
+
 ## Scaling Direction
 
 - Keep `web-client` on Next.js App Router and keep Neon/PostgreSQL as the primary system of record unless a specific scaling bottleneck proves they are insufficient.
@@ -61,6 +78,7 @@ This repository contains two product clients that share one backend system:
 - Keep server-only code server-only. Do not leak Prisma or server helpers into client bundles.
 - When routes aggregate finance data, prefer server-side helpers that already encode period logic, ownership checks, and normalization.
 - Preserve structured JSON error semantics for mobile consumers.
+- While migration is in progress, treat the `.NET` repo as a second server implementation that should track important BFF behavior changes.
 
 ## Mobile Client Standards
 
