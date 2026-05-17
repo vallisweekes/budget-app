@@ -160,16 +160,17 @@ export default function MainTabsLayout() {
       <NativeTabs.Trigger
         {...incomeTriggerListeners}
         name="income"
+        role={isIncomeAddSurfaceRoute ? "search" : undefined}
         contentStyle={tabContentStyle}
         unstable_nativeProps={tabNativeProps}
         disableTransparentOnScrollEdge
       >
         <NativeTabs.Trigger.Icon
-          src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name={isIncomeAddSurfaceRoute ? "add-circle" : "wallet-outline"} />}
+          src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name={isIncomeAddSurfaceRoute ? "add" : "wallet-outline"} />}
           renderingMode="template"
           selectedColor={selectedTintColor}
         />
-        <NativeTabs.Trigger.Label selectedStyle={selectedTabLabelStyle}>{isIncomeAddSurfaceRoute ? "Add" : "Income"}</NativeTabs.Trigger.Label>
+        {!isIncomeAddSurfaceRoute ? <NativeTabs.Trigger.Label selectedStyle={selectedTabLabelStyle}>Income</NativeTabs.Trigger.Label> : null}
       </NativeTabs.Trigger>
       <NativeTabs.Trigger
         {...resetOnBlurScreenProps}
