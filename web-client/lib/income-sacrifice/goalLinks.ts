@@ -3,6 +3,7 @@ import {
   getMonthlyAllocationSnapshot,
   getMonthlyCustomAllocationsSnapshot,
 } from "@/lib/allocations/store";
+import { invalidateGoalConnectedState } from "@/lib/goals/invalidateGoalConnectedState";
 import { monthNumberToKey } from "@/lib/helpers/monthKey";
 import type { MonthKey } from "@/types";
 
@@ -278,6 +279,8 @@ export async function upsertSacrificeGoalLink(params: {
     },
     update: { goalId: params.goalId },
   });
+
+  await invalidateGoalConnectedState(params.budgetPlanId);
 }
 
 export async function removeSacrificeGoalLink(params: {
@@ -293,6 +296,8 @@ export async function removeSacrificeGoalLink(params: {
       targetKey: params.targetKey,
     },
   });
+
+  await invalidateGoalConnectedState(params.budgetPlanId);
 }
 
 export async function listSacrificeTransferConfirmations(params: {
@@ -415,6 +420,8 @@ export async function confirmSacrificeTransfer(params: {
       },
     });
   });
+
+  await invalidateGoalConnectedState(params.budgetPlanId);
 
   return {
     created: true,

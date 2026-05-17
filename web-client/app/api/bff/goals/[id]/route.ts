@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUserId } from "@/lib/api/bffAuth";
-import { invalidateDashboardCache } from "@/lib/cache/dashboardCache";
+import { invalidateGoalConnectedState } from "@/lib/goals/invalidateGoalConnectedState";
 
 export const runtime = "nodejs";
 
@@ -27,7 +27,8 @@ export async function GET(
       return NextResponse.json({ error: "Goal not found" }, { status: 404 });
     }
 
-		const { budgetPlan, ...safe } = goal;
+    const safe = { ...goal };
+    delete (safe as { budgetPlan?: unknown }).budgetPlan;
     return NextResponse.json(safe);
   } catch (error) {
     console.error("Failed to fetch goal:", error);
@@ -77,7 +78,7 @@ export async function PATCH(
       where: { id },
       data,
     });
-	await invalidateDashboardCache(existing.budgetPlanId);
+  await invalidateGoalConnectedState(existing.budgetPlanId);
 
     return NextResponse.json(goal);
   } catch (error) {
@@ -109,7 +110,7 @@ export async function DELETE(
     await prisma.goal.delete({
       where: { id },
     });
-	await invalidateDashboardCache(existing.budgetPlanId);
+  await invalidateGoalConnectedState(existing.budgetPlanId);
 
     return NextResponse.json({ success: true });
   } catch (error) {

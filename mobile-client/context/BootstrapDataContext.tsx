@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { AppState, type AppStateStatus } from "react-native";
 
-import { ApiError } from "@/lib/api";
+import { ApiError, subscribeToApiMutations } from "@/lib/api";
 import type { DashboardData, Settings } from "@/lib/apiTypes";
 import { useAuth } from "@/context/AuthContext";
 import { useOnboardingGate } from "@/navigation/OnboardingGateContext";
@@ -75,6 +75,7 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
   const onboardingRequiredRef = useRef(onboarding.required);
   const bootstrapQueriesBusyRef = useRef(false);
   const initialRecoveryAttemptedRef = useRef(false);
+  const hasBootstrapDataRef = useRef(false);
 
   useEffect(() => {
     dashboardRef.current = dashboard;
@@ -83,6 +84,10 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
   useEffect(() => {
     settingsRef.current = settings;
   }, [settings]);
+
+  useEffect(() => {
+    hasBootstrapDataRef.current = hasBootstrapData;
+  }, [hasBootstrapData]);
 
   useEffect(() => {
     authLoadingRef.current = authLoading;
@@ -198,6 +203,16 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
 
   const ensureLoaded = useCallback(async (): Promise<BootstrapRefreshResult> => {
     return await refresh({ force: false });
+  }, [refresh]);
+
+  useEffect(() => {
+    return subscribeToApiMutations(() => {
+      if (authLoadingRef.current) return;
+      if (!tokenRef.current) return;
+      if (onboardingBusyRef.current || onboardingRequiredRef.current) return;
+      if (!hasBootstrapDataRef.current) return;
+      void refresh({ force: true });
+    });
   }, [refresh]);
 
   useEffect(() => {

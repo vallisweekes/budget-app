@@ -4,7 +4,7 @@ import { supportsOnboardingCadenceFields as detectOnboardingCadenceFields } from
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
 import { normalizeBillFrequency, normalizePayFrequency } from "@/lib/payPeriods";
 import { syncGoalCurrentAmountsFromBalances } from "@/lib/goals/syncGoalCurrentAmountsFromBalances";
-import { invalidateDashboardCache } from "@/lib/cache/dashboardCache";
+import { invalidateGoalConnectedState } from "@/lib/goals/invalidateGoalConnectedState";
 import { invalidateProfileCache } from "@/lib/cache/profileCache";
 
 export const runtime = "nodejs";
@@ -613,7 +613,7 @@ export async function PATCH(req: NextRequest) {
           payFrequency: hasPayFrequency ? nextPayFrequency : undefined,
           billFrequency: hasBillFrequency ? nextBillFrequency : undefined,
         });
-        await invalidateDashboardCache(budgetPlanId);
+        await invalidateGoalConnectedState(budgetPlanId);
         await invalidateProfileCache(userId);
         const plan = await prisma.budgetPlan.findUnique({
           where: { id: budgetPlanId },
@@ -672,7 +672,7 @@ export async function PATCH(req: NextRequest) {
         emergencyBalance: nextEmergencyBalance,
         investmentBalance: nextInvestmentBalance,
       });
-		await invalidateDashboardCache(budgetPlanId);
+    await invalidateGoalConnectedState(budgetPlanId);
     await invalidateProfileCache(userId);
       const nextIncomeDefaults = await getIncomeDefaultsFallback(budgetPlanId);
       const cadence = await getCadenceForUser(userId);
@@ -738,7 +738,7 @@ export async function PATCH(req: NextRequest) {
         emergencyBalance: nextEmergencyBalance,
         investmentBalance: nextInvestmentBalance,
       });
-		await invalidateDashboardCache(budgetPlanId);
+    await invalidateGoalConnectedState(budgetPlanId);
     await invalidateProfileCache(userId);
       const cadence = await getCadenceForUser(userId);
       return NextResponse.json({

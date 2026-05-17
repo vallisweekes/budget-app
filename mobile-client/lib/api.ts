@@ -137,6 +137,7 @@ type CacheEntry = {
 const inflightRequests = new Map<string, Promise<unknown>>();
 const responseCache = new Map<string, CacheEntry>();
 let apiMutationVersion = 0;
+const apiMutationListeners = new Set<(version: number) => void>();
 
 function isGetMethod(method?: ApiFetchOptions["method"]): boolean {
   return (method ?? "GET") === "GET";
@@ -181,6 +182,13 @@ export function invalidateApiCache() {
 
 export function getApiMutationVersion(): number {
   return apiMutationVersion;
+}
+
+export function subscribeToApiMutations(listener: (version: number) => void): () => void {
+  apiMutationListeners.add(listener);
+  return () => {
+    apiMutationListeners.delete(listener);
+  };
 }
 
 export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): Promise<T> {
@@ -302,6 +310,9 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
       // Any successful mutation can invalidate stale aggregates/list responses.
       invalidateApiCache();
       apiMutationVersion += 1;
+      for (const listener of apiMutationListeners) {
+        listener(apiMutationVersion);
+      }
     }
 
     return result;

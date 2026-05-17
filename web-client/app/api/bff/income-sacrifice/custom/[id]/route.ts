@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUserId } from "@/lib/api/bffAuth";
+import { removeSacrificeGoalLink } from "@/lib/income-sacrifice/goalLinks";
+import { invalidateGoalConnectedState } from "@/lib/goals/invalidateGoalConnectedState";
 
 export const runtime = "nodejs";
 
@@ -19,7 +21,7 @@ export async function DELETE(
 		const { id } = await params;
 		const row = await prisma.allocationDefinition.findUnique({
 			where: { id },
-			select: { id: true, budgetPlan: { select: { userId: true } } },
+			select: { id: true, budgetPlanId: true, budgetPlan: { select: { userId: true } } },
 		});
 		if (!row || row.budgetPlan.userId !== userId) {
 			return NextResponse.json({ error: "Allocation not found" }, { status: 404 });
@@ -29,6 +31,12 @@ export async function DELETE(
 			where: { id },
 			data: { isArchived: true },
 		});
+
+		await removeSacrificeGoalLink({
+			budgetPlanId: row.budgetPlanId,
+			targetKey: `custom:${id}`,
+		});
+		await invalidateGoalConnectedState(row.budgetPlanId);
 
 		return NextResponse.json({ success: true });
 	} catch (error) {

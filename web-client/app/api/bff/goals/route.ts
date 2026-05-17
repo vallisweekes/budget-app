@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
-import { invalidateDashboardCache } from "@/lib/cache/dashboardCache";
 import { ensureLegacyCustomSacrificesHaveGoals } from "@/lib/income-sacrifice/goalLinks";
+import { invalidateGoalConnectedState } from "@/lib/goals/invalidateGoalConnectedState";
 
 export const runtime = "nodejs";
 
@@ -111,7 +111,7 @@ export async function POST(request: Request) {
         budgetPlanId,
       },
     });
-	await invalidateDashboardCache(budgetPlanId);
+  await invalidateGoalConnectedState(budgetPlanId);
 
     return NextResponse.json({ goalId: goal.id }, { status: 201 });
   } catch (error) {
