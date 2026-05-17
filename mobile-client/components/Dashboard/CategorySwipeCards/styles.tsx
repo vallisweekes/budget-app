@@ -5,7 +5,7 @@ import { cardElevated } from "@/lib/ui";
 const CARD = 122;
 
 export const styles = StyleSheet.create({
-  wrap: { marginTop: 8, marginBottom: 6 },
+  wrap: { marginTop: 18, marginBottom: 6 },
   card: {
     width: CARD,
     height: CARD,

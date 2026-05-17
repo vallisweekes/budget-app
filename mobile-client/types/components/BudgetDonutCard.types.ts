@@ -6,4 +6,5 @@ export interface BudgetDonutCardProps {
   paidTotal: number;
   currency: string;
   fmt: CurrencyFormatter;
+  periodLabel?: string;
 }

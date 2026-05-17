@@ -83,18 +83,13 @@ export default function DashboardScreen(props: DashboardScreenProps) {
         contentContainerStyle={[styles.scroll, { paddingTop: contentTopPadding }]}
         showsVerticalScrollIndicator={false}
       >
-        {controller.hasPayDateConfigured ? (
-          <View style={styles.currentPeriodBadge}>
-            <Text style={styles.currentPeriodBadgeText}>{controller.payPeriodLabel}</Text>
-          </View>
-        ) : null}
-
         <BudgetDonutCard
           totalBudget={controller.totalBudget}
           totalExpenses={controller.totalExpenses}
           paidTotal={controller.paidTotal}
           currency={controller.currency}
           fmt={fmt}
+          periodLabel={controller.hasPayDateConfigured ? controller.payPeriodLabel : undefined}
         />
 
         {(controller.isOverBudgetBySpending || controller.hasOverLimitDebt) ? (
