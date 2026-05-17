@@ -48,13 +48,20 @@ export type IncomeMonthSacrificeListProps = {
     period: SacrificePeriod;
   }) => Promise<void>;
   onDeleteCustom: (id: string) => Promise<void>;
-  onCreateItem: (args: { type: IncomeSacrificeItemType; name: string }) => Promise<void>;
+  onCreateItem: (args: {
+    type: IncomeSacrificeItemType;
+    name: string;
+    amount: number;
+    goalTargetAmount?: number;
+    goalTargetYear?: number;
+  }) => Promise<void>;
   onSaveGoalLink: (args: { targetKey: string; goalId: string | null }) => Promise<void>;
   onConfirmTransfer: (targetKey: string) => Promise<void>;
   goalLinkSaving: boolean;
   confirmingTargetKey: string | null;
   pendingNoticeText?: string;
   onDismissPendingNotice?: () => void;
+  onGoHome?: () => void;
   onGoToCurrentPeriod?: () => void;
   onGoToNextPeriod?: () => void;
 };

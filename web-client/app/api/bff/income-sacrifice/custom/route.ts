@@ -1,6 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
 import { createAllocationDefinition, resolveActiveBudgetYear, upsertMonthlyCustomAllocationOverrides } from "@/lib/allocations/store";
+import { invalidateDashboardCache } from "@/lib/cache/dashboardCache";
+import { upsertSacrificeGoalLink } from "@/lib/income-sacrifice/goalLinks";
+import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
@@ -40,10 +43,33 @@ export async function POST(request: NextRequest) {
 
 		const amountRaw = Number(body.amount ?? 0);
 		const amount = Number.isFinite(amountRaw) ? amountRaw : 0;
+		const createGoal = body.createGoal === true;
+		const goalTargetAmountRaw = Number(body.goalTargetAmount ?? Number.NaN);
+		const goalTargetAmount = Number.isFinite(goalTargetAmountRaw) ? goalTargetAmountRaw : Number.NaN;
+		const goalTargetYearRaw = Number(body.goalTargetYear ?? Number.NaN);
+		const goalTargetYear = Number.isFinite(goalTargetYearRaw) ? Math.floor(goalTargetYearRaw) : Number.NaN;
 		const monthRaw = Number(body.month);
 		const month = Number.isFinite(monthRaw) && monthRaw >= 1 && monthRaw <= 12 ? monthRaw : new Date().getMonth() + 1;
 		const yearRaw = Number(body.year);
 		const year = Number.isFinite(yearRaw) ? yearRaw : await resolveActiveBudgetYear(budgetPlanId);
+
+		if (createGoal) {
+			if (type !== "custom") {
+				return NextResponse.json({ error: "Only custom sacrifices can create linked goals" }, { status: 400 });
+			}
+			if (!rawName) {
+				return NextResponse.json({ error: "Custom sacrifice requires a target name" }, { status: 400 });
+			}
+			if (!Number.isFinite(amount) || amount <= 0) {
+				return NextResponse.json({ error: "Custom sacrifice requires a pay-period amount" }, { status: 400 });
+			}
+			if (!Number.isFinite(goalTargetAmount) || goalTargetAmount <= 0) {
+				return NextResponse.json({ error: "Custom sacrifice requires a goal target amount" }, { status: 400 });
+			}
+			if (!Number.isFinite(goalTargetYear) || goalTargetYear < 1900 || goalTargetYear > 3000) {
+				return NextResponse.json({ error: "Custom sacrifice requires a valid target year" }, { status: 400 });
+			}
+		}
 
 		const base = TYPE_LABELS[type] ?? TYPE_LABELS.custom;
 		const name = rawName || base;
@@ -56,7 +82,32 @@ export async function POST(request: NextRequest) {
 			amountsByAllocationId: { [created.id]: amount },
 		});
 
-		return NextResponse.json({ success: true, item: created }, { status: 201 });
+		let goalId: string | null = null;
+		if (createGoal) {
+			const goal = await prisma.goal.create({
+				data: {
+					title: name,
+					type: "long_term",
+					category: "other",
+					targetAmount: goalTargetAmount,
+					currentAmount: 0,
+					targetYear: goalTargetYear,
+					budgetPlanId,
+				},
+				select: { id: true },
+			});
+			goalId = goal.id;
+
+			await upsertSacrificeGoalLink({
+				budgetPlanId,
+				targetKey: `custom:${created.id}`,
+				goalId: goal.id,
+			});
+		}
+
+		await invalidateDashboardCache(budgetPlanId);
+
+		return NextResponse.json({ success: true, item: created, goalId }, { status: 201 });
 	} catch (error) {
 		console.error("[bff/income-sacrifice/custom] POST error", error);
 		return NextResponse.json({ error: "Failed to create sacrifice item" }, { status: 500 });

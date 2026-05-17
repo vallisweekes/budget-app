@@ -39,6 +39,7 @@ export type SacrificeGoalsResponse = {
 
 export type CreateSacrificeItemResponse = {
   success?: boolean;
+  goalId?: string | null;
   item?: {
     id?: string;
   };

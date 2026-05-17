@@ -16,6 +16,7 @@ import { getDashboardPayPeriodLabels } from "@/lib/helpers/dashboard/payPeriodLa
 import { getAiBudgetTips } from "@/lib/ai/budgetTips";
 import { prioritizeRecapTips } from "@/lib/expenses/insights";
 import { resolveBudgetPlanPayPeriodContext } from "@/lib/api/payPeriodContext";
+import { currentMonthKey } from "@/lib/helpers/monthKey";
 
 export default async function DashboardView({ budgetPlanId }: { budgetPlanId: string }) {
 	const now = new Date();

@@ -16,7 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useScrollToTop } from "@react-navigation/native";
 
-import { apiFetch } from "@/lib/api";
+import { apiFetch, getApiMutationVersion } from "@/lib/api";
 import type { Goal } from "@/lib/apiTypes";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { fmt } from "@/lib/formatting";
@@ -54,6 +54,7 @@ export default function GoalsScreen({ navigation, route }: MainTabScreenProps<"G
   const [newTargetYear, setNewTargetYear] = useState("");
   const lastOpenAddTokenRef = useRef<number | null>(null);
   const skipNextTabFocusReloadRef = useRef(false);
+  const seenMutationVersionRef = useRef<number>(getApiMutationVersion());
 
   const budgetPlanId = dashboard?.budgetPlanId;
 
@@ -122,11 +123,16 @@ export default function GoalsScreen({ navigation, route }: MainTabScreenProps<"G
 
   useFocusEffect(
     useCallback(() => {
-      if (skipNextTabFocusReloadRef.current) {
+      const latestMutationVersion = getApiMutationVersion();
+      const hasFreshMutation = latestMutationVersion !== seenMutationVersionRef.current;
+      seenMutationVersionRef.current = latestMutationVersion;
+
+      if (skipNextTabFocusReloadRef.current && !hasFreshMutation) {
         skipNextTabFocusReloadRef.current = false;
         return;
       }
-      void load();
+      skipNextTabFocusReloadRef.current = false;
+      void load({ force: hasFreshMutation });
     }, [load])
   );
 

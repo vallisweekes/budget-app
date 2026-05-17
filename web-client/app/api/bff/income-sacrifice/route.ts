@@ -9,6 +9,7 @@ import {
 	upsertMonthlyCustomAllocationOverrides,
 } from "@/lib/allocations/store";
 import {
+	ensureLegacyCustomSacrificesHaveGoals,
 	getPlannedAmountForTarget,
 	listSacrificeGoalLinks,
 	listSacrificeTransferConfirmations,
@@ -85,6 +86,7 @@ export async function GET(request: NextRequest) {
 			requestedMonth: searchParams.get("month"),
 			requestedYear: searchParams.get("year"),
 		});
+		await ensureLegacyCustomSacrificesHaveGoals(budgetPlanId);
 		const monthKey = monthNumberToKey(month as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12) as MonthKey;
 		const allocation = await getMonthlyAllocationSnapshot(budgetPlanId, monthKey, { year });
 		const custom = await getMonthlyCustomAllocationsSnapshot(budgetPlanId, monthKey, { year });

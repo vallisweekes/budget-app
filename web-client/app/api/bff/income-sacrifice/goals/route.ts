@@ -4,6 +4,7 @@ import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
 import { resolveUserPayPeriodContext } from "@/lib/api/payPeriodContext";
 import {
   confirmSacrificeTransfer,
+  ensureLegacyCustomSacrificesHaveGoals,
   listSacrificeGoalLinks,
   listSacrificeTransferConfirmations,
   parseTargetKey,
@@ -37,6 +38,8 @@ export async function GET(request: NextRequest) {
       requestedMonth: searchParams.get("month"),
       requestedYear: searchParams.get("year"),
     });
+
+    await ensureLegacyCustomSacrificesHaveGoals(budgetPlanId);
 
     const [goals, links, confirmations] = await Promise.all([
       prisma.goal.findMany({

@@ -11,6 +11,7 @@ import { getPayPeriodRangeLabelFromSelection, getPayPeriodSelectionFromAnchor } 
 import { T } from "@/lib/theme";
 import { s } from "@/components/IncomeMonthScreen/style";
 import IncomeSacrificePieChart from "@/components/Income/IncomeSacrificePieChart";
+import MoneyInput from "@/components/Shared/MoneyInput";
 import type {
   AmountEntryMode,
   GlassEffectModule,
@@ -47,6 +48,16 @@ function toMoneyNumber(value: string | number | null | undefined): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function parseGoalYear(value: string): number | null | undefined {
+  const trimmed = String(value ?? "").trim();
+  if (!trimmed) return null;
+  const parsed = Number(trimmed);
+  if (!Number.isFinite(parsed)) return undefined;
+  const year = Math.floor(parsed);
+  if (year < 1900 || year > 3000) return undefined;
+  return year;
+}
+
 export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeListProps) {
   const insets = useSafeAreaInsets();
   const defaultSelection = useMemo(() => {
@@ -67,6 +78,9 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
 
   const [newItemType, setNewItemType] = useState<IncomeSacrificeItemType>("custom");
   const [newItemName, setNewItemName] = useState("");
+  const [newItemAmount, setNewItemAmount] = useState("");
+  const [newItemGoalTargetAmount, setNewItemGoalTargetAmount] = useState("");
+  const [newItemGoalTargetYear, setNewItemGoalTargetYear] = useState("");
   const [linkTargetKey, setLinkTargetKey] = useState("");
   const [linkGoalId, setLinkGoalId] = useState<string>("");
   const [activeTipIndex, setActiveTipIndex] = useState(0);
@@ -157,11 +171,19 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
 
   const pieSlices = useMemo(() => {
     if (!props.sacrifice) return [];
-    return [
+    const baseSlices = [
       { key: "allowance", label: "Allowance", value: Number(props.sacrifice.fixed.monthlyAllowance ?? 0), color: T.orange },
       { key: "savings", label: "Savings", value: Number(props.sacrifice.fixed.monthlySavingsContribution ?? 0), color: T.accent },
       { key: "emergency", label: "Emergency", value: Number(props.sacrifice.fixed.monthlyEmergencyContribution ?? 0), color: T.text },
       { key: "investments", label: "Investments", value: Number(props.sacrifice.fixed.monthlyInvestmentContribution ?? 0), color: T.green },
+    ];
+
+    if ((props.sacrifice.customItems?.length ?? 0) <= 0 && Number(props.sacrifice.customTotal ?? 0) <= 0) {
+      return baseSlices;
+    }
+
+    return [
+      ...baseSlices,
       { key: "custom", label: "Custom", value: Number(props.sacrifice.customTotal ?? 0), color: T.red },
     ];
   }, [props.sacrifice]);
@@ -480,32 +502,40 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
 
   const renderFooterButton = useCallback(({
     label,
+    iconName,
+    accessibilityLabel,
     onPress,
     disabled,
     accent,
   }: {
     label: string;
+    iconName?: React.ComponentProps<typeof Ionicons>["name"];
+    accessibilityLabel?: string;
     onPress?: (() => void) | null;
     disabled?: boolean;
     accent?: boolean;
   }) => {
     const isDisabled = Boolean(disabled || !onPress);
+    const iconOnly = Boolean(iconName && !label);
 
     return (
       <Pressable
         style={({ pressed }) => [
           styles.mainFooterBtn,
+          iconOnly && styles.mainFooterBtnIconOnly,
           accent && styles.mainFooterBtnAccent,
           pressed && styles.mainFooterBtnPressed,
           isDisabled && styles.disabled,
         ]}
         onPress={onPress ?? undefined}
         disabled={isDisabled}
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel ?? label}
       >
         <BlurView
           intensity={accent ? 42 : 34}
           tint={accent ? "dark" : "systemChromeMaterialLight"}
-          style={[styles.mainFooterBtnBlur, accent && styles.mainFooterBtnBlurAccent]}
+          style={[styles.mainFooterBtnBlur, iconOnly && styles.mainFooterBtnBlurIconOnly, accent && styles.mainFooterBtnBlurAccent]}
         >
           {liquidGlassEnabled && GlassView ? (
             <GlassView
@@ -516,7 +546,14 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
             />
           ) : null}
           <View style={[styles.mainFooterBtnInner, accent && styles.mainFooterBtnInnerAccent]} />
-          <Text style={[styles.mainFooterBtnText, accent && styles.mainFooterBtnTextAccent]}>{label}</Text>
+          {iconName ? (
+            <Ionicons
+              name={iconName}
+              size={18}
+              color={accent ? T.text : "#f4f5fb"}
+            />
+          ) : null}
+          {label ? <Text style={[styles.mainFooterBtnText, accent && styles.mainFooterBtnTextAccent]}>{label}</Text> : null}
         </BlurView>
       </Pressable>
     );
@@ -642,12 +679,50 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
   };
 
   const submitAddItemSheet = async () => {
+    const amount = parseMoney(newItemAmount);
+    const goalTargetAmount = parseMoney(newItemGoalTargetAmount);
+    const goalTargetYear = parseGoalYear(newItemGoalTargetYear);
+
+    if (amount == null || amount < 0) {
+      Alert.alert("Enter amount", "Enter a valid amount to contribute each pay period.");
+      return;
+    }
+
+    if (newItemType === "custom") {
+      if (!newItemName.trim()) {
+        Alert.alert("Name required", "Enter a custom sacrifice target name.");
+        return;
+      }
+      if (amount <= 0) {
+        Alert.alert("Amount required", "Enter the amount you want to pay toward this custom sacrifice.");
+        return;
+      }
+      if (goalTargetAmount == null || goalTargetAmount <= 0) {
+        Alert.alert("Target required", "Enter the goal target amount for this custom sacrifice.");
+        return;
+      }
+      if (goalTargetYear == null) {
+        Alert.alert("Target year required", "Enter the year you want to reach this goal.");
+        return;
+      }
+      if (goalTargetYear === undefined) {
+        Alert.alert("Invalid target year", "Enter a valid target year.");
+        return;
+      }
+    }
+
     await props.onCreateItem({
       type: newItemType,
       name: newItemName,
+      amount,
+      goalTargetAmount: newItemType === "custom" ? (goalTargetAmount ?? undefined) : undefined,
+      goalTargetYear: newItemType === "custom" ? (goalTargetYear ?? undefined) : undefined,
     });
     setNewItemType("custom");
     setNewItemName("");
+    setNewItemAmount("");
+    setNewItemGoalTargetAmount("");
+    setNewItemGoalTargetYear("");
     setManageScreen("chooser");
   };
 
@@ -663,6 +738,15 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
     setAmountDraft(selectedCurrentAmount.toFixed(2));
     setIsInlineAmountEditing(true);
   }, [isInlineAmountEditing, selectedCurrentAmount]);
+
+  const openAddItemScreen = useCallback(() => {
+    setNewItemType("custom");
+    setNewItemName("");
+    setNewItemAmount("");
+    setNewItemGoalTargetAmount("");
+    setNewItemGoalTargetYear("");
+    setManageScreen("add-item");
+  }, []);
 
   const manageHeaderTitle = manageScreen === "detail"
     ? null
@@ -793,8 +877,27 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
     if (manageScreen === "add-item") {
       return (
         <>
+          <View style={styles.detailSectionCard}>
+            <View style={styles.detailSectionHeader}>
+              <Text style={styles.detailSectionTitle}>Add a sacrifice target</Text>
+              {newItemType === "custom" ? (
+                <View style={styles.detailSectionPill}>
+                  <Text style={styles.detailSectionPillText}>Shows in Goals</Text>
+                </View>
+              ) : null}
+            </View>
+            <Text style={styles.detailSectionHelp}>
+              {newItemType === "custom"
+                ? "Custom sacrifices create a linked goal so they stay in sync with the Goals screen."
+                : "Use this to add or reshape one of the built-in sacrifice buckets for this period."}
+            </Text>
+          </View>
+
           <View style={styles.sectionCard}>
-            <Text style={styles.fieldLabel}>Item type</Text>
+            <View style={styles.sectionSubHeaderRow}>
+              <Text style={styles.cardTitle}>Sacrifice type</Text>
+              <Text style={styles.inlineMetaText}>{newItemType === "custom" ? "Goal-backed" : "Built-in"}</Text>
+            </View>
             <View style={styles.pillWrap}>
               {ADD_ITEM_TYPES.map((type) => (
                 <Pressable key={type.key} style={[styles.pill, type.key === newItemType && styles.pillActive]} onPress={() => setNewItemType(type.key)}>
@@ -805,15 +908,71 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
           </View>
 
           <View style={styles.sectionCard}>
-            <Text style={styles.fieldLabel}>Name</Text>
+            <Text style={styles.cardTitle}>{newItemType === "custom" ? "Goal details" : "Item details"}</Text>
+            <Text style={styles.cardSub}>
+              {newItemType === "custom"
+                ? "This follows the same structure as adding a goal: name it, set the pay-period amount, and choose the target."
+                : "Give the item a clear label and the amount you want saved for this period."}
+            </Text>
+
+            <Text style={styles.fieldLabel}>{newItemType === "custom" ? "Goal name" : "Name"}</Text>
             <TextInput
               style={styles.input}
               value={newItemName}
               onChangeText={setNewItemName}
-              placeholder={newItemType === "custom" ? "Custom item name" : "Optional custom label"}
+              placeholder={newItemType === "custom" ? "What are you saving for?" : "Optional custom label"}
               placeholderTextColor={T.textMuted}
             />
+
+            <View style={styles.amountSummaryRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.fieldLabel}>{newItemType === "custom" ? "Amount each pay period" : "Starting amount"}</Text>
+                <MoneyInput
+                  currency={props.currency}
+                  value={newItemAmount}
+                  onChangeValue={setNewItemAmount}
+                  placeholder="0.00"
+                />
+              </View>
+
+              {newItemType === "custom" ? (
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.fieldLabel}>Goal target amount</Text>
+                  <MoneyInput
+                    currency={props.currency}
+                    value={newItemGoalTargetAmount}
+                    onChangeValue={setNewItemGoalTargetAmount}
+                    placeholder="0.00"
+                  />
+                </View>
+              ) : null}
+            </View>
+
+            {newItemType === "custom" ? (
+              <>
+                <Text style={styles.fieldLabel}>Target year</Text>
+                <TextInput
+                  style={styles.input}
+                  value={newItemGoalTargetYear}
+                  onChangeText={setNewItemGoalTargetYear}
+                  keyboardType="number-pad"
+                  placeholder="e.g. 2030"
+                  placeholderTextColor={T.textMuted}
+                />
+                <Text style={styles.fieldHelpText}>
+                  We will create a linked goal and keep this sacrifice visible in Goals.
+                </Text>
+              </>
+            ) : null}
           </View>
+
+          {newItemType === "custom" ? (
+            <View style={styles.inlineInfoCard}>
+              <Text style={styles.inlineInfoText}>
+                Your pay-period amount controls what gets set aside now. The goal target tells the app what this sacrifice is building toward.
+              </Text>
+            </View>
+          ) : null}
         </>
       );
     }
@@ -1087,7 +1246,9 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
     if (manageScreen === "add-item") {
       return (
         <Pressable style={[styles.primaryBtn, props.sacrificeCreating && styles.disabled]} onPress={submitAddItemSheet} disabled={props.sacrificeCreating}>
-          <Text style={styles.primaryBtnText}>{props.sacrificeCreating ? "Saving..." : "Create item"}</Text>
+          <Text style={styles.primaryBtnText}>
+            {props.sacrificeCreating ? "Saving..." : newItemType === "custom" ? "Create linked goal" : "Create item"}
+          </Text>
         </Pressable>
       );
     }
@@ -1106,9 +1267,9 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
     }
 
     return (
-      <Pressable style={[styles.secondaryBtn, props.sacrificeCreating && styles.disabled]} onPress={() => setManageScreen("add-item")} disabled={props.sacrificeCreating}>
-        <Ionicons name="add" size={15} color={T.text} />
-        <Text style={styles.secondaryBtnText}>Add custom sacrifice</Text>
+      <Pressable style={[styles.addPillButton, props.sacrificeCreating && styles.disabled]} onPress={openAddItemScreen} disabled={props.sacrificeCreating}>
+        <Ionicons name="add" size={14} color={T.text} />
+        <Text style={styles.addPillButtonText}>Add</Text>
       </Pressable>
     );
   };
@@ -1233,11 +1394,20 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
             <View style={styles.fixedFooterBackdropTint} />
           </Animated.View>
           <View style={styles.mainFooterRow}>
-            {renderFooterButton({
-              label: "Edit",
-              onPress: openManageFlow,
-              disabled: props.sacrificeSaving,
-            })}
+              <View style={styles.mainFooterLeftGroup}>
+                {renderFooterButton({
+                  label: "",
+                  iconName: "home-outline",
+                  accessibilityLabel: "Go to dashboard",
+                  onPress: props.onGoHome,
+                  disabled: props.sacrificeSaving,
+                })}
+                {renderFooterButton({
+                  label: "Edit",
+                  onPress: openManageFlow,
+                  disabled: props.sacrificeSaving,
+                })}
+              </View>
             <View style={styles.mainFooterRightGroup}>
               {renderFooterButton({
                 label: "Current",

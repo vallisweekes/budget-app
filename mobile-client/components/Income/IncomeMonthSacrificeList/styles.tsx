@@ -110,6 +110,20 @@ export const styles = StyleSheet.create({
     gap: 6,
   },
   secondaryBtnText: { color: "#0f282f", fontSize: 13, fontWeight: "800" },
+  addPillButton: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-start",
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 999,
+    backgroundColor: "#ffffff",
+    borderWidth: 1,
+    borderColor: "rgba(15,40,47,0.10)",
+  },
+  addPillButtonText: { color: "#0f282f", fontSize: 13, fontWeight: "800" },
   disabled: { opacity: 0.55 },
   aiTipCard: {
     backgroundColor: "#171b2d",
@@ -234,6 +248,11 @@ export const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 12,
   },
+  mainFooterLeftGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
   mainFooterRightGroup: {
     flexDirection: "row",
     alignItems: "center",
@@ -257,6 +276,11 @@ export const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: -2 },
     elevation: 8,
   },
+  mainFooterBtnIconOnly: {
+    minWidth: 46,
+    width: 46,
+    borderRadius: 23,
+  },
   mainFooterBtnAccent: {
     borderColor: "rgba(124,92,255,0.44)",
     shadowColor: T.accent,
@@ -275,6 +299,12 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     overflow: "hidden",
+  },
+  mainFooterBtnBlurIconOnly: {
+    minWidth: 46,
+    width: 46,
+    paddingHorizontal: 0,
+    borderRadius: 23,
   },
   mainFooterBtnBlurAccent: {
     backgroundColor: "rgba(124,92,255,0.16)",

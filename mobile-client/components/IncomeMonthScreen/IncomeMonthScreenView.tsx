@@ -566,9 +566,16 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
 
       seenMutationVersionRef.current = latestMutationVersion;
       const targets = [{ month, year }, ...getAdjacentMonths(month, year)];
-      invalidateMonthCaches(targets, { analysis: true, items: true, sacrifice: false });
+      invalidateMonthCaches(targets, { analysis: true, items: true, sacrifice: true });
+      if (viewMode === "sacrifice") {
+        void Promise.all([
+          load({ force: true }),
+          loadSacrifice({ force: true }),
+        ]);
+        return;
+      }
       void load({ force: true });
-    }, [getAdjacentMonths, invalidateMonthCaches, load, month, year])
+    }, [getAdjacentMonths, invalidateMonthCaches, load, loadSacrifice, month, viewMode, year])
   );
 
   useEffect(() => {
@@ -627,6 +634,12 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
       },
     });
   }, [budgetPlanId, month, router, year]);
+
+  const returnToDashboard = useCallback(() => {
+    router.replace({
+      pathname: "/(tabs)/dashboard",
+    });
+  }, [router]);
 
   const handleSetViewMode = useCallback((mode: "income" | "sacrifice") => {
     if (mode === "sacrifice" && !isStandaloneSacrifice) {
@@ -850,6 +863,9 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
   const createSacrificeItem = useCallback(async (args: {
     type: "allowance" | "savings" | "emergency" | "investment" | "custom";
     name: string;
+    amount: number;
+    goalTargetAmount?: number;
+    goalTargetYear?: number;
   }) => {
     if (!canManageSacrifice) {
       Alert.alert("Manage closed", "Income sacrifice can only be managed until 5 days after the period ends.");
@@ -859,6 +875,18 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
     const trimmedName = args.name.trim();
     if (args.type === "custom" && !trimmedName) {
       Alert.alert("Name required", "Custom sacrifice requires a name.");
+      return;
+    }
+    if (args.type === "custom" && (!Number.isFinite(args.amount) || args.amount <= 0)) {
+      Alert.alert("Amount required", "Custom sacrifice requires a pay-period amount.");
+      return;
+    }
+    if (args.type === "custom" && (!Number.isFinite(args.goalTargetAmount) || Number(args.goalTargetAmount) <= 0)) {
+      Alert.alert("Target required", "Custom sacrifice requires a goal target amount.");
+      return;
+    }
+    if (args.type === "custom" && (!Number.isFinite(args.goalTargetYear) || Number(args.goalTargetYear) < 1900)) {
+      Alert.alert("Target year required", "Custom sacrifice requires a valid target year.");
       return;
     }
 
@@ -872,7 +900,10 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
           year,
           type: args.type,
           name: trimmedName,
-          amount: 0,
+          amount: args.amount,
+          createGoal: args.type === "custom",
+          goalTargetAmount: args.type === "custom" ? args.goalTargetAmount : undefined,
+          goalTargetYear: args.type === "custom" ? args.goalTargetYear : undefined,
         },
       });
       invalidateMonthCaches([{ month, year }], { analysis: true, items: false, sacrifice: true });
@@ -1038,6 +1069,7 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
             onConfirmTransfer={confirmSacrificeTransfer}
             goalLinkSaving={linkSaving}
             confirmingTargetKey={confirmingTargetKey}
+            onGoHome={returnToDashboard}
             onGoToCurrentPeriod={handleGoToCurrentPeriod}
             onGoToNextPeriod={handleGoToNextPeriod}
             pendingNoticeText={pendingNoticeVisible

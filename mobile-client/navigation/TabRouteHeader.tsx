@@ -79,6 +79,9 @@ export default function TabRouteHeader() {
     ?? (routeParams?.initialMode === "sacrifice" ? "sacrifice" : "income")) === "sacrifice"
     ? "sacrifice"
     : "income";
+  const isStandaloneSacrificeIncomeMonth = (getStringParam(params.standaloneSacrifice) === "true"
+    || routeParams?.standaloneSacrifice === true)
+    && isIncomeMonth;
   const incomeMonthManageActive = getStringParam(params.sacrificeManageActive) === "true"
     || routeParams?.sacrificeManageActive === true;
   const canUseIncomeMonthSwitcher = isIncomeMonth
@@ -172,6 +175,16 @@ export default function TabRouteHeader() {
   const analyticsOverviewMode = getStringParam(params.overviewMode) === "month" ? "month" : "year";
 
   const handleBack = () => {
+    if (isStandaloneSacrificeIncomeMonth && Number.isFinite(monthNum) && Number.isFinite(yearNum) && incomeMonthBudgetPlanId) {
+      replaceRoute("/(tabs)/income/IncomeMonth", {
+        month: Math.floor(monthNum),
+        year: Math.floor(yearNum),
+        budgetPlanId: incomeMonthBudgetPlanId,
+        initialMode: "income",
+      });
+      return;
+    }
+
     if (isLoggedExpenses) {
       const categoryId = getStringParam(params.categoryId);
 
@@ -455,7 +468,7 @@ export default function TabRouteHeader() {
       onAnalytics={() => pushRoute("/analytics")}
       onNotifications={() => pushRoute("/settings", { initialTab: "notifications" })}
       leftContent={expensesListLeftContent}
-      leftVariant={isAnalytics || isSettings || isCategoryExpenses || isLoggedExpenses || isUnplannedExpense || isScanReceipt || isDebtAnalytics ? "back" : "avatar"}
+      leftVariant={isStandaloneSacrificeIncomeMonth || isAnalytics || isSettings || isCategoryExpenses || isLoggedExpenses || isUnplannedExpense || isScanReceipt || isDebtAnalytics ? "back" : "avatar"}
       onBack={handleBack}
       centerLabel={centerLabel}
       centerContent={incomeMonthSwitcher}
