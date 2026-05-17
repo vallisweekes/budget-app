@@ -197,3 +197,81 @@ export function getPayPeriodRangeLabelFromSelection(params: {
     payFrequency: params.payFrequency,
   });
 }
+
+export function getPayPeriodWindowFromPeriodKey(params: {
+  periodKey: string;
+  payDate: number;
+  payFrequency: PayFrequency;
+}): { start: Date; end: Date } {
+  const start = new Date(`${params.periodKey}T00:00:00`);
+  if (!Number.isFinite(start.getTime())) {
+    throw new Error(`Invalid periodKey: ${params.periodKey}`);
+  }
+
+  if (params.payFrequency === "monthly") {
+    const end = clampDay(start.getFullYear(), start.getMonth() + 1, params.payDate);
+    end.setDate(end.getDate() - 1);
+    return { start, end };
+  }
+
+  const span = dayWindowForFrequency(params.payFrequency);
+  return {
+    start,
+    end: addDays(start, span - 1),
+  };
+}
+
+export function getPayPeriodLabelFromPeriodKey(params: {
+  periodKey: string;
+  payDate: number;
+  payFrequency: PayFrequency;
+}): string {
+  const { start, end } = getPayPeriodWindowFromPeriodKey(params);
+  return formatPayPeriodLabel(start, end);
+}
+
+export function buildUpcomingPayPeriodOptions(params: {
+  fromDate?: Date;
+  fromPeriodKey?: string | null;
+  count: number;
+  payDate: number;
+  payFrequency: PayFrequency;
+}): Array<{ periodKey: string; label: string }> {
+  const count = Math.max(0, Math.trunc(params.count));
+  if (count === 0) return [];
+
+  let start = (() => {
+    if (typeof params.fromPeriodKey === "string" && params.fromPeriodKey) {
+      const parsed = new Date(`${params.fromPeriodKey}T00:00:00`);
+      if (Number.isFinite(parsed.getTime())) return parsed;
+    }
+    return resolveActivePayPeriod({
+      now: params.fromDate ?? new Date(),
+      payDate: params.payDate,
+      payFrequency: params.payFrequency,
+    }).start;
+  })();
+
+  const options: Array<{ periodKey: string; label: string }> = [];
+
+  for (let index = 0; index < count; index += 1) {
+    const periodKey = start.toISOString().slice(0, 10);
+    const { end } = getPayPeriodWindowFromPeriodKey({
+      periodKey,
+      payDate: params.payDate,
+      payFrequency: params.payFrequency,
+    });
+    options.push({
+      periodKey,
+      label: formatPayPeriodLabel(start, end),
+    });
+
+    if (params.payFrequency === "monthly") {
+      start = clampDay(start.getFullYear(), start.getMonth() + 1, params.payDate);
+    } else {
+      start = addDays(start, dayWindowForFrequency(params.payFrequency));
+    }
+  }
+
+  return options;
+}

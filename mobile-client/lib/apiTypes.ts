@@ -182,6 +182,13 @@ export interface DebtPayment {
   notes: string | null;
 }
 
+export interface DebtPlannedPaymentOverride {
+  periodKey: string;
+  year: number;
+  month: number;
+  amount: number;
+}
+
 export interface Debt {
   id: string;
   name: string;
@@ -218,6 +225,7 @@ export interface Debt {
   isPaymentMonthPaid?: boolean;
   plannedPaymentOverrideAmount?: number | null;
   plannedPaymentOverridePeriodKey?: string | null;
+  plannedPaymentOverrides?: DebtPlannedPaymentOverride[];
   computedMonthsLeft?: number | null;
   computedPaidOffBy?: string | null;
   computedCannotPayoff?: boolean;

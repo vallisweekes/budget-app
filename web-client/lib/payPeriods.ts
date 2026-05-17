@@ -121,3 +121,60 @@ export function buildPayPeriodFromMonthAnchor(params: {
   const end = addUtcDays(start, step - 1);
   return { start, end };
 }
+
+export function getPayPeriodWindowFromPeriodKey(params: {
+  periodKey: string;
+  payDate: number;
+  payFrequency: PayFrequency;
+}): { start: Date; end: Date } {
+  const start = new Date(`${params.periodKey}T00:00:00.000Z`);
+  if (!Number.isFinite(start.getTime())) {
+    throw new Error(`Invalid periodKey: ${params.periodKey}`);
+  }
+
+  if (params.payFrequency === "monthly") {
+    const end = clampDayUtc(start.getUTCFullYear(), start.getUTCMonth() + 1, params.payDate);
+    end.setUTCDate(end.getUTCDate() - 1);
+    return { start, end };
+  }
+
+  const step = intervalDays(params.payFrequency);
+  return {
+    start,
+    end: addUtcDays(start, step - 1),
+  };
+}
+
+export function getPayPeriodKeyForDate(params: {
+  date: Date;
+  payDate: number;
+  payFrequency: PayFrequency;
+  planCreatedAt?: Date | null;
+}): string {
+  return resolveActivePayPeriodWindow({
+    now: params.date,
+    payDate: params.payDate,
+    payFrequency: params.payFrequency,
+    planCreatedAt: params.planCreatedAt,
+  }).start.toISOString().slice(0, 10);
+}
+
+export function getPreviousPayPeriodKey(params: {
+  periodKey: string;
+  payDate: number;
+  payFrequency: PayFrequency;
+  planCreatedAt?: Date | null;
+}): string {
+  const { start } = getPayPeriodWindowFromPeriodKey({
+    periodKey: params.periodKey,
+    payDate: params.payDate,
+    payFrequency: params.payFrequency,
+  });
+  const previousDay = addUtcDays(start, -1);
+  return getPayPeriodKeyForDate({
+    date: previousDay,
+    payDate: params.payDate,
+    payFrequency: params.payFrequency,
+    planCreatedAt: params.planCreatedAt,
+  });
+}

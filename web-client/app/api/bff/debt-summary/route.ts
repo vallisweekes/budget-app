@@ -12,6 +12,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentPeriodKey, getPeriodKey, parsePeriodKeyRange } from "@/lib/helpers/periodKey";
 import { getEarlyPaymentWindowStart } from "@/lib/helpers/finance/earlyPaymentWindow";
 import { getJsonCache, setJsonCache } from "@/lib/cache/redisJsonCache";
+import { getPayPeriodKeyForDate, getPreviousPayPeriodKey, normalizePayFrequency, resolveActivePayPeriodWindow } from "@/lib/payPeriods";
 import {
 	DEBT_SUMMARY_CACHE_TTL_SECONDS,
 	getDebtSummaryCacheKey,
@@ -103,7 +104,12 @@ export async function GET(req: NextRequest) {
 			select: { payDate: true },
 		});
 		const payDay = Number(planMeta?.payDate ?? 27);
-		const periodKey = getCurrentPeriodKey(payDay);
+		const onboardingProfile = await prisma.userOnboardingProfile.findUnique({
+			where: { userId },
+			select: { payFrequency: true },
+		});
+		const payFrequency = normalizePayFrequency(onboardingProfile?.payFrequency);
+		const periodKey = getPayPeriodKeyForDate({ date: now, payDate: payDay, payFrequency });
 		const debtSummaryCacheKey = getDebtSummaryCacheKey({
 			budgetPlanId,
 			periodKey,
@@ -127,8 +133,8 @@ export async function GET(req: NextRequest) {
 				budgetPlanId,
 			});
 		}
-		const { start: periodStart } = parsePeriodKeyRange(periodKey, payDay);
-		const prevPeriodKey = getPeriodKey(new Date(periodStart.getTime() - 24 * 60 * 60 * 1000), payDay);
+		const { start: periodStart } = resolveActivePayPeriodWindow({ now, payDate: payDay, payFrequency });
+		const prevPeriodKey = getPreviousPayPeriodKey({ periodKey, payDate: payDay, payFrequency });
 		const earlyPaymentStart = getEarlyPaymentWindowStart(periodStart);
 
 		const expenseIds = Array.from(

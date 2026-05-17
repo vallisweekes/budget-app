@@ -12,9 +12,9 @@ import { styles } from "./styles";
 
 export default function EditDebtSheet(props: EditDebtSheetProps) {
   const {
-    visible, saving, currency, name, currentBalance, interestRate, monthlyPayment, plannedPaymentOverride, monthlyMinimum, dueDate, installment, paymentSource, paymentCardDebtId, paymentCards, showDatePicker,
+    visible, saving, currency, name, currentBalance, interestRate, monthlyPayment, plannedPaymentOverride, plannedPaymentOverridePeriodKey, plannedPaymentOverrideOptions, monthlyMinimum, dueDate, installment, paymentSource, paymentCardDebtId, paymentCards, showDatePicker,
     onClose, onSave, onChangeName, onChangeCurrentBalance, onChangeRate, onChangeMonthlyPayment, onChangeMin,
-    onChangePlannedPaymentOverride, onPickDate, onDateChange, onChangePaymentSource, onChangePaymentCardDebtId, onChangeInstallment, onSetShowDatePicker,
+    onChangePlannedPaymentOverride, onChangePlannedPaymentOverrideTarget, onPickDate, onDateChange, onChangePaymentSource, onChangePaymentCardDebtId, onChangeInstallment, onSetShowDatePicker,
   } = props;
 
   const { dragY, panHandlers } = useSwipeDownToClose({ onClose, disabled: saving });
@@ -23,6 +23,7 @@ export default function EditDebtSheet(props: EditDebtSheetProps) {
   const [iosDueDateDraft, setIosDueDateDraft] = React.useState<Date>(new Date());
   const [customInstallmentMode, setCustomInstallmentMode] = React.useState(false);
   const [showSourceDropdown, setShowSourceDropdown] = React.useState(false);
+  const [showOverridePeriodDropdown, setShowOverridePeriodDropdown] = React.useState(false);
 
   const installmentTrim = (installment || "").trim();
   const installmentNum = installmentTrim ? Number.parseInt(installmentTrim, 10) : null;
@@ -50,6 +51,12 @@ export default function EditDebtSheet(props: EditDebtSheetProps) {
     onDateChange(iosDueDateDraft.toISOString().slice(0, 10));
     onSetShowDatePicker(false);
   }, [iosDueDateDraft, onDateChange, onSetShowDatePicker]);
+
+  const selectedOverridePeriodLabel = React.useMemo(() => {
+    return plannedPaymentOverrideOptions.find(
+      (option) => option.periodKey === plannedPaymentOverridePeriodKey,
+    )?.label ?? "Select period";
+  }, [plannedPaymentOverrideOptions, plannedPaymentOverridePeriodKey]);
 
   return (
     <Modal visible={visible} transparent animationType="slide" presentationStyle="overFullScreen" onRequestClose={onClose}>
@@ -111,14 +118,48 @@ export default function EditDebtSheet(props: EditDebtSheetProps) {
               </View>
 
               <View style={styles.formGroup}>
-                <Text style={styles.inputLabel}>This period only</Text>
+                <Text style={styles.inputLabel}>Apply to</Text>
+                <View style={styles.dropdownAnchor}>
+                  <Pressable style={styles.input} onPress={() => setShowOverridePeriodDropdown((value) => !value)}>
+                    <View style={styles.dropdownValueRow}>
+                      <Text style={styles.dateValue}>{selectedOverridePeriodLabel}</Text>
+                      <Text style={styles.dropdownChevron}>{showOverridePeriodDropdown ? "▲" : "▼"}</Text>
+                    </View>
+                  </Pressable>
+
+                  {showOverridePeriodDropdown ? (
+                    <View style={styles.dropdownMenu}>
+                      {plannedPaymentOverrideOptions.map((option, idx) => {
+                        const active = option.periodKey === plannedPaymentOverridePeriodKey;
+                        const isLast = idx === plannedPaymentOverrideOptions.length - 1;
+                        return (
+                          <Pressable
+                            key={option.periodKey}
+                            onPress={() => {
+                              onChangePlannedPaymentOverrideTarget(option.periodKey);
+                              setShowOverridePeriodDropdown(false);
+                            }}
+                            style={[styles.dropdownItem, isLast && styles.dropdownItemLast, active && styles.dropdownItemActive]}
+                          >
+                            <Text style={[styles.dropdownItemText, active && styles.dropdownItemTextActive]}>{option.label}</Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  ) : null}
+                </View>
+                <Text style={styles.helperText}>Choose the due period you want to override.</Text>
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.inputLabel}>Custom payment</Text>
                 <MoneyInput
                   currency={currency}
                   value={plannedPaymentOverride}
                   onChangeValue={onChangePlannedPaymentOverride}
                   placeholder="Use recurring payment"
                 />
-                <Text style={styles.helperText}>Leave blank to keep the recurring amount.</Text>
+                <Text style={styles.helperText}>Leave blank to keep the recurring amount for that period.</Text>
               </View>
             </View>
 

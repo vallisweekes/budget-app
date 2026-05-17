@@ -47,15 +47,8 @@ export default function IncomeMonthIncomeList({
             {analysis && <IncomeMonthStats data={analysis} currency={currency} fmt={fmt} onPressIncomeSacrifice={onPressIncomeSacrifice} />}
             {analysis && <IncomeBarChart data={analysis} currency={currency} />}
 
-            <View style={s.sourcesHeader}>
-              <View style={s.sourcesHeaderCopy}>
-                <Text style={s.sourcesEyebrow}>Monthly income</Text>
-                <Text style={s.sourcesTitle}>Income sources</Text>
-                <Text style={s.sourcesSub}>
-                  {isLocked ? "Past month — view only." : "Edit or remove income for this month."}
-                </Text>
-              </View>
-              {!isLocked ? (
+            {!isLocked ? (
+              <View style={s.sourcesButtonRow}>
                 <Pressable
                   onPress={() => crud.setShowAddForm(true)}
                   style={s.sourcesAddBtn}
@@ -65,8 +58,8 @@ export default function IncomeMonthIncomeList({
                   <Ionicons name="add" size={18} color={T.onAccent} />
                   <Text style={s.sourcesAddBtnText}>Add</Text>
                 </Pressable>
-              ) : null}
-            </View>
+              </View>
+            ) : null}
           </>
         }
         renderItem={({ item }) =>

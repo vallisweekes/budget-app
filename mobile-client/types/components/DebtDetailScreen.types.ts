@@ -57,6 +57,8 @@ export type EditDebtSheetProps = {
   interestRate: string;
   monthlyPayment: string;
   plannedPaymentOverride: string;
+  plannedPaymentOverridePeriodKey: string | null;
+  plannedPaymentOverrideOptions: Array<{ periodKey: string; label: string }>;
   monthlyMinimum: string;
   dueDate: string;
   installment: string;
@@ -71,6 +73,7 @@ export type EditDebtSheetProps = {
   onChangeRate: (v: string) => void;
   onChangeMonthlyPayment: (v: string) => void;
   onChangePlannedPaymentOverride: (v: string) => void;
+  onChangePlannedPaymentOverrideTarget: (periodKey: string) => void;
   onChangeMin: (v: string) => void;
   onPickDate: () => void;
   onDateChange: (value: string) => void;

@@ -77,6 +77,7 @@ export const styles = StyleSheet.create({
     backgroundColor: T.cardAlt,
     zIndex: 30,
     elevation: 8,
+    maxHeight: 240,
   },
   dropdownItem: {
     paddingHorizontal: 12,

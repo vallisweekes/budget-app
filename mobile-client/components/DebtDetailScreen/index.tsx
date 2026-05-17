@@ -218,6 +218,8 @@ export default function DebtDetailScreen() {
         interestRate={state.editRate}
         monthlyPayment={state.editMonthlyPayment}
         plannedPaymentOverride={state.editPlannedPaymentOverride}
+        plannedPaymentOverridePeriodKey={state.editPlannedPaymentOverridePeriodKey}
+        plannedPaymentOverrideOptions={state.plannedPaymentOverrideOptions}
         monthlyMinimum={state.editMin}
         dueDate={state.editDueDate}
         installment={state.editInstallment}
@@ -232,6 +234,7 @@ export default function DebtDetailScreen() {
         onChangeRate={state.setEditRate}
         onChangeMonthlyPayment={state.handleEditMonthlyPaymentChange}
         onChangePlannedPaymentOverride={state.setEditPlannedPaymentOverride}
+        onChangePlannedPaymentOverrideTarget={state.setEditPlannedPaymentOverridePeriodKey}
         onChangeMin={state.handleEditMinChange}
         onPickDate={() => state.setShowDatePicker(true)}
         onDateChange={state.setEditDueDate}

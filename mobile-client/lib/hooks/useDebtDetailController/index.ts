@@ -4,6 +4,7 @@ import type { CreditCard, Debt, DebtPayment, DebtSummaryItem, Settings } from "@
 import { currencySymbol, fmt } from "@/lib/formatting";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { getCachedDebtCreditCards, getCachedDebtSummaryItem } from "@/lib/debtDetailCache";
+import { buildUpcomingPayPeriodOptions, getPayPeriodLabelFromPeriodKey, normalizePayFrequency } from "@/lib/payPeriods";
 import {
   useCreateDebtPaymentMutation,
   useDeleteDebtMutation,
@@ -12,6 +13,20 @@ import {
   useLazyGetDebtPaymentsQuery,
   useUpdateDebtMutation,
 } from "@/store/api";
+
+function shiftMonth(year: number, month: number, delta: number): { year: number; month: number } {
+  const date = new Date(Date.UTC(year, month - 1 + delta, 1));
+  return { year: date.getUTCFullYear(), month: date.getUTCMonth() + 1 };
+}
+
+function compareYearMonth(a: { year: number; month: number }, b: { year: number; month: number }): number {
+  if (a.year !== b.year) return a.year - b.year;
+  return a.month - b.month;
+}
+
+function comparePeriodKeys(a: { periodKey: string }, b: { periodKey: string }): number {
+  return a.periodKey.localeCompare(b.periodKey);
+}
 
 type Params = {
   debtId: string;
@@ -45,6 +60,7 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
   const [editRate, setEditRate] = useState("");
   const [editMonthlyPayment, setEditMonthlyPayment] = useState("");
   const [editPlannedPaymentOverride, setEditPlannedPaymentOverride] = useState("");
+  const [editPlannedPaymentOverridePeriodKey, setEditPlannedPaymentOverridePeriodKey] = useState<string | null>(null);
   const [editMin, setEditMin] = useState("");
   const [editInstallment, setEditInstallment] = useState("");
   const [editDueDate, setEditDueDate] = useState("");
@@ -141,7 +157,8 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
           ? asTwoDecimals(detail.computedMonthlyPayment)
           : ((detail as any).amount != null ? asTwoDecimals((detail as any).amount) : "")
       );
-      setEditPlannedPaymentOverride(detail.plannedPaymentOverrideAmount != null ? asTwoDecimals(detail.plannedPaymentOverrideAmount) : "");
+      setEditPlannedPaymentOverridePeriodKey(detail.plannedPaymentOverridePeriodKey ?? null);
+      setEditPlannedPaymentOverride("");
       setEditMin(detail.monthlyMinimum != null ? asTwoDecimals(detail.monthlyMinimum) : "");
       setEditInstallment(detail.installmentMonths != null ? String(detail.installmentMonths) : "");
       setEditDueDate(detail.dueDate ? String(detail.dueDate).slice(0, 10) : "");
@@ -160,6 +177,52 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
       setEditPaymentCardDebtId("");
     }
   }, [editPaymentCardDebtId, editPaymentSource]);
+
+  useEffect(() => {
+    if (!debt || !editPlannedPaymentOverridePeriodKey) return;
+    const match = debt.plannedPaymentOverrides?.find(
+      (override) => override.periodKey === editPlannedPaymentOverridePeriodKey,
+    );
+    setEditPlannedPaymentOverride(match ? asTwoDecimals(match.amount) : "");
+  }, [asTwoDecimals, debt, editPlannedPaymentOverridePeriodKey]);
+
+  const plannedPaymentOverrideOptions = useMemo(() => {
+    const payDate = Number.isFinite(Number(settings?.payDate)) && Number(settings?.payDate) >= 1
+      ? Math.floor(Number(settings?.payDate))
+      : 1;
+    const payFrequency = normalizePayFrequency(settings?.payFrequency);
+    const dueDateValue = debt?.dueDate ? new Date(debt.dueDate) : undefined;
+    const options = new Map<string, { periodKey: string; label: string }>();
+
+    for (const option of buildUpcomingPayPeriodOptions({
+      fromPeriodKey: editPlannedPaymentOverridePeriodKey ?? debt?.plannedPaymentOverridePeriodKey ?? null,
+      fromDate: dueDateValue,
+      count: 18,
+      payDate,
+      payFrequency,
+    })) {
+      options.set(option.periodKey, option);
+    }
+
+    for (const override of debt?.plannedPaymentOverrides ?? []) {
+      if (options.has(override.periodKey)) continue;
+      options.set(override.periodKey, {
+        periodKey: override.periodKey,
+        label: getPayPeriodLabelFromPeriodKey({
+          periodKey: override.periodKey,
+          payDate,
+          payFrequency,
+        }),
+      });
+    }
+
+    return Array.from(options.values()).sort(comparePeriodKeys);
+  }, [debt, editPlannedPaymentOverridePeriodKey, settings?.payDate, settings?.payFrequency]);
+
+  useEffect(() => {
+    if (editPlannedPaymentOverridePeriodKey || plannedPaymentOverrideOptions.length === 0) return;
+    setEditPlannedPaymentOverridePeriodKey(plannedPaymentOverrideOptions[0].periodKey);
+  }, [editPlannedPaymentOverridePeriodKey, plannedPaymentOverrideOptions]);
 
   const handleEditCurrentBalanceChange = useCallback((value: string) => {
     setEditCurrentBalance(value);
@@ -338,6 +401,27 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
     const plannedPaymentOverride = Number.isFinite(parsedPlannedPaymentOverride)
       ? Number(parsedPlannedPaymentOverride.toFixed(2))
       : null;
+    const plannedPaymentOverridePeriodKey = editPlannedPaymentOverridePeriodKey ?? debt.plannedPaymentOverridePeriodKey ?? null;
+    const shouldPersistPlannedPaymentOverride = plannedPaymentOverride != null && (effectiveAmount == null || Math.abs(plannedPaymentOverride - effectiveAmount) > 0.009);
+    const nextPlannedPaymentOverrides = (() => {
+      const existingOverrides = Array.isArray(debt.plannedPaymentOverrides) ? debt.plannedPaymentOverrides : [];
+      if (!plannedPaymentOverridePeriodKey) return existingOverrides;
+
+      const filtered = existingOverrides.filter((override) => override.periodKey !== plannedPaymentOverridePeriodKey);
+      if (!shouldPersistPlannedPaymentOverride) return filtered;
+
+      const periodStart = new Date(`${plannedPaymentOverridePeriodKey}T00:00:00`);
+
+      return [
+        ...filtered,
+        {
+          periodKey: plannedPaymentOverridePeriodKey,
+          year: periodStart.getFullYear(),
+          month: periodStart.getMonth() + 1,
+          amount: plannedPaymentOverride,
+        },
+      ].sort(comparePeriodKeys);
+    })();
 
     const optimisticDebt: Debt = {
       ...debt,
@@ -353,6 +437,8 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
       defaultPaymentSource: editPaymentSource,
       defaultPaymentCardDebtId: editPaymentSource === "credit_card" ? editPaymentCardDebtId.trim() : null,
       plannedPaymentOverrideAmount: plannedPaymentOverride,
+      plannedPaymentOverridePeriodKey,
+      plannedPaymentOverrides: nextPlannedPaymentOverrides,
       computedMonthlyPayment: effectiveAmount ?? debt.computedMonthlyPayment,
     };
 
@@ -375,6 +461,7 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
           defaultPaymentSource: editPaymentSource,
           defaultPaymentCardDebtId: editPaymentSource === "credit_card" ? editPaymentCardDebtId.trim() : null,
           plannedPaymentOverrideAmount: plannedPaymentOverride,
+          plannedPaymentOverridePeriodKey,
         },
       }).unwrap();
       await load();
@@ -385,7 +472,7 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
     } finally {
       setEditSaving(false);
     }
-  }, [computeInstallmentPayment, computeRemainingInstallmentMonths, debt, debtId, editCurrentBalance, editDueDate, editInstallment, editMin, editMonthlyPayment, editName, editPaymentCardDebtId, editPaymentSource, editPlannedPaymentOverride, editRate, load]);
+  }, [computeInstallmentPayment, computeRemainingInstallmentMonths, debt, debtId, editCurrentBalance, editDueDate, editInstallment, editMin, editMonthlyPayment, editName, editPaymentCardDebtId, editPaymentSource, editPlannedPaymentOverride, editPlannedPaymentOverridePeriodKey, editRate, load]);
 
   const confirmDeleteDebt = useCallback(async () => {
     if (deletingDebt) return;
@@ -554,6 +641,9 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
     handleEditMonthlyPaymentChange,
     editPlannedPaymentOverride,
     setEditPlannedPaymentOverride,
+    editPlannedPaymentOverridePeriodKey,
+    setEditPlannedPaymentOverridePeriodKey,
+    plannedPaymentOverrideOptions,
     editMin,
     handleEditMinChange,
     editInstallment,
