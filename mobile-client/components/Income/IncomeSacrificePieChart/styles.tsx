@@ -121,7 +121,7 @@ export const styles = StyleSheet.create({
     width: "100%",
     flexDirection: "row",
     gap: 10,
-    marginTop: 10,
+    marginTop: 18,
   },
   heroStatCard: {
     flex: 1,

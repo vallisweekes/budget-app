@@ -440,15 +440,6 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
     });
   }, [props.payDate, props.payFrequency, startMonth, startYear]);
 
-  const currentPayPeriodLabel = useMemo(() => {
-    return getPayPeriodRangeLabelFromSelection({
-      year: props.year,
-      month: props.month,
-      payDate: props.payDate,
-      payFrequency: props.payFrequency,
-    });
-  }, [props.month, props.payDate, props.payFrequency, props.year]);
-
   const periodOptions = useMemo<Array<{ key: SacrificePeriod; label: string }>>(() => {
     if (isMonthlyCadence) {
       return [
@@ -1185,7 +1176,7 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
               <IncomeSacrificePieChart
                 currency={props.currency}
                 slices={pieSlices}
-                centerTitle={currentPayPeriodLabel}
+                centerTitle={props.monthLabel}
                 onSlicePress={canManage ? handleOverviewSlicePress : undefined}
               />
 

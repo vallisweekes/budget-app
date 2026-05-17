@@ -1015,6 +1015,7 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
             currency={currency}
             month={month}
             year={year}
+            monthLabel={monthLabel}
             payDate={settings?.payDate ?? 27}
             payFrequency={normalizedPayFrequency}
             sacrifice={sacrifice}

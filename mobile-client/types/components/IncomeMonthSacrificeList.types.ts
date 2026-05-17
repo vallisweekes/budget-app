@@ -25,6 +25,7 @@ export type IncomeMonthSacrificeListProps = {
   currency: string;
   month: number;
   year: number;
+  monthLabel: string;
   payDate: number;
   payFrequency: PayFrequency;
   sacrifice: IncomeSacrificeData | null;
