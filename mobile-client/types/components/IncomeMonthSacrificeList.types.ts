@@ -54,4 +54,6 @@ export type IncomeMonthSacrificeListProps = {
   confirmingTargetKey: string | null;
   pendingNoticeText?: string;
   onDismissPendingNotice?: () => void;
+  onGoToCurrentPeriod?: () => void;
+  onGoToNextPeriod?: () => void;
 };

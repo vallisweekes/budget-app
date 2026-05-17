@@ -238,6 +238,10 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
     return targets.find((target) => target.key === targetKey) ?? null;
   }, [targetKey, targets]);
 
+  const selectedTargetCard = useMemo(() => {
+    return targetCards.find((target) => target.key === targetKey) ?? null;
+  }, [targetCards, targetKey]);
+
   const selectedTargetTitle = useMemo(() => {
     return selectedTarget ? getTargetTitle(selectedTarget) : "Edit sacrifice";
   }, [getTargetTitle, selectedTarget]);
@@ -481,43 +485,43 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
   };
 
   const manageHeaderTitle = manageScreen === "detail"
-    ? selectedTargetTitle
+    ? null
     : manageScreen === "add-item"
       ? "Add sacrifice item"
       : manageScreen === "link"
         ? "Link sacrifice to goal"
         : null;
 
-  const manageHeaderSubtitle = manageScreen === "detail"
-    ? "Edit this sacrifice allocation and period settings."
-    : manageScreen === "add-item"
-      ? "Create another sacrifice item for this plan."
-      : manageScreen === "link"
-        ? "Connect a sacrifice target to one goal."
-        : "Select a sacrifice or custom item to manage.";
-
   const renderManageContent = () => {
     if (manageScreen === "detail") {
       return (
         <>
+          <View style={styles.detailHero}>
+            <View
+              style={[
+                styles.detailHeroIcon,
+                {
+                  backgroundColor: `${selectedTargetCard?.iconTone ?? T.accent}22`,
+                  borderColor: `${selectedTargetCard?.iconTone ?? T.accent}55`,
+                },
+              ]}
+            >
+              <Ionicons name={(selectedTargetCard?.iconName as any) ?? "wallet-outline"} size={26} color={selectedTargetCard?.iconTone ?? T.accent} />
+            </View>
+            <Text style={styles.detailHeroTitle}>{selectedTargetTitle}</Text>
+            <Text style={styles.detailHeroAmount}>{fmt(selectedDisplayTotal, props.currency)}</Text>
+            {selectedTarget?.kind === "fixed" ? (
+              <>
+                <Text style={styles.detailHeroDueLabel}>Due this pay period</Text>
+                <Text style={styles.detailHeroDueValue}>{fmt(selectedCurrentAmount, props.currency)}</Text>
+              </>
+            ) : (
+              <Text style={styles.detailHeroMeta}>Current amount for this sacrifice target.</Text>
+            )}
+          </View>
+
           <View style={styles.sectionCard}>
             <Text style={styles.fieldLabel}>{amountMode === "set" ? `Amount (${props.currency})` : `Adjust by (${props.currency})`}</Text>
-            <View style={styles.amountSummaryCard}>
-              <Text style={styles.amountSummaryLabel}>Current total</Text>
-              <Text style={styles.amountSummaryValue}>{fmt(selectedDisplayTotal, props.currency)}</Text>
-              {selectedTarget?.kind === "fixed" && selectedTarget.fixedField !== "monthlyAllowance" ? (
-                <Text style={styles.amountSummaryHint}>Includes the current balance and this period&apos;s sacrifice.</Text>
-              ) : (
-                <Text style={styles.amountSummaryHint}>Current amount for this sacrifice target.</Text>
-              )}
-            </View>
-            {selectedTarget?.kind === "fixed" ? (
-              <View style={styles.amountSummaryCard}>
-                <Text style={styles.amountSummaryLabel}>Due this pay period</Text>
-                <Text style={styles.amountSummaryValue}>{fmt(selectedCurrentAmount, props.currency)}</Text>
-                <Text style={styles.amountSummaryHint}>The period amount you are editing here.</Text>
-              </View>
-            ) : null}
             <MoneyInput
               currency={props.currency}
               value={amountDraft}
@@ -534,46 +538,6 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
             }}>
               <Text style={styles.removeAmountText}>Set to 0 (remove amount)</Text>
             </Pressable>
-          </View>
-
-          <View style={styles.sectionCard}>
-            <Text style={styles.fieldLabel}>{isMonthlyCadence ? "Start period" : "Start anchor month"}</Text>
-            <View style={styles.periodInfoBanner}>
-              <Ionicons name="calendar-outline" size={14} color={T.accent} />
-              <View style={styles.periodInfoCopy}>
-                <Text style={styles.periodInfoTitle}>{selectedPayPeriodLabel}</Text>
-                <Text style={styles.periodInfoMeta}>Anchor month: {MONTH_NAMES_LONG[startMonth - 1]} {startYear}</Text>
-              </View>
-            </View>
-            <View style={styles.monthGrid}>
-              {MONTH_CHIPS.map((label, idx) => {
-                const monthValue = idx + 1;
-                const active = startMonth === monthValue;
-                return (
-                  <Pressable
-                    key={label}
-                    style={[styles.monthChip, active && styles.monthChipActive]}
-                    onPress={() => setStartMonth(monthValue)}
-                  >
-                    <Text style={[styles.monthChipText, active && styles.monthChipTextActive]}>{label}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            <View style={styles.sectionSubHeaderRow}>
-              <Text style={styles.fieldLabel}>{isMonthlyCadence ? "Period year" : "Start anchor year"}</Text>
-              <Text style={styles.inlineMetaText}>{selectedPayPeriodLabel}</Text>
-            </View>
-            <View style={styles.yearRow}>
-              <Pressable style={styles.yearBtn} onPress={() => setStartYear((y) => Math.max(2000, y - 1))}>
-                <Ionicons name="remove" size={16} color={T.text} />
-              </Pressable>
-              <Text style={styles.yearValue}>{startYear}</Text>
-              <Pressable style={styles.yearBtn} onPress={() => setStartYear((y) => Math.min(2200, y + 1))}>
-                <Ionicons name="add" size={16} color={T.text} />
-              </Pressable>
-            </View>
           </View>
 
           <View style={styles.sectionCard}>
@@ -781,13 +745,12 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
   const renderManageFooter = () => {
     if (manageScreen === "detail") {
       return (
-        <View style={styles.footerButtonStack}>
-          <Pressable style={[styles.secondaryBtn, props.goalLinkSaving && styles.disabled]} onPress={openSelectedTargetLinkScreen} disabled={props.goalLinkSaving}>
-            <Ionicons name="link-outline" size={15} color="#0f282f" />
-            <Text style={styles.secondaryBtnText}>Link to goal</Text>
+        <View style={styles.manageFooterRow}>
+          <Pressable style={[styles.mainFooterBtn, props.sacrificeSaving && styles.disabled]} onPress={submitAmountSheet} disabled={props.sacrificeSaving}>
+            <Text style={styles.mainFooterBtnText}>{props.sacrificeSaving ? "Saving" : "Save"}</Text>
           </Pressable>
-          <Pressable style={[styles.primaryBtn, props.sacrificeSaving && styles.disabled]} onPress={submitAmountSheet} disabled={props.sacrificeSaving}>
-            <Text style={styles.primaryBtnText}>{props.sacrificeSaving ? "Saving..." : "Save amount"}</Text>
+          <Pressable style={[styles.mainFooterBtn, props.goalLinkSaving && styles.disabled]} onPress={openSelectedTargetLinkScreen} disabled={props.goalLinkSaving}>
+            <Text style={styles.mainFooterBtnText}>Link</Text>
           </Pressable>
         </View>
       );
@@ -824,11 +787,11 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
 
   if (manageScreen) {
     return (
-      <View style={styles.manageScreen}>
-        <View style={styles.manageHeaderShell}>
-          <View style={styles.manageHeaderTint} />
-          <View style={[styles.manageHeader, { paddingTop: props.topInset ?? 0 }]}> 
-            <Pressable style={styles.manageBackBtn} onPress={goBackFromManageScreen}>
+      <View style={[styles.manageScreen, manageScreen === "detail" && styles.manageScreenDetail]}>
+        <View style={[styles.manageHeaderShell, manageScreen === "detail" && styles.manageHeaderShellDetail]}>
+          <View style={[styles.manageHeaderTint, manageScreen === "detail" && styles.manageHeaderTintDetail]} />
+          <View style={[styles.manageHeader, manageScreen === "detail" && styles.manageHeaderDetail, { paddingTop: props.topInset ?? 0 }]}> 
+            <Pressable style={[styles.manageBackBtn, manageScreen === "detail" && styles.manageBackBtnDetail]} onPress={goBackFromManageScreen}>
               <Ionicons name="chevron-back" size={20} color={T.text} />
             </Pressable>
             <View pointerEvents="none" style={styles.manageHeaderCenterWrap}>
@@ -839,10 +802,14 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
         </View>
 
         <ScrollView
-          style={styles.manageScroll}
+          style={[styles.manageScroll, manageScreen === "detail" && styles.manageScrollDetail]}
           showsVerticalScrollIndicator={false}
           bounces={false}
-          contentContainerStyle={[styles.manageScrollContent, { paddingBottom: 140 + insets.bottom }]}
+          contentContainerStyle={[
+            styles.manageScrollContent,
+            manageScreen === "detail" && styles.manageScrollContentDetail,
+            { paddingBottom: 84 + insets.bottom },
+          ]}
         >
           {renderManageContent()}
         </ScrollView>
@@ -862,7 +829,7 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
           keyExtractor={(_, idx) => String(idx)}
           style={styles.mainList}
           bounces={false}
-          contentContainerStyle={[s.scroll, { paddingTop: props.topInset ?? 0, paddingBottom: canManage ? 132 + insets.bottom : 40 }]}
+          contentContainerStyle={[s.scroll, { paddingTop: props.topInset ?? 0, paddingBottom: canManage ? 72 + insets.bottom : 40 }]}
           refreshControl={<RefreshControl refreshing={props.refreshing} onRefresh={props.onRefresh} tintColor={T.accent} />}
           ListHeaderComponent={
             <View style={styles.wrap}>
@@ -912,7 +879,7 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
             styles.loadingState,
             {
               paddingTop: props.topInset ?? 0,
-              paddingBottom: canManage ? 132 + insets.bottom : 40,
+              paddingBottom: canManage ? 72 + insets.bottom : 40,
             },
           ]}
         >
@@ -924,9 +891,27 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
 
       {canManage ? (
         <View style={[styles.fixedFooter, { paddingBottom: Math.max(insets.bottom, 14) }]}> 
-          <Pressable style={[styles.mainFooterBtn, props.sacrificeSaving && styles.disabled]} onPress={openManageFlow} disabled={props.sacrificeSaving}>
-            <Text style={styles.mainFooterBtnText}>Edit</Text>
-          </Pressable>
+          <View style={styles.mainFooterRow}>
+            <Pressable style={[styles.mainFooterBtn, props.sacrificeSaving && styles.disabled]} onPress={openManageFlow} disabled={props.sacrificeSaving}>
+              <Text style={styles.mainFooterBtnText}>Edit</Text>
+            </Pressable>
+            <View style={styles.mainFooterRightGroup}>
+              <Pressable
+                style={styles.mainFooterBtn}
+                onPress={props.onGoToCurrentPeriod}
+                disabled={!props.onGoToCurrentPeriod}
+              >
+                <Text style={styles.mainFooterBtnText}>Current</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.mainFooterBtn, styles.mainFooterBtnAccent]}
+                onPress={props.onGoToNextPeriod}
+                disabled={!props.onGoToNextPeriod}
+              >
+                <Text style={[styles.mainFooterBtnText, styles.mainFooterBtnTextAccent]}>Next</Text>
+              </Pressable>
+            </View>
+          </View>
         </View>
       ) : null}
     </View>

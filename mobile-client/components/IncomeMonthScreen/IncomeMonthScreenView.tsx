@@ -18,7 +18,7 @@ import type { Income, Settings, IncomeMonthData, IncomeSacrificeData, IncomeSacr
 import { computeMoneyLeftVsLastMonth } from "@/lib/domain/incomeStats";
 import { currencySymbol, fmt, MONTH_NAMES_LONG } from "@/lib/formatting";
 import { useIncomeCRUD, useTopHeaderOffset } from "@/hooks";
-import { buildPayPeriodFromMonthAnchor, getPayPeriodAnchorFromSelection, getPayPeriodRangeLabelFromAnchor, normalizePayFrequency } from "@/lib/payPeriods";
+import { buildPayPeriodFromMonthAnchor, getPayPeriodAnchorFromSelection, getPayPeriodAnchorFromWindow, getPayPeriodRangeLabelFromAnchor, normalizePayFrequency, resolveActivePayPeriod } from "@/lib/payPeriods";
 import { T } from "@/lib/theme";
 import IncomeMonthHeader from "@/components/Income/IncomeMonthHeader";
 import IncomeMonthIncomeList from "@/components/Income/IncomeMonthIncomeList";
@@ -392,6 +392,30 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
       openIncomeAddAt: undefined,
     });
   }, [month, navigation, viewMode, year]);
+
+  const handleGoToCurrentPeriod = useCallback(() => {
+    const planCreatedAtRaw = settings?.accountCreatedAt ?? settings?.setupCompletedAt ?? null;
+    const planCreatedAt = planCreatedAtRaw ? new Date(planCreatedAtRaw) : null;
+    const currentPeriod = resolveActivePayPeriod({
+      now: new Date(),
+      payDate: settings?.payDate ?? 27,
+      payFrequency: normalizedPayFrequency,
+      planCreatedAt: planCreatedAt && !Number.isNaN(planCreatedAt.getTime()) ? planCreatedAt : null,
+    });
+    const currentAnchor = getPayPeriodAnchorFromWindow({
+      period: currentPeriod,
+      payFrequency: normalizedPayFrequency,
+    });
+
+    navigation.setParams({
+      month: currentAnchor.month,
+      year: currentAnchor.year,
+      initialMode: viewMode,
+      showPendingNotice: undefined,
+      pendingConfirmationsCount: undefined,
+      openIncomeAddAt: undefined,
+    });
+  }, [navigation, normalizedPayFrequency, settings?.accountCreatedAt, settings?.payDate, settings?.setupCompletedAt, viewMode]);
 
   const prefetchMonthAnalysis = useCallback(async (targetYear: number, targetMonth: number) => {
     if (getCachedAnalysis(targetYear, targetMonth)) return;
@@ -981,6 +1005,8 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
             onConfirmTransfer={confirmSacrificeTransfer}
             goalLinkSaving={linkSaving}
             confirmingTargetKey={confirmingTargetKey}
+            onGoToCurrentPeriod={handleGoToCurrentPeriod}
+            onGoToNextPeriod={handleGoToNextPeriod}
             pendingNoticeText={pendingNoticeVisible
               ? (Number.isFinite(Number(pendingConfirmationsCount)) && Number(pendingConfirmationsCount) > 0
                 ? `You have ${Number(pendingConfirmationsCount)} pending transfer confirmation${Number(pendingConfirmationsCount) === 1 ? "" : "s"}. Confirm them to update linked goals.`
