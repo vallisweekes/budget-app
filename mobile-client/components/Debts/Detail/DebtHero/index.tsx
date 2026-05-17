@@ -24,6 +24,7 @@ export default function DebtHero({
   currentBalanceValue,
   isPaid,
   progressPct,
+  progressLabel,
   isVerySmallScreen,
   topInset = 0,
   onRecordPayment,
@@ -51,8 +52,17 @@ export default function DebtHero({
       </View>
       <Text style={styles.balanceHeroLabel}>{currentBalanceLabel}</Text>
       <Text style={[styles.balanceHeroValue, isPaid && { color: T.green }]}>{currentBalanceValue}</Text>
-      <Text style={[styles.balanceHeroPctTxt, progressPct > 0 ? styles.balanceHeroPctTxtPositive : styles.balanceHeroPctTxtZero]}>
-        {progressPct.toFixed(1)}% paid off
+      <Text
+        style={[
+          styles.balanceHeroPctTxt,
+          progressPct > 0
+            ? styles.balanceHeroPctTxtPositive
+            : progressPct < 0
+              ? { color: T.red }
+              : styles.balanceHeroPctTxtZero,
+        ]}
+      >
+        {progressLabel ?? `${progressPct.toFixed(1)}% paid off`}
       </Text>
       {!isPaid ? (
         <Pressable style={[styles.heroPayBtn, isVerySmallScreen && styles.heroPayBtnSmall]} onPress={onRecordPayment}>

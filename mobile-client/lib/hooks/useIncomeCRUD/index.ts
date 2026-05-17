@@ -53,6 +53,22 @@ export function useIncomeCRUD({ month, year, budgetPlanId, onReload, onMutationS
       Alert.alert("Invalid amount", "Enter a valid amount.");
       return;
     }
+
+    const optimisticId = `temp-income-${Date.now()}`;
+    if (setItems) {
+      setItems((prev) => ([
+        ...prev,
+        {
+          id: optimisticId,
+          name,
+          amount: String(amount),
+          month,
+          year,
+          budgetPlanId,
+        },
+      ]));
+    }
+
     try {
       setSaving(true);
       const created = await apiFetch<Income>("/api/bff/income", {
@@ -69,8 +85,9 @@ export function useIncomeCRUD({ month, year, budgetPlanId, onReload, onMutationS
           budgetPlanId: String(created?.budgetPlanId ?? budgetPlanId),
         };
         setItems((prev) => {
-          if (prev.some((item) => item.id === optimistic.id)) return prev;
-          return [...prev, optimistic];
+          const withoutTemp = prev.filter((item) => item.id !== optimisticId);
+          if (withoutTemp.some((item) => item.id === optimistic.id)) return withoutTemp;
+          return [...withoutTemp, optimistic];
         });
       }
       setNewName("");
@@ -90,11 +107,14 @@ export function useIncomeCRUD({ month, year, budgetPlanId, onReload, onMutationS
         // Background refresh failed; optimistic/local state already updated.
       });
     } catch (err: unknown) {
+      if (setItems) {
+        setItems((prev) => prev.filter((item) => item.id !== optimisticId));
+      }
       Alert.alert("Error", err instanceof Error ? err.message : "Could not add income");
     } finally {
       setSaving(false);
     }
-  }, [newName, newAmount, month, year, budgetPlanId, distributeMonths, distributeYears, onMutationSuccess, onReload]);
+  }, [newName, newAmount, month, year, budgetPlanId, distributeMonths, distributeYears, onMutationSuccess, onReload, setItems]);
 
   const startEdit = useCallback((item: Income) => {
     setEditingId(item.id);

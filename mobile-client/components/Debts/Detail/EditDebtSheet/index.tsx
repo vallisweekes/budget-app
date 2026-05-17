@@ -25,6 +25,11 @@ export default function EditDebtSheet(props: EditDebtSheetProps) {
   const [showSourceDropdown, setShowSourceDropdown] = React.useState(false);
   const [showOverridePeriodDropdown, setShowOverridePeriodDropdown] = React.useState(false);
 
+  const closeDropdowns = React.useCallback(() => {
+    setShowSourceDropdown(false);
+    setShowOverridePeriodDropdown(false);
+  }, []);
+
   const installmentTrim = (installment || "").trim();
   const installmentNum = installmentTrim ? Number.parseInt(installmentTrim, 10) : null;
   const isPresetInstallment = installmentNum != null && TERM_PRESETS.includes(installmentNum as any);
@@ -41,6 +46,12 @@ export default function EditDebtSheet(props: EditDebtSheetProps) {
     iosDueDateBeforeRef.current = dueDate;
     setIosDueDateDraft(dueDate ? new Date(`${dueDate}T00:00:00`) : new Date());
   }, [showDatePicker, dueDate]);
+
+  React.useEffect(() => {
+    if (!visible) {
+      closeDropdowns();
+    }
+  }, [closeDropdowns, visible]);
 
   const cancelDueDatePicker = React.useCallback(() => {
     onSetShowDatePicker(false);
@@ -61,12 +72,25 @@ export default function EditDebtSheet(props: EditDebtSheetProps) {
   return (
     <Modal visible={visible} transparent animationType="slide" presentationStyle="overFullScreen" onRequestClose={onClose}>
       <KeyboardAvoidingView style={styles.sheetOverlay} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <Pressable style={styles.sheetBackdrop} onPress={onClose} />
+        <Pressable
+          style={styles.sheetBackdrop}
+          onPress={() => {
+            closeDropdowns();
+            onClose();
+          }}
+        />
         <Animated.View style={[styles.sheetCard, { transform: [{ translateY: dragY }] }]}>
           <View style={styles.sheetHandle} {...panHandlers} />
           <Text style={styles.sectionTitle}>Edit Debt</Text>
 
-          <ScrollView style={styles.sheetScroll} contentContainerStyle={styles.sheetScrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          <ScrollView
+            style={styles.sheetScroll}
+            contentContainerStyle={styles.sheetScrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            scrollEnabled={!showSourceDropdown && !showOverridePeriodDropdown}
+            nestedScrollEnabled
+          >
             <View style={styles.sectionCard}>
               <Text style={styles.sectionEyebrow}>Overview</Text>
 
@@ -119,8 +143,14 @@ export default function EditDebtSheet(props: EditDebtSheetProps) {
 
               <View style={styles.formGroup}>
                 <Text style={styles.inputLabel}>Apply to</Text>
-                <View style={styles.dropdownAnchor}>
-                  <Pressable style={styles.input} onPress={() => setShowOverridePeriodDropdown((value) => !value)}>
+                <View style={[styles.dropdownAnchor, showOverridePeriodDropdown && styles.dropdownAnchorActive]}>
+                  <Pressable
+                    style={styles.input}
+                    onPress={() => {
+                      setShowSourceDropdown(false);
+                      setShowOverridePeriodDropdown((value) => !value);
+                    }}
+                  >
                     <View style={styles.dropdownValueRow}>
                       <Text style={styles.dateValue}>{selectedOverridePeriodLabel}</Text>
                       <Text style={styles.dropdownChevron}>{showOverridePeriodDropdown ? "▲" : "▼"}</Text>
@@ -128,7 +158,12 @@ export default function EditDebtSheet(props: EditDebtSheetProps) {
                   </Pressable>
 
                   {showOverridePeriodDropdown ? (
-                    <View style={styles.dropdownMenu}>
+                    <ScrollView
+                      style={[styles.dropdownMenu, styles.primaryDropdownMenu]}
+                      nestedScrollEnabled
+                      keyboardShouldPersistTaps="handled"
+                      showsVerticalScrollIndicator={false}
+                    >
                       {plannedPaymentOverrideOptions.map((option, idx) => {
                         const active = option.periodKey === plannedPaymentOverridePeriodKey;
                         const isLast = idx === plannedPaymentOverrideOptions.length - 1;
@@ -137,7 +172,7 @@ export default function EditDebtSheet(props: EditDebtSheetProps) {
                             key={option.periodKey}
                             onPress={() => {
                               onChangePlannedPaymentOverrideTarget(option.periodKey);
-                              setShowOverridePeriodDropdown(false);
+                              closeDropdowns();
                             }}
                             style={[styles.dropdownItem, isLast && styles.dropdownItemLast, active && styles.dropdownItemActive]}
                           >
@@ -145,7 +180,7 @@ export default function EditDebtSheet(props: EditDebtSheetProps) {
                           </Pressable>
                         );
                       })}
-                    </View>
+                    </ScrollView>
                   ) : null}
                 </View>
                 <Text style={styles.helperText}>Choose the due period you want to override.</Text>
@@ -163,7 +198,7 @@ export default function EditDebtSheet(props: EditDebtSheetProps) {
               </View>
             </View>
 
-            <View style={styles.sectionCard}>
+            <View style={[styles.sectionCard, showOverridePeriodDropdown && styles.sectionCardUnderlay]}>
               <Text style={styles.sectionEyebrow}>Schedule</Text>
 
               <View style={styles.formRow}>
@@ -180,8 +215,14 @@ export default function EditDebtSheet(props: EditDebtSheetProps) {
 
                 <View style={[styles.formGroup, styles.formCol]}>
                   <Text style={styles.inputLabel}>Payment source</Text>
-                  <View style={styles.dropdownAnchor}>
-                    <Pressable style={styles.input} onPress={() => setShowSourceDropdown((v) => !v)}>
+                  <View style={[styles.dropdownAnchor, showSourceDropdown && styles.dropdownAnchorActive]}>
+                    <Pressable
+                      style={styles.input}
+                      onPress={() => {
+                        setShowOverridePeriodDropdown(false);
+                        setShowSourceDropdown((v) => !v);
+                      }}
+                    >
                       <View style={styles.dropdownValueRow}>
                         <Text style={styles.dateValue}>
                           {paymentSource === "income" ? "Income" : paymentSource === "extra_funds" ? "Extra funds" : "Card"}
@@ -191,7 +232,12 @@ export default function EditDebtSheet(props: EditDebtSheetProps) {
                     </Pressable>
 
                     {showSourceDropdown ? (
-                      <View style={styles.dropdownMenu}>
+                      <ScrollView
+                        style={styles.dropdownMenu}
+                        nestedScrollEnabled
+                        keyboardShouldPersistTaps="handled"
+                        showsVerticalScrollIndicator={false}
+                      >
                         {[
                           { key: "income", label: "Income" },
                           { key: "extra_funds", label: "Extra funds" },
@@ -205,7 +251,7 @@ export default function EditDebtSheet(props: EditDebtSheetProps) {
                               onPress={() => {
                                 onChangePaymentSource(opt.key as "income" | "extra_funds" | "credit_card");
                                 if (opt.key !== "credit_card") onChangePaymentCardDebtId("");
-                                setShowSourceDropdown(false);
+                                closeDropdowns();
                               }}
                               style={[styles.dropdownItem, isLast && styles.dropdownItemLast, active && styles.dropdownItemActive]}
                             >
@@ -213,7 +259,7 @@ export default function EditDebtSheet(props: EditDebtSheetProps) {
                             </Pressable>
                           );
                         })}
-                      </View>
+                      </ScrollView>
                     ) : null}
                   </View>
                 </View>

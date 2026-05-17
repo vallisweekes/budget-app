@@ -172,6 +172,38 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
     return analysisCacheRef.current[planCacheKey]?.[targetYear]?.[targetMonth] ?? null;
   }, [planCacheKey]);
 
+  const optimisticAnalysis = useMemo(() => {
+    if (!analysis) return null;
+
+    const incomeItems = items.map((item) => ({
+      id: item.id,
+      name: item.name,
+      amount: Number(item.amount ?? 0),
+    }));
+    const grossIncome = incomeItems.reduce((sum, item) => sum + item.amount, 0);
+    const delta = grossIncome - Number(analysis.grossIncome ?? 0);
+    const moneyLeftAfterPlan = Number(analysis.moneyLeftAfterPlan ?? 0) + delta;
+    const incomeLeftRightNow = Number(analysis.incomeLeftRightNow ?? 0) + delta;
+    const spendableIncomeRightNow = Number(analysis.spendableIncomeRightNow ?? 0) + delta;
+    const incomeSacrifice = Number(analysis.incomeSacrifice ?? 0);
+
+    return {
+      ...analysis,
+      incomeItems,
+      grossIncome,
+      sourceCount: incomeItems.length,
+      moneyLeftAfterPlan,
+      incomeLeftRightNow,
+      spendableIncomeRightNow,
+      incomeSacrificePct: grossIncome > 0 ? (incomeSacrifice / grossIncome) * 100 : 0,
+      moneyLeftPctOfGross: grossIncome > 0 ? (moneyLeftAfterPlan / grossIncome) * 100 : 0,
+      moneyLeftVsLastMonthPct: computeMoneyLeftVsLastMonth(analysis.previousMoneyLeftAfterPlan, moneyLeftAfterPlan),
+      planStatusTag: moneyLeftAfterPlan >= 0 ? "on_plan" : "over_plan",
+      planStatusDescription: moneyLeftAfterPlan >= 0 ? "On plan" : "Over plan",
+      isOnPlan: moneyLeftAfterPlan >= 0,
+    } satisfies IncomeMonthData;
+  }, [analysis, items]);
+
   const hydrateComparisonMetrics = useCallback((targetYear: number, targetMonth: number, data: IncomeMonthData): IncomeMonthData => {
     const previous = targetMonth === 1
       ? getCachedAnalysis(targetYear - 1, 12)
@@ -1017,7 +1049,7 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
         ) : (
           <IncomeMonthIncomeList
             items={items}
-            analysis={analysis}
+            analysis={optimisticAnalysis}
             currency={currency}
             isLocked={isLocked}
             topInset={headerHeight + 8}

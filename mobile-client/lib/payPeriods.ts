@@ -22,6 +22,10 @@ function addDays(date: Date, days: number): Date {
   return next;
 }
 
+function toLocalDateKey(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
 function shiftMonthYear(params: { year: number; month: number; delta: number }): { year: number; month: number } {
   const safeMonth = Math.max(1, Math.min(12, Math.floor(params.month)));
   const safeYear = Math.floor(params.year);
@@ -230,6 +234,10 @@ export function getPayPeriodLabelFromPeriodKey(params: {
   return formatPayPeriodLabel(start, end);
 }
 
+export function getPayPeriodKeyForDate(date: Date): string {
+  return toLocalDateKey(date);
+}
+
 export function buildUpcomingPayPeriodOptions(params: {
   fromDate?: Date;
   fromPeriodKey?: string | null;
@@ -255,7 +263,7 @@ export function buildUpcomingPayPeriodOptions(params: {
   const options: Array<{ periodKey: string; label: string }> = [];
 
   for (let index = 0; index < count; index += 1) {
-    const periodKey = start.toISOString().slice(0, 10);
+    const periodKey = toLocalDateKey(start);
     const { end } = getPayPeriodWindowFromPeriodKey({
       periodKey,
       payDate: params.payDate,

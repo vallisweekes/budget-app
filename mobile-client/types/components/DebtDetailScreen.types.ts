@@ -14,6 +14,7 @@ export type DebtHeroProps = {
   currentBalanceValue: string;
   isPaid: boolean;
   progressPct: number;
+  progressLabel?: string;
   isVerySmallScreen: boolean;
   topInset?: number;
   onRecordPayment: () => void;
@@ -87,7 +88,9 @@ export type DebtStatsGridProps = {
   isCardDebt: boolean;
   creditLimit: string;
   original: string;
+  paidSoFarLabel?: string;
   paidSoFar: string;
+  paidSoFarTone?: "normal" | "green" | "red";
   dueCoveredThisCycle: boolean;
   dueDateLabel: string;
   dueStatusSub?: string;

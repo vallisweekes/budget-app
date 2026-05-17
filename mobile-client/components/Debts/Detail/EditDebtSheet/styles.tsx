@@ -41,6 +41,7 @@ export const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.06)",
     backgroundColor: "rgba(255,255,255,0.03)",
   },
+  sectionCardUnderlay: { zIndex: 1 },
   formGroup: { gap: 8 },
   formCol: { flex: 1 },
   formRow: { flexDirection: "row", gap: 12, marginBottom: 2 },
@@ -63,6 +64,7 @@ export const styles = StyleSheet.create({
   sourceBtnText: { color: T.textDim, fontSize: 12, fontWeight: "700" },
   sourceBtnTextActive: { color: T.accent, fontWeight: "800" },
   dropdownAnchor: { position: "relative", zIndex: 20 },
+  dropdownAnchorActive: { zIndex: 80 },
   dropdownValueRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   dropdownChevron: { color: T.textDim, fontSize: 11, fontWeight: "800" },
   dropdownMenu: {
@@ -79,6 +81,7 @@ export const styles = StyleSheet.create({
     elevation: 8,
     maxHeight: 240,
   },
+  primaryDropdownMenu: { zIndex: 90, elevation: 12 },
   dropdownItem: {
     paddingHorizontal: 12,
     paddingVertical: 10,

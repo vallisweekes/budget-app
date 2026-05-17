@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert } from "react-native";
 import type { CreditCard, Debt, DebtPayment, DebtSummaryItem, Settings } from "@/lib/apiTypes";
 import { currencySymbol, fmt } from "@/lib/formatting";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { getCachedDebtCreditCards, getCachedDebtSummaryItem } from "@/lib/debtDetailCache";
-import { buildUpcomingPayPeriodOptions, getPayPeriodLabelFromPeriodKey, normalizePayFrequency } from "@/lib/payPeriods";
+import { buildUpcomingPayPeriodOptions, getPayPeriodKeyForDate, getPayPeriodLabelFromPeriodKey, getPayPeriodWindowFromPeriodKey, normalizePayFrequency, resolveActivePayPeriod } from "@/lib/payPeriods";
 import {
   useCreateDebtPaymentMutation,
   useDeleteDebtMutation,
@@ -28,6 +28,12 @@ function comparePeriodKeys(a: { periodKey: string }, b: { periodKey: string }): 
   return a.periodKey.localeCompare(b.periodKey);
 }
 
+function addDays(date: Date, days: number): Date {
+  const next = new Date(date.getTime());
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
 type Params = {
   debtId: string;
   debtName: string;
@@ -46,6 +52,7 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [paymentsLoaded, setPaymentsLoaded] = useState(false);
+  const wasEditingRef = useRef(false);
 
   const [payAmount, setPayAmount] = useState("");
   const [paySheetOpen, setPaySheetOpen] = useState(false);
@@ -157,7 +164,7 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
           ? asTwoDecimals(detail.computedMonthlyPayment)
           : ((detail as any).amount != null ? asTwoDecimals((detail as any).amount) : "")
       );
-      setEditPlannedPaymentOverridePeriodKey(detail.plannedPaymentOverridePeriodKey ?? null);
+      setEditPlannedPaymentOverridePeriodKey(null);
       setEditPlannedPaymentOverride("");
       setEditMin(detail.monthlyMinimum != null ? asTwoDecimals(detail.monthlyMinimum) : "");
       setEditInstallment(detail.installmentMonths != null ? String(detail.installmentMonths) : "");
@@ -191,12 +198,16 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
       ? Math.floor(Number(settings?.payDate))
       : 1;
     const payFrequency = normalizePayFrequency(settings?.payFrequency);
-    const dueDateValue = debt?.dueDate ? new Date(debt.dueDate) : undefined;
+    const activePeriod = resolveActivePayPeriod({
+      now: new Date(),
+      payDate,
+      payFrequency,
+    });
+    const nextUpcomingPeriodKey = getPayPeriodKeyForDate(addDays(activePeriod.end, 1));
     const options = new Map<string, { periodKey: string; label: string }>();
 
     for (const option of buildUpcomingPayPeriodOptions({
-      fromPeriodKey: editPlannedPaymentOverridePeriodKey ?? debt?.plannedPaymentOverridePeriodKey ?? null,
-      fromDate: dueDateValue,
+      fromPeriodKey: nextUpcomingPeriodKey,
       count: 18,
       payDate,
       payFrequency,
@@ -216,13 +227,27 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
       });
     }
 
+    if (debt?.plannedPaymentOverridePeriodKey && !options.has(debt.plannedPaymentOverridePeriodKey)) {
+      options.set(debt.plannedPaymentOverridePeriodKey, {
+        periodKey: debt.plannedPaymentOverridePeriodKey,
+        label: getPayPeriodLabelFromPeriodKey({
+          periodKey: debt.plannedPaymentOverridePeriodKey,
+          payDate,
+          payFrequency,
+        }),
+      });
+    }
+
     return Array.from(options.values()).sort(comparePeriodKeys);
-  }, [debt, editPlannedPaymentOverridePeriodKey, settings?.payDate, settings?.payFrequency]);
+  }, [debt, settings?.payDate, settings?.payFrequency]);
 
   useEffect(() => {
-    if (editPlannedPaymentOverridePeriodKey || plannedPaymentOverrideOptions.length === 0) return;
+    const justOpened = editing && !wasEditingRef.current;
+    wasEditingRef.current = editing;
+
+    if (!editing || !justOpened || plannedPaymentOverrideOptions.length === 0) return;
     setEditPlannedPaymentOverridePeriodKey(plannedPaymentOverrideOptions[0].periodKey);
-  }, [editPlannedPaymentOverridePeriodKey, plannedPaymentOverrideOptions]);
+  }, [editing, plannedPaymentOverrideOptions]);
 
   const handleEditCurrentBalanceChange = useCallback((value: string) => {
     setEditCurrentBalance(value);
@@ -563,23 +588,38 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
     );
     const isCardDebt = debt?.type === "credit_card" || debt?.type === "store_card";
     const isPaid = debt ? (debt.paid || currentBalNum <= 0) : false;
-    const progressPct = originalBalNum > 0 ? Math.min(100, (paidSoFarNum / originalBalNum) * 100) : currentBalNum > 0 ? 0 : 100;
+    const creditLimitGap = isCardDebt && (creditLimitNum ?? 0) > 0
+      ? Number((creditLimitNum ?? 0) - currentBalNum)
+      : null;
+    const isOverLimit = typeof creditLimitGap === "number" && creditLimitGap < 0;
+    const paidMetricAmount = typeof creditLimitGap === "number" ? creditLimitGap : paidSoFarNum;
+    const progressPct = isCardDebt && (creditLimitNum ?? 0) > 0
+      ? (paidMetricAmount / (creditLimitNum ?? 1)) * 100
+      : (originalBalNum > 0 ? Math.min(100, (paidSoFarNum / originalBalNum) * 100) : currentBalNum > 0 ? 0 : 100);
+    const progressLabel = isCardDebt && typeof creditLimitGap === "number"
+      ? (creditLimitGap < 0
+          ? `${Math.abs(progressPct).toFixed(1)}% over limit`
+          : `${progressPct.toFixed(1)}% paid off`)
+      : `${progressPct.toFixed(1)}% paid off`;
 
     return {
       currentBalNum,
       originalBalNum,
       paidSoFarNum,
+      paidMetricAmount,
       interestRateNum,
       monthlyMinNum,
       dueTarget: dueTargetSafe,
       dueRemainingThisCycle,
       creditLimitNum,
+      isOverLimit,
       dueDateLabel,
       dueCoveredThisCycle,
       isOverdue,
       isCardDebt,
       isPaid,
       progressPct,
+      progressLabel,
     };
   }, [debt, payments, paymentsLoaded, summarySnapshot]);
 

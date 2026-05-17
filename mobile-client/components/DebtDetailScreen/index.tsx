@@ -95,6 +95,7 @@ export default function DebtDetailScreen() {
             currentBalanceValue={derived.isPaid ? "Paid off" : fmt(derived.currentBalNum, currency)}
             isPaid={derived.isPaid}
             progressPct={derived.progressPct}
+            progressLabel={derived.progressLabel}
             isVerySmallScreen={height <= 740}
             topInset={insets.top + 52}
             onRecordPayment={() => state.setPaySheetOpen(true)}
@@ -104,7 +105,9 @@ export default function DebtDetailScreen() {
             isCardDebt={derived.isCardDebt && (derived.creditLimitNum ?? 0) > 0}
             creditLimit={fmt(derived.creditLimitNum ?? 0, currency)}
             original={fmt(derived.originalBalNum, currency)}
-            paidSoFar={fmt(derived.paidSoFarNum, currency)}
+            paidSoFarLabel={derived.isOverLimit ? "Over limit" : undefined}
+            paidSoFar={derived.isOverLimit ? `-${fmt(Math.abs(derived.paidMetricAmount), currency)}` : fmt(derived.paidMetricAmount, currency)}
+            paidSoFarTone={derived.isOverLimit ? "red" : "green"}
             dueCoveredThisCycle={derived.dueCoveredThisCycle}
             dueDateLabel={derived.dueDateLabel}
             dueStatusSub={
