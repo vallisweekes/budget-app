@@ -59,6 +59,7 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
   const [targetKey, setTargetKey] = useState("monthlySavingsContribution");
   const [amountDraft, setAmountDraft] = useState("");
   const [amountMode, setAmountMode] = useState<AmountEntryMode>("set");
+  const [isInlineAmountEditing, setIsInlineAmountEditing] = useState(false);
   const [period, setPeriod] = useState<SacrificePeriod>("this_month");
   const [startMonth, setStartMonth] = useState(() => normalizeMonthValue(defaultSelection.month));
   const [startYear, setStartYear] = useState(() => normalizeYearValue(defaultSelection.year));
@@ -233,6 +234,11 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
 
   const coreTargetCards = useMemo(() => targetCards.filter((target) => target.section === "core"), [targetCards]);
   const customTargetCards = useMemo(() => targetCards.filter((target) => target.section === "custom"), [targetCards]);
+  const chooserPeriodTotal = useMemo(() => Number(props.sacrifice?.totalSacrifice ?? 0), [props.sacrifice?.totalSacrifice]);
+  const chooserOverallTotal = useMemo(
+    () => targetCards.reduce((sum, target) => sum + Number(target.totalAmount ?? 0), 0),
+    [targetCards],
+  );
 
   const selectedTarget = useMemo(() => {
     return targets.find((target) => target.key === targetKey) ?? null;
@@ -355,6 +361,12 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
 
   const selectedCurrentAmount = useMemo(() => getCurrentAmountForTarget(targetKey), [getCurrentAmountForTarget, targetKey]);
   const selectedDisplayTotal = useMemo(() => getDisplayTotalForTarget(targetKey), [getDisplayTotalForTarget, targetKey]);
+  const parsedInlineAmount = useMemo(() => parseMoney(amountDraft), [amountDraft]);
+  const previewCurrentAmount = isInlineAmountEditing && parsedInlineAmount != null ? parsedInlineAmount : selectedCurrentAmount;
+  const previewDisplayTotal = useMemo(() => {
+    if (!(isInlineAmountEditing && parsedInlineAmount != null)) return selectedDisplayTotal;
+    return Math.max(0, selectedDisplayTotal - selectedCurrentAmount + parsedInlineAmount);
+  }, [isInlineAmountEditing, parsedInlineAmount, selectedCurrentAmount, selectedDisplayTotal]);
 
   const selectedPayPeriodLabel = useMemo(() => {
     return getPayPeriodRangeLabelFromSelection({
@@ -417,10 +429,12 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
     const currentAmount = getCurrentAmountForTarget(key);
     setAmountMode("set");
     setAmountDraft(currentAmount.toFixed(2));
+    setIsInlineAmountEditing(false);
     setManageScreen("detail");
   };
 
   const goBackFromManageScreen = () => {
+    setIsInlineAmountEditing(false);
     if (manageScreen === "detail" || manageScreen === "add-item") {
       setManageScreen("chooser");
       return;
@@ -471,6 +485,7 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
       startYear: normalizedStartYear,
       period,
     });
+    setIsInlineAmountEditing(false);
     setManageScreen(null);
   };
 
@@ -483,6 +498,19 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
     setNewItemName("");
     setManageScreen("chooser");
   };
+
+  const toggleInlineAmountEdit = useCallback(() => {
+    if (isInlineAmountEditing) {
+      setAmountMode("set");
+      setAmountDraft(selectedCurrentAmount.toFixed(2));
+      setIsInlineAmountEditing(false);
+      return;
+    }
+
+    setAmountMode("set");
+    setAmountDraft(selectedCurrentAmount.toFixed(2));
+    setIsInlineAmountEditing(true);
+  }, [isInlineAmountEditing, selectedCurrentAmount]);
 
   const manageHeaderTitle = manageScreen === "detail"
     ? null
@@ -509,35 +537,38 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
               <Ionicons name={(selectedTargetCard?.iconName as any) ?? "wallet-outline"} size={26} color={selectedTargetCard?.iconTone ?? T.accent} />
             </View>
             <Text style={styles.detailHeroTitle}>{selectedTargetTitle}</Text>
-            <Text style={styles.detailHeroAmount}>{fmt(selectedDisplayTotal, props.currency)}</Text>
+            <Text style={styles.detailHeroAmount}>{fmt(previewDisplayTotal, props.currency)}</Text>
             {selectedTarget?.kind === "fixed" ? (
               <>
                 <Text style={styles.detailHeroDueLabel}>Due this pay period</Text>
-                <Text style={styles.detailHeroDueValue}>{fmt(selectedCurrentAmount, props.currency)}</Text>
+                {isInlineAmountEditing ? (
+                  <View style={styles.detailHeroInlineEditWrap}>
+                    <Text style={styles.detailHeroInlineCurrency}>{props.currency}</Text>
+                    <TextInput
+                      value={amountDraft}
+                      onChangeText={setAmountDraft}
+                      keyboardType="decimal-pad"
+                      placeholder="0.00"
+                      placeholderTextColor="rgba(255,255,255,0.42)"
+                      autoFocus
+                      style={styles.detailHeroInlineInput}
+                    />
+                  </View>
+                ) : (
+                  <Text style={styles.detailHeroDueValue}>{fmt(previewCurrentAmount, props.currency)}</Text>
+                )}
               </>
             ) : (
               <Text style={styles.detailHeroMeta}>Current amount for this sacrifice target.</Text>
             )}
-          </View>
-
-          <View style={styles.sectionCard}>
-            <Text style={styles.fieldLabel}>{amountMode === "set" ? `Amount (${props.currency})` : `Adjust by (${props.currency})`}</Text>
-            <MoneyInput
-              currency={props.currency}
-              value={amountDraft}
-              onChangeValue={setAmountDraft}
-              keyboardType={amountMode === "adjust" ? "numbers-and-punctuation" : "decimal-pad"}
-              placeholder={amountMode === "adjust" ? "0.00 or -10.00" : "0.00"}
-              placeholderTextColor={T.textMuted}
-              containerStyle={styles.input}
-            />
-
-            <Pressable style={styles.removeAmountBtn} onPress={() => {
-              setAmountMode("set");
-              setAmountDraft("0.00");
-            }}>
-              <Text style={styles.removeAmountText}>Set to 0 (remove amount)</Text>
-            </Pressable>
+            {isInlineAmountEditing ? (
+              <Pressable style={styles.detailHeroRemoveBtn} onPress={() => {
+                setAmountMode("set");
+                setAmountDraft("0.00");
+              }}>
+                <Text style={styles.detailHeroRemoveText}>Set to 0</Text>
+              </Pressable>
+            ) : null}
           </View>
 
           <View style={styles.sectionCard}>
@@ -628,6 +659,13 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
 
     return (
       <View style={styles.chooserStack}>
+        <View style={styles.chooserSummary}>
+          <Text style={styles.chooserSummaryEyebrow}>This period</Text>
+          <Text style={styles.chooserSummaryPrimary}>{fmt(chooserPeriodTotal, props.currency)}</Text>
+          <Text style={styles.chooserSummaryMeta}>Overall total so far</Text>
+          <Text style={styles.chooserSummarySecondary}>{fmt(chooserOverallTotal, props.currency)}</Text>
+        </View>
+
         <View style={styles.targetCardList}>
           {coreTargetCards.map((target) => (
             <Pressable key={target.key} style={styles.targetCard} onPress={() => openTargetEditor(target.key)}>
@@ -746,9 +784,14 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
     if (manageScreen === "detail") {
       return (
         <View style={styles.manageFooterRow}>
-          <Pressable style={[styles.mainFooterBtn, props.sacrificeSaving && styles.disabled]} onPress={submitAmountSheet} disabled={props.sacrificeSaving}>
-            <Text style={styles.mainFooterBtnText}>{props.sacrificeSaving ? "Saving" : "Save"}</Text>
-          </Pressable>
+          <View style={styles.manageFooterLeftGroup}>
+            <Pressable style={[styles.mainFooterBtn, props.sacrificeSaving && styles.disabled]} onPress={submitAmountSheet} disabled={props.sacrificeSaving}>
+              <Text style={styles.mainFooterBtnText}>{props.sacrificeSaving ? "Saving" : "Save"}</Text>
+            </Pressable>
+            <Pressable style={styles.mainFooterBtn} onPress={toggleInlineAmountEdit}>
+              <Text style={styles.mainFooterBtnText}>{isInlineAmountEditing ? "Cancel" : "Edit"}</Text>
+            </Pressable>
+          </View>
           <Pressable style={[styles.mainFooterBtn, props.goalLinkSaving && styles.disabled]} onPress={openSelectedTargetLinkScreen} disabled={props.goalLinkSaving}>
             <Text style={styles.mainFooterBtnText}>Link</Text>
           </Pressable>

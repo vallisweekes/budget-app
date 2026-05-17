@@ -72,6 +72,11 @@ export const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 12,
   },
+  manageFooterLeftGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
   inlineInfoCard: {
     backgroundColor: T.card,
     borderWidth: 1,
@@ -298,6 +303,40 @@ export const styles = StyleSheet.create({
   chooserStack: {
     gap: 12,
   },
+  chooserSummary: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingTop: 10,
+    paddingBottom: 12,
+    paddingHorizontal: 20,
+    gap: 2,
+  },
+  chooserSummaryEyebrow: {
+    color: T.textMuted,
+    fontSize: 12,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  chooserSummaryPrimary: {
+    color: T.text,
+    fontSize: 32,
+    fontWeight: "900",
+    letterSpacing: -0.8,
+    textAlign: "center",
+  },
+  chooserSummaryMeta: {
+    color: T.textDim,
+    fontSize: 12,
+    fontWeight: "700",
+    textAlign: "center",
+    marginTop: 4,
+  },
+  chooserSummarySecondary: {
+    color: T.text,
+    fontSize: 18,
+    fontWeight: "800",
+    textAlign: "center",
+  },
   amountSummaryCard: {
     flex: 1,
     borderWidth: 1,
@@ -365,6 +404,40 @@ export const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "800",
     textAlign: "center",
+  },
+  detailHeroInlineEditWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginTop: 2,
+  },
+  detailHeroInlineCurrency: {
+    color: "#ffffff",
+    fontSize: 18,
+    fontWeight: "800",
+  },
+  detailHeroInlineInput: {
+    minWidth: 124,
+    color: "#ffffff",
+    fontSize: 18,
+    fontWeight: "800",
+    textAlign: "center",
+    paddingVertical: 0,
+  },
+  detailHeroRemoveBtn: {
+    marginTop: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.18)",
+    backgroundColor: "rgba(255,255,255,0.08)",
+  },
+  detailHeroRemoveText: {
+    color: "rgba(255,255,255,0.82)",
+    fontSize: 12,
+    fontWeight: "700",
   },
   amountHeroBlock: {
     alignItems: "center",
