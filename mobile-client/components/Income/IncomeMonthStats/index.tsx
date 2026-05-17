@@ -1,5 +1,6 @@
 import React from "react";
 import { Pressable, View, Text } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { computeMoneyLeftVsLastMonth, formatIncomePct } from "@/lib/domain/incomeStats";
 import { T } from "@/lib/theme";
 import { styles } from "./styles";
@@ -25,7 +26,7 @@ export default function IncomeMonthStats({ data: a, currency, fmt, onPressIncome
     <>
       {/* Top stat cards */}
       <View style={styles.row}>
-        <Card label="Total income" value={fmt(a.grossIncome, currency)} color={T.green} />
+        <Card label="Total income" value={fmt(a.grossIncome, currency)} color={T.green} iconName="sparkles-outline" />
         <Card
           label="Sacrifices"
           value={fmt(a.incomeSacrifice, currency)}
@@ -33,6 +34,7 @@ export default function IncomeMonthStats({ data: a, currency, fmt, onPressIncome
           subValue={incomeSacrificePctLabel}
           subColor={T.accent}
           onPress={onPressIncomeSacrifice}
+          iconName="diamond-outline"
         />
       </View>
 
@@ -40,8 +42,15 @@ export default function IncomeMonthStats({ data: a, currency, fmt, onPressIncome
       <View style={styles.row}>
         {/* Money left with badge */}
         <View style={[styles.card, { flex: 1 }]}>
+          <View style={[styles.cardGlow, { backgroundColor: `${a.moneyLeftAfterPlan < 0 ? T.red : T.green}16` }]} />
+          <View style={styles.cardInnerBorder} />
           <View style={styles.cardHeader}>
+            <View style={styles.cardTitleWrap}>
+              <View style={[styles.iconPill, { backgroundColor: `${a.moneyLeftAfterPlan < 0 ? T.red : T.green}14`, borderColor: `${a.moneyLeftAfterPlan < 0 ? T.red : T.green}33` }]}>
+                <Ionicons name="wallet-outline" size={14} color={a.moneyLeftAfterPlan < 0 ? T.red : T.green} />
+              </View>
               <Text style={styles.cardLabel}>Money left (after plan)</Text>
+            </View>
             <View style={[styles.badge, isOnPlan ? styles.badgeOn : styles.badgeOver]}>
               <Text style={[styles.badgeText, isOnPlan ? styles.badgeTextOn : styles.badgeTextOver]}>
                 {planStatusDescription}
@@ -63,17 +72,24 @@ export default function IncomeMonthStats({ data: a, currency, fmt, onPressIncome
             </Text>
           )}
         </View>
-        <Card label="Left to pay (right now)" value={fmt(a.leftToPayRightNow, currency)} color={T.accent} />
+        <Card label="Left to pay (right now)" value={fmt(a.leftToPayRightNow, currency)} color={T.accent} iconName="receipt-outline" />
       </View>
 
     </>
   );
 }
 
-function Card({ label, value, color, subValue, subColor, onPress }: { label: string; value: string; color: string; subValue?: string; subColor?: string; onPress?: () => void }) {
+function Card({ label, value, color, subValue, subColor, onPress, iconName }: { label: string; value: string; color: string; subValue?: string; subColor?: string; onPress?: () => void; iconName: keyof typeof Ionicons.glyphMap }) {
   const content = (
     <>
-      <Text style={styles.cardLabel}>{label}</Text>
+      <View style={[styles.cardGlow, { backgroundColor: `${color}16` }]} />
+      <View style={styles.cardInnerBorder} />
+      <View style={styles.cardTitleWrap}>
+        <View style={[styles.iconPill, { backgroundColor: `${color}14`, borderColor: `${color}33` }]}>
+          <Ionicons name={iconName} size={14} color={color} />
+        </View>
+        <Text style={styles.cardLabel}>{label}</Text>
+      </View>
       <View style={styles.valueInline}>
         <Text style={[styles.cardValue, { color }]}>{value}</Text>
         {subValue ? <Text style={[styles.cardPctInline, { color: subColor ?? T.textDim }]}>{subValue}</Text> : null}

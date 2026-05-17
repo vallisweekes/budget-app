@@ -11,6 +11,13 @@ import { styles } from "./styles";
 export function IncomeRow({ item, currency, onPress }: IncomeRowProps) {
   const isPressable = typeof onPress === "function";
   const amount = Number(item.amount ?? 0);
+  const normalizedName = String(item.name ?? "").trim().toLowerCase();
+  const iconName = normalizedName.includes("salary")
+    ? "cash-outline"
+    : normalizedName.includes("bonus")
+      ? "sparkles-outline"
+      : "wallet-outline";
+  const iconTone = normalizedName.includes("salary") ? T.accent : T.orange;
 
   return (
     <Pressable
@@ -19,10 +26,15 @@ export function IncomeRow({ item, currency, onPress }: IncomeRowProps) {
       style={({ pressed }) => [styles.card, pressed && isPressable && styles.pressed]}
     >
       <View style={styles.left}>
-        <Text style={styles.name} numberOfLines={1}>
-          {item.name}
-        </Text>
-        <Text style={styles.hint}>{fmt(amount, currency)}</Text>
+        <View style={[styles.iconWrap, { backgroundColor: `${iconTone}14`, borderColor: `${iconTone}33` }]}> 
+          <Ionicons name={iconName} size={18} color={iconTone} />
+        </View>
+        <View style={styles.copy}>
+          <Text style={styles.name} numberOfLines={1}>
+            {item.name}
+          </Text>
+          <Text style={styles.hint}>{fmt(amount, currency)}</Text>
+        </View>
       </View>
 
       <View style={styles.right}>

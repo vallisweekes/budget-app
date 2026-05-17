@@ -64,6 +64,8 @@ export default function IncomeBarChart({ data: a, currency }: IncomeBarChartProp
   }, [didUserSelectPoint, highestIndex]);
 
   const totalIncome = Math.max(0, Number(a.grossIncome) || 0);
+  const allocatedTotal = Math.max(0, Number(a.plannedExpenses) || 0) + Math.max(0, Number(a.plannedDebtPayments) || 0) + Math.max(0, Number(a.incomeSacrifice) || 0);
+  const allocatedPct = totalIncome > 0 ? Math.min(999, (allocatedTotal / totalIncome) * 100) : 0;
   const maxVal = Math.max(1, totalIncome, ...values);
 
   const chartW = W - 56;
@@ -161,6 +163,21 @@ export default function IncomeBarChart({ data: a, currency }: IncomeBarChartProp
 
   return (
     <View style={styles.wrap}>
+      <View style={[styles.heroGlow, styles.heroGlowPrimary]} />
+      <View style={[styles.heroGlow, styles.heroGlowSecondary]} />
+
+      <View style={styles.header}>
+        <View style={styles.headerCopy}>
+          <Text style={styles.headerEyebrow}>Cash flow</Text>
+          <Text style={styles.headerTitle}>Where this pay cycle is going</Text>
+          <Text style={styles.headerSub}>A quick view of expenses, debts, and sacrifice against this month&apos;s income.</Text>
+        </View>
+        <View style={styles.headerPill}>
+          <Text style={styles.headerPillValue}>{allocatedPct.toFixed(0)}%</Text>
+          <Text style={styles.headerPillLabel}>allocated</Text>
+        </View>
+      </View>
+
       <View pointerEvents="none" style={[styles.tooltipSlot, { height: TOOLTIP_SLOT_HEIGHT, alignItems: tooltipAlignment }]}> 
         {activePoint ? (
           <View style={[styles.tooltipCard, styles.tooltipCardInline, { width: tooltipW, minHeight: tooltipH }]}> 
@@ -273,7 +290,7 @@ export default function IncomeBarChart({ data: a, currency }: IncomeBarChartProp
           <Pressable
             key={point.key}
             onPress={() => selectPoint(index)}
-            style={styles.xLabelButton}
+            style={[styles.xLabelButton, activeIndex === index ? styles.xLabelButtonActive : null]}
             hitSlop={8}
           >
             <View style={[styles.xLabelDot, { backgroundColor: point.color, opacity: activeIndex === index ? 1 : 0.45 }]} />

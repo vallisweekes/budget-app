@@ -49,6 +49,7 @@ export default function IncomeMonthIncomeList({
 
             <View style={s.sourcesHeader}>
               <View style={s.sourcesHeaderCopy}>
+                <Text style={s.sourcesEyebrow}>Monthly income</Text>
                 <Text style={s.sourcesTitle}>Income sources</Text>
                 <Text style={s.sourcesSub}>
                   {isLocked ? "Past month — view only." : "Edit or remove income for this month."}
