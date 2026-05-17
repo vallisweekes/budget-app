@@ -12,6 +12,7 @@ export default function TopHeader({
   onSettings,
   onIncome,
   onAnalytics,
+  variant = "default",
   leftContent,
   leftVariant = "avatar",
   onBack,
@@ -28,6 +29,7 @@ export default function TopHeader({
   const insets = useSafeAreaInsets();
   const { username } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+  const isAnalyticsVariant = variant === "analytics";
   const visibleActionCount = (showIncomeAction ? 1 : 0) + (showAnalyticsAction ? 1 : 0);
   const shouldShowCompactMenuTrigger = !onAddIncome && visibleActionCount > 0;
 
@@ -49,13 +51,15 @@ export default function TopHeader({
   const initial = username ? username.charAt(0).toUpperCase() : "?";
 
   return (
-    <BlurView intensity={30} tint="dark" style={[styles.container, { paddingTop: insets.top }]}> 
-			<View style={styles.glassTint} />
-			<View style={styles.inner}>
+    <BlurView intensity={isAnalyticsVariant ? 42 : 30} tint="dark" style={[styles.container, isAnalyticsVariant && styles.containerAnalytics, { paddingTop: insets.top }]}> 
+			<View style={[styles.glassTint, isAnalyticsVariant && styles.glassTintAnalytics]} />
+			{isAnalyticsVariant ? <View pointerEvents="none" style={styles.analyticsGlowPrimary} /> : null}
+			{isAnalyticsVariant ? <View pointerEvents="none" style={styles.analyticsGlowSecondary} /> : null}
+			<View style={[styles.inner, isAnalyticsVariant && styles.innerAnalytics]}>
         {leftContent ? (
           leftContent
         ) : leftVariant === "back" ? (
-          <Pressable onPress={onBack} style={styles.iconBtn} hitSlop={10}>
+          <Pressable onPress={onBack} style={[styles.iconBtn, isAnalyticsVariant && styles.iconBtnAnalytics]} hitSlop={10}>
             <Ionicons name="chevron-back" size={20} color={T.text} />
           </Pressable>
         ) : (
@@ -72,14 +76,14 @@ export default function TopHeader({
           </View>
         ) : centerLabel ? (
           <View pointerEvents="none" style={centerWrapStyle}>
-            <Text style={styles.centerLabel} numberOfLines={2}>{centerLabel}</Text>
+            <Text style={[styles.centerLabel, isAnalyticsVariant && styles.centerLabelAnalytics]} numberOfLines={2}>{centerLabel}</Text>
           </View>
         ) : null}
 
         {rightContent ? (
-          <View style={styles.rightActions}>{rightContent}</View>
+          <View style={[styles.rightActions, isAnalyticsVariant && styles.rightActionsAnalytics]}>{rightContent}</View>
         ) : compactActionsMenu ? (
-          <View style={styles.rightActions}>
+          <View style={[styles.rightActions, isAnalyticsVariant && styles.rightActionsAnalytics]}>
             {onAddIncome ? (
               <Pressable
                 onPress={onAddIncome}
@@ -116,9 +120,9 @@ export default function TopHeader({
             ) : null}
           </View>
         ) : (
-          <View style={styles.rightActions}>
+          <View style={[styles.rightActions, isAnalyticsVariant && styles.rightActionsAnalytics]}>
             {showIncomeAction ? (
-              <Pressable onPress={onIncome} style={styles.iconBtn} hitSlop={10}>
+              <Pressable onPress={onIncome} style={[styles.iconBtn, isAnalyticsVariant && styles.iconBtnAnalytics]} hitSlop={10}>
                 <Ionicons name="wallet-outline" size={18} color={T.accent} />
                 {incomePendingCount > 0 ? (
                   <View style={styles.badge}>
@@ -128,7 +132,7 @@ export default function TopHeader({
               </Pressable>
             ) : null}
             {showAnalyticsAction ? (
-              <Pressable onPress={onAnalytics} style={styles.iconBtn} hitSlop={10}>
+              <Pressable onPress={onAnalytics} style={[styles.iconBtn, isAnalyticsVariant && styles.iconBtnAnalytics]} hitSlop={10}>
                 <Ionicons name="stats-chart-outline" size={18} color={T.accent} />
               </Pressable>
             ) : null}

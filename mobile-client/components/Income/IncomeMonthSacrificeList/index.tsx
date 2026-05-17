@@ -1093,30 +1093,29 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
                   ) : null}
                 </View>
                 {target.linkedGoal && target.linkedGoal.targetAmount > 0 ? (
-                  <>
-                    <View style={styles.targetCardProgressMeta}>
-                      <Text style={styles.targetCardProgressLabel}>Goal progress</Text>
-                      <Text style={styles.targetCardProgressValue}>
-                        {fmt(target.linkedGoal.currentAmount, props.currency)} / {fmt(target.linkedGoal.targetAmount, props.currency)}
-                      </Text>
-                    </View>
-                    <View style={styles.targetCardProgressBg}>
-                      <View
-                        style={[
-                          styles.targetCardProgressFill,
-                          {
-                            width: `${target.linkedGoal.progressPct}%` as `${number}%`,
-                            backgroundColor: target.iconTone,
-                          },
-                        ]}
-                      />
-                    </View>
-                  </>
+                  <View style={styles.targetCardProgressMeta}>
+                    <Text style={styles.targetCardProgressLabel}>Progress to target</Text>
+                    <Text style={styles.targetCardProgressValue}>
+                      {fmt(target.linkedGoal.currentAmount, props.currency)} / {fmt(target.linkedGoal.targetAmount, props.currency)}
+                    </Text>
+                  </View>
                 ) : null}
                 <View style={styles.targetCardChevronWrap}>
                   <Ionicons name="chevron-forward" size={16} color={T.textMuted} />
                 </View>
-                <View style={[styles.targetCardAccentLine, { backgroundColor: target.iconTone }]} />
+                {target.linkedGoal && target.linkedGoal.targetAmount > 0 ? (
+                  <View style={styles.targetCardAccentTrack}>
+                    <View
+                      style={[
+                        styles.targetCardAccentFill,
+                        {
+                          width: `${target.linkedGoal.progressPct}%` as `${number}%`,
+                          backgroundColor: target.iconTone,
+                        },
+                      ]}
+                    />
+                  </View>
+                ) : null}
               </Pressable>
             ))}
           </View>
@@ -1180,30 +1179,29 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
                     ) : null}
                   </View>
                   {target.linkedGoal && target.linkedGoal.targetAmount > 0 ? (
-                    <>
-                      <View style={styles.targetCardProgressMeta}>
-                        <Text style={styles.targetCardProgressLabel}>Goal progress</Text>
-                        <Text style={styles.targetCardProgressValue}>
-                          {fmt(target.linkedGoal.currentAmount, props.currency)} / {fmt(target.linkedGoal.targetAmount, props.currency)}
-                        </Text>
-                      </View>
-                      <View style={styles.targetCardProgressBg}>
-                        <View
-                          style={[
-                            styles.targetCardProgressFill,
-                            {
-                              width: `${target.linkedGoal.progressPct}%` as `${number}%`,
-                              backgroundColor: target.iconTone,
-                            },
-                          ]}
-                        />
-                      </View>
-                    </>
+                    <View style={styles.targetCardProgressMeta}>
+                      <Text style={styles.targetCardProgressLabel}>Progress to target</Text>
+                      <Text style={styles.targetCardProgressValue}>
+                        {fmt(target.linkedGoal.currentAmount, props.currency)} / {fmt(target.linkedGoal.targetAmount, props.currency)}
+                      </Text>
+                    </View>
                   ) : null}
                   <View style={styles.targetCardChevronWrap}>
                     <Ionicons name="chevron-forward" size={16} color={T.textMuted} />
                   </View>
-                  <View style={[styles.targetCardAccentLine, { backgroundColor: target.iconTone }]} />
+                  {target.linkedGoal && target.linkedGoal.targetAmount > 0 ? (
+                    <View style={styles.targetCardAccentTrack}>
+                      <View
+                        style={[
+                          styles.targetCardAccentFill,
+                          {
+                            width: `${target.linkedGoal.progressPct}%` as `${number}%`,
+                            backgroundColor: target.iconTone,
+                          },
+                        ]}
+                      />
+                    </View>
+                  ) : null}
                 </Pressable>
               ))}
             </View>

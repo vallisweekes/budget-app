@@ -41,32 +41,37 @@ export default function AnalyticsScreen() {
 
   return (
 		<SafeAreaView style={s.safe} edges={[]}>
-      <ScrollView
-        contentContainerStyle={[s.scroll, { paddingTop: controller.topHeaderOffset }]}
-        refreshControl={<RefreshControl refreshing={controller.refreshing} onRefresh={controller.onRefresh} tintColor={T.accent} />}
-      >
-        <AnalyticsInsightGrid rows={controller.insightRows} />
-        <AnalyticsOverviewCard
-          chartData={controller.chartData}
-          chartSpacing={controller.chartSpacing}
-          chartWidth={controller.chartWidth}
-          currency={controller.currency}
-          currentMonthLabel={controller.currentMonthLabel}
-          expenseLine={controller.overviewExpenseLine}
-          incomeLine={controller.overviewIncomeLine}
-          onWrapWidthChange={controller.setOverviewWrapWidth}
-          overviewMaxValue={controller.overviewMaxValue}
-          overviewMode={controller.overviewMode}
-          overviewWrapWidth={controller.overviewWrapWidth}
-        />
-        <AnalyticsTipsCard tips={controller.topTips} />
-        <AnalyticsDebtDistributionCard
-          currency={controller.currency}
-          items={controller.debtDistribution}
-          overviewMode={controller.overviewMode}
-          title={controller.debtDistributionTitle}
-        />
-      </ScrollView>
+      <View style={s.screenShell}>
+        <View pointerEvents="none" style={s.screenGlowPrimary} />
+        <View pointerEvents="none" style={s.screenGlowSecondary} />
+        <ScrollView
+          contentContainerStyle={[s.scroll, { paddingTop: controller.topHeaderOffset }]}
+          refreshControl={<RefreshControl refreshing={controller.refreshing} onRefresh={controller.onRefresh} tintColor={T.accent} />}
+          showsVerticalScrollIndicator={false}
+        >
+          <AnalyticsInsightGrid rows={controller.insightRows} />
+          <AnalyticsOverviewCard
+            chartData={controller.chartData}
+            chartSpacing={controller.chartSpacing}
+            chartWidth={controller.chartWidth}
+            currency={controller.currency}
+            currentMonthLabel={controller.currentMonthLabel}
+            expenseLine={controller.overviewExpenseLine}
+            incomeLine={controller.overviewIncomeLine}
+            onWrapWidthChange={controller.setOverviewWrapWidth}
+            overviewMaxValue={controller.overviewMaxValue}
+            overviewMode={controller.overviewMode}
+            overviewWrapWidth={controller.overviewWrapWidth}
+          />
+          <AnalyticsTipsCard tips={controller.topTips} />
+          <AnalyticsDebtDistributionCard
+            currency={controller.currency}
+            items={controller.debtDistribution}
+            overviewMode={controller.overviewMode}
+            title={controller.debtDistributionTitle}
+          />
+        </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }

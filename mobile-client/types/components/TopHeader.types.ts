@@ -5,6 +5,7 @@ export interface TopHeaderProps {
   onIncome: () => void;
   onAnalytics: () => void;
   onNotifications: () => void;
+  variant?: "default" | "analytics";
   leftContent?: ReactNode;
   leftVariant?: "avatar" | "back";
   onBack?: () => void;

@@ -33,6 +33,8 @@ export default function AnalyticsOverviewCard({
   overviewMode,
   overviewWrapWidth,
 }: AnalyticsOverviewCardProps) {
+  const incomeColor = "#4da2ff";
+  const expenseColor = "#ff5ca8";
   const chartRenderWidth = Math.max(220, chartWidth - 14);
   const chartRenderSpacing = React.useMemo(() => {
     if (overviewMode !== "year") return chartSpacing;
@@ -49,8 +51,13 @@ export default function AnalyticsOverviewCard({
 
   return (
     <View style={s.tipCard}>
+      <View style={[s.sectionGlow, s.overviewGlowPrimary]} />
+      <View style={[s.sectionGlow, s.overviewGlowSecondary]} />
       <View style={s.overviewHead}>
-        <Text style={s.tipTitle}>Overview</Text>
+        <View>
+          <Text style={s.sectionEyebrow}>Cashflow intelligence</Text>
+          <Text style={s.tipTitle}>Overview</Text>
+        </View>
         <Text style={s.overviewModeBadge}>{overviewMode === "year" ? "Yearly view" : `${currentMonthLabel} snapshot`}</Text>
       </View>
 
@@ -74,10 +81,10 @@ export default function AnalyticsOverviewCard({
           data={incomeLine}
           data2={expenseLine}
           curved
-          color1="#2c91ff"
-          color2="#ef4fa6"
-          thickness={2}
-          thickness2={2}
+          color1={incomeColor}
+          color2={expenseColor}
+          thickness={3}
+          thickness2={2.5}
           height={OVERVIEW_CHART_H}
           width={chartRenderWidth}
           initialSpacing={10}
@@ -90,25 +97,25 @@ export default function AnalyticsOverviewCard({
           xAxisColor={T.border}
           yAxisTextStyle={[s.chartAxisText, { color: "transparent" }]}
           xAxisLabelTextStyle={s.chartAxisXText}
-          rulesColor={T.border}
+          rulesColor="rgba(244,246,255,0.10)"
           rulesType="dashed"
           hideDataPoints={false}
-          dataPointsColor="#2c91ff"
-          dataPointsColor2="#ef4fa6"
-          dataPointsRadius={3}
-          dataPointsRadius2={3}
+          dataPointsColor={incomeColor}
+          dataPointsColor2={expenseColor}
+          dataPointsRadius={4}
+          dataPointsRadius2={4}
           areaChart
-          startFillColor="#2c91ff"
-          endFillColor="#2c91ff"
-          startOpacity={0.16}
+          startFillColor={incomeColor}
+          endFillColor={incomeColor}
+          startOpacity={0.18}
           endOpacity={0.02}
           pointerConfig={{
             activatePointersOnLongPress: true,
             autoAdjustPointerLabelPosition: true,
-            pointerStripColor: "#2c91ff",
+            pointerStripColor: incomeColor,
             pointerStripWidth: 1,
             strokeDashArray: [4, 4],
-            pointerColor: "#2c91ff",
+            pointerColor: incomeColor,
             radius: 4,
             pointerLabelWidth: 128,
             pointerLabelHeight: 64,
@@ -130,11 +137,11 @@ export default function AnalyticsOverviewCard({
 
       <View style={s.legendRow}>
         <View style={s.legendItem}>
-          <View style={[s.legendDot, { backgroundColor: "#2c91ff" }]} />
+          <View style={[s.legendDot, { backgroundColor: incomeColor }]} />
           <Text style={s.legendText}>Income</Text>
         </View>
         <View style={s.legendItem}>
-          <View style={[s.legendDot, { backgroundColor: "#ef4fa6" }]} />
+          <View style={[s.legendDot, { backgroundColor: expenseColor }]} />
           <Text style={s.legendText}>Expenses</Text>
         </View>
       </View>

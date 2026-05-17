@@ -10,9 +10,36 @@ export const styles = StyleSheet.create({
     borderBottomRightRadius: 26,
     overflow: "hidden",
   },
+  containerAnalytics: {
+    backgroundColor: "rgba(16,18,31,0.76)",
+    borderBottomColor: "rgba(124,92,255,0.22)",
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+  },
   glassTint: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: `${T.accent}12`,
+  },
+  glassTintAnalytics: {
+    backgroundColor: "rgba(124,92,255,0.14)",
+  },
+  analyticsGlowPrimary: {
+    position: "absolute",
+    top: -90,
+    right: -18,
+    width: 220,
+    height: 220,
+    borderRadius: 999,
+    backgroundColor: "rgba(124,92,255,0.18)",
+  },
+  analyticsGlowSecondary: {
+    position: "absolute",
+    bottom: -86,
+    left: -26,
+    width: 180,
+    height: 180,
+    borderRadius: 999,
+    backgroundColor: "rgba(59,153,255,0.08)",
   },
   inner: {
     flexDirection: "row",
@@ -21,6 +48,9 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 12,
     position: "relative",
+  },
+  innerAnalytics: {
+    paddingBottom: 14,
   },
   centerWrap: {
     position: "absolute",
@@ -47,6 +77,11 @@ export const styles = StyleSheet.create({
     lineHeight: 16,
     textAlign: "center",
   },
+  centerLabelAnalytics: {
+    fontSize: 14,
+    fontWeight: "700",
+    letterSpacing: 0.1,
+  },
 
   avatarBtn: { position: "relative" },
   avatar: {
@@ -65,6 +100,9 @@ export const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
   },
+  rightActionsAnalytics: {
+    gap: 10,
+  },
   iconBtn: {
     width: 34,
     height: 34,
@@ -75,6 +113,13 @@ export const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: T.border,
     position: "relative",
+  },
+  iconBtnAnalytics: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderColor: "rgba(244,246,255,0.10)",
   },
   addIncomeBtn: {
     minWidth: 90,

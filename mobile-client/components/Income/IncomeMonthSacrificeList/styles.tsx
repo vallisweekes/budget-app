@@ -930,11 +930,16 @@ export const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  targetCardAccentLine: {
+  targetCardAccentTrack: {
     marginTop: 12,
-    height: 3,
+    height: 5,
     borderRadius: 999,
-    opacity: 0.9,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    overflow: "hidden",
+  },
+  targetCardAccentFill: {
+    height: "100%",
+    borderRadius: 999,
   },
   targetSectionTitle: {
     color: T.textDim,

@@ -130,6 +130,7 @@ export function useAnalyticsScreenController(
     annualDebtService,
     annualExpenseTotal,
     annualIncomeTotal,
+    analyticsYear: activeAnchor.year,
     currency,
     currentDebtDue,
     currentExpenseTotal,
@@ -140,12 +141,15 @@ export function useAnalyticsScreenController(
     expensesByMonth,
     income,
     overviewMode,
+    payDate,
+    payFrequency,
   }), [annualDebtService, annualExpenseTotal, annualIncomeTotal, currency, currentDebtDue, currentExpenseTotal, currentIncomeTotal, currentPayPeriodLabel, dashboard, debt, expensesByMonth, income, overviewMode]);
 
   const topTips = useMemo(() => buildAnalyticsTopTips({
     annualDebtService,
     annualExpenseTotal,
     annualIncomeTotal,
+    analyticsYear: activeAnchor.year,
     currency,
     currentDebtDue,
     currentExpenseTotal,
@@ -156,7 +160,9 @@ export function useAnalyticsScreenController(
     expensesByMonth,
     income,
     overviewMode,
-  }), [annualDebtService, annualExpenseTotal, annualIncomeTotal, currency, currentDebtDue, currentExpenseTotal, currentIncomeTotal, currentPayPeriodLabel, dashboard, debt, expensesByMonth, income, overviewMode]);
+    payDate,
+    payFrequency,
+  }), [activeAnchor.year, annualDebtService, annualExpenseTotal, annualIncomeTotal, currency, currentDebtDue, currentExpenseTotal, currentIncomeTotal, currentPayPeriodLabel, dashboard, debt, expensesByMonth, income, overviewMode, payDate, payFrequency]);
 
   const chartData = useMemo(() => buildAnalyticsChartData({
     currentExpenseTotal,

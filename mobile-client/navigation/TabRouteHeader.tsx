@@ -294,11 +294,11 @@ export default function TabRouteHeader() {
         flexDirection: "row",
         alignItems: "center",
         borderWidth: 1,
-        borderColor: T.border,
+        borderColor: "rgba(244,246,255,0.10)",
         borderRadius: 999,
-        backgroundColor: `${T.cardAlt}66`,
-        width: 68,
-        height: 34,
+        backgroundColor: "rgba(255,255,255,0.05)",
+        width: 74,
+        height: 38,
         position: "relative",
         overflow: "hidden",
       }}
@@ -307,19 +307,19 @@ export default function TabRouteHeader() {
         pointerEvents="none"
         style={{
           position: "absolute",
-          width: 30,
-          height: 28,
-          borderRadius: 14,
+          width: 34,
+          height: 32,
+          borderRadius: 16,
           backgroundColor: T.accent,
           top: 2,
-          transform: [{ translateX: analyticsOverviewMode === "year" ? 34 : 2 }],
+          transform: [{ translateX: analyticsOverviewMode === "year" ? 38 : 2 }],
         }}
       />
       <Pressable onPress={() => router.setParams({ overviewMode: "month" })} style={{ flex: 1, alignItems: "center", justifyContent: "center" }} hitSlop={10}>
-        <Text style={{ color: analyticsOverviewMode === "month" ? T.onAccent : T.textDim, fontSize: 12, fontWeight: "800" }}>M</Text>
+        <Text style={{ color: analyticsOverviewMode === "month" ? T.onAccent : T.textDim, fontSize: 12, fontWeight: "800", letterSpacing: 0.2 }}>M</Text>
       </Pressable>
       <Pressable onPress={() => router.setParams({ overviewMode: "year" })} style={{ flex: 1, alignItems: "center", justifyContent: "center" }} hitSlop={10}>
-        <Text style={{ color: analyticsOverviewMode === "year" ? T.onAccent : T.textDim, fontSize: 12, fontWeight: "800" }}>Y</Text>
+        <Text style={{ color: analyticsOverviewMode === "year" ? T.onAccent : T.textDim, fontSize: 12, fontWeight: "800", letterSpacing: 0.2 }}>Y</Text>
       </Pressable>
     </View>
   ) : undefined;
@@ -463,6 +463,7 @@ export default function TabRouteHeader() {
 
   return (
     <TopHeader
+      variant={isAnalytics ? "analytics" : "default"}
       onSettings={() => pushRoute("/settings")}
       onIncome={() => {}}
       onAnalytics={() => pushRoute("/analytics")}

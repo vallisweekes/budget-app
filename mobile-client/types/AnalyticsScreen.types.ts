@@ -1,4 +1,5 @@
 import type { DashboardData, DebtSummaryData, InsightTip, IncomeSummaryData } from "@/lib/apiTypes";
+import type { PayFrequency } from "@/lib/payPeriods";
 
 export type AnalyticsOverviewMode = "month" | "year";
 
@@ -64,6 +65,7 @@ export type AnalyticsDerivedInput = {
   annualDebtService: number;
   annualExpenseTotal: number;
   annualIncomeTotal: number;
+  analyticsYear: number;
   currency: string;
   currentDebtDue: number;
   currentExpenseTotal: number;
@@ -74,4 +76,6 @@ export type AnalyticsDerivedInput = {
   expensesByMonth: number[];
   income: IncomeSummaryData | null;
   overviewMode: AnalyticsOverviewMode;
+  payDate: number;
+  payFrequency: PayFrequency;
 };

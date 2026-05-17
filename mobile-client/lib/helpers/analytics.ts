@@ -48,6 +48,25 @@ export function getPayPeriodLabel(params: {
   return formatPayPeriodLabel(period.start, period.end);
 }
 
+function getYearModePeriodLabel(params: {
+  year: number;
+  monthIndex: number;
+  payDate: number;
+  payFrequency: "monthly" | "every_2_weeks" | "weekly";
+}): string {
+  const month = params.monthIndex + 1;
+  if (!Number.isFinite(month) || month < 1 || month > 12) return "N/A";
+
+  const period = buildPayPeriodFromMonthAnchor({
+    year: params.year,
+    month,
+    payDate: params.payDate,
+    payFrequency: params.payFrequency,
+  });
+
+  return formatPayPeriodLabel(period.start, period.end);
+}
+
 export function buildAnalyticsInsightRows(input: AnalyticsDerivedInput): AnalyticsInsightRow[] {
   const monthlyDebt = input.debt?.totalMonthlyDebtPayments ?? 0;
   const monthsWithIncome = input.income?.monthsWithIncome ?? 0;
@@ -89,12 +108,22 @@ export function buildAnalyticsTopTips(input: AnalyticsDerivedInput): AnalyticsTo
     return [
       {
         title: "Highest income month",
-        detail: `${MONTH_SHORT[highestIncome.monthIndex] ?? "N/A"} brought in ${fmt(highestIncome.total, input.currency)}.`,
+        detail: `${getYearModePeriodLabel({
+          year: input.analyticsYear,
+          monthIndex: highestIncome.monthIndex,
+          payDate: input.payDate,
+          payFrequency: input.payFrequency,
+        })} brought in ${fmt(highestIncome.total, input.currency)}.`,
         priority: 65,
       },
       {
         title: "Highest expense month",
-        detail: `${MONTH_SHORT[highestExpense.monthIndex] ?? "N/A"} used ${fmt(highestExpense.total, input.currency)}.`,
+        detail: `${getYearModePeriodLabel({
+          year: input.analyticsYear,
+          monthIndex: highestExpense.monthIndex,
+          payDate: input.payDate,
+          payFrequency: input.payFrequency,
+        })} used ${fmt(highestExpense.total, input.currency)}.`,
         priority: highestExpense.total > input.annualIncomeTotal / 6 ? 82 : 58,
       },
       {
