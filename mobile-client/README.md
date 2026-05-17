@@ -41,6 +41,14 @@ mobile-client/
 
 ## 1. Start a local backend
 
+From the app repo root, you can start both local backends together:
+
+```bash
+node scripts/start-local-backends.mjs
+```
+
+That helper prints the exact `EXPO_PUBLIC_API_BASE_URL` value for local Next.js mode and local `.NET` mode, then keeps both servers running for staged migration testing.
+
 ```bash
 cd web-client
 npm install
