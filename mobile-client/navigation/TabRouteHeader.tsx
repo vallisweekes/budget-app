@@ -40,6 +40,7 @@ export default function TabRouteHeader() {
   const isSettings = rootSegment === "settings";
   const isGoals = tabSegment === "goals";
   const isIncomeTab = tabSegment === "income";
+  const isGoalDetail = leafSegment === "GoalDetail";
   const isCategoryExpenses = leafSegment === "CategoryExpenses";
   const isDebtDetail = leafSegment === "DebtDetail";
   const isExpenseDetail = leafSegment === "ExpenseDetail";
@@ -144,6 +145,8 @@ export default function TabRouteHeader() {
             ? "Debt Analytics"
             : isAnalytics
               ? "Analytics"
+              : isGoalDetail
+                ? getStringParam(params.goalTitle) ?? (typeof routeParams?.goalTitle === "string" ? routeParams.goalTitle : "Goal")
               : isGoals
                 ? "Goals"
                 : undefined;
@@ -265,7 +268,7 @@ export default function TabRouteHeader() {
     }
   };
 
-  const goalsRightContent = isGoals ? (
+  const goalsRightContent = isGoals && !isGoalDetail ? (
     <Pressable
       onPress={() => router.setParams({ openAddToken: String(Date.now()) })}
       hitSlop={10}
@@ -286,7 +289,7 @@ export default function TabRouteHeader() {
       <Ionicons name="add" size={18} color={T.onAccent} />
       <Text style={{ color: T.onAccent, fontSize: 13, fontWeight: "800" }}>Goal</Text>
     </Pressable>
-  ) : undefined;
+  ) : isGoalDetail ? <View style={{ width: 34, height: 34 }} /> : undefined;
 
   const analyticsRightContent = isAnalytics ? (
     <View
@@ -469,14 +472,14 @@ export default function TabRouteHeader() {
       onAnalytics={() => pushRoute("/analytics")}
       onNotifications={() => pushRoute("/settings", { initialTab: "notifications" })}
       leftContent={expensesListLeftContent}
-      leftVariant={isStandaloneSacrificeIncomeMonth || isAnalytics || isSettings || isCategoryExpenses || isLoggedExpenses || isUnplannedExpense || isScanReceipt || isDebtAnalytics ? "back" : "avatar"}
+      leftVariant={isStandaloneSacrificeIncomeMonth || isAnalytics || isSettings || isGoalDetail || isCategoryExpenses || isLoggedExpenses || isUnplannedExpense || isScanReceipt || isDebtAnalytics ? "back" : "avatar"}
       onBack={handleBack}
       centerLabel={centerLabel}
       centerContent={incomeMonthSwitcher}
       rightContent={loggedExpensesRightContent ?? analyticsRightContent ?? incomeRightContent ?? expensesLoggedRightContent ?? goalsRightContent}
       showIncomeAction={false}
       compactActionsMenu={isSettings}
-      showAnalyticsAction={!isSettings && !isAnalytics}
+      showAnalyticsAction={!isSettings && !isAnalytics && !isGoalDetail}
       showNotificationAction={!isSettings && !isAnalytics}
       onLogout={isSettings ? signOut : undefined}
     />

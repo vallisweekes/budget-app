@@ -50,6 +50,7 @@ export default function MainTabsLayout() {
   const inactiveIconColor = "#8E95A3";
   const inactiveLabelColor = "#8E95A3";
   const isDebtDetailRoute = segments[0] === "(tabs)" && segments[1] === "debts" && segments[2] === "DebtDetail";
+  const isGoalDetailRoute = segments[0] === "(tabs)" && segments[1] === "goals" && segments[2] === "GoalDetail";
   const selectedTabLabelStyle = {
     color: selectedTintColor,
     fontSize: 11,
@@ -67,7 +68,7 @@ export default function MainTabsLayout() {
     <NativeTabs
       backgroundColor={tabBarBackgroundColor}
       blurEffect="systemUltraThinMaterialDark"
-      hidden={isDebtDetailRoute}
+      hidden={isDebtDetailRoute || isGoalDetailRoute}
       shadowColor={tabBarShadowColor}
       tintColor={selectedTintColor}
       iconColor={inactiveIconColor}
