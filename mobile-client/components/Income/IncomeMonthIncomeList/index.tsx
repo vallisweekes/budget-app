@@ -44,8 +44,8 @@ export default function IncomeMonthIncomeList({
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={T.accent} />}
         ListHeaderComponent={
           <>
-            {analysis && <IncomeMonthStats data={analysis} currency={currency} fmt={fmt} onPressIncomeSacrifice={onPressIncomeSacrifice} />}
             {analysis && <IncomeBarChart data={analysis} currency={currency} />}
+            {analysis && <IncomeMonthStats data={analysis} currency={currency} fmt={fmt} onPressIncomeSacrifice={onPressIncomeSacrifice} />}
 
             {!isLocked ? (
               <View style={s.sourcesButtonRow}>

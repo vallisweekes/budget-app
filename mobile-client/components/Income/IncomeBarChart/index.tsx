@@ -68,7 +68,7 @@ export default function IncomeBarChart({ data: a, currency }: IncomeBarChartProp
   const allocatedPct = totalIncome > 0 ? Math.min(999, (allocatedTotal / totalIncome) * 100) : 0;
   const maxVal = Math.max(1, totalIncome, ...values);
 
-  const chartW = W - 56;
+  const chartW = W - 24;
   const chartH = 182;
   const leftPad = 42;
   const rightPad = 12;
@@ -163,14 +163,9 @@ export default function IncomeBarChart({ data: a, currency }: IncomeBarChartProp
 
   return (
     <View style={styles.wrap}>
-      <View style={[styles.heroGlow, styles.heroGlowPrimary]} />
-      <View style={[styles.heroGlow, styles.heroGlowSecondary]} />
-
       <View style={styles.header}>
         <View style={styles.headerCopy}>
           <Text style={styles.headerEyebrow}>Cash flow</Text>
-          <Text style={styles.headerTitle}>Where this pay cycle is going</Text>
-          <Text style={styles.headerSub}>A quick view of expenses, debts, and sacrifice against this month&apos;s income.</Text>
         </View>
         <View style={styles.headerPill}>
           <Text style={styles.headerPillValue}>{allocatedPct.toFixed(0)}%</Text>
