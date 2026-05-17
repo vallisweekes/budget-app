@@ -68,9 +68,6 @@ export default function IncomeSacrificePieChart({ currency, slices, centerTitle,
       <View style={styles.heroCard}>
         <View style={[styles.heroGlow, styles.heroGlowPrimary]} />
         <View style={[styles.heroGlow, styles.heroGlowSecondary]} />
-        <View style={styles.heroBadge}>
-          <Text style={styles.heroBadgeText}>Sacrifice split</Text>
-        </View>
         <Text style={styles.heroTitle}>{centerTitle}</Text>
 
         <View style={styles.chartShell}>
@@ -101,7 +98,7 @@ export default function IncomeSacrificePieChart({ currency, slices, centerTitle,
               ))}
             </Svg>
             <View style={styles.centerLabel} pointerEvents="none">
-              <Text style={styles.centerEyebrow}>This period</Text>
+              <Text style={styles.centerEyebrow}>Pay period</Text>
               <Text style={styles.centerTitle}>{centerTitle}</Text>
               <Text style={styles.centerValue}>{fmt(total, currency)}</Text>
             </View>

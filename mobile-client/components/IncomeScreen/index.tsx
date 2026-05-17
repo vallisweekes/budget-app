@@ -85,7 +85,7 @@ export default function IncomeScreen() {
   useEffect(() => {
     if (!data) return;
 
-    const currentMonthIndex = new Date().getMonth() + 1;
+    const currentMonthIndex = displayedActiveAnchor?.month ?? (new Date().getMonth() + 1);
 
     const monthByIndex = new Map(data.months.map((month) => [month.monthIndex, month]));
     let firstMissingMonth: number | null = null;
@@ -121,7 +121,7 @@ export default function IncomeScreen() {
       addIncomeMonth: nextAddIncomeMonth,
       budgetPlanId: data.budgetPlanId,
     });
-  }, [data, navigation, route.params?.addIncomeMonth, route.params?.budgetPlanId, route.params?.showAddAction, route.params?.year, year]);
+  }, [data, displayedActiveAnchor?.month, navigation, route.params?.addIncomeMonth, route.params?.budgetPlanId, route.params?.showAddAction, route.params?.year, year]);
 
   const getFirstMissingMonth = (summary: IncomeSummaryData | null): number | null => {
     if (!summary) return 1;

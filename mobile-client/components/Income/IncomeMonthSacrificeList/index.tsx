@@ -5,7 +5,7 @@ import { BlurView } from "expo-blur";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { styles } from "./styles";
 
-import { fmt, MONTH_NAMES_LONG } from "@/lib/formatting";
+import { fmt } from "@/lib/formatting";
 import { parseMoney } from "@/lib/domain/moneyInput";
 import { getPayPeriodRangeLabelFromSelection, getPayPeriodSelectionFromAnchor } from "@/lib/payPeriods";
 import { T } from "@/lib/theme";
@@ -439,6 +439,15 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
       payFrequency: props.payFrequency,
     });
   }, [props.payDate, props.payFrequency, startMonth, startYear]);
+
+  const currentPayPeriodLabel = useMemo(() => {
+    return getPayPeriodRangeLabelFromSelection({
+      year: props.year,
+      month: props.month,
+      payDate: props.payDate,
+      payFrequency: props.payFrequency,
+    });
+  }, [props.month, props.payDate, props.payFrequency, props.year]);
 
   const periodOptions = useMemo<Array<{ key: SacrificePeriod; label: string }>>(() => {
     if (isMonthlyCadence) {
@@ -1176,7 +1185,7 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
               <IncomeSacrificePieChart
                 currency={props.currency}
                 slices={pieSlices}
-                centerTitle={`${MONTH_NAMES_LONG[props.month - 1]} sacrifice`}
+                centerTitle={currentPayPeriodLabel}
                 onSlicePress={canManage ? handleOverviewSlicePress : undefined}
               />
 

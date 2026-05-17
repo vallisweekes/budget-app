@@ -98,22 +98,27 @@ export default function TabRouteHeader() {
 
   const currentPeriodMonth = getNumberParam(params.currentPeriodMonth);
   const currentPeriodYear = getNumberParam(params.currentPeriodYear);
-  const resolvedCurrentPeriodMonth = Number.isFinite(currentPeriodMonth) && currentPeriodMonth >= 1 && currentPeriodMonth <= 12
-    ? Math.floor(currentPeriodMonth)
-    : new Date().getMonth() + 1;
-  const resolvedCurrentPeriodYear = Number.isFinite(currentPeriodYear)
-    ? Math.floor(currentPeriodYear)
-    : new Date().getFullYear();
-  const resolvedSelectedPeriodMonth = Number.isFinite(monthNum) && monthNum >= 1 && monthNum <= 12
-    ? Math.floor(monthNum)
-    : resolvedCurrentPeriodMonth;
-  const resolvedSelectedPeriodYear = Number.isFinite(yearNum)
-    ? Math.floor(yearNum)
-    : resolvedCurrentPeriodYear;
+  const hasResolvedCurrentPeriod = Number.isFinite(currentPeriodMonth)
+    && currentPeriodMonth >= 1
+    && currentPeriodMonth <= 12
+    && Number.isFinite(currentPeriodYear);
+  const resolvedCurrentPeriodMonth = hasResolvedCurrentPeriod ? Math.floor(currentPeriodMonth) : null;
+  const resolvedCurrentPeriodYear = hasResolvedCurrentPeriod ? Math.floor(currentPeriodYear) : null;
+  const hasResolvedSelectedPeriod = Number.isFinite(monthNum)
+    && monthNum >= 1
+    && monthNum <= 12
+    && Number.isFinite(yearNum);
+  const resolvedSelectedPeriodMonth = hasResolvedSelectedPeriod ? Math.floor(monthNum) : null;
+  const resolvedSelectedPeriodYear = hasResolvedSelectedPeriod ? Math.floor(yearNum) : null;
   const isPastExpensesPeriod = isExpensesList
+    && hasResolvedCurrentPeriod
+    && hasResolvedSelectedPeriod
     && (
-      resolvedSelectedPeriodYear < resolvedCurrentPeriodYear
-      || (resolvedSelectedPeriodYear === resolvedCurrentPeriodYear && resolvedSelectedPeriodMonth < resolvedCurrentPeriodMonth)
+      (resolvedSelectedPeriodYear as number) < (resolvedCurrentPeriodYear as number)
+      || (
+        (resolvedSelectedPeriodYear as number) === (resolvedCurrentPeriodYear as number)
+        && (resolvedSelectedPeriodMonth as number) < (resolvedCurrentPeriodMonth as number)
+      )
     );
 
   const categoryExpensesName = getStringParam(params.categoryName);
@@ -334,8 +339,8 @@ export default function TabRouteHeader() {
       <Pressable
         onPress={() => {
           pushRoute("/(tabs)/expenses/UnplannedExpense", {
-            month: resolvedCurrentPeriodMonth,
-            year: resolvedCurrentPeriodYear,
+            month: resolvedCurrentPeriodMonth ?? undefined,
+            year: resolvedCurrentPeriodYear ?? undefined,
           });
         }}
         hitSlop={10}
@@ -368,8 +373,8 @@ export default function TabRouteHeader() {
       onPress={() => {
         pushRoute("/(tabs)/expenses/LoggedExpenses", {
           categoryName: "All categories",
-          month: resolvedCurrentPeriodMonth,
-          year: resolvedCurrentPeriodYear,
+          month: resolvedCurrentPeriodMonth ?? undefined,
+          year: resolvedCurrentPeriodYear ?? undefined,
           budgetPlanId: getStringParam(params.budgetPlanId),
           currency: getStringParam(params.currency) ?? "£",
         });
@@ -415,8 +420,8 @@ export default function TabRouteHeader() {
     <Pressable
       onPress={() => {
         pushRoute("/(tabs)/expenses/UnplannedExpense", {
-          month: Number.isFinite(monthNum) ? Math.floor(monthNum) : resolvedCurrentPeriodMonth,
-          year: Number.isFinite(yearNum) ? Math.floor(yearNum) : resolvedCurrentPeriodYear,
+          month: Number.isFinite(monthNum) ? Math.floor(monthNum) : (resolvedCurrentPeriodMonth ?? undefined),
+          year: Number.isFinite(yearNum) ? Math.floor(yearNum) : (resolvedCurrentPeriodYear ?? undefined),
         });
       }}
       hitSlop={10}

@@ -1,6 +1,22 @@
 import { listBudgetPlansForUser, resolveUserId } from "@/lib/budgetPlans";
 import type { Session } from "next-auth";
-import { getDashboardPlanData, type DashboardPlanData } from "@/lib/helpers/dashboard/getDashboardPlanData";
+import { getDashboardPlanDataForActivePayPeriod, type DashboardPlanData } from "@/lib/helpers/dashboard/getDashboardPlanData";
+import { resolveBudgetPlanPayPeriodContext } from "@/lib/api/payPeriodContext";
+
+async function loadActivePayPeriodDashboardPlanData(planId: string, now: Date): Promise<DashboardPlanData> {
+	const payPeriodContext = await resolveBudgetPlanPayPeriodContext({
+		budgetPlanId: planId,
+		now,
+	});
+
+	return getDashboardPlanDataForActivePayPeriod(planId, {
+		now,
+		payDate: payPeriodContext.payDate,
+		payFrequency: payPeriodContext.payFrequency,
+		planCreatedAt: payPeriodContext.effectiveStartAt,
+		ensureDefaultCategories: false,
+	});
+}
 
 export async function getAllPlansDashboardData({
 	budgetPlanId,
@@ -26,19 +42,19 @@ export async function getAllPlansDashboardData({
 					if (plan.id === budgetPlanId && currentPlanData) return [plan.id, currentPlanData] as const;
 					return [
 						plan.id,
-						await getDashboardPlanData(plan.id, now, { ensureDefaultCategories: false }),
+						await loadActivePayPeriodDashboardPlanData(plan.id, now),
 					] as const;
 				})
 			);
 			return Object.fromEntries(planDataPairs);
 		} catch {
-			return { [budgetPlanId]: currentPlanData ?? (await getDashboardPlanData(budgetPlanId, now)) };
+			return { [budgetPlanId]: currentPlanData ?? (await loadActivePayPeriodDashboardPlanData(budgetPlanId, now)) };
 		}
 	}
 
 	const sessionUser = session?.user;
 	if (!sessionUser || !username) {
-		return { [budgetPlanId]: currentPlanData ?? (await getDashboardPlanData(budgetPlanId, now)) };
+		return { [budgetPlanId]: currentPlanData ?? (await loadActivePayPeriodDashboardPlanData(budgetPlanId, now)) };
 	}
 
 	try {
@@ -47,11 +63,11 @@ export async function getAllPlansDashboardData({
 		const planDataPairs = await Promise.all(
 			plans.map(async (plan) => {
 				if (plan.id === budgetPlanId && currentPlanData) return [plan.id, currentPlanData] as const;
-				return [plan.id, await getDashboardPlanData(plan.id, now, { ensureDefaultCategories: false })] as const;
+				return [plan.id, await loadActivePayPeriodDashboardPlanData(plan.id, now)] as const;
 			})
 		);
 		return Object.fromEntries(planDataPairs);
 	} catch {
-		return { [budgetPlanId]: currentPlanData ?? (await getDashboardPlanData(budgetPlanId, now)) };
+		return { [budgetPlanId]: currentPlanData ?? (await loadActivePayPeriodDashboardPlanData(budgetPlanId, now)) };
 	}
 }

@@ -942,22 +942,27 @@ function MainTabs() {
           const expensesListYear = Number(deepestRoute?.params?.year);
           const currentPeriodMonth = Number(deepestRoute?.params?.currentPeriodMonth);
           const currentPeriodYear = Number(deepestRoute?.params?.currentPeriodYear);
-          const resolvedCurrentPeriodMonth = Number.isFinite(currentPeriodMonth) && currentPeriodMonth >= 1 && currentPeriodMonth <= 12
-            ? Math.floor(currentPeriodMonth)
-            : new Date().getMonth() + 1;
-          const resolvedCurrentPeriodYear = Number.isFinite(currentPeriodYear)
-            ? Math.floor(currentPeriodYear)
-            : new Date().getFullYear();
-          const resolvedSelectedPeriodMonth = Number.isFinite(expensesListMonth) && expensesListMonth >= 1 && expensesListMonth <= 12
-            ? Math.floor(expensesListMonth)
-            : resolvedCurrentPeriodMonth;
-          const resolvedSelectedPeriodYear = Number.isFinite(expensesListYear)
-            ? Math.floor(expensesListYear)
-            : resolvedCurrentPeriodYear;
+          const hasResolvedCurrentPeriod = Number.isFinite(currentPeriodMonth)
+            && currentPeriodMonth >= 1
+            && currentPeriodMonth <= 12
+            && Number.isFinite(currentPeriodYear);
+          const resolvedCurrentPeriodMonth = hasResolvedCurrentPeriod ? Math.floor(currentPeriodMonth) : null;
+          const resolvedCurrentPeriodYear = hasResolvedCurrentPeriod ? Math.floor(currentPeriodYear) : null;
+          const hasResolvedSelectedPeriod = Number.isFinite(expensesListMonth)
+            && expensesListMonth >= 1
+            && expensesListMonth <= 12
+            && Number.isFinite(expensesListYear);
+          const resolvedSelectedPeriodMonth = hasResolvedSelectedPeriod ? Math.floor(expensesListMonth) : null;
+          const resolvedSelectedPeriodYear = hasResolvedSelectedPeriod ? Math.floor(expensesListYear) : null;
           const isPastExpensesPeriod = isExpensesList
+            && hasResolvedCurrentPeriod
+            && hasResolvedSelectedPeriod
             && (
-              resolvedSelectedPeriodYear < resolvedCurrentPeriodYear
-              || (resolvedSelectedPeriodYear === resolvedCurrentPeriodYear && resolvedSelectedPeriodMonth < resolvedCurrentPeriodMonth)
+              (resolvedSelectedPeriodYear as number) < (resolvedCurrentPeriodYear as number)
+              || (
+                (resolvedSelectedPeriodYear as number) === (resolvedCurrentPeriodYear as number)
+                && (resolvedSelectedPeriodMonth as number) < (resolvedCurrentPeriodMonth as number)
+              )
             );
           const expensesListLoggedExpensesCountRaw = Number(deepestRoute?.params?.loggedExpensesCount);
           const expensesListLoggedExpensesCount = Number.isFinite(expensesListLoggedExpensesCountRaw)

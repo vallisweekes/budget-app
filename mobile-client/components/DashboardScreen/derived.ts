@@ -30,8 +30,6 @@ export function buildDashboardDerived(params: {
   const goals = dashboard?.goals ?? [];
   const debts = dashboard?.debts ?? [];
   const dashboardSummary = dashboard?.dashboardSummary;
-  const monthNum = dashboard?.monthNum ?? new Date().getMonth() + 1;
-  const year = dashboard?.year ?? new Date().getFullYear();
   const rawConfiguredPayDate = dashboard?.payDate ?? settings?.payDate ?? null;
   const hasPayDateConfigured = Number.isFinite(rawConfiguredPayDate as number) && (rawConfiguredPayDate as number) >= 1;
   const payDate = hasPayDateConfigured ? (rawConfiguredPayDate as number) : 1;
@@ -122,7 +120,17 @@ export function buildDashboardDerived(params: {
     return x;
   };
 
+  const now = new Date();
   const pay = payDate ?? 1;
+  const planCreatedAt = settings?.setupCompletedAt
+    ? new Date(settings.setupCompletedAt)
+    : settings?.accountCreatedAt
+      ? new Date(settings.accountCreatedAt)
+      : null;
+  const activePeriod = resolveActivePayPeriod({ now, payDate: pay, payFrequency, planCreatedAt });
+  const activeAnchor = getPayPeriodAnchorFromWindow({ period: activePeriod, payFrequency });
+  const monthNum = dashboard?.monthNum ?? displayedAnchor?.month ?? activeAnchor.month;
+  const year = dashboard?.year ?? displayedAnchor?.year ?? activeAnchor.year;
   const monthIndex = monthNum - 1;
   // For a given "dashboard month" (which follows pay-period semantics),
   // show the inclusive range: pay day of this month → day before next pay day.
@@ -131,15 +139,6 @@ export function buildDashboardDerived(params: {
   end.setDate(end.getDate() - 1);
 
   const rangeLabel = `${start.getDate()} ${MONTH_NAMES_SHORT[start.getMonth()]} - ${end.getDate()} ${MONTH_NAMES_SHORT[end.getMonth()]}`;
-
-  const now = new Date();
-  const planCreatedAt = settings?.setupCompletedAt
-    ? new Date(settings.setupCompletedAt)
-    : settings?.accountCreatedAt
-      ? new Date(settings.accountCreatedAt)
-      : null;
-  const activePeriod = resolveActivePayPeriod({ now, payDate: pay, payFrequency, planCreatedAt });
-  const activeAnchor = getPayPeriodAnchorFromWindow({ period: activePeriod, payFrequency });
   const effectiveAnchor = displayedAnchor ?? activeAnchor;
   const effectivePeriod = buildPayPeriodFromMonthAnchor({
     year: effectiveAnchor.year,

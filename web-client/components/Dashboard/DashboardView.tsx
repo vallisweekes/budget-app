@@ -3,11 +3,10 @@ import { getServerSession } from "next-auth/next";
 import ViewTabs from "@/components/ViewTabs";
 import { authOptions } from "@/lib/auth";
 import { MONTHS } from "@/lib/constants/time";
-import { currentMonthKey } from "@/lib/helpers/monthKey";
 import { computeDebtTips } from "@/lib/debts/insights";
 import { getDebtSummaryForPlan } from "@/lib/debts/summary";
 import { getBudgetPlanMeta } from "@/lib/helpers/dashboard/getBudgetPlanMeta";
-import { getDashboardPlanData } from "@/lib/helpers/dashboard/getDashboardPlanData";
+import { getDashboardPlanDataForActivePayPeriod } from "@/lib/helpers/dashboard/getDashboardPlanData";
 import { getAllPlansDashboardData } from "@/lib/helpers/dashboard/getAllPlansDashboardData";
 import { getIncomeMonthsCoverageByPlan } from "@/lib/helpers/dashboard/getIncomeMonthsCoverageByPlan";
 import { getDashboardExpenseInsights } from "@/lib/helpers/dashboard/getDashboardExpenseInsights";
@@ -16,6 +15,7 @@ import { getMultiPlanHealthTips } from "@/lib/helpers/dashboard/getMultiPlanHeal
 import { getDashboardPayPeriodLabels } from "@/lib/helpers/dashboard/payPeriodLabels";
 import { getAiBudgetTips } from "@/lib/ai/budgetTips";
 import { prioritizeRecapTips } from "@/lib/expenses/insights";
+import { resolveBudgetPlanPayPeriodContext } from "@/lib/api/payPeriodContext";
 
 export default async function DashboardView({ budgetPlanId }: { budgetPlanId: string }) {
 	const now = new Date();
@@ -26,11 +26,28 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 	const username = sessionUser?.username ?? sessionUser?.name;
 	const userId = sessionUser?.id;
 
-	const currentPlanData = await getDashboardPlanData(budgetPlanId, now);
+	const [payPeriodContext, planMeta] = await Promise.all([
+		resolveBudgetPlanPayPeriodContext({ budgetPlanId, now }),
+		getBudgetPlanMeta(budgetPlanId),
+	]);
+	const { payDate, payFrequency, effectiveStartAt } = payPeriodContext;
+	const currentPlanData = await getDashboardPlanDataForActivePayPeriod(budgetPlanId, {
+		now,
+		payDate,
+		payFrequency,
+		planCreatedAt: effectiveStartAt,
+	});
 	const month = MONTHS[currentPlanData.monthNum - 1] ?? currentMonthKey();
 
-	const { payDate, homepageGoalIds } = await getBudgetPlanMeta(budgetPlanId);
-	const expenseInsightsBase = await getDashboardExpenseInsights({ budgetPlanId, payDate, now, userId });
+	const { homepageGoalIds } = planMeta;
+	const expenseInsightsBase = await getDashboardExpenseInsights({
+		budgetPlanId,
+		payDate,
+		payFrequency,
+		now,
+		userId,
+		planCreatedAt: effectiveStartAt,
+	});
 
 	const allPlansData = await getAllPlansDashboardData({
 		budgetPlanId,
@@ -156,7 +173,7 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 		expenseInsights.recapTips = prioritizeRecapTips(aiDashboardTips, 4);
 	}
 
-	const { payPeriodLabel, previousPayPeriodLabel } = getDashboardPayPeriodLabels(now, payDate);
+	const { payPeriodLabel, previousPayPeriodLabel } = getDashboardPayPeriodLabels(now, payDate, payFrequency, effectiveStartAt);
 
 	return (
 		<div className="min-h-screen pb-20 app-theme-bg">
