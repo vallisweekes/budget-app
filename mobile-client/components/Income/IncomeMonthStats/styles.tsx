@@ -9,6 +9,7 @@ export const styles = StyleSheet.create({
     ...cardBase,
     padding: 12,
   },
+  cardPressed: { opacity: 0.88 },
   cardHeader: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 6 },
   cardLabel: { color: T.textDim, fontSize: 11, fontWeight: "700", marginBottom: 4, flex: 1, flexShrink: 1 },
   valueInline: { flexDirection: "row", alignItems: "baseline", gap: 8 },

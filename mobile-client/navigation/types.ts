@@ -21,6 +21,8 @@ export type IncomeStackParamList = {
     pendingConfirmationsCount?: number;
     showPendingNotice?: boolean;
     openIncomeAddAt?: number;
+    sacrificeManageActive?: boolean;
+    standaloneSacrifice?: boolean;
   };
 };
 

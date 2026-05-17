@@ -366,6 +366,7 @@ function RootTopHeader({ navigation }: { navigation: any }) {
   const analyticsOverviewMode = deepestRoute?.params?.overviewMode === "month" ? "month" : "year";
 
   const incomeMonthInitialMode = deepestRoute?.params?.initialMode === "sacrifice" ? "sacrifice" : "income";
+  const incomeMonthManageActive = deepestRoute?.params?.sacrificeManageActive === true;
 
   const monthNum = Number(deepestRoute?.params?.month);
   const yearNum = Number(deepestRoute?.params?.year);
@@ -519,6 +520,10 @@ function RootTopHeader({ navigation }: { navigation: any }) {
       },
     });
   };
+
+  if (isIncomeMonth && incomeMonthManageActive) {
+    return null;
+  }
 
   return (
     <TopHeader

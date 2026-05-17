@@ -22,6 +22,15 @@ function addDays(date: Date, days: number): Date {
   return next;
 }
 
+function shiftMonthYear(params: { year: number; month: number; delta: number }): { year: number; month: number } {
+  const safeMonth = Math.max(1, Math.min(12, Math.floor(params.month)));
+  const safeYear = Math.floor(params.year);
+  const absoluteMonth = (safeYear * 12) + (safeMonth - 1) + params.delta;
+  const year = Math.floor(absoluteMonth / 12);
+  const month = (absoluteMonth % 12) + 1;
+  return { year, month };
+}
+
 function dayWindowForFrequency(payFrequency: PayFrequency): number {
   if (payFrequency === "weekly") return 7;
   if (payFrequency === "every_2_weeks") return 14;
@@ -99,6 +108,36 @@ export function getPayPeriodAnchorFromWindow(params: {
   };
 }
 
+export function getPayPeriodAnchorFromSelection(params: {
+  year: number;
+  month: number;
+  payFrequency: PayFrequency;
+}): { year: number; month: number } {
+  if (params.payFrequency === "monthly") {
+    return shiftMonthYear({ year: params.year, month: params.month, delta: 1 });
+  }
+
+  return {
+    year: Math.floor(params.year),
+    month: Math.max(1, Math.min(12, Math.floor(params.month))),
+  };
+}
+
+export function getPayPeriodSelectionFromAnchor(params: {
+  year: number;
+  month: number;
+  payFrequency: PayFrequency;
+}): { year: number; month: number } {
+  if (params.payFrequency === "monthly") {
+    return shiftMonthYear({ year: params.year, month: params.month, delta: -1 });
+  }
+
+  return {
+    year: Math.floor(params.year),
+    month: Math.max(1, Math.min(12, Math.floor(params.month))),
+  };
+}
+
 export function buildPayPeriodFromMonthAnchor(params: {
   year: number;
   month: number;
@@ -137,4 +176,24 @@ export function getPayPeriodRangeLabelFromAnchor(params: {
     payFrequency: params.payFrequency,
   });
   return formatPayPeriodLabel(period.start, period.end);
+}
+
+export function getPayPeriodRangeLabelFromSelection(params: {
+  year: number;
+  month: number;
+  payDate: number;
+  payFrequency: PayFrequency;
+}): string {
+  const anchor = getPayPeriodAnchorFromSelection({
+    year: params.year,
+    month: params.month,
+    payFrequency: params.payFrequency,
+  });
+
+  return getPayPeriodRangeLabelFromAnchor({
+    year: anchor.year,
+    month: anchor.month,
+    payDate: params.payDate,
+    payFrequency: params.payFrequency,
+  });
 }

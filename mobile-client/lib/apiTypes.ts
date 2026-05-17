@@ -112,6 +112,12 @@ export interface IncomeSacrificeFixed {
   monthlyInvestmentContribution: number;
 }
 
+export interface IncomeSacrificeBaseBalances {
+  savings: number;
+  emergency: number;
+  investment: number;
+}
+
 export interface IncomeSacrificeCustomItem {
   id: string;
   name: string;
@@ -156,12 +162,14 @@ export interface IncomeSacrificeData {
   year: number;
   month: number;
   fixed: IncomeSacrificeFixed;
+  baseBalances: IncomeSacrificeBaseBalances;
   customItems: IncomeSacrificeCustomItem[];
   customTotal: number;
   totalSacrifice: number;
   goals?: IncomeSacrificeGoalOption[];
   goalLinks?: IncomeSacrificeGoalLink[];
   confirmations?: IncomeSacrificeTransferConfirmation[];
+  tips?: InsightTip[];
   linkedTotals?: IncomeSacrificeLinkedTotals;
 }
 

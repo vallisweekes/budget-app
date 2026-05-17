@@ -1,4 +1,5 @@
 import type { IncomeSacrificeData } from "@/lib/apiTypes";
+import type { PayFrequency } from "@/lib/payPeriods";
 
 export type SacrificePeriod =
   | "this_month"
@@ -24,8 +25,11 @@ export type IncomeMonthSacrificeListProps = {
   currency: string;
   month: number;
   year: number;
+  payDate: number;
+  payFrequency: PayFrequency;
   sacrifice: IncomeSacrificeData | null;
   topInset?: number;
+  onManageFlowActiveChange?: (active: boolean) => void;
   canManage?: boolean;
   manageUnavailableReason?: string;
   sacrificeSaving: boolean;

@@ -1,11 +1,11 @@
 import React from "react";
-import { View, Text } from "react-native";
+import { Pressable, View, Text } from "react-native";
 import { computeMoneyLeftVsLastMonth, formatIncomePct } from "@/lib/domain/incomeStats";
 import { T } from "@/lib/theme";
 import { styles } from "./styles";
 import type { IncomeMonthStatsProps } from "@/types";
 
-export default function IncomeMonthStats({ data: a, currency, fmt }: IncomeMonthStatsProps) {
+export default function IncomeMonthStats({ data: a, currency, fmt, onPressIncomeSacrifice }: IncomeMonthStatsProps) {
   const moneyLeftVsLastMonth =
     typeof a.moneyLeftVsLastMonthPct === "number"
       ? a.moneyLeftVsLastMonthPct
@@ -32,6 +32,7 @@ export default function IncomeMonthStats({ data: a, currency, fmt }: IncomeMonth
           color={T.accent}
           subValue={incomeSacrificePctLabel}
           subColor={T.accent}
+          onPress={onPressIncomeSacrifice}
         />
       </View>
 
@@ -69,14 +70,26 @@ export default function IncomeMonthStats({ data: a, currency, fmt }: IncomeMonth
   );
 }
 
-function Card({ label, value, color, subValue, subColor }: { label: string; value: string; color: string; subValue?: string; subColor?: string }) {
-  return (
-    <View style={styles.card}>
+function Card({ label, value, color, subValue, subColor, onPress }: { label: string; value: string; color: string; subValue?: string; subColor?: string; onPress?: () => void }) {
+  const content = (
+    <>
       <Text style={styles.cardLabel}>{label}</Text>
       <View style={styles.valueInline}>
         <Text style={[styles.cardValue, { color }]}>{value}</Text>
         {subValue ? <Text style={[styles.cardPctInline, { color: subColor ?? T.textDim }]}>{subValue}</Text> : null}
       </View>
-    </View>
+    </>
+  );
+
+  if (onPress) {
+    return (
+      <Pressable style={({ pressed }) => [styles.card, pressed && styles.cardPressed]} onPress={onPress} accessibilityRole="button" accessibilityLabel={label}>
+        {content}
+      </Pressable>
+    );
+  }
+
+  return (
+    <View style={styles.card}>{content}</View>
   );
 }

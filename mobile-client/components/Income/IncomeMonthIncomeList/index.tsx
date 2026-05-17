@@ -20,6 +20,7 @@ export default function IncomeMonthIncomeList({
   topInset = 0,
   refreshing,
   onRefresh,
+  onPressIncomeSacrifice,
   crud,
 }: IncomeMonthIncomeListProps) {
   const sortedItems = React.useMemo(() => {
@@ -41,7 +42,7 @@ export default function IncomeMonthIncomeList({
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={T.accent} />}
         ListHeaderComponent={
           <>
-            {analysis && <IncomeMonthStats data={analysis} currency={currency} fmt={fmt} />}
+            {analysis && <IncomeMonthStats data={analysis} currency={currency} fmt={fmt} onPressIncomeSacrifice={onPressIncomeSacrifice} />}
             {analysis && <IncomeBarChart data={analysis} currency={currency} />}
 
             <View style={s.sourcesHeader}>

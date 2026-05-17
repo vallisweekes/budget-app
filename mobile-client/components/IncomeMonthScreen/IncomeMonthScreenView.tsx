@@ -8,39 +8,88 @@ import {
   Platform,
   Alert,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
+import { useRouter } from "expo-router";
 
 import { apiFetch, getApiMutationVersion } from "@/lib/api";
 import type { Income, Settings, IncomeMonthData, IncomeSacrificeData, IncomeSacrificeFixed, ExpensePayPeriodMonthsResponse } from "@/lib/apiTypes";
 import { computeMoneyLeftVsLastMonth } from "@/lib/domain/incomeStats";
 import { currencySymbol, fmt, MONTH_NAMES_LONG } from "@/lib/formatting";
 import { useIncomeCRUD, useTopHeaderOffset } from "@/hooks";
-import { buildPayPeriodFromMonthAnchor, getPayPeriodRangeLabelFromAnchor, normalizePayFrequency } from "@/lib/payPeriods";
+import { buildPayPeriodFromMonthAnchor, getPayPeriodAnchorFromSelection, getPayPeriodRangeLabelFromAnchor, normalizePayFrequency } from "@/lib/payPeriods";
 import { T } from "@/lib/theme";
 import IncomeMonthHeader from "@/components/Income/IncomeMonthHeader";
 import IncomeMonthIncomeList from "@/components/Income/IncomeMonthIncomeList";
 import IncomeMonthSacrificeList from "@/components/Income/IncomeMonthSacrificeList";
 import IncomeEditSheet from "@/components/Income/IncomeEditSheet";
 import DeleteConfirmSheet from "@/components/Shared/DeleteConfirmSheet";
+import TabRouteHeader from "@/navigation/TabRouteHeader";
 import { s } from "./style";
 import type { IncomeMonthScreenProps, IncomeMutationMeta, MonthRef } from "@/types";
 
+type AnalysisCacheStore = Record<string, Record<number, Record<number, IncomeMonthData>>>;
+type ItemsCacheStore = Record<string, Record<number, Record<number, Income[]>>>;
+type SacrificeCacheStore = Record<string, Record<number, Record<number, IncomeSacrificeData>>>;
+type SettingsCacheStore = Record<string, Settings>;
+type MonthPrefetchStore = Record<string, "idle" | "loading" | "loaded">;
+type PayPeriodExpenseCountStore = Record<number, Record<number, number>>;
+
+const sharedAnalysisCache: AnalysisCacheStore = {};
+const sharedItemsCache: ItemsCacheStore = {};
+const sharedSacrificeCache: SacrificeCacheStore = {};
+const sharedSettingsCache: SettingsCacheStore = {};
+const sharedMonthPrefetchState: MonthPrefetchStore = {};
+const sharedPayPeriodExpenseCounts: PayPeriodExpenseCountStore = {};
+
+function getCachedAnalysisSnapshot(store: AnalysisCacheStore, planCacheKey: string, year: number, month: number): IncomeMonthData | null {
+  return store[planCacheKey]?.[year]?.[month] ?? null;
+}
+
+function getCachedSacrificeSnapshot(store: SacrificeCacheStore, planCacheKey: string, year: number, month: number): IncomeSacrificeData | null {
+  return store[planCacheKey]?.[year]?.[month] ?? null;
+}
+
+function toInitialIncomeItems(
+  summary: Array<{ id: string; name: string; amount: number }> | undefined,
+  targetMonth: number,
+  targetYear: number,
+  budgetPlanId: string,
+): Income[] {
+  return (summary ?? []).map((item) => ({
+    id: item.id,
+    name: item.name,
+    amount: String(item.amount ?? 0),
+    month: targetMonth,
+    year: targetYear,
+    budgetPlanId,
+  }));
+}
+
 export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScreenProps) {
+  const router = useRouter();
   const topHeaderOffset = useTopHeaderOffset(-32);
-  const { month, year, budgetPlanId, initialMode, pendingConfirmationsCount, showPendingNotice, openIncomeAddAt } = route.params;
+  const insets = useSafeAreaInsets();
+  const { month, year, budgetPlanId, initialMode, pendingConfirmationsCount, showPendingNotice, openIncomeAddAt, standaloneSacrifice } = route.params;
+  const planCacheKey = budgetPlanId || "none";
+  const initialAnalysis = getCachedAnalysisSnapshot(sharedAnalysisCache, planCacheKey, year, month);
+  const initialSacrifice = getCachedSacrificeSnapshot(sharedSacrificeCache, planCacheKey, year, month);
   const [headerHeight, setHeaderHeight] = useState(118);
 
-  const [analysis, setAnalysis] = useState<IncomeMonthData | null>(null);
-  const [items, setItems]       = useState<Income[]>([]);
-  const [settings, setSettings] = useState<Settings | null>(null);
-  const [loading, setLoading]   = useState(true);
+  const [analysis, setAnalysis] = useState<IncomeMonthData | null>(initialAnalysis);
+  const [items, setItems]       = useState<Income[]>(() => toInitialIncomeItems(initialAnalysis?.incomeItems, month, year, budgetPlanId));
+  const [settings, setSettings] = useState<Settings | null>(() => sharedSettingsCache[budgetPlanId] ?? null);
+  const [loading, setLoading]   = useState(() => {
+    if (initialAnalysis) return false;
+    if ((initialMode ?? "income") === "sacrifice" && initialSacrifice) return false;
+    return true;
+  });
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError]       = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Income | null>(null);
   const [viewMode, setViewMode] = useState<"income" | "sacrifice">(initialMode ?? "income");
-  const [sacrifice, setSacrifice] = useState<IncomeSacrificeData | null>(null);
+  const [sacrifice, setSacrifice] = useState<IncomeSacrificeData | null>(initialSacrifice);
   const [sacrificeSaving, setSacrificeSaving] = useState(false);
   const [sacrificeCreating, setSacrificeCreating] = useState(false);
   const [sacrificeDeletingId, setSacrificeDeletingId] = useState<string | null>(null);
@@ -48,24 +97,27 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
   const [confirmingTargetKey, setConfirmingTargetKey] = useState<string | null>(null);
   const [pendingNoticeVisible, setPendingNoticeVisible] = useState(false);
   const [prevPeriodHasExpenses, setPrevPeriodHasExpenses] = useState(false);
+  const [currentTime, setCurrentTime] = useState(() => Date.now());
+  const [isSacrificeManageActive, setIsSacrificeManageActive] = useState(false);
+  const isStandaloneSacrifice = standaloneSacrifice === true;
+  const normalizedPayFrequency = useMemo(() => normalizePayFrequency(settings?.payFrequency), [settings?.payFrequency]);
 
-  const analysisCacheRef = useRef<Record<string, Record<number, Record<number, IncomeMonthData>>>>({});
-  const itemsCacheRef = useRef<Record<string, Record<number, Record<number, Income[]>>>>({});
-  const sacrificeCacheRef = useRef<Record<string, Record<number, Record<number, IncomeSacrificeData>>>>({});
-  const settingsCacheRef = useRef<Record<string, Settings>>({});
-  const monthPrefetchStateRef = useRef<Record<string, "idle" | "loading" | "loaded">>({});
-  const payPeriodExpenseCountsRef = useRef<Record<number, Record<number, number>>>({});
+  const analysisCacheRef = useRef<AnalysisCacheStore>(sharedAnalysisCache);
+  const itemsCacheRef = useRef<ItemsCacheStore>(sharedItemsCache);
+  const sacrificeCacheRef = useRef<SacrificeCacheStore>(sharedSacrificeCache);
+  const settingsCacheRef = useRef<SettingsCacheStore>(sharedSettingsCache);
+  const monthPrefetchStateRef = useRef<MonthPrefetchStore>(sharedMonthPrefetchState);
+  const payPeriodExpenseCountsRef = useRef<PayPeriodExpenseCountStore>(sharedPayPeriodExpenseCounts);
   const seenMutationVersionRef = useRef<number>(getApiMutationVersion());
 
   const periodRange = useMemo(() => {
-    const payFrequency = normalizePayFrequency(settings?.payFrequency);
     return buildPayPeriodFromMonthAnchor({
       year,
       month,
       payDate: settings?.payDate ?? 27,
-      payFrequency,
+      payFrequency: normalizedPayFrequency,
     });
-  }, [month, settings?.payDate, settings?.payFrequency, year]);
+  }, [month, normalizedPayFrequency, settings?.payDate, year]);
 
   const periodEndAt = useMemo(() => {
     const end = new Date(periodRange.end.getTime());
@@ -80,8 +132,12 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
     return cutoff;
   }, [periodEndAt]);
 
-  const isLocked = Date.now() > periodEndAt.getTime();
-  const canManageSacrifice = Date.now() <= sacrificeManageUntil.getTime();
+  useEffect(() => {
+    setCurrentTime(Date.now());
+  }, [periodEndAt, sacrificeManageUntil]);
+
+  const isLocked = currentTime > periodEndAt.getTime();
+  const canManageSacrifice = currentTime <= sacrificeManageUntil.getTime();
 
   const manageSacrificeNotice = useMemo(() => {
     if (canManageSacrifice) return undefined;
@@ -96,13 +152,11 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
       year,
       month,
       payDate: settings.payDate ?? 27,
-      payFrequency: normalizePayFrequency(settings.payFrequency),
+      payFrequency: normalizedPayFrequency,
     });
-  }, [month, settings, year]);
+  }, [month, normalizedPayFrequency, settings, year]);
 
   const currency = currencySymbol(settings?.currency);
-  const planCacheKey = budgetPlanId || "none";
-
   const toIncomeItems = useCallback((summary: Array<{ id: string; name: string; amount: number }>, targetMonth: number, targetYear: number): Income[] => {
     return summary.map((item) => ({
       id: item.id,
@@ -148,18 +202,21 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
 
   const invalidateMonthCaches = useCallback((targets: MonthRef[], options?: { analysis?: boolean; items?: boolean; sacrifice?: boolean }) => {
     const { analysis: dropAnalysis = true, items: dropItems = true, sacrifice: dropSacrifice = true } = options ?? {};
-    const analysisPlanBucket = analysisCacheRef.current[planCacheKey] ?? {};
-    const itemsPlanBucket = itemsCacheRef.current[planCacheKey] ?? {};
-    const sacrificePlanBucket = sacrificeCacheRef.current[planCacheKey] ?? {};
+    const analysisPlanBucket = { ...(analysisCacheRef.current[planCacheKey] ?? {}) };
+    const itemsPlanBucket = { ...(itemsCacheRef.current[planCacheKey] ?? {}) };
+    const sacrificePlanBucket = { ...(sacrificeCacheRef.current[planCacheKey] ?? {}) };
 
     for (const target of targets) {
       if (dropAnalysis && analysisPlanBucket[target.year]) {
+        analysisPlanBucket[target.year] = { ...analysisPlanBucket[target.year] };
         delete analysisPlanBucket[target.year][target.month];
       }
       if (dropItems && itemsPlanBucket[target.year]) {
+        itemsPlanBucket[target.year] = { ...itemsPlanBucket[target.year] };
         delete itemsPlanBucket[target.year][target.month];
       }
       if (dropSacrifice && sacrificePlanBucket[target.year]) {
+        sacrificePlanBucket[target.year] = { ...sacrificePlanBucket[target.year] };
         delete sacrificePlanBucket[target.year][target.month];
       }
       monthPrefetchStateRef.current[getMonthPrefetchKey(target.year, target.month)] = "idle";
@@ -415,7 +472,14 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
     const force = Boolean(options?.force);
     if (!force) {
       const cached = sacrificeCacheRef.current[planCacheKey]?.[year]?.[month] ?? null;
-      if (cached) {
+      if (
+        cached &&
+        Array.isArray(cached.tips) &&
+        cached.baseBalances &&
+        typeof cached.baseBalances.savings === "number" &&
+        typeof cached.baseBalances.emergency === "number" &&
+        typeof cached.baseBalances.investment === "number"
+      ) {
         setSacrifice(cached);
         return;
       }
@@ -481,6 +545,59 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
     setPendingNoticeVisible(Boolean(showPendingNotice));
   }, [showPendingNotice, month, year]);
 
+  const openStandaloneSacrifice = useCallback(() => {
+    router.push({
+      pathname: "/IncomeMonth",
+      params: {
+        month,
+        year,
+        budgetPlanId,
+        initialMode: "sacrifice",
+        pendingConfirmationsCount,
+        showPendingNotice: pendingNoticeVisible ? "true" : undefined,
+        standaloneSacrifice: "true",
+      },
+    });
+  }, [budgetPlanId, month, pendingConfirmationsCount, pendingNoticeVisible, router, year]);
+
+  const returnToTabbedIncome = useCallback(() => {
+    router.replace({
+      pathname: "/(tabs)/income/IncomeMonth",
+      params: {
+        month,
+        year,
+        budgetPlanId,
+        initialMode: "income",
+      },
+    });
+  }, [budgetPlanId, month, router, year]);
+
+  const handleSetViewMode = useCallback((mode: "income" | "sacrifice") => {
+    if (mode === "sacrifice" && !isStandaloneSacrifice) {
+      openStandaloneSacrifice();
+      return;
+    }
+
+    if (mode === "income" && isStandaloneSacrifice) {
+      returnToTabbedIncome();
+      return;
+    }
+
+    setViewMode(mode);
+  }, [isStandaloneSacrifice, openStandaloneSacrifice, returnToTabbedIncome]);
+
+  const handleBackPress = useCallback(() => {
+    if (isStandaloneSacrifice && !navigation.canGoBack?.()) {
+      returnToTabbedIncome();
+      return;
+    }
+    navigation.goBack();
+  }, [isStandaloneSacrifice, navigation, returnToTabbedIncome]);
+
+  useEffect(() => {
+    navigation.setParams({ sacrificeManageActive: isSacrificeManageActive });
+  }, [isSacrificeManageActive, navigation]);
+
   useEffect(() => {
     if (!openIncomeAddAt) return;
     if (!isLocked) {
@@ -503,12 +620,17 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
   const buildTargetMonths = useCallback((startMonth: number, startYear: number, period: SacrificePeriod) => {
     const safeMonth = Math.max(1, Math.min(12, Math.floor(startMonth)));
     const safeYear = Math.max(2000, Math.floor(startYear));
+    const startAnchor = getPayPeriodAnchorFromSelection({
+      year: safeYear,
+      month: safeMonth,
+      payFrequency: normalizedPayFrequency,
+    });
     const targets: Array<{ month: number; year: number }> = [];
 
     const pushSequence = (count: number) => {
       for (let index = 0; index < count; index += 1) {
-        const absolute = (safeMonth - 1) + index;
-        const nextYear = safeYear + Math.floor(absolute / 12);
+        const absolute = (startAnchor.month - 1) + index;
+        const nextYear = startAnchor.year + Math.floor(absolute / 12);
         const nextMonth = (absolute % 12) + 1;
         targets.push({ month: nextMonth, year: nextYear });
       }
@@ -536,7 +658,7 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
     }
     pushSequence(120);
     return targets;
-  }, []);
+  }, [normalizedPayFrequency]);
 
   const applySacrificeAmount = useCallback(async (args: {
     targetType: "fixed" | "custom";
@@ -667,7 +789,7 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
     } finally {
       setSacrificeSaving(false);
     }
-  }, [budgetPlanId, buildTargetMonths, canManageSacrifice, load, loadSacrifice, month, sacrifice, year]);
+  }, [budgetPlanId, buildTargetMonths, canManageSacrifice, invalidateMonthCaches, load, loadSacrifice, month, sacrifice, year]);
 
   const createSacrificeItem = useCallback(async (args: {
     type: "allowance" | "savings" | "emergency" | "investment" | "custom";
@@ -703,7 +825,7 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
     } finally {
       setSacrificeCreating(false);
     }
-  }, [budgetPlanId, canManageSacrifice, load, loadSacrifice, month, year]);
+  }, [budgetPlanId, canManageSacrifice, invalidateMonthCaches, load, loadSacrifice, month, year]);
 
   const deleteSacrificeItem = async (id: string) => {
     if (!canManageSacrifice) {
@@ -743,14 +865,15 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
           goalId: args.goalId,
         },
       });
-      await loadSacrifice();
+      invalidateMonthCaches([{ month, year }], { analysis: false, items: false, sacrifice: true });
+      await loadSacrifice({ force: true });
       seenMutationVersionRef.current = getApiMutationVersion();
     } catch (error) {
       Alert.alert("Could not save link", error instanceof Error ? error.message : "Please try again.");
     } finally {
       setLinkSaving(false);
     }
-  }, [budgetPlanId, canManageSacrifice, loadSacrifice]);
+  }, [budgetPlanId, canManageSacrifice, invalidateMonthCaches, loadSacrifice, month, year]);
 
   const confirmSacrificeTransfer = useCallback(async (targetKey: string) => {
     if (!canManageSacrifice) {
@@ -780,7 +903,7 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
     } finally {
       setConfirmingTargetKey(null);
     }
-  }, [budgetPlanId, canManageSacrifice, load, loadSacrifice, month, year]);
+  }, [budgetPlanId, canManageSacrifice, invalidateMonthCaches, load, loadSacrifice, month, year]);
 
   if (loading) {
     return (
@@ -802,33 +925,43 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
     );
   }
 
+  const safeAreaPaddingTop = isStandaloneSacrifice
+    ? (isSacrificeManageActive ? insets.top : 0)
+    : (isSacrificeManageActive ? insets.top : topHeaderOffset);
+
   return (
-		<SafeAreaView style={[s.safe, { paddingTop: topHeaderOffset }]} edges={["bottom"]}>
+		<SafeAreaView style={[s.safe, { paddingTop: safeAreaPaddingTop }]} edges={["bottom"]}>
+      {isStandaloneSacrifice && !isSacrificeManageActive ? <TabRouteHeader /> : null}
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <IncomeMonthHeader
-          monthLabel={monthLabel}
-          isLocked={isLocked}
-          viewMode={viewMode}
-          showAddForm={crud.showAddForm}
-          hideNavTitleRow
-          onHeightChange={setHeaderHeight}
-          onBack={() => navigation.goBack()}
-          onPrevPeriod={canGoToPreviousPeriod ? handleGoToPreviousPeriod : undefined}
-          onNextPeriod={handleGoToNextPeriod}
-          onToggleAdd={() => {
-            if (isLocked) return;
-            crud.setShowAddForm((v) => !v);
-          }}
-          onSetMode={setViewMode}
-        />
+        {!isSacrificeManageActive ? (
+          <IncomeMonthHeader
+            monthLabel={monthLabel}
+            isLocked={isLocked}
+            viewMode={viewMode}
+            showAddForm={crud.showAddForm}
+            hideNavTitleRow
+            onHeightChange={setHeaderHeight}
+            onBack={handleBackPress}
+            onPrevPeriod={canGoToPreviousPeriod ? handleGoToPreviousPeriod : undefined}
+            onNextPeriod={handleGoToNextPeriod}
+            onToggleAdd={() => {
+              if (isLocked) return;
+              crud.setShowAddForm((v) => !v);
+            }}
+            onSetMode={handleSetViewMode}
+          />
+        ) : null}
 
         {viewMode === "sacrifice" ? (
           <IncomeMonthSacrificeList
             currency={currency}
             month={month}
             year={year}
+            payDate={settings?.payDate ?? 27}
+            payFrequency={normalizedPayFrequency}
             sacrifice={sacrifice}
-            topInset={headerHeight + 8}
+            topInset={isSacrificeManageActive ? 0 : headerHeight + 8}
+            onManageFlowActiveChange={setIsSacrificeManageActive}
             canManage={canManageSacrifice}
             manageUnavailableReason={manageSacrificeNotice}
             sacrificeSaving={sacrificeSaving}
@@ -865,6 +998,7 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
               setRefreshing(true);
               void load({ force: true });
             }}
+            onPressIncomeSacrifice={openStandaloneSacrifice}
             crud={crud}
           />
         )}

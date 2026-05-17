@@ -26,5 +26,6 @@ export type IncomeMonthIncomeListProps = {
   topInset?: number;
   refreshing: boolean;
   onRefresh: () => void;
+  onPressIncomeSacrifice?: () => void;
   crud: IncomeMonthIncomeListCrudLike;
 };

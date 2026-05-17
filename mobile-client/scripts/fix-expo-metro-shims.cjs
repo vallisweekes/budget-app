@@ -4,6 +4,8 @@ const path = require('path');
 const projectRoot = path.resolve(__dirname, '..');
 const expoMetroRoot = path.join(projectRoot, 'node_modules', '@expo', 'metro');
 const expoMetroPackageJsonPath = path.join(expoMetroRoot, 'package.json');
+const expoModulesCoreRoot = path.join(projectRoot, 'node_modules', 'expo-modules-core');
+const nestedExpoModulesCoreRoot = path.join(projectRoot, 'node_modules', 'expo', 'node_modules', 'expo-modules-core');
 
 function fileExists(filePath) {
   try {
@@ -33,6 +35,37 @@ function ensureFile(filePath, content) {
   }
 
   return false;
+}
+
+function ensureExpoModulesCoreLink() {
+  if (!fileExists(nestedExpoModulesCoreRoot)) {
+    return false;
+  }
+
+  try {
+    const existing = fs.lstatSync(expoModulesCoreRoot);
+    if (existing.isSymbolicLink()) {
+      const currentTarget = fs.readlinkSync(expoModulesCoreRoot);
+      if (path.resolve(projectRoot, 'node_modules', currentTarget) === nestedExpoModulesCoreRoot) {
+        return false;
+      }
+    }
+
+    if (existing.isDirectory()) {
+      const expectedFile = path.join(expoModulesCoreRoot, 'ios', 'JSI', 'EXArrayBuffer.mm');
+      if (fileExists(expectedFile)) {
+        return false;
+      }
+    }
+
+    fs.rmSync(expoModulesCoreRoot, { recursive: true, force: true });
+  } catch {
+    // Missing or unusable existing path is fine; create it below.
+  }
+
+  fs.mkdirSync(path.dirname(expoModulesCoreRoot), { recursive: true });
+  fs.symlinkSync(path.relative(path.dirname(expoModulesCoreRoot), nestedExpoModulesCoreRoot), expoModulesCoreRoot, 'dir');
+  return true;
 }
 
 function listJsFilesRecursive(rootDir) {
@@ -180,6 +213,13 @@ function mirrorMetroSubpackage({
 }
 
 function main() {
+  let createdCount = 0;
+
+  if (ensureExpoModulesCoreLink()) {
+    createdCount += 1;
+    console.log('[fix-expo-metro-shims] Linked node_modules/expo-modules-core to Expo\'s installed copy');
+  }
+
   if (!fileExists(expoMetroPackageJsonPath)) {
     return;
   }
@@ -189,8 +229,6 @@ function main() {
   if (!exportsField || typeof exportsField !== 'object') {
     return;
   }
-
-  let createdCount = 0;
 
   for (const [exportKey, exportTarget] of Object.entries(exportsField)) {
     if (exportKey === './package.json') continue;

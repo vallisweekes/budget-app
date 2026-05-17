@@ -56,7 +56,6 @@ export default function TabRouteHeader() {
   };
   const deepestRoute = getDeepestRoute(navigation.getState?.());
   const deepestRouteName = typeof deepestRoute?.name === "string" ? deepestRoute.name : "";
-  const isIncomeGrid = leafSegment === "IncomeGrid" || deepestRouteName === "IncomeGrid";
   const routeParams = deepestRoute?.params ?? {};
   const isIncomeMonth = leafSegment === "IncomeMonth" || deepestRouteName === "IncomeMonth";
 
@@ -80,6 +79,8 @@ export default function TabRouteHeader() {
     ?? (routeParams?.initialMode === "sacrifice" ? "sacrifice" : "income")) === "sacrifice"
     ? "sacrifice"
     : "income";
+  const incomeMonthManageActive = getStringParam(params.sacrificeManageActive) === "true"
+    || routeParams?.sacrificeManageActive === true;
   const canUseIncomeMonthSwitcher = isIncomeMonth
     && Number.isFinite(monthNum)
     && monthNum >= 1
@@ -437,6 +438,10 @@ export default function TabRouteHeader() {
       <Text style={{ color: T.onAccent, fontSize: 13, fontWeight: "800" }}>Log</Text>
     </Pressable>
   ) : undefined;
+
+  if (isIncomeMonth && incomeMonthManageActive) {
+    return null;
+  }
 
   return (
     <TopHeader
