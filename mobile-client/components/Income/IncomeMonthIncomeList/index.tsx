@@ -46,20 +46,6 @@ export default function IncomeMonthIncomeList({
           <>
             {analysis && <IncomeBarChart data={analysis} currency={currency} />}
             {analysis && <IncomeMonthStats data={analysis} currency={currency} fmt={fmt} onPressIncomeSacrifice={onPressIncomeSacrifice} />}
-
-            {!isLocked ? (
-              <View style={s.sourcesButtonRow}>
-                <Pressable
-                  onPress={() => crud.setShowAddForm(true)}
-                  style={s.sourcesAddBtn}
-                  accessibilityRole="button"
-                  accessibilityLabel="Add income"
-                >
-                  <Ionicons name="add" size={18} color={T.onAccent} />
-                  <Text style={s.sourcesAddBtnText}>Add</Text>
-                </Pressable>
-              </View>
-            ) : null}
           </>
         }
         renderItem={({ item }) =>
@@ -75,7 +61,7 @@ export default function IncomeMonthIncomeList({
           <View style={s.empty}>
             <Ionicons name="wallet-outline" size={48} color={T.iconMuted} />
             <Text style={s.emptyText}>No income sources yet</Text>
-            {!isLocked && <Text style={s.emptySub}>Tap + to add your first source</Text>}
+            {!isLocked && <Text style={s.emptySub}>Use Add in the tab bar to create your first source</Text>}
           </View>
         }
       />

@@ -293,8 +293,6 @@ export default function IncomeScreen() {
     );
   }
 
-  const firstMissingMonth = getFirstMissingMonth(data);
-  const hasMissingMonths = firstMissingMonth !== null || (data?.monthsWithIncome ?? 0) < 12;
   const activePayPeriod = resolveActivePayPeriod({
     now,
     payDate: settings?.payDate ?? 27,
@@ -313,15 +311,6 @@ export default function IncomeScreen() {
 
   return (
   		<SafeAreaView style={[s.safe, { paddingTop: contentTopPadding }]} edges={[]}>
-      {hasMissingMonths && canAddForYear ? (
-        <View style={s.actionCard}>
-          <View style={s.actionCopy}>
-            <Text style={s.actionTitle}>Add income</Text>
-            <Text style={s.actionText}>Create an income item for this month.</Text>
-          </View>
-        </View>
-      ) : null}
-
       <FlatList
         data={displayMonths}
         numColumns={2}
@@ -372,7 +361,7 @@ export default function IncomeScreen() {
           <View style={s.empty}>
             <Ionicons name="wallet-outline" size={48} color={T.iconMuted} />
             <Text style={s.emptyText}>No income data for {year}</Text>
-            <Text style={s.emptyHint}>Use the Add button above to create your first income.</Text>
+            <Text style={s.emptyHint}>Use Add in the tab bar to create your first income.</Text>
           </View>
         }
       />
