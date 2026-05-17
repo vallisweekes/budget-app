@@ -54,8 +54,7 @@ async function syncSettingsFixedAllocations(args: {
 			message.includes("Unknown argument `monthlyEmergencyContribution`");
 		if (!unknownMonthlyEmergency) throw error;
 
-		const fallbackUpdateData = { ...updateData };
-		delete fallbackUpdateData.monthlyEmergencyContribution;
+		const { monthlyEmergencyContribution: _unusedMonthlyEmergencyContribution, ...fallbackUpdateData } = updateData;
 		await prisma.budgetPlan.update({
 			where: { id: args.budgetPlanId },
 			data: fallbackUpdateData,
