@@ -9,7 +9,6 @@ import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { isDebtManagementEnabled, hasPositiveDebtBalance } from "@/lib/helpers/debtManagement";
 import { T } from "@/lib/theme";
 import { emitCategoryAddExpenseTrigger } from "@/lib/events/categoryAddExpenseTrigger";
-import { useGetOnboardingStatusQuery } from "@/store/api";
 
 type TabRouteState = {
   key: string;
@@ -62,9 +61,8 @@ function createTabListeners(options?: { onTabPress?: () => void; preventDefaultO
 export default function MainTabsLayout() {
   const router = useRouter();
   const segments = useSegments() as string[];
-  const { token, profile } = useAuth();
+  const { profile } = useAuth();
   const { dashboard, isLoading: bootstrapLoading } = useBootstrapData();
-  const onboardingStatusQuery = useGetOnboardingStatusQuery(undefined, { skip: !token });
   const incomeAddTokenRef = React.useRef(0);
   const debtAddTokenRef = React.useRef(0);
   const categoryAddTokenRef = React.useRef(0);
@@ -89,10 +87,17 @@ export default function MainTabsLayout() {
   const hasActualDebts = React.useMemo(() => hasPositiveDebtBalance(dashboard?.debts), [dashboard?.debts]);
   const showDebtsTab = isDebtManagementEnabled({
     hasActualDebts,
-    onboardingHasDebtsToManage: onboardingStatusQuery.data?.profile?.hasDebtsToManage,
     profileHasDebtsToManage: profile?.onboarding?.profile?.hasDebtsToManage,
   });
-  const debtVisibilityResolved = !bootstrapLoading && (!token || !onboardingStatusQuery.isLoading);
+  const debtVisibilityResolved = !bootstrapLoading;
+  const isTabsHidden = isDebtDetailRoute || isExpenseDetailRoute || isGoalDetailRoute;
+  const tabsLayoutKey = isCategoryExpensesSplitRoute
+    ? "tabs:category-expenses-split"
+    : isIncomeSplitRoute
+      ? "tabs:income-split"
+      : isDebtSplitRoute
+        ? "tabs:debt-split"
+        : `tabs:main:${showDebtsTab ? "with-debts" : "without-debts"}:${isTabsHidden ? "hidden" : "visible"}`;
   const tabBarBackgroundColor = (isIncomeSplitRoute || isCategoryExpensesSplitRoute) ? undefined : T.card;
   const tabBarBlurEffect = (isIncomeSplitRoute || isCategoryExpensesSplitRoute) ? undefined : "systemUltraThinMaterialDark";
   const tabBarShadowColor = (isIncomeSplitRoute || isCategoryExpensesSplitRoute) ? undefined : T.border;
@@ -172,7 +177,8 @@ export default function MainTabsLayout() {
   if (isCategoryExpensesSplitRoute) {
     return (
       <NativeTabs
-        hidden={isDebtDetailRoute || isGoalDetailRoute}
+        key={tabsLayoutKey}
+        hidden={isTabsHidden}
         tintColor={selectedTintColor}
         iconColor={inactiveIconColor}
         labelStyle={splitRouteLabelStyle}
@@ -201,7 +207,8 @@ export default function MainTabsLayout() {
   if (isIncomeSplitRoute) {
     return (
       <NativeTabs
-        hidden={isDebtDetailRoute || isGoalDetailRoute}
+        key={tabsLayoutKey}
+        hidden={isTabsHidden}
         tintColor={selectedTintColor}
         iconColor={inactiveIconColor}
         labelStyle={splitRouteLabelStyle}
@@ -254,7 +261,8 @@ export default function MainTabsLayout() {
   if (isDebtSplitRoute) {
     return (
       <NativeTabs
-        hidden={isDebtDetailRoute || isGoalDetailRoute}
+        key={tabsLayoutKey}
+        hidden={isTabsHidden}
         tintColor={selectedTintColor}
         iconColor={inactiveIconColor}
         labelStyle={splitRouteLabelStyle}
@@ -294,9 +302,10 @@ export default function MainTabsLayout() {
   return (
     <>
       <NativeTabs
+        key={tabsLayoutKey}
         backgroundColor={tabBarBackgroundColor}
         blurEffect={tabBarBlurEffect}
-        hidden={isDebtDetailRoute || isExpenseDetailRoute || isGoalDetailRoute}
+        hidden={isTabsHidden}
         shadowColor={tabBarShadowColor}
         tintColor={selectedTintColor}
         iconColor={inactiveIconColor}
