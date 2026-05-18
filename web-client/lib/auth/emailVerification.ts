@@ -4,7 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { resend, FROM_ADDRESS } from "@/lib/email/client";
 
 const IDENTIFIER_PREFIX = "email_verification:";
-const DEADLINE_TOKEN = "__deadline__";
+const LEGACY_DEADLINE_TOKEN = "__deadline__";
+const DEADLINE_TOKEN_PREFIX = "__deadline__:";
 const GRACE_PERIOD_MS = 7 * 24 * 60 * 60 * 1000;
 const LINK_TTL_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_ROLLOUT_AT = "2026-03-11T00:00:00.000Z";
@@ -33,6 +34,16 @@ type VerificationUserContext = {
 
 function identifierForUser(userId: string): string {
   return `${IDENTIFIER_PREFIX}${userId}`;
+}
+
+function deadlineTokenForUser(userId: string): string {
+  return `${DEADLINE_TOKEN_PREFIX}${userId}`;
+}
+
+function isPrismaUniqueConstraintError(error: unknown): boolean {
+  const code = String((error as { code?: unknown } | null)?.code ?? "");
+  const message = String((error as { message?: unknown } | null)?.message ?? "").toLowerCase();
+  return code === "P2002" || message.includes("unique constraint");
 }
 
 function getRolloutAt(): Date {
@@ -114,10 +125,21 @@ function isEstablishedUser(user: VerificationUserContext): boolean {
 }
 
 async function getDeadlineRecord(userId: string) {
+  const modern = await prisma.verificationToken.findUnique({
+    where: {
+      token: deadlineTokenForUser(userId),
+    },
+    select: {
+      expires: true,
+    },
+  });
+
+  if (modern) return modern;
+
   return prisma.verificationToken.findFirst({
     where: {
       identifier: identifierForUser(userId),
-      token: DEADLINE_TOKEN,
+      token: LEGACY_DEADLINE_TOKEN,
     },
     select: {
       expires: true,
@@ -126,29 +148,67 @@ async function getDeadlineRecord(userId: string) {
 }
 
 async function upsertDeadlineRecord(userId: string, expiresAt: Date) {
-  await prisma.verificationToken.deleteMany({
-    where: {
-      identifier: identifierForUser(userId),
-      token: DEADLINE_TOKEN,
+  const identifier = identifierForUser(userId);
+  const token = deadlineTokenForUser(userId);
+
+  await prisma.verificationToken.upsert({
+    where: { token },
+    update: {
+      identifier,
+      expires: expiresAt,
+    },
+    create: {
+      identifier,
+      token,
+      expires: expiresAt,
     },
   });
 
-  await prisma.verificationToken.create({
-    data: {
-      identifier: identifierForUser(userId),
-      token: DEADLINE_TOKEN,
-      expires: expiresAt,
+  // Best-effort cleanup for older global deadline token rows.
+  await prisma.verificationToken.deleteMany({
+    where: {
+      identifier,
+      token: LEGACY_DEADLINE_TOKEN,
     },
   });
 }
 
 async function clearLinkTokens(userId: string) {
+  const deadlineTokens = [deadlineTokenForUser(userId), LEGACY_DEADLINE_TOKEN];
   await prisma.verificationToken.deleteMany({
     where: {
       identifier: identifierForUser(userId),
-      NOT: { token: DEADLINE_TOKEN },
+      NOT: {
+        token: {
+          in: deadlineTokens,
+        },
+      },
     },
   });
+}
+
+async function createVerificationLinkToken(userId: string, expiresAt: Date): Promise<string> {
+  const identifier = identifierForUser(userId);
+
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    const token = crypto.randomBytes(24).toString("hex");
+    try {
+      await prisma.verificationToken.create({
+        data: {
+          identifier,
+          token,
+          expires: expiresAt,
+        },
+      });
+      return token;
+    } catch (error) {
+      if (!isPrismaUniqueConstraintError(error) || attempt === 5) {
+        throw error;
+      }
+    }
+  }
+
+  throw new Error("Failed to create verification token");
 }
 
 export async function maybeBackfillLegacyVerifiedUser(userId: string): Promise<void> {
@@ -274,16 +334,8 @@ export async function sendEmailVerificationEmail(userId: string, options?: { res
   }
 
   await clearLinkTokens(userId);
-  const token = crypto.randomBytes(24).toString("hex");
   const linkExpiresAt = new Date(Date.now() + LINK_TTL_MS);
-
-  await prisma.verificationToken.create({
-    data: {
-      identifier: identifierForUser(userId),
-      token,
-      expires: linkExpiresAt,
-    },
-  });
+  const token = await createVerificationLinkToken(userId, linkExpiresAt);
 
   const verifyUrl = buildVerificationUrl(token);
   const email = buildVerificationEmail({ verifyUrl, deadlineAt });
@@ -307,7 +359,7 @@ export async function sendEmailVerificationEmail(userId: string, options?: { res
 
 export async function consumeEmailVerificationToken(rawToken: string): Promise<"verified" | "expired" | "invalid"> {
   const token = String(rawToken ?? "").trim();
-  if (!token || token === DEADLINE_TOKEN) return "invalid";
+  if (!token || token === LEGACY_DEADLINE_TOKEN || token.startsWith(DEADLINE_TOKEN_PREFIX)) return "invalid";
 
   const record = await prisma.verificationToken.findUnique({
     where: { token },

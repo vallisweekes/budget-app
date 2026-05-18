@@ -4,6 +4,7 @@ import { getUserByUsername, registerUserByUsername } from "@/lib/budgetPlans";
 import { normalizeUsername } from "@/lib/helpers/username";
 import { createMobileAuthSession } from "@/lib/mobileAuthSessions";
 import { consumeEmailLoginCode, isEmailLoginCodeRequired } from "@/lib/auth/loginCodes";
+import { isRetryableConnectionError } from "@/lib/prismaRetry";
 
 export const runtime = "nodejs";
 
@@ -76,12 +77,52 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Authentication failed";
-    if (message === "Email already in use" || message === "User already exists" || message === "Email is required" || message === "Invalid email address") {
+    const normalizedMessage = message.toLowerCase();
+
+    if (isRetryableConnectionError(error)) {
+      return NextResponse.json({ error: "Database is temporarily busy. Please try again." }, { status: 503 });
+    }
+
+    if (
+      message === "Email already in use"
+      || message === "User already exists"
+      || message === "Email is required"
+      || message === "Invalid email address"
+      || message === "Username is required"
+    ) {
       return NextResponse.json({ error: message }, { status: 400 });
     }
-    if (message.includes("onboardingProfile") || message.includes("UserOnboardingProfile") || message.includes("P2021") || message.includes("does not exist")) {
+
+    // Gracefully map common Prisma uniqueness failures into UX-friendly messages.
+    if (normalizedMessage.includes("p2002") || normalizedMessage.includes("unique constraint")) {
+      if (normalizedMessage.includes("email")) {
+        return NextResponse.json({ error: "Email already in use" }, { status: 400 });
+      }
+      if (normalizedMessage.includes("name") || normalizedMessage.includes("username")) {
+        return NextResponse.json({ error: "User already exists" }, { status: 400 });
+      }
+      return NextResponse.json({ error: "User already exists" }, { status: 400 });
+    }
+
+    if (
+      message.includes("onboardingProfile")
+      || message.includes("UserOnboardingProfile")
+      || message.includes("P2021")
+      || message.includes("does not exist")
+    ) {
       return NextResponse.json({ error: "Onboarding migration is missing. Run prisma migrate deploy." }, { status: 500 });
     }
+
+    if (normalizedMessage.includes("jwe") || normalizedMessage.includes("nextauth_secret")) {
+      return NextResponse.json({ error: "Server auth is not configured" }, { status: 500 });
+    }
+
+    console.error("Mobile auth failed:", error);
+
+    if (process.env.NODE_ENV !== "production") {
+      return NextResponse.json({ error: message || "Authentication failed" }, { status: 500 });
+    }
+
     return NextResponse.json({ error: "Authentication failed" }, { status: 500 });
   }
 }

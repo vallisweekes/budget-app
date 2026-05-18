@@ -56,13 +56,24 @@ function normalizeProfileOnMe<T extends { occupation?: unknown; occupationOther?
   };
 }
 
+const EMAIL_VERIFICATION_FALLBACK = {
+  status: "not_required" as const,
+  emailVerifiedAt: null,
+  required: false,
+  blocked: false,
+  deadlineAt: null,
+};
+
 async function buildProfileResponse(userId: string) {
   const [user, verification, onboarding, onboardingMeta, settings, plans] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
       select: { id: true, name: true, email: true, createdAt: true },
     }),
-    getEmailVerificationState(userId),
+    getEmailVerificationState(userId).catch((error) => {
+      console.error("Failed to resolve email verification state:", error);
+      return EMAIL_VERIFICATION_FALLBACK;
+    }),
     getOnboardingForUser(userId),
     prisma.userOnboardingProfile.findUnique({
       where: { userId },

@@ -228,6 +228,10 @@ export async function registerUserByUsername(params: { username: string; email: 
 
 	const existing = await getUserByUsername(username);
 	if (existing) {
+		const existingEmail = normalizeEmail(String(existing.email ?? ""));
+		if (existingEmail && existingEmail === email) {
+			return existing;
+		}
 		throw new Error("User already exists");
 	}
 

@@ -34,8 +34,8 @@ export async function withPrismaRetry<T>(
 	fn: () => Promise<T>,
 	opts?: { retries?: number; delayMs?: number }
 ): Promise<T> {
-	const retries = Math.max(0, opts?.retries ?? 1);
-	const delayMs = Math.max(0, opts?.delayMs ?? 50);
+	const retries = Math.max(0, opts?.retries ?? 2);
+	const delayMs = Math.max(0, opts?.delayMs ?? 80);
 
 	let lastError: unknown;
 	for (let attempt = 0; attempt <= retries; attempt += 1) {
@@ -44,7 +44,8 @@ export async function withPrismaRetry<T>(
 		} catch (error) {
 			lastError = error;
 			if (attempt >= retries || !isRetryableConnectionError(error)) throw error;
-			await sleep(delayMs);
+			const backoff = delayMs * (attempt + 1);
+			await sleep(backoff);
 		}
 	}
 

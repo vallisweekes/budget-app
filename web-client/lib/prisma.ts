@@ -38,8 +38,8 @@ function withConnectionLimits(url: string | undefined): string | undefined {
     // (especially with Turbopack / RSC which can trigger many parallel renders).
     if (!parsed.searchParams.has("connection_limit")) {
       const isDev = process.env.NODE_ENV !== "production";
-      const devLimitRaw = Number(process.env.PRISMA_DEV_CONNECTION_LIMIT ?? "5");
-      const devLimit = Number.isFinite(devLimitRaw) && devLimitRaw >= 1 ? Math.floor(devLimitRaw) : 5;
+      const devLimitRaw = Number(process.env.PRISMA_DEV_CONNECTION_LIMIT ?? "10");
+      const devLimit = Number.isFinite(devLimitRaw) && devLimitRaw >= 1 ? Math.floor(devLimitRaw) : 10;
       parsed.searchParams.set("connection_limit", isDev ? String(devLimit) : "10");
     }
     if (!parsed.searchParams.has("pool_timeout")) {
@@ -148,9 +148,9 @@ export const prisma: PrismaClient = basePrisma.$extends({
           }
 
           let lastError: unknown = error;
-          for (let attempt = 0; attempt < 2; attempt += 1) {
+          for (let attempt = 0; attempt < 4; attempt += 1) {
             await reconnectClient(basePrisma);
-            await sleep(40 + attempt * 60);
+            await sleep(60 + attempt * 120);
             try {
               return await query(args);
             } catch (retryError) {
