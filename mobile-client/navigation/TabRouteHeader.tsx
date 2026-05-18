@@ -159,6 +159,12 @@ export default function TabRouteHeader() {
               ? "Debt management"
             : isAnalytics
               ? "Analytics"
+              : isSettings && settingsSubTab === "savings"
+                ? "Money"
+              : isSettings && settingsSubTab === "plans"
+                ? "Plans"
+              : isSettings && settingsSubTab === "locale"
+                ? "Locale & Currency"
               : isSettings && settingsSubTab === "budget"
                 ? "Budget"
               : isSettings && settingsSubTab === "subscription"

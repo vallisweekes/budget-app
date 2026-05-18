@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, ScrollView, Switch, Text, View } from "react-native";
+import { Alert, Modal, Pressable, ScrollView, Switch, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -7,7 +7,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { useTopHeaderOffset } from "@/hooks";
 import { T } from "@/lib/theme";
-import { useGetOnboardingStatusQuery, useUpdateOnboardingProfileMutation } from "@/store/api";
+import { useDeleteDebtMutation, useGetDebtSummaryQuery, useGetOnboardingStatusQuery, useUpdateOnboardingProfileMutation } from "@/store/api";
 
 import { styles } from "./style";
 
@@ -16,7 +16,11 @@ export default function SettingsDebtManagementScreen() {
   const { dashboard, refresh: refreshBootstrap } = useBootstrapData();
   const { refreshProfile } = useAuth();
   const onboardingQuery = useGetOnboardingStatusQuery();
+  const debtSummaryQuery = useGetDebtSummaryQuery();
   const [updateOnboardingProfile, { isLoading: saving }] = useUpdateOnboardingProfileMutation();
+  const [deleteDebt] = useDeleteDebtMutation();
+  const [isApplying, setIsApplying] = useState(false);
+  const [confirmSheetVisible, setConfirmSheetVisible] = useState(false);
 
   const remoteProfile = onboardingQuery.data?.profile ?? null;
   const remoteEnabled = Boolean(remoteProfile?.hasDebtsToManage);
@@ -26,24 +30,33 @@ export default function SettingsDebtManagementScreen() {
     setOptimisticEnabled(remoteEnabled);
   }, [remoteEnabled]);
 
-  const hasActualDebts = useMemo(
-    () => (dashboard?.debts ?? []).some((debt) => Number(debt?.currentBalance ?? 0) > 0),
-    [dashboard?.debts]
-  );
+  const debtIds = useMemo(() => {
+    const summaryIds = (debtSummaryQuery.data?.debts ?? []).map((debt) => debt.id).filter(Boolean);
+    if (summaryIds.length > 0) return Array.from(new Set(summaryIds));
+    const dashboardIds = (dashboard?.debts ?? []).map((debt) => debt.id).filter(Boolean);
+    return Array.from(new Set(dashboardIds));
+  }, [dashboard?.debts, debtSummaryQuery.data?.debts]);
 
-  useEffect(() => {
-    if (!hasActualDebts || optimisticEnabled) return;
-    setOptimisticEnabled(true);
-  }, [hasActualDebts, optimisticEnabled]);
+  const hasAnyDebtSetup = debtIds.length > 0;
+  const switchValue = optimisticEnabled;
+  const isBusy = saving || isApplying;
+  const requiresDisableConfirmation = switchValue && hasAnyDebtSetup;
 
-  const switchValue = hasActualDebts ? true : optimisticEnabled;
-
-  const handleToggle = useCallback(async (nextEnabled: boolean) => {
-    if (saving || hasActualDebts || nextEnabled === switchValue) return;
+  const applyDebtManagement = useCallback(async (nextEnabled: boolean, clearDebtData: boolean) => {
+    if (isBusy || nextEnabled === switchValue) return;
     const previous = switchValue;
     setOptimisticEnabled(nextEnabled);
+    setIsApplying(true);
 
     try {
+      if (clearDebtData && debtIds.length > 0) {
+        const results = await Promise.allSettled(debtIds.map((debtId) => deleteDebt({ id: debtId }).unwrap()));
+        const failedCount = results.filter((result) => result.status === "rejected").length;
+        if (failedCount > 0) {
+          throw new Error(`Couldn't remove ${failedCount} debt ${failedCount === 1 ? "record" : "records"}.`);
+        }
+      }
+
       await updateOnboardingProfile({
         hasDebtsToManage: nextEnabled,
         debtAmount: nextEnabled ? remoteProfile?.debtAmount ?? null : null,
@@ -51,14 +64,43 @@ export default function SettingsDebtManagementScreen() {
       }).unwrap();
 
       await Promise.allSettled([
+        onboardingQuery.refetch(),
         refreshProfile(),
         refreshBootstrap({ force: true }),
       ]);
     } catch (err: unknown) {
       setOptimisticEnabled(previous);
       Alert.alert("Could not update debt management", err instanceof Error ? err.message : "Please try again.");
+    } finally {
+      setIsApplying(false);
     }
-  }, [hasActualDebts, refreshBootstrap, refreshProfile, remoteProfile?.debtAmount, remoteProfile?.debtNotes, saving, switchValue, updateOnboardingProfile]);
+  }, [debtIds, deleteDebt, isBusy, onboardingQuery, refreshBootstrap, refreshProfile, remoteProfile?.debtAmount, remoteProfile?.debtNotes, switchValue, updateOnboardingProfile]);
+
+  const handleToggle = useCallback((nextEnabled: boolean) => {
+    if (isBusy || nextEnabled === switchValue) return;
+
+    if (!nextEnabled && hasAnyDebtSetup) {
+      setConfirmSheetVisible(true);
+      return;
+    }
+
+    void applyDebtManagement(nextEnabled, false);
+  }, [applyDebtManagement, hasAnyDebtSetup, isBusy, switchValue]);
+
+  const openDisableConfirmSheet = useCallback(() => {
+    if (isBusy || !requiresDisableConfirmation) return;
+    setConfirmSheetVisible(true);
+  }, [isBusy, requiresDisableConfirmation]);
+
+  const closeDisableConfirmSheet = useCallback(() => {
+    if (isBusy) return;
+    setConfirmSheetVisible(false);
+  }, [isBusy]);
+
+  const confirmDisableFromSheet = useCallback(() => {
+    setConfirmSheetVisible(false);
+    void applyDebtManagement(false, true);
+  }, [applyDebtManagement]);
 
   return (
     <SafeAreaView style={styles.safe} edges={[]}>
@@ -79,41 +121,84 @@ export default function SettingsDebtManagementScreen() {
         <View style={styles.toggleCard}>
           <View pointerEvents="none" style={[styles.cardGlow, styles.toggleGlowPrimary]} />
           <View pointerEvents="none" style={[styles.cardGlow, styles.toggleGlowSecondary]} />
-          <View style={styles.toggleTitleRow}>
-            <Text style={styles.toggleTitle}>Debt management</Text>
-            {hasActualDebts ? (
-              <View style={styles.lockedChip}>
-                <Ionicons name="lock-closed" size={11} color={T.orange} />
-                <Text style={styles.lockedChipText}>Required</Text>
-              </View>
-            ) : null}
-          </View>
+          <Text style={styles.toggleTitle}>Debt management</Text>
           <View style={styles.switchRow}>
             <View style={styles.switchTextWrap}>
               <Text style={styles.switchTitle}>Show Debts tab</Text>
               <Text style={styles.switchHint}>
-                {hasActualDebts
-                  ? "Debt balances are currently detected, so this remains on."
-                  : "Turn off to hide the Debts tab until debt tracking is needed again."}
+                {switchValue
+                  ? hasAnyDebtSetup
+                    ? "Turn off to remove debt management data and hide the Debts tab."
+                    : "Turn off to hide the Debts tab."
+                  : "Turn on to show the Debts tab and start tracking debt."}
               </Text>
             </View>
-            <Switch
-              value={switchValue}
-              onValueChange={handleToggle}
-              disabled={saving || hasActualDebts}
-              trackColor={{ false: `${T.border}`, true: `${T.accentFaint}` }}
-              thumbColor={switchValue ? T.accent : T.card}
-            />
+            {requiresDisableConfirmation && !isBusy ? (
+              <Pressable
+                style={styles.switchPressTarget}
+                onPress={openDisableConfirmSheet}
+                accessibilityRole="button"
+                accessibilityLabel="Review debt management removal"
+              >
+                <View pointerEvents="none">
+                  <Switch
+                    value={switchValue}
+                    onValueChange={() => {}}
+                    trackColor={{ false: `${T.border}`, true: `${T.accentFaint}` }}
+                    thumbColor={switchValue ? T.accent : T.card}
+                  />
+                </View>
+              </Pressable>
+            ) : (
+              <Switch
+                value={switchValue}
+                onValueChange={handleToggle}
+                disabled={isBusy}
+                trackColor={{ false: `${T.border}`, true: `${T.accentFaint}` }}
+                thumbColor={switchValue ? T.accent : T.card}
+              />
+            )}
           </View>
           <Text style={styles.toggleHint}>
-            {saving
+            {isBusy
               ? "Updating debt visibility..."
-              : hasActualDebts
-              ? "Turn this off after the debts are cleared if you want the Debts tab hidden again."
-              : "If turned on, the Debts tab appears and the user can add debts later."}
+              : hasAnyDebtSetup
+              ? "Turning this off opens a confirmation sheet before debt records are removed."
+              : "If turned on, the Debts tab appears and you can add debt data later."}
           </Text>
         </View>
       </ScrollView>
+
+      <Modal
+        animationType="fade"
+        transparent
+        visible={confirmSheetVisible}
+        onRequestClose={closeDisableConfirmSheet}
+      >
+        <View style={styles.sheetOverlay}>
+          <Pressable style={styles.sheetBackdrop} onPress={closeDisableConfirmSheet} />
+          <View style={styles.sheetCard}>
+            <View style={styles.sheetHandle} />
+            <View style={styles.sheetTitleRow}>
+              <View style={styles.sheetWarningIconWrap}>
+                <Ionicons name="warning-outline" size={16} color={T.orange} />
+              </View>
+              <Text style={styles.sheetTitle}>Turn off debt management?</Text>
+            </View>
+            <Text style={styles.sheetDescription}>
+              If you continue, you will lose all debt management data for this plan. This action cannot be undone.
+            </Text>
+            <View style={styles.sheetActions}>
+              <Pressable style={styles.sheetCancelBtn} onPress={closeDisableConfirmSheet} disabled={isBusy}>
+                <Text style={styles.sheetCancelBtnText}>Keep On</Text>
+              </Pressable>
+              <Pressable style={[styles.sheetDangerBtn, isBusy && styles.sheetBtnDisabled]} onPress={confirmDisableFromSheet} disabled={isBusy}>
+                <Text style={styles.sheetDangerBtnText}>{isBusy ? "Turning Off..." : "Turn Off"}</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }

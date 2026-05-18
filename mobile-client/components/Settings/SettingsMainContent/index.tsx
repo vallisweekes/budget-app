@@ -108,7 +108,7 @@ export default function SettingsMainContent({ controller, navigation, savingsTil
       automaticallyAdjustContentInsets={false}
       showsVerticalScrollIndicator={false}
     >
-      {controller.activeTab !== "details" && controller.activeTab !== "subscription" && controller.activeTab !== "budget"
+      {controller.activeTab !== "details" && controller.activeTab !== "subscription" && controller.activeTab !== "budget" && controller.activeTab !== "savings" && controller.activeTab !== "plans" && controller.activeTab !== "locale"
         ? <SettingsSubpageHeader title={SETTINGS_TAB_TITLES[controller.activeTab]} onBack={() => controller.setActiveTab("details")} />
         : null}
       {controller.activeTab === "details" ? (

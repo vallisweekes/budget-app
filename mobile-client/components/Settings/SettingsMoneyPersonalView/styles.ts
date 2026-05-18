@@ -2,13 +2,15 @@ import { StyleSheet } from "react-native";
 
 import { BRAND_GREEN, SETTINGS_SAVINGS_BORDER, SETTINGS_SAVINGS_HINT, SETTINGS_SAVINGS_ICON_BG, SETTINGS_SAVINGS_TITLE, SETTINGS_SAVINGS_VALUE } from "@/lib/constants";
 import { T } from "@/lib/theme";
-import { cardBase } from "@/lib/ui";
+import { cardBase, cardElevated } from "@/lib/ui";
 
 export const styles = StyleSheet.create({
   moneySectionCard: {
-    ...cardBase,
-    padding: 12,
-    marginBottom: 12,
+    ...cardElevated,
+    padding: 14,
+    marginBottom: 14,
+    borderColor: `${T.accent}20`,
+    backgroundColor: `${T.card}F7`,
   },
   plainSavingsBlock: {
     marginBottom: 16,
@@ -18,10 +20,11 @@ export const styles = StyleSheet.create({
   },
   savingsSectionTitle: {
     color: T.text,
-    fontSize: 13,
-    fontWeight: "800",
-    marginBottom: 8,
+    fontSize: 14,
+    fontWeight: "900",
+    marginBottom: 10,
     paddingHorizontal: 2,
+    letterSpacing: 0.2,
   },
   savingsTileAddCard: {
     ...cardBase,
@@ -41,7 +44,7 @@ export const styles = StyleSheet.create({
     ...cardBase,
     backgroundColor: BRAND_GREEN,
     borderColor: SETTINGS_SAVINGS_BORDER,
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 12,
     justifyContent: "space-between",
   },
@@ -71,7 +74,7 @@ export const styles = StyleSheet.create({
   },
   savingsTileValue: {
     color: SETTINGS_SAVINGS_VALUE,
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: "900",
   },
   savingsTilesRow: {

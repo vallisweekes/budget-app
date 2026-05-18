@@ -27,13 +27,17 @@ export default function SettingsPlansTab({
           const switching = switchingPlanId === plan.id;
           const deleting = deletingPlanId === plan.id;
           return (
-            <View key={plan.id} style={styles.planRow}>
+            <View key={plan.id} style={[styles.planRow, isCurrent ? styles.planRowCurrent : null]}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.planName}>{plan.name}</Text>
                 <Text style={styles.planSub}>{String(plan.kind).replace("_", " ")}{isCurrent ? " · Current" : ""}</Text>
               </View>
-              <Pressable onPress={() => onSwitchPlan(plan.id)} style={styles.outlineBtn} disabled={isCurrent || switching}>
-                <Text style={styles.outlineBtnText}>{isCurrent ? "Current" : switching ? "..." : "Manage"}</Text>
+              <Pressable
+                onPress={() => onSwitchPlan(plan.id)}
+                style={[styles.outlineBtn, isCurrent ? styles.outlineBtnCurrent : null]}
+                disabled={isCurrent || switching}
+              >
+                <Text style={[styles.outlineBtnText, isCurrent ? styles.outlineBtnTextCurrent : null]}>{isCurrent ? "Current" : switching ? "..." : "Manage"}</Text>
               </Pressable>
               {isSubPlan ? (
                 <Pressable onPress={() => onDeletePlan(plan)} style={styles.trashBtn} disabled={deleting}>

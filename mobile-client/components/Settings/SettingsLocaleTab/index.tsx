@@ -1,5 +1,5 @@
 import React from "react";
-import { Pressable, Text } from "react-native";
+import { Pressable, Text, View } from "react-native";
 
 import SettingsRow from "@/components/Settings/SettingsRow";
 import SettingsSection from "@/components/Settings/SettingsSection";
@@ -18,14 +18,20 @@ export default function SettingsLocaleTab({
 }: SettingsLocaleTabProps) {
   return (
     <SettingsSection title="Locale" right={<Pressable onPress={onEdit} style={styles.outlineBtn}><Text style={styles.outlineBtnText}>Edit</Text></Pressable>}>
-      <SettingsRow label="Country" value={country} />
-      <SettingsRow label="Language" value={language} />
-      <SettingsRow label="Currency" value={currency} />
+      <View pointerEvents="none" style={[styles.cardGlow, styles.cardGlowPrimary]} />
+      <View pointerEvents="none" style={[styles.cardGlow, styles.cardGlowSecondary]} />
+
+      <View style={styles.localeRowsCard}>
+        <SettingsRow label="Country" value={country} />
+        <SettingsRow label="Language" value={language} />
+        <SettingsRow label="Currency" value={currency} />
+      </View>
+
       <Text style={styles.muted}>Detected country: {detectedCountry ?? "Unknown"}</Text>
-      <Pressable onPress={onUseDetected} style={styles.inlineAction} disabled={!canUseDetected}>
+      <Pressable onPress={onUseDetected} style={[styles.inlineAction, !canUseDetected ? styles.inlineActionDisabled : null]} disabled={!canUseDetected}>
         <Text style={styles.inlineActionText}>Use detected country</Text>
       </Pressable>
-      {country === "GB" ? <Text style={styles.muted}>UK stays fixed as your home country.</Text> : null}
+      {country === "GB" ? <Text style={styles.hint}>UK stays fixed as your home country.</Text> : null}
     </SettingsSection>
   );
 }
