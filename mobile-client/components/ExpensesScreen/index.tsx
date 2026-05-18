@@ -72,9 +72,6 @@ export default function ExpensesScreen({ navigation, route }: ExpensesScreenProp
                 <View style={[styles.heroGlow, styles.heroGlowPrimary]} />
                 <View style={[styles.heroGlow, styles.heroGlowSecondary]} />
                 <View style={styles.heroInnerBorder} />
-                <View style={styles.heroBadge}>
-                  <Text style={styles.heroBadgeText}>Expense overview</Text>
-                </View>
                 {controller.showPlanTotalFallback ? (
                   <Text style={styles.purpleHeroLabel}>
                     Total {controller.activePlan?.name ?? "Plan"} expenses
