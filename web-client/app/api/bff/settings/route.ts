@@ -590,7 +590,7 @@ export async function PATCH(req: NextRequest) {
       }
 
       if (Object.keys(updateData).length === 0 && (wantsEmergencyBalance || wantsInvestmentBalance || hasPayFrequency || hasBillFrequency)) {
-        if (Number.isFinite(emergencyBalance)) {
+        if (wantsEmergencyBalance && Number.isFinite(emergencyBalance)) {
           await setEmergencyBalanceFallback(budgetPlanId, emergencyBalance);
         }
         if (wantsInvestmentBalance && Number.isFinite(investmentBalance)) {
