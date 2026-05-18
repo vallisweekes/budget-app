@@ -210,7 +210,7 @@ export async function getUserByUsername(username: string) {
 	return findBestUserByNormalizedUsername(normalized);
 }
 
-export async function registerUserByUsername(params: { username: string; email: string }) {
+export async function assertRegistrationAvailability(params: { username: string; email: string }) {
 	const username = normalizeUsername(params.username);
 	const email = normalizeEmail(params.email);
 
@@ -230,9 +230,18 @@ export async function registerUserByUsername(params: { username: string; email: 
 	if (existing) {
 		const existingEmail = normalizeEmail(String(existing.email ?? ""));
 		if (existingEmail && existingEmail === email) {
-			return existing;
+			return { username, email, existingUser: existing };
 		}
 		throw new Error("User already exists");
+	}
+
+	return { username, email, existingUser: null };
+}
+
+export async function registerUserByUsername(params: { username: string; email: string }) {
+	const { username, email, existingUser } = await assertRegistrationAvailability(params);
+	if (existingUser) {
+		return existingUser;
 	}
 
 	try {

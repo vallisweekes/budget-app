@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
 
 import { styles } from "@/components/LoginScreen/style";
 import { useAuth } from "@/context/AuthContext";
@@ -19,7 +20,8 @@ import { T } from "@/lib/theme";
 import type { LoginScreenMode } from "@/types";
 
 export default function LoginScreen() {
-  const { signIn } = useAuth();
+  const router = useRouter();
+  const { pendingRegistration, prepareRegistration, signIn } = useAuth();
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [mode, setMode] = useState<LoginScreenMode>("login");
@@ -32,6 +34,11 @@ export default function LoginScreen() {
       return (process.env.EXPO_PUBLIC_API_BASE_URL ?? "").trim();
     }
   })();
+
+  useEffect(() => {
+    if (!pendingRegistration) return;
+    router.replace("/(auth)/onboarding");
+  }, [pendingRegistration, router]);
 
   const handleSubmit = async () => {
     if (!username.trim()) {
@@ -48,7 +55,13 @@ export default function LoginScreen() {
     }
     setLoading(true);
     try {
-      await signIn(username.trim(), mode, email.trim());
+      if (mode === "register") {
+        await prepareRegistration(username.trim(), email.trim());
+        router.replace("/(auth)/onboarding");
+        return;
+      }
+
+      await signIn(username.trim(), "login", email.trim());
     } catch (err: unknown) {
       Alert.alert(
         mode === "register" ? "Registration failed" : "Sign in failed",

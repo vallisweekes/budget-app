@@ -13,6 +13,7 @@ import SettingsOverviewTab from "@/components/Settings/SettingsOverviewTab";
 import SettingsPlansTab from "@/components/Settings/SettingsPlansTab";
 import SettingsSubscriptionTab from "@/components/Settings/SettingsSubscriptionTab";
 import SettingsSubpageHeader from "@/components/Settings/SettingsSubpageHeader";
+import { hasPositiveDebtBalance, isDebtManagementEnabled } from "@/lib/helpers/debtManagement";
 import { asMoneyText, formatBillFrequency, formatPayFrequency } from "@/lib/helpers/settings";
 import {
   getSettingsAppVersionLabel,
@@ -53,13 +54,15 @@ export default function SettingsMainContent({ controller, navigation, savingsTil
     router.push("/settings-debt-management");
   }, [router]);
   const hasDashboardDebts = React.useMemo(
-    () => (dashboard?.debts ?? []).some((debt) => Number(debt?.currentBalance ?? 0) > 0),
+    () => hasPositiveDebtBalance(dashboard?.debts),
     [dashboard?.debts],
   );
-  const debtManagementEnabled = hasDashboardDebts
-    || controller.hasAnyDebts
-    || onboardingStatusQuery.data?.profile?.hasDebtsToManage === true
-    || controller.profile?.onboarding?.profile?.hasDebtsToManage === true;
+  const debtManagementEnabled = isDebtManagementEnabled({
+    hasActualDebts: hasDashboardDebts,
+    hasConfiguredDebts: controller.hasAnyDebts,
+    onboardingHasDebtsToManage: onboardingStatusQuery.data?.profile?.hasDebtsToManage,
+    profileHasDebtsToManage: controller.profile?.onboarding?.profile?.hasDebtsToManage,
+  });
 
   React.useEffect(() => {
     scrollRef.current?.scrollTo({ y: 0, animated: false });

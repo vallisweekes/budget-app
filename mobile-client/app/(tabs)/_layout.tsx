@@ -4,8 +4,12 @@ import { Feather, Ionicons, Octicons } from "@expo/vector-icons";
 import { useRouter, useSegments } from "expo-router";
 import { NativeTabs } from "expo-router/unstable-native-tabs";
 
+import { useAuth } from "@/context/AuthContext";
+import { useBootstrapData } from "@/context/BootstrapDataContext";
+import { isDebtManagementEnabled, hasPositiveDebtBalance } from "@/lib/helpers/debtManagement";
 import { T } from "@/lib/theme";
 import { emitCategoryAddExpenseTrigger } from "@/lib/events/categoryAddExpenseTrigger";
+import { useGetOnboardingStatusQuery } from "@/store/api";
 
 type TabRouteState = {
   key: string;
@@ -58,6 +62,9 @@ function createTabListeners(options?: { onTabPress?: () => void; preventDefaultO
 export default function MainTabsLayout() {
   const router = useRouter();
   const segments = useSegments() as string[];
+  const { token, profile } = useAuth();
+  const { dashboard, isLoading: bootstrapLoading } = useBootstrapData();
+  const onboardingStatusQuery = useGetOnboardingStatusQuery(undefined, { skip: !token });
   const incomeAddTokenRef = React.useRef(0);
   const debtAddTokenRef = React.useRef(0);
   const categoryAddTokenRef = React.useRef(0);
@@ -74,10 +81,18 @@ export default function MainTabsLayout() {
   const isIncomeSplitRoute = segments[0] === "(tabs)"
     && segments[1] === "income"
     && (segments[2] === "IncomeMonth" || segments[2] === "IncomeGrid");
+  const isAnyDebtRoute = segments[0] === "(tabs)" && segments[1] === "debts";
   const isDebtSplitRoute = segments[0] === "(tabs)"
     && segments[1] === "debts"
     && !isDebtDetailRoute
     && !isDebtAnalyticsRoute;
+  const hasActualDebts = React.useMemo(() => hasPositiveDebtBalance(dashboard?.debts), [dashboard?.debts]);
+  const showDebtsTab = isDebtManagementEnabled({
+    hasActualDebts,
+    onboardingHasDebtsToManage: onboardingStatusQuery.data?.profile?.hasDebtsToManage,
+    profileHasDebtsToManage: profile?.onboarding?.profile?.hasDebtsToManage,
+  });
+  const debtVisibilityResolved = !bootstrapLoading && (!token || !onboardingStatusQuery.isLoading);
   const tabBarBackgroundColor = (isIncomeSplitRoute || isCategoryExpensesSplitRoute) ? undefined : T.card;
   const tabBarBlurEffect = (isIncomeSplitRoute || isCategoryExpensesSplitRoute) ? undefined : "systemUltraThinMaterialDark";
   const tabBarShadowColor = (isIncomeSplitRoute || isCategoryExpensesSplitRoute) ? undefined : T.border;
@@ -148,6 +163,11 @@ export default function MainTabsLayout() {
         }
       : undefined),
   } as Record<string, unknown>;
+
+  React.useEffect(() => {
+    if (!debtVisibilityResolved || showDebtsTab || !isAnyDebtRoute) return;
+    router.replace("/(tabs)/dashboard");
+  }, [debtVisibilityResolved, isAnyDebtRoute, router, showDebtsTab]);
 
   if (isCategoryExpensesSplitRoute) {
     return (
@@ -314,19 +334,21 @@ export default function MainTabsLayout() {
           />
           <NativeTabs.Trigger.Label selectedStyle={selectedTabLabelStyle}>Expenses</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
-        <NativeTabs.Trigger
-          {...resetOnBlurScreenProps}
-          name="debts"
-          contentStyle={tabContentStyle}
-          unstable_nativeProps={tabNativeProps}
-        >
-          <NativeTabs.Trigger.Icon
-            src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name="card-outline" />}
-            renderingMode="template"
-            selectedColor={selectedTintColor}
-          />
-          <NativeTabs.Trigger.Label selectedStyle={selectedTabLabelStyle}>Debts</NativeTabs.Trigger.Label>
-        </NativeTabs.Trigger>
+        {showDebtsTab ? (
+          <NativeTabs.Trigger
+            {...resetOnBlurScreenProps}
+            name="debts"
+            contentStyle={tabContentStyle}
+            unstable_nativeProps={tabNativeProps}
+          >
+            <NativeTabs.Trigger.Icon
+              src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name="card-outline" />}
+              renderingMode="template"
+              selectedColor={selectedTintColor}
+            />
+            <NativeTabs.Trigger.Label selectedStyle={selectedTabLabelStyle}>Debts</NativeTabs.Trigger.Label>
+          </NativeTabs.Trigger>
+        ) : null}
         <NativeTabs.Trigger
           {...resetOnBlurScreenProps}
           name="income"

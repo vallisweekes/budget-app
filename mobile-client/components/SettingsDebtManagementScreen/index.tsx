@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/context/AuthContext";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { useTopHeaderOffset } from "@/hooks";
+import { isDebtManagementEnabled } from "@/lib/helpers/debtManagement";
 import { T } from "@/lib/theme";
 import { useDeleteDebtMutation, useGetDebtSummaryQuery, useGetOnboardingStatusQuery, useUpdateOnboardingProfileMutation } from "@/store/api";
 
@@ -23,13 +24,6 @@ export default function SettingsDebtManagementScreen() {
   const [confirmSheetVisible, setConfirmSheetVisible] = useState(false);
 
   const remoteProfile = onboardingQuery.data?.profile ?? null;
-  const remoteEnabled = Boolean(remoteProfile?.hasDebtsToManage);
-  const [optimisticEnabled, setOptimisticEnabled] = useState<boolean>(remoteEnabled);
-
-  useEffect(() => {
-    setOptimisticEnabled(remoteEnabled);
-  }, [remoteEnabled]);
-
   const debtIds = useMemo(() => {
     const summaryIds = (debtSummaryQuery.data?.debts ?? []).map((debt) => debt.id).filter(Boolean);
     if (summaryIds.length > 0) return Array.from(new Set(summaryIds));
@@ -38,6 +32,16 @@ export default function SettingsDebtManagementScreen() {
   }, [dashboard?.debts, debtSummaryQuery.data?.debts]);
 
   const hasAnyDebtSetup = debtIds.length > 0;
+  const remoteEnabled = isDebtManagementEnabled({
+    hasConfiguredDebts: hasAnyDebtSetup,
+    onboardingHasDebtsToManage: remoteProfile?.hasDebtsToManage,
+  });
+  const [optimisticEnabled, setOptimisticEnabled] = useState<boolean>(remoteEnabled);
+
+  useEffect(() => {
+    setOptimisticEnabled(remoteEnabled);
+  }, [remoteEnabled]);
+
   const switchValue = optimisticEnabled;
   const isBusy = saving || isApplying;
   const requiresDisableConfirmation = switchValue && hasAnyDebtSetup;

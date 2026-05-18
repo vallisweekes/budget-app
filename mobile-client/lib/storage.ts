@@ -1,13 +1,21 @@
 import * as SecureStore from "expo-secure-store";
 
+import type { OnboardingProfile } from "@/lib/apiTypes";
 import type { ThemeMode } from "@/lib/theme";
 
 export const SESSION_KEY = "budget_app.session_token";
 export const USERNAME_KEY = "budget_app.username";
+export const PENDING_REGISTRATION_KEY = "budget_app.pending_registration";
 export const THEME_MODE_KEY = "budget_app.theme_mode";
 export const EXPO_PUSH_TOKEN_KEY = "budget_app.expo_push_token";
 export const EXPO_PUSH_TOKEN_USERNAME_KEY = "budget_app.expo_push_token_username";
 export const INSTALL_WELCOME_NOTIFICATION_SENT_KEY = "budget_app.install_welcome_notification_sent";
+
+export type PendingRegistrationDraft = {
+  username: string;
+  email: string;
+  profile: Partial<OnboardingProfile> | null;
+};
 
 export async function getSessionToken(): Promise<string | null> {
   return SecureStore.getItemAsync(SESSION_KEY);
@@ -31,6 +39,40 @@ export async function setStoredUsername(username: string): Promise<void> {
 
 export async function clearStoredUsername(): Promise<void> {
   return SecureStore.deleteItemAsync(USERNAME_KEY);
+}
+
+export async function getPendingRegistration(): Promise<PendingRegistrationDraft | null> {
+  const raw = await SecureStore.getItemAsync(PENDING_REGISTRATION_KEY);
+  if (!raw) return null;
+
+  try {
+    const parsed = JSON.parse(raw) as Partial<PendingRegistrationDraft> | null;
+    if (!parsed || typeof parsed !== "object") return null;
+
+    const username = typeof parsed.username === "string" ? parsed.username.trim() : "";
+    const email = typeof parsed.email === "string" ? parsed.email.trim().toLowerCase() : "";
+    const profile = parsed.profile && typeof parsed.profile === "object"
+      ? parsed.profile as Partial<OnboardingProfile>
+      : null;
+
+    if (!username || !email) return null;
+
+    return {
+      username,
+      email,
+      profile,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function setPendingRegistration(value: PendingRegistrationDraft): Promise<void> {
+  return SecureStore.setItemAsync(PENDING_REGISTRATION_KEY, JSON.stringify(value));
+}
+
+export async function clearPendingRegistration(): Promise<void> {
+  return SecureStore.deleteItemAsync(PENDING_REGISTRATION_KEY);
 }
 
 export async function getStoredThemeMode(): Promise<ThemeMode | null> {

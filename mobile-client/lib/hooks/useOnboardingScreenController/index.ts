@@ -1,6 +1,6 @@
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/lib/api";
-import type { OnboardingProfile, Settings } from "@/lib/apiTypes";
+import type { OnboardingProfile } from "@/lib/apiTypes";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, LayoutAnimation, PanResponder, Platform, UIManager } from "react-native";
 import { Sacramento_400Regular } from "@expo-google-fonts/sacramento";
@@ -227,12 +227,12 @@ function validateStep(params: {
 export function useOnboardingScreenController({ initial, onCompleted }: OnboardingScreenProps) {
   const insets = useSafeAreaInsets();
   const [fontsLoaded] = useFonts({ Sacramento_400Regular });
-  const { username, signOut } = useAuth();
+  const { completeRegistration, pendingRegistration, signOut, token, updatePendingRegistrationProfile, username } = useAuth();
   const profile = initial.profile;
+  const currency = "GBP";
 
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
-  const [currency, setCurrency] = useState<string | null>("GBP");
   const [mainGoals, setMainGoals] = useState<VisibleGoal[]>(() => buildInitialGoals(profile));
   const initialOccupation = profile?.occupation ?? "";
   const initialOccupationOther = profile?.occupationOther ?? "";
@@ -300,27 +300,11 @@ export function useOnboardingScreenController({ initial, onCompleted }: Onboardi
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
   }, [saving]);
 
-  useEffect(() => {
-    let mounted = true;
-    void (async () => {
-      try {
-        const settings = await apiFetch<Settings>("/api/bff/settings");
-        if (!mounted) return;
-        setCurrency(settings?.currency ?? "GBP");
-      } catch {
-        // Best effort only; onboarding can continue with the default currency.
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
   const displayName = useMemo(() => {
-    const raw = (username ?? "").trim();
+    const raw = (username ?? pendingRegistration?.username ?? "").trim();
     if (!raw) return "";
     return raw.length <= 1 ? raw.toUpperCase() : raw.charAt(0).toUpperCase() + raw.slice(1);
-  }, [username]);
+  }, [pendingRegistration?.username, username]);
 
   const occupations = useMemo(() => {
     const normalizedIncoming = (initial.occupations ?? [])
@@ -437,11 +421,16 @@ export function useOnboardingScreenController({ initial, onCompleted }: Onboardi
   }), [allowanceAmount, billFrequency, debtAmount, debtNotes, expenseFourAmount, expenseFourName, expenseOneAmount, expenseOneName, expenseThreeAmount, expenseThreeName, expenseTwoAmount, expenseTwoName, hasAllowance, hasDebts, mainGoals, occupation, payDay, payFrequency, planningYears, resolvedOccupationOther, salary, savingsGoalAmount, savingsGoalYear]);
 
   const saveDraft = useCallback(async () => {
+    if (!token) {
+      await updatePendingRegistrationProfile(payload);
+      return;
+    }
+
     await apiFetch("/api/bff/onboarding", {
       body: payload,
       method: "PATCH",
     });
-  }, [payload]);
+  }, [payload, token, updatePendingRegistrationProfile]);
 
   const transitionToStep = useCallback((nextStep: number) => {
     setStep(nextStep);
@@ -449,10 +438,13 @@ export function useOnboardingScreenController({ initial, onCompleted }: Onboardi
 
   const onGoBackStep = useCallback(() => {
     if (saving) return;
+    if (!token && pendingRegistration) {
+      void updatePendingRegistrationProfile(payload);
+    }
     const nextStep = Math.max(0, step - 1);
     if (nextStep === step) return;
     transitionToStep(nextStep);
-  }, [saving, step, transitionToStep]);
+  }, [payload, pendingRegistration, saving, step, token, transitionToStep, updatePendingRegistrationProfile]);
 
   const currentValidationError = useCallback((currentStep: number) => validateStep({
     allowanceAmount,
@@ -490,9 +482,12 @@ export function useOnboardingScreenController({ initial, onCompleted }: Onboardi
       Alert.alert("Required", validationError);
       return;
     }
+    if (!token && pendingRegistration) {
+      void updatePendingRegistrationProfile(payload);
+    }
     const nextStep = Math.min(5, step + 1);
     if (nextStep !== step) transitionToStep(nextStep);
-  }, [currentValidationError, saving, step, transitionToStep]);
+  }, [currentValidationError, payload, pendingRegistration, saving, step, token, transitionToStep, updatePendingRegistrationProfile]);
 
   const onFinish = useCallback(async () => {
     try {
@@ -502,6 +497,13 @@ export function useOnboardingScreenController({ initial, onCompleted }: Onboardi
         return;
       }
       setSaving(true);
+
+      if (!token) {
+        await completeRegistration(payload);
+        onCompleted();
+        return;
+      }
+
       await saveDraft();
       await apiFetch("/api/bff/onboarding", { method: "POST", timeoutMs: 60_000 });
       onCompleted();
@@ -510,7 +512,7 @@ export function useOnboardingScreenController({ initial, onCompleted }: Onboardi
     } finally {
       setSaving(false);
     }
-  }, [currentValidationError, onCompleted, saveDraft]);
+  }, [completeRegistration, currentValidationError, onCompleted, payload, saveDraft, token]);
 
   const stepPanResponder = useMemo(
     () =>
