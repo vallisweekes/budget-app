@@ -2,7 +2,7 @@ import React, { createContext, useCallback, useContext, useMemo, useState } from
 
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/lib/api";
-import type { OnboardingStatusResponse, Settings } from "@/lib/apiTypes";
+import type { OnboardingStatusResponse, UserProfile } from "@/lib/apiTypes";
 
 const ONBOARDING_FALLBACK: OnboardingStatusResponse = {
   required: false,
@@ -21,7 +21,7 @@ type OnboardingGateContextValue = {
 const OnboardingGateContext = createContext<OnboardingGateContextValue | null>(null);
 
 export function OnboardingGateProvider({ children }: { children: React.ReactNode }) {
-  const { token, isLoading, profile, refreshProfile } = useAuth();
+  const { token, isLoading, profile, hydrateProfile } = useAuth();
   const [completingOnboarding, setCompletingOnboarding] = useState(false);
   const onboardingState = token && profile
     ? {
@@ -36,34 +36,66 @@ export function OnboardingGateProvider({ children }: { children: React.ReactNode
   const completeOnboardingAndHydrate = useCallback(async () => {
     setCompletingOnboarding(true);
     try {
-      const now = new Date();
-      const month = now.getMonth() + 1;
-      const year = now.getFullYear();
-
-      for (let attempt = 0; attempt < 4; attempt += 1) {
-        try {
-          await Promise.all([
-            apiFetch<Settings>("/api/bff/settings", { cacheTtlMs: 0, skipOnUnauthorized: true }),
-            apiFetch(`/api/bff/expenses/summary?month=${month}&year=${year}&scope=pay_period`, {
-              cacheTtlMs: 0,
-              skipOnUnauthorized: true,
-            }),
-            apiFetch<OnboardingStatusResponse>("/api/bff/onboarding", { cacheTtlMs: 0, skipOnUnauthorized: true }),
-          ]);
-          break;
-        } catch {
-          if (attempt === 3) break;
-          await new Promise((resolve) => setTimeout(resolve, 700));
-        }
+      // POST /onboarding has already succeeded before this runs, so we can
+      // optimistically release the onboarding gate while hydration catches up.
+      if (profile?.onboarding.required) {
+        hydrateProfile({
+          ...profile,
+          onboarding: {
+            ...profile.onboarding,
+            required: false,
+            completed: true,
+          },
+        });
       }
 
-      try {
-        await refreshProfile();
-      } catch {}
+      const [latestOnboardingResult, freshProfileResult] = await Promise.allSettled([
+        apiFetch<OnboardingStatusResponse>("/api/bff/onboarding", {
+          cacheTtlMs: 0,
+          skipOnUnauthorized: true,
+          timeoutMs: 20_000,
+        }),
+        apiFetch<UserProfile>(`/api/bff/me?onboardingComplete=${Date.now()}`, {
+          cacheTtlMs: 0,
+          skipOnUnauthorized: true,
+          timeoutMs: 45_000,
+        }),
+      ]);
+
+      const latestOnboarding = latestOnboardingResult.status === "fulfilled"
+        ? latestOnboardingResult.value
+        : null;
+      const freshProfile = freshProfileResult.status === "fulfilled"
+        ? freshProfileResult.value
+        : null;
+
+      if (freshProfile) {
+        if (latestOnboarding && !latestOnboarding.required && freshProfile.onboarding.required) {
+          hydrateProfile({
+            ...freshProfile,
+            onboarding: {
+              required: false,
+              completed: latestOnboarding.completed,
+              profile: latestOnboarding.profile,
+            },
+          });
+        } else {
+          hydrateProfile(freshProfile);
+        }
+      } else if (latestOnboarding && !latestOnboarding.required && profile) {
+        hydrateProfile({
+          ...profile,
+          onboarding: {
+            required: false,
+            completed: latestOnboarding.completed,
+            profile: latestOnboarding.profile,
+          },
+        });
+      }
     } finally {
       setCompletingOnboarding(false);
     }
-  }, [refreshProfile]);
+  }, [hydrateProfile, profile]);
 
   const value = useMemo<OnboardingGateContextValue>(
     () => ({

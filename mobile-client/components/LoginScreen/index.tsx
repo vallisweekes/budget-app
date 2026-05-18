@@ -25,15 +25,13 @@ export default function LoginScreen() {
   const [mode, setMode] = useState<LoginScreenMode>("login");
   const [loading, setLoading] = useState(false);
 
-  const apiInfo = (() => {
+  const baseUrl = (() => {
     try {
-      return getApiBaseUrlInfo();
+      return getApiBaseUrlInfo().resolvedUrl ?? (process.env.EXPO_PUBLIC_API_BASE_URL ?? "").trim();
     } catch {
-      return null;
+      return (process.env.EXPO_PUBLIC_API_BASE_URL ?? "").trim();
     }
   })();
-
-  const baseUrl = apiInfo?.resolvedUrl ?? (process.env.EXPO_PUBLIC_API_BASE_URL ?? "").trim();
 
   const handleSubmit = async () => {
     if (!username.trim()) {
@@ -63,6 +61,8 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <View pointerEvents="none" style={[styles.bgGlow, styles.bgGlowTop]} />
+      <View pointerEvents="none" style={[styles.bgGlow, styles.bgGlowBottom]} />
       <KeyboardAvoidingView
         style={styles.kav}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -71,13 +71,15 @@ export default function LoginScreen() {
           contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Logo / App name */}
           <View style={styles.logoArea}>
             <Text style={styles.appName}>BudgetIn Check</Text>
             <Text style={styles.tagline}>Track. Plan. Save.</Text>
           </View>
 
           <View style={styles.card}>
+            <View pointerEvents="none" style={[styles.cardGlow, styles.cardGlowPrimary]} />
+            <View pointerEvents="none" style={[styles.cardGlow, styles.cardGlowSecondary]} />
+
             {/* Mode toggle */}
             <View style={styles.modeRow}>
               {(["login", "register"] as LoginScreenMode[]).map((m) => (
@@ -134,17 +136,6 @@ export default function LoginScreen() {
                 </Text>
               )}
             </Pressable>
-
-            {baseUrl ? (
-              <Text style={styles.apiNote}>
-                API: {baseUrl}
-                {apiInfo?.wasAutoResolved ? " (auto-resolved from Expo dev host)" : ""}
-              </Text>
-            ) : (
-              <Text style={[styles.apiNote, styles.apiNoteError]}>
-                ⚠ Set EXPO_PUBLIC_API_BASE_URL in .env
-              </Text>
-            )}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

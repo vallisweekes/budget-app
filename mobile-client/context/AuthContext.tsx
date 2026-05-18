@@ -31,6 +31,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 let rehydrateMeInFlight: Promise<UserProfile> | null = null;
 let rehydrateMeToken: string | null = null;
 let rehydrateMeCachedProfile: UserProfile | null = null;
+const AUTH_PROFILE_TIMEOUT_MS = 45_000;
 
 function fetchRehydrateProfileOnce(token: string): Promise<UserProfile> {
   if (rehydrateMeCachedProfile && rehydrateMeToken === token) {
@@ -45,7 +46,7 @@ function fetchRehydrateProfileOnce(token: string): Promise<UserProfile> {
   rehydrateMeInFlight = apiFetch<UserProfile>("/api/bff/me", {
     cacheTtlMs: 0,
     skipOnUnauthorized: true,
-    timeoutMs: 15_000,
+    timeoutMs: AUTH_PROFILE_TIMEOUT_MS,
   })
     .then((profile) => {
       rehydrateMeCachedProfile = profile;
@@ -83,7 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const request = apiFetch<UserProfile>("/api/bff/me", {
       cacheTtlMs: 0,
       skipOnUnauthorized: true,
-      timeoutMs: 15_000,
+      timeoutMs: AUTH_PROFILE_TIMEOUT_MS,
     }).finally(() => {
       meRequestInFlightRef.current = null;
     });

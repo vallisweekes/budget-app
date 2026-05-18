@@ -1,7 +1,7 @@
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/lib/api";
 import type { OnboardingProfile, Settings } from "@/lib/apiTypes";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, LayoutAnimation, PanResponder, Platform, UIManager } from "react-native";
 import { Sacramento_400Regular } from "@expo-google-fonts/sacramento";
 import { useFonts } from "expo-font";
@@ -9,9 +9,28 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import type { OnboardingScreenProps, VisibleGoal } from "@/types/OnboardingScreen.types";
 import { buildInitialGoals, isPositiveNumber } from "@/components/OnboardingScreen/utils";
+import { COMMON_OCCUPATIONS, OCCUPATION_INCOME_SOURCE_OPTIONS } from "@/lib/constants";
 
 type Frequency = "monthly" | "every_2_weeks" | "weekly" | null;
 type BillFrequency = "monthly" | "every_2_weeks" | null;
+
+function sanitizePayDayInput(value: string): string {
+  const digits = value.replace(/[^0-9]/g, "").slice(0, 2);
+  if (!digits) return "";
+  const parsed = Number(digits);
+  if (!Number.isFinite(parsed)) return "";
+  return String(Math.min(31, parsed));
+}
+
+function getIncomeSourceOptionsForOccupation(value: string): string[] {
+  const normalized = value.trim().toLowerCase();
+  const options = (OCCUPATION_INCOME_SOURCE_OPTIONS as Record<string, readonly string[]>)[normalized];
+  return options ? [...options] : [];
+}
+
+function occupationRequiresIncomeSource(value: string): boolean {
+  return getIncomeSourceOptionsForOccupation(value).length > 0;
+}
 
 function buildPayload(state: {
   allowanceAmount: string;
@@ -70,6 +89,7 @@ function validateStep(params: {
   allowanceAmount: string;
   billFrequency: BillFrequency;
   debtAmount: string;
+  debtNotes: string;
   expenseFourAmount: string;
   expenseFourName: string;
   expenseOneAmount: string;
@@ -83,6 +103,8 @@ function validateStep(params: {
   mainGoals: VisibleGoal[];
   occupation: string;
   occupationOther: string;
+  incomeSource: string;
+  incomeSourceOther: string;
   payDayNumber: number | null;
   payFrequency: Frequency;
   planningYears: string;
@@ -95,6 +117,7 @@ function validateStep(params: {
     allowanceAmount,
     billFrequency,
     debtAmount,
+    debtNotes,
     expenseFourAmount,
     expenseFourName,
     expenseOneAmount,
@@ -108,6 +131,8 @@ function validateStep(params: {
     mainGoals,
     occupation,
     occupationOther,
+    incomeSource,
+    incomeSourceOther,
     payDayNumber,
     payFrequency,
     planningYears,
@@ -122,15 +147,29 @@ function validateStep(params: {
   }
 
   if (step === 1) {
-    if (!occupation.trim()) return "Please select what kind of work you do.";
-    if (occupation === "Other" && !occupationOther.trim()) return "Please enter your occupation.";
+    const normalizedOccupation = occupation.trim();
+    if (!normalizedOccupation) return "Please select your occupation.";
+    if (normalizedOccupation.toLowerCase() === "other" && !occupationOther.trim()) {
+      return "Please enter your occupation.";
+    }
+
+    if (occupationRequiresIncomeSource(normalizedOccupation)) {
+      if (!incomeSource.trim()) return "Please choose your source of income.";
+      if (incomeSource.trim().toLowerCase() === "other" && !incomeSourceOther.trim()) {
+        return "Please enter your source of income.";
+      }
+    }
   }
 
   if (step === 2) {
     if (!payDayNumber) return "Please enter the day of the month you get paid.";
     if (!payFrequency) return "Please choose how often you get paid.";
     if (!billFrequency) return "Please choose how often you pay most bills.";
-    if (!isPositiveNumber(salary)) return "Please enter your monthly salary to continue.";
+    if (!isPositiveNumber(salary)) {
+      return occupationRequiresIncomeSource(occupation)
+        ? "Please enter how much you receive each month to continue."
+        : "Please enter your monthly take-home pay (after tax) to continue.";
+    }
     const years = Number(planningYears);
     if (!Number.isInteger(years) || years < 1 || years > 30) {
       return "Please choose how far ahead you want to plan.";
@@ -164,6 +203,9 @@ function validateStep(params: {
     if (hasDebts === true && !isPositiveNumber(debtAmount)) {
       return "Please enter your debt amount.";
     }
+    if (hasDebts === true && debtNotes.trim().length === 0) {
+      return "Please enter a debt name.";
+    }
     const isSavingsFocus = mainGoals.includes("improve_savings");
     const goalAmount = Number(savingsGoalAmount);
     const goalYear = Number(savingsGoalYear);
@@ -187,15 +229,33 @@ export function useOnboardingScreenController({ initial, onCompleted }: Onboardi
   const [fontsLoaded] = useFonts({ Sacramento_400Regular });
   const { username, signOut } = useAuth();
   const profile = initial.profile;
-  const stepAdvanceLockRef = useRef(false);
 
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
   const [currency, setCurrency] = useState<string | null>("GBP");
   const [mainGoals, setMainGoals] = useState<VisibleGoal[]>(() => buildInitialGoals(profile));
-  const [occupation, setOccupation] = useState(profile?.occupation ?? "");
-  const [occupationOther, setOccupationOther] = useState(profile?.occupationOther ?? "");
-  const [payDay, setPayDay] = useState(String(profile?.payDay ?? ""));
+  const initialOccupation = profile?.occupation ?? "";
+  const initialOccupationOther = profile?.occupationOther ?? "";
+  const initialIncomeSourceOptions = getIncomeSourceOptionsForOccupation(initialOccupation);
+  const [occupation, setOccupation] = useState(initialOccupation);
+  const [occupationOther, setOccupationOther] = useState(
+    initialOccupation.trim().toLowerCase() === "other" ? initialOccupationOther : ""
+  );
+  const [incomeSource, setIncomeSource] = useState(() => {
+    if (!initialIncomeSourceOptions.length) return "";
+    const stored = initialOccupationOther.trim();
+    if (!stored) return "";
+    const matched = initialIncomeSourceOptions.find((item) => item.toLowerCase() === stored.toLowerCase());
+    return matched ?? "Other";
+  });
+  const [incomeSourceOther, setIncomeSourceOther] = useState(() => {
+    if (!initialIncomeSourceOptions.length) return "";
+    const stored = initialOccupationOther.trim();
+    if (!stored) return "";
+    const matched = initialIncomeSourceOptions.some((item) => item.toLowerCase() === stored.toLowerCase());
+    return matched ? "" : initialOccupationOther;
+  });
+  const [payDay, setPayDay] = useState(() => sanitizePayDayInput(String(profile?.payDay ?? "")));
   const [payFrequency, setPayFrequency] = useState<Frequency>(
     profile?.payFrequency === "weekly" ||
       profile?.payFrequency === "every_2_weeks" ||
@@ -262,7 +322,86 @@ export function useOnboardingScreenController({ initial, onCompleted }: Onboardi
     return raw.length <= 1 ? raw.toUpperCase() : raw.charAt(0).toUpperCase() + raw.slice(1);
   }, [username]);
 
-  const occupations = useMemo(() => initial.occupations ?? [], [initial.occupations]);
+  const occupations = useMemo(() => {
+    const normalizedIncoming = (initial.occupations ?? [])
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+    const base = [...normalizedIncoming, ...COMMON_OCCUPATIONS];
+
+    const currentOccupation = occupation.trim();
+    if (currentOccupation && !base.some((item) => item.toLowerCase() === currentOccupation.toLowerCase())) {
+      base.unshift(currentOccupation);
+    }
+
+    if (!base.some((item) => item.toLowerCase() === "other")) {
+      base.push("Other");
+    }
+
+    const deduped: string[] = [];
+    const seen = new Set<string>();
+    for (const item of base) {
+      const key = item.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      deduped.push(item);
+    }
+
+    return deduped;
+  }, [initial.occupations, occupation]);
+
+  const incomeSourceOptions = useMemo(() => getIncomeSourceOptionsForOccupation(occupation), [occupation]);
+
+  const resolvedOccupationOther = useMemo(() => {
+    const normalizedOccupation = occupation.trim().toLowerCase();
+    if (normalizedOccupation === "other") {
+      return occupationOther.trim();
+    }
+
+    if (occupationRequiresIncomeSource(normalizedOccupation)) {
+      const selectedSource = incomeSource.trim();
+      if (!selectedSource) return "";
+      if (selectedSource.toLowerCase() === "other") {
+        return incomeSourceOther.trim();
+      }
+      return selectedSource;
+    }
+
+    return "";
+  }, [incomeSource, incomeSourceOther, occupation, occupationOther]);
+
+  const setOccupationWithDependencies = useCallback((nextOccupation: string) => {
+    const currentNormalized = occupation.trim().toLowerCase();
+    const nextNormalized = nextOccupation.trim().toLowerCase();
+
+    setOccupation(nextOccupation);
+
+    const needsOccupationDetail = nextNormalized === "other";
+    const needsIncomeSource = occupationRequiresIncomeSource(nextNormalized);
+
+    if (!needsOccupationDetail) {
+      setOccupationOther("");
+    }
+
+    if (!needsIncomeSource) {
+      setIncomeSource("");
+      setIncomeSourceOther("");
+      return;
+    }
+
+    if (currentNormalized !== nextNormalized) {
+      setIncomeSource("");
+      setIncomeSourceOther("");
+    }
+  }, [occupation]);
+
+  const setIncomeSourceWithDependencies = useCallback((nextSource: string) => {
+    setIncomeSource(nextSource);
+    if (nextSource.trim().toLowerCase() !== "other") {
+      setIncomeSourceOther("");
+    }
+  }, []);
+
   const payDayNumber = useMemo(() => {
     const value = Number(payDay);
     if (!Number.isFinite(value)) return null;
@@ -288,14 +427,14 @@ export function useOnboardingScreenController({ initial, onCompleted }: Onboardi
     hasDebts,
     mainGoals,
     occupation,
-    occupationOther,
+    occupationOther: resolvedOccupationOther,
     payDay,
     payFrequency,
     planningYears,
     salary,
     savingsGoalAmount,
     savingsGoalYear,
-  }), [allowanceAmount, billFrequency, debtAmount, debtNotes, expenseFourAmount, expenseFourName, expenseOneAmount, expenseOneName, expenseThreeAmount, expenseThreeName, expenseTwoAmount, expenseTwoName, hasAllowance, hasDebts, mainGoals, occupation, occupationOther, payDay, payFrequency, planningYears, salary, savingsGoalAmount, savingsGoalYear]);
+  }), [allowanceAmount, billFrequency, debtAmount, debtNotes, expenseFourAmount, expenseFourName, expenseOneAmount, expenseOneName, expenseThreeAmount, expenseThreeName, expenseTwoAmount, expenseTwoName, hasAllowance, hasDebts, mainGoals, occupation, payDay, payFrequency, planningYears, resolvedOccupationOther, salary, savingsGoalAmount, savingsGoalYear]);
 
   const saveDraft = useCallback(async () => {
     await apiFetch("/api/bff/onboarding", {
@@ -319,6 +458,7 @@ export function useOnboardingScreenController({ initial, onCompleted }: Onboardi
     allowanceAmount,
     billFrequency,
     debtAmount,
+    debtNotes,
     expenseFourAmount,
     expenseFourName,
     expenseOneAmount,
@@ -332,6 +472,8 @@ export function useOnboardingScreenController({ initial, onCompleted }: Onboardi
     mainGoals,
     occupation,
     occupationOther,
+    incomeSource,
+    incomeSourceOther,
     payDayNumber,
     payFrequency,
     planningYears,
@@ -339,28 +481,18 @@ export function useOnboardingScreenController({ initial, onCompleted }: Onboardi
     savingsGoalAmount,
     savingsGoalYear,
     step: currentStep,
-  }), [allowanceAmount, billFrequency, debtAmount, expenseFourAmount, expenseFourName, expenseOneAmount, expenseOneName, expenseThreeAmount, expenseThreeName, expenseTwoAmount, expenseTwoName, hasAllowance, hasDebts, mainGoals, occupation, occupationOther, payDayNumber, payFrequency, planningYears, salary, savingsGoalAmount, savingsGoalYear]);
+  }), [allowanceAmount, billFrequency, debtAmount, debtNotes, expenseFourAmount, expenseFourName, expenseOneAmount, expenseOneName, expenseThreeAmount, expenseThreeName, expenseTwoAmount, expenseTwoName, hasAllowance, hasDebts, incomeSource, incomeSourceOther, mainGoals, occupation, occupationOther, payDayNumber, payFrequency, planningYears, salary, savingsGoalAmount, savingsGoalYear]);
 
-  const onGoForwardStep = useCallback(async () => {
-    if (stepAdvanceLockRef.current || saving || step >= 5) return;
-    try {
-      const validationError = currentValidationError(step);
-      if (validationError) {
-        Alert.alert("Required", validationError);
-        return;
-      }
-      stepAdvanceLockRef.current = true;
-      setSaving(true);
-      await saveDraft();
-      const nextStep = Math.min(5, step + 1);
-      if (nextStep !== step) transitionToStep(nextStep);
-    } catch (err: unknown) {
-      Alert.alert("Could not save", err instanceof Error ? err.message : "Please try again.");
-    } finally {
-      setSaving(false);
-      stepAdvanceLockRef.current = false;
+  const onGoForwardStep = useCallback(() => {
+    if (saving || step >= 5) return;
+    const validationError = currentValidationError(step);
+    if (validationError) {
+      Alert.alert("Required", validationError);
+      return;
     }
-  }, [currentValidationError, saveDraft, saving, step, transitionToStep]);
+    const nextStep = Math.min(5, step + 1);
+    if (nextStep !== step) transitionToStep(nextStep);
+  }, [currentValidationError, saving, step, transitionToStep]);
 
   const onFinish = useCallback(async () => {
     try {
@@ -392,7 +524,7 @@ export function useOnboardingScreenController({ initial, onCompleted }: Onboardi
         onPanResponderRelease: (_, gestureState) => {
           if (saving) return;
           if (gestureState.dx <= -80 || (gestureState.dx <= -50 && gestureState.vx <= -0.6)) {
-            void onGoForwardStep();
+            onGoForwardStep();
             return;
           }
           if (gestureState.dx >= 80 || (gestureState.dx >= 50 && gestureState.vx >= 0.6)) {
@@ -421,6 +553,9 @@ export function useOnboardingScreenController({ initial, onCompleted }: Onboardi
     fontsLoaded,
     hasAllowance,
     hasDebts,
+    incomeSource,
+    incomeSourceOptions,
+    incomeSourceOther,
     insets,
     mainGoals,
     occupation,
@@ -451,9 +586,11 @@ export function useOnboardingScreenController({ initial, onCompleted }: Onboardi
     setExpenseTwoName,
     setHasAllowance,
     setHasDebts,
-    setOccupation,
+    setIncomeSource: setIncomeSourceWithDependencies,
+    setIncomeSourceOther,
+    setOccupation: setOccupationWithDependencies,
     setOccupationOther,
-    setPayDay: (value: string) => setPayDay(value.replace(/[^0-9]/g, "").slice(0, 2)),
+    setPayDay: (value: string) => setPayDay(sanitizePayDayInput(value)),
     setPayFrequency,
     setPlanningYears,
     setSalary,

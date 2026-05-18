@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSessionUserId } from "@/lib/api/bffAuth";
 import { sendEmailVerificationEmail } from "@/lib/auth/emailVerification";
-import { completeOnboarding, getOnboardingForUser, saveOnboardingDraft, type OnboardingInput } from "@/lib/onboarding";
+import { completeOnboarding, getOnboardingForUser, saveOnboardingDraft, type OnboardingGoalInput, type OnboardingInput } from "@/lib/onboarding";
 import { invalidateDashboardCache, invalidateDashboardCacheForUser } from "@/lib/cache/dashboardCache";
 import { invalidateProfileCache } from "@/lib/cache/profileCache";
 
@@ -27,6 +27,19 @@ function asBoolean(value: unknown): boolean | null {
   return null;
 }
 
+const ONBOARDING_GOALS: readonly OnboardingGoalInput[] = [
+  "improve_savings",
+  "emergency_fund",
+  "investments",
+  "manage_debts",
+  "track_spending",
+  "build_budget",
+];
+
+function isOnboardingGoal(value: unknown): value is OnboardingGoalInput {
+  return typeof value === "string" && ONBOARDING_GOALS.includes(value as OnboardingGoalInput);
+}
+
 export async function GET(request: Request) {
   try {
     const userId = await getSessionUserId(request);
@@ -50,16 +63,10 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
     }
 
-    const mainGoal =
-      body.mainGoal === "improve_savings" ||
-      body.mainGoal === "manage_debts" ||
-      body.mainGoal === "track_spending" ||
-      body.mainGoal === "build_budget"
-        ? body.mainGoal
-        : null;
+    const mainGoal = isOnboardingGoal(body.mainGoal) ? body.mainGoal : null;
 
     const mainGoals = Array.isArray(body.mainGoals)
-      ? body.mainGoals.filter((v) => v === "improve_savings" || v === "manage_debts" || v === "track_spending" || v === "build_budget")
+      ? body.mainGoals.filter(isOnboardingGoal)
       : null;
 
     const input: OnboardingInput = {

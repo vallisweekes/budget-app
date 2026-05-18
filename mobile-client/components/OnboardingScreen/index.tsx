@@ -17,6 +17,9 @@ export default function OnboardingScreen(props: OnboardingScreenProps) {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
+      <View pointerEvents="none" style={[styles.bgGlow, styles.bgGlowTop]} />
+      <View pointerEvents="none" style={[styles.bgGlow, styles.bgGlowBottom]} />
+
       <View style={[styles.topBar, { top: controller.insets.top + 10 }]}> 
         <View style={styles.topBarSide}>
           {showProgress ? (
@@ -58,7 +61,7 @@ export default function OnboardingScreen(props: OnboardingScreenProps) {
       </View>
 
       <View style={styles.gestureWrap} {...controller.stepPanHandlers}>
-        <ScrollView contentContainerStyle={styles.wrap} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={[styles.wrap, showProgress && styles.wrapWithProgress]} keyboardShouldPersistTaps="handled">
           <View>
             {controller.step === 0 ? (
               <View style={styles.header}>
