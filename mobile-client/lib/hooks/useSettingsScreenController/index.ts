@@ -376,7 +376,13 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
     setCountryDraft((nextSettings?.country ?? "").toUpperCase());
     setPayDateDraft(nextSettings?.payDate ? String(nextSettings.payDate) : "");
     setHorizonDraft(nextHorizonYears ? String(nextHorizonYears) : "10");
-    setPayFrequencyDraft(nextSettings?.payFrequency === "weekly" || nextSettings?.payFrequency === "every_2_weeks" ? nextSettings.payFrequency : "monthly");
+    setPayFrequencyDraft(
+      nextSettings?.payFrequency === "weekly" ||
+      nextSettings?.payFrequency === "every_2_weeks" ||
+      nextSettings?.payFrequency === "every_4_weeks"
+        ? nextSettings.payFrequency
+        : "monthly"
+    );
     setBillFrequencyDraft(nextSettings?.billFrequency === "every_2_weeks" ? "every_2_weeks" : "monthly");
     setStrategyDraft(nextSettings?.budgetStrategy ?? "payYourselfFirst");
   }, []);

@@ -119,7 +119,8 @@ export function getPaymentPeriodKey(paidAt: Date, payDate: number): string {
 export function getIncomePeriodKey(
 	income: { year: number; month: number },
 	payDate: number,
-	payFrequency: "monthly" | "every_2_weeks" | "weekly" = "monthly"
+	payFrequency: "monthly" | "every_2_weeks" | "every_4_weeks" | "weekly" = "monthly",
+	payAnchorDate?: Date | string | null
 ): string {
 	const safePayDate = Number.isFinite(payDate) && payDate >= 1 ? Math.floor(payDate) : 1;
 
@@ -129,6 +130,17 @@ export function getIncomePeriodKey(
 		const month0 = new Date(Date.UTC(income.year, startMonth0, 1)).getUTCMonth();
 		const day = clampDay(year, month0, safePayDate);
 		return new Date(Date.UTC(year, month0, day)).toISOString().slice(0, 10);
+	}
+
+	if (payAnchorDate) {
+		const period = buildPayPeriodFromMonthAnchor({
+			anchorYear: income.year,
+			anchorMonth: income.month,
+			payDate: safePayDate,
+			payFrequency,
+			payAnchorDate,
+		});
+		return period.start.toISOString().slice(0, 10);
 	}
 
 	const m0 = income.month - 1;
@@ -148,6 +160,7 @@ export function getLegacyIncomePeriodKey(income: { year: number; month: number }
 }
 
 // ─── Prisma helper: resolve payDate from budgetPlan ────────────────────
+import { buildPayPeriodFromMonthAnchor } from "@/lib/payPeriods";
 import { prisma } from "@/lib/prisma";
 
 const _cache = new Map<string, number>();

@@ -88,7 +88,7 @@ type EventIncomeScope = {
   eventMonth: number; // 1-12
 };
 
-type IncomeCadence = "monthly" | "every_2_weeks" | "weekly";
+type IncomeCadence = "monthly" | "every_2_weeks" | "every_4_weeks" | "weekly";
 
 type IncomeWriteContext = {
   payDate: number;

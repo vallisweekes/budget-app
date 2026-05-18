@@ -9,6 +9,7 @@ export const STRATEGY_OPTIONS = [
 export const PAY_FREQUENCY_OPTIONS: Array<{ value: PayFrequency; label: string }> = [
   { value: "monthly", label: "Monthly" },
   { value: "every_2_weeks", label: "Every 2 weeks" },
+  { value: "every_4_weeks", label: "Every 4 weeks" },
   { value: "weekly", label: "Weekly" },
 ];
 

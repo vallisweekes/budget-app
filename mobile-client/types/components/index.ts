@@ -45,6 +45,7 @@ export * from "./LoggedExpenseCard.types";
 export * from "./LoggedExpensesHero.types";
 export * from "./LoginScreen.types";
 export * from "./OnboardingStepContent.types";
+export * from "./OnboardingPayScheduleSection.types";
 export * from "./PaymentDetailSheet.types";
 export * from "./PaymentsListView.types";
 export * from "./PaymentsScreenView.types";

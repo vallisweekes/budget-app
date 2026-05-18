@@ -7,6 +7,24 @@ type LocalCacheEntry<T> = {
 
 const localCache = new Map<string, LocalCacheEntry<unknown>>();
 
+const REDIS_CACHE_OPERATION_TIMEOUT_MS = (() => {
+	const raw = Number(process.env.REDIS_CACHE_OPERATION_TIMEOUT_MS ?? 250);
+	if (!Number.isFinite(raw)) return 250;
+	return Math.max(100, Math.min(2_000, Math.floor(raw)));
+})();
+
+async function withRedisOperationTimeout<T>(promise: Promise<T>, fallback: T): Promise<T> {
+	let timeoutId: ReturnType<typeof setTimeout> | undefined;
+	try {
+		const timeout = new Promise<T>((resolve) => {
+			timeoutId = setTimeout(() => resolve(fallback), REDIS_CACHE_OPERATION_TIMEOUT_MS);
+		});
+		return await Promise.race([promise, timeout]);
+	} finally {
+		if (timeoutId) clearTimeout(timeoutId);
+	}
+}
+
 function getNamespacedKey(key: string): string {
 	return `budget-app:${key}`;
 }
@@ -32,7 +50,7 @@ export async function getJsonCache<T>(key: string): Promise<T | null> {
 	if (!client) return null;
 
 	try {
-		const raw = await client.get(getNamespacedKey(key));
+		const raw = await withRedisOperationTimeout(client.get(getNamespacedKey(key)), null);
 		if (!raw) return null;
 		return JSON.parse(raw) as T;
 	} catch {
@@ -50,9 +68,9 @@ export async function setJsonCache<T>(key: string, value: T, ttlSeconds: number)
 	if (!client) return;
 
 	try {
-		await client.set(getNamespacedKey(key), JSON.stringify(value), {
+		await withRedisOperationTimeout(client.set(getNamespacedKey(key), JSON.stringify(value), {
 			EX: Math.max(1, Math.floor(ttlSeconds)),
-		});
+		}), null);
 		return;
 	} catch {
 		return;
@@ -66,7 +84,7 @@ export async function deleteJsonCache(key: string): Promise<void> {
 	if (!client) return;
 
 	try {
-		await client.del(getNamespacedKey(key));
+		await withRedisOperationTimeout(client.del(getNamespacedKey(key)), null);
 	} catch {
 		return;
 	}
@@ -83,13 +101,13 @@ export async function deleteJsonCacheByPrefix(prefix: string): Promise<void> {
 		const match = getNamespacedKey(`${prefix}*`);
 
 		do {
-			const result = await client.scan(cursor, {
+			const result = await withRedisOperationTimeout(client.scan(cursor, {
 				MATCH: match,
 				COUNT: 100,
-			});
+			}), { cursor: "0", keys: [] as string[] });
 			cursor = result.cursor;
 			if (result.keys.length > 0) {
-				await client.del(result.keys);
+				await withRedisOperationTimeout(client.del(result.keys), null);
 			}
 		} while (cursor !== "0");
 	} catch {

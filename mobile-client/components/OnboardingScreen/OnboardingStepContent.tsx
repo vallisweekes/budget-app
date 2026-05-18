@@ -4,8 +4,9 @@ import { Ionicons } from "@expo/vector-icons";
 
 import MoneyInput from "@/components/Shared/MoneyInput";
 import NoteBadge from "@/components/Shared/NoteBadge";
+import OnboardingPayScheduleSection from "@/components/OnboardingScreen/OnboardingPayScheduleSection";
 import { onboardingStyles as styles } from "@/components/OnboardingScreen/style";
-import { BILL_FREQUENCY_OPTIONS, EXPENSES_TOTAL_BLUE, GOALS, ICON_COLORS, PAY_FREQUENCY_OPTIONS, PLANNING_YEARS_OPTIONS, STEP_ICON_COLORS } from "@/lib/constants";
+import { BILL_FREQUENCY_OPTIONS, EXPENSES_TOTAL_BLUE, GOALS, ICON_COLORS, PLANNING_YEARS_OPTIONS, STEP_ICON_COLORS } from "@/lib/constants";
 import type { OnboardingStepContentProps } from "@/types";
 
 export function OnboardingStepContent({ controller }: OnboardingStepContentProps) {
@@ -192,39 +193,7 @@ export function OnboardingStepContent({ controller }: OnboardingStepContentProps
 
       {controller.step === 2 ? (
         <>
-          <View style={styles.sectionCard}>
-            <View style={styles.questionRow}>
-              <Ionicons name="wallet-outline" size={20} color={STEP_ICON_COLORS[2]} />
-              <Text style={styles.question}>What day of the month do you usually get paid?</Text>
-            </View>
-            <TextInput
-              value={controller.payDay}
-              onChangeText={controller.setPayDay}
-              placeholder="For example: 15"
-              placeholderTextColor="rgba(255,255,255,0.62)"
-              keyboardType="number-pad"
-              style={styles.input}
-              accessibilityLabel="Enter your payday as a day of the month"
-            />
-            <View style={styles.helperRow}>
-              <Ionicons name="calendar-clear-outline" size={14} color="rgba(223,233,255,0.82)" />
-              <Text style={styles.helper}>Enter just the day number, from 1 to 31.</Text>
-            </View>
-          </View>
-
-          <View style={styles.sectionCard}>
-            <Text style={styles.question}>How often do you get paid?</Text>
-            <View style={styles.chipsWrap}>
-              {PAY_FREQUENCY_OPTIONS.map((item) => {
-                const active = controller.payFrequency === item.value;
-                return (
-                  <Pressable key={item.value} onPress={() => controller.setPayFrequency(item.value)} style={[styles.chip, active && styles.chipActive]}>
-                    <Text style={[styles.chipText, active && styles.chipTextActive]}>{item.label}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
+          <OnboardingPayScheduleSection controller={controller} />
 
           <View style={styles.sectionCard}>
             <Text style={styles.question}>How often do you usually pay most bills?</Text>

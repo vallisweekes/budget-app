@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { ensureDefaultCategoriesForBudgetPlan } from "@/lib/categories/defaultCategories";
 import { suggestCategoryNameForExpense } from "@/lib/expenses/expenseCategorizer";
 import { ensureUkMobileProviderMappingsSeeded } from "@/lib/expenses/providerMappings";
-import { normalizePayFrequency, resolveActivePayPeriodWindow } from "@/lib/payPeriods";
+import { normalizePayFrequency, resolveActivePayPeriodWindow, type PayFrequency } from "@/lib/payPeriods";
 import { getExpensePeriodKey, getIncomePeriodKey } from "@/lib/helpers/periodKey";
 
 function latestDate(...dates: Array<Date | null | undefined>): Date | null {
@@ -79,7 +79,8 @@ export type OnboardingInput = {
   occupation?: string | null;
   occupationOther?: string | null;
   payDay?: number | null;
-  payFrequency?: "monthly" | "every_2_weeks" | "weekly" | null;
+  payAnchorDate?: string | Date | null;
+  payFrequency?: PayFrequency | null;
   billFrequency?: "monthly" | "every_2_weeks" | null;
   monthlySalary?: number | null;
   planningYears?: number | null;
@@ -109,7 +110,8 @@ type OnboardingProfileRecord = {
   occupation: string | null;
   occupationOther: string | null;
   payDay: number | null;
-  payFrequency: "monthly" | "every_2_weeks" | "weekly" | null;
+  payAnchorDate: Date | null;
+  payFrequency: PayFrequency | null;
   billFrequency: "monthly" | "every_2_weeks" | null;
   monthlySalary: unknown;
   planningYears: number | null;
@@ -299,8 +301,19 @@ function clampPayDay(value: number | null | undefined): number | null {
   return Math.max(1, Math.min(31, rounded));
 }
 
-function cleanPayFrequency(value: unknown): "monthly" | "every_2_weeks" | "weekly" | null {
-  return value === "monthly" || value === "every_2_weeks" || value === "weekly" ? value : null;
+function cleanPayFrequency(value: unknown): PayFrequency | null {
+  return value === "monthly" || value === "every_2_weeks" || value === "every_4_weeks" || value === "weekly" ? value : null;
+}
+
+function cleanPayAnchorDate(value: unknown): Date | null {
+  if (value == null || value === "") return null;
+  const parsed = value instanceof Date
+    ? new Date(value.getTime())
+    : typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value.trim())
+      ? new Date(`${value.trim()}T00:00:00.000Z`)
+      : new Date(String(value));
+  if (!Number.isFinite(parsed.getTime())) return null;
+  return new Date(Date.UTC(parsed.getUTCFullYear(), parsed.getUTCMonth(), parsed.getUTCDate()));
 }
 
 function cleanBillFrequency(value: unknown): "monthly" | "every_2_weeks" | null {
@@ -325,7 +338,8 @@ type NormalizedOnboardingProfile = {
   occupation: string | null;
   occupationOther: string | null;
   payDay: number | null;
-  payFrequency: "monthly" | "every_2_weeks" | "weekly" | null;
+  payAnchorDate: string | null;
+  payFrequency: PayFrequency | null;
   billFrequency: "monthly" | "every_2_weeks" | null;
   monthlySalary: number | null;
   planningYears: number | null;
@@ -352,6 +366,7 @@ const EMPTY_ONBOARDING_PROFILE: NormalizedOnboardingProfile = {
   occupation: null,
   occupationOther: null,
   payDay: null,
+  payAnchorDate: null,
   payFrequency: null,
   billFrequency: null,
   monthlySalary: null,
@@ -398,6 +413,7 @@ function mapStoredProfile(profile: OnboardingProfileRecord): NormalizedOnboardin
     occupation: profile.occupation,
     occupationOther: profile.occupationOther,
     payDay: toNullableNumber(profile.payDay),
+    payAnchorDate: cleanPayAnchorDate(profile.payAnchorDate)?.toISOString() ?? null,
     payFrequency: cleanPayFrequency(profile.payFrequency),
     billFrequency: cleanBillFrequency(profile.billFrequency),
     monthlySalary: toNullableNumber(profile.monthlySalary),
@@ -883,11 +899,12 @@ export async function saveOnboardingDraft(userId: string, input: OnboardingInput
     mainGoals && mainGoals.length ? mainGoals[0] : input.mainGoal ?? null;
 
   const updateData: Record<string, unknown> = {
+    payAnchorDate: null,
     mainGoal: derivedMainGoal ?? undefined,
     mainGoals: mainGoals ?? undefined,
     occupation: cleanText(input.occupation),
     occupationOther: cleanText(input.occupationOther),
-    payDay: clampPayDay(input.payDay),
+    payDay: null,
     payFrequency: cleanPayFrequency(input.payFrequency),
     billFrequency: cleanBillFrequency(input.billFrequency),
     monthlySalary: toAmount(input.monthlySalary),
@@ -908,6 +925,15 @@ export async function saveOnboardingDraft(userId: string, input: OnboardingInput
     debtAmount: toAmount(input.debtAmount),
     debtNotes: cleanText(input.debtNotes),
   };
+
+  const nextPayFrequency = cleanPayFrequency(input.payFrequency);
+  const nextPayAnchorDate = nextPayFrequency === "monthly" ? null : cleanPayAnchorDate(input.payAnchorDate);
+  const nextPayDay = nextPayFrequency === "monthly"
+    ? clampPayDay(input.payDay)
+    : clampPayDay(input.payDay ?? nextPayAnchorDate?.getUTCDate());
+  updateData.payDay = nextPayDay;
+  updateData.payAnchorDate = nextPayAnchorDate;
+  updateData.payFrequency = nextPayFrequency;
 
   try {
     return await onboardingDelegate(prisma).update({
@@ -939,9 +965,11 @@ export async function saveOnboardingDraft(userId: string, input: OnboardingInput
 
     const shouldDropPaySetup =
       /Unknown arg(ument)? `payDay`/i.test(message) ||
+      /Unknown arg(ument)? `payAnchorDate`/i.test(message) ||
       /Unknown arg(ument)? `payFrequency`/i.test(message) ||
       /Unknown arg(ument)? `billFrequency`/i.test(message) ||
       /data\.payDay/i.test(message) ||
+      /data\.payAnchorDate/i.test(message) ||
       /data\.payFrequency/i.test(message) ||
       /data\.billFrequency/i.test(message);
 
@@ -970,6 +998,7 @@ export async function saveOnboardingDraft(userId: string, input: OnboardingInput
 
     if (shouldDropPaySetup) {
       delete retryData.payDay;
+      delete retryData.payAnchorDate;
       delete retryData.payFrequency;
       delete retryData.billFrequency;
     }
@@ -1036,12 +1065,14 @@ export async function completeOnboarding(userId: string) {
 
   const year = new Date().getFullYear();
   const payDay = clampPayDay(toNullableNumber(profile.payDay));
+  const payAnchorDate = cleanPayAnchorDate(profile.payAnchorDate);
 
   const now = new Date();
   const effectiveSetupAt = latestDate(budgetPlan.createdAt, now) ?? now;
   const activePayPeriod = resolveActivePayPeriodWindow({
     now,
     payDate: payDay ?? 1,
+    payAnchorDate,
     payFrequency: normalizePayFrequency(profile.payFrequency),
     planCreatedAt: effectiveSetupAt,
   });
@@ -1113,7 +1144,7 @@ export async function completeOnboarding(userId: string) {
           amount: salary,
           month: period.month,
           year: period.year,
-          periodKey: getIncomePeriodKey({ year: period.year, month: period.month }, payDay ?? 1, seededPayFrequency),
+          periodKey: getIncomePeriodKey({ year: period.year, month: period.month }, payDay ?? 1, seededPayFrequency, payAnchorDate),
         }))
     : [];
 
@@ -1278,6 +1309,7 @@ export async function runOnboardingRepairPass(userId: string) {
   const now = new Date();
   const planningYears = clampIntRange(toNullableNumber(profile.planningYears), 1, 30) ?? 10;
   const payDay = clampPayDay(toNullableNumber(profile.payDay));
+  const payAnchorDate = cleanPayAnchorDate(profile.payAnchorDate);
   const payFrequency = normalizePayFrequency(profile.payFrequency);
   const effectiveSetupAt = latestDate(
     ensuredBudgetPlan.createdAt,
@@ -1287,6 +1319,7 @@ export async function runOnboardingRepairPass(userId: string) {
   const activePayPeriod = resolveActivePayPeriodWindow({
     now,
     payDate: payDay ?? 1,
+    payAnchorDate,
     payFrequency,
     planCreatedAt: effectiveSetupAt,
   });
@@ -1339,7 +1372,7 @@ export async function runOnboardingRepairPass(userId: string) {
               amount: salary,
               month: period.month,
               year: period.year,
-              periodKey: getIncomePeriodKey({ year: period.year, month: period.month }, payDay ?? 1, seededPayFrequency),
+              periodKey: getIncomePeriodKey({ year: period.year, month: period.month }, payDay ?? 1, seededPayFrequency, payAnchorDate),
             }));
         });
       })()

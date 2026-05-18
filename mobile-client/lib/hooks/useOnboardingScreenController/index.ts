@@ -11,8 +11,28 @@ import type { OnboardingScreenProps, VisibleGoal } from "@/types/OnboardingScree
 import { buildInitialGoals, isPositiveNumber } from "@/components/OnboardingScreen/utils";
 import { COMMON_OCCUPATIONS, OCCUPATION_INCOME_SOURCE_OPTIONS } from "@/lib/constants";
 
-type Frequency = "monthly" | "every_2_weeks" | "weekly" | null;
+type Frequency = "monthly" | "every_2_weeks" | "every_4_weeks" | "weekly" | null;
 type BillFrequency = "monthly" | "every_2_weeks" | null;
+
+function parseDateOnly(value: string | null | undefined): Date | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    const [year, month, day] = trimmed.split("-").map(Number);
+    const parsed = new Date(year, month - 1, day);
+    parsed.setHours(0, 0, 0, 0);
+    return Number.isFinite(parsed.getTime()) ? parsed : null;
+  }
+  const parsed = new Date(trimmed);
+  if (!Number.isFinite(parsed.getTime())) return null;
+  parsed.setHours(0, 0, 0, 0);
+  return parsed;
+}
+
+function formatDateOnly(value: Date): string {
+  return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
+}
 
 function sanitizePayDayInput(value: string): string {
   const digits = value.replace(/[^0-9]/g, "").slice(0, 2);
@@ -51,12 +71,21 @@ function buildPayload(state: {
   occupation: string;
   occupationOther: string;
   payDay: string;
+  payAnchorDate: string | null;
   payFrequency: Frequency;
   planningYears: string;
   salary: string;
   savingsGoalAmount: string;
   savingsGoalYear: string;
 }): Partial<OnboardingProfile> {
+  const parsedPayAnchorDate = parseDateOnly(state.payAnchorDate);
+  const resolvedPayFrequency = state.payFrequency ?? undefined;
+  const resolvedPayDay = resolvedPayFrequency === "monthly"
+    ? (state.payDay ? Math.max(1, Math.min(31, Number(state.payDay))) : null)
+    : parsedPayAnchorDate
+      ? parsedPayAnchorDate.getDate()
+      : null;
+
   return {
     allowanceAmount: state.hasAllowance === true && state.allowanceAmount ? Number(state.allowanceAmount) : null,
     billFrequency: state.billFrequency ?? undefined,
@@ -77,8 +106,9 @@ function buildPayload(state: {
     monthlySalary: state.salary ? Number(state.salary) : null,
     occupation: state.occupation,
     occupationOther: state.occupationOther,
-    payDay: state.payDay ? Math.max(1, Math.min(31, Number(state.payDay))) : null,
-    payFrequency: state.payFrequency ?? undefined,
+    payDay: resolvedPayDay,
+    payAnchorDate: resolvedPayFrequency === "monthly" ? null : (parsedPayAnchorDate ? formatDateOnly(parsedPayAnchorDate) : null),
+    payFrequency: resolvedPayFrequency,
     planningYears: state.planningYears ? Number(state.planningYears) : null,
     savingsGoalAmount: state.savingsGoalAmount ? Number(state.savingsGoalAmount) : null,
     savingsGoalYear: state.savingsGoalYear ? Number(state.savingsGoalYear) : null,
@@ -105,6 +135,7 @@ function validateStep(params: {
   occupationOther: string;
   incomeSource: string;
   incomeSourceOther: string;
+  payAnchorDate: string | null;
   payDayNumber: number | null;
   payFrequency: Frequency;
   planningYears: string;
@@ -133,6 +164,7 @@ function validateStep(params: {
     occupationOther,
     incomeSource,
     incomeSourceOther,
+    payAnchorDate,
     payDayNumber,
     payFrequency,
     planningYears,
@@ -162,8 +194,11 @@ function validateStep(params: {
   }
 
   if (step === 2) {
-    if (!payDayNumber) return "Please enter the day of the month you get paid.";
     if (!payFrequency) return "Please choose how often you get paid.";
+    if (payFrequency === "monthly" && !payDayNumber) return "Please enter the day of the month you get paid.";
+    if (payFrequency !== "monthly" && !parseDateOnly(payAnchorDate)) {
+      return "Please choose the last date or next date you get paid.";
+    }
     if (!billFrequency) return "Please choose how often you pay most bills.";
     if (!isPositiveNumber(salary)) {
       return occupationRequiresIncomeSource(occupation)
@@ -256,9 +291,14 @@ export function useOnboardingScreenController({ initial, onCompleted }: Onboardi
     return matched ? "" : initialOccupationOther;
   });
   const [payDay, setPayDay] = useState(() => sanitizePayDayInput(String(profile?.payDay ?? "")));
+  const [payAnchorDate, setPayAnchorDate] = useState<string | null>(() => {
+    const parsed = parseDateOnly(typeof profile?.payAnchorDate === "string" ? profile.payAnchorDate : null);
+    return parsed ? formatDateOnly(parsed) : null;
+  });
   const [payFrequency, setPayFrequency] = useState<Frequency>(
     profile?.payFrequency === "weekly" ||
       profile?.payFrequency === "every_2_weeks" ||
+      profile?.payFrequency === "every_4_weeks" ||
       profile?.payFrequency === "monthly"
       ? profile.payFrequency
       : null,
@@ -413,12 +453,13 @@ export function useOnboardingScreenController({ initial, onCompleted }: Onboardi
     occupation,
     occupationOther: resolvedOccupationOther,
     payDay,
+    payAnchorDate,
     payFrequency,
     planningYears,
     salary,
     savingsGoalAmount,
     savingsGoalYear,
-  }), [allowanceAmount, billFrequency, debtAmount, debtNotes, expenseFourAmount, expenseFourName, expenseOneAmount, expenseOneName, expenseThreeAmount, expenseThreeName, expenseTwoAmount, expenseTwoName, hasAllowance, hasDebts, mainGoals, occupation, payDay, payFrequency, planningYears, resolvedOccupationOther, salary, savingsGoalAmount, savingsGoalYear]);
+  }), [allowanceAmount, billFrequency, debtAmount, debtNotes, expenseFourAmount, expenseFourName, expenseOneAmount, expenseOneName, expenseThreeAmount, expenseThreeName, expenseTwoAmount, expenseTwoName, hasAllowance, hasDebts, mainGoals, occupation, payAnchorDate, payDay, payFrequency, planningYears, resolvedOccupationOther, salary, savingsGoalAmount, savingsGoalYear]);
 
   const saveDraft = useCallback(async () => {
     if (!token) {
@@ -466,6 +507,7 @@ export function useOnboardingScreenController({ initial, onCompleted }: Onboardi
     occupationOther,
     incomeSource,
     incomeSourceOther,
+    payAnchorDate,
     payDayNumber,
     payFrequency,
     planningYears,
@@ -473,7 +515,7 @@ export function useOnboardingScreenController({ initial, onCompleted }: Onboardi
     savingsGoalAmount,
     savingsGoalYear,
     step: currentStep,
-  }), [allowanceAmount, billFrequency, debtAmount, debtNotes, expenseFourAmount, expenseFourName, expenseOneAmount, expenseOneName, expenseThreeAmount, expenseThreeName, expenseTwoAmount, expenseTwoName, hasAllowance, hasDebts, incomeSource, incomeSourceOther, mainGoals, occupation, occupationOther, payDayNumber, payFrequency, planningYears, salary, savingsGoalAmount, savingsGoalYear]);
+  }), [allowanceAmount, billFrequency, debtAmount, debtNotes, expenseFourAmount, expenseFourName, expenseOneAmount, expenseOneName, expenseThreeAmount, expenseThreeName, expenseTwoAmount, expenseTwoName, hasAllowance, hasDebts, incomeSource, incomeSourceOther, mainGoals, occupation, occupationOther, payAnchorDate, payDayNumber, payFrequency, planningYears, salary, savingsGoalAmount, savingsGoalYear]);
 
   const onGoForwardStep = useCallback(() => {
     if (saving || step >= 5) return;
@@ -567,6 +609,7 @@ export function useOnboardingScreenController({ initial, onCompleted }: Onboardi
     onGoBackStep,
     onGoForwardStep,
     onSignOut: () => void signOut(),
+    payAnchorDate,
     payDay,
     payFrequency,
     planningYears,
@@ -592,6 +635,7 @@ export function useOnboardingScreenController({ initial, onCompleted }: Onboardi
     setIncomeSourceOther,
     setOccupation: setOccupationWithDependencies,
     setOccupationOther,
+    setPayAnchorDate,
     setPayDay: (value: string) => setPayDay(sanitizePayDayInput(value)),
     setPayFrequency,
     setPlanningYears,

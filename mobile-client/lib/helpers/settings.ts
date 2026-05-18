@@ -49,6 +49,7 @@ export function mapSavingsFieldToGoalTargetKey(field: SavingsField): string {
 export function formatPayFrequency(value: unknown): string {
   if (value === "weekly") return "Weekly";
   if (value === "every_2_weeks") return "Every 2 weeks";
+  if (value === "every_4_weeks") return "Every 4 weeks";
   return "Monthly";
 }
 

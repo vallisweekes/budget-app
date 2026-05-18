@@ -98,6 +98,7 @@ model UserOnboardingProfile {
   occupation         String?
   occupationOther    String?
   payDay             Int?
+  payAnchorDate      DateTime?
   payFrequency       String?
   billFrequency      String?
   monthlySalary      Decimal?         @db.Decimal(12, 2)

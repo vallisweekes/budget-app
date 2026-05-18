@@ -12,6 +12,12 @@ type GlobalRedisState = typeof globalThis & {
 
 const globalRedis = globalThis as GlobalRedisState;
 
+const REDIS_CONNECT_TIMEOUT_MS = (() => {
+	const raw = Number(process.env.REDIS_CONNECT_TIMEOUT_MS ?? 250);
+	if (!Number.isFinite(raw)) return 250;
+	return Math.max(100, Math.min(2_000, Math.floor(raw)));
+})();
+
 function getRedisUrl(): string | null {
 	const value = String(process.env.REDIS_URL ?? "").trim();
 	return value ? value : null;
@@ -38,7 +44,13 @@ export async function getRedisClient(): Promise<RedisClientType | null> {
 	if (!globalRedis.__budgetAppRedisConnectPromise) {
 		globalRedis.__budgetAppRedisConnectPromise = (async () => {
 			try {
-				const client = globalRedis.__budgetAppRedisClient ?? createClient({ url });
+				const client = globalRedis.__budgetAppRedisClient ?? createClient({
+					url,
+					socket: {
+						connectTimeout: REDIS_CONNECT_TIMEOUT_MS,
+						reconnectStrategy: () => false,
+					},
+				});
 				client.on("error", (error) => {
 					logRedisErrorOnce(error);
 				});

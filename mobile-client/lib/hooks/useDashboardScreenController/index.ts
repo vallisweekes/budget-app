@@ -29,7 +29,7 @@ export function useDashboardScreenController({ navigation }: DashboardScreenProp
   const {
     dashboard,
     settings,
-    isLoading: loading,
+    isLoading: bootstrapLoading,
     isRefreshing: refreshing,
     error,
     refresh,
@@ -42,6 +42,7 @@ export function useDashboardScreenController({ navigation }: DashboardScreenProp
   const [failedLogos, setFailedLogos] = useState<Record<string, boolean>>({});
   const [displayedPeriodAnchor, setDisplayedPeriodAnchor] = useState<{ month: number; year: number } | null>(null);
   const [resolvedDashboard, setResolvedDashboard] = useState<DashboardData | null>(dashboard);
+  const loading = bootstrapLoading && !resolvedDashboard;
 
   const { dragY: categorySheetDragY, panHandlers: categorySheetPanHandlers } = useSwipeDownToClose({
     onClose: () => setCategorySheet(null),

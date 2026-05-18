@@ -13,7 +13,8 @@ type OnboardingProfile = {
   occupation: string | null;
   occupationOther: string | null;
   payDay?: string | number | null;
-  payFrequency?: "monthly" | "every_2_weeks" | "weekly" | null;
+  payAnchorDate?: string | null;
+  payFrequency?: "monthly" | "every_2_weeks" | "every_4_weeks" | "weekly" | null;
   billFrequency?: "monthly" | "every_2_weeks" | null;
   monthlySalary: string | number | null;
   expenseOneName: string | null;
@@ -52,6 +53,28 @@ function toVisibleGoal(value: OnboardingProfile["mainGoal"] | undefined | null):
 function normalizeVisibleGoals(values: Array<OnboardingProfile["mainGoal"] | undefined | null>): VisibleGoal[] {
   const filtered = values.map((value) => toVisibleGoal(value)).filter((value): value is VisibleGoal => value !== null);
   return filtered.length ? Array.from(new Set(filtered)) : DEFAULT_VISIBLE_GOALS;
+}
+
+function parseDateOnly(value: string | null | undefined): Date | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    const [year, month, day] = trimmed.split("-").map(Number);
+    const parsed = new Date(year, month - 1, day);
+    parsed.setHours(0, 0, 0, 0);
+    return Number.isFinite(parsed.getTime()) ? parsed : null;
+  }
+  const parsed = new Date(trimmed);
+  if (!Number.isFinite(parsed.getTime())) return null;
+  parsed.setHours(0, 0, 0, 0);
+  return parsed;
+}
+
+function toDateInputValue(value: string | null | undefined): string {
+  const parsed = parseDateOnly(value);
+  if (!parsed) return "";
+  return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, "0")}-${String(parsed.getDate()).padStart(2, "0")}`;
 }
 
 export default function OnboardingWizard({
@@ -101,8 +124,9 @@ export default function OnboardingWizard({
   const [occupation, setOccupation] = useState(initial.profile?.occupation ?? "");
   const [occupationOther, setOccupationOther] = useState(initial.profile?.occupationOther ?? "");
   const [payDay, setPayDay] = useState(String(initial.profile?.payDay ?? ""));
-  const [payFrequency, setPayFrequency] = useState<"monthly" | "every_2_weeks" | "weekly">(
-    initial.profile?.payFrequency === "weekly" || initial.profile?.payFrequency === "every_2_weeks" ? initial.profile.payFrequency : "monthly"
+  const [payAnchorDate, setPayAnchorDate] = useState(() => toDateInputValue(initial.profile?.payAnchorDate ?? null));
+  const [payFrequency, setPayFrequency] = useState<"monthly" | "every_2_weeks" | "every_4_weeks" | "weekly">(
+    initial.profile?.payFrequency === "weekly" || initial.profile?.payFrequency === "every_2_weeks" || initial.profile?.payFrequency === "every_4_weeks" ? initial.profile.payFrequency : "monthly"
   );
   const [billFrequency, setBillFrequency] = useState<"monthly" | "every_2_weeks">(
     initial.profile?.billFrequency === "every_2_weeks" ? "every_2_weeks" : "monthly"
@@ -136,7 +160,11 @@ export default function OnboardingWizard({
     mainGoals,
     occupation,
     occupationOther,
-    payDay: payDay ? Math.max(1, Math.min(31, Number(payDay))) : null,
+    payDay:
+      payFrequency === "monthly"
+        ? (payDay ? Math.max(1, Math.min(31, Number(payDay))) : null)
+        : (parseDateOnly(payAnchorDate)?.getDate() ?? null),
+    payAnchorDate: payFrequency === "monthly" ? null : (payAnchorDate || null),
     payFrequency,
     billFrequency,
     monthlySalary: salary ? Number(salary) : null,
@@ -250,6 +278,7 @@ export default function OnboardingWizard({
           <div className="space-y-3">
             <p className="text-sm text-slate-300">What kind of work do you do?</p>
             <select
+              aria-label="Occupation"
               value={occupation}
               onChange={(e) => setOccupation(e.target.value)}
               className="w-full rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2"
@@ -274,27 +303,18 @@ export default function OnboardingWizard({
 
         {step === 2 ? (
           <div className="space-y-3">
-            <p className="text-sm text-slate-300">What day of the month do you usually get paid?</p>
-            <input
-              type="number"
-              min={1}
-              max={31}
-              value={payDay}
-              onChange={(e) => setPayDay(e.target.value)}
-              placeholder="For example: 27"
-              className="w-full rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2"
-            />
             <p className="text-sm text-slate-300">How often do you get paid?</p>
             <div className="flex flex-wrap gap-2">
               {[
                 { id: "monthly", label: "Monthly" },
                 { id: "every_2_weeks", label: "Every 2 weeks" },
+                { id: "every_4_weeks", label: "Every 4 weeks" },
                 { id: "weekly", label: "Weekly" },
               ].map((option) => (
                 <button
                   key={option.id}
                   type="button"
-                  onClick={() => setPayFrequency(option.id as "monthly" | "every_2_weeks" | "weekly")}
+                  onClick={() => setPayFrequency(option.id as "monthly" | "every_2_weeks" | "every_4_weeks" | "weekly")}
                   className={`rounded-lg border px-3 py-2 text-sm ${
                     payFrequency === option.id ? "border-purple-300 bg-purple-500/20" : "border-white/10 bg-slate-950/30"
                   }`}
@@ -303,6 +323,34 @@ export default function OnboardingWizard({
                 </button>
               ))}
             </div>
+            {payFrequency === "monthly" ? (
+              <>
+                <p className="text-sm text-slate-300">What day of the month do you usually get paid?</p>
+                <input
+                  type="number"
+                  min={1}
+                  max={31}
+                  value={payDay}
+                  onChange={(e) => setPayDay(e.target.value)}
+                  placeholder="For example: 27"
+                  className="w-full rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2"
+                />
+                <p className="text-xs text-slate-400">Enter just the day number, from 1 to 31.</p>
+              </>
+            ) : null}
+            {payFrequency !== "monthly" ? (
+              <>
+                <p className="text-sm text-slate-300">Enter the last date or the next date you are getting paid.</p>
+                <input
+                  type="date"
+                  value={payAnchorDate}
+                  onChange={(e) => setPayAnchorDate(e.target.value)}
+                  aria-label="Last or next payday"
+                  className="w-full rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2"
+                />
+                <p className="text-xs text-slate-400">We&apos;ll use this to anchor weekly, 2-week, and 4-week pay periods.</p>
+              </>
+            ) : null}
             <p className="text-sm text-slate-300">How often do you usually pay most bills?</p>
             <div className="flex flex-wrap gap-2">
               {[
@@ -421,6 +469,18 @@ export default function OnboardingWizard({
             <button
               type="button"
               onClick={async () => {
+                if (step === 2) {
+                  if (payFrequency === "monthly") {
+                    const payDayNumber = Number(payDay);
+                    if (!Number.isFinite(payDayNumber) || payDayNumber < 1 || payDayNumber > 31) {
+                      setError("Please enter the day of the month you get paid before continuing.");
+                      return;
+                    }
+                  } else if (!parseDateOnly(payAnchorDate)) {
+                    setError("Please choose the last date or next date you get paid before continuing.");
+                    return;
+                  }
+                }
                 if (step === 3 && !hasAllBillNames) {
                   setError("Please add a name for each bill before continuing.");
                   return;

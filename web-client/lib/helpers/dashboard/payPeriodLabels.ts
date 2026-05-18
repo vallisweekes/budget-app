@@ -10,6 +10,7 @@ export function getDashboardPayPeriodLabels(
 	now: Date,
 	payDate: number,
 	payFrequency: PayFrequency = "monthly",
+	payAnchorDate?: Date | string | null,
 	planCreatedAt?: Date | null,
 ): {
 	payPeriodLabel: string;
@@ -20,6 +21,7 @@ export function getDashboardPayPeriodLabels(
 		now,
 		payDate: safePayDate,
 		payFrequency,
+		payAnchorDate,
 		planCreatedAt,
 	});
 
@@ -29,6 +31,7 @@ export function getDashboardPayPeriodLabels(
 		now: previousPeriodEnd,
 		payDate: safePayDate,
 		payFrequency,
+		payAnchorDate,
 	});
 
 	return {

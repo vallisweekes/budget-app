@@ -17,9 +17,14 @@ export type GoalDetailFormProps = {
   description: string;
   targetAmount: string;
   targetYear: string;
+  currentAmountDraft: string;
   currentAmount: number;
+  currentAmountEditable: boolean;
+  currentAmountHint: string;
+  currentAmountLabel: string;
   currency?: string | null;
   disabled: boolean;
+  onCurrentAmountChange: (value: string) => void;
   onTitleChange: (value: string) => void;
   onDescriptionChange: (value: string) => void;
   onTargetAmountChange: (value: string) => void;

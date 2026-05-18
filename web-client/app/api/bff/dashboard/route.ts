@@ -22,12 +22,14 @@ import {
 	logDerivedSummaryCacheEvent,
 } from "@/lib/cache/dashboardCache";
 import { getEarlyPaymentWindowStart } from "@/lib/helpers/finance/earlyPaymentWindow";
-import { getCurrentPeriodKey, getPeriodKey, parsePeriodKeyRange } from "@/lib/helpers/periodKey";
 import { prisma } from "@/lib/prisma";
-import { supportsOnboardingCadenceFields as detectOnboardingCadenceFields } from "@/lib/prisma/capabilities";
+import { supportsOnboardingCadenceFields as detectOnboardingCadenceFields, supportsOnboardingPayAnchorDateField } from "@/lib/prisma/capabilities";
 import { isRedisConfigured } from "@/lib/redis";
 import {
 	buildPayPeriodFromMonthAnchor,
+	getPayPeriodKeyForDate,
+	getPayPeriodWindowFromPeriodKey,
+	getPreviousPayPeriodKey,
 	normalizeBillFrequency,
 	normalizePayFrequency,
 	resolveActivePayPeriodWindow,
@@ -85,6 +87,7 @@ export async function GET(req: NextRequest) {
 				occupation: unknown;
 				payFrequency?: unknown;
 				billFrequency?: unknown;
+				payAnchorDate?: unknown;
 				monthlySalary: unknown;
 				expenseOneName: unknown;
 				expenseOneAmount: unknown;
@@ -102,6 +105,7 @@ export async function GET(req: NextRequest) {
 			}
 			| null = null;
 		const includeCadenceFields = await detectOnboardingCadenceFields();
+		const includePayAnchorDate = await supportsOnboardingPayAnchorDateField();
 		try {
 			onboarding = await prisma.userOnboardingProfile.findUnique({
 				where: { userId },
@@ -113,6 +117,7 @@ export async function GET(req: NextRequest) {
 					mainGoals: true,
 					occupation: true,
 					...(includeCadenceFields ? { payFrequency: true, billFrequency: true } : {}),
+					...(includePayAnchorDate ? { payAnchorDate: true } : {}),
 					monthlySalary: true,
 					expenseOneName: true,
 					expenseOneAmount: true,
@@ -141,6 +146,7 @@ export async function GET(req: NextRequest) {
 						mainGoal: true,
 						occupation: true,
 						...(includeCadenceFields ? { payFrequency: true, billFrequency: true } : {}),
+						...(includePayAnchorDate ? { payAnchorDate: true } : {}),
 						monthlySalary: true,
 						expenseOneName: true,
 						expenseOneAmount: true,
@@ -178,6 +184,7 @@ export async function GET(req: NextRequest) {
 		// Compute using the ACTIVE pay-period window so totals match the period label.
 		const payDay = typeof payDate === "number" && Number.isFinite(payDate) ? payDate : 1;
 		const payFrequency = normalizePayFrequency(onboarding?.payFrequency);
+		const payAnchorDate = onboarding?.payAnchorDate instanceof Date ? onboarding.payAnchorDate.toISOString() : null;
 		const billFrequency = normalizeBillFrequency(onboarding?.billFrequency);
 		const requestedMonthRaw = Number(searchParams.get("month"));
 		const requestedYearRaw = Number(searchParams.get("year"));
@@ -195,6 +202,7 @@ export async function GET(req: NextRequest) {
 				anchorYear: requestedAnchorYear,
 				payDate: payDay,
 				payFrequency,
+				payAnchorDate,
 			});
 			const pointInWindow = new Date(window.start.getTime());
 			pointInWindow.setUTCHours(12, 0, 0, 0);
@@ -205,6 +213,7 @@ export async function GET(req: NextRequest) {
 			now: dashboardNow,
 			payDate: payDay,
 			payFrequency,
+			payAnchorDate,
 			planCreatedAt: effectiveCreatedAt,
 		});
 		const dashboardCacheKey = getDashboardCacheKey({
@@ -241,12 +250,14 @@ export async function GET(req: NextRequest) {
 			now: dashboardNow,
 			payDate: payDay,
 			payFrequency,
+			payAnchorDate,
 			planCreatedAt: effectiveCreatedAt,
 		});
 		const { payPeriodLabel, previousPayPeriodLabel } = getDashboardPayPeriodLabels(
 			dashboardNow,
 			payDay,
 			payFrequency,
+			payAnchorDate,
 			effectiveCreatedAt,
 		);
 
@@ -282,6 +293,7 @@ export async function GET(req: NextRequest) {
 						budgetPlanId,
 						payDate,
 						payFrequency,
+						payAnchorDate,
 						now: dashboardNow,
 						userId,
 						planCreatedAt: effectiveCreatedAt,
@@ -394,9 +406,25 @@ export async function GET(req: NextRequest) {
 			try {
 				// Use periodKey so debt tracking is consistent with the period-based
 				// pattern used everywhere else.
-				const periodKey = getCurrentPeriodKey(payDay);
-				const { start: periodStart } = parsePeriodKeyRange(periodKey, payDay);
-				const prevPeriodKey = getPeriodKey(new Date(periodStart.getTime() - 24 * 60 * 60 * 1000), payDay);
+				const periodKey = getPayPeriodKeyForDate({
+					date: dashboardNow,
+					payDate: payDay,
+					payFrequency,
+					payAnchorDate,
+					planCreatedAt: effectiveCreatedAt,
+				});
+				const { start: periodStart } = getPayPeriodWindowFromPeriodKey({
+					periodKey,
+					payDate: payDay,
+					payFrequency,
+				});
+				const prevPeriodKey = getPreviousPayPeriodKey({
+					periodKey,
+					payDate: payDay,
+					payFrequency,
+					payAnchorDate,
+					planCreatedAt: effectiveCreatedAt,
+				});
 				const earlyPaymentStart = getEarlyPaymentWindowStart(periodStart);
 
 				const monthPayments = await prisma.debtPayment.groupBy({

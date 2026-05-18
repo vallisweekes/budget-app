@@ -27,6 +27,7 @@ function shiftAnchor(anchor: PeriodAnchor, delta: number): PeriodAnchor {
 export async function resolveDisplayedPayPeriodAnchor(params: {
   budgetPlanId: string;
   payDate: number;
+  payAnchorDate?: string | null;
   payFrequency: PayFrequency;
   planCreatedAt?: Date | null;
   now?: Date;
@@ -35,6 +36,7 @@ export async function resolveDisplayedPayPeriodAnchor(params: {
   const active = resolveActivePayPeriod({
     now,
     payDate: params.payDate,
+    payAnchorDate: params.payAnchorDate,
     payFrequency: params.payFrequency,
     planCreatedAt: params.planCreatedAt,
   });
@@ -44,6 +46,7 @@ export async function resolveDisplayedPayPeriodAnchor(params: {
     year: activeAnchor.year,
     month: activeAnchor.month,
     payDate: params.payDate,
+    payAnchorDate: params.payAnchorDate,
     payFrequency: params.payFrequency,
   });
   const activePeriodEnd = new Date(activePeriod.end.getTime());

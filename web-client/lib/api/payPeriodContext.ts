@@ -25,11 +25,12 @@ export async function resolveUserPayPeriodContext(params: {
   month: number;
   year: number;
   payDate: number;
+  payAnchorDate: string | null;
   payFrequency: PayFrequency;
   window: { start: Date; end: Date };
 }> {
   const { userId, budgetPlanId } = params;
-  const { userId: ownerUserId, payDate, payFrequency, window } = await resolveBudgetPlanPayPeriodContext({
+  const { userId: ownerUserId, payDate, payAnchorDate, payFrequency, window } = await resolveBudgetPlanPayPeriodContext({
     budgetPlanId,
     now: params.now,
   });
@@ -45,7 +46,7 @@ export async function resolveUserPayPeriodContext(params: {
   const month = parseMonth(params.requestedMonth) ?? fallbackMonth;
   const year = parseYear(params.requestedYear) ?? fallbackYear;
 
-  return { month, year, payDate, payFrequency, window };
+  return { month, year, payDate, payAnchorDate, payFrequency, window };
 }
 
 function latestDate(...dates: Array<Date | null | undefined>): Date | null {
@@ -60,6 +61,7 @@ export async function resolveBudgetPlanPayPeriodContext(params: {
 }): Promise<{
   userId: string;
   payDate: number;
+  payAnchorDate: string | null;
   payFrequency: PayFrequency;
   window: { start: Date; end: Date };
   effectiveStartAt: Date | null;
@@ -75,11 +77,12 @@ export async function resolveBudgetPlanPayPeriodContext(params: {
 
   const profile = await prisma.userOnboardingProfile.findUnique({
     where: { userId: plan.userId },
-    select: { payFrequency: true, completedAt: true, updatedAt: true, status: true },
+    select: { payFrequency: true, payAnchorDate: true, completedAt: true, updatedAt: true, status: true },
   }).catch(() => null);
 
   const payDateRaw = Number(plan.payDate ?? 27);
   const payDate = Number.isFinite(payDateRaw) && payDateRaw >= 1 ? Math.floor(payDateRaw) : 27;
+  const payAnchorDate = profile?.payAnchorDate instanceof Date ? profile.payAnchorDate.toISOString() : null;
   const payFrequency = normalizePayFrequency(profile?.payFrequency);
   const effectiveStartAt = latestDate(
     plan.createdAt,
@@ -91,8 +94,9 @@ export async function resolveBudgetPlanPayPeriodContext(params: {
   return {
     userId: plan.userId,
     payDate,
+    payAnchorDate,
     payFrequency,
-    window: resolveActivePayPeriodWindow({ now, payDate, payFrequency, planCreatedAt: effectiveStartAt }),
+    window: resolveActivePayPeriodWindow({ now, payDate, payAnchorDate, payFrequency, planCreatedAt: effectiveStartAt }),
     effectiveStartAt,
   };
 }

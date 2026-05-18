@@ -45,8 +45,8 @@ function shiftToNextMonth(year: number, month: number): { year: number; month: n
   return { year, month };
 }
 
-function cadenceLabel(value: string | null | undefined): "monthly" | "every_2_weeks" | "weekly" {
-  if (value === "every_2_weeks" || value === "weekly") return value;
+function cadenceLabel(value: string | null | undefined): "monthly" | "every_2_weeks" | "every_4_weeks" | "weekly" {
+  if (value === "every_2_weeks" || value === "every_4_weeks" || value === "weekly") return value;
   return "monthly";
 }
 

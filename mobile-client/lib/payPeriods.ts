@@ -1,9 +1,11 @@
 import { MONTH_NAMES_SHORT } from "@/lib/formatting";
 
-export type PayFrequency = "monthly" | "every_2_weeks" | "weekly";
+export type PayFrequency = "monthly" | "every_2_weeks" | "every_4_weeks" | "weekly";
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 export function normalizePayFrequency(value: unknown): PayFrequency {
-  if (value === "weekly" || value === "every_2_weeks") return value;
+  if (value === "weekly" || value === "every_2_weeks" || value === "every_4_weeks") return value;
   return "monthly";
 }
 
@@ -22,6 +24,74 @@ function addDays(date: Date, days: number): Date {
   return next;
 }
 
+function startOfLocalDay(date: Date): Date {
+  const next = new Date(date.getTime());
+  next.setHours(0, 0, 0, 0);
+  return next;
+}
+
+function parsePayAnchorDate(value: Date | string | null | undefined): Date | null {
+  if (value == null || value === "") return null;
+  const parsed = value instanceof Date
+    ? new Date(value.getTime())
+    : typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value.trim())
+      ? new Date(`${value.trim()}T00:00:00`)
+      : new Date(String(value));
+  if (!Number.isFinite(parsed.getTime())) return null;
+  return startOfLocalDay(parsed);
+}
+
+function resolveAnchoredIntervalStart(params: {
+  date: Date;
+  payAnchorDate: Date;
+  step: number;
+}): Date {
+  const target = startOfLocalDay(params.date);
+  const anchor = startOfLocalDay(params.payAnchorDate);
+  const diffDays = Math.floor((target.getTime() - anchor.getTime()) / DAY_MS);
+  return addDays(anchor, Math.floor(diffDays / params.step) * params.step);
+}
+
+function resolveAnchoredMonthStart(params: {
+  year: number;
+  month: number;
+  payAnchorDate: Date;
+  step: number;
+}): Date {
+  const targetStart = new Date(params.year, params.month - 1, 1);
+  targetStart.setHours(0, 0, 0, 0);
+  const targetEnd = new Date(params.year, params.month, 0);
+  targetEnd.setHours(0, 0, 0, 0);
+  const anchor = startOfLocalDay(params.payAnchorDate);
+  const diffDays = Math.floor((targetStart.getTime() - anchor.getTime()) / DAY_MS);
+  let candidate = addDays(anchor, Math.floor(diffDays / params.step) * params.step);
+
+  while (candidate.getTime() < targetStart.getTime()) {
+    candidate = addDays(candidate, params.step);
+  }
+
+  const candidates: Date[] = [];
+  let cursor = candidate;
+  while (cursor.getTime() <= targetEnd.getTime()) {
+    candidates.push(cursor);
+    cursor = addDays(cursor, params.step);
+  }
+
+  if (candidates.length === 0) {
+    return candidate;
+  }
+
+  const referenceDay = anchor.getDate();
+  return candidates.reduce((best, current) => {
+    const bestDistance = Math.abs(best.getDate() - referenceDay);
+    const currentDistance = Math.abs(current.getDate() - referenceDay);
+    if (currentDistance !== bestDistance) {
+      return currentDistance < bestDistance ? current : best;
+    }
+    return current.getTime() < best.getTime() ? current : best;
+  });
+}
+
 function toLocalDateKey(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
@@ -38,6 +108,7 @@ function shiftMonthYear(params: { year: number; month: number; delta: number }):
 function dayWindowForFrequency(payFrequency: PayFrequency): number {
   if (payFrequency === "weekly") return 7;
   if (payFrequency === "every_2_weeks") return 14;
+  if (payFrequency === "every_4_weeks") return 28;
   return 0;
 }
 
@@ -45,6 +116,7 @@ export function resolveActivePayPeriod(params: {
   now?: Date;
   payDate: number;
   payFrequency: PayFrequency;
+  payAnchorDate?: Date | string | null;
   planCreatedAt?: Date | null;
 }): { start: Date; end: Date } {
   const now = params.now ?? new Date();
@@ -74,6 +146,15 @@ export function resolveActivePayPeriod(params: {
   }
 
   const span = dayWindowForFrequency(payFrequency);
+  const anchoredPayDate = parsePayAnchorDate(params.payAnchorDate);
+  if (anchoredPayDate) {
+    const start = resolveAnchoredIntervalStart({
+      date: now,
+      payAnchorDate: anchoredPayDate,
+      step: span,
+    });
+    return { start, end: addDays(start, span - 1) };
+  }
   const thisMonthAnchor = clampDay(now.getFullYear(), now.getMonth(), payDate);
   let start = now.getTime() >= thisMonthAnchor.getTime()
     ? thisMonthAnchor
@@ -147,6 +228,7 @@ export function buildPayPeriodFromMonthAnchor(params: {
   month: number;
   payDate: number;
   payFrequency: PayFrequency;
+  payAnchorDate?: Date | string | null;
 }): { start: Date; end: Date } {
   const payDate = Number.isFinite(params.payDate) && params.payDate >= 1 ? Math.floor(params.payDate) : 1;
 
@@ -158,7 +240,15 @@ export function buildPayPeriodFromMonthAnchor(params: {
   }
 
   const span = dayWindowForFrequency(params.payFrequency);
-  const start = clampDay(params.year, params.month - 1, payDate);
+  const anchoredPayDate = parsePayAnchorDate(params.payAnchorDate);
+  const start = anchoredPayDate
+    ? resolveAnchoredMonthStart({
+        year: params.year,
+        month: params.month,
+        payAnchorDate: anchoredPayDate,
+        step: span,
+      })
+    : clampDay(params.year, params.month - 1, payDate);
   const end = addDays(start, span - 1);
   return { start, end };
 }
@@ -172,12 +262,14 @@ export function getPayPeriodRangeLabelFromAnchor(params: {
   month: number;
   payDate: number;
   payFrequency: PayFrequency;
+  payAnchorDate?: Date | string | null;
 }): string {
   const period = buildPayPeriodFromMonthAnchor({
     year: params.year,
     month: params.month,
     payDate: params.payDate,
     payFrequency: params.payFrequency,
+    payAnchorDate: params.payAnchorDate,
   });
   return formatPayPeriodLabel(period.start, period.end);
 }
@@ -187,6 +279,7 @@ export function getPayPeriodRangeLabelFromSelection(params: {
   month: number;
   payDate: number;
   payFrequency: PayFrequency;
+  payAnchorDate?: Date | string | null;
 }): string {
   const anchor = getPayPeriodAnchorFromSelection({
     year: params.year,
@@ -199,6 +292,7 @@ export function getPayPeriodRangeLabelFromSelection(params: {
     month: anchor.month,
     payDate: params.payDate,
     payFrequency: params.payFrequency,
+    payAnchorDate: params.payAnchorDate,
   });
 }
 

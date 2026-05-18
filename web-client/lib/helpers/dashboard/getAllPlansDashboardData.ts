@@ -13,6 +13,7 @@ async function loadActivePayPeriodDashboardPlanData(planId: string, now: Date): 
 		now,
 		payDate: payPeriodContext.payDate,
 		payFrequency: payPeriodContext.payFrequency,
+		payAnchorDate: payPeriodContext.payAnchorDate,
 		planCreatedAt: payPeriodContext.effectiveStartAt,
 		ensureDefaultCategories: false,
 	});

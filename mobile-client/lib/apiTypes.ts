@@ -1,3 +1,5 @@
+import type { BillFrequency, PayFrequency } from "@/types/settings";
+
 /** Shared type definitions mirroring the web-client /api/bff/* response shapes */
 
 export interface Category {
@@ -304,8 +306,9 @@ export interface Goal {
 export interface Settings {
   id: string;
   payDate: number | null;
-  payFrequency?: "monthly" | "every_2_weeks" | "weekly" | null;
-  billFrequency?: "monthly" | "every_2_weeks" | null;
+  payAnchorDate?: string | null;
+  payFrequency?: PayFrequency | null;
+  billFrequency?: BillFrequency | null;
   monthlyAllowance: string | null;
   savingsBalance: string | null;
   emergencyBalance?: string | null;
@@ -358,8 +361,8 @@ export interface UserProfile {
   plans: BudgetPlanListItem[];
   accountCreatedAt: string | null;
   setupCompletedAt: string | null;
-  payFrequency: "monthly" | "every_2_weeks" | "weekly";
-  billFrequency: "monthly" | "every_2_weeks";
+  payFrequency: PayFrequency;
+  billFrequency: BillFrequency;
 }
 
 export type OnboardingGoal = "improve_savings" | "emergency_fund" | "investments" | "manage_debts" | "track_spending" | "build_budget";
@@ -370,8 +373,9 @@ export interface OnboardingProfile {
   occupation: string | null;
   occupationOther: string | null;
   payDay?: string | number | null;
-  payFrequency?: "monthly" | "every_2_weeks" | "weekly" | null;
-  billFrequency?: "monthly" | "every_2_weeks" | null;
+  payAnchorDate?: string | null;
+  payFrequency?: PayFrequency | null;
+  billFrequency?: BillFrequency | null;
   monthlySalary: string | number | null;
   planningYears?: string | number | null;
   savingsGoalAmount?: string | number | null;
@@ -436,7 +440,7 @@ export interface ExpenseMonthsResponse {
 export interface ExpensePayPeriodMonthsResponse {
   year: number;
   payDate?: number | null;
-  payFrequency?: "monthly" | "every_2_weeks" | "weekly";
+  payFrequency?: PayFrequency;
   months: Array<{
     year: number;
     month: number;
@@ -596,7 +600,7 @@ export interface DashboardData {
 
   // Meta
   payDate: number;
-  payFrequency?: "monthly" | "every_2_weeks" | "weekly";
+  payFrequency?: PayFrequency;
   billFrequency?: "monthly" | "every_2_weeks";
   payPeriodLabel?: string;
   previousPayPeriodLabel?: string;

@@ -1,12 +1,13 @@
 import { prisma } from "@/lib/prisma";
-import { supportsOnboardingCadenceFields as detectOnboardingCadenceFields } from "@/lib/prisma/capabilities";
+import { supportsOnboardingCadenceFields as detectOnboardingCadenceFields, supportsOnboardingPayAnchorDateField } from "@/lib/prisma/capabilities";
 import { resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
-import { normalizeBillFrequency, normalizePayFrequency } from "@/lib/payPeriods";
+import { normalizeBillFrequency, normalizePayFrequency, type PayFrequency } from "@/lib/payPeriods";
 
 export type BootstrapSettingsPayload = {
   id: string;
   payDate: number | null;
-  payFrequency: "monthly" | "every_2_weeks" | "weekly";
+  payAnchorDate: string | null;
+  payFrequency: PayFrequency;
   billFrequency: "monthly" | "every_2_weeks";
   monthlyAllowance: unknown;
   savingsBalance: unknown;
@@ -152,10 +153,13 @@ async function getInvestmentBalanceFallback(budgetPlanId: string): Promise<numbe
 function isUnknownCadenceFieldError(error: unknown): boolean {
   const message = String((error as { message?: unknown } | null | undefined)?.message ?? error);
   return (
+    /Unknown field `payAnchorDate`/i.test(message) ||
     /Unknown field `payFrequency`/i.test(message) ||
     /Unknown field `billFrequency`/i.test(message) ||
+    /Unknown arg(ument)? `payAnchorDate`/i.test(message) ||
     /Unknown arg(ument)? `payFrequency`/i.test(message) ||
     /Unknown arg(ument)? `billFrequency`/i.test(message) ||
+    /data\.payAnchorDate/i.test(message) ||
     /data\.payFrequency/i.test(message) ||
     /data\.billFrequency/i.test(message)
   );
@@ -164,11 +168,13 @@ function isUnknownCadenceFieldError(error: unknown): boolean {
 let supportsCadenceFields: boolean | null = null;
 
 async function getCadenceForUser(userId: string): Promise<{
-  payFrequency: "monthly" | "every_2_weeks" | "weekly";
+  payAnchorDate: string | null;
+  payFrequency: PayFrequency;
   billFrequency: "monthly" | "every_2_weeks";
 }> {
   if (supportsCadenceFields === false) {
     return {
+      payAnchorDate: null,
       payFrequency: "monthly",
       billFrequency: "monthly",
     };
@@ -177,18 +183,21 @@ async function getCadenceForUser(userId: string): Promise<{
   if (!(await detectOnboardingCadenceFields())) {
     supportsCadenceFields = false;
     return {
+      payAnchorDate: null,
       payFrequency: "monthly",
       billFrequency: "monthly",
     };
   }
 
   try {
+    const includePayAnchorDate = await supportsOnboardingPayAnchorDateField();
     const profile = await prisma.userOnboardingProfile.findUnique({
       where: { userId },
-      select: { payFrequency: true, billFrequency: true },
+      select: { payFrequency: true, billFrequency: true, ...(includePayAnchorDate ? { payAnchorDate: true } : {}) },
     });
     supportsCadenceFields = true;
     return {
+      payAnchorDate: profile?.payAnchorDate instanceof Date ? profile.payAnchorDate.toISOString() : null,
       payFrequency: normalizePayFrequency(profile?.payFrequency),
       billFrequency: normalizeBillFrequency(profile?.billFrequency),
     };
@@ -196,6 +205,7 @@ async function getCadenceForUser(userId: string): Promise<{
     if (!isUnknownCadenceFieldError(error)) throw error;
     supportsCadenceFields = false;
     return {
+      payAnchorDate: null,
       payFrequency: "monthly",
       billFrequency: "monthly",
     };
@@ -229,7 +239,7 @@ function buildSettingsPayload(params: {
   incomeDistributeHorizonDefault: boolean;
   accountCreatedAt: string | null;
   setupCompletedAt: string | null;
-  cadence: { payFrequency: "monthly" | "every_2_weeks" | "weekly"; billFrequency: "monthly" | "every_2_weeks" };
+  cadence: { payFrequency: PayFrequency; billFrequency: "monthly" | "every_2_weeks" };
   monthlyEmergencyContribution: unknown;
 }): BootstrapSettingsPayload {
   const {
@@ -247,6 +257,7 @@ function buildSettingsPayload(params: {
 
   return {
     ...plan,
+    payAnchorDate: cadence.payAnchorDate,
     emergencyBalance,
     investmentBalance,
     budgetHorizonYears,

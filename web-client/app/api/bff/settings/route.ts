@@ -1,8 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { supportsOnboardingCadenceFields as detectOnboardingCadenceFields } from "@/lib/prisma/capabilities";
+import { supportsOnboardingCadenceFields as detectOnboardingCadenceFields, supportsOnboardingPayAnchorDateField } from "@/lib/prisma/capabilities";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
-import { normalizeBillFrequency, normalizePayFrequency } from "@/lib/payPeriods";
+import { normalizeBillFrequency, normalizePayFrequency, type PayFrequency } from "@/lib/payPeriods";
 import { syncGoalCurrentAmountsFromBalances } from "@/lib/goals/syncGoalCurrentAmountsFromBalances";
 import { invalidateGoalConnectedState } from "@/lib/goals/invalidateGoalConnectedState";
 import { invalidateProfileCache } from "@/lib/cache/profileCache";
@@ -221,10 +221,13 @@ function normalizeHomepageGoalIds(value: unknown): string[] | null {
 function isUnknownCadenceFieldError(error: unknown): boolean {
   const message = String((error as any)?.message ?? error);
   return (
+    /Unknown field `payAnchorDate`/i.test(message) ||
     /Unknown field `payFrequency`/i.test(message) ||
     /Unknown field `billFrequency`/i.test(message) ||
+    /Unknown arg(ument)? `payAnchorDate`/i.test(message) ||
     /Unknown arg(ument)? `payFrequency`/i.test(message) ||
     /Unknown arg(ument)? `billFrequency`/i.test(message) ||
+    /data\.payAnchorDate/i.test(message) ||
     /data\.payFrequency/i.test(message) ||
     /data\.billFrequency/i.test(message)
   );
@@ -233,11 +236,13 @@ function isUnknownCadenceFieldError(error: unknown): boolean {
 let supportsCadenceFields: boolean | null = null;
 
 async function getCadenceForUser(userId: string): Promise<{
-  payFrequency: "monthly" | "every_2_weeks" | "weekly";
+  payAnchorDate: string | null;
+  payFrequency: PayFrequency;
   billFrequency: "monthly" | "every_2_weeks";
 }> {
   if (supportsCadenceFields === false) {
     return {
+      payAnchorDate: null,
       payFrequency: "monthly",
       billFrequency: "monthly",
     };
@@ -246,18 +251,21 @@ async function getCadenceForUser(userId: string): Promise<{
   if (!(await detectOnboardingCadenceFields())) {
     supportsCadenceFields = false;
     return {
+      payAnchorDate: null,
       payFrequency: "monthly",
       billFrequency: "monthly",
     };
   }
 
   try {
+    const includePayAnchorDate = await supportsOnboardingPayAnchorDateField();
     const profile = await prisma.userOnboardingProfile.findUnique({
       where: { userId },
-      select: { payFrequency: true, billFrequency: true },
+      select: { payFrequency: true, billFrequency: true, ...(includePayAnchorDate ? { payAnchorDate: true } : {}) },
     });
     supportsCadenceFields = true;
     return {
+      payAnchorDate: profile?.payAnchorDate instanceof Date ? profile.payAnchorDate.toISOString() : null,
       payFrequency: normalizePayFrequency(profile?.payFrequency),
       billFrequency: normalizeBillFrequency(profile?.billFrequency),
     };
@@ -265,6 +273,7 @@ async function getCadenceForUser(userId: string): Promise<{
     if (!isUnknownCadenceFieldError(error)) throw error;
     supportsCadenceFields = false;
     return {
+      payAnchorDate: null,
       payFrequency: "monthly",
       billFrequency: "monthly",
     };
@@ -273,7 +282,7 @@ async function getCadenceForUser(userId: string): Promise<{
 
 async function saveCadenceForUser(
   userId: string,
-  values: { payFrequency?: "monthly" | "every_2_weeks" | "weekly"; billFrequency?: "monthly" | "every_2_weeks" }
+  values: { payFrequency?: PayFrequency; billFrequency?: "monthly" | "every_2_weeks" }
 ): Promise<void> {
   if (typeof values.payFrequency === "undefined" && typeof values.billFrequency === "undefined") return;
   if (supportsCadenceFields === false) return;
@@ -373,6 +382,7 @@ export async function GET(req: NextRequest) {
       incomeDistributeHorizonDefault: incomeDefaultsFromPlan.horizon ?? incomeDefaultsFallback.horizon,
       accountCreatedAt,
       setupCompletedAt,
+      payAnchorDate: cadence.payAnchorDate,
       payFrequency: cadence.payFrequency,
       billFrequency: cadence.billFrequency,
     });
@@ -433,6 +443,7 @@ export async function GET(req: NextRequest) {
               : incomeDefaultsFallback.horizon,
           accountCreatedAt: accountCreatedAt2,
           setupCompletedAt: setupCompletedAt2,
+          payAnchorDate: cadence.payAnchorDate,
           payFrequency: cadence.payFrequency,
           billFrequency: cadence.billFrequency,
         });
@@ -473,7 +484,7 @@ export async function PATCH(req: NextRequest) {
     const hasPayFrequency = typeof payFrequencyInput !== "undefined";
     const hasBillFrequency = typeof billFrequencyInput !== "undefined";
 
-    let nextPayFrequency: "monthly" | "every_2_weeks" | "weekly" = "monthly";
+    let nextPayFrequency: PayFrequency = "monthly";
     let nextBillFrequency: "monthly" | "every_2_weeks" = "monthly";
     if (hasPayFrequency) {
       nextPayFrequency = normalizePayFrequency(payFrequencyInput);
@@ -637,6 +648,7 @@ export async function PATCH(req: NextRequest) {
             typeof (plan as any).incomeDistributeHorizonDefault === "boolean"
               ? (plan as any).incomeDistributeHorizonDefault
               : nextIncomeDefaults.horizon,
+          payAnchorDate: cadence.payAnchorDate,
           payFrequency: cadence.payFrequency,
           billFrequency: cadence.billFrequency,
         });
@@ -689,6 +701,7 @@ export async function PATCH(req: NextRequest) {
           typeof (updated as any).incomeDistributeHorizonDefault === "boolean"
             ? (updated as any).incomeDistributeHorizonDefault
             : nextIncomeDefaults.horizon,
+        payAnchorDate: cadence.payAnchorDate,
         payFrequency: cadence.payFrequency,
         billFrequency: cadence.billFrequency,
       });
@@ -746,6 +759,7 @@ export async function PATCH(req: NextRequest) {
         monthlyEmergencyContribution: unknownMonthlyEmergency ? 0 : (updated as any).monthlyEmergencyContribution,
       emergencyBalance: nextEmergencyBalance,
       investmentBalance: nextInvestmentBalance,
+      payAnchorDate: cadence.payAnchorDate,
       payFrequency: cadence.payFrequency,
       billFrequency: cadence.billFrequency,
       });

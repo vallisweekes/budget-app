@@ -383,6 +383,7 @@ export async function getDashboardExpenseInsights({
 	budgetPlanId,
 	payDate,
 	payFrequency,
+	payAnchorDate,
 	now,
 	userId,
 	planCreatedAt,
@@ -390,6 +391,7 @@ export async function getDashboardExpenseInsights({
 	budgetPlanId: string;
 	payDate: number;
 	payFrequency?: PayFrequency;
+	payAnchorDate?: Date | string | null;
 	now: Date;
 	userId?: string | null;
 	planCreatedAt?: Date | null;
@@ -404,6 +406,7 @@ export async function getDashboardExpenseInsights({
 		now,
 		payDate,
 		payFrequency: normalizedPayFrequency,
+		payAnchorDate,
 		planCreatedAt,
 	});
 	const currentYear = now.getFullYear();
@@ -690,6 +693,7 @@ export async function getDashboardExpenseInsights({
 		now: selectedBase.due ?? now,
 		payDate,
 		payFrequency: normalizedPayFrequency,
+		payAnchorDate,
 		planCreatedAt,
 	});
 	const selectedWindowUpcomingExpenses = filterUpcomingForWindow(upcomingExpenses, selectedWindow);

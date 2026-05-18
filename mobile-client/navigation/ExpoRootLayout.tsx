@@ -108,15 +108,20 @@ function useSessionRouteGuardState() {
   const pathname = usePathname();
   const segments = useSegments() as string[];
   const { token, isLoading } = useAuth();
-  const { isLoading: bootstrapLoading } = useBootstrapData();
+  const { isLoading: bootstrapLoading, dashboard } = useBootstrapData();
   const onboarding = useOnboardingGate();
   const verification = useEmailVerificationGate();
+  const hasDashboardData = Boolean(dashboard);
 
   const rootSegment = typeof segments[0] === "string" ? segments[0] : "";
   const childSegment = typeof segments[1] === "string" ? segments[1] : "";
   const inAuthGroup = rootSegment === "(auth)" || pathname === "/login" || pathname === "/onboarding";
   const onOnboardingRoute = (rootSegment === "(auth)" && childSegment === "onboarding") || pathname === "/onboarding";
   const onVerificationRoute = (rootSegment === "(auth)" && childSegment === "verify-email") || pathname === "/verify-email";
+
+  if (token && hasDashboardData && !onboarding.required && !verification.blocked) {
+    return { mode: "ready" as const };
+  }
 
   if (isLoading || (token && (onboarding.busy || verification.busy))) {
     return { mode: "loading" as const };

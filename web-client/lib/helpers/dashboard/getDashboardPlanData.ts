@@ -286,11 +286,12 @@ export async function getDashboardPlanDataForActivePayPeriod(
 		now: Date;
 		payDate: number;
 		payFrequency: PayFrequency;
+		payAnchorDate?: Date | string | null;
 		planCreatedAt?: Date | null;
 		ensureDefaultCategories?: boolean;
 	}
 ): Promise<DashboardPlanData> {
-	const { now, payDate, payFrequency, planCreatedAt } = params;
+	const { now, payDate, payFrequency, payAnchorDate, planCreatedAt } = params;
 	const ensureDefaultCategories = params.ensureDefaultCategories ?? true;
 
 	// Keep category defaults in sync even if the DB predates new defaults.
@@ -302,6 +303,7 @@ export async function getDashboardPlanDataForActivePayPeriod(
 		now,
 		payDate: Number.isFinite(payDate) && payDate >= 1 ? Math.floor(payDate) : 1,
 		payFrequency,
+		payAnchorDate,
 		planCreatedAt,
 	});
 

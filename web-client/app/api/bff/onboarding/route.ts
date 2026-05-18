@@ -75,8 +75,9 @@ export async function PATCH(request: Request) {
       occupation: typeof body.occupation === "string" ? body.occupation : null,
       occupationOther: typeof body.occupationOther === "string" ? body.occupationOther : null,
       payDay: asNumber(body.payDay),
+      payAnchorDate: typeof body.payAnchorDate === "string" ? body.payAnchorDate : null,
       payFrequency:
-        body.payFrequency === "monthly" || body.payFrequency === "every_2_weeks" || body.payFrequency === "weekly"
+        body.payFrequency === "monthly" || body.payFrequency === "every_2_weeks" || body.payFrequency === "every_4_weeks" || body.payFrequency === "weekly"
           ? body.payFrequency
           : null,
       billFrequency: body.billFrequency === "monthly" || body.billFrequency === "every_2_weeks" ? body.billFrequency : null,

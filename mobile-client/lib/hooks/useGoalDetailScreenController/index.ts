@@ -6,9 +6,33 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { apiFetch } from "@/lib/api";
 import type { Goal, Settings } from "@/lib/apiTypes";
-import { resolveGoalCurrentAmount } from "@/lib/helpers/settings";
+import { asMoneyText, mapSavingsFieldToBalanceField, resolveGoalCurrentAmount } from "@/lib/helpers/settings";
 import { getEffectiveHomepageGoals } from "@/components/DashboardScreen/derived";
 import type { RootStackParamList } from "@/navigation/types";
+
+type LinkedGoalField = "savings" | "emergency" | "investment";
+
+function resolveLinkedGoalField(category: unknown): LinkedGoalField | null {
+  const normalized = String(category ?? "").trim().toLowerCase();
+  if (normalized === "savings" || normalized === "emergency" || normalized === "investment") {
+    return normalized;
+  }
+  return null;
+}
+
+function getLinkedGoalAmountLabel(field: LinkedGoalField | null): string {
+  if (field === "savings") return "Current savings";
+  if (field === "emergency") return "Current emergency funds";
+  if (field === "investment") return "Current investments";
+  return "Current progress";
+}
+
+function getLinkedGoalAmountHint(field: LinkedGoalField | null): string {
+  if (!field) {
+    return "Linked to settings balances and monthly allocations";
+  }
+  return "Saves to Money settings so linked balances and sacrifices stay in sync.";
+}
 
 type GoalDetailRoute = RouteProp<RootStackParamList, "GoalDetail">;
 type GoalDetailNav = NativeStackNavigationProp<RootStackParamList, "GoalDetail">;
@@ -46,6 +70,7 @@ export function useGoalDetailScreenController(params: GoalDetailRoute["params"])
   const [description, setDescription] = useState("");
   const [targetAmount, setTargetAmount] = useState("");
   const [targetYear, setTargetYear] = useState("");
+  const [currentAmountDraft, setCurrentAmountDraft] = useState("");
   const [showOnHome, setShowOnHome] = useState(false);
 
   const effectiveHomepageGoals = useMemo(() => {
@@ -60,11 +85,14 @@ export function useGoalDetailScreenController(params: GoalDetailRoute["params"])
   const populateForm = useCallback((nextGoal: Goal, nextSettings: Settings | null) => {
     const dashboardGoals = Array.isArray(dashboard?.goals) ? dashboard.goals : [];
     const nextEffectiveHomepageGoalIds = new Set(getEffectiveHomepageGoals(dashboardGoals, nextSettings?.homepageGoalIds).map((item) => item.id));
+    const nextCategory = String(nextGoal.category ?? "").trim().toLowerCase();
+    const nextCurrentAmount = resolveGoalCurrentAmount(nextCategory, nextGoal.currentAmount, nextSettings);
     setGoal(nextGoal);
     setTitle(String(nextGoal.title ?? ""));
     setDescription(String(nextGoal.description ?? ""));
     setTargetAmount(nextGoal.targetAmount ? String(nextGoal.targetAmount) : "");
     setTargetYear(nextGoal.targetYear ? String(nextGoal.targetYear) : "");
+    setCurrentAmountDraft(asMoneyText(nextCurrentAmount));
     setShowOnHome(nextEffectiveHomepageGoalIds.has(nextGoal.id));
   }, [dashboard?.goals]);
 
@@ -95,19 +123,32 @@ export function useGoalDetailScreenController(params: GoalDetailRoute["params"])
 
   const isDirty = useMemo(() => {
     if (!goal) return false;
+    const linkedGoalField = resolveLinkedGoalField(goal.category);
     const currentDescription = goal.description ?? "";
     const currentTargetAmount = goal.targetAmount ? String(goal.targetAmount) : "";
     const currentTargetYear = goal.targetYear ? String(goal.targetYear) : "";
     const currentShowOnHome = effectiveHomepageGoalIds.has(goal.id);
+    const currentAmountSource = resolveGoalCurrentAmount(goal.category, goal.currentAmount, settings);
+    const currentAmountParsed = parseAmount(currentAmountDraft);
+    const currentAmountValue = linkedGoalField
+      ? (typeof currentAmountParsed === "number" ? currentAmountParsed : 0)
+      : currentAmountSource;
+    const currentAmountChanged = linkedGoalField
+      ? Math.abs(currentAmountValue - currentAmountSource) > 0.0001
+      : false;
     return title.trim() !== goal.title
       || description.trim() !== currentDescription
       || targetAmount.trim() !== currentTargetAmount
       || targetYear.trim() !== currentTargetYear
-      || showOnHome !== currentShowOnHome;
-  }, [description, effectiveHomepageGoalIds, goal, showOnHome, targetAmount, targetYear, title]);
+      || showOnHome !== currentShowOnHome
+      || currentAmountChanged;
+  }, [currentAmountDraft, description, effectiveHomepageGoalIds, goal, settings, showOnHome, targetAmount, targetYear, title]);
 
   const handleSave = useCallback(async () => {
     if (!goal) return;
+
+    const linkedGoalField = resolveLinkedGoalField(goal.category);
+    const linkedBalanceField = linkedGoalField ? mapSavingsFieldToBalanceField(linkedGoalField) : null;
 
     const nextTitle = title.trim();
     if (!nextTitle) {
@@ -128,6 +169,21 @@ export function useGoalDetailScreenController(params: GoalDetailRoute["params"])
     }
 
     const budgetPlanId = dashboard?.budgetPlanId ?? goal.budgetPlanId ?? null;
+    if (linkedBalanceField && !budgetPlanId) {
+      Alert.alert("Settings unavailable", "Please reopen this goal and try again.");
+      return;
+    }
+
+    let nextCurrentAmount = 0;
+    if (linkedBalanceField) {
+      const parsedCurrentAmount = parseAmount(currentAmountDraft);
+      if (typeof parsedCurrentAmount === "undefined") {
+        Alert.alert("Invalid current amount", "Please enter a valid current amount.");
+        return;
+      }
+      nextCurrentAmount = parsedCurrentAmount ?? 0;
+    }
+
     const currentEffectiveHomepageGoalIds = effectiveHomepageGoals.map((item) => item.id);
     const allDashboardGoalIds = Array.isArray(dashboard?.goals) ? dashboard.goals.map((item) => item.id) : [];
 
@@ -160,11 +216,17 @@ export function useGoalDetailScreenController(params: GoalDetailRoute["params"])
       });
 
       if (budgetPlanId) {
+        const settingsChanges: Record<string, unknown> = {
+          homepageGoalIds: nextHomepageGoalIds,
+        };
+        if (linkedBalanceField) {
+          settingsChanges[linkedBalanceField] = nextCurrentAmount;
+        }
         await apiFetch<Settings>("/api/bff/settings", {
           method: "PATCH",
           body: {
             budgetPlanId,
-            homepageGoalIds: nextHomepageGoalIds,
+            ...settingsChanges,
           },
         });
       }
@@ -176,7 +238,7 @@ export function useGoalDetailScreenController(params: GoalDetailRoute["params"])
     } finally {
       setSaving(false);
     }
-  }, [dashboard?.budgetPlanId, dashboard?.goals, description, effectiveHomepageGoals, goal, navigation, refreshBootstrap, showOnHome, targetAmount, targetYear, title]);
+  }, [currentAmountDraft, dashboard?.budgetPlanId, dashboard?.goals, description, effectiveHomepageGoals, goal, navigation, refreshBootstrap, showOnHome, targetAmount, targetYear, title]);
 
   const handleDelete = useCallback(async () => {
     if (!goal) return;
@@ -205,13 +267,22 @@ export function useGoalDetailScreenController(params: GoalDetailRoute["params"])
   }, [dashboard?.budgetPlanId, goal, navigation, refreshBootstrap, settings?.homepageGoalIds]);
 
   const targetAmountNumber = parseAmount(targetAmount);
+  const linkedGoalField = resolveLinkedGoalField(goal?.category);
   const category = String(goal?.category ?? "").trim().toLowerCase();
-  const currentAmountNumber = resolveGoalCurrentAmount(category, goal?.currentAmount, settings);
+  const currentAmountSourceNumber = resolveGoalCurrentAmount(category, goal?.currentAmount, settings);
+  const currentAmountParsed = parseAmount(currentAmountDraft);
+  const currentAmountNumber = linkedGoalField
+    ? (typeof currentAmountParsed === "number" ? currentAmountParsed : 0)
+    : currentAmountSourceNumber;
   const progress = goal && typeof targetAmountNumber === "number" && targetAmountNumber > 0 && typeof currentAmountNumber === "number"
     ? Math.max(0, Math.min(1, currentAmountNumber / targetAmountNumber))
     : 0;
 
   return {
+    currentAmountDraft,
+    currentAmountEditable: Boolean(linkedGoalField),
+    currentAmountHint: getLinkedGoalAmountHint(linkedGoalField),
+    currentAmountLabel: getLinkedGoalAmountLabel(linkedGoalField),
     currentAmountNumber,
     deleteConfirmOpen,
     deleting,
@@ -227,6 +298,7 @@ export function useGoalDetailScreenController(params: GoalDetailRoute["params"])
     refreshing,
     saving,
     setDeleteConfirmOpen,
+    setCurrentAmountDraft,
     setDescription,
     setShowOnHome,
     setTargetAmount,

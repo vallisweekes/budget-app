@@ -256,6 +256,46 @@ export const onboardingStyles = StyleSheet.create({
   dropdownItemTextActive: {
     fontWeight: "900",
   },
+  dateSheetOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    paddingHorizontal: 16,
+    backgroundColor: "rgba(4, 8, 34, 0.45)",
+  },
+  dateSheetBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  dateSheetCard: {
+    borderWidth: 1,
+    borderColor: "rgba(197,218,255,0.32)",
+    borderRadius: 18,
+    backgroundColor: "rgba(9, 16, 70, 0.96)",
+    overflow: "hidden",
+  },
+  dateSheetHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(197,218,255,0.18)",
+  },
+  dateSheetCancel: {
+    color: "rgba(223,233,255,0.82)",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  dateSheetTitle: {
+    color: "#ffffff",
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  dateSheetDone: {
+    color: "#ffffff",
+    fontSize: 15,
+    fontWeight: "800",
+  },
   chip: {
     borderWidth: 1,
     borderColor: "rgba(202,224,255,0.38)",

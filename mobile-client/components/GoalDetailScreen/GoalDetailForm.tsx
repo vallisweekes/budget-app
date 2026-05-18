@@ -14,9 +14,14 @@ export default function GoalDetailForm(props: GoalDetailFormProps) {
     description,
     targetAmount,
     targetYear,
+    currentAmountDraft,
     currentAmount,
+    currentAmountEditable,
+    currentAmountHint,
+    currentAmountLabel,
     currency,
     disabled,
+    onCurrentAmountChange,
     onTitleChange,
     onDescriptionChange,
     onTargetAmountChange,
@@ -61,11 +66,24 @@ export default function GoalDetailForm(props: GoalDetailFormProps) {
           />
         </View>
         <View style={styles.rowItem}>
-          <Text style={styles.inputLabel}>Current progress</Text>
-          <View style={styles.readOnlyValueCard}>
-            <Text style={styles.readOnlyValueText}>{fmt(currentAmount, currency ?? undefined)}</Text>
-            <Text style={styles.readOnlyValueHint}>Linked to settings balances and monthly allocations</Text>
-          </View>
+          <Text style={styles.inputLabel}>{currentAmountLabel}</Text>
+          {currentAmountEditable ? (
+            <>
+              <MoneyInput
+                currency={currency}
+                value={currentAmountDraft}
+                onChangeValue={onCurrentAmountChange}
+                placeholder="0.00"
+                editable={!disabled}
+              />
+              <Text style={styles.readOnlyValueHint}>{currentAmountHint}</Text>
+            </>
+          ) : (
+            <View style={styles.readOnlyValueCard}>
+              <Text style={styles.readOnlyValueText}>{fmt(currentAmount, currency ?? undefined)}</Text>
+              <Text style={styles.readOnlyValueHint}>{currentAmountHint}</Text>
+            </View>
+          )}
         </View>
       </View>
 

@@ -19,6 +19,10 @@ export default function GoalDetailScreen() {
   const { params } = useRoute<GoalDetailRoute>();
   const topHeaderOffset = useTopHeaderOffset();
   const {
+    currentAmountDraft,
+    currentAmountEditable,
+    currentAmountHint,
+    currentAmountLabel,
     currentAmountNumber,
     deleteConfirmOpen,
     deleting,
@@ -34,6 +38,7 @@ export default function GoalDetailScreen() {
     refreshing,
     saving,
     setDeleteConfirmOpen,
+    setCurrentAmountDraft,
     setDescription,
     setShowOnHome,
     setTargetAmount,
@@ -92,9 +97,14 @@ export default function GoalDetailScreen() {
             description={description}
             targetAmount={targetAmount}
             targetYear={targetYear}
+            currentAmountDraft={currentAmountDraft}
             currentAmount={currentAmountNumber}
+            currentAmountEditable={currentAmountEditable}
+            currentAmountHint={currentAmountHint}
+            currentAmountLabel={currentAmountLabel}
             currency={settings?.currency}
             disabled={saving || deleting}
+            onCurrentAmountChange={setCurrentAmountDraft}
             onTitleChange={setTitle}
             onDescriptionChange={setDescription}
             onTargetAmountChange={setTargetAmount}

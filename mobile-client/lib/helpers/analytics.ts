@@ -1,5 +1,5 @@
 import { fmt } from "@/lib/formatting";
-import { buildPayPeriodFromMonthAnchor, formatPayPeriodLabel } from "@/lib/payPeriods";
+import { buildPayPeriodFromMonthAnchor, formatPayPeriodLabel, type PayFrequency } from "@/lib/payPeriods";
 import type {
   AnalyticsAnchor,
   AnalyticsChartData,
@@ -34,7 +34,7 @@ export function getPayPeriodLabel(params: {
   anchor: AnalyticsAnchor;
   dashboardLabel?: string | null;
   payDate: number;
-  payFrequency: "monthly" | "every_2_weeks" | "weekly";
+  payFrequency: PayFrequency;
 }): string {
   if (params.dashboardLabel?.trim()) return params.dashboardLabel.trim();
 
@@ -52,7 +52,7 @@ function getYearModePeriodLabel(params: {
   year: number;
   monthIndex: number;
   payDate: number;
-  payFrequency: "monthly" | "every_2_weeks" | "weekly";
+  payFrequency: PayFrequency;
 }): string {
   const month = params.monthIndex + 1;
   if (!Number.isFinite(month) || month < 1 || month > 12) return "N/A";

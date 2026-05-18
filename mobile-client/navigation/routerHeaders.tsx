@@ -25,6 +25,7 @@ export function IncomeMonthSwitcher({
   const [isYearPickerVisible, setIsYearPickerVisible] = useState(false);
   const [budgetHorizonYears, setBudgetHorizonYears] = useState(10);
   const [payDate, setPayDate] = useState(27);
+  const [payAnchorDate, setPayAnchorDate] = useState<string | null>(null);
   const [payFrequency, setPayFrequency] = useState<PayFrequency>("monthly");
   const [accountCreatedAt, setAccountCreatedAt] = useState<string | null>(null);
   const [prevPeriodHasExpenses, setPrevPeriodHasExpenses] = useState(false);
@@ -48,6 +49,7 @@ export function IncomeMonthSwitcher({
           ? Math.floor(Number(settings?.payDate))
           : 27;
         setPayDate((prev) => (prev === safePayDate ? prev : safePayDate));
+        setPayAnchorDate((prev) => (prev === (settings?.payAnchorDate ?? null) ? prev : (settings?.payAnchorDate ?? null)));
         const nextPayFrequency = normalizePayFrequency(settings?.payFrequency);
         setPayFrequency((prev) => (prev === nextPayFrequency ? prev : nextPayFrequency));
         const rawCreatedAt = settings?.accountCreatedAt ?? settings?.setupCompletedAt ?? null;
@@ -92,12 +94,13 @@ export function IncomeMonthSwitcher({
       month: prevMonth,
       year: prevYear,
       payDate,
+      payAnchorDate,
       payFrequency,
     });
     const prevPeriodEnd = new Date(prevPeriod.end.getTime());
     prevPeriodEnd.setHours(23, 59, 59, 999);
     return prevPeriodEnd.getTime() >= parsedAccountCreatedAt.getTime();
-  }, [parsedAccountCreatedAt, payDate, payFrequency, prevMonth, prevYear]);
+  }, [parsedAccountCreatedAt, payAnchorDate, payDate, payFrequency, prevMonth, prevYear]);
 
   useEffect(() => {
     let cancelled = false;
@@ -138,6 +141,7 @@ export function IncomeMonthSwitcher({
     year,
     month,
     payDate,
+    payAnchorDate,
     payFrequency,
   });
 

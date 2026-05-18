@@ -66,6 +66,7 @@ export default function StandaloneIncomeMonthRoute() {
       const nextAnchor = await resolveDisplayedPayPeriodAnchor({
         budgetPlanId,
         payDate: resolvedSettings?.payDate ?? 27,
+        payAnchorDate: resolvedSettings?.payAnchorDate ?? null,
         payFrequency,
         planCreatedAt: resolvedSettings?.setupCompletedAt
           ? new Date(resolvedSettings.setupCompletedAt)

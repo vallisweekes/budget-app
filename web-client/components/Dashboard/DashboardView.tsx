@@ -31,11 +31,12 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 		resolveBudgetPlanPayPeriodContext({ budgetPlanId, now }),
 		getBudgetPlanMeta(budgetPlanId),
 	]);
-	const { payDate, payFrequency, effectiveStartAt } = payPeriodContext;
+	const { payDate, payAnchorDate, payFrequency, effectiveStartAt } = payPeriodContext;
 	const currentPlanData = await getDashboardPlanDataForActivePayPeriod(budgetPlanId, {
 		now,
 		payDate,
 		payFrequency,
+		payAnchorDate,
 		planCreatedAt: effectiveStartAt,
 	});
 	const month = MONTHS[currentPlanData.monthNum - 1] ?? currentMonthKey();
@@ -45,6 +46,7 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 		budgetPlanId,
 		payDate,
 		payFrequency,
+		payAnchorDate,
 		now,
 		userId,
 		planCreatedAt: effectiveStartAt,
@@ -174,7 +176,7 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 		expenseInsights.recapTips = prioritizeRecapTips(aiDashboardTips, 4);
 	}
 
-	const { payPeriodLabel, previousPayPeriodLabel } = getDashboardPayPeriodLabels(now, payDate, payFrequency, effectiveStartAt);
+	const { payPeriodLabel, previousPayPeriodLabel } = getDashboardPayPeriodLabels(now, payDate, payFrequency, payAnchorDate, effectiveStartAt);
 
 	return (
 		<div className="min-h-screen pb-20 app-theme-bg">

@@ -1,8 +1,10 @@
-export type PayFrequency = "monthly" | "every_2_weeks" | "weekly";
+export type PayFrequency = "monthly" | "every_2_weeks" | "every_4_weeks" | "weekly";
 export type BillFrequency = "monthly" | "every_2_weeks";
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 export function normalizePayFrequency(value: unknown): PayFrequency {
-  if (value === "weekly" || value === "every_2_weeks") return value;
+  if (value === "weekly" || value === "every_2_weeks" || value === "every_4_weeks") return value;
   return "monthly";
 }
 
@@ -14,6 +16,7 @@ export function normalizeBillFrequency(value: unknown): BillFrequency {
 function intervalDays(payFrequency: PayFrequency): number {
   if (payFrequency === "weekly") return 7;
   if (payFrequency === "every_2_weeks") return 14;
+  if (payFrequency === "every_4_weeks") return 28;
   return 0;
 }
 
@@ -29,6 +32,70 @@ function addUtcDays(date: Date, days: number): Date {
   return next;
 }
 
+function startOfUtcDay(date: Date): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+}
+
+function parsePayAnchorDate(value: Date | string | null | undefined): Date | null {
+  if (value == null || value === "") return null;
+  const parsed = value instanceof Date
+    ? new Date(value.getTime())
+    : typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value.trim())
+      ? new Date(`${value.trim()}T00:00:00.000Z`)
+      : new Date(String(value));
+  if (!Number.isFinite(parsed.getTime())) return null;
+  return startOfUtcDay(parsed);
+}
+
+function resolveAnchoredIntervalStart(params: {
+  date: Date;
+  payAnchorDate: Date;
+  step: number;
+}): Date {
+  const target = startOfUtcDay(params.date);
+  const anchor = startOfUtcDay(params.payAnchorDate);
+  const diffDays = Math.floor((target.getTime() - anchor.getTime()) / DAY_MS);
+  return addUtcDays(anchor, Math.floor(diffDays / params.step) * params.step);
+}
+
+function resolveAnchoredMonthStart(params: {
+  anchorYear: number;
+  anchorMonth: number;
+  payAnchorDate: Date;
+  step: number;
+}): Date {
+  const targetStart = new Date(Date.UTC(params.anchorYear, params.anchorMonth - 1, 1));
+  const targetEnd = new Date(Date.UTC(params.anchorYear, params.anchorMonth, 0));
+  const anchor = startOfUtcDay(params.payAnchorDate);
+  const diffDays = Math.floor((targetStart.getTime() - anchor.getTime()) / DAY_MS);
+  let candidate = addUtcDays(anchor, Math.floor(diffDays / params.step) * params.step);
+
+  while (candidate.getTime() < targetStart.getTime()) {
+    candidate = addUtcDays(candidate, params.step);
+  }
+
+  const candidates: Date[] = [];
+  let cursor = candidate;
+  while (cursor.getTime() <= targetEnd.getTime()) {
+    candidates.push(cursor);
+    cursor = addUtcDays(cursor, params.step);
+  }
+
+  if (candidates.length === 0) {
+    return candidate;
+  }
+
+  const referenceDay = anchor.getUTCDate();
+  return candidates.reduce((best, current) => {
+    const bestDistance = Math.abs(best.getUTCDate() - referenceDay);
+    const currentDistance = Math.abs(current.getUTCDate() - referenceDay);
+    if (currentDistance !== bestDistance) {
+      return currentDistance < bestDistance ? current : best;
+    }
+    return current.getTime() < best.getTime() ? current : best;
+  });
+}
+
 function isValidDate(value: Date | null | undefined): value is Date {
   return value instanceof Date && !Number.isNaN(value.getTime());
 }
@@ -37,6 +104,7 @@ export function resolveActivePayPeriodWindow(params: {
   now: Date;
   payDate: number;
   payFrequency: PayFrequency;
+  payAnchorDate?: Date | string | null;
   planCreatedAt?: Date | null;
 }): { start: Date; end: Date } {
   const { now, payDate, payFrequency, planCreatedAt } = params;
@@ -63,6 +131,15 @@ export function resolveActivePayPeriodWindow(params: {
   }
 
   const step = intervalDays(payFrequency);
+  const anchoredPayDate = parsePayAnchorDate(params.payAnchorDate);
+  if (anchoredPayDate) {
+    const start = resolveAnchoredIntervalStart({
+      date: now,
+      payAnchorDate: anchoredPayDate,
+      step,
+    });
+    return { start, end: addUtcDays(start, step - 1) };
+  }
   const thisMonthAnchor = clampDayUtc(now.getUTCFullYear(), now.getUTCMonth(), payDate);
   let start = now.getTime() >= thisMonthAnchor.getTime()
     ? thisMonthAnchor
@@ -106,6 +183,7 @@ export function buildPayPeriodFromMonthAnchor(params: {
   anchorMonth: number;
   payDate: number;
   payFrequency: PayFrequency;
+  payAnchorDate?: Date | string | null;
 }): { start: Date; end: Date } {
   const { anchorYear, anchorMonth, payDate, payFrequency } = params;
 
@@ -117,7 +195,15 @@ export function buildPayPeriodFromMonthAnchor(params: {
   }
 
   const step = intervalDays(payFrequency);
-  const start = clampDayUtc(anchorYear, anchorMonth - 1, payDate);
+  const anchoredPayDate = parsePayAnchorDate(params.payAnchorDate);
+  const start = anchoredPayDate
+    ? resolveAnchoredMonthStart({
+        anchorYear,
+        anchorMonth,
+        payAnchorDate: anchoredPayDate,
+        step,
+      })
+    : clampDayUtc(anchorYear, anchorMonth - 1, payDate);
   const end = addUtcDays(start, step - 1);
   return { start, end };
 }
@@ -149,12 +235,14 @@ export function getPayPeriodKeyForDate(params: {
   date: Date;
   payDate: number;
   payFrequency: PayFrequency;
+  payAnchorDate?: Date | string | null;
   planCreatedAt?: Date | null;
 }): string {
   return resolveActivePayPeriodWindow({
     now: params.date,
     payDate: params.payDate,
     payFrequency: params.payFrequency,
+    payAnchorDate: params.payAnchorDate,
     planCreatedAt: params.planCreatedAt,
   }).start.toISOString().slice(0, 10);
 }
@@ -163,6 +251,7 @@ export function getPreviousPayPeriodKey(params: {
   periodKey: string;
   payDate: number;
   payFrequency: PayFrequency;
+  payAnchorDate?: Date | string | null;
   planCreatedAt?: Date | null;
 }): string {
   const { start } = getPayPeriodWindowFromPeriodKey({
@@ -175,6 +264,7 @@ export function getPreviousPayPeriodKey(params: {
     date: previousDay,
     payDate: params.payDate,
     payFrequency: params.payFrequency,
+    payAnchorDate: params.payAnchorDate,
     planCreatedAt: params.planCreatedAt,
   });
 }

@@ -1,11 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
-import { getBudgetPlanMeta } from "@/lib/helpers/dashboard/getBudgetPlanMeta";
+import { resolveBudgetPlanPayPeriodContext } from "@/lib/api/payPeriodContext";
 import { getDashboardExpenseInsights } from "@/lib/helpers/dashboard/getDashboardExpenseInsights";
 import { getAiBudgetTips } from "@/lib/ai/budgetTips";
 import { getOnboardingStarterTips } from "@/lib/ai/onboardingStarterTips";
 import { prisma } from "@/lib/prisma";
-import { getCurrentPeriodKey } from "@/lib/helpers/periodKey";
+import { getPayPeriodKeyForDate } from "@/lib/payPeriods";
 import { getJsonCache, setJsonCache } from "@/lib/cache/redisJsonCache";
 import {
 	EXPENSE_INSIGHTS_CACHE_TTL_SECONDS,
@@ -42,9 +42,15 @@ export async function GET(req: NextRequest) {
 		}
 
 		const now = new Date();
-		const { payDate } = await getBudgetPlanMeta(budgetPlanId);
+		const { payDate, payAnchorDate, payFrequency, effectiveStartAt } = await resolveBudgetPlanPayPeriodContext({ budgetPlanId, now });
 		const payDay = Number.isFinite(Number(payDate)) ? Number(payDate) : 27;
-		const periodKey = getCurrentPeriodKey(payDay);
+		const periodKey = getPayPeriodKeyForDate({
+			date: now,
+			payDate: payDay,
+			payFrequency,
+			payAnchorDate,
+			planCreatedAt: effectiveStartAt,
+		});
 		const expenseInsightsCacheKey = getExpenseInsightsCacheKey({
 			budgetPlanId,
 			periodKey,
@@ -149,8 +155,11 @@ export async function GET(req: NextRequest) {
 		const insights = await getDashboardExpenseInsights({
 			budgetPlanId,
 			payDate,
+			payFrequency,
+			payAnchorDate,
 			now,
 			userId,
+			planCreatedAt: effectiveStartAt,
 		});
 
 		const aiTips = await (async () => {

@@ -226,7 +226,7 @@ export function computeDebtPayoffProjection(params: {
 	const payDateRaw = clampNumber(params.payDate);
 	const payDate = Number.isFinite(payDateRaw) && payDateRaw >= 1 ? Math.trunc(payDateRaw) : 1;
 	const payFrequency = normalizePayFrequency(params.payFrequency);
-	const periodsPerYear = payFrequency === "weekly" ? 52 : payFrequency === "every_2_weeks" ? 26 : 12;
+	const periodsPerYear = payFrequency === "weekly" ? 52 : payFrequency === "every_2_weeks" ? 26 : payFrequency === "every_4_weeks" ? 13 : 12;
 	const periodRate = interestPct > 0 ? interestPct / 100 / periodsPerYear : 0;
 	const anchorPeriodKey = resolveProjectionAnchorPeriodKey({
 		now,

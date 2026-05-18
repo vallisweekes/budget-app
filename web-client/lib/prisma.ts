@@ -11,7 +11,29 @@ import { isRetryableConnectionError } from "@/lib/prismaRetry";
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
   prismaSchemaHash?: string;
+  prismaRuntimeHash?: string;
 };
+
+function parsePositiveInt(raw: unknown, fallback: number): number {
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value < 1) return fallback;
+  return Math.floor(value);
+}
+
+function getPrismaRuntimeTuning() {
+  const isDev = process.env.NODE_ENV !== "production";
+  return {
+    connectionLimit: isDev
+      ? parsePositiveInt(process.env.PRISMA_DEV_CONNECTION_LIMIT ?? "5", 5)
+      : parsePositiveInt(process.env.PRISMA_CONNECTION_LIMIT ?? "10", 10),
+    poolTimeoutSeconds: isDev
+      ? parsePositiveInt(process.env.PRISMA_DEV_POOL_TIMEOUT_SECONDS ?? "3", 3)
+      : parsePositiveInt(process.env.PRISMA_POOL_TIMEOUT_SECONDS ?? "20", 20),
+    connectTimeoutSeconds: isDev
+      ? parsePositiveInt(process.env.PRISMA_DEV_CONNECT_TIMEOUT_SECONDS ?? "5", 5)
+      : parsePositiveInt(process.env.PRISMA_CONNECT_TIMEOUT_SECONDS ?? "15", 15),
+  };
+}
 
 function getPrismaSchemaHash(): string | undefined {
   if (process.env.NODE_ENV === "production") return undefined;
@@ -34,19 +56,19 @@ function withConnectionLimits(url: string | undefined): string | undefined {
   if (!url) return url;
   try {
     const parsed = new URL(url);
+    const tuning = getPrismaRuntimeTuning();
     // Keep Prisma's pool small in dev to avoid exhausting DB connections
     // (especially with Turbopack / RSC which can trigger many parallel renders).
+    // Also fail fast on stale pooled connections so request-time retries can reconnect
+    // instead of waiting 20s+ on a dead connection during local development.
     if (!parsed.searchParams.has("connection_limit")) {
-      const isDev = process.env.NODE_ENV !== "production";
-      const devLimitRaw = Number(process.env.PRISMA_DEV_CONNECTION_LIMIT ?? "10");
-      const devLimit = Number.isFinite(devLimitRaw) && devLimitRaw >= 1 ? Math.floor(devLimitRaw) : 10;
-      parsed.searchParams.set("connection_limit", isDev ? String(devLimit) : "10");
+      parsed.searchParams.set("connection_limit", String(tuning.connectionLimit));
     }
     if (!parsed.searchParams.has("pool_timeout")) {
-      parsed.searchParams.set("pool_timeout", "20");
+      parsed.searchParams.set("pool_timeout", String(tuning.poolTimeoutSeconds));
     }
     if (!parsed.searchParams.has("connect_timeout")) {
-      parsed.searchParams.set("connect_timeout", "15");
+      parsed.searchParams.set("connect_timeout", String(tuning.connectTimeoutSeconds));
     }
     if (parsed.searchParams.get("pgbouncer") === "true" && !parsed.searchParams.has("statement_cache_size")) {
       parsed.searchParams.set("statement_cache_size", "0");
@@ -64,7 +86,14 @@ function resolvePrismaUrl(): string | undefined {
   );
 }
 
+function getPrismaRuntimeHash(url: string | undefined): string | undefined {
+	if (process.env.NODE_ENV === "production") return undefined;
+	return createHash("sha1").update(url ?? "").digest("hex");
+}
+
 const prismaSchemaHash = getPrismaSchemaHash();
+const prismaRuntimeUrl = resolvePrismaUrl();
+const prismaRuntimeHash = getPrismaRuntimeHash(prismaRuntimeUrl);
 
 const RETRYABLE_READ_OPERATIONS = new Set([
   "findUnique",
@@ -124,12 +153,14 @@ function sleep(ms: number): Promise<void> {
 }
 
 const basePrisma =
-  globalForPrisma.prisma && (!prismaSchemaHash || globalForPrisma.prismaSchemaHash === prismaSchemaHash)
+  globalForPrisma.prisma &&
+  (!prismaSchemaHash || globalForPrisma.prismaSchemaHash === prismaSchemaHash) &&
+  (!prismaRuntimeHash || globalForPrisma.prismaRuntimeHash === prismaRuntimeHash)
     ? globalForPrisma.prisma
     : new PrismaClient({
     datasources: {
       db: {
-        url: resolvePrismaUrl(),
+        url: prismaRuntimeUrl,
       },
     },
     log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
@@ -176,4 +207,5 @@ if (process.env.NODE_ENV !== "production") {
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = basePrisma;
   globalForPrisma.prismaSchemaHash = prismaSchemaHash;
+  globalForPrisma.prismaRuntimeHash = prismaRuntimeHash;
 }

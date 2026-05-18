@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 let supportsExpenseMovedToDebtCached: boolean | null = null;
 let supportsOnboardingPayFrequencyCached: boolean | null = null;
 let supportsOnboardingBillFrequencyCached: boolean | null = null;
+let supportsOnboardingPayAnchorDateCached: boolean | null = null;
 
 function hasPrismaField(modelName: string, fieldName: string): boolean {
 	const model = Prisma.dmmf.datamodel.models.find((entry) => entry.name === modelName);
@@ -26,6 +27,12 @@ export async function supportsOnboardingBillFrequencyField(): Promise<boolean> {
 	if (supportsOnboardingBillFrequencyCached != null) return supportsOnboardingBillFrequencyCached;
 	supportsOnboardingBillFrequencyCached = hasPrismaField("UserOnboardingProfile", "billFrequency");
 	return supportsOnboardingBillFrequencyCached;
+}
+
+export async function supportsOnboardingPayAnchorDateField(): Promise<boolean> {
+	if (supportsOnboardingPayAnchorDateCached != null) return supportsOnboardingPayAnchorDateCached;
+	supportsOnboardingPayAnchorDateCached = hasPrismaField("UserOnboardingProfile", "payAnchorDate");
+	return supportsOnboardingPayAnchorDateCached;
 }
 
 export async function supportsOnboardingCadenceFields(): Promise<boolean> {
