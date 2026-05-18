@@ -1,9 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { supportsExpenseMovedToDebtField, supportsOnboardingPayFrequencyField } from "@/lib/prisma/capabilities";
+import { supportsExpenseMovedToDebtField } from "@/lib/prisma/capabilities";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
+import { resolveBudgetPlanPayPeriodContext } from "@/lib/api/payPeriodContext";
 import { processOverdueExpensesToDebts } from "@/lib/expenses/carryover";
 import { resolveEffectiveDueDateIso } from "@/lib/expenses/insights";
+import { resolveMatchedExpensePeriodKey } from "@/lib/helpers/periodKey";
 import { buildPayPeriodFromMonthAnchor, normalizePayFrequency, type PayFrequency } from "@/lib/payPeriods";
 import { isLegacyPlaceholderExpenseRow } from "@/lib/expenses/legacyPlaceholders";
 
@@ -56,14 +58,6 @@ function isUnknownMovedToDebtFieldError(error: unknown): boolean {
   );
 }
 
-function isUnknownPayFrequencyFieldError(error: unknown): boolean {
-  const message = String((error as { message?: unknown })?.message ?? error);
-  return (
-    message.includes("payFrequency") &&
-    (message.includes("Unknown arg") || message.includes("Unknown argument") || message.includes("Unknown field"))
-  );
-}
-
 function resolvePickerAnchorYear(params: {
   displayYear: number;
   month: number;
@@ -74,20 +68,6 @@ function resolvePickerAnchorYear(params: {
     return displayYear + 1;
   }
   return displayYear;
-}
-
-async function findOnboardingPayFrequency(userId: string) {
-  if (!(await supportsOnboardingPayFrequencyField())) return null;
-
-  try {
-    return await prisma.userOnboardingProfile.findUnique({
-      where: { userId },
-      select: { payFrequency: true },
-    });
-  } catch (error) {
-    if (!isUnknownPayFrequencyFieldError(error)) throw error;
-    return null;
-  }
 }
 
 type ExpenseRow = {
@@ -126,18 +106,13 @@ export async function GET(req: NextRequest) {
     console.error("Expense pay-period months: overdue carryover sync failed:", error);
   }
 
-  const [budgetPlan, onboardingProfile] = await Promise.all([
-    prisma.budgetPlan.findUnique({
-      where: { id: budgetPlanId },
-      select: { payDate: true },
-    }),
-    findOnboardingPayFrequency(userId),
-  ]);
+  const payPeriodContext = await resolveBudgetPlanPayPeriodContext({ budgetPlanId });
 
-  const payDate = Number.isFinite(Number(budgetPlan?.payDate)) && Number(budgetPlan?.payDate) >= 1
-    ? Math.floor(Number(budgetPlan?.payDate))
+  const payDate = Number.isFinite(Number(payPeriodContext.payDate)) && Number(payPeriodContext.payDate) >= 1
+    ? Math.floor(Number(payPeriodContext.payDate))
     : 1;
-  const payFrequency: PayFrequency = normalizePayFrequency(onboardingProfile?.payFrequency);
+  const payAnchorDate = payPeriodContext.payAnchorDate;
+  const payFrequency: PayFrequency = normalizePayFrequency(payPeriodContext.payFrequency);
 
   const periods = Array.from({ length: 12 }, (_, index) => {
     const month = index + 1;
@@ -151,6 +126,7 @@ export async function GET(req: NextRequest) {
       anchorMonth: month,
       payDate,
       payFrequency,
+      payAnchorDate,
     });
     return {
       month,
@@ -240,8 +216,15 @@ export async function GET(req: NextRequest) {
         rank = exp.year === ym.year && exp.month === ym.month ? 0 : 1;
       } else {
         if (exp.periodKey) {
-          if (exp.periodKey !== period.key) continue;
-          dedupeScope = `unscheduled:${exp.periodKey}`;
+      const matchedPeriodKey = resolveMatchedExpensePeriodKey({
+      storedPeriodKey: exp.periodKey,
+      selectedPeriodStart: period.start,
+      anchorYear: period.year,
+      anchorMonth: period.month,
+      payFrequency,
+      });
+      if (!matchedPeriodKey) continue;
+      dedupeScope = `unscheduled:${matchedPeriodKey}`;
         } else {
           if (!period.allowedUnscheduledYm.has(`${exp.year}-${exp.month}`)) continue;
           dedupeScope = `unscheduled:${exp.year}-${exp.month}`;

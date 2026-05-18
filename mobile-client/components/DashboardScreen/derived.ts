@@ -1,6 +1,6 @@
 import type { DashboardData, Settings } from "@/lib/apiTypes";
 import { MONTH_NAMES_SHORT } from "@/lib/formatting";
-import { buildPayPeriodFromMonthAnchor, formatPayPeriodLabel, getPayPeriodAnchorFromWindow, normalizePayFrequency, resolveActivePayPeriod } from "@/lib/payPeriods";
+import { buildPayPeriodFromMonthAnchor, formatPayPeriodLabelForFrequency, getPayPeriodAnchorFromWindow, normalizePayFrequency, resolveActivePayPeriod } from "@/lib/payPeriods";
 
 export function getEffectiveHomepageGoals<T extends { id: string }>(goals: T[], homepageGoalIds: string[] | null | undefined): T[] {
   const preferredGoalIds = Array.isArray(homepageGoalIds) ? homepageGoalIds : [];
@@ -122,37 +122,32 @@ export function buildDashboardDerived(params: {
 
   const now = new Date();
   const pay = payDate ?? 1;
+  const payAnchorDate = payFrequency === "monthly" ? null : (settings?.payAnchorDate ?? null);
   const planCreatedAt = settings?.setupCompletedAt
     ? new Date(settings.setupCompletedAt)
     : settings?.accountCreatedAt
       ? new Date(settings.accountCreatedAt)
       : null;
-  const activePeriod = resolveActivePayPeriod({ now, payDate: pay, payFrequency, planCreatedAt });
+  const activePeriod = resolveActivePayPeriod({ now, payDate: pay, payFrequency, payAnchorDate, planCreatedAt });
   const activeAnchor = getPayPeriodAnchorFromWindow({ period: activePeriod, payFrequency });
   const monthNum = dashboard?.monthNum ?? displayedAnchor?.month ?? activeAnchor.month;
   const year = dashboard?.year ?? displayedAnchor?.year ?? activeAnchor.year;
-  const monthIndex = monthNum - 1;
-  // For a given "dashboard month" (which follows pay-period semantics),
-  // show the inclusive range: pay day of this month → day before next pay day.
-  const start = clampDay(year, monthIndex, pay);
-  const end = clampDay(year, monthIndex + 1, pay);
-  end.setDate(end.getDate() - 1);
-
-  const rangeLabel = `${start.getDate()} ${MONTH_NAMES_SHORT[start.getMonth()]} - ${end.getDate()} ${MONTH_NAMES_SHORT[end.getMonth()]}`;
   const effectiveAnchor = displayedAnchor ?? activeAnchor;
   const effectivePeriod = buildPayPeriodFromMonthAnchor({
     year: effectiveAnchor.year,
     month: effectiveAnchor.month,
     payDate: pay,
     payFrequency,
+    payAnchorDate,
   });
   const periodStart = effectivePeriod.start;
   const periodEnd = effectivePeriod.end;
+  const rangeLabel = formatPayPeriodLabelForFrequency({ start: periodStart, end: periodEnd, payFrequency });
   const payPeriodStart = startOfDay(periodStart);
   const payPeriodEnd = endOfDay(periodEnd);
   const payPeriodLabel = displayedAnchor
-    ? formatPayPeriodLabel(periodStart, periodEnd)
-    : (dashboard?.payPeriodLabel ?? formatPayPeriodLabel(periodStart, periodEnd));
+    ? formatPayPeriodLabelForFrequency({ start: periodStart, end: periodEnd, payFrequency })
+    : (dashboard?.payPeriodLabel ?? formatPayPeriodLabelForFrequency({ start: periodStart, end: periodEnd, payFrequency }));
 
   const previousAnchor = effectiveAnchor.month === 1
     ? { month: 12, year: effectiveAnchor.year - 1 }
@@ -162,10 +157,11 @@ export function buildDashboardDerived(params: {
     month: previousAnchor.month,
     payDate: pay,
     payFrequency,
+    payAnchorDate,
   });
   const previousPayPeriodLabel = displayedAnchor
-    ? formatPayPeriodLabel(previousPeriod.start, previousPeriod.end)
-    : (dashboard?.previousPayPeriodLabel ?? formatPayPeriodLabel(previousPeriod.start, previousPeriod.end));
+    ? formatPayPeriodLabelForFrequency({ start: previousPeriod.start, end: previousPeriod.end, payFrequency })
+    : (dashboard?.previousPayPeriodLabel ?? formatPayPeriodLabelForFrequency({ start: previousPeriod.start, end: previousPeriod.end, payFrequency }));
 
   const isDateInPayPeriod = (date: Date | null) => {
     if (!date || Number.isNaN(date.getTime())) return false;
@@ -215,7 +211,7 @@ export function buildDashboardDerived(params: {
 
     if (!nextDueDate) return items;
 
-    const nextPeriod = resolveActivePayPeriod({ now: nextDueDate, payDate: pay, payFrequency, planCreatedAt });
+    const nextPeriod = resolveActivePayPeriod({ now: nextDueDate, payDate: pay, payFrequency, payAnchorDate, planCreatedAt });
     const nextStart = startOfDay(nextPeriod.start).getTime();
     const nextEnd = endOfDay(nextPeriod.end).getTime();
 

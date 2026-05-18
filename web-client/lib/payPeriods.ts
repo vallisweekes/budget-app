@@ -208,6 +208,23 @@ export function buildPayPeriodFromMonthAnchor(params: {
   return { start, end };
 }
 
+export function formatPayPeriodLabelForFrequency(params: {
+  start: Date;
+  end: Date;
+  payFrequency: PayFrequency;
+}): string {
+  const displayEnd = params.payFrequency === "monthly"
+    ? params.end
+    : addUtcDays(params.start, intervalDays(params.payFrequency));
+  return `${params.start.getUTCDate()} ${params.start.toLocaleString("en-GB", {
+    month: "short",
+    timeZone: "UTC",
+  })} - ${displayEnd.getUTCDate()} ${displayEnd.toLocaleString("en-GB", {
+    month: "short",
+    timeZone: "UTC",
+  })}`;
+}
+
 export function getPayPeriodWindowFromPeriodKey(params: {
   periodKey: string;
   payDate: number;

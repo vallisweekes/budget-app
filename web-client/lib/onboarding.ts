@@ -963,13 +963,15 @@ export async function saveOnboardingDraft(userId: string, input: OnboardingInput
       /data\.expenseFourName/i.test(message) ||
       /data\.expenseFourAmount/i.test(message);
 
+    const shouldDropPayAnchorDate =
+      /Unknown arg(ument)? `payAnchorDate`/i.test(message) ||
+      /data\.payAnchorDate/i.test(message);
+
     const shouldDropPaySetup =
       /Unknown arg(ument)? `payDay`/i.test(message) ||
-      /Unknown arg(ument)? `payAnchorDate`/i.test(message) ||
       /Unknown arg(ument)? `payFrequency`/i.test(message) ||
       /Unknown arg(ument)? `billFrequency`/i.test(message) ||
       /data\.payDay/i.test(message) ||
-      /data\.payAnchorDate/i.test(message) ||
       /data\.payFrequency/i.test(message) ||
       /data\.billFrequency/i.test(message);
 
@@ -981,7 +983,7 @@ export async function saveOnboardingDraft(userId: string, input: OnboardingInput
       /data\.savingsGoalAmount/i.test(message) ||
       /data\.savingsGoalYear/i.test(message);
 
-    if (!shouldDropMainGoals && !shouldDropBuildBudget && !shouldDropExtraBills && !shouldDropPaySetup && !shouldDropPlanningProjection) throw error;
+    if (!shouldDropMainGoals && !shouldDropBuildBudget && !shouldDropExtraBills && !shouldDropPayAnchorDate && !shouldDropPaySetup && !shouldDropPlanningProjection) throw error;
 
     const retryData: Record<string, unknown> = { ...updateData };
 
@@ -996,9 +998,12 @@ export async function saveOnboardingDraft(userId: string, input: OnboardingInput
       delete retryData.expenseFourAmount;
     }
 
+    if (shouldDropPayAnchorDate) {
+      delete retryData.payAnchorDate;
+    }
+
     if (shouldDropPaySetup) {
       delete retryData.payDay;
-      delete retryData.payAnchorDate;
       delete retryData.payFrequency;
       delete retryData.billFrequency;
     }

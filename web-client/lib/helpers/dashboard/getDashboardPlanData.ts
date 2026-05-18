@@ -335,6 +335,7 @@ export async function getDashboardPlanDataForActivePayPeriod(
 				windowStart: window.start,
 				windowEnd: window.end,
 				payDate,
+				payFrequency,
 			}),
 			(async () => {
 				if (payFrequency === "monthly") {

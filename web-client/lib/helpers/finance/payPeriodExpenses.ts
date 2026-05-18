@@ -1,8 +1,9 @@
 import { resolveEffectiveDueDateIso } from "@/lib/expenses/insights";
 import { isLegacyPlaceholderExpenseRow } from "@/lib/expenses/legacyPlaceholders";
-import { getPeriodKey } from "@/lib/helpers/periodKey";
+import { resolveMatchedExpensePeriodKey } from "@/lib/helpers/periodKey";
 import { supportsExpenseMovedToDebtField } from "@/lib/prisma/capabilities";
 import { prisma } from "@/lib/prisma";
+import type { PayFrequency } from "@/lib/payPeriods";
 
 export type PayPeriodExpenseRow = {
 	id: string;
@@ -49,8 +50,9 @@ export async function getPayPeriodExpenses(params: {
 	windowStart: Date;
 	windowEnd: Date;
 	payDate: number;
+	payFrequency?: PayFrequency;
 }): Promise<PayPeriodExpenseRow[]> {
-	const { budgetPlanId, windowStart, windowEnd, payDate } = params;
+	const { budgetPlanId, windowStart, windowEnd, payDate, payFrequency = "monthly" } = params;
 	const periodPairs = [
 		{ year: windowStart.getUTCFullYear(), month: windowStart.getUTCMonth() + 1 },
 		{ year: windowEnd.getUTCFullYear(), month: windowEnd.getUTCMonth() + 1 },
@@ -64,7 +66,6 @@ export async function getPayPeriodExpenses(params: {
 		},
 	];
 	const uniquePairs = Array.from(new Map(periodPairs.map((pair) => [`${pair.year}-${pair.month}`, pair])).values());
-	const currentPeriodKey = getPeriodKey(windowStart, payDate);
 	const baseSelect = {
 		id: true,
 		name: true,
@@ -149,8 +150,15 @@ export async function getPayPeriodExpenses(params: {
 		const expensePeriodKey = String(expense.periodKey ?? "").trim();
 		let dedupeScope = "";
 		if (expensePeriodKey) {
-			if (expensePeriodKey !== currentPeriodKey) continue;
-			dedupeScope = `unscheduled:${expensePeriodKey}`;
+			const matchedPeriodKey = resolveMatchedExpensePeriodKey({
+				storedPeriodKey: expensePeriodKey,
+				selectedPeriodStart: windowStart,
+				anchorYear: windowStart.getUTCFullYear(),
+				anchorMonth: windowStart.getUTCMonth() + 1,
+				payFrequency,
+			});
+			if (!matchedPeriodKey) continue;
+			dedupeScope = `unscheduled:${matchedPeriodKey}`;
 		} else {
 			if (!allowedUnscheduledYm.has(`${expense.year}-${expense.month}`)) continue;
 			dedupeScope = `unscheduled:${expense.year}-${expense.month}`;

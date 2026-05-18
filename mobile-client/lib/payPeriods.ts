@@ -257,6 +257,17 @@ export function formatPayPeriodLabel(start: Date, end: Date): string {
   return `${start.getDate()} ${MONTH_NAMES_SHORT[start.getMonth()]} - ${end.getDate()} ${MONTH_NAMES_SHORT[end.getMonth()]}`;
 }
 
+export function formatPayPeriodLabelForFrequency(params: {
+  start: Date;
+  end: Date;
+  payFrequency: PayFrequency;
+}): string {
+  const displayEnd = params.payFrequency === "monthly"
+    ? params.end
+    : addDays(params.start, dayWindowForFrequency(params.payFrequency));
+  return formatPayPeriodLabel(params.start, displayEnd);
+}
+
 export function getPayPeriodRangeLabelFromAnchor(params: {
   year: number;
   month: number;
@@ -271,7 +282,11 @@ export function getPayPeriodRangeLabelFromAnchor(params: {
     payFrequency: params.payFrequency,
     payAnchorDate: params.payAnchorDate,
   });
-  return formatPayPeriodLabel(period.start, period.end);
+  return formatPayPeriodLabelForFrequency({
+    start: period.start,
+    end: period.end,
+    payFrequency: params.payFrequency,
+  });
 }
 
 export function getPayPeriodRangeLabelFromSelection(params: {

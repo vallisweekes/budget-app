@@ -3,11 +3,12 @@ import { enforceServerOnlyRuntime } from "@/lib/serverOnly";
 enforceServerOnlyRuntime();
 
 import { MONTHS } from "@/lib/constants/time";
+import { resolveBudgetPlanPayPeriodContext } from "@/lib/api/payPeriodContext";
 import { prisma } from "@/lib/prisma";
 import { monthKeyToNumber, monthNumberToKey } from "@/lib/helpers/monthKey";
 import { resolveExpenseLogo } from "@/lib/expenses/logoResolver";
 import { syncExpensePaymentsToPaidAmount } from "@/lib/expenses/paymentSync";
-import { getExpensePeriodKey, resolvePayDate } from "@/lib/helpers/periodKey";
+import { getExpensePeriodKey, resolveMatchedExpensePeriodKey } from "@/lib/helpers/periodKey";
 import type { ExpenseItem, ExpensesByMonth, MonthKey } from "@/types";
 
 export type { ExpenseItem, ExpensesByMonth };
@@ -242,8 +243,13 @@ export async function addExpense(
   const logo = resolveExpenseLogo(item.name, toOptionalString((item as { merchantDomain?: unknown }).merchantDomain));
   const seriesKey = normalizeSeriesKey(logo.merchantDomain ?? item.name);
   const monthNum = monthKeyToNumber(month);
-  const payDate = await resolvePayDate(budgetPlanId);
-  const periodKey = getExpensePeriodKey({ dueDate: item.dueDate ? new Date(item.dueDate) : null, year, month: monthNum }, payDate);
+	const { payDate, payFrequency, payAnchorDate } = await resolveBudgetPlanPayPeriodContext({ budgetPlanId });
+  const periodKey = getExpensePeriodKey(
+    { dueDate: item.dueDate ? new Date(item.dueDate) : null, year, month: monthNum },
+    payDate,
+    payFrequency,
+    payAnchorDate,
+  );
   const created = (await prisma.expense.create({
     data: ({
       budgetPlanId,
@@ -332,7 +338,7 @@ export async function addOrUpdateExpenseAcrossMonths(
 	const paymentSource = (item as any).paymentSource ?? "income";
 	const cardDebtId = (item as any).cardDebtId ?? null;
   const isExtraLoggedExpense = (item as any).isExtraLoggedExpense === true;
-	const payDate = await resolvePayDate(budgetPlanId);
+  const { payDate, payFrequency, payAnchorDate } = await resolveBudgetPlanPayPeriodContext({ budgetPlanId });
   const dueDateIso = toOptionalString(item.dueDate);
 
 	for (const month of targetMonths) {
@@ -354,8 +360,22 @@ export async function addOrUpdateExpenseAcrossMonths(
       typeof (item as any).periodKey === "string" && /^\d{4}-\d{2}-\d{2}$/.test(String((item as any).periodKey).trim())
         ? String((item as any).periodKey).trim()
         : null;
-    const periodKey =
-      explicitPeriodKey ?? getExpensePeriodKey({ dueDate: item.dueDate ? new Date(item.dueDate) : null, year, month: monthNumber }, payDate);
+    const derivedPeriodKey = getExpensePeriodKey(
+      { dueDate: item.dueDate ? new Date(item.dueDate) : null, year, month: monthNumber },
+      payDate,
+      payFrequency,
+      payAnchorDate,
+    );
+    const normalizedExplicitPeriodKey = explicitPeriodKey && !dueDateIso
+      ? resolveMatchedExpensePeriodKey({
+          storedPeriodKey: explicitPeriodKey,
+          selectedPeriodStart: new Date(`${derivedPeriodKey}T00:00:00.000Z`),
+          anchorYear: year,
+          anchorMonth: monthNumber,
+          payFrequency,
+        })
+      : null;
+    const periodKey = normalizedExplicitPeriodKey ?? explicitPeriodKey ?? derivedPeriodKey;
 
 		if (existing) {
 			await prisma.expense.update({

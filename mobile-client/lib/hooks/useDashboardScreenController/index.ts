@@ -19,6 +19,14 @@ import { GOAL_CARD, GOAL_GAP } from "@/components/DashboardScreen/style";
 type DashboardScreenProps = MainTabScreenProps<"Dashboard">;
 type CategorySheetState = { id: string; name: string } | null;
 
+function dashboardMatchesAnchor(
+  dashboard: DashboardData | null | undefined,
+  anchor: { month: number; year: number } | null | undefined,
+): boolean {
+  if (!dashboard || !anchor) return false;
+  return Number(dashboard.monthNum) === anchor.month && Number(dashboard.year) === anchor.year;
+}
+
 export function useDashboardScreenController({ navigation }: DashboardScreenProps) {
   const router = useRouter();
   const scrollRef = useRef<ScrollView>(null);
@@ -70,8 +78,14 @@ export function useDashboardScreenController({ navigation }: DashboardScreenProp
   }, [load]);
 
   useEffect(() => {
-    setResolvedDashboard(dashboard);
-  }, [dashboard]);
+    setResolvedDashboard((current) => {
+      if (!dashboard) return null;
+      if (dashboardMatchesAnchor(current, displayedPeriodAnchor) && !dashboardMatchesAnchor(dashboard, displayedPeriodAnchor)) {
+        return current;
+      }
+      return dashboard;
+    });
+  }, [dashboard, displayedPeriodAnchor]);
 
   useEffect(() => {
     let cancelled = false;
@@ -79,9 +93,11 @@ export function useDashboardScreenController({ navigation }: DashboardScreenProp
     const run = async () => {
       if (!dashboard || !displayedPeriodAnchor) return;
 
-      const sameMonth = Number(dashboard.monthNum) === displayedPeriodAnchor.month;
-      const sameYear = Number(dashboard.year) === displayedPeriodAnchor.year;
-      if (sameMonth && sameYear) {
+      if (dashboardMatchesAnchor(resolvedDashboard, displayedPeriodAnchor)) {
+        return;
+      }
+
+      if (dashboardMatchesAnchor(dashboard, displayedPeriodAnchor)) {
         setResolvedDashboard(dashboard);
         return;
       }
@@ -112,11 +128,16 @@ export function useDashboardScreenController({ navigation }: DashboardScreenProp
     return () => {
       cancelled = true;
     };
-  }, [dashboard, displayedPeriodAnchor, settings?.id]);
+  }, [dashboard, displayedPeriodAnchor, resolvedDashboard, settings?.id]);
+
+  const effectiveDisplayedAnchor = useMemo(
+    () => (dashboardMatchesAnchor(resolvedDashboard, displayedPeriodAnchor) ? displayedPeriodAnchor : null),
+    [displayedPeriodAnchor, resolvedDashboard],
+  );
 
   const derived = useMemo(
-    () => buildDashboardDerived({ dashboard: resolvedDashboard, settings, categorySheet, displayedAnchor: displayedPeriodAnchor }),
-    [categorySheet, displayedPeriodAnchor, resolvedDashboard, settings]
+    () => buildDashboardDerived({ dashboard: resolvedDashboard, settings, categorySheet, displayedAnchor: effectiveDisplayedAnchor }),
+    [categorySheet, effectiveDisplayedAnchor, resolvedDashboard, settings]
   );
 
   useEffect(() => {
@@ -135,6 +156,7 @@ export function useDashboardScreenController({ navigation }: DashboardScreenProp
       }
 
       const payFrequency = normalizePayFrequency(dashboard?.payFrequency ?? settings?.payFrequency);
+      const payAnchorDate = payFrequency === "monthly" ? null : (settings?.payAnchorDate ?? null);
       const planCreatedAt = settings?.setupCompletedAt
         ? new Date(settings.setupCompletedAt)
         : settings?.accountCreatedAt
@@ -144,6 +166,7 @@ export function useDashboardScreenController({ navigation }: DashboardScreenProp
       const next = await resolveDisplayedPayPeriodAnchor({
         budgetPlanId,
         payDate: settings?.payDate ?? dashboard?.payDate ?? 27,
+        payAnchorDate,
         payFrequency,
         planCreatedAt,
       });
@@ -158,7 +181,7 @@ export function useDashboardScreenController({ navigation }: DashboardScreenProp
     return () => {
       cancelled = true;
     };
-  }, [dashboard?.budgetPlanId, dashboard?.payDate, dashboard?.payFrequency, settings?.accountCreatedAt, settings?.id, settings?.payDate, settings?.payFrequency, settings?.setupCompletedAt]);
+  }, [dashboard?.budgetPlanId, dashboard?.payDate, dashboard?.payFrequency, settings?.accountCreatedAt, settings?.id, settings?.payAnchorDate, settings?.payDate, settings?.payFrequency, settings?.setupCompletedAt]);
 
   const currency = currencySymbol(settings?.currency);
   const needsSetup = derived.totalIncome <= 0 || derived.totalExpenses <= 0;

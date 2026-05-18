@@ -21,6 +21,39 @@ function clampDay(year: number, month0: number, day: number): number {
 	return Math.max(1, Math.min(maxDay, Math.floor(day)));
 }
 
+function toIsoUtcDateKey(date: Date): string {
+	return date.toISOString().slice(0, 10);
+}
+
+function isNonMonthlyPayFrequency(payFrequency: unknown): payFrequency is Exclude<PayFrequency, "monthly"> {
+	return payFrequency === "weekly" || payFrequency === "every_2_weeks" || payFrequency === "every_4_weeks";
+}
+
+export function getLegacyAnchorMonthPeriodKey(anchor: { year: number; month: number }): string {
+	return toIsoUtcDateKey(new Date(Date.UTC(anchor.year, anchor.month - 1, 1)));
+}
+
+export function resolveMatchedExpensePeriodKey(params: {
+	storedPeriodKey: string | null | undefined;
+	selectedPeriodStart: Date;
+	anchorYear: number;
+	anchorMonth: number;
+	payFrequency?: PayFrequency | null;
+}): string | null {
+	const storedPeriodKey = String(params.storedPeriodKey ?? "").trim();
+	if (!storedPeriodKey) return null;
+
+	const canonicalPeriodKey = toIsoUtcDateKey(params.selectedPeriodStart);
+	if (storedPeriodKey === canonicalPeriodKey) return canonicalPeriodKey;
+	if (!isNonMonthlyPayFrequency(params.payFrequency)) return null;
+
+	const legacyAnchorMonthPeriodKey = getLegacyAnchorMonthPeriodKey({
+		year: params.anchorYear,
+		month: params.anchorMonth,
+	});
+	return storedPeriodKey === legacyAnchorMonthPeriodKey ? canonicalPeriodKey : null;
+}
+
 /**
  * Given a reference date and the user's payday, return the periodKey
  * (ISO date string of the period start).
@@ -40,7 +73,7 @@ export function getPeriodKey(date: Date, payDate: number): string {
 		// Date is on or after payday this month → period starts this month
 		const startDay = clampDay(y, m, safePayDate);
 		const start = new Date(Date.UTC(y, m, startDay));
-		return start.toISOString().slice(0, 10);
+		return toIsoUtcDateKey(start);
 	} else {
 		// Date is before payday this month → period started last month
 		const prevDate = new Date(Date.UTC(y, m - 1, 1)); // handles year rollover
@@ -48,7 +81,7 @@ export function getPeriodKey(date: Date, payDate: number): string {
 		const pm = prevDate.getUTCMonth();
 		const startDay = clampDay(py, pm, safePayDate);
 		const start = new Date(Date.UTC(py, pm, startDay));
-		return start.toISOString().slice(0, 10);
+		return toIsoUtcDateKey(start);
 	}
 }
 
@@ -85,12 +118,38 @@ export function parsePeriodKeyRange(periodKey: string, payDate: number): { start
 /**
  * Get the period key for an expense based on its dueDate (preferred) or year/month + payDate fallback.
  */
-export function getExpensePeriodKey(expense: { dueDate?: Date | string | null; year: number; month: number }, payDate: number): string {
+export function getExpensePeriodKey(
+	expense: { dueDate?: Date | string | null; year: number; month: number },
+	payDate: number,
+	payFrequency: PayFrequency = "monthly",
+	payAnchorDate?: Date | string | null
+): string {
 	if (expense.dueDate) {
 		const due = typeof expense.dueDate === "string" ? new Date(expense.dueDate) : expense.dueDate;
 		if (Number.isFinite(due.getTime())) {
+			if (isNonMonthlyPayFrequency(payFrequency) && payAnchorDate) {
+				return toIsoUtcDateKey(
+					resolveActivePayPeriodWindow({
+						now: due,
+						payDate,
+						payFrequency,
+						payAnchorDate,
+					}).start
+				);
+			}
 			return getPeriodKey(due, payDate);
 		}
+	}
+	if (isNonMonthlyPayFrequency(payFrequency) && payAnchorDate) {
+		return toIsoUtcDateKey(
+			buildPayPeriodFromMonthAnchor({
+				anchorYear: expense.year,
+				anchorMonth: expense.month,
+				payDate,
+				payFrequency,
+				payAnchorDate,
+			}).start
+		);
 	}
 	// Fallback: assume the expense is due on the payDate of its month
 	const safePayDate = Number.isFinite(payDate) && payDate >= 1 ? Math.floor(payDate) : 1;
@@ -160,7 +219,7 @@ export function getLegacyIncomePeriodKey(income: { year: number; month: number }
 }
 
 // ─── Prisma helper: resolve payDate from budgetPlan ────────────────────
-import { buildPayPeriodFromMonthAnchor } from "@/lib/payPeriods";
+import { buildPayPeriodFromMonthAnchor, resolveActivePayPeriodWindow, type PayFrequency } from "@/lib/payPeriods";
 import { prisma } from "@/lib/prisma";
 
 const _cache = new Map<string, number>();

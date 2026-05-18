@@ -1,16 +1,19 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { supportsExpenseMovedToDebtField, supportsOnboardingPayFrequencyField } from "@/lib/prisma/capabilities";
+import { supportsExpenseMovedToDebtField } from "@/lib/prisma/capabilities";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
+import { resolveBudgetPlanPayPeriodContext } from "@/lib/api/payPeriodContext";
 import { processOverdueExpensesToDebts } from "@/lib/expenses/carryover";
 import { resolveEffectiveDueDateIso } from "@/lib/expenses/insights";
 import {
 	buildPayPeriodFromMonthAnchor,
+	formatPayPeriodLabelForFrequency,
 	normalizePayFrequency,
 	type PayFrequency,
 } from "@/lib/payPeriods";
 import { isLegacyPlaceholderExpenseRow } from "@/lib/expenses/legacyPlaceholders";
 import { getExpensePaidMap } from "@/lib/expenses/paidSummary";
+import { resolveMatchedExpensePeriodKey } from "@/lib/helpers/periodKey";
 
 export const runtime = "nodejs";
 
@@ -121,31 +124,6 @@ function isUnknownMovedToDebtFieldError(error: unknown): boolean {
 	);
 }
 
-function isUnknownPayFrequencyFieldError(error: unknown): boolean {
-	const message = String((error as { message?: unknown })?.message ?? error);
-	return (
-		message.includes("payFrequency") &&
-		(message.includes("Unknown arg") ||
-			message.includes("Unknown argument") ||
-			message.includes("Unknown field"))
-	);
-}
-
-async function findOnboardingPayFrequency(userId: string) {
-	if (!(await supportsOnboardingPayFrequencyField())) return null;
-
-	try {
-		const profile = await prisma.userOnboardingProfile.findUnique({
-			where: { userId },
-			select: { payFrequency: true },
-		});
-		return profile;
-	} catch (error) {
-		if (!isUnknownPayFrequencyFieldError(error)) throw error;
-		return null;
-	}
-}
-
 /**
  * GET /api/bff/expenses/summary?month=N&year=N&budgetPlanId=<optional>
  *
@@ -188,21 +166,18 @@ export async function GET(req: NextRequest) {
 		console.error("Expense summary: overdue carryover sync failed:", error);
 	}
 
-	const [budgetPlan, onboardingProfile, planCategories] = await Promise.all([
-		prisma.budgetPlan.findUnique({
-		where: { id: budgetPlanId },
-		select: { payDate: true },
-		}),
-		findOnboardingPayFrequency(userId),
+	const [payPeriodContext, planCategories] = await Promise.all([
+		resolveBudgetPlanPayPeriodContext({ budgetPlanId }),
 		prisma.category.findMany({
 			where: { budgetPlanId },
 			select: { id: true, name: true, color: true, icon: true },
 		}),
 	]);
-	const payDate = Number.isFinite(Number(budgetPlan?.payDate)) && Number(budgetPlan?.payDate) >= 1
-		? Math.floor(Number(budgetPlan?.payDate))
+	const payDate = Number.isFinite(Number(payPeriodContext.payDate)) && Number(payPeriodContext.payDate) >= 1
+		? Math.floor(Number(payPeriodContext.payDate))
 		: 1;
-	const payFrequency: PayFrequency = normalizePayFrequency(onboardingProfile?.payFrequency);
+	const payAnchorDate = payPeriodContext.payAnchorDate;
+	const payFrequency: PayFrequency = normalizePayFrequency(payPeriodContext.payFrequency);
 
 	let periodStart: Date | null = null;
 	let periodEnd: Date | null = null;
@@ -237,6 +212,7 @@ export async function GET(req: NextRequest) {
 			anchorMonth: month,
 			payDate,
 			payFrequency,
+			payAnchorDate,
 		});
 		allowedUnscheduledYm.add(`${selected.start.getUTCFullYear()}-${selected.start.getUTCMonth() + 1}`);
 		allowedUnscheduledYm.add(`${selected.end.getUTCFullYear()}-${selected.end.getUTCMonth() + 1}`);
@@ -246,13 +222,11 @@ export async function GET(req: NextRequest) {
 
 		periodIndex = Math.max(1, Math.min(12, month) - 1);
 		periodLabel = `Pay period ${periodIndex}`;
-		periodRangeLabel = `${selected.start.getUTCDate()} ${selected.start.toLocaleString("en-GB", {
-			month: "short",
-			timeZone: "UTC",
-		})} - ${selected.end.getUTCDate()} ${selected.end.toLocaleString("en-GB", {
-			month: "short",
-			timeZone: "UTC",
-		})}`;
+		periodRangeLabel = formatPayPeriodLabelForFrequency({
+			start: selected.start,
+			end: selected.end,
+			payFrequency,
+		});
 
 		const windowPairs = [
 			{ year: selected.start.getUTCFullYear(), month: selected.start.getUTCMonth() + 1 },
@@ -444,8 +418,16 @@ export async function GET(req: NextRequest) {
 				// Prefer the persisted pay-period assignment for unscheduled/logged expenses.
 				// Fall back to month/year only for legacy rows that do not have a periodKey.
 				if (exp.periodKey) {
-					if (!periodKey || exp.periodKey !== periodKey) continue;
-					dedupeScope = `unscheduled:${exp.periodKey}`;
+					if (!periodKey || !periodStart) continue;
+					const matchedPeriodKey = resolveMatchedExpensePeriodKey({
+						storedPeriodKey: exp.periodKey,
+						selectedPeriodStart: periodStart,
+						anchorYear: year,
+						anchorMonth: month,
+						payFrequency,
+					});
+					if (!matchedPeriodKey) continue;
+					dedupeScope = `unscheduled:${matchedPeriodKey}`;
 				} else {
 					if (!allowedUnscheduledYm.has(`${exp.year}-${exp.month}`)) continue;
 					dedupeScope = `unscheduled:${exp.year}-${exp.month}`;

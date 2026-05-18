@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { supportsExpenseMovedToDebtField, supportsOnboardingPayFrequencyField } from "@/lib/prisma/capabilities";
+import { supportsExpenseMovedToDebtField } from "@/lib/prisma/capabilities";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
+import { resolveBudgetPlanPayPeriodContext } from "@/lib/api/payPeriodContext";
 import { processOverdueExpensesToDebts } from "@/lib/expenses/carryover";
 import { resolveEffectiveDueDateIso } from "@/lib/expenses/insights";
 import { getPayPeriodAnchorFromWindow, normalizePayFrequency, resolveActivePayPeriodWindow, type PayFrequency } from "@/lib/payPeriods";
@@ -40,28 +41,6 @@ function isUnknownMovedToDebtFieldError(error: unknown): boolean {
 		message.includes("isMovedToDebt") &&
 		(message.includes("Unknown arg") || message.includes("Unknown argument") || message.includes("Unknown field"))
 	);
-}
-
-function isUnknownPayFrequencyFieldError(error: unknown): boolean {
-	const message = String((error as { message?: unknown })?.message ?? error);
-	return (
-		message.includes("payFrequency") &&
-		(message.includes("Unknown arg") || message.includes("Unknown argument") || message.includes("Unknown field"))
-	);
-}
-
-async function findOnboardingPayFrequency(userId: string) {
-	if (!(await supportsOnboardingPayFrequencyField())) return null;
-
-	try {
-		return await prisma.userOnboardingProfile.findUnique({
-			where: { userId },
-			select: { payFrequency: true },
-		});
-	} catch (error) {
-		if (!isUnknownPayFrequencyFieldError(error)) throw error;
-		return null;
-	}
 }
 
 type ExpenseRow = {
@@ -105,18 +84,13 @@ export async function GET(req: NextRequest) {
 			console.error("Expense months: overdue carryover sync failed:", error);
 		}
 
-		const [budgetPlan, onboardingProfile] = await Promise.all([
-			prisma.budgetPlan.findUnique({
-				where: { id: budgetPlanId },
-				select: { payDate: true },
-			}),
-			findOnboardingPayFrequency(userId),
-		]);
+		const payPeriodContext = await resolveBudgetPlanPayPeriodContext({ budgetPlanId });
 
-		const payDate = Number.isFinite(Number(budgetPlan?.payDate)) && Number(budgetPlan?.payDate) >= 1
-			? Math.floor(Number(budgetPlan?.payDate))
+		const payDate = Number.isFinite(Number(payPeriodContext.payDate)) && Number(payPeriodContext.payDate) >= 1
+			? Math.floor(Number(payPeriodContext.payDate))
 			: 1;
-		const payFrequency: PayFrequency = normalizePayFrequency(onboardingProfile?.payFrequency);
+		const payAnchorDate = payPeriodContext.payAnchorDate;
+		const payFrequency: PayFrequency = normalizePayFrequency(payPeriodContext.payFrequency);
 
 		const rows = await (async () => {
 			const runLegacyQuery = () =>
@@ -173,6 +147,7 @@ export async function GET(req: NextRequest) {
 					now: due,
 					payDate,
 					payFrequency,
+					payAnchorDate,
 				});
 				const anchor = getPayPeriodAnchorFromWindow({ window, payFrequency });
 				anchorMonth = anchor.anchorMonth;
@@ -188,6 +163,7 @@ export async function GET(req: NextRequest) {
 					now: start,
 					payDate,
 					payFrequency,
+					payAnchorDate,
 				});
 				const anchor = getPayPeriodAnchorFromWindow({ window, payFrequency });
 				anchorMonth = anchor.anchorMonth;

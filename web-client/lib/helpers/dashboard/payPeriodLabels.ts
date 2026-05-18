@@ -1,10 +1,4 @@
-import { resolveActivePayPeriodWindow, type PayFrequency } from "@/lib/payPeriods";
-
-const MONTH_NAMES_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-function formatRange(start: Date, end: Date): string {
-	return `${start.getDate()} ${MONTH_NAMES_SHORT[start.getMonth()]} - ${end.getDate()} ${MONTH_NAMES_SHORT[end.getMonth()]}`;
-}
+import { formatPayPeriodLabelForFrequency, resolveActivePayPeriodWindow, type PayFrequency } from "@/lib/payPeriods";
 
 export function getDashboardPayPeriodLabels(
 	now: Date,
@@ -35,7 +29,15 @@ export function getDashboardPayPeriodLabels(
 	});
 
 	return {
-		payPeriodLabel: formatRange(currentWindow.start, currentWindow.end),
-		previousPayPeriodLabel: formatRange(previousWindow.start, previousWindow.end),
+		payPeriodLabel: formatPayPeriodLabelForFrequency({
+			start: currentWindow.start,
+			end: currentWindow.end,
+			payFrequency,
+		}),
+		previousPayPeriodLabel: formatPayPeriodLabelForFrequency({
+			start: previousWindow.start,
+			end: previousWindow.end,
+			payFrequency,
+		}),
 	};
 }

@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { supportsExpenseMovedToDebtField, supportsOnboardingPayFrequencyField } from "@/lib/prisma/capabilities";
+import { supportsExpenseMovedToDebtField } from "@/lib/prisma/capabilities";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
+import { resolveBudgetPlanPayPeriodContext } from "@/lib/api/payPeriodContext";
 import { resolveEffectiveDueDateIso } from "@/lib/expenses/insights";
 import { createExpense, normalizeFundingSource, normalizePaymentSource } from "@/lib/financial-engine";
 import { hasCustomLogoForDomain, hasCustomLogoForName, resolveExpenseLogo, resolveExpenseLogoWithSearch } from "@/lib/expenses/logoResolver";
@@ -10,6 +11,7 @@ import { buildExpenseAddedActivity } from "@/lib/push/activityMessages";
 import { sendUserPush } from "@/lib/push/sendUserPush";
 import { isLegacyPlaceholderExpenseRow } from "@/lib/expenses/legacyPlaceholders";
 import { getExpensePaidMap } from "@/lib/expenses/paidSummary";
+import { resolveMatchedExpensePeriodKey } from "@/lib/helpers/periodKey";
 import {
   buildPayPeriodFromMonthAnchor,
   normalizePayFrequency,
@@ -63,28 +65,6 @@ function isUnknownMovedToDebtFieldError(error: unknown): boolean {
       message.includes("Unknown argument") ||
       message.includes("Unknown field"))
   );
-}
-
-function isUnknownPayFrequencyFieldError(error: unknown): boolean {
-  const message = String((error as { message?: unknown })?.message ?? error);
-  return (
-    message.includes("payFrequency") &&
-    (message.includes("Unknown arg") ||
-      message.includes("Unknown argument") ||
-      message.includes("Unknown field"))
-  );
-}
-
-async function findOnboardingPayFrequency(userId: string) {
-  if (!(await supportsOnboardingPayFrequencyField())) return null;
-
-  try {
-    const profile = await prisma.userOnboardingProfile.findUnique({ where: { userId }, select: { payFrequency: true } });
-    return profile;
-  } catch (error) {
-    if (!isUnknownPayFrequencyFieldError(error)) throw error;
-    return null;
-  }
 }
 
 function parseIsoDate(iso: string): Date | null {
@@ -186,20 +166,19 @@ export async function GET(req: NextRequest) {
     console.error("Expenses: overdue carryover sync failed:", error);
   }
 
-  const [budgetPlan, onboardingProfile] = await Promise.all([
-    prisma.budgetPlan.findUnique({ where: { id: budgetPlanId }, select: { payDate: true } }),
-    findOnboardingPayFrequency(userId),
-  ]);
-  const payDate = Number.isFinite(Number(budgetPlan?.payDate)) && Number(budgetPlan?.payDate) >= 1
-    ? Math.floor(Number(budgetPlan?.payDate))
+  const payPeriodContext = await resolveBudgetPlanPayPeriodContext({ budgetPlanId });
+  const payDate = Number.isFinite(Number(payPeriodContext.payDate)) && Number(payPeriodContext.payDate) >= 1
+    ? Math.floor(Number(payPeriodContext.payDate))
     : 1;
-  const payFrequency: PayFrequency = normalizePayFrequency(onboardingProfile?.payFrequency);
+  const payAnchorDate = payPeriodContext.payAnchorDate;
+  const payFrequency: PayFrequency = normalizePayFrequency(payPeriodContext.payFrequency);
 
   const selectedPeriod = buildPayPeriodFromMonthAnchor({
     anchorYear: year,
     anchorMonth: month,
     payDate,
     payFrequency,
+    payAnchorDate,
   });
   const allowedUnscheduledYm = new Set([
     `${selectedPeriod.start.getUTCFullYear()}-${selectedPeriod.start.getUTCMonth() + 1}`,
@@ -377,12 +356,21 @@ export async function GET(req: NextRequest) {
         )
       : null;
     const dueDateOnly = dueIso ? parseIsoDate(dueIso) : null;
+    const matchedPeriodKey = !dueDateOnly && scope === "pay_period" && item.periodKey
+      ? resolveMatchedExpensePeriodKey({
+          storedPeriodKey: item.periodKey,
+          selectedPeriodStart: selectedPeriod.start,
+          anchorYear: year,
+          anchorMonth: month,
+          payFrequency,
+        })
+      : null;
     const inSelectedPayPeriod =
       scope === "pay_period"
         ? dueDateOnly
           ? inRange(dueDateOnly, selectedPeriod.start, selectedPeriod.end)
           : item.periodKey
-            ? item.periodKey === selectedPeriod.start.toISOString().slice(0, 10)
+            ? Boolean(matchedPeriodKey)
             : allowedUnscheduledYm.has(`${item.year}-${item.month}`)
         : true;
 
