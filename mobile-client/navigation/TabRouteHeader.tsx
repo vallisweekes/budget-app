@@ -8,6 +8,7 @@ import TopHeader from "@/components/Shared/TopHeader";
 import { useActiveBudgetPlan } from "@/context/ActiveBudgetPlanContext";
 import { useAuth } from "@/context/AuthContext";
 import { markSkipExpensesFocusReload } from "@/lib/helpers/expensesFocusReload";
+import { subscribeNotificationInbox } from "@/lib/notificationInbox";
 import { T } from "@/lib/theme";
 import { IncomeMonthSwitcher } from "@/navigation/routerHeaders";
 
@@ -31,6 +32,14 @@ export default function TabRouteHeader() {
   const params = useLocalSearchParams() as Record<string, string | string[] | undefined>;
   const { signOut } = useAuth();
   const { activeBudgetPlanId, bootstrapBudgetPlanId } = useActiveBudgetPlan();
+  const [notificationUnreadCount, setNotificationUnreadCount] = React.useState(0);
+
+  React.useEffect(() => {
+    const unsubscribe = subscribeNotificationInbox((snapshot) => {
+      setNotificationUnreadCount(snapshot.unreadCount);
+    });
+    return unsubscribe;
+  }, []);
 
   const rootSegment = typeof segments[0] === "string" ? segments[0] : "";
   const tabSegment = rootSegment === "(tabs)" && typeof segments[1] === "string" ? segments[1] : "";
@@ -134,6 +143,7 @@ export default function TabRouteHeader() {
   const categoryExpensesYear = getNumberParam(params.year);
   const settingsSubTab = getStringParam(params.subTab)
     ?? (typeof routeParams?.subTab === "string" ? routeParams.subTab : "details");
+  const isSettingsNotifications = isSettings && settingsSubTab === "notifications";
   const hasCategoryMonthYear = Number.isFinite(categoryExpensesMonth)
     && categoryExpensesMonth >= 1
     && categoryExpensesMonth <= 12
@@ -165,6 +175,8 @@ export default function TabRouteHeader() {
                 ? "Plans"
               : isSettings && settingsSubTab === "locale"
                 ? "Locale & Currency"
+              : isSettings && settingsSubTab === "notifications"
+                ? "Notifications"
               : isSettings && settingsSubTab === "budget"
                 ? "Budget"
               : isSettings && settingsSubTab === "subscription"
@@ -515,6 +527,42 @@ export default function TabRouteHeader() {
     </Pressable>
   ) : undefined;
 
+  const notificationsInboxRightContent = isSettingsNotifications ? (
+    <Pressable
+      onPress={() => router.setParams({ notificationsInboxToken: String(Date.now()) })}
+      style={{
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        borderWidth: 1,
+        borderColor: T.border,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: `${T.cardAlt}66`,
+      }}
+      hitSlop={10}
+      accessibilityRole="button"
+      accessibilityLabel="Open recent notifications"
+    >
+      <Ionicons name="mail-unread-outline" size={18} color={T.accent} />
+      {notificationUnreadCount > 0 ? (
+        <View
+          style={{
+            position: "absolute",
+            top: 5,
+            right: 6,
+            width: 8,
+            height: 8,
+            borderRadius: 4,
+            backgroundColor: T.red,
+            borderWidth: 1,
+            borderColor: T.card,
+          }}
+        />
+      ) : null}
+    </Pressable>
+  ) : undefined;
+
   if (isIncomeMonth && incomeMonthManageActive) {
     return null;
   }
@@ -531,12 +579,12 @@ export default function TabRouteHeader() {
       onBack={handleBack}
       centerLabel={centerLabel}
       centerContent={incomeMonthSwitcher}
-      rightContent={loggedExpensesRightContent ?? analyticsRightContent ?? incomeRightContent ?? expensesLoggedRightContent ?? goalsRightContent}
+      rightContent={notificationsInboxRightContent ?? loggedExpensesRightContent ?? analyticsRightContent ?? incomeRightContent ?? expensesLoggedRightContent ?? goalsRightContent}
       showIncomeAction={false}
       compactActionsMenu={isSettings || isSettingsProfileDetails || isSettingsIncomeSettings || isSettingsStrategy || isSettingsDebtManagement}
       showAnalyticsAction={!isSettings && !isSettingsProfileDetails && !isSettingsIncomeSettings && !isSettingsStrategy && !isSettingsDebtManagement && !isAnalytics && !isGoalDetail}
       showNotificationAction={!isSettings && !isSettingsProfileDetails && !isSettingsIncomeSettings && !isSettingsStrategy && !isSettingsDebtManagement && !isAnalytics}
-      onLogout={isSettings ? signOut : undefined}
+      onLogout={isSettings && !isSettingsNotifications ? signOut : undefined}
     />
   );
 }
