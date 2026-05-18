@@ -9,6 +9,7 @@ import { PAYMENT_EDIT_GRACE_DAYS } from "@/lib/domain/paymentRules";
 import { getCachedPayPeriodExpenses, setCachedPayPeriodExpenses } from "@/lib/expensePeriodCache";
 import { toExpenseCategoryBreakdowns } from "@/lib/helpers/expenseCategories";
 import { getLatestPaymentAt, splitCategoryExpenses } from "@/lib/helpers/categoryExpenses";
+import { subscribeCategoryAddExpenseTrigger } from "@/lib/events/categoryAddExpenseTrigger";
 import { useTopHeaderOffset } from "@/hooks";
 import { buildPayPeriodFromMonthAnchor, formatPayPeriodLabel, normalizePayFrequency, type PayFrequency } from "@/lib/payPeriods";
 import type { ExpensesStackParamList } from "@/navigation/types";
@@ -49,6 +50,7 @@ export function useCategoryExpensesScreenController({ navigation, route }: Props
   const [payDate, setPayDate] = useState<number | null>(null);
   const [payFrequency, setPayFrequency] = useState<PayFrequency>("monthly");
   const seenMutationVersionRef = useRef<number>(getApiMutationVersion());
+  const lastHandledOpenAddAtRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (routeMonth !== month) setMonth(routeMonth);
@@ -203,6 +205,23 @@ export function useCategoryExpensesScreenController({ navigation, route }: Props
     graceCutoff.setDate(graceCutoff.getDate() + PAYMENT_EDIT_GRACE_DAYS);
     return Date.now() <= graceCutoff.getTime();
   }, [month, payDate, payFrequency, year]);
+
+  useEffect(() => {
+    const openAddToken = Number(route.params?.openAddExpenseAt);
+    if (!Number.isFinite(openAddToken)) return;
+    if (lastHandledOpenAddAtRef.current === openAddToken) return;
+
+    lastHandledOpenAddAtRef.current = openAddToken;
+    if (!canAddExpenseInSelectedPeriod) return;
+    setAddSheetOpen(true);
+  }, [canAddExpenseInSelectedPeriod, route.params?.openAddExpenseAt]);
+
+  useEffect(() => {
+    return subscribeCategoryAddExpenseTrigger(() => {
+      if (!canAddExpenseInSelectedPeriod) return;
+      setAddSheetOpen(true);
+    });
+  }, [canAddExpenseInSelectedPeriod]);
 
   const getPeriodOptionLabel = useCallback((targetMonth: number, targetYear: number) => {
     const actualYear = resolvePickerActualYear(targetMonth, targetYear);

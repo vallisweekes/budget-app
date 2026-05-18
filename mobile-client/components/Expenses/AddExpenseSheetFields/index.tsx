@@ -294,7 +294,6 @@ export default function AddExpenseSheetFields({
           value={dueDateObj}
           mode="date"
           display="calendar"
-          minimumDate={new Date()}
           onChange={(event, selected) => {
             setShowPicker(false);
             if (event.type === "set" && selected) {
@@ -329,7 +328,6 @@ export default function AddExpenseSheetFields({
                 mode="date"
                 display="inline"
                 themeVariant="dark"
-                minimumDate={new Date()}
                 onChange={(event, selected) => {
                   const next =
                     selected ??

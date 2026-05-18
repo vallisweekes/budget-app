@@ -1102,6 +1102,21 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       }
 
       if (payload.phase === "confirmed") {
+        const confirmedMonth = Number(payload.expense?.month);
+        const confirmedYear = Number(payload.expense?.year);
+        const isDifferentPeriod = Number.isFinite(confirmedMonth)
+          && Number.isFinite(confirmedYear)
+          && (confirmedMonth !== month || confirmedYear !== year);
+
+        // If the user added into a different month/year, refresh full caches so
+        // month pickers and summaries include that newly-created period.
+        if (isDifferentPeriod) {
+          clearExpenseCaches();
+          setRefreshing(true);
+          void load({ force: true });
+          return;
+        }
+
         // Silently settle the optimistic state with server-confirmed data.
         // Avoids a full bootstrap reload and a visible refresh spinner — the
         // optimistic update already shows the new expense immediately.

@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, FlatList, Pressable, ActivityIndicator, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import type { Expense } from "@/lib/apiTypes";
+import type { Expense, ExpenseCategoryBreakdown } from "@/lib/apiTypes";
 import AddExpenseSheet from "@/components/Expenses/AddExpenseSheet";
 import CategoryExpenseCard from "@/components/Expenses/CategoryExpenseCard";
 import CategoryExpensesHero from "@/components/Expenses/CategoryExpensesHero";
@@ -15,6 +15,29 @@ import type { CategoryExpensesScreenProps } from "@/types";
 
 export default function CategoryExpensesScreen({ route, navigation }: CategoryExpensesScreenProps) {
   const controller = useCategoryExpensesScreenController({ navigation, route });
+  const lockedCategoryOptions = React.useMemo<ExpenseCategoryBreakdown[]>(() => {
+    const selected = controller.categoriesForAddSheet.find((entry) => entry.categoryId === controller.categoryId);
+    if (selected) return [selected];
+
+    return [
+      {
+        categoryId: controller.categoryId,
+        name: controller.categoryName,
+        color: controller.color,
+        icon: controller.routeIcon,
+        total: 0,
+        paidTotal: 0,
+        paidCount: 0,
+        totalCount: 0,
+      },
+    ];
+  }, [
+    controller.categoriesForAddSheet,
+    controller.categoryId,
+    controller.categoryName,
+    controller.color,
+    controller.routeIcon,
+  ]);
 
   return (
     <SafeAreaView style={styles.safe} edges={[]}>
@@ -93,7 +116,7 @@ export default function CategoryExpensesScreen({ route, navigation }: CategoryEx
         initialCategoryId={controller.categoryId}
         headerTitle={controller.categoryName}
         currency={controller.currency}
-        categories={controller.categoriesForAddSheet}
+        categories={lockedCategoryOptions}
         onAdded={controller.onAddComplete}
         onClose={() => controller.setAddSheetOpen(false)}
       />

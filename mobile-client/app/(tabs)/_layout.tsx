@@ -5,6 +5,7 @@ import { useRouter, useSegments } from "expo-router";
 import { NativeTabs } from "expo-router/unstable-native-tabs";
 
 import { T } from "@/lib/theme";
+import { emitCategoryAddExpenseTrigger } from "@/lib/events/categoryAddExpenseTrigger";
 
 type TabRouteState = {
   key: string;
@@ -13,7 +14,7 @@ type TabRouteState = {
   };
 };
 
-function createTabListeners(options?: { onTabPress?: () => void; preventDefaultOnTabPress?: boolean }) {
+function createTabListeners(options?: { onTabPress?: () => void; preventDefaultOnTabPress?: boolean; resetOnBlur?: boolean }) {
   return ({
     route,
     navigation,
@@ -32,21 +33,25 @@ function createTabListeners(options?: { onTabPress?: () => void; preventDefaultO
         options.onTabPress?.();
       },
     } : null),
-    blur: () => {
-      const tabRoute = navigation.getState().routes.find(
-        (candidate) => candidate.key === route.key
-      );
-      const nestedNavigatorKey = tabRoute?.state?.key;
+    ...(options?.resetOnBlur === false
+      ? null
+      : {
+          blur: () => {
+            const tabRoute = navigation.getState().routes.find(
+              (candidate) => candidate.key === route.key
+            );
+            const nestedNavigatorKey = tabRoute?.state?.key;
 
-      if (!nestedNavigatorKey) {
-        return;
-      }
+            if (!nestedNavigatorKey) {
+              return;
+            }
 
-      navigation.dispatch({
-        ...StackActions.popToTop(),
-        target: nestedNavigatorKey,
-      });
-    },
+            navigation.dispatch({
+              ...StackActions.popToTop(),
+              target: nestedNavigatorKey,
+            });
+          },
+        }),
   });
 }
 
@@ -54,6 +59,7 @@ export default function MainTabsLayout() {
   const router = useRouter();
   const segments = useSegments() as string[];
   const incomeAddTokenRef = React.useRef(0);
+  const categoryAddTokenRef = React.useRef(0);
   const selectedTintColor = T.onAccent;
   const inactiveIconColor = "#8E95A3";
   const inactiveLabelColor = "#8E95A3";
@@ -116,9 +122,10 @@ export default function MainTabsLayout() {
     listeners: createTabListeners(isCategoryExpensesSplitRoute
       ? {
           onTabPress: () => {
-            router.replace("/(tabs)/expenses");
+            categoryAddTokenRef.current = emitCategoryAddExpenseTrigger();
           },
           preventDefaultOnTabPress: true,
+          resetOnBlur: false,
         }
       : undefined),
   } as Record<string, unknown>;
@@ -137,6 +144,8 @@ export default function MainTabsLayout() {
           {...categorySplitTriggerScreenProps}
           name="expenses"
           role="search"
+          disablePopToTop
+          disableScrollToTop
           contentStyle={tabContentStyle}
           unstable_nativeProps={tabNativeProps}
         >

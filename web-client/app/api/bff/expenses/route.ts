@@ -94,13 +94,6 @@ function parseIsoDate(iso: string): Date | null {
   return new Date(Date.UTC(y, m - 1, d));
 }
 
-function isPastUtcDateOnly(date: Date): boolean {
-  const target = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
-  const now = new Date();
-  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  return target.getTime() < today.getTime();
-}
-
 function inRange(target: Date, start: Date, end: Date): boolean {
   return target.getTime() >= start.getTime() && target.getTime() <= end.getTime();
 }
@@ -503,7 +496,6 @@ export async function POST(req: NextRequest) {
   if (dueDate) {
     const parsedDueDate = parseIsoDate(dueDate);
     if (!parsedDueDate) return badRequest("Invalid dueDate");
-    if (isPastUtcDateOnly(parsedDueDate)) return badRequest("dueDate cannot be in the past");
   }
 
   const createdResult = await createExpense({

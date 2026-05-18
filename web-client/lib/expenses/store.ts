@@ -333,9 +333,13 @@ export async function addOrUpdateExpenseAcrossMonths(
 	const cardDebtId = (item as any).cardDebtId ?? null;
   const isExtraLoggedExpense = (item as any).isExtraLoggedExpense === true;
 	const payDate = await resolvePayDate(budgetPlanId);
+  const dueDateIso = toOptionalString(item.dueDate);
 
 	for (const month of targetMonths) {
 		const monthNumber = monthKeyToNumber(month);
+    const scopedDueDate = dueDateIso
+      ? dueDateForYearMonthFromISO(dueDateIso, year, monthNumber)
+      : null;
 		const existing = await prisma.expense.findFirst({
 			where: {
 				budgetPlanId,
@@ -366,7 +370,7 @@ export async function addOrUpdateExpenseAcrossMonths(
 					paidAmount: item.paidAmount ?? (item.paid ? item.amount : 0),
           isAllocation: !!item.isAllocation,
           isDirectDebit: !!item.isDirectDebit,
-          dueDate: item.dueDate ? new Date(item.dueDate) : null,
+          dueDate: scopedDueDate,
           merchantDomain: logo.merchantDomain,
           logoUrl: logo.logoUrl,
           logoSource: logo.logoSource,
@@ -395,7 +399,7 @@ export async function addOrUpdateExpenseAcrossMonths(
         merchantDomain: logo.merchantDomain,
         logoUrl: logo.logoUrl,
         logoSource: logo.logoSource,
-				dueDate: item.dueDate ? new Date(item.dueDate) : null,
+				dueDate: scopedDueDate,
         paymentSource,
         cardDebtId,
         isExtraLoggedExpense,

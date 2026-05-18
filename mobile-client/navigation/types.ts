@@ -52,6 +52,7 @@ export type ExpensesStackParamList = {
     budgetPlanId: string | null;
     currency: string;
     loggedPaymentsCount?: number;
+    openAddExpenseAt?: number;
   };
   LoggedExpenses: {
     categoryId?: string | null;
