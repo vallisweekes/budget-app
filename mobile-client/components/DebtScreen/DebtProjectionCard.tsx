@@ -11,7 +11,7 @@ import type { DebtProjectionCardProps } from "@/types";
 
 export function DebtProjectionCard({ controller }: DebtProjectionCardProps) {
   const { projectionSummary } = controller;
-  if (projectionSummary.months <= 1) return null;
+  if (projectionSummary.months <= 0) return null;
 
   const chartHeight = 180;
   const paddingLeft = 0;
