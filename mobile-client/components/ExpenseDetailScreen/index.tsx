@@ -22,7 +22,7 @@ import DeleteConfirmSheet from "@/components/Shared/DeleteConfirmSheet";
 import { fmt } from "@/lib/formatting";
 import { useExpenseDetailScreenController } from "@/hooks";
 import { T } from "@/lib/theme";
-import { expenseDetailStyles as styles, EXPENSE_HERO_BLUE } from "@/components/ExpenseDetailScreen/style";
+import { expenseDetailStyles as styles } from "@/components/ExpenseDetailScreen/style";
 import { statusLabel } from "@/components/ExpenseDetailScreen/utils";
 import type { ExpenseDetailScreenProps } from "@/types";
 
@@ -54,10 +54,10 @@ export default function ExpenseDetailScreen({ route, navigation }: ExpenseDetail
       ) : (
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
           <ScrollView
-            style={{ backgroundColor: EXPENSE_HERO_BLUE }}
+            style={{ backgroundColor: T.bg }}
             contentContainerStyle={[
               styles.scroll,
-              { paddingTop: controller.insetsTop + 64, paddingBottom: 120 + controller.tabBarHeight + 12 },
+              { paddingTop: 0, paddingBottom: 120 + controller.tabBarHeight + 12 },
             ]}
             refreshControl={
               <RefreshControl
@@ -67,7 +67,10 @@ export default function ExpenseDetailScreen({ route, navigation }: ExpenseDetail
               />
             }
           >
-            <View style={styles.hero}>
+            <View style={[styles.hero, { paddingTop: controller.insetsTop + 72 }]}>
+              <View style={[styles.heroGlow, styles.heroGlowPrimary]} />
+              <View style={[styles.heroGlow, styles.heroGlowSecondary]} />
+              <View style={styles.heroInnerBorder} />
               <View style={styles.brandCircle}>
                 {controller.showLogo ? (
                   <Image
@@ -264,7 +267,7 @@ export default function ExpenseDetailScreen({ route, navigation }: ExpenseDetail
           <View style={styles.bottomGlassTint} pointerEvents="none" />
           <View style={styles.bottomActionsRow}>
             <Pressable style={styles.bottomActionBtn} onPress={controller.onOpenEditSheet}>
-              <Text style={[styles.bottomActionTxt, { color: EXPENSE_HERO_BLUE }]}>Edit</Text>
+              <Text style={[styles.bottomActionTxt, { color: "#1A1D28" }]}>Edit</Text>
             </Pressable>
             <Pressable style={[styles.bottomActionBtn, styles.bottomActionBtnSecondary]} onPress={controller.onOpenDeleteConfirm}>
               <Text style={[styles.bottomActionTxt, { color: T.onAccent }]}>Delete</Text>
