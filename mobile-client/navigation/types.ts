@@ -90,6 +90,7 @@ export type DebtStackParamList = {
     | {
         optimisticDeletedDebtId?: string;
         restoreDebtId?: string;
+        openAddToken?: number | string;
       }
     | undefined;
   DebtDetail: { debtId: string; debtName: string };

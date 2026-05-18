@@ -59,6 +59,7 @@ export function useDebtScreenController() {
   const [selectedProjectionMonth, setSelectedProjectionMonth] = useState<number | null>(null);
   const [optimisticDeletedDebtIds, setOptimisticDeletedDebtIds] = useState<string[]>([]);
   const skipNextTabFocusReloadRef = useRef(false);
+  const lastOpenAddTokenRef = useRef<number | null>(null);
 
   const closeAddDebtSheet = useCallback(() => {
     if (saving) return;
@@ -175,6 +176,14 @@ export function useDebtScreenController() {
       navigation.setParams({ restoreDebtId: undefined });
     }
   }, [navigation, route.params?.restoreDebtId]);
+
+  useEffect(() => {
+    const token = Number(route.params?.openAddToken);
+    if (!Number.isFinite(token)) return;
+    if (lastOpenAddTokenRef.current === token) return;
+    lastOpenAddTokenRef.current = token;
+    setShowAddForm(true);
+  }, [route.params?.openAddToken]);
 
   const debtsExcludingOptimisticDeleted = (summary?.debts ?? []).filter(
     (debt) => !optimisticDeletedDebtIds.includes(debt.id),

@@ -59,6 +59,7 @@ export default function MainTabsLayout() {
   const router = useRouter();
   const segments = useSegments() as string[];
   const incomeAddTokenRef = React.useRef(0);
+  const debtAddTokenRef = React.useRef(0);
   const categoryAddTokenRef = React.useRef(0);
   const selectedTintColor = T.onAccent;
   const inactiveIconColor = "#8E95A3";
@@ -66,12 +67,17 @@ export default function MainTabsLayout() {
   const isDebtDetailRoute = segments[0] === "(tabs)" && segments[1] === "debts" && segments[2] === "DebtDetail";
   const isExpenseDetailRoute = segments[0] === "(tabs)" && segments[1] === "expenses" && segments[2] === "ExpenseDetail";
   const isGoalDetailRoute = segments[0] === "(tabs)" && segments[1] === "goals" && segments[2] === "GoalDetail";
+  const isDebtAnalyticsRoute = segments[0] === "(tabs)" && segments[1] === "debts" && segments[2] === "DebtAnalytics";
   const isCategoryExpensesSplitRoute = segments[0] === "(tabs)"
     && segments[1] === "expenses"
     && segments[2] === "CategoryExpenses";
   const isIncomeSplitRoute = segments[0] === "(tabs)"
     && segments[1] === "income"
     && (segments[2] === "IncomeMonth" || segments[2] === "IncomeGrid");
+  const isDebtSplitRoute = segments[0] === "(tabs)"
+    && segments[1] === "debts"
+    && !isDebtDetailRoute
+    && !isDebtAnalyticsRoute;
   const tabBarBackgroundColor = (isIncomeSplitRoute || isCategoryExpensesSplitRoute) ? undefined : T.card;
   const tabBarBlurEffect = (isIncomeSplitRoute || isCategoryExpensesSplitRoute) ? undefined : "systemUltraThinMaterialDark";
   const tabBarShadowColor = (isIncomeSplitRoute || isCategoryExpensesSplitRoute) ? undefined : T.border;
@@ -123,6 +129,19 @@ export default function MainTabsLayout() {
       ? {
           onTabPress: () => {
             categoryAddTokenRef.current = emitCategoryAddExpenseTrigger();
+          },
+          preventDefaultOnTabPress: true,
+          resetOnBlur: false,
+        }
+      : undefined),
+  } as Record<string, unknown>;
+
+  const debtSplitTriggerScreenProps = {
+    listeners: createTabListeners(isDebtSplitRoute
+      ? {
+          onTabPress: () => {
+            debtAddTokenRef.current += 1;
+            router.setParams({ openAddToken: String(debtAddTokenRef.current) });
           },
           preventDefaultOnTabPress: true,
           resetOnBlur: false,
@@ -198,6 +217,46 @@ export default function MainTabsLayout() {
         <NativeTabs.Trigger
           {...incomeTriggerScreenProps}
           name="income"
+          role="search"
+          contentStyle={tabContentStyle}
+          unstable_nativeProps={tabNativeProps}
+        >
+          <NativeTabs.Trigger.Icon
+            src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name="add" />}
+            renderingMode="template"
+            selectedColor={selectedTintColor}
+          />
+        </NativeTabs.Trigger>
+      </NativeTabs>
+    );
+  }
+
+  if (isDebtSplitRoute) {
+    return (
+      <NativeTabs
+        hidden={isDebtDetailRoute || isGoalDetailRoute}
+        tintColor={selectedTintColor}
+        iconColor={inactiveIconColor}
+        labelStyle={splitRouteLabelStyle}
+        titlePositionAdjustment={{ vertical: -2 }}
+        backBehavior="history"
+      >
+        <NativeTabs.Trigger
+          {...resetOnBlurScreenProps}
+          name="dashboard"
+          contentStyle={tabContentStyle}
+          unstable_nativeProps={tabNativeProps}
+        >
+          <NativeTabs.Trigger.Icon
+            src={<NativeTabs.Trigger.VectorIcon family={Feather} name="home" />}
+            renderingMode="template"
+            selectedColor={selectedTintColor}
+          />
+          <NativeTabs.Trigger.Label selectedStyle={splitRouteSelectedTabLabelStyle}>Home</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger
+          {...debtSplitTriggerScreenProps}
+          name="debts"
           role="search"
           contentStyle={tabContentStyle}
           unstable_nativeProps={tabNativeProps}

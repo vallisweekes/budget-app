@@ -103,11 +103,6 @@ export default function DebtScreen() {
               ) : (
                 <View style={styles.listHeaderSpacer} />
               )}
-
-              <Pressable onPress={controller.onOpenAddForm} style={styles.addBtn}>
-                <Ionicons name="add" size={18} color={T.onAccent} />
-                <Text style={styles.addBtnTxt}>Debt</Text>
-              </Pressable>
             </View>
           </>
         }
@@ -121,7 +116,7 @@ export default function DebtScreen() {
             <Text style={styles.emptySubtitle}>
               {controller.filter === "paid_off"
                 ? "Paid debts will appear here once they are cleared."
-                : 'Tap "Add Debt" to track a debt'}
+                : 'Tap "+" to track a debt'}
             </Text>
           </View>
         }
