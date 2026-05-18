@@ -58,6 +58,7 @@ export default function MainTabsLayout() {
   const inactiveIconColor = "#8E95A3";
   const inactiveLabelColor = "#8E95A3";
   const isDebtDetailRoute = segments[0] === "(tabs)" && segments[1] === "debts" && segments[2] === "DebtDetail";
+  const isExpenseDetailRoute = segments[0] === "(tabs)" && segments[1] === "expenses" && segments[2] === "ExpenseDetail";
   const isGoalDetailRoute = segments[0] === "(tabs)" && segments[1] === "goals" && segments[2] === "GoalDetail";
   const isCategoryExpensesSplitRoute = segments[0] === "(tabs)"
     && segments[1] === "expenses"
@@ -233,7 +234,7 @@ export default function MainTabsLayout() {
       <NativeTabs
         backgroundColor={tabBarBackgroundColor}
         blurEffect={tabBarBlurEffect}
-        hidden={isDebtDetailRoute || isGoalDetailRoute}
+        hidden={isDebtDetailRoute || isExpenseDetailRoute || isGoalDetailRoute}
         shadowColor={tabBarShadowColor}
         tintColor={selectedTintColor}
         iconColor={inactiveIconColor}

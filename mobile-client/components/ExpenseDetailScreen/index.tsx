@@ -259,15 +259,15 @@ export default function ExpenseDetailScreen({ route, navigation }: ExpenseDetail
       )}
 
       {controller.showBottomActions ? (
-        <View style={[styles.bottomActionsWrap, { paddingBottom: controller.tabBarHeight + 8 }]}> 
+        <View style={[styles.bottomActionsWrap, { paddingBottom: Math.max(22, controller.tabBarHeight - 30) }]}> 
           <BlurView intensity={14} tint="dark" style={StyleSheet.absoluteFillObject} pointerEvents="none" />
           <View style={styles.bottomGlassTint} pointerEvents="none" />
           <View style={styles.bottomActionsRow}>
             <Pressable style={styles.bottomActionBtn} onPress={controller.onOpenEditSheet}>
               <Text style={[styles.bottomActionTxt, { color: EXPENSE_HERO_BLUE }]}>Edit</Text>
             </Pressable>
-            <Pressable style={styles.bottomActionBtn} onPress={controller.onOpenDeleteConfirm}>
-              <Text style={[styles.bottomActionTxt, { color: T.red }]}>Delete</Text>
+            <Pressable style={[styles.bottomActionBtn, styles.bottomActionBtnSecondary]} onPress={controller.onOpenDeleteConfirm}>
+              <Text style={[styles.bottomActionTxt, { color: T.onAccent }]}>Delete</Text>
             </Pressable>
           </View>
         </View>
