@@ -134,32 +134,6 @@ export default function MainTabsLayout() {
         backBehavior="history"
       >
         <NativeTabs.Trigger
-          {...resetOnBlurScreenProps}
-          name="dashboard"
-          contentStyle={tabContentStyle}
-          unstable_nativeProps={tabNativeProps}
-        >
-          <NativeTabs.Trigger.Icon
-            src={<NativeTabs.Trigger.VectorIcon family={Feather} name="home" />}
-            renderingMode="template"
-            selectedColor={selectedTintColor}
-          />
-          <NativeTabs.Trigger.Label selectedStyle={splitRouteSelectedTabLabelStyle}>Home</NativeTabs.Trigger.Label>
-        </NativeTabs.Trigger>
-        <NativeTabs.Trigger
-          {...resetOnBlurScreenProps}
-          name="income"
-          contentStyle={tabContentStyle}
-          unstable_nativeProps={tabNativeProps}
-        >
-          <NativeTabs.Trigger.Icon
-            src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name="wallet-outline" />}
-            renderingMode="template"
-            selectedColor={selectedTintColor}
-          />
-          <NativeTabs.Trigger.Label selectedStyle={splitRouteSelectedTabLabelStyle}>Income</NativeTabs.Trigger.Label>
-        </NativeTabs.Trigger>
-        <NativeTabs.Trigger
           {...categorySplitTriggerScreenProps}
           name="expenses"
           role="search"

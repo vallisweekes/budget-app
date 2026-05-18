@@ -1,30 +1,31 @@
 import { StyleSheet } from "react-native";
 import { T } from "@/lib/theme";
 
-const SHEET_BLUE = "#080080";
+const SHEET_SURFACE = "#141826";
+const SHEET_SURFACE_ALT = "#1a1f34";
 
 export const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: "flex-end",
-    backgroundColor: "rgba(0,0,0,0.25)",
+    backgroundColor: "rgba(0,0,0,0.34)",
   },
   sheet: {
-    backgroundColor: SHEET_BLUE,
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
+    backgroundColor: SHEET_SURFACE,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
     paddingHorizontal: 16,
     paddingTop: 10,
     maxHeight: "92%",
     borderTopWidth: 1,
-    borderTopColor: "rgba(255,255,255,0.22)",
+    borderTopColor: "rgba(124,92,255,0.2)",
   },
   handle: {
     width: 44,
     height: 4,
     borderRadius: 2,
     alignSelf: "center",
-    backgroundColor: T.border,
+    backgroundColor: "rgba(255,255,255,0.14)",
   },
   handleTouch: {
     alignSelf: "stretch",
@@ -39,9 +40,9 @@ export const styles = StyleSheet.create({
     height: 56,
     borderRadius: 28,
     overflow: "hidden",
-    backgroundColor: T.cardAlt,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: T.border,
+    backgroundColor: SHEET_SURFACE_ALT,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 10,
@@ -57,8 +58,8 @@ export const styles = StyleSheet.create({
   actionsRow: { flexDirection: "row", gap: 10, marginTop: 16, marginBottom: 10 },
   actionBtn: { flex: 1, borderRadius: 999, paddingVertical: 14, alignItems: "center", justifyContent: "center" },
   actionBtnPrimary: { backgroundColor: "#ffffff" },
-  actionBtnSecondary: { backgroundColor: T.cardAlt, borderWidth: 1, borderColor: T.border },
-  actionPrimaryTxt: { color: SHEET_BLUE, fontSize: 14, fontWeight: "900" },
+  actionBtnSecondary: { backgroundColor: SHEET_SURFACE_ALT, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
+  actionPrimaryTxt: { color: "#1a1f34", fontSize: 14, fontWeight: "900" },
   actionSecondaryTxt: { color: T.text, fontSize: 14, fontWeight: "900" },
   disabled: { opacity: 0.55 },
 

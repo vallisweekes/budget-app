@@ -79,7 +79,19 @@ export default function DashboardScreen(props: DashboardScreenProps) {
 
       <ScrollView
         ref={controller.scrollRef}
-        refreshControl={<RefreshControl refreshing={controller.refreshing} onRefresh={controller.onRefresh} tintColor={T.accent} />}
+        style={{ backgroundColor: T.bg }}
+        refreshControl={(
+          <RefreshControl
+            refreshing={controller.refreshing}
+            onRefresh={controller.onRefresh}
+            tintColor={T.textDim}
+            colors={[T.accent]}
+            progressBackgroundColor={T.card}
+            progressViewOffset={Math.max(44, contentTopPadding - 6)}
+            title={controller.refreshing ? "Refreshing..." : ""}
+            titleColor={T.textDim}
+          />
+        )}
         contentContainerStyle={[styles.scroll, { paddingTop: contentTopPadding }]}
         showsVerticalScrollIndicator={false}
       >

@@ -31,7 +31,7 @@ export default function CategoryExpensesScreen({ route, navigation }: CategoryEx
             onPress={controller.onPressExpense}
           />
         )}
-        contentContainerStyle={rowStyles.list}
+        contentContainerStyle={[rowStyles.list, { paddingBottom: 10 }]}
         refreshControl={
           <RefreshControl refreshing={controller.refreshing} onRefresh={controller.onRefresh} tintColor={T.textDim} />
         }
