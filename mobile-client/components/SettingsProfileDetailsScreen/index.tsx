@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { Alert, KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
 
 import { useAuth } from "@/context/AuthContext";
 import { useResendEmailVerificationMutation, useUpdateProfileMutation } from "@/store/api";
@@ -67,22 +66,18 @@ export default function SettingsProfileDetailsScreen({ navigation, route }: Root
 
   return (
     <SafeAreaView style={styles.safe} edges={[]}>
-      <View style={[styles.header, { paddingTop: topHeaderOffset }]}> 
-        <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="chevron-back" size={22} color={T.text} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Profile details</Text>
-        <View style={styles.headerSpacer} />
-      </View>
-
-      <KeyboardAvoidingView style={styles.content} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <KeyboardAvoidingView style={[styles.content, { paddingTop: topHeaderOffset }]} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <View style={styles.card}>
+          <View pointerEvents="none" style={[styles.cardGlow, styles.cardGlowPrimary]} />
+          <View pointerEvents="none" style={[styles.cardGlow, styles.cardGlowSecondary]} />
+
           <Text style={styles.label}>Username</Text>
           <TextInput value={username} editable={false} style={styles.inputDisabled} />
 
           <Text style={styles.label}>Email verification</Text>
           <View style={styles.verificationCard}>
-            <View style={[styles.verificationBadge, { backgroundColor: badge.bg }]}> 
+            <View pointerEvents="none" style={[styles.cardGlow, styles.verificationGlow]} />
+            <View style={[styles.verificationBadge, { backgroundColor: badge.bg, borderColor: `${badge.color}66` }]}> 
               <Text style={[styles.verificationBadgeText, { color: badge.color }]}>{badge.label}</Text>
             </View>
             <Text style={styles.verificationTitle}>Verification status</Text>

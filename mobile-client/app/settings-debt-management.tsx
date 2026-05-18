@@ -1,11 +1,22 @@
 import React from "react";
-import { useNavigation, useRoute } from "@react-navigation/native";
+import { Stack } from "expo-router";
 
 import SettingsDebtManagementScreen from "@/components/SettingsDebtManagementScreen";
+import TabRouteHeader from "@/navigation/TabRouteHeader";
 
 export default function SettingsDebtManagementRoute() {
-  const navigation = useNavigation();
-  const route = useRoute();
-
-  return <SettingsDebtManagementScreen navigation={navigation as any} route={route as any} />;
+  return (
+    <>
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          headerTransparent: true,
+          headerStyle: { backgroundColor: "transparent" },
+          headerShadowVisible: false,
+          header: () => <TabRouteHeader />,
+        }}
+      />
+      <SettingsDebtManagementScreen />
+    </>
+  );
 }

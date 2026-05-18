@@ -48,6 +48,7 @@ import SettingsIncomeSettingsScreen from "@/components/SettingsIncomeSettingsScr
 import SettingsProfileDetailsScreen from "@/components/SettingsProfileDetailsScreen";
 import SettingsStrategyScreen from "@/components/SettingsStrategyScreen";
 import OnboardingScreen from "@/components/OnboardingScreen";
+import { useGetOnboardingStatusQuery } from "@/store/api";
 
 const MONTH_NAMES_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -846,10 +847,12 @@ const s = StyleSheet.create({
 function MainTabs() {
   const { signOut, profile } = useAuth();
   const { dashboard } = useBootstrapData();
+  const onboardingStatusQuery = useGetOnboardingStatusQuery();
   const incomePendingCount = 0;
   const hasNotificationDot = false;
   const hasActualDebts = (dashboard?.debts ?? []).some((debt) => Number(debt?.currentBalance ?? 0) > 0);
-  const debtManagementEnabled = profile?.onboarding?.profile?.hasDebtsToManage === true;
+  const debtManagementEnabled = onboardingStatusQuery.data?.profile?.hasDebtsToManage === true
+    || profile?.onboarding?.profile?.hasDebtsToManage === true;
   const showDebtsTab = hasActualDebts || debtManagementEnabled;
 
   return (

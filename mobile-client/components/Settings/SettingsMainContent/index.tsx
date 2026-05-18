@@ -20,6 +20,7 @@ import {
   SETTINGS_TAB_TITLES,
   SETTINGS_WEBSITE_URL,
 } from "@/lib/helpers/settingsOverview";
+import { useGetOnboardingStatusQuery } from "@/store/api";
 import { styles } from "./styles";
 import { T } from "@/lib/theme";
 import type { SettingsMainContentProps } from "@/types/components/settings/SettingsMainContent.types";
@@ -44,6 +45,7 @@ export default function SettingsMainContent({ controller, navigation, savingsTil
   const scrollRef = React.useRef<ScrollView | null>(null);
   const router = useRouter();
   const { dashboard } = useBootstrapData();
+  const onboardingStatusQuery = useGetOnboardingStatusQuery();
   const openIncomeSettings = React.useCallback(() => {
     router.push("/settings-income-settings");
   }, [router]);
@@ -54,7 +56,10 @@ export default function SettingsMainContent({ controller, navigation, savingsTil
     () => (dashboard?.debts ?? []).some((debt) => Number(debt?.currentBalance ?? 0) > 0),
     [dashboard?.debts],
   );
-  const debtManagementEnabled = hasDashboardDebts || controller.hasAnyDebts || controller.profile?.onboarding?.profile?.hasDebtsToManage === true;
+  const debtManagementEnabled = hasDashboardDebts
+    || controller.hasAnyDebts
+    || onboardingStatusQuery.data?.profile?.hasDebtsToManage === true
+    || controller.profile?.onboarding?.profile?.hasDebtsToManage === true;
 
   React.useEffect(() => {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
@@ -103,7 +108,9 @@ export default function SettingsMainContent({ controller, navigation, savingsTil
       automaticallyAdjustContentInsets={false}
       showsVerticalScrollIndicator={false}
     >
-      {controller.activeTab !== "details" ? <SettingsSubpageHeader title={SETTINGS_TAB_TITLES[controller.activeTab]} onBack={() => controller.setActiveTab("details")} /> : null}
+      {controller.activeTab !== "details" && controller.activeTab !== "subscription" && controller.activeTab !== "budget"
+        ? <SettingsSubpageHeader title={SETTINGS_TAB_TITLES[controller.activeTab]} onBack={() => controller.setActiveTab("details")} />
+        : null}
       {controller.activeTab === "details" ? (
         <SettingsOverviewTab
           profileLabel={controller.profile?.username ?? controller.authUsername ?? controller.profile?.email ?? "No name set"}

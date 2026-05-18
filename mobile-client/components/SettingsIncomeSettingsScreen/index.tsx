@@ -15,15 +15,7 @@ export default function SettingsIncomeSettingsScreen({ navigation }: RootStackSc
 
   return (
     <SafeAreaView style={styles.safe} edges={[]}>
-      <View style={[styles.header, { paddingTop: controller.topHeaderOffset }]}> 
-        <Pressable onPress={controller.goBack} style={styles.backBtn}>
-          <Ionicons name="chevron-back" size={22} color={T.text} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Income settings</Text>
-        <View style={styles.headerSpacer} />
-      </View>
-
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.scroll, { paddingTop: controller.topHeaderOffset }]} showsVerticalScrollIndicator={false}>
         <View style={styles.heroCard}>
           <Text style={styles.eyebrow}>Primary income</Text>
           <Text style={styles.heroTitle}>Manage the income source your plan should follow first.</Text>

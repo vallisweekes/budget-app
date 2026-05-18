@@ -38,6 +38,10 @@ export default function TabRouteHeader() {
 
   const isAnalytics = rootSegment === "analytics";
   const isSettings = rootSegment === "settings";
+  const isSettingsProfileDetails = rootSegment === "settings-profile-details";
+  const isSettingsIncomeSettings = rootSegment === "settings-income-settings";
+  const isSettingsStrategy = rootSegment === "settings-strategy";
+  const isSettingsDebtManagement = rootSegment === "settings-debt-management";
   const isGoals = tabSegment === "goals";
   const isIncomeTab = tabSegment === "income";
   const isGoalDetail = leafSegment === "GoalDetail";
@@ -128,6 +132,8 @@ export default function TabRouteHeader() {
   const categoryExpensesName = getStringParam(params.categoryName);
   const categoryExpensesMonth = getNumberParam(params.month);
   const categoryExpensesYear = getNumberParam(params.year);
+  const settingsSubTab = getStringParam(params.subTab)
+    ?? (typeof routeParams?.subTab === "string" ? routeParams.subTab : "details");
   const hasCategoryMonthYear = Number.isFinite(categoryExpensesMonth)
     && categoryExpensesMonth >= 1
     && categoryExpensesMonth <= 12
@@ -143,8 +149,20 @@ export default function TabRouteHeader() {
           ? "Upload Receipt"
           : isDebtAnalytics
             ? "Debt Analytics"
+            : isSettingsProfileDetails
+              ? "Profile details"
+            : isSettingsIncomeSettings
+              ? "Income settings"
+            : isSettingsStrategy
+              ? "Strategy"
+            : isSettingsDebtManagement
+              ? "Debt management"
             : isAnalytics
               ? "Analytics"
+              : isSettings && settingsSubTab === "budget"
+                ? "Budget"
+              : isSettings && settingsSubTab === "subscription"
+                ? "Subscription"
               : isGoalDetail
                 ? getStringParam(params.goalTitle) ?? (typeof routeParams?.goalTitle === "string" ? routeParams.goalTitle : "Goal")
               : isGoals
@@ -254,12 +272,43 @@ export default function TabRouteHeader() {
     }
 
     if (isSettings) {
-      const currentSubTab = getStringParam(params.subTab) ?? "details";
-      if (currentSubTab !== "details") {
+      if (settingsSubTab !== "details") {
         replaceRoute("/settings", { subTab: "details" });
         return;
       }
       replaceRoute("/(tabs)/dashboard");
+      return;
+    }
+
+    if (isSettingsProfileDetails) {
+      replaceRoute("/settings", { subTab: "details" });
+      return;
+    }
+
+    if (isSettingsIncomeSettings) {
+      if (navigation.canGoBack?.()) {
+        navigation.goBack();
+        return;
+      }
+      replaceRoute("/settings", { subTab: "budget" });
+      return;
+    }
+
+    if (isSettingsStrategy) {
+      if (navigation.canGoBack?.()) {
+        navigation.goBack();
+        return;
+      }
+      replaceRoute("/settings", { subTab: "budget" });
+      return;
+    }
+
+    if (isSettingsDebtManagement) {
+      if (navigation.canGoBack?.()) {
+        navigation.goBack();
+        return;
+      }
+      replaceRoute("/settings", { subTab: "budget" });
       return;
     }
 
@@ -472,15 +521,15 @@ export default function TabRouteHeader() {
       onAnalytics={() => pushRoute("/analytics")}
       onNotifications={() => pushRoute("/settings", { initialTab: "notifications" })}
       leftContent={expensesListLeftContent}
-      leftVariant={isStandaloneSacrificeIncomeMonth || isAnalytics || isSettings || isGoalDetail || isCategoryExpenses || isLoggedExpenses || isUnplannedExpense || isScanReceipt || isDebtAnalytics ? "back" : "avatar"}
+      leftVariant={isStandaloneSacrificeIncomeMonth || isAnalytics || isSettings || isSettingsProfileDetails || isSettingsIncomeSettings || isSettingsStrategy || isSettingsDebtManagement || isGoalDetail || isCategoryExpenses || isLoggedExpenses || isUnplannedExpense || isScanReceipt || isDebtAnalytics ? "back" : "avatar"}
       onBack={handleBack}
       centerLabel={centerLabel}
       centerContent={incomeMonthSwitcher}
       rightContent={loggedExpensesRightContent ?? analyticsRightContent ?? incomeRightContent ?? expensesLoggedRightContent ?? goalsRightContent}
       showIncomeAction={false}
-      compactActionsMenu={isSettings}
-      showAnalyticsAction={!isSettings && !isAnalytics && !isGoalDetail}
-      showNotificationAction={!isSettings && !isAnalytics}
+      compactActionsMenu={isSettings || isSettingsProfileDetails || isSettingsIncomeSettings || isSettingsStrategy || isSettingsDebtManagement}
+      showAnalyticsAction={!isSettings && !isSettingsProfileDetails && !isSettingsIncomeSettings && !isSettingsStrategy && !isSettingsDebtManagement && !isAnalytics && !isGoalDetail}
+      showNotificationAction={!isSettings && !isSettingsProfileDetails && !isSettingsIncomeSettings && !isSettingsStrategy && !isSettingsDebtManagement && !isAnalytics}
       onLogout={isSettings ? signOut : undefined}
     />
   );

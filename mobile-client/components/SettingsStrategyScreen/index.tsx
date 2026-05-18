@@ -7,13 +7,11 @@ import { apiFetch } from "@/lib/api";
 import { STRATEGY_OPTIONS } from "@/lib/constants";
 import { T } from "@/lib/theme";
 import { styles } from "@/components/SettingsStrategyScreen/style";
-import { useAuth } from "@/context/AuthContext";
 import type { RootStackScreenProps } from "@/navigation/types";
 import { useTopHeaderOffset } from "@/hooks";
 
 export default function SettingsStrategyScreen({ navigation, route }: RootStackScreenProps<"SettingsStrategy">) {
   const { budgetPlanId, strategy } = route.params;
-  const { signOut } = useAuth();
   const topHeaderOffset = useTopHeaderOffset(8);
   const [draft, setDraft] = useState(strategy ?? "payYourselfFirst");
   const [saving, setSaving] = useState(false);
@@ -40,18 +38,7 @@ export default function SettingsStrategyScreen({ navigation, route }: RootStackS
 
   return (
     <SafeAreaView style={styles.safe} edges={[]}>
-      <View style={[styles.header, { paddingTop: topHeaderOffset }]}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="chevron-back" size={22} color={T.text} />
-        </Pressable>
-        <View style={styles.headerSpacer} />
-        <Pressable onPress={signOut} style={styles.headerLogoutBtn}>
-          <Ionicons name="log-out-outline" size={16} color={T.red} />
-          <Text style={styles.headerLogoutText}>Logout</Text>
-        </Pressable>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.scroll, { paddingTop: topHeaderOffset }]} showsVerticalScrollIndicator={false}>
         {STRATEGY_OPTIONS.map((option) => {
           const active = draft === option.value;
           return (
