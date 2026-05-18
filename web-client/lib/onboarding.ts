@@ -141,6 +141,26 @@ function isPrismaValidationError(err: unknown, contains: string): boolean {
   );
 }
 
+function messageIncludesAny(message: string, needles: string[]): boolean {
+  const normalized = message.toLowerCase();
+  return needles.some((needle) => normalized.includes(needle.toLowerCase()));
+}
+
+function isPotentialLegacyExpenseSchemaError(error: unknown): boolean {
+  const message = String((error as { message?: unknown } | null)?.message ?? "");
+  if (!message) return false;
+  return messageIncludesAny(message, [
+    "isAllocation",
+    "isMovedToDebt",
+    "isExtraLoggedExpense",
+    "isDirectDebit",
+    "dueDate",
+    "Unknown arg",
+    "P2022",
+    "does not exist",
+  ]);
+}
+
 function prismaUserHasField(fieldName: string): boolean {
   try {
     const runtimeDataModel = (prisma as unknown as {
@@ -479,6 +499,73 @@ function compareDerivedExpenseCandidates(a: DerivedExpenseCandidate, b: DerivedE
 async function deriveLegacyOnboardingProfile(userId: string, preferredPlanId: string | null): Promise<NormalizedOnboardingProfile> {
   if (!preferredPlanId) return EMPTY_ONBOARDING_PROFILE;
 
+  const loadLegacyExpenses = async (): Promise<Array<{
+    name: string | null;
+    amount: unknown;
+    dueDate?: Date | null;
+    isDirectDebit?: boolean | null;
+    month: number;
+    year: number;
+  }>> => {
+    try {
+      return await prisma.expense.findMany({
+        where: {
+          budgetPlanId: preferredPlanId,
+          isAllocation: false,
+          isMovedToDebt: false,
+          isExtraLoggedExpense: false,
+        },
+        select: {
+          name: true,
+          amount: true,
+          dueDate: true,
+          isDirectDebit: true,
+          month: true,
+          year: true,
+        },
+        orderBy: [{ year: "desc" }, { month: "desc" }],
+        take: 400,
+      });
+    } catch (error) {
+      if (!isPotentialLegacyExpenseSchemaError(error)) {
+        throw error;
+      }
+
+      try {
+        return await prisma.expense.findMany({
+          where: { budgetPlanId: preferredPlanId },
+          select: {
+            name: true,
+            amount: true,
+            dueDate: true,
+            month: true,
+            year: true,
+          },
+          orderBy: [{ year: "desc" }, { month: "desc" }],
+          take: 400,
+        });
+      } catch (fallbackError) {
+        if (!isPotentialLegacyExpenseSchemaError(fallbackError)) {
+          throw fallbackError;
+        }
+
+        return prisma.expense.findMany({
+          where: { budgetPlanId: preferredPlanId },
+          select: {
+            name: true,
+            amount: true,
+            month: true,
+            year: true,
+          },
+          orderBy: [{ year: "desc" }, { month: "desc" }],
+          take: 400,
+        });
+      }
+    }
+  };
+
+  const expensesPromise = loadLegacyExpenses();
+
   const [plan, incomes, expenses, debts] = await Promise.all([
     prisma.budgetPlan.findUnique({
       where: { id: preferredPlanId },
@@ -499,24 +586,7 @@ async function deriveLegacyOnboardingProfile(userId: string, preferredPlanId: st
       orderBy: [{ year: "desc" }, { month: "desc" }],
       take: 24,
     }),
-    prisma.expense.findMany({
-      where: {
-        budgetPlanId: preferredPlanId,
-        isAllocation: false,
-        isMovedToDebt: false,
-        isExtraLoggedExpense: false,
-      },
-      select: {
-        name: true,
-        amount: true,
-        dueDate: true,
-        isDirectDebit: true,
-        month: true,
-        year: true,
-      },
-      orderBy: [{ year: "desc" }, { month: "desc" }],
-      take: 400,
-    }),
+    expensesPromise,
     prisma.debt.findMany({
       where: { budgetPlanId: preferredPlanId, paid: false },
       select: {
@@ -536,12 +606,15 @@ async function deriveLegacyOnboardingProfile(userId: string, preferredPlanId: st
     const amount = toPositiveAmount(expense.amount);
     if (!name || amount == null || isIgnoredLegacyExpenseName(name)) continue;
 
+    const hasDueDate = "dueDate" in expense ? Boolean(expense.dueDate) : false;
+    const isDirectDebit = "isDirectDebit" in expense ? Boolean(expense.isDirectDebit) : false;
+
     const key = `${name}::${amount.toFixed(2)}`;
     const existing = expenseCandidates.get(key);
     if (existing) {
       existing.count += 1;
-      existing.hasDueDate = existing.hasDueDate || Boolean(expense.dueDate);
-      existing.isDirectDebit = existing.isDirectDebit || Boolean(expense.isDirectDebit);
+      existing.hasDueDate = existing.hasDueDate || hasDueDate;
+      existing.isDirectDebit = existing.isDirectDebit || isDirectDebit;
       if (
         expense.year > existing.latestYear
         || (expense.year === existing.latestYear && expense.month > existing.latestMonth)
@@ -556,8 +629,8 @@ async function deriveLegacyOnboardingProfile(userId: string, preferredPlanId: st
       name,
       amount,
       count: 1,
-      hasDueDate: Boolean(expense.dueDate),
-      isDirectDebit: Boolean(expense.isDirectDebit),
+      hasDueDate,
+      isDirectDebit,
       latestYear: expense.year,
       latestMonth: expense.month,
     });
@@ -710,7 +783,7 @@ export async function getOnboardingForUser(userId: string) {
             select: { id: true },
           });
         } catch (err) {
-          if (!isPrismaValidationError(err, "isAllocation")) throw err;
+          if (!isPrismaValidationError(err, "isAllocation") && !isPotentialLegacyExpenseSchemaError(err)) throw err;
           return prisma.expense.findFirst({ where: { budgetPlanId: preferredPlanId }, select: { id: true } });
         }
       })(),
