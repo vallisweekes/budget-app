@@ -195,24 +195,24 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     requestAnimationFrame(scrollPlanIntoView);
   }, [plans.length, activePlanId, personalPlanId, scrollPlanIntoView]);
 
-  const monthName = useCallback((targetMonth: number) => {
-    const names = [
-      "January", "February", "March", "April", "May", "June",
-      "July", "August", "September", "October", "November", "December",
-    ];
-    return names[Math.max(1, Math.min(12, targetMonth)) - 1] ?? "";
-  }, []);
-
   const parsePlanCreatedAt = useCallback((value: string | null | undefined) => {
     if (!value) return null;
     const parsed = new Date(value);
     return Number.isNaN(parsed.getTime()) ? null : parsed;
   }, []);
 
-  const latestResolvedDate = useCallback((...dates: Array<Date | null | undefined>) => {
-    const valid = dates.filter((date): date is Date => Boolean(date && !Number.isNaN(date.getTime())));
+  const resolveEffectivePlanCreatedAt = useCallback((params: {
+    referenceDate?: Date;
+    dates: Array<Date | null | undefined>;
+  }) => {
+    const referenceTime = (params.referenceDate ?? new Date()).getTime();
+    const valid = params.dates.filter((date): date is Date => Boolean(date && !Number.isNaN(date.getTime())));
     if (valid.length === 0) return null;
-    return valid.reduce((latest, current) => (current.getTime() > latest.getTime() ? current : latest));
+
+    const nonFuture = valid.filter((date) => date.getTime() <= referenceTime);
+    const preferred = nonFuture.length > 0 ? nonFuture : valid;
+
+    return preferred.reduce((latest, current) => (current.getTime() > latest.getTime() ? current : latest));
   }, []);
 
   const clearExpenseCaches = useCallback(() => {
@@ -263,8 +263,10 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     [parsePlanCreatedAt, settings?.accountCreatedAt, settings?.setupCompletedAt],
   );
   const activePlanCreatedAt = useMemo(
-    () => latestResolvedDate(parsePlanCreatedAt(activePlan?.createdAt), setupCompletedAt),
-    [activePlan?.createdAt, latestResolvedDate, parsePlanCreatedAt, setupCompletedAt],
+    () => resolveEffectivePlanCreatedAt({
+      dates: [parsePlanCreatedAt(activePlan?.createdAt), setupCompletedAt],
+    }),
+    [activePlan?.createdAt, parsePlanCreatedAt, resolveEffectivePlanCreatedAt, setupCompletedAt],
   );
   const defaultActivePeriod = useMemo(
     () => resolveActivePayPeriod({
@@ -625,12 +627,16 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       const resolvedPlan = nextPlans.find((plan) => plan.id === resolvedPlanId) ?? null;
       const resolvedIsAdditionalPlan = Boolean(resolvedPlan && resolvedPlan.kind !== "personal" && nextPlans.length > 1);
 
-      const resolvedPlanCreatedAt = latestResolvedDate(
-        parsePlanCreatedAt(nextPlans.find((plan) => plan.id === resolvedPlanId)?.createdAt),
-        setupCompletedAt,
-      );
+      const resolutionNow = new Date();
+      const resolvedPlanCreatedAt = resolveEffectivePlanCreatedAt({
+        referenceDate: resolutionNow,
+        dates: [
+          parsePlanCreatedAt(nextPlans.find((plan) => plan.id === resolvedPlanId)?.createdAt),
+          setupCompletedAt,
+        ],
+      });
       const resolvedActivePeriod = resolveActivePayPeriod({
-        now: new Date(),
+        now: resolutionNow,
         payDate: payDateForResolution,
         payFrequency: payFrequencyForResolution,
         planCreatedAt: resolvedPlanCreatedAt,
@@ -830,7 +836,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       setLoading(false);
       setRefreshing(false);
     }
-  }, [activePlanId, bootstrapError, ensureLoaded, getOrFetchPayPeriodExpenses, latestResolvedDate, month, parsePlanCreatedAt, planCacheKey, preloadSummaryWindow, refreshBootstrap, resolvePlanTargetPeriod, route.params?.month, route.params?.year, setupCompletedAt, year]);
+  }, [activePlanId, bootstrapError, ensureLoaded, getOrFetchPayPeriodExpenses, month, parsePlanCreatedAt, planCacheKey, preloadSummaryWindow, refreshBootstrap, resolveEffectivePlanCreatedAt, resolvePlanTargetPeriod, route.params?.month, route.params?.year, setupCompletedAt, year]);
 
   const currentViewKey = `${activePlanId ?? "none"}:${year}-${month}`;
   useEffect(() => {
@@ -940,13 +946,48 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
 
   const enabledPeriodMonths = useMemo(
     () => Array.from({ length: 12 }, (_, index) => index + 1).filter((targetMonth) => {
-      const hasData = (periodCountsByMonth[targetMonth] ?? 0) > 0;
-      if (!hasData) return false;
-      if (!accountCreatedAt) return true;
       const actualYear = resolvePickerActualYear(targetMonth, pickerYear);
-      return periodEndFor(actualYear, targetMonth).getTime() >= accountCreatedAt.getTime();
+      const periodEndAt = periodEndFor(actualYear, targetMonth);
+      if (accountCreatedAt && periodEndAt.getTime() < accountCreatedAt.getTime()) {
+        return false;
+      }
+
+      const safeBudgetHorizonYears = Math.max(
+        1,
+        Math.min(
+          30,
+          Number.isFinite(activePlan?.budgetHorizonYears as number)
+            ? Math.floor(activePlan?.budgetHorizonYears as number)
+            : Number.isFinite(settings?.budgetHorizonYears as number)
+              ? Math.floor(settings?.budgetHorizonYears as number)
+              : 10,
+        ),
+      );
+      const maxSelectableYear = Math.max(defaultActiveYear, new Date().getFullYear()) + safeBudgetHorizonYears - 1;
+      if (actualYear > maxSelectableYear) {
+        return false;
+      }
+
+      const isCurrentOrFuturePeriod = actualYear > defaultActiveYear
+        || (actualYear === defaultActiveYear && targetMonth >= defaultActiveMonth);
+      if (isCurrentOrFuturePeriod) {
+        return true;
+      }
+
+      const hasData = (periodCountsByMonth[targetMonth] ?? 0) > 0;
+      return hasData;
     }),
-    [accountCreatedAt, periodCountsByMonth, periodEndFor, pickerYear, resolvePickerActualYear],
+    [
+      accountCreatedAt,
+      activePlan?.budgetHorizonYears,
+      defaultActiveMonth,
+      defaultActiveYear,
+      periodCountsByMonth,
+      periodEndFor,
+      pickerYear,
+      resolvePickerActualYear,
+      settings?.budgetHorizonYears,
+    ],
   );
 
   const enabledPeriodSet = useMemo(() => new Set(enabledPeriodMonths), [enabledPeriodMonths]);

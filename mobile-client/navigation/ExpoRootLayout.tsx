@@ -108,7 +108,7 @@ function useSessionRouteGuardState() {
   const pathname = usePathname();
   const segments = useSegments() as string[];
   const { token, isLoading } = useAuth();
-  const { isLoading: bootstrapLoading, isRecoveringInitialLoad } = useBootstrapData();
+  const { isLoading: bootstrapLoading } = useBootstrapData();
   const onboarding = useOnboardingGate();
   const verification = useEmailVerificationGate();
 
@@ -122,7 +122,7 @@ function useSessionRouteGuardState() {
     return { mode: "loading" as const };
   }
 
-  if (token && !onboarding.required && !verification.blocked && bootstrapLoading && !isRecoveringInitialLoad) {
+  if (token && !onboarding.required && !verification.blocked && bootstrapLoading) {
     return { mode: "loading" as const };
   }
 

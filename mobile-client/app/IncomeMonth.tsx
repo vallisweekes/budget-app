@@ -4,6 +4,7 @@ import { ActivityIndicator, View } from "react-native";
 
 import IncomeMonthScreen from "@/components/IncomeMonthScreen";
 import { useActiveBudgetPlan } from "@/context/ActiveBudgetPlanContext";
+import { useAuth } from "@/context/AuthContext";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { resolveDisplayedPayPeriodAnchor } from "@/lib/helpers/resolveDisplayedPayPeriodAnchor";
 import { normalizePayFrequency } from "@/lib/payPeriods";
@@ -24,11 +25,17 @@ function getNumberParam(value: LocalParam, fallback: number): number {
 export default function StandaloneIncomeMonthRoute() {
   const navigation = useNavigation();
   const params = useLocalSearchParams() as Record<string, LocalParam>;
+  const { profile } = useAuth();
   const { activeBudgetPlanId } = useActiveBudgetPlan();
   const { settings, ensureLoaded } = useBootstrapData();
   const explicitMonth = getNumberParam(params.month, Number.NaN);
   const explicitYear = getNumberParam(params.year, Number.NaN);
-  const explicitBudgetPlanId = getStringParam(params.budgetPlanId) ?? "";
+  const routeBudgetPlanId = getStringParam(params.budgetPlanId) ?? "";
+  const availablePlanIds = React.useMemo(
+    () => new Set((profile?.plans ?? []).map((plan) => plan.id)),
+    [profile?.plans],
+  );
+  const explicitBudgetPlanId = availablePlanIds.has(routeBudgetPlanId) ? routeBudgetPlanId : "";
   const hasExplicitMonth = Number.isFinite(explicitMonth) && explicitMonth >= 1 && explicitMonth <= 12;
   const hasExplicitYear = Number.isFinite(explicitYear) && explicitYear >= 1900;
   const hasExplicitAnchor = hasExplicitMonth && hasExplicitYear;

@@ -30,9 +30,13 @@ export default function TabRouteHeader() {
   const navigation = useNavigation<any>();
   const segments = useSegments() as string[];
   const params = useLocalSearchParams() as Record<string, string | string[] | undefined>;
-  const { signOut } = useAuth();
+  const { profile, signOut } = useAuth();
   const { activeBudgetPlanId, bootstrapBudgetPlanId } = useActiveBudgetPlan();
   const [notificationUnreadCount, setNotificationUnreadCount] = React.useState(0);
+  const availablePlanIds = React.useMemo(
+    () => new Set((profile?.plans ?? []).map((plan) => plan.id)),
+    [profile?.plans],
+  );
 
   React.useEffect(() => {
     const unsubscribe = subscribeNotificationInbox((snapshot) => {
@@ -87,8 +91,11 @@ export default function TabRouteHeader() {
     if (Number.isFinite(fromLocal)) return fromLocal;
     return Number(routeParams?.year);
   })();
-  const incomeMonthBudgetPlanId = getStringParam(params.budgetPlanId)
+  const rawIncomeMonthBudgetPlanId = getStringParam(params.budgetPlanId)
     ?? (typeof routeParams?.budgetPlanId === "string" ? routeParams.budgetPlanId : "");
+  const incomeMonthBudgetPlanId = availablePlanIds.has(rawIncomeMonthBudgetPlanId)
+    ? rawIncomeMonthBudgetPlanId
+    : (activeBudgetPlanId || bootstrapBudgetPlanId || "");
   const incomeMonthInitialMode = (getStringParam(params.initialMode)
     ?? (routeParams?.initialMode === "sacrifice" ? "sacrifice" : "income")) === "sacrifice"
     ? "sacrifice"

@@ -30,6 +30,7 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
   const { token, isLoading: authLoading, profile } = useAuth();
   const onboarding = useOnboardingGate();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [hasCompletedInitialLoad, setHasCompletedInitialLoad] = useState(false);
   const shouldSkip = authLoading || !token || onboarding.busy || onboarding.required;
 
   const dashboardQuery = useGetDashboardQuery(undefined, { skip: shouldSkip });
@@ -39,13 +40,14 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
   const dashboard = shouldSkip ? null : dashboardQuery.data ?? null;
   const settings = shouldSkip ? null : settingsQuery.data ?? profile?.settings ?? null;
   const hasBootstrapData = Boolean(dashboard && settings);
+  const shouldBlockInitialLoadUi = !authLoading && Boolean(token) && !onboarding.busy && !onboarding.required && !hasCompletedInitialLoad;
   const isLoading = authLoading
     ? true
     : !token
       ? false
       : onboarding.busy || onboarding.required
         ? false
-        : isRecoveringInitialLoad || (!dashboardQuery.error && !settingsQuery.error && Boolean(
+        : shouldBlockInitialLoadUi || isRecoveringInitialLoad || (!dashboardQuery.error && !settingsQuery.error && Boolean(
           dashboardQuery.isLoading
           || settingsQuery.isLoading
           || !hasBootstrapData
@@ -53,11 +55,12 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
   const error = useMemo<Error | null>(() => {
     const nextError = dashboardQuery.error ?? settingsQuery.error;
     if (!nextError) return null;
+    if (shouldBlockInitialLoadUi) return null;
     if (isRecoveringInitialLoad) return null;
     if (hasBootstrapData && !isNoBudgetPlanError(nextError)) return null;
     if (nextError instanceof Error) return nextError;
     return new Error("Failed to load app data");
-  }, [dashboardQuery.error, hasBootstrapData, isRecoveringInitialLoad, settingsQuery.error]);
+  }, [dashboardQuery.error, hasBootstrapData, isRecoveringInitialLoad, settingsQuery.error, shouldBlockInitialLoadUi]);
   const lastLoadedAt = useMemo<number | null>(() => {
     const dashboardStamp = dashboardQuery.fulfilledTimeStamp ?? 0;
     const settingsStamp = settingsQuery.fulfilledTimeStamp ?? 0;
@@ -74,8 +77,15 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
   const onboardingBusyRef = useRef(onboarding.busy);
   const onboardingRequiredRef = useRef(onboarding.required);
   const bootstrapQueriesBusyRef = useRef(false);
-  const initialRecoveryAttemptedRef = useRef(false);
   const hasBootstrapDataRef = useRef(false);
+  const initialRetryIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const activeTokenRef = useRef<string | null | undefined>(token);
+
+  const stopInitialRetryLoop = useCallback(() => {
+    if (!initialRetryIntervalRef.current) return;
+    clearInterval(initialRetryIntervalRef.current);
+    initialRetryIntervalRef.current = null;
+  }, []);
 
   useEffect(() => {
     dashboardRef.current = dashboard;
@@ -90,12 +100,28 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
   }, [hasBootstrapData]);
 
   useEffect(() => {
+    if (hasBootstrapData) {
+      setHasCompletedInitialLoad((prev) => (prev ? prev : true));
+      setIsRecoveringInitialLoad(false);
+      stopInitialRetryLoop();
+    }
+  }, [hasBootstrapData, stopInitialRetryLoop]);
+
+  useEffect(() => {
     authLoadingRef.current = authLoading;
   }, [authLoading]);
 
   useEffect(() => {
     tokenRef.current = token;
   }, [token]);
+
+  useEffect(() => {
+    if (activeTokenRef.current === token) return;
+    activeTokenRef.current = token;
+    stopInitialRetryLoop();
+    setIsRecoveringInitialLoad(false);
+    setHasCompletedInitialLoad(false);
+  }, [stopInitialRetryLoop, token]);
 
   useEffect(() => {
     onboardingBusyRef.current = onboarding.busy;
@@ -217,42 +243,56 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
 
   useEffect(() => {
     if (shouldSkip) {
-      initialRecoveryAttemptedRef.current = false;
+      stopInitialRetryLoop();
       setIsRecoveringInitialLoad(false);
       return;
     }
 
     if (hasBootstrapData) {
-      initialRecoveryAttemptedRef.current = false;
+      stopInitialRetryLoop();
       setIsRecoveringInitialLoad(false);
       return;
     }
 
     const nextError = dashboardQuery.error ?? settingsQuery.error;
-    if (!nextError || isNoBudgetPlanError(nextError) || initialRecoveryAttemptedRef.current) {
+    if (!nextError || isNoBudgetPlanError(nextError) || !shouldBlockInitialLoadUi) {
+      stopInitialRetryLoop();
       setIsRecoveringInitialLoad(false);
       return;
     }
 
-    initialRecoveryAttemptedRef.current = true;
     setIsRecoveringInitialLoad(true);
 
-    void refresh({ force: true }).finally(() => {
-      setIsRecoveringInitialLoad(false);
-    });
-  }, [dashboardQuery.error, hasBootstrapData, refresh, settingsQuery.error, shouldSkip]);
+    if (!initialRetryIntervalRef.current) {
+      void refresh({ force: true });
+      initialRetryIntervalRef.current = setInterval(() => {
+        if (!tokenRef.current) return;
+        if (onboardingBusyRef.current || onboardingRequiredRef.current) return;
+        if (hasBootstrapDataRef.current) return;
+        void refresh({ force: true });
+      }, 1500);
+    }
+
+    return () => {
+      if (hasBootstrapDataRef.current || shouldSkip || !shouldBlockInitialLoadUi) {
+        stopInitialRetryLoop();
+      }
+    };
+  }, [dashboardQuery.error, hasBootstrapData, refresh, settingsQuery.error, shouldBlockInitialLoadUi, shouldSkip, stopInitialRetryLoop]);
 
   // Reset on sign-out and bootstrap on sign-in.
   useEffect(() => {
     if (authLoading) return;
 
     if (!token) {
+      stopInitialRetryLoop();
+      setHasCompletedInitialLoad(false);
       setIsRecoveringInitialLoad(false);
       setIsRefreshing(false);
       inflightRef.current = null;
       return;
     }
-  }, [authLoading, token]);
+  }, [authLoading, stopInitialRetryLoop, token]);
 
   // Opportunistic refresh when app returns to foreground.
   useEffect(() => {

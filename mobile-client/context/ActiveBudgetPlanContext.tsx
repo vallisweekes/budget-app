@@ -1,5 +1,6 @@
-import React, { createContext, useCallback, useContext, useMemo, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
+import { useAuth } from "@/context/AuthContext";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
 
 type ActiveBudgetPlanContextValue = {
@@ -13,9 +14,25 @@ type ActiveBudgetPlanContextValue = {
 const ActiveBudgetPlanContext = createContext<ActiveBudgetPlanContextValue | null>(null);
 
 export function ActiveBudgetPlanProvider({ children }: { children: React.ReactNode }) {
+  const { token, profile } = useAuth();
   const { dashboard, settings } = useBootstrapData();
   const bootstrapBudgetPlanId = settings?.id ?? dashboard?.budgetPlanId ?? null;
   const [explicitBudgetPlanId, setExplicitBudgetPlanId] = useState<string | null>(null);
+
+  const availablePlanIds = useMemo(
+    () => new Set((profile?.plans ?? []).map((plan) => plan.id)),
+    [profile?.plans],
+  );
+
+  useEffect(() => {
+    setExplicitBudgetPlanId((prev) => {
+      if (!prev) return prev;
+      if (!token) return null;
+      if (prev === bootstrapBudgetPlanId) return null;
+      if (availablePlanIds.size === 0) return prev;
+      return availablePlanIds.has(prev) ? prev : null;
+    });
+  }, [availablePlanIds, bootstrapBudgetPlanId, token]);
 
   const setActiveBudgetPlanId = useCallback((budgetPlanId: string | null) => {
     const normalized = typeof budgetPlanId === "string" && budgetPlanId.trim().length > 0

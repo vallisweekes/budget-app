@@ -703,6 +703,28 @@ function buildForwardSeedMonths(startDate: Date, planningYears: number): Array<{
   return out;
 }
 
+function buildForwardSeedPeriodsFromMonth(params: {
+  startMonth: number;
+  startYear: number;
+  planningYears: number;
+}): Array<{ month: number; year: number }> {
+  const safeYears = Math.max(1, Math.min(30, Math.trunc(params.planningYears)));
+  const count = safeYears * 12;
+  const startMonth = Math.max(1, Math.min(12, Math.trunc(params.startMonth)));
+  const startYear = Math.trunc(params.startYear);
+  const out: Array<{ month: number; year: number }> = [];
+
+  for (let offset = 0; offset < count; offset += 1) {
+    const absolute = ((startYear * 12) + (startMonth - 1)) + offset;
+    out.push({
+      month: (absolute % 12) + 1,
+      year: Math.floor(absolute / 12),
+    });
+  }
+
+  return out;
+}
+
 export async function createOnboardingForNewUser(userId: string) {
   await onboardingDelegate(prisma).create({
     data: {
@@ -1032,14 +1054,11 @@ export async function completeOnboarding(userId: string) {
   });
 
   const seededIncomePeriods = buildForwardSeedMonths(now, planningYears);
-  const seededExpensePeriods = Array.from(
-    new Map(
-      [
-        { month: now.getMonth() + 1, year: now.getFullYear() },
-        { month: activePeriodMonth, year: activePeriodYear },
-      ].map((entry) => [`${entry.year}-${entry.month}`, entry])
-    ).values()
-  );
+  const seededExpensePeriods = buildForwardSeedPeriodsFromMonth({
+    startMonth: activePeriodMonth,
+    startYear: activePeriodYear,
+    planningYears,
+  });
 
   const categories = await prisma.category.findMany({
     where: { budgetPlanId },
@@ -1185,7 +1204,7 @@ export async function completeOnboarding(userId: string) {
             type: "loan",
             initialBalance: debtAmount,
             currentBalance: debtAmount,
-            amount: debtAmount,
+            amount: 0,
             paid: false,
             paidAmount: 0,
           },
@@ -1280,14 +1299,11 @@ export async function runOnboardingRepairPass(userId: string) {
   });
 
   const seededIncomePeriods = buildForwardSeedMonths(now, planningYears);
-  const seededExpensePeriods = Array.from(
-    new Map(
-      [
-        { month: now.getMonth() + 1, year: now.getFullYear() },
-        { month: activePeriodMonth, year: activePeriodYear },
-      ].map((entry) => [`${entry.year}-${entry.month}`, entry])
-    ).values()
-  );
+  const seededExpensePeriods = buildForwardSeedPeriodsFromMonth({
+    startMonth: activePeriodMonth,
+    startYear: activePeriodYear,
+    planningYears,
+  });
 
   const expenseSeedsRaw: Array<{ name: string | null; amount: number; fallbackName: string }> = [
     { name: profile.expenseOneName, amount: Number(profile.expenseOneAmount ?? 0), fallbackName: "Bill 1" },
@@ -1426,6 +1442,61 @@ export async function runOnboardingRepairPass(userId: string) {
       await tx.expense.createMany({
         data: preparedExpensesToCreate,
       });
+    }
+
+    const debtAmount = Number(profile.debtAmount ?? 0);
+    if (profile.hasDebtsToManage && debtAmount > 0) {
+      const repairAnchor = latestDate(
+        profile.completedAt ?? null,
+        ensuredBudgetPlan.createdAt,
+      ) ?? ensuredBudgetPlan.createdAt;
+      const legacySeedRepairWindowEnd = new Date(repairAnchor.getTime() + 5 * 60 * 1000);
+
+      await tx.debt.updateMany({
+        where: {
+          budgetPlanId,
+          type: "loan",
+          sourceType: null,
+          creditLimit: null,
+          dueDay: null,
+          dueDate: null,
+          monthlyMinimum: null,
+          interestRate: null,
+          installmentMonths: null,
+          initialBalance: debtAmount,
+          currentBalance: debtAmount,
+          amount: debtAmount,
+          paid: false,
+          paidAmount: 0,
+          historicalPaidAmount: 0,
+          createdAt: {
+            gte: ensuredBudgetPlan.createdAt,
+            lte: legacySeedRepairWindowEnd,
+          },
+        },
+        data: {
+          amount: 0,
+        },
+      });
+
+      const hasDebt = await tx.debt.findFirst({
+        where: { budgetPlanId },
+        select: { id: true },
+      });
+      if (!hasDebt) {
+        await tx.debt.create({
+          data: {
+            budgetPlanId,
+            name: profile.debtNotes || "Debt to manage",
+            type: "loan",
+            initialBalance: debtAmount,
+            currentBalance: debtAmount,
+            amount: 0,
+            paid: false,
+            paidAmount: 0,
+          },
+        });
+      }
     }
 
     await syncGeneratedGoals({
