@@ -3,7 +3,6 @@ import { Image, Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { withOpacity } from "@/lib/categoryColors";
-import { isWithinPaymentEditGrace } from "@/lib/domain/paymentRules";
 import { dueDaysColor, formatDueDate } from "@/lib/helpers/categoryExpenses";
 import { fmt } from "@/lib/formatting";
 import { resolveLogoUri } from "@/lib/logoDisplay";
@@ -16,8 +15,7 @@ export default function CategoryExpenseCard(props: CategoryExpenseCardProps) {
   const paidAmount = Number(props.expense.paidAmount);
   const paidAmountClamped = amount > 0 ? Math.min(paidAmount, amount) : 0;
   const ratio = amount > 0 ? Math.min(paidAmount / amount, 1) : props.expense.paid ? 1 : 0;
-  const showDueBadge = Boolean(props.expense.dueDate)
-    && (!props.expense.paid || isWithinPaymentEditGrace(props.expense.lastPaymentAt));
+  const showDueBadge = Boolean(props.expense.dueDate) && !props.expense.paid;
   const dueColor = showDueBadge && props.expense.dueDate ? dueDaysColor(props.expense.dueDate) : null;
   const logoUri = resolveLogoUri(props.expense.logoUrl);
   const showLogo = Boolean(logoUri) && !props.logoFailed;

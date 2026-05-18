@@ -59,12 +59,15 @@ export default function MainTabsLayout() {
   const inactiveLabelColor = "#8E95A3";
   const isDebtDetailRoute = segments[0] === "(tabs)" && segments[1] === "debts" && segments[2] === "DebtDetail";
   const isGoalDetailRoute = segments[0] === "(tabs)" && segments[1] === "goals" && segments[2] === "GoalDetail";
+  const isCategoryExpensesSplitRoute = segments[0] === "(tabs)"
+    && segments[1] === "expenses"
+    && segments[2] === "CategoryExpenses";
   const isIncomeSplitRoute = segments[0] === "(tabs)"
     && segments[1] === "income"
     && (segments[2] === "IncomeMonth" || segments[2] === "IncomeGrid");
-  const tabBarBackgroundColor = isIncomeSplitRoute ? undefined : T.card;
-  const tabBarBlurEffect = isIncomeSplitRoute ? undefined : "systemUltraThinMaterialDark";
-  const tabBarShadowColor = isIncomeSplitRoute ? undefined : T.border;
+  const tabBarBackgroundColor = (isIncomeSplitRoute || isCategoryExpensesSplitRoute) ? undefined : T.card;
+  const tabBarBlurEffect = (isIncomeSplitRoute || isCategoryExpensesSplitRoute) ? undefined : "systemUltraThinMaterialDark";
+  const tabBarShadowColor = (isIncomeSplitRoute || isCategoryExpensesSplitRoute) ? undefined : T.border;
   const splitRouteLabelStyle = {
     color: inactiveLabelColor,
     fontSize: 10,
@@ -107,6 +110,70 @@ export default function MainTabsLayout() {
         }
       : undefined),
   } as Record<string, unknown>;
+
+  const categorySplitTriggerScreenProps = {
+    listeners: createTabListeners(isCategoryExpensesSplitRoute
+      ? {
+          onTabPress: () => {
+            router.replace("/(tabs)/expenses");
+          },
+          preventDefaultOnTabPress: true,
+        }
+      : undefined),
+  } as Record<string, unknown>;
+
+  if (isCategoryExpensesSplitRoute) {
+    return (
+      <NativeTabs
+        hidden={isDebtDetailRoute || isGoalDetailRoute}
+        tintColor={selectedTintColor}
+        iconColor={inactiveIconColor}
+        labelStyle={splitRouteLabelStyle}
+        titlePositionAdjustment={{ vertical: -1 }}
+        backBehavior="history"
+      >
+        <NativeTabs.Trigger
+          {...resetOnBlurScreenProps}
+          name="dashboard"
+          contentStyle={tabContentStyle}
+          unstable_nativeProps={tabNativeProps}
+        >
+          <NativeTabs.Trigger.Icon
+            src={<NativeTabs.Trigger.VectorIcon family={Feather} name="home" />}
+            renderingMode="template"
+            selectedColor={selectedTintColor}
+          />
+          <NativeTabs.Trigger.Label selectedStyle={splitRouteSelectedTabLabelStyle}>Home</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger
+          {...resetOnBlurScreenProps}
+          name="income"
+          contentStyle={tabContentStyle}
+          unstable_nativeProps={tabNativeProps}
+        >
+          <NativeTabs.Trigger.Icon
+            src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name="wallet-outline" />}
+            renderingMode="template"
+            selectedColor={selectedTintColor}
+          />
+          <NativeTabs.Trigger.Label selectedStyle={splitRouteSelectedTabLabelStyle}>Income</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger
+          {...categorySplitTriggerScreenProps}
+          name="expenses"
+          role="search"
+          contentStyle={tabContentStyle}
+          unstable_nativeProps={tabNativeProps}
+        >
+          <NativeTabs.Trigger.Icon
+            src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name="add" />}
+            renderingMode="template"
+            selectedColor={selectedTintColor}
+          />
+        </NativeTabs.Trigger>
+      </NativeTabs>
+    );
+  }
 
   if (isIncomeSplitRoute) {
     return (
