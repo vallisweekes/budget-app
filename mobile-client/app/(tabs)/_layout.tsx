@@ -130,7 +130,7 @@ export default function MainTabsLayout() {
         tintColor={selectedTintColor}
         iconColor={inactiveIconColor}
         labelStyle={splitRouteLabelStyle}
-        titlePositionAdjustment={{ vertical: -1 }}
+        titlePositionAdjustment={{ vertical: -2 }}
         backBehavior="history"
       >
         <NativeTabs.Trigger
@@ -157,7 +157,7 @@ export default function MainTabsLayout() {
         tintColor={selectedTintColor}
         iconColor={inactiveIconColor}
         labelStyle={splitRouteLabelStyle}
-        titlePositionAdjustment={{ vertical: -1 }}
+        titlePositionAdjustment={{ vertical: -2 }}
         backBehavior="history"
       >
         <NativeTabs.Trigger
@@ -217,7 +217,7 @@ export default function MainTabsLayout() {
           fontSize: 11,
           fontWeight: "500",
         }}
-        titlePositionAdjustment={{ vertical: 1 }}
+        titlePositionAdjustment={{ vertical: -2 }}
         backBehavior="history"
       >
         <NativeTabs.Trigger
