@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { invalidateDashboardCache } from "@/lib/cache/dashboardCache";
 import { ensureDefaultCategoriesForBudgetPlan } from "@/lib/categories/defaultCategories";
 import { suggestCategoryNameForExpense } from "@/lib/expenses/expenseCategorizer";
 import { ensureUkMobileProviderMappingsSeeded } from "@/lib/expenses/providerMappings";
@@ -1467,6 +1468,13 @@ export async function runOnboardingRepairPass(userId: string) {
       }>);
 
   const [preparedIncomesToCreate, preparedExpensesToCreate] = await Promise.all([incomesToCreate, expensesToCreate]);
+  const repairAnchor = latestDate(
+    profile.updatedAt ?? null,
+    profile.completedAt ?? null,
+    ensuredBudgetPlan.createdAt,
+  ) ?? ensuredBudgetPlan.createdAt;
+  const legacySeedRepairWindowEnd = new Date(repairAnchor.getTime() + 5 * 60 * 1000);
+  const firstSelectablePeriodKey = firstSeedablePayPeriod.start.toISOString().slice(0, 10);
 
   await prisma.$transaction(async (tx) => {
     const savingsGoalAmount = Number(profile.savingsGoalAmount ?? 0);
@@ -1500,14 +1508,77 @@ export async function runOnboardingRepairPass(userId: string) {
       });
     }
 
+    const invalidExpenses = await tx.expense.findMany({
+      where: {
+        budgetPlanId,
+        createdAt: {
+          gte: ensuredBudgetPlan.createdAt,
+          lte: legacySeedRepairWindowEnd,
+        },
+        OR: [
+          { dueDate: { lt: firstSeedablePayPeriod.start } },
+          { periodKey: { not: null, lt: firstSelectablePeriodKey } },
+          { year: { lt: seedStartYear } },
+          {
+            AND: [
+              { year: seedStartYear },
+              { month: { lt: seedStartMonth } },
+            ],
+          },
+        ],
+      },
+      select: { id: true },
+    });
+    const invalidExpenseIds = invalidExpenses.map((expense) => expense.id);
+    if (invalidExpenseIds.length > 0) {
+      const invalidExpenseDebtIds = (await tx.debt.findMany({
+        where: {
+          budgetPlanId,
+          sourceType: "expense",
+          sourceExpenseId: { in: invalidExpenseIds },
+        },
+        select: { id: true },
+      })).map((debt) => debt.id);
+
+      if (invalidExpenseDebtIds.length > 0) {
+        await tx.debtPayment.deleteMany({
+          where: { debtId: { in: invalidExpenseDebtIds } },
+        });
+        await tx.debt.deleteMany({
+          where: { id: { in: invalidExpenseDebtIds } },
+        });
+      }
+
+      await tx.expensePayment.deleteMany({
+        where: { expenseId: { in: invalidExpenseIds } },
+      });
+      await tx.expense.deleteMany({
+        where: { id: { in: invalidExpenseIds } },
+      });
+    }
+
+    await tx.income.deleteMany({
+      where: {
+        budgetPlanId,
+        createdAt: {
+          gte: ensuredBudgetPlan.createdAt,
+          lte: legacySeedRepairWindowEnd,
+        },
+        OR: [
+          { periodKey: { not: null, lt: firstSelectablePeriodKey } },
+          { year: { lt: seedStartYear } },
+          {
+            AND: [
+              { year: seedStartYear },
+              { month: { lt: seedStartMonth } },
+            ],
+          },
+        ],
+      },
+    });
+
     const debtAmount = Number(profile.debtAmount ?? 0);
     if (profile.hasDebtsToManage && debtAmount > 0) {
-      const repairAnchor = latestDate(
-        profile.completedAt ?? null,
-        ensuredBudgetPlan.createdAt,
-      ) ?? ensuredBudgetPlan.createdAt;
-      const legacySeedRepairWindowEnd = new Date(repairAnchor.getTime() + 5 * 60 * 1000);
-
       await tx.debt.updateMany({
         where: {
           budgetPlanId,
@@ -1574,4 +1645,6 @@ export async function runOnboardingRepairPass(userId: string) {
     maxWait: 10_000,
     timeout: 30_000,
   });
+
+  await invalidateDashboardCache(budgetPlanId);
 }
