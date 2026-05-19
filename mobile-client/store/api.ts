@@ -48,6 +48,25 @@ export const mobileApi = createApi({
       },
       providesTags: ["Dashboard"],
     }),
+    getDashboardByPeriod: builder.query<DashboardData, {
+      budgetPlanId: string;
+      month: number;
+      year: number;
+    }>({
+      async queryFn({ budgetPlanId, month, year }) {
+        try {
+          const data = await apiFetch<DashboardData>(
+            `/api/bff/dashboard?budgetPlanId=${encodeURIComponent(budgetPlanId)}&month=${month}&year=${year}`,
+            { cacheTtlMs: 0 },
+          );
+          return { data };
+        } catch (err: unknown) {
+          return { error: normalizeApiError(err) };
+        }
+      },
+      keepUnusedDataFor: 120,
+      providesTags: ["Dashboard"],
+    }),
     getSettings: builder.query<Settings, void>({
       async queryFn() {
         try {
@@ -447,6 +466,7 @@ export const mobileApi = createApi({
 
 export const {
   useGetDashboardQuery,
+  useGetDashboardByPeriodQuery,
   useGetExpenseSummaryQuery,
   useGetAnalyticsExpenseSeriesQuery,
   useGetDebtSummaryQuery,

@@ -2,6 +2,8 @@ import { apiFetch } from "@/lib/api";
 import type { ExpenseSummary } from "@/lib/apiTypes";
 import { buildPayPeriodFromMonthAnchor, getPayPeriodAnchorFromWindow, resolveActivePayPeriod, type PayFrequency } from "@/lib/payPeriods";
 
+export const DISPLAYED_PERIOD_NAV_CACHE_TTL_MS = 15_000;
+
 export type PeriodAnchor = {
   month: number;
   year: number;
@@ -59,7 +61,7 @@ export async function resolveDisplayedPayPeriodAnchor(params: {
   try {
     const summary = await apiFetch<ExpenseSummary>(
       `/api/bff/expenses/summary?month=${activeAnchor.month}&year=${activeAnchor.year}&scope=pay_period&budgetPlanId=${encodeURIComponent(params.budgetPlanId)}`,
-      { cacheTtlMs: 0 },
+      { cacheTtlMs: DISPLAYED_PERIOD_NAV_CACHE_TTL_MS },
     );
 
     const hasOutstanding = Number(summary?.unpaidCount ?? 0) > 0;

@@ -5,13 +5,13 @@ import { useFocusEffect, useScrollToTop } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 
 import { useBootstrapData, isNoBudgetPlanError } from "@/context/BootstrapDataContext";
-import { apiFetch } from "@/lib/api";
 import type { DashboardData } from "@/lib/apiTypes";
 import { resolveDisplayedPayPeriodAnchor } from "@/lib/helpers/resolveDisplayedPayPeriodAnchor";
 import { currencySymbol, normalizeUpcomingName } from "@/lib/formatting";
 import { useSwipeDownToClose, useTopHeaderOffset } from "@/hooks";
 import { normalizePayFrequency } from "@/lib/payPeriods";
 import type { MainTabScreenProps } from "@/navigation/types";
+import { useGetDashboardByPeriodQuery } from "@/store/api";
 import type { QuickPaymentActionItem } from "@/types";
 import { buildDashboardDerived } from "@/components/DashboardScreen/derived";
 import { GOAL_CARD, GOAL_GAP } from "@/components/DashboardScreen/style";
@@ -50,8 +50,48 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
   const [failedLogos, setFailedLogos] = useState<Record<string, boolean>>({});
   const [displayedPeriodAnchor, setDisplayedPeriodAnchor] = useState<{ month: number; year: number } | null>(null);
   const [displayedPeriodResolved, setDisplayedPeriodResolved] = useState(false);
-  const [resolvedDashboard, setResolvedDashboard] = useState<DashboardData | null>(dashboard);
-  const loading = (bootstrapLoading && !resolvedDashboard) || !displayedPeriodResolved;
+
+  const budgetPlanId = useMemo(() => {
+    if (typeof settings?.id === "string" && settings.id.trim()) {
+      return settings.id;
+    }
+    if (typeof dashboard?.budgetPlanId === "string" && dashboard.budgetPlanId.trim()) {
+      return dashboard.budgetPlanId;
+    }
+    return "";
+  }, [dashboard?.budgetPlanId, settings?.id]);
+
+  const shouldLoadPeriodDashboard = useMemo(
+    () => Boolean(displayedPeriodAnchor && budgetPlanId && !dashboardMatchesAnchor(dashboard, displayedPeriodAnchor)),
+    [budgetPlanId, dashboard, displayedPeriodAnchor],
+  );
+
+  const periodDashboardArgs = useMemo(
+    () => (displayedPeriodAnchor && budgetPlanId
+      ? { budgetPlanId, month: displayedPeriodAnchor.month, year: displayedPeriodAnchor.year }
+      : undefined),
+    [budgetPlanId, displayedPeriodAnchor],
+  );
+
+  const periodDashboardQuery = useGetDashboardByPeriodQuery(periodDashboardArgs as {
+    budgetPlanId: string;
+    month: number;
+    year: number;
+  }, {
+    skip: !shouldLoadPeriodDashboard,
+  });
+
+  const resolvedDashboard = useMemo<DashboardData | null>(() => {
+    if (!shouldLoadPeriodDashboard) {
+      return dashboard ?? null;
+    }
+
+    return periodDashboardQuery.data ?? dashboard ?? null;
+  }, [dashboard, periodDashboardQuery.data, shouldLoadPeriodDashboard]);
+
+  const loading = !displayedPeriodResolved
+    || (bootstrapLoading && !resolvedDashboard)
+    || (shouldLoadPeriodDashboard && !periodDashboardQuery.data && (periodDashboardQuery.isLoading || periodDashboardQuery.isFetching));
 
   const { dragY: categorySheetDragY, panHandlers: categorySheetPanHandlers } = useSwipeDownToClose({
     onClose: () => setCategorySheet(null),
@@ -64,8 +104,17 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
   }, [error, router]);
 
   const load = useCallback(
-    (options?: { force?: boolean }) => refresh({ force: options?.force === true }),
-    [refresh]
+    async (options?: { force?: boolean }) => {
+      const force = options?.force === true;
+      const result = await refresh({ force });
+
+      if (force && shouldLoadPeriodDashboard) {
+        await periodDashboardQuery.refetch();
+      }
+
+      return result;
+    },
+    [periodDashboardQuery, refresh, shouldLoadPeriodDashboard]
   );
 
   useFocusEffect(
@@ -77,59 +126,6 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
   const onRefresh = useCallback(() => {
     void load({ force: true });
   }, [load]);
-
-  useEffect(() => {
-    setResolvedDashboard((current) => {
-      if (!dashboard) return null;
-      if (dashboardMatchesAnchor(current, displayedPeriodAnchor) && !dashboardMatchesAnchor(dashboard, displayedPeriodAnchor)) {
-        return current;
-      }
-      return dashboard;
-    });
-  }, [dashboard, displayedPeriodAnchor]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const run = async () => {
-      if (!dashboard || !displayedPeriodAnchor) return;
-
-      if (dashboardMatchesAnchor(resolvedDashboard, displayedPeriodAnchor)) {
-        return;
-      }
-
-      if (dashboardMatchesAnchor(dashboard, displayedPeriodAnchor)) {
-        setResolvedDashboard(dashboard);
-        return;
-      }
-
-      const budgetPlanId = typeof settings?.id === "string" && settings.id.trim()
-        ? settings.id
-        : typeof dashboard?.budgetPlanId === "string" && dashboard.budgetPlanId.trim()
-          ? dashboard.budgetPlanId
-          : "";
-
-      if (!budgetPlanId) {
-        setResolvedDashboard(dashboard);
-        return;
-      }
-
-      try {
-        const next = await apiFetch<DashboardData>(
-          `/api/bff/dashboard?budgetPlanId=${encodeURIComponent(budgetPlanId)}&month=${displayedPeriodAnchor.month}&year=${displayedPeriodAnchor.year}`,
-          { cacheTtlMs: 0 },
-        );
-        if (!cancelled) setResolvedDashboard(next);
-      } catch {
-        if (!cancelled) setResolvedDashboard(dashboard);
-      }
-    };
-
-    void run();
-    return () => {
-      cancelled = true;
-    };
-  }, [dashboard, displayedPeriodAnchor, resolvedDashboard, settings?.id]);
 
   const effectiveDisplayedAnchor = useMemo(
     () => (dashboardMatchesAnchor(resolvedDashboard, displayedPeriodAnchor) ? displayedPeriodAnchor : null),
@@ -145,12 +141,6 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
     let cancelled = false;
 
     const run = async () => {
-      const budgetPlanId = typeof settings?.id === "string" && settings.id.trim()
-        ? settings.id
-        : typeof dashboard?.budgetPlanId === "string" && dashboard.budgetPlanId.trim()
-          ? dashboard.budgetPlanId
-          : "";
-
       if (!budgetPlanId) {
         if (!cancelled) {
           setDisplayedPeriodAnchor(null);
@@ -180,24 +170,6 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
       });
 
       if (!cancelled) {
-        const currentDashboardMatchesNext = dashboardMatchesAnchor(resolvedDashboard, next) || dashboardMatchesAnchor(dashboard, next);
-
-        if (!currentDashboardMatchesNext) {
-          try {
-            const nextDashboard = await apiFetch<DashboardData>(
-              `/api/bff/dashboard?budgetPlanId=${encodeURIComponent(budgetPlanId)}&month=${next.month}&year=${next.year}`,
-              { cacheTtlMs: 0 },
-            );
-
-            if (cancelled) return;
-            setResolvedDashboard(nextDashboard);
-          } catch {
-            setDisplayedPeriodAnchor(null);
-            setDisplayedPeriodResolved(true);
-            return;
-          }
-        }
-
         setDisplayedPeriodAnchor(next);
         setDisplayedPeriodResolved(true);
       }
@@ -208,7 +180,7 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
     return () => {
       cancelled = true;
     };
-  }, [dashboard, dashboard?.budgetPlanId, dashboard?.payDate, dashboard?.payFrequency, resolvedDashboard, settings?.accountCreatedAt, settings?.id, settings?.payAnchorDate, settings?.payDate, settings?.payFrequency, settings?.setupCompletedAt]);
+  }, [budgetPlanId, dashboard, dashboard?.payDate, dashboard?.payFrequency, settings?.accountCreatedAt, settings?.payAnchorDate, settings?.payDate, settings?.payFrequency, settings?.setupCompletedAt]);
 
   const currency = currencySymbol(settings?.currency);
   const needsSetup = derived.totalIncome <= 0 || derived.totalExpenses <= 0;
