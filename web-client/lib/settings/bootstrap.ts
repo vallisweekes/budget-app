@@ -239,7 +239,7 @@ function buildSettingsPayload(params: {
   incomeDistributeHorizonDefault: boolean;
   accountCreatedAt: string | null;
   setupCompletedAt: string | null;
-  cadence: { payFrequency: PayFrequency; billFrequency: "monthly" | "every_2_weeks" };
+  cadence: { payFrequency: PayFrequency; billFrequency: "monthly" | "every_2_weeks"; payAnchorDate: string | null };
   monthlyEmergencyContribution: unknown;
 }): BootstrapSettingsPayload {
   const {
