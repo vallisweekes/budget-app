@@ -484,6 +484,23 @@ export async function POST(req: NextRequest) {
   if (dueDate) {
     const parsedDueDate = parseIsoDate(dueDate);
     if (!parsedDueDate) return badRequest("Invalid dueDate");
+
+    const payPeriodContext = await resolveBudgetPlanPayPeriodContext({ budgetPlanId: ownedBudgetPlanId });
+    const payDate = Number.isFinite(Number(payPeriodContext.payDate)) && Number(payPeriodContext.payDate) >= 1
+      ? Math.floor(Number(payPeriodContext.payDate))
+      : 1;
+    const payFrequency: PayFrequency = normalizePayFrequency(payPeriodContext.payFrequency);
+    const selectedPeriod = buildPayPeriodFromMonthAnchor({
+      anchorYear: year,
+      anchorMonth: month,
+      payDate,
+      payFrequency,
+      payAnchorDate: payPeriodContext.payAnchorDate,
+    });
+
+    if (!inRange(parsedDueDate, selectedPeriod.start, selectedPeriod.end)) {
+      return badRequest("Due date must be within the selected pay period");
+    }
   }
 
   const createdResult = await createExpense({

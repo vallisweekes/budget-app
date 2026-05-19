@@ -100,6 +100,22 @@ function isValidDate(value: Date | null | undefined): value is Date {
   return value instanceof Date && !Number.isNaN(value.getTime());
 }
 
+function shouldUseFirstAnchoredInterval(params: {
+  now: Date;
+  planCreatedAt?: Date | null;
+  anchoredPayDate: Date;
+  step: number;
+}): boolean {
+  if (!isValidDate(params.planCreatedAt)) return false;
+
+  const planStart = startOfUtcDay(params.planCreatedAt);
+  if (params.now.getTime() >= params.anchoredPayDate.getTime()) return false;
+  if (planStart.getTime() > params.now.getTime()) return false;
+
+  const diffDays = Math.floor((planStart.getTime() - params.anchoredPayDate.getTime()) / DAY_MS);
+  return Math.abs(diffDays) < params.step;
+}
+
 export function resolveActivePayPeriodWindow(params: {
   now: Date;
   payDate: number;
@@ -133,6 +149,10 @@ export function resolveActivePayPeriodWindow(params: {
   const step = intervalDays(payFrequency);
   const anchoredPayDate = parsePayAnchorDate(params.payAnchorDate);
   if (anchoredPayDate) {
+    if (shouldUseFirstAnchoredInterval({ now, planCreatedAt, anchoredPayDate, step })) {
+      return { start: anchoredPayDate, end: addUtcDays(anchoredPayDate, step - 1) };
+    }
+
     const start = resolveAnchoredIntervalStart({
       date: now,
       payAnchorDate: anchoredPayDate,

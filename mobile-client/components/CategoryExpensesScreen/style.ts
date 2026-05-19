@@ -80,10 +80,16 @@ export const categoryExpensesStyles = StyleSheet.create({
     backgroundColor: "rgba(124,92,255,0.22)",
     borderColor: "rgba(124,92,255,0.3)",
   },
+  pickerCellDisabled: {
+    opacity: 0.28,
+  },
   pickerCellText: {
     color: T.text,
     fontSize: 13,
     fontWeight: "900",
+  },
+  pickerCellDisabledText: {
+    color: T.textMuted,
   },
   pickerCellSelectedText: {
     color: "#ffffff",

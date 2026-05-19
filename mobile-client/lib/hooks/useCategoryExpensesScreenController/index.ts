@@ -11,7 +11,13 @@ import { toExpenseCategoryBreakdowns } from "@/lib/helpers/expenseCategories";
 import { getLatestPaymentAt, splitCategoryExpenses } from "@/lib/helpers/categoryExpenses";
 import { subscribeCategoryAddExpenseTrigger } from "@/lib/events/categoryAddExpenseTrigger";
 import { useTopHeaderOffset } from "@/hooks";
-import { buildPayPeriodFromMonthAnchor, formatPayPeriodLabel, normalizePayFrequency, type PayFrequency } from "@/lib/payPeriods";
+import {
+  buildPayPeriodFromMonthAnchor,
+  formatPayPeriodLabel,
+  normalizePayFrequency,
+  resolveFirstSelectablePayPeriodWindow,
+  type PayFrequency,
+} from "@/lib/payPeriods";
 import type { ExpensesStackParamList } from "@/navigation/types";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { CategoryExpensesControllerState, CategoryExpensesSettingsSlice } from "@/types/CategoryExpensesScreen.types";
@@ -47,6 +53,7 @@ export function useCategoryExpensesScreenController({ navigation, route }: Props
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [logoFailed, setLogoFailed] = useState<Record<string, boolean>>({});
+  const [nowTimestamp, setNowTimestamp] = useState(() => Date.now());
   const [payDate, setPayDate] = useState<number | null>(null);
   const [payFrequency, setPayFrequency] = useState<PayFrequency>("monthly");
   const seenMutationVersionRef = useRef<number>(getApiMutationVersion());
@@ -147,6 +154,10 @@ export function useCategoryExpensesScreenController({ navigation, route }: Props
   }, [budgetPlanId, load, month, year]);
 
   useEffect(() => {
+    setNowTimestamp(Date.now());
+  }, [month, payDate, payFrequency, year]);
+
+  useEffect(() => {
     const nextCount = loggedPayments.length;
     if (lastSyncedLoggedCountRef.current === nextCount) return;
     lastSyncedLoggedCountRef.current = nextCount;
@@ -165,10 +176,33 @@ export function useCategoryExpensesScreenController({ navigation, route }: Props
   const remainingPct = useMemo(() => (plannedTotal <= 0 ? 0 : Math.max(0, Math.min(100, 100 - paidPct))), [paidPct, plannedTotal]);
   const latestPaymentAt = useMemo(() => getLatestPaymentAt(expenses), [expenses]);
   const updatedLabel = useMemo(() => (!latestPaymentAt ? "Updated: —" : `Updated: ${new Date(latestPaymentAt).toLocaleDateString("en-GB")}`), [latestPaymentAt]);
+  const payAnchorDate = payFrequency === "monthly" ? null : (settings?.payAnchorDate ?? null);
+  const planStartAt = useMemo(() => {
+    const raw = settings?.setupCompletedAt ?? settings?.accountCreatedAt ?? null;
+    if (!raw) return null;
+
+    const parsed = new Date(raw);
+    if (Number.isNaN(parsed.getTime())) return null;
+
+    parsed.setHours(0, 0, 0, 0);
+    return parsed;
+  }, [settings?.accountCreatedAt, settings?.setupCompletedAt]);
   const heroPeriodLabel = useMemo(() => {
-    const range = buildPayPeriodFromMonthAnchor({ year, month, payDate: payDate ?? 27, payFrequency });
+    const range = buildPayPeriodFromMonthAnchor({
+      year,
+      month,
+      payDate: payDate ?? 27,
+      payFrequency,
+      payAnchorDate,
+    });
     return formatPayPeriodLabel(range.start, range.end);
-  }, [month, payDate, payFrequency, year]);
+  }, [month, payAnchorDate, payDate, payFrequency, year]);
+  const firstSelectablePeriod = useMemo(() => resolveFirstSelectablePayPeriodWindow({
+    payDate: payDate ?? 27,
+    payFrequency,
+    payAnchorDate,
+    planStartAt,
+  }), [payAnchorDate, payDate, payFrequency, planStartAt]);
 
   const resolvePickerActualYear = useCallback((targetMonth: number, displayYear: number) => {
     if (payFrequency === "monthly" && targetMonth === 1) {
@@ -197,14 +231,33 @@ export function useCategoryExpensesScreenController({ navigation, route }: Props
     }
     return [...Array.from({ length: 11 }, (_, index) => index + 2), 1];
   }, [payFrequency]);
+  const enabledPeriodSet = useMemo(() => new Set(
+    pickerMonths.filter((targetMonth) => {
+      const actualYear = resolvePickerActualYear(targetMonth, pickerYear);
+      const period = buildPayPeriodFromMonthAnchor({
+        month: targetMonth,
+        year: actualYear,
+        payDate: payDate ?? 27,
+        payFrequency,
+        payAnchorDate,
+      });
+      return period.start.getTime() >= firstSelectablePeriod.start.getTime();
+    }),
+  ), [firstSelectablePeriod.start, payAnchorDate, payDate, payFrequency, pickerMonths, pickerYear, resolvePickerActualYear]);
 
   const canAddExpenseInSelectedPeriod = useMemo(() => {
-    const range = buildPayPeriodFromMonthAnchor({ year, month, payDate: payDate ?? 27, payFrequency });
+    const range = buildPayPeriodFromMonthAnchor({
+      year,
+      month,
+      payDate: payDate ?? 27,
+      payFrequency,
+      payAnchorDate,
+    });
     const graceCutoff = new Date(range.end.getTime());
     graceCutoff.setHours(23, 59, 59, 999);
     graceCutoff.setDate(graceCutoff.getDate() + PAYMENT_EDIT_GRACE_DAYS);
-    return Date.now() <= graceCutoff.getTime();
-  }, [month, payDate, payFrequency, year]);
+    return nowTimestamp <= graceCutoff.getTime();
+  }, [month, nowTimestamp, payAnchorDate, payDate, payFrequency, year]);
 
   useEffect(() => {
     const openAddToken = Number(route.params?.openAddExpenseAt);
@@ -230,11 +283,12 @@ export function useCategoryExpensesScreenController({ navigation, route }: Props
       year: actualYear,
       payDate: payDate ?? 27,
       payFrequency,
+      payAnchorDate,
     });
     const startLabel = period.start.toLocaleString("en-GB", { month: "short" });
     const endLabel = period.end.toLocaleString("en-GB", { month: "short" });
     return `${startLabel} - ${endLabel}`;
-  }, [payDate, payFrequency, resolvePickerActualYear]);
+  }, [payAnchorDate, payDate, payFrequency, resolvePickerActualYear]);
 
   const selectedPickerYear = resolvePickerDisplayYear(month, year);
 
@@ -248,6 +302,7 @@ export function useCategoryExpensesScreenController({ navigation, route }: Props
     color,
     currency,
     error,
+    enabledPeriodSet,
     expenses,
     heroPeriodLabel,
     loading,

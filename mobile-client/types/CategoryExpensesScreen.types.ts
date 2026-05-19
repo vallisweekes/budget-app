@@ -24,6 +24,7 @@ export type CategoryExpensesControllerState = {
   categoryName: string;
   color: string | null;
   currency: string;
+  enabledPeriodSet: Set<number>;
   error: string | null;
   expenses: Expense[];
   heroPeriodLabel: string;

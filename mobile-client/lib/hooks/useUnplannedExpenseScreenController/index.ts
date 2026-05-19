@@ -209,11 +209,13 @@ function useUnplannedExpenseScreenControllerImpl(params: {
         ? Math.floor(settings?.payDate as number)
         : 1;
       const payFrequencyForResolution = normalizePayFrequency(settings?.payFrequency);
+      const payAnchorDateForResolution = payFrequencyForResolution === "monthly" ? null : (settings?.payAnchorDate ?? null);
       const payPeriod = buildPayPeriodFromMonthAnchor({
         year,
         month,
         payDate: payDateForResolution,
         payFrequency: payFrequencyForResolution,
+        payAnchorDate: payAnchorDateForResolution,
       });
 
       body.periodKey = payPeriod.start.toISOString().slice(0, 10);
@@ -237,7 +239,7 @@ function useUnplannedExpenseScreenControllerImpl(params: {
       setSubmitError(error instanceof Error ? error.message : "Failed to log expense. Try again.");
       setSubmitting(false);
     }
-  }, [canSubmit, categoryId, fundingSource, month, name, newLoanName, onSuccess, parsedAmount, selectedDebtId, settings?.payDate, settings?.payFrequency, year]);
+  }, [canSubmit, categoryId, fundingSource, month, name, newLoanName, onSuccess, parsedAmount, selectedDebtId, settings?.payAnchorDate, settings?.payDate, settings?.payFrequency, year]);
 
   return {
     amount,

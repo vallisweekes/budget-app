@@ -135,9 +135,7 @@ export const styles = StyleSheet.create({
   sheetRowSub: { color: T.textDim, fontSize: 12, fontWeight: "700", marginTop: 2 },
   sheetRowAmt: { color: T.text, fontSize: 16, fontWeight: "900" },
   aiTipsCard: {
-    ...cardElevated,
     marginTop: 12,
-    padding: 16,
     gap: 14,
   },
   aiTipsHeader: {

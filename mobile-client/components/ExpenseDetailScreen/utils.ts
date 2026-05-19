@@ -1,6 +1,7 @@
 import type { ExpenseFrequencyPointStatus, ExpenseFrequencyResponse } from "@/lib/apiTypes";
 import { getApiBaseUrl } from "@/lib/api";
 import { fmt } from "@/lib/formatting";
+import { buildPayPeriodFromMonthAnchor, formatPayPeriodLabel, normalizePayFrequency, type PayFrequency } from "@/lib/payPeriods";
 import { T } from "@/lib/theme";
 import type { MonthPoint } from "@/types/ExpenseDetailScreen.types";
 
@@ -112,14 +113,29 @@ export function clampDay(year: number, monthIndex: number, day: number): Date {
   return new Date(year, monthIndex, Math.min(Math.max(1, day), maxDay));
 }
 
-export function buildPeriodLabels(month: number, year: number, payDate: number | null | undefined) {
-  const safePayDate = Number.isFinite(payDate as number) && (payDate as number) >= 1 ? Math.floor(payDate as number) : 27;
-  const start = clampDay(year, month - 2, safePayDate);
-  const end = clampDay(year, month - 1, safePayDate);
-  end.setDate(end.getDate() - 1);
+export function buildPeriodLabels(params: {
+  month: number;
+  year: number;
+  payDate: number | null | undefined;
+  payFrequency?: PayFrequency | null;
+  payAnchorDate?: string | null;
+}) {
+  const safePayDate = Number.isFinite(params.payDate as number) && (params.payDate as number) >= 1
+    ? Math.floor(params.payDate as number)
+    : 27;
+  const payFrequency = normalizePayFrequency(params.payFrequency);
+  const payAnchorDate = payFrequency === "monthly" ? null : (params.payAnchorDate ?? null);
+  const { start, end } = buildPayPeriodFromMonthAnchor({
+    month: params.month,
+    year: params.year,
+    payDate: safePayDate,
+    payFrequency,
+    payAnchorDate,
+  });
+
   return {
     span: `${monthLabel(start.getMonth() + 1)} - ${monthLabel(end.getMonth() + 1)}`,
-    range: `${start.getDate()} ${monthLabel(start.getMonth() + 1)} - ${end.getDate()} ${monthLabel(end.getMonth() + 1)}`,
+    range: formatPayPeriodLabel(start, end),
   };
 }
 

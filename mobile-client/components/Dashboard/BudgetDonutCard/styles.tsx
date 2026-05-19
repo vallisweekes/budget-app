@@ -13,7 +13,7 @@ export const styles = StyleSheet.create({
 		alignItems: "center",
 		borderRadius: 28,
 		paddingHorizontal: 18,
-		paddingTop: 18,
+		paddingTop: 30,
 		paddingBottom: 20,
 	},
 	heroGlow: {
@@ -39,6 +39,7 @@ export const styles = StyleSheet.create({
 		fontSize: 16,
 		fontWeight: "900",
 		textAlign: "center",
+		marginTop: 20,
 	},
 	chartShell: {
 		width: "100%",
@@ -65,16 +66,7 @@ export const styles = StyleSheet.create({
 		alignItems: "center",
 		justifyContent: "center",
 		paddingHorizontal: 18,
-	},
-	centerEyebrow: {
-		color: T.textMuted,
-		fontSize: 11,
-		fontWeight: "700",
-		textAlign: "center",
-		marginBottom: 6,
-	},
-	centerEyebrowOver: {
-		color: T.red,
+		gap: 6,
 	},
 	centerTitle: {
 		color: T.textDim,
@@ -86,7 +78,6 @@ export const styles = StyleSheet.create({
 		color: T.text,
 		fontSize: 21,
 		fontWeight: "900",
-		marginTop: 4,
 	},
 	centerValuePositive: {
 		color: T.green,
@@ -95,7 +86,6 @@ export const styles = StyleSheet.create({
 		color: T.red,
 	},
 	centerSub: {
-		marginTop: 6,
 		color: T.textDim,
 		fontSize: 12,
 		fontWeight: "700",
@@ -129,7 +119,7 @@ export const styles = StyleSheet.create({
 		fontWeight: "900",
 	},
 	legendRow: {
-		marginTop: 14,
+		marginTop: 24,
 		flexDirection: "row",
 		gap: 8,
 		justifyContent: "center",

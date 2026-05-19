@@ -26,15 +26,17 @@ export default function CategoryExpensesMonthPicker(props: CategoryExpensesMonth
 
           <View style={s.pickerGrid}>
             {props.months.map((targetMonth) => {
+              const isEnabled = props.enabledPeriodSet.has(targetMonth);
               const isSelected = targetMonth === props.month && props.pickerYear === props.selectedPickerYear;
               const label = props.getPeriodOptionLabel(targetMonth, props.pickerYear);
               return (
                 <Pressable
                   key={targetMonth}
+                  disabled={!isEnabled}
                   onPress={() => props.onSelectMonth(targetMonth)}
-                  style={[s.pickerCell, isSelected && s.pickerCellSelected]}
+                  style={[s.pickerCell, !isEnabled && s.pickerCellDisabled, isSelected && s.pickerCellSelected]}
                 >
-                  <Text style={[s.pickerCellText, isSelected && s.pickerCellSelectedText]}>{label}</Text>
+                  <Text style={[s.pickerCellText, !isEnabled && s.pickerCellDisabledText, isSelected && s.pickerCellSelectedText]}>{label}</Text>
                 </Pressable>
               );
             })}

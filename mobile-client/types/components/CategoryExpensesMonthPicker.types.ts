@@ -1,6 +1,7 @@
 import type React from "react";
 
 export type CategoryExpensesMonthPickerProps = {
+  enabledPeriodSet: Set<number>;
   month: number;
   months: number[];
   onClose: () => void;

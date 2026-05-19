@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { Modal, Platform, Pressable, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Ionicons } from "@expo/vector-icons";
@@ -25,6 +25,26 @@ function isoToDMY(iso: string): string {
   return `${m[3]}/${m[2]}/${m[1]}`;
 }
 
+function parseDateOnly(value: string): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value ?? "").trim());
+  if (!match) return null;
+  const next = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  next.setHours(0, 0, 0, 0);
+  return Number.isFinite(next.getTime()) ? next : null;
+}
+
+function formatDateOnly(value: Date): string {
+  return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
+}
+
+function clampDateToRange(value: Date, minimumDate: Date, maximumDate: Date): Date {
+  const next = new Date(value);
+  next.setHours(0, 0, 0, 0);
+  if (next.getTime() < minimumDate.getTime()) return minimumDate;
+  if (next.getTime() > maximumDate.getTime()) return maximumDate;
+  return next;
+}
+
 export default function AddExpenseSheetFields({
   name,
   setName,
@@ -41,6 +61,9 @@ export default function AddExpenseSheetFields({
   cards,
   categories,
   currency,
+  minimumDate,
+  maximumDate,
+  fallbackDate,
   suggestions,
   suggestionsLoading,
   onPickSuggestion,
@@ -60,6 +83,9 @@ export default function AddExpenseSheetFields({
   cards: CreditCard[];
   categories: ExpenseCategoryBreakdown[];
   currency: string;
+  minimumDate: Date;
+  maximumDate: Date;
+  fallbackDate: Date;
   suggestions: ExpenseSuggestion[];
   suggestionsLoading: boolean;
   onPickSuggestion: (s: ExpenseSuggestion) => void;
@@ -67,10 +93,13 @@ export default function AddExpenseSheetFields({
   const [showPicker, setShowPicker] = useState(false);
   const [showSourceDropdown, setShowSourceDropdown] = useState(false);
   // iOS: hold a draft while the spinner is open
-  const [iosDraft, setIosDraft] = useState<Date>(new Date());
+  const [iosDraft, setIosDraft] = useState<Date>(fallbackDate);
   const iosBeforeRef = useRef("");
 
-  const dueDateObj = dueDate ? new Date(`${dueDate}T00:00:00`) : new Date();
+  const dueDateObj = useMemo(
+    () => clampDateToRange(parseDateOnly(dueDate) ?? fallbackDate, minimumDate, maximumDate),
+    [dueDate, fallbackDate, maximumDate, minimumDate],
+  );
   const sourceOptions: { value: ExpensePaymentSource; label: string }[] = [
     { value: "income", label: "Income" },
     { value: "credit_card", label: "Credit Card" },
@@ -79,13 +108,25 @@ export default function AddExpenseSheetFields({
   ];
   const selectedSourceLabel = sourceOptions.find((opt) => opt.value === paymentSource)?.label ?? "Income";
 
+  useEffect(() => {
+    if (!dueDate) return;
+    const parsed = parseDateOnly(dueDate);
+    if (!parsed) {
+      setDueDate("");
+      return;
+    }
+    if (parsed.getTime() < minimumDate.getTime() || parsed.getTime() > maximumDate.getTime()) {
+      setDueDate("");
+    }
+  }, [dueDate, maximumDate, minimumDate, setDueDate]);
+
   const openPicker = useCallback(() => {
     if (Platform.OS === "ios") {
       iosBeforeRef.current = dueDate;
-      setIosDraft(dueDate ? new Date(`${dueDate}T00:00:00`) : new Date());
+      setIosDraft(clampDateToRange(parseDateOnly(dueDate) ?? fallbackDate, minimumDate, maximumDate));
     }
     setShowPicker(true);
-  }, [dueDate]);
+  }, [dueDate, fallbackDate, maximumDate, minimumDate]);
 
   const cancelPicker = useCallback(() => {
     if (Platform.OS === "ios") {
@@ -96,7 +137,7 @@ export default function AddExpenseSheetFields({
 
   const confirmPicker = useCallback(() => {
     if (Platform.OS === "ios") {
-      setDueDate(iosDraft.toISOString().slice(0, 10));
+      setDueDate(formatDateOnly(iosDraft));
     }
     setShowPicker(false);
   }, [iosDraft, setDueDate]);
@@ -294,10 +335,12 @@ export default function AddExpenseSheetFields({
           value={dueDateObj}
           mode="date"
           display="calendar"
+          minimumDate={minimumDate}
+          maximumDate={maximumDate}
           onChange={(event, selected) => {
             setShowPicker(false);
             if (event.type === "set" && selected) {
-              setDueDate(selected.toISOString().slice(0, 10));
+              setDueDate(formatDateOnly(clampDateToRange(selected, minimumDate, maximumDate)));
             }
           }}
         />
@@ -328,15 +371,15 @@ export default function AddExpenseSheetFields({
                 mode="date"
                 display="inline"
                 themeVariant="dark"
+                minimumDate={minimumDate}
+                maximumDate={maximumDate}
                 onChange={(event, selected) => {
                   const next =
                     selected ??
                     // Some iOS inline picker versions only provide a timestamp on the event.
                     (event?.nativeEvent?.timestamp ? new Date(event.nativeEvent.timestamp) : null);
                   if (next) {
-                    setIosDraft(next);
-                    setDueDate(next.toISOString().slice(0, 10));
-                    setShowPicker(false);
+                    setIosDraft(clampDateToRange(next, minimumDate, maximumDate));
                   }
                 }}
                 style={{ height: 340 }}

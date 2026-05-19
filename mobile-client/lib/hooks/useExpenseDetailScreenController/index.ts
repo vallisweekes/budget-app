@@ -4,8 +4,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { apiFetch } from "@/lib/api";
-import type { Expense, ExpenseFrequencyPoint, ExpenseFrequencyResponse, Settings } from "@/lib/apiTypes";
+import type { Expense, ExpenseFrequencyPoint, ExpenseFrequencyResponse } from "@/lib/apiTypes";
+import { getCachedPayPeriodExpenses, setCachedPayPeriodExpenses } from "@/lib/expensePeriodCache";
 import { T } from "@/lib/theme";
 import { clearScheduledUnpaidReminders, notifyPaymentStatus, scheduleUnpaidFollowUpReminders, scheduleUnpaidReminder } from "@/lib/unpaidReminder";
 import type { ExpensesStackParamList } from "@/navigation/types";
@@ -29,16 +31,40 @@ import {
 
 type Props = NativeStackScreenProps<ExpensesStackParamList, "ExpenseDetail">;
 
+function buildLoadState(params: {
+  expenses: Expense[];
+  expenseId: string;
+  categoryId: string;
+}): LoadState {
+  const list = Array.isArray(params.expenses) ? params.expenses : [];
+  const expense = list.find((entry) => entry.id === params.expenseId) ?? null;
+  const effectiveCategoryId = expense?.categoryId ?? params.categoryId;
+
+  return {
+    expense,
+    categoryExpenses: list.filter((entry) => entry.categoryId === effectiveCategoryId),
+  };
+}
+
 export function useExpenseDetailScreenController({ route, navigation }: Props): ExpenseDetailScreenControllerState {
   const { height, width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const { settings } = useBootstrapData();
   const tabBarHeight = useMemo(() => Math.max(insets.bottom, 56), [insets.bottom]);
   const { expenseId, expenseName, categoryId, month, year, budgetPlanId, currency } = route.params;
+  const cachedExpenses = useMemo(
+    () => getCachedPayPeriodExpenses({ budgetPlanId, month, year }) ?? [],
+    [budgetPlanId, month, year],
+  );
+  const initialData = useMemo(
+    () => buildLoadState({ expenses: cachedExpenses, expenseId, categoryId }),
+    [cachedExpenses, categoryId, expenseId],
+  );
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !initialData.expense);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [data, setData] = useState<LoadState>({ expense: null, categoryExpenses: [] });
+  const [data, setData] = useState<LoadState>(initialData);
   const [paySheetOpen, setPaySheetOpen] = useState(false);
   const [payAmount, setPayAmount] = useState("");
   const [paying, setPaying] = useState(false);
@@ -50,27 +76,29 @@ export function useExpenseDetailScreenController({ route, navigation }: Props): 
   const [frequency, setFrequency] = useState<ExpenseFrequencyResponse | null>(null);
   const [frequencyLoading, setFrequencyLoading] = useState(false);
   const [, setFrequencyResolved] = useState(false);
-  const [settings, setSettings] = useState<Settings | null>(null);
   const [tipIndex, setTipIndex] = useState(0);
+  const [today, setToday] = useState(() => new Date());
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (options?: { force?: boolean }) => {
+    const force = Boolean(options?.force);
     try {
       setError(null);
+      const cached = !force ? getCachedPayPeriodExpenses({ budgetPlanId, month, year }) : null;
+      if (cached) {
+        const nextState = buildLoadState({ expenses: cached, expenseId, categoryId });
+        if (nextState.expense) {
+          setData(nextState);
+          return;
+        }
+      }
+
       const query = budgetPlanId ? `&budgetPlanId=${encodeURIComponent(budgetPlanId)}` : "";
-      const [all, expenseDetail, settingsData] = await Promise.all([
-        apiFetch<Expense[]>(`/api/bff/expenses?month=${month}&year=${year}&scope=pay_period${query}`),
-        apiFetch<Expense>(`/api/bff/expenses/${encodeURIComponent(expenseId)}`, {
-          cacheTtlMs: 0,
-          skipOnUnauthorized: true,
-        }).catch(() => null),
-        apiFetch<Settings>("/api/bff/settings"),
-      ]);
+      const all = await apiFetch<Expense[]>(`/api/bff/expenses?month=${month}&year=${year}&scope=pay_period${query}`, {
+        cacheTtlMs: 0,
+      });
       const list = Array.isArray(all) ? all : [];
-      const found = expenseDetail ?? list.find((entry) => entry.id === expenseId) ?? null;
-      const effectiveCategoryId = found?.categoryId ?? categoryId;
-      const inCategory = list.filter((entry) => entry.categoryId === effectiveCategoryId);
-      setData({ expense: found, categoryExpenses: inCategory });
-      setSettings(settingsData ?? null);
+      setCachedPayPeriodExpenses({ budgetPlanId, month, year }, list);
+      setData(buildLoadState({ expenses: list, expenseId, categoryId }));
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Failed to load");
       setData({ expense: null, categoryExpenses: [] });
@@ -80,11 +108,20 @@ export function useExpenseDetailScreenController({ route, navigation }: Props): 
     }
   }, [budgetPlanId, categoryId, expenseId, month, year]);
 
+  useEffect(() => {
+    if (!initialData.expense) return;
+    setData(initialData);
+    setLoading(false);
+    setError(null);
+  }, [initialData]);
+
   useFocusEffect(
     useCallback(() => {
+      setToday(new Date());
+      if (data.expense?.id === expenseId) return;
       setLoading(true);
       void load();
-    }, [load]),
+    }, [data.expense?.id, expenseId, load]),
   );
 
   const expense = data.expense;
@@ -107,16 +144,16 @@ export function useExpenseDetailScreenController({ route, navigation }: Props): 
     const iso = String(raw).length >= 10 ? String(raw).slice(0, 10) : String(raw);
     const parsed = new Date(`${iso}T00:00:00`);
     if (Number.isNaN(parsed.getTime())) return null;
-    return Math.round((parsed.getTime() - Date.now()) / 86_400_000);
-  }, [expense?.dueDate]);
+    return Math.round((parsed.getTime() - today.getTime()) / 86_400_000);
+  }, [expense?.dueDate, today]);
 
   const shouldShowStatusGraceNote = useMemo(() => {
     if (!isPaid || !canEditPaidPayment) return false;
     if (dueDays == null || dueDays > 0) return false;
     const payDate = Number(settings?.payDate);
     if (!Number.isFinite(payDate) || payDate <= 0) return true;
-    return new Date().getDate() > payDate;
-  }, [canEditPaidPayment, dueDays, isPaid, settings?.payDate]);
+    return today.getDate() > payDate;
+  }, [canEditPaidPayment, dueDays, isPaid, settings?.payDate, today]);
 
   const unpaidWarningText = useMemo(() => unpaidDebtWarning(dueDays), [dueDays]);
   const updatedLabel = expense ? formatUpdatedLabel(expense.lastPaymentAt) : "";
@@ -124,7 +161,13 @@ export function useExpenseDetailScreenController({ route, navigation }: Props): 
   const logoUri = useMemo(() => resolveLogoUri(expense?.logoUrl), [expense?.logoUrl]);
   const showLogo = Boolean(logoUri) && !logoFailed;
   const monthsForFuture = useMemo(() => nextNMonths(month, year, 6), [month, year]);
-  const editPeriodContext = useMemo(() => buildPeriodLabels(month, year, settings?.payDate), [month, year, settings?.payDate]);
+  const editPeriodContext = useMemo(() => buildPeriodLabels({
+    month,
+    year,
+    payDate: settings?.payDate,
+    payFrequency: settings?.payFrequency,
+    payAnchorDate: settings?.payAnchorDate ?? null,
+  }), [month, settings?.payAnchorDate, settings?.payDate, settings?.payFrequency, year]);
 
   useEffect(() => {
     if (!expense) {
@@ -219,7 +262,7 @@ export function useExpenseDetailScreenController({ route, navigation }: Props): 
   const shouldOfferFutureDeleteScope = useMemo(() => {
     if (!expense) return false;
     // Regular planned expenses may belong to a recurring series even when future points are not yet resolved.
-    return !Boolean(expense.isExtraLoggedExpense);
+    return !expense.isExtraLoggedExpense;
   }, [expense]);
 
   const deleteConfirmDescription = useMemo(() => {
@@ -292,7 +335,7 @@ export function useExpenseDetailScreenController({ route, navigation }: Props): 
   const loadAndClosePaymentSheet = useCallback(async () => {
     setPaySheetOpen(false);
     setPayAmount("");
-    await load();
+    await load({ force: true });
   }, [load]);
 
   const onSavePayment = useCallback(async () => {
@@ -414,7 +457,7 @@ export function useExpenseDetailScreenController({ route, navigation }: Props): 
     remainingNum,
     shouldShowFrequencyCard: true,
     shouldShowStatusGraceNote,
-    showBottomActions: Boolean(expense && !isPaid),
+    showBottomActions: expense ? !isPaid : false,
     showDeleteScopeChoices: shouldOfferFutureDeleteScope,
     showLogo,
     showQuickActions: !isLoggedNonIncomeExpense,
@@ -461,14 +504,14 @@ export function useExpenseDetailScreenController({ route, navigation }: Props): 
     onOpenUnpaidConfirm: () => setUnpaidConfirmOpen(true),
     onRefresh: () => {
       setRefreshing(true);
-      void load();
+      void load({ force: true });
     },
     onRetry: () => {
       setRefreshing(true);
-      void load();
+      void load({ force: true });
     },
     onSaveEdit: () => {
-      void load();
+      void load({ force: true });
     },
     onSavePayment,
   };

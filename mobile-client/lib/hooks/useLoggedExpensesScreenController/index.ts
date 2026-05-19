@@ -74,7 +74,8 @@ export function useLoggedExpensesScreenController({ route, navigation }: Props):
     ? Math.floor(settings?.payDate as number)
     : 27;
   const payFrequency = normalizePayFrequency(settings?.payFrequency);
-  const period = buildPayPeriodFromMonthAnchor({ year, month, payDate, payFrequency });
+  const payAnchorDate = payFrequency === "monthly" ? null : (settings?.payAnchorDate ?? null);
+  const period = buildPayPeriodFromMonthAnchor({ year, month, payDate, payFrequency, payAnchorDate });
   const periodLabel = formatPayPeriodLabel(period.start, period.end);
   const screenKicker = categoryName ?? "All categories";
   const categoryColor = useMemo(() => resolveCategoryColor(color), [color]);

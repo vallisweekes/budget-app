@@ -96,6 +96,7 @@ export default function CategoryExpensesScreen({ route, navigation }: CategoryEx
       />
 
       <CategoryExpensesMonthPicker
+        enabledPeriodSet={controller.enabledPeriodSet}
         month={controller.month}
         months={controller.pickerMonths}
         onClose={() => controller.setMonthPickerOpen(false)}

@@ -23,7 +23,7 @@ enforceServerOnlyRuntime();
 
 import { prisma } from "@/lib/prisma";
 import { addOrUpdateExpenseAcrossMonths } from "@/lib/expenses/store";
-import { resolveExpenseLogoWithSearch } from "@/lib/expenses/logoResolver";
+import { resolveExpenseLogo, resolveExpenseLogoWithSearch } from "@/lib/expenses/logoResolver";
 import { maybeSendCategoryThresholdPush } from "@/lib/push/thresholdNotifications";
 import { getSettings, saveSettings } from "@/lib/settings/store";
 import { getPaymentPeriodKey, resolvePayDate } from "@/lib/helpers/periodKey";
@@ -453,7 +453,7 @@ export async function createExpense(input: CreateExpenseInput): Promise<CreateEx
   }
 
   const sharedId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  const logo     = await resolveExpenseLogoWithSearch(name);
+  const logo     = resolveExpenseLogo(name);
 
   // Write expense row(s)
   for (const y of targetYears) {

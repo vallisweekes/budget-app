@@ -118,7 +118,6 @@ export default function BudgetDonutCard({ totalBudget, totalExpenses, paidTotal,
             </Svg>
 
             <View style={styles.centerLabel} pointerEvents="none">
-              <Text style={[styles.centerEyebrow, isOverBudget && styles.centerEyebrowOver]}>Pay period</Text>
               <Text style={styles.centerTitle}>{centerTitle}</Text>
               <Text
                 style={[styles.centerValue, !isOverBudget && styles.centerValuePositive, isOverBudget && styles.centerValueOver]}

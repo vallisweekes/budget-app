@@ -5,7 +5,7 @@
  * Fields: Name · Amount · Category · Paid toggle · Due date (optional)
  */
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Animated,
@@ -22,9 +22,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
 import { apiFetch } from "@/lib/api";
+import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { useSwipeDownToClose } from "@/hooks";
 import { buildCreateExpenseBody, canSubmitExpense } from "@/lib/domain/expenseMutations";
 import { findFallbackExpenseCategoryId, toExpenseCategoryBreakdowns } from "@/lib/helpers/expenseCategories";
+import { buildPayPeriodFromMonthAnchor, normalizePayFrequency } from "@/lib/payPeriods";
 import type {
   Category,
   CreditCard,
@@ -42,6 +44,19 @@ import AddExpenseSheetFooter from "@/components/Expenses/AddExpenseSheetFooter";
 import AddExpenseSheetHeader from "@/components/Expenses/AddExpenseSheetHeader";
 
 const { height: SCREEN_H } = Dimensions.get("window");
+
+function startOfLocalDay(date: Date): Date {
+  const next = new Date(date);
+  next.setHours(0, 0, 0, 0);
+  return next;
+}
+
+function clampLocalDate(date: Date, minimumDate: Date, maximumDate: Date): Date {
+  const target = startOfLocalDay(date);
+  if (target.getTime() < minimumDate.getTime()) return minimumDate;
+  if (target.getTime() > maximumDate.getTime()) return maximumDate;
+  return target;
+}
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -61,6 +76,7 @@ export default function AddExpenseSheet({
   onClose,
 }: AddExpenseSheetProps) {
   const insets = useSafeAreaInsets();
+  const { settings } = useBootstrapData();
   const slideY = useRef(new Animated.Value(ADD_EXPENSE_SHEET_SCREEN_H ?? SCREEN_H)).current;
 
   const [keyboardVisible, setKeyboardVisible] = useState(false);
@@ -123,6 +139,29 @@ export default function AddExpenseSheet({
   const [planDropdownOpen, setPlanDropdownOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const payDate = Number.isFinite(settings?.payDate as number) && (settings?.payDate as number) >= 1
+    ? Math.floor(settings?.payDate as number)
+    : 27;
+  const payFrequency = normalizePayFrequency(settings?.payFrequency);
+  const payAnchorDate = payFrequency === "monthly" ? null : (settings?.payAnchorDate ?? null);
+  const dueDateWindow = useMemo(() => {
+    const period = buildPayPeriodFromMonthAnchor({
+      year: sheetYear,
+      month: sheetMonth,
+      payDate,
+      payFrequency,
+      payAnchorDate,
+    });
+    return {
+      minimumDate: startOfLocalDay(period.start),
+      maximumDate: startOfLocalDay(period.end),
+    };
+  }, [payAnchorDate, payDate, payFrequency, sheetMonth, sheetYear]);
+  const defaultDueDate = useMemo(
+    () => clampLocalDate(new Date(), dueDateWindow.minimumDate, dueDateWindow.maximumDate),
+    [dueDateWindow.maximumDate, dueDateWindow.minimumDate],
+  );
 
   // Resolve the plan id to use: prefer what the user picked in the sheet
   const effectivePlanId = selectedPlanId ?? budgetPlanId ?? null;
@@ -211,6 +250,20 @@ export default function AddExpenseSheet({
     setAmount(next);
     setSelectedSeriesKey(null);
   };
+
+  useEffect(() => {
+    setDueDate((current) => {
+      if (!current) return current;
+      const parsed = /^\d{4}-\d{2}-\d{2}$/.test(current)
+        ? new Date(`${current}T00:00:00`)
+        : null;
+      if (!parsed || Number.isNaN(parsed.getTime())) return "";
+      const normalized = startOfLocalDay(parsed);
+      if (normalized.getTime() < dueDateWindow.minimumDate.getTime()) return "";
+      if (normalized.getTime() > dueDateWindow.maximumDate.getTime()) return "";
+      return current;
+    });
+  }, [dueDateWindow.maximumDate, dueDateWindow.minimumDate]);
 
   useEffect(() => {
     if (!visible) return;
@@ -549,6 +602,9 @@ export default function AddExpenseSheet({
               cards={cards}
               categories={planCategories ?? categories}
               currency={currency}
+              minimumDate={dueDateWindow.minimumDate}
+              maximumDate={dueDateWindow.maximumDate}
+              fallbackDate={defaultDueDate}
               suggestions={expenseSuggestions}
               suggestionsLoading={expenseSuggestionsLoading}
               onPickSuggestion={(sug) => {
