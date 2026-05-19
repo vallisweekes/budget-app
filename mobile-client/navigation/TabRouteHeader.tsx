@@ -57,6 +57,7 @@ export default function TabRouteHeader() {
   const isSettingsDebtManagement = rootSegment === "settings-debt-management";
   const isGoals = tabSegment === "goals";
   const isIncomeTab = tabSegment === "income";
+  const isDashboardHome = tabSegment === "dashboard" && !leafSegment;
   const isGoalDetail = leafSegment === "GoalDetail";
   const isCategoryExpenses = leafSegment === "CategoryExpenses";
   const isDebtDetail = leafSegment === "DebtDetail";
@@ -580,6 +581,7 @@ export default function TabRouteHeader() {
       onSettings={() => pushRoute("/settings")}
       onIncome={() => {}}
       onAnalytics={() => pushRoute("/analytics")}
+      onHelp={() => pushRoute("/help")}
       onNotifications={() => pushRoute("/settings", { initialTab: "notifications" })}
       leftContent={expensesListLeftContent}
       leftVariant={isStandaloneSacrificeIncomeMonth || isAnalytics || isSettings || isSettingsProfileDetails || isSettingsIncomeSettings || isSettingsStrategy || isSettingsDebtManagement || isGoalDetail || isCategoryExpenses || isLoggedExpenses || isUnplannedExpense || isScanReceipt || isDebtAnalytics ? "back" : "avatar"}
@@ -588,6 +590,7 @@ export default function TabRouteHeader() {
       centerContent={incomeMonthSwitcher}
       rightContent={notificationsInboxRightContent ?? loggedExpensesRightContent ?? analyticsRightContent ?? incomeRightContent ?? expensesLoggedRightContent ?? goalsRightContent}
       showIncomeAction={false}
+      showHelpAction={isDashboardHome}
       compactActionsMenu={isSettings || isSettingsProfileDetails || isSettingsIncomeSettings || isSettingsStrategy || isSettingsDebtManagement}
       showAnalyticsAction={!isSettings && !isSettingsProfileDetails && !isSettingsIncomeSettings && !isSettingsStrategy && !isSettingsDebtManagement && !isAnalytics && !isGoalDetail}
       showNotificationAction={!isSettings && !isSettingsProfileDetails && !isSettingsIncomeSettings && !isSettingsStrategy && !isSettingsDebtManagement && !isAnalytics}

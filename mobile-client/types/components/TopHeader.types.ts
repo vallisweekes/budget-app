@@ -4,6 +4,7 @@ export interface TopHeaderProps {
   onSettings: () => void;
   onIncome: () => void;
   onAnalytics: () => void;
+  onHelp?: () => void;
   onNotifications: () => void;
   variant?: "default" | "analytics";
   leftContent?: ReactNode;
@@ -14,6 +15,7 @@ export interface TopHeaderProps {
   showIncomeAction?: boolean;
   rightContent?: ReactNode;
   compactActionsMenu?: boolean;
+  showHelpAction?: boolean;
   showAnalyticsAction?: boolean;
   showNotificationAction?: boolean;
   onLogout?: () => void;

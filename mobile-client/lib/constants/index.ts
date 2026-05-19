@@ -5,3 +5,4 @@ export * from "./budget";
 export * from "./income";
 export * from "./onboarding";
 export * from "./debt";
+export * from "./helpCenter";

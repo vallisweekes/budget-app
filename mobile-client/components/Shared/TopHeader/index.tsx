@@ -12,6 +12,7 @@ export default function TopHeader({
   onSettings,
   onIncome,
   onAnalytics,
+  onHelp,
   variant = "default",
   leftContent,
   leftVariant = "avatar",
@@ -21,6 +22,7 @@ export default function TopHeader({
   showIncomeAction = true,
   rightContent,
   compactActionsMenu = false,
+  showHelpAction = false,
   showAnalyticsAction = true,
   onLogout,
   incomePendingCount = 0,
@@ -30,7 +32,7 @@ export default function TopHeader({
   const { username } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const isAnalyticsVariant = variant === "analytics";
-  const visibleActionCount = (showIncomeAction ? 1 : 0) + (showAnalyticsAction ? 1 : 0);
+  const visibleActionCount = (showIncomeAction ? 1 : 0) + (showHelpAction ? 1 : 0) + (showAnalyticsAction ? 1 : 0);
   const shouldShowCompactMenuTrigger = !onAddIncome && visibleActionCount > 0;
 
   const getCenterWrapStyle = () => {
@@ -40,9 +42,11 @@ export default function TopHeader({
 
     if (compactActionsMenu) {
       if (onAddIncome) return styles.centerWrapWithIncomeAction;
+      if (visibleActionCount >= 3) return styles.centerWrapWithThreeActions;
       return onLogout ? styles.centerWrapWithTwoActions : styles.centerWrapWithOneAction;
     }
 
+    if (visibleActionCount >= 3) return styles.centerWrapWithThreeActions;
     if (visibleActionCount >= 2) return styles.centerWrapWithTwoActions;
     return styles.centerWrapWithOneAction;
   };
@@ -132,8 +136,25 @@ export default function TopHeader({
               </Pressable>
             ) : null}
             {showAnalyticsAction ? (
-              <Pressable onPress={onAnalytics} style={[styles.iconBtn, isAnalyticsVariant && styles.iconBtnAnalytics]} hitSlop={10}>
+              <Pressable
+                onPress={onAnalytics}
+                style={[styles.iconBtn, isAnalyticsVariant && styles.iconBtnAnalytics]}
+                hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel="Open analytics"
+              >
                 <Ionicons name="stats-chart-outline" size={18} color={T.accent} />
+              </Pressable>
+            ) : null}
+            {showHelpAction && onHelp ? (
+              <Pressable
+                onPress={onHelp}
+                style={[styles.iconBtn, isAnalyticsVariant && styles.iconBtnAnalytics]}
+                hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel="Open help"
+              >
+                <Ionicons name="help-circle-outline" size={18} color={T.accent} />
               </Pressable>
             ) : null}
           </View>

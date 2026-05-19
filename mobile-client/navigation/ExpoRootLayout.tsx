@@ -256,6 +256,8 @@ function RootShell() {
           <Stack.Screen name="settings-income-settings" options={{ headerShown: false }} />
           <Stack.Screen name="settings-debt-management" options={{ headerShown: false }} />
           <Stack.Screen name="settings-strategy" options={{ headerShown: false }} />
+          <Stack.Screen name="help" options={{ headerShown: false }} />
+          <Stack.Screen name="help-topic" options={{ headerShown: false }} />
           <Stack.Screen name="privacy-policy" options={{ headerShown: false }} />
           <Stack.Screen name="+not-found" options={{ headerShown: false }} />
         </Stack>
