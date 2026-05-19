@@ -299,32 +299,16 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       ),
     );
 
-    if (!selectedIsFuture && !preferredIsFuture) {
-      if (activePlanId || plans.length > 0) {
-        didNormalizeInitialPeriodRef.current = true;
-      }
+    // Let load() resolve raw calendar defaults and future selections through the
+    // displayed-anchor path instead of forcing the active pre-payday period here.
+    if (selectedIsFuture || preferredIsFuture) {
       return;
     }
 
-    didNormalizeInitialPeriodRef.current = true;
-
-    preferredPeriodByPlanRef.current = activePlanId
-      ? {
-          ...preferredPeriodByPlanRef.current,
-          [activePlanId]: { month: defaultActiveMonth, year: defaultActiveYear },
-        }
-      : {};
-    sharedPreferredPeriodByPlanCache = preferredPeriodByPlanRef.current;
-
-    setLoadedKey(null);
-    setMonth(defaultActiveMonth);
-    setYear(defaultActiveYear);
-    navigation.setParams({
-      month: defaultActiveMonth,
-      year: defaultActiveYear,
-      prevDisabled: !canDecrement(defaultActiveYear, defaultActiveMonth),
-    });
-  }, [activePlanId, canDecrement, defaultActiveMonth, defaultActiveYear, month, navigation, plans.length, year]);
+    if (activePlanId || plans.length > 0) {
+      didNormalizeInitialPeriodRef.current = true;
+    }
+  }, [activePlanId, defaultActiveMonth, defaultActiveYear, month, plans.length, year]);
 
   useEffect(() => {
     const paramsBudgetPlanId = typeof route.params?.budgetPlanId === "string" ? route.params.budgetPlanId : null;
@@ -856,20 +840,43 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
   }, [activePlanId, applyCachedViewState, month, year]);
 
   useEffect(() => {
-    if (loadedKey && loadedKey === currentViewKey && summary) return;
+    const isLiveOrFutureSelectedPeriod = year > defaultActiveYear || (year === defaultActiveYear && month >= defaultActiveMonth);
+    const hasEmptyLoadedLivePeriod = Boolean(
+      loadedKey
+      && loadedKey === currentViewKey
+      && summary
+      && isLiveOrFutureSelectedPeriod
+      && Number(summary.totalCount ?? 0) <= 0,
+    );
+
+    if (loadedKey && loadedKey === currentViewKey && summary && !hasEmptyLoadedLivePeriod) return;
 
     const latestMutationVersion = getApiMutationVersion();
     const hasMutationChanges = latestMutationVersion !== seenMutationVersionRef.current;
-    const hasCachedCurrent = Boolean(getCachedSummary(activePlanId, year, month));
-    if (hasCachedCurrent && !hasMutationChanges) {
+    const cachedCurrent = getCachedSummary(activePlanId, year, month);
+    const hasCachedCurrent = Boolean(cachedCurrent);
+    const shouldRevalidateEmptyLivePeriod = Boolean(
+      cachedCurrent
+      && !hasMutationChanges
+      && isLiveOrFutureSelectedPeriod
+      && Number(cachedCurrent.totalCount ?? 0) <= 0,
+    );
+
+    if (hasCachedCurrent && !hasMutationChanges && !shouldRevalidateEmptyLivePeriod) {
       applyCachedViewState(activePlanId, month, year);
       setLoading(false);
       return;
     }
 
     if (!hasCachedCurrent) setLoading(true);
+    if (shouldRevalidateEmptyLivePeriod) {
+      setLoading(true);
+      void load({ force: true });
+      return;
+    }
+
     void load();
-  }, [activePlanId, applyCachedViewState, currentViewKey, getCachedSummary, load, loadedKey, month, summary, year]);
+  }, [activePlanId, applyCachedViewState, currentViewKey, defaultActiveMonth, defaultActiveYear, getCachedSummary, load, loadedKey, month, summary, year]);
 
   useEffect(() => {
     if (!activePlanId) return;

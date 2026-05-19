@@ -1,9 +1,8 @@
 /**
  * useYearGuard
  *
- * Returns helpers to prevent navigating to a year before the user's
- * account creation date. On the web the same logic lives in
- * ExpensesPageClient.tsx and IncomeScreen.tsx (isBeforeUserStartMonth).
+ * Returns helpers to prevent navigating to a period before the user's
+ * first selectable pay period.
  *
  * Usage:
  *   const { minYear, minMonth, canDecrement } = useYearGuard(settings);
@@ -12,6 +11,7 @@
 
 import { useCallback, useMemo } from "react";
 import type { Settings } from "@/lib/apiTypes";
+import { normalizePayFrequency, resolveFirstSelectablePayPeriodWindow } from "@/lib/payPeriods";
 
 interface YearGuard {
   /** Earliest year the user may navigate to */
@@ -26,30 +26,31 @@ const FALLBACK_YEAR = 2020;
 
 export function useYearGuard(settings: Settings | null): YearGuard {
   const { minYear, minMonth } = useMemo(() => {
-    const now = new Date();
-    const currentYear = now.getFullYear();
     let minYear = FALLBACK_YEAR;
     let minMonth = 1;
 
-    if (settings?.accountCreatedAt) {
+    const rawPlanStartAt = settings?.setupCompletedAt ?? settings?.accountCreatedAt ?? null;
+    if (rawPlanStartAt) {
       try {
-        const d = new Date(settings.accountCreatedAt);
-        const y = d.getUTCFullYear();
-        const m = d.getUTCMonth() + 1; // 1-12
-
-        if (y >= currentYear) {
-          minYear = y;
-          minMonth = m;
-        } else {
-          minYear = y;
-          minMonth = 1;
+        const planStartAt = new Date(rawPlanStartAt);
+        if (Number.isNaN(planStartAt.getTime())) {
+          return { minYear, minMonth };
         }
+
+        const firstSelectable = resolveFirstSelectablePayPeriodWindow({
+          payDate: settings?.payDate ?? 27,
+          payFrequency: normalizePayFrequency(settings?.payFrequency),
+          payAnchorDate: settings?.payAnchorDate ?? null,
+          planStartAt,
+        });
+        minYear = firstSelectable.start.getFullYear();
+        minMonth = firstSelectable.start.getMonth() + 1;
       } catch {
         // Invalid date — fall back to safe default
       }
     }
     return { minYear, minMonth };
-  }, [settings?.accountCreatedAt]);
+  }, [settings?.accountCreatedAt, settings?.payAnchorDate, settings?.payDate, settings?.payFrequency, settings?.setupCompletedAt]);
 
   const canDecrement = useCallback((year: number, month: number): boolean => {
     // Going back from month 1 → month 12 of previous year

@@ -1,9 +1,10 @@
 import { MONTHS } from "@/lib/constants/time";
+import { resolveBudgetPlanPayPeriodContext } from "@/lib/api/payPeriodContext";
 import { prisma } from "@/lib/prisma";
 import { monthKeyToNumber, monthNumberToKey } from "@/lib/helpers/monthKey";
 import { getIncomePeriodKey, getLegacyIncomePeriodKey, resolvePayDate } from "@/lib/helpers/periodKey";
 import { canonicalizeIncomeName } from "@/lib/income/name";
-import { normalizePayFrequency } from "@/lib/payPeriods";
+import { buildPayPeriodFromMonthAnchor, normalizePayFrequency } from "@/lib/payPeriods";
 import type { MonthKey } from "@/types";
 
 export interface IncomeItem {
@@ -264,10 +265,17 @@ export async function resolveIncomeYear(budgetPlanId: string): Promise<number> {
 
 export async function getAllIncome(budgetPlanId: string, year?: number): Promise<IncomeByMonth> {
   const empty = emptyIncomeByMonth();
-  const scope = await getEventIncomeScope(budgetPlanId);
+  const [scope, payPeriodContext] = await Promise.all([
+    getEventIncomeScope(budgetPlanId),
+    resolveBudgetPlanPayPeriodContext({ budgetPlanId }),
+  ]);
   const resolvedYear = year ?? (await resolveIncomeYear(budgetPlanId));
-  const payFrequency = await resolveIncomeCadence(budgetPlanId);
-  const payDate = payFrequency === "monthly" ? await resolvePayDate(budgetPlanId) : null;
+  const payFrequency = normalizePayFrequency(payPeriodContext.payFrequency);
+  const payDate = Number.isFinite(Number(payPeriodContext.payDate)) && Number(payPeriodContext.payDate) >= 1
+    ? Math.floor(Number(payPeriodContext.payDate))
+    : 27;
+  const payAnchorDate = payFrequency === "monthly" ? null : payPeriodContext.payAnchorDate;
+  const firstSelectableStart = payPeriodContext.firstSelectableWindow.start;
 
 	if (scope && resolvedYear > scope.eventYear) {
 		// All months are after the event year.
@@ -304,6 +312,17 @@ export async function getAllIncome(budgetPlanId: string, year?: number): Promise
     if (!monthMap) continue;
     const chosen: IncomeItem[] = [];
     const monthNumber = monthKeyToNumber(monthKey);
+    const payPeriod = buildPayPeriodFromMonthAnchor({
+      anchorYear: resolvedYear,
+      anchorMonth: monthNumber,
+      payDate,
+      payFrequency,
+      payAnchorDate,
+    });
+    if (payPeriod.start.getTime() < firstSelectableStart.getTime()) {
+      empty[monthKey] = [];
+      continue;
+    }
     const canonicalPeriodKey = payFrequency === "monthly" && payDate != null
       ? getIncomePeriodKey({ year: resolvedYear, month: monthNumber }, payDate, payFrequency)
       : null;
@@ -335,12 +354,24 @@ export async function getIncomeForAnchorMonth(params: {
     return [];
   }
 
-  const payFrequency = params.payFrequency ?? await resolveIncomeCadence(budgetPlanId);
+  const payPeriodContext = await resolveBudgetPlanPayPeriodContext({ budgetPlanId });
+  const payFrequency = params.payFrequency ?? normalizePayFrequency(payPeriodContext.payFrequency);
   const payDate = payFrequency === "monthly"
-    ? (params.payDate ?? await resolvePayDate(budgetPlanId))
-    : 27;
+    ? (params.payDate ?? payPeriodContext.payDate)
+    : (params.payDate ?? payPeriodContext.payDate ?? 27);
+  const payAnchorDate = payFrequency === "monthly" ? null : payPeriodContext.payAnchorDate;
+  const selectedPayPeriod = buildPayPeriodFromMonthAnchor({
+    anchorYear: year,
+    anchorMonth: month,
+    payDate,
+    payFrequency,
+    payAnchorDate,
+  });
+  if (selectedPayPeriod.start.getTime() < payPeriodContext.firstSelectableWindow.start.getTime()) {
+    return [];
+  }
 
-  const canonicalPeriodKey = getIncomePeriodKey({ year, month }, payDate, payFrequency);
+  const canonicalPeriodKey = getIncomePeriodKey({ year, month }, payDate, payFrequency, payAnchorDate);
 
   const rows = await prisma.income.findMany({
     where: {

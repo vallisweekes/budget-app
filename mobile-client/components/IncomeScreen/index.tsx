@@ -62,7 +62,7 @@ export default function IncomeScreen() {
 
   const currency = currencySymbol(settings?.currency);
 
-  useYearGuard(settings);
+  const { minMonth, minYear } = useYearGuard(settings);
 
   useEffect(() => {
     const routeYear = Number(route.params?.year);
@@ -123,18 +123,6 @@ export default function IncomeScreen() {
     });
   }, [data, displayedActiveAnchor?.month, navigation, route.params?.addIncomeMonth, route.params?.budgetPlanId, route.params?.showAddAction, route.params?.year, year]);
 
-  const getFirstMissingMonth = (summary: IncomeSummaryData | null): number | null => {
-    if (!summary) return 1;
-    const monthByIndex = new Map(summary.months.map((month) => [month.monthIndex, month]));
-    for (let monthIndex = 1; monthIndex <= 12; monthIndex += 1) {
-      const month = monthByIndex.get(monthIndex);
-      if (!month || month.total <= 0 || month.items.length === 0) {
-        return monthIndex;
-      }
-    }
-    return null;
-  };
-
   const load = useCallback(async () => {
     try {
       setError(null);
@@ -150,9 +138,11 @@ export default function IncomeScreen() {
       setData(incData);
 
       const payFrequency = normalizePayFrequency(loadedSettings?.payFrequency);
+      const payAnchorDate = payFrequency === "monthly" ? null : (loadedSettings?.payAnchorDate ?? null);
       const nextDisplayedAnchor = await resolveDisplayedPayPeriodAnchor({
         budgetPlanId: incData.budgetPlanId,
         payDate: loadedSettings?.payDate ?? 27,
+        payAnchorDate,
         payFrequency,
         planCreatedAt: loadedSettings?.setupCompletedAt
           ? new Date(loadedSettings.setupCompletedAt)
@@ -252,9 +242,10 @@ export default function IncomeScreen() {
     }
   }, [closeYearAddSheet, data?.budgetPlanId, load, year, yearDistributeFullYear, yearDistributeHorizon, yearIncomeAmount, yearIncomeName]);
 
-  const months = data?.months ?? [];
   const payFrequency = normalizePayFrequency(settings?.payFrequency);
+  const payAnchorDate = payFrequency === "monthly" ? null : (settings?.payAnchorDate ?? null);
   const displayMonths = React.useMemo(() => {
+    const months = data?.months ?? [];
     if (payFrequency !== "monthly") return months;
 
     // For monthly pay periods, the server's `monthIndex` is the *anchor/end month*.
@@ -266,7 +257,7 @@ export default function IncomeScreen() {
       const bCycle = cycleIndexForAnchorMonth(b.monthIndex);
       return aCycle - bCycle;
     });
-  }, [months, payFrequency]);
+  }, [data?.months, payFrequency]);
 
   if (bootstrapLoading || loading) {
     return (
@@ -297,6 +288,7 @@ export default function IncomeScreen() {
     now,
     payDate: settings?.payDate ?? 27,
     payFrequency,
+    payAnchorDate,
     planCreatedAt: settings?.setupCompletedAt
       ? new Date(settings.setupCompletedAt)
       : settings?.accountCreatedAt
@@ -306,9 +298,6 @@ export default function IncomeScreen() {
   const activePeriodAnchor = getPayPeriodAnchorFromWindow({ period: activePayPeriod, payFrequency });
   const activePeriodAnchorMonth = displayedActiveAnchor?.month ?? activePeriodAnchor.month;
   const activePeriodAnchorYear = displayedActiveAnchor?.year ?? activePeriodAnchor.year;
-  const nowYear = now.getFullYear();
-  const canAddForYear = year >= nowYear;
-
   return (
   		<SafeAreaView style={[s.safe, { paddingTop: contentTopPadding }]} edges={[]}>
       <FlatList
@@ -328,20 +317,23 @@ export default function IncomeScreen() {
             month: item.monthIndex,
             payDate: settings?.payDate ?? 27,
             payFrequency,
+            payAnchorDate,
           });
           const periodEndAt = new Date(period.end.getTime());
           periodEndAt.setHours(23, 59, 59, 999);
           const isLocked = periodEndAt.getTime() < now.getTime();
+          const isBeforeFirstSelectablePeriod = year < minYear || (year === minYear && item.monthIndex < minMonth);
           const periodLabel = `${MONTH_NAMES_SHORT[period.start.getMonth()]} - ${MONTH_NAMES_SHORT[period.end.getMonth()]}`;
+          const canOpenPeriod = hasBudgetPlanId && !isBeforeFirstSelectablePeriod;
           return (
             <IncomeMonthCard
               item={item}
               currency={currency}
               fmt={fmt}
               active={isActive}
-              locked={isLocked}
+              locked={isLocked || isBeforeFirstSelectablePeriod}
               periodLabel={periodLabel}
-              onPress={() => {
+              onPress={canOpenPeriod ? () => {
                 if (!hasBudgetPlanId) {
                   Alert.alert("Income unavailable", "Budget plan is still syncing. Please pull to refresh and try again.");
                   return;
@@ -353,7 +345,7 @@ export default function IncomeScreen() {
                   budgetPlanId: data.budgetPlanId,
                   initialMode: "income",
                 });
-              }}
+              } : undefined}
             />
           );
         }}

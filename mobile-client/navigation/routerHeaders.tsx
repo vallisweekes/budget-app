@@ -1,13 +1,19 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Animated, Easing, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Notifications from "expo-notifications";
 
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/lib/api";
-import type { ExpensePayPeriodMonthsResponse, IncomeSacrificeData, Settings } from "@/lib/apiTypes";
+import type { IncomeSacrificeData, Settings } from "@/lib/apiTypes";
 import { appendNotificationInboxItem, subscribeNotificationInbox } from "@/lib/notificationInbox";
-import { buildPayPeriodFromMonthAnchor, getPayPeriodRangeLabelFromAnchor, normalizePayFrequency, type PayFrequency } from "@/lib/payPeriods";
+import {
+  buildPayPeriodFromMonthAnchor,
+  getPayPeriodRangeLabelFromAnchor,
+  normalizePayFrequency,
+  resolveFirstSelectablePayPeriodWindow,
+  type PayFrequency,
+} from "@/lib/payPeriods";
 import TopHeader from "@/components/Shared/TopHeader";
 import { T } from "@/lib/theme";
 
@@ -27,9 +33,7 @@ export function IncomeMonthSwitcher({
   const [payDate, setPayDate] = useState(27);
   const [payAnchorDate, setPayAnchorDate] = useState<string | null>(null);
   const [payFrequency, setPayFrequency] = useState<PayFrequency>("monthly");
-  const [accountCreatedAt, setAccountCreatedAt] = useState<string | null>(null);
-  const [prevPeriodHasExpenses, setPrevPeriodHasExpenses] = useState(false);
-  const expenseCountsByYearRef = useRef<Record<number, Record<number, number>>>({});
+  const [planStartAtRaw, setPlanStartAtRaw] = useState<string | null>(null);
   const yearPickerAnim = React.useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -52,8 +56,8 @@ export function IncomeMonthSwitcher({
         setPayAnchorDate((prev) => (prev === (settings?.payAnchorDate ?? null) ? prev : (settings?.payAnchorDate ?? null)));
         const nextPayFrequency = normalizePayFrequency(settings?.payFrequency);
         setPayFrequency((prev) => (prev === nextPayFrequency ? prev : nextPayFrequency));
-        const rawCreatedAt = settings?.accountCreatedAt ?? settings?.setupCompletedAt ?? null;
-        setAccountCreatedAt((prev) => (prev === rawCreatedAt ? prev : rawCreatedAt));
+        const rawPlanStartAt = settings?.setupCompletedAt ?? settings?.accountCreatedAt ?? null;
+        setPlanStartAtRaw((prev) => (prev === rawPlanStartAt ? prev : rawPlanStartAt));
       } catch {
         if (cancelled) return;
         setBudgetHorizonYears((prev) => (prev === 10 ? prev : 10));
@@ -80,16 +84,22 @@ export function IncomeMonthSwitcher({
   const nextYear = month + 1 > 12 ? year + 1 : year;
 
   const allowedYearSet = new Set(allowedYears);
-  const parsedAccountCreatedAt = useMemo(() => {
-    if (!accountCreatedAt) return null;
-    const parsed = new Date(accountCreatedAt);
+  const planStartAt = useMemo(() => {
+    if (!planStartAtRaw) return null;
+    const parsed = new Date(planStartAtRaw);
     if (Number.isNaN(parsed.getTime())) return null;
     parsed.setHours(0, 0, 0, 0);
     return parsed;
-  }, [accountCreatedAt]);
+  }, [planStartAtRaw]);
 
-  const canGoPrevByCreationDate = useMemo(() => {
-    if (!parsedAccountCreatedAt) return true;
+  const firstSelectablePeriod = useMemo(() => resolveFirstSelectablePayPeriodWindow({
+    payDate,
+    payFrequency,
+    payAnchorDate,
+    planStartAt,
+  }), [payAnchorDate, payDate, payFrequency, planStartAt]);
+
+  const canGoPrevByFirstSelectablePeriod = useMemo(() => {
     const prevPeriod = buildPayPeriodFromMonthAnchor({
       month: prevMonth,
       year: prevYear,
@@ -97,44 +107,10 @@ export function IncomeMonthSwitcher({
       payAnchorDate,
       payFrequency,
     });
-    const prevPeriodEnd = new Date(prevPeriod.end.getTime());
-    prevPeriodEnd.setHours(23, 59, 59, 999);
-    return prevPeriodEnd.getTime() >= parsedAccountCreatedAt.getTime();
-  }, [parsedAccountCreatedAt, payAnchorDate, payDate, payFrequency, prevMonth, prevYear]);
+    return prevPeriod.start.getTime() >= firstSelectablePeriod.start.getTime();
+  }, [firstSelectablePeriod.start, payAnchorDate, payDate, payFrequency, prevMonth, prevYear]);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    const run = async () => {
-      try {
-        const cached = expenseCountsByYearRef.current[prevYear];
-        if (cached) {
-          if (!cancelled) setPrevPeriodHasExpenses((cached[prevMonth] ?? 0) > 0);
-          return;
-        }
-
-        const response = await apiFetch<ExpensePayPeriodMonthsResponse>(
-          `/api/bff/expenses/pay-period-months?year=${prevYear}&budgetPlanId=${encodeURIComponent(budgetPlanId)}`,
-          { cacheTtlMs: 0 },
-        );
-        const counts: Record<number, number> = {};
-        for (const row of Array.isArray(response?.months) ? response.months : []) {
-          counts[row.month] = Number(row.totalCount ?? 0);
-        }
-        expenseCountsByYearRef.current[prevYear] = counts;
-        if (!cancelled) setPrevPeriodHasExpenses((counts[prevMonth] ?? 0) > 0);
-      } catch {
-        if (!cancelled) setPrevPeriodHasExpenses(false);
-      }
-    };
-
-    void run();
-    return () => {
-      cancelled = true;
-    };
-  }, [budgetPlanId, prevMonth, prevYear]);
-
-  const disablePrev = !allowedYearSet.has(prevYear) || (!canGoPrevByCreationDate && !prevPeriodHasExpenses);
+  const disablePrev = !allowedYearSet.has(prevYear) || !canGoPrevByFirstSelectablePeriod;
   const disableNext = !allowedYearSet.has(nextYear);
 
   const periodLabel = getPayPeriodRangeLabelFromAnchor({

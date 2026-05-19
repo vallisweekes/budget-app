@@ -159,6 +159,40 @@ export function resolveActivePayPeriodWindow(params: {
   return { start, end };
 }
 
+export function resolveFirstSelectablePayPeriodWindow(params: {
+  payDate: number;
+  payFrequency: PayFrequency;
+  payAnchorDate?: Date | string | null;
+  planStartAt?: Date | null;
+}): { start: Date; end: Date } {
+  const safePayDate = Number.isFinite(params.payDate) && params.payDate >= 1 ? Math.floor(params.payDate) : 1;
+  const planStartAt = isValidDate(params.planStartAt) ? startOfUtcDay(params.planStartAt) : null;
+
+  if (params.payFrequency !== "monthly") {
+    const step = intervalDays(params.payFrequency);
+    const anchoredPayDate = parsePayAnchorDate(params.payAnchorDate);
+    if (anchoredPayDate) {
+      if (!planStartAt) {
+        return { start: anchoredPayDate, end: addUtcDays(anchoredPayDate, step - 1) };
+      }
+
+      const diffDays = Math.floor((planStartAt.getTime() - anchoredPayDate.getTime()) / DAY_MS);
+      if (Math.abs(diffDays) < step) {
+        return { start: anchoredPayDate, end: addUtcDays(anchoredPayDate, step - 1) };
+      }
+    }
+  }
+
+  const referenceDate = planStartAt ?? startOfUtcDay(new Date());
+  return resolveActivePayPeriodWindow({
+    now: referenceDate,
+    payDate: safePayDate,
+    payFrequency: params.payFrequency,
+    payAnchorDate: params.payAnchorDate,
+    planCreatedAt: planStartAt,
+  });
+}
+
 export function getPayPeriodAnchorFromWindow(params: {
   window: { start: Date; end: Date };
   payFrequency: PayFrequency;

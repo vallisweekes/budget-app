@@ -14,11 +14,19 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 
 import { apiFetch, getApiMutationVersion } from "@/lib/api";
-import type { Income, Settings, IncomeMonthData, IncomeSacrificeData, IncomeSacrificeFixed, ExpensePayPeriodMonthsResponse } from "@/lib/apiTypes";
+import type { Income, Settings, IncomeMonthData, IncomeSacrificeData, IncomeSacrificeFixed } from "@/lib/apiTypes";
 import { computeMoneyLeftVsLastMonth } from "@/lib/domain/incomeStats";
 import { currencySymbol, fmt, MONTH_NAMES_LONG } from "@/lib/formatting";
 import { useIncomeCRUD, useTopHeaderOffset } from "@/hooks";
-import { buildPayPeriodFromMonthAnchor, getPayPeriodAnchorFromSelection, getPayPeriodAnchorFromWindow, getPayPeriodRangeLabelFromAnchor, normalizePayFrequency, resolveActivePayPeriod } from "@/lib/payPeriods";
+import {
+  buildPayPeriodFromMonthAnchor,
+  getPayPeriodAnchorFromSelection,
+  getPayPeriodAnchorFromWindow,
+  getPayPeriodRangeLabelFromAnchor,
+  normalizePayFrequency,
+  resolveActivePayPeriod,
+  resolveFirstSelectablePayPeriodWindow,
+} from "@/lib/payPeriods";
 import { T } from "@/lib/theme";
 import IncomeMonthHeader from "@/components/Income/IncomeMonthHeader";
 import IncomeMonthIncomeList from "@/components/Income/IncomeMonthIncomeList";
@@ -34,14 +42,12 @@ type ItemsCacheStore = Record<string, Record<number, Record<number, Income[]>>>;
 type SacrificeCacheStore = Record<string, Record<number, Record<number, IncomeSacrificeData>>>;
 type SettingsCacheStore = Record<string, Settings>;
 type MonthPrefetchStore = Record<string, "idle" | "loading" | "loaded">;
-type PayPeriodExpenseCountStore = Record<number, Record<number, number>>;
 
 const sharedAnalysisCache: AnalysisCacheStore = {};
 const sharedItemsCache: ItemsCacheStore = {};
 const sharedSacrificeCache: SacrificeCacheStore = {};
 const sharedSettingsCache: SettingsCacheStore = {};
 const sharedMonthPrefetchState: MonthPrefetchStore = {};
-const sharedPayPeriodExpenseCounts: PayPeriodExpenseCountStore = {};
 
 function getCachedAnalysisSnapshot(store: AnalysisCacheStore, planCacheKey: string, year: number, month: number): IncomeMonthData | null {
   return store[planCacheKey]?.[year]?.[month] ?? null;
@@ -96,18 +102,20 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
   const [linkSaving, setLinkSaving] = useState(false);
   const [confirmingTargetKey, setConfirmingTargetKey] = useState<string | null>(null);
   const [pendingNoticeVisible, setPendingNoticeVisible] = useState(false);
-  const [prevPeriodHasExpenses, setPrevPeriodHasExpenses] = useState(false);
   const [currentTime, setCurrentTime] = useState(() => Date.now());
   const [isSacrificeManageActive, setIsSacrificeManageActive] = useState(false);
   const isStandaloneSacrifice = standaloneSacrifice === true;
   const normalizedPayFrequency = useMemo(() => normalizePayFrequency(settings?.payFrequency), [settings?.payFrequency]);
+  const normalizedPayAnchorDate = useMemo(
+    () => (normalizedPayFrequency === "monthly" ? null : (settings?.payAnchorDate ?? null)),
+    [normalizedPayFrequency, settings?.payAnchorDate],
+  );
 
   const analysisCacheRef = useRef<AnalysisCacheStore>(sharedAnalysisCache);
   const itemsCacheRef = useRef<ItemsCacheStore>(sharedItemsCache);
   const sacrificeCacheRef = useRef<SacrificeCacheStore>(sharedSacrificeCache);
   const settingsCacheRef = useRef<SettingsCacheStore>(sharedSettingsCache);
   const monthPrefetchStateRef = useRef<MonthPrefetchStore>(sharedMonthPrefetchState);
-  const payPeriodExpenseCountsRef = useRef<PayPeriodExpenseCountStore>(sharedPayPeriodExpenseCounts);
   const seenMutationVersionRef = useRef<number>(getApiMutationVersion());
 
   const periodRange = useMemo(() => {
@@ -116,8 +124,9 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
       month,
       payDate: settings?.payDate ?? 27,
       payFrequency: normalizedPayFrequency,
+      payAnchorDate: normalizedPayAnchorDate,
     });
-  }, [month, normalizedPayFrequency, settings?.payDate, year]);
+  }, [month, normalizedPayAnchorDate, normalizedPayFrequency, settings?.payDate, year]);
 
   const periodEndAt = useMemo(() => {
     const end = new Date(periodRange.end.getTime());
@@ -153,8 +162,9 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
       month,
       payDate: settings.payDate ?? 27,
       payFrequency: normalizedPayFrequency,
+      payAnchorDate: normalizedPayAnchorDate,
     });
-  }, [month, normalizedPayFrequency, settings, year]);
+  }, [month, normalizedPayAnchorDate, normalizedPayFrequency, settings, year]);
 
   const currency = currencySymbol(settings?.currency);
   const toIncomeItems = useCallback((summary: Array<{ id: string; name: string; amount: number }>, targetMonth: number, targetYear: number): Income[] => {
@@ -319,8 +329,8 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
     return [previous, next];
   }, []);
 
-  const accountCreatedAt = useMemo(() => {
-    const raw = settings?.accountCreatedAt ?? settings?.setupCompletedAt ?? null;
+  const planStartAt = useMemo(() => {
+    const raw = settings?.setupCompletedAt ?? settings?.accountCreatedAt ?? null;
     if (!raw) return null;
     const parsed = new Date(raw);
     if (Number.isNaN(parsed.getTime())) return null;
@@ -328,70 +338,28 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
     return parsed;
   }, [settings?.accountCreatedAt, settings?.setupCompletedAt]);
 
-  const periodEndFor = useCallback((targetYear: number, targetMonth: number) => {
-    const period = buildPayPeriodFromMonthAnchor({
-      year: targetYear,
-      month: targetMonth,
-      payDate: settings?.payDate ?? 27,
-      payFrequency: normalizePayFrequency(settings?.payFrequency),
-    });
-    const periodEnd = new Date(period.end.getTime());
-    periodEnd.setHours(23, 59, 59, 999);
-    return periodEnd;
-  }, [settings?.payDate, settings?.payFrequency]);
+  const firstSelectablePeriod = useMemo(() => resolveFirstSelectablePayPeriodWindow({
+    payDate: settings?.payDate ?? 27,
+    payFrequency: normalizePayFrequency(settings?.payFrequency),
+    payAnchorDate: normalizePayFrequency(settings?.payFrequency) === "monthly" ? null : (settings?.payAnchorDate ?? null),
+    planStartAt,
+  }), [planStartAt, settings?.payAnchorDate, settings?.payDate, settings?.payFrequency]);
 
-  const canGoPrevByCreationDate = useMemo(() => {
+  const canGoToPreviousPeriod = useMemo(() => {
     const previous = month === 1
       ? { month: 12, year: year - 1 }
       : { month: month - 1, year };
 
-    if (!accountCreatedAt) return true;
-    return periodEndFor(previous.year, previous.month).getTime() >= accountCreatedAt.getTime();
-  }, [accountCreatedAt, month, periodEndFor, year]);
+    const previousPeriod = buildPayPeriodFromMonthAnchor({
+      year: previous.year,
+      month: previous.month,
+      payDate: settings?.payDate ?? 27,
+      payFrequency: normalizePayFrequency(settings?.payFrequency),
+      payAnchorDate: normalizePayFrequency(settings?.payFrequency) === "monthly" ? null : (settings?.payAnchorDate ?? null),
+    });
 
-  const getExpenseCountsForYear = useCallback(async (targetYear: number) => {
-    const cached = payPeriodExpenseCountsRef.current[targetYear];
-    if (cached) return cached;
-
-    const response = await apiFetch<ExpensePayPeriodMonthsResponse>(
-      `/api/bff/expenses/pay-period-months?year=${targetYear}&budgetPlanId=${encodeURIComponent(budgetPlanId)}`,
-      { cacheTtlMs: 0 },
-    );
-
-    const counts: Record<number, number> = {};
-    for (const row of Array.isArray(response?.months) ? response.months : []) {
-      counts[row.month] = Number(row.totalCount ?? 0);
-    }
-
-    payPeriodExpenseCountsRef.current[targetYear] = counts;
-    return counts;
-  }, [budgetPlanId]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const run = async () => {
-      try {
-        const previous = month === 1
-          ? { month: 12, year: year - 1 }
-          : { month: month - 1, year };
-        const counts = await getExpenseCountsForYear(previous.year);
-        if (cancelled) return;
-        setPrevPeriodHasExpenses((counts[previous.month] ?? 0) > 0);
-      } catch {
-        if (cancelled) return;
-        setPrevPeriodHasExpenses(false);
-      }
-    };
-
-    void run();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [getExpenseCountsForYear, month, year]);
-
-  const canGoToPreviousPeriod = canGoPrevByCreationDate || prevPeriodHasExpenses;
+    return previousPeriod.start.getTime() >= firstSelectablePeriod.start.getTime();
+  }, [firstSelectablePeriod.start, month, settings?.payAnchorDate, settings?.payDate, settings?.payFrequency, year]);
 
   const handleGoToPreviousPeriod = useCallback(() => {
     if (!canGoToPreviousPeriod) return;
@@ -432,6 +400,7 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
       now: new Date(),
       payDate: settings?.payDate ?? 27,
       payFrequency: normalizedPayFrequency,
+      payAnchorDate: normalizedPayAnchorDate,
       planCreatedAt: planCreatedAt && !Number.isNaN(planCreatedAt.getTime()) ? planCreatedAt : null,
     });
     const currentAnchor = getPayPeriodAnchorFromWindow({
@@ -447,7 +416,7 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
       pendingConfirmationsCount: undefined,
       openIncomeAddAt: undefined,
     });
-  }, [navigation, normalizedPayFrequency, settings?.accountCreatedAt, settings?.payDate, settings?.setupCompletedAt, viewMode]);
+  }, [navigation, normalizedPayAnchorDate, normalizedPayFrequency, settings?.accountCreatedAt, settings?.payDate, settings?.setupCompletedAt, viewMode]);
 
   const prefetchMonthAnalysis = useCallback(async (targetYear: number, targetMonth: number) => {
     if (getCachedAnalysis(targetYear, targetMonth)) return;

@@ -30,9 +30,11 @@ export default function IncomeHomeScreen({ navigation }: IncomeHomeScreenProps) 
       }
 
       const payFrequency = normalizePayFrequency(resolvedSettings?.payFrequency);
+      const payAnchorDate = payFrequency === "monthly" ? null : (resolvedSettings?.payAnchorDate ?? null);
       const anchor = await resolveDisplayedPayPeriodAnchor({
         budgetPlanId,
         payDate: resolvedSettings?.payDate ?? 27,
+        payAnchorDate,
         payFrequency,
         planCreatedAt: resolvedSettings?.setupCompletedAt
           ? new Date(resolvedSettings.setupCompletedAt)

@@ -4,7 +4,7 @@ export interface IncomeMonthCardProps {
   item: IncomeSummaryMonth;
   currency: string;
   fmt: (v: number, c: string) => string;
-  onPress: () => void;
+  onPress?: () => void;
   active?: boolean;
   locked?: boolean;
   periodLabel?: string;

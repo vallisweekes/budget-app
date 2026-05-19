@@ -27,7 +27,7 @@ function dashboardMatchesAnchor(
   return Number(dashboard.monthNum) === anchor.month && Number(dashboard.year) === anchor.year;
 }
 
-export function useDashboardScreenController({ navigation }: DashboardScreenProps) {
+export function useDashboardScreenController({ navigation: _navigation }: DashboardScreenProps) {
   const router = useRouter();
   const scrollRef = useRef<ScrollView>(null);
   useScrollToTop(scrollRef);
@@ -49,8 +49,9 @@ export function useDashboardScreenController({ navigation }: DashboardScreenProp
   const [activeGoalCard, setActiveGoalCard] = useState(0);
   const [failedLogos, setFailedLogos] = useState<Record<string, boolean>>({});
   const [displayedPeriodAnchor, setDisplayedPeriodAnchor] = useState<{ month: number; year: number } | null>(null);
+  const [displayedPeriodResolved, setDisplayedPeriodResolved] = useState(false);
   const [resolvedDashboard, setResolvedDashboard] = useState<DashboardData | null>(dashboard);
-  const loading = bootstrapLoading && !resolvedDashboard;
+  const loading = (bootstrapLoading && !resolvedDashboard) || !displayedPeriodResolved;
 
   const { dragY: categorySheetDragY, panHandlers: categorySheetPanHandlers } = useSwipeDownToClose({
     onClose: () => setCategorySheet(null),
@@ -151,8 +152,15 @@ export function useDashboardScreenController({ navigation }: DashboardScreenProp
           : "";
 
       if (!budgetPlanId) {
-        if (!cancelled) setDisplayedPeriodAnchor(null);
+        if (!cancelled) {
+          setDisplayedPeriodAnchor(null);
+          setDisplayedPeriodResolved(true);
+        }
         return;
+      }
+
+      if (!cancelled) {
+        setDisplayedPeriodResolved(false);
       }
 
       const payFrequency = normalizePayFrequency(dashboard?.payFrequency ?? settings?.payFrequency);
@@ -172,7 +180,26 @@ export function useDashboardScreenController({ navigation }: DashboardScreenProp
       });
 
       if (!cancelled) {
+        const currentDashboardMatchesNext = dashboardMatchesAnchor(resolvedDashboard, next) || dashboardMatchesAnchor(dashboard, next);
+
+        if (!currentDashboardMatchesNext) {
+          try {
+            const nextDashboard = await apiFetch<DashboardData>(
+              `/api/bff/dashboard?budgetPlanId=${encodeURIComponent(budgetPlanId)}&month=${next.month}&year=${next.year}`,
+              { cacheTtlMs: 0 },
+            );
+
+            if (cancelled) return;
+            setResolvedDashboard(nextDashboard);
+          } catch {
+            setDisplayedPeriodAnchor(null);
+            setDisplayedPeriodResolved(true);
+            return;
+          }
+        }
+
         setDisplayedPeriodAnchor(next);
+        setDisplayedPeriodResolved(true);
       }
     };
 
@@ -181,7 +208,7 @@ export function useDashboardScreenController({ navigation }: DashboardScreenProp
     return () => {
       cancelled = true;
     };
-  }, [dashboard?.budgetPlanId, dashboard?.payDate, dashboard?.payFrequency, settings?.accountCreatedAt, settings?.id, settings?.payAnchorDate, settings?.payDate, settings?.payFrequency, settings?.setupCompletedAt]);
+  }, [dashboard, dashboard?.budgetPlanId, dashboard?.payDate, dashboard?.payFrequency, resolvedDashboard, settings?.accountCreatedAt, settings?.id, settings?.payAnchorDate, settings?.payDate, settings?.payFrequency, settings?.setupCompletedAt]);
 
   const currency = currencySymbol(settings?.currency);
   const needsSetup = derived.totalIncome <= 0 || derived.totalExpenses <= 0;

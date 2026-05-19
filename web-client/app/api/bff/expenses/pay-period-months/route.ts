@@ -113,6 +113,7 @@ export async function GET(req: NextRequest) {
     : 1;
   const payAnchorDate = payPeriodContext.payAnchorDate;
   const payFrequency: PayFrequency = normalizePayFrequency(payPeriodContext.payFrequency);
+  const firstSelectableStart = payPeriodContext.firstSelectableWindow.start;
 
   const periods = Array.from({ length: 12 }, (_, index) => {
     const month = index + 1;
@@ -187,6 +188,16 @@ export async function GET(req: NextRequest) {
   })();
 
   const summaries = periods.map((period) => {
+    if (period.start.getTime() < firstSelectableStart.getTime()) {
+      return {
+        month: period.month,
+        year: period.year,
+        periodKey: period.key,
+        totalCount: 0,
+        totalAmount: 0,
+      };
+    }
+
     const seen = new Map<string, { exp: ExpenseRow; rank: number }>();
 
     for (const exp of rows as ExpenseRow[]) {

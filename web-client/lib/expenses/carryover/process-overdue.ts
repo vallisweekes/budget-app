@@ -1,3 +1,5 @@
+import { resolveBudgetPlanPayPeriodContext } from "@/lib/api/payPeriodContext";
+import { buildPayPeriodFromMonthAnchor } from "@/lib/payPeriods";
 import { prisma } from "@/lib/prisma";
 import { upsertExpenseDebt } from "@/lib/debts/store";
 import { isExpenseDebtCoveredByRegularDebt } from "@/lib/helpers/debts/expenseDebtDuplicates";
@@ -19,17 +21,38 @@ type OverdueExpenseCarryRow = {
 	category: { id: string; name: string } | null;
 };
 
+function resolveExpenseSelectableDate(params: {
+	expense: Pick<OverdueExpenseCarryRow, "dueDate" | "month" | "year">;
+	payDate: number;
+	payFrequency: "monthly" | "every_2_weeks" | "every_4_weeks" | "weekly";
+	payAnchorDate: string | null;
+}): Date {
+	if (params.expense.dueDate instanceof Date && !Number.isNaN(params.expense.dueDate.getTime())) {
+		return new Date(Date.UTC(
+			params.expense.dueDate.getUTCFullYear(),
+			params.expense.dueDate.getUTCMonth(),
+			params.expense.dueDate.getUTCDate(),
+		));
+	}
+
+	return buildPayPeriodFromMonthAnchor({
+		anchorYear: params.expense.year,
+		anchorMonth: params.expense.month,
+		payDate: params.payDate,
+		payFrequency: params.payFrequency,
+		payAnchorDate: params.payAnchorDate,
+	}).start;
+}
+
 export async function processOverdueExpensesToDebts(budgetPlanId: string) {
 	const now = new Date();
 	const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 	const currentYear = today.getFullYear();
 	const currentMonth = today.getMonth() + 1;
 
-	const budgetPlan = await prisma.budgetPlan.findUnique({
-		where: { id: budgetPlanId },
-		select: { payDate: true },
-	});
-	const defaultDueDate = budgetPlan?.payDate ?? 27;
+	const payPeriodContext = await resolveBudgetPlanPayPeriodContext({ budgetPlanId, now });
+	const defaultDueDate = payPeriodContext.payDate ?? 27;
+	const firstSelectableStart = payPeriodContext.firstSelectableWindow.start;
 
 	const unpaidExpenses = (await prisma.expense.findMany({
 		where: {
@@ -69,6 +92,12 @@ export async function processOverdueExpensesToDebts(budgetPlanId: string) {
 	const results = [];
 	for (const expense of unpaidExpenses) {
 		if (expense.isAllocation) continue;
+		if (resolveExpenseSelectableDate({
+			expense,
+			payDate: defaultDueDate,
+			payFrequency: payPeriodContext.payFrequency,
+			payAnchorDate: payPeriodContext.payAnchorDate,
+		}).getTime() < firstSelectableStart.getTime()) continue;
 		if (isNonDebtCategoryName(expense.category?.name)) continue;
 		if (isLegacyPlaceholderExpenseRow({ name: expense.name, isAllocation: expense.isAllocation })) continue;
 		if (isExpenseDebtCoveredByRegularDebt({

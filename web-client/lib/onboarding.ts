@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { ensureDefaultCategoriesForBudgetPlan } from "@/lib/categories/defaultCategories";
 import { suggestCategoryNameForExpense } from "@/lib/expenses/expenseCategorizer";
 import { ensureUkMobileProviderMappingsSeeded } from "@/lib/expenses/providerMappings";
-import { normalizePayFrequency, resolveActivePayPeriodWindow, type PayFrequency } from "@/lib/payPeriods";
+import { normalizePayFrequency, resolveFirstSelectablePayPeriodWindow, type PayFrequency } from "@/lib/payPeriods";
 import { getExpensePeriodKey, getIncomePeriodKey } from "@/lib/helpers/periodKey";
 
 function latestDate(...dates: Array<Date | null | undefined>): Date | null {
@@ -1071,28 +1071,31 @@ export async function completeOnboarding(userId: string) {
   const year = new Date().getFullYear();
   const payDay = clampPayDay(toNullableNumber(profile.payDay));
   const payAnchorDate = cleanPayAnchorDate(profile.payAnchorDate);
+  const seededPayFrequency = normalizePayFrequency(profile.payFrequency);
 
   const now = new Date();
   const effectiveSetupAt = latestDate(budgetPlan.createdAt, now) ?? now;
-  const activePayPeriod = resolveActivePayPeriodWindow({
-    now,
+  const firstSeedablePayPeriod = resolveFirstSelectablePayPeriodWindow({
     payDate: payDay ?? 1,
     payAnchorDate,
-    payFrequency: normalizePayFrequency(profile.payFrequency),
-    planCreatedAt: effectiveSetupAt,
+    payFrequency: seededPayFrequency,
+    planStartAt: effectiveSetupAt,
   });
-  const activePeriodMonth = activePayPeriod.start.getUTCMonth() + 1;
-  const activePeriodYear = activePayPeriod.start.getUTCFullYear();
+  const seedStartMonth = firstSeedablePayPeriod.start.getUTCMonth() + 1;
+  const seedStartYear = firstSeedablePayPeriod.start.getUTCFullYear();
   const generatedGoalTargetYear = getBudgetHorizonTargetYear({
     planningYears,
     referenceDate: effectiveSetupAt,
     fallbackYear: year,
   });
 
-  const seededIncomePeriods = buildForwardSeedMonths(now, planningYears);
+  const seededIncomePeriods = buildForwardSeedMonths(
+    new Date(firstSeedablePayPeriod.start.getUTCFullYear(), firstSeedablePayPeriod.start.getUTCMonth(), 1),
+    planningYears,
+  );
   const seededExpensePeriods = buildForwardSeedPeriodsFromMonth({
-    startMonth: activePeriodMonth,
-    startYear: activePeriodYear,
+    startMonth: seedStartMonth,
+    startYear: seedStartYear,
     planningYears,
   });
 
@@ -1127,7 +1130,6 @@ export async function completeOnboarding(userId: string) {
   );
 
   const salary = Number(profile.monthlySalary ?? 0);
-  const seededPayFrequency = normalizePayFrequency(profile.payFrequency);
   const incomeSeedKeys = seededIncomePeriods.map((period) => ({ month: period.month, year: period.year }));
   const existingIncomeKeys = salary > 0
     ? new Set(
@@ -1179,7 +1181,12 @@ export async function completeOnboarding(userId: string) {
           paidAmount: 0,
           isAllocation: false,
           categoryId: item.categoryId ?? undefined,
-          periodKey: getExpensePeriodKey({ dueDate: dueDate ?? null, year: period.year, month: period.month }, payDay ?? 1),
+          periodKey: getExpensePeriodKey(
+            { dueDate: dueDate ?? null, year: period.year, month: period.month },
+            payDay ?? 1,
+            seededPayFrequency,
+            payAnchorDate,
+          ),
         },
       }];
     })
@@ -1321,25 +1328,31 @@ export async function runOnboardingRepairPass(userId: string) {
     profile.completedAt ?? null,
     profile.status === "completed" ? profile.updatedAt ?? null : null,
   );
-  const activePayPeriod = resolveActivePayPeriodWindow({
-    now,
+  const firstSeedableReferenceAt = latestDate(
+    ensuredBudgetPlan.createdAt,
+    profile.completedAt ?? null,
+  ) ?? ensuredBudgetPlan.createdAt;
+  const firstSeedablePayPeriod = resolveFirstSelectablePayPeriodWindow({
     payDate: payDay ?? 1,
     payAnchorDate,
     payFrequency,
-    planCreatedAt: effectiveSetupAt,
+    planStartAt: firstSeedableReferenceAt,
   });
-  const activePeriodMonth = activePayPeriod.start.getUTCMonth() + 1;
-  const activePeriodYear = activePayPeriod.start.getUTCFullYear();
+  const seedStartMonth = firstSeedablePayPeriod.start.getUTCMonth() + 1;
+  const seedStartYear = firstSeedablePayPeriod.start.getUTCFullYear();
   const generatedGoalTargetYear = getBudgetHorizonTargetYear({
     planningYears,
     referenceDate: effectiveSetupAt,
     fallbackYear: now.getUTCFullYear(),
   });
 
-  const seededIncomePeriods = buildForwardSeedMonths(now, planningYears);
+  const seededIncomePeriods = buildForwardSeedMonths(
+    new Date(firstSeedablePayPeriod.start.getUTCFullYear(), firstSeedablePayPeriod.start.getUTCMonth(), 1),
+    planningYears,
+  );
   const seededExpensePeriods = buildForwardSeedPeriodsFromMonth({
-    startMonth: activePeriodMonth,
-    startYear: activePeriodYear,
+    startMonth: seedStartMonth,
+    startYear: seedStartYear,
     planningYears,
   });
 
@@ -1413,7 +1426,12 @@ export async function runOnboardingRepairPass(userId: string) {
           paid: false,
           paidAmount: 0,
           isAllocation: false,
-          periodKey: getExpensePeriodKey({ dueDate, year: period.year, month: period.month }, payDay ?? 1),
+          periodKey: getExpensePeriodKey(
+            { dueDate, year: period.year, month: period.month },
+            payDay ?? 1,
+            payFrequency,
+            payAnchorDate,
+          ),
         },
       };
     })

@@ -1,5 +1,11 @@
 import { prisma } from "@/lib/prisma";
-import { getPayPeriodAnchorFromWindow, normalizePayFrequency, resolveActivePayPeriodWindow, type PayFrequency } from "@/lib/payPeriods";
+import {
+  getPayPeriodAnchorFromWindow,
+  normalizePayFrequency,
+  resolveActivePayPeriodWindow,
+  resolveFirstSelectablePayPeriodWindow,
+  type PayFrequency,
+} from "@/lib/payPeriods";
 
 function parseMonth(raw: unknown): number | null {
   const value = Number(raw);
@@ -65,6 +71,7 @@ export async function resolveBudgetPlanPayPeriodContext(params: {
   payFrequency: PayFrequency;
   window: { start: Date; end: Date };
   effectiveStartAt: Date | null;
+  firstSelectableWindow: { start: Date; end: Date };
 }> {
   const plan = await prisma.budgetPlan.findUnique({
     where: { id: params.budgetPlanId },
@@ -89,6 +96,10 @@ export async function resolveBudgetPlanPayPeriodContext(params: {
     profile?.completedAt ?? null,
     profile?.status === "completed" ? profile?.updatedAt ?? null : null,
   );
+  const firstSelectableReferenceAt = latestDate(
+    plan.createdAt,
+    profile?.completedAt ?? null,
+  );
   const now = params.now ?? new Date();
 
   return {
@@ -98,5 +109,11 @@ export async function resolveBudgetPlanPayPeriodContext(params: {
     payFrequency,
     window: resolveActivePayPeriodWindow({ now, payDate, payAnchorDate, payFrequency, planCreatedAt: effectiveStartAt }),
     effectiveStartAt,
+    firstSelectableWindow: resolveFirstSelectablePayPeriodWindow({
+      payDate,
+      payAnchorDate,
+      payFrequency,
+      planStartAt: firstSelectableReferenceAt,
+    }),
   };
 }

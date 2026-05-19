@@ -1,3 +1,5 @@
+import { resolveBudgetPlanPayPeriodContext } from "@/lib/api/payPeriodContext";
+import { buildPayPeriodFromMonthAnchor } from "@/lib/payPeriods";
 import { prisma } from "@/lib/prisma";
 import { isNonDebtCategoryName } from "../helpers";
 import { isLegacyPlaceholderExpenseRow } from "@/lib/expenses/legacyPlaceholders";
@@ -10,13 +12,53 @@ import {
 	fetchPaidExpensesWithoutDebt,
 	type ExpenseDebtRow,
 	type ExpenseDebtVisibilityRow,
+	type LatePaidExpenseRow,
 } from "./get-expense-debts.helpers";
 
 type DebtItem = import("@/types/helpers/debts").DebtItem;
 
+function resolveExpenseSelectableDate(params: {
+	expense: Pick<ExpenseDebtVisibilityRow, "dueDate" | "month" | "year">;
+	payDate: number;
+	payFrequency: "monthly" | "every_2_weeks" | "every_4_weeks" | "weekly";
+	payAnchorDate: string | null;
+}): Date {
+	if (params.expense.dueDate instanceof Date && !Number.isNaN(params.expense.dueDate.getTime())) {
+		return new Date(Date.UTC(
+			params.expense.dueDate.getUTCFullYear(),
+			params.expense.dueDate.getUTCMonth(),
+			params.expense.dueDate.getUTCDate(),
+		));
+	}
+
+	return buildPayPeriodFromMonthAnchor({
+		anchorYear: params.expense.year,
+		anchorMonth: params.expense.month,
+		payDate: params.payDate,
+		payFrequency: params.payFrequency,
+		payAnchorDate: params.payAnchorDate,
+	}).start;
+}
+
+function isExpenseBeforeFirstSelectableStart(params: {
+	expense: Pick<ExpenseDebtVisibilityRow, "dueDate" | "month" | "year">;
+	firstSelectableStart: Date;
+	payDate: number;
+	payFrequency: "monthly" | "every_2_weeks" | "every_4_weeks" | "weekly";
+	payAnchorDate: string | null;
+}): boolean {
+	return resolveExpenseSelectableDate({
+		expense: params.expense,
+		payDate: params.payDate,
+		payFrequency: params.payFrequency,
+		payAnchorDate: params.payAnchorDate,
+	}).getTime() < params.firstSelectableStart.getTime();
+}
+
 export async function getExpenseDebts(budgetPlanId: string) {
-	const budgetPlan = await prisma.budgetPlan.findUnique({ where: { id: budgetPlanId }, select: { payDate: true } });
-	const defaultDueDay = budgetPlan?.payDate ?? 27;
+	const payPeriodContext = await resolveBudgetPlanPayPeriodContext({ budgetPlanId });
+	const defaultDueDay = payPeriodContext.payDate ?? 27;
+	const firstSelectableStart = payPeriodContext.firstSelectableWindow.start;
 	const debts = await fetchExpenseDebtRows(budgetPlanId);
 
 	const sourceExpenseIds = Array.from(new Set(debts.map((d) => String(d.sourceExpenseId ?? "").trim()).filter(Boolean)));
@@ -36,6 +78,13 @@ export async function getExpenseDebts(budgetPlanId: string) {
 		const expense = expenseById.get(expenseId);
 		if (!expense) return true;
 		if (
+			isExpenseBeforeFirstSelectableStart({
+				expense,
+				firstSelectableStart,
+				payDate: defaultDueDay,
+				payFrequency: payPeriodContext.payFrequency,
+				payAnchorDate: payPeriodContext.payAnchorDate,
+			}) ||
 			expense.isAllocation ||
 			isNonDebtCategoryName(expense.category?.name) ||
 			isLegacyPlaceholderExpenseRow({ name: d.sourceExpenseName ?? d.name, isAllocation: expense.isAllocation })
@@ -102,7 +151,15 @@ export async function getExpenseDebts(budgetPlanId: string) {
 	}
 
 	const filtered = visibleDebts.filter((d) => !isNonDebtCategoryName(d.sourceCategoryName) && !isLegacyPlaceholderExpenseRow({ name: d.sourceExpenseName ?? d.name }));
-	const syntheticPaidCarryovers = await buildSyntheticPaidCarryovers({ budgetPlanId, sourceExpenseIds, defaultDueDay });
+	const syntheticPaidCarryovers = await buildSyntheticPaidCarryovers({
+		budgetPlanId,
+		sourceExpenseIds,
+		defaultDueDay,
+		firstSelectableStart,
+		payDate: defaultDueDay,
+		payFrequency: payPeriodContext.payFrequency,
+		payAnchorDate: payPeriodContext.payAnchorDate,
+	});
 	const mappedDebts = filtered.map((d) => mapDebtWithExpenseState(d, expenseById));
 	return [...mappedDebts, ...syntheticPaidCarryovers];
 }
@@ -111,6 +168,10 @@ async function buildSyntheticPaidCarryovers(params: {
 	budgetPlanId: string;
 	sourceExpenseIds: string[];
 	defaultDueDay: number;
+	firstSelectableStart: Date;
+	payDate: number;
+	payFrequency: "monthly" | "every_2_weeks" | "every_4_weeks" | "weekly";
+	payAnchorDate: string | null;
 }): Promise<DebtItem[]> {
 	const { budgetPlanId, sourceExpenseIds, defaultDueDay } = params;
 	const paidExpensesWithoutDebt = await fetchPaidExpensesWithoutDebt(budgetPlanId, sourceExpenseIds);
@@ -122,6 +183,13 @@ async function buildSyntheticPaidCarryovers(params: {
 
 	return paidExpensesWithoutDebt
 		.filter((expense) => {
+			if (isExpenseBeforeFirstSelectableStart({
+				expense: expense as LatePaidExpenseRow,
+				firstSelectableStart: params.firstSelectableStart,
+				payDate: params.payDate,
+				payFrequency: params.payFrequency,
+				payAnchorDate: params.payAnchorDate,
+			})) return false;
 			if (isNonDebtCategoryName(expense.category?.name)) return false;
 			if (isLegacyPlaceholderExpenseRow({ name: expense.name, isAllocation: expense.isAllocation })) return false;
 			const totalAmount = Number(expense.amount);
