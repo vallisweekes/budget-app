@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUserId } from "@/lib/api/bffAuth";
 import { invalidateDashboardCache } from "@/lib/cache/dashboardCache";
+import { bestEffortWithin } from "@/lib/bestEffortWithin";
 
 export const runtime = "nodejs";
 
@@ -74,7 +75,10 @@ export async function PATCH(
       where: { id },
       data,
     });
-	await invalidateDashboardCache(existing.budgetPlanId);
+	void bestEffortWithin(
+		invalidateDashboardCache(existing.budgetPlanId).catch(() => undefined),
+		250,
+	);
 
     return NextResponse.json(category);
   } catch (error) {
@@ -106,7 +110,10 @@ export async function DELETE(
     await prisma.category.delete({
       where: { id },
     });
-	await invalidateDashboardCache(category.budgetPlanId);
+  void bestEffortWithin(
+    invalidateDashboardCache(category.budgetPlanId).catch(() => undefined),
+    250,
+  );
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -23,6 +23,7 @@ import { currencySymbol } from "@/lib/formatting";
 import { toExpenseCategoryBreakdowns } from "@/lib/helpers/expenseCategories";
 import { consumeSkipExpensesFocusReload } from "@/lib/helpers/expensesFocusReload";
 import { useTopHeaderOffset, useYearGuard } from "@/hooks";
+import { registerSessionScopedResetter } from "@/lib/sessionScopedState";
 import { buildPayPeriodFromMonthAnchor, getPayPeriodAnchorFromWindow, getPayPeriodRangeLabelFromAnchor, normalizePayFrequency, resolveActivePayPeriod } from "@/lib/payPeriods";
 import type { ExpensesStackParamList } from "@/navigation/types";
 import type { ExpensesScreenControllerState } from "@/types/ExpensesScreen.types";
@@ -37,6 +38,19 @@ let sharedExpensePayPeriodMonthsCache: Record<string, ExpensePayPeriodMonthsResp
 let sharedPreferredPeriodByPlanCache: Record<string, { month: number; year: number }> = {};
 let sharedExpensesLoadedKey: string | null = null;
 let sharedExpensesCacheSignature: string | null = null;
+
+function resetSharedExpensesScreenState() {
+  sharedExpensesPlansCache = [];
+  sharedExpensesSummaryCache = {};
+  sharedExpensesMonthsCache = {};
+  sharedExpensePayPeriodMonthsCache = {};
+  sharedPreferredPeriodByPlanCache = {};
+  sharedExpensesLoadedKey = null;
+  sharedExpensesCacheSignature = null;
+  clearCachedPayPeriodExpenses();
+}
+
+registerSessionScopedResetter(resetSharedExpensesScreenState);
 
 export function useExpensesScreenController({ navigation, route }: Props): ExpensesScreenControllerState {
   const topHeaderOffset = useTopHeaderOffset();
@@ -1065,6 +1079,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
 
   const applyOptimisticExpense = useCallback((expense: Expense) => {
     if (!summary) return;
+    if (expense.isAllocation) return;
 
     const expenseMonth = Number(expense.month);
     const expenseYear = Number(expense.year);

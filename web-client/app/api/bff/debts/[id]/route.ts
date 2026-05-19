@@ -11,6 +11,7 @@ import { getCurrentPeriodKey, getPaymentPeriodKey, getPeriodKey, parsePeriodKeyR
 import { getEarlyPaymentWindowStart } from "@/lib/helpers/finance/earlyPaymentWindow";
 import { invalidateDashboardCache } from "@/lib/cache/dashboardCache";
 import { getPayPeriodKeyForDate, getPreviousPayPeriodKey, normalizePayFrequency, resolveActivePayPeriodWindow } from "@/lib/payPeriods";
+import { bestEffortWithin } from "@/lib/bestEffortWithin";
 
 export const runtime = "nodejs";
 
@@ -929,7 +930,10 @@ export async function PATCH(
       });
     });
 
-    await invalidateDashboardCache(existing.budgetPlanId);
+    void bestEffortWithin(
+      invalidateDashboardCache(existing.budgetPlanId).catch(() => undefined),
+      250,
+    );
 
     return NextResponse.json(withMissedPaymentFlag(debt));
   } catch (error) {
@@ -968,7 +972,10 @@ export async function DELETE(
       where: { id },
     });
 
-    await invalidateDashboardCache(existing.budgetPlanId);
+    void bestEffortWithin(
+      invalidateDashboardCache(existing.budgetPlanId).catch(() => undefined),
+      250,
+    );
 
     return NextResponse.json({ success: true });
   } catch (error) {

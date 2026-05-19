@@ -6,7 +6,13 @@ import { apiFetch, getApiMutationVersion } from "@/lib/api";
 import type { Category, Expense, ExpenseCategoryBreakdown } from "@/lib/apiTypes";
 import { resolveCategoryColor } from "@/lib/categoryColors";
 import { PAYMENT_EDIT_GRACE_DAYS } from "@/lib/domain/paymentRules";
-import { getCachedPayPeriodExpenses, setCachedPayPeriodExpenses } from "@/lib/expensePeriodCache";
+import {
+  getCachedPayPeriodExpenses,
+  removeCachedPayPeriodExpense,
+  replaceCachedPayPeriodExpense,
+  setCachedPayPeriodExpenses,
+  upsertCachedPayPeriodExpense,
+} from "@/lib/expensePeriodCache";
 import { toExpenseCategoryBreakdowns } from "@/lib/helpers/expenseCategories";
 import { getLatestPaymentAt, splitCategoryExpenses } from "@/lib/helpers/categoryExpenses";
 import { subscribeCategoryAddExpenseTrigger } from "@/lib/events/categoryAddExpenseTrigger";
@@ -91,6 +97,13 @@ export function useCategoryExpensesScreenController({ navigation, route }: Props
     return [{ categoryId, name: categoryName, color, icon, total: 0, paidTotal: 0, paidCount: 0, totalCount: 0 }];
   }, [allCategoriesForAddSheet, categoryId, categoryName, color, icon]);
 
+  const syncFromCachedExpenses = useCallback(() => {
+    const cachedAll = getCachedPayPeriodExpenses({ budgetPlanId, month, year }) ?? [];
+    const split = splitCategoryExpenses(cachedAll, categoryId);
+    setExpenses(split.main);
+    setLoggedPayments(split.logged);
+  }, [budgetPlanId, categoryId, month, year]);
+
   const load = useCallback(async (options?: { force?: boolean }) => {
     const force = Boolean(options?.force);
     try {
@@ -117,7 +130,7 @@ export function useCategoryExpensesScreenController({ navigation, route }: Props
       }
 
       const qp = budgetPlanId ? `&budgetPlanId=${encodeURIComponent(budgetPlanId)}` : "";
-      const all = await apiFetch<Expense[]>(`/api/bff/expenses?month=${month}&year=${year}&scope=pay_period&refreshLogos=1${qp}`);
+      const all = await apiFetch<Expense[]>(`/api/bff/expenses?month=${month}&year=${year}&scope=pay_period${qp}`);
 
       const allExpenses = Array.isArray(all) ? all : [];
       setCachedPayPeriodExpenses({ budgetPlanId, month, year }, allExpenses);
@@ -346,11 +359,34 @@ export function useCategoryExpensesScreenController({ navigation, route }: Props
 
       if (payload.phase === "optimistic" && payload.expense) {
         const optimistic = payload.expense;
+        if (optimistic.isAllocation) {
+          return;
+        }
         const isSamePeriod = optimistic.month === month && optimistic.year === year;
         const isSamePlan = (budgetPlanId ?? null) === (optimistic.category?.budgetPlanId ?? budgetPlanId ?? null);
-        if (isSamePeriod && isSamePlan && optimistic.categoryId === categoryId && !optimistic.isExtraLoggedExpense) {
-          setExpenses((prev) => [optimistic, ...prev]);
+        if (isSamePeriod && isSamePlan) {
+          upsertCachedPayPeriodExpense({ budgetPlanId, month, year }, optimistic);
+          syncFromCachedExpenses();
         }
+      }
+
+      if (payload.phase === "confirmed" && payload.expense && payload.optimisticId) {
+        const confirmed = payload.expense;
+        if (confirmed.isAllocation) {
+          void load({ force: true });
+          return;
+        }
+        const isSamePeriod = confirmed.month === month && confirmed.year === year;
+        const isSamePlan = (budgetPlanId ?? null) === (confirmed.category?.budgetPlanId ?? budgetPlanId ?? null);
+        if (isSamePeriod && isSamePlan) {
+          replaceCachedPayPeriodExpense({ budgetPlanId, month, year }, payload.optimisticId, confirmed);
+          syncFromCachedExpenses();
+        }
+      }
+
+      if (payload.phase === "revert" && payload.optimisticId) {
+        removeCachedPayPeriodExpense({ budgetPlanId, month, year }, payload.optimisticId);
+        syncFromCachedExpenses();
       }
 
       if (payload.phase !== "optimistic") {

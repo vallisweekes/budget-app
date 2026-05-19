@@ -13,6 +13,7 @@ import {
 } from "@/lib/storage";
 import { apiFetch, getApiBaseUrl, invalidateApiCache, setOnUnauthorized, suppressUnauthorizedCallback } from "@/lib/api";
 import type { OnboardingProfile, UserProfile } from "@/lib/apiTypes";
+import { resetSessionScopedMobileState } from "@/lib/sessionScopedState";
 import { store } from "@/store";
 import { mobileApi } from "@/store/api";
 
@@ -130,6 +131,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ));
   }, []);
 
+  const resetLocalSessionState = useCallback(async () => {
+    meRequestInFlightRef.current = null;
+    clearRehydrateProfileCache();
+    invalidateApiCache();
+    store.dispatch(mobileApi.util.resetApiState());
+    await resetSessionScopedMobileState();
+  }, []);
+
   useEffect(() => {
     tokenRef.current = state.token;
   }, [state.token]);
@@ -229,9 +238,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch {
         const pendingRegistration = await getPendingRegistration();
         await Promise.all([clearSessionToken(), clearStoredUsername()]);
-        clearRehydrateProfileCache();
-        invalidateApiCache();
-        store.dispatch(mobileApi.util.resetApiState());
+        await resetLocalSessionState();
         setAuthState({
           token: null,
           username: pendingRegistration?.username ?? null,
@@ -243,7 +250,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         suppressUnauthorizedCallback(false);
       }
     })();
-  }, [fetchMeOnce, seedBootstrapCaches, setAuthState]);
+  }, [fetchMeOnce, resetLocalSessionState, seedBootstrapCaches, setAuthState]);
 
   const signIn = useCallback(
     async (usernameInput: string, mode: "login" | "register" = "login", emailInput = "") => {
@@ -258,8 +265,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         if (mode === "register") {
           await Promise.all([clearSessionToken(), clearStoredUsername(), clearPendingRegistration()]);
-          clearRehydrateProfileCache();
-          invalidateApiCache();
+          await resetLocalSessionState();
           setAuthState({ token: null, username: null, profile: null, pendingRegistration: null, isLoading: false });
         }
 
@@ -295,10 +301,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const profile = await fetchMeOnce();
         const profileUsername = typeof profile?.username === "string" ? profile.username.trim() : "";
 
-        invalidateApiCache();
-        clearRehydrateProfileCache();
+        await resetLocalSessionState();
         await clearPendingRegistration();
-        store.dispatch(mobileApi.util.resetApiState());
         seedBootstrapCaches(profile);
         setAuthState({
           token: sessionToken,
@@ -312,7 +316,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         suppressUnauthorizedCallback(false);
       }
     },
-    [fetchMeOnce, seedBootstrapCaches, setAuthState]
+    [fetchMeOnce, resetLocalSessionState, seedBootstrapCaches, setAuthState]
   );
 
   const prepareRegistration = useCallback(async (usernameInput: string, emailInput: string) => {
@@ -323,9 +327,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     suppressUnauthorizedCallback(true);
     try {
       await Promise.all([clearSessionToken(), clearStoredUsername(), clearPendingRegistration()]);
-      clearRehydrateProfileCache();
-      invalidateApiCache();
-      store.dispatch(mobileApi.util.resetApiState());
+      await resetLocalSessionState();
 
       const res = await fetch(`${baseUrl}/api/mobile-auth`, {
         method: "POST",
@@ -360,7 +362,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       suppressUnauthorizedCallback(false);
     }
-  }, [setAuthState]);
+  }, [resetLocalSessionState, setAuthState]);
 
   const updatePendingRegistrationProfile = useCallback(async (profileUpdate: Partial<OnboardingProfile>) => {
     const currentPendingRegistration = pendingRegistrationRef.current;
@@ -431,9 +433,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         clearPendingRegistration(),
       ]);
 
-      invalidateApiCache();
-      clearRehydrateProfileCache();
-      store.dispatch(mobileApi.util.resetApiState());
+      await resetLocalSessionState();
       seedBootstrapCaches(completedProfile);
       setAuthState({
         token: sessionToken,
@@ -445,7 +445,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       suppressUnauthorizedCallback(false);
     }
-  }, [seedBootstrapCaches, setAuthState]);
+  }, [resetLocalSessionState, seedBootstrapCaches, setAuthState]);
 
   const signOut = useCallback(async () => {
     if (signOutInFlightRef.current) return;
@@ -459,9 +459,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       suppressUnauthorizedCallback(true);
 
       await Promise.all([clearSessionToken(), clearStoredUsername(), clearPendingRegistration()]);
-      clearRehydrateProfileCache();
-      invalidateApiCache();
-      store.dispatch(mobileApi.util.resetApiState());
+      await resetLocalSessionState();
       setAuthState({ token: null, username: null, profile: null, pendingRegistration: null, isLoading: false });
 
       try {
@@ -483,7 +481,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       suppressUnauthorizedCallback(false);
       signOutInFlightRef.current = false;
     }
-  }, [setAuthState]);
+  }, [resetLocalSessionState, setAuthState]);
 
   // Register a global callback so apiFetch can trigger sign-out on 401
   useEffect(() => {

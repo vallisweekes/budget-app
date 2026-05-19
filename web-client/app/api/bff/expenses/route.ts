@@ -589,7 +589,10 @@ export async function POST(req: NextRequest) {
     900,
   );
 
-  await invalidateDashboardCache(ownedBudgetPlanId);
+  void bestEffortWithin(
+    invalidateDashboardCache(ownedBudgetPlanId).catch(() => undefined),
+    900,
+  );
 
   return NextResponse.json(serializeExpense(finalCreated, null), { status: 201 });
 }

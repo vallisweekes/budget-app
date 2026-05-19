@@ -18,6 +18,7 @@ import type { Income, Settings, IncomeMonthData, IncomeSacrificeData, IncomeSacr
 import { computeMoneyLeftVsLastMonth } from "@/lib/domain/incomeStats";
 import { currencySymbol, fmt, MONTH_NAMES_LONG } from "@/lib/formatting";
 import { useIncomeCRUD, useTopHeaderOffset } from "@/hooks";
+import { registerSessionScopedResetter } from "@/lib/sessionScopedState";
 import {
   buildPayPeriodFromMonthAnchor,
   getPayPeriodAnchorFromSelection,
@@ -48,6 +49,16 @@ const sharedItemsCache: ItemsCacheStore = {};
 const sharedSacrificeCache: SacrificeCacheStore = {};
 const sharedSettingsCache: SettingsCacheStore = {};
 const sharedMonthPrefetchState: MonthPrefetchStore = {};
+
+function resetSharedIncomeMonthState() {
+  for (const key of Object.keys(sharedAnalysisCache)) delete sharedAnalysisCache[key];
+  for (const key of Object.keys(sharedItemsCache)) delete sharedItemsCache[key];
+  for (const key of Object.keys(sharedSacrificeCache)) delete sharedSacrificeCache[key];
+  for (const key of Object.keys(sharedSettingsCache)) delete sharedSettingsCache[key];
+  for (const key of Object.keys(sharedMonthPrefetchState)) delete sharedMonthPrefetchState[key];
+}
+
+registerSessionScopedResetter(resetSharedIncomeMonthState);
 
 function getCachedAnalysisSnapshot(store: AnalysisCacheStore, planCacheKey: string, year: number, month: number): IncomeMonthData | null {
   return store[planCacheKey]?.[year]?.[month] ?? null;

@@ -5,6 +5,7 @@ import { buildPaymentMadeActivity } from "@/lib/push/activityMessages";
 import { sendUserPush } from "@/lib/push/sendUserPush";
 import { getPaymentPeriodKey, getPeriodKey, resolvePayDate } from "@/lib/helpers/periodKey";
 import { invalidateDashboardCache } from "@/lib/cache/dashboardCache";
+import { bestEffortWithin } from "@/lib/bestEffortWithin";
 
 export const runtime = "nodejs";
 
@@ -599,21 +600,25 @@ export async function POST(
       return created;
     });
 
-    try {
-      const currency = (debt as any)?.budgetPlan?.currency ?? "GBP";
-      const msg = await buildPaymentMadeActivity({
-        name: debt.name,
-        amount: appliedAmount,
-        currency,
-        kind: "debt",
-        url: "/dashboard",
-      });
-      await sendUserPush({ userId, preference: "paymentAlerts", web: msg.web, mobile: msg.mobile });
-    } catch {
-      // Best-effort
-    }
+    void bestEffortWithin(
+      (async () => {
+        const currency = (debt as any)?.budgetPlan?.currency ?? "GBP";
+        const msg = await buildPaymentMadeActivity({
+          name: debt.name,
+          amount: appliedAmount,
+          currency,
+          kind: "debt",
+          url: "/dashboard",
+        });
+        await sendUserPush({ userId, preference: "paymentAlerts", web: msg.web, mobile: msg.mobile });
+      })().catch(() => undefined),
+      900,
+    );
 
-	await invalidateDashboardCache(debt.budgetPlan.id);
+	void bestEffortWithin(
+		invalidateDashboardCache(debt.budgetPlan.id).catch(() => undefined),
+		250,
+	);
 
     return NextResponse.json(payment, { status: 201 });
   } catch (error) {

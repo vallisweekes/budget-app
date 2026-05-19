@@ -10,6 +10,7 @@ import {
 import { buildPlanCreatedActivity } from "@/lib/push/activityMessages";
 import { sendUserPush } from "@/lib/push/sendUserPush";
 import { invalidateProfileCache } from "@/lib/cache/profileCache";
+import { bestEffortWithin } from "@/lib/bestEffortWithin";
 
 function toBool(value: unknown): boolean {
 	if (value === true) return true;
@@ -94,20 +95,24 @@ export async function POST(req: Request) {
 			includePostEventIncome,
 		});
 
-		await invalidateProfileCache(userId);
+		void bestEffortWithin(
+			invalidateProfileCache(userId).catch(() => undefined),
+			250,
+		);
 
 		if (!existing) {
-			try {
-				const kind = (rawKind === "holiday" || rawKind === "carnival") ? rawKind : "personal";
-				const msg = await buildPlanCreatedActivity({
-					kind,
-					name: plan.name,
-					url: "/dashboard",
-				});
-				await sendUserPush({ userId, preference: "paymentAlerts", web: msg.web, mobile: msg.mobile });
-			} catch {
-				// Best-effort: never block plan creation on push errors
-			}
+			void bestEffortWithin(
+				(async () => {
+					const kind = (rawKind === "holiday" || rawKind === "carnival") ? rawKind : "personal";
+					const msg = await buildPlanCreatedActivity({
+						kind,
+						name: plan.name,
+						url: "/dashboard",
+					});
+					await sendUserPush({ userId, preference: "paymentAlerts", web: msg.web, mobile: msg.mobile });
+				})().catch(() => undefined),
+				900,
+			);
 		}
 
 		return NextResponse.json({

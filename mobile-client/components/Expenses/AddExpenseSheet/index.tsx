@@ -21,7 +21,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
-import { apiFetch } from "@/lib/api";
+import { ApiError, apiFetch } from "@/lib/api";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { useSwipeDownToClose } from "@/hooks";
 import { buildCreateExpenseBody, canSubmitExpense } from "@/lib/domain/expenseMutations";
@@ -447,9 +447,21 @@ export default function AddExpenseSheet({
       // We'll refresh the parent list once the mutation completes.
       onClose();
       onAdded({ phase: "optimistic", expense: optimisticExpense, optimisticId });
-      const created = await apiFetch<Expense>("/api/bff/expenses", { method: "POST", body });
+      const created = await apiFetch<Expense>("/api/bff/expenses", {
+        method: "POST",
+        body,
+        timeoutMs: 60_000,
+      });
       onAdded({ phase: "confirmed", expense: created, optimisticId });
     } catch (e) {
+      if (e instanceof ApiError && e.code === "REQUEST_TIMEOUT") {
+        Alert.alert(
+          "Saving is taking longer",
+          "The expense will stay visible while the app finishes syncing it.",
+        );
+        return;
+      }
+
       const message = e instanceof Error ? e.message : "Failed to add expense. Try again.";
       onAdded({ phase: "revert", optimisticId });
       setError(message);

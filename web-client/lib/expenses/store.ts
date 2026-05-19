@@ -346,15 +346,17 @@ export async function addOrUpdateExpenseAcrossMonths(
     const scopedDueDate = dueDateIso
       ? dueDateForYearMonthFromISO(dueDateIso, year, monthNumber)
       : null;
-		const existing = await prisma.expense.findFirst({
-			where: {
-				budgetPlanId,
-				year,
-				month: monthNumber,
-				name: { equals: targetName, mode: "insensitive" },
-			},
+    const existing = seedSeriesKey
+      ? await prisma.expense.findFirst({
+        where: {
+          budgetPlanId,
+          year,
+          month: monthNumber,
+          seriesKey: seedSeriesKey,
+        },
       select: { id: true, seriesKey: true },
-		});
+      })
+      : null;
 
     const explicitPeriodKey =
       typeof (item as any).periodKey === "string" && /^\d{4}-\d{2}-\d{2}$/.test(String((item as any).periodKey).trim())

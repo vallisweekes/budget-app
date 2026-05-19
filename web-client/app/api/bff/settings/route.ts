@@ -6,6 +6,7 @@ import { normalizeBillFrequency, normalizePayFrequency, type PayFrequency } from
 import { syncGoalCurrentAmountsFromBalances } from "@/lib/goals/syncGoalCurrentAmountsFromBalances";
 import { invalidateGoalConnectedState } from "@/lib/goals/invalidateGoalConnectedState";
 import { invalidateProfileCache } from "@/lib/cache/profileCache";
+import { bestEffortWithin } from "@/lib/bestEffortWithin";
 
 export const runtime = "nodejs";
 
@@ -624,8 +625,13 @@ export async function PATCH(req: NextRequest) {
           payFrequency: hasPayFrequency ? nextPayFrequency : undefined,
           billFrequency: hasBillFrequency ? nextBillFrequency : undefined,
         });
-        await invalidateGoalConnectedState(budgetPlanId);
-        await invalidateProfileCache(userId);
+        void bestEffortWithin(
+          Promise.all([
+            invalidateGoalConnectedState(budgetPlanId),
+            invalidateProfileCache(userId),
+          ]).catch(() => undefined),
+          250,
+        );
         const plan = await prisma.budgetPlan.findUnique({
           where: { id: budgetPlanId },
           select: settingsSelect as any,
@@ -684,8 +690,13 @@ export async function PATCH(req: NextRequest) {
         emergencyBalance: nextEmergencyBalance,
         investmentBalance: nextInvestmentBalance,
       });
-    await invalidateGoalConnectedState(budgetPlanId);
-    await invalidateProfileCache(userId);
+    void bestEffortWithin(
+      Promise.all([
+        invalidateGoalConnectedState(budgetPlanId),
+        invalidateProfileCache(userId),
+      ]).catch(() => undefined),
+      250,
+    );
       const nextIncomeDefaults = await getIncomeDefaultsFallback(budgetPlanId);
       const cadence = await getCadenceForUser(userId);
       return NextResponse.json({
@@ -751,8 +762,13 @@ export async function PATCH(req: NextRequest) {
         emergencyBalance: nextEmergencyBalance,
         investmentBalance: nextInvestmentBalance,
       });
-    await invalidateGoalConnectedState(budgetPlanId);
-    await invalidateProfileCache(userId);
+    void bestEffortWithin(
+      Promise.all([
+        invalidateGoalConnectedState(budgetPlanId),
+        invalidateProfileCache(userId),
+      ]).catch(() => undefined),
+      250,
+    );
       const cadence = await getCadenceForUser(userId);
       return NextResponse.json({
         ...updated,

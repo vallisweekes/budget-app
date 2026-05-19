@@ -4,6 +4,7 @@ import { sendEmailVerificationEmail } from "@/lib/auth/emailVerification";
 import { completeOnboarding, getOnboardingForUser, saveOnboardingDraft, type OnboardingGoalInput, type OnboardingInput } from "@/lib/onboarding";
 import { invalidateDashboardCache, invalidateDashboardCacheForUser } from "@/lib/cache/dashboardCache";
 import { invalidateProfileCache } from "@/lib/cache/profileCache";
+import { bestEffortWithin } from "@/lib/bestEffortWithin";
 
 export const runtime = "nodejs";
 
@@ -101,8 +102,13 @@ export async function PATCH(request: Request) {
     };
 
     const updated = await saveOnboardingDraft(userId, input);
-    await invalidateDashboardCacheForUser(userId);
-    await invalidateProfileCache(userId);
+    void bestEffortWithin(
+      Promise.all([
+        invalidateDashboardCacheForUser(userId),
+        invalidateProfileCache(userId),
+      ]).catch(() => undefined),
+      250,
+    );
     return NextResponse.json({ ok: true, profile: updated });
   } catch (error) {
     console.error("Failed to update onboarding:", error);
@@ -121,13 +127,19 @@ export async function POST(request: Request) {
     if (!userId) return unauthorized();
 
     const result = await completeOnboarding(userId);
-    try {
-      await sendEmailVerificationEmail(userId, { resetDeadline: true });
-    } catch (verificationError) {
-      console.error("Failed to send onboarding verification email:", verificationError);
-    }
-    await invalidateDashboardCache(result.budgetPlanId);
-    await invalidateProfileCache(userId);
+    void bestEffortWithin(
+      sendEmailVerificationEmail(userId, { resetDeadline: true }).catch((verificationError) => {
+        console.error("Failed to send onboarding verification email:", verificationError);
+      }),
+      900,
+    );
+    void bestEffortWithin(
+      Promise.all([
+        invalidateDashboardCache(result.budgetPlanId),
+        invalidateProfileCache(userId),
+      ]).catch(() => undefined),
+      250,
+    );
     return NextResponse.json({ ok: true, budgetPlanId: result.budgetPlanId });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to complete onboarding";

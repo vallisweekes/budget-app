@@ -12,6 +12,7 @@ import { sendUserPush } from "@/lib/push/sendUserPush";
 import { MONTHS } from "@/lib/constants/time";
 import { syncExpensePaymentsToPaidAmount } from "@/lib/expenses/paymentSync";
 import { getExpensePeriodKey, resolvePayDate } from "@/lib/helpers/periodKey";
+import { bestEffortWithin } from "@/lib/bestEffortWithin";
 import type { MonthKey } from "@/types";
 import { invalidateDashboardCache } from "@/lib/cache/dashboardCache";
 
@@ -340,13 +341,17 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   // so the resolver can correct wrong matches when the name changes or on explicit refresh.
   const existingDomainForResolution = existing.logoSource === "manual" ? existing.merchantDomain : undefined;
   const domainForResolution = merchantDomain === undefined ? existingDomainForResolution : merchantDomain;
+  const fallbackLogo = {
+    merchantDomain: existing.merchantDomain ?? null,
+    logoUrl: existing.logoUrl ?? null,
+    logoSource: existing.logoSource ?? null,
+  };
   const logo = shouldResolveLogo
-    ? await resolveExpenseLogoWithSearch(nextName, domainForResolution)
-    : {
-        merchantDomain: existing.merchantDomain ?? null,
-        logoUrl: existing.logoUrl ?? null,
-        logoSource: existing.logoSource ?? null,
-      };
+    ? (await bestEffortWithin(
+        resolveExpenseLogoWithSearch(nextName, domainForResolution).catch(() => fallbackLogo),
+        250,
+      )) ?? fallbackLogo
+    : fallbackLogo;
   const nextAmountNumber = amount ?? Number(existing.amount.toString());
 
   const existingAmountNumber = Number(existing.amount.toString());
@@ -521,23 +526,24 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   const updatedPaidAmountNumberFinal = Number(decimalToString(updated.paidAmount));
   const paymentDelta = updatedPaidAmountNumberFinal - existingPaidAmountNumber;
   if (isPaymentChange && Number.isFinite(paymentDelta) && paymentDelta > 0.005) {
-    try {
-      const plan = await prisma.budgetPlan.findUnique({
-        where: { id: existing.budgetPlanId },
-        select: { currency: true },
-      });
-      const currency = plan?.currency ?? "GBP";
-      const msg = await buildPaymentMadeActivity({
-        name: updated.name,
-        amount: paymentDelta,
-        currency,
-        kind: "expense",
-        url: "/dashboard",
-      });
-      await sendUserPush({ userId, preference: "paymentAlerts", web: msg.web, mobile: msg.mobile });
-    } catch {
-      // Best-effort
-    }
+    void bestEffortWithin(
+      (async () => {
+        const plan = await prisma.budgetPlan.findUnique({
+          where: { id: existing.budgetPlanId },
+          select: { currency: true },
+        });
+        const currency = plan?.currency ?? "GBP";
+        const msg = await buildPaymentMadeActivity({
+          name: updated.name,
+          amount: paymentDelta,
+          currency,
+          kind: "expense",
+          url: "/dashboard",
+        });
+        await sendUserPush({ userId, preference: "paymentAlerts", web: msg.web, mobile: msg.mobile });
+      })().catch(() => undefined),
+      900,
+    );
   }
 
   // ── Sync expense → debt on every payment change ───────────────────────────
@@ -720,7 +726,10 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     }
   }
 
-	await invalidateDashboardCache(existing.budgetPlanId);
+  void bestEffortWithin(
+    invalidateDashboardCache(existing.budgetPlanId).catch(() => undefined),
+    250,
+  );
 
   return NextResponse.json(serializeExpense(updated));
 }
@@ -792,6 +801,9 @@ export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: stri
   } else {
     await prisma.expense.delete({ where: { id } }).catch(() => null);
   }
-	await invalidateDashboardCache(existing.budgetPlanId);
+  void bestEffortWithin(
+    invalidateDashboardCache(existing.budgetPlanId).catch(() => undefined),
+    250,
+  );
   return NextResponse.json({ success: true as const, scope: deleteScope });
 }

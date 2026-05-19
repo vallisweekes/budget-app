@@ -8,6 +8,7 @@ import { getPaymentPeriodKey, resolvePayDate } from "@/lib/helpers/periodKey";
 import { isLegacyPlaceholderExpenseRow } from "@/lib/expenses/legacyPlaceholders";
 import { isNonDebtCategoryName } from "@/lib/expenses/helpers";
 import { invalidateDashboardCache } from "@/lib/cache/dashboardCache";
+import { bestEffortWithin } from "@/lib/bestEffortWithin";
 
 export const runtime = "nodejs";
 
@@ -438,26 +439,29 @@ export async function POST(request: Request) {
       return created;
     });
 
-    try {
-      const plan = await prisma.budgetPlan.findUnique({
-        where: { id: budgetPlanId },
-        select: { currency: true },
-      });
-      const currency = plan?.currency ?? "GBP";
-      const balance = Math.max(0, toNumber(debt.currentBalance ?? debt.initialBalance ?? 0));
-      const msg = await buildDebtAddedActivity({
-        name: debt.name ?? name,
-        balance,
-        currency,
-        url: "/dashboard",
-      });
-      await sendUserPush({ userId, preference: "paymentAlerts", web: msg.web, mobile: msg.mobile });
-    } catch {
-      // Best-effort
-    }
+    void bestEffortWithin(
+      (async () => {
+        const plan = await prisma.budgetPlan.findUnique({
+          where: { id: budgetPlanId },
+          select: { currency: true },
+        });
+        const currency = plan?.currency ?? "GBP";
+        const balance = Math.max(0, toNumber(debt.currentBalance ?? debt.initialBalance ?? 0));
+        const msg = await buildDebtAddedActivity({
+          name: debt.name ?? name,
+          balance,
+          currency,
+          url: "/dashboard",
+        });
+        await sendUserPush({ userId, preference: "paymentAlerts", web: msg.web, mobile: msg.mobile });
+      })().catch(() => undefined),
+      900,
+    );
 
-
-	await invalidateDashboardCache(budgetPlanId);
+	void bestEffortWithin(
+		invalidateDashboardCache(budgetPlanId).catch(() => undefined),
+		250,
+	);
     return NextResponse.json(withMissedPaymentFlag(debt), { status: 201 });
   } catch (error) {
     console.error("Failed to create debt:", error);

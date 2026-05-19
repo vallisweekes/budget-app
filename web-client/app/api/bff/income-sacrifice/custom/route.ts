@@ -4,6 +4,7 @@ import { createAllocationDefinition, resolveActiveBudgetYear, upsertMonthlyCusto
 import { invalidateDashboardCache } from "@/lib/cache/dashboardCache";
 import { upsertSacrificeGoalLink } from "@/lib/income-sacrifice/goalLinks";
 import { prisma } from "@/lib/prisma";
+import { bestEffortWithin } from "@/lib/bestEffortWithin";
 
 export const runtime = "nodejs";
 
@@ -105,7 +106,10 @@ export async function POST(request: NextRequest) {
 			});
 		}
 
-		await invalidateDashboardCache(budgetPlanId);
+		void bestEffortWithin(
+			invalidateDashboardCache(budgetPlanId).catch(() => undefined),
+			250,
+		);
 
 		return NextResponse.json({ success: true, item: created, goalId }, { status: 201 });
 	} catch (error) {

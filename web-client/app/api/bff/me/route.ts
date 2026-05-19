@@ -13,6 +13,7 @@ import {
   invalidateProfileCache,
 } from "@/lib/cache/profileCache";
 import { buildProfileResponse } from "@/lib/profileResponse";
+import { bestEffortWithin } from "@/lib/bestEffortWithin";
 
 export const runtime = "nodejs";
 
@@ -117,15 +118,19 @@ export async function PATCH(request: Request) {
       });
 
       if (updatedUser.email) {
-        try {
-          await sendEmailVerificationEmail(userId, { resetDeadline: true });
-        } catch (error) {
-          console.error("Failed to send verification email after profile update:", error);
-        }
+        void bestEffortWithin(
+          sendEmailVerificationEmail(userId, { resetDeadline: true }).catch((error) => {
+            console.error("Failed to send verification email after profile update:", error);
+          }),
+          900,
+        );
       }
     }
 
-    await invalidateProfileCache(userId);
+    void bestEffortWithin(
+      invalidateProfileCache(userId).catch(() => undefined),
+      250,
+    );
 
     const response = await buildProfileResponse(userId);
     if (!response) return NextResponse.json({ error: "User not found" }, { status: 404 });

@@ -1,4 +1,5 @@
 import type { CreditCard, DebtSummaryData, DebtSummaryItem } from "@/lib/apiTypes";
+import { registerSessionScopedResetter } from "@/lib/sessionScopedState";
 
 let debtSummaryById = new Map<string, DebtSummaryItem>();
 let cachedCreditCards: CreditCard[] = [];
@@ -20,3 +21,5 @@ export function clearCachedDebtListData() {
   debtSummaryById = new Map();
   cachedCreditCards = [];
 }
+
+registerSessionScopedResetter(clearCachedDebtListData);

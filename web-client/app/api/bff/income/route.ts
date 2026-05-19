@@ -5,6 +5,7 @@ import { getAllIncome, getIncomeForAnchorMonth, upsertIncomeForAnchorMonth } fro
 import { canonicalizeIncomeName } from "@/lib/income/name";
 import { monthNumberToKey } from "@/lib/helpers/monthKey";
 import { invalidateDashboardCache } from "@/lib/cache/dashboardCache";
+import { bestEffortWithin } from "@/lib/bestEffortWithin";
 
 export const runtime = "nodejs";
 
@@ -193,7 +194,10 @@ export async function POST(request: Request) {
       }
     }
 
-	await invalidateDashboardCache(budgetPlanId);
+  void bestEffortWithin(
+    invalidateDashboardCache(budgetPlanId).catch(() => undefined),
+    250,
+  );
 
     return NextResponse.json(firstCreated, { status: 201 });
   } catch (error) {
