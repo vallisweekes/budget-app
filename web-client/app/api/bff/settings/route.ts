@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { supportsOnboardingCadenceFields as detectOnboardingCadenceFields, supportsOnboardingPayAnchorDateField } from "@/lib/prisma/capabilities";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
-import { normalizeBillFrequency, normalizePayFrequency, type PayFrequency } from "@/lib/payPeriods";
+import { deriveBillFrequencyFromPayFrequency, normalizePayFrequency, type PayFrequency } from "@/lib/payPeriods";
 import { syncGoalCurrentAmountsFromBalances } from "@/lib/goals/syncGoalCurrentAmountsFromBalances";
 import { invalidateGoalConnectedState } from "@/lib/goals/invalidateGoalConnectedState";
 import { invalidateProfileCache } from "@/lib/cache/profileCache";
@@ -262,13 +262,14 @@ async function getCadenceForUser(userId: string): Promise<{
     const includePayAnchorDate = await supportsOnboardingPayAnchorDateField();
     const profile = await prisma.userOnboardingProfile.findUnique({
       where: { userId },
-      select: { payFrequency: true, billFrequency: true, ...(includePayAnchorDate ? { payAnchorDate: true } : {}) },
+      select: { payFrequency: true, ...(includePayAnchorDate ? { payAnchorDate: true } : {}) },
     });
     supportsCadenceFields = true;
+    const payFrequency = normalizePayFrequency(profile?.payFrequency);
     return {
       payAnchorDate: profile?.payAnchorDate instanceof Date ? profile.payAnchorDate.toISOString() : null,
-      payFrequency: normalizePayFrequency(profile?.payFrequency),
-      billFrequency: normalizeBillFrequency(profile?.billFrequency),
+      payFrequency,
+      billFrequency: deriveBillFrequencyFromPayFrequency(payFrequency),
     };
   } catch (error) {
     if (!isUnknownCadenceFieldError(error)) throw error;
@@ -283,26 +284,28 @@ async function getCadenceForUser(userId: string): Promise<{
 
 async function saveCadenceForUser(
   userId: string,
-  values: { payFrequency?: PayFrequency; billFrequency?: "monthly" | "every_2_weeks" }
+  values: { payFrequency?: PayFrequency }
 ): Promise<void> {
-  if (typeof values.payFrequency === "undefined" && typeof values.billFrequency === "undefined") return;
+  if (typeof values.payFrequency === "undefined") return;
   if (supportsCadenceFields === false) return;
   if (!(await detectOnboardingCadenceFields())) {
     supportsCadenceFields = false;
     return;
   }
 
+  const billFrequency = deriveBillFrequencyFromPayFrequency(values.payFrequency);
+
   try {
     await prisma.userOnboardingProfile.upsert({
       where: { userId },
       update: {
-        ...(typeof values.payFrequency !== "undefined" ? { payFrequency: values.payFrequency } : {}),
-        ...(typeof values.billFrequency !== "undefined" ? { billFrequency: values.billFrequency } : {}),
+        payFrequency: values.payFrequency,
+        billFrequency,
       },
       create: {
         userId,
-        ...(typeof values.payFrequency !== "undefined" ? { payFrequency: values.payFrequency } : {}),
-        ...(typeof values.billFrequency !== "undefined" ? { billFrequency: values.billFrequency } : {}),
+        payFrequency: values.payFrequency,
+        billFrequency,
       },
     });
     supportsCadenceFields = true;
@@ -481,17 +484,12 @@ export async function PATCH(req: NextRequest) {
 
     const updateData: Record<string, unknown> = {};
     const payFrequencyInput = body.payFrequency;
-    const billFrequencyInput = body.billFrequency;
     const hasPayFrequency = typeof payFrequencyInput !== "undefined";
-    const hasBillFrequency = typeof billFrequencyInput !== "undefined";
+    const hasLegacyBillFrequencyInput = typeof body.billFrequency !== "undefined";
 
     let nextPayFrequency: PayFrequency = "monthly";
-    let nextBillFrequency: "monthly" | "every_2_weeks" = "monthly";
     if (hasPayFrequency) {
       nextPayFrequency = normalizePayFrequency(payFrequencyInput);
-    }
-    if (hasBillFrequency) {
-      nextBillFrequency = normalizeBillFrequency(billFrequencyInput);
     }
 
     const hasAdditionalSavings = typeof body.additionalSavingsBalance !== "undefined";
@@ -598,10 +596,10 @@ export async function PATCH(req: NextRequest) {
     }
 
       if (Object.keys(updateData).length === 0 && !wantsEmergencyBalance) {
-        if (!wantsInvestmentBalance && !hasPayFrequency && !hasBillFrequency) return badRequest("No valid fields to update");
+        if (!wantsInvestmentBalance && !hasPayFrequency && !hasLegacyBillFrequencyInput) return badRequest("No valid fields to update");
       }
 
-      if (Object.keys(updateData).length === 0 && (wantsEmergencyBalance || wantsInvestmentBalance || hasPayFrequency || hasBillFrequency)) {
+      if (Object.keys(updateData).length === 0 && (wantsEmergencyBalance || wantsInvestmentBalance || hasPayFrequency || hasLegacyBillFrequencyInput)) {
         if (wantsEmergencyBalance && Number.isFinite(emergencyBalance)) {
           await setEmergencyBalanceFallback(budgetPlanId, emergencyBalance);
         }
@@ -623,7 +621,6 @@ export async function PATCH(req: NextRequest) {
         }
         await saveCadenceForUser(userId, {
           payFrequency: hasPayFrequency ? nextPayFrequency : undefined,
-          billFrequency: hasBillFrequency ? nextBillFrequency : undefined,
         });
         void bestEffortWithin(
           Promise.all([
@@ -677,7 +674,6 @@ export async function PATCH(req: NextRequest) {
       }
       await saveCadenceForUser(userId, {
         payFrequency: hasPayFrequency ? nextPayFrequency : undefined,
-        billFrequency: hasBillFrequency ? nextBillFrequency : undefined,
       });
       const nextEmergencyBalance = await getEmergencyBalanceFallback(budgetPlanId);
       if (wantsInvestmentBalance && Number.isFinite(investmentBalance)) {
@@ -746,7 +742,6 @@ export async function PATCH(req: NextRequest) {
       }
       await saveCadenceForUser(userId, {
         payFrequency: hasPayFrequency ? nextPayFrequency : undefined,
-        billFrequency: hasBillFrequency ? nextBillFrequency : undefined,
       });
 
 			const updated = await prisma.budgetPlan.update({

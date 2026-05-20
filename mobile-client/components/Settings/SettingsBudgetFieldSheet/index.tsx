@@ -14,15 +14,12 @@ export default function SettingsBudgetFieldSheet(props: SettingsBudgetFieldSheet
     payDateDraft,
     horizonDraft,
     payFrequencyDraft,
-    billFrequencyDraft,
     payFrequencyOptions,
-    billFrequencyOptions,
     saveBusy,
     onClose,
     onChangePayDate,
     onChangeHorizon,
     onChangePayFrequency,
-    onChangeBillFrequency,
     onSave,
   } = props;
 
@@ -33,7 +30,7 @@ export default function SettingsBudgetFieldSheet(props: SettingsBudgetFieldSheet
         <KeyboardAvoidingView style={styles.sheetKeyboardWrap} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={keyboardOffset}>
           <Animated.View style={[styles.sheet, { transform: [{ translateY }] }]} {...panHandlers}>
             <View style={styles.sheetHandle} {...panHandlers} />
-            <Text style={styles.sheetTitle}>{field === "payDate" ? "Edit pay date" : field === "horizon" ? "Edit budget horizon" : field === "payFrequency" ? "Edit pay schedule" : "Edit bill schedule"}</Text>
+            <Text style={styles.sheetTitle}>{field === "payDate" ? "Edit pay date" : field === "horizon" ? "Edit budget horizon" : "Edit pay schedule"}</Text>
             {field === "payDate" ? (<><Text style={styles.label}>Pay date</Text><TextInput value={payDateDraft} onChangeText={onChangePayDate} style={styles.input} keyboardType="number-pad" /></>) : null}
             {field === "horizon" ? (<><Text style={styles.label}>Budget horizon (years)</Text><TextInput value={horizonDraft} onChangeText={onChangeHorizon} style={styles.input} keyboardType="number-pad" /></>) : null}
             {field === "payFrequency" ? (
@@ -44,21 +41,6 @@ export default function SettingsBudgetFieldSheet(props: SettingsBudgetFieldSheet
                     const selected = payFrequencyDraft === option.value;
                     return (
                       <Pressable key={option.value} onPress={() => onChangePayFrequency(option.value)} style={[styles.choiceBtn, selected && styles.choiceBtnActive]}>
-                        <Text style={[styles.choiceTxt, selected && styles.choiceTxtActive]}>{option.label}</Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </>
-            ) : null}
-            {field === "billFrequency" ? (
-              <>
-                <Text style={styles.label}>Bill schedule</Text>
-                <View style={styles.choiceRow}>
-                  {billFrequencyOptions.map((option) => {
-                    const selected = billFrequencyDraft === option.value;
-                    return (
-                      <Pressable key={option.value} onPress={() => onChangeBillFrequency(option.value)} style={[styles.choiceBtn, selected && styles.choiceBtnActive]}>
                         <Text style={[styles.choiceTxt, selected && styles.choiceTxtActive]}>{option.label}</Text>
                       </Pressable>
                     );

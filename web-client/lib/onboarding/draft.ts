@@ -1,11 +1,11 @@
 import { prisma } from "@/lib/prisma";
+import { deriveBillFrequencyFromPayFrequency } from "@/lib/payPeriods";
 
 import { cleanGoals, normalizeSelectedGoals } from "./goals";
 import type { OnboardingGoalInput, OnboardingInput } from "./types";
 import {
   clampIntRange,
   clampPayDay,
-  cleanBillFrequency,
   cleanPayAnchorDate,
   cleanPayFrequency,
   cleanText,
@@ -30,7 +30,7 @@ export async function saveOnboardingDraft(userId: string, input: OnboardingInput
     occupationOther: cleanText(input.occupationOther),
     payDay: nextPayFrequency === "monthly" ? clampPayDay(input.payDay) : clampPayDay(input.payDay ?? nextPayAnchorDate?.getUTCDate()),
     payFrequency: nextPayFrequency,
-    billFrequency: cleanBillFrequency(input.billFrequency),
+    billFrequency: nextPayFrequency ? deriveBillFrequencyFromPayFrequency(nextPayFrequency) : null,
     monthlySalary: toAmount(input.monthlySalary),
     planningYears: clampIntRange(input.planningYears, 1, 30),
     savingsGoalAmount: toAmount(input.savingsGoalAmount),

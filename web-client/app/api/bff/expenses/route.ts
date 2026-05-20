@@ -503,29 +503,43 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const createdResult = await createExpense({
-    budgetPlanId: ownedBudgetPlanId,
-    userId,
-    name,
-    seriesKey: seriesKey || undefined,
-    amount,
-    month,
-    year,
-    categoryId,
-    paid,
-    isAllocation,
-    isDirectDebit,
-    isExtraLoggedExpense,
-    distributeMonths,
-    distributeYears,
-    dueDate,
-    paymentSource,
-    fundingSource,
-    cardDebtId: cardDebtId || undefined,
-    debtId: debtId || undefined,
-    newLoanName: newLoanName || undefined,
-    periodKey: periodDate ? periodDate.toISOString().slice(0, 10) : undefined,
-  });
+  let createdResult;
+  try {
+    createdResult = await createExpense({
+      budgetPlanId: ownedBudgetPlanId,
+      userId,
+      name,
+      seriesKey: seriesKey || undefined,
+      amount,
+      month,
+      year,
+      categoryId,
+      paid,
+      isAllocation,
+      isDirectDebit,
+      isExtraLoggedExpense,
+      distributeMonths,
+      distributeYears,
+      dueDate,
+      paymentSource,
+      fundingSource,
+      cardDebtId: cardDebtId || undefined,
+      debtId: debtId || undefined,
+      newLoanName: newLoanName || undefined,
+      periodKey: periodDate ? periodDate.toISOString().slice(0, 10) : undefined,
+    });
+  } catch (error) {
+    console.error("Expenses POST create failed:", error);
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error && error.message.trim()
+            ? error.message
+            : "Failed to create expense",
+      },
+      { status: 500 },
+    );
+  }
 
   const created = await prisma.expense.findFirst({
     where: { id: createdResult.expenseId },

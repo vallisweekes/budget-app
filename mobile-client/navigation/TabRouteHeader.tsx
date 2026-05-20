@@ -25,6 +25,15 @@ function getNumberParam(value: LocalParam): number {
   return Number(raw);
 }
 
+function getRouteParamString(routeParams: Record<string, unknown>, key: string): string | undefined {
+  return typeof routeParams?.[key] === "string" ? String(routeParams[key]) : undefined;
+}
+
+function getRouteParamNumber(routeParams: Record<string, unknown>, key: string): number {
+  const value = routeParams?.[key];
+  return typeof value === "number" || typeof value === "string" ? Number(value) : Number.NaN;
+}
+
 export default function TabRouteHeader() {
   const router = useRouter();
   const navigation = useNavigation<any>();
@@ -75,7 +84,7 @@ export default function TabRouteHeader() {
   };
   const deepestRoute = getDeepestRoute(navigation.getState?.());
   const deepestRouteName = typeof deepestRoute?.name === "string" ? deepestRoute.name : "";
-  const routeParams = deepestRoute?.params ?? {};
+  const routeParams = (deepestRoute?.params ?? {}) as Record<string, unknown>;
   const isIncomeMonth = leafSegment === "IncomeMonth" || deepestRouteName === "IncomeMonth";
 
   if (isDebtDetail || isExpenseDetail) {
@@ -85,15 +94,16 @@ export default function TabRouteHeader() {
   const monthNum = (() => {
     const fromLocal = getNumberParam(params.month);
     if (Number.isFinite(fromLocal)) return fromLocal;
-    return Number(routeParams?.month);
+    return getRouteParamNumber(routeParams, "month");
   })();
   const yearNum = (() => {
     const fromLocal = getNumberParam(params.year);
     if (Number.isFinite(fromLocal)) return fromLocal;
-    return Number(routeParams?.year);
+    return getRouteParamNumber(routeParams, "year");
   })();
   const rawIncomeMonthBudgetPlanId = getStringParam(params.budgetPlanId)
-    ?? (typeof routeParams?.budgetPlanId === "string" ? routeParams.budgetPlanId : "");
+    ?? getRouteParamString(routeParams, "budgetPlanId")
+    ?? "";
   const incomeMonthBudgetPlanId = availablePlanIds.has(rawIncomeMonthBudgetPlanId)
     ? rawIncomeMonthBudgetPlanId
     : (activeBudgetPlanId || bootstrapBudgetPlanId || "");
@@ -147,10 +157,20 @@ export default function TabRouteHeader() {
     );
 
   const categoryExpensesName = getStringParam(params.categoryName);
-  const categoryExpensesMonth = getNumberParam(params.month);
-  const categoryExpensesYear = getNumberParam(params.year);
+  const resolvedCategoryExpensesName = categoryExpensesName ?? getRouteParamString(routeParams, "categoryName");
+  const categoryExpensesMonth = (() => {
+    const fromLocal = getNumberParam(params.month);
+    if (Number.isFinite(fromLocal)) return fromLocal;
+    return getRouteParamNumber(routeParams, "month");
+  })();
+  const categoryExpensesYear = (() => {
+    const fromLocal = getNumberParam(params.year);
+    if (Number.isFinite(fromLocal)) return fromLocal;
+    return getRouteParamNumber(routeParams, "year");
+  })();
   const settingsSubTab = getStringParam(params.subTab)
-    ?? (typeof routeParams?.subTab === "string" ? routeParams.subTab : "details");
+    ?? getRouteParamString(routeParams, "subTab")
+    ?? "details";
   const isSettingsNotifications = isSettings && settingsSubTab === "notifications";
   const hasCategoryMonthYear = Number.isFinite(categoryExpensesMonth)
     && categoryExpensesMonth >= 1
@@ -158,7 +178,7 @@ export default function TabRouteHeader() {
     && Number.isFinite(categoryExpensesYear);
 
   const centerLabel = isCategoryExpenses
-    ? categoryExpensesName ?? "Category"
+    ? resolvedCategoryExpensesName ?? "Category"
     : isLoggedExpenses
       ? "Logged expense"
       : isUnplannedExpense
@@ -233,18 +253,18 @@ export default function TabRouteHeader() {
     }
 
     if (isLoggedExpenses) {
-      const categoryId = getStringParam(params.categoryId);
+      const categoryId = getStringParam(params.categoryId) ?? getRouteParamString(routeParams, "categoryId");
 
       if (categoryId) {
         replaceRoute("/(tabs)/expenses/CategoryExpenses", {
           categoryId,
-          categoryName: getStringParam(params.categoryName),
-          color: getStringParam(params.color),
-          icon: getStringParam(params.icon),
+          categoryName: getStringParam(params.categoryName) ?? getRouteParamString(routeParams, "categoryName"),
+          color: getStringParam(params.color) ?? getRouteParamString(routeParams, "color"),
+          icon: getStringParam(params.icon) ?? getRouteParamString(routeParams, "icon"),
           month: Number.isFinite(monthNum) ? Math.floor(monthNum) : undefined,
           year: Number.isFinite(yearNum) ? Math.floor(yearNum) : undefined,
-          budgetPlanId: getStringParam(params.budgetPlanId),
-          currency: getStringParam(params.currency) ?? "£",
+          budgetPlanId: getStringParam(params.budgetPlanId) ?? getRouteParamString(routeParams, "budgetPlanId"),
+          currency: getStringParam(params.currency) ?? getRouteParamString(routeParams, "currency") ?? "£",
           skipFocusReloadAt: Date.now(),
         });
         return;
@@ -253,8 +273,8 @@ export default function TabRouteHeader() {
       replaceRoute("/(tabs)/expenses/ExpensesList", {
         month: Number.isFinite(monthNum) ? Math.floor(monthNum) : undefined,
         year: Number.isFinite(yearNum) ? Math.floor(yearNum) : undefined,
-        budgetPlanId: getStringParam(params.budgetPlanId),
-        currency: getStringParam(params.currency) ?? "£",
+        budgetPlanId: getStringParam(params.budgetPlanId) ?? getRouteParamString(routeParams, "budgetPlanId"),
+        currency: getStringParam(params.currency) ?? getRouteParamString(routeParams, "currency") ?? "£",
         skipFocusReloadAt: Date.now(),
       });
       return;
@@ -300,6 +320,10 @@ export default function TabRouteHeader() {
     if (isSettings) {
       if (settingsSubTab !== "details") {
         replaceRoute("/settings", { subTab: "details" });
+        return;
+      }
+      if (navigation.canGoBack?.()) {
+        navigation.goBack();
         return;
       }
       replaceRoute("/(tabs)/dashboard");

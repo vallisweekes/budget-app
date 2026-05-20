@@ -5,7 +5,7 @@ import type {
   SavingsPotStore,
 } from "@/types/settings";
 import type { Settings } from "@/lib/apiTypes";
-import { BILL_FREQUENCY_OPTIONS, PAY_FREQUENCY_OPTIONS } from "@/lib/constants";
+import { PAY_FREQUENCY_OPTIONS } from "@/lib/constants";
 
 export function formatDateDmy(dateYmd: string): string {
   const s = (dateYmd || "").trim();
@@ -50,11 +50,6 @@ export function formatPayFrequency(value: unknown): string {
   if (value === "weekly") return "Weekly";
   if (value === "every_2_weeks") return "Every 2 weeks";
   if (value === "every_4_weeks") return "Every 4 weeks";
-  return "Monthly";
-}
-
-export function formatBillFrequency(value: unknown): string {
-  if (value === "every_2_weeks") return "Every 2 weeks";
   return "Monthly";
 }
 
@@ -143,4 +138,4 @@ export function parseSavingsPotStore(raw: string | null): SavingsPotStore {
   }
 }
 
-export { PAY_FREQUENCY_OPTIONS, BILL_FREQUENCY_OPTIONS };
+export { PAY_FREQUENCY_OPTIONS };

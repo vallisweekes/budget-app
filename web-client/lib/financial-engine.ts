@@ -158,6 +158,40 @@ function resolveTargetMonths(
   return (MONTHS as MonthKey[]).slice(start);
 }
 
+function resolveDueDateMonthOffset(dueDate: string | undefined, anchorYear: number, anchorMonth: number): number {
+  if (!dueDate || !/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) return 0;
+
+  const dueYear = Number(dueDate.slice(0, 4));
+  const dueMonth = Number(dueDate.slice(5, 7));
+  if (!Number.isFinite(dueYear) || !Number.isFinite(dueMonth) || dueMonth < 1 || dueMonth > 12) {
+    return 0;
+  }
+
+  return (dueYear - anchorYear) * 12 + (dueMonth - anchorMonth);
+}
+
+async function runWithConcurrencyLimit<T>(
+  items: T[],
+  limit: number,
+  task: (item: T) => Promise<void>,
+): Promise<void> {
+  if (items.length === 0) return;
+
+  const workerCount = Math.max(1, Math.min(Math.floor(limit) || 1, items.length));
+  let nextIndex = 0;
+
+  async function worker(): Promise<void> {
+    while (true) {
+      const currentIndex = nextIndex;
+      nextIndex += 1;
+      if (currentIndex >= items.length) return;
+      await task(items[currentIndex]!);
+    }
+  }
+
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
+}
+
 // ─── Payment source recording ─────────────────────────────────────────────────
 
 /**
@@ -454,11 +488,13 @@ export async function createExpense(input: CreateExpenseInput): Promise<CreateEx
 
   const sharedId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const logo     = resolveExpenseLogo(name);
+  const dueDateMonthOffset = resolveDueDateMonthOffset(dueDate, year, month);
 
-  // Write expense row(s)
-  for (const y of targetYears) {
-    const months = resolveTargetMonths(month, year, y, distributeMonths);
-    await addOrUpdateExpenseAcrossMonths(budgetPlanId, y, months, {
+  // Fan-out writes can span many months and years. Keep year-level concurrency
+  // modest so local Prisma pools do not starve while recurring rows are saved.
+  await runWithConcurrencyLimit(targetYears, 2, async (targetYear) => {
+    const months = resolveTargetMonths(month, year, targetYear, distributeMonths);
+    await addOrUpdateExpenseAcrossMonths(budgetPlanId, targetYear, months, {
       id:             sharedId,
       name,
       seriesKey:       typeof seriesKey === "string" && seriesKey.trim() ? seriesKey.trim() : undefined,
@@ -471,11 +507,12 @@ export async function createExpense(input: CreateExpenseInput): Promise<CreateEx
       isDirectDebit,
       isExtraLoggedExpense,
       dueDate,
+      dueDateMonthOffset,
       paymentSource: effectivePaymentSource,
       cardDebtId: effectiveFunding === "credit_card" ? (cardDebtId || debtId || undefined) : undefined,
       periodKey: !dueDate && !distributeMonths && !distributeYears && periodKey ? periodKey : undefined,
     } as AddOrUpdatePayload);
-  }
+  });
 
   // Fetch the primary record
   const created = await prisma.expense.findFirst({

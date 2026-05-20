@@ -131,7 +131,6 @@ export default function AddExpenseSheet({
     setSelectedPlanId(budgetPlanId ?? null);
     setPlanCategories(null);
   }, [budgetPlanId]);
-  const [isAllocation, setIsAllocation] = useState(false);
   const [isDirectDebit, setIsDirectDebit] = useState(false);
   const [distributeMonths, setDistributeMonths] = useState(false);
   const [distributeYears, setDistributeYears] = useState(false);
@@ -226,7 +225,6 @@ export default function AddExpenseSheet({
         setSelectedPlanId(budgetPlanId ?? null);
         setPlanCategories(null);
         setPlanDropdownOpen(false);
-        setIsAllocation(false);
         setIsDirectDebit(false);
         setDistributeMonths(false);
         setDistributeYears(false);
@@ -392,7 +390,7 @@ export default function AddExpenseSheet({
         month: sheetMonth,
         year: sheetYear,
         paid,
-        isAllocation,
+        isAllocation: false,
         isDirectDebit,
         distributeMonths,
         distributeYears,
@@ -417,7 +415,7 @@ export default function AddExpenseSheet({
         amount: String(parsedAmount),
         paid,
         paidAmount: paid ? String(parsedAmount) : "0",
-        isAllocation,
+        isAllocation: false,
         isDirectDebit,
         month: sheetMonth,
         year: sheetYear,
@@ -630,8 +628,6 @@ export default function AddExpenseSheet({
               <AddExpenseSheetToggles
                 paid={paid}
                 setPaid={setPaid}
-                isAllocation={isAllocation}
-                setIsAllocation={setIsAllocation}
                 isDirectDebit={isDirectDebit}
                 setIsDirectDebit={setIsDirectDebit}
                 distributeMonths={distributeMonths}

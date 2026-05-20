@@ -61,9 +61,11 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
     return "";
   }, [dashboard?.budgetPlanId, settings?.id]);
 
+  const hasBootstrapDashboard = Boolean(dashboard);
+
   const shouldLoadPeriodDashboard = useMemo(
-    () => Boolean(displayedPeriodAnchor && budgetPlanId && !dashboardMatchesAnchor(dashboard, displayedPeriodAnchor)),
-    [budgetPlanId, dashboard, displayedPeriodAnchor],
+    () => Boolean(hasBootstrapDashboard && displayedPeriodAnchor && budgetPlanId && !dashboardMatchesAnchor(dashboard, displayedPeriodAnchor)),
+    [budgetPlanId, dashboard, displayedPeriodAnchor, hasBootstrapDashboard],
   );
 
   const periodDashboardArgs = useMemo(

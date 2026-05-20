@@ -12,7 +12,6 @@ import { buildInitialGoals, isPositiveNumber } from "@/components/OnboardingScre
 import { COMMON_OCCUPATIONS, OCCUPATION_INCOME_SOURCE_OPTIONS } from "@/lib/constants";
 
 type Frequency = "monthly" | "every_2_weeks" | "every_4_weeks" | "weekly" | null;
-type BillFrequency = "monthly" | "every_2_weeks" | null;
 
 function parseDateOnly(value: string | null | undefined): Date | null {
   if (typeof value !== "string") return null;
@@ -54,7 +53,6 @@ function occupationRequiresIncomeSource(value: string): boolean {
 
 function buildPayload(state: {
   allowanceAmount: string;
-  billFrequency: BillFrequency;
   debtAmount: string;
   debtNotes: string;
   expenseFourAmount: string;
@@ -88,7 +86,6 @@ function buildPayload(state: {
 
   return {
     allowanceAmount: state.hasAllowance === true && state.allowanceAmount ? Number(state.allowanceAmount) : null,
-    billFrequency: state.billFrequency ?? undefined,
     debtAmount: state.hasDebts === true && state.debtAmount ? Number(state.debtAmount) : null,
     debtNotes: state.debtNotes,
     expenseFourAmount: state.expenseFourAmount ? Number(state.expenseFourAmount) : null,
@@ -117,7 +114,6 @@ function buildPayload(state: {
 
 function validateStep(params: {
   allowanceAmount: string;
-  billFrequency: BillFrequency;
   debtAmount: string;
   debtNotes: string;
   expenseFourAmount: string;
@@ -146,7 +142,6 @@ function validateStep(params: {
 }): string | null {
   const {
     allowanceAmount,
-    billFrequency,
     debtAmount,
     debtNotes,
     expenseFourAmount,
@@ -199,7 +194,6 @@ function validateStep(params: {
     if (payFrequency !== "monthly" && !parseDateOnly(payAnchorDate)) {
       return "Please choose the last date or next date you get paid.";
     }
-    if (!billFrequency) return "Please choose how often you pay most bills.";
     if (!isPositiveNumber(salary)) {
       return occupationRequiresIncomeSource(occupation)
         ? "Please enter how much you receive each month to continue."
@@ -301,11 +295,6 @@ export function useOnboardingScreenController({ initial, onCompleted }: Onboardi
       profile?.payFrequency === "every_4_weeks" ||
       profile?.payFrequency === "monthly"
       ? profile.payFrequency
-      : null,
-  );
-  const [billFrequency, setBillFrequency] = useState<BillFrequency>(
-    profile?.billFrequency === "every_2_weeks" || profile?.billFrequency === "monthly"
-      ? profile.billFrequency
       : null,
   );
   const [salary, setSalary] = useState(String(profile?.monthlySalary ?? ""));
@@ -436,7 +425,6 @@ export function useOnboardingScreenController({ initial, onCompleted }: Onboardi
 
   const payload = useMemo(() => buildPayload({
     allowanceAmount,
-    billFrequency,
     debtAmount,
     debtNotes,
     expenseFourAmount,
@@ -459,7 +447,7 @@ export function useOnboardingScreenController({ initial, onCompleted }: Onboardi
     salary,
     savingsGoalAmount,
     savingsGoalYear,
-  }), [allowanceAmount, billFrequency, debtAmount, debtNotes, expenseFourAmount, expenseFourName, expenseOneAmount, expenseOneName, expenseThreeAmount, expenseThreeName, expenseTwoAmount, expenseTwoName, hasAllowance, hasDebts, mainGoals, occupation, payAnchorDate, payDay, payFrequency, planningYears, resolvedOccupationOther, salary, savingsGoalAmount, savingsGoalYear]);
+  }), [allowanceAmount, debtAmount, debtNotes, expenseFourAmount, expenseFourName, expenseOneAmount, expenseOneName, expenseThreeAmount, expenseThreeName, expenseTwoAmount, expenseTwoName, hasAllowance, hasDebts, mainGoals, occupation, payAnchorDate, payDay, payFrequency, planningYears, resolvedOccupationOther, salary, savingsGoalAmount, savingsGoalYear]);
 
   const saveDraft = useCallback(async () => {
     if (!token) {
@@ -489,7 +477,6 @@ export function useOnboardingScreenController({ initial, onCompleted }: Onboardi
 
   const currentValidationError = useCallback((currentStep: number) => validateStep({
     allowanceAmount,
-    billFrequency,
     debtAmount,
     debtNotes,
     expenseFourAmount,
@@ -515,7 +502,7 @@ export function useOnboardingScreenController({ initial, onCompleted }: Onboardi
     savingsGoalAmount,
     savingsGoalYear,
     step: currentStep,
-  }), [allowanceAmount, billFrequency, debtAmount, debtNotes, expenseFourAmount, expenseFourName, expenseOneAmount, expenseOneName, expenseThreeAmount, expenseThreeName, expenseTwoAmount, expenseTwoName, hasAllowance, hasDebts, incomeSource, incomeSourceOther, mainGoals, occupation, occupationOther, payAnchorDate, payDayNumber, payFrequency, planningYears, salary, savingsGoalAmount, savingsGoalYear]);
+  }), [allowanceAmount, debtAmount, debtNotes, expenseFourAmount, expenseFourName, expenseOneAmount, expenseOneName, expenseThreeAmount, expenseThreeName, expenseTwoAmount, expenseTwoName, hasAllowance, hasDebts, incomeSource, incomeSourceOther, mainGoals, occupation, occupationOther, payAnchorDate, payDayNumber, payFrequency, planningYears, salary, savingsGoalAmount, savingsGoalYear]);
 
   const onGoForwardStep = useCallback(() => {
     if (saving || step >= 5) return;
@@ -581,7 +568,6 @@ export function useOnboardingScreenController({ initial, onCompleted }: Onboardi
 
   return {
     allowanceAmount,
-    billFrequency,
     currency,
     debtAmount,
     debtNotes,
@@ -618,7 +604,6 @@ export function useOnboardingScreenController({ initial, onCompleted }: Onboardi
     savingsGoalAmount,
     savingsGoalYear,
     setAllowanceAmount,
-    setBillFrequency,
     setDebtAmount,
     setDebtNotes,
     setExpenseFourAmount,

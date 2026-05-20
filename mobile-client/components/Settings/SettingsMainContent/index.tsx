@@ -14,14 +14,13 @@ import SettingsPlansTab from "@/components/Settings/SettingsPlansTab";
 import SettingsSubscriptionTab from "@/components/Settings/SettingsSubscriptionTab";
 import SettingsSubpageHeader from "@/components/Settings/SettingsSubpageHeader";
 import { hasPositiveDebtBalance, isDebtManagementEnabled } from "@/lib/helpers/debtManagement";
-import { asMoneyText, formatBillFrequency, formatPayFrequency } from "@/lib/helpers/settings";
+import { asMoneyText, formatPayFrequency } from "@/lib/helpers/settings";
 import {
   getSettingsAppVersionLabel,
   openSettingsExternalUrl,
   SETTINGS_TAB_TITLES,
   SETTINGS_WEBSITE_URL,
 } from "@/lib/helpers/settingsOverview";
-import { useGetOnboardingStatusQuery } from "@/store/api";
 import { styles } from "./styles";
 import { T } from "@/lib/theme";
 import type { SettingsMainContentProps } from "@/types/components/settings/SettingsMainContent.types";
@@ -46,7 +45,6 @@ export default function SettingsMainContent({ controller, navigation, savingsTil
   const scrollRef = React.useRef<ScrollView | null>(null);
   const router = useRouter();
   const { dashboard } = useBootstrapData();
-  const onboardingStatusQuery = useGetOnboardingStatusQuery();
   const openIncomeSettings = React.useCallback(() => {
     router.push("/settings-income-settings");
   }, [router]);
@@ -60,7 +58,7 @@ export default function SettingsMainContent({ controller, navigation, savingsTil
   const debtManagementEnabled = isDebtManagementEnabled({
     hasActualDebts: hasDashboardDebts,
     hasConfiguredDebts: controller.hasAnyDebts,
-    onboardingHasDebtsToManage: onboardingStatusQuery.data?.profile?.hasDebtsToManage,
+    onboardingHasDebtsToManage: controller.profile?.onboarding?.profile?.hasDebtsToManage,
     profileHasDebtsToManage: controller.profile?.onboarding?.profile?.hasDebtsToManage,
   });
 
@@ -163,7 +161,6 @@ export default function SettingsMainContent({ controller, navigation, savingsTil
           payDate={controller.settings?.payDate}
           horizonYears={controller.currentPlan?.budgetHorizonYears ?? 10}
           payFrequencyLabel={formatPayFrequency(controller.settings?.payFrequency)}
-          billFrequencyLabel={formatBillFrequency(controller.settings?.billFrequency)}
           strategyDraft={controller.strategyDraft}
           onOpenField={controller.setBudgetFieldSheet}
           onOpenIncomeSettings={openIncomeSettings}

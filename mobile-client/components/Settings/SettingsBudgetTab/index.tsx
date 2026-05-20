@@ -12,7 +12,6 @@ export default function SettingsBudgetTab({
   payDate,
   horizonYears,
   payFrequencyLabel,
-  billFrequencyLabel,
   strategyDraft,
   onOpenField,
   onOpenStrategy,
@@ -50,28 +49,16 @@ export default function SettingsBudgetTab({
         </Pressable>
       </View>
 
-      <View style={styles.twoColRow}>
-        <Pressable onPress={() => onOpenField("payFrequency")} style={[styles.infoCard, styles.halfCard]}>
-          <View pointerEvents="none" style={[styles.cardGlow, styles.cardGlowPrimary]} />
-          <View pointerEvents="none" style={[styles.cardGlow, styles.cardGlowSecondary]} />
-          <View style={styles.cardMiniActionRow}><View /><View style={styles.cardMiniIconBtn}><Ionicons name="pencil-outline" size={13} color={T.textDim} /></View></View>
-          <View style={styles.infoLabelRow}>
-            <Ionicons name="repeat-outline" size={14} color={T.accent} />
-            <Text style={styles.infoCardLabel}>Pay schedule</Text>
-          </View>
-          <Text style={styles.infoCardValue}>{payFrequencyLabel}</Text>
-        </Pressable>
-        <Pressable onPress={() => onOpenField("billFrequency")} style={[styles.infoCard, styles.halfCard]}>
-          <View pointerEvents="none" style={[styles.cardGlow, styles.cardGlowPrimary]} />
-          <View pointerEvents="none" style={[styles.cardGlow, styles.cardGlowSecondary]} />
-          <View style={styles.cardMiniActionRow}><View /><View style={styles.cardMiniIconBtn}><Ionicons name="pencil-outline" size={13} color={T.textDim} /></View></View>
-          <View style={styles.infoLabelRow}>
-            <Ionicons name="receipt-outline" size={14} color={T.accent} />
-            <Text style={styles.infoCardLabel}>Bill schedule</Text>
-          </View>
-          <Text style={styles.infoCardValue}>{billFrequencyLabel}</Text>
-        </Pressable>
-      </View>
+      <Pressable onPress={() => onOpenField("payFrequency")} style={styles.infoCard}>
+        <View pointerEvents="none" style={[styles.cardGlow, styles.cardGlowPrimary]} />
+        <View pointerEvents="none" style={[styles.cardGlow, styles.cardGlowSecondary]} />
+        <View style={styles.cardMiniActionRow}><View /><View style={styles.cardMiniIconBtn}><Ionicons name="pencil-outline" size={13} color={T.textDim} /></View></View>
+        <View style={styles.infoLabelRow}>
+          <Ionicons name="repeat-outline" size={14} color={T.accent} />
+          <Text style={styles.infoCardLabel}>Pay schedule</Text>
+        </View>
+        <Text style={styles.infoCardValue}>{payFrequencyLabel}</Text>
+      </Pressable>
 
       <Pressable onPress={onOpenIncomeSettings} style={[styles.infoCard, styles.featureCard]}>
         <View pointerEvents="none" style={[styles.cardGlow, styles.featureGlowPrimary]} />

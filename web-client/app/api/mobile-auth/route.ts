@@ -10,6 +10,7 @@ import { completeOnboarding, saveOnboardingDraft, type OnboardingGoalInput, type
 import { invalidateDashboardCache } from "@/lib/cache/dashboardCache";
 import { invalidateProfileCache } from "@/lib/cache/profileCache";
 import { sendEmailVerificationEmail } from "@/lib/auth/emailVerification";
+import { deriveBillFrequencyFromPayFrequency } from "@/lib/payPeriods";
 
 export const runtime = "nodejs";
 
@@ -61,6 +62,10 @@ function parseOnboardingInput(value: unknown): OnboardingInput | null {
 
   const body = value as Record<string, unknown>;
   const mainGoals = Array.isArray(body.mainGoals) ? body.mainGoals.filter(isOnboardingGoal) : null;
+  const payFrequency =
+    body.payFrequency === "monthly" || body.payFrequency === "every_2_weeks" || body.payFrequency === "every_4_weeks" || body.payFrequency === "weekly"
+      ? body.payFrequency
+      : null;
 
   return {
     mainGoal: isOnboardingGoal(body.mainGoal) ? body.mainGoal : null,
@@ -69,11 +74,8 @@ function parseOnboardingInput(value: unknown): OnboardingInput | null {
     occupationOther: typeof body.occupationOther === "string" ? body.occupationOther : null,
     payDay: asNumber(body.payDay),
     payAnchorDate: typeof body.payAnchorDate === "string" ? body.payAnchorDate : null,
-    payFrequency:
-      body.payFrequency === "monthly" || body.payFrequency === "every_2_weeks" || body.payFrequency === "every_4_weeks" || body.payFrequency === "weekly"
-        ? body.payFrequency
-        : null,
-    billFrequency: body.billFrequency === "monthly" || body.billFrequency === "every_2_weeks" ? body.billFrequency : null,
+    payFrequency,
+    billFrequency: payFrequency ? deriveBillFrequencyFromPayFrequency(payFrequency) : null,
     monthlySalary: asNumber(body.monthlySalary),
     planningYears: asNumber(body.planningYears),
     savingsGoalAmount: asNumber(body.savingsGoalAmount),

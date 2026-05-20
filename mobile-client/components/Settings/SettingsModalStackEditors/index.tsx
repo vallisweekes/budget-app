@@ -5,7 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import SettingsBudgetFieldSheet from "@/components/Settings/SettingsBudgetFieldSheet";
 import SettingsLocaleSheet from "@/components/Settings/SettingsLocaleSheet";
 import SavingsEditorSheet from "@/components/Settings/SavingsEditorSheet";
-import { BILL_FREQUENCY_OPTIONS, PAY_FREQUENCY_OPTIONS } from "@/lib/constants";
+import { PAY_FREQUENCY_OPTIONS } from "@/lib/constants";
 import { asMoneyNumber, asMoneyText, getSavingsFieldTitle } from "@/lib/helpers/settings";
 
 import type { SettingsModalStackEditorsProps } from "@/types/components/settings/SettingsModalStackEditors.types";
@@ -23,15 +23,12 @@ export default function SettingsModalStackEditors({ controller }: SettingsModalS
         payDateDraft={controller.payDateDraft}
         horizonDraft={controller.horizonDraft}
         payFrequencyDraft={controller.payFrequencyDraft}
-        billFrequencyDraft={controller.billFrequencyDraft}
         payFrequencyOptions={PAY_FREQUENCY_OPTIONS}
-        billFrequencyOptions={BILL_FREQUENCY_OPTIONS}
         saveBusy={controller.saveBusy}
         onClose={controller.closeBudgetFieldSheet}
         onChangePayDate={controller.setPayDateDraft}
         onChangeHorizon={controller.setHorizonDraft}
         onChangePayFrequency={controller.setPayFrequencyDraft}
-        onChangeBillFrequency={controller.setBillFrequencyDraft}
         onSave={controller.saveBudgetField}
       />
 

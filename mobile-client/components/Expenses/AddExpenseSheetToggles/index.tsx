@@ -6,8 +6,6 @@ import { styles as s } from "@/components/Expenses/AddExpenseSheet/styles";
 export default function AddExpenseSheetToggles({
   paid,
   setPaid,
-  isAllocation,
-  setIsAllocation,
   isDirectDebit,
   setIsDirectDebit,
   distributeMonths,
@@ -17,8 +15,6 @@ export default function AddExpenseSheetToggles({
 }: {
   paid: boolean;
   setPaid: (updater: (v: boolean) => boolean) => void;
-  isAllocation: boolean;
-  setIsAllocation: (updater: (v: boolean) => boolean) => void;
   isDirectDebit: boolean;
   setIsDirectDebit: (updater: (v: boolean) => boolean) => void;
   distributeMonths: boolean;
@@ -35,20 +31,6 @@ export default function AddExpenseSheetToggles({
         </View>
         <TouchableOpacity onPress={() => setPaid((v) => !v)} style={[s.toggle, paid && s.toggleOn]} activeOpacity={0.8}>
           <View style={[s.toggleThumb, paid && s.toggleThumbOn]} />
-        </TouchableOpacity>
-      </View>
-
-      <View style={s.toggleRow}>
-        <View style={s.toggleInfo}>
-          <Text style={s.toggleTitle}>Allocation payment</Text>
-          <Text style={s.toggleSub}>For envelopes like groceries — never becomes a debt</Text>
-        </View>
-        <TouchableOpacity
-          onPress={() => setIsAllocation((v) => !v)}
-          style={[s.toggle, isAllocation && s.toggleOn]}
-          activeOpacity={0.8}
-        >
-          <View style={[s.toggleThumb, isAllocation && s.toggleThumbOn]} />
         </TouchableOpacity>
       </View>
 

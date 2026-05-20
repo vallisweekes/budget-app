@@ -13,20 +13,24 @@ function isValidDate(value: Date | null | undefined): value is Date {
   return value instanceof Date && !Number.isNaN(value.getTime());
 }
 
-function shouldUseFirstAnchoredInterval(params: {
-  now: Date;
-  planCreatedAt?: Date | null;
-  anchoredPayDate: Date;
+function resolveNextAnchoredIntervalStart(params: {
+  targetDate: Date;
+  payAnchorDate: Date;
   step: number;
-}): boolean {
-  if (!isValidDate(params.planCreatedAt)) return false;
+}): Date {
+  const target = startOfLocalDay(params.targetDate);
+  const anchor = startOfLocalDay(params.payAnchorDate);
+  if (target.getTime() <= anchor.getTime()) return anchor;
 
-  const planStart = startOfLocalDay(params.planCreatedAt);
-  if (params.now.getTime() >= params.anchoredPayDate.getTime()) return false;
-  if (planStart.getTime() > params.now.getTime()) return false;
+  const currentStart = resolveAnchoredIntervalStart({
+    date: target,
+    payAnchorDate: anchor,
+    step: params.step,
+  });
 
-  const diffDays = Math.floor((planStart.getTime() - params.anchoredPayDate.getTime()) / DAY_MS);
-  return Math.abs(diffDays) < params.step;
+  return currentStart.getTime() === target.getTime()
+    ? currentStart
+    : addDays(currentStart, params.step);
 }
 
 function clampDay(year: number, monthIndex: number, day: number): Date {
@@ -164,8 +168,19 @@ export function resolveActivePayPeriod(params: {
   const span = dayWindowForFrequency(payFrequency);
   const anchoredPayDate = parsePayAnchorDate(params.payAnchorDate);
   if (anchoredPayDate) {
-    if (shouldUseFirstAnchoredInterval({ now, planCreatedAt, anchoredPayDate, step: span })) {
-      return { start: anchoredPayDate, end: addDays(anchoredPayDate, span - 1) };
+    if (isValidDate(planCreatedAt)) {
+      const planStart = startOfLocalDay(planCreatedAt);
+      if (planStart.getTime() <= now.getTime()) {
+        const firstAvailableStart = resolveNextAnchoredIntervalStart({
+          targetDate: planStart,
+          payAnchorDate: anchoredPayDate,
+          step: span,
+        });
+
+        if (now.getTime() < firstAvailableStart.getTime()) {
+          return { start: firstAvailableStart, end: addDays(firstAvailableStart, span - 1) };
+        }
+      }
     }
 
     const start = resolveAnchoredIntervalStart({
@@ -211,10 +226,12 @@ export function resolveFirstSelectablePayPeriodWindow(params: {
         return { start: anchoredPayDate, end: addDays(anchoredPayDate, span - 1) };
       }
 
-      const diffDays = Math.floor((planStartAt.getTime() - anchoredPayDate.getTime()) / DAY_MS);
-      if (Math.abs(diffDays) < span) {
-        return { start: anchoredPayDate, end: addDays(anchoredPayDate, span - 1) };
-      }
+      const start = resolveNextAnchoredIntervalStart({
+        targetDate: planStartAt,
+        payAnchorDate: anchoredPayDate,
+        step: span,
+      });
+      return { start, end: addDays(start, span - 1) };
     }
   }
 
@@ -316,9 +333,7 @@ export function formatPayPeriodLabelForFrequency(params: {
   end: Date;
   payFrequency: PayFrequency;
 }): string {
-  const displayEnd = params.payFrequency === "monthly"
-    ? params.end
-    : addDays(params.start, dayWindowForFrequency(params.payFrequency));
+  const displayEnd = params.end;
   return formatPayPeriodLabel(params.start, displayEnd);
 }
 

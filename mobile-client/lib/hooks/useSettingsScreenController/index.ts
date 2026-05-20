@@ -48,7 +48,6 @@ import {
   getSavingsFieldTitle,
 } from "@/lib/helpers/settings";
 import type {
-  BillFrequency,
   BudgetField,
   CreateSacrificeItemResponse,
   DebtKind,
@@ -122,7 +121,6 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
   const [payDateDraft, setPayDateDraft] = useState("");
   const [horizonDraft, setHorizonDraft] = useState("");
   const [payFrequencyDraft, setPayFrequencyDraft] = useState<PayFrequency>("monthly");
-  const [billFrequencyDraft, setBillFrequencyDraft] = useState<BillFrequency>("monthly");
   const [strategyDraft, setStrategyDraft] = useState("payYourselfFirst");
   const [savingsValueDraft, setSavingsValueDraft] = useState("");
   const [savingsPotNameDraft, setSavingsPotNameDraft] = useState("");
@@ -383,7 +381,6 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
         ? nextSettings.payFrequency
         : "monthly"
     );
-    setBillFrequencyDraft(nextSettings?.billFrequency === "every_2_weeks" ? "every_2_weeks" : "monthly");
     setStrategyDraft(nextSettings?.budgetStrategy ?? "payYourselfFirst");
   }, []);
 
@@ -811,15 +808,6 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
           budgetPlanId: settings.id,
           changes: {
             payFrequency: payFrequencyDraft,
-          },
-        }).unwrap();
-      }
-
-      if (budgetFieldSheet === "billFrequency") {
-        nextSettings = await updateSettingsMutation({
-          budgetPlanId: settings.id,
-          changes: {
-            billFrequency: billFrequencyDraft,
           },
         }).unwrap();
       }
@@ -1341,8 +1329,6 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
     setHorizonDraft,
     payFrequencyDraft,
     setPayFrequencyDraft,
-    billFrequencyDraft,
-    setBillFrequencyDraft,
     strategyDraft,
     savingsValueDraft,
     setSavingsValueDraft,

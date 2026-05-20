@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarDays, CreditCard, Receipt, Sparkles, TrendingUp, CheckCircle2, LogOut } from "lucide-react";
+import { CalendarDays, Receipt, Sparkles, TrendingUp, CheckCircle2, LogOut } from "lucide-react";
 import { signOut } from "next-auth/react";
 
 import MoneyInput from "@/components/Shared/MoneyInput";
@@ -128,9 +128,6 @@ export default function OnboardingWizard({
   const [payFrequency, setPayFrequency] = useState<"monthly" | "every_2_weeks" | "every_4_weeks" | "weekly">(
     initial.profile?.payFrequency === "weekly" || initial.profile?.payFrequency === "every_2_weeks" || initial.profile?.payFrequency === "every_4_weeks" ? initial.profile.payFrequency : "monthly"
   );
-  const [billFrequency, setBillFrequency] = useState<"monthly" | "every_2_weeks">(
-    initial.profile?.billFrequency === "every_2_weeks" ? "every_2_weeks" : "monthly"
-  );
   const [salary, setSalary] = useState(String(initial.profile?.monthlySalary ?? ""));
   const [expenseOneName, setExpenseOneName] = useState(initial.profile?.expenseOneName ?? "");
   const [expenseOneAmount, setExpenseOneAmount] = useState(String(initial.profile?.expenseOneAmount ?? ""));
@@ -166,7 +163,6 @@ export default function OnboardingWizard({
         : (parseDateOnly(payAnchorDate)?.getDate() ?? null),
     payAnchorDate: payFrequency === "monthly" ? null : (payAnchorDate || null),
     payFrequency,
-    billFrequency,
     monthlySalary: salary ? Number(salary) : null,
     expenseOneName,
     expenseOneAmount: expenseOneAmount ? Number(expenseOneAmount) : null,
@@ -351,24 +347,6 @@ export default function OnboardingWizard({
                 <p className="text-xs text-slate-400">We&apos;ll use this to anchor weekly, 2-week, and 4-week pay periods.</p>
               </>
             ) : null}
-            <p className="text-sm text-slate-300">How often do you usually pay most bills?</p>
-            <div className="flex flex-wrap gap-2">
-              {[
-                { id: "monthly", label: "Monthly" },
-                { id: "every_2_weeks", label: "Every 2 weeks" },
-              ].map((option) => (
-                <button
-                  key={option.id}
-                  type="button"
-                  onClick={() => setBillFrequency(option.id as "monthly" | "every_2_weeks")}
-                  className={`rounded-lg border px-3 py-2 text-sm ${
-                    billFrequency === option.id ? "border-purple-300 bg-purple-500/20" : "border-white/10 bg-slate-950/30"
-                  }`}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
             <p className="text-sm text-slate-300">About how much do you bring in each month?</p>
             <MoneyInput
               value={salary}

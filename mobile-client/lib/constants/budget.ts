@@ -1,4 +1,4 @@
-import type { BillFrequency, PayFrequency } from "@/types/settings";
+import type { PayFrequency } from "@/types/settings";
 
 export const STRATEGY_OPTIONS = [
   { value: "payYourselfFirst", label: "Pay Yourself First", tip: "Prioritise savings and investment before discretionary spending." },
@@ -11,11 +11,6 @@ export const PAY_FREQUENCY_OPTIONS: Array<{ value: PayFrequency; label: string }
   { value: "every_2_weeks", label: "Every 2 weeks" },
   { value: "every_4_weeks", label: "Every 4 weeks" },
   { value: "weekly", label: "Weekly" },
-];
-
-export const BILL_FREQUENCY_OPTIONS: Array<{ value: BillFrequency; label: string }> = [
-  { value: "monthly", label: "Monthly" },
-  { value: "every_2_weeks", label: "Every 2 weeks" },
 ];
 
 export const PLANNING_YEARS_OPTIONS = [

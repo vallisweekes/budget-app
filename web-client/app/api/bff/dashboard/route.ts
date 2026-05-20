@@ -30,7 +30,7 @@ import {
 	getPayPeriodKeyForDate,
 	getPayPeriodWindowFromPeriodKey,
 	getPreviousPayPeriodKey,
-	normalizeBillFrequency,
+	deriveBillFrequencyFromPayFrequency,
 	normalizePayFrequency,
 	resolveActivePayPeriodWindow,
 } from "@/lib/payPeriods";
@@ -185,7 +185,7 @@ export async function GET(req: NextRequest) {
 		const payDay = typeof payDate === "number" && Number.isFinite(payDate) ? payDate : 1;
 		const payFrequency = normalizePayFrequency(onboarding?.payFrequency);
 		const payAnchorDate = onboarding?.payAnchorDate instanceof Date ? onboarding.payAnchorDate.toISOString() : null;
-		const billFrequency = normalizeBillFrequency(onboarding?.billFrequency);
+		const billFrequency = deriveBillFrequencyFromPayFrequency(payFrequency);
 		const requestedMonthRaw = Number(searchParams.get("month"));
 		const requestedYearRaw = Number(searchParams.get("year"));
 		const hasRequestedAnchor = Number.isFinite(requestedMonthRaw)

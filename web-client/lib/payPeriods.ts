@@ -13,6 +13,10 @@ export function normalizeBillFrequency(value: unknown): BillFrequency {
   return "monthly";
 }
 
+export function deriveBillFrequencyFromPayFrequency(value: unknown): BillFrequency {
+  return normalizePayFrequency(value) === "every_2_weeks" ? "every_2_weeks" : "monthly";
+}
+
 function intervalDays(payFrequency: PayFrequency): number {
   if (payFrequency === "weekly") return 7;
   if (payFrequency === "every_2_weeks") return 14;
@@ -100,20 +104,24 @@ function isValidDate(value: Date | null | undefined): value is Date {
   return value instanceof Date && !Number.isNaN(value.getTime());
 }
 
-function shouldUseFirstAnchoredInterval(params: {
-  now: Date;
-  planCreatedAt?: Date | null;
-  anchoredPayDate: Date;
+function resolveNextAnchoredIntervalStart(params: {
+  targetDate: Date;
+  payAnchorDate: Date;
   step: number;
-}): boolean {
-  if (!isValidDate(params.planCreatedAt)) return false;
+}): Date {
+  const target = startOfUtcDay(params.targetDate);
+  const anchor = startOfUtcDay(params.payAnchorDate);
+  if (target.getTime() <= anchor.getTime()) return anchor;
 
-  const planStart = startOfUtcDay(params.planCreatedAt);
-  if (params.now.getTime() >= params.anchoredPayDate.getTime()) return false;
-  if (planStart.getTime() > params.now.getTime()) return false;
+  const currentStart = resolveAnchoredIntervalStart({
+    date: target,
+    payAnchorDate: anchor,
+    step: params.step,
+  });
 
-  const diffDays = Math.floor((planStart.getTime() - params.anchoredPayDate.getTime()) / DAY_MS);
-  return Math.abs(diffDays) < params.step;
+  return currentStart.getTime() === target.getTime()
+    ? currentStart
+    : addUtcDays(currentStart, params.step);
 }
 
 export function resolveActivePayPeriodWindow(params: {
@@ -149,8 +157,19 @@ export function resolveActivePayPeriodWindow(params: {
   const step = intervalDays(payFrequency);
   const anchoredPayDate = parsePayAnchorDate(params.payAnchorDate);
   if (anchoredPayDate) {
-    if (shouldUseFirstAnchoredInterval({ now, planCreatedAt, anchoredPayDate, step })) {
-      return { start: anchoredPayDate, end: addUtcDays(anchoredPayDate, step - 1) };
+    if (isValidDate(planCreatedAt)) {
+      const planStart = startOfUtcDay(planCreatedAt);
+      if (planStart.getTime() <= now.getTime()) {
+        const firstAvailableStart = resolveNextAnchoredIntervalStart({
+          targetDate: planStart,
+          payAnchorDate: anchoredPayDate,
+          step,
+        });
+
+        if (now.getTime() < firstAvailableStart.getTime()) {
+          return { start: firstAvailableStart, end: addUtcDays(firstAvailableStart, step - 1) };
+        }
+      }
     }
 
     const start = resolveAnchoredIntervalStart({
@@ -196,10 +215,12 @@ export function resolveFirstSelectablePayPeriodWindow(params: {
         return { start: anchoredPayDate, end: addUtcDays(anchoredPayDate, step - 1) };
       }
 
-      const diffDays = Math.floor((planStartAt.getTime() - anchoredPayDate.getTime()) / DAY_MS);
-      if (Math.abs(diffDays) < step) {
-        return { start: anchoredPayDate, end: addUtcDays(anchoredPayDate, step - 1) };
-      }
+      const start = resolveNextAnchoredIntervalStart({
+        targetDate: planStartAt,
+        payAnchorDate: anchoredPayDate,
+        step,
+      });
+      return { start, end: addUtcDays(start, step - 1) };
     }
   }
 
@@ -267,9 +288,7 @@ export function formatPayPeriodLabelForFrequency(params: {
   end: Date;
   payFrequency: PayFrequency;
 }): string {
-  const displayEnd = params.payFrequency === "monthly"
-    ? params.end
-    : addUtcDays(params.start, intervalDays(params.payFrequency));
+  const displayEnd = params.end;
   return `${params.start.getUTCDate()} ${params.start.toLocaleString("en-GB", {
     month: "short",
     timeZone: "UTC",

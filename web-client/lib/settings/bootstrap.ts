@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { supportsOnboardingCadenceFields as detectOnboardingCadenceFields, supportsOnboardingPayAnchorDateField } from "@/lib/prisma/capabilities";
 import { resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
-import { normalizeBillFrequency, normalizePayFrequency, type PayFrequency } from "@/lib/payPeriods";
+import { deriveBillFrequencyFromPayFrequency, normalizePayFrequency, type PayFrequency } from "@/lib/payPeriods";
 
 export type BootstrapSettingsPayload = {
   id: string;
@@ -41,21 +41,6 @@ const settingsSelect = {
   savingsBalance: true,
   monthlySavingsContribution: true,
   monthlyEmergencyContribution: true,
-  monthlyInvestmentContribution: true,
-  budgetStrategy: true,
-  budgetHorizonYears: true,
-  homepageGoalIds: true,
-  country: true,
-  language: true,
-  currency: true,
-} as const;
-
-const settingsSelectWithoutMonthlyEmergency = {
-  id: true,
-  payDate: true,
-  monthlyAllowance: true,
-  savingsBalance: true,
-  monthlySavingsContribution: true,
   monthlyInvestmentContribution: true,
   budgetStrategy: true,
   budgetHorizonYears: true,
@@ -193,13 +178,14 @@ async function getCadenceForUser(userId: string): Promise<{
     const includePayAnchorDate = await supportsOnboardingPayAnchorDateField();
     const profile = await prisma.userOnboardingProfile.findUnique({
       where: { userId },
-      select: { payFrequency: true, billFrequency: true, ...(includePayAnchorDate ? { payAnchorDate: true } : {}) },
+      select: { payFrequency: true, ...(includePayAnchorDate ? { payAnchorDate: true } : {}) },
     });
     supportsCadenceFields = true;
+    const payFrequency = normalizePayFrequency(profile?.payFrequency);
     return {
       payAnchorDate: profile?.payAnchorDate instanceof Date ? profile.payAnchorDate.toISOString() : null,
-      payFrequency: normalizePayFrequency(profile?.payFrequency),
-      billFrequency: normalizeBillFrequency(profile?.billFrequency),
+      payFrequency,
+      billFrequency: deriveBillFrequencyFromPayFrequency(payFrequency),
     };
   } catch (error) {
     if (!isUnknownCadenceFieldError(error)) throw error;

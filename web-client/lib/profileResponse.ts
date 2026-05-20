@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getEmailVerificationState } from "@/lib/auth/emailVerification";
 import { getOnboardingForUser } from "@/lib/onboarding";
-import { normalizeBillFrequency, normalizePayFrequency } from "@/lib/payPeriods";
+import { deriveBillFrequencyFromPayFrequency, normalizePayFrequency } from "@/lib/payPeriods";
 import { getBootstrapSettingsForUser } from "@/lib/settings/bootstrap";
 import { listBudgetPlansForUser } from "@/lib/budgetPlans";
 
@@ -83,6 +83,7 @@ export async function buildProfileResponse(userId: string) {
     completed: onboarding.completed,
     profile: normalizeProfileOnMe(onboarding.profile, { required: onboarding.required }),
   };
+  const payFrequency = normalizePayFrequency(onboardingMeta?.payFrequency ?? normalizedOnboarding.profile?.payFrequency ?? null);
 
   return {
     id: user.id,
@@ -105,7 +106,7 @@ export async function buildProfileResponse(userId: string) {
     })),
     accountCreatedAt: user.createdAt?.toISOString() ?? null,
     setupCompletedAt,
-    payFrequency: normalizePayFrequency(onboardingMeta?.payFrequency ?? normalizedOnboarding.profile?.payFrequency ?? null),
-    billFrequency: normalizeBillFrequency(onboardingMeta?.billFrequency ?? normalizedOnboarding.profile?.billFrequency ?? null),
+    payFrequency,
+    billFrequency: deriveBillFrequencyFromPayFrequency(payFrequency),
   };
 }

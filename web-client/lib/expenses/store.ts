@@ -48,15 +48,16 @@ function toOptionalString(value: unknown): string | undefined {
   return trimmed || undefined;
 }
 
-function dueDateForYearMonthFromISO(iso: string, year: number, monthNumber: number): Date {
+function dueDateForYearMonthFromISO(iso: string, year: number, monthNumber: number, monthOffset: number = 0): Date {
   // Keep the *day of month* from `iso`, but apply it to the given year/month.
   // Clamp to the last day of the target month (e.g. Feb 30 -> Feb 28/29).
   const parts = String(iso).split("-");
   const day = Number(parts[2]);
   const safeDay = Number.isFinite(day) ? day : 1;
-  const lastDay = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
+  const target = addMonthsToYearMonth(year, monthNumber, monthOffset);
+  const lastDay = new Date(Date.UTC(target.year, target.month, 0)).getUTCDate();
   const clampedDay = Math.min(Math.max(1, safeDay), lastDay);
-  return new Date(Date.UTC(year, monthNumber - 1, clampedDay));
+  return new Date(Date.UTC(target.year, target.month - 1, clampedDay));
 }
 
 function addMonthsToYearMonth(year: number, monthNumber: number, deltaMonths: number): { year: number; month: number } {
@@ -302,7 +303,14 @@ export async function addOrUpdateExpenseAcrossMonths(
   budgetPlanId: string,
   year: number,
   months: MonthKey[],
-  item: Omit<ExpenseItem, "id"> & { id?: string; paymentSource?: string; cardDebtId?: string; periodKey?: string; isExtraLoggedExpense?: boolean }
+  item: Omit<ExpenseItem, "id"> & {
+    id?: string;
+    paymentSource?: string;
+    cardDebtId?: string;
+    periodKey?: string;
+    isExtraLoggedExpense?: boolean;
+    dueDateMonthOffset?: number;
+  }
 ): Promise<void> {
 	const targetMonths = Array.from(new Set(months));
 	const targetName = normalizeExpenseName(item.name);
@@ -340,30 +348,46 @@ export async function addOrUpdateExpenseAcrossMonths(
   const isExtraLoggedExpense = (item as any).isExtraLoggedExpense === true;
   const { payDate, payFrequency, payAnchorDate } = await resolveBudgetPlanPayPeriodContext({ budgetPlanId });
   const dueDateIso = toOptionalString(item.dueDate);
+  const dueDateMonthOffset = Number.isFinite(Number((item as { dueDateMonthOffset?: unknown }).dueDateMonthOffset))
+    ? Math.trunc(Number((item as { dueDateMonthOffset?: unknown }).dueDateMonthOffset))
+    : 0;
+
+  const targetMonthNumbers = targetMonths.map((month) => monthKeyToNumber(month));
+  const existingRows = seedSeriesKey
+    ? await prisma.expense.findMany({
+        where: {
+          budgetPlanId,
+          year,
+          month: { in: targetMonthNumbers },
+          seriesKey: seedSeriesKey,
+        },
+        orderBy: [{ month: "asc" }, { createdAt: "asc" }],
+        select: { id: true, month: true, seriesKey: true },
+      })
+    : [];
+  const existingByMonth = new Map<number, { id: string; seriesKey: string | null }>();
+  for (const row of existingRows) {
+    if (!existingByMonth.has(row.month)) {
+      existingByMonth.set(row.month, { id: row.id, seriesKey: row.seriesKey ?? null });
+    }
+  }
+
+  const updateOps: Promise<unknown>[] = [];
+  const createRows: Array<Record<string, unknown>> = [];
 
 	for (const month of targetMonths) {
 		const monthNumber = monthKeyToNumber(month);
     const scopedDueDate = dueDateIso
-      ? dueDateForYearMonthFromISO(dueDateIso, year, monthNumber)
+      ? dueDateForYearMonthFromISO(dueDateIso, year, monthNumber, dueDateMonthOffset)
       : null;
-    const existing = seedSeriesKey
-      ? await prisma.expense.findFirst({
-        where: {
-          budgetPlanId,
-          year,
-          month: monthNumber,
-          seriesKey: seedSeriesKey,
-        },
-      select: { id: true, seriesKey: true },
-      })
-      : null;
+    const existing = existingByMonth.get(monthNumber) ?? null;
 
     const explicitPeriodKey =
       typeof (item as any).periodKey === "string" && /^\d{4}-\d{2}-\d{2}$/.test(String((item as any).periodKey).trim())
         ? String((item as any).periodKey).trim()
         : null;
     const derivedPeriodKey = getExpensePeriodKey(
-      { dueDate: item.dueDate ? new Date(item.dueDate) : null, year, month: monthNumber },
+      { dueDate: scopedDueDate, year, month: monthNumber },
       payDate,
       payFrequency,
       payAnchorDate,
@@ -379,56 +403,53 @@ export async function addOrUpdateExpenseAcrossMonths(
       : null;
     const periodKey = normalizedExplicitPeriodKey ?? explicitPeriodKey ?? derivedPeriodKey;
 
+    const baseData = {
+      name: targetName,
+      amount: item.amount,
+      categoryId: item.categoryId ?? null,
+      paid: !!item.paid,
+      paidAmount: item.paidAmount ?? (item.paid ? item.amount : 0),
+      isAllocation: !!item.isAllocation,
+      isDirectDebit: !!item.isDirectDebit,
+      dueDate: scopedDueDate,
+      merchantDomain: logo.merchantDomain,
+      logoUrl: logo.logoUrl,
+      logoSource: logo.logoSource,
+      paymentSource,
+      cardDebtId,
+      isExtraLoggedExpense,
+      periodKey,
+    };
+
 		if (existing) {
-			await prisma.expense.update({
+			updateOps.push(
+        prisma.expense.update({
 				where: { id: existing.id },
-        data: ({
-          // Only backfill; never override an existing stable seriesKey.
-          seriesKey: existing.seriesKey ? undefined : seedSeriesKey,
-					name: targetName,
-					amount: item.amount,
-					categoryId: item.categoryId ?? null,
-					paid: !!item.paid,
-					paidAmount: item.paidAmount ?? (item.paid ? item.amount : 0),
-          isAllocation: !!item.isAllocation,
-          isDirectDebit: !!item.isDirectDebit,
-          dueDate: scopedDueDate,
-          merchantDomain: logo.merchantDomain,
-          logoUrl: logo.logoUrl,
-          logoSource: logo.logoSource,
-          paymentSource,
-          cardDebtId,
-          isExtraLoggedExpense: (item as any).isExtraLoggedExpense === undefined ? undefined : isExtraLoggedExpense,
-          periodKey,
-        }) as any,
-			});
+          data: ({
+            // Only backfill; never override an existing stable seriesKey.
+            seriesKey: existing.seriesKey ? undefined : seedSeriesKey,
+            ...baseData,
+          }) as any,
+        })
+      );
 			continue;
 		}
 
-		await prisma.expense.create({
-      data: ({
-				budgetPlanId,
-				year,
-				month: monthNumber,
+		createRows.push({
+			budgetPlanId,
+			year,
+			month: monthNumber,
         seriesKey: seedSeriesKey,
-				name: targetName,
-				amount: item.amount,
-				categoryId: item.categoryId ?? null,
-				paid: !!item.paid,
-				paidAmount: item.paidAmount ?? (item.paid ? item.amount : 0),
-        isAllocation: !!item.isAllocation,
-        isDirectDebit: !!item.isDirectDebit,
-        merchantDomain: logo.merchantDomain,
-        logoUrl: logo.logoUrl,
-        logoSource: logo.logoSource,
-				dueDate: scopedDueDate,
-        paymentSource,
-        cardDebtId,
-        isExtraLoggedExpense,
-        periodKey,
-      }) as any,
+        ...baseData,
 		});
 	}
+
+  if (createRows.length > 0) {
+    await prisma.expense.createMany({ data: createRows as any });
+  }
+  for (const updateOp of updateOps) {
+    await updateOp;
+  }
 }
 
 export async function updateExpense(
