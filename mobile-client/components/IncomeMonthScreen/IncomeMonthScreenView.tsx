@@ -19,6 +19,7 @@ import { computeMoneyLeftVsLastMonth } from "@/lib/domain/incomeStats";
 import { currencySymbol, fmt, MONTH_NAMES_LONG } from "@/lib/formatting";
 import { useIncomeCRUD, useTopHeaderOffset } from "@/hooks";
 import { registerSessionScopedResetter } from "@/lib/sessionScopedState";
+import { subscribeIncomeAddTrigger } from "@/lib/events/incomeAddTrigger";
 import {
   buildPayPeriodFromMonthAnchor,
   getPayPeriodAnchorFromSelection,
@@ -655,6 +656,14 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
     }
     navigation.setParams({ openIncomeAddAt: undefined });
   }, [crud, isLocked, navigation, openIncomeAddAt]);
+
+  useEffect(() => {
+    return subscribeIncomeAddTrigger(() => {
+      if (isLocked) return;
+      crud.setShowAddForm(true);
+      setViewMode("income");
+    });
+  }, [crud, isLocked]);
 
   type SacrificePeriod =
     | "this_month"

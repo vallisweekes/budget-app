@@ -6,6 +6,7 @@ import { NativeTabs } from "expo-router/unstable-native-tabs";
 
 import { useAuth } from "@/context/AuthContext";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
+import { emitIncomeAddTrigger } from "@/lib/events/incomeAddTrigger";
 import { isDebtManagementEnabled, hasPositiveDebtBalance } from "@/lib/helpers/debtManagement";
 import { T } from "@/lib/theme";
 import { emitCategoryAddExpenseTrigger } from "@/lib/events/categoryAddExpenseTrigger";
@@ -139,15 +140,14 @@ export default function MainTabsLayout() {
     listeners: createTabListeners(isIncomeSplitRoute
       ? {
           onTabPress: () => {
-            incomeAddTokenRef.current += 1;
-            const nextToken = String(incomeAddTokenRef.current);
-
             if (segments[2] === "IncomeMonth") {
-              router.setParams({ openIncomeAddAt: nextToken });
+              incomeAddTokenRef.current = emitIncomeAddTrigger();
               return;
             }
 
             if (segments[2] === "IncomeGrid") {
+              incomeAddTokenRef.current += 1;
+              const nextToken = String(incomeAddTokenRef.current);
               router.setParams({ openYearIncomeSheetAt: nextToken });
             }
           },
