@@ -83,6 +83,7 @@ export default function IncomeMonthIncomeList({
           <View style={sheet.overlay}>
             <Pressable style={sheet.backdrop} onPress={() => crud.setShowAddForm(false)} />
             <View style={sheet.sheet}>
+              <View pointerEvents="none" style={sheet.innerStroke} />
               <View style={sheet.handle} />
               <IncomeAddForm
                 currency={currency}

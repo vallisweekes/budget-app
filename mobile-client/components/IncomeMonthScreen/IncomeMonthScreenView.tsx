@@ -659,6 +659,7 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
 
   useEffect(() => {
     return subscribeIncomeAddTrigger(() => {
+      if (!navigation.isFocused?.()) return;
       if (isLocked) return;
       crud.setShowAddForm(true);
       setViewMode("income");

@@ -91,26 +91,37 @@ export default function TabRouteHeader() {
     return null;
   }
 
+  const routeMonthNum = getRouteParamNumber(routeParams, "month");
+  const routeYearNum = getRouteParamNumber(routeParams, "year");
+  const localMonthNum = getNumberParam(params.month);
+  const localYearNum = getNumberParam(params.year);
   const monthNum = (() => {
-    const fromLocal = getNumberParam(params.month);
-    if (Number.isFinite(fromLocal)) return fromLocal;
-    return getRouteParamNumber(routeParams, "month");
+    if (isIncomeMonth && Number.isFinite(routeMonthNum)) return routeMonthNum;
+    if (Number.isFinite(localMonthNum)) return localMonthNum;
+    return routeMonthNum;
   })();
   const yearNum = (() => {
-    const fromLocal = getNumberParam(params.year);
-    if (Number.isFinite(fromLocal)) return fromLocal;
-    return getRouteParamNumber(routeParams, "year");
+    if (isIncomeMonth && Number.isFinite(routeYearNum)) return routeYearNum;
+    if (Number.isFinite(localYearNum)) return localYearNum;
+    return routeYearNum;
   })();
-  const rawIncomeMonthBudgetPlanId = getStringParam(params.budgetPlanId)
-    ?? getRouteParamString(routeParams, "budgetPlanId")
-    ?? "";
+  const routeIncomeMonthBudgetPlanId = getRouteParamString(routeParams, "budgetPlanId") ?? "";
+  const localIncomeMonthBudgetPlanId = getStringParam(params.budgetPlanId) ?? "";
+  const rawIncomeMonthBudgetPlanId = isIncomeMonth
+    ? (routeIncomeMonthBudgetPlanId || localIncomeMonthBudgetPlanId)
+    : (localIncomeMonthBudgetPlanId || routeIncomeMonthBudgetPlanId);
   const incomeMonthBudgetPlanId = availablePlanIds.has(rawIncomeMonthBudgetPlanId)
     ? rawIncomeMonthBudgetPlanId
     : (activeBudgetPlanId || bootstrapBudgetPlanId || "");
-  const incomeMonthInitialMode = (getStringParam(params.initialMode)
-    ?? (routeParams?.initialMode === "sacrifice" ? "sacrifice" : "income")) === "sacrifice"
+  const localIncomeMonthInitialMode = getStringParam(params.initialMode) === "sacrifice"
     ? "sacrifice"
-    : "income";
+    : null;
+  const routeIncomeMonthInitialMode = routeParams?.initialMode === "sacrifice"
+    ? "sacrifice"
+    : null;
+  const incomeMonthInitialMode = (isIncomeMonth
+    ? (routeIncomeMonthInitialMode ?? localIncomeMonthInitialMode)
+    : (localIncomeMonthInitialMode ?? routeIncomeMonthInitialMode)) ?? "income";
   const isStandaloneSacrificeIncomeMonth = (getStringParam(params.standaloneSacrifice) === "true"
     || routeParams?.standaloneSacrifice === true)
     && isIncomeMonth;
@@ -229,7 +240,7 @@ export default function TabRouteHeader() {
       year={Math.floor(yearNum)}
       budgetPlanId={incomeMonthBudgetPlanId}
       onNavigate={(nextMonth, nextYear) => {
-        pushRoute("/(tabs)/income/IncomeMonth", {
+        replaceRoute("/(tabs)/income/IncomeMonth", {
           month: nextMonth,
           year: nextYear,
           budgetPlanId: incomeMonthBudgetPlanId,

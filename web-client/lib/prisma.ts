@@ -24,13 +24,13 @@ function getPrismaRuntimeTuning() {
   const isDev = process.env.NODE_ENV !== "production";
   return {
     connectionLimit: isDev
-      ? parsePositiveInt(process.env.PRISMA_DEV_CONNECTION_LIMIT ?? "5", 5)
+      ? parsePositiveInt(process.env.PRISMA_DEV_CONNECTION_LIMIT ?? "10", 10)
       : parsePositiveInt(process.env.PRISMA_CONNECTION_LIMIT ?? "10", 10),
     poolTimeoutSeconds: isDev
-      ? parsePositiveInt(process.env.PRISMA_DEV_POOL_TIMEOUT_SECONDS ?? "3", 3)
+      ? parsePositiveInt(process.env.PRISMA_DEV_POOL_TIMEOUT_SECONDS ?? "10", 10)
       : parsePositiveInt(process.env.PRISMA_POOL_TIMEOUT_SECONDS ?? "20", 20),
     connectTimeoutSeconds: isDev
-      ? parsePositiveInt(process.env.PRISMA_DEV_CONNECT_TIMEOUT_SECONDS ?? "5", 5)
+      ? parsePositiveInt(process.env.PRISMA_DEV_CONNECT_TIMEOUT_SECONDS ?? "8", 8)
       : parsePositiveInt(process.env.PRISMA_CONNECT_TIMEOUT_SECONDS ?? "15", 15),
   };
 }

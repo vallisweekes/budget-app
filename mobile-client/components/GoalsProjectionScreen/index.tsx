@@ -40,6 +40,7 @@ export default function GoalsProjectionScreen({ navigation }: { navigation: any 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedScenario, setSelectedScenario] = useState<number | null>(null);
+  const [isScenarioSliding, setIsScenarioSliding] = useState(false);
 
   const load = useCallback(async (options?: { force?: boolean }) => {
     try {
@@ -80,8 +81,10 @@ export default function GoalsProjectionScreen({ navigation }: { navigation: any 
   }, [projection]);
   const scenarioDelta = projection && baseProjection ? projection.totalProjected - baseProjection.totalProjected : 0;
   const scenarioLabel = isCurrentScenario ? "Current plan" : `${fmt(effectiveScenarioMonthly, currency)}/mo`;
+  const startYearLabel = String(new Date().getFullYear());
   const endYearLabel = projection?.endYear ? String(projection.endYear) : "Target year";
   const midYearLabel = projection?.endYear ? String(Math.max(new Date().getFullYear(), Math.round((new Date().getFullYear() + projection.endYear) / 2))) : "Midpoint";
+  const projectionRange = projection?.endYear ? `${startYearLabel} - ${endYearLabel}` : `Now - ${endYearLabel}`;
 
   if (loading) {
     return (
@@ -123,79 +126,21 @@ export default function GoalsProjectionScreen({ navigation }: { navigation: any 
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[styles.scroll, { paddingTop: topInset + 56 }]}
+        scrollEnabled={!isScenarioSliding}
         showsVerticalScrollIndicator={false}
       >
         {projection ? (
           <>
-            <View style={styles.heroCard}>
-              <View style={styles.heroCopy}>
-                <Text style={styles.eyebrow}>Target year forecast</Text>
-                <Text style={styles.heroTitle}>See what a monthly savings amount gets you by your target year.</Text>
-                <Text style={styles.heroText}>
-                  With {scenarioLabel}, you could reach {fmt(projection.totalProjected, currency)} across your active goals by {endYearLabel}.
-                </Text>
-                {selectedScenario != null && baseProjection ? (
-                  <Text style={styles.heroScenarioNote}>
-                    That is {" "}
-                    <Text style={scenarioDelta >= 0 ? styles.heroScenarioPositive : styles.heroScenarioNegative}>
-                      {scenarioDelta >= 0 ? `+${fmt(scenarioDelta, currency)}` : fmt(scenarioDelta, currency)}
-                    </Text>
-                    {" compared with your current plan."}
-                  </Text>
-                ) : (
-                  <Text style={styles.heroScenarioNote}>Drag the slider to test different monthly saving amounts.</Text>
-                )}
-              </View>
-
-              <View style={styles.scenarioWrap}>
-                <Text style={styles.scenarioLabel}>What if I save each month</Text>
-                <ScenarioSlider
-                  label="Monthly savings"
-                  min={0}
-                  max={scenarioMax}
-                  step={10}
-                  value={effectiveScenarioMonthly}
-                  baselineValue={currentPlanMonthly}
-                  currency={currency}
-                  tickValues={[0, 50, 100, 150, 200, 500].filter((tick) => tick <= scenarioMax)}
-                  onChange={setSelectedScenario}
-                />
-              </View>
-
-              <View style={styles.metricGrid}>
-                <View style={styles.metricCard}>
-                  <Text style={styles.metricLabel}>Saved now</Text>
-                  <Text style={styles.metricValue}>{fmt(projection.totalCurrent, currency)}</Text>
-                </View>
-                <View style={styles.metricCard}>
-                  <Text style={styles.metricLabel}>Monthly pace</Text>
-                  <Text style={styles.metricValue}>{fmt(projection.monthlyTotal, currency)}</Text>
-                </View>
-                <View style={styles.metricCard}>
-                  <Text style={styles.metricLabel}>On track</Text>
-                  <Text style={styles.metricValue}>{`${projection.onTrackCount}/${projection.lines.length}`}</Text>
-                </View>
-              </View>
-            </View>
-
             <View style={styles.chartCard}>
               <View style={styles.chartHeaderRow}>
-                <View>
-                  <Text style={styles.chartTitle}>Projection curve</Text>
+                <View style={styles.chartTitleBlock}>
+                  <Text style={styles.chartEyebrow}>Projection curve</Text>
+                  <Text style={styles.chartTitle}>Goal trajectory</Text>
                   <Text style={styles.chartSubtitle}>{`Projected balances through ${endYearLabel}`}</Text>
                 </View>
                 <View style={styles.chartPill}>
                   <Text style={styles.chartPillText}>{scenarioLabel}</Text>
                 </View>
-              </View>
-
-              <View style={styles.legendRow}>
-                {projection.lines.map((line) => (
-                  <View key={line.id} style={styles.legendItem}>
-                    <View style={[styles.legendDot, { backgroundColor: line.color }]} />
-                    <Text style={styles.legendTxt}>{line.title}</Text>
-                  </View>
-                ))}
               </View>
 
               <View style={styles.chartShell}>
@@ -274,6 +219,70 @@ export default function GoalsProjectionScreen({ navigation }: { navigation: any 
                 <Text style={styles.axisTxt}>Now</Text>
                 <Text style={styles.axisTxt}>{midYearLabel}</Text>
                 <Text style={styles.axisTxt}>{endYearLabel}</Text>
+              </View>
+
+              <View style={styles.chartRangeRow}>
+                <Text style={styles.chartRangeLabel}>Projection range</Text>
+                <Text style={styles.chartRangeValue}>{projectionRange}</Text>
+              </View>
+
+              <View style={styles.legendRow}>
+                {projection.lines.map((line) => (
+                  <View key={line.id} style={styles.legendItem}>
+                    <View style={[styles.legendDot, { backgroundColor: line.color }]} />
+                    <Text style={styles.legendTxt}>{line.title}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.heroCard}>
+              <View style={styles.heroCopy}>
+                <Text style={styles.eyebrow}>Forecast</Text>
+                <Text style={styles.heroTitle}>{`Projected by ${endYearLabel}`}</Text>
+                <Text style={styles.heroText}>
+                  {fmt(projection.totalProjected, currency)} across your active goals.
+                </Text>
+                {selectedScenario != null && baseProjection ? (
+                  <Text style={styles.heroScenarioNote}>
+                    <Text style={scenarioDelta >= 0 ? styles.heroScenarioPositive : styles.heroScenarioNegative}>
+                      {scenarioDelta >= 0 ? `+${fmt(scenarioDelta, currency)}` : fmt(scenarioDelta, currency)}
+                    </Text>
+                    {" vs current plan"}
+                  </Text>
+                ) : (
+                  <Text style={styles.heroScenarioNote}>Adjust the slider to compare scenarios.</Text>
+                )}
+              </View>
+
+              <View style={styles.scenarioWrap}>
+                <ScenarioSlider
+                  label="Per month"
+                  min={0}
+                  max={scenarioMax}
+                  step={10}
+                  value={effectiveScenarioMonthly}
+                  baselineValue={currentPlanMonthly}
+                  currency={currency}
+                  tickValues={[0, 50, 100, 150, 200, 500].filter((tick) => tick <= scenarioMax)}
+                  onSlidingChange={setIsScenarioSliding}
+                  onChange={setSelectedScenario}
+                />
+              </View>
+
+              <View style={styles.metricGrid}>
+                <View style={styles.metricCard}>
+                  <Text style={styles.metricLabel}>Saved now</Text>
+                  <Text style={styles.metricValue}>{fmt(projection.totalCurrent, currency)}</Text>
+                </View>
+                <View style={styles.metricCard}>
+                  <Text style={styles.metricLabel}>Monthly pace</Text>
+                  <Text style={styles.metricValue}>{fmt(projection.monthlyTotal, currency)}</Text>
+                </View>
+                <View style={styles.metricCard}>
+                  <Text style={styles.metricLabel}>On track</Text>
+                  <Text style={styles.metricValue}>{`${projection.onTrackCount}/${projection.lines.length}`}</Text>
+                </View>
               </View>
             </View>
 

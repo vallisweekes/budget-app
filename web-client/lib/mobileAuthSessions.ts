@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/prisma";
+import { withPrismaRetry } from "@/lib/prismaRetry";
 
 export const MOBILE_AUTH_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
 
@@ -34,16 +35,19 @@ export async function createMobileAuthSession(params: {
   const expiresAt = new Date(Date.now() + maxAgeSeconds * 1000);
 
   try {
-    const row = await mobileAuthSessionDelegate(prisma).create({
-      data: {
-        userId: params.userId,
-        expiresAt,
-      },
-      select: {
-        id: true,
-        expiresAt: true,
-      },
-    });
+    const row = await withPrismaRetry(
+      () => mobileAuthSessionDelegate(prisma).create({
+        data: {
+          userId: params.userId,
+          expiresAt,
+        },
+        select: {
+          id: true,
+          expiresAt: true,
+        },
+      }),
+      { retries: 2, delayMs: 120 },
+    );
 
     return {
       sessionId: row.id,
@@ -64,16 +68,19 @@ export async function revokeMobileAuthSession(params: {
   userId: string;
 }): Promise<void> {
   try {
-    await mobileAuthSessionDelegate(prisma).updateMany({
-      where: {
-        id: params.sessionId,
-        userId: params.userId,
-        revokedAt: null,
-      },
-      data: {
-        revokedAt: new Date(),
-      },
-    });
+    await withPrismaRetry(
+      () => mobileAuthSessionDelegate(prisma).updateMany({
+        where: {
+          id: params.sessionId,
+          userId: params.userId,
+          revokedAt: null,
+        },
+        data: {
+          revokedAt: new Date(),
+        },
+      }),
+      { retries: 2, delayMs: 120 },
+    );
   } catch (error) {
     if (!isSessionTableMissing(error)) throw error;
   }
@@ -130,16 +137,19 @@ export async function touchMobileAuthSessionAndGetState(params: {
     const lastSeenAtMs = previousLastSeenAt?.getTime() ?? 0;
     const isFirstSeen = createdAtMs > 0 && lastSeenAtMs > 0 && Math.abs(lastSeenAtMs - createdAtMs) <= 2_000;
 
-    await mobileAuthSessionDelegate(prisma).updateMany({
-      where: {
-        id: params.sessionId,
-        userId: params.userId,
-        revokedAt: null,
-      },
-      data: {
-        lastSeenAt: new Date(),
-      },
-    });
+    await withPrismaRetry(
+      () => mobileAuthSessionDelegate(prisma).updateMany({
+        where: {
+          id: params.sessionId,
+          userId: params.userId,
+          revokedAt: null,
+        },
+        data: {
+          lastSeenAt: new Date(),
+        },
+      }),
+      { retries: 2, delayMs: 120 },
+    );
 
     return {
       isFirstSeen,

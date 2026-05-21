@@ -19,6 +19,7 @@ type ScenarioSliderProps = {
   baselineValue: number;
   tickValues?: number[];
   formatValue?: (value: number) => string;
+  onSlidingChange?: (isSliding: boolean) => void;
   onChange: (next: number) => void;
 };
 
@@ -40,6 +41,7 @@ export default function ScenarioSlider({
   baselineValue,
   tickValues,
   formatValue,
+  onSlidingChange,
   onChange,
 }: ScenarioSliderProps) {
   const [trackWidth, setTrackWidth] = useState(0);
@@ -62,10 +64,18 @@ export default function ScenarioSlider({
     () => PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: (event) => updateFromPageX(event.nativeEvent.pageX),
+      onStartShouldSetPanResponderCapture: () => true,
+      onMoveShouldSetPanResponderCapture: () => true,
+      onPanResponderGrant: (event) => {
+        onSlidingChange?.(true);
+        updateFromPageX(event.nativeEvent.pageX);
+      },
       onPanResponderMove: (event) => updateFromPageX(event.nativeEvent.pageX),
+      onPanResponderRelease: () => onSlidingChange?.(false),
+      onPanResponderTerminate: () => onSlidingChange?.(false),
+      onPanResponderTerminationRequest: () => false,
     }),
-    [max, min, range, step, trackWidth],
+    [max, min, onSlidingChange, range, step, trackWidth],
   );
 
   const handleTrackLayout = (event: LayoutChangeEvent) => {
