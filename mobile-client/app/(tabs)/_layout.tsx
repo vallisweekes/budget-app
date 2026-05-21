@@ -9,6 +9,7 @@ import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { isDebtManagementEnabled, hasPositiveDebtBalance } from "@/lib/helpers/debtManagement";
 import { T } from "@/lib/theme";
 import { emitCategoryAddExpenseTrigger } from "@/lib/events/categoryAddExpenseTrigger";
+import { useGetDebtSummaryQuery } from "@/store/api";
 
 type TabRouteState = {
   key: string;
@@ -63,6 +64,10 @@ export default function MainTabsLayout() {
   const segments = useSegments() as string[];
   const { profile } = useAuth();
   const { dashboard, isLoading: bootstrapLoading } = useBootstrapData();
+  const debtSummaryQuery = useGetDebtSummaryQuery(undefined, {
+    skip: !profile,
+    refetchOnMountOrArgChange: true,
+  });
   const incomeAddTokenRef = React.useRef(0);
   const debtAddTokenRef = React.useRef(0);
   const categoryAddTokenRef = React.useRef(0);
@@ -84,13 +89,20 @@ export default function MainTabsLayout() {
     && segments[1] === "debts"
     && !isDebtDetailRoute
     && !isDebtAnalyticsRoute;
-  const hasActualDebts = React.useMemo(() => hasPositiveDebtBalance(dashboard?.debts), [dashboard?.debts]);
+  const hasActualDebts = React.useMemo(() => {
+    if (debtSummaryQuery.isSuccess) {
+      return (debtSummaryQuery.data?.activeCount ?? 0) > 0;
+    }
+
+    return hasPositiveDebtBalance(dashboard?.debts);
+  }, [dashboard?.debts, debtSummaryQuery.data?.activeCount, debtSummaryQuery.isSuccess]);
   const showDebtsTab = isDebtManagementEnabled({
     hasActualDebts,
     profileHasDebtsToManage: profile?.onboarding?.profile?.hasDebtsToManage,
   });
-  const debtVisibilityResolved = !bootstrapLoading;
+  const debtVisibilityResolved = !bootstrapLoading && (!profile || debtSummaryQuery.isSuccess || debtSummaryQuery.isError);
   const isTabsHidden = isDebtDetailRoute || isExpenseDetailRoute || isGoalDetailRoute;
+  const shouldHideNativeTabs = isTabsHidden || segments[0] !== "(tabs)";
   const tabsLayoutKey = isCategoryExpensesSplitRoute
     ? "tabs:category-expenses-split"
     : isIncomeSplitRoute
@@ -178,7 +190,7 @@ export default function MainTabsLayout() {
     return (
       <NativeTabs
         key={tabsLayoutKey}
-        hidden={isTabsHidden}
+        hidden={shouldHideNativeTabs}
         tintColor={selectedTintColor}
         iconColor={inactiveIconColor}
         labelStyle={splitRouteLabelStyle}
@@ -208,7 +220,7 @@ export default function MainTabsLayout() {
     return (
       <NativeTabs
         key={tabsLayoutKey}
-        hidden={isTabsHidden}
+        hidden={shouldHideNativeTabs}
         tintColor={selectedTintColor}
         iconColor={inactiveIconColor}
         labelStyle={splitRouteLabelStyle}
@@ -262,7 +274,7 @@ export default function MainTabsLayout() {
     return (
       <NativeTabs
         key={tabsLayoutKey}
-        hidden={isTabsHidden}
+        hidden={shouldHideNativeTabs}
         tintColor={selectedTintColor}
         iconColor={inactiveIconColor}
         labelStyle={splitRouteLabelStyle}
@@ -305,7 +317,7 @@ export default function MainTabsLayout() {
         key={tabsLayoutKey}
         backgroundColor={tabBarBackgroundColor}
         blurEffect={tabBarBlurEffect}
-        hidden={isTabsHidden}
+        hidden={shouldHideNativeTabs}
         shadowColor={tabBarShadowColor}
         tintColor={selectedTintColor}
         iconColor={inactiveIconColor}

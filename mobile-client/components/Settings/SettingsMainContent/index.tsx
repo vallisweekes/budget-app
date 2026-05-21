@@ -23,6 +23,7 @@ import {
 } from "@/lib/helpers/settingsOverview";
 import { styles } from "./styles";
 import { T } from "@/lib/theme";
+import { useGetDebtSummaryQuery } from "@/store/api";
 import type { SettingsMainContentProps } from "@/types/components/settings/SettingsMainContent.types";
 
 function getVerificationLabel(profile: SettingsMainContentProps["controller"]["profile"]): string {
@@ -45,16 +46,20 @@ export default function SettingsMainContent({ controller, navigation, savingsTil
   const scrollRef = React.useRef<ScrollView | null>(null);
   const router = useRouter();
   const { dashboard } = useBootstrapData();
+  const debtSummaryQuery = useGetDebtSummaryQuery(undefined, { refetchOnMountOrArgChange: true });
   const openIncomeSettings = React.useCallback(() => {
     router.push("/settings-income-settings");
   }, [router]);
   const openDebtManagement = React.useCallback(() => {
     router.push("/settings-debt-management");
   }, [router]);
-  const hasDashboardDebts = React.useMemo(
-    () => hasPositiveDebtBalance(dashboard?.debts),
-    [dashboard?.debts],
-  );
+  const hasDashboardDebts = React.useMemo(() => {
+    if (debtSummaryQuery.isSuccess) {
+      return (debtSummaryQuery.data?.activeCount ?? 0) > 0;
+    }
+
+    return hasPositiveDebtBalance(dashboard?.debts);
+  }, [dashboard?.debts, debtSummaryQuery.data?.activeCount, debtSummaryQuery.isSuccess]);
   const debtManagementEnabled = isDebtManagementEnabled({
     hasActualDebts: hasDashboardDebts,
     hasConfiguredDebts: controller.hasAnyDebts,

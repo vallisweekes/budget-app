@@ -22,17 +22,70 @@ function rawExpenseSeeds(profile: ExpenseProfileFields) {
   ];
 }
 
+function formatExpenseSeedName(value: string | null | undefined): string | null {
+  const cleaned = cleanText(value);
+  if (!cleaned) return null;
+
+  return cleaned.replace(/\b([A-Za-z][A-Za-z'/-]*)\b/g, (word) => {
+    if (/^[A-Z0-9]{2,4}$/.test(word)) return word;
+    const lower = word.toLowerCase();
+    return lower.charAt(0).toUpperCase() + lower.slice(1);
+  });
+}
+
+function splitExpenseSeedNames(value: string | null | undefined): string[] {
+  const cleaned = cleanText(value);
+  if (!cleaned) return [];
+
+  return cleaned
+    .split(/\s*(?:,|\band\b)\s*/i)
+    .map((part) => formatExpenseSeedName(part))
+    .filter((part): part is string => Boolean(part));
+}
+
+function splitAmountEvenly(amount: number, count: number): number[] {
+  if (count <= 1) return [Number(amount.toFixed(2))];
+
+  const totalPennies = Math.max(0, Math.round(amount * 100));
+  const basePennies = Math.floor(totalPennies / count);
+  const remainderPennies = totalPennies % count;
+
+  return Array.from({ length: count }, (_, index) => {
+    const pennies = basePennies + (index < remainderPennies ? 1 : 0);
+    return Number((pennies / 100).toFixed(2));
+  });
+}
+
+export function expandOnboardingExpenseSeed(item: {
+  name: string | null | undefined;
+  amount: number;
+  fallbackName?: string | null | undefined;
+}): ExpenseSeedInput[] {
+  if (item.amount <= 0) return [];
+
+  const splitNames = splitExpenseSeedNames(item.name);
+  const resolvedNames = splitNames.length > 0
+    ? splitNames
+    : [formatExpenseSeedName(item.name) ?? formatExpenseSeedName(item.fallbackName) ?? "Bill"];
+  const splitAmounts = splitAmountEvenly(item.amount, resolvedNames.length);
+
+  return resolvedNames.map((name, index) => ({
+    name,
+    amount: splitAmounts[index] ?? 0,
+  }));
+}
+
 export function buildExpenseSeedInputs(profile: ExpenseProfileFields): ExpenseSeedInput[] {
-  return rawExpenseSeeds(profile).filter((item) => item.amount > 0).map((item) => ({ name: cleanText(item.name) || item.fallbackName, amount: item.amount }));
+  return rawExpenseSeeds(profile).flatMap((item) => expandOnboardingExpenseSeed(item));
 }
 
 export async function resolveCategorizedExpenseSeeds(params: { budgetPlanId: string; profile: ExpenseProfileFields }) {
   const categories = await prisma.category.findMany({ where: { budgetPlanId: params.budgetPlanId }, select: { id: true, name: true } });
   const availableCategoryNames = categories.map((category) => category.name);
   const categoryIdByLowerName = new Map(categories.map((category) => [category.name.toLowerCase(), category.id] as const));
-  const resolved = await Promise.all(rawExpenseSeeds(params.profile).map(async (item) => {
+  const resolved = await Promise.all(buildExpenseSeedInputs(params.profile).map(async (item) => {
     if (item.amount <= 0) return null;
-    const name = cleanText(item.name) || item.fallbackName;
+    const name = item.name;
     const suggestedName = await suggestCategoryNameForExpense({ expenseName: name, availableCategories: availableCategoryNames });
     return { name, amount: item.amount, categoryId: suggestedName ? categoryIdByLowerName.get(suggestedName.toLowerCase()) ?? null : null };
   }));

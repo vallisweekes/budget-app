@@ -16,20 +16,28 @@ export default function SettingsDebtManagementScreen() {
   const topHeaderOffset = useTopHeaderOffset(8);
   const { dashboard, refresh: refreshBootstrap } = useBootstrapData();
   const { refreshProfile } = useAuth();
-  const onboardingQuery = useGetOnboardingStatusQuery();
-  const debtSummaryQuery = useGetDebtSummaryQuery();
+  const onboardingQuery = useGetOnboardingStatusQuery(undefined, { refetchOnMountOrArgChange: true });
+  const debtSummaryQuery = useGetDebtSummaryQuery(undefined, { refetchOnMountOrArgChange: true });
   const [updateOnboardingProfile, { isLoading: saving }] = useUpdateOnboardingProfileMutation();
   const [deleteDebt] = useDeleteDebtMutation();
   const [isApplying, setIsApplying] = useState(false);
   const [confirmSheetVisible, setConfirmSheetVisible] = useState(false);
 
   const remoteProfile = onboardingQuery.data?.profile ?? null;
+
+  useEffect(() => {
+    void refreshBootstrap({ force: true });
+  }, [refreshBootstrap]);
+
   const debtIds = useMemo(() => {
     const summaryIds = (debtSummaryQuery.data?.debts ?? []).map((debt) => debt.id).filter(Boolean);
+    if (debtSummaryQuery.isSuccess) return Array.from(new Set(summaryIds));
+
     if (summaryIds.length > 0) return Array.from(new Set(summaryIds));
+
     const dashboardIds = (dashboard?.debts ?? []).map((debt) => debt.id).filter(Boolean);
     return Array.from(new Set(dashboardIds));
-  }, [dashboard?.debts, debtSummaryQuery.data?.debts]);
+  }, [dashboard?.debts, debtSummaryQuery.data?.debts, debtSummaryQuery.isSuccess]);
 
   const hasAnyDebtSetup = debtIds.length > 0;
   const remoteEnabled = isDebtManagementEnabled({

@@ -6,7 +6,7 @@ import { createMobileAuthSession } from "@/lib/mobileAuthSessions";
 import { consumeEmailLoginCode, isEmailLoginCodeRequired } from "@/lib/auth/loginCodes";
 import { isRetryableConnectionError } from "@/lib/prismaRetry";
 import { buildProfileResponse } from "@/lib/profileResponse";
-import { completeOnboarding, saveOnboardingDraft, type OnboardingGoalInput, type OnboardingInput } from "@/lib/onboarding";
+import { completeOnboarding, runOnboardingRepairPass, saveOnboardingDraft, type OnboardingGoalInput, type OnboardingInput } from "@/lib/onboarding";
 import { invalidateDashboardCache } from "@/lib/cache/dashboardCache";
 import { invalidateProfileCache } from "@/lib/cache/profileCache";
 import { sendEmailVerificationEmail } from "@/lib/auth/emailVerification";
@@ -157,6 +157,11 @@ export async function POST(request: Request) {
 
       await saveOnboardingDraft(user.id, onboarding);
       const result = await completeOnboarding(user.id);
+      try {
+        await runOnboardingRepairPass(user.id);
+      } catch (repairError) {
+        console.error("Mobile auth onboarding repair pass failed:", repairError);
+      }
 
       try {
         await sendEmailVerificationEmail(user.id, { resetDeadline: true });

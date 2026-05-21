@@ -3,8 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { getSessionIdentity } from "@/lib/api/bffAuth";
 import { isValidEmail, normalizeEmail } from "@/lib/helpers/email";
 import { sendEmailVerificationEmail } from "@/lib/auth/emailVerification";
+import { bestEffortWithin } from "@/lib/bestEffortWithin";
 import { runOnboardingRepairPass } from "@/lib/onboarding";
-import { touchMobileAuthSessionAndDetectFirstSeen } from "@/lib/mobileAuthSessions";
+import { touchMobileAuthSessionAndGetState } from "@/lib/mobileAuthSessions";
 import { getJsonCache, setJsonCache } from "@/lib/cache/redisJsonCache";
 import { isRedisConfigured } from "@/lib/redis";
 import {
@@ -13,7 +14,6 @@ import {
   invalidateProfileCache,
 } from "@/lib/cache/profileCache";
 import { buildProfileResponse } from "@/lib/profileResponse";
-import { bestEffortWithin } from "@/lib/bestEffortWithin";
 
 export const runtime = "nodejs";
 
@@ -21,20 +21,47 @@ function unauthorized() {
   return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 }
 
+function latestDate(...dates: Array<Date | null | undefined>): Date | null {
+  const valid = dates.filter((date): date is Date => date instanceof Date && !Number.isNaN(date.getTime()));
+  if (valid.length === 0) return null;
+  return valid.reduce((latest, current) => (current.getTime() > latest.getTime() ? current : latest));
+}
+
 export async function GET(request: Request) {
   try {
     const identity = await getSessionIdentity(request);
     if (!identity?.userId) return unauthorized();
 
-    // One-time per mobile login session: repair older onboarding test data
-    // (missing due dates / missing seeded periods) so Home + Expenses stay consistent.
+    // Repair older pre-start seeded rows the first time a mobile session is seen,
+    // and once more if onboarding completed after the session was already active.
     if (identity.sessionId) {
       try {
-        const firstSeen = await touchMobileAuthSessionAndDetectFirstSeen({
+        const sessionState = await touchMobileAuthSessionAndGetState({
           userId: identity.userId,
           sessionId: identity.sessionId,
         });
-        if (firstSeen) {
+
+        let shouldRunRepair = sessionState.isFirstSeen;
+
+        if (!shouldRunRepair) {
+          const onboardingState = await prisma.userOnboardingProfile.findUnique({
+            where: { userId: identity.userId },
+            select: { status: true, completedAt: true, updatedAt: true },
+          }).catch(() => null);
+
+          const repairReferenceAt = onboardingState?.status === "completed"
+            ? latestDate(onboardingState.completedAt, onboardingState.updatedAt)
+            : null;
+          const lastSeenReferenceAt = sessionState.previousLastSeenAt ?? sessionState.createdAt;
+
+          shouldRunRepair = Boolean(
+            repairReferenceAt &&
+            lastSeenReferenceAt &&
+            lastSeenReferenceAt.getTime() < repairReferenceAt.getTime()
+          );
+        }
+
+        if (shouldRunRepair) {
           await runOnboardingRepairPass(identity.userId);
         }
       } catch (error) {
