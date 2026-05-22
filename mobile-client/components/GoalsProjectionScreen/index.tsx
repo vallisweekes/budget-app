@@ -1,14 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { View, Text, Pressable, ActivityIndicator, ScrollView } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { BlurView } from "expo-blur";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
+import { useRouter } from "expo-router";
 import Svg, { Circle, Defs, Line, LinearGradient, Path, Polyline, Stop } from "react-native-svg";
 
 import type { DashboardData } from "@/lib/apiTypes";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { currencySymbol, fmt } from "@/lib/formatting";
-import { useTopHeaderOffset } from "@/hooks";
 import { T } from "@/lib/theme";
 
 import { buildGoalsProjection } from "./projection";
@@ -44,7 +45,9 @@ function fmtCompactCurrency(value: number, currency?: string) {
 }
 
 export default function GoalsProjectionScreen() {
-  const topHeaderOffset = useTopHeaderOffset(-30);
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const topInset = Math.max(0, insets.top);
   const { dashboard: bootstrapDashboard, settings, ensureLoaded, refresh: refreshBootstrap } = useBootstrapData();
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -100,7 +103,7 @@ export default function GoalsProjectionScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.safe, { paddingTop: topHeaderOffset }]} edges={["bottom"]}>
+      <SafeAreaView style={[styles.safe, { paddingTop: topInset + 16 }]} edges={["bottom"]}>
         <View style={styles.center}>
           <ActivityIndicator size="large" color={T.accent} />
           <Text style={styles.stateText}>Loading projection…</Text>
@@ -111,7 +114,7 @@ export default function GoalsProjectionScreen() {
 
   if (error) {
     return (
-      <SafeAreaView style={[styles.safe, { paddingTop: topHeaderOffset }]} edges={["bottom"]}>
+      <SafeAreaView style={[styles.safe, { paddingTop: topInset + 16 }]} edges={["bottom"]}>
         <View style={styles.center}>
           <Ionicons name="cloud-offline-outline" size={48} color={T.textDim} />
           <Text style={styles.errorText}>{error}</Text>
@@ -125,9 +128,19 @@ export default function GoalsProjectionScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={["bottom"]}>
+      <View style={[styles.header, { paddingTop: topInset + 6 }]}> 
+        <BlurView intensity={14} tint="dark" style={styles.headerBlur} pointerEvents="none" />
+        <View style={styles.headerGlassTint} pointerEvents="none" />
+        <Pressable onPress={() => router.push("/(tabs)/goals")} style={styles.backBtn} hitSlop={10}>
+          <Ionicons name="chevron-back" size={24} color={T.text} />
+        </Pressable>
+        <Text style={styles.headerTitle}>Goals projection</Text>
+        <View style={styles.headerSpacer} />
+      </View>
+
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={[styles.scroll, { paddingTop: Math.max(24, topHeaderOffset - 18) }]}
+        contentContainerStyle={[styles.scroll, { paddingTop: topInset + 56 }]}
         scrollEnabled={!isScenarioSliding}
         showsVerticalScrollIndicator={false}
       >

@@ -67,7 +67,6 @@ export default function TabRouteHeader() {
   const isGoals = tabSegment === "goals";
   const isGoalsProjection = tabSegment === "goals-projection";
   const isGoalsSection = isGoals || isGoalsProjection;
-  const isGoalsRootRoute = isGoals && !leafSegment;
   const isIncomeTab = tabSegment === "income";
   const isDashboardHome = tabSegment === "dashboard" && !leafSegment;
   const isGoalDetail = leafSegment === "GoalDetail";
@@ -259,7 +258,7 @@ export default function TabRouteHeader() {
 
   const handleBack = () => {
     if (isGoalsProjection) {
-      replaceRoute("/(tabs)/goals");
+      pushRoute("/(tabs)/goals");
       return;
     }
 
