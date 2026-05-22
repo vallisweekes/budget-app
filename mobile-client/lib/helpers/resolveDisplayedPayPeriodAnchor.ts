@@ -60,7 +60,7 @@ export async function resolveDisplayedPayPeriodAnchor(params: {
 
   try {
     const summary = await apiFetch<ExpenseSummary>(
-      `/api/bff/expenses/summary?month=${activeAnchor.month}&year=${activeAnchor.year}&scope=pay_period&budgetPlanId=${encodeURIComponent(params.budgetPlanId)}`,
+      `/api/bff/expenses/summary?month=${activeAnchor.month}&year=${activeAnchor.year}&scope=pay_period&budgetPlanId=${encodeURIComponent(params.budgetPlanId)}&includeBudgetOverview=1`,
       { cacheTtlMs: DISPLAYED_PERIOD_NAV_CACHE_TTL_MS },
     );
 

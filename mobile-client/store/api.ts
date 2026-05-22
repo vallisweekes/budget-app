@@ -149,11 +149,16 @@ export const mobileApi = createApi({
       year: number;
       budgetPlanId?: string | null;
       scope?: "month" | "pay_period";
+      includeBudgetOverview?: boolean;
     }>({
-      async queryFn({ month, year, budgetPlanId, scope = "pay_period" }) {
+      async queryFn({ month, year, budgetPlanId, scope = "pay_period", includeBudgetOverview = false }) {
         try {
           const planQp = budgetPlanId ? `&budgetPlanId=${encodeURIComponent(budgetPlanId)}` : "";
-          const data = await apiFetch<ExpenseSummary>(`/api/bff/expenses/summary?month=${month}&year=${year}&scope=${scope}${planQp}`, { cacheTtlMs: 0 });
+          const budgetOverviewQp = includeBudgetOverview ? "&includeBudgetOverview=1" : "";
+          const data = await apiFetch<ExpenseSummary>(
+            `/api/bff/expenses/summary?month=${month}&year=${year}&scope=${scope}${planQp}${budgetOverviewQp}`,
+            { cacheTtlMs: includeBudgetOverview ? 15_000 : 0 },
+          );
           return { data };
         } catch (err: unknown) {
           return { error: normalizeApiError(err) };
@@ -186,11 +191,12 @@ export const mobileApi = createApi({
       budgetPlanId: string;
       month: number;
       year: number;
+      mode?: "full" | "home_core";
     }>({
-      async queryFn({ budgetPlanId, month, year }) {
+      async queryFn({ budgetPlanId, month, year, mode = "full" }) {
         try {
           const data = await apiFetch<IncomeMonthData>(
-            `/api/bff/income-month?month=${month}&year=${year}&budgetPlanId=${encodeURIComponent(budgetPlanId)}`,
+            `/api/bff/income-month?month=${month}&year=${year}&budgetPlanId=${encodeURIComponent(budgetPlanId)}&mode=${encodeURIComponent(mode)}`,
             { cacheTtlMs: 0 },
           );
           return { data };

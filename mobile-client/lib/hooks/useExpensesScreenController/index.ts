@@ -749,21 +749,6 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
 
       const initialMonth = resolvedTargetPeriod.month;
       const initialYear = resolvedTargetPeriod.year;
-      const inactivePlanIds = nextPlans
-        .map((plan) => plan.id)
-        .filter((planId) => planId !== resolvedPlanId);
-
-      if (inactivePlanIds.length > 0) {
-        void Promise.allSettled(
-          inactivePlanIds.map((planId) => ensurePlanViewWarm({
-            planId,
-            month: initialMonth,
-            year: initialYear,
-            force,
-          })),
-        );
-      }
-
       const initialWindowPromise = preloadSummaryWindow({
         planId: resolvedPlanId,
         month: initialMonth,
@@ -895,7 +880,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       setLoading(false);
       setRefreshing(false);
     }
-  }, [activePlanId, bootstrapError, ensurePlanViewWarm, ensureSettingsLoaded, getOrFetchPayPeriodExpenses, month, parsePlanCreatedAt, planCacheKey, preloadSummaryWindow, refreshSettings, resolveEffectivePlanCreatedAt, resolvePlanTargetPeriod, route.params?.month, route.params?.year, setupCompletedAt, year]);
+  }, [activePlanId, bootstrapError, ensureSettingsLoaded, getOrFetchPayPeriodExpenses, month, parsePlanCreatedAt, planCacheKey, preloadSummaryWindow, refreshSettings, resolveEffectivePlanCreatedAt, resolvePlanTargetPeriod, route.params?.month, route.params?.year, setupCompletedAt, year]);
 
   const currentViewKey = `${activePlanId ?? "none"}:${year}-${month}`;
   const hasRelevantMutationChanges = useCallback(() => {
@@ -962,22 +947,6 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     if (!activePlanId) return;
     preferredPeriodByPlanRef.current[activePlanId] = { month, year };
   }, [activePlanId, month, year]);
-
-  useEffect(() => {
-    if (!activePlanId) return;
-    if (plans.length <= 1) return;
-    if (!getCachedSummary(activePlanId, year, month)) return;
-
-    const inactivePlanIds = plans
-      .map((plan) => plan.id)
-      .filter((planId) => planId !== activePlanId);
-
-    if (inactivePlanIds.length === 0) return;
-
-    void Promise.allSettled(
-      inactivePlanIds.map((planId) => ensurePlanViewWarm({ planId, month, year })),
-    );
-  }, [activePlanId, ensurePlanViewWarm, getCachedSummary, month, plans, year]);
 
   useFocusEffect(
     useCallback(() => {

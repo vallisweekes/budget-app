@@ -33,6 +33,27 @@ import { T } from "@/lib/theme";
 import { expensesStyles as styles } from "@/components/ExpensesScreen/style";
 import type { ExpensesScreenProps } from "@/types";
 
+function getPlanVisual(kind: string | null | undefined) {
+  switch (String(kind ?? "").trim().toLowerCase()) {
+    case "holiday":
+      return {
+        icon: "airplane-outline" as const,
+        label: "Holiday plan",
+      };
+    case "carnival":
+      return {
+        icon: "sparkles-outline" as const,
+        label: "Event plan",
+      };
+    case "personal":
+    default:
+      return {
+        icon: "home-outline" as const,
+        label: "Main plan",
+      };
+  }
+}
+
 export default function ExpensesScreen({ navigation, route }: ExpensesScreenProps) {
   const listRef = useRef<FlatList<never>>(null);
   useScrollToTop(listRef);
@@ -156,6 +177,7 @@ export default function ExpensesScreen({ navigation, route }: ExpensesScreenProp
                     >
                       {controller.plans.map((plan) => {
                         const selected = controller.selectedPlanTabId === plan.id;
+                        const planVisual = getPlanVisual(plan.kind);
                         return (
                           <Pressable
                             key={plan.id}
@@ -171,9 +193,21 @@ export default function ExpensesScreen({ navigation, route }: ExpensesScreenProp
                             style={[styles.planPill, selected && styles.planPillSelected]}
                             hitSlop={8}
                           >
+                            <View style={[styles.planPillIconWrap, selected && styles.planPillIconWrapSelected]}>
+                              <Ionicons
+                                name={planVisual.icon}
+                                size={14}
+                                color={selected ? T.onAccent : T.textDim}
+                              />
+                            </View>
                             <Text style={[styles.planPillText, selected && styles.planPillTextSelected]} numberOfLines={1}>
                               {plan.name}
                             </Text>
+                            {selected ? (
+                              <View style={styles.planPillCheck}>
+                                <Ionicons name="checkmark" size={12} color={T.onAccent} />
+                              </View>
+                            ) : null}
                           </Pressable>
                         );
                       })}

@@ -780,6 +780,16 @@ export interface ExpenseCategoryBreakdown {
   totalCount: number;
 }
 
+export interface ExpenseSummaryBudgetOverview {
+  totalIncome: number;
+  plannedDebtPayments: number;
+  incomeSacrifice: number;
+  amountLeftToBudget: number;
+  totalBudget: number;
+  amountAfterExpenses: number;
+  isOverBudgetBySpending: boolean;
+}
+
 export interface ExpenseSummary {
   scope?: "month" | "pay_period";
   month: number;
@@ -797,6 +807,7 @@ export interface ExpenseSummary {
   unpaidCount: number;
   unpaidAmount: number;
   categoryBreakdown: ExpenseCategoryBreakdown[];
+  budgetOverview?: ExpenseSummaryBudgetOverview;
 }
 
 /* \u2500\u2500 Receipt scanning \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */

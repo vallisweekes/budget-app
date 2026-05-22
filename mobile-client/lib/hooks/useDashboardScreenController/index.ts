@@ -10,10 +10,10 @@ import type { DashboardData } from "@/lib/apiTypes";
 import { SCREEN_FOCUS_REVALIDATE_TTL_MS } from "@/lib/constants";
 import { resolveDisplayedPayPeriodAnchor } from "@/lib/helpers/resolveDisplayedPayPeriodAnchor";
 import { currencySymbol, normalizeUpcomingName } from "@/lib/formatting";
-import { usePostDashboardWarmup, useSwipeDownToClose, useTopHeaderOffset } from "@/hooks";
-import { normalizePayFrequency } from "@/lib/payPeriods";
+import { useSwipeDownToClose, useTopHeaderOffset } from "@/hooks";
+import { getPayPeriodAnchorFromWindow, normalizePayFrequency, resolveActivePayPeriod } from "@/lib/payPeriods";
 import type { MainTabScreenProps } from "@/navigation/types";
-import { useGetDashboardByPeriodQuery, useGetDebtSummaryQuery, useGetExpenseSummaryQuery, useGetIncomeMonthQuery } from "@/store/api";
+import { useGetDashboardByPeriodQuery, useGetDebtSummaryQuery, useGetExpenseSummaryQuery } from "@/store/api";
 import type { QuickPaymentActionItem } from "@/types";
 import { buildDashboardDerived } from "@/components/DashboardScreen/derived";
 import { GOAL_CARD, GOAL_GAP } from "@/components/DashboardScreen/style";
@@ -123,11 +123,27 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
     [budgetPlanId, dashboard, displayedPeriodAnchor, hasBootstrapDashboard, isFocused],
   );
 
+  const provisionalDisplayedAnchor = useMemo(() => {
+    if (!budgetPlanId) return null;
+
+    const activePeriod = resolveActivePayPeriod({
+      now: new Date(),
+      payDate: settings?.payDate ?? dashboard?.payDate ?? 27,
+      payFrequency,
+      payAnchorDate,
+      planCreatedAt,
+    });
+
+    return getPayPeriodAnchorFromWindow({ period: activePeriod, payFrequency });
+  }, [budgetPlanId, dashboard?.payDate, payAnchorDate, payFrequency, planCreatedAt, settings?.payDate]);
+
+  const requestedPeriodAnchor = displayedPeriodAnchor ?? provisionalDisplayedAnchor;
+
   const periodDataArgs = useMemo(
-    () => (displayedPeriodAnchor && budgetPlanId
-      ? { budgetPlanId, month: displayedPeriodAnchor.month, year: displayedPeriodAnchor.year }
+    () => (requestedPeriodAnchor && budgetPlanId
+      ? { budgetPlanId, month: requestedPeriodAnchor.month, year: requestedPeriodAnchor.year }
       : undefined),
-    [budgetPlanId, displayedPeriodAnchor],
+    [budgetPlanId, requestedPeriodAnchor],
   );
 
   const periodDashboardQuery = useGetDashboardByPeriodQuery(periodDataArgs as {
@@ -139,7 +155,7 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
   });
 
   const periodExpenseSummaryArgs = useMemo(
-    () => (periodDataArgs ? { ...periodDataArgs, scope: "pay_period" as const } : undefined),
+    () => (periodDataArgs ? { ...periodDataArgs, scope: "pay_period" as const, includeBudgetOverview: true } : undefined),
     [periodDataArgs],
   );
 
@@ -148,16 +164,9 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
     month: number;
     year: number;
     scope: "pay_period";
+    includeBudgetOverview: true;
   }, {
     skip: !periodExpenseSummaryArgs,
-  });
-
-  const periodIncomeMonthQuery = useGetIncomeMonthQuery(periodDataArgs as {
-    budgetPlanId: string;
-    month: number;
-    year: number;
-  }, {
-    skip: !periodDataArgs,
   });
 
   const debtSummaryQuery = useGetDebtSummaryQuery(undefined, {
@@ -173,29 +182,39 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
   }, [dashboard, periodDashboardQuery.data, shouldLoadPeriodDashboard]);
 
   const coreSummary = periodExpenseSummaryQuery.data ?? null;
-  const coreIncomeMonth = periodIncomeMonthQuery.data ?? null;
-  const hasCoreHeroData = Boolean(coreSummary && coreIncomeMonth);
-  const isWaitingForCoreData = Boolean(
-    displayedPeriodResolved
-      && periodDataArgs
+  const coreBudgetOverview = coreSummary?.budgetOverview ?? null;
+  const hasCoreHeroData = Boolean(coreSummary && coreBudgetOverview);
+  const hasStableSummaryPreview = Boolean(
+    coreSummary
+      && !resolvedDashboard
+      && !coreBudgetOverview
       && (
-        (!periodExpenseSummaryQuery.data && (periodExpenseSummaryQuery.isLoading || periodExpenseSummaryQuery.isFetching))
-        || (!periodIncomeMonthQuery.data && (periodIncomeMonthQuery.isLoading || periodIncomeMonthQuery.isFetching))
+        displayedPeriodResolved
+        || Number(coreSummary.unpaidCount ?? 0) > 0
       ),
   );
+  const hasBudgetHeroData = Boolean(resolvedDashboard || hasCoreHeroData);
+  const hasRenderableHeroData = hasBudgetHeroData || hasStableSummaryPreview;
+  const isWaitingForCoreData = Boolean(
+    periodDataArgs
+      && !periodExpenseSummaryQuery.data
+      && (periodExpenseSummaryQuery.isLoading || periodExpenseSummaryQuery.isFetching),
+  );
 
-  const loading = (!displayedPeriodResolved && !resolvedDashboard && !hasCoreHeroData)
-    || (!resolvedDashboard && !hasCoreHeroData && !settings && bootstrapLoading)
-    || (!resolvedDashboard && !hasCoreHeroData && isWaitingForCoreData)
-    || (!resolvedDashboard && !hasCoreHeroData && shouldLoadPeriodDashboard && !periodDashboardQuery.data && (periodDashboardQuery.isLoading || periodDashboardQuery.isFetching));
+  const loading = !hasRenderableHeroData && (
+    !displayedPeriodResolved
+    || (!settings && bootstrapLoading)
+    || isWaitingForCoreData
+    || (shouldLoadPeriodDashboard && !periodDashboardQuery.data && (periodDashboardQuery.isLoading || periodDashboardQuery.isFetching))
+  );
 
   const { dragY: categorySheetDragY, panHandlers: categorySheetPanHandlers } = useSwipeDownToClose({
     onClose: () => setCategorySheet(null),
   });
 
   const coreError = useMemo(
-    () => normalizeQueryError(periodExpenseSummaryQuery.error ?? periodIncomeMonthQuery.error, "Failed to load dashboard"),
-    [periodExpenseSummaryQuery.error, periodIncomeMonthQuery.error],
+    () => normalizeQueryError(periodExpenseSummaryQuery.error, "Failed to load dashboard"),
+    [periodExpenseSummaryQuery.error],
   );
 
   const effectiveError = useMemo<Error | null>(() => {
@@ -203,12 +222,12 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
       return error;
     }
 
-    if (resolvedDashboard || hasCoreHeroData) {
+    if (hasRenderableHeroData) {
       return null;
     }
 
     return error ?? coreError;
-  }, [coreError, error, hasCoreHeroData, resolvedDashboard]);
+  }, [coreError, error, hasRenderableHeroData]);
 
   useEffect(() => {
     if (isNoBudgetPlanError(effectiveError)) {
@@ -225,7 +244,7 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
         const refetches: Array<Promise<unknown>> = [];
 
         if (periodDataArgs) {
-          refetches.push(periodExpenseSummaryQuery.refetch(), periodIncomeMonthQuery.refetch());
+          refetches.push(periodExpenseSummaryQuery.refetch());
         }
 
         if (budgetPlanId) {
@@ -243,7 +262,7 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
 
       return result;
     },
-    [budgetPlanId, debtSummaryQuery, periodDashboardQuery, periodDataArgs, periodExpenseSummaryQuery, periodIncomeMonthQuery, refresh, shouldLoadPeriodDashboard]
+    [budgetPlanId, debtSummaryQuery, periodDashboardQuery, periodDataArgs, periodExpenseSummaryQuery, refresh, shouldLoadPeriodDashboard]
   );
 
   useFocusEffect(
@@ -325,19 +344,24 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
   }, [budgetPlanId, dashboard, displayedPeriodAnchor, displayedPeriodContextKey, displayedPeriodResolved, isFocused, payAnchorDate, payFrequency, settings?.payDate, planCreatedAt]);
 
   const currency = currencySymbol(settings?.currency);
-  const displayTotalIncome = coreIncomeMonth?.grossIncome ?? derived.totalIncome;
+  const displayTotalIncome = coreBudgetOverview?.totalIncome ?? derived.totalIncome;
   const displayTotalExpenses = coreSummary?.totalAmount ?? derived.totalExpenses;
   const displayPaidTotal = coreSummary?.paidAmount ?? derived.paidTotal;
-  const displayAmountAfterExpenses = coreIncomeMonth?.moneyLeftAfterPlan ?? derived.amountAfterExpenses;
-  const displayTotalBudget = coreSummary && coreIncomeMonth
-    ? (coreSummary.totalAmount + coreIncomeMonth.moneyLeftAfterPlan)
+  const displayIncomeAfterAllocations = coreBudgetOverview
+    ? coreBudgetOverview.amountLeftToBudget
+    : derived.amountLeftToBudget;
+  const displayTotalBudget = coreBudgetOverview
+    ? coreBudgetOverview.totalBudget
     : derived.totalBudget;
+  const displayAmountAfterExpenses = coreBudgetOverview
+    ? coreBudgetOverview.amountAfterExpenses
+    : derived.amountAfterExpenses;
   const displayOverLimitDebtCount = debtSummaryQuery.data?.debts
     ? countOverLimitDebts(debtSummaryQuery.data.debts)
     : derived.overLimitDebtCount;
   const displayHasOverLimitDebt = displayOverLimitDebtCount > 0;
-  const displayIsOverBudgetBySpending = coreIncomeMonth
-    ? coreIncomeMonth.moneyLeftAfterPlan < 0
+  const displayIsOverBudgetBySpending = coreBudgetOverview
+    ? coreBudgetOverview.isOverBudgetBySpending
     : derived.isOverBudgetBySpending;
   const displayPayPeriodLabel = coreSummary?.periodRangeLabel ?? coreSummary?.periodLabel ?? derived.payPeriodLabel;
   const displayCategories = coreSummary
@@ -348,8 +372,12 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
         expenses: [],
       }))
     : derived.categories;
-  const needsSetup = displayTotalIncome <= 0 || displayTotalExpenses <= 0;
+  const needsSetup = hasBudgetHeroData ? (displayTotalIncome <= 0 || displayTotalExpenses <= 0) : false;
   const hasEnrichmentData = Boolean(resolvedDashboard);
+  const summaryPreviewLabel = coreSummary?.periodRangeLabel ?? coreSummary?.periodLabel ?? "Current pay period";
+  const summaryPreviewSpentTotal = coreSummary?.totalAmount ?? 0;
+  const summaryPreviewTotalCount = coreSummary?.totalCount ?? 0;
+  const summaryPreviewUnpaidCount = coreSummary?.unpaidCount ?? 0;
   const recap = resolvedDashboard?.expenseInsights?.recap ?? null;
   const dashboardTips = resolvedDashboard?.expenseInsights?.recapTips ?? [];
   const hasRecapData = Boolean(
@@ -363,12 +391,6 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
   const recapTitle = recap
     ? (derived.hasPayDateConfigured ? `${derived.previousPayPeriodLabel} Recap` : `${recap.label} Recap`)
     : "";
-
-  usePostDashboardWarmup({
-    dashboard: resolvedDashboard,
-    settings,
-    isFocused,
-  });
 
   const closeCategorySheet = useCallback(() => setCategorySheet(null), []);
   const openCategorySheet = useCallback((category: { id: string; name: string }) => {
@@ -445,7 +467,13 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
     quickPayItem,
     activeGoalCard,
     needsSetup,
+    hasBudgetHeroData,
     hasEnrichmentData,
+    hasSummaryPreview: hasStableSummaryPreview,
+    summaryPreviewLabel,
+    summaryPreviewSpentTotal,
+    summaryPreviewTotalCount,
+    summaryPreviewUnpaidCount,
     recap,
     dashboardTips,
     hasRecapData,

@@ -21,6 +21,7 @@ export async function GET(req: NextRequest) {
 		if (!userId) return unauthorized();
 
 		const { searchParams } = new URL(req.url);
+		const mode = String(searchParams.get("mode") ?? "full").toLowerCase() === "home_core" ? "home_core" : "full";
 		const budgetPlanId = await resolveOwnedBudgetPlanId({
 			userId,
 			budgetPlanId: searchParams.get("budgetPlanId"),
@@ -36,10 +37,7 @@ export async function GET(req: NextRequest) {
 			requestedYear: searchParams.get("year"),
 		});
 
-		const prevMonth = month === 1 ? 12 : month - 1;
-		const prevYear = month === 1 ? year - 1 : year;
-
-		const analysis = await getIncomeMonthAnalysis({ budgetPlanId, year, month, payFrequency });
+		const analysis = await getIncomeMonthAnalysis({ budgetPlanId, year, month, payFrequency, mode });
 
 		const grossIncome = analysis.grossIncome;
 		const incomeSacrifice = analysis.incomeSacrifice;

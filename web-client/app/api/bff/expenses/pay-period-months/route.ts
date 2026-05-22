@@ -100,11 +100,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
   }
 
-  try {
-    await processOverdueExpensesToDebts(budgetPlanId);
-  } catch (error) {
+  void processOverdueExpensesToDebts(budgetPlanId).catch((error) => {
     console.error("Expense pay-period months: overdue carryover sync failed:", error);
-  }
+  });
 
   const payPeriodContext = await resolveBudgetPlanPayPeriodContext({ budgetPlanId });
 

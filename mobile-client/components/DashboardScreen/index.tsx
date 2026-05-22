@@ -95,14 +95,28 @@ export default function DashboardScreen(props: DashboardScreenProps) {
         contentContainerStyle={[styles.scroll, { paddingTop: contentTopPadding }]}
         showsVerticalScrollIndicator={false}
       >
-        <BudgetDonutCard
-          totalBudget={controller.totalBudget}
-          totalExpenses={controller.totalExpenses}
-          paidTotal={controller.paidTotal}
-          currency={controller.currency}
-          fmt={fmt}
-          periodLabel={controller.hasPayDateConfigured ? controller.payPeriodLabel : undefined}
-        />
+        {controller.hasBudgetHeroData ? (
+          <BudgetDonutCard
+            totalBudget={controller.totalBudget}
+            totalExpenses={controller.totalExpenses}
+            paidTotal={controller.paidTotal}
+            currency={controller.currency}
+            fmt={fmt}
+            periodLabel={controller.hasPayDateConfigured ? controller.payPeriodLabel : undefined}
+          />
+        ) : controller.hasSummaryPreview ? (
+          <View style={styles.setupCard}>
+            <Text style={styles.setupTitle}>{controller.summaryPreviewLabel}</Text>
+            <Text style={styles.setupText}>
+              {controller.summaryPreviewTotalCount} bill{controller.summaryPreviewTotalCount === 1 ? "" : "s"} total {fmt(controller.summaryPreviewSpentTotal, controller.currency)} spent so far.
+            </Text>
+            <Text style={styles.setupText}>
+              {controller.summaryPreviewUnpaidCount > 0
+                ? `${controller.summaryPreviewUnpaidCount} bill${controller.summaryPreviewUnpaidCount === 1 ? "" : "s"} still unpaid. Loading budget totals...`
+                : "Loading budget totals..."}
+            </Text>
+          </View>
+        ) : null}
 
         {(controller.isOverBudgetBySpending || controller.hasOverLimitDebt) ? (
           <View style={styles.alertCard}>
@@ -146,13 +160,15 @@ export default function DashboardScreen(props: DashboardScreenProps) {
           </View>
         ) : null}
 
-        <CategorySwipeCards
-          categories={controller.categories}
-          totalIncome={controller.totalIncome}
-          currency={controller.currency}
-          fmt={fmt}
-          onPressCategory={controller.hasEnrichmentData ? controller.openCategorySheet : undefined}
-        />
+        {controller.hasBudgetHeroData ? (
+          <CategorySwipeCards
+            categories={controller.categories}
+            totalIncome={controller.totalIncome}
+            currency={controller.currency}
+            fmt={fmt}
+            onPressCategory={controller.hasEnrichmentData ? controller.openCategorySheet : undefined}
+          />
+        ) : null}
 
         {controller.hasEnrichmentData ? (
           <>

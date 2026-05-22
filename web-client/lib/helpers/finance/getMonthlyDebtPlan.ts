@@ -135,48 +135,7 @@ export async function getMonthlyDebtPlan({ budgetPlanId, year, month, periodKey,
 		monthlyMinimum: unknown;
 		sourceType: unknown;
 		type: unknown;
-	}) => {
-		const currentBalance = Math.max(0, decimalToNumber(d.currentBalance));
-		if (!(currentBalance > 0)) return 0;
-
-		const rawAmount = decimalToNumber(d.amount);
-		const amount = Number.isFinite(rawAmount) ? Math.max(0, rawAmount) : 0;
-
-		const rawMonthlyMinimum = decimalToNumber(d.monthlyMinimum);
-		const monthlyMinimum = Number.isFinite(rawMonthlyMinimum) ? Math.max(0, rawMonthlyMinimum) : 0;
-
-		const installmentMonths = Number(d.installmentMonths ?? 0);
-		const safeInstallmentMonths = Number.isFinite(installmentMonths) ? Math.max(0, Math.floor(installmentMonths)) : 0;
-
-		const initialBalance = Math.max(0, decimalToNumber(d.initialBalance));
-		const principal = initialBalance > 0 ? initialBalance : currentBalance;
-
-		// `amount` is the planned monthly payment when present.
-		// Installment months only provide a fallback when the payment amount isn't stored.
-		let planned = 0;
-		if (amount > 0) {
-			planned = amount;
-		} else if (safeInstallmentMonths > 0 && principal > 0) {
-			planned = principal / safeInstallmentMonths;
-		}
-
-		// For credit/store cards the monthly minimum IS the planned payment.
-		const isCardType = d.type === "credit_card" || d.type === "store_card";
-		if (isCardType && monthlyMinimum > 0) {
-			planned = monthlyMinimum;
-		} else if (monthlyMinimum > 0) {
-			planned = Math.max(planned, monthlyMinimum);
-		}
-
-		// Expense-derived debts: if no monthly plan is configured, treat the remaining balance as due.
-		// (This preserves previous behavior for auto-transferred overdue bills.)
-		if (planned <= 0 && d.sourceType === "expense") {
-			planned = amount > 0 ? amount : currentBalance;
-		}
-
-		planned = Number.isFinite(planned) ? Math.max(0, planned) : 0;
-		return Math.min(currentBalance, planned);
-	};
+	}) => getMonthlyPlannedPayment(d);
 
 	// Build payment filter: prefer periodKey > paidAt range > year/month
 	const paymentFilter = (() => {
@@ -269,5 +228,106 @@ export async function getMonthlyDebtPlan({ budgetPlanId, year, month, periodKey,
 		paidDebtPaymentsFromIncome,
 		plannedDebtPayments,
 		remainingDebtPayments,
+	};
+}
+
+function getMonthlyPlannedPayment(d: {
+	amount: unknown;
+	currentBalance: unknown;
+	initialBalance: unknown;
+	installmentMonths: unknown;
+	monthlyMinimum: unknown;
+	sourceType: unknown;
+	type: unknown;
+}) {
+	const currentBalance = Math.max(0, decimalToNumber(d.currentBalance));
+	if (!(currentBalance > 0)) return 0;
+
+	const rawAmount = decimalToNumber(d.amount);
+	const amount = Number.isFinite(rawAmount) ? Math.max(0, rawAmount) : 0;
+
+	const rawMonthlyMinimum = decimalToNumber(d.monthlyMinimum);
+	const monthlyMinimum = Number.isFinite(rawMonthlyMinimum) ? Math.max(0, rawMonthlyMinimum) : 0;
+
+	const installmentMonths = Number(d.installmentMonths ?? 0);
+	const safeInstallmentMonths = Number.isFinite(installmentMonths) ? Math.max(0, Math.floor(installmentMonths)) : 0;
+
+	const initialBalance = Math.max(0, decimalToNumber(d.initialBalance));
+	const principal = initialBalance > 0 ? initialBalance : currentBalance;
+
+	let planned = 0;
+	if (amount > 0) {
+		planned = amount;
+	} else if (safeInstallmentMonths > 0 && principal > 0) {
+		planned = principal / safeInstallmentMonths;
+	}
+
+	const isCardType = d.type === "credit_card" || d.type === "store_card";
+	if (isCardType && monthlyMinimum > 0) {
+		planned = monthlyMinimum;
+	} else if (monthlyMinimum > 0) {
+		planned = Math.max(planned, monthlyMinimum);
+	}
+
+	if (planned <= 0 && d.sourceType === "expense") {
+		planned = amount > 0 ? amount : currentBalance;
+	}
+
+	planned = Number.isFinite(planned) ? Math.max(0, planned) : 0;
+	return Math.min(currentBalance, planned);
+}
+
+export async function getMonthlyPlannedDebtPaymentsOnly({ budgetPlanId, year, month, periodKey, periodStart, periodEnd }: Params) {
+	const dueDebts = await prisma.debt.findMany({
+		where: {
+			budgetPlanId,
+			paid: false,
+			currentBalance: { gt: 0 },
+		},
+		select: {
+			id: true,
+			name: true,
+			amount: true,
+			currentBalance: true,
+			initialBalance: true,
+			installmentMonths: true,
+			monthlyMinimum: true,
+			sourceType: true,
+			sourceExpenseName: true,
+			sourceCategoryName: true,
+			dueDate: true,
+			dueDay: true,
+			paid: true,
+			type: true,
+		},
+	});
+
+	const regularDebts = dueDebts.filter((debt) => debt.sourceType !== "expense");
+	const visibleDueDebts = dueDebts.filter((debt) => shouldIncludeDebtInPlannedPeriod({
+		debt,
+		regularDebts,
+		year,
+		month,
+		periodStart,
+		periodEnd,
+	}));
+	const plannedPaymentOverrides = await getDebtPlannedPaymentOverridesForPeriod({
+		debtIds: visibleDueDebts.map((debt) => debt.id),
+		periodKey,
+		year,
+		month,
+	});
+
+	const plannedDebtPayments = visibleDueDebts.reduce((sum, debt) => {
+		const currentBalance = Math.max(0, decimalToNumber(debt.currentBalance));
+		const overrideAmount = plannedPaymentOverrides.get(debt.id);
+		const plannedAmount = typeof overrideAmount === "number"
+			? Math.min(currentBalance, Math.max(0, overrideAmount))
+			: getMonthlyPlannedPayment(debt);
+		return sum + plannedAmount;
+	}, 0);
+
+	return {
+		plannedDebtPayments,
 	};
 }

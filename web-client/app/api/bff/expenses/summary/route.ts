@@ -13,6 +13,7 @@ import {
 } from "@/lib/payPeriods";
 import { isLegacyPlaceholderExpenseRow } from "@/lib/expenses/legacyPlaceholders";
 import { getExpensePaidMap } from "@/lib/expenses/paidSummary";
+import { getIncomeMonthAnalysis } from "@/lib/helpers/finance/getIncomeMonthAnalysis";
 import { resolveMatchedExpensePeriodKey } from "@/lib/helpers/periodKey";
 
 export const runtime = "nodejs";
@@ -58,6 +59,48 @@ type CategoryBreakdownRow = {
 	paidCount: number;
 	totalCount: number;
 };
+
+type ExpenseSummaryBudgetOverview = {
+	totalIncome: number;
+	plannedDebtPayments: number;
+	incomeSacrifice: number;
+	amountLeftToBudget: number;
+	totalBudget: number;
+	amountAfterExpenses: number;
+	isOverBudgetBySpending: boolean;
+};
+
+async function getExpenseSummaryBudgetOverview(params: {
+	budgetPlanId: string;
+	month: number;
+	year: number;
+	payFrequency: PayFrequency;
+	totalAmount: number;
+}): Promise<ExpenseSummaryBudgetOverview> {
+	const analysis = await getIncomeMonthAnalysis({
+		budgetPlanId: params.budgetPlanId,
+		month: params.month,
+		year: params.year,
+		payFrequency: params.payFrequency,
+		mode: "home_core",
+	});
+	const totalIncome = Number(analysis.grossIncome ?? 0);
+	const plannedDebtPayments = Number(analysis.plannedDebtPayments ?? 0);
+	const incomeSacrifice = Number(analysis.incomeSacrifice ?? 0);
+	const amountLeftToBudget = totalIncome - plannedDebtPayments - incomeSacrifice;
+	const totalBudget = amountLeftToBudget > 0 ? amountLeftToBudget : totalIncome;
+	const amountAfterExpenses = amountLeftToBudget - params.totalAmount;
+
+	return {
+		totalIncome,
+		plannedDebtPayments,
+		incomeSacrifice,
+		amountLeftToBudget,
+		totalBudget,
+		amountAfterExpenses,
+		isOverBudgetBySpending: amountAfterExpenses < 0,
+	};
+}
 
 function latestDate(...dates: Array<Date | null | undefined>): Date | null {
 	const valid = dates.filter((d): d is Date => d instanceof Date);
@@ -148,6 +191,7 @@ export async function GET(req: NextRequest) {
 	const month = toN(searchParams.get("month"));
 	const year = toN(searchParams.get("year"));
 	const scope = String(searchParams.get("scope") ?? "month").toLowerCase() === "pay_period" ? "pay_period" : "month";
+	const includeBudgetOverview = scope === "pay_period" && searchParams.get("includeBudgetOverview") === "1";
 
 	if (month == null || month < 1 || month > 12) return badRequest("Invalid month");
 	if (year == null || year < 1900) return badRequest("Invalid year");
@@ -160,11 +204,9 @@ export async function GET(req: NextRequest) {
 		return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
 	}
 
-	try {
-		await processOverdueExpensesToDebts(budgetPlanId);
-	} catch (error) {
+	void processOverdueExpensesToDebts(budgetPlanId).catch((error) => {
 		console.error("Expense summary: overdue carryover sync failed:", error);
-	}
+	});
 
 	const [payPeriodContext, planCategories] = await Promise.all([
 		resolveBudgetPlanPayPeriodContext({ budgetPlanId }),
@@ -325,6 +367,17 @@ export async function GET(req: NextRequest) {
 			: false;
 
 	if (snapshotIsFresh && snapshotMatchesComputedPeriod && snapshotMatchesPayContext && snapshot) {
+		const roundedTotalAmount = parseFloat(toFloat(snapshot.totalAmount).toFixed(2));
+		const budgetOverview = includeBudgetOverview
+			? await getExpenseSummaryBudgetOverview({
+				budgetPlanId,
+				month,
+				year,
+				payFrequency,
+				totalAmount: roundedTotalAmount,
+			})
+			: undefined;
+
 		return NextResponse.json({
 			scope,
 			month,
@@ -337,12 +390,13 @@ export async function GET(req: NextRequest) {
 			payDate: snapshot.payDate,
 			payFrequency: snapshot.payFrequency,
 			totalCount: snapshot.totalCount,
-			totalAmount: parseFloat(toFloat(snapshot.totalAmount).toFixed(2)),
+			totalAmount: roundedTotalAmount,
 			paidCount: snapshot.paidCount,
 			paidAmount: parseFloat(toFloat(snapshot.paidAmount).toFixed(2)),
 			unpaidCount: snapshot.unpaidCount,
 			unpaidAmount: parseFloat(toFloat(snapshot.unpaidAmount).toFixed(2)),
 			categoryBreakdown: normalizeCategoryBreakdown(snapshot.categoryBreakdown),
+			budgetOverview,
 		});
 	}
 
@@ -567,6 +621,18 @@ export async function GET(req: NextRequest) {
 	const categoryBreakdown = Array.from(catMap.values())
 		.filter((c) => c.totalCount > 0)
 		.sort((a, b) => b.total - a.total);
+	const roundedTotalAmount = parseFloat(totalAmount.toFixed(2));
+	const roundedPaidAmount = parseFloat(paidAmount.toFixed(2));
+	const roundedUnpaidAmount = parseFloat(unpaidAmount.toFixed(2));
+	const budgetOverview = includeBudgetOverview
+		? await getExpenseSummaryBudgetOverview({
+			budgetPlanId,
+			month,
+			year,
+			payFrequency,
+			totalAmount: roundedTotalAmount,
+		})
+		: undefined;
 
 	if (snapshotDelegate) {
 		await snapshotDelegate.upsert({
@@ -592,11 +658,11 @@ export async function GET(req: NextRequest) {
 				periodEnd,
 				periodRangeLabel,
 				totalCount: mainExpenses.length,
-				totalAmount: parseFloat(totalAmount.toFixed(2)),
+				totalAmount: roundedTotalAmount,
 				paidCount,
-				paidAmount: parseFloat(paidAmount.toFixed(2)),
+				paidAmount: roundedPaidAmount,
 				unpaidCount,
-				unpaidAmount: parseFloat(unpaidAmount.toFixed(2)),
+				unpaidAmount: roundedUnpaidAmount,
 				categoryBreakdown,
 				sourceMaxUpdatedAt,
 			},
@@ -610,11 +676,11 @@ export async function GET(req: NextRequest) {
 				periodEnd,
 				periodRangeLabel,
 				totalCount: mainExpenses.length,
-				totalAmount: parseFloat(totalAmount.toFixed(2)),
+				totalAmount: roundedTotalAmount,
 				paidCount,
-				paidAmount: parseFloat(paidAmount.toFixed(2)),
+				paidAmount: roundedPaidAmount,
 				unpaidCount,
-				unpaidAmount: parseFloat(unpaidAmount.toFixed(2)),
+				unpaidAmount: roundedUnpaidAmount,
 				categoryBreakdown,
 				sourceMaxUpdatedAt,
 			},
@@ -633,11 +699,12 @@ export async function GET(req: NextRequest) {
 		payDate,
 		payFrequency,
 		totalCount: mainExpenses.length,
-		totalAmount: parseFloat(totalAmount.toFixed(2)),
+		totalAmount: roundedTotalAmount,
 		paidCount,
-		paidAmount: parseFloat(paidAmount.toFixed(2)),
+		paidAmount: roundedPaidAmount,
 		unpaidCount,
-		unpaidAmount: parseFloat(unpaidAmount.toFixed(2)),
+		unpaidAmount: roundedUnpaidAmount,
 		categoryBreakdown,
+		budgetOverview,
 	});
 }

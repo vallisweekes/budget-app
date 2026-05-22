@@ -160,11 +160,9 @@ export async function GET(req: NextRequest) {
   if (year == null || year < 1900) return badRequest("Invalid year");
   if (!budgetPlanId) return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
 
-  try {
-    await processOverdueExpensesToDebts(budgetPlanId);
-  } catch (error) {
+  void processOverdueExpensesToDebts(budgetPlanId).catch((error) => {
     console.error("Expenses: overdue carryover sync failed:", error);
-  }
+  });
 
   const payPeriodContext = await resolveBudgetPlanPayPeriodContext({ budgetPlanId });
   const payDate = Number.isFinite(Number(payPeriodContext.payDate)) && Number(payPeriodContext.payDate) >= 1

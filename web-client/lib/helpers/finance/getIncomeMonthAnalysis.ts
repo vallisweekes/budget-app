@@ -1,7 +1,7 @@
 import { getAllIncome, getIncomeForAnchorMonth } from "@/lib/income/store";
 import { getMonthlyAllocationSnapshot, getMonthlyCustomAllocationsSnapshot } from "@/lib/allocations/store";
 import { monthNumberToKey } from "@/lib/helpers/monthKey";
-import { getMonthlyDebtPlan } from "@/lib/helpers/finance/getMonthlyDebtPlan";
+import { getMonthlyDebtPlan, getMonthlyPlannedDebtPaymentsOnly } from "@/lib/helpers/finance/getMonthlyDebtPlan";
 import { buildPayPeriodFromMonthAnchor, normalizePayFrequency, type PayFrequency } from "@/lib/payPeriods";
 import { prisma } from "@/lib/prisma";
 import { getPeriodKey } from "@/lib/helpers/periodKey";
@@ -26,6 +26,7 @@ type Params = {
 	year: number;
 	month: number;
 	payFrequency?: PayFrequency | null | undefined;
+	mode?: "full" | "home_core";
 };
 
 type ExpenseTooltipPreviewItem = {
@@ -40,13 +41,6 @@ type ExpenseTooltipPreview = {
 	items: ExpenseTooltipPreviewItem[];
 	remainingCount: number;
 };
-
-function normalizeIncomeKey(name: unknown): string {
-	return String(name ?? "")
-		.trim()
-		.toLowerCase()
-		.replace(/\s+/g, " ");
-}
 
 function buildExpenseTooltipPreview(
 	expenses: Array<{ id: string; name: string; amount: unknown; budgetPlanId: string }>,
@@ -131,10 +125,9 @@ async function getPeriodExpenseSnapshot(params: {
 	};
 }
 
-export async function getIncomeMonthAnalysis({ budgetPlanId, year, month, payFrequency }: Params) {
+export async function getIncomeMonthAnalysis({ budgetPlanId, year, month, payFrequency, mode = "full" }: Params) {
+	const isHomeCoreMode = mode === "home_core";
 	const monthKey = monthNumberToKey(month as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12) as MonthKey;
-	const prevMonth = month === 1 ? 12 : month - 1;
-	const prevYear = month === 1 ? year - 1 : year;
 	const cadence = normalizePayFrequency(payFrequency);
 
 	// Fetch payDate first so we can compute the pay-period window for period-based queries.
@@ -144,6 +137,13 @@ export async function getIncomeMonthAnalysis({ budgetPlanId, year, month, payFre
 	});
 	const payDate = Number(plan?.payDate ?? 27);
 	const { expensePlanIds, expensePlanNamesById } = await (async () => {
+		if (isHomeCoreMode) {
+			return {
+				expensePlanIds: [budgetPlanId],
+				expensePlanNamesById: new Map([[budgetPlanId, String(plan?.name ?? "My Budget").trim() || "My Budget"]]),
+			};
+		}
+
 		if (!plan?.userId || plan.kind !== "personal") {
 			return {
 				expensePlanIds: [budgetPlanId],
@@ -181,7 +181,7 @@ export async function getIncomeMonthAnalysis({ budgetPlanId, year, month, payFre
 		? buildPayPeriodFromMonthAnchor({ anchorYear: year, anchorMonth: month, payDate, payFrequency: cadence })
 		: null;
 	const periodKey = periodWindow ? getPeriodKey(periodWindow.start, payDate) : undefined;
-	const expenseSnapshotPromise = cadence === "monthly" && periodWindow
+	const expenseSnapshotPromise = cadence === "monthly" && periodWindow && !isHomeCoreMode
 		? getPeriodExpenseSnapshot({
 			budgetPlanIds: expensePlanIds,
 			selectedBudgetPlanId: budgetPlanId,
@@ -192,21 +192,33 @@ export async function getIncomeMonthAnalysis({ budgetPlanId, year, month, payFre
 		})
 		: Promise.resolve(null);
 
-	const [incomeByMonth, periodIncomeItems, allocationSnapshot, customAllocationsSnapshot, debtPlan, expenseSnapshot] = await Promise.all([
+	const [incomeByMonth, periodIncomeItems, allocationSnapshot, customAllocationsSnapshot, debtPlan, plannedDebtOnly, expenseSnapshot] = await Promise.all([
 		cadence === "monthly" ? Promise.resolve(null) : getAllIncome(budgetPlanId, year),
 		cadence === "monthly"
 			? getIncomeForAnchorMonth({ budgetPlanId, year, month, payDate, payFrequency: cadence, scope: eventScope })
 			: Promise.resolve(null),
 		getMonthlyAllocationSnapshot(budgetPlanId, monthKey, { year }),
 		getMonthlyCustomAllocationsSnapshot(budgetPlanId, monthKey, { year }),
-		getMonthlyDebtPlan({
-			budgetPlanId,
-			year,
-			month,
-			periodKey,
-			periodStart: periodWindow?.start,
-			periodEnd: periodWindow?.end,
-		}),
+		isHomeCoreMode
+			? Promise.resolve(null)
+			: getMonthlyDebtPlan({
+				budgetPlanId,
+				year,
+				month,
+				periodKey,
+				periodStart: periodWindow?.start,
+				periodEnd: periodWindow?.end,
+			}),
+		isHomeCoreMode
+			? getMonthlyPlannedDebtPaymentsOnly({
+				budgetPlanId,
+				year,
+				month,
+				periodKey,
+				periodStart: periodWindow?.start,
+				periodEnd: periodWindow?.end,
+			})
+			: Promise.resolve(null),
 		expenseSnapshotPromise,
 	]);
 
@@ -237,7 +249,7 @@ export async function getIncomeMonthAnalysis({ budgetPlanId, year, month, payFre
 		// (before payday), it should still reduce "income remaining".
 		const periodExpenseIds = expenseSnapshot?.expenseIds ?? [];
 
-		if (periodExpenseIds.length > 0) {
+		if (!isHomeCoreMode && periodExpenseIds.length > 0) {
 			const paidAgg = await prisma.expensePayment.aggregate({
 				where: {
 					expenseId: { in: periodExpenseIds },
@@ -249,8 +261,8 @@ export async function getIncomeMonthAnalysis({ budgetPlanId, year, month, payFre
 		}
 
 		// Debt payment totals are already period-scoped via getMonthlyDebtPlan.
-		periodPaidDebtAllSources = debtPlan.totalPaidDebtPayments;
-		periodPaidDebtFromIncome = debtPlan.paidDebtPaymentsFromIncome;
+		periodPaidDebtAllSources = debtPlan?.totalPaidDebtPayments ?? null;
+		periodPaidDebtFromIncome = debtPlan?.paidDebtPaymentsFromIncome ?? null;
 	} else {
 		const expenseRows = await prisma.expense.findMany({
 			where: { budgetPlanId: { in: expensePlanIds }, year, month, isAllocation: false, isMovedToDebt: false },
@@ -292,11 +304,11 @@ export async function getIncomeMonthAnalysis({ budgetPlanId, year, month, payFre
 	const customSetAsideTotal = Number(customAllocationsSnapshot.total ?? 0);
 	const plannedSetAside = plannedSetAsideFromAllocations + customSetAsideTotal + monthlyAllowance;
 
-	const plannedDebtPayments = debtPlan.plannedDebtPayments;
-	const totalPaidDebtPayments = periodPaidDebtAllSources ?? debtPlan.totalPaidDebtPayments;
+	const plannedDebtPayments = plannedDebtOnly?.plannedDebtPayments ?? debtPlan?.plannedDebtPayments ?? 0;
+	const totalPaidDebtPayments = periodPaidDebtAllSources ?? debtPlan?.totalPaidDebtPayments ?? 0;
 	// Use period-based debt payment total when available (monthly cadence);
 	// otherwise fall back to the calendar year/month from getMonthlyDebtPlan.
-	const paidDebtPaymentsFromIncome = periodPaidDebtFromIncome ?? debtPlan.paidDebtPaymentsFromIncome;
+	const paidDebtPaymentsFromIncome = periodPaidDebtFromIncome ?? debtPlan?.paidDebtPaymentsFromIncome ?? 0;
 
 	const plannedBills = plannedExpenses + plannedDebtPayments;
 	const paidBillsSoFar = paidExpenses + totalPaidDebtPayments;
