@@ -139,6 +139,16 @@ const responseCache = new Map<string, CacheEntry>();
 let apiMutationVersion = 0;
 const apiMutationListeners = new Set<(version: number) => void>();
 
+export type ApiMutationInfo = {
+  version: number;
+  path: string;
+  method: Exclude<NonNullable<ApiFetchOptions["method"]>, "GET">;
+  at: number;
+};
+
+const apiMutationHistory = new Map<number, ApiMutationInfo>();
+const API_MUTATION_HISTORY_LIMIT = 100;
+
 function isGetMethod(method?: ApiFetchOptions["method"]): boolean {
   return (method ?? "GET") === "GET";
 }
@@ -182,6 +192,19 @@ export function invalidateApiCache() {
 
 export function getApiMutationVersion(): number {
   return apiMutationVersion;
+}
+
+export function getApiMutationsSince(version: number): ApiMutationInfo[] {
+  const results: ApiMutationInfo[] = [];
+
+  for (let nextVersion = version + 1; nextVersion <= apiMutationVersion; nextVersion += 1) {
+    const mutation = apiMutationHistory.get(nextVersion);
+    if (mutation) {
+      results.push(mutation);
+    }
+  }
+
+  return results;
 }
 
 export function subscribeToApiMutations(listener: (version: number) => void): () => void {
@@ -310,6 +333,17 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
       // Any successful mutation can invalidate stale aggregates/list responses.
       invalidateApiCache();
       apiMutationVersion += 1;
+      apiMutationHistory.set(apiMutationVersion, {
+        version: apiMutationVersion,
+        path: normalizedPath,
+        method: method as Exclude<NonNullable<ApiFetchOptions["method"]>, "GET">,
+        at: Date.now(),
+      });
+      while (apiMutationHistory.size > API_MUTATION_HISTORY_LIMIT) {
+        const oldestVersion = apiMutationHistory.keys().next().value;
+        if (typeof oldestVersion !== "number") break;
+        apiMutationHistory.delete(oldestVersion);
+      }
       for (const listener of apiMutationListeners) {
         listener(apiMutationVersion);
       }

@@ -5,7 +5,7 @@ import { PanResponder, ScrollView } from "react-native";
 
 import { useActiveBudgetPlan } from "@/context/ActiveBudgetPlanContext";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
-import { apiFetch, getApiMutationVersion } from "@/lib/api";
+import { apiFetch, getApiMutationsSince, getApiMutationVersion } from "@/lib/api";
 import { resolveDisplayedPayPeriodAnchor } from "@/lib/helpers/resolveDisplayedPayPeriodAnchor";
 import type {
   BudgetPlanListItem,
@@ -51,6 +51,15 @@ function resetSharedExpensesScreenState() {
 }
 
 registerSessionScopedResetter(resetSharedExpensesScreenState);
+
+function isExpensesRelevantMutationPath(path: string): boolean {
+  const normalized = path.trim().toLowerCase();
+
+  return normalized.startsWith("/api/bff/expenses")
+    || normalized.startsWith("/api/bff/categories")
+    || normalized.startsWith("/api/bff/settings")
+    || normalized.startsWith("/api/bff/budget-plans");
+}
 
 export function useExpensesScreenController({ navigation, route }: Props): ExpensesScreenControllerState {
   const topHeaderOffset = useTopHeaderOffset();
@@ -839,6 +848,24 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
   }, [activePlanId, bootstrapError, ensureLoaded, getOrFetchPayPeriodExpenses, month, parsePlanCreatedAt, planCacheKey, preloadSummaryWindow, refreshBootstrap, resolveEffectivePlanCreatedAt, resolvePlanTargetPeriod, route.params?.month, route.params?.year, setupCompletedAt, year]);
 
   const currentViewKey = `${activePlanId ?? "none"}:${year}-${month}`;
+  const hasRelevantMutationChanges = useCallback(() => {
+    const latestMutationVersion = getApiMutationVersion();
+    if (latestMutationVersion === seenMutationVersionRef.current) return false;
+
+    const mutationsSince = getApiMutationsSince(seenMutationVersionRef.current);
+    if (mutationsSince.length === 0) {
+      return true;
+    }
+
+    const hasRelevantMutation = mutationsSince.some((mutation) => isExpensesRelevantMutationPath(mutation.path));
+    if (!hasRelevantMutation) {
+      seenMutationVersionRef.current = latestMutationVersion;
+      return false;
+    }
+
+    return true;
+  }, []);
+
   useEffect(() => {
     applyCachedViewState(activePlanId, month, year);
   }, [activePlanId, applyCachedViewState, month, year]);
@@ -855,8 +882,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
 
     if (loadedKey && loadedKey === currentViewKey && summary && !hasEmptyLoadedLivePeriod) return;
 
-    const latestMutationVersion = getApiMutationVersion();
-    const hasMutationChanges = latestMutationVersion !== seenMutationVersionRef.current;
+    const hasMutationChanges = hasRelevantMutationChanges();
     const cachedCurrent = getCachedSummary(activePlanId, year, month);
     const hasCachedCurrent = Boolean(cachedCurrent);
     const shouldRevalidateEmptyLivePeriod = Boolean(
@@ -880,7 +906,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     }
 
     void load();
-  }, [activePlanId, applyCachedViewState, currentViewKey, defaultActiveMonth, defaultActiveYear, getCachedSummary, load, loadedKey, month, summary, year]);
+  }, [activePlanId, applyCachedViewState, currentViewKey, defaultActiveMonth, defaultActiveYear, getCachedSummary, hasRelevantMutationChanges, load, loadedKey, month, summary, year]);
 
   useEffect(() => {
     if (!activePlanId) return;
@@ -894,8 +920,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
 
   useFocusEffect(
     useCallback(() => {
-      const latestMutationVersion = getApiMutationVersion();
-      const hasMutationChanges = latestMutationVersion !== seenMutationVersionRef.current;
+      const hasMutationChanges = hasRelevantMutationChanges();
 
       if (skipFirstFocusReloadRef.current) {
         skipFirstFocusReloadRef.current = false;
@@ -916,7 +941,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       if (!hasMutationChanges) return;
 
       void load({ force: true });
-    }, [load]),
+    }, [hasRelevantMutationChanges, load]),
   );
 
   const accountCreatedAt = useMemo(() => {
