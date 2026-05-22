@@ -11,6 +11,7 @@ export * from "./useIncomeCRUD";
 export * from "./useLoggedExpensesScreenController";
 export * from "./useOnboardingScreenController";
 export * from "./usePaymentsSections";
+export * from "./usePostDashboardWarmup";
 export * from "./useSavingsPotStore";
 export * from "./useSettingsDebtBuckets";
 export * from "./useSettingsIncomeSettingsScreenController";

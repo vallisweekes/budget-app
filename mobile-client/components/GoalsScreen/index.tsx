@@ -12,13 +12,14 @@ import {
   Platform,
   SectionList,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useScrollToTop } from "@react-navigation/native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { apiFetch, getApiMutationVersion } from "@/lib/api";
 import type { Goal } from "@/lib/apiTypes";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
+import { GOALS_PREFETCH_CACHE_TTL_MS, SCREEN_FOCUS_REVALIDATE_TTL_MS } from "@/lib/constants";
 import { fmt } from "@/lib/formatting";
 import { asMoneyNumber, resolveGoalCurrentAmount } from "@/lib/helpers/settings";
 import { useTopHeaderOffset } from "@/hooks";
@@ -37,9 +38,8 @@ export default function GoalsScreen({ navigation, route }: MainTabScreenProps<"G
     dashboard,
     settings,
     isLoading: bootstrapLoading,
-    error: bootstrapError,
-    refresh: refreshBootstrap,
-    ensureLoaded,
+    ensureSettingsLoaded,
+    refreshSettings,
   } = useBootstrapData();
 
   const [goals, setGoals] = useState<Goal[]>([]);
@@ -55,10 +55,12 @@ export default function GoalsScreen({ navigation, route }: MainTabScreenProps<"G
   const lastOpenAddTokenRef = useRef<number | null>(null);
   const skipNextTabFocusReloadRef = useRef(false);
   const seenMutationVersionRef = useRef<number>(getApiMutationVersion());
+  const hasLoadedGoalsRef = useRef(false);
+  const lastLoadedAtRef = useRef<number | null>(null);
 
-  const budgetPlanId = dashboard?.budgetPlanId;
+  const budgetPlanId = settings?.id ?? dashboard?.budgetPlanId;
 
-  const loading = bootstrapLoading || loadingGoals;
+  const loading = (!settings && bootstrapLoading) || loadingGoals;
   const refreshing = refreshingGoals;
 
   const parseAmount = (raw: string): number | undefined => {
@@ -85,22 +87,26 @@ export default function GoalsScreen({ navigation, route }: MainTabScreenProps<"G
       setError(null);
 
       if (options?.force) setRefreshingGoals(true);
-      const { dashboard: dash, settings: s } = options?.force
-        ? await refreshBootstrap({ force: true })
-        : await ensureLoaded();
+      const loadedSettings = options?.force
+        ? await refreshSettings({ force: true })
+        : (settings ?? await ensureSettingsLoaded());
 
-      if (!dash || !s) {
-        if (bootstrapError) throw bootstrapError;
-        throw new Error("Failed to load");
+      if (!loadedSettings) {
+        throw new Error("Failed to load settings");
       }
 
-      const planId = dash.budgetPlanId;
+      const planId = loadedSettings.id ?? dashboard?.budgetPlanId ?? "";
       if (planId) {
-        const g = await apiFetch<Goal[]>(`/api/bff/goals?budgetPlanId=${encodeURIComponent(planId)}`);
+        const g = await apiFetch<Goal[]>(`/api/bff/goals?budgetPlanId=${encodeURIComponent(planId)}`, {
+          cacheTtlMs: GOALS_PREFETCH_CACHE_TTL_MS,
+        });
         setGoals(Array.isArray(g) ? g : []);
       } else {
         setGoals([]);
       }
+
+      hasLoadedGoalsRef.current = true;
+      lastLoadedAtRef.current = Date.now();
 
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load goals");
@@ -108,7 +114,7 @@ export default function GoalsScreen({ navigation, route }: MainTabScreenProps<"G
       setLoadingGoals(false);
       setRefreshingGoals(false);
     }
-  }, [bootstrapError, ensureLoaded, refreshBootstrap]);
+  }, [dashboard?.budgetPlanId, ensureSettingsLoaded, refreshSettings, settings]);
 
   useEffect(() => {
     const tabNavigation = navigation.getParent();
@@ -131,6 +137,16 @@ export default function GoalsScreen({ navigation, route }: MainTabScreenProps<"G
         skipNextTabFocusReloadRef.current = false;
         return;
       }
+
+      const hasFreshGoals = hasLoadedGoalsRef.current
+        && lastLoadedAtRef.current !== null
+        && (Date.now() - lastLoadedAtRef.current) < SCREEN_FOCUS_REVALIDATE_TTL_MS;
+
+      if (!hasFreshMutation && hasFreshGoals) {
+        skipNextTabFocusReloadRef.current = false;
+        return;
+      }
+
       skipNextTabFocusReloadRef.current = false;
       void load({ force: hasFreshMutation });
     }, [load])

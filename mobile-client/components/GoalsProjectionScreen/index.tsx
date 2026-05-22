@@ -3,6 +3,7 @@ import { View, Text, Pressable, ActivityIndicator, ScrollView } from "react-nati
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
 import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
 import Svg, { Circle, Defs, Line, LinearGradient, Path, Polyline, Stop } from "react-native-svg";
 
 import type { DashboardData } from "@/lib/apiTypes";
@@ -66,9 +67,11 @@ export default function GoalsProjectionScreen({ navigation }: { navigation: any 
     }
   }, [bootstrapDashboard, ensureLoaded, refreshBootstrap]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load])
+  );
 
   const baseProjection = useMemo(() => buildGoalsProjection(dashboard, settings), [dashboard, settings]);
   const currentPlanMonthly = baseProjection?.monthlyTotal ?? 0;

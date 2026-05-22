@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useFocusEffect, useScrollToTop } from "@react-navigation/native";
+import { useFocusEffect, useIsFocused, useScrollToTop } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 
 import { useBootstrapData, isNoBudgetPlanError } from "@/context/BootstrapDataContext";
+import { getApiMutationVersion } from "@/lib/api";
 import type { DashboardData } from "@/lib/apiTypes";
+import { SCREEN_FOCUS_REVALIDATE_TTL_MS } from "@/lib/constants";
 import { resolveDisplayedPayPeriodAnchor } from "@/lib/helpers/resolveDisplayedPayPeriodAnchor";
 import { currencySymbol, normalizeUpcomingName } from "@/lib/formatting";
-import { useSwipeDownToClose, useTopHeaderOffset } from "@/hooks";
+import { usePostDashboardWarmup, useSwipeDownToClose, useTopHeaderOffset } from "@/hooks";
 import { normalizePayFrequency } from "@/lib/payPeriods";
 import type { MainTabScreenProps } from "@/navigation/types";
 import { useGetDashboardByPeriodQuery } from "@/store/api";
@@ -31,6 +33,7 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
   const router = useRouter();
   const scrollRef = useRef<ScrollView>(null);
   useScrollToTop(scrollRef);
+  const isFocused = useIsFocused();
 
   const topHeaderOffset = useTopHeaderOffset(-24);
   const insets = useSafeAreaInsets();
@@ -50,6 +53,9 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
   const [failedLogos, setFailedLogos] = useState<Record<string, boolean>>({});
   const [displayedPeriodAnchor, setDisplayedPeriodAnchor] = useState<{ month: number; year: number } | null>(null);
   const [displayedPeriodResolved, setDisplayedPeriodResolved] = useState(false);
+  const lastDisplayedPeriodResolvedAtRef = useRef<number | null>(null);
+  const displayedPeriodContextRef = useRef("");
+  const seenMutationVersionRef = useRef<number>(getApiMutationVersion());
 
   const budgetPlanId = useMemo(() => {
     if (typeof settings?.id === "string" && settings.id.trim()) {
@@ -62,10 +68,37 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
   }, [dashboard?.budgetPlanId, settings?.id]);
 
   const hasBootstrapDashboard = Boolean(dashboard);
+  const payFrequency = useMemo(
+    () => normalizePayFrequency(dashboard?.payFrequency ?? settings?.payFrequency),
+    [dashboard?.payFrequency, settings?.payFrequency],
+  );
+  const payAnchorDate = useMemo(
+    () => (payFrequency === "monthly" ? null : (settings?.payAnchorDate ?? null)),
+    [payFrequency, settings?.payAnchorDate],
+  );
+  const planCreatedAt = useMemo(
+    () => (settings?.setupCompletedAt
+      ? new Date(settings.setupCompletedAt)
+      : settings?.accountCreatedAt
+        ? new Date(settings.accountCreatedAt)
+        : null),
+    [settings?.accountCreatedAt, settings?.setupCompletedAt],
+  );
+  const displayedPeriodContextKey = useMemo(() => {
+    if (!budgetPlanId) return "";
+
+    return [
+      budgetPlanId,
+      settings?.payDate ?? dashboard?.payDate ?? 27,
+      payFrequency,
+      payAnchorDate ?? "",
+      settings?.setupCompletedAt ?? settings?.accountCreatedAt ?? "",
+    ].join("|");
+  }, [budgetPlanId, dashboard?.payDate, payAnchorDate, payFrequency, settings?.accountCreatedAt, settings?.payDate, settings?.setupCompletedAt]);
 
   const shouldLoadPeriodDashboard = useMemo(
-    () => Boolean(hasBootstrapDashboard && displayedPeriodAnchor && budgetPlanId && !dashboardMatchesAnchor(dashboard, displayedPeriodAnchor)),
-    [budgetPlanId, dashboard, displayedPeriodAnchor, hasBootstrapDashboard],
+    () => Boolean(isFocused && hasBootstrapDashboard && displayedPeriodAnchor && budgetPlanId && !dashboardMatchesAnchor(dashboard, displayedPeriodAnchor)),
+    [budgetPlanId, dashboard, displayedPeriodAnchor, hasBootstrapDashboard, isFocused],
   );
 
   const periodDashboardArgs = useMemo(
@@ -143,25 +176,35 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
     let cancelled = false;
 
     const run = async () => {
+      if (!isFocused) {
+        return;
+      }
+
       if (!budgetPlanId) {
         if (!cancelled) {
           setDisplayedPeriodAnchor(null);
           setDisplayedPeriodResolved(true);
         }
+        displayedPeriodContextRef.current = "";
+        lastDisplayedPeriodResolvedAtRef.current = null;
+        return;
+      }
+
+      const latestMutationVersion = getApiMutationVersion();
+      const hasMutationChanges = latestMutationVersion !== seenMutationVersionRef.current;
+      const hasFreshDisplayedPeriod = displayedPeriodResolved
+        && displayedPeriodAnchor !== null
+        && displayedPeriodContextRef.current === displayedPeriodContextKey
+        && lastDisplayedPeriodResolvedAtRef.current !== null
+        && (Date.now() - lastDisplayedPeriodResolvedAtRef.current) < SCREEN_FOCUS_REVALIDATE_TTL_MS;
+
+      if (!hasMutationChanges && hasFreshDisplayedPeriod) {
         return;
       }
 
       if (!cancelled) {
         setDisplayedPeriodResolved(false);
       }
-
-      const payFrequency = normalizePayFrequency(dashboard?.payFrequency ?? settings?.payFrequency);
-      const payAnchorDate = payFrequency === "monthly" ? null : (settings?.payAnchorDate ?? null);
-      const planCreatedAt = settings?.setupCompletedAt
-        ? new Date(settings.setupCompletedAt)
-        : settings?.accountCreatedAt
-          ? new Date(settings.accountCreatedAt)
-          : null;
 
       const next = await resolveDisplayedPayPeriodAnchor({
         budgetPlanId,
@@ -174,6 +217,9 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
       if (!cancelled) {
         setDisplayedPeriodAnchor(next);
         setDisplayedPeriodResolved(true);
+        seenMutationVersionRef.current = latestMutationVersion;
+        displayedPeriodContextRef.current = displayedPeriodContextKey;
+        lastDisplayedPeriodResolvedAtRef.current = Date.now();
       }
     };
 
@@ -182,7 +228,7 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
     return () => {
       cancelled = true;
     };
-  }, [budgetPlanId, dashboard, dashboard?.payDate, dashboard?.payFrequency, settings?.accountCreatedAt, settings?.payAnchorDate, settings?.payDate, settings?.payFrequency, settings?.setupCompletedAt]);
+  }, [budgetPlanId, dashboard, displayedPeriodAnchor, displayedPeriodContextKey, displayedPeriodResolved, isFocused, payAnchorDate, payFrequency, settings?.payDate, planCreatedAt]);
 
   const currency = currencySymbol(settings?.currency);
   const needsSetup = derived.totalIncome <= 0 || derived.totalExpenses <= 0;
@@ -199,6 +245,12 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
   const recapTitle = recap
     ? (derived.hasPayDateConfigured ? `${derived.previousPayPeriodLabel} Recap` : `${recap.label} Recap`)
     : "";
+
+  usePostDashboardWarmup({
+    dashboard: resolvedDashboard,
+    settings,
+    isFocused,
+  });
 
   const closeCategorySheet = useCallback(() => setCategorySheet(null), []);
   const openCategorySheet = useCallback((category: { id: string; name: string }) => setCategorySheet(category), []);

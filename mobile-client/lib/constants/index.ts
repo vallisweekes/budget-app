@@ -6,3 +6,4 @@ export * from "./income";
 export * from "./onboarding";
 export * from "./debt";
 export * from "./helpCenter";
+export * from "./prefetch";

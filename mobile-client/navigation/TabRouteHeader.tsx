@@ -65,6 +65,9 @@ export default function TabRouteHeader() {
   const isSettingsStrategy = rootSegment === "settings-strategy";
   const isSettingsDebtManagement = rootSegment === "settings-debt-management";
   const isGoals = tabSegment === "goals";
+  const isGoalsProjection = tabSegment === "goals-projection";
+  const isGoalsSection = isGoals || isGoalsProjection;
+  const isGoalsRootRoute = isGoals && !leafSegment;
   const isIncomeTab = tabSegment === "income";
   const isDashboardHome = tabSegment === "dashboard" && !leafSegment;
   const isGoalDetail = leafSegment === "GoalDetail";
@@ -222,6 +225,8 @@ export default function TabRouteHeader() {
                 ? "Subscription"
               : isGoalDetail
                 ? getStringParam(params.goalTitle) ?? (typeof routeParams?.goalTitle === "string" ? routeParams.goalTitle : "Goal")
+              : isGoalsProjection
+                ? "Projection"
               : isGoals
                 ? "Goals"
                 : undefined;
@@ -378,27 +383,8 @@ export default function TabRouteHeader() {
     }
   };
 
-  const goalsRightContent = isGoals && !isGoalDetail ? (
-    <Pressable
-      onPress={() => router.setParams({ openAddToken: String(Date.now()) })}
-      hitSlop={10}
-      accessibilityRole="button"
-      accessibilityLabel="Add goal"
-      style={{
-        minWidth: 72,
-        height: 34,
-        borderRadius: 17,
-        backgroundColor: T.accent,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
-        paddingHorizontal: 12,
-        gap: 4,
-      }}
-    >
-      <Ionicons name="add" size={18} color={T.onAccent} />
-      <Text style={{ color: T.onAccent, fontSize: 13, fontWeight: "800" }}>Goal</Text>
-    </Pressable>
+  const goalsRightContent = isGoalsSection && !isGoalDetail ? (
+    <View style={{ width: 36, height: 36 }} />
   ) : isGoalDetail ? <View style={{ width: 34, height: 34 }} /> : undefined;
 
   const analyticsRightContent = isAnalytics ? (

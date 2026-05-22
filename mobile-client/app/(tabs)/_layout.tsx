@@ -78,6 +78,9 @@ export default function MainTabsLayout() {
   const isDebtDetailRoute = segments[0] === "(tabs)" && segments[1] === "debts" && segments[2] === "DebtDetail";
   const isExpenseDetailRoute = segments[0] === "(tabs)" && segments[1] === "expenses" && segments[2] === "ExpenseDetail";
   const isGoalDetailRoute = segments[0] === "(tabs)" && segments[1] === "goals" && segments[2] === "GoalDetail";
+  const isGoalsRootRoute = segments[0] === "(tabs)" && segments[1] === "goals" && typeof segments[2] !== "string";
+  const isGoalsProjectionRoute = segments[0] === "(tabs)" && segments[1] === "goals-projection";
+  const isGoalsSplitRoute = isGoalsRootRoute || isGoalsProjectionRoute;
   const isDebtAnalyticsRoute = segments[0] === "(tabs)" && segments[1] === "debts" && segments[2] === "DebtAnalytics";
   const isCategoryExpensesSplitRoute = segments[0] === "(tabs)"
     && segments[1] === "expenses"
@@ -108,9 +111,11 @@ export default function MainTabsLayout() {
     ? "tabs:category-expenses-split"
     : isIncomeSplitRoute
       ? "tabs:income-split"
+      : isGoalsSplitRoute
+        ? "tabs:goals-split"
       : isDebtSplitRoute
         ? "tabs:debt-split"
-        : `tabs:main:${showDebtsTab ? "with-debts" : "without-debts"}:${isTabsHidden ? "hidden" : "visible"}`;
+        : `tabs:main:${showDebtsTab ? "with-debts" : "without-debts"}:${shouldHideNativeTabs ? "hidden" : "visible"}`;
   const tabBarBackgroundColor = (isIncomeSplitRoute || isCategoryExpensesSplitRoute) ? undefined : T.card;
   const tabBarBlurEffect = (isIncomeSplitRoute || isCategoryExpensesSplitRoute) ? undefined : "systemUltraThinMaterialDark";
   const tabBarShadowColor = (isIncomeSplitRoute || isCategoryExpensesSplitRoute) ? undefined : T.border;
@@ -174,6 +179,30 @@ export default function MainTabsLayout() {
           onTabPress: () => {
             debtAddTokenRef.current += 1;
             router.setParams({ openAddToken: String(debtAddTokenRef.current) });
+          },
+          preventDefaultOnTabPress: true,
+          resetOnBlur: false,
+        }
+      : undefined),
+  } as Record<string, unknown>;
+
+  const goalsAddTokenRef = React.useRef(0);
+  const goalsSplitTriggerScreenProps = {
+    listeners: createTabListeners(isGoalsSplitRoute
+      ? {
+          onTabPress: () => {
+            goalsAddTokenRef.current += 1;
+            const nextToken = String(goalsAddTokenRef.current);
+
+            if (isGoalsRootRoute) {
+              router.setParams({ openAddToken: nextToken });
+              return;
+            }
+
+            router.push({
+              pathname: "/(tabs)/goals",
+              params: { openAddToken: nextToken },
+            });
           },
           preventDefaultOnTabPress: true,
           resetOnBlur: false,
@@ -297,6 +326,60 @@ export default function MainTabsLayout() {
         <NativeTabs.Trigger
           {...debtSplitTriggerScreenProps}
           name="debts"
+          role="search"
+          contentStyle={tabContentStyle}
+          unstable_nativeProps={tabNativeProps}
+        >
+          <NativeTabs.Trigger.Icon
+            src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name="add" />}
+            renderingMode="template"
+            selectedColor={selectedTintColor}
+          />
+        </NativeTabs.Trigger>
+      </NativeTabs>
+    );
+  }
+
+  if (isGoalsSplitRoute) {
+    return (
+      <NativeTabs
+        key={tabsLayoutKey}
+        hidden={shouldHideNativeTabs}
+        tintColor={selectedTintColor}
+        iconColor={inactiveIconColor}
+        labelStyle={splitRouteLabelStyle}
+        titlePositionAdjustment={{ vertical: -2 }}
+        backBehavior="history"
+      >
+        <NativeTabs.Trigger
+          {...resetOnBlurScreenProps}
+          name="dashboard"
+          contentStyle={tabContentStyle}
+          unstable_nativeProps={tabNativeProps}
+        >
+          <NativeTabs.Trigger.Icon
+            src={<NativeTabs.Trigger.VectorIcon family={Feather} name="home" />}
+            renderingMode="template"
+            selectedColor={selectedTintColor}
+          />
+          <NativeTabs.Trigger.Label selectedStyle={splitRouteSelectedTabLabelStyle}>Home</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger
+          {...resetOnBlurScreenProps}
+          name="goals-projection"
+          contentStyle={tabContentStyle}
+          unstable_nativeProps={tabNativeProps}
+        >
+          <NativeTabs.Trigger.Icon
+            src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name="trending-up-outline" />}
+            renderingMode="template"
+            selectedColor={selectedTintColor}
+          />
+          <NativeTabs.Trigger.Label selectedStyle={splitRouteSelectedTabLabelStyle}>Projection</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger
+          {...goalsSplitTriggerScreenProps}
+          name="goals"
           role="search"
           contentStyle={tabContentStyle}
           unstable_nativeProps={tabNativeProps}

@@ -18,10 +18,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useFocusEffect, useRoute } from "@react-navigation/native";
 
 import { s } from "@/components/IncomeScreen/style";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, getApiMutationVersion } from "@/lib/api";
 import type { IncomeSummaryData } from "@/lib/apiTypes";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
-import { MONTH_NAMES_SHORT } from "@/lib/constants";
+import { MONTH_NAMES_SHORT, SCREEN_FOCUS_REVALIDATE_TTL_MS } from "@/lib/constants";
 import { currencySymbol, fmt } from "@/lib/formatting";
 import { useSwipeDownToClose, useTopHeaderOffset, useYearGuard } from "@/hooks";
 import { resolveDisplayedPayPeriodAnchor } from "@/lib/helpers/resolveDisplayedPayPeriodAnchor";
@@ -51,6 +51,9 @@ export default function IncomeScreen() {
   const [yearDistributeHorizon, setYearDistributeHorizon] = useState(false);
   const [yearAddSaving, setYearAddSaving] = useState(false);
   const skipNextTabFocusReloadRef = useRef(false);
+  const hasLoadedIncomeRef = useRef(false);
+  const lastLoadedAtRef = useRef<number | null>(null);
+  const seenMutationVersionRef = useRef<number>(getApiMutationVersion());
 
   const {
     settings,
@@ -123,10 +126,11 @@ export default function IncomeScreen() {
     });
   }, [data, displayedActiveAnchor?.month, navigation, route.params?.addIncomeMonth, route.params?.budgetPlanId, route.params?.showAddAction, route.params?.year, year]);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (options?: { force?: boolean }) => {
     try {
       setError(null);
-      const { settings: loadedSettings } = refreshing
+      const shouldForce = options?.force === true || refreshing;
+      const { settings: loadedSettings } = shouldForce
         ? await refreshBootstrap({ force: true })
         : await ensureLoaded();
 
@@ -151,6 +155,9 @@ export default function IncomeScreen() {
             : null,
       });
       setDisplayedActiveAnchor(nextDisplayedAnchor);
+      hasLoadedIncomeRef.current = true;
+      lastLoadedAtRef.current = Date.now();
+      seenMutationVersionRef.current = getApiMutationVersion();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load income");
     } finally {
@@ -178,7 +185,20 @@ export default function IncomeScreen() {
         skipNextTabFocusReloadRef.current = false;
         return;
       }
-      if (!loading) load();
+
+      const latestMutationVersion = getApiMutationVersion();
+      const hasMutationChanges = latestMutationVersion !== seenMutationVersionRef.current;
+      const hasFreshIncome = hasLoadedIncomeRef.current
+        && lastLoadedAtRef.current !== null
+        && (Date.now() - lastLoadedAtRef.current) < SCREEN_FOCUS_REVALIDATE_TTL_MS;
+
+      if (!hasMutationChanges && hasFreshIncome) {
+        return;
+      }
+
+      if (!loading || hasMutationChanges) {
+        void load({ force: hasMutationChanges });
+      }
     }, [load, loading]),
   );
 
@@ -276,7 +296,7 @@ export default function IncomeScreen() {
         <View style={s.center}>
           <Ionicons name="cloud-offline-outline" size={48} color={T.textDim} />
           <Text style={s.errorText}>{error}</Text>
-          <Pressable onPress={load} style={s.retryBtn}>
+          <Pressable onPress={() => { void load(); }} style={s.retryBtn}>
             <Text style={s.retryTxt}>Retry</Text>
           </Pressable>
         </View>
