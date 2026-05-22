@@ -25,11 +25,21 @@ function getChartY(value: number, maxY: number) {
 
 function fmtCompactCurrency(value: number, currency?: string) {
   const sym = currencySymbol(currency);
-  const compact = new Intl.NumberFormat("en-US", {
-    notation: "compact",
-    maximumFractionDigits: 1,
-  }).format(Math.abs(value)).toLowerCase();
-  return `${value < 0 ? "-" : ""}${sym}${compact}`;
+  const absolute = Math.abs(value);
+
+  if (absolute >= 1_000_000) {
+    const millions = absolute / 1_000_000;
+    const compact = millions >= 10 ? Math.round(millions).toString() : millions.toFixed(1).replace(/\.0$/, "");
+    return `${value < 0 ? "-" : ""}${sym}${compact}m`;
+  }
+
+  if (absolute >= 1_000) {
+    const thousands = absolute / 1_000;
+    const compact = thousands >= 10 ? Math.round(thousands).toString() : thousands.toFixed(1).replace(/\.0$/, "");
+    return `${value < 0 ? "-" : ""}${sym}${compact}k`;
+  }
+
+  return `${value < 0 ? "-" : ""}${sym}${Math.round(absolute)}`;
 }
 
 export default function GoalsProjectionScreen({ navigation }: { navigation: any }) {
@@ -206,8 +216,20 @@ export default function GoalsProjectionScreen({ navigation }: { navigation: any 
                             strokeLinejoin="round"
                             strokeLinecap="round"
                           />
-                          <Circle cx={String(lastPoint.x)} cy={String(lastPoint.y)} r="4.5" fill={line.color} />
-                          <Circle cx={String(lastPoint.x)} cy={String(lastPoint.y)} r="9" fill="rgba(255,255,255,0.08)" />
+                          <Line
+                            x1={String(lastPoint.x)}
+                            y1={String(lastPoint.y)}
+                            x2={String(lastPoint.x)}
+                            y2={String(CHART_BOTTOM)}
+                            stroke={line.color}
+                            strokeOpacity="0.18"
+                            strokeWidth="1"
+                            strokeDasharray="3 5"
+                          />
+                          <Circle cx={String(lastPoint.x)} cy={String(lastPoint.y)} r="16" fill={line.color} opacity="0.10" />
+                          <Circle cx={String(lastPoint.x)} cy={String(lastPoint.y)} r="10" fill={line.color} opacity="0.16" />
+                          <Circle cx={String(lastPoint.x)} cy={String(lastPoint.y)} r="5.5" fill={T.bg} stroke={line.color} strokeWidth="2.2" />
+                          <Circle cx={String(lastPoint.x)} cy={String(lastPoint.y)} r="2.8" fill={line.color} />
                         </React.Fragment>
                       );
                     })}
@@ -293,6 +315,8 @@ export default function GoalsProjectionScreen({ navigation }: { navigation: any 
 
             {projection.lines.map((line) => (
               <View key={line.id} style={styles.goalCard}>
+                <View pointerEvents="none" style={[styles.goalCardGlow, { backgroundColor: `${line.color}16` }]} />
+                <View pointerEvents="none" style={styles.goalCardInnerBorder} />
                 <View style={styles.goalCardTopRow}>
                   <View style={styles.goalCardTitleWrap}>
                     <View style={[styles.goalSwatch, { backgroundColor: line.color }]} />
@@ -302,8 +326,8 @@ export default function GoalsProjectionScreen({ navigation }: { navigation: any 
                     </View>
                   </View>
 
-                  <View style={styles.statusPill}>
-                    <Text style={styles.statusPillText}>{line.statusLabel}</Text>
+                  <View style={[styles.statusPill, { borderColor: `${line.color}40`, backgroundColor: `${line.color}14` }]}>
+                    <Text style={[styles.statusPillText, { color: line.color }]}>{line.statusLabel}</Text>
                   </View>
                 </View>
 

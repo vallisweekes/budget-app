@@ -56,10 +56,10 @@ function resolveProjectionMonths(goals: DashboardGoal[], fallbackMonths: number)
 }
 
 const SERIES_COLORS = [
-  { line: "#7c5cff", areaTop: "rgba(124,92,255,0.28)", areaBottom: "rgba(124,92,255,0.02)" },
-  { line: "#2ee58f", areaTop: "rgba(46,229,143,0.24)", areaBottom: "rgba(46,229,143,0.02)" },
-  { line: "#ffb020", areaTop: "rgba(255,176,32,0.24)", areaBottom: "rgba(255,176,32,0.02)" },
-  { line: "#53c7ff", areaTop: "rgba(83,199,255,0.24)", areaBottom: "rgba(83,199,255,0.02)" },
+  { line: "#7c5cff", areaTop: "rgba(124,92,255,0.20)", areaBottom: "rgba(124,92,255,0.008)" },
+  { line: "#2ee58f", areaTop: "rgba(46,229,143,0.18)", areaBottom: "rgba(46,229,143,0.008)" },
+  { line: "#ffb020", areaTop: "rgba(255,176,32,0.18)", areaBottom: "rgba(255,176,32,0.008)" },
+  { line: "#53c7ff", areaTop: "rgba(83,199,255,0.18)", areaBottom: "rgba(83,199,255,0.008)" },
 ];
 
 function classifyGoal(goal: DashboardGoal): GoalKind {
