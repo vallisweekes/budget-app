@@ -1,5 +1,5 @@
 import GoalsProjectionScreen from "@/components/GoalsProjectionScreen";
 
-export default function GoalsProjectionRoute() {
+export default function StandaloneGoalsProjectionRoute() {
   return <GoalsProjectionScreen />;
 }

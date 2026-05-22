@@ -347,7 +347,7 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
       pathname: "/(tabs)/goals",
       params: { openAddToken: String(Date.now()) },
     }),
-    goToGoalsProjection: () => router.push("/goals-projection"),
+    goToGoalsProjection: () => router.push("/GoalsProjection"),
     goToSettings: () => router.push("/settings"),
     ...derived,
   };
