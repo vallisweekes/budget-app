@@ -365,11 +365,18 @@ export const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    position: "relative",
+    zIndex: 2,
   },
   goalsHeaderActions: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
+  },
+  goalsHeaderLink: {
+    paddingVertical: 6,
+    position: "relative",
+    zIndex: 3,
   },
   seeAllGoalsText: {
     color: T.accent,

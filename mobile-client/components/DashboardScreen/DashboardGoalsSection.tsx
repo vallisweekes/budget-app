@@ -25,11 +25,23 @@ export default function DashboardGoalsSection({
   return (
     <View style={styles.goalsWrap}>
       <View style={styles.goalsHeaderRow}>
-        <Pressable onPress={onPressGoals} hitSlop={8}>
+        <Pressable
+          onPress={onPressGoals}
+          hitSlop={8}
+          style={styles.goalsHeaderLink}
+          accessibilityRole="button"
+          accessibilityLabel="Open goals"
+        >
           <Text style={styles.seeAllGoalsText}>See all goals</Text>
         </Pressable>
         <View style={styles.goalsHeaderActions}>
-          <Pressable onPress={onPressProjection} hitSlop={8}>
+          <Pressable
+            onPress={onPressProjection}
+            hitSlop={8}
+            style={styles.goalsHeaderLink}
+            accessibilityRole="button"
+            accessibilityLabel="Open goals projection"
+          >
             <Text style={styles.goalsProjectionTitle}>Goals projection</Text>
           </Pressable>
         </View>
