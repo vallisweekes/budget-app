@@ -67,7 +67,6 @@ export default function MainTabsLayout() {
   const { dashboard, isLoading: bootstrapLoading } = useBootstrapData();
   const debtSummaryQuery = useGetDebtSummaryQuery(undefined, {
     skip: !profile,
-    refetchOnMountOrArgChange: true,
   });
   const incomeAddTokenRef = React.useRef(0);
   const debtAddTokenRef = React.useRef(0);
@@ -104,8 +103,14 @@ export default function MainTabsLayout() {
     hasActualDebts,
     profileHasDebtsToManage: profile?.onboarding?.profile?.hasDebtsToManage,
   });
-  const debtVisibilityResolved = !bootstrapLoading && (!profile || debtSummaryQuery.isSuccess || debtSummaryQuery.isError);
-  const isTabsHidden = isDebtDetailRoute || isExpenseDetailRoute || isGoalDetailRoute;
+  const debtVisibilityResolved = !bootstrapLoading && (
+    !profile
+    || debtSummaryQuery.isSuccess
+    || debtSummaryQuery.isError
+    || Boolean(dashboard)
+    || profile?.onboarding?.profile?.hasDebtsToManage === true
+  );
+  const isTabsHidden = isDebtDetailRoute || isExpenseDetailRoute || isGoalDetailRoute || isGoalsProjectionRoute;
   const shouldHideNativeTabs = isTabsHidden || segments[0] !== "(tabs)";
   const tabsLayoutKey = isCategoryExpensesSplitRoute
     ? "tabs:category-expenses-split"

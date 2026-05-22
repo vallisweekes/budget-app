@@ -258,6 +258,11 @@ export default function TabRouteHeader() {
   const analyticsOverviewMode = getStringParam(params.overviewMode) === "month" ? "month" : "year";
 
   const handleBack = () => {
+    if (isGoalsProjection) {
+      replaceRoute("/(tabs)/goals");
+      return;
+    }
+
     if (isStandaloneSacrificeIncomeMonth && Number.isFinite(monthNum) && Number.isFinite(yearNum) && incomeMonthBudgetPlanId) {
       replaceRoute("/(tabs)/income/IncomeMonth", {
         month: Math.floor(monthNum),
@@ -605,7 +610,7 @@ export default function TabRouteHeader() {
       onHelp={() => pushRoute("/help")}
       onNotifications={() => pushRoute("/settings", { initialTab: "notifications" })}
       leftContent={expensesListLeftContent}
-      leftVariant={isStandaloneSacrificeIncomeMonth || isAnalytics || isSettings || isSettingsProfileDetails || isSettingsIncomeSettings || isSettingsStrategy || isSettingsDebtManagement || isGoalDetail || isCategoryExpenses || isLoggedExpenses || isUnplannedExpense || isScanReceipt || isDebtAnalytics ? "back" : "avatar"}
+      leftVariant={isStandaloneSacrificeIncomeMonth || isAnalytics || isSettings || isSettingsProfileDetails || isSettingsIncomeSettings || isSettingsStrategy || isSettingsDebtManagement || isGoalDetail || isGoalsProjection || isCategoryExpenses || isLoggedExpenses || isUnplannedExpense || isScanReceipt || isDebtAnalytics ? "back" : "avatar"}
       onBack={handleBack}
       centerLabel={centerLabel}
       centerContent={incomeMonthSwitcher}

@@ -4,6 +4,7 @@ import {
   getMonthlyCustomAllocationsSnapshot,
 } from "@/lib/allocations/store";
 import { invalidateGoalConnectedState } from "@/lib/goals/invalidateGoalConnectedState";
+import { runLegacyGoalSync } from "@/lib/income-sacrifice/legacyGoalSyncState";
 import { monthNumberToKey } from "@/lib/helpers/monthKey";
 import type { MonthKey } from "@/types";
 
@@ -81,88 +82,92 @@ type SacrificeTransferRow = {
 };
 
 export async function ensureLegacyCustomSacrificesHaveGoals(budgetPlanId: string): Promise<void> {
-  const allocationDefinition = (prisma as unknown as { allocationDefinition?: AllocationDefinitionDelegate }).allocationDefinition;
-  const linkDelegate = (prisma as unknown as { sacrificeGoalLink?: SacrificeGoalLinkDelegate }).sacrificeGoalLink;
-  const goalDelegate = (prisma as unknown as { goal?: GoalListDelegate }).goal;
+  await runLegacyGoalSync(budgetPlanId, async () => {
+    const allocationDefinition = (prisma as unknown as { allocationDefinition?: AllocationDefinitionDelegate }).allocationDefinition;
+    const linkDelegate = (prisma as unknown as { sacrificeGoalLink?: SacrificeGoalLinkDelegate }).sacrificeGoalLink;
+    const goalDelegate = (prisma as unknown as { goal?: GoalListDelegate }).goal;
 
-  if (!allocationDefinition?.findMany || !linkDelegate?.findMany || !linkDelegate?.upsert || !goalDelegate?.findMany || !goalDelegate?.create) {
-    return;
-  }
-
-  const [allocations, existingLinks, existingGoals] = await Promise.all([
-    allocationDefinition.findMany({
-      where: { budgetPlanId, isArchived: false },
-      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-      select: { id: true, name: true },
-    }),
-    linkDelegate.findMany({
-      where: { budgetPlanId, targetKey: { startsWith: "custom:" } },
-      select: {
-        id: true,
-        targetKey: true,
-        goalId: true,
-        goal: { select: { title: true, category: true } },
-      },
-    }),
-    goalDelegate.findMany({
-      where: { budgetPlanId },
-      orderBy: [{ createdAt: "desc" }],
-      select: { id: true, title: true },
-    }),
-  ]);
-
-  const linkedTargetKeys = new Set(existingLinks.map((link) => String(link.targetKey).trim()));
-  const goalIdByTitle = new Map<string, string>();
-
-  for (const goal of existingGoals) {
-    const normalizedTitle = normalizeGoalTitle(goal.title);
-    if (!normalizedTitle || goalIdByTitle.has(normalizedTitle)) continue;
-    goalIdByTitle.set(normalizedTitle, goal.id);
-  }
-
-  for (const allocation of allocations) {
-    const targetKey = `custom:${allocation.id}`;
-    if (linkedTargetKeys.has(targetKey)) continue;
-
-    const title = String(allocation.name ?? "").trim() || "Custom sacrifice";
-    const normalizedTitle = normalizeGoalTitle(title);
-
-    let goalId = goalIdByTitle.get(normalizedTitle);
-    if (!goalId) {
-      const createdGoal = await goalDelegate.create({
-        data: {
-          title,
-          type: "long_term",
-          category: inferGoalCategory(title),
-          description: "Backfilled from an older custom sacrifice. Update the target amount and year if needed.",
-          targetAmount: null,
-          currentAmount: 0,
-          targetYear: null,
-          budgetPlanId,
-        },
-        select: { id: true },
-      });
-      goalId = String(createdGoal.id);
-      if (normalizedTitle) {
-        goalIdByTitle.set(normalizedTitle, goalId);
-      }
+    if (!allocationDefinition?.findMany || !linkDelegate?.findMany || !linkDelegate?.upsert || !goalDelegate?.findMany || !goalDelegate?.create) {
+      return false;
     }
 
-    await linkDelegate.upsert({
-      where: {
-        budgetPlanId_targetKey: {
+    const [allocations, existingLinks, existingGoals] = await Promise.all([
+      allocationDefinition.findMany({
+        where: { budgetPlanId, isArchived: false },
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+        select: { id: true, name: true },
+      }),
+      linkDelegate.findMany({
+        where: { budgetPlanId, targetKey: { startsWith: "custom:" } },
+        select: {
+          id: true,
+          targetKey: true,
+          goalId: true,
+          goal: { select: { title: true, category: true } },
+        },
+      }),
+      goalDelegate.findMany({
+        where: { budgetPlanId },
+        orderBy: [{ createdAt: "desc" }],
+        select: { id: true, title: true },
+      }),
+    ]);
+
+    const linkedTargetKeys = new Set(existingLinks.map((link) => String(link.targetKey).trim()));
+    const goalIdByTitle = new Map<string, string>();
+
+    for (const goal of existingGoals) {
+      const normalizedTitle = normalizeGoalTitle(goal.title);
+      if (!normalizedTitle || goalIdByTitle.has(normalizedTitle)) continue;
+      goalIdByTitle.set(normalizedTitle, goal.id);
+    }
+
+    for (const allocation of allocations) {
+      const targetKey = `custom:${allocation.id}`;
+      if (linkedTargetKeys.has(targetKey)) continue;
+
+      const title = String(allocation.name ?? "").trim() || "Custom sacrifice";
+      const normalizedTitle = normalizeGoalTitle(title);
+
+      let goalId = goalIdByTitle.get(normalizedTitle);
+      if (!goalId) {
+        const createdGoal = await goalDelegate.create({
+          data: {
+            title,
+            type: "long_term",
+            category: inferGoalCategory(title),
+            description: "Backfilled from an older custom sacrifice. Update the target amount and year if needed.",
+            targetAmount: null,
+            currentAmount: 0,
+            targetYear: null,
+            budgetPlanId,
+          },
+          select: { id: true },
+        });
+        goalId = String(createdGoal.id);
+        if (normalizedTitle) {
+          goalIdByTitle.set(normalizedTitle, goalId);
+        }
+      }
+
+      await linkDelegate.upsert({
+        where: {
+          budgetPlanId_targetKey: {
+            budgetPlanId,
+            targetKey,
+          },
+        },
+        create: {
           budgetPlanId,
           targetKey,
+          goalId,
         },
-      },
-      create: {
-        budgetPlanId,
-        targetKey,
-        goalId,
-      },
-      update: { goalId },
-    });
-  }
+        update: { goalId },
+      });
+    }
+
+    return true;
+  });
 }
 
 type SacrificeTransferLookupRow = { amount: unknown; goalId: string };
