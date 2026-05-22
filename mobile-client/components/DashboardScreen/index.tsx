@@ -151,47 +151,56 @@ export default function DashboardScreen(props: DashboardScreenProps) {
           totalIncome={controller.totalIncome}
           currency={controller.currency}
           fmt={fmt}
-          onPressCategory={controller.openCategorySheet}
+          onPressCategory={controller.hasEnrichmentData ? controller.openCategorySheet : undefined}
         />
 
-        <DashboardUpcomingExpensesSection
-          items={controller.upcoming}
-          currency={controller.currency}
-          formatShortDate={controller.formatShortDate}
-          isLogoFailed={controller.isLogoFailed}
-          onLogoError={controller.markLogoFailed}
-          onOpenQuickPay={controller.openExpenseQuickPay}
-          onSeeAll={controller.goToPayments}
-        />
+        {controller.hasEnrichmentData ? (
+          <>
+            <DashboardUpcomingExpensesSection
+              items={controller.upcoming}
+              currency={controller.currency}
+              formatShortDate={controller.formatShortDate}
+              isLogoFailed={controller.isLogoFailed}
+              onLogoError={controller.markLogoFailed}
+              onOpenQuickPay={controller.openExpenseQuickPay}
+              onSeeAll={controller.goToPayments}
+            />
 
-        <DashboardAiTipsCard tips={controller.dashboardTips} />
+            <DashboardAiTipsCard tips={controller.dashboardTips} />
 
-        <DashboardUpcomingDebtsSection
-          items={controller.upcomingDebts}
-          currency={controller.currency}
-          isLogoFailed={controller.isLogoFailed}
-          onLogoError={controller.markLogoFailed}
-          onOpenQuickPay={controller.openDebtQuickPay}
-          onSeeAll={controller.goToPayments}
-        />
+            <DashboardUpcomingDebtsSection
+              items={controller.upcomingDebts}
+              currency={controller.currency}
+              isLogoFailed={controller.isLogoFailed}
+              onLogoError={controller.markLogoFailed}
+              onOpenQuickPay={controller.openDebtQuickPay}
+              onSeeAll={controller.goToPayments}
+            />
 
-        <DashboardRecapSection
-          recap={controller.recap}
-          hasRecapData={controller.hasRecapData}
-          recapTitle={controller.recapTitle}
-          currency={controller.currency}
-        />
+            <DashboardRecapSection
+              recap={controller.recap}
+              hasRecapData={controller.hasRecapData}
+              recapTitle={controller.recapTitle}
+              currency={controller.currency}
+            />
 
-        <DashboardGoalsSection
-          items={controller.goalCardsData}
-          settings={controller.settings}
-          currency={controller.currency}
-          activeGoalCard={controller.activeGoalCard}
-          onMomentumEnd={controller.handleGoalMomentumEnd}
-          onPressGoals={controller.goToGoals}
-          onPressAddGoal={controller.goToGoalsAdd}
-          onPressProjection={controller.goToGoalsProjection}
-        />
+            <DashboardGoalsSection
+              items={controller.goalCardsData}
+              settings={controller.settings}
+              currency={controller.currency}
+              activeGoalCard={controller.activeGoalCard}
+              onMomentumEnd={controller.handleGoalMomentumEnd}
+              onPressGoals={controller.goToGoals}
+              onPressAddGoal={controller.goToGoalsAdd}
+              onPressProjection={controller.goToGoalsProjection}
+            />
+          </>
+        ) : (
+          <View style={styles.setupCard}>
+            <Text style={styles.setupTitle}>Loading more details</Text>
+            <Text style={styles.setupText}>Upcoming bills, goals, and tips are still loading.</Text>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );

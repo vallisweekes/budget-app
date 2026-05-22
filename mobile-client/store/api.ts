@@ -1,7 +1,7 @@
 import { createApi, fakeBaseQuery } from "@reduxjs/toolkit/query/react";
 
 import { ApiError, apiFetch } from "@/lib/api";
-import type { BudgetPlanListItem, BudgetPlansResponse, CreditCard, DashboardData, Debt, DebtPayment, DebtSummaryData, ExpenseSummary, IncomeSummaryData, OnboardingProfile, OnboardingStatusResponse, Settings, SubscriptionSummaryResponse, UserProfile } from "@/lib/apiTypes";
+import type { BudgetPlanListItem, BudgetPlansResponse, CreditCard, DashboardData, Debt, DebtPayment, DebtSummaryData, ExpenseSummary, IncomeMonthData, IncomeSummaryData, OnboardingProfile, OnboardingStatusResponse, Settings, SubscriptionSummaryResponse, UserProfile } from "@/lib/apiTypes";
 import type { CreateSacrificeItemResponse } from "@/types/settings";
 
 type MobileApiError = {
@@ -180,6 +180,25 @@ export const mobileApi = createApi({
           return { error: normalizeApiError(err) };
         }
       },
+      providesTags: ["Dashboard"],
+    }),
+    getIncomeMonth: builder.query<IncomeMonthData, {
+      budgetPlanId: string;
+      month: number;
+      year: number;
+    }>({
+      async queryFn({ budgetPlanId, month, year }) {
+        try {
+          const data = await apiFetch<IncomeMonthData>(
+            `/api/bff/income-month?month=${month}&year=${year}&budgetPlanId=${encodeURIComponent(budgetPlanId)}`,
+            { cacheTtlMs: 0 },
+          );
+          return { data };
+        } catch (err: unknown) {
+          return { error: normalizeApiError(err) };
+        }
+      },
+      keepUnusedDataFor: 120,
       providesTags: ["Dashboard"],
     }),
     getDebtDetail: builder.query<Debt, string>({
@@ -471,6 +490,7 @@ export const {
   useGetAnalyticsExpenseSeriesQuery,
   useGetDebtSummaryQuery,
   useGetCreditCardsQuery,
+  useGetIncomeMonthQuery,
   useGetIncomeSummaryQuery,
   useGetOnboardingStatusQuery,
   useGetSettingsQuery,

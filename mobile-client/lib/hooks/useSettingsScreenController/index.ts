@@ -93,6 +93,7 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
   const loadInFlightRef = useRef(false);
   const hasLoadedOnceRef = useRef(false);
   const seenMutationVersionRef = useRef<number>(getApiMutationVersion());
+  const prefetchedPlanIdsRef = useRef<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [noPlan, setNoPlan] = useState(false);
 
@@ -511,8 +512,22 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
   }, [isFocused, authLoading, authProfile, load]);
 
   useEffect(() => {
-    // Intentionally skip prefetching inactive plan settings/debts here.
-    // Avatar-open should fetch only the active plan and load others on demand.
+    if (!hasLoadedOnceRef.current) return;
+    if (!currentPlanId) return;
+    if (plans.length <= 1) return;
+
+    const inactivePlanIds = plans
+      .map((plan) => plan.id)
+      .filter((planId) => planId !== currentPlanId);
+
+    for (const planId of inactivePlanIds) {
+      if (prefetchedPlanIdsRef.current.has(planId)) continue;
+
+      prefetchedPlanIdsRef.current.add(planId);
+      void prefetchPlanState(planId).catch(() => {
+        prefetchedPlanIdsRef.current.delete(planId);
+      });
+    }
   }, [currentPlanId, plans, prefetchPlanState]);
 
   useEffect(() => {

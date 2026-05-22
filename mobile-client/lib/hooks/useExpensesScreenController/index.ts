@@ -79,8 +79,8 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     settings,
     isLoading: bootstrapLoading,
     error: bootstrapError,
-    ensureLoaded,
-    refresh: refreshBootstrap,
+    ensureSettingsLoaded,
+    refreshSettings,
   } = useBootstrapData();
   const { activeBudgetPlanId: sharedActiveBudgetPlanId, setActiveBudgetPlanId } = useActiveBudgetPlan();
 
@@ -99,6 +99,8 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
   const payPeriodMonthsCacheRef = useRef<Record<string, ExpensePayPeriodMonthsResponse>>(sharedExpensePayPeriodMonthsCache);
   const cacheSignatureRef = useRef<string | null>(sharedExpensesCacheSignature);
   const seenMutationVersionRef = useRef<number>(getApiMutationVersion());
+  const warmedPlanViewKeysRef = useRef<Set<string>>(new Set());
+  const warmingPlanViewPromisesRef = useRef<Map<string, Promise<void>>>(new Map());
 
   const [summary, setSummary] = useState<ExpenseSummary | null>(null);
   const [previousSummary, setPreviousSummary] = useState<ExpenseSummary | null>(null);
@@ -241,6 +243,8 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     summaryCacheRef.current = {};
     monthsCacheRef.current = {};
     payPeriodMonthsCacheRef.current = {};
+    warmedPlanViewKeysRef.current.clear();
+    warmingPlanViewPromisesRef.current.clear();
     sharedExpensesSummaryCache = summaryCacheRef.current;
     sharedExpensesMonthsCache = monthsCacheRef.current;
     sharedExpensePayPeriodMonthsCache = payPeriodMonthsCacheRef.current;
@@ -543,6 +547,38 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     ]);
   }, [getOrFetchPayPeriodExpenses, planCacheKey, preloadSummaryWindow, resolvePlanTargetPeriod]);
 
+  const ensurePlanViewWarm = useCallback((params: {
+    planId: string | null;
+    month: number;
+    year: number;
+    force?: boolean;
+  }) => {
+    const { planId, month: targetMonth, year: targetYear, force = false } = params;
+    if (!planId) return Promise.resolve();
+
+    const warmKey = `${planId}:${targetYear}-${targetMonth}`;
+    if (!force && warmedPlanViewKeysRef.current.has(warmKey)) {
+      return Promise.resolve();
+    }
+
+    const existing = warmingPlanViewPromisesRef.current.get(warmKey);
+    if (existing) return existing;
+
+    const promise = warmPlanCaches({ planId, month: targetMonth, year: targetYear, force })
+      .then(() => {
+        warmedPlanViewKeysRef.current.add(warmKey);
+      })
+      .catch(() => {
+        // Best-effort only.
+      })
+      .finally(() => {
+        warmingPlanViewPromisesRef.current.delete(warmKey);
+      });
+
+    warmingPlanViewPromisesRef.current.set(warmKey, promise);
+    return promise;
+  }, [warmPlanCaches]);
+
   const applyCachedViewState = useCallback((planId: string | null, targetMonth: number, targetYear: number) => {
     const cachedSummary = getCachedSummary(planId, targetYear, targetMonth);
     if (!cachedSummary) return false;
@@ -571,14 +607,13 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     const force = Boolean(options?.force);
     try {
       setError(null);
-      const [bootstrapResult, budgetPlans] = await Promise.all([
-        force ? refreshBootstrap({ force: true }) : ensureLoaded(),
+      const [loadedSettings, budgetPlans] = await Promise.all([
+        force ? refreshSettings({ force: true }) : ensureSettingsLoaded(),
         !force && plansRef.current.length > 0
           ? Promise.resolve<BudgetPlansResponse>({ plans: plansRef.current })
           : apiFetch<BudgetPlansResponse>("/api/bff/budget-plans", { cacheTtlMs: force ? 0 : 6000 }),
       ]);
 
-      const loadedSettings = bootstrapResult.settings;
       if (!loadedSettings) {
         throw bootstrapError ?? new Error("Failed to load settings");
       }
@@ -714,6 +749,21 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
 
       const initialMonth = resolvedTargetPeriod.month;
       const initialYear = resolvedTargetPeriod.year;
+      const inactivePlanIds = nextPlans
+        .map((plan) => plan.id)
+        .filter((planId) => planId !== resolvedPlanId);
+
+      if (inactivePlanIds.length > 0) {
+        void Promise.allSettled(
+          inactivePlanIds.map((planId) => ensurePlanViewWarm({
+            planId,
+            month: initialMonth,
+            year: initialYear,
+            force,
+          })),
+        );
+      }
+
       const initialWindowPromise = preloadSummaryWindow({
         planId: resolvedPlanId,
         month: initialMonth,
@@ -845,7 +895,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       setLoading(false);
       setRefreshing(false);
     }
-  }, [activePlanId, bootstrapError, ensureLoaded, getOrFetchPayPeriodExpenses, month, parsePlanCreatedAt, planCacheKey, preloadSummaryWindow, refreshBootstrap, resolveEffectivePlanCreatedAt, resolvePlanTargetPeriod, route.params?.month, route.params?.year, setupCompletedAt, year]);
+  }, [activePlanId, bootstrapError, ensurePlanViewWarm, ensureSettingsLoaded, getOrFetchPayPeriodExpenses, month, parsePlanCreatedAt, planCacheKey, preloadSummaryWindow, refreshSettings, resolveEffectivePlanCreatedAt, resolvePlanTargetPeriod, route.params?.month, route.params?.year, setupCompletedAt, year]);
 
   const currentViewKey = `${activePlanId ?? "none"}:${year}-${month}`;
   const hasRelevantMutationChanges = useCallback(() => {
@@ -914,9 +964,20 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
   }, [activePlanId, month, year]);
 
   useEffect(() => {
-    // Intentionally skip warming inactive plan caches on initial load.
-    // This avoids extra startup requests for plans the user is not viewing.
-  }, [activePlanId, month, plans, warmPlanCaches, year]);
+    if (!activePlanId) return;
+    if (plans.length <= 1) return;
+    if (!getCachedSummary(activePlanId, year, month)) return;
+
+    const inactivePlanIds = plans
+      .map((plan) => plan.id)
+      .filter((planId) => planId !== activePlanId);
+
+    if (inactivePlanIds.length === 0) return;
+
+    void Promise.allSettled(
+      inactivePlanIds.map((planId) => ensurePlanViewWarm({ planId, month, year })),
+    );
+  }, [activePlanId, ensurePlanViewWarm, getCachedSummary, month, plans, year]);
 
   useFocusEffect(
     useCallback(() => {
@@ -1277,7 +1338,10 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       if (target.month !== month) setMonth(target.month);
       if (target.year !== year) setYear(target.year);
       navigation.setParams({ month: target.month, year: target.year, prevDisabled: !canDecrement(target.year, target.month) });
-      applyCachedViewState(planId, target.month, target.year);
+      const appliedCachedView = applyCachedViewState(planId, target.month, target.year);
+      if (!appliedCachedView) {
+        void ensurePlanViewWarm({ planId, month: target.month, year: target.year });
+      }
       setActiveBudgetPlanId(planId);
     },
     onPressUpcomingMonth: (targetMonth: number, targetYear: number) => {

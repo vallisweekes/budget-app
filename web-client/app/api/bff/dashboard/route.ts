@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
+import { bestEffortWithin } from "@/lib/bestEffortWithin";
 import { getDashboardPlanDataForActivePayPeriod } from "@/lib/helpers/dashboard/getDashboardPlanData";
 import { getBudgetPlanMeta } from "@/lib/helpers/dashboard/getBudgetPlanMeta";
 import { getDebtSummaryForPlan } from "@/lib/debts/summary";
@@ -34,6 +35,29 @@ import {
 	normalizePayFrequency,
 	resolveActivePayPeriodWindow,
 } from "@/lib/payPeriods";
+
+async function timeSection<T>(timings: string[], label: string, run: () => Promise<T>): Promise<T> {
+	const startedAt = Date.now();
+	try {
+		return await run();
+	} finally {
+		timings.push(`${label};dur=${Date.now() - startedAt}`);
+	}
+	}
+
+function buildTimingHeaders(params: {
+	timings: string[];
+	requestStartedAt: number;
+	extra?: Record<string, string>;
+}) {
+	const totalMs = Date.now() - params.requestStartedAt;
+	return {
+		...(params.extra ?? {}),
+		"server-timing": [...params.timings, `total;dur=${totalMs}`].join(", "),
+		"x-dashboard-total-ms": String(totalMs),
+	};
+}
+
 function unauthorized() {
 	return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 }
@@ -52,29 +76,31 @@ function latestDate(...dates: Array<Date | null | undefined>): Date | null {
  * now available as a JSON API for the mobile client (or any external consumer).
  */
 export async function GET(req: NextRequest) {
+	const requestStartedAt = Date.now();
+	const timings: string[] = [];
 	try {
-		const userId = await getSessionUserId(req);
+		const userId = await timeSection(timings, "auth", async () => getSessionUserId(req));
 		if (!userId) return unauthorized();
 
 		const { searchParams } = new URL(req.url);
-		const budgetPlanId = await resolveOwnedBudgetPlanId({
+		const budgetPlanId = await timeSection(timings, "plan_scope", async () => resolveOwnedBudgetPlanId({
 			userId,
 			budgetPlanId: searchParams.get("budgetPlanId"),
-		});
+		}));
 		if (!budgetPlanId) {
 			return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
 		}
 
 		const now = new Date();
-		const user = await prisma.user.findUnique({
+		const user = await timeSection(timings, "user", async () => prisma.user.findUnique({
 			where: { id: userId },
 			select: { name: true, createdAt: true },
-		});
+		}));
 		const username = user?.name ?? null;
 
 		// 1) Plan meta (payDate, homepageGoalIds)
 		// We need payDate early so the dashboard month matches the active pay period.
-		const { payDate, homepageGoalIds, createdAt: planCreatedAt } = await getBudgetPlanMeta(budgetPlanId);
+		const { payDate, homepageGoalIds, createdAt: planCreatedAt } = await timeSection(timings, "plan_meta", async () => getBudgetPlanMeta(budgetPlanId));
 
 		// Best-effort onboarding context: never let dashboard fail due to schema/client mismatch.
 		let onboarding:
@@ -106,44 +132,16 @@ export async function GET(req: NextRequest) {
 			| null = null;
 		const includeCadenceFields = await detectOnboardingCadenceFields();
 		const includePayAnchorDate = await supportsOnboardingPayAnchorDateField();
-		try {
-			onboarding = await prisma.userOnboardingProfile.findUnique({
-				where: { userId },
-				select: {
-						status: true,
-						completedAt: true,
-						updatedAt: true,
-					mainGoal: true,
-					mainGoals: true,
-					occupation: true,
-					...(includeCadenceFields ? { payFrequency: true, billFrequency: true } : {}),
-					...(includePayAnchorDate ? { payAnchorDate: true } : {}),
-					monthlySalary: true,
-					expenseOneName: true,
-					expenseOneAmount: true,
-					expenseTwoName: true,
-					expenseTwoAmount: true,
-					expenseThreeName: true,
-					expenseThreeAmount: true,
-					expenseFourName: true,
-					expenseFourAmount: true,
-					hasAllowance: true,
-					allowanceAmount: true,
-					hasDebtsToManage: true,
-					debtAmount: true,
-					debtNotes: true,
-				},
-			});
-		} catch (error) {
-			console.error("Dashboard: onboarding fetch failed:", error);
+		await timeSection(timings, "onboarding", async () => {
 			try {
-				const legacy = await prisma.userOnboardingProfile.findUnique({
+				onboarding = await prisma.userOnboardingProfile.findUnique({
 					where: { userId },
 					select: {
-						status: true,
-						completedAt: true,
-						updatedAt: true,
+							status: true,
+							completedAt: true,
+							updatedAt: true,
 						mainGoal: true,
+						mainGoals: true,
 						occupation: true,
 						...(includeCadenceFields ? { payFrequency: true, billFrequency: true } : {}),
 						...(includePayAnchorDate ? { payAnchorDate: true } : {}),
@@ -152,6 +150,10 @@ export async function GET(req: NextRequest) {
 						expenseOneAmount: true,
 						expenseTwoName: true,
 						expenseTwoAmount: true,
+						expenseThreeName: true,
+						expenseThreeAmount: true,
+						expenseFourName: true,
+						expenseFourAmount: true,
 						hasAllowance: true,
 						allowanceAmount: true,
 						hasDebtsToManage: true,
@@ -159,20 +161,46 @@ export async function GET(req: NextRequest) {
 						debtNotes: true,
 					},
 				});
-				onboarding = legacy
-					? {
-						...legacy,
-						expenseThreeName: null as unknown,
-						expenseThreeAmount: null as unknown,
-						expenseFourName: null as unknown,
-						expenseFourAmount: null as unknown,
-					}
-					: null;
-			} catch (legacyError) {
-				console.error("Dashboard: onboarding legacy fetch failed:", legacyError);
-				onboarding = null;
+			} catch (error) {
+				console.error("Dashboard: onboarding fetch failed:", error);
+				try {
+					const legacy = await prisma.userOnboardingProfile.findUnique({
+						where: { userId },
+						select: {
+							status: true,
+							completedAt: true,
+							updatedAt: true,
+							mainGoal: true,
+							occupation: true,
+							...(includeCadenceFields ? { payFrequency: true, billFrequency: true } : {}),
+							...(includePayAnchorDate ? { payAnchorDate: true } : {}),
+							monthlySalary: true,
+							expenseOneName: true,
+							expenseOneAmount: true,
+							expenseTwoName: true,
+							expenseTwoAmount: true,
+							hasAllowance: true,
+							allowanceAmount: true,
+							hasDebtsToManage: true,
+							debtAmount: true,
+							debtNotes: true,
+						},
+					});
+					onboarding = legacy
+						? {
+							...legacy,
+							expenseThreeName: null as unknown,
+							expenseThreeAmount: null as unknown,
+							expenseFourName: null as unknown,
+							expenseFourAmount: null as unknown,
+						}
+						: null;
+				} catch (legacyError) {
+					console.error("Dashboard: onboarding legacy fetch failed:", legacyError);
+					onboarding = null;
+				}
 			}
-		}
+		});
 
 		const onboardingCompletedAt = latestDate(
 			onboarding?.completedAt instanceof Date ? onboarding.completedAt : null,
@@ -188,6 +216,7 @@ export async function GET(req: NextRequest) {
 		const billFrequency = deriveBillFrequencyFromPayFrequency(payFrequency);
 		const requestedMonthRaw = Number(searchParams.get("month"));
 		const requestedYearRaw = Number(searchParams.get("year"));
+		const includeExtendedData = String(searchParams.get("includeExtendedData") ?? "").toLowerCase() === "true";
 		const hasRequestedAnchor = Number.isFinite(requestedMonthRaw)
 			&& requestedMonthRaw >= 1
 			&& requestedMonthRaw <= 12
@@ -223,8 +252,8 @@ export async function GET(req: NextRequest) {
 			payFrequency,
 			periodStart: activePayPeriodWindow.start,
 			periodEnd: activePayPeriodWindow.end,
-		});
-		const cachedDashboard = await getJsonCache<Record<string, unknown>>(dashboardCacheKey);
+		}) + `:extended:${includeExtendedData ? "1" : "0"}`;
+		const cachedDashboard = await timeSection(timings, "cache_lookup", async () => getJsonCache<Record<string, unknown>>(dashboardCacheKey));
 		if (cachedDashboard) {
 			logDerivedSummaryCacheEvent({
 				route: "dashboard",
@@ -233,10 +262,14 @@ export async function GET(req: NextRequest) {
 				budgetPlanId,
 			});
 			return NextResponse.json(cachedDashboard, {
-				headers: {
+				headers: buildTimingHeaders({
+					timings,
+					requestStartedAt,
+					extra: {
 					"x-dashboard-cache": "hit",
 					"x-dashboard-redis": isRedisConfigured() ? "configured" : "not-configured",
-				},
+					},
+				}),
 			});
 		}
 		logDerivedSummaryCacheEvent({
@@ -246,28 +279,30 @@ export async function GET(req: NextRequest) {
 			budgetPlanId,
 		});
 		// This is required for the dashboard; let it throw if it truly can't compute.
-		const currentPlanData = await getDashboardPlanDataForActivePayPeriod(budgetPlanId, {
+		const currentPlanData = await timeSection(timings, "current_plan", async () => getDashboardPlanDataForActivePayPeriod(budgetPlanId, {
 			now: dashboardNow,
 			payDate: payDay,
 			payFrequency,
 			payAnchorDate,
 			planCreatedAt: effectiveCreatedAt,
-		});
-		const { payPeriodLabel, previousPayPeriodLabel } = getDashboardPayPeriodLabels(
-			dashboardNow,
-			payDay,
-			payFrequency,
-			payAnchorDate,
-			effectiveCreatedAt,
+		}));
+		const { payPeriodLabel, previousPayPeriodLabel } = await timeSection(timings, "pay_labels", async () =>
+			Promise.resolve(
+				getDashboardPayPeriodLabels(
+					dashboardNow,
+					payDay,
+					payFrequency,
+					payAnchorDate,
+					effectiveCreatedAt,
+				)
+			)
 		);
 
-		const debtSummary = await (async () => {
+		const debtSummary = await timeSection(timings, "debt_summary", async () => (async () => {
 			try {
-				// Sync overdue expense carryover first so grace-expired bills leave
-				// upcoming expenses and appear under debts in the same dashboard load.
 				return await getDebtSummaryForPlan(budgetPlanId, {
 					includeExpenseDebts: true,
-					ensureSynced: true,
+					ensureSynced: false,
 				});
 			} catch (error) {
 				console.error("Dashboard: debt summary failed:", error);
@@ -282,12 +317,12 @@ export async function GET(req: NextRequest) {
 					totalDebtBalance: 0,
 				};
 			}
-		})();
+		})());
 
 		// Everything below is "best effort". If one section fails (e.g. debt sync),
 		// return the rest of the dashboard rather than a full 500.
 		const [expenseInsightsBase, allPlansData] = await Promise.all([
-			(async () => {
+			timeSection(timings, "expense_insights", async () => (async () => {
 				try {
 					return await getDashboardExpenseInsights({
 						budgetPlanId,
@@ -314,8 +349,12 @@ export async function GET(req: NextRequest) {
 						},
 					};
 				}
-			})(),
-			(async () => {
+			})()),
+			timeSection(timings, "all_plans", async () => (async () => {
+				if (!includeExtendedData) {
+					return { [budgetPlanId]: currentPlanData };
+				}
+
 				try {
 					return await getAllPlansDashboardData({
 						budgetPlanId,
@@ -329,12 +368,16 @@ export async function GET(req: NextRequest) {
 					console.error("Dashboard: all plans data failed:", error);
 					return { [budgetPlanId]: currentPlanData };
 				}
-			})(),
+			})()),
 		]);
 		const planIds = Object.keys(allPlansData);
 
 		const [largestExpensesByPlan, incomeMonthsCoverageByPlan] = await Promise.all([
-			(async () => {
+			timeSection(timings, "largest_expenses", async () => (async () => {
+				if (!includeExtendedData) {
+					return {};
+				}
+
 				try {
 					return await getLargestExpensesByPlan({
 						planIds,
@@ -345,8 +388,12 @@ export async function GET(req: NextRequest) {
 					console.error("Dashboard: largest expenses failed:", error);
 					return {};
 				}
-			})(),
-			(async () => {
+			})()),
+			timeSection(timings, "income_coverage", async () => (async () => {
+				if (!includeExtendedData) {
+					return {};
+				}
+
 				try {
 					return await getIncomeMonthsCoverageByPlan({
 						planIds,
@@ -356,10 +403,14 @@ export async function GET(req: NextRequest) {
 					console.error("Dashboard: income coverage failed:", error);
 					return {};
 				}
-			})(),
+			})()),
 		]);
 
-		const multiPlanTips = await (async () => {
+		const multiPlanTips = await timeSection(timings, "multi_plan_tips", async () => (async () => {
+			if (!includeExtendedData) {
+				return [];
+			}
+
 			try {
 				return await getMultiPlanHealthTips({
 					planIds,
@@ -371,7 +422,7 @@ export async function GET(req: NextRequest) {
 				console.error("Dashboard: multi-plan tips failed:", error);
 				return [];
 			}
-		})();
+		})());
 
 		const debts = debtSummary.activeDebts;
 		const sourceExpenseIds = Array.from(
@@ -383,19 +434,21 @@ export async function GET(req: NextRequest) {
 		);
 		const debtLogoByExpenseId = new Map<string, string>();
 		if (sourceExpenseIds.length > 0) {
-			try {
-				const sourceExpenseRows = await prisma.expense.findMany({
-					where: { id: { in: sourceExpenseIds }, budgetPlanId },
-					select: { id: true, logoUrl: true },
-				});
-				for (const row of sourceExpenseRows) {
-					if (typeof row.logoUrl === "string" && row.logoUrl.trim().length > 0) {
-						debtLogoByExpenseId.set(row.id, row.logoUrl.trim());
+			await timeSection(timings, "debt_logos", async () => {
+				try {
+					const sourceExpenseRows = await prisma.expense.findMany({
+						where: { id: { in: sourceExpenseIds }, budgetPlanId },
+						select: { id: true, logoUrl: true },
+					});
+					for (const row of sourceExpenseRows) {
+						if (typeof row.logoUrl === "string" && row.logoUrl.trim().length > 0) {
+							debtLogoByExpenseId.set(row.id, row.logoUrl.trim());
+						}
 					}
+				} catch (err) {
+					console.error("Dashboard: debt logo lookup failed:", err);
 				}
-			} catch (err) {
-				console.error("Dashboard: debt logo lookup failed:", err);
-			}
+			});
 		}
 
 		// Query how much has been paid against each debt IN THE CURRENT PAY PERIOD
@@ -403,51 +456,53 @@ export async function GET(req: NextRequest) {
 		const debtIds = debts.map((d) => d.id);
 		const currentMonthPaidByDebtId = new Map<string, number>();
 		if (debtIds.length > 0) {
-			try {
-				// Use periodKey so debt tracking is consistent with the period-based
-				// pattern used everywhere else.
-				const periodKey = getPayPeriodKeyForDate({
-					date: dashboardNow,
-					payDate: payDay,
-					payFrequency,
-					payAnchorDate,
-					planCreatedAt: effectiveCreatedAt,
-				});
-				const { start: periodStart } = getPayPeriodWindowFromPeriodKey({
-					periodKey,
-					payDate: payDay,
-					payFrequency,
-				});
-				const prevPeriodKey = getPreviousPayPeriodKey({
-					periodKey,
-					payDate: payDay,
-					payFrequency,
-					payAnchorDate,
-					planCreatedAt: effectiveCreatedAt,
-				});
-				const earlyPaymentStart = getEarlyPaymentWindowStart(periodStart);
+			await timeSection(timings, "debt_payments", async () => {
+				try {
+					// Use periodKey so debt tracking is consistent with the period-based
+					// pattern used everywhere else.
+					const periodKey = getPayPeriodKeyForDate({
+						date: dashboardNow,
+						payDate: payDay,
+						payFrequency,
+						payAnchorDate,
+						planCreatedAt: effectiveCreatedAt,
+					});
+					const { start: periodStart } = getPayPeriodWindowFromPeriodKey({
+						periodKey,
+						payDate: payDay,
+						payFrequency,
+					});
+					const prevPeriodKey = getPreviousPayPeriodKey({
+						periodKey,
+						payDate: payDay,
+						payFrequency,
+						payAnchorDate,
+						planCreatedAt: effectiveCreatedAt,
+					});
+					const earlyPaymentStart = getEarlyPaymentWindowStart(periodStart);
 
-				const monthPayments = await prisma.debtPayment.groupBy({
-					by: ["debtId"],
-					where: {
-						debtId: { in: debtIds },
-						OR: [
-							{ periodKey },
-							{
-								periodKey: prevPeriodKey,
-								paidAt: { gte: earlyPaymentStart, lt: periodStart },
-							},
-						],
-					},
-					_sum: { amount: true },
-				});
-				for (const row of monthPayments) {
-					const total = Number(row._sum.amount ?? 0);
-					if (total > 0) currentMonthPaidByDebtId.set(row.debtId, total);
+					const monthPayments = await prisma.debtPayment.groupBy({
+						by: ["debtId"],
+						where: {
+							debtId: { in: debtIds },
+							OR: [
+								{ periodKey },
+								{
+									periodKey: prevPeriodKey,
+									paidAt: { gte: earlyPaymentStart, lt: periodStart },
+								},
+							],
+						},
+						_sum: { amount: true },
+					});
+					for (const row of monthPayments) {
+						const total = Number(row._sum.amount ?? 0);
+						if (total > 0) currentMonthPaidByDebtId.set(row.debtId, total);
+					}
+				} catch (err) {
+					console.error("Dashboard: debt month-payment query failed:", err);
 				}
-			} catch (err) {
-				console.error("Dashboard: debt month-payment query failed:", err);
-			}
+			});
 		}
 
 		const debtTips = (() => {
@@ -469,7 +524,7 @@ export async function GET(req: NextRequest) {
 			], 6),
 		};
 
-		const aiDashboardTips = await (async () => {
+		const aiDashboardTips = await timeSection(timings, "ai_tips", async () => (async () => {
 			try {
 				const rawMainGoals = onboarding && "mainGoals" in onboarding ? (onboarding as { mainGoals?: unknown }).mainGoals : null;
 				const derivedMainGoals = Array.isArray(rawMainGoals)
@@ -522,7 +577,7 @@ export async function GET(req: NextRequest) {
 					recurringChargeCandidates.length,
 				].join("-");
 
-				return await getAiBudgetTips({
+				return await bestEffortWithin(getAiBudgetTips({
 					cacheKey: `dashboard:${budgetPlanId}:${currentPlanData.year}-${currentPlanData.monthNum}:${Math.round((currentPlanData.totalExpenses ?? 0) * 100)}:${loggedExpenseSignalKey}`,
 					budgetPlanId,
 					now,
@@ -582,12 +637,12 @@ export async function GET(req: NextRequest) {
 						existingTips: expenseInsights.recapTips,
 					},
 					maxTips: 4,
-				});
+				}), 1200);
 			} catch (err) {
 				console.error("Dashboard: AI tips failed:", err);
 				return null;
 			}
-		})();
+		})());
 
 		if (aiDashboardTips) {
 			expenseInsights.recapTips = prioritizeRecapTips(aiDashboardTips, 4);
@@ -637,9 +692,9 @@ export async function GET(req: NextRequest) {
 
 		// Derive paidTotal from expensePayment transaction records — single source of truth.
 		const allExpenses = currentPlanData.categoryData.flatMap((category) => category.expenses ?? []);
-		const dashboardPaidMap = await getExpensePaidMap(
+		const dashboardPaidMap = await timeSection(timings, "paid_map", async () => getExpensePaidMap(
 			allExpenses.map((e) => ({ id: String(e.id), amount: Number(e.amount ?? 0) })),
-		);
+		));
 		const paidTotal = allExpenses.reduce((sum, expense) => {
 			const info = dashboardPaidMap.get(String(expense.id));
 			return sum + (info?.paidAmount ?? 0);
@@ -741,7 +796,7 @@ export async function GET(req: NextRequest) {
 			previousPayPeriodLabel,
 		};
 
-		await setJsonCache(dashboardCacheKey, responseBody, DASHBOARD_CACHE_TTL_SECONDS);
+		await timeSection(timings, "cache_store", async () => setJsonCache(dashboardCacheKey, responseBody, DASHBOARD_CACHE_TTL_SECONDS));
 		logDerivedSummaryCacheEvent({
 			route: "dashboard",
 			status: "store",
@@ -750,10 +805,14 @@ export async function GET(req: NextRequest) {
 		});
 
 		return NextResponse.json(responseBody, {
-			headers: {
+			headers: buildTimingHeaders({
+				timings,
+				requestStartedAt,
+				extra: {
 				"x-dashboard-cache": "miss",
 				"x-dashboard-redis": isRedisConfigured() ? "configured" : "not-configured",
-			},
+				},
+			}),
 		});
 	} catch (error) {
 		console.error("Failed to compute dashboard:", error);
@@ -763,7 +822,10 @@ export async function GET(req: NextRequest) {
 				error: "Failed to compute dashboard data",
 				...(isProd ? {} : { detail: String((error as any)?.message ?? error) }),
 			},
-			{ status: 500 }
+			{
+				status: 500,
+				headers: buildTimingHeaders({ timings, requestStartedAt }),
+			}
 		);
 	}
 }
