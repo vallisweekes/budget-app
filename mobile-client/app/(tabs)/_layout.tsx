@@ -1,7 +1,7 @@
 import React from "react";
 import { StackActions } from "@react-navigation/native";
 import { Feather, Ionicons, Octicons } from "@expo/vector-icons";
-import { useRouter, useSegments } from "expo-router";
+import { useLocalSearchParams, useRouter, useSegments } from "expo-router";
 import { NativeTabs } from "expo-router/unstable-native-tabs";
 
 import { useAuth } from "@/context/AuthContext";
@@ -60,9 +60,15 @@ function createTabListeners(options?: { onTabPress?: () => void; preventDefaultO
   });
 }
 
+function getParamString(value: string | string[] | undefined) {
+  if (Array.isArray(value)) return value[0];
+  return typeof value === "string" ? value : undefined;
+}
+
 export default function MainTabsLayout() {
   const router = useRouter();
   const segments = useSegments() as string[];
+  const params = useLocalSearchParams() as Record<string, string | string[] | undefined>;
   const { profile } = useAuth();
   const { dashboard, isLoading: bootstrapLoading } = useBootstrapData();
   const debtSummaryQuery = useGetDebtSummaryQuery(undefined, {
@@ -76,6 +82,10 @@ export default function MainTabsLayout() {
   const inactiveLabelColor = "#8E95A3";
   const isDebtDetailRoute = segments[0] === "(tabs)" && segments[1] === "debts" && segments[2] === "DebtDetail";
   const isExpenseDetailRoute = segments[0] === "(tabs)" && segments[1] === "expenses" && segments[2] === "ExpenseDetail";
+  const isExpensesListRoute = segments[0] === "(tabs)" && segments[1] === "expenses" && segments[2] === "ExpensesList";
+  const isLoggedExpensesRoute = segments[0] === "(tabs)" && segments[1] === "logged-expenses";
+  const isLoggedExpensesNestedRoute = segments[0] === "(tabs)" && segments[1] === "expenses" && segments[2] === "LoggedExpenses";
+  const isExpensesSplitRoute = isExpensesListRoute;
   const isGoalDetailRoute = segments[0] === "(tabs)" && segments[1] === "goals" && segments[2] === "GoalDetail";
   const isGoalsRootRoute = segments[0] === "(tabs)" && segments[1] === "goals" && typeof segments[2] !== "string";
   const isGoalsProjectionRoute = segments[0] === "(tabs)" && segments[1] === "goals-projection";
@@ -112,7 +122,11 @@ export default function MainTabsLayout() {
   );
   const isTabsHidden = isDebtDetailRoute || isExpenseDetailRoute || isGoalDetailRoute || isGoalsProjectionRoute;
   const shouldHideNativeTabs = isTabsHidden || segments[0] !== "(tabs)";
-  const tabsLayoutKey = isCategoryExpensesSplitRoute
+  const tabsLayoutKey = isLoggedExpensesNestedRoute
+    ? "tabs:expenses-split:logged"
+    : isExpensesSplitRoute
+    ? "tabs:expenses-split:root"
+    : isCategoryExpensesSplitRoute
     ? "tabs:category-expenses-split"
     : isIncomeSplitRoute
       ? "tabs:income-split"
@@ -143,8 +157,53 @@ export default function MainTabsLayout() {
   const tabNativeProps = {
     nativeContainerBackgroundColor: T.bg,
   } as unknown as Record<string, unknown>;
+  const splitMonth = (() => {
+    const value = Number(getParamString(params.month));
+    return Number.isFinite(value) ? Math.floor(value) : undefined;
+  })();
+  const splitYear = (() => {
+    const value = Number(getParamString(params.year));
+    return Number.isFinite(value) ? Math.floor(value) : undefined;
+  })();
   const resetOnBlurScreenProps = {
     listeners: createTabListeners(),
+  } as Record<string, unknown>;
+  const loggedExpensesSplitScreenProps = {
+    listeners: createTabListeners(isExpensesListRoute
+      ? {
+          onTabPress: () => {
+            router.push({
+              pathname: "/(tabs)/expenses/LoggedExpenses",
+              params: {
+                categoryName: "All categories",
+                month: splitMonth,
+                year: splitYear,
+                budgetPlanId: getParamString(params.budgetPlanId),
+                currency: getParamString(params.currency),
+              },
+            });
+          },
+          preventDefaultOnTabPress: true,
+          resetOnBlur: false,
+        }
+      : undefined),
+  } as Record<string, unknown>;
+  const expensesSplitTriggerScreenProps = {
+    listeners: createTabListeners(isExpensesListRoute || isLoggedExpensesNestedRoute || isLoggedExpensesRoute
+      ? {
+          onTabPress: () => {
+            router.push({
+              pathname: "/(tabs)/expenses/UnplannedExpense",
+              params: {
+                month: splitMonth,
+                year: splitYear,
+              },
+            });
+          },
+          preventDefaultOnTabPress: true,
+          resetOnBlur: false,
+        }
+      : undefined),
   } as Record<string, unknown>;
   const incomeTriggerScreenProps = {
     listeners: createTabListeners(isIncomeSplitRoute
@@ -219,6 +278,94 @@ export default function MainTabsLayout() {
     if (!debtVisibilityResolved || showDebtsTab || !isAnyDebtRoute) return;
     router.replace("/(tabs)/dashboard");
   }, [debtVisibilityResolved, isAnyDebtRoute, router, showDebtsTab]);
+
+  if (isLoggedExpensesNestedRoute) {
+    return (
+      <NativeTabs
+        key={tabsLayoutKey}
+        hidden={shouldHideNativeTabs}
+        tintColor={selectedTintColor}
+        iconColor={inactiveIconColor}
+        labelStyle={splitRouteLabelStyle}
+        titlePositionAdjustment={{ vertical: -2 }}
+        backBehavior="history"
+      >
+        <NativeTabs.Trigger
+          {...expensesSplitTriggerScreenProps}
+          name="expenses"
+          role="search"
+          disablePopToTop
+          disableScrollToTop
+          contentStyle={tabContentStyle}
+          unstable_nativeProps={tabNativeProps}
+        >
+          <NativeTabs.Trigger.Icon
+            src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name="create-outline" />}
+            renderingMode="template"
+            selectedColor={selectedTintColor}
+          />
+          <NativeTabs.Trigger.Label selectedStyle={splitRouteSelectedTabLabelStyle}>Log</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+      </NativeTabs>
+    );
+  }
+
+  if (isExpensesSplitRoute) {
+    return (
+      <NativeTabs
+        key={tabsLayoutKey}
+        hidden={shouldHideNativeTabs}
+        tintColor={selectedTintColor}
+        iconColor={inactiveIconColor}
+        labelStyle={splitRouteLabelStyle}
+        titlePositionAdjustment={{ vertical: -2 }}
+        backBehavior="history"
+      >
+        <NativeTabs.Trigger
+          {...resetOnBlurScreenProps}
+          name="dashboard"
+          contentStyle={tabContentStyle}
+          unstable_nativeProps={tabNativeProps}
+        >
+          <NativeTabs.Trigger.Icon
+            src={<NativeTabs.Trigger.VectorIcon family={Feather} name="home" />}
+            renderingMode="template"
+            selectedColor={selectedTintColor}
+          />
+          <NativeTabs.Trigger.Label hidden />
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger
+          {...loggedExpensesSplitScreenProps}
+          name="logged-expenses"
+          contentStyle={tabContentStyle}
+          unstable_nativeProps={tabNativeProps}
+        >
+          <NativeTabs.Trigger.Icon
+            src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name="list-outline" />}
+            renderingMode="template"
+            selectedColor={selectedTintColor}
+          />
+          <NativeTabs.Trigger.Label selectedStyle={splitRouteSelectedTabLabelStyle}>Logged</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger
+          {...expensesSplitTriggerScreenProps}
+          name="expenses"
+          role="search"
+          disablePopToTop
+          disableScrollToTop
+          contentStyle={tabContentStyle}
+          unstable_nativeProps={tabNativeProps}
+        >
+          <NativeTabs.Trigger.Icon
+            src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name="create-outline" />}
+            renderingMode="template"
+            selectedColor={selectedTintColor}
+          />
+          <NativeTabs.Trigger.Label selectedStyle={splitRouteSelectedTabLabelStyle}>Log</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+      </NativeTabs>
+    );
+  }
 
   if (isCategoryExpensesSplitRoute) {
     return (

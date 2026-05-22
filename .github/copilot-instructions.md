@@ -11,6 +11,7 @@ This repository contains two product clients that share one backend system:
 
 - Use `.github/instructions/full-app-architecture.instructions.md` when a task needs an end-to-end understanding of how the full product works across mobile, web, BFF, Prisma, onboarding, dashboard, expenses, income, debts, settings, notifications, or receipts.
 - Use `.github/instructions/mobile-client.instructions.md` for mobile-only implementation details.
+- Use `.github/instructions/mobile-native-tabs-liquid-glass.instructions.md` when mobile work involves Expo Router native tabs, liquid-glass footer patterns, split footer actions, or moving actions between the header and footer.
 - Use `.github/instructions/web-bff.instructions.md` for Next.js BFF, Prisma, and server-helper work.
 - Use `.github/instructions/cross-stack-contracts.instructions.md` when the mobile contract and server behavior move together.
 
@@ -84,6 +85,7 @@ This repository contains two product clients that share one backend system:
 
 - Keep hooks under `mobile-client/lib/hooks/<hook-name>/index.ts`.
 - Import hooks through `@/hooks`, not direct `@/lib/hooks/...` paths.
+- For liquid-glass footer navigation, prefer Expo Router native tabs in the owning `(tabs)` layout over custom in-screen `BlurView` footers.
 - Keep component-local styles in co-located `style.ts` files.
 - Do not define component-local types in component files; place them under `mobile-client/types/components/*` and import them from `@/types` where the repo already follows that pattern.
 - Move reusable semantic constants into `mobile-client/lib/constants/*` and import them from `@/lib/constants`.

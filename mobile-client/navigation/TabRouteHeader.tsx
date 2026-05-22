@@ -67,13 +67,14 @@ export default function TabRouteHeader() {
   const isGoals = tabSegment === "goals";
   const isGoalsProjection = tabSegment === "goals-projection";
   const isGoalsSection = isGoals || isGoalsProjection;
+  const isLoggedExpensesTabRoot = tabSegment === "logged-expenses";
   const isIncomeTab = tabSegment === "income";
   const isDashboardHome = tabSegment === "dashboard" && !leafSegment;
   const isGoalDetail = leafSegment === "GoalDetail";
   const isCategoryExpenses = leafSegment === "CategoryExpenses";
   const isDebtDetail = leafSegment === "DebtDetail";
   const isExpenseDetail = leafSegment === "ExpenseDetail";
-  const isLoggedExpenses = leafSegment === "LoggedExpenses";
+  const isLoggedExpenses = leafSegment === "LoggedExpenses" || tabSegment === "logged-expenses";
   const isExpensesList = leafSegment === "ExpensesList";
   const isUnplannedExpense = leafSegment === "UnplannedExpense";
   const isScanReceipt = leafSegment === "ScanReceipt";
@@ -136,39 +137,6 @@ export default function TabRouteHeader() {
     && Number.isFinite(yearNum)
     && Boolean(incomeMonthBudgetPlanId);
 
-  const isSelectedPersonalPlan = activeBudgetPlanId === bootstrapBudgetPlanId;
-  const isPersonalPlanParam = getStringParam(params.isPersonalPlan);
-  const isPersonalPlan = isPersonalPlanParam === "true"
-    ? true
-    : isPersonalPlanParam === "false"
-      ? false
-      : isSelectedPersonalPlan;
-
-  const currentPeriodMonth = getNumberParam(params.currentPeriodMonth);
-  const currentPeriodYear = getNumberParam(params.currentPeriodYear);
-  const hasResolvedCurrentPeriod = Number.isFinite(currentPeriodMonth)
-    && currentPeriodMonth >= 1
-    && currentPeriodMonth <= 12
-    && Number.isFinite(currentPeriodYear);
-  const resolvedCurrentPeriodMonth = hasResolvedCurrentPeriod ? Math.floor(currentPeriodMonth) : null;
-  const resolvedCurrentPeriodYear = hasResolvedCurrentPeriod ? Math.floor(currentPeriodYear) : null;
-  const hasResolvedSelectedPeriod = Number.isFinite(monthNum)
-    && monthNum >= 1
-    && monthNum <= 12
-    && Number.isFinite(yearNum);
-  const resolvedSelectedPeriodMonth = hasResolvedSelectedPeriod ? Math.floor(monthNum) : null;
-  const resolvedSelectedPeriodYear = hasResolvedSelectedPeriod ? Math.floor(yearNum) : null;
-  const isPastExpensesPeriod = isExpensesList
-    && hasResolvedCurrentPeriod
-    && hasResolvedSelectedPeriod
-    && (
-      (resolvedSelectedPeriodYear as number) < (resolvedCurrentPeriodYear as number)
-      || (
-        (resolvedSelectedPeriodYear as number) === (resolvedCurrentPeriodYear as number)
-        && (resolvedSelectedPeriodMonth as number) < (resolvedCurrentPeriodMonth as number)
-      )
-    );
-
   const categoryExpensesName = getStringParam(params.categoryName);
   const resolvedCategoryExpensesName = categoryExpensesName ?? getRouteParamString(routeParams, "categoryName");
   const categoryExpensesMonth = (() => {
@@ -193,7 +161,7 @@ export default function TabRouteHeader() {
   const centerLabel = isCategoryExpenses
     ? resolvedCategoryExpensesName ?? "Category"
     : isLoggedExpenses
-      ? "Logged expense"
+      ? "Logged"
       : isUnplannedExpense
         ? "Log Expense"
         : isScanReceipt
@@ -450,115 +418,7 @@ export default function TabRouteHeader() {
     </View>
   ) : undefined;
 
-  const expensesListLeftContent = isExpensesList && isPersonalPlan && !isPastExpensesPeriod ? (
-    <View style={{ flexDirection: "row", gap: 8 }}>
-      <Pressable
-        onPress={() => {
-          pushRoute("/(tabs)/expenses/UnplannedExpense", {
-            month: resolvedCurrentPeriodMonth ?? undefined,
-            year: resolvedCurrentPeriodYear ?? undefined,
-          });
-        }}
-        hitSlop={10}
-        accessibilityRole="button"
-        accessibilityLabel="Log expense"
-        style={{
-          minWidth: 68,
-          height: 34,
-          borderRadius: 17,
-          backgroundColor: T.accent,
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "center",
-          paddingHorizontal: 12,
-          gap: 4,
-        }}
-      >
-        <Ionicons name="create-outline" size={17} color={T.onAccent} />
-        <Text style={{ color: T.onAccent, fontSize: 13, fontWeight: "800" }}>Log</Text>
-      </Pressable>
-    </View>
-  ) : undefined;
-
-  const expensesListLoggedExpensesCount = Number.isFinite(getNumberParam(params.loggedExpensesCount))
-    ? Math.max(0, Math.floor(getNumberParam(params.loggedExpensesCount)))
-    : 0;
-
-  const expensesLoggedRightContent = isExpensesList && isPersonalPlan && !isPastExpensesPeriod ? (
-    <Pressable
-      onPress={() => {
-        pushRoute("/(tabs)/expenses/LoggedExpenses", {
-          categoryName: "All categories",
-          month: resolvedCurrentPeriodMonth ?? undefined,
-          year: resolvedCurrentPeriodYear ?? undefined,
-          budgetPlanId: getStringParam(params.budgetPlanId),
-          currency: getStringParam(params.currency) ?? "£",
-        });
-      }}
-      hitSlop={10}
-      accessibilityRole="button"
-      accessibilityLabel="Open logged expenses"
-      style={{
-        minWidth: 88,
-        height: 34,
-        borderRadius: 17,
-        backgroundColor: T.accent,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
-        paddingHorizontal: 10,
-        gap: 4,
-      }}
-    >
-      <Ionicons name="list-outline" size={14} color={T.onAccent} />
-      <Text style={{ color: T.onAccent, fontSize: 12, fontWeight: "800" }}>Logged</Text>
-      {expensesListLoggedExpensesCount > 0 ? (
-        <View
-          style={{
-            minWidth: 20,
-            height: 20,
-            borderRadius: 10,
-            backgroundColor: `${T.onAccent}22`,
-            alignItems: "center",
-            justifyContent: "center",
-            paddingHorizontal: 6,
-          }}
-        >
-          <Text style={{ color: T.onAccent, fontSize: 11, fontWeight: "900" }}>
-            {expensesListLoggedExpensesCount}
-          </Text>
-        </View>
-      ) : null}
-    </Pressable>
-  ) : undefined;
-
-  const loggedExpensesRightContent = isLoggedExpenses ? (
-    <Pressable
-      onPress={() => {
-        pushRoute("/(tabs)/expenses/UnplannedExpense", {
-          month: Number.isFinite(monthNum) ? Math.floor(monthNum) : (resolvedCurrentPeriodMonth ?? undefined),
-          year: Number.isFinite(yearNum) ? Math.floor(yearNum) : (resolvedCurrentPeriodYear ?? undefined),
-        });
-      }}
-      hitSlop={10}
-      accessibilityRole="button"
-      accessibilityLabel="Log expense"
-      style={{
-        minWidth: 68,
-        height: 34,
-        borderRadius: 17,
-        backgroundColor: T.accent,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
-        paddingHorizontal: 12,
-        gap: 4,
-      }}
-    >
-      <Ionicons name="create-outline" size={17} color={T.onAccent} />
-      <Text style={{ color: T.onAccent, fontSize: 13, fontWeight: "800" }}>Log</Text>
-    </Pressable>
-  ) : undefined;
+  const loggedExpensesRightContent = isLoggedExpenses ? <View style={{ width: 34, height: 34 }} /> : undefined;
 
   const notificationsInboxRightContent = isSettingsNotifications ? (
     <Pressable
@@ -608,14 +468,13 @@ export default function TabRouteHeader() {
       onAnalytics={() => pushRoute("/analytics")}
       onHelp={() => pushRoute("/help")}
       onNotifications={() => pushRoute("/settings", { initialTab: "notifications" })}
-      leftContent={expensesListLeftContent}
       leftVariant={isStandaloneSacrificeIncomeMonth || isAnalytics || isSettings || isSettingsProfileDetails || isSettingsIncomeSettings || isSettingsStrategy || isSettingsDebtManagement || isGoalDetail || isGoalsProjection || isCategoryExpenses || isLoggedExpenses || isUnplannedExpense || isScanReceipt || isDebtAnalytics ? "back" : "avatar"}
       onBack={handleBack}
       centerLabel={centerLabel}
       centerContent={incomeMonthSwitcher}
-      rightContent={notificationsInboxRightContent ?? loggedExpensesRightContent ?? analyticsRightContent ?? incomeRightContent ?? expensesLoggedRightContent ?? goalsRightContent}
+      rightContent={notificationsInboxRightContent ?? loggedExpensesRightContent ?? analyticsRightContent ?? incomeRightContent ?? goalsRightContent}
       showIncomeAction={false}
-      showHelpAction={isDashboardHome}
+      showHelpAction={isDashboardHome || isExpensesList}
       compactActionsMenu={isSettings || isSettingsProfileDetails || isSettingsIncomeSettings || isSettingsStrategy || isSettingsDebtManagement}
       showAnalyticsAction={!isSettings && !isSettingsProfileDetails && !isSettingsIncomeSettings && !isSettingsStrategy && !isSettingsDebtManagement && !isAnalytics && !isGoalDetail}
       showNotificationAction={!isSettings && !isSettingsProfileDetails && !isSettingsIncomeSettings && !isSettingsStrategy && !isSettingsDebtManagement && !isAnalytics}

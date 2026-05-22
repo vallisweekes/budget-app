@@ -1,7 +1,9 @@
 import { useFocusEffect } from "@react-navigation/native";
+import { useActiveBudgetPlan } from "@/context/ActiveBudgetPlanContext";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { apiFetch, getApiMutationVersion } from "@/lib/api";
 import type { Expense } from "@/lib/apiTypes";
+import { currencySymbol } from "@/lib/formatting";
 import { getCachedPayPeriodExpenses, setCachedPayPeriodExpenses } from "@/lib/expensePeriodCache";
 import { resolveCategoryColor } from "@/lib/categoryColors";
 import { useTopHeaderOffset } from "@/hooks";
@@ -15,8 +17,19 @@ type Props = NativeStackScreenProps<ExpensesStackParamList, "LoggedExpenses">;
 
 export function useLoggedExpensesScreenController({ route, navigation }: Props): LoggedExpensesControllerState {
   const topHeaderOffset = useTopHeaderOffset();
-  const { categoryId, categoryName, color, month, year, budgetPlanId, currency } = route.params;
   const { settings } = useBootstrapData();
+  const { activeBudgetPlanId, bootstrapBudgetPlanId } = useActiveBudgetPlan();
+  const nextParams = route.params ?? {};
+  const today = new Date();
+  const categoryId = typeof nextParams.categoryId === "string" ? nextParams.categoryId : undefined;
+  const categoryName = typeof nextParams.categoryName === "string" ? nextParams.categoryName : "All categories";
+  const color = typeof nextParams.color === "string" ? nextParams.color : null;
+  const month = Number.isFinite(Number(nextParams.month)) ? Math.max(1, Math.min(12, Math.floor(Number(nextParams.month)))) : (today.getMonth() + 1);
+  const year = Number.isFinite(Number(nextParams.year)) ? Math.floor(Number(nextParams.year)) : today.getFullYear();
+  const budgetPlanId = typeof nextParams.budgetPlanId === "string"
+    ? nextParams.budgetPlanId
+    : (activeBudgetPlanId || bootstrapBudgetPlanId || null);
+  const currency = typeof nextParams.currency === "string" ? nextParams.currency : currencySymbol(settings?.currency);
   const [items, setItems] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);

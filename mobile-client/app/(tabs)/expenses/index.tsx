@@ -1,5 +1,7 @@
-import { Redirect } from "expo-router";
+import { Redirect, useLocalSearchParams } from "expo-router";
 
 export default function ExpensesRoute() {
-  return <Redirect href="/(tabs)/expenses/ExpensesList" />;
+  const params = useLocalSearchParams();
+
+  return <Redirect href={{ pathname: "/(tabs)/expenses/ExpensesList", params }} />;
 }

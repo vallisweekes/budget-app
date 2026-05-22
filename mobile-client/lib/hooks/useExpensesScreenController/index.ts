@@ -159,7 +159,6 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
   }, [personalPlanId, plans, setActiveBudgetPlanId, sharedActiveBudgetPlanId]);
 
   const planTotalAmount = expenseMonths.reduce((sum, item) => sum + (item.totalAmount ?? 0), 0);
-  const prevIsPersonalPlanRef = useRef(true);
 
   useEffect(() => {
     plansRef.current = plans;
@@ -349,15 +348,6 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       currentPeriodYear: defaultActiveYear,
     });
   }, [activePlanId, currency, defaultActiveMonth, defaultActiveYear, isPersonalPlan, loggedExpensesCount, navigation, route.params?.budgetPlanId, route.params?.currency, route.params?.currentPeriodMonth, route.params?.currentPeriodYear, route.params?.isPersonalPlan, route.params?.loggedExpensesCount]);
-
-  useEffect(() => {
-    const wasPersonal = prevIsPersonalPlanRef.current;
-    if (!wasPersonal && isPersonalPlan) {
-      setMonth(defaultActiveMonth);
-      setYear(defaultActiveYear);
-    }
-    prevIsPersonalPlanRef.current = isPersonalPlan;
-  }, [defaultActiveMonth, defaultActiveYear, isPersonalPlan]);
 
   const planCacheKey = useCallback((planId: string | null | undefined) => planId ?? "none", []);
 
