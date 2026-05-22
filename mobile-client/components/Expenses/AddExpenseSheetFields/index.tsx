@@ -247,29 +247,18 @@ export default function AddExpenseSheetFields({
       <View style={s.fieldGroup}>
         <Text style={s.label}>Source of funds</Text>
         <View style={{ position: "relative", zIndex: 30 }}>
-          <Pressable style={s.input} onPress={() => setShowSourceDropdown((open) => !open)}>
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-              <Text style={{ color: T.text, fontSize: 15, fontWeight: "700" }}>{selectedSourceLabel}</Text>
+          <Pressable
+            style={[s.input, showSourceDropdown && s.selectInputOpen]}
+            onPress={() => setShowSourceDropdown((open) => !open)}
+          >
+            <View style={s.selectRow}>
+              <Text style={s.selectValueText}>{selectedSourceLabel}</Text>
               <Ionicons name={showSourceDropdown ? "chevron-up" : "chevron-down"} size={16} color={T.textDim} />
             </View>
           </Pressable>
 
           {showSourceDropdown ? (
-            <View
-              style={{
-                position: "absolute",
-                top: 52,
-                left: 0,
-                right: 0,
-                backgroundColor: T.cardAlt,
-                borderRadius: 12,
-                borderWidth: 1,
-                borderColor: T.border,
-                overflow: "hidden",
-                zIndex: 40,
-                elevation: 8,
-              }}
-            >
+            <View style={s.dropdownMenu}>
               {sourceOptions.map((opt, idx) => {
                 const active = paymentSource === opt.value;
                 return (
@@ -280,15 +269,13 @@ export default function AddExpenseSheetFields({
                       if (opt.value !== "credit_card") setCardDebtId("");
                       setShowSourceDropdown(false);
                     }}
-                    style={{
-                      paddingHorizontal: 14,
-                      paddingVertical: 11,
-                      borderBottomWidth: idx === sourceOptions.length - 1 ? 0 : 1,
-                      borderBottomColor: T.border,
-                      backgroundColor: active ? `${T.accent}20` : "transparent",
-                    }}
+                    style={[
+                      s.dropdownOption,
+                      idx === sourceOptions.length - 1 && s.dropdownOptionLast,
+                      active && s.dropdownOptionActive,
+                    ]}
                   >
-                    <Text style={{ color: active ? T.accent : T.text, fontSize: 14, fontWeight: active ? "800" : "700" }}>
+                    <Text style={[s.dropdownOptionText, active && s.dropdownOptionTextActive]}>
                       {opt.label}
                     </Text>
                   </Pressable>
@@ -321,8 +308,8 @@ export default function AddExpenseSheetFields({
         )}
 
         {paymentSource === "credit_card" && cards.length === 0 && (
-          <View style={{ backgroundColor: "#f59e0b18", borderRadius: 10, padding: 10, marginTop: 4, borderWidth: 1, borderColor: "#f59e0b44" }}>
-            <Text style={{ color: "#f59e0b", fontSize: 12, fontWeight: "700" }}>
+          <View style={s.inlineWarning}>
+            <Text style={s.inlineWarningText}>
               No credit cards found. Add one in Debts first.
             </Text>
           </View>
@@ -357,13 +344,13 @@ export default function AddExpenseSheetFields({
         >
           <View style={{ flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.45)" }}>
             <Pressable style={{ flex: 1 }} onPress={cancelPicker} />
-            <View style={{ backgroundColor: T.card, borderTopLeftRadius: 16, borderTopRightRadius: 16, paddingBottom: 24 }}>
-              <View style={{ flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: T.border }}>
+            <View style={s.dateModalSheet}>
+              <View style={s.dateModalHeader}>
                 <TouchableOpacity onPress={cancelPicker} hitSlop={10}>
-                  <Text style={{ color: T.textMuted, fontSize: 16, fontWeight: "600" }}>Cancel</Text>
+                  <Text style={s.dateModalActionMuted}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={confirmPicker} hitSlop={10}>
-                  <Text style={{ color: T.accent, fontSize: 16, fontWeight: "700" }}>Done</Text>
+                  <Text style={s.dateModalActionPrimary}>Done</Text>
                 </TouchableOpacity>
               </View>
               <DateTimePicker

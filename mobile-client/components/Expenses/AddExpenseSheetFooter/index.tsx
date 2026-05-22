@@ -34,7 +34,9 @@ export default function AddExpenseSheetFooter({
           <Text style={s.submitTxt}>Adding…</Text>
         ) : (
           <>
-            <Ionicons name="add-circle-outline" size={18} color={T.onAccent} />
+            <View style={s.submitIconBadge}>
+              <Ionicons name="add" size={18} color={T.onAccent} />
+            </View>
             <Text style={s.submitTxt}>Add Expense</Text>
           </>
         )}

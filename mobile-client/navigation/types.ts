@@ -39,6 +39,8 @@ export type ExpensesStackParamList = {
         isPersonalPlan?: boolean;
         currentPeriodMonth?: number;
         currentPeriodYear?: number;
+        openAddExpenseAt?: number;
+        openMonthPickerAt?: number;
         skipFocusReloadAt?: number;
       }
     | undefined;

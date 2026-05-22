@@ -28,11 +28,23 @@ export default function AddExpenseCategoryRow({
         return (
           <Pressable
             key={c.categoryId}
-            style={[pr.pill, active && { borderColor: color, backgroundColor: `${color}22` }]}
+            style={[
+              pr.pill,
+              active && pr.pillSelected,
+              active && {
+                borderColor: color,
+                backgroundColor: `${color}20`,
+                shadowColor: color,
+                shadowOpacity: 0.2,
+                shadowRadius: 12,
+                shadowOffset: { width: 0, height: 6 },
+                elevation: 4,
+              },
+            ]}
             onPress={() => onChange(c.categoryId)}
           >
             <View style={[pr.dot, { backgroundColor: color }]} />
-            <Text style={[pr.pillTxt, active && { color: color, fontWeight: "900" }]} numberOfLines={1}>
+            <Text style={[pr.pillTxt, active && pr.pillTxtSelected, active && { color }]} numberOfLines={1}>
               {c.name}
             </Text>
           </Pressable>

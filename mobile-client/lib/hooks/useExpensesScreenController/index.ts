@@ -91,6 +91,8 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
   const skipNextTabFocusReloadRef = useRef(false);
   const skipNextChildFocusReloadRef = useRef(false);
   const lastHandledSkipFocusReloadAtRef = useRef<number | null>(null);
+  const lastHandledOpenAddAtRef = useRef<number | null>(null);
+  const lastHandledOpenMonthPickerAtRef = useRef<number | null>(null);
   const didNormalizeInitialPeriodRef = useRef(false);
   const plansRef = useRef<BudgetPlanListItem[]>(sharedExpensesPlansCache);
   const preferredPeriodByPlanRef = useRef<Record<string, { month: number; year: number }>>(sharedPreferredPeriodByPlanCache);
@@ -1095,6 +1097,26 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
   const showPlanTotalFallback = isAdditionalPlan && (summary?.totalCount ?? 0) === 0 && expenseMonths.length > 0 && planTotalAmount > 0;
   const isPastSelectedPeriod = year < defaultActiveYear || (year === defaultActiveYear && month < defaultActiveMonth);
   const selectedPickerYear = resolvePickerDisplayYear(month, year);
+
+  useEffect(() => {
+    const openAddToken = Number(route.params?.openAddExpenseAt);
+    if (!Number.isFinite(openAddToken)) return;
+    if (lastHandledOpenAddAtRef.current === openAddToken) return;
+
+    lastHandledOpenAddAtRef.current = openAddToken;
+    if (isPastSelectedPeriod) return;
+    setAddSheetOpen(true);
+  }, [isPastSelectedPeriod, route.params?.openAddExpenseAt]);
+
+  useEffect(() => {
+    const openMonthPickerToken = Number(route.params?.openMonthPickerAt);
+    if (!Number.isFinite(openMonthPickerToken)) return;
+    if (lastHandledOpenMonthPickerAtRef.current === openMonthPickerToken) return;
+
+    lastHandledOpenMonthPickerAtRef.current = openMonthPickerToken;
+    setPickerYear(resolvePickerDisplayYear(month, year));
+    setMonthPickerOpen(true);
+  }, [month, resolvePickerDisplayYear, route.params?.openMonthPickerAt, year]);
 
   useEffect(() => {
     let cancelled = false;

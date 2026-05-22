@@ -77,6 +77,7 @@ export default function MainTabsLayout() {
   const incomeAddTokenRef = React.useRef(0);
   const debtAddTokenRef = React.useRef(0);
   const categoryAddTokenRef = React.useRef(0);
+  const expenseAddTokenRef = React.useRef(0);
   const selectedTintColor = T.onAccent;
   const inactiveIconColor = "#8E95A3";
   const inactiveLabelColor = "#8E95A3";
@@ -205,6 +206,18 @@ export default function MainTabsLayout() {
         }
       : undefined),
   } as Record<string, unknown>;
+  const expensesSplitAddTriggerScreenProps = {
+    listeners: createTabListeners(isExpensesSplitRoute
+      ? {
+          onTabPress: () => {
+            expenseAddTokenRef.current += 1;
+            router.setParams({ openAddExpenseAt: String(expenseAddTokenRef.current) });
+          },
+          preventDefaultOnTabPress: true,
+          resetOnBlur: false,
+        }
+      : undefined),
+  } as Record<string, unknown>;
   const incomeTriggerScreenProps = {
     listeners: createTabListeners(isIncomeSplitRoute
       ? {
@@ -312,58 +325,59 @@ export default function MainTabsLayout() {
 
   if (isExpensesSplitRoute) {
     return (
-      <NativeTabs
-        key={tabsLayoutKey}
-        hidden={shouldHideNativeTabs}
-        tintColor={selectedTintColor}
-        iconColor={inactiveIconColor}
-        labelStyle={splitRouteLabelStyle}
-        titlePositionAdjustment={{ vertical: -2 }}
-        backBehavior="history"
-      >
-        <NativeTabs.Trigger
-          {...resetOnBlurScreenProps}
-          name="dashboard"
-          contentStyle={tabContentStyle}
-          unstable_nativeProps={tabNativeProps}
+      <>
+        <NativeTabs
+          key={tabsLayoutKey}
+          hidden={shouldHideNativeTabs}
+          tintColor={selectedTintColor}
+          iconColor={inactiveIconColor}
+          labelStyle={splitRouteLabelStyle}
+          titlePositionAdjustment={{ vertical: -2 }}
+          backBehavior="history"
         >
-          <NativeTabs.Trigger.Icon
-            src={<NativeTabs.Trigger.VectorIcon family={Feather} name="home" />}
-            renderingMode="template"
-            selectedColor={selectedTintColor}
-          />
-          <NativeTabs.Trigger.Label hidden />
-        </NativeTabs.Trigger>
-        <NativeTabs.Trigger
-          {...loggedExpensesSplitScreenProps}
-          name="logged-expenses"
-          contentStyle={tabContentStyle}
-          unstable_nativeProps={tabNativeProps}
-        >
-          <NativeTabs.Trigger.Icon
-            src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name="list-outline" />}
-            renderingMode="template"
-            selectedColor={selectedTintColor}
-          />
-          <NativeTabs.Trigger.Label selectedStyle={splitRouteSelectedTabLabelStyle}>Logged</NativeTabs.Trigger.Label>
-        </NativeTabs.Trigger>
-        <NativeTabs.Trigger
-          {...expensesSplitTriggerScreenProps}
-          name="expenses"
-          role="search"
-          disablePopToTop
-          disableScrollToTop
-          contentStyle={tabContentStyle}
-          unstable_nativeProps={tabNativeProps}
-        >
-          <NativeTabs.Trigger.Icon
-            src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name="create-outline" />}
-            renderingMode="template"
-            selectedColor={selectedTintColor}
-          />
-          <NativeTabs.Trigger.Label selectedStyle={splitRouteSelectedTabLabelStyle}>Log</NativeTabs.Trigger.Label>
-        </NativeTabs.Trigger>
-      </NativeTabs>
+          <NativeTabs.Trigger
+            {...resetOnBlurScreenProps}
+            name="dashboard"
+            contentStyle={tabContentStyle}
+            unstable_nativeProps={tabNativeProps}
+          >
+            <NativeTabs.Trigger.Icon
+              src={<NativeTabs.Trigger.VectorIcon family={Feather} name="home" />}
+              renderingMode="template"
+              selectedColor={selectedTintColor}
+            />
+            <NativeTabs.Trigger.Label hidden />
+          </NativeTabs.Trigger>
+          <NativeTabs.Trigger
+            {...loggedExpensesSplitScreenProps}
+            name="logged-expenses"
+            contentStyle={tabContentStyle}
+            unstable_nativeProps={tabNativeProps}
+          >
+            <NativeTabs.Trigger.Icon
+              src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name="list-outline" />}
+              renderingMode="template"
+              selectedColor={selectedTintColor}
+            />
+            <NativeTabs.Trigger.Label selectedStyle={splitRouteSelectedTabLabelStyle}>Logged</NativeTabs.Trigger.Label>
+          </NativeTabs.Trigger>
+          <NativeTabs.Trigger
+            {...expensesSplitAddTriggerScreenProps}
+            name="expenses"
+            role="search"
+            disablePopToTop
+            disableScrollToTop
+            contentStyle={tabContentStyle}
+            unstable_nativeProps={tabNativeProps}
+          >
+            <NativeTabs.Trigger.Icon
+              src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name="add" />}
+              renderingMode="template"
+              selectedColor={selectedTintColor}
+            />
+          </NativeTabs.Trigger>
+        </NativeTabs>
+      </>
     );
   }
 

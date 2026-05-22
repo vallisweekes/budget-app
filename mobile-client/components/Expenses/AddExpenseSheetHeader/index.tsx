@@ -53,21 +53,24 @@ export default function AddExpenseSheetHeader({
 
   return (
     <View style={s.header}>
-      <View style={{ flex: 1 }}>
+      <View style={{ flex: 1, paddingRight: 12 }}>
         <Text style={s.title}>{title}</Text>
-        <View style={{ flexDirection: "row", alignItems: "center", marginTop: 4, gap: 4 }}>
+        <View style={s.periodRail}>
           <Pressable
             onPress={onPrevMonth}
             hitSlop={10}
             disabled={!canPrev}
-            style={{ opacity: canPrev ? 1 : 0.25 }}
+            style={[s.periodIconBtn, !canPrev && s.periodIconBtnDisabled]}
           >
             <Ionicons name="chevron-back" size={16} color={T.text} />
           </Pressable>
-          <Text style={{ color: T.text, fontSize: 13, fontWeight: "600" }} numberOfLines={1}>
-            {label}
-          </Text>
-          <Pressable onPress={onNextMonth} hitSlop={10}>
+          <View style={s.periodPill}>
+            <Ionicons name="calendar-outline" size={14} color={T.accent} />
+            <Text style={s.periodPillText} numberOfLines={1}>
+              {label}
+            </Text>
+          </View>
+          <Pressable onPress={onNextMonth} hitSlop={10} style={s.periodIconBtn}>
             <Ionicons name="chevron-forward" size={16} color={T.text} />
           </Pressable>
         </View>

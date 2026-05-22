@@ -508,22 +508,12 @@ export default function AddExpenseSheet({
 
           {/* Plan picker — compact dropdown shown only when user has multiple plans */}
           {plans.length > 1 && (
-            <View style={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 12, zIndex: 10 }}>
+            <View style={styles.planPickerWrap}>
               <Pressable
                 onPress={() => setPlanDropdownOpen((o) => !o)}
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  paddingHorizontal: 14,
-                  paddingVertical: 10,
-                  borderRadius: 10,
-                  borderWidth: 1,
-                  borderColor: planDropdownOpen ? T.accent : T.border,
-                  backgroundColor: T.card,
-                }}
+                style={[styles.planPickerButton, planDropdownOpen && styles.planPickerButtonOpen]}
               >
-                <Text style={{ fontSize: 14, color: T.text, flex: 1 }} numberOfLines={1}>
+                <Text style={styles.planPickerText} numberOfLines={1}>
                   {plans.find((p) => p.id === effectivePlanId)?.name ?? "Select plan"}
                 </Text>
                 <Ionicons
@@ -534,50 +524,20 @@ export default function AddExpenseSheet({
               </Pressable>
 
               {planDropdownOpen && (
-                <View
-                  style={{
-                    position: "absolute",
-                    top: 46,
-                    left: 20,
-                    right: 20,
-                    borderRadius: 10,
-                    borderWidth: 1,
-                    borderColor: T.border,
-                    backgroundColor: T.card,
-                    overflow: "hidden",
-                    zIndex: 20,
-                    shadowColor: "#000",
-                    shadowOpacity: 0.18,
-                    shadowRadius: 8,
-                    shadowOffset: { width: 0, height: 4 },
-                    elevation: 8,
-                  }}
-                >
+                <View style={styles.planPickerMenu}>
                   {plans.map((p, idx) => {
                     const active = effectivePlanId === p.id;
                     return (
                       <Pressable
                         key={p.id}
                         onPress={() => { setSelectedPlanId(p.id); setPlanDropdownOpen(false); }}
-                        style={{
-                          paddingHorizontal: 14,
-                          paddingVertical: 12,
-                          backgroundColor: active ? T.accent + "22" : "transparent",
-                          borderTopWidth: idx === 0 ? 0 : 1,
-                          borderTopColor: T.border,
-                          flexDirection: "row",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                        }}
+                        style={[
+                          styles.planPickerOption,
+                          idx === 0 && styles.planPickerOptionFirst,
+                          active && styles.planPickerOptionActive,
+                        ]}
                       >
-                        <Text
-                          style={{
-                            fontSize: 14,
-                            fontWeight: active ? "600" : "400",
-                            color: active ? T.accent : T.text,
-                          }}
-                          numberOfLines={1}
-                        >
+                        <Text style={[styles.planPickerOptionText, active && styles.planPickerOptionTextActive]} numberOfLines={1}>
                           {p.name}
                         </Text>
                         {active && <Ionicons name="checkmark" size={16} color={T.accent} />}
@@ -594,7 +554,7 @@ export default function AddExpenseSheet({
             style={{ flex: 1 }}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: 8 }}
+            contentContainerStyle={styles.scrollContent}
           >
             <AddExpenseSheetFields
               name={name}
@@ -624,7 +584,7 @@ export default function AddExpenseSheet({
               }}
             />
 
-            <View style={{ paddingHorizontal: 20, gap: 18 }}>
+            <View style={styles.togglesWrap}>
               <AddExpenseSheetToggles
                 paid={paid}
                 setPaid={setPaid}
@@ -641,8 +601,7 @@ export default function AddExpenseSheet({
           {/* Footer pinned below the scroll */}
           <View
             style={{
-              paddingHorizontal: 20,
-              paddingTop: 12,
+              ...styles.footerWrap,
               paddingBottom: insets.bottom + 24,
               marginBottom: keyboardVisible ? Math.max(0, keyboardHeight - insets.bottom + 8) : 0,
             }}

@@ -21,6 +21,7 @@ import { apiFetch } from "@/lib/api";
 import type { IncomeSacrificeData, OnboardingStatusResponse, Settings } from "@/lib/apiTypes";
 import { appendNotificationInboxItem, subscribeNotificationInbox } from "@/lib/notificationInbox";
 import { markSkipExpensesFocusReload } from "@/lib/helpers/expensesFocusReload";
+import { getPayPeriodRangeLabelFromAnchor, normalizePayFrequency } from "@/lib/payPeriods";
 
 import LoginScreen from "@/components/LoginScreen";
 import DashboardScreen from "@/components/DashboardScreen";
@@ -630,6 +631,20 @@ const s = StyleSheet.create({
   monthSwitchLabelBtn: {
     alignItems: "center",
   },
+  expensesPeriodHeaderBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    paddingHorizontal: 4,
+  },
+  expensesPeriodHeaderText: {
+    color: T.text,
+    fontSize: 16,
+    fontWeight: "700",
+    textAlign: "center",
+    letterSpacing: 0.1,
+  },
   yearPickerBackdrop: {
     flex: 1,
     alignItems: "stretch",
@@ -846,7 +861,7 @@ const s = StyleSheet.create({
 
 function MainTabs() {
   const { signOut, profile } = useAuth();
-  const { dashboard } = useBootstrapData();
+  const { dashboard, settings: bootstrapSettings } = useBootstrapData();
   const onboardingStatusQuery = useGetOnboardingStatusQuery();
   const incomePendingCount = 0;
   const hasNotificationDot = false;
@@ -957,6 +972,19 @@ function MainTabs() {
             && Number.isFinite(expensesListYear);
           const resolvedSelectedPeriodMonth = hasResolvedSelectedPeriod ? Math.floor(expensesListMonth) : null;
           const resolvedSelectedPeriodYear = hasResolvedSelectedPeriod ? Math.floor(expensesListYear) : null;
+          const resolvedExpensesPeriodLabel = isExpensesList
+            && Number.isFinite(resolvedSelectedPeriodMonth)
+            && Number.isFinite(resolvedSelectedPeriodYear)
+            ? getPayPeriodRangeLabelFromAnchor({
+                month: resolvedSelectedPeriodMonth as number,
+                year: resolvedSelectedPeriodYear as number,
+                payDate: Number.isFinite(bootstrapSettings?.payDate as number) && (bootstrapSettings?.payDate as number) >= 1
+                  ? Math.floor(bootstrapSettings?.payDate as number)
+                  : 27,
+                payFrequency: normalizePayFrequency(bootstrapSettings?.payFrequency),
+                payAnchorDate: bootstrapSettings?.payAnchorDate ?? null,
+              })
+            : null;
           const isPastExpensesPeriod = isExpensesList
             && hasResolvedCurrentPeriod
             && hasResolvedSelectedPeriod
@@ -1010,6 +1038,30 @@ function MainTabs() {
                 ) : null}
               </View>
             )
+            : isExpensesList && resolvedExpensesPeriodLabel
+              ? (
+                <Pressable
+                  onPress={() => {
+                    (navigation as any).navigate("Expenses", {
+                      screen: "ExpensesList",
+                      params: {
+                        month: resolvedSelectedPeriodMonth,
+                        year: resolvedSelectedPeriodYear,
+                        budgetPlanId: deepestRoute?.params?.budgetPlanId ?? null,
+                        currency: deepestRoute?.params?.currency ?? "£",
+                        openMonthPickerAt: Date.now(),
+                      },
+                    });
+                  }}
+                  style={s.expensesPeriodHeaderBtn}
+                  hitSlop={10}
+                  accessibilityRole="button"
+                  accessibilityLabel="Open expenses period picker"
+                >
+                  <Text style={s.expensesPeriodHeaderText}>{resolvedExpensesPeriodLabel}</Text>
+                  <Ionicons name="chevron-down" size={14} color={T.textMuted} />
+                </Pressable>
+              )
             : incomeMonthSwitcher;
 
           const openAnalytics = () => {

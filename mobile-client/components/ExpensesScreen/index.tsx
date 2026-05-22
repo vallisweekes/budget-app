@@ -153,12 +153,8 @@ export default function ExpensesScreen({ navigation, route }: ExpensesScreenProp
                     <View style={styles.noExpensesCardCopy}>
                       <Text style={styles.noExpensesTitle}>No expense for this period</Text>
                       <Text style={styles.noExpensesSub}>{controller.selectedPeriodRange}</Text>
-                      <Text style={styles.noExpensesHint}>Tap + Expense to create your first expense.</Text>
+                      <Text style={styles.noExpensesHint}>Use the + button beside Log to create your first expense.</Text>
                     </View>
-                    <Pressable onPress={controller.onOpenAddSheet} style={styles.noExpensesAddBtn}>
-                      <Ionicons name="add" size={18} color={T.onAccent} />
-                      <Text style={styles.noExpensesAddBtnTxt}>Expense</Text>
-                    </Pressable>
                   </View>
                 </View>
               ) : null}
@@ -222,12 +218,8 @@ export default function ExpensesScreen({ navigation, route }: ExpensesScreenProp
                     <View style={styles.noExpensesCardCopy}>
                       <Text style={styles.noExpensesTitle}>No expense for this period</Text>
                       <Text style={styles.noExpensesSub}>{controller.selectedPeriodRange}</Text>
-                      <Text style={styles.noExpensesHint}>Tap + Expense to create your first expense.</Text>
+                      <Text style={styles.noExpensesHint}>Use the + button beside Log to create your first expense.</Text>
                     </View>
-                    <Pressable onPress={controller.onOpenAddSheet} style={styles.noExpensesAddBtn}>
-                      <Ionicons name="add" size={18} color={T.onAccent} />
-                      <Text style={styles.noExpensesAddBtnTxt}>Expense</Text>
-                    </Pressable>
                   </View>
                 </View>
               )}
@@ -239,7 +231,7 @@ export default function ExpensesScreen({ navigation, route }: ExpensesScreenProp
                   fmt={fmt}
                   onCategoryPress={controller.onPressCategory}
                   onAddPress={controller.onOpenAddSheet}
-                  showAddAction={!controller.isPastSelectedPeriod}
+                  showAddAction={false}
                 />
               )}
 
