@@ -1,5 +1,11 @@
 import { Redirect } from "expo-router";
 
+import { DeferredTabRoute } from "@/components/Shared/DeferredTabRoute";
+
 export default function IncomeRoute() {
-  return <Redirect href="/(tabs)/income/IncomeHome" />;
+  return (
+    <DeferredTabRoute>
+      <Redirect href="/(tabs)/income/IncomeHome" />
+    </DeferredTabRoute>
+  );
 }
