@@ -91,18 +91,21 @@ export default function MainTabsLayout() {
   const isGoalsRootRoute = segments[0] === "(tabs)" && segments[1] === "goals" && typeof segments[2] !== "string";
   const isGoalsProjectionRoute = segments[0] === "(tabs)" && segments[1] === "goals-projection";
   const isGoalsSplitRoute = isGoalsRootRoute || isGoalsProjectionRoute;
-  const isDebtAnalyticsRoute = segments[0] === "(tabs)" && segments[1] === "debts" && segments[2] === "DebtAnalytics";
+  const isDebtAnalyticsNestedRoute = segments[0] === "(tabs)" && segments[1] === "debts" && segments[2] === "DebtAnalytics";
+  const isDebtAnalyticsTabRoute = segments[0] === "(tabs)" && segments[1] === "debt-analytics";
   const isCategoryExpensesSplitRoute = segments[0] === "(tabs)"
     && segments[1] === "expenses"
     && segments[2] === "CategoryExpenses";
   const isIncomeSplitRoute = segments[0] === "(tabs)"
     && segments[1] === "income"
     && (segments[2] === "IncomeMonth" || segments[2] === "IncomeGrid");
-  const isAnyDebtRoute = segments[0] === "(tabs)" && segments[1] === "debts";
-  const isDebtSplitRoute = segments[0] === "(tabs)"
+  const isAnyDebtRoute = (segments[0] === "(tabs)" && segments[1] === "debts") || isDebtAnalyticsTabRoute;
+  const isDebtSplitRoute = isDebtAnalyticsTabRoute || (
+    segments[0] === "(tabs)"
     && segments[1] === "debts"
     && !isDebtDetailRoute
-    && !isDebtAnalyticsRoute;
+    && !isDebtAnalyticsNestedRoute
+  );
   const hasActualDebts = React.useMemo(() => {
     if (debtSummaryQuery.isSuccess) {
       return (debtSummaryQuery.data?.activeCount ?? 0) > 0;
@@ -255,7 +258,17 @@ export default function MainTabsLayout() {
       ? {
           onTabPress: () => {
             debtAddTokenRef.current += 1;
-            router.setParams({ openAddToken: String(debtAddTokenRef.current) });
+            const nextToken = String(debtAddTokenRef.current);
+
+            if (isDebtAnalyticsTabRoute) {
+              router.push({
+                pathname: "/(tabs)/debts/DebtList",
+                params: { openAddToken: nextToken },
+              });
+              return;
+            }
+
+            router.setParams({ openAddToken: nextToken });
           },
           preventDefaultOnTabPress: true,
           resetOnBlur: false,
@@ -488,6 +501,19 @@ export default function MainTabsLayout() {
             selectedColor={selectedTintColor}
           />
           <NativeTabs.Trigger.Label selectedStyle={splitRouteSelectedTabLabelStyle}>Home</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger
+          {...resetOnBlurScreenProps}
+          name="debt-analytics"
+          contentStyle={tabContentStyle}
+          unstable_nativeProps={tabNativeProps}
+        >
+          <NativeTabs.Trigger.Icon
+            src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name="stats-chart-outline" />}
+            renderingMode="template"
+            selectedColor={selectedTintColor}
+          />
+          <NativeTabs.Trigger.Label hidden />
         </NativeTabs.Trigger>
         <NativeTabs.Trigger
           {...debtSplitTriggerScreenProps}

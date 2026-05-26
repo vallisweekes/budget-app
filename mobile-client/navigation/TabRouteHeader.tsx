@@ -69,6 +69,8 @@ export default function TabRouteHeader() {
   const isGoalsSection = isGoals || isGoalsProjection;
   const isLoggedExpensesTabRoot = tabSegment === "logged-expenses";
   const isIncomeTab = tabSegment === "income";
+  const isDebtAnalyticsTab = tabSegment === "debt-analytics";
+  const isDebtSplitSection = tabSegment === "debts" || isDebtAnalyticsTab;
   const isDashboardHome = tabSegment === "dashboard" && !leafSegment;
   const isGoalDetail = leafSegment === "GoalDetail";
   const isCategoryExpenses = leafSegment === "CategoryExpenses";
@@ -79,6 +81,7 @@ export default function TabRouteHeader() {
   const isUnplannedExpense = leafSegment === "UnplannedExpense";
   const isScanReceipt = leafSegment === "ScanReceipt";
   const isDebtAnalytics = leafSegment === "DebtAnalytics";
+  const isAnyDebtAnalytics = isDebtAnalytics || isDebtAnalyticsTab;
   const getDeepestRoute = (state: any): any => {
     if (!state?.routes?.length) return null;
     const route = state.routes[state.index ?? state.routes.length - 1];
@@ -166,7 +169,7 @@ export default function TabRouteHeader() {
         ? "Log Expense"
         : isScanReceipt
           ? "Upload Receipt"
-          : isDebtAnalytics
+          : isAnyDebtAnalytics
             ? "Debt Analytics"
             : isSettingsProfileDetails
               ? "Profile details"
@@ -476,7 +479,7 @@ export default function TabRouteHeader() {
       showIncomeAction={false}
       showHelpAction={isDashboardHome || isExpensesList}
       compactActionsMenu={isSettings || isSettingsProfileDetails || isSettingsIncomeSettings || isSettingsStrategy || isSettingsDebtManagement}
-      showAnalyticsAction={!isSettings && !isSettingsProfileDetails && !isSettingsIncomeSettings && !isSettingsStrategy && !isSettingsDebtManagement && !isAnalytics && !isGoalDetail}
+      showAnalyticsAction={!isSettings && !isSettingsProfileDetails && !isSettingsIncomeSettings && !isSettingsStrategy && !isSettingsDebtManagement && !isAnalytics && !isGoalDetail && !isDebtSplitSection}
       showNotificationAction={!isSettings && !isSettingsProfileDetails && !isSettingsIncomeSettings && !isSettingsStrategy && !isSettingsDebtManagement && !isAnalytics}
       onLogout={isSettings && !isSettingsNotifications ? signOut : undefined}
     />

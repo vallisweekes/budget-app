@@ -58,14 +58,8 @@ export function DebtProjectionCard({ controller }: DebtProjectionCardProps) {
             {projectionSummary.monthsToClear != null ? `Debt-free by ${projectionSummary.payoffLabel}` : "No payoff projected"}
           </Text>
         </View>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <Pressable onPress={controller.onOpenAnalytics} style={styles.analyticsBtn}>
-            <Text style={styles.analyticsBtnTxt}>Analytics</Text>
-            <Ionicons name="chevron-forward" size={12} color={T.accent} />
-          </Pressable>
-          <View style={styles.chartBadge}>
-            <Text style={styles.chartBadgeTxt}>{projectionSummary.months}mo</Text>
-          </View>
+        <View style={styles.chartBadge}>
+          <Text style={styles.chartBadgeTxt}>{projectionSummary.months}mo</Text>
         </View>
       </View>
 
