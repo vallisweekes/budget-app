@@ -124,7 +124,7 @@ export default function MainTabsLayout() {
     || Boolean(dashboard)
     || profile?.onboarding?.profile?.hasDebtsToManage === true
   );
-  const isTabsHidden = isDebtDetailRoute || isExpenseDetailRoute || isGoalDetailRoute || isGoalsProjectionRoute;
+  const isTabsHidden = isDebtDetailRoute || isExpenseDetailRoute || isGoalDetailRoute || isGoalsProjectionRoute || isDebtAnalyticsTabRoute;
   const shouldHideNativeTabs = isTabsHidden || segments[0] !== "(tabs)";
   const tabsLayoutKey = isLoggedExpensesNestedRoute
     ? "tabs:expenses-split:logged"
@@ -509,7 +509,7 @@ export default function MainTabsLayout() {
           unstable_nativeProps={tabNativeProps}
         >
           <NativeTabs.Trigger.Icon
-            src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name="stats-chart-outline" />}
+            src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name="pie-chart-outline" />}
             renderingMode="template"
             selectedColor={selectedTintColor}
           />

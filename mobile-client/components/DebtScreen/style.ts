@@ -78,7 +78,8 @@ export const debtStyles = StyleSheet.create({
   cardChoiceTxtActive: { color: T.accent, fontWeight: "800" },
   cardChoiceEmpty: { color: T.textDim, fontSize: 12, fontWeight: "700" },
   chartCard: {
-    margin: 14,
+    marginHorizontal: 14,
+    marginTop: 8,
     marginBottom: 0,
     paddingHorizontal: 16,
     paddingTop: 4,

@@ -58,9 +58,6 @@ export function DebtProjectionCard({ controller }: DebtProjectionCardProps) {
             {projectionSummary.monthsToClear != null ? `Debt-free by ${projectionSummary.payoffLabel}` : "No payoff projected"}
           </Text>
         </View>
-        <View style={styles.chartBadge}>
-          <Text style={styles.chartBadgeTxt}>{projectionSummary.months}mo</Text>
-        </View>
       </View>
 
       <View onLayout={(event) => controller.setChartWidth(event.nativeEvent.layout.width)} style={{ height: chartHeight, width: "100%" }}>

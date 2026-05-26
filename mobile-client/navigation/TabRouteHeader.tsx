@@ -294,8 +294,18 @@ export default function TabRouteHeader() {
       return;
     }
 
+    if (isDebtAnalyticsTab) {
+      pushRoute("/(tabs)/debts");
+      return;
+    }
+
     if (isDebtAnalytics) {
-      replaceRoute("/(tabs)/debts/DebtList");
+      if (navigation.canGoBack?.()) {
+        navigation.goBack();
+        return;
+      }
+
+      replaceRoute("/(tabs)/debts");
       return;
     }
 
@@ -471,7 +481,7 @@ export default function TabRouteHeader() {
       onAnalytics={() => pushRoute("/analytics")}
       onHelp={() => pushRoute("/help")}
       onNotifications={() => pushRoute("/settings", { initialTab: "notifications" })}
-      leftVariant={isStandaloneSacrificeIncomeMonth || isAnalytics || isSettings || isSettingsProfileDetails || isSettingsIncomeSettings || isSettingsStrategy || isSettingsDebtManagement || isGoalDetail || isGoalsProjection || isCategoryExpenses || isLoggedExpenses || isUnplannedExpense || isScanReceipt || isDebtAnalytics ? "back" : "avatar"}
+      leftVariant={isStandaloneSacrificeIncomeMonth || isAnalytics || isSettings || isSettingsProfileDetails || isSettingsIncomeSettings || isSettingsStrategy || isSettingsDebtManagement || isGoalDetail || isGoalsProjection || isCategoryExpenses || isLoggedExpenses || isUnplannedExpense || isScanReceipt || isAnyDebtAnalytics ? "back" : "avatar"}
       onBack={handleBack}
       centerLabel={centerLabel}
       centerContent={incomeMonthSwitcher}

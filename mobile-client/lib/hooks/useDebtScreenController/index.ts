@@ -26,7 +26,7 @@ export function useDebtScreenController() {
   const isFocused = useIsFocused();
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
-  const topHeaderOffset = useTopHeaderOffset();
+  const topHeaderOffset = useTopHeaderOffset(-32);
   const insets = useSafeAreaInsets();
   const {
     settings,
