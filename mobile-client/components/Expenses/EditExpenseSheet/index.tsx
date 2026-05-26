@@ -17,9 +17,19 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { apiFetch } from "@/lib/api";
-import type { Category, CreditCard, Expense, ExpenseCategoryBreakdown, ExpensePaymentSource } from "@/lib/apiTypes";
-import { es } from "@/components/Expenses/EditExpenseSheet/style";
+import {
+  type ExpenseFundingCard,
+  getExpenseFundingOptions,
+  getExpenseFundingSelectionKey,
+  getExpenseFundingSelectionLabel,
+  normalizeExpenseFundingSource,
+  requiresFundingDebt,
+  type ExpenseFundingOption,
+  type ExpenseFundingSource,
+} from "@/lib/domain/expenseFunding";
+import type { Category, Expense, ExpenseCategoryBreakdown } from "@/lib/apiTypes";
 import { buildEditExpenseBody, parseExpenseAmount } from "@/lib/domain/expenseMutations";
 import { resolveCategoryColor } from "@/lib/categoryColors";
 import { T } from "@/lib/theme";
@@ -155,6 +165,7 @@ export default function EditExpenseSheet({
   onClose: () => void;
 }) {
   const insets = useSafeAreaInsets();
+  const { settings } = useBootstrapData();
   const slideY = useRef(new Animated.Value(ADD_EXPENSE_SHEET_SCREEN_H ?? SCREEN_H)).current;
 
   const [name, setName] = useState("");
@@ -165,9 +176,9 @@ export default function EditExpenseSheet({
   const [isDirectDebit, setIsDirectDebit] = useState(false);
   const [distributeMonths, setDistributeMonths] = useState(false);
   const [distributeYears, setDistributeYears] = useState(false);
-  const [paymentSource, setPaymentSource] = useState<ExpensePaymentSource>("income");
-  const [cardDebtId, setCardDebtId] = useState("");
-  const [cards, setCards] = useState<CreditCard[]>([]);
+  const [fundingSource, setFundingSource] = useState<ExpenseFundingSource>("income");
+  const [selectedDebtId, setSelectedDebtId] = useState("");
+  const [creditCards, setCreditCards] = useState<ExpenseFundingCard[]>([]);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -181,6 +192,7 @@ export default function EditExpenseSheet({
 
   // Due date picker
   const [showPicker, setShowPicker] = useState(false);
+  const [showSourceDropdown, setShowSourceDropdown] = useState(false);
   const [iosDraft, setIosDraft] = useState<Date>(new Date());
   const dueDateObj = useMemo(() => (dueDate ? new Date(`${dueDate}T00:00:00`) : new Date()), [dueDate]);
 
@@ -201,11 +213,12 @@ export default function EditExpenseSheet({
       setIsDirectDebit(Boolean(expense.isDirectDebit));
       setDistributeMonths(false);
       setDistributeYears(false);
-      setPaymentSource((expense.paymentSource as ExpensePaymentSource) ?? "income");
-      setCardDebtId(expense.cardDebtId ?? "");
+      setFundingSource(normalizeExpenseFundingSource(expense.paymentSource));
+      setSelectedDebtId(expense.cardDebtId ?? "");
       setSubmitting(false);
       setError(null);
       setShowPicker(false);
+      setShowSourceDropdown(false);
       setIosDraft(expense.dueDate ? new Date(`${String(expense.dueDate).slice(0, 10)}T00:00:00`) : new Date());
     }
 
@@ -214,43 +227,46 @@ export default function EditExpenseSheet({
         setSubmitting(false);
         setError(null);
         setShowPicker(false);
+        setShowSourceDropdown(false);
         setDistributeMonths(false);
         setDistributeYears(false);
-        setCards([]);
+        setCreditCards([]);
       }, 250);
     }
   }, [expense, slideY, visible]);
 
-    useEffect(() => {
-      if (!visible) return;
-      if (!expense?.isExtraLoggedExpense) {
-        setCards([]);
-        return;
+  useEffect(() => {
+    if (!visible) return;
+    void (async () => {
+      try {
+        const qp = budgetPlanId ? `?budgetPlanId=${encodeURIComponent(budgetPlanId)}` : "";
+        const data = await apiFetch<ExpenseFundingCard[]>(`/api/bff/credit-cards${qp}`);
+        setCreditCards(Array.isArray(data) ? data : []);
+      } catch {
+        setCreditCards([]);
       }
-      void (async () => {
-        try {
-          const qp = budgetPlanId ? `?budgetPlanId=${encodeURIComponent(budgetPlanId)}` : "";
-          const data = await apiFetch<CreditCard[]>(`/api/bff/credit-cards${qp}`);
-          const nextCards = Array.isArray(data) ? data : [];
-          setCards(nextCards);
-          if (paymentSource === "credit_card") {
-            if (nextCards.length === 1) {
-              setCardDebtId((prev) => prev || nextCards[0]!.id);
-            } else if (!nextCards.some((c) => c.id === (cardDebtId || ""))) {
-              setCardDebtId("");
-            }
-          }
-        } catch {
-          setCards([]);
-        }
-      })();
-    }, [budgetPlanId, cardDebtId, expense?.isExtraLoggedExpense, paymentSource, visible]);
+    })();
+  }, [budgetPlanId, visible]);
 
-    useEffect(() => {
-      if (paymentSource !== "credit_card" && cardDebtId) {
-        setCardDebtId("");
-      }
-    }, [cardDebtId, paymentSource]);
+  const needsDebtSelection = requiresFundingDebt(fundingSource);
+  const fundingOptions = useMemo(
+    () => getExpenseFundingOptions({ cards: creditCards, settings, selectedSource: fundingSource, selectedDebtId }),
+    [creditCards, fundingSource, selectedDebtId, settings],
+  );
+  const selectedFundingKey = useMemo(
+    () => getExpenseFundingSelectionKey(fundingSource, selectedDebtId),
+    [fundingSource, selectedDebtId],
+  );
+  const selectedFundingLabel = useMemo(
+    () => getExpenseFundingSelectionLabel(fundingOptions, fundingSource, selectedDebtId),
+    [fundingOptions, fundingSource, selectedDebtId],
+  );
+
+  const handleFundingOptionSelect = React.useCallback((option: ExpenseFundingOption) => {
+    setFundingSource(option.source);
+    setSelectedDebtId(option.debtId ?? "");
+    setShowSourceDropdown(false);
+  }, []);
 
   useEffect(() => {
     const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
@@ -288,14 +304,13 @@ export default function EditExpenseSheet({
     return parseExpenseAmount(String(amount ?? ""));
   }, [amount]);
 
-  const needsCardSelection = Boolean(expense?.isExtraLoggedExpense) && paymentSource === "credit_card";
   const canSubmit =
     Boolean(expense) &&
     name.trim().length > 0 &&
     Number.isFinite(parsedAmount) &&
     parsedAmount >= 0 &&
     categoryId.trim().length > 0 &&
-    (!needsCardSelection || cardDebtId.trim().length > 0);
+    (!needsDebtSelection || selectedDebtId.trim().length > 0);
   const editPeriodLabel = useMemo(() => {
     const span = String(periodSpanLabel ?? "").trim();
     const range = String(periodRangeLabel ?? "").trim();
@@ -342,8 +357,8 @@ export default function EditExpenseSheet({
           isDirectDebit,
           distributeMonths,
           distributeYears,
-          paymentSource: expense.isExtraLoggedExpense ? paymentSource : undefined,
-          cardDebtId: expense.isExtraLoggedExpense ? cardDebtId : undefined,
+          fundingSource,
+          selectedDebtId,
         }),
       });
       onSaved();
@@ -399,6 +414,7 @@ export default function EditExpenseSheet({
           <View style={{ flex: 1 }}>
             <ScrollView
               style={{ flex: 1 }}
+              scrollEnabled={!showSourceDropdown}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
               contentContainerStyle={{ paddingBottom: 8 }}
@@ -453,6 +469,46 @@ export default function EditExpenseSheet({
                   <CategoryChipsRow categories={categories} value={categoryId} onChange={setCategoryId} />
                 </View>
 
+                <View style={s.fieldGroup}>
+                  <Text style={s.label}>Funds from</Text>
+                  <View style={{ position: "relative", zIndex: 24 }}>
+                    <Pressable
+                      style={[s.input, showSourceDropdown && s.selectInputOpen]}
+                      onPress={() => setShowSourceDropdown((open) => !open)}
+                      disabled={submitting}
+                    >
+                      <View style={s.selectRow}>
+                        <Text style={s.selectValueText}>{selectedFundingLabel}</Text>
+                        <Ionicons name={showSourceDropdown ? "chevron-up" : "chevron-down"} size={16} color={T.textDim} />
+                      </View>
+                    </Pressable>
+
+                    {showSourceDropdown ? (
+                      <View style={s.dropdownMenu}>
+                        <ScrollView style={{ maxHeight: 260 }} nestedScrollEnabled>
+                          {fundingOptions.map((option, idx) => {
+                            const active = selectedFundingKey === option.key;
+                            return (
+                              <Pressable
+                                key={option.key}
+                                style={[
+                                  s.dropdownOption,
+                                  idx === fundingOptions.length - 1 && s.dropdownOptionLast,
+                                  active && s.dropdownOptionActive,
+                                ]}
+                                onPress={() => handleFundingOptionSelect(option)}
+                                disabled={submitting}
+                              >
+                                <Text style={[s.dropdownOptionText, active && s.dropdownOptionTextActive]}>{option.label}</Text>
+                              </Pressable>
+                            );
+                          })}
+                        </ScrollView>
+                      </View>
+                    ) : null}
+                  </View>
+                </View>
+
                 <View style={{ gap: 18 }}>
                   <View style={s.toggleRow}>
                     <View style={s.toggleInfo}>
@@ -468,56 +524,6 @@ export default function EditExpenseSheet({
                       <View style={[s.toggleThumb, isAllocation && s.toggleThumbOn]} />
                     </TouchableOpacity>
                   </View>
-
-                  {expense?.isExtraLoggedExpense ? (
-                    <View style={es.sourceWrap}>
-                      <Text style={s.label}>Funds from</Text>
-                      <View style={es.sourceRow}>
-                        {[
-                          { key: "income", label: "Income" },
-                          { key: "savings", label: "Savings" },
-                          { key: "credit_card", label: "Card" },
-                          { key: "extra_untracked", label: "Other" },
-                        ].map((opt) => {
-                          const active = paymentSource === (opt.key as ExpensePaymentSource);
-                          return (
-                            <Pressable
-                              key={opt.key}
-                              style={[es.sourceChip, active && es.sourceChipActive]}
-                              onPress={() => setPaymentSource(opt.key as ExpensePaymentSource)}
-                              disabled={submitting}
-                            >
-                              <Text style={[es.sourceChipTxt, active && es.sourceChipTxtActive]}>{opt.label}</Text>
-                            </Pressable>
-                          );
-                        })}
-                      </View>
-
-                      {paymentSource === "credit_card" ? (
-                        <View style={{ marginTop: 10 }}>
-                          <Text style={[s.label, { marginBottom: 8 }]}>Card</Text>
-                          <View style={es.cardRow}>
-                            {cards.map((card) => {
-                              const active = cardDebtId === card.id;
-                              return (
-                                <Pressable
-                                  key={card.id}
-                                  style={[es.cardChip, active && es.cardChipActive]}
-                                  onPress={() => setCardDebtId(card.id)}
-                                  disabled={submitting}
-                                >
-                                  <Text style={[es.cardChipTxt, active && es.cardChipTxtActive]} numberOfLines={1}>
-                                    {card.name}
-                                  </Text>
-                                </Pressable>
-                              );
-                            })}
-                          </View>
-                          {cards.length === 0 ? <Text style={es.helpTxt}>No credit cards available.</Text> : null}
-                        </View>
-                      ) : null}
-                    </View>
-                  ) : null}
 
                   <View style={s.toggleRow}>
                     <View style={s.toggleInfo}>

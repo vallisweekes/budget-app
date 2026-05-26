@@ -26,6 +26,7 @@ export type ExpensePaymentSource =
   | "income"
   | "credit_card"
   | "savings"
+  | "emergency"
   | "other"
   | "monthly_allowance"
   | "loan";
@@ -51,7 +52,7 @@ export interface Expense {
   isMissedPayment?: boolean;
   /** Intended payment source stored at creation time */
   paymentSource: ExpensePaymentSource;
-  /** Credit card debt ID when paymentSource = credit_card */
+  /** Selected debt id when the funding source is debt-backed (card or loan). */
   cardDebtId: string | null;
   /** True for quick/unplanned logged expenses (no due date, not allocation/direct debit). */
   isExtraLoggedExpense?: boolean;
@@ -831,8 +832,8 @@ export interface ReceiptConfirmBody {
   year: number;
   categoryId?: string;
   budgetPlanId?: string;
-  paymentSource?: "income" | "credit_card" | "savings" | "extra_untracked";
-  fundingSource?: "income" | "savings" | "monthly_allowance" | "credit_card" | "loan" | "other";
+  paymentSource?: "income" | "credit_card" | "savings" | "emergency" | "extra_untracked";
+  fundingSource?: "income" | "savings" | "emergency" | "monthly_allowance" | "credit_card" | "loan" | "other";
   cardDebtId?: string;
   debtId?: string;
   newLoanName?: string;

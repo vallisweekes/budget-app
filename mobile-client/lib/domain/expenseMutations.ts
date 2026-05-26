@@ -1,4 +1,5 @@
 import type { ExpensePaymentSource as ApiExpensePaymentSource } from "@/lib/apiTypes";
+import { paymentSourceForFunding, type ExpenseFundingSource } from "@/lib/domain/expenseFunding";
 
 export type ExpensePaymentSource = ApiExpensePaymentSource | "other";
 
@@ -12,11 +13,11 @@ type CreateExpenseBodyInput = {
   isDirectDebit: boolean;
   distributeMonths: boolean;
   distributeYears: boolean;
-  paymentSource: ExpensePaymentSource;
+  fundingSource: ExpenseFundingSource;
   categoryId?: string;
   dueDate?: string;
   budgetPlanId?: string | null;
-  cardDebtId?: string;
+  selectedDebtId?: string;
   seriesKey?: string | null;
 };
 
@@ -32,6 +33,7 @@ export function canSubmitExpense(name: string, rawAmount: string): boolean {
 
 export function buildCreateExpenseBody(input: CreateExpenseBodyInput): Record<string, unknown> {
   const amount = parseExpenseAmount(input.amount);
+  const paymentSource = paymentSourceForFunding(input.fundingSource);
   const body: Record<string, unknown> = {
     name: input.name.trim(),
     amount,
@@ -42,13 +44,20 @@ export function buildCreateExpenseBody(input: CreateExpenseBodyInput): Record<st
     isDirectDebit: input.isDirectDebit,
     distributeMonths: input.distributeMonths,
     distributeYears: input.distributeYears,
-    paymentSource: input.paymentSource === "other" ? "extra_untracked" : input.paymentSource,
+    fundingSource: input.fundingSource,
+    paymentSource,
   };
 
   if (input.categoryId) body.categoryId = input.categoryId;
   if (input.dueDate?.trim()) body.dueDate = input.dueDate.trim();
   if (input.budgetPlanId) body.budgetPlanId = input.budgetPlanId;
-  if (input.paymentSource === "credit_card" && input.cardDebtId) body.cardDebtId = input.cardDebtId;
+  if (input.fundingSource === "credit_card" && input.selectedDebtId) {
+    body.cardDebtId = input.selectedDebtId;
+    body.debtId = input.selectedDebtId;
+  }
+  if (input.fundingSource === "loan" && input.selectedDebtId) {
+    body.debtId = input.selectedDebtId;
+  }
   if (input.seriesKey) body.seriesKey = input.seriesKey;
 
   return body;
@@ -63,8 +72,8 @@ export function buildEditExpenseBody(args: {
   isDirectDebit: boolean;
   distributeMonths: boolean;
   distributeYears: boolean;
-  paymentSource?: ExpensePaymentSource;
-  cardDebtId?: string;
+  fundingSource?: ExpenseFundingSource;
+  selectedDebtId?: string;
 }): Record<string, unknown> {
   const body: Record<string, unknown> = {
     name: args.name.trim(),
@@ -77,10 +86,15 @@ export function buildEditExpenseBody(args: {
     distributeYears: args.distributeYears,
   };
 
-  if (args.paymentSource) {
-    body.paymentSource = args.paymentSource === "other" ? "extra_untracked" : args.paymentSource;
-    if (body.paymentSource === "credit_card") {
-      body.cardDebtId = args.cardDebtId?.trim() || null;
+  if (args.fundingSource) {
+    body.fundingSource = args.fundingSource;
+    body.paymentSource = paymentSourceForFunding(args.fundingSource);
+    if (args.fundingSource === "credit_card") {
+      body.cardDebtId = args.selectedDebtId?.trim() || null;
+      body.debtId = args.selectedDebtId?.trim() || null;
+    }
+    if (args.fundingSource === "loan") {
+      body.debtId = args.selectedDebtId?.trim() || null;
     }
   }
 

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { syncDueDirectDebitExpenses } from "@/lib/expenses/directDebit";
 import { monthNumberToKey } from "@/lib/helpers/monthKey";
 import { getMonthlyAllocationSnapshot, getMonthlyCustomAllocationsSnapshot } from "@/lib/allocations/store";
 import { getMonthlyDebtPlan } from "@/lib/helpers/finance/getMonthlyDebtPlan";
@@ -289,10 +290,18 @@ export async function getDashboardPlanDataForActivePayPeriod(
 		payAnchorDate?: Date | string | null;
 		planCreatedAt?: Date | null;
 		ensureDefaultCategories?: boolean;
+		skipDirectDebitSync?: boolean;
 	}
 ): Promise<DashboardPlanData> {
 	const { now, payDate, payFrequency, payAnchorDate, planCreatedAt } = params;
 	const ensureDefaultCategories = params.ensureDefaultCategories ?? true;
+
+	if (!params.skipDirectDebitSync) {
+		await syncDueDirectDebitExpenses({ budgetPlanId: planId, now }).catch((error) => {
+			console.error("Dashboard data: direct debit sync failed:", error);
+			return [];
+		});
+	}
 
 	// Keep category defaults in sync even if the DB predates new defaults.
 	if (ensureDefaultCategories) {

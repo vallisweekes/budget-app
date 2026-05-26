@@ -4,11 +4,10 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { Ionicons } from "@expo/vector-icons";
 
 import type {
-  CreditCard,
   ExpenseCategoryBreakdown,
-  ExpensePaymentSource,
   ExpenseSuggestion,
 } from "@/lib/apiTypes";
+import type { ExpenseFundingOption } from "@/lib/domain/expenseFunding";
 import { T } from "@/lib/theme";
 import MoneyInput from "@/components/Shared/MoneyInput";
 import DatePickerInput from "@/components/Shared/DatePickerInput";
@@ -54,11 +53,10 @@ export default function AddExpenseSheetFields({
   setCategoryId,
   dueDate,
   setDueDate,
-  paymentSource,
-  setPaymentSource,
-  cardDebtId,
-  setCardDebtId,
-  cards,
+  fundingOptions,
+  selectedFundingKey,
+  selectedFundingLabel,
+  onSelectFundingOption,
   categories,
   currency,
   minimumDate,
@@ -76,11 +74,10 @@ export default function AddExpenseSheetFields({
   setCategoryId: (v: string) => void;
   dueDate: string;
   setDueDate: (v: string) => void;
-  paymentSource: ExpensePaymentSource;
-  setPaymentSource: (v: ExpensePaymentSource) => void;
-  cardDebtId: string;
-  setCardDebtId: (v: string) => void;
-  cards: CreditCard[];
+  fundingOptions: ExpenseFundingOption[];
+  selectedFundingKey: string;
+  selectedFundingLabel: string;
+  onSelectFundingOption: (option: ExpenseFundingOption) => void;
   categories: ExpenseCategoryBreakdown[];
   currency: string;
   minimumDate: Date;
@@ -100,13 +97,6 @@ export default function AddExpenseSheetFields({
     () => clampDateToRange(parseDateOnly(dueDate) ?? fallbackDate, minimumDate, maximumDate),
     [dueDate, fallbackDate, maximumDate, minimumDate],
   );
-  const sourceOptions: { value: ExpensePaymentSource; label: string }[] = [
-    { value: "income", label: "Income" },
-    { value: "credit_card", label: "Credit Card" },
-    { value: "savings", label: "Savings" },
-    { value: "other", label: "Other" },
-  ];
-  const selectedSourceLabel = sourceOptions.find((opt) => opt.value === paymentSource)?.label ?? "Income";
 
   useEffect(() => {
     if (!dueDate) return;
@@ -252,68 +242,39 @@ export default function AddExpenseSheetFields({
             onPress={() => setShowSourceDropdown((open) => !open)}
           >
             <View style={s.selectRow}>
-              <Text style={s.selectValueText}>{selectedSourceLabel}</Text>
+              <Text style={s.selectValueText}>{selectedFundingLabel}</Text>
               <Ionicons name={showSourceDropdown ? "chevron-up" : "chevron-down"} size={16} color={T.textDim} />
             </View>
           </Pressable>
 
           {showSourceDropdown ? (
             <View style={s.dropdownMenu}>
-              {sourceOptions.map((opt, idx) => {
-                const active = paymentSource === opt.value;
-                return (
-                  <Pressable
-                    key={opt.value}
-                    onPress={() => {
-                      setPaymentSource(opt.value);
-                      if (opt.value !== "credit_card") setCardDebtId("");
-                      setShowSourceDropdown(false);
-                    }}
-                    style={[
-                      s.dropdownOption,
-                      idx === sourceOptions.length - 1 && s.dropdownOptionLast,
-                      active && s.dropdownOptionActive,
-                    ]}
-                  >
-                    <Text style={[s.dropdownOptionText, active && s.dropdownOptionTextActive]}>
-                      {opt.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+              <ScrollView style={{ maxHeight: 260 }} nestedScrollEnabled>
+                {fundingOptions.map((option, idx) => {
+                  const active = selectedFundingKey === option.key;
+                  return (
+                    <Pressable
+                      key={option.key}
+                      onPress={() => {
+                        onSelectFundingOption(option);
+                        setShowSourceDropdown(false);
+                      }}
+                      style={[
+                        s.dropdownOption,
+                        idx === fundingOptions.length - 1 && s.dropdownOptionLast,
+                        active && s.dropdownOptionActive,
+                      ]}
+                    >
+                      <Text style={[s.dropdownOptionText, active && s.dropdownOptionTextActive]}>
+                        {option.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
             </View>
           ) : null}
         </View>
-
-        {/* Card picker — shown only when credit_card is selected and >1 card */}
-        {paymentSource === "credit_card" && cards.length > 1 && (
-          <View style={{ gap: 6, marginTop: 6 }}>
-            <Text style={[s.label, { marginBottom: 0 }]}>Which card?</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={pr.row}>
-              {cards.map((card) => {
-                const active = cardDebtId === card.id;
-                return (
-                  <TouchableOpacity
-                    key={card.id}
-                    onPress={() => setCardDebtId(card.id)}
-                    style={[pr.pill, active && pr.pillSelected]}
-                    activeOpacity={0.75}
-                  >
-                    <Text style={[pr.pillTxt, active && pr.pillTxtSelected]}>{card.name}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </View>
-        )}
-
-        {paymentSource === "credit_card" && cards.length === 0 && (
-          <View style={s.inlineWarning}>
-            <Text style={s.inlineWarningText}>
-              No credit cards found. Add one in Debts first.
-            </Text>
-          </View>
-        )}
       </View>
 
       {/* Android: inline picker */}

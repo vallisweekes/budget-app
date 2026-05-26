@@ -2,6 +2,7 @@ import { enforceServerOnlyRuntime } from "@/lib/serverOnly";
 
 enforceServerOnlyRuntime();
 
+import { isCreditLikeDebtType, isLoanLikeDebtType } from "@/lib/expenses/paymentSource";
 import { prisma } from "@/lib/prisma";
 import { getSettings, saveSettings } from "@/lib/settings/store";
 import { getPaymentPeriodKey, resolvePayDate } from "@/lib/helpers/periodKey";
@@ -18,6 +19,8 @@ type PaymentSyncDbClient = {
   expense: typeof prisma.expense;
   debt: typeof prisma.debt;
 };
+
+type DebtFundingKind = "credit_card" | "loan";
 
 function decimalToNumber(value: unknown): number {
   if (value == null) return 0;
@@ -49,35 +52,47 @@ function getExpensePaymentDelegate(client: unknown): typeof prisma.expensePaymen
 	return (client as Partial<PaymentSyncDbClient>)?.expensePayment ?? null;
 }
 
+async function resolveDebtFundingId(params: {
+	tx: PaymentSyncDbClient;
+  budgetPlanId: string;
+  requestedDebtId?: string | null;
+  kind: DebtFundingKind;
+}): Promise<string | null> {
+  const requestedDebtId = String(params.requestedDebtId ?? "").trim();
+  const matchesKind = (value: unknown) =>
+    params.kind === "credit_card" ? isCreditLikeDebtType(value) : isLoanLikeDebtType(value);
+
+  if (requestedDebtId) {
+    const requestedDebt = await params.tx.debt.findFirst({
+      where: { id: requestedDebtId, budgetPlanId: params.budgetPlanId, sourceType: null },
+      select: { id: true, type: true },
+    });
+    if (requestedDebt && matchesKind((requestedDebt as unknown as { type?: unknown }).type)) {
+      return requestedDebt.id;
+    }
+  }
+
+  const debts = await params.tx.debt.findMany({
+    where: { budgetPlanId: params.budgetPlanId, sourceType: null },
+    select: { id: true, type: true },
+    orderBy: [{ createdAt: "asc" }],
+  });
+  const matchingDebts = debts.filter((debt) => matchesKind((debt as unknown as { type?: unknown }).type));
+  if (matchingDebts.length === 1) return matchingDebts[0]!.id;
+  return null;
+}
+
 async function resolveCreditCardDebtId(params: {
 	tx: PaymentSyncDbClient;
   budgetPlanId: string;
   requestedDebtId?: string | null;
 }): Promise<string | null> {
-  const requested = String(params.requestedDebtId ?? "").trim();
-
-  if (requested) {
-    const found = await params.tx.debt.findFirst({
-      where: { id: requested, budgetPlanId: params.budgetPlanId, sourceType: null },
-      select: { id: true, type: true },
-    });
-    const t = found ? String((found as unknown as { type?: unknown }).type ?? "") : "";
-    if (found && (t === "credit_card" || t === "store_card")) {
-      return found.id;
-    }
-  }
-
-  const cardsAll = await params.tx.debt.findMany({
-    where: { budgetPlanId: params.budgetPlanId, sourceType: null },
-    select: { id: true, type: true },
-    orderBy: [{ createdAt: "asc" }],
+  return resolveDebtFundingId({
+	tx: params.tx,
+    budgetPlanId: params.budgetPlanId,
+    requestedDebtId: params.requestedDebtId,
+    kind: "credit_card",
   });
-  const cards = cardsAll.filter((c) => {
-    const t = String((c as unknown as { type?: unknown }).type ?? "");
-    return t === "credit_card" || t === "store_card";
-  });
-  if (cards.length === 1) return cards[0]!.id;
-  return null;
 }
 
 async function applyCreditCardCharge(params: {
@@ -122,6 +137,7 @@ export async function syncExpensePaymentsToPaidAmount(params: {
   desiredPaidAmount: number;
   paymentSource?: unknown;
   cardDebtId?: string | null;
+  debtId?: string | null;
   now?: Date;
   adjustBalances?: boolean;
   resetOnDecrease?: boolean;
@@ -149,6 +165,7 @@ export async function syncExpensePaymentsToPaidAmount(params: {
 	const recorded = decimalToNumber((sumAgg as unknown as { _sum?: { amount?: unknown } })._sum?.amount);
 
   const source = normalizeExpensePaymentSource(params.paymentSource);
+  const requestedDebtId = String(params.debtId ?? params.cardDebtId ?? "").trim() || null;
 
   // Always attribute the payment to the expense's intended pay period.
   // This makes paying an upcoming-period expense slightly early still count
@@ -181,11 +198,27 @@ export async function syncExpensePaymentsToPaidAmount(params: {
   } else if (recorded < desired) {
     const delta = desired - recorded;
     if (delta > 0) {
+      const resolvedDebtId = source === "credit_card"
+        ? await resolveCreditCardDebtId({
+            tx,
+            budgetPlanId: params.budgetPlanId,
+            requestedDebtId,
+          })
+        : source === "extra_untracked" && requestedDebtId
+          ? await resolveDebtFundingId({
+              tx,
+              budgetPlanId: params.budgetPlanId,
+              requestedDebtId,
+              kind: "loan",
+            })
+          : null;
+
       await expensePayment.create({
         data: {
           expenseId: params.expenseId,
           amount: delta,
           source,
+          debtId: resolvedDebtId ?? undefined,
           paidAt: now,
           periodKey,
         },
@@ -200,13 +233,30 @@ export async function syncExpensePaymentsToPaidAmount(params: {
         }
 
         if (source === "credit_card") {
-          const debtId = await resolveCreditCardDebtId({
+          if (resolvedDebtId) {
+            await applyCreditCardCharge({ tx, budgetPlanId: params.budgetPlanId, debtId: resolvedDebtId, amount: delta });
+          }
+        }
+
+        if (source === "extra_untracked" && resolvedDebtId) {
+          await applyCreditCardCharge({ tx, budgetPlanId: params.budgetPlanId, debtId: resolvedDebtId, amount: delta });
+        }
+
+        if (source === "emergency") {
+          const settings = await getSettings(params.budgetPlanId);
+          const current = Number(settings.emergencyBalance ?? 0);
+          await saveSettings(params.budgetPlanId, { emergencyBalance: Math.max(0, current - delta) });
+        }
+
+        if (source === "extra_untracked" && requestedDebtId && !resolvedDebtId) {
+          const fallbackLoanDebtId = await resolveDebtFundingId({
             tx,
             budgetPlanId: params.budgetPlanId,
-            requestedDebtId: params.cardDebtId,
+            requestedDebtId,
+            kind: "loan",
           });
-          if (debtId) {
-            await applyCreditCardCharge({ tx, budgetPlanId: params.budgetPlanId, debtId, amount: delta });
+          if (fallbackLoanDebtId) {
+            await applyCreditCardCharge({ tx, budgetPlanId: params.budgetPlanId, debtId: fallbackLoanDebtId, amount: delta });
           }
         }
       }

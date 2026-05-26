@@ -209,12 +209,22 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
       && !periodExpenseSummaryQuery.data
       && (periodExpenseSummaryQuery.isLoading || periodExpenseSummaryQuery.isFetching),
   );
+  const isResolvingInitialDisplayedHeroPeriod = Boolean(
+    budgetPlanId
+    && hasBootstrapDashboard
+    && displayedPeriodAnchor === null
+    && !displayedPeriodResolved
+    && provisionalDisplayedAnchor
+    && dashboardMatchesAnchor(dashboard, provisionalDisplayedAnchor),
+  );
 
-  const loading = !hasRenderableHeroData && (
-    !displayedPeriodResolved
-    || (!settings && bootstrapLoading)
-    || isWaitingForCoreData
-    || (shouldLoadPeriodDashboard && !periodDashboardQuery.data && (periodDashboardQuery.isLoading || periodDashboardQuery.isFetching))
+  const loading = isResolvingInitialDisplayedHeroPeriod || (
+    !hasRenderableHeroData && (
+      !displayedPeriodResolved
+      || (!settings && bootstrapLoading)
+      || isWaitingForCoreData
+      || (shouldLoadPeriodDashboard && !periodDashboardQuery.data && (periodDashboardQuery.isLoading || periodDashboardQuery.isFetching))
+    )
   );
 
   const { dragY: categorySheetDragY, panHandlers: categorySheetPanHandlers } = useSwipeDownToClose({

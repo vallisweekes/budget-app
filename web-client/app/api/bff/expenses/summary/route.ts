@@ -4,6 +4,7 @@ import { supportsExpenseMovedToDebtField } from "@/lib/prisma/capabilities";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
 import { resolveBudgetPlanPayPeriodContext } from "@/lib/api/payPeriodContext";
 import { processOverdueExpensesToDebts } from "@/lib/expenses/carryover";
+import { syncDueDirectDebitExpenses } from "@/lib/expenses/directDebit";
 import { resolveEffectiveDueDateIso } from "@/lib/expenses/insights";
 import {
 	buildPayPeriodFromMonthAnchor,
@@ -203,6 +204,11 @@ export async function GET(req: NextRequest) {
 	if (!budgetPlanId) {
 		return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
 	}
+
+	await syncDueDirectDebitExpenses({ budgetPlanId }).catch((error) => {
+		console.error("Expense summary: direct debit sync failed:", error);
+		return [];
+	});
 
 	void processOverdueExpensesToDebts(budgetPlanId).catch((error) => {
 		console.error("Expense summary: overdue carryover sync failed:", error);

@@ -24,15 +24,22 @@ import { Ionicons } from "@expo/vector-icons";
 import { ApiError, apiFetch } from "@/lib/api";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { useSwipeDownToClose } from "@/hooks";
+import {
+  type ExpenseFundingCard,
+  getExpenseFundingOptions,
+  getExpenseFundingSelectionKey,
+  getExpenseFundingSelectionLabel,
+  requiresFundingDebt,
+  type ExpenseFundingOption,
+  type ExpenseFundingSource,
+} from "@/lib/domain/expenseFunding";
 import { buildCreateExpenseBody, canSubmitExpense } from "@/lib/domain/expenseMutations";
 import { findFallbackExpenseCategoryId, toExpenseCategoryBreakdowns } from "@/lib/helpers/expenseCategories";
 import { buildPayPeriodFromMonthAnchor, normalizePayFrequency } from "@/lib/payPeriods";
 import type {
   Category,
-  CreditCard,
   Expense,
   ExpenseCategoryBreakdown,
-  ExpensePaymentSource,
   ExpenseSuggestion,
 } from "@/lib/apiTypes";
 import { T } from "@/lib/theme";
@@ -122,9 +129,9 @@ export default function AddExpenseSheet({
   };
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(budgetPlanId ?? null);
   const [planCategories, setPlanCategories] = useState<ExpenseCategoryBreakdown[] | null>(null);
-  const [paymentSource, setPaymentSource] = useState<ExpensePaymentSource>("income");
-  const [cardDebtId, setCardDebtId] = useState("");
-  const [cards, setCards] = useState<CreditCard[]>([]);
+  const [fundingSource, setFundingSource] = useState<ExpenseFundingSource>("income");
+  const [selectedDebtId, setSelectedDebtId] = useState("");
+  const [creditCards, setCreditCards] = useState<ExpenseFundingCard[]>([]);
 
   // Sync selectedPlanId when budgetPlanId prop changes (e.g. parent switches plan)
   useEffect(() => {
@@ -220,8 +227,8 @@ export default function AddExpenseSheet({
         setDueDate("");
         setSheetMonth(month);
         setSheetYear(year);
-        setPaymentSource("income");
-        setCardDebtId("");
+        setFundingSource("income");
+        setSelectedDebtId("");
         setSelectedPlanId(budgetPlanId ?? null);
         setPlanCategories(null);
         setPlanDropdownOpen(false);
@@ -232,6 +239,25 @@ export default function AddExpenseSheet({
       }, 300);
     }
   }, [visible, month, year, budgetPlanId, resolveInitialCategoryId, resolvedCategories]);
+
+  const needsDebtSelection = requiresFundingDebt(fundingSource);
+  const fundingOptions = useMemo(
+    () => getExpenseFundingOptions({ cards: creditCards, settings, selectedSource: fundingSource, selectedDebtId }),
+    [creditCards, fundingSource, selectedDebtId, settings],
+  );
+  const selectedFundingKey = useMemo(
+    () => getExpenseFundingSelectionKey(fundingSource, selectedDebtId),
+    [fundingSource, selectedDebtId],
+  );
+  const selectedFundingLabel = useMemo(
+    () => getExpenseFundingSelectionLabel(fundingOptions, fundingSource, selectedDebtId),
+    [fundingOptions, fundingSource, selectedDebtId],
+  );
+
+  const handleFundingOptionSelect = React.useCallback((option: ExpenseFundingOption) => {
+    setFundingSource(option.source);
+    setSelectedDebtId(option.debtId ?? "");
+  }, []);
 
   const handleManualCategoryChange = (nextId: string) => {
     setCategoryTouched(true);
@@ -332,16 +358,16 @@ export default function AddExpenseSheet({
     setCategoryId(nextCategoryId);
   }, [categoryId, categoryTouched, resolveInitialCategoryId, resolvedCategories, visible]);
 
-  // Fetch credit cards so the Source of Funds picker can show card names
+  // Fetch saved credit cards for the funding picker.
   useEffect(() => {
     if (!visible) return;
     void (async () => {
       try {
         const params = effectivePlanId ? `?budgetPlanId=${encodeURIComponent(effectivePlanId)}` : "";
-        const data = await apiFetch<CreditCard[]>(`/api/bff/credit-cards${params}`);
-        setCards(Array.isArray(data) ? data : []);
+        const data = await apiFetch<ExpenseFundingCard[]>(`/api/bff/credit-cards${params}`);
+        setCreditCards(Array.isArray(data) ? data : []);
       } catch {
-        setCards([]);
+        setCreditCards([]);
       }
     })();
   }, [visible, effectivePlanId]);
@@ -376,7 +402,7 @@ export default function AddExpenseSheet({
     })();
   }, [visible, effectivePlanId, categoryId]);
 
-  const canSubmit = canSubmitExpense(name, amount);
+  const canSubmit = canSubmitExpense(name, amount) && (!needsDebtSelection || selectedDebtId.trim().length > 0);
 
   const handleSubmit = async () => {
     if (!canSubmit || submitting) return;
@@ -394,11 +420,11 @@ export default function AddExpenseSheet({
         isDirectDebit,
         distributeMonths,
         distributeYears,
-        paymentSource,
+        fundingSource,
         categoryId: categoryId || findFallbackExpenseCategoryId(resolvedCategories) || undefined,
         dueDate,
         budgetPlanId: effectivePlanId,
-        cardDebtId,
+        selectedDebtId,
         seriesKey: selectedSeriesKey,
       });
 
@@ -434,8 +460,8 @@ export default function AddExpenseSheet({
           : null,
         dueDate: typeof body.dueDate === "string" ? body.dueDate : null,
         lastPaymentAt: null,
-        paymentSource: paymentSource === "other" ? "other" : paymentSource,
-        cardDebtId: paymentSource === "credit_card" ? (cardDebtId || null) : null,
+        paymentSource: fundingSource,
+        cardDebtId: needsDebtSelection ? (selectedDebtId || null) : null,
         isExtraLoggedExpense: false,
         effectiveDueDate: typeof body.dueDate === "string" ? body.dueDate : null,
         inSelectedPayPeriod: true,
@@ -565,11 +591,10 @@ export default function AddExpenseSheet({
 						setCategoryId={handleManualCategoryChange}
               dueDate={dueDate}
               setDueDate={setDueDate}
-              paymentSource={paymentSource}
-              setPaymentSource={setPaymentSource}
-              cardDebtId={cardDebtId}
-              setCardDebtId={setCardDebtId}
-              cards={cards}
+              fundingOptions={fundingOptions}
+              selectedFundingKey={selectedFundingKey}
+              selectedFundingLabel={selectedFundingLabel}
+              onSelectFundingOption={handleFundingOptionSelect}
               categories={planCategories ?? categories}
               currency={currency}
               minimumDate={dueDateWindow.minimumDate}

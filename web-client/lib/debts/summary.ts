@@ -2,6 +2,7 @@ import type { DebtItem } from "@/types/helpers/debts";
 import { processMissedDebtPaymentsToAccrue } from "@/lib/debts/carryover";
 import { getAllDebts } from "@/lib/debts/store";
 import { getExpenseDebts, processOverdueExpensesToDebts } from "@/lib/expenses/carryover";
+import { syncDueDirectDebitExpenses } from "@/lib/expenses/directDebit";
 import { isExpenseDebtCoveredByRegularDebt } from "@/lib/helpers/debts/expenseDebtDuplicates";
 import { prisma } from "@/lib/prisma";
 
@@ -27,24 +28,23 @@ export async function getDebtSummaryForPlan(
 	const ensureSynced = opts?.ensureSynced ?? true;
 
 	if (ensureSynced) {
-		const syncTasks: Promise<unknown>[] = [];
-
 		if (includeExpenseDebts) {
-			syncTasks.push(
-				processOverdueExpensesToDebts(budgetPlanId).catch((error) => {
-					console.error("Debt summary: expense carryover sync failed", error);
-					return [];
-				})
-			);
+			await syncDueDirectDebitExpenses({ budgetPlanId }).catch((error) => {
+				console.error("Debt summary: direct debit sync failed", error);
+				return [];
+			});
+
+			await processOverdueExpensesToDebts(budgetPlanId).catch((error) => {
+				console.error("Debt summary: expense carryover sync failed", error);
+				return [];
+			});
 		}
 
-		syncTasks.push(
+		await Promise.all([
 			processMissedDebtPaymentsToAccrue(budgetPlanId).catch((error) => {
 				console.error("Debt summary: missed debt payment sync failed", error);
 			})
-		);
-
-		await Promise.all(syncTasks);
+		]);
 	}
 
 	const [allDebtsRaw, expenseDebts] = await Promise.all([

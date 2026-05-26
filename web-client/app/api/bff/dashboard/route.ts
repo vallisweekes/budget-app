@@ -14,6 +14,7 @@ import { getLargestExpensesByPlan } from "@/lib/helpers/dashboard/getLargestExpe
 import { getMultiPlanHealthTips } from "@/lib/helpers/dashboard/getMultiPlanHealthTips";
 import { getAllPlansDashboardData } from "@/lib/helpers/dashboard/getAllPlansDashboardData";
 import { getDashboardPayPeriodLabels } from "@/lib/helpers/dashboard/payPeriodLabels";
+import { syncDueDirectDebitExpenses } from "@/lib/expenses/directDebit";
 import { resolveExpenseLogo } from "@/lib/expenses/logoResolver";
 import { getExpensePaidMap } from "@/lib/expenses/paidSummary";
 import { getJsonCache, setJsonCache } from "@/lib/cache/redisJsonCache";
@@ -92,6 +93,12 @@ export async function GET(req: NextRequest) {
 		}
 
 		const now = new Date();
+		const directDebitSyncedExpenseIds = await timeSection(timings, "direct_debit_sync", async () =>
+			syncDueDirectDebitExpenses({ budgetPlanId, now }).catch((error) => {
+				console.error("Dashboard: direct debit sync failed:", error);
+				return [];
+			})
+		);
 		const user = await timeSection(timings, "user", async () => prisma.user.findUnique({
 			where: { id: userId },
 			select: { name: true, createdAt: true },
@@ -257,24 +264,27 @@ export async function GET(req: NextRequest) {
 			periodStart: activePayPeriodWindow.start,
 			periodEnd: activePayPeriodWindow.end,
 		}) + `:extended:${includeExtendedData ? "1" : "0"}`;
-		const cachedDashboard = await timeSection(timings, "cache_lookup", async () => getJsonCache<Record<string, unknown>>(dashboardCacheKey));
-		if (cachedDashboard) {
-			logDerivedSummaryCacheEvent({
-				route: "dashboard",
-				status: "hit",
-				key: dashboardCacheKey,
-				budgetPlanId,
-			});
-			return NextResponse.json(cachedDashboard, {
-				headers: buildTimingHeaders({
-					timings,
-					requestStartedAt,
-					extra: {
-					"x-dashboard-cache": "hit",
-					"x-dashboard-redis": isRedisConfigured() ? "configured" : "not-configured",
-					},
-				}),
-			});
+		const skipCache = directDebitSyncedExpenseIds.length > 0;
+		if (!skipCache) {
+			const cachedDashboard = await timeSection(timings, "cache_lookup", async () => getJsonCache<Record<string, unknown>>(dashboardCacheKey));
+			if (cachedDashboard) {
+				logDerivedSummaryCacheEvent({
+					route: "dashboard",
+					status: "hit",
+					key: dashboardCacheKey,
+					budgetPlanId,
+				});
+				return NextResponse.json(cachedDashboard, {
+					headers: buildTimingHeaders({
+						timings,
+						requestStartedAt,
+						extra: {
+						"x-dashboard-cache": "hit",
+						"x-dashboard-redis": isRedisConfigured() ? "configured" : "not-configured",
+						},
+					}),
+				});
+			}
 		}
 		logDerivedSummaryCacheEvent({
 			route: "dashboard",
@@ -289,6 +299,7 @@ export async function GET(req: NextRequest) {
 			payFrequency,
 			payAnchorDate,
 			planCreatedAt: effectiveCreatedAt,
+			skipDirectDebitSync: true,
 		}));
 		const { payPeriodLabel, previousPayPeriodLabel } = await timeSection(timings, "pay_labels", async () =>
 			Promise.resolve(

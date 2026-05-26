@@ -7,6 +7,8 @@ import { resolveEffectiveDueDateIso } from "@/lib/expenses/insights";
 import { createExpense, normalizeFundingSource, normalizePaymentSource } from "@/lib/financial-engine";
 import { hasCustomLogoForDomain, hasCustomLogoForName, resolveExpenseLogo, resolveExpenseLogoWithSearch } from "@/lib/expenses/logoResolver";
 import { processOverdueExpensesToDebts } from "@/lib/expenses/carryover";
+import { getEffectiveDirectDebitByExpenseId, syncDueDirectDebitExpenses } from "@/lib/expenses/directDebit";
+import { isLoanLikeDebtType, toClientExpenseFundingSource } from "@/lib/expenses/paymentSource";
 import { buildExpenseAddedActivity } from "@/lib/push/activityMessages";
 import { sendUserPush } from "@/lib/push/sendUserPush";
 import { isLegacyPlaceholderExpenseRow } from "@/lib/expenses/legacyPlaceholders";
@@ -133,7 +135,10 @@ function serializeExpense(
     category: expense.category ?? null,
     dueDate: expense.dueDate ? (expense.dueDate instanceof Date ? expense.dueDate.toISOString() : String(expense.dueDate)) : null,
     lastPaymentAt: effectiveLastPaymentAt ? effectiveLastPaymentAt.toISOString() : null,
-    paymentSource: expense.paymentSource ?? "income",
+    paymentSource: toClientExpenseFundingSource({
+      paymentSource: expense.paymentSource ?? "income",
+      selectedDebtType: expense.cardDebt?.type ?? (expense.cardDebtId ? "loan" : null),
+    }),
     cardDebtId: expense.cardDebtId ?? null,
     isExtraLoggedExpense: Boolean((expense as { isExtraLoggedExpense?: unknown }).isExtraLoggedExpense ?? false),
     effectiveDueDate: periodMeta?.effectiveDueDate ?? null,
@@ -159,6 +164,11 @@ export async function GET(req: NextRequest) {
   if (month == null || month < 1 || month > 12) return badRequest("Invalid month");
   if (year == null || year < 1900) return badRequest("Invalid year");
   if (!budgetPlanId) return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
+
+  await syncDueDirectDebitExpenses({ budgetPlanId }).catch((error) => {
+    console.error("Expenses: direct debit sync failed:", error);
+    return [];
+  });
 
   void processOverdueExpensesToDebts(budgetPlanId).catch((error) => {
     console.error("Expenses: overdue carryover sync failed:", error);
@@ -208,6 +218,7 @@ export async function GET(req: NextRequest) {
           category: {
             select: { id: true, name: true, icon: true, color: true, featured: true },
           },
+          cardDebt: { select: { type: true } },
         },
       });
 
@@ -225,6 +236,7 @@ export async function GET(req: NextRequest) {
           category: {
             select: { id: true, name: true, icon: true, color: true, featured: true },
           },
+          cardDebt: { select: { type: true } },
         },
         // dueDate is a scalar on Expense, included automatically
       });
@@ -255,6 +267,16 @@ export async function GET(req: NextRequest) {
   const paidMap = await getExpensePaidMap(
     paidCandidates.map((e) => ({ id: String(e.id), amount: toFloat(e.amount) })),
   );
+  const effectiveDirectDebitByExpenseId = await getEffectiveDirectDebitByExpenseId({
+    budgetPlanId,
+    expenses: (items as any[]).map((item) => ({
+      id: String(item.id),
+      name: String(item.name ?? ""),
+      seriesKey: item.seriesKey ?? null,
+      categoryId: item.categoryId ?? null,
+      isDirectDebit: Boolean(item.isDirectDebit ?? false),
+    })),
+  });
 
   // Backfill/refresh logos.
   // - Backfill runs when logoUrl is missing.
@@ -270,6 +292,11 @@ export async function GET(req: NextRequest) {
   for (const item of items as any[]) {
     if (scope === "pay_period" && isLegacyPlaceholderExpenseRow(item)) {
       continue;
+    }
+
+    const effectiveDirectDebit = effectiveDirectDebitByExpenseId.get(String(item.id));
+    if (effectiveDirectDebit !== undefined) {
+      item.isDirectDebit = effectiveDirectDebit;
     }
 
     // Allocations/envelopes are not bills and should not appear in Expenses lists.
@@ -479,6 +506,22 @@ export async function POST(req: NextRequest) {
   if (periodKey && !periodDate) return badRequest("Invalid periodKey");
   if (!Number.isFinite(month) || month < 1 || month > 12) return badRequest("Invalid month");
   if (!Number.isFinite(year) || year < 1900) return badRequest("Invalid year");
+
+  if (fundingSource === "loan" && debtId) {
+    const fundingDebt = await prisma.debt.findFirst({
+      where: {
+        id: debtId,
+        budgetPlanId: ownedBudgetPlanId,
+        sourceType: null,
+      },
+      select: { id: true, type: true },
+    });
+
+    if (!fundingDebt || !isLoanLikeDebtType(fundingDebt.type)) {
+      return badRequest("Invalid loan source selected");
+    }
+  }
+
   if (dueDate) {
     const parsedDueDate = parseIsoDate(dueDate);
     if (!parsedDueDate) return badRequest("Invalid dueDate");
@@ -545,6 +588,7 @@ export async function POST(req: NextRequest) {
       category: {
         select: { id: true, name: true, icon: true, color: true, featured: true },
       },
+      cardDebt: { select: { type: true } },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -572,6 +616,7 @@ export async function POST(req: NextRequest) {
               category: {
                 select: { id: true, name: true, icon: true, color: true, featured: true },
               },
+              cardDebt: { select: { type: true } },
             },
           });
           return updated;

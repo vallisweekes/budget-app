@@ -10,6 +10,8 @@ import { maybeSendCategoryThresholdPush } from "@/lib/push/thresholdNotification
 import { buildPaymentMadeActivity } from "@/lib/push/activityMessages";
 import { sendUserPush } from "@/lib/push/sendUserPush";
 import { MONTHS } from "@/lib/constants/time";
+import { normalizeFundingSource } from "@/lib/financial-engine";
+import { isLoanLikeDebtType, toClientExpenseFundingSource } from "@/lib/expenses/paymentSource";
 import { syncExpensePaymentsToPaidAmount } from "@/lib/expenses/paymentSync";
 import { getExpensePeriodKey, resolvePayDate } from "@/lib/helpers/periodKey";
 import { bestEffortWithin } from "@/lib/bestEffortWithin";
@@ -137,13 +139,15 @@ type SerializableExpense = {
   updatedAt: Date;
   paymentSource?: string | null;
   cardDebtId?: string | null;
+  cardDebt?: { type?: string | null } | null;
   isExtraLoggedExpense?: boolean | null;
 };
 
-function normalizeExpensePaymentSource(value: unknown): "income" | "credit_card" | "savings" | "extra_untracked" {
+function normalizeExpensePaymentSource(value: unknown): "income" | "credit_card" | "savings" | "emergency" | "extra_untracked" {
   const v = String(value ?? "").trim().toLowerCase();
   if (v === "credit_card" || v === "card" || v === "credit card") return "credit_card";
   if (v === "savings") return "savings";
+  if (v === "emergency" || v === "emergency_fund" || v === "emergency fund") return "emergency";
   if (v === "extra_untracked" || v === "other" || v === "monthly_allowance" || v === "loan") return "extra_untracked";
   return "income";
 }
@@ -176,7 +180,10 @@ function serializeExpense(expense: SerializableExpense) {
       if (!v) return null;
       return v instanceof Date ? v.toISOString() : String(v);
     })(),
-    paymentSource: expense.paymentSource ?? "income",
+    paymentSource: toClientExpenseFundingSource({
+      paymentSource: expense.paymentSource ?? "income",
+      selectedDebtType: expense.cardDebt?.type ?? (expense.cardDebtId ? "loan" : null),
+    }),
     cardDebtId: expense.cardDebtId ?? null,
     isExtraLoggedExpense: Boolean(expense.isExtraLoggedExpense ?? false),
   };
@@ -209,8 +216,12 @@ type PatchBody = {
   distributeYears?: unknown;
   /** Payment source used when (re)marking paid or editing an extra logged expense */
   paymentSource?: unknown;
+  /** Logical funding source used by normal expense add/edit flows */
+  fundingSource?: unknown;
   /** Credit card debt id when paymentSource = credit_card */
   cardDebtId?: unknown;
+  /** Debt id when fundingSource = loan */
+  debtId?: unknown;
 };
 
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
@@ -224,6 +235,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     where: { id },
     include: {
       budgetPlan: { select: { userId: true } },
+      cardDebt: { select: { type: true } },
       category: {
         select: { id: true, name: true, icon: true, color: true, featured: true },
       },
@@ -270,6 +282,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   const paidExplicit = body.paid == null ? undefined : toBool(body.paid);
   const paidAmountExplicit = body.paidAmount == null ? undefined : Number(body.paidAmount);
   const paymentSourceExplicit = body.paymentSource == null ? undefined : normalizeExpensePaymentSource(body.paymentSource);
+  const fundingSourceExplicit = body.fundingSource == null ? undefined : normalizeFundingSource(body.fundingSource);
   const cardDebtIdExplicit =
     body.cardDebtId === null
       ? null
@@ -277,6 +290,14 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
         ? undefined
         : typeof body.cardDebtId === "string"
           ? body.cardDebtId.trim() || null
+          : undefined;
+  const debtIdExplicit =
+    body.debtId === null
+      ? null
+      : body.debtId === undefined
+        ? undefined
+        : typeof body.debtId === "string"
+          ? body.debtId.trim() || null
           : undefined;
   const dueDateString = typeof body.dueDate === "string" ? body.dueDate.trim() || null : null;
   const dueDateParsed = parseDueDateInput(body.dueDate);
@@ -321,6 +342,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 			budgetPlanId: true,
       paymentSource: true,
       cardDebtId: true,
+			cardDebt: { select: { type: true } },
       dueDate: true,
       budgetPlan: { select: { userId: true } },
     },
@@ -369,15 +391,39 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   const nextCategoryId = categoryId === undefined ? existing.categoryId : categoryId;
   const nextIsAllocation = isAllocation === undefined ? Boolean(existing.isAllocation ?? false) : isAllocation;
   const nextIsDirectDebit = isDirectDebit === undefined ? Boolean(existing.isDirectDebit ?? false) : isDirectDebit;
-  const nextPaymentSource = paymentSourceExplicit ?? normalizeExpensePaymentSource(existing.paymentSource ?? "income");
+  const existingFundingSource = toClientExpenseFundingSource({
+    paymentSource: existing.paymentSource ?? "income",
+    selectedDebtType: existing.cardDebt?.type ?? (existing.cardDebtId ? "loan" : null),
+  });
+  const nextFundingSource = fundingSourceExplicit
+    ?? (paymentSourceExplicit === undefined
+      ? existingFundingSource
+      : paymentSourceExplicit === "credit_card"
+        ? "credit_card"
+        : paymentSourceExplicit === "savings"
+          ? "savings"
+            : paymentSourceExplicit === "emergency"
+              ? "emergency"
+          : paymentSourceExplicit === "extra_untracked"
+            ? existingFundingSource === "loan"
+              ? "loan"
+              : "other"
+            : "income");
+  const nextPaymentSource = paymentSourceExplicit ?? normalizeExpensePaymentSource(nextFundingSource);
   let nextCardDebtId: string | null = existing.cardDebtId ?? null;
-  if (nextPaymentSource === "credit_card") {
-    if (cardDebtIdExplicit !== undefined) nextCardDebtId = cardDebtIdExplicit;
+  if (nextFundingSource === "credit_card") {
+    if (cardDebtIdExplicit !== undefined || debtIdExplicit !== undefined) {
+      nextCardDebtId = cardDebtIdExplicit ?? debtIdExplicit ?? null;
+    }
+  } else if (nextFundingSource === "loan") {
+    if (debtIdExplicit !== undefined || cardDebtIdExplicit !== undefined) {
+      nextCardDebtId = debtIdExplicit ?? cardDebtIdExplicit ?? null;
+    }
   } else {
     nextCardDebtId = null;
   }
 
-  if (nextPaymentSource === "credit_card") {
+  if (nextFundingSource === "credit_card") {
     if (!nextCardDebtId) {
       return badRequest("cardDebtId is required when paymentSource is credit_card");
     }
@@ -391,6 +437,23 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     });
     if (!card) {
       return badRequest("Invalid credit card selected");
+    }
+  }
+
+  if (nextFundingSource === "loan") {
+    if (!nextCardDebtId) {
+      return badRequest("debtId is required when fundingSource is loan");
+    }
+    const debt = await prisma.debt.findFirst({
+      where: {
+        id: nextCardDebtId,
+        budgetPlanId: existing.budgetPlanId,
+        sourceType: null,
+      },
+      select: { id: true, type: true },
+    });
+    if (!debt || !isLoanLikeDebtType(debt.type)) {
+      return badRequest("Invalid loan or finance source selected");
     }
   }
 
@@ -482,8 +545,14 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
         logoSource: logo.logoSource,
         isAllocation: isAllocation === undefined ? undefined : isAllocation,
         isDirectDebit: isDirectDebit === undefined ? undefined : isDirectDebit,
-        paymentSource: paymentSourceExplicit === undefined ? undefined : nextPaymentSource,
-        cardDebtId: paymentSourceExplicit === undefined && cardDebtIdExplicit === undefined ? undefined : nextCardDebtId,
+        paymentSource:
+          paymentSourceExplicit === undefined && fundingSourceExplicit === undefined
+            ? undefined
+            : nextPaymentSource,
+        cardDebtId:
+          paymentSourceExplicit === undefined && fundingSourceExplicit === undefined && cardDebtIdExplicit === undefined && debtIdExplicit === undefined
+            ? undefined
+            : nextCardDebtId,
 
         dueDate: dueDate === undefined ? undefined : dueDate,
         periodKey,
@@ -499,6 +568,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
           desiredPaidAmount: nextPaidAmountNumber,
           paymentSource: nextPaymentSource,
           cardDebtId: nextCardDebtId,
+          debtId: nextFundingSource === "loan" ? nextCardDebtId : null,
           now: nextLastPaymentAt ?? undefined,
           adjustBalances: isPaymentChange,
           resetOnDecrease: true,
@@ -519,6 +589,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
         category: {
           select: { id: true, name: true, icon: true, color: true, featured: true },
         },
+        cardDebt: { select: { type: true } },
       },
     })) as unknown as SerializableExpense;
   });
@@ -679,6 +750,29 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
         });
       }
     }
+  }
+
+  if (isDirectDebit !== undefined) {
+    const legacySeriesFallback = existingSeriesKey
+      ? []
+      : [
+          {
+            seriesKey: null,
+            name: { equals: existing.name, mode: "insensitive" as const },
+            categoryId: existing.categoryId,
+          },
+        ];
+
+    await prisma.expense.updateMany({
+      where: {
+        budgetPlanId: existing.budgetPlanId,
+        id: { not: existing.id },
+        OR: [{ seriesKey: stableSeriesKey }, ...legacySeriesFallback],
+      },
+      data: {
+        isDirectDebit: nextIsDirectDebit,
+      },
+    });
   }
 
   if (updated.isAllocation) {

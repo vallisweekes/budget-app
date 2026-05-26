@@ -6,6 +6,7 @@ import { PanResponder, ScrollView } from "react-native";
 import { useActiveBudgetPlan } from "@/context/ActiveBudgetPlanContext";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { apiFetch, getApiMutationsSince, getApiMutationVersion } from "@/lib/api";
+import { SCREEN_FOCUS_REVALIDATE_TTL_MS } from "@/lib/constants";
 import { resolveDisplayedPayPeriodAnchor } from "@/lib/helpers/resolveDisplayedPayPeriodAnchor";
 import type {
   BudgetPlanListItem,
@@ -102,8 +103,12 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
   const payPeriodMonthsCacheRef = useRef<Record<string, ExpensePayPeriodMonthsResponse>>(sharedExpensePayPeriodMonthsCache);
   const cacheSignatureRef = useRef<string | null>(sharedExpensesCacheSignature);
   const seenMutationVersionRef = useRef<number>(getApiMutationVersion());
+  const displayedAnchorSeenMutationVersionRef = useRef<number>(getApiMutationVersion());
   const warmedPlanViewKeysRef = useRef<Set<string>>(new Set());
   const warmingPlanViewPromisesRef = useRef<Map<string, Promise<void>>>(new Map());
+  const displayedActiveContextRef = useRef("");
+  const lastDisplayedActiveResolvedAtRef = useRef<number | null>(null);
+  const lastResolvedDisplayedActiveAnchorRef = useRef<{ month: number; year: number } | null>(null);
 
   const [summary, setSummary] = useState<ExpenseSummary | null>(null);
   const [previousSummary, setPreviousSummary] = useState<ExpenseSummary | null>(null);
@@ -116,6 +121,8 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
   const [addSheetOpen, setAddSheetOpen] = useState(false);
   const [monthPickerOpen, setMonthPickerOpen] = useState(false);
   const [pickerYear, setPickerYear] = useState(initialYear);
+  const [displayedActiveAnchor, setDisplayedActiveAnchor] = useState<{ month: number; year: number } | null>(null);
+  const [displayedActiveResolved, setDisplayedActiveResolved] = useState(false);
 
   const currency = currencySymbol(settings?.currency);
   const { canDecrement } = useYearGuard(settings);
@@ -326,13 +333,139 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     }),
     [activePlanCreatedAt, effectivePayAnchorDate, effectivePayDate, effectivePayFrequency, payPeriodBoundaryVersion],
   );
-  const defaultActiveAnchor = useMemo(
+  const rawDefaultActiveAnchor = useMemo(
     () => getPayPeriodAnchorFromWindow({ period: defaultActivePeriod, payFrequency: effectivePayFrequency }),
     [defaultActivePeriod, effectivePayFrequency],
   );
+  const defaultActiveAnchor = displayedActiveAnchor ?? rawDefaultActiveAnchor;
+  const rawDefaultActiveMonth = rawDefaultActiveAnchor.month;
+  const rawDefaultActiveYear = rawDefaultActiveAnchor.year;
   const defaultActiveMonth = defaultActiveAnchor.month;
   const defaultActiveYear = defaultActiveAnchor.year;
   const lastDefaultActiveAnchorRef = useRef<{ month: number; year: number } | null>(null);
+
+  useEffect(() => {
+    setDisplayedActiveAnchor(null);
+    setDisplayedActiveResolved(false);
+    displayedActiveContextRef.current = "";
+    lastDisplayedActiveResolvedAtRef.current = null;
+    lastResolvedDisplayedActiveAnchorRef.current = null;
+  }, [payPeriodBoundaryIdentityKey, payPeriodBoundaryVersion]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const run = async () => {
+      if (!isFocused) return;
+
+      if (!activePlanId) {
+        if (!cancelled) {
+          setDisplayedActiveAnchor(null);
+          setDisplayedActiveResolved(true);
+        }
+        displayedActiveContextRef.current = "";
+        lastDisplayedActiveResolvedAtRef.current = null;
+        lastResolvedDisplayedActiveAnchorRef.current = null;
+        return;
+      }
+
+      const latestMutationVersion = getApiMutationVersion();
+      const hasMutationChanges = latestMutationVersion !== displayedAnchorSeenMutationVersionRef.current;
+      const hasFreshDisplayedAnchor = displayedActiveResolved
+        && displayedActiveContextRef.current === payPeriodBoundaryIdentityKey
+        && lastDisplayedActiveResolvedAtRef.current !== null
+        && (Date.now() - lastDisplayedActiveResolvedAtRef.current) < SCREEN_FOCUS_REVALIDATE_TTL_MS;
+
+      if (!hasMutationChanges && hasFreshDisplayedAnchor) {
+        return;
+      }
+
+      if (!cancelled) {
+        setDisplayedActiveResolved(false);
+      }
+
+      try {
+        const nextDisplayedAnchor = await resolveDisplayedPayPeriodAnchor({
+          budgetPlanId: activePlanId,
+          payDate: effectivePayDate,
+          payAnchorDate: effectivePayAnchorDate,
+          payFrequency: effectivePayFrequency,
+          planCreatedAt: activePlanCreatedAt,
+        });
+
+        if (cancelled) return;
+
+        setDisplayedActiveAnchor(nextDisplayedAnchor);
+        setDisplayedActiveResolved(true);
+        displayedAnchorSeenMutationVersionRef.current = latestMutationVersion;
+        displayedActiveContextRef.current = payPeriodBoundaryIdentityKey;
+        lastDisplayedActiveResolvedAtRef.current = Date.now();
+      } catch {
+        if (cancelled) return;
+        setDisplayedActiveAnchor(null);
+        setDisplayedActiveResolved(true);
+        displayedActiveContextRef.current = payPeriodBoundaryIdentityKey;
+        lastDisplayedActiveResolvedAtRef.current = Date.now();
+      }
+    };
+
+    void run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    activePlanCreatedAt,
+    activePlanId,
+    displayedActiveResolved,
+    effectivePayAnchorDate,
+    effectivePayDate,
+    effectivePayFrequency,
+    isFocused,
+    payPeriodBoundaryIdentityKey,
+  ]);
+
+  useEffect(() => {
+    if (!displayedActiveResolved || !displayedActiveAnchor) return;
+
+    const nextDisplayedAnchor = { month: defaultActiveMonth, year: defaultActiveYear };
+    const previousDisplayedAnchor = lastResolvedDisplayedActiveAnchorRef.current;
+    const isShowingRawDefault = month === rawDefaultActiveMonth && year === rawDefaultActiveYear;
+    const isShowingPreviousDisplayedAnchor = Boolean(
+      previousDisplayedAnchor
+      && month === previousDisplayedAnchor.month
+      && year === previousDisplayedAnchor.year,
+    );
+
+    lastResolvedDisplayedActiveAnchorRef.current = nextDisplayedAnchor;
+
+    if (!isShowingRawDefault && !isShowingPreviousDisplayedAnchor) {
+      return;
+    }
+
+    if (month === nextDisplayedAnchor.month && year === nextDisplayedAnchor.year) {
+      return;
+    }
+
+    setMonth(nextDisplayedAnchor.month);
+    setYear(nextDisplayedAnchor.year);
+    navigation.setParams({
+      month: nextDisplayedAnchor.month,
+      year: nextDisplayedAnchor.year,
+      prevDisabled: !canDecrement(nextDisplayedAnchor.year, nextDisplayedAnchor.month),
+    });
+  }, [
+    canDecrement,
+    defaultActiveMonth,
+    defaultActiveYear,
+    displayedActiveAnchor,
+    displayedActiveResolved,
+    month,
+    navigation,
+    rawDefaultActiveMonth,
+    rawDefaultActiveYear,
+    year,
+  ]);
 
   useEffect(() => {
     if (didNormalizeInitialPeriodRef.current) return;
@@ -1147,7 +1280,14 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     )),
     [defaultActiveMonth, defaultActiveYear, expenseMonths],
   );
-  const loadingUi = (loading || bootstrapLoading) && !summary;
+  const isResolvingDisplayedLivePeriod = Boolean(
+    activePlanId
+    && loading
+    && !displayedActiveResolved
+    && month === rawDefaultActiveMonth
+    && year === rawDefaultActiveYear,
+  );
+  const loadingUi = ((loading || bootstrapLoading) && !summary) || isResolvingDisplayedLivePeriod;
   const showTopAddExpenseCta = !loading && !error && (summary?.totalCount ?? 0) === 0;
   const showPlanTotalFallback = isAdditionalPlan && (summary?.totalCount ?? 0) === 0 && expenseMonths.length > 0 && planTotalAmount > 0;
   const isPastSelectedPeriod = year < defaultActiveYear || (year === defaultActiveYear && month < defaultActiveMonth);

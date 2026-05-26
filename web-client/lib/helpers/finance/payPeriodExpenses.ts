@@ -1,5 +1,6 @@
 import { resolveEffectiveDueDateIso } from "@/lib/expenses/insights";
 import { isLegacyPlaceholderExpenseRow } from "@/lib/expenses/legacyPlaceholders";
+import { getEffectiveDirectDebitByExpenseId } from "@/lib/expenses/directDebit";
 import { resolveMatchedExpensePeriodKey } from "@/lib/helpers/periodKey";
 import { supportsExpenseMovedToDebtField } from "@/lib/prisma/capabilities";
 import { prisma } from "@/lib/prisma";
@@ -110,27 +111,43 @@ export async function getPayPeriodExpenses(params: {
 		`${windowStart.getUTCFullYear()}-${windowStart.getUTCMonth() + 1}`,
 		`${windowEnd.getUTCFullYear()}-${windowEnd.getUTCMonth() + 1}`,
 	]);
+	const effectiveDirectDebitByExpenseId = await getEffectiveDirectDebitByExpenseId({
+		budgetPlanId,
+		expenses: (rows as PayPeriodExpenseRow[]).map((expense) => ({
+			id: expense.id,
+			name: expense.name,
+			seriesKey: expense.seriesKey,
+			categoryId: expense.categoryId,
+			isDirectDebit: expense.isDirectDebit,
+		})),
+	});
 
 	const seen = new Map<string, { expense: PayPeriodExpenseRow; rank: number }>();
 	for (const expense of rows as PayPeriodExpenseRow[]) {
-		if (isLegacyPlaceholderExpenseRow(expense)) continue;
-		if (Boolean(expense.isAllocation ?? false)) continue;
-		if (!includeInPlannedExpenseTotals(expense)) continue;
+		const effectiveDirectDebit = effectiveDirectDebitByExpenseId.get(expense.id);
+		const normalizedExpense =
+			effectiveDirectDebit === undefined || effectiveDirectDebit === Boolean(expense.isDirectDebit ?? false)
+				? expense
+				: { ...expense, isDirectDebit: effectiveDirectDebit };
 
-		const series = normalizeSeriesOrName(expense.seriesKey, expense.name);
-		const amount = Number(expense.amount ?? 0);
+		if (isLegacyPlaceholderExpenseRow(normalizedExpense)) continue;
+		if (Boolean(normalizedExpense.isAllocation ?? false)) continue;
+		if (!includeInPlannedExpenseTotals(normalizedExpense)) continue;
 
-		if (expense.dueDate) {
+		const series = normalizeSeriesOrName(normalizedExpense.seriesKey, normalizedExpense.name);
+		const amount = Number(normalizedExpense.amount ?? 0);
+
+		if (normalizedExpense.dueDate) {
 			const dueIso = resolveEffectiveDueDateIso(
 				{
-					id: expense.id,
-					name: expense.name,
+					id: normalizedExpense.id,
+					name: normalizedExpense.name,
 					amount,
-					paid: Boolean(expense.paid),
-					paidAmount: Number(expense.paidAmount ?? 0),
-					dueDate: new Date(expense.dueDate).toISOString().slice(0, 10),
+					paid: Boolean(normalizedExpense.paid),
+					paidAmount: Number(normalizedExpense.paidAmount ?? 0),
+					dueDate: new Date(normalizedExpense.dueDate).toISOString().slice(0, 10),
 				},
-				{ year: expense.year, monthNum: expense.month, payDate }
+				{ year: normalizedExpense.year, monthNum: normalizedExpense.month, payDate }
 			);
 			if (!dueIso) continue;
 			const due = new Date(`${dueIso}T00:00:00.000Z`);
@@ -138,16 +155,16 @@ export async function getPayPeriodExpenses(params: {
 
 			const dueMonth = due.getUTCMonth() + 1;
 			const dueYear = due.getUTCFullYear();
-			const rank = expense.year === dueYear && expense.month === dueMonth ? 0 : 1;
+			const rank = normalizedExpense.year === dueYear && normalizedExpense.month === dueMonth ? 0 : 1;
 			const key = `${series}|${dueIso}|${amount}`;
 			const existing = seen.get(key);
 			if (!existing || rank < existing.rank) {
-				seen.set(key, { expense, rank });
+				seen.set(key, { expense: normalizedExpense, rank });
 			}
 			continue;
 		}
 
-		const expensePeriodKey = String(expense.periodKey ?? "").trim();
+		const expensePeriodKey = String(normalizedExpense.periodKey ?? "").trim();
 		let dedupeScope = "";
 		if (expensePeriodKey) {
 			const matchedPeriodKey = resolveMatchedExpensePeriodKey({
@@ -160,13 +177,13 @@ export async function getPayPeriodExpenses(params: {
 			if (!matchedPeriodKey) continue;
 			dedupeScope = `unscheduled:${matchedPeriodKey}`;
 		} else {
-			if (!allowedUnscheduledYm.has(`${expense.year}-${expense.month}`)) continue;
-			dedupeScope = `unscheduled:${expense.year}-${expense.month}`;
+			if (!allowedUnscheduledYm.has(`${normalizedExpense.year}-${normalizedExpense.month}`)) continue;
+			dedupeScope = `unscheduled:${normalizedExpense.year}-${normalizedExpense.month}`;
 		}
 
 		const key = `${series}|${dedupeScope}|${amount}`;
 		if (!seen.has(key)) {
-			seen.set(key, { expense, rank: 0 });
+			seen.set(key, { expense: normalizedExpense, rank: 0 });
 		}
 	}
 

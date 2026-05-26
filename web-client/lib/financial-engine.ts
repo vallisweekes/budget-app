@@ -32,8 +32,8 @@ import type { MonthKey } from "@/types";
 
 // ─── Shared types ─────────────────────────────────────────────────────────────
 
-export type PaymentSource = "income" | "credit_card" | "savings" | "extra_untracked";
-export type FundingSource = "income" | "savings" | "monthly_allowance" | "credit_card" | "loan" | "other";
+export type PaymentSource = "income" | "credit_card" | "savings" | "emergency" | "extra_untracked";
+export type FundingSource = "income" | "savings" | "emergency" | "monthly_allowance" | "credit_card" | "loan" | "other";
 
 export type CreateExpenseInput = {
   budgetPlanId: string;
@@ -92,7 +92,7 @@ type ExpensePaymentDelegate = {
     data: {
       expenseId: string;
       amount: number;
-      source: "income" | "credit_card" | "savings" | "extra_untracked";
+      source: "income" | "credit_card" | "savings" | "emergency" | "extra_untracked";
       debtId?: string;
       paidAt: Date;
       periodKey?: string;
@@ -120,6 +120,7 @@ export function normalizePaymentSource(raw: unknown): PaymentSource {
   const v = String(raw ?? "").trim().toLowerCase();
   if (v === "credit_card" || v === "card" || v === "credit card") return "credit_card";
   if (v === "savings") return "savings";
+  if (v === "emergency" || v === "emergency_fund" || v === "emergency fund") return "emergency";
   if (v === "other" || v === "extra_untracked") return "extra_untracked";
   return "income";
 }
@@ -127,6 +128,7 @@ export function normalizePaymentSource(raw: unknown): PaymentSource {
 export function normalizeFundingSource(raw: unknown): FundingSource {
   const v = String(raw ?? "").trim().toLowerCase();
   if (v === "savings") return "savings";
+  if (v === "emergency" || v === "emergency_fund" || v === "emergency fund") return "emergency";
   if (v === "monthly_allowance" || v === "allowance" || v === "monthly allowance") return "monthly_allowance";
   if (v === "credit_card" || v === "card" || v === "credit card") return "credit_card";
   if (v === "loan" || v === "loans") return "loan";
@@ -137,6 +139,7 @@ export function normalizeFundingSource(raw: unknown): FundingSource {
 function mapFundingToPaymentSource(fundingSource: FundingSource): PaymentSource {
   if (fundingSource === "credit_card") return "credit_card";
   if (fundingSource === "savings") return "savings";
+  if (fundingSource === "emergency") return "emergency";
   if (fundingSource === "monthly_allowance" || fundingSource === "loan" || fundingSource === "other") {
     return "extra_untracked";
   }
@@ -257,7 +260,7 @@ export async function recordPaymentSource({
       const candidate = (debtId ?? "").trim();
       if (candidate) {
         const existing = await prisma.debt.findFirst({
-          where: { id: candidate, budgetPlanId, type: { in: ["loan", "mortgage", "hire_purchase", "other"] } },
+          where: { id: candidate, budgetPlanId, type: "loan" },
           select: { id: true },
         });
         if (existing) return existing.id;
@@ -330,6 +333,20 @@ export async function recordPaymentSource({
       const settings = await getSettings(budgetPlanId);
       const current  = Number(settings.savingsBalance ?? 0);
       await saveSettings(budgetPlanId, { savingsBalance: Math.max(0, current - amount) });
+    } else if (effectiveFunding === "emergency") {
+      await expensePayment.create({
+        data: {
+          expenseId,
+          amount,
+          source: "emergency",
+          paidAt: new Date(),
+          periodKey: (await prisma.expense.findUnique({ where: { id: expenseId }, select: { periodKey: true } }).then((r) => r?.periodKey ?? null).catch(() => null)) ??
+            getPaymentPeriodKey(new Date(), payDate),
+        },
+      });
+      const settings = await getSettings(budgetPlanId);
+      const current = Number(settings.emergencyBalance ?? 0);
+      await saveSettings(budgetPlanId, { emergencyBalance: Math.max(0, current - amount) });
     } else if (effectiveFunding === "monthly_allowance") {
       await expensePayment.create({
         data: {
@@ -509,7 +526,10 @@ export async function createExpense(input: CreateExpenseInput): Promise<CreateEx
       dueDate,
       dueDateMonthOffset,
       paymentSource: effectivePaymentSource,
-      cardDebtId: effectiveFunding === "credit_card" ? (cardDebtId || debtId || undefined) : undefined,
+      cardDebtId:
+        effectiveFunding === "credit_card" || effectiveFunding === "loan"
+          ? (cardDebtId || debtId || undefined)
+          : undefined,
       periodKey: !dueDate && !distributeMonths && !distributeYears && periodKey ? periodKey : undefined,
     } as AddOrUpdatePayload);
   });
@@ -623,7 +643,10 @@ export async function createExpenseFromReceipt(
     isDirectDebit:  false,
     isExtraLoggedExpense: true,
     paymentSource: effectivePaymentSource,
-    cardDebtId: effectiveFunding === "credit_card" ? (cardDebtId || debtId || undefined) : undefined,
+    cardDebtId:
+      effectiveFunding === "credit_card" || effectiveFunding === "loan"
+        ? (cardDebtId || debtId || undefined)
+        : undefined,
   } as AddOrUpdatePayload);
 
   // Fetch the created record
