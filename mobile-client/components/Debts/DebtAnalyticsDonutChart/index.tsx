@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Pressable, Text, View, type GestureResponderEvent } from "react-native";
-import Svg, { Circle, Text as SvgText } from "react-native-svg";
+import Svg, { Circle } from "react-native-svg";
 
 import type { DebtAnalyticsDonutChartProps, DebtAnalyticsColorSlice } from "@/types";
 import { fmt } from "@/lib/formatting";
@@ -9,10 +9,10 @@ import { debtAnalyticsStyles as s } from "@/components/DebtAnalyticsScreen/style
 
 export default function DebtAnalyticsDonutChart({ colors, currency, debts }: DebtAnalyticsDonutChartProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
-  const size = 282;
+  const size = 228;
   const centerX = size / 2;
   const centerY = size / 2;
-  const stroke = Math.round(size * 0.14);
+  const stroke = 32;
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
   const total = debts.reduce((sum, debt) => sum + debt.currentBalance, 0);
@@ -35,14 +35,14 @@ export default function DebtAnalyticsDonutChart({ colors, currency, debts }: Deb
   if (total === 0) return null;
 
   const activeDebt = activeIndex != null ? debts[activeIndex] ?? null : null;
+  const activePct = activeDebt ? Math.round((activeDebt.currentBalance / total) * 100) : null;
   const centerTop = activeDebt
     ? fmt(activeDebt.currentBalance, currency)
-    : `${currency}${total.toLocaleString("en-GB", { maximumFractionDigits: 0 })}`;
-  const centerKicker = activeDebt ? "SELECTED" : "TOTAL";
-  const centerSubRaw = activeDebt
-    ? (activeDebt.displayTitle ?? activeDebt.name)
-    : `${debts.length} active debts · tap segment`;
-  const centerSub = centerSubRaw.length > 28 ? `${centerSubRaw.slice(0, 27)}…` : centerSubRaw;
+    : fmt(total, currency);
+  const centerTitle = activeDebt ? (activeDebt.displayTitle ?? activeDebt.name) : "Total debt";
+  const centerSub = activeDebt
+    ? `${activePct ?? 0}% of total debt`
+    : `${debts.length} active debts`;
 
   const handleRingPress = (event: GestureResponderEvent) => {
     const { locationX, locationY } = event.nativeEvent;
@@ -75,57 +75,40 @@ export default function DebtAnalyticsDonutChart({ colors, currency, debts }: Deb
   };
 
   return (
-    <View style={{ alignItems: "center" }}>
-      <Pressable onPress={handleRingPress} hitSlop={8}>
-        <Svg width={size} height={size}>
-          <Circle cx={centerX} cy={centerY} r={radius} fill="none" stroke={T.border} strokeWidth={stroke} opacity={0.35} />
-          {slices.map((slice, index) => (
-            <Circle
-              key={debts[index]?.id ?? index}
-              cx={centerX}
-              cy={centerY}
-              r={radius}
-              fill="none"
-              stroke={slice.color}
-              strokeWidth={activeIndex === index ? stroke + 2 : stroke}
-              strokeDasharray={`${slice.len} ${circumference}`}
-              strokeDashoffset={-slice.offset}
-              strokeLinecap="round"
-              rotation={-90}
-              originX={centerX}
-              originY={centerY}
-              opacity={activeIndex == null || activeIndex === index ? 1 : 0.45}
-            />
-          ))}
-          <SvgText x={centerX} y={centerY - 14} fontSize={12} fill={T.textMuted} textAnchor="middle" fontWeight="700" letterSpacing={0.6}>{centerKicker}</SvgText>
-          <SvgText x={centerX} y={centerY + 14} fontSize={26} fill={T.text} textAnchor="middle" fontWeight="900">{centerTop}</SvgText>
-          <SvgText x={centerX} y={centerY + 34} fontSize={12} fill={T.textMuted} textAnchor="middle" fontWeight="600">{centerSub}</SvgText>
-        </Svg>
-      </Pressable>
+    <View style={{ alignItems: "center", width: "100%" }}>
+      <View style={s.donutShell}>
+        <View style={s.donutHalo} />
+        <Pressable onPress={handleRingPress} hitSlop={8} style={s.donutWrap}>
+          <Svg width={size} height={size}>
+            <Circle cx={centerX} cy={centerY} r={radius} fill="none" stroke={T.border} strokeWidth={stroke} opacity={0.35} />
+            {slices.map((slice, index) => (
+              <Circle
+                key={debts[index]?.id ?? index}
+                cx={centerX}
+                cy={centerY}
+                r={radius}
+                fill="none"
+                stroke={slice.color}
+                strokeWidth={activeIndex === index ? stroke + 2 : stroke}
+                strokeDasharray={`${slice.len} ${circumference}`}
+                strokeDashoffset={-slice.offset}
+                strokeLinecap="round"
+                rotation={-90}
+                originX={centerX}
+                originY={centerY}
+                opacity={activeIndex == null || activeIndex === index ? 1 : 0.45}
+              />
+            ))}
+          </Svg>
 
-      <View style={s.legendGrid}>
-        {debts.map((debt, index) => {
-          const pct = ((debt.currentBalance / total) * 100).toFixed(0);
-          return (
-            <Pressable
-              key={debt.id}
-              style={({ pressed }) => [
-                s.legendItem,
-                activeIndex != null && activeIndex !== index ? s.legendItemDimmed : null,
-                pressed ? s.legendItemPressed : null,
-              ]}
-              onPress={() => setActiveIndex((previous) => (previous === index ? null : index))}
-              hitSlop={6}
-            >
-              <View style={[s.legendDot, { backgroundColor: colors[index] }]} />
-              <View style={{ flex: 1 }}>
-                <Text style={s.legendName} numberOfLines={1}>{debt.displayTitle ?? debt.name}</Text>
-                <Text style={s.legendSub}>{fmt(debt.currentBalance, currency)} · {pct}%</Text>
-              </View>
-            </Pressable>
-          );
-        })}
+          <View style={s.donutCenterLabel} pointerEvents="none">
+            <Text style={s.donutCenterTitle} numberOfLines={2}>{centerTitle}</Text>
+            <Text style={s.donutCenterValue} numberOfLines={1} adjustsFontSizeToFit>{centerTop}</Text>
+            <Text style={s.donutCenterSub} numberOfLines={2}>{centerSub}</Text>
+          </View>
+        </Pressable>
       </View>
+
     </View>
   );
 }

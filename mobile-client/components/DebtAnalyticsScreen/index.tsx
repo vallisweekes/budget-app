@@ -41,24 +41,22 @@ export default function DebtAnalyticsScreen() {
   return (
     <SafeAreaView style={s.safe} edges={["bottom"]}>
       <ScrollView contentContainerStyle={[s.scroll, { paddingTop: controller.topContentInset }]}>
+        <View style={s.heroSection}>
+          <Text style={s.heroTitle}>Debt Breakdown</Text>
+          <Text style={s.heroSub}>Proportion of your total debt</Text>
+          <DebtAnalyticsDonutChart
+            debts={controller.activeDebts}
+            colors={controller.colors}
+            currency={controller.currency}
+          />
+        </View>
+
         <DebtAnalyticsSummaryStrip
           currency={controller.currency}
           paidTotal={controller.paidTotal}
           total={controller.total}
           totalMonthly={controller.totalMonthly}
         />
-
-        <View style={s.card}>
-          <Text style={s.sectionTitle}>Debt Breakdown</Text>
-          <Text style={s.sectionSub}>Proportion of your total debt</Text>
-          <View style={{ marginTop: 14 }}>
-            <DebtAnalyticsDonutChart
-              debts={controller.activeDebts}
-              colors={controller.colors}
-              currency={controller.currency}
-            />
-          </View>
-        </View>
 
         <View style={s.card}>
           <Text style={s.sectionTitle}>Payoff Timeline</Text>

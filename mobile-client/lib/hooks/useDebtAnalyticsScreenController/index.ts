@@ -12,7 +12,7 @@ type Route = RouteProp<DebtStackParamList, "DebtAnalytics">;
 
 export function useDebtAnalyticsScreenController(): DebtAnalyticsControllerState {
   const route = useRoute<Route>();
-  const topContentInset = useTopHeaderOffset(-8);
+  const topContentInset = useTopHeaderOffset(-24);
 
   const routeDebts = route.params?.debts;
   const routeTotalMonthly = route.params?.totalMonthly;
