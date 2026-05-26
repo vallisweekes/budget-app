@@ -201,17 +201,22 @@ export async function GET(req: NextRequest) {
 				}
 			});
 
+		const onboardingCompletedAtValue = onboarding?.completedAt;
+		const onboardingUpdatedAtValue = onboarding?.updatedAt;
+		const onboardingStatus = onboarding?.status;
+		const onboardingPayFrequency = onboarding?.payFrequency;
+		const onboardingPayAnchorDateValue = onboarding?.payAnchorDate;
 		const onboardingCompletedAt = latestDate(
-			onboarding?.completedAt instanceof Date ? onboarding.completedAt : null,
-			onboarding?.status === "completed" && onboarding?.updatedAt instanceof Date ? onboarding.updatedAt : null,
+			onboardingCompletedAtValue instanceof Date ? onboardingCompletedAtValue : null,
+			onboardingStatus === "completed" && onboardingUpdatedAtValue instanceof Date ? onboardingUpdatedAtValue : null,
 		);
 		const effectiveCreatedAt = latestDate(planCreatedAt, user?.createdAt ?? null, onboardingCompletedAt);
 
 		// 2) Core plan data (income, expenses, allocations, goals, categories)
 		// Compute using the ACTIVE pay-period window so totals match the period label.
 		const payDay = typeof payDate === "number" && Number.isFinite(payDate) ? payDate : 1;
-		const payFrequency = normalizePayFrequency(onboarding?.payFrequency);
-		const payAnchorDate = onboarding?.payAnchorDate instanceof Date ? onboarding.payAnchorDate.toISOString() : null;
+		const payFrequency = normalizePayFrequency(onboardingPayFrequency);
+		const payAnchorDate = onboardingPayAnchorDateValue instanceof Date ? onboardingPayAnchorDateValue.toISOString() : null;
 		const billFrequency = deriveBillFrequencyFromPayFrequency(payFrequency);
 		const requestedMonthRaw = Number(searchParams.get("month"));
 		const requestedYearRaw = Number(searchParams.get("year"));

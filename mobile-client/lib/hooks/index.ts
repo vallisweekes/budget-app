@@ -10,6 +10,7 @@ export * from "./useGoalDetailScreenController";
 export * from "./useIncomeCRUD";
 export * from "./useLoggedExpensesScreenController";
 export * from "./useOnboardingScreenController";
+export * from "./usePayPeriodBoundaryRefresh";
 export * from "./usePaymentsSections";
 export * from "./usePostDashboardWarmup";
 export * from "./useSavingsPotStore";

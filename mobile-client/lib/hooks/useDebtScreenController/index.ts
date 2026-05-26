@@ -1,4 +1,4 @@
-import { useFocusEffect, useNavigation, useRoute, useScrollToTop, type RouteProp } from "@react-navigation/native";
+import { useFocusEffect, useIsFocused, useNavigation, useRoute, useScrollToTop, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -10,7 +10,8 @@ import { getApiMutationVersion } from "@/lib/api";
 import type { CreditCard, DebtSummaryItem } from "@/lib/apiTypes";
 import { currencySymbol } from "@/lib/formatting";
 import { setCachedDebtListData } from "@/lib/debtDetailCache";
-import { useSwipeDownToClose, useTopHeaderOffset } from "@/hooks";
+import { usePayPeriodBoundaryRefresh, useSwipeDownToClose, useTopHeaderOffset } from "@/hooks";
+import { normalizePayFrequency } from "@/lib/payPeriods";
 import type { DebtStackParamList } from "@/navigation/types";
 import { useCreateDebtMutation, useGetCreditCardsQuery, useGetDebtSummaryQuery } from "@/store/api";
 import { buildDebtProjectionSummary, parseInstallmentMonthlyPayment } from "@/components/DebtScreen/utils";
@@ -22,6 +23,7 @@ export function useDebtScreenController() {
   const listRef = useRef<FlatList<DebtSummaryItem>>(null);
   useScrollToTop(listRef);
 
+  const isFocused = useIsFocused();
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
   const topHeaderOffset = useTopHeaderOffset();
@@ -91,6 +93,35 @@ export function useDebtScreenController() {
 
   const summary = debtSummaryQuery.data ?? null;
   const cards = Array.isArray(creditCardsQuery.data) ? creditCardsQuery.data : [];
+  const payFrequency = useMemo(() => normalizePayFrequency(settings?.payFrequency), [settings?.payFrequency]);
+  const payAnchorDate = useMemo(
+    () => (payFrequency === "monthly" ? null : (settings?.payAnchorDate ?? null)),
+    [payFrequency, settings?.payAnchorDate],
+  );
+  const planCreatedAt = useMemo(() => {
+    const raw = settings?.setupCompletedAt ?? settings?.accountCreatedAt ?? null;
+    if (!raw) return null;
+    const parsed = new Date(raw);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }, [settings?.accountCreatedAt, settings?.setupCompletedAt]);
+  const payPeriodBoundaryIdentityKey = useMemo(() => {
+    if (!settings?.id) return "";
+    return [
+      settings.id,
+      settings.payDate ?? 27,
+      payFrequency,
+      payAnchorDate ?? "",
+      planCreatedAt?.getTime() ?? "",
+    ].join("|");
+  }, [payAnchorDate, payFrequency, planCreatedAt, settings?.id, settings?.payDate]);
+  const payPeriodBoundaryVersion = usePayPeriodBoundaryRefresh({
+    enabled: Boolean(isFocused && settings?.id),
+    identityKey: payPeriodBoundaryIdentityKey,
+    payDate: settings?.payDate ?? 27,
+    payFrequency,
+    payAnchorDate,
+    planCreatedAt,
+  });
   const loadingSettings = !settings && bootstrapLoading;
   const loadingDebts = Boolean((debtSummaryQuery.isLoading || creditCardsQuery.isLoading) && !summary);
   const error = (() => {
@@ -157,6 +188,11 @@ export function useDebtScreenController() {
       void load({ force: hasMutationChanges });
     }, [creditCardsQuery.data, load, summary]),
   );
+
+  useEffect(() => {
+    if (!payPeriodBoundaryVersion) return;
+    void load({ force: true });
+  }, [load, payPeriodBoundaryVersion]);
 
   const loading = loadingSettings || loadingDebts;
 

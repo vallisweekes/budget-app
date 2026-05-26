@@ -10,7 +10,7 @@ import type { DashboardData } from "@/lib/apiTypes";
 import { SCREEN_FOCUS_REVALIDATE_TTL_MS } from "@/lib/constants";
 import { resolveDisplayedPayPeriodAnchor } from "@/lib/helpers/resolveDisplayedPayPeriodAnchor";
 import { currencySymbol, normalizeUpcomingName } from "@/lib/formatting";
-import { useSwipeDownToClose, useTopHeaderOffset } from "@/hooks";
+import { usePayPeriodBoundaryRefresh, useSwipeDownToClose, useTopHeaderOffset } from "@/hooks";
 import { getPayPeriodAnchorFromWindow, normalizePayFrequency, resolveActivePayPeriod } from "@/lib/payPeriods";
 import type { MainTabScreenProps } from "@/navigation/types";
 import { useGetDashboardByPeriodQuery, useGetDebtSummaryQuery, useGetExpenseSummaryQuery } from "@/store/api";
@@ -118,6 +118,15 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
     ].join("|");
   }, [budgetPlanId, dashboard?.payDate, payAnchorDate, payFrequency, settings?.accountCreatedAt, settings?.payDate, settings?.setupCompletedAt]);
 
+  const payPeriodBoundaryVersion = usePayPeriodBoundaryRefresh({
+    enabled: Boolean(isFocused && budgetPlanId),
+    identityKey: displayedPeriodContextKey,
+    payDate: settings?.payDate ?? dashboard?.payDate ?? 27,
+    payFrequency,
+    payAnchorDate,
+    planCreatedAt,
+  });
+
   const shouldLoadPeriodDashboard = useMemo(
     () => Boolean(isFocused && hasBootstrapDashboard && displayedPeriodAnchor && budgetPlanId && !dashboardMatchesAnchor(dashboard, displayedPeriodAnchor)),
     [budgetPlanId, dashboard, displayedPeriodAnchor, hasBootstrapDashboard, isFocused],
@@ -135,7 +144,7 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
     });
 
     return getPayPeriodAnchorFromWindow({ period: activePeriod, payFrequency });
-  }, [budgetPlanId, dashboard?.payDate, payAnchorDate, payFrequency, planCreatedAt, settings?.payDate]);
+  }, [budgetPlanId, dashboard?.payDate, payAnchorDate, payFrequency, payPeriodBoundaryVersion, planCreatedAt, settings?.payDate]);
 
   const requestedPeriodAnchor = displayedPeriodAnchor ?? provisionalDisplayedAnchor;
 
@@ -274,6 +283,16 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
   const onRefresh = useCallback(() => {
     void load({ force: true });
   }, [load]);
+
+  useEffect(() => {
+    if (!payPeriodBoundaryVersion) return;
+
+    setDisplayedPeriodAnchor(null);
+    setDisplayedPeriodResolved(false);
+    displayedPeriodContextRef.current = "";
+    lastDisplayedPeriodResolvedAtRef.current = null;
+    void load({ force: true });
+  }, [load, payPeriodBoundaryVersion]);
 
   const effectiveDisplayedAnchor = useMemo(
     () => (dashboardMatchesAnchor(resolvedDashboard, displayedPeriodAnchor) ? displayedPeriodAnchor : null),

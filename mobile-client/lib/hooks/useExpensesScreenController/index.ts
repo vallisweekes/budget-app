@@ -1,4 +1,4 @@
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useIsFocused } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PanResponder, ScrollView } from "react-native";
@@ -22,7 +22,7 @@ import { clearCachedPayPeriodExpenses, getCachedPayPeriodExpenses, setCachedPayP
 import { currencySymbol } from "@/lib/formatting";
 import { toExpenseCategoryBreakdowns } from "@/lib/helpers/expenseCategories";
 import { consumeSkipExpensesFocusReload } from "@/lib/helpers/expensesFocusReload";
-import { useTopHeaderOffset, useYearGuard } from "@/hooks";
+import { usePayPeriodBoundaryRefresh, useTopHeaderOffset, useYearGuard } from "@/hooks";
 import { registerSessionScopedResetter } from "@/lib/sessionScopedState";
 import { buildPayPeriodFromMonthAnchor, getPayPeriodAnchorFromWindow, getPayPeriodRangeLabelFromAnchor, normalizePayFrequency, resolveActivePayPeriod } from "@/lib/payPeriods";
 import type { ExpensesStackParamList } from "@/navigation/types";
@@ -62,6 +62,7 @@ function isExpensesRelevantMutationPath(path: string): boolean {
 }
 
 export function useExpensesScreenController({ navigation, route }: Props): ExpensesScreenControllerState {
+  const isFocused = useIsFocused();
   const topHeaderOffset = useTopHeaderOffset();
   const now = new Date();
   const routeMonth = Number(route.params?.month);
@@ -297,6 +298,24 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     }),
     [activePlan?.createdAt, parsePlanCreatedAt, resolveEffectivePlanCreatedAt, setupCompletedAt],
   );
+  const payPeriodBoundaryIdentityKey = useMemo(() => {
+    if (!activePlanId) return "";
+    return [
+      activePlanId,
+      effectivePayDate,
+      effectivePayFrequency,
+      effectivePayAnchorDate ?? "",
+      activePlanCreatedAt?.getTime() ?? "",
+    ].join("|");
+  }, [activePlanCreatedAt, activePlanId, effectivePayAnchorDate, effectivePayDate, effectivePayFrequency]);
+  const payPeriodBoundaryVersion = usePayPeriodBoundaryRefresh({
+    enabled: Boolean(isFocused && activePlanId),
+    identityKey: payPeriodBoundaryIdentityKey,
+    payDate: effectivePayDate,
+    payFrequency: effectivePayFrequency,
+    payAnchorDate: effectivePayAnchorDate,
+    planCreatedAt: activePlanCreatedAt,
+  });
   const defaultActivePeriod = useMemo(
     () => resolveActivePayPeriod({
       now: new Date(),
@@ -305,7 +324,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       payAnchorDate: effectivePayAnchorDate,
       planCreatedAt: activePlanCreatedAt,
     }),
-    [activePlanCreatedAt, effectivePayAnchorDate, effectivePayDate, effectivePayFrequency],
+    [activePlanCreatedAt, effectivePayAnchorDate, effectivePayDate, effectivePayFrequency, payPeriodBoundaryVersion],
   );
   const defaultActiveAnchor = useMemo(
     () => getPayPeriodAnchorFromWindow({ period: defaultActivePeriod, payFrequency: effectivePayFrequency }),
@@ -313,6 +332,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
   );
   const defaultActiveMonth = defaultActiveAnchor.month;
   const defaultActiveYear = defaultActiveAnchor.year;
+  const lastDefaultActiveAnchorRef = useRef<{ month: number; year: number } | null>(null);
 
   useEffect(() => {
     if (didNormalizeInitialPeriodRef.current) return;
@@ -906,6 +926,41 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
   useEffect(() => {
     applyCachedViewState(activePlanId, month, year);
   }, [activePlanId, applyCachedViewState, month, year]);
+
+  useEffect(() => {
+    if (!payPeriodBoundaryVersion) return;
+
+    const previousActiveAnchor = lastDefaultActiveAnchorRef.current;
+    const nextActiveAnchor = { month: defaultActiveMonth, year: defaultActiveYear };
+    const wasShowingPreviousActivePeriod = Boolean(
+      previousActiveAnchor
+      && month === previousActiveAnchor.month
+      && year === previousActiveAnchor.year,
+    );
+    const isShowingNewActivePeriod = month === nextActiveAnchor.month && year === nextActiveAnchor.year;
+
+    if (!wasShowingPreviousActivePeriod && !isShowingNewActivePeriod) {
+      return;
+    }
+
+    clearExpenseCaches();
+
+    if (wasShowingPreviousActivePeriod) {
+      setMonth(nextActiveAnchor.month);
+      setYear(nextActiveAnchor.year);
+      navigation.setParams({
+        month: nextActiveAnchor.month,
+        year: nextActiveAnchor.year,
+        prevDisabled: !canDecrement(nextActiveAnchor.year, nextActiveAnchor.month),
+      });
+    }
+
+    void load({ force: true });
+  }, [canDecrement, clearExpenseCaches, defaultActiveMonth, defaultActiveYear, load, month, navigation, payPeriodBoundaryVersion, year]);
+
+  useEffect(() => {
+    lastDefaultActiveAnchorRef.current = { month: defaultActiveMonth, year: defaultActiveYear };
+  }, [defaultActiveMonth, defaultActiveYear]);
 
   useEffect(() => {
     const isLiveOrFutureSelectedPeriod = year > defaultActiveYear || (year === defaultActiveYear && month >= defaultActiveMonth);
