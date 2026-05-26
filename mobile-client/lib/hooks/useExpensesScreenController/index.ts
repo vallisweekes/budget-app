@@ -431,6 +431,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     const nextDisplayedAnchor = { month: defaultActiveMonth, year: defaultActiveYear };
     const previousDisplayedAnchor = lastResolvedDisplayedActiveAnchorRef.current;
     const isShowingRawDefault = month === rawDefaultActiveMonth && year === rawDefaultActiveYear;
+    const shouldSyncFromRawDefault = previousDisplayedAnchor === null && isShowingRawDefault;
     const isShowingPreviousDisplayedAnchor = Boolean(
       previousDisplayedAnchor
       && month === previousDisplayedAnchor.month
@@ -439,7 +440,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
 
     lastResolvedDisplayedActiveAnchorRef.current = nextDisplayedAnchor;
 
-    if (!isShowingRawDefault && !isShowingPreviousDisplayedAnchor) {
+    if (!shouldSyncFromRawDefault && !isShowingPreviousDisplayedAnchor) {
       return;
     }
 
