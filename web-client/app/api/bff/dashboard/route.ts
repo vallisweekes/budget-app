@@ -3,7 +3,7 @@ import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
 import { bestEffortWithin } from "@/lib/bestEffortWithin";
 import { getDashboardPlanDataForActivePayPeriod } from "@/lib/helpers/dashboard/getDashboardPlanData";
 import { getBudgetPlanMeta } from "@/lib/helpers/dashboard/getBudgetPlanMeta";
-import { getDebtSummaryForPlan } from "@/lib/debts/summary";
+import { getDebtSummaryForPlan, type DebtSummary } from "@/lib/debts/summary";
 import { computeDebtTips } from "@/lib/debts/insights";
 import { getDashboardExpenseInsights } from "@/lib/helpers/dashboard/getDashboardExpenseInsights";
 import { getAiBudgetTips } from "@/lib/ai/budgetTips";
@@ -101,9 +101,11 @@ export async function GET(req: NextRequest) {
 		// 1) Plan meta (payDate, homepageGoalIds)
 		// We need payDate early so the dashboard month matches the active pay period.
 		const { payDate, homepageGoalIds, createdAt: planCreatedAt } = await timeSection(timings, "plan_meta", async () => getBudgetPlanMeta(budgetPlanId));
+		const includeCadenceFields = await detectOnboardingCadenceFields();
+		const includePayAnchorDate = await supportsOnboardingPayAnchorDateField();
 
 		// Best-effort onboarding context: never let dashboard fail due to schema/client mismatch.
-		let onboarding:
+		const onboarding:
 			| {
 				status?: unknown;
 				completedAt?: unknown;
@@ -129,48 +131,16 @@ export async function GET(req: NextRequest) {
 				debtAmount: unknown;
 				debtNotes: unknown;
 			}
-			| null = null;
-		const includeCadenceFields = await detectOnboardingCadenceFields();
-		const includePayAnchorDate = await supportsOnboardingPayAnchorDateField();
-		await timeSection(timings, "onboarding", async () => {
-			try {
-				onboarding = await prisma.userOnboardingProfile.findUnique({
-					where: { userId },
-					select: {
-							status: true,
-							completedAt: true,
-							updatedAt: true,
-						mainGoal: true,
-						mainGoals: true,
-						occupation: true,
-						...(includeCadenceFields ? { payFrequency: true, billFrequency: true } : {}),
-						...(includePayAnchorDate ? { payAnchorDate: true } : {}),
-						monthlySalary: true,
-						expenseOneName: true,
-						expenseOneAmount: true,
-						expenseTwoName: true,
-						expenseTwoAmount: true,
-						expenseThreeName: true,
-						expenseThreeAmount: true,
-						expenseFourName: true,
-						expenseFourAmount: true,
-						hasAllowance: true,
-						allowanceAmount: true,
-						hasDebtsToManage: true,
-						debtAmount: true,
-						debtNotes: true,
-					},
-				});
-			} catch (error) {
-				console.error("Dashboard: onboarding fetch failed:", error);
+			| null = await timeSection(timings, "onboarding", async () => {
 				try {
-					const legacy = await prisma.userOnboardingProfile.findUnique({
+					return await prisma.userOnboardingProfile.findUnique({
 						where: { userId },
 						select: {
-							status: true,
-							completedAt: true,
-							updatedAt: true,
+								status: true,
+								completedAt: true,
+								updatedAt: true,
 							mainGoal: true,
+							mainGoals: true,
 							occupation: true,
 							...(includeCadenceFields ? { payFrequency: true, billFrequency: true } : {}),
 							...(includePayAnchorDate ? { payAnchorDate: true } : {}),
@@ -179,6 +149,10 @@ export async function GET(req: NextRequest) {
 							expenseOneAmount: true,
 							expenseTwoName: true,
 							expenseTwoAmount: true,
+							expenseThreeName: true,
+							expenseThreeAmount: true,
+							expenseFourName: true,
+							expenseFourAmount: true,
 							hasAllowance: true,
 							allowanceAmount: true,
 							hasDebtsToManage: true,
@@ -186,21 +160,46 @@ export async function GET(req: NextRequest) {
 							debtNotes: true,
 						},
 					});
-					onboarding = legacy
-						? {
-							...legacy,
-							expenseThreeName: null as unknown,
-							expenseThreeAmount: null as unknown,
-							expenseFourName: null as unknown,
-							expenseFourAmount: null as unknown,
-						}
-						: null;
-				} catch (legacyError) {
-					console.error("Dashboard: onboarding legacy fetch failed:", legacyError);
-					onboarding = null;
+				} catch (error) {
+					console.error("Dashboard: onboarding fetch failed:", error);
+					try {
+						const legacy = await prisma.userOnboardingProfile.findUnique({
+							where: { userId },
+							select: {
+								status: true,
+								completedAt: true,
+								updatedAt: true,
+								mainGoal: true,
+								occupation: true,
+								...(includeCadenceFields ? { payFrequency: true, billFrequency: true } : {}),
+								...(includePayAnchorDate ? { payAnchorDate: true } : {}),
+								monthlySalary: true,
+								expenseOneName: true,
+								expenseOneAmount: true,
+								expenseTwoName: true,
+								expenseTwoAmount: true,
+								hasAllowance: true,
+								allowanceAmount: true,
+								hasDebtsToManage: true,
+								debtAmount: true,
+								debtNotes: true,
+							},
+						});
+						return legacy
+							? {
+								...legacy,
+								expenseThreeName: null as unknown,
+								expenseThreeAmount: null as unknown,
+								expenseFourName: null as unknown,
+								expenseFourAmount: null as unknown,
+							}
+							: null;
+					} catch (legacyError) {
+						console.error("Dashboard: onboarding legacy fetch failed:", legacyError);
+						return null;
+					}
 				}
-			}
-		});
+			});
 
 		const onboardingCompletedAt = latestDate(
 			onboarding?.completedAt instanceof Date ? onboarding.completedAt : null,
@@ -315,7 +314,7 @@ export async function GET(req: NextRequest) {
 					activeExpenseDebts: [],
 					creditCards: [],
 					totalDebtBalance: 0,
-				};
+				} satisfies DebtSummary;
 			}
 		})());
 
@@ -749,7 +748,7 @@ export async function GET(req: NextRequest) {
 				id: d.id,
 				name: d.name,
 				logoUrl:
-					(d.sourceExpenseId ? debtLogoByExpenseId.get(d.sourceExpenseId) ?? null : null) ??
+					(d.sourceExpenseId ? debtLogoByExpenseId.get(d.sourceExpenseId) : undefined) ??
 					resolveExpenseLogo(d.name).logoUrl,
 				type: d.type,
 				initialBalance: d.initialBalance,
@@ -820,7 +819,7 @@ export async function GET(req: NextRequest) {
 		return NextResponse.json(
 			{
 				error: "Failed to compute dashboard data",
-				...(isProd ? {} : { detail: String((error as any)?.message ?? error) }),
+				...(isProd ? {} : { detail: error instanceof Error ? error.message : String(error) }),
 			},
 			{
 				status: 500,

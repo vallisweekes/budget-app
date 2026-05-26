@@ -30,8 +30,8 @@ export function useDebtScreenController() {
     settings,
     isLoading: bootstrapLoading,
     error: bootstrapError,
-    refresh: refreshBootstrap,
-    ensureLoaded,
+    refreshSettings,
+    ensureSettingsLoaded,
   } = useBootstrapData();
   const debtSummaryQuery = useGetDebtSummaryQuery();
   const creditCardsQuery = useGetCreditCardsQuery();
@@ -91,6 +91,7 @@ export function useDebtScreenController() {
 
   const summary = debtSummaryQuery.data ?? null;
   const cards = Array.isArray(creditCardsQuery.data) ? creditCardsQuery.data : [];
+  const loadingSettings = !settings && bootstrapLoading;
   const loadingDebts = Boolean((debtSummaryQuery.isLoading || creditCardsQuery.isLoading) && !summary);
   const error = (() => {
     const nextError = debtSummaryQuery.error ?? creditCardsQuery.error;
@@ -105,13 +106,13 @@ export function useDebtScreenController() {
       const hasDebtSummary = Boolean(debtSummaryQuery.data);
       const hasCreditCards = Array.isArray(creditCardsQuery.data);
 
-      const [{ settings: bootSettings }] = await Promise.all([
-        force ? refreshBootstrap({ force: true }) : ensureLoaded(),
+      const [loadedSettings] = await Promise.all([
+        force ? refreshSettings({ force: true }) : ensureSettingsLoaded(),
         force || !hasDebtSummary ? debtSummaryQuery.refetch() : Promise.resolve(),
         force || !hasCreditCards ? creditCardsQuery.refetch() : Promise.resolve(),
       ]);
 
-      if (!bootSettings) {
+      if (!loadedSettings) {
         throw bootstrapError ?? new Error("Failed to load settings");
       }
 
@@ -119,7 +120,7 @@ export function useDebtScreenController() {
     } finally {
       setRefreshing(false);
     }
-  }, [bootstrapError, creditCardsQuery, debtSummaryQuery, ensureLoaded, refreshBootstrap]);
+  }, [bootstrapError, creditCardsQuery, debtSummaryQuery, ensureSettingsLoaded, refreshSettings]);
 
   useEffect(() => {
     if (!summary) return;
@@ -157,7 +158,7 @@ export function useDebtScreenController() {
     }, [creditCardsQuery.data, load, summary]),
   );
 
-  const loading = bootstrapLoading || loadingDebts;
+  const loading = loadingSettings || loadingDebts;
 
   useEffect(() => {
     const optimisticDeletedDebtId = route.params?.optimisticDeletedDebtId;
