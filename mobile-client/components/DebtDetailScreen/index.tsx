@@ -37,6 +37,7 @@ export default function DebtDetailScreen() {
   const { params } = useRoute<DebtDetailRoute>();
   const { debtId, debtName } = params;
   const insets = useSafeAreaInsets();
+  const [activeTab, setActiveTab] = React.useState<"details" | "payments">("details");
 
   const state = useDebtDetailController({
     debtId,
@@ -47,6 +48,10 @@ export default function DebtDetailScreen() {
       navigation.navigate("DebtList", { restoreDebtId: failedDebtId }),
   });
   const { debt, loading, error, currency, derived } = state;
+
+  React.useEffect(() => {
+    setActiveTab("details");
+  }, [debtId]);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -98,6 +103,121 @@ export default function DebtDetailScreen() {
   const progressText = derived.progressLabel ?? `${derived.progressPct.toFixed(1)}% paid off`;
   const logoUri = resolveLogoUri(debt.logoUrl);
 
+  const detailsContent = (
+    <>
+      <View style={s.projectionSection}>
+        <View style={s.projectionTopRow}>
+          <View style={s.projectionHeader}>
+            <Text style={s.projectionBalanceLabel}>Current balance</Text>
+            <Text style={[s.projectionBalanceValue, derived.isPaid && { color: T.green }]}>
+              {derived.isPaid ? "Paid off" : fmt(derived.currentBalNum, currency)}
+            </Text>
+            <Text
+              style={[
+                s.projectionBalanceSub,
+                derived.progressPct > 0
+                  ? s.projectionBalanceSubPositive
+                  : derived.progressPct < 0
+                    ? s.projectionBalanceSubNegative
+                    : s.projectionBalanceSubNeutral,
+              ]}
+            >
+              {progressText}
+            </Text>
+          </View>
+
+          <View style={s.projectionLogoCircle}>
+            {logoUri ? (
+              <Image
+                source={{ uri: logoUri }}
+                style={s.projectionLogoImage}
+                resizeMode="contain"
+              />
+            ) : (
+              <Text style={s.projectionLogoFallback}>{(debt.name?.trim()?.[0] ?? "?").toUpperCase()}</Text>
+            )}
+          </View>
+        </View>
+
+        {!derived.isPaid ? (
+          <PayoffChart
+            balance={derived.currentBalNum}
+            monthlyPayment={projectionMonthlyPayment}
+            monthsLeftOverride={debt.computedMonthsLeft}
+            paidOffByOverride={debt.computedPaidOffBy}
+            cannotPayoffOverride={debt.computedCannotPayoff}
+            payoffLabelOverride={debt.computedPayoffLabel}
+            horizonLabelOverride={debt.computedHorizonLabel}
+            interestRate={derived.interestRateNum}
+            currency={currency}
+          />
+        ) : null}
+
+        {!derived.isPaid ? (
+          <View style={s.projectionMetaRow}>
+            <View style={s.projectionMetaItem}>
+              <Text style={s.projectionMetaLabel}>Months left</Text>
+              <Text style={[s.projectionMetaValue, payoffSummary.cannotPayoff && s.projectionMetaValueWarning]}>
+                {payoffSummary.cannotPayoff ? "—" : String(payoffSummary.totalMonths)}
+              </Text>
+            </View>
+            <View style={s.projectionMetaDivider} />
+            <View style={s.projectionMetaItem}>
+              <Text style={s.projectionMetaLabel}>Paid off by</Text>
+              <Text
+                style={[
+                  s.projectionMetaValue,
+                  !payoffSummary.cannotPayoff && (derived.isPaid || payoffSummary.payoffLabel) ? s.projectionMetaValuePositive : null,
+                  payoffSummary.cannotPayoff ? s.projectionMetaValueWarning : null,
+                ]}
+              >
+                {derived.isPaid ? "Paid" : (payoffSummary.payoffLabel ?? "—")}
+              </Text>
+            </View>
+          </View>
+        ) : null}
+      </View>
+
+      <DebtStatsGrid
+        isCardDebt={derived.isCardDebt && (derived.creditLimitNum ?? 0) > 0}
+        creditLimit={fmt(derived.creditLimitNum ?? 0, currency)}
+        original={fmt(derived.originalBalNum, currency)}
+        paidSoFarLabel={derived.isOverLimit ? "Over limit" : undefined}
+        paidSoFar={derived.isOverLimit ? `-${fmt(Math.abs(derived.paidMetricAmount), currency)}` : fmt(derived.paidMetricAmount, currency)}
+        paidSoFarTone={derived.isOverLimit ? "red" : "green"}
+        dueCoveredThisCycle={derived.dueCoveredThisCycle}
+        dueDateLabel={derived.dueDateLabel}
+        dueStatusSub={
+          !derived.dueCoveredThisCycle && derived.dueDateLabel !== "Not set"
+            ? (derived.isOverdue ? "Overdue (+5 day grace passed)" : "On schedule")
+            : undefined
+        }
+        dueTone={derived.dueCoveredThisCycle ? "green" : derived.isOverdue ? "red" : "normal"}
+        monthlyOrInterestLabel={
+          derived.isCardDebt
+            ? (derived.dueTarget > 0 ? (hasCurrentPeriodPaymentOverride ? "This period payment" : "Monthly payment") : (derived.interestRateNum != null && derived.interestRateNum > 0 ? "Interest Rate" : "Monthly min"))
+            : (showMonthlyPayment ? (hasCurrentPeriodPaymentOverride ? "This period payment" : "Monthly payment") : "Interest Rate")
+        }
+        monthlyOrInterestValue={
+          derived.isCardDebt
+            ? (derived.dueTarget > 0
+                ? fmt(derived.dueTarget, currency)
+                : (derived.interestRateNum != null && derived.interestRateNum > 0 ? `${derived.interestRateNum}%` : "—"))
+            : (showMonthlyPayment
+                ? fmt(monthlyPaymentNum, currency)
+                : (derived.interestRateNum != null && derived.interestRateNum > 0 ? `${derived.interestRateNum}%` : "—"))
+        }
+        monthlyOrInterestSub={
+          hasCurrentPeriodPaymentOverride && debt.computedMonthlyPayment != null
+            ? `Recurring ${fmt(debt.computedMonthlyPayment, currency)}`
+            : (derived.isCardDebt && derived.monthlyMinNum != null && derived.monthlyMinNum > 0 && derived.dueTarget > derived.monthlyMinNum
+                ? `Min ${fmt(derived.monthlyMinNum, currency)}`
+                : undefined)
+        }
+      />
+    </>
+  );
+
   return (
     <SafeAreaView style={s.safe} edges={["bottom"]}>
       <DebtDetailHeader
@@ -115,123 +235,22 @@ export default function DebtDetailScreen() {
           contentContainerStyle={[s.scroll, { paddingTop: insets.top + 88, paddingBottom: 120 + insets.bottom + 12 }]}
           refreshControl={<RefreshControl refreshing={state.refreshing} onRefresh={() => { state.setRefreshing(true); state.load(); }} tintColor={T.accent} />}
         >
-          <View style={s.projectionSection}>
-            <View style={s.projectionTopRow}>
-              <View style={s.projectionHeader}>
-                <Text style={s.projectionBalanceLabel}>Current balance</Text>
-                <Text style={[s.projectionBalanceValue, derived.isPaid && { color: T.green }]}>
-                  {derived.isPaid ? "Paid off" : fmt(derived.currentBalNum, currency)}
-                </Text>
-                <Text
-                  style={[
-                    s.projectionBalanceSub,
-                    derived.progressPct > 0
-                      ? s.projectionBalanceSubPositive
-                      : derived.progressPct < 0
-                        ? s.projectionBalanceSubNegative
-                        : s.projectionBalanceSubNeutral,
-                  ]}
-                >
-                  {progressText}
-                </Text>
-              </View>
-
-              <View style={s.projectionLogoCircle}>
-                {logoUri ? (
-                  <Image
-                    source={{ uri: logoUri }}
-                    style={s.projectionLogoImage}
-                    resizeMode="contain"
-                  />
-                ) : (
-                  <Text style={s.projectionLogoFallback}>{(debt.name?.trim()?.[0] ?? "?").toUpperCase()}</Text>
-                )}
-              </View>
-            </View>
-
-            {!derived.isPaid ? (
-              <PayoffChart
-                balance={derived.currentBalNum}
-                monthlyPayment={projectionMonthlyPayment}
-                monthsLeftOverride={debt.computedMonthsLeft}
-                paidOffByOverride={debt.computedPaidOffBy}
-                cannotPayoffOverride={debt.computedCannotPayoff}
-                payoffLabelOverride={debt.computedPayoffLabel}
-                horizonLabelOverride={debt.computedHorizonLabel}
-                interestRate={derived.interestRateNum}
-                currency={currency}
-              />
-            ) : null}
-
-            {!derived.isPaid ? (
-              <View style={s.projectionMetaRow}>
-                <View style={s.projectionMetaItem}>
-                  <Text style={s.projectionMetaLabel}>Months left</Text>
-                  <Text style={[s.projectionMetaValue, payoffSummary.cannotPayoff && s.projectionMetaValueWarning]}>
-                    {payoffSummary.cannotPayoff ? "—" : String(payoffSummary.totalMonths)}
-                  </Text>
-                </View>
-                <View style={s.projectionMetaDivider} />
-                <View style={s.projectionMetaItem}>
-                  <Text style={s.projectionMetaLabel}>Paid off by</Text>
-                  <Text
-                    style={[
-                      s.projectionMetaValue,
-                      !payoffSummary.cannotPayoff && (derived.isPaid || payoffSummary.payoffLabel) ? s.projectionMetaValuePositive : null,
-                      payoffSummary.cannotPayoff ? s.projectionMetaValueWarning : null,
-                    ]}
-                  >
-                    {derived.isPaid ? "Paid" : (payoffSummary.payoffLabel ?? "—")}
-                  </Text>
-                </View>
-              </View>
-            ) : null}
+          <View style={s.detailModeSwitch}>
+            <Pressable
+              onPress={() => setActiveTab("details")}
+              style={[s.detailModeOption, activeTab === "details" && s.detailModeOptionActive]}
+            >
+              <Text style={[s.detailModeText, activeTab === "details" && s.detailModeTextActive]}>Details</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setActiveTab("payments")}
+              style={[s.detailModeOption, activeTab === "payments" && s.detailModeOptionActive]}
+            >
+              <Text style={[s.detailModeText, activeTab === "payments" && s.detailModeTextActive]}>Payments</Text>
+            </Pressable>
           </View>
 
-          <DebtStatsGrid
-            isCardDebt={derived.isCardDebt && (derived.creditLimitNum ?? 0) > 0}
-            creditLimit={fmt(derived.creditLimitNum ?? 0, currency)}
-            original={fmt(derived.originalBalNum, currency)}
-            paidSoFarLabel={derived.isOverLimit ? "Over limit" : undefined}
-            paidSoFar={derived.isOverLimit ? `-${fmt(Math.abs(derived.paidMetricAmount), currency)}` : fmt(derived.paidMetricAmount, currency)}
-            paidSoFarTone={derived.isOverLimit ? "red" : "green"}
-            dueCoveredThisCycle={derived.dueCoveredThisCycle}
-            dueDateLabel={derived.dueDateLabel}
-            dueStatusSub={
-              !derived.dueCoveredThisCycle && derived.dueDateLabel !== "Not set"
-                ? (derived.isOverdue ? "Overdue (+5 day grace passed)" : "On schedule")
-                : undefined
-            }
-            dueTone={derived.dueCoveredThisCycle ? "green" : derived.isOverdue ? "red" : "normal"}
-            monthlyOrInterestLabel={
-              derived.isCardDebt
-                ? (derived.dueTarget > 0 ? (hasCurrentPeriodPaymentOverride ? "This period payment" : "Monthly payment") : (derived.interestRateNum != null && derived.interestRateNum > 0 ? "Interest Rate" : "Monthly min"))
-                : (showMonthlyPayment ? (hasCurrentPeriodPaymentOverride ? "This period payment" : "Monthly payment") : "Interest Rate")
-            }
-            monthlyOrInterestValue={
-              derived.isCardDebt
-                ? (derived.dueTarget > 0
-                    ? fmt(derived.dueTarget, currency)
-                    : (derived.interestRateNum != null && derived.interestRateNum > 0 ? `${derived.interestRateNum}%` : "—"))
-                : (showMonthlyPayment
-                    ? fmt(monthlyPaymentNum, currency)
-                    : (derived.interestRateNum != null && derived.interestRateNum > 0 ? `${derived.interestRateNum}%` : "—"))
-            }
-            monthlyOrInterestSub={
-              hasCurrentPeriodPaymentOverride && debt.computedMonthlyPayment != null
-                ? `Recurring ${fmt(debt.computedMonthlyPayment, currency)}`
-                : (derived.isCardDebt && derived.monthlyMinNum != null && derived.monthlyMinNum > 0 && derived.dueTarget > derived.monthlyMinNum
-                    ? `Min ${fmt(derived.monthlyMinNum, currency)}`
-                    : undefined)
-            }
-          />
-
-          <PaymentHistorySection
-            payments={state.payments}
-            currency={currency}
-            open={state.paymentHistoryOpen}
-            onToggle={state.togglePaymentHistory}
-          />
+          {activeTab === "details" ? detailsContent : <PaymentHistorySection payments={state.payments} currency={currency} />}
         </ScrollView>
       </KeyboardAvoidingView>
 

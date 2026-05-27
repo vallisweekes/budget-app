@@ -21,8 +21,6 @@ export type DebtHeroProps = {
 export type PaymentHistorySectionProps = {
   payments: DebtPayment[];
   currency: string;
-  open: boolean;
-  onToggle: () => void;
 };
 
 export type PaymentSheetProps = {

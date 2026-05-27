@@ -1,55 +1,137 @@
 import React from "react";
-import { Pressable, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Text, View } from "react-native";
 
 import type { PaymentHistorySectionProps } from "@/types";
 import { fmt } from "@/lib/formatting";
-import { T } from "@/lib/theme";
 import { styles } from "./styles";
 
-export default function PaymentHistorySection({ payments, currency, open, onToggle }: PaymentHistorySectionProps) {
+const STATEMENT_PERIOD_NOTE = /^month:(\d{4})-(\d{2})$/;
+
+type PaymentGroup = {
+  key: string;
+  label: string;
+  caption: string | null;
+  total: number;
+  items: PaymentHistorySectionProps["payments"];
+};
+
+function formatMonthLabel(date: Date) {
+  return date.toLocaleDateString("en-GB", {
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function getGroupMeta(payment: PaymentHistorySectionProps["payments"][number]) {
+  const rawNotes = typeof payment.notes === "string" ? payment.notes.trim() : "";
+  const statementMatch = STATEMENT_PERIOD_NOTE.exec(rawNotes);
+
+  if (statementMatch) {
+    const year = Number(statementMatch[1]);
+    const monthIndex = Number(statementMatch[2]) - 1;
+    const statementDate = new Date(year, monthIndex, 1);
+    return {
+      key: `statement:${statementMatch[1]}-${statementMatch[2]}`,
+      label: formatMonthLabel(statementDate),
+      caption: "Statement period",
+    };
+  }
+
+  const paidDate = new Date(payment.paidAt);
+  const year = paidDate.getFullYear();
+  const month = String(paidDate.getMonth() + 1).padStart(2, "0");
+  return {
+    key: `paid:${year}-${month}`,
+    label: formatMonthLabel(paidDate),
+    caption: null,
+  };
+}
+
+function getPaymentTitle(payment: PaymentHistorySectionProps["payments"][number]) {
+  const rawNotes = typeof payment.notes === "string" ? payment.notes.trim() : "";
+  if (rawNotes && !STATEMENT_PERIOD_NOTE.test(rawNotes)) return rawNotes;
+
+  if (payment.source === "income") return "Payment from income";
+  if (payment.source === "extra_funds") return "Payment from extra funds";
+  if (payment.source === "credit_card") return "Payment from card";
+  return "Payment recorded";
+}
+
+export default function PaymentHistorySection({ payments, currency }: PaymentHistorySectionProps) {
+  const groupedPayments = React.useMemo(() => {
+    const groups: PaymentGroup[] = [];
+    const byKey = new Map<string, PaymentGroup>();
+
+    payments.forEach((payment) => {
+      const groupMeta = getGroupMeta(payment);
+      const existingGroup = byKey.get(groupMeta.key);
+      const amount = Number.parseFloat(payment.amount);
+
+      if (existingGroup) {
+        existingGroup.items.push(payment);
+        existingGroup.total += Number.isFinite(amount) ? amount : 0;
+        return;
+      }
+
+      const nextGroup: PaymentGroup = {
+        key: groupMeta.key,
+        label: groupMeta.label,
+        caption: groupMeta.caption,
+        total: Number.isFinite(amount) ? amount : 0,
+        items: [payment],
+      };
+
+      byKey.set(groupMeta.key, nextGroup);
+      groups.push(nextGroup);
+    });
+
+    return groups;
+  }, [payments]);
+
   return (
-    <View style={styles.sectionCard}>
-      <Pressable style={styles.histHeader} onPress={onToggle}>
+    <View style={styles.historySection}>
+      <View style={styles.histHeader}>
         <View style={styles.histHeaderLeft}>
-          <Text style={styles.sectionTitle}>Payment History</Text>
+          <Text style={styles.sectionTitle}>Payments</Text>
           <View style={styles.histCountBadge}><Text style={styles.histCountText}>{payments.length}</Text></View>
         </View>
-        <Ionicons name={open ? "chevron-up" : "chevron-down"} size={18} color={T.textDim} />
-      </Pressable>
+      </View>
 
-      {open ? (
-        payments.length === 0 ? (
-          <Text style={styles.emptyHistory}>No payments recorded yet.</Text>
-        ) : (
-          payments.map((payment, index) => (
-            <View key={payment.id} style={[styles.payHistRow, index > 0 && styles.payHistBorder]}>
-              <View style={styles.payHistLeft}>
-                <Text style={styles.payHistDate} numberOfLines={1} ellipsizeMode="tail">
-                  {new Date(payment.paidAt).toLocaleDateString("en-GB", {
-                    day: "2-digit",
-                    month: "2-digit",
-                    year: "numeric",
-                  })}
-                </Text>
-                {(() => {
-					const notes = typeof payment.notes === "string" ? payment.notes.trim() : "";
-					if (!notes) return null;
-					if (/^month:\d{4}-\d{2}$/.test(notes)) return null;
-					return (
-						<Text style={styles.payHistSource} numberOfLines={1} ellipsizeMode="tail">
-							{notes}
-						</Text>
-					);
-				})()}
+      {payments.length === 0 ? (
+        <Text style={styles.emptyHistory}>No payments recorded yet.</Text>
+      ) : (
+        groupedPayments.map((group) => (
+          <View key={group.key} style={styles.monthGroup}>
+            <View style={styles.monthHeader}>
+              <View style={styles.monthHeaderCopy}>
+                <Text style={styles.monthTitle}>{group.label}</Text>
+                {group.caption ? <Text style={styles.monthCaption}>{group.caption}</Text> : null}
               </View>
-              <Text style={styles.payHistAmt} numberOfLines={1} ellipsizeMode="clip">
-                - {fmt(parseFloat(payment.amount), currency)}
-              </Text>
+              <Text style={styles.monthTotal}>- {fmt(group.total, currency)}</Text>
             </View>
-          ))
-        )
-      ) : null}
+
+            {group.items.map((payment, index) => (
+              <View key={payment.id} style={[styles.payHistRow, index > 0 && styles.payHistBorder]}>
+                <View style={styles.payHistLeft}>
+                  <Text style={styles.payHistTitle} numberOfLines={1} ellipsizeMode="tail">
+                    {getPaymentTitle(payment)}
+                  </Text>
+                  <Text style={styles.payHistMeta} numberOfLines={1} ellipsizeMode="tail">
+                    {new Date(payment.paidAt).toLocaleDateString("en-GB", {
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                    })}
+                  </Text>
+                </View>
+                <Text style={styles.payHistAmt} numberOfLines={1} ellipsizeMode="clip">
+                  - {fmt(parseFloat(payment.amount), currency)}
+                </Text>
+              </View>
+            ))}
+          </View>
+        ))
+      )}
     </View>
   );
 }
