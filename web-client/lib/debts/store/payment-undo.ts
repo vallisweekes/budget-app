@@ -136,7 +136,6 @@ export async function undoMostRecentPayment(params: {
 		if (periodKey) {
 			const overrideTarget = await resolveDebtPlannedPaymentTarget({
 				budgetPlanId,
-				debtId,
 				dueDate: targetDebt.dueDate,
 				dueDay: targetDebt.dueDay,
 				targetPeriodKey: periodKey,
