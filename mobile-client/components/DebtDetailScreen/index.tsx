@@ -9,6 +9,7 @@ import { s } from "@/components/DebtDetailScreen/style";
 import type { DebtDetailNav, DebtDetailRoute } from "@/types";
 import { buildProjection, derivePayoffSummary } from "@/lib/domain/debtPayoff";
 import { getApiBaseUrl } from "@/lib/api";
+import { normalizePayFrequency, resolveActivePayPeriod } from "@/lib/payPeriods";
 import { T } from "@/lib/theme";
 import { fmt } from "@/lib/formatting";
 import DeleteConfirmSheet from "@/components/Shared/DeleteConfirmSheet";
@@ -86,6 +87,10 @@ export default function DebtDetailScreen() {
     debt.dueThisMonth != null &&
     debt.computedMonthlyPayment != null &&
     Math.abs(Number(debt.dueThisMonth) - Number(debt.computedMonthlyPayment)) > 0.009;
+  const recurringPaymentNum = debt.computedMonthlyPayment != null
+    ? Number(debt.computedMonthlyPayment)
+    : (derived.isCardDebt ? (derived.monthlyMinNum ?? 0) : monthlyPaymentNum);
+  const hasRecurringPayment = Number.isFinite(recurringPaymentNum) && recurringPaymentNum > 0;
   const showMonthlyPayment = !derived.isCardDebt && Number.isFinite(monthlyPaymentNum) && monthlyPaymentNum > 0;
   const projectionMonthlyPayment = debt.computedMonthlyPayment != null
     ? debt.computedMonthlyPayment
@@ -102,6 +107,74 @@ export default function DebtDetailScreen() {
   })();
   const progressText = derived.progressLabel ?? `${derived.progressPct.toFixed(1)}% paid off`;
   const logoUri = resolveLogoUri(debt.logoUrl);
+  const activePayPeriod = (() => {
+    const payDate = Number.isFinite(Number(state.settings?.payDate)) && Number(state.settings?.payDate) >= 1
+      ? Math.floor(Number(state.settings?.payDate))
+      : 1;
+    return resolveActivePayPeriod({
+      now: new Date(),
+      payDate,
+      payFrequency: normalizePayFrequency(state.settings?.payFrequency),
+    });
+  })();
+  const dueDateValue = debt.dueDate ? new Date(debt.dueDate) : null;
+  const isShowingNextPayment = Boolean(
+    derived.dueCoveredThisCycle &&
+    dueDateValue &&
+    Number.isFinite(dueDateValue.getTime()) &&
+    dueDateValue.getTime() > activePayPeriod.end.getTime()
+  );
+  const dueStatusSub = (() => {
+    if (derived.dueDateLabel === "Not set") return undefined;
+    if (derived.isOverdue) return "Overdue (+5 day grace passed)";
+    if (isShowingNextPayment) {
+      return "Current period paid";
+    }
+    if (derived.dueCoveredThisCycle) {
+      return "On schedule";
+    }
+    return "On schedule";
+  })();
+  const monthlyOrInterestLabel = (() => {
+    if (isShowingNextPayment) return "Next payment";
+    if (derived.dueCoveredThisCycle) return "Paid this period";
+    if (derived.isCardDebt) {
+      if (derived.dueTarget > 0) return hasCurrentPeriodPaymentOverride ? "Current period due" : "Recurring payment";
+      return derived.interestRateNum != null && derived.interestRateNum > 0 ? "Interest Rate" : "Monthly min";
+    }
+    if (showMonthlyPayment) return hasCurrentPeriodPaymentOverride ? "Current period due" : "Monthly payment";
+    return "Interest Rate";
+  })();
+  const monthlyOrInterestValue = (() => {
+    if (isShowingNextPayment) {
+      return hasRecurringPayment ? fmt(recurringPaymentNum, currency) : "—";
+    }
+    if (derived.dueCoveredThisCycle) {
+      const paidValue = derived.paidThisCycle > 0 ? derived.paidThisCycle : derived.dueTarget;
+      return fmt(paidValue, currency);
+    }
+    if (derived.isCardDebt) {
+      if (derived.dueTarget > 0) return fmt(derived.dueTarget, currency);
+      return derived.interestRateNum != null && derived.interestRateNum > 0 ? `${derived.interestRateNum}%` : "—";
+    }
+    if (showMonthlyPayment) return fmt(monthlyPaymentNum, currency);
+    return derived.interestRateNum != null && derived.interestRateNum > 0 ? `${derived.interestRateNum}%` : "—";
+  })();
+  const monthlyOrInterestSub = (() => {
+    if (isShowingNextPayment) {
+      return undefined;
+    }
+    if (derived.dueCoveredThisCycle && hasRecurringPayment) {
+      return `Recurring ${fmt(recurringPaymentNum, currency)}`;
+    }
+    if (hasCurrentPeriodPaymentOverride && debt.computedMonthlyPayment != null) {
+      return `Recurring ${fmt(debt.computedMonthlyPayment, currency)}`;
+    }
+    if (derived.isCardDebt && derived.monthlyMinNum != null && derived.monthlyMinNum > 0 && derived.dueTarget > derived.monthlyMinNum) {
+      return `Min ${fmt(derived.monthlyMinNum, currency)}`;
+    }
+    return undefined;
+  })();
 
   const detailsContent = (
     <>
@@ -182,38 +255,15 @@ export default function DebtDetailScreen() {
         isCardDebt={derived.isCardDebt && (derived.creditLimitNum ?? 0) > 0}
         creditLimit={fmt(derived.creditLimitNum ?? 0, currency)}
         original={fmt(derived.originalBalNum, currency)}
-        paidSoFarLabel={derived.isOverLimit ? "Over limit" : undefined}
+        paidSoFarLabel={derived.isCardDebt ? (derived.isOverLimit ? "Over limit" : "Available to spend") : undefined}
         paidSoFar={derived.isOverLimit ? `-${fmt(Math.abs(derived.paidMetricAmount), currency)}` : fmt(derived.paidMetricAmount, currency)}
         paidSoFarTone={derived.isOverLimit ? "red" : "green"}
-        dueCoveredThisCycle={derived.dueCoveredThisCycle}
         dueDateLabel={derived.dueDateLabel}
-        dueStatusSub={
-          !derived.dueCoveredThisCycle && derived.dueDateLabel !== "Not set"
-            ? (derived.isOverdue ? "Overdue (+5 day grace passed)" : "On schedule")
-            : undefined
-        }
-        dueTone={derived.dueCoveredThisCycle ? "green" : derived.isOverdue ? "red" : "normal"}
-        monthlyOrInterestLabel={
-          derived.isCardDebt
-            ? (derived.dueTarget > 0 ? (hasCurrentPeriodPaymentOverride ? "This period payment" : "Monthly payment") : (derived.interestRateNum != null && derived.interestRateNum > 0 ? "Interest Rate" : "Monthly min"))
-            : (showMonthlyPayment ? (hasCurrentPeriodPaymentOverride ? "This period payment" : "Monthly payment") : "Interest Rate")
-        }
-        monthlyOrInterestValue={
-          derived.isCardDebt
-            ? (derived.dueTarget > 0
-                ? fmt(derived.dueTarget, currency)
-                : (derived.interestRateNum != null && derived.interestRateNum > 0 ? `${derived.interestRateNum}%` : "—"))
-            : (showMonthlyPayment
-                ? fmt(monthlyPaymentNum, currency)
-                : (derived.interestRateNum != null && derived.interestRateNum > 0 ? `${derived.interestRateNum}%` : "—"))
-        }
-        monthlyOrInterestSub={
-          hasCurrentPeriodPaymentOverride && debt.computedMonthlyPayment != null
-            ? `Recurring ${fmt(debt.computedMonthlyPayment, currency)}`
-            : (derived.isCardDebt && derived.monthlyMinNum != null && derived.monthlyMinNum > 0 && derived.dueTarget > derived.monthlyMinNum
-                ? `Min ${fmt(derived.monthlyMinNum, currency)}`
-                : undefined)
-        }
+        dueStatusSub={dueStatusSub}
+        dueTone={derived.isOverdue ? "red" : "normal"}
+        monthlyOrInterestLabel={monthlyOrInterestLabel}
+        monthlyOrInterestValue={monthlyOrInterestValue}
+        monthlyOrInterestSub={monthlyOrInterestSub}
       />
     </>
   );

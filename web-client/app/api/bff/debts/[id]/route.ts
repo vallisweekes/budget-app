@@ -7,10 +7,10 @@ import { computeDebtPayoffProjection } from "@/lib/debts/payoffProjection";
 import { deriveDebtPayoffSummary } from "@/lib/debts/payoffSummary";
 import { computeAgreementBaseline } from "@/lib/debts/agreementBaseline";
 import { resolveExpenseLogo } from "@/lib/expenses/logoResolver";
-import { getCurrentPeriodKey, getPaymentPeriodKey, getPeriodKey, parsePeriodKeyRange, resolvePayDate } from "@/lib/helpers/periodKey";
+import { getPaymentPeriodKey, resolvePayDate } from "@/lib/helpers/periodKey";
 import { getEarlyPaymentWindowStart } from "@/lib/helpers/finance/earlyPaymentWindow";
 import { invalidateDashboardCache } from "@/lib/cache/dashboardCache";
-import { getPayPeriodKeyForDate, getPreviousPayPeriodKey, normalizePayFrequency, resolveActivePayPeriodWindow } from "@/lib/payPeriods";
+import { getPayPeriodKeyForDate, normalizePayFrequency, resolveActivePayPeriodWindow } from "@/lib/payPeriods";
 import { bestEffortWithin } from "@/lib/bestEffortWithin";
 
 export const runtime = "nodejs";
@@ -471,7 +471,6 @@ export async function GET(
     const payFrequency = normalizePayFrequency(onboardingProfile?.payFrequency);
     const currentPeriodKey = getPayPeriodKeyForDate({ date: new Date(), payDate, payFrequency });
     const { start: currentPeriodStart } = resolveActivePayPeriodWindow({ now: new Date(), payDate, payFrequency });
-    const previousPeriodKey = getPreviousPayPeriodKey({ periodKey: currentPeriodKey, payDate, payFrequency });
     const earlyPaymentStart = getEarlyPaymentWindowStart(currentPeriodStart);
     const editableOverrideTargetPeriodKey = getPayPeriodKeyForDate({
       date: resolveDebtOverrideReferenceDate({ dueDate: safe.dueDate, dueDay: safe.dueDay }),
@@ -484,10 +483,7 @@ export async function GET(
           debtId: safe.id,
           OR: [
             { periodKey: currentPeriodKey },
-            {
-              periodKey: previousPeriodKey,
-              paidAt: { gte: earlyPaymentStart, lt: currentPeriodStart },
-            },
+            { paidAt: { gte: earlyPaymentStart, lt: currentPeriodStart } },
           ],
         },
         _sum: { amount: true },

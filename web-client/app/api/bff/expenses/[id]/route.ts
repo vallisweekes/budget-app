@@ -457,7 +457,11 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     }
   }
 
-  // Explicit paid toggle (from mobile client) takes priority
+  const isPartialPaymentUpdate = paidAmountExplicit !== undefined && paidAmountExplicit > 0;
+  const isExplicitUnpaidReset = paidExplicit === false && !isPartialPaymentUpdate;
+
+  // Explicit paid toggle (from mobile client) takes priority, but preserve
+  // partial payments when the client sends { paid: false, paidAmount: > 0 }.
   let nextPaidAmountNumber: number;
   let nextPaid: boolean;
 
@@ -465,6 +469,9 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     if (paidExplicit) {
       nextPaidAmountNumber = paidAmountExplicit != null ? Math.min(paidAmountExplicit, nextAmountNumber) : nextAmountNumber;
       nextPaid = nextAmountNumber <= 0 || nextPaidAmountNumber >= nextAmountNumber;
+    } else if (isPartialPaymentUpdate) {
+      nextPaidAmountNumber = Math.min(paidAmountExplicit, nextAmountNumber);
+      nextPaid = nextAmountNumber > 0 && nextPaidAmountNumber >= nextAmountNumber;
     } else {
       nextPaidAmountNumber = 0;
       nextPaid = false;
@@ -488,7 +495,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   //  - paid toggle or partial payment applied with result > 0 → stamp now
   //  - pure metadata edit (name/amount/category etc.) → leave unchanged
   let nextLastPaymentAt: Date | null | undefined;
-  if (paidExplicit === false) {
+  if (isExplicitUnpaidReset) {
     nextLastPaymentAt = null;
   } else if (
     (paidExplicit === true || paidAmountExplicit !== undefined) &&

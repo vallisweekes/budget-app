@@ -430,6 +430,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
 
     const nextDisplayedAnchor = { month: defaultActiveMonth, year: defaultActiveYear };
     const previousDisplayedAnchor = lastResolvedDisplayedActiveAnchorRef.current;
+    const preferredPeriod = activePlanId ? preferredPeriodByPlanRef.current[activePlanId] : null;
     const isShowingRawDefault = month === rawDefaultActiveMonth && year === rawDefaultActiveYear;
     const shouldSyncFromRawDefault = previousDisplayedAnchor === null && isShowingRawDefault;
     const isShowingPreviousDisplayedAnchor = Boolean(
@@ -437,10 +438,14 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       && month === previousDisplayedAnchor.month
       && year === previousDisplayedAnchor.year,
     );
+    const isShowingStalePastPeriodWithoutPreference = !preferredPeriod && (
+      year < nextDisplayedAnchor.year
+      || (year === nextDisplayedAnchor.year && month < nextDisplayedAnchor.month)
+    );
 
     lastResolvedDisplayedActiveAnchorRef.current = nextDisplayedAnchor;
 
-    if (!shouldSyncFromRawDefault && !isShowingPreviousDisplayedAnchor) {
+    if (!shouldSyncFromRawDefault && !isShowingPreviousDisplayedAnchor && !isShowingStalePastPeriodWithoutPreference) {
       return;
     }
 
@@ -456,6 +461,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       prevDisabled: !canDecrement(nextDisplayedAnchor.year, nextDisplayedAnchor.month),
     });
   }, [
+    activePlanId,
     canDecrement,
     defaultActiveMonth,
     defaultActiveYear,
@@ -579,6 +585,18 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       payAnchorDate: effectivePayAnchorDate,
     });
   }, [effectivePayAnchorDate, effectivePayDate, effectivePayFrequency, resolvePickerActualYear]);
+
+  const setExplicitPreferredPeriod = useCallback((planId: string | null, targetMonth: number, targetYear: number) => {
+    if (!planId) return;
+
+    if (targetMonth === defaultActiveMonth && targetYear === defaultActiveYear) {
+      delete preferredPeriodByPlanRef.current[planId];
+    } else {
+      preferredPeriodByPlanRef.current[planId] = { month: targetMonth, year: targetYear };
+    }
+
+    sharedPreferredPeriodByPlanCache = preferredPeriodByPlanRef.current;
+  }, [defaultActiveMonth, defaultActiveYear]);
 
   const getOrFetchSummary = useCallback(async (params: {
     planId: string | null;
@@ -870,11 +888,31 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
           || (preferredPeriod.year === resolvedDefaultYear && preferredPeriod.month > resolvedDefaultMonth)
         ),
       );
+      const routeIsPastPeriodWithoutPreference = !preferredPeriod
+        && hasRouteMonth
+        && hasRouteYear
+        && (
+          routeYear < resolvedDefaultYear
+          || (routeYear === resolvedDefaultYear && routeMonth < resolvedDefaultMonth)
+        );
+      const selectedStateIsPastPeriodWithoutPreference = !preferredPeriod
+        && (
+          year < resolvedDefaultYear
+          || (year === resolvedDefaultYear && month < resolvedDefaultMonth)
+        );
       const shouldNormalizeInitialPeriod = !didNormalizeInitialPeriodRef.current
         && (routeIsFuturePeriod || preferredIsFuturePeriod);
-      const shouldUseResolvedDefaultPeriod = (!hasRouteMonth && !hasRouteYear || routeLooksLikeRawCalendarDefault || shouldNormalizeInitialPeriod)
-        && month === currentCalendarMonth
-        && year === currentCalendarYear;
+      const shouldUseResolvedDefaultPeriod = (
+        (!hasRouteMonth && !hasRouteYear)
+        || routeLooksLikeRawCalendarDefault
+        || shouldNormalizeInitialPeriod
+        || routeIsPastPeriodWithoutPreference
+        || selectedStateIsPastPeriodWithoutPreference
+      ) && (
+        routeIsPastPeriodWithoutPreference
+        || selectedStateIsPastPeriodWithoutPreference
+        || (month === currentCalendarMonth && year === currentCalendarYear)
+      );
 
       let months = [] as ExpenseMonthsResponse["months"];
       if (resolvedPlanId) {
@@ -1009,11 +1047,6 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       if (targetMonth !== month) setMonth(targetMonth);
       if (targetYear !== year) setYear(targetYear);
 
-      if (resolvedPlanId) {
-        preferredPeriodByPlanRef.current[resolvedPlanId] = { month: targetMonth, year: targetYear };
-        sharedPreferredPeriodByPlanCache = preferredPeriodByPlanRef.current;
-      }
-
       didNormalizeInitialPeriodRef.current = true;
 
       seenMutationVersionRef.current = getApiMutationVersion();
@@ -1133,11 +1166,6 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
 
     void load();
   }, [activePlanId, applyCachedViewState, currentViewKey, defaultActiveMonth, defaultActiveYear, getCachedSummary, hasRelevantMutationChanges, load, loadedKey, month, summary, year]);
-
-  useEffect(() => {
-    if (!activePlanId) return;
-    preferredPeriodByPlanRef.current[activePlanId] = { month, year };
-  }, [activePlanId, month, year]);
 
   useFocusEffect(
     useCallback(() => {
@@ -1534,6 +1562,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     onPressUpcomingMonth: (targetMonth: number, targetYear: number) => {
       setMonth(targetMonth);
       setYear(targetYear);
+      setExplicitPreferredPeriod(activePlanId, targetMonth, targetYear);
       navigation.setParams({ month: targetMonth, year: targetYear, prevDisabled: !canDecrement(targetYear, targetMonth) });
     },
     onRefresh: () => {
@@ -1549,6 +1578,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       const actualYear = resolvePickerActualYear(targetMonth, pickerYear);
       setMonth(targetMonth);
       setYear(actualYear);
+      setExplicitPreferredPeriod(activePlanId, targetMonth, actualYear);
       navigation.setParams({ month: targetMonth, year: actualYear, prevDisabled: !canDecrement(actualYear, targetMonth) });
       setMonthPickerOpen(false);
     },

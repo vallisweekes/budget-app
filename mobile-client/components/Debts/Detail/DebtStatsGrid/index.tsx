@@ -12,7 +12,6 @@ export default function DebtStatsGrid({
   paidSoFarLabel,
   paidSoFar,
   paidSoFarTone = "green",
-  dueCoveredThisCycle,
   dueDateLabel,
   dueStatusSub,
   dueTone,
@@ -36,8 +35,8 @@ export default function DebtStatsGrid({
       </View>
 
       <View style={styles.statCardMini}>
-        <Text style={styles.statLabel}>{dueCoveredThisCycle ? "Payment status" : "Due date"}</Text>
-        <Text style={[styles.statValue, { color: dueColor }]}>{dueCoveredThisCycle ? "Paid" : dueDateLabel}</Text>
+        <Text style={styles.statLabel}>Due date</Text>
+        <Text style={[styles.statValue, { color: dueColor }]}>{dueDateLabel}</Text>
         {dueStatusSub ? <Text style={styles.statSub}>{dueStatusSub}</Text> : null}
       </View>
 

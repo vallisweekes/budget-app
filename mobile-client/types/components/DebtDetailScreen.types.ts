@@ -90,7 +90,6 @@ export type DebtStatsGridProps = {
   paidSoFarLabel?: string;
   paidSoFar: string;
   paidSoFarTone?: "normal" | "green" | "red";
-  dueCoveredThisCycle: boolean;
   dueDateLabel: string;
   dueStatusSub?: string;
   dueTone: "normal" | "green" | "orange" | "red";

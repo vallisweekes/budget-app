@@ -249,8 +249,12 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
     wasEditingRef.current = editing;
 
     if (!editing || !justOpened || plannedPaymentOverrideOptions.length === 0) return;
-    setEditPlannedPaymentOverridePeriodKey(plannedPaymentOverrideOptions[0].periodKey);
-  }, [editing, plannedPaymentOverrideOptions]);
+    const preferredPeriodKey = debt?.plannedPaymentOverridePeriodKey;
+    const nextPeriodKey = preferredPeriodKey && plannedPaymentOverrideOptions.some((option) => option.periodKey === preferredPeriodKey)
+      ? preferredPeriodKey
+      : plannedPaymentOverrideOptions[0].periodKey;
+    setEditPlannedPaymentOverridePeriodKey(nextPeriodKey);
+  }, [debt?.plannedPaymentOverridePeriodKey, editing, plannedPaymentOverrideOptions]);
 
   const handleEditCurrentBalanceChange = useCallback((value: string) => {
     setEditCurrentBalance(value);
@@ -546,7 +550,12 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
       : null;
 
     const summaryPaidThisMonth = Number(summarySnapshot?.paidThisMonth ?? 0);
-    const paidInDueMonth = paymentsLoaded
+    const serverPaidThisCycle = debt?.paidThisMonth != null
+      ? Math.max(0, Number(debt.paidThisMonth))
+      : summarySnapshot?.paidThisMonth != null
+        ? Math.max(0, Number(summarySnapshot.paidThisMonth))
+        : null;
+    const fallbackPaidInDueMonth = paymentsLoaded
       ? (dueMonthKey
           ? payments.reduce((sum, payment) => {
               const paidAt = new Date(payment.paidAt);
@@ -556,6 +565,7 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
             }, 0)
           : 0)
       : Math.max(0, summaryPaidThisMonth);
+    const paidThisCycle = serverPaidThisCycle ?? fallbackPaidInDueMonth;
 
     const dueTarget = (() => {
       if (!debt) return 0;
@@ -592,10 +602,12 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
       return Math.min(currentBalance, planned);
     })();
     const dueTargetSafe = Number.isFinite(dueTarget) ? (dueTarget as number) : 0;
-    const dueCoveredThisCycle = paymentsLoaded
-      ? Boolean(dueTargetSafe > 0 && paidInDueMonth >= dueTargetSafe && dueDateValue && dueDateValue.getTime() >= Date.now())
-      : Boolean(summarySnapshot?.isPaymentMonthPaid ?? (dueTargetSafe > 0 && paidInDueMonth >= dueTargetSafe && dueDateValue && dueDateValue.getTime() >= Date.now()));
-    const dueRemainingThisCycle = Math.max(0, dueTargetSafe - paidInDueMonth);
+    const dueCoveredThisCycle = typeof debt?.isPaymentMonthPaid === "boolean"
+      ? debt.isPaymentMonthPaid
+      : typeof summarySnapshot?.isPaymentMonthPaid === "boolean"
+        ? summarySnapshot.isPaymentMonthPaid
+        : Boolean(dueTargetSafe > 0 && paidThisCycle >= dueTargetSafe && dueDateValue && dueDateValue.getTime() >= Date.now());
+    const dueRemainingThisCycle = Math.max(0, dueTargetSafe - paidThisCycle);
     const isOverdue = Boolean(
       dueDateValue &&
       new Date().getTime() > dueDateValue.getTime() + 5 * 24 * 60 * 60 * 1000 &&
@@ -625,6 +637,7 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
       interestRateNum,
       monthlyMinNum,
       dueTarget: dueTargetSafe,
+      paidThisCycle,
       dueRemainingThisCycle,
       creditLimitNum,
       isOverLimit,
