@@ -327,6 +327,25 @@ export const mobileApi = createApi({
       },
       invalidatesTags: ["Debts", "Dashboard", "CreditCards"],
     }),
+    deleteDebtPayment: builder.mutation<{ success: true }, {
+      debtId: string;
+      paymentId: string;
+    }>({
+      async queryFn({ debtId, paymentId }) {
+        try {
+          const data = await apiFetch<{ success: true }>(
+            `/api/bff/debts/${encodeURIComponent(debtId)}/payments/${encodeURIComponent(paymentId)}`,
+            {
+              method: "DELETE",
+            },
+          );
+          return { data };
+        } catch (err: unknown) {
+          return { error: normalizeApiError(err) };
+        }
+      },
+      invalidatesTags: ["Debts", "Dashboard", "CreditCards"],
+    }),
     updateProfile: builder.mutation<UserProfile, { email: string | null }>({
       async queryFn(body) {
         try {
@@ -508,6 +527,7 @@ export const {
   useGetSubscriptionQuery,
   useCreateDebtMutation,
   useCreateDebtPaymentMutation,
+  useDeleteDebtPaymentMutation,
   useResendEmailVerificationMutation,
   useUpdateProfileMutation,
   useUpdateOnboardingProfileMutation,

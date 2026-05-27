@@ -8,6 +8,7 @@ import { buildUpcomingPayPeriodOptions, getPayPeriodKeyForDate, getPayPeriodLabe
 import {
   useCreateDebtPaymentMutation,
   useDeleteDebtMutation,
+  useDeleteDebtPaymentMutation,
   useGetCreditCardsQuery,
   useLazyGetDebtDetailQuery,
   useLazyGetDebtPaymentsQuery,
@@ -60,6 +61,7 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
   const [paymentHistoryOpen, setPaymentHistoryOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deletingDebt, setDeletingDebt] = useState(false);
+  const [undoingPaymentId, setUndoingPaymentId] = useState<string | null>(null);
 
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState("");
@@ -78,6 +80,7 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
   const [createDebtPaymentMutation] = useCreateDebtPaymentMutation();
   const [updateDebtMutation] = useUpdateDebtMutation();
   const [deleteDebtMutation] = useDeleteDebtMutation();
+  const [deleteDebtPaymentMutation] = useDeleteDebtPaymentMutation();
   const [fetchDebtDetail] = useLazyGetDebtDetailQuery();
   const [fetchDebtPayments] = useLazyGetDebtPaymentsQuery();
   const creditCardsQuery = useGetCreditCardsQuery();
@@ -316,7 +319,7 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
   }, [computeInstallmentPayment, editCurrentBalance, editInstallment]);
 
   const submitPayment = useCallback(async (amount: number) => {
-    if (!debt) return;
+    if (!debt || paying) return;
     if (isNaN(amount) || amount <= 0) {
       Alert.alert("Invalid amount", "Enter a valid payment amount.");
       return;
@@ -335,24 +338,36 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
     const debtSnapshot = debt;
     const paymentsSnapshot = payments;
 
+    setPaying(true);
     setDebt({ ...debt, currentBalance: String(nextBalance), paidAmount: String(nextPaidAmount), paid: nextBalance <= 0 });
     setPaymentsLoaded(true);
     setPayments((prev) => [{ id: `optimistic-${Date.now()}`, amount: String(appliedAmount), paidAt: new Date().toISOString(), notes: null }, ...prev]);
-    setPayAmount("");
-    setPaySheetOpen(false);
 
     try {
-      setPaying(true);
       await createDebtPaymentMutation({ debtId, amount: appliedAmount }).unwrap();
-      await Promise.all([load(), loadPayments()]);
     } catch (err: unknown) {
       setDebt(debtSnapshot);
       setPayments(paymentsSnapshot);
       Alert.alert("Payment failed", err instanceof Error ? err.message : "Unknown error");
+      setPaying(false);
+      return;
+    }
+
+    try {
+      await load({ includePayments: true });
+    } catch (refreshErr: unknown) {
+      Alert.alert(
+        "Payment saved",
+        refreshErr instanceof Error
+          ? `The payment was recorded, but refreshing the latest balances failed: ${refreshErr.message}`
+          : "The payment was recorded, but refreshing the latest balances failed. Pull to refresh if numbers look stale."
+      );
     } finally {
+      setPayAmount("");
+      setPaySheetOpen(false);
       setPaying(false);
     }
-  }, [currency, debt, debtId, load, payments]);
+  }, [currency, createDebtPaymentMutation, debt, debtId, load, paying, payments]);
 
   const handlePay = useCallback(async () => {
     const amount = parseFloat(payAmount);
@@ -624,14 +639,66 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
   }, [debt, payments, paymentsLoaded, summarySnapshot]);
 
   const togglePaymentHistory = useCallback(() => {
-    setPaymentHistoryOpen((prev) => {
-      const next = !prev;
-      if (next && !paymentsLoaded) {
-        void loadPayments();
-      }
-      return next;
-    });
-  }, [loadPayments, paymentsLoaded]);
+    setPaymentHistoryOpen((prev) => !prev);
+  }, []);
+
+  const latestUndoablePaymentId = useMemo(() => {
+    const latestPayment = payments[0];
+    if (!latestPayment) return null;
+    if (String(latestPayment.id).startsWith("baseline-")) return null;
+
+    const paidAt = new Date(latestPayment.paidAt);
+    const now = new Date();
+    if (!Number.isFinite(paidAt.getTime())) return null;
+    if (paidAt.getUTCFullYear() !== now.getUTCFullYear()) return null;
+    if (paidAt.getUTCMonth() !== now.getUTCMonth()) return null;
+
+    return latestPayment.id;
+  }, [payments]);
+
+  const handleUndoPayment = useCallback((paymentId: string) => {
+    if (undoingPaymentId) return;
+
+    if (paymentId !== latestUndoablePaymentId) {
+      Alert.alert("Undo unavailable", "Only the latest payment from this month can be undone.");
+      return;
+    }
+
+    Alert.alert(
+      "Undo latest payment?",
+      "This removes the latest payment from this month and recalculates the balance, due progress, and planned amount for that period.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Undo payment",
+          style: "destructive",
+          onPress: async () => {
+            setUndoingPaymentId(paymentId);
+            try {
+              await deleteDebtPaymentMutation({ debtId, paymentId }).unwrap();
+            } catch (err: unknown) {
+              Alert.alert("Undo failed", err instanceof Error ? err.message : "Unknown error");
+              setUndoingPaymentId(null);
+              return;
+            }
+
+            try {
+              await load({ includePayments: true });
+            } catch (refreshErr: unknown) {
+              Alert.alert(
+                "Payment removed",
+                refreshErr instanceof Error
+                  ? `The payment was removed, but refreshing the latest balances failed: ${refreshErr.message}`
+                  : "The payment was removed, but refreshing the latest balances failed. Pull to refresh if numbers look stale."
+              );
+            } finally {
+              setUndoingPaymentId(null);
+            }
+          },
+        },
+      ]
+    );
+  }, [debtId, deleteDebtPaymentMutation, latestUndoablePaymentId, load, undoingPaymentId]);
 
   const handleMarkPaid = useCallback(async () => {
     if (!debt) return;
@@ -669,6 +736,7 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
     deleteConfirmOpen,
     setDeleteConfirmOpen,
     deletingDebt,
+    undoingPaymentId,
     editing,
     setEditing,
     editName,
@@ -700,6 +768,8 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
     editSaving,
     handlePay,
     handleMarkPaid,
+    latestUndoablePaymentId,
+    handleUndoPayment,
     handleEdit,
     confirmDeleteDebt,
     derived,

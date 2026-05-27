@@ -1,5 +1,5 @@
 import React from "react";
-import { Text, View } from "react-native";
+import { ActivityIndicator, Pressable, Text, View } from "react-native";
 
 import type { PaymentHistorySectionProps } from "@/types";
 import { fmt } from "@/lib/formatting";
@@ -57,7 +57,13 @@ function getPaymentTitle(payment: PaymentHistorySectionProps["payments"][number]
   return "Payment recorded";
 }
 
-export default function PaymentHistorySection({ payments, currency }: PaymentHistorySectionProps) {
+export default function PaymentHistorySection({
+  payments,
+  currency,
+  latestUndoablePaymentId,
+  undoingPaymentId,
+  onUndoPayment,
+}: PaymentHistorySectionProps) {
   const groupedPayments = React.useMemo(() => {
     const groups: PaymentGroup[] = [];
     const byKey = new Map<string, PaymentGroup>();
@@ -97,6 +103,10 @@ export default function PaymentHistorySection({ payments, currency }: PaymentHis
         </View>
       </View>
 
+      {latestUndoablePaymentId ? (
+        <Text style={styles.historyHint}>Need to fix a mistake? Undo the latest payment from this month.</Text>
+      ) : null}
+
       {payments.length === 0 ? (
         <Text style={styles.emptyHistory}>No payments recorded yet.</Text>
       ) : (
@@ -124,9 +134,27 @@ export default function PaymentHistorySection({ payments, currency }: PaymentHis
                     })}
                   </Text>
                 </View>
-                <Text style={styles.payHistAmt} numberOfLines={1} ellipsizeMode="clip">
-                  - {fmt(parseFloat(payment.amount), currency)}
-                </Text>
+                <View style={styles.payHistRight}>
+                  <Text style={styles.payHistAmt} numberOfLines={1} ellipsizeMode="clip">
+                    - {fmt(parseFloat(payment.amount), currency)}
+                  </Text>
+                  {payment.id === latestUndoablePaymentId && onUndoPayment ? (
+                    <Pressable
+                      style={[
+                        styles.payHistUndoButton,
+                        undoingPaymentId === payment.id && styles.payHistUndoButtonDisabled,
+                      ]}
+                      onPress={() => onUndoPayment(payment.id)}
+                      disabled={undoingPaymentId === payment.id}
+                    >
+                      {undoingPaymentId === payment.id ? (
+                        <ActivityIndicator color="#FFFFFF" size="small" />
+                      ) : (
+                        <Text style={styles.payHistUndoText}>Undo</Text>
+                      )}
+                    </Pressable>
+                  ) : null}
+                </View>
               </View>
             ))}
           </View>

@@ -250,7 +250,17 @@ export default function DebtDetailScreen() {
             </Pressable>
           </View>
 
-          {activeTab === "details" ? detailsContent : <PaymentHistorySection payments={state.payments} currency={currency} />}
+          {activeTab === "details" ? (
+            detailsContent
+          ) : (
+            <PaymentHistorySection
+              payments={state.payments}
+              currency={currency}
+              latestUndoablePaymentId={state.latestUndoablePaymentId}
+              undoingPaymentId={state.undoingPaymentId}
+              onUndoPayment={state.handleUndoPayment}
+            />
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
 

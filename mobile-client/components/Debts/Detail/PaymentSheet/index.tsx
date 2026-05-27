@@ -19,12 +19,21 @@ export default function PaymentSheet({
   showMarkPaid = true,
   markPaidLabel = "Mark due as paid",
 }: PaymentSheetProps) {
-  const { dragY, panHandlers } = useSwipeDownToClose({ onClose, disabled: paying });
+  const { dragY, panHandlers } = useSwipeDownToClose({ onClose, disabled: paying }); const parsedPayAmount = Number.parseFloat(payAmount);
+  const canSave = Number.isFinite(parsedPayAmount) && parsedPayAmount > 0 && !paying;
 
   return (
-    <Modal visible={visible} transparent animationType="slide" presentationStyle="overFullScreen" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      presentationStyle="overFullScreen"
+      onRequestClose={() => {
+        if (!paying) onClose();
+      }}
+    >
       <KeyboardAvoidingView style={styles.sheetOverlay} behavior={Platform.OS === "ios" ? "padding" : "height"}>
-        <Pressable style={styles.sheetBackdrop} onPress={onClose} />
+        <Pressable style={styles.sheetBackdrop} onPress={onClose} disabled={paying} />
         <Animated.View style={[styles.paySheetCard, { transform: [{ translateY: dragY }] }]}>
           <View style={styles.sheetHandle} {...panHandlers} />
           <Text style={styles.sectionTitle}>Record a payment</Text>
@@ -36,6 +45,7 @@ export default function PaymentSheet({
               value={payAmount}
               onChangeValue={onChangeAmount}
               placeholder="0.00"
+              editable={!paying}
             />
           </View>
 
@@ -47,10 +57,10 @@ export default function PaymentSheet({
 
           <View style={styles.bottomActions}>
             <View style={styles.sheetActions}>
-              <Pressable onPress={onClose} style={[styles.cancelBtn, paying && styles.disabled]}>
+              <Pressable onPress={onClose} disabled={paying} style={[styles.cancelBtn, paying && styles.disabled]}>
                 <Text style={styles.cancelBtnTxt}>Cancel</Text>
               </Pressable>
-              <Pressable onPress={onSave} disabled={paying} style={[styles.saveBtn, styles.saveBtnFlex, paying && styles.disabled]}>
+              <Pressable onPress={onSave} disabled={!canSave} style={[styles.saveBtn, styles.saveBtnFlex, !canSave && styles.disabled]}>
                 {paying ? <ActivityIndicator size="small" color={T.onAccent} /> : <Text style={styles.saveBtnTxt}>Save payment</Text>}
               </Pressable>
             </View>

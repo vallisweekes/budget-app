@@ -21,6 +21,9 @@ export type DebtHeroProps = {
 export type PaymentHistorySectionProps = {
   payments: DebtPayment[];
   currency: string;
+  latestUndoablePaymentId?: string | null;
+  undoingPaymentId?: string | null;
+  onUndoPayment?: (paymentId: string) => void;
 };
 
 export type PaymentSheetProps = {

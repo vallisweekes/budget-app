@@ -6,6 +6,7 @@ import { sendUserPush } from "@/lib/push/sendUserPush";
 import { getPaymentPeriodKey, getPeriodKey, resolvePayDate } from "@/lib/helpers/periodKey";
 import { invalidateDashboardCache } from "@/lib/cache/dashboardCache";
 import { bestEffortWithin } from "@/lib/bestEffortWithin";
+import { resolveDebtPlannedPaymentTarget } from "@/lib/debts/plannedPaymentOverrides";
 
 export const runtime = "nodejs";
 
@@ -435,6 +436,12 @@ export async function POST(
     const periodKey = debt.dueDate && Number.isFinite(debt.dueDate.getTime())
       ? getPeriodKey(debt.dueDate, postPayDate)
       : getPaymentPeriodKey(paidAt, postPayDate);
+    const overrideTarget = await resolveDebtPlannedPaymentTarget({
+      budgetPlanId: debt.budgetPlan.id,
+      dueDate: debt.dueDate,
+      dueDay: debt.dueDay,
+      targetPeriodKey: periodKey,
+    });
 
     const appliedAmount = Math.min(paymentAmount, debt.currentBalance.toNumber());
 
@@ -544,6 +551,53 @@ export async function POST(
             });
           }
         }
+      }
+
+      const [paidThisPeriodAgg, existingPeriodOverride] = await Promise.all([
+        tx.debtPayment.aggregate({
+          where: {
+            debtId: id,
+            periodKey: overrideTarget.periodKey,
+          },
+          _sum: { amount: true },
+        }),
+        tx.debtPlannedPaymentOverride.findUnique({
+          where: {
+            debtId_periodKey: {
+              debtId: id,
+              periodKey: overrideTarget.periodKey,
+            },
+          },
+          select: { amount: true },
+        }),
+      ]);
+
+      const paidThisPeriod = Math.max(0, toNumber(paidThisPeriodAgg._sum.amount ?? 0));
+      const existingOverrideAmount = Math.max(0, toNumber(existingPeriodOverride?.amount ?? 0));
+      const baseMonthlyPayment = Math.max(0, computeMonthlyDueAmount(updatedDebt));
+      const nextOverrideAmount = Math.max(existingOverrideAmount, paidThisPeriod);
+
+      if (nextOverrideAmount > baseMonthlyPayment + 0.009) {
+        await tx.debtPlannedPaymentOverride.upsert({
+          where: {
+            debtId_periodKey: {
+              debtId: id,
+              periodKey: overrideTarget.periodKey,
+            },
+          },
+          update: {
+            amount: String(nextOverrideAmount),
+            year: overrideTarget.year,
+            month: overrideTarget.month,
+          },
+          create: {
+            debtId: id,
+            amount: String(nextOverrideAmount),
+            year: overrideTarget.year,
+            month: overrideTarget.month,
+            periodKey: overrideTarget.periodKey,
+          },
+        });
       }
 
       if (updatedDebt.sourceType === "expense" && updatedDebt.sourceExpenseId) {
