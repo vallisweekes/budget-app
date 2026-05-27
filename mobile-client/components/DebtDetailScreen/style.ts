@@ -109,6 +109,42 @@ export const s = StyleSheet.create({
     fontSize: 20,
     fontWeight: "900",
   },
+  projectionMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    alignSelf: "center",
+    gap: 14,
+    marginTop: 2,
+  },
+  projectionMetaItem: {
+    alignItems: "center",
+    minWidth: 104,
+    gap: 2,
+  },
+  projectionMetaLabel: {
+    color: T.textDim,
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.3,
+  },
+  projectionMetaValue: {
+    color: T.text,
+    fontSize: 16,
+    fontWeight: "900",
+    letterSpacing: -0.2,
+  },
+  projectionMetaValuePositive: {
+    color: T.green,
+  },
+  projectionMetaValueWarning: {
+    color: T.orange,
+  },
+  projectionMetaDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: "rgba(255,255,255,0.10)",
+  },
   errorText: { color: T.red, fontSize: 14, textAlign: "center", paddingHorizontal: 32 },
   retryBtn: { backgroundColor: T.accent, borderRadius: 8, paddingHorizontal: 24, paddingVertical: 10 },
   retryTxt: { color: T.onAccent, fontWeight: "700" },
@@ -154,6 +190,10 @@ export const s = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.78)",
     overflow: "hidden",
   },
+  bottomActionGlassPayment: {
+    backgroundColor: "rgba(255,255,255,0.10)",
+    borderColor: "rgba(255,255,255,0.18)",
+  },
   bottomActionTint: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(255,255,255,0.34)",
@@ -165,7 +205,7 @@ export const s = StyleSheet.create({
     backgroundColor: "rgba(245,247,250,0.22)",
   },
   bottomActionTintPayment: {
-    backgroundColor: "rgba(124,92,255,0.14)",
+    backgroundColor: "rgba(124,92,255,0.10)",
   },
   bottomActionGlow: {
     position: "absolute",
@@ -194,6 +234,9 @@ export const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.38)",
   },
+  bottomActionInnerBorderPayment: {
+    borderColor: "rgba(255,255,255,0.14)",
+  },
   bottomActionContent: {
     flexDirection: "row",
     alignItems: "center",
@@ -207,6 +250,6 @@ export const s = StyleSheet.create({
     color: "#162033",
   },
   bottomActionTxtPrimary: {
-    color: T.accent,
+    color: T.text,
   },
 });

@@ -162,6 +162,30 @@ export default function DebtDetailScreen() {
                 currency={currency}
               />
             ) : null}
+
+            {!derived.isPaid ? (
+              <View style={s.projectionMetaRow}>
+                <View style={s.projectionMetaItem}>
+                  <Text style={s.projectionMetaLabel}>Months left</Text>
+                  <Text style={[s.projectionMetaValue, payoffSummary.cannotPayoff && s.projectionMetaValueWarning]}>
+                    {payoffSummary.cannotPayoff ? "—" : String(payoffSummary.totalMonths)}
+                  </Text>
+                </View>
+                <View style={s.projectionMetaDivider} />
+                <View style={s.projectionMetaItem}>
+                  <Text style={s.projectionMetaLabel}>Paid off by</Text>
+                  <Text
+                    style={[
+                      s.projectionMetaValue,
+                      !payoffSummary.cannotPayoff && (derived.isPaid || payoffSummary.payoffLabel) ? s.projectionMetaValuePositive : null,
+                      payoffSummary.cannotPayoff ? s.projectionMetaValueWarning : null,
+                    ]}
+                  >
+                    {derived.isPaid ? "Paid" : (payoffSummary.payoffLabel ?? "—")}
+                  </Text>
+                </View>
+              </View>
+            ) : null}
           </View>
 
           <DebtStatsGrid
@@ -200,10 +224,6 @@ export default function DebtDetailScreen() {
                     ? `Min ${fmt(derived.monthlyMinNum, currency)}`
                     : undefined)
             }
-            monthsLeftValue={payoffSummary.cannotPayoff ? "—" : String(payoffSummary.totalMonths)}
-            monthsLeftTone={payoffSummary.cannotPayoff ? "orange" : "normal"}
-            paidOffByValue={derived.isPaid ? "Paid" : (payoffSummary.payoffLabel ?? "—")}
-            paidOffByTone={payoffSummary.cannotPayoff ? "orange" : derived.isPaid || payoffSummary.payoffLabel ? "green" : "normal"}
           />
 
           <PaymentHistorySection
@@ -222,12 +242,12 @@ export default function DebtDetailScreen() {
               style={[s.bottomActionBtn, s.bottomPrimaryActionBtn]}
               onPress={() => state.setPaySheetOpen(true)}
             >
-              <BlurView intensity={34} tint="light" style={s.bottomActionGlass}>
+              <BlurView intensity={34} tint="dark" style={[s.bottomActionGlass, s.bottomActionGlassPayment]}>
                 <View style={[s.bottomActionTint, s.bottomActionTintPayment]} pointerEvents="none" />
                 <View style={[s.bottomActionGlow, s.bottomActionGlowPayment]} pointerEvents="none" />
-                <View style={s.bottomActionInnerBorder} pointerEvents="none" />
+                <View style={[s.bottomActionInnerBorder, s.bottomActionInnerBorderPayment]} pointerEvents="none" />
                 <View style={s.bottomActionContent}>
-                  <Ionicons name="wallet-outline" size={18} color={T.accent} />
+                  <Ionicons name="wallet-outline" size={18} color={T.text} />
                   <Text style={[s.bottomActionTxt, s.bottomActionTxtPrimary]}>Record payment</Text>
                 </View>
               </BlurView>

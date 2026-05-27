@@ -96,10 +96,6 @@ export type DebtStatsGridProps = {
   monthlyOrInterestLabel: string;
   monthlyOrInterestValue: string;
   monthlyOrInterestSub?: string;
-  monthsLeftValue: string;
-  monthsLeftTone?: "normal" | "orange";
-  paidOffByValue: string;
-  paidOffByTone?: "normal" | "green" | "orange";
 };
 
 export type PayoffChartProps = {
