@@ -1,5 +1,5 @@
 import React from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, RefreshControl, ScrollView, Text, useWindowDimensions, View } from "react-native";
+import { ActivityIndicator, Image, KeyboardAvoidingView, Platform, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { BlurView } from "expo-blur";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -7,11 +7,12 @@ import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/nativ
 
 import { s } from "@/components/DebtDetailScreen/style";
 import type { DebtDetailNav, DebtDetailRoute } from "@/types";
+import { buildProjection, derivePayoffSummary } from "@/lib/domain/debtPayoff";
+import { getApiBaseUrl } from "@/lib/api";
 import { T } from "@/lib/theme";
 import { fmt } from "@/lib/formatting";
 import DeleteConfirmSheet from "@/components/Shared/DeleteConfirmSheet";
 import DebtDetailHeader from "@/components/Debts/Detail/DebtDetailHeader";
-import DebtHero from "@/components/Debts/Detail/DebtHero";
 import DebtStatsGrid from "@/components/Debts/Detail/DebtStatsGrid";
 import PayoffChart from "@/components/Debts/Detail/PayoffChart";
 import PaymentSheet from "@/components/Debts/Detail/PaymentSheet";
@@ -19,11 +20,22 @@ import EditDebtSheet from "@/components/Debts/Detail/EditDebtSheet";
 import PaymentHistorySection from "@/components/Debts/Detail/PaymentHistorySection";
 import { useDebtDetailController } from "@/hooks";
 
+function resolveLogoUri(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  if (/^https?:\/\//i.test(raw)) return raw;
+  if (!raw.startsWith("/")) return null;
+
+  try {
+    return `${getApiBaseUrl()}${raw}`;
+  } catch {
+    return null;
+  }
+}
+
 export default function DebtDetailScreen() {
   const navigation = useNavigation<DebtDetailNav>();
   const { params } = useRoute<DebtDetailRoute>();
   const { debtId, debtName } = params;
-  const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
 
   const state = useDebtDetailController({
@@ -70,6 +82,21 @@ export default function DebtDetailScreen() {
     debt.computedMonthlyPayment != null &&
     Math.abs(Number(debt.dueThisMonth) - Number(debt.computedMonthlyPayment)) > 0.009;
   const showMonthlyPayment = !derived.isCardDebt && Number.isFinite(monthlyPaymentNum) && monthlyPaymentNum > 0;
+  const projectionMonthlyPayment = debt.computedMonthlyPayment != null
+    ? debt.computedMonthlyPayment
+    : (derived.isCardDebt ? (derived.monthlyMinNum ?? 0) : monthlyPaymentNum);
+  const payoffSummary = (() => {
+    const monthlyRate = derived.interestRateNum ? derived.interestRateNum / 100 / 12 : 0;
+    const points = buildProjection(derived.currentBalNum, projectionMonthlyPayment, monthlyRate);
+    return derivePayoffSummary({
+      points,
+      monthlyPayment: projectionMonthlyPayment,
+      monthsLeftOverride: debt.computedMonthsLeft,
+      paidOffByOverride: debt.computedPaidOffBy,
+    });
+  })();
+  const progressText = derived.progressLabel ?? `${derived.progressPct.toFixed(1)}% paid off`;
+  const logoUri = resolveLogoUri(debt.logoUrl);
 
   return (
     <SafeAreaView style={s.safe} edges={["bottom"]}>
@@ -85,21 +112,57 @@ export default function DebtDetailScreen() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView
           style={{ backgroundColor: T.bg }}
-          contentContainerStyle={[s.scroll, { paddingBottom: 120 + insets.bottom + 12 }]}
+          contentContainerStyle={[s.scroll, { paddingTop: insets.top + 88, paddingBottom: 120 + insets.bottom + 12 }]}
           refreshControl={<RefreshControl refreshing={state.refreshing} onRefresh={() => { state.setRefreshing(true); state.load(); }} tintColor={T.accent} />}
         >
-          <DebtHero
-            debtName={debt.name}
-            logoUrl={debt.logoUrl}
-            currentBalanceLabel="Current balance"
-            currentBalanceValue={derived.isPaid ? "Paid off" : fmt(derived.currentBalNum, currency)}
-            isPaid={derived.isPaid}
-            progressPct={derived.progressPct}
-            progressLabel={derived.progressLabel}
-            isVerySmallScreen={height <= 740}
-            topInset={insets.top + 52}
-            onRecordPayment={() => state.setPaySheetOpen(true)}
-          />
+          <View style={s.projectionSection}>
+            <View style={s.projectionTopRow}>
+              <View style={s.projectionHeader}>
+                <Text style={s.projectionBalanceLabel}>Current balance</Text>
+                <Text style={[s.projectionBalanceValue, derived.isPaid && { color: T.green }]}>
+                  {derived.isPaid ? "Paid off" : fmt(derived.currentBalNum, currency)}
+                </Text>
+                <Text
+                  style={[
+                    s.projectionBalanceSub,
+                    derived.progressPct > 0
+                      ? s.projectionBalanceSubPositive
+                      : derived.progressPct < 0
+                        ? s.projectionBalanceSubNegative
+                        : s.projectionBalanceSubNeutral,
+                  ]}
+                >
+                  {progressText}
+                </Text>
+              </View>
+
+              <View style={s.projectionLogoCircle}>
+                {logoUri ? (
+                  <Image
+                    source={{ uri: logoUri }}
+                    style={s.projectionLogoImage}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <Text style={s.projectionLogoFallback}>{(debt.name?.trim()?.[0] ?? "?").toUpperCase()}</Text>
+                )}
+              </View>
+            </View>
+
+            {!derived.isPaid ? (
+              <PayoffChart
+                balance={derived.currentBalNum}
+                monthlyPayment={projectionMonthlyPayment}
+                monthsLeftOverride={debt.computedMonthsLeft}
+                paidOffByOverride={debt.computedPaidOffBy}
+                cannotPayoffOverride={debt.computedCannotPayoff}
+                payoffLabelOverride={debt.computedPayoffLabel}
+                horizonLabelOverride={debt.computedHorizonLabel}
+                interestRate={derived.interestRateNum}
+                currency={currency}
+              />
+            ) : null}
+          </View>
 
           <DebtStatsGrid
             isCardDebt={derived.isCardDebt && (derived.creditLimitNum ?? 0) > 0}
@@ -137,31 +200,11 @@ export default function DebtDetailScreen() {
                     ? `Min ${fmt(derived.monthlyMinNum, currency)}`
                     : undefined)
             }
+            monthsLeftValue={payoffSummary.cannotPayoff ? "—" : String(payoffSummary.totalMonths)}
+            monthsLeftTone={payoffSummary.cannotPayoff ? "orange" : "normal"}
+            paidOffByValue={derived.isPaid ? "Paid" : (payoffSummary.payoffLabel ?? "—")}
+            paidOffByTone={payoffSummary.cannotPayoff ? "orange" : derived.isPaid || payoffSummary.payoffLabel ? "green" : "normal"}
           />
-
-          {!derived.isPaid ? (
-            <View style={s.sectionCard}>
-              <View style={[s.sectionGlow, s.sectionGlowPrimary]} />
-              <View style={[s.sectionGlow, s.sectionGlowSecondary]} />
-              <View style={s.sectionInnerBorder} />
-              <Text style={s.sectionTitle}>Payoff Projection</Text>
-              <PayoffChart
-                balance={derived.currentBalNum}
-                monthlyPayment={
-                  debt.computedMonthlyPayment != null
-                    ? debt.computedMonthlyPayment
-                    : (derived.isCardDebt ? (derived.monthlyMinNum ?? 0) : monthlyPaymentNum)
-                }
-                monthsLeftOverride={debt.computedMonthsLeft}
-                paidOffByOverride={debt.computedPaidOffBy}
-                cannotPayoffOverride={debt.computedCannotPayoff}
-                payoffLabelOverride={debt.computedPayoffLabel}
-                horizonLabelOverride={debt.computedHorizonLabel}
-                interestRate={derived.interestRateNum}
-                currency={currency}
-              />
-            </View>
-          ) : null}
 
           <PaymentHistorySection
             payments={state.payments}
@@ -174,26 +217,43 @@ export default function DebtDetailScreen() {
 
       <View style={[s.bottomActionsWrap, { paddingBottom: insets.bottom + 10 }]}> 
         <View style={s.bottomActionsRow}>
+          {!derived.isPaid ? (
+            <Pressable
+              style={[s.bottomActionBtn, s.bottomPrimaryActionBtn]}
+              onPress={() => state.setPaySheetOpen(true)}
+            >
+              <BlurView intensity={34} tint="light" style={s.bottomActionGlass}>
+                <View style={[s.bottomActionTint, s.bottomActionTintPayment]} pointerEvents="none" />
+                <View style={[s.bottomActionGlow, s.bottomActionGlowPayment]} pointerEvents="none" />
+                <View style={s.bottomActionInnerBorder} pointerEvents="none" />
+                <View style={s.bottomActionContent}>
+                  <Ionicons name="wallet-outline" size={18} color={T.accent} />
+                  <Text style={[s.bottomActionTxt, s.bottomActionTxtPrimary]}>Record payment</Text>
+                </View>
+              </BlurView>
+            </Pressable>
+          ) : null}
+
           <Pressable
-            style={s.bottomActionBtn}
+            style={[s.bottomActionBtn, s.bottomIconActionBtn]}
             onPress={() => state.setEditing((prev) => !prev)}
           >
             <BlurView intensity={34} tint="light" style={s.bottomActionGlass}>
               <View style={[s.bottomActionTint, s.bottomActionTintEdit]} pointerEvents="none" />
               <View style={[s.bottomActionGlow, s.bottomActionGlowEdit]} pointerEvents="none" />
               <View style={s.bottomActionInnerBorder} pointerEvents="none" />
-              <Text style={s.bottomActionTxt}>{state.editing ? "Close" : "Edit"}</Text>
+              <Ionicons name={state.editing ? "close-outline" : "create-outline"} size={20} color="#162033" />
             </BlurView>
           </Pressable>
           <Pressable
-            style={s.bottomActionBtn}
+            style={[s.bottomActionBtn, s.bottomIconActionBtn]}
             onPress={() => state.setDeleteConfirmOpen(true)}
           >
             <BlurView intensity={34} tint="light" style={s.bottomActionGlass}>
               <View style={[s.bottomActionTint, s.bottomActionTintDelete]} pointerEvents="none" />
               <View style={[s.bottomActionGlow, s.bottomActionGlowDelete]} pointerEvents="none" />
               <View style={s.bottomActionInnerBorder} pointerEvents="none" />
-              <Text style={s.bottomActionTxt}>Delete</Text>
+              <Ionicons name="trash-outline" size={20} color="#162033" />
             </BlurView>
           </Pressable>
         </View>

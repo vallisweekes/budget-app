@@ -15,9 +15,7 @@ export type DebtHeroProps = {
   isPaid: boolean;
   progressPct: number;
   progressLabel?: string;
-  isVerySmallScreen: boolean;
   topInset?: number;
-  onRecordPayment: () => void;
 };
 
 export type PaymentHistorySectionProps = {
@@ -98,6 +96,10 @@ export type DebtStatsGridProps = {
   monthlyOrInterestLabel: string;
   monthlyOrInterestValue: string;
   monthlyOrInterestSub?: string;
+  monthsLeftValue: string;
+  monthsLeftTone?: "normal" | "orange";
+  paidOffByValue: string;
+  paidOffByTone?: "normal" | "green" | "orange";
 };
 
 export type PayoffChartProps = {

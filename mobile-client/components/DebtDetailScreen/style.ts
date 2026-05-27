@@ -6,6 +6,11 @@ export const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: T.bg },
   center: { flex: 1, justifyContent: "center", alignItems: "center", gap: 12 },
   scroll: { paddingHorizontal: 14, paddingTop: 0, gap: 14 },
+  projectionSection: {
+    gap: 12,
+    paddingHorizontal: 4,
+    paddingBottom: 4,
+  },
   sectionCard: {
     position: "relative",
     overflow: "hidden",
@@ -46,6 +51,64 @@ export const s = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.03)",
   },
   sectionTitle: { color: T.text, fontSize: 16, fontWeight: "900", letterSpacing: -0.3, marginTop: 2 },
+  projectionTopRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  projectionHeader: {
+    flex: 1,
+    alignItems: "flex-start",
+    gap: 4,
+    marginBottom: 2,
+  },
+  projectionBalanceLabel: {
+    color: T.text,
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  projectionBalanceValue: {
+    color: T.text,
+    fontSize: 28,
+    fontWeight: "900",
+    letterSpacing: -0.7,
+  },
+  projectionBalanceSub: {
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  projectionBalanceSubNeutral: {
+    color: T.textDim,
+  },
+  projectionBalanceSubPositive: {
+    color: T.green,
+  },
+  projectionBalanceSubNegative: {
+    color: T.red,
+  },
+  projectionLogoCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    overflow: "hidden",
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 2,
+  },
+  projectionLogoImage: {
+    width: "86%",
+    height: "86%",
+    borderRadius: 999,
+  },
+  projectionLogoFallback: {
+    color: T.text,
+    fontSize: 20,
+    fontWeight: "900",
+  },
   errorText: { color: T.red, fontSize: 14, textAlign: "center", paddingHorizontal: 32 },
   retryBtn: { backgroundColor: T.accent, borderRadius: 8, paddingHorizontal: 24, paddingVertical: 10 },
   retryTxt: { color: T.onAccent, fontWeight: "700" },
@@ -58,12 +121,11 @@ export const s = StyleSheet.create({
   },
   bottomActionsRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    gap: 12,
+    gap: 10,
   },
   bottomActionBtn: {
-    width: 108,
+    flex: 1,
     minHeight: 46,
     borderRadius: 999,
     overflow: "hidden",
@@ -72,6 +134,13 @@ export const s = StyleSheet.create({
     shadowRadius: 18,
     shadowOffset: { width: 0, height: -2 },
     elevation: 8,
+  },
+  bottomPrimaryActionBtn: {
+    flex: 1.6,
+  },
+  bottomIconActionBtn: {
+    width: 74,
+    flex: 0.62,
   },
   bottomActionGlass: {
     minHeight: 46,
@@ -95,6 +164,9 @@ export const s = StyleSheet.create({
   bottomActionTintDelete: {
     backgroundColor: "rgba(245,247,250,0.22)",
   },
+  bottomActionTintPayment: {
+    backgroundColor: "rgba(124,92,255,0.14)",
+  },
   bottomActionGlow: {
     position: "absolute",
     width: 110,
@@ -111,16 +183,30 @@ export const s = StyleSheet.create({
     bottom: -42,
     backgroundColor: "rgba(255,255,255,0.28)",
   },
+  bottomActionGlowPayment: {
+    right: -14,
+    top: -38,
+    backgroundColor: "rgba(124,92,255,0.22)",
+  },
   bottomActionInnerBorder: {
     ...StyleSheet.absoluteFillObject,
     borderRadius: 999,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.38)",
   },
+  bottomActionContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
   bottomActionTxt: {
     fontSize: 14,
     fontWeight: "800",
     letterSpacing: -0.2,
     color: "#162033",
+  },
+  bottomActionTxtPrimary: {
+    color: T.accent,
   },
 });

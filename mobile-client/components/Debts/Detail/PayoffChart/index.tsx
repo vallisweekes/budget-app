@@ -43,17 +43,7 @@ export default function PayoffChart({ balance, monthlyPayment, interestRate, cur
 
   return (
     <View>
-      <View style={styles.strip}>
-        <View style={styles.stat}><Text style={styles.lbl}>REMAINING</Text><Text style={[styles.val, { color: T.red }]}>{fmt(balance, currency)}</Text></View>
-        <View style={styles.statDivider} />
-        <View style={styles.stat}><Text style={styles.lbl}>MONTHS LEFT</Text><Text style={[styles.val, { color: cannotPayoff ? T.orange : T.text }]}>{cannotPayoff ? "—" : String(totalMonths)}</Text></View>
-        <View style={styles.statDivider} />
-        <View style={styles.stat}><Text style={styles.lbl}>PAID OFF BY</Text><Text style={[styles.val, { color: T.green }]}>{payoffLabel ?? "—"}</Text></View>
-      </View>
-
-      {assumptionLabel ? <Text style={styles.assumption}>{assumptionLabel}</Text> : null}
-
-      <View onLayout={(event) => setChartWidth(event.nativeEvent.layout.width)} style={{ width: "100%", height: chartHeight, marginTop: 8 }}>
+      <View onLayout={(event) => setChartWidth(event.nativeEvent.layout.width)} style={{ width: "100%", height: chartHeight, marginTop: 4 }}>
         <Svg width={chartWidth} height={chartHeight}>
           <Defs>
             <LinearGradient id="payGrad" x1="0" y1="0" x2="0" y2="1">
@@ -104,6 +94,8 @@ export default function PayoffChart({ balance, monthlyPayment, interestRate, cur
           </SvgText>
         </Svg>
       </View>
+
+      {assumptionLabel ? <Text style={styles.assumption}>{assumptionLabel}</Text> : null}
 
       {cannotPayoff && monthlyPayment === 0 ? <Text style={styles.warn}>Enter a payment amount to see your payoff projection.</Text> : null}
       {cannotPayoff && monthlyPayment > 0 ? <Text style={styles.warn}>Payment may not cover interest — try increasing it.</Text> : null}

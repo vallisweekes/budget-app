@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Image, Pressable, Text, View } from "react-native";
+import { Image, Text, View } from "react-native";
 
 import type { DebtHeroProps } from "@/types";
 import { getApiBaseUrl } from "@/lib/api";
@@ -25,9 +25,7 @@ export default function DebtHero({
   isPaid,
   progressPct,
   progressLabel,
-  isVerySmallScreen,
   topInset = 0,
-  onRecordPayment,
 }: DebtHeroProps) {
   const [logoFailed, setLogoFailed] = useState(false);
   const logoUri = useMemo(() => resolveLogoUri(logoUrl), [logoUrl]);
@@ -64,11 +62,6 @@ export default function DebtHero({
       >
         {progressLabel ?? `${progressPct.toFixed(1)}% paid off`}
       </Text>
-      {!isPaid ? (
-        <Pressable style={[styles.heroPayBtn, isVerySmallScreen && styles.heroPayBtnSmall]} onPress={onRecordPayment}>
-          <Text style={styles.heroPayBtnTxt}>Record payment</Text>
-        </Pressable>
-      ) : null}
     </View>
   );
 }
