@@ -1,11 +1,13 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { AppState, type AppStateStatus } from "react-native";
 
-import { ApiError, subscribeToApiMutations } from "@/lib/api";
-import type { DashboardData, Settings } from "@/lib/apiTypes";
+import { ApiError, apiFetch, subscribeToApiMutations } from "@/lib/api";
+import type { DashboardData, DashboardVersionData, Settings } from "@/lib/apiTypes";
 import { useAuth } from "@/context/AuthContext";
 import { useOnboardingGate } from "@/navigation/OnboardingGateContext";
 import { useGetDashboardQuery, useGetSettingsQuery } from "@/store/api";
+
+const DASHBOARD_VERSION_POLL_INTERVAL_MS = 15_000;
 
 export type BootstrapRefreshResult = {
   dashboard: DashboardData | null;
@@ -90,11 +92,38 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
   const hasDashboardDataRef = useRef(false);
   const initialRetryIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const activeTokenRef = useRef<string | null | undefined>(token);
+  const dashboardVersionRef = useRef<string | null>(null);
+  const dashboardVersionCheckBusyRef = useRef(false);
 
   const stopInitialRetryLoop = useCallback(() => {
     if (!initialRetryIntervalRef.current) return;
     clearInterval(initialRetryIntervalRef.current);
     initialRetryIntervalRef.current = null;
+  }, []);
+
+  const readDashboardVersion = useCallback(async (): Promise<DashboardVersionData | null> => {
+    if (dashboardVersionCheckBusyRef.current) return null;
+
+    const currentAuthLoading = authLoadingRef.current;
+    const currentToken = tokenRef.current;
+    const currentDashboard = dashboardRef.current;
+
+    if (currentAuthLoading || !currentToken || !currentDashboard?.budgetPlanId) {
+      return null;
+    }
+
+    dashboardVersionCheckBusyRef.current = true;
+
+    try {
+      return await apiFetch<DashboardVersionData>(
+        `/api/bff/dashboard/version?budgetPlanId=${encodeURIComponent(currentDashboard.budgetPlanId)}`,
+        { cacheTtlMs: 0, timeoutMs: 5_000 },
+      );
+    } catch {
+      return null;
+    } finally {
+      dashboardVersionCheckBusyRef.current = false;
+    }
   }, []);
 
   useEffect(() => {
@@ -145,6 +174,7 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
     settingsInflightRef.current = null;
     pendingInitialLoadResolversRef.current = [];
     pendingSettingsResolversRef.current = [];
+    dashboardVersionRef.current = null;
   }, [stopInitialRetryLoop, token]);
 
   useEffect(() => {
@@ -353,6 +383,7 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
     if (shouldSkip) {
       stopInitialRetryLoop();
       setIsRecoveringInitialLoad(false);
+      dashboardVersionRef.current = null;
       return;
     }
 
@@ -429,6 +460,52 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
       sub.remove();
     };
   }, [authLoading, lastLoadedAt, onboarding.busy, onboarding.required, refresh, refreshSettings, token]);
+
+  useEffect(() => {
+    if (shouldSkip || !dashboard?.budgetPlanId) {
+      dashboardVersionRef.current = null;
+      return;
+    }
+
+    void (async () => {
+      const versionData = await readDashboardVersion();
+      if (!versionData?.version) return;
+      if (dashboardRef.current?.budgetPlanId !== versionData.budgetPlanId) return;
+      dashboardVersionRef.current = versionData.version;
+    })();
+  }, [dashboard?.budgetPlanId, lastLoadedAt, readDashboardVersion, shouldSkip]);
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!token) return;
+    if (onboarding.busy || onboarding.required) return;
+
+    const intervalId = setInterval(() => {
+      if (AppState.currentState !== "active") return;
+      if (!hasDashboardDataRef.current) return;
+      if (bootstrapQueriesBusyRef.current) return;
+
+      void (async () => {
+        const versionData = await readDashboardVersion();
+        if (!versionData?.version) return;
+
+        const previousVersion = dashboardVersionRef.current;
+        if (!previousVersion) {
+          dashboardVersionRef.current = versionData.version;
+          return;
+        }
+
+        if (previousVersion === versionData.version) return;
+
+        dashboardVersionRef.current = versionData.version;
+        void refresh({ force: true });
+      })();
+    }, DASHBOARD_VERSION_POLL_INTERVAL_MS);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [authLoading, onboarding.busy, onboarding.required, readDashboardVersion, refresh, token]);
 
   const value = useMemo<BootstrapDataContextValue>(
     () => ({

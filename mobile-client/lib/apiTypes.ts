@@ -550,6 +550,12 @@ export interface ExpenseInsights {
  * Full computed dashboard payload from GET /api/bff/dashboard.
  * This is the single source of truth for both web and mobile clients.
  */
+export interface DashboardVersionData {
+  budgetPlanId: string;
+  version: string;
+  changedAt: string | null;
+}
+
 export interface DashboardData {
   budgetPlanId: string;
   year: number;

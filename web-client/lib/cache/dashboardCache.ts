@@ -1,14 +1,21 @@
-import { deleteJsonCacheByPrefix } from "@/lib/cache/redisJsonCache";
+import { deleteJsonCacheByPrefix, getJsonCache, setJsonCache } from "@/lib/cache/redisJsonCache";
 import type { PayFrequency } from "@/lib/payPeriods";
 import { prisma } from "@/lib/prisma";
 
 export const DASHBOARD_CACHE_TTL_SECONDS = 60;
 export const DEBT_SUMMARY_CACHE_TTL_SECONDS = 60;
 export const EXPENSE_INSIGHTS_CACHE_TTL_SECONDS = 60;
+export const DASHBOARD_VERSION_TTL_SECONDS = 60 * 60 * 24 * 7;
 
 const DASHBOARD_CACHE_VERSION = "v2";
 const DEBT_SUMMARY_CACHE_VERSION = "v2";
 const EXPENSE_INSIGHTS_CACHE_VERSION = "v2";
+const DASHBOARD_VERSION_CACHE_VERSION = "v1";
+
+export type DashboardVersionPayload = {
+	version: string;
+	changedAt: string;
+};
 
 type DashboardCacheKeyParams = {
 	budgetPlanId: string;
@@ -25,6 +32,10 @@ function toIsoDate(value: Date): string {
 
 export function getDashboardCachePrefix(budgetPlanId: string): string {
 	return `dashboard:${DASHBOARD_CACHE_VERSION}:${budgetPlanId}:`;
+}
+
+export function getDashboardVersionCacheKey(budgetPlanId: string): string {
+	return `dashboard-version:${DASHBOARD_VERSION_CACHE_VERSION}:${budgetPlanId}`;
 }
 
 export function getDebtSummaryCachePrefix(budgetPlanId: string): string {
@@ -81,6 +92,33 @@ export function logDerivedSummaryCacheEvent(params: {
 	});
 }
 
+export async function getDashboardVersion(budgetPlanId: string): Promise<DashboardVersionPayload | null> {
+	const trimmedBudgetPlanId = budgetPlanId.trim();
+	if (!trimmedBudgetPlanId) return null;
+	return await getJsonCache<DashboardVersionPayload>(getDashboardVersionCacheKey(trimmedBudgetPlanId));
+}
+
+export async function bumpDashboardVersion(
+	budgetPlanId: string,
+	now: Date = new Date(),
+): Promise<DashboardVersionPayload | null> {
+	const trimmedBudgetPlanId = budgetPlanId.trim();
+	if (!trimmedBudgetPlanId) return null;
+
+	const versionPayload: DashboardVersionPayload = {
+		version: String(now.getTime()),
+		changedAt: now.toISOString(),
+	};
+
+	await setJsonCache(
+		getDashboardVersionCacheKey(trimmedBudgetPlanId),
+		versionPayload,
+		DASHBOARD_VERSION_TTL_SECONDS,
+	);
+
+	return versionPayload;
+}
+
 export async function invalidateDebtSummaryCache(budgetPlanId: string): Promise<void> {
 	const trimmedBudgetPlanId = budgetPlanId.trim();
 	if (!trimmedBudgetPlanId) return;
@@ -100,6 +138,7 @@ export async function invalidateDashboardCache(budgetPlanId: string): Promise<vo
 		deleteJsonCacheByPrefix(getDashboardCachePrefix(trimmedBudgetPlanId)),
 		invalidateDebtSummaryCache(trimmedBudgetPlanId),
 		invalidateExpenseInsightsCache(trimmedBudgetPlanId),
+		bumpDashboardVersion(trimmedBudgetPlanId),
 	]);
 }
 
