@@ -23,7 +23,7 @@ import { clearCachedPayPeriodExpenses, getCachedPayPeriodExpenses, setCachedPayP
 import { currencySymbol } from "@/lib/formatting";
 import { toExpenseCategoryBreakdowns } from "@/lib/helpers/expenseCategories";
 import { consumeSkipExpensesFocusReload } from "@/lib/helpers/expensesFocusReload";
-import { usePayPeriodBoundaryRefresh, useTopHeaderOffset, useYearGuard } from "@/hooks";
+import { useBudgetPlanVersionRefresh, usePayPeriodBoundaryRefresh, useTopHeaderOffset, useYearGuard } from "@/hooks";
 import { registerSessionScopedResetter } from "@/lib/sessionScopedState";
 import { buildPayPeriodFromMonthAnchor, getPayPeriodAnchorFromWindow, getPayPeriodRangeLabelFromAnchor, normalizePayFrequency, resolveActivePayPeriod } from "@/lib/payPeriods";
 import type { ExpensesStackParamList } from "@/navigation/types";
@@ -169,6 +169,14 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
   const activePlan = plans.find((plan) => plan.id === activePlanId) ?? null;
   const isPersonalPlan = !activePlan || activePlan.kind === "personal";
   const isAdditionalPlan = !isPersonalPlan && plans.length > 1;
+
+  useBudgetPlanVersionRefresh({
+    enabled: Boolean(isFocused && activePlanId && !bootstrapLoading && !loading),
+    budgetPlanId: activePlanId,
+    onVersionChange: () => {
+      void load({ force: true });
+    },
+  });
 
   useEffect(() => {
     if (plans.length === 0) return;

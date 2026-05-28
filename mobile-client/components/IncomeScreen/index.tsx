@@ -15,7 +15,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation, useFocusEffect, useRoute } from "@react-navigation/native";
+import { useNavigation, useFocusEffect, useIsFocused, useRoute } from "@react-navigation/native";
 
 import { s } from "@/components/IncomeScreen/style";
 import { apiFetch, getApiMutationVersion } from "@/lib/api";
@@ -23,7 +23,7 @@ import type { IncomeSummaryData } from "@/lib/apiTypes";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { MONTH_NAMES_SHORT, SCREEN_FOCUS_REVALIDATE_TTL_MS } from "@/lib/constants";
 import { currencySymbol, fmt } from "@/lib/formatting";
-import { useSwipeDownToClose, useTopHeaderOffset, useYearGuard } from "@/hooks";
+import { useBudgetPlanVersionRefresh, useSwipeDownToClose, useTopHeaderOffset, useYearGuard } from "@/hooks";
 import { resolveDisplayedPayPeriodAnchor } from "@/lib/helpers/resolveDisplayedPayPeriodAnchor";
 import { buildPayPeriodFromMonthAnchor, getPayPeriodAnchorFromWindow, normalizePayFrequency, resolveActivePayPeriod } from "@/lib/payPeriods";
 import { T } from "@/lib/theme";
@@ -34,6 +34,7 @@ import type { IncomeScreenNavigation, IncomeScreenRoute } from "@/types";
 export default function IncomeScreen() {
   const navigation = useNavigation<IncomeScreenNavigation>();
   const route = useRoute<IncomeScreenRoute>();
+  const isFocused = useIsFocused();
   const topHeaderOffset = useTopHeaderOffset();
   const contentTopPadding = topHeaderOffset + 10;
   const now = new Date();
@@ -165,6 +166,14 @@ export default function IncomeScreen() {
       setRefreshing(false);
     }
   }, [bootstrapError, ensureLoaded, refreshBootstrap, refreshing, year]);
+
+  useBudgetPlanVersionRefresh({
+    enabled: Boolean(isFocused && data?.budgetPlanId && !bootstrapLoading && !loading),
+    budgetPlanId: data?.budgetPlanId,
+    onVersionChange: () => {
+      void load({ force: true });
+    },
+  });
 
   useEffect(() => { setLoading(true); load(); }, [load]);
 
