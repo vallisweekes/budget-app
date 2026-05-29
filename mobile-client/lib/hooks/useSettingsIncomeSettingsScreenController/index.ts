@@ -7,7 +7,7 @@ import type { IncomeMonthData } from "@/lib/apiTypes";
 import { INCOME_SOURCE_OPTIONS } from "@/lib/constants";
 import { currencySymbol, fmt } from "@/lib/formatting";
 import type { RootStackScreenProps } from "@/navigation/types";
-import { useGetOnboardingStatusQuery, useUpdateOnboardingProfileMutation } from "@/store/api";
+import { getMobileApiErrorMessage, useCreateIncomeMutation, useGetOnboardingStatusQuery, useUpdateOnboardingProfileMutation } from "@/store/api";
 import type { IncomeSourceId } from "@/types";
 import { useTopHeaderOffset } from "@/hooks";
 
@@ -27,6 +27,7 @@ export function useSettingsIncomeSettingsScreenController(navigation: SettingsIn
   const topHeaderOffset = useTopHeaderOffset(8);
   const { settings } = useBootstrapData();
   const onboardingQuery = useGetOnboardingStatusQuery();
+  const [createIncome] = useCreateIncomeMutation();
   const [updateOnboardingProfile] = useUpdateOnboardingProfileMutation();
   const [selectedSource, setSelectedSource] = useState<IncomeSourceId>("salary");
   const [analysis, setAnalysis] = useState<IncomeMonthData | null>(null);
@@ -152,18 +153,15 @@ export function useSettingsIncomeSettingsScreenController(navigation: SettingsIn
 
     try {
       setSaving(true);
-      await apiFetch("/api/bff/income", {
-        method: "POST",
-        body: {
-          name: nextName,
-          amount: numericPrimaryIncomeAmount,
-          month: now.getMonth() + 1,
-          year: now.getFullYear(),
-          budgetPlanId,
-          distributeFullYear: applyFullYear,
-          distributeHorizon: applyHorizon,
-        },
-      });
+      await createIncome({
+        name: nextName,
+        amount: numericPrimaryIncomeAmount,
+        month: now.getMonth() + 1,
+        year: now.getFullYear(),
+        budgetPlanId,
+        distributeFullYear: applyFullYear,
+        distributeHorizon: applyHorizon,
+      }).unwrap();
 
       if (selectedSource === "salary") {
         await updateOnboardingProfile({ monthlySalary: numericPrimaryIncomeAmount }).unwrap();
@@ -171,11 +169,11 @@ export function useSettingsIncomeSettingsScreenController(navigation: SettingsIn
 
       navigation.goBack();
     } catch (err: unknown) {
-      Alert.alert("Could not save income settings", err instanceof Error ? err.message : "Please try again.");
+      Alert.alert("Could not save income settings", getMobileApiErrorMessage(err, "Please try again."));
     } finally {
       setSaving(false);
     }
-  }, [activeSource.canonicalName, applyFullYear, applyHorizon, budgetPlanId, navigation, numericPrimaryIncomeAmount, primaryIncomeName, selectedSource, updateOnboardingProfile]);
+  }, [activeSource.canonicalName, applyFullYear, applyHorizon, budgetPlanId, createIncome, navigation, numericPrimaryIncomeAmount, primaryIncomeName, selectedSource, updateOnboardingProfile]);
 
   return {
     activeSource,

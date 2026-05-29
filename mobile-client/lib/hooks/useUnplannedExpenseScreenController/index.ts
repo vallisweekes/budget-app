@@ -5,6 +5,7 @@ import { apiFetch } from "@/lib/api";
 import type { Category, Debt, Settings } from "@/lib/apiTypes";
 import { FUNDING_OPTIONS, NEW_LOAN_SENTINEL } from "@/lib/constants";
 import { buildPayPeriodFromMonthAnchor, normalizePayFrequency } from "@/lib/payPeriods";
+import { getMobileApiErrorMessage, useCreateExpenseMutation, useGetCategoriesQuery, useGetDebtsQuery, useGetSettingsQuery } from "@/store/api";
 
 export type FundingSource = "income" | "savings" | "monthly_allowance" | "credit_card" | "loan" | "other";
 
@@ -65,11 +66,10 @@ function useUnplannedExpenseScreenControllerImpl(params: {
   const [newLoanName, setNewLoanName] = useState("");
   const [month, setMonth] = useState(resolvedInitialMonth);
   const [year, setYear] = useState(resolvedInitialYear);
-
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [debts, setDebts] = useState<Debt[]>([]);
-  const [settings, setSettings] = useState<Settings | null>(null);
-  const [loadingData, setLoadingData] = useState(true);
+  const { data: categories = [], isLoading: categoriesLoading } = useGetCategoriesQuery();
+  const { data: debts = [], isLoading: debtsLoading } = useGetDebtsQuery();
+  const { data: settings = null, isLoading: settingsLoading } = useGetSettingsQuery();
+  const [createExpense] = useCreateExpenseMutation();
 
   const [catPickerOpen, setCatPickerOpen] = useState(false);
   const [fundingPickerOpen, setFundingPickerOpen] = useState(false);
@@ -97,6 +97,7 @@ function useUnplannedExpenseScreenControllerImpl(params: {
   const parsedAmount = useMemo(() => parseFloat(amount.replace(/,/g, "")), [amount]);
   const cardDebts = useMemo(() => debts.filter((debt) => debt.type === "credit_card" || debt.type === "store_card"), [debts]);
   const loanDebts = useMemo(() => debts.filter((debt) => debt.type === "loan" || debt.type === "mortgage" || debt.type === "hire_purchase" || debt.type === "other"), [debts]);
+  const loadingData = categoriesLoading || debtsLoading || settingsLoading;
   const needsDebtChoice = fundingSource === "credit_card" || fundingSource === "loan";
   const usingNewLoan = fundingSource === "loan" && selectedDebtId === NEW_LOAN_SENTINEL;
   const debtChoiceValid = !needsDebtChoice || (selectedDebtId.length > 0 && (!usingNewLoan || newLoanName.trim().length > 0));
@@ -106,23 +107,6 @@ function useUnplannedExpenseScreenControllerImpl(params: {
   const fundingLabel = useMemo(() => FUNDING_OPTIONS.find((item) => item.value === fundingSource)?.label ?? "Income", [fundingSource]);
   const debtChoices = fundingSource === "credit_card" ? cardDebts : loanDebts;
   const selectedDebt = useMemo(() => debtChoices.find((debt) => debt.id === selectedDebtId), [debtChoices, selectedDebtId]);
-
-  const load = useCallback(async () => {
-    try {
-      const [loadedCategories, debtList, loadedSettings] = await Promise.all([
-        apiFetch<Category[]>("/api/bff/categories"),
-        apiFetch<Debt[]>("/api/bff/debts"),
-        apiFetch<Settings>("/api/bff/settings"),
-      ]);
-      setCategories(Array.isArray(loadedCategories) ? loadedCategories : []);
-      setDebts(Array.isArray(debtList) ? debtList : []);
-      setSettings(loadedSettings);
-    } catch {
-      // non-fatal
-    } finally {
-      setLoadingData(false);
-    }
-  }, []);
 
   useEffect(() => {
     categoryTouchedRef.current = categoryTouched;
@@ -163,10 +147,6 @@ function useUnplannedExpenseScreenControllerImpl(params: {
       suggestTimerRef.current = null;
     };
   }, [name]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
 
   useEffect(() => {
     if (fundingSource === "credit_card") {
@@ -233,13 +213,13 @@ function useUnplannedExpenseScreenControllerImpl(params: {
         }
       }
 
-      await apiFetch("/api/bff/expenses", { method: "POST", body });
+      await createExpense(body).unwrap();
       onSuccess();
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : "Failed to log expense. Try again.");
+      setSubmitError(getMobileApiErrorMessage(error, "Failed to log expense. Try again."));
       setSubmitting(false);
     }
-  }, [canSubmit, categoryId, fundingSource, month, name, newLoanName, onSuccess, parsedAmount, selectedDebtId, settings?.payAnchorDate, settings?.payDate, settings?.payFrequency, year]);
+  }, [canSubmit, categoryId, createExpense, fundingSource, month, name, newLoanName, onSuccess, parsedAmount, selectedDebtId, settings?.payAnchorDate, settings?.payDate, settings?.payFrequency, year]);
 
   return {
     amount,

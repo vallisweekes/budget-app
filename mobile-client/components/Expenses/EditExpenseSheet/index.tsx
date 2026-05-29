@@ -37,6 +37,7 @@ import { ADD_EXPENSE_SHEET_SCREEN_H, pr, styles as s } from "@/components/Expens
 import { useSwipeDownToClose } from "@/hooks";
 import MoneyInput from "@/components/Shared/MoneyInput";
 import DatePickerInput from "@/components/Shared/DatePickerInput";
+import { getMobileApiErrorMessage, useUpdateExpenseMutation } from "@/store/api";
 
 const { height: SCREEN_H } = Dimensions.get("window");
 
@@ -166,6 +167,7 @@ export default function EditExpenseSheet({
 }) {
   const insets = useSafeAreaInsets();
   const { settings } = useBootstrapData();
+  const [updateExpense] = useUpdateExpenseMutation();
   const slideY = useRef(new Animated.Value(ADD_EXPENSE_SHEET_SCREEN_H ?? SCREEN_H)).current;
 
   const [name, setName] = useState("");
@@ -346,9 +348,9 @@ export default function EditExpenseSheet({
     setSubmitting(true);
     setError(null);
     try {
-      await apiFetch(`/api/bff/expenses/${expense.id}`, {
-        method: "PATCH",
-        body: buildEditExpenseBody({
+      await updateExpense({
+        id: expense.id,
+        changes: buildEditExpenseBody({
           name,
           parsedAmount,
           categoryId,
@@ -360,11 +362,11 @@ export default function EditExpenseSheet({
           fundingSource,
           selectedDebtId,
         }),
-      });
+      }).unwrap();
       onSaved();
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save changes. Try again.");
+      setError(getMobileApiErrorMessage(e, "Failed to save changes. Try again."));
     } finally {
       setSubmitting(false);
     }

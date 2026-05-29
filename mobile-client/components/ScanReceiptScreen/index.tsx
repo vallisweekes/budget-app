@@ -19,7 +19,6 @@ import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 
 import { s } from "@/components/ScanReceiptScreen/style";
-import { apiFetch } from "@/lib/api";
 import { FUNDING_OPTIONS, MONTH_NAMES_LONG, MONTH_NAMES_SHORT, NEW_LOAN_SENTINEL } from "@/lib/constants";
 import type {
   Category,
@@ -39,6 +38,14 @@ import type {
   ScanReceiptScreenProps,
   ScanReceiptStage,
 } from "@/types";
+import {
+  getMobileApiErrorMessage,
+  useConfirmReceiptMutation,
+  useGetCategoriesQuery,
+  useGetDebtsQuery,
+  useGetSettingsQuery,
+  useScanReceiptMutation,
+} from "@/store/api";
 
 function paymentSourceForFunding(funding: ScanReceiptFundingSource): ScanReceiptPaymentSource {
   if (funding === "savings") return "savings";
@@ -81,12 +88,13 @@ export default function ScanReceiptScreen({ navigation }: ScanReceiptScreenProps
   const [newLoanName, setNewLoanName] = useState("");
   const [month,        setMonth]       = useState(now.getMonth() + 1);
   const [year,         setYear]        = useState(now.getFullYear());
+  const { data: categories = [] } = useGetCategoriesQuery();
+  const { data: debts = [] } = useGetDebtsQuery();
+  const { data: settings = null } = useGetSettingsQuery();
+  const [scanReceipt] = useScanReceiptMutation();
+  const [confirmReceipt] = useConfirmReceiptMutation();
 
   /* ── Data ───────────────────────────────────────────────── */
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [debts, setDebts] = useState<Debt[]>([]);
-  const [settings,   setSettings]   = useState<Settings | null>(null);
-
   /* ── UI pickers ─────────────────────────────────────────── */
   const [catPickerOpen,   setCatPickerOpen]   = useState(false);
   const [fundingPickerOpen, setFundingPickerOpen] = useState(false);
@@ -150,24 +158,6 @@ export default function ScanReceiptScreen({ navigation }: ScanReceiptScreenProps
   const debtChoices = fundingSource === "credit_card" ? cardDebts : loanDebts;
   const selectedDebt = debtChoices.find((d) => d.id === selectedDebtId);
 
-  /* ── Load support data ───────────────────────────────────── */
-  const loadSupportData = useCallback(async () => {
-    try {
-      const [cats, debtList, s] = await Promise.all([
-        apiFetch<Category[]>("/api/bff/categories"),
-        apiFetch<Debt[]>("/api/bff/debts"),
-        apiFetch<Settings>("/api/bff/settings"),
-      ]);
-      setCategories(Array.isArray(cats) ? cats : []);
-      setDebts(Array.isArray(debtList) ? debtList : []);
-      setSettings(s);
-    } catch {
-      // non-blocking
-    }
-  }, []);
-
-  useEffect(() => { void loadSupportData(); }, [loadSupportData]);
-
   useEffect(() => {
     if (fundingSource === "credit_card") {
       if (cardDebts.length === 1) setSelectedDebtId(cardDebts[0]!.id);
@@ -204,10 +194,7 @@ export default function ScanReceiptScreen({ navigation }: ScanReceiptScreenProps
       setStage("scanning");
       setScanError(null);
       try {
-        const result = await apiFetch<ReceiptScanResponse>("/api/bff/receipts/scan", {
-          method: "POST",
-          body: { image: base64 },
-        });
+        const result = await scanReceipt({ image: base64 }).unwrap();
         setReceiptId(result.receiptId);
         setName(result.merchant ?? "");
         setAmount(result.amount != null ? String(result.amount) : "");
@@ -217,11 +204,11 @@ export default function ScanReceiptScreen({ navigation }: ScanReceiptScreenProps
         applySuggestedCategory(result.suggestedCategory, categories);
         setStage("confirm");
       } catch (e) {
-        setScanError(e instanceof Error ? e.message : "Scan failed. Please try again.");
+        setScanError(getMobileApiErrorMessage(e, "Scan failed. Please try again."));
         setStage("pick");
       }
     },
-    [applySuggestedCategory, categories]
+    [applySuggestedCategory, categories, scanReceipt]
   );
 
   /* ── Camera ─────────────────────────────────────────────── */
@@ -286,13 +273,10 @@ export default function ScanReceiptScreen({ navigation }: ScanReceiptScreenProps
           confirmBody.newLoanName = newLoanName.trim();
         }
       }
-      await apiFetch(`/api/bff/receipts/${receiptId}/confirm`, {
-        method: "POST",
-        body: confirmBody,
-      });
+      await confirmReceipt({ receiptId, body: confirmBody }).unwrap();
       navigation.goBack();
     } catch (e) {
-      setSaveError(e instanceof Error ? e.message : "Failed to save expense. Try again.");
+      setSaveError(getMobileApiErrorMessage(e, "Failed to save expense. Try again."));
       setStage("confirm");
     }
   };

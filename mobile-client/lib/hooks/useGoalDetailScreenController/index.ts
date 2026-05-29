@@ -4,11 +4,17 @@ import { useFocusEffect, useNavigation, type RouteProp } from "@react-navigation
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { useBootstrapData } from "@/context/BootstrapDataContext";
-import { apiFetch } from "@/lib/api";
 import type { Goal, Settings } from "@/lib/apiTypes";
 import { asMoneyText, mapSavingsFieldToBalanceField, resolveGoalCurrentAmount } from "@/lib/helpers/settings";
 import { getEffectiveHomepageGoals } from "@/components/DashboardScreen/derived";
 import type { RootStackParamList } from "@/navigation/types";
+import {
+  getMobileApiErrorMessage,
+  useDeleteGoalMutation,
+  useLazyGetGoalQuery,
+  useUpdateGoalMutation,
+  useUpdateSettingsMutation,
+} from "@/store/api";
 
 type LinkedGoalField = "savings" | "emergency" | "investment";
 
@@ -58,6 +64,10 @@ function parseYear(raw: string): number | null | undefined {
 export function useGoalDetailScreenController(params: GoalDetailRoute["params"]) {
   const navigation = useNavigation<GoalDetailNav>();
   const { dashboard, settings, ensureLoaded, refresh: refreshBootstrap } = useBootstrapData();
+  const [fetchGoal] = useLazyGetGoalQuery();
+  const [updateGoal] = useUpdateGoalMutation();
+  const [deleteGoal] = useDeleteGoalMutation();
+  const [updateSettings] = useUpdateSettingsMutation();
 
   const [goal, setGoal] = useState<Goal | null>(null);
   const [loading, setLoading] = useState(true);
@@ -103,17 +113,17 @@ export function useGoalDetailScreenController(params: GoalDetailRoute["params"])
 
       const [{ settings: nextSettings }, nextGoal] = await Promise.all([
         options?.force ? refreshBootstrap({ force: true }) : ensureLoaded(),
-        apiFetch<Goal>(`/api/bff/goals/${encodeURIComponent(params.goalId)}`, { cacheTtlMs: 0 }),
+        fetchGoal(params.goalId).unwrap(),
       ]);
 
       populateForm(nextGoal, nextSettings);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to load goal");
+      setError(getMobileApiErrorMessage(err, "Failed to load goal"));
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [ensureLoaded, params.goalId, populateForm, refreshBootstrap]);
+  }, [ensureLoaded, fetchGoal, params.goalId, populateForm, refreshBootstrap]);
 
   useFocusEffect(
     useCallback(() => {
@@ -205,15 +215,15 @@ export function useGoalDetailScreenController(params: GoalDetailRoute["params"])
 
     setSaving(true);
     try {
-      await apiFetch<Goal>(`/api/bff/goals/${encodeURIComponent(goal.id)}`, {
-        method: "PATCH",
-        body: {
+      await updateGoal({
+        id: goal.id,
+        changes: {
           title: nextTitle,
           description: description.trim() ? description.trim() : null,
           targetAmount: nextTargetAmount,
           targetYear: nextTargetYear,
         },
-      });
+      }).unwrap();
 
       if (budgetPlanId) {
         const settingsChanges: Record<string, unknown> = {
@@ -222,23 +232,17 @@ export function useGoalDetailScreenController(params: GoalDetailRoute["params"])
         if (linkedBalanceField) {
           settingsChanges[linkedBalanceField] = nextCurrentAmount;
         }
-        await apiFetch<Settings>("/api/bff/settings", {
-          method: "PATCH",
-          body: {
-            budgetPlanId,
-            ...settingsChanges,
-          },
-        });
+        await updateSettings({ budgetPlanId, changes: settingsChanges }).unwrap();
       }
 
       await refreshBootstrap({ force: true });
       navigation.goBack();
     } catch (err: unknown) {
-      Alert.alert("Failed to save goal", err instanceof Error ? err.message : "Unknown error");
+      Alert.alert("Failed to save goal", getMobileApiErrorMessage(err, "Unknown error"));
     } finally {
       setSaving(false);
     }
-  }, [currentAmountDraft, dashboard?.budgetPlanId, dashboard?.goals, description, effectiveHomepageGoals, goal, navigation, refreshBootstrap, showOnHome, targetAmount, targetYear, title]);
+  }, [currentAmountDraft, dashboard?.budgetPlanId, dashboard?.goals, description, effectiveHomepageGoals, goal, navigation, refreshBootstrap, showOnHome, targetAmount, targetYear, title, updateGoal, updateSettings]);
 
   const handleDelete = useCallback(async () => {
     if (!goal) return;
@@ -246,25 +250,24 @@ export function useGoalDetailScreenController(params: GoalDetailRoute["params"])
     try {
       const budgetPlanId = dashboard?.budgetPlanId ?? goal.budgetPlanId ?? null;
       const currentHomepageGoalIds = Array.isArray(settings?.homepageGoalIds) ? settings.homepageGoalIds : [];
-      await apiFetch(`/api/bff/goals/${encodeURIComponent(goal.id)}`, { method: "DELETE" });
+      await deleteGoal({ id: goal.id }).unwrap();
       if (budgetPlanId && currentHomepageGoalIds.includes(goal.id)) {
-        await apiFetch<Settings>("/api/bff/settings", {
-          method: "PATCH",
-          body: {
-            budgetPlanId,
+        await updateSettings({
+          budgetPlanId,
+          changes: {
             homepageGoalIds: currentHomepageGoalIds.filter((id) => id !== goal.id),
           },
-        });
+        }).unwrap();
       }
       await refreshBootstrap({ force: true });
       navigation.goBack();
     } catch (err: unknown) {
-      Alert.alert("Failed to delete goal", err instanceof Error ? err.message : "Unknown error");
+      Alert.alert("Failed to delete goal", getMobileApiErrorMessage(err, "Unknown error"));
     } finally {
       setDeleting(false);
       setDeleteConfirmOpen(false);
     }
-  }, [dashboard?.budgetPlanId, goal, navigation, refreshBootstrap, settings?.homepageGoalIds]);
+  }, [dashboard?.budgetPlanId, deleteGoal, goal, navigation, refreshBootstrap, settings?.homepageGoalIds, updateSettings]);
 
   const targetAmountNumber = parseAmount(targetAmount);
   const linkedGoalField = resolveLinkedGoalField(goal?.category);

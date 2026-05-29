@@ -36,6 +36,14 @@ import IncomeMonthSacrificeList from "@/components/Income/IncomeMonthSacrificeLi
 import IncomeEditSheet from "@/components/Income/IncomeEditSheet";
 import DeleteConfirmSheet from "@/components/Shared/DeleteConfirmSheet";
 import TabRouteHeader from "@/navigation/TabRouteHeader";
+import {
+  getMobileApiErrorMessage,
+  useConfirmIncomeSacrificeGoalTransferMutation,
+  useCreateIncomeSacrificeCustomMutation,
+  useDeleteIncomeSacrificeCustomMutation,
+  useUpdateIncomeSacrificeGoalLinkMutation,
+  useUpdateIncomeSacrificeMutation,
+} from "@/store/api";
 import { s } from "./style";
 import type { IncomeMonthScreenProps, IncomeMutationMeta, MonthRef } from "@/types";
 
@@ -87,6 +95,11 @@ function toInitialIncomeItems(
 
 export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScreenProps) {
   const router = useRouter();
+  const [updateIncomeSacrifice] = useUpdateIncomeSacrificeMutation();
+  const [createIncomeSacrificeCustom] = useCreateIncomeSacrificeCustomMutation();
+  const [deleteIncomeSacrificeCustom] = useDeleteIncomeSacrificeCustomMutation();
+  const [updateIncomeSacrificeGoalLink] = useUpdateIncomeSacrificeGoalLinkMutation();
+  const [confirmIncomeSacrificeGoalTransfer] = useConfirmIncomeSacrificeGoalTransferMutation();
   const topHeaderOffset = useTopHeaderOffset(-32);
   const insets = useSafeAreaInsets();
   const { month, year, budgetPlanId, initialMode, pendingConfirmationsCount, showPendingNotice, openIncomeAddAt, standaloneSacrifice } = route.params;
@@ -812,28 +825,22 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
           };
           nextFixed[args.fixedField as FixedField] = value;
 
-          await apiFetch("/api/bff/income-sacrifice", {
-            method: "PATCH",
-            body: {
-              budgetPlanId,
-              month: target.month,
-              year: target.year,
-              fixed: nextFixed,
-            },
-          });
+          await updateIncomeSacrifice({
+            budgetPlanId,
+            month: target.month,
+            year: target.year,
+            fixed: nextFixed,
+          }).unwrap();
         } else {
-          await apiFetch("/api/bff/income-sacrifice", {
-            method: "PATCH",
-            body: {
-              budgetPlanId,
-              month: target.month,
-              year: target.year,
-              fixed: snapshot.fixed,
-              customAmountById: {
-                [args.customAllocationId as string]: value,
-              },
+          await updateIncomeSacrifice({
+            budgetPlanId,
+            month: target.month,
+            year: target.year,
+            fixed: snapshot.fixed,
+            customAmountById: {
+              [args.customAllocationId as string]: value,
             },
-          });
+          }).unwrap();
         }
       }
 
@@ -844,11 +851,11 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
       if (affectsViewedMonth && previousSacrifice) {
         setSacrifice(previousSacrifice);
       }
-      Alert.alert("Could not save sacrifice", error instanceof Error ? error.message : "Please try again.");
+      Alert.alert("Could not save sacrifice", getMobileApiErrorMessage(error, "Please try again."));
     } finally {
       setSacrificeSaving(false);
     }
-  }, [budgetPlanId, buildTargetMonths, canManageSacrifice, invalidateMonthCaches, load, loadSacrifice, month, sacrifice, year]);
+  }, [budgetPlanId, buildTargetMonths, canManageSacrifice, invalidateMonthCaches, load, loadSacrifice, month, sacrifice, updateIncomeSacrifice, year]);
 
   const createSacrificeItem = useCallback(async (args: {
     type: "allowance" | "savings" | "emergency" | "investment" | "custom";
@@ -882,27 +889,26 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
 
     try {
       setSacrificeCreating(true);
-      await apiFetch("/api/bff/income-sacrifice/custom", {
-        method: "POST",
-        body: {
-          budgetPlanId,
-          month,
-          year,
-          type: args.type,
-          name: trimmedName,
-          amount: args.amount,
-          createGoal: args.type === "custom",
-          goalTargetAmount: args.type === "custom" ? args.goalTargetAmount : undefined,
-          goalTargetYear: args.type === "custom" ? args.goalTargetYear : undefined,
-        },
-      });
+      await createIncomeSacrificeCustom({
+        budgetPlanId,
+        month,
+        year,
+        type: args.type,
+        name: trimmedName,
+        amount: args.amount,
+        createGoal: args.type === "custom",
+        goalTargetAmount: args.type === "custom" ? args.goalTargetAmount : undefined,
+        goalTargetYear: args.type === "custom" ? args.goalTargetYear : undefined,
+      }).unwrap();
       invalidateMonthCaches([{ month, year }], { analysis: true, items: false, sacrifice: true });
       await Promise.all([loadSacrifice({ force: true }), load({ force: true })]);
       seenMutationVersionRef.current = getApiMutationVersion();
+    } catch (error) {
+      Alert.alert("Could not create sacrifice", getMobileApiErrorMessage(error, "Please try again."));
     } finally {
       setSacrificeCreating(false);
     }
-  }, [budgetPlanId, canManageSacrifice, invalidateMonthCaches, load, loadSacrifice, month, year]);
+  }, [budgetPlanId, canManageSacrifice, createIncomeSacrificeCustom, invalidateMonthCaches, load, loadSacrifice, month, year]);
 
   const deleteSacrificeItem = async (id: string) => {
     if (!canManageSacrifice) {
@@ -912,10 +918,12 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
 
     try {
       setSacrificeDeletingId(id);
-      await apiFetch(`/api/bff/income-sacrifice/custom/${id}`, { method: "DELETE" });
+      await deleteIncomeSacrificeCustom({ id }).unwrap();
       invalidateMonthCaches([{ month, year }], { analysis: true, items: false, sacrifice: true });
       await Promise.all([loadSacrifice({ force: true }), load({ force: true })]);
       seenMutationVersionRef.current = getApiMutationVersion();
+    } catch (error) {
+      Alert.alert("Could not delete sacrifice", getMobileApiErrorMessage(error, "Please try again."));
     } finally {
       setSacrificeDeletingId(null);
     }
@@ -934,23 +942,20 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
 
     try {
       setLinkSaving(true);
-      await apiFetch("/api/bff/income-sacrifice/goals", {
-        method: "PATCH",
-        body: {
-          budgetPlanId,
-          targetKey: args.targetKey,
-          goalId: args.goalId,
-        },
-      });
+      await updateIncomeSacrificeGoalLink({
+        budgetPlanId,
+        targetKey: args.targetKey,
+        goalId: args.goalId,
+      }).unwrap();
       invalidateMonthCaches([{ month, year }], { analysis: false, items: false, sacrifice: true });
       await loadSacrifice({ force: true });
       seenMutationVersionRef.current = getApiMutationVersion();
     } catch (error) {
-      Alert.alert("Could not save link", error instanceof Error ? error.message : "Please try again.");
+      Alert.alert("Could not save link", getMobileApiErrorMessage(error, "Please try again."));
     } finally {
       setLinkSaving(false);
     }
-  }, [budgetPlanId, canManageSacrifice, invalidateMonthCaches, loadSacrifice, month, year]);
+  }, [budgetPlanId, canManageSacrifice, invalidateMonthCaches, loadSacrifice, month, updateIncomeSacrificeGoalLink, year]);
 
   const confirmSacrificeTransfer = useCallback(async (targetKey: string) => {
     if (!canManageSacrifice) {
@@ -959,25 +964,22 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
     }
 
     if (!targetKey.trim()) return;
-
-    try {
-      setConfirmingTargetKey(targetKey);
-      await apiFetch("/api/bff/income-sacrifice/goals", {
-        method: "POST",
-        body: {
+        await confirmIncomeSacrificeGoalTransfer({
           budgetPlanId,
           month,
           year,
+          targetKey,
+        }).unwrap();
           targetKey,
         },
       });
       invalidateMonthCaches([{ month, year }], { analysis: true, items: false, sacrifice: true });
       await Promise.all([loadSacrifice({ force: true }), load({ force: true })]);
-      seenMutationVersionRef.current = getApiMutationVersion();
+        Alert.alert("Could not confirm", getMobileApiErrorMessage(error, "Please try again."));
       Alert.alert("Confirmed", "Transfer confirmed and goal progress updated.");
     } catch (error) {
       Alert.alert("Could not confirm", error instanceof Error ? error.message : "Please try again.");
-    } finally {
+    }, [budgetPlanId, canManageSacrifice, confirmIncomeSacrificeGoalTransfer, invalidateMonthCaches, load, loadSacrifice, month, year]);
       setConfirmingTargetKey(null);
     }
   }, [budgetPlanId, canManageSacrifice, invalidateMonthCaches, load, loadSacrifice, month, year]);

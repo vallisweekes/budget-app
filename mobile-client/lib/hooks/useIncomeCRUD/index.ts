@@ -1,7 +1,12 @@
 import { useState, useCallback, type Dispatch, type SetStateAction } from "react";
 import { Alert, Keyboard } from "react-native";
-import { apiFetch } from "@/lib/api";
 import type { Income } from "@/lib/apiTypes";
+import {
+  getMobileApiErrorMessage,
+  useCreateIncomeMutation,
+  useDeleteIncomeMutation,
+  useUpdateIncomeMutation,
+} from "@/store/api";
 
 type IncomeMutationMeta =
   | {
@@ -28,6 +33,9 @@ interface Params {
 }
 
 export function useIncomeCRUD({ month, year, budgetPlanId, onReload, onMutationSuccess, setItems }: Params) {
+  const [createIncome] = useCreateIncomeMutation();
+  const [updateIncome] = useUpdateIncomeMutation();
+  const [deleteIncomeMutation] = useDeleteIncomeMutation();
   // Add form
   const [showAddForm, setShowAddForm] = useState(false);
   const [newName, setNewName] = useState("");
@@ -71,10 +79,15 @@ export function useIncomeCRUD({ month, year, budgetPlanId, onReload, onMutationS
 
     try {
       setSaving(true);
-      const created = await apiFetch<Income>("/api/bff/income", {
-        method: "POST",
-        body: { name, amount, month, year, budgetPlanId, distributeMonths, distributeYears },
-      });
+      const created = await createIncome({
+        name,
+        amount,
+        month,
+        year,
+        budgetPlanId,
+        distributeMonths,
+        distributeYears,
+      }).unwrap();
       if (setItems) {
         const optimistic: Income = {
           id: String(created?.id ?? `${Date.now()}`),
@@ -110,11 +123,11 @@ export function useIncomeCRUD({ month, year, budgetPlanId, onReload, onMutationS
       if (setItems) {
         setItems((prev) => prev.filter((item) => item.id !== optimisticId));
       }
-      Alert.alert("Error", err instanceof Error ? err.message : "Could not add income");
+      Alert.alert("Error", getMobileApiErrorMessage(err, "Could not add income"));
     } finally {
       setSaving(false);
     }
-  }, [newName, newAmount, month, year, budgetPlanId, distributeMonths, distributeYears, onMutationSuccess, onReload, setItems]);
+  }, [budgetPlanId, createIncome, distributeMonths, distributeYears, month, newAmount, newName, onMutationSuccess, onReload, setItems, year]);
 
   const startEdit = useCallback((item: Income) => {
     setEditingId(item.id);
@@ -156,10 +169,10 @@ export function useIncomeCRUD({ month, year, budgetPlanId, onReload, onMutationS
     Keyboard.dismiss();
     try {
       setSaving(true);
-      await apiFetch(`/api/bff/income/${editingId}`, {
-        method: "PATCH",
-        body: { name, amount },
-      });
+      await updateIncome({
+        id: editingId,
+        changes: { name, amount },
+      }).unwrap();
       onMutationSuccess?.({
         type: "edit",
         month,
@@ -172,11 +185,11 @@ export function useIncomeCRUD({ month, year, budgetPlanId, onReload, onMutationS
       if (setItems && snapshot) {
         setItems((prev) => prev.map((i) => (i.id === snapshot!.id ? snapshot! : i)));
       }
-      Alert.alert("Error", err instanceof Error ? err.message : "Could not update income");
+      Alert.alert("Error", getMobileApiErrorMessage(err, "Could not update income"));
     } finally {
       setSaving(false);
     }
-  }, [editingId, editName, editAmount, cancelEdit, month, onMutationSuccess, onReload, setItems, year]);
+  }, [cancelEdit, editAmount, editName, editingId, month, onMutationSuccess, onReload, setItems, updateIncome, year]);
 
   const deleteIncome = useCallback(async (item: Income) => {
     let removedSnapshot: Income | null = null;
@@ -190,7 +203,7 @@ export function useIncomeCRUD({ month, year, budgetPlanId, onReload, onMutationS
 
     try {
       setDeletingId(item.id);
-      await apiFetch(`/api/bff/income/${item.id}`, { method: "DELETE" });
+      await deleteIncomeMutation({ id: item.id }).unwrap();
       onMutationSuccess?.({
         type: "delete",
         month,
@@ -206,11 +219,11 @@ export function useIncomeCRUD({ month, year, budgetPlanId, onReload, onMutationS
           return [...prev, removedSnapshot!];
         });
       }
-      Alert.alert("Error", err instanceof Error ? err.message : "Could not delete");
+      Alert.alert("Error", getMobileApiErrorMessage(err, "Could not delete"));
     } finally {
       setDeletingId(null);
     }
-  }, [month, onMutationSuccess, onReload, setItems, year]);
+  }, [deleteIncomeMutation, month, onMutationSuccess, onReload, setItems, year]);
 
   return {
     // Add form

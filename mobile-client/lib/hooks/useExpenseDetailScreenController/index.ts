@@ -11,6 +11,7 @@ import { getCachedPayPeriodExpenses, setCachedPayPeriodExpenses } from "@/lib/ex
 import { T } from "@/lib/theme";
 import { clearScheduledUnpaidReminders, notifyPaymentStatus, scheduleUnpaidFollowUpReminders, scheduleUnpaidReminder } from "@/lib/unpaidReminder";
 import type { ExpensesStackParamList } from "@/navigation/types";
+import { getMobileApiErrorMessage, useDeleteExpenseMutation, useUpdateExpenseMutation } from "@/store/api";
 import type { ExpenseDetailScreenControllerState, FrequencyDisplay, FrequencyIndicator, LoadState, MonthPoint, SparkState } from "@/types/ExpenseDetailScreen.types";
 import {
   PAYMENT_EDIT_GRACE_DAYS,
@@ -47,6 +48,8 @@ function buildLoadState(params: {
 }
 
 export function useExpenseDetailScreenController({ route, navigation }: Props): ExpenseDetailScreenControllerState {
+  const [updateExpense] = useUpdateExpenseMutation();
+  const [deleteExpenseMutation] = useDeleteExpenseMutation();
   const { height, width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const { settings } = useBootstrapData();
@@ -351,14 +354,14 @@ export function useExpenseDetailScreenController({ route, navigation }: Props): 
         body.paymentSource = expense.paymentSource;
         if (expense.cardDebtId) body.cardDebtId = expense.cardDebtId;
       }
-      await apiFetch<Expense>(`/api/bff/expenses/${expense.id}`, { method: "PATCH", body });
+      await updateExpense({ id: expense.id, changes: body }).unwrap();
       if (nextIsPaid) void clearScheduledUnpaidReminders({ expenseId: expense.id });
       void notifyPaymentStatus({ expenseId: expense.id, status: "paid", expenseName: expense.name });
       await loadAndClosePaymentSheet();
     } finally {
       setPaying(false);
     }
-  }, [amountNum, expense, loadAndClosePaymentSheet, paidNum, payAmount, paying]);
+  }, [amountNum, expense, loadAndClosePaymentSheet, paidNum, payAmount, paying, updateExpense]);
 
   const onMarkPaid = useCallback(async () => {
     if (!expense || paying) return;
@@ -369,19 +372,19 @@ export function useExpenseDetailScreenController({ route, navigation }: Props): 
         body.paymentSource = expense.paymentSource;
         if (expense.cardDebtId) body.cardDebtId = expense.cardDebtId;
       }
-      await apiFetch<Expense>(`/api/bff/expenses/${expense.id}`, { method: "PATCH", body });
+      await updateExpense({ id: expense.id, changes: body }).unwrap();
       void clearScheduledUnpaidReminders({ expenseId: expense.id });
       await loadAndClosePaymentSheet();
     } finally {
       setPaying(false);
     }
-  }, [amountNum, expense, loadAndClosePaymentSheet, paying]);
+  }, [amountNum, expense, loadAndClosePaymentSheet, paying, updateExpense]);
 
   const markUnpaid = useCallback(async () => {
     if (!expense || paying) return;
     setPaying(true);
     try {
-      await apiFetch<Expense>(`/api/bff/expenses/${expense.id}`, { method: "PATCH", body: { paidAmount: 0, paid: false } });
+      await updateExpense({ id: expense.id, changes: { paidAmount: 0, paid: false } }).unwrap();
       void notifyPaymentStatus({ expenseId: expense.id, status: "unpaid", expenseName: expense.name });
       void scheduleUnpaidReminder({ expenseId: expense.id, expenseName: expense.name });
       void scheduleUnpaidFollowUpReminders({
@@ -396,18 +399,20 @@ export function useExpenseDetailScreenController({ route, navigation }: Props): 
     } finally {
       setPaying(false);
     }
-  }, [expense, isPaid, loadAndClosePaymentSheet, month, paying, year]);
+  }, [expense, isPaid, loadAndClosePaymentSheet, month, paying, updateExpense, year]);
 
   const deleteExpenseWithScope = useCallback(async (scope: "single" | "future") => {
     if (!expense || deleting) return;
     setDeleting(true);
     try {
-      await apiFetch(`/api/bff/expenses/${expense.id}?scope=${scope}`, { method: "DELETE" });
+      await deleteExpenseMutation({ id: expense.id, scope }).unwrap();
       navigation.goBack();
+    } catch (error) {
+      setError(getMobileApiErrorMessage(error, "Failed to delete expense"));
     } finally {
       setDeleting(false);
     }
-  }, [deleting, expense, navigation]);
+  }, [deleteExpenseMutation, deleting, expense, navigation]);
 
   const onConfirmDelete = useCallback(async () => {
     if (!expense || deleting) return;

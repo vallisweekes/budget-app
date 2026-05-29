@@ -1,5 +1,4 @@
 import { useAuth } from "@/context/AuthContext";
-import { apiFetch } from "@/lib/api";
 import type { OnboardingProfile } from "@/lib/apiTypes";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, LayoutAnimation, PanResponder, Platform, UIManager } from "react-native";
@@ -10,6 +9,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { OnboardingScreenProps, VisibleGoal } from "@/types/OnboardingScreen.types";
 import { buildInitialGoals, isPositiveNumber } from "@/components/OnboardingScreen/utils";
 import { COMMON_OCCUPATIONS, OCCUPATION_INCOME_SOURCE_OPTIONS } from "@/lib/constants";
+import { getMobileApiErrorMessage, useCompleteOnboardingMutation, useUpdateOnboardingProfileMutation } from "@/store/api";
 
 type Frequency = "monthly" | "every_2_weeks" | "every_4_weeks" | "weekly" | null;
 
@@ -257,6 +257,8 @@ export function useOnboardingScreenController({ initial, onCompleted }: Onboardi
   const insets = useSafeAreaInsets();
   const [fontsLoaded] = useFonts({ Sacramento_400Regular });
   const { completeRegistration, pendingRegistration, signOut, token, updatePendingRegistrationProfile, username } = useAuth();
+  const [updateOnboardingProfile] = useUpdateOnboardingProfileMutation();
+  const [completeOnboarding] = useCompleteOnboardingMutation();
   const profile = initial.profile;
   const currency = "GBP";
 
@@ -455,11 +457,8 @@ export function useOnboardingScreenController({ initial, onCompleted }: Onboardi
       return;
     }
 
-    await apiFetch("/api/bff/onboarding", {
-      body: payload,
-      method: "PATCH",
-    });
-  }, [payload, token, updatePendingRegistrationProfile]);
+    await updateOnboardingProfile(payload).unwrap();
+  }, [payload, token, updateOnboardingProfile, updatePendingRegistrationProfile]);
 
   const transitionToStep = useCallback((nextStep: number) => {
     setStep(nextStep);
@@ -534,14 +533,14 @@ export function useOnboardingScreenController({ initial, onCompleted }: Onboardi
       }
 
       await saveDraft();
-      await apiFetch("/api/bff/onboarding", { method: "POST", timeoutMs: 60_000 });
+      await completeOnboarding().unwrap();
       onCompleted();
     } catch (err: unknown) {
-      Alert.alert("Could not complete onboarding", err instanceof Error ? err.message : "Please try again.");
+      Alert.alert("Could not complete onboarding", getMobileApiErrorMessage(err, "Please try again."));
     } finally {
       setSaving(false);
     }
-  }, [completeRegistration, currentValidationError, onCompleted, payload, saveDraft, token]);
+  }, [completeOnboarding, completeRegistration, currentValidationError, onCompleted, payload, saveDraft, token]);
 
   const stepPanResponder = useMemo(
     () =>

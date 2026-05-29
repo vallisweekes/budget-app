@@ -29,6 +29,7 @@ import { buildPayPeriodFromMonthAnchor, getPayPeriodAnchorFromWindow, normalizeP
 import { T } from "@/lib/theme";
 import IncomeMonthCard from "@/components/Income/IncomeMonthCard";
 import MoneyInput from "@/components/Shared/MoneyInput";
+import { getMobileApiErrorMessage, useCreateIncomeMutation } from "@/store/api";
 import type { IncomeScreenNavigation, IncomeScreenRoute } from "@/types";
 
 export default function IncomeScreen() {
@@ -51,6 +52,7 @@ export default function IncomeScreen() {
   const [yearDistributeFullYear, setYearDistributeFullYear] = useState(false);
   const [yearDistributeHorizon, setYearDistributeHorizon] = useState(false);
   const [yearAddSaving, setYearAddSaving] = useState(false);
+  const [createIncome] = useCreateIncomeMutation();
   const skipNextTabFocusReloadRef = useRef(false);
   const hasLoadedIncomeRef = useRef(false);
   const lastLoadedAtRef = useRef<number | null>(null);
@@ -242,26 +244,23 @@ export default function IncomeScreen() {
 
     try {
       setYearAddSaving(true);
-      await apiFetch("/api/bff/income", {
-        method: "POST",
-        body: {
-          name,
-          amount,
-          month: 1,
-          year,
-          budgetPlanId,
-          distributeFullYear: yearDistributeFullYear,
-          distributeHorizon: yearDistributeHorizon,
-        },
-      });
+      await createIncome({
+        name,
+        amount,
+        month: 1,
+        year,
+        budgetPlanId,
+        distributeFullYear: yearDistributeFullYear,
+        distributeHorizon: yearDistributeHorizon,
+      }).unwrap();
       await load();
       closeYearAddSheet();
     } catch (err: unknown) {
-      Alert.alert("Error", err instanceof Error ? err.message : "Could not add income for year");
+      Alert.alert("Error", getMobileApiErrorMessage(err, "Could not add income for year"));
     } finally {
       setYearAddSaving(false);
     }
-  }, [closeYearAddSheet, data?.budgetPlanId, load, year, yearDistributeFullYear, yearDistributeHorizon, yearIncomeAmount, yearIncomeName]);
+  }, [closeYearAddSheet, createIncome, data?.budgetPlanId, load, year, yearDistributeFullYear, yearDistributeHorizon, yearIncomeAmount, yearIncomeName]);
 
   const payFrequency = normalizePayFrequency(settings?.payFrequency);
   const payAnchorDate = payFrequency === "monthly" ? null : (settings?.payAnchorDate ?? null);

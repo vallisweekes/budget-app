@@ -1,10 +1,33 @@
 import { createApi, fakeBaseQuery } from "@reduxjs/toolkit/query/react";
 
 import { ApiError, apiFetch } from "@/lib/api";
-import type { BudgetPlanListItem, BudgetPlansResponse, CreditCard, DashboardData, Debt, DebtPayment, DebtSummaryData, ExpenseSummary, IncomeMonthData, IncomeSummaryData, OnboardingProfile, OnboardingStatusResponse, Settings, SubscriptionSummaryResponse, UserProfile } from "@/lib/apiTypes";
+import type {
+  BudgetPlanListItem,
+  BudgetPlansResponse,
+  Category,
+  CreditCard,
+  DashboardData,
+  Debt,
+  DebtPayment,
+  DebtSummaryData,
+  Expense,
+  ExpenseSummary,
+  Goal,
+  Income,
+  IncomeMonthData,
+  IncomeSacrificeData,
+  IncomeSummaryData,
+  OnboardingProfile,
+  OnboardingStatusResponse,
+  ReceiptConfirmBody,
+  ReceiptScanResponse,
+  Settings,
+  SubscriptionSummaryResponse,
+  UserProfile,
+} from "@/lib/apiTypes";
 import type { CreateSacrificeItemResponse } from "@/types/settings";
 
-type MobileApiError = {
+export type MobileApiError = {
   name: string;
   message: string;
   status: number;
@@ -32,10 +55,25 @@ function normalizeApiError(err: unknown): MobileApiError {
   };
 }
 
+export function getMobileApiErrorMessage(error: unknown, fallbackMessage: string): string {
+  if (typeof error === "object" && error !== null && "message" in error) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === "string" && message.trim().length > 0) {
+      return message;
+    }
+  }
+
+  if (error instanceof Error && error.message.trim().length > 0) {
+    return error.message;
+  }
+
+  return fallbackMessage;
+}
+
 export const mobileApi = createApi({
   reducerPath: "mobileApi",
   baseQuery: fakeBaseQuery<MobileApiError>(),
-  tagTypes: ["Dashboard", "Settings", "Subscription", "UserProfile", "BudgetPlans", "Debts", "CreditCards", "Onboarding"],
+  tagTypes: ["Dashboard", "Settings", "Subscription", "UserProfile", "BudgetPlans", "Debts", "CreditCards", "Onboarding", "Categories", "Goals", "Expenses", "IncomeSacrifice"],
   endpoints: (builder) => ({
     getDashboard: builder.query<DashboardData, void>({
       async queryFn() {
@@ -99,6 +137,32 @@ export const mobileApi = createApi({
         }
       },
       providesTags: ["BudgetPlans"],
+    }),
+    getCategories: builder.query<Category[], { budgetPlanId?: string | null } | void>({
+      async queryFn(arg) {
+        try {
+          const budgetPlanId = arg && typeof arg === "object" ? arg.budgetPlanId : null;
+          const planQp = budgetPlanId ? `?budgetPlanId=${encodeURIComponent(budgetPlanId)}` : "";
+          const data = await apiFetch<Category[]>(`/api/bff/categories${planQp}`, { cacheTtlMs: 4_000 });
+          return { data };
+        } catch (err: unknown) {
+          return { error: normalizeApiError(err) };
+        }
+      },
+      providesTags: ["Categories"],
+    }),
+    getDebts: builder.query<Debt[], { budgetPlanId?: string | null } | void>({
+      async queryFn(arg) {
+        try {
+          const budgetPlanId = arg && typeof arg === "object" ? arg.budgetPlanId : null;
+          const planQp = budgetPlanId ? `?budgetPlanId=${encodeURIComponent(budgetPlanId)}` : "";
+          const data = await apiFetch<Debt[]>(`/api/bff/debts${planQp}`, { cacheTtlMs: 0 });
+          return { data };
+        } catch (err: unknown) {
+          return { error: normalizeApiError(err) };
+        }
+      },
+      providesTags: ["Debts"],
     }),
     getOnboardingStatus: builder.query<OnboardingStatusResponse, void>({
       async queryFn() {
@@ -220,6 +284,17 @@ export const mobileApi = createApi({
       },
       providesTags: ["Debts"],
     }),
+    getGoal: builder.query<Goal, string>({
+      async queryFn(goalId) {
+        try {
+          const data = await apiFetch<Goal>(`/api/bff/goals/${encodeURIComponent(goalId)}`, { cacheTtlMs: 0 });
+          return { data };
+        } catch (err: unknown) {
+          return { error: normalizeApiError(err) };
+        }
+      },
+      providesTags: (_result, _error, goalId) => [{ type: "Goals", id: goalId }],
+    }),
     getDebtPayments: builder.query<DebtPayment[], string>({
       async queryFn(debtId) {
         try {
@@ -280,6 +355,99 @@ export const mobileApi = createApi({
         }
       },
       invalidatesTags: ["Debts", "Dashboard", "CreditCards"],
+    }),
+    createIncome: builder.mutation<Income, {
+      name: string;
+      amount: number;
+      month: number;
+      year: number;
+      budgetPlanId: string;
+      distributeMonths?: boolean;
+      distributeYears?: boolean;
+      distributeFullYear?: boolean;
+      distributeHorizon?: boolean;
+    }>({
+      async queryFn(body) {
+        try {
+          const data = await apiFetch<Income>("/api/bff/income", {
+            method: "POST",
+            body,
+          });
+          return { data };
+        } catch (err: unknown) {
+          return { error: normalizeApiError(err) };
+        }
+      },
+      invalidatesTags: ["Dashboard"],
+    }),
+    updateIncome: builder.mutation<Income, { id: string; changes: { name?: string; amount?: number } }>({
+      async queryFn({ id, changes }) {
+        try {
+          const data = await apiFetch<Income>(`/api/bff/income/${encodeURIComponent(id)}`, {
+            method: "PATCH",
+            body: changes,
+          });
+          return { data };
+        } catch (err: unknown) {
+          return { error: normalizeApiError(err) };
+        }
+      },
+      invalidatesTags: ["Dashboard"],
+    }),
+    deleteIncome: builder.mutation<{ success?: boolean }, { id: string }>({
+      async queryFn({ id }) {
+        try {
+          const data = await apiFetch<{ success?: boolean }>(`/api/bff/income/${encodeURIComponent(id)}`, {
+            method: "DELETE",
+          });
+          return { data };
+        } catch (err: unknown) {
+          return { error: normalizeApiError(err) };
+        }
+      },
+      invalidatesTags: ["Dashboard"],
+    }),
+    createExpense: builder.mutation<Expense, Record<string, unknown>>({
+      async queryFn(body) {
+        try {
+          const data = await apiFetch<Expense>("/api/bff/expenses", {
+            method: "POST",
+            body,
+          });
+          return { data };
+        } catch (err: unknown) {
+          return { error: normalizeApiError(err) };
+        }
+      },
+      invalidatesTags: ["Dashboard", "Debts", "CreditCards", "Expenses"],
+    }),
+    updateExpense: builder.mutation<Expense, { id: string; changes: Record<string, unknown> }>({
+      async queryFn({ id, changes }) {
+        try {
+          const data = await apiFetch<Expense>(`/api/bff/expenses/${encodeURIComponent(id)}`, {
+            method: "PATCH",
+            body: changes,
+          });
+          return { data };
+        } catch (err: unknown) {
+          return { error: normalizeApiError(err) };
+        }
+      },
+      invalidatesTags: ["Dashboard", "Debts", "CreditCards", "Expenses"],
+    }),
+    deleteExpense: builder.mutation<{ success?: boolean }, { id: string; scope?: "single" | "future" }>({
+      async queryFn({ id, scope }) {
+        try {
+          const query = scope ? `?scope=${encodeURIComponent(scope)}` : "";
+          const data = await apiFetch<{ success?: boolean }>(`/api/bff/expenses/${encodeURIComponent(id)}${query}`, {
+            method: "DELETE",
+          });
+          return { data };
+        } catch (err: unknown) {
+          return { error: normalizeApiError(err) };
+        }
+      },
+      invalidatesTags: ["Dashboard", "Debts", "CreditCards", "Expenses"],
     }),
     updateDebt: builder.mutation<Debt, { id: string; changes: Record<string, unknown> }>({
       async queryFn({ id, changes }) {
@@ -399,7 +567,21 @@ export const mobileApi = createApi({
           return { error: normalizeApiError(err) };
         }
       },
-      invalidatesTags: ["Onboarding", "Dashboard"],
+      invalidatesTags: ["Onboarding", "Dashboard", "Settings", "UserProfile"],
+    }),
+    completeOnboarding: builder.mutation<Record<string, unknown>, void>({
+      async queryFn() {
+        try {
+          const data = await apiFetch<Record<string, unknown>>("/api/bff/onboarding", {
+            method: "POST",
+            timeoutMs: 60_000,
+          });
+          return { data };
+        } catch (err: unknown) {
+          return { error: normalizeApiError(err) };
+        }
+      },
+      invalidatesTags: ["Onboarding", "Dashboard", "Settings", "BudgetPlans", "UserProfile"],
     }),
     updateSettings: builder.mutation<Settings, { budgetPlanId: string; changes: Record<string, unknown> }>({
       async queryFn({ budgetPlanId, changes }) {
@@ -418,6 +600,33 @@ export const mobileApi = createApi({
       },
       invalidatesTags: ["Settings", "Dashboard"],
     }),
+    updateGoal: builder.mutation<Goal, { id: string; changes: Record<string, unknown> }>({
+      async queryFn({ id, changes }) {
+        try {
+          const data = await apiFetch<Goal>(`/api/bff/goals/${encodeURIComponent(id)}`, {
+            method: "PATCH",
+            body: changes,
+          });
+          return { data };
+        } catch (err: unknown) {
+          return { error: normalizeApiError(err) };
+        }
+      },
+      invalidatesTags: (_result, _error, { id }) => ["Dashboard", "Settings", { type: "Goals", id }],
+    }),
+    deleteGoal: builder.mutation<{ success?: boolean }, { id: string }>({
+      async queryFn({ id }) {
+        try {
+          const data = await apiFetch<{ success?: boolean }>(`/api/bff/goals/${encodeURIComponent(id)}`, {
+            method: "DELETE",
+          });
+          return { data };
+        } catch (err: unknown) {
+          return { error: normalizeApiError(err) };
+        }
+      },
+      invalidatesTags: (_result, _error, { id }) => ["Dashboard", "Settings", { type: "Goals", id }],
+    }),
     createIncomeSacrificeCustom: builder.mutation<CreateSacrificeItemResponse, {
       budgetPlanId: string;
       type: string;
@@ -425,6 +634,9 @@ export const mobileApi = createApi({
       amount: number;
       month: number;
       year: number;
+      createGoal?: boolean;
+      goalTargetAmount?: number;
+      goalTargetYear?: number;
     }>({
       async queryFn(body) {
         try {
@@ -437,7 +649,7 @@ export const mobileApi = createApi({
           return { error: normalizeApiError(err) };
         }
       },
-      invalidatesTags: ["Settings", "Dashboard"],
+      invalidatesTags: ["Settings", "Dashboard", "Goals", "IncomeSacrifice"],
     }),
     deleteIncomeSacrificeCustom: builder.mutation<{ success?: boolean }, { id: string }>({
       async queryFn({ id }) {
@@ -451,7 +663,91 @@ export const mobileApi = createApi({
           return { error: normalizeApiError(err) };
         }
       },
-      invalidatesTags: ["Settings", "Dashboard"],
+      invalidatesTags: ["Settings", "Dashboard", "Goals", "IncomeSacrifice"],
+    }),
+    updateIncomeSacrifice: builder.mutation<Record<string, unknown>, {
+      budgetPlanId: string;
+      month: number;
+      year: number;
+      fixed: IncomeSacrificeData["fixed"];
+      customAmountById?: Record<string, number>;
+    }>({
+      async queryFn(body) {
+        try {
+          const data = await apiFetch<Record<string, unknown>>("/api/bff/income-sacrifice", {
+            method: "PATCH",
+            body,
+          });
+          return { data };
+        } catch (err: unknown) {
+          return { error: normalizeApiError(err) };
+        }
+      },
+      invalidatesTags: ["Dashboard", "Goals", "IncomeSacrifice"],
+    }),
+    updateIncomeSacrificeGoalLink: builder.mutation<Record<string, unknown>, {
+      budgetPlanId: string;
+      targetKey: string;
+      goalId: string | null;
+    }>({
+      async queryFn(body) {
+        try {
+          const data = await apiFetch<Record<string, unknown>>("/api/bff/income-sacrifice/goals", {
+            method: "PATCH",
+            body,
+          });
+          return { data };
+        } catch (err: unknown) {
+          return { error: normalizeApiError(err) };
+        }
+      },
+      invalidatesTags: ["Dashboard", "Goals", "IncomeSacrifice"],
+    }),
+    confirmIncomeSacrificeGoalTransfer: builder.mutation<Record<string, unknown>, {
+      budgetPlanId: string;
+      month: number;
+      year: number;
+      targetKey: string;
+    }>({
+      async queryFn(body) {
+        try {
+          const data = await apiFetch<Record<string, unknown>>("/api/bff/income-sacrifice/goals", {
+            method: "POST",
+            body,
+          });
+          return { data };
+        } catch (err: unknown) {
+          return { error: normalizeApiError(err) };
+        }
+      },
+      invalidatesTags: ["Dashboard", "Goals", "IncomeSacrifice"],
+    }),
+    scanReceipt: builder.mutation<ReceiptScanResponse, { image: string }>({
+      async queryFn(body) {
+        try {
+          const data = await apiFetch<ReceiptScanResponse>("/api/bff/receipts/scan", {
+            method: "POST",
+            body,
+          });
+          return { data };
+        } catch (err: unknown) {
+          return { error: normalizeApiError(err) };
+        }
+      },
+    }),
+    confirmReceipt: builder.mutation<Record<string, unknown>, { receiptId: string; body: ReceiptConfirmBody }>({
+      async queryFn({ receiptId, body }) {
+        try {
+          const data = await apiFetch<Record<string, unknown>>(`/api/bff/receipts/${encodeURIComponent(receiptId)}/confirm`, {
+            method: "POST",
+            body,
+          });
+          return { data };
+        } catch (err: unknown) {
+          return { error: normalizeApiError(err) };
+        }
+      },
+      invalidatesTags: ["Dashboard", "Debts", "CreditCards", "Expenses"],
     }),
     createBudgetPlan: builder.mutation<BudgetPlanListItem, { kind: string; name: string; eventDate?: string; includePostEventIncome?: boolean }>({
       async queryFn(body) {
@@ -513,27 +809,45 @@ export const mobileApi = createApi({
 export const {
   useGetDashboardQuery,
   useGetDashboardByPeriodQuery,
+  useGetCategoriesQuery,
+  useGetDebtsQuery,
   useGetExpenseSummaryQuery,
   useGetAnalyticsExpenseSeriesQuery,
   useGetDebtSummaryQuery,
   useGetCreditCardsQuery,
+  useGetGoalQuery,
   useGetIncomeMonthQuery,
   useGetIncomeSummaryQuery,
   useGetOnboardingStatusQuery,
   useGetSettingsQuery,
+  useLazyGetGoalQuery,
   useLazyGetDebtDetailQuery,
   useLazyGetDebtPaymentsQuery,
   useLazyGetBudgetPlansQuery,
   useLazyGetPlanDebtsQuery,
   useLazyGetPlanSettingsQuery,
   useGetSubscriptionQuery,
+  useCreateIncomeMutation,
   useCreateDebtMutation,
+  useCreateExpenseMutation,
   useCreateDebtPaymentMutation,
+  useDeleteExpenseMutation,
+  useDeleteGoalMutation,
+  useDeleteIncomeMutation,
   useDeleteDebtPaymentMutation,
+  useCompleteOnboardingMutation,
+  useConfirmIncomeSacrificeGoalTransferMutation,
+  useConfirmReceiptMutation,
   useResendEmailVerificationMutation,
+  useScanReceiptMutation,
   useUpdateProfileMutation,
   useUpdateOnboardingProfileMutation,
   useUpdateDebtMutation,
+  useUpdateExpenseMutation,
+  useUpdateGoalMutation,
+  useUpdateIncomeMutation,
+  useUpdateIncomeSacrificeGoalLinkMutation,
+  useUpdateIncomeSacrificeMutation,
   useUpdateSettingsMutation,
   useCreateIncomeSacrificeCustomMutation,
   useDeleteIncomeSacrificeCustomMutation,
