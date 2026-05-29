@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -9,6 +9,8 @@ import {
   Platform,
   Alert,
   ScrollView,
+  Animated,
+  Easing,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -23,9 +25,13 @@ export default function LoginScreen() {
   const router = useRouter();
   const { pendingRegistration, prepareRegistration, signIn } = useAuth();
   const [username, setUsername] = useState("");
+  const [usernameFocused, setUsernameFocused] = useState(false);
   const [email, setEmail] = useState("");
+  const [emailFocused, setEmailFocused] = useState(false);
   const [mode, setMode] = useState<LoginScreenMode>("login");
   const [loading, setLoading] = useState(false);
+  const usernameLabelProgress = useRef(new Animated.Value(0)).current;
+  const emailLabelProgress = useRef(new Animated.Value(0)).current;
 
   const baseUrl = (() => {
     try {
@@ -39,6 +45,24 @@ export default function LoginScreen() {
     if (!pendingRegistration) return;
     router.replace("/(auth)/onboarding");
   }, [pendingRegistration, router]);
+
+  useEffect(() => {
+    Animated.timing(usernameLabelProgress, {
+      toValue: usernameFocused || username.trim().length > 0 ? 1 : 0,
+      duration: 180,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [username, usernameFocused, usernameLabelProgress]);
+
+  useEffect(() => {
+    Animated.timing(emailLabelProgress, {
+      toValue: emailFocused || email.trim().length > 0 ? 1 : 0,
+      duration: 180,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [email, emailFocused, emailLabelProgress]);
 
   const handleSubmit = async () => {
     if (!username.trim()) {
@@ -89,9 +113,7 @@ export default function LoginScreen() {
             <Text style={styles.tagline}>Track. Plan. Save.</Text>
           </View>
 
-          <View style={styles.card}>
-            <View pointerEvents="none" style={[styles.cardGlow, styles.cardGlowPrimary]} />
-            <View pointerEvents="none" style={[styles.cardGlow, styles.cardGlowSecondary]} />
+          <View style={styles.formWrap}>
 
             {/* Mode toggle */}
             <View style={styles.modeRow}>
@@ -108,32 +130,92 @@ export default function LoginScreen() {
               ))}
             </View>
 
-            <TextInput
-              style={styles.input}
-              placeholder="Username"
-              placeholderTextColor={T.textMuted}
-              value={username}
-              onChangeText={setUsername}
-              autoCapitalize="none"
-              autoCorrect={false}
-              onSubmitEditing={handleSubmit}
-              returnKeyType="done"
-              editable={!loading}
-            />
-
-            {mode === "register" ? (
+            <View style={styles.fieldWrap}>
+              <Animated.Text
+                style={[
+                  styles.fieldLabel,
+                  {
+                    opacity: usernameLabelProgress.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.68, 1],
+                    }),
+                    transform: [
+                      {
+                        translateY: usernameLabelProgress.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0, -10],
+                        }),
+                      },
+                      {
+                        scale: usernameLabelProgress.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [1, 0.84],
+                        }),
+                      },
+                    ],
+                  },
+                  (usernameFocused || username.trim()) && styles.fieldLabelActive,
+                ]}
+              >
+                Username
+              </Animated.Text>
               <TextInput
                 style={styles.input}
-                placeholder="Email"
-                placeholderTextColor={T.textMuted}
-                value={email}
-                onChangeText={setEmail}
+                value={username}
+                onChangeText={setUsername}
                 autoCapitalize="none"
                 autoCorrect={false}
-                keyboardType="email-address"
+                onFocus={() => setUsernameFocused(true)}
+                onBlur={() => setUsernameFocused(false)}
+                onSubmitEditing={handleSubmit}
                 returnKeyType="done"
                 editable={!loading}
               />
+            </View>
+
+            {mode === "register" ? (
+              <View style={styles.fieldWrap}>
+                <Animated.Text
+                  style={[
+                    styles.fieldLabel,
+                    {
+                      opacity: emailLabelProgress.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.68, 1],
+                      }),
+                      transform: [
+                        {
+                          translateY: emailLabelProgress.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [0, -10],
+                          }),
+                        },
+                        {
+                          scale: emailLabelProgress.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [1, 0.84],
+                          }),
+                        },
+                      ],
+                    },
+                    (emailFocused || email.trim()) && styles.fieldLabelActive,
+                  ]}
+                >
+                  Email
+                </Animated.Text>
+                <TextInput
+                  style={styles.input}
+                  value={email}
+                  onChangeText={setEmail}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="email-address"
+                  onFocus={() => setEmailFocused(true)}
+                  onBlur={() => setEmailFocused(false)}
+                  returnKeyType="done"
+                  editable={!loading}
+                />
+              </View>
             ) : null}
 
             <Pressable

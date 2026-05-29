@@ -66,7 +66,7 @@ export default function OnboardingPayScheduleSection({ controller }: OnboardingP
   return (
     <>
       <View style={styles.sectionCard}>
-        <Text style={styles.question}>How often do you get paid?</Text>
+        <Text style={[styles.question, styles.sectionQuestionSpacing]}>How often do you get paid?</Text>
         <View style={styles.chipsWrap}>
           {PAY_FREQUENCY_OPTIONS.map((item) => {
             const active = controller.payFrequency === item.value;
@@ -81,7 +81,7 @@ export default function OnboardingPayScheduleSection({ controller }: OnboardingP
 
       {controller.payFrequency === "monthly" ? (
         <View style={styles.sectionCard}>
-          <View style={styles.questionRow}>
+          <View style={[styles.questionRow, styles.sectionQuestionRowSpacing]}>
             <Ionicons name="wallet-outline" size={20} color={STEP_ICON_COLORS[2]} />
             <Text style={styles.question}>What day of the month do you usually get paid?</Text>
           </View>
@@ -94,16 +94,12 @@ export default function OnboardingPayScheduleSection({ controller }: OnboardingP
             style={styles.input}
             accessibilityLabel="Enter your payday as a day of the month"
           />
-          <View style={styles.helperRow}>
-            <Ionicons name="calendar-clear-outline" size={14} color="rgba(223,233,255,0.82)" />
-            <Text style={styles.helper}>Enter just the day number, from 1 to 31.</Text>
-          </View>
         </View>
       ) : null}
 
       {controller.payFrequency && controller.payFrequency !== "monthly" ? (
         <View style={styles.sectionCard}>
-          <View style={styles.questionRow}>
+          <View style={[styles.questionRow, styles.sectionQuestionRowSpacing]}>
             <Ionicons name="calendar-outline" size={20} color={STEP_ICON_COLORS[2]} />
             <Text style={styles.question}>Enter the last date or the next date you are getting paid.</Text>
           </View>
@@ -118,10 +114,6 @@ export default function OnboardingPayScheduleSection({ controller }: OnboardingP
             </Text>
             <Ionicons name="calendar-clear-outline" size={18} color="#ffffff" />
           </Pressable>
-          <View style={styles.helperRow}>
-            <Ionicons name="calendar-clear-outline" size={14} color="rgba(223,233,255,0.82)" />
-            <Text style={styles.helper}>Pick the last date or next date you are getting paid. We&apos;ll use it to anchor weekly, 2-week, and 4-week pay periods.</Text>
-          </View>
         </View>
       ) : null}
 

@@ -61,8 +61,15 @@ export default function OnboardingScreen(props: OnboardingScreenProps) {
       </View>
 
       <View style={styles.gestureWrap} {...controller.stepPanHandlers}>
-        <ScrollView contentContainerStyle={[styles.wrap, showProgress && styles.wrapWithProgress]} keyboardShouldPersistTaps="handled">
-          <View>
+        <ScrollView
+          contentContainerStyle={[
+            styles.wrap,
+            showProgress && styles.wrapWithProgress,
+            { paddingBottom: Math.max(28, controller.insets.bottom + 16) },
+          ]}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.contentWrap}>
             {controller.step === 0 ? (
               <View style={styles.header}>
                 <Text style={[styles.welcome, controller.fontsLoaded && styles.welcomeScript]}>Welcome</Text>

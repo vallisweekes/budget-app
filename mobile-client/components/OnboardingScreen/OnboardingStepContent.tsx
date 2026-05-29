@@ -78,11 +78,15 @@ export function OnboardingStepContent({ controller }: OnboardingStepContentProps
             return (
               <Pressable key={goal.id} onPress={() => controller.toggleGoal(goal.id)} style={[styles.option, isSelected && styles.optionActive]}>
                 <View style={styles.optionRow}>
+                  <View style={[styles.optionCheckWrap, isSelected && styles.optionCheckWrapActive]}>
+                    {isSelected ? <Ionicons name="checkmark" size={18} color={STEP_ICON_COLORS[0]} /> : null}
+                  </View>
                   <View style={styles.optionLeft}>
-                    <Ionicons name={goal.icon} size={18} color={ICON_COLORS[goal.id]} />
                     <Text style={[styles.optionText, isSelected && styles.optionTextActive]}>{goal.label}</Text>
                   </View>
-                  <Ionicons name={isSelected ? "checkmark-circle" : "ellipse-outline"} size={20} color="#ffffff" />
+                  <View style={styles.optionIconWrap}>
+                    <Ionicons name={goal.icon} size={18} color={ICON_COLORS[goal.id]} />
+                  </View>
                 </View>
               </Pressable>
             );
@@ -100,14 +104,14 @@ export function OnboardingStepContent({ controller }: OnboardingStepContentProps
 
           <Pressable
             onPress={() => setOccupationDropdownOpen((value) => !value)}
-            style={[styles.dropdownTrigger, occupationDropdownOpen && styles.dropdownTriggerOpen]}
+            style={[styles.occupationDropdownTrigger, occupationDropdownOpen && styles.occupationDropdownTriggerOpen]}
             accessibilityRole="button"
             accessibilityLabel="Open occupation list"
           >
             <Text
               style={[
-                styles.dropdownTriggerText,
-                !controller.occupation.trim() && styles.dropdownTriggerPlaceholder,
+                styles.occupationDropdownTriggerText,
+                !controller.occupation.trim() && styles.occupationDropdownTriggerPlaceholder,
               ]}
             >
               {selectedOccupationLabel}
@@ -120,10 +124,10 @@ export function OnboardingStepContent({ controller }: OnboardingStepContentProps
           </Pressable>
 
           {occupationDropdownOpen ? (
-            <View style={styles.dropdownList}>
+            <View style={styles.occupationDropdownList}>
               <ScrollView
-                style={styles.dropdownListScroll}
-                contentContainerStyle={styles.dropdownListContent}
+                style={styles.occupationDropdownListScroll}
+                contentContainerStyle={styles.occupationDropdownListContent}
                 nestedScrollEnabled
                 showsVerticalScrollIndicator={false}
               >
@@ -136,10 +140,12 @@ export function OnboardingStepContent({ controller }: OnboardingStepContentProps
                         controller.setOccupation(item);
                         setOccupationDropdownOpen(false);
                       }}
-                      style={[styles.dropdownItem, active && styles.dropdownItemActive]}
+                      style={[styles.occupationDropdownItem, active && styles.occupationDropdownItemActive]}
                     >
-                      <Text style={[styles.dropdownItemText, active && styles.dropdownItemTextActive]}>{item}</Text>
-                      {active ? <Ionicons name="checkmark" size={16} color="#ffffff" /> : null}
+                      <View style={styles.occupationDropdownCheckWrap}>
+                        {active ? <Ionicons name="checkmark" size={16} color="#ffffff" /> : null}
+                      </View>
+                      <Text style={[styles.occupationDropdownItemText, active && styles.occupationDropdownItemTextActive]}>{item}</Text>
                     </Pressable>
                   );
                 })}
@@ -196,26 +202,16 @@ export function OnboardingStepContent({ controller }: OnboardingStepContentProps
           <OnboardingPayScheduleSection controller={controller} />
 
           <View style={styles.sectionCard}>
-            <Text style={styles.question}>
+            <Text style={[styles.question, styles.sectionQuestionSpacing]}>
               {occupationNeedsIncomeSource
                 ? "About how much do you receive each month?"
                 : "About how much do you bring in each month after tax?"}
             </Text>
-            <MoneyInput currency={controller.currency} value={controller.salary} onChangeValue={controller.setSalary} variant="light" placeholder="0.00" />
-            <Text style={styles.helper}>
-              {occupationNeedsIncomeSource
-                ? "Use the monthly amount you receive from your selected source of income."
-                : "Use your monthly take-home pay (after tax)."}
-            </Text>
-            {controller.detectedCountry ? (
-              <Text style={styles.helper}>
-                Detected region: {controller.detectedCountry}. We&apos;ll use {controller.detectedCurrencySymbol} during setup, and you can change this later in Settings &gt; Locale.
-              </Text>
-            ) : null}
+            <MoneyInput currency={controller.currency} value={controller.salary} onChangeValue={controller.setSalary} variant="underline" placeholder="0.00" />
           </View>
 
           <View style={styles.sectionCard}>
-            <Text style={styles.question}>How many years ahead do you want to plan your income?</Text>
+            <Text style={[styles.question, styles.sectionQuestionSpacing]}>How many years ahead do you want to plan your income?</Text>
             <View style={styles.chipsWrap}>
               {PLANNING_YEARS_OPTIONS.map((item) => {
                 const active = controller.planningYears === item.id;
@@ -247,7 +243,6 @@ export function OnboardingStepContent({ controller }: OnboardingStepContentProps
                   </View>
                   <View style={styles.billMeta}>
                     <Text style={styles.billCardTitle}>{bill.title}</Text>
-                    <Text style={styles.billCardHint}>{bill.helper}</Text>
                   </View>
                 </View>
 
@@ -263,21 +258,15 @@ export function OnboardingStepContent({ controller }: OnboardingStepContentProps
                     currency={controller.currency}
                     value={bill.amount}
                     onChangeValue={bill.setAmount}
-                    variant="light"
+                    variant="underline"
                     placeholder="0.00"
                     containerStyle={styles.billAmountInput}
+                    inputStyle={styles.billAmountInputText}
                   />
                 </View>
               </View>
             ))}
           </View>
-
-          <NoteBadge
-            text="These are your regular monthly bills. If you know the company name, add it to keep your plan accurate."
-            containerStyle={styles.stepNoteBadge}
-            textStyle={styles.stepNoteText}
-            accentStyle={styles.stepNoteAccent}
-          />
         </>
       ) : null}
 
@@ -287,16 +276,40 @@ export function OnboardingStepContent({ controller }: OnboardingStepContentProps
             <Ionicons name="happy-outline" size={20} color={STEP_ICON_COLORS[4]} />
             <Text style={styles.question}>Do you set aside spending money for yourself?</Text>
           </View>
-          <View style={styles.toggleRow}>
-            <Pressable onPress={() => controller.setHasAllowance(true)} style={[styles.toggle, controller.hasAllowance && styles.toggleActive]}>
-              <Text style={[styles.toggleText, controller.hasAllowance && styles.toggleTextActive]}>Yes</Text>
+          <View style={styles.binaryChoiceList}>
+            <Pressable
+              onPress={() => controller.setHasAllowance(true)}
+              style={[styles.option, controller.hasAllowance === true && styles.optionActive]}
+            >
+              <View style={styles.optionRow}>
+                <View style={[styles.optionCheckWrap, controller.hasAllowance === true && styles.optionCheckWrapActive]}>
+                  {controller.hasAllowance === true ? <Ionicons name="checkmark" size={18} color={STEP_ICON_COLORS[4]} /> : null}
+                </View>
+                <View style={styles.optionLeft}>
+                  <Text style={[styles.optionText, controller.hasAllowance === true && styles.optionTextActive]}>Yes</Text>
+                </View>
+              </View>
             </Pressable>
-            <Pressable onPress={() => controller.setHasAllowance(false)} style={[styles.toggle, !controller.hasAllowance && styles.toggleActive]}>
-              <Text style={[styles.toggleText, !controller.hasAllowance && styles.toggleTextActive]}>No</Text>
+
+            <Pressable
+              onPress={() => controller.setHasAllowance(false)}
+              style={[styles.option, controller.hasAllowance === false && styles.optionActive]}
+            >
+              <View style={styles.optionRow}>
+                <View style={[styles.optionCheckWrap, controller.hasAllowance === false && styles.optionCheckWrapActive]}>
+                  {controller.hasAllowance === false ? <Ionicons name="checkmark" size={18} color={STEP_ICON_COLORS[4]} /> : null}
+                </View>
+                <View style={styles.optionLeft}>
+                  <Text style={[styles.optionText, controller.hasAllowance === false && styles.optionTextActive]}>No</Text>
+                </View>
+              </View>
             </Pressable>
           </View>
           {controller.hasAllowance ? (
-            <MoneyInput currency={controller.currency} value={controller.allowanceAmount} onChangeValue={controller.setAllowanceAmount} variant="light" placeholder="0.00" />
+            <>
+              <Text style={[styles.question, styles.sectionQuestionSpacing]}>How much?</Text>
+              <MoneyInput currency={controller.currency} value={controller.allowanceAmount} onChangeValue={controller.setAllowanceAmount} variant="underline" placeholder="0.00" />
+            </>
           ) : null}
         </>
       ) : null}
@@ -313,24 +326,45 @@ export function OnboardingStepContent({ controller }: OnboardingStepContentProps
             <Ionicons name="card-outline" size={17} color={STEP_ICON_COLORS[5]} />
             <Text style={styles.sectionHeader}>Debt setup</Text>
           </View>
-          <Text style={styles.question}>Do you want to track any debts?</Text>
-          <View style={styles.toggleRow}>
-            <Pressable onPress={() => controller.setHasDebts(true)} style={[styles.toggle, controller.hasDebts && styles.toggleActive]}>
-              <Text style={[styles.toggleText, controller.hasDebts && styles.toggleTextActive]}>Yes</Text>
+          <Text style={[styles.question, styles.sectionQuestionSpacing]}>Do you want to track any debts?</Text>
+          <View style={styles.binaryChoiceList}>
+            <Pressable
+              onPress={() => controller.setHasDebts(true)}
+              style={[styles.option, controller.hasDebts === true && styles.optionActive]}
+            >
+              <View style={styles.optionRow}>
+                <View style={[styles.optionCheckWrap, controller.hasDebts === true && styles.optionCheckWrapActive]}>
+                  {controller.hasDebts === true ? <Ionicons name="checkmark" size={18} color={STEP_ICON_COLORS[5]} /> : null}
+                </View>
+                <View style={styles.optionLeft}>
+                  <Text style={[styles.optionText, controller.hasDebts === true && styles.optionTextActive]}>Yes</Text>
+                </View>
+              </View>
             </Pressable>
-            <Pressable onPress={() => controller.setHasDebts(false)} style={[styles.toggle, !controller.hasDebts && styles.toggleActive]}>
-              <Text style={[styles.toggleText, !controller.hasDebts && styles.toggleTextActive]}>No</Text>
+
+            <Pressable
+              onPress={() => controller.setHasDebts(false)}
+              style={[styles.option, controller.hasDebts === false && styles.optionActive]}
+            >
+              <View style={styles.optionRow}>
+                <View style={[styles.optionCheckWrap, controller.hasDebts === false && styles.optionCheckWrapActive]}>
+                  {controller.hasDebts === false ? <Ionicons name="checkmark" size={18} color={STEP_ICON_COLORS[5]} /> : null}
+                </View>
+                <View style={styles.optionLeft}>
+                  <Text style={[styles.optionText, controller.hasDebts === false && styles.optionTextActive]}>No</Text>
+                </View>
+              </View>
             </Pressable>
           </View>
-          {controller.hasDebts ? (
+          {controller.hasDebts === true ? (
             <>
               <Text style={styles.helper}>Add your current debt balance and a clear debt name.</Text>
-              <MoneyInput currency={controller.currency} value={controller.debtAmount} onChangeValue={controller.setDebtAmount} variant="light" placeholder="0.00" />
+              <MoneyInput currency={controller.currency} value={controller.debtAmount} onChangeValue={controller.setDebtAmount} variant="underline" placeholder="0.00" />
               <TextInput value={controller.debtNotes} onChangeText={controller.setDebtNotes} placeholder="Debt name (e.g. Barclays card)" placeholderTextColor="rgba(255,255,255,0.62)" style={styles.input} />
             </>
-          ) : (
+          ) : controller.hasDebts === false ? (
             <Text style={styles.helper}>You can skip this for now and add debts later in settings.</Text>
-          )}
+          ) : null}
 
           <View style={styles.sectionDivider} />
 
@@ -341,7 +375,7 @@ export function OnboardingStepContent({ controller }: OnboardingStepContentProps
           <Text style={[styles.helper, styles.sectionHelper]}>Set the amount and year you want to hit for your projection.</Text>
 
           <Text style={styles.fieldLabel}>Goal amount</Text>
-          <MoneyInput currency={controller.currency} value={controller.savingsGoalAmount} onChangeValue={controller.setSavingsGoalAmount} variant="light" placeholder="0.00" />
+          <MoneyInput currency={controller.currency} value={controller.savingsGoalAmount} onChangeValue={controller.setSavingsGoalAmount} variant="underline" placeholder="0.00" />
 
           <Text style={styles.fieldLabel}>Target year</Text>
           <TextInput value={controller.savingsGoalYear} onChangeText={controller.setSavingsGoalYear} placeholder="e.g. 2028" placeholderTextColor="rgba(255,255,255,0.62)" keyboardType="number-pad" style={styles.input} />

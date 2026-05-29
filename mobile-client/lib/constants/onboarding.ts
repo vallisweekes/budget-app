@@ -11,7 +11,7 @@ export const EXPENSES_TOTAL_BLUE = BRAND_BLUE;
 export const ICON_COLORS = {
   emergency_fund: T.orange,
   improve_savings: T.green,
-  investments: EXPENSES_TOTAL_BLUE,
+  investments: "#8ea2ff",
 } satisfies Record<VisibleGoal, string>;
 
 export const STEP_ICON_COLORS = {

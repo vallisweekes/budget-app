@@ -945,7 +945,7 @@ async function handleDueReminders(req: Request) {
     if (!userPrefs.dailyTips) continue;
 
     const personalization = onboardingPersonalization.get(profile.user.id);
-    if (!personalization || !canSendLowPriorityNotification(personalization, today, 3)) continue;
+    if (!personalization || !canSendLowPriorityNotification(personalization, today, 1)) continue;
 
     const lastTouchedAt = profile.updatedAt ?? profile.createdAt;
     const daysInactive = Math.max(0, Math.floor((today.getTime() - lastTouchedAt.getTime()) / (24 * 60 * 60 * 1000)));

@@ -82,7 +82,7 @@ export const styles = StyleSheet.create({
     fontWeight: "500",
     borderWidth: 0,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.22)",
+    borderBottomColor: "rgba(255,255,255,0.72)",
     minHeight: 52,
   },
   moneyInput: {

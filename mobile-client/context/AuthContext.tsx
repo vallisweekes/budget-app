@@ -320,49 +320,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const prepareRegistration = useCallback(async (usernameInput: string, emailInput: string) => {
-    const baseUrl = getApiBaseUrl();
-    const username = usernameInput.trim();
-    const email = emailInput.trim().toLowerCase();
-
-    suppressUnauthorizedCallback(true);
-    try {
-      await Promise.all([clearSessionToken(), clearStoredUsername(), clearPendingRegistration()]);
-      await resetLocalSessionState();
-
-      const res = await fetch(`${baseUrl}/api/mobile-auth`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username,
-          email,
-          mode: "register_check",
-        }),
-      });
-
-      const parsed = (await res.json().catch(() => null)) as MobileAuthResponse | null;
-      if (!res.ok) {
-        const serverError = typeof parsed?.error === "string" ? parsed.error : "";
-        throw new Error(serverError || "Registration failed. Please try again.");
-      }
-
-      const nextPendingRegistration: PendingRegistrationDraft = {
-        username,
-        email,
-        profile: null,
-      };
-
-      await setPendingRegistration(nextPendingRegistration);
-      setAuthState({
-        token: null,
-        username,
-        profile: null,
-        pendingRegistration: nextPendingRegistration,
-        isLoading: false,
-      });
-    } finally {
-      suppressUnauthorizedCallback(false);
-    }
-  }, [resetLocalSessionState, setAuthState]);
+    await signIn(usernameInput, "register", emailInput);
+  }, [signIn]);
 
   const updatePendingRegistrationProfile = useCallback(async (profileUpdate: Partial<OnboardingProfile>) => {
     const currentPendingRegistration = pendingRegistrationRef.current;

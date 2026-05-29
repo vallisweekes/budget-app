@@ -27,7 +27,7 @@ export const styles = StyleSheet.create({
   wrapUnderline: {
     borderWidth: 0,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.22)",
+    borderBottomColor: "rgba(255,255,255,0.72)",
     backgroundColor: "transparent",
     borderRadius: 0,
     minHeight: 52,
