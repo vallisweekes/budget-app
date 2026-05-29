@@ -6,14 +6,14 @@ import { useRouter } from "expo-router";
 
 import { useBootstrapData, isNoBudgetPlanError } from "@/context/BootstrapDataContext";
 import { getApiMutationVersion } from "@/lib/api";
-import type { DashboardData } from "@/lib/apiTypes";
+import type { DashboardData, Expense } from "@/lib/apiTypes";
 import { SCREEN_FOCUS_REVALIDATE_TTL_MS } from "@/lib/constants";
 import { resolveDisplayedPayPeriodAnchor } from "@/lib/helpers/resolveDisplayedPayPeriodAnchor";
 import { currencySymbol, normalizeUpcomingName } from "@/lib/formatting";
 import { usePayPeriodBoundaryRefresh, useSwipeDownToClose, useTopHeaderOffset } from "@/hooks";
 import { getPayPeriodAnchorFromWindow, normalizePayFrequency, resolveActivePayPeriod } from "@/lib/payPeriods";
 import type { MainTabScreenProps } from "@/navigation/types";
-import { useGetDashboardByPeriodQuery, useGetDebtSummaryQuery, useGetExpenseSummaryQuery } from "@/store/api";
+import { useGetDashboardByPeriodQuery, useGetDebtSummaryQuery, useGetExpenseSummaryQuery, useGetExpensesQuery } from "@/store/api";
 import type { QuickPaymentActionItem } from "@/types";
 import { buildDashboardDerived } from "@/components/DashboardScreen/derived";
 import { GOAL_CARD, GOAL_GAP } from "@/components/DashboardScreen/style";
@@ -49,6 +49,48 @@ function countOverLimitDebts(debts: Array<{ currentBalance?: number | null; cred
     const currentBalance = Number(debt.currentBalance ?? 0);
     return creditLimit > 0 && currentBalance > creditLimit ? count + 1 : count;
   }, 0);
+}
+
+function startOfLocalDay(value: Date): Date {
+  const next = new Date(value);
+  next.setHours(0, 0, 0, 0);
+  return next;
+}
+
+function getDaysUntilDue(dueDate: string | null | undefined): number {
+  if (!dueDate) return Number.POSITIVE_INFINITY;
+
+  const parsed = new Date(dueDate);
+  if (Number.isNaN(parsed.getTime())) return Number.POSITIVE_INFINITY;
+
+  const msPerDay = 1000 * 60 * 60 * 24;
+  return Math.floor((startOfLocalDay(parsed).getTime() - startOfLocalDay(new Date()).getTime()) / msPerDay);
+}
+
+function getExpenseUrgency(daysUntilDue: number): "overdue" | "today" | "soon" | undefined {
+  if (!Number.isFinite(daysUntilDue)) return undefined;
+  if (daysUntilDue < 0) return "overdue";
+  if (daysUntilDue === 0) return "today";
+  if (daysUntilDue <= 7) return "soon";
+  return undefined;
+}
+
+function mapExpenseToUpcomingItem(expense: Expense) {
+  const amount = Number(expense.amount ?? 0);
+  const paidAmount = Number(expense.paidAmount ?? 0);
+  const dueDate = expense.effectiveDueDate ?? expense.dueDate ?? null;
+  const daysUntilDue = getDaysUntilDue(dueDate);
+
+  return {
+    id: expense.id,
+    name: expense.name,
+    amount,
+    paidAmount,
+    dueDate,
+    logoUrl: expense.logoUrl ?? null,
+    daysUntilDue,
+    urgency: getExpenseUrgency(daysUntilDue),
+  };
 }
 
 export function useDashboardScreenController({ navigation: _navigation }: DashboardScreenProps) {
@@ -144,7 +186,7 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
     });
 
     return getPayPeriodAnchorFromWindow({ period: activePeriod, payFrequency });
-  }, [budgetPlanId, dashboard?.payDate, payAnchorDate, payFrequency, payPeriodBoundaryVersion, planCreatedAt, settings?.payDate]);
+  }, [budgetPlanId, dashboard?.payDate, payAnchorDate, payFrequency, planCreatedAt, settings?.payDate]);
 
   const requestedPeriodAnchor = displayedPeriodAnchor ?? provisionalDisplayedAnchor;
 
@@ -204,6 +246,12 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
   );
   const hasBudgetHeroData = Boolean(resolvedDashboard || hasCoreHeroData);
   const hasRenderableHeroData = hasBudgetHeroData || hasStableSummaryPreview;
+  const isWaitingForEnrichmentData = Boolean(
+    !resolvedDashboard && (
+      bootstrapLoading
+      || (shouldLoadPeriodDashboard && !periodDashboardQuery.data && (periodDashboardQuery.isLoading || periodDashboardQuery.isFetching))
+    )
+  );
   const isWaitingForCoreData = Boolean(
     periodDataArgs
       && !periodExpenseSummaryQuery.data
@@ -323,6 +371,35 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
     [categorySheet, effectiveDisplayedAnchor, resolvedDashboard, settings]
   );
 
+  const shouldLoadUpcomingExpenseFallback = Boolean(periodDataArgs && derived.upcoming.length === 0);
+
+  const periodExpensesQuery = useGetExpensesQuery(periodDataArgs as {
+    budgetPlanId: string;
+    month: number;
+    year: number;
+    scope: "pay_period";
+  }, {
+    skip: !shouldLoadUpcomingExpenseFallback,
+  });
+
+  const fallbackUpcoming = useMemo(
+    () => (periodExpensesQuery.data ?? [])
+      .map(mapExpenseToUpcomingItem)
+      .filter((expense) => (expense.amount - expense.paidAmount) > 0.0001)
+      .sort((a, b) => {
+        const aDue = a.dueDate ? new Date(a.dueDate).getTime() : Number.POSITIVE_INFINITY;
+        const bDue = b.dueDate ? new Date(b.dueDate).getTime() : Number.POSITIVE_INFINITY;
+        if (aDue !== bDue) return aDue - bDue;
+
+        const aRemaining = a.amount - a.paidAmount;
+        const bRemaining = b.amount - b.paidAmount;
+        if (aRemaining !== bRemaining) return bRemaining - aRemaining;
+
+        return String(a.name ?? "").localeCompare(String(b.name ?? ""));
+      }),
+    [periodExpensesQuery.data],
+  );
+
   useEffect(() => {
     let cancelled = false;
 
@@ -385,9 +462,6 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
   const displayTotalIncome = coreBudgetOverview?.totalIncome ?? derived.totalIncome;
   const displayTotalExpenses = coreSummary?.totalAmount ?? derived.totalExpenses;
   const displayPaidTotal = coreSummary?.paidAmount ?? derived.paidTotal;
-  const displayIncomeAfterAllocations = coreBudgetOverview
-    ? coreBudgetOverview.amountLeftToBudget
-    : derived.amountLeftToBudget;
   const displayTotalBudget = coreBudgetOverview
     ? coreBudgetOverview.totalBudget
     : derived.totalBudget;
@@ -410,6 +484,9 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
         expenses: [],
       }))
     : derived.categories;
+  const displayUpcoming = derived.upcoming.length > 0
+    ? derived.upcoming
+    : fallbackUpcoming;
   const needsSetup = hasBudgetHeroData ? (displayTotalIncome <= 0 || displayTotalExpenses <= 0) : false;
   const hasEnrichmentData = Boolean(resolvedDashboard);
   const summaryPreviewLabel = coreSummary?.periodRangeLabel ?? coreSummary?.periodLabel ?? "Current pay period";
@@ -507,6 +584,7 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
     needsSetup,
     hasBudgetHeroData,
     hasEnrichmentData,
+    isWaitingForEnrichmentData,
     hasSummaryPreview: hasStableSummaryPreview,
     summaryPreviewLabel,
     summaryPreviewSpentTotal,
@@ -545,6 +623,7 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
     paidTotal: displayPaidTotal,
     totalIncome: displayTotalIncome,
     categories: displayCategories,
+    upcoming: displayUpcoming,
     payPeriodLabel: displayPayPeriodLabel,
     amountAfterExpenses: displayAmountAfterExpenses,
     isOverBudgetBySpending: displayIsOverBudgetBySpending,

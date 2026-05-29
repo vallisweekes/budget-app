@@ -230,6 +230,27 @@ export const mobileApi = createApi({
       },
       providesTags: ["Dashboard"],
     }),
+    getExpenses: builder.query<Expense[], {
+      month: number;
+      year: number;
+      budgetPlanId?: string | null;
+      scope?: "month" | "pay_period";
+    }>({
+      async queryFn({ month, year, budgetPlanId, scope = "pay_period" }) {
+        try {
+          const planQp = budgetPlanId ? `&budgetPlanId=${encodeURIComponent(budgetPlanId)}` : "";
+          const data = await apiFetch<Expense[]>(
+            `/api/bff/expenses?month=${month}&year=${year}&scope=${scope}${planQp}`,
+            { cacheTtlMs: 0 },
+          );
+          return { data };
+        } catch (err: unknown) {
+          return { error: normalizeApiError(err) };
+        }
+      },
+      keepUnusedDataFor: 120,
+      providesTags: ["Expenses"],
+    }),
     getAnalyticsExpenseSeries: builder.query<number[], {
       year: number;
       budgetPlanId?: string | null;
@@ -850,6 +871,7 @@ export const {
   useGetDashboardByPeriodQuery,
   useGetCategoriesQuery,
   useGetDebtsQuery,
+  useGetExpensesQuery,
   useGetExpenseSummaryQuery,
   useGetAnalyticsExpenseSeriesQuery,
   useGetDebtSummaryQuery,

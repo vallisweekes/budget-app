@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -20,8 +21,34 @@ import { styles } from "@/components/DashboardScreen/style";
 export default function DashboardScreen(props: DashboardScreenProps) {
   const controller = useDashboardScreenController(props);
   const contentTopPadding = Math.max(24, controller.topHeaderOffset - 28);
+  const [allowSummaryFallbackWhileEnrichmentPending, setAllowSummaryFallbackWhileEnrichmentPending] = useState(false);
+  const hasRenderableHeroData = controller.hasBudgetHeroData || controller.hasSummaryPreview;
+
+  useEffect(() => {
+    if (!controller.isWaitingForEnrichmentData || !hasRenderableHeroData) {
+      setAllowSummaryFallbackWhileEnrichmentPending(false);
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      setAllowSummaryFallbackWhileEnrichmentPending(true);
+    }, 1500);
+
+    return () => clearTimeout(timeout);
+  }, [controller.isWaitingForEnrichmentData, hasRenderableHeroData]);
 
   if (controller.loading) {
+    return (
+      <SafeAreaView style={[styles.safe, { paddingTop: controller.topHeaderOffset }]} edges={[]}>
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={T.accent} />
+          <Text style={styles.loadingText}>Loading dashboard...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (controller.isWaitingForEnrichmentData && !allowSummaryFallbackWhileEnrichmentPending) {
     return (
       <SafeAreaView style={[styles.safe, { paddingTop: controller.topHeaderOffset }]} edges={[]}>
         <View style={styles.center}>
@@ -170,53 +197,44 @@ export default function DashboardScreen(props: DashboardScreenProps) {
           />
         ) : null}
 
-        {controller.hasEnrichmentData ? (
-          <>
-            <DashboardUpcomingExpensesSection
-              items={controller.upcoming}
-              currency={controller.currency}
-              formatShortDate={controller.formatShortDate}
-              isLogoFailed={controller.isLogoFailed}
-              onLogoError={controller.markLogoFailed}
-              onOpenQuickPay={controller.openExpenseQuickPay}
-              onSeeAll={controller.goToPayments}
-            />
+        <DashboardUpcomingExpensesSection
+          items={controller.upcoming}
+          currency={controller.currency}
+          formatShortDate={controller.formatShortDate}
+          isLogoFailed={controller.isLogoFailed}
+          onLogoError={controller.markLogoFailed}
+          onOpenQuickPay={controller.openExpenseQuickPay}
+          onSeeAll={controller.goToPayments}
+        />
 
-            <DashboardAiTipsCard tips={controller.dashboardTips} />
+        <DashboardAiTipsCard tips={controller.dashboardTips} />
 
-            <DashboardUpcomingDebtsSection
-              items={controller.upcomingDebts}
-              currency={controller.currency}
-              isLogoFailed={controller.isLogoFailed}
-              onLogoError={controller.markLogoFailed}
-              onOpenQuickPay={controller.openDebtQuickPay}
-              onSeeAll={controller.goToPayments}
-            />
+        <DashboardUpcomingDebtsSection
+          items={controller.upcomingDebts}
+          currency={controller.currency}
+          isLogoFailed={controller.isLogoFailed}
+          onLogoError={controller.markLogoFailed}
+          onOpenQuickPay={controller.openDebtQuickPay}
+          onSeeAll={controller.goToPayments}
+        />
 
-            <DashboardRecapSection
-              recap={controller.recap}
-              hasRecapData={controller.hasRecapData}
-              recapTitle={controller.recapTitle}
-              currency={controller.currency}
-            />
+        <DashboardRecapSection
+          recap={controller.recap}
+          hasRecapData={controller.hasRecapData}
+          recapTitle={controller.recapTitle}
+          currency={controller.currency}
+        />
 
-            <DashboardGoalsSection
-              items={controller.goalCardsData}
-              settings={controller.settings}
-              currency={controller.currency}
-              activeGoalCard={controller.activeGoalCard}
-              onMomentumEnd={controller.handleGoalMomentumEnd}
-              onPressGoals={controller.goToGoals}
-              onPressAddGoal={controller.goToGoalsAdd}
-              onPressProjection={controller.goToGoalsProjection}
-            />
-          </>
-        ) : (
-          <View style={styles.setupCard}>
-            <Text style={styles.setupTitle}>Loading more details</Text>
-            <Text style={styles.setupText}>Upcoming bills, goals, and tips are still loading.</Text>
-          </View>
-        )}
+        <DashboardGoalsSection
+          items={controller.goalCardsData}
+          settings={controller.settings}
+          currency={controller.currency}
+          activeGoalCard={controller.activeGoalCard}
+          onMomentumEnd={controller.handleGoalMomentumEnd}
+          onPressGoals={controller.goToGoals}
+          onPressAddGoal={controller.goToGoalsAdd}
+          onPressProjection={controller.goToGoalsProjection}
+        />
       </ScrollView>
     </SafeAreaView>
   );

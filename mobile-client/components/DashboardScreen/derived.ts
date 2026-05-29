@@ -228,9 +228,6 @@ export function buildDashboardDerived(params: {
   const upcomingBase = (dashboard?.expenseInsights?.upcoming ?? []).filter((u) => {
     const id = String(u.id ?? "").toLowerCase();
     if (id.startsWith("debt:") || id.startsWith("debt-expense:")) return false;
-    const n = String(u.name ?? "").trim().toLowerCase();
-    if (n === "housing: rent" || n === "houing: rent") return false;
-    if (n.startsWith("housing") && n.includes("rent")) return false;
     const isOutstanding = (u.status ?? "unpaid") !== "paid" && (Number(u.amount ?? 0) - Number(u.paidAmount ?? 0)) > 0.0001;
     if (!isOutstanding) return false;
     return true;
@@ -245,6 +242,31 @@ export function buildDashboardDerived(params: {
     if (aDue !== bDue) return aDue - bDue;
     return (Number(b.amount ?? 0) - Number(b.paidAmount ?? 0)) - (Number(a.amount ?? 0) - Number(a.paidAmount ?? 0));
   });
+
+  const fallbackUpcoming = categories
+    .flatMap((category) => (category.expenses ?? []).map((expense) => ({
+      id: expense.id,
+      name: expense.name,
+      amount: Number(expense.amount ?? 0),
+      paidAmount: Number(expense.paidAmount ?? 0),
+      dueDate: null,
+      logoUrl: undefined,
+      daysUntilDue: Number.POSITIVE_INFINITY,
+      urgency: undefined,
+    })))
+    .filter((expense) => {
+      const amount = Number(expense.amount ?? 0);
+      const paidAmount = Number(expense.paidAmount ?? 0);
+      return amount - paidAmount > 0.0001;
+    })
+    .sort((a, b) => {
+      const aRemaining = Number(a.amount ?? 0) - Number(a.paidAmount ?? 0);
+      const bRemaining = Number(b.amount ?? 0) - Number(b.paidAmount ?? 0);
+      if (aRemaining !== bRemaining) return bRemaining - aRemaining;
+      return String(a.name ?? "").localeCompare(String(b.name ?? ""));
+    });
+
+  const upcomingForDashboard = upcoming.length > 0 ? upcoming : fallbackUpcoming;
 
   const resolveDebtDueDate = (d: (typeof debts)[number]) => {
     const dueDateIso = d.dueDate ?? null;
@@ -347,7 +369,7 @@ export function buildDashboardDerived(params: {
     plannedDebtItems,
     plannedDebtItemsTotal,
     rangeLabel,
-    upcoming,
+    upcoming: upcomingForDashboard,
     upcomingDebts,
     formatShortDate,
     selectedCategory,

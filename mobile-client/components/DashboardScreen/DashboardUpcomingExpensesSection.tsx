@@ -28,13 +28,11 @@ export default function DashboardUpcomingExpensesSection({
         const logoKey = `expense:${item.id}`;
         const showLogo = Boolean(logoUri) && !isLogoFailed(logoKey);
         const dateLabel = formatShortDate(item.dueDate);
-        const subtitle = item.urgency === "overdue"
-          ? "Overdue"
-          : item.urgency === "today"
-            ? "Due today"
-            : dateLabel
-              ? `Next on ${dateLabel}`
-              : `In ${item.daysUntilDue}d`;
+        const subtitle = dateLabel
+          ? `Due ${dateLabel}`
+          : item.dueDate
+            ? "Due soon"
+            : "This pay period";
 
         return (
           <Pressable key={item.id} style={styles.lightRow} onPress={() => onOpenQuickPay(item)}>
