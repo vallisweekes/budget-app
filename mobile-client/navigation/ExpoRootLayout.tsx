@@ -107,7 +107,7 @@ function NavigationPersistenceObserver() {
 function useSessionRouteGuardState() {
   const pathname = usePathname();
   const segments = useSegments() as string[];
-  const { token, isLoading } = useAuth();
+  const { token, isLoading, pendingRegistration } = useAuth();
   const { isLoading: bootstrapLoading, dashboard, settings } = useBootstrapData();
   const onboarding = useOnboardingGate();
   const verification = useEmailVerificationGate();
@@ -132,6 +132,10 @@ function useSessionRouteGuardState() {
   }
 
   if (!token) {
+    if (onOnboardingRoute && !pendingRegistration) {
+      return { mode: "redirect" as const, href: "/(auth)/login" };
+    }
+
     return inAuthGroup ? { mode: "ready" as const } : { mode: "redirect" as const, href: "/(auth)/login" };
   }
 

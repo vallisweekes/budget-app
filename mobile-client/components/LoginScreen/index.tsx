@@ -13,7 +13,6 @@ import {
   Easing,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
 
 import { styles } from "@/components/LoginScreen/style";
 import { useAuth } from "@/context/AuthContext";
@@ -22,8 +21,7 @@ import { T } from "@/lib/theme";
 import type { LoginScreenMode } from "@/types";
 
 export default function LoginScreen() {
-  const router = useRouter();
-  const { pendingRegistration, prepareRegistration, signIn } = useAuth();
+  const { prepareRegistration, signIn } = useAuth();
   const [username, setUsername] = useState("");
   const [usernameFocused, setUsernameFocused] = useState(false);
   const [email, setEmail] = useState("");
@@ -40,11 +38,6 @@ export default function LoginScreen() {
       return (process.env.EXPO_PUBLIC_API_BASE_URL ?? "").trim();
     }
   })();
-
-  useEffect(() => {
-    if (!pendingRegistration) return;
-    router.replace("/(auth)/onboarding");
-  }, [pendingRegistration, router]);
 
   useEffect(() => {
     Animated.timing(usernameLabelProgress, {
@@ -81,7 +74,6 @@ export default function LoginScreen() {
     try {
       if (mode === "register") {
         await prepareRegistration(username.trim(), email.trim());
-        router.replace("/(auth)/onboarding");
         return;
       }
 

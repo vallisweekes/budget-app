@@ -11,7 +11,7 @@ export default function OnboardingRoute() {
   const onboarding = useOnboardingGate();
 
   if (!token && !pendingRegistration) {
-    return <Redirect href="/(auth)/login" />;
+    return null;
   }
 
   const initial: OnboardingStatusResponse = token
