@@ -286,7 +286,15 @@ export function computeRecapTips(args: {
 	const today = todayUtcDateOnly(now);
 
 	const needsHelp = args.recap.missedDueCount > 0 || args.recap.unpaidCount + args.recap.partialCount > 0;
-	if (!needsHelp) return tips;
+	if (!needsHelp) {
+		return prioritizeRecapTips([
+			{
+				title: "You're on track",
+				detail: "Last period's bills were covered. Next best step: keep your reminders or autopay in place and keep building a small bills buffer for the next cycle.",
+				priority: 18,
+			},
+		]);
+	}
 
 	// Personalization based on the user's recent patterns (this plan's history).
 	const history = Array.isArray(args.historyExpenses) ? args.historyExpenses : [];
