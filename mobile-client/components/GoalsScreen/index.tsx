@@ -13,17 +13,16 @@ import {
   SectionList,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect, useScrollToTop } from "@react-navigation/native";
+import { useScrollToTop } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { apiFetch, getApiMutationVersion } from "@/lib/api";
 import type { Goal } from "@/lib/apiTypes";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
-import { GOALS_PREFETCH_CACHE_TTL_MS, SCREEN_FOCUS_REVALIDATE_TTL_MS } from "@/lib/constants";
 import { fmt } from "@/lib/formatting";
 import { asMoneyNumber, resolveGoalCurrentAmount } from "@/lib/helpers/settings";
 import { useTopHeaderOffset } from "@/hooks";
 import type { MainTabScreenProps } from "@/navigation/types";
+import { getMobileApiErrorMessage, useCreateGoalMutation, useGetGoalsQuery } from "@/store/api";
 import { T } from "@/lib/theme";
 import { s } from "@/components/GoalsScreen/style";
 import MoneyInput from "@/components/Shared/MoneyInput";
@@ -38,14 +37,9 @@ export default function GoalsScreen({ navigation, route }: MainTabScreenProps<"G
     dashboard,
     settings,
     isLoading: bootstrapLoading,
-    ensureSettingsLoaded,
     refreshSettings,
   } = useBootstrapData();
 
-  const [goals, setGoals] = useState<Goal[]>([]);
-  const [loadingGoals, setLoadingGoals] = useState(true);
-  const [refreshingGoals, setRefreshingGoals] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [adding, setAdding] = useState(false);
   const [newTitle, setNewTitle] = useState("");
@@ -53,15 +47,22 @@ export default function GoalsScreen({ navigation, route }: MainTabScreenProps<"G
   const [newCurrentAmount, setNewCurrentAmount] = useState("");
   const [newTargetYear, setNewTargetYear] = useState("");
   const lastOpenAddTokenRef = useRef<number | null>(null);
-  const skipNextTabFocusReloadRef = useRef(false);
-  const seenMutationVersionRef = useRef<number>(getApiMutationVersion());
-  const hasLoadedGoalsRef = useRef(false);
-  const lastLoadedAtRef = useRef<number | null>(null);
+  const [createGoal] = useCreateGoalMutation();
 
   const budgetPlanId = settings?.id ?? dashboard?.budgetPlanId;
+  const goalsQuery = useGetGoalsQuery(
+    { budgetPlanId: budgetPlanId ?? "" },
+    {
+      skip: !budgetPlanId,
+      refetchOnFocus: true,
+      refetchOnReconnect: true,
+    },
+  );
+  const goals = goalsQuery.data ?? [];
 
-  const loading = (!settings && bootstrapLoading) || loadingGoals;
-  const refreshing = refreshingGoals;
+  const loading = Boolean((!settings && bootstrapLoading) || (!goalsQuery.data && goalsQuery.isLoading));
+  const refreshing = Boolean(goalsQuery.data && goalsQuery.isFetching);
+  const error = goalsQuery.error ? getMobileApiErrorMessage(goalsQuery.error, "Failed to load goals") : null;
 
   const parseAmount = (raw: string): number | undefined => {
     const t = String(raw ?? "").trim().replace(/,/g, "");
@@ -81,76 +82,6 @@ export default function GoalsScreen({ navigation, route }: MainTabScreenProps<"G
     if (y < 1900 || y > 3000) return undefined;
     return y;
   };
-
-  const load = useCallback(async (options?: { force?: boolean }) => {
-    try {
-      setError(null);
-
-      if (options?.force) setRefreshingGoals(true);
-      const loadedSettings = options?.force
-        ? await refreshSettings({ force: true })
-        : (settings ?? await ensureSettingsLoaded());
-
-      if (!loadedSettings) {
-        throw new Error("Failed to load settings");
-      }
-
-      const planId = loadedSettings.id ?? dashboard?.budgetPlanId ?? "";
-      if (planId) {
-        const g = await apiFetch<Goal[]>(`/api/bff/goals?budgetPlanId=${encodeURIComponent(planId)}`, {
-          cacheTtlMs: GOALS_PREFETCH_CACHE_TTL_MS,
-        });
-        setGoals(Array.isArray(g) ? g : []);
-      } else {
-        setGoals([]);
-      }
-
-      hasLoadedGoalsRef.current = true;
-      lastLoadedAtRef.current = Date.now();
-
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to load goals");
-    } finally {
-      setLoadingGoals(false);
-      setRefreshingGoals(false);
-    }
-  }, [dashboard?.budgetPlanId, ensureSettingsLoaded, refreshSettings, settings]);
-
-  useEffect(() => {
-    const tabNavigation = navigation.getParent();
-    if (!tabNavigation) return;
-
-    const unsubscribe = tabNavigation.addListener("blur", () => {
-      skipNextTabFocusReloadRef.current = true;
-    });
-
-    return unsubscribe;
-  }, [navigation]);
-
-  useFocusEffect(
-    useCallback(() => {
-      const latestMutationVersion = getApiMutationVersion();
-      const hasFreshMutation = latestMutationVersion !== seenMutationVersionRef.current;
-      seenMutationVersionRef.current = latestMutationVersion;
-
-      if (skipNextTabFocusReloadRef.current && !hasFreshMutation) {
-        skipNextTabFocusReloadRef.current = false;
-        return;
-      }
-
-      const hasFreshGoals = hasLoadedGoalsRef.current
-        && lastLoadedAtRef.current !== null
-        && (Date.now() - lastLoadedAtRef.current) < SCREEN_FOCUS_REVALIDATE_TTL_MS;
-
-      if (!hasFreshMutation && hasFreshGoals) {
-        skipNextTabFocusReloadRef.current = false;
-        return;
-      }
-
-      skipNextTabFocusReloadRef.current = false;
-      void load({ force: hasFreshMutation });
-    }, [load])
-  );
 
   const openAdd = useCallback(() => {
     setNewTitle("");
@@ -178,20 +109,16 @@ export default function GoalsScreen({ navigation, route }: MainTabScreenProps<"G
 
     setAdding(true);
     try {
-      await apiFetch<{ goalId: string }>("/api/bff/goals", {
-        method: "POST",
-        body: {
-          budgetPlanId,
-          title,
-          targetAmount,
-          currentAmount,
-          targetYear,
-        },
-      });
+      await createGoal({
+        budgetPlanId,
+        title,
+        targetAmount,
+        currentAmount,
+        targetYear,
+      }).unwrap();
       setAddOpen(false);
-      await load({ force: true });
     } catch (err: unknown) {
-      Alert.alert("Failed to add goal", err instanceof Error ? err.message : "Unknown error");
+      Alert.alert("Failed to add goal", getMobileApiErrorMessage(err, "Unknown error"));
     } finally {
       setAdding(false);
     }
@@ -245,7 +172,7 @@ export default function GoalsScreen({ navigation, route }: MainTabScreenProps<"G
         <View style={s.center}>
           <Ionicons name="cloud-offline-outline" size={46} color={T.textDim} />
           <Text style={s.error}>{error}</Text>
-          <Pressable onPress={() => void load({ force: true })} style={s.retryBtn}>
+          <Pressable onPress={() => void goalsQuery.refetch()} style={s.retryBtn}>
             <Text style={s.retryTxt}>Retry</Text>
           </Pressable>
         </View>
@@ -347,7 +274,8 @@ export default function GoalsScreen({ navigation, route }: MainTabScreenProps<"G
           <RefreshControl
             refreshing={refreshing}
             onRefresh={() => {
-              void load({ force: true });
+              void refreshSettings({ force: true });
+              void goalsQuery.refetch();
             }}
             tintColor={T.accent}
           />

@@ -1,4 +1,5 @@
 import { configureStore, createSlice } from "@reduxjs/toolkit";
+import { setupListeners } from "@reduxjs/toolkit/query";
 import type { TypedUseSelectorHook } from "react-redux";
 import { useDispatch, useSelector } from "react-redux";
 
@@ -26,6 +27,8 @@ export const store = configureStore({
       },
     }).concat(mobileApi.middleware),
 });
+
+  setupListeners(store.dispatch);
 
 export type RootState = ReturnType<typeof store.getState>;
 export type AppDispatch = typeof store.dispatch;

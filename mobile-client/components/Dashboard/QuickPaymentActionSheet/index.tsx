@@ -7,7 +7,7 @@ import type { Debt, Expense } from "@/lib/apiTypes";
 import { fmt } from "@/lib/formatting";
 import { resolveLogoUri } from "@/lib/logoDisplay";
 import { useSwipeDownToClose } from "@/hooks";
-import { useCreateDebtPaymentMutation, useLazyGetDebtDetailQuery } from "@/store/api";
+import { getMobileApiErrorMessage, useCreateDebtPaymentMutation, useLazyGetDebtDetailQuery, useUpdateExpenseMutation } from "@/store/api";
 import {
   computeDebtDueAmount,
   formatShortDate,
@@ -33,6 +33,7 @@ export default function QuickPaymentActionSheet({ visible, item, currency, inset
   const itemId = useMemo(() => (item ? encodeURIComponent(item.id) : ""), [item]);
   const [fetchDebtDetail] = useLazyGetDebtDetailQuery();
   const [createDebtPayment] = useCreateDebtPaymentMutation();
+  const [updateExpense] = useUpdateExpenseMutation();
 
   useEffect(() => {
     if (!visible) return;
@@ -113,10 +114,7 @@ export default function QuickPaymentActionSheet({ visible, item, currency, inset
           if (e.cardDebtId) body.cardDebtId = e.cardDebtId;
         }
 
-        await apiFetch<Expense>(`/api/bff/expenses/${itemId}`, {
-          method: "PATCH",
-          body,
-        });
+        await updateExpense({ id: item.id, changes: body }).unwrap();
 
         void clearScheduledUnpaidReminders({ expenseId: e.id });
 
@@ -155,24 +153,24 @@ export default function QuickPaymentActionSheet({ visible, item, currency, inset
       onClose();
       onUpdated();
     } catch (err: unknown) {
-      Alert.alert("Update failed", err instanceof Error ? err.message : "Unknown error");
+      Alert.alert("Update failed", getMobileApiErrorMessage(err, "Unknown error"));
     } finally {
       setPaying(false);
     }
-  }, [createDebtPayment, debt, expense, fetchDebtDetail, item, onClose, onUpdated, paying]);
+  }, [createDebtPayment, debt, expense, fetchDebtDetail, item, onClose, onUpdated, paying, updateExpense]);
 
   const markUnpaid = useCallback(async () => {
     if (!item || item.kind !== "expense" || paying) return;
 
     setPaying(true);
     try {
-      await apiFetch<Expense>(`/api/bff/expenses/${itemId}`, {
-        method: "PATCH",
-        body: {
+      await updateExpense({
+        id: item.id,
+        changes: {
           paidAmount: 0,
           paid: false,
         },
-      });
+      }).unwrap();
 
       const currentMonth = new Date().getMonth() + 1;
       const currentYear = new Date().getFullYear();
@@ -199,11 +197,11 @@ export default function QuickPaymentActionSheet({ visible, item, currency, inset
       onClose();
       onUpdated();
     } catch (err: unknown) {
-      Alert.alert("Update failed", err instanceof Error ? err.message : "Unknown error");
+      Alert.alert("Update failed", getMobileApiErrorMessage(err, "Unknown error"));
     } finally {
       setPaying(false);
     }
-  }, [expense?.dueDate, expensePaymentState.isPaid, item, itemId, onClose, onUpdated, paying]);
+  }, [expense?.dueDate, expensePaymentState.isPaid, item, onClose, onUpdated, paying, updateExpense]);
 
   const savePayment = useCallback(async () => {
     if (!item || paying) return;
@@ -231,10 +229,7 @@ export default function QuickPaymentActionSheet({ visible, item, currency, inset
           if (e.cardDebtId) body.cardDebtId = e.cardDebtId;
         }
 
-        await apiFetch<Expense>(`/api/bff/expenses/${itemId}`, {
-          method: "PATCH",
-          body,
-        });
+        await updateExpense({ id: item.id, changes: body }).unwrap();
 
         setPaySheetOpen(false);
         onClose();
@@ -256,11 +251,11 @@ export default function QuickPaymentActionSheet({ visible, item, currency, inset
       onClose();
       onUpdated();
     } catch (err: unknown) {
-      Alert.alert("Payment failed", err instanceof Error ? err.message : "Unknown error");
+      Alert.alert("Payment failed", getMobileApiErrorMessage(err, "Unknown error"));
     } finally {
       setPaying(false);
     }
-  }, [createDebtPayment, currency, debt, expense, fetchDebtDetail, item, onClose, onUpdated, payAmount, paying]);
+  }, [createDebtPayment, currency, debt, expense, fetchDebtDetail, item, onClose, onUpdated, payAmount, paying, updateExpense]);
 
   return (
     <>

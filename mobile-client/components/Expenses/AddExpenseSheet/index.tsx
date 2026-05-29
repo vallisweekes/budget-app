@@ -42,6 +42,7 @@ import type {
   ExpenseCategoryBreakdown,
   ExpenseSuggestion,
 } from "@/lib/apiTypes";
+import { getMobileApiErrorMessage, useCreateExpenseMutation } from "@/store/api";
 import { T } from "@/lib/theme";
 import { ADD_EXPENSE_SHEET_SCREEN_H, styles } from "./styles";
 import type { AddExpenseSheetProps } from "@/types";
@@ -85,6 +86,7 @@ export default function AddExpenseSheet({
   const insets = useSafeAreaInsets();
   const { settings } = useBootstrapData();
   const slideY = useRef(new Animated.Value(ADD_EXPENSE_SHEET_SCREEN_H ?? SCREEN_H)).current;
+  const [createExpense] = useCreateExpenseMutation();
 
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -471,14 +473,13 @@ export default function AddExpenseSheet({
       // We'll refresh the parent list once the mutation completes.
       onClose();
       onAdded({ phase: "optimistic", expense: optimisticExpense, optimisticId });
-      const created = await apiFetch<Expense>("/api/bff/expenses", {
-        method: "POST",
-        body,
-        timeoutMs: 60_000,
-      });
+      const created = await createExpense(body).unwrap();
       onAdded({ phase: "confirmed", expense: created, optimisticId });
     } catch (e) {
-      if (e instanceof ApiError && e.code === "REQUEST_TIMEOUT") {
+      const errorCode = e instanceof ApiError
+        ? e.code
+        : (typeof e === "object" && e !== null && "code" in e ? String((e as { code?: unknown }).code ?? "") : "");
+      if (errorCode === "REQUEST_TIMEOUT") {
         Alert.alert(
           "Saving is taking longer",
           "The expense will stay visible while the app finishes syncing it.",
@@ -486,7 +487,7 @@ export default function AddExpenseSheet({
         return;
       }
 
-      const message = e instanceof Error ? e.message : "Failed to add expense. Try again.";
+      const message = getMobileApiErrorMessage(e, "Failed to add expense. Try again.");
       onAdded({ phase: "revert", optimisticId });
       setError(message);
       Alert.alert("Couldn't add expense", message);
