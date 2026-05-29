@@ -1,10 +1,10 @@
 import React from "react";
-import { ActivityIndicator, Pressable, Text, View } from "react-native";
-import { BlurView } from "expo-blur";
+import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import type { GoalDetailFooterProps } from "@/types";
 import { T } from "@/lib/theme";
+import GlassFooterButton from "@/components/Shared/GlassFooterButton";
 
 import { styles } from "./style";
 
@@ -15,30 +15,26 @@ export default function GoalDetailFooter({ isDirty, saving, deleting, onDelete, 
   return (
     <View style={[styles.bottomActionsWrap, { paddingBottom: insets.bottom + 12 }]}> 
       <View style={styles.bottomActionsRow}>
-        <Pressable
-          style={[styles.bottomActionBtn, saveDisabled && styles.disabled]}
+        <GlassFooterButton
+          label="Save"
           onPress={onSave}
           disabled={saveDisabled}
-        >
-          <BlurView intensity={34} tint="light" style={styles.bottomActionGlass}>
-            <View style={[styles.bottomActionTint, styles.bottomActionTintSave]} pointerEvents="none" />
-            <View style={[styles.bottomActionGlow, styles.bottomActionGlowSave]} pointerEvents="none" />
-            <View style={styles.bottomActionInnerBorder} pointerEvents="none" />
-            {saving ? <ActivityIndicator size="small" color={T.text} /> : <Text style={styles.bottomActionSaveText}>Save</Text>}
-          </BlurView>
-        </Pressable>
-        <Pressable
-          style={[styles.bottomActionBtn, (saving || deleting) && styles.disabled]}
+          loading={saving}
+          variant="light"
+          tone="dark"
+          containerStyle={styles.bottomActionBtn}
+          loadingColor={T.text}
+        />
+        <GlassFooterButton
+          label="Delete"
           onPress={onDelete}
           disabled={saving || deleting}
-        >
-          <BlurView intensity={34} tint="light" style={styles.bottomActionGlass}>
-            <View style={[styles.bottomActionTint, styles.bottomActionTintDelete]} pointerEvents="none" />
-            <View style={[styles.bottomActionGlow, styles.bottomActionGlowDelete]} pointerEvents="none" />
-            <View style={styles.bottomActionInnerBorder} pointerEvents="none" />
-            {deleting ? <ActivityIndicator size="small" color={T.red} /> : <Text style={styles.bottomActionDeleteText}>Delete</Text>}
-          </BlurView>
-        </Pressable>
+          loading={deleting}
+          variant="dark"
+          tone="light"
+          containerStyle={styles.bottomActionBtn}
+          loadingColor={T.red}
+        />
       </View>
     </View>
   );

@@ -35,6 +35,7 @@ import { resolveCategoryColor } from "@/lib/categoryColors";
 import { T } from "@/lib/theme";
 import { ADD_EXPENSE_SHEET_SCREEN_H, pr, styles as s } from "@/components/Expenses/AddExpenseSheet/styles";
 import { es } from "@/components/Expenses/EditExpenseSheet/style";
+import GlassFooterButton from "@/components/Shared/GlassFooterButton";
 import { useSwipeDownToClose } from "@/hooks";
 import MoneyInput from "@/components/Shared/MoneyInput";
 import DatePickerInput from "@/components/Shared/DatePickerInput";
@@ -419,7 +420,7 @@ export default function EditExpenseSheet({
               scrollEnabled={!showSourceDropdown}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingBottom: 8 }}
+              contentContainerStyle={{ paddingBottom: 136 }}
             >
               <View style={s.formScroll}>
                 <View style={s.fieldGroup}>
@@ -592,10 +593,9 @@ export default function EditExpenseSheet({
 
             <View
               style={{
-                paddingHorizontal: 20,
-                paddingTop: 12,
-                paddingBottom: insets.bottom + 24,
-                marginBottom: keyboardVisible ? Math.max(0, keyboardHeight - insets.bottom + 8) : 0,
+                ...es.footerOverlay,
+                paddingBottom: insets.bottom + 16,
+                bottom: keyboardVisible ? Math.max(0, keyboardHeight - insets.bottom + 8) : 0,
                 gap: 10,
               }}
             >
@@ -607,23 +607,25 @@ export default function EditExpenseSheet({
               ) : null}
 
               <View style={es.footerActionRow}>
-                <Pressable
-                  style={[es.footerPill, es.footerPillCancel, submitting && s.submitDisabled]}
+                <GlassFooterButton
+                  label="Cancel"
                   onPress={() => {
                     if (submitting) return;
                     onClose();
                   }}
                   disabled={submitting}
-                >
-                  <Text style={es.footerPillCancelText}>Cancel</Text>
-                </Pressable>
-                <Pressable
-                  style={[es.footerPill, es.footerPillSave, (!canSubmit || submitting) && s.submitDisabled]}
+                  variant="dark"
+                  tone="light"
+                  containerStyle={es.footerActionButton}
+                />
+                <GlassFooterButton
+                  label={submitting ? "Saving…" : "Save"}
                   onPress={handleSubmit}
                   disabled={!canSubmit || submitting}
-                >
-                  <Text style={es.footerPillSaveText}>{submitting ? "Saving…" : "Save"}</Text>
-                </Pressable>
+                  variant="light"
+                  tone="dark"
+                  containerStyle={es.footerActionButton}
+                />
               </View>
             </View>
           </View>

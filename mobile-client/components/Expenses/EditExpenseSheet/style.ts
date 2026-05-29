@@ -3,37 +3,21 @@ import { StyleSheet } from "react-native";
 import { T } from "@/lib/theme";
 
 export const es = StyleSheet.create({
+  footerOverlay: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    backgroundColor: "transparent",
+  },
   footerActionRow: {
     flexDirection: "row",
-    gap: 14,
+    gap: 12,
   },
-  footerPill: {
+  footerActionButton: {
     flex: 1,
-    minHeight: 48,
-    borderRadius: 999,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-  },
-  footerPillCancel: {
-    backgroundColor: T.card,
-    borderColor: T.border,
-  },
-  footerPillSave: {
-    backgroundColor: T.accent,
-    borderColor: T.accentBorder,
-  },
-  footerPillCancelText: {
-    color: T.textDim,
-    fontSize: 15,
-    fontWeight: "800",
-  },
-  footerPillSaveText: {
-    color: T.onAccent,
-    fontSize: 15,
-    fontWeight: "900",
   },
   sourceWrap: {
     marginTop: 2,

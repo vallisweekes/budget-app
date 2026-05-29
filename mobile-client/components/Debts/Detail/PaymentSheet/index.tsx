@@ -1,9 +1,10 @@
 import React from "react";
-import { ActivityIndicator, Animated, KeyboardAvoidingView, Modal, Platform, Pressable, Text, View } from "react-native";
+import { Animated, KeyboardAvoidingView, Modal, Platform, Pressable, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import type { PaymentSheetProps } from "@/types";
-import { T } from "@/lib/theme";
 import MoneyInput from "@/components/Shared/MoneyInput";
+import GlassFooterButton from "@/components/Shared/GlassFooterButton";
 import { useSwipeDownToClose } from "@/hooks";
 import { styles } from "./styles";
 
@@ -19,6 +20,7 @@ export default function PaymentSheet({
   showMarkPaid = true,
   markPaidLabel = "Mark due as paid",
 }: PaymentSheetProps) {
+  const insets = useSafeAreaInsets();
   const { dragY, panHandlers } = useSwipeDownToClose({ onClose, disabled: paying }); const parsedPayAmount = Number.parseFloat(payAmount);
   const canSave = Number.isFinite(parsedPayAmount) && parsedPayAmount > 0 && !paying;
 
@@ -55,14 +57,25 @@ export default function PaymentSheet({
             </Pressable>
           ) : null}
 
-          <View style={styles.bottomActions}>
+          <View style={[styles.bottomActions, { paddingBottom: insets.bottom + 28 }]}> 
             <View style={styles.sheetActions}>
-              <Pressable onPress={onClose} disabled={paying} style={[styles.cancelBtn, paying && styles.disabled]}>
-                <Text style={styles.cancelBtnTxt}>Cancel</Text>
-              </Pressable>
-              <Pressable onPress={onSave} disabled={!canSave} style={[styles.saveBtn, styles.saveBtnFlex, !canSave && styles.disabled]}>
-                {paying ? <ActivityIndicator size="small" color={T.onAccent} /> : <Text style={styles.saveBtnTxt}>Save payment</Text>}
-              </Pressable>
+              <GlassFooterButton
+                label="Cancel"
+                onPress={onClose}
+                disabled={paying}
+                variant="dark"
+                tone="light"
+                containerStyle={styles.actionBtn}
+              />
+              <GlassFooterButton
+                label="Save payment"
+                onPress={onSave}
+                disabled={!canSave}
+                loading={paying}
+                variant="light"
+                tone="dark"
+                containerStyle={styles.actionBtn}
+              />
             </View>
           </View>
         </Animated.View>

@@ -42,6 +42,7 @@ export * from "./ExpenseItem.types";
 export * from "./ExpenseStatGrid.types";
 export * from "./DashboardScreen.types";
 export * from "./GoalDetailScreen.types";
+export * from "./GlassFooterButton.types";
 export * from "./LoggedExpenseCard.types";
 export * from "./LoggedExpensesHero.types";
 export * from "./LoginScreen.types";

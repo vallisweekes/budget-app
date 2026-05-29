@@ -1,6 +1,7 @@
 import React from "react";
-import { ActivityIndicator, Animated, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Animated, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import type { EditDebtSheetProps } from "@/types";
 import { TERM_PRESETS } from "@/lib/constants";
@@ -8,6 +9,7 @@ import { T } from "@/lib/theme";
 import { useSwipeDownToClose } from "@/hooks";
 import MoneyInput from "@/components/Shared/MoneyInput";
 import DatePickerInput from "@/components/Shared/DatePickerInput";
+import GlassFooterButton from "@/components/Shared/GlassFooterButton";
 import { styles } from "./styles";
 
 export default function EditDebtSheet(props: EditDebtSheetProps) {
@@ -17,6 +19,7 @@ export default function EditDebtSheet(props: EditDebtSheetProps) {
     onChangePlannedPaymentOverride, onChangePlannedPaymentOverrideTarget, onPickDate, onDateChange, onChangePaymentSource, onChangePaymentCardDebtId, onChangeInstallment, onSetShowDatePicker,
   } = props;
 
+  const insets = useSafeAreaInsets();
   const { dragY, panHandlers } = useSwipeDownToClose({ onClose, disabled: saving });
 
   const iosDueDateBeforeRef = React.useRef<string>("");
@@ -397,11 +400,26 @@ export default function EditDebtSheet(props: EditDebtSheetProps) {
             </View>
           </ScrollView>
 
-          <View style={styles.sheetActions}>
-            <Pressable onPress={onClose} style={[styles.cancelBtn, saving && styles.disabled]}><Text style={styles.cancelBtnTxt}>Cancel</Text></Pressable>
-            <Pressable onPress={onSave} disabled={saving} style={[styles.saveBtn, styles.saveBtnFlex, saving && styles.disabled]}>
-              {saving ? <ActivityIndicator size="small" color={T.onAccent} /> : <Text style={styles.saveBtnTxt}>Save Changes</Text>}
-            </Pressable>
+          <View style={[styles.bottomActions, { paddingBottom: insets.bottom + 24 }]}> 
+            <View style={styles.sheetActions}>
+              <GlassFooterButton
+                label="Cancel"
+                onPress={onClose}
+                disabled={saving}
+                variant="dark"
+                tone="light"
+                containerStyle={styles.actionBtn}
+              />
+              <GlassFooterButton
+                label="Save Changes"
+                onPress={onSave}
+                disabled={saving}
+                loading={saving}
+                variant="light"
+                tone="dark"
+                containerStyle={styles.actionBtn}
+              />
+            </View>
           </View>
         </Animated.View>
       </KeyboardAvoidingView>
