@@ -120,7 +120,9 @@ function useSessionRouteGuardState() {
   const onVerificationRoute = (rootSegment === "(auth)" && childSegment === "verify-email") || pathname === "/verify-email";
 
   if (token && hasBootstrapData && !onboarding.required && !verification.blocked) {
-    return { mode: "ready" as const };
+    return inAuthGroup || pathname === "/"
+      ? { mode: "redirect" as const, href: "/(tabs)/dashboard" }
+      : { mode: "ready" as const };
   }
 
   if (isLoading || (token && (onboarding.busy || verification.busy))) {
