@@ -63,6 +63,8 @@ export type ExpensesStackParamList = {
     icon: string | null;
     month: number;
     year: number;
+    currentPeriodMonth?: number;
+    currentPeriodYear?: number;
     budgetPlanId: string | null;
     currency: string;
   };

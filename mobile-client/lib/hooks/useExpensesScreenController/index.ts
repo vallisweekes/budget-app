@@ -7,6 +7,7 @@ import { useActiveBudgetPlan } from "@/context/ActiveBudgetPlanContext";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { apiFetch, getApiMutationsSince, getApiMutationVersion } from "@/lib/api";
 import { SCREEN_FOCUS_REVALIDATE_TTL_MS } from "@/lib/constants";
+import { setSharedExpensePeriodRouteState } from "@/lib/helpers/expensePeriodRouteState";
 import { resolveDisplayedPayPeriodAnchor } from "@/lib/helpers/resolveDisplayedPayPeriodAnchor";
 import type {
   BudgetPlanListItem,
@@ -497,6 +498,15 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       didNormalizeInitialPeriodRef.current = true;
     }
   }, [activePlanId, defaultActiveMonth, defaultActiveYear, month, plans.length, year]);
+
+  useEffect(() => {
+    setSharedExpensePeriodRouteState({
+      selectedAnchor: { month, year },
+      currentAnchor: { month: defaultActiveMonth, year: defaultActiveYear },
+      budgetPlanId: activePlanId,
+      currency,
+    });
+  }, [activePlanId, currency, defaultActiveMonth, defaultActiveYear, month, year]);
 
   useEffect(() => {
     const paramsBudgetPlanId = typeof route.params?.budgetPlanId === "string" ? route.params.budgetPlanId : null;

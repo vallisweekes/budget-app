@@ -20,6 +20,7 @@ import { T } from "@/lib/theme";
 import { apiFetch } from "@/lib/api";
 import type { IncomeSacrificeData, OnboardingStatusResponse, Settings } from "@/lib/apiTypes";
 import { appendNotificationInboxItem, subscribeNotificationInbox } from "@/lib/notificationInbox";
+import { resolveExpensePeriodRouteState } from "@/lib/helpers/expensePeriodRouteState";
 import { markSkipExpensesFocusReload } from "@/lib/helpers/expensesFocusReload";
 import { getPayPeriodRangeLabelFromAnchor, normalizePayFrequency } from "@/lib/payPeriods";
 
@@ -956,22 +957,18 @@ function MainTabs() {
             : undefined;
           const categoryExpensesMonth = Number(deepestRoute?.params?.month);
           const categoryExpensesYear = Number(deepestRoute?.params?.year);
-          const expensesListMonth = Number(deepestRoute?.params?.month);
-          const expensesListYear = Number(deepestRoute?.params?.year);
-          const currentPeriodMonth = Number(deepestRoute?.params?.currentPeriodMonth);
-          const currentPeriodYear = Number(deepestRoute?.params?.currentPeriodYear);
-          const hasResolvedCurrentPeriod = Number.isFinite(currentPeriodMonth)
-            && currentPeriodMonth >= 1
-            && currentPeriodMonth <= 12
-            && Number.isFinite(currentPeriodYear);
-          const resolvedCurrentPeriodMonth = hasResolvedCurrentPeriod ? Math.floor(currentPeriodMonth) : null;
-          const resolvedCurrentPeriodYear = hasResolvedCurrentPeriod ? Math.floor(currentPeriodYear) : null;
-          const hasResolvedSelectedPeriod = Number.isFinite(expensesListMonth)
-            && expensesListMonth >= 1
-            && expensesListMonth <= 12
-            && Number.isFinite(expensesListYear);
-          const resolvedSelectedPeriodMonth = hasResolvedSelectedPeriod ? Math.floor(expensesListMonth) : null;
-          const resolvedSelectedPeriodYear = hasResolvedSelectedPeriod ? Math.floor(expensesListYear) : null;
+          const expensePeriodState = resolveExpensePeriodRouteState(deepestRoute?.params as {
+            month?: unknown;
+            year?: unknown;
+            currentPeriodMonth?: unknown;
+            currentPeriodYear?: unknown;
+          });
+          const resolvedCurrentPeriodMonth = expensePeriodState.currentAnchor?.month ?? null;
+          const resolvedCurrentPeriodYear = expensePeriodState.currentAnchor?.year ?? null;
+          const resolvedSelectedPeriodMonth = expensePeriodState.selectedAnchor?.month ?? null;
+          const resolvedSelectedPeriodYear = expensePeriodState.selectedAnchor?.year ?? null;
+          const hasResolvedCurrentPeriod = resolvedCurrentPeriodMonth !== null && resolvedCurrentPeriodYear !== null;
+          const hasResolvedSelectedPeriod = resolvedSelectedPeriodMonth !== null && resolvedSelectedPeriodYear !== null;
           const resolvedExpensesPeriodLabel = isExpensesList
             && Number.isFinite(resolvedSelectedPeriodMonth)
             && Number.isFinite(resolvedSelectedPeriodYear)
@@ -1087,6 +1084,13 @@ function MainTabs() {
           const expensesLoggedRightContent = isExpensesList && !isPastExpensesPeriod && expensesListLoggedExpensesCount > 0 ? (
             <Pressable
               onPress={() => {
+                const loggedMonth = Number.isFinite(resolvedCurrentPeriodMonth)
+                  ? resolvedCurrentPeriodMonth
+                  : resolvedSelectedPeriodMonth;
+                const loggedYear = Number.isFinite(resolvedCurrentPeriodYear)
+                  ? resolvedCurrentPeriodYear
+                  : resolvedSelectedPeriodYear;
+
                 (navigation as any).navigate("Expenses" as any, {
                   screen: "LoggedExpenses",
                   params: {
@@ -1094,8 +1098,10 @@ function MainTabs() {
                     categoryName: "All categories",
                     color: null,
                     icon: null,
-                    month: resolvedSelectedPeriodMonth,
-                    year: resolvedSelectedPeriodYear,
+                    month: loggedMonth,
+                    year: loggedYear,
+                    currentPeriodMonth: resolvedCurrentPeriodMonth,
+                    currentPeriodYear: resolvedCurrentPeriodYear,
                     budgetPlanId: deepestRoute?.params?.budgetPlanId ?? null,
                     currency: deepestRoute?.params?.currency ?? "£",
                   },

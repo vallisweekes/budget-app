@@ -7,6 +7,7 @@ import { NativeTabs } from "expo-router/unstable-native-tabs";
 import { useAuth } from "@/context/AuthContext";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { emitIncomeAddTrigger } from "@/lib/events/incomeAddTrigger";
+import { getSharedExpensePeriodRouteState, resolveExpensePeriodRouteState } from "@/lib/helpers/expensePeriodRouteState";
 import { isDebtManagementEnabled, hasPositiveDebtBalance } from "@/lib/helpers/debtManagement";
 import { T } from "@/lib/theme";
 import { emitCategoryAddExpenseTrigger } from "@/lib/events/categoryAddExpenseTrigger";
@@ -176,14 +177,23 @@ export default function MainTabsLayout() {
   const tabNativeProps = {
     nativeContainerBackgroundColor: T.bg,
   } as unknown as Record<string, unknown>;
-  const splitMonth = (() => {
-    const value = Number(getParamString(params.month));
-    return Number.isFinite(value) ? Math.floor(value) : undefined;
-  })();
-  const splitYear = (() => {
-    const value = Number(getParamString(params.year));
-    return Number.isFinite(value) ? Math.floor(value) : undefined;
-  })();
+  const localExpenseRouteState = resolveExpensePeriodRouteState({
+    month: getParamString(params.month),
+    year: getParamString(params.year),
+    currentPeriodMonth: getParamString(params.currentPeriodMonth),
+    currentPeriodYear: getParamString(params.currentPeriodYear),
+    budgetPlanId: getParamString(params.budgetPlanId),
+    currency: getParamString(params.currency),
+  });
+  const sharedExpenseRouteState = getSharedExpensePeriodRouteState();
+  const preferredExpenseDisplayedAnchor = sharedExpenseRouteState.displayedAnchor ?? localExpenseRouteState.displayedAnchor;
+  const preferredExpenseCurrentAnchor = sharedExpenseRouteState.currentAnchor ?? localExpenseRouteState.currentAnchor;
+  const splitMonth = preferredExpenseDisplayedAnchor?.month;
+  const splitYear = preferredExpenseDisplayedAnchor?.year;
+  const splitCurrentMonth = preferredExpenseCurrentAnchor?.month;
+  const splitCurrentYear = preferredExpenseCurrentAnchor?.year;
+  const splitBudgetPlanId = sharedExpenseRouteState.budgetPlanId ?? localExpenseRouteState.budgetPlanId;
+  const splitCurrency = sharedExpenseRouteState.currency ?? localExpenseRouteState.currency;
   const resetOnBlurScreenProps = {
     listeners: createTabListeners(),
   } as Record<string, unknown>;
@@ -197,8 +207,10 @@ export default function MainTabsLayout() {
                 categoryName: "All categories",
                 month: splitMonth,
                 year: splitYear,
-                budgetPlanId: getParamString(params.budgetPlanId),
-                currency: getParamString(params.currency),
+                currentPeriodMonth: splitCurrentMonth,
+                currentPeriodYear: splitCurrentYear,
+                budgetPlanId: splitBudgetPlanId ?? undefined,
+                currency: splitCurrency ?? undefined,
               },
             });
           },
@@ -214,8 +226,8 @@ export default function MainTabsLayout() {
             router.push({
               pathname: "/(tabs)/expenses/UnplannedExpense",
               params: {
-                month: splitMonth,
-                year: splitYear,
+                month: splitCurrentMonth ?? splitMonth,
+                year: splitCurrentYear ?? splitYear,
               },
             });
           },

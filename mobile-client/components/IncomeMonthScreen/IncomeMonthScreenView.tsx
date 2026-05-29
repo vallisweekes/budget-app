@@ -964,25 +964,25 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
     }
 
     if (!targetKey.trim()) return;
-        await confirmIncomeSacrificeGoalTransfer({
-          budgetPlanId,
-          month,
-          year,
-          targetKey,
-        }).unwrap();
-          targetKey,
-        },
-      });
+
+    try {
+      setConfirmingTargetKey(targetKey);
+      await confirmIncomeSacrificeGoalTransfer({
+        budgetPlanId,
+        month,
+        year,
+        targetKey,
+      }).unwrap();
       invalidateMonthCaches([{ month, year }], { analysis: true, items: false, sacrifice: true });
       await Promise.all([loadSacrifice({ force: true }), load({ force: true })]);
-        Alert.alert("Could not confirm", getMobileApiErrorMessage(error, "Please try again."));
+      seenMutationVersionRef.current = getApiMutationVersion();
       Alert.alert("Confirmed", "Transfer confirmed and goal progress updated.");
     } catch (error) {
-      Alert.alert("Could not confirm", error instanceof Error ? error.message : "Please try again.");
-    }, [budgetPlanId, canManageSacrifice, confirmIncomeSacrificeGoalTransfer, invalidateMonthCaches, load, loadSacrifice, month, year]);
+      Alert.alert("Could not confirm", getMobileApiErrorMessage(error, "Please try again."));
+    } finally {
       setConfirmingTargetKey(null);
     }
-  }, [budgetPlanId, canManageSacrifice, invalidateMonthCaches, load, loadSacrifice, month, year]);
+  }, [budgetPlanId, canManageSacrifice, confirmIncomeSacrificeGoalTransfer, invalidateMonthCaches, load, loadSacrifice, month, year]);
 
   if (loading) {
     return (
