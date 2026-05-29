@@ -22,15 +22,17 @@ import {
   dueDateColor,
   formatDueDateLabel,
   formatUpdatedLabel,
-  getFutureExpensePaymentWarning,
   getPaymentStatusGraceNote,
   indicatorLabel,
-  isWithinPaymentEditGrace,
   monthLabel,
   nextNMonths,
   resolveLogoUri,
-  unpaidDebtWarning,
 } from "@/components/ExpenseDetailScreen/utils";
+import {
+  getFutureExpensePaymentWarning,
+  isWithinPaymentEditGrace,
+  unpaidDebtWarning,
+} from "@/lib/domain/paymentRules";
 
 type Props = NativeStackScreenProps<ExpensesStackParamList, "ExpenseDetail">;
 
@@ -389,6 +391,8 @@ export function useExpenseDetailScreenController({ route, navigation }: Props): 
       if (nextIsPaid) void clearScheduledUnpaidReminders({ expenseId: expense.id });
       void notifyPaymentStatus({ expenseId: expense.id, status: "paid", expenseName: expense.name });
       await loadAndClosePaymentSheet();
+    } catch (error) {
+      Alert.alert("Payment failed", getMobileApiErrorMessage(error, "Unknown error"));
     } finally {
       setPaying(false);
     }
@@ -410,6 +414,8 @@ export function useExpenseDetailScreenController({ route, navigation }: Props): 
       await updateExpense({ id: expense.id, changes: body }).unwrap();
       void clearScheduledUnpaidReminders({ expenseId: expense.id });
       await loadAndClosePaymentSheet();
+    } catch (error) {
+      Alert.alert("Update failed", getMobileApiErrorMessage(error, "Unknown error"));
     } finally {
       setPaying(false);
     }
@@ -431,6 +437,8 @@ export function useExpenseDetailScreenController({ route, navigation }: Props): 
         wasPreviouslyPaid: isPaid,
       });
       await loadAndClosePaymentSheet();
+    } catch (error) {
+      Alert.alert("Update failed", getMobileApiErrorMessage(error, "Unknown error"));
     } finally {
       setPaying(false);
     }
