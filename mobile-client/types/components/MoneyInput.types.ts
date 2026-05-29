@@ -4,7 +4,7 @@ export type MoneyInputProps = {
   currency?: string | null;
   value: string;
   onChangeValue: (next: string) => void;
-  variant?: "default" | "light";
+  variant?: "default" | "light" | "sheet" | "underline";
   placeholder?: string;
   keyboardType?: TextInputProps["keyboardType"];
   containerStyle?: StyleProp<ViewStyle>;

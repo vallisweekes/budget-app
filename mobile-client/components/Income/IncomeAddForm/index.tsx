@@ -51,7 +51,7 @@ export function IncomeAddForm({ currency, name, amount, setName, setAmount, dist
               value={amount}
               onChangeValue={setAmount}
               placeholder="0.00"
-              variant="light"
+              variant="underline"
               containerStyle={styles.moneyInput}
               inputStyle={styles.moneyInputText}
               returnKeyType="done"

@@ -43,13 +43,21 @@ export default function MoneyInput({
 
   const showClear = editable && (value ?? "").trim().length > 0;
   const isLight = variant === "light";
+  const isSheet = variant === "sheet";
+  const isUnderline = variant === "underline";
   const resolvedPlaceholderColor =
-    placeholderTextColor ?? (isLight ? (styles.placeholderLight.color as string) : (styles.placeholder.color as string));
+    placeholderTextColor ?? (isLight
+      ? (styles.placeholderLight.color as string)
+      : isSheet
+        ? (styles.placeholderSheet.color as string)
+        : isUnderline
+          ? (styles.placeholderUnderline.color as string)
+        : (styles.placeholder.color as string));
 
   return (
-    <View style={[styles.wrap, isLight && styles.wrapLight, containerStyle, !editable && styles.disabled]}>
-      <View style={[styles.currencyBox, isLight && styles.currencyBoxLight]}>
-        <Text style={[styles.currencyText, isLight && styles.currencyTextLight]}>{sym}</Text>
+    <View style={[styles.wrap, isLight && styles.wrapLight, isSheet && styles.wrapSheet, isUnderline && styles.wrapUnderline, containerStyle, !editable && styles.disabled]}>
+      <View style={[styles.currencyBox, isLight && styles.currencyBoxLight, isSheet && styles.currencyBoxSheet, isUnderline && styles.currencyBoxUnderline]}>
+        <Text style={[styles.currencyText, isLight && styles.currencyTextLight, isSheet && styles.currencyTextSheet, isUnderline && styles.currencyTextUnderline]}>{sym}</Text>
       </View>
 
       <TextInput
@@ -65,7 +73,7 @@ export default function MoneyInput({
         allowFontScaling={false}
         placeholder={placeholder}
         placeholderTextColor={resolvedPlaceholderColor}
-        style={[styles.input, isLight && styles.inputLight, inputStyle]}
+        style={[styles.input, isLight && styles.inputLight, isSheet && styles.inputSheet, isUnderline && styles.inputUnderline, inputStyle]}
         editable={editable}
         onFocus={(e) => {
           setFocused(true);
@@ -85,7 +93,7 @@ export default function MoneyInput({
         {...rest}
       />
 
-      <View style={[styles.rightBox, isLight && styles.rightBoxLight]}>
+      <View style={[styles.rightBox, isLight && styles.rightBoxLight, isSheet && styles.rightBoxSheet, isUnderline && styles.rightBoxUnderline]}>
         {showClear ? (
           <Pressable
             onPress={() => {
@@ -95,9 +103,19 @@ export default function MoneyInput({
             hitSlop={10}
             accessibilityRole="button"
             accessibilityLabel="Clear amount"
-            style={({ pressed }) => [styles.clearBtn, isLight && styles.clearBtnLight, pressed && styles.clearBtnPressed]}
+            style={({ pressed }) => [styles.clearBtn, isLight && styles.clearBtnLight, isSheet && styles.clearBtnSheet, isUnderline && styles.clearBtnUnderline, pressed && styles.clearBtnPressed]}
           >
-            <Ionicons name="close" size={13} color={isLight ? (styles.clearIconLight.color as string) : (styles.clearIcon.color as string)} />
+            <Ionicons
+              name="close"
+              size={13}
+              color={isLight
+                ? (styles.clearIconLight.color as string)
+                : isSheet
+                  ? (styles.clearIconSheet.color as string)
+                  : isUnderline
+                    ? (styles.clearIconUnderline.color as string)
+                  : (styles.clearIcon.color as string)}
+            />
           </Pressable>
         ) : null}
       </View>
