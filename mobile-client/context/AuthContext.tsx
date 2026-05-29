@@ -28,7 +28,7 @@ type AuthState = {
 type AuthContextValue = AuthState & {
   signIn: (username: string, mode?: "login" | "register", email?: string) => Promise<void>;
   prepareRegistration: (username: string, email: string) => Promise<void>;
-  completeRegistration: (profile: Partial<OnboardingProfile>) => Promise<void>;
+  completeRegistration: (profile: Partial<OnboardingProfile>) => Promise<UserProfile>;
   updatePendingRegistrationProfile: (profile: Partial<OnboardingProfile>) => Promise<void>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<UserProfile | null>;
@@ -442,6 +442,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         pendingRegistration: null,
         isLoading: false,
       });
+
+      return completedProfile;
     } finally {
       suppressUnauthorizedCallback(false);
     }

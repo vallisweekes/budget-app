@@ -6,12 +6,59 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
   GBP: "£",
   USD: "$",
   EUR: "€",
+  CAD: "$",
+  TTD: "$",
   NGN: "₦",
   ZAR: "R",
   AUD: "$",
-  CAD: "$",
   NZD: "$",
+  CHF: "CHF",
+  INR: "₹",
+  JPY: "¥",
+  SGD: "$",
 };
+
+const SYMBOL_TO_CURRENCY: Record<string, string> = {
+  "£": "GBP",
+  "$": "USD",
+  "€": "EUR",
+  "₦": "NGN",
+  R: "ZAR",
+  "₹": "INR",
+  "¥": "JPY",
+};
+
+const CURRENCY_FORMAT_LOCALES: Record<string, string> = {
+  GBP: "en-GB",
+  USD: "en-US",
+  EUR: "de-DE",
+  CAD: "en-CA",
+  TTD: "en-TT",
+  NGN: "en-NG",
+  ZAR: "en-ZA",
+  AUD: "en-AU",
+  NZD: "en-NZ",
+  CHF: "de-CH",
+  INR: "en-IN",
+  JPY: "ja-JP",
+  SGD: "en-SG",
+};
+
+export function normalizeCurrencyCode(currency: string | null | undefined): string {
+  const raw = String(currency ?? "").trim();
+  if (!raw) return "GBP";
+
+  if (SYMBOL_TO_CURRENCY[raw]) return SYMBOL_TO_CURRENCY[raw]!;
+
+  const upper = raw.toUpperCase();
+  if (CURRENCY_SYMBOLS[upper]) return upper;
+  return upper;
+}
+
+export function resolveCurrencyFormattingLocale(currency: string | null | undefined): string {
+  const normalized = normalizeCurrencyCode(currency);
+  return CURRENCY_FORMAT_LOCALES[normalized] ?? "en-GB";
+}
 
 export function currencySymbol(currency: string | null | undefined): string {
   const raw = String(currency ?? "").trim();
@@ -31,15 +78,27 @@ export function fmt(
   val: number | string | null | undefined,
   currency = "£",
 ): string {
-  const sym = currencySymbol(currency);
+  const normalizedCurrency = normalizeCurrencyCode(currency);
   const n =
     typeof val === "number" ? val : parseFloat(String(val ?? "0"));
-  if (isNaN(n)) return `${sym}0.00`;
-  const sign = n < 0 ? "-" : "";
-  return `${sign}${sym}${Math.abs(n).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+  if (isNaN(n)) return fmt(0, currency);
+
+  try {
+    return new Intl.NumberFormat(resolveCurrencyFormattingLocale(normalizedCurrency), {
+      style: "currency",
+      currency: normalizedCurrency,
+      currencyDisplay: "narrowSymbol",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(n);
+  } catch {
+    const sym = currencySymbol(currency);
+    const sign = n < 0 ? "-" : "";
+    return `${sign}${sym}${Math.abs(n).toLocaleString("en-GB", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  }
 }
 
 export { MONTH_NAMES_SHORT, MONTH_NAMES_LONG };

@@ -64,6 +64,16 @@ import { useSettingsNotifications } from "@/lib/hooks/useSettingsScreenControlle
 
 const MONEY_TOGGLE_SEGMENT_WIDTH = (Math.max(220, Dimensions.get("window").width - 32) - 8) / 2;
 const MONEY_TOP_OFFSET_REDUCTION = 8;
+const INVESTMENT_POT_SPLIT_TOTAL = 562.91;
+const INVESTMENT_POT_SPLIT_MIGRATION = [
+  { name: "Stocks", amount: 362.91 },
+  { name: "Crypto", amount: 200 },
+] as const;
+const INVESTMENT_POT_SPLIT_TOLERANCE = 0.005;
+
+function normalizeSavingsPotName(value: string | null | undefined): string {
+  return String(value ?? "").trim().toLowerCase();
+}
 
 type SettingsScreenControllerParams = Pick<MainTabScreenProps<"Settings">, "navigation" | "route">;
 
@@ -74,7 +84,12 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
   const [activeTab, setActiveTab] = useState<SettingsTab>("details");
   const { username: authUsername, signOut, hydrateProfile, profile: authProfile, isLoading: authLoading } = useAuth();
   const { activeBudgetPlanId, setActiveBudgetPlanId, clearActiveBudgetPlanId } = useActiveBudgetPlan();
-  const { readSavingsPotsForPlan, writeSavingsPotsForPlan } = useSavingsPotStore();
+  const {
+    readSavingsPotsForPlan,
+    writeSavingsPotsForPlan,
+    hasInvestmentSplitMigrationForPlan,
+    markInvestmentSplitMigrationForPlan,
+  } = useSavingsPotStore();
   const {
     notifications,
     notificationInbox,
@@ -265,9 +280,6 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
   const savingsMonthly = asMoneyNumber(settings?.monthlySavingsContribution);
   const emergencyMonthly = asMoneyNumber(settings?.monthlyEmergencyContribution);
   const investmentMonthly = asMoneyNumber(settings?.monthlyInvestmentContribution);
-  const savingsTotal = savingsBase + savingsMonthly;
-  const emergencyTotal = emergencyBase + emergencyMonthly;
-  const investmentTotal = investmentBase + investmentMonthly;
   const savingsSheetCurrentAmount = useMemo(() => {
     if (!savingsSheetField) return 0;
     if (savingsEditingPotId) {
@@ -310,7 +322,7 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
         key: "savings" as const,
         title: "Savings",
         icon: "wallet-outline" as const,
-        total: savingsTotal,
+        total: savingsBase,
         base: savingsBase,
         monthly: savingsMonthly,
       },
@@ -318,7 +330,7 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
         key: "emergency" as const,
         title: "Emergency funds",
         icon: "shield-checkmark-outline" as const,
-        total: emergencyTotal,
+        total: emergencyBase,
         base: emergencyBase,
         monthly: emergencyMonthly,
       },
@@ -326,12 +338,12 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
         key: "investment" as const,
         title: "Investments",
         icon: "trending-up-outline" as const,
-        total: investmentTotal,
+        total: investmentBase,
         base: investmentBase,
         monthly: investmentMonthly,
       },
     ],
-    [emergencyBase, emergencyMonthly, emergencyTotal, investmentBase, investmentMonthly, investmentTotal, savingsBase, savingsMonthly, savingsTotal]
+    [emergencyBase, emergencyMonthly, investmentBase, investmentMonthly, savingsBase, savingsMonthly]
   );
   const savingsPotsByField = useMemo(
     () => ({
@@ -460,14 +472,8 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
           : nextPlans.find((p) => p.kind === "personal")?.id ?? nextPlans[0].id;
       const preferredPlan = nextPlans.find((plan) => plan.id === preferredPlanId) ?? null;
 
-      const meSettingsForPreferredPlan = authProfile?.settings?.id === preferredPlanId
-        ? authProfile.settings
-        : null;
-
       const [nextSettings, nextDebts] = await Promise.all([
-        meSettingsForPreferredPlan
-          ? Promise.resolve(meSettingsForPreferredPlan)
-          : fetchPlanSettings(preferredPlanId, true).unwrap(),
+        fetchPlanSettings(preferredPlanId, true).unwrap(),
         fetchPlanDebts(preferredPlanId, true).unwrap(),
       ]);
 
@@ -642,15 +648,57 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
     void (async () => {
       try {
         const storedPots = await readSavingsPotsForPlan(planId);
-        const missingLinks = storedPots.filter((pot) => !pot.allocationId);
+        const hasAppliedInvestmentSplitMigration = await hasInvestmentSplitMigrationForPlan(planId);
+        const investmentPots = storedPots.filter((pot) => pot.field === "investment");
+        const genericInvestmentPot = investmentPots.length === 1 ? investmentPots[0] : null;
+        const matchesTargetInvestmentTotal = Math.abs(asMoneyNumber(settings?.investmentBalance) - INVESTMENT_POT_SPLIT_TOTAL) < INVESTMENT_POT_SPLIT_TOLERANCE;
+        const matchesLegacyGenericPot = Boolean(
+          genericInvestmentPot
+          && ["investment", "investments"].includes(normalizeSavingsPotName(genericInvestmentPot.name))
+          && Math.abs(asMoneyNumber(genericInvestmentPot.amount) - INVESTMENT_POT_SPLIT_TOTAL) < INVESTMENT_POT_SPLIT_TOLERANCE
+        );
+
+        let nextStoredPots = storedPots;
+        if (!hasAppliedInvestmentSplitMigration && (matchesLegacyGenericPot || (investmentPots.length === 0 && matchesTargetInvestmentTotal))) {
+          if (genericInvestmentPot?.allocationId) {
+            try {
+              await deleteIncomeSacrificeCustomMutation({ id: genericInvestmentPot.allocationId }).unwrap();
+            } catch {
+              // Best-effort cleanup only.
+            }
+          }
+
+          nextStoredPots = [
+            ...storedPots.filter((pot) => pot.field !== "investment"),
+            ...INVESTMENT_POT_SPLIT_MIGRATION.map((bucket) => ({
+              id: `${planId}-${bucket.name.toLowerCase()}`,
+              field: "investment" as const,
+              name: bucket.name,
+              amount: bucket.amount,
+            })),
+          ];
+          await writeSavingsPotsForPlan(planId, nextStoredPots);
+
+          if (Math.abs(asMoneyNumber(settings?.investmentBalance) - INVESTMENT_POT_SPLIT_TOTAL) >= INVESTMENT_POT_SPLIT_TOLERANCE) {
+            const updatedSettings = await updateSettingsMutation({
+              budgetPlanId: planId,
+              changes: { investmentBalance: INVESTMENT_POT_SPLIT_TOTAL },
+            }).unwrap();
+            setSettings(updatedSettings);
+          }
+
+          await markInvestmentSplitMigrationForPlan(planId);
+        }
+
+        const missingLinks = nextStoredPots.filter((pot) => !pot.allocationId);
         if (missingLinks.length === 0) {
-          setSavingsPots(storedPots);
+          setSavingsPots(nextStoredPots);
           return;
         }
 
         const now = new Date();
         let didUpdate = false;
-        const syncedPots = [...storedPots];
+        const syncedPots = [...nextStoredPots];
         for (let i = 0; i < syncedPots.length; i += 1) {
           const pot = syncedPots[i];
           if (!pot || pot.allocationId) continue;
@@ -686,7 +734,16 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
         setSavingsPots([]);
       }
     })();
-  }, [readSavingsPotsForPlan, settings?.id, writeSavingsPotsForPlan]);
+  }, [
+    deleteIncomeSacrificeCustomMutation,
+    hasInvestmentSplitMigrationForPlan,
+    markInvestmentSplitMigrationForPlan,
+    readSavingsPotsForPlan,
+    settings?.id,
+    settings?.investmentBalance,
+    updateSettingsMutation,
+    writeSavingsPotsForPlan,
+  ]);
 
   useEffect(() => {
     const shouldLoadSacrificeGoals = activeTab === "savings" || Boolean(savingsSheetField);
@@ -1058,7 +1115,7 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
     if (!settings?.id) return;
     const nextCountry = (overrideCountry ?? countryDraft).trim().toUpperCase();
     if (!nextCountry) {
-      Alert.alert("Country required", "Please enter a country code like GB, US or TT.");
+      Alert.alert("Locale required", "Please choose a locale option before saving.");
       return;
     }
 

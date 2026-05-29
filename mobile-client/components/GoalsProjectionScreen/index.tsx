@@ -7,10 +7,14 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import Svg, { Circle, Defs, Line, LinearGradient, Path, Polyline, Stop } from "react-native-svg";
 
-import type { DashboardData } from "@/lib/apiTypes";
+import type { DashboardData, IncomeSacrificeData } from "@/lib/apiTypes";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
+import { useSavingsPotStore } from "@/hooks";
+import { apiFetch } from "@/lib/api";
 import { currencySymbol, fmt } from "@/lib/formatting";
+import { groupSavingsPotsByField, resolveSavingsCategoryMonthlyTotals, resolveSavingsCategoryTotals } from "@/lib/helpers/settings";
 import { T } from "@/lib/theme";
+import type { SavingsPot } from "@/types/settings";
 
 import { buildGoalsProjection } from "./projection";
 import ScenarioSlider from "./ScenarioSlider";
@@ -49,7 +53,10 @@ export default function GoalsProjectionScreen() {
   const insets = useSafeAreaInsets();
   const topInset = Math.max(0, insets.top);
   const { dashboard: bootstrapDashboard, settings, ensureLoaded, refresh: refreshBootstrap } = useBootstrapData();
+  const { readSavingsPotsForPlan } = useSavingsPotStore();
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
+  const [sacrifice, setSacrifice] = useState<IncomeSacrificeData | null>(null);
+  const [savingsPots, setSavingsPots] = useState<SavingsPot[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedScenario, setSelectedScenario] = useState<number | null>(null);
@@ -61,13 +68,24 @@ export default function GoalsProjectionScreen() {
       const next = options?.force ? await refreshBootstrap({ force: true }) : await ensureLoaded();
       const dash = next.dashboard ?? bootstrapDashboard;
       if (!dash) throw new Error("Failed to load projection");
+
+      const [sacrificeResult, savingsPotsResult] = await Promise.allSettled([
+        apiFetch<IncomeSacrificeData>(
+          `/api/bff/income-sacrifice?month=${dash.monthNum}&year=${dash.year}&budgetPlanId=${encodeURIComponent(dash.budgetPlanId)}`,
+          { cacheTtlMs: options?.force ? 0 : 2_000 },
+        ),
+        readSavingsPotsForPlan(dash.budgetPlanId),
+      ]);
+
+      setSacrifice(sacrificeResult.status === "fulfilled" ? sacrificeResult.value : null);
+      setSavingsPots(savingsPotsResult.status === "fulfilled" ? savingsPotsResult.value : []);
       setDashboard(dash);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load projection");
     } finally {
       setLoading(false);
     }
-  }, [bootstrapDashboard, ensureLoaded, refreshBootstrap]);
+  }, [bootstrapDashboard, ensureLoaded, readSavingsPotsForPlan, refreshBootstrap]);
 
   useFocusEffect(
     useCallback(() => {
@@ -75,19 +93,44 @@ export default function GoalsProjectionScreen() {
     }, [load])
   );
 
-  const baseProjection = useMemo(() => buildGoalsProjection(dashboard, settings), [dashboard, settings]);
+  const categoryCurrentTotals = useMemo(
+    () => resolveSavingsCategoryTotals(settings, savingsPots),
+    [savingsPots, settings],
+  );
+  const categoryMonthlyTotals = useMemo(
+    () => resolveSavingsCategoryMonthlyTotals(sacrifice?.fixed, sacrifice?.customItems, savingsPots),
+    [sacrifice?.customItems, sacrifice?.fixed, savingsPots],
+  );
+  const potNamesByField = useMemo(() => {
+    const potsByField = groupSavingsPotsByField(savingsPots);
+    return {
+      savings: potsByField.savings.map((pot) => pot.name.trim().toLowerCase()),
+      emergency: potsByField.emergency.map((pot) => pot.name.trim().toLowerCase()),
+      investment: potsByField.investment.map((pot) => pot.name.trim().toLowerCase()),
+    };
+  }, [savingsPots]);
+
+  const baseProjection = useMemo(
+    () => buildGoalsProjection(dashboard, settings, { categoryCurrentTotals, categoryMonthlyTotals, potNamesByField }),
+    [categoryCurrentTotals, categoryMonthlyTotals, dashboard, potNamesByField, settings],
+  );
   const currentPlanMonthly = baseProjection?.monthlyTotal ?? 0;
   const effectiveScenarioMonthly = selectedScenario ?? currentPlanMonthly;
   const scenarioMax = useMemo(
-    () => Math.max(500, Math.ceil((currentPlanMonthly + 200) / 50) * 50),
+    () => Math.max(1000, Math.ceil((currentPlanMonthly + 200) / 50) * 50),
     [currentPlanMonthly],
   );
   const isCurrentScenario = selectedScenario == null || Math.abs(effectiveScenarioMonthly - currentPlanMonthly) < 1;
   const projection = useMemo(
     () => (isCurrentScenario
       ? baseProjection
-      : buildGoalsProjection(dashboard, settings, { scenarioMonthlyTotal: effectiveScenarioMonthly })),
-    [baseProjection, dashboard, effectiveScenarioMonthly, isCurrentScenario, settings],
+      : buildGoalsProjection(dashboard, settings, {
+        scenarioMonthlyTotal: effectiveScenarioMonthly,
+        categoryCurrentTotals,
+        categoryMonthlyTotals,
+        potNamesByField,
+      })),
+    [baseProjection, categoryCurrentTotals, categoryMonthlyTotals, dashboard, effectiveScenarioMonthly, isCurrentScenario, potNamesByField, settings],
   );
   const currency = settings?.currency ?? undefined;
   const yTicks = useMemo(() => {
@@ -291,7 +334,7 @@ export default function GoalsProjectionScreen() {
                   value={effectiveScenarioMonthly}
                   baselineValue={currentPlanMonthly}
                   currency={currency}
-                  tickValues={[0, 50, 100, 150, 200, 500].filter((tick) => tick <= scenarioMax)}
+                  tickValues={[0, 100, 250, 500, 750, 1000].filter((tick) => tick <= scenarioMax)}
                   onSlidingChange={setIsScenarioSliding}
                   onChange={setSelectedScenario}
                 />
@@ -303,7 +346,7 @@ export default function GoalsProjectionScreen() {
                   <Text style={styles.metricValue}>{fmt(projection.totalCurrent, currency)}</Text>
                 </View>
                 <View style={styles.metricCard}>
-                  <Text style={styles.metricLabel}>Monthly pace</Text>
+                  <Text style={styles.metricLabel}>Monthly</Text>
                   <Text style={styles.metricValue}>{fmt(projection.monthlyTotal, currency)}</Text>
                 </View>
                 <View style={styles.metricCard}>

@@ -214,11 +214,11 @@ export default function SettingsMainContent({ controller, navigation, savingsTil
           onEdit={() => controller.setLocaleSheetOpen(true)}
           onUseDetected={() => {
             if (!controller.detectedCountry || !controller.settings?.id) return;
-            if ((controller.settings.country ?? "").toUpperCase() === "GB") return;
+            if ((controller.settings.country ?? "").toUpperCase() === controller.detectedCountry) return;
             controller.setCountryDraft(controller.detectedCountry);
             void controller.saveCountry(controller.detectedCountry);
           }}
-          canUseDetected={Boolean(controller.detectedCountry) && (controller.settings?.country ?? "").toUpperCase() !== "GB"}
+          canUseDetected={Boolean(controller.detectedCountry) && (controller.settings?.country ?? "").toUpperCase() !== controller.detectedCountry}
         />
       ) : null}
 

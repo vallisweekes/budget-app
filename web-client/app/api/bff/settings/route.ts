@@ -7,6 +7,7 @@ import { syncGoalCurrentAmountsFromBalances } from "@/lib/goals/syncGoalCurrentA
 import { invalidateGoalConnectedState } from "@/lib/goals/invalidateGoalConnectedState";
 import { invalidateProfileCache } from "@/lib/cache/profileCache";
 import { bestEffortWithin } from "@/lib/bestEffortWithin";
+import { DEFAULT_CURRENCY, resolveCurrencyCodeForCountry } from "@/lib/constants/locales";
 
 export const runtime = "nodejs";
 
@@ -22,6 +23,17 @@ function unauthorized() {
 
 function badRequest(message: string) {
   return NextResponse.json({ error: message }, { status: 400 });
+}
+
+function normalizeSettingsLocale<T extends Record<string, unknown>>(settings: T): T {
+  const normalizedCountry = typeof settings.country === "string" ? settings.country.trim().toUpperCase() : "";
+  const storedCurrency = typeof settings.currency === "string" ? settings.currency.trim().toUpperCase() : "";
+
+  return {
+    ...settings,
+    country: normalizedCountry || null,
+    currency: resolveCurrencyCodeForCountry(normalizedCountry, storedCurrency || DEFAULT_CURRENCY),
+  };
 }
 
 const settingsSelect = {
@@ -375,7 +387,7 @@ export async function GET(req: NextRequest) {
     )?.toISOString() ?? null;
     const cadence = await getCadenceForUser(userId);
     return NextResponse.json({
-      ...plan,
+      ...normalizeSettingsLocale(plan as Record<string, unknown>),
       emergencyBalance,
       investmentBalance,
       budgetHorizonYears:
@@ -432,7 +444,7 @@ export async function GET(req: NextRequest) {
         const cadence = await getCadenceForUser(userId!);
 
         return NextResponse.json({
-          ...plan,
+          ...normalizeSettingsLocale(plan as Record<string, unknown>),
 				monthlyEmergencyContribution: unknownMonthlyEmergency ? 0 : (plan as any).monthlyEmergencyContribution,
 				emergencyBalance,
 				investmentBalance,
@@ -545,6 +557,8 @@ export async function PATCH(req: NextRequest) {
       }
     }
 
+    const normalizedCountry = typeof body.country === "string" ? body.country.trim().toUpperCase() : "";
+
     if (typeof body.payDate === "number") updateData.payDate = body.payDate;
     if (typeof body.monthlyAllowance !== "undefined") updateData.monthlyAllowance = body.monthlyAllowance;
     if (typeof body.savingsBalance !== "undefined") updateData.savingsBalance = body.savingsBalance;
@@ -566,9 +580,13 @@ export async function PATCH(req: NextRequest) {
 			const safe = Math.max(1, Math.floor(body.budgetHorizonYears));
 			updateData.budgetHorizonYears = safe;
 		}
-		if (typeof body.country === "string") updateData.country = body.country;
+    if (normalizedCountry) updateData.country = normalizedCountry;
 		if (typeof body.language === "string") updateData.language = body.language;
-		if (typeof body.currency === "string") updateData.currency = body.currency;
+    if (typeof body.currency === "string" && body.currency.trim()) {
+      updateData.currency = body.currency.trim().toUpperCase();
+    } else if (normalizedCountry) {
+      updateData.currency = resolveCurrencyCodeForCountry(normalizedCountry);
+    }
     const wantsIncomeDistributeFullYearDefault = typeof body.incomeDistributeFullYearDefault === "boolean";
     const wantsIncomeDistributeHorizonDefault = typeof body.incomeDistributeHorizonDefault === "boolean";
     if (wantsIncomeDistributeFullYearDefault) {
@@ -639,7 +657,7 @@ export async function PATCH(req: NextRequest) {
         const nextIncomeDefaults = await getIncomeDefaultsFallback(budgetPlanId);
         const cadence = await getCadenceForUser(userId);
         return NextResponse.json({
-          ...plan,
+          ...normalizeSettingsLocale(plan as Record<string, unknown>),
           emergencyBalance: nextEmergencyBalance,
           investmentBalance: nextInvestmentBalance,
           budgetHorizonYears: Number((plan as any).budgetHorizonYears || 0) > 0 ? Number((plan as any).budgetHorizonYears) : await getBudgetHorizonYearsFallback(budgetPlanId),
@@ -696,7 +714,7 @@ export async function PATCH(req: NextRequest) {
       const nextIncomeDefaults = await getIncomeDefaultsFallback(budgetPlanId);
       const cadence = await getCadenceForUser(userId);
       return NextResponse.json({
-        ...updated,
+        ...normalizeSettingsLocale(updated as Record<string, unknown>),
         emergencyBalance: nextEmergencyBalance,
         investmentBalance: nextInvestmentBalance,
         budgetHorizonYears: Number((updated as any).budgetHorizonYears || 0) > 0 ? Number((updated as any).budgetHorizonYears) : await getBudgetHorizonYearsFallback(budgetPlanId),
@@ -766,7 +784,7 @@ export async function PATCH(req: NextRequest) {
     );
       const cadence = await getCadenceForUser(userId);
       return NextResponse.json({
-        ...updated,
+        ...normalizeSettingsLocale(updated as Record<string, unknown>),
         monthlyEmergencyContribution: unknownMonthlyEmergency ? 0 : (updated as any).monthlyEmergencyContribution,
       emergencyBalance: nextEmergencyBalance,
       investmentBalance: nextInvestmentBalance,

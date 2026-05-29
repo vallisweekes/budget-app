@@ -6,7 +6,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { styles } from "./styles";
 
 import { fmt } from "@/lib/formatting";
+import { INVESTMENT_BUCKET_OPTIONS } from "@/lib/constants";
 import { parseMoney } from "@/lib/domain/moneyInput";
+import { groupSavingsPotsByField } from "@/lib/helpers/settings";
 import { getPayPeriodRangeLabelFromSelection, getPayPeriodSelectionFromAnchor } from "@/lib/payPeriods";
 import { T } from "@/lib/theme";
 import { s } from "@/components/IncomeMonthScreen/style";
@@ -20,6 +22,7 @@ import type {
   SacrificePeriod,
   TargetOption,
 } from "@/types";
+import type { SavingsField } from "@/types/settings";
 
 const ADD_ITEM_TYPES: Array<{ key: IncomeSacrificeItemType; label: string }> = [
   { key: "allowance", label: "Allowance" },
@@ -58,6 +61,19 @@ function parseGoalYear(value: string): number | null | undefined {
   return year;
 }
 
+function normalizePotRouteName(value: string | null | undefined): string {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function mapFixedFieldToSavingsField(
+  fixedField: TargetOption["fixedField"] | undefined,
+): SavingsField | null {
+  if (fixedField === "monthlySavingsContribution") return "savings";
+  if (fixedField === "monthlyEmergencyContribution") return "emergency";
+  if (fixedField === "monthlyInvestmentContribution") return "investment";
+  return null;
+}
+
 export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeListProps) {
   const insets = useSafeAreaInsets();
   const defaultSelection = useMemo(() => {
@@ -81,6 +97,7 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
   const [newItemAmount, setNewItemAmount] = useState("");
   const [newItemGoalTargetAmount, setNewItemGoalTargetAmount] = useState("");
   const [newItemGoalTargetYear, setNewItemGoalTargetYear] = useState("");
+  const [selectedPotKey, setSelectedPotKey] = useState<string | null>(null);
   const [linkTargetKey, setLinkTargetKey] = useState("");
   const [linkGoalId, setLinkGoalId] = useState<string>("");
   const [activeTipIndex, setActiveTipIndex] = useState(0);
@@ -150,43 +167,90 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
     }).start();
   }, [footerBackdropOpacity, mainFooterBlurActive, manageFooterBlurActive, manageScreen]);
 
+  const potRoutesByField = useMemo(() => {
+    const potsByField = groupSavingsPotsByField(props.savingsPots ?? []);
+    const customItems = props.sacrifice?.customItems ?? [];
+    const customItemById = new Map(customItems.map((item) => [item.id, item] as const));
+
+    const buildRoutes = (field: SavingsField) => potsByField[field].map((pot) => {
+      const matchedById = pot.allocationId ? customItemById.get(pot.allocationId) : undefined;
+      const normalizedPotName = normalizePotRouteName(pot.name);
+      const matchedByName = matchedById || !normalizedPotName
+        ? undefined
+        : (() => {
+          const matches = customItems.filter((item) => normalizePotRouteName(item.name) === normalizedPotName);
+          return matches.length === 1 ? matches[0] : undefined;
+        })();
+      const matchedItem = matchedById ?? matchedByName;
+
+      return {
+        routeKey: pot.id,
+        allocationId: pot.allocationId ?? null,
+        matchedAllocationId: matchedItem?.id ?? null,
+        name: pot.name,
+        amount: Number(matchedItem?.amount ?? 0),
+      };
+    });
+
+    return {
+      savings: buildRoutes("savings"),
+      emergency: buildRoutes("emergency"),
+      investment: buildRoutes("investment"),
+    };
+  }, [props.sacrifice?.customItems, props.savingsPots]);
+
+  const potBackedAllocationIds = useMemo(() => new Set([
+    ...potRoutesByField.savings.map((route) => route.matchedAllocationId).filter(Boolean),
+    ...potRoutesByField.emergency.map((route) => route.matchedAllocationId).filter(Boolean),
+    ...potRoutesByField.investment.map((route) => route.matchedAllocationId).filter(Boolean),
+  ]), [potRoutesByField.emergency, potRoutesByField.investment, potRoutesByField.savings]);
+
+  const getPotRouteTotalForField = useCallback((field: SavingsField) => {
+    return potRoutesByField[field].reduce((sum, route) => sum + Number(route.amount ?? 0), 0);
+  }, [potRoutesByField]);
+
   const targets = useMemo<TargetOption[]>(() => {
     const fixed = props.sacrifice?.fixed;
     const rows: TargetOption[] = [
       { key: "monthlyAllowance", label: `Allowance (${fmt(Number(fixed?.monthlyAllowance ?? 0), props.currency)})`, kind: "fixed", fixedField: "monthlyAllowance" },
-      { key: "monthlySavingsContribution", label: `Savings (${fmt(Number(fixed?.monthlySavingsContribution ?? 0), props.currency)})`, kind: "fixed", fixedField: "monthlySavingsContribution" },
-      { key: "monthlyEmergencyContribution", label: `Emergency (${fmt(Number(fixed?.monthlyEmergencyContribution ?? 0), props.currency)})`, kind: "fixed", fixedField: "monthlyEmergencyContribution" },
-      { key: "monthlyInvestmentContribution", label: `Investments (${fmt(Number(fixed?.monthlyInvestmentContribution ?? 0), props.currency)})`, kind: "fixed", fixedField: "monthlyInvestmentContribution" },
+      { key: "monthlySavingsContribution", label: `Savings (${fmt(Number(fixed?.monthlySavingsContribution ?? 0) + getPotRouteTotalForField("savings"), props.currency)})`, kind: "fixed", fixedField: "monthlySavingsContribution" },
+      { key: "monthlyEmergencyContribution", label: `Emergency (${fmt(Number(fixed?.monthlyEmergencyContribution ?? 0) + getPotRouteTotalForField("emergency"), props.currency)})`, kind: "fixed", fixedField: "monthlyEmergencyContribution" },
+      { key: "monthlyInvestmentContribution", label: `Investments (${fmt(Number(fixed?.monthlyInvestmentContribution ?? 0) + getPotRouteTotalForField("investment"), props.currency)})`, kind: "fixed", fixedField: "monthlyInvestmentContribution" },
     ];
 
-    const customRows = (props.sacrifice?.customItems ?? []).map((item) => ({
-      key: `custom:${item.id}`,
-      label: `${item.name} (${fmt(Number(item.amount ?? 0), props.currency)})`,
-      kind: "custom" as const,
-      customAllocationId: item.id,
-    }));
+    const customRows = (props.sacrifice?.customItems ?? [])
+      .filter((item) => !potBackedAllocationIds.has(item.id))
+      .map((item) => ({
+        key: `custom:${item.id}`,
+        label: `${item.name} (${fmt(Number(item.amount ?? 0), props.currency)})`,
+        kind: "custom" as const,
+        customAllocationId: item.id,
+      }));
 
     return [...rows, ...customRows];
-  }, [props.currency, props.sacrifice?.customItems, props.sacrifice?.fixed]);
+  }, [getPotRouteTotalForField, potBackedAllocationIds, props.currency, props.sacrifice?.customItems, props.sacrifice?.fixed]);
 
   const pieSlices = useMemo(() => {
     if (!props.sacrifice) return [];
+    const uncategorizedCustomTotal = (props.sacrifice.customItems ?? [])
+      .filter((item) => !potBackedAllocationIds.has(item.id))
+      .reduce((sum, item) => sum + Number(item.amount ?? 0), 0);
     const baseSlices = [
       { key: "allowance", label: "Allowance", value: Number(props.sacrifice.fixed.monthlyAllowance ?? 0), color: T.orange },
-      { key: "savings", label: "Savings", value: Number(props.sacrifice.fixed.monthlySavingsContribution ?? 0), color: T.accent },
-      { key: "emergency", label: "Emergency", value: Number(props.sacrifice.fixed.monthlyEmergencyContribution ?? 0), color: T.text },
-      { key: "investments", label: "Investments", value: Number(props.sacrifice.fixed.monthlyInvestmentContribution ?? 0), color: T.green },
+      { key: "savings", label: "Savings", value: Number(props.sacrifice.fixed.monthlySavingsContribution ?? 0) + getPotRouteTotalForField("savings"), color: T.accent },
+      { key: "emergency", label: "Emergency", value: Number(props.sacrifice.fixed.monthlyEmergencyContribution ?? 0) + getPotRouteTotalForField("emergency"), color: T.text },
+      { key: "investments", label: "Investments", value: Number(props.sacrifice.fixed.monthlyInvestmentContribution ?? 0) + getPotRouteTotalForField("investment"), color: T.green },
     ];
 
-    if ((props.sacrifice.customItems?.length ?? 0) <= 0 && Number(props.sacrifice.customTotal ?? 0) <= 0) {
+    if ((props.sacrifice.customItems?.length ?? 0) <= 0 && uncategorizedCustomTotal <= 0) {
       return baseSlices;
     }
 
     return [
       ...baseSlices,
-      { key: "custom", label: "Custom", value: Number(props.sacrifice.customTotal ?? 0), color: T.red },
+      { key: "custom", label: "Custom", value: uncategorizedCustomTotal, color: T.red },
     ];
-  }, [props.sacrifice]);
+  }, [getPotRouteTotalForField, potBackedAllocationIds, props.sacrifice]);
 
   const toLinkedTargetKey = (key: string) => (key.startsWith("custom:") ? key : `fixed:${key}`);
 
@@ -217,13 +281,13 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
       return Number(props.sacrifice.fixed.monthlyAllowance ?? 0);
     }
     if (key === "monthlySavingsContribution") {
-      return Number(props.sacrifice.fixed.monthlySavingsContribution ?? 0);
+      return Number(props.sacrifice.fixed.monthlySavingsContribution ?? 0) + getPotRouteTotalForField("savings");
     }
     if (key === "monthlyEmergencyContribution") {
-      return Number(props.sacrifice.fixed.monthlyEmergencyContribution ?? 0);
+      return Number(props.sacrifice.fixed.monthlyEmergencyContribution ?? 0) + getPotRouteTotalForField("emergency");
     }
     if (key === "monthlyInvestmentContribution") {
-      return Number(props.sacrifice.fixed.monthlyInvestmentContribution ?? 0);
+      return Number(props.sacrifice.fixed.monthlyInvestmentContribution ?? 0) + getPotRouteTotalForField("investment");
     }
     if (key.startsWith("custom:")) {
       const customId = key.slice("custom:".length);
@@ -232,7 +296,7 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
     }
 
     return 0;
-  }, [props.sacrifice]);
+  }, [getPotRouteTotalForField, props.sacrifice]);
 
   const getDisplayTotalForTarget = useCallback((key: string) => {
     const currentAmount = getCurrentAmountForTarget(key);
@@ -336,6 +400,31 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
   const selectedTargetTitle = useMemo(() => {
     return selectedTarget ? getTargetTitle(selectedTarget) : "Edit sacrifice";
   }, [getTargetTitle, selectedTarget]);
+
+  const selectedTargetSavingsField = useMemo(
+    () => mapFixedFieldToSavingsField(selectedTarget?.fixedField),
+    [selectedTarget?.fixedField],
+  );
+  const selectedPotRoutes = useMemo(() => {
+    if (!selectedTargetSavingsField) return [];
+    return potRoutesByField[selectedTargetSavingsField];
+  }, [potRoutesByField, selectedTargetSavingsField]);
+  const selectedPotRoute = useMemo(
+    () => selectedPotRoutes.find((route) => route.routeKey === selectedPotKey) ?? selectedPotRoutes[0] ?? null,
+    [selectedPotKey, selectedPotRoutes],
+  );
+
+  useEffect(() => {
+    if (selectedPotRoutes.length === 0) {
+      setSelectedPotKey(null);
+      return;
+    }
+
+    setSelectedPotKey((current) => {
+      if (current && selectedPotRoutes.some((route) => route.routeKey === current)) return current;
+      return selectedPotRoutes[0]!.routeKey;
+    });
+  }, [selectedPotRoutes]);
 
   const serverSacrificeTips = useMemo(() => {
     return (props.sacrifice?.tips ?? []).filter((tip) => String(tip?.title ?? "").trim() && String(tip?.detail ?? "").trim());
@@ -446,12 +535,16 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
 
   const selectedCurrentAmount = useMemo(() => getCurrentAmountForTarget(targetKey), [getCurrentAmountForTarget, targetKey]);
   const selectedDisplayTotal = useMemo(() => getDisplayTotalForTarget(targetKey), [getDisplayTotalForTarget, targetKey]);
+  const editableCurrentAmount = useMemo(
+    () => selectedPotRoute?.amount ?? selectedCurrentAmount,
+    [selectedCurrentAmount, selectedPotRoute?.amount],
+  );
   const parsedInlineAmount = useMemo(() => parseMoney(amountDraft), [amountDraft]);
-  const previewCurrentAmount = isInlineAmountEditing && parsedInlineAmount != null ? parsedInlineAmount : selectedCurrentAmount;
+  const previewCurrentAmount = isInlineAmountEditing && parsedInlineAmount != null ? parsedInlineAmount : editableCurrentAmount;
   const previewDisplayTotal = useMemo(() => {
     if (!(isInlineAmountEditing && parsedInlineAmount != null)) return selectedDisplayTotal;
-    return Math.max(0, selectedDisplayTotal - selectedCurrentAmount + parsedInlineAmount);
-  }, [isInlineAmountEditing, parsedInlineAmount, selectedCurrentAmount, selectedDisplayTotal]);
+    return Math.max(0, selectedDisplayTotal - editableCurrentAmount + parsedInlineAmount);
+  }, [editableCurrentAmount, isInlineAmountEditing, parsedInlineAmount, selectedDisplayTotal]);
 
   const selectedPayPeriodLabel = useMemo(() => {
     return getPayPeriodRangeLabelFromSelection({
@@ -584,7 +677,11 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
 
   const openTargetEditor = (key: string) => {
     setTargetKey(key);
-    const currentAmount = getCurrentAmountForTarget(key);
+    const target = targets.find((row) => row.key === key) ?? null;
+    const savingsField = mapFixedFieldToSavingsField(target?.fixedField);
+    const currentAmount = savingsField && potRoutesByField[savingsField].length > 0
+      ? Number(potRoutesByField[savingsField][0]!.amount ?? 0)
+      : getCurrentAmountForTarget(key);
     setAmountMode("set");
     setAmountDraft(currentAmount.toFixed(2));
     setIsInlineAmountEditing(false);
@@ -659,16 +756,29 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
       setStartYear(normalizedStartYear);
     }
 
-    const finalAmount = amountMode === "adjust" ? selectedCurrentAmount + enteredAmount : enteredAmount;
+    const finalAmount = amountMode === "adjust" ? editableCurrentAmount + enteredAmount : enteredAmount;
     if (finalAmount < 0) {
       Alert.alert("Invalid amount", "Adjustment would make this sacrifice negative.");
       return;
     }
 
+    const routedAllocationId = selected.kind === "fixed" && selectedPotRoutes.length > 0
+      ? (selectedPotRoute?.allocationId ?? await props.onEnsurePotAllocationRoute?.({
+        field: selectedTargetSavingsField as SavingsField,
+        potId: selectedPotRoute?.routeKey ?? "",
+        potName: selectedPotRoute?.name ?? "",
+      }) ?? null)
+      : null;
+
+    if (selected.kind === "fixed" && selectedPotRoutes.length > 0 && !routedAllocationId) {
+      Alert.alert("Choose a pot", "Pick the pot that should receive this sacrifice amount.");
+      return;
+    }
+
     await props.onApplySacrificeAmount({
-      targetType: selected.kind,
-      fixedField: selected.fixedField,
-      customAllocationId: selected.customAllocationId,
+      targetType: routedAllocationId ? "custom" : selected.kind,
+      fixedField: routedAllocationId ? undefined : selected.fixedField,
+      customAllocationId: routedAllocationId ?? selected.customAllocationId,
       amount: finalAmount,
       startMonth: normalizedStartMonth,
       startYear: normalizedStartYear,
@@ -711,6 +821,11 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
       }
     }
 
+    if (newItemType === "investment" && !newItemName.trim()) {
+      Alert.alert("Bucket required", "Choose an investment bucket or enter a name like Stocks, Crypto, or Commodities.");
+      return;
+    }
+
     await props.onCreateItem({
       type: newItemType,
       name: newItemName,
@@ -729,15 +844,15 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
   const toggleInlineAmountEdit = useCallback(() => {
     if (isInlineAmountEditing) {
       setAmountMode("set");
-      setAmountDraft(selectedCurrentAmount.toFixed(2));
+      setAmountDraft(editableCurrentAmount.toFixed(2));
       setIsInlineAmountEditing(false);
       return;
     }
 
     setAmountMode("set");
-    setAmountDraft(selectedCurrentAmount.toFixed(2));
+    setAmountDraft(editableCurrentAmount.toFixed(2));
     setIsInlineAmountEditing(true);
-  }, [isInlineAmountEditing, selectedCurrentAmount]);
+  }, [editableCurrentAmount, isInlineAmountEditing]);
 
   const openAddItemScreen = useCallback(() => {
     setNewItemType("custom");
@@ -791,19 +906,19 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
             <Text style={styles.detailHeroMeta}>Overall saved for this sacrifice target.</Text>
             <View style={styles.detailHeroStatsRow}>
               <View style={styles.detailHeroStatCard}>
-                <Text style={styles.detailHeroStatLabel}>{selectedTarget?.kind === "fixed" ? "Due this period" : "Target type"}</Text>
+                <Text style={styles.detailHeroStatLabel}>{selectedTarget?.kind === "fixed" ? (selectedPotRoute ? "Due into pot" : "Due this period") : "Target type"}</Text>
                 <Text style={styles.detailHeroStatValue}>
                   {selectedTarget?.kind === "fixed" ? fmt(previewCurrentAmount, props.currency) : "Custom"}
                 </Text>
               </View>
               <View style={styles.detailHeroStatCard}>
-                <Text style={styles.detailHeroStatLabel}>Applying across</Text>
-                <Text style={styles.detailHeroStatValueSmall}>{selectedPeriodLabel}</Text>
+                <Text style={styles.detailHeroStatLabel}>{selectedPotRoute ? "Routing into" : "Applying across"}</Text>
+                <Text style={styles.detailHeroStatValueSmall}>{selectedPotRoute ? selectedPotRoute.name : selectedPeriodLabel}</Text>
               </View>
             </View>
             {selectedTarget?.kind === "fixed" ? (
               <View style={styles.detailEditorCard}>
-                <Text style={styles.detailEditorLabel}>Due this pay period</Text>
+                <Text style={styles.detailEditorLabel}>{selectedPotRoute ? `${selectedPotRoute.name} this pay period` : "Due this pay period"}</Text>
                 {isInlineAmountEditing ? (
                   <View style={styles.detailHeroInlineEditWrap}>
                     <Text style={styles.detailHeroInlineCurrency}>{props.currency}</Text>
@@ -838,35 +953,68 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
               transform: [{ translateY: detailContentTranslateY }],
             }}
           >
-            <View style={styles.detailSectionCard}>
-              <View style={styles.detailSectionHeader}>
-                <Text style={styles.detailSectionTitle}>Apply across</Text>
-                <View style={styles.detailSectionPill}>
-                  <Text style={styles.detailSectionPillText}>{selectedPeriodLabel}</Text>
+            <View style={styles.detailSectionStack}>
+              {selectedTarget?.kind === "fixed" && selectedPotRoutes.length > 0 ? (
+                <View style={styles.detailSectionCard}>
+                  <View style={styles.detailSectionHeader}>
+                    <Text style={styles.detailSectionTitle}>Allocate into</Text>
+                    <View style={styles.detailSectionPill}>
+                      <Text style={styles.detailSectionPillText}>{selectedPotRoutes.length} pot{selectedPotRoutes.length === 1 ? "" : "s"}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.detailSectionHelp}>These options come from your saved pots so this sacrifice stays aligned with Settings and grouped goals.</Text>
+                  <View style={styles.detailPillWrap}>
+                    {selectedPotRoutes.map((route) => {
+                      const active = route.routeKey === selectedPotRoute?.routeKey;
+                      return (
+                        <Pressable
+                          key={route.routeKey}
+                          style={[styles.detailPill, active && styles.detailPillActive]}
+                          onPress={() => {
+                            setSelectedPotKey(route.routeKey);
+                            if (!isInlineAmountEditing) {
+                              setAmountMode("set");
+                              setAmountDraft(route.amount.toFixed(2));
+                            }
+                          }}
+                        >
+                          <Text style={[styles.detailPillText, active && styles.detailPillTextActive]}>{route.name}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
                 </View>
-              </View>
-              <Text style={styles.detailSectionHelp}>
-                {isMonthlyCadence
-                  ? "These options follow your pay-period anchor for each saved month."
-                  : "Sacrifice amounts are saved by pay-period anchor month, so weekly and biweekly periods inside the same anchor month share one saved value."}
-              </Text>
-              <View style={styles.detailOptionGrid}>
-                {primaryPeriodOptions.map((option) => (
-                  <Pressable
-                    key={option.key}
-                    style={[styles.detailOptionCard, option.key === period && styles.detailOptionCardActive]}
-                    onPress={() => setPeriod(option.key)}
-                  >
-                    <Text style={[styles.detailOptionCardTitle, option.key === period && styles.detailOptionCardTitleActive]}>{option.label}</Text>
-                  </Pressable>
-                ))}
-              </View>
-              <View style={styles.detailPillWrap}>
-                {secondaryPeriodOptions.map((option) => (
-                  <Pressable key={option.key} style={[styles.detailPill, option.key === period && styles.detailPillActive]} onPress={() => setPeriod(option.key)}>
-                    <Text style={[styles.detailPillText, option.key === period && styles.detailPillTextActive]}>{option.label}</Text>
-                  </Pressable>
-                ))}
+              ) : null}
+              <View style={styles.detailSectionCard}>
+                <View style={styles.detailSectionHeader}>
+                  <Text style={styles.detailSectionTitle}>Apply across</Text>
+                  <View style={styles.detailSectionPill}>
+                    <Text style={styles.detailSectionPillText}>{selectedPeriodLabel}</Text>
+                  </View>
+                </View>
+                <Text style={styles.detailSectionHelp}>
+                  {isMonthlyCadence
+                    ? "These options follow your pay-period anchor for each saved month."
+                    : "Sacrifice amounts are saved by pay-period anchor month, so weekly and biweekly periods inside the same anchor month share one saved value."}
+                </Text>
+                <View style={styles.detailOptionGrid}>
+                  {primaryPeriodOptions.map((option) => (
+                    <Pressable
+                      key={option.key}
+                      style={[styles.detailOptionCard, option.key === period && styles.detailOptionCardActive]}
+                      onPress={() => setPeriod(option.key)}
+                    >
+                      <Text style={[styles.detailOptionCardTitle, option.key === period && styles.detailOptionCardTitleActive]}>{option.label}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+                <View style={styles.detailPillWrap}>
+                  {secondaryPeriodOptions.map((option) => (
+                    <Pressable key={option.key} style={[styles.detailPill, option.key === period && styles.detailPillActive]} onPress={() => setPeriod(option.key)}>
+                      <Text style={[styles.detailPillText, option.key === period && styles.detailPillTextActive]}>{option.label}</Text>
+                    </Pressable>
+                  ))}
+                </View>
               </View>
             </View>
           </Animated.View>
@@ -912,17 +1060,49 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
             <Text style={styles.cardSub}>
               {newItemType === "custom"
                 ? "This follows the same structure as adding a goal: name it, set the pay-period amount, and choose the target."
-                : "Give the item a clear label and the amount you want saved for this period."}
+                : newItemType === "investment"
+                  ? "Choose the investment bucket you want to fund for this period, or enter your own label."
+                  : "Give the item a clear label and the amount you want saved for this period."}
             </Text>
 
-            <Text style={styles.fieldLabel}>{newItemType === "custom" ? "Goal name" : "Name"}</Text>
+            <Text style={styles.fieldLabel}>
+              {newItemType === "custom"
+                ? "Goal name"
+                : newItemType === "investment"
+                  ? "Investment bucket"
+                  : "Name"}
+            </Text>
+            {newItemType === "investment" ? (
+              <View style={styles.pillWrap}>
+                {INVESTMENT_BUCKET_OPTIONS.map((option) => {
+                  const active = newItemName.trim().toLowerCase() === option.toLowerCase();
+
+                  return (
+                    <Pressable
+                      key={option}
+                      style={[styles.pill, active && styles.pillActive]}
+                      onPress={() => setNewItemName(option)}
+                    >
+                      <Text style={[styles.pillText, active && styles.pillTextActive]}>{option}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ) : null}
             <TextInput
               style={styles.input}
               value={newItemName}
               onChangeText={setNewItemName}
-              placeholder={newItemType === "custom" ? "What are you saving for?" : "Optional custom label"}
+              placeholder={newItemType === "custom"
+                ? "What are you saving for?"
+                : newItemType === "investment"
+                  ? "Stocks, Crypto, Commodities, or your own label"
+                  : "Optional custom label"}
               placeholderTextColor={T.textMuted}
             />
+            {newItemType === "investment" ? (
+              <Text style={styles.fieldHelpText}>The Investments heading stays grouped, but each bucket can be funded separately.</Text>
+            ) : null}
 
             <View style={styles.amountSummaryRow}>
               <View style={{ flex: 1 }}>
@@ -1393,13 +1573,6 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
           </Animated.View>
           <View style={styles.mainFooterRow}>
               <View style={styles.mainFooterLeftGroup}>
-                {renderFooterButton({
-                  label: "",
-                  iconName: "home-outline",
-                  accessibilityLabel: "Go to dashboard",
-                  onPress: props.onGoHome,
-                  disabled: props.sacrificeSaving,
-                })}
                 {renderFooterButton({
                   label: "Edit",
                   onPress: openManageFlow,

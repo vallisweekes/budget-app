@@ -9,7 +9,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { OnboardingScreenProps, VisibleGoal } from "@/types/OnboardingScreen.types";
 import { buildInitialGoals, isPositiveNumber } from "@/components/OnboardingScreen/utils";
 import { COMMON_OCCUPATIONS, OCCUPATION_INCOME_SOURCE_OPTIONS } from "@/lib/constants";
-import { getMobileApiErrorMessage, useCompleteOnboardingMutation, useUpdateOnboardingProfileMutation } from "@/store/api";
+import { parseLocaleCountry, resolveCurrencyCodeForCountry } from "@/lib/helpers/settings";
+import { currencySymbol } from "@/lib/formatting";
+import { getMobileApiErrorMessage, useCompleteOnboardingMutation, useUpdateOnboardingProfileMutation, useUpdateSettingsMutation } from "@/store/api";
 
 type Frequency = "monthly" | "every_2_weeks" | "every_4_weeks" | "weekly" | null;
 
@@ -256,11 +258,15 @@ function validateStep(params: {
 export function useOnboardingScreenController({ initial, onCompleted }: OnboardingScreenProps) {
   const insets = useSafeAreaInsets();
   const [fontsLoaded] = useFonts({ Sacramento_400Regular });
-  const { completeRegistration, pendingRegistration, signOut, token, updatePendingRegistrationProfile, username } = useAuth();
+  const { completeRegistration, pendingRegistration, refreshProfile, signOut, token, updatePendingRegistrationProfile, username } = useAuth();
   const [updateOnboardingProfile] = useUpdateOnboardingProfileMutation();
   const [completeOnboarding] = useCompleteOnboardingMutation();
+  const [updateSettings] = useUpdateSettingsMutation();
   const profile = initial.profile;
-  const currency = "GBP";
+  const detectedCountry = useMemo(() => parseLocaleCountry(), []);
+  const detectedCurrency = useMemo(() => resolveCurrencyCodeForCountry(detectedCountry, "GBP"), [detectedCountry]);
+  const detectedCurrencySymbol = useMemo(() => currencySymbol(detectedCurrency), [detectedCurrency]);
+  const currency = detectedCurrency;
 
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
@@ -517,6 +523,17 @@ export function useOnboardingScreenController({ initial, onCompleted }: Onboardi
     if (nextStep !== step) transitionToStep(nextStep);
   }, [currentValidationError, payload, pendingRegistration, saving, step, token, transitionToStep, updatePendingRegistrationProfile]);
 
+  const applyDetectedLocaleToPlan = useCallback(async (budgetPlanId: string | null | undefined) => {
+    if (!budgetPlanId || !detectedCountry) return;
+
+    await updateSettings({
+      budgetPlanId,
+      changes: {
+        country: detectedCountry,
+      },
+    }).unwrap();
+  }, [detectedCountry, updateSettings]);
+
   const onFinish = useCallback(async () => {
     try {
       const validationError = currentValidationError(5);
@@ -527,20 +544,26 @@ export function useOnboardingScreenController({ initial, onCompleted }: Onboardi
       setSaving(true);
 
       if (!token) {
-        await completeRegistration(payload);
+        const completedProfile = await completeRegistration(payload);
+        const completedPlanId = completedProfile.settings?.id ?? completedProfile.plans?.[0]?.id ?? null;
+        await applyDetectedLocaleToPlan(completedPlanId);
+        await refreshProfile();
         onCompleted();
         return;
       }
 
       await saveDraft();
-      await completeOnboarding().unwrap();
+      const completed = await completeOnboarding().unwrap();
+      const completedPlanId = typeof completed?.budgetPlanId === "string" ? completed.budgetPlanId : null;
+      await applyDetectedLocaleToPlan(completedPlanId);
+      await refreshProfile();
       onCompleted();
     } catch (err: unknown) {
       Alert.alert("Could not complete onboarding", getMobileApiErrorMessage(err, "Please try again."));
     } finally {
       setSaving(false);
     }
-  }, [completeOnboarding, completeRegistration, currentValidationError, onCompleted, payload, saveDraft, token]);
+  }, [applyDetectedLocaleToPlan, completeOnboarding, completeRegistration, currentValidationError, onCompleted, payload, refreshProfile, saveDraft, token]);
 
   const stepPanResponder = useMemo(
     () =>
@@ -568,6 +591,9 @@ export function useOnboardingScreenController({ initial, onCompleted }: Onboardi
   return {
     allowanceAmount,
     currency,
+    detectedCountry,
+    detectedCurrency,
+    detectedCurrencySymbol,
     debtAmount,
     debtNotes,
     displayName,

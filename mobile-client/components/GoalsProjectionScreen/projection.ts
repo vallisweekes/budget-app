@@ -1,7 +1,20 @@
 import type { DashboardData, DashboardGoal, Settings } from "@/lib/apiTypes";
+import type { SavingsCategoryTotals } from "@/lib/helpers/settings";
+import type { SavingsField } from "@/types/settings";
 import { resolveGoalCurrentAmount } from "@/lib/helpers/settings";
 
-type GoalKind = "savings" | "emergency" | "investments" | "custom";
+type GoalKind = "savings" | "emergency" | "investments" | "custom" | "debt";
+
+type ProjectionGoalInput = {
+  id: string;
+  title: string;
+  type: string;
+  category: string;
+  targetYear?: number;
+  current: number;
+  target: number;
+  monthly: number;
+};
 
 export type ProjectionLine = {
   id: string;
@@ -34,7 +47,7 @@ export type GoalsProjectionModel = {
   onTrackCount: number;
 };
 
-function resolveProjectionMonths(goals: DashboardGoal[], fallbackMonths: number) {
+function resolveProjectionMonths(goals: Array<{ targetYear?: number }>, fallbackMonths: number) {
   const nowYear = new Date().getFullYear();
   const targetYears = goals
     .map((goal) => Number(goal.targetYear))
@@ -63,18 +76,110 @@ const SERIES_COLORS = [
 ];
 
 function classifyGoal(goal: DashboardGoal): GoalKind {
-  const haystack = `${String(goal.category ?? "")} ${String(goal.type ?? "")} ${String(goal.title ?? "")}`.toLowerCase();
+  const normalizedCategory = String(goal.category ?? "").trim().toLowerCase();
+  if (normalizedCategory === "debt") return "debt";
+
+  const haystack = `${normalizedCategory} ${String(goal.type ?? "")} ${String(goal.title ?? "")}`.toLowerCase();
   if (haystack.includes("emergency")) return "emergency";
   if (haystack.includes("invest")) return "investments";
   if (haystack.includes("saving")) return "savings";
   return "custom";
 }
 
-function getMonthlyContribution(goal: DashboardGoal, dashboard: DashboardData): number {
+function getGroupedGoalTitle(kind: Exclude<GoalKind, "custom" | "debt">): string {
+  if (kind === "emergency") return "Emergency funds";
+  if (kind === "investments") return "Investments";
+  return "Savings";
+}
+
+function resolveGroupedKindFromPotName(
+  goal: DashboardGoal,
+  potNamesByField?: Partial<Record<SavingsField, string[]>>,
+): Exclude<GoalKind, "custom" | "debt"> | null {
+  const normalizedTitle = String(goal.title ?? "").trim().toLowerCase();
+  if (!normalizedTitle) return null;
+
+  if ((potNamesByField?.investment ?? []).includes(normalizedTitle)) return "investments";
+  if ((potNamesByField?.savings ?? []).includes(normalizedTitle)) return "savings";
+  if ((potNamesByField?.emergency ?? []).includes(normalizedTitle)) return "emergency";
+  return null;
+}
+
+function buildProjectionGoalInputs(
+  dashboard: DashboardData,
+  settings: Pick<Settings, "savingsBalance" | "emergencyBalance" | "investmentBalance"> | null | undefined,
+  options?: {
+    categoryCurrentTotals?: Partial<SavingsCategoryTotals> | null;
+    categoryMonthlyTotals?: Partial<SavingsCategoryTotals> | null;
+    potNamesByField?: Partial<Record<SavingsField, string[]>>;
+  },
+): ProjectionGoalInput[] {
+  const groupedGoals = new Map<Exclude<GoalKind, "custom" | "debt">, DashboardGoal[]>();
+  const customGoalInputs: ProjectionGoalInput[] = [];
+
+  for (const goal of dashboard.goals ?? []) {
+    const classifiedKind = classifyGoal(goal);
+    const potBackedKind = classifiedKind === "custom" ? resolveGroupedKindFromPotName(goal, options?.potNamesByField) : null;
+    const kind = potBackedKind ?? classifiedKind;
+    if (kind === "debt") continue;
+
+    const target = Math.max(0, Number(goal.targetAmount ?? 0));
+    if (kind === "custom") {
+      customGoalInputs.push({
+        id: goal.id,
+        title: goal.title,
+        type: goal.type,
+        category: goal.category,
+        targetYear: goal.targetYear,
+        current: Math.max(0, resolveGoalCurrentAmount(goal.category, goal.currentAmount, settings, options?.categoryCurrentTotals)),
+        target,
+        monthly: 0,
+      });
+      continue;
+    }
+
+    const existing = groupedGoals.get(kind) ?? [];
+    existing.push(goal);
+    groupedGoals.set(kind, existing);
+  }
+
+  const groupedInputs = Array.from(groupedGoals.entries()).map(([kind, goals]) => {
+    const representativeGoal = goals[0]!;
+    const targetYearCandidates = goals
+      .map((goal) => Number(goal.targetYear))
+      .filter((year) => Number.isFinite(year) && year > 0)
+      .map((year) => Math.floor(year));
+
+    return {
+      id: `group:${kind}`,
+      title: getGroupedGoalTitle(kind),
+      type: representativeGoal.type,
+      category: representativeGoal.category,
+      targetYear: targetYearCandidates.length > 0 ? Math.max(...targetYearCandidates) : undefined,
+      current: Math.max(0, resolveGoalCurrentAmount(representativeGoal.category, representativeGoal.currentAmount, settings, options?.categoryCurrentTotals)),
+      target: goals.reduce((sum, goal) => sum + Math.max(0, Number(goal.targetAmount ?? 0)), 0),
+      monthly: getMonthlyContribution(representativeGoal, dashboard, options?.categoryMonthlyTotals),
+    } satisfies ProjectionGoalInput;
+  });
+
+  return [...groupedInputs, ...customGoalInputs];
+}
+
+function getMonthlyContribution(
+  goal: DashboardGoal,
+  dashboard: DashboardData,
+  categoryMonthlyTotals?: Partial<SavingsCategoryTotals> | null,
+): number {
   const kind = classifyGoal(goal);
-  if (kind === "emergency") return Math.max(0, dashboard.plannedEmergencyContribution ?? 0);
-  if (kind === "investments") return Math.max(0, dashboard.plannedInvestments ?? 0);
-  if (kind === "savings") return Math.max(0, dashboard.plannedSavingsContribution ?? 0);
+  if (kind === "emergency") {
+    return Math.max(0, typeof categoryMonthlyTotals?.emergency === "number" ? categoryMonthlyTotals.emergency : (dashboard.plannedEmergencyContribution ?? 0));
+  }
+  if (kind === "investments") {
+    return Math.max(0, typeof categoryMonthlyTotals?.investment === "number" ? categoryMonthlyTotals.investment : (dashboard.plannedInvestments ?? 0));
+  }
+  if (kind === "savings") {
+    return Math.max(0, typeof categoryMonthlyTotals?.savings === "number" ? categoryMonthlyTotals.savings : (dashboard.plannedSavingsContribution ?? 0));
+  }
   return 0;
 }
 
@@ -101,11 +206,10 @@ function buildScenarioMonthlyByGoal(goals: Array<{ id: string; current: number; 
     return next;
   }
 
-  const baseWeightSource = allocatableGoals.some((goal) => goal.monthly > 0)
-    ? allocatableGoals.map((goal) => Math.max(0, goal.monthly))
-    : allocatableGoals.some((goal) => goal.target > 0)
-      ? allocatableGoals.map((goal) => Math.max(1, goal.target - goal.current))
-      : allocatableGoals.map(() => 1);
+  const baseWeightSource = allocatableGoals.map((goal) => {
+    if (goal.target > goal.current) return Math.max(1, goal.target - goal.current);
+    return 1;
+  });
 
   const weightTotal = baseWeightSource.reduce((sum, weight) => sum + weight, 0);
 
@@ -128,35 +232,35 @@ export function buildGoalsProjection(
   options?: {
     months?: number;
     scenarioMonthlyTotal?: number | null;
+    categoryCurrentTotals?: Partial<SavingsCategoryTotals> | null;
+    categoryMonthlyTotals?: Partial<SavingsCategoryTotals> | null;
+    potNamesByField?: Partial<Record<SavingsField, string[]>>;
   },
 ): GoalsProjectionModel | null {
   const fallbackMonths = options?.months ?? 12;
-  const goals = dashboard?.goals ?? [];
-  if (!dashboard || goals.length === 0) return null;
+  if (!dashboard || (dashboard.goals ?? []).length === 0) return null;
 
-  const { months, endYear } = resolveProjectionMonths(goals, fallbackMonths);
-
-  const baseGoalInputs = goals.map((goal) => {
-    const current = Math.max(0, resolveGoalCurrentAmount(goal.category, goal.currentAmount, settings));
-    const target = Math.max(0, Number(goal.targetAmount ?? 0));
-    const monthly = getMonthlyContribution(goal, dashboard);
-    return {
-      goal,
-      current,
-      target,
-      monthly,
-    };
+  const goalInputs = buildProjectionGoalInputs(dashboard, settings, {
+    categoryCurrentTotals: options?.categoryCurrentTotals,
+    categoryMonthlyTotals: options?.categoryMonthlyTotals,
+    potNamesByField: options?.potNamesByField,
   });
+  if (goalInputs.length === 0) return null;
+
+  const { months, endYear } = resolveProjectionMonths(goalInputs, fallbackMonths);
+
+  const baseGoalInputs = goalInputs;
 
   const scenarioMonthlyByGoal = typeof options?.scenarioMonthlyTotal === "number"
     ? buildScenarioMonthlyByGoal(
-      baseGoalInputs.map(({ goal, current, target, monthly }) => ({ id: goal.id, current, target, monthly })),
+      baseGoalInputs.map(({ id, current, target, monthly }) => ({ id, current, target, monthly })),
       Math.max(0, options.scenarioMonthlyTotal),
     )
     : null;
 
   const lines = baseGoalInputs
-    .map(({ goal, current, target, monthly: baseMonthly }, index) => {
+    .map((goal, index) => {
+      const { current, target, monthly: baseMonthly } = goal;
       const palette = SERIES_COLORS[index % SERIES_COLORS.length]!;
       const monthly = scenarioMonthlyByGoal?.get(goal.id) ?? baseMonthly;
       const points = Array.from({ length: months + 1 }, (_, i) => {

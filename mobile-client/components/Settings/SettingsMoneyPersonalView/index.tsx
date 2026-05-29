@@ -19,36 +19,41 @@ export default function SettingsMoneyPersonalView({
 }: SettingsMoneyPersonalViewProps) {
   return (
     <View style={styles.plainSavingsBlock}>
-      {savingsCards.map((card) => (
-        <View key={card.key} style={styles.moneySectionCard}>
-          <View style={styles.savingsSectionStack}>
-            <Text style={styles.savingsSectionTitle}>{card.title}</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.savingsTilesRow} decelerationRate="fast" snapToInterval={tileSize + 12} snapToAlignment="start">
-              {(() => {
-                const palette = getSavingsTilePalette(card.key);
-                return (
-                  <Pressable onPress={() => onOpenSavingsEditor(card.key)} style={[styles.savingsTileCard, { width: tileSize, height: tileSize, backgroundColor: palette.cardBg, borderColor: palette.borderColor }]}>
+      {savingsCards.map((card) => {
+        const palette = getSavingsTilePalette(card.key);
+        const pots = savingsPotsByField[card.key];
+        const hasSplitInvestmentPots = card.key === "investment" && pots.length > 0;
+
+        return (
+          <View key={card.key} style={styles.moneySectionCard}>
+            <View style={styles.savingsSectionStack}>
+              <Text style={styles.savingsSectionTitle}>{card.title}</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.savingsTilesRow} decelerationRate="fast" snapToInterval={tileSize + 12} snapToAlignment="start">
+                {!hasSplitInvestmentPots ? (
+                  <Pressable onPress={() => onOpenSavingsEditor(card.key)} style={[styles.savingsTileCard, { width: tileSize, height: tileSize, backgroundColor: palette.cardBg, borderColor: palette.borderColor }]}> 
                     <View style={styles.savingsTileTopRow}><View style={[styles.savingsTileIconWrap, { backgroundColor: palette.iconBg }]}><Ionicons name={card.icon} size={18} color={palette.valueColor} /></View></View>
                     <Text style={[styles.savingsTileValue, { color: palette.valueColor }]}>{currency}{asMoneyText(card.total)}</Text>
                     <Text style={[styles.savingsTileHint, { color: palette.hintColor }]}>Base {currency}{asMoneyText(card.base)} + monthly {currency}{asMoneyText(card.monthly)}</Text>
                   </Pressable>
-                );
-              })()}
-              {savingsPotsByField[card.key].map((pot) => (
-                <Pressable key={pot.id} onPress={() => onOpenSavingsEditor(card.key, pot.id)} style={[styles.savingsTileCard, { width: tileSize, height: tileSize, backgroundColor: getSavingsTilePalette(card.key).cardBg, borderColor: getSavingsTilePalette(card.key).borderColor }]}>
-                  <View style={styles.savingsTileTopRow}><View style={[styles.savingsTileIconWrap, { backgroundColor: getSavingsTilePalette(card.key).iconBg }]}><Ionicons name={card.icon} size={18} color={getSavingsTilePalette(card.key).valueColor} /></View></View>
-                  <Text style={[styles.savingsTileTitle, { color: getSavingsTilePalette(card.key).titleColor }]}>{pot.name}</Text>
-                  <Text style={[styles.savingsTileValue, { color: getSavingsTilePalette(card.key).valueColor }]}>{currency}{asMoneyText(pot.amount)}</Text>
-                </Pressable>
-              ))}
-              <Pressable onPress={() => onOpenSavingsField(card.key)} style={[styles.savingsTileAddCard, { width: tileSize, height: tileSize, backgroundColor: getSavingsTilePalette(card.key).cardBg, borderColor: getSavingsTilePalette(card.key).borderColor }]} accessibilityLabel={`Add more ${card.title.toLowerCase()}`}>
-                <Ionicons name="add" size={30} color={getSavingsTilePalette(card.key).plusColor} />
-                <Text style={[styles.savingsTileAddText, { color: getSavingsTilePalette(card.key).plusColor }]}>{getAddPotLabel(card.key)}</Text>
-              </Pressable>
-            </ScrollView>
+                ) : null}
+                {pots.map((pot) => (
+                  <Pressable key={pot.id} onPress={() => onOpenSavingsEditor(card.key, pot.id)} style={[styles.savingsTileCard, { width: tileSize, height: tileSize, backgroundColor: palette.cardBg, borderColor: palette.borderColor }]}> 
+                    <View style={styles.savingsTileTopRow}><View style={[styles.savingsTileIconWrap, { backgroundColor: palette.iconBg }]}><Ionicons name={card.icon} size={18} color={palette.valueColor} /></View></View>
+                    <Text style={[styles.savingsTileTitle, { color: palette.titleColor }]}>{pot.name}</Text>
+                    <Text style={[styles.savingsTileValue, { color: palette.valueColor }]}>{currency}{asMoneyText(pot.amount)}</Text>
+                  </Pressable>
+                ))}
+                {!hasSplitInvestmentPots ? (
+                  <Pressable onPress={() => onOpenSavingsField(card.key)} style={[styles.savingsTileAddCard, { width: tileSize, height: tileSize, backgroundColor: palette.cardBg, borderColor: palette.borderColor }]} accessibilityLabel={`Add more ${card.title.toLowerCase()}`}>
+                    <Ionicons name="add" size={30} color={palette.plusColor} />
+                    <Text style={[styles.savingsTileAddText, { color: palette.plusColor }]}>{getAddPotLabel(card.key)}</Text>
+                  </Pressable>
+                ) : null}
+              </ScrollView>
+            </View>
           </View>
-        </View>
-      ))}
+        );
+      })}
     </View>
   );
 }

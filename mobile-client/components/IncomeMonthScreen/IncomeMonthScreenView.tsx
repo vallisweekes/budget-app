@@ -17,7 +17,7 @@ import { apiFetch, getApiMutationVersion } from "@/lib/api";
 import type { Income, Settings, IncomeMonthData, IncomeSacrificeData, IncomeSacrificeFixed } from "@/lib/apiTypes";
 import { computeMoneyLeftVsLastMonth } from "@/lib/domain/incomeStats";
 import { currencySymbol, fmt, MONTH_NAMES_LONG } from "@/lib/formatting";
-import { useIncomeCRUD, useTopHeaderOffset } from "@/hooks";
+import { useIncomeCRUD, useSavingsPotStore, useTopHeaderOffset } from "@/hooks";
 import { registerSessionScopedResetter } from "@/lib/sessionScopedState";
 import { subscribeIncomeAddTrigger } from "@/lib/events/incomeAddTrigger";
 import {
@@ -46,6 +46,7 @@ import {
 } from "@/store/api";
 import { s } from "./style";
 import type { IncomeMonthScreenProps, IncomeMutationMeta, MonthRef } from "@/types";
+import type { SavingsField, SavingsPot } from "@/types/settings";
 
 type AnalysisCacheStore = Record<string, Record<number, Record<number, IncomeMonthData>>>;
 type ItemsCacheStore = Record<string, Record<number, Record<number, Income[]>>>;
@@ -95,6 +96,7 @@ function toInitialIncomeItems(
 
 export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScreenProps) {
   const router = useRouter();
+  const { readSavingsPotsForPlan, ensureSavingsPotAllocationLinks } = useSavingsPotStore();
   const [updateIncomeSacrifice] = useUpdateIncomeSacrificeMutation();
   const [createIncomeSacrificeCustom] = useCreateIncomeSacrificeCustomMutation();
   const [deleteIncomeSacrificeCustom] = useDeleteIncomeSacrificeCustomMutation();
@@ -111,6 +113,7 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
   const [analysis, setAnalysis] = useState<IncomeMonthData | null>(initialAnalysis);
   const [items, setItems]       = useState<Income[]>(() => toInitialIncomeItems(initialAnalysis?.incomeItems, month, year, budgetPlanId));
   const [settings, setSettings] = useState<Settings | null>(() => sharedSettingsCache[budgetPlanId] ?? null);
+  const [savingsPots, setSavingsPots] = useState<SavingsPot[]>([]);
   const [loading, setLoading]   = useState(() => {
     if (initialAnalysis) return false;
     if ((initialMode ?? "income") === "sacrifice" && initialSacrifice) return false;
@@ -169,6 +172,20 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
   useEffect(() => {
     setCurrentTime(Date.now());
   }, [periodEndAt, sacrificeManageUntil]);
+
+  const refreshSavingsPots = useCallback(async () => {
+    try {
+      const storedPots = await readSavingsPotsForPlan(budgetPlanId);
+      const syncedPots = await ensureSavingsPotAllocationLinks(budgetPlanId, storedPots);
+      setSavingsPots(syncedPots);
+    } catch {
+      setSavingsPots([]);
+    }
+  }, [budgetPlanId, ensureSavingsPotAllocationLinks, readSavingsPotsForPlan]);
+
+  useEffect(() => {
+    void refreshSavingsPots();
+  }, [refreshSavingsPots]);
 
   const isLocked = currentTime > periodEndAt.getTime();
   const canManageSacrifice = currentTime <= sacrificeManageUntil.getTime();
@@ -565,11 +582,13 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
         void Promise.all([
           load({ force: true }),
           loadSacrifice({ force: true }),
+          refreshSavingsPots(),
         ]);
         return;
       }
+      void refreshSavingsPots();
       void load({ force: true });
-    }, [getAdjacentMonths, invalidateMonthCaches, load, loadSacrifice, month, viewMode, year])
+    }, [getAdjacentMonths, invalidateMonthCaches, load, loadSacrifice, month, refreshSavingsPots, viewMode, year])
   );
 
   useEffect(() => {
@@ -874,6 +893,10 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
       Alert.alert("Name required", "Custom sacrifice requires a name.");
       return;
     }
+    if (args.type === "investment" && !trimmedName) {
+      Alert.alert("Bucket required", "Investment sacrifices need a bucket name such as Stocks, Crypto, or Commodities.");
+      return;
+    }
     if (args.type === "custom" && (!Number.isFinite(args.amount) || args.amount <= 0)) {
       Alert.alert("Amount required", "Custom sacrifice requires a pay-period amount.");
       return;
@@ -909,6 +932,28 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
       setSacrificeCreating(false);
     }
   }, [budgetPlanId, canManageSacrifice, createIncomeSacrificeCustom, invalidateMonthCaches, load, loadSacrifice, month, year]);
+
+  const ensurePotAllocationRoute = useCallback(async (args: {
+    field: SavingsField;
+    potId: string;
+    potName: string;
+  }): Promise<string | null> => {
+    try {
+      const storedPots = await readSavingsPotsForPlan(budgetPlanId);
+      const syncedPots = await ensureSavingsPotAllocationLinks(budgetPlanId, storedPots);
+      setSavingsPots(syncedPots);
+
+      const normalizedName = args.potName.trim().toLowerCase();
+      const matchedPot = syncedPots.find((pot) => (
+        pot.field === args.field
+        && (pot.id === args.potId || pot.name.trim().toLowerCase() === normalizedName)
+      ));
+
+      return matchedPot?.allocationId ?? null;
+    } catch {
+      return null;
+    }
+  }, [budgetPlanId, ensureSavingsPotAllocationLinks, readSavingsPotsForPlan]);
 
   const deleteSacrificeItem = async (id: string) => {
     if (!canManageSacrifice) {
@@ -1042,6 +1087,7 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
             payDate={settings?.payDate ?? 27}
             payFrequency={normalizedPayFrequency}
             sacrifice={sacrifice}
+            savingsPots={savingsPots}
             topInset={isSacrificeManageActive ? insets.top : headerHeight + 8}
             onManageFlowActiveChange={setIsSacrificeManageActive}
             canManage={canManageSacrifice}
@@ -1052,9 +1098,10 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
             refreshing={refreshing}
             onRefresh={() => {
               setRefreshing(true);
-              Promise.all([load({ force: true }), loadSacrifice({ force: true })]).finally(() => setRefreshing(false));
+              Promise.all([load({ force: true }), loadSacrifice({ force: true }), refreshSavingsPots()]).finally(() => setRefreshing(false));
             }}
             onApplySacrificeAmount={applySacrificeAmount}
+            onEnsurePotAllocationRoute={ensurePotAllocationRoute}
             onDeleteCustom={deleteSacrificeItem}
             onCreateItem={createSacrificeItem}
             onSaveGoalLink={saveSacrificeGoalLink}

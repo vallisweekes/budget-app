@@ -207,6 +207,11 @@ export function OnboardingStepContent({ controller }: OnboardingStepContentProps
                 ? "Use the monthly amount you receive from your selected source of income."
                 : "Use your monthly take-home pay (after tax)."}
             </Text>
+            {controller.detectedCountry ? (
+              <Text style={styles.helper}>
+                Detected region: {controller.detectedCountry}. We&apos;ll use {controller.detectedCurrencySymbol} during setup, and you can change this later in Settings &gt; Locale.
+              </Text>
+            ) : null}
           </View>
 
           <View style={styles.sectionCard}>

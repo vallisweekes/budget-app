@@ -1,5 +1,6 @@
 import type { IncomeSacrificeData } from "@/lib/apiTypes";
 import type { PayFrequency } from "@/lib/payPeriods";
+import type { SavingsField, SavingsPot } from "@/types/settings";
 
 export type SacrificePeriod =
   | "this_month"
@@ -29,6 +30,7 @@ export type IncomeMonthSacrificeListProps = {
   payDate: number;
   payFrequency: PayFrequency;
   sacrifice: IncomeSacrificeData | null;
+  savingsPots: SavingsPot[];
   topInset?: number;
   onManageFlowActiveChange?: (active: boolean) => void;
   canManage?: boolean;
@@ -47,6 +49,11 @@ export type IncomeMonthSacrificeListProps = {
     startYear: number;
     period: SacrificePeriod;
   }) => Promise<void>;
+  onEnsurePotAllocationRoute?: (args: {
+    field: SavingsField;
+    potId: string;
+    potName: string;
+  }) => Promise<string | null>;
   onDeleteCustom: (id: string) => Promise<void>;
   onCreateItem: (args: {
     type: IncomeSacrificeItemType;

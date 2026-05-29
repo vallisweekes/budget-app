@@ -1,3 +1,5 @@
+import { resolveCurrencyFormattingLocale } from "@/lib/formatting";
+
 export function sanitizeMoneyDraft(text: string): string {
   const raw = String(text ?? "")
     .replace(/\s+/g, "")
@@ -20,10 +22,10 @@ export function parseMoney(text: string): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-export function formatGroupedNumber(value: number): string {
+export function formatGroupedNumber(value: number, currency?: string | null): string {
   const sign = value < 0 ? "-" : "";
   const abs = Math.abs(value);
-  return `${sign}${abs.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `${sign}${abs.toLocaleString(resolveCurrencyFormattingLocale(currency), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 export function truncateTail(text: string, maxChars = 10): string {

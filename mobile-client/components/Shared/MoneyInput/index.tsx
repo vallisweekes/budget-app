@@ -38,8 +38,8 @@ export default function MoneyInput({
       return;
     }
 
-    setDisplay(truncateTail(formatGroupedNumber(parsed)));
-  }, [value, focused]);
+    setDisplay(truncateTail(formatGroupedNumber(parsed, currency)));
+  }, [currency, value, focused]);
 
   const showClear = editable && (value ?? "").trim().length > 0;
   const isLight = variant === "light";

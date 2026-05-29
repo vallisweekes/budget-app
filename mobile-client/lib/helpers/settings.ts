@@ -4,8 +4,53 @@ import type {
   SavingsPot,
   SavingsPotStore,
 } from "@/types/settings";
-import type { Settings } from "@/lib/apiTypes";
+import type { IncomeSacrificeCustomItem, IncomeSacrificeFixed, Settings } from "@/lib/apiTypes";
 import { PAY_FREQUENCY_OPTIONS } from "@/lib/constants";
+
+export type SavingsCategoryTotals = Record<SavingsField, number>;
+
+const SAVINGS_FIELDS: SavingsField[] = ["savings", "emergency", "investment"];
+const EURO_COUNTRY_CODES = new Set([
+  "AT",
+  "BE",
+  "CY",
+  "DE",
+  "EE",
+  "ES",
+  "FI",
+  "FR",
+  "GR",
+  "HR",
+  "IE",
+  "IT",
+  "LT",
+  "LU",
+  "LV",
+  "MT",
+  "NL",
+  "PT",
+  "SI",
+  "SK",
+]);
+
+const COUNTRY_CURRENCY_OVERRIDES: Record<string, string> = {
+  GB: "GBP",
+  US: "USD",
+  CA: "CAD",
+  TT: "TTD",
+  AU: "AUD",
+  NZ: "NZD",
+  CH: "CHF",
+  NG: "NGN",
+  ZA: "ZAR",
+  IN: "INR",
+  JP: "JPY",
+  SG: "SGD",
+};
+
+function normalizeSavingsBucketName(value: string | null | undefined): string {
+  return String(value ?? "").trim().toLowerCase();
+}
 
 export function formatDateDmy(dateYmd: string): string {
   const s = (dateYmd || "").trim();
@@ -64,6 +109,14 @@ export function parseLocaleCountry(): string | null {
   }
 }
 
+export function resolveCurrencyCodeForCountry(country: string | null | undefined, fallback = "GBP"): string {
+  const normalized = String(country ?? "").trim().toUpperCase();
+  if (!normalized) return fallback;
+  if (COUNTRY_CURRENCY_OVERRIDES[normalized]) return COUNTRY_CURRENCY_OVERRIDES[normalized]!;
+  if (EURO_COUNTRY_CODES.has(normalized)) return "EUR";
+  return fallback;
+}
+
 export function asMoneyInput(value: string | null | undefined): string {
   if (!value) return "";
   const n = Number(value);
@@ -80,22 +133,93 @@ export function resolveGoalCurrentAmount(
   category: string | null | undefined,
   goalCurrentAmount: string | number | null | undefined,
   settings: Pick<Settings, "savingsBalance" | "emergencyBalance" | "investmentBalance"> | null | undefined,
+  categoryTotals?: Partial<SavingsCategoryTotals> | null,
 ): number {
   const normalizedCategory = String(category ?? "").trim().toLowerCase();
 
   if (normalizedCategory === "emergency") {
+    if (typeof categoryTotals?.emergency === "number") return Math.max(0, categoryTotals.emergency);
     return Math.max(0, asMoneyNumber(settings?.emergencyBalance));
   }
 
   if (normalizedCategory === "savings") {
+    if (typeof categoryTotals?.savings === "number") return Math.max(0, categoryTotals.savings);
     return Math.max(0, asMoneyNumber(settings?.savingsBalance));
   }
 
   if (normalizedCategory === "investment") {
+    if (typeof categoryTotals?.investment === "number") return Math.max(0, categoryTotals.investment);
     return Math.max(0, asMoneyNumber(settings?.investmentBalance));
   }
 
   return Math.max(0, asMoneyNumber(goalCurrentAmount));
+}
+
+export function groupSavingsPotsByField(pots: SavingsPot[]): Record<SavingsField, SavingsPot[]> {
+  return {
+    savings: pots.filter((pot) => pot.field === "savings"),
+    emergency: pots.filter((pot) => pot.field === "emergency"),
+    investment: pots.filter((pot) => pot.field === "investment"),
+  };
+}
+
+export function resolveSavingsCategoryTotals(
+  settings: Pick<Settings, "savingsBalance" | "emergencyBalance" | "investmentBalance"> | null | undefined,
+  pots: SavingsPot[],
+): SavingsCategoryTotals {
+  const potsByField = groupSavingsPotsByField(pots);
+
+  return {
+    savings: potsByField.savings.length > 0
+      ? potsByField.savings.reduce((sum, pot) => sum + asMoneyNumber(pot.amount), 0)
+      : Math.max(0, asMoneyNumber(settings?.savingsBalance)),
+    emergency: potsByField.emergency.length > 0
+      ? potsByField.emergency.reduce((sum, pot) => sum + asMoneyNumber(pot.amount), 0)
+      : Math.max(0, asMoneyNumber(settings?.emergencyBalance)),
+    investment: potsByField.investment.length > 0
+      ? potsByField.investment.reduce((sum, pot) => sum + asMoneyNumber(pot.amount), 0)
+      : Math.max(0, asMoneyNumber(settings?.investmentBalance)),
+  };
+}
+
+function resolveSavingsFieldForCustomItem(
+  item: IncomeSacrificeCustomItem,
+  potsByField: Record<SavingsField, SavingsPot[]>,
+): SavingsField | null {
+  for (const field of SAVINGS_FIELDS) {
+    const matchedById = potsByField[field].some((pot) => pot.allocationId === item.id);
+    if (matchedById) return field;
+  }
+
+  const normalizedName = normalizeSavingsBucketName(item.name);
+  if (!normalizedName) return null;
+
+  const matchedFields = SAVINGS_FIELDS.filter((field) => (
+    potsByField[field].some((pot) => normalizeSavingsBucketName(pot.name) === normalizedName)
+  ));
+
+  return matchedFields.length === 1 ? matchedFields[0] : null;
+}
+
+export function resolveSavingsCategoryMonthlyTotals(
+  fixed: IncomeSacrificeFixed | null | undefined,
+  customItems: IncomeSacrificeCustomItem[] | null | undefined,
+  pots: SavingsPot[],
+): SavingsCategoryTotals {
+  const potsByField = groupSavingsPotsByField(pots);
+  const totals: SavingsCategoryTotals = {
+    savings: Math.max(0, asMoneyNumber(fixed?.monthlySavingsContribution)),
+    emergency: Math.max(0, asMoneyNumber(fixed?.monthlyEmergencyContribution)),
+    investment: Math.max(0, asMoneyNumber(fixed?.monthlyInvestmentContribution)),
+  };
+
+  for (const item of customItems ?? []) {
+    const field = resolveSavingsFieldForCustomItem(item, potsByField);
+    if (!field) continue;
+    totals[field] += Math.max(0, asMoneyNumber(item.amount));
+  }
+
+  return totals;
 }
 
 export function asMoneyText(value: number): string {

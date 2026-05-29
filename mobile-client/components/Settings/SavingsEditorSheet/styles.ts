@@ -113,6 +113,25 @@ export const styles = StyleSheet.create({
 		fontWeight: "900",
 	},
 	label: { color: T.textDim, fontSize: 12, fontWeight: "800" },
+	presetWrap: {
+		flexDirection: "row",
+		flexWrap: "wrap",
+		gap: 8,
+	},
+	presetPill: {
+		borderRadius: 999,
+		borderWidth: 1,
+		borderColor: T.border,
+		backgroundColor: T.cardAlt,
+		paddingHorizontal: 12,
+		paddingVertical: 8,
+	},
+	presetPillActive: {
+		borderColor: T.accent,
+		backgroundColor: `${T.accent}22`,
+	},
+	presetPillText: { color: T.textDim, fontSize: 12, fontWeight: "700" },
+	presetPillTextActive: { color: T.accent, fontWeight: "800" },
 	input: {
 		backgroundColor: T.cardAlt,
 		borderRadius: 10,

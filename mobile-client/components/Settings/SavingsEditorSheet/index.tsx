@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 import MoneyInput from "@/components/Shared/MoneyInput";
 import NoteBadge from "@/components/Shared/NoteBadge";
+import { INVESTMENT_BUCKET_OPTIONS } from "@/lib/constants";
 import type { SavingsEditorSheetProps } from "@/types/components/settings/SavingsEditorSheet.types";
 import { styles } from "./styles";
 import { T } from "@/lib/theme";
@@ -33,6 +34,11 @@ export default function SavingsEditorSheet(props: SavingsEditorSheetProps) {
     onDelete,
     onSave,
   } = props;
+
+  const showInvestmentBuckets = mode === "add" && field === "investment";
+  const potNamePlaceholder = showInvestmentBuckets
+    ? "e.g. Stocks, Crypto, Commodities"
+    : "e.g. Holiday, Car repairs";
 
   return (
     <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
@@ -75,12 +81,33 @@ export default function SavingsEditorSheet(props: SavingsEditorSheetProps) {
 
                 {mode === "add" ? (
                   <>
+                    {showInvestmentBuckets ? (
+                      <>
+                        <Text style={styles.label}>Choose an investment bucket</Text>
+                        <View style={styles.presetWrap}>
+                          {INVESTMENT_BUCKET_OPTIONS.map((option) => {
+                            const active = potNameDraft.trim().toLowerCase() === option.toLowerCase();
+
+                            return (
+                              <Pressable
+                                key={option}
+                                onPress={() => onChangePotName(option)}
+                                style={[styles.presetPill, active && styles.presetPillActive]}
+                              >
+                                <Text style={[styles.presetPillText, active && styles.presetPillTextActive]}>{option}</Text>
+                              </Pressable>
+                            );
+                          })}
+                        </View>
+                      </>
+                    ) : null}
+
                     <Text style={styles.label}>Pot name</Text>
                     <TextInput
                       value={potNameDraft}
                       onChangeText={onChangePotName}
                       style={styles.input}
-                      placeholder="e.g. Holiday, Car repairs"
+                      placeholder={potNamePlaceholder}
                       placeholderTextColor={T.textMuted}
                     />
                   </>

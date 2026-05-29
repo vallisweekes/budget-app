@@ -7,3 +7,5 @@ export * from "./onboarding";
 export * from "./debt";
 export * from "./helpCenter";
 export * from "./prefetch";
+export * from "./investments";
+export * from "./locale";
