@@ -1,5 +1,5 @@
 import React from "react";
-import { Animated, Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter, useSegments } from "expo-router";
@@ -57,8 +57,9 @@ export default function TabRouteHeader() {
   const rootSegment = typeof segments[0] === "string" ? segments[0] : "";
   const tabSegment = rootSegment === "(tabs)" && typeof segments[1] === "string" ? segments[1] : "";
   const leafSegment = rootSegment === "(tabs)" && typeof segments[2] === "string" ? segments[2] : "";
+  const isAnalyticsTab = tabSegment === "analytics-month" || tabSegment === "analytics-year";
 
-  const isAnalytics = rootSegment === "analytics";
+  const isAnalytics = rootSegment === "analytics" || isAnalyticsTab;
   const isSettings = rootSegment === "settings";
   const isSettingsProfileDetails = rootSegment === "settings-profile-details";
   const isSettingsIncomeSettings = rootSegment === "settings-income-settings";
@@ -225,8 +226,6 @@ export default function TabRouteHeader() {
     />
   ) : undefined;
 
-  const analyticsOverviewMode = getStringParam(params.overviewMode) === "month" ? "month" : "year";
-
   const handleBack = () => {
     if (isGoalsProjection) {
       pushRoute("/(tabs)/goals");
@@ -372,42 +371,6 @@ export default function TabRouteHeader() {
     <View style={{ width: 36, height: 36 }} />
   ) : isGoalDetail ? <View style={{ width: 34, height: 34 }} /> : undefined;
 
-  const analyticsRightContent = isAnalytics ? (
-    <View
-      style={{
-        flexDirection: "row",
-        alignItems: "center",
-        borderWidth: 1,
-        borderColor: "rgba(244,246,255,0.10)",
-        borderRadius: 999,
-        backgroundColor: "rgba(255,255,255,0.05)",
-        width: 74,
-        height: 38,
-        position: "relative",
-        overflow: "hidden",
-      }}
-    >
-      <Animated.View
-        pointerEvents="none"
-        style={{
-          position: "absolute",
-          width: 34,
-          height: 32,
-          borderRadius: 16,
-          backgroundColor: T.accent,
-          top: 2,
-          transform: [{ translateX: analyticsOverviewMode === "year" ? 38 : 2 }],
-        }}
-      />
-      <Pressable onPress={() => router.setParams({ overviewMode: "month" })} style={{ flex: 1, alignItems: "center", justifyContent: "center" }} hitSlop={10}>
-        <Text style={{ color: analyticsOverviewMode === "month" ? T.onAccent : T.textDim, fontSize: 12, fontWeight: "800", letterSpacing: 0.2 }}>M</Text>
-      </Pressable>
-      <Pressable onPress={() => router.setParams({ overviewMode: "year" })} style={{ flex: 1, alignItems: "center", justifyContent: "center" }} hitSlop={10}>
-        <Text style={{ color: analyticsOverviewMode === "year" ? T.onAccent : T.textDim, fontSize: 12, fontWeight: "800", letterSpacing: 0.2 }}>Y</Text>
-      </Pressable>
-    </View>
-  ) : undefined;
-
   const incomeRightContent = isIncomeTab ? (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
       <Pressable
@@ -485,7 +448,7 @@ export default function TabRouteHeader() {
       onBack={handleBack}
       centerLabel={centerLabel}
       centerContent={incomeMonthSwitcher}
-      rightContent={notificationsInboxRightContent ?? loggedExpensesRightContent ?? analyticsRightContent ?? incomeRightContent ?? goalsRightContent}
+      rightContent={notificationsInboxRightContent ?? loggedExpensesRightContent ?? incomeRightContent ?? goalsRightContent}
       showIncomeAction={false}
       showHelpAction={isDashboardHome || isExpensesList}
       compactActionsMenu={isSettings || isSettingsProfileDetails || isSettingsIncomeSettings || isSettingsStrategy || isSettingsDebtManagement}

@@ -209,28 +209,38 @@ export async function registerExpoPushToken(params: { username: string }): Promi
     return;
   }
 
-  const result = await apiFetch<{ ok?: boolean }>("/api/bff/push/mobile/register", {
-    method: "POST",
-    body: {
-      token: expoToken,
-      platform: Platform.OS,
-      deviceId: resolveDeviceId(),
-    },
-  });
+  try {
+    const result = await apiFetch<{ ok?: boolean }>("/api/bff/push/mobile/register", {
+      method: "POST",
+      body: {
+        token: expoToken,
+        platform: Platform.OS,
+        deviceId: resolveDeviceId(),
+      },
+      skipOnUnauthorized: true,
+      timeoutMs: 8_000,
+    });
 
-  if (!result?.ok) {
-    devLog("registration request returned non-ok response", {
-      ok: Boolean(result?.ok),
+    if (!result?.ok) {
+      devLog("registration request returned non-ok response", {
+        ok: Boolean(result?.ok),
+        token: maskToken(expoToken),
+        username: params.username,
+      });
+      return;
+    }
+
+    devLog("registration request complete", { ok: Boolean(result?.ok), token: maskToken(expoToken), username: params.username });
+
+    await Promise.all([
+      setStoredExpoPushToken(expoToken),
+      setStoredExpoPushTokenUsername(params.username),
+    ]);
+  } catch (error) {
+    devLog("push token registration failed", {
       token: maskToken(expoToken),
       username: params.username,
+      error: error instanceof Error ? error.message : "unknown",
     });
-    throw new Error("Failed to register Expo push token");
   }
-
-  devLog("registration request complete", { ok: Boolean(result?.ok), token: maskToken(expoToken), username: params.username });
-
-  await Promise.all([
-    setStoredExpoPushToken(expoToken),
-    setStoredExpoPushTokenUsername(params.username),
-  ]);
 }

@@ -3,6 +3,12 @@ import { prisma } from "@/lib/prisma";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
 import { getAllIncome, resolveIncomeYear } from "@/lib/income/store";
 import { MONTHS } from "@/lib/constants/time";
+import { getJsonCache, setJsonCache } from "@/lib/cache/redisJsonCache";
+import {
+	ANALYTICS_OVERVIEW_CACHE_TTL_SECONDS,
+	getAnalyticsOverviewCacheKey,
+	logDerivedSummaryCacheEvent,
+} from "@/lib/cache/dashboardCache";
 import type { MonthKey } from "@/types";
 
 export const runtime = "nodejs";
@@ -58,6 +64,24 @@ export async function GET(req: NextRequest) {
 		const yearParam = toN(searchParams.get("year"));
 		if (yearParam != null && yearParam < 1900) return badRequest("Invalid year");
 		const year = yearParam ?? (await resolveIncomeYear(budgetPlanId));
+		const analyticsOverviewCacheKey = getAnalyticsOverviewCacheKey({ budgetPlanId, year });
+		const cachedOverview = await getJsonCache<Record<string, unknown>>(analyticsOverviewCacheKey);
+		if (cachedOverview) {
+			logDerivedSummaryCacheEvent({
+				route: "analytics-overview",
+				status: "hit",
+				key: analyticsOverviewCacheKey,
+				budgetPlanId,
+			});
+			return NextResponse.json(cachedOverview);
+		}
+
+		logDerivedSummaryCacheEvent({
+			route: "analytics-overview",
+			status: "miss",
+			key: analyticsOverviewCacheKey,
+			budgetPlanId,
+		});
 
 		const [incomeByMonth, expenseGrouped] = await Promise.all([
 			getAllIncome(budgetPlanId, year),
@@ -98,13 +122,23 @@ export async function GET(req: NextRequest) {
 		const incomeGrandTotal = months.reduce((sum, m) => sum + m.incomeTotal, 0);
 		const expenseGrandTotal = months.reduce((sum, m) => sum + m.expenseTotal, 0);
 
-		return NextResponse.json({
+		const responseBody = {
 			year,
 			budgetPlanId,
 			months,
 			incomeGrandTotal: parseFloat(incomeGrandTotal.toFixed(2)),
 			expenseGrandTotal: parseFloat(expenseGrandTotal.toFixed(2)),
+		};
+
+		await setJsonCache(analyticsOverviewCacheKey, responseBody, ANALYTICS_OVERVIEW_CACHE_TTL_SECONDS);
+		logDerivedSummaryCacheEvent({
+			route: "analytics-overview",
+			status: "store",
+			key: analyticsOverviewCacheKey,
+			budgetPlanId,
 		});
+
+		return NextResponse.json(responseBody);
 	} catch (error) {
 		console.error("[bff/analytics/overview] Error:", error);
 		return NextResponse.json(

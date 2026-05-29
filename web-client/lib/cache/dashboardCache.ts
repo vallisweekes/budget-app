@@ -5,11 +5,13 @@ import { prisma } from "@/lib/prisma";
 export const DASHBOARD_CACHE_TTL_SECONDS = 60;
 export const DEBT_SUMMARY_CACHE_TTL_SECONDS = 60;
 export const EXPENSE_INSIGHTS_CACHE_TTL_SECONDS = 60;
+export const ANALYTICS_OVERVIEW_CACHE_TTL_SECONDS = 60;
 export const DASHBOARD_VERSION_TTL_SECONDS = 60 * 60 * 24 * 7;
 
 const DASHBOARD_CACHE_VERSION = "v2";
 const DEBT_SUMMARY_CACHE_VERSION = "v2";
 const EXPENSE_INSIGHTS_CACHE_VERSION = "v2";
+const ANALYTICS_OVERVIEW_CACHE_VERSION = "v1";
 const DASHBOARD_VERSION_CACHE_VERSION = "v1";
 
 export type DashboardVersionPayload = {
@@ -46,6 +48,10 @@ export function getExpenseInsightsCachePrefix(budgetPlanId: string): string {
 	return `expense-insights:${EXPENSE_INSIGHTS_CACHE_VERSION}:${budgetPlanId}:`;
 }
 
+export function getAnalyticsOverviewCachePrefix(budgetPlanId: string): string {
+	return `analytics-overview:${ANALYTICS_OVERVIEW_CACHE_VERSION}:${budgetPlanId}:`;
+}
+
 export function getDashboardCacheKey(params: DashboardCacheKeyParams): string {
 	return [
 		getDashboardCachePrefix(params.budgetPlanId).slice(0, -1),
@@ -79,8 +85,18 @@ export function getExpenseInsightsCacheKey(params: {
 	].join(":");
 }
 
+export function getAnalyticsOverviewCacheKey(params: {
+	budgetPlanId: string;
+	year: number;
+}): string {
+	return [
+		getAnalyticsOverviewCachePrefix(params.budgetPlanId).slice(0, -1),
+		`year:${params.year}`,
+	].join(":");
+}
+
 export function logDerivedSummaryCacheEvent(params: {
-	route: "dashboard" | "debt-summary" | "expense-insights";
+	route: "dashboard" | "debt-summary" | "expense-insights" | "analytics-overview";
 	status: "hit" | "miss" | "store";
 	key: string;
 	budgetPlanId: string;
@@ -131,6 +147,12 @@ export async function invalidateExpenseInsightsCache(budgetPlanId: string): Prom
 	await deleteJsonCacheByPrefix(getExpenseInsightsCachePrefix(trimmedBudgetPlanId));
 }
 
+export async function invalidateAnalyticsOverviewCache(budgetPlanId: string): Promise<void> {
+	const trimmedBudgetPlanId = budgetPlanId.trim();
+	if (!trimmedBudgetPlanId) return;
+	await deleteJsonCacheByPrefix(getAnalyticsOverviewCachePrefix(trimmedBudgetPlanId));
+}
+
 export async function invalidateDashboardCache(budgetPlanId: string): Promise<void> {
 	const trimmedBudgetPlanId = budgetPlanId.trim();
 	if (!trimmedBudgetPlanId) return;
@@ -138,6 +160,7 @@ export async function invalidateDashboardCache(budgetPlanId: string): Promise<vo
 		deleteJsonCacheByPrefix(getDashboardCachePrefix(trimmedBudgetPlanId)),
 		invalidateDebtSummaryCache(trimmedBudgetPlanId),
 		invalidateExpenseInsightsCache(trimmedBudgetPlanId),
+		invalidateAnalyticsOverviewCache(trimmedBudgetPlanId),
 		bumpDashboardVersion(trimmedBudgetPlanId),
 	]);
 }

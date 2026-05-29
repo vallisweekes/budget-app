@@ -61,6 +61,10 @@ export type AnalyticsScreenControllerState = {
   topTips: AnalyticsTopTip[];
 };
 
+export type AnalyticsScreenProps = {
+  overviewMode?: AnalyticsOverviewMode;
+};
+
 export type AnalyticsDerivedInput = {
   annualDebtService: number;
   annualExpenseTotal: number;

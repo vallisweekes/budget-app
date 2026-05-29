@@ -1,5 +1,6 @@
+import { useIsFocused } from "@react-navigation/native";
 import { useLocalSearchParams } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useWindowDimensions } from "react-native";
 
 import { useBootstrapData } from "@/context/BootstrapDataContext";
@@ -15,72 +16,152 @@ import {
   getPreviousAnalyticsAnchor,
 } from "@/lib/helpers/analytics";
 import { useTopHeaderOffset } from "@/hooks";
+import type { DebtSummaryData } from "@/lib/apiTypes";
 import { normalizePayFrequency } from "@/lib/payPeriods";
 import type { AnalyticsOverviewLinePoint, AnalyticsOverviewMode, AnalyticsScreenControllerState } from "@/types/AnalyticsScreen.types";
 import { useGetAnalyticsExpenseSeriesQuery, useGetDebtSummaryQuery, useGetExpenseSummaryQuery, useGetIncomeSummaryQuery } from "@/store/api";
 
+function buildDashboardDebtSummary(dashboard: NonNullable<ReturnType<typeof useBootstrapData>["dashboard"]>): DebtSummaryData {
+  const debts = dashboard.debts.map((item) => ({
+    id: item.id,
+    name: item.name,
+    type: item.type,
+    logoUrl: item.logoUrl ?? null,
+    currentBalance: item.currentBalance,
+    initialBalance: item.initialBalance,
+    paidAmount: item.paidAmount,
+    monthlyMinimum: item.monthlyMinimum,
+    interestRate: item.interestRate,
+    installmentMonths: item.installmentMonths,
+    amount: item.amount,
+    paid: item.currentBalance <= 0,
+    creditLimit: item.creditLimit,
+    dueDay: item.dueDay ?? null,
+    sourceType: item.sourceType ?? null,
+    sourceExpenseName: null,
+    computedMonthlyPayment: item.monthlyMinimum ?? item.amount,
+    dueThisMonth: item.monthlyMinimum ?? item.amount,
+    paidThisMonth: item.paidThisMonthAmount,
+    isPaymentMonthPaid: item.currentBalance <= 0,
+    isActive: item.currentBalance > 0,
+  }));
+  const activeCount = debts.filter((item) => item.isActive).length;
+  const creditCardCount = debts.filter((item) => item.type === "credit_card").length;
+
+  return {
+    debts,
+    activeCount,
+    paidCount: Math.max(0, debts.length - activeCount),
+    totalDebtBalance: dashboard.totalDebtBalance,
+    totalMonthlyDebtPayments: Math.max(0, dashboard.plannedDebtPayments ?? 0),
+    creditCardCount,
+    regularDebtCount: Math.max(0, debts.length - creditCardCount),
+    expenseDebtCount: 0,
+    tips: [],
+  };
+}
+
 export function useAnalyticsScreenController(
+  options?: { overviewMode?: AnalyticsOverviewMode }
 ): AnalyticsScreenControllerState {
+  const isFocused = useIsFocused();
   const topHeaderOffset = useTopHeaderOffset();
   const { width: windowWidth } = useWindowDimensions();
   const params = useLocalSearchParams<{ overviewMode?: string }>();
-  const { dashboard, settings, isLoading: bootstrapLoading, refresh: refreshBootstrap } = useBootstrapData();
+  const { dashboard, settings, lastLoadedAt } = useBootstrapData();
   const [refreshing, setRefreshing] = useState(false);
   const [overviewWrapWidth, setOverviewWrapWidth] = useState(0);
-  const overviewMode: AnalyticsOverviewMode = params.overviewMode === "month" ? "month" : "year";
+  const lastBootstrapRefreshSeenRef = useRef<number | null>(null);
+  const overviewMode: AnalyticsOverviewMode = options?.overviewMode ?? (params.overviewMode === "month" ? "month" : "year");
 
   const currency = currencySymbol(settings?.currency);
   const activeAnchor = useMemo(() => getActiveAnalyticsAnchor(dashboard?.monthNum, dashboard?.year), [dashboard?.monthNum, dashboard?.year]);
   const previousAnchor = useMemo(() => getPreviousAnalyticsAnchor(activeAnchor), [activeAnchor]);
   const payDate = Number.isFinite(dashboard?.payDate) ? Number(dashboard?.payDate) : (settings?.payDate ?? 1);
   const payFrequency = normalizePayFrequency(dashboard?.payFrequency ?? settings?.payFrequency);
+  const shouldLoadPayPeriodComparisonData = overviewMode === "month";
+  const shouldUseDashboardDebtSnapshot = overviewMode === "year" && Boolean(dashboard);
 
-  const currentYearIncomeQuery = useGetIncomeSummaryQuery(activeAnchor.year, { refetchOnMountOrArgChange: true });
+  const currentYearIncomeQuery = useGetIncomeSummaryQuery(activeAnchor.year);
   const previousYearIncomeQuery = useGetIncomeSummaryQuery(previousAnchor.year, {
-    skip: previousAnchor.year === activeAnchor.year,
-    refetchOnMountOrArgChange: true,
+    skip: !shouldLoadPayPeriodComparisonData || previousAnchor.year === activeAnchor.year,
   });
-  const debtQuery = useGetDebtSummaryQuery(undefined, { refetchOnMountOrArgChange: true });
+  const debtQuery = useGetDebtSummaryQuery(undefined, {
+    skip: shouldUseDashboardDebtSnapshot,
+  });
   const expenseSeriesQuery = useGetAnalyticsExpenseSeriesQuery({
     year: activeAnchor.year,
     budgetPlanId: dashboard?.budgetPlanId ?? null,
-  }, { refetchOnMountOrArgChange: true });
+  });
   const currentExpenseQuery = useGetExpenseSummaryQuery({
     month: activeAnchor.month,
     year: activeAnchor.year,
     budgetPlanId: dashboard?.budgetPlanId ?? null,
     scope: "pay_period",
-  }, { refetchOnMountOrArgChange: true });
+  }, { skip: !shouldLoadPayPeriodComparisonData });
   const previousExpenseQuery = useGetExpenseSummaryQuery({
     month: previousAnchor.month,
     year: previousAnchor.year,
     budgetPlanId: dashboard?.budgetPlanId ?? null,
     scope: "pay_period",
-  }, { refetchOnMountOrArgChange: true });
+  }, { skip: !shouldLoadPayPeriodComparisonData });
 
   const income = currentYearIncomeQuery.data ?? null;
-  const debt = debtQuery.data ?? null;
+  const debt = useMemo<DebtSummaryData | null>(() => {
+    if (shouldUseDashboardDebtSnapshot && dashboard) {
+      return buildDashboardDebtSummary(dashboard);
+    }
+
+    return debtQuery.data ?? null;
+  }, [dashboard, debtQuery.data, shouldUseDashboardDebtSnapshot]);
   const expensesByMonth = expenseSeriesQuery.data ?? Array(12).fill(0);
   const currentYearIncome = currentYearIncomeQuery.data ?? null;
   const previousYearIncome = previousAnchor.year === activeAnchor.year
     ? currentYearIncomeQuery.data ?? null
     : previousYearIncomeQuery.data ?? null;
+  const hasAnalyticsData = overviewMode === "year"
+    ? Boolean(currentYearIncome && debt && expenseSeriesQuery.data)
+    : Boolean(currentYearIncome && debt && currentExpenseQuery.data && previousExpenseQuery.data);
+
+  const refreshAnalyticsQueries = useCallback(async () => {
+    await Promise.all([
+      shouldUseDashboardDebtSnapshot ? Promise.resolve() : debtQuery.refetch(),
+      currentYearIncomeQuery.refetch(),
+      shouldLoadPayPeriodComparisonData && previousAnchor.year !== activeAnchor.year
+        ? previousYearIncomeQuery.refetch()
+        : Promise.resolve(),
+      expenseSeriesQuery.refetch(),
+      shouldLoadPayPeriodComparisonData ? currentExpenseQuery.refetch() : Promise.resolve(),
+      shouldLoadPayPeriodComparisonData ? previousExpenseQuery.refetch() : Promise.resolve(),
+    ]);
+  }, [currentExpenseQuery, currentYearIncomeQuery, debtQuery, expenseSeriesQuery, previousAnchor.year, previousExpenseQuery, previousYearIncomeQuery, shouldLoadPayPeriodComparisonData, shouldUseDashboardDebtSnapshot]);
+
+  useEffect(() => {
+    if (!isFocused || !lastLoadedAt) {
+      return;
+    }
+
+    const previousLoadedAt = lastBootstrapRefreshSeenRef.current;
+    lastBootstrapRefreshSeenRef.current = lastLoadedAt;
+
+    if (!previousLoadedAt || previousLoadedAt === lastLoadedAt) {
+      return;
+    }
+
+    if (!hasAnalyticsData) {
+      return;
+    }
+
+    void refreshAnalyticsQueries();
+  }, [hasAnalyticsData, isFocused, lastLoadedAt, refreshAnalyticsQueries]);
 
   const refreshAll = useCallback(async () => {
     try {
-      await Promise.all([
-        refreshBootstrap({ force: true }),
-        debtQuery.refetch(),
-        currentYearIncomeQuery.refetch(),
-        previousAnchor.year === activeAnchor.year ? Promise.resolve() : previousYearIncomeQuery.refetch(),
-        expenseSeriesQuery.refetch(),
-        currentExpenseQuery.refetch(),
-        previousExpenseQuery.refetch(),
-      ]);
+      await refreshAnalyticsQueries();
     } finally {
       setRefreshing(false);
     }
-  }, [activeAnchor.year, currentExpenseQuery, currentYearIncomeQuery, debtQuery, expenseSeriesQuery, previousAnchor.year, previousExpenseQuery, previousYearIncomeQuery, refreshBootstrap]);
+  }, [refreshAnalyticsQueries]);
 
   const error = useMemo(() => {
     const nextError = debtQuery.error
@@ -210,10 +291,12 @@ export function useAnalyticsScreenController(
   }, [chartData.labels.length, chartWidth, overviewMode]);
   const debtDistribution = useMemo(() => buildDebtDistribution({ debt, overviewMode }), [debt, overviewMode]);
   const debtDistributionTitle = overviewMode === "year" ? "Debt Distribution" : "Debt Due Distribution";
-  const loading = bootstrapLoading || Boolean(
-    (debtQuery.isLoading || currentYearIncomeQuery.isLoading || expenseSeriesQuery.isLoading || currentExpenseQuery.isLoading || previousExpenseQuery.isLoading)
-      && !debt
-      && !income,
+  const loading = Boolean(
+    (!shouldUseDashboardDebtSnapshot && debtQuery.isLoading && !debt)
+    || (currentYearIncomeQuery.isLoading && !income)
+    || (expenseSeriesQuery.isLoading && !expenseSeriesQuery.data)
+    || (shouldLoadPayPeriodComparisonData && currentExpenseQuery.isLoading && !currentExpenseQuery.data)
+    || (shouldLoadPayPeriodComparisonData && previousExpenseQuery.isLoading && !previousExpenseQuery.data)
   );
 
   return {

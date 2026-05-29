@@ -23,7 +23,7 @@ import type { IncomeSummaryData } from "@/lib/apiTypes";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { MONTH_NAMES_SHORT, SCREEN_FOCUS_REVALIDATE_TTL_MS } from "@/lib/constants";
 import { currencySymbol, fmt } from "@/lib/formatting";
-import { useBudgetPlanVersionRefresh, useSwipeDownToClose, useTopHeaderOffset, useYearGuard } from "@/hooks";
+import { useSwipeDownToClose, useTopHeaderOffset, useYearGuard } from "@/hooks";
 import { resolveDisplayedPayPeriodAnchor } from "@/lib/helpers/resolveDisplayedPayPeriodAnchor";
 import { buildPayPeriodFromMonthAnchor, getPayPeriodAnchorFromWindow, normalizePayFrequency, resolveActivePayPeriod } from "@/lib/payPeriods";
 import { T } from "@/lib/theme";
@@ -166,14 +166,6 @@ export default function IncomeScreen() {
       setRefreshing(false);
     }
   }, [bootstrapError, ensureLoaded, refreshBootstrap, refreshing, year]);
-
-  useBudgetPlanVersionRefresh({
-    enabled: Boolean(isFocused && data?.budgetPlanId && !bootstrapLoading && !loading),
-    budgetPlanId: data?.budgetPlanId,
-    onVersionChange: () => {
-      void load({ force: true });
-    },
-  });
 
   useEffect(() => { setLoading(true); load(); }, [load]);
 

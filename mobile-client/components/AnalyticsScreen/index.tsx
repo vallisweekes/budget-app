@@ -9,10 +9,11 @@ import AnalyticsOverviewCard from "@/components/Analytics/AnalyticsOverviewCard"
 import AnalyticsTipsCard from "@/components/Analytics/AnalyticsTipsCard";
 import { useAnalyticsScreenController } from "@/hooks";
 import { T } from "@/lib/theme";
+import type { AnalyticsScreenProps } from "@/types";
 import { analyticsStyles as s } from "@/components/AnalyticsScreen/style";
 
-export default function AnalyticsScreen() {
-  const controller = useAnalyticsScreenController();
+export default function AnalyticsScreen({ overviewMode }: AnalyticsScreenProps) {
+  const controller = useAnalyticsScreenController({ overviewMode });
 
   if (controller.loading) {
     return (

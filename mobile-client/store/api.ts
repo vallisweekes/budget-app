@@ -172,14 +172,16 @@ export const mobileApi = createApi({
     }>({
       async queryFn({ year, budgetPlanId }) {
         try {
-          const series = await Promise.all(
-            Array.from({ length: 12 }, async (_, idx) => {
-              const month = idx + 1;
-              const planQp = budgetPlanId ? `&budgetPlanId=${encodeURIComponent(budgetPlanId)}` : "";
-              const summary = await apiFetch<ExpenseSummary>(`/api/bff/expenses/summary?month=${month}&year=${year}&scope=pay_period${planQp}`, { cacheTtlMs: 0 });
-              return summary?.totalAmount ?? 0;
-            })
+          const planQp = budgetPlanId ? `&budgetPlanId=${encodeURIComponent(budgetPlanId)}` : "";
+          const overview = await apiFetch<{ months?: Array<{ monthIndex: number; expenseTotal: number }> }>(
+            `/api/bff/analytics/overview?year=${year}${planQp}`,
+            { cacheTtlMs: 10_000 },
           );
+          const series = Array.from({ length: 12 }, (_, idx) => {
+            const monthIndex = idx + 1;
+            const month = overview?.months?.find((entry) => entry.monthIndex === monthIndex);
+            return month?.expenseTotal ?? 0;
+          });
           return { data: series };
         } catch (err: unknown) {
           return { error: normalizeApiError(err) };
