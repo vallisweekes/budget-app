@@ -7,6 +7,7 @@
     "start:clear": "EXPO_NO_DEPENDENCY_VALIDATION=1 node node_modules/expo/bin/cli start --clear",
     "start:mcp": "EXPO_UNSTABLE_MCP_SERVER=1 EXPO_NO_DEPENDENCY_VALIDATION=1 node node_modules/expo/bin/cli start",
     "start:mcp:clear": "EXPO_UNSTABLE_MCP_SERVER=1 EXPO_NO_DEPENDENCY_VALIDATION=1 node node_modules/expo/bin/cli start --clear",
+    "test:unit": "vitest run",
     "typecheck": "node node_modules/typescript/bin/tsc --noEmit",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -74,6 +75,7 @@
     "globals": "^17.4.0",
     "react-native-svg-transformer": "^1.5.3",
     "typescript": "~5.9.2",
+    "vitest": "^3.2.4",
     "typescript-eslint": "^8.56.1"
   },
   "private": true,
