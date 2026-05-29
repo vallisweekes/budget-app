@@ -46,3 +46,31 @@ export const textCaption: TextStyle = {
   fontSize: 12,
   fontWeight: "600",
 };
+
+export const flatInputLabel: TextStyle = {
+  color: "rgba(244,246,255,0.74)",
+  fontSize: 12,
+  fontWeight: "800",
+  textTransform: "uppercase",
+  letterSpacing: 0.7,
+};
+
+export const flatInput: TextStyle = {
+  backgroundColor: "transparent",
+  borderRadius: 0,
+  paddingHorizontal: 0,
+  paddingVertical: 10,
+  color: "#f4f6ff",
+  fontSize: 18,
+  fontWeight: "500",
+  borderWidth: 0,
+  borderBottomWidth: 1,
+  borderBottomColor: "rgba(255,255,255,0.72)",
+  minHeight: 52,
+};
+
+export const flatInputDisabled: TextStyle = {
+  ...flatInput,
+  color: "rgba(244,246,255,0.50)",
+  borderBottomColor: "rgba(255,255,255,0.20)",
+};

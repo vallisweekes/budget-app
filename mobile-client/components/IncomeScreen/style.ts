@@ -1,6 +1,7 @@
 import { StyleSheet } from "react-native";
 
 import { T } from "@/lib/theme";
+import { flatInput, flatInputLabel } from "@/lib/ui";
 
 export const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: T.bg },
@@ -88,20 +89,10 @@ export const s = StyleSheet.create({
     gap: 6,
   },
   fieldLabel: {
-    color: T.text,
-    fontSize: 13,
-    fontWeight: "800",
+    ...flatInputLabel,
   },
   fieldInput: {
-    height: 46,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: T.border,
-    backgroundColor: T.cardAlt,
-    color: T.text,
-    paddingHorizontal: 12,
-    fontSize: 16,
-    fontWeight: "700",
+    ...flatInput,
   },
   toggleRow: {
     flexDirection: "row",

@@ -2,19 +2,14 @@ import { StyleSheet } from "react-native";
 
 import { SETTINGS_MODAL_BACKDROP } from "@/lib/constants";
 import { T } from "@/lib/theme";
+import { flatInput, flatInputLabel } from "@/lib/ui";
 
 export const styles = StyleSheet.create({
   disabled: { opacity: 0.6 },
   input: {
-    backgroundColor: T.cardAlt,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: T.border,
-    color: T.text,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    ...flatInput,
   },
-  label: { color: T.textDim, fontSize: 12, fontWeight: "800" },
+  label: { ...flatInputLabel },
   outlineBtnText: { color: T.textDim, fontSize: 12, fontWeight: "800" },
   outlineBtnWide: {
     flex: 1,

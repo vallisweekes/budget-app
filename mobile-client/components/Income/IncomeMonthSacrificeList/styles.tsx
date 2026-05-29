@@ -1,5 +1,6 @@
 import { StyleSheet } from "react-native";
 import { T } from "@/lib/theme";
+import { flatInput, flatInputLabel } from "@/lib/ui";
 
 export const styles = StyleSheet.create({
   mainScreen: { flex: 1, backgroundColor: T.bg },
@@ -333,7 +334,7 @@ export const styles = StyleSheet.create({
   mainFooterBtnTextAccent: {
     color: T.text,
   },
-  fieldLabel: { color: T.textDim, fontSize: 12, fontWeight: "700" },
+  fieldLabel: { ...flatInputLabel },
   fieldHelpText: { color: T.textDim, fontSize: 11, fontWeight: "600", marginTop: -4 },
   inlineMetaText: { color: T.textMuted, fontSize: 11, fontWeight: "700" },
   periodInfoBanner: {
@@ -365,14 +366,7 @@ export const styles = StyleSheet.create({
     gap: 8,
   },
   input: {
-    backgroundColor: T.cardAlt,
-    borderWidth: 1,
-    borderColor: T.border,
-    borderRadius: 9,
-    color: T.text,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
+    ...flatInput,
   },
   currentAmountText: { color: T.textDim, fontSize: 12, fontWeight: "700" },
   amountSummaryRow: {
@@ -674,6 +668,8 @@ export const styles = StyleSheet.create({
     fontWeight: "800",
     textAlign: "center",
     paddingVertical: 0,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.42)",
   },
   detailEditorCard: {
     width: "100%",

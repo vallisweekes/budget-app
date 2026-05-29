@@ -1,10 +1,11 @@
 import { StyleSheet } from "react-native";
 import { T } from "@/lib/theme";
+import { flatInput, flatInputLabel } from "@/lib/ui";
 
 export const styles = StyleSheet.create({
   sectionTitle: { color: T.text, fontSize: 16, fontWeight: "900", letterSpacing: -0.2 },
   sectionEyebrow: { color: T.textMuted, fontSize: 11, fontWeight: "800", textTransform: "uppercase", letterSpacing: 0.8 },
-  inputLabel: { color: T.textDim, fontSize: 12, fontWeight: "800" },
+  inputLabel: { ...flatInputLabel },
   sheetOverlay: { flex: 1, justifyContent: "flex-end" },
   sheetBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.55)" },
   dateModalOverlay: { flex: 1, justifyContent: "flex-end" },
@@ -45,7 +46,7 @@ export const styles = StyleSheet.create({
   formGroup: { gap: 8 },
   formCol: { flex: 1 },
   formRow: { flexDirection: "row", gap: 12, marginBottom: 2 },
-  input: { backgroundColor: T.cardAlt, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 12, color: T.text, fontSize: 14, borderWidth: 1, borderColor: T.border },
+  input: { ...flatInput },
   helperText: { color: T.textMuted, fontSize: 11, lineHeight: 15 },
   dateValue: { color: T.text, fontSize: 14 },
   dateValuePlaceholder: { color: T.textMuted },

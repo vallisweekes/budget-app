@@ -2,6 +2,7 @@ import { StyleSheet } from "react-native";
 
 import { BRAND_BLUE, SETTINGS_EDITOR_DELETE_BORDER, SETTINGS_EDITOR_DOCK_BORDER, SETTINGS_EDITOR_STAT_BG, SETTINGS_EDITOR_STAT_BORDER, SETTINGS_EDITOR_STAT_LABEL, SETTINGS_EDITOR_TOP_BORDER, SETTINGS_MODAL_BACKDROP, SETTINGS_WHITE } from "@/lib/constants";
 import { T } from "@/lib/theme";
+import { flatInput, flatInputLabel } from "@/lib/ui";
 
 export const styles = StyleSheet.create({
 	sheetOverlay: {
@@ -112,7 +113,7 @@ export const styles = StyleSheet.create({
 		fontSize: 22,
 		fontWeight: "900",
 	},
-	label: { color: T.textDim, fontSize: 12, fontWeight: "800" },
+	label: { ...flatInputLabel },
 	presetWrap: {
 		flexDirection: "row",
 		flexWrap: "wrap",
@@ -133,13 +134,7 @@ export const styles = StyleSheet.create({
 	presetPillText: { color: T.textDim, fontSize: 12, fontWeight: "700" },
 	presetPillTextActive: { color: T.accent, fontWeight: "800" },
 	input: {
-		backgroundColor: T.cardAlt,
-		borderRadius: 10,
-		borderWidth: 1,
-		borderColor: T.border,
-		color: T.text,
-		paddingHorizontal: 12,
-		paddingVertical: 10,
+		...flatInput,
 	},
 	sheetActionsDocked: {
 		flexDirection: "row",

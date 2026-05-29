@@ -9,8 +9,8 @@ export const styles = StyleSheet.create({
   },
   value: {
     color: T.text,
-    fontSize: 15,
-    fontWeight: "700",
+    fontSize: 18,
+    fontWeight: "500",
     flex: 1,
     paddingRight: 8,
   },

@@ -34,6 +34,7 @@ import { buildEditExpenseBody, parseExpenseAmount } from "@/lib/domain/expenseMu
 import { resolveCategoryColor } from "@/lib/categoryColors";
 import { T } from "@/lib/theme";
 import { ADD_EXPENSE_SHEET_SCREEN_H, pr, styles as s } from "@/components/Expenses/AddExpenseSheet/styles";
+import { es } from "@/components/Expenses/EditExpenseSheet/style";
 import { useSwipeDownToClose } from "@/hooks";
 import MoneyInput from "@/components/Shared/MoneyInput";
 import DatePickerInput from "@/components/Shared/DatePickerInput";
@@ -316,8 +317,7 @@ export default function EditExpenseSheet({
   const editPeriodLabel = useMemo(() => {
     const span = String(periodSpanLabel ?? "").trim();
     const range = String(periodRangeLabel ?? "").trim();
-    if (span && range) return `${span} · ${range}`;
-    return span || range || "";
+    return range || span || "";
   }, [periodRangeLabel, periodSpanLabel]);
 
   const openPicker = () => {
@@ -606,23 +606,23 @@ export default function EditExpenseSheet({
                 </View>
               ) : null}
 
-              <View style={{ flexDirection: "row", gap: 14 }}>
+              <View style={es.footerActionRow}>
                 <Pressable
-                  style={[s.submitBtn, { flex: 1, backgroundColor: T.cardAlt, borderWidth: 1, borderColor: T.border }]}
+                  style={[es.footerPill, es.footerPillCancel, submitting && s.submitDisabled]}
                   onPress={() => {
                     if (submitting) return;
                     onClose();
                   }}
                   disabled={submitting}
                 >
-                  <Text style={[s.submitTxt, { color: T.text }]}>Cancel</Text>
+                  <Text style={es.footerPillCancelText}>Cancel</Text>
                 </Pressable>
                 <Pressable
-                  style={[s.submitBtn, { flex: 1 }, (!canSubmit || submitting) && s.submitDisabled]}
+                  style={[es.footerPill, es.footerPillSave, (!canSubmit || submitting) && s.submitDisabled]}
                   onPress={handleSubmit}
                   disabled={!canSubmit || submitting}
                 >
-                  <Text style={s.submitTxt}>{submitting ? "Saving…" : "Save"}</Text>
+                  <Text style={es.footerPillSaveText}>{submitting ? "Saving…" : "Save"}</Text>
                 </Pressable>
               </View>
             </View>

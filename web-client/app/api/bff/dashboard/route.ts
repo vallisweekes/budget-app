@@ -93,12 +93,17 @@ export async function GET(req: NextRequest) {
 		}
 
 		const now = new Date();
-		const directDebitSyncedExpenseIds = await timeSection(timings, "direct_debit_sync", async () =>
-			syncDueDirectDebitExpenses({ budgetPlanId, now }).catch((error) => {
-				console.error("Dashboard: direct debit sync failed:", error);
-				return [];
-			})
-		);
+		const directDebitSyncedExpenseIds = await timeSection(timings, "direct_debit_sync", async () => {
+			const result = await bestEffortWithin(
+				syncDueDirectDebitExpenses({ budgetPlanId, now }).catch((error) => {
+					console.error("Dashboard: direct debit sync failed:", error);
+					return [];
+				}),
+				800,
+			);
+
+			return Array.isArray(result) ? result : [];
+		});
 		const user = await timeSection(timings, "user", async () => prisma.user.findUnique({
 			where: { id: userId },
 			select: { name: true, createdAt: true },
@@ -313,33 +318,51 @@ export async function GET(req: NextRequest) {
 			)
 		);
 
-		const debtSummary = await timeSection(timings, "debt_summary", async () => (async () => {
+		const debtSummary = await timeSection(timings, "debt_summary", async () => {
+			const fallback = {
+				regularDebts: [],
+				expenseDebts: [],
+				allDebts: [],
+				activeDebts: [],
+				activeRegularDebts: [],
+				activeExpenseDebts: [],
+				creditCards: [],
+				totalDebtBalance: 0,
+			} satisfies DebtSummary;
+
 			try {
-				return await getDebtSummaryForPlan(budgetPlanId, {
+				const result = await bestEffortWithin(getDebtSummaryForPlan(budgetPlanId, {
 					includeExpenseDebts: true,
 					ensureSynced: false,
-				});
+				}), 1500);
+
+				return result ?? fallback;
 			} catch (error) {
 				console.error("Dashboard: debt summary failed:", error);
-				return {
-					regularDebts: [],
-					expenseDebts: [],
-					allDebts: [],
-					activeDebts: [],
-					activeRegularDebts: [],
-					activeExpenseDebts: [],
-					creditCards: [],
-					totalDebtBalance: 0,
-				} satisfies DebtSummary;
+				return fallback;
 			}
-		})());
+		});
 
 		// Everything below is "best effort". If one section fails (e.g. debt sync),
 		// return the rest of the dashboard rather than a full 500.
 		const [expenseInsightsBase, allPlansData] = await Promise.all([
-			timeSection(timings, "expense_insights", async () => (async () => {
+			timeSection(timings, "expense_insights", async () => {
+				const fallback = {
+					recap: null,
+					upcoming: [],
+					recapTips: [],
+					loggedExpenseHabits: {
+						currentPeriod: { count: 0, amount: 0 },
+						recentAverage: { months: 3, count: 0, amount: 0 },
+						recentMonths: [],
+						recurringMerchants: [],
+						topCategories: [],
+						paymentSources: [],
+					},
+				};
+
 				try {
-					return await getDashboardExpenseInsights({
+					const result = await bestEffortWithin(getDashboardExpenseInsights({
 						budgetPlanId,
 						payDate,
 						payFrequency,
@@ -347,24 +370,14 @@ export async function GET(req: NextRequest) {
 						now: dashboardNow,
 						userId,
 						planCreatedAt: effectiveCreatedAt,
-					});
+					}), 1800);
+
+					return result ?? fallback;
 				} catch (error) {
 					console.error("Dashboard: expense insights failed:", error);
-					return {
-						recap: null,
-						upcoming: [],
-						recapTips: [],
-						loggedExpenseHabits: {
-							currentPeriod: { count: 0, amount: 0 },
-							recentAverage: { months: 3, count: 0, amount: 0 },
-							recentMonths: [],
-							recurringMerchants: [],
-							topCategories: [],
-							paymentSources: [],
-						},
-					};
+					return fallback;
 				}
-			})()),
+			}),
 			timeSection(timings, "all_plans", async () => (async () => {
 				if (!includeExtendedData) {
 					return { [budgetPlanId]: currentPlanData };
@@ -451,10 +464,11 @@ export async function GET(req: NextRequest) {
 		if (sourceExpenseIds.length > 0) {
 			await timeSection(timings, "debt_logos", async () => {
 				try {
-					const sourceExpenseRows = await prisma.expense.findMany({
+					const sourceExpenseRows = await bestEffortWithin(prisma.expense.findMany({
 						where: { id: { in: sourceExpenseIds }, budgetPlanId },
 						select: { id: true, logoUrl: true },
-					});
+					}), 800);
+					if (!Array.isArray(sourceExpenseRows)) return;
 					for (const row of sourceExpenseRows) {
 						if (typeof row.logoUrl === "string" && row.logoUrl.trim().length > 0) {
 							debtLogoByExpenseId.set(row.id, row.logoUrl.trim());
@@ -496,7 +510,7 @@ export async function GET(req: NextRequest) {
 					});
 					const earlyPaymentStart = getEarlyPaymentWindowStart(periodStart);
 
-					const monthPayments = await prisma.debtPayment.groupBy({
+					const monthPayments = await bestEffortWithin(prisma.debtPayment.groupBy({
 						by: ["debtId"],
 						where: {
 							debtId: { in: debtIds },
@@ -509,7 +523,8 @@ export async function GET(req: NextRequest) {
 							],
 						},
 						_sum: { amount: true },
-					});
+					}), 1000);
+					if (!Array.isArray(monthPayments)) return;
 					for (const row of monthPayments) {
 						const total = Number(row._sum.amount ?? 0);
 						if (total > 0) currentMonthPaidByDebtId.set(row.debtId, total);

@@ -1,6 +1,7 @@
 import { StyleSheet } from "react-native";
 
 import { T } from "@/lib/theme";
+import { flatInput, flatInputLabel } from "@/lib/ui";
 
 export const debtStyles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: T.bg },
@@ -51,7 +52,7 @@ export const debtStyles = StyleSheet.create({
   heroSub: { color: T.textMuted, fontSize: 12, fontWeight: "700", marginTop: 4 },
   termWrap: { width: "100%", gap: 8 },
   inlineRow: { flexDirection: "row", gap: 10, alignItems: "flex-start" },
-  termLabel: { color: T.textDim, fontSize: 12, fontWeight: "800" },
+  termLabel: { ...flatInputLabel },
   termRow: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 8, marginBottom: 10 },
   termBtn: {
     paddingHorizontal: 10,
@@ -235,17 +236,10 @@ export const debtStyles = StyleSheet.create({
   addBtnTxt: { color: T.onAccent, fontSize: 14, fontWeight: "900" },
   addForm: { margin: 0, padding: 0, gap: 10 },
   input: {
-    backgroundColor: T.cardAlt,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    color: T.text,
-    fontSize: 14,
-    borderWidth: 1,
-    borderColor: T.border,
+    ...flatInput,
   },
-  dateValue: { color: T.text, fontSize: 14, fontWeight: "600" },
-  dateValuePlaceholder: { color: T.textMuted, fontWeight: "500" },
+  dateValue: { color: T.text, fontSize: 18, fontWeight: "500" },
+  dateValuePlaceholder: { color: T.textMuted, fontSize: 18, fontWeight: "500" },
   dropdownAnchor: { position: "relative", zIndex: 20 },
   saveBtn: {
     backgroundColor: T.accent,

@@ -1,7 +1,7 @@
 import { Platform, StyleSheet } from "react-native";
 
 import { T } from "@/lib/theme";
-import { cardElevated, textLabel } from "@/lib/ui";
+import { cardElevated, flatInput, flatInputLabel, textLabel } from "@/lib/ui";
 
 export const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: T.bg },
@@ -146,17 +146,10 @@ export const s = StyleSheet.create({
   },
   modalTitle: { color: T.text, fontSize: 16, fontWeight: "900" },
   modalSubtitle: { color: T.textDim, fontSize: 12, fontWeight: "700", marginTop: 4 },
-  inputLabel: { color: T.textDim, fontSize: 12, fontWeight: "800", marginTop: 12, marginBottom: 6 },
+  inputLabel: { ...flatInputLabel, marginTop: 12, marginBottom: 6 },
   input: {
-    backgroundColor: T.cardAlt,
-    borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: T.border,
-    paddingHorizontal: 12,
+    ...flatInput,
     paddingVertical: Platform.OS === "ios" ? 12 : 10,
-    color: T.text,
-    fontSize: 14,
-    fontWeight: "700",
   },
   row2: {
     flexDirection: "row",

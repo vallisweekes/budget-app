@@ -2,6 +2,7 @@ import { StyleSheet } from "react-native";
 
 import { SETTINGS_MODAL_BACKDROP } from "@/lib/constants";
 import { T } from "@/lib/theme";
+import { flatInput, flatInputLabel } from "@/lib/ui";
 
 export const styles = StyleSheet.create({
   choiceBtn: {
@@ -20,24 +21,19 @@ export const styles = StyleSheet.create({
   choiceTxt: { color: T.textDim, fontSize: 12, fontWeight: "700" },
   choiceTxtActive: { color: T.accent },
   dateInput: {
+    ...flatInput,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 10,
   },
-  dateValue: { color: T.text, fontWeight: "700" },
-  dateValuePlaceholder: { color: T.textDim, fontWeight: "700" },
+  dateValue: { color: T.text, fontSize: 18, fontWeight: "500" },
+  dateValuePlaceholder: { color: T.textDim, fontSize: 18, fontWeight: "500" },
   disabled: { opacity: 0.6 },
   input: {
-    backgroundColor: T.cardAlt,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: T.border,
-    color: T.text,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    ...flatInput,
   },
-  label: { color: T.textDim, fontSize: 12, fontWeight: "800" },
+  label: { ...flatInputLabel },
   outlineBtnText: { color: T.textDim, fontSize: 12, fontWeight: "800" },
   outlineBtnWide: {
     flex: 1,

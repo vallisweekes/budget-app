@@ -1,6 +1,6 @@
 import { StyleSheet } from "react-native";
 import { T } from "@/lib/theme";
-import { cardBase } from "@/lib/ui";
+import { flatInput, flatInputLabel } from "@/lib/ui";
 
 export const styles = StyleSheet.create({
   overlay: { flex: 1 },
@@ -23,19 +23,11 @@ export const styles = StyleSheet.create({
   content: { flex: 1, paddingHorizontal: 20, paddingTop: 8 },
 
   nameInput: {
-    ...cardBase,
     marginTop: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    color: T.text,
-    fontSize: 18,
-    fontWeight: "800",
-    backgroundColor: T.card,
+    ...flatInput,
   },
   nameLabel: {
-    color: T.textDim,
-    fontSize: 13,
-    fontWeight: "600",
+    ...flatInputLabel,
     textAlign: "center",
     marginBottom: 6,
   },

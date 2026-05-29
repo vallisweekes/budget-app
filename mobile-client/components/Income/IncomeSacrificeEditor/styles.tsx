@@ -1,5 +1,6 @@
 import { StyleSheet } from "react-native";
 import { T } from "@/lib/theme";
+import { flatInput, flatInputLabel } from "@/lib/ui";
 
 export const styles = StyleSheet.create({
   wrap: { gap: 12 },
@@ -22,16 +23,9 @@ export const styles = StyleSheet.create({
     gap: 8,
   },
   cardTitle: { color: T.text, fontSize: 14, fontWeight: "900", marginBottom: 2 },
-  label: { color: T.textDim, fontSize: 12, fontWeight: "700", marginTop: 2 },
+  label: { ...flatInputLabel, marginTop: 2 },
   input: {
-    backgroundColor: T.cardAlt,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: T.border,
-    color: T.text,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
+    ...flatInput,
   },
   saveBtn: {
     backgroundColor: T.accent,

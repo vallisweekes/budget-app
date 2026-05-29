@@ -1,6 +1,6 @@
 import { StyleSheet } from "react-native";
 import { T } from "@/lib/theme";
-import { cardBase } from "@/lib/ui";
+import { cardBase, flatInput } from "@/lib/ui";
 
 export const styles = StyleSheet.create({
   card: {
@@ -55,14 +55,7 @@ export const styles = StyleSheet.create({
   editInputs: { flexDirection: "row", gap: 10 },
   editActions: { flexDirection: "row", justifyContent: "flex-end", gap: 10 },
   input: {
-    backgroundColor: T.cardAlt,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    color: T.text,
-    fontSize: 14,
-    borderWidth: 1,
-    borderColor: T.border,
+    ...flatInput,
   },
   cancelBtn: {
     paddingHorizontal: 14,

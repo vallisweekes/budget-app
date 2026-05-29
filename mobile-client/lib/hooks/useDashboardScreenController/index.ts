@@ -290,6 +290,15 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
     }, [ensureLoaded])
   );
 
+  useEffect(() => {
+    if (!isFocused) return;
+    if (bootstrapLoading) return;
+    if (!budgetPlanId) return;
+    if (hasBootstrapDashboard) return;
+
+    void ensureLoaded();
+  }, [bootstrapLoading, budgetPlanId, ensureLoaded, hasBootstrapDashboard, isFocused]);
+
   const onRefresh = useCallback(() => {
     void load({ force: true });
   }, [load]);

@@ -1,5 +1,6 @@
 import React from "react";
 import { Pressable, Text, View } from "react-native";
+import { BlurView } from "expo-blur";
 import { Ionicons } from "@expo/vector-icons";
 
 import { T } from "@/lib/theme";
@@ -26,20 +27,16 @@ export default function AddExpenseSheetFooter({
       ) : null}
 
       <Pressable
-        style={[s.submitBtn, (!canSubmit || submitting) && s.submitDisabled]}
+        style={({ pressed }) => [s.submitBtn, pressed && s.submitBtnPressed, (!canSubmit || submitting) && s.submitDisabled]}
         onPress={onSubmit}
         disabled={!canSubmit || submitting}
       >
-        {submitting ? (
-          <Text style={s.submitTxt}>Adding…</Text>
-        ) : (
-          <>
-            <View style={s.submitIconBadge}>
-              <Ionicons name="add" size={18} color={T.onAccent} />
-            </View>
-            <Text style={s.submitTxt}>Add Expense</Text>
-          </>
-        )}
+        <BlurView intensity={34} tint="light" style={s.submitBtnGlass}>
+          <View style={s.submitBtnTint} pointerEvents="none" />
+          <View style={s.submitBtnGlow} pointerEvents="none" />
+          <View style={s.submitBtnInnerBorder} pointerEvents="none" />
+          {submitting ? <Text style={s.submitTxt}>Adding…</Text> : <Text style={s.submitTxt}>Add Expense</Text>}
+        </BlurView>
       </Pressable>
     </>
   );

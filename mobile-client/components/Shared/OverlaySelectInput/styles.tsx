@@ -13,8 +13,9 @@ export const styles = StyleSheet.create({
   },
   valueText: {
     color: T.text,
-    fontSize: 14,
-    fontWeight: "600",
+    fontSize: 18,
+    fontWeight: "500",
+    flex: 1,
   },
   menu: {
     position: "absolute",

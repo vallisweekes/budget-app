@@ -1,6 +1,7 @@
 import { StyleSheet } from "react-native";
 
 import { T } from "@/lib/theme";
+import { flatInput, flatInputLabel } from "@/lib/ui";
 
 export const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: T.bg },
@@ -124,18 +125,14 @@ export const s = StyleSheet.create({
     letterSpacing: -1,
   },
   fieldCard: {
-    backgroundColor: T.card,
-    borderRadius: 16,
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    borderWidth: 1,
-    borderColor: T.border,
+    ...flatInput,
+    paddingVertical: 12,
   },
-  fieldLabel: { color: T.textDim, fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 6 },
-  fieldInput: { color: T.text, fontSize: 16, padding: 0 },
+  fieldLabel: { ...flatInputLabel, marginBottom: 8 },
+  fieldInput: { color: T.text, fontSize: 18, fontWeight: "500", padding: 0 },
   fieldRow: { flexDirection: "row", alignItems: "center" },
-  fieldValue: { flex: 1, color: T.text, fontSize: 15, fontWeight: "500" },
-  fieldPlaceholder: { flex: 1, color: T.textMuted, fontSize: 15 },
+  fieldValue: { flex: 1, color: T.text, fontSize: 18, fontWeight: "500" },
+  fieldPlaceholder: { flex: 1, color: T.textMuted, fontSize: 18, fontWeight: "500" },
   fieldChevron: { marginLeft: 6 },
   catDot: { width: 10, height: 10, borderRadius: 5, marginRight: 10 },
   errorWrap: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 4 },

@@ -18,6 +18,7 @@ export * from "./IncomeMonthSacrificeList.types";
 export * from "./IncomeMonthScreenView.types";
 export * from "./MonthBar.types";
 export * from "./TopHeader.types";
+export * from "./UnderlineTextInput.types";
 export * from "./IncomeAddForm.types";
 export * from "./IncomeSacrificeChart.types";
 export * from "./IncomeSacrificeEditor.types";

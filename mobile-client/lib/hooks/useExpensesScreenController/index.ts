@@ -110,6 +110,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
   const displayedActiveContextRef = useRef("");
   const lastDisplayedActiveResolvedAtRef = useRef<number | null>(null);
   const lastResolvedDisplayedActiveAnchorRef = useRef<{ month: number; year: number } | null>(null);
+  const loadInFlightRef = useRef<Promise<void> | null>(null);
 
   const [summary, setSummary] = useState<ExpenseSummary | null>(null);
   const [previousSummary, setPreviousSummary] = useState<ExpenseSummary | null>(null);
@@ -787,8 +788,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     return true;
   }, [getCachedSummary, planCacheKey, shiftPayPeriodAnchor]);
 
-  const load = useCallback(async (options?: { force?: boolean }) => {
-    const force = Boolean(options?.force);
+  const executeLoad = useCallback(async (force: boolean) => {
     try {
       setError(null);
       const [loadedSettings, budgetPlans] = await Promise.all([
@@ -1080,6 +1080,21 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       setRefreshing(false);
     }
   }, [activePlanId, bootstrapError, ensureSettingsLoaded, getOrFetchPayPeriodExpenses, month, parsePlanCreatedAt, planCacheKey, preloadSummaryWindow, refreshSettings, resolveEffectivePlanCreatedAt, resolvePlanTargetPeriod, route.params?.month, route.params?.year, setupCompletedAt, year]);
+
+  const load = useCallback((options?: { force?: boolean }) => {
+    const force = Boolean(options?.force);
+
+    if (loadInFlightRef.current) {
+      return loadInFlightRef.current;
+    }
+
+    const request = executeLoad(force).finally(() => {
+      loadInFlightRef.current = null;
+    });
+
+    loadInFlightRef.current = request;
+    return request;
+  }, [executeLoad]);
 
   const currentViewKey = `${activePlanId ?? "none"}:${year}-${month}`;
   const hasRelevantMutationChanges = useCallback(() => {

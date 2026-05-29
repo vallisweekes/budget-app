@@ -1,7 +1,7 @@
 import { Dimensions, StyleSheet } from "react-native";
 
 import { T } from "@/lib/theme";
-import { cardElevated } from "@/lib/ui";
+import { cardElevated, flatInput, flatInputLabel } from "@/lib/ui";
 
 export const { height: ADD_EXPENSE_SHEET_SCREEN_H } = Dimensions.get("window");
 
@@ -109,25 +109,20 @@ export const styles = StyleSheet.create({
     zIndex: 20,
   },
   planPickerButton: {
-    ...cardElevated,
-    backgroundColor: T.cardAlt,
-    borderRadius: 22,
-    borderColor: "rgba(244,246,255,0.08)",
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    ...flatInput,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 12,
   },
   planPickerButtonOpen: {
-    borderColor: `${T.accent}55`,
-    backgroundColor: `${T.accent}10`,
+    borderBottomColor: `${T.accent}cc`,
+    backgroundColor: "transparent",
   },
   planPickerText: {
     color: T.text,
-    fontSize: 15,
-    fontWeight: "800",
+    fontSize: 18,
+    fontWeight: "500",
     flex: 1,
   },
   planPickerMenu: {
@@ -171,17 +166,14 @@ export const styles = StyleSheet.create({
 
   scrollContent: {
     paddingTop: 6,
-    paddingBottom: 12,
+    paddingBottom: 144,
     gap: 16,
   },
   formScroll: {
-    ...cardElevated,
     marginHorizontal: 20,
-    padding: 18,
+    paddingHorizontal: 0,
+    paddingVertical: 6,
     gap: 18,
-    backgroundColor: T.cardAlt,
-    borderRadius: 24,
-    borderColor: "rgba(244,246,255,0.08)",
   },
 
   halfRow: {
@@ -196,28 +188,16 @@ export const styles = StyleSheet.create({
 
   fieldGroup: { gap: 10 },
   label: {
-    color: T.textMuted,
-    fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 1,
-    textTransform: "uppercase",
+    ...flatInputLabel,
+    color: "rgba(244,246,255,0.66)",
   },
   optional: { color: T.textDim, fontWeight: "700", letterSpacing: 0.3 },
   input: {
-    backgroundColor: "rgba(255,255,255,0.045)",
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: "rgba(244,246,255,0.10)",
-    paddingHorizontal: 16,
-    paddingVertical: 15,
-    minHeight: 56,
-    color: T.text,
-    fontSize: 16,
-    fontWeight: "700",
+    ...flatInput,
   },
   selectInputOpen: {
-    borderColor: `${T.accent}55`,
-    backgroundColor: `${T.accent}10`,
+    borderBottomColor: `${T.accent}cc`,
+    backgroundColor: "transparent",
   },
   selectRow: {
     flexDirection: "row",
@@ -227,8 +207,8 @@ export const styles = StyleSheet.create({
   },
   selectValueText: {
     color: T.text,
-    fontSize: 15,
-    fontWeight: "800",
+    fontSize: 18,
+    fontWeight: "500",
     flex: 1,
   },
   dropdownMenu: {
@@ -342,40 +322,64 @@ export const styles = StyleSheet.create({
   errorTxt: { color: T.red, fontSize: 13, fontWeight: "700", flex: 1 },
 
   footerWrap: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
     paddingHorizontal: 20,
-    paddingTop: 14,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(244,246,255,0.08)",
-    backgroundColor: "rgba(10,12,18,0.72)",
+    paddingTop: 8,
+    backgroundColor: "transparent",
+    alignItems: "center",
   },
 
   submitBtn: {
-    flexDirection: "row",
+    borderRadius: 999,
+    alignSelf: "center",
+    overflow: "hidden",
+    marginTop: 2,
+    shadowColor: "#000000",
+    shadowOpacity: 0.18,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: -2 },
+    elevation: 8,
+  },
+  submitBtnGlass: {
+    minHeight: 46,
+    minWidth: 184,
+    paddingHorizontal: 22,
+    paddingVertical: 12,
+    borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",
-    gap: 10,
-    backgroundColor: T.accent,
-    borderRadius: 20,
-    paddingVertical: 18,
-    marginTop: 6,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.16)",
+    backgroundColor: "rgba(124,92,255,0.22)",
+    overflow: "hidden",
+  },
+  submitBtnTint: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(255,255,255,0.18)",
+  },
+  submitBtnGlow: {
+    position: "absolute",
+    width: 120,
+    height: 120,
+    borderRadius: 999,
+    right: -16,
+    top: -38,
+    backgroundColor: "rgba(124,92,255,0.34)",
+  },
+  submitBtnInnerBorder: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 999,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.10)",
-    shadowColor: T.accent,
-    shadowOpacity: 0.42,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 10,
+  },
+  submitBtnPressed: {
+    transform: [{ scale: 0.985 }],
   },
   submitDisabled: { opacity: 0.5, shadowOpacity: 0, elevation: 0 },
-  submitIconBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.14)",
-  },
-  submitTxt: { color: T.onAccent, fontSize: 17, fontWeight: "900", letterSpacing: 0.2 },
+  submitTxt: { color: T.text, fontSize: 15, fontWeight: "800", letterSpacing: -0.1 },
 
   dateModalSheet: {
     backgroundColor: T.card,

@@ -1,7 +1,7 @@
 import { StyleSheet } from "react-native";
 
 import { T } from "@/lib/theme";
-import { cardElevated } from "@/lib/ui";
+import { cardElevated, flatInput, flatInputDisabled, flatInputLabel } from "@/lib/ui";
 
 export const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: T.bg },
@@ -32,35 +32,15 @@ export const styles = StyleSheet.create({
     backgroundColor: `${T.onAccent}08`,
   },
   label: {
-    color: T.textDim,
-    fontSize: 12,
-    fontWeight: "800",
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
+    ...flatInputLabel,
     marginBottom: 8,
   },
   input: {
-    backgroundColor: `${T.cardAlt}ED`,
-    borderWidth: 1,
-    borderColor: T.border,
-    borderRadius: 18,
-    color: T.text,
-    fontSize: 15,
-    fontWeight: "600",
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    ...flatInput,
     marginBottom: 18,
   },
   inputDisabled: {
-    backgroundColor: `${T.cardAlt}ED`,
-    borderWidth: 1,
-    borderColor: T.border,
-    borderRadius: 18,
-    color: T.textMuted,
-    fontSize: 15,
-    fontWeight: "600",
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    ...flatInputDisabled,
     marginBottom: 18,
   },
   verificationCard: {

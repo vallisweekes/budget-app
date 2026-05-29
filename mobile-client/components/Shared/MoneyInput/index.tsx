@@ -11,7 +11,7 @@ export default function MoneyInput({
   currency,
   value,
   onChangeValue,
-  variant = "default",
+  variant = "underline",
   placeholder = "0.00",
   keyboardType = "decimal-pad",
   containerStyle,
