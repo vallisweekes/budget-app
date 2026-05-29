@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Animated, Image, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { styles } from "./styles";
 
+import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { apiFetch } from "@/lib/api";
 import type { Debt, Expense } from "@/lib/apiTypes";
 import { fmt } from "@/lib/formatting";
@@ -11,6 +12,7 @@ import { getMobileApiErrorMessage, useCreateDebtPaymentMutation, useLazyGetDebtD
 import {
   computeDebtDueAmount,
   formatShortDate,
+  getFutureExpensePaymentWarning,
   isWithinPaymentEditGrace,
   PAYMENT_EDIT_GRACE_DAYS,
   unpaidDebtWarning,
@@ -22,6 +24,7 @@ import type { QuickPaymentActionSheetProps } from "@/types";
 
 export default function QuickPaymentActionSheet({ visible, item, currency, insetsBottom, onClose, onUpdated }: QuickPaymentActionSheetProps) {
   const { dragY, panHandlers, resetDrag } = useSwipeDownToClose({ onClose });
+  const { settings } = useBootstrapData();
 
   const [expense, setExpense] = useState<Expense | null>(null);
   const [debt, setDebt] = useState<Debt | null>(null);
@@ -30,6 +33,7 @@ export default function QuickPaymentActionSheet({ visible, item, currency, inset
   const [paying, setPaying] = useState(false);
   const [paySheetOpen, setPaySheetOpen] = useState(false);
   const [unpaidConfirmOpen, setUnpaidConfirmOpen] = useState(false);
+  const [today, setToday] = useState(() => new Date());
   const itemId = useMemo(() => (item ? encodeURIComponent(item.id) : ""), [item]);
   const [fetchDebtDetail] = useLazyGetDebtDetailQuery();
   const [createDebtPayment] = useCreateDebtPaymentMutation();
@@ -43,6 +47,7 @@ export default function QuickPaymentActionSheet({ visible, item, currency, inset
     setUnpaidConfirmOpen(false);
     setExpense(null);
     setDebt(null);
+    setToday(new Date());
   }, [resetDrag, visible]);
 
   const dueDays = useMemo(() => {
@@ -51,8 +56,8 @@ export default function QuickPaymentActionSheet({ visible, item, currency, inset
     const iso = String(raw).length >= 10 ? String(raw).slice(0, 10) : String(raw);
     const d = new Date(`${iso}T00:00:00`);
     if (Number.isNaN(d.getTime())) return null;
-    return Math.round((d.getTime() - Date.now()) / 86_400_000);
-  }, [expense?.dueDate, item?.dueDate]);
+    return Math.round((d.getTime() - today.getTime()) / 86_400_000);
+  }, [expense?.dueDate, item?.dueDate, today]);
 
   const unpaidWarningText = useMemo(() => unpaidDebtWarning(dueDays), [dueDays]);
 
@@ -95,15 +100,41 @@ export default function QuickPaymentActionSheet({ visible, item, currency, inset
     return currentBal > 0.005;
   }, [debt, expensePaymentState, item]);
 
+  const confirmFutureExpensePayment = useCallback(async (dueDate: string | null | undefined) => {
+    const warning = getFutureExpensePaymentWarning({
+      dueDate,
+      payDate: settings?.payDate,
+      payFrequency: settings?.payFrequency,
+      payAnchorDate: settings?.payAnchorDate ?? null,
+      planCreatedAt: settings?.setupCompletedAt ?? settings?.accountCreatedAt ?? null,
+    });
+    if (!warning) return true;
+
+    return await new Promise<boolean>((resolve) => {
+      Alert.alert(
+        warning.title,
+        warning.description,
+        [
+          { text: "No", style: "cancel", onPress: () => resolve(false) },
+          { text: "Yes", onPress: () => resolve(true) },
+        ],
+        { cancelable: true, onDismiss: () => resolve(false) },
+      );
+    });
+  }, [settings?.accountCreatedAt, settings?.payAnchorDate, settings?.payDate, settings?.payFrequency, settings?.setupCompletedAt]);
+
   const markPaid = useCallback(async () => {
     if (!item || paying) return;
-
-    setPaying(true);
     try {
       if (item.kind === "expense") {
         const e = expense ?? (await apiFetch<Expense>(`/api/bff/expenses/${itemId}`));
+        const shouldProceed = await confirmFutureExpensePayment(e.effectiveDueDate ?? e.dueDate ?? item.dueDate);
+        if (!shouldProceed) return;
+
         const amountNum = Number.parseFloat(String(e.amount));
         if (!Number.isFinite(amountNum)) return;
+
+        setPaying(true);
 
         const body: Record<string, unknown> = {
           paidAmount: amountNum,
@@ -128,6 +159,8 @@ export default function QuickPaymentActionSheet({ visible, item, currency, inset
         onUpdated();
         return;
       }
+
+      setPaying(true);
 
       const d = debt ?? (await fetchDebtDetail(item!.id, true).unwrap());
       setDebt(d);
@@ -157,7 +190,7 @@ export default function QuickPaymentActionSheet({ visible, item, currency, inset
     } finally {
       setPaying(false);
     }
-  }, [createDebtPayment, debt, expense, fetchDebtDetail, item, onClose, onUpdated, paying, updateExpense]);
+  }, [confirmFutureExpensePayment, createDebtPayment, debt, expense, fetchDebtDetail, item, itemId, onClose, onUpdated, paying, updateExpense]);
 
   const markUnpaid = useCallback(async () => {
     if (!item || item.kind !== "expense" || paying) return;
@@ -219,6 +252,10 @@ export default function QuickPaymentActionSheet({ visible, item, currency, inset
 
         const nextPaid = Math.min(amountNum, paidNum + delta);
         const nextIsPaid = nextPaid >= amountNum - 0.005;
+        if (nextIsPaid) {
+          const shouldProceed = await confirmFutureExpensePayment(e.effectiveDueDate ?? e.dueDate ?? item.dueDate);
+          if (!shouldProceed) return;
+        }
 
         const body: Record<string, unknown> = {
           paidAmount: nextPaid,
@@ -255,7 +292,7 @@ export default function QuickPaymentActionSheet({ visible, item, currency, inset
     } finally {
       setPaying(false);
     }
-  }, [createDebtPayment, currency, debt, expense, fetchDebtDetail, item, onClose, onUpdated, payAmount, paying, updateExpense]);
+  }, [confirmFutureExpensePayment, createDebtPayment, currency, debt, expense, fetchDebtDetail, item, itemId, onClose, onUpdated, payAmount, paying, updateExpense]);
 
   return (
     <>

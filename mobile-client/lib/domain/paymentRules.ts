@@ -1,4 +1,5 @@
 import type { Debt } from "@/lib/apiTypes";
+import { formatPayPeriodLabelForFrequency, normalizePayFrequency, resolveActivePayPeriod } from "@/lib/payPeriods";
 
 export const PAYMENT_EDIT_GRACE_DAYS = 5;
 const PAYMENT_EDIT_GRACE_MS = PAYMENT_EDIT_GRACE_DAYS * 24 * 60 * 60 * 1000;
@@ -51,4 +52,73 @@ export function formatShortDate(iso: string | null | undefined): string | null {
   const parsed = new Date(iso);
   if (Number.isNaN(parsed.getTime())) return null;
   return parsed.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+}
+
+type FutureExpensePaymentWarningParams = {
+  dueDate: string | null | undefined;
+  payDate: number | null | undefined;
+  payFrequency: unknown;
+  payAnchorDate?: string | Date | null;
+  planCreatedAt?: string | Date | null;
+  now?: Date;
+};
+
+type FutureExpensePaymentWarning = {
+  title: string;
+  description: string;
+  periodLabel: string;
+};
+
+function startOfLocalDay(value: Date): Date {
+  const next = new Date(value.getTime());
+  next.setHours(0, 0, 0, 0);
+  return next;
+}
+
+function parseIsoLikeDate(value: string | null | undefined): Date | null {
+  if (!value) return null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+  const iso = raw.length >= 10 ? raw.slice(0, 10) : raw;
+  const parsed = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? new Date(`${iso}T00:00:00`) : new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? null : startOfLocalDay(parsed);
+}
+
+function parsePlanCreatedAt(value: string | Date | null | undefined): Date | null {
+  if (!value) return null;
+  const parsed = value instanceof Date ? new Date(value.getTime()) : new Date(String(value));
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+export function getFutureExpensePaymentWarning(params: FutureExpensePaymentWarningParams): FutureExpensePaymentWarning | null {
+  const safePayDate = Number(params.payDate);
+  if (!Number.isFinite(safePayDate) || safePayDate < 1) return null;
+
+  const dueDate = parseIsoLikeDate(params.dueDate);
+  if (!dueDate) return null;
+
+  const now = startOfLocalDay(params.now ?? new Date());
+  const payFrequency = normalizePayFrequency(params.payFrequency);
+  const planCreatedAt = parsePlanCreatedAt(params.planCreatedAt);
+  const period = resolveActivePayPeriod({
+    now: dueDate,
+    payDate: safePayDate,
+    payFrequency,
+    payAnchorDate: params.payAnchorDate,
+    planCreatedAt,
+  });
+
+  if (now.getTime() >= period.start.getTime()) return null;
+
+  const periodLabel = formatPayPeriodLabelForFrequency({
+    start: period.start,
+    end: period.end,
+    payFrequency,
+  });
+
+  return {
+    title: "Mark as paid early?",
+    description: `This payment is for ${periodLabel}, which starts after your current pay period. Are you sure you want to mark it as paid now?`,
+    periodLabel,
+  };
 }

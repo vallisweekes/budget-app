@@ -1,6 +1,7 @@
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Alert } from "react-native";
 import { useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -21,6 +22,7 @@ import {
   dueDateColor,
   formatDueDateLabel,
   formatUpdatedLabel,
+  getFutureExpensePaymentWarning,
   getPaymentStatusGraceNote,
   indicatorLabel,
   isWithinPaymentEditGrace,
@@ -341,12 +343,41 @@ export function useExpenseDetailScreenController({ route, navigation }: Props): 
     await load({ force: true });
   }, [load]);
 
+  const confirmFutureExpensePayment = useCallback(async () => {
+    const warning = getFutureExpensePaymentWarning({
+      dueDate: expense?.effectiveDueDate ?? expense?.dueDate,
+      payDate: settings?.payDate,
+      payFrequency: settings?.payFrequency,
+      payAnchorDate: settings?.payAnchorDate ?? null,
+      planCreatedAt: settings?.setupCompletedAt ?? settings?.accountCreatedAt ?? null,
+    });
+    if (!warning) return true;
+
+    return await new Promise<boolean>((resolve) => {
+      Alert.alert(
+        warning.title,
+        warning.description,
+        [
+          { text: "No", style: "cancel", onPress: () => resolve(false) },
+          { text: "Yes", onPress: () => resolve(true) },
+        ],
+        { cancelable: true, onDismiss: () => resolve(false) },
+      );
+    });
+  }, [expense?.dueDate, expense?.effectiveDueDate, settings?.accountCreatedAt, settings?.payAnchorDate, settings?.payDate, settings?.payFrequency, settings?.setupCompletedAt]);
+
   const onSavePayment = useCallback(async () => {
     if (!expense || paying) return;
     const delta = Number.parseFloat(String(payAmount ?? ""));
     if (!Number.isFinite(delta) || delta <= 0) return;
     const nextPaid = Math.min(amountNum, paidNum + delta);
     const nextIsPaid = nextPaid >= amountNum - 0.005;
+
+    if (nextIsPaid) {
+      const shouldProceed = await confirmFutureExpensePayment();
+      if (!shouldProceed) return;
+    }
+
     setPaying(true);
     try {
       const body: Record<string, unknown> = { paidAmount: nextPaid, paid: nextIsPaid };
@@ -361,10 +392,14 @@ export function useExpenseDetailScreenController({ route, navigation }: Props): 
     } finally {
       setPaying(false);
     }
-  }, [amountNum, expense, loadAndClosePaymentSheet, paidNum, payAmount, paying, updateExpense]);
+  }, [amountNum, confirmFutureExpensePayment, expense, loadAndClosePaymentSheet, paidNum, payAmount, paying, updateExpense]);
 
   const onMarkPaid = useCallback(async () => {
     if (!expense || paying) return;
+
+    const shouldProceed = await confirmFutureExpensePayment();
+    if (!shouldProceed) return;
+
     setPaying(true);
     try {
       const body: Record<string, unknown> = { paidAmount: amountNum, paid: true };
@@ -378,7 +413,7 @@ export function useExpenseDetailScreenController({ route, navigation }: Props): 
     } finally {
       setPaying(false);
     }
-  }, [amountNum, expense, loadAndClosePaymentSheet, paying, updateExpense]);
+  }, [amountNum, confirmFutureExpensePayment, expense, loadAndClosePaymentSheet, paying, updateExpense]);
 
   const markUnpaid = useCallback(async () => {
     if (!expense || paying) return;
