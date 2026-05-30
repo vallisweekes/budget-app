@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { apiFetch, getApiMutationVersion } from "@/lib/api";
 import type { Expense, ExpenseCategoryBreakdown } from "@/lib/apiTypes";
+import { buildAppLocale } from "@/lib/constants";
 import { resolveCategoryColor } from "@/lib/categoryColors";
 import { PAYMENT_EDIT_GRACE_DAYS } from "@/lib/domain/paymentRules";
 import {
@@ -23,6 +24,7 @@ import {
   resolveFirstSelectablePayPeriodWindow,
   type PayFrequency,
 } from "@/lib/payPeriods";
+import { formatAppDate, translateExpenseCategoryName } from "@/lib/i18n";
 import type { ExpensesStackParamList } from "@/navigation/types";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { CategoryExpensesControllerState, CategoryExpensesSettingsSlice } from "@/types/CategoryExpensesScreen.types";
@@ -45,6 +47,8 @@ export function useCategoryExpensesScreenController({ navigation, route }: Props
   } = route.params;
 
   const categoryColor = useMemo(() => resolveCategoryColor(color), [color]);
+  const locale = useMemo(() => buildAppLocale(settings?.language, settings?.country), [settings?.country, settings?.language]);
+  const displayCategoryName = useMemo(() => translateExpenseCategoryName(categoryName, settings?.language), [categoryName, settings?.language]);
   const [month, setMonth] = useState(routeMonth);
   const [year, setYear] = useState(routeYear);
   const [monthPickerOpen, setMonthPickerOpen] = useState(false);
@@ -72,9 +76,14 @@ export function useCategoryExpensesScreenController({ navigation, route }: Props
   }, [month, routeMonth, routeYear, year]);
 
   const categoriesForAddSheet = useMemo<ExpenseCategoryBreakdown[]>(() => {
-    if (Array.isArray(allCategoriesForAddSheet) && allCategoriesForAddSheet.length > 0) return allCategoriesForAddSheet;
-    return [{ categoryId, name: categoryName, color, icon, total: 0, paidTotal: 0, paidCount: 0, totalCount: 0 }];
-  }, [allCategoriesForAddSheet, categoryId, categoryName, color, icon]);
+    if (Array.isArray(allCategoriesForAddSheet) && allCategoriesForAddSheet.length > 0) {
+      return allCategoriesForAddSheet.map((category) => ({
+        ...category,
+        name: translateExpenseCategoryName(category.name, settings?.language),
+      }));
+    }
+    return [{ categoryId, name: displayCategoryName, color, icon, total: 0, paidTotal: 0, paidCount: 0, totalCount: 0 }];
+  }, [allCategoriesForAddSheet, categoryId, color, displayCategoryName, icon, settings?.language]);
 
   const syncFromCachedExpenses = useCallback(() => {
     const cachedAll = getCachedPayPeriodExpenses({ budgetPlanId, month, year }) ?? [];
@@ -167,7 +176,10 @@ export function useCategoryExpensesScreenController({ navigation, route }: Props
   const paidPct = useMemo(() => (plannedTotal <= 0 ? 0 : Math.max(0, Math.min(100, Math.round((paidTotal / plannedTotal) * 100)))), [paidTotal, plannedTotal]);
   const remainingPct = useMemo(() => (plannedTotal <= 0 ? 0 : Math.max(0, Math.min(100, 100 - paidPct))), [paidPct, plannedTotal]);
   const latestPaymentAt = useMemo(() => getLatestPaymentAt(expenses), [expenses]);
-  const updatedLabel = useMemo(() => (!latestPaymentAt ? "Updated: —" : `Updated: ${new Date(latestPaymentAt).toLocaleDateString("en-GB")}`), [latestPaymentAt]);
+  const updatedLabel = useMemo(
+    () => (!latestPaymentAt ? "Updated: —" : `Updated: ${formatAppDate(new Date(latestPaymentAt), { language: settings?.language, country: settings?.country, options: { day: "numeric", month: "short", year: "numeric" } })}`),
+    [latestPaymentAt, settings?.country, settings?.language],
+  );
   const payAnchorDate = payFrequency === "monthly" ? null : (settings?.payAnchorDate ?? null);
   const planStartAt = useMemo(() => {
     const raw = settings?.setupCompletedAt ?? settings?.accountCreatedAt ?? null;
@@ -187,8 +199,8 @@ export function useCategoryExpensesScreenController({ navigation, route }: Props
       payFrequency,
       payAnchorDate,
     });
-    return formatPayPeriodLabel(range.start, range.end);
-  }, [month, payAnchorDate, payDate, payFrequency, year]);
+    return formatPayPeriodLabel(range.start, range.end, locale);
+  }, [locale, month, payAnchorDate, payDate, payFrequency, year]);
   const firstSelectablePeriod = useMemo(() => resolveFirstSelectablePayPeriodWindow({
     payDate: payDate ?? 27,
     payFrequency,
@@ -277,10 +289,10 @@ export function useCategoryExpensesScreenController({ navigation, route }: Props
       payFrequency,
       payAnchorDate,
     });
-    const startLabel = period.start.toLocaleString("en-GB", { month: "short" });
-    const endLabel = period.end.toLocaleString("en-GB", { month: "short" });
+    const startLabel = formatAppDate(period.start, { language: settings?.language, country: settings?.country, options: { month: "short" } })?.replace(/\.$/u, "") ?? String(period.start.getMonth() + 1);
+    const endLabel = formatAppDate(period.end, { language: settings?.language, country: settings?.country, options: { month: "short" } })?.replace(/\.$/u, "") ?? String(period.end.getMonth() + 1);
     return `${startLabel} - ${endLabel}`;
-  }, [payAnchorDate, payDate, payFrequency, resolvePickerActualYear]);
+  }, [payAnchorDate, payDate, payFrequency, resolvePickerActualYear, settings?.country, settings?.language]);
 
   const selectedPickerYear = resolvePickerDisplayYear(month, year);
 
@@ -290,7 +302,7 @@ export function useCategoryExpensesScreenController({ navigation, route }: Props
     categoriesForAddSheet,
     categoryColor,
     categoryId,
-    categoryName,
+    categoryName: displayCategoryName,
     color,
     currency,
     error,
@@ -388,7 +400,7 @@ export function useCategoryExpensesScreenController({ navigation, route }: Props
         expenseId: item.id,
         expenseName: item.name,
         categoryId,
-        categoryName,
+        categoryName: displayCategoryName,
         color,
         month,
         year,

@@ -26,9 +26,8 @@ import { useScrollToTop } from "@react-navigation/native";
 
 import AddExpenseSheet from "@/components/Expenses/AddExpenseSheet";
 import CategoryBreakdown from "@/components/Expenses/CategoryBreakdown";
-import { MONTH_NAMES_SHORT } from "@/lib/constants";
 import { fmt } from "@/lib/formatting";
-import { useExpensesScreenController } from "@/hooks";
+import { useAppTranslation, useExpensesScreenController } from "@/hooks";
 import { T } from "@/lib/theme";
 import { expensesStyles as styles } from "@/components/ExpensesScreen/style";
 import type { ExpensesScreenProps } from "@/types";
@@ -58,7 +57,16 @@ export default function ExpensesScreen({ navigation, route }: ExpensesScreenProp
   const listRef = useRef<FlatList<never>>(null);
   useScrollToTop(listRef);
 
+  const { t } = useAppTranslation();
   const controller = useExpensesScreenController({ navigation, route });
+
+  const getDisplayPlanName = (plan: { name?: string | null; kind?: string | null } | null | undefined) => {
+    const rawName = String(plan?.name ?? "").trim();
+    if ((plan?.kind ?? "").toLowerCase() === "personal" && (!rawName || rawName.toLowerCase() === "personal")) {
+      return t("expenses.planPersonal");
+    }
+    return rawName || t("expenses.planPersonal");
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={[]}>
@@ -71,7 +79,7 @@ export default function ExpensesScreen({ navigation, route }: ExpensesScreenProp
           <Ionicons name="cloud-offline-outline" size={40} color={T.textDim} />
           <Text style={styles.errorText}>{controller.error}</Text>
           <Pressable onPress={controller.onRetry} style={styles.retryBtn}>
-            <Text style={styles.retryTxt}>Retry</Text>
+            <Text style={styles.retryTxt}>{t("common.retry")}</Text>
           </Pressable>
         </View>
       ) : (
@@ -95,7 +103,7 @@ export default function ExpensesScreen({ navigation, route }: ExpensesScreenProp
                 <View style={styles.heroInnerBorder} />
                 {controller.showPlanTotalFallback ? (
                   <Text style={styles.purpleHeroLabel}>
-                    Total {controller.activePlan?.name ?? "Plan"} expenses
+                    {t("expenses.hero.totalPlanExpenses", { plan: getDisplayPlanName(controller.activePlan) })}
                   </Text>
                 ) : (
                   <Pressable onPress={controller.onOpenMonthPicker} style={styles.purpleHeroLabelBtn} hitSlop={12}>
@@ -113,7 +121,9 @@ export default function ExpensesScreen({ navigation, route }: ExpensesScreenProp
                     </Text>
                     {!controller.showPlanTotalFallback && (
                       <Text style={styles.purpleHeroMeta}>
-                        {`${controller.summary.totalCount ?? 0} bill${(controller.summary.totalCount ?? 0) === 1 ? "" : "s"}`}
+                        {(controller.summary.totalCount ?? 0) === 1
+                          ? t("expenses.hero.billCountOne", { count: controller.summary.totalCount ?? 0 })
+                          : t("expenses.hero.billCountOther", { count: controller.summary.totalCount ?? 0 })}
                       </Text>
                     )}
                     {(() => {
@@ -129,18 +139,18 @@ export default function ExpensesScreen({ navigation, route }: ExpensesScreenProp
                           <Text style={[styles.purpleHeroDeltaPct, increase ? styles.purpleDeltaUp : styles.purpleDeltaDown]}>
                             {pctLabel}
                           </Text>
-                          <Text style={styles.purpleHeroDeltaText}> vs last month</Text>
+                          <Text style={styles.purpleHeroDeltaText}> {t("expenses.hero.vsLastMonth")}</Text>
                         </View>
                       );
                     })()}
                     <View style={styles.heroStatRow}>
                       <View style={styles.heroStatCard}>
-                        <Text style={styles.heroStatLabel}>Active plan</Text>
-                        <Text style={styles.heroStatValue} numberOfLines={1}>{controller.activePlan?.name ?? "Personal"}</Text>
+                        <Text style={styles.heroStatLabel}>{t("expenses.hero.activePlan")}</Text>
+                        <Text style={styles.heroStatValue} numberOfLines={1}>{getDisplayPlanName(controller.activePlan)}</Text>
                       </View>
                       <View style={styles.heroStatCard}>
-                        <Text style={styles.heroStatLabel}>Status</Text>
-                        <Text style={styles.heroStatValue}>{controller.isPastSelectedPeriod ? "Past" : "Live"}</Text>
+                        <Text style={styles.heroStatLabel}>{t("expenses.hero.status")}</Text>
+                        <Text style={styles.heroStatValue}>{controller.isPastSelectedPeriod ? t("expenses.hero.statusPast") : t("expenses.hero.statusLive")}</Text>
                       </View>
                     </View>
                   </>
@@ -151,9 +161,9 @@ export default function ExpensesScreen({ navigation, route }: ExpensesScreenProp
                 <View style={styles.noExpensesCard}>
                   <View style={styles.noExpensesCardRow}>
                     <View style={styles.noExpensesCardCopy}>
-                      <Text style={styles.noExpensesTitle}>No expense for this period</Text>
+                      <Text style={styles.noExpensesTitle}>{t("expenses.hero.noExpenseTitle")}</Text>
                       <Text style={styles.noExpensesSub}>{controller.selectedPeriodRange}</Text>
-                      <Text style={styles.noExpensesHint}>Use the + button beside Log to create your first expense.</Text>
+                      <Text style={styles.noExpensesHint}>{t("expenses.hero.noExpenseHint")}</Text>
                     </View>
                   </View>
                 </View>
@@ -197,7 +207,7 @@ export default function ExpensesScreen({ navigation, route }: ExpensesScreenProp
                               />
                             </View>
                             <Text style={[styles.planPillText, selected && styles.planPillTextSelected]} numberOfLines={1}>
-                              {plan.name}
+                              {getDisplayPlanName(plan)}
                             </Text>
                             {selected ? (
                               <View style={styles.planPillCheck}>
@@ -216,9 +226,9 @@ export default function ExpensesScreen({ navigation, route }: ExpensesScreenProp
                 <View style={styles.noExpensesCard}>
                   <View style={styles.noExpensesCardRow}>
                     <View style={styles.noExpensesCardCopy}>
-                      <Text style={styles.noExpensesTitle}>No expense for this period</Text>
+                      <Text style={styles.noExpensesTitle}>{t("expenses.hero.noExpenseTitle")}</Text>
                       <Text style={styles.noExpensesSub}>{controller.selectedPeriodRange}</Text>
-                      <Text style={styles.noExpensesHint}>Use the + button beside Log to create your first expense.</Text>
+                      <Text style={styles.noExpensesHint}>{t("expenses.hero.noExpenseHint")}</Text>
                     </View>
                   </View>
                 </View>
@@ -238,7 +248,7 @@ export default function ExpensesScreen({ navigation, route }: ExpensesScreenProp
               {!controller.isPersonalPlan && controller.plans.length > 1 && controller.upcomingExpenseMonths.length > 0 && (
                 <>
                   <View style={styles.sectionHeadingWrap}>
-                    <Text style={styles.sectionHeading}>Upcoming Months Expenses</Text>
+                    <Text style={styles.sectionHeading}>{t("expenses.upcomingMonthsTitle")}</Text>
                   </View>
                   <View style={styles.monthCardsWrap}>
                     {controller.upcomingExpenseMonths.map((item) => (
@@ -251,7 +261,11 @@ export default function ExpensesScreen({ navigation, route }: ExpensesScreenProp
                             <Text style={styles.monthCardTitle}>{controller.getPeriodOptionLabel(item.month, item.year)}</Text>
                             <Text style={styles.monthCardAmount}>{fmt(item.totalAmount ?? 0, controller.currency)}</Text>
                           </View>
-                          <Text style={styles.monthCardMeta}>{item.totalCount} expense{item.totalCount === 1 ? "" : "s"}</Text>
+                          <Text style={styles.monthCardMeta}>
+                            {item.totalCount === 1
+                              ? t("expenses.monthMetaOne", { count: item.totalCount })
+                              : t("expenses.monthMetaOther", { count: item.totalCount })}
+                          </Text>
                         </Pressable>
                       ))}
                   </View>

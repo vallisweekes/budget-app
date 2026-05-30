@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 
 import { getJsonCache, setJsonCache } from "@/lib/cache/redisJsonCache";
+import { normalizeLanguageCode } from "@/lib/constants/locales";
 import { prioritizeRecapTips, type RecapTip } from "@/lib/expenses/insights";
 
 const CACHE_TTL_SECONDS = 2 * 60 * 60;
@@ -137,19 +138,88 @@ function buildFallbackSacrificeTips(context: SacrificeTipsContext, maxTips: numb
 	return prioritizeRecapTips(tips, maxTips);
 }
 
+function localizeIncomeSacrificeTip(tip: RecapTip, language: string): RecapTip {
+	if (language !== "de") return tip;
+
+	if (tip.title === "Start with one small sacrifice") {
+		return {
+			...tip,
+			title: "Beginne mit einem kleinen Sparbeitrag",
+			detail: "Lege zuerst einen Betrag fur diese Periode fest und erweitere ihn dann auf kunftige Perioden, sobald er sich tragbar anfuhlt.",
+		};
+	}
+
+	if (tip.title === "Allowance is doing all the work") {
+		return {
+			...tip,
+			title: "Das Taschengeld ubernimmt gerade alles",
+			detail: "Verschiebe einen kleinen Anteil in Ersparnisse oder den Notfallfonds, damit nicht alles sofort zum Ausgeben verfugbar bleibt.",
+		};
+	}
+
+	if (tip.title === "Emergency cover is still empty") {
+		return {
+			...tip,
+			title: "Der Notfallfonds ist noch leer",
+			detail: "Schon ein kleiner Notfallbetrag kann helfen, die nachsten unerwarteten Kosten aufzufangen, ohne deinen Plan zu zerstoren.",
+		};
+	}
+
+	if (tip.title === "Savings is missing from the split") {
+		return {
+			...tip,
+			title: "Ersparnisse fehlen in der Aufteilung",
+			detail: "Ein kleiner Sparbetrag kann verhindern, dass jedes kunftige Ziel mit deinem Taschengeldtopf konkurriert.",
+		};
+	}
+
+	if (tip.title === "Linked goals need confirming") {
+		return {
+			...tip,
+			title: "Verknupfte Ziele mussen bestatigt werden",
+			detail: "Bestatige ubertragene Sparbeitrage nach dem Verschieben, damit der Fortschritt verknupfter Ziele mit diesem Plan synchron bleibt.",
+		};
+	}
+
+	if (tip.title === "Custom sacrifices are active") {
+		return {
+			...tip,
+			title: "Individuelle Sparbeitrage sind aktiv",
+			detail: "Halte jeden individuellen Eintrag klar und eindeutig, damit du schnell prufen kannst, welcher in der nachsten Periode noch einen Anteil bekommen sollte.",
+		};
+	}
+
+	if (tip.title === "This sacrifice split looks balanced") {
+		return {
+			...tip,
+			title: "Diese Aufteilung wirkt ausgewogen",
+			detail: "Prufe die Startperiode, bevor du langere Zeitraume speicherst, damit dieselbe Aufteilung ab dem richtigen Zahlungsperioden-Anker weiterlauft.",
+		};
+	}
+
+	return tip;
+}
+
+function localizeIncomeSacrificeTips(tips: RecapTip[], language: string): RecapTip[] {
+	if (!Array.isArray(tips) || tips.length === 0) return [];
+	return tips.map((tip) => localizeIncomeSacrificeTip(tip, language));
+}
+
 export async function getAiIncomeSacrificeTips(args: {
 	cacheKey: string;
 	now: Date;
 	context: SacrificeTipsContext;
+	language?: string | null;
 	maxTips?: number;
 }): Promise<RecapTip[]> {
+	const targetLanguage = normalizeLanguageCode(args.language, "en");
 	const maxTips = Math.max(1, Math.min(6, args.maxTips ?? 4));
-	const fallbackTips = buildFallbackSacrificeTips(args.context, maxTips);
+	const fallbackTips = localizeIncomeSacrificeTips(buildFallbackSacrificeTips(args.context, maxTips), targetLanguage);
 	const apiKey = process.env.OPENAI_API_KEY;
 	if (!apiKey) return fallbackTips;
 
 	const cached = await getJsonCache<RecapTip[]>(args.cacheKey);
-	if (cached?.length) return prioritizeRecapTips(cached, maxTips);
+	if (cached?.length) return localizeIncomeSacrificeTips(prioritizeRecapTips(cached, maxTips), targetLanguage);
 
 	const openai = new OpenAI({ apiKey });
 	const openLinks = args.context.goalLinks.slice(0, 6).map((link) => ({
@@ -165,6 +235,9 @@ export async function getAiIncomeSacrificeTips(args: {
 		"You are a budgeting assistant helping a user review their income sacrifice plan for the current pay period. " +
 		"Use the allocation mix, custom items, and linked goal signals to produce practical advice grounded in the numbers. " +
 		"Prefer specific budgeting actions such as rebalancing toward savings, adding emergency cover, simplifying custom items, or keeping linked goals up to date. " +
+		(targetLanguage === "de"
+			? "Write every title and detail in natural German. "
+			: "Write every title and detail in natural English. ") +
 		"Avoid shame, avoid generic fluff, and do not mention OpenAI. " +
 		"Return ONLY valid JSON: {\"tips\":[{\"title\":string,\"detail\":string,\"priority\":number}]}. " +
 		"Constraints: title <= 60 chars, detail is 1 sentence <= 180 chars, max tips = " +
@@ -205,7 +278,7 @@ export async function getAiIncomeSacrificeTips(args: {
 	const raw = completion.choices?.[0]?.message?.content ?? "";
 	const obj = safeParseJsonObject(raw);
 	const aiTips = normalizeTips(obj?.tips, maxTips);
-	const finalTips = aiTips.length ? aiTips : fallbackTips;
+	const finalTips = aiTips.length ? localizeIncomeSacrificeTips(aiTips, targetLanguage) : fallbackTips;
 
 	await setJsonCache(args.cacheKey, finalTips, CACHE_TTL_SECONDS);
 	return finalTips;

@@ -1,6 +1,7 @@
 import React from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 
+import { useAppLocale } from "@/hooks";
 import type { PaymentHistorySectionProps } from "@/types";
 import { fmt } from "@/lib/formatting";
 import { styles } from "./styles";
@@ -15,14 +16,14 @@ type PaymentGroup = {
   items: PaymentHistorySectionProps["payments"];
 };
 
-function formatMonthLabel(date: Date) {
-  return date.toLocaleDateString("en-GB", {
+function formatMonthLabel(date: Date, locale: string) {
+  return date.toLocaleDateString(locale, {
     month: "long",
     year: "numeric",
   });
 }
 
-function getGroupMeta(payment: PaymentHistorySectionProps["payments"][number]) {
+function getGroupMeta(payment: PaymentHistorySectionProps["payments"][number], locale: string) {
   const rawNotes = typeof payment.notes === "string" ? payment.notes.trim() : "";
   const statementMatch = STATEMENT_PERIOD_NOTE.exec(rawNotes);
 
@@ -32,7 +33,7 @@ function getGroupMeta(payment: PaymentHistorySectionProps["payments"][number]) {
     const statementDate = new Date(year, monthIndex, 1);
     return {
       key: `statement:${statementMatch[1]}-${statementMatch[2]}`,
-      label: formatMonthLabel(statementDate),
+      label: formatMonthLabel(statementDate, locale),
       caption: "Statement period",
     };
   }
@@ -42,7 +43,7 @@ function getGroupMeta(payment: PaymentHistorySectionProps["payments"][number]) {
   const month = String(paidDate.getMonth() + 1).padStart(2, "0");
   return {
     key: `paid:${year}-${month}`,
-    label: formatMonthLabel(paidDate),
+    label: formatMonthLabel(paidDate, locale),
     caption: null,
   };
 }
@@ -64,12 +65,13 @@ export default function PaymentHistorySection({
   undoingPaymentId,
   onUndoPayment,
 }: PaymentHistorySectionProps) {
+  const { formatDate, locale } = useAppLocale();
   const groupedPayments = React.useMemo(() => {
     const groups: PaymentGroup[] = [];
     const byKey = new Map<string, PaymentGroup>();
 
     payments.forEach((payment) => {
-      const groupMeta = getGroupMeta(payment);
+      const groupMeta = getGroupMeta(payment, locale);
       const existingGroup = byKey.get(groupMeta.key);
       const amount = Number.parseFloat(payment.amount);
 
@@ -92,7 +94,7 @@ export default function PaymentHistorySection({
     });
 
     return groups;
-  }, [payments]);
+  }, [locale, payments]);
 
   return (
     <View style={styles.historySection}>
@@ -127,7 +129,7 @@ export default function PaymentHistorySection({
                     {getPaymentTitle(payment)}
                   </Text>
                   <Text style={styles.payHistMeta} numberOfLines={1} ellipsizeMode="tail">
-                    {new Date(payment.paidAt).toLocaleDateString("en-GB", {
+                    {formatDate(new Date(payment.paidAt), {
                       day: "2-digit",
                       month: "short",
                       year: "numeric",

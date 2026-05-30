@@ -3,6 +3,7 @@ import { Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 
+import { useAppTranslation } from "@/hooks";
 import type { DashboardTip } from "@/types";
 import { T } from "@/lib/theme";
 import { styles } from "@/components/DashboardScreen/style";
@@ -10,6 +11,7 @@ import { styles } from "@/components/DashboardScreen/style";
 const AI_TIP_ROTATION_MS = 18_000;
 
 export default function DashboardAiTipsCard({ tips }: { tips: DashboardTip[] }) {
+  const { t } = useAppTranslation();
   const validTips = useMemo(
     () => tips.filter((tip) => String(tip?.title ?? "").trim() && String(tip?.detail ?? "").trim()),
     [tips]
@@ -47,7 +49,7 @@ export default function DashboardAiTipsCard({ tips }: { tips: DashboardTip[] }) 
             <Ionicons name="bulb-outline" size={16} color={T.accent} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.aiTipsTitle}>AI Tips</Text>
+            <Text style={styles.aiTipsTitle}>{t("dashboard.aiTipsTitle")}</Text>
           </View>
         </View>
       </View>
@@ -55,7 +57,7 @@ export default function DashboardAiTipsCard({ tips }: { tips: DashboardTip[] }) 
       <View style={styles.aiTipsBody}>
         <View style={styles.aiTipsMetaRow}>
           <Text style={styles.aiTipHeadline}>{activeTip.title}</Text>
-          {Number(activeTip.priority ?? 0) >= 80 ? <Text style={styles.aiTipPriority}>High priority</Text> : null}
+          {Number(activeTip.priority ?? 0) >= 80 ? <Text style={styles.aiTipPriority}>{t("dashboard.aiTipHighPriority")}</Text> : null}
         </View>
         <Text style={styles.aiTipDetail}>{activeTip.detail}</Text>
       </View>

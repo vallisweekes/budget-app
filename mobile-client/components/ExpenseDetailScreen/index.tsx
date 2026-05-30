@@ -20,13 +20,14 @@ import PaymentSheet from "@/components/Debts/Detail/PaymentSheet";
 import EditExpenseSheet from "@/components/Expenses/EditExpenseSheet";
 import DeleteConfirmSheet from "@/components/Shared/DeleteConfirmSheet";
 import { fmt } from "@/lib/formatting";
-import { useExpenseDetailScreenController } from "@/hooks";
+import { useAppTranslation, useExpenseDetailScreenController } from "@/hooks";
 import { T } from "@/lib/theme";
 import { expenseDetailStyles as styles } from "@/components/ExpenseDetailScreen/style";
 import { statusLabel } from "@/components/ExpenseDetailScreen/utils";
 import type { ExpenseDetailScreenProps } from "@/types";
 
 export default function ExpenseDetailScreen({ route, navigation }: ExpenseDetailScreenProps) {
+  const { t } = useAppTranslation();
   const controller = useExpenseDetailScreenController({ route, navigation });
 
   return (
@@ -253,7 +254,7 @@ export default function ExpenseDetailScreen({ route, navigation }: ExpenseDetail
             <View style={styles.aiCard}>
               <View style={styles.aiTitleRow}>
                 <Ionicons name="bulb-outline" size={16} color={T.orange} />
-                <Text style={styles.aiTitle}>AI tips</Text>
+                <Text style={styles.aiTitle}>{t("dashboard.aiTipsTitle")}</Text>
               </View>
               <Text style={styles.aiText}>{controller.tips[Math.max(0, Math.min(controller.tips.length - 1, controller.tipIndex))] ?? ""}</Text>
             </View>

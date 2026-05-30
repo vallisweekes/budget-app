@@ -1,6 +1,7 @@
 import React from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 
+import { useAppTranslation } from "@/hooks";
 import { styles as s } from "@/components/Expenses/AddExpenseSheet/styles";
 
 export default function AddExpenseSheetToggles({
@@ -22,12 +23,14 @@ export default function AddExpenseSheetToggles({
   distributeYears: boolean;
   setDistributeYears: (updater: (v: boolean) => boolean) => void;
 }) {
+  const { t } = useAppTranslation();
+
   return (
     <>
       <View style={s.toggleRow}>
         <View style={s.toggleInfo}>
-          <Text style={s.toggleTitle}>Mark as paid</Text>
-          <Text style={s.toggleSub}>Expense is already settled</Text>
+          <Text style={s.toggleTitle}>{t("expenses.toggleMarkPaid")}</Text>
+          <Text style={s.toggleSub}>{t("expenses.toggleMarkPaidSub")}</Text>
         </View>
         <TouchableOpacity onPress={() => setPaid((v) => !v)} style={[s.toggle, paid && s.toggleOn]} activeOpacity={0.8}>
           <View style={[s.toggleThumb, paid && s.toggleThumbOn]} />
@@ -36,8 +39,8 @@ export default function AddExpenseSheetToggles({
 
       <View style={s.toggleRow}>
         <View style={s.toggleInfo}>
-          <Text style={s.toggleTitle}>Direct Debit / Standing Order</Text>
-          <Text style={s.toggleSub}>Automatically collected each month</Text>
+          <Text style={s.toggleTitle}>{t("expenses.toggleDirectDebit")}</Text>
+          <Text style={s.toggleSub}>{t("expenses.toggleDirectDebitSub")}</Text>
         </View>
         <TouchableOpacity
           onPress={() => setIsDirectDebit((v) => !v)}
@@ -50,8 +53,8 @@ export default function AddExpenseSheetToggles({
 
       <View style={s.toggleRow}>
         <View style={s.toggleInfo}>
-          <Text style={s.toggleTitle}>Distribute remaining months</Text>
-          <Text style={s.toggleSub}>Add to every month from now through December</Text>
+          <Text style={s.toggleTitle}>{t("expenses.toggleDistributeMonths")}</Text>
+          <Text style={s.toggleSub}>{t("expenses.toggleDistributeMonthsSub")}</Text>
         </View>
         <TouchableOpacity
           onPress={() => {
@@ -71,8 +74,8 @@ export default function AddExpenseSheetToggles({
 
       <View style={s.toggleRow}>
         <View style={s.toggleInfo}>
-          <Text style={s.toggleTitle}>Distribute across all years</Text>
-          <Text style={s.toggleSub}>Repeat for every year remaining in the budget horizon</Text>
+          <Text style={s.toggleTitle}>{t("expenses.toggleDistributeYears")}</Text>
+          <Text style={s.toggleSub}>{t("expenses.toggleDistributeYearsSub")}</Text>
         </View>
         <TouchableOpacity
           onPress={() => {

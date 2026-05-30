@@ -2,11 +2,13 @@ import React from "react";
 import { Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
+import { useAppTranslation } from "@/hooks";
 import { T } from "@/lib/theme";
 import { analyticsStyles as s } from "@/components/AnalyticsScreen/style";
 import type { AnalyticsTopTip } from "@/types/AnalyticsScreen.types";
 
 export default function AnalyticsTipsCard({ tips }: { tips: AnalyticsTopTip[] }) {
+  const { t } = useAppTranslation();
   return (
     <View style={s.tipCard}>
       <View style={[s.sectionGlow, s.tipsGlowPrimary]} />
@@ -30,7 +32,7 @@ export default function AnalyticsTipsCard({ tips }: { tips: AnalyticsTopTip[] })
             <View style={{ flex: 1 }}>
               <View style={s.tipTitleRow}>
                 <Text style={s.tipRowTitle}>{tip.title}</Text>
-                {Number(tip.priority ?? 0) >= 80 ? <Text style={s.priorityBadge}>High priority</Text> : null}
+                {Number(tip.priority ?? 0) >= 80 ? <Text style={s.priorityBadge}>{t("dashboard.aiTipHighPriority")}</Text> : null}
               </View>
               <Text style={s.tipText}>{tip.detail}</Text>
             </View>

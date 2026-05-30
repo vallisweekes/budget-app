@@ -1,12 +1,14 @@
 import React from "react";
 import { Pressable, View, Text } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useAppTranslation } from "@/hooks";
 import { computeMoneyLeftVsLastMonth, formatIncomePct } from "@/lib/domain/incomeStats";
 import { T } from "@/lib/theme";
 import { styles } from "./styles";
 import type { IncomeMonthStatsProps } from "@/types";
 
 export default function IncomeMonthStats({ data: a, currency, fmt, onPressIncomeSacrifice }: IncomeMonthStatsProps) {
+  const { t } = useAppTranslation();
   const moneyLeftVsLastMonth =
     typeof a.moneyLeftVsLastMonthPct === "number"
       ? a.moneyLeftVsLastMonthPct
@@ -20,15 +22,15 @@ export default function IncomeMonthStats({ data: a, currency, fmt, onPressIncome
       ? `${a.moneyLeftPctOfGross.toFixed(1)}%`
       : formatIncomePct(a.moneyLeftAfterPlan, a.grossIncome);
   const isOnPlan = a.planStatusTag ? a.planStatusTag === "on_plan" : a.isOnPlan;
-  const planStatusDescription = a.planStatusDescription ?? (isOnPlan ? "On plan" : "Over plan");
+  const planStatusDescription = a.planStatusDescription ?? (isOnPlan ? t("income.cards.onPlan") : t("income.cards.overPlan"));
 
   return (
     <>
       {/* Top stat cards */}
       <View style={styles.row}>
-        <Card label="Total income" value={fmt(a.grossIncome, currency)} color={T.green} iconName="sparkles-outline" />
+        <Card label={t("income.cards.totalIncome")} value={fmt(a.grossIncome, currency)} color={T.green} iconName="sparkles-outline" />
         <Card
-          label="Sacrifices"
+          label={t("income.cards.sacrifices")}
           value={fmt(a.incomeSacrifice, currency)}
           color={T.accent}
           subValue={incomeSacrificePctLabel}
@@ -49,7 +51,7 @@ export default function IncomeMonthStats({ data: a, currency, fmt, onPressIncome
               <View style={[styles.iconPill, { backgroundColor: `${a.moneyLeftAfterPlan < 0 ? T.red : T.green}14`, borderColor: `${a.moneyLeftAfterPlan < 0 ? T.red : T.green}33` }]}>
                 <Ionicons name="wallet-outline" size={14} color={a.moneyLeftAfterPlan < 0 ? T.red : T.green} />
               </View>
-              <Text style={styles.cardLabel}>Money left</Text>
+              <Text style={styles.cardLabel}>{t("income.cards.moneyLeft")}</Text>
             </View>
             <View style={[styles.badge, isOnPlan ? styles.badgeOn : styles.badgeOver]}>
               <Text style={[styles.badgeText, isOnPlan ? styles.badgeTextOn : styles.badgeTextOver]}>
@@ -64,7 +66,7 @@ export default function IncomeMonthStats({ data: a, currency, fmt, onPressIncome
           </View>
           {moneyLeftVsLastMonth !== null ? (
             <Text style={[styles.cardSubline, moneyLeftVsLastMonth < 0 ? styles.negative : styles.positive]}>
-              {`${moneyLeftVsLastMonth >= 0 ? "+" : ""}${moneyLeftVsLastMonth.toFixed(1)}% vs last month`}
+              {`${moneyLeftVsLastMonth >= 0 ? "+" : ""}${moneyLeftVsLastMonth.toFixed(1)}% ${t("income.cards.vsLastMonth")}`}
             </Text>
           ) : (
             <Text style={[styles.cardSubline, a.moneyLeftAfterPlan < 0 ? styles.negative : styles.positive]}>
@@ -72,7 +74,7 @@ export default function IncomeMonthStats({ data: a, currency, fmt, onPressIncome
             </Text>
           )}
         </View>
-        <Card label="Left to pay" value={fmt(a.leftToPayRightNow, currency)} color={T.accent} iconName="receipt-outline" />
+        <Card label={t("income.cards.leftToPay")} value={fmt(a.leftToPayRightNow, currency)} color={T.accent} iconName="receipt-outline" />
       </View>
 
     </>

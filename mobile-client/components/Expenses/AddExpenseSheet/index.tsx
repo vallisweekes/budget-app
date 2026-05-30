@@ -21,12 +21,11 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { ApiError, apiFetch } from "@/lib/api";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
-import { useSwipeDownToClose } from "@/hooks";
+import { useAppLocale, useAppTranslation, useSwipeDownToClose } from "@/hooks";
 import {
   type ExpenseFundingCard,
   getExpenseFundingOptions,
   getExpenseFundingSelectionKey,
-  getExpenseFundingSelectionLabel,
   paymentSourceForFunding,
   requiresFundingDebt,
   type ExpenseFundingOption,
@@ -41,6 +40,7 @@ import type {
   ExpenseSuggestion,
 } from "@/lib/apiTypes";
 import { getMobileApiErrorMessage, useCreateExpenseMutation } from "@/store/api";
+import { translateExpenseCategoryName } from "@/lib/i18n";
 import { T } from "@/lib/theme";
 import { ADD_EXPENSE_SHEET_SCREEN_H, styles } from "./styles";
 import type { AddExpenseSheetProps } from "@/types";
@@ -89,6 +89,7 @@ export default function AddExpenseSheet({
 }: AddExpenseSheetProps) {
   const insets = useSafeAreaInsets();
   const { settings } = useBootstrapData();
+  const { t } = useAppTranslation();
   const slideY = useRef(new Animated.Value(ADD_EXPENSE_SHEET_SCREEN_H ?? SCREEN_H)).current;
   const [createExpense] = useCreateExpenseMutation();
 
@@ -135,6 +136,7 @@ export default function AddExpenseSheet({
   const [fundingSource, setFundingSource] = useState<ExpenseFundingSource>("income");
   const [selectedDebtId, setSelectedDebtId] = useState("");
   const [creditCards, setCreditCards] = useState<ExpenseFundingCard[]>([]);
+  const { translateCategoryName } = useAppLocale();
 
   // Sync selectedPlanId when budgetPlanId prop changes (e.g. parent switches plan)
   useEffect(() => {
@@ -175,6 +177,13 @@ export default function AddExpenseSheet({
   // Resolve the plan id to use: prefer what the user picked in the sheet
   const effectivePlanId = selectedPlanId ?? budgetPlanId ?? null;
   const resolvedCategories = planCategories ?? categories;
+  const displayCategories = useMemo(
+    () => resolvedCategories.map((category) => ({
+      ...category,
+      name: translateCategoryName(category.name),
+    })),
+    [resolvedCategories, translateCategoryName],
+  );
   const effectivePlanKind = useMemo(
     () => plans?.find((plan) => plan.id === effectivePlanId)?.kind ?? null,
     [effectivePlanId, plans],
@@ -233,14 +242,43 @@ export default function AddExpenseSheet({
     () => getExpenseFundingOptions({ cards: creditCards, settings, selectedSource: fundingSource, selectedDebtId }),
     [creditCards, fundingSource, selectedDebtId, settings],
   );
+  const localizedFundingOptions = useMemo(
+    () => fundingOptions.map((option) => {
+      if (option.key === "income") return { ...option, label: t("expenses.funding.income") };
+      if (option.key === "savings") return { ...option, label: t("expenses.funding.savings") };
+      if (option.key === "emergency") return { ...option, label: t("expenses.funding.emergency") };
+      if (option.key === "investment") return { ...option, label: t("expenses.funding.investment") };
+      if (option.key === "monthly_allowance") return { ...option, label: t("expenses.funding.allowance") };
+      if (option.key === "loan") return { ...option, label: t("expenses.funding.loan") };
+      if (option.key === "other") return { ...option, label: t("expenses.funding.other") };
+      if (option.key === "credit_card" && option.label === "Card") return { ...option, label: t("expenses.funding.card") };
+      if (option.key.startsWith("credit_card:") && option.label === "Card: Linked account") {
+        return { ...option, label: t("expenses.funding.cardLinked") };
+      }
+      return option;
+    }),
+    [fundingOptions, t],
+  );
   const selectedFundingKey = useMemo(
     () => getExpenseFundingSelectionKey(fundingSource, selectedDebtId),
     [fundingSource, selectedDebtId],
   );
   const selectedFundingLabel = useMemo(
-    () => getExpenseFundingSelectionLabel(fundingOptions, fundingSource, selectedDebtId),
-    [fundingOptions, fundingSource, selectedDebtId],
+    () => localizedFundingOptions.find((option) => option.key === selectedFundingKey)?.label
+      ?? (fundingSource === "credit_card"
+        ? t("expenses.funding.card")
+        : fundingSource === "loan"
+          ? t("expenses.funding.loan")
+          : t("expenses.funding.income")),
+    [fundingSource, localizedFundingOptions, selectedFundingKey, t],
   );
+  const getDisplayPlanName = React.useCallback((plan: { name?: string | null; kind?: string | null } | null | undefined) => {
+    const rawName = String(plan?.name ?? "").trim();
+    if ((plan?.kind ?? "").toLowerCase() === "personal" && (!rawName || rawName.toLowerCase() === "personal")) {
+      return t("expenses.planPersonal");
+    }
+    return rawName || t("expenses.planPersonal");
+  }, [t]);
 
   const handleFundingOptionSelect = React.useCallback((option: ExpenseFundingOption) => {
     setFundingSource(option.source);
@@ -462,16 +500,16 @@ export default function AddExpenseSheet({
         : (typeof e === "object" && e !== null && "code" in e ? String((e as { code?: unknown }).code ?? "") : "");
       if (errorCode === "REQUEST_TIMEOUT") {
         Alert.alert(
-          "Saving is taking longer",
-          "The expense will stay visible while the app finishes syncing it.",
+          t("expenses.alert.savingSlowTitle"),
+          t("expenses.alert.savingSlowMessage"),
         );
         return;
       }
 
-      const message = getMobileApiErrorMessage(e, "Failed to add expense. Try again.");
+      const message = getMobileApiErrorMessage(e, t("expenses.alert.addFailedMessage"));
       onAdded({ phase: "revert", optimisticId });
       setError(message);
-      Alert.alert("Couldn't add expense", message);
+      Alert.alert(t("expenses.alert.addFailedTitle"), message);
     } finally {
       setSubmitting(false);
     }
@@ -522,7 +560,7 @@ export default function AddExpenseSheet({
                 style={[styles.planPickerButton, planDropdownOpen && styles.planPickerButtonOpen]}
               >
                 <Text style={styles.planPickerText} numberOfLines={1}>
-                  {plans.find((p) => p.id === effectivePlanId)?.name ?? "Select plan"}
+                  {getDisplayPlanName(plans.find((p) => p.id === effectivePlanId)) || t("expenses.selectPlan")}
                 </Text>
                 <Ionicons
                   name={planDropdownOpen ? "chevron-up" : "chevron-down"}
@@ -546,7 +584,7 @@ export default function AddExpenseSheet({
                         ]}
                       >
                         <Text style={[styles.planPickerOptionText, active && styles.planPickerOptionTextActive]} numberOfLines={1}>
-                          {p.name}
+                            {getDisplayPlanName(p)}
                         </Text>
                         {active && <Ionicons name="checkmark" size={16} color={T.accent} />}
                       </Pressable>
@@ -573,11 +611,11 @@ export default function AddExpenseSheet({
 						setCategoryId={handleManualCategoryChange}
               dueDate={dueDate}
               setDueDate={setDueDate}
-              fundingOptions={fundingOptions}
+              fundingOptions={localizedFundingOptions}
               selectedFundingKey={selectedFundingKey}
               selectedFundingLabel={selectedFundingLabel}
               onSelectFundingOption={handleFundingOptionSelect}
-              categories={planCategories ?? categories}
+              categories={displayCategories}
               currency={currency}
               minimumDate={dueDateWindow.minimumDate}
               maximumDate={dueDateWindow.maximumDate}

@@ -4,9 +4,11 @@ import { Ionicons } from "@expo/vector-icons";
 import type { DashboardGoalsSectionProps } from "@/types";
 import { fmt } from "@/lib/formatting";
 import { resolveGoalCurrentAmount } from "@/lib/helpers/settings";
+import { translateGoalTitle } from "@/lib/i18n";
 import { T } from "@/lib/theme";
 import { GOAL_GAP, GOAL_SIDE, styles } from "@/components/DashboardScreen/style";
 import { getGoalIconName } from "@/components/DashboardScreen/utils";
+import { useAppTranslation } from "@/hooks";
 
 export default function DashboardGoalsSection({
   items,
@@ -18,6 +20,8 @@ export default function DashboardGoalsSection({
   onPressAddGoal,
   onPressProjection,
 }: DashboardGoalsSectionProps) {
+  const { language, t } = useAppTranslation();
+
   if (items.length === 0) return null;
 
   const showAddGoalTile = items.length === 1;
@@ -30,9 +34,9 @@ export default function DashboardGoalsSection({
           hitSlop={8}
           style={styles.goalsHeaderLink}
           accessibilityRole="button"
-          accessibilityLabel="Open goals"
+          accessibilityLabel={t("dashboard.openGoals")}
         >
-          <Text style={styles.seeAllGoalsText}>See all goals</Text>
+          <Text style={styles.seeAllGoalsText}>{t("dashboard.seeAllGoals")}</Text>
         </Pressable>
         <View style={styles.goalsHeaderActions}>
           <Pressable
@@ -40,9 +44,9 @@ export default function DashboardGoalsSection({
             hitSlop={8}
             style={styles.goalsHeaderLink}
             accessibilityRole="button"
-            accessibilityLabel="Open goals projection"
+            accessibilityLabel={t("dashboard.openGoalsProjection")}
           >
-            <Text style={styles.goalsProjectionTitle}>Goals projection</Text>
+            <Text style={styles.goalsProjectionTitle}>{t("dashboard.goalsProjection")}</Text>
           </Pressable>
         </View>
       </View>
@@ -63,7 +67,10 @@ export default function DashboardGoalsSection({
           const targetAmount = hasTarget ? Number(goal.targetAmount) : null;
           const percent = targetAmount && targetAmount > 0 ? Math.min(100, Math.max(0, (currentAmount / targetAmount) * 100)) : 0;
           const primaryAmount = fmt(currentAmount, currency);
-          const amountLine = targetAmount ? `Target ${fmt(targetAmount, currency)}` : String(goal.type ?? "");
+          const displayGoalTitle = translateGoalTitle(goal.title, language);
+          const amountLine = targetAmount
+            ? t("dashboard.goalTarget", { amount: fmt(targetAmount, currency) })
+            : String(goal.type ?? "");
 
           return (
             <View style={styles.goalCard}>
@@ -73,7 +80,7 @@ export default function DashboardGoalsSection({
                     <Ionicons name={getGoalIconName(goal.title)} size={16} color={T.accent} />
                   </View>
                   <Text style={styles.goalTitle} numberOfLines={2}>
-                    {goal.title}
+                    {displayGoalTitle}
                   </Text>
                 </View>
               </View>
@@ -109,14 +116,14 @@ export default function DashboardGoalsSection({
           <Pressable
             onPress={onPressAddGoal}
             accessibilityRole="button"
-            accessibilityLabel="Add goal"
+            accessibilityLabel={t("dashboard.addGoal")}
             style={styles.goalAddCard}
           >
             <View style={styles.goalAddIconWrap}>
               <Ionicons name="add" size={26} color={T.accent} />
             </View>
-            <Text style={styles.goalAddTitle}>Add goal</Text>
-            <Text style={styles.goalAddText}>Create another goal</Text>
+            <Text style={styles.goalAddTitle}>{t("dashboard.addGoal")}</Text>
+            <Text style={styles.goalAddText}>{t("dashboard.createAnotherGoal")}</Text>
           </Pressable>
         ) : null}
         ItemSeparatorComponent={() => <View style={{ width: GOAL_GAP }} />}

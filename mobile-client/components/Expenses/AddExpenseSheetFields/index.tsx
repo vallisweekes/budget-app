@@ -8,6 +8,7 @@ import type {
   ExpenseSuggestion,
 } from "@/lib/apiTypes";
 import type { ExpenseFundingOption } from "@/lib/domain/expenseFunding";
+import { useAppTranslation } from "@/hooks";
 import { T } from "@/lib/theme";
 import MoneyInput from "@/components/Shared/MoneyInput";
 import DatePickerInput from "@/components/Shared/DatePickerInput";
@@ -87,6 +88,7 @@ export default function AddExpenseSheetFields({
   suggestionsLoading: boolean;
   onPickSuggestion: (s: ExpenseSuggestion) => void;
 }) {
+  const { t } = useAppTranslation();
   const [showPicker, setShowPicker] = useState(false);
   const [showSourceDropdown, setShowSourceDropdown] = useState(false);
   // iOS: hold a draft while the spinner is open
@@ -135,12 +137,12 @@ export default function AddExpenseSheetFields({
   return (
     <View style={styles.formScroll}>
       <View style={styles.fieldGroup}>
-        <Text style={styles.label}>Expense name</Text>
+        <Text style={styles.label}>{t("expenses.fieldName")}</Text>
         <TextInput
           style={s.input}
           value={name}
           onChangeText={setName}
-          placeholder="e.g. Netflix, Rent…"
+          placeholder={t("expenses.fieldNamePlaceholder")}
           placeholderTextColor={T.textMuted}
           selectionColor={T.accent}
           returnKeyType="next"
@@ -149,13 +151,13 @@ export default function AddExpenseSheetFields({
 
         {Boolean(categoryId) && suggestionsLoading && (
           <Text style={{ color: T.textMuted, fontSize: 12, fontWeight: "600" }}>
-            Loading previous expenses…
+            {t("expenses.loadingPreviousExpenses")}
           </Text>
         )}
 
         {Boolean(categoryId) && !suggestionsLoading && Array.isArray(suggestions) && suggestions.length > 0 && (
           <View style={{ gap: 8 }}>
-            <Text style={[s.label, { marginTop: 2 }]}>Previous in this category</Text>
+            <Text style={[s.label, { marginTop: 2 }]}>{t("expenses.previousInCategory")}</Text>
             <View
               style={{
                 backgroundColor: T.cardAlt,
@@ -203,7 +205,7 @@ export default function AddExpenseSheetFields({
 
       <View style={s.halfRow}>
         <View style={[s.fieldGroup, s.halfCol]}>
-          <Text style={s.label}>Amount ({currency})</Text>
+          <Text style={s.label}>{t("expenses.fieldAmount", { currency })}</Text>
           <MoneyInput
             currency={currency}
             value={amount}
@@ -216,26 +218,26 @@ export default function AddExpenseSheetFields({
 
         <View style={[s.fieldGroup, s.halfCol]}>
           <Text style={s.label}>
-            Due date <Text style={s.optional}>(optional)</Text>
+            {t("expenses.fieldDueDate")} <Text style={s.optional}>({t("expenses.optional")})</Text>
           </Text>
 
           <DatePickerInput
             containerStyle={s.input}
             onPress={openPicker}
             value={dueDate ? isoToDMY(dueDate) : ""}
-            placeholder="DD/MM/YYYY"
+            placeholder={t("expenses.datePlaceholder")}
           />
         </View>
       </View>
 
       <View style={s.fieldGroup}>
-        <Text style={s.label}>Category</Text>
+        <Text style={s.label}>{t("expenses.fieldCategory")}</Text>
         <AddExpenseCategoryRow categories={categories} value={categoryId} onChange={setCategoryId} />
       </View>
 
       {/* ── Source of Funds ── */}
       <View style={s.fieldGroup}>
-        <Text style={s.label}>Source of funds</Text>
+        <Text style={s.label}>{t("expenses.fieldFundingSource")}</Text>
         <View style={{ position: "relative", zIndex: 30 }}>
           <Pressable
             style={[s.input, showSourceDropdown && s.selectInputOpen]}
@@ -308,10 +310,10 @@ export default function AddExpenseSheetFields({
             <View style={s.dateModalSheet}>
               <View style={s.dateModalHeader}>
                 <TouchableOpacity onPress={cancelPicker} hitSlop={10}>
-                  <Text style={s.dateModalActionMuted}>Cancel</Text>
+                  <Text style={s.dateModalActionMuted}>{t("common.cancel")}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={confirmPicker} hitSlop={10}>
-                  <Text style={s.dateModalActionPrimary}>Done</Text>
+                  <Text style={s.dateModalActionPrimary}>{t("common.done")}</Text>
                 </TouchableOpacity>
               </View>
               <DateTimePicker

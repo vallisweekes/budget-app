@@ -1,9 +1,11 @@
 import React from "react";
 import { View, Text } from "react-native";
+import { useAppLocale } from "@/hooks";
 import { T } from "@/lib/theme";
 import { styles } from "./styles";
 import type { UpcomingListProps } from "@/types";
 export default function UpcomingList({ payments, currency, fmt }: UpcomingListProps) {
+  const { formatDate } = useAppLocale();
   if (payments.length === 0) return null;
   return (
     <View style={styles.wrap}>
@@ -27,12 +29,7 @@ export default function UpcomingList({ payments, currency, fmt }: UpcomingListPr
                 </Text>
                 <Text style={styles.due}>
                   Due{" "}
-                  {u.dueDate
-                    ? new Date(u.dueDate).toLocaleDateString("en-GB", {
-                        day: "numeric",
-                        month: "short",
-                      })
-                    : "—"}
+                  {u.dueDate ? (formatDate(u.dueDate, { day: "numeric", month: "short" }) ?? "—") : "—"}
                 </Text>
               </View>
               <Text style={[styles.amount, { color }]}>{fmt(u.amount, currency)}</Text>

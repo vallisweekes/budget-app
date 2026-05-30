@@ -3,7 +3,7 @@ import { Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { useBootstrapData } from "@/context/BootstrapDataContext";
-import { MONTH_NAMES_SHORT } from "@/lib/constants";
+import { useAppLocale, useAppTranslation } from "@/hooks";
 import { buildPayPeriodFromMonthAnchor, formatPayPeriodLabel, normalizePayFrequency } from "@/lib/payPeriods";
 import { T } from "@/lib/theme";
 import { styles as s } from "@/components/Expenses/AddExpenseSheet/styles";
@@ -11,7 +11,7 @@ import { styles as s } from "@/components/Expenses/AddExpenseSheet/styles";
 export default function AddExpenseSheetHeader({
   month,
   year,
-  title = "Add Expense",
+  title,
   canPrev = true,
   onPrevMonth,
   onNextMonth,
@@ -26,9 +26,11 @@ export default function AddExpenseSheetHeader({
   onClose: () => void;
 }) {
   const { settings } = useBootstrapData();
+  const { locale, monthNamesShort } = useAppLocale();
+  const { t } = useAppTranslation();
   const safeMonth = Math.max(1, Math.min(12, month));
-  const fallbackStart = MONTH_NAMES_SHORT[(safeMonth + 10) % 12];
-  const fallbackEnd = MONTH_NAMES_SHORT[(safeMonth + 11) % 12];
+  const fallbackStart = monthNamesShort[(safeMonth + 10) % 12];
+  const fallbackEnd = monthNamesShort[(safeMonth + 11) % 12];
   const fallbackLabel = `${fallbackStart} - ${fallbackEnd}`;
   const label = React.useMemo(() => {
     const payDate = Number.isFinite(settings?.payDate as number) && (settings?.payDate as number) >= 1
@@ -45,16 +47,16 @@ export default function AddExpenseSheetHeader({
         payFrequency,
         payAnchorDate,
       });
-      return formatPayPeriodLabel(period.start, period.end);
+      return formatPayPeriodLabel(period.start, period.end, locale);
     } catch {
       return fallbackLabel;
     }
-  }, [fallbackLabel, safeMonth, settings?.payAnchorDate, settings?.payDate, settings?.payFrequency, year]);
+  }, [fallbackLabel, locale, safeMonth, settings?.payAnchorDate, settings?.payDate, settings?.payFrequency, year]);
 
   return (
     <View style={s.header}>
       <View style={{ flex: 1, paddingRight: 12 }}>
-        <Text style={s.title}>{title}</Text>
+        <Text style={s.title}>{title ?? t("expenses.addExpenseTitle")}</Text>
         <View style={s.periodRail}>
           <Pressable
             onPress={onPrevMonth}

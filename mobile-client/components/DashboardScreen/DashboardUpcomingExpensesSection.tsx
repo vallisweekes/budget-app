@@ -1,5 +1,6 @@
 import { Image, Pressable, Text, View } from "react-native";
 
+import { useAppTranslation } from "@/hooks";
 import type { DashboardUpcomingExpensesSectionProps } from "@/types";
 import { fmt } from "@/lib/formatting";
 import { resolveLogoUri } from "@/lib/logoDisplay";
@@ -14,12 +15,14 @@ export default function DashboardUpcomingExpensesSection({
   onOpenQuickPay,
   onSeeAll,
 }: DashboardUpcomingExpensesSectionProps) {
+  const { t } = useAppTranslation();
+
   return (
     <View style={styles.section}>
       <View style={styles.sectionHeaderRow}>
-        <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Upcoming Expenses</Text>
+        <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>{t("dashboard.upcomingExpensesTitle")}</Text>
         <Pressable onPress={onSeeAll} hitSlop={8}>
-          <Text style={styles.seeAllText}>See all</Text>
+          <Text style={styles.seeAllText}>{t("common.seeAll")}</Text>
         </Pressable>
       </View>
 
@@ -29,10 +32,10 @@ export default function DashboardUpcomingExpensesSection({
         const showLogo = Boolean(logoUri) && !isLogoFailed(logoKey);
         const dateLabel = formatShortDate(item.dueDate);
         const subtitle = dateLabel
-          ? `Due ${dateLabel}`
+          ? t("dashboard.upcomingDueDate", { date: dateLabel })
           : item.dueDate
-            ? "Due soon"
-            : "This pay period";
+            ? t("dashboard.upcomingDueSoon")
+            : t("dashboard.upcomingThisPayPeriod");
 
         return (
           <Pressable key={item.id} style={styles.lightRow} onPress={() => onOpenQuickPay(item)}>
@@ -64,7 +67,7 @@ export default function DashboardUpcomingExpensesSection({
           </Pressable>
         );
       }) : (
-        <Text style={styles.emptyUpcomingText}>No upcoming expenses yet. Add or schedule expenses to see them here.</Text>
+        <Text style={styles.emptyUpcomingText}>{t("dashboard.upcomingEmpty")}</Text>
       )}
     </View>
   );

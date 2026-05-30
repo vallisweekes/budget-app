@@ -2,6 +2,7 @@ import React from "react";
 import { KeyboardAvoidingView, Platform, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useAppLocale } from "@/hooks";
 import type { SelectionItem, UnplannedExpenseScreenProps } from "@/types";
 import { NEW_LOAN_SENTINEL } from "@/lib/constants";
 import { currencySymbol } from "@/lib/formatting";
@@ -20,6 +21,7 @@ type UseUnplannedExpenseScreenControllerCompat = (
 
 export default function UnplannedExpenseScreen({ navigation, route }: UnplannedExpenseScreenProps) {
   const topOffset = useTopHeaderOffset();
+  const { translateCategoryName } = useAppLocale();
   const useUnplannedExpenseScreenControllerCompat = useUnplannedExpenseScreenController as UseUnplannedExpenseScreenControllerCompat;
   const controller = useUnplannedExpenseScreenControllerCompat(() => navigation.goBack(), {
     month: route.params?.month,
@@ -29,7 +31,7 @@ export default function UnplannedExpenseScreen({ navigation, route }: UnplannedE
   const currency = currencySymbol(controller.settings?.currency);
   const categoryItems: SelectionItem[] = [
     { id: "", label: "None", color: T.border },
-    ...controller.categories.map((category) => ({ id: category.id, label: category.name, color: category.color ?? T.accentDim })),
+    ...controller.categories.map((category) => ({ id: category.id, label: translateCategoryName(category.name), color: category.color ?? T.accentDim })),
   ];
   const fundingItems: SelectionItem[] = controller.fundingOptions.map((option) => ({ id: option.key, label: option.label }));
   const debtItems: SelectionItem[] = [
@@ -57,7 +59,7 @@ export default function UnplannedExpenseScreen({ navigation, route }: UnplannedE
             newLoanName={controller.newLoanName}
             parsedAmount={controller.parsedAmount}
             periodLabel={controller.periodLabel}
-            selectedCategory={controller.selectedCategory}
+            selectedCategory={controller.selectedCategory ? { ...controller.selectedCategory, name: translateCategoryName(controller.selectedCategory.name) } : controller.selectedCategory}
             selectedDebt={controller.selectedDebt}
             submitError={controller.submitError}
             submitting={controller.submitting}

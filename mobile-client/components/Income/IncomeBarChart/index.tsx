@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { View, Text, Dimensions, PanResponder, Pressable } from "react-native";
 import Svg, { Circle, Line, Path, Rect, Text as SvgText } from "react-native-svg";
+import { useAppTranslation } from "@/hooks";
 import type { IncomeMonthData } from "@/lib/apiTypes";
 import { T } from "@/lib/theme";
 import { styles } from "./styles";
@@ -9,6 +10,7 @@ import type { IncomeBarChartProps } from "@/types";
 const W = Dimensions.get("window").width;
 
 export default function IncomeBarChart({ data: a, currency }: IncomeBarChartProps) {
+  const { t } = useAppTranslation();
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [didUserSelectPoint, setDidUserSelectPoint] = useState(false);
   const additionalPlansExpenses = Math.max(0, Number(a.expenseBreakdown?.additionalPlansExpenses) || 0);
@@ -18,7 +20,7 @@ export default function IncomeBarChart({ data: a, currency }: IncomeBarChartProp
     const points: Array<{ key: string; label: string; color: string; value: number }> = [
       {
         key: "selectedPlanExpenses",
-        label: additionalPlansExpenses > 0 ? "This plan" : "Expenses",
+        label: additionalPlansExpenses > 0 ? t("income.chart.thisPlan") : t("income.chart.expenses"),
         color: T.red,
         value: additionalPlansExpenses > 0 ? selectedPlanExpenses : Math.max(0, Number(a.plannedExpenses) || 0),
       },
@@ -27,7 +29,7 @@ export default function IncomeBarChart({ data: a, currency }: IncomeBarChartProp
     if (additionalPlansExpenses > 0) {
       points.push({
         key: "additionalPlansExpenses",
-        label: "Other plan",
+        label: t("income.chart.otherPlan"),
         color: "#ff8aa0",
         value: additionalPlansExpenses,
       });
@@ -36,20 +38,20 @@ export default function IncomeBarChart({ data: a, currency }: IncomeBarChartProp
     points.push(
       {
         key: "plannedDebtPayments",
-        label: "Debts",
+        label: t("income.chart.debts"),
         color: T.orange,
         value: Math.max(0, Number(a.plannedDebtPayments) || 0),
       },
       {
         key: "incomeSacrifice",
-        label: "Sacrifice",
+        label: t("income.chart.sacrifice"),
         color: T.accent,
         value: Math.max(0, Number(a.incomeSacrifice) || 0),
       }
     );
 
     return points;
-  }, [a.incomeSacrifice, a.plannedDebtPayments, a.plannedExpenses, additionalPlansExpenses, selectedPlanExpenses]);
+  }, [a.incomeSacrifice, a.plannedDebtPayments, a.plannedExpenses, additionalPlansExpenses, selectedPlanExpenses, t]);
 
   const values = useMemo(() => chartPoints.map((point) => point.value), [chartPoints]);
   const highestIndex = useMemo(
@@ -143,14 +145,14 @@ export default function IncomeBarChart({ data: a, currency }: IncomeBarChartProp
     <View style={styles.wrap}>
       <View style={styles.header}>
         <View style={styles.headerCopy}>
-          <Text style={styles.headerEyebrow}>Cash flow</Text>
-          <Text style={styles.headerTitle}>{activeMetric ? `${activeMetric.label} total` : "Total"}</Text>
+          <Text style={styles.headerEyebrow}>{t("income.chart.cashFlow")}</Text>
+          <Text style={styles.headerTitle}>{activeMetric ? `${activeMetric.label} ${t("common.total")}` : t("common.total")}</Text>
           <Text style={styles.headerSubValue}>{fmtAmount(activePoint?.value ?? 0)}</Text>
           <Text style={styles.headerPct}>
             <Text style={[styles.headerPctValue, activePointPct < 60 ? styles.headerPctValueGood : null]}>
               {`${activePointPct.toFixed(1)}%`}
             </Text>
-            <Text style={styles.headerPctSuffix}> of total income</Text>
+            <Text style={styles.headerPctSuffix}>{t("income.chart.ofTotalIncome")}</Text>
           </Text>
         </View>
       </View>

@@ -21,11 +21,11 @@ import { s } from "@/components/IncomeScreen/style";
 import { apiFetch, getApiMutationVersion } from "@/lib/api";
 import type { IncomeSummaryData } from "@/lib/apiTypes";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
-import { MONTH_NAMES_SHORT, SCREEN_FOCUS_REVALIDATE_TTL_MS } from "@/lib/constants";
+import { SCREEN_FOCUS_REVALIDATE_TTL_MS } from "@/lib/constants";
 import { currencySymbol, fmt } from "@/lib/formatting";
-import { useSwipeDownToClose, useTopHeaderOffset, useYearGuard } from "@/hooks";
+import { useAppLocale, useSwipeDownToClose, useTopHeaderOffset, useYearGuard } from "@/hooks";
 import { resolveDisplayedPayPeriodAnchor } from "@/lib/helpers/resolveDisplayedPayPeriodAnchor";
-import { buildPayPeriodFromMonthAnchor, getPayPeriodAnchorFromWindow, normalizePayFrequency, resolveActivePayPeriod } from "@/lib/payPeriods";
+import { buildPayPeriodFromMonthAnchor, formatPayPeriodLabel, getPayPeriodAnchorFromWindow, normalizePayFrequency, resolveActivePayPeriod } from "@/lib/payPeriods";
 import { T } from "@/lib/theme";
 import IncomeMonthCard from "@/components/Income/IncomeMonthCard";
 import MoneyInput from "@/components/Shared/MoneyInput";
@@ -67,6 +67,7 @@ export default function IncomeScreen() {
   } = useBootstrapData();
 
   const currency = currencySymbol(settings?.currency);
+  const { locale } = useAppLocale();
 
   const { minMonth, minYear } = useYearGuard(settings);
 
@@ -343,7 +344,7 @@ export default function IncomeScreen() {
           periodEndAt.setHours(23, 59, 59, 999);
           const isLocked = periodEndAt.getTime() < now.getTime();
           const isBeforeFirstSelectablePeriod = year < minYear || (year === minYear && item.monthIndex < minMonth);
-          const periodLabel = `${MONTH_NAMES_SHORT[period.start.getMonth()]} - ${MONTH_NAMES_SHORT[period.end.getMonth()]}`;
+          const periodLabel = formatPayPeriodLabel(period.start, period.end, locale);
           const canOpenPeriod = hasBudgetPlanId && !isBeforeFirstSelectablePeriod;
           return (
             <IncomeMonthCard

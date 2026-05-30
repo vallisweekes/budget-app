@@ -1,10 +1,12 @@
 import React from "react";
 import { View, Text } from "react-native";
+import { useAppLocale } from "@/hooks";
 import { resolveCategoryColor } from "@/lib/categoryColors";
 import { T } from "@/lib/theme";
 import { styles } from "./styles";
 import type { ExpenseItemProps } from "@/types";
 export default function ExpenseItem({ expense, currency, fmt }: ExpenseItemProps) {
+  const { translateCategoryName } = useAppLocale();
   const color = resolveCategoryColor(expense.category?.color);
 
   const paidAmount = parseFloat(expense.paidAmount);
@@ -21,7 +23,7 @@ export default function ExpenseItem({ expense, currency, fmt }: ExpenseItemProps
         </Text>
         {expense.category && (
           <Text style={styles.cat} numberOfLines={1}>
-            {expense.category.name}
+            {translateCategoryName(expense.category.name)}
           </Text>
         )}
       </View>

@@ -2,13 +2,14 @@ import React from "react";
 import { Animated, Modal, Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
+import { useAppLocale } from "@/hooks";
 import type { MonthPickerSheetProps } from "@/types";
-import { MONTH_NAMES_SHORT } from "@/lib/constants";
 import { T } from "@/lib/theme";
 
 import { styles } from "./style";
 
 export default function MonthPickerSheet({ dragY, month, onClose, onMonthSelect, onNextYear, onPrevYear, panHandlers, pickerYear, visible, year }: MonthPickerSheetProps) {
+  const { monthNamesShort } = useAppLocale();
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
@@ -25,7 +26,7 @@ export default function MonthPickerSheet({ dragY, month, onClose, onMonthSelect,
             </Pressable>
           </View>
           <View style={styles.pickerGrid}>
-            {MONTH_NAMES_SHORT.map((name, idx) => {
+            {monthNamesShort.map((name, idx) => {
               const monthValue = idx + 1;
               const isSelected = monthValue === month && pickerYear === year;
 

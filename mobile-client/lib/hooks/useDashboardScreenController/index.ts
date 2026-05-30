@@ -8,6 +8,7 @@ import { useBootstrapData, isNoBudgetPlanError } from "@/context/BootstrapDataCo
 import type { DashboardData } from "@/lib/apiTypes";
 import { currencySymbol, normalizeUpcomingName } from "@/lib/formatting";
 import { usePayPeriodBoundaryRefresh, useSwipeDownToClose, useTopHeaderOffset } from "@/hooks";
+import { translateAppText } from "@/lib/i18n";
 import { normalizePayFrequency } from "@/lib/payPeriods";
 import type { MainTabScreenProps } from "@/navigation/types";
 import type { QuickPaymentActionItem } from "@/types";
@@ -202,7 +203,9 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
     )
   );
   const recapTitle = recap
-    ? (derived.hasPayDateConfigured ? `${derived.previousPayPeriodLabel} Recap` : `${recap.label} Recap`)
+    ? (derived.hasPayDateConfigured
+      ? `${derived.previousPayPeriodLabel} ${translateAppText(settings?.language, "dashboard.recapSuffix")}`
+      : `${recap.label} ${translateAppText(settings?.language, "dashboard.recapSuffix")}`)
     : "";
 
   const closeCategorySheet = useCallback(() => setCategorySheet(null), []);

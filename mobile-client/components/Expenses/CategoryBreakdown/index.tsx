@@ -2,6 +2,7 @@ import React from "react";
 import { View, Text, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as LucideIcons from "lucide-react-native";
+import { useAppLocale, useAppTranslation } from "@/hooks";
 import { resolveCategoryColor, withOpacity } from "@/lib/categoryColors";
 import { T } from "@/lib/theme";
 import { styles } from "./styles";
@@ -26,6 +27,8 @@ function CategoryIcon({ name, color }: { name: string | null; color: string }) {
 }
 
 export default function CategoryBreakdown({ categories, currency, fmt, onCategoryPress, onAddPress, showAddAction = true }: CategoryBreakdownProps) {
+  const { translateCategoryName } = useAppLocale();
+  const { t } = useAppTranslation();
   if (categories.length === 0) return null;
   return (
     <View style={styles.wrap}>
@@ -34,7 +37,7 @@ export default function CategoryBreakdown({ categories, currency, fmt, onCategor
         {showAddAction && onAddPress ? (
           <Pressable onPress={onAddPress} style={styles.addBtn} hitSlop={8}>
             <Ionicons name="add" size={18} color={T.onAccent} />
-            <Text style={styles.addBtnTxt}>Expense</Text>
+            <Text style={styles.addBtnTxt}>{t("expenses.addExpense")}</Text>
           </Pressable>
         ) : null}
       </View>
@@ -52,7 +55,7 @@ export default function CategoryBreakdown({ categories, currency, fmt, onCategor
             <View style={styles.topRow}>
               <View style={styles.left}>
                 <CategoryIcon name={cat.icon} color={color} />
-                <Text style={styles.catName} numberOfLines={1}>{cat.name}</Text>
+                <Text style={styles.catName} numberOfLines={1}>{translateCategoryName(cat.name)}</Text>
               </View>
               <View style={styles.right}>
                 <Text style={styles.catTotal}>{fmt(cat.total, currency)}</Text>
@@ -62,7 +65,11 @@ export default function CategoryBreakdown({ categories, currency, fmt, onCategor
 
             {/* Row 2: paid summary */}
             <Text style={styles.sub}>
-              {fmt(paidClamped, currency)} paid · {cat.paidCount}/{cat.totalCount}
+              {t("expenses.paidSummary", {
+                amount: fmt(paidClamped, currency),
+                paidCount: cat.paidCount,
+                totalCount: cat.totalCount,
+              })}
             </Text>
 
             {/* Row 3: full-width progress bar */}

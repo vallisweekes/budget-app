@@ -5,6 +5,7 @@ import { BlurView } from "expo-blur";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { styles } from "./styles";
 
+import { useAppTranslation } from "@/hooks";
 import { fmt } from "@/lib/formatting";
 import { INVESTMENT_BUCKET_OPTIONS } from "@/lib/constants";
 import { parseMoney } from "@/lib/domain/moneyInput";
@@ -72,6 +73,7 @@ function mapFixedFieldToSavingsField(
 }
 
 export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeListProps) {
+  const { t } = useAppTranslation();
   const insets = useSafeAreaInsets();
   const defaultSelection = useMemo(() => {
     return getPayPeriodSelectionFromAnchor({
@@ -441,46 +443,46 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
 
     if (total <= 0) {
       tips.push({
-        title: "Start with one small sacrifice",
-        detail: "Set one amount for this period first, then extend it across future periods once it feels sustainable.",
+        title: t("income.sacrifice.tip.startTitle"),
+        detail: t("income.sacrifice.tip.startDetail"),
         priority: 90,
       });
     }
 
     if (allowance > 0 && savings + emergency + investments + customTotal === 0) {
       tips.push({
-        title: "Most of this period goes to allowance",
-        detail: `Consider moving a small share of ${fmt(total, props.currency)} into savings or emergency so it is not all immediately available to spend.`,
+        title: t("income.sacrifice.tip.allowanceTitle"),
+        detail: t("income.sacrifice.tip.allowanceDetail"),
         priority: 85,
       });
     }
 
     if (emergency <= 0 && total > 0) {
       tips.push({
-        title: "Emergency cover is still empty",
-        detail: `With ${fmt(total, props.currency)} already set aside, even a small emergency allocation can make future periods less fragile.`,
+        title: t("income.sacrifice.tip.emergencyTitle"),
+        detail: t("income.sacrifice.tip.emergencyDetail"),
         priority: 80,
       });
     }
 
     if (customCount > 0) {
       tips.push({
-        title: "Custom sacrifices are active",
-        detail: `You have ${customCount} custom sacrifice${customCount === 1 ? "" : "s"} in this plan. Keep each one specific so it stays easy to review.`,
+        title: t("income.sacrifice.tip.customTitle"),
+        detail: t("income.sacrifice.tip.customDetail"),
         priority: 65,
       });
     }
 
     if (!tips.length) {
       tips.push({
-        title: "This sacrifice split looks balanced",
-        detail: "Review the start period before saving longer ranges so the same split carries forward from the right pay-period anchor.",
+        title: t("income.sacrifice.tip.balancedTitle"),
+        detail: t("income.sacrifice.tip.balancedDetail"),
         priority: 60,
       });
     }
 
     return tips;
-  }, [props.currency, props.sacrifice]);
+  }, [props.sacrifice, t]);
 
   const sacrificeTips = serverSacrificeTips.length ? serverSacrificeTips : fallbackSacrificeTips;
 
@@ -1511,7 +1513,7 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
                 <View style={styles.aiTipCard}>
                   <View style={styles.aiTipHeader}>
                     <Ionicons name="bulb-outline" size={16} color={T.accent} />
-                    <Text style={styles.aiTipTitle}>AI tip</Text>
+                    <Text style={styles.aiTipTitle}>{t("income.sacrifice.aiTipLabel")}</Text>
                   </View>
                   <Text style={styles.aiTipHeadline}>{activeSacrificeTip.title}</Text>
                   <Text style={styles.aiTipText}>{activeSacrificeTip.detail}</Text>

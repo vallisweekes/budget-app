@@ -23,6 +23,7 @@ import { appendNotificationInboxItem, subscribeNotificationInbox } from "@/lib/n
 import { resolveExpensePeriodRouteState } from "@/lib/helpers/expensePeriodRouteState";
 import { markSkipExpensesFocusReload } from "@/lib/helpers/expensesFocusReload";
 import { getPayPeriodRangeLabelFromAnchor, normalizePayFrequency } from "@/lib/payPeriods";
+import { useAppLocale } from "@/hooks";
 
 import LoginScreen from "@/components/LoginScreen";
 import DashboardScreen from "@/components/DashboardScreen";
@@ -52,12 +53,10 @@ import SettingsStrategyScreen from "@/components/SettingsStrategyScreen";
 import OnboardingScreen from "@/components/OnboardingScreen";
 import { useGetOnboardingStatusQuery } from "@/store/api";
 
-const MONTH_NAMES_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-function formatIncomePeriodSpan(month: number): string {
+function formatIncomePeriodSpan(month: number, monthNamesShort: string[]): string {
   const safeMonth = Math.max(1, Math.min(12, month));
-  const start = MONTH_NAMES_SHORT[(safeMonth - 2 + 12) % 12];
-  const end = MONTH_NAMES_SHORT[(safeMonth - 1) % 12];
+  const start = monthNamesShort[(safeMonth - 2 + 12) % 12];
+  const end = monthNamesShort[(safeMonth - 1) % 12];
   return `${start} - ${end}`;
 }
 
@@ -72,6 +71,7 @@ function IncomeMonthSwitcher({
   budgetPlanId: string;
   onNavigate: (nextMonth: number, nextYear: number) => void;
 }) {
+  const { monthNamesShort } = useAppLocale();
   const [isYearPickerVisible, setIsYearPickerVisible] = useState(false);
   const [budgetHorizonYears, setBudgetHorizonYears] = useState(10);
   const yearPickerAnim = React.useRef(new Animated.Value(0)).current;
@@ -181,7 +181,7 @@ function IncomeMonthSwitcher({
           accessibilityRole="button"
           accessibilityLabel="Select year"
         >
-          <Text style={s.monthSwitchText}>{`${formatIncomePeriodSpan(month)} ${year}`}</Text>
+          <Text style={s.monthSwitchText}>{`${formatIncomePeriodSpan(month, monthNamesShort)} ${year}`}</Text>
         </Pressable>
 
         <Pressable

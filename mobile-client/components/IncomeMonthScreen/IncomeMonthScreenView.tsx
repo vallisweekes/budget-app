@@ -16,8 +16,8 @@ import { useRouter } from "expo-router";
 import { apiFetch, getApiMutationVersion } from "@/lib/api";
 import type { Income, Settings, IncomeMonthData, IncomeSacrificeData, IncomeSacrificeFixed } from "@/lib/apiTypes";
 import { computeMoneyLeftVsLastMonth } from "@/lib/domain/incomeStats";
-import { currencySymbol, fmt, MONTH_NAMES_LONG } from "@/lib/formatting";
-import { useIncomeCRUD, useSavingsPotStore, useTopHeaderOffset } from "@/hooks";
+import { currencySymbol, fmt } from "@/lib/formatting";
+import { useAppLocale, useIncomeCRUD, useSavingsPotStore, useTopHeaderOffset } from "@/hooks";
 import { registerSessionScopedResetter } from "@/lib/sessionScopedState";
 import { subscribeIncomeAddTrigger } from "@/lib/events/incomeAddTrigger";
 import {
@@ -96,6 +96,7 @@ function toInitialIncomeItems(
 
 export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScreenProps) {
   const router = useRouter();
+  const { formatDate, locale, monthNamesLong } = useAppLocale();
   const { readSavingsPotsForPlan, ensureSavingsPotAllocationLinks } = useSavingsPotStore();
   const [updateIncomeSacrifice] = useUpdateIncomeSacrificeMutation();
   const [createIncomeSacrificeCustom] = useCreateIncomeSacrificeCustomMutation();
@@ -192,11 +193,11 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
 
   const manageSacrificeNotice = useMemo(() => {
     if (canManageSacrifice) return undefined;
-    return `Manage sacrifice closed on ${sacrificeManageUntil.toLocaleDateString("en-GB")} (5 days after this period ended).`;
-  }, [canManageSacrifice, sacrificeManageUntil]);
+    return `Manage sacrifice closed on ${formatDate(sacrificeManageUntil, { day: "numeric", month: "numeric", year: "numeric" })} (5 days after this period ended).`;
+  }, [canManageSacrifice, formatDate, sacrificeManageUntil]);
 
   const monthLabel = useMemo(() => {
-    const fallback = `${MONTH_NAMES_LONG[month - 1]} ${year}`;
+    const fallback = `${monthNamesLong[month - 1]} ${year}`;
     if (!settings) return fallback;
 
     return getPayPeriodRangeLabelFromAnchor({
@@ -205,8 +206,9 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
       payDate: settings.payDate ?? 27,
       payFrequency: normalizedPayFrequency,
       payAnchorDate: normalizedPayAnchorDate,
+      locale,
     });
-  }, [month, normalizedPayAnchorDate, normalizedPayFrequency, settings, year]);
+  }, [locale, month, monthNamesLong, normalizedPayAnchorDate, normalizedPayFrequency, settings, year]);
 
   const currency = currencySymbol(settings?.currency);
   const toIncomeItems = useCallback((summary: Array<{ id: string; name: string; amount: number }>, targetMonth: number, targetYear: number): Income[] => {

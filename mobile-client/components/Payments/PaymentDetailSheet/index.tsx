@@ -6,7 +6,7 @@ import { styles } from "./styles";
 import { fmt } from "@/lib/formatting";
 import { resolveLogoUri } from "@/lib/logoDisplay";
 import { T } from "@/lib/theme";
-import { useSwipeDownToClose } from "@/hooks";
+import { useAppLocale, useSwipeDownToClose } from "@/hooks";
 import type { PaymentDetailSheetProps } from "@/types";
 
 export default function PaymentDetailSheet({
@@ -20,6 +20,7 @@ export default function PaymentDetailSheet({
   onClose,
   onRetry,
 }: PaymentDetailSheetProps) {
+  const { formatDate } = useAppLocale();
   const { dragY, panHandlers } = useSwipeDownToClose({ onClose });
   const [logoFailed, setLogoFailed] = useState(false);
 
@@ -163,9 +164,7 @@ export default function PaymentDetailSheet({
                 ListEmptyComponent={<Text style={styles.sheetEmpty}>No payments recorded yet.</Text>}
                 renderItem={({ item: paymentItem }) => {
                   const d = new Date(paymentItem.date);
-                  const dateLabel = Number.isNaN(d.getTime())
-                    ? ""
-                    : d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+                  const dateLabel = Number.isNaN(d.getTime()) ? "" : (formatDate(d, { day: "numeric", month: "short" }) ?? "");
                   return (
                     <View style={styles.sheetPayRow}>
                       <View style={{ flex: 1, marginRight: 12 }}>

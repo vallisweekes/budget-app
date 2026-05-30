@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { MONTH_NAMES_SHORT } from "@/lib/constants";
+import { useAppLocale } from "@/hooks";
 import { T } from "@/lib/theme";
 import type { MonthBarProps } from "@/types";
 import { styles } from "./styles";
@@ -13,10 +13,11 @@ export default function MonthBar({
   onNext,
   prevDisabled = false,
 }: MonthBarProps) {
+  const { monthNamesShort } = useAppLocale();
   return (
     <View style={styles.bar}>
       <Text style={styles.label}>
-        {MONTH_NAMES_SHORT[month - 1]} {year}
+        {monthNamesShort[month - 1]} {year}
       </Text>
 
       <View style={styles.actions}>

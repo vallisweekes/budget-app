@@ -19,7 +19,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 
 import { s } from "@/components/ScanReceiptScreen/style";
-import { FUNDING_OPTIONS, MONTH_NAMES_LONG, MONTH_NAMES_SHORT, NEW_LOAN_SENTINEL } from "@/lib/constants";
+import { FUNDING_OPTIONS, NEW_LOAN_SENTINEL, buildAppLocale } from "@/lib/constants";
 import type {
   Category,
   Debt,
@@ -38,6 +38,10 @@ import type {
   ScanReceiptScreenProps,
   ScanReceiptStage,
 } from "@/types";
+import {
+  formatAppDate,
+  translateExpenseCategoryName,
+} from "@/lib/i18n";
 import {
   getMobileApiErrorMessage,
   useConfirmReceiptMutation,
@@ -146,6 +150,33 @@ export default function ScanReceiptScreen({ navigation }: ScanReceiptScreenProps
   const shimmerOpacity = shimmer.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1] });
 
   const currency = currencySymbol(settings?.currency);
+  const receiptLocale = buildAppLocale(settings?.language, settings?.country);
+  const localizedMonthNamesLong = React.useMemo(
+    () => Array.from({ length: 12 }, (_, monthIndex) => formatAppDate(new Date(2000, monthIndex, 1), {
+      language: settings?.language,
+      country: settings?.country,
+      options: { month: "long" },
+    })),
+    [settings?.country, settings?.language],
+  );
+  const localizedMonthNamesShort = React.useMemo(
+    () => Array.from({ length: 12 }, (_, monthIndex) => {
+      const value = formatAppDate(new Date(2000, monthIndex, 1), {
+        language: settings?.language,
+        country: settings?.country,
+        options: { month: "short" },
+      });
+      return value.replace(/\.$/u, "");
+    }),
+    [settings?.country, settings?.language],
+  );
+  const displayCategories = React.useMemo(
+    () => categories.map((category) => ({
+      ...category,
+      name: translateExpenseCategoryName(category.name, settings?.language),
+    })),
+    [categories, settings?.language],
+  );
   const parsedAmount = parseFloat(amount.replace(/,/g, ""));
   const cardDebts = debts.filter((d) => d.type === "credit_card" || d.type === "store_card");
   const loanDebts = debts.filter((d) => d.type === "loan" || d.type === "mortgage" || d.type === "hire_purchase" || d.type === "other");
@@ -153,7 +184,7 @@ export default function ScanReceiptScreen({ navigation }: ScanReceiptScreenProps
   const usingNewLoan = fundingSource === "loan" && selectedDebtId === NEW_LOAN_SENTINEL;
   const debtChoiceValid = !needsDebtChoice || (selectedDebtId.length > 0 && (!usingNewLoan || newLoanName.trim().length > 0));
   const canSave = name.trim().length > 0 && parsedAmount > 0 && !!receiptId && debtChoiceValid;
-  const selectedCategory = categories.find((c) => c.id === categoryId);
+  const selectedCategory = displayCategories.find((c) => c.id === categoryId);
   const fundingLabel = FUNDING_OPTIONS.find((f) => f.value === fundingSource)?.label ?? "Income";
   const debtChoices = fundingSource === "credit_card" ? cardDebts : loanDebts;
   const selectedDebt = debtChoices.find((d) => d.id === selectedDebtId);
@@ -418,7 +449,7 @@ export default function ScanReceiptScreen({ navigation }: ScanReceiptScreenProps
             >
               <Text style={s.fieldLabel}>Month</Text>
               <View style={s.fieldRow}>
-                <Text style={s.fieldValue}>{MONTH_NAMES_LONG[month - 1]} {year}</Text>
+                <Text style={s.fieldValue}>{localizedMonthNamesLong[month - 1]} {year}</Text>
                 <Ionicons name="chevron-forward" size={16} color={T.textDim} style={s.fieldChevron} />
               </View>
             </Pressable>
@@ -466,7 +497,7 @@ export default function ScanReceiptScreen({ navigation }: ScanReceiptScreenProps
                   <Text style={s.catName}>None</Text>
                   {!categoryId && <Ionicons name="checkmark" size={16} color={T.accent} style={s.catCheck} />}
                 </Pressable>
-                {categories.map((c) => (
+                {displayCategories.map((c) => (
                   <Pressable
                     key={c.id}
                     style={[s.catRow, categoryId === c.id && s.catRowSelected]}
@@ -563,7 +594,7 @@ export default function ScanReceiptScreen({ navigation }: ScanReceiptScreenProps
                 </Pressable>
               </View>
               <View style={s.pickerGrid}>
-                {MONTH_NAMES_SHORT.map((mName, idx) => {
+                {localizedMonthNamesShort.map((mName, idx) => {
                   const m = idx + 1;
                   const isSelected = m === month && pickerYear === year;
                   return (

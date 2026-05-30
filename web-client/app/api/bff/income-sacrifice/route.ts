@@ -93,11 +93,13 @@ export async function GET(request: NextRequest) {
 		const plan = await prisma.budgetPlan.findUnique({
 			where: { id: budgetPlanId },
 			select: {
+				language: true,
 				savingsBalance: true,
 				emergencyBalance: true,
 				investmentBalance: true,
 			},
 		});
+		const sacrificeLanguage = plan?.language ?? "en";
 
 		const fixed = {
 			monthlyAllowance: toMoney(allocation.monthlyAllowance),
@@ -146,8 +148,9 @@ export async function GET(request: NextRequest) {
 		const linkedPlannedTotal = plannedByTarget.reduce((sum, row) => sum + Number(row.amount ?? 0), 0);
 		const linkedTransferredTotal = confirmations.reduce((sum, row) => sum + Number(row.amount ?? 0), 0);
 		const tips = await getAiIncomeSacrificeTips({
-			cacheKey: `income-sacrifice:${budgetPlanId}:${year}-${month}:${Math.round(fixedTotal * 100)}:${Math.round(Number(custom.total ?? 0) * 100)}:${goalLinks.length}:${Math.round(linkedPlannedTotal * 100)}:${Math.round(linkedTransferredTotal * 100)}`,
+			cacheKey: `income-sacrifice:${budgetPlanId}:${year}-${month}:${Math.round(fixedTotal * 100)}:${Math.round(Number(custom.total ?? 0) * 100)}:${goalLinks.length}:${Math.round(linkedPlannedTotal * 100)}:${Math.round(linkedTransferredTotal * 100)}:${sacrificeLanguage}`,
 			now: new Date(),
+			language: sacrificeLanguage,
 			context: {
 				month,
 				year,

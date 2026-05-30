@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { styles } from "./styles";
 
+import { useAppTranslation } from "@/hooks";
 import { T } from "@/lib/theme";
 import type { IncomeMonthHeaderProps } from "@/types";
 
@@ -20,6 +21,7 @@ export default function IncomeMonthHeader({
   onToggleAdd,
   onSetMode,
 }: IncomeMonthHeaderProps) {
+  const { t } = useAppTranslation();
   const slideAnim = useRef(new Animated.Value(0)).current; // 0=income, 1=sacrifice
   const [pillWidth, setPillWidth] = useState(0);
 
@@ -78,10 +80,10 @@ export default function IncomeMonthHeader({
           />
         )}
         <Pressable style={styles.modePill} onPress={() => onSetMode("income")}>
-          <Text style={[styles.modeTxt, viewMode === "income" && styles.modeTxtActive]}>Income</Text>
+          <Text style={[styles.modeTxt, viewMode === "income" && styles.modeTxtActive]}>{t("income.mode.income")}</Text>
         </Pressable>
         <Pressable style={styles.modePill} onPress={() => onSetMode("sacrifice")}>
-          <Text style={[styles.modeTxt, viewMode === "sacrifice" && styles.modeTxtActive]}>Sacrifices</Text>
+          <Text style={[styles.modeTxt, viewMode === "sacrifice" && styles.modeTxtActive]}>{t("income.mode.sacrifices")}</Text>
         </Pressable>
       </View>
     </BlurView>

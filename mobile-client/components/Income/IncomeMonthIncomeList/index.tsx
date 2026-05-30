@@ -2,6 +2,7 @@ import React from "react";
 import { FlatList, Modal, Pressable, RefreshControl, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
+import { useAppTranslation } from "@/hooks";
 import { fmt } from "@/lib/formatting";
 import { T } from "@/lib/theme";
 import IncomeMonthStats from "@/components/Income/IncomeMonthStats";
@@ -23,6 +24,7 @@ export default function IncomeMonthIncomeList({
   onPressIncomeSacrifice,
   crud,
 }: IncomeMonthIncomeListProps) {
+  const { t } = useAppTranslation();
   const sortedItems = React.useMemo(() => {
     return [...items].sort((a, b) => {
       const aIsSalary = String(a.name ?? "").trim().toLowerCase() === "salary";
@@ -47,7 +49,7 @@ export default function IncomeMonthIncomeList({
             {analysis && <IncomeBarChart data={analysis} currency={currency} />}
             {analysis && <IncomeMonthStats data={analysis} currency={currency} fmt={fmt} onPressIncomeSacrifice={onPressIncomeSacrifice} />}
             <View style={s.sourcesHeadingWrap}>
-              <Text style={s.sourcesHeading}>Income source</Text>
+              <Text style={s.sourcesHeading}>{t("income.section.sources")}</Text>
               <View style={s.sourcesHeadingRule} />
             </View>
           </>
@@ -66,8 +68,8 @@ export default function IncomeMonthIncomeList({
         ListEmptyComponent={
           <View style={s.empty}>
             <Ionicons name="wallet-outline" size={48} color={T.iconMuted} />
-            <Text style={s.emptyText}>No income sources yet</Text>
-            {!isLocked && <Text style={s.emptySub}>Use Add in the tab bar to create your first source</Text>}
+            <Text style={s.emptyText}>{t("income.empty.noSources")}</Text>
+            {!isLocked && <Text style={s.emptySub}>{t("income.empty.addFromTabBar")}</Text>}
           </View>
         }
       />

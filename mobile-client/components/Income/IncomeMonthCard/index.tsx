@@ -1,6 +1,6 @@
 import React from "react";
 import { Text, View, Pressable, ViewStyle } from "react-native";
-import { MONTH_NAMES_SHORT } from "@/lib/constants";
+import { useAppLocale } from "@/hooks";
 import { T } from "@/lib/theme";
 import { styles } from "./styles";
 import type { IncomeMonthCardProps } from "@/types";
@@ -14,6 +14,7 @@ export default function IncomeMonthCard({
   locked,
   periodLabel,
 }: IncomeMonthCardProps) {
+  const { monthNamesShort } = useAppLocale();
   const hasIncome = item.total > 0;
 
   const cardStyle: ViewStyle = {
@@ -30,7 +31,7 @@ export default function IncomeMonthCard({
       {/* Month label + optional "Current" badge */}
       <View style={styles.monthRow}>
         <Text style={[styles.month, active && styles.monthActive]}>
-          {periodLabel ?? MONTH_NAMES_SHORT[item.monthIndex - 1]}
+          {periodLabel ?? monthNamesShort[item.monthIndex - 1]}
         </Text>
         {active && (
           <View style={styles.currentBadge}>

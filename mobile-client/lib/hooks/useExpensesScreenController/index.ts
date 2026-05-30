@@ -6,7 +6,7 @@ import { PanResponder, ScrollView } from "react-native";
 import { useActiveBudgetPlan } from "@/context/ActiveBudgetPlanContext";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { apiFetch, getApiMutationsSince, getApiMutationVersion } from "@/lib/api";
-import { SCREEN_FOCUS_REVALIDATE_TTL_MS } from "@/lib/constants";
+import { buildAppLocale, SCREEN_FOCUS_REVALIDATE_TTL_MS } from "@/lib/constants";
 import { setSharedExpensePeriodRouteState } from "@/lib/helpers/expensePeriodRouteState";
 import { resolveDisplayedPayPeriodAnchor } from "@/lib/helpers/resolveDisplayedPayPeriodAnchor";
 import type {
@@ -126,6 +126,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
   const [displayedActiveResolved, setDisplayedActiveResolved] = useState(false);
 
   const currency = currencySymbol(settings?.currency);
+  const appLocale = buildAppLocale(settings?.language, settings?.country);
   const { canDecrement } = useYearGuard(settings);
 
   useEffect(() => {
@@ -593,8 +594,9 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       payDate: effectivePayDate,
       payFrequency: effectivePayFrequency,
       payAnchorDate: effectivePayAnchorDate,
+      locale: appLocale,
     });
-  }, [effectivePayAnchorDate, effectivePayDate, effectivePayFrequency, resolvePickerActualYear]);
+  }, [appLocale, effectivePayAnchorDate, effectivePayDate, effectivePayFrequency, resolvePickerActualYear]);
 
   const setExplicitPreferredPeriod = useCallback((planId: string | null, targetMonth: number, targetYear: number) => {
     if (!planId) return;
@@ -1325,6 +1327,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     payDate: effectivePayDate,
     payFrequency: effectivePayFrequency,
     payAnchorDate: effectivePayAnchorDate,
+    locale: appLocale,
   });
   const upcomingExpenseMonths = useMemo(
     () => expenseMonths.filter((item) => (

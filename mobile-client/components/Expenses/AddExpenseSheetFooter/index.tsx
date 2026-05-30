@@ -3,6 +3,7 @@ import { Pressable, Text, View } from "react-native";
 import { BlurView } from "expo-blur";
 import { Ionicons } from "@expo/vector-icons";
 
+import { useAppTranslation } from "@/hooks";
 import { T } from "@/lib/theme";
 import { styles as s } from "@/components/Expenses/AddExpenseSheet/styles";
 
@@ -17,6 +18,8 @@ export default function AddExpenseSheetFooter({
   submitting: boolean;
   onSubmit: () => void;
 }) {
+  const { t } = useAppTranslation();
+
   return (
     <>
       {error ? (
@@ -36,7 +39,7 @@ export default function AddExpenseSheetFooter({
             <View style={s.submitBtnTint} pointerEvents="none" />
             <View style={s.submitBtnGlow} pointerEvents="none" />
             <View style={s.submitBtnInnerBorder} pointerEvents="none" />
-            {submitting ? <Text style={s.submitTxt}>Adding…</Text> : <Text style={s.submitTxt}>Add Expense</Text>}
+            {submitting ? <Text style={s.submitTxt}>{t("expenses.addingExpense")}</Text> : <Text style={s.submitTxt}>{t("expenses.addExpenseButton")}</Text>}
           </BlurView>
         </Pressable>
       </View>

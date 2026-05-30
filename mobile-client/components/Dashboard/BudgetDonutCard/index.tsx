@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import { Text, View } from "react-native";
 import Svg, { Circle } from "react-native-svg";
+import { useAppTranslation } from "@/hooks";
 import { T } from "@/lib/theme";
 import { computeBudgetDonutMetrics } from "@/lib/domain/budgetDonut";
 import type { BudgetDonutCardProps } from "@/types";
@@ -20,6 +21,7 @@ const COLOR_OVERSPEND = T.red;
 const MIN_VISIBLE_LEFT_FRAC = 0.12;
 
 export default function BudgetDonutCard({ totalBudget, totalExpenses, paidTotal, currency, fmt, periodLabel }: BudgetDonutCardProps) {
+  const { t } = useAppTranslation();
   const {
     remaining,
     isOverBudget,
@@ -42,12 +44,10 @@ export default function BudgetDonutCard({ totalBudget, totalExpenses, paidTotal,
   const leftLength = visibleLeftFrac * CIRCUMFERENCE;
   const leftOffset = -usedLength;
 
-  const heroTitle = periodLabel ?? "Budget overview";
-  const centerTitle = periodLabel ?? (isOverBudget ? "Over budget" : "Budget remaining");
+  const heroTitle = periodLabel ?? t("dashboard.budgetOverview");
+  const centerTitle = periodLabel ?? (isOverBudget ? t("dashboard.overBudget") : t("dashboard.budgetRemaining"));
   const centerTop = isOverBudget ? fmt(Math.abs(remaining), currency) : fmt(Math.max(0, remaining), currency);
-  const centerSub = isOverBudget
-    ? `of ${fmt(totalBudget, currency)} budget`
-    : `of ${fmt(totalBudget, currency)} budget`;
+  const centerSub = t("dashboard.ofBudget", { amount: fmt(totalBudget, currency) });
 
   return (
     <View style={styles.wrap}>
@@ -133,11 +133,11 @@ export default function BudgetDonutCard({ totalBudget, totalExpenses, paidTotal,
 
         <View style={styles.legendRow}>
           {isOverBudget ? (
-            <LegendChip label="Over" value={fmt(overspend, currency)} color={COLOR_OVERSPEND} />
+            <LegendChip label={t("dashboard.legendOver")} value={fmt(overspend, currency)} color={COLOR_OVERSPEND} />
           ) : (
             <>
-              <LegendChip label="Spent" value={fmt(usedWithinBudget, currency)} color={COLOR_USED} />
-              <LegendChip label="Left" value={fmt(Math.max(0, remaining), currency)} color={COLOR_LEFT} />
+              <LegendChip label={t("dashboard.legendSpent")} value={fmt(usedWithinBudget, currency)} color={COLOR_USED} />
+              <LegendChip label={t("dashboard.legendLeft")} value={fmt(Math.max(0, remaining), currency)} color={COLOR_LEFT} />
             </>
           )}
         </View>

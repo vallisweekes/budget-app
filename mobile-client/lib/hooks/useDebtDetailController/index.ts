@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert } from "react-native";
 import type { CreditCard, Debt, DebtPayment, DebtSummaryItem, Settings } from "@/lib/apiTypes";
+import { formatAppDate } from "@/lib/i18n";
 import { currencySymbol, fmt } from "@/lib/formatting";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { getCachedDebtCreditCards, getCachedDebtSummaryItem } from "@/lib/debtDetailCache";
@@ -542,7 +543,11 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
     const creditLimitNum = debt?.creditLimit != null ? parseFloat(debt.creditLimit) : null;
     const dueDateValue = debt?.dueDate ? new Date(debt.dueDate) : null;
     const dueDateLabel = dueDateValue && Number.isFinite(dueDateValue.getTime())
-      ? dueDateValue.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" })
+      ? formatAppDate(dueDateValue, {
+          language: settings?.language,
+          country: settings?.country,
+          options: { day: "2-digit", month: "2-digit", year: "numeric" },
+        })
       : "Not set";
 
     const dueMonthKey = dueDateValue && Number.isFinite(dueDateValue.getTime())
