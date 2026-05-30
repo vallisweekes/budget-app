@@ -414,6 +414,7 @@ export default function MainTabsLayout() {
           <NativeTabs.Trigger
             {...expensesSplitAddTriggerScreenProps}
             name="expenses"
+            role="search"
             disablePopToTop
             disableScrollToTop
             contentStyle={tabContentStyle}
@@ -424,7 +425,6 @@ export default function MainTabsLayout() {
               renderingMode="template"
               selectedColor={selectedTintColor}
             />
-            <NativeTabs.Trigger.Label selectedStyle={splitRouteSelectedTabLabelStyle}>Add expense</NativeTabs.Trigger.Label>
           </NativeTabs.Trigger>
         </NativeTabs>
       </>
@@ -445,6 +445,7 @@ export default function MainTabsLayout() {
         <NativeTabs.Trigger
           {...categorySplitTriggerScreenProps}
           name="expenses"
+          role="search"
           disablePopToTop
           disableScrollToTop
           contentStyle={tabContentStyle}
@@ -455,7 +456,6 @@ export default function MainTabsLayout() {
             renderingMode="template"
             selectedColor={selectedTintColor}
           />
-          <NativeTabs.Trigger.Label selectedStyle={splitRouteSelectedTabLabelStyle}>Add expense</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
       </NativeTabs>
     );
