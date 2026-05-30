@@ -18,7 +18,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import type { Goal } from "@/lib/apiTypes";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
+import { useAppTranslation } from "@/hooks";
 import { fmt } from "@/lib/formatting";
+import { translateGoalDescription, translateGoalTitle } from "@/lib/i18n";
 import { asMoneyNumber, resolveGoalCurrentAmount } from "@/lib/helpers/settings";
 import { useTopHeaderOffset } from "@/hooks";
 import type { MainTabScreenProps } from "@/navigation/types";
@@ -40,6 +42,7 @@ export default function GoalsScreen({ navigation, route }: MainTabScreenProps<"G
     isLoading: bootstrapLoading,
     refreshSettings,
   } = useBootstrapData();
+  const { t } = useAppTranslation(settings?.language);
 
   const [addOpen, setAddOpen] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -63,7 +66,7 @@ export default function GoalsScreen({ navigation, route }: MainTabScreenProps<"G
 
   const loading = Boolean((!settings && bootstrapLoading) || (!goalsQuery.data && goalsQuery.isLoading));
   const refreshing = Boolean(goalsQuery.data && goalsQuery.isFetching);
-  const error = goalsQuery.error ? getMobileApiErrorMessage(goalsQuery.error, "Failed to load goals") : null;
+  const error = goalsQuery.error ? getMobileApiErrorMessage(goalsQuery.error, t("goals.error.loadFailed")) : null;
 
   const parseAmount = (raw: string): number | undefined => {
     const t = String(raw ?? "").trim().replace(/,/g, "");
@@ -96,7 +99,7 @@ export default function GoalsScreen({ navigation, route }: MainTabScreenProps<"G
     if (!budgetPlanId) return;
     const title = newTitle.trim();
     if (!title) {
-      Alert.alert("Goal title required", "Please enter a goal name.");
+      Alert.alert(t("goals.alert.titleRequiredTitle"), t("goals.alert.titleRequiredMessage"));
       return;
     }
 
@@ -104,7 +107,7 @@ export default function GoalsScreen({ navigation, route }: MainTabScreenProps<"G
     const currentAmount = parseAmount(newCurrentAmount);
     const targetYear = parseYear(newTargetYear);
     if (targetYear === undefined) {
-      Alert.alert("Invalid target year", "Please enter a valid year (or leave it blank). ");
+      Alert.alert(t("goals.alert.invalidTargetYearTitle"), t("goals.alert.invalidTargetYearAddMessage"));
       return;
     }
 
@@ -119,7 +122,7 @@ export default function GoalsScreen({ navigation, route }: MainTabScreenProps<"G
       }).unwrap();
       setAddOpen(false);
     } catch (err: unknown) {
-      Alert.alert("Failed to add goal", getMobileApiErrorMessage(err, "Unknown error"));
+      Alert.alert(t("goals.error.addFailed"), getMobileApiErrorMessage(err, "Unknown error"));
     } finally {
       setAdding(false);
     }
@@ -131,7 +134,7 @@ export default function GoalsScreen({ navigation, route }: MainTabScreenProps<"G
     for (const goal of goals) {
       const y = typeof goal.targetYear === "number" ? goal.targetYear : null;
       const key = y === null ? "none" : String(y);
-      const title = y === null ? "No target year" : `${y} Goals`;
+      const title = y === null ? t("goals.section.noTargetYear") : t("goals.section.yearGoals", { year: y });
       const existing = byYear.get(key);
       if (existing) existing.data.push(goal);
       else byYear.set(key, { title, year: y, data: [goal] });
@@ -146,7 +149,7 @@ export default function GoalsScreen({ navigation, route }: MainTabScreenProps<"G
     });
 
     return list;
-  }, [goals]);
+  }, [goals, t]);
 
   useEffect(() => {
     const token = Number(route?.params?.openAddToken);
@@ -161,7 +164,7 @@ export default function GoalsScreen({ navigation, route }: MainTabScreenProps<"G
 			<SafeAreaView style={s.safe} edges={[]}>
         <View style={s.center}>
           <ActivityIndicator size="large" color={T.accent} />
-          <Text style={s.info}>Loading goals…</Text>
+          <Text style={s.info}>{t("goals.loading")}</Text>
         </View>
       </SafeAreaView>
     );
@@ -174,7 +177,7 @@ export default function GoalsScreen({ navigation, route }: MainTabScreenProps<"G
           <Ionicons name="cloud-offline-outline" size={46} color={T.textDim} />
           <Text style={s.error}>{error}</Text>
           <Pressable onPress={() => void goalsQuery.refetch()} style={s.retryBtn}>
-            <Text style={s.retryTxt}>Retry</Text>
+            <Text style={s.retryTxt}>{t("common.retry")}</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -197,13 +200,13 @@ export default function GoalsScreen({ navigation, route }: MainTabScreenProps<"G
           <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={s.modalCardWrap}>
             <View style={s.modalCard}>
               <View style={s.modalHandle} />
-              <Text style={s.modalTitle}>Add goal</Text>
+              <Text style={s.modalTitle}>{t("goals.modal.addTitle")}</Text>
 
-              <Text style={s.inputLabel}>Goal name</Text>
+              <Text style={s.inputLabel}>{t("goals.field.name")}</Text>
               <TextInput
                 value={newTitle}
                 onChangeText={setNewTitle}
-                placeholder="e.g. Emergency Fund"
+                placeholder={t("goals.field.namePlaceholder")}
                 placeholderTextColor={T.textMuted}
                 style={s.input}
                 editable={!adding}
@@ -211,32 +214,32 @@ export default function GoalsScreen({ navigation, route }: MainTabScreenProps<"G
 
               <View style={s.row2}>
                 <View style={{ flex: 1 }}>
-                  <Text style={s.inputLabel}>Target amount</Text>
+                  <Text style={s.inputLabel}>{t("goals.field.targetAmount")}</Text>
                   <MoneyInput
                     currency={settings?.currency}
                     value={newTargetAmount}
                     onChangeValue={setNewTargetAmount}
-                    placeholder="e.g. 40000"
+                    placeholder={t("goals.field.targetAmountPlaceholder")}
                     editable={!adding}
                   />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={s.inputLabel}>Current amount</Text>
+                  <Text style={s.inputLabel}>{t("goals.field.currentAmount")}</Text>
                   <MoneyInput
                     currency={settings?.currency}
                     value={newCurrentAmount}
                     onChangeValue={setNewCurrentAmount}
-                    placeholder="e.g. 200"
+                    placeholder={t("goals.field.currentAmountPlaceholder")}
                     editable={!adding}
                   />
                 </View>
               </View>
 
-              <Text style={s.inputLabel}>Target year (optional)</Text>
+              <Text style={s.inputLabel}>{t("goals.field.targetYearOptional")}</Text>
               <NumericInput
                 value={newTargetYear}
                 onChangeText={setNewTargetYear}
-                placeholder="e.g. 2035"
+                placeholder={t("goals.field.targetYearPlaceholder")}
                 placeholderTextColor={T.textMuted}
                 style={s.input}
                 keyboardType="number-pad"
@@ -249,14 +252,14 @@ export default function GoalsScreen({ navigation, route }: MainTabScreenProps<"G
                   disabled={adding}
                   style={[s.modalBtn, s.modalBtnGhost, adding && s.disabled]}
                 >
-                  <Text style={s.modalBtnGhostText}>Cancel</Text>
+                  <Text style={s.modalBtnGhostText}>{t("common.cancel")}</Text>
                 </Pressable>
                 <Pressable
                   onPress={submitAdd}
                   disabled={adding}
                   style={[s.modalBtn, s.modalBtnPrimary, adding && s.disabled]}
                 >
-                  {adding ? <ActivityIndicator size="small" color={T.onAccent} /> : <Text style={s.modalBtnPrimaryText}>Add</Text>}
+                  {adding ? <ActivityIndicator size="small" color={T.onAccent} /> : <Text style={s.modalBtnPrimaryText}>{t("common.add")}</Text>}
                 </Pressable>
               </View>
             </View>
@@ -293,16 +296,18 @@ export default function GoalsScreen({ navigation, route }: MainTabScreenProps<"G
           const current = resolveGoalCurrentAmount(category, (item as any).currentAmount, settings);
           const showProgress = Number.isFinite(target) && target > 0;
           const progress = showProgress && Number.isFinite(current) ? Math.max(0, Math.min(1, current / target)) : 0;
+          const translatedTitle = translateGoalTitle(item.title, settings?.language);
+          const translatedDescription = translateGoalDescription(item.description, settings?.language);
 
           return (
             <Pressable
-              onPress={() => navigation.navigate("GoalDetail", { goalId: item.id, goalTitle: item.title })}
+              onPress={() => navigation.navigate("GoalDetail", { goalId: item.id, goalTitle: translatedTitle })}
               style={({ pressed }) => [s.card, pressed && s.cardPressed]}
             >
               <View style={s.cardTop}>
                 <View style={[s.pill, item.targetYear ? null : s.pillWarn]}>
                   <Text style={[s.pillText, item.targetYear ? null : s.pillWarnText]}>
-                    {item.targetYear ? `Target ${item.targetYear}` : "Set target year"}
+                    {item.targetYear ? t("goals.card.targetYear", { year: item.targetYear }) : t("goals.card.setTargetYear")}
                   </Text>
                 </View>
 
@@ -312,19 +317,19 @@ export default function GoalsScreen({ navigation, route }: MainTabScreenProps<"G
               </View>
 
               <Text style={s.cardTitle} numberOfLines={2}>
-                {item.title}
+                {translatedTitle}
               </Text>
 
-              {item.description ? (
+              {translatedDescription ? (
                 <Text style={s.cardDesc} numberOfLines={3}>
-                  {item.description}
+                  {translatedDescription}
                 </Text>
               ) : null}
 
               {showProgress ? (
                 <View style={{ marginTop: 10 }}>
                   <View style={s.progressRow}>
-                    <Text style={s.progressLabel}>Progress</Text>
+                    <Text style={s.progressLabel}>{t("goals.card.progress")}</Text>
                     <Text style={s.progressValue}>
                       {fmt(current, settings?.currency ?? undefined)} / {fmt(target, settings?.currency ?? undefined)}
                     </Text>
@@ -332,13 +337,13 @@ export default function GoalsScreen({ navigation, route }: MainTabScreenProps<"G
                   <View style={s.progressTrack}>
                     <View style={[s.progressFill, { width: `${Math.round(progress * 100)}%` }]} />
                   </View>
-                  <Text style={s.progressPct}>{(progress * 100).toFixed(1)}% complete</Text>
+                  <Text style={s.progressPct}>{t("goals.card.complete", { percent: (progress * 100).toFixed(1) })}</Text>
                 </View>
               ) : null}
             </Pressable>
           );
         }}
-        ListEmptyComponent={<Text style={s.empty}>No goals yet.</Text>}
+        ListEmptyComponent={<Text style={s.empty}>{t("goals.empty")}</Text>}
       />
     </SafeAreaView>
   );

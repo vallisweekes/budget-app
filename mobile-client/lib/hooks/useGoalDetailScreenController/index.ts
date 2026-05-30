@@ -6,6 +6,13 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
 import type { Goal, Settings } from "@/lib/apiTypes";
 import { asMoneyText, mapSavingsFieldToBalanceField, resolveGoalCurrentAmount } from "@/lib/helpers/settings";
+import {
+  canonicalizeGoalDescription,
+  canonicalizeGoalTitle,
+  translateAppText,
+  translateGoalDescription,
+  translateGoalTitle,
+} from "@/lib/i18n";
 import { getEffectiveHomepageGoals } from "@/components/DashboardScreen/derived";
 import type { RootStackParamList } from "@/navigation/types";
 import {
@@ -26,18 +33,18 @@ function resolveLinkedGoalField(category: unknown): LinkedGoalField | null {
   return null;
 }
 
-function getLinkedGoalAmountLabel(field: LinkedGoalField | null): string {
-  if (field === "savings") return "Current savings";
-  if (field === "emergency") return "Current emergency funds";
-  if (field === "investment") return "Current investments";
-  return "Current progress";
+function getLinkedGoalAmountLabel(field: LinkedGoalField | null, language: string | null | undefined): string {
+  if (field === "savings") return translateAppText(language, "goals.detail.currentSavings");
+  if (field === "emergency") return translateAppText(language, "goals.detail.currentEmergency");
+  if (field === "investment") return translateAppText(language, "goals.detail.currentInvestments");
+  return translateAppText(language, "goals.detail.currentProgress");
 }
 
-function getLinkedGoalAmountHint(field: LinkedGoalField | null): string {
+function getLinkedGoalAmountHint(field: LinkedGoalField | null, language: string | null | undefined): string {
   if (!field) {
-    return "Linked to settings balances and monthly allocations";
+    return translateAppText(language, "goals.detail.currentProgressHint");
   }
-  return "Saves to Money settings so linked balances and sacrifices stay in sync.";
+  return translateAppText(language, "goals.detail.currentProgressHintSavings");
 }
 
 type GoalDetailRoute = RouteProp<RootStackParamList, "GoalDetail">;
@@ -97,9 +104,10 @@ export function useGoalDetailScreenController(params: GoalDetailRoute["params"])
     const nextEffectiveHomepageGoalIds = new Set(getEffectiveHomepageGoals(dashboardGoals, nextSettings?.homepageGoalIds).map((item) => item.id));
     const nextCategory = String(nextGoal.category ?? "").trim().toLowerCase();
     const nextCurrentAmount = resolveGoalCurrentAmount(nextCategory, nextGoal.currentAmount, nextSettings);
+    const language = nextSettings?.language;
     setGoal(nextGoal);
-    setTitle(String(nextGoal.title ?? ""));
-    setDescription(String(nextGoal.description ?? ""));
+    setTitle(translateGoalTitle(nextGoal.title, language));
+    setDescription(translateGoalDescription(nextGoal.description, language));
     setTargetAmount(nextGoal.targetAmount ? String(nextGoal.targetAmount) : "");
     setTargetYear(nextGoal.targetYear ? String(nextGoal.targetYear) : "");
     setCurrentAmountDraft(asMoneyText(nextCurrentAmount));
@@ -133,8 +141,10 @@ export function useGoalDetailScreenController(params: GoalDetailRoute["params"])
 
   const isDirty = useMemo(() => {
     if (!goal) return false;
+    const language = settings?.language;
     const linkedGoalField = resolveLinkedGoalField(goal.category);
-    const currentDescription = goal.description ?? "";
+    const currentTitle = translateGoalTitle(goal.title, language);
+    const currentDescription = translateGoalDescription(goal.description, language);
     const currentTargetAmount = goal.targetAmount ? String(goal.targetAmount) : "";
     const currentTargetYear = goal.targetYear ? String(goal.targetYear) : "";
     const currentShowOnHome = effectiveHomepageGoalIds.has(goal.id);
@@ -146,7 +156,7 @@ export function useGoalDetailScreenController(params: GoalDetailRoute["params"])
     const currentAmountChanged = linkedGoalField
       ? Math.abs(currentAmountValue - currentAmountSource) > 0.0001
       : false;
-    return title.trim() !== goal.title
+    return title.trim() !== currentTitle
       || description.trim() !== currentDescription
       || targetAmount.trim() !== currentTargetAmount
       || targetYear.trim() !== currentTargetYear
@@ -159,28 +169,41 @@ export function useGoalDetailScreenController(params: GoalDetailRoute["params"])
 
     const linkedGoalField = resolveLinkedGoalField(goal.category);
     const linkedBalanceField = linkedGoalField ? mapSavingsFieldToBalanceField(linkedGoalField) : null;
+    const language = settings?.language;
 
     const nextTitle = title.trim();
     if (!nextTitle) {
-      Alert.alert("Goal title required", "Please enter a goal name.");
+      Alert.alert(
+        translateAppText(language, "goals.alert.titleRequiredTitle"),
+        translateAppText(language, "goals.alert.titleRequiredMessage"),
+      );
       return;
     }
 
     const nextTargetAmount = parseAmount(targetAmount);
     if (typeof nextTargetAmount === "undefined") {
-      Alert.alert("Invalid target amount", "Please enter a valid target amount.");
+      Alert.alert(
+        translateAppText(language, "goals.alert.invalidTargetAmountTitle"),
+        translateAppText(language, "goals.alert.invalidTargetAmountMessage"),
+      );
       return;
     }
 
     const nextTargetYear = parseYear(targetYear);
     if (typeof nextTargetYear === "undefined") {
-      Alert.alert("Invalid target year", "Please enter a valid year or leave it blank.");
+      Alert.alert(
+        translateAppText(language, "goals.alert.invalidTargetYearTitle"),
+        translateAppText(language, "goals.alert.invalidTargetYearMessage"),
+      );
       return;
     }
 
     const budgetPlanId = dashboard?.budgetPlanId ?? goal.budgetPlanId ?? null;
     if (linkedBalanceField && !budgetPlanId) {
-      Alert.alert("Settings unavailable", "Please reopen this goal and try again.");
+      Alert.alert(
+        translateAppText(language, "goals.error.settingsUnavailableTitle"),
+        translateAppText(language, "goals.error.settingsUnavailableMessage"),
+      );
       return;
     }
 
@@ -188,7 +211,10 @@ export function useGoalDetailScreenController(params: GoalDetailRoute["params"])
     if (linkedBalanceField) {
       const parsedCurrentAmount = parseAmount(currentAmountDraft);
       if (typeof parsedCurrentAmount === "undefined") {
-        Alert.alert("Invalid current amount", "Please enter a valid current amount.");
+        Alert.alert(
+          translateAppText(language, "goals.alert.invalidCurrentAmountTitle"),
+          translateAppText(language, "goals.alert.invalidCurrentAmountMessage"),
+        );
         return;
       }
       nextCurrentAmount = parsedCurrentAmount ?? 0;
@@ -209,17 +235,22 @@ export function useGoalDetailScreenController(params: GoalDetailRoute["params"])
     }
 
     if (showOnHome && !currentEffectiveHomepageGoalIds.includes(goal.id) && currentEffectiveHomepageGoalIds.length >= 2) {
-      Alert.alert("Home goals limit", "You can show up to two goals on Home. Remove one there first.");
+      Alert.alert(
+        translateAppText(language, "goals.error.homeLimitTitle"),
+        translateAppText(language, "goals.error.homeLimitMessage"),
+      );
       return;
     }
 
     setSaving(true);
     try {
+      const canonicalTitle = canonicalizeGoalTitle(nextTitle, language);
+      const canonicalDescription = canonicalizeGoalDescription(description.trim(), language);
       await updateGoal({
         id: goal.id,
         changes: {
-          title: nextTitle,
-          description: description.trim() ? description.trim() : null,
+          title: canonicalTitle,
+          description: canonicalDescription ? canonicalDescription : null,
           targetAmount: nextTargetAmount,
           targetYear: nextTargetYear,
         },
@@ -238,7 +269,7 @@ export function useGoalDetailScreenController(params: GoalDetailRoute["params"])
       await refreshBootstrap({ force: true });
       navigation.goBack();
     } catch (err: unknown) {
-      Alert.alert("Failed to save goal", getMobileApiErrorMessage(err, "Unknown error"));
+      Alert.alert(translateAppText(language, "goals.error.saveFailed"), getMobileApiErrorMessage(err, "Unknown error"));
     } finally {
       setSaving(false);
     }
@@ -262,7 +293,7 @@ export function useGoalDetailScreenController(params: GoalDetailRoute["params"])
       await refreshBootstrap({ force: true });
       navigation.goBack();
     } catch (err: unknown) {
-      Alert.alert("Failed to delete goal", getMobileApiErrorMessage(err, "Unknown error"));
+      Alert.alert(translateAppText(settings?.language, "goals.error.deleteFailed"), getMobileApiErrorMessage(err, "Unknown error"));
     } finally {
       setDeleting(false);
       setDeleteConfirmOpen(false);
@@ -284,8 +315,8 @@ export function useGoalDetailScreenController(params: GoalDetailRoute["params"])
   return {
     currentAmountDraft,
     currentAmountEditable: Boolean(linkedGoalField),
-    currentAmountHint: getLinkedGoalAmountHint(linkedGoalField),
-    currentAmountLabel: getLinkedGoalAmountLabel(linkedGoalField),
+    currentAmountHint: getLinkedGoalAmountHint(linkedGoalField, settings?.language),
+    currentAmountLabel: getLinkedGoalAmountLabel(linkedGoalField, settings?.language),
     currentAmountNumber,
     deleteConfirmOpen,
     deleting,

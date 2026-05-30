@@ -1,6 +1,7 @@
 import React from "react";
 import { Text, TextInput, View } from "react-native";
 
+import { useAppTranslation } from "@/hooks";
 import type { GoalDetailFormProps } from "@/types";
 import { fmt } from "@/lib/formatting";
 import { T } from "@/lib/theme";
@@ -28,26 +29,27 @@ export default function GoalDetailForm(props: GoalDetailFormProps) {
     onTargetAmountChange,
     onTargetYearChange,
   } = props;
+  const { t } = useAppTranslation();
 
   return (
     <View style={styles.card}>
-      <Text style={styles.sectionTitle}>Goal details</Text>
+      <Text style={styles.sectionTitle}>{t("goals.detail.title")}</Text>
 
-      <Text style={styles.inputLabel}>Goal name</Text>
+      <Text style={styles.inputLabel}>{t("goals.field.name")}</Text>
       <TextInput
         value={title}
         onChangeText={onTitleChange}
-        placeholder="Goal name"
+        placeholder={t("goals.field.name")}
         placeholderTextColor={T.textMuted}
         style={styles.input}
         editable={!disabled}
       />
 
-      <Text style={styles.inputLabel}>Description</Text>
+      <Text style={styles.inputLabel}>{t("goals.field.description")}</Text>
       <TextInput
         value={description}
         onChangeText={onDescriptionChange}
-        placeholder="Optional notes"
+        placeholder={t("goals.field.descriptionPlaceholder")}
         placeholderTextColor={T.textMuted}
         style={[styles.input, styles.inputMultiline]}
         editable={!disabled}
@@ -57,12 +59,12 @@ export default function GoalDetailForm(props: GoalDetailFormProps) {
 
       <View style={styles.row2}>
         <View style={styles.rowItem}>
-          <Text style={styles.inputLabel}>Target amount</Text>
+          <Text style={styles.inputLabel}>{t("goals.field.targetAmount")}</Text>
           <MoneyInput
             currency={currency}
             value={targetAmount}
             onChangeValue={onTargetAmountChange}
-            placeholder="e.g. 10000"
+            placeholder={t("goals.field.targetAmountPlaceholder")}
             editable={!disabled}
           />
         </View>
@@ -88,11 +90,11 @@ export default function GoalDetailForm(props: GoalDetailFormProps) {
         </View>
       </View>
 
-      <Text style={styles.inputLabel}>Target year</Text>
+      <Text style={styles.inputLabel}>{t("goals.field.targetYear")}</Text>
       <NumericInput
         value={targetYear}
         onChangeText={onTargetYearChange}
-        placeholder="e.g. 2030"
+        placeholder={t("goals.field.targetYearPlaceholder")}
         placeholderTextColor={T.textMuted}
         style={styles.input}
         keyboardType="number-pad"

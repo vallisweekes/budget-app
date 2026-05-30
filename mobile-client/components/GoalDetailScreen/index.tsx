@@ -5,7 +5,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRoute } from "@react-navigation/native";
 
 import type { GoalDetailRoute } from "@/types";
-import { useGoalDetailScreenController, useTopHeaderOffset } from "@/hooks";
+import { useAppTranslation, useGoalDetailScreenController, useTopHeaderOffset } from "@/hooks";
+import { translateGoalTitle } from "@/lib/i18n";
 import { T } from "@/lib/theme";
 import DeleteConfirmSheet from "@/components/Shared/DeleteConfirmSheet";
 
@@ -18,6 +19,7 @@ import { styles } from "./style";
 export default function GoalDetailScreen() {
   const { params } = useRoute<GoalDetailRoute>();
   const topHeaderOffset = useTopHeaderOffset();
+  const { t } = useAppTranslation();
   const {
     currentAmountDraft,
     currentAmountEditable,
@@ -57,7 +59,7 @@ export default function GoalDetailScreen() {
       <SafeAreaView style={[styles.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
         <View style={styles.center}>
           <ActivityIndicator size="large" color={T.accent} />
-          <Text style={styles.info}>Loading goal…</Text>
+          <Text style={styles.info}>{t("goals.loading")}</Text>
         </View>
       </SafeAreaView>
     );
@@ -68,9 +70,9 @@ export default function GoalDetailScreen() {
       <SafeAreaView style={[styles.safe, { paddingTop: topHeaderOffset }]} edges={[]}>
         <View style={styles.center}>
           <Ionicons name="cloud-offline-outline" size={46} color={T.textDim} />
-          <Text style={styles.error}>{error ?? "Goal not found"}</Text>
+          <Text style={styles.error}>{error ?? t("goals.error.notFound")}</Text>
           <Pressable onPress={() => void load({ force: true })} style={styles.retryBtn}>
-            <Text style={styles.retryTxt}>Retry</Text>
+            <Text style={styles.retryTxt}>{t("common.retry")}</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -85,7 +87,7 @@ export default function GoalDetailScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load({ force: true })} tintColor={T.accent} />}
         >
           <GoalDetailHero
-            title={goal.title}
+            title={title || translateGoalTitle(goal.title, settings?.language)}
             currentAmount={typeof currentAmountNumber === "number" ? currentAmountNumber : 0}
             targetAmount={typeof targetAmountNumber === "number" ? targetAmountNumber : 0}
             currency={settings?.currency}
@@ -129,8 +131,8 @@ export default function GoalDetailScreen() {
 
       <DeleteConfirmSheet
         visible={deleteConfirmOpen}
-        title="Delete Goal"
-        description={`Are you sure you want to delete "${goal.title}"? This cannot be undone.`}
+        title={t("goals.detail.deleteTitle")}
+        description={t("goals.detail.deleteDescription", { title: title || translateGoalTitle(goal.title, settings?.language) })}
         isBusy={deleting}
         onClose={() => setDeleteConfirmOpen(false)}
         onConfirm={() => void handleDelete()}

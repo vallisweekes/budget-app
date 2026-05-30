@@ -7,8 +7,10 @@ import { useLocalSearchParams, useRouter, useSegments } from "expo-router";
 import TopHeader from "@/components/Shared/TopHeader";
 import { useActiveBudgetPlan } from "@/context/ActiveBudgetPlanContext";
 import { useAuth } from "@/context/AuthContext";
+import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { useAppTranslation } from "@/hooks";
 import { markSkipExpensesFocusReload } from "@/lib/helpers/expensesFocusReload";
+import { translateGoalTitle } from "@/lib/i18n";
 import { subscribeNotificationInbox } from "@/lib/notificationInbox";
 import { T } from "@/lib/theme";
 import { IncomeMonthSwitcher } from "@/navigation/routerHeaders";
@@ -37,6 +39,7 @@ function getRouteParamNumber(routeParams: Record<string, unknown>, key: string):
 
 export default function TabRouteHeader() {
   const { t } = useAppTranslation();
+  const { settings } = useBootstrapData();
   const router = useRouter();
   const navigation = useNavigation<any>();
   const segments = useSegments() as string[];
@@ -197,11 +200,14 @@ export default function TabRouteHeader() {
               : isSettings && settingsSubTab === "subscription"
                 ? t("settings.subscriptionTitle")
               : isGoalDetail
-                ? getStringParam(params.goalTitle) ?? (typeof routeParams?.goalTitle === "string" ? routeParams.goalTitle : "Goal")
+                ? translateGoalTitle(
+                  getStringParam(params.goalTitle) ?? (typeof routeParams?.goalTitle === "string" ? routeParams.goalTitle : t("tabs.goals")),
+                  settings?.language,
+                )
               : isGoalsProjection
-                ? "Projection"
+                ? t("tabs.projection")
               : isGoals
-                ? "Goals"
+                ? t("tabs.goals")
                 : undefined;
 
   const pushRoute = (pathname: string, nextParams?: Record<string, string | number | undefined>) => {

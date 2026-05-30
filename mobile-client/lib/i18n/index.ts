@@ -292,6 +292,60 @@ const englishTranslations = {
   "analytics.debt.dueDistributionTitle": "Debt Due Distribution",
   "analytics.debt.emptyYear": "No active debt balances.",
   "analytics.debt.emptyMonth": "No debt payments due this month.",
+  "goals.loading": "Loading goals...",
+  "goals.empty": "No goals yet.",
+  "goals.section.noTargetYear": "No target year",
+  "goals.section.yearGoals": "{year} Goals",
+  "goals.card.targetYear": "Target {year}",
+  "goals.card.setTargetYear": "Set target year",
+  "goals.card.progress": "Progress",
+  "goals.card.complete": "{percent}% complete",
+  "goals.modal.addTitle": "Add goal",
+  "goals.field.name": "Goal name",
+  "goals.field.namePlaceholder": "e.g. Emergency Fund",
+  "goals.field.description": "Description",
+  "goals.field.descriptionPlaceholder": "Optional notes",
+  "goals.field.targetAmount": "Target amount",
+  "goals.field.currentAmount": "Current amount",
+  "goals.field.targetYear": "Target year",
+  "goals.field.targetYearOptional": "Target year (optional)",
+  "goals.field.targetAmountPlaceholder": "e.g. 40000",
+  "goals.field.currentAmountPlaceholder": "e.g. 200",
+  "goals.field.targetYearPlaceholder": "e.g. 2035",
+  "goals.detail.title": "Goal details",
+  "goals.detail.homeTitle": "Show on Home",
+  "goals.detail.pinHome": "Pin this goal to the Home dashboard summary.",
+  "goals.detail.removeHome": "Remove this goal from the Home dashboard summary.",
+  "goals.detail.add": "Add",
+  "goals.detail.remove": "Remove",
+  "goals.detail.target": "Target {amount}",
+  "goals.detail.currentProgress": "Current progress",
+  "goals.detail.currentSavings": "Current savings",
+  "goals.detail.currentEmergency": "Current emergency funds",
+  "goals.detail.currentInvestments": "Current investments",
+  "goals.detail.currentProgressHint": "Linked to settings balances and monthly allocations",
+  "goals.detail.currentProgressHintSavings": "Saves to Money settings so linked balances and sacrifices stay in sync.",
+  "goals.detail.deleteTitle": "Delete Goal",
+  "goals.detail.deleteDescription": "Are you sure you want to delete \"{title}\"? This cannot be undone.",
+  "goals.error.loadFailed": "Failed to load goals",
+  "goals.error.detailLoadFailed": "Failed to load goal",
+  "goals.error.notFound": "Goal not found",
+  "goals.error.addFailed": "Failed to add goal",
+  "goals.error.saveFailed": "Failed to save goal",
+  "goals.error.deleteFailed": "Failed to delete goal",
+  "goals.error.settingsUnavailableTitle": "Settings unavailable",
+  "goals.error.settingsUnavailableMessage": "Please reopen this goal and try again.",
+  "goals.error.homeLimitTitle": "Home goals limit",
+  "goals.error.homeLimitMessage": "You can show up to two goals on Home. Remove one there first.",
+  "goals.alert.titleRequiredTitle": "Goal title required",
+  "goals.alert.titleRequiredMessage": "Please enter a goal name.",
+  "goals.alert.invalidTargetAmountTitle": "Invalid target amount",
+  "goals.alert.invalidTargetAmountMessage": "Please enter a valid target amount.",
+  "goals.alert.invalidCurrentAmountTitle": "Invalid current amount",
+  "goals.alert.invalidCurrentAmountMessage": "Please enter a valid current amount.",
+  "goals.alert.invalidTargetYearTitle": "Invalid target year",
+  "goals.alert.invalidTargetYearMessage": "Please enter a valid year or leave it blank.",
+  "goals.alert.invalidTargetYearAddMessage": "Please enter a valid year (or leave it blank).",
   "settings.locale.sectionTitle": "Locale",
   "settings.locale.countryLabel": "Locale",
   "settings.locale.languageLabel": "Language",
@@ -748,6 +802,60 @@ const translationsByLanguage: Partial<Record<SupportedLanguageCode, TranslationD
     "analytics.debt.dueDistributionTitle": "Verteilung falliger Schulden",
     "analytics.debt.emptyYear": "Keine aktiven Schuldsalden.",
     "analytics.debt.emptyMonth": "Diesen Monat sind keine Schuldzahlungen fallig.",
+    "goals.loading": "Ziele werden geladen...",
+    "goals.empty": "Noch keine Ziele.",
+    "goals.section.noTargetYear": "Kein Zieljahr",
+    "goals.section.yearGoals": "Ziele {year}",
+    "goals.card.targetYear": "Ziel {year}",
+    "goals.card.setTargetYear": "Zieljahr festlegen",
+    "goals.card.progress": "Fortschritt",
+    "goals.card.complete": "{percent}% abgeschlossen",
+    "goals.modal.addTitle": "Ziel hinzufugen",
+    "goals.field.name": "Zielname",
+    "goals.field.namePlaceholder": "z. B. Notfallfonds",
+    "goals.field.description": "Beschreibung",
+    "goals.field.descriptionPlaceholder": "Optionale Notizen",
+    "goals.field.targetAmount": "Zielbetrag",
+    "goals.field.currentAmount": "Aktueller Betrag",
+    "goals.field.targetYear": "Zieljahr",
+    "goals.field.targetYearOptional": "Zieljahr (optional)",
+    "goals.field.targetAmountPlaceholder": "z. B. 40000",
+    "goals.field.currentAmountPlaceholder": "z. B. 200",
+    "goals.field.targetYearPlaceholder": "z. B. 2035",
+    "goals.detail.title": "Zieldetails",
+    "goals.detail.homeTitle": "Auf Start anzeigen",
+    "goals.detail.pinHome": "Dieses Ziel an die Start-Zusammenfassung anheften.",
+    "goals.detail.removeHome": "Dieses Ziel aus der Start-Zusammenfassung entfernen.",
+    "goals.detail.add": "Hinzufugen",
+    "goals.detail.remove": "Entfernen",
+    "goals.detail.target": "Ziel {amount}",
+    "goals.detail.currentProgress": "Aktueller Fortschritt",
+    "goals.detail.currentSavings": "Aktuelle Ersparnisse",
+    "goals.detail.currentEmergency": "Aktueller Notfallfonds",
+    "goals.detail.currentInvestments": "Aktuelle Investitionen",
+    "goals.detail.currentProgressHint": "Mit Einstellungen-Salden und monatlichen Zuweisungen verknupft",
+    "goals.detail.currentProgressHintSavings": "Wird in die Geld-Einstellungen gespeichert, damit verknupfte Salden und Opfer synchron bleiben.",
+    "goals.detail.deleteTitle": "Ziel loschen",
+    "goals.detail.deleteDescription": "Mochtest du \"{title}\" wirklich loschen? Das kann nicht ruckgangig gemacht werden.",
+    "goals.error.loadFailed": "Ziele konnten nicht geladen werden",
+    "goals.error.detailLoadFailed": "Ziel konnte nicht geladen werden",
+    "goals.error.notFound": "Ziel nicht gefunden",
+    "goals.error.addFailed": "Ziel konnte nicht hinzugefugt werden",
+    "goals.error.saveFailed": "Ziel konnte nicht gespeichert werden",
+    "goals.error.deleteFailed": "Ziel konnte nicht geloscht werden",
+    "goals.error.settingsUnavailableTitle": "Einstellungen nicht verfugbar",
+    "goals.error.settingsUnavailableMessage": "Bitte offne dieses Ziel erneut und versuche es noch einmal.",
+    "goals.error.homeLimitTitle": "Startseiten-Limit",
+    "goals.error.homeLimitMessage": "Du kannst bis zu zwei Ziele auf Start anzeigen. Entferne dort zuerst eines.",
+    "goals.alert.titleRequiredTitle": "Zielname erforderlich",
+    "goals.alert.titleRequiredMessage": "Bitte gib einen Zielnamen ein.",
+    "goals.alert.invalidTargetAmountTitle": "Ungultiger Zielbetrag",
+    "goals.alert.invalidTargetAmountMessage": "Bitte gib einen gultigen Zielbetrag ein.",
+    "goals.alert.invalidCurrentAmountTitle": "Ungultiger aktueller Betrag",
+    "goals.alert.invalidCurrentAmountMessage": "Bitte gib einen gultigen aktuellen Betrag ein.",
+    "goals.alert.invalidTargetYearTitle": "Ungultiges Zieljahr",
+    "goals.alert.invalidTargetYearMessage": "Bitte gib ein gultiges Jahr ein oder lass das Feld leer.",
+    "goals.alert.invalidTargetYearAddMessage": "Bitte gib ein gultiges Jahr ein oder lass das Feld leer.",
     "settings.locale.sectionTitle": "Sprache & Region",
     "settings.locale.countryLabel": "Land",
     "settings.locale.languageLabel": "Sprache",
@@ -946,11 +1054,23 @@ const goalTitleTranslationsByLanguage: Partial<Record<SupportedLanguageCode, Rec
     "emergency fund": "Notfallfonds",
     "emergency funds": "Notfallfonds",
     "emergency fund goal": "Notfallfonds-Ziel",
+    stocks: "Aktien",
+    crypto: "Krypto",
+    "pay back debts": "Schulden abbauen",
     "savings": "Ersparnisse",
     "savings goal": "Sparziel",
     "investment": "Investition",
     "investments": "Investitionen",
     "investment goal": "Investitionsziel",
+    "stocks investments": "Aktieninvestitionen",
+  },
+};
+
+const goalDescriptionTranslationsByLanguage: Partial<Record<SupportedLanguageCode, Record<string, string>>> = {
+  de: {
+    "backfilled from an older custom sacrifice. update the target amount and year if needed.": "Aus einem alteren benutzerdefinierten Opfer ubernommen. Passe Zielbetrag und Jahr bei Bedarf an.",
+    "long-term savings target for financial security": "Langfristiges Sparziel fur finanzielle Sicherheit",
+    "focus on reducing credit card and loan balances this year": "Konzentriere dich dieses Jahr auf den Abbau von Kreditkarten- und Darlehenssalden",
   },
 };
 
@@ -1015,6 +1135,43 @@ export function translateGoalTitle(
   const normalizedLanguage = normalizeAppLanguage(language);
   const normalizedTitle = rawTitle.toLowerCase();
   return goalTitleTranslationsByLanguage[normalizedLanguage]?.[normalizedTitle] ?? rawTitle;
+}
+
+export function translateGoalDescription(
+  description: string | null | undefined,
+  language: string | null | undefined,
+): string {
+  const rawDescription = String(description ?? "").trim();
+  if (!rawDescription) return rawDescription;
+  const normalizedLanguage = normalizeAppLanguage(language);
+  const normalizedDescription = rawDescription.toLowerCase();
+  return goalDescriptionTranslationsByLanguage[normalizedLanguage]?.[normalizedDescription] ?? rawDescription;
+}
+
+export function canonicalizeGoalTitle(
+  title: string | null | undefined,
+  language: string | null | undefined,
+): string {
+  const rawTitle = String(title ?? "").trim();
+  if (!rawTitle) return rawTitle;
+  const normalizedLanguage = normalizeAppLanguage(language);
+  if (normalizedLanguage === DEFAULT_LANGUAGE) return rawTitle;
+  const translations = goalTitleTranslationsByLanguage[normalizedLanguage] ?? {};
+  const matchedEntry = Object.entries(translations).find(([, value]) => value.toLowerCase() === rawTitle.toLowerCase());
+  return matchedEntry?.[0] ?? rawTitle;
+}
+
+export function canonicalizeGoalDescription(
+  description: string | null | undefined,
+  language: string | null | undefined,
+): string {
+  const rawDescription = String(description ?? "").trim();
+  if (!rawDescription) return rawDescription;
+  const normalizedLanguage = normalizeAppLanguage(language);
+  if (normalizedLanguage === DEFAULT_LANGUAGE) return rawDescription;
+  const translations = goalDescriptionTranslationsByLanguage[normalizedLanguage] ?? {};
+  const matchedEntry = Object.entries(translations).find(([, value]) => value.toLowerCase() === rawDescription.toLowerCase());
+  return matchedEntry?.[0] ?? rawDescription;
 }
 
 export function translateIncomeSourceName(
