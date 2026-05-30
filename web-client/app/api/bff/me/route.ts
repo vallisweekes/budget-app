@@ -27,50 +27,64 @@ function latestDate(...dates: Array<Date | null | undefined>): Date | null {
   return valid.reduce((latest, current) => (current.getTime() > latest.getTime() ? current : latest));
 }
 
+function scheduleMobileSessionRepair(params: {
+  userId: string;
+  sessionId: string;
+}) {
+  void bestEffortWithin((async () => {
+    try {
+      const sessionState = await touchMobileAuthSessionAndGetState({
+        userId: params.userId,
+        sessionId: params.sessionId,
+      });
+
+      let shouldRunRepair = sessionState.isFirstSeen;
+
+      if (!shouldRunRepair) {
+        const onboardingState = await prisma.userOnboardingProfile.findUnique({
+          where: { userId: params.userId },
+          select: { status: true, completedAt: true, updatedAt: true },
+        }).catch(() => null);
+
+        const repairReferenceAt = onboardingState?.status === "completed"
+          ? latestDate(onboardingState.completedAt, onboardingState.updatedAt)
+          : null;
+        const lastSeenReferenceAt = sessionState.previousLastSeenAt ?? sessionState.createdAt;
+
+        shouldRunRepair = Boolean(
+          repairReferenceAt &&
+          lastSeenReferenceAt &&
+          lastSeenReferenceAt.getTime() < repairReferenceAt.getTime()
+        );
+      }
+
+      if (!shouldRunRepair) {
+        return;
+      }
+
+      await runOnboardingRepairPass(params.userId);
+      await invalidateProfileCache(params.userId).catch(() => undefined);
+    } catch (error) {
+      console.error("Onboarding repair pass failed:", error);
+    }
+  })(), 250);
+}
+
 export async function GET(request: Request) {
   try {
     const identity = await getSessionIdentity(request);
     if (!identity?.userId) return unauthorized();
 
-    // Repair older pre-start seeded rows the first time a mobile session is seen,
-    // and once more if onboarding completed after the session was already active.
-    if (identity.sessionId) {
-      try {
-        const sessionState = await touchMobileAuthSessionAndGetState({
-          userId: identity.userId,
-          sessionId: identity.sessionId,
-        });
-
-        let shouldRunRepair = sessionState.isFirstSeen;
-
-        if (!shouldRunRepair) {
-          const onboardingState = await prisma.userOnboardingProfile.findUnique({
-            where: { userId: identity.userId },
-            select: { status: true, completedAt: true, updatedAt: true },
-          }).catch(() => null);
-
-          const repairReferenceAt = onboardingState?.status === "completed"
-            ? latestDate(onboardingState.completedAt, onboardingState.updatedAt)
-            : null;
-          const lastSeenReferenceAt = sessionState.previousLastSeenAt ?? sessionState.createdAt;
-
-          shouldRunRepair = Boolean(
-            repairReferenceAt &&
-            lastSeenReferenceAt &&
-            lastSeenReferenceAt.getTime() < repairReferenceAt.getTime()
-          );
-        }
-
-        if (shouldRunRepair) {
-          await runOnboardingRepairPass(identity.userId);
-        }
-      } catch (error) {
-        console.error("Onboarding repair pass failed:", error);
-      }
-    }
-
     const profileCacheKey = getProfileCacheKey(identity.userId);
     const cachedProfile = await getJsonCache<Record<string, unknown>>(profileCacheKey);
+
+    if (identity.sessionId) {
+      scheduleMobileSessionRepair({
+        userId: identity.userId,
+        sessionId: identity.sessionId,
+      });
+    }
+
     if (cachedProfile) {
       return NextResponse.json(cachedProfile, {
         headers: {

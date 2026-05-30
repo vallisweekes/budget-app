@@ -59,6 +59,21 @@ async function hasBasicSetup(preferredPlanId: string | null): Promise<boolean> {
   return Boolean(income) && Boolean(expense);
 }
 
+function shouldDeriveLegacyProfile(profile: ReturnType<typeof mapStoredProfile> | null): boolean {
+  if (!profile) return true;
+
+  return [
+    profile.payDay,
+    profile.payFrequency,
+    profile.billFrequency,
+    profile.monthlySalary,
+    profile.expenseOneName,
+    profile.allowanceAmount,
+    profile.hasDebtsToManage,
+    profile.debtAmount,
+  ].some((value) => value == null || (typeof value === "string" && value.trim().length === 0));
+}
+
 export async function getOnboardingForUser(userId: string) {
   const [profile, preferredPlanId, userIsOnboarded] = await Promise.all([
     onboardingDelegate(prisma).findUnique({ where: { userId } }),
@@ -67,7 +82,10 @@ export async function getOnboardingForUser(userId: string) {
   ]);
   const hasBasics = await hasBasicSetup(preferredPlanId);
   const shouldBypassOnboarding = hasBasics || userIsOnboarded === true;
-  const derivedLegacyProfile = shouldBypassOnboarding ? await deriveLegacyOnboardingProfile(userId, preferredPlanId) : EMPTY_ONBOARDING_PROFILE;
+  const mappedProfile = profile ? mapStoredProfile(profile) : null;
+  const derivedLegacyProfile = shouldBypassOnboarding && shouldDeriveLegacyProfile(mappedProfile)
+    ? await deriveLegacyOnboardingProfile(userId, preferredPlanId)
+    : EMPTY_ONBOARDING_PROFILE;
 
   if (shouldBypassOnboarding) {
     if (userIsOnboarded !== true && hasBasics) await setUserIsOnboardedTrue(userId);
@@ -82,7 +100,7 @@ export async function getOnboardingForUser(userId: string) {
     return {
       required: false,
       completed: profile.status === "completed",
-      profile: normalizeReturnedProfile(mergeMissingProfileFields(mapStoredProfile(profile), derivedLegacyProfile)),
+      profile: normalizeReturnedProfile(mergeMissingProfileFields(mappedProfile ?? EMPTY_ONBOARDING_PROFILE, derivedLegacyProfile)),
       occupations: COMMON_OCCUPATIONS,
     };
   }

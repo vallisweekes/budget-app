@@ -8,23 +8,6 @@ export type PeriodAnchor = {
   year: number;
 };
 
-function shiftAnchor(anchor: PeriodAnchor, delta: number): PeriodAnchor {
-  let month = anchor.month + delta;
-  let year = anchor.year;
-
-  while (month > 12) {
-    month -= 12;
-    year += 1;
-  }
-
-  while (month < 1) {
-    month += 12;
-    year -= 1;
-  }
-
-  return { month, year };
-}
-
 export async function resolveDisplayedPayPeriodAnchor(params: {
   budgetPlanId?: string;
   payDate: number;
@@ -58,18 +41,5 @@ export async function resolveDisplayedPayPeriodAnchor(params: {
     return activeAnchor;
   }
 
-  const outstandingCount = (params.dashboard?.categoryData ?? []).reduce((count, category) => {
-    const unpaidInCategory = (category.expenses ?? []).reduce((categoryCount, expense) => {
-      const amount = Number(expense.amount ?? 0);
-      const paidAmount = Number(expense.paidAmount ?? 0);
-      return amount - paidAmount > 0.0001 ? categoryCount + 1 : categoryCount;
-    }, 0);
-    return count + unpaidInCategory;
-  }, 0);
-
-  if (outstandingCount > 0) {
-    return activeAnchor;
-  }
-
-  return shiftAnchor(activeAnchor, 1);
+  return activeAnchor;
 }

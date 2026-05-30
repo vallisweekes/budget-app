@@ -13,6 +13,7 @@ import type { MainTabScreenProps } from "@/navigation/types";
 import type { QuickPaymentActionItem } from "@/types";
 import { buildDashboardDerived } from "@/components/DashboardScreen/derived";
 import { GOAL_CARD, GOAL_GAP } from "@/components/DashboardScreen/style";
+import { usePostDashboardWarmup } from "../usePostDashboardWarmup";
 
 type DashboardScreenProps = MainTabScreenProps<"Dashboard">;
 type CategorySheetState = { id: string; name: string } | null;
@@ -94,6 +95,12 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
     planCreatedAt,
   });
   const resolvedDashboard = useMemo<DashboardData | null>(() => dashboard ?? null, [dashboard]);
+
+  usePostDashboardWarmup({
+    dashboard: resolvedDashboard,
+    settings,
+    isFocused,
+  });
 
   const hasBudgetHeroData = Boolean(resolvedDashboard);
   const hasRenderableHeroData = hasBudgetHeroData;
