@@ -304,6 +304,7 @@ export async function GET(req: NextRequest) {
 			payFrequency,
 			payAnchorDate,
 			planCreatedAt: effectiveCreatedAt,
+			ensureDefaultCategories: false,
 			skipDirectDebitSync: true,
 		}));
 		const { payPeriodLabel, previousPayPeriodLabel } = await timeSection(timings, "pay_labels", async () =>
@@ -334,6 +335,7 @@ export async function GET(req: NextRequest) {
 				const result = await bestEffortWithin(getDebtSummaryForPlan(budgetPlanId, {
 					includeExpenseDebts: true,
 					ensureSynced: false,
+					recomputePaidAmounts: false,
 				}), 1500);
 
 				return result ?? fallback;
@@ -667,7 +669,7 @@ export async function GET(req: NextRequest) {
 						existingTips: expenseInsights.recapTips,
 					},
 					maxTips: 4,
-				}), 1200);
+				}), 350);
 			} catch (err) {
 				console.error("Dashboard: AI tips failed:", err);
 				return null;

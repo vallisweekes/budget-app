@@ -253,6 +253,7 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
     const controller = new AbortController();
     const timeoutMs = Math.max(1, options.timeoutMs ?? 25_000);
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    const requestStartedAt = Date.now();
 
     let response: Response;
     try {
@@ -266,6 +267,23 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
         body: options.body === undefined ? undefined : JSON.stringify(options.body),
         signal: controller.signal,
       });
+
+      if (__DEV__ && normalizedPath.startsWith("/api/bff/dashboard")) {
+        const clientDurationMs = Date.now() - requestStartedAt;
+        const serverDurationMs = response.headers.get("x-dashboard-total-ms");
+        const cacheStatus = response.headers.get("x-dashboard-cache");
+        const serverTiming = response.headers.get("server-timing");
+
+        console.info("[dashboard timing]", {
+          path: normalizedPath,
+          method,
+          status: response.status,
+          clientDurationMs,
+          serverDurationMs,
+          cacheStatus,
+          serverTiming,
+        });
+      }
     } catch (error) {
       if (isGet) {
         const persisted = await readOfflineApiCache<T>(requestKey);

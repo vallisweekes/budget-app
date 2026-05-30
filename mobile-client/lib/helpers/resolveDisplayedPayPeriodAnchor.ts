@@ -1,5 +1,4 @@
-import { apiFetch } from "@/lib/api";
-import type { ExpenseSummary } from "@/lib/apiTypes";
+import type { DashboardData } from "@/lib/apiTypes";
 import { buildPayPeriodFromMonthAnchor, getPayPeriodAnchorFromWindow, resolveActivePayPeriod, type PayFrequency } from "@/lib/payPeriods";
 
 export const DISPLAYED_PERIOD_NAV_CACHE_TTL_MS = 15_000;
@@ -27,11 +26,12 @@ function shiftAnchor(anchor: PeriodAnchor, delta: number): PeriodAnchor {
 }
 
 export async function resolveDisplayedPayPeriodAnchor(params: {
-  budgetPlanId: string;
+  budgetPlanId?: string;
   payDate: number;
   payAnchorDate?: string | null;
   payFrequency: PayFrequency;
   planCreatedAt?: Date | null;
+  dashboard?: DashboardData | null;
   now?: Date;
 }): Promise<PeriodAnchor> {
   const now = params.now ?? new Date();
@@ -58,19 +58,18 @@ export async function resolveDisplayedPayPeriodAnchor(params: {
     return activeAnchor;
   }
 
-  try {
-    const summary = await apiFetch<ExpenseSummary>(
-      `/api/bff/expenses/summary?month=${activeAnchor.month}&year=${activeAnchor.year}&scope=pay_period&budgetPlanId=${encodeURIComponent(params.budgetPlanId)}&includeBudgetOverview=1`,
-      { cacheTtlMs: DISPLAYED_PERIOD_NAV_CACHE_TTL_MS },
-    );
+  const outstandingCount = (params.dashboard?.categoryData ?? []).reduce((count, category) => {
+    const unpaidInCategory = (category.expenses ?? []).reduce((categoryCount, expense) => {
+      const amount = Number(expense.amount ?? 0);
+      const paidAmount = Number(expense.paidAmount ?? 0);
+      return amount - paidAmount > 0.0001 ? categoryCount + 1 : categoryCount;
+    }, 0);
+    return count + unpaidInCategory;
+  }, 0);
 
-    const hasOutstanding = Number(summary?.unpaidCount ?? 0) > 0;
-    if (hasOutstanding) {
-      return activeAnchor;
-    }
-
-    return shiftAnchor(activeAnchor, 1);
-  } catch {
+  if (outstandingCount > 0) {
     return activeAnchor;
   }
+
+  return shiftAnchor(activeAnchor, 1);
 }

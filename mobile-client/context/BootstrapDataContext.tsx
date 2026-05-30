@@ -17,6 +17,7 @@ type BootstrapDataContextValue = {
   settings: Settings | null;
   isLoading: boolean;
   isRefreshing: boolean;
+  isDashboardFetching: boolean;
   isRecoveringInitialLoad: boolean;
   error: Error | null;
   lastLoadedAt: number | null;
@@ -43,6 +44,7 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
   const settings = shouldSkip ? null : settingsQuery.data ?? profile?.settings ?? null;
   const hasSettingsData = Boolean(settings);
   const hasDashboardData = Boolean(dashboard);
+  const isDashboardFetching = !shouldSkip && Boolean(dashboardQuery.isLoading || dashboardQuery.isFetching);
   const shouldBlockInitialLoadUi = !authLoading && Boolean(token) && !onboarding.busy && !onboarding.required && !hasCompletedInitialLoad;
   const isWaitingForInitialSettings = !hasSettingsData && Boolean(settingsQuery.isLoading || settingsQuery.isFetching);
   const isWaitingForDashboard = !hasDashboardData && Boolean(dashboardQuery.isLoading || dashboardQuery.isFetching);
@@ -424,6 +426,7 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
       settings,
       isLoading,
       isRefreshing,
+      isDashboardFetching,
       isRecoveringInitialLoad,
       error,
       lastLoadedAt,
@@ -432,7 +435,7 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
       refreshSettings,
       ensureSettingsLoaded,
     }),
-    [dashboard, ensureLoaded, ensureSettingsLoaded, error, isLoading, isRecoveringInitialLoad, isRefreshing, lastLoadedAt, refresh, refreshSettings, settings]
+    [dashboard, ensureLoaded, ensureSettingsLoaded, error, isDashboardFetching, isLoading, isRecoveringInitialLoad, isRefreshing, lastLoadedAt, refresh, refreshSettings, settings]
   );
 
   return <BootstrapDataContext.Provider value={value}>{children}</BootstrapDataContext.Provider>;

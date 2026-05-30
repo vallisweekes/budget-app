@@ -22,10 +22,12 @@ export async function getDebtSummaryForPlan(
 	opts?: {
 		includeExpenseDebts?: boolean;
 		ensureSynced?: boolean;
+		recomputePaidAmounts?: boolean;
 	}
 ): Promise<DebtSummary> {
 	const includeExpenseDebts = opts?.includeExpenseDebts ?? false;
 	const ensureSynced = opts?.ensureSynced ?? true;
+	const recomputePaidAmounts = opts?.recomputePaidAmounts ?? true;
 
 	if (ensureSynced) {
 		if (includeExpenseDebts) {
@@ -52,26 +54,29 @@ export async function getDebtSummaryForPlan(
 		includeExpenseDebts ? getExpenseDebts(budgetPlanId) : Promise.resolve([]),
 	]);
 
-	// For regular (non-expense) debts, ensure `paidAmount` reflects recorded DebtPayment rows.
-	// This keeps web SSR views consistent with payment history and mobile.
 	const regularDebtsBase = allDebtsRaw.filter((d) => d.sourceType !== "expense");
-	const regularDebtIds = regularDebtsBase.map((d) => d.id);
-	const paidAggRows = regularDebtIds.length
-		? await prisma.debtPayment.groupBy({
-				by: ["debtId"],
-				where: { debtId: { in: regularDebtIds } },
-				_sum: { amount: true },
-		  })
-		: [];
-	const paidAllTimeByDebtId = new Map(
-		paidAggRows.map((row) => [row.debtId, Number(row._sum.amount ?? 0)])
-	);
-	const regularDebts: DebtItem[] = regularDebtsBase.map((d) => {
-		const computedPaid = paidAllTimeByDebtId.get(d.id);
-		return computedPaid == null || !Number.isFinite(computedPaid)
-			? d
-			: { ...d, paidAmount: computedPaid };
-	});
+	const regularDebts: DebtItem[] = recomputePaidAmounts
+		? await (async () => {
+			const regularDebtIds = regularDebtsBase.map((d) => d.id);
+			const paidAggRows = regularDebtIds.length
+				? await prisma.debtPayment.groupBy({
+						by: ["debtId"],
+						where: { debtId: { in: regularDebtIds } },
+						_sum: { amount: true },
+				  })
+				: [];
+			const paidAllTimeByDebtId = new Map(
+				paidAggRows.map((row) => [row.debtId, Number(row._sum.amount ?? 0)])
+			);
+
+			return regularDebtsBase.map((d) => {
+				const computedPaid = paidAllTimeByDebtId.get(d.id);
+				return computedPaid == null || !Number.isFinite(computedPaid)
+					? d
+					: { ...d, paidAmount: computedPaid };
+			});
+		})()
+		: regularDebtsBase;
 	const visibleExpenseDebts = expenseDebts.filter((debt) => !isExpenseDebtCoveredByRegularDebt({
 		expenseName: debt.sourceExpenseName ?? debt.name,
 		sourceCategoryName: debt.sourceCategoryName,
