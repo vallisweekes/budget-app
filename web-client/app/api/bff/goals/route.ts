@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
+import { bestEffortWithin } from "@/lib/bestEffortWithin";
 import { ensureLegacyCustomSacrificesHaveGoals } from "@/lib/income-sacrifice/goalLinks";
 import { invalidateGoalConnectedState } from "@/lib/goals/invalidateGoalConnectedState";
 
@@ -24,7 +25,10 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
     }
 
-    await ensureLegacyCustomSacrificesHaveGoals(budgetPlanId);
+    const syncPromise = ensureLegacyCustomSacrificesHaveGoals(budgetPlanId).catch((error) => {
+      console.error("Goals: legacy goal sync failed:", error);
+    });
+    await bestEffortWithin(syncPromise, 250);
 
     const goals = await prisma.goal.findMany({
       where: { budgetPlanId },

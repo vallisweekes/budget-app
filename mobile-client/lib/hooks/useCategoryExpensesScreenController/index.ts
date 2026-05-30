@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { apiFetch, getApiMutationVersion } from "@/lib/api";
-import type { Category, Expense, ExpenseCategoryBreakdown } from "@/lib/apiTypes";
+import type { Expense, ExpenseCategoryBreakdown } from "@/lib/apiTypes";
 import { resolveCategoryColor } from "@/lib/categoryColors";
 import { PAYMENT_EDIT_GRACE_DAYS } from "@/lib/domain/paymentRules";
 import {
@@ -13,7 +13,6 @@ import {
   setCachedPayPeriodExpenses,
   upsertCachedPayPeriodExpense,
 } from "@/lib/expensePeriodCache";
-import { toExpenseCategoryBreakdowns } from "@/lib/helpers/expenseCategories";
 import { getLatestPaymentAt, splitCategoryExpenses } from "@/lib/helpers/categoryExpenses";
 import { subscribeCategoryAddExpenseTrigger } from "@/lib/events/categoryAddExpenseTrigger";
 import { useTopHeaderOffset } from "@/hooks";
@@ -71,26 +70,6 @@ export function useCategoryExpensesScreenController({ navigation, route }: Props
       setYear(routeYear);
     }
   }, [month, routeMonth, routeYear, year]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    void (async () => {
-      try {
-        const qp = budgetPlanId ? `?budgetPlanId=${encodeURIComponent(budgetPlanId)}` : "";
-        const data = await apiFetch<Category[]>(`/api/bff/categories${qp}`);
-        if (cancelled || !Array.isArray(data) || data.length === 0) return;
-
-        setAllCategoriesForAddSheet(toExpenseCategoryBreakdowns(data));
-      } catch {
-        if (!cancelled) setAllCategoriesForAddSheet(null);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [budgetPlanId]);
 
   const categoriesForAddSheet = useMemo<ExpenseCategoryBreakdown[]>(() => {
     if (Array.isArray(allCategoriesForAddSheet) && allCategoriesForAddSheet.length > 0) return allCategoriesForAddSheet;

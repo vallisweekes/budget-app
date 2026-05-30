@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { prisma } from "@/lib/prisma";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
+import { resolveCanonicalCategoryIdForBudgetPlanName } from "@/lib/categories/planCategoryCatalog";
 import { suggestCategoryNameForExpense } from "@/lib/expenses/expenseCategorizer";
 
 export const runtime = "nodejs";
@@ -64,5 +65,8 @@ export async function POST(req: NextRequest) {
 	}
 
 	const match = categories.find((c) => c.name.toLowerCase() === categoryName.toLowerCase()) ?? null;
-	return NextResponse.json({ categoryId: match?.id ?? null, categoryName: match?.name ?? null });
+	const canonicalCategoryId = match
+		? await resolveCanonicalCategoryIdForBudgetPlanName({ budgetPlanId, categoryName: match.name })
+		: null;
+	return NextResponse.json({ categoryId: canonicalCategoryId ?? match?.id ?? null, categoryName: match?.name ?? null });
 }

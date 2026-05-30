@@ -1,4 +1,5 @@
 import type { Category, ExpenseCategoryBreakdown } from "@/lib/apiTypes";
+import { getExpenseCategoryBreakdownsForPlanKind } from "@/lib/constants";
 
 const FALLBACK_CATEGORY_NAMES = new Set(["other", "miscellaneous", "miscellaneous & other", "misc"]);
 
@@ -17,6 +18,20 @@ export function toExpenseCategoryBreakdowns(categories: Category[]): ExpenseCate
     paidCount: 0,
     totalCount: 0,
   }));
+}
+
+export function getPlanExpenseCategoryBreakdowns(kind: string | null | undefined): ExpenseCategoryBreakdown[] {
+  return getExpenseCategoryBreakdownsForPlanKind(kind);
+}
+
+export function findExpenseCategoryIdByName(
+  categories: Array<Pick<ExpenseCategoryBreakdown, "categoryId" | "name">>,
+  name: string | null | undefined,
+): string | null {
+  const normalizedName = normalizeCategoryName(name);
+  if (!normalizedName) return null;
+  const match = categories.find((category) => normalizeCategoryName(category.name) === normalizedName);
+  return match?.categoryId ?? null;
 }
 
 export function findFallbackExpenseCategoryId(

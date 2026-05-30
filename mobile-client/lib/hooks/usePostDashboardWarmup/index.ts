@@ -39,34 +39,50 @@ export function usePostDashboardWarmup({ dashboard, settings, isFocused }: UsePo
     }
 
     warmedDashboardKeys.add(warmupKey);
+    let cancelled = false;
 
-    const prefetches = [
-      dispatch(mobileApi.endpoints.getDebtSummary.initiate(undefined, { subscribe: false })),
-      dispatch(mobileApi.endpoints.getCreditCards.initiate(undefined, { subscribe: false })),
-      dispatch(mobileApi.endpoints.getIncomeSummary.initiate(activeAnchor.year, { subscribe: false })),
-      dispatch(mobileApi.endpoints.getAnalyticsExpenseSeries.initiate({
-        year: activeAnchor.year,
-        budgetPlanId,
-      }, { subscribe: false })),
-      dispatch(mobileApi.endpoints.getExpenseSummary.initiate({
+    const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    const stageOne = [
+      () => dispatch(mobileApi.endpoints.getExpenseSummary.initiate({
         month: activeAnchor.month,
         year: activeAnchor.year,
         budgetPlanId,
         scope: "pay_period",
-      }, { subscribe: false })),
-      dispatch(mobileApi.endpoints.getExpenseSummary.initiate({
+      }, { subscribe: false })).unwrap(),
+      () => dispatch(mobileApi.endpoints.getIncomeSummary.initiate(activeAnchor.year, { subscribe: false })).unwrap(),
+      () => dispatch(mobileApi.endpoints.getDebtSummary.initiate(undefined, { subscribe: false })).unwrap(),
+    ];
+
+    const stageTwo = [
+      () => dispatch(mobileApi.endpoints.getExpenseSummary.initiate({
         month: previousAnchor.month,
         year: previousAnchor.year,
         budgetPlanId,
         scope: "pay_period",
-      }, { subscribe: false })),
-    ];
-
-    void Promise.allSettled([
-      ...prefetches.map((prefetch) => prefetch.unwrap()),
-      apiFetch<Goal[]>(`/api/bff/goals?budgetPlanId=${encodeURIComponent(budgetPlanId)}`, {
+      }, { subscribe: false })).unwrap(),
+      () => dispatch(mobileApi.endpoints.getAnalyticsExpenseSeries.initiate({
+        year: activeAnchor.year,
+        budgetPlanId,
+      }, { subscribe: false })).unwrap(),
+      () => dispatch(mobileApi.endpoints.getCreditCards.initiate(undefined, { subscribe: false })).unwrap(),
+      () => apiFetch<Goal[]>(`/api/bff/goals?budgetPlanId=${encodeURIComponent(budgetPlanId)}`, {
         cacheTtlMs: GOALS_PREFETCH_CACHE_TTL_MS,
       }),
-    ]);
+    ];
+
+    void (async () => {
+      await Promise.allSettled(stageOne.map((run) => run()));
+      if (cancelled) return;
+
+      await wait(400);
+      if (cancelled) return;
+
+      await Promise.allSettled(stageTwo.map((run) => run()));
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [activeAnchor.month, activeAnchor.year, budgetPlanId, dispatch, previousAnchor.month, previousAnchor.year, warmupKey]);
 }

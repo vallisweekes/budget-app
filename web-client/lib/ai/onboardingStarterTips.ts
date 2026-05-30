@@ -16,6 +16,12 @@ type OnboardingContext = {
 	debtNotes?: string | null;
 };
 
+type BudgetSnapshot = {
+	totalIncome?: number | null;
+	totalExpenses?: number | null;
+	plannedExpenseCount?: number | null;
+};
+
 function normalizeGoals(onboarding: OnboardingContext | null | undefined): string[] {
 	const goals = Array.isArray(onboarding?.mainGoals) ? onboarding!.mainGoals! : [];
 	if (goals.length) return goals;
@@ -29,11 +35,13 @@ function hasGoal(goals: string[], goal: string): boolean {
 export function getOnboardingStarterTips(args: {
 	onboarding?: OnboardingContext | null;
 	payDate?: number | null;
+	budgetSnapshot?: BudgetSnapshot | null;
 	maxTips?: number;
 }): RecapTip[] {
 	const maxTips = Math.max(1, Math.min(6, args.maxTips ?? 4));
 	const onboarding = args.onboarding ?? null;
 	const goals = normalizeGoals(onboarding);
+	const budgetSnapshot = args.budgetSnapshot ?? null;
 
 	const tips: RecapTip[] = [];
 
@@ -96,13 +104,39 @@ export function getOnboardingStarterTips(args: {
 		});
 	}
 
+	const hasIncome = Number(budgetSnapshot?.totalIncome ?? onboarding?.monthlySalary ?? 0) > 0;
+	const hasBills =
+		billNames.length > 0
+		|| Number(budgetSnapshot?.plannedExpenseCount ?? 0) > 0
+		|| Number(budgetSnapshot?.totalExpenses ?? 0) > 0;
+
 	// If we still have nothing (e.g. skipped onboarding), show a simple starter.
 	if (!tips.length) {
-		tips.push({
-			title: "Start simple",
-			detail: "Add income, add your main bills, then track spending for a week to tighten things up.",
-			priority: 60,
-		});
+		if (!hasIncome && !hasBills) {
+			tips.push({
+				title: "Start simple",
+				detail: "Add income, add your main bills, then track spending for a week to tighten things up.",
+				priority: 60,
+			});
+		} else if (!hasIncome) {
+			tips.push({
+				title: "Add income next",
+				detail: "Your bills are already in place, so add income next to see what is actually left after essentials.",
+				priority: 64,
+			});
+		} else if (!hasBills) {
+			tips.push({
+				title: "Add your main bills",
+				detail: "Your income is already in place, so add your fixed bills next to see what is really available to spend.",
+				priority: 60,
+			});
+		} else {
+			tips.push({
+				title: "Track spending for a week",
+				detail: "Your income and main bills are already set, so log everyday spending for a week to find the easiest trim.",
+				priority: 56,
+			});
+		}
 	}
 
 	return prioritizeRecapTips(tips, maxTips);

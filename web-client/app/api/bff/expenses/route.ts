@@ -14,6 +14,7 @@ import { sendUserPush } from "@/lib/push/sendUserPush";
 import { isLegacyPlaceholderExpenseRow } from "@/lib/expenses/legacyPlaceholders";
 import { getExpensePaidMap } from "@/lib/expenses/paidSummary";
 import { resolveMatchedExpensePeriodKey } from "@/lib/helpers/periodKey";
+import { resolvePlanMappedCategoryId } from "@/lib/categories/planCategoryCatalog";
 import {
   buildPayPeriodFromMonthAnchor,
   normalizePayFrequency,
@@ -544,6 +545,10 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  const resolvedCategoryId = categoryId
+    ? await resolvePlanMappedCategoryId({ budgetPlanId: ownedBudgetPlanId, categoryId })
+    : undefined;
+
   let createdResult;
   try {
     createdResult = await createExpense({
@@ -554,7 +559,7 @@ export async function POST(req: NextRequest) {
       amount,
       month,
       year,
-      categoryId,
+      categoryId: resolvedCategoryId,
       paid,
       isAllocation,
       isDirectDebit,

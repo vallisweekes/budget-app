@@ -722,6 +722,14 @@ export async function GET(req: NextRequest) {
 						debtNotes: (onboarding.debtNotes as string | null | undefined) ?? null,
 					}
 					: null,
+				budgetSnapshot: {
+					totalIncome: currentPlanData.totalIncome,
+					totalExpenses: currentPlanData.totalExpenses,
+					plannedExpenseCount: currentPlanData.categoryData.reduce(
+						(count, category) => count + (category.expenses?.length ?? 0),
+						0,
+					),
+				},
 				payDate,
 				maxTips: 4,
 			});

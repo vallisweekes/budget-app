@@ -463,6 +463,7 @@ export interface DashboardCategoryItem {
   expenses: Array<{
     id: string;
     name: string;
+    logoUrl?: string | null;
     amount: number;
     paid: boolean;
     paidAmount: number;

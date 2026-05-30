@@ -35,10 +35,9 @@ import {
   type ExpenseFundingSource,
 } from "@/lib/domain/expenseFunding";
 import { buildCreateExpenseBody, canSubmitExpense } from "@/lib/domain/expenseMutations";
-import { findFallbackExpenseCategoryId, toExpenseCategoryBreakdowns } from "@/lib/helpers/expenseCategories";
+import { findExpenseCategoryIdByName, findFallbackExpenseCategoryId, getPlanExpenseCategoryBreakdowns } from "@/lib/helpers/expenseCategories";
 import { buildPayPeriodFromMonthAnchor, normalizePayFrequency } from "@/lib/payPeriods";
 import type {
-  Category,
   Expense,
   ExpenseCategoryBreakdown,
   ExpenseSuggestion,
@@ -181,6 +180,10 @@ export default function AddExpenseSheet({
   // Resolve the plan id to use: prefer what the user picked in the sheet
   const effectivePlanId = selectedPlanId ?? budgetPlanId ?? null;
   const resolvedCategories = planCategories ?? categories;
+  const effectivePlanKind = useMemo(
+    () => plans?.find((plan) => plan.id === effectivePlanId)?.kind ?? null,
+    [effectivePlanId, plans],
+  );
 
   const resolveInitialCategoryId = React.useCallback((availableCategories: ExpenseCategoryBreakdown[]) => {
     if (initialCategoryId && availableCategories.some((entry) => entry.categoryId === initialCategoryId)) {
@@ -316,11 +319,18 @@ export default function AddExpenseSheet({
         });
         if (seq !== suggestSeqRef.current) return;
         const nextId = typeof res?.categoryId === "string" ? res.categoryId : "";
-        if (!nextId) return;
+        const nextCategoryName = typeof (res as { categoryName?: unknown })?.categoryName === "string"
+          ? String((res as { categoryName?: string }).categoryName)
+          : "";
+        const resolvedSuggestedId = resolvedCategories.some((entry) => entry.categoryId === nextId)
+          ? nextId
+          : findExpenseCategoryIdByName(resolvedCategories, nextCategoryName)
+            ?? nextId;
+        if (!resolvedSuggestedId) return;
         // Never override a manual selection.
         if (categoryTouchedRef.current) return;
         if (categoryIdRef.current) return;
-        setCategoryId(nextId);
+        setCategoryId(resolvedSuggestedId);
       } catch {
         // ignore
       }
@@ -330,31 +340,19 @@ export default function AddExpenseSheet({
       if (suggestTimerRef.current) clearTimeout(suggestTimerRef.current);
       suggestTimerRef.current = null;
     };
-  }, [categoryId, categoryTouched, effectivePlanId, name, visible]);
+  }, [categoryId, categoryTouched, effectivePlanId, name, resolvedCategories, visible]);
 
-  // Fetch categories whenever the user picks a plan different from the parent plan
   useEffect(() => {
     if (!visible) return;
-    if (effectivePlanId === budgetPlanId) {
-      setPlanCategories(null); // use prop categories
+    if (!effectivePlanKind) {
+      setPlanCategories(null);
       return;
     }
-    if (!effectivePlanId) return;
-    void (async () => {
-      try {
-        const data = await apiFetch<Category[]>(
-          `/api/bff/categories?budgetPlanId=${encodeURIComponent(effectivePlanId)}`
-        );
-        if (Array.isArray(data)) {
-          const nextCategories = toExpenseCategoryBreakdowns(data);
-          setPlanCategories(nextCategories);
-          setCategoryId(resolveInitialCategoryId(nextCategories));
-        }
-      } catch {
-        setPlanCategories(null);
-      }
-    })();
-  }, [visible, effectivePlanId, budgetPlanId, resolveInitialCategoryId]);
+
+    const nextCategories = getPlanExpenseCategoryBreakdowns(effectivePlanKind);
+    setPlanCategories(nextCategories);
+    setCategoryId(resolveInitialCategoryId(nextCategories));
+  }, [effectivePlanKind, resolveInitialCategoryId, visible]);
 
   useEffect(() => {
     if (!visible) return;

@@ -11,7 +11,6 @@ import { setSharedExpensePeriodRouteState } from "@/lib/helpers/expensePeriodRou
 import { resolveDisplayedPayPeriodAnchor } from "@/lib/helpers/resolveDisplayedPayPeriodAnchor";
 import type {
   BudgetPlanListItem,
-  Category,
   BudgetPlansResponse,
   Expense,
   ExpenseCategoryBreakdown,
@@ -22,7 +21,7 @@ import type {
 } from "@/lib/apiTypes";
 import { clearCachedPayPeriodExpenses, getCachedPayPeriodExpenses, setCachedPayPeriodExpenses } from "@/lib/expensePeriodCache";
 import { currencySymbol } from "@/lib/formatting";
-import { toExpenseCategoryBreakdowns } from "@/lib/helpers/expenseCategories";
+import { getPlanExpenseCategoryBreakdowns } from "@/lib/helpers/expenseCategories";
 import { consumeSkipExpensesFocusReload } from "@/lib/helpers/expensesFocusReload";
 import { usePayPeriodBoundaryRefresh, useTopHeaderOffset, useYearGuard } from "@/hooks";
 import { registerSessionScopedResetter } from "@/lib/sessionScopedState";
@@ -1368,30 +1367,13 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
   }, [month, resolvePickerDisplayYear, route.params?.openMonthPickerAt, year]);
 
   useEffect(() => {
-    let cancelled = false;
+    if (!activePlanId) {
+      setAllCategoriesForAddSheet(null);
+      return;
+    }
 
-    void (async () => {
-      if (!activePlanId) {
-        setAllCategoriesForAddSheet(null);
-        return;
-      }
-
-      try {
-        const data = await apiFetch<Category[]>(`/api/bff/categories?budgetPlanId=${encodeURIComponent(activePlanId)}`);
-        if (cancelled || !Array.isArray(data) || data.length === 0) {
-          if (!cancelled) setAllCategoriesForAddSheet(null);
-          return;
-        }
-        setAllCategoriesForAddSheet(toExpenseCategoryBreakdowns(data));
-      } catch {
-        if (!cancelled) setAllCategoriesForAddSheet(null);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [activePlanId]);
+    setAllCategoriesForAddSheet(getPlanExpenseCategoryBreakdowns(activePlan?.kind));
+  }, [activePlan?.kind, activePlanId]);
 
   const applyOptimisticExpense = useCallback((expense: Expense) => {
     if (!summary) return;

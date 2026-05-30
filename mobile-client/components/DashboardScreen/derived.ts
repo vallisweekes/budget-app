@@ -250,7 +250,7 @@ export function buildDashboardDerived(params: {
       amount: Number(expense.amount ?? 0),
       paidAmount: Number(expense.paidAmount ?? 0),
       dueDate: null,
-      logoUrl: undefined,
+      logoUrl: expense.logoUrl ?? undefined,
       daysUntilDue: Number.POSITIVE_INFINITY,
       urgency: undefined,
     })))

@@ -24,15 +24,32 @@ export async function GET(request: Request) {
 		return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
 	}
 
-	await ensureDefaultCategoriesForBudgetPlan({ budgetPlanId });
-
   const categories = await prisma.category.findMany({
     where: { budgetPlanId },
     orderBy: [{ featured: "desc" }, { name: "asc" }],
     select: { id: true, name: true, icon: true, color: true, featured: true },
   });
 
-  return NextResponse.json(categories);
+  if (categories.length > 0) {
+    void bestEffortWithin(
+      ensureDefaultCategoriesForBudgetPlan({ budgetPlanId }).catch((error) => {
+        console.error("Categories: default sync failed:", error);
+      }),
+      250,
+    );
+
+    return NextResponse.json(categories);
+  }
+
+  await ensureDefaultCategoriesForBudgetPlan({ budgetPlanId });
+
+  const seededCategories = await prisma.category.findMany({
+    where: { budgetPlanId },
+    orderBy: [{ featured: "desc" }, { name: "asc" }],
+    select: { id: true, name: true, icon: true, color: true, featured: true },
+  });
+
+  return NextResponse.json(seededCategories);
 }
 
 export async function POST(request: Request) {

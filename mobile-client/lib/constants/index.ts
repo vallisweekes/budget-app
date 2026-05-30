@@ -9,3 +9,4 @@ export * from "./helpCenter";
 export * from "./prefetch";
 export * from "./investments";
 export * from "./locale";
+export * from "./expenseCategories";

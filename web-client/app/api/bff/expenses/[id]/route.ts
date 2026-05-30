@@ -17,6 +17,7 @@ import { getExpensePeriodKey, resolvePayDate } from "@/lib/helpers/periodKey";
 import { bestEffortWithin } from "@/lib/bestEffortWithin";
 import type { MonthKey } from "@/types";
 import { invalidateDashboardCache } from "@/lib/cache/dashboardCache";
+import { resolvePlanMappedCategoryId } from "@/lib/categories/planCategoryCatalog";
 
 export const runtime = "nodejs";
 
@@ -388,7 +389,10 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       ? parseDateLike(existing.updatedAt)
       : null);
 
-  const nextCategoryId = categoryId === undefined ? existing.categoryId : categoryId;
+  const resolvedCategoryId = categoryId === undefined || categoryId === null
+    ? categoryId
+    : await resolvePlanMappedCategoryId({ budgetPlanId: existing.budgetPlanId, categoryId });
+  const nextCategoryId = categoryId === undefined ? existing.categoryId : resolvedCategoryId;
   const nextIsAllocation = isAllocation === undefined ? Boolean(existing.isAllocation ?? false) : isAllocation;
   const nextIsDirectDebit = isDirectDebit === undefined ? Boolean(existing.isDirectDebit ?? false) : isDirectDebit;
   const existingFundingSource = toClientExpenseFundingSource({

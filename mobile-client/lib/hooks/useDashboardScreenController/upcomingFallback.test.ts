@@ -158,6 +158,7 @@ describe("buildDashboardDerived", () => {
               {
                 id: "category-rent",
                 name: "Housing",
+                logoUrl: "/logos/housing.png",
                 amount: 1200,
                 paid: false,
                 paidAmount: 0,
@@ -197,5 +198,45 @@ describe("buildDashboardDerived", () => {
       daysUntilDue: 1,
     });
     expect(derived.upcoming[0]?.name).not.toBe("Housing");
+  });
+
+  it("preserves expense logo urls when the dashboard falls back to category expenses", () => {
+    const derived = buildDashboardDerived({
+      dashboard: createDashboard({
+        categoryData: [
+          {
+            id: "phone",
+            name: "Phone",
+            total: 98,
+            expenses: [
+              {
+                id: "expense-ee",
+                name: "EE",
+                logoUrl: "/logos/ee.png",
+                amount: 98,
+                paid: false,
+                paidAmount: 0,
+                categoryId: "phone",
+              },
+            ],
+          },
+        ],
+        expenseInsights: {
+          recap: null,
+          recapTips: [],
+          upcoming: [],
+        },
+      }),
+      settings: createSettings(),
+      categorySheet: null,
+      displayedAnchor: { month: 5, year: 2026 },
+    });
+
+    expect(derived.upcoming).toHaveLength(1);
+    expect(derived.upcoming[0]).toMatchObject({
+      id: "expense-ee",
+      name: "EE",
+      logoUrl: "/logos/ee.png",
+    });
   });
 });
