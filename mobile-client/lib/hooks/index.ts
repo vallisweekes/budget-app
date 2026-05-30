@@ -1,4 +1,5 @@
 export * from "./useAnalyticsScreenController";
+export * from "./useAppTranslation";
 export * from "./useCategoryExpensesScreenController";
 export * from "./useDashboardScreenController";
 export * from "./useDebtAnalyticsScreenController";

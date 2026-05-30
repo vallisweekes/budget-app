@@ -7,7 +7,13 @@ import { syncGoalCurrentAmountsFromBalances } from "@/lib/goals/syncGoalCurrentA
 import { invalidateGoalConnectedState } from "@/lib/goals/invalidateGoalConnectedState";
 import { invalidateProfileCache } from "@/lib/cache/profileCache";
 import { bestEffortWithin } from "@/lib/bestEffortWithin";
-import { DEFAULT_CURRENCY, resolveCurrencyCodeForCountry } from "@/lib/constants/locales";
+import {
+  DEFAULT_CURRENCY,
+  isSupportedLanguageCode,
+  normalizeLanguageCode,
+  resolveCurrencyCodeForCountry,
+  resolveDefaultLanguageForCountry,
+} from "@/lib/constants/locales";
 
 export const runtime = "nodejs";
 
@@ -27,11 +33,13 @@ function badRequest(message: string) {
 
 function normalizeSettingsLocale<T extends Record<string, unknown>>(settings: T): T {
   const normalizedCountry = typeof settings.country === "string" ? settings.country.trim().toUpperCase() : "";
+  const storedLanguage = typeof settings.language === "string" ? settings.language.trim().toLowerCase() : "";
   const storedCurrency = typeof settings.currency === "string" ? settings.currency.trim().toUpperCase() : "";
 
   return {
     ...settings,
     country: normalizedCountry || null,
+    language: normalizeLanguageCode(storedLanguage, resolveDefaultLanguageForCountry(normalizedCountry)),
     currency: resolveCurrencyCodeForCountry(normalizedCountry, storedCurrency || DEFAULT_CURRENCY),
   };
 }
@@ -558,6 +566,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     const normalizedCountry = typeof body.country === "string" ? body.country.trim().toUpperCase() : "";
+    const normalizedLanguage = typeof body.language === "string" ? body.language.trim().toLowerCase() : "";
 
     if (typeof body.payDate === "number") updateData.payDate = body.payDate;
     if (typeof body.monthlyAllowance !== "undefined") updateData.monthlyAllowance = body.monthlyAllowance;
@@ -581,7 +590,11 @@ export async function PATCH(req: NextRequest) {
 			updateData.budgetHorizonYears = safe;
 		}
     if (normalizedCountry) updateData.country = normalizedCountry;
-		if (typeof body.language === "string") updateData.language = body.language;
+    if (typeof body.language === "string") {
+      if (!normalizedLanguage) return badRequest("Language is required");
+      if (!isSupportedLanguageCode(normalizedLanguage)) return badRequest("Unsupported language");
+      updateData.language = normalizedLanguage;
+    }
     if (typeof body.currency === "string" && body.currency.trim()) {
       updateData.currency = body.currency.trim().toUpperCase();
     } else if (normalizedCountry) {

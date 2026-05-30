@@ -1,5 +1,3 @@
-import { MONTH_NAMES_SHORT } from "@/lib/formatting";
-
 export type PayFrequency = "monthly" | "every_2_weeks" | "every_4_weeks" | "weekly";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -324,17 +322,29 @@ export function buildPayPeriodFromMonthAnchor(params: {
   return { start, end };
 }
 
-export function formatPayPeriodLabel(start: Date, end: Date): string {
-  return `${start.getDate()} ${MONTH_NAMES_SHORT[start.getMonth()]} - ${end.getDate()} ${MONTH_NAMES_SHORT[end.getMonth()]}`;
+function formatDayMonth(date: Date, locale = "en-GB"): string {
+  try {
+    const parts = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" }).formatToParts(date);
+    const day = parts.find((part) => part.type === "day")?.value ?? String(date.getDate());
+    const month = (parts.find((part) => part.type === "month")?.value ?? "").replace(/\.$/u, "");
+    return month ? `${day} ${month}` : `${day}`;
+  } catch {
+    return `${date.getDate()}`;
+  }
+}
+
+export function formatPayPeriodLabel(start: Date, end: Date, locale = "en-GB"): string {
+  return `${formatDayMonth(start, locale)} - ${formatDayMonth(end, locale)}`;
 }
 
 export function formatPayPeriodLabelForFrequency(params: {
   start: Date;
   end: Date;
   payFrequency: PayFrequency;
+  locale?: string;
 }): string {
   const displayEnd = params.end;
-  return formatPayPeriodLabel(params.start, displayEnd);
+  return formatPayPeriodLabel(params.start, displayEnd, params.locale);
 }
 
 export function getPayPeriodRangeLabelFromAnchor(params: {
@@ -343,6 +353,7 @@ export function getPayPeriodRangeLabelFromAnchor(params: {
   payDate: number;
   payFrequency: PayFrequency;
   payAnchorDate?: Date | string | null;
+  locale?: string;
 }): string {
   const period = buildPayPeriodFromMonthAnchor({
     year: params.year,
@@ -355,6 +366,7 @@ export function getPayPeriodRangeLabelFromAnchor(params: {
     start: period.start,
     end: period.end,
     payFrequency: params.payFrequency,
+    locale: params.locale,
   });
 }
 

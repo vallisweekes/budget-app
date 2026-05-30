@@ -1,11 +1,12 @@
 import React from "react";
 import { Pressable, Text, View } from "react-native";
 
+import { useAppTranslation } from "@/hooks";
 import SettingsRow from "@/components/Settings/SettingsRow";
 import SettingsSection from "@/components/Settings/SettingsSection";
 import { styles } from "./styles";
 
-import { LOCALE_PRESET_OPTIONS } from "@/lib/constants";
+import { getCountryLabel, getLanguageLabel } from "@/lib/constants";
 import type { SettingsLocaleTabProps } from "@/types/components/settings/SettingsLocaleTab.types";
 
 export default function SettingsLocaleTab({
@@ -17,28 +18,27 @@ export default function SettingsLocaleTab({
   onUseDetected,
   canUseDetected,
 }: SettingsLocaleTabProps) {
-  const localeLabel = React.useMemo(() => {
-    const normalizedCountry = String(country ?? "").trim().toUpperCase();
-    if (!normalizedCountry) return "Not set";
-    return LOCALE_PRESET_OPTIONS.find((option) => option.countryCode === normalizedCountry)?.countryLabel ?? normalizedCountry;
-  }, [country]);
+  const { t } = useAppTranslation(language);
+  const localeLabel = React.useMemo(() => getCountryLabel(country) ?? t("settings.locale.unknownCountry"), [country, t]);
+  const languageLabel = React.useMemo(() => getLanguageLabel(language), [language]);
+  const detectedCountryLabel = React.useMemo(() => getCountryLabel(detectedCountry) ?? t("settings.locale.unknownCountry"), [detectedCountry, t]);
 
   return (
-    <SettingsSection title="Locale" right={<Pressable onPress={onEdit} style={styles.outlineBtn}><Text style={styles.outlineBtnText}>Edit</Text></Pressable>}>
+    <SettingsSection title={t("settings.locale.sectionTitle")} right={<Pressable onPress={onEdit} style={styles.outlineBtn}><Text style={styles.outlineBtnText}>{t("common.edit")}</Text></Pressable>}>
       <View pointerEvents="none" style={[styles.cardGlow, styles.cardGlowPrimary]} />
       <View pointerEvents="none" style={[styles.cardGlow, styles.cardGlowSecondary]} />
 
       <View style={styles.localeRowsCard}>
-        <SettingsRow label="Locale" value={localeLabel} />
-        <SettingsRow label="Language" value={language} />
-        <SettingsRow label="Currency" value={currency} />
+        <SettingsRow label={t("settings.locale.countryLabel")} value={localeLabel} />
+        <SettingsRow label={t("settings.locale.languageLabel")} value={languageLabel} />
+        <SettingsRow label={t("settings.locale.currencyLabel")} value={currency} />
       </View>
 
-      <Text style={styles.muted}>Detected country: {detectedCountry ?? "Unknown"}</Text>
+      <Text style={styles.muted}>{t("settings.locale.detectedCountry", { country: detectedCountryLabel })}</Text>
       <Pressable onPress={onUseDetected} style={[styles.inlineAction, !canUseDetected ? styles.inlineActionDisabled : null]} disabled={!canUseDetected}>
-        <Text style={styles.inlineActionText}>Use detected country</Text>
+        <Text style={styles.inlineActionText}>{t("settings.locale.useDetectedCountry")}</Text>
       </Pressable>
-      <Text style={styles.hint}>Changing locale updates the display symbol and money formatting across the app. It does not convert your saved balances.</Text>
+      <Text style={styles.hint}>{t("settings.locale.hint")}</Text>
     </SettingsSection>
   );
 }

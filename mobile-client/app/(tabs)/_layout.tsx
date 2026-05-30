@@ -6,6 +6,7 @@ import { NativeTabs } from "expo-router/unstable-native-tabs";
 
 import { useAuth } from "@/context/AuthContext";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
+import { useAppTranslation } from "@/hooks";
 import { emitIncomeAddTrigger } from "@/lib/events/incomeAddTrigger";
 import { getSharedExpensePeriodRouteState, resolveExpensePeriodRouteState } from "@/lib/helpers/expensePeriodRouteState";
 import { isDebtManagementEnabled, hasPositiveDebtBalance } from "@/lib/helpers/debtManagement";
@@ -72,6 +73,7 @@ export default function MainTabsLayout() {
   const params = useLocalSearchParams() as Record<string, string | string[] | undefined>;
   const { profile } = useAuth();
   const { dashboard, isLoading: bootstrapLoading } = useBootstrapData();
+  const { t } = useAppTranslation();
   const debtSummaryQuery = useGetDebtSummaryQuery(undefined, {
     skip: !profile || bootstrapLoading || (Boolean(dashboard) && typeof dashboard?.activeDebtCount === "number"),
   });
@@ -367,7 +369,7 @@ export default function MainTabsLayout() {
             renderingMode="template"
             selectedColor={selectedTintColor}
           />
-          <NativeTabs.Trigger.Label selectedStyle={splitRouteSelectedTabLabelStyle}>Log</NativeTabs.Trigger.Label>
+          <NativeTabs.Trigger.Label selectedStyle={splitRouteSelectedTabLabelStyle}>{t("tabs.log")}</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
       </NativeTabs>
     );
@@ -409,7 +411,7 @@ export default function MainTabsLayout() {
               renderingMode="template"
               selectedColor={selectedTintColor}
             />
-            <NativeTabs.Trigger.Label selectedStyle={splitRouteSelectedTabLabelStyle}>Logged</NativeTabs.Trigger.Label>
+            <NativeTabs.Trigger.Label selectedStyle={splitRouteSelectedTabLabelStyle}>{t("tabs.logged")}</NativeTabs.Trigger.Label>
           </NativeTabs.Trigger>
           <NativeTabs.Trigger
             {...expensesSplitAddTriggerScreenProps}
@@ -478,7 +480,7 @@ export default function MainTabsLayout() {
           contentStyle={tabContentStyle}
           unstable_nativeProps={tabNativeProps}
         >
-          <NativeTabs.Trigger.Label selectedStyle={analyticsSplitSelectedTabLabelStyle}>Month</NativeTabs.Trigger.Label>
+          <NativeTabs.Trigger.Label selectedStyle={analyticsSplitSelectedTabLabelStyle}>{t("tabs.month")}</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger
           {...resetOnBlurScreenProps}
@@ -486,7 +488,7 @@ export default function MainTabsLayout() {
           contentStyle={tabContentStyle}
           unstable_nativeProps={tabNativeProps}
         >
-          <NativeTabs.Trigger.Label selectedStyle={analyticsSplitSelectedTabLabelStyle}>Year</NativeTabs.Trigger.Label>
+          <NativeTabs.Trigger.Label selectedStyle={analyticsSplitSelectedTabLabelStyle}>{t("tabs.year")}</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
       </NativeTabs>
     );
@@ -514,7 +516,7 @@ export default function MainTabsLayout() {
             renderingMode="template"
             selectedColor={selectedTintColor}
           />
-          <NativeTabs.Trigger.Label selectedStyle={splitRouteSelectedTabLabelStyle}>Home</NativeTabs.Trigger.Label>
+          <NativeTabs.Trigger.Label selectedStyle={splitRouteSelectedTabLabelStyle}>{t("tabs.home")}</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger
           {...resetOnBlurScreenProps}
@@ -527,7 +529,7 @@ export default function MainTabsLayout() {
             renderingMode="template"
             selectedColor={selectedTintColor}
           />
-          <NativeTabs.Trigger.Label selectedStyle={splitRouteSelectedTabLabelStyle}>Expenses</NativeTabs.Trigger.Label>
+          <NativeTabs.Trigger.Label selectedStyle={splitRouteSelectedTabLabelStyle}>{t("tabs.expenses")}</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger
           {...incomeTriggerScreenProps}
@@ -568,7 +570,7 @@ export default function MainTabsLayout() {
             renderingMode="template"
             selectedColor={selectedTintColor}
           />
-          <NativeTabs.Trigger.Label selectedStyle={splitRouteSelectedTabLabelStyle}>Home</NativeTabs.Trigger.Label>
+          <NativeTabs.Trigger.Label selectedStyle={splitRouteSelectedTabLabelStyle}>{t("tabs.home")}</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger
           {...resetOnBlurScreenProps}
@@ -622,7 +624,7 @@ export default function MainTabsLayout() {
             renderingMode="template"
             selectedColor={selectedTintColor}
           />
-          <NativeTabs.Trigger.Label selectedStyle={splitRouteSelectedTabLabelStyle}>Home</NativeTabs.Trigger.Label>
+          <NativeTabs.Trigger.Label selectedStyle={splitRouteSelectedTabLabelStyle}>{t("tabs.home")}</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger
           {...resetOnBlurScreenProps}
@@ -635,7 +637,7 @@ export default function MainTabsLayout() {
             renderingMode="template"
             selectedColor={selectedTintColor}
           />
-          <NativeTabs.Trigger.Label selectedStyle={splitRouteSelectedTabLabelStyle}>Projection</NativeTabs.Trigger.Label>
+          <NativeTabs.Trigger.Label selectedStyle={splitRouteSelectedTabLabelStyle}>{t("tabs.projection")}</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger
           {...goalsSplitTriggerScreenProps}
@@ -683,7 +685,7 @@ export default function MainTabsLayout() {
             renderingMode="template"
             selectedColor={selectedTintColor}
           />
-          <NativeTabs.Trigger.Label selectedStyle={selectedTabLabelStyle}>Home</NativeTabs.Trigger.Label>
+          <NativeTabs.Trigger.Label selectedStyle={selectedTabLabelStyle}>{t("tabs.home")}</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger
           {...resetOnBlurScreenProps}
@@ -696,7 +698,7 @@ export default function MainTabsLayout() {
             renderingMode="template"
             selectedColor={selectedTintColor}
           />
-          <NativeTabs.Trigger.Label selectedStyle={selectedTabLabelStyle}>Expenses</NativeTabs.Trigger.Label>
+          <NativeTabs.Trigger.Label selectedStyle={selectedTabLabelStyle}>{t("tabs.expenses")}</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
         {showDebtsTab ? (
           <NativeTabs.Trigger
@@ -710,7 +712,7 @@ export default function MainTabsLayout() {
               renderingMode="template"
               selectedColor={selectedTintColor}
             />
-            <NativeTabs.Trigger.Label selectedStyle={selectedTabLabelStyle}>Debts</NativeTabs.Trigger.Label>
+            <NativeTabs.Trigger.Label selectedStyle={selectedTabLabelStyle}>{t("tabs.debts")}</NativeTabs.Trigger.Label>
           </NativeTabs.Trigger>
         ) : null}
         <NativeTabs.Trigger
@@ -724,7 +726,7 @@ export default function MainTabsLayout() {
             renderingMode="template"
             selectedColor={selectedTintColor}
           />
-          <NativeTabs.Trigger.Label selectedStyle={selectedTabLabelStyle}>Income</NativeTabs.Trigger.Label>
+          <NativeTabs.Trigger.Label selectedStyle={selectedTabLabelStyle}>{t("tabs.income")}</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger
           {...resetOnBlurScreenProps}
@@ -737,7 +739,7 @@ export default function MainTabsLayout() {
             renderingMode="template"
             selectedColor={selectedTintColor}
           />
-          <NativeTabs.Trigger.Label selectedStyle={selectedTabLabelStyle}>Goals</NativeTabs.Trigger.Label>
+          <NativeTabs.Trigger.Label selectedStyle={selectedTabLabelStyle}>{t("tabs.goals")}</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
       </NativeTabs>
     </>

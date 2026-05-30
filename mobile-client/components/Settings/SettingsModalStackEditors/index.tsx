@@ -63,12 +63,14 @@ export default function SettingsModalStackEditors({ controller }: SettingsModalS
         translateY={controller.localeSheetDragY}
         panHandlers={controller.localeSheetPanHandlers as Record<string, unknown>}
         countryDraft={controller.countryDraft}
+        languageDraft={controller.languageDraft}
         detectedCountry={controller.detectedCountry}
         saveBusy={controller.saveBusy}
         onClose={controller.closeLocaleSheet}
         onChangeCountry={(value) => controller.setCountryDraft(value.toUpperCase())}
+        onChangeLanguage={controller.setLanguageDraft}
         onSave={() => {
-          void controller.saveCountry();
+          void controller.saveLocale();
         }}
       />
     </>

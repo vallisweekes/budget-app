@@ -15,6 +15,8 @@ import type {
 } from "@/lib/apiTypes";
 import { currencySymbol } from "@/lib/formatting";
 import { useSavingsPotStore, useSettingsDebtBuckets, useSwipeDownToClose, useTopHeaderOffset } from "@/hooks";
+import { DEFAULT_LANGUAGE, normalizeSupportedLanguage, resolveDefaultLanguageForCountry } from "@/lib/constants";
+import { translateAppText } from "@/lib/i18n";
 import {
   deleteNotificationInboxItem,
   markNotificationInboxItemRead,
@@ -133,6 +135,7 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
 
   const [emailDraft, setEmailDraft] = useState("");
   const [countryDraft, setCountryDraft] = useState("");
+  const [languageDraft, setLanguageDraft] = useState(DEFAULT_LANGUAGE);
 
   const [payDateDraft, setPayDateDraft] = useState("");
   const [horizonDraft, setHorizonDraft] = useState("");
@@ -384,7 +387,9 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
 
   const hydrateDrafts = useCallback((nextSettings: Settings | null, nextProfile: UserProfile | null, nextHorizonYears?: number | null) => {
     setEmailDraft(nextProfile?.email ?? "");
-    setCountryDraft((nextSettings?.country ?? "").toUpperCase());
+    const normalizedCountry = (nextSettings?.country ?? "").toUpperCase();
+    setCountryDraft(normalizedCountry);
+    setLanguageDraft(normalizeSupportedLanguage(nextSettings?.language, resolveDefaultLanguageForCountry(normalizedCountry)));
     setPayDateDraft(nextSettings?.payDate ? String(nextSettings.payDate) : "");
     setHorizonDraft(nextHorizonYears ? String(nextHorizonYears) : "10");
     setPayFrequencyDraft(
@@ -1111,11 +1116,19 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
     }
   };
 
-  const saveCountry = async (overrideCountry?: string) => {
+  const saveLocale = async (overrideCountry?: string, overrideLanguage?: string) => {
     if (!settings?.id) return;
     const nextCountry = (overrideCountry ?? countryDraft).trim().toUpperCase();
+    const nextLanguage = normalizeSupportedLanguage(
+      overrideLanguage ?? languageDraft,
+      resolveDefaultLanguageForCountry(nextCountry),
+    );
+    const currentUiLanguage = normalizeSupportedLanguage(settings?.language ?? languageDraft, DEFAULT_LANGUAGE);
     if (!nextCountry) {
-      Alert.alert("Locale required", "Please choose a locale option before saving.");
+      Alert.alert(
+        translateAppText(currentUiLanguage, "settings.locale.requiredTitle"),
+        translateAppText(currentUiLanguage, "settings.locale.requiredMessage"),
+      );
       return;
     }
 
@@ -1125,12 +1138,16 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
         budgetPlanId: settings.id,
         changes: {
           country: nextCountry,
+          language: nextLanguage,
         },
       }).unwrap();
       setSettings(updated);
       setLocaleSheetOpen(false);
     } catch (err: unknown) {
-      Alert.alert("Could not save locale", err instanceof Error ? err.message : "Please try again.");
+      Alert.alert(
+        translateAppText(nextLanguage, "settings.locale.saveErrorTitle"),
+        err instanceof Error ? err.message : translateAppText(nextLanguage, "common.tryAgain"),
+      );
     } finally {
       setSaveBusy(false);
     }
@@ -1395,6 +1412,8 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
     setEmailDraft,
     countryDraft,
     setCountryDraft,
+    languageDraft,
+    setLanguageDraft,
     payDateDraft,
     setPayDateDraft,
     horizonDraft,
@@ -1486,7 +1505,7 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
     openSavingsEditor,
     saveSavingsField,
     deleteSavingsItem,
-    saveCountry,
+    saveLocale,
     openDebtEditor,
     saveDebtEdit,
     addDebt,

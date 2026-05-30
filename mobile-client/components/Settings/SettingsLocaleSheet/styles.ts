@@ -9,8 +9,10 @@ export const styles = StyleSheet.create({
   disabled: { opacity: 0.6 },
   label: { color: T.textDim, fontSize: 12, fontWeight: "800" },
   muted: { color: T.textDim, fontSize: 13, marginTop: 8 },
+  sectionWrap: {
+    gap: 10,
+  },
   optionChip: {
-    minWidth: 82,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: T.border,
@@ -66,7 +68,7 @@ export const styles = StyleSheet.create({
     backgroundColor: `${T.cardAlt}CC`,
     paddingHorizontal: 14,
     paddingVertical: 14,
-    gap: 4,
+    gap: 8,
   },
   previewEyebrow: {
     color: T.textDim,
@@ -79,6 +81,30 @@ export const styles = StyleSheet.create({
     color: T.textMuted,
     fontSize: 13,
     lineHeight: 18,
+  },
+  previewMetaList: {
+    gap: 8,
+  },
+  previewMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: `${T.border}AA`,
+    paddingBottom: 8,
+  },
+  previewMetaLabel: {
+    color: T.textDim,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  previewMetaValue: {
+    color: T.text,
+    fontSize: 14,
+    fontWeight: "800",
+    flexShrink: 1,
+    textAlign: "right",
   },
   sheet: {
     backgroundColor: T.card,
@@ -96,8 +122,7 @@ export const styles = StyleSheet.create({
   sheetActions: {
     flexDirection: "row",
     gap: 10,
-    marginTop: "auto",
-    paddingTop: 16,
+    paddingTop: 8,
   },
   sheetHandle: {
     alignSelf: "center",
@@ -116,32 +141,12 @@ export const styles = StyleSheet.create({
     justifyContent: "flex-end",
     backgroundColor: SETTINGS_MODAL_BACKDROP,
   },
-  selectorBody: {
+  sheetScroll: {
     flex: 1,
-    gap: 2,
   },
-  selectorButton: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: T.border,
-    backgroundColor: T.cardAlt,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  selectorIcon: {
-    color: T.textDim,
-  },
-  selectorSubtitle: {
-    color: T.textDim,
-    fontSize: 13,
-  },
-  selectorTitle: {
-    color: T.text,
-    fontSize: 14,
-    fontWeight: "800",
+  sheetScrollContent: {
+    gap: 16,
+    paddingBottom: 8,
   },
   sheetTitle: { color: T.text, fontSize: 18, fontWeight: "900", marginBottom: 6 },
 });

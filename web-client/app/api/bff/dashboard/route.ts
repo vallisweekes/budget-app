@@ -7,6 +7,7 @@ import { getDebtSummaryForPlan, type DebtSummary } from "@/lib/debts/summary";
 import { computeDebtTips } from "@/lib/debts/insights";
 import { getDashboardExpenseInsights } from "@/lib/helpers/dashboard/getDashboardExpenseInsights";
 import { getAiBudgetTips } from "@/lib/ai/budgetTips";
+import { localizeRecapTips } from "@/lib/ai/localizeRecapTips";
 import { getOnboardingStarterTips } from "@/lib/ai/onboardingStarterTips";
 import { prioritizeRecapTips } from "@/lib/expenses/insights";
 import { getIncomeMonthsCoverageByPlan } from "@/lib/helpers/dashboard/getIncomeMonthsCoverageByPlan";
@@ -109,6 +110,11 @@ export async function GET(req: NextRequest) {
 			select: { name: true, createdAt: true },
 		}));
 		const username = user?.name ?? null;
+		const budgetPlanLocale = await timeSection(timings, "plan_locale", async () => prisma.budgetPlan.findUnique({
+			where: { id: budgetPlanId },
+			select: { language: true, country: true },
+		}));
+		const dashboardLanguage = budgetPlanLocale?.language ?? "en";
 
 		// 1) Plan meta (payDate, homepageGoalIds)
 		// We need payDate early so the dashboard month matches the active pay period.
@@ -615,9 +621,10 @@ export async function GET(req: NextRequest) {
 				].join("-");
 
 				return await bestEffortWithin(getAiBudgetTips({
-					cacheKey: `dashboard:${budgetPlanId}:${currentPlanData.year}-${currentPlanData.monthNum}:${Math.round((currentPlanData.totalExpenses ?? 0) * 100)}:${loggedExpenseSignalKey}`,
+					cacheKey: `dashboard:${budgetPlanId}:${currentPlanData.year}-${currentPlanData.monthNum}:${Math.round((currentPlanData.totalExpenses ?? 0) * 100)}:${loggedExpenseSignalKey}:${dashboardLanguage}`,
 					budgetPlanId,
 					now,
+					language: dashboardLanguage,
 					context: {
 						username: username ?? null,
 						onboarding: onboarding
@@ -737,6 +744,8 @@ export async function GET(req: NextRequest) {
 				maxTips: 4,
 			});
 		}
+
+		expenseInsights.recapTips = localizeRecapTips(expenseInsights.recapTips, dashboardLanguage);
 
 		// Derive paidTotal from expensePayment transaction records — single source of truth.
 		const allExpenses = currentPlanData.categoryData.flatMap((category) => category.expenses ?? []);

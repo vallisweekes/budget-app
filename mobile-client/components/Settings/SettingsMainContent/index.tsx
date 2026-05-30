@@ -13,6 +13,7 @@ import SettingsOverviewTab from "@/components/Settings/SettingsOverviewTab";
 import SettingsPlansTab from "@/components/Settings/SettingsPlansTab";
 import SettingsSubscriptionTab from "@/components/Settings/SettingsSubscriptionTab";
 import SettingsSubpageHeader from "@/components/Settings/SettingsSubpageHeader";
+import { normalizeSupportedLanguage, resolveDefaultLanguageForCountry } from "@/lib/constants";
 import { hasPositiveDebtBalance, isDebtManagementEnabled } from "@/lib/helpers/debtManagement";
 import { asMoneyText, formatPayFrequency } from "@/lib/helpers/settings";
 import {
@@ -215,8 +216,14 @@ export default function SettingsMainContent({ controller, navigation, savingsTil
           onUseDetected={() => {
             if (!controller.detectedCountry || !controller.settings?.id) return;
             if ((controller.settings.country ?? "").toUpperCase() === controller.detectedCountry) return;
+            const currentCountry = (controller.settings.country ?? "").toUpperCase();
+            const currentDefaultLanguage = resolveDefaultLanguageForCountry(currentCountry);
+            const currentLanguage = normalizeSupportedLanguage(controller.settings?.language ?? controller.languageDraft, currentDefaultLanguage);
+            const nextLanguage = currentLanguage === currentDefaultLanguage
+              ? resolveDefaultLanguageForCountry(controller.detectedCountry)
+              : currentLanguage;
             controller.setCountryDraft(controller.detectedCountry);
-            void controller.saveCountry(controller.detectedCountry);
+            void controller.saveLocale(controller.detectedCountry, nextLanguage);
           }}
           canUseDetected={Boolean(controller.detectedCountry) && (controller.settings?.country ?? "").toUpperCase() !== controller.detectedCountry}
         />

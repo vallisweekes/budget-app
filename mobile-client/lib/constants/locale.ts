@@ -5,6 +5,15 @@ export type LocalePresetOption = {
   currencyLabel: string;
 };
 
+export type LanguageOption = {
+  code: string;
+  label: string;
+  nativeLabel: string;
+};
+
+export const DEFAULT_COUNTRY = "GB";
+export const DEFAULT_LANGUAGE = "en";
+
 export const LOCALE_PRESET_OPTIONS: LocalePresetOption[] = [
   {
     countryCode: "GB",
@@ -133,3 +142,69 @@ export const LOCALE_PRESET_OPTIONS: LocalePresetOption[] = [
     currencyLabel: "Singapore dollar",
   },
 ];
+
+export const SUPPORTED_LANGUAGE_OPTIONS = [
+  { code: "en", label: "English", nativeLabel: "English" },
+  { code: "de", label: "German", nativeLabel: "Deutsch" },
+  { code: "fr", label: "French", nativeLabel: "Francais" },
+  { code: "es", label: "Spanish", nativeLabel: "Espanol" },
+  { code: "it", label: "Italian", nativeLabel: "Italiano" },
+] as const satisfies readonly LanguageOption[];
+
+export type SupportedLanguageCode = typeof SUPPORTED_LANGUAGE_OPTIONS[number]["code"];
+
+const SUPPORTED_LANGUAGE_CODES = new Set<string>(SUPPORTED_LANGUAGE_OPTIONS.map((option) => option.code));
+
+const COUNTRY_LANGUAGE_DEFAULTS: Partial<Record<string, SupportedLanguageCode>> = {
+  GB: "en",
+  DE: "de",
+  AT: "de",
+  CH: "de",
+  FR: "fr",
+  ES: "es",
+  IT: "it",
+};
+
+export function isSupportedLanguageCode(language: string | null | undefined): language is SupportedLanguageCode {
+  const normalizedLanguage = String(language ?? "").trim().toLowerCase();
+  return Boolean(normalizedLanguage) && SUPPORTED_LANGUAGE_CODES.has(normalizedLanguage);
+}
+
+export function resolveDefaultLanguageForCountry(
+  country: string | null | undefined,
+  fallback: SupportedLanguageCode = DEFAULT_LANGUAGE,
+): SupportedLanguageCode {
+  const normalizedCountry = String(country ?? "").trim().toUpperCase();
+  if (!normalizedCountry) return fallback;
+  return COUNTRY_LANGUAGE_DEFAULTS[normalizedCountry] ?? fallback;
+}
+
+export function normalizeSupportedLanguage(
+  language: string | null | undefined,
+  fallback: SupportedLanguageCode = DEFAULT_LANGUAGE,
+): SupportedLanguageCode {
+  const normalizedLanguage = String(language ?? "").trim().toLowerCase();
+  return isSupportedLanguageCode(normalizedLanguage) ? normalizedLanguage : fallback;
+}
+
+export function getCountryLabel(country: string | null | undefined): string | null {
+  const normalizedCountry = String(country ?? "").trim().toUpperCase();
+  if (!normalizedCountry) return null;
+  return LOCALE_PRESET_OPTIONS.find((option) => option.countryCode === normalizedCountry)?.countryLabel ?? normalizedCountry;
+}
+
+export function getLanguageLabel(language: string | null | undefined, mode: "native" | "english" = "native"): string {
+  const normalizedLanguage = normalizeSupportedLanguage(language);
+  const option = SUPPORTED_LANGUAGE_OPTIONS.find((candidate) => candidate.code === normalizedLanguage);
+  if (!option) return normalizedLanguage;
+  return mode === "english" ? option.label : option.nativeLabel;
+}
+
+export function buildAppLocale(
+  language: string | null | undefined = DEFAULT_LANGUAGE,
+  country: string | null | undefined = DEFAULT_COUNTRY,
+): string {
+  const normalizedLanguage = normalizeSupportedLanguage(language, DEFAULT_LANGUAGE);
+  const normalizedCountry = String(country ?? "").trim().toUpperCase() || DEFAULT_COUNTRY;
+  return `${normalizedLanguage}-${normalizedCountry}`;
+}

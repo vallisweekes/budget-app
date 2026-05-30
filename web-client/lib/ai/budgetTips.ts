@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { normalizeLanguageCode } from "@/lib/constants/locales";
 import {
 	prioritizeRecapTips,
 	type RecapTip,
@@ -106,12 +107,15 @@ export async function getAiBudgetTips(args: {
 			highestInterestRate?: number | null;
 		};
 	};
+	language?: string | null;
 	maxTips?: number;
 }): Promise<RecapTip[] | null> {
 	const apiKey = process.env.OPENAI_API_KEY;
 	if (!apiKey) return null;
 
 	const maxTips = Math.max(1, Math.min(6, args.maxTips ?? 4));
+	const targetLanguage = normalizeLanguageCode(args.language, "en");
+	const targetLanguageName = targetLanguage === "de" ? "German" : "English";
 	const cached = await getJsonCache<RecapTip[]>(args.cacheKey);
 	if (cached?.length) return cached;
 
@@ -195,6 +199,10 @@ export async function getAiBudgetTips(args: {
 		"Definition notes: amountAfterExpenses = incomeAfterAllocations − totalExpenses; a negative value means overspending vs plan. " +
 		"If overLimitDebtCount > 0, treat it as urgent (a card is over its credit limit). " +
 		"Treat extra logged expenses as unplanned spending signals, especially when they recur with the same merchant/category or consume a noticeable share of income. " +
+		`Write every title and detail in ${targetLanguageName}. ` +
+		(targetLanguage === "de"
+			? "Do not mix English into the final tips unless a merchant or brand name is naturally English. "
+			: "") +
 		"Avoid shame, avoid legal/medical advice, and do not mention OpenAI. " +
 		"Return ONLY valid JSON: {\"tips\":[{\"title\":string,\"detail\":string,\"priority\":number}]}. " +
 		"Set priority from 1-100 (100 = most urgent). Prioritise debt-reduction and savings-protection actions first. " +

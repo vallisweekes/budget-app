@@ -1,6 +1,7 @@
 import type { DashboardData, Settings } from "@/lib/apiTypes";
-import { MONTH_NAMES_SHORT } from "@/lib/formatting";
+import { buildAppLocale } from "@/lib/constants";
 import { buildPayPeriodFromMonthAnchor, formatPayPeriodLabelForFrequency, getPayPeriodAnchorFromWindow, normalizePayFrequency, resolveActivePayPeriod } from "@/lib/payPeriods";
+import { formatAppDate, translateExpenseCategoryName } from "@/lib/i18n";
 
 export function getEffectiveHomepageGoals<T extends { id: string }>(goals: T[], homepageGoalIds: string[] | null | undefined): T[] {
   const preferredGoalIds = Array.isArray(homepageGoalIds) ? homepageGoalIds : [];
@@ -140,14 +141,15 @@ export function buildDashboardDerived(params: {
     payFrequency,
     payAnchorDate,
   });
+  const locale = buildAppLocale(settings?.language, settings?.country);
   const periodStart = effectivePeriod.start;
   const periodEnd = effectivePeriod.end;
-  const rangeLabel = formatPayPeriodLabelForFrequency({ start: periodStart, end: periodEnd, payFrequency });
+  const rangeLabel = formatPayPeriodLabelForFrequency({ start: periodStart, end: periodEnd, payFrequency, locale });
   const payPeriodStart = startOfDay(periodStart);
   const payPeriodEnd = endOfDay(periodEnd);
   const payPeriodLabel = displayedAnchor
-    ? formatPayPeriodLabelForFrequency({ start: periodStart, end: periodEnd, payFrequency })
-    : (dashboard?.payPeriodLabel ?? formatPayPeriodLabelForFrequency({ start: periodStart, end: periodEnd, payFrequency }));
+    ? formatPayPeriodLabelForFrequency({ start: periodStart, end: periodEnd, payFrequency, locale })
+    : formatPayPeriodLabelForFrequency({ start: periodStart, end: periodEnd, payFrequency, locale });
 
   const previousAnchor = effectiveAnchor.month === 1
     ? { month: 12, year: effectiveAnchor.year - 1 }
@@ -160,8 +162,8 @@ export function buildDashboardDerived(params: {
     payAnchorDate,
   });
   const previousPayPeriodLabel = displayedAnchor
-    ? formatPayPeriodLabelForFrequency({ start: previousPeriod.start, end: previousPeriod.end, payFrequency })
-    : (dashboard?.previousPayPeriodLabel ?? formatPayPeriodLabelForFrequency({ start: previousPeriod.start, end: previousPeriod.end, payFrequency }));
+    ? formatPayPeriodLabelForFrequency({ start: previousPeriod.start, end: previousPeriod.end, payFrequency, locale })
+    : formatPayPeriodLabelForFrequency({ start: previousPeriod.start, end: previousPeriod.end, payFrequency, locale });
 
   const isDateInPayPeriod = (date: Date | null) => {
     if (!date || Number.isNaN(date.getTime())) return false;
@@ -333,10 +335,18 @@ export function buildDashboardDerived(params: {
     if (!iso) return null;
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) return null;
-    return `${d.getDate()} ${MONTH_NAMES_SHORT[d.getMonth()]}`;
+    return formatAppDate(d, {
+      language: settings?.language,
+      country: settings?.country,
+      options: { day: "numeric", month: "short" },
+    });
   };
 
-  const selectedCategory = categorySheet ? categories.find((c) => c.id === categorySheet.id) : undefined;
+  const localizedCategories = categories.map((category) => ({
+    ...category,
+    name: translateExpenseCategoryName(category.name, settings?.language),
+  }));
+  const selectedCategory = categorySheet ? localizedCategories.find((c) => c.id === categorySheet.id) : undefined;
   const selectedExpenses = (selectedCategory?.expenses ?? []).slice().sort((a, b) => (b.amount ?? 0) - (a.amount ?? 0));
 
   const goalsToShow = getEffectiveHomepageGoals(goals, dashboard?.homepageGoalIds);
@@ -349,7 +359,7 @@ export function buildDashboardDerived(params: {
     totalAllocations,
     plannedDebtPayments,
     incomeAfterAllocations,
-    categories,
+    categories: localizedCategories,
     goals,
     debts,
     monthNum,

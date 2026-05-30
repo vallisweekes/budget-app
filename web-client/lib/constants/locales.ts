@@ -50,6 +50,18 @@ export const DEFAULT_COUNTRY = "GB";
 export const DEFAULT_LANGUAGE = "en";
 export const DEFAULT_CURRENCY = "GBP";
 
+const COUNTRY_LANGUAGE_DEFAULTS: Record<string, string> = {
+  GB: "en",
+  DE: "de",
+  AT: "de",
+  CH: "de",
+  FR: "fr",
+  ES: "es",
+  IT: "it",
+};
+
+const SUPPORTED_LANGUAGE_CODES = new Set<string>(SUPPORTED_LANGUAGES.map((language) => language.code));
+
 const EURO_COUNTRY_CODES = new Set([
   "AT",
   "BE",
@@ -90,7 +102,27 @@ const COUNTRY_CURRENCY_OVERRIDES: Record<string, string> = {
 
 // Helper to build locale string from language and country
 export function buildLocale(language: string = DEFAULT_LANGUAGE, country: string = DEFAULT_COUNTRY): string {
-  return `${language}-${country}`;
+  const normalizedCountry = String(country ?? "").trim().toUpperCase() || DEFAULT_COUNTRY;
+  const normalizedLanguage = normalizeLanguageCode(language, resolveDefaultLanguageForCountry(normalizedCountry));
+  return `${normalizedLanguage}-${normalizedCountry}`;
+}
+
+export function isSupportedLanguageCode(language: string | null | undefined): boolean {
+  const normalized = String(language ?? "").trim().toLowerCase();
+  if (!normalized) return false;
+  return SUPPORTED_LANGUAGE_CODES.has(normalized);
+}
+
+export function resolveDefaultLanguageForCountry(country: string | null | undefined, fallback: string = DEFAULT_LANGUAGE): string {
+  const normalizedCountry = String(country ?? "").trim().toUpperCase();
+  if (!normalizedCountry) return fallback;
+  return COUNTRY_LANGUAGE_DEFAULTS[normalizedCountry] ?? fallback;
+}
+
+export function normalizeLanguageCode(language: string | null | undefined, fallback: string = DEFAULT_LANGUAGE): string {
+  const normalized = String(language ?? "").trim().toLowerCase();
+  if (!normalized) return fallback;
+  return SUPPORTED_LANGUAGE_CODES.has(normalized) ? normalized : fallback;
 }
 
 // Helper to get currency symbol
