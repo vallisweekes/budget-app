@@ -10,6 +10,7 @@ import { useSwipeDownToClose } from "@/hooks";
 import MoneyInput from "@/components/Shared/MoneyInput";
 import DatePickerInput from "@/components/Shared/DatePickerInput";
 import GlassFooterButton from "@/components/Shared/GlassFooterButton";
+import NumericInput from "@/components/Shared/NumericInput";
 import { styles } from "./styles";
 
 export default function EditDebtSheet(props: EditDebtSheetProps) {
@@ -114,7 +115,7 @@ export default function EditDebtSheet(props: EditDebtSheetProps) {
 
               <View style={styles.formGroup}>
                 <Text style={styles.inputLabel}>APR %</Text>
-                <TextInput style={styles.input} value={interestRate} onChangeText={onChangeRate} keyboardType="decimal-pad" placeholder="0.00" placeholderTextColor={T.textMuted} />
+                <NumericInput style={styles.input} value={interestRate} onChangeText={onChangeRate} keyboardType="decimal-pad" placeholder="0.00" placeholderTextColor={T.textMuted} />
               </View>
             </View>
 
@@ -387,7 +388,7 @@ export default function EditDebtSheet(props: EditDebtSheetProps) {
               {customInstallmentMode ? (
                 <View style={styles.formGroup}>
                   <Text style={styles.inputLabel}>Custom months</Text>
-                  <TextInput
+                  <NumericInput
                     style={styles.input}
                     value={installment}
                     onChangeText={onChangeInstallment}

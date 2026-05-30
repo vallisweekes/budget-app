@@ -1,5 +1,7 @@
 import React from "react";
-import { Animated, KeyboardAvoidingView, Modal, Platform, Pressable, Text, TextInput, View } from "react-native";
+import { Animated, KeyboardAvoidingView, Modal, Platform, Pressable, Text, View } from "react-native";
+
+import NumericInput from "@/components/Shared/NumericInput";
 
 import { styles } from "./styles";
 
@@ -31,8 +33,8 @@ export default function SettingsBudgetFieldSheet(props: SettingsBudgetFieldSheet
           <Animated.View style={[styles.sheet, { transform: [{ translateY }] }]} {...panHandlers}>
             <View style={styles.sheetHandle} {...panHandlers} />
             <Text style={styles.sheetTitle}>{field === "payDate" ? "Edit pay date" : field === "horizon" ? "Edit budget horizon" : "Edit pay schedule"}</Text>
-            {field === "payDate" ? (<><Text style={styles.label}>Pay date</Text><TextInput value={payDateDraft} onChangeText={onChangePayDate} style={styles.input} keyboardType="number-pad" /></>) : null}
-            {field === "horizon" ? (<><Text style={styles.label}>Budget horizon (years)</Text><TextInput value={horizonDraft} onChangeText={onChangeHorizon} style={styles.input} keyboardType="number-pad" /></>) : null}
+            {field === "payDate" ? (<><Text style={styles.label}>Pay date</Text><NumericInput value={payDateDraft} onChangeText={onChangePayDate} style={styles.input} keyboardType="number-pad" /></>) : null}
+            {field === "horizon" ? (<><Text style={styles.label}>Budget horizon (years)</Text><NumericInput value={horizonDraft} onChangeText={onChangeHorizon} style={styles.input} keyboardType="number-pad" /></>) : null}
             {field === "payFrequency" ? (
               <>
                 <Text style={styles.label}>Pay schedule</Text>

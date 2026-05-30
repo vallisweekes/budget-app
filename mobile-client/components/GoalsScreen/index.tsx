@@ -26,6 +26,7 @@ import { getMobileApiErrorMessage, useCreateGoalMutation, useGetGoalsQuery } fro
 import { T } from "@/lib/theme";
 import { s } from "@/components/GoalsScreen/style";
 import MoneyInput from "@/components/Shared/MoneyInput";
+import NumericInput from "@/components/Shared/NumericInput";
 
 export default function GoalsScreen({ navigation, route }: MainTabScreenProps<"Goals">) {
   const listRef = useRef<SectionList<Goal>>(null);
@@ -232,7 +233,7 @@ export default function GoalsScreen({ navigation, route }: MainTabScreenProps<"G
               </View>
 
               <Text style={s.inputLabel}>Target year (optional)</Text>
-              <TextInput
+              <NumericInput
                 value={newTargetYear}
                 onChangeText={setNewTargetYear}
                 placeholder="e.g. 2035"

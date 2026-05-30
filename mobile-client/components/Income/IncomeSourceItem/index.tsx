@@ -1,8 +1,9 @@
 import React, { useRef } from "react";
-import { View, Text, Pressable, TextInput, ActivityIndicator, InputAccessoryView, Platform } from "react-native";
+import { View, Text, Pressable, TextInput, ActivityIndicator } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { fmt } from "@/lib/formatting";
 import { T } from "@/lib/theme";
+import MoneyInput from "@/components/Shared/MoneyInput";
 import type { IncomeEditRowProps, IncomeRowProps } from "@/types";
 import { styles } from "./styles";
 
@@ -59,9 +60,6 @@ export function IncomeEditRow({
   onCancel,
   saving,
 }: IncomeEditRowProps) {
-  const hiddenAccessoryIdRef = useRef(`income-source-hidden-accessory-${Math.random().toString(36).slice(2)}`);
-  const hiddenAccessoryId = Platform.OS === "ios" ? hiddenAccessoryIdRef.current : undefined;
-
   return (
     <View style={styles.editWrap}>
       <View style={styles.editInputs}>
@@ -72,17 +70,16 @@ export function IncomeEditRow({
           placeholder="Name"
           placeholderTextColor={T.textMuted}
           autoFocus
+          editable={!saving}
         />
-        <TextInput
-          style={[styles.input, { width: 100 }]}
+        <MoneyInput
+          currency={null}
           value={editAmount}
-          onChangeText={setEditAmount}
-          keyboardType="decimal-pad"
+          onChangeValue={setEditAmount}
           placeholder="Amount"
-          placeholderTextColor={T.textMuted}
-          returnKeyType="done"
-          inputAccessoryViewID={hiddenAccessoryId}
-          onSubmitEditing={onSave}
+          editable={!saving}
+          containerStyle={styles.editAmountInput}
+          inputStyle={styles.editAmountInputText}
         />
       </View>
       <View style={styles.editActions}>
@@ -101,11 +98,6 @@ export function IncomeEditRow({
           )}
         </Pressable>
       </View>
-      {hiddenAccessoryId ? (
-        <InputAccessoryView nativeID={hiddenAccessoryId} backgroundColor="transparent">
-          <View style={{ height: 1 }} />
-        </InputAccessoryView>
-      ) : null}
     </View>
   );
 }

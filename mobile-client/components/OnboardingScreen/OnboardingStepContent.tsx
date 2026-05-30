@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 
 import { Ionicons } from "@expo/vector-icons";
 
 import MoneyInput from "@/components/Shared/MoneyInput";
-import NoteBadge from "@/components/Shared/NoteBadge";
+import NumericInput from "@/components/Shared/NumericInput";
 import OnboardingPayScheduleSection from "@/components/OnboardingScreen/OnboardingPayScheduleSection";
 import { onboardingStyles as styles } from "@/components/OnboardingScreen/style";
 import { EXPENSES_TOTAL_BLUE, GOALS, ICON_COLORS, PLANNING_YEARS_OPTIONS, STEP_ICON_COLORS } from "@/lib/constants";
@@ -99,7 +99,7 @@ export function OnboardingStepContent({ controller }: OnboardingStepContentProps
         <>
           <View style={styles.questionRow}>
             <Ionicons name="briefcase-outline" size={20} color={STEP_ICON_COLORS[1]} />
-            <Text style={styles.question}>What's your occupation?</Text>
+            <Text style={styles.question}>What&apos;s your occupation?</Text>
           </View>
 
           <Pressable
@@ -165,7 +165,7 @@ export function OnboardingStepContent({ controller }: OnboardingStepContentProps
 
           {occupationNeedsIncomeSource ? (
             <>
-              <Text style={styles.question}>What's your source of income?</Text>
+              <Text style={styles.question}>What&apos;s your source of income?</Text>
               <View style={styles.chipsWrap}>
                 {controller.incomeSourceOptions.map((item) => {
                   const active = controller.incomeSource === item;
@@ -378,7 +378,7 @@ export function OnboardingStepContent({ controller }: OnboardingStepContentProps
           <MoneyInput currency={controller.currency} value={controller.savingsGoalAmount} onChangeValue={controller.setSavingsGoalAmount} variant="underline" placeholder="0.00" />
 
           <Text style={styles.fieldLabel}>Target year</Text>
-          <TextInput value={controller.savingsGoalYear} onChangeText={controller.setSavingsGoalYear} placeholder="e.g. 2028" placeholderTextColor="rgba(255,255,255,0.62)" keyboardType="number-pad" style={styles.input} />
+          <NumericInput value={controller.savingsGoalYear} onChangeText={controller.setSavingsGoalYear} placeholder="e.g. 2028" placeholderTextColor="rgba(255,255,255,0.62)" keyboardType="number-pad" style={styles.input} />
         </>
       ) : null}
 

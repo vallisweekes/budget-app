@@ -17,6 +17,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 import MoneyInput from "@/components/Shared/MoneyInput";
 import DatePickerInput from "@/components/Shared/DatePickerInput";
+import NumericInput from "@/components/Shared/NumericInput";
 import OverlaySelectInput from "@/components/Shared/OverlaySelectInput";
 import { PAYMENT_SOURCE_OPTIONS, TERM_PRESETS, TYPE_COLORS, TYPE_LABELS } from "@/lib/constants";
 import { T } from "@/lib/theme";
@@ -140,7 +141,7 @@ export function AddDebtSheet({ controller }: AddDebtSheetProps) {
                   </View>
                   <View style={[styles.termWrap, { flex: 1 }]}>
                     <Text style={styles.termLabel}>Interest APR % (optional)</Text>
-                    <TextInput
+                    <NumericInput
                       style={styles.input}
                       placeholder="e.g. 19.9"
                       placeholderTextColor={T.textMuted}
@@ -154,7 +155,7 @@ export function AddDebtSheet({ controller }: AddDebtSheetProps) {
                 <View style={styles.inlineRow}>
                   <View style={[styles.termWrap, { flex: 1 }]}>
                     <Text style={styles.termLabel}>Interest APR % (optional)</Text>
-                    <TextInput
+                    <NumericInput
                       style={styles.input}
                       placeholder="e.g. 19.9"
                       placeholderTextColor={T.textMuted}
@@ -247,7 +248,7 @@ export function AddDebtSheet({ controller }: AddDebtSheetProps) {
                   </Pressable>
                 </View>
                 {controller.addInstallmentPreset === "custom" ? (
-                  <TextInput
+                  <NumericInput
                     style={styles.input}
                     placeholder="e.g. 18"
                     placeholderTextColor={T.textMuted}

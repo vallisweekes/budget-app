@@ -9,11 +9,12 @@ import { fmt } from "@/lib/formatting";
 import { INVESTMENT_BUCKET_OPTIONS } from "@/lib/constants";
 import { parseMoney } from "@/lib/domain/moneyInput";
 import { groupSavingsPotsByField } from "@/lib/helpers/settings";
-import { getPayPeriodRangeLabelFromSelection, getPayPeriodSelectionFromAnchor } from "@/lib/payPeriods";
+import { getPayPeriodSelectionFromAnchor } from "@/lib/payPeriods";
 import { T } from "@/lib/theme";
 import { s } from "@/components/IncomeMonthScreen/style";
 import IncomeSacrificePieChart from "@/components/Income/IncomeSacrificePieChart";
 import MoneyInput from "@/components/Shared/MoneyInput";
+import NumericInput from "@/components/Shared/NumericInput";
 import type {
   AmountEntryMode,
   GlassEffectModule,
@@ -30,10 +31,6 @@ const ADD_ITEM_TYPES: Array<{ key: IncomeSacrificeItemType; label: string }> = [
   { key: "emergency", label: "Emergency" },
   { key: "investment", label: "Investment" },
   { key: "custom", label: "Custom" },
-];
-
-const MONTH_CHIPS = [
-  "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ];
 
 function normalizeMonthValue(value: number): number {
@@ -545,15 +542,6 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
     if (!(isInlineAmountEditing && parsedInlineAmount != null)) return selectedDisplayTotal;
     return Math.max(0, selectedDisplayTotal - editableCurrentAmount + parsedInlineAmount);
   }, [editableCurrentAmount, isInlineAmountEditing, parsedInlineAmount, selectedDisplayTotal]);
-
-  const selectedPayPeriodLabel = useMemo(() => {
-    return getPayPeriodRangeLabelFromSelection({
-      year: startYear,
-      month: startMonth,
-      payDate: props.payDate,
-      payFrequency: props.payFrequency,
-    });
-  }, [props.payDate, props.payFrequency, startMonth, startYear]);
 
   const periodOptions = useMemo<Array<{ key: SacrificePeriod; label: string }>>(() => {
     if (isMonthlyCadence) {
@@ -1131,7 +1119,7 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
             {newItemType === "custom" ? (
               <>
                 <Text style={styles.fieldLabel}>Target year</Text>
-                <TextInput
+                <NumericInput
                   style={styles.input}
                   value={newItemGoalTargetYear}
                   onChangeText={setNewItemGoalTargetYear}

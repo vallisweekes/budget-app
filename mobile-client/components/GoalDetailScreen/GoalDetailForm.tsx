@@ -5,6 +5,7 @@ import type { GoalDetailFormProps } from "@/types";
 import { fmt } from "@/lib/formatting";
 import { T } from "@/lib/theme";
 import MoneyInput from "@/components/Shared/MoneyInput";
+import NumericInput from "@/components/Shared/NumericInput";
 
 import { styles } from "./style";
 
@@ -88,7 +89,7 @@ export default function GoalDetailForm(props: GoalDetailFormProps) {
       </View>
 
       <Text style={styles.inputLabel}>Target year</Text>
-      <TextInput
+      <NumericInput
         value={targetYear}
         onChangeText={onTargetYearChange}
         placeholder="e.g. 2030"

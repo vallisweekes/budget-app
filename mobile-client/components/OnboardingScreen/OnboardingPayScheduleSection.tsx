@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Modal, Platform, Pressable, Text, TextInput, View } from "react-native";
+import { Modal, Platform, Pressable, Text, View } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Ionicons } from "@expo/vector-icons";
 
 import { onboardingStyles as styles } from "@/components/OnboardingScreen/style";
+import NumericInput from "@/components/Shared/NumericInput";
 import { PAY_FREQUENCY_OPTIONS, STEP_ICON_COLORS } from "@/lib/constants";
 import type { OnboardingPayScheduleSectionProps } from "@/types";
 
@@ -85,7 +86,7 @@ export default function OnboardingPayScheduleSection({ controller }: OnboardingP
             <Ionicons name="wallet-outline" size={20} color={STEP_ICON_COLORS[2]} />
             <Text style={styles.question}>What day of the month do you usually get paid?</Text>
           </View>
-          <TextInput
+          <NumericInput
             value={controller.payDay}
             onChangeText={controller.setPayDay}
             placeholder="For example: 15"

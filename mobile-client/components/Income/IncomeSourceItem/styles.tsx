@@ -57,6 +57,13 @@ export const styles = StyleSheet.create({
   input: {
     ...flatInput,
   },
+  editAmountInput: {
+    width: 112,
+  },
+  editAmountInputText: {
+    color: T.text,
+    fontSize: 15,
+  },
   cancelBtn: {
     paddingHorizontal: 14,
     paddingVertical: 8,

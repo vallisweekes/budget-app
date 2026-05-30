@@ -20,14 +20,16 @@ export default function MoneyInput({
   onBlur,
   placeholderTextColor,
   editable = true,
+  returnKeyType,
+  onSubmitEditing,
   ...rest
 }: MoneyInputProps) {
   const sym = useMemo(() => currencySymbol(currency), [currency]);
   const [focused, setFocused] = useState(false);
   const [display, setDisplay] = useState<string>(value ? value : "");
   const hiddenAccessoryIdRef = useRef(`money-input-hidden-accessory-${Math.random().toString(36).slice(2)}`);
-  const shouldHideSystemAccessory = Platform.OS === "ios"
-    && (keyboardType === "decimal-pad" || keyboardType === "number-pad");
+  const usesNumericKeyboard = keyboardType === "decimal-pad" || keyboardType === "number-pad";
+  const shouldHideSystemAccessory = Platform.OS === "ios" && usesNumericKeyboard;
   const hiddenAccessoryId = shouldHideSystemAccessory ? hiddenAccessoryIdRef.current : undefined;
 
   useEffect(() => {
@@ -80,6 +82,8 @@ export default function MoneyInput({
         style={[styles.input, isLight && styles.inputLight, isSheet && styles.inputSheet, isUnderline && styles.inputUnderline, inputStyle]}
         editable={editable}
         inputAccessoryViewID={hiddenAccessoryId}
+        returnKeyType={usesNumericKeyboard ? undefined : returnKeyType}
+        onSubmitEditing={usesNumericKeyboard ? undefined : onSubmitEditing}
         onFocus={(e) => {
           setFocused(true);
           setDisplay(value ?? "");

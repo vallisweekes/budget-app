@@ -2,6 +2,7 @@ import React from "react";
 import { Animated, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 
 import MoneyInput from "@/components/Shared/MoneyInput";
+import NumericInput from "@/components/Shared/NumericInput";
 import { styles } from "./styles";
 
 import type { SettingsDebtSheetProps } from "@/types/components/settings/SettingsDebtSheet.types";
@@ -53,7 +54,7 @@ export default function SettingsDebtSheet(props: SettingsDebtSheetProps) {
                 <MoneyInput currency={currency} value={balance} onChangeValue={onChangeBalance} />
 
                 <Text style={styles.label}>Interest rate % (optional)</Text>
-                <TextInput value={interestRate} onChangeText={onChangeInterestRate} style={styles.input} keyboardType="decimal-pad" />
+                <NumericInput value={interestRate} onChangeText={onChangeInterestRate} style={styles.input} keyboardType="decimal-pad" />
 
                 <Text style={styles.label}>Credit limit</Text>
                 <MoneyInput currency={currency} value={creditLimit} onChangeValue={onChangeCreditLimit} />

@@ -10,9 +10,7 @@ import {
   Alert,
   Animated,
   Dimensions,
-  Keyboard,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   Text,
@@ -93,9 +91,6 @@ export default function AddExpenseSheet({
   const { settings } = useBootstrapData();
   const slideY = useRef(new Animated.Value(ADD_EXPENSE_SHEET_SCREEN_H ?? SCREEN_H)).current;
   const [createExpense] = useCreateExpenseMutation();
-
-  const [keyboardVisible, setKeyboardVisible] = useState(false);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
@@ -197,25 +192,6 @@ export default function AddExpenseSheet({
 
   const { dragY, panHandlers } = useSwipeDownToClose({ onClose, disabled: submitting });
 
-  useEffect(() => {
-    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
-    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-
-    const subShow = Keyboard.addListener(showEvent, (e) => {
-      setKeyboardVisible(true);
-      setKeyboardHeight(e?.endCoordinates?.height ?? 0);
-    });
-    const subHide = Keyboard.addListener(hideEvent, () => {
-      setKeyboardVisible(false);
-      setKeyboardHeight(0);
-    });
-
-    return () => {
-      subShow.remove();
-      subHide.remove();
-    };
-  }, []);
-
   // Animate in / out
   useEffect(() => {
     Animated.spring(slideY, {
@@ -250,7 +226,7 @@ export default function AddExpenseSheet({
         setError(null);
       }, 300);
     }
-  }, [visible, month, year, budgetPlanId, resolveInitialCategoryId, resolvedCategories]);
+  }, [budgetPlanId, month, resolveInitialCategoryId, resolvedCategories, slideY, visible, year]);
 
   const needsDebtSelection = requiresFundingDebt(fundingSource);
   const fundingOptions = useMemo(
@@ -633,8 +609,7 @@ export default function AddExpenseSheet({
           <View
             style={{
               ...styles.footerWrap,
-              paddingBottom: insets.bottom + 10,
-              marginBottom: keyboardVisible ? Math.max(0, keyboardHeight - insets.bottom + 8) : 0,
+              paddingBottom: insets.bottom + 2,
             }}
           >
             <AddExpenseSheetFooter

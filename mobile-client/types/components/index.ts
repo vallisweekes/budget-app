@@ -36,6 +36,7 @@ export * from "./IncomeSourceItem.types";
 export * from "./AddExpenseSheet.types";
 export * from "./CategoryBreakdown.types";
 export * from "./MoneyInput.types";
+export * from "./NumericInput.types";
 export * from "./NoteBadge.types";
 export * from "./OverlaySelectInput.types";
 export * from "./ExpenseItem.types";
