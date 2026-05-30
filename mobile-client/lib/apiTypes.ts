@@ -583,6 +583,7 @@ export interface DashboardData {
 
   // Debts
   debts: DashboardDebt[];
+  activeDebtCount?: number;
   totalDebtBalance: number;
 
   // Expense insights

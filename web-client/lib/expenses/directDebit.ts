@@ -218,7 +218,7 @@ export async function syncDueDirectDebitExpenses(params: {
       return synced;
     });
 
-    if (syncResult.finalPaid) {
+    if (syncResult.finalPaid && (syncResult.didChangePayments || shouldUpdateExpense)) {
       updatedExpenseIds.push(expense.id);
     }
   }

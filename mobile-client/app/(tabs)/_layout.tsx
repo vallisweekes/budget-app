@@ -73,7 +73,7 @@ export default function MainTabsLayout() {
   const { profile } = useAuth();
   const { dashboard, isLoading: bootstrapLoading } = useBootstrapData();
   const debtSummaryQuery = useGetDebtSummaryQuery(undefined, {
-    skip: !profile,
+    skip: !profile || bootstrapLoading || (Boolean(dashboard) && typeof dashboard?.activeDebtCount === "number"),
   });
   const incomeAddTokenRef = React.useRef(0);
   const debtAddTokenRef = React.useRef(0);
@@ -112,6 +112,10 @@ export default function MainTabsLayout() {
     && !isDebtAnalyticsNestedRoute
   );
   const hasActualDebts = React.useMemo(() => {
+    if (typeof dashboard?.activeDebtCount === "number") {
+      return dashboard.activeDebtCount > 0;
+    }
+
     if (debtSummaryQuery.isSuccess) {
       return (debtSummaryQuery.data?.activeCount ?? 0) > 0;
     }

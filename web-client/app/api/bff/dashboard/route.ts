@@ -297,8 +297,7 @@ export async function GET(req: NextRequest) {
 			key: dashboardCacheKey,
 			budgetPlanId,
 		});
-		// This is required for the dashboard; let it throw if it truly can't compute.
-		const currentPlanData = await timeSection(timings, "current_plan", async () => getDashboardPlanDataForActivePayPeriod(budgetPlanId, {
+		const currentPlanDataPromise = timeSection(timings, "current_plan", async () => getDashboardPlanDataForActivePayPeriod(budgetPlanId, {
 			now: dashboardNow,
 			payDate: payDay,
 			payFrequency,
@@ -307,7 +306,7 @@ export async function GET(req: NextRequest) {
 			ensureDefaultCategories: false,
 			skipDirectDebitSync: true,
 		}));
-		const { payPeriodLabel, previousPayPeriodLabel } = await timeSection(timings, "pay_labels", async () =>
+		const payLabelsPromise = timeSection(timings, "pay_labels", async () =>
 			Promise.resolve(
 				getDashboardPayPeriodLabels(
 					dashboardNow,
@@ -319,7 +318,7 @@ export async function GET(req: NextRequest) {
 			)
 		);
 
-		const debtSummary = await timeSection(timings, "debt_summary", async () => {
+		const debtSummaryPromise = timeSection(timings, "debt_summary", async () => {
 			const fallback = {
 				regularDebts: [],
 				expenseDebts: [],
@@ -345,61 +344,65 @@ export async function GET(req: NextRequest) {
 			}
 		});
 
-		// Everything below is "best effort". If one section fails (e.g. debt sync),
-		// return the rest of the dashboard rather than a full 500.
-		const [expenseInsightsBase, allPlansData] = await Promise.all([
-			timeSection(timings, "expense_insights", async () => {
-				const fallback = {
-					recap: null,
-					upcoming: [],
-					recapTips: [],
-					loggedExpenseHabits: {
-						currentPeriod: { count: 0, amount: 0 },
-						recentAverage: { months: 3, count: 0, amount: 0 },
-						recentMonths: [],
-						recurringMerchants: [],
-						topCategories: [],
-						paymentSources: [],
-					},
-				};
+		const expenseInsightsBasePromise = timeSection(timings, "expense_insights", async () => {
+			const fallback = {
+				recap: null,
+				upcoming: [],
+				recapTips: [],
+				loggedExpenseHabits: {
+					currentPeriod: { count: 0, amount: 0 },
+					recentAverage: { months: 3, count: 0, amount: 0 },
+					recentMonths: [],
+					recurringMerchants: [],
+					topCategories: [],
+					paymentSources: [],
+				},
+			};
 
-				try {
-					const result = await bestEffortWithin(getDashboardExpenseInsights({
-						budgetPlanId,
-						payDate,
-						payFrequency,
-						payAnchorDate,
-						now: dashboardNow,
-						userId,
-						planCreatedAt: effectiveCreatedAt,
-					}), 1800);
+			try {
+				const result = await bestEffortWithin(getDashboardExpenseInsights({
+					budgetPlanId,
+					payDate,
+					payFrequency,
+					payAnchorDate,
+					now: dashboardNow,
+					userId,
+					planCreatedAt: effectiveCreatedAt,
+				}), 1800);
 
-					return result ?? fallback;
-				} catch (error) {
-					console.error("Dashboard: expense insights failed:", error);
-					return fallback;
-				}
-			}),
-			timeSection(timings, "all_plans", async () => (async () => {
-				if (!includeExtendedData) {
-					return { [budgetPlanId]: currentPlanData };
-				}
+				return result ?? fallback;
+			} catch (error) {
+				console.error("Dashboard: expense insights failed:", error);
+				return fallback;
+			}
+		});
 
-				try {
-					return await getAllPlansDashboardData({
-						budgetPlanId,
-						currentPlanData,
-						now: dashboardNow,
-						userId,
-						session: null,
-						username,
-					});
-				} catch (error) {
-					console.error("Dashboard: all plans data failed:", error);
-					return { [budgetPlanId]: currentPlanData };
-				}
-			})()),
+		const [currentPlanData, { payPeriodLabel, previousPayPeriodLabel }, debtSummary, expenseInsightsBase] = await Promise.all([
+			currentPlanDataPromise,
+			payLabelsPromise,
+			debtSummaryPromise,
+			expenseInsightsBasePromise,
 		]);
+
+		const allPlansData = await timeSection(timings, "all_plans", async () => (async () => {
+			if (!includeExtendedData) {
+				return { [budgetPlanId]: currentPlanData };
+			}
+
+			try {
+				return await getAllPlansDashboardData({
+					budgetPlanId,
+					currentPlanData,
+					now: dashboardNow,
+					userId,
+					session: null,
+					username,
+				});
+			} catch (error) {
+				console.error("Dashboard: all plans data failed:", error);
+				return { [budgetPlanId]: currentPlanData };
+			}
+		})());
 		const planIds = Object.keys(allPlansData);
 
 		const [largestExpensesByPlan, incomeMonthsCoverageByPlan] = await Promise.all([
@@ -545,6 +548,8 @@ export async function GET(req: NextRequest) {
 				return [];
 			}
 		})();
+
+		const activeDebtCount = debts.length;
 		const totalDebtBalance = debtSummary.totalDebtBalance;
 
 		const expenseInsights = {
@@ -798,6 +803,7 @@ export async function GET(req: NextRequest) {
 				// How much has already been paid against this debt this calendar month
 				paidThisMonthAmount: currentMonthPaidByDebtId.get(d.id) ?? 0,
 			})),
+			activeDebtCount,
 			totalDebtBalance,
 
 			// Expense insights
