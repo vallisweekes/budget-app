@@ -6,15 +6,18 @@ import { useNavigation } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 
 import TopHeader from "@/components/Shared/TopHeader";
-import { getHelpTopic } from "@/lib/constants";
+import { getHelpCenterCopy, getHelpTopic } from "@/lib/constants";
+import { useAppTranslation } from "@/hooks";
 
 import { styles } from "./style";
 
 export default function HelpTopicScreen() {
   const navigation = useNavigation();
   const router = useRouter();
+  const { language } = useAppTranslation();
   const params = useLocalSearchParams<{ topic?: string }>();
-  const topic = getHelpTopic(typeof params.topic === "string" ? params.topic : null);
+  const topic = getHelpTopic(typeof params.topic === "string" ? params.topic : null, language);
+  const copy = getHelpCenterCopy(language);
 
   const handleBack = () => {
     if (navigation.canGoBack?.()) {
@@ -34,7 +37,7 @@ export default function HelpTopicScreen() {
         variant="default"
         leftVariant="back"
         onBack={handleBack}
-        centerLabel={topic?.title ?? "Help"}
+        centerLabel={topic?.title ?? copy.screenTitle}
         showIncomeAction={false}
         showAnalyticsAction={false}
       />
@@ -65,8 +68,8 @@ export default function HelpTopicScreen() {
           </>
         ) : (
           <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>Help topic not found</Text>
-            <Text style={styles.emptyText}>Go back to the help screen and choose one of the available cards.</Text>
+            <Text style={styles.emptyTitle}>{copy.topicNotFoundTitle}</Text>
+            <Text style={styles.emptyText}>{copy.topicNotFoundText}</Text>
           </View>
         )}
       </ScrollView>

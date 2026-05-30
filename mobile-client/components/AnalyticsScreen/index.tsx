@@ -9,12 +9,19 @@ import AnalyticsOverviewCard from "@/components/Analytics/AnalyticsOverviewCard"
 import AnalyticsTipsCard from "@/components/Analytics/AnalyticsTipsCard";
 import { useAnalyticsScreenController, useAppTranslation } from "@/hooks";
 import { T } from "@/lib/theme";
-import type { AnalyticsScreenProps } from "@/types";
+import type { AnalyticsOverviewMode, AnalyticsScreenProps } from "@/types";
 import { analyticsStyles as s } from "@/components/AnalyticsScreen/style";
 
 export default function AnalyticsScreen({ overviewMode }: AnalyticsScreenProps) {
   const { t } = useAppTranslation();
-  const controller = useAnalyticsScreenController({ overviewMode });
+  const initialMode: AnalyticsOverviewMode = overviewMode ?? "year";
+  const [selectedMode, setSelectedMode] = React.useState<AnalyticsOverviewMode>(initialMode);
+
+  React.useEffect(() => {
+    setSelectedMode(initialMode);
+  }, [initialMode]);
+
+  const controller = useAnalyticsScreenController({ overviewMode: selectedMode });
 
   if (controller.loading) {
     return (
@@ -50,6 +57,25 @@ export default function AnalyticsScreen({ overviewMode }: AnalyticsScreenProps) 
           refreshControl={<RefreshControl refreshing={controller.refreshing} onRefresh={controller.onRefresh} tintColor={T.accent} />}
           showsVerticalScrollIndicator={false}
         >
+          <View style={s.modeSwitchWrap}>
+            <Pressable
+              onPress={() => setSelectedMode("month")}
+              style={[s.modeSwitchChip, selectedMode === "month" && s.modeSwitchChipActive]}
+              accessibilityRole="button"
+              accessibilityLabel={t("tabs.month")}
+            >
+              <Text style={[s.modeSwitchChipText, selectedMode === "month" && s.modeSwitchChipTextActive]}>{t("tabs.month")}</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setSelectedMode("year")}
+              style={[s.modeSwitchChip, selectedMode === "year" && s.modeSwitchChipActive]}
+              accessibilityRole="button"
+              accessibilityLabel={t("tabs.year")}
+            >
+              <Text style={[s.modeSwitchChipText, selectedMode === "year" && s.modeSwitchChipTextActive]}>{t("tabs.year")}</Text>
+            </Pressable>
+          </View>
+
           <AnalyticsOverviewCard
             chartData={controller.chartData}
             chartSpacing={controller.chartSpacing}

@@ -6,7 +6,8 @@ import { useNavigation } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 
 import TopHeader from "@/components/Shared/TopHeader";
-import { HELP_TOPICS } from "@/lib/constants";
+import { getHelpCenterCopy, getHelpTopics } from "@/lib/constants";
+import { useAppTranslation } from "@/hooks";
 import { T } from "@/lib/theme";
 
 import { styles } from "./style";
@@ -14,6 +15,9 @@ import { styles } from "./style";
 export default function HelpCenterScreen() {
   const navigation = useNavigation();
   const router = useRouter();
+  const { language } = useAppTranslation();
+  const copy = getHelpCenterCopy(language);
+  const topics = getHelpTopics(language);
 
   const handleBack = () => {
     if (navigation.canGoBack?.()) {
@@ -33,22 +37,20 @@ export default function HelpCenterScreen() {
         variant="default"
         leftVariant="back"
         onBack={handleBack}
-        centerLabel="Help"
+        centerLabel={copy.screenTitle}
         showIncomeAction={false}
         showAnalyticsAction={false}
       />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.heroCard}>
-          <Text style={styles.heroEyebrow}>Budget In Check Guide</Text>
-          <Text style={styles.heroTitle}>Choose an area to understand how it works.</Text>
-          <Text style={styles.heroText}>
-            These guides explain the main parts of the app so users can quickly understand what each section is for and where to go next.
-          </Text>
+          <Text style={styles.heroEyebrow}>{copy.heroEyebrow}</Text>
+          <Text style={styles.heroTitle}>{copy.heroTitle}</Text>
+          <Text style={styles.heroText}>{copy.heroText}</Text>
         </View>
 
         <View style={styles.cardList}>
-          {HELP_TOPICS.map((topic) => (
+          {topics.map((topic) => (
             <Pressable
               key={topic.key}
               onPress={() => router.push({ pathname: "/help-topic", params: { topic: topic.key } })}

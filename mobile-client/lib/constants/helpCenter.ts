@@ -1,5 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 
+import { DEFAULT_LANGUAGE, normalizeSupportedLanguage, type SupportedLanguageCode } from "./locale";
+
 export type HelpTopicKey = "settings" | "expenses" | "income" | "debts" | "goals";
 
 type HelpIconName = keyof typeof Ionicons.glyphMap;
@@ -17,6 +19,15 @@ export type HelpTopic = {
   icon: HelpIconName;
   accentColor: string;
   sections: HelpTopicSection[];
+};
+
+export type HelpCenterCopy = {
+  screenTitle: string;
+  heroEyebrow: string;
+  heroTitle: string;
+  heroText: string;
+  topicNotFoundTitle: string;
+  topicNotFoundText: string;
 };
 
 export const HELP_TOPICS: HelpTopic[] = [
@@ -158,16 +169,189 @@ export const HELP_TOPICS: HelpTopic[] = [
   },
 ];
 
+type LocalizedHelpTopic = Pick<HelpTopic, "title" | "description" | "sections">;
+
+const HELP_TOPICS_BY_LANGUAGE: Partial<Record<SupportedLanguageCode, Record<HelpTopicKey, LocalizedHelpTopic>>> = {
+  de: {
+    settings: {
+      title: "Einstellungen",
+      description: "Verwalte Zahlungsplan, Ersparnisse, Plaene, Erinnerungen und zentrale App-Einstellungen.",
+      sections: [
+        {
+          title: "Was Einstellungen steuert",
+          body: "In den Einstellungen lernt die App, wie dein Budget organisiert werden soll und was auf Dashboard und anderen Seiten erscheint.",
+          bullets: [
+            "Budget verwaltet Zahltag, Zahlungsrhythmus, Strategie und planweite Standardwerte.",
+            "Unter Geld liegen aktuelle Ersparnisse und Salden, damit Opferbeitraege und Zielfortschritt synchron bleiben.",
+            "Region & Wahrung bestimmt, wie Werte und Daten in der gesamten App angezeigt werden.",
+            "Mit Plaenen verwaltest du persoenliche und Event-Plaene, ohne dein Haupt-Dashboard zu verlieren.",
+          ],
+        },
+        {
+          title: "Was du zuerst pruefen solltest",
+          body: "Wenn ein Gesamtwert oder Zeitraum falsch aussieht, sind die Einstellungen meist die erste Stelle zum Pruefen.",
+          bullets: [
+            "Pruefe, ob Zahlungsrhythmus und Zahltag zu deiner echten Auszahlung passen.",
+            "Halte aktuelle Ersparnisse aktuell, damit Ziele und Opfer-Tipps realistisch bleiben.",
+            "Pruefe Benachrichtigungen und Abo-Einstellungen, wenn Erinnerungen oder gesperrte Features nicht passen.",
+          ],
+        },
+      ],
+    },
+    expenses: {
+      title: "Ausgaben",
+      description: "Verfolge geplante Rechnungen, erfasse einmalige Ausgaben und markiere Zahlungen in der richtigen Zahlungsperiode.",
+      sections: [
+        {
+          title: "Wie Ausgaben funktioniert",
+          body: "Ausgaben gruppiert deine Rechnungen nach Zahlungsperiode, damit du siehst, was faellig ist, was bezahlt wurde und was bis zur naechsten Periode offen bleibt.",
+          bullets: [
+            "Geplante Ausgaben sind regelmaessige Rechnungen, die du in jedem Zyklus oder Monat erwartest.",
+            "Erfasste Ausgaben sammeln extra oder ungeplante Ausgaben innerhalb einer gewaehlten Periode.",
+            "Kategorieansichten helfen dir, einen Bereich nach dem anderen schneller abzuarbeiten.",
+          ],
+        },
+        {
+          title: "Hilfreiche Tipps",
+          body: "Nutze die Ausgaben-Werkzeuge, um kommende Summen sauber und korrekt zu halten.",
+          bullets: [
+            "Lege nur Faelligkeiten an, die wirklich zur ausgewaehlten Zahlungsperiode gehoeren.",
+            "Nutze Schnell bezahlen oder Ausgabendetails, wenn du einen Eintrag markieren willst ohne die ganze Liste neu zu oeffnen.",
+            "Beleg-Upload hilft, wenn du Nachweise speichern und die Ausgabenhistorie klarer halten willst.",
+          ],
+        },
+      ],
+    },
+    income: {
+      title: "Einkommen",
+      description: "Sieh die Jahresabdeckung deines Einkommens, gehe in eine Zahlungsperiode und verwalte Einkommens-Opferplanung.",
+      sections: [
+        {
+          title: "Wie Einkommen funktioniert",
+          body: "Einkommen ist nach denselben Zahlungsperioden-Regeln aufgebaut wie der Rest der App, damit monatliche und verankerte Plaene konsistent bleiben.",
+          bullets: [
+            "Die Jahresansicht zeigt fehlende Monate oder ungleichmaessige Abdeckung im Jahr.",
+            "Die Monatsdetailansicht zeigt, was zu einer gewaehlten Zahlungsperiode gehoert und was zur Verteilung verfuegbar ist.",
+            "Opfermodus nutzt aktuelle Salden und Ziele, um Vorschlaege fuer den naechsten Geldfluss zu machen.",
+          ],
+        },
+        {
+          title: "Hilfreiche Tipps",
+          body: "Wenn Einkommensansichten unklar wirken, pruefe zuerst Rhythmus und Anker.",
+          bullets: [
+            "Nutze den Hinzufuegen-Flow aus der Jahresansicht, wenn eine Periode komplett ohne Einkommen fehlt.",
+            "Nutze die Monatsansicht, wenn du eine einzelne Zahlungsperiode im Detail pruefen willst.",
+            "Halte den Zahlungsplan in den Einstellungen aktuell, damit Dashboard und Einkommen synchron bleiben.",
+          ],
+        },
+      ],
+    },
+    debts: {
+      title: "Schulden",
+      description: "Verfolge Salden, faellige Betraege und Zahlungsfortschritt fuer Darlehen, Karten und ausgabenbasierte Schulden.",
+      sections: [
+        {
+          title: "Wie Schulden funktioniert",
+          body: "Schuldenverwaltung kombiniert Salden, wiederkehrende Zahlungen und Finanzierungsquellen, damit du siehst, wie stark Schulden jede Periode belasten.",
+          bullets: [
+            "Die Schuldenliste zeigt aktive Salden und was jetzt Aufmerksamkeit braucht.",
+            "In Schulden-Details kannst du Zahlungshistorie und schuldenspezifische Regeln ansehen und bearbeiten.",
+            "Schulden-Analysen zeigen Tilgungsrichtung und monatlichen Druck ueber die Zeit.",
+          ],
+        },
+        {
+          title: "Hilfreiche Tipps",
+          body: "Nutze Schulden, um Karten und Kreditbelastung im gleichen Budgetfluss sichtbar zu halten.",
+          bullets: [
+            "Erfasse Zahlungen direkt, damit das Dashboard faellige Betraege nicht zu hoch zeigt.",
+            "Setze die richtige Standard-Zahlungsquelle, wenn eine Schuld meist aus Einkommen oder Karte bezahlt wird.",
+            "Pruefe Schulden-Analysen, wenn du Tilgungsfortschritt vergleichen willst statt nur den aktuellen Saldo.",
+          ],
+        },
+      ],
+    },
+    goals: {
+      title: "Ziele",
+      description: "Definiere Ziele, verknuepfe aktuelle Salden und projiziere, wie Sparentscheidungen die Ziellinie beeinflussen.",
+      sections: [
+        {
+          title: "Wie Ziele funktioniert",
+          body: "Ziele machen Sparziele sichtbar und helfen dem Dashboard zu zeigen, worauf dein Geld hinarbeitet.",
+          bullets: [
+            "Jedes Ziel kann Zielbetrag, aktuellen Betrag und eine projizierte Zielerreichung verfolgen.",
+            "Startseiten-Ziele sind die Ziele, die in der App am haeufigsten hervorgehoben werden.",
+            "Die Ziel-Prognose zeigt, wie sich unterschiedliche monatliche Sparraten bis zum Zieljahr auswirken.",
+          ],
+        },
+        {
+          title: "Hilfreiche Tipps",
+          body: "Ziele funktionieren am besten, wenn Salden und Zielbetraege realistisch bleiben.",
+          bullets: [
+            "Aktualisiere aktuelle Salden, wenn bereits Geld fuer ein Ziel zur Seite gelegt wurde.",
+            "Nutze die Prognose, um verschiedene monatliche Sparbetraege zu testen, bevor du den echten Plan aenderst.",
+            "Pinne die wichtigsten Ziele auf die Startseite, damit das Dashboard fokussiert bleibt.",
+          ],
+        },
+      ],
+    },
+  },
+};
+
+const HELP_CENTER_COPY_BY_LANGUAGE: Partial<Record<SupportedLanguageCode, HelpCenterCopy>> = {
+  de: {
+    screenTitle: "Hilfe",
+    heroEyebrow: "BUDGET IN CHECK LEITFADEN",
+    heroTitle: "Waehle einen Bereich, um zu verstehen, wie er funktioniert.",
+    heroText: "Diese Leitfaeden erklaeren die wichtigsten Teile der App, damit Nutzer schnell verstehen, wofuer jeder Bereich da ist und was als Naechstes sinnvoll ist.",
+    topicNotFoundTitle: "Hilfethema nicht gefunden",
+    topicNotFoundText: "Gehe zur Hilfe zurueck und waehle eine der verfuegbaren Karten.",
+  },
+};
+
 const HELP_TOPICS_BY_KEY = Object.fromEntries(
   HELP_TOPICS.map((topic) => [topic.key, topic]),
 ) as Record<HelpTopicKey, HelpTopic>;
+
+const DEFAULT_HELP_CENTER_COPY: HelpCenterCopy = {
+  screenTitle: "Help",
+  heroEyebrow: "BUDGET IN CHECK GUIDE",
+  heroTitle: "Choose an area to understand how it works.",
+  heroText: "These guides explain the main parts of the app so users can quickly understand what each section is for and where to go next.",
+  topicNotFoundTitle: "Help topic not found",
+  topicNotFoundText: "Go back to the help screen and choose one of the available cards.",
+};
+
+function localizeHelpTopic(
+  topic: HelpTopic,
+  language: string | null | undefined,
+): HelpTopic {
+  const normalizedLanguage = normalizeSupportedLanguage(language, DEFAULT_LANGUAGE);
+  const localizedTopic = HELP_TOPICS_BY_LANGUAGE[normalizedLanguage]?.[topic.key];
+  if (!localizedTopic) return topic;
+
+  return {
+    ...topic,
+    title: localizedTopic.title,
+    description: localizedTopic.description,
+    sections: localizedTopic.sections,
+  };
+}
+
+export function getHelpCenterCopy(language: string | null | undefined): HelpCenterCopy {
+  const normalizedLanguage = normalizeSupportedLanguage(language, DEFAULT_LANGUAGE);
+  return HELP_CENTER_COPY_BY_LANGUAGE[normalizedLanguage] ?? DEFAULT_HELP_CENTER_COPY;
+}
+
+export function getHelpTopics(language: string | null | undefined): HelpTopic[] {
+  return HELP_TOPICS.map((topic) => localizeHelpTopic(topic, language));
+}
 
 export function isHelpTopicKey(value: string | null | undefined): value is HelpTopicKey {
   if (!value) return false;
   return value in HELP_TOPICS_BY_KEY;
 }
 
-export function getHelpTopic(value: string | null | undefined): HelpTopic | null {
+export function getHelpTopic(value: string | null | undefined, language?: string | null): HelpTopic | null {
   if (!isHelpTopicKey(value)) return null;
-  return HELP_TOPICS_BY_KEY[value];
+  return localizeHelpTopic(HELP_TOPICS_BY_KEY[value], language);
 }

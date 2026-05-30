@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -8,7 +8,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useGlobalSearchParams, usePathname, useRouter } from "expo-router";
 
 import { apiFetch } from "@/lib/api";
 import type { Settings } from "@/lib/apiTypes";
@@ -18,6 +18,8 @@ import { usePaymentsSections, useTopHeaderOffset, type PaymentsResponse } from "
 import PaymentDetailSheet from "@/components/Payments/PaymentDetailSheet";
 import PaymentsListView from "@/components/Payments/PaymentsListView";
 import TopHeader from "@/components/Shared/TopHeader";
+import { rememberAnalyticsReturnHref } from "@/navigation/analyticsReturnRoute";
+import { buildPersistedHref } from "@/navigation/routePersistence";
 import { s } from "./style";
 import type { PaymentDetail, PaymentsScreenOpenItem } from "@/types";
 
@@ -27,6 +29,8 @@ type PaymentsScreenProps = {
 
 export default function PaymentsScreen({ query = "" }: PaymentsScreenProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const globalParams = useGlobalSearchParams();
   const insets = useSafeAreaInsets();
   useTopHeaderOffset();
 
@@ -103,11 +107,21 @@ export default function PaymentsScreen({ query = "" }: PaymentsScreenProps) {
     ? "No payments left in this period. Showing upcoming items for the next period."
     : null;
 
+  const currentHref = useMemo(
+    () => buildPersistedHref(pathname, globalParams),
+    [globalParams, pathname],
+  );
+
+  const openAnalytics = useCallback(() => {
+    rememberAnalyticsReturnHref(currentHref);
+    router.push("/analytics");
+  }, [currentHref, router]);
+
   const topNav = (
     <TopHeader
       onSettings={() => router.push("/settings")}
       onIncome={() => {}}
-      onAnalytics={() => router.push("/analytics")}
+      onAnalytics={openAnalytics}
       onNotifications={() => router.push("/settings")}
       centerLabel="Payments"
       showIncomeAction={false}

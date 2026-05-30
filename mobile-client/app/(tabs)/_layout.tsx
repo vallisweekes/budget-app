@@ -97,9 +97,6 @@ export default function MainTabsLayout() {
   const isGoalsSplitRoute = isGoalsRootRoute || isGoalsProjectionRoute;
   const isDebtAnalyticsNestedRoute = segments[0] === "(tabs)" && segments[1] === "debts" && segments[2] === "DebtAnalytics";
   const isDebtAnalyticsTabRoute = segments[0] === "(tabs)" && segments[1] === "debt-analytics";
-  const isAnalyticsMonthTabRoute = segments[0] === "(tabs)" && segments[1] === "analytics-month";
-  const isAnalyticsYearTabRoute = segments[0] === "(tabs)" && segments[1] === "analytics-year";
-  const isAnalyticsSplitRoute = isAnalyticsMonthTabRoute || isAnalyticsYearTabRoute;
   const isCategoryExpensesSplitRoute = segments[0] === "(tabs)"
     && segments[1] === "expenses"
     && segments[2] === "CategoryExpenses";
@@ -148,8 +145,6 @@ export default function MainTabsLayout() {
     ? "tabs:expenses-split:root"
     : isCategoryExpensesSplitRoute
     ? "tabs:category-expenses-split"
-    : isAnalyticsSplitRoute
-    ? `tabs:analytics-split:${isAnalyticsMonthTabRoute ? "month" : "year"}`
     : isIncomeSplitRoute
       ? "tabs:income-split"
       : isGoalsSplitRoute
@@ -165,11 +160,6 @@ export default function MainTabsLayout() {
     fontSize: 10,
     fontWeight: "500" as const,
   };
-  const analyticsSplitLabelStyle = {
-    color: inactiveLabelColor,
-    fontSize: 13,
-    fontWeight: "600" as const,
-  };
   const selectedTabLabelStyle = {
     color: selectedTintColor,
     fontSize: 11,
@@ -179,11 +169,6 @@ export default function MainTabsLayout() {
     color: selectedTintColor,
     fontSize: 10,
     fontWeight: "500" as const,
-  };
-  const analyticsSplitSelectedTabLabelStyle = {
-    color: selectedTintColor,
-    fontSize: 13,
-    fontWeight: "700" as const,
   };
   const tabContentStyle = { backgroundColor: T.bg };
   const tabNativeProps = {
@@ -458,37 +443,6 @@ export default function MainTabsLayout() {
             renderingMode="template"
             selectedColor={selectedTintColor}
           />
-        </NativeTabs.Trigger>
-      </NativeTabs>
-    );
-  }
-
-  if (isAnalyticsSplitRoute) {
-    return (
-      <NativeTabs
-        key={tabsLayoutKey}
-        hidden={shouldHideNativeTabs}
-        tintColor={selectedTintColor}
-        iconColor={inactiveIconColor}
-        labelStyle={analyticsSplitLabelStyle}
-        titlePositionAdjustment={{ vertical: -4 }}
-        backBehavior="history"
-      >
-        <NativeTabs.Trigger
-          {...resetOnBlurScreenProps}
-          name="analytics-month"
-          contentStyle={tabContentStyle}
-          unstable_nativeProps={tabNativeProps}
-        >
-          <NativeTabs.Trigger.Label selectedStyle={analyticsSplitSelectedTabLabelStyle}>{t("tabs.month")}</NativeTabs.Trigger.Label>
-        </NativeTabs.Trigger>
-        <NativeTabs.Trigger
-          {...resetOnBlurScreenProps}
-          name="analytics-year"
-          contentStyle={tabContentStyle}
-          unstable_nativeProps={tabNativeProps}
-        >
-          <NativeTabs.Trigger.Label selectedStyle={analyticsSplitSelectedTabLabelStyle}>{t("tabs.year")}</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
       </NativeTabs>
     );

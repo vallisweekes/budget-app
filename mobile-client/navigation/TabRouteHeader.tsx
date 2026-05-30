@@ -2,7 +2,7 @@ import React from "react";
 import { Pressable, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
-import { useLocalSearchParams, useRouter, useSegments } from "expo-router";
+import { useLocalSearchParams, usePathname, useRouter, useSegments } from "expo-router";
 
 import TopHeader from "@/components/Shared/TopHeader";
 import { useActiveBudgetPlan } from "@/context/ActiveBudgetPlanContext";
@@ -13,6 +13,8 @@ import { markSkipExpensesFocusReload } from "@/lib/helpers/expensesFocusReload";
 import { translateGoalTitle } from "@/lib/i18n";
 import { subscribeNotificationInbox } from "@/lib/notificationInbox";
 import { T } from "@/lib/theme";
+import { getAnalyticsReturnHref, isAnalyticsNavigationHref, rememberAnalyticsReturnHref } from "@/navigation/analyticsReturnRoute";
+import { buildPersistedHref } from "@/navigation/routePersistence";
 import { IncomeMonthSwitcher } from "@/navigation/routerHeaders";
 
 type LocalParam = string | string[] | undefined;
@@ -40,6 +42,7 @@ function getRouteParamNumber(routeParams: Record<string, unknown>, key: string):
 export default function TabRouteHeader() {
   const { t } = useAppTranslation();
   const { settings } = useBootstrapData();
+  const pathname = usePathname();
   const router = useRouter();
   const navigation = useNavigation<any>();
   const segments = useSegments() as string[];
@@ -62,9 +65,7 @@ export default function TabRouteHeader() {
   const rootSegment = typeof segments[0] === "string" ? segments[0] : "";
   const tabSegment = rootSegment === "(tabs)" && typeof segments[1] === "string" ? segments[1] : "";
   const leafSegment = rootSegment === "(tabs)" && typeof segments[2] === "string" ? segments[2] : "";
-  const isAnalyticsTab = tabSegment === "analytics-month" || tabSegment === "analytics-year";
-
-  const isAnalytics = rootSegment === "analytics" || isAnalyticsTab;
+  const isAnalytics = rootSegment === "analytics";
   const isSettings = rootSegment === "settings";
   const isSettingsProfileDetails = rootSegment === "settings-profile-details";
   const isSettingsIncomeSettings = rootSegment === "settings-income-settings";
@@ -234,6 +235,32 @@ export default function TabRouteHeader() {
     />
   ) : undefined;
 
+  const currentHref = React.useMemo(
+    () => buildPersistedHref(pathname, params as Record<string, unknown>),
+    [params, pathname],
+  );
+
+  const openAnalytics = () => {
+    rememberAnalyticsReturnHref(currentHref);
+    pushRoute("/analytics");
+  };
+
+  const handleAnalyticsBack = () => {
+    if (navigation.canGoBack?.()) {
+      navigation.goBack();
+      return;
+    }
+
+    const returnHref = getAnalyticsReturnHref();
+
+    if (!returnHref || isAnalyticsNavigationHref(returnHref) || returnHref === pathname || returnHref === currentHref) {
+      router.replace("/(tabs)/dashboard");
+      return;
+    }
+
+    router.replace(returnHref);
+  };
+
   const handleBack = () => {
     if (isGoalsProjection) {
       pushRoute("/(tabs)/goals");
@@ -317,7 +344,7 @@ export default function TabRouteHeader() {
     }
 
     if (isAnalytics) {
-      pushRoute("/(tabs)/dashboard");
+      handleAnalyticsBack();
       return;
     }
 
@@ -378,7 +405,7 @@ export default function TabRouteHeader() {
   const incomeRightContent = isIncomeTab ? (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
       <Pressable
-        onPress={() => pushRoute("/analytics")}
+        onPress={openAnalytics}
         style={{
           width: 36,
           height: 36,
@@ -445,7 +472,7 @@ export default function TabRouteHeader() {
       variant={isAnalytics ? "analytics" : "default"}
       onSettings={() => pushRoute("/settings")}
       onIncome={() => {}}
-      onAnalytics={() => pushRoute("/analytics")}
+      onAnalytics={openAnalytics}
       onHelp={() => pushRoute("/help")}
       onNotifications={() => pushRoute("/settings", { initialTab: "notifications" })}
       leftVariant={isStandaloneSacrificeIncomeMonth || isAnalytics || isSettings || isSettingsProfileDetails || isSettingsIncomeSettings || isSettingsStrategy || isSettingsDebtManagement || isGoalDetail || isGoalsProjection || isCategoryExpenses || isLoggedExpenses || isUnplannedExpense || isScanReceipt || isAnyDebtAnalytics ? "back" : "avatar"}

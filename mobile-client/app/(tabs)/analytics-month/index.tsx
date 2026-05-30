@@ -1,12 +1,6 @@
 import React from "react";
-
-import AnalyticsScreen from "@/components/AnalyticsScreen";
-import { DeferredTabRoute } from "@/components/Shared/DeferredTabRoute";
+import { Redirect } from "expo-router";
 
 export default function AnalyticsMonthTabRoute() {
-  return (
-    <DeferredTabRoute>
-      <AnalyticsScreen overviewMode="month" />
-    </DeferredTabRoute>
-  );
+  return <Redirect href="/analytics" />;
 }

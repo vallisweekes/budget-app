@@ -86,11 +86,9 @@ export function useAnalyticsScreenController(
 
   const currentYearIncomeQuery = useGetIncomeSummaryQuery(activeAnchor.year);
   const previousYearIncomeQuery = useGetIncomeSummaryQuery(previousAnchor.year, {
-    skip: !shouldLoadPayPeriodComparisonData || previousAnchor.year === activeAnchor.year,
+    skip: previousAnchor.year === activeAnchor.year,
   });
-  const debtQuery = useGetDebtSummaryQuery(undefined, {
-    skip: shouldUseDashboardDebtSnapshot,
-  });
+  const debtQuery = useGetDebtSummaryQuery();
   const expenseSeriesQuery = useGetAnalyticsExpenseSeriesQuery({
     year: activeAnchor.year,
     budgetPlanId: dashboard?.budgetPlanId ?? null,
@@ -100,13 +98,13 @@ export function useAnalyticsScreenController(
     year: activeAnchor.year,
     budgetPlanId: dashboard?.budgetPlanId ?? null,
     scope: "pay_period",
-  }, { skip: !shouldLoadPayPeriodComparisonData });
+  });
   const previousExpenseQuery = useGetExpenseSummaryQuery({
     month: previousAnchor.month,
     year: previousAnchor.year,
     budgetPlanId: dashboard?.budgetPlanId ?? null,
     scope: "pay_period",
-  }, { skip: !shouldLoadPayPeriodComparisonData });
+  });
 
   const income = currentYearIncomeQuery.data ?? null;
   const debt = useMemo<DebtSummaryData | null>(() => {
@@ -166,15 +164,19 @@ export function useAnalyticsScreenController(
   }, [refreshAnalyticsQueries]);
 
   const error = useMemo(() => {
+    const payPeriodComparisonError = shouldLoadPayPeriodComparisonData
+      ? (previousYearIncomeQuery.error
+        ?? currentExpenseQuery.error
+        ?? previousExpenseQuery.error)
+      : null;
+
     const nextError = debtQuery.error
       ?? currentYearIncomeQuery.error
-      ?? previousYearIncomeQuery.error
       ?? expenseSeriesQuery.error
-      ?? currentExpenseQuery.error
-      ?? previousExpenseQuery.error;
+      ?? payPeriodComparisonError;
     if (!nextError) return null;
     return nextError instanceof Error ? nextError.message : t("analytics.loadFailed");
-  }, [currentExpenseQuery.error, currentYearIncomeQuery.error, debtQuery.error, expenseSeriesQuery.error, previousExpenseQuery.error, previousYearIncomeQuery.error, t]);
+  }, [currentExpenseQuery.error, currentYearIncomeQuery.error, debtQuery.error, expenseSeriesQuery.error, previousExpenseQuery.error, previousYearIncomeQuery.error, shouldLoadPayPeriodComparisonData, t]);
 
   const annualIncomeTotal = useMemo(() => (
     income?.grandTotal ?? (income?.months ?? []).reduce((sum, month) => sum + (month.total ?? 0), 0)
