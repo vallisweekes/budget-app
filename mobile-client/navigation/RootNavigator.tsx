@@ -1152,6 +1152,7 @@ function MainTabs() {
                   year: Number.isFinite(Number(deepestRoute?.params?.year))
                     ? Math.floor(Number(deepestRoute?.params?.year))
                     : resolvedCurrentPeriodYear,
+                  sourceContext: "logged_expenses",
                 },
               } as any)}
               style={s.quickActionBtn}

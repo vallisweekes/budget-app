@@ -3,7 +3,6 @@ import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 
 import { Ionicons } from "@expo/vector-icons";
 
 import type { UnplannedExpenseFormProps } from "@/types";
-import { MONTH_NAMES_LONG } from "@/lib/constants";
 import { fmt } from "@/lib/formatting";
 import { T } from "@/lib/theme";
 import MoneyInput from "@/components/Shared/MoneyInput";
@@ -18,23 +17,22 @@ export default function UnplannedExpenseForm({
   fundingLabel,
   fundingSource,
   loadingData,
-  month,
   name,
   needsDebtChoice,
   newLoanName,
   parsedAmount,
+  periodLabel,
   selectedCategory,
   selectedDebt,
   submitError,
   submitting,
   usingNewLoan,
-  year,
   onAmountChange,
   onCategoryPress,
   onDebtPress,
   onDescriptionChange,
   onFundingPress,
-  onMonthPress,
+  onPeriodPress,
   onNewLoanNameChange,
   onScanReceiptPress,
   onSubmit,
@@ -128,10 +126,10 @@ export default function UnplannedExpenseForm({
         </View>
       ) : null}
 
-      <Pressable style={styles.fieldCard} onPress={onMonthPress}>
-        <Text style={styles.fieldLabel}>Month</Text>
+      <Pressable style={styles.fieldCard} onPress={onPeriodPress}>
+        <Text style={styles.fieldLabel}>Period</Text>
         <View style={styles.fieldRow}>
-          <Text style={styles.fieldValue}>{MONTH_NAMES_LONG[month - 1]} {year}</Text>
+          <Text style={styles.fieldValue}>{periodLabel}</Text>
           <Ionicons name="chevron-forward" size={16} color={T.textDim} style={styles.fieldChevron} />
         </View>
       </Pressable>

@@ -17,6 +17,7 @@ import { getMonthlyAllocationSnapshot, getMonthlyCustomAllocationsSnapshot } fro
 import { resolveExpenseLogo } from "@/lib/expenses/logoResolver";
 import { isLegacyPlaceholderExpenseRow } from "@/lib/expenses/legacyPlaceholders";
 import { getExpensePaidMap } from "@/lib/expenses/paidSummary";
+import { buildDashboardRecapTips } from "@/lib/helpers/dashboard/buildDashboardRecapTips";
 
 function pad2(n: number): string {
 	return String(n).padStart(2, "0");
@@ -762,15 +763,14 @@ export async function getDashboardExpenseInsights({
 		maxDebts: 0,
 	});
 
-	const recapTips = recap
-		? computeRecapTips({
-			recap,
-			currentMonthExpenses,
-			ctx: { year: currentYear, monthNum: currentMonthNum, payDate, now },
-			forecasts,
-			historyExpenses,
-		})
-		: [];
+	const recapTips = buildDashboardRecapTips({
+		recap,
+		shouldSuppressRecap,
+		currentMonthExpenses,
+		ctx: { year: currentYear, monthNum: currentMonthNum, payDate, now },
+		forecasts,
+		historyExpenses,
+	});
 	const loggedExpenseHabits = computeLoggedExpenseHabits({
 		rows: canonicalExpenseWindowRows,
 		activeWindow,

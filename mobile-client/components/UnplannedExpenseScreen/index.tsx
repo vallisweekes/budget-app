@@ -15,7 +15,7 @@ import UnplannedExpenseForm from "./UnplannedExpenseForm";
 
 type UseUnplannedExpenseScreenControllerCompat = (
   onSuccess: () => void,
-  initialPeriod?: { month?: number; year?: number },
+  initialPeriod?: { month?: number; year?: number; sourceContext?: "logged_expenses" },
 ) => ReturnType<typeof useUnplannedExpenseScreenController>;
 
 export default function UnplannedExpenseScreen({ navigation, route }: UnplannedExpenseScreenProps) {
@@ -24,6 +24,7 @@ export default function UnplannedExpenseScreen({ navigation, route }: UnplannedE
   const controller = useUnplannedExpenseScreenControllerCompat(() => navigation.goBack(), {
     month: route.params?.month,
     year: route.params?.year,
+    sourceContext: route.params?.sourceContext,
   });
   const currency = currencySymbol(controller.settings?.currency);
   const categoryItems: SelectionItem[] = [
@@ -51,23 +52,22 @@ export default function UnplannedExpenseScreen({ navigation, route }: UnplannedE
             fundingLabel={controller.fundingLabel}
             fundingSource={controller.fundingSource}
             loadingData={controller.loadingData}
-            month={controller.month}
             name={controller.name}
             needsDebtChoice={controller.needsDebtChoice}
             newLoanName={controller.newLoanName}
             parsedAmount={controller.parsedAmount}
+            periodLabel={controller.periodLabel}
             selectedCategory={controller.selectedCategory}
             selectedDebt={controller.selectedDebt}
             submitError={controller.submitError}
             submitting={controller.submitting}
             usingNewLoan={controller.usingNewLoan}
-            year={controller.year}
             onAmountChange={controller.setAmount}
             onCategoryPress={() => controller.setCatPickerOpen(true)}
             onDebtPress={() => controller.setDebtPickerOpen(true)}
             onDescriptionChange={controller.setName}
             onFundingPress={() => controller.setFundingPickerOpen(true)}
-            onMonthPress={() => {
+            onPeriodPress={() => {
               controller.setPickerYear(controller.year);
               controller.setMonthPickerOpen(true);
             }}

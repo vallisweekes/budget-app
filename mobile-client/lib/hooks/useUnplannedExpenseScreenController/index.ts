@@ -4,7 +4,7 @@ import { useSwipeDownToClose } from "@/hooks";
 import { apiFetch } from "@/lib/api";
 import type { Category, Debt, Settings } from "@/lib/apiTypes";
 import { FUNDING_OPTIONS, NEW_LOAN_SENTINEL } from "@/lib/constants";
-import { buildPayPeriodFromMonthAnchor, normalizePayFrequency } from "@/lib/payPeriods";
+import { buildPayPeriodFromMonthAnchor, formatPayPeriodLabel, normalizePayFrequency } from "@/lib/payPeriods";
 import { getMobileApiErrorMessage, useCreateExpenseMutation, useGetCategoriesQuery, useGetDebtsQuery, useGetSettingsQuery } from "@/store/api";
 
 export type FundingSource = "income" | "savings" | "monthly_allowance" | "credit_card" | "loan" | "other";
@@ -18,18 +18,18 @@ function paymentSourceForFunding(funding: FundingSource): "income" | "savings" |
 
 export function useUnplannedExpenseScreenController(
   onSuccess: () => void,
-  initialPeriod?: { month?: number; year?: number },
+  initialPeriod?: { month?: number; year?: number; sourceContext?: "logged_expenses" },
 ): ReturnType<typeof useUnplannedExpenseScreenControllerImpl>;
 export function useUnplannedExpenseScreenController(params: {
   onSuccess: () => void;
-  initialPeriod?: { month?: number; year?: number };
+  initialPeriod?: { month?: number; year?: number; sourceContext?: "logged_expenses" };
 }): ReturnType<typeof useUnplannedExpenseScreenControllerImpl>;
 export function useUnplannedExpenseScreenController(
   onSuccessOrParams: (() => void) | {
     onSuccess: () => void;
-    initialPeriod?: { month?: number; year?: number };
+    initialPeriod?: { month?: number; year?: number; sourceContext?: "logged_expenses" };
   },
-  initialPeriodArg?: { month?: number; year?: number },
+  initialPeriodArg?: { month?: number; year?: number; sourceContext?: "logged_expenses" },
 ) {
   const params = typeof onSuccessOrParams === "function"
     ? { onSuccess: onSuccessOrParams, initialPeriod: initialPeriodArg }
@@ -40,7 +40,7 @@ export function useUnplannedExpenseScreenController(
 
 function useUnplannedExpenseScreenControllerImpl(params: {
   onSuccess: () => void;
-  initialPeriod?: { month?: number; year?: number };
+  initialPeriod?: { month?: number; year?: number; sourceContext?: "logged_expenses" };
 }) {
   const { onSuccess, initialPeriod } = params;
   const now = new Date();
@@ -61,7 +61,7 @@ function useUnplannedExpenseScreenControllerImpl(params: {
   const categoryIdRef = useRef("");
   const suggestTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const suggestSeqRef = useRef(0);
-  const [fundingSource, setFundingSource] = useState<FundingSource>("income");
+  const [fundingSource, setFundingSource] = useState<FundingSource>(initialPeriod?.sourceContext === "logged_expenses" ? "other" : "income");
   const [selectedDebtId, setSelectedDebtId] = useState("");
   const [newLoanName, setNewLoanName] = useState("");
   const [month, setMonth] = useState(resolvedInitialMonth);
@@ -107,6 +107,19 @@ function useUnplannedExpenseScreenControllerImpl(params: {
   const fundingLabel = useMemo(() => FUNDING_OPTIONS.find((item) => item.value === fundingSource)?.label ?? "Income", [fundingSource]);
   const debtChoices = fundingSource === "credit_card" ? cardDebts : loanDebts;
   const selectedDebt = useMemo(() => debtChoices.find((debt) => debt.id === selectedDebtId), [debtChoices, selectedDebtId]);
+  const payDateForResolution = Number.isFinite(settings?.payDate as number) && (settings?.payDate as number) >= 1
+    ? Math.floor(settings?.payDate as number)
+    : 1;
+  const payFrequencyForResolution = normalizePayFrequency(settings?.payFrequency);
+  const payAnchorDateForResolution = payFrequencyForResolution === "monthly" ? null : (settings?.payAnchorDate ?? null);
+  const period = useMemo(() => buildPayPeriodFromMonthAnchor({
+    year,
+    month,
+    payDate: payDateForResolution,
+    payFrequency: payFrequencyForResolution,
+    payAnchorDate: payAnchorDateForResolution,
+  }), [month, payAnchorDateForResolution, payDateForResolution, payFrequencyForResolution, year]);
+  const periodLabel = useMemo(() => formatPayPeriodLabel(period.start, period.end), [period.end, period.start]);
 
   useEffect(() => {
     categoryTouchedRef.current = categoryTouched;
@@ -185,20 +198,7 @@ function useUnplannedExpenseScreenControllerImpl(params: {
         fundingSource,
         paymentSource: paymentSourceForFunding(fundingSource),
       };
-      const payDateForResolution = Number.isFinite(settings?.payDate as number) && (settings?.payDate as number) >= 1
-        ? Math.floor(settings?.payDate as number)
-        : 1;
-      const payFrequencyForResolution = normalizePayFrequency(settings?.payFrequency);
-      const payAnchorDateForResolution = payFrequencyForResolution === "monthly" ? null : (settings?.payAnchorDate ?? null);
-      const payPeriod = buildPayPeriodFromMonthAnchor({
-        year,
-        month,
-        payDate: payDateForResolution,
-        payFrequency: payFrequencyForResolution,
-        payAnchorDate: payAnchorDateForResolution,
-      });
-
-      body.periodKey = payPeriod.start.toISOString().slice(0, 10);
+      body.periodKey = period.start.toISOString().slice(0, 10);
       if (categoryId) body.categoryId = categoryId;
       if (fundingSource === "credit_card" && selectedDebtId) {
         body.cardDebtId = selectedDebtId;
@@ -219,7 +219,7 @@ function useUnplannedExpenseScreenControllerImpl(params: {
       setSubmitError(getMobileApiErrorMessage(error, "Failed to log expense. Try again."));
       setSubmitting(false);
     }
-  }, [canSubmit, categoryId, createExpense, fundingSource, month, name, newLoanName, onSuccess, parsedAmount, selectedDebtId, settings?.payAnchorDate, settings?.payDate, settings?.payFrequency, year]);
+  }, [canSubmit, categoryId, createExpense, fundingSource, month, name, newLoanName, onSuccess, parsedAmount, period.start, selectedDebtId, year]);
 
   return {
     amount,
@@ -253,6 +253,7 @@ function useUnplannedExpenseScreenControllerImpl(params: {
     needsDebtChoice,
     newLoanName,
     parsedAmount,
+    periodLabel,
     pickerYear,
     selectedCategory,
     selectedDebt,

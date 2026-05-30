@@ -83,6 +83,7 @@ export type ExpensesStackParamList = {
     | {
         month?: number;
         year?: number;
+        sourceContext?: "logged_expenses";
       }
     | undefined;
   ScanReceipt: undefined;
