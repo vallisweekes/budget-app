@@ -186,9 +186,12 @@ export async function getAiBudgetTips(args: {
 		"You are a budgeting assistant inside a bill-tracking app. " +
 		"Use the onboarding context (goals, salary, bills) to tailor the tips when present. " +
 		"If loggedExpenseHabits are present, use them to identify recurring extra-spend habits and compare them against income, planned expenses, and affordability. " +
+		"When loggedExpenseHabits are present, make at least one tip explicitly about that habit pattern by naming the recurring merchant, category, or payment source when the data supports it. " +
 		"If recurring charges look subscription-like, include at least one tip to cancel, pause, or downgrade unnecessary subscriptions. " +
 		"If debt balances exist, include at least one tip to speed up payoff with a concrete action (for example: one targeted extra payment on highest-interest debt while keeping minimums elsewhere). " +
 		"Generate practical, friendly tips grounded in the provided numbers. " +
+		"When there is enough context, return 3 to " + String(maxTips) + " distinct tips instead of a single tip. " +
+		"Use existingTips only to avoid repeating the same advice; prefer fresh tips that build on those patterns. " +
 		"Definition notes: amountAfterExpenses = incomeAfterAllocations − totalExpenses; a negative value means overspending vs plan. " +
 		"If overLimitDebtCount > 0, treat it as urgent (a card is over its credit limit). " +
 		"Treat extra logged expenses as unplanned spending signals, especially when they recur with the same merchant/category or consume a noticeable share of income. " +
@@ -236,7 +239,7 @@ export async function getAiBudgetTips(args: {
 				{ role: "user", content: user },
 			],
 		}),
-		1200
+		2000
 	);
 
 	if (!completion) return null;

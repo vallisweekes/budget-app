@@ -368,7 +368,7 @@ export async function GET(req: NextRequest) {
 					now: dashboardNow,
 					userId,
 					planCreatedAt: effectiveCreatedAt,
-				}), 1800);
+				}), 5000);
 
 				return result ?? fallback;
 			} catch (error) {
@@ -674,7 +674,7 @@ export async function GET(req: NextRequest) {
 						existingTips: expenseInsights.recapTips,
 					},
 					maxTips: 4,
-				}), 350);
+				}), 1800);
 			} catch (err) {
 				console.error("Dashboard: AI tips failed:", err);
 				return null;
@@ -682,7 +682,10 @@ export async function GET(req: NextRequest) {
 		})());
 
 		if (aiDashboardTips) {
-			expenseInsights.recapTips = prioritizeRecapTips(aiDashboardTips, 4);
+			expenseInsights.recapTips = prioritizeRecapTips([
+				...aiDashboardTips,
+				...(expenseInsights.recapTips ?? []),
+			], 6);
 		}
 
 		// Brand-new users may have no computed recap tips yet (and AI may be disabled in dev).

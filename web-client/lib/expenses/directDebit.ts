@@ -215,10 +215,13 @@ export async function syncDueDirectDebitExpenses(params: {
         });
       }
 
-      return synced;
+      return {
+        synced,
+        shouldUpdateExpense,
+      };
     });
 
-    if (syncResult.finalPaid && (syncResult.didChangePayments || shouldUpdateExpense)) {
+    if (syncResult.synced.finalPaid && (syncResult.synced.didChangePayments || syncResult.shouldUpdateExpense)) {
       updatedExpenseIds.push(expense.id);
     }
   }

@@ -173,7 +173,10 @@ export default async function DashboardView({ budgetPlanId }: { budgetPlanId: st
 	})();
 
 	if (aiDashboardTips) {
-		expenseInsights.recapTips = prioritizeRecapTips(aiDashboardTips, 4);
+		expenseInsights.recapTips = prioritizeRecapTips([
+			...aiDashboardTips,
+			...(expenseInsights.recapTips ?? []),
+		], 6);
 	}
 
 	const { payPeriodLabel, previousPayPeriodLabel } = getDashboardPayPeriodLabels(now, payDate, payFrequency, payAnchorDate, effectiveStartAt);

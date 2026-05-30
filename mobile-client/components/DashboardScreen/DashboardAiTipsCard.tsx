@@ -7,16 +7,22 @@ import type { DashboardTip } from "@/types";
 import { T } from "@/lib/theme";
 import { styles } from "@/components/DashboardScreen/style";
 
+const AI_TIP_ROTATION_MS = 18_000;
+
 export default function DashboardAiTipsCard({ tips }: { tips: DashboardTip[] }) {
   const validTips = useMemo(
     () => tips.filter((tip) => String(tip?.title ?? "").trim() && String(tip?.detail ?? "").trim()),
     [tips]
   );
+  const tipsSignature = useMemo(
+    () => validTips.map((tip) => `${String(tip.title).trim()}::${String(tip.detail).trim()}::${Number(tip.priority ?? 0)}`).join("||"),
+    [validTips]
+  );
   const [activeTipIndex, setActiveTipIndex] = useState(0);
 
   useEffect(() => {
     setActiveTipIndex(0);
-  }, [validTips]);
+  }, [tipsSignature]);
 
   useFocusEffect(
     useCallback(() => {
@@ -24,7 +30,7 @@ export default function DashboardAiTipsCard({ tips }: { tips: DashboardTip[] }) 
 
       const timer = setInterval(() => {
         setActiveTipIndex((current) => (current + 1) % validTips.length);
-      }, 20000);
+      }, AI_TIP_ROTATION_MS);
 
       return () => clearInterval(timer);
     }, [validTips.length])
