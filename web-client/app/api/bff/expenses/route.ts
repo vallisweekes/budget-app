@@ -548,6 +548,7 @@ export async function POST(req: NextRequest) {
   const resolvedCategoryId = categoryId
     ? await resolvePlanMappedCategoryId({ budgetPlanId: ownedBudgetPlanId, categoryId })
     : undefined;
+  const normalizedCategoryId = resolvedCategoryId ?? undefined;
 
   let createdResult;
   try {
@@ -559,7 +560,7 @@ export async function POST(req: NextRequest) {
       amount,
       month,
       year,
-      categoryId: resolvedCategoryId,
+      categoryId: normalizedCategoryId,
       paid,
       isAllocation,
       isDirectDebit,

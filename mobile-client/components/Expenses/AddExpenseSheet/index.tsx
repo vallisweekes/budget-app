@@ -633,7 +633,7 @@ export default function AddExpenseSheet({
           <View
             style={{
               ...styles.footerWrap,
-              paddingBottom: insets.bottom + 24,
+              paddingBottom: insets.bottom + 10,
               marginBottom: keyboardVisible ? Math.max(0, keyboardHeight - insets.bottom + 8) : 0,
             }}
           >

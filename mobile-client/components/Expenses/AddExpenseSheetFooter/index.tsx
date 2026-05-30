@@ -26,18 +26,20 @@ export default function AddExpenseSheetFooter({
         </View>
       ) : null}
 
-      <Pressable
-        style={({ pressed }) => [s.submitBtn, pressed && s.submitBtnPressed, (!canSubmit || submitting) && s.submitDisabled]}
-        onPress={onSubmit}
-        disabled={!canSubmit || submitting}
-      >
-        <BlurView intensity={34} tint="light" style={s.submitBtnGlass}>
-          <View style={s.submitBtnTint} pointerEvents="none" />
-          <View style={s.submitBtnGlow} pointerEvents="none" />
-          <View style={s.submitBtnInnerBorder} pointerEvents="none" />
-          {submitting ? <Text style={s.submitTxt}>Adding…</Text> : <Text style={s.submitTxt}>Add Expense</Text>}
-        </BlurView>
-      </Pressable>
+      <View style={s.footerActionRow}>
+        <Pressable
+          style={({ pressed }) => [s.submitBtn, pressed && s.submitBtnPressed, (!canSubmit || submitting) && s.submitDisabled]}
+          onPress={onSubmit}
+          disabled={!canSubmit || submitting}
+        >
+          <BlurView intensity={34} tint="light" style={s.submitBtnGlass}>
+            <View style={s.submitBtnTint} pointerEvents="none" />
+            <View style={s.submitBtnGlow} pointerEvents="none" />
+            <View style={s.submitBtnInnerBorder} pointerEvents="none" />
+            {submitting ? <Text style={s.submitTxt}>Adding…</Text> : <Text style={s.submitTxt}>Add Expense</Text>}
+          </BlurView>
+        </Pressable>
+      </View>
     </>
   );
 }
