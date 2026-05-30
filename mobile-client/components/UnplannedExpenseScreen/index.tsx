@@ -43,7 +43,7 @@ export default function UnplannedExpenseScreen({ navigation, route }: UnplannedE
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <View style={[styles.flex, { paddingTop: topOffset + 12 }]}>
+        <View style={styles.flex}>
           <UnplannedExpenseForm
             amount={controller.amount}
             canSubmit={controller.canSubmit}
@@ -61,6 +61,7 @@ export default function UnplannedExpenseScreen({ navigation, route }: UnplannedE
             selectedDebt={controller.selectedDebt}
             submitError={controller.submitError}
             submitting={controller.submitting}
+            topContentInset={topOffset + 12}
             usingNewLoan={controller.usingNewLoan}
             onAmountChange={controller.setAmount}
             onCategoryPress={() => controller.setCatPickerOpen(true)}

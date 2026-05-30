@@ -9,6 +9,7 @@ applyTo: "mobile-client/**/*.{ts,tsx,js}"
 - Keep reusable semantic constants in `lib/constants/*` and import them from `@/lib/constants`.
 - Keep component-local styles in co-located `style.ts` files.
 - Keep component-local types out of component files; use `types/components/*` and shared `@/types` imports where the project already exposes them.
+- For screens under the shared transparent/blurred top header, keep the scroll container full-height and put header clearance in the scroll content padding/inset rather than an outer wrapper; outer `paddingTop` creates a dead dark band and stops content from scrolling behind the header.
 - Reuse existing screen controllers, caches, and RTK Query endpoints before adding new fetch layers.
 - Prefer server-computed payloads over duplicating business logic in screen components.
 - Respect pay-period logic, onboarding normalization rules, debt cache reuse, and targeted refresh patterns already established in the app.

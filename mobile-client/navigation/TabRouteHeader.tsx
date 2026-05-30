@@ -452,7 +452,7 @@ export default function TabRouteHeader() {
       showIncomeAction={false}
       showHelpAction={isDashboardHome || isExpensesList}
       compactActionsMenu={isSettings || isSettingsProfileDetails || isSettingsIncomeSettings || isSettingsStrategy || isSettingsDebtManagement}
-      showAnalyticsAction={!isSettings && !isSettingsProfileDetails && !isSettingsIncomeSettings && !isSettingsStrategy && !isSettingsDebtManagement && !isAnalytics && !isGoalDetail && !isDebtSplitSection}
+      showAnalyticsAction={!isSettings && !isSettingsProfileDetails && !isSettingsIncomeSettings && !isSettingsStrategy && !isSettingsDebtManagement && !isAnalytics && !isGoalDetail && !isDebtSplitSection && !isUnplannedExpense}
       showNotificationAction={!isSettings && !isSettingsProfileDetails && !isSettingsIncomeSettings && !isSettingsStrategy && !isSettingsDebtManagement && !isAnalytics}
       onLogout={isSettings && !isSettingsNotifications ? signOut : undefined}
     />

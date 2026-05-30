@@ -101,7 +101,11 @@ function useUnplannedExpenseScreenControllerImpl(params: {
   const needsDebtChoice = fundingSource === "credit_card" || fundingSource === "loan";
   const usingNewLoan = fundingSource === "loan" && selectedDebtId === NEW_LOAN_SENTINEL;
   const debtChoiceValid = !needsDebtChoice || (selectedDebtId.length > 0 && (!usingNewLoan || newLoanName.trim().length > 0));
-  const canSubmit = name.trim().length > 0 && parsedAmount > 0 && debtChoiceValid && !submitting;
+  const canSubmit = name.trim().length > 0
+    && parsedAmount > 0
+    && categoryId.trim().length > 0
+    && debtChoiceValid
+    && !submitting;
 
   const selectedCategory = useMemo(() => categories.find((category) => category.id === categoryId), [categories, categoryId]);
   const fundingLabel = useMemo(() => FUNDING_OPTIONS.find((item) => item.value === fundingSource)?.label ?? "Income", [fundingSource]);

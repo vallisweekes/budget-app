@@ -86,6 +86,7 @@ This repository contains two product clients that share one backend system:
 - Keep hooks under `mobile-client/lib/hooks/<hook-name>/index.ts`.
 - Import hooks through `@/hooks`, not direct `@/lib/hooks/...` paths.
 - For liquid-glass footer navigation, prefer Expo Router native tabs in the owning `(tabs)` layout over custom in-screen `BlurView` footers.
+- For screens under the shared transparent/blurred top header, keep the scroll container full-height and put header clearance in the scroll content padding/inset rather than an outer wrapper; outer `paddingTop` creates a dark dead zone and breaks scroll-behind-header behavior.
 - Keep component-local styles in co-located `style.ts` files.
 - Do not define component-local types in component files; place them under `mobile-client/types/components/*` and import them from `@/types` where the repo already follows that pattern.
 - Move reusable semantic constants into `mobile-client/lib/constants/*` and import them from `@/lib/constants`.

@@ -39,6 +39,7 @@ export type UnplannedExpenseFormProps = {
   selectedDebt?: DebtOption;
   submitError: string | null;
   submitting: boolean;
+  topContentInset: number;
   usingNewLoan: boolean;
   onAmountChange: (value: string) => void;
   onCategoryPress: () => void;

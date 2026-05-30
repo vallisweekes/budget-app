@@ -85,6 +85,7 @@ export default function MainTabsLayout() {
   const isDebtDetailRoute = segments[0] === "(tabs)" && segments[1] === "debts" && segments[2] === "DebtDetail";
   const isExpenseDetailRoute = segments[0] === "(tabs)" && segments[1] === "expenses" && segments[2] === "ExpenseDetail";
   const isExpensesListRoute = segments[0] === "(tabs)" && segments[1] === "expenses" && segments[2] === "ExpensesList";
+  const isUnplannedExpenseRoute = segments[0] === "(tabs)" && segments[1] === "expenses" && segments[2] === "UnplannedExpense";
   const isLoggedExpensesRoute = segments[0] === "(tabs)" && segments[1] === "logged-expenses";
   const isLoggedExpensesNestedRoute = segments[0] === "(tabs)" && segments[1] === "expenses" && segments[2] === "LoggedExpenses";
   const isExpensesSplitRoute = isExpensesListRoute;
@@ -128,7 +129,12 @@ export default function MainTabsLayout() {
     || Boolean(dashboard)
     || profile?.onboarding?.profile?.hasDebtsToManage === true
   );
-  const isTabsHidden = isDebtDetailRoute || isExpenseDetailRoute || isGoalDetailRoute || isGoalsProjectionRoute || isDebtAnalyticsTabRoute;
+  const isTabsHidden = isDebtDetailRoute
+    || isExpenseDetailRoute
+    || isUnplannedExpenseRoute
+    || isGoalDetailRoute
+    || isGoalsProjectionRoute
+    || isDebtAnalyticsTabRoute;
   const shouldHideNativeTabs = isTabsHidden || segments[0] !== "(tabs)";
   const tabsLayoutKey = isLoggedExpensesNestedRoute
     ? "tabs:expenses-split:logged"

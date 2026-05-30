@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { InputAccessoryView, Platform, Pressable, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { styles } from "./styles";
 
@@ -25,6 +25,10 @@ export default function MoneyInput({
   const sym = useMemo(() => currencySymbol(currency), [currency]);
   const [focused, setFocused] = useState(false);
   const [display, setDisplay] = useState<string>(value ? value : "");
+  const hiddenAccessoryIdRef = useRef(`money-input-hidden-accessory-${Math.random().toString(36).slice(2)}`);
+  const shouldHideSystemAccessory = Platform.OS === "ios"
+    && (keyboardType === "decimal-pad" || keyboardType === "number-pad");
+  const hiddenAccessoryId = shouldHideSystemAccessory ? hiddenAccessoryIdRef.current : undefined;
 
   useEffect(() => {
     if (focused) {
@@ -75,6 +79,7 @@ export default function MoneyInput({
         placeholderTextColor={resolvedPlaceholderColor}
         style={[styles.input, isLight && styles.inputLight, isSheet && styles.inputSheet, isUnderline && styles.inputUnderline, inputStyle]}
         editable={editable}
+        inputAccessoryViewID={hiddenAccessoryId}
         onFocus={(e) => {
           setFocused(true);
           setDisplay(value ?? "");
@@ -119,6 +124,12 @@ export default function MoneyInput({
           </Pressable>
         ) : null}
       </View>
+
+      {hiddenAccessoryId ? (
+        <InputAccessoryView nativeID={hiddenAccessoryId} backgroundColor="transparent">
+          <View style={{ height: 1 }} />
+        </InputAccessoryView>
+      ) : null}
     </View>
   );
 }
