@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import type { MainTabScreenProps } from "@/navigation/types";
 import { useSettingsScreenController } from "@/hooks";
+import { useAppTranslation } from "@/hooks";
 import SettingsMainContent from "@/components/Settings/SettingsMainContent";
 import SettingsModalStack from "@/components/Settings/SettingsModalStack";
 import {
@@ -15,6 +16,7 @@ import { styles } from "./style";
 
 export default function SettingsScreen({ navigation, route }: MainTabScreenProps<"Settings">) {
   const controller = useSettingsScreenController({ navigation, route });
+  const { t } = useAppTranslation(controller.settings?.language);
 
   return (
     <SafeAreaView style={styles.safe} edges={[]}>
@@ -23,7 +25,7 @@ export default function SettingsScreen({ navigation, route }: MainTabScreenProps
           controller={controller}
           navigation={navigation}
           savingsTileSize={SAVINGS_TILE_SIZE}
-          getAddPotLabel={getAddPotLabel}
+          getAddPotLabel={(field) => getAddPotLabel(field, t)}
           getSavingsTilePalette={getSavingsTilePalette}
         />
       </View>

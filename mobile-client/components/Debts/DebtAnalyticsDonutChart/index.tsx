@@ -2,12 +2,14 @@ import React, { useMemo, useState } from "react";
 import { Pressable, Text, View, type GestureResponderEvent } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 
+import { useAppTranslation } from "@/hooks";
 import type { DebtAnalyticsDonutChartProps, DebtAnalyticsColorSlice } from "@/types";
 import { fmt } from "@/lib/formatting";
 import { T } from "@/lib/theme";
 import { debtAnalyticsStyles as s } from "@/components/DebtAnalyticsScreen/style";
 
 export default function DebtAnalyticsDonutChart({ colors, currency, debts }: DebtAnalyticsDonutChartProps) {
+  const { t } = useAppTranslation();
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const size = 228;
   const centerX = size / 2;
@@ -39,10 +41,12 @@ export default function DebtAnalyticsDonutChart({ colors, currency, debts }: Deb
   const centerTop = activeDebt
     ? fmt(activeDebt.currentBalance, currency)
     : fmt(total, currency);
-  const centerTitle = activeDebt ? (activeDebt.displayTitle ?? activeDebt.name) : "Total debt";
+  const centerTitle = activeDebt ? (activeDebt.displayTitle ?? activeDebt.name) : t("debts.analytics.totalDebt");
   const centerSub = activeDebt
-    ? `${activePct ?? 0}% of total debt`
-    : `${debts.length} active debts`;
+    ? t("debts.analytics.percentOfTotalDebt", { percent: activePct ?? 0 })
+    : debts.length === 1
+      ? t("debts.analytics.activeDebtOne", { count: debts.length })
+      : t("debts.analytics.activeDebtOther", { count: debts.length });
 
   const handleRingPress = (event: GestureResponderEvent) => {
     const { locationX, locationY } = event.nativeEvent;

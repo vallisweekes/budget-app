@@ -7,10 +7,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { getApiMutationVersion } from "@/lib/api";
+import { buildAppLocale } from "@/lib/constants";
 import type { CreditCard, DebtSummaryItem } from "@/lib/apiTypes";
 import { currencySymbol } from "@/lib/formatting";
 import { setCachedDebtListData } from "@/lib/debtDetailCache";
-import { usePayPeriodBoundaryRefresh, useSwipeDownToClose, useTopHeaderOffset } from "@/hooks";
+import { useAppTranslation, usePayPeriodBoundaryRefresh, useSwipeDownToClose, useTopHeaderOffset } from "@/hooks";
 import { normalizePayFrequency } from "@/lib/payPeriods";
 import type { DebtStackParamList } from "@/navigation/types";
 import { useCreateDebtMutation, useGetCreditCardsQuery, useGetDebtSummaryQuery } from "@/store/api";
@@ -20,6 +21,7 @@ type Nav = NativeStackNavigationProp<DebtStackParamList, "DebtList">;
 type Route = RouteProp<DebtStackParamList, "DebtList">;
 
 export function useDebtScreenController() {
+  const { t } = useAppTranslation();
   const listRef = useRef<FlatList<DebtSummaryItem>>(null);
   useScrollToTop(listRef);
 
@@ -127,9 +129,10 @@ export function useDebtScreenController() {
   const error = (() => {
     const nextError = debtSummaryQuery.error ?? creditCardsQuery.error;
     if (!nextError) return null;
-    return nextError instanceof Error ? nextError.message : "Failed to load debts";
+    return nextError instanceof Error ? nextError.message : t("debts.error.loadFailed");
   })();
   const currency = currencySymbol(settings?.currency);
+  const locale = buildAppLocale(settings?.language, settings?.country);
 
   const load = useCallback(async (options?: { force?: boolean }) => {
     try {
@@ -246,8 +249,8 @@ export function useDebtScreenController() {
   const isLoanStyleType = addType === "loan" || addType === "mortgage";
   const selectablePaymentCards = cards.filter((card: CreditCard) => card.id !== "" && card.id !== undefined);
   const projectionSummary = useMemo(
-    () => buildDebtProjectionSummary({ activeDebts, summary, selectedProjectionMonth }),
-    [activeDebts, selectedProjectionMonth, summary],
+    () => buildDebtProjectionSummary({ activeDebts, summary, selectedProjectionMonth, locale }),
+    [activeDebts, locale, selectedProjectionMonth, summary],
   );
 
   const handleAdd = useCallback(async () => {
@@ -259,41 +262,44 @@ export function useDebtScreenController() {
     const installmentMonths = addInstallmentMonths.trim() ? Number.parseInt(addInstallmentMonths, 10) : null;
 
     if (!name) {
-      Alert.alert("Missing name", "Enter a debt name.");
+      Alert.alert(t("debts.add.alert.missingNameTitle"), t("debts.add.alert.missingNameMessage"));
       return;
     }
     if (!addDueDate.trim()) {
-      Alert.alert("Missing due date", "Select a due date before adding this debt.");
+      Alert.alert(t("debts.add.alert.missingDueDateTitle"), t("debts.add.alert.missingDueDateMessage"));
       return;
     }
 
     const dueDate = new Date(`${addDueDate}T00:00:00`);
     if (!Number.isFinite(dueDate.getTime())) {
-      Alert.alert("Invalid due date", "Select a valid due date.");
+      Alert.alert(t("debts.add.alert.invalidDueDateTitle"), t("debts.add.alert.invalidDueDateMessage"));
       return;
     }
     if (Number.isNaN(balance) || (isCardType ? balance < 0 : balance <= 0)) {
-      Alert.alert("Invalid amount", isCardType ? "Enter a valid balance (0 or more)." : "Enter a valid balance.");
+      Alert.alert(
+        t("debts.add.alert.invalidAmountTitle"),
+        isCardType ? t("debts.add.alert.invalidAmountBalance") : t("debts.add.alert.invalidAmountLoan"),
+      );
       return;
     }
     if (Number.isNaN(monthlyPayment) || monthlyPayment < 0) {
-      Alert.alert("Invalid monthly payment", "Enter a valid monthly payment (0 or more).");
+      Alert.alert(t("debts.add.alert.invalidMonthlyPaymentTitle"), t("debts.add.alert.invalidMonthlyPaymentMessage"));
       return;
     }
     if (addPaymentSource === "credit_card" && !addPaymentCardDebtId.trim()) {
-      Alert.alert("Source card required", "Select the card you’ll use to pay this debt.");
+      Alert.alert(t("debts.add.alert.sourceCardRequiredTitle"), t("debts.add.alert.sourceCardRequiredMessage"));
       return;
     }
     if (creditLimit != null && (!Number.isFinite(creditLimit) || creditLimit <= 0)) {
-      Alert.alert("Invalid credit limit", "Enter a valid credit limit.");
+      Alert.alert(t("debts.add.alert.invalidCreditLimitTitle"), t("debts.add.alert.invalidCreditLimitMessage"));
       return;
     }
     if (interestRate != null && (!Number.isFinite(interestRate) || interestRate < 0)) {
-      Alert.alert("Invalid interest", "Enter a valid interest rate (APR).");
+      Alert.alert(t("debts.add.alert.invalidInterestTitle"), t("debts.add.alert.invalidInterestMessage"));
       return;
     }
     if (installmentMonths != null && (!Number.isFinite(installmentMonths) || installmentMonths <= 0)) {
-      Alert.alert("Invalid term", "Enter how many months to pay over.");
+      Alert.alert(t("debts.add.alert.invalidTermTitle"), t("debts.add.alert.invalidTermMessage"));
       return;
     }
 
@@ -328,11 +334,11 @@ export function useDebtScreenController() {
       setAddPaymentCardDebtId("");
       setShowAddForm(false);
     } catch (err: unknown) {
-      Alert.alert("Error", err instanceof Error ? err.message : "Could not add debt");
+      Alert.alert(t("debts.add.alert.errorTitle"), err instanceof Error ? err.message : t("debts.add.alert.errorMessage"));
     } finally {
       setSaving(false);
     }
-  }, [addBalance, addCreditLimit, addDueDate, addInstallmentMonths, addInterestRate, addMonthlyPayment, addName, addPaymentCardDebtId, addPaymentSource, addType, createDebtMutation, isCardType, settings?.id]);
+  }, [addBalance, addCreditLimit, addDueDate, addInstallmentMonths, addInterestRate, addMonthlyPayment, addName, addPaymentCardDebtId, addPaymentSource, addType, createDebtMutation, isCardType, settings?.id, t]);
 
   return {
     activeDebts,

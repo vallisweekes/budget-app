@@ -7,12 +7,13 @@ import AnalyticsDebtDistributionCard from "@/components/Analytics/AnalyticsDebtD
 import AnalyticsInsightGrid from "@/components/Analytics/AnalyticsInsightGrid";
 import AnalyticsOverviewCard from "@/components/Analytics/AnalyticsOverviewCard";
 import AnalyticsTipsCard from "@/components/Analytics/AnalyticsTipsCard";
-import { useAnalyticsScreenController } from "@/hooks";
+import { useAnalyticsScreenController, useAppTranslation } from "@/hooks";
 import { T } from "@/lib/theme";
 import type { AnalyticsScreenProps } from "@/types";
 import { analyticsStyles as s } from "@/components/AnalyticsScreen/style";
 
 export default function AnalyticsScreen({ overviewMode }: AnalyticsScreenProps) {
+  const { t } = useAppTranslation();
   const controller = useAnalyticsScreenController({ overviewMode });
 
   if (controller.loading) {
@@ -20,7 +21,7 @@ export default function AnalyticsScreen({ overviewMode }: AnalyticsScreenProps) 
 			<SafeAreaView style={s.safe} edges={[]}>
         <View style={[s.center, { paddingTop: controller.topHeaderOffset }]}>
           <ActivityIndicator size="large" color={T.accent} />
-          <Text style={s.loading}>Loading analytics…</Text>
+          <Text style={s.loading}>{t("analytics.loading")}</Text>
         </View>
       </SafeAreaView>
     );
@@ -33,7 +34,7 @@ export default function AnalyticsScreen({ overviewMode }: AnalyticsScreenProps) 
           <Ionicons name="cloud-offline-outline" size={42} color={T.textDim} />
           <Text style={s.error}>{controller.error}</Text>
           <Pressable onPress={controller.retry} style={s.retryBtn}>
-            <Text style={s.retryTxt}>Retry</Text>
+            <Text style={s.retryTxt}>{t("common.retry")}</Text>
           </Pressable>
         </View>
       </SafeAreaView>

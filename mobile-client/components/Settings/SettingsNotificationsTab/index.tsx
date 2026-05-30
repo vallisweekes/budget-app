@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
 
 import SettingsSection from "@/components/Settings/SettingsSection";
+import { useAppTranslation } from "@/hooks";
 import { T } from "@/lib/theme";
 import { styles } from "./styles";
 
@@ -17,6 +18,7 @@ export default function SettingsNotificationsTab({
   onMarkRead,
   onDelete,
 }: SettingsNotificationsTabProps) {
+  const { t } = useAppTranslation();
   const params = useLocalSearchParams() as Record<string, string | string[] | undefined>;
   const switchTrackColor = { false: T.border, true: T.accentFaint };
   const [inboxVisible, setInboxVisible] = React.useState(false);
@@ -42,13 +44,13 @@ export default function SettingsNotificationsTab({
 
   return (
     <>
-      <SettingsSection title="Notifications">
+      <SettingsSection title={t("settings.notificationsTitle")}>
         <View pointerEvents="none" style={[styles.cardGlow, styles.cardGlowPrimary]} />
         <View pointerEvents="none" style={[styles.cardGlow, styles.cardGlowSecondary]} />
 
         <View style={styles.preferencesCard}>
           <View style={styles.row}>
-            <Text style={styles.rowLabel}>Due reminders</Text>
+            <Text style={styles.rowLabel}>{t("settings.notifications.dueReminders")}</Text>
             <Switch
               value={notifications.dueReminders}
               onValueChange={(value) => onSaveNotifications({ ...notifications, dueReminders: value })}
@@ -58,7 +60,7 @@ export default function SettingsNotificationsTab({
             />
           </View>
           <View style={styles.row}>
-            <Text style={styles.rowLabel}>Payment alerts</Text>
+            <Text style={styles.rowLabel}>{t("settings.notifications.paymentAlerts")}</Text>
             <Switch
               value={notifications.paymentAlerts}
               onValueChange={(value) => onSaveNotifications({ ...notifications, paymentAlerts: value })}
@@ -68,7 +70,7 @@ export default function SettingsNotificationsTab({
             />
           </View>
           <View style={[styles.row, styles.rowLast]}>
-            <Text style={styles.rowLabel}>Daily tips</Text>
+            <Text style={styles.rowLabel}>{t("settings.notifications.dailyTips")}</Text>
             <Switch
               value={notifications.dailyTips}
               onValueChange={(value) => onSaveNotifications({ ...notifications, dailyTips: value })}
@@ -78,12 +80,15 @@ export default function SettingsNotificationsTab({
             />
           </View>
         </View>
-        <Text style={styles.notificationHeading}>Recent notifications</Text>
+        <Text style={styles.notificationHeading}>{t("settings.notifications.recent")}</Text>
         <Text style={styles.mailboxHint}>
-          Tap the mailbox icon in the top-right to view {inbox.length} recent notification{inbox.length === 1 ? "" : "s"}
-          {unreadCount > 0 ? ` (${unreadCount} unread)` : ""}.
+          {t("settings.notifications.mailboxHint", {
+            count: inbox.length,
+            suffix: inbox.length === 1 ? "" : "s",
+            unread: unreadCount > 0 ? t("settings.notifications.unreadSuffix", { count: unreadCount }) : "",
+          })}
         </Text>
-        <Text style={styles.footerHint}>These preferences sync to your account and control automatic reminders.</Text>
+        <Text style={styles.footerHint}>{t("settings.notifications.footerHint")}</Text>
       </SettingsSection>
 
       <Modal transparent visible={inboxVisible} animationType="fade" onRequestClose={() => setInboxVisible(false)}>
@@ -92,8 +97,8 @@ export default function SettingsNotificationsTab({
           <View style={styles.sheetCard}>
             <View style={styles.sheetHandle} />
             <View style={styles.sheetHeaderRow}>
-              <Text style={styles.sheetTitle}>Recent notifications</Text>
-              <Pressable style={styles.sheetCloseBtn} onPress={() => setInboxVisible(false)} accessibilityLabel="Close inbox">
+              <Text style={styles.sheetTitle}>{t("settings.notifications.recent")}</Text>
+              <Pressable style={styles.sheetCloseBtn} onPress={() => setInboxVisible(false)} accessibilityLabel={t("settings.notifications.closeInbox")}>
                 <Ionicons name="close" size={16} color={T.textDim} />
               </Pressable>
             </View>
@@ -111,7 +116,7 @@ export default function SettingsNotificationsTab({
                       style={({ pressed }) => [styles.notificationItem, !item.readAt && styles.notificationItemUnread, pressed && styles.notificationItemPressed]}
                     >
                       <View style={styles.notificationTitleRow}>
-                        <Text style={styles.notificationTitle} numberOfLines={1}>{item.title || "BudgetIn Check"}</Text>
+                        <Text style={styles.notificationTitle} numberOfLines={1}>{item.title || t("settings.notifications.titleFallback")}</Text>
                         {!item.readAt ? <View style={styles.notificationUnreadDot} /> : null}
                       </View>
                       {item.body ? <Text style={styles.notificationBody}>{item.body}</Text> : null}
@@ -120,10 +125,10 @@ export default function SettingsNotificationsTab({
                         <View style={styles.notificationActions}>
                           {!item.readAt ? (
                             <Pressable onPress={(e) => { e.stopPropagation(); onMarkRead(item.id); }} style={styles.notificationActionBtn}>
-                              <Text style={styles.notificationActionText}>Mark read</Text>
+                              <Text style={styles.notificationActionText}>{t("settings.notifications.markRead")}</Text>
                             </Pressable>
                           ) : null}
-                          <Pressable onPress={(e) => { e.stopPropagation(); onDelete(item.id); }} style={styles.notificationDeleteBtn} accessibilityLabel="Delete notification">
+                          <Pressable onPress={(e) => { e.stopPropagation(); onDelete(item.id); }} style={styles.notificationDeleteBtn} accessibilityLabel={t("settings.notifications.deleteNotification")}>
                             <Ionicons name="trash-outline" size={14} color={T.red} />
                           </Pressable>
                         </View>
@@ -133,7 +138,7 @@ export default function SettingsNotificationsTab({
                 </View>
               </ScrollView>
             ) : (
-              <Text style={styles.notificationEmpty}>No notifications yet.</Text>
+              <Text style={styles.notificationEmpty}>{t("settings.notifications.empty")}</Text>
             )}
           </View>
         </View>

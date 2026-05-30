@@ -35,8 +35,8 @@ export function projectDebtMonths(debt: DebtSummaryItem, totalMonthly: number): 
   return 360;
 }
 
-export function payoffDateLabel(months: number): string {
+export function payoffDateLabel(months: number, locale = "en-GB"): string {
   const date = new Date();
   date.setMonth(date.getMonth() + months);
-  return date.toLocaleDateString("en-GB", { month: "short", year: "2-digit" });
+  return date.toLocaleDateString(locale, { month: "short", year: "2-digit" });
 }

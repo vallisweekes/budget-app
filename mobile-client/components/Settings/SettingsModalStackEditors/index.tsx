@@ -5,13 +5,20 @@ import { Ionicons } from "@expo/vector-icons";
 import SettingsBudgetFieldSheet from "@/components/Settings/SettingsBudgetFieldSheet";
 import SettingsLocaleSheet from "@/components/Settings/SettingsLocaleSheet";
 import SavingsEditorSheet from "@/components/Settings/SavingsEditorSheet";
+import { useAppTranslation } from "@/hooks";
 import { PAY_FREQUENCY_OPTIONS } from "@/lib/constants";
-import { asMoneyNumber, asMoneyText, getSavingsFieldTitle } from "@/lib/helpers/settings";
+import { asMoneyNumber, asMoneyText } from "@/lib/helpers/settings";
 
 import type { SettingsModalStackEditorsProps } from "@/types/components/settings/SettingsModalStackEditors.types";
 
 export default function SettingsModalStackEditors({ controller }: SettingsModalStackEditorsProps) {
+  const { t } = useAppTranslation(controller.settings?.language);
   const keyboardOffset = Platform.OS === "ios" ? Math.max(0, controller.topHeaderOffset - controller.insets.top) : 0;
+  const savingsFieldTitle = controller.savingsSheetField === "emergency"
+    ? t("settings.money.emergencyFunds")
+    : controller.savingsSheetField === "investment"
+      ? t("settings.money.investments")
+      : t("settings.money.savings");
 
   return (
     <>
@@ -38,11 +45,11 @@ export default function SettingsModalStackEditors({ controller }: SettingsModalS
         mode={controller.savingsSheetMode}
         field={controller.savingsSheetField}
         icon={controller.savingsSheetIcon as React.ComponentProps<typeof Ionicons>["name"]}
-        title={getSavingsFieldTitle(controller.savingsSheetField ?? "savings")}
+        title={savingsFieldTitle}
         currency={controller.settings?.currency}
         currentAmount={controller.savingsSheetCurrentAmount}
         valueDraft={controller.savingsValueDraft}
-        potNameDraft={controller.savingsSheetMode === "add" ? controller.savingsPotNameDraft : (controller.savingsEditingPotId ? controller.savingsPotNameDraft || "Pot" : getSavingsFieldTitle(controller.savingsSheetField ?? "savings"))}
+        potNameDraft={controller.savingsSheetMode === "add" ? controller.savingsPotNameDraft : (controller.savingsEditingPotId ? controller.savingsPotNameDraft || t("settings.savingsEditor.potName") : savingsFieldTitle)}
         goalImpactNote={controller.savingsSheetGoalImpactNote}
         saveBusy={controller.saveBusy}
         insetsBottom={controller.insets.bottom}

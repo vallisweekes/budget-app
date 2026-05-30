@@ -3,6 +3,7 @@ import { Animated, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView,
 
 import MoneyInput from "@/components/Shared/MoneyInput";
 import NumericInput from "@/components/Shared/NumericInput";
+import { useAppTranslation } from "@/hooks";
 import { styles } from "./styles";
 
 import type { SettingsDebtSheetProps } from "@/types/components/settings/SettingsDebtSheet.types";
@@ -29,6 +30,7 @@ export default function SettingsDebtSheet(props: SettingsDebtSheetProps) {
     onChangeCreditLimit,
     onSubmit,
   } = props;
+  const { t } = useAppTranslation();
 
   return (
     <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
@@ -47,22 +49,22 @@ export default function SettingsDebtSheet(props: SettingsDebtSheetProps) {
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.sheetScrollContent}
               >
-                <Text style={styles.label}>Name</Text>
+                <Text style={styles.label}>{t("settings.debtSheet.name")}</Text>
                 <TextInput value={name} onChangeText={onChangeName} style={styles.input} />
 
-                <Text style={styles.label}>Balance</Text>
+                <Text style={styles.label}>{t("settings.debtSheet.balance")}</Text>
                 <MoneyInput currency={currency} value={balance} onChangeValue={onChangeBalance} />
 
-                <Text style={styles.label}>Interest rate % (optional)</Text>
+                <Text style={styles.label}>{t("settings.debtSheet.interestOptional")}</Text>
                 <NumericInput value={interestRate} onChangeText={onChangeInterestRate} style={styles.input} keyboardType="decimal-pad" />
 
-                <Text style={styles.label}>Credit limit</Text>
+                <Text style={styles.label}>{t("settings.debtSheet.creditLimit")}</Text>
                 <MoneyInput currency={currency} value={creditLimit} onChangeValue={onChangeCreditLimit} />
               </ScrollView>
 
               <View style={[styles.sheetActionsDocked, { paddingBottom: Math.max(12, insetsBottom + 6) }]}> 
-                <Pressable style={styles.outlineBtnWide} onPress={onClose}><Text style={styles.outlineBtnText}>Cancel</Text></Pressable>
-                <Pressable style={[styles.primaryBtnWide, saveBusy && styles.disabled]} onPress={onSubmit} disabled={saveBusy}><Text style={styles.primaryBtnText}>{saveBusy ? "Saving…" : actionLabel}</Text></Pressable>
+                <Pressable style={styles.outlineBtnWide} onPress={onClose}><Text style={styles.outlineBtnText}>{t("common.cancel")}</Text></Pressable>
+                <Pressable style={[styles.primaryBtnWide, saveBusy && styles.disabled]} onPress={onSubmit} disabled={saveBusy}><Text style={styles.primaryBtnText}>{saveBusy ? `${t("common.save")}...` : actionLabel}</Text></Pressable>
               </View>
             </View>
           </Animated.View>

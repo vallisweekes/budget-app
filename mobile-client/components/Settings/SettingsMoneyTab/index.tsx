@@ -1,6 +1,7 @@
 import React from "react";
 import { Animated, Pressable, Text, View } from "react-native";
 
+import { useAppTranslation } from "@/hooks";
 import { styles } from "./styles";
 import SettingsMoneyCardsView from "@/components/Settings/SettingsMoneyCardsView";
 import SettingsMoneyPersonalView from "@/components/Settings/SettingsMoneyPersonalView";
@@ -25,6 +26,7 @@ export default function SettingsMoneyTab(props: SettingsMoneyTabProps) {
     onAddDebt,
     onOpenDebtEditor,
   } = props;
+  const { t } = useAppTranslation();
 
   return (
     <View style={styles.moneyTabSurface}>
@@ -34,10 +36,10 @@ export default function SettingsMoneyTab(props: SettingsMoneyTabProps) {
       <View style={styles.moneyToggleWrap}>
         <Animated.View pointerEvents="none" style={[styles.moneyToggleThumb, { transform: [{ translateX: toggleTranslateX }] }]} />
         <Pressable onPress={() => onChangeMode("personal")} style={styles.moneyTogglePill}>
-          <Text style={[styles.moneyToggleTxt, mode === "personal" && styles.moneyToggleTxtActive]}>Personal</Text>
+          <Text style={[styles.moneyToggleTxt, mode === "personal" && styles.moneyToggleTxtActive]}>{t("settings.money.personal")}</Text>
         </Pressable>
         <Pressable onPress={() => onChangeMode("cards")} style={styles.moneyTogglePill}>
-          <Text style={[styles.moneyToggleTxt, mode === "cards" && styles.moneyToggleTxtActive]}>Cards</Text>
+          <Text style={[styles.moneyToggleTxt, mode === "cards" && styles.moneyToggleTxtActive]}>{t("settings.money.cards")}</Text>
         </Pressable>
       </View>
 

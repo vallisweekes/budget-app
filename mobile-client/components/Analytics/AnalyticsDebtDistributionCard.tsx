@@ -1,25 +1,27 @@
 import React from "react";
 import { Text, View } from "react-native";
 
+import { useAppTranslation } from "@/hooks";
 import { fmt } from "@/lib/formatting";
 import { analyticsStyles as s } from "@/components/AnalyticsScreen/style";
 import type { AnalyticsDebtDistributionCardProps } from "@/types";
 
 export default function AnalyticsDebtDistributionCard({ currency, items, overviewMode, title }: AnalyticsDebtDistributionCardProps) {
+  const { t } = useAppTranslation();
   return (
     <View style={s.tipCard}>
       <View style={[s.sectionGlow, s.debtGlowPrimary]} />
       <View style={s.sectionHead}>
         <View>
-          <Text style={s.sectionEyebrow}>Debt composition</Text>
+          <Text style={s.sectionEyebrow}>{t("analytics.debt.eyebrow")}</Text>
           <Text style={s.tipTitle}>{title}</Text>
         </View>
         <View style={s.sectionBadge}>
-          <Text style={s.sectionBadgeText}>{overviewMode === "year" ? "Yearly" : "Monthly"}</Text>
+          <Text style={s.sectionBadgeText}>{overviewMode === "year" ? t("analytics.debt.yearly") : t("analytics.debt.monthly")}</Text>
         </View>
       </View>
       {items.length === 0 ? (
-        <Text style={s.tipText}>{overviewMode === "year" ? "No active debt balances." : "No debt payments due this month."}</Text>
+        <Text style={s.tipText}>{overviewMode === "year" ? t("analytics.debt.emptyYear") : t("analytics.debt.emptyMonth")}</Text>
       ) : (
         items.map((item) => (
           <View key={item.id} style={s.barRow}>

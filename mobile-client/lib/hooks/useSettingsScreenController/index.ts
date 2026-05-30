@@ -270,6 +270,10 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
   const detectedCountry = useMemo(() => parseLocaleCountry(), []);
   const currentPlanId = activeBudgetPlanId ?? settings?.id ?? null;
   const currentPlan = useMemo(() => plans.find((p) => p.id === currentPlanId) ?? null, [plans, currentPlanId]);
+  const settingsLanguage = useMemo(
+    () => normalizeSupportedLanguage(settings?.language, resolveDefaultLanguageForCountry((settings?.country ?? "").toUpperCase())),
+    [settings?.country, settings?.language],
+  );
 
   useEffect(() => {
     currentPlanIdRef.current = currentPlanId;
@@ -312,13 +316,13 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
     }
 
     if (isLinkedToGoal) {
-      return "Changing this amount will increase or reduce linked goal progress.";
+      return translateAppText(settingsLanguage, "settings.savingsEditor.goalLinked");
     }
     if (sacrificeGoalsCount > 0) {
-      return "You have goals. Link this item in Income sacrifice so changes here can update goal amounts.";
+      return translateAppText(settingsLanguage, "settings.savingsEditor.goalLinkHint");
     }
     return null;
-  }, [sacrificeGoalsCount, sacrificeLinkedTargetKeys, savingsEditingPotId, savingsPots, savingsSheetField, savingsSheetMode]);
+  }, [sacrificeGoalsCount, sacrificeLinkedTargetKeys, savingsEditingPotId, savingsPots, savingsSheetField, savingsSheetMode, settingsLanguage]);
   const savingsCards = useMemo(
     () => [
       {

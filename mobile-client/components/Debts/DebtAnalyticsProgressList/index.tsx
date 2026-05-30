@@ -1,6 +1,7 @@
 import React from "react";
 import { Text, View } from "react-native";
 
+import { useAppLocale, useAppTranslation } from "@/hooks";
 import type { DebtAnalyticsProgressListProps } from "@/types";
 import { fmt } from "@/lib/formatting";
 import { payoffDateLabel } from "@/lib/helpers/debtAnalytics";
@@ -8,9 +9,11 @@ import { T } from "@/lib/theme";
 import { debtAnalyticsStyles as s } from "@/components/DebtAnalyticsScreen/style";
 
 export default function DebtAnalyticsProgressList({ currency, items }: DebtAnalyticsProgressListProps) {
+  const { locale } = useAppLocale();
+  const { t } = useAppTranslation();
   return (
     <View style={s.card}>
-      <Text style={s.sectionTitle}>Progress</Text>
+      <Text style={s.sectionTitle}>{t("debts.analytics.progressTitle")}</Text>
       {items.map((item, index) => (
         <View key={item.debt.id} style={[s.debtRow, index > 0 && s.debtRowBorder]}>
           <View style={[s.debtColorBar, { backgroundColor: item.color }]} />
@@ -23,9 +26,9 @@ export default function DebtAnalyticsProgressList({ currency, items }: DebtAnaly
               <View style={[s.progressFill, { width: `${Math.max(item.pctPaid, 2)}%` as `${number}%`, backgroundColor: item.color }]} />
             </View>
             <View style={s.debtRowMeta}>
-              <Text style={s.debtMeta}>{item.pctPaid.toFixed(0)}% paid</Text>
+              <Text style={s.debtMeta}>{t("debts.analytics.paidPercent", { percent: item.pctPaid.toFixed(0) })}</Text>
               {item.debt.interestRate ? <Text style={s.debtMeta}>{item.debt.interestRate}% APR</Text> : null}
-              <Text style={[s.debtMeta, { color: T.green }]}>Free {payoffDateLabel(item.months)}</Text>
+              <Text style={[s.debtMeta, { color: T.green }]}>{t("debts.analytics.freeBy", { date: payoffDateLabel(item.months, locale) })}</Text>
             </View>
           </View>
         </View>

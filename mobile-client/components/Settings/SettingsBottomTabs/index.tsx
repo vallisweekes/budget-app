@@ -3,12 +3,15 @@ import { Pressable, Text, View } from "react-native";
 import { BlurView } from "expo-blur";
 import { Ionicons } from "@expo/vector-icons";
 
+import { useAppTranslation } from "@/hooks";
 import { T } from "@/lib/theme";
 import { styles } from "./styles";
 
 import type { SettingsBottomTabsProps } from "@/types/components/settings/SettingsBottomTabs.types";
 
 export default function SettingsBottomTabs({ activeTab, primaryTabs, tabIcons, isMoreTabActive, insetBottom, onSelectTab, onOpenMore }: SettingsBottomTabsProps) {
+  const { t } = useAppTranslation();
+
   return (
     <BlurView intensity={22} tint="dark" style={[styles.bottomTabsGlass, { paddingBottom: Math.max(0, insetBottom) }]}> 
       <View style={styles.bottomTabsTint} />
@@ -28,7 +31,7 @@ export default function SettingsBottomTabs({ activeTab, primaryTabs, tabIcons, i
           <View style={[styles.bottomIconWrap, isMoreTabActive && styles.bottomIconWrapActive]}>
             <Ionicons name={isMoreTabActive ? "ellipsis-horizontal-circle" : "ellipsis-horizontal-circle-outline"} size={18} color={isMoreTabActive ? T.text : T.textDim} />
           </View>
-          {!isMoreTabActive ? <Text style={styles.bottomTabTxt}>More</Text> : null}
+          {!isMoreTabActive ? <Text style={styles.bottomTabTxt}>{t("common.more")}</Text> : null}
         </Pressable>
       </View>
     </BlurView>

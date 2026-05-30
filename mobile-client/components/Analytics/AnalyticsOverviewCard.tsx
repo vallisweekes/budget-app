@@ -2,6 +2,7 @@ import React from "react";
 import { Text, View } from "react-native";
 import { LineChart } from "react-native-gifted-charts";
 
+import { useAppTranslation } from "@/hooks";
 import { fmt } from "@/lib/formatting";
 import { OVERVIEW_CHART_H } from "@/lib/helpers/analytics";
 import { T } from "@/lib/theme";
@@ -53,6 +54,7 @@ export default function AnalyticsOverviewCard({
   overviewMode,
   overviewWrapWidth,
 }: AnalyticsOverviewCardProps) {
+  const { t } = useAppTranslation();
   const incomeColor = "#4da2ff";
   const expenseColor = "#ff5ca8";
   const lastSelectableIndex = Math.max(0, chartData.labels.length - 1);
@@ -88,10 +90,10 @@ export default function AnalyticsOverviewCard({
     <View style={s.overviewHero}>
       <View style={s.overviewHeroHead}>
         <View>
-          <Text style={s.sectionEyebrow}>Cashflow intelligence</Text>
-          <Text style={s.overviewHeroTitle}>Overview</Text>
+          <Text style={s.sectionEyebrow}>{t("analytics.overview.eyebrow")}</Text>
+          <Text style={s.overviewHeroTitle}>{t("analytics.overview.title")}</Text>
         </View>
-        <Text style={s.overviewModeBadge}>{overviewMode === "year" ? "Yearly view" : `${currentMonthLabel} snapshot`}</Text>
+        <Text style={s.overviewModeBadge}>{overviewMode === "year" ? t("analytics.overview.yearlyView") : t("analytics.overview.snapshot", { period: currentMonthLabel })}</Text>
       </View>
 
       <View
@@ -107,12 +109,12 @@ export default function AnalyticsOverviewCard({
           <Text style={s.overviewPinnedSummaryLabel}>{selectedSummary.label}</Text>
           <View style={s.overviewPinnedSummaryMetricRow}>
             <View style={[s.overviewPinnedSummaryDot, { backgroundColor: incomeColor }]} />
-            <Text style={s.overviewPinnedSummaryMetricName}>Income</Text>
+            <Text style={s.overviewPinnedSummaryMetricName}>{t("analytics.overview.income")}</Text>
             <Text style={s.overviewPinnedSummaryMetricValue}>{fmt(selectedSummary.income, currency)}</Text>
           </View>
           <View style={s.overviewPinnedSummaryMetricRow}>
             <View style={[s.overviewPinnedSummaryDot, { backgroundColor: expenseColor }]} />
-            <Text style={s.overviewPinnedSummaryMetricName}>Expenses</Text>
+            <Text style={s.overviewPinnedSummaryMetricName}>{t("analytics.overview.expenses")}</Text>
             <Text style={s.overviewPinnedSummaryMetricValue}>{fmt(selectedSummary.expense, currency)}</Text>
           </View>
         </View>
@@ -179,11 +181,11 @@ export default function AnalyticsOverviewCard({
       <View style={s.overviewLegendRow}>
         <View style={s.legendItem}>
           <View style={[s.legendDot, { backgroundColor: incomeColor }]} />
-          <Text style={s.legendText}>Income</Text>
+          <Text style={s.legendText}>{t("analytics.overview.income")}</Text>
         </View>
         <View style={s.legendItem}>
           <View style={[s.legendDot, { backgroundColor: expenseColor }]} />
-          <Text style={s.legendText}>Expenses</Text>
+          <Text style={s.legendText}>{t("analytics.overview.expenses")}</Text>
         </View>
       </View>
     </View>

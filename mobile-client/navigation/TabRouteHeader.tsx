@@ -7,6 +7,7 @@ import { useLocalSearchParams, useRouter, useSegments } from "expo-router";
 import TopHeader from "@/components/Shared/TopHeader";
 import { useActiveBudgetPlan } from "@/context/ActiveBudgetPlanContext";
 import { useAuth } from "@/context/AuthContext";
+import { useAppTranslation } from "@/hooks";
 import { markSkipExpensesFocusReload } from "@/lib/helpers/expensesFocusReload";
 import { subscribeNotificationInbox } from "@/lib/notificationInbox";
 import { T } from "@/lib/theme";
@@ -35,6 +36,7 @@ function getRouteParamNumber(routeParams: Record<string, unknown>, key: string):
 }
 
 export default function TabRouteHeader() {
+  const { t } = useAppTranslation();
   const router = useRouter();
   const navigation = useNavigation<any>();
   const segments = useSegments() as string[];
@@ -171,29 +173,29 @@ export default function TabRouteHeader() {
         : isScanReceipt
           ? "Upload Receipt"
           : isAnyDebtAnalytics
-            ? "Debt Analytics"
+          ? t("tabs.debts") + " " + t("tabs.projection")
             : isSettingsProfileDetails
-              ? "Profile details"
+              ? t("settings.profileDetailsTitle")
             : isSettingsIncomeSettings
-              ? "Income settings"
+              ? t("settings.incomeSettingsTitle")
             : isSettingsStrategy
-              ? "Strategy"
+              ? t("settings.strategyTitle")
             : isSettingsDebtManagement
-              ? "Debt management"
+              ? t("settings.debtManagementTitle")
             : isAnalytics
-              ? "Analytics"
+              ? t("analytics.title")
               : isSettings && settingsSubTab === "savings"
-                ? "Money"
+                ? t("settings.moneyTitle")
               : isSettings && settingsSubTab === "plans"
-                ? "Plans"
+                ? t("settings.plansTitle")
               : isSettings && settingsSubTab === "locale"
-                ? "Locale & Currency"
+                ? t("settings.localeCurrencyTitle")
               : isSettings && settingsSubTab === "notifications"
-                ? "Notifications"
+                ? t("settings.notificationsTitle")
               : isSettings && settingsSubTab === "budget"
-                ? "Budget"
+                ? t("settings.budgetTitle")
               : isSettings && settingsSubTab === "subscription"
-                ? "Subscription"
+                ? t("settings.subscriptionTitle")
               : isGoalDetail
                 ? getStringParam(params.goalTitle) ?? (typeof routeParams?.goalTitle === "string" ? routeParams.goalTitle : "Goal")
               : isGoalsProjection
@@ -309,11 +311,7 @@ export default function TabRouteHeader() {
     }
 
     if (isAnalytics) {
-      if (navigation.canGoBack?.()) {
-        navigation.goBack();
-        return;
-      }
-      replaceRoute("/(tabs)/dashboard");
+      pushRoute("/(tabs)/dashboard");
       return;
     }
 

@@ -55,6 +55,7 @@ export function buildDebtProjectionSummary(params: {
   activeDebts: DebtSummaryItem[];
   summary: DebtSummaryData | null;
   selectedProjectionMonth: number | null;
+  locale?: string;
 }) {
   const { activeDebts, summary, selectedProjectionMonth } = params;
   const total = summary?.totalDebtBalance ?? 0;
@@ -100,9 +101,8 @@ export function buildDebtProjectionSummary(params: {
   const canProjectPayoff = projection.length > 0 && projection[projection.length - 1] <= 0;
   const monthsToClear = summary?.payoffSummary?.monthsToClear ?? (canProjectPayoff ? months : null);
   const payoffLabel = (() => {
-    if (summary?.payoffSummary?.payoffLabel) return summary.payoffSummary.payoffLabel;
     if (monthsToClear == null || monthsToClear <= 0) return "";
-    return payoffDateLabel(monthsToClear);
+    return payoffDateLabel(monthsToClear, params.locale);
   })();
   const milestoneMonths = [6, 12, 24].filter((month) => month > 0 && month < months);
   const selectedMonth =

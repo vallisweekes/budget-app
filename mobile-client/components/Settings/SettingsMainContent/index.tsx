@@ -13,26 +13,38 @@ import SettingsOverviewTab from "@/components/Settings/SettingsOverviewTab";
 import SettingsPlansTab from "@/components/Settings/SettingsPlansTab";
 import SettingsSubscriptionTab from "@/components/Settings/SettingsSubscriptionTab";
 import SettingsSubpageHeader from "@/components/Settings/SettingsSubpageHeader";
+import { useAppTranslation } from "@/hooks";
 import { normalizeSupportedLanguage, resolveDefaultLanguageForCountry } from "@/lib/constants";
 import { hasPositiveDebtBalance, isDebtManagementEnabled } from "@/lib/helpers/debtManagement";
-import { asMoneyText, formatPayFrequency } from "@/lib/helpers/settings";
+import { asMoneyText } from "@/lib/helpers/settings";
 import {
+  getSettingsTabTitle,
   getSettingsAppVersionLabel,
   openSettingsExternalUrl,
-  SETTINGS_TAB_TITLES,
   SETTINGS_WEBSITE_URL,
 } from "@/lib/helpers/settingsOverview";
 import { styles } from "./styles";
 import { T } from "@/lib/theme";
 import { useGetDebtSummaryQuery } from "@/store/api";
+import type { AppTranslationKey } from "@/lib/i18n";
 import type { SettingsMainContentProps } from "@/types/components/settings/SettingsMainContent.types";
 
-function getVerificationLabel(profile: SettingsMainContentProps["controller"]["profile"]): string {
-  if (!profile) return "Unavailable";
-  if (profile.emailVerificationStatus === "verified") return "Verified";
-  if (profile.emailVerificationStatus === "pending") return "Pending";
-  if (profile.emailVerificationStatus === "missing_email") return "Add email";
-  return "Not required";
+function formatSettingsPayFrequency(value: unknown, t: (key: AppTranslationKey, params?: Record<string, string | number>) => string): string {
+  if (value === "weekly") return t("settings.payFrequency.weekly");
+  if (value === "every_2_weeks") return t("settings.payFrequency.every2Weeks");
+  if (value === "every_4_weeks") return t("settings.payFrequency.every4Weeks");
+  return t("settings.payFrequency.monthly");
+}
+
+function getVerificationLabel(
+  profile: SettingsMainContentProps["controller"]["profile"],
+  t: (key: AppTranslationKey, params?: Record<string, string | number>) => string,
+): string {
+  if (!profile) return t("common.unavailable");
+  if (profile.emailVerificationStatus === "verified") return t("settings.status.verified");
+  if (profile.emailVerificationStatus === "pending") return t("settings.status.pending");
+  if (profile.emailVerificationStatus === "missing_email") return t("settings.status.addEmail");
+  return t("settings.status.notRequired");
 }
 
 function getVerificationColor(profile: SettingsMainContentProps["controller"]["profile"]): string | undefined {
@@ -47,6 +59,7 @@ export default function SettingsMainContent({ controller, navigation, savingsTil
   const scrollRef = React.useRef<ScrollView | null>(null);
   const router = useRouter();
   const { dashboard } = useBootstrapData();
+  const { t } = useAppTranslation(controller.settings?.language);
   const debtSummaryQuery = useGetDebtSummaryQuery(undefined, { refetchOnMountOrArgChange: true });
   const openIncomeSettings = React.useCallback(() => {
     router.push("/settings-income-settings");
@@ -88,7 +101,7 @@ export default function SettingsMainContent({ controller, navigation, savingsTil
       <View style={styles.center}>
         <Ionicons name="cloud-offline-outline" size={40} color={T.textDim} />
         <Text style={styles.errorText}>{controller.error}</Text>
-        <Pressable onPress={controller.load} style={styles.primaryBtn}><Text style={styles.primaryBtnText}>Retry</Text></Pressable>
+        <Pressable onPress={controller.load} style={styles.primaryBtn}><Text style={styles.primaryBtnText}>{t("settings.loadingRetry")}</Text></Pressable>
       </View>
     );
   }
@@ -97,10 +110,10 @@ export default function SettingsMainContent({ controller, navigation, savingsTil
     return (
       <View style={styles.center}>
         <Ionicons name="wallet-outline" size={44} color={T.textDim} />
-        <Text style={styles.noPlanTitle}>Create your first budget plan</Text>
-        <Text style={styles.noPlanText}>You don’t have a plan yet. Create one to start budgeting.</Text>
+        <Text style={styles.noPlanTitle}>{t("settings.noPlan.title")}</Text>
+        <Text style={styles.noPlanText}>{t("settings.noPlan.message")}</Text>
         <Pressable onPress={controller.createPersonalPlan} style={[styles.primaryBtn, controller.saveBusy && styles.disabled]} disabled={controller.saveBusy}>
-          <Text style={styles.primaryBtnText}>{controller.saveBusy ? "Creating…" : "Create Plan"}</Text>
+          <Text style={styles.primaryBtnText}>{controller.saveBusy ? t("settings.noPlan.creating") : t("settings.noPlan.create")}</Text>
         </Pressable>
       </View>
     );
@@ -116,19 +129,19 @@ export default function SettingsMainContent({ controller, navigation, savingsTil
       showsVerticalScrollIndicator={false}
     >
       {controller.activeTab !== "details" && controller.activeTab !== "subscription" && controller.activeTab !== "budget" && controller.activeTab !== "savings" && controller.activeTab !== "plans" && controller.activeTab !== "locale" && controller.activeTab !== "notifications"
-        ? <SettingsSubpageHeader title={SETTINGS_TAB_TITLES[controller.activeTab]} onBack={() => controller.setActiveTab("details")} />
+        ? <SettingsSubpageHeader title={getSettingsTabTitle(controller.activeTab, t)} onBack={() => controller.setActiveTab("details")} />
         : null}
       {controller.activeTab === "details" ? (
         <SettingsOverviewTab
-          profileLabel={controller.profile?.username ?? controller.authUsername ?? controller.profile?.email ?? "No name set"}
-          emailVerificationLabel={getVerificationLabel(controller.profile)}
+          profileLabel={controller.profile?.username ?? controller.authUsername ?? controller.profile?.email ?? t("common.notSet")}
+          emailVerificationLabel={getVerificationLabel(controller.profile, t)}
           emailVerificationColor={getVerificationColor(controller.profile)}
-          subscriptionLabel={controller.subscription?.current.planLabel ?? "Free"}
-          payDateLabel={controller.settings?.payDate ? `Day ${controller.settings.payDate}` : "Not set"}
-          payFrequencyLabel={formatPayFrequency(controller.settings?.payFrequency)}
-          debtManagementLabel={debtManagementEnabled ? "On" : "Off"}
+          subscriptionLabel={controller.subscription?.current.planLabel ?? t("common.free")}
+          payDateLabel={controller.settings?.payDate ? t("settings.status.day", { day: controller.settings.payDate }) : t("common.notSet")}
+          payFrequencyLabel={formatSettingsPayFrequency(controller.settings?.payFrequency, t)}
+          debtManagementLabel={debtManagementEnabled ? t("common.on") : t("common.off")}
           currencyLabel={controller.settings?.currency ?? "GBP"}
-          notificationsLabel={controller.notifications.dueReminders || controller.notifications.paymentAlerts || controller.notifications.dailyTips ? "On" : "Off"}
+          notificationsLabel={controller.notifications.dueReminders || controller.notifications.paymentAlerts || controller.notifications.dailyTips ? t("common.on") : t("common.off")}
           versionLabel={getSettingsAppVersionLabel()}
           onEditProfile={() => router.push({
             pathname: "/settings-profile-details",
@@ -166,7 +179,7 @@ export default function SettingsMainContent({ controller, navigation, savingsTil
         <SettingsBudgetTab
           payDate={controller.settings?.payDate}
           horizonYears={controller.currentPlan?.budgetHorizonYears ?? 10}
-          payFrequencyLabel={formatPayFrequency(controller.settings?.payFrequency)}
+          payFrequencyLabel={formatSettingsPayFrequency(controller.settings?.payFrequency, t)}
           strategyDraft={controller.strategyDraft}
           onOpenField={controller.setBudgetFieldSheet}
           onOpenIncomeSettings={openIncomeSettings}

@@ -2,24 +2,26 @@ import React from "react";
 import { Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
+import { useAppTranslation } from "@/hooks";
 import { analyticsStyles as s } from "@/components/AnalyticsScreen/style";
 import { T } from "@/lib/theme";
 import type { AnalyticsInsightRow } from "@/types/AnalyticsScreen.types";
 
 export default function AnalyticsInsightGrid({ rows }: { rows: AnalyticsInsightRow[] }) {
+  const { t } = useAppTranslation();
   const variants: Record<string, { icon: keyof typeof Ionicons.glyphMap; tone: string; chip: string }> = {
-    income: { icon: "cash-outline", tone: "#3b99ff", chip: "Cash in" },
-    expenses: { icon: "receipt-outline", tone: T.red, chip: "Outflow" },
-    debt: { icon: "card-outline", tone: T.orange, chip: "Liabilities" },
-    "debt load": { icon: "pulse-outline", tone: T.accent, chip: "Pressure" },
+    income: { icon: "cash-outline", tone: "#3b99ff", chip: t("analytics.insight.cashIn") },
+    expenses: { icon: "receipt-outline", tone: T.red, chip: t("analytics.insight.outflow") },
+    debt: { icon: "card-outline", tone: T.orange, chip: t("analytics.insight.liabilities") },
+    "debt load": { icon: "pulse-outline", tone: T.accent, chip: t("analytics.insight.pressure") },
   };
 
   return (
     <View style={s.grid}>
       {rows.map((row) => {
-        const variant = variants[row.label.toLowerCase()] ?? { icon: "analytics-outline", tone: T.accent, chip: "Snapshot" };
+        const variant = variants[(row.variantKey ?? row.label).toLowerCase()] ?? { icon: "analytics-outline", tone: T.accent, chip: t("analytics.insight.snapshot") };
         return (
-          <View key={row.label} style={s.card}>
+          <View key={`${row.variantKey ?? row.label}-${row.value}`} style={s.card}>
             <View style={[s.cardGlow, { backgroundColor: `${variant.tone}22` }]} />
             <View style={[s.cardGlowSecondary, { backgroundColor: `${variant.tone}12` }]} />
             <View style={s.cardTopRow}>

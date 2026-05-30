@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 import MoneyInput from "@/components/Shared/MoneyInput";
 import NoteBadge from "@/components/Shared/NoteBadge";
+import { useAppTranslation } from "@/hooks";
 import { INVESTMENT_BUCKET_OPTIONS } from "@/lib/constants";
 import type { SavingsEditorSheetProps } from "@/types/components/settings/SavingsEditorSheet.types";
 import { styles } from "./styles";
@@ -34,11 +35,12 @@ export default function SavingsEditorSheet(props: SavingsEditorSheetProps) {
     onDelete,
     onSave,
   } = props;
+  const { t } = useAppTranslation();
 
   const showInvestmentBuckets = mode === "add" && field === "investment";
   const potNamePlaceholder = showInvestmentBuckets
-    ? "e.g. Stocks, Crypto, Commodities"
-    : "e.g. Holiday, Car repairs";
+    ? t("settings.savingsEditor.investmentPlaceholder")
+    : t("settings.savingsEditor.defaultPlaceholder");
 
   return (
     <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
@@ -50,7 +52,7 @@ export default function SavingsEditorSheet(props: SavingsEditorSheetProps) {
             {...panHandlers}
           >
             <View style={styles.sheetHandle} {...panHandlers} />
-            <Text style={styles.sheetTitle}>{mode === "add" ? `Add ${field ?? ""} pot` : `Edit ${title}`}</Text>
+            <Text style={styles.sheetTitle}>{mode === "add" ? t("settings.savingsEditor.addPot", { title }) : t("settings.savingsEditor.editTitle", { title })}</Text>
             <View style={styles.sheetBody}>
               <ScrollView
                 style={styles.sheetScroll}
@@ -64,17 +66,17 @@ export default function SavingsEditorSheet(props: SavingsEditorSheetProps) {
                   <View style={styles.moneyEditorIconCircle}>
                     <Ionicons name={icon} size={22} color="#f3f2ff" />
                   </View>
-                  <Text style={styles.moneyEditorHeroTitle}>{mode === "add" ? "New amount" : potNameDraft || title}</Text>
+                  <Text style={styles.moneyEditorHeroTitle}>{mode === "add" ? t("settings.savingsEditor.newAmount") : potNameDraft || title}</Text>
                   <Text style={styles.moneyEditorHeroValue}>{formatMoneyText(parseMoneyNumber(valueDraft))}</Text>
                 </View>
 
                 <View style={styles.moneyEditorStatsRow}>
                   <View style={styles.moneyEditorStatCard}>
-                    <Text style={styles.moneyEditorStatLabel}>Current</Text>
+                    <Text style={styles.moneyEditorStatLabel}>{t("settings.savingsEditor.current")}</Text>
                     <Text style={styles.moneyEditorStatValue}>{formatMoneyText(currentAmount)}</Text>
                   </View>
                   <View style={styles.moneyEditorStatCard}>
-                    <Text style={styles.moneyEditorStatLabel}>New</Text>
+                    <Text style={styles.moneyEditorStatLabel}>{t("settings.savingsEditor.new")}</Text>
                     <Text style={styles.moneyEditorStatValue}>{formatMoneyText(parseMoneyNumber(valueDraft))}</Text>
                   </View>
                 </View>
@@ -83,7 +85,7 @@ export default function SavingsEditorSheet(props: SavingsEditorSheetProps) {
                   <>
                     {showInvestmentBuckets ? (
                       <>
-                        <Text style={styles.label}>Choose an investment bucket</Text>
+                        <Text style={styles.label}>{t("settings.savingsEditor.chooseInvestmentBucket")}</Text>
                         <View style={styles.presetWrap}>
                           {INVESTMENT_BUCKET_OPTIONS.map((option) => {
                             const active = potNameDraft.trim().toLowerCase() === option.toLowerCase();
@@ -102,7 +104,7 @@ export default function SavingsEditorSheet(props: SavingsEditorSheetProps) {
                       </>
                     ) : null}
 
-                    <Text style={styles.label}>Pot name</Text>
+                    <Text style={styles.label}>{t("settings.savingsEditor.potName")}</Text>
                     <TextInput
                       value={potNameDraft}
                       onChangeText={onChangePotName}
@@ -113,7 +115,7 @@ export default function SavingsEditorSheet(props: SavingsEditorSheetProps) {
                   </>
                 ) : null}
 
-                <Text style={styles.label}>Amount</Text>
+                <Text style={styles.label}>{t("settings.savingsEditor.amount")}</Text>
                 <MoneyInput currency={currency} value={valueDraft} onChangeValue={onChangeValue} />
 
                 {goalImpactNote ? <NoteBadge text={goalImpactNote} /> : null}
@@ -121,11 +123,11 @@ export default function SavingsEditorSheet(props: SavingsEditorSheetProps) {
 
               <View style={[styles.sheetActionsDocked, styles.moneyEditorDockedActions, { paddingBottom: Math.max(12, insetsBottom + 6) }]}> 
                 {mode === "edit" ? (
-                  <Pressable style={[styles.moneyDeleteBtn, saveBusy && styles.disabled]} onPress={onDelete} disabled={saveBusy}><Text style={styles.moneyDeleteBtnText}>Delete</Text></Pressable>
+                  <Pressable style={[styles.moneyDeleteBtn, saveBusy && styles.disabled]} onPress={onDelete} disabled={saveBusy}><Text style={styles.moneyDeleteBtnText}>{t("settings.savingsEditor.delete")}</Text></Pressable>
                 ) : (
-                  <Pressable style={styles.outlineBtnWide} onPress={onClose}><Text style={styles.outlineBtnText}>Cancel</Text></Pressable>
+                  <Pressable style={styles.outlineBtnWide} onPress={onClose}><Text style={styles.outlineBtnText}>{t("common.cancel")}</Text></Pressable>
                 )}
-                <Pressable style={[styles.primaryBtnWide, saveBusy && styles.disabled]} onPress={onSave} disabled={saveBusy}><Text style={styles.primaryBtnText}>{saveBusy ? "Saving…" : mode === "add" ? "Add" : "Save"}</Text></Pressable>
+                <Pressable style={[styles.primaryBtnWide, saveBusy && styles.disabled]} onPress={onSave} disabled={saveBusy}><Text style={styles.primaryBtnText}>{saveBusy ? `${t("common.save")}...` : mode === "add" ? t("common.add") : t("common.save")}</Text></Pressable>
               </View>
             </View>
           </Animated.View>

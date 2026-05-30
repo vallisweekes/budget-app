@@ -4,13 +4,14 @@ import { useRoute, type RouteProp } from "@react-navigation/native";
 import { apiFetch } from "@/lib/api";
 import type { DebtSummaryData, DebtSummaryItem, Settings } from "@/lib/apiTypes";
 import { assignDebtColors, projectDebtMonths } from "@/lib/helpers/debtAnalytics";
-import { useTopHeaderOffset } from "@/hooks";
+import { useAppTranslation, useTopHeaderOffset } from "@/hooks";
 import type { DebtStackParamList } from "@/navigation/types";
 import type { DebtAnalyticsControllerState } from "@/types/DebtAnalyticsScreen.types";
 
 type Route = RouteProp<DebtStackParamList, "DebtAnalytics">;
 
 export function useDebtAnalyticsScreenController(): DebtAnalyticsControllerState {
+  const { t } = useAppTranslation();
   const route = useRoute<Route>();
   const topContentInset = useTopHeaderOffset(-24);
 
@@ -37,11 +38,11 @@ export function useDebtAnalyticsScreenController(): DebtAnalyticsControllerState
       setTotalMonthly(summary.totalMonthlyDebtPayments ?? 0);
       setCurrency(settings.currency ?? "£");
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to load analytics");
+      setError(err instanceof Error ? err.message : t("debts.analytics.loadFailed"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     if (!hasRoutePayload) {

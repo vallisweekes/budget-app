@@ -2,12 +2,15 @@ import React from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
+import { useAppTranslation } from "@/hooks";
 import { T } from "@/lib/theme";
 import { styles } from "./styles";
 
 import type { SettingsSubscriptionTabProps } from "@/types/components/settings/SettingsSubscriptionTab.types";
 
 export default function SettingsSubscriptionTab({ subscription, loading, error, onRetry }: SettingsSubscriptionTabProps) {
+  const { t } = useAppTranslation();
+
   if (loading && !subscription) {
     return <View style={styles.body}><ActivityIndicator size="small" color={T.accent} /></View>;
   }
@@ -16,7 +19,7 @@ export default function SettingsSubscriptionTab({ subscription, loading, error, 
     return (
       <View style={styles.body}>
         <Text style={styles.errorText}>{error}</Text>
-        <Pressable onPress={onRetry} style={styles.retryBtn}><Text style={styles.retryText}>Retry</Text></Pressable>
+        <Pressable onPress={onRetry} style={styles.retryBtn}><Text style={styles.retryText}>{t("common.retry")}</Text></Pressable>
       </View>
     );
   }
@@ -30,9 +33,9 @@ export default function SettingsSubscriptionTab({ subscription, loading, error, 
         <View pointerEvents="none" style={[styles.cardGlow, styles.currentCardGlowSecondary]} />
         <View style={styles.currentBadge}>
           <Ionicons name="sparkles" size={12} color={T.accent} />
-          <Text style={styles.currentBadgeText}>Launch access</Text>
+          <Text style={styles.currentBadgeText}>{t("settings.subscription.launchAccess")}</Text>
         </View>
-        <Text style={styles.eyebrow}>Current plan</Text>
+        <Text style={styles.eyebrow}>{t("settings.subscription.currentPlan")}</Text>
         <Text style={styles.currentTitle}>{subscription.current.planLabel}</Text>
         <Text style={styles.currentText}>{subscription.current.billingLabel}</Text>
         {subscription.current.manageLabel ? <Text style={styles.currentHint}>{subscription.current.manageLabel}</Text> : null}
@@ -48,7 +51,7 @@ export default function SettingsSubscriptionTab({ subscription, loading, error, 
             {offer.highlight ? (
               <View style={styles.badge}>
                 <Ionicons name="star" size={11} color={T.accent} />
-                <Text style={styles.badgeText}>Recommended</Text>
+                <Text style={styles.badgeText}>{t("settings.subscription.recommended")}</Text>
               </View>
             ) : null}
           </View>
@@ -65,7 +68,7 @@ export default function SettingsSubscriptionTab({ subscription, loading, error, 
             ))}
           </View>
           <Pressable disabled style={[styles.disabledBtn, offer.highlight && styles.disabledBtnHighlight]}>
-            <Text style={styles.disabledBtnText}>Coming soon</Text>
+            <Text style={styles.disabledBtnText}>{t("settings.subscription.comingSoon")}</Text>
           </Pressable>
         </View>
       ))}

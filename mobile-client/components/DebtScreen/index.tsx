@@ -11,7 +11,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
 import { fmt } from "@/lib/formatting";
-import { useDebtScreenController } from "@/hooks";
+import { useAppTranslation, useDebtScreenController } from "@/hooks";
 import { T } from "@/lib/theme";
 import AddDebtSheet from "@/components/DebtScreen/AddDebtSheet";
 import DebtCard from "@/components/DebtScreen/DebtCard";
@@ -19,6 +19,7 @@ import DebtProjectionCard from "@/components/DebtScreen/DebtProjectionCard";
 import { debtStyles as styles } from "@/components/DebtScreen/style";
 
 export default function DebtScreen() {
+  const { t } = useAppTranslation();
   const controller = useDebtScreenController();
 
   if (controller.loading) {
@@ -38,7 +39,7 @@ export default function DebtScreen() {
           <Ionicons name="cloud-offline-outline" size={48} color={T.textDim} />
           <Text style={styles.errorText}>{controller.error}</Text>
           <Pressable onPress={controller.onRetry} style={styles.retryBtn}>
-            <Text style={styles.retryTxt}>Retry</Text>
+            <Text style={styles.retryTxt}>{t("common.retry")}</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -64,22 +65,24 @@ export default function DebtScreen() {
                 <View style={[styles.heroCardGlow, styles.heroCardGlowStart, { backgroundColor: `${T.red}20` }]} />
                 <View style={[styles.heroCardGlow, styles.heroCardGlowEnd, { backgroundColor: `${T.red}14` }]} />
                 <View style={styles.heroCardInnerBorder} />
-                <Text style={styles.heroLabel}>TOTAL DEBT</Text>
+                <Text style={styles.heroLabel}>{t("debts.hero.totalDebt")}</Text>
                 <Text style={[styles.heroValue, { color: T.red }]}>{fmt(controller.projectionSummary.total, controller.currency)}</Text>
                 <Text style={styles.heroSub}>
-                  {controller.activeDebts.length} active {controller.activeDebts.length === 1 ? "debt" : "debts"}
+                  {controller.activeDebts.length === 1
+                    ? t("debts.hero.activeDebtOne", { count: controller.activeDebts.length })
+                    : t("debts.hero.activeDebtOther", { count: controller.activeDebts.length })}
                 </Text>
               </View>
               <View style={[styles.heroCard, { borderColor: `${T.orange}44` }]}>
                 <View style={[styles.heroCardGlow, styles.heroCardGlowStart, { backgroundColor: `${T.orange}1c` }]} />
                 <View style={[styles.heroCardGlow, styles.heroCardGlowEnd, { backgroundColor: `${T.orange}12` }]} />
                 <View style={styles.heroCardInnerBorder} />
-                <Text style={styles.heroLabel}>MONTHLY</Text>
+                <Text style={styles.heroLabel}>{t("debts.hero.monthly")}</Text>
                 <Text style={[styles.heroValue, { color: T.orange }]}>{fmt(controller.projectionSummary.monthly, controller.currency)}</Text>
                 <Text style={styles.heroSub}>
                   {controller.projectionSummary.monthsToClear != null
-                    ? `~${controller.projectionSummary.monthsToClear} mo to clear`
-                    : "No payoff projected"}
+                    ? t("debts.hero.monthsToClear", { count: controller.projectionSummary.monthsToClear })
+                    : t("debts.projection.noPayoff")}
                 </Text>
               </View>
             </View>
@@ -91,13 +94,13 @@ export default function DebtScreen() {
                     onPress={() => controller.setFilter("active")}
                     style={[styles.filterToggleOption, controller.filter === "active" && styles.filterToggleOptionActive]}
                   >
-                    <Text style={[styles.filterToggleText, controller.filter === "active" && styles.filterToggleTextActive]}>Active</Text>
+                    <Text style={[styles.filterToggleText, controller.filter === "active" && styles.filterToggleTextActive]}>{t("debts.filter.active")}</Text>
                   </Pressable>
                   <Pressable
                     onPress={() => controller.setFilter("paid_off")}
                     style={[styles.filterToggleOption, controller.filter === "paid_off" && styles.filterToggleOptionActive]}
                   >
-                    <Text style={[styles.filterToggleText, controller.filter === "paid_off" && styles.filterToggleTextActive]}>Paid Off</Text>
+                    <Text style={[styles.filterToggleText, controller.filter === "paid_off" && styles.filterToggleTextActive]}>{t("debts.filter.paidOff")}</Text>
                   </Pressable>
                 </View>
               ) : (
@@ -112,11 +115,11 @@ export default function DebtScreen() {
         ListEmptyComponent={
           <View style={styles.empty}>
             <Ionicons name="card-outline" size={52} color={T.iconMuted} />
-            <Text style={styles.emptyTitle}>{controller.filter === "paid_off" ? "No paid off debts" : "No active debts"}</Text>
+            <Text style={styles.emptyTitle}>{controller.filter === "paid_off" ? t("debts.empty.noPaidOff") : t("debts.empty.noActive")}</Text>
             <Text style={styles.emptySubtitle}>
               {controller.filter === "paid_off"
-                ? "Paid debts will appear here once they are cleared."
-                : 'Tap "+" to track a debt'}
+                ? t("debts.empty.paidOffSub")
+                : t("debts.empty.activeSub")}
             </Text>
           </View>
         }
@@ -125,7 +128,7 @@ export default function DebtScreen() {
             <View style={styles.tipsCard}>
               <View style={styles.tipsHeader}>
                 <Ionicons name="bulb-outline" size={15} color={T.orange} />
-                <Text style={styles.tipsHeading}>Tips</Text>
+                <Text style={styles.tipsHeading}>{t("debts.tipsHeading")}</Text>
               </View>
               {controller.summary?.tips.map((tip, index) => (
                 <View key={`${tip.title}-${index}`} style={[styles.tipRow, index > 0 && styles.tipBorder]}>

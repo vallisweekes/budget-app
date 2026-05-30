@@ -2,6 +2,7 @@ import { Dimensions } from "react-native";
 import type { ComponentProps } from "react";
 import type { Ionicons } from "@expo/vector-icons";
 
+import type { AppTranslationKey } from "@/lib/i18n";
 import {
   BRAND_GREEN,
   SETTINGS_EMERGENCY_BORDER,
@@ -24,19 +25,23 @@ import {
 } from "@/lib/constants";
 import type { SavingsField, SettingsTab } from "@/types/settings";
 
-export const PRIMARY_TABS: Array<{ id: SettingsTab; label: string }> = [
-  { id: "details", label: "Details" },
-  { id: "budget", label: "Budget" },
-  { id: "savings", label: "Money" },
-  { id: "plans", label: "Plans" },
-];
+export function getPrimaryTabs(t: (key: AppTranslationKey, params?: Record<string, string | number>) => string): Array<{ id: SettingsTab; label: string }> {
+  return [
+    { id: "details", label: t("settings.detailsTitle") },
+    { id: "budget", label: t("settings.budgetTitle") },
+    { id: "savings", label: t("settings.moneyTitle") },
+    { id: "plans", label: t("settings.plansTitle") },
+  ];
+}
 
-export const MORE_TABS: Array<{ id: SettingsTab; label: string }> = [
-  { id: "locale", label: "Locale" },
-  { id: "notifications", label: "Notifications" },
-  { id: "subscription", label: "Subscription" },
-  { id: "danger", label: "Danger Zone" },
-];
+export function getMoreTabs(t: (key: AppTranslationKey, params?: Record<string, string | number>) => string): Array<{ id: SettingsTab; label: string }> {
+  return [
+    { id: "locale", label: t("settings.localeCurrencyTitle") },
+    { id: "notifications", label: t("settings.notificationsTitle") },
+    { id: "subscription", label: t("settings.subscriptionTitle") },
+    { id: "danger", label: t("settings.dangerZoneTitle") },
+  ];
+}
 
 export const TAB_ICONS: Record<
   SettingsTab,
@@ -99,8 +104,17 @@ export function getSavingsTilePalette(field: SavingsField): {
   };
 }
 
-export function getAddPotLabel(field: SavingsField): string {
-  if (field === "savings") return "Add Saving";
-  if (field === "emergency") return "Add Emergency";
-  return "Add Investment";
+export function getAddPotLabel(
+  field: SavingsField,
+  t?: (key: AppTranslationKey, params?: Record<string, string | number>) => string,
+): string {
+  if (!t) {
+    if (field === "savings") return "Add Saving";
+    if (field === "emergency") return "Add Emergency";
+    return "Add Investment";
+  }
+
+  if (field === "savings") return t("settings.money.addSavings");
+  if (field === "emergency") return t("settings.money.addEmergency");
+  return t("settings.money.addInvestment");
 }

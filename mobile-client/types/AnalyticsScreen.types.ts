@@ -9,6 +9,7 @@ export type AnalyticsAnchor = {
 };
 
 export type AnalyticsInsightRow = {
+  variantKey?: string;
   label: string;
   value: string;
   sub: string;

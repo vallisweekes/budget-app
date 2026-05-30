@@ -1,4 +1,5 @@
 import { fmt } from "@/lib/formatting";
+import type { AppTranslationKey } from "@/lib/i18n";
 import { buildPayPeriodFromMonthAnchor, formatPayPeriodLabel, type PayFrequency } from "@/lib/payPeriods";
 import type {
   AnalyticsAnchor,
@@ -13,8 +14,12 @@ import type {
 export const MONTH_SHORT = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 export const OVERVIEW_CHART_H = 148;
 
-export function getAnalyticsMonthLabel(date: Date): string {
-  return MONTH_SHORT[date.getMonth()] ?? "THIS MONTH";
+export function getAnalyticsMonthLabel(date: Date, locale = "en-GB"): string {
+  try {
+    return new Intl.DateTimeFormat(locale, { month: "short" }).format(date).replace(/\.$/u, "").toUpperCase();
+  } catch {
+    return MONTH_SHORT[date.getMonth()] ?? "THIS MONTH";
+  }
 }
 
 export function getActiveAnalyticsAnchor(monthNum?: number | null, year?: number | null): AnalyticsAnchor {
@@ -35,6 +40,7 @@ export function getPayPeriodLabel(params: {
   dashboardLabel?: string | null;
   payDate: number;
   payFrequency: PayFrequency;
+  locale?: string;
 }): string {
   if (params.dashboardLabel?.trim()) return params.dashboardLabel.trim();
 
@@ -45,7 +51,7 @@ export function getPayPeriodLabel(params: {
     payFrequency: params.payFrequency,
   });
 
-  return formatPayPeriodLabel(period.start, period.end);
+  return formatPayPeriodLabel(period.start, period.end, params.locale);
 }
 
 function getYearModePeriodLabel(params: {
@@ -53,6 +59,7 @@ function getYearModePeriodLabel(params: {
   monthIndex: number;
   payDate: number;
   payFrequency: PayFrequency;
+  locale?: string;
 }): string {
   const month = params.monthIndex + 1;
   if (!Number.isFinite(month) || month < 1 || month > 12) return "N/A";
@@ -64,36 +71,44 @@ function getYearModePeriodLabel(params: {
     payFrequency: params.payFrequency,
   });
 
-  return formatPayPeriodLabel(period.start, period.end);
+  return formatPayPeriodLabel(period.start, period.end, params.locale);
 }
 
-export function buildAnalyticsInsightRows(input: AnalyticsDerivedInput): AnalyticsInsightRow[] {
+export function buildAnalyticsInsightRows(
+  input: AnalyticsDerivedInput,
+  options: { t: (key: AppTranslationKey, params?: Record<string, string | number>) => string },
+): AnalyticsInsightRow[] {
   const monthlyDebt = input.debt?.totalMonthlyDebtPayments ?? 0;
   const monthsWithIncome = input.income?.monthsWithIncome ?? 0;
   const monthsWithSpend = input.expensesByMonth.filter((value) => value > 0).length;
   const activeDebts = input.debt?.activeCount ?? 0;
+  const { t } = options;
 
   if (input.overviewMode === "month") {
     const debtLoadPct = input.currentIncomeTotal > 0 ? Math.min(100, Math.round((monthlyDebt / input.currentIncomeTotal) * 100)) : 0;
     return [
-      { label: "Income", value: fmt(input.currentIncomeTotal, input.currency), sub: input.currentPayPeriodLabel },
-      { label: "Expenses", value: fmt(input.currentExpenseTotal, input.currency), sub: input.currentPayPeriodLabel },
-      { label: "Debt Due", value: fmt(input.currentDebtDue, input.currency), sub: `${activeDebts} active debts` },
-      { label: "Debt Load", value: `${debtLoadPct}%`, sub: `${fmt(monthlyDebt, input.currency)} / month` },
+      { variantKey: "income", label: t("analytics.label.income"), value: fmt(input.currentIncomeTotal, input.currency), sub: input.currentPayPeriodLabel },
+      { variantKey: "expenses", label: t("analytics.label.expenses"), value: fmt(input.currentExpenseTotal, input.currency), sub: input.currentPayPeriodLabel },
+      { variantKey: "debt", label: t("analytics.label.debtDue"), value: fmt(input.currentDebtDue, input.currency), sub: t("analytics.sub.activeDebts", { count: activeDebts }) },
+      { variantKey: "debt load", label: t("analytics.label.debtLoad"), value: `${debtLoadPct}%`, sub: t("analytics.sub.perMonth", { amount: fmt(monthlyDebt, input.currency) }) },
     ];
   }
 
   const debtLoadPct = input.annualIncomeTotal > 0 ? Math.min(100, Math.round((input.annualDebtService / input.annualIncomeTotal) * 100)) : 0;
 
   return [
-    { label: "Income", value: fmt(input.annualIncomeTotal, input.currency), sub: `${monthsWithIncome}/12 months funded` },
-    { label: "Expenses", value: fmt(input.annualExpenseTotal, input.currency), sub: `${monthsWithSpend}/12 months with spend` },
-    { label: "Debt", value: fmt(input.debt?.totalDebtBalance ?? 0, input.currency), sub: `${activeDebts} active debts` },
-    { label: "Debt Load", value: `${debtLoadPct}%`, sub: `${fmt(input.annualDebtService, input.currency)} / year` },
+    { variantKey: "income", label: t("analytics.label.income"), value: fmt(input.annualIncomeTotal, input.currency), sub: t("analytics.sub.monthsFunded", { count: monthsWithIncome }) },
+    { variantKey: "expenses", label: t("analytics.label.expenses"), value: fmt(input.annualExpenseTotal, input.currency), sub: t("analytics.sub.monthsWithSpend", { count: monthsWithSpend }) },
+    { variantKey: "debt", label: t("analytics.label.debt"), value: fmt(input.debt?.totalDebtBalance ?? 0, input.currency), sub: t("analytics.sub.activeDebts", { count: activeDebts }) },
+    { variantKey: "debt load", label: t("analytics.label.debtLoad"), value: `${debtLoadPct}%`, sub: t("analytics.sub.perYear", { amount: fmt(input.annualDebtService, input.currency) }) },
   ];
 }
 
-export function buildAnalyticsTopTips(input: AnalyticsDerivedInput): AnalyticsTopTip[] {
+export function buildAnalyticsTopTips(
+  input: AnalyticsDerivedInput,
+  options: { locale?: string; t: (key: AppTranslationKey, params?: Record<string, string | number>) => string },
+): AnalyticsTopTip[] {
+  const { locale, t } = options;
   if (input.overviewMode === "year") {
     const highestExpense = input.expensesByMonth.reduce<{ monthIndex: number; total: number }>((best, total, monthIndex) => (
       total > best.total ? { monthIndex, total } : best
@@ -107,33 +122,35 @@ export function buildAnalyticsTopTips(input: AnalyticsDerivedInput): AnalyticsTo
 
     return [
       {
-        title: "Highest income month",
-        detail: `${getYearModePeriodLabel({
+        title: t("analytics.tips.highestIncomeMonthTitle"),
+        detail: t("analytics.tips.highestIncomeMonthDetail", { period: getYearModePeriodLabel({
           year: input.analyticsYear,
           monthIndex: highestIncome.monthIndex,
           payDate: input.payDate,
           payFrequency: input.payFrequency,
-        })} brought in ${fmt(highestIncome.total, input.currency)}.`,
+          locale,
+        }), amount: fmt(highestIncome.total, input.currency) }),
         priority: 65,
       },
       {
-        title: "Highest expense month",
-        detail: `${getYearModePeriodLabel({
+        title: t("analytics.tips.highestExpenseMonthTitle"),
+        detail: t("analytics.tips.highestExpenseMonthDetail", { period: getYearModePeriodLabel({
           year: input.analyticsYear,
           monthIndex: highestExpense.monthIndex,
           payDate: input.payDate,
           payFrequency: input.payFrequency,
-        })} used ${fmt(highestExpense.total, input.currency)}.`,
+          locale,
+        }), amount: fmt(highestExpense.total, input.currency) }),
         priority: highestExpense.total > input.annualIncomeTotal / 6 ? 82 : 58,
       },
       {
-        title: "Yearly debt load",
-        detail: `${debtLoadPct}% of annual income is going to planned debt payments (${fmt(input.annualDebtService, input.currency)}).`,
+        title: t("analytics.tips.yearlyDebtLoadTitle"),
+        detail: t("analytics.tips.yearlyDebtLoadDetail", { percent: debtLoadPct, amount: fmt(input.annualDebtService, input.currency) }),
         priority: debtLoadPct >= 20 ? 84 : 60,
       },
       {
-        title: "Coverage this year",
-        detail: `${monthsWithIncome}/12 months have income and ${monthsWithSpend}/12 months have recorded spend.`,
+        title: t("analytics.tips.coverageTitle"),
+        detail: t("analytics.tips.coverageDetail", { incomeMonths: monthsWithIncome, spendMonths: monthsWithSpend }),
         priority: 55,
       },
     ];
@@ -150,6 +167,7 @@ export function buildAnalyticsChartData(params: {
   currentPayPeriodLabel: string;
   expensesByMonth: number[];
   income: AnalyticsDerivedInput["income"];
+  locale?: string;
   overviewMode: AnalyticsOverviewMode;
   previousExpenseTotal: number;
   previousIncomeTotal: number;
@@ -163,9 +181,10 @@ export function buildAnalyticsChartData(params: {
   });
 
   if (params.overviewMode === "year") {
+    const labels = Array.from({ length: 12 }, (_, monthIndex) => getAnalyticsMonthLabel(new Date(2000, monthIndex, 1), params.locale));
     return {
-      labels: MONTH_SHORT,
-      rawLabels: MONTH_SHORT,
+      labels,
+      rawLabels: labels,
       incomeSeries: incomeYear,
       expenseSeries: params.expensesByMonth,
       maxValue: Math.max(...incomeYear, ...params.expensesByMonth, 1),

@@ -2,11 +2,14 @@ import React, { useState } from "react";
 import { View } from "react-native";
 import Svg, { Circle, G, Line as SvgLine, Rect, Text as SvgText } from "react-native-svg";
 
+import { useAppLocale, useAppTranslation } from "@/hooks";
 import type { DebtAnalyticsTimelineChartProps } from "@/types";
 import { T } from "@/lib/theme";
 import { payoffDateLabel } from "@/lib/helpers/debtAnalytics";
 
 export default function DebtAnalyticsTimelineChart({ items, maxMonths }: DebtAnalyticsTimelineChartProps) {
+  const { locale } = useAppLocale();
+  const { t } = useAppTranslation();
   const [containerWidth, setContainerWidth] = useState(320);
   const barHeight = 16;
   const rowHeight = 40;
@@ -37,7 +40,7 @@ export default function DebtAnalyticsTimelineChart({ items, maxMonths }: DebtAna
           const barY = index * rowHeight + (rowHeight - barHeight) / 2;
           const name = (item.debt.displayTitle ?? item.debt.name).slice(0, 9)
             + ((item.debt.displayTitle ?? item.debt.name).length > 9 ? "…" : "");
-          const payoff = payoffDateLabel(item.months);
+          const payoff = payoffDateLabel(item.months, locale);
 
           return (
             <G key={item.debt.id}>
@@ -61,7 +64,7 @@ export default function DebtAnalyticsTimelineChart({ items, maxMonths }: DebtAna
             textAnchor={index === 0 ? "start" : index === ticks.length - 1 ? "end" : "middle"}
             fontWeight="700"
           >
-            {tick === 0 ? "Now" : payoffDateLabel(tick)}
+            {tick === 0 ? t("debts.projection.now") : payoffDateLabel(tick, locale)}
           </SvgText>
         ))}
       </Svg>

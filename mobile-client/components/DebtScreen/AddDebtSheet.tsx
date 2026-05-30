@@ -19,6 +19,7 @@ import MoneyInput from "@/components/Shared/MoneyInput";
 import DatePickerInput from "@/components/Shared/DatePickerInput";
 import NumericInput from "@/components/Shared/NumericInput";
 import OverlaySelectInput from "@/components/Shared/OverlaySelectInput";
+import { useAppTranslation } from "@/hooks";
 import { PAYMENT_SOURCE_OPTIONS, TERM_PRESETS, TYPE_COLORS, TYPE_LABELS } from "@/lib/constants";
 import { T } from "@/lib/theme";
 import { debtStyles as styles } from "@/components/DebtScreen/style";
@@ -26,6 +27,35 @@ import { formatYmdToDmy } from "@/components/DebtScreen/utils";
 import type { AddDebtSheetProps } from "@/types";
 
 export function AddDebtSheet({ controller }: AddDebtSheetProps) {
+  const { t } = useAppTranslation();
+  const debtTypeOptions = Object.keys(TYPE_LABELS).map((type) => ({
+    value: type,
+    label:
+      type === "credit_card"
+        ? t("debts.type.creditCard")
+        : type === "store_card"
+          ? t("debts.type.storeCard")
+          : type === "loan"
+            ? t("debts.type.loan")
+            : type === "mortgage"
+              ? t("debts.type.mortgage")
+              : type === "hire_purchase"
+                ? t("debts.type.hirePurchase")
+                : type === "other"
+                  ? t("debts.type.other")
+                  : TYPE_LABELS[type] ?? type,
+    activeColor: TYPE_COLORS[type],
+  }));
+  const paymentSourceOptions = PAYMENT_SOURCE_OPTIONS.map((option) => ({
+    value: option.value,
+    label:
+      option.value === "income"
+        ? t("expenses.funding.income")
+        : option.value === "extra_funds"
+          ? t("debts.paymentSource.extraFunds")
+          : t("debts.paymentSource.card"),
+  }));
+
   return (
     <Modal
       visible={controller.showAddForm}
@@ -50,7 +80,7 @@ export function AddDebtSheet({ controller }: AddDebtSheetProps) {
         >
           <View style={styles.sheetHandle} {...controller.addDebtPanHandlers} />
           <View style={styles.sheetHeader}>
-            <Text style={styles.sheetTitle}>Add Debt</Text>
+            <Text style={styles.sheetTitle}>{t("debts.add.title")}</Text>
             <Pressable onPress={controller.closeAddDebtSheet} hitSlop={10} style={styles.sheetCloseBtn}>
               <Ionicons name="close" size={18} color={T.textDim} />
             </Pressable>
@@ -63,10 +93,10 @@ export function AddDebtSheet({ controller }: AddDebtSheetProps) {
           >
             <View style={styles.addForm}>
               <View style={styles.termWrap}>
-                <Text style={styles.termLabel}>Debt name</Text>
+                <Text style={styles.termLabel}>{t("debts.add.name")}</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="e.g. Car loan"
+                  placeholder={t("debts.add.namePlaceholder")}
                   placeholderTextColor={T.textMuted}
                   value={controller.addName}
                   onChangeText={controller.setAddName}
@@ -76,7 +106,7 @@ export function AddDebtSheet({ controller }: AddDebtSheetProps) {
 
               <View style={styles.inlineRow}>
                 <View style={[styles.termWrap, { flex: 1 }]}> 
-                  <Text style={styles.termLabel}>{controller.isLoanStyleType ? "Loan amount" : "Current balance"}</Text>
+                  <Text style={styles.termLabel}>{controller.isLoanStyleType ? t("debts.add.loanAmount") : t("debts.add.currentBalance")}</Text>
                   <MoneyInput
                     currency={controller.settings?.currency}
                     value={controller.addBalance}
@@ -86,29 +116,26 @@ export function AddDebtSheet({ controller }: AddDebtSheetProps) {
                 </View>
 
                 <View style={[styles.termWrap, { flex: 1 }]}> 
-                  <Text style={styles.termLabel}>Debt type</Text>
+                  <Text style={styles.termLabel}>{t("debts.add.type")}</Text>
                   <OverlaySelectInput
                     containerStyle={styles.dropdownAnchor}
                     triggerStyle={styles.input}
                     value={controller.addType}
                     onChange={controller.setAddType}
-                    options={Object.keys(TYPE_LABELS).map((type) => ({
-                      value: type,
-                      label: TYPE_LABELS[type] ?? type,
-                      activeColor: TYPE_COLORS[type],
-                    }))}
-                    placeholder="Select type"
+                    options={debtTypeOptions}
+                    placeholder={t("debts.add.selectType")}
                   />
                 </View>
               </View>
 
               <View style={styles.inlineRow}>
                 <View style={[styles.termWrap, { flex: 1 }]}> 
-                  <Text style={styles.termLabel}>Due date (required)</Text>
+                  <Text style={styles.termLabel}>{t("debts.add.dueDateRequired")}</Text>
                   <DatePickerInput
                     containerStyle={styles.input}
                     onPress={() => controller.setShowAddDueDatePicker(true)}
                     value={controller.addDueDate ? formatYmdToDmy(controller.addDueDate) : ""}
+                    placeholder={t("debts.add.selectDate")}
                     valueStyle={styles.dateValue}
                     placeholderStyle={styles.dateValuePlaceholder}
                   />
@@ -116,7 +143,7 @@ export function AddDebtSheet({ controller }: AddDebtSheetProps) {
 
                 <View style={[styles.termWrap, { flex: 1 }]}> 
                   <Text style={styles.termLabel}>
-                    {controller.addInstallmentMonths.trim() ? "Monthly payment (auto)" : "Monthly payment (optional)"}
+                    {controller.addInstallmentMonths.trim() ? t("debts.add.monthlyPaymentAuto") : t("debts.add.monthlyPaymentOptional")}
                   </Text>
                   <MoneyInput
                     currency={controller.settings?.currency}
@@ -131,7 +158,7 @@ export function AddDebtSheet({ controller }: AddDebtSheetProps) {
               {controller.isCardType ? (
                 <View style={styles.inlineRow}>
                   <View style={[styles.termWrap, { flex: 1 }]}>
-                    <Text style={styles.termLabel}>Credit limit</Text>
+                    <Text style={styles.termLabel}>{t("debts.add.creditLimit")}</Text>
                     <MoneyInput
                       currency={controller.settings?.currency}
                       value={controller.addCreditLimit}
@@ -140,10 +167,10 @@ export function AddDebtSheet({ controller }: AddDebtSheetProps) {
                     />
                   </View>
                   <View style={[styles.termWrap, { flex: 1 }]}>
-                    <Text style={styles.termLabel}>Interest APR % (optional)</Text>
+                    <Text style={styles.termLabel}>{t("debts.add.interestOptional")}</Text>
                     <NumericInput
                       style={styles.input}
-                      placeholder="e.g. 19.9"
+                      placeholder={t("debts.add.interestPlaceholder")}
                       placeholderTextColor={T.textMuted}
                       value={controller.addInterestRate}
                       onChangeText={controller.setAddInterestRate}
@@ -154,10 +181,10 @@ export function AddDebtSheet({ controller }: AddDebtSheetProps) {
               ) : (
                 <View style={styles.inlineRow}>
                   <View style={[styles.termWrap, { flex: 1 }]}>
-                    <Text style={styles.termLabel}>Interest APR % (optional)</Text>
+                    <Text style={styles.termLabel}>{t("debts.add.interestOptional")}</Text>
                     <NumericInput
                       style={styles.input}
-                      placeholder="e.g. 19.9"
+                      placeholder={t("debts.add.interestPlaceholder")}
                       placeholderTextColor={T.textMuted}
                       value={controller.addInterestRate}
                       onChangeText={controller.setAddInterestRate}
@@ -166,14 +193,14 @@ export function AddDebtSheet({ controller }: AddDebtSheetProps) {
                   </View>
 
                   <View style={[styles.termWrap, { flex: 1 }]}> 
-                    <Text style={styles.termLabel}>Payment source</Text>
+                    <Text style={styles.termLabel}>{t("debts.add.paymentSource")}</Text>
                     <OverlaySelectInput
                       containerStyle={styles.dropdownAnchor}
                       triggerStyle={styles.input}
                       value={controller.addPaymentSource}
                       onChange={controller.onChangePaymentSource}
-                      options={PAYMENT_SOURCE_OPTIONS.map((option) => ({ value: option.value, label: option.label }))}
-                      placeholder="Select source"
+                      options={paymentSourceOptions}
+                      placeholder={t("debts.add.selectSource")}
                     />
                   </View>
                 </View>
@@ -181,21 +208,21 @@ export function AddDebtSheet({ controller }: AddDebtSheetProps) {
 
               {controller.isCardType ? (
                 <View style={styles.termWrap}>
-                  <Text style={styles.termLabel}>Payment source</Text>
+                  <Text style={styles.termLabel}>{t("debts.add.paymentSource")}</Text>
                   <OverlaySelectInput
                     containerStyle={styles.dropdownAnchor}
                     triggerStyle={styles.input}
                     value={controller.addPaymentSource}
                     onChange={controller.onChangePaymentSource}
-                    options={PAYMENT_SOURCE_OPTIONS.map((option) => ({ value: option.value, label: option.label }))}
-                    placeholder="Select source"
+                    options={paymentSourceOptions}
+                    placeholder={t("debts.add.selectSource")}
                   />
                 </View>
               ) : null}
 
               {controller.addPaymentSource === "credit_card" ? (
                 <View style={styles.termWrap}>
-                  <Text style={styles.termLabel}>Select card</Text>
+                  <Text style={styles.termLabel}>{t("debts.add.selectCard")}</Text>
                   {controller.selectablePaymentCards.length > 0 ? (
                     <View style={styles.cardChoiceWrap}>
                       {controller.selectablePaymentCards.map((card) => {
@@ -214,19 +241,19 @@ export function AddDebtSheet({ controller }: AddDebtSheetProps) {
                       })}
                     </View>
                   ) : (
-                    <Text style={styles.cardChoiceEmpty}>No credit/store cards found yet.</Text>
+                    <Text style={styles.cardChoiceEmpty}>{t("debts.add.noCards")}</Text>
                   )}
                 </View>
               ) : null}
 
               <View style={styles.termWrap}>
-                <Text style={styles.termLabel}>Spread over months</Text>
+                <Text style={styles.termLabel}>{t("debts.add.spreadOverMonths")}</Text>
                 <View style={styles.termRow}>
                   <Pressable
                     onPress={controller.onClearInstallments}
                     style={[styles.termBtn, controller.addInstallmentPreset == null && !controller.addInstallmentMonths.trim() && styles.termBtnActive]}
                   >
-                    <Text style={[styles.termBtnTxt, controller.addInstallmentPreset == null && !controller.addInstallmentMonths.trim() && styles.termBtnTxtActive]}>None</Text>
+                    <Text style={[styles.termBtnTxt, controller.addInstallmentPreset == null && !controller.addInstallmentMonths.trim() && styles.termBtnTxtActive]}>{t("common.none")}</Text>
                   </Pressable>
                   {TERM_PRESETS.map((months) => {
                     const active = controller.addInstallmentPreset === months;
@@ -236,7 +263,7 @@ export function AddDebtSheet({ controller }: AddDebtSheetProps) {
                         onPress={() => controller.onSelectInstallmentPreset(months)}
                         style={[styles.termBtn, active && styles.termBtnActive]}
                       >
-                        <Text style={[styles.termBtnTxt, active && styles.termBtnTxtActive]}>{`${months} months`}</Text>
+                        <Text style={[styles.termBtnTxt, active && styles.termBtnTxtActive]}>{t("debts.projection.milestoneMonths", { count: months })}</Text>
                       </Pressable>
                     );
                   })}
@@ -244,13 +271,13 @@ export function AddDebtSheet({ controller }: AddDebtSheetProps) {
                     onPress={controller.onSelectCustomInstallmentPreset}
                     style={[styles.termBtn, controller.addInstallmentPreset === "custom" && styles.termBtnActive]}
                   >
-                    <Text style={[styles.termBtnTxt, controller.addInstallmentPreset === "custom" && styles.termBtnTxtActive]}>Custom</Text>
+                    <Text style={[styles.termBtnTxt, controller.addInstallmentPreset === "custom" && styles.termBtnTxtActive]}>{t("common.custom")}</Text>
                   </Pressable>
                 </View>
                 {controller.addInstallmentPreset === "custom" ? (
                   <NumericInput
                     style={styles.input}
-                    placeholder="e.g. 18"
+                    placeholder={t("debts.add.customMonthsPlaceholder")}
                     placeholderTextColor={T.textMuted}
                     value={controller.addInstallmentMonths}
                     onChangeText={controller.setAddInstallmentMonths}
@@ -262,7 +289,7 @@ export function AddDebtSheet({ controller }: AddDebtSheetProps) {
           </ScrollView>
 
           <Pressable onPress={controller.handleAdd} disabled={controller.saving} style={[styles.saveBtn, controller.saving && styles.disabled]}>
-            {controller.saving ? <ActivityIndicator size="small" color={T.onAccent} /> : <Text style={styles.saveBtnTxt}>Add Debt</Text>}
+            {controller.saving ? <ActivityIndicator size="small" color={T.onAccent} /> : <Text style={styles.saveBtnTxt}>{t("debts.add.title")}</Text>}
           </Pressable>
         </Animated.View>
 
@@ -272,11 +299,11 @@ export function AddDebtSheet({ controller }: AddDebtSheetProps) {
             <View style={styles.dateSheetCard}>
               <View style={styles.dateSheetHeader}>
                 <Pressable onPress={() => controller.setShowAddDueDatePicker(false)}>
-                  <Text style={styles.dateSheetCancel}>Cancel</Text>
+                  <Text style={styles.dateSheetCancel}>{t("common.cancel")}</Text>
                 </Pressable>
-                <Text style={styles.dateSheetTitle}>Select due date</Text>
+                <Text style={styles.dateSheetTitle}>{t("debts.add.selectDueDate")}</Text>
                 <Pressable onPress={controller.onConfirmDueDate}>
-                  <Text style={styles.dateSheetDone}>Done</Text>
+                  <Text style={styles.dateSheetDone}>{t("common.done")}</Text>
                 </Pressable>
               </View>
 

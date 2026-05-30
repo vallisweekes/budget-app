@@ -14,6 +14,7 @@ import {
   resolveFirstSelectablePayPeriodWindow,
   type PayFrequency,
 } from "@/lib/payPeriods";
+import { useAppLocale } from "@/hooks";
 import TopHeader from "@/components/Shared/TopHeader";
 import { T } from "@/lib/theme";
 
@@ -28,6 +29,7 @@ export function IncomeMonthSwitcher({
   budgetPlanId: string;
   onNavigate: (nextMonth: number, nextYear: number) => void;
 }) {
+  const { locale } = useAppLocale();
   const [isYearPickerVisible, setIsYearPickerVisible] = useState(false);
   const [budgetHorizonYears, setBudgetHorizonYears] = useState(10);
   const [payDate, setPayDate] = useState(27);
@@ -119,6 +121,7 @@ export function IncomeMonthSwitcher({
     payDate,
     payAnchorDate,
     payFrequency,
+    locale,
   });
 
   const openYearPicker = () => {

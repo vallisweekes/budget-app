@@ -3,6 +3,7 @@ import { Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { styles } from "./styles";
 
+import { useAppTranslation } from "@/hooks";
 import { T } from "@/lib/theme";
 import type { SettingsDebtGroupsProps } from "@/types/components/settings/SettingsDebtGroups.types";
 
@@ -12,6 +13,8 @@ export default function SettingsDebtGroups({
   asMoneyInput,
   onOpenDebtEditor,
 }: SettingsDebtGroupsProps) {
+  const { t } = useAppTranslation();
+
   return (
     <>
       {groupedDebts.map((group) => (
@@ -20,7 +23,7 @@ export default function SettingsDebtGroups({
             <View style={styles.debtTypeIconWrap}>
               <Ionicons name={group.icon} size={14} color={T.textDim} />
             </View>
-            <Text style={styles.debtTypeTitle}>{group.label}</Text>
+            <Text style={styles.debtTypeTitle}>{group.key === "credit_card" ? t("settings.cards.creditCards") : t("settings.cards.storeCards")}</Text>
             <Text style={styles.debtTypeCount}>{group.items.length}</Text>
           </View>
 
@@ -28,10 +31,10 @@ export default function SettingsDebtGroups({
             <Pressable key={debt.id} style={styles.debtCard} onPress={() => onOpenDebtEditor(debt)}>
               <View style={styles.debtCardBody}>
                 <Text style={styles.debtName}>{debt.name}</Text>
-                <Text style={styles.debtSub}>{String(debt.type).replace("_", " ")}</Text>
-                <Text style={styles.debtSub}>Current balance: {currency}{asMoneyInput(debt.currentBalance) || "0"}</Text>
+                <Text style={styles.debtSub}>{debt.type === "store_card" ? t("debts.type.storeCard") : t("debts.type.creditCard")}</Text>
+                <Text style={styles.debtSub}>{t("settings.cards.currentBalance", { amount: `${currency}${asMoneyInput(debt.currentBalance) || "0"}` })}</Text>
                 {debt.type === "credit_card" ? (
-                  <Text style={styles.debtSub}>Credit limit: {currency}{asMoneyInput(debt.creditLimit) || "0"}</Text>
+                  <Text style={styles.debtSub}>{t("settings.cards.creditLimit", { amount: `${currency}${asMoneyInput(debt.creditLimit) || "0"}` })}</Text>
                 ) : null}
               </View>
               <Ionicons name="chevron-forward" size={18} color={T.textDim} />

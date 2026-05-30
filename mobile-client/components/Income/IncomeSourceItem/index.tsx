@@ -1,7 +1,9 @@
 import React, { useRef } from "react";
 import { View, Text, Pressable, TextInput, ActivityIndicator } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useAppTranslation } from "@/hooks";
 import { fmt } from "@/lib/formatting";
+import { translateIncomeSourceName } from "@/lib/i18n";
 import { T } from "@/lib/theme";
 import MoneyInput from "@/components/Shared/MoneyInput";
 import type { IncomeEditRowProps, IncomeRowProps } from "@/types";
@@ -10,9 +12,11 @@ import { styles } from "./styles";
 /* ── Display row ─────────────────────────────────────────────── */
 
 export function IncomeRow({ item, currency, onPress }: IncomeRowProps) {
+  const { language } = useAppTranslation();
   const isPressable = typeof onPress === "function";
   const amount = Number(item.amount ?? 0);
   const normalizedName = String(item.name ?? "").trim().toLowerCase();
+  const displayName = translateIncomeSourceName(item.name, language);
   const iconName = normalizedName.includes("salary")
     ? "cash-outline"
     : normalizedName.includes("bonus")
@@ -32,7 +36,7 @@ export function IncomeRow({ item, currency, onPress }: IncomeRowProps) {
         </View>
         <View style={styles.copy}>
           <Text style={styles.name} numberOfLines={1}>
-            {item.name}
+            {displayName}
           </Text>
           <Text style={styles.hint}>{fmt(amount, currency)}</Text>
         </View>

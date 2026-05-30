@@ -15,7 +15,7 @@ import {
   getPayPeriodLabel,
   getPreviousAnalyticsAnchor,
 } from "@/lib/helpers/analytics";
-import { useTopHeaderOffset } from "@/hooks";
+import { useAppLocale, useAppTranslation, useTopHeaderOffset } from "@/hooks";
 import type { DebtSummaryData } from "@/lib/apiTypes";
 import { normalizePayFrequency } from "@/lib/payPeriods";
 import type { AnalyticsOverviewLinePoint, AnalyticsOverviewMode, AnalyticsScreenControllerState } from "@/types/AnalyticsScreen.types";
@@ -64,6 +64,8 @@ function buildDashboardDebtSummary(dashboard: NonNullable<ReturnType<typeof useB
 export function useAnalyticsScreenController(
   options?: { overviewMode?: AnalyticsOverviewMode }
 ): AnalyticsScreenControllerState {
+  const { locale } = useAppLocale();
+  const { t } = useAppTranslation();
   const isFocused = useIsFocused();
   const topHeaderOffset = useTopHeaderOffset();
   const { width: windowWidth } = useWindowDimensions();
@@ -171,27 +173,29 @@ export function useAnalyticsScreenController(
       ?? currentExpenseQuery.error
       ?? previousExpenseQuery.error;
     if (!nextError) return null;
-    return nextError instanceof Error ? nextError.message : "Failed to load analytics";
-  }, [currentExpenseQuery.error, currentYearIncomeQuery.error, debtQuery.error, expenseSeriesQuery.error, previousExpenseQuery.error, previousYearIncomeQuery.error]);
+    return nextError instanceof Error ? nextError.message : t("analytics.loadFailed");
+  }, [currentExpenseQuery.error, currentYearIncomeQuery.error, debtQuery.error, expenseSeriesQuery.error, previousExpenseQuery.error, previousYearIncomeQuery.error, t]);
 
   const annualIncomeTotal = useMemo(() => (
     income?.grandTotal ?? (income?.months ?? []).reduce((sum, month) => sum + (month.total ?? 0), 0)
   ), [income?.grandTotal, income?.months]);
   const annualExpenseTotal = useMemo(() => expensesByMonth.reduce((sum, value) => sum + value, 0), [expensesByMonth]);
   const currentMonthIndex = activeAnchor.month - 1;
-  const currentMonthLabel = useMemo(() => getAnalyticsMonthLabel(new Date(activeAnchor.year, activeAnchor.month - 1, 1)), [activeAnchor.month, activeAnchor.year]);
+  const currentMonthLabel = useMemo(() => getAnalyticsMonthLabel(new Date(activeAnchor.year, activeAnchor.month - 1, 1), locale), [activeAnchor.month, activeAnchor.year, locale]);
   const currentPayPeriodLabel = useMemo(() => getPayPeriodLabel({
     anchor: activeAnchor,
     dashboardLabel: dashboard?.payPeriodLabel,
     payDate,
     payFrequency,
-  }), [activeAnchor, dashboard?.payPeriodLabel, payDate, payFrequency]);
+    locale,
+  }), [activeAnchor, dashboard?.payPeriodLabel, locale, payDate, payFrequency]);
   const previousPayPeriodLabel = useMemo(() => getPayPeriodLabel({
     anchor: previousAnchor,
     dashboardLabel: dashboard?.previousPayPeriodLabel,
     payDate,
     payFrequency,
-  }), [dashboard?.previousPayPeriodLabel, payDate, payFrequency, previousAnchor]);
+    locale,
+  }), [dashboard?.previousPayPeriodLabel, locale, payDate, payFrequency, previousAnchor]);
   const currentIncomeTotal = useMemo(() => {
     const month = currentYearIncome?.months?.find((entry) => entry.monthIndex === activeAnchor.month);
     return month?.total ?? 0;
@@ -224,7 +228,7 @@ export function useAnalyticsScreenController(
     overviewMode,
     payDate,
     payFrequency,
-  }), [annualDebtService, annualExpenseTotal, annualIncomeTotal, currency, currentDebtDue, currentExpenseTotal, currentIncomeTotal, currentPayPeriodLabel, dashboard, debt, expensesByMonth, income, overviewMode]);
+  }, { t }), [annualDebtService, annualExpenseTotal, annualIncomeTotal, currency, currentDebtDue, currentExpenseTotal, currentIncomeTotal, currentPayPeriodLabel, dashboard, debt, expensesByMonth, income, overviewMode, payDate, payFrequency, t]);
 
   const topTips = useMemo(() => buildAnalyticsTopTips({
     annualDebtService,
@@ -243,7 +247,7 @@ export function useAnalyticsScreenController(
     overviewMode,
     payDate,
     payFrequency,
-  }), [activeAnchor.year, annualDebtService, annualExpenseTotal, annualIncomeTotal, currency, currentDebtDue, currentExpenseTotal, currentIncomeTotal, currentPayPeriodLabel, dashboard, debt, expensesByMonth, income, overviewMode, payDate, payFrequency]);
+  }, { locale, t }), [activeAnchor.year, annualDebtService, annualExpenseTotal, annualIncomeTotal, currency, currentDebtDue, currentExpenseTotal, currentIncomeTotal, currentPayPeriodLabel, dashboard, debt, expensesByMonth, income, locale, overviewMode, payDate, payFrequency, t]);
 
   const chartData = useMemo(() => buildAnalyticsChartData({
     currentExpenseTotal,
@@ -251,11 +255,12 @@ export function useAnalyticsScreenController(
     currentPayPeriodLabel,
     expensesByMonth,
     income,
+    locale,
     overviewMode,
     previousExpenseTotal,
     previousIncomeTotal,
     previousPayPeriodLabel,
-  }), [currentExpenseTotal, currentIncomeTotal, currentPayPeriodLabel, expensesByMonth, income, overviewMode, previousExpenseTotal, previousIncomeTotal, previousPayPeriodLabel]);
+  }), [currentExpenseTotal, currentIncomeTotal, currentPayPeriodLabel, expensesByMonth, income, locale, overviewMode, previousExpenseTotal, previousIncomeTotal, previousPayPeriodLabel]);
 
   const overviewMaxValue = useMemo(() => {
     const unit = 500;
@@ -290,7 +295,7 @@ export function useAnalyticsScreenController(
     return Math.max(14, Math.round(usable / (points - 1)));
   }, [chartData.labels.length, chartWidth, overviewMode]);
   const debtDistribution = useMemo(() => buildDebtDistribution({ debt, overviewMode }), [debt, overviewMode]);
-  const debtDistributionTitle = overviewMode === "year" ? "Debt Distribution" : "Debt Due Distribution";
+  const debtDistributionTitle = overviewMode === "year" ? t("analytics.debt.distributionTitle") : t("analytics.debt.dueDistributionTitle");
   const loading = Boolean(
     (!shouldUseDashboardDebtSnapshot && debtQuery.isLoading && !debt)
     || (currentYearIncomeQuery.isLoading && !income)

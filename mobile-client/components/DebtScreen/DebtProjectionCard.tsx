@@ -3,15 +3,34 @@ import { Pressable, Text, View } from "react-native";
 import Svg, { Circle, Defs, G, Line as SvgLine, LinearGradient, Path, Rect, Stop, Text as SvgText } from "react-native-svg";
 import { Ionicons } from "@expo/vector-icons";
 
+import { useAppTranslation } from "@/hooks";
 import { fmt } from "@/lib/formatting";
 import { T } from "@/lib/theme";
 import { debtStyles as styles } from "@/components/DebtScreen/style";
-import { projectionMonthLabel } from "@/components/DebtScreen/utils";
 import type { DebtProjectionCardProps } from "@/types";
 
 export function DebtProjectionCard({ controller }: DebtProjectionCardProps) {
+  const { t } = useAppTranslation();
   const { projectionSummary } = controller;
   if (projectionSummary.months <= 0) return null;
+
+  const formatMilestoneLabel = (month: number) => {
+    if (month % 12 === 0) {
+      const years = month / 12;
+      return years === 1 ? t("debts.projection.milestoneYearsOne") : t("debts.projection.milestoneYearsOther", { count: years });
+    }
+    return t("debts.projection.milestoneMonths", { count: month });
+  };
+
+  const formatShortPointLabel = (month: number) => {
+    if (month % 12 === 0) {
+      const years = month / 12;
+      return years === 1 ? t("debts.projection.shortYearsOne") : t("debts.projection.shortYearsOther", { count: years });
+    }
+    return t("debts.projection.shortMonths", { count: month });
+  };
+
+  const selectedPointLabel = formatShortPointLabel(projectionSummary.selectedMonth);
 
   const chartHeight = 180;
   const paddingLeft = 0;
@@ -53,9 +72,9 @@ export function DebtProjectionCard({ controller }: DebtProjectionCardProps) {
       <View style={styles.chartInnerBorder} />
       <View style={styles.chartHeader}>
         <View>
-          <Text style={styles.chartTitle}>Debt Payoff Projection</Text>
+          <Text style={styles.chartTitle}>{t("debts.projection.title")}</Text>
           <Text style={styles.chartSub}>
-            {projectionSummary.monthsToClear != null ? `Debt-free by ${projectionSummary.payoffLabel}` : "No payoff projected"}
+            {projectionSummary.monthsToClear != null ? t("debts.projection.debtFreeBy", { date: projectionSummary.payoffLabel }) : t("debts.projection.noPayoff")}
           </Text>
         </View>
       </View>
@@ -92,10 +111,10 @@ export function DebtProjectionCard({ controller }: DebtProjectionCardProps) {
 
           <Circle cx={toX(projectionSummary.months)} cy={toY(0)} r={4} fill={T.green} />
           <SvgLine x1={toX(0)} y1={chartHeight - paddingBottom} x2={toX(projectionSummary.months)} y2={chartHeight - paddingBottom} stroke={T.border} strokeWidth={1} />
-          <SvgText x={toX(0) + 2} y={chartHeight - 10} fontSize={10} fill={T.textMuted} textAnchor="start" fontWeight="600">Now</SvgText>
+          <SvgText x={toX(0) + 2} y={chartHeight - 10} fontSize={10} fill={T.textMuted} textAnchor="start" fontWeight="600">{t("debts.projection.now")}</SvgText>
           {projectionSummary.milestoneMonths.map((month) => (
             <SvgText key={`lbl-${month}`} x={toX(month)} y={chartHeight - 10} fontSize={10} fill={T.textMuted} textAnchor="middle" fontWeight="600">
-              {projectionMonthLabel(month)}
+              {formatShortPointLabel(month)}
             </SvgText>
           ))}
           <SvgText x={toX(projectionSummary.months) - 2} y={chartHeight - 10} fontSize={10} fill={T.green} textAnchor="end" fontWeight="700">{projectionSummary.payoffLabel}</SvgText>
@@ -104,7 +123,7 @@ export function DebtProjectionCard({ controller }: DebtProjectionCardProps) {
 
       {projectionSummary.milestoneMonths.length > 0 ? (
         <View style={styles.milestoneRow}>
-          <Text style={styles.milestoneLabel}>Tap point:</Text>
+          <Text style={styles.milestoneLabel}>{t("debts.projection.tapPoint")}</Text>
           {projectionSummary.milestoneMonths.map((month) => (
             <Pressable
               key={`chip-${month}`}
@@ -112,7 +131,7 @@ export function DebtProjectionCard({ controller }: DebtProjectionCardProps) {
               style={[styles.milestoneChip, projectionSummary.selectedMonth === month && styles.milestoneChipActive]}
             >
               <Text style={[styles.milestoneChipText, projectionSummary.selectedMonth === month && styles.milestoneChipTextActive]}>
-                {month === 12 ? "1 year" : month === 24 ? "2 years" : `${month} months`}
+                {formatMilestoneLabel(month)}
               </Text>
             </Pressable>
           ))}
@@ -124,7 +143,7 @@ export function DebtProjectionCard({ controller }: DebtProjectionCardProps) {
           <View style={[styles.chip, { borderColor: `${T.red}55` }]}>
             <Ionicons name="flame-outline" size={13} color={T.red} />
             <View style={{ flex: 1 }}>
-              <Text style={styles.chipLabel}>HIGHEST APR</Text>
+              <Text style={styles.chipLabel}>{t("debts.projection.highestApr")}</Text>
               <Text style={styles.chipValue} numberOfLines={1}>
                 {projectionSummary.highestAPR.displayTitle ?? projectionSummary.highestAPR.name} · {projectionSummary.highestAPR.interestRate}%
               </Text>
@@ -134,8 +153,8 @@ export function DebtProjectionCard({ controller }: DebtProjectionCardProps) {
         <View style={[styles.chip, { borderColor: `${T.green}55` }]}>
           <Ionicons name="time-outline" size={13} color={T.green} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.chipLabel}>SELECTED POINT</Text>
-            <Text style={styles.chipValue}>{fmt(projectionSummary.selectedValue, controller.currency)} at {projectionSummary.selectedMonth}mo</Text>
+            <Text style={styles.chipLabel}>{t("debts.projection.selectedPoint")}</Text>
+            <Text style={styles.chipValue}>{t("debts.projection.selectedPointValue", { amount: fmt(projectionSummary.selectedValue, controller.currency), point: selectedPointLabel })}</Text>
           </View>
         </View>
       </View>

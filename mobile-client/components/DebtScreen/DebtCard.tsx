@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Image, Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
+import { useAppTranslation } from "@/hooks";
 import type { DebtSummaryItem } from "@/lib/apiTypes";
 import { TYPE_COLORS, TYPE_LABELS } from "@/lib/constants";
 import { fmt } from "@/lib/formatting";
@@ -18,6 +19,7 @@ export function DebtCard({
   currency: string;
   onPress: () => void;
 }) {
+  const { t } = useAppTranslation();
   const [logoFailed, setLogoFailed] = useState(false);
   const accentColor = TYPE_COLORS[debt.type] ?? T.accent;
   const progressPct =
@@ -29,6 +31,15 @@ export function DebtCard({
   const paidThisMonth = Math.max(0, debt.paidThisMonth ?? 0);
   const isPaymentMonthPaid = Boolean(debt.isPaymentMonthPaid) || (dueThisMonth > 0 && paidThisMonth >= dueThisMonth);
   const title = debt.displayTitle ?? debt.name;
+  const typeLabel = debt.displaySubtitle ?? (() => {
+    if (debt.type === "credit_card") return t("debts.type.creditCard");
+    if (debt.type === "store_card") return t("debts.type.storeCard");
+    if (debt.type === "loan") return t("debts.type.loan");
+    if (debt.type === "mortgage") return t("debts.type.mortgage");
+    if (debt.type === "hire_purchase") return t("debts.type.hirePurchase");
+    if (debt.type === "other") return t("debts.type.other");
+    return TYPE_LABELS[debt.type] ?? debt.type;
+  })();
   const logoUri = resolveLogoUri(debt.logoUrl);
   const showLogo = Boolean(logoUri) && !logoFailed;
   const fallbackLetter = (title?.trim()?.[0] ?? "D").toUpperCase();
@@ -57,15 +68,15 @@ export function DebtCard({
               <Text style={styles.cardName} numberOfLines={1}>{title}</Text>
             </View>
             <Text style={[styles.cardType, { color: accentColor }]}> 
-              {debt.displaySubtitle ?? TYPE_LABELS[debt.type] ?? debt.type}
+              {typeLabel}
             </Text>
           </View>
           <View style={styles.cardRight}>
             <Text style={[styles.cardBalance, isPaid && styles.cardBalancePaid]}>
-              {isPaid ? "Paid off" : fmt(debt.currentBalance, currency)}
+              {isPaid ? t("debts.card.paidOff") : fmt(debt.currentBalance, currency)}
             </Text>
             {!isPaid && debt.computedMonthlyPayment > 0 ? (
-              <Text style={styles.cardMonthly}>{fmt(debt.computedMonthlyPayment, currency)}/mo</Text>
+              <Text style={styles.cardMonthly}>{t("debts.card.perMonth", { amount: fmt(debt.computedMonthlyPayment, currency) })}</Text>
             ) : null}
           </View>
         </View>
@@ -75,22 +86,24 @@ export function DebtCard({
             <View style={styles.progressBg}>
               <View style={[styles.progressFill, { width: `${progressPct}%` as `${number}%`, backgroundColor: accentColor }]} />
             </View>
-            <Text style={styles.progressPct}>{progressPct.toFixed(0)}% paid</Text>
+            <Text style={styles.progressPct}>{t("debts.card.percentPaid", { percent: progressPct.toFixed(0) })}</Text>
           </View>
         ) : null}
 
         <View style={styles.cardFooter}>
           {!isPaid && dueThisMonth > 0 ? (
             <Text style={styles.cardMetaStrong}>
-              {isPaymentMonthPaid ? "Paid this period" : "Due this period"} {fmt(isPaymentMonthPaid ? paidThisMonth : dueThisMonth, currency)}
+              {isPaymentMonthPaid
+                ? t("debts.card.paidThisPeriod", { amount: fmt(paidThisMonth, currency) })
+                : t("debts.card.dueThisPeriod", { amount: fmt(dueThisMonth, currency) })}
             </Text>
           ) : null}
           {debt.interestRate != null && debt.interestRate > 0 ? <Text style={styles.cardMeta}>{debt.interestRate}% APR</Text> : null}
-          {debt.dueDay != null && !isPaid ? <Text style={styles.cardMeta}>Due day {debt.dueDay}</Text> : null}
+          {debt.dueDay != null && !isPaid ? <Text style={styles.cardMeta}>{t("debts.card.dueDay", { day: debt.dueDay })}</Text> : null}
           {isPaid ? (
             <View style={styles.paidBadge}>
               <Ionicons name="checkmark-circle" size={12} color={T.green} />
-              <Text style={styles.paidBadgeText}>Fully paid</Text>
+              <Text style={styles.paidBadgeText}>{t("debts.card.fullyPaid")}</Text>
             </View>
           ) : null}
           <View style={{ flex: 1 }} />

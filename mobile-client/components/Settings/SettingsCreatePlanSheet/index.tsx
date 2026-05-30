@@ -3,6 +3,7 @@ import { Animated, KeyboardAvoidingView, Modal, Platform, Pressable, Text, TextI
 import DateTimePicker from "@react-native-community/datetimepicker";
 
 import DatePickerInput from "@/components/Shared/DatePickerInput";
+import { useAppTranslation } from "@/hooks";
 import { formatDateDmy } from "@/lib/helpers/settings";
 import { styles } from "./styles";
 
@@ -27,6 +28,7 @@ export default function SettingsCreatePlanSheet(props: SettingsCreatePlanSheetPr
     onAndroidDateChange,
     onCreate,
   } = props;
+  const { t } = useAppTranslation();
 
   return (
     <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
@@ -35,12 +37,12 @@ export default function SettingsCreatePlanSheet(props: SettingsCreatePlanSheetPr
         <KeyboardAvoidingView style={styles.sheetKeyboardWrap} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={keyboardOffset}>
           <Animated.View style={[styles.sheet, { transform: [{ translateY }] }]} {...panHandlers}>
             <View style={styles.sheetHandle} {...panHandlers} />
-            <Text style={styles.sheetTitle}>Create sub plan</Text>
-            <Text style={styles.label}>Type</Text>
+            <Text style={styles.sheetTitle}>{t("settings.createPlan.title")}</Text>
+            <Text style={styles.label}>{t("settings.createPlan.type")}</Text>
             <View style={styles.choiceRow}>
               {([
-                { label: "Holiday", value: "holiday" },
-                { label: "Carnival", value: "carnival" },
+                { label: t("settings.createPlan.holiday"), value: "holiday" },
+                { label: t("settings.createPlan.carnival"), value: "carnival" },
               ] as const).map((opt) => {
                 const selected = newPlanType === opt.value;
                 return (
@@ -50,9 +52,9 @@ export default function SettingsCreatePlanSheet(props: SettingsCreatePlanSheetPr
                 );
               })}
             </View>
-            <Text style={styles.label}>Plan name</Text>
+            <Text style={styles.label}>{t("settings.createPlan.name")}</Text>
             <TextInput value={newPlanName} onChangeText={onChangePlanName} style={styles.input} />
-            <Text style={styles.label}>Event date (calendar)</Text>
+            <Text style={styles.label}>{t("settings.createPlan.eventDate")}</Text>
             <DatePickerInput containerStyle={[styles.input, styles.dateInput]} onPress={onOpenDatePicker} value={newPlanEventDate ? formatDateDmy(newPlanEventDate) : ""} valueStyle={styles.dateValue} placeholderStyle={styles.dateValuePlaceholder} />
 
             {showPlanEventDatePicker && Platform.OS === "android" ? (
@@ -70,8 +72,8 @@ export default function SettingsCreatePlanSheet(props: SettingsCreatePlanSheetPr
               </View>
             ) : null}
             <View style={styles.sheetActions}>
-              <Pressable style={styles.outlineBtnWide} onPress={onClose}><Text style={styles.outlineBtnText}>Cancel</Text></Pressable>
-              <Pressable style={[styles.primaryBtnWide, saveBusy && styles.disabled]} onPress={onCreate} disabled={saveBusy}><Text style={styles.primaryBtnText}>{saveBusy ? "Creating…" : "Create"}</Text></Pressable>
+              <Pressable style={styles.outlineBtnWide} onPress={onClose}><Text style={styles.outlineBtnText}>{t("common.cancel")}</Text></Pressable>
+              <Pressable style={[styles.primaryBtnWide, saveBusy && styles.disabled]} onPress={onCreate} disabled={saveBusy}><Text style={styles.primaryBtnText}>{saveBusy ? `${t("common.create")}...` : t("common.create")}</Text></Pressable>
             </View>
           </Animated.View>
         </KeyboardAvoidingView>

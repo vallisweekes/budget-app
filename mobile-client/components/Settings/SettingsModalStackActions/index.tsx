@@ -5,16 +5,19 @@ import DeleteConfirmSheet from "@/components/Shared/DeleteConfirmSheet";
 import SettingsCreatePlanSheet from "@/components/Settings/SettingsCreatePlanSheet";
 import SettingsDebtSheet from "@/components/Settings/SettingsDebtSheet";
 import SettingsIosDatePickerModal from "@/components/Settings/SettingsIosDatePickerModal";
+import { useAppTranslation } from "@/hooks";
 
 import type { SettingsModalStackActionsProps } from "@/types/components/settings/SettingsModalStackActions.types";
 
 export default function SettingsModalStackActions({ controller }: SettingsModalStackActionsProps) {
+  const { t } = useAppTranslation(controller.settings?.language);
+
   return (
     <>
       <SettingsDebtSheet
         visible={!!controller.editDebtTarget}
-        title="Edit credit card"
-        actionLabel="Save"
+        title={t("settings.debtSheet.editCreditCard")}
+        actionLabel={t("common.save")}
         currency={controller.settings?.currency}
         insetsBottom={controller.insets.bottom}
         keyboardOffset={Platform.OS === "ios" ? Math.max(0, controller.topHeaderOffset - controller.insets.top) : 0}
@@ -35,8 +38,8 @@ export default function SettingsModalStackActions({ controller }: SettingsModalS
 
       <SettingsDebtSheet
         visible={controller.addDebtSheetOpen}
-        title="Add credit card"
-        actionLabel="Add"
+        title={t("settings.debtSheet.addCreditCard")}
+        actionLabel={t("common.add")}
         currency={controller.settings?.currency}
         insetsBottom={controller.insets.bottom}
         keyboardOffset={Platform.OS === "ios" ? Math.max(0, controller.topHeaderOffset - controller.insets.top) : 0}
@@ -76,9 +79,10 @@ export default function SettingsModalStackActions({ controller }: SettingsModalS
 
       <DeleteConfirmSheet
         visible={!!controller.planDeleteTarget}
-        title="Delete sub plan"
-        description={`Delete ${controller.planDeleteTarget?.name ?? "this plan"}? This cannot be undone.`}
-        confirmText={controller.deletingPlanId ? "Deleting…" : "Delete"}
+        title={t("settings.plans.deleteTitle")}
+        description={t("settings.plans.deleteDescription", { name: controller.planDeleteTarget?.name ?? t("settings.plansTitle") })}
+        confirmText={controller.deletingPlanId ? `${t("common.delete")}...` : t("common.delete")}
+        cancelText={t("common.cancel")}
         isBusy={!!controller.deletingPlanId}
         onClose={() => controller.setPlanDeleteTarget(null)}
         onConfirm={() => {
