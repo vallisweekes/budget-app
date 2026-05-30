@@ -33,20 +33,19 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
   const onboarding = useOnboardingGate();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [hasCompletedInitialLoad, setHasCompletedInitialLoad] = useState(false);
-  const [shouldLoadDashboard, setShouldLoadDashboard] = useState(false);
   const [isRecoveringInitialLoad, setIsRecoveringInitialLoad] = useState(false);
   const shouldSkip = authLoading || !token || onboarding.busy || onboarding.required;
 
-  const dashboardQuery = useGetDashboardQuery(undefined, { skip: shouldSkip || !shouldLoadDashboard });
+  const dashboardQuery = useGetDashboardQuery(undefined, { skip: shouldSkip });
   const settingsQuery = useGetSettingsQuery(undefined, { skip: shouldSkip });
 
-  const dashboard = shouldSkip || !shouldLoadDashboard ? null : dashboardQuery.data ?? null;
+  const dashboard = shouldSkip ? null : dashboardQuery.data ?? null;
   const settings = shouldSkip ? null : settingsQuery.data ?? profile?.settings ?? null;
   const hasSettingsData = Boolean(settings);
   const hasDashboardData = Boolean(dashboard);
   const shouldBlockInitialLoadUi = !authLoading && Boolean(token) && !onboarding.busy && !onboarding.required && !hasCompletedInitialLoad;
   const isWaitingForInitialSettings = !hasSettingsData && Boolean(settingsQuery.isLoading || settingsQuery.isFetching);
-  const isWaitingForDashboard = shouldLoadDashboard && !hasDashboardData && Boolean(dashboardQuery.isLoading || dashboardQuery.isFetching);
+  const isWaitingForDashboard = !hasDashboardData && Boolean(dashboardQuery.isLoading || dashboardQuery.isFetching);
   const isLoading = authLoading
     ? true
     : !token
@@ -67,11 +66,11 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
     return new Error("Failed to load app data");
   }, [dashboardQuery.error, hasDashboardData, hasSettingsData, isRecoveringInitialLoad, settingsQuery.error, shouldBlockInitialLoadUi]);
   const lastLoadedAt = useMemo<number | null>(() => {
-    const dashboardStamp = shouldLoadDashboard ? dashboardQuery.fulfilledTimeStamp ?? 0 : 0;
+    const dashboardStamp = dashboardQuery.fulfilledTimeStamp ?? 0;
     const settingsStamp = settingsQuery.fulfilledTimeStamp ?? 0;
     const nextStamp = Math.max(dashboardStamp, settingsStamp);
     return nextStamp > 0 ? nextStamp : null;
-  }, [dashboardQuery.fulfilledTimeStamp, settingsQuery.fulfilledTimeStamp, shouldLoadDashboard]);
+  }, [dashboardQuery.fulfilledTimeStamp, settingsQuery.fulfilledTimeStamp]);
 
   const inflightRef = useRef<Promise<BootstrapRefreshResult> | null>(null);
   const settingsInflightRef = useRef<Promise<Settings | null> | null>(null);
@@ -83,7 +82,6 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
   const tokenRef = useRef<string | null | undefined>(token);
   const onboardingBusyRef = useRef(onboarding.busy);
   const onboardingRequiredRef = useRef(onboarding.required);
-  const shouldLoadDashboardRef = useRef(shouldLoadDashboard);
   const bootstrapQueriesBusyRef = useRef(false);
   const settingsQueryBusyRef = useRef(false);
   const hasSettingsDataRef = useRef(false);
@@ -130,14 +128,9 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
   }, [token]);
 
   useEffect(() => {
-    shouldLoadDashboardRef.current = shouldLoadDashboard;
-  }, [shouldLoadDashboard]);
-
-  useEffect(() => {
     if (activeTokenRef.current === token) return;
     activeTokenRef.current = token;
     stopInitialRetryLoop();
-    setShouldLoadDashboard(false);
     setIsRecoveringInitialLoad(false);
     setHasCompletedInitialLoad(false);
     setIsRefreshing(false);
@@ -163,9 +156,10 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
     bootstrapQueriesBusyRef.current = !shouldSkip && Boolean(
       settingsQuery.isLoading
       || settingsQuery.isFetching
-      || (shouldLoadDashboard && (dashboardQuery.isLoading || dashboardQuery.isFetching))
+      || dashboardQuery.isLoading
+      || dashboardQuery.isFetching
     );
-  }, [dashboardQuery.isFetching, dashboardQuery.isLoading, settingsQuery.isFetching, settingsQuery.isLoading, shouldLoadDashboard, shouldSkip]);
+  }, [dashboardQuery.isFetching, dashboardQuery.isLoading, settingsQuery.isFetching, settingsQuery.isLoading, shouldSkip]);
 
   useEffect(() => {
     const settingsStillBusy = !shouldSkip && Boolean(settingsQuery.isLoading || settingsQuery.isFetching);
@@ -183,7 +177,8 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
     const queriesStillBusy = !shouldSkip && Boolean(
       settingsQuery.isLoading
       || settingsQuery.isFetching
-      || (shouldLoadDashboard && (dashboardQuery.isLoading || dashboardQuery.isFetching))
+      || dashboardQuery.isLoading
+      || dashboardQuery.isFetching
     );
     if (queriesStillBusy) return;
 
@@ -196,7 +191,7 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
     const resolvers = pendingInitialLoadResolversRef.current.splice(0);
     inflightRef.current = null;
     resolvers.forEach((resolve) => resolve(result));
-  }, [dashboard, dashboardQuery.isFetching, dashboardQuery.isLoading, settings, settingsQuery.isFetching, settingsQuery.isLoading, shouldLoadDashboard, shouldSkip]);
+  }, [dashboard, dashboardQuery.isFetching, dashboardQuery.isLoading, settings, settingsQuery.isFetching, settingsQuery.isLoading, shouldSkip]);
 
   const refreshSettings = useCallback(
     async (options?: { force?: boolean }): Promise<Settings | null> => {
@@ -267,8 +262,6 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
       const force = options?.force === true;
       const hasData = Boolean(currentDashboard && currentSettings);
       const queriesBusy = bootstrapQueriesBusyRef.current;
-      const dashboardRequested = shouldLoadDashboardRef.current;
-      const needsDashboardBootstrap = !dashboardRequested;
 
       if (!force && hasData) {
         return { dashboard: currentDashboard, settings: currentSettings };
@@ -276,11 +269,7 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
 
       if (inflightRef.current) return inflightRef.current;
 
-      if (needsDashboardBootstrap) {
-        setShouldLoadDashboard(true);
-      }
-
-      if (needsDashboardBootstrap || (!force && !hasData && queriesBusy)) {
+      if (!force && !hasData && queriesBusy) {
         const promise = new Promise<BootstrapRefreshResult>((resolve) => {
           pendingInitialLoadResolversRef.current.push(resolve);
         });
@@ -393,7 +382,6 @@ export function BootstrapDataProvider({ children }: { children: React.ReactNode 
 
     if (!token) {
       stopInitialRetryLoop();
-      setShouldLoadDashboard(false);
       setHasCompletedInitialLoad(false);
       setIsRecoveringInitialLoad(false);
       setIsRefreshing(false);

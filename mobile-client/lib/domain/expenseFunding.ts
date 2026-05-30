@@ -1,6 +1,6 @@
 import type { Debt, Settings } from "@/lib/apiTypes";
 
-export type ExpenseFundingSource = "income" | "savings" | "emergency" | "credit_card" | "loan" | "other";
+export type ExpenseFundingSource = "income" | "savings" | "emergency" | "investment" | "monthly_allowance" | "credit_card" | "loan" | "other";
 export type ExpenseFundingCard = Pick<Debt, "id" | "name" | "type">;
 
 export type ExpenseFundingOption = {
@@ -10,12 +10,15 @@ export type ExpenseFundingOption = {
   debtId: string | null;
 };
 
-type FundingSettings = Pick<Settings, "savingsBalance" | "monthlySavingsContribution" | "emergencyBalance" | "monthlyEmergencyContribution"> | null | undefined;
+type FundingSettings = Pick<Settings, "savingsBalance" | "monthlySavingsContribution" | "emergencyBalance" | "monthlyEmergencyContribution" | "investmentBalance" | "monthlyInvestmentContribution" | "monthlyAllowance"> | null | undefined;
 
-const STATIC_OPTION_LABELS: Record<Exclude<ExpenseFundingSource, "credit_card" | "loan">, string> = {
+const STATIC_OPTION_LABELS: Record<Exclude<ExpenseFundingSource, "credit_card">, string> = {
   income: "Income",
   savings: "Savings",
   emergency: "Emergency fund",
+  investment: "Investments",
+  monthly_allowance: "Allowance",
+  loan: "Loan",
   other: "Other",
 };
 
@@ -49,9 +52,11 @@ export function normalizeExpenseFundingSource(value: unknown): ExpenseFundingSou
   const normalized = String(value ?? "").trim().toLowerCase();
   if (normalized === "savings") return "savings";
   if (normalized === "emergency" || normalized === "emergency_fund" || normalized === "emergency fund") return "emergency";
+  if (normalized === "investment" || normalized === "investments") return "investment";
+  if (normalized === "monthly_allowance" || normalized === "allowance" || normalized === "monthly allowance") return "monthly_allowance";
   if (normalized === "credit_card" || normalized === "card" || normalized === "credit card") return "credit_card";
   if (normalized === "loan") return "loan";
-  if (normalized === "other" || normalized === "extra_untracked" || normalized === "monthly_allowance") return "income";
+  if (normalized === "other" || normalized === "extra_untracked") return "other";
   return "income";
 }
 
@@ -59,7 +64,7 @@ export function paymentSourceForFunding(source: ExpenseFundingSource): "income" 
   if (source === "savings") return "savings";
   if (source === "emergency") return "emergency";
   if (source === "credit_card") return "credit_card";
-  if (source === "loan" || source === "other") return "extra_untracked";
+  if (source === "investment" || source === "monthly_allowance" || source === "loan" || source === "other") return "extra_untracked";
   return "income";
 }
 
@@ -81,12 +86,26 @@ function hasConfiguredFundingValue(value: string | number | null | undefined): b
   return value.trim().length > 0;
 }
 
+function hasPositiveFundingValue(value: string | number | null | undefined): boolean {
+  if (value == null) return false;
+  const parsed = typeof value === "number" ? value : Number(String(value).trim());
+  return Number.isFinite(parsed) && parsed > 0;
+}
+
 function hasSavingsFunding(settings: FundingSettings): boolean {
-  return hasConfiguredFundingValue(settings?.savingsBalance) || hasConfiguredFundingValue(settings?.monthlySavingsContribution);
+  return hasPositiveFundingValue(settings?.savingsBalance);
 }
 
 function hasEmergencyFunding(settings: FundingSettings): boolean {
-  return hasConfiguredFundingValue(settings?.emergencyBalance) || hasConfiguredFundingValue(settings?.monthlyEmergencyContribution);
+  return hasPositiveFundingValue(settings?.emergencyBalance);
+}
+
+function hasInvestmentFunding(settings: FundingSettings): boolean {
+  return hasPositiveFundingValue(settings?.investmentBalance);
+}
+
+function hasAllowanceFunding(settings: FundingSettings): boolean {
+  return hasPositiveFundingValue(settings?.monthlyAllowance);
 }
 
 export function getCreditFundingCards(cards: ExpenseFundingCard[]): ExpenseFundingCard[] {
@@ -99,10 +118,13 @@ export function getExpenseFundingSelectionKey(source: ExpenseFundingSource, debt
 
 export function getExpenseFundingOptions(params: {
   cards: ExpenseFundingCard[];
+  loanDebts?: ExpenseFundingCard[];
   settings?: FundingSettings;
   selectedSource: ExpenseFundingSource;
   selectedDebtId?: string | null;
+  extraOptions?: ExpenseFundingSource[];
 }): ExpenseFundingOption[] {
+  const extraOptions = new Set(params.extraOptions ?? []);
   const staticOptions: ExpenseFundingOption[] = [
     { key: "income", label: STATIC_OPTION_LABELS.income, source: "income", debtId: null },
   ];
@@ -115,6 +137,14 @@ export function getExpenseFundingOptions(params: {
     staticOptions.push({ key: "emergency", label: STATIC_OPTION_LABELS.emergency, source: "emergency", debtId: null });
   }
 
+  if (extraOptions.has("investment") && hasInvestmentFunding(params.settings)) {
+    staticOptions.push({ key: "investment", label: STATIC_OPTION_LABELS.investment, source: "investment", debtId: null });
+  }
+
+  if (extraOptions.has("monthly_allowance") && hasAllowanceFunding(params.settings)) {
+    staticOptions.push({ key: "monthly_allowance", label: STATIC_OPTION_LABELS.monthly_allowance, source: "monthly_allowance", debtId: null });
+  }
+
   const cardOptions = getCreditFundingCards(params.cards).map((debt) => ({
     key: `credit_card:${debt.id}`,
     label: formatFundingDebtLabel(debt),
@@ -122,6 +152,16 @@ export function getExpenseFundingOptions(params: {
     debtId: debt.id,
   }));
   const options = [...staticOptions, ...cardOptions];
+
+  const availableLoans = (params.loanDebts ?? []).filter((debt) => isLoanLikeDebt(debt));
+
+  if (extraOptions.has("loan") && (availableLoans.length > 0 || params.selectedSource === "loan")) {
+    options.push({ key: "loan", label: STATIC_OPTION_LABELS.loan, source: "loan", debtId: null });
+  }
+
+  if (extraOptions.has("other")) {
+    options.push({ key: "other", label: STATIC_OPTION_LABELS.other, source: "other", debtId: null });
+  }
 
   const selectionKey = getExpenseFundingSelectionKey(params.selectedSource, params.selectedDebtId);
   if (options.some((option) => option.key === selectionKey)) {

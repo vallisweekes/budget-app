@@ -839,7 +839,7 @@ export interface ReceiptConfirmBody {
   categoryId?: string;
   budgetPlanId?: string;
   paymentSource?: "income" | "credit_card" | "savings" | "emergency" | "extra_untracked";
-  fundingSource?: "income" | "savings" | "emergency" | "monthly_allowance" | "credit_card" | "loan" | "other";
+  fundingSource?: "income" | "savings" | "emergency" | "investment" | "monthly_allowance" | "credit_card" | "loan" | "other";
   cardDebtId?: string;
   debtId?: string;
   newLoanName?: string;

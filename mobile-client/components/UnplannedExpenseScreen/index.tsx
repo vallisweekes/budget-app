@@ -3,7 +3,7 @@ import { KeyboardAvoidingView, Platform, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import type { SelectionItem, UnplannedExpenseScreenProps } from "@/types";
-import { FUNDING_OPTIONS, NEW_LOAN_SENTINEL } from "@/lib/constants";
+import { NEW_LOAN_SENTINEL } from "@/lib/constants";
 import { currencySymbol } from "@/lib/formatting";
 import { useTopHeaderOffset, useUnplannedExpenseScreenController } from "@/hooks";
 import { T } from "@/lib/theme";
@@ -31,7 +31,7 @@ export default function UnplannedExpenseScreen({ navigation, route }: UnplannedE
     { id: "", label: "None", color: T.border },
     ...controller.categories.map((category) => ({ id: category.id, label: category.name, color: category.color ?? T.accentDim })),
   ];
-  const fundingItems: SelectionItem[] = FUNDING_OPTIONS.map((option) => ({ id: option.value, label: option.label }));
+  const fundingItems: SelectionItem[] = controller.fundingOptions.map((option) => ({ id: option.key, label: option.label }));
   const debtItems: SelectionItem[] = [
     ...(controller.fundingSource === "loan" ? [{ id: NEW_LOAN_SENTINEL, label: "+ Create new loan" }] : []),
     ...controller.debtChoices.map((debt) => ({ id: debt.id, label: debt.name })),
@@ -99,11 +99,12 @@ export default function UnplannedExpenseScreen({ navigation, route }: UnplannedE
         items={fundingItems}
         onClose={controller.closeFundingPicker}
         onSelect={(id) => {
-          controller.setFundingSource(id as (typeof FUNDING_OPTIONS)[number]["value"]);
+          const selectedOption = controller.fundingOptions.find((option) => option.key === id);
+          if (selectedOption) controller.handleFundingOptionSelect(selectedOption);
           controller.closeFundingPicker();
         }}
         panHandlers={controller.fundingPickerPanHandlers}
-        selectedId={controller.fundingSource}
+        selectedId={controller.selectedFundingKey}
         title="Funds From"
         visible={controller.fundingPickerOpen}
       />
@@ -119,7 +120,7 @@ export default function UnplannedExpenseScreen({ navigation, route }: UnplannedE
         }}
         panHandlers={controller.debtPickerPanHandlers}
         selectedId={controller.selectedDebtId}
-        title={controller.fundingSource === "credit_card" ? "Choose Card" : "Choose Loan"}
+        title="Choose Loan"
         visible={controller.debtPickerOpen}
       />
 

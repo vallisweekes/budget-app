@@ -29,6 +29,7 @@ import {
   getExpenseFundingOptions,
   getExpenseFundingSelectionKey,
   getExpenseFundingSelectionLabel,
+  paymentSourceForFunding,
   requiresFundingDebt,
   type ExpenseFundingOption,
   type ExpenseFundingSource,
@@ -57,6 +58,12 @@ function startOfLocalDay(date: Date): Date {
   const next = new Date(date);
   next.setHours(0, 0, 0, 0);
   return next;
+}
+
+function toOptimisticPaymentSource(fundingSource: ExpenseFundingSource): Expense["paymentSource"] {
+  if (fundingSource === "loan") return "loan";
+  const paymentSource = paymentSourceForFunding(fundingSource);
+  return paymentSource === "extra_untracked" ? "other" : paymentSource;
 }
 
 function clampLocalDate(date: Date, minimumDate: Date, maximumDate: Date): Date {
@@ -462,7 +469,7 @@ export default function AddExpenseSheet({
           : null,
         dueDate: typeof body.dueDate === "string" ? body.dueDate : null,
         lastPaymentAt: null,
-        paymentSource: fundingSource,
+        paymentSource: toOptimisticPaymentSource(fundingSource),
         cardDebtId: needsDebtSelection ? (selectedDebtId || null) : null,
         isExtraLoggedExpense: false,
         effectiveDueDate: typeof body.dueDate === "string" ? body.dueDate : null,

@@ -33,7 +33,7 @@ import type { MonthKey } from "@/types";
 // ─── Shared types ─────────────────────────────────────────────────────────────
 
 export type PaymentSource = "income" | "credit_card" | "savings" | "emergency" | "extra_untracked";
-export type FundingSource = "income" | "savings" | "emergency" | "monthly_allowance" | "credit_card" | "loan" | "other";
+export type FundingSource = "income" | "savings" | "emergency" | "investment" | "monthly_allowance" | "credit_card" | "loan" | "other";
 
 export type CreateExpenseInput = {
   budgetPlanId: string;
@@ -129,6 +129,7 @@ export function normalizeFundingSource(raw: unknown): FundingSource {
   const v = String(raw ?? "").trim().toLowerCase();
   if (v === "savings") return "savings";
   if (v === "emergency" || v === "emergency_fund" || v === "emergency fund") return "emergency";
+  if (v === "investment" || v === "investments") return "investment";
   if (v === "monthly_allowance" || v === "allowance" || v === "monthly allowance") return "monthly_allowance";
   if (v === "credit_card" || v === "card" || v === "credit card") return "credit_card";
   if (v === "loan" || v === "loans") return "loan";
@@ -140,7 +141,7 @@ function mapFundingToPaymentSource(fundingSource: FundingSource): PaymentSource 
   if (fundingSource === "credit_card") return "credit_card";
   if (fundingSource === "savings") return "savings";
   if (fundingSource === "emergency") return "emergency";
-  if (fundingSource === "monthly_allowance" || fundingSource === "loan" || fundingSource === "other") {
+  if (fundingSource === "investment" || fundingSource === "monthly_allowance" || fundingSource === "loan" || fundingSource === "other") {
     return "extra_untracked";
   }
   return "income";
@@ -347,6 +348,20 @@ export async function recordPaymentSource({
       const settings = await getSettings(budgetPlanId);
       const current = Number(settings.emergencyBalance ?? 0);
       await saveSettings(budgetPlanId, { emergencyBalance: Math.max(0, current - amount) });
+    } else if (effectiveFunding === "investment") {
+      await expensePayment.create({
+        data: {
+          expenseId,
+          amount,
+          source: "extra_untracked",
+          paidAt: new Date(),
+          periodKey: (await prisma.expense.findUnique({ where: { id: expenseId }, select: { periodKey: true } }).then((r) => r?.periodKey ?? null).catch(() => null)) ??
+            getPaymentPeriodKey(new Date(), payDate),
+        },
+      });
+      const settings = await getSettings(budgetPlanId);
+      const current = Number(settings.investmentBalance ?? 0);
+      await saveSettings(budgetPlanId, { investmentBalance: Math.max(0, current - amount) });
     } else if (effectiveFunding === "monthly_allowance") {
       await expensePayment.create({
         data: {

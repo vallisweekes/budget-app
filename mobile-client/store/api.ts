@@ -459,7 +459,7 @@ export const mobileApi = createApi({
           return { error: normalizeApiError(err) };
         }
       },
-      invalidatesTags: ["Dashboard", "Debts", "CreditCards", "Expenses"],
+      invalidatesTags: ["Dashboard", "Settings", "Debts", "CreditCards", "Expenses", "Goals", "IncomeSacrifice"],
     }),
     updateExpense: builder.mutation<Expense, { id: string; changes: Record<string, unknown> }>({
       async queryFn({ id, changes }) {

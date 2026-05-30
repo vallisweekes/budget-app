@@ -1,20 +1,28 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useActiveBudgetPlan } from "@/context/ActiveBudgetPlanContext";
 import { useSwipeDownToClose } from "@/hooks";
 
 import { apiFetch } from "@/lib/api";
-import type { Category, Debt, Settings } from "@/lib/apiTypes";
-import { FUNDING_OPTIONS, NEW_LOAN_SENTINEL } from "@/lib/constants";
+import { NEW_LOAN_SENTINEL } from "@/lib/constants";
+import {
+  getExpenseFundingOptions,
+  getExpenseFundingSelectionKey,
+  getExpenseFundingSelectionLabel,
+  paymentSourceForFunding,
+  type ExpenseFundingOption,
+  type ExpenseFundingSource,
+} from "@/lib/domain/expenseFunding";
 import { buildPayPeriodFromMonthAnchor, formatPayPeriodLabel, normalizePayFrequency } from "@/lib/payPeriods";
-import { getMobileApiErrorMessage, useCreateExpenseMutation, useGetCategoriesQuery, useGetDebtsQuery, useGetSettingsQuery } from "@/store/api";
+import {
+  getMobileApiErrorMessage,
+  useCreateExpenseMutation,
+  useGetCategoriesQuery,
+  useGetDebtsQuery,
+  useGetSettingsQuery,
+  useLazyGetPlanSettingsQuery,
+} from "@/store/api";
 
-export type FundingSource = "income" | "savings" | "monthly_allowance" | "credit_card" | "loan" | "other";
-
-function paymentSourceForFunding(funding: FundingSource): "income" | "savings" | "credit_card" | "extra_untracked" {
-  if (funding === "savings") return "savings";
-  if (funding === "credit_card") return "credit_card";
-  if (funding === "monthly_allowance" || funding === "loan" || funding === "other") return "extra_untracked";
-  return "income";
-}
+export type FundingSource = ExpenseFundingSource;
 
 export function useUnplannedExpenseScreenController(
   onSuccess: () => void,
@@ -43,6 +51,7 @@ function useUnplannedExpenseScreenControllerImpl(params: {
   initialPeriod?: { month?: number; year?: number; sourceContext?: "logged_expenses" };
 }) {
   const { onSuccess, initialPeriod } = params;
+  const { activeBudgetPlanId, bootstrapBudgetPlanId } = useActiveBudgetPlan();
   const now = new Date();
   const initialMonth = Number(initialPeriod?.month);
   const initialYear = Number(initialPeriod?.year);
@@ -66,9 +75,14 @@ function useUnplannedExpenseScreenControllerImpl(params: {
   const [newLoanName, setNewLoanName] = useState("");
   const [month, setMonth] = useState(resolvedInitialMonth);
   const [year, setYear] = useState(resolvedInitialYear);
-  const { data: categories = [], isLoading: categoriesLoading } = useGetCategoriesQuery();
-  const { data: debts = [], isLoading: debtsLoading } = useGetDebtsQuery();
-  const { data: settings = null, isLoading: settingsLoading } = useGetSettingsQuery();
+  const budgetPlanId = activeBudgetPlanId ?? bootstrapBudgetPlanId ?? null;
+  const categoryQueryArg = useMemo(() => (budgetPlanId ? { budgetPlanId } : undefined), [budgetPlanId]);
+  const { data: categories = [], isLoading: categoriesLoading } = useGetCategoriesQuery(categoryQueryArg);
+  const { data: debts = [], isLoading: debtsLoading } = useGetDebtsQuery(categoryQueryArg);
+  const { data: defaultSettings = null, isLoading: defaultSettingsLoading } = useGetSettingsQuery(undefined, {
+    skip: Boolean(budgetPlanId),
+  });
+  const [fetchPlanSettings, planSettingsQuery] = useLazyGetPlanSettingsQuery();
   const [createExpense] = useCreateExpenseMutation();
 
   const [catPickerOpen, setCatPickerOpen] = useState(false);
@@ -78,6 +92,16 @@ function useUnplannedExpenseScreenControllerImpl(params: {
   const [pickerYear, setPickerYear] = useState(resolvedInitialYear);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!budgetPlanId) return;
+    void fetchPlanSettings(budgetPlanId, true);
+  }, [budgetPlanId, fetchPlanSettings]);
+
+  const settings = budgetPlanId ? (planSettingsQuery.data ?? null) : defaultSettings;
+  const settingsLoading = budgetPlanId
+    ? (planSettingsQuery.isLoading || planSettingsQuery.isFetching)
+    : defaultSettingsLoading;
 
   const closeCatPicker = useCallback(() => setCatPickerOpen(false), []);
   const closeFundingPicker = useCallback(() => setFundingPickerOpen(false), []);
@@ -98,7 +122,22 @@ function useUnplannedExpenseScreenControllerImpl(params: {
   const cardDebts = useMemo(() => debts.filter((debt) => debt.type === "credit_card" || debt.type === "store_card"), [debts]);
   const loanDebts = useMemo(() => debts.filter((debt) => debt.type === "loan" || debt.type === "mortgage" || debt.type === "hire_purchase" || debt.type === "other"), [debts]);
   const loadingData = categoriesLoading || debtsLoading || settingsLoading;
-  const needsDebtChoice = fundingSource === "credit_card" || fundingSource === "loan";
+  const fundingOptions = useMemo(
+    () => getExpenseFundingOptions({
+      cards: cardDebts,
+      loanDebts,
+      settings,
+      selectedSource: fundingSource,
+      selectedDebtId,
+      extraOptions: ["investment", "monthly_allowance", "loan", "other"],
+    }),
+    [cardDebts, fundingSource, loanDebts, selectedDebtId, settings],
+  );
+  const selectedFundingKey = useMemo(
+    () => getExpenseFundingSelectionKey(fundingSource, selectedDebtId),
+    [fundingSource, selectedDebtId],
+  );
+  const needsDebtChoice = fundingSource === "loan";
   const usingNewLoan = fundingSource === "loan" && selectedDebtId === NEW_LOAN_SENTINEL;
   const debtChoiceValid = !needsDebtChoice || (selectedDebtId.length > 0 && (!usingNewLoan || newLoanName.trim().length > 0));
   const canSubmit = name.trim().length > 0
@@ -108,7 +147,14 @@ function useUnplannedExpenseScreenControllerImpl(params: {
     && !submitting;
 
   const selectedCategory = useMemo(() => categories.find((category) => category.id === categoryId), [categories, categoryId]);
-  const fundingLabel = useMemo(() => FUNDING_OPTIONS.find((item) => item.value === fundingSource)?.label ?? "Income", [fundingSource]);
+  const fundingLabel = useMemo(
+    () => getExpenseFundingSelectionLabel(fundingOptions, fundingSource, selectedDebtId),
+    [fundingOptions, fundingSource, selectedDebtId],
+  );
+  const handleFundingOptionSelect = useCallback((option: ExpenseFundingOption) => {
+    setFundingSource(option.source);
+    setSelectedDebtId(option.debtId ?? "");
+  }, []);
   const debtChoices = fundingSource === "credit_card" ? cardDebts : loanDebts;
   const selectedDebt = useMemo(() => debtChoices.find((debt) => debt.id === selectedDebtId), [debtChoices, selectedDebtId]);
   const payDateForResolution = Number.isFinite(settings?.payDate as number) && (settings?.payDate as number) >= 1
@@ -146,7 +192,7 @@ function useUnplannedExpenseScreenControllerImpl(params: {
       try {
         const res = await apiFetch<{ categoryId: string | null }>("/api/bff/expenses/suggest-category", {
           method: "POST",
-          body: { expenseName: trimmed },
+          body: { expenseName: trimmed, budgetPlanId },
         });
         if (seq !== suggestSeqRef.current) return;
 
@@ -163,12 +209,12 @@ function useUnplannedExpenseScreenControllerImpl(params: {
       if (suggestTimerRef.current) clearTimeout(suggestTimerRef.current);
       suggestTimerRef.current = null;
     };
-  }, [name]);
+  }, [budgetPlanId, name]);
 
   useEffect(() => {
     if (fundingSource === "credit_card") {
-      if (cardDebts.length === 1) setSelectedDebtId(cardDebts[0]!.id);
-      else if (!cardDebts.some((debt) => debt.id === selectedDebtId)) setSelectedDebtId("");
+      if (!selectedDebtId && cardDebts.length === 1) setSelectedDebtId(cardDebts[0]!.id);
+      else if (selectedDebtId && !cardDebts.some((debt) => debt.id === selectedDebtId)) setSelectedDebtId("");
       setNewLoanName("");
       return;
     }
@@ -183,6 +229,15 @@ function useUnplannedExpenseScreenControllerImpl(params: {
     setNewLoanName("");
   }, [fundingSource, cardDebts, loanDebts, selectedDebtId]);
 
+  useEffect(() => {
+    if (fundingSource === "income") return;
+    if (fundingOptions.some((option) => option.key === selectedFundingKey)) return;
+
+    setFundingSource("income");
+    setSelectedDebtId("");
+    setNewLoanName("");
+  }, [fundingOptions, fundingSource, selectedFundingKey]);
+
   const handleSubmit = useCallback(async () => {
     if (!canSubmit) return;
 
@@ -195,6 +250,7 @@ function useUnplannedExpenseScreenControllerImpl(params: {
         amount: parsedAmount,
         month,
         year,
+        budgetPlanId: budgetPlanId ?? undefined,
         paid: true,
         isAllocation: false,
         isDirectDebit: false,
@@ -223,7 +279,7 @@ function useUnplannedExpenseScreenControllerImpl(params: {
       setSubmitError(getMobileApiErrorMessage(error, "Failed to log expense. Try again."));
       setSubmitting(false);
     }
-  }, [canSubmit, categoryId, createExpense, fundingSource, month, name, newLoanName, onSuccess, parsedAmount, period.start, selectedDebtId, year]);
+  }, [budgetPlanId, canSubmit, categoryId, createExpense, fundingSource, month, name, newLoanName, onSuccess, parsedAmount, period.start, selectedDebtId, year]);
 
   return {
     amount,
@@ -243,11 +299,13 @@ function useUnplannedExpenseScreenControllerImpl(params: {
     debtPickerOpen,
     debtPickerPanHandlers,
     fundingLabel,
+    fundingOptions,
     fundingPickerDragY,
     fundingPickerOpen,
     fundingPickerPanHandlers,
     fundingSource,
     handleSubmit,
+    handleFundingOptionSelect,
     loadingData,
     month,
     monthPickerDragY,
@@ -262,6 +320,7 @@ function useUnplannedExpenseScreenControllerImpl(params: {
     selectedCategory,
     selectedDebt,
     selectedDebtId,
+    selectedFundingKey,
     setAmount,
     setCatPickerOpen,
     setCategoryId,

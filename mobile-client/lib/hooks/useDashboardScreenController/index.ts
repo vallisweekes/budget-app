@@ -216,16 +216,7 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
       && !periodExpenseSummaryQuery.data
       && (periodExpenseSummaryQuery.isLoading || periodExpenseSummaryQuery.isFetching),
   );
-  const isResolvingInitialDisplayedHeroPeriod = Boolean(
-    budgetPlanId
-    && hasBootstrapDashboard
-    && displayedPeriodAnchor === null
-    && !displayedPeriodResolved
-    && provisionalDisplayedAnchor
-    && dashboardMatchesAnchor(dashboard, provisionalDisplayedAnchor),
-  );
-
-  const loading = isResolvingInitialDisplayedHeroPeriod || (
+  const loading = (
     !hasRenderableHeroData && (
       !displayedPeriodResolved
       || (!settings && bootstrapLoading)
