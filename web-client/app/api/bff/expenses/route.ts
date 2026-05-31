@@ -381,6 +381,9 @@ export async function GET(req: NextRequest) {
           { year: item.year, monthNum: item.month, payDate }
         )
       : null;
+    const isLoggedNonIncome =
+      Boolean(item.isExtraLoggedExpense ?? false) &&
+      String(item.paymentSource ?? "income").trim().toLowerCase() !== "income";
     const dueDateOnly = dueIso ? parseIsoDate(dueIso) : null;
     const matchedPeriodKey = !dueDateOnly && scope === "pay_period" && item.periodKey
       ? resolveMatchedExpensePeriodKey({
@@ -396,7 +399,7 @@ export async function GET(req: NextRequest) {
         ? dueDateOnly
           ? inRange(dueDateOnly, selectedPeriod.start, selectedPeriod.end)
           : item.periodKey
-            ? Boolean(matchedPeriodKey)
+            ? Boolean(matchedPeriodKey) || (isLoggedNonIncome && allowedUnscheduledYm.has(`${item.year}-${item.month}`))
             : allowedUnscheduledYm.has(`${item.year}-${item.month}`)
         : true;
 

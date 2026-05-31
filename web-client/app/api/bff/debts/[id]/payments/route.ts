@@ -36,6 +36,16 @@ function mapDebtPaymentSourceToExpensePaymentSource(source: unknown): "income" |
   return "savings";
 }
 
+function buildDebtPaymentLoggedExpenseSeriesKey(paymentId: string): string {
+  return `debt-payment:${paymentId}`;
+}
+
+function buildDebtPaymentLoggedExpenseName(debtName: string): string {
+  const normalized = debtName.trim();
+  if (!normalized) return "Debt payment";
+  return `Debt payment: ${normalized}`;
+}
+
 function paymentMatchKey(p: { amount: number; paidAt: Date }) {
   // PaidAt is stored at ms precision; normalize to ISO for stable matching.
   return `${p.amount.toFixed(2)}|${p.paidAt.toISOString()}`;
@@ -433,9 +443,10 @@ export async function POST(
 		const year = paidAt.getUTCFullYear();
 		const month = paidAt.getUTCMonth() + 1;
     const postPayDate = await resolvePayDate(debt.budgetPlan.id);
+    const paymentPeriodKey = getPaymentPeriodKey(paidAt, postPayDate);
     const periodKey = debt.dueDate && Number.isFinite(debt.dueDate.getTime())
       ? getPeriodKey(debt.dueDate, postPayDate)
-      : getPaymentPeriodKey(paidAt, postPayDate);
+      : paymentPeriodKey;
     const overrideTarget = await resolveDebtPlannedPaymentTarget({
       budgetPlanId: debt.budgetPlan.id,
       dueDate: debt.dueDate,
@@ -649,6 +660,41 @@ export async function POST(
             },
           });
         }
+      }
+
+      if (paymentSource !== "income") {
+        const mirroredPaymentSource = mapDebtPaymentSourceToExpensePaymentSource(paymentSource);
+        const mirroredExpense = await tx.expense.create({
+          data: {
+            budgetPlanId: debt.budgetPlan.id,
+            name: buildDebtPaymentLoggedExpenseName(debt.name),
+            seriesKey: buildDebtPaymentLoggedExpenseSeriesKey(created.id),
+            amount: String(appliedAmount),
+            paid: true,
+            paidAmount: String(appliedAmount),
+            isAllocation: false,
+            isDirectDebit: false,
+            isExtraLoggedExpense: true,
+            month,
+            year,
+            periodKey: paymentPeriodKey,
+            paymentSource: mirroredPaymentSource,
+            cardDebtId: paymentSource === "credit_card" ? paymentCardDebtId : null,
+            lastPaymentAt: paidAt,
+          },
+          select: { id: true },
+        });
+
+        await tx.expensePayment.create({
+          data: {
+            expenseId: mirroredExpense.id,
+            amount: String(appliedAmount),
+            source: mirroredPaymentSource,
+            debtId: id,
+            paidAt,
+            periodKey: paymentPeriodKey,
+          },
+        });
       }
 
       return created;

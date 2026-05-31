@@ -1,20 +1,44 @@
 import { useFocusEffect } from "@react-navigation/native";
 import { useActiveBudgetPlan } from "@/context/ActiveBudgetPlanContext";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
-import { apiFetch, getApiMutationVersion } from "@/lib/api";
+import { apiFetch, getApiMutationsSince, getApiMutationVersion, subscribeToApiMutations } from "@/lib/api";
 import type { Expense } from "@/lib/apiTypes";
 import { currencySymbol } from "@/lib/formatting";
 import { resolveExpensePeriodRouteState } from "@/lib/helpers/expensePeriodRouteState";
-import { getCachedPayPeriodExpenses, setCachedPayPeriodExpenses } from "@/lib/expensePeriodCache";
+import { getCachedPayPeriodExpenses, removeCachedPayPeriodExpense, setCachedPayPeriodExpenses, upsertCachedPayPeriodExpense } from "@/lib/expensePeriodCache";
 import { resolveCategoryColor } from "@/lib/categoryColors";
 import { useTopHeaderOffset } from "@/hooks";
 import { buildPayPeriodFromMonthAnchor, formatPayPeriodLabel, normalizePayFrequency } from "@/lib/payPeriods";
 import type { ExpensesStackParamList } from "@/navigation/types";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { Alert } from "react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { getMobileApiErrorMessage, useDeleteExpenseMutation } from "@/store/api";
 import type { LoggedExpensesControllerState } from "@/types/LoggedExpensesScreen.types";
 
 type Props = NativeStackScreenProps<ExpensesStackParamList, "LoggedExpenses">;
+
+function isLoggedExpensesRelevantMutationPath(path: string): boolean {
+  const normalized = path.trim().toLowerCase();
+  return normalized.startsWith("/api/bff/expenses") || normalized.startsWith("/api/bff/debts/");
+}
+
+function normalizeOptionalRouteString(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  const lowered = trimmed.toLowerCase();
+  if (lowered === "null" || lowered === "undefined" || lowered === "all" || lowered === "__all__") {
+    return undefined;
+  }
+  return trimmed;
+}
+
+function includeInLoggedList(entry: Expense, categoryId?: string): boolean {
+  return (categoryId ? entry.categoryId === categoryId : true)
+    && Boolean(entry.isExtraLoggedExpense)
+    && entry.paymentSource !== "income";
+}
 
 export function useLoggedExpensesScreenController({ route, navigation }: Props): LoggedExpensesControllerState {
   const topHeaderOffset = useTopHeaderOffset();
@@ -24,7 +48,7 @@ export function useLoggedExpensesScreenController({ route, navigation }: Props):
   const today = new Date();
   const routePeriodState = resolveExpensePeriodRouteState(nextParams, { fallbackToShared: true });
   const displayedAnchor = routePeriodState.displayedAnchor;
-  const categoryId = typeof nextParams.categoryId === "string" ? nextParams.categoryId : undefined;
+  const categoryId = normalizeOptionalRouteString(nextParams.categoryId);
   const categoryName = typeof nextParams.categoryName === "string" ? nextParams.categoryName : "All categories";
   const color = typeof nextParams.color === "string" ? nextParams.color : null;
   const month = displayedAnchor?.month ?? (today.getMonth() + 1);
@@ -37,6 +61,8 @@ export function useLoggedExpensesScreenController({ route, navigation }: Props):
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deletingExpenseId, setDeletingExpenseId] = useState<string | null>(null);
+  const [deleteExpense] = useDeleteExpenseMutation();
   const seenMutationVersionRef = useRef<number>(getApiMutationVersion());
 
   const load = useCallback(async (force = false) => {
@@ -54,11 +80,7 @@ export function useLoggedExpensesScreenController({ route, navigation }: Props):
         return resolved;
       })();
 
-      const next = nextAllExpenses.filter((entry) => (
-        (categoryId ? entry.categoryId === categoryId : true)
-        && entry.isExtraLoggedExpense
-        && entry.paymentSource !== "income"
-      ));
+      const next = nextAllExpenses.filter((entry) => includeInLoggedList(entry, categoryId));
       setItems(next);
       seenMutationVersionRef.current = getApiMutationVersion();
     } catch (err) {
@@ -72,9 +94,29 @@ export function useLoggedExpensesScreenController({ route, navigation }: Props):
   useFocusEffect(
     useCallback(() => {
       if (getApiMutationVersion() === seenMutationVersionRef.current) return;
-      void load(true);
+      void load(false);
     }, [load]),
   );
+
+  useEffect(() => {
+    const unsubscribe = subscribeToApiMutations((latestVersion) => {
+      if (latestVersion === seenMutationVersionRef.current) return;
+
+      const mutationsSince = getApiMutationsSince(seenMutationVersionRef.current);
+      const hasRelevantMutation = mutationsSince.length === 0
+        ? true
+        : mutationsSince.some((mutation) => isLoggedExpensesRelevantMutationPath(mutation.path));
+
+      if (!hasRelevantMutation) {
+        seenMutationVersionRef.current = latestVersion;
+        return;
+      }
+
+      void load(false);
+    });
+
+    return unsubscribe;
+  }, [load]);
 
   useEffect(() => {
     const hasCache = Boolean(getCachedPayPeriodExpenses({ budgetPlanId, month, year }));
@@ -95,6 +137,44 @@ export function useLoggedExpensesScreenController({ route, navigation }: Props):
   const periodLabel = formatPayPeriodLabel(period.start, period.end);
   const screenKicker = categoryName ?? "All categories";
   const categoryColor = useMemo(() => resolveCategoryColor(color), [color]);
+  const onDeleteItem = useCallback((item: Expense) => {
+    if (deletingExpenseId) return;
+
+    Alert.alert(
+      "Delete logged payment?",
+      "This will remove the logged payment and reverse it from its payment source.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            void (async () => {
+              const cacheParams = { budgetPlanId, month, year };
+              setDeletingExpenseId(item.id);
+              setError(null);
+              setItems((previous) => previous.filter((entry) => entry.id !== item.id));
+              removeCachedPayPeriodExpense(cacheParams, item.id);
+
+              try {
+                await deleteExpense({ id: item.id, scope: "single" }).unwrap();
+                seenMutationVersionRef.current = getApiMutationVersion();
+              } catch (deleteError) {
+                upsertCachedPayPeriodExpense(cacheParams, item);
+                setItems((previous) => {
+                  if (previous.some((entry) => entry.id === item.id)) return previous;
+                  return [item, ...previous];
+                });
+                setError(getMobileApiErrorMessage(deleteError, "Failed to delete logged payment"));
+              } finally {
+                setDeletingExpenseId((current) => (current === item.id ? null : current));
+              }
+            })();
+          },
+        },
+      ],
+    );
+  }, [budgetPlanId, deleteExpense, deletingExpenseId, month, year]);
 
   return {
     categoryColor,
@@ -102,10 +182,12 @@ export function useLoggedExpensesScreenController({ route, navigation }: Props):
     categoryName,
     color,
     currency,
+    deletingExpenseId,
     error,
     items,
     loading,
     month,
+    onDeleteItem,
     onPressItem: (item: Expense) => {
       navigation.navigate("ExpenseDetail", {
         expenseId: item.id,

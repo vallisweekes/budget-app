@@ -33,6 +33,10 @@ function toNumber(value: unknown): number {
 	return Number(value);
 }
 
+function buildDebtPaymentLoggedExpenseSeriesKey(paymentId: string): string {
+	return `debt-payment:${paymentId}`;
+}
+
 export async function DELETE(
 	request: Request,
 	{ params }: { params: Promise<{ id: string; paymentId: string }> }
@@ -123,6 +127,14 @@ export async function DELETE(
 				]);
 			});
 		}
+
+		await prisma.expense.deleteMany({
+			where: {
+				budgetPlanId: debt.budgetPlanId,
+				seriesKey: buildDebtPaymentLoggedExpenseSeriesKey(paymentId),
+				isExtraLoggedExpense: true,
+			},
+		});
 
 		await invalidateDashboardCache(debt.budgetPlanId);
 

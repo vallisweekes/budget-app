@@ -14,7 +14,6 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
 import { Ionicons } from "@expo/vector-icons";
-import Svg, { Circle, Polyline } from "react-native-svg";
 
 import PaymentSheet from "@/components/Debts/Detail/PaymentSheet";
 import EditExpenseSheet from "@/components/Expenses/EditExpenseSheet";
@@ -23,7 +22,6 @@ import { fmt } from "@/lib/formatting";
 import { useAppTranslation, useExpenseDetailScreenController } from "@/hooks";
 import { T } from "@/lib/theme";
 import { expenseDetailStyles as styles } from "@/components/ExpenseDetailScreen/style";
-import { statusLabel } from "@/components/ExpenseDetailScreen/utils";
 import type { ExpenseDetailScreenProps } from "@/types";
 
 export default function ExpenseDetailScreen({ route, navigation }: ExpenseDetailScreenProps) {
@@ -152,104 +150,6 @@ export default function ExpenseDetailScreen({ route, navigation }: ExpenseDetail
                 <Text style={styles.lockedHint}>Payment changes are locked after {controller.paymentEditGraceDays} days.</Text>
               ) : null}
             </View>
-
-            {controller.shouldShowFrequencyCard ? (
-              <View style={styles.freqCard}>
-                <View style={styles.freqHeadRow}>
-                  <Text style={styles.freqTitle}>Payment frequency</Text>
-                  <View style={styles.freqHeadRight}>
-                    {controller.freqIndicator ? (
-                      <Text style={[styles.freqIndicatorTxt, { color: controller.freqIndicator.color }]}>{controller.freqIndicator.label}</Text>
-                    ) : null}
-                    {controller.frequencyLoading ? <ActivityIndicator size="small" color={T.accent} /> : null}
-                  </View>
-                </View>
-                <Text style={styles.freqSub}>
-                  {controller.hasFrequencyHistory ? controller.freqDisplay.subtitle : controller.frequencyLoading ? "Checking history..." : "No history yet"}
-                </Text>
-
-                {controller.frequencyLoading ? (
-                  <View style={styles.freqEmptyState}>
-                    <ActivityIndicator size="small" color={T.accent} />
-                    <Text style={styles.freqEmptyText}>Checking payment history...</Text>
-                  </View>
-                ) : controller.hasFrequencyHistory ? (
-                  <View style={styles.sparkWrap}>
-                    <Svg width={controller.spark.w} height={controller.spark.h}>
-                      {controller.spark.lastKnownIndex >= 1 ? (
-                        <Polyline
-                          points={controller.spark.polylinePoints}
-                          fill="none"
-                          stroke={T.accent}
-                          strokeWidth={2.5}
-                          strokeLinejoin="round"
-                          strokeLinecap="round"
-                        />
-                      ) : null}
-
-                      {controller.freqDisplay.points.map((point, index) => {
-                        const { x, y } = controller.spark.toXY(index);
-                        const ratio = Math.max(0, Math.min(1, Number(point.ratio) || 0));
-                        const dot = (() => {
-                          switch (point.status) {
-                            case "paid":
-                              return { fill: T.green, stroke: "rgba(255,255,255,0.55)" };
-                            case "partial":
-                              return { fill: T.orange, stroke: "rgba(255,255,255,0.55)" };
-                            case "unpaid":
-                              return { fill: T.red, stroke: "rgba(255,255,255,0.55)" };
-                            case "missed":
-                              return { fill: "rgba(255,255,255,0.06)", stroke: T.red };
-                            case "upcoming":
-                              return { fill: T.border, stroke: "rgba(255,255,255,0.18)" };
-                            default:
-                              return { fill: point.present ? (ratio >= 0.999 ? T.green : ratio > 0 ? T.orange : T.red) : T.border, stroke: "rgba(255,255,255,0.18)" };
-                          }
-                        })();
-                        return (
-                          <Circle
-                            key={point.key}
-                            cx={x}
-                            cy={y}
-                            r={point.present ? 4 : point.status === "missed" ? 3.75 : 3.5}
-                            fill={dot.fill}
-                            stroke={dot.stroke}
-                            strokeWidth={1.5}
-                          />
-                        );
-                      })}
-                    </Svg>
-
-                    <View style={styles.sparkLabels}>
-                      {controller.freqDisplay.points.map((point) => (
-                        <Text key={`${point.key}-lbl`} style={styles.sparkLbl}>{point.label}</Text>
-                      ))}
-                    </View>
-
-                    <View style={styles.sparkStatuses}>
-                      {controller.freqDisplay.points.map((point) => {
-                        const color = point.status === "paid"
-                          ? T.green
-                          : point.status === "partial"
-                            ? T.orange
-                            : point.status === "unpaid" || point.status === "missed"
-                              ? T.red
-                              : T.textMuted;
-                        return (
-                          <Text key={`${point.key}-st`} style={[styles.sparkStatus, { color }]}> 
-                            {statusLabel(point.status)}
-                          </Text>
-                        );
-                      })}
-                    </View>
-                  </View>
-                ) : (
-                  <View style={styles.freqEmptyState}>
-                    <Text style={styles.freqEmptyText}>No history yet — once this expense appears in another month, frequency will show here.</Text>
-                  </View>
-                )}
-              </View>
-            ) : null}
 
             <View style={styles.aiCard}>
               <View style={styles.aiTitleRow}>

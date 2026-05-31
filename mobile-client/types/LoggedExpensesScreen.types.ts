@@ -11,10 +11,12 @@ export type LoggedExpensesControllerState = {
   categoryName?: string;
   color: string | null;
   currency: string;
+  deletingExpenseId: string | null;
   error: string | null;
   items: Expense[];
   loading: boolean;
   month: number;
+  onDeleteItem: (item: Expense) => void;
   onPressItem: (item: Expense) => void;
   onRefresh: () => void;
   periodLabel: string;

@@ -43,7 +43,12 @@ function parseAnchor(monthValue: unknown, yearValue: unknown): ExpensePeriodAnch
 }
 
 function parseString(value: unknown): string | null {
-  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const lowered = trimmed.toLowerCase();
+  if (lowered === "null" || lowered === "undefined") return null;
+  return trimmed;
 }
 
 function buildResolvedState(state: SharedExpensePeriodRouteState) {

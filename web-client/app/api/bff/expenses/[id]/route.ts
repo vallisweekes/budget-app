@@ -11,7 +11,7 @@ import { buildPaymentMadeActivity } from "@/lib/push/activityMessages";
 import { sendUserPush } from "@/lib/push/sendUserPush";
 import { MONTHS } from "@/lib/constants/time";
 import { normalizeFundingSource } from "@/lib/financial-engine";
-import { isLoanLikeDebtType, toClientExpenseFundingSource } from "@/lib/expenses/paymentSource";
+import { isCreditLikeDebtType, isLoanLikeDebtType, toClientExpenseFundingSource } from "@/lib/expenses/paymentSource";
 import { syncExpensePaymentsToPaidAmount } from "@/lib/expenses/paymentSync";
 import { getExpensePeriodKey, resolvePayDate } from "@/lib/helpers/periodKey";
 import { bestEffortWithin } from "@/lib/bestEffortWithin";
@@ -52,6 +52,18 @@ function decimalToString(value: unknown): string {
     return (value as { toString: () => string }).toString();
   }
   return "0";
+}
+
+function decimalToNumber(value: unknown): number {
+  if (typeof value === "number") return value;
+  if (typeof value === "string") return Number(value);
+  if (value && typeof (value as { toNumber?: () => number }).toNumber === "function") {
+    return Number((value as { toNumber: () => number }).toNumber());
+  }
+  if (value && typeof (value as { toString?: () => string }).toString === "function") {
+    return Number((value as { toString: () => string }).toString());
+  }
+  return Number(value);
 }
 
 function parseDueDateInput(value: unknown): { value: Date | null | undefined; invalid: boolean } {
@@ -871,6 +883,7 @@ export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: stri
 		return NextResponse.json({ error: "Not found" }, { status: 404 });
 	}
 
+  let idsToDelete: string[];
   if (deleteScope === "future") {
     const existingSeriesKey = typeof existing.seriesKey === "string" && existing.seriesKey.trim() ? existing.seriesKey.trim() : null;
     const stableSeriesKey = normalizeSeriesKey(existingSeriesKey ?? existing.merchantDomain ?? existing.name);
@@ -901,11 +914,124 @@ export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: stri
       select: { id: true },
     });
 
-    const ids = Array.from(new Set([existing.id, ...futureMatches.map((row) => row.id)]));
-    await prisma.expense.deleteMany({ where: { budgetPlanId: existing.budgetPlanId, id: { in: ids } } });
+    idsToDelete = Array.from(new Set([existing.id, ...futureMatches.map((row) => row.id)]));
   } else {
-    await prisma.expense.delete({ where: { id } }).catch(() => null);
+    idsToDelete = [existing.id];
   }
+
+  await prisma.$transaction(async (tx) => {
+    const expenseRows = await tx.expense.findMany({
+      where: { budgetPlanId: existing.budgetPlanId, id: { in: idsToDelete } },
+      select: {
+        id: true,
+        cardDebtId: true,
+        isExtraLoggedExpense: true,
+      },
+    });
+
+    const loggedExpenseById = new Map(
+      expenseRows
+        .filter((row) => Boolean(row.isExtraLoggedExpense ?? false))
+        .map((row) => [row.id, row] as const),
+    );
+
+    if (loggedExpenseById.size > 0) {
+      const payments = await tx.expensePayment.findMany({
+        where: { expenseId: { in: Array.from(loggedExpenseById.keys()) } },
+        select: {
+          expenseId: true,
+          amount: true,
+          source: true,
+          debtId: true,
+        },
+      });
+
+      let savingsRefund = 0;
+      let emergencyRefund = 0;
+      const debtBalanceRollbackById = new Map<string, number>();
+
+      for (const payment of payments) {
+        const loggedExpense = loggedExpenseById.get(payment.expenseId);
+        if (!loggedExpense) continue;
+
+        const amount = Math.max(0, decimalToNumber(payment.amount));
+        if (!(amount > 0)) continue;
+
+        if (payment.source === "savings") {
+          savingsRefund += amount;
+          continue;
+        }
+
+        if (payment.source === "emergency") {
+          emergencyRefund += amount;
+          continue;
+        }
+
+        if (payment.source === "credit_card") {
+          const debtId = String(loggedExpense.cardDebtId ?? payment.debtId ?? "").trim();
+          if (!debtId) continue;
+          debtBalanceRollbackById.set(debtId, (debtBalanceRollbackById.get(debtId) ?? 0) + amount);
+          continue;
+        }
+
+        if (payment.source === "extra_untracked") {
+          const debtId = String(payment.debtId ?? loggedExpense.cardDebtId ?? "").trim();
+          if (!debtId) continue;
+          debtBalanceRollbackById.set(debtId, (debtBalanceRollbackById.get(debtId) ?? 0) + amount);
+        }
+      }
+
+      if (savingsRefund > 0 || emergencyRefund > 0) {
+        const plan = await tx.budgetPlan.findUnique({
+          where: { id: existing.budgetPlanId },
+          select: { id: true, savingsBalance: true, emergencyBalance: true },
+        });
+
+        if (plan) {
+          const nextSavings = savingsRefund > 0
+            ? Math.max(0, decimalToNumber(plan.savingsBalance) + savingsRefund)
+            : null;
+          const nextEmergency = emergencyRefund > 0
+            ? Math.max(0, decimalToNumber(plan.emergencyBalance) + emergencyRefund)
+            : null;
+
+          await tx.budgetPlan.update({
+            where: { id: plan.id },
+            data: {
+              ...(nextSavings == null ? {} : { savingsBalance: String(nextSavings) }),
+              ...(nextEmergency == null ? {} : { emergencyBalance: String(nextEmergency) }),
+            },
+          });
+        }
+      }
+
+      if (debtBalanceRollbackById.size > 0) {
+        const debtIds = Array.from(debtBalanceRollbackById.keys());
+        const debts = await tx.debt.findMany({
+          where: { id: { in: debtIds }, budgetPlanId: existing.budgetPlanId, sourceType: null },
+          select: { id: true, type: true, currentBalance: true },
+        });
+
+        for (const debt of debts) {
+          const rollbackAmount = debtBalanceRollbackById.get(debt.id) ?? 0;
+          if (!(rollbackAmount > 0)) continue;
+          if (!isCreditLikeDebtType(debt.type) && !isLoanLikeDebtType(debt.type)) continue;
+
+          const nextBalance = Math.max(0, decimalToNumber(debt.currentBalance) - rollbackAmount);
+          await tx.debt.update({
+            where: { id: debt.id },
+            data: {
+              currentBalance: String(nextBalance),
+              paid: nextBalance === 0,
+            },
+          });
+        }
+      }
+    }
+
+    await tx.expense.deleteMany({ where: { budgetPlanId: existing.budgetPlanId, id: { in: idsToDelete } } });
+  });
+
   void bestEffortWithin(
     invalidateDashboardCache(existing.budgetPlanId).catch(() => undefined),
     250,

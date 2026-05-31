@@ -37,7 +37,9 @@ export default function LoggedExpensesScreen({ route, navigation }: LoggedExpens
             categoryColor={controller.categoryColor}
             categoryName={controller.categoryName}
             currency={controller.currency}
+            deleting={controller.deletingExpenseId === item.id}
             item={item}
+            onDelete={controller.onDeleteItem}
             onPress={controller.onPressItem}
           />
         )}

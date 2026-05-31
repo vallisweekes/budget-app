@@ -4,6 +4,7 @@ import { useSwipeDownToClose } from "@/hooks";
 
 import { apiFetch } from "@/lib/api";
 import { NEW_LOAN_SENTINEL } from "@/lib/constants";
+import { upsertCachedPayPeriodExpense } from "@/lib/expensePeriodCache";
 import {
   getExpenseFundingOptions,
   getExpenseFundingSelectionKey,
@@ -273,7 +274,11 @@ function useUnplannedExpenseScreenControllerImpl(params: {
         }
       }
 
-      await createExpense(body).unwrap();
+      const created = await createExpense(body).unwrap();
+      upsertCachedPayPeriodExpense(
+        { budgetPlanId, month, year },
+        created,
+      );
       onSuccess();
     } catch (error) {
       setSubmitError(getMobileApiErrorMessage(error, "Failed to log expense. Try again."));

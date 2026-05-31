@@ -85,6 +85,7 @@ export function useExpenseDetailScreenController({ route, navigation }: Props): 
   const [, setFrequencyResolved] = useState(false);
   const [tipIndex, setTipIndex] = useState(0);
   const [today, setToday] = useState(() => new Date());
+  const shouldShowFrequencyCard = false;
 
   const load = useCallback(async (options?: { force?: boolean }) => {
     const force = Boolean(options?.force);
@@ -177,7 +178,7 @@ export function useExpenseDetailScreenController({ route, navigation }: Props): 
   }), [month, settings?.payAnchorDate, settings?.payDate, settings?.payFrequency, year]);
 
   useEffect(() => {
-    if (!expense) {
+    if (!expense || !shouldShowFrequencyCard) {
       setFrequency(null);
       setFrequencyLoading(false);
       setFrequencyResolved(true);
@@ -207,7 +208,7 @@ export function useExpenseDetailScreenController({ route, navigation }: Props): 
     return () => {
       cancelled = true;
     };
-  }, [expense]);
+  }, [expense, shouldShowFrequencyCard]);
 
   const missedBefore = useMemo(() => {
     const points = frequency?.points ?? [];
@@ -503,7 +504,7 @@ export function useExpenseDetailScreenController({ route, navigation }: Props): 
     paymentEditGraceDays: PAYMENT_EDIT_GRACE_DAYS,
     refreshing,
     remainingNum,
-    shouldShowFrequencyCard: true,
+    shouldShowFrequencyCard,
     shouldShowStatusGraceNote,
     showBottomActions: expense ? !isPaid : false,
     showDeleteScopeChoices: shouldOfferFutureDeleteScope,
