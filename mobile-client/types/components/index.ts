@@ -1,6 +1,7 @@
 export * from "./BudgetDonutCard.types";
 export * from "./BudgetProgress.types";
 export * from "./AnalyticsDebtDistributionCard.types";
+export * from "./AnalyticsNetWorthCard.types";
 export * from "./AnalyticsOverviewCard.types";
 export * from "./DebtScreen.types";
 export * from "./CategorySpendingChart.types";

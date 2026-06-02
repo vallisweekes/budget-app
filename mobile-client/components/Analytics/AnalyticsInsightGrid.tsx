@@ -1,5 +1,5 @@
 import React from "react";
-import { Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { useAppTranslation } from "@/hooks";
@@ -7,7 +7,12 @@ import { analyticsStyles as s } from "@/components/AnalyticsScreen/style";
 import { T } from "@/lib/theme";
 import type { AnalyticsInsightRow } from "@/types/AnalyticsScreen.types";
 
-export default function AnalyticsInsightGrid({ rows }: { rows: AnalyticsInsightRow[] }) {
+type AnalyticsInsightGridProps = {
+  rows: AnalyticsInsightRow[];
+  onPressDebtCard?: () => void;
+};
+
+export default function AnalyticsInsightGrid({ rows, onPressDebtCard }: AnalyticsInsightGridProps) {
   const { t } = useAppTranslation();
   const variants: Record<string, { icon: keyof typeof Ionicons.glyphMap; tone: string; chip: string }> = {
     income: { icon: "cash-outline", tone: "#3b99ff", chip: t("analytics.insight.cashIn") },
@@ -19,11 +24,12 @@ export default function AnalyticsInsightGrid({ rows }: { rows: AnalyticsInsightR
   return (
     <View style={s.grid}>
       {rows.map((row) => {
-        const variant = variants[(row.variantKey ?? row.label).toLowerCase()] ?? { icon: "analytics-outline", tone: T.accent, chip: t("analytics.insight.snapshot") };
-        return (
-          <View key={`${row.variantKey ?? row.label}-${row.value}`} style={s.card}>
-            <View style={[s.cardGlow, { backgroundColor: `${variant.tone}22` }]} />
-            <View style={[s.cardGlowSecondary, { backgroundColor: `${variant.tone}12` }]} />
+        const variantKey = (row.variantKey ?? row.label).toLowerCase();
+        const variant = variants[variantKey] ?? { icon: "analytics-outline", tone: T.accent, chip: t("analytics.insight.snapshot") };
+        const isDebtCard = variantKey === "debt";
+
+        const cardContent = (
+          <>
             <View style={s.cardTopRow}>
               <View style={[s.cardIconWrap, { backgroundColor: `${variant.tone}14`, borderColor: `${variant.tone}38` }]}>
                 <Ionicons name={variant.icon} size={18} color={variant.tone} />
@@ -36,6 +42,26 @@ export default function AnalyticsInsightGrid({ rows }: { rows: AnalyticsInsightR
             <Text style={s.cardValue}>{row.value}</Text>
             <Text style={s.cardSub}>{row.sub}</Text>
             <View style={[s.cardAccentLine, { backgroundColor: variant.tone }]} />
+          </>
+        );
+
+        if (isDebtCard && onPressDebtCard) {
+          return (
+            <Pressable
+              key={`${row.variantKey ?? row.label}-${row.value}`}
+              onPress={onPressDebtCard}
+              style={({ pressed }) => [s.card, pressed && { opacity: 0.92 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Open debt distribution"
+            >
+              {cardContent}
+            </Pressable>
+          );
+        }
+
+        return (
+          <View key={`${row.variantKey ?? row.label}-${row.value}`} style={s.card}>
+            {cardContent}
           </View>
         );
       })}

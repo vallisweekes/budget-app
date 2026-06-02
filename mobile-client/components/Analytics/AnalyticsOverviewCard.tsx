@@ -88,14 +88,6 @@ export default function AnalyticsOverviewCard({
 
   return (
     <View style={s.overviewHero}>
-      <View style={s.overviewHeroHead}>
-        <View>
-          <Text style={s.sectionEyebrow}>{t("analytics.overview.eyebrow")}</Text>
-          <Text style={s.overviewHeroTitle}>{t("analytics.overview.title")}</Text>
-        </View>
-        <Text style={s.overviewModeBadge}>{overviewMode === "year" ? t("analytics.overview.yearlyView") : t("analytics.overview.snapshot", { period: currentMonthLabel })}</Text>
-      </View>
-
       <View
         style={s.overviewFlatChartWrap}
         onLayout={(event) => {

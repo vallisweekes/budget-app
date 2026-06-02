@@ -66,6 +66,8 @@ export default function TabRouteHeader() {
   const tabSegment = rootSegment === "(tabs)" && typeof segments[1] === "string" ? segments[1] : "";
   const leafSegment = rootSegment === "(tabs)" && typeof segments[2] === "string" ? segments[2] : "";
   const isAnalytics = rootSegment === "analytics";
+  const isAnalyticsDebtDistribution = rootSegment === "analytics-debt-distribution";
+  const isAnalyticsRoute = isAnalytics || isAnalyticsDebtDistribution;
   const isSettings = rootSegment === "settings";
   const isSettingsProfileDetails = rootSegment === "settings-profile-details";
   const isSettingsIncomeSettings = rootSegment === "settings-income-settings";
@@ -186,6 +188,8 @@ export default function TabRouteHeader() {
               ? t("settings.strategyTitle")
             : isSettingsDebtManagement
               ? t("settings.debtManagementTitle")
+            : isAnalyticsDebtDistribution
+              ? t("analytics.debt.distributionTitle")
             : isAnalytics
               ? t("analytics.title")
               : isSettings && settingsSubTab === "savings"
@@ -348,6 +352,11 @@ export default function TabRouteHeader() {
       return;
     }
 
+    if (isAnalyticsDebtDistribution) {
+      replaceRoute("/analytics");
+      return;
+    }
+
     if (isSettings) {
       if (settingsSubTab !== "details") {
         replaceRoute("/settings", { subTab: "details" });
@@ -469,13 +478,13 @@ export default function TabRouteHeader() {
 
   return (
     <TopHeader
-      variant={isAnalytics ? "analytics" : "default"}
+      variant={isAnalyticsRoute ? "analytics" : "default"}
       onSettings={() => pushRoute("/settings")}
       onIncome={() => {}}
       onAnalytics={openAnalytics}
       onHelp={() => pushRoute("/help")}
       onNotifications={() => pushRoute("/settings", { initialTab: "notifications" })}
-      leftVariant={isStandaloneSacrificeIncomeMonth || isAnalytics || isSettings || isSettingsProfileDetails || isSettingsIncomeSettings || isSettingsStrategy || isSettingsDebtManagement || isGoalDetail || isGoalsProjection || isCategoryExpenses || isLoggedExpenses || isUnplannedExpense || isScanReceipt || isAnyDebtAnalytics ? "back" : "avatar"}
+      leftVariant={isStandaloneSacrificeIncomeMonth || isAnalyticsRoute || isSettings || isSettingsProfileDetails || isSettingsIncomeSettings || isSettingsStrategy || isSettingsDebtManagement || isGoalDetail || isGoalsProjection || isCategoryExpenses || isLoggedExpenses || isUnplannedExpense || isScanReceipt || isAnyDebtAnalytics ? "back" : "avatar"}
       onBack={handleBack}
       centerLabel={centerLabel}
       centerContent={incomeMonthSwitcher}
@@ -483,8 +492,8 @@ export default function TabRouteHeader() {
       showIncomeAction={false}
       showHelpAction={isDashboardHome || isExpensesList}
       compactActionsMenu={isSettings || isSettingsProfileDetails || isSettingsIncomeSettings || isSettingsStrategy || isSettingsDebtManagement}
-      showAnalyticsAction={!isSettings && !isSettingsProfileDetails && !isSettingsIncomeSettings && !isSettingsStrategy && !isSettingsDebtManagement && !isAnalytics && !isGoalDetail && !isDebtSplitSection && !isUnplannedExpense}
-      showNotificationAction={!isSettings && !isSettingsProfileDetails && !isSettingsIncomeSettings && !isSettingsStrategy && !isSettingsDebtManagement && !isAnalytics}
+      showAnalyticsAction={!isSettings && !isSettingsProfileDetails && !isSettingsIncomeSettings && !isSettingsStrategy && !isSettingsDebtManagement && !isAnalyticsRoute && !isGoalDetail && !isDebtSplitSection && !isUnplannedExpense}
+      showNotificationAction={!isSettings && !isSettingsProfileDetails && !isSettingsIncomeSettings && !isSettingsStrategy && !isSettingsDebtManagement && !isAnalyticsRoute}
       onLogout={isSettings && !isSettingsNotifications ? signOut : undefined}
     />
   );

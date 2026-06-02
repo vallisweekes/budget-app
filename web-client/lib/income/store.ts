@@ -202,13 +202,20 @@ export async function upsertIncomeForAnchorMonth(params: {
 
 function pickIncomeRowForAnchor<T extends { name: string; year: number; month: number; periodKey: string | null; updatedAt: Date; createdAt: Date }>(
   rows: T[],
-  params: { year: number; month: number; canonicalPeriodKey: string }
+  params: { year: number; month: number; canonicalPeriodKey: string; legacyPeriodKey?: string | null }
 ): T | null {
   if (!rows || rows.length === 0) return null;
 
   const canonicalRows = rows.filter((row) => row.periodKey === params.canonicalPeriodKey);
   if (canonicalRows.length > 0) {
     return pickCanonicalIncomeRow(canonicalRows);
+  }
+
+  if (params.legacyPeriodKey) {
+    const legacyRows = rows.filter((row) => row.periodKey === params.legacyPeriodKey);
+    if (legacyRows.length > 0) {
+      return pickCanonicalIncomeRow(legacyRows);
+    }
   }
 
   const monthRows = rows.filter((row) => row.year === params.year && row.month === params.month);
@@ -282,8 +289,40 @@ export async function getAllIncome(budgetPlanId: string, year?: number): Promise
 		return empty;
 	}
 
+  const periodMetaByMonth = new Map<number, { canonicalPeriodKey: string; legacyPeriodKey: string | null }>();
+  const periodKeysForYear = new Set<string>();
+  for (let monthNumber = 1; monthNumber <= 12; monthNumber += 1) {
+    const canonicalPeriodKey = getIncomePeriodKey(
+      { year: resolvedYear, month: monthNumber },
+      payDate,
+      payFrequency,
+      payAnchorDate,
+    );
+    const legacyPeriodKey = payFrequency === "monthly"
+      ? getLegacyIncomePeriodKey({ year: resolvedYear, month: monthNumber }, payDate)
+      : null;
+
+    periodMetaByMonth.set(monthNumber, { canonicalPeriodKey, legacyPeriodKey });
+    periodKeysForYear.add(canonicalPeriodKey);
+    if (legacyPeriodKey) periodKeysForYear.add(legacyPeriodKey);
+  }
+
+  const periodKeyToMonthNumber = new Map<string, number>();
+  for (const [monthNumber, keys] of periodMetaByMonth.entries()) {
+    periodKeyToMonthNumber.set(keys.canonicalPeriodKey, monthNumber);
+    if (keys.legacyPeriodKey) {
+      periodKeyToMonthNumber.set(keys.legacyPeriodKey, monthNumber);
+    }
+  }
+
   const rows = await prisma.income.findMany({
-    where: { budgetPlanId, year: resolvedYear },
+    where: {
+      budgetPlanId,
+      OR: [
+        { year: resolvedYear },
+        { periodKey: { in: Array.from(periodKeysForYear) } },
+      ],
+    },
     orderBy: [{ month: "asc" }, { updatedAt: "asc" }, { createdAt: "asc" }],
     select: { id: true, name: true, amount: true, month: true, year: true, periodKey: true, createdAt: true, updatedAt: true },
   });
@@ -292,11 +331,17 @@ export async function getAllIncome(budgetPlanId: string, year?: number): Promise
     MONTHS.map((m) => [m, new Map()])
   );
   for (const row of rows) {
-		if (scope && resolvedYear === scope.eventYear && row.month > scope.eventMonth) {
+    const mappedMonth = row.periodKey ? periodKeyToMonthNumber.get(row.periodKey) : null;
+    const rowMonth = mappedMonth ?? (row.year === resolvedYear ? row.month : null);
+    if (!rowMonth || rowMonth < 1 || rowMonth > 12) {
+      continue;
+    }
+
+    if (scope && resolvedYear === scope.eventYear && rowMonth > scope.eventMonth) {
 			// Ignore income after the event month.
 			continue;
 		}
-    const monthKey = monthNumberToKey(row.month);
+    const monthKey = monthNumberToKey(rowMonth as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12);
     const key = normalizeIncomeName(row.name);
     if (!key) continue;
     const monthMap = candidatesByMonth.get(monthKey);
@@ -323,12 +368,25 @@ export async function getAllIncome(budgetPlanId: string, year?: number): Promise
       empty[monthKey] = [];
       continue;
     }
-    const canonicalPeriodKey = payFrequency === "monthly" && payDate != null
-      ? getIncomePeriodKey({ year: resolvedYear, month: monthNumber }, payDate, payFrequency)
-      : null;
+    const monthPeriodMeta = periodMetaByMonth.get(monthNumber) ?? {
+      canonicalPeriodKey: getIncomePeriodKey(
+        { year: resolvedYear, month: monthNumber },
+        payDate,
+        payFrequency,
+        payAnchorDate,
+      ),
+      legacyPeriodKey: payFrequency === "monthly"
+        ? getLegacyIncomePeriodKey({ year: resolvedYear, month: monthNumber }, payDate)
+        : null,
+    };
     for (const list of monthMap.values()) {
-      const row = canonicalPeriodKey
-        ? pickIncomeRowForAnchor(list, { year: resolvedYear, month: monthNumber, canonicalPeriodKey })
+      const row = payFrequency === "monthly"
+        ? pickIncomeRowForAnchor(list, {
+          year: resolvedYear,
+          month: monthNumber,
+          canonicalPeriodKey: monthPeriodMeta.canonicalPeriodKey,
+          legacyPeriodKey: monthPeriodMeta.legacyPeriodKey,
+        })
         : pickCanonicalIncomeRow(list);
       if (!row) continue;
       chosen.push({ id: row.id, name: row.name, amount: decimalToNumber(row.amount) });
@@ -372,13 +430,19 @@ export async function getIncomeForAnchorMonth(params: {
   }
 
   const canonicalPeriodKey = getIncomePeriodKey({ year, month }, payDate, payFrequency, payAnchorDate);
+  const legacyPeriodKey = payFrequency === "monthly"
+    ? getLegacyIncomePeriodKey({ year, month }, payDate)
+    : null;
+  const periodKeyCandidates = legacyPeriodKey && legacyPeriodKey !== canonicalPeriodKey
+    ? [canonicalPeriodKey, legacyPeriodKey]
+    : [canonicalPeriodKey];
 
   const rows = await prisma.income.findMany({
     where: {
       budgetPlanId,
       OR: [
         { year, month },
-        { periodKey: canonicalPeriodKey },
+        ...periodKeyCandidates.map((periodKey) => ({ periodKey })),
       ],
     },
     orderBy: [{ updatedAt: "asc" }, { createdAt: "asc" }],
@@ -388,7 +452,7 @@ export async function getIncomeForAnchorMonth(params: {
   const chosenByName = new Map<string, Array<(typeof rows)[number]>>();
   for (const row of rows) {
     if (row.year !== year || row.month !== month) {
-      if (row.periodKey !== canonicalPeriodKey) continue;
+      if (!periodKeyCandidates.includes(row.periodKey ?? "")) continue;
     }
     const key = normalizeIncomeName(row.name);
     if (!key) continue;
@@ -400,7 +464,12 @@ export async function getIncomeForAnchorMonth(params: {
   const result: IncomeItem[] = [];
   for (const rowsForName of chosenByName.values()) {
     const row = payFrequency === "monthly"
-      ? pickIncomeRowForAnchor(rowsForName, { year, month, canonicalPeriodKey })
+      ? pickIncomeRowForAnchor(rowsForName, {
+        year,
+        month,
+        canonicalPeriodKey,
+        legacyPeriodKey,
+      })
       : pickCanonicalIncomeRow(rowsForName);
     if (!row) continue;
     result.push({ id: row.id, name: row.name, amount: decimalToNumber(row.amount) });

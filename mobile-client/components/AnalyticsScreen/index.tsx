@@ -1,10 +1,11 @@
 import React from "react";
 import { View, Text, ScrollView, Pressable, ActivityIndicator, RefreshControl } from "react-native";
+import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
-import AnalyticsDebtDistributionCard from "@/components/Analytics/AnalyticsDebtDistributionCard";
 import AnalyticsInsightGrid from "@/components/Analytics/AnalyticsInsightGrid";
+import AnalyticsNetWorthCard from "@/components/Analytics/AnalyticsNetWorthCard";
 import AnalyticsOverviewCard from "@/components/Analytics/AnalyticsOverviewCard";
 import AnalyticsTipsCard from "@/components/Analytics/AnalyticsTipsCard";
 import { useAnalyticsScreenController, useAppTranslation } from "@/hooks";
@@ -13,6 +14,7 @@ import type { AnalyticsOverviewMode, AnalyticsScreenProps } from "@/types";
 import { analyticsStyles as s } from "@/components/AnalyticsScreen/style";
 
 export default function AnalyticsScreen({ overviewMode }: AnalyticsScreenProps) {
+  const router = useRouter();
   const { t } = useAppTranslation();
   const initialMode: AnalyticsOverviewMode = overviewMode ?? "year";
   const [selectedMode, setSelectedMode] = React.useState<AnalyticsOverviewMode>(initialMode);
@@ -89,14 +91,26 @@ export default function AnalyticsScreen({ overviewMode }: AnalyticsScreenProps) 
             overviewMode={controller.overviewMode}
             overviewWrapWidth={controller.overviewWrapWidth}
           />
-          <AnalyticsInsightGrid rows={controller.insightRows} />
-          <AnalyticsTipsCard tips={controller.topTips} />
-          <AnalyticsDebtDistributionCard
+
+          <AnalyticsNetWorthCard
+            netWorth={controller.netWorth}
+            totalAssets={controller.totalAssets}
+            totalLiabilities={controller.totalLiabilities}
+            trendValues={controller.netWorthTrendValues}
+            trendLabels={controller.netWorthTrendLabels}
             currency={controller.currency}
-            items={controller.debtDistribution}
-            overviewMode={controller.overviewMode}
-            title={controller.debtDistributionTitle}
           />
+
+          <AnalyticsInsightGrid
+            rows={controller.insightRows}
+            onPressDebtCard={() => {
+              router.push({
+                pathname: "/analytics-debt-distribution",
+                params: { overviewMode: selectedMode },
+              });
+            }}
+          />
+          <AnalyticsTipsCard tips={controller.topTips} />
         </ScrollView>
       </View>
     </SafeAreaView>

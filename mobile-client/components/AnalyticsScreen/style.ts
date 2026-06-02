@@ -66,6 +66,203 @@ export const analyticsStyles = StyleSheet.create({
     color: T.text,
     fontWeight: "800",
   },
+  netWorthTrendCard: {
+    ...cardElevated,
+    borderRadius: 24,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 12,
+    gap: 8,
+    backgroundColor: "#12182b",
+    borderWidth: 1,
+    borderColor: "rgba(124,92,255,0.20)",
+  },
+  netWorthTrendHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  netWorthTrendEyebrow: {
+    color: T.textMuted,
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+  netWorthTrendStatusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  netWorthTrendStatusBadgeText: {
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  netWorthTrendValue: {
+    color: T.text,
+    fontSize: 28,
+    fontWeight: "700",
+    letterSpacing: -0.4,
+    lineHeight: 32,
+  },
+  netWorthTrendValuePositive: {
+    color: "#dfe9ff",
+  },
+  netWorthTrendValueNegative: {
+    color: "#f6f8ff",
+  },
+  netWorthTrendSubtitle: {
+    color: T.textDim,
+    fontSize: 13,
+    fontWeight: "700",
+    marginTop: -1,
+  },
+  netWorthTrendSplitTrack: {
+    marginTop: 6,
+    height: 9,
+    borderRadius: 999,
+    borderWidth: 0,
+    borderColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "rgba(255,255,255,0.04)",
+    flexDirection: "row",
+    overflow: "hidden",
+  },
+  netWorthTrendSplitAssets: {
+    backgroundColor: "rgba(84,218,173,0.88)",
+  },
+  netWorthTrendSplitLiabilities: {
+    backgroundColor: "rgba(255,127,127,0.78)",
+  },
+  netWorthTrendDeltaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 2,
+    flexWrap: "wrap",
+  },
+  netWorthTrendDeltaText: {
+    fontSize: 18,
+    fontWeight: "900",
+    letterSpacing: -0.2,
+  },
+  netWorthTrendDeltaTextPositive: {
+    color: "#47d7aa",
+  },
+  netWorthTrendDeltaTextNegative: {
+    color: "#ff9ca2",
+  },
+  netWorthTrendDeltaPercent: {
+    fontSize: 14,
+    fontWeight: "800",
+    letterSpacing: -0.1,
+  },
+  netWorthTrendDeltaPercentPositive: {
+    color: "#47d7aa",
+  },
+  netWorthTrendDeltaPercentNegative: {
+    color: "#ff9ca2",
+  },
+  netWorthTrendDeltaHint: {
+    color: T.textDim,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  netWorthTrendChartShell: {
+    marginTop: 5,
+    flexDirection: "row",
+    alignItems: "stretch",
+    gap: 10,
+  },
+  netWorthTrendYAxis: {
+    width: 68,
+    justifyContent: "space-between",
+    paddingTop: 8,
+    paddingBottom: 24,
+  },
+  netWorthTrendYAxisText: {
+    color: T.textMuted,
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  netWorthTrendAxisHidden: {
+    color: "transparent",
+    fontSize: 1,
+  },
+  netWorthTrendRangeRow: {
+    marginTop: 4,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 3,
+    flexWrap: "wrap",
+  },
+  netWorthTrendRangeChip: {
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+    backgroundColor: "rgba(255,255,255,0.03)",
+  },
+  netWorthTrendRangeChipActive: {
+    backgroundColor: "rgba(255,255,255,0.14)",
+    borderColor: "rgba(255,255,255,0.26)",
+  },
+  netWorthTrendRangeChipText: {
+    color: T.textDim,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  netWorthTrendRangeChipTextActive: {
+    color: T.text,
+  },
+  netWorthTrendMetaRow: {
+    marginTop: 3,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flexWrap: "wrap",
+  },
+  netWorthTrendMetaText: {
+    color: T.textDim,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  netWorthTrendMetaTextAssets: {
+    color: "#6ee4bd",
+  },
+  netWorthTrendMetaTextLiabilities: {
+    color: "#ff9da3",
+  },
+  netWorthTrendMetaDot: {
+    color: T.textMuted,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  netWorthTrendSignalsRow: {
+    marginTop: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    flexWrap: "wrap",
+  },
+  netWorthTrendSignalText: {
+    color: T.textMuted,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  netWorthTrendSignalTextAssets: {
+    color: "#6ee4bd",
+  },
+  netWorthTrendSignalTextLiabilities: {
+    color: "#ff9da3",
+  },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   overviewHero: {
     position: "relative",

@@ -44,6 +44,11 @@ export type AnalyticsScreenControllerState = {
   chartWidth: number;
   currency: string;
   currentMonthLabel: string;
+  netWorth: number;
+  totalAssets: number;
+  totalLiabilities: number;
+  netWorthTrendValues: number[];
+  netWorthTrendLabels: string[];
   debtDistribution: AnalyticsDebtDistributionItem[];
   debtDistributionTitle: string;
   error: string | null;

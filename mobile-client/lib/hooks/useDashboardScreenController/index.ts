@@ -170,7 +170,12 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
   const effectiveDisplayedAnchor = null;
 
   const derived = useMemo(
-    () => buildDashboardDerived({ dashboard: resolvedDashboard, settings, categorySheet, displayedAnchor: effectiveDisplayedAnchor }),
+    () => buildDashboardDerived({
+      dashboard: resolvedDashboard,
+      settings,
+      categorySheet,
+      displayedAnchor: effectiveDisplayedAnchor,
+    }),
     [categorySheet, effectiveDisplayedAnchor, resolvedDashboard, settings]
   );
 

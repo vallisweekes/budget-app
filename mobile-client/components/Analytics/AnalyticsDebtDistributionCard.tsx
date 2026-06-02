@@ -10,7 +10,6 @@ export default function AnalyticsDebtDistributionCard({ currency, items, overvie
   const { t } = useAppTranslation();
   return (
     <View style={s.tipCard}>
-      <View style={[s.sectionGlow, s.debtGlowPrimary]} />
       <View style={s.sectionHead}>
         <View>
           <Text style={s.sectionEyebrow}>{t("analytics.debt.eyebrow")}</Text>

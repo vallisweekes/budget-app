@@ -1,44 +1,17 @@
 import React from "react";
-import { Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 
-import { useAppTranslation } from "@/hooks";
-import { T } from "@/lib/theme";
-import { analyticsStyles as s } from "@/components/AnalyticsScreen/style";
+import DashboardAiTipsCard from "@/components/DashboardScreen/DashboardAiTipsCard";
 import type { AnalyticsTopTip } from "@/types/AnalyticsScreen.types";
 
 export default function AnalyticsTipsCard({ tips }: { tips: AnalyticsTopTip[] }) {
-  const { t } = useAppTranslation();
-  return (
-    <View style={s.tipCard}>
-      <View style={[s.sectionGlow, s.tipsGlowPrimary]} />
-      <View style={s.sectionHead}>
-        <View>
-          <Text style={s.sectionEyebrow}>{t("analytics.tips.eyebrow")}</Text>
-          <Text style={s.tipTitle}>{t("analytics.tips.title")}</Text>
-        </View>
-        <View style={s.sectionBadge}>
-          <Text style={s.sectionBadgeText}>{t("analytics.tips.notes", { count: tips.length })}</Text>
-        </View>
-      </View>
-      {tips.length === 0 ? (
-        <Text style={s.tipText}>{t("analytics.tips.empty")}</Text>
-      ) : (
-        tips.map((tip, idx) => (
-          <View key={`${tip.title}-${idx}`} style={[s.tipRow, idx > 0 && s.tipRowBorder]}>
-            <View style={s.tipIconWrap}>
-              <Ionicons name="sparkles-outline" size={14} color={T.accent} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <View style={s.tipTitleRow}>
-                <Text style={s.tipRowTitle}>{tip.title}</Text>
-                {Number(tip.priority ?? 0) >= 80 ? <Text style={s.priorityBadge}>{t("dashboard.aiTipHighPriority")}</Text> : null}
-              </View>
-              <Text style={s.tipText}>{tip.detail}</Text>
-            </View>
-          </View>
-        ))
-      )}
-    </View>
+  const normalizedTips = React.useMemo(
+    () => tips.map((tip) => ({
+      title: String(tip?.title ?? ""),
+      detail: String(tip?.detail ?? ""),
+      priority: Number(tip?.priority ?? 0),
+    })),
+    [tips],
   );
+
+  return <DashboardAiTipsCard tips={normalizedTips} />;
 }

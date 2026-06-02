@@ -207,8 +207,6 @@ export default function DashboardScreen(props: DashboardScreenProps) {
           onSeeAll={controller.goToPayments}
         />
 
-        <DashboardAiTipsCard tips={controller.dashboardTips} />
-
         <DashboardUpcomingDebtsSection
           items={controller.upcomingDebts}
           currency={controller.currency}
@@ -235,6 +233,8 @@ export default function DashboardScreen(props: DashboardScreenProps) {
           onPressAddGoal={controller.goToGoalsAdd}
           onPressProjection={controller.goToGoalsProjection}
         />
+
+        <DashboardAiTipsCard tips={controller.dashboardTips} />
       </ScrollView>
     </SafeAreaView>
   );

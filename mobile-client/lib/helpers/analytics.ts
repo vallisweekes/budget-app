@@ -81,7 +81,14 @@ export function buildAnalyticsInsightRows(
   const monthlyDebt = input.debt?.totalMonthlyDebtPayments ?? 0;
   const monthsWithIncome = input.income?.monthsWithIncome ?? 0;
   const monthsWithSpend = input.expensesByMonth.filter((value) => value > 0).length;
-  const activeDebts = input.debt?.activeCount ?? 0;
+  const activeDebts = Math.max(
+    input.debt?.activeCount ?? 0,
+    (input.debt?.debts ?? []).filter((item) => Number(item.currentBalance ?? 0) > 0).length,
+  );
+  const totalDebtBalance = Math.max(
+    input.debt?.totalDebtBalance ?? 0,
+    (input.debt?.debts ?? []).reduce((sum, item) => sum + Math.max(0, Number(item.currentBalance ?? 0)), 0),
+  );
   const { t } = options;
 
   if (input.overviewMode === "month") {
@@ -99,7 +106,7 @@ export function buildAnalyticsInsightRows(
   return [
     { variantKey: "income", label: t("analytics.label.income"), value: fmt(input.annualIncomeTotal, input.currency), sub: t("analytics.sub.monthsFunded", { count: monthsWithIncome }) },
     { variantKey: "expenses", label: t("analytics.label.expenses"), value: fmt(input.annualExpenseTotal, input.currency), sub: t("analytics.sub.monthsWithSpend", { count: monthsWithSpend }) },
-    { variantKey: "debt", label: t("analytics.label.debt"), value: fmt(input.debt?.totalDebtBalance ?? 0, input.currency), sub: t("analytics.sub.activeDebts", { count: activeDebts }) },
+    { variantKey: "debt", label: t("analytics.label.debt"), value: fmt(totalDebtBalance, input.currency), sub: t("analytics.sub.activeDebts", { count: activeDebts }) },
     { variantKey: "debt load", label: t("analytics.label.debtLoad"), value: `${debtLoadPct}%`, sub: t("analytics.sub.perYear", { amount: fmt(input.annualDebtService, input.currency) }) },
   ];
 }

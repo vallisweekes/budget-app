@@ -101,3 +101,10 @@ export type DashboardUpcomingExpensesSectionProps = {
   onOpenQuickPay: (expense: UpcomingExpense) => void;
   onSeeAll: () => void;
 };
+
+export type DashboardNetWorthSectionProps = {
+  netWorth: number;
+  totalAssets: number;
+  totalLiabilities: number;
+  currency: string;
+};

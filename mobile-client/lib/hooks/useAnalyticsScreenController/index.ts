@@ -5,6 +5,7 @@ import { useWindowDimensions } from "react-native";
 
 import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { currencySymbol } from "@/lib/formatting";
+import { asMoneyNumber } from "@/lib/helpers/settings";
 import {
   buildAnalyticsChartData,
   buildAnalyticsInsightRows,
@@ -61,6 +62,31 @@ function buildDashboardDebtSummary(dashboard: NonNullable<ReturnType<typeof useB
   };
 }
 
+function getDebtSummaryStrength(summary: DebtSummaryData | null | undefined): {
+  balance: number;
+  activeCount: number;
+  debtCount: number;
+} {
+  if (!summary) {
+    return { balance: 0, activeCount: 0, debtCount: 0 };
+  }
+
+  const rowBalance = (summary.debts ?? []).reduce(
+    (sum, item) => sum + Math.max(0, Number(item.currentBalance ?? 0)),
+    0,
+  );
+  const rowActiveCount = (summary.debts ?? []).reduce(
+    (count, item) => count + (Number(item.currentBalance ?? 0) > 0 ? 1 : 0),
+    0,
+  );
+
+  return {
+    balance: Math.max(0, Number(summary.totalDebtBalance ?? 0), rowBalance),
+    activeCount: Math.max(0, Number(summary.activeCount ?? 0), rowActiveCount),
+    debtCount: summary.debts?.length ?? 0,
+  };
+}
+
 export function useAnalyticsScreenController(
   options?: { overviewMode?: AnalyticsOverviewMode }
 ): AnalyticsScreenControllerState {
@@ -82,7 +108,6 @@ export function useAnalyticsScreenController(
   const payDate = Number.isFinite(dashboard?.payDate) ? Number(dashboard?.payDate) : (settings?.payDate ?? 1);
   const payFrequency = normalizePayFrequency(dashboard?.payFrequency ?? settings?.payFrequency);
   const shouldLoadPayPeriodComparisonData = overviewMode === "month";
-  const shouldUseDashboardDebtSnapshot = overviewMode === "year" && Boolean(dashboard);
 
   const currentYearIncomeQuery = useGetIncomeSummaryQuery(activeAnchor.year);
   const previousYearIncomeQuery = useGetIncomeSummaryQuery(previousAnchor.year, {
@@ -107,13 +132,28 @@ export function useAnalyticsScreenController(
   });
 
   const income = currentYearIncomeQuery.data ?? null;
+  const dashboardDebtSummary = useMemo<DebtSummaryData | null>(() => {
+    if (!dashboard) return null;
+    return buildDashboardDebtSummary(dashboard);
+  }, [dashboard]);
   const debt = useMemo<DebtSummaryData | null>(() => {
-    if (shouldUseDashboardDebtSnapshot && dashboard) {
-      return buildDashboardDebtSummary(dashboard);
+    const apiDebt = debtQuery.data ?? null;
+    const dashboardDebt = dashboardDebtSummary;
+
+    if (apiDebt && dashboardDebt) {
+      const apiStrength = getDebtSummaryStrength(apiDebt);
+      const dashboardStrength = getDebtSummaryStrength(dashboardDebt);
+
+      const preferApi =
+        apiStrength.balance >= dashboardStrength.balance
+        || apiStrength.activeCount >= dashboardStrength.activeCount
+        || apiStrength.debtCount >= dashboardStrength.debtCount;
+
+      return preferApi ? apiDebt : dashboardDebt;
     }
 
-    return debtQuery.data ?? null;
-  }, [dashboard, debtQuery.data, shouldUseDashboardDebtSnapshot]);
+    return apiDebt ?? dashboardDebt ?? null;
+  }, [dashboardDebtSummary, debtQuery.data]);
   const expensesByMonth = expenseSeriesQuery.data ?? Array(12).fill(0);
   const currentYearIncome = currentYearIncomeQuery.data ?? null;
   const previousYearIncome = previousAnchor.year === activeAnchor.year
@@ -125,7 +165,7 @@ export function useAnalyticsScreenController(
 
   const refreshAnalyticsQueries = useCallback(async () => {
     await Promise.all([
-      shouldUseDashboardDebtSnapshot ? Promise.resolve() : debtQuery.refetch(),
+      debtQuery.refetch(),
       currentYearIncomeQuery.refetch(),
       shouldLoadPayPeriodComparisonData && previousAnchor.year !== activeAnchor.year
         ? previousYearIncomeQuery.refetch()
@@ -134,7 +174,7 @@ export function useAnalyticsScreenController(
       shouldLoadPayPeriodComparisonData ? currentExpenseQuery.refetch() : Promise.resolve(),
       shouldLoadPayPeriodComparisonData ? previousExpenseQuery.refetch() : Promise.resolve(),
     ]);
-  }, [currentExpenseQuery, currentYearIncomeQuery, debtQuery, expenseSeriesQuery, previousAnchor.year, previousExpenseQuery, previousYearIncomeQuery, shouldLoadPayPeriodComparisonData, shouldUseDashboardDebtSnapshot]);
+  }, [activeAnchor.year, currentExpenseQuery, currentYearIncomeQuery, debtQuery, expenseSeriesQuery, previousAnchor.year, previousExpenseQuery, previousYearIncomeQuery, shouldLoadPayPeriodComparisonData]);
 
   useEffect(() => {
     if (!isFocused || !lastLoadedAt) {
@@ -298,8 +338,68 @@ export function useAnalyticsScreenController(
   }, [chartData.labels.length, chartWidth, overviewMode]);
   const debtDistribution = useMemo(() => buildDebtDistribution({ debt, overviewMode }), [debt, overviewMode]);
   const debtDistributionTitle = overviewMode === "year" ? t("analytics.debt.distributionTitle") : t("analytics.debt.dueDistributionTitle");
+  const totalAssets = Math.max(0, asMoneyNumber(settings?.savingsBalance))
+    + Math.max(0, asMoneyNumber(settings?.emergencyBalance))
+    + Math.max(0, asMoneyNumber(settings?.investmentBalance));
+  const liabilitiesFromDebtSummary = Math.max(0, Number(debtQuery.data?.totalDebtBalance ?? 0));
+  const liabilitiesFromDebtRows = (debtQuery.data?.debts ?? []).reduce(
+    (sum, item) => sum + Math.max(0, Number(item.currentBalance ?? 0)),
+    0,
+  );
+  const liabilitiesFromDashboardSummary = Math.max(0, Number(dashboard?.totalDebtBalance ?? 0));
+  const liabilitiesFromDashboardRows = (dashboard?.debts ?? []).reduce(
+    (sum, item) => sum + Math.max(0, Number(item.currentBalance ?? 0)),
+    0,
+  );
+  const totalLiabilities = Math.max(
+    liabilitiesFromDebtSummary,
+    liabilitiesFromDebtRows,
+    liabilitiesFromDashboardSummary,
+    liabilitiesFromDashboardRows,
+  );
+  const netWorth = totalAssets - totalLiabilities;
+  const stableMonthlyDebtService = useMemo(
+    () => Math.max(
+      0,
+      Number(debtQuery.data?.totalMonthlyDebtPayments ?? 0),
+      Number(dashboardDebtSummary?.totalMonthlyDebtPayments ?? 0),
+      Number(dashboard?.plannedDebtPayments ?? 0),
+    ),
+    [dashboard?.plannedDebtPayments, dashboardDebtSummary?.totalMonthlyDebtPayments, debtQuery.data?.totalMonthlyDebtPayments],
+  );
+  const netWorthTrendLabels = useMemo(() => {
+    const lastMonthIndex = Math.max(0, Math.min(11, activeAnchor.month - 1));
+    return Array.from(
+      { length: lastMonthIndex + 1 },
+      (_, index) => getAnalyticsMonthLabel(new Date(activeAnchor.year, index, 1), locale),
+    );
+  }, [activeAnchor.month, activeAnchor.year, locale]);
+  const netWorthTrendValues = useMemo(() => {
+    const lastMonthIndex = Math.max(0, Math.min(11, activeAnchor.month - 1));
+    const incomeByMonth = Array(12).fill(0);
+    (currentYearIncome?.months ?? []).forEach((month) => {
+      if (month.monthIndex >= 1 && month.monthIndex <= 12) {
+        incomeByMonth[month.monthIndex - 1] = month.total ?? 0;
+      }
+    });
+
+    const netFlows = Array.from({ length: lastMonthIndex + 1 }, (_, index) => (
+      Number(incomeByMonth[index] ?? 0)
+      - Number(expensesByMonth[index] ?? 0)
+      - stableMonthlyDebtService
+    ));
+
+    let rolling = 0;
+    const cumulative = netFlows.map((flow) => {
+      rolling += flow;
+      return rolling;
+    });
+
+    const currentAnchor = cumulative[cumulative.length - 1] ?? 0;
+    return cumulative.map((value) => netWorth - (currentAnchor - value));
+  }, [activeAnchor.month, currentYearIncome?.months, expensesByMonth, netWorth, stableMonthlyDebtService]);
   const loading = Boolean(
-    (!shouldUseDashboardDebtSnapshot && debtQuery.isLoading && !debt)
+    (debtQuery.isLoading && !debt)
     || (currentYearIncomeQuery.isLoading && !income)
     || (expenseSeriesQuery.isLoading && !expenseSeriesQuery.data)
     || (shouldLoadPayPeriodComparisonData && currentExpenseQuery.isLoading && !currentExpenseQuery.data)
@@ -312,6 +412,11 @@ export function useAnalyticsScreenController(
     chartWidth,
     currency,
     currentMonthLabel,
+    netWorth,
+    totalAssets,
+    totalLiabilities,
+    netWorthTrendValues,
+    netWorthTrendLabels,
     debtDistribution,
     debtDistributionTitle,
     error,
