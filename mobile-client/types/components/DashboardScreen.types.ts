@@ -70,6 +70,7 @@ export type UpcomingDebt = {
   name: string;
   dueAmount?: number | null;
   logoUrl?: string | null;
+  dueDate?: string | null;
 };
 
 export type DashboardUpcomingDebtsSectionProps = {

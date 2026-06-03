@@ -500,7 +500,7 @@ export interface DashboardDebt {
   amount: number;
   creditLimit: number | null;
   sourceType: string | null;
-  /** Total amount paid against this debt in the current calendar month */
+  /** Total amount paid against this debt in the active pay period */
   paidThisMonthAmount: number;
 }
 

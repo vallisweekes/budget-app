@@ -1,7 +1,9 @@
 import { Image, Pressable, Text, View } from "react-native";
 
 import type { DashboardUpcomingDebtsSectionProps } from "@/types";
+import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { fmt, normalizeUpcomingName } from "@/lib/formatting";
+import { formatAppDate, translateAppText } from "@/lib/i18n";
 import { resolveLogoUri } from "@/lib/logoDisplay";
 import { styles } from "@/components/DashboardScreen/style";
 
@@ -13,22 +15,37 @@ export default function DashboardUpcomingDebtsSection({
   onOpenQuickPay,
   onSeeAll,
 }: DashboardUpcomingDebtsSectionProps) {
-  if (items.length === 0) return null;
+  const { settings } = useBootstrapData();
 
   return (
-    <View style={[styles.section, styles.blueSection]}>
+    <View style={styles.section}>
       <View style={styles.sectionHeaderRow}>
-        <Text style={[styles.sectionTitle, styles.blueSectionTitle, { marginBottom: 0 }]}>Upcoming Debts</Text>
+        <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Upcoming Debts</Text>
         <Pressable onPress={onSeeAll} hitSlop={8}>
           <Text style={styles.seeAllText}>See all</Text>
         </Pressable>
       </View>
 
-      {items.slice(0, 3).map((item) => {
+      {items.length > 0 ? items.slice(0, 3).map((item) => {
         const logoUri = resolveLogoUri(item.logoUrl);
         const logoKey = `debt:${item.id}`;
         const showLogo = Boolean(logoUri) && !isLogoFailed(logoKey);
         const displayName = normalizeUpcomingName(item.name);
+        const dueLabel = (() => {
+          const rawDueDate = typeof item.dueDate === "string" ? item.dueDate.trim() : "";
+          if (!rawDueDate) return "Monthly payment";
+
+          const dueIso = rawDueDate.length >= 10 ? rawDueDate.slice(0, 10) : rawDueDate;
+          const dueDate = new Date(`${dueIso}T00:00:00`);
+          if (Number.isNaN(dueDate.getTime())) return "Monthly payment";
+
+          const shortDate = formatAppDate(dueDate, {
+            language: settings?.language,
+            country: settings?.country,
+            options: { day: "numeric", month: "short" },
+          });
+          return translateAppText(settings?.language, "dashboard.upcomingDueDate", { date: shortDate });
+        })();
 
         return (
           <Pressable key={item.id} style={styles.blueRow} onPress={() => onOpenQuickPay(item)}>
@@ -50,7 +67,7 @@ export default function DashboardUpcomingDebtsSection({
                   {displayName}
                 </Text>
                 <Text style={styles.blueRowSub} numberOfLines={1}>
-                  Monthly payment
+                  {dueLabel}
                 </Text>
               </View>
             </View>
@@ -59,7 +76,9 @@ export default function DashboardUpcomingDebtsSection({
             </Text>
           </Pressable>
         );
-      })}
+      }) : (
+        <Text style={styles.emptyUpcomingText}>No upcoming debts for this pay period.</Text>
+      )}
     </View>
   );
 }

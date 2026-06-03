@@ -77,21 +77,25 @@ export function buildDashboardDerived(params: {
   const netWorth = totalAssets - totalLiabilities;
 
   function getDebtDueAmount(d: (typeof debts)[number]) {
-    const currentBalance = d.currentBalance ?? 0;
-    if (!(currentBalance > 0)) return 0;
+    const currentBalance = Number.parseFloat(String(d.currentBalance ?? 0));
+    if (!Number.isFinite(currentBalance) || currentBalance <= 0) return 0;
 
     // Installment plans are authoritative when configured.
     // This avoids treating stale amount values (often equal to current balance) as monthly due.
-    const installmentMonths = d.installmentMonths ?? 0;
+    const installmentMonths = Number.parseInt(String(d.installmentMonths ?? 0), 10);
+    const initialBalance = Number.parseFloat(String((d as { initialBalance?: unknown }).initialBalance ?? 0));
+    const amount = Number.parseFloat(String((d as { amount?: unknown }).amount ?? 0));
+    const monthlyMinimum = Number.parseFloat(String(d.monthlyMinimum ?? 0));
+
     let planned = 0;
-    if (installmentMonths > 0) {
-      const principal = (d.initialBalance ?? 0) > 0 ? (d.initialBalance as number) : currentBalance;
+    if (Number.isFinite(installmentMonths) && installmentMonths > 0) {
+      const principal = Number.isFinite(initialBalance) && initialBalance > 0 ? initialBalance : currentBalance;
       if (principal > 0) planned = principal / installmentMonths;
     }
 
     // If not installment-based, use configured monthly amount.
-    if (!(planned > 0)) {
-      planned = d.amount ?? 0;
+    if (!(planned > 0) && Number.isFinite(amount) && amount > 0) {
+      planned = amount;
     }
 
     // Expense-derived debts (missed/partial expenses) with no explicit monthly plan
@@ -102,14 +106,18 @@ export function buildDashboardDerived(params: {
 
     planned = Number.isFinite(planned) ? planned : 0;
 
-    const monthlyMinimum = d.monthlyMinimum ?? 0;
-
     // For credit/store cards the monthly minimum IS the planned payment.
     const isCardType = (d as any).type === "credit_card" || (d as any).type === "store_card";
     if (isCardType && monthlyMinimum > 0) {
       planned = monthlyMinimum;
     } else if (monthlyMinimum > 0) {
       planned = Math.max(planned, monthlyMinimum);
+    }
+
+    // Keep active debts visible in Upcoming Debts even when legacy rows have
+    // no monthly amount/minimum configured yet.
+    if (!(planned > 0)) {
+      planned = currentBalance;
     }
 
     const due = Math.max(0, planned);
@@ -327,32 +335,125 @@ export function buildDashboardDerived(params: {
     return 2; // later
   };
 
+  const toIsoDate = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  const resolveDebtAnchorDay = (d: (typeof debts)[number]) => {
+    const dueDay = typeof d.dueDay === "number" && Number.isFinite(d.dueDay)
+      ? Math.max(1, Math.floor(d.dueDay))
+      : null;
+    if (dueDay != null) return dueDay;
+
+    const rawDueDate = typeof d.dueDate === "string" ? d.dueDate.trim() : "";
+    if (!rawDueDate) return null;
+
+    const dueIso = rawDueDate.length >= 10 ? rawDueDate.slice(0, 10) : rawDueDate;
+    const parsed = new Date(`${dueIso}T00:00:00`);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return parsed.getDate();
+  };
+
+  const sortUpcomingDebts = <T extends {
+    daysUntilDue: number;
+    dueAmount?: number | null;
+    dueDateResolved?: Date | null;
+    name?: string | null;
+  }>(items: T[]) => items.slice().sort((a, b) => {
+    const aDays = a.daysUntilDue;
+    const bDays = b.daysUntilDue;
+
+    const aRank = urgencyRank(aDays);
+    const bRank = urgencyRank(bDays);
+    if (aRank !== bRank) return aRank - bRank;
+
+    if (aDays !== bDays) return aDays - bDays;
+
+    const aDueTs = a.dueDateResolved ? a.dueDateResolved.getTime() : Number.POSITIVE_INFINITY;
+    const bDueTs = b.dueDateResolved ? b.dueDateResolved.getTime() : Number.POSITIVE_INFINITY;
+    if (aDueTs !== bDueTs) return aDueTs - bDueTs;
+
+    const amountDiff = (b.dueAmount ?? 0) - (a.dueAmount ?? 0);
+    if (amountDiff !== 0) return amountDiff;
+
+    return String(a.name ?? "").localeCompare(String(b.name ?? ""));
+  });
+
   const debtCandidates = debts
     .filter((d) => (d.currentBalance ?? 0) > 0)
     .map((d) => {
-      const dueDate = resolveDebtDueDate(d);
-      return { ...d, dueAmount: getDebtDueAmount(d), daysUntilDue: getDebtDaysUntilDue(d), dueDateResolved: dueDate };
+      const dueDateResolved = resolveDebtDueDate(d);
+      return {
+        ...d,
+        dueAmount: getDebtDueAmount(d),
+        daysUntilDue: getDebtDaysUntilDue(d),
+        dueDateResolved,
+        dueDate: dueDateResolved ? toIsoDate(dueDateResolved) : (d.dueDate ?? null),
+      };
     })
-    .filter((d) => (d.dueAmount ?? 0) > 0)
-    // Exclude debts where this month's recorded payments already cover the due amount
-    .filter((d) => (d.paidThisMonthAmount ?? 0) < (d.dueAmount ?? 0));
+    .filter((d) => (d.dueAmount ?? 0) > 0);
 
-  const upcomingDebts = pickCurrentOrNextPeriodItems(
-    debtCandidates,
-    (d) => d.dueDateResolved ?? null,
-  )
-    .sort((a, b) => {
-      const aDays = a.daysUntilDue;
-      const bDays = b.daysUntilDue;
-
-      const aRank = urgencyRank(aDays);
-      const bRank = urgencyRank(bDays);
-      if (aRank !== bRank) return aRank - bRank;
-
-      if (aDays !== bDays) return aDays - bDays;
-
-      return (b.dueAmount ?? 0) - (a.dueAmount ?? 0);
+  const debtsNeedingPaymentThisPeriod = debtCandidates
+    .filter((d) => {
+      const dueAmount = Number(d.dueAmount ?? 0);
+      const paidThisPeriod = Number(d.paidThisMonthAmount ?? 0);
+      return dueAmount - paidThisPeriod > 0.0001;
     });
+
+  const unpaidUpcomingDebts = sortUpcomingDebts(
+    pickCurrentOrNextPeriodItems(
+      debtsNeedingPaymentThisPeriod,
+      (d) => d.dueDateResolved ?? null,
+    )
+  );
+
+  const nextPeriodNow = new Date(payPeriodEnd.getTime() + (24 * 60 * 60 * 1000));
+  const nextPeriod = resolveActivePayPeriod({
+    now: nextPeriodNow,
+    payDate: pay,
+    payFrequency,
+    payAnchorDate,
+    planCreatedAt,
+  });
+  const nextPeriodStart = startOfDay(nextPeriod.start);
+  const nextPeriodEnd = endOfDay(nextPeriod.end);
+
+  const resolveNextPeriodDebtDueDate = (d: (typeof debtCandidates)[number]) => {
+    const anchorDay = resolveDebtAnchorDay(d);
+    if (anchorDay == null) return nextPeriodStart;
+
+    const startMonthCandidate = clampDay(nextPeriodStart.getFullYear(), nextPeriodStart.getMonth(), anchorDay);
+    const endMonthCandidate = clampDay(nextPeriodEnd.getFullYear(), nextPeriodEnd.getMonth(), anchorDay);
+
+    const inRange = [startMonthCandidate, endMonthCandidate]
+      .filter((candidate) => {
+        const ts = candidate.getTime();
+        return ts >= nextPeriodStart.getTime() && ts <= nextPeriodEnd.getTime();
+      })
+      .sort((left, right) => left.getTime() - right.getTime());
+
+    return inRange[0] ?? nextPeriodStart;
+  };
+
+  const fallbackUpcomingDebts = sortUpcomingDebts(
+    debtCandidates.map((d) => {
+      const nextDueDate = resolveNextPeriodDebtDueDate(d);
+      const daysUntilDue = Math.max(0, Math.floor((nextDueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
+      return {
+        ...d,
+        dueDateResolved: nextDueDate,
+        dueDate: toIsoDate(nextDueDate),
+        daysUntilDue,
+      };
+    })
+  );
+
+  const upcomingDebts = unpaidUpcomingDebts.length > 0
+    ? unpaidUpcomingDebts
+    : fallbackUpcomingDebts;
 
   const formatShortDate = (iso: string | null | undefined) => {
     if (!iso) return null;

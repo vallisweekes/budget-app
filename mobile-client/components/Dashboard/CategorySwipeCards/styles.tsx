@@ -1,5 +1,4 @@
 import { StyleSheet } from "react-native";
-import { T } from "@/lib/theme";
 import { cardElevated } from "@/lib/ui";
 
 const CARD = 128;
@@ -11,13 +10,14 @@ export const styles = StyleSheet.create({
     height: CARD,
     ...cardElevated,
     borderRadius: 24,
+    backgroundColor: "rgba(20,24,38,0.56)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: "rgba(244,246,255,0.16)",
     shadowColor: "#000000",
-    shadowOpacity: 0.2,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 12 },
-    elevation: 10,
+    shadowOpacity: 0.3,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 14 },
+    elevation: 12,
     padding: 14,
     justifyContent: "space-between",
   },

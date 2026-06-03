@@ -68,7 +68,7 @@ export default function DashboardNetWorthSection({
       });
     }
 
-    return nextRows;
+    return nextRows.filter((row) => Math.abs(row.amount) > 0.0001);
   }, [cashAsset, emergencyAsset, investmentAsset, savingsAsset, totalLiabilities]);
 
   return (

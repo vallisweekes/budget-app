@@ -250,6 +250,7 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
     name: string;
     dueAmount?: number | null;
     logoUrl?: string | null;
+    dueDate?: string | null;
   }) => {
     setQuickPayItem({
       kind: "debt",
@@ -257,6 +258,7 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
       name: normalizeUpcomingName(debt.name),
       amount: debt.dueAmount ?? 0,
       logoUrl: debt.logoUrl ?? null,
+      dueDate: debt.dueDate ?? null,
       subtitle: "Monthly payment",
     });
   }, []);

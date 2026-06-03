@@ -4,6 +4,7 @@ import { bestEffortWithin } from "@/lib/bestEffortWithin";
 import { getDashboardPlanDataForActivePayPeriod } from "@/lib/helpers/dashboard/getDashboardPlanData";
 import { getBudgetPlanMeta } from "@/lib/helpers/dashboard/getBudgetPlanMeta";
 import { listBudgetPlansForUser } from "@/lib/budgetPlans";
+import { getAllDebts } from "@/lib/debts/store";
 import { getDebtSummaryForPlan, type DebtSummary } from "@/lib/debts/summary";
 import { computeDebtTips } from "@/lib/debts/insights";
 import { getDashboardExpenseInsights } from "@/lib/helpers/dashboard/getDashboardExpenseInsights";
@@ -26,7 +27,6 @@ import {
 	getDashboardCacheKey,
 	logDerivedSummaryCacheEvent,
 } from "@/lib/cache/dashboardCache";
-import { getEarlyPaymentWindowStart } from "@/lib/helpers/finance/earlyPaymentWindow";
 import { prisma } from "@/lib/prisma";
 import { supportsOnboardingCadenceFields as detectOnboardingCadenceFields, supportsOnboardingPayAnchorDateField } from "@/lib/prisma/capabilities";
 import { isRedisConfigured } from "@/lib/redis";
@@ -34,7 +34,6 @@ import {
 	buildPayPeriodFromMonthAnchor,
 	getPayPeriodKeyForDate,
 	getPayPeriodWindowFromPeriodKey,
-	getPreviousPayPeriodKey,
 	deriveBillFrequencyFromPayFrequency,
 	normalizePayFrequency,
 	resolveActivePayPeriodWindow,
@@ -338,6 +337,37 @@ export async function GET(req: NextRequest) {
 				totalDebtBalance: 0,
 			} satisfies DebtSummary;
 
+			const buildLightweightDebtSummaryFallback = async (): Promise<DebtSummary> => {
+				try {
+					const allDebts = await bestEffortWithin(getAllDebts(budgetPlanId), 1200);
+					if (!Array.isArray(allDebts) || allDebts.length === 0) {
+						return fallback;
+					}
+
+					const regularDebts = allDebts.filter((d) => d.sourceType !== "expense");
+					const expenseDebts = allDebts.filter((d) => d.sourceType === "expense");
+					const activeDebts = allDebts.filter((d) => (d.currentBalance ?? 0) > 0);
+					const activeRegularDebts = regularDebts.filter((d) => (d.currentBalance ?? 0) > 0);
+					const activeExpenseDebts = expenseDebts.filter((d) => (d.currentBalance ?? 0) > 0);
+					const creditCards = regularDebts.filter((d) => d.type === "credit_card" || d.type === "store_card");
+					const totalDebtBalance = allDebts.reduce((sum, debt) => sum + Number(debt.currentBalance ?? 0), 0);
+
+					return {
+						regularDebts,
+						expenseDebts,
+						allDebts,
+						activeDebts,
+						activeRegularDebts,
+						activeExpenseDebts,
+						creditCards,
+						totalDebtBalance,
+					};
+				} catch (error) {
+					console.error("Dashboard: lightweight debt fallback failed:", error);
+					return fallback;
+				}
+			};
+
 			try {
 				const result = await bestEffortWithin(getDebtSummaryForPlan(budgetPlanId, {
 					includeExpenseDebts: true,
@@ -345,10 +375,19 @@ export async function GET(req: NextRequest) {
 					recomputePaidAmounts: false,
 				}), 1500);
 
+				if (result && result.activeDebts.length > 0) {
+					return result;
+				}
+
+				const lightweightFallback = await buildLightweightDebtSummaryFallback();
+				if (lightweightFallback.activeDebts.length > 0) {
+					return lightweightFallback;
+				}
+
 				return result ?? fallback;
 			} catch (error) {
 				console.error("Dashboard: debt summary failed:", error);
-				return fallback;
+				return await buildLightweightDebtSummaryFallback();
 			}
 		});
 
@@ -622,8 +661,9 @@ export async function GET(req: NextRequest) {
 		if (debtIds.length > 0) {
 			await timeSection(timings, "debt_payments", async () => {
 				try {
-					// Use periodKey so debt tracking is consistent with the period-based
-					// pattern used everywhere else.
+					// Use paidAt timestamps bounded to the active pay-period window so
+					// upcoming debt visibility reflects actual recorded payments in the
+					// current period, even when historical rows have stale periodKey values.
 					const periodKey = getPayPeriodKeyForDate({
 						date: dashboardNow,
 						payDate: payDay,
@@ -631,31 +671,21 @@ export async function GET(req: NextRequest) {
 						payAnchorDate,
 						planCreatedAt: effectiveCreatedAt,
 					});
-					const { start: periodStart } = getPayPeriodWindowFromPeriodKey({
+					const { start: periodStart, end: periodEnd } = getPayPeriodWindowFromPeriodKey({
 						periodKey,
 						payDate: payDay,
 						payFrequency,
 					});
-					const prevPeriodKey = getPreviousPayPeriodKey({
-						periodKey,
-						payDate: payDay,
-						payFrequency,
-						payAnchorDate,
-						planCreatedAt: effectiveCreatedAt,
-					});
-					const earlyPaymentStart = getEarlyPaymentWindowStart(periodStart);
+					const periodStartAt = new Date(periodStart.getTime());
+					periodStartAt.setHours(0, 0, 0, 0);
+					const periodEndAt = new Date(periodEnd.getTime());
+					periodEndAt.setHours(23, 59, 59, 999);
 
 					const monthPayments = await bestEffortWithin(prisma.debtPayment.groupBy({
 						by: ["debtId"],
 						where: {
 							debtId: { in: debtIds },
-							OR: [
-								{ periodKey },
-								{
-									periodKey: prevPeriodKey,
-									paidAt: { gte: earlyPaymentStart, lt: periodStart },
-								},
-							],
+							paidAt: { gte: periodStartAt, lte: periodEndAt },
 						},
 						_sum: { amount: true },
 					}), 1000);

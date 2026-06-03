@@ -1058,6 +1058,20 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       if (targetMonth !== month) setMonth(targetMonth);
       if (targetYear !== year) setYear(targetYear);
 
+      const additionalPlanIds = nextPlans
+        .map((plan) => plan.id)
+        .filter((planId) => Boolean(planId) && planId !== resolvedPlanId);
+      if (additionalPlanIds.length > 0) {
+        void Promise.allSettled(
+          additionalPlanIds.map((planId) => ensurePlanViewWarm({
+            planId,
+            month: targetMonth,
+            year: targetYear,
+            force,
+          }))
+        );
+      }
+
       didNormalizeInitialPeriodRef.current = true;
 
       seenMutationVersionRef.current = getApiMutationVersion();
@@ -1080,7 +1094,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       setLoading(false);
       setRefreshing(false);
     }
-  }, [activePlanId, bootstrapError, ensureSettingsLoaded, getOrFetchPayPeriodExpenses, month, parsePlanCreatedAt, planCacheKey, preloadSummaryWindow, refreshSettings, resolveEffectivePlanCreatedAt, resolvePlanTargetPeriod, route.params?.month, route.params?.year, setupCompletedAt, year]);
+  }, [activePlanId, bootstrapError, ensurePlanViewWarm, ensureSettingsLoaded, getOrFetchPayPeriodExpenses, month, parsePlanCreatedAt, planCacheKey, preloadSummaryWindow, refreshSettings, resolveEffectivePlanCreatedAt, resolvePlanTargetPeriod, route.params?.month, route.params?.year, setupCompletedAt, year]);
 
   const load = useCallback((options?: { force?: boolean }) => {
     const force = Boolean(options?.force);
