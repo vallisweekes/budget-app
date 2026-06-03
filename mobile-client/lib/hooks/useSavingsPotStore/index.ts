@@ -38,7 +38,7 @@ export function useSavingsPotStore() {
   }, []);
 
   const ensureSavingsPotAllocationLinks = useCallback(async (planId: string, pots: SavingsPot[]): Promise<SavingsPot[]> => {
-    const missingLinks = pots.filter((pot) => !pot.allocationId);
+    const missingLinks = pots.filter((pot) => pot.field !== "investment" && !pot.allocationId);
     if (missingLinks.length === 0) return pots;
 
     const now = new Date();
@@ -47,7 +47,7 @@ export function useSavingsPotStore() {
 
     for (let i = 0; i < syncedPots.length; i += 1) {
       const pot = syncedPots[i];
-      if (!pot || pot.allocationId) continue;
+      if (!pot || pot.field === "investment" || pot.allocationId) continue;
 
       try {
         const created = await apiFetch<CreateSacrificeItemResponse>("/api/bff/income-sacrifice/custom", {

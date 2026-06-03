@@ -208,21 +208,23 @@ export default function DashboardScreen(props: DashboardScreenProps) {
           onSeeAll={controller.goToPayments}
         />
 
-        <DashboardUpcomingDebtsSection
-          items={controller.upcomingDebts}
-          currency={controller.currency}
-          isLogoFailed={controller.isLogoFailed}
-          onLogoError={controller.markLogoFailed}
-          onOpenQuickPay={controller.openDebtQuickPay}
-          onSeeAll={controller.goToPayments}
-        />
-
         <DashboardRecapSection
           recap={controller.recap}
           hasRecapData={controller.hasRecapData}
           recapTitle={controller.recapTitle}
           currency={controller.currency}
         />
+
+        {controller.debts.length > 0 ? (
+          <DashboardUpcomingDebtsSection
+            items={controller.upcomingDebts}
+            currency={controller.currency}
+            isLogoFailed={controller.isLogoFailed}
+            onLogoError={controller.markLogoFailed}
+            onOpenQuickPay={controller.openDebtQuickPay}
+            onSeeAll={controller.goToPayments}
+          />
+        ) : null}
 
         <DashboardGoalsSection
           items={controller.goalCardsData}

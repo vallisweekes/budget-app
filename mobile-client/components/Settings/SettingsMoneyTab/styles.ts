@@ -8,34 +8,7 @@ const MONEY_TOGGLE_SEGMENT_WIDTH = (MONEY_TOGGLE_WIDTH - MONEY_TOGGLE_TRACK_PADD
 
 export const styles = StyleSheet.create({
   moneyTabSurface: {
-    backgroundColor: `${T.card}F5`,
-    borderWidth: 1,
-    borderColor: `${T.accent}24`,
-    borderRadius: 26,
-    marginHorizontal: -16,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 14,
     marginBottom: 10,
-    overflow: "hidden",
-  },
-  surfaceGlow: {
-    position: "absolute",
-    borderRadius: 999,
-  },
-  surfaceGlowPrimary: {
-    width: 216,
-    height: 216,
-    top: -108,
-    right: -96,
-    backgroundColor: `${T.accent}14`,
-  },
-  surfaceGlowSecondary: {
-    width: 132,
-    height: 132,
-    bottom: -54,
-    left: -42,
-    backgroundColor: `${T.onAccent}08`,
   },
   moneyTogglePill: {
     width: MONEY_TOGGLE_SEGMENT_WIDTH,

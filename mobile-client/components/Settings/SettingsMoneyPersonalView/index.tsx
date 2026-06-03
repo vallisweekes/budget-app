@@ -26,6 +26,7 @@ export default function SettingsMoneyPersonalView({
         const palette = getSavingsTilePalette(card.key);
         const pots = savingsPotsByField[card.key];
         const hasSplitInvestmentPots = card.key === "investment" && pots.length > 0;
+        const showAddTile = card.key === "investment" || !hasSplitInvestmentPots;
         const cardTitle = card.key === "emergency"
           ? t("settings.money.emergencyFunds")
           : card.key === "investment"
@@ -51,7 +52,7 @@ export default function SettingsMoneyPersonalView({
                     <Text style={[styles.savingsTileValue, { color: palette.valueColor }]}>{currency}{asMoneyText(pot.amount)}</Text>
                   </Pressable>
                 ))}
-                {!hasSplitInvestmentPots ? (
+                {showAddTile ? (
                   <Pressable onPress={() => onOpenSavingsField(card.key)} style={[styles.savingsTileAddCard, { width: tileSize, height: tileSize, backgroundColor: palette.cardBg, borderColor: palette.borderColor }]} accessibilityLabel={t("settings.money.addMore", { label: cardTitle.toLowerCase() })}>
                     <Ionicons name="add" size={30} color={palette.plusColor} />
                     <Text style={[styles.savingsTileAddText, { color: palette.plusColor }]}>{getAddPotLabel(card.key)}</Text>

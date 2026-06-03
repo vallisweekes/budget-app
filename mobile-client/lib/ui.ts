@@ -1,23 +1,22 @@
 import type { TextStyle, ViewStyle } from "react-native";
-import { StyleSheet } from "react-native";
 import { T } from "@/lib/theme";
 
 export const CARD_RADIUS = 22;
 
 export const cardBase: ViewStyle = {
-  backgroundColor: T.card,
+  backgroundColor: "rgba(26,30,40,0.56)",
   borderRadius: CARD_RADIUS,
-  borderWidth: StyleSheet.hairlineWidth,
-  borderColor: T.border,
+  borderWidth: 1,
+  borderColor: "rgba(232,238,250,0.28)",
 };
 
 export const cardElevated: ViewStyle = {
   ...cardBase,
   shadowColor: "#000000",
-  shadowOpacity: 0.16,
-  shadowRadius: 18,
-  shadowOffset: { width: 0, height: 10 },
-  elevation: 8,
+  shadowOpacity: 0.3,
+  shadowRadius: 24,
+  shadowOffset: { width: 0, height: 14 },
+  elevation: 12,
 };
 
 export const textTitle: TextStyle = {

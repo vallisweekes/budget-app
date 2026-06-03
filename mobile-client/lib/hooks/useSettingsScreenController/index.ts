@@ -699,7 +699,7 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
           await markInvestmentSplitMigrationForPlan(planId);
         }
 
-        const missingLinks = nextStoredPots.filter((pot) => !pot.allocationId);
+        const missingLinks = nextStoredPots.filter((pot) => pot.field !== "investment" && !pot.allocationId);
         if (missingLinks.length === 0) {
           setSavingsPots(nextStoredPots);
           return;
@@ -710,7 +710,7 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
         const syncedPots = [...nextStoredPots];
         for (let i = 0; i < syncedPots.length; i += 1) {
           const pot = syncedPots[i];
-          if (!pot || pot.allocationId) continue;
+          if (!pot || pot.field === "investment" || pot.allocationId) continue;
           try {
             const created = await apiFetch<CreateSacrificeItemResponse>("/api/bff/income-sacrifice/custom", {
               method: "POST",
@@ -1006,24 +1006,27 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
     }
 
     let createdAllocationId: string | null = null;
+    const shouldCreateAllocationRoute = savingsSheetField !== "investment";
 
     try {
       setSaveBusy(true);
       const now = new Date();
 
-      const createdItem = await createIncomeSacrificeCustomMutation({
-        budgetPlanId: settings.id,
-        type: mapSavingsFieldToSacrificeType(savingsSheetField),
-        name: potName,
-        amount: 0,
-        month: now.getMonth() + 1,
-        year: now.getFullYear(),
-      }).unwrap();
-      const allocationId = typeof createdItem?.item?.id === "string" ? createdItem.item.id.trim() : "";
-      if (!allocationId) {
-        throw new Error("Could not register this pot as a monthly allocation item.");
+      if (shouldCreateAllocationRoute) {
+        const createdItem = await createIncomeSacrificeCustomMutation({
+          budgetPlanId: settings.id,
+          type: mapSavingsFieldToSacrificeType(savingsSheetField),
+          name: potName,
+          amount: 0,
+          month: now.getMonth() + 1,
+          year: now.getFullYear(),
+        }).unwrap();
+        const allocationId = typeof createdItem?.item?.id === "string" ? createdItem.item.id.trim() : "";
+        if (!allocationId) {
+          throw new Error("Could not register this pot as a monthly allocation item.");
+        }
+        createdAllocationId = allocationId;
       }
-      createdAllocationId = allocationId;
 
       const payload: Record<string, number | string> = {
         budgetPlanId: settings.id,
@@ -1044,7 +1047,7 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
           field: savingsSheetField,
           name: potName,
           amount: value,
-          allocationId: createdAllocationId,
+          ...(createdAllocationId ? { allocationId: createdAllocationId } : {}),
         },
       ];
 

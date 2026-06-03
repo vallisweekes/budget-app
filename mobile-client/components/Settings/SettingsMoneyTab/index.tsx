@@ -30,9 +30,6 @@ export default function SettingsMoneyTab(props: SettingsMoneyTabProps) {
 
   return (
     <View style={styles.moneyTabSurface}>
-      <View pointerEvents="none" style={[styles.surfaceGlow, styles.surfaceGlowPrimary]} />
-      <View pointerEvents="none" style={[styles.surfaceGlow, styles.surfaceGlowSecondary]} />
-
       <View style={styles.moneyToggleWrap}>
         <Animated.View pointerEvents="none" style={[styles.moneyToggleThumb, { transform: [{ translateX: toggleTranslateX }] }]} />
         <Pressable onPress={() => onChangeMode("personal")} style={styles.moneyTogglePill}>
