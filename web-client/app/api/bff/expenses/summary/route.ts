@@ -50,6 +50,8 @@ function includeInMainExpenseSummary(expense: {
 	return String(expense.paymentSource ?? "income").trim().toLowerCase() === "income";
 }
 
+const PAY_PERIOD_SUMMARY_CALC_VERSION = "v2_logged_period_fallback";
+
 type CategoryBreakdownRow = {
 	categoryId: string;
 	name: string;
@@ -233,6 +235,7 @@ export async function GET(req: NextRequest) {
 	let periodRangeLabel: string | null = null;
 	let periodIndex: number | null = null;
 	let periodKey: string | null = null;
+	let snapshotPeriodKey: string | null = null;
 	let sourceWindowPairs: Array<{ year: number; month: number }> = [{ year, month }];
 	const allowedUnscheduledYm = new Set<string>();
 
@@ -267,6 +270,7 @@ export async function GET(req: NextRequest) {
 		periodStart = selected.start;
 		periodEnd = selected.end;
 		periodKey = toIsoDate(selected.start);
+		snapshotPeriodKey = `${periodKey}|${PAY_PERIOD_SUMMARY_CALC_VERSION}`;
 
 		periodIndex = Math.max(1, Math.min(12, month) - 1);
 		periodLabel = `Pay period ${periodIndex}`;
@@ -305,6 +309,7 @@ export async function GET(req: NextRequest) {
 					},
 				},
 		  }) as {
+				periodKey: string | null;
 				periodLabel: string | null;
 				periodIndex: number | null;
 				periodStart: Date | null;
@@ -372,7 +377,12 @@ export async function GET(req: NextRequest) {
 			? snapshot.payDate === payDate && normalizePayFrequency(snapshot.payFrequency) === payFrequency
 			: false;
 
-	if (snapshotIsFresh && snapshotMatchesComputedPeriod && snapshotMatchesPayContext && snapshot) {
+	const snapshotMatchesCalcVersion =
+		scope !== "pay_period"
+			? true
+			: Boolean(snapshot && snapshotPeriodKey && snapshot.periodKey === snapshotPeriodKey);
+
+	if (snapshotIsFresh && snapshotMatchesComputedPeriod && snapshotMatchesPayContext && snapshotMatchesCalcVersion && snapshot) {
 		const roundedTotalAmount = parseFloat(toFloat(snapshot.totalAmount).toFixed(2));
 		const budgetOverview = includeBudgetOverview
 			? await getExpenseSummaryBudgetOverview({
@@ -450,6 +460,7 @@ export async function GET(req: NextRequest) {
 			if (isLegacyPlaceholderExpenseRow(exp)) continue;
 			// Allocations/envelopes are not bills and should not impact expense totals.
 			if (Boolean(exp.isAllocation ?? false)) continue;
+			const isLoggedExpense = Boolean(exp.isExtraLoggedExpense ?? false);
 
 			let dedupeScope = "";
 			let rank = 1;
@@ -486,8 +497,13 @@ export async function GET(req: NextRequest) {
 						anchorMonth: month,
 						payFrequency,
 					});
-					if (!matchedPeriodKey) continue;
-					dedupeScope = `unscheduled:${matchedPeriodKey}`;
+					if (matchedPeriodKey) {
+						dedupeScope = `unscheduled:${matchedPeriodKey}`;
+					} else {
+						// Keep legacy logged rows visible when stored periodKey drifted by local date.
+						if (!isLoggedExpense || !allowedUnscheduledYm.has(`${exp.year}-${exp.month}`)) continue;
+						dedupeScope = `unscheduled:${exp.year}-${exp.month}`;
+					}
 				} else {
 					if (!allowedUnscheduledYm.has(`${exp.year}-${exp.month}`)) continue;
 					dedupeScope = `unscheduled:${exp.year}-${exp.month}`;
@@ -657,7 +673,7 @@ export async function GET(req: NextRequest) {
 				year,
 				payDate,
 				payFrequency,
-				periodKey,
+				periodKey: snapshotPeriodKey ?? periodKey,
 				periodLabel,
 				periodIndex,
 				periodStart,
@@ -675,7 +691,7 @@ export async function GET(req: NextRequest) {
 			update: {
 				payDate,
 				payFrequency,
-				periodKey,
+				periodKey: snapshotPeriodKey ?? periodKey,
 				periodLabel,
 				periodIndex,
 				periodStart,

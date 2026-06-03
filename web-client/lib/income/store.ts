@@ -212,7 +212,12 @@ function pickIncomeRowForAnchor<T extends { name: string; year: number; month: n
   }
 
   if (params.legacyPeriodKey) {
-    const legacyRows = rows.filter((row) => row.periodKey === params.legacyPeriodKey);
+    // Legacy monthly keys are only valid for rows that were originally saved
+    // against this same anchor month/year. Without this guard, a next-period
+    // canonical key can be misread as this month's legacy key.
+    const legacyRows = rows.filter((row) =>
+      row.periodKey === params.legacyPeriodKey && row.year === params.year && row.month === params.month,
+    );
     if (legacyRows.length > 0) {
       return pickCanonicalIncomeRow(legacyRows);
     }
@@ -451,8 +456,11 @@ export async function getIncomeForAnchorMonth(params: {
 
   const chosenByName = new Map<string, Array<(typeof rows)[number]>>();
   for (const row of rows) {
-    if (row.year !== year || row.month !== month) {
-      if (!periodKeyCandidates.includes(row.periodKey ?? "")) continue;
+    const isSameAnchorMonth = row.year === year && row.month === month;
+    if (!isSameAnchorMonth) {
+      // Cross-month fallback must match the canonical key only. Allowing the
+      // legacy key here causes next-period income to leak into the previous period.
+      if ((row.periodKey ?? "") !== canonicalPeriodKey) continue;
     }
     const key = normalizeIncomeName(row.name);
     if (!key) continue;
