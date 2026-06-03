@@ -198,22 +198,27 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
 
     const buildRoutes = (field: SavingsField) => potsByField[field].map((pot) => {
       const matchedById = pot.allocationId ? customItemById.get(pot.allocationId) : undefined;
+      const allowNameFallback = field !== "investment";
       const normalizedPotName = normalizePotRouteName(pot.name);
-      const matchedByName = matchedById || !normalizedPotName
+      const matchedByName = matchedById || !allowNameFallback || !normalizedPotName
         ? undefined
         : (() => {
           const matches = customItems.filter((item) => normalizePotRouteName(item.name) === normalizedPotName);
           return matches.length === 1 ? matches[0] : undefined;
         })();
       const matchedItem = matchedById ?? matchedByName;
+      const currentAmount = Number(pot.amount ?? 0);
+      const resolvedAmount = field === "investment"
+        ? currentAmount
+        : Number(matchedItem?.amount ?? currentAmount);
 
       return {
         routeKey: pot.id,
         allocationId: pot.allocationId ?? null,
         matchedAllocationId: matchedItem?.id ?? null,
         name: pot.name,
-        amount: Number(matchedItem?.amount ?? 0),
-        currentAmount: Number(pot.amount ?? 0),
+        amount: resolvedAmount,
+        currentAmount,
         broker: String(pot.broker ?? "none"),
       };
     });
@@ -1022,6 +1027,7 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
           <Animated.View
             style={[
               styles.detailHero,
+              styles.detailHeroNoCard,
               {
                 opacity: detailIntro,
                 transform: [{ translateY: detailHeroTranslateY }],

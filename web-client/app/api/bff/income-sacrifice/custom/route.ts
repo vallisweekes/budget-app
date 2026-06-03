@@ -74,8 +74,14 @@ export async function POST(request: NextRequest) {
 
 		const base = TYPE_LABELS[type] ?? TYPE_LABELS.custom;
 		const name = rawName || base;
+		const shouldReuseByName = type !== "investment";
 
-		const created = await createAllocationDefinition({ budgetPlanId, name, defaultAmount: amount });
+		const created = await createAllocationDefinition({
+			budgetPlanId,
+			name,
+			defaultAmount: amount,
+			reuseExistingByName: shouldReuseByName,
+		});
 		await upsertMonthlyCustomAllocationOverrides({
 			budgetPlanId,
 			year,

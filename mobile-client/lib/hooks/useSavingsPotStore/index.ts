@@ -161,16 +161,71 @@ export function useSavingsPotStore() {
   }, [syncSavingsPotsToServer, writeSavingsPotsToLocalStore]);
 
   const ensureSavingsPotAllocationLinks = useCallback(async (planId: string, pots: SavingsPot[]): Promise<SavingsPot[]> => {
-    const missingLinks = pots.filter((pot) => pot.field !== "investment" && !pot.allocationId);
-    if (missingLinks.length === 0) return pots;
+    const hasMissingNonInvestmentLinks = pots.some((pot) => pot.field !== "investment" && !pot.allocationId);
+    const investmentAllocationUsage = new Map<string, number>();
+
+    for (const pot of pots) {
+      if (pot.field !== "investment") continue;
+      const allocationId = typeof pot.allocationId === "string" ? pot.allocationId.trim() : "";
+      if (!allocationId) continue;
+      investmentAllocationUsage.set(allocationId, (investmentAllocationUsage.get(allocationId) ?? 0) + 1);
+    }
+
+    const hasInvestmentLinkCollisions = pots.some((pot) => {
+      if (pot.field !== "investment") return false;
+      const allocationId = typeof pot.allocationId === "string" ? pot.allocationId.trim() : "";
+      if (!allocationId) return true;
+      return (investmentAllocationUsage.get(allocationId) ?? 0) > 1;
+    });
+
+    if (!hasMissingNonInvestmentLinks && !hasInvestmentLinkCollisions) return pots;
 
     const now = new Date();
     let didUpdate = false;
     const syncedPots = [...pots];
+    const seenInvestmentAllocationIds = new Set<string>();
 
     for (let i = 0; i < syncedPots.length; i += 1) {
       const pot = syncedPots[i];
-      if (!pot || pot.field === "investment" || pot.allocationId) continue;
+      if (!pot) continue;
+
+      if (pot.field === "investment") {
+        const existingAllocationId = typeof pot.allocationId === "string" ? pot.allocationId.trim() : "";
+        if (existingAllocationId && !seenInvestmentAllocationIds.has(existingAllocationId)) {
+          seenInvestmentAllocationIds.add(existingAllocationId);
+          continue;
+        }
+
+        try {
+          const created = await apiFetch<CreateSacrificeItemResponse>("/api/bff/income-sacrifice/custom", {
+            method: "POST",
+            body: {
+              budgetPlanId: planId,
+              type: "investment",
+              name: pot.name,
+              amount: Math.max(0, Number(pot.amount) || 0),
+              month: now.getMonth() + 1,
+              year: now.getFullYear(),
+            },
+          });
+
+          const allocationId = typeof created?.item?.id === "string" ? created.item.id.trim() : "";
+          if (!allocationId) continue;
+
+          syncedPots[i] = {
+            ...pot,
+            allocationId,
+          };
+          seenInvestmentAllocationIds.add(allocationId);
+          didUpdate = true;
+        } catch {
+          // Keep the local investment pot even if link creation fails.
+        }
+
+        continue;
+      }
+
+      if (pot.allocationId) continue;
 
       try {
         const created = await apiFetch<CreateSacrificeItemResponse>("/api/bff/income-sacrifice/custom", {

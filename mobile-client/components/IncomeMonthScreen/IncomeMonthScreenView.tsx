@@ -822,15 +822,15 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
     const affectsViewedMonth = targets.some((target) => target.month === month && target.year === year);
     const showSavingIndicator = args.skipSavingIndicator !== true;
     const previousSacrifice = sacrifice;
-    const linkedInvestmentPot = args.targetType === "custom"
-      ? savingsPots.find((pot) => (
-        pot.field === "investment"
-        && (
-          (args.potId ? pot.id === args.potId : false)
-          || (args.customAllocationId ? pot.allocationId === args.customAllocationId : false)
-        )
-      ))
+    const linkedInvestmentPotById = args.targetType === "custom" && args.potId
+      ? savingsPots.find((pot) => pot.field === "investment" && pot.id === args.potId)
       : undefined;
+    const linkedInvestmentPot = linkedInvestmentPotById
+      ?? (
+        args.targetType === "custom" && args.customAllocationId
+          ? savingsPots.find((pot) => pot.field === "investment" && pot.allocationId === args.customAllocationId)
+          : undefined
+      );
 
     if (affectsViewedMonth && previousSacrifice) {
       const nextFixed: IncomeSacrificeFixed = {
@@ -1125,7 +1125,7 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
           year: now.getFullYear(),
           type: "investment",
           name: matchedPot.name,
-          amount: 0,
+          amount: Math.max(0, Number(matchedPot.amount) || 0),
         }).unwrap();
 
         const allocationId = typeof created?.item?.id === "string" ? created.item.id.trim() : "";
@@ -1157,24 +1157,28 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
       return;
     }
 
-    const linkedInvestmentPot = savingsPots.find((pot) => pot.field === "investment" && pot.allocationId === id);
+    const linkedInvestmentPots = savingsPots.filter((pot) => pot.field === "investment" && pot.allocationId === id);
 
     try {
       setSacrificeDeletingId(id);
       await deleteIncomeSacrificeCustom({ id }).unwrap();
 
-      if (linkedInvestmentPot) {
+      if (linkedInvestmentPots.length > 0) {
         try {
-          const nextPots = savingsPots.filter((pot) => pot.id !== linkedInvestmentPot.id);
+          const linkedPotIds = new Set(linkedInvestmentPots.map((pot) => pot.id));
+          const nextPots = savingsPots.filter((pot) => !linkedPotIds.has(pot.id));
           await writeSavingsPotsForPlan(budgetPlanId, nextPots);
           setSavingsPots(nextPots);
 
-          const linkedAmount = Math.max(0, Number(linkedInvestmentPot.amount) || 0);
-          if (settings?.id && linkedAmount > 0) {
+          const linkedAmountTotal = linkedInvestmentPots.reduce(
+            (sum, pot) => sum + Math.max(0, Number(pot.amount) || 0),
+            0,
+          );
+          if (settings?.id && linkedAmountTotal > 0) {
             const updated = await updateSettingsMutation({
               budgetPlanId: settings.id,
               changes: {
-                additionalInvestmentBalance: -linkedAmount,
+                additionalInvestmentBalance: -linkedAmountTotal,
               },
             }).unwrap();
             settingsCacheRef.current[budgetPlanId] = updated;

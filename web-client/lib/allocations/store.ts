@@ -384,9 +384,11 @@ export async function createAllocationDefinition(params: {
 	budgetPlanId: string;
 	name: string;
 	defaultAmount?: number;
+	reuseExistingByName?: boolean;
 }): Promise<{ id: string; name: string; defaultAmount: number; sortOrder: number }> {
 	const name = normalizeAllocationName(params.name);
 	if (!name) throw new Error("Allocation name is required");
+	const reuseExistingByName = params.reuseExistingByName !== false;
 
 	const allocationDefinition = (prisma as unknown as { allocationDefinition?: any }).allocationDefinition;
 	if (!allocationDefinition?.aggregate || !allocationDefinition?.create || !allocationDefinition?.findFirst || !allocationDefinition?.update) {
@@ -411,13 +413,29 @@ export async function createAllocationDefinition(params: {
 		sortOrder: row.sortOrder,
 	});
 
+	const resolveUniqueName = async (): Promise<string> => {
+		let candidate = name;
+		let suffix = 2;
+
+		while (true) {
+			const conflict = (await allocationDefinition.findFirst({
+				where: { budgetPlanId: params.budgetPlanId, name: candidate },
+				select: { id: true },
+			})) as { id: string } | null;
+
+			if (!conflict) return candidate;
+			candidate = `${name} (${suffix})`;
+			suffix += 1;
+		}
+	};
+
 	const defaultAmount = Number(params.defaultAmount ?? 0);
 	const existing = (await allocationDefinition.findFirst({
 		where: { budgetPlanId: params.budgetPlanId, name },
 		select: { id: true, name: true, defaultAmount: true, sortOrder: true, isArchived: true },
 	})) as AllocationDefinitionLookupRow | null;
 
-	if (existing) {
+	if (existing && reuseExistingByName) {
 		const existingDefaultAmount = decimalToNumber(existing.defaultAmount);
 		if (existing.isArchived || existingDefaultAmount !== defaultAmount) {
 			const updated = (await allocationDefinition.update({
@@ -439,21 +457,50 @@ export async function createAllocationDefinition(params: {
 		_max: { sortOrder: true },
 	});
 	const sortOrder = (maxSort._max.sortOrder ?? 0) + 1;
+	const createDataBase = {
+		budgetPlanId: params.budgetPlanId,
+		defaultAmount,
+		sortOrder,
+	};
 
 	let created: AllocationDefinitionCreateRow;
 	try {
+		const createName = reuseExistingByName ? name : await resolveUniqueName();
 		created = (await allocationDefinition.create({
 			data: {
-				budgetPlanId: params.budgetPlanId,
-				name,
-				defaultAmount,
-				sortOrder,
+				...createDataBase,
+				name: createName,
 			},
 			select: { id: true, name: true, defaultAmount: true, sortOrder: true },
 		})) as AllocationDefinitionCreateRow;
 	} catch (error) {
 		if (!isPrismaUniqueConstraintError(error)) {
 			throw error;
+		}
+
+		if (!reuseExistingByName) {
+			let lastUniqueError: unknown = error;
+
+			for (let attempt = 0; attempt < 5; attempt += 1) {
+				const uniqueName = await resolveUniqueName();
+				try {
+					created = (await allocationDefinition.create({
+						data: {
+							...createDataBase,
+							name: uniqueName,
+						},
+						select: { id: true, name: true, defaultAmount: true, sortOrder: true },
+					})) as AllocationDefinitionCreateRow;
+					return toResponse(created);
+				} catch (uniqueError) {
+					if (!isPrismaUniqueConstraintError(uniqueError)) {
+						throw uniqueError;
+					}
+					lastUniqueError = uniqueError;
+				}
+			}
+
+			throw lastUniqueError;
 		}
 
 		const conflicted = (await allocationDefinition.findFirst({
