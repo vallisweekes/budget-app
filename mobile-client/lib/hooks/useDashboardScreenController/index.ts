@@ -11,6 +11,7 @@ import { usePayPeriodBoundaryRefresh, useSwipeDownToClose, useTopHeaderOffset } 
 import { translateAppText } from "@/lib/i18n";
 import { normalizePayFrequency } from "@/lib/payPeriods";
 import type { MainTabScreenProps } from "@/navigation/types";
+import { useGetIncomeMonthQuery } from "@/store/api";
 import type { QuickPaymentActionItem } from "@/types";
 import { buildDashboardDerived } from "@/components/DashboardScreen/derived";
 import { GOAL_CARD, GOAL_GAP } from "@/components/DashboardScreen/style";
@@ -96,6 +97,28 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
     planCreatedAt,
   });
   const resolvedDashboard = useMemo<DashboardData | null>(() => dashboard ?? null, [dashboard]);
+  const dashboardMonth = resolvedDashboard?.monthNum ?? null;
+  const dashboardYear = resolvedDashboard?.year ?? null;
+  const shouldFetchIncomeMonthReconciliation = Boolean(
+    isFocused
+    && budgetPlanId
+    && dashboardMonth
+    && dashboardYear,
+  );
+  const incomeMonthReconciliationQuery = useGetIncomeMonthQuery(
+    {
+      budgetPlanId,
+      month: dashboardMonth ?? 1,
+      year: dashboardYear ?? new Date().getFullYear(),
+      mode: "full",
+    },
+    { skip: !shouldFetchIncomeMonthReconciliation },
+  );
+  const dashboardMoneyLeftOverride = useMemo<number | null>(() => {
+    const value = incomeMonthReconciliationQuery.data?.moneyLeftAfterPlan;
+    if (!Number.isFinite(value as number)) return null;
+    return Number(value);
+  }, [incomeMonthReconciliationQuery.data?.moneyLeftAfterPlan]);
 
   usePostDashboardWarmup({
     dashboard: resolvedDashboard,
@@ -175,8 +198,9 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
       settings,
       categorySheet,
       displayedAnchor: effectiveDisplayedAnchor,
+      moneyLeftOverride: dashboardMoneyLeftOverride,
     }),
-    [categorySheet, effectiveDisplayedAnchor, resolvedDashboard, settings]
+    [categorySheet, dashboardMoneyLeftOverride, effectiveDisplayedAnchor, resolvedDashboard, settings]
   );
 
   const currency = currencySymbol(settings?.currency);

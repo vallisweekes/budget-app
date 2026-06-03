@@ -48,6 +48,7 @@ import {
   mapSavingsFieldToGoalTargetKey,
   mapSavingsFieldToSacrificeType,
   getSavingsFieldTitle,
+  reconcileMissingInvestmentSplitPots,
 } from "@/lib/helpers/settings";
 import type {
   BudgetField,
@@ -80,6 +81,15 @@ function normalizeSavingsPotName(value: string | null | undefined): string {
 function normalizeSavingsPotBroker(value: string | null | undefined): string {
   const normalized = String(value ?? "").trim();
   return normalized || "none";
+}
+
+function resolveSavingsPotBrokerKey(value: string | null | undefined): string {
+  return normalizeSavingsPotBroker(value).toLowerCase();
+}
+
+function resolveInvestmentBrokerGroup(pots: SavingsPot[], brokerKey: string): SavingsPot[] {
+  if (brokerKey === "none") return [];
+  return pots.filter((entry) => entry.field === "investment" && resolveSavingsPotBrokerKey(entry.broker) === brokerKey);
 }
 
 type SettingsScreenControllerParams = Pick<MainTabScreenProps<"Settings">, "navigation" | "route">;
@@ -298,6 +308,12 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
     if (!savingsSheetField) return 0;
     if (savingsEditingPotId) {
       const pot = savingsPots.find((entry) => entry.id === savingsEditingPotId);
+      if (pot && savingsSheetField === "investment") {
+        const brokerGroup = resolveInvestmentBrokerGroup(savingsPots, resolveSavingsPotBrokerKey(pot.broker));
+        if (brokerGroup.length > 1) {
+          return brokerGroup.reduce((sum, entry) => sum + asMoneyNumber(entry.amount), 0);
+        }
+      }
       return asMoneyNumber(pot?.amount);
     }
     const balanceField = mapSavingsFieldToBalanceField(savingsSheetField);
@@ -707,6 +723,19 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
           await markInvestmentSplitMigrationForPlan(planId);
         }
 
+        const repairedSplitPots = reconcileMissingInvestmentSplitPots({
+          pots: nextStoredPots,
+          investmentBalance: asMoneyNumber(settings?.investmentBalance),
+          splitBuckets: INVESTMENT_POT_SPLIT_MIGRATION,
+          tolerance: INVESTMENT_POT_SPLIT_TOLERANCE,
+          planId,
+        });
+
+        if (repairedSplitPots) {
+          nextStoredPots = repairedSplitPots;
+          await writeSavingsPotsForPlan(planId, nextStoredPots);
+        }
+
         const missingLinks = nextStoredPots.filter((pot) => pot.field !== "investment" && !pot.allocationId);
         if (missingLinks.length === 0) {
           setSavingsPots(nextStoredPots);
@@ -931,10 +960,23 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
     if (potId) {
       const pot = savingsPots.find((entry) => entry.id === potId && entry.field === field);
       if (!pot) return;
+
+      let nextAmount = asMoneyNumber(pot.amount);
+      let nextName = pot.name;
+
+      if (field === "investment") {
+        const broker = normalizeSavingsPotBroker(pot.broker);
+        const brokerGroup = resolveInvestmentBrokerGroup(savingsPots, resolveSavingsPotBrokerKey(broker));
+        if (brokerGroup.length > 1) {
+          nextAmount = brokerGroup.reduce((sum, entry) => sum + asMoneyNumber(entry.amount), 0);
+          nextName = broker;
+        }
+      }
+
       setSavingsEditingPotId(pot.id);
-      setSavingsPotNameDraft(pot.name);
+      setSavingsPotNameDraft(nextName);
       setSavingsPotBrokerDraft(normalizeSavingsPotBroker(pot.broker));
-      setSavingsValueDraft(asMoneyText(pot.amount));
+      setSavingsValueDraft(asMoneyText(nextAmount));
       return;
     }
 
@@ -967,6 +1009,44 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
           if (!pot) {
             Alert.alert("Pot not found", "This pot no longer exists.");
             return;
+          }
+
+          if (savingsSheetField === "investment") {
+            const brokerGroup = resolveInvestmentBrokerGroup(savingsPots, resolveSavingsPotBrokerKey(pot.broker));
+
+            if (brokerGroup.length > 1) {
+              const brokerGroupTotal = brokerGroup.reduce((sum, entry) => sum + asMoneyNumber(entry.amount), 0);
+              const primaryPot = brokerGroup[0]!;
+              const brokerGroupIds = new Set(brokerGroup.map((entry) => entry.id));
+              const nextBalance = Math.max(0, currentBalance - brokerGroupTotal + value);
+              const nextBroker = normalizeSavingsPotBroker(savingsPotBrokerDraft);
+
+              const updated = await updateSettingsMutation({
+                budgetPlanId: settings.id,
+                changes: {
+                  [balanceField]: nextBalance,
+                },
+              }).unwrap();
+
+              const nextPots = savingsPots
+                .filter((entry) => !brokerGroupIds.has(entry.id) || entry.id === primaryPot.id)
+                .map((entry) => (
+                  entry.id === primaryPot.id
+                    ? {
+                      ...entry,
+                      amount: value,
+                      broker: nextBroker,
+                      name: nextBroker.toLowerCase() === "none" ? entry.name : nextBroker,
+                    }
+                    : entry
+                ));
+
+              await writeSavingsPotsForPlan(settings.id, nextPots);
+              setSavingsPots(nextPots);
+              setSettings(updated);
+              closeSavingsSheet();
+              return;
+            }
           }
 
           const nextBalance = Math.max(0, currentBalance - asMoneyNumber(pot.amount) + value);
@@ -1103,6 +1183,39 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
         if (!pot) {
           Alert.alert("Pot not found", "This pot no longer exists.");
           return;
+        }
+
+        if (savingsSheetField === "investment") {
+          const brokerGroup = resolveInvestmentBrokerGroup(savingsPots, resolveSavingsPotBrokerKey(pot.broker));
+
+          if (brokerGroup.length > 1) {
+            const brokerGroupTotal = brokerGroup.reduce((sum, entry) => sum + asMoneyNumber(entry.amount), 0);
+            const brokerGroupIds = new Set(brokerGroup.map((entry) => entry.id));
+            const nextBalance = Math.max(0, currentBalance - brokerGroupTotal);
+
+            const updated = await updateSettingsMutation({
+              budgetPlanId: settings.id,
+              changes: {
+                [balanceField]: nextBalance,
+              },
+            }).unwrap();
+
+            for (const brokerPot of brokerGroup) {
+              if (!brokerPot.allocationId) continue;
+              try {
+                await deleteIncomeSacrificeCustomMutation({ id: brokerPot.allocationId }).unwrap();
+              } catch {
+                // Best-effort cleanup.
+              }
+            }
+
+            const nextPots = savingsPots.filter((entry) => !brokerGroupIds.has(entry.id));
+            await writeSavingsPotsForPlan(settings.id, nextPots);
+            setSavingsPots(nextPots);
+            setSettings(updated);
+            closeSavingsSheet();
+            return;
+          }
         }
 
         const nextBalance = Math.max(0, currentBalance - asMoneyNumber(pot.amount));

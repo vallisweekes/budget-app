@@ -19,6 +19,7 @@ export function buildDashboardDerived(params: {
   settings: Settings | null;
   categorySheet: { id: string; name: string } | null;
   displayedAnchor?: { month: number; year: number } | null;
+  moneyLeftOverride?: number | null;
 }) {
   const { dashboard, settings, categorySheet, displayedAnchor } = params;
 
@@ -51,11 +52,17 @@ export function buildDashboardDerived(params: {
   const isOverBudget = dashboardSummary?.isOverBudget ?? (isOverBudgetBySpending || hasOverLimitDebt);
 
   const totalBudget = dashboardSummary?.totalBudget ?? (amountLeftToBudget > 0 ? amountLeftToBudget : totalIncome);
-  const hasSummaryIncomeLeft = Number.isFinite(dashboardSummary?.incomeLeftRightNow as number);
-  const incomeLeftRightNow = hasSummaryIncomeLeft
+  const summaryIncomeLeft = Number.isFinite(dashboardSummary?.incomeLeftRightNow as number)
     ? Number(dashboardSummary?.incomeLeftRightNow)
-    : amountAfterExpenses;
-  const paidTotal = hasSummaryIncomeLeft
+    : null;
+  const overrideMoneyLeft = Number.isFinite(params.moneyLeftOverride as number)
+    ? Number(params.moneyLeftOverride)
+    : null;
+  const incomeLeftRightNow = overrideMoneyLeft != null
+    ? overrideMoneyLeft
+    : summaryIncomeLeft ?? amountAfterExpenses;
+  const hasCanonicalIncomeLeft = overrideMoneyLeft != null || summaryIncomeLeft != null;
+  const paidTotal = hasCanonicalIncomeLeft
     ? Math.max(0, totalBudget - incomeLeftRightNow)
     : dashboardSummary?.paidTotal ?? allExpenses.reduce((acc, e) => acc + (e.paidAmount ?? (e.paid ? e.amount : 0)), 0);
   const asMoneyNumber = (value: string | number | null | undefined) => {

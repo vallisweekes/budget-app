@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, ActivityIndicator, Animated, FlatList, Platform, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
+import { Alert, ActivityIndicator, Animated, FlatList, Modal, Platform, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
+import { GestureHandlerRootView, Swipeable } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { styles } from "./styles";
 
@@ -16,6 +17,7 @@ import { s } from "@/components/IncomeMonthScreen/style";
 import IncomeSacrificePieChart from "@/components/Income/IncomeSacrificePieChart";
 import MoneyInput from "@/components/Shared/MoneyInput";
 import NumericInput from "@/components/Shared/NumericInput";
+import OverlaySelectInput from "@/components/Shared/OverlaySelectInput";
 import type {
   AmountEntryMode,
   GlassEffectModule,
@@ -33,6 +35,8 @@ const ADD_ITEM_TYPES: Array<{ key: IncomeSacrificeItemType; label: string }> = [
   { key: "investment", label: "Investment" },
   { key: "custom", label: "Custom" },
 ];
+
+const ADD_NEW_BROKER_VALUE = "__add_new_broker__";
 
 function normalizeMonthValue(value: number): number {
   if (!Number.isFinite(value)) return 1;
@@ -63,6 +67,16 @@ function normalizePotRouteName(value: string | null | undefined): string {
   return String(value ?? "").trim().toLowerCase();
 }
 
+function normalizeBrokerValue(value: string | null | undefined): string {
+  const trimmed = String(value ?? "").trim();
+  return trimmed || "none";
+}
+
+function isManualBrokerSelection(value: string | null | undefined): boolean {
+  const normalized = normalizeBrokerValue(value).toLowerCase();
+  return normalized === "none" || normalized === ADD_NEW_BROKER_VALUE;
+}
+
 function mapFixedFieldToSavingsField(
   fixedField: TargetOption["fixedField"] | undefined,
 ): SavingsField | null {
@@ -71,6 +85,10 @@ function mapFixedFieldToSavingsField(
   if (fixedField === "monthlyInvestmentContribution") return "investment";
   return null;
 }
+
+type SwipeableHandle = {
+  close: () => void;
+};
 
 export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeListProps) {
   const { t } = useAppTranslation();
@@ -93,20 +111,27 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
 
   const [newItemType, setNewItemType] = useState<IncomeSacrificeItemType>("custom");
   const [newItemName, setNewItemName] = useState("");
+  const [newItemBroker, setNewItemBroker] = useState("");
+  const [newBrokerDraft, setNewBrokerDraft] = useState("");
   const [newItemAmount, setNewItemAmount] = useState("");
   const [newItemGoalTargetAmount, setNewItemGoalTargetAmount] = useState("");
   const [newItemGoalTargetYear, setNewItemGoalTargetYear] = useState("");
+  const [addItemReturnScreen, setAddItemReturnScreen] = useState<"chooser" | "detail">("chooser");
   const [selectedPotKey, setSelectedPotKey] = useState<string | null>(null);
   const [linkTargetKey, setLinkTargetKey] = useState("");
   const [linkGoalId, setLinkGoalId] = useState<string>("");
+  const [editInvestmentRouteKey, setEditInvestmentRouteKey] = useState<string | null>(null);
+  const [editInvestmentAmountDraft, setEditInvestmentAmountDraft] = useState("");
+  const [editInvestmentBroker, setEditInvestmentBroker] = useState("none");
+  const [editInvestmentBrokerManualDraft, setEditInvestmentBrokerManualDraft] = useState("");
   const [activeTipIndex, setActiveTipIndex] = useState(0);
   const [mainFooterBlurActive, setMainFooterBlurActive] = useState(false);
   const [manageFooterBlurActive, setManageFooterBlurActive] = useState(false);
   const canManage = props.canManage ?? true;
-  const isMonthlyCadence = props.payFrequency === "monthly";
   const chooserIntro = useRef(new Animated.Value(0)).current;
   const detailIntro = useRef(new Animated.Value(0)).current;
   const footerBackdropOpacity = useRef(new Animated.Value(0)).current;
+  const investmentSwipeRefs = useRef<Record<string, SwipeableHandle | null>>({});
   const glassEffectModule = useMemo<GlassEffectModule | null>(() => {
     if (Platform.OS !== "ios") return null;
     try {
@@ -188,6 +213,8 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
         matchedAllocationId: matchedItem?.id ?? null,
         name: pot.name,
         amount: Number(matchedItem?.amount ?? 0),
+        currentAmount: Number(pot.amount ?? 0),
+        broker: String(pot.broker ?? "none"),
       };
     });
 
@@ -203,6 +230,48 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
     ...potRoutesByField.emergency.map((route) => route.matchedAllocationId).filter(Boolean),
     ...potRoutesByField.investment.map((route) => route.matchedAllocationId).filter(Boolean),
   ]), [potRoutesByField.emergency, potRoutesByField.investment, potRoutesByField.savings]);
+
+  const investmentBrokerOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const options = ["none"];
+
+    for (const pot of props.savingsPots ?? []) {
+      if (pot.field !== "investment") continue;
+      const broker = normalizeBrokerValue(String(pot.broker ?? "none"));
+      const normalized = broker.toLowerCase();
+      if (normalized === "none" || seen.has(normalized)) continue;
+      seen.add(normalized);
+      options.push(broker);
+    }
+
+    return options;
+  }, [props.savingsPots]);
+
+  const defaultInvestmentBroker = useMemo(
+    () => investmentBrokerOptions.find((broker) => broker.toLowerCase() !== "none") ?? "none",
+    [investmentBrokerOptions],
+  );
+
+  const investmentBrokerDropdownOptions = useMemo(
+    () => {
+      const existing = investmentBrokerOptions
+        .filter((broker) => broker.toLowerCase() !== "none")
+        .map((broker) => ({ value: broker, label: broker }));
+
+      return [
+        { value: "none", label: "none" },
+        ...existing,
+        { value: ADD_NEW_BROKER_VALUE, label: "+ Add new broker" },
+      ];
+    },
+    [investmentBrokerOptions],
+  );
+
+  useEffect(() => {
+    if (newItemType !== "investment") return;
+
+    setNewItemBroker((current) => (current.trim() ? current : defaultInvestmentBroker));
+  }, [defaultInvestmentBroker, newItemType]);
 
   const getPotRouteTotalForField = useCallback((field: SavingsField) => {
     return potRoutesByField[field].reduce((sum, route) => sum + Number(route.amount ?? 0), 0);
@@ -412,6 +481,10 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
     () => selectedPotRoutes.find((route) => route.routeKey === selectedPotKey) ?? selectedPotRoutes[0] ?? null,
     [selectedPotKey, selectedPotRoutes],
   );
+  const editingInvestmentRoute = useMemo(
+    () => selectedPotRoutes.find((route) => route.routeKey === editInvestmentRouteKey) ?? null,
+    [editInvestmentRouteKey, selectedPotRoutes],
+  );
 
   useEffect(() => {
     if (selectedPotRoutes.length === 0) {
@@ -545,44 +618,6 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
     return Math.max(0, selectedDisplayTotal - editableCurrentAmount + parsedInlineAmount);
   }, [editableCurrentAmount, isInlineAmountEditing, parsedInlineAmount, selectedDisplayTotal]);
 
-  const periodOptions = useMemo<Array<{ key: SacrificePeriod; label: string }>>(() => {
-    if (isMonthlyCadence) {
-      return [
-        { key: "this_month", label: "This period" },
-        { key: "next_six_months", label: "Next 6 periods" },
-        { key: "remaining_months", label: "Remaining periods" },
-        { key: "two_years", label: "2 years" },
-        { key: "five_years", label: "5 years" },
-        { key: "ten_years", label: "10 years" },
-      ];
-    }
-
-    return [
-      { key: "this_month", label: "This anchor month" },
-      { key: "next_six_months", label: "Next 6 anchor months" },
-      { key: "remaining_months", label: "Remaining anchor months" },
-      { key: "two_years", label: "2 years" },
-      { key: "five_years", label: "5 years" },
-      { key: "ten_years", label: "10 years" },
-    ];
-  }, [isMonthlyCadence]);
-
-  const primaryPeriodOptions = useMemo(() => {
-    return periodOptions.filter((option) => (
-      option.key === "this_month" || option.key === "next_six_months" || option.key === "remaining_months"
-    ));
-  }, [periodOptions]);
-
-  const secondaryPeriodOptions = useMemo(() => {
-    return periodOptions.filter((option) => (
-      option.key === "two_years" || option.key === "five_years" || option.key === "ten_years"
-    ));
-  }, [periodOptions]);
-  const selectedPeriodLabel = useMemo(
-    () => periodOptions.find((option) => option.key === period)?.label ?? "This period",
-    [period, periodOptions],
-  );
-
   const renderFooterButton = useCallback(({
     label,
     iconName,
@@ -711,8 +746,12 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
 
   const goBackFromManageScreen = () => {
     setIsInlineAmountEditing(false);
-    if (manageScreen === "detail" || manageScreen === "add-item") {
+    if (manageScreen === "detail") {
       setManageScreen("chooser");
+      return;
+    }
+    if (manageScreen === "add-item") {
+      setManageScreen(addItemReturnScreen === "detail" ? "detail" : "chooser");
       return;
     }
     if (manageScreen === "link") {
@@ -722,11 +761,19 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
     setManageScreen(null);
   };
 
-  const submitAmountSheet = async () => {
+  const submitAmountSheet = async (options?: {
+    closeAfterSave?: boolean;
+    routeKeyOverride?: string;
+    amountOverride?: number;
+    skipSavingIndicator?: boolean;
+  }) => {
     const selected = targets.find((target) => target.key === targetKey);
-    const enteredAmount = parseMoney(amountDraft);
+    const enteredAmount = options?.amountOverride ?? parseMoney(amountDraft);
     const normalizedStartMonth = normalizeMonthValue(startMonth);
     const normalizedStartYear = normalizeYearValue(startYear);
+    const activeRoute = options?.routeKeyOverride
+      ? (selectedPotRoutes.find((route) => route.routeKey === options.routeKeyOverride) ?? selectedPotRoute)
+      : selectedPotRoute;
 
     if (!selected) {
       Alert.alert("Select sacrifice", "Pick a sacrifice target to update.");
@@ -752,11 +799,12 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
       return;
     }
 
+    const selectedRouteAllocationId = activeRoute?.allocationId ?? activeRoute?.matchedAllocationId ?? null;
     const routedAllocationId = selected.kind === "fixed" && selectedPotRoutes.length > 0
-      ? (selectedPotRoute?.allocationId ?? await props.onEnsurePotAllocationRoute?.({
+      ? (selectedRouteAllocationId ?? await props.onEnsurePotAllocationRoute?.({
         field: selectedTargetSavingsField as SavingsField,
-        potId: selectedPotRoute?.routeKey ?? "",
-        potName: selectedPotRoute?.name ?? "",
+        potId: activeRoute?.routeKey ?? "",
+        potName: activeRoute?.name ?? "",
       }) ?? null)
       : null;
 
@@ -769,19 +817,29 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
       targetType: routedAllocationId ? "custom" : selected.kind,
       fixedField: routedAllocationId ? undefined : selected.fixedField,
       customAllocationId: routedAllocationId ?? selected.customAllocationId,
+      potId: activeRoute?.routeKey,
       amount: finalAmount,
       startMonth: normalizedStartMonth,
       startYear: normalizedStartYear,
       period,
+      skipSavingIndicator: options?.skipSavingIndicator,
     });
     setIsInlineAmountEditing(false);
-    setManageScreen(null);
+    if (options?.closeAfterSave !== false) {
+      setManageScreen(null);
+    }
   };
 
   const submitAddItemSheet = async () => {
     const amount = parseMoney(newItemAmount);
     const goalTargetAmount = parseMoney(newItemGoalTargetAmount);
     const goalTargetYear = parseGoalYear(newItemGoalTargetYear);
+    const trimmedBroker = normalizeBrokerValue(newItemBroker);
+    const normalizedBrokerSelection = trimmedBroker.toLowerCase();
+    const manualBroker = newBrokerDraft.trim();
+    const resolvedBroker = newItemType === "investment"
+      ? (isManualBrokerSelection(trimmedBroker) ? (manualBroker || "none") : trimmedBroker)
+      : "none";
 
     if (amount == null || amount < 0) {
       Alert.alert("Enter amount", "Enter a valid amount to contribute each pay period.");
@@ -816,53 +874,149 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
       return;
     }
 
-    await props.onCreateItem({
-      type: newItemType,
-      name: newItemName,
-      amount,
-      goalTargetAmount: newItemType === "custom" ? (goalTargetAmount ?? undefined) : undefined,
-      goalTargetYear: newItemType === "custom" ? (goalTargetYear ?? undefined) : undefined,
-    });
-    setNewItemType("custom");
-    setNewItemName("");
-    setNewItemAmount("");
-    setNewItemGoalTargetAmount("");
-    setNewItemGoalTargetYear("");
-    setManageScreen("chooser");
-  };
-
-  const toggleInlineAmountEdit = useCallback(() => {
-    if (isInlineAmountEditing) {
-      setAmountMode("set");
-      setAmountDraft(editableCurrentAmount.toFixed(2));
-      setIsInlineAmountEditing(false);
+    if (newItemType === "investment" && normalizedBrokerSelection === ADD_NEW_BROKER_VALUE && !manualBroker) {
+      Alert.alert("Broker required", "Type the new broker name before creating this investment item.");
       return;
     }
 
-    setAmountMode("set");
-    setAmountDraft(editableCurrentAmount.toFixed(2));
-    setIsInlineAmountEditing(true);
-  }, [editableCurrentAmount, isInlineAmountEditing]);
+    try {
+      await props.onCreateItem({
+        type: newItemType,
+        name: newItemName,
+        amount,
+        broker: newItemType === "investment" ? resolvedBroker : undefined,
+        goalTargetAmount: newItemType === "custom" ? (goalTargetAmount ?? undefined) : undefined,
+        goalTargetYear: newItemType === "custom" ? (goalTargetYear ?? undefined) : undefined,
+      });
+    } catch {
+      return;
+    }
+
+    setNewItemType("custom");
+    setNewItemName("");
+    setNewItemBroker("");
+    setNewBrokerDraft("");
+    setNewItemAmount("");
+    setNewItemGoalTargetAmount("");
+    setNewItemGoalTargetYear("");
+    setManageScreen(addItemReturnScreen === "detail" ? "detail" : "chooser");
+  };
 
   const openAddItemScreen = useCallback(() => {
     setNewItemType("custom");
     setNewItemName("");
+    setNewItemBroker("");
+    setNewBrokerDraft("");
     setNewItemAmount("");
     setNewItemGoalTargetAmount("");
     setNewItemGoalTargetYear("");
+    setAddItemReturnScreen("chooser");
     setManageScreen("add-item");
   }, []);
+
+  const openAddInvestmentScreen = useCallback(() => {
+    setNewItemType("investment");
+    setNewItemName("");
+    setNewItemBroker(defaultInvestmentBroker);
+    setNewBrokerDraft("");
+    setNewItemAmount("");
+    setNewItemGoalTargetAmount("");
+    setNewItemGoalTargetYear("");
+    setAddItemReturnScreen("detail");
+    setManageScreen("add-item");
+  }, [defaultInvestmentBroker]);
+
+  const openInvestmentEditSheet = useCallback((routeKey: string) => {
+    const route = selectedPotRoutes.find((entry) => entry.routeKey === routeKey);
+    if (!route) return;
+
+    const normalizedBroker = normalizeBrokerValue(route.broker);
+
+    setSelectedPotKey(routeKey);
+    setAmountMode("set");
+    setAmountDraft(route.amount.toFixed(2));
+    setEditInvestmentRouteKey(routeKey);
+    setEditInvestmentAmountDraft(route.amount.toFixed(2));
+    setEditInvestmentBroker(normalizedBroker);
+    setEditInvestmentBrokerManualDraft("");
+  }, [selectedPotRoutes]);
+
+  const closeInvestmentEditSheet = useCallback(() => {
+    setEditInvestmentRouteKey(null);
+    setEditInvestmentAmountDraft("");
+    setEditInvestmentBroker("none");
+    setEditInvestmentBrokerManualDraft("");
+  }, []);
+
+  const saveInvestmentEditSheet = useCallback(() => {
+    if (!editInvestmentRouteKey) return;
+
+    const amount = parseMoney(editInvestmentAmountDraft);
+    if (amount == null || amount < 0) {
+      Alert.alert("Enter amount", "Enter a valid amount for this investment allocation.");
+      return;
+    }
+
+    const normalizedBroker = normalizeBrokerValue(editInvestmentBroker);
+    const normalizedBrokerSelection = normalizedBroker.toLowerCase();
+    const manualBroker = editInvestmentBrokerManualDraft.trim();
+    const resolvedBroker = isManualBrokerSelection(normalizedBroker)
+      ? (manualBroker || "none")
+      : normalizedBroker;
+
+    if (normalizedBrokerSelection === ADD_NEW_BROKER_VALUE && !manualBroker) {
+      Alert.alert("Broker required", "Type the new broker name before saving.");
+      return;
+    }
+
+    const routeKey = editInvestmentRouteKey;
+    closeInvestmentEditSheet();
+
+    void (async () => {
+      try {
+        await submitAmountSheet({
+          closeAfterSave: false,
+          routeKeyOverride: routeKey,
+          amountOverride: amount,
+          skipSavingIndicator: true,
+        });
+
+        if (props.onUpdateInvestmentPotBroker) {
+          await props.onUpdateInvestmentPotBroker({
+            potId: routeKey,
+            broker: resolvedBroker,
+          });
+        }
+      } catch {
+        Alert.alert("Could not save investment", "Please try again.");
+      }
+    })();
+  }, [
+    closeInvestmentEditSheet,
+    editInvestmentAmountDraft,
+    editInvestmentBroker,
+    editInvestmentBrokerManualDraft,
+    editInvestmentRouteKey,
+    props,
+    submitAmountSheet,
+  ]);
+
+  const isInvestmentQuickAdd = manageScreen === "add-item"
+    && addItemReturnScreen === "detail"
+    && newItemType === "investment";
 
   const manageHeaderTitle = manageScreen === "detail"
     ? null
     : manageScreen === "add-item"
-      ? "Add sacrifice item"
+      ? (isInvestmentQuickAdd ? "Add investment item" : "Add sacrifice item")
       : manageScreen === "link"
         ? "Link sacrifice to goal"
         : null;
 
   const renderManageContent = () => {
     if (manageScreen === "detail") {
+      const isInvestmentTarget = selectedTarget?.key === "monthlyInvestmentContribution";
+
       return (
         <>
           <Animated.View
@@ -876,10 +1030,6 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
           >
             <View style={[styles.detailHeroGlow, styles.detailHeroGlowPrimary]} />
             <View style={[styles.detailHeroGlow, styles.detailHeroGlowSecondary]} />
-            <View style={styles.detailHeroBadge}>
-              <Ionicons name="sparkles-outline" size={13} color={selectedTargetCard?.iconTone ?? T.accent} />
-              <Text style={styles.detailHeroBadgeText}>{selectedTarget?.kind === "fixed" ? "Fixed target" : "Custom target"}</Text>
-            </View>
             <View
               style={[
                 styles.detailHeroIcon,
@@ -894,46 +1044,11 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
             <Text style={styles.detailHeroTitle}>{selectedTargetTitle}</Text>
             <Text style={styles.detailHeroAmount}>{fmt(previewDisplayTotal, props.currency)}</Text>
             <Text style={styles.detailHeroMeta}>Overall saved for this sacrifice target.</Text>
-            <View style={styles.detailHeroStatsRow}>
-              <View style={styles.detailHeroStatCard}>
-                <Text style={styles.detailHeroStatLabel}>{selectedTarget?.kind === "fixed" ? (selectedPotRoute ? "Due into pot" : "Due this period") : "Target type"}</Text>
-                <Text style={styles.detailHeroStatValue}>
-                  {selectedTarget?.kind === "fixed" ? fmt(previewCurrentAmount, props.currency) : "Custom"}
-                </Text>
-              </View>
-              <View style={styles.detailHeroStatCard}>
-                <Text style={styles.detailHeroStatLabel}>{selectedPotRoute ? "Routing into" : "Applying across"}</Text>
-                <Text style={styles.detailHeroStatValueSmall}>{selectedPotRoute ? selectedPotRoute.name : selectedPeriodLabel}</Text>
-              </View>
-            </View>
             {selectedTarget?.kind === "fixed" ? (
               <View style={styles.detailEditorCard}>
                 <Text style={styles.detailEditorLabel}>{selectedPotRoute ? `${selectedPotRoute.name} this pay period` : "Due this pay period"}</Text>
-                {isInlineAmountEditing ? (
-                  <View style={styles.detailHeroInlineEditWrap}>
-                    <Text style={styles.detailHeroInlineCurrency}>{props.currency}</Text>
-                    <TextInput
-                      value={amountDraft}
-                      onChangeText={setAmountDraft}
-                      keyboardType="decimal-pad"
-                      placeholder="0.00"
-                      placeholderTextColor="rgba(255,255,255,0.42)"
-                      autoFocus
-                      style={styles.detailHeroInlineInput}
-                    />
-                  </View>
-                ) : (
-                  <Text style={styles.detailEditorValue}>{fmt(previewCurrentAmount, props.currency)}</Text>
-                )}
+                <Text style={styles.detailEditorValue}>{fmt(previewCurrentAmount, props.currency)}</Text>
               </View>
-            ) : null}
-            {isInlineAmountEditing ? (
-              <Pressable style={styles.detailHeroRemoveBtn} onPress={() => {
-                setAmountMode("set");
-                setAmountDraft("0.00");
-              }}>
-                <Text style={styles.detailHeroRemoveText}>Set to 0</Text>
-              </Pressable>
             ) : null}
           </Animated.View>
 
@@ -943,70 +1058,96 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
               transform: [{ translateY: detailContentTranslateY }],
             }}
           >
-            <View style={styles.detailSectionStack}>
-              {selectedTarget?.kind === "fixed" && selectedPotRoutes.length > 0 ? (
-                <View style={styles.detailSectionCard}>
-                  <View style={styles.detailSectionHeader}>
-                    <Text style={styles.detailSectionTitle}>Allocate into</Text>
-                    <View style={styles.detailSectionPill}>
-                      <Text style={styles.detailSectionPillText}>{selectedPotRoutes.length} pot{selectedPotRoutes.length === 1 ? "" : "s"}</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.detailSectionHelp}>These options come from your saved pots so this sacrifice stays aligned with Settings and grouped goals.</Text>
-                  <View style={styles.detailPillWrap}>
+            {isInvestmentTarget ? (
+              <View style={styles.investmentsAddedCard}>
+                <View style={styles.investmentsAddedHeader}>
+                  <Text style={styles.investmentsAddedTitle}>Investment sacrifices</Text>
+                  <Pressable style={styles.investmentsAddedPlusBtn} onPress={openAddInvestmentScreen}>
+                    <Ionicons name="add" size={18} color={T.text} />
+                  </Pressable>
+                </View>
+
+                {selectedPotRoutes.length <= 0 ? (
+                  <Text style={styles.investmentsAddedEmptyText}>No investments sacrifice added</Text>
+                ) : (
+                  <View style={styles.investmentsAddedList}>
                     {selectedPotRoutes.map((route) => {
                       const active = route.routeKey === selectedPotRoute?.routeKey;
+                      const allocationId = route.matchedAllocationId ?? route.allocationId;
+                      const brokerLabel = route.broker.trim() && route.broker.trim().toLowerCase() !== "none"
+                        ? route.broker.trim()
+                        : "none";
+                      const startInvestmentSheetEdit = () => {
+                        openInvestmentEditSheet(route.routeKey);
+                      };
+                      const closeSwipe = () => {
+                        investmentSwipeRefs.current[route.routeKey]?.close();
+                      };
+
                       return (
-                        <Pressable
+                        <Swipeable
                           key={route.routeKey}
-                          style={[styles.detailPill, active && styles.detailPillActive]}
-                          onPress={() => {
-                            setSelectedPotKey(route.routeKey);
-                            if (!isInlineAmountEditing) {
-                              setAmountMode("set");
-                              setAmountDraft(route.amount.toFixed(2));
-                            }
+                          overshootLeft={false}
+                          renderLeftActions={() => (
+                            <View style={styles.investmentsSwipeActionsWrap}>
+                              <Pressable
+                                style={[styles.investmentsSwipeActionCircle, styles.investmentsSwipeActionCircleEdit]}
+                                onPress={() => {
+                                  closeSwipe();
+                                  startInvestmentSheetEdit();
+                                }}
+                              >
+                                <Ionicons name="create-outline" size={16} color="#ffffff" />
+                              </Pressable>
+                              <Pressable
+                                style={[styles.investmentsSwipeActionCircle, styles.investmentsSwipeActionCircleDelete]}
+                                onPress={() => {
+                                  closeSwipe();
+                                  if (!allocationId) return;
+                                  Alert.alert(
+                                    "Delete investment",
+                                    `Remove ${route.name} from investment sacrifices?`,
+                                    [
+                                      { text: "Cancel", style: "cancel" },
+                                      {
+                                        text: "Delete",
+                                        style: "destructive",
+                                        onPress: () => {
+                                          if (selectedPotKey === route.routeKey) {
+                                            setIsInlineAmountEditing(false);
+                                          }
+                                          void props.onDeleteCustom(allocationId);
+                                        },
+                                      },
+                                    ],
+                                  );
+                                }}
+                              >
+                                <Ionicons name="trash-outline" size={16} color="#ffffff" />
+                              </Pressable>
+                            </View>
+                          )}
+                          ref={(instance) => {
+                            investmentSwipeRefs.current[route.routeKey] = (instance as SwipeableHandle | null);
                           }}
                         >
-                          <Text style={[styles.detailPillText, active && styles.detailPillTextActive]}>{route.name}</Text>
-                        </Pressable>
+                          <Pressable
+                            style={[styles.investmentsAddedItemCard, active && styles.investmentsAddedItemCardActive]}
+                            onPress={startInvestmentSheetEdit}
+                          >
+                            <View style={styles.investmentsAddedItemCopy}>
+                              <Text style={styles.investmentsAddedItemTitle}>{route.name}</Text>
+                              <Text style={styles.investmentsAddedItemMeta}>Broker: {brokerLabel}</Text>
+                            </View>
+                            <Text style={styles.investmentsAddedItemAmount}>{fmt(route.amount, props.currency)}</Text>
+                          </Pressable>
+                        </Swipeable>
                       );
                     })}
                   </View>
-                </View>
-              ) : null}
-              <View style={styles.detailSectionCard}>
-                <View style={styles.detailSectionHeader}>
-                  <Text style={styles.detailSectionTitle}>Apply across</Text>
-                  <View style={styles.detailSectionPill}>
-                    <Text style={styles.detailSectionPillText}>{selectedPeriodLabel}</Text>
-                  </View>
-                </View>
-                <Text style={styles.detailSectionHelp}>
-                  {isMonthlyCadence
-                    ? "These options follow your pay-period anchor for each saved month."
-                    : "Sacrifice amounts are saved by pay-period anchor month, so weekly and biweekly periods inside the same anchor month share one saved value."}
-                </Text>
-                <View style={styles.detailOptionGrid}>
-                  {primaryPeriodOptions.map((option) => (
-                    <Pressable
-                      key={option.key}
-                      style={[styles.detailOptionCard, option.key === period && styles.detailOptionCardActive]}
-                      onPress={() => setPeriod(option.key)}
-                    >
-                      <Text style={[styles.detailOptionCardTitle, option.key === period && styles.detailOptionCardTitleActive]}>{option.label}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-                <View style={styles.detailPillWrap}>
-                  {secondaryPeriodOptions.map((option) => (
-                    <Pressable key={option.key} style={[styles.detailPill, option.key === period && styles.detailPillActive]} onPress={() => setPeriod(option.key)}>
-                      <Text style={[styles.detailPillText, option.key === period && styles.detailPillTextActive]}>{option.label}</Text>
-                    </Pressable>
-                  ))}
-                </View>
+                )}
               </View>
-            </View>
+            ) : null}
           </Animated.View>
         </>
       );
@@ -1015,38 +1156,48 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
     if (manageScreen === "add-item") {
       return (
         <>
-          <View style={styles.detailSectionCard}>
-            <View style={styles.detailSectionHeader}>
-              <Text style={styles.detailSectionTitle}>Add a sacrifice target</Text>
-              {newItemType === "custom" ? (
-                <View style={styles.detailSectionPill}>
-                  <Text style={styles.detailSectionPillText}>Shows in Goals</Text>
-                </View>
-              ) : null}
+          {!isInvestmentQuickAdd ? (
+            <View style={styles.detailSectionCard}>
+              <View style={styles.detailSectionHeader}>
+                <Text style={styles.detailSectionTitle}>Add a sacrifice target</Text>
+                {newItemType === "custom" ? (
+                  <View style={styles.detailSectionPill}>
+                    <Text style={styles.detailSectionPillText}>Shows in Goals</Text>
+                  </View>
+                ) : null}
+              </View>
+              <Text style={styles.detailSectionHelp}>
+                {newItemType === "custom"
+                  ? "Custom sacrifices create a linked goal so they stay in sync with the Goals screen."
+                  : "Use this to add or reshape one of the built-in sacrifice buckets for this period."}
+              </Text>
             </View>
-            <Text style={styles.detailSectionHelp}>
+          ) : null}
+
+          {!isInvestmentQuickAdd ? (
+            <View style={styles.sectionCard}>
+              <View style={styles.sectionSubHeaderRow}>
+                <Text style={styles.cardTitle}>Sacrifice type</Text>
+                <Text style={styles.inlineMetaText}>{newItemType === "custom" ? "Goal-backed" : "Built-in"}</Text>
+              </View>
+              <View style={styles.pillWrap}>
+                {ADD_ITEM_TYPES.map((type) => (
+                  <Pressable key={type.key} style={[styles.pill, type.key === newItemType && styles.pillActive]} onPress={() => setNewItemType(type.key)}>
+                    <Text style={[styles.pillText, type.key === newItemType && styles.pillTextActive]}>{type.label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          ) : null}
+
+          <View style={styles.sectionCard}>
+            <Text style={styles.cardTitle}>
               {newItemType === "custom"
-                ? "Custom sacrifices create a linked goal so they stay in sync with the Goals screen."
-                : "Use this to add or reshape one of the built-in sacrifice buckets for this period."}
+                ? "Goal details"
+                : newItemType === "investment"
+                  ? "Investment details"
+                  : "Item details"}
             </Text>
-          </View>
-
-          <View style={styles.sectionCard}>
-            <View style={styles.sectionSubHeaderRow}>
-              <Text style={styles.cardTitle}>Sacrifice type</Text>
-              <Text style={styles.inlineMetaText}>{newItemType === "custom" ? "Goal-backed" : "Built-in"}</Text>
-            </View>
-            <View style={styles.pillWrap}>
-              {ADD_ITEM_TYPES.map((type) => (
-                <Pressable key={type.key} style={[styles.pill, type.key === newItemType && styles.pillActive]} onPress={() => setNewItemType(type.key)}>
-                  <Text style={[styles.pillText, type.key === newItemType && styles.pillTextActive]}>{type.label}</Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
-
-          <View style={styles.sectionCard}>
-            <Text style={styles.cardTitle}>{newItemType === "custom" ? "Goal details" : "Item details"}</Text>
             <Text style={styles.cardSub}>
               {newItemType === "custom"
                 ? "This follows the same structure as adding a goal: name it, set the pay-period amount, and choose the target."
@@ -1092,6 +1243,39 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
             />
             {newItemType === "investment" ? (
               <Text style={styles.fieldHelpText}>The Investments heading stays grouped, but each bucket can be funded separately.</Text>
+            ) : null}
+
+            {newItemType === "investment" ? (
+              <>
+                <Text style={styles.fieldLabel}>Broker</Text>
+                <OverlaySelectInput
+                  value={normalizeBrokerValue(newItemBroker)}
+                  onChange={(next) => {
+                    setNewItemBroker(next);
+                    if (!isManualBrokerSelection(next)) {
+                      setNewBrokerDraft("");
+                    }
+                  }}
+                  options={investmentBrokerDropdownOptions}
+                  triggerStyle={styles.input}
+                  placeholder="Select broker"
+                />
+
+                {isManualBrokerSelection(newItemBroker) ? (
+                  <>
+                    <TextInput
+                      style={styles.input}
+                      value={newBrokerDraft}
+                      onChangeText={setNewBrokerDraft}
+                      placeholder="Add broker manually"
+                      placeholderTextColor={T.textMuted}
+                    />
+                    <Text style={styles.fieldHelpText}>If you add a broker here, it will be saved and available in this dropdown next time.</Text>
+                  </>
+                ) : (
+                  <Text style={styles.fieldHelpText}>Pick from brokers saved in Settings or choose + Add new broker.</Text>
+                )}
+              </>
             ) : null}
 
             <View style={styles.amountSummaryRow}>
@@ -1219,7 +1403,6 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
                 style={({ pressed }) => [styles.targetCard, pressed && styles.targetCardPressed]}
                 onPress={() => openTargetEditor(target.key)}
               >
-                <View style={[styles.targetCardGlow, { backgroundColor: `${target.iconTone}12` }]} />
                 <View style={styles.targetCardMainRow}>
                   <View style={styles.targetCardLead}>
                     <View
@@ -1305,7 +1488,6 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
                   style={({ pressed }) => [styles.targetCard, pressed && styles.targetCardPressed]}
                   onPress={() => openTargetEditor(target.key)}
                 >
-                  <View style={[styles.targetCardGlow, { backgroundColor: `${target.iconTone}12` }]} />
                   <View style={styles.targetCardMainRow}>
                     <View style={styles.targetCardLead}>
                       <View
@@ -1397,10 +1579,6 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
               disabled: props.sacrificeSaving,
               accent: true,
             })}
-            {renderFooterButton({
-              label: isInlineAmountEditing ? "Cancel" : "Edit",
-              onPress: toggleInlineAmountEdit,
-            })}
           </View>
           {renderFooterButton({
             label: "Link",
@@ -1442,149 +1620,240 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
     );
   };
 
-  if (manageScreen) {
+  const renderInvestmentEditSheet = () => {
+    if (manageScreen !== "detail" || !editingInvestmentRoute) return null;
+
+    const currentAmountValue = Math.max(0, Number(editingInvestmentRoute.currentAmount ?? 0));
+    const draftAmountValue = parseMoney(editInvestmentAmountDraft) ?? 0;
+
     return (
-      <View style={[styles.manageScreen, manageScreen === "detail" && styles.manageScreenDetail]}>
-        <View style={[styles.manageHeaderShell, manageScreen === "detail" && styles.manageHeaderShellDetail]}>
-          <View style={[styles.manageHeaderTint, manageScreen === "detail" && styles.manageHeaderTintDetail]} />
-          <View style={[styles.manageHeader, manageScreen === "detail" && styles.manageHeaderDetail, { paddingTop: props.topInset ?? 0 }]}> 
-            <Pressable style={[styles.manageBackBtn, manageScreen === "detail" && styles.manageBackBtnDetail]} onPress={goBackFromManageScreen}>
-              <Ionicons name="chevron-back" size={20} color={T.text} />
-            </Pressable>
-            <View pointerEvents="none" style={styles.manageHeaderCenterWrap}>
-              {manageHeaderTitle ? <Text style={styles.manageTitle} numberOfLines={1}>{manageHeaderTitle}</Text> : null}
+      <Modal transparent visible animationType="slide" onRequestClose={closeInvestmentEditSheet}>
+        <View style={styles.investmentSheetOverlay}>
+          <Pressable style={styles.investmentSheetScrim} onPress={closeInvestmentEditSheet} />
+          <View style={[styles.investmentSheetPanel, { paddingBottom: Math.max(insets.bottom + 20, 32) }]}>
+            <View style={styles.investmentSheetHandle} />
+            <View style={styles.investmentSheetHero}>
+              <View style={styles.investmentSheetHeroIcon}>
+                <Ionicons name="trending-up-outline" size={20} color="#22f0b2" />
+              </View>
+              <Text style={styles.investmentSheetTitle}>{editingInvestmentRoute.name}</Text>
+              <Text style={styles.investmentSheetHeroAmount}>{fmt(draftAmountValue, props.currency)}</Text>
             </View>
-            <View style={styles.manageHeaderSpacer} />
+
+            <View style={styles.investmentSheetStatsRow}>
+              <View style={styles.investmentSheetStatCard}>
+                <Text style={styles.investmentSheetStatLabel}>Current</Text>
+                <Text style={styles.investmentSheetStatValue}>{fmt(currentAmountValue, props.currency)}</Text>
+              </View>
+              <View style={styles.investmentSheetStatCard}>
+                <Text style={styles.investmentSheetStatLabel}>New</Text>
+                <Text style={styles.investmentSheetStatValue}>{fmt(draftAmountValue, props.currency)}</Text>
+              </View>
+            </View>
+
+            <Text style={styles.investmentSheetFieldLabel}>Broker</Text>
+            <OverlaySelectInput
+              value={normalizeBrokerValue(editInvestmentBroker)}
+              onChange={(next) => {
+                setEditInvestmentBroker(next);
+                if (!isManualBrokerSelection(next)) {
+                  setEditInvestmentBrokerManualDraft("");
+                }
+              }}
+              options={investmentBrokerDropdownOptions}
+              triggerStyle={styles.input}
+              placeholder="Select broker"
+            />
+
+            {isManualBrokerSelection(editInvestmentBroker) ? (
+              <TextInput
+                style={styles.input}
+                value={editInvestmentBrokerManualDraft}
+                onChangeText={setEditInvestmentBrokerManualDraft}
+                placeholder="Add broker manually"
+                placeholderTextColor={T.textMuted}
+              />
+            ) : null}
+
+            <Text style={styles.investmentSheetFieldLabel}>Amount for this period</Text>
+            <MoneyInput
+              currency={props.currency}
+              value={editInvestmentAmountDraft}
+              onChangeValue={setEditInvestmentAmountDraft}
+              placeholder="0.00"
+            />
+
+            <View style={styles.investmentSheetActionsRow}>
+              <Pressable
+                style={[styles.investmentSheetActionBtn, styles.investmentSheetActionBtnSecondary]}
+                onPress={closeInvestmentEditSheet}
+              >
+                <Text style={styles.investmentSheetActionText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.investmentSheetActionBtn, styles.investmentSheetActionBtnPrimary]}
+                onPress={() => {
+                  void saveInvestmentEditSheet();
+                }}
+              >
+                <Text style={styles.investmentSheetActionText}>Save</Text>
+              </Pressable>
+            </View>
           </View>
         </View>
+      </Modal>
+    );
+  };
 
-        <ScrollView
-          style={[styles.manageScroll, manageScreen === "detail" && styles.manageScrollDetail]}
-          onScroll={handleManageScroll}
-          scrollEventThrottle={16}
-          showsVerticalScrollIndicator={false}
-          bounces={false}
-          contentContainerStyle={[
-            styles.manageScrollContent,
-            manageScreen === "detail" && styles.manageScrollContentDetail,
-            { paddingBottom: 84 + insets.bottom },
-          ]}
-        >
-          {renderManageContent()}
-        </ScrollView>
+  if (manageScreen) {
+    return (
+      <GestureHandlerRootView style={styles.gestureRoot}>
+        <View style={[styles.manageScreen, manageScreen === "detail" && styles.manageScreenDetail]}>
+          <View style={[styles.manageHeaderShell, manageScreen === "detail" && styles.manageHeaderShellDetail]}>
+            <View style={[styles.manageHeaderTint, manageScreen === "detail" && styles.manageHeaderTintDetail]} />
+            <View style={[styles.manageHeader, manageScreen === "detail" && styles.manageHeaderDetail, { paddingTop: props.topInset ?? 0 }]}> 
+              <Pressable style={[styles.manageBackBtn, manageScreen === "detail" && styles.manageBackBtnDetail]} onPress={goBackFromManageScreen}>
+                <Ionicons name="chevron-back" size={20} color={T.text} />
+              </Pressable>
+              <View pointerEvents="none" style={styles.manageHeaderCenterWrap}>
+                {manageHeaderTitle ? <Text style={styles.manageTitle} numberOfLines={1}>{manageHeaderTitle}</Text> : null}
+              </View>
+              <View style={styles.manageHeaderSpacer} />
+            </View>
+          </View>
 
-        <View style={[styles.fixedFooter, { paddingBottom: Math.max(insets.bottom, 14) }]}> 
-          <Animated.View pointerEvents="none" style={[styles.fixedFooterBackdrop, { opacity: footerBackdropOpacity }]}> 
-            <BlurView intensity={26} tint="dark" style={styles.fixedFooterBackdropBlur} />
-            <View style={styles.fixedFooterBackdropTint} />
-          </Animated.View>
-          {renderManageFooter()}
+          <ScrollView
+            style={[styles.manageScroll, manageScreen === "detail" && styles.manageScrollDetail]}
+            onScroll={handleManageScroll}
+            scrollEventThrottle={16}
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+            contentContainerStyle={[
+              styles.manageScrollContent,
+              manageScreen === "detail" && styles.manageScrollContentDetail,
+              { paddingBottom: 84 + insets.bottom },
+            ]}
+          >
+            {renderManageContent()}
+          </ScrollView>
+
+          <View style={[styles.fixedFooter, { paddingBottom: Math.max(insets.bottom, 14) }]}> 
+            <Animated.View pointerEvents="none" style={[styles.fixedFooterBackdrop, { opacity: footerBackdropOpacity }]}> 
+              <BlurView intensity={26} tint="dark" style={styles.fixedFooterBackdropBlur} />
+              <View style={styles.fixedFooterBackdropTint} />
+            </Animated.View>
+            {renderManageFooter()}
+          </View>
+
+          {renderInvestmentEditSheet()}
         </View>
-      </View>
+      </GestureHandlerRootView>
     );
   }
 
   return (
-    <View style={styles.mainScreen}>
-      {props.sacrifice ? (
-        <FlatList
-          data={[]}
-          keyExtractor={(_, idx) => String(idx)}
-          style={styles.mainList}
-          onScroll={handleMainScroll}
-          scrollEventThrottle={16}
-          bounces={false}
-          contentContainerStyle={[s.scroll, { paddingTop: props.topInset ?? 0, paddingBottom: canManage ? 72 + insets.bottom : 40 }]}
-          refreshControl={<RefreshControl refreshing={props.refreshing} onRefresh={props.onRefresh} tintColor={T.accent} />}
-          ListHeaderComponent={
-            <View style={styles.wrap}>
-              {props.pendingNoticeText ? (
-                null
-              ) : null}
+    <GestureHandlerRootView style={styles.gestureRoot}>
+      <View style={styles.mainScreen}>
+        {props.sacrifice ? (
+          <FlatList
+            data={[]}
+            keyExtractor={(_, idx) => String(idx)}
+            style={styles.mainList}
+            onScroll={handleMainScroll}
+            scrollEventThrottle={16}
+            bounces={false}
+            contentContainerStyle={[s.scroll, { paddingTop: props.topInset ?? 0, paddingBottom: canManage ? 72 + insets.bottom : 40 }]}
+            refreshControl={<RefreshControl refreshing={props.refreshing} onRefresh={props.onRefresh} tintColor={T.accent} />}
+            ListHeaderComponent={
+              <View style={styles.wrap}>
+                {props.pendingNoticeText ? (
+                  null
+                ) : null}
 
-              <IncomeSacrificePieChart
-                currency={props.currency}
-                slices={pieSlices}
-                centerTitle={props.monthLabel}
-                onSlicePress={canManage ? handleOverviewSlicePress : undefined}
-              />
+                <IncomeSacrificePieChart
+                  currency={props.currency}
+                  slices={pieSlices}
+                  centerTitle={props.monthLabel}
+                  onSlicePress={canManage ? handleOverviewSlicePress : undefined}
+                />
 
-              {activeSacrificeTip ? (
-                <View style={styles.aiTipCard}>
-                  <View style={styles.aiTipHeader}>
-                    <Ionicons name="bulb-outline" size={16} color={T.accent} />
-                    <Text style={styles.aiTipTitle}>{t("income.sacrifice.aiTipLabel")}</Text>
-                  </View>
-                  <Text style={styles.aiTipHeadline}>{activeSacrificeTip.title}</Text>
-                  <Text style={styles.aiTipText}>{activeSacrificeTip.detail}</Text>
-                  {sacrificeTips.length > 1 ? (
-                    <View style={styles.aiTipDots}>
-                      {sacrificeTips.map((tip, index) => (
-                        <View
-                          key={`${tip.title}-${index}`}
-                          style={[styles.aiTipDot, index === activeTipIndex ? styles.aiTipDotActive : null]}
-                        />
-                      ))}
+                {activeSacrificeTip ? (
+                  <View style={styles.aiTipCard}>
+                    <View style={styles.aiTipHeader}>
+                      <Ionicons name="bulb-outline" size={16} color={T.accent} />
+                      <Text style={styles.aiTipTitle}>{t("income.sacrifice.aiTipLabel")}</Text>
                     </View>
-                  ) : null}
-                </View>
-              ) : null}
+                    <Text style={styles.aiTipHeadline}>{activeSacrificeTip.title}</Text>
+                    <Text style={styles.aiTipText}>{activeSacrificeTip.detail}</Text>
+                    {sacrificeTips.length > 1 ? (
+                      <View style={styles.aiTipDots}>
+                        {sacrificeTips.map((tip, index) => (
+                          <View
+                            key={`${tip.title}-${index}`}
+                            style={[styles.aiTipDot, index === activeTipIndex ? styles.aiTipDotActive : null]}
+                          />
+                        ))}
+                      </View>
+                    ) : null}
+                  </View>
+                ) : null}
 
-              {canManage ? (
-                <View style={styles.buttonSpacer} />
-              ) : null}
+                {canManage ? (
+                  <View style={styles.buttonSpacer} />
+                ) : null}
 
+              </View>
+            }
+            ListEmptyComponent={null}
+            renderItem={() => null}
+          />
+        ) : (
+          <View
+            style={[
+              styles.loadingState,
+              {
+                paddingTop: props.topInset ?? 0,
+                paddingBottom: canManage ? 72 + insets.bottom : 40,
+              },
+            ]}
+          >
+            <View style={styles.loadingInner}>
+              <ActivityIndicator size="small" color={T.accent} />
             </View>
-          }
-          ListEmptyComponent={null}
-          renderItem={() => null}
-        />
-      ) : (
-        <View
-          style={[
-            styles.loadingState,
-            {
-              paddingTop: props.topInset ?? 0,
-              paddingBottom: canManage ? 72 + insets.bottom : 40,
-            },
-          ]}
-        >
-          <View style={styles.loadingInner}>
-            <ActivityIndicator size="small" color={T.accent} />
           </View>
-        </View>
-      )}
+        )}
 
-      {canManage ? (
-        <View style={[styles.fixedFooter, { paddingBottom: Math.max(insets.bottom, 14) }]}> 
-          <Animated.View pointerEvents="none" style={[styles.fixedFooterBackdrop, { opacity: footerBackdropOpacity }]}> 
-            <BlurView intensity={26} tint="dark" style={styles.fixedFooterBackdropBlur} />
-            <View style={styles.fixedFooterBackdropTint} />
-          </Animated.View>
-          <View style={styles.mainFooterRow}>
-              <View style={styles.mainFooterLeftGroup}>
+        {canManage ? (
+          <View style={[styles.fixedFooter, { paddingBottom: Math.max(insets.bottom, 14) }]}> 
+            <Animated.View pointerEvents="none" style={[styles.fixedFooterBackdrop, { opacity: footerBackdropOpacity }]}> 
+              <BlurView intensity={26} tint="dark" style={styles.fixedFooterBackdropBlur} />
+              <View style={styles.fixedFooterBackdropTint} />
+            </Animated.View>
+            <View style={styles.mainFooterRow}>
+                <View style={styles.mainFooterLeftGroup}>
+                  {renderFooterButton({
+                    label: "Edit",
+                    onPress: openManageFlow,
+                    disabled: props.sacrificeSaving,
+                  })}
+                </View>
+              <View style={styles.mainFooterRightGroup}>
                 {renderFooterButton({
-                  label: "Edit",
-                  onPress: openManageFlow,
-                  disabled: props.sacrificeSaving,
+                  label: "Current",
+                  onPress: props.onGoToCurrentPeriod,
+                  disabled: !props.onGoToCurrentPeriod,
+                })}
+                {renderFooterButton({
+                  label: "Next",
+                  onPress: props.onGoToNextPeriod,
+                  disabled: !props.onGoToNextPeriod,
+                  accent: true,
                 })}
               </View>
-            <View style={styles.mainFooterRightGroup}>
-              {renderFooterButton({
-                label: "Current",
-                onPress: props.onGoToCurrentPeriod,
-                disabled: !props.onGoToCurrentPeriod,
-              })}
-              {renderFooterButton({
-                label: "Next",
-                onPress: props.onGoToNextPeriod,
-                disabled: !props.onGoToNextPeriod,
-                accent: true,
-              })}
             </View>
           </View>
-        </View>
-      ) : null}
-    </View>
+        ) : null}
+      </View>
+    </GestureHandlerRootView>
   );
 }

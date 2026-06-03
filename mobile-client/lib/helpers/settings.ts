@@ -163,6 +163,74 @@ export function groupSavingsPotsByField(pots: SavingsPot[]): Record<SavingsField
   };
 }
 
+type InvestmentSplitBucket = {
+  name: string;
+  amount: number;
+};
+
+export function reconcileMissingInvestmentSplitPots(args: {
+  pots: SavingsPot[];
+  investmentBalance: number;
+  splitBuckets: ReadonlyArray<InvestmentSplitBucket>;
+  tolerance?: number;
+  planId?: string | null;
+}): SavingsPot[] | null {
+  const pots = args.pots;
+  const splitBuckets = args.splitBuckets;
+  const tolerance = args.tolerance ?? 0.005;
+
+  if (!Array.isArray(pots) || splitBuckets.length === 0) return null;
+
+  const splitTotal = splitBuckets.reduce((sum, bucket) => sum + asMoneyNumber(bucket.amount), 0);
+  if (Math.abs(asMoneyNumber(args.investmentBalance) - splitTotal) >= tolerance) {
+    return null;
+  }
+
+  const investmentPots = pots.filter((pot) => pot.field === "investment");
+  if (investmentPots.length === 0 || investmentPots.length >= splitBuckets.length) {
+    return null;
+  }
+
+  const canonicalNameSet = new Set(splitBuckets.map((bucket) => normalizeSavingsBucketName(bucket.name)));
+  const usesOnlyCanonicalBuckets = investmentPots.every((pot) => canonicalNameSet.has(normalizeSavingsBucketName(pot.name)));
+  if (!usesOnlyCanonicalBuckets) {
+    return null;
+  }
+
+  const investmentByName = new Map<string, SavingsPot>(
+    investmentPots.map((pot) => [normalizeSavingsBucketName(pot.name), pot]),
+  );
+  const missingBuckets = splitBuckets.filter((bucket) => !investmentByName.has(normalizeSavingsBucketName(bucket.name)));
+  if (missingBuckets.length === 0) {
+    return null;
+  }
+
+  const existingInvestmentTotal = investmentPots.reduce((sum, pot) => sum + asMoneyNumber(pot.amount), 0);
+  const remainingAmount = Math.max(0, asMoneyNumber(args.investmentBalance) - existingInvestmentTotal);
+
+  const repairedInvestmentPots = splitBuckets.map((bucket, index) => {
+    const normalizedName = normalizeSavingsBucketName(bucket.name);
+    const existingPot = investmentByName.get(normalizedName);
+    if (existingPot) return existingPot;
+
+    const generatedIdBase = args.planId ? `${args.planId}-${normalizedName}` : `investment-${normalizedName}-${index}`;
+    const missingAmount = missingBuckets.length === 1 ? remainingAmount : asMoneyNumber(bucket.amount);
+
+    return {
+      id: generatedIdBase,
+      field: "investment" as const,
+      name: bucket.name,
+      amount: Math.max(0, missingAmount),
+      broker: "none",
+    };
+  });
+
+  return [
+    ...pots.filter((pot) => pot.field !== "investment"),
+    ...repairedInvestmentPots,
+  ];
+}
+
 export function resolveSavingsCategoryTotals(
   settings: Pick<Settings, "savingsBalance" | "emergencyBalance" | "investmentBalance"> | null | undefined,
   pots: SavingsPot[],

@@ -41,6 +41,7 @@ import {
   useConfirmIncomeSacrificeGoalTransferMutation,
   useCreateIncomeSacrificeCustomMutation,
   useDeleteIncomeSacrificeCustomMutation,
+  useUpdateSettingsMutation,
   useUpdateIncomeSacrificeGoalLinkMutation,
   useUpdateIncomeSacrificeMutation,
 } from "@/store/api";
@@ -53,6 +54,12 @@ type ItemsCacheStore = Record<string, Record<number, Record<number, Income[]>>>;
 type SacrificeCacheStore = Record<string, Record<number, Record<number, IncomeSacrificeData>>>;
 type SettingsCacheStore = Record<string, Settings>;
 type MonthPrefetchStore = Record<string, "idle" | "loading" | "loaded">;
+
+function normalizeSavingsPotBroker(value: unknown): string {
+  if (typeof value !== "string") return "none";
+  const normalized = value.trim();
+  return normalized || "none";
+}
 
 const sharedAnalysisCache: AnalysisCacheStore = {};
 const sharedItemsCache: ItemsCacheStore = {};
@@ -97,10 +104,11 @@ function toInitialIncomeItems(
 export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScreenProps) {
   const router = useRouter();
   const { formatDate, locale, monthNamesLong } = useAppLocale();
-  const { readSavingsPotsForPlan, ensureSavingsPotAllocationLinks } = useSavingsPotStore();
+  const { readSavingsPotsForPlan, writeSavingsPotsForPlan, ensureSavingsPotAllocationLinks } = useSavingsPotStore();
   const [updateIncomeSacrifice] = useUpdateIncomeSacrificeMutation();
   const [createIncomeSacrificeCustom] = useCreateIncomeSacrificeCustomMutation();
   const [deleteIncomeSacrificeCustom] = useDeleteIncomeSacrificeCustomMutation();
+  const [updateSettingsMutation] = useUpdateSettingsMutation();
   const [updateIncomeSacrificeGoalLink] = useUpdateIncomeSacrificeGoalLinkMutation();
   const [confirmIncomeSacrificeGoalTransfer] = useConfirmIncomeSacrificeGoalTransferMutation();
   const topHeaderOffset = useTopHeaderOffset(-32);
@@ -778,10 +786,12 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
     targetType: "fixed" | "custom";
     fixedField?: FixedField;
     customAllocationId?: string;
+    potId?: string;
     amount: number;
     startMonth: number;
     startYear: number;
     period: SacrificePeriod;
+    skipSavingIndicator?: boolean;
   }) => {
     if (!canManageSacrifice) {
       Alert.alert("Manage closed", "Income sacrifice can only be managed until 5 days after the period ends.");
@@ -810,7 +820,17 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
     }
 
     const affectsViewedMonth = targets.some((target) => target.month === month && target.year === year);
+    const showSavingIndicator = args.skipSavingIndicator !== true;
     const previousSacrifice = sacrifice;
+    const linkedInvestmentPot = args.targetType === "custom"
+      ? savingsPots.find((pot) => (
+        pot.field === "investment"
+        && (
+          (args.potId ? pot.id === args.potId : false)
+          || (args.customAllocationId ? pot.allocationId === args.customAllocationId : false)
+        )
+      ))
+      : undefined;
 
     if (affectsViewedMonth && previousSacrifice) {
       const nextFixed: IncomeSacrificeFixed = {
@@ -827,13 +847,28 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
         nextFixed[args.fixedField as FixedField] = value;
       } else {
         const targetId = args.customAllocationId as string;
+        let updatedExisting = false;
         nextCustomItems = nextCustomItems.map((item) => {
           if (item.id !== targetId) return item;
+          updatedExisting = true;
           const oldAmount = Number(item.amount ?? 0);
           const newAmount = value;
           nextCustomTotal += newAmount - oldAmount;
           return { ...item, amount: newAmount };
         });
+
+        if (!updatedExisting) {
+          nextCustomItems = [
+            ...nextCustomItems,
+            {
+              id: targetId,
+              name: linkedInvestmentPot?.name?.trim() || "Investment",
+              amount: value,
+              isOverride: true,
+            },
+          ];
+          nextCustomTotal += value;
+        }
       }
 
       const fixedTotal =
@@ -852,7 +887,9 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
     }
 
     try {
-      setSacrificeSaving(true);
+      if (showSavingIndicator) {
+        setSacrificeSaving(true);
+      }
       for (const target of targets) {
         const snapshot = await apiFetch<IncomeSacrificeData>(
           `/api/bff/income-sacrifice?month=${target.month}&year=${target.year}&budgetPlanId=${encodeURIComponent(budgetPlanId)}`
@@ -886,8 +923,40 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
         }
       }
 
+      if (linkedInvestmentPot) {
+        try {
+          const previousPotAmount = Math.max(0, Number(linkedInvestmentPot.amount) || 0);
+          const nextPotAmount = Math.max(0, value);
+          const nextPots = savingsPots.map((pot) => (
+            pot.id === linkedInvestmentPot.id
+              ? {
+                ...pot,
+                amount: nextPotAmount,
+              }
+              : pot
+          ));
+
+          await writeSavingsPotsForPlan(budgetPlanId, nextPots);
+          setSavingsPots(nextPots);
+
+          const delta = nextPotAmount - previousPotAmount;
+          if (settings?.id && delta !== 0) {
+            const updated = await updateSettingsMutation({
+              budgetPlanId: settings.id,
+              changes: {
+                additionalInvestmentBalance: delta,
+              },
+            }).unwrap();
+            settingsCacheRef.current[budgetPlanId] = updated;
+            setSettings(updated);
+          }
+        } catch {
+          // Keep the main sacrifice update successful even if linked pot/settings sync fails.
+        }
+      }
+
       invalidateMonthCaches(targets, { analysis: true, items: false, sacrifice: true });
-      await Promise.all([loadSacrifice({ force: true }), load({ force: true })]);
+      await Promise.all([loadSacrifice({ force: true }), load({ force: true }), refreshSavingsPots()]);
       seenMutationVersionRef.current = getApiMutationVersion();
     } catch (error) {
       if (affectsViewedMonth && previousSacrifice) {
@@ -895,14 +964,17 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
       }
       Alert.alert("Could not save sacrifice", getMobileApiErrorMessage(error, "Please try again."));
     } finally {
-      setSacrificeSaving(false);
+      if (showSavingIndicator) {
+        setSacrificeSaving(false);
+      }
     }
-  }, [budgetPlanId, buildTargetMonths, canManageSacrifice, invalidateMonthCaches, load, loadSacrifice, month, sacrifice, updateIncomeSacrifice, year]);
+  }, [budgetPlanId, buildTargetMonths, canManageSacrifice, invalidateMonthCaches, load, loadSacrifice, month, refreshSavingsPots, sacrifice, savingsPots, settings?.id, updateIncomeSacrifice, updateSettingsMutation, writeSavingsPotsForPlan, year]);
 
   const createSacrificeItem = useCallback(async (args: {
     type: "allowance" | "savings" | "emergency" | "investment" | "custom";
     name: string;
     amount: number;
+    broker?: string;
     goalTargetAmount?: number;
     goalTargetYear?: number;
   }) => {
@@ -932,10 +1004,13 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
       Alert.alert("Target year required", "Custom sacrifice requires a valid target year.");
       return;
     }
+    let createdAllocationId: string | null = null;
+    let createdPotId: string | null = null;
+    const investmentAmount = Math.max(0, Number(args.amount) || 0);
 
     try {
       setSacrificeCreating(true);
-      await createIncomeSacrificeCustom({
+      const created = await createIncomeSacrificeCustom({
         budgetPlanId,
         month,
         year,
@@ -946,15 +1021,81 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
         goalTargetAmount: args.type === "custom" ? args.goalTargetAmount : undefined,
         goalTargetYear: args.type === "custom" ? args.goalTargetYear : undefined,
       }).unwrap();
+
+      createdAllocationId = typeof created?.item?.id === "string" ? created.item.id.trim() : null;
+
+      if (args.type === "investment" && createdAllocationId) {
+        const nextPots = [
+          ...savingsPots,
+          {
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            field: "investment" as const,
+            name: trimmedName,
+            amount: investmentAmount,
+            broker: normalizeSavingsPotBroker(args.broker),
+            allocationId: createdAllocationId,
+          },
+        ];
+
+        createdPotId = nextPots[nextPots.length - 1]?.id ?? null;
+        await writeSavingsPotsForPlan(budgetPlanId, nextPots);
+        setSavingsPots(nextPots);
+
+        if (settings?.id && investmentAmount > 0) {
+          const updated = await updateSettingsMutation({
+            budgetPlanId: settings.id,
+            changes: {
+              additionalInvestmentBalance: investmentAmount,
+            },
+          }).unwrap();
+          settingsCacheRef.current[budgetPlanId] = updated;
+          setSettings(updated);
+        }
+      }
+
       invalidateMonthCaches([{ month, year }], { analysis: true, items: false, sacrifice: true });
       await Promise.all([loadSacrifice({ force: true }), load({ force: true })]);
       seenMutationVersionRef.current = getApiMutationVersion();
     } catch (error) {
+      if (args.type === "investment") {
+        if (createdAllocationId) {
+          try {
+            await deleteIncomeSacrificeCustom({ id: createdAllocationId }).unwrap();
+          } catch {
+            // Best-effort rollback only.
+          }
+        }
+
+        if (createdPotId) {
+          try {
+            const rolledBackPots = savingsPots.filter((pot) => pot.id !== createdPotId && pot.allocationId !== createdAllocationId);
+            await writeSavingsPotsForPlan(budgetPlanId, rolledBackPots);
+            setSavingsPots(rolledBackPots);
+          } catch {
+            // Keep current local state if rollback fails.
+          }
+        }
+      }
       Alert.alert("Could not create sacrifice", getMobileApiErrorMessage(error, "Please try again."));
+      throw error;
     } finally {
       setSacrificeCreating(false);
     }
-  }, [budgetPlanId, canManageSacrifice, createIncomeSacrificeCustom, invalidateMonthCaches, load, loadSacrifice, month, year]);
+  }, [
+    budgetPlanId,
+    canManageSacrifice,
+    createIncomeSacrificeCustom,
+    deleteIncomeSacrificeCustom,
+    invalidateMonthCaches,
+    load,
+    loadSacrifice,
+    month,
+    savingsPots,
+    settings?.id,
+    updateSettingsMutation,
+    writeSavingsPotsForPlan,
+    year,
+  ]);
 
   const ensurePotAllocationRoute = useCallback(async (args: {
     field: SavingsField;
@@ -972,11 +1113,43 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
         && (pot.id === args.potId || pot.name.trim().toLowerCase() === normalizedName)
       ));
 
-      return matchedPot?.allocationId ?? null;
+      if (matchedPot?.allocationId) {
+        return matchedPot.allocationId;
+      }
+
+      if (args.field === "investment" && matchedPot) {
+        const now = new Date();
+        const created = await createIncomeSacrificeCustom({
+          budgetPlanId,
+          month: now.getMonth() + 1,
+          year: now.getFullYear(),
+          type: "investment",
+          name: matchedPot.name,
+          amount: 0,
+        }).unwrap();
+
+        const allocationId = typeof created?.item?.id === "string" ? created.item.id.trim() : "";
+        if (!allocationId) return null;
+
+        const nextPots = syncedPots.map((pot) => (
+          pot.id === matchedPot.id
+            ? {
+              ...pot,
+              allocationId,
+            }
+            : pot
+        ));
+
+        await writeSavingsPotsForPlan(budgetPlanId, nextPots);
+        setSavingsPots(nextPots);
+        return allocationId;
+      }
+
+      return null;
     } catch {
       return null;
     }
-  }, [budgetPlanId, ensureSavingsPotAllocationLinks, readSavingsPotsForPlan]);
+  }, [budgetPlanId, createIncomeSacrificeCustom, ensureSavingsPotAllocationLinks, readSavingsPotsForPlan, writeSavingsPotsForPlan]);
 
   const deleteSacrificeItem = async (id: string) => {
     if (!canManageSacrifice) {
@@ -984,9 +1157,34 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
       return;
     }
 
+    const linkedInvestmentPot = savingsPots.find((pot) => pot.field === "investment" && pot.allocationId === id);
+
     try {
       setSacrificeDeletingId(id);
       await deleteIncomeSacrificeCustom({ id }).unwrap();
+
+      if (linkedInvestmentPot) {
+        try {
+          const nextPots = savingsPots.filter((pot) => pot.id !== linkedInvestmentPot.id);
+          await writeSavingsPotsForPlan(budgetPlanId, nextPots);
+          setSavingsPots(nextPots);
+
+          const linkedAmount = Math.max(0, Number(linkedInvestmentPot.amount) || 0);
+          if (settings?.id && linkedAmount > 0) {
+            const updated = await updateSettingsMutation({
+              budgetPlanId: settings.id,
+              changes: {
+                additionalInvestmentBalance: -linkedAmount,
+              },
+            }).unwrap();
+            settingsCacheRef.current[budgetPlanId] = updated;
+            setSettings(updated);
+          }
+        } catch {
+          // Keep the main sacrifice deletion successful even if linked settings sync fails.
+        }
+      }
+
       invalidateMonthCaches([{ month, year }], { analysis: true, items: false, sacrifice: true });
       await Promise.all([loadSacrifice({ force: true }), load({ force: true })]);
       seenMutationVersionRef.current = getApiMutationVersion();
@@ -1051,6 +1249,25 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
       setConfirmingTargetKey(null);
     }
   }, [budgetPlanId, canManageSacrifice, confirmIncomeSacrificeGoalTransfer, invalidateMonthCaches, load, loadSacrifice, month, year]);
+
+  const updateInvestmentPotBroker = useCallback(async (args: { potId: string; broker: string }) => {
+    const normalizedBroker = normalizeSavingsPotBroker(args.broker);
+    const matchedPot = savingsPots.find((pot) => pot.id === args.potId && pot.field === "investment");
+    if (!matchedPot) return;
+    if (normalizeSavingsPotBroker(matchedPot.broker) === normalizedBroker) return;
+
+    const nextPots = savingsPots.map((pot) => (
+      pot.id === matchedPot.id
+        ? {
+          ...pot,
+          broker: normalizedBroker,
+        }
+        : pot
+    ));
+
+    await writeSavingsPotsForPlan(budgetPlanId, nextPots);
+    setSavingsPots(nextPots);
+  }, [budgetPlanId, savingsPots, writeSavingsPotsForPlan]);
 
   if (loading) {
     return (
@@ -1127,6 +1344,7 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
             onEnsurePotAllocationRoute={ensurePotAllocationRoute}
             onDeleteCustom={deleteSacrificeItem}
             onCreateItem={createSacrificeItem}
+            onUpdateInvestmentPotBroker={updateInvestmentPotBroker}
             onSaveGoalLink={saveSacrificeGoalLink}
             onConfirmTransfer={confirmSacrificeTransfer}
             goalLinkSaving={linkSaving}

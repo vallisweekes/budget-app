@@ -44,10 +44,12 @@ export type IncomeMonthSacrificeListProps = {
     targetType: "fixed" | "custom";
     fixedField?: "monthlyAllowance" | "monthlySavingsContribution" | "monthlyEmergencyContribution" | "monthlyInvestmentContribution";
     customAllocationId?: string;
+    potId?: string;
     amount: number;
     startMonth: number;
     startYear: number;
     period: SacrificePeriod;
+    skipSavingIndicator?: boolean;
   }) => Promise<void>;
   onEnsurePotAllocationRoute?: (args: {
     field: SavingsField;
@@ -59,8 +61,13 @@ export type IncomeMonthSacrificeListProps = {
     type: IncomeSacrificeItemType;
     name: string;
     amount: number;
+    broker?: string;
     goalTargetAmount?: number;
     goalTargetYear?: number;
+  }) => Promise<void>;
+  onUpdateInvestmentPotBroker?: (args: {
+    potId: string;
+    broker: string;
   }) => Promise<void>;
   onSaveGoalLink: (args: { targetKey: string; goalId: string | null }) => Promise<void>;
   onConfirmTransfer: (targetKey: string) => Promise<void>;

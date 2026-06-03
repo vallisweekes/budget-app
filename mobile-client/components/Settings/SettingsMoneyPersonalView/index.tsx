@@ -7,6 +7,44 @@ import { styles } from "./styles";
 
 import type { SettingsMoneyPersonalViewProps } from "@/types/components/settings/SettingsMoneyPersonalView.types";
 
+function normalizeBrokerName(value: string | null | undefined): string {
+  const normalized = String(value ?? "").trim();
+  return normalized || "none";
+}
+
+function aggregateInvestmentPotsByBroker(
+  pots: SettingsMoneyPersonalViewProps["savingsPotsByField"]["investment"],
+): SettingsMoneyPersonalViewProps["savingsPotsByField"]["investment"] {
+  const groupedByKey = new Map<string, typeof pots[number]>();
+  const orderedKeys: string[] = [];
+
+  for (const pot of pots) {
+    const broker = normalizeBrokerName(pot.broker);
+    const shouldGroupByBroker = broker.toLowerCase() !== "none";
+    const groupKey = shouldGroupByBroker ? `broker:${broker.toLowerCase()}` : `pot:${pot.id}`;
+    const existing = groupedByKey.get(groupKey);
+
+    if (!existing) {
+      groupedByKey.set(groupKey, {
+        ...pot,
+        name: shouldGroupByBroker ? broker : pot.name,
+        broker,
+      });
+      orderedKeys.push(groupKey);
+      continue;
+    }
+
+    groupedByKey.set(groupKey, {
+      ...existing,
+      amount: Number(existing.amount) + Number(pot.amount),
+    });
+  }
+
+  return orderedKeys
+    .map((key) => groupedByKey.get(key))
+    .filter((pot): pot is typeof pots[number] => Boolean(pot));
+}
+
 export default function SettingsMoneyPersonalView({
   currency,
   tileSize,
@@ -24,7 +62,10 @@ export default function SettingsMoneyPersonalView({
     <View style={styles.plainSavingsBlock}>
       {savingsCards.map((card) => {
         const palette = getSavingsTilePalette(card.key);
-        const pots = savingsPotsByField[card.key];
+        const rawPots = savingsPotsByField[card.key];
+        const pots = card.key === "investment"
+          ? aggregateInvestmentPotsByBroker(rawPots)
+          : rawPots;
         const hasSplitInvestmentPots = card.key === "investment" && pots.length > 0;
         const showAddTile = card.key === "investment" || !hasSplitInvestmentPots;
         const cardTitle = card.key === "emergency"

@@ -22,6 +22,10 @@ type SavingsPotMigrationStore = Record<string, {
   investmentSplit20260529?: boolean;
 }>;
 
+function countInvestmentPots(pots: SavingsPot[]): number {
+  return pots.reduce((count, pot) => (pot.field === "investment" ? count + 1 : count), 0);
+}
+
 function normalizeSavingsPotBroker(value: unknown): string {
   if (typeof value !== "string") return "none";
   const normalized = value.trim();
@@ -115,7 +119,19 @@ export function useSavingsPotStore() {
           .filter((pot): pot is SavingsPot => Boolean(pot))
         : [];
 
+      const localInvestmentCount = countInvestmentPots(localPots);
+      const remoteInvestmentCount = countInvestmentPots(remotePots);
+      const shouldPreferLocalInvestmentSplit =
+        localInvestmentCount > remoteInvestmentCount
+        && localInvestmentCount > 1;
+
       if (remotePots.length > 0) {
+        if (shouldPreferLocalInvestmentSplit) {
+          // Keep local investment buckets when remote state is stale/partial.
+          void syncSavingsPotsToServer(planId, localPots).catch(() => undefined);
+          return localPots;
+        }
+
         await writeSavingsPotsToLocalStore(planId, remotePots);
         return remotePots;
       }
