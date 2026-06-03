@@ -504,39 +504,6 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
     }
   }, [getAdjacentMonths, prefetchMonthAnalysis]);
 
-  const load = useCallback(async (options?: { force?: boolean }) => {
-    const force = Boolean(options?.force);
-    try {
-      setError(null);
-
-      if (!force) {
-        const cachedMonthData = getCachedAnalysis(year, month);
-        if (cachedMonthData) {
-          setAnalysis(cachedMonthData);
-          setItems(toIncomeItems(cachedMonthData.incomeItems ?? [], month, year));
-          setLoading(false);
-          setRefreshing(false);
-          prefetchAdjacentMonths(year, month);
-          return;
-        }
-      }
-
-      const monthData = await apiFetch<IncomeMonthData>(`/api/bff/income-month?month=${month}&year=${year}&budgetPlanId=${encodeURIComponent(budgetPlanId)}`);
-      const hydratedMonthData = hydrateComparisonMetrics(year, month, monthData);
-      const normalizedIncome = toIncomeItems(hydratedMonthData.incomeItems ?? [], month, year);
-      setAnalysis(hydratedMonthData);
-      setItems(normalizedIncome);
-      setCachedAnalysis(year, month, hydratedMonthData);
-      setCachedItems(year, month, normalizedIncome);
-      prefetchAdjacentMonths(year, month);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to load");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [budgetPlanId, getCachedAnalysis, hydrateComparisonMetrics, month, prefetchAdjacentMonths, setCachedAnalysis, setCachedItems, toIncomeItems, year]);
-
   const loadSacrifice = useCallback(async (options?: { force?: boolean }) => {
     const force = Boolean(options?.force);
     if (!force) {
@@ -561,6 +528,59 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
     sacrificeCacheRef.current[planCacheKey][year][month] = data;
     setSacrifice(data);
   }, [month, year, budgetPlanId, planCacheKey]);
+
+  const load = useCallback(async (options?: { force?: boolean }) => {
+    const force = Boolean(options?.force);
+    const shouldBlockOnSacrifice = viewMode === "sacrifice" || (initialMode ?? "income") === "sacrifice";
+    try {
+      setError(null);
+
+      if (!force) {
+        const cachedMonthData = getCachedAnalysis(year, month);
+        if (cachedMonthData) {
+          setAnalysis(cachedMonthData);
+          setItems(toIncomeItems(cachedMonthData.incomeItems ?? [], month, year));
+          setLoading(false);
+          setRefreshing(false);
+          prefetchAdjacentMonths(year, month);
+          void loadSacrifice().catch(() => null);
+          return;
+        }
+      }
+
+      const sacrificeWarmupPromise = loadSacrifice({ force }).catch(() => null);
+      const monthData = await apiFetch<IncomeMonthData>(`/api/bff/income-month?month=${month}&year=${year}&budgetPlanId=${encodeURIComponent(budgetPlanId)}`);
+      const hydratedMonthData = hydrateComparisonMetrics(year, month, monthData);
+      const normalizedIncome = toIncomeItems(hydratedMonthData.incomeItems ?? [], month, year);
+      setAnalysis(hydratedMonthData);
+      setItems(normalizedIncome);
+      setCachedAnalysis(year, month, hydratedMonthData);
+      setCachedItems(year, month, normalizedIncome);
+      prefetchAdjacentMonths(year, month);
+
+      if (shouldBlockOnSacrifice) {
+        await sacrificeWarmupPromise;
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to load");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [
+    budgetPlanId,
+    getCachedAnalysis,
+    hydrateComparisonMetrics,
+    initialMode,
+    loadSacrifice,
+    month,
+    prefetchAdjacentMonths,
+    setCachedAnalysis,
+    setCachedItems,
+    toIncomeItems,
+    viewMode,
+    year,
+  ]);
 
   useEffect(() => {
     void loadSettings();
@@ -624,6 +644,7 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
   }, [showPendingNotice, month, year]);
 
   const openStandaloneSacrifice = useCallback(() => {
+    void loadSacrifice().catch(() => null);
     router.push({
       pathname: "/IncomeMonth",
       params: {
@@ -636,7 +657,7 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
         standaloneSacrifice: "true",
       },
     });
-  }, [budgetPlanId, month, pendingConfirmationsCount, pendingNoticeVisible, router, year]);
+  }, [budgetPlanId, loadSacrifice, month, pendingConfirmationsCount, pendingNoticeVisible, router, year]);
 
   const returnToTabbedIncome = useCallback(() => {
     router.replace({

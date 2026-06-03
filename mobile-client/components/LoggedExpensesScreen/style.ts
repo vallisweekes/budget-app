@@ -7,7 +7,7 @@ export const loggedExpensesStyles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: T.bg },
   content: { paddingBottom: 28 },
   purpleHero: {
-    backgroundColor: "#161a2d",
+    backgroundColor: "rgba(20,24,38,0.56)",
     paddingHorizontal: 20,
     paddingBottom: 30,
     alignItems: "center",
@@ -15,7 +15,7 @@ export const loggedExpensesStyles = StyleSheet.create({
     borderBottomLeftRadius: 34,
     borderBottomRightRadius: 34,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(124,92,255,0.16)",
+    borderBottomColor: "rgba(244,246,255,0.16)",
   },
   purpleHeroLabel: {
     color: "rgba(255,255,255,0.72)",
@@ -84,8 +84,8 @@ export const loggedExpensesStyles = StyleSheet.create({
     paddingTop: 14,
     paddingBottom: 12,
     gap: 8,
-    backgroundColor: "#141826",
-    borderColor: "rgba(255,255,255,0.07)",
+    backgroundColor: "rgba(20,24,38,0.56)",
+    borderColor: "rgba(244,246,255,0.16)",
     borderRadius: 24,
   },
   cardPressed: { opacity: 0.75 },

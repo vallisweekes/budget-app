@@ -29,7 +29,7 @@ export const categoryExpensesStyles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
   },
   pickerSheet: {
-    backgroundColor: "#141826",
+    backgroundColor: "rgba(20,24,38,0.56)",
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     borderTopWidth: 1,
@@ -95,7 +95,7 @@ export const categoryExpensesStyles = StyleSheet.create({
     color: "#ffffff",
   },
   hero: {
-    backgroundColor: "#161a2d",
+    backgroundColor: "rgba(20,24,38,0.56)",
     paddingHorizontal: 20,
     paddingBottom: 28,
     alignItems: "center",
@@ -207,7 +207,7 @@ export const categoryExpensesStyles = StyleSheet.create({
     borderRadius: 18,
     backgroundColor: "rgba(255,255,255,0.04)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.07)",
+    borderColor: "rgba(244,246,255,0.16)",
     paddingHorizontal: 14,
     paddingVertical: 11,
   },

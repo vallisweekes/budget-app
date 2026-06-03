@@ -5,10 +5,10 @@ import { T } from "@/lib/theme";
 export const styles = StyleSheet.create({
   list: { paddingTop: 0, paddingBottom: 32 },
   card: {
-    backgroundColor: "#141826",
+    backgroundColor: "rgba(20,24,38,0.56)",
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.07)",
+    borderColor: "rgba(244,246,255,0.16)",
     padding: 16,
     marginBottom: 12,
     marginHorizontal: 14,
@@ -24,7 +24,7 @@ export const styles = StyleSheet.create({
     height: 42,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.07)",
+    borderColor: "rgba(244,246,255,0.16)",
     backgroundColor: "#1b2033",
     alignItems: "center",
     justifyContent: "center",

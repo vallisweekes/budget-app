@@ -74,7 +74,7 @@ export default function IncomeSacrificePieChart({ currency, slices, centerTitle,
           <View style={styles.chartHalo} />
           <View style={styles.chartWrap}>
             <Svg width={SIZE} height={SIZE}>
-              <Circle cx={C} cy={C} r={R} stroke="rgba(255,255,255,0.07)" strokeWidth={STROKE} fill="none" />
+              <Circle cx={C} cy={C} r={R} stroke="rgba(244,246,255,0.16)" strokeWidth={STROKE} fill="none" />
               {positiveSlices.length === 1 ? (
                 <Circle
                   cx={C}

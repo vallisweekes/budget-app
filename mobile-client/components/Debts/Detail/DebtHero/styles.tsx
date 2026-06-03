@@ -15,7 +15,7 @@ export const styles = StyleSheet.create({
     marginHorizontal: -14,
     marginBottom: 2,
     gap: 8,
-    backgroundColor: "#161a2d",
+    backgroundColor: "rgba(20,24,38,0.56)",
     borderBottomLeftRadius: 34,
     borderBottomRightRadius: 34,
     borderBottomWidth: 1,

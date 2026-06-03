@@ -14,7 +14,7 @@ const CY = SIZE / 2;
 const R = (SIZE - STROKE) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * R;
 
-const COLOR_TRACK = "rgba(255,255,255,0.07)";
+const COLOR_TRACK = "rgba(244,246,255,0.16)";
 const COLOR_LEFT = T.accent;
 const COLOR_USED = T.green;
 const COLOR_OVERSPEND = T.red;

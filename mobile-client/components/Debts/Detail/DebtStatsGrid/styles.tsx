@@ -8,7 +8,7 @@ export const styles = StyleSheet.create({
     gap: 12,
   },
   statCardMini: {
-    backgroundColor: "#141826",
+    backgroundColor: "rgba(20,24,38,0.56)",
     borderRadius: 22,
     paddingHorizontal: 16,
     paddingVertical: 15,

@@ -40,7 +40,7 @@ export const expenseDetailStyles = StyleSheet.create({
     marginTop: 0,
     marginHorizontal: -14,
     gap: 6,
-    backgroundColor: "#161a2d",
+    backgroundColor: "rgba(20,24,38,0.56)",
     borderBottomLeftRadius: 34,
     borderBottomRightRadius: 34,
     borderBottomWidth: 1,
@@ -182,7 +182,7 @@ export const expenseDetailStyles = StyleSheet.create({
     textAlign: "center",
   },
   aiCard: {
-    backgroundColor: "#141826",
+    backgroundColor: "rgba(20,24,38,0.56)",
     borderRadius: 22,
     borderWidth: 1,
     borderColor: "rgba(124,92,255,0.22)",
@@ -198,7 +198,7 @@ export const expenseDetailStyles = StyleSheet.create({
   aiTitle: { color: T.text, fontSize: 13, fontWeight: "900", letterSpacing: 0.2 },
   aiText: { color: T.textDim, fontSize: 13, fontWeight: "600", lineHeight: 18 },
   freqCard: {
-    backgroundColor: "#141826",
+    backgroundColor: "rgba(20,24,38,0.56)",
     borderRadius: 22,
     borderWidth: 1,
     borderColor: "rgba(124,92,255,0.22)",

@@ -238,7 +238,7 @@ export const expensesStyles = StyleSheet.create({
     fontSize: 12,
   },
   purpleHero: {
-    backgroundColor: "#161a2d",
+    backgroundColor: "rgba(20,24,38,0.56)",
     paddingHorizontal: 20,
     paddingBottom: 34,
     alignItems: "center",

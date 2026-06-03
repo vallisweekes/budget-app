@@ -1,7 +1,7 @@
 import { StyleSheet } from "react-native";
 import { T } from "@/lib/theme";
 
-const SHEET_SURFACE = "#141826";
+const SHEET_SURFACE = "rgba(20,24,38,0.56)";
 const SHEET_SURFACE_ALT = "#1a1f34";
 
 export const styles = StyleSheet.create({

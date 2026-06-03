@@ -1,14 +1,17 @@
 import { StyleSheet } from "react-native";
 
-import { BRAND_BLUE, SETTINGS_EDITOR_DELETE_BORDER, SETTINGS_EDITOR_DOCK_BORDER, SETTINGS_EDITOR_STAT_BG, SETTINGS_EDITOR_STAT_BORDER, SETTINGS_EDITOR_STAT_LABEL, SETTINGS_EDITOR_TOP_BORDER, SETTINGS_MODAL_BACKDROP, SETTINGS_WHITE } from "@/lib/constants";
 import { T } from "@/lib/theme";
 import { flatInput, flatInputLabel } from "@/lib/ui";
+
+const GLASS_SURFACE = "rgba(20,24,38,0.56)";
+const GLASS_BORDER = "rgba(244,246,255,0.16)";
+const SHEET_BACKDROP = "rgba(2,4,10,0.62)";
 
 export const styles = StyleSheet.create({
 	sheetOverlay: {
 		flex: 1,
 		justifyContent: "flex-end",
-		backgroundColor: SETTINGS_MODAL_BACKDROP,
+		backgroundColor: SHEET_BACKDROP,
 	},
 	sheet: {
 		backgroundColor: T.card,
@@ -26,8 +29,8 @@ export const styles = StyleSheet.create({
 		maxHeight: "90%",
 	},
 	moneyEditorSheet: {
-		backgroundColor: BRAND_BLUE,
-		borderTopColor: SETTINGS_EDITOR_TOP_BORDER,
+		backgroundColor: T.bg,
+		borderTopColor: GLASS_BORDER,
 	},
 	sheetHandle: {
 		alignSelf: "center",
@@ -55,9 +58,9 @@ export const styles = StyleSheet.create({
 	},
 	moneyEditorHeader: {
 		borderRadius: 18,
-		backgroundColor: BRAND_BLUE,
+		backgroundColor: GLASS_SURFACE,
 		borderWidth: 1,
-		borderColor: `${T.onAccent}22`,
+		borderColor: GLASS_BORDER,
 		paddingHorizontal: 16,
 		paddingTop: 14,
 		paddingBottom: 16,
@@ -71,17 +74,17 @@ export const styles = StyleSheet.create({
 		borderRadius: 21,
 		alignItems: "center",
 		justifyContent: "center",
-		backgroundColor: `${T.onAccent}22`,
+		backgroundColor: "rgba(124,92,255,0.18)",
 		borderWidth: 1,
-		borderColor: `${T.onAccent}33`,
+		borderColor: "rgba(124,92,255,0.34)",
 	},
 	moneyEditorHeroTitle: {
-		color: T.onAccent,
+		color: T.text,
 		fontSize: 15,
 		fontWeight: "800",
 	},
 	moneyEditorHeroValue: {
-		color: T.onAccent,
+		color: T.text,
 		fontSize: 46,
 		fontWeight: "900",
 		letterSpacing: -0.6,
@@ -96,20 +99,20 @@ export const styles = StyleSheet.create({
 		flex: 1,
 		borderRadius: 12,
 		borderWidth: 1,
-		borderColor: SETTINGS_EDITOR_STAT_BORDER,
-		backgroundColor: SETTINGS_EDITOR_STAT_BG,
+		borderColor: GLASS_BORDER,
+		backgroundColor: "rgba(255,255,255,0.04)",
 		paddingVertical: 10,
 		paddingHorizontal: 12,
 		alignItems: "center",
 		gap: 2,
 	},
 	moneyEditorStatLabel: {
-		color: SETTINGS_EDITOR_STAT_LABEL,
+		color: T.textDim,
 		fontSize: 12,
 		fontWeight: "700",
 	},
 	moneyEditorStatValue: {
-		color: T.onAccent,
+		color: T.text,
 		fontSize: 22,
 		fontWeight: "900",
 	},
@@ -146,20 +149,20 @@ export const styles = StyleSheet.create({
 		backgroundColor: T.card,
 	},
 	moneyEditorDockedActions: {
-		backgroundColor: BRAND_BLUE,
-		borderTopColor: SETTINGS_EDITOR_DOCK_BORDER,
+		backgroundColor: T.bg,
+		borderTopColor: GLASS_BORDER,
 	},
 	moneyDeleteBtn: {
 		flex: 1,
 		borderRadius: 10,
 		borderWidth: 1,
-		borderColor: SETTINGS_EDITOR_DELETE_BORDER,
-		backgroundColor: SETTINGS_WHITE,
+		borderColor: "rgba(255,92,122,0.42)",
+		backgroundColor: "rgba(255,92,122,0.10)",
 		paddingVertical: 12,
 		alignItems: "center",
 	},
 	moneyDeleteBtnText: {
-		color: BRAND_BLUE,
+		color: "#ff6f8f",
 		fontSize: 16,
 		fontWeight: "800",
 	},
@@ -167,8 +170,8 @@ export const styles = StyleSheet.create({
 		flex: 1,
 		borderRadius: 10,
 		borderWidth: 1,
-		borderColor: T.border,
-		backgroundColor: T.cardAlt,
+		borderColor: GLASS_BORDER,
+		backgroundColor: "rgba(255,255,255,0.04)",
 		paddingVertical: 12,
 		alignItems: "center",
 	},
