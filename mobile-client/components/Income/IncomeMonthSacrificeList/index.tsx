@@ -812,7 +812,7 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
     }
 
     if (newItemType === "investment" && !newItemName.trim()) {
-      Alert.alert("Bucket required", "Choose an investment bucket or enter a name like Stocks, Crypto, or Commodities.");
+      Alert.alert("Bucket required", "Choose an investment bucket or type a custom name like Broker.");
       return;
     }
 
@@ -1086,7 +1086,7 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
               placeholder={newItemType === "custom"
                 ? "What are you saving for?"
                 : newItemType === "investment"
-                  ? "Stocks, Crypto, Commodities, or your own label"
+                  ? "Stocks, Crypto, Commodities, or type Broker"
                   : "Optional custom label"}
               placeholderTextColor={T.textMuted}
             />

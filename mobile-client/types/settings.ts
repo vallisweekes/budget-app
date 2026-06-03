@@ -14,6 +14,7 @@ export type SavingsPot = {
   field: SavingsField;
   name: string;
   amount: number;
+  broker: string;
   allocationId?: string;
 };
 

@@ -15,6 +15,8 @@ export type SavingsEditorSheetProps = {
   currentAmount: number;
   valueDraft: string;
   potNameDraft: string;
+  brokerDraft: string;
+  showBrokerField: boolean;
   goalImpactNote: string | null;
   saveBusy: boolean;
   insetsBottom: number;
@@ -25,6 +27,7 @@ export type SavingsEditorSheetProps = {
   onClose: () => void;
   onChangeValue: (next: string) => void;
   onChangePotName: (next: string) => void;
+  onChangeBroker: (next: string) => void;
   onDelete: () => void;
   onSave: () => void;
 };

@@ -3,14 +3,75 @@ import * as SecureStore from "expo-secure-store";
 
 import { mapSavingsFieldToSacrificeType, parseSavingsPotStore } from "@/lib/helpers/settings";
 import { apiFetch } from "@/lib/api";
-import type { CreateSacrificeItemResponse, SavingsPot } from "@/types/settings";
+import type { CreateSacrificeItemResponse, SavingsField, SavingsPot } from "@/types/settings";
 
 const SAVINGS_POTS_KEY = "budget_app.savings_pots.v1";
 const SAVINGS_POT_MIGRATIONS_KEY = "budget_app.savings_pot_migrations.v1";
+const SAVINGS_POTS_ENDPOINT = "/api/bff/savings-pots";
+
+type SavingsPotApiRecord = {
+  id: string;
+  field: SavingsField;
+  name: string;
+  amount: number;
+  broker: string;
+  allocationId?: string;
+};
 
 type SavingsPotMigrationStore = Record<string, {
   investmentSplit20260529?: boolean;
 }>;
+
+function normalizeSavingsPotBroker(value: unknown): string {
+  if (typeof value !== "string") return "none";
+  const normalized = value.trim();
+  return normalized || "none";
+}
+
+function normalizeSavingsPot(planId: string, raw: unknown, index: number): SavingsPot | null {
+  if (!raw || typeof raw !== "object") return null;
+  const rec = raw as Record<string, unknown>;
+
+  const field = rec.field;
+  if (field !== "savings" && field !== "emergency" && field !== "investment") {
+    return null;
+  }
+
+  const name = typeof rec.name === "string" ? rec.name.trim() : "";
+  if (!name) return null;
+
+  const amountRaw = rec.amount;
+  const amount = typeof amountRaw === "number" ? amountRaw : Number(amountRaw);
+  if (!Number.isFinite(amount) || amount < 0) return null;
+
+  const id = typeof rec.id === "string" && rec.id.trim()
+    ? rec.id.trim()
+    : `${planId}-${field}-${name.toLowerCase().replace(/\s+/g, "-")}-${index}`;
+
+  const allocationId = typeof rec.allocationId === "string" && rec.allocationId.trim()
+    ? rec.allocationId.trim()
+    : undefined;
+
+  return {
+    id,
+    field,
+    name,
+    amount,
+    broker: normalizeSavingsPotBroker(rec.broker),
+    ...(allocationId ? { allocationId } : {}),
+  };
+}
+
+function serializeSavingsPots(pots: SavingsPot[]): SavingsPotApiRecord[] {
+  return pots.map((pot) => ({
+    id: pot.id,
+    field: pot.field,
+    name: pot.name,
+    amount: pot.amount,
+    broker: normalizeSavingsPotBroker(pot.broker),
+    ...(pot.allocationId ? { allocationId: pot.allocationId } : {}),
+  }));
+}
 
 function parseSavingsPotMigrationStore(raw: string | null): SavingsPotMigrationStore {
   if (!raw) return {};
@@ -24,18 +85,64 @@ function parseSavingsPotMigrationStore(raw: string | null): SavingsPotMigrationS
 }
 
 export function useSavingsPotStore() {
-  const readSavingsPotsForPlan = useCallback(async (planId: string): Promise<SavingsPot[]> => {
-    const raw = await SecureStore.getItemAsync(SAVINGS_POTS_KEY);
-    const store = parseSavingsPotStore(raw);
-    return Array.isArray(store[planId]) ? store[planId] : [];
-  }, []);
-
-  const writeSavingsPotsForPlan = useCallback(async (planId: string, pots: SavingsPot[]): Promise<void> => {
+  const writeSavingsPotsToLocalStore = useCallback(async (planId: string, pots: SavingsPot[]): Promise<void> => {
     const raw = await SecureStore.getItemAsync(SAVINGS_POTS_KEY);
     const store = parseSavingsPotStore(raw);
     store[planId] = pots;
     await SecureStore.setItemAsync(SAVINGS_POTS_KEY, JSON.stringify(store));
   }, []);
+
+  const syncSavingsPotsToServer = useCallback(async (planId: string, pots: SavingsPot[]): Promise<void> => {
+    await apiFetch<{ success?: boolean }>(SAVINGS_POTS_ENDPOINT, {
+      method: "PUT",
+      body: {
+        budgetPlanId: planId,
+        pots: serializeSavingsPots(pots),
+      },
+    });
+  }, []);
+
+  const readSavingsPotsForPlan = useCallback(async (planId: string): Promise<SavingsPot[]> => {
+    const raw = await SecureStore.getItemAsync(SAVINGS_POTS_KEY);
+    const store = parseSavingsPotStore(raw);
+    const localPots = Array.isArray(store[planId]) ? store[planId] : [];
+
+    try {
+      const remote = await apiFetch<{ pots?: unknown[] }>(`${SAVINGS_POTS_ENDPOINT}?budgetPlanId=${encodeURIComponent(planId)}`);
+      const remotePots = Array.isArray(remote?.pots)
+        ? remote.pots
+          .map((pot, index) => normalizeSavingsPot(planId, pot, index))
+          .filter((pot): pot is SavingsPot => Boolean(pot))
+        : [];
+
+      if (remotePots.length > 0) {
+        await writeSavingsPotsToLocalStore(planId, remotePots);
+        return remotePots;
+      }
+
+      if (localPots.length > 0) {
+        void syncSavingsPotsToServer(planId, localPots).catch(() => undefined);
+      }
+
+      return localPots;
+    } catch {
+      return localPots;
+    }
+  }, [syncSavingsPotsToServer, writeSavingsPotsToLocalStore]);
+
+  const writeSavingsPotsForPlan = useCallback(async (planId: string, pots: SavingsPot[]): Promise<void> => {
+    const normalizedPots = pots
+      .map((pot, index) => normalizeSavingsPot(planId, pot, index))
+      .filter((pot): pot is SavingsPot => Boolean(pot));
+
+    await writeSavingsPotsToLocalStore(planId, normalizedPots);
+
+    try {
+      await syncSavingsPotsToServer(planId, normalizedPots);
+    } catch {
+      // Local write succeeded; server sync will retry on the next read/write.
+    }
+  }, [syncSavingsPotsToServer, writeSavingsPotsToLocalStore]);
 
   const ensureSavingsPotAllocationLinks = useCallback(async (planId: string, pots: SavingsPot[]): Promise<SavingsPot[]> => {
     const missingLinks = pots.filter((pot) => pot.field !== "investment" && !pot.allocationId);

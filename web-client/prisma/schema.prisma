@@ -268,6 +268,7 @@ model BudgetPlan {
   income     Income[]
   debts      Debt[]
   goals      Goal[]
+  savingsPots SavingsPot[]
   sacrificeGoalLinks SacrificeGoalLink[]
   sacrificeTransferConfirmations SacrificeTransferConfirmation[]
   monthlyAllocations MonthlyAllocation[]
@@ -346,6 +347,29 @@ enum BudgetPlanKind {
   personal
   holiday
   carnival
+}
+
+enum SavingsPotField {
+  savings
+  emergency
+  investment
+}
+
+model SavingsPot {
+  id           String          @id @default(cuid())
+  field        SavingsPotField
+  name         String
+  amount       Decimal         @default(0) @db.Decimal(12, 2)
+  broker       String          @default("none")
+  allocationId String?
+
+  budgetPlanId String
+  budgetPlan   BudgetPlan      @relation(fields: [budgetPlanId], references: [id], onDelete: Cascade)
+
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@index([budgetPlanId, field, createdAt])
 }
 
 model Category {

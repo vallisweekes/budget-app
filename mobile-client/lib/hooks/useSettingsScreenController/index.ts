@@ -77,6 +77,11 @@ function normalizeSavingsPotName(value: string | null | undefined): string {
   return String(value ?? "").trim().toLowerCase();
 }
 
+function normalizeSavingsPotBroker(value: string | null | undefined): string {
+  const normalized = String(value ?? "").trim();
+  return normalized || "none";
+}
+
 type SettingsScreenControllerParams = Pick<MainTabScreenProps<"Settings">, "navigation" | "route">;
 
 export function useSettingsScreenController({ navigation, route }: SettingsScreenControllerParams) {
@@ -143,6 +148,7 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
   const [strategyDraft, setStrategyDraft] = useState("payYourselfFirst");
   const [savingsValueDraft, setSavingsValueDraft] = useState("");
   const [savingsPotNameDraft, setSavingsPotNameDraft] = useState("");
+  const [savingsPotBrokerDraft, setSavingsPotBrokerDraft] = useState("none");
   const [savingsPots, setSavingsPots] = useState<SavingsPot[]>([]);
   const [sacrificeLinkedTargetKeys, setSacrificeLinkedTargetKeys] = useState<string[]>([]);
   const [sacrificeGoalsCount, setSacrificeGoalsCount] = useState(0);
@@ -157,6 +163,7 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
     setSavingsEditingPotId(null);
     setSavingsValueDraft("");
     setSavingsPotNameDraft("");
+    setSavingsPotBrokerDraft("none");
   }, []);
   const closeEditDebtSheet = useCallback(() => setEditDebtTarget(null), []);
   const closeLocaleSheet = useCallback(() => setLocaleSheetOpen(false), []);
@@ -684,6 +691,7 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
               field: "investment" as const,
               name: bucket.name,
               amount: bucket.amount,
+              broker: "none",
             })),
           ];
           await writeSavingsPotsForPlan(planId, nextStoredPots);
@@ -914,6 +922,7 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
     setSavingsSheetField(field);
     setSavingsValueDraft("");
     setSavingsPotNameDraft("");
+    setSavingsPotBrokerDraft("none");
   };
 
   const openSavingsEditor = (field: SavingsField, potId?: string) => {
@@ -924,12 +933,14 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
       if (!pot) return;
       setSavingsEditingPotId(pot.id);
       setSavingsPotNameDraft(pot.name);
+      setSavingsPotBrokerDraft(normalizeSavingsPotBroker(pot.broker));
       setSavingsValueDraft(asMoneyText(pot.amount));
       return;
     }
 
     setSavingsEditingPotId(null);
     setSavingsPotNameDraft(getSavingsFieldTitle(field));
+    setSavingsPotBrokerDraft("none");
     const balanceField = mapSavingsFieldToBalanceField(field);
     const currentValue = asMoneyNumber(settings?.[balanceField]);
     setSavingsValueDraft(asMoneyText(currentValue));
@@ -968,7 +979,13 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
 
           const nextPots = savingsPots.map((entry) => (
             entry.id === pot.id
-              ? { ...entry, amount: value }
+              ? {
+                ...entry,
+                amount: value,
+                broker: savingsSheetField === "investment"
+                  ? normalizeSavingsPotBroker(savingsPotBrokerDraft)
+                  : entry.broker,
+              }
               : entry
           ));
           await writeSavingsPotsForPlan(settings.id, nextPots);
@@ -1006,6 +1023,9 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
     }
 
     let createdAllocationId: string | null = null;
+    const potBroker = savingsSheetField === "investment"
+      ? normalizeSavingsPotBroker(savingsPotBrokerDraft)
+      : "none";
     const shouldCreateAllocationRoute = savingsSheetField !== "investment";
 
     try {
@@ -1047,6 +1067,7 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
           field: savingsSheetField,
           name: potName,
           amount: value,
+          broker: potBroker,
           ...(createdAllocationId ? { allocationId: createdAllocationId } : {}),
         },
       ];
@@ -1432,6 +1453,8 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
     setSavingsValueDraft,
     savingsPotNameDraft,
     setSavingsPotNameDraft,
+    savingsPotBrokerDraft,
+    setSavingsPotBrokerDraft,
     editDebtTarget,
     editDebtSheetDragY,
     editDebtSheetPanHandlers,

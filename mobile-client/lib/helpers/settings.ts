@@ -251,6 +251,7 @@ export function parseSavingsPotStore(raw: string | null): SavingsPotStore {
             field,
             name,
             amount,
+            broker: typeof rec.broker === "string" && rec.broker.trim() ? rec.broker.trim() : "none",
             allocationId: typeof rec.allocationId === "string" && rec.allocationId.trim() ? rec.allocationId.trim() : undefined,
           } as SavingsPot;
         })

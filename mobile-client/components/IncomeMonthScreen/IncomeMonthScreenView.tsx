@@ -917,7 +917,7 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
       return;
     }
     if (args.type === "investment" && !trimmedName) {
-      Alert.alert("Bucket required", "Investment sacrifices need a bucket name such as Stocks, Crypto, or Commodities.");
+      Alert.alert("Bucket required", "Investment sacrifices need a bucket name. Choose a preset or type one like Broker.");
       return;
     }
     if (args.type === "custom" && (!Number.isFinite(args.amount) || args.amount <= 0)) {

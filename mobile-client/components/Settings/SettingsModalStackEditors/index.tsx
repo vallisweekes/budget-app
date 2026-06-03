@@ -50,6 +50,8 @@ export default function SettingsModalStackEditors({ controller }: SettingsModalS
         currentAmount={controller.savingsSheetCurrentAmount}
         valueDraft={controller.savingsValueDraft}
         potNameDraft={controller.savingsSheetMode === "add" ? controller.savingsPotNameDraft : (controller.savingsEditingPotId ? controller.savingsPotNameDraft || t("settings.savingsEditor.potName") : savingsFieldTitle)}
+        brokerDraft={controller.savingsPotBrokerDraft}
+        showBrokerField={controller.savingsSheetField === "investment" && (controller.savingsSheetMode === "add" || Boolean(controller.savingsEditingPotId))}
         goalImpactNote={controller.savingsSheetGoalImpactNote}
         saveBusy={controller.saveBusy}
         insetsBottom={controller.insets.bottom}
@@ -60,6 +62,7 @@ export default function SettingsModalStackEditors({ controller }: SettingsModalS
         onClose={controller.closeSavingsSheet}
         onChangeValue={controller.setSavingsValueDraft}
         onChangePotName={controller.setSavingsPotNameDraft}
+        onChangeBroker={controller.setSavingsPotBrokerDraft}
         onDelete={controller.deleteSavingsItem}
         onSave={controller.saveSavingsField}
       />

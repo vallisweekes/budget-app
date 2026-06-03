@@ -2,6 +2,7 @@ import React from "react";
 import { Animated, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
+import GlassFooterButton from "@/components/Shared/GlassFooterButton";
 import MoneyInput from "@/components/Shared/MoneyInput";
 import NoteBadge from "@/components/Shared/NoteBadge";
 import { useAppTranslation } from "@/hooks";
@@ -21,6 +22,8 @@ export default function SavingsEditorSheet(props: SavingsEditorSheetProps) {
     currentAmount,
     valueDraft,
     potNameDraft,
+    brokerDraft,
+    showBrokerField,
     goalImpactNote,
     saveBusy,
     insetsBottom,
@@ -32,6 +35,7 @@ export default function SavingsEditorSheet(props: SavingsEditorSheetProps) {
     onClose,
     onChangeValue,
     onChangePotName,
+    onChangeBroker,
     onDelete,
     onSave,
   } = props;
@@ -46,7 +50,7 @@ export default function SavingsEditorSheet(props: SavingsEditorSheetProps) {
     <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={styles.sheetOverlay}>
         <Pressable style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0 }} onPress={onClose} />
-        <KeyboardAvoidingView style={styles.sheetKeyboardWrap} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={keyboardOffset}>
+        <View style={styles.sheetKeyboardWrap}>
           <Animated.View
             style={[styles.sheet, styles.sheetTall, styles.moneyEditorSheet, { transform: [{ translateY }] }]}
             {...panHandlers}
@@ -54,6 +58,11 @@ export default function SavingsEditorSheet(props: SavingsEditorSheetProps) {
             <View style={styles.sheetHandle} {...panHandlers} />
             <Text style={styles.sheetTitle}>{mode === "add" ? t("settings.savingsEditor.addPot", { title }) : t("settings.savingsEditor.editTitle", { title })}</Text>
             <View style={styles.sheetBody}>
+              <KeyboardAvoidingView
+                style={styles.sheetContentWrap}
+                behavior={Platform.OS === "ios" ? "padding" : "height"}
+                keyboardVerticalOffset={keyboardOffset}
+              >
               <ScrollView
                 style={styles.sheetScroll}
                 keyboardShouldPersistTaps="handled"
@@ -115,23 +124,48 @@ export default function SavingsEditorSheet(props: SavingsEditorSheetProps) {
                   </>
                 ) : null}
 
+                {showBrokerField ? (
+                  <>
+                    <Text style={styles.label}>{t("settings.savingsEditor.broker")}</Text>
+                    <TextInput
+                      value={brokerDraft}
+                      onChangeText={onChangeBroker}
+                      style={styles.input}
+                      placeholder={t("settings.savingsEditor.brokerPlaceholder")}
+                      placeholderTextColor={T.textMuted}
+                    />
+                  </>
+                ) : null}
+
                 <Text style={styles.label}>{t("settings.savingsEditor.amount")}</Text>
                 <MoneyInput currency={currency} value={valueDraft} onChangeValue={onChangeValue} />
 
                 {goalImpactNote ? <NoteBadge text={goalImpactNote} /> : null}
               </ScrollView>
+              </KeyboardAvoidingView>
 
               <View style={[styles.sheetActionsDocked, styles.moneyEditorDockedActions, { paddingBottom: Math.max(12, insetsBottom + 6) }]}> 
-                {mode === "edit" ? (
-                  <Pressable style={[styles.moneyDeleteBtn, saveBusy && styles.disabled]} onPress={onDelete} disabled={saveBusy}><Text style={styles.moneyDeleteBtnText}>{t("settings.savingsEditor.delete")}</Text></Pressable>
-                ) : (
-                  <Pressable style={styles.outlineBtnWide} onPress={onClose}><Text style={styles.outlineBtnText}>{t("common.cancel")}</Text></Pressable>
-                )}
-                <Pressable style={[styles.primaryBtnWide, saveBusy && styles.disabled]} onPress={onSave} disabled={saveBusy}><Text style={styles.primaryBtnText}>{saveBusy ? `${t("common.save")}...` : mode === "add" ? t("common.add") : t("common.save")}</Text></Pressable>
+                <GlassFooterButton
+                  label={mode === "edit" ? t("settings.savingsEditor.delete") : t("common.cancel")}
+                  onPress={mode === "edit" ? onDelete : onClose}
+                  disabled={saveBusy}
+                  variant="dark"
+                  tone={mode === "edit" ? "danger" : "light"}
+                  containerStyle={styles.footerActionButton}
+                />
+                <GlassFooterButton
+                  label={mode === "add" ? t("common.add") : t("common.save")}
+                  onPress={onSave}
+                  disabled={saveBusy}
+                  loading={saveBusy}
+                  variant="light"
+                  tone="dark"
+                  containerStyle={styles.footerActionButton}
+                />
               </View>
             </View>
           </Animated.View>
-        </KeyboardAvoidingView>
+        </View>
       </View>
     </Modal>
   );

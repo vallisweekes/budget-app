@@ -49,6 +49,10 @@ export const styles = StyleSheet.create({
 		flex: 1,
 		minHeight: 0,
 	},
+	sheetContentWrap: {
+		flex: 1,
+		minHeight: 0,
+	},
 	sheetScroll: {
 		flex: 1,
 	},
@@ -152,37 +156,8 @@ export const styles = StyleSheet.create({
 		backgroundColor: T.bg,
 		borderTopColor: GLASS_BORDER,
 	},
-	moneyDeleteBtn: {
+	footerActionButton: {
 		flex: 1,
-		borderRadius: 10,
-		borderWidth: 1,
-		borderColor: "rgba(255,92,122,0.42)",
-		backgroundColor: "rgba(255,92,122,0.10)",
-		paddingVertical: 12,
-		alignItems: "center",
 	},
-	moneyDeleteBtnText: {
-		color: "#ff6f8f",
-		fontSize: 16,
-		fontWeight: "800",
-	},
-	outlineBtnWide: {
-		flex: 1,
-		borderRadius: 10,
-		borderWidth: 1,
-		borderColor: GLASS_BORDER,
-		backgroundColor: "rgba(255,255,255,0.04)",
-		paddingVertical: 12,
-		alignItems: "center",
-	},
-	outlineBtnText: { color: T.textDim, fontSize: 12, fontWeight: "800" },
-	primaryBtnWide: {
-		flex: 1,
-		borderRadius: 10,
-		backgroundColor: T.accent,
-		paddingVertical: 12,
-		alignItems: "center",
-	},
-	primaryBtnText: { color: T.onAccent, fontWeight: "800", fontSize: 13 },
 	disabled: { opacity: 0.6 },
 });

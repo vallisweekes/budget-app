@@ -26,19 +26,29 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 2,
     letterSpacing: 0.2,
   },
-  savingsTileAddCard: {
+  savingsTilesRowWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  savingsTilesScroller: {
+    flex: 1,
+  },
+  savingsFixedAddWrap: {
+    width: 64,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  savingsTileAddCircle: {
     ...cardBase,
     backgroundColor: BRAND_GREEN,
     borderColor: SETTINGS_SAVINGS_BORDER,
-    borderRadius: 16,
+    width: 56,
+    height: 56,
+    borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-  },
-  savingsTileAddText: {
-    fontSize: 11,
-    fontWeight: "800",
-    textAlign: "center",
+    padding: 0,
   },
   savingsTileCard: {
     ...cardBase,
