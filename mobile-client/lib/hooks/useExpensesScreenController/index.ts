@@ -779,7 +779,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     setPreviousSummary(cachedPrevious);
     setLoggedExpensesCount(
       Array.isArray(cachedExpenses)
-        ? cachedExpenses.filter((entry) => entry.isExtraLoggedExpense && entry.paymentSource !== "income").length
+        ? cachedExpenses.filter((entry) => entry.isExtraLoggedExpense).length
         : 0,
     );
     if (cachedMonths) {
@@ -1067,7 +1067,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       void resolvedExpensesPromise
         .then((resolvedExpenses) => {
           const nextLoggedExpensesCount = resolvedExpenses.filter((entry) => (
-            entry.isExtraLoggedExpense && entry.paymentSource !== "income"
+            entry.isExtraLoggedExpense
           )).length;
           setLoggedExpensesCount(nextLoggedExpensesCount);
         })
@@ -1506,7 +1506,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
             ]);
             setSummary(freshSummary);
             const nextLoggedCount = freshExpenses.filter(
-              (e) => e.isExtraLoggedExpense && e.paymentSource !== "income",
+              (e) => e.isExtraLoggedExpense,
             ).length;
             setLoggedExpensesCount(nextLoggedCount);
             seenMutationVersionRef.current = getApiMutationVersion();

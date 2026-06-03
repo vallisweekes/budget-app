@@ -106,5 +106,9 @@ export type DashboardNetWorthSectionProps = {
   netWorth: number;
   totalAssets: number;
   totalLiabilities: number;
+  cashAsset: number;
+  savingsAsset: number;
+  emergencyAsset: number;
+  investmentAsset: number;
   currency: string;
 };

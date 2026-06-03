@@ -165,6 +165,7 @@ export async function getPayPeriodExpenses(params: {
 		}
 
 		const expensePeriodKey = String(normalizedExpense.periodKey ?? "").trim();
+		const isLoggedExpense = Boolean(normalizedExpense.isExtraLoggedExpense ?? false);
 		let dedupeScope = "";
 		if (expensePeriodKey) {
 			const matchedPeriodKey = resolveMatchedExpensePeriodKey({
@@ -174,8 +175,14 @@ export async function getPayPeriodExpenses(params: {
 				anchorMonth: windowStart.getUTCMonth() + 1,
 				payFrequency,
 			});
-			if (!matchedPeriodKey) continue;
-			dedupeScope = `unscheduled:${matchedPeriodKey}`;
+			if (matchedPeriodKey) {
+				dedupeScope = `unscheduled:${matchedPeriodKey}`;
+			} else {
+				// Some logged rows were saved with local-date periodKey offsets.
+				// Keep them period-visible by falling back to start/end month matching.
+				if (!isLoggedExpense || !allowedUnscheduledYm.has(`${normalizedExpense.year}-${normalizedExpense.month}`)) continue;
+				dedupeScope = `unscheduled:${normalizedExpense.year}-${normalizedExpense.month}`;
+			}
 		} else {
 			if (!allowedUnscheduledYm.has(`${normalizedExpense.year}-${normalizedExpense.month}`)) continue;
 			dedupeScope = `unscheduled:${normalizedExpense.year}-${normalizedExpense.month}`;

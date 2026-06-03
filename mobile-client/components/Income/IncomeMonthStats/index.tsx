@@ -9,6 +9,8 @@ import type { IncomeMonthStatsProps } from "@/types";
 
 export default function IncomeMonthStats({ data: a, currency, fmt, onPressIncomeSacrifice }: IncomeMonthStatsProps) {
   const { t } = useAppTranslation();
+  const hasLiveIncomeLeft = Number.isFinite(a.incomeLeftRightNow);
+  const displayedMoneyLeft = hasLiveIncomeLeft ? a.incomeLeftRightNow : a.moneyLeftAfterPlan;
   const moneyLeftVsLastMonth =
     typeof a.moneyLeftVsLastMonthPct === "number"
       ? a.moneyLeftVsLastMonthPct
@@ -20,9 +22,9 @@ export default function IncomeMonthStats({ data: a, currency, fmt, onPressIncome
   const moneyLeftPctLabel =
     typeof a.moneyLeftPctOfGross === "number"
       ? `${a.moneyLeftPctOfGross.toFixed(1)}%`
-      : formatIncomePct(a.moneyLeftAfterPlan, a.grossIncome);
-  const isOnPlan = a.planStatusTag ? a.planStatusTag === "on_plan" : a.isOnPlan;
-  const planStatusDescription = a.planStatusDescription ?? (isOnPlan ? t("income.cards.onPlan") : t("income.cards.overPlan"));
+      : formatIncomePct(displayedMoneyLeft, a.grossIncome);
+  const isOnPlan = displayedMoneyLeft >= 0;
+  const planStatusDescription = isOnPlan ? t("income.cards.onPlan") : t("income.cards.overPlan");
 
   return (
     <>
@@ -44,12 +46,12 @@ export default function IncomeMonthStats({ data: a, currency, fmt, onPressIncome
       <View style={styles.row}>
         {/* Money left with badge */}
         <View style={[styles.card, { flex: 1 }]}>
-          <View style={[styles.cardGlow, { backgroundColor: `${a.moneyLeftAfterPlan < 0 ? T.red : T.green}16` }]} />
+          <View style={[styles.cardGlow, { backgroundColor: `${displayedMoneyLeft < 0 ? T.red : T.green}16` }]} />
           <View style={styles.cardInnerBorder} />
           <View style={styles.cardHeaderStack}>
             <View style={styles.cardTitleWrap}>
-              <View style={[styles.iconPill, { backgroundColor: `${a.moneyLeftAfterPlan < 0 ? T.red : T.green}14`, borderColor: `${a.moneyLeftAfterPlan < 0 ? T.red : T.green}33` }]}>
-                <Ionicons name="wallet-outline" size={14} color={a.moneyLeftAfterPlan < 0 ? T.red : T.green} />
+              <View style={[styles.iconPill, { backgroundColor: `${displayedMoneyLeft < 0 ? T.red : T.green}14`, borderColor: `${displayedMoneyLeft < 0 ? T.red : T.green}33` }]}> 
+                <Ionicons name="wallet-outline" size={14} color={displayedMoneyLeft < 0 ? T.red : T.green} />
               </View>
               <Text style={styles.cardLabel}>{t("income.cards.moneyLeft")}</Text>
             </View>
@@ -60,16 +62,16 @@ export default function IncomeMonthStats({ data: a, currency, fmt, onPressIncome
             </View>
           </View>
           <View style={styles.valueInline}>
-            <Text style={[styles.cardValue, a.moneyLeftAfterPlan < 0 && styles.negative]}>
-              {fmt(a.moneyLeftAfterPlan, currency)}
+            <Text style={[styles.cardValue, displayedMoneyLeft < 0 && styles.negative]}>
+              {fmt(displayedMoneyLeft, currency)}
             </Text>
           </View>
-          {moneyLeftVsLastMonth !== null ? (
+          {!hasLiveIncomeLeft && moneyLeftVsLastMonth !== null ? (
             <Text style={[styles.cardSubline, moneyLeftVsLastMonth < 0 ? styles.negative : styles.positive]}>
               {`${moneyLeftVsLastMonth >= 0 ? "+" : ""}${moneyLeftVsLastMonth.toFixed(1)}% ${t("income.cards.vsLastMonth")}`}
             </Text>
           ) : (
-            <Text style={[styles.cardSubline, a.moneyLeftAfterPlan < 0 ? styles.negative : styles.positive]}>
+            <Text style={[styles.cardSubline, displayedMoneyLeft < 0 ? styles.negative : styles.positive]}>
               {moneyLeftPctLabel}
             </Text>
           )}

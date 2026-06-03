@@ -13,7 +13,7 @@ import {
   type ExpenseFundingOption,
   type ExpenseFundingSource,
 } from "@/lib/domain/expenseFunding";
-import { buildPayPeriodFromMonthAnchor, formatPayPeriodLabel, normalizePayFrequency } from "@/lib/payPeriods";
+import { buildPayPeriodFromMonthAnchor, formatPayPeriodLabel, getPayPeriodKeyForDate, normalizePayFrequency } from "@/lib/payPeriods";
 import {
   getMobileApiErrorMessage,
   useCreateExpenseMutation,
@@ -259,7 +259,7 @@ function useUnplannedExpenseScreenControllerImpl(params: {
         fundingSource,
         paymentSource: paymentSourceForFunding(fundingSource),
       };
-      body.periodKey = period.start.toISOString().slice(0, 10);
+      body.periodKey = getPayPeriodKeyForDate(period.start);
       if (categoryId) body.categoryId = categoryId;
       if (fundingSource === "credit_card" && selectedDebtId) {
         body.cardDebtId = selectedDebtId;

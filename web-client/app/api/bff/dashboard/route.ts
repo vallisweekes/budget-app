@@ -3,6 +3,7 @@ import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
 import { bestEffortWithin } from "@/lib/bestEffortWithin";
 import { getDashboardPlanDataForActivePayPeriod } from "@/lib/helpers/dashboard/getDashboardPlanData";
 import { getBudgetPlanMeta } from "@/lib/helpers/dashboard/getBudgetPlanMeta";
+import { listBudgetPlansForUser } from "@/lib/budgetPlans";
 import { getDebtSummaryForPlan, type DebtSummary } from "@/lib/debts/summary";
 import { computeDebtTips } from "@/lib/debts/insights";
 import { getDashboardExpenseInsights } from "@/lib/helpers/dashboard/getDashboardExpenseInsights";
@@ -15,6 +16,7 @@ import { getLargestExpensesByPlan } from "@/lib/helpers/dashboard/getLargestExpe
 import { getMultiPlanHealthTips } from "@/lib/helpers/dashboard/getMultiPlanHealthTips";
 import { getAllPlansDashboardData } from "@/lib/helpers/dashboard/getAllPlansDashboardData";
 import { getDashboardPayPeriodLabels } from "@/lib/helpers/dashboard/payPeriodLabels";
+import { getIncomeMonthAnalysis } from "@/lib/helpers/finance/getIncomeMonthAnalysis";
 import { syncDueDirectDebitExpenses } from "@/lib/expenses/directDebit";
 import { resolveExpenseLogo } from "@/lib/expenses/logoResolver";
 import { getExpensePaidMap } from "@/lib/expenses/paidSummary";
@@ -390,6 +392,128 @@ export async function GET(req: NextRequest) {
 			expenseInsightsBasePromise,
 		]);
 
+		const additionalPlanIds = await timeSection(timings, "additional_plan_ids", async () => {
+			try {
+				const plans = await listBudgetPlansForUser({ userId });
+				return plans
+					.map((plan) => plan.id)
+					.filter((planId) => planId !== budgetPlanId);
+			} catch (error) {
+				console.error("Dashboard: additional plan lookup failed:", error);
+				return [] as string[];
+			}
+		});
+
+		const additionalPlanSnapshots = await timeSection(timings, "additional_plan_snapshots", async () => {
+			if (additionalPlanIds.length === 0) return [];
+
+			try {
+				return await Promise.all(
+					additionalPlanIds.map(async (planId) => {
+						return await getDashboardPlanDataForActivePayPeriod(planId, {
+							now: dashboardNow,
+							payDate: payDay,
+							payFrequency,
+							payAnchorDate,
+							planCreatedAt: effectiveCreatedAt,
+							ensureDefaultCategories: false,
+							skipDirectDebitSync: true,
+						});
+					}),
+				);
+			} catch (error) {
+				console.error("Dashboard: additional plan snapshots failed:", error);
+				return [];
+			}
+		});
+
+		const additionalPlanDebtSummaries = await timeSection(timings, "additional_plan_debts", async () => {
+			if (additionalPlanIds.length === 0) return [] as DebtSummary[];
+
+			try {
+				const summaries = await Promise.all(
+					additionalPlanIds.map(async (planId) => {
+						const fallback: DebtSummary = {
+							regularDebts: [],
+							expenseDebts: [],
+							allDebts: [],
+							activeDebts: [],
+							activeRegularDebts: [],
+							activeExpenseDebts: [],
+							creditCards: [],
+							totalDebtBalance: 0,
+						};
+
+						try {
+							const result = await bestEffortWithin(getDebtSummaryForPlan(planId, {
+								includeExpenseDebts: true,
+								ensureSynced: false,
+								recomputePaidAmounts: false,
+							}), 1500);
+
+							return result ?? fallback;
+						} catch (error) {
+							console.error("Dashboard: additional plan debt summary failed:", error);
+							return fallback;
+						}
+					}),
+				);
+
+				return summaries;
+			} catch (error) {
+				console.error("Dashboard: additional plan debt summaries failed:", error);
+				return [] as DebtSummary[];
+			}
+		});
+
+		const additionalPlansExpenseTotal = additionalPlanSnapshots.reduce(
+			(sum, snapshot) => sum + Number(snapshot.totalExpenses ?? 0),
+			0,
+		);
+		const additionalPlansPlannedDebtTotal = additionalPlanSnapshots.reduce(
+			(sum, snapshot) => sum + Number(snapshot.plannedDebtPayments ?? 0),
+			0,
+		);
+		const additionalPlansDebtBalanceTotal = additionalPlanDebtSummaries.reduce(
+			(sum, summary) => sum + Number(summary.totalDebtBalance ?? 0),
+			0,
+		);
+		const additionalPlansActiveDebtCount = additionalPlanDebtSummaries.reduce(
+			(sum, summary) => sum + Number(summary.activeDebts?.length ?? 0),
+			0,
+		);
+		const combinedPlannedDebtPayments = Number(currentPlanData.plannedDebtPayments ?? 0) + additionalPlansPlannedDebtTotal;
+		const baseIncomeAfterAllocations =
+			typeof currentPlanData.incomeAfterAllocations === "number"
+				? currentPlanData.incomeAfterAllocations
+				: currentPlanData.totalIncome - (currentPlanData.totalAllocations ?? 0) - (currentPlanData.plannedDebtPayments ?? 0);
+		const combinedAmountLeftToBudget = baseIncomeAfterAllocations - additionalPlansPlannedDebtTotal;
+
+		const combinedTotalExpenses = (currentPlanData.totalExpenses ?? 0) + additionalPlansExpenseTotal;
+		const combinedRemaining = combinedAmountLeftToBudget - combinedTotalExpenses;
+
+		const incomeMonthAnalysis = await timeSection(timings, "income_month", async () => {
+			try {
+				const result = await bestEffortWithin(
+					getIncomeMonthAnalysis({
+						budgetPlanId,
+						year: currentPlanData.year,
+						month: currentPlanData.monthNum,
+						payFrequency,
+					}),
+					2000,
+				);
+				return result ?? null;
+			} catch (error) {
+				console.error("Dashboard: income month analysis failed:", error);
+				return null;
+			}
+		});
+		const incomeLeftRightNow =
+			typeof incomeMonthAnalysis?.incomeLeftRightNow === "number" && Number.isFinite(incomeMonthAnalysis.incomeLeftRightNow)
+				? incomeMonthAnalysis.incomeLeftRightNow
+				: null;
+
 		const allPlansData = await timeSection(timings, "all_plans", async () => (async () => {
 			if (!includeExtendedData) {
 				return { [budgetPlanId]: currentPlanData };
@@ -555,8 +679,8 @@ export async function GET(req: NextRequest) {
 			}
 		})();
 
-		const activeDebtCount = debts.length;
-		const totalDebtBalance = debtSummary.totalDebtBalance;
+		const activeDebtCount = debts.length + additionalPlansActiveDebtCount;
+		const totalDebtBalance = Number(debtSummary.totalDebtBalance ?? 0) + additionalPlansDebtBalanceTotal;
 
 		const expenseInsights = {
 			...expenseInsightsBase,
@@ -576,11 +700,8 @@ export async function GET(req: NextRequest) {
 						? [onboarding.mainGoal]
 						: [];
 
-				const incomeAfterAllocations =
-					typeof currentPlanData.incomeAfterAllocations === "number"
-						? currentPlanData.incomeAfterAllocations
-						: currentPlanData.totalIncome - (currentPlanData.totalAllocations ?? 0) - (currentPlanData.plannedDebtPayments ?? 0);
-				const amountAfterExpenses = incomeAfterAllocations - (currentPlanData.totalExpenses ?? 0);
+				const incomeAfterAllocations = combinedAmountLeftToBudget;
+				const amountAfterExpenses = combinedRemaining;
 				const overLimitDebtCount = (debts ?? []).filter((d) => {
 					const limit = typeof d.creditLimit === "number" ? d.creditLimit : 0;
 					return limit > 0 && d.currentBalance > limit;
@@ -621,7 +742,7 @@ export async function GET(req: NextRequest) {
 				].join("-");
 
 				return await bestEffortWithin(getAiBudgetTips({
-					cacheKey: `dashboard:${budgetPlanId}:${currentPlanData.year}-${currentPlanData.monthNum}:${Math.round((currentPlanData.totalExpenses ?? 0) * 100)}:${loggedExpenseSignalKey}:${dashboardLanguage}`,
+					cacheKey: `dashboard:${budgetPlanId}:${currentPlanData.year}-${currentPlanData.monthNum}:${Math.round(combinedTotalExpenses * 100)}:${loggedExpenseSignalKey}:${dashboardLanguage}`,
 					budgetPlanId,
 					now,
 					language: dashboardLanguage,
@@ -659,8 +780,8 @@ export async function GET(req: NextRequest) {
 						totalIncome: currentPlanData.totalIncome,
 						totalAllocations: currentPlanData.totalAllocations,
 						incomeAfterAllocations,
-						totalExpenses: currentPlanData.totalExpenses,
-						remaining: currentPlanData.remaining,
+						totalExpenses: combinedTotalExpenses,
+						remaining: combinedRemaining,
 						amountAfterExpenses,
 						isOverBudget,
 						overLimitDebtCount,
@@ -734,7 +855,7 @@ export async function GET(req: NextRequest) {
 					: null,
 				budgetSnapshot: {
 					totalIncome: currentPlanData.totalIncome,
-					totalExpenses: currentPlanData.totalExpenses,
+					totalExpenses: combinedTotalExpenses,
 					plannedExpenseCount: currentPlanData.categoryData.reduce(
 						(count, category) => count + (category.expenses?.length ?? 0),
 						0,
@@ -756,8 +877,9 @@ export async function GET(req: NextRequest) {
 			const info = dashboardPaidMap.get(String(expense.id));
 			return sum + (info?.paidAmount ?? 0);
 		}, 0);
-		const amountLeftToBudget = currentPlanData.incomeAfterAllocations;
-		const amountAfterExpenses = amountLeftToBudget - currentPlanData.totalExpenses;
+		const amountLeftToBudget = combinedAmountLeftToBudget;
+		const amountAfterExpenses = combinedRemaining;
+		const dashboardIncomeLeftRightNow = incomeLeftRightNow ?? amountAfterExpenses;
 		const isOverBudgetBySpending = amountAfterExpenses < 0;
 		const overLimitDebtCount = debts.filter((d) => {
 			const limit = d.creditLimit ?? 0;
@@ -776,12 +898,12 @@ export async function GET(req: NextRequest) {
 
 			// Budget totals
 			totalIncome: currentPlanData.totalIncome,
-			totalExpenses: currentPlanData.totalExpenses,
-			remaining: currentPlanData.remaining,
+			totalExpenses: combinedTotalExpenses,
+			remaining: combinedRemaining,
 
 			// Allocations
 			totalAllocations: currentPlanData.totalAllocations,
-			plannedDebtPayments: currentPlanData.plannedDebtPayments,
+			plannedDebtPayments: combinedPlannedDebtPayments,
 			plannedSavingsContribution: currentPlanData.plannedSavingsContribution,
 			plannedEmergencyContribution: currentPlanData.plannedEmergencyContribution,
 			plannedInvestments: currentPlanData.plannedInvestments,
@@ -838,6 +960,7 @@ export async function GET(req: NextRequest) {
 			dashboardSummary: {
 				amountLeftToBudget,
 				amountAfterExpenses,
+				incomeLeftRightNow: dashboardIncomeLeftRightNow,
 				isOverBudgetBySpending,
 				overLimitDebtCount,
 				hasOverLimitDebt,

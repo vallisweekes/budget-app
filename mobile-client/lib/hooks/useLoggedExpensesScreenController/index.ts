@@ -36,8 +36,7 @@ function normalizeOptionalRouteString(value: unknown): string | undefined {
 
 function includeInLoggedList(entry: Expense, categoryId?: string): boolean {
   return (categoryId ? entry.categoryId === categoryId : true)
-    && Boolean(entry.isExtraLoggedExpense)
-    && entry.paymentSource !== "income";
+    && Boolean(entry.isExtraLoggedExpense);
 }
 
 export function useLoggedExpensesScreenController({ route, navigation }: Props): LoggedExpensesControllerState {

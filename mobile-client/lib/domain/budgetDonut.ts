@@ -17,11 +17,13 @@ export function computeBudgetDonutMetrics(
 ): BudgetDonutMetrics {
   const safeBudget = Math.max(0, totalBudget ?? 0);
   const safeExpenses = Math.max(0, totalExpenses ?? 0);
-  void paidTotal;
-  const left = safeBudget - safeExpenses;
-  const spentWithinBudget = Math.min(safeBudget, safeExpenses);
+  const safeSpent = typeof paidTotal === "number" && Number.isFinite(paidTotal)
+    ? Math.max(0, paidTotal)
+    : safeExpenses;
+  const left = safeBudget - safeSpent;
+  const spentWithinBudget = Math.min(safeBudget, safeSpent);
   const remainingBudget = Math.max(0, safeBudget - spentWithinBudget);
-  const overspend = Math.max(0, safeExpenses - safeBudget);
+  const overspend = Math.max(0, safeSpent - safeBudget);
 
   const usedFrac = safeBudget > 0 ? Math.min(1, spentWithinBudget / safeBudget) : 0;
   const remainingFrac = safeBudget > 0 ? Math.min(1, remainingBudget / safeBudget) : 0;
@@ -36,7 +38,7 @@ export function computeBudgetDonutMetrics(
     usedFrac,
     remainingFrac,
     overspendFrac,
-    hasData: safeBudget > 0 || safeExpenses > 0,
+    hasData: safeBudget > 0 || safeSpent > 0,
   };
 }
 

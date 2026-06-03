@@ -13,6 +13,7 @@ import { T } from "@/lib/theme";
 import DashboardAiTipsCard from "@/components/DashboardScreen/DashboardAiTipsCard";
 import DashboardCategorySheet from "@/components/DashboardScreen/DashboardCategorySheet";
 import DashboardGoalsSection from "@/components/DashboardScreen/DashboardGoalsSection";
+import DashboardNetWorthSection from "@/components/DashboardScreen/DashboardNetWorthSection";
 import DashboardRecapSection from "@/components/DashboardScreen/DashboardRecapSection";
 import DashboardUpcomingDebtsSection from "@/components/DashboardScreen/DashboardUpcomingDebtsSection";
 import DashboardUpcomingExpensesSection from "@/components/DashboardScreen/DashboardUpcomingExpensesSection";
@@ -232,6 +233,17 @@ export default function DashboardScreen(props: DashboardScreenProps) {
           onPressGoals={controller.goToGoals}
           onPressAddGoal={controller.goToGoalsAdd}
           onPressProjection={controller.goToGoalsProjection}
+        />
+
+        <DashboardNetWorthSection
+          netWorth={controller.netWorth}
+          totalAssets={controller.totalAssets}
+          totalLiabilities={controller.totalLiabilities}
+          cashAsset={controller.cashAsset}
+          savingsAsset={controller.savingsAsset}
+          emergencyAsset={controller.emergencyAsset}
+          investmentAsset={controller.investmentAsset}
+          currency={controller.currency}
         />
 
         <DashboardAiTipsCard tips={controller.dashboardTips} />

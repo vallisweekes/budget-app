@@ -50,8 +50,31 @@ export function buildDashboardDerived(params: {
 
   const isOverBudget = dashboardSummary?.isOverBudget ?? (isOverBudgetBySpending || hasOverLimitDebt);
 
-  const paidTotal = dashboardSummary?.paidTotal ?? allExpenses.reduce((acc, e) => acc + (e.paidAmount ?? (e.paid ? e.amount : 0)), 0);
   const totalBudget = dashboardSummary?.totalBudget ?? (amountLeftToBudget > 0 ? amountLeftToBudget : totalIncome);
+  const hasSummaryIncomeLeft = Number.isFinite(dashboardSummary?.incomeLeftRightNow as number);
+  const incomeLeftRightNow = hasSummaryIncomeLeft
+    ? Number(dashboardSummary?.incomeLeftRightNow)
+    : amountAfterExpenses;
+  const paidTotal = hasSummaryIncomeLeft
+    ? Math.max(0, totalBudget - incomeLeftRightNow)
+    : dashboardSummary?.paidTotal ?? allExpenses.reduce((acc, e) => acc + (e.paidAmount ?? (e.paid ? e.amount : 0)), 0);
+  const asMoneyNumber = (value: string | number | null | undefined) => {
+    const parsed = Number(value ?? 0);
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
+  const cashAsset = Math.max(0, incomeLeftRightNow);
+  const savingsAsset = Math.max(0, asMoneyNumber(settings?.savingsBalance));
+  const emergencyAsset = Math.max(0, asMoneyNumber(settings?.emergencyBalance));
+  const investmentAsset = Math.max(0, asMoneyNumber(settings?.investmentBalance));
+
+  const rawDebtBalance = Number(
+    dashboard?.totalDebtBalance
+      ?? debts.reduce((sum, debt) => sum + Number(debt.currentBalance ?? 0), 0)
+  );
+  const debtBalance = Number.isFinite(rawDebtBalance) ? Math.max(0, rawDebtBalance) : 0;
+  const totalAssets = cashAsset + savingsAsset + emergencyAsset + investmentAsset;
+  const totalLiabilities = debtBalance + Math.max(0, -incomeLeftRightNow);
+  const netWorth = totalAssets - totalLiabilities;
 
   function getDebtDueAmount(d: (typeof debts)[number]) {
     const currentBalance = d.currentBalance ?? 0;
@@ -376,6 +399,13 @@ export function buildDashboardDerived(params: {
     isOverBudget,
     paidTotal,
     totalBudget,
+    netWorth,
+    totalAssets,
+    totalLiabilities,
+    cashAsset,
+    savingsAsset,
+    emergencyAsset,
+    investmentAsset,
     plannedDebtItems,
     plannedDebtItemsTotal,
     rangeLabel,

@@ -599,6 +599,7 @@ export interface DashboardData {
   dashboardSummary?: {
     amountLeftToBudget: number;
     amountAfterExpenses: number;
+    incomeLeftRightNow?: number;
     isOverBudgetBySpending: boolean;
     overLimitDebtCount: number;
     hasOverLimitDebt: boolean;

@@ -300,7 +300,7 @@ export const analyticsStyles = StyleSheet.create({
     height: 92,
     borderRadius: 999,
   },
-  cardTopRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 },
+  cardTopRow: { flexDirection: "row", alignItems: "center", marginBottom: 16 },
   cardIconWrap: {
     width: 38,
     height: 38,
@@ -309,22 +309,9 @@ export const analyticsStyles = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 1,
   },
-  cardChip: {
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  cardChipText: { fontSize: 10, fontWeight: "800", letterSpacing: 0.2, textTransform: "uppercase" },
   cardLabel: { color: T.textDim, fontSize: 13, fontWeight: "800", marginBottom: 8 },
   cardValue: { color: T.text, fontSize: 22, fontWeight: "900", letterSpacing: -0.6, marginBottom: 6 },
   cardSub: { color: T.textMuted, fontSize: 12, fontWeight: "700", lineHeight: 18, paddingRight: 10 },
-  cardAccentLine: {
-    marginTop: 14,
-    height: 4,
-    borderRadius: 999,
-    opacity: 0.9,
-  },
   tipCard: {
     ...cardBase,
     padding: 18,

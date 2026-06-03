@@ -45,7 +45,7 @@ export default function BudgetDonutCard({ totalBudget, totalExpenses, paidTotal,
   const leftOffset = -usedLength;
 
   const heroTitle = periodLabel ?? t("dashboard.budgetOverview");
-  const centerTitle = periodLabel ?? (isOverBudget ? t("dashboard.overBudget") : t("dashboard.budgetRemaining"));
+  const centerTitle = isOverBudget ? t("dashboard.overBudget") : t("dashboard.budgetRemaining");
   const centerTop = isOverBudget ? fmt(Math.abs(remaining), currency) : fmt(Math.max(0, remaining), currency);
   const centerSub = t("dashboard.ofBudget", { amount: fmt(totalBudget, currency) });
 

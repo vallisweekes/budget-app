@@ -80,7 +80,7 @@ export const styles = StyleSheet.create({
 		fontWeight: "900",
 	},
 	centerValuePositive: {
-		color: T.green,
+		color: T.accent,
 	},
 	centerValueOver: {
 		color: T.red,
