@@ -117,6 +117,7 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
   const [newItemGoalTargetAmount, setNewItemGoalTargetAmount] = useState("");
   const [newItemGoalTargetYear, setNewItemGoalTargetYear] = useState("");
   const [addItemReturnScreen, setAddItemReturnScreen] = useState<"chooser" | "detail">("chooser");
+  const [addActionSheetOpen, setAddActionSheetOpen] = useState(false);
   const [selectedPotKey, setSelectedPotKey] = useState<string | null>(null);
   const [linkTargetKey, setLinkTargetKey] = useState("");
   const [linkGoalId, setLinkGoalId] = useState<string>("");
@@ -132,6 +133,7 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
   const detailIntro = useRef(new Animated.Value(0)).current;
   const footerBackdropOpacity = useRef(new Animated.Value(0)).current;
   const investmentSwipeRefs = useRef<Record<string, SwipeableHandle | null>>({});
+  const externalAddSheetTokenRef = useRef(0);
   const glassEffectModule = useMemo<GlassEffectModule | null>(() => {
     if (Platform.OS !== "ios") return null;
     try {
@@ -143,7 +145,12 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
   const liquidGlassEnabled = useMemo(() => {
     if (!glassEffectModule) return false;
     try {
-      return glassEffectModule.isLiquidGlassAvailable();
+      const liquidAvailable = glassEffectModule.isLiquidGlassAvailable();
+      const apiAvailable = typeof glassEffectModule.isGlassEffectAPIAvailable === "function"
+        ? glassEffectModule.isGlassEffectAPIAvailable()
+        : true;
+
+      return liquidAvailable && apiAvailable;
     } catch {
       return false;
     }
@@ -292,7 +299,7 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
     ];
 
     const customRows = (props.sacrifice?.customItems ?? [])
-      .filter((item) => !potBackedAllocationIds.has(item.id))
+      .filter((item) => !potBackedAllocationIds.has(item.id) && !item.isOverride && Number(item.amount ?? 0) > 0)
       .map((item) => ({
         key: `custom:${item.id}`,
         label: `${item.name} (${fmt(Number(item.amount ?? 0), props.currency)})`,
@@ -306,7 +313,7 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
   const pieSlices = useMemo(() => {
     if (!props.sacrifice) return [];
     const uncategorizedCustomTotal = (props.sacrifice.customItems ?? [])
-      .filter((item) => !potBackedAllocationIds.has(item.id))
+      .filter((item) => !potBackedAllocationIds.has(item.id) && !item.isOverride)
       .reduce((sum, item) => sum + Number(item.amount ?? 0), 0);
     const baseSlices = [
       { key: "allowance", label: "Allowance", value: Number(props.sacrifice.fixed.monthlyAllowance ?? 0), color: T.orange },
@@ -315,7 +322,7 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
       { key: "investments", label: "Investments", value: Number(props.sacrifice.fixed.monthlyInvestmentContribution ?? 0) + getPotRouteTotalForField("investment"), color: T.green },
     ];
 
-    if ((props.sacrifice.customItems?.length ?? 0) <= 0 && uncategorizedCustomTotal <= 0) {
+    if (uncategorizedCustomTotal <= 0) {
       return baseSlices;
     }
 
@@ -590,7 +597,7 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
     setManageScreen("link");
   };
 
-  const openSelectedTargetLinkScreen = () => {
+  const _openSelectedTargetLinkScreen = () => {
     openLinkScreen(targetKey);
   };
 
@@ -663,7 +670,11 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
           {liquidGlassEnabled && GlassView ? (
             <GlassView
               pointerEvents="none"
-              glassEffectStyle="regular"
+              glassEffectStyle={{
+                style: "regular",
+                animate: true,
+                animationDuration: 0.2,
+              }}
               tintColor="rgba(255,255,255,0)"
               style={styles.mainFooterBtnGlass}
             />
@@ -718,7 +729,7 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
     setManageScreen("detail");
   };
 
-  const handleOverviewSlicePress = useCallback((sliceKey: string) => {
+  const handleOverviewSlicePress = (sliceKey: string) => {
     if (!canManage) return;
 
     if (sliceKey === "allowance") {
@@ -747,7 +758,7 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
     }
 
     openManageFlow();
-  }, [canManage, customTargetCards, openManageFlow, openTargetEditor]);
+  };
 
   const goBackFromManageScreen = () => {
     setIsInlineAmountEditing(false);
@@ -904,10 +915,12 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
     setNewItemAmount("");
     setNewItemGoalTargetAmount("");
     setNewItemGoalTargetYear("");
+    setAddActionSheetOpen(false);
     setManageScreen(addItemReturnScreen === "detail" ? "detail" : "chooser");
   };
 
   const openAddItemScreen = useCallback(() => {
+    setAddActionSheetOpen(false);
     setNewItemType("custom");
     setNewItemName("");
     setNewItemBroker("");
@@ -919,7 +932,11 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
     setManageScreen("add-item");
   }, []);
 
-  const openAddInvestmentScreen = useCallback(() => {
+  const openAddActionSheet = useCallback(() => {
+    openAddItemScreen();
+  }, [openAddItemScreen]);
+
+  const openInvestmentAddActionSheet = useCallback(() => {
     setNewItemType("investment");
     setNewItemName("");
     setNewItemBroker(defaultInvestmentBroker);
@@ -928,8 +945,23 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
     setNewItemGoalTargetAmount("");
     setNewItemGoalTargetYear("");
     setAddItemReturnScreen("detail");
-    setManageScreen("add-item");
+    setAddActionSheetOpen(true);
   }, [defaultInvestmentBroker]);
+
+  const closeAddActionSheet = useCallback(() => {
+    setAddActionSheetOpen(false);
+  }, []);
+
+  useEffect(() => {
+    const nextToken = Number(props.openAddSheetToken ?? 0);
+    if (!Number.isFinite(nextToken) || nextToken <= 0) return;
+    if (externalAddSheetTokenRef.current === nextToken) return;
+
+    externalAddSheetTokenRef.current = nextToken;
+    if (!canManage) return;
+
+    openAddItemScreen();
+  }, [canManage, openAddItemScreen, props.openAddSheetToken]);
 
   const openInvestmentEditSheet = useCallback((routeKey: string) => {
     const route = selectedPotRoutes.find((entry) => entry.routeKey === routeKey);
@@ -953,7 +985,7 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
     setEditInvestmentBrokerManualDraft("");
   }, []);
 
-  const saveInvestmentEditSheet = useCallback(() => {
+  const saveInvestmentEditSheet = () => {
     if (!editInvestmentRouteKey) return;
 
     const amount = parseMoney(editInvestmentAmountDraft);
@@ -996,15 +1028,7 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
         Alert.alert("Could not save investment", "Please try again.");
       }
     })();
-  }, [
-    closeInvestmentEditSheet,
-    editInvestmentAmountDraft,
-    editInvestmentBroker,
-    editInvestmentBrokerManualDraft,
-    editInvestmentRouteKey,
-    props,
-    submitAmountSheet,
-  ]);
+  };
 
   const isInvestmentQuickAdd = manageScreen === "add-item"
     && addItemReturnScreen === "detail"
@@ -1068,9 +1092,6 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
               <View style={styles.investmentsAddedCard}>
                 <View style={styles.investmentsAddedHeader}>
                   <Text style={styles.investmentsAddedTitle}>Investment sacrifices</Text>
-                  <Pressable style={styles.investmentsAddedPlusBtn} onPress={openAddInvestmentScreen}>
-                    <Ionicons name="add" size={18} color={T.text} />
-                  </Pressable>
                 </View>
 
                 {selectedPotRoutes.length <= 0 ? (
@@ -1576,21 +1597,25 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
 
   const renderManageFooter = () => {
     if (manageScreen === "detail") {
+      const isInvestmentTarget = selectedTarget?.key === "monthlyInvestmentContribution";
+
       return (
         <View style={styles.manageFooterRow}>
           <View style={styles.manageFooterLeftGroup}>
-            {renderFooterButton({
+            {!isInvestmentTarget ? renderFooterButton({
               label: props.sacrificeSaving ? "Saving" : "Save",
               onPress: submitAmountSheet,
               disabled: props.sacrificeSaving,
               accent: true,
-            })}
+            }) : null}
           </View>
-          {renderFooterButton({
-            label: "Link",
-            onPress: openSelectedTargetLinkScreen,
-            disabled: props.goalLinkSaving,
-          })}
+          {isInvestmentTarget ? renderFooterButton({
+            label: "",
+            iconName: "add",
+            accessibilityLabel: "Add investment sacrifice",
+            onPress: openInvestmentAddActionSheet,
+            disabled: props.sacrificeCreating,
+          }) : null}
         </View>
       );
     }
@@ -1619,10 +1644,16 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
     }
 
     return (
-      <Pressable style={[styles.addPillButton, props.sacrificeCreating && styles.disabled]} onPress={openAddItemScreen} disabled={props.sacrificeCreating}>
-        <Ionicons name="add" size={14} color="#0f282f" />
-        <Text style={styles.addPillButtonText}>Add</Text>
-      </Pressable>
+      <View style={styles.manageFooterRow}>
+        <View style={styles.manageFooterLeftGroup} />
+        {renderFooterButton({
+          label: "",
+          iconName: "add",
+          accessibilityLabel: "Add sacrifice item",
+          onPress: openAddActionSheet,
+          disabled: props.sacrificeCreating,
+        })}
+      </View>
     );
   };
 
@@ -1711,6 +1742,112 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
     );
   };
 
+  const renderAddActionSheet = () => {
+    if (!addActionSheetOpen) return null;
+
+    return (
+      <Modal transparent visible animationType="fade" onRequestClose={closeAddActionSheet}>
+        <View style={styles.detailOptionsSheetOverlay}>
+          <Pressable style={styles.detailOptionsSheetScrim} onPress={closeAddActionSheet} />
+          <View style={[styles.detailOptionsSheetPanel, { height: "82%", paddingBottom: Math.max(insets.bottom + 20, 28) }]}> 
+            <View style={styles.detailOptionsSheetHandle} />
+            <View style={styles.detailOptionsSheetHeader}>
+              <Text style={styles.detailOptionsSheetTitle}>Add investment item</Text>
+              <Pressable style={styles.detailOptionsSheetCloseBtn} onPress={closeAddActionSheet}>
+                <Ionicons name="close" size={14} color={T.text} />
+              </Pressable>
+            </View>
+            <>
+              <ScrollView
+                style={styles.detailOptionsSheetScroll}
+                contentContainerStyle={styles.detailOptionsSheetScrollContent}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+              >
+                <View style={styles.sectionCard}>
+                  <Text style={styles.cardTitle}>Investment details</Text>
+                  <Text style={styles.cardSub}>
+                    Choose the investment bucket you want to fund for this period, or enter your own label.
+                  </Text>
+
+                  <Text style={styles.fieldLabel}>Investment bucket</Text>
+                  <View style={styles.pillWrap}>
+                    {INVESTMENT_BUCKET_OPTIONS.map((option) => {
+                      const active = newItemName.trim().toLowerCase() === option.toLowerCase();
+
+                      return (
+                        <Pressable
+                          key={option}
+                          style={[styles.pill, active && styles.pillActive]}
+                          onPress={() => setNewItemName(option)}
+                        >
+                          <Text style={[styles.pillText, active && styles.pillTextActive]}>{option}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                  <TextInput
+                    style={styles.input}
+                    value={newItemName}
+                    onChangeText={setNewItemName}
+                    placeholder="Stocks, Crypto, Commodities, or type Broker"
+                    placeholderTextColor={T.textMuted}
+                  />
+                  <Text style={styles.fieldHelpText}>The Investments heading stays grouped, but each bucket can be funded separately.</Text>
+
+                  <Text style={styles.fieldLabel}>Broker</Text>
+                  <OverlaySelectInput
+                    value={normalizeBrokerValue(newItemBroker)}
+                    onChange={(next) => {
+                      setNewItemBroker(next);
+                      if (!isManualBrokerSelection(next)) {
+                        setNewBrokerDraft("");
+                      }
+                    }}
+                    options={investmentBrokerDropdownOptions}
+                    triggerStyle={styles.input}
+                    placeholder="Select broker"
+                  />
+
+                  {isManualBrokerSelection(newItemBroker) ? (
+                    <>
+                      <TextInput
+                        style={styles.input}
+                        value={newBrokerDraft}
+                        onChangeText={setNewBrokerDraft}
+                        placeholder="Add broker manually"
+                        placeholderTextColor={T.textMuted}
+                      />
+                      <Text style={styles.fieldHelpText}>If you add a broker here, it will be saved and available in this dropdown next time.</Text>
+                    </>
+                  ) : (
+                    <Text style={styles.fieldHelpText}>Pick from brokers saved in Settings or choose + Add new broker.</Text>
+                  )}
+
+                  <Text style={styles.fieldLabel}>Starting amount</Text>
+                  <MoneyInput
+                    currency={props.currency}
+                    value={newItemAmount}
+                    onChangeValue={setNewItemAmount}
+                    placeholder="0.00"
+                  />
+                </View>
+              </ScrollView>
+
+              <Pressable
+                style={[styles.primaryBtn, props.sacrificeCreating && styles.disabled]}
+                onPress={submitAddItemSheet}
+                disabled={props.sacrificeCreating}
+              >
+                <Text style={styles.primaryBtnText}>{props.sacrificeCreating ? "Saving..." : "Create item"}</Text>
+              </Pressable>
+            </>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
   if (manageScreen) {
     return (
       <GestureHandlerRootView style={styles.gestureRoot}>
@@ -1752,6 +1889,7 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
           </View>
 
           {renderInvestmentEditSheet()}
+          {renderAddActionSheet()}
         </View>
       </GestureHandlerRootView>
     );
@@ -1859,6 +1997,8 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
             </View>
           </View>
         ) : null}
+
+        {renderAddActionSheet()}
       </View>
     </GestureHandlerRootView>
   );

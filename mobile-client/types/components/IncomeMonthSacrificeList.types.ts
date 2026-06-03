@@ -30,6 +30,7 @@ export type IncomeMonthSacrificeListProps = {
   payDate: number;
   payFrequency: PayFrequency;
   sacrifice: IncomeSacrificeData | null;
+  openAddSheetToken?: number;
   savingsPots: SavingsPot[];
   topInset?: number;
   onManageFlowActiveChange?: (active: boolean) => void;

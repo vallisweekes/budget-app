@@ -141,6 +141,7 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
   const [pendingNoticeVisible, setPendingNoticeVisible] = useState(false);
   const [currentTime, setCurrentTime] = useState(() => Date.now());
   const [isSacrificeManageActive, setIsSacrificeManageActive] = useState(false);
+  const [sacrificeAddSheetToken, setSacrificeAddSheetToken] = useState(0);
   const isStandaloneSacrifice = standaloneSacrifice === true;
   const normalizedPayFrequency = useMemo(() => normalizePayFrequency(settings?.payFrequency), [settings?.payFrequency]);
   const normalizedPayAnchorDate = useMemo(
@@ -724,10 +725,16 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
     return subscribeIncomeAddTrigger(() => {
       if (!navigation.isFocused?.()) return;
       if (isLocked) return;
+
+      if (viewMode === "sacrifice") {
+        setSacrificeAddSheetToken((current) => current + 1);
+        return;
+      }
+
       crud.setShowAddForm(true);
       setViewMode("income");
     });
-  }, [crud, isLocked]);
+  }, [crud, isLocked, viewMode]);
 
   type SacrificePeriod =
     | "this_month"
@@ -1331,6 +1338,7 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
             payDate={settings?.payDate ?? 27}
             payFrequency={normalizedPayFrequency}
             sacrifice={sacrifice}
+            openAddSheetToken={sacrificeAddSheetToken}
             savingsPots={savingsPots}
             topInset={isSacrificeManageActive ? insets.top : headerHeight + 8}
             onManageFlowActiveChange={setIsSacrificeManageActive}
