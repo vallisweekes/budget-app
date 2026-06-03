@@ -101,9 +101,13 @@ export async function getEffectiveDirectDebitByExpenseId(params: {
 export async function syncDueDirectDebitExpenses(params: {
   budgetPlanId: string;
   now?: Date;
+  dueTodayAutoPayHour?: number;
 }): Promise<string[]> {
   const now = params.now ?? new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const dueTodayAutoPayHour = Number.isFinite(Number(params.dueTodayAutoPayHour))
+    ? Math.max(0, Math.min(23, Math.floor(Number(params.dueTodayAutoPayHour))))
+    : 9;
   const currentYear = today.getFullYear();
   const currentMonth = today.getMonth() + 1;
 
@@ -177,6 +181,12 @@ export async function syncDueDirectDebitExpenses(params: {
       defaultDueDay,
     });
     if (dueDate.getTime() > today.getTime()) continue;
+
+    const isDueToday =
+      dueDate.getFullYear() === today.getFullYear() &&
+      dueDate.getMonth() === today.getMonth() &&
+      dueDate.getDate() === today.getDate();
+    if (isDueToday && now.getHours() < dueTodayAutoPayHour) continue;
 
     const currentPaidAmount = toNumber(expense.paidAmount);
     const currentIsPaid = amount > 0 && currentPaidAmount >= amount - 0.005;

@@ -56,6 +56,11 @@ function normalizeAllocationName(name: string): string {
 	return String(name ?? "").trim();
 }
 
+function isPrismaUniqueConstraintError(error: unknown): boolean {
+	if (!error || typeof error !== "object") return false;
+	return (error as { code?: unknown }).code === "P2002";
+}
+
 export async function getContributionTotalsToDate(
 	budgetPlanId: string,
 	options?: { year?: number; throughMonth?: number }
@@ -384,10 +389,49 @@ export async function createAllocationDefinition(params: {
 	if (!name) throw new Error("Allocation name is required");
 
 	const allocationDefinition = (prisma as unknown as { allocationDefinition?: any }).allocationDefinition;
-	if (!allocationDefinition?.aggregate || !allocationDefinition?.create) {
+	if (!allocationDefinition?.aggregate || !allocationDefinition?.create || !allocationDefinition?.findFirst || !allocationDefinition?.update) {
 		throw new Error(
 			"Custom allocations are not available yet. Restart the dev server to pick up Prisma schema changes."
 		);
+	}
+
+	type AllocationDefinitionLookupRow = {
+		id: string;
+		name: string;
+		defaultAmount: unknown;
+		sortOrder: number;
+		isArchived: boolean;
+	};
+	type AllocationDefinitionCreateRow = { id: string; name: string; defaultAmount: unknown; sortOrder: number };
+
+	const toResponse = (row: { id: string; name: string; defaultAmount: unknown; sortOrder: number }) => ({
+		id: row.id,
+		name: row.name,
+		defaultAmount: decimalToNumber(row.defaultAmount),
+		sortOrder: row.sortOrder,
+	});
+
+	const defaultAmount = Number(params.defaultAmount ?? 0);
+	const existing = (await allocationDefinition.findFirst({
+		where: { budgetPlanId: params.budgetPlanId, name },
+		select: { id: true, name: true, defaultAmount: true, sortOrder: true, isArchived: true },
+	})) as AllocationDefinitionLookupRow | null;
+
+	if (existing) {
+		const existingDefaultAmount = decimalToNumber(existing.defaultAmount);
+		if (existing.isArchived || existingDefaultAmount !== defaultAmount) {
+			const updated = (await allocationDefinition.update({
+				where: { id: existing.id },
+				data: {
+					isArchived: false,
+					defaultAmount,
+				},
+				select: { id: true, name: true, defaultAmount: true, sortOrder: true },
+			})) as AllocationDefinitionCreateRow;
+			return toResponse(updated);
+		}
+
+		return toResponse(existing);
 	}
 
 	const maxSort = await allocationDefinition.aggregate({
@@ -395,26 +439,48 @@ export async function createAllocationDefinition(params: {
 		_max: { sortOrder: true },
 	});
 	const sortOrder = (maxSort._max.sortOrder ?? 0) + 1;
-	const defaultAmount = Number(params.defaultAmount ?? 0);
 
-	type AllocationDefinitionCreateRow = { id: string; name: string; defaultAmount: unknown; sortOrder: number };
+	let created: AllocationDefinitionCreateRow;
+	try {
+		created = (await allocationDefinition.create({
+			data: {
+				budgetPlanId: params.budgetPlanId,
+				name,
+				defaultAmount,
+				sortOrder,
+			},
+			select: { id: true, name: true, defaultAmount: true, sortOrder: true },
+		})) as AllocationDefinitionCreateRow;
+	} catch (error) {
+		if (!isPrismaUniqueConstraintError(error)) {
+			throw error;
+		}
 
-	const created = (await allocationDefinition.create({
-		data: {
-			budgetPlanId: params.budgetPlanId,
-			name,
-			defaultAmount,
-			sortOrder,
-		},
-		select: { id: true, name: true, defaultAmount: true, sortOrder: true },
-	})) as AllocationDefinitionCreateRow;
+		const conflicted = (await allocationDefinition.findFirst({
+			where: { budgetPlanId: params.budgetPlanId, name },
+			select: { id: true, name: true, defaultAmount: true, sortOrder: true, isArchived: true },
+		})) as AllocationDefinitionLookupRow | null;
+		if (!conflicted) {
+			throw error;
+		}
 
-	return {
-		id: created.id,
-		name: created.name,
-		defaultAmount: decimalToNumber(created.defaultAmount),
-		sortOrder: created.sortOrder,
-	};
+		const conflictedDefaultAmount = decimalToNumber(conflicted.defaultAmount);
+		if (conflicted.isArchived || conflictedDefaultAmount !== defaultAmount) {
+			const updated = (await allocationDefinition.update({
+				where: { id: conflicted.id },
+				data: {
+					isArchived: false,
+					defaultAmount,
+				},
+				select: { id: true, name: true, defaultAmount: true, sortOrder: true },
+			})) as AllocationDefinitionCreateRow;
+			return toResponse(updated);
+		}
+
+		return toResponse(conflicted);
+	}
+
+	return toResponse(created);
 }
 
 export async function getMonthlyCustomAllocationsSnapshot(

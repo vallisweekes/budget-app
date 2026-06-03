@@ -89,6 +89,19 @@ export async function ensureDefaultCategoriesForBudgetPlan(params: { budgetPlanI
 					color: t.color ?? null,
 					featured: Boolean(t.featured),
 				}));
+
+					if (desired.length > 0) {
+						const desiredByLowerName = new Map<string, DefaultCategorySeed>();
+						for (const category of desired) {
+							desiredByLowerName.set(category.name.toLowerCase(), category);
+						}
+						for (const fallbackCategory of fallbackDesired) {
+							if (!desiredByLowerName.has(fallbackCategory.name.toLowerCase())) {
+								desiredByLowerName.set(fallbackCategory.name.toLowerCase(), fallbackCategory);
+							}
+						}
+						desired = [...desiredByLowerName.values()];
+					}
 			} catch {
 				desired = [];
 			}

@@ -19,6 +19,7 @@ const BASE_EXPENSE_CATEGORIES: ExpenseCategoryDefinition[] = [
   { id: "housing", name: "Housing", icon: "Home", color: "blue", featured: true },
   { id: "insurance", name: "Insurance", icon: "Shield", color: "indigo", featured: true },
   { id: "investments", name: "Investments", icon: "TrendingUp", color: "purple", featured: true },
+  { id: "clothing", name: "Clothing", icon: "Shirt", color: "pink", featured: true },
   { id: "personal", name: "Personal Care", icon: "Scissors", color: "cyan", featured: true },
   { id: "savings", name: "Savings", icon: "PiggyBank", color: "emerald", featured: true },
   { id: "subscriptions", name: "Subscriptions", icon: "Smartphone", color: "purple", featured: true },

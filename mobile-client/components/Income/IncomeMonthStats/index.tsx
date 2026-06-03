@@ -2,19 +2,14 @@ import React from "react";
 import { Pressable, View, Text } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAppTranslation } from "@/hooks";
-import { computeMoneyLeftVsLastMonth, formatIncomePct } from "@/lib/domain/incomeStats";
+import { formatIncomePct } from "@/lib/domain/incomeStats";
 import { T } from "@/lib/theme";
 import { styles } from "./styles";
 import type { IncomeMonthStatsProps } from "@/types";
 
 export default function IncomeMonthStats({ data: a, currency, fmt, onPressIncomeSacrifice }: IncomeMonthStatsProps) {
   const { t } = useAppTranslation();
-  const hasLiveIncomeLeft = Number.isFinite(a.incomeLeftRightNow);
-  const displayedMoneyLeft = hasLiveIncomeLeft ? a.incomeLeftRightNow : a.moneyLeftAfterPlan;
-  const moneyLeftVsLastMonth =
-    typeof a.moneyLeftVsLastMonthPct === "number"
-      ? a.moneyLeftVsLastMonthPct
-      : computeMoneyLeftVsLastMonth(a.previousMoneyLeftAfterPlan, a.moneyLeftAfterPlan);
+  const displayedMoneyLeft = a.moneyLeftAfterPlan;
   const incomeSacrificePctLabel =
     typeof a.incomeSacrificePct === "number"
       ? `${a.incomeSacrificePct.toFixed(1)}%`
@@ -66,15 +61,9 @@ export default function IncomeMonthStats({ data: a, currency, fmt, onPressIncome
               {fmt(displayedMoneyLeft, currency)}
             </Text>
           </View>
-          {!hasLiveIncomeLeft && moneyLeftVsLastMonth !== null ? (
-            <Text style={[styles.cardSubline, moneyLeftVsLastMonth < 0 ? styles.negative : styles.positive]}>
-              {`${moneyLeftVsLastMonth >= 0 ? "+" : ""}${moneyLeftVsLastMonth.toFixed(1)}% ${t("income.cards.vsLastMonth")}`}
-            </Text>
-          ) : (
-            <Text style={[styles.cardSubline, displayedMoneyLeft < 0 ? styles.negative : styles.positive]}>
-              {moneyLeftPctLabel}
-            </Text>
-          )}
+          <Text style={[styles.cardSubline, displayedMoneyLeft < 0 ? styles.negative : styles.positive]}>
+            {moneyLeftPctLabel}
+          </Text>
         </View>
         <Card label={t("income.cards.leftToPay")} value={fmt(a.leftToPayRightNow, currency)} color={T.accent} iconName="receipt-outline" />
       </View>

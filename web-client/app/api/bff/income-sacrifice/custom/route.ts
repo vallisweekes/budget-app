@@ -85,25 +85,40 @@ export async function POST(request: NextRequest) {
 
 		let goalId: string | null = null;
 		if (createGoal) {
-			const goal = await prisma.goal.create({
-				data: {
-					title: name,
-					type: "long_term",
-					category: "other",
-					targetAmount: goalTargetAmount,
-					currentAmount: 0,
-					targetYear: goalTargetYear,
-					budgetPlanId,
+			const targetKey = `custom:${created.id}`;
+			const existingLink = await prisma.sacrificeGoalLink.findUnique({
+				where: {
+					budgetPlanId_targetKey: {
+						budgetPlanId,
+						targetKey,
+					},
 				},
-				select: { id: true },
+				select: { goalId: true },
 			});
-			goalId = goal.id;
 
-			await upsertSacrificeGoalLink({
-				budgetPlanId,
-				targetKey: `custom:${created.id}`,
-				goalId: goal.id,
-			});
+			if (existingLink?.goalId) {
+				goalId = existingLink.goalId;
+			} else {
+				const goal = await prisma.goal.create({
+					data: {
+						title: name,
+						type: "long_term",
+						category: "other",
+						targetAmount: goalTargetAmount,
+						currentAmount: 0,
+						targetYear: goalTargetYear,
+						budgetPlanId,
+					},
+					select: { id: true },
+				});
+				goalId = goal.id;
+
+				await upsertSacrificeGoalLink({
+					budgetPlanId,
+					targetKey,
+					goalId: goal.id,
+				});
+			}
 		}
 
 		void bestEffortWithin(

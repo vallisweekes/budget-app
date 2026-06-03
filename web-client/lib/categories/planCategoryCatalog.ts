@@ -17,6 +17,7 @@ const BASE_PLAN_CATEGORIES: PlanCategoryDefinition[] = [
   { id: "housing", name: "Housing" },
   { id: "insurance", name: "Insurance" },
   { id: "investments", name: "Investments" },
+  { id: "clothing", name: "Clothing" },
   { id: "personal", name: "Personal Care" },
   { id: "savings", name: "Savings" },
   { id: "subscriptions", name: "Subscriptions" },
