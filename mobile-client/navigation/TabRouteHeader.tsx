@@ -76,6 +76,7 @@ export default function TabRouteHeader() {
   const isGoals = tabSegment === "goals";
   const isGoalsProjection = tabSegment === "goals-projection";
   const isGoalsSection = isGoals || isGoalsProjection;
+  const isLoggedSearch = tabSegment === "search";
   const isLoggedExpensesTabRoot = tabSegment === "logged-expenses";
   const isIncomeTab = tabSegment === "income";
   const isDebtAnalyticsTab = tabSegment === "debt-analytics";
@@ -172,6 +173,8 @@ export default function TabRouteHeader() {
 
   const centerLabel = isCategoryExpenses
     ? resolvedCategoryExpensesName ?? "Category"
+    : isLoggedSearch
+      ? "Search"
     : isLoggedExpenses
       ? "Logged"
       : isUnplannedExpense
@@ -277,6 +280,20 @@ export default function TabRouteHeader() {
         year: Math.floor(yearNum),
         budgetPlanId: incomeMonthBudgetPlanId,
         initialMode: "income",
+      });
+      return;
+    }
+
+    if (isLoggedSearch) {
+      replaceRoute("/(tabs)/expenses/LoggedExpenses", {
+        categoryId: getStringParam(params.categoryId) ?? getRouteParamString(routeParams, "categoryId"),
+        categoryName: getStringParam(params.categoryName) ?? getRouteParamString(routeParams, "categoryName") ?? "All categories",
+        color: getStringParam(params.color) ?? getRouteParamString(routeParams, "color"),
+        icon: getStringParam(params.icon) ?? getRouteParamString(routeParams, "icon"),
+        month: Number.isFinite(monthNum) ? Math.floor(monthNum) : undefined,
+        year: Number.isFinite(yearNum) ? Math.floor(yearNum) : undefined,
+        budgetPlanId: getStringParam(params.budgetPlanId) ?? getRouteParamString(routeParams, "budgetPlanId"),
+        currency: getStringParam(params.currency) ?? getRouteParamString(routeParams, "currency") ?? "£",
       });
       return;
     }
@@ -434,7 +451,7 @@ export default function TabRouteHeader() {
     </View>
   ) : undefined;
 
-  const loggedExpensesRightContent = isLoggedExpenses ? <View style={{ width: 34, height: 34 }} /> : undefined;
+  const loggedExpensesRightContent = isLoggedExpenses || isLoggedSearch ? <View style={{ width: 34, height: 34 }} /> : undefined;
 
   const notificationsInboxRightContent = isSettingsNotifications ? (
     <Pressable
@@ -484,7 +501,7 @@ export default function TabRouteHeader() {
       onAnalytics={openAnalytics}
       onHelp={() => pushRoute("/help")}
       onNotifications={() => pushRoute("/settings", { initialTab: "notifications" })}
-      leftVariant={isStandaloneSacrificeIncomeMonth || isAnalyticsRoute || isSettings || isSettingsProfileDetails || isSettingsIncomeSettings || isSettingsStrategy || isSettingsDebtManagement || isGoalDetail || isGoalsProjection || isCategoryExpenses || isLoggedExpenses || isUnplannedExpense || isScanReceipt || isAnyDebtAnalytics ? "back" : "avatar"}
+      leftVariant={isStandaloneSacrificeIncomeMonth || isAnalyticsRoute || isSettings || isSettingsProfileDetails || isSettingsIncomeSettings || isSettingsStrategy || isSettingsDebtManagement || isGoalDetail || isGoalsProjection || isCategoryExpenses || isLoggedExpenses || isLoggedSearch || isUnplannedExpense || isScanReceipt || isAnyDebtAnalytics ? "back" : "avatar"}
       onBack={handleBack}
       centerLabel={centerLabel}
       centerContent={incomeMonthSwitcher}
