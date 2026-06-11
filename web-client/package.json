@@ -19,6 +19,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "postinstall": "prisma generate",
     "test:api": "tsx scripts/test-api-integration.ts",
+    "test:unit": "tsx --test lib/**/*.test.ts",
     "sync:categories": "tsx scripts/sync-default-categories.ts",
     "budget:test": "tsx scripts/test-budget-engine.ts",
     "migrate:debt-ids": "tsx scripts/migrate-debt-ids.ts",

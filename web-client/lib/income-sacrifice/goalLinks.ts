@@ -227,11 +227,17 @@ export async function getPlannedAmountForTarget(params: {
   const monthKey = monthNumberToKey(params.month as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12) as MonthKey;
 
   if (parsed.kind === "fixed") {
-    const allocation = await getMonthlyAllocationSnapshot(params.budgetPlanId, monthKey, { year: params.year });
+    const allocation = await getMonthlyAllocationSnapshot(params.budgetPlanId, monthKey, {
+      year: params.year,
+      fallbackToPlanDefaults: false,
+    });
     return Number(allocation[parsed.fixedField as keyof typeof allocation] ?? 0);
   }
 
-  const custom = await getMonthlyCustomAllocationsSnapshot(params.budgetPlanId, monthKey, { year: params.year });
+  const custom = await getMonthlyCustomAllocationsSnapshot(params.budgetPlanId, monthKey, {
+    year: params.year,
+    fallbackToDefinitionDefaults: false,
+  });
   const match = custom.items.find((row) => row.id === parsed.allocationId);
   return Number(match?.amount ?? 0);
 }

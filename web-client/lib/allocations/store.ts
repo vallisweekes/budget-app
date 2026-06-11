@@ -202,10 +202,11 @@ export async function resolveActiveBudgetYear(budgetPlanId: string): Promise<num
 export async function getMonthlyAllocationSnapshot(
 	budgetPlanId: string,
 	monthKey: MonthKey,
-	options?: { year?: number }
+	options?: { year?: number; fallbackToPlanDefaults?: boolean }
 ): Promise<MonthlyAllocationSnapshot> {
 	const year = options?.year ?? (await resolveActiveBudgetYear(budgetPlanId));
 	const month = monthKeyToNumber(monthKey);
+	const fallbackToPlanDefaults = options?.fallbackToPlanDefaults !== false;
 
 	type MonthlyAllocationDelegate = {
 		findUnique: (args: {
@@ -267,15 +268,17 @@ export async function getMonthlyAllocationSnapshot(
 
 	if (!plan) throw new Error(`Budget plan ${budgetPlanId} not found`);
 
-	const monthlyAllowance = decimalToNumber(override?.monthlyAllowance ?? plan.monthlyAllowance);
+	const monthlyAllowance = decimalToNumber(
+		override?.monthlyAllowance ?? (fallbackToPlanDefaults ? plan.monthlyAllowance : 0)
+	);
 	const monthlySavingsContribution = decimalToNumber(
-		override?.monthlySavingsContribution ?? plan.monthlySavingsContribution
+		override?.monthlySavingsContribution ?? (fallbackToPlanDefaults ? plan.monthlySavingsContribution : 0)
 	);
 	const monthlyEmergencyContribution = decimalToNumber(
-		override?.monthlyEmergencyContribution ?? (plan as any).monthlyEmergencyContribution ?? 0
+		override?.monthlyEmergencyContribution ?? (fallbackToPlanDefaults ? (plan as any).monthlyEmergencyContribution : 0) ?? 0
 	);
 	const monthlyInvestmentContribution = decimalToNumber(
-		override?.monthlyInvestmentContribution ?? plan.monthlyInvestmentContribution
+		override?.monthlyInvestmentContribution ?? (fallbackToPlanDefaults ? plan.monthlyInvestmentContribution : 0)
 	);
 
 	return {
@@ -533,10 +536,11 @@ export async function createAllocationDefinition(params: {
 export async function getMonthlyCustomAllocationsSnapshot(
 	budgetPlanId: string,
 	monthKey: MonthKey,
-	options?: { year?: number }
+	options?: { year?: number; fallbackToDefinitionDefaults?: boolean }
 ): Promise<MonthlyCustomAllocationsSnapshot> {
 	const year = options?.year ?? (await resolveActiveBudgetYear(budgetPlanId));
 	const month = monthKeyToNumber(monthKey);
+	const fallbackToDefinitionDefaults = options?.fallbackToDefinitionDefaults !== false;
 
 	const allocationDefinition = (prisma as unknown as { allocationDefinition?: any }).allocationDefinition;
 	const monthlyAllocationItem = (prisma as unknown as { monthlyAllocationItem?: any }).monthlyAllocationItem;
@@ -571,7 +575,7 @@ export async function getMonthlyCustomAllocationsSnapshot(
 		return {
 			id: d.id,
 			name: d.name,
-			amount: typeof override === "number" ? override : defaultAmount,
+			amount: typeof override === "number" ? override : (fallbackToDefinitionDefaults ? defaultAmount : 0),
 			isOverride: typeof override === "number",
 		};
 	});

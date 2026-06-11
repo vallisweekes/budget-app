@@ -42,8 +42,7 @@ export function includeInPlannedExpenseTotals(expense: {
 	isExtraLoggedExpense?: boolean | null;
 	paymentSource?: string | null;
 }): boolean {
-	if (!Boolean(expense.isExtraLoggedExpense ?? false)) return true;
-	return String(expense.paymentSource ?? "income").trim().toLowerCase() === "income";
+	return !Boolean(expense.isExtraLoggedExpense ?? false);
 }
 
 export async function getPayPeriodExpenses(params: {
@@ -52,8 +51,16 @@ export async function getPayPeriodExpenses(params: {
 	windowEnd: Date;
 	payDate: number;
 	payFrequency?: PayFrequency;
+	includeLoggedExpensesInResults?: boolean;
 }): Promise<PayPeriodExpenseRow[]> {
-	const { budgetPlanId, windowStart, windowEnd, payDate, payFrequency = "monthly" } = params;
+	const {
+		budgetPlanId,
+		windowStart,
+		windowEnd,
+		payDate,
+		payFrequency = "monthly",
+		includeLoggedExpensesInResults = false,
+	} = params;
 	const periodPairs = [
 		{ year: windowStart.getUTCFullYear(), month: windowStart.getUTCMonth() + 1 },
 		{ year: windowEnd.getUTCFullYear(), month: windowEnd.getUTCMonth() + 1 },
@@ -132,7 +139,7 @@ export async function getPayPeriodExpenses(params: {
 
 		if (isLegacyPlaceholderExpenseRow(normalizedExpense)) continue;
 		if (Boolean(normalizedExpense.isAllocation ?? false)) continue;
-		if (!includeInPlannedExpenseTotals(normalizedExpense)) continue;
+		if (!includeLoggedExpensesInResults && !includeInPlannedExpenseTotals(normalizedExpense)) continue;
 
 		const series = normalizeSeriesOrName(normalizedExpense.seriesKey, normalizedExpense.name);
 		const amount = Number(normalizedExpense.amount ?? 0);

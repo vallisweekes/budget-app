@@ -1,5 +1,5 @@
 import React from "react";
-import { StackActions } from "@react-navigation/native";
+import { StackActions, useNavigation } from "@react-navigation/native";
 import { Feather, Ionicons, Octicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter, useSegments } from "expo-router";
 import { NativeTabs } from "expo-router/unstable-native-tabs";
@@ -69,6 +69,7 @@ function getParamString(value: string | string[] | undefined) {
 
 export default function MainTabsLayout() {
   const router = useRouter();
+  const navigation = useNavigation<any>();
   const segments = useSegments() as string[];
   const params = useLocalSearchParams() as Record<string, string | string[] | undefined>;
   const { profile } = useAuth();
@@ -103,6 +104,15 @@ export default function MainTabsLayout() {
   const isIncomeSplitRoute = segments[0] === "(tabs)"
     && segments[1] === "income"
     && (segments[2] === "IncomeMonth" || segments[2] === "IncomeGrid");
+  const getDeepestRoute = (state: any): any => {
+    if (!state?.routes?.length) return null;
+    const route = state.routes[state.index ?? state.routes.length - 1];
+    if (route?.state) return getDeepestRoute(route.state);
+    return route;
+  };
+  const deepestRoute = getDeepestRoute(navigation.getState?.());
+  const routeParams = (deepestRoute?.params ?? {}) as Record<string, unknown>;
+  const routeInitialMode = typeof routeParams.initialMode === "string" ? routeParams.initialMode : undefined;
   const isAnyDebtRoute = (segments[0] === "(tabs)" && segments[1] === "debts") || isDebtAnalyticsTabRoute;
   const isDebtSplitRoute = isDebtAnalyticsTabRoute || (
     segments[0] === "(tabs)"
@@ -110,6 +120,8 @@ export default function MainTabsLayout() {
     && !isDebtDetailRoute
     && !isDebtAnalyticsNestedRoute
   );
+  const incomeInitialMode = routeInitialMode ?? getParamString(params.initialMode);
+  const isIncomeSacrificeMode = isIncomeSplitRoute && incomeInitialMode === "sacrifice";
   const hasActualDebts = React.useMemo(() => {
     if (typeof dashboard?.activeDebtCount === "number") {
       return dashboard.activeDebtCount > 0;
@@ -120,7 +132,7 @@ export default function MainTabsLayout() {
     }
 
     return hasPositiveDebtBalance(dashboard?.debts);
-  }, [dashboard?.debts, debtSummaryQuery.data?.activeCount, debtSummaryQuery.isSuccess]);
+  }, [dashboard?.activeDebtCount, dashboard?.debts, debtSummaryQuery.data?.activeCount, debtSummaryQuery.isSuccess]);
   const showDebtsTab = isDebtManagementEnabled({
     hasActualDebts,
     profileHasDebtsToManage: profile?.onboarding?.profile?.hasDebtsToManage,
@@ -137,7 +149,8 @@ export default function MainTabsLayout() {
     || isUnplannedExpenseRoute
     || isGoalDetailRoute
     || isGoalsProjectionRoute
-    || isDebtAnalyticsTabRoute;
+    || isDebtAnalyticsTabRoute
+    || isIncomeSacrificeMode;
   const shouldHideNativeTabs = isTabsHidden || segments[0] !== "(tabs)";
   const tabsLayoutKey = isLoggedExpensesNestedRoute
     ? "tabs:expenses-split:logged"
@@ -146,7 +159,7 @@ export default function MainTabsLayout() {
     : isCategoryExpensesSplitRoute
     ? "tabs:category-expenses-split"
     : isIncomeSplitRoute
-      ? "tabs:income-split"
+      ? `tabs:income-split:${isIncomeSacrificeMode ? "sacrifice" : "income"}`
       : isGoalsSplitRoute
         ? "tabs:goals-split"
       : isDebtSplitRoute

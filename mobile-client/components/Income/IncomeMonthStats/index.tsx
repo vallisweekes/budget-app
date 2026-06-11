@@ -9,15 +9,14 @@ import type { IncomeMonthStatsProps } from "@/types";
 
 export default function IncomeMonthStats({ data: a, currency, fmt, onPressIncomeSacrifice }: IncomeMonthStatsProps) {
   const { t } = useAppTranslation();
-  const displayedMoneyLeft = a.moneyLeftAfterPlan;
+  const displayedMoneyLeft = Number(
+    a.spendableIncomeRightNow ?? a.incomeLeftRightNow ?? a.moneyLeftAfterPlan ?? 0,
+  );
   const incomeSacrificePctLabel =
     typeof a.incomeSacrificePct === "number"
       ? `${a.incomeSacrificePct.toFixed(1)}%`
       : formatIncomePct(a.incomeSacrifice, a.grossIncome);
-  const moneyLeftPctLabel =
-    typeof a.moneyLeftPctOfGross === "number"
-      ? `${a.moneyLeftPctOfGross.toFixed(1)}%`
-      : formatIncomePct(displayedMoneyLeft, a.grossIncome);
+  const moneyLeftPctLabel = formatIncomePct(displayedMoneyLeft, a.grossIncome);
   const isOnPlan = displayedMoneyLeft >= 0;
   const planStatusDescription = isOnPlan ? t("income.cards.onPlan") : t("income.cards.overPlan");
 

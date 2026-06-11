@@ -1,21 +1,18 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { supportsExpenseMovedToDebtField } from "@/lib/prisma/capabilities";
+import { supportsExpenseMovedToDebtField, supportsOnboardingPayFrequencyField } from "@/lib/prisma/capabilities";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
-import { resolveBudgetPlanPayPeriodContext } from "@/lib/api/payPeriodContext";
-import { processOverdueExpensesToDebts } from "@/lib/expenses/carryover";
-import { syncDueDirectDebitExpenses } from "@/lib/expenses/directDebit";
 import { resolveEffectiveDueDateIso } from "@/lib/expenses/insights";
 import {
 	buildPayPeriodFromMonthAnchor,
-	formatPayPeriodLabelForFrequency,
 	normalizePayFrequency,
 	type PayFrequency,
 } from "@/lib/payPeriods";
 import { isLegacyPlaceholderExpenseRow } from "@/lib/expenses/legacyPlaceholders";
+import {
+	resolveDisplayedExpensePaidState,
+} from "@/lib/expenses/payPeriodPaidState";
 import { getExpensePaidMap } from "@/lib/expenses/paidSummary";
-import { getIncomeMonthAnalysis } from "@/lib/helpers/finance/getIncomeMonthAnalysis";
-import { resolveMatchedExpensePeriodKey } from "@/lib/helpers/periodKey";
 
 export const runtime = "nodejs";
 
@@ -43,14 +40,8 @@ function includeInMainExpenseSummary(expense: {
 	isExtraLoggedExpense?: boolean | null;
 	paymentSource?: string | null;
 }): boolean {
-	// Keep summary in sync with CategoryExpensesScreen:
-	// - income-sourced logged payments behave like normal expenses
-	// - non-income logged payments live in the separate "Logged payments" bucket
-	if (!Boolean(expense.isExtraLoggedExpense ?? false)) return true;
-	return String(expense.paymentSource ?? "income").trim().toLowerCase() === "income";
+	return !Boolean(expense.isExtraLoggedExpense ?? false);
 }
-
-const PAY_PERIOD_SUMMARY_CALC_VERSION = "v2_logged_period_fallback";
 
 type CategoryBreakdownRow = {
 	categoryId: string;
@@ -62,48 +53,6 @@ type CategoryBreakdownRow = {
 	paidCount: number;
 	totalCount: number;
 };
-
-type ExpenseSummaryBudgetOverview = {
-	totalIncome: number;
-	plannedDebtPayments: number;
-	incomeSacrifice: number;
-	amountLeftToBudget: number;
-	totalBudget: number;
-	amountAfterExpenses: number;
-	isOverBudgetBySpending: boolean;
-};
-
-async function getExpenseSummaryBudgetOverview(params: {
-	budgetPlanId: string;
-	month: number;
-	year: number;
-	payFrequency: PayFrequency;
-	totalAmount: number;
-}): Promise<ExpenseSummaryBudgetOverview> {
-	const analysis = await getIncomeMonthAnalysis({
-		budgetPlanId: params.budgetPlanId,
-		month: params.month,
-		year: params.year,
-		payFrequency: params.payFrequency,
-		mode: "home_core",
-	});
-	const totalIncome = Number(analysis.grossIncome ?? 0);
-	const plannedDebtPayments = Number(analysis.plannedDebtPayments ?? 0);
-	const incomeSacrifice = Number(analysis.incomeSacrifice ?? 0);
-	const amountLeftToBudget = totalIncome - plannedDebtPayments - incomeSacrifice;
-	const totalBudget = amountLeftToBudget > 0 ? amountLeftToBudget : totalIncome;
-	const amountAfterExpenses = amountLeftToBudget - params.totalAmount;
-
-	return {
-		totalIncome,
-		plannedDebtPayments,
-		incomeSacrifice,
-		amountLeftToBudget,
-		totalBudget,
-		amountAfterExpenses,
-		isOverBudgetBySpending: amountAfterExpenses < 0,
-	};
-}
 
 function latestDate(...dates: Array<Date | null | undefined>): Date | null {
 	const valid = dates.filter((d): d is Date => d instanceof Date);
@@ -170,6 +119,31 @@ function isUnknownMovedToDebtFieldError(error: unknown): boolean {
 	);
 }
 
+function isUnknownPayFrequencyFieldError(error: unknown): boolean {
+	const message = String((error as { message?: unknown })?.message ?? error);
+	return (
+		message.includes("payFrequency") &&
+		(message.includes("Unknown arg") ||
+			message.includes("Unknown argument") ||
+			message.includes("Unknown field"))
+	);
+}
+
+async function findOnboardingPayFrequency(userId: string) {
+	if (!(await supportsOnboardingPayFrequencyField())) return null;
+
+	try {
+		const profile = await prisma.userOnboardingProfile.findUnique({
+			where: { userId },
+			select: { payFrequency: true },
+		});
+		return profile;
+	} catch (error) {
+		if (!isUnknownPayFrequencyFieldError(error)) throw error;
+		return null;
+	}
+}
+
 /**
  * GET /api/bff/expenses/summary?month=N&year=N&budgetPlanId=<optional>
  *
@@ -194,7 +168,6 @@ export async function GET(req: NextRequest) {
 	const month = toN(searchParams.get("month"));
 	const year = toN(searchParams.get("year"));
 	const scope = String(searchParams.get("scope") ?? "month").toLowerCase() === "pay_period" ? "pay_period" : "month";
-	const includeBudgetOverview = scope === "pay_period" && searchParams.get("includeBudgetOverview") === "1";
 
 	if (month == null || month < 1 || month > 12) return badRequest("Invalid month");
 	if (year == null || year < 1900) return badRequest("Invalid year");
@@ -207,27 +180,21 @@ export async function GET(req: NextRequest) {
 		return NextResponse.json({ error: "Budget plan not found" }, { status: 404 });
 	}
 
-	await syncDueDirectDebitExpenses({ budgetPlanId }).catch((error) => {
-		console.error("Expense summary: direct debit sync failed:", error);
-		return [];
-	});
-
-	void processOverdueExpensesToDebts(budgetPlanId).catch((error) => {
-		console.error("Expense summary: overdue carryover sync failed:", error);
-	});
-
-	const [payPeriodContext, planCategories] = await Promise.all([
-		resolveBudgetPlanPayPeriodContext({ budgetPlanId }),
+	const [budgetPlan, onboardingProfile, planCategories] = await Promise.all([
+		prisma.budgetPlan.findUnique({
+		where: { id: budgetPlanId },
+		select: { payDate: true },
+		}),
+		findOnboardingPayFrequency(userId),
 		prisma.category.findMany({
 			where: { budgetPlanId },
 			select: { id: true, name: true, color: true, icon: true },
 		}),
 	]);
-	const payDate = Number.isFinite(Number(payPeriodContext.payDate)) && Number(payPeriodContext.payDate) >= 1
-		? Math.floor(Number(payPeriodContext.payDate))
+	const payDate = Number.isFinite(Number(budgetPlan?.payDate)) && Number(budgetPlan?.payDate) >= 1
+		? Math.floor(Number(budgetPlan?.payDate))
 		: 1;
-	const payAnchorDate = payPeriodContext.payAnchorDate;
-	const payFrequency: PayFrequency = normalizePayFrequency(payPeriodContext.payFrequency);
+	const payFrequency: PayFrequency = normalizePayFrequency(onboardingProfile?.payFrequency);
 
 	let periodStart: Date | null = null;
 	let periodEnd: Date | null = null;
@@ -235,7 +202,6 @@ export async function GET(req: NextRequest) {
 	let periodRangeLabel: string | null = null;
 	let periodIndex: number | null = null;
 	let periodKey: string | null = null;
-	let snapshotPeriodKey: string | null = null;
 	let sourceWindowPairs: Array<{ year: number; month: number }> = [{ year, month }];
 	const allowedUnscheduledYm = new Set<string>();
 
@@ -263,22 +229,22 @@ export async function GET(req: NextRequest) {
 			anchorMonth: month,
 			payDate,
 			payFrequency,
-			payAnchorDate,
 		});
 		allowedUnscheduledYm.add(`${selected.start.getUTCFullYear()}-${selected.start.getUTCMonth() + 1}`);
 		allowedUnscheduledYm.add(`${selected.end.getUTCFullYear()}-${selected.end.getUTCMonth() + 1}`);
 		periodStart = selected.start;
 		periodEnd = selected.end;
 		periodKey = toIsoDate(selected.start);
-		snapshotPeriodKey = `${periodKey}|${PAY_PERIOD_SUMMARY_CALC_VERSION}`;
 
 		periodIndex = Math.max(1, Math.min(12, month) - 1);
 		periodLabel = `Pay period ${periodIndex}`;
-		periodRangeLabel = formatPayPeriodLabelForFrequency({
-			start: selected.start,
-			end: selected.end,
-			payFrequency,
-		});
+		periodRangeLabel = `${selected.start.getUTCDate()} ${selected.start.toLocaleString("en-GB", {
+			month: "short",
+			timeZone: "UTC",
+		})} - ${selected.end.getUTCDate()} ${selected.end.toLocaleString("en-GB", {
+			month: "short",
+			timeZone: "UTC",
+		})}`;
 
 		const windowPairs = [
 			{ year: selected.start.getUTCFullYear(), month: selected.start.getUTCMonth() + 1 },
@@ -309,7 +275,6 @@ export async function GET(req: NextRequest) {
 					},
 				},
 		  }) as {
-				periodKey: string | null;
 				periodLabel: string | null;
 				periodIndex: number | null;
 				periodStart: Date | null;
@@ -377,23 +342,8 @@ export async function GET(req: NextRequest) {
 			? snapshot.payDate === payDate && normalizePayFrequency(snapshot.payFrequency) === payFrequency
 			: false;
 
-	const snapshotMatchesCalcVersion =
-		scope !== "pay_period"
-			? true
-			: Boolean(snapshot && snapshotPeriodKey && snapshot.periodKey === snapshotPeriodKey);
-
-	if (snapshotIsFresh && snapshotMatchesComputedPeriod && snapshotMatchesPayContext && snapshotMatchesCalcVersion && snapshot) {
-		const roundedTotalAmount = parseFloat(toFloat(snapshot.totalAmount).toFixed(2));
-		const budgetOverview = includeBudgetOverview
-			? await getExpenseSummaryBudgetOverview({
-				budgetPlanId,
-				month,
-				year,
-				payFrequency,
-				totalAmount: roundedTotalAmount,
-			})
-			: undefined;
-
+	const allowSnapshotRead = scope !== "pay_period";
+	if (allowSnapshotRead && snapshotIsFresh && snapshotMatchesComputedPeriod && snapshotMatchesPayContext && snapshot) {
 		return NextResponse.json({
 			scope,
 			month,
@@ -406,13 +356,12 @@ export async function GET(req: NextRequest) {
 			payDate: snapshot.payDate,
 			payFrequency: snapshot.payFrequency,
 			totalCount: snapshot.totalCount,
-			totalAmount: roundedTotalAmount,
+			totalAmount: parseFloat(toFloat(snapshot.totalAmount).toFixed(2)),
 			paidCount: snapshot.paidCount,
 			paidAmount: parseFloat(toFloat(snapshot.paidAmount).toFixed(2)),
 			unpaidCount: snapshot.unpaidCount,
 			unpaidAmount: parseFloat(toFloat(snapshot.unpaidAmount).toFixed(2)),
 			categoryBreakdown: normalizeCategoryBreakdown(snapshot.categoryBreakdown),
-			budgetOverview,
 		});
 	}
 
@@ -460,7 +409,6 @@ export async function GET(req: NextRequest) {
 			if (isLegacyPlaceholderExpenseRow(exp)) continue;
 			// Allocations/envelopes are not bills and should not impact expense totals.
 			if (Boolean(exp.isAllocation ?? false)) continue;
-			const isLoggedExpense = Boolean(exp.isExtraLoggedExpense ?? false);
 
 			let dedupeScope = "";
 			let rank = 1;
@@ -489,21 +437,8 @@ export async function GET(req: NextRequest) {
 				// Prefer the persisted pay-period assignment for unscheduled/logged expenses.
 				// Fall back to month/year only for legacy rows that do not have a periodKey.
 				if (exp.periodKey) {
-					if (!periodKey || !periodStart) continue;
-					const matchedPeriodKey = resolveMatchedExpensePeriodKey({
-						storedPeriodKey: exp.periodKey,
-						selectedPeriodStart: periodStart,
-						anchorYear: year,
-						anchorMonth: month,
-						payFrequency,
-					});
-					if (matchedPeriodKey) {
-						dedupeScope = `unscheduled:${matchedPeriodKey}`;
-					} else {
-						// Keep legacy logged rows visible when stored periodKey drifted by local date.
-						if (!isLoggedExpense || !allowedUnscheduledYm.has(`${exp.year}-${exp.month}`)) continue;
-						dedupeScope = `unscheduled:${exp.year}-${exp.month}`;
-					}
+					if (!periodKey || exp.periodKey !== periodKey) continue;
+					dedupeScope = `unscheduled:${exp.periodKey}`;
 				} else {
 					if (!allowedUnscheduledYm.has(`${exp.year}-${exp.month}`)) continue;
 					dedupeScope = `unscheduled:${exp.year}-${exp.month}`;
@@ -527,36 +462,15 @@ export async function GET(req: NextRequest) {
 
 		expenses = Array.from(seen.values()).map((v) => v.exp);
 	} else {
-		expenses = await (async () => {
-			const runLegacyQuery = () => prisma.expense.findMany({
-				where: { budgetPlanId, month, year },
-				include: {
-					category: {
-						select: { id: true, name: true, color: true, icon: true },
-					},
+		expenses = await prisma.expense.findMany({
+			where: { budgetPlanId, month, year },
+			include: {
+				category: {
+					select: { id: true, name: true, color: true, icon: true },
 				},
-				orderBy: { createdAt: "asc" },
-			});
-
-			if (!(await supportsExpenseMovedToDebtField())) {
-				return runLegacyQuery();
-			}
-
-			try {
-				return await prisma.expense.findMany({
-					where: { budgetPlanId, month, year, isMovedToDebt: false },
-					include: {
-						category: {
-							select: { id: true, name: true, color: true, icon: true },
-						},
-					},
-					orderBy: { createdAt: "asc" },
-				});
-			} catch (error) {
-				if (!isUnknownMovedToDebtFieldError(error)) throw error;
-				return runLegacyQuery();
-			}
-		})();
+			},
+			orderBy: { createdAt: "asc" },
+		});
 	}
 
 	// Allocations/envelopes are not bills and should not impact expense totals.
@@ -600,12 +514,16 @@ export async function GET(req: NextRequest) {
 	for (const exp of mainExpenses) {
 		const amount = toFloat(exp.amount);
 		const info = paidMap.get(exp.id);
-		const paidRaw = info?.paidAmount ?? 0;
-		// For planning/progress UI, cap paid-attributed-to-plan at the planned amount.
-		// Raw payments can exceed planned (overpayment/duplicate logs), but should not
-		// inflate "paid" totals beyond what was actually due for the period.
-		const paid = amount > 0 ? Math.min(paidRaw, amount) : 0;
-		const isPaid = info?.isPaid ?? false;
+		const paidState = resolveDisplayedExpensePaidState({
+			scope,
+			selectedPeriodStart: periodStart,
+			plannedAmount: amount,
+			canonicalPaidAmount: info?.paidAmount,
+			canonicalIsPaid: info?.isPaid,
+		});
+		const paid = paidState.paidAmount;
+		const isPaid = paidState.isPaid;
+
 		const unpaid = Math.max(0, amount - paid);
 
 		totalAmount += amount;
@@ -643,18 +561,6 @@ export async function GET(req: NextRequest) {
 	const categoryBreakdown = Array.from(catMap.values())
 		.filter((c) => c.totalCount > 0)
 		.sort((a, b) => b.total - a.total);
-	const roundedTotalAmount = parseFloat(totalAmount.toFixed(2));
-	const roundedPaidAmount = parseFloat(paidAmount.toFixed(2));
-	const roundedUnpaidAmount = parseFloat(unpaidAmount.toFixed(2));
-	const budgetOverview = includeBudgetOverview
-		? await getExpenseSummaryBudgetOverview({
-			budgetPlanId,
-			month,
-			year,
-			payFrequency,
-			totalAmount: roundedTotalAmount,
-		})
-		: undefined;
 
 	if (snapshotDelegate) {
 		await snapshotDelegate.upsert({
@@ -673,36 +579,36 @@ export async function GET(req: NextRequest) {
 				year,
 				payDate,
 				payFrequency,
-				periodKey: snapshotPeriodKey ?? periodKey,
+				periodKey,
 				periodLabel,
 				periodIndex,
 				periodStart,
 				periodEnd,
 				periodRangeLabel,
 				totalCount: mainExpenses.length,
-				totalAmount: roundedTotalAmount,
+				totalAmount: parseFloat(totalAmount.toFixed(2)),
 				paidCount,
-				paidAmount: roundedPaidAmount,
+				paidAmount: parseFloat(paidAmount.toFixed(2)),
 				unpaidCount,
-				unpaidAmount: roundedUnpaidAmount,
+				unpaidAmount: parseFloat(unpaidAmount.toFixed(2)),
 				categoryBreakdown,
 				sourceMaxUpdatedAt,
 			},
 			update: {
 				payDate,
 				payFrequency,
-				periodKey: snapshotPeriodKey ?? periodKey,
+				periodKey,
 				periodLabel,
 				periodIndex,
 				periodStart,
 				periodEnd,
 				periodRangeLabel,
 				totalCount: mainExpenses.length,
-				totalAmount: roundedTotalAmount,
+				totalAmount: parseFloat(totalAmount.toFixed(2)),
 				paidCount,
-				paidAmount: roundedPaidAmount,
+				paidAmount: parseFloat(paidAmount.toFixed(2)),
 				unpaidCount,
-				unpaidAmount: roundedUnpaidAmount,
+				unpaidAmount: parseFloat(unpaidAmount.toFixed(2)),
 				categoryBreakdown,
 				sourceMaxUpdatedAt,
 			},
@@ -721,12 +627,11 @@ export async function GET(req: NextRequest) {
 		payDate,
 		payFrequency,
 		totalCount: mainExpenses.length,
-		totalAmount: roundedTotalAmount,
+		totalAmount: parseFloat(totalAmount.toFixed(2)),
 		paidCount,
-		paidAmount: roundedPaidAmount,
+		paidAmount: parseFloat(paidAmount.toFixed(2)),
 		unpaidCount,
-		unpaidAmount: roundedUnpaidAmount,
+		unpaidAmount: parseFloat(unpaidAmount.toFixed(2)),
 		categoryBreakdown,
-		budgetOverview,
 	});
 }

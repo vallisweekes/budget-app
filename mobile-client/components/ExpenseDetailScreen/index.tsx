@@ -86,6 +86,7 @@ export default function ExpenseDetailScreen({ route, navigation }: ExpenseDetail
               <Text style={styles.heroName} numberOfLines={2}>{controller.displayName}</Text>
               <Text style={styles.heroAmount}>{fmt(controller.amountNum, controller.currency)}</Text>
               <Text style={styles.heroUpdated}>Updated: {controller.updatedLabel}</Text>
+              <Text style={styles.heroFunding}>{t("expenses.fieldFundingSource")}: {controller.fundingSourceLabel}</Text>
 
               {!controller.isPaid ? (
                 <View
@@ -151,13 +152,6 @@ export default function ExpenseDetailScreen({ route, navigation }: ExpenseDetail
               ) : null}
             </View>
 
-            <View style={styles.aiCard}>
-              <View style={styles.aiTitleRow}>
-                <Ionicons name="bulb-outline" size={16} color={T.orange} />
-                <Text style={styles.aiTitle}>{t("dashboard.aiTipsTitle")}</Text>
-              </View>
-              <Text style={styles.aiText}>{controller.tips[Math.max(0, Math.min(controller.tips.length - 1, controller.tipIndex))] ?? ""}</Text>
-            </View>
           </ScrollView>
         </KeyboardAvoidingView>
       )}

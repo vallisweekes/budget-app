@@ -15,6 +15,7 @@ import { getPayPeriodSelectionFromAnchor } from "@/lib/payPeriods";
 import { T } from "@/lib/theme";
 import { s } from "@/components/IncomeMonthScreen/style";
 import IncomeSacrificePieChart from "@/components/Income/IncomeSacrificePieChart";
+import GlassFooterButton from "@/components/Shared/GlassFooterButton";
 import MoneyInput from "@/components/Shared/MoneyInput";
 import NumericInput from "@/components/Shared/NumericInput";
 import OverlaySelectInput from "@/components/Shared/OverlaySelectInput";
@@ -105,6 +106,7 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
   const [amountDraft, setAmountDraft] = useState("");
   const [amountMode, setAmountMode] = useState<AmountEntryMode>("set");
   const [isInlineAmountEditing, setIsInlineAmountEditing] = useState(false);
+  const [applySameToFuturePeriods, setApplySameToFuturePeriods] = useState(false);
   const [period, setPeriod] = useState<SacrificePeriod>("this_month");
   const [startMonth, setStartMonth] = useState(() => normalizeMonthValue(defaultSelection.month));
   const [startYear, setStartYear] = useState(() => normalizeYearValue(defaultSelection.year));
@@ -215,9 +217,9 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
         })();
       const matchedItem = matchedById ?? matchedByName;
       const currentAmount = Number(pot.amount ?? 0);
-      const resolvedAmount = field === "investment"
-        ? currentAmount
-        : Number(matchedItem?.amount ?? currentAmount);
+      const resolvedAmount = matchedItem
+        ? Number(matchedItem.amount ?? 0)
+        : (field === "investment" ? currentAmount : 0);
 
       return {
         routeKey: pot.id,
@@ -629,6 +631,14 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
     if (!(isInlineAmountEditing && parsedInlineAmount != null)) return selectedDisplayTotal;
     return Math.max(0, selectedDisplayTotal - editableCurrentAmount + parsedInlineAmount);
   }, [editableCurrentAmount, isInlineAmountEditing, parsedInlineAmount, selectedDisplayTotal]);
+  const isAllowanceTarget = selectedTarget?.key === "monthlyAllowance";
+  const previewDueAmount = useMemo(() => {
+    if (manageScreen === "detail" && parsedInlineAmount != null) {
+      return parsedInlineAmount;
+    }
+    return previewCurrentAmount;
+  }, [manageScreen, parsedInlineAmount, previewCurrentAmount]);
+  const previewHeroAmount = isAllowanceTarget ? previewDueAmount : previewDisplayTotal;
 
   const renderFooterButton = useCallback(({
     label,
@@ -712,6 +722,7 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
     setAmountDraft(currentAmount.toFixed(2));
     setStartMonth(normalizeMonthValue(defaultSelection.month));
     setStartYear(normalizeYearValue(defaultSelection.year));
+    setApplySameToFuturePeriods(false);
     setPeriod("this_month");
     setManageScreen("chooser");
   };
@@ -726,6 +737,8 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
     setAmountMode("set");
     setAmountDraft(currentAmount.toFixed(2));
     setIsInlineAmountEditing(false);
+    setApplySameToFuturePeriods(false);
+    setPeriod("this_month");
     setManageScreen("detail");
   };
 
@@ -837,7 +850,7 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
       amount: finalAmount,
       startMonth: normalizedStartMonth,
       startYear: normalizedStartYear,
-      period,
+      period: applySameToFuturePeriods ? "ten_years" : period,
       skipSavingIndicator: options?.skipSavingIndicator,
     });
     setIsInlineAmountEditing(false);
@@ -1060,6 +1073,7 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
           >
             <View style={[styles.detailHeroGlow, styles.detailHeroGlowPrimary]} />
             <View style={[styles.detailHeroGlow, styles.detailHeroGlowSecondary]} />
+            <Text style={styles.detailHeroPeriod}>Editing period: {props.monthLabel}</Text>
             <View
               style={[
                 styles.detailHeroIcon,
@@ -1072,12 +1086,16 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
               <Ionicons name={(selectedTargetCard?.iconName as any) ?? "wallet-outline"} size={26} color={selectedTargetCard?.iconTone ?? T.accent} />
             </View>
             <Text style={styles.detailHeroTitle}>{selectedTargetTitle}</Text>
-            <Text style={styles.detailHeroAmount}>{fmt(previewDisplayTotal, props.currency)}</Text>
-            <Text style={styles.detailHeroMeta}>Overall saved for this sacrifice target.</Text>
+            <Text style={styles.detailHeroAmount}>{fmt(previewHeroAmount, props.currency)}</Text>
+            <Text style={styles.detailHeroMeta}>
+              {isAllowanceTarget
+                ? "Allowance for this pay period."
+                : "Overall saved for this sacrifice target."}
+            </Text>
             {selectedTarget?.kind === "fixed" ? (
               <View style={styles.detailEditorCard}>
                 <Text style={styles.detailEditorLabel}>{selectedPotRoute ? `${selectedPotRoute.name} this pay period` : "Due this pay period"}</Text>
-                <Text style={styles.detailEditorValue}>{fmt(previewCurrentAmount, props.currency)}</Text>
+                <Text style={styles.detailEditorValue}>{fmt(previewDueAmount, props.currency)}</Text>
               </View>
             ) : null}
           </Animated.View>
@@ -1174,7 +1192,52 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
                   </View>
                 )}
               </View>
-            ) : null}
+            ) : (
+              <>
+                <View style={styles.sectionCard}>
+                  <View style={styles.sectionSubHeaderRow}>
+                    <Text style={styles.cardTitle}>Amount for this period</Text>
+                    <Text style={styles.inlineMetaText}>{selectedTarget?.kind === "custom" ? "Custom" : "Built-in"}</Text>
+                  </View>
+                  <Text style={styles.cardSub}>
+                    {selectedPotRoute
+                      ? `Set the amount for ${selectedPotRoute.name} in this pay period.`
+                      : "Update the amount that should be set aside in this pay period."}
+                  </Text>
+                  <MoneyInput
+                    currency={props.currency}
+                    value={amountDraft}
+                    onChangeValue={setAmountDraft}
+                    placeholder="0.00"
+                  />
+                </View>
+                <Pressable
+                  style={[styles.samePeriodInlineRow, applySameToFuturePeriods && styles.samePeriodInlineRowActive]}
+                  onPress={() => setApplySameToFuturePeriods((current) => !current)}
+                  accessibilityRole="switch"
+                  accessibilityState={{ checked: applySameToFuturePeriods }}
+                >
+                  <View style={[styles.samePeriodToggleIcon, applySameToFuturePeriods && styles.samePeriodToggleIconActive]}>
+                    <Ionicons
+                      name={applySameToFuturePeriods ? "repeat" : "calendar-outline"}
+                      size={16}
+                      color={applySameToFuturePeriods ? T.text : T.textMuted}
+                    />
+                  </View>
+                  <View style={styles.samePeriodToggleCopy}>
+                    <Text style={styles.samePeriodToggleTitle}>Use same amount for future periods</Text>
+                    <Text style={styles.samePeriodToggleMeta}>
+                      {applySameToFuturePeriods
+                        ? "This amount will be saved from this period onward."
+                        : "Off: only this pay period changes."}
+                    </Text>
+                  </View>
+                  <View style={[styles.samePeriodSwitch, applySameToFuturePeriods && styles.samePeriodSwitchActive]}>
+                    <View style={[styles.samePeriodSwitchKnob, applySameToFuturePeriods && styles.samePeriodSwitchKnobActive]} />
+                  </View>
+                </Pressable>
+              </>
+            )}
           </Animated.View>
         </>
       );
@@ -1601,21 +1664,27 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
 
       return (
         <View style={styles.manageFooterRow}>
-          <View style={styles.manageFooterLeftGroup}>
-            {!isInvestmentTarget ? renderFooterButton({
-              label: props.sacrificeSaving ? "Saving" : "Save",
-              onPress: submitAmountSheet,
-              disabled: props.sacrificeSaving,
-              accent: true,
-            }) : null}
-          </View>
-          {isInvestmentTarget ? renderFooterButton({
+          <View style={styles.manageFooterLeftGroup} />
+          {!isInvestmentTarget ? (
+            <GlassFooterButton
+              label="Save"
+              onPress={() => {
+                void submitAmountSheet();
+              }}
+              disabled={props.sacrificeSaving}
+              loading={props.sacrificeSaving}
+              variant="light"
+              tone="dark"
+              containerStyle={styles.manageSaveBtn}
+              loadingColor={T.text}
+            />
+          ) : renderFooterButton({
             label: "",
             iconName: "add",
             accessibilityLabel: "Add investment sacrifice",
             onPress: openInvestmentAddActionSheet,
             disabled: props.sacrificeCreating,
-          }) : null}
+          })}
         </View>
       );
     }
@@ -1871,6 +1940,7 @@ export default function IncomeMonthSacrificeList(props: IncomeMonthSacrificeList
             scrollEventThrottle={16}
             showsVerticalScrollIndicator={false}
             bounces={false}
+            keyboardShouldPersistTaps="handled"
             contentContainerStyle={[
               styles.manageScrollContent,
               manageScreen === "detail" && styles.manageScrollContentDetail,

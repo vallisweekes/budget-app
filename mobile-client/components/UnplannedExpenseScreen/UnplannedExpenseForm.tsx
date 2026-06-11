@@ -82,6 +82,9 @@ export default function UnplannedExpenseForm({
             onChangeText={onDescriptionChange}
             placeholder="e.g. Lunch, taxi, groceries…"
             placeholderTextColor={T.textMuted}
+            autoCorrect={false}
+            spellCheck={false}
+            autoCapitalize="none"
             returnKeyType="done"
             maxLength={80}
           />
@@ -137,6 +140,9 @@ export default function UnplannedExpenseForm({
               onChangeText={onNewLoanNameChange}
               placeholder="e.g. Family loan"
               placeholderTextColor={T.textMuted}
+              autoCorrect={false}
+              spellCheck={false}
+              autoCapitalize="none"
               returnKeyType="done"
               maxLength={80}
             />
@@ -173,7 +179,7 @@ export default function UnplannedExpenseForm({
               <View style={styles.submitBtnGlow} pointerEvents="none" />
               <View style={styles.submitBtnInnerBorder} pointerEvents="none" />
               {submitting ? (
-                <ActivityIndicator size="small" color={T.text} />
+                <ActivityIndicator size="small" color="#111827" />
               ) : (
                 <View style={styles.submitBtnContent}>
                   <Text style={styles.submitTxt}>{parsedAmount > 0 ? `Log ${fmt(parsedAmount, currency)}` : "Log Expense"}</Text>

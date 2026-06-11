@@ -110,6 +110,15 @@ export default function LoggedExpenseCard(props: LoggedExpenseCardProps) {
     [closeSwipe, openSwipe, props.deleting, translateX],
   );
 
+  const deleteActionOpacity = useMemo(
+    () => translateX.interpolate({
+      inputRange: [0, 6, SWIPE_ACTION_WIDTH],
+      outputRange: [0, 0, 1],
+      extrapolate: "clamp",
+    }),
+    [translateX],
+  );
+
   const handlePress = useCallback(() => {
     if (swipeOpen || currentXRef.current > 8) {
       closeSwipe();
@@ -126,7 +135,7 @@ export default function LoggedExpenseCard(props: LoggedExpenseCardProps) {
 
   return (
     <View style={s.swipeOuter}>
-      <View style={s.deleteActionWrap}>
+      <Animated.View style={[s.deleteActionWrap, { opacity: deleteActionOpacity }]} pointerEvents={swipeOpen ? "auto" : "none"}>
         <Pressable
           style={({ pressed }) => [s.deleteActionBtn, pressed && !props.deleting && s.deleteActionBtnPressed]}
           onPress={handleDelete}
@@ -140,7 +149,7 @@ export default function LoggedExpenseCard(props: LoggedExpenseCardProps) {
             <Ionicons name="trash-outline" size={20} color={T.onAccent} />
           )}
         </Pressable>
-      </View>
+      </Animated.View>
 
       <Animated.View style={{ transform: [{ translateX }] }} {...panResponder.panHandlers}>
         <Pressable

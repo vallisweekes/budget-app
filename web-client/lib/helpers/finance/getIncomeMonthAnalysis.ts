@@ -76,6 +76,7 @@ async function getPeriodExpenseSnapshot(params: {
 	plannedExpenses: number;
 	paidExpenses: number;
 	expenseIds: string[];
+	loggedExpenseIds: string[];
 	selectedPlanExpenses: number;
 	additionalPlansExpenses: number;
 	selectedPlanPreview: ExpenseTooltipPreview;
@@ -88,6 +89,7 @@ async function getPeriodExpenseSnapshot(params: {
 				windowStart: params.windowStart,
 				windowEnd: params.windowEnd,
 				payDate: params.payDate,
+				includeLoggedExpensesInResults: true,
 			})
 		)
 	);
@@ -102,26 +104,28 @@ async function getPeriodExpenseSnapshot(params: {
 			name: String(expense.name ?? "Expense").trim() || "Expense",
 			amount: expense.amount,
 			paidAmount: expense.paidAmount,
+			isExtraLoggedExpense: Boolean(expense.isExtraLoggedExpense ?? false),
 		}))
 	);
+	const plannedPeriodExpenses = allPeriodExpenses.filter((expense) => includeInPlannedExpenseTotals(expense));
+	const loggedPeriodExpenses = allPeriodExpenses.filter((expense) => expense.isExtraLoggedExpense);
 	const selectedPlanExpenseRows = allPeriodExpenses.filter((expense) => expense.budgetPlanId === params.selectedBudgetPlanId);
 	const additionalPlanExpenseRows = allPeriodExpenses.filter((expense) => expense.budgetPlanId !== params.selectedBudgetPlanId);
-	const selectedPlanExpenses = perPlanSnapshots
-		.filter((snapshot) => snapshot.budgetPlanId === params.selectedBudgetPlanId)
-		.flatMap((snapshot) => snapshot.expenses)
+	const selectedPlanExpenses = selectedPlanExpenseRows
+		.filter((expense) => includeInPlannedExpenseTotals(expense))
 		.reduce((sum, expense) => sum + Number(expense.amount ?? 0), 0);
-	const additionalPlansExpenses = perPlanSnapshots
-		.filter((snapshot) => snapshot.budgetPlanId !== params.selectedBudgetPlanId)
-		.flatMap((snapshot) => snapshot.expenses)
+	const additionalPlansExpenses = additionalPlanExpenseRows
+		.filter((expense) => includeInPlannedExpenseTotals(expense))
 		.reduce((sum, expense) => sum + Number(expense.amount ?? 0), 0);
 	return {
-		plannedExpenses: allPeriodExpenses.reduce((sum, expense) => sum + Number(expense.amount ?? 0), 0),
-		paidExpenses: allPeriodExpenses.reduce((sum, expense) => sum + Number(expense.paidAmount ?? 0), 0),
-		expenseIds: allPeriodExpenses.map((expense) => expense.id).filter(Boolean),
+		plannedExpenses: plannedPeriodExpenses.reduce((sum, expense) => sum + Number(expense.amount ?? 0), 0),
+		paidExpenses: plannedPeriodExpenses.reduce((sum, expense) => sum + Number(expense.paidAmount ?? 0), 0),
+		expenseIds: plannedPeriodExpenses.map((expense) => expense.id).filter(Boolean),
+		loggedExpenseIds: loggedPeriodExpenses.map((expense) => expense.id).filter(Boolean),
 		selectedPlanExpenses,
 		additionalPlansExpenses,
-		selectedPlanPreview: buildExpenseTooltipPreview(selectedPlanExpenseRows, params.planNamesById),
-		additionalPlansPreview: buildExpenseTooltipPreview(additionalPlanExpenseRows, params.planNamesById),
+		selectedPlanPreview: buildExpenseTooltipPreview(selectedPlanExpenseRows.filter((expense) => includeInPlannedExpenseTotals(expense)), params.planNamesById),
+		additionalPlansPreview: buildExpenseTooltipPreview(additionalPlanExpenseRows.filter((expense) => includeInPlannedExpenseTotals(expense)), params.planNamesById),
 	};
 }
 
@@ -197,8 +201,8 @@ export async function getIncomeMonthAnalysis({ budgetPlanId, year, month, payFre
 		cadence === "monthly"
 			? getIncomeForAnchorMonth({ budgetPlanId, year, month, payDate, payFrequency: cadence, scope: eventScope })
 			: Promise.resolve(null),
-		getMonthlyAllocationSnapshot(budgetPlanId, monthKey, { year }),
-		getMonthlyCustomAllocationsSnapshot(budgetPlanId, monthKey, { year }),
+		getMonthlyAllocationSnapshot(budgetPlanId, monthKey, { year, fallbackToPlanDefaults: false }),
+		getMonthlyCustomAllocationsSnapshot(budgetPlanId, monthKey, { year, fallbackToDefinitionDefaults: false }),
 		isHomeCoreMode
 			? Promise.resolve(null)
 			: getMonthlyDebtPlan({
@@ -248,6 +252,7 @@ export async function getIncomeMonthAnalysis({ budgetPlanId, year, month, payFre
 		// regardless of when the payment was made. If the user paid a bill early
 		// (before payday), it should still reduce "income remaining".
 		const periodExpenseIds = expenseSnapshot?.expenseIds ?? [];
+		const periodLoggedExpenseIds = expenseSnapshot?.loggedExpenseIds ?? [];
 
 		if (!isHomeCoreMode && periodExpenseIds.length > 0) {
 			const paidAgg = await prisma.expensePayment.aggregate({
@@ -258,6 +263,17 @@ export async function getIncomeMonthAnalysis({ budgetPlanId, year, month, payFre
 				_sum: { amount: true },
 			});
 			paidExpensesFromIncome = decimalToNumber(paidAgg._sum.amount);
+		}
+
+		if (!isHomeCoreMode && periodLoggedExpenseIds.length > 0) {
+			const loggedPaidAgg = await prisma.expensePayment.aggregate({
+				where: {
+					expenseId: { in: periodLoggedExpenseIds },
+					source: "income",
+				},
+				_sum: { amount: true },
+			});
+			paidExpensesFromIncome += decimalToNumber(loggedPaidAgg._sum.amount);
 		}
 
 		// Debt payment totals are already period-scoped via getMonthlyDebtPlan.

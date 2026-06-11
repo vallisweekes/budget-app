@@ -115,8 +115,8 @@ export async function getDashboardPlanData(
 				where: { budgetPlanId: planId, year: selectedYear, month: selectedMonthNum },
 			}),
 			prisma.goal.findMany({ where: { budgetPlanId: planId } }),
-			getMonthlyAllocationSnapshot(planId, selectedMonthKey, { year: selectedYear }),
-			getMonthlyCustomAllocationsSnapshot(planId, selectedMonthKey, { year: selectedYear }),
+			getMonthlyAllocationSnapshot(planId, selectedMonthKey, { year: selectedYear, fallbackToPlanDefaults: false }),
+			getMonthlyCustomAllocationsSnapshot(planId, selectedMonthKey, { year: selectedYear, fallbackToDefinitionDefaults: false }),
 			getMonthlyDebtPlan({
 				budgetPlanId: planId,
 				year: selectedYear,
@@ -359,8 +359,8 @@ export async function getDashboardPlanDataForActivePayPeriod(
 				return incomeByMonth[selectedMonthKey] ?? [];
 			})(),
 			prisma.goal.findMany({ where: { budgetPlanId: planId } }),
-			getMonthlyAllocationSnapshot(planId, selectedMonthKey, { year: selectedYear }),
-			getMonthlyCustomAllocationsSnapshot(planId, selectedMonthKey, { year: selectedYear }),
+			getMonthlyAllocationSnapshot(planId, selectedMonthKey, { year: selectedYear, fallbackToPlanDefaults: false }),
+			getMonthlyCustomAllocationsSnapshot(planId, selectedMonthKey, { year: selectedYear, fallbackToDefinitionDefaults: false }),
 			getMonthlyDebtPlan({
 				budgetPlanId: planId,
 				year: selectedYear,

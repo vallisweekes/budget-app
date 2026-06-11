@@ -3,8 +3,9 @@ import { useActiveBudgetPlan } from "@/context/ActiveBudgetPlanContext";
 import { useSwipeDownToClose } from "@/hooks";
 
 import { apiFetch } from "@/lib/api";
+import type { Expense } from "@/lib/apiTypes";
 import { NEW_LOAN_SENTINEL } from "@/lib/constants";
-import { upsertCachedPayPeriodExpense } from "@/lib/expensePeriodCache";
+import { replaceCachedPayPeriodExpense, upsertCachedPayPeriodExpense } from "@/lib/expensePeriodCache";
 import {
   getExpenseFundingOptions,
   getExpenseFundingSelectionKey,
@@ -20,7 +21,6 @@ import {
   useGetCategoriesQuery,
   useGetDebtsQuery,
   useGetSettingsQuery,
-  useLazyGetPlanSettingsQuery,
 } from "@/store/api";
 
 export type FundingSource = ExpenseFundingSource;
@@ -78,12 +78,11 @@ function useUnplannedExpenseScreenControllerImpl(params: {
   const [year, setYear] = useState(resolvedInitialYear);
   const budgetPlanId = activeBudgetPlanId ?? bootstrapBudgetPlanId ?? null;
   const categoryQueryArg = useMemo(() => (budgetPlanId ? { budgetPlanId } : undefined), [budgetPlanId]);
-  const { data: categories = [], isLoading: categoriesLoading } = useGetCategoriesQuery(categoryQueryArg);
-  const { data: debts = [], isLoading: debtsLoading } = useGetDebtsQuery(categoryQueryArg);
-  const { data: defaultSettings = null, isLoading: defaultSettingsLoading } = useGetSettingsQuery(undefined, {
-    skip: Boolean(budgetPlanId),
+  const { data: categories = [] } = useGetCategoriesQuery(categoryQueryArg);
+  const { data: debts = [] } = useGetDebtsQuery(categoryQueryArg);
+  const { data: defaultSettings = null } = useGetSettingsQuery(undefined, {
+    skip: false,
   });
-  const [fetchPlanSettings, planSettingsQuery] = useLazyGetPlanSettingsQuery();
   const [createExpense] = useCreateExpenseMutation();
 
   const [catPickerOpen, setCatPickerOpen] = useState(false);
@@ -94,15 +93,7 @@ function useUnplannedExpenseScreenControllerImpl(params: {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!budgetPlanId) return;
-    void fetchPlanSettings(budgetPlanId, true);
-  }, [budgetPlanId, fetchPlanSettings]);
-
-  const settings = budgetPlanId ? (planSettingsQuery.data ?? null) : defaultSettings;
-  const settingsLoading = budgetPlanId
-    ? (planSettingsQuery.isLoading || planSettingsQuery.isFetching)
-    : defaultSettingsLoading;
+  const settings = defaultSettings;
 
   const closeCatPicker = useCallback(() => setCatPickerOpen(false), []);
   const closeFundingPicker = useCallback(() => setFundingPickerOpen(false), []);
@@ -122,7 +113,8 @@ function useUnplannedExpenseScreenControllerImpl(params: {
   const parsedAmount = useMemo(() => parseFloat(amount.replace(/,/g, "")), [amount]);
   const cardDebts = useMemo(() => debts.filter((debt) => debt.type === "credit_card" || debt.type === "store_card"), [debts]);
   const loanDebts = useMemo(() => debts.filter((debt) => debt.type === "loan" || debt.type === "mortgage" || debt.type === "hire_purchase" || debt.type === "other"), [debts]);
-  const loadingData = categoriesLoading || debtsLoading || settingsLoading;
+  // Keep the form interactive immediately; category/debt pickers hydrate as data arrives.
+  const loadingData = false;
   const fundingOptions = useMemo(
     () => getExpenseFundingOptions({
       cards: cardDebts,
@@ -274,12 +266,48 @@ function useUnplannedExpenseScreenControllerImpl(params: {
         }
       }
 
-      const created = await createExpense(body).unwrap();
-      upsertCachedPayPeriodExpense(
-        { budgetPlanId, month, year },
-        created,
-      );
+      const cacheParams = { budgetPlanId, month, year };
+      const optimisticId = `optimistic-logged-${Date.now()}`;
+      const resolvedFundingPaymentSource = paymentSourceForFunding(fundingSource);
+      const optimisticPaymentSource: Expense["paymentSource"] = resolvedFundingPaymentSource === "extra_untracked"
+        ? "other"
+        : (resolvedFundingPaymentSource as Expense["paymentSource"]);
+      const optimisticExpense: Expense = {
+        id: optimisticId,
+        name: name.trim(),
+        merchantDomain: null,
+        logoUrl: null,
+        logoSource: null,
+        amount: String(parsedAmount),
+        paid: true,
+        paidAmount: String(parsedAmount),
+        isAllocation: false,
+        isDirectDebit: false,
+        month,
+        year,
+        categoryId: categoryId || "",
+        category: null,
+        dueDate: null,
+        lastPaymentAt: new Date().toISOString(),
+        paymentSource: optimisticPaymentSource,
+        cardDebtId: (fundingSource === "credit_card" && selectedDebtId) ? selectedDebtId : null,
+        isExtraLoggedExpense: true,
+        effectiveDueDate: null,
+        inSelectedPayPeriod: true,
+      };
+
+      upsertCachedPayPeriodExpense(cacheParams, optimisticExpense);
       onSuccess();
+
+      void (async () => {
+        try {
+          const created = await createExpense(body).unwrap();
+          replaceCachedPayPeriodExpense(cacheParams, optimisticId, created);
+        } catch (error) {
+          // Keep the optimistic item visible; a later refresh will reconcile server truth.
+          console.warn("Failed to sync logged expense:", getMobileApiErrorMessage(error, "Failed to log expense."));
+        }
+      })();
     } catch (error) {
       setSubmitError(getMobileApiErrorMessage(error, "Failed to log expense. Try again."));
       setSubmitting(false);

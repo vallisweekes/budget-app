@@ -54,6 +54,25 @@ type ItemsCacheStore = Record<string, Record<number, Record<number, Income[]>>>;
 type SacrificeCacheStore = Record<string, Record<number, Record<number, IncomeSacrificeData>>>;
 type SettingsCacheStore = Record<string, Settings>;
 type MonthPrefetchStore = Record<string, "idle" | "loading" | "loaded">;
+const SACRIFICE_SAVE_TIMEOUT_MS = 20_000;
+const SACRIFICE_SAVE_CONCURRENCY = 6;
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, timeoutMessage: string): Promise<T> {
+  let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutHandle = setTimeout(() => {
+      reject(new Error(timeoutMessage));
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle);
+    }
+  }
+}
 
 function normalizeSavingsPotBroker(value: unknown): string {
   if (typeof value !== "string") return "none";
@@ -543,17 +562,18 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
     const shouldBlockOnSacrifice = viewMode === "sacrifice" || (initialMode ?? "income") === "sacrifice";
     try {
       setError(null);
+      let hasCachedSnapshot = false;
 
       if (!force) {
         const cachedMonthData = getCachedAnalysis(year, month);
         if (cachedMonthData) {
+          hasCachedSnapshot = true;
           setAnalysis(cachedMonthData);
           setItems(toIncomeItems(cachedMonthData.incomeItems ?? [], month, year));
           setLoading(false);
           setRefreshing(false);
           prefetchAdjacentMonths(year, month);
           void loadSacrifice().catch(() => null);
-          return;
         }
       }
 
@@ -569,6 +589,11 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
 
       if (shouldBlockOnSacrifice) {
         await sacrificeWarmupPromise;
+      }
+
+      if (hasCachedSnapshot) {
+        // Revalidated with fresh server data; keep UI state settled.
+        setRefreshing(false);
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load");
@@ -624,7 +649,9 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
 
   useEffect(() => {
     if (viewMode !== "sacrifice") return;
-    loadSacrifice().catch(() => null);
+    // Always refresh sacrifice data on period/view switch so local cache cannot
+    // keep showing a previous period snapshot after server logic changes.
+    loadSacrifice({ force: true }).catch(() => null);
   }, [loadSacrifice, viewMode]);
 
   const crud = useIncomeCRUD({
@@ -654,19 +681,14 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
 
   const openStandaloneSacrifice = useCallback(() => {
     void loadSacrifice().catch(() => null);
-    router.push({
-      pathname: "/IncomeMonth",
-      params: {
-        month,
-        year,
-        budgetPlanId,
-        initialMode: "sacrifice",
-        pendingConfirmationsCount,
-        showPendingNotice: pendingNoticeVisible ? "true" : undefined,
-        standaloneSacrifice: "true",
-      },
+    setViewMode("sacrifice");
+    navigation.setParams({
+      initialMode: "sacrifice",
+      pendingConfirmationsCount,
+      showPendingNotice: pendingNoticeVisible,
+      openIncomeAddAt: undefined,
     });
-  }, [budgetPlanId, loadSacrifice, month, pendingConfirmationsCount, pendingNoticeVisible, router, year]);
+  }, [loadSacrifice, navigation, pendingConfirmationsCount, pendingNoticeVisible]);
 
   const returnToTabbedIncome = useCallback(() => {
     router.replace({
@@ -698,7 +720,11 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
     }
 
     setViewMode(mode);
-  }, [isStandaloneSacrifice, openStandaloneSacrifice, returnToTabbedIncome]);
+    navigation.setParams({
+      initialMode: mode,
+      openIncomeAddAt: undefined,
+    });
+  }, [isStandaloneSacrifice, navigation, openStandaloneSacrifice, returnToTabbedIncome]);
 
   const handleBackPress = useCallback(() => {
     if (isStandaloneSacrifice && !navigation.canGoBack?.()) {
@@ -897,37 +923,35 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
       if (showSavingIndicator) {
         setSacrificeSaving(true);
       }
-      for (const target of targets) {
-        const snapshot = await apiFetch<IncomeSacrificeData>(
-          `/api/bff/income-sacrifice?month=${target.month}&year=${target.year}&budgetPlanId=${encodeURIComponent(budgetPlanId)}`
+      if (args.targetType === "fixed") {
+        await withTimeout(
+          updateIncomeSacrifice({
+            budgetPlanId,
+            month,
+            year,
+            targets,
+            fixedFieldUpdate: {
+              field: args.fixedField as FixedField,
+              amount: value,
+            },
+          }).unwrap(),
+          SACRIFICE_SAVE_TIMEOUT_MS,
+          "Saving this period took too long."
         );
-
-        if (args.targetType === "fixed") {
-          const nextFixed: IncomeSacrificeFixed = {
-            monthlyAllowance: Number(snapshot.fixed.monthlyAllowance ?? 0),
-            monthlySavingsContribution: Number(snapshot.fixed.monthlySavingsContribution ?? 0),
-            monthlyEmergencyContribution: Number(snapshot.fixed.monthlyEmergencyContribution ?? 0),
-            monthlyInvestmentContribution: Number(snapshot.fixed.monthlyInvestmentContribution ?? 0),
-          };
-          nextFixed[args.fixedField as FixedField] = value;
-
-          await updateIncomeSacrifice({
+      } else {
+        await withTimeout(
+          updateIncomeSacrifice({
             budgetPlanId,
-            month: target.month,
-            year: target.year,
-            fixed: nextFixed,
-          }).unwrap();
-        } else {
-          await updateIncomeSacrifice({
-            budgetPlanId,
-            month: target.month,
-            year: target.year,
-            fixed: snapshot.fixed,
+            month,
+            year,
+            targets,
             customAmountById: {
               [args.customAllocationId as string]: value,
             },
-          }).unwrap();
-        }
+          }).unwrap(),
+          SACRIFICE_SAVE_TIMEOUT_MS,
+          "Saving this period took too long."
+        );
       }
 
       if (linkedInvestmentPot) {

@@ -20,15 +20,14 @@ export function splitCategoryExpenses(allExpenses: Expense[], categoryId: string
   main: Expense[];
   logged: Expense[];
 } {
-  const isIncomeSource = (source: string | null | undefined) => String(source ?? "income").trim().toLowerCase() === "income";
   const isUncategorisedBucket = categoryId === "__none__";
   const matchingCategory = allExpenses.filter((expense) => {
     if (expense.isAllocation) return false;
     return isUncategorisedBucket ? !expense.categoryId : expense.categoryId === categoryId;
   });
   return {
-    main: matchingCategory.filter((entry) => !entry.isExtraLoggedExpense || isIncomeSource(entry.paymentSource)),
-    logged: matchingCategory.filter((entry) => entry.isExtraLoggedExpense && !isIncomeSource(entry.paymentSource)),
+    main: matchingCategory.filter((entry) => !entry.isExtraLoggedExpense),
+    logged: matchingCategory.filter((entry) => entry.isExtraLoggedExpense),
   };
 }
 

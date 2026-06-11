@@ -16,7 +16,6 @@ import { getMobileApiErrorMessage, useDeleteExpenseMutation, useUpdateExpenseMut
 import type { ExpenseDetailScreenControllerState, FrequencyDisplay, FrequencyIndicator, LoadState, MonthPoint, SparkState } from "@/types/ExpenseDetailScreen.types";
 import {
   PAYMENT_EDIT_GRACE_DAYS,
-  buildExpenseTips,
   buildPeriodLabels,
   compareMonthYear,
   dueDateColor,
@@ -83,7 +82,6 @@ export function useExpenseDetailScreenController({ route, navigation }: Props): 
   const [frequency, setFrequency] = useState<ExpenseFrequencyResponse | null>(null);
   const [frequencyLoading, setFrequencyLoading] = useState(false);
   const [, setFrequencyResolved] = useState(false);
-  const [tipIndex, setTipIndex] = useState(0);
   const [today, setToday] = useState(() => new Date());
   const shouldShowFrequencyCard = false;
 
@@ -143,6 +141,17 @@ export function useExpenseDetailScreenController({ route, navigation }: Props): 
   const remainingNum = Math.max(0, amountNum - paidNum);
   const isPaid = amountNum <= 0 ? true : paidNum >= amountNum - 0.005;
   const isLoggedNonIncomeExpense = Boolean(expense?.isExtraLoggedExpense) && String(expense?.paymentSource ?? "income") !== "income";
+  const fundingSourceLabel = useMemo(() => {
+    const source = String(expense?.paymentSource ?? "income").trim().toLowerCase();
+    if (source === "savings") return "Savings";
+    if (source === "emergency") return "Emergency fund";
+    if (source === "credit_card") return "Card";
+    if (source === "monthly_allowance") return "Allowance";
+    if (source === "loan") return "Loan";
+    if (source === "investment") return "Investments";
+    if (source === "other") return "Other";
+    return "Income";
+  }, [expense?.paymentSource]);
   const canEditPaidPayment = isPaid && isWithinPaymentEditGrace(expense?.lastPaymentAt);
   const statusGraceNote = useMemo(() => getPaymentStatusGraceNote(expense?.lastPaymentAt), [expense?.lastPaymentAt]);
 
@@ -210,15 +219,6 @@ export function useExpenseDetailScreenController({ route, navigation }: Props): 
     };
   }, [expense, shouldShowFrequencyCard]);
 
-  const missedBefore = useMemo(() => {
-    const points = frequency?.points ?? [];
-    return points.some((point) => {
-      const isPastOrCurrent = compareMonthYear({ month: point.month, year: point.year }, { month, year }) <= 0;
-      if (!isPastOrCurrent) return false;
-      return point.status === "missed" || point.status === "unpaid" || point.status === "partial";
-    });
-  }, [frequency?.points, month, year]);
-
   const freqDisplay = useMemo<FrequencyDisplay>(() => {
     if (frequency?.points?.length) {
       const points: MonthPoint[] = (frequency.points as ExpenseFrequencyPoint[]).map((point) => ({
@@ -282,35 +282,6 @@ export function useExpenseDetailScreenController({ route, navigation }: Props): 
     }
     return `Choose how to delete "${expense?.name ?? expenseName}": only this month, or this month plus all future months/years with the same schedule.`;
   }, [expense?.name, expenseName, hasFutureSpread, shouldOfferFutureDeleteScope]);
-
-  const tips = useMemo(() => buildExpenseTips({
-    displayName,
-    currency,
-    amountNum,
-    remainingNum,
-    isPaid,
-    dueDays: dueDays ?? null,
-    isDirectDebit: Boolean(expense?.isDirectDebit),
-    month,
-    year,
-    points: freqDisplay.points,
-    subtitle: freqDisplay.subtitle,
-    missedBefore,
-    debt: frequency?.debt,
-    indicator: freqIndicator ? { label: freqIndicator.label } : null,
-  }), [amountNum, currency, displayName, dueDays, expense?.isDirectDebit, freqDisplay.points, freqDisplay.subtitle, freqIndicator, frequency?.debt, isPaid, missedBefore, month, remainingNum, year]);
-
-  useEffect(() => {
-    setTipIndex(0);
-  }, [expense?.id, tips.length]);
-
-  useEffect(() => {
-    if (tips.length <= 1) return;
-    const intervalId = setInterval(() => {
-      setTipIndex((previous) => (tips.length ? (previous + 1) % tips.length : 0));
-    }, 20_000);
-    return () => clearInterval(intervalId);
-  }, [tips.length]);
 
   const spark = useMemo<SparkState>(() => {
     const points = freqDisplay.points;
@@ -480,6 +451,7 @@ export function useExpenseDetailScreenController({ route, navigation }: Props): 
     displayName,
     dueDateBadgeColor: dueDateColor(expense?.dueDate),
     dueDateLabel: formatDueDateLabel(expense?.dueDate),
+    fundingSourceLabel,
     editPeriodContext,
     editSheetOpen,
     error,
@@ -515,8 +487,6 @@ export function useExpenseDetailScreenController({ route, navigation }: Props): 
     spark,
     statusGraceNote,
     tabBarHeight,
-    tipIndex,
-    tips,
     unpaidConfirmOpen,
     unpaidWarningText,
     updatedLabel,

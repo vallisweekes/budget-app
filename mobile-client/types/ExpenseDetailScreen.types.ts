@@ -56,6 +56,7 @@ export type ExpenseDetailScreenControllerState = {
   displayName: string;
   dueDateBadgeColor: string;
   dueDateLabel: string;
+  fundingSourceLabel: string;
   editPeriodContext: EditPeriodContext;
   editSheetOpen: boolean;
   error: string | null;
@@ -91,8 +92,6 @@ export type ExpenseDetailScreenControllerState = {
   spark: SparkState;
   statusGraceNote: string;
   tabBarHeight: number;
-  tipIndex: number;
-  tips: string[];
   unpaidConfirmOpen: boolean;
   unpaidWarningText: string;
   updatedLabel: string;

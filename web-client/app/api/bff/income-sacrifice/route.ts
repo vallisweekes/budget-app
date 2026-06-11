@@ -26,44 +26,6 @@ function toMoney(value: unknown): number {
 	return Number.isFinite(parsed) ? parsed : 0;
 }
 
-async function syncSettingsFixedAllocations(args: {
-	budgetPlanId: string;
-	fixed: {
-		monthlyAllowance: number;
-		monthlySavingsContribution: number;
-		monthlyEmergencyContribution: number;
-		monthlyInvestmentContribution: number;
-	};
-}) {
-	const updateData = {
-		monthlyAllowance: args.fixed.monthlyAllowance,
-		monthlySavingsContribution: args.fixed.monthlySavingsContribution,
-		monthlyEmergencyContribution: args.fixed.monthlyEmergencyContribution,
-		monthlyInvestmentContribution: args.fixed.monthlyInvestmentContribution,
-	};
-
-	try {
-		await prisma.budgetPlan.update({
-			where: { id: args.budgetPlanId },
-			data: updateData,
-			select: { id: true },
-		});
-	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
-		const unknownMonthlyEmergency =
-			message.includes("Unknown field `monthlyEmergencyContribution`") ||
-			message.includes("Unknown argument `monthlyEmergencyContribution`");
-		if (!unknownMonthlyEmergency) throw error;
-
-		const { monthlyEmergencyContribution: _unusedMonthlyEmergencyContribution, ...fallbackUpdateData } = updateData;
-		await prisma.budgetPlan.update({
-			where: { id: args.budgetPlanId },
-			data: fallbackUpdateData,
-			select: { id: true },
-		});
-	}
-}
-
 function unauthorized() {
 	return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 }
@@ -88,8 +50,14 @@ export async function GET(request: NextRequest) {
 		});
 		await ensureLegacyCustomSacrificesHaveGoals(budgetPlanId);
 		const monthKey = monthNumberToKey(month as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12) as MonthKey;
-		const allocation = await getMonthlyAllocationSnapshot(budgetPlanId, monthKey, { year });
-		const custom = await getMonthlyCustomAllocationsSnapshot(budgetPlanId, monthKey, { year });
+		const allocation = await getMonthlyAllocationSnapshot(budgetPlanId, monthKey, {
+			year,
+			fallbackToPlanDefaults: false,
+		});
+		const custom = await getMonthlyCustomAllocationsSnapshot(budgetPlanId, monthKey, {
+			year,
+			fallbackToDefinitionDefaults: false,
+		});
 		const plan = await prisma.budgetPlan.findUnique({
 			where: { id: budgetPlanId },
 			select: {
@@ -216,33 +184,59 @@ export async function PATCH(request: NextRequest) {
 			requestedYear: body.year,
 			now: new Date(),
 		});
-		const fallbackYear = await resolveActiveBudgetYear(budgetPlanId);
-		const safeYear = Number.isFinite(Number(body.year)) ? year : fallbackYear;
+		const parsedTargets = Array.isArray(body.targets)
+			? body.targets
+					.map((row) => {
+						if (!row || typeof row !== "object") return null;
+						const parsedMonth = Math.floor(Number((row as Record<string, unknown>).month));
+						const parsedYear = Math.floor(Number((row as Record<string, unknown>).year));
+						if (!Number.isFinite(parsedMonth) || parsedMonth < 1 || parsedMonth > 12) return null;
+						if (!Number.isFinite(parsedYear) || parsedYear < 1900 || parsedYear > 3000) return null;
+						return { month: parsedMonth, year: parsedYear };
+					})
+					.filter((row): row is { month: number; year: number } => Boolean(row))
+			: [];
+		const targets = parsedTargets.length > 0 ? parsedTargets : [{ month, year }];
+		const dedupedTargets = Array.from(new Map(targets.map((target) => [`${target.year}-${target.month}`, target])).values());
 
-		const fixed = body.fixed && typeof body.fixed === "object" ? (body.fixed as Record<string, unknown>) : {};
-		const nextFixed = {
-			monthlyAllowance: toMoney(fixed.monthlyAllowance),
-			monthlySavingsContribution: toMoney(fixed.monthlySavingsContribution),
-			monthlyEmergencyContribution: toMoney(fixed.monthlyEmergencyContribution),
-			monthlyInvestmentContribution: toMoney(fixed.monthlyInvestmentContribution),
-		};
-		await upsertMonthlyAllocation(budgetPlanId, safeYear, month, {
-			monthlyAllowance: nextFixed.monthlyAllowance,
-			monthlySavingsContribution: nextFixed.monthlySavingsContribution,
-			monthlyEmergencyContribution: nextFixed.monthlyEmergencyContribution,
-			monthlyInvestmentContribution: nextFixed.monthlyInvestmentContribution,
-		});
+		const fixed = body.fixed && typeof body.fixed === "object" ? (body.fixed as Record<string, unknown>) : null;
+		const rawFixedFieldUpdate =
+			body.fixedFieldUpdate && typeof body.fixedFieldUpdate === "object"
+				? (body.fixedFieldUpdate as Record<string, unknown>)
+				: null;
+		const fixedField = String(rawFixedFieldUpdate?.field ?? "");
+		const hasFixedFieldUpdate =
+			fixedField === "monthlyAllowance"
+			|| fixedField === "monthlySavingsContribution"
+			|| fixedField === "monthlyEmergencyContribution"
+			|| fixedField === "monthlyInvestmentContribution";
 
-		const activePeriod = await resolveUserPayPeriodContext({
-			userId,
-			budgetPlanId,
-			now: new Date(),
-		});
-		if (activePeriod.month === month && activePeriod.year === year) {
-			await syncSettingsFixedAllocations({
-				budgetPlanId,
-				fixed: nextFixed,
-			});
+		if (hasFixedFieldUpdate) {
+			const amount = toMoney(rawFixedFieldUpdate?.amount);
+			for (const target of dedupedTargets) {
+				const monthKey = monthNumberToKey(
+					target.month as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12
+				) as MonthKey;
+				const snapshot = await getMonthlyAllocationSnapshot(budgetPlanId, monthKey, { year: target.year });
+				const nextFixed = {
+					monthlyAllowance: toMoney(snapshot.monthlyAllowance),
+					monthlySavingsContribution: toMoney(snapshot.monthlySavingsContribution),
+					monthlyEmergencyContribution: toMoney(snapshot.monthlyEmergencyContribution),
+					monthlyInvestmentContribution: toMoney(snapshot.monthlyInvestmentContribution),
+				};
+				(nextFixed as Record<string, number>)[fixedField] = amount;
+				await upsertMonthlyAllocation(budgetPlanId, target.year, target.month, nextFixed);
+			}
+		} else if (fixed) {
+			const nextFixed = {
+				monthlyAllowance: toMoney(fixed.monthlyAllowance),
+				monthlySavingsContribution: toMoney(fixed.monthlySavingsContribution),
+				monthlyEmergencyContribution: toMoney(fixed.monthlyEmergencyContribution),
+				monthlyInvestmentContribution: toMoney(fixed.monthlyInvestmentContribution),
+			};
+			for (const target of dedupedTargets) {
+				await upsertMonthlyAllocation(budgetPlanId, target.year, target.month, nextFixed);
+			}
 		}
 
 		const customAmountById: Record<string, number> = {};
@@ -254,15 +248,17 @@ export async function PATCH(request: NextRequest) {
 			}
 		}
 		if (Object.keys(customAmountById).length > 0) {
-			await upsertMonthlyCustomAllocationOverrides({
-				budgetPlanId,
-				year: safeYear,
-				month,
-				amountsByAllocationId: customAmountById,
-			});
+			for (const target of dedupedTargets) {
+				await upsertMonthlyCustomAllocationOverrides({
+					budgetPlanId,
+					year: target.year,
+					month: target.month,
+					amountsByAllocationId: customAmountById,
+				});
+			}
 		}
 
-		return NextResponse.json({ success: true });
+		return NextResponse.json({ success: true, updatedMonths: dedupedTargets.length });
 	} catch (error) {
 		console.error("[bff/income-sacrifice] PATCH error", error);
 		return NextResponse.json({ error: "Failed to save income sacrifice" }, { status: 500 });

@@ -16,6 +16,9 @@ import { getExpensePaidMap } from "@/lib/expenses/paidSummary";
 import { resolveMatchedExpensePeriodKey } from "@/lib/helpers/periodKey";
 import { resolvePlanMappedCategoryId } from "@/lib/categories/planCategoryCatalog";
 import {
+  resolveDisplayedExpensePaidState,
+} from "@/lib/expenses/payPeriodPaidState";
+import {
   buildPayPeriodFromMonthAnchor,
   normalizePayFrequency,
   type PayFrequency,
@@ -363,11 +366,20 @@ export async function GET(req: NextRequest) {
     }
 
     const canonicalPaidInfo = paidMap.get(String(item.id));
-    const canonicalPaidAmountRaw = canonicalPaidInfo?.paidAmount ?? toFloat(item.paidAmount);
-    const canonicalIsPaid = canonicalPaidInfo?.isPaid ?? Boolean(item.paid);
     const amountNumber = toFloat(item.amount);
-    const canonicalPaidAmount = amountNumber > 0 ? Math.min(canonicalPaidAmountRaw, amountNumber) : 0;
+    const displayedPaidState = resolveDisplayedExpensePaidState({
+      scope,
+      selectedPeriodStart: selectedPeriod.start,
+      plannedAmount: amountNumber,
+      canonicalPaidAmount: canonicalPaidInfo?.paidAmount,
+      canonicalIsPaid: canonicalPaidInfo?.isPaid,
+      fallbackPaidAmount: toFloat(item.paidAmount),
+      fallbackIsPaid: Boolean(item.paid),
+    });
+    const canonicalPaidAmount = displayedPaidState.paidAmount;
+    const canonicalIsPaid = displayedPaidState.isPaid;
 
+    const latestPaidAt = latestPaidAtByExpenseId.get(item.id) ?? null;
     const dueIso = item.dueDate
       ? resolveEffectiveDueDateIso(
           {
@@ -425,7 +437,6 @@ export async function GET(req: NextRequest) {
       seenPayPeriod.set(key, { rank });
     }
 
-    const latestPaidAt = latestPaidAtByExpenseId.get(item.id) ?? null;
     out.push(serializeExpense(item, latestPaidAt, {
       effectiveDueDate: dueIso,
       inSelectedPayPeriod,

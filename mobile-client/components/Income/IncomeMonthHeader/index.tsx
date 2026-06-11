@@ -16,8 +16,8 @@ export default function IncomeMonthHeader({
   hideNavTitleRow = false,
   onHeightChange,
   onBack,
-  onPrevPeriod,
-  onNextPeriod,
+  onPrevPeriod: _onPrevPeriod,
+  onNextPeriod: _onNextPeriod,
   onToggleAdd,
   onSetMode,
 }: IncomeMonthHeaderProps) {

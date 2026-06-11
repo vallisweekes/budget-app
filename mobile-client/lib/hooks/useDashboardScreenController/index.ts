@@ -115,10 +115,22 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
     { skip: !shouldFetchIncomeMonthReconciliation },
   );
   const dashboardMoneyLeftOverride = useMemo<number | null>(() => {
-    const value = incomeMonthReconciliationQuery.data?.moneyLeftAfterPlan;
+    const value =
+      incomeMonthReconciliationQuery.data?.spendableIncomeRightNow
+      ?? incomeMonthReconciliationQuery.data?.incomeLeftRightNow
+      ?? incomeMonthReconciliationQuery.data?.moneyLeftAfterPlan;
     if (!Number.isFinite(value as number)) return null;
     return Number(value);
-  }, [incomeMonthReconciliationQuery.data?.moneyLeftAfterPlan]);
+  }, [
+    incomeMonthReconciliationQuery.data?.incomeLeftRightNow,
+    incomeMonthReconciliationQuery.data?.moneyLeftAfterPlan,
+    incomeMonthReconciliationQuery.data?.spendableIncomeRightNow,
+  ]);
+  const shouldDeferHeroUntilStableTotals = Boolean(
+    isFocused
+    && refreshing
+    && dashboardMoneyLeftOverride == null,
+  );
 
   usePostDashboardWarmup({
     dashboard: resolvedDashboard,
@@ -127,7 +139,7 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
   });
 
   const hasBudgetHeroData = Boolean(resolvedDashboard);
-  const hasRenderableHeroData = hasBudgetHeroData;
+  const hasRenderableHeroData = hasBudgetHeroData && !shouldDeferHeroUntilStableTotals;
   const isWaitingForEnrichmentData = Boolean(!resolvedDashboard && bootstrapLoading);
   const loading = (
     !hasRenderableHeroData && (

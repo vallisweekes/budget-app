@@ -1,14 +1,11 @@
-import { useFocusEffect, useIsFocused } from "@react-navigation/native";
+import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PanResponder, ScrollView } from "react-native";
 
 import { useActiveBudgetPlan } from "@/context/ActiveBudgetPlanContext";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
-import { apiFetch, getApiMutationsSince, getApiMutationVersion } from "@/lib/api";
-import { buildAppLocale, SCREEN_FOCUS_REVALIDATE_TTL_MS } from "@/lib/constants";
-import { setSharedExpensePeriodRouteState } from "@/lib/helpers/expensePeriodRouteState";
-import { resolveDisplayedPayPeriodAnchor } from "@/lib/helpers/resolveDisplayedPayPeriodAnchor";
+import { apiFetch, getApiMutationVersion } from "@/lib/api";
 import type {
   BudgetPlanListItem,
   BudgetPlansResponse,
@@ -21,11 +18,9 @@ import type {
 } from "@/lib/apiTypes";
 import { clearCachedPayPeriodExpenses, getCachedPayPeriodExpenses, setCachedPayPeriodExpenses } from "@/lib/expensePeriodCache";
 import { currencySymbol } from "@/lib/formatting";
-import { getPlanExpenseCategoryBreakdowns } from "@/lib/helpers/expenseCategories";
 import { consumeSkipExpensesFocusReload } from "@/lib/helpers/expensesFocusReload";
-import { usePayPeriodBoundaryRefresh, useTopHeaderOffset, useYearGuard } from "@/hooks";
-import { registerSessionScopedResetter } from "@/lib/sessionScopedState";
-import { buildPayPeriodFromMonthAnchor, getPayPeriodAnchorFromWindow, getPayPeriodRangeLabelFromAnchor, normalizePayFrequency, resolveActivePayPeriod } from "@/lib/payPeriods";
+import { useTopHeaderOffset, useYearGuard } from "@/hooks";
+import { buildPayPeriodFromMonthAnchor, getPayPeriodAnchorFromWindow, normalizePayFrequency, resolveActivePayPeriod } from "@/lib/payPeriods";
 import type { ExpensesStackParamList } from "@/navigation/types";
 import type { ExpensesScreenControllerState } from "@/types/ExpensesScreen.types";
 import type { AddExpenseSheetAddedPayload } from "@/types/components/AddExpenseSheet.types";
@@ -35,35 +30,11 @@ type Props = NativeStackScreenProps<ExpensesStackParamList, "ExpensesList">;
 let sharedExpensesPlansCache: BudgetPlanListItem[] = [];
 let sharedExpensesSummaryCache: Record<string, Record<number, Record<number, ExpenseSummary>>> = {};
 let sharedExpensesMonthsCache: Record<string, ExpenseMonthsResponse["months"]> = {};
-let sharedExpensePayPeriodMonthsCache: Record<string, ExpensePayPeriodMonthsResponse> = {};
 let sharedPreferredPeriodByPlanCache: Record<string, { month: number; year: number }> = {};
 let sharedExpensesLoadedKey: string | null = null;
 let sharedExpensesCacheSignature: string | null = null;
 
-function resetSharedExpensesScreenState() {
-  sharedExpensesPlansCache = [];
-  sharedExpensesSummaryCache = {};
-  sharedExpensesMonthsCache = {};
-  sharedExpensePayPeriodMonthsCache = {};
-  sharedPreferredPeriodByPlanCache = {};
-  sharedExpensesLoadedKey = null;
-  sharedExpensesCacheSignature = null;
-  clearCachedPayPeriodExpenses();
-}
-
-registerSessionScopedResetter(resetSharedExpensesScreenState);
-
-function isExpensesRelevantMutationPath(path: string): boolean {
-  const normalized = path.trim().toLowerCase();
-
-  return normalized.startsWith("/api/bff/expenses")
-    || normalized.startsWith("/api/bff/categories")
-    || normalized.startsWith("/api/bff/settings")
-    || normalized.startsWith("/api/bff/budget-plans");
-}
-
 export function useExpensesScreenController({ navigation, route }: Props): ExpensesScreenControllerState {
-  const isFocused = useIsFocused();
   const topHeaderOffset = useTopHeaderOffset();
   const now = new Date();
   const routeMonth = Number(route.params?.month);
@@ -81,8 +52,8 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     settings,
     isLoading: bootstrapLoading,
     error: bootstrapError,
-    ensureSettingsLoaded,
-    refreshSettings,
+    ensureLoaded,
+    refresh: refreshBootstrap,
   } = useBootstrapData();
   const { activeBudgetPlanId: sharedActiveBudgetPlanId, setActiveBudgetPlanId } = useActiveBudgetPlan();
 
@@ -93,27 +64,16 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
   const skipNextTabFocusReloadRef = useRef(false);
   const skipNextChildFocusReloadRef = useRef(false);
   const lastHandledSkipFocusReloadAtRef = useRef<number | null>(null);
-  const lastHandledOpenAddAtRef = useRef<number | null>(null);
-  const lastHandledOpenMonthPickerAtRef = useRef<number | null>(null);
   const didNormalizeInitialPeriodRef = useRef(false);
   const plansRef = useRef<BudgetPlanListItem[]>(sharedExpensesPlansCache);
   const preferredPeriodByPlanRef = useRef<Record<string, { month: number; year: number }>>(sharedPreferredPeriodByPlanCache);
   const summaryCacheRef = useRef<Record<string, Record<number, Record<number, ExpenseSummary>>>>(sharedExpensesSummaryCache);
   const monthsCacheRef = useRef<Record<string, ExpenseMonthsResponse["months"]>>(sharedExpensesMonthsCache);
-  const payPeriodMonthsCacheRef = useRef<Record<string, ExpensePayPeriodMonthsResponse>>(sharedExpensePayPeriodMonthsCache);
   const cacheSignatureRef = useRef<string | null>(sharedExpensesCacheSignature);
   const seenMutationVersionRef = useRef<number>(getApiMutationVersion());
-  const displayedAnchorSeenMutationVersionRef = useRef<number>(getApiMutationVersion());
-  const warmedPlanViewKeysRef = useRef<Set<string>>(new Set());
-  const warmingPlanViewPromisesRef = useRef<Map<string, Promise<void>>>(new Map());
-  const displayedActiveContextRef = useRef("");
-  const lastDisplayedActiveResolvedAtRef = useRef<number | null>(null);
-  const lastResolvedDisplayedActiveAnchorRef = useRef<{ month: number; year: number } | null>(null);
-  const loadInFlightRef = useRef<Promise<void> | null>(null);
 
   const [summary, setSummary] = useState<ExpenseSummary | null>(null);
   const [previousSummary, setPreviousSummary] = useState<ExpenseSummary | null>(null);
-  const [allCategoriesForAddSheet, setAllCategoriesForAddSheet] = useState<ExpenseCategoryBreakdown[] | null>(null);
   const [loggedExpensesCount, setLoggedExpensesCount] = useState(0);
   const [loadedKey, setLoadedKey] = useState<string | null>(sharedExpensesLoadedKey);
   const [loading, setLoading] = useState(true);
@@ -122,11 +82,8 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
   const [addSheetOpen, setAddSheetOpen] = useState(false);
   const [monthPickerOpen, setMonthPickerOpen] = useState(false);
   const [pickerYear, setPickerYear] = useState(initialYear);
-  const [displayedActiveAnchor, setDisplayedActiveAnchor] = useState<{ month: number; year: number } | null>(null);
-  const [displayedActiveResolved, setDisplayedActiveResolved] = useState(false);
 
   const currency = currencySymbol(settings?.currency);
-  const appLocale = buildAppLocale(settings?.language, settings?.country);
   const { canDecrement } = useYearGuard(settings);
 
   useEffect(() => {
@@ -182,6 +139,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
   }, [personalPlanId, plans, setActiveBudgetPlanId, sharedActiveBudgetPlanId]);
 
   const planTotalAmount = expenseMonths.reduce((sum, item) => sum + (item.totalAmount ?? 0), 0);
+  const prevIsPersonalPlanRef = useRef(true);
 
   useEffect(() => {
     plansRef.current = plans;
@@ -231,35 +189,31 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     requestAnimationFrame(scrollPlanIntoView);
   }, [plans.length, activePlanId, personalPlanId, scrollPlanIntoView]);
 
+  const monthName = useCallback((targetMonth: number) => {
+    const names = [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December",
+    ];
+    return names[Math.max(1, Math.min(12, targetMonth)) - 1] ?? "";
+  }, []);
+
   const parsePlanCreatedAt = useCallback((value: string | null | undefined) => {
     if (!value) return null;
     const parsed = new Date(value);
     return Number.isNaN(parsed.getTime()) ? null : parsed;
   }, []);
 
-  const resolveEffectivePlanCreatedAt = useCallback((params: {
-    referenceDate?: Date;
-    dates: Array<Date | null | undefined>;
-  }) => {
-    const referenceTime = (params.referenceDate ?? new Date()).getTime();
-    const valid = params.dates.filter((date): date is Date => Boolean(date && !Number.isNaN(date.getTime())));
+  const latestResolvedDate = useCallback((...dates: Array<Date | null | undefined>) => {
+    const valid = dates.filter((date): date is Date => Boolean(date && !Number.isNaN(date.getTime())));
     if (valid.length === 0) return null;
-
-    const nonFuture = valid.filter((date) => date.getTime() <= referenceTime);
-    const preferred = nonFuture.length > 0 ? nonFuture : valid;
-
-    return preferred.reduce((latest, current) => (current.getTime() > latest.getTime() ? current : latest));
+    return valid.reduce((latest, current) => (current.getTime() > latest.getTime() ? current : latest));
   }, []);
 
   const clearExpenseCaches = useCallback(() => {
     summaryCacheRef.current = {};
     monthsCacheRef.current = {};
-    payPeriodMonthsCacheRef.current = {};
-    warmedPlanViewKeysRef.current.clear();
-    warmingPlanViewPromisesRef.current.clear();
     sharedExpensesSummaryCache = summaryCacheRef.current;
     sharedExpensesMonthsCache = monthsCacheRef.current;
-    sharedExpensePayPeriodMonthsCache = payPeriodMonthsCacheRef.current;
     preferredPeriodByPlanRef.current = {};
     sharedPreferredPeriodByPlanCache = preferredPeriodByPlanRef.current;
     clearCachedPayPeriodExpenses();
@@ -278,7 +232,6 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     ? Math.floor(settings?.payDate as number)
     : 27;
   const effectivePayFrequency = normalizePayFrequency(settings?.payFrequency);
-  const effectivePayAnchorDate = effectivePayFrequency === "monthly" ? null : (settings?.payAnchorDate ?? null);
   const resolvePickerActualYear = useCallback((targetMonth: number, displayYear: number) => {
     if (effectivePayFrequency === "monthly" && targetMonth === 1) {
       return displayYear + 1;
@@ -302,179 +255,24 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     [parsePlanCreatedAt, settings?.accountCreatedAt, settings?.setupCompletedAt],
   );
   const activePlanCreatedAt = useMemo(
-    () => resolveEffectivePlanCreatedAt({
-      dates: [parsePlanCreatedAt(activePlan?.createdAt), setupCompletedAt],
-    }),
-    [activePlan?.createdAt, parsePlanCreatedAt, resolveEffectivePlanCreatedAt, setupCompletedAt],
+    () => latestResolvedDate(parsePlanCreatedAt(activePlan?.createdAt), setupCompletedAt),
+    [activePlan?.createdAt, latestResolvedDate, parsePlanCreatedAt, setupCompletedAt],
   );
-  const payPeriodBoundaryIdentityKey = useMemo(() => {
-    if (!activePlanId) return "";
-    return [
-      activePlanId,
-      effectivePayDate,
-      effectivePayFrequency,
-      effectivePayAnchorDate ?? "",
-      activePlanCreatedAt?.getTime() ?? "",
-    ].join("|");
-  }, [activePlanCreatedAt, activePlanId, effectivePayAnchorDate, effectivePayDate, effectivePayFrequency]);
-  const payPeriodBoundaryVersion = usePayPeriodBoundaryRefresh({
-    enabled: Boolean(isFocused && activePlanId),
-    identityKey: payPeriodBoundaryIdentityKey,
-    payDate: effectivePayDate,
-    payFrequency: effectivePayFrequency,
-    payAnchorDate: effectivePayAnchorDate,
-    planCreatedAt: activePlanCreatedAt,
-  });
   const defaultActivePeriod = useMemo(
     () => resolveActivePayPeriod({
       now: new Date(),
       payDate: effectivePayDate,
       payFrequency: effectivePayFrequency,
-      payAnchorDate: effectivePayAnchorDate,
       planCreatedAt: activePlanCreatedAt,
     }),
-    [activePlanCreatedAt, effectivePayAnchorDate, effectivePayDate, effectivePayFrequency, payPeriodBoundaryVersion],
+    [activePlanCreatedAt, effectivePayDate, effectivePayFrequency],
   );
-  const rawDefaultActiveAnchor = useMemo(
+  const defaultActiveAnchor = useMemo(
     () => getPayPeriodAnchorFromWindow({ period: defaultActivePeriod, payFrequency: effectivePayFrequency }),
     [defaultActivePeriod, effectivePayFrequency],
   );
-  const defaultActiveAnchor = displayedActiveAnchor ?? rawDefaultActiveAnchor;
-  const rawDefaultActiveMonth = rawDefaultActiveAnchor.month;
-  const rawDefaultActiveYear = rawDefaultActiveAnchor.year;
   const defaultActiveMonth = defaultActiveAnchor.month;
   const defaultActiveYear = defaultActiveAnchor.year;
-  const lastDefaultActiveAnchorRef = useRef<{ month: number; year: number } | null>(null);
-
-  useEffect(() => {
-    setDisplayedActiveAnchor(null);
-    setDisplayedActiveResolved(false);
-    displayedActiveContextRef.current = "";
-    lastDisplayedActiveResolvedAtRef.current = null;
-    lastResolvedDisplayedActiveAnchorRef.current = null;
-  }, [payPeriodBoundaryIdentityKey, payPeriodBoundaryVersion]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const run = async () => {
-      if (!isFocused) return;
-
-      if (!activePlanId) {
-        if (!cancelled) {
-          setDisplayedActiveAnchor(null);
-          setDisplayedActiveResolved(true);
-        }
-        displayedActiveContextRef.current = "";
-        lastDisplayedActiveResolvedAtRef.current = null;
-        lastResolvedDisplayedActiveAnchorRef.current = null;
-        return;
-      }
-
-      const latestMutationVersion = getApiMutationVersion();
-      const hasMutationChanges = latestMutationVersion !== displayedAnchorSeenMutationVersionRef.current;
-      const hasFreshDisplayedAnchor = displayedActiveResolved
-        && displayedActiveContextRef.current === payPeriodBoundaryIdentityKey
-        && lastDisplayedActiveResolvedAtRef.current !== null
-        && (Date.now() - lastDisplayedActiveResolvedAtRef.current) < SCREEN_FOCUS_REVALIDATE_TTL_MS;
-
-      if (!hasMutationChanges && hasFreshDisplayedAnchor) {
-        return;
-      }
-
-      if (!cancelled) {
-        setDisplayedActiveResolved(false);
-      }
-
-      try {
-        const nextDisplayedAnchor = await resolveDisplayedPayPeriodAnchor({
-          budgetPlanId: activePlanId,
-          payDate: effectivePayDate,
-          payAnchorDate: effectivePayAnchorDate,
-          payFrequency: effectivePayFrequency,
-          planCreatedAt: activePlanCreatedAt,
-        });
-
-        if (cancelled) return;
-
-        setDisplayedActiveAnchor(nextDisplayedAnchor);
-        setDisplayedActiveResolved(true);
-        displayedAnchorSeenMutationVersionRef.current = latestMutationVersion;
-        displayedActiveContextRef.current = payPeriodBoundaryIdentityKey;
-        lastDisplayedActiveResolvedAtRef.current = Date.now();
-      } catch {
-        if (cancelled) return;
-        setDisplayedActiveAnchor(null);
-        setDisplayedActiveResolved(true);
-        displayedActiveContextRef.current = payPeriodBoundaryIdentityKey;
-        lastDisplayedActiveResolvedAtRef.current = Date.now();
-      }
-    };
-
-    void run();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    activePlanCreatedAt,
-    activePlanId,
-    displayedActiveResolved,
-    effectivePayAnchorDate,
-    effectivePayDate,
-    effectivePayFrequency,
-    isFocused,
-    payPeriodBoundaryIdentityKey,
-  ]);
-
-  useEffect(() => {
-    if (!displayedActiveResolved || !displayedActiveAnchor) return;
-
-    const nextDisplayedAnchor = { month: defaultActiveMonth, year: defaultActiveYear };
-    const previousDisplayedAnchor = lastResolvedDisplayedActiveAnchorRef.current;
-    const preferredPeriod = activePlanId ? preferredPeriodByPlanRef.current[activePlanId] : null;
-    const isShowingRawDefault = month === rawDefaultActiveMonth && year === rawDefaultActiveYear;
-    const shouldSyncFromRawDefault = previousDisplayedAnchor === null && isShowingRawDefault;
-    const isShowingPreviousDisplayedAnchor = Boolean(
-      previousDisplayedAnchor
-      && month === previousDisplayedAnchor.month
-      && year === previousDisplayedAnchor.year,
-    );
-    const isShowingStalePastPeriodWithoutPreference = !preferredPeriod && (
-      year < nextDisplayedAnchor.year
-      || (year === nextDisplayedAnchor.year && month < nextDisplayedAnchor.month)
-    );
-
-    lastResolvedDisplayedActiveAnchorRef.current = nextDisplayedAnchor;
-
-    if (!shouldSyncFromRawDefault && !isShowingPreviousDisplayedAnchor && !isShowingStalePastPeriodWithoutPreference) {
-      return;
-    }
-
-    if (month === nextDisplayedAnchor.month && year === nextDisplayedAnchor.year) {
-      return;
-    }
-
-    setMonth(nextDisplayedAnchor.month);
-    setYear(nextDisplayedAnchor.year);
-    navigation.setParams({
-      month: nextDisplayedAnchor.month,
-      year: nextDisplayedAnchor.year,
-      prevDisabled: !canDecrement(nextDisplayedAnchor.year, nextDisplayedAnchor.month),
-    });
-  }, [
-    activePlanId,
-    canDecrement,
-    defaultActiveMonth,
-    defaultActiveYear,
-    displayedActiveAnchor,
-    displayedActiveResolved,
-    month,
-    navigation,
-    rawDefaultActiveMonth,
-    rawDefaultActiveYear,
-    year,
-  ]);
 
   useEffect(() => {
     if (didNormalizeInitialPeriodRef.current) return;
@@ -489,25 +287,30 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       ),
     );
 
-    // Let load() resolve raw calendar defaults and future selections through the
-    // displayed-anchor path instead of forcing the active pre-payday period here.
-    if (selectedIsFuture || preferredIsFuture) {
+    if (!selectedIsFuture && !preferredIsFuture) {
+      if (activePlanId || plans.length > 0) {
+        didNormalizeInitialPeriodRef.current = true;
+      }
       return;
     }
 
-    if (activePlanId || plans.length > 0) {
-      didNormalizeInitialPeriodRef.current = true;
-    }
-  }, [activePlanId, defaultActiveMonth, defaultActiveYear, month, plans.length, year]);
+    preferredPeriodByPlanRef.current = activePlanId
+      ? {
+          ...preferredPeriodByPlanRef.current,
+          [activePlanId]: { month: defaultActiveMonth, year: defaultActiveYear },
+        }
+      : {};
+    sharedPreferredPeriodByPlanCache = preferredPeriodByPlanRef.current;
 
-  useEffect(() => {
-    setSharedExpensePeriodRouteState({
-      selectedAnchor: { month, year },
-      currentAnchor: { month: defaultActiveMonth, year: defaultActiveYear },
-      budgetPlanId: activePlanId,
-      currency,
+    setLoadedKey(null);
+    setMonth(defaultActiveMonth);
+    setYear(defaultActiveYear);
+    navigation.setParams({
+      month: defaultActiveMonth,
+      year: defaultActiveYear,
+      prevDisabled: !canDecrement(defaultActiveYear, defaultActiveMonth),
     });
-  }, [activePlanId, currency, defaultActiveMonth, defaultActiveYear, month, year]);
+  }, [activePlanId, canDecrement, defaultActiveMonth, defaultActiveYear, month, navigation, plans.length, year]);
 
   useEffect(() => {
     const paramsBudgetPlanId = typeof route.params?.budgetPlanId === "string" ? route.params.budgetPlanId : null;
@@ -523,7 +326,9 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     const currentPeriodMonthChanged = !(Number.isFinite(paramsCurrentPeriodMonth) && paramsCurrentPeriodMonth === defaultActiveMonth);
     const currentPeriodYearChanged = !(Number.isFinite(paramsCurrentPeriodYear) && paramsCurrentPeriodYear === defaultActiveYear);
 
-    if (!planChanged && !currencyChanged && !loggedCountChanged && !isPersonalPlanChanged && !currentPeriodMonthChanged && !currentPeriodYearChanged) return;
+    if (!planChanged && !currencyChanged && !loggedCountChanged && !isPersonalPlanChanged && !currentPeriodMonthChanged && !currentPeriodYearChanged) {
+      return;
+    }
 
     navigation.setParams({
       budgetPlanId: activePlanId,
@@ -535,11 +340,16 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     });
   }, [activePlanId, currency, defaultActiveMonth, defaultActiveYear, isPersonalPlan, loggedExpensesCount, navigation, route.params?.budgetPlanId, route.params?.currency, route.params?.currentPeriodMonth, route.params?.currentPeriodYear, route.params?.isPersonalPlan, route.params?.loggedExpensesCount]);
 
-  const planCacheKey = useCallback((planId: string | null | undefined) => planId ?? "none", []);
+  useEffect(() => {
+    const wasPersonal = prevIsPersonalPlanRef.current;
+    if (!wasPersonal && isPersonalPlan) {
+      setMonth(defaultActiveMonth);
+      setYear(defaultActiveYear);
+    }
+    prevIsPersonalPlanRef.current = isPersonalPlan;
+  }, [defaultActiveMonth, defaultActiveYear, isPersonalPlan]);
 
-  const payPeriodMonthsCacheKey = useCallback((planId: string | null, targetYear: number) => {
-    return `${planCacheKey(planId)}:${targetYear}`;
-  }, [planCacheKey]);
+  const planCacheKey = useCallback((planId: string | null | undefined) => planId ?? "none", []);
 
   const getCachedSummary = useCallback((planId: string | null | undefined, targetYear: number, targetMonth: number) => {
     const key = planCacheKey(planId);
@@ -588,27 +398,16 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
 
   const getPeriodOptionLabel = useCallback((targetMonth: number, targetYear: number) => {
     const actualYear = resolvePickerActualYear(targetMonth, targetYear);
-    return getPayPeriodRangeLabelFromAnchor({
-      year: actualYear,
+    const period = buildPayPeriodFromMonthAnchor({
       month: targetMonth,
+      year: actualYear,
       payDate: effectivePayDate,
       payFrequency: effectivePayFrequency,
-      payAnchorDate: effectivePayAnchorDate,
-      locale: appLocale,
     });
-  }, [appLocale, effectivePayAnchorDate, effectivePayDate, effectivePayFrequency, resolvePickerActualYear]);
-
-  const setExplicitPreferredPeriod = useCallback((planId: string | null, targetMonth: number, targetYear: number) => {
-    if (!planId) return;
-
-    if (targetMonth === defaultActiveMonth && targetYear === defaultActiveYear) {
-      delete preferredPeriodByPlanRef.current[planId];
-    } else {
-      preferredPeriodByPlanRef.current[planId] = { month: targetMonth, year: targetYear };
-    }
-
-    sharedPreferredPeriodByPlanCache = preferredPeriodByPlanRef.current;
-  }, [defaultActiveMonth, defaultActiveYear]);
+    const startLabel = period.start.toLocaleString("en-GB", { month: "short" });
+    const endLabel = period.end.toLocaleString("en-GB", { month: "short" });
+    return `${startLabel} - ${endLabel}`;
+  }, [effectivePayDate, effectivePayFrequency, resolvePickerActualYear]);
 
   const getOrFetchSummary = useCallback(async (params: {
     planId: string | null;
@@ -681,25 +480,6 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     );
   }, []);
 
-  const getOrFetchPayPeriodMonths = useCallback(async (params: {
-    year: number;
-    planId: string | null;
-    force?: boolean;
-  }) => {
-    const { year: targetYear, planId, force = false } = params;
-    const key = payPeriodMonthsCacheKey(planId, targetYear);
-
-    if (!force) {
-      const cached = payPeriodMonthsCacheRef.current[key];
-      if (cached) return cached;
-    }
-
-    const fresh = await fetchPayPeriodMonths(targetYear, planId);
-    payPeriodMonthsCacheRef.current[key] = fresh;
-    sharedExpensePayPeriodMonthsCache = payPeriodMonthsCacheRef.current;
-    return fresh;
-  }, [fetchPayPeriodMonths, payPeriodMonthsCacheKey]);
-
   const warmPlanCaches = useCallback(async (params: {
     planId: string | null;
     month: number;
@@ -733,38 +513,6 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     ]);
   }, [getOrFetchPayPeriodExpenses, planCacheKey, preloadSummaryWindow, resolvePlanTargetPeriod]);
 
-  const ensurePlanViewWarm = useCallback((params: {
-    planId: string | null;
-    month: number;
-    year: number;
-    force?: boolean;
-  }) => {
-    const { planId, month: targetMonth, year: targetYear, force = false } = params;
-    if (!planId) return Promise.resolve();
-
-    const warmKey = `${planId}:${targetYear}-${targetMonth}`;
-    if (!force && warmedPlanViewKeysRef.current.has(warmKey)) {
-      return Promise.resolve();
-    }
-
-    const existing = warmingPlanViewPromisesRef.current.get(warmKey);
-    if (existing) return existing;
-
-    const promise = warmPlanCaches({ planId, month: targetMonth, year: targetYear, force })
-      .then(() => {
-        warmedPlanViewKeysRef.current.add(warmKey);
-      })
-      .catch(() => {
-        // Best-effort only.
-      })
-      .finally(() => {
-        warmingPlanViewPromisesRef.current.delete(warmKey);
-      });
-
-    warmingPlanViewPromisesRef.current.set(warmKey, promise);
-    return promise;
-  }, [warmPlanCaches]);
-
   const applyCachedViewState = useCallback((planId: string | null, targetMonth: number, targetYear: number) => {
     const cachedSummary = getCachedSummary(planId, targetYear, targetMonth);
     if (!cachedSummary) return false;
@@ -789,16 +537,18 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     return true;
   }, [getCachedSummary, planCacheKey, shiftPayPeriodAnchor]);
 
-  const executeLoad = useCallback(async (force: boolean) => {
+  const load = useCallback(async (options?: { force?: boolean }) => {
+    const force = Boolean(options?.force);
     try {
       setError(null);
-      const [loadedSettings, budgetPlans] = await Promise.all([
-        force ? refreshSettings({ force: true }) : ensureSettingsLoaded(),
+      const [bootstrapResult, budgetPlans] = await Promise.all([
+        force ? refreshBootstrap({ force: true }) : ensureLoaded(),
         !force && plansRef.current.length > 0
           ? Promise.resolve<BudgetPlansResponse>({ plans: plansRef.current })
           : apiFetch<BudgetPlansResponse>("/api/bff/budget-plans", { cacheTtlMs: force ? 0 : 6000 }),
       ]);
 
+      const loadedSettings = bootstrapResult.settings;
       if (!loadedSettings) {
         throw bootstrapError ?? new Error("Failed to load settings");
       }
@@ -807,20 +557,12 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
         ? Math.floor(loadedSettings.payDate as number)
         : 27;
       const payFrequencyForResolution = normalizePayFrequency(loadedSettings.payFrequency);
-      const payAnchorDateForResolution = payFrequencyForResolution === "monthly" ? null : (loadedSettings.payAnchorDate ?? null);
-      const nextSignature = `${payDateForResolution}:${payFrequencyForResolution}:${payAnchorDateForResolution ?? ""}`;
+      const nextSignature = `${payDateForResolution}:${payFrequencyForResolution}`;
       if (cacheSignatureRef.current !== nextSignature) {
         cacheSignatureRef.current = nextSignature;
         sharedExpensesCacheSignature = nextSignature;
         summaryCacheRef.current = {};
-        monthsCacheRef.current = {};
-        payPeriodMonthsCacheRef.current = {};
         sharedExpensesSummaryCache = summaryCacheRef.current;
-        sharedExpensesMonthsCache = monthsCacheRef.current;
-        sharedExpensePayPeriodMonthsCache = payPeriodMonthsCacheRef.current;
-        preferredPeriodByPlanRef.current = {};
-        sharedPreferredPeriodByPlanCache = preferredPeriodByPlanRef.current;
-        clearCachedPayPeriodExpenses();
         setLoadedKey(null);
       }
 
@@ -853,19 +595,14 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       const resolvedPlan = nextPlans.find((plan) => plan.id === resolvedPlanId) ?? null;
       const resolvedIsAdditionalPlan = Boolean(resolvedPlan && resolvedPlan.kind !== "personal" && nextPlans.length > 1);
 
-      const resolutionNow = new Date();
-      const resolvedPlanCreatedAt = resolveEffectivePlanCreatedAt({
-        referenceDate: resolutionNow,
-        dates: [
-          parsePlanCreatedAt(nextPlans.find((plan) => plan.id === resolvedPlanId)?.createdAt),
-          setupCompletedAt,
-        ],
-      });
+      const resolvedPlanCreatedAt = latestResolvedDate(
+        parsePlanCreatedAt(nextPlans.find((plan) => plan.id === resolvedPlanId)?.createdAt),
+        setupCompletedAt,
+      );
       const resolvedActivePeriod = resolveActivePayPeriod({
-        now: resolutionNow,
+        now: new Date(),
         payDate: payDateForResolution,
         payFrequency: payFrequencyForResolution,
-        payAnchorDate: payAnchorDateForResolution,
         planCreatedAt: resolvedPlanCreatedAt,
       });
       const resolvedDefaultAnchor = getPayPeriodAnchorFromWindow({
@@ -899,31 +636,11 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
           || (preferredPeriod.year === resolvedDefaultYear && preferredPeriod.month > resolvedDefaultMonth)
         ),
       );
-      const routeIsPastPeriodWithoutPreference = !preferredPeriod
-        && hasRouteMonth
-        && hasRouteYear
-        && (
-          routeYear < resolvedDefaultYear
-          || (routeYear === resolvedDefaultYear && routeMonth < resolvedDefaultMonth)
-        );
-      const selectedStateIsPastPeriodWithoutPreference = !preferredPeriod
-        && (
-          year < resolvedDefaultYear
-          || (year === resolvedDefaultYear && month < resolvedDefaultMonth)
-        );
       const shouldNormalizeInitialPeriod = !didNormalizeInitialPeriodRef.current
         && (routeIsFuturePeriod || preferredIsFuturePeriod);
-      const shouldUseResolvedDefaultPeriod = (
-        (!hasRouteMonth && !hasRouteYear)
-        || routeLooksLikeRawCalendarDefault
-        || shouldNormalizeInitialPeriod
-        || routeIsPastPeriodWithoutPreference
-        || selectedStateIsPastPeriodWithoutPreference
-      ) && (
-        routeIsPastPeriodWithoutPreference
-        || selectedStateIsPastPeriodWithoutPreference
-        || (month === currentCalendarMonth && year === currentCalendarYear)
-      );
+      const shouldUseResolvedDefaultPeriod = (!hasRouteMonth && !hasRouteYear || routeLooksLikeRawCalendarDefault || shouldNormalizeInitialPeriod)
+        && month === currentCalendarMonth
+        && year === currentCalendarYear;
 
       let months = [] as ExpenseMonthsResponse["months"];
       if (resolvedPlanId) {
@@ -975,38 +692,6 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       let targetMonth = initialMonth;
       let targetYear = initialYear;
 
-      const usingAutoResolvedPeriod = shouldNormalizeInitialPeriod || shouldUseResolvedDefaultPeriod;
-      if (usingAutoResolvedPeriod && resolvedPlanId && targetMonth === resolvedDefaultMonth && targetYear === resolvedDefaultYear) {
-        const displayedAnchor = await resolveDisplayedPayPeriodAnchor({
-          budgetPlanId: resolvedPlanId,
-          payDate: payDateForResolution,
-          payFrequency: payFrequencyForResolution,
-          payAnchorDate: payAnchorDateForResolution,
-          planCreatedAt: resolvedPlanCreatedAt,
-        });
-
-        if (displayedAnchor.month !== targetMonth || displayedAnchor.year !== targetYear) {
-          const nextExpensesPromise = getOrFetchPayPeriodExpenses({
-            planId: resolvedPlanId,
-            month: displayedAnchor.month,
-            year: displayedAnchor.year,
-            force,
-          });
-          const nextWindow = await preloadSummaryWindow({
-            planId: resolvedPlanId,
-            month: displayedAnchor.month,
-            year: displayedAnchor.year,
-            force,
-          });
-
-          targetMonth = displayedAnchor.month;
-          targetYear = displayedAnchor.year;
-          summaryData = nextWindow.current;
-          previousData = nextWindow.previous;
-          resolvedExpensesPromise = nextExpensesPromise;
-        }
-      }
-
       if ((Number(summaryData?.totalCount ?? 0) <= 0) && resolvedPlanId && !resolvedIsAdditionalPlan) {
         try {
           const query = `budgetPlanId=${encodeURIComponent(resolvedPlanId)}`;
@@ -1022,7 +707,6 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
               now: nextDue,
               payDate: payDateForResolution,
               payFrequency: payFrequencyForResolution,
-              payAnchorDate: payAnchorDateForResolution,
               planCreatedAt: resolvedPlanCreatedAt,
             });
             const anchor = getPayPeriodAnchorFromWindow({ period, payFrequency: payFrequencyForResolution });
@@ -1058,18 +742,9 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       if (targetMonth !== month) setMonth(targetMonth);
       if (targetYear !== year) setYear(targetYear);
 
-      const additionalPlanIds = nextPlans
-        .map((plan) => plan.id)
-        .filter((planId) => Boolean(planId) && planId !== resolvedPlanId);
-      if (additionalPlanIds.length > 0) {
-        void Promise.allSettled(
-          additionalPlanIds.map((planId) => ensurePlanViewWarm({
-            planId,
-            month: targetMonth,
-            year: targetYear,
-            force,
-          }))
-        );
+      if (resolvedPlanId) {
+        preferredPeriodByPlanRef.current[resolvedPlanId] = { month: targetMonth, year: targetYear };
+        sharedPreferredPeriodByPlanCache = preferredPeriodByPlanRef.current;
       }
 
       didNormalizeInitialPeriodRef.current = true;
@@ -1094,122 +769,43 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       setLoading(false);
       setRefreshing(false);
     }
-  }, [activePlanId, bootstrapError, ensurePlanViewWarm, ensureSettingsLoaded, getOrFetchPayPeriodExpenses, month, parsePlanCreatedAt, planCacheKey, preloadSummaryWindow, refreshSettings, resolveEffectivePlanCreatedAt, resolvePlanTargetPeriod, route.params?.month, route.params?.year, setupCompletedAt, year]);
-
-  const load = useCallback((options?: { force?: boolean }) => {
-    const force = Boolean(options?.force);
-
-    if (loadInFlightRef.current) {
-      return loadInFlightRef.current;
-    }
-
-    const request = executeLoad(force).finally(() => {
-      loadInFlightRef.current = null;
-    });
-
-    loadInFlightRef.current = request;
-    return request;
-  }, [executeLoad]);
+  }, [activePlanId, bootstrapError, ensureLoaded, getOrFetchPayPeriodExpenses, latestResolvedDate, month, parsePlanCreatedAt, planCacheKey, preloadSummaryWindow, refreshBootstrap, resolvePlanTargetPeriod, route.params?.month, route.params?.year, setupCompletedAt, year]);
 
   const currentViewKey = `${activePlanId ?? "none"}:${year}-${month}`;
-  const hasRelevantMutationChanges = useCallback(() => {
-    const latestMutationVersion = getApiMutationVersion();
-    if (latestMutationVersion === seenMutationVersionRef.current) return false;
-
-    const mutationsSince = getApiMutationsSince(seenMutationVersionRef.current);
-    if (mutationsSince.length === 0) {
-      return true;
-    }
-
-    const hasRelevantMutation = mutationsSince.some((mutation) => isExpensesRelevantMutationPath(mutation.path));
-    if (!hasRelevantMutation) {
-      seenMutationVersionRef.current = latestMutationVersion;
-      return false;
-    }
-
-    return true;
-  }, []);
-
   useEffect(() => {
     applyCachedViewState(activePlanId, month, year);
   }, [activePlanId, applyCachedViewState, month, year]);
 
   useEffect(() => {
-    if (!payPeriodBoundaryVersion) return;
+    if (loadedKey && loadedKey === currentViewKey && summary) return;
 
-    const previousActiveAnchor = lastDefaultActiveAnchorRef.current;
-    const nextActiveAnchor = { month: defaultActiveMonth, year: defaultActiveYear };
-    const wasShowingPreviousActivePeriod = Boolean(
-      previousActiveAnchor
-      && month === previousActiveAnchor.month
-      && year === previousActiveAnchor.year,
-    );
-    const isShowingNewActivePeriod = month === nextActiveAnchor.month && year === nextActiveAnchor.year;
-
-    if (!wasShowingPreviousActivePeriod && !isShowingNewActivePeriod) {
-      return;
-    }
-
-    clearExpenseCaches();
-
-    if (wasShowingPreviousActivePeriod) {
-      setMonth(nextActiveAnchor.month);
-      setYear(nextActiveAnchor.year);
-      navigation.setParams({
-        month: nextActiveAnchor.month,
-        year: nextActiveAnchor.year,
-        prevDisabled: !canDecrement(nextActiveAnchor.year, nextActiveAnchor.month),
-      });
-    }
-
-    void load({ force: true });
-  }, [canDecrement, clearExpenseCaches, defaultActiveMonth, defaultActiveYear, load, month, navigation, payPeriodBoundaryVersion, year]);
-
-  useEffect(() => {
-    lastDefaultActiveAnchorRef.current = { month: defaultActiveMonth, year: defaultActiveYear };
-  }, [defaultActiveMonth, defaultActiveYear]);
-
-  useEffect(() => {
-    const isLiveOrFutureSelectedPeriod = year > defaultActiveYear || (year === defaultActiveYear && month >= defaultActiveMonth);
-    const hasEmptyLoadedLivePeriod = Boolean(
-      loadedKey
-      && loadedKey === currentViewKey
-      && summary
-      && isLiveOrFutureSelectedPeriod
-      && Number(summary.totalCount ?? 0) <= 0,
-    );
-
-    if (loadedKey && loadedKey === currentViewKey && summary && !hasEmptyLoadedLivePeriod) return;
-
-    const hasMutationChanges = hasRelevantMutationChanges();
-    const cachedCurrent = getCachedSummary(activePlanId, year, month);
-    const hasCachedCurrent = Boolean(cachedCurrent);
-    const shouldRevalidateEmptyLivePeriod = Boolean(
-      cachedCurrent
-      && !hasMutationChanges
-      && isLiveOrFutureSelectedPeriod
-      && Number(cachedCurrent.totalCount ?? 0) <= 0,
-    );
-
-    if (hasCachedCurrent && !hasMutationChanges && !shouldRevalidateEmptyLivePeriod) {
+    const latestMutationVersion = getApiMutationVersion();
+    const hasMutationChanges = latestMutationVersion !== seenMutationVersionRef.current;
+    const hasCachedCurrent = Boolean(getCachedSummary(activePlanId, year, month));
+    if (hasCachedCurrent && !hasMutationChanges) {
       applyCachedViewState(activePlanId, month, year);
       setLoading(false);
       return;
     }
 
     if (!hasCachedCurrent) setLoading(true);
-    if (shouldRevalidateEmptyLivePeriod) {
-      setLoading(true);
-      void load({ force: true });
-      return;
-    }
-
     void load();
-  }, [activePlanId, applyCachedViewState, currentViewKey, defaultActiveMonth, defaultActiveYear, getCachedSummary, hasRelevantMutationChanges, load, loadedKey, month, summary, year]);
+  }, [activePlanId, applyCachedViewState, currentViewKey, getCachedSummary, load, loadedKey, month, summary, year]);
+
+  useEffect(() => {
+    if (!activePlanId) return;
+    preferredPeriodByPlanRef.current[activePlanId] = { month, year };
+  }, [activePlanId, month, year]);
+
+  useEffect(() => {
+    // Intentionally skip warming inactive plan caches on initial load.
+    // This avoids extra startup requests for plans the user is not viewing.
+  }, [activePlanId, month, plans, warmPlanCaches, year]);
 
   useFocusEffect(
     useCallback(() => {
-      const hasMutationChanges = hasRelevantMutationChanges();
+      const latestMutationVersion = getApiMutationVersion();
+      const hasMutationChanges = latestMutationVersion !== seenMutationVersionRef.current;
 
       if (skipFirstFocusReloadRef.current) {
         skipFirstFocusReloadRef.current = false;
@@ -1230,7 +826,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       if (!hasMutationChanges) return;
 
       void load({ force: true });
-    }, [hasRelevantMutationChanges, load]),
+    }, [load]),
   );
 
   const accountCreatedAt = useMemo(() => {
@@ -1247,12 +843,11 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       month: targetMonth,
       payDate: effectivePayDate,
       payFrequency: effectivePayFrequency,
-      payAnchorDate: effectivePayAnchorDate,
     });
     const periodEnd = new Date(period.end.getTime());
     periodEnd.setHours(23, 59, 59, 999);
     return periodEnd;
-  }, [effectivePayAnchorDate, effectivePayDate, effectivePayFrequency]);
+  }, [effectivePayDate, effectivePayFrequency]);
 
   useEffect(() => {
     if (!monthPickerOpen) return;
@@ -1260,14 +855,22 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
 
     const run = async () => {
       try {
-        const response = await getOrFetchPayPeriodMonths({
-          year: pickerYear,
-          planId: activePlanId,
-        });
+        const [response, nextYearResponse] = await Promise.all([
+          fetchPayPeriodMonths(pickerYear, activePlanId),
+          effectivePayFrequency === "monthly"
+            ? fetchPayPeriodMonths(pickerYear + 1, activePlanId)
+            : Promise.resolve(null),
+        ]);
         if (cancelled) return;
         const next: Record<number, number> = {};
         for (const row of Array.isArray(response?.months) ? response.months : []) {
           next[row.month] = Number(row.totalCount ?? 0);
+        }
+        if (effectivePayFrequency === "monthly") {
+          const januaryNextYear = Array.isArray(nextYearResponse?.months)
+            ? nextYearResponse.months.find((row) => row.month === 1)
+            : null;
+          next[1] = Number(januaryNextYear?.totalCount ?? 0);
         }
         setPeriodCountsByMonth(next);
       } catch {
@@ -1280,52 +883,18 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     return () => {
       cancelled = true;
     };
-  }, [activePlanId, effectivePayFrequency, getOrFetchPayPeriodMonths, monthPickerOpen, pickerYear, refreshing]);
+  }, [activePlanId, effectivePayFrequency, fetchPayPeriodMonths, monthPickerOpen, pickerYear, refreshing]);
 
   const enabledPeriodMonths = useMemo(
     () => Array.from({ length: 12 }, (_, index) => index + 1).filter((targetMonth) => {
-      const actualYear = resolvePickerActualYear(targetMonth, pickerYear);
-      const periodEndAt = periodEndFor(actualYear, targetMonth);
-      if (accountCreatedAt && periodEndAt.getTime() < accountCreatedAt.getTime()) {
-        return false;
-      }
-
-      const safeBudgetHorizonYears = Math.max(
-        1,
-        Math.min(
-          30,
-          Number.isFinite(activePlan?.budgetHorizonYears as number)
-            ? Math.floor(activePlan?.budgetHorizonYears as number)
-            : Number.isFinite(settings?.budgetHorizonYears as number)
-              ? Math.floor(settings?.budgetHorizonYears as number)
-              : 10,
-        ),
-      );
-      const maxSelectableYear = Math.max(defaultActiveYear, new Date().getFullYear()) + safeBudgetHorizonYears - 1;
-      if (actualYear > maxSelectableYear) {
-        return false;
-      }
-
-      const isCurrentOrFuturePeriod = actualYear > defaultActiveYear
-        || (actualYear === defaultActiveYear && targetMonth >= defaultActiveMonth);
-      if (isCurrentOrFuturePeriod) {
-        return true;
-      }
-
       const hasData = (periodCountsByMonth[targetMonth] ?? 0) > 0;
-      return hasData;
+      const isMonthlyYearWrapPeriod = effectivePayFrequency === "monthly" && targetMonth === 1;
+      if (!hasData && !isMonthlyYearWrapPeriod) return false;
+      if (!accountCreatedAt) return true;
+      const actualYear = resolvePickerActualYear(targetMonth, pickerYear);
+      return periodEndFor(actualYear, targetMonth).getTime() >= accountCreatedAt.getTime();
     }),
-    [
-      accountCreatedAt,
-      activePlan?.budgetHorizonYears,
-      defaultActiveMonth,
-      defaultActiveYear,
-      periodCountsByMonth,
-      periodEndFor,
-      pickerYear,
-      resolvePickerActualYear,
-      settings?.budgetHorizonYears,
-    ],
+    [accountCreatedAt, effectivePayFrequency, periodCountsByMonth, periodEndFor, pickerYear, resolvePickerActualYear],
   );
 
   const enabledPeriodSet = useMemo(() => new Set(enabledPeriodMonths), [enabledPeriodMonths]);
@@ -1335,66 +904,15 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     }
     return [...Array.from({ length: 11 }, (_, index) => index + 2), 1];
   }, [effectivePayFrequency]);
-  const selectedPeriodRange = getPayPeriodRangeLabelFromAnchor({
-    year,
-    month,
-    payDate: effectivePayDate,
-    payFrequency: effectivePayFrequency,
-    payAnchorDate: effectivePayAnchorDate,
-    locale: appLocale,
-  });
-  const upcomingExpenseMonths = useMemo(
-    () => expenseMonths.filter((item) => (
-      item.year > defaultActiveYear
-      || (item.year === defaultActiveYear && item.month > defaultActiveMonth)
-    )),
-    [defaultActiveMonth, defaultActiveYear, expenseMonths],
-  );
-  const isResolvingDisplayedLivePeriod = Boolean(
-    activePlanId
-    && loading
-    && !displayedActiveResolved
-    && month === rawDefaultActiveMonth
-    && year === rawDefaultActiveYear,
-  );
-  const loadingUi = ((loading || bootstrapLoading) && !summary) || isResolvingDisplayedLivePeriod;
+  const selectedPeriodRange = summary?.periodRangeLabel?.trim() || `${monthName(month)} ${year}`;
+  const loadingUi = (loading || bootstrapLoading) && !summary;
   const showTopAddExpenseCta = !loading && !error && (summary?.totalCount ?? 0) === 0;
   const showPlanTotalFallback = isAdditionalPlan && (summary?.totalCount ?? 0) === 0 && expenseMonths.length > 0 && planTotalAmount > 0;
   const isPastSelectedPeriod = year < defaultActiveYear || (year === defaultActiveYear && month < defaultActiveMonth);
   const selectedPickerYear = resolvePickerDisplayYear(month, year);
 
-  useEffect(() => {
-    const openAddToken = Number(route.params?.openAddExpenseAt);
-    if (!Number.isFinite(openAddToken)) return;
-    if (lastHandledOpenAddAtRef.current === openAddToken) return;
-
-    lastHandledOpenAddAtRef.current = openAddToken;
-    if (isPastSelectedPeriod) return;
-    setAddSheetOpen(true);
-  }, [isPastSelectedPeriod, route.params?.openAddExpenseAt]);
-
-  useEffect(() => {
-    const openMonthPickerToken = Number(route.params?.openMonthPickerAt);
-    if (!Number.isFinite(openMonthPickerToken)) return;
-    if (lastHandledOpenMonthPickerAtRef.current === openMonthPickerToken) return;
-
-    lastHandledOpenMonthPickerAtRef.current = openMonthPickerToken;
-    setPickerYear(resolvePickerDisplayYear(month, year));
-    setMonthPickerOpen(true);
-  }, [month, resolvePickerDisplayYear, route.params?.openMonthPickerAt, year]);
-
-  useEffect(() => {
-    if (!activePlanId) {
-      setAllCategoriesForAddSheet(null);
-      return;
-    }
-
-    setAllCategoriesForAddSheet(getPlanExpenseCategoryBreakdowns(activePlan?.kind));
-  }, [activePlan?.kind, activePlanId]);
-
   const applyOptimisticExpense = useCallback((expense: Expense) => {
     if (!summary) return;
-    if (expense.isAllocation) return;
 
     const expenseMonth = Number(expense.month);
     const expenseYear = Number(expense.year);
@@ -1458,7 +976,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     activePlan,
     addSheetOpen,
     allPeriodMonths,
-    categoriesForAddSheet: allCategoriesForAddSheet ?? summary?.categoryBreakdown ?? [],
+    categoriesForAddSheet: summary?.categoryBreakdown ?? [],
     currency,
     enabledPeriodSet,
     error,
@@ -1482,7 +1000,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     showTopAddExpenseCta,
     summary,
     topHeaderOffset,
-    upcomingExpenseMonths,
+    upcomingExpenseMonths: expenseMonths,
     year,
     closeAddSheet: () => setAddSheetOpen(false),
     closeMonthPicker: () => setMonthPickerOpen(false),
@@ -1494,21 +1012,6 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       }
 
       if (payload.phase === "confirmed") {
-        const confirmedMonth = Number(payload.expense?.month);
-        const confirmedYear = Number(payload.expense?.year);
-        const isDifferentPeriod = Number.isFinite(confirmedMonth)
-          && Number.isFinite(confirmedYear)
-          && (confirmedMonth !== month || confirmedYear !== year);
-
-        // If the user added into a different month/year, refresh full caches so
-        // month pickers and summaries include that newly-created period.
-        if (isDifferentPeriod) {
-          clearExpenseCaches();
-          setRefreshing(true);
-          void load({ force: true });
-          return;
-        }
-
         // Silently settle the optimistic state with server-confirmed data.
         // Avoids a full bootstrap reload and a visible refresh spinner — the
         // optimistic update already shows the new expense immediately.
@@ -1577,16 +1080,12 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       if (target.month !== month) setMonth(target.month);
       if (target.year !== year) setYear(target.year);
       navigation.setParams({ month: target.month, year: target.year, prevDisabled: !canDecrement(target.year, target.month) });
-      const appliedCachedView = applyCachedViewState(planId, target.month, target.year);
-      if (!appliedCachedView) {
-        void ensurePlanViewWarm({ planId, month: target.month, year: target.year });
-      }
+      applyCachedViewState(planId, target.month, target.year);
       setActiveBudgetPlanId(planId);
     },
     onPressUpcomingMonth: (targetMonth: number, targetYear: number) => {
       setMonth(targetMonth);
       setYear(targetYear);
-      setExplicitPreferredPeriod(activePlanId, targetMonth, targetYear);
       navigation.setParams({ month: targetMonth, year: targetYear, prevDisabled: !canDecrement(targetYear, targetMonth) });
     },
     onRefresh: () => {
@@ -1602,7 +1101,6 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       const actualYear = resolvePickerActualYear(targetMonth, pickerYear);
       setMonth(targetMonth);
       setYear(actualYear);
-      setExplicitPreferredPeriod(activePlanId, targetMonth, actualYear);
       navigation.setParams({ month: targetMonth, year: actualYear, prevDisabled: !canDecrement(actualYear, targetMonth) });
       setMonthPickerOpen(false);
     },

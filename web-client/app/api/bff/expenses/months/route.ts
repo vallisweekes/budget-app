@@ -29,10 +29,8 @@ function parseIsoDate(iso: string): Date | null {
 
 function includeInMainExpenseSummary(expense: {
 	isExtraLoggedExpense?: boolean | null;
-	paymentSource?: string | null;
 }): boolean {
-	if (!Boolean(expense.isExtraLoggedExpense ?? false)) return true;
-	return String(expense.paymentSource ?? "income").trim().toLowerCase() === "income";
+	return !Boolean(expense.isExtraLoggedExpense ?? false);
 }
 
 function isUnknownMovedToDebtFieldError(error: unknown): boolean {

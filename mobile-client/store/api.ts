@@ -727,10 +727,15 @@ export const mobileApi = createApi({
     }),
     updateIncomeSacrifice: builder.mutation<Record<string, unknown>, {
       budgetPlanId: string;
-      month: number;
-      year: number;
-      fixed: IncomeSacrificeData["fixed"];
+      month?: number;
+      year?: number;
+      fixed?: IncomeSacrificeData["fixed"];
       customAmountById?: Record<string, number>;
+      targets?: Array<{ month: number; year: number }>;
+      fixedFieldUpdate?: {
+        field: "monthlyAllowance" | "monthlySavingsContribution" | "monthlyEmergencyContribution" | "monthlyInvestmentContribution";
+        amount: number;
+      };
     }>({
       async queryFn(body) {
         try {
