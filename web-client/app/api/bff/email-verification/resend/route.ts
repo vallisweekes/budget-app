@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 
 import { getSessionUserId } from "@/lib/api/bffAuth";
-import { sendEmailVerificationEmail } from "@/lib/auth/emailVerification";
+import { getEmailVerificationState, sendEmailVerificationEmail } from "@/lib/auth/emailVerification";
+import { invalidateProfileCache } from "@/lib/cache/profileCache";
 
 export const runtime = "nodejs";
 
@@ -14,7 +15,13 @@ export async function POST(request: Request) {
     const userId = await getSessionUserId(request);
     if (!userId) return unauthorized();
 
-    const state = await sendEmailVerificationEmail(userId);
+    const current = await getEmailVerificationState(userId);
+    const state = await sendEmailVerificationEmail(userId, {
+      resetDeadline: current.blocked,
+    });
+
+    await invalidateProfileCache(userId).catch(() => undefined);
+
     return NextResponse.json({
       ok: true,
       status: state.status,

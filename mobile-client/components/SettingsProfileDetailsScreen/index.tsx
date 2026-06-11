@@ -11,30 +11,35 @@ import type { RootStackScreenProps } from "@/navigation/types";
 
 export default function SettingsProfileDetailsScreen({ navigation, route }: RootStackScreenProps<"SettingsProfileDetails">) {
   const topHeaderOffset = useTopHeaderOffset(8);
-  const { hydrateProfile } = useAuth();
+  const { hydrateProfile, refreshProfile } = useAuth();
   const [email, setEmail] = useState(route.params?.email ?? "");
   const [username] = useState(route.params?.username ?? "");
   const [updateProfile, { isLoading: saving }] = useUpdateProfileMutation();
   const [resendEmailVerification, { isLoading: resending }] = useResendEmailVerificationMutation();
-  const verificationStatus = route.params?.emailVerificationStatus ?? "not_required";
-  const verificationDeadlineAt = route.params?.emailVerificationDeadlineAt ?? null;
+  const [verificationState, setVerificationState] = useState<{
+    status: "verified" | "pending" | "missing_email" | "not_required";
+    deadlineAt: string | null;
+  }>({
+    status: route.params?.emailVerificationStatus ?? "not_required",
+    deadlineAt: route.params?.emailVerificationDeadlineAt ?? null,
+  });
 
   const badge = React.useMemo(() => {
-    if (verificationStatus === "verified") {
+    if (verificationState.status === "verified") {
       return { label: "Verified", bg: `${T.green}22`, color: T.green };
     }
-    if (verificationStatus === "pending") {
+    if (verificationState.status === "pending") {
       return { label: "Pending", bg: `${T.orange}22`, color: T.orange };
     }
-    if (verificationStatus === "missing_email") {
+    if (verificationState.status === "missing_email") {
       return { label: "Missing email", bg: `${T.red}22`, color: T.red };
     }
     return { label: "Not required", bg: `${T.textDim}22`, color: T.textDim };
-  }, [verificationStatus]);
+  }, [verificationState.status]);
 
   const deadlineLabel = React.useMemo(() => {
-    if (!verificationDeadlineAt) return null;
-    const parsed = new Date(verificationDeadlineAt);
+    if (!verificationState.deadlineAt) return null;
+    const parsed = new Date(verificationState.deadlineAt);
     if (Number.isNaN(parsed.getTime())) return null;
     return parsed.toLocaleString("en-GB", {
       day: "numeric",
@@ -43,7 +48,7 @@ export default function SettingsProfileDetailsScreen({ navigation, route }: Root
       hour: "2-digit",
       minute: "2-digit",
     });
-  }, [verificationDeadlineAt]);
+  }, [verificationState.deadlineAt]);
 
   const save = async () => {
     try {
@@ -57,7 +62,12 @@ export default function SettingsProfileDetailsScreen({ navigation, route }: Root
 
   const resend = async () => {
     try {
-      await resendEmailVerification().unwrap();
+      const response = await resendEmailVerification().unwrap();
+      setVerificationState({
+        status: response.status,
+        deadlineAt: response.deadlineAt,
+      });
+      await refreshProfile();
       Alert.alert("Verification sent", "Check your email for a fresh verification link.");
     } catch (err: unknown) {
       Alert.alert("Could not resend", err instanceof Error ? err.message : "Please try again.");
@@ -82,17 +92,17 @@ export default function SettingsProfileDetailsScreen({ navigation, route }: Root
             </View>
             <Text style={styles.verificationTitle}>Verification status</Text>
             <Text style={styles.verificationBody}>
-              {verificationStatus === "verified"
+              {verificationState.status === "verified"
                 ? "This email is verified for app access."
-                : verificationStatus === "pending"
+                : verificationState.status === "pending"
                   ? deadlineLabel
                     ? `Verify this email before ${deadlineLabel} to keep using the app.`
                     : "Verify this email to keep using the app."
-                  : verificationStatus === "missing_email"
+                  : verificationState.status === "missing_email"
                     ? "Add an email address, then verify it from the link we send you."
                     : "Verification is not currently required for this account."}
             </Text>
-            {verificationStatus !== "verified" ? (
+            {verificationState.status !== "verified" ? (
               <Pressable style={styles.verificationButton} onPress={resend} disabled={resending}>
                 <Text style={styles.verificationButtonText}>{resending ? "Sending…" : "Resend verification email"}</Text>
               </Pressable>
