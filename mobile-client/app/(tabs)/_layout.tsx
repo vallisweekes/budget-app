@@ -147,6 +147,7 @@ export default function MainTabsLayout() {
   const isTabsHidden = isDebtDetailRoute
     || isExpenseDetailRoute
     || isUnplannedExpenseRoute
+    || isLoggedExpensesNestedRoute
     || isGoalDetailRoute
     || isGoalsProjectionRoute
     || isDebtAnalyticsTabRoute

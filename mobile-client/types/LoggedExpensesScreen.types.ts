@@ -16,9 +16,11 @@ export type LoggedExpensesControllerState = {
   items: Expense[];
   loading: boolean;
   month: number;
+  searchQuery: string;
   onDeleteItem: (item: Expense) => void;
   onPressItem: (item: Expense) => void;
   onRefresh: () => void;
+  onSearchQueryChange: (value: string) => void;
   periodLabel: string;
   refreshing: boolean;
   retry: () => void;

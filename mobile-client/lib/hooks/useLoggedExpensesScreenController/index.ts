@@ -57,6 +57,7 @@ export function useLoggedExpensesScreenController({ route, navigation }: Props):
     : (activeBudgetPlanId || bootstrapBudgetPlanId || null);
   const currency = typeof nextParams.currency === "string" ? nextParams.currency : currencySymbol(settings?.currency);
   const [items, setItems] = useState<Expense[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -126,6 +127,17 @@ export function useLoggedExpensesScreenController({ route, navigation }: Props):
     void load();
   }, [budgetPlanId, load, month, year]);
 
+  const filteredItems = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return items;
+    return items.filter((item) => {
+      const name = String(item.name ?? "").toLowerCase();
+      const category = String(item.category?.name ?? "").toLowerCase();
+      const source = String(item.paymentSource ?? "").replace(/_/g, " ").toLowerCase();
+      return name.includes(query) || category.includes(query) || source.includes(query);
+    });
+  }, [items, searchQuery]);
+
   const total = useMemo(() => items.reduce((sum, item) => sum + Number(item.amount), 0), [items]);
   const payDate = Number.isFinite(settings?.payDate as number) && (settings?.payDate as number) >= 1
     ? Math.floor(settings?.payDate as number)
@@ -183,9 +195,10 @@ export function useLoggedExpensesScreenController({ route, navigation }: Props):
     currency,
     deletingExpenseId,
     error,
-    items,
+    items: filteredItems,
     loading,
     month,
+    searchQuery,
     onDeleteItem,
     onPressItem: (item: Expense) => {
       navigation.navigate("ExpenseDetail", {
@@ -201,6 +214,7 @@ export function useLoggedExpensesScreenController({ route, navigation }: Props):
       });
     },
     onRefresh: () => { void load(true); },
+    onSearchQueryChange: setSearchQuery,
     periodLabel,
     refreshing,
     retry: () => { void load(true); },

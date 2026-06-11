@@ -5,7 +5,7 @@ import { cardElevated } from "@/lib/ui";
 
 export const loggedExpensesStyles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: T.bg },
-  content: { paddingBottom: 28 },
+  content: { paddingBottom: 132 },
   purpleHero: {
     backgroundColor: "rgba(20,24,38,0.56)",
     paddingHorizontal: 20,
@@ -158,5 +158,60 @@ export const loggedExpensesStyles = StyleSheet.create({
     color: T.onAccent,
     fontSize: 13,
     fontWeight: "800",
+  },
+  footerOverlay: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 14,
+    paddingTop: 10,
+  },
+  footerBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  footerBackdropTint: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(8,12,24,0.32)",
+  },
+  footerInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  quickLogBtn: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(122,92,255,0.28)",
+    borderWidth: 1,
+    borderColor: "rgba(155,136,255,0.45)",
+  },
+  quickLogBtnPressed: {
+    opacity: 0.82,
+  },
+  searchWrap: {
+    flex: 1,
+    borderRadius: 20,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.14)",
+    backgroundColor: "rgba(20,24,38,0.4)",
+  },
+  searchInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 14,
+    height: 56,
+  },
+  searchInput: {
+    flex: 1,
+    color: T.text,
+    fontSize: 16,
+    fontWeight: "600",
+    paddingVertical: 0,
   },
 });
