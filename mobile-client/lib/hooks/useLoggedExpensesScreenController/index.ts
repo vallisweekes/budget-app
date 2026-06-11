@@ -17,6 +17,9 @@ import { getMobileApiErrorMessage, useDeleteExpenseMutation } from "@/store/api"
 import type { LoggedExpensesControllerState } from "@/types/LoggedExpensesScreen.types";
 
 type Props = NativeStackScreenProps<ExpensesStackParamList, "LoggedExpenses">;
+type Options = {
+  searchQueryOverride?: string;
+};
 
 function isLoggedExpensesRelevantMutationPath(path: string): boolean {
   const normalized = path.trim().toLowerCase();
@@ -39,7 +42,7 @@ function includeInLoggedList(entry: Expense, categoryId?: string): boolean {
     && Boolean(entry.isExtraLoggedExpense);
 }
 
-export function useLoggedExpensesScreenController({ route, navigation }: Props): LoggedExpensesControllerState {
+export function useLoggedExpensesScreenController({ route, navigation }: Props, options?: Options): LoggedExpensesControllerState {
   const topHeaderOffset = useTopHeaderOffset();
   const { settings } = useBootstrapData();
   const { activeBudgetPlanId, bootstrapBudgetPlanId } = useActiveBudgetPlan();
@@ -128,7 +131,8 @@ export function useLoggedExpensesScreenController({ route, navigation }: Props):
   }, [budgetPlanId, load, month, year]);
 
   const filteredItems = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
+    const activeQuery = (options?.searchQueryOverride ?? searchQuery).trim().toLowerCase();
+    const query = activeQuery;
     if (!query) return items;
     return items.filter((item) => {
       const name = String(item.name ?? "").toLowerCase();
@@ -136,7 +140,7 @@ export function useLoggedExpensesScreenController({ route, navigation }: Props):
       const source = String(item.paymentSource ?? "").replace(/_/g, " ").toLowerCase();
       return name.includes(query) || category.includes(query) || source.includes(query);
     });
-  }, [items, searchQuery]);
+  }, [items, options?.searchQueryOverride, searchQuery]);
 
   const total = useMemo(() => items.reduce((sum, item) => sum + Number(item.amount), 0), [items]);
   const payDate = Number.isFinite(settings?.payDate as number) && (settings?.payDate as number) >= 1
@@ -198,7 +202,7 @@ export function useLoggedExpensesScreenController({ route, navigation }: Props):
     items: filteredItems,
     loading,
     month,
-    searchQuery,
+    searchQuery: options?.searchQueryOverride ?? searchQuery,
     onDeleteItem,
     onPressItem: (item: Expense) => {
       navigation.navigate("ExpenseDetail", {

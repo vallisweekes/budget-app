@@ -91,6 +91,7 @@ export default function MainTabsLayout() {
   const isUnplannedExpenseRoute = segments[0] === "(tabs)" && segments[1] === "expenses" && segments[2] === "UnplannedExpense";
   const isLoggedExpensesRoute = segments[0] === "(tabs)" && segments[1] === "logged-expenses";
   const isLoggedExpensesNestedRoute = segments[0] === "(tabs)" && segments[1] === "expenses" && segments[2] === "LoggedExpenses";
+  const isLoggedSearchRoute = segments[0] === "(tabs)" && segments[1] === "search";
   const isExpensesSplitRoute = isExpensesListRoute;
   const isGoalDetailRoute = segments[0] === "(tabs)" && segments[1] === "goals" && segments[2] === "GoalDetail";
   const isGoalsRootRoute = segments[0] === "(tabs)" && segments[1] === "goals" && typeof segments[2] !== "string";
@@ -147,13 +148,12 @@ export default function MainTabsLayout() {
   const isTabsHidden = isDebtDetailRoute
     || isExpenseDetailRoute
     || isUnplannedExpenseRoute
-    || isLoggedExpensesNestedRoute
     || isGoalDetailRoute
     || isGoalsProjectionRoute
     || isDebtAnalyticsTabRoute
     || isIncomeSacrificeMode;
   const shouldHideNativeTabs = isTabsHidden || segments[0] !== "(tabs)";
-  const tabsLayoutKey = isLoggedExpensesNestedRoute
+  const tabsLayoutKey = (isLoggedExpensesNestedRoute || isLoggedSearchRoute)
     ? "tabs:expenses-split:logged"
     : isExpensesSplitRoute
     ? "tabs:expenses-split:root"
@@ -231,7 +231,7 @@ export default function MainTabsLayout() {
       : undefined),
   } as Record<string, unknown>;
   const expensesSplitTriggerScreenProps = {
-    listeners: createTabListeners(isExpensesListRoute || isLoggedExpensesNestedRoute || isLoggedExpensesRoute
+    listeners: createTabListeners(isExpensesListRoute || isLoggedExpensesNestedRoute || isLoggedExpensesRoute || isLoggedSearchRoute
       ? {
           onTabPress: () => {
             router.push({
@@ -343,7 +343,7 @@ export default function MainTabsLayout() {
     router.replace("/(tabs)/dashboard");
   }, [debtVisibilityResolved, isAnyDebtRoute, router, showDebtsTab]);
 
-  if (isLoggedExpensesNestedRoute) {
+  if (isLoggedExpensesNestedRoute || isLoggedSearchRoute) {
     return (
       <NativeTabs
         key={tabsLayoutKey}
@@ -357,18 +357,27 @@ export default function MainTabsLayout() {
         <NativeTabs.Trigger
           {...expensesSplitTriggerScreenProps}
           name="expenses"
-          role="search"
           disablePopToTop
           disableScrollToTop
           contentStyle={tabContentStyle}
           unstable_nativeProps={tabNativeProps}
         >
           <NativeTabs.Trigger.Icon
-            src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name="create-outline" />}
+            src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name="add" />}
             renderingMode="template"
             selectedColor={selectedTintColor}
           />
-          <NativeTabs.Trigger.Label selectedStyle={splitRouteSelectedTabLabelStyle}>{t("tabs.log")}</NativeTabs.Trigger.Label>
+          <NativeTabs.Trigger.Label hidden />
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger
+          name="search"
+          role="search"
+          disablePopToTop
+          disableScrollToTop
+          contentStyle={tabContentStyle}
+          unstable_nativeProps={tabNativeProps}
+        >
+          <NativeTabs.Trigger.Label selectedStyle={splitRouteSelectedTabLabelStyle}>Search</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
       </NativeTabs>
     );
