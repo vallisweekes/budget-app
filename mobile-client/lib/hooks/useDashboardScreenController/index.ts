@@ -116,9 +116,10 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
   );
   const dashboardMoneyLeftOverride = useMemo<number | null>(() => {
     const value =
-      incomeMonthReconciliationQuery.data?.spendableIncomeRightNow
+      incomeMonthReconciliationQuery.data?.moneyLeftAfterPlan
+      ?? incomeMonthReconciliationQuery.data?.spendableIncomeRightNow
       ?? incomeMonthReconciliationQuery.data?.incomeLeftRightNow
-      ?? incomeMonthReconciliationQuery.data?.moneyLeftAfterPlan;
+      ?? null;
     if (!Number.isFinite(value as number)) return null;
     return Number(value);
   }, [

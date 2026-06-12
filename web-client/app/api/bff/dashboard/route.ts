@@ -549,8 +549,10 @@ export async function GET(req: NextRequest) {
 			}
 		});
 		const incomeLeftRightNow =
-			typeof incomeMonthAnalysis?.incomeLeftRightNow === "number" && Number.isFinite(incomeMonthAnalysis.incomeLeftRightNow)
-				? incomeMonthAnalysis.incomeLeftRightNow
+			typeof incomeMonthAnalysis?.moneyLeftAfterPlan === "number" && Number.isFinite(incomeMonthAnalysis.moneyLeftAfterPlan)
+				? incomeMonthAnalysis.moneyLeftAfterPlan
+				: typeof incomeMonthAnalysis?.incomeLeftRightNow === "number" && Number.isFinite(incomeMonthAnalysis.incomeLeftRightNow)
+					? incomeMonthAnalysis.incomeLeftRightNow
 				: null;
 
 		const allPlansData = await timeSection(timings, "all_plans", async () => (async () => {

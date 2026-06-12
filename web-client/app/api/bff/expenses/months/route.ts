@@ -7,6 +7,7 @@ import { processOverdueExpensesToDebts } from "@/lib/expenses/carryover";
 import { resolveEffectiveDueDateIso } from "@/lib/expenses/insights";
 import { getPayPeriodAnchorFromWindow, normalizePayFrequency, resolveActivePayPeriodWindow, type PayFrequency } from "@/lib/payPeriods";
 import { isLegacyPlaceholderExpenseRow } from "@/lib/expenses/legacyPlaceholders";
+import { includeInMainExpenseSummary } from "@/lib/helpers/finance/payPeriodExpenses";
 
 export const runtime = "nodejs";
 
@@ -25,12 +26,6 @@ function parseIsoDate(iso: string): Date | null {
 	const [year, month, day] = iso.split("-").map(Number);
 	if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return null;
 	return new Date(Date.UTC(year, month - 1, day));
-}
-
-function includeInMainExpenseSummary(expense: {
-	isExtraLoggedExpense?: boolean | null;
-}): boolean {
-	return !Boolean(expense.isExtraLoggedExpense ?? false);
 }
 
 function isUnknownMovedToDebtFieldError(error: unknown): boolean {

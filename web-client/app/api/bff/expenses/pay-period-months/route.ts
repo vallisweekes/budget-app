@@ -8,6 +8,7 @@ import { resolveEffectiveDueDateIso } from "@/lib/expenses/insights";
 import { resolveMatchedExpensePeriodKey } from "@/lib/helpers/periodKey";
 import { buildPayPeriodFromMonthAnchor, normalizePayFrequency, type PayFrequency } from "@/lib/payPeriods";
 import { isLegacyPlaceholderExpenseRow } from "@/lib/expenses/legacyPlaceholders";
+import { includeInMainExpenseSummary } from "@/lib/helpers/finance/payPeriodExpenses";
 
 export const runtime = "nodejs";
 
@@ -40,13 +41,6 @@ function parseIsoDate(iso: string): Date | null {
 
 function inRange(target: Date, start: Date, end: Date): boolean {
   return target.getTime() >= start.getTime() && target.getTime() <= end.getTime();
-}
-
-function includeInMainExpenseSummary(expense: {
-  isExtraLoggedExpense?: boolean | null;
-  paymentSource?: string | null;
-}): boolean {
-  return !Boolean(expense.isExtraLoggedExpense ?? false);
 }
 
 function isUnknownMovedToDebtFieldError(error: unknown): boolean {

@@ -42,6 +42,16 @@ export function includeInPlannedExpenseTotals(expense: {
 	isExtraLoggedExpense?: boolean | null;
 	paymentSource?: string | null;
 }): boolean {
+	const isLoggedExpense = Boolean(expense.isExtraLoggedExpense ?? false);
+	if (!isLoggedExpense) return true;
+
+	// Logged expenses paid from income should reduce income-month money-left totals.
+	return String(expense.paymentSource ?? "").trim().toLowerCase() === "income";
+}
+
+export function includeInMainExpenseSummary(expense: {
+	isExtraLoggedExpense?: boolean | null;
+}): boolean {
 	return !Boolean(expense.isExtraLoggedExpense ?? false);
 }
 
@@ -139,7 +149,7 @@ export async function getPayPeriodExpenses(params: {
 
 		if (isLegacyPlaceholderExpenseRow(normalizedExpense)) continue;
 		if (Boolean(normalizedExpense.isAllocation ?? false)) continue;
-		if (!includeLoggedExpensesInResults && !includeInPlannedExpenseTotals(normalizedExpense)) continue;
+		if (!includeLoggedExpensesInResults && !includeInMainExpenseSummary(normalizedExpense)) continue;
 
 		const series = normalizeSeriesOrName(normalizedExpense.seriesKey, normalizedExpense.name);
 		const amount = Number(normalizedExpense.amount ?? 0);
@@ -172,7 +182,6 @@ export async function getPayPeriodExpenses(params: {
 		}
 
 		const expensePeriodKey = String(normalizedExpense.periodKey ?? "").trim();
-		const isLoggedExpense = Boolean(normalizedExpense.isExtraLoggedExpense ?? false);
 		let dedupeScope = "";
 		if (expensePeriodKey) {
 			const matchedPeriodKey = resolveMatchedExpensePeriodKey({
@@ -182,14 +191,8 @@ export async function getPayPeriodExpenses(params: {
 				anchorMonth: windowStart.getUTCMonth() + 1,
 				payFrequency,
 			});
-			if (matchedPeriodKey) {
-				dedupeScope = `unscheduled:${matchedPeriodKey}`;
-			} else {
-				// Some logged rows were saved with local-date periodKey offsets.
-				// Keep them period-visible by falling back to start/end month matching.
-				if (!isLoggedExpense || !allowedUnscheduledYm.has(`${normalizedExpense.year}-${normalizedExpense.month}`)) continue;
-				dedupeScope = `unscheduled:${normalizedExpense.year}-${normalizedExpense.month}`;
-			}
+			if (!matchedPeriodKey) continue;
+			dedupeScope = `unscheduled:${matchedPeriodKey}`;
 		} else {
 			if (!allowedUnscheduledYm.has(`${normalizedExpense.year}-${normalizedExpense.month}`)) continue;
 			dedupeScope = `unscheduled:${normalizedExpense.year}-${normalizedExpense.month}`;

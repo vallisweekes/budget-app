@@ -123,7 +123,15 @@ export async function POST(
     return NextResponse.json({ success: true, expenseId: result.expenseId });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Expense creation failed";
-    if (message === "Invalid month" || message === "Invalid year" || message === "Name is required" || message === "Amount must be > 0") {
+    if (
+      message === "Invalid month" ||
+      message === "Invalid year" ||
+      message === "Name is required" ||
+      message === "Amount must be > 0" ||
+      message === "Selected funding card is invalid" ||
+      message === "No registered cards found for credit-card funding" ||
+      message === "Select which registered card funded this expense"
+    ) {
       return NextResponse.json({ error: message }, { status: 400 });
     }
     return NextResponse.json({ error: "Expense creation failed" }, { status: 500 });

@@ -8,6 +8,7 @@ import {
 	normalizePayFrequency,
 	type PayFrequency,
 } from "@/lib/payPeriods";
+import { includeInMainExpenseSummary } from "@/lib/helpers/finance/payPeriodExpenses";
 import { isLegacyPlaceholderExpenseRow } from "@/lib/expenses/legacyPlaceholders";
 import {
 	resolveDisplayedExpensePaidState,
@@ -34,13 +35,6 @@ function toFloat(value: unknown): number {
 	if (typeof value === "number") return value;
 	const n = parseFloat(String(value ?? "0"));
 	return isNaN(n) ? 0 : n;
-}
-
-function includeInMainExpenseSummary(expense: {
-	isExtraLoggedExpense?: boolean | null;
-	paymentSource?: string | null;
-}): boolean {
-	return !Boolean(expense.isExtraLoggedExpense ?? false);
 }
 
 type CategoryBreakdownRow = {

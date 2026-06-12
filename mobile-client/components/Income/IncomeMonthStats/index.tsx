@@ -10,7 +10,7 @@ import type { IncomeMonthStatsProps } from "@/types";
 export default function IncomeMonthStats({ data: a, currency, fmt, onPressIncomeSacrifice }: IncomeMonthStatsProps) {
   const { t } = useAppTranslation();
   const displayedMoneyLeft = Number(
-    a.spendableIncomeRightNow ?? a.incomeLeftRightNow ?? a.moneyLeftAfterPlan ?? 0,
+    a.moneyLeftAfterPlan ?? a.spendableIncomeRightNow ?? a.incomeLeftRightNow ?? 0,
   );
   const incomeSacrificePctLabel =
     typeof a.incomeSacrificePct === "number"

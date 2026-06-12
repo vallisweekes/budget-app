@@ -147,6 +147,48 @@ function mapFundingToPaymentSource(fundingSource: FundingSource): PaymentSource 
   return "income";
 }
 
+function isCreditLikeDebtType(value: unknown): boolean {
+  return value === "credit_card" || value === "store_card";
+}
+
+async function resolveCreditCardFundingDebtId(params: {
+  budgetPlanId: string;
+  requestedDebtId?: string;
+}): Promise<string> {
+  const requestedDebtId = String(params.requestedDebtId ?? "").trim();
+  if (requestedDebtId) {
+    const selected = await prisma.debt.findFirst({
+      where: {
+        id: requestedDebtId,
+        budgetPlanId: params.budgetPlanId,
+        sourceType: null,
+      },
+      select: { id: true, type: true },
+    });
+    if (!selected || !isCreditLikeDebtType(selected.type)) {
+      throw new Error("Selected funding card is invalid");
+    }
+    return selected.id;
+  }
+
+  const cards = await prisma.debt.findMany({
+    where: {
+      budgetPlanId: params.budgetPlanId,
+      sourceType: null,
+      type: { in: ["credit_card", "store_card"] },
+    },
+    select: { id: true },
+    orderBy: { createdAt: "asc" },
+  });
+
+  if (cards.length === 1) return cards[0]!.id;
+  if (cards.length === 0) {
+    throw new Error("No registered cards found for credit-card funding");
+  }
+
+  throw new Error("Select which registered card funded this expense");
+}
+
 /**
  * Returns the list of months to distribute across for a given year.
  * When distributeMonths=false, returns only the target month.
@@ -518,6 +560,14 @@ export async function createExpense(input: CreateExpenseInput): Promise<CreateEx
     targetYears = [year];
   }
 
+  const resolvedFundingDebtId =
+    effectiveFunding === "credit_card"
+      ? await resolveCreditCardFundingDebtId({
+          budgetPlanId,
+          requestedDebtId: cardDebtId || debtId || undefined,
+        })
+      : (cardDebtId || debtId || undefined);
+
   const sharedId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const logo     = resolveExpenseLogo(name);
   const dueDateMonthOffset = resolveDueDateMonthOffset(dueDate, year, month);
@@ -543,7 +593,7 @@ export async function createExpense(input: CreateExpenseInput): Promise<CreateEx
       paymentSource: effectivePaymentSource,
       cardDebtId:
         effectiveFunding === "credit_card" || effectiveFunding === "loan"
-          ? (cardDebtId || debtId || undefined)
+          ? resolvedFundingDebtId
           : undefined,
       periodKey: !dueDate && !distributeMonths && !distributeYears && periodKey ? periodKey : undefined,
     } as AddOrUpdatePayload);
@@ -569,7 +619,7 @@ export async function createExpense(input: CreateExpenseInput): Promise<CreateEx
       amount,
       paymentSource: effectivePaymentSource,
       fundingSource: effectiveFunding,
-      cardDebtId,
+      cardDebtId: resolvedFundingDebtId,
       debtId,
       newLoanName,
       month,
@@ -641,6 +691,14 @@ export async function createExpenseFromReceipt(
   if (!Number.isFinite(month)  || month < 1 || month > 12) throw new Error("Invalid month");
   if (!Number.isFinite(year)   || year < 1900)             throw new Error("Invalid year");
 
+  const resolvedFundingDebtId =
+    effectiveFunding === "credit_card"
+      ? await resolveCreditCardFundingDebtId({
+          budgetPlanId,
+          requestedDebtId: cardDebtId || debtId || undefined,
+        })
+      : (cardDebtId || debtId || undefined);
+
   const sharedId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const logo     = await resolveExpenseLogoWithSearch(name);
   const monthKey = MONTHS[month - 1] as MonthKey;
@@ -660,7 +718,7 @@ export async function createExpenseFromReceipt(
     paymentSource: effectivePaymentSource,
     cardDebtId:
       effectiveFunding === "credit_card" || effectiveFunding === "loan"
-        ? (cardDebtId || debtId || undefined)
+        ? resolvedFundingDebtId
         : undefined,
   } as AddOrUpdatePayload);
 
@@ -679,7 +737,7 @@ export async function createExpenseFromReceipt(
     amount,
     paymentSource: effectivePaymentSource,
     fundingSource: effectiveFunding,
-    cardDebtId,
+    cardDebtId: resolvedFundingDebtId,
     debtId,
     newLoanName,
     month,

@@ -393,7 +393,6 @@ export async function GET(req: NextRequest) {
           { year: item.year, monthNum: item.month, payDate }
         )
       : null;
-    const isLoggedExpense = Boolean(item.isExtraLoggedExpense ?? false);
     const dueDateOnly = dueIso ? parseIsoDate(dueIso) : null;
     const matchedPeriodKey = !dueDateOnly && scope === "pay_period" && item.periodKey
       ? resolveMatchedExpensePeriodKey({
@@ -409,7 +408,7 @@ export async function GET(req: NextRequest) {
         ? dueDateOnly
           ? inRange(dueDateOnly, selectedPeriod.start, selectedPeriod.end)
           : item.periodKey
-            ? Boolean(matchedPeriodKey) || (isLoggedExpense && allowedUnscheduledYm.has(`${item.year}-${item.month}`))
+            ? Boolean(matchedPeriodKey)
             : allowedUnscheduledYm.has(`${item.year}-${item.month}`)
         : true;
 
@@ -589,14 +588,21 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error("Expenses POST create failed:", error);
+    const message = error instanceof Error && error.message.trim()
+      ? error.message
+      : "Failed to create expense";
+    const isValidationError = [
+      "Name is required",
+      "Amount must be a number >= 0",
+      "Invalid month",
+      "Invalid year",
+      "Selected funding card is invalid",
+      "No registered cards found for credit-card funding",
+      "Select which registered card funded this expense",
+    ].includes(message);
     return NextResponse.json(
-      {
-        error:
-          error instanceof Error && error.message.trim()
-            ? error.message
-            : "Failed to create expense",
-      },
-      { status: 500 },
+      { error: message },
+      { status: isValidationError ? 400 : 500 },
     );
   }
 

@@ -3,14 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { buildPayPeriodFromMonthAnchor, normalizePayFrequency, type PayFrequency } from "../lib/payPeriods";
 import { resolveEffectiveDueDateIso } from "../lib/expenses/insights";
-
-function includeInMainExpenseSummary(expense: {
-  isExtraLoggedExpense?: boolean | null;
-  paymentSource?: string | null;
-}): boolean {
-  if (!Boolean(expense.isExtraLoggedExpense ?? false)) return true;
-  return String(expense.paymentSource ?? "income").trim().toLowerCase() === "income";
-}
+import { includeInPlannedExpenseTotals } from "../lib/helpers/finance/payPeriodExpenses";
 
 function loadDotEnvIfPresent(cwd: string) {
   const envFiles = [
@@ -147,7 +140,7 @@ async function main() {
 
   for (const exp of rows) {
     if (Boolean((exp as unknown as { isAllocation?: unknown }).isAllocation)) continue;
-    if (!includeInMainExpenseSummary(exp as unknown as { isExtraLoggedExpense?: boolean | null; paymentSource?: string | null })) {
+    if (!includeInPlannedExpenseTotals(exp as unknown as { isExtraLoggedExpense?: boolean | null; paymentSource?: string | null })) {
       continue;
     }
 

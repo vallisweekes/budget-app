@@ -3,7 +3,7 @@ import { syncDueDirectDebitExpenses } from "@/lib/expenses/directDebit";
 import { monthNumberToKey } from "@/lib/helpers/monthKey";
 import { getMonthlyAllocationSnapshot, getMonthlyCustomAllocationsSnapshot } from "@/lib/allocations/store";
 import { getMonthlyDebtPlan } from "@/lib/helpers/finance/getMonthlyDebtPlan";
-import { getAllIncome, getIncomeForAnchorMonth } from "@/lib/income/store";
+import { getIncomeForAnchorMonth } from "@/lib/income/store";
 import { ensureDefaultCategoriesForBudgetPlan } from "@/lib/categories/defaultCategories";
 import { supportsExpenseMovedToDebtField } from "@/lib/prisma/capabilities";
 import { getPayPeriodExpenses, includeInPlannedExpenseTotals } from "@/lib/helpers/finance/payPeriodExpenses";
@@ -323,18 +323,6 @@ export async function getDashboardPlanDataForActivePayPeriod(
 	const selectedYear = anchor.anchorYear;
 	const selectedMonthNum = anchor.anchorMonth;
 	const selectedMonthKey = monthNumberToKey(selectedMonthNum);
-	const startYear = window.start.getUTCFullYear();
-	const startMonthNum = window.start.getUTCMonth() + 1;
-	const startMonthKey = monthNumberToKey(startMonthNum);
-	const isUnknownMovedToDebtFieldError = (error: unknown) => {
-		const message = String((error as { message?: unknown })?.message ?? error);
-		return (
-			message.includes("isMovedToDebt") &&
-			(message.includes("Unknown arg") ||
-				message.includes("Unknown argument") ||
-				message.includes("Unknown field"))
-		);
-	};
 
 	const [categories, expenses, income, goals, allocation, customAllocations, debtPlan] =
 		await Promise.all([
@@ -346,18 +334,13 @@ export async function getDashboardPlanDataForActivePayPeriod(
 				payDate,
 				payFrequency,
 			}),
-			(async () => {
-				if (payFrequency === "monthly") {
-					return getIncomeForAnchorMonth({
-						budgetPlanId: planId,
-						year: selectedYear,
-						month: selectedMonthNum,
-					});
-				}
-
-				const incomeByMonth = await getAllIncome(planId, selectedYear);
-				return incomeByMonth[selectedMonthKey] ?? [];
-			})(),
+			getIncomeForAnchorMonth({
+				budgetPlanId: planId,
+				year: selectedYear,
+				month: selectedMonthNum,
+				payDate,
+				payFrequency,
+			}),
 			prisma.goal.findMany({ where: { budgetPlanId: planId } }),
 			getMonthlyAllocationSnapshot(planId, selectedMonthKey, { year: selectedYear, fallbackToPlanDefaults: false }),
 			getMonthlyCustomAllocationsSnapshot(planId, selectedMonthKey, { year: selectedYear, fallbackToDefinitionDefaults: false }),

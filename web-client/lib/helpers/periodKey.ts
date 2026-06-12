@@ -25,10 +25,6 @@ function toIsoUtcDateKey(date: Date): string {
 	return date.toISOString().slice(0, 10);
 }
 
-function isNonMonthlyPayFrequency(payFrequency: unknown): payFrequency is Exclude<PayFrequency, "monthly"> {
-	return payFrequency === "weekly" || payFrequency === "every_2_weeks" || payFrequency === "every_4_weeks";
-}
-
 export function getLegacyAnchorMonthPeriodKey(anchor: { year: number; month: number }): string {
 	return toIsoUtcDateKey(new Date(Date.UTC(anchor.year, anchor.month - 1, 1)));
 }
@@ -45,7 +41,6 @@ export function resolveMatchedExpensePeriodKey(params: {
 
 	const canonicalPeriodKey = toIsoUtcDateKey(params.selectedPeriodStart);
 	if (storedPeriodKey === canonicalPeriodKey) return canonicalPeriodKey;
-	if (!isNonMonthlyPayFrequency(params.payFrequency)) return null;
 
 	const legacyAnchorMonthPeriodKey = getLegacyAnchorMonthPeriodKey({
 		year: params.anchorYear,
