@@ -77,22 +77,68 @@ export async function getDebtSummaryForPlan(
 			});
 		})()
 		: regularDebtsBase;
+
+	const regularCardDebtIds = regularDebts
+		.filter((debt) => debt.type === "credit_card" || debt.type === "store_card")
+		.map((debt) => debt.id);
+
+	const [cardDebtPaymentRows, cardExpenseUsageRows] = regularCardDebtIds.length
+		? await Promise.all([
+				prisma.debtPayment.groupBy({
+					by: ["debtId"],
+					where: { debtId: { in: regularCardDebtIds } },
+					_count: { _all: true },
+				}),
+				prisma.expense.findMany({
+					where: {
+						budgetPlanId,
+						cardDebtId: { in: regularCardDebtIds },
+						paymentSource: "credit_card",
+					},
+					select: { cardDebtId: true },
+				}),
+			])
+		: [[], []];
+
+	const cardDebtIdsWithPayments = new Set(
+		cardDebtPaymentRows
+			.filter((row) => Number(row._count._all ?? 0) > 0)
+			.map((row) => row.debtId)
+	);
+	const cardDebtIdsWithExpenseUsage = new Set(
+		cardExpenseUsageRows
+			.map((row) => String(row.cardDebtId ?? "").trim())
+			.filter(Boolean)
+	);
+
+	// Keep cards hidden from debt summaries until they are actually in use.
+	const visibleRegularDebts = regularDebts.filter((debt) => {
+		if (!(debt.type === "credit_card" || debt.type === "store_card")) return true;
+
+		const hasPlannedPayment = Number(debt.amount ?? 0) > 0 || Number(debt.monthlyMinimum ?? 0) > 0;
+		const hasPaidAmount = Number(debt.paidAmount ?? 0) > 0;
+		const hasPaymentActivity = cardDebtIdsWithPayments.has(debt.id);
+		const hasExpenseUsage = cardDebtIdsWithExpenseUsage.has(debt.id);
+
+		return hasPlannedPayment || hasPaidAmount || hasPaymentActivity || hasExpenseUsage;
+	});
+
 	const visibleExpenseDebts = expenseDebts.filter((debt) => !isExpenseDebtCoveredByRegularDebt({
 		expenseName: debt.sourceExpenseName ?? debt.name,
 		sourceCategoryName: debt.sourceCategoryName,
-		regularDebts,
+		regularDebts: visibleRegularDebts,
 	}));
-	const allDebts = [...regularDebts, ...visibleExpenseDebts];
+	const allDebts = [...visibleRegularDebts, ...visibleExpenseDebts];
 
 	const activeDebts = allDebts.filter((d) => (d.currentBalance ?? 0) > 0);
-	const activeRegularDebts = regularDebts.filter((d) => (d.currentBalance ?? 0) > 0);
+	const activeRegularDebts = visibleRegularDebts.filter((d) => (d.currentBalance ?? 0) > 0);
 	const activeExpenseDebts = visibleExpenseDebts.filter((d) => (d.currentBalance ?? 0) > 0);
 
-	const creditCards = regularDebts.filter((d) => d.type === "credit_card" || d.type === "store_card");
+	const creditCards = visibleRegularDebts.filter((d) => d.type === "credit_card" || d.type === "store_card");
 	const totalDebtBalance = allDebts.reduce((sum, debt) => sum + (debt.currentBalance || 0), 0);
 
 	return {
-		regularDebts,
+		regularDebts: visibleRegularDebts,
 		expenseDebts: visibleExpenseDebts,
 		allDebts,
 		activeDebts,
