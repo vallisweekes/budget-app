@@ -63,7 +63,7 @@ export const styles = StyleSheet.create({
   sub: { color: T.textDim, fontSize: 13, paddingLeft: 52, fontWeight: "600" },
 
   track: {
-    height: 8,
+    height: 5,
     backgroundColor: "rgba(255,255,255,0.08)",
     borderRadius: 999,
     overflow: "hidden",

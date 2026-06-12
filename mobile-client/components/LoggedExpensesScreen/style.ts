@@ -117,7 +117,20 @@ export const loggedExpensesStyles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
     textTransform: "capitalize",
+    flex: 1,
+  },
+  rowMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingLeft: 46,
+    gap: 10,
+  },
+  rowDate: {
+    color: T.textMuted,
+    fontSize: 12,
+    fontWeight: "700",
+    flexShrink: 0,
   },
   rowAmount: {
     color: T.text,
@@ -125,7 +138,7 @@ export const loggedExpensesStyles = StyleSheet.create({
     fontWeight: "900",
   },
   track: {
-    height: 10,
+    height: 6,
     backgroundColor: "rgba(255,255,255,0.08)",
     borderRadius: 999,
     overflow: "hidden",

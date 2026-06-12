@@ -16,6 +16,13 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
+function formatRowDate(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const parsed = /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T00:00:00`) : new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+}
+
 function CategoryIcon({ name, color }: LoggedExpenseCardCategoryIconProps) {
   const Icon = name
     ? ((LucideIcons as Record<string, unknown>)[name] as
@@ -133,6 +140,8 @@ export default function LoggedExpenseCard(props: LoggedExpenseCardProps) {
     props.onDelete(props.item);
   }, [props]);
 
+  const rowDate = formatRowDate(props.item.lastPaymentAt ?? props.item.dueDate);
+
   return (
     <View style={s.swipeOuter}>
       <Animated.View style={[s.deleteActionWrap, { opacity: deleteActionOpacity }]} pointerEvents={swipeOpen ? "auto" : "none"}>
@@ -167,9 +176,12 @@ export default function LoggedExpenseCard(props: LoggedExpenseCardProps) {
             </View>
           </View>
 
-          <Text style={s.rowMeta}>
-            {(props.item.category?.name ?? props.categoryName ?? "Uncategorised")} · {String(props.item.paymentSource ?? "").replace("_", " ")}
-          </Text>
+          <View style={s.rowMetaRow}>
+            <Text style={s.rowMeta} numberOfLines={1}>
+              {(props.item.category?.name ?? props.categoryName ?? "Uncategorised")} · {String(props.item.paymentSource ?? "").replace("_", " ")}
+            </Text>
+            {rowDate ? <Text style={s.rowDate}>{rowDate}</Text> : null}
+          </View>
 
           <View style={s.track}>
             <View style={[s.fill, { width: "100%", backgroundColor: resolveCategoryColor(props.categoryColor ?? props.item.category?.color ?? null) }]} />
