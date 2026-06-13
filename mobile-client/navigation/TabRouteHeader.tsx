@@ -9,6 +9,7 @@ import { useActiveBudgetPlan } from "@/context/ActiveBudgetPlanContext";
 import { useAuth } from "@/context/AuthContext";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { useAppTranslation } from "@/hooks";
+import { getSharedExpensePeriodRouteState } from "@/lib/helpers/expensePeriodRouteState";
 import { markSkipExpensesFocusReload } from "@/lib/helpers/expensesFocusReload";
 import { translateGoalTitle } from "@/lib/i18n";
 import { subscribeNotificationInbox } from "@/lib/notificationInbox";
@@ -285,16 +286,38 @@ export default function TabRouteHeader() {
     }
 
     if (isLoggedSearch) {
-      replaceRoute("/(tabs)/expenses/LoggedExpenses", {
-        categoryId: getStringParam(params.categoryId) ?? getRouteParamString(routeParams, "categoryId"),
-        categoryName: getStringParam(params.categoryName) ?? getRouteParamString(routeParams, "categoryName") ?? "All categories",
-        color: getStringParam(params.color) ?? getRouteParamString(routeParams, "color"),
-        icon: getStringParam(params.icon) ?? getRouteParamString(routeParams, "icon"),
-        month: Number.isFinite(monthNum) ? Math.floor(monthNum) : undefined,
-        year: Number.isFinite(yearNum) ? Math.floor(yearNum) : undefined,
-        budgetPlanId: getStringParam(params.budgetPlanId) ?? getRouteParamString(routeParams, "budgetPlanId"),
-        currency: getStringParam(params.currency) ?? getRouteParamString(routeParams, "currency") ?? "£",
-      });
+      const sharedExpenseRouteState = getSharedExpensePeriodRouteState();
+      const displayedAnchor = sharedExpenseRouteState.displayedAnchor;
+      const currentAnchor = sharedExpenseRouteState.currentAnchor;
+      const categoryId = getStringParam(params.categoryId) ?? getRouteParamString(routeParams, "categoryId");
+      const commonExpenseParams = {
+        month: Number.isFinite(monthNum) ? Math.floor(monthNum) : displayedAnchor?.month,
+        year: Number.isFinite(yearNum) ? Math.floor(yearNum) : displayedAnchor?.year,
+        currentPeriodMonth: currentAnchor?.month,
+        currentPeriodYear: currentAnchor?.year,
+        budgetPlanId: getStringParam(params.budgetPlanId)
+          ?? getRouteParamString(routeParams, "budgetPlanId")
+          ?? sharedExpenseRouteState.budgetPlanId
+          ?? undefined,
+        currency: getStringParam(params.currency)
+          ?? getRouteParamString(routeParams, "currency")
+          ?? sharedExpenseRouteState.currency
+          ?? "£",
+        skipFocusReloadAt: Date.now(),
+      };
+
+      if (categoryId) {
+        replaceRoute("/(tabs)/expenses/CategoryExpenses", {
+          ...commonExpenseParams,
+          categoryId,
+          categoryName: getStringParam(params.categoryName) ?? getRouteParamString(routeParams, "categoryName"),
+          color: getStringParam(params.color) ?? getRouteParamString(routeParams, "color"),
+          icon: getStringParam(params.icon) ?? getRouteParamString(routeParams, "icon"),
+        });
+        return;
+      }
+
+      replaceRoute("/(tabs)/expenses/ExpensesList", commonExpenseParams);
       return;
     }
 

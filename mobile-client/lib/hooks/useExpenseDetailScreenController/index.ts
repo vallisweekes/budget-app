@@ -1,5 +1,6 @@
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert } from "react-native";
 import { useWindowDimensions } from "react-native";
@@ -51,13 +52,14 @@ function buildLoadState(params: {
 }
 
 export function useExpenseDetailScreenController({ route, navigation }: Props): ExpenseDetailScreenControllerState {
+  const router = useRouter();
   const [updateExpense] = useUpdateExpenseMutation();
   const [deleteExpenseMutation] = useDeleteExpenseMutation();
   const { height, width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const { settings } = useBootstrapData();
   const tabBarHeight = useMemo(() => Math.max(insets.bottom, 56), [insets.bottom]);
-  const { expenseId, expenseName, categoryId, month, year, budgetPlanId, currency } = route.params;
+  const { expenseId, expenseName, categoryId, month, year, budgetPlanId, currency, returnTo } = route.params;
   const cachedExpenses = useMemo(
     () => getCachedPayPeriodExpenses({ budgetPlanId, month, year }) ?? [],
     [budgetPlanId, month, year],
@@ -511,7 +513,30 @@ export function useExpenseDetailScreenController({ route, navigation }: Props): 
       setUnpaidConfirmOpen(false);
       await markUnpaid();
     },
-    onGoBack: () => navigation.goBack(),
+    onGoBack: () => {
+      if (returnTo === "logged-expenses") {
+        router.replace({
+          pathname: "/(tabs)/expenses/LoggedExpenses",
+          params: {
+            categoryId,
+            categoryName: route.params.categoryName,
+            color: route.params.color ?? undefined,
+            month,
+            year,
+            budgetPlanId: budgetPlanId ?? undefined,
+            currency,
+          },
+        });
+        return;
+      }
+
+      if (returnTo === "search") {
+        router.replace({ pathname: "/(tabs)/search" });
+        return;
+      }
+
+      navigation.goBack();
+    },
     onLogoError: () => setLogoFailed(true),
     onMarkPaid,
     onOpenDeleteConfirm: () => setDeleteConfirmOpen(true),

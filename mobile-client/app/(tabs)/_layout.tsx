@@ -8,6 +8,8 @@ import { useAuth } from "@/context/AuthContext";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { useAppTranslation } from "@/hooks";
 import { emitIncomeAddTrigger } from "@/lib/events/incomeAddTrigger";
+import { setLoggedExpensesFooterSearchQuery } from "@/lib/events/loggedExpensesFooterSearch";
+import { emitLoggedExpenseAddTrigger } from "@/lib/events/loggedExpenseAddTrigger";
 import { getSharedExpensePeriodRouteState, resolveExpensePeriodRouteState } from "@/lib/helpers/expensePeriodRouteState";
 import { isDebtManagementEnabled, hasPositiveDebtBalance } from "@/lib/helpers/debtManagement";
 import { T } from "@/lib/theme";
@@ -153,7 +155,7 @@ export default function MainTabsLayout() {
     || isDebtAnalyticsTabRoute
     || isIncomeSacrificeMode;
   const shouldHideNativeTabs = isTabsHidden || segments[0] !== "(tabs)";
-  const tabsLayoutKey = (isLoggedExpensesNestedRoute || isLoggedSearchRoute)
+  const tabsLayoutKey = (isLoggedExpensesRoute || isLoggedExpensesNestedRoute || isLoggedSearchRoute)
     ? "tabs:expenses-split:logged"
     : isExpensesSplitRoute
     ? "tabs:expenses-split:root"
@@ -234,13 +236,7 @@ export default function MainTabsLayout() {
     listeners: createTabListeners(isExpensesListRoute || isLoggedExpensesNestedRoute || isLoggedExpensesRoute || isLoggedSearchRoute
       ? {
           onTabPress: () => {
-            router.push({
-              pathname: "/(tabs)/expenses/UnplannedExpense",
-              params: {
-                month: splitCurrentMonth ?? splitMonth,
-                year: splitCurrentYear ?? splitYear,
-              },
-            });
+            emitLoggedExpenseAddTrigger();
           },
           preventDefaultOnTabPress: true,
           resetOnBlur: false,
@@ -343,7 +339,12 @@ export default function MainTabsLayout() {
     router.replace("/(tabs)/dashboard");
   }, [debtVisibilityResolved, isAnyDebtRoute, router, showDebtsTab]);
 
-  if (isLoggedExpensesNestedRoute || isLoggedSearchRoute) {
+  React.useEffect(() => {
+    if (isLoggedExpensesRoute || isLoggedExpensesNestedRoute || isLoggedSearchRoute) return;
+    setLoggedExpensesFooterSearchQuery("");
+  }, [isLoggedExpensesNestedRoute, isLoggedExpensesRoute, isLoggedSearchRoute]);
+
+  if (isLoggedExpensesRoute || isLoggedExpensesNestedRoute || isLoggedSearchRoute) {
     return (
       <NativeTabs
         key={tabsLayoutKey}
@@ -357,6 +358,7 @@ export default function MainTabsLayout() {
         <NativeTabs.Trigger
           {...expensesSplitTriggerScreenProps}
           name="expenses"
+          role="search"
           disablePopToTop
           disableScrollToTop
           contentStyle={tabContentStyle}
@@ -368,16 +370,6 @@ export default function MainTabsLayout() {
             selectedColor={selectedTintColor}
           />
           <NativeTabs.Trigger.Label hidden />
-        </NativeTabs.Trigger>
-        <NativeTabs.Trigger
-          name="search"
-          role="search"
-          disablePopToTop
-          disableScrollToTop
-          contentStyle={tabContentStyle}
-          unstable_nativeProps={tabNativeProps}
-        >
-          <NativeTabs.Trigger.Label selectedStyle={splitRouteSelectedTabLabelStyle}>Search</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
       </NativeTabs>
     );

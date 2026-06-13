@@ -172,4 +172,27 @@ export const loggedExpensesStyles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "800",
   },
+  searchWrap: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 4,
+  },
+  searchPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(22, 26, 42, 0.72)",
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: "rgba(139, 92, 246, 0.38)",
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    color: T.text,
+    fontSize: 15,
+    fontWeight: "500",
+    paddingVertical: 0,
+  },
 });

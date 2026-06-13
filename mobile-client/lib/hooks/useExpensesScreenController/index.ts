@@ -228,6 +228,15 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     skipNextChildFocusReloadRef.current = true;
   }, [route.params?.skipFocusReloadAt]);
 
+  const lastHandledOpenAddExpenseAtRef = useRef(0);
+  useEffect(() => {
+    const token = Number(route.params?.openAddExpenseAt);
+    if (!Number.isFinite(token) || token === 0) return;
+    if (lastHandledOpenAddExpenseAtRef.current === token) return;
+    lastHandledOpenAddExpenseAtRef.current = token;
+    setAddSheetOpen(true);
+  }, [route.params?.openAddExpenseAt]);
+
   const effectivePayDate = Number.isFinite(settings?.payDate as number) && (settings?.payDate as number) >= 1
     ? Math.floor(settings?.payDate as number)
     : 27;

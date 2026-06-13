@@ -1,8 +1,10 @@
 import { useFocusEffect } from "@react-navigation/native";
+import { useRouter } from "expo-router";
 import { useActiveBudgetPlan } from "@/context/ActiveBudgetPlanContext";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { apiFetch, getApiMutationsSince, getApiMutationVersion, subscribeToApiMutations } from "@/lib/api";
 import type { Expense } from "@/lib/apiTypes";
+import { useLoggedExpensesFooterSearchQuery } from "@/lib/events/loggedExpensesFooterSearch";
 import { currencySymbol } from "@/lib/formatting";
 import { resolveExpensePeriodRouteState } from "@/lib/helpers/expensePeriodRouteState";
 import { getCachedPayPeriodExpenses, removeCachedPayPeriodExpense, setCachedPayPeriodExpenses, upsertCachedPayPeriodExpense } from "@/lib/expensePeriodCache";
@@ -42,7 +44,40 @@ function includeInLoggedList(entry: Expense, categoryId?: string): boolean {
     && Boolean(entry.isExtraLoggedExpense);
 }
 
+function getExpenseSortTimestamp(entry: Expense): number {
+  const raw = entry.lastPaymentAt ?? entry.dueDate ?? null;
+  if (!raw) return 0;
+  const parsed = new Date(raw).getTime();
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function dedupeByMerchantName(entries: Expense[]): Expense[] {
+  const byName = new Map<string, Expense>();
+  for (const entry of entries) {
+    const key = String(entry.name ?? "").trim().toLowerCase();
+    if (!key) continue;
+    const existing = byName.get(key);
+    if (!existing) {
+      byName.set(key, entry);
+      continue;
+    }
+
+    const nextTs = getExpenseSortTimestamp(entry);
+    const existingTs = getExpenseSortTimestamp(existing);
+    if (nextTs > existingTs) {
+      byName.set(key, entry);
+      continue;
+    }
+    if (nextTs === existingTs && Number(entry.amount) > Number(existing.amount)) {
+      byName.set(key, entry);
+    }
+  }
+
+  return Array.from(byName.values()).sort((a, b) => getExpenseSortTimestamp(b) - getExpenseSortTimestamp(a));
+}
+
 export function useLoggedExpensesScreenController({ route, navigation }: Props, options?: Options): LoggedExpensesControllerState {
+  const router = useRouter();
   const topHeaderOffset = useTopHeaderOffset();
   const { settings } = useBootstrapData();
   const { activeBudgetPlanId, bootstrapBudgetPlanId } = useActiveBudgetPlan();
@@ -67,6 +102,9 @@ export function useLoggedExpensesScreenController({ route, navigation }: Props, 
   const [deletingExpenseId, setDeletingExpenseId] = useState<string | null>(null);
   const [deleteExpense] = useDeleteExpenseMutation();
   const seenMutationVersionRef = useRef<number>(getApiMutationVersion());
+  const isSearchRoute = typeof options?.searchQueryOverride === "string";
+  const footerSearchQuery = useLoggedExpensesFooterSearchQuery();
+  const effectiveSearchQuery = options?.searchQueryOverride ?? footerSearchQuery ?? searchQuery;
 
   const load = useCallback(async (force = false) => {
     try {
@@ -74,7 +112,8 @@ export function useLoggedExpensesScreenController({ route, navigation }: Props, 
       if (force) setRefreshing(true);
       else setLoading(true);
 
-      const cached = !force ? getCachedPayPeriodExpenses({ budgetPlanId, month, year }) : null;
+      // Promoted search route bypasses cache; footer search filters the active logged list in place.
+      const cached = !force && !isSearchRoute ? getCachedPayPeriodExpenses({ budgetPlanId, month, year }) : null;
       const nextAllExpenses = cached ?? await (async () => {
         const qp = budgetPlanId ? `&budgetPlanId=${encodeURIComponent(budgetPlanId)}` : "";
         const all = await apiFetch<Expense[]>(`/api/bff/expenses?month=${month}&year=${year}&scope=pay_period${qp}`);
@@ -92,7 +131,7 @@ export function useLoggedExpensesScreenController({ route, navigation }: Props, 
       setLoading(false);
       setRefreshing(false);
     }
-  }, [budgetPlanId, categoryId, month, year]);
+  }, [budgetPlanId, categoryId, isSearchRoute, month, year]);
 
   useFocusEffect(
     useCallback(() => {
@@ -131,16 +170,22 @@ export function useLoggedExpensesScreenController({ route, navigation }: Props, 
   }, [budgetPlanId, load, month, year]);
 
   const filteredItems = useMemo(() => {
-    const activeQuery = (options?.searchQueryOverride ?? searchQuery).trim().toLowerCase();
+    const activeQuery = effectiveSearchQuery.trim().toLowerCase();
     const query = activeQuery;
-    if (!query) return items;
-    return items.filter((item) => {
+    const baseItems = !query ? items : items.filter((item) => {
       const name = String(item.name ?? "").toLowerCase();
       const category = String(item.category?.name ?? "").toLowerCase();
       const source = String(item.paymentSource ?? "").replace(/_/g, " ").toLowerCase();
       return name.includes(query) || category.includes(query) || source.includes(query);
     });
-  }, [items, options?.searchQueryOverride, searchQuery]);
+
+    // Search surface is merchant-first; collapse same-merchant logged rows.
+    if (isSearchRoute || footerSearchQuery.trim()) {
+      return dedupeByMerchantName(baseItems);
+    }
+
+    return baseItems;
+  }, [effectiveSearchQuery, footerSearchQuery, isSearchRoute, items]);
 
   const total = useMemo(() => items.reduce((sum, item) => sum + Number(item.amount), 0), [items]);
   const payDate = Number.isFinite(settings?.payDate as number) && (settings?.payDate as number) >= 1
@@ -202,10 +247,10 @@ export function useLoggedExpensesScreenController({ route, navigation }: Props, 
     items: filteredItems,
     loading,
     month,
-    searchQuery: options?.searchQueryOverride ?? searchQuery,
+    searchQuery: effectiveSearchQuery,
     onDeleteItem,
     onPressItem: (item: Expense) => {
-      navigation.navigate("ExpenseDetail", {
+      const params = {
         expenseId: item.id,
         expenseName: item.name,
         categoryId: categoryId ?? item.categoryId ?? "__none__",
@@ -215,6 +260,28 @@ export function useLoggedExpensesScreenController({ route, navigation }: Props, 
         year,
         budgetPlanId,
         currency,
+        returnTo: isSearchRoute ? "search" as const : "logged-expenses" as const,
+      };
+
+      if (isSearchRoute) {
+        router.push({
+          pathname: "/(tabs)/expenses/ExpenseDetail",
+          params,
+        });
+        return;
+      }
+
+      const routeNames = (navigation as any)?.getState?.()?.routeNames;
+      if (Array.isArray(routeNames) && routeNames.includes("ExpenseDetail")) {
+        (navigation as any).navigate("ExpenseDetail", params);
+        return;
+      }
+
+      // Promoted native-tab routes such as /(tabs)/logged-expenses are owned by Expo Router,
+      // not the legacy React Navigation Expenses stack route names.
+      router.push({
+        pathname: "/(tabs)/expenses/ExpenseDetail",
+        params,
       });
     },
     onRefresh: () => { void load(true); },
