@@ -315,6 +315,7 @@ export async function POST(request: Request) {
     const sourceCategoryId = typeof raw.sourceCategoryId === "string" ? raw.sourceCategoryId : null;
     const sourceCategoryName = typeof raw.sourceCategoryName === "string" ? raw.sourceCategoryName : null;
     const sourceExpenseName = typeof raw.sourceExpenseName === "string" ? raw.sourceExpenseName : null;
+    const isDirectDebit = raw.isDirectDebit === true;
 
     const historicalPaidAmountRaw = typeof raw.historicalPaidAmount !== "undefined" ? raw.historicalPaidAmount : 0;
     const historicalPaidAmount = Number(historicalPaidAmountRaw);
@@ -396,6 +397,7 @@ export async function POST(request: Request) {
           sourceCategoryId,
           sourceCategoryName,
           sourceExpenseName,
+          isDirectDebit,
           budgetPlanId,
         },
       });

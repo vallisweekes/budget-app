@@ -184,6 +184,28 @@ export const debtStyles = StyleSheet.create({
   tipBorder: { borderTopWidth: 1, borderTopColor: T.border, marginTop: 6 },
   tipTitle: { color: T.text, fontSize: 13, fontWeight: "900" },
   tipDetail: { color: T.textDim, fontSize: 12, marginTop: 2, fontWeight: "600" },
+  liabilitiesSection: {
+    marginTop: 8,
+  },
+  liabilitiesHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 14,
+    paddingTop: 20,
+    paddingBottom: 10,
+  },
+  liabilitiesHeading: {
+    color: "#14b8a6",
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.8,
+  },
+  liabilitiesSubheading: {
+    color: T.textMuted,
+    fontSize: 12,
+    fontWeight: "600",
+  },
   listHeader: {
     flexDirection: "row",
     alignItems: "center",

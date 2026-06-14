@@ -1,10 +1,13 @@
 import type { DebtItem } from "@/types/helpers/debts";
-import { processMissedDebtPaymentsToAccrue } from "@/lib/debts/carryover";
+import { processMissedDebtPaymentsToAccrue, processDirectDebitAutoPayments } from "@/lib/debts/carryover";
 import { getAllDebts } from "@/lib/debts/store";
 import { getExpenseDebts, processOverdueExpensesToDebts } from "@/lib/expenses/carryover";
 import { syncDueDirectDebitExpenses } from "@/lib/expenses/directDebit";
 import { isExpenseDebtCoveredByRegularDebt } from "@/lib/helpers/debts/expenseDebtDuplicates";
 import { prisma } from "@/lib/prisma";
+
+/** Debt types treated as long-term secured liabilities (mortgage, hire purchase). */
+export const LIABILITY_DEBT_TYPES = new Set(["mortgage", "hire_purchase"]);
 
 export type DebtSummary = {
 	regularDebts: DebtItem[];
@@ -15,6 +18,9 @@ export type DebtSummary = {
 	activeExpenseDebts: DebtItem[];
 	creditCards: DebtItem[];
 	totalDebtBalance: number;
+	/** Long-term secured obligations separated from actionable payoff debts. */
+	liabilities: DebtItem[];
+	totalLiabilityBalance: number;
 };
 
 export async function getDebtSummaryForPlan(
@@ -43,6 +49,9 @@ export async function getDebtSummaryForPlan(
 		}
 
 		await Promise.all([
+			processDirectDebitAutoPayments(budgetPlanId).catch((error) => {
+				console.error("Debt summary: direct debit auto-payment failed", error);
+			}),
 			processMissedDebtPaymentsToAccrue(budgetPlanId).catch((error) => {
 				console.error("Debt summary: missed debt payment sync failed", error);
 			})
@@ -54,7 +63,13 @@ export async function getDebtSummaryForPlan(
 		includeExpenseDebts ? getExpenseDebts(budgetPlanId) : Promise.resolve([]),
 	]);
 
-	const regularDebtsBase = allDebtsRaw.filter((d) => d.sourceType !== "expense");
+	// Separate long-term liabilities (mortgage, hire_purchase) from actionable debts.
+	const regularDebtsBase = allDebtsRaw.filter(
+		(d) => d.sourceType !== "expense" && !LIABILITY_DEBT_TYPES.has(d.type),
+	);
+	const liabilitiesBase = allDebtsRaw.filter(
+		(d) => d.sourceType !== "expense" && LIABILITY_DEBT_TYPES.has(d.type),
+	);
 	const regularDebts: DebtItem[] = recomputePaidAmounts
 		? await (async () => {
 			const regularDebtIds = regularDebtsBase.map((d) => d.id);
@@ -77,6 +92,28 @@ export async function getDebtSummaryForPlan(
 			});
 		})()
 		: regularDebtsBase;
+
+	const liabilitiesBase2: DebtItem[] = recomputePaidAmounts
+		? await (async () => {
+			const liabilityIds = liabilitiesBase.map((d) => d.id);
+			const paidAggRows = liabilityIds.length
+				? await prisma.debtPayment.groupBy({
+						by: ["debtId"],
+						where: { debtId: { in: liabilityIds } },
+						_sum: { amount: true },
+				  })
+				: [];
+			const paidAllTimeByDebtId = new Map(
+				paidAggRows.map((row) => [row.debtId, Number(row._sum.amount ?? 0)])
+			);
+			return liabilitiesBase.map((d) => {
+				const computedPaid = paidAllTimeByDebtId.get(d.id);
+				return computedPaid == null || !Number.isFinite(computedPaid)
+					? d
+					: { ...d, paidAmount: computedPaid };
+			});
+		})()
+		: liabilitiesBase;
 
 	const regularCardDebtIds = regularDebts
 		.filter((debt) => debt.type === "credit_card" || debt.type === "store_card")
@@ -137,6 +174,9 @@ export async function getDebtSummaryForPlan(
 	const creditCards = visibleRegularDebts.filter((d) => d.type === "credit_card" || d.type === "store_card");
 	const totalDebtBalance = allDebts.reduce((sum, debt) => sum + (debt.currentBalance || 0), 0);
 
+	const liabilities = liabilitiesBase2;
+	const totalLiabilityBalance = liabilities.reduce((sum, d) => sum + (d.currentBalance || 0), 0);
+
 	return {
 		regularDebts: visibleRegularDebts,
 		expenseDebts: visibleExpenseDebts,
@@ -146,5 +186,7 @@ export async function getDebtSummaryForPlan(
 		activeExpenseDebts,
 		creditCards,
 		totalDebtBalance,
+		liabilities,
+		totalLiabilityBalance,
 	};
 }

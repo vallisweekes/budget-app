@@ -216,6 +216,7 @@ export interface Debt {
   dueDay: number | null;
   defaultPaymentSource?: "income" | "extra_funds" | "credit_card";
   defaultPaymentCardDebtId?: string | null;
+  isDirectDebit?: boolean;
   sourceType: string | null;
   sourceExpenseName: string | null;
   isMissedPayment?: boolean;
@@ -266,6 +267,7 @@ export interface DebtSummaryItem {
   paidThisMonth?: number;
   isPaymentMonthPaid?: boolean;
   isActive: boolean;
+  isDirectDebit?: boolean;
 }
 
 export interface DebtTip {
@@ -277,6 +279,10 @@ export interface DebtTip {
 
 export interface DebtSummaryData {
   debts: DebtSummaryItem[];
+  /** Long-term secured obligations (mortgage, hire purchase) — separate from actionable debts. */
+  liabilities: DebtSummaryItem[];
+  liabilityCount: number;
+  totalLiabilityBalance: number;
   activeCount: number;
   paidCount: number;
   totalDebtBalance: number;
@@ -663,6 +669,9 @@ export interface DebtSummaryItem {
 /** Full debt summary from /api/bff/debt-summary */
 export interface DebtSummaryResponse {
   debts: DebtSummaryItem[];
+  liabilities: DebtSummaryItem[];
+  liabilityCount: number;
+  totalLiabilityBalance: number;
   activeCount: number;
   paidCount: number;
   totalDebtBalance: number;

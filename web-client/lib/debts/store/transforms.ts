@@ -43,6 +43,7 @@ type DebtRowLike = {
 	sourceCategoryId: string | null;
 	sourceCategoryName: string | null;
 	sourceExpenseName: string | null;
+	isDirectDebit?: boolean | null;
 };
 
 export function serializeDebt(row: DebtRowLike): DebtItem {
@@ -80,6 +81,7 @@ export function serializeDebt(row: DebtRowLike): DebtItem {
 		sourceCategoryId: row.sourceCategoryId ?? undefined,
 		sourceCategoryName: row.sourceCategoryName ?? undefined,
 		sourceExpenseName: row.sourceExpenseName ?? undefined,
+		isDirectDebit: row.isDirectDebit === true,
 	};
 }
 

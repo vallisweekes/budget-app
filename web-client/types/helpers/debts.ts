@@ -26,6 +26,7 @@ export interface DebtItem {
 	sourceCategoryId?: string;
 	sourceCategoryName?: string;
 	sourceExpenseName?: string;
+	isDirectDebit?: boolean;
 }
 
 export interface DebtPayment {

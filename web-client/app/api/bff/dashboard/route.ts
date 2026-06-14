@@ -334,7 +334,9 @@ export async function GET(req: NextRequest) {
 				activeRegularDebts: [],
 				activeExpenseDebts: [],
 				creditCards: [],
+				liabilities: [],
 				totalDebtBalance: 0,
+				totalLiabilityBalance: 0,
 			} satisfies DebtSummary;
 
 			const buildLightweightDebtSummaryFallback = async (): Promise<DebtSummary> => {
@@ -360,7 +362,9 @@ export async function GET(req: NextRequest) {
 						activeRegularDebts,
 						activeExpenseDebts,
 						creditCards,
+						liabilities: [],
 						totalDebtBalance,
+						totalLiabilityBalance: 0,
 					};
 				} catch (error) {
 					console.error("Dashboard: lightweight debt fallback failed:", error);
@@ -480,7 +484,9 @@ export async function GET(req: NextRequest) {
 							activeRegularDebts: [],
 							activeExpenseDebts: [],
 							creditCards: [],
+							liabilities: [],
 							totalDebtBalance: 0,
+							totalLiabilityBalance: 0,
 						};
 
 						try {

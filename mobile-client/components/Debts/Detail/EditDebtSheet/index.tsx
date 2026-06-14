@@ -1,10 +1,10 @@
 import React from "react";
-import { Animated, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Animated, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import type { EditDebtSheetProps } from "@/types";
-import { TERM_PRESETS } from "@/lib/constants";
+import { TERM_PRESETS, TYPE_LABELS } from "@/lib/constants";
 import { T } from "@/lib/theme";
 import { useSwipeDownToClose } from "@/hooks";
 import MoneyInput from "@/components/Shared/MoneyInput";
@@ -15,9 +15,10 @@ import { styles } from "./styles";
 
 export default function EditDebtSheet(props: EditDebtSheetProps) {
   const {
-    visible, saving, currency, name, currentBalance, interestRate, monthlyPayment, plannedPaymentOverride, plannedPaymentOverridePeriodKey, plannedPaymentOverrideOptions, monthlyMinimum, dueDate, installment, paymentSource, paymentCardDebtId, paymentCards, showDatePicker,
+    visible, saving, currency, type, onChangeType, name, currentBalance, interestRate, monthlyPayment, plannedPaymentOverride, plannedPaymentOverridePeriodKey, plannedPaymentOverrideOptions, monthlyMinimum, dueDate, installment, paymentSource, paymentCardDebtId, paymentCards, showDatePicker,
     onClose, onSave, onChangeName, onChangeCurrentBalance, onChangeRate, onChangeMonthlyPayment, onChangeMin,
     onChangePlannedPaymentOverride, onChangePlannedPaymentOverrideTarget, onPickDate, onDateChange, onChangePaymentSource, onChangePaymentCardDebtId, onChangeInstallment, onSetShowDatePicker,
+    isDirectDebit, onChangeIsDirectDebit,
   } = props;
 
   const insets = useSafeAreaInsets();
@@ -26,10 +27,12 @@ export default function EditDebtSheet(props: EditDebtSheetProps) {
   const iosDueDateBeforeRef = React.useRef<string>("");
   const [iosDueDateDraft, setIosDueDateDraft] = React.useState<Date>(new Date());
   const [customInstallmentMode, setCustomInstallmentMode] = React.useState(false);
+  const [showTypeDropdown, setShowTypeDropdown] = React.useState(false);
   const [showSourceDropdown, setShowSourceDropdown] = React.useState(false);
   const [showOverridePeriodDropdown, setShowOverridePeriodDropdown] = React.useState(false);
 
   const closeDropdowns = React.useCallback(() => {
+    setShowTypeDropdown(false);
     setShowSourceDropdown(false);
     setShowOverridePeriodDropdown(false);
   }, []);
@@ -92,7 +95,7 @@ export default function EditDebtSheet(props: EditDebtSheetProps) {
             contentContainerStyle={styles.sheetScrollContent}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
-            scrollEnabled={!showSourceDropdown && !showOverridePeriodDropdown}
+            scrollEnabled={!showTypeDropdown && !showSourceDropdown && !showOverridePeriodDropdown}
             nestedScrollEnabled
           >
             <View style={styles.sectionCard}>
@@ -101,6 +104,51 @@ export default function EditDebtSheet(props: EditDebtSheetProps) {
               <View style={styles.formGroup}>
                 <Text style={styles.inputLabel}>Name</Text>
                 <TextInput style={styles.input} value={name} onChangeText={onChangeName} placeholderTextColor={T.textMuted} />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.inputLabel}>Type</Text>
+                <View style={[styles.dropdownAnchor, showTypeDropdown && styles.dropdownAnchorActive]}>
+                  <Pressable
+                    style={styles.input}
+                    onPress={() => {
+                      setShowOverridePeriodDropdown(false);
+                      setShowSourceDropdown(false);
+                      setShowTypeDropdown((v) => !v);
+                    }}
+                  >
+                    <View style={styles.dropdownValueRow}>
+                      <Text style={styles.dateValue}>{TYPE_LABELS[type] ?? type}</Text>
+                      <Text style={styles.dropdownChevron}>{showTypeDropdown ? "▲" : "▼"}</Text>
+                    </View>
+                  </Pressable>
+
+                  {showTypeDropdown ? (
+                    <ScrollView
+                      style={styles.dropdownMenu}
+                      nestedScrollEnabled
+                      keyboardShouldPersistTaps="handled"
+                      showsVerticalScrollIndicator={false}
+                    >
+                      {Object.entries(TYPE_LABELS).map(([key, label], idx, arr) => {
+                        const active = type === key;
+                        const isLast = idx === arr.length - 1;
+                        return (
+                          <Pressable
+                            key={key}
+                            onPress={() => {
+                              onChangeType(key);
+                              setShowTypeDropdown(false);
+                            }}
+                            style={[styles.dropdownItem, isLast && styles.dropdownItemLast, active && styles.dropdownItemActive]}
+                          >
+                            <Text style={[styles.dropdownItemText, active && styles.dropdownItemTextActive]}>{label}</Text>
+                          </Pressable>
+                        );
+                      })}
+                    </ScrollView>
+                  ) : null}
+                </View>
               </View>
 
               <View style={styles.formGroup}>
@@ -356,6 +404,23 @@ export default function EditDebtSheet(props: EditDebtSheetProps) {
                 )}
               </View>
             ) : null}
+
+            <View style={styles.sectionCard}>
+              <Text style={styles.sectionEyebrow}>Options</Text>
+              <View style={styles.toggleRow}>
+                <View style={styles.toggleInfo}>
+                  <Text style={styles.toggleTitle}>Direct Debit / Standing Order</Text>
+                  <Text style={styles.toggleSub}>Automatically collected each month</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => onChangeIsDirectDebit(!isDirectDebit)}
+                  style={[styles.toggleControl, isDirectDebit && styles.toggleControlOn]}
+                  activeOpacity={0.8}
+                >
+                  <View style={[styles.toggleThumb, isDirectDebit && styles.toggleThumbOn]} />
+                </TouchableOpacity>
+              </View>
+            </View>
 
             <View style={styles.sectionCard}>
               <Text style={styles.sectionEyebrow}>Term</Text>

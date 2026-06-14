@@ -92,7 +92,7 @@ export async function GET(req: NextRequest) {
 			}
 		})();
 
-		const debtIds = summary.allDebts.map((d) => d.id);
+		const debtIds = [...summary.allDebts, ...summary.liabilities].map((d) => d.id);
 		const now = new Date();
 
 		// Resolve pay period so "paid this period" matches the user's pay schedule.
@@ -324,6 +324,7 @@ export async function GET(req: NextRequest) {
 			paidThisMonth,
 			isPaymentMonthPaid,
 			isActive: (computedCurrentBalance ?? 0) > 0,
+			isDirectDebit: (d as any).isDirectDebit === true,
 			};
 		});
 
@@ -359,6 +360,52 @@ export async function GET(req: NextRequest) {
 			debts: debtsWithPayments,
 			totalMonthlyDebtPayments,
 			maxMonthsCap: 360,
+		});
+
+		// Build liability items — same shape as debtsWithPayments but sourced from summary.liabilities
+		const liabilitiesWithPayments = summary.liabilities.map((d) => {
+			const logo = resolveExpenseLogo(String(d.name ?? "").trim());
+			const computedMonthlyPayment = getDebtMonthlyPayment(d);
+			const paidThisMonth = paidThisMonthByDebtId.get(d.id) ?? 0;
+			const overrideAmount = currentPeriodOverrides.get(d.id);
+			const paidAmount = paidAllTimeByDebtId.get(d.id) ?? d.paidAmount;
+			const dueThisMonth = Math.min(
+				Math.max(0, Number(d.currentBalance ?? 0)),
+				Math.max(0, typeof overrideAmount === "number" ? overrideAmount : computedMonthlyPayment),
+			);
+			const isPaymentMonthPaid = dueThisMonth > 0 && paidThisMonth >= dueThisMonth;
+			return {
+				id: d.id,
+				name: d.name,
+				type: d.type,
+				merchantDomain: logo.merchantDomain,
+				logoUrl: logo.logoUrl,
+				logoSource: logo.logoSource,
+				displayTitle: d.name,
+				displaySubtitle: TYPE_LABELS[d.type] ?? d.type,
+				currentBalance: d.currentBalance,
+				initialBalance: d.initialBalance ?? d.currentBalance,
+				paidAmount,
+				monthlyMinimum: d.monthlyMinimum ?? null,
+				interestRate: d.interestRate ?? null,
+				installmentMonths: d.installmentMonths ?? null,
+				amount: d.amount ?? 0,
+				paid: d.paid,
+				creditLimit: d.creditLimit ?? null,
+				dueDay: d.dueDay ?? null,
+				sourceType: null,
+				isCarriedOverDebt: false,
+				sourceMonthKey: null,
+				sourceCategoryName: null,
+				sourceExpenseName: null,
+				lastPaidAt: lastPaidAtByDebtId.get(d.id) ?? null,
+				computedMonthlyPayment,
+				dueThisMonth,
+				paidThisMonth,
+				isPaymentMonthPaid,
+				isActive: (d.currentBalance ?? 0) > 0,
+				isDirectDebit: (d as any).isDirectDebit === true,
+			};
 		});
 
 		// Compute tips
@@ -402,6 +449,9 @@ export async function GET(req: NextRequest) {
 
 		const responseBody = {
 			debts: debtsWithPayments,
+			liabilities: liabilitiesWithPayments,
+			liabilityCount: summary.liabilities.length,
+			totalLiabilityBalance: summary.totalLiabilityBalance,
 			activeCount: summary.activeDebts.length,
 			paidCount: summary.allDebts.length - summary.activeDebts.length,
 			totalDebtBalance: summary.totalDebtBalance,

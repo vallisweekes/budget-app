@@ -57,6 +57,7 @@ export function useDebtScreenController() {
   const [addDueDateDraft, setAddDueDateDraft] = useState<Date>(new Date());
   const [addPaymentSource, setAddPaymentSource] = useState<"income" | "extra_funds" | "credit_card">("income");
   const [addPaymentCardDebtId, setAddPaymentCardDebtId] = useState("");
+  const [addIsDirectDebit, setAddIsDirectDebit] = useState(false);
   const [saving, setSaving] = useState(false);
   const [filter, setFilter] = useState<"active" | "paid_off">("active");
   const [chartWidth, setChartWidth] = useState(320);
@@ -236,7 +237,11 @@ export function useDebtScreenController() {
       const bTime = b.lastPaidAt ? new Date(b.lastPaidAt).getTime() : 0;
       return bTime - aTime;
     });
-  const hasPaidOffDebts = paidDebts.length > 0;
+  const allLiabilities = summary?.liabilities ?? [];
+  const activeLiabilities = allLiabilities.filter((l) => !l.paid && l.currentBalance > 0);
+  const paidLiabilities = allLiabilities.filter((l) => l.paid || l.currentBalance <= 0);
+  const activeLiabilityBalance = activeLiabilities.reduce((sum, l) => sum + l.currentBalance, 0);
+  const hasPaidOffDebts = paidDebts.length > 0 || paidLiabilities.length > 0;
 
   useEffect(() => {
     if (filter === "paid_off" && !hasPaidOffDebts) {
@@ -342,6 +347,8 @@ export function useDebtScreenController() {
 
   return {
     activeDebts,
+    liabilities: filter === "paid_off" ? paidLiabilities : activeLiabilities,
+    totalLiabilityBalance: filter === "paid_off" ? paidLiabilities.reduce((sum, l) => sum + l.currentBalance, 0) : activeLiabilityBalance,
     addBalance,
     addCreditLimit,
     addDebtDragY,

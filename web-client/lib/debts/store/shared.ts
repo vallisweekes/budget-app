@@ -34,6 +34,7 @@ export const DEBT_HAS_DUE_DATE = prismaDebtHasField("dueDate");
 export const DEBT_HAS_LOGO_URL = prismaDebtHasField("logoUrl");
 export const DEBT_HAS_DEFAULT_PAYMENT_SOURCE = prismaDebtHasField("defaultPaymentSource");
 export const DEBT_HAS_DEFAULT_PAYMENT_CARD_DEBT_ID = prismaDebtHasField("defaultPaymentCardDebtId");
+export const DEBT_HAS_IS_DIRECT_DEBIT = prismaDebtHasField("isDirectDebit");
 export const DEBT_PAYMENT_HAS_CARD_DEBT_ID = prismaDebtPaymentHasField("cardDebtId");
 
 export function debtSelect(): Prisma.DebtSelect {
@@ -62,6 +63,7 @@ export function debtSelect(): Prisma.DebtSelect {
 		sourceCategoryId: true,
 		sourceCategoryName: true,
 		sourceExpenseName: true,
+		...(DEBT_HAS_IS_DIRECT_DEBIT ? { isDirectDebit: true } : {}),
 	} as Prisma.DebtSelect;
 }
 

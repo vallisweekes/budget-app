@@ -13,6 +13,7 @@ function prismaDebtHasField(fieldName: string): boolean {
 const DEBT_HAS_LAST_ACCRUAL_MONTH = prismaDebtHasField("lastAccrualMonth");
 const DEBT_HAS_DUE_DATE = prismaDebtHasField("dueDate");
 const DEBT_HAS_DUE_DAY = prismaDebtHasField("dueDay");
+const DEBT_HAS_IS_DIRECT_DEBIT = prismaDebtHasField("isDirectDebit");
 
 function addMonthsUTC(date: Date, deltaMonths: number): Date {
 	const y = date.getUTCFullYear();
@@ -306,3 +307,150 @@ export async function processMissedDebtPaymentsToAccrue(budgetPlanId: string, no
 		})
 	);
 }
+
+/**
+ * Direct debit auto-payment:
+ * For any debt with `isDirectDebit = true` and a `dueDate` on or before `now`,
+ * automatically record a payment for the computed monthly due amount if no payment
+ * has already been recorded in the current cycle (between the previous due date
+ * and the current due date).
+ *
+ * After recording the payment the dueDate is rolled forward by one month,
+ * exactly as the missed-payment accrual does.
+ *
+ * This runs BEFORE `processMissedDebtPaymentsToAccrue` so the auto-payment
+ * satisfies the cycle and prevents the missed-payment accrual from also firing.
+ */
+export async function processDirectDebitAutoPayments(budgetPlanId: string, now: Date = new Date()) {
+	if (!DEBT_HAS_IS_DIRECT_DEBIT || !DEBT_HAS_DUE_DATE) return;
+
+	const nowTs = now.getTime();
+
+	const debts: any[] = await (prisma.debt as any).findMany({
+		where: {
+			budgetPlanId,
+			isDirectDebit: true,
+			dueDate: { not: null, lte: now },
+			currentBalance: { gt: 0 },
+			paid: false,
+			OR: [{ sourceType: null }, { sourceType: { not: "expense" } }],
+		},
+		select: {
+			id: true,
+			amount: true,
+			monthlyMinimum: true,
+			installmentMonths: true,
+			initialBalance: true,
+			currentBalance: true,
+			dueDate: true,
+			defaultPaymentSource: true,
+		},
+	});
+
+	if (debts.length === 0) return;
+
+	// For each candidate, check whether a payment already exists this cycle.
+	const toProcess: Array<{
+		id: string;
+		dueAmount: number;
+		dueDate: Date;
+		prevDue: Date;
+		nextDue: Date;
+		defaultPaymentSource: string;
+	}> = [];
+
+	for (const d of debts) {
+		const due = new Date(d.dueDate);
+		if (!Number.isFinite(due.getTime())) continue;
+		const dueAmount = computeMonthlyDueAmount(d);
+		if (!(dueAmount > 0)) continue;
+		const prevDue = addMonthsUTC(due, -1);
+		const nextDue = addMonthsUTC(due, 1);
+		toProcess.push({
+			id: d.id,
+			dueAmount,
+			dueDate: due,
+			prevDue,
+			nextDue,
+			defaultPaymentSource: String(d.defaultPaymentSource ?? "income"),
+		});
+	}
+
+	if (toProcess.length === 0) return;
+
+	// Fetch existing payments in the cycle window for all candidates.
+	const minPrevDue = new Date(Math.min(...toProcess.map((d) => d.prevDue.getTime())));
+	const existingPayments = await prisma.debtPayment.findMany({
+		where: {
+			debtId: { in: toProcess.map((d) => d.id) },
+			paidAt: { gt: minPrevDue, lte: now },
+		},
+		select: { debtId: true, paidAt: true },
+	});
+
+	const alreadyPaidIds = new Set<string>();
+	for (const p of existingPayments) {
+		const paidAt = new Date(p.paidAt).getTime();
+		const candidate = toProcess.find((d) => d.id === p.debtId);
+		if (!candidate) continue;
+		const prevDueTs = candidate.prevDue.getTime();
+		const dueDateTs = candidate.dueDate.getTime();
+		if (paidAt > prevDueTs && paidAt <= dueDateTs + 24 * 60 * 60 * 1000) {
+			alreadyPaidIds.add(p.debtId);
+		}
+	}
+
+	const pending = toProcess.filter((d) => !alreadyPaidIds.has(d.id));
+	if (pending.length === 0) return;
+
+	await prisma.$transaction(async (tx) => {
+		for (const d of pending) {
+			const paymentAmount = Math.min(d.dueAmount, decimalToNumber(
+				await tx.debt.findUnique({ where: { id: d.id }, select: { currentBalance: true } })
+					.then((r) => r?.currentBalance ?? 0)
+			));
+			if (!(paymentAmount > 0)) continue;
+
+			const source = d.defaultPaymentSource === "extra_funds" ? "extra_funds"
+				: d.defaultPaymentSource === "credit_card" ? "credit_card"
+				: "income";
+
+			const nowYear = now.getUTCFullYear();
+			const nowMonth = now.getUTCMonth() + 1;
+			const periodKey = `${nowYear}-${String(nowMonth).padStart(2, "0")}`;
+
+			await tx.debtPayment.create({
+				data: {
+					debtId: d.id,
+					amount: paymentAmount,
+					paidAt: now,
+					year: nowYear,
+					month: nowMonth,
+					periodKey,
+					source,
+					notes: "Auto-recorded (direct debit)",
+				},
+			});
+
+			const newBalance = Math.max(0, decimalToNumber(
+				await tx.debt.findUnique({ where: { id: d.id }, select: { currentBalance: true } })
+					.then((r) => r?.currentBalance ?? 0)
+			) - paymentAmount);
+			const nextPaidAmount = decimalToNumber(
+				await tx.debt.findUnique({ where: { id: d.id }, select: { paidAmount: true } })
+					.then((r) => r?.paidAmount ?? 0)
+			) + paymentAmount;
+
+			await (tx.debt as any).update({
+				where: { id: d.id },
+				data: {
+					currentBalance: newBalance,
+					paidAmount: nextPaidAmount,
+					paid: newBalance <= 0,
+					dueDate: d.nextDue,
+				},
+			});
+		}
+	});
+}
+

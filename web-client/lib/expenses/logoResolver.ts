@@ -92,6 +92,7 @@ const KNOWN_DOMAINS: Array<{ pattern: RegExp; domain: string }> = [
   { pattern: /\bthames\s*water\b/i,                   domain: "thameswater.co.uk" },
   // ── Finance & banking ─────────────────────────────────────────────
   { pattern: /\bplane\s*saver\b/i,                      domain: "planesavercu.co.uk" },
+  { pattern: /\bpepper\s*(finance|money|mortgage)?\b/i, domain: "pepper.money" },
   // Novuna (formerly hit as "Novouma" typo)
   { pattern: /\bnovuna\s*personal\s*finance\b|\bpersonal\s*finance\b.*\bnovuna\b/i, domain: "novunapersonalfinance.co.uk" },
   { pattern: /\bnovouma\b/i,                          domain: "novunapersonalfinance.co.uk" },

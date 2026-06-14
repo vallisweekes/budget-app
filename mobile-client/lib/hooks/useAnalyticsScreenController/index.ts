@@ -51,6 +51,9 @@ function buildDashboardDebtSummary(dashboard: NonNullable<ReturnType<typeof useB
 
   return {
     debts,
+    liabilities: [],
+    liabilityCount: 0,
+    totalLiabilityBalance: 0,
     activeCount,
     paidCount: Math.max(0, debts.length - activeCount),
     totalDebtBalance: dashboard.totalDebtBalance,

@@ -321,13 +321,13 @@ export default function DebtDetailScreen() {
               style={[s.bottomActionBtn, s.bottomPrimaryActionBtn]}
               onPress={() => state.setPaySheetOpen(true)}
             >
-              <BlurView intensity={34} tint="dark" style={[s.bottomActionGlass, s.bottomActionGlassPayment]}>
-                <View style={[s.bottomActionTint, s.bottomActionTintPayment]} pointerEvents="none" />
-                <View style={[s.bottomActionGlow, s.bottomActionGlowPayment]} pointerEvents="none" />
-                <View style={[s.bottomActionInnerBorder, s.bottomActionInnerBorderPayment]} pointerEvents="none" />
+              <BlurView intensity={34} tint="light" style={s.bottomActionGlass}>
+                <View style={[s.bottomActionTint, s.bottomActionTintEdit]} pointerEvents="none" />
+                <View style={[s.bottomActionGlow, s.bottomActionGlowEdit]} pointerEvents="none" />
+                <View style={s.bottomActionInnerBorder} pointerEvents="none" />
                 <View style={s.bottomActionContent}>
-                  <Ionicons name="wallet-outline" size={18} color={T.text} />
-                  <Text style={[s.bottomActionTxt, s.bottomActionTxtPrimary]}>Record payment</Text>
+                  <Ionicons name="wallet-outline" size={18} color="#162033" />
+                  <Text style={s.bottomActionTxt}>Record payment</Text>
                 </View>
               </BlurView>
             </Pressable>
@@ -375,6 +375,8 @@ export default function DebtDetailScreen() {
         visible={state.editing}
         saving={state.editSaving}
         currency={state.settings?.currency}
+        type={state.editType}
+        onChangeType={state.setEditType}
         name={state.editName}
         currentBalance={state.editCurrentBalance}
         interestRate={state.editRate}
@@ -404,6 +406,8 @@ export default function DebtDetailScreen() {
         onChangePaymentCardDebtId={state.setEditPaymentCardDebtId}
         onChangeInstallment={state.handleEditInstallmentChange}
         onSetShowDatePicker={state.setShowDatePicker}
+        isDirectDebit={state.editIsDirectDebit}
+        onChangeIsDirectDebit={state.setEditIsDirectDebit}
       />
 
       <DeleteConfirmSheet

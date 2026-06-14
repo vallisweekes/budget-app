@@ -52,6 +52,8 @@ export type EditDebtSheetProps = {
   visible: boolean;
   saving: boolean;
   currency?: string | null;
+  type: string;
+  onChangeType: (v: string) => void;
   name: string;
   currentBalance: string;
   interestRate: string;
@@ -81,6 +83,8 @@ export type EditDebtSheetProps = {
   onChangePaymentCardDebtId: (v: string) => void;
   onChangeInstallment: (v: string) => void;
   onSetShowDatePicker: (v: boolean) => void;
+  isDirectDebit: boolean;
+  onChangeIsDirectDebit: (v: boolean) => void;
 };
 
 export type DebtStatsGridProps = {

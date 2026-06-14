@@ -16,6 +16,7 @@ import { T } from "@/lib/theme";
 import AddDebtSheet from "@/components/DebtScreen/AddDebtSheet";
 import DebtCard from "@/components/DebtScreen/DebtCard";
 import DebtProjectionCard from "@/components/DebtScreen/DebtProjectionCard";
+import LiabilityCard from "@/components/Debts/LiabilityCard";
 import { debtStyles as styles } from "@/components/DebtScreen/style";
 
 export default function DebtScreen() {
@@ -124,22 +125,47 @@ export default function DebtScreen() {
           </View>
         }
         ListFooterComponent={
-          (controller.summary?.tips ?? []).length > 0 ? (
-            <View style={styles.tipsCard}>
-              <View style={styles.tipsHeader}>
-                <Ionicons name="bulb-outline" size={15} color={T.orange} />
-                <Text style={styles.tipsHeading}>{t("debts.tipsHeading")}</Text>
-              </View>
-              {controller.summary?.tips.map((tip, index) => (
-                <View key={`${tip.title}-${index}`} style={[styles.tipRow, index > 0 && styles.tipBorder]}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.tipTitle}>{tip.title}</Text>
-                    <Text style={styles.tipDetail}>{tip.detail}</Text>
-                  </View>
+          <>
+            {controller.liabilities.length > 0 ? (
+              <View style={styles.liabilitiesSection}>
+                <View style={styles.liabilitiesHeader}>
+                  <Text style={styles.liabilitiesHeading}>
+                    {controller.filter === "paid_off" ? "PAID OFF LIABILITIES" : "LIABILITIES"}
+                  </Text>
+                  <Text style={styles.liabilitiesSubheading}>
+                    {controller.filter === "paid_off"
+                      ? `${controller.liabilities.length} paid off`
+                      : `${fmt(controller.totalLiabilityBalance, controller.currency)} outstanding`}
+                  </Text>
                 </View>
-              ))}
-            </View>
-          ) : null
+                {controller.liabilities.map((item) => (
+                  <LiabilityCard
+                    key={item.id}
+                    item={item}
+                    currency={controller.currency}
+                    onPress={controller.onPressDebt}
+                  />
+                ))}
+              </View>
+            ) : null}
+
+            {(controller.summary?.tips ?? []).length > 0 ? (
+              <View style={styles.tipsCard}>
+                <View style={styles.tipsHeader}>
+                  <Ionicons name="bulb-outline" size={15} color={T.orange} />
+                  <Text style={styles.tipsHeading}>{t("debts.tipsHeading")}</Text>
+                </View>
+                {controller.summary?.tips.map((tip, index) => (
+                  <View key={`${tip.title}-${index}`} style={[styles.tipRow, index > 0 && styles.tipBorder]}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.tipTitle}>{tip.title}</Text>
+                      <Text style={styles.tipDetail}>{tip.detail}</Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+          </>
         }
       />
 

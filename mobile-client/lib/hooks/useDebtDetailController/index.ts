@@ -74,8 +74,10 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
   const [editMin, setEditMin] = useState("");
   const [editInstallment, setEditInstallment] = useState("");
   const [editDueDate, setEditDueDate] = useState("");
+  const [editType, setEditType] = useState("loan");
   const [editPaymentSource, setEditPaymentSource] = useState<"income" | "extra_funds" | "credit_card">("income");
   const [editPaymentCardDebtId, setEditPaymentCardDebtId] = useState("");
+  const [editIsDirectDebit, setEditIsDirectDebit] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
   const [createDebtPaymentMutation] = useCreateDebtPaymentMutation();
@@ -173,8 +175,10 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
       setEditMin(detail.monthlyMinimum != null ? asTwoDecimals(detail.monthlyMinimum) : "");
       setEditInstallment(detail.installmentMonths != null ? String(detail.installmentMonths) : "");
       setEditDueDate(detail.dueDate ? String(detail.dueDate).slice(0, 10) : "");
+      setEditType(detail.type ?? "loan");
       setEditPaymentSource(detail.defaultPaymentSource ?? "income");
       setEditPaymentCardDebtId(detail.defaultPaymentCardDebtId ?? "");
+      setEditIsDirectDebit(Boolean(detail.isDirectDebit));
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load debt");
     } finally {
@@ -419,7 +423,7 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
 
     // For credit/store cards the monthly minimum IS the planned payment.
     // Keep amount in sync so the list card and detail page always agree.
-    const isCardType = debt.type === "credit_card" || debt.type === "store_card";
+    const isCardType = editType === "credit_card" || editType === "store_card";
     const installmentChanged = installmentMonths !== (debt.installmentMonths ?? null);
     const normalizedMonthlyPayment = !isCardType && installmentMonths != null
       ? (installmentChanged
@@ -471,6 +475,7 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
     const optimisticDebt: Debt = {
       ...debt,
       name,
+      type: editType,
       currentBalance: parsedCurrentBalance.toFixed(2),
       paid: parsedCurrentBalance <= 0,
       amount: effectiveAmount != null ? effectiveAmount.toFixed(2) : null,
@@ -497,6 +502,7 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
         id: debtId,
         changes: {
           name,
+          type: editType,
           currentBalance: Number(parsedCurrentBalance.toFixed(2)),
           amount: effectiveAmount != null ? Number(effectiveAmount.toFixed(2)) : null,
           monthlyMinimum: monthlyMinimum != null ? Number(monthlyMinimum.toFixed(2)) : null,
@@ -505,6 +511,7 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
           dueDate: editDueDate || null,
           defaultPaymentSource: editPaymentSource,
           defaultPaymentCardDebtId: editPaymentSource === "credit_card" ? editPaymentCardDebtId.trim() : null,
+          isDirectDebit: editIsDirectDebit,
           plannedPaymentOverrideAmount: plannedPaymentOverride,
           plannedPaymentOverridePeriodKey,
         },
@@ -517,7 +524,7 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
     } finally {
       setEditSaving(false);
     }
-  }, [computeInstallmentPayment, computeRemainingInstallmentMonths, debt, debtId, editCurrentBalance, editDueDate, editInstallment, editMin, editMonthlyPayment, editName, editPaymentCardDebtId, editPaymentSource, editPlannedPaymentOverride, editPlannedPaymentOverridePeriodKey, editRate, load]);
+  }, [computeInstallmentPayment, computeRemainingInstallmentMonths, debt, debtId, editCurrentBalance, editDueDate, editInstallment, editIsDirectDebit, editMin, editMonthlyPayment, editName, editPaymentCardDebtId, editPaymentSource, editPlannedPaymentOverride, editPlannedPaymentOverridePeriodKey, editRate, editType, load]);
 
   const confirmDeleteDebt = useCallback(async () => {
     if (deletingDebt) return;
@@ -776,10 +783,14 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
     handleEditInstallmentChange,
     editDueDate,
     setEditDueDate,
+    editType,
+    setEditType,
     editPaymentSource,
     setEditPaymentSource,
     editPaymentCardDebtId,
     setEditPaymentCardDebtId,
+    editIsDirectDebit,
+    setEditIsDirectDebit,
     availablePaymentCards,
     showDatePicker,
     setShowDatePicker,

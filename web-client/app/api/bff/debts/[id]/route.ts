@@ -571,6 +571,7 @@ export async function PATCH(
     if (typeof raw.currentBalance !== "undefined") data.currentBalance = raw.currentBalance;
     if (typeof raw.amount !== "undefined") data.amount = raw.amount;
     if (typeof raw.paid === "boolean") data.paid = raw.paid;
+    if (typeof raw.isDirectDebit === "boolean") data.isDirectDebit = raw.isDirectDebit;
     if (typeof raw.paidAmount !== "undefined") data.paidAmount = raw.paidAmount;
     const hasExplicitPaidAmount = typeof raw.paidAmount !== "undefined";
     const hasExplicitHistoricalPaid = typeof (raw as any).historicalPaidAmount !== "undefined";
