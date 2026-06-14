@@ -19,6 +19,7 @@ import type {
 import { clearCachedPayPeriodExpenses, getCachedPayPeriodExpenses, setCachedPayPeriodExpenses } from "@/lib/expensePeriodCache";
 import { currencySymbol } from "@/lib/formatting";
 import { consumeSkipExpensesFocusReload } from "@/lib/helpers/expensesFocusReload";
+import { registerSessionScopedResetter } from "@/lib/sessionScopedState";
 import { useTopHeaderOffset, useYearGuard } from "@/hooks";
 import { buildPayPeriodFromMonthAnchor, getPayPeriodAnchorFromWindow, normalizePayFrequency, resolveActivePayPeriod } from "@/lib/payPeriods";
 import type { ExpensesStackParamList } from "@/navigation/types";
@@ -33,6 +34,11 @@ let sharedExpensesMonthsCache: Record<string, ExpenseMonthsResponse["months"]> =
 let sharedPreferredPeriodByPlanCache: Record<string, { month: number; year: number }> = {};
 let sharedExpensesLoadedKey: string | null = null;
 let sharedExpensesCacheSignature: string | null = null;
+let sharedDidNormalizeInitialPeriod = false;
+
+registerSessionScopedResetter(() => {
+  sharedDidNormalizeInitialPeriod = false;
+});
 
 export function useExpensesScreenController({ navigation, route }: Props): ExpensesScreenControllerState {
   const topHeaderOffset = useTopHeaderOffset();
@@ -64,7 +70,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
   const skipNextTabFocusReloadRef = useRef(false);
   const skipNextChildFocusReloadRef = useRef(false);
   const lastHandledSkipFocusReloadAtRef = useRef<number | null>(null);
-  const didNormalizeInitialPeriodRef = useRef(false);
+  const didNormalizeInitialPeriodRef = useRef(sharedDidNormalizeInitialPeriod);
   const plansRef = useRef<BudgetPlanListItem[]>(sharedExpensesPlansCache);
   const preferredPeriodByPlanRef = useRef<Record<string, { month: number; year: number }>>(sharedPreferredPeriodByPlanCache);
   const summaryCacheRef = useRef<Record<string, Record<number, Record<number, ExpenseSummary>>>>(sharedExpensesSummaryCache);
@@ -299,6 +305,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     if (!selectedIsFuture && !preferredIsFuture) {
       if (activePlanId || plans.length > 0) {
         didNormalizeInitialPeriodRef.current = true;
+        sharedDidNormalizeInitialPeriod = true;
       }
       return;
     }
@@ -757,6 +764,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       }
 
       didNormalizeInitialPeriodRef.current = true;
+      sharedDidNormalizeInitialPeriod = true;
 
       seenMutationVersionRef.current = getApiMutationVersion();
       setLoadedKey(`${resolvedPlanId ?? "none"}:${targetYear}-${targetMonth}`);
