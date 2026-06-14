@@ -78,7 +78,8 @@ export function buildDashboardDerived(params: {
     dashboard?.totalDebtBalance
       ?? debts.reduce((sum, debt) => sum + Number(debt.currentBalance ?? 0), 0)
   );
-  const debtBalance = Number.isFinite(rawDebtBalance) ? Math.max(0, rawDebtBalance) : 0;
+  const rawLiabilityBalance = Number(dashboard?.totalLiabilityBalance ?? 0);
+  const debtBalance = Number.isFinite(rawDebtBalance) ? Math.max(0, rawDebtBalance + (Number.isFinite(rawLiabilityBalance) ? rawLiabilityBalance : 0)) : 0;
   const totalAssets = cashAsset + savingsAsset + emergencyAsset + investmentAsset;
   const totalLiabilities = debtBalance + Math.max(0, -incomeLeftRightNow);
   const netWorth = totalAssets - totalLiabilities;

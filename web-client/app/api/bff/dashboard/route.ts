@@ -719,6 +719,7 @@ export async function GET(req: NextRequest) {
 
 		const activeDebtCount = debts.length + additionalPlansActiveDebtCount;
 		const totalDebtBalance = Number(debtSummary.totalDebtBalance ?? 0) + additionalPlansDebtBalanceTotal;
+		const totalLiabilityBalance = Number(debtSummary.totalLiabilityBalance ?? 0);
 
 		const expenseInsights = {
 			...expenseInsightsBase,
@@ -985,6 +986,7 @@ export async function GET(req: NextRequest) {
 			})),
 			activeDebtCount,
 			totalDebtBalance,
+			totalLiabilityBalance,
 
 			// Expense insights
 			expenseInsights,
