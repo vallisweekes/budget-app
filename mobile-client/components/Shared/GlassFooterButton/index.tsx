@@ -23,7 +23,12 @@ export default function GlassFooterButton({
 
   return (
     <Pressable
-      style={({ pressed }) => [styles.button, pressed && styles.pressed, disabled && styles.disabled, containerStyle]}
+      style={({ pressed }) => [
+        styles.button,
+        pressed && styles.pressed,
+        disabled && !loading && styles.disabled,
+        containerStyle,
+      ]}
       onPress={onPress}
       disabled={disabled}
     >
