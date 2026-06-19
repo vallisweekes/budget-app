@@ -5,6 +5,7 @@ import { resolveUserPayPeriodContext } from "@/lib/api/payPeriodContext";
 import {
   confirmSacrificeTransfer,
   ensureLegacyCustomSacrificesHaveGoals,
+  isLegacyBackfilledSacrificeGoal,
   listSacrificeGoalLinks,
   listSacrificeTransferConfirmations,
   parseTargetKey,
@@ -61,7 +62,7 @@ export async function GET(request: NextRequest) {
       budgetPlanId,
       year,
       month,
-      goals,
+      goals: goals.filter((goal) => !isLegacyBackfilledSacrificeGoal(goal)),
       links,
       confirmations,
     });

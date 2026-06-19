@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUserId, resolveOwnedBudgetPlanId } from "@/lib/api/bffAuth";
 import { bestEffortWithin } from "@/lib/bestEffortWithin";
-import { ensureLegacyCustomSacrificesHaveGoals } from "@/lib/income-sacrifice/goalLinks";
+import { ensureLegacyCustomSacrificesHaveGoals, isLegacyBackfilledSacrificeGoal } from "@/lib/income-sacrifice/goalLinks";
 import { invalidateGoalConnectedState } from "@/lib/goals/invalidateGoalConnectedState";
 
 export const runtime = "nodejs";
@@ -35,7 +35,7 @@ export async function GET(request: Request) {
       orderBy: { createdAt: "desc" },
     });
 
-    return NextResponse.json(goals);
+    return NextResponse.json(goals.filter((goal) => !isLegacyBackfilledSacrificeGoal(goal)));
   } catch (error) {
     console.error("Failed to fetch goals:", error);
     return NextResponse.json(

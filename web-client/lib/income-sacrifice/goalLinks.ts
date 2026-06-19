@@ -14,6 +14,26 @@ function decimalToNumber(value: unknown): number {
   return Number((value as { toString?: () => string }).toString?.() ?? value);
 }
 
+const BACKFILLED_CUSTOM_SACRIFICE_GOAL_DESCRIPTION = "Backfilled from an older custom sacrifice. Update the target amount and year if needed.";
+const INVESTMENT_BUCKET_HINTS = [
+  "invest",
+  "stock",
+  "stocks",
+  "crypto",
+  "bitcoin",
+  "ethereum",
+  "etf",
+  "share",
+  "shares",
+  "commodity",
+  "commodities",
+  "commodit",
+  "portfolio",
+  "broker",
+  "brokerage",
+  "trading",
+] as const;
+
 export type SacrificeTargetKind = "fixed" | "custom";
 
 export type ParsedSacrificeTarget = {
@@ -45,8 +65,15 @@ type AllocationDefinitionDelegate = {
 };
 
 type GoalListDelegate = {
-  findMany?: (args: Record<string, unknown>) => Promise<Array<{ id: string; title: string }>>;
+  findMany?: (args: Record<string, unknown>) => Promise<Array<{
+    id: string;
+    title: string;
+    category?: string;
+    description?: string | null;
+    targetYear?: number | null;
+  }>>;
   create?: (args: Record<string, unknown>) => Promise<{ id: string }>;
+  deleteMany?: (args: Record<string, unknown>) => Promise<unknown>;
 };
 
 function normalizeGoalTitle(value: string): string {
@@ -62,11 +89,70 @@ function inferGoalCategory(title: string): "debt" | "emergency" | "savings" | "i
   return "other";
 }
 
+type LegacySacrificeGoalConfig = {
+  category: "debt" | "emergency" | "savings" | "investment" | "other";
+  shouldAutoLink: boolean;
+};
+
+export function shouldCanonicalizeInvestmentSacrificeGoal(title: string): boolean {
+  const normalized = normalizeGoalTitle(title);
+  if (!normalized) return false;
+  if (normalized === "investment" || normalized === "investments") return true;
+  return INVESTMENT_BUCKET_HINTS.some((hint) => normalized.includes(hint));
+}
+
+export function resolveLegacySacrificeGoalConfig(title: string): LegacySacrificeGoalConfig {
+  const trimmedTitle = String(title ?? "").trim() || "Custom sacrifice";
+
+  if (shouldCanonicalizeInvestmentSacrificeGoal(trimmedTitle)) {
+    return {
+      category: "investment",
+      shouldAutoLink: true,
+    };
+  }
+
+  return {
+    category: inferGoalCategory(trimmedTitle),
+    shouldAutoLink: false,
+  };
+}
+
+export function isLegacyBackfilledSacrificeGoal(goal: unknown): boolean {
+  if (!goal || typeof goal !== "object") return false;
+  const candidate = goal as {
+    description?: string | null;
+    targetYear?: number | null;
+  };
+
+  return candidate.description === BACKFILLED_CUSTOM_SACRIFICE_GOAL_DESCRIPTION
+    && (candidate.targetYear == null);
+}
+
+export function resolvePreferredInvestmentGoalId(goals: Array<{
+  id: string;
+  title: string;
+  category?: string;
+  description?: string | null;
+  targetYear?: number | null;
+}>): string | null {
+  const candidates = goals.filter((goal) => goal.category === "investment" && !isLegacyBackfilledSacrificeGoal(goal));
+  if (candidates.length === 0) return null;
+  if (candidates.length === 1) return candidates[0]!.id;
+
+  const withTargetYear = candidates.filter((goal) => typeof goal.targetYear === "number");
+  if (withTargetYear.length === 1) return withTargetYear[0]!.id;
+
+  const withInvestmentTitle = candidates.filter((goal) => shouldCanonicalizeInvestmentSacrificeGoal(goal.title));
+  if (withInvestmentTitle.length === 1) return withInvestmentTitle[0]!.id;
+
+  return null;
+}
+
 type SacrificeGoalLinkRow = {
   id: string;
   targetKey: string;
   goalId: string;
-  goal: { title: string; category: string } | null;
+  goal: { title: string; category: string; description?: string | null } | null;
 };
 
 type SacrificeGoalLinkLookupRow = { goalId: string };
@@ -86,8 +172,9 @@ export async function ensureLegacyCustomSacrificesHaveGoals(budgetPlanId: string
     const allocationDefinition = (prisma as unknown as { allocationDefinition?: AllocationDefinitionDelegate }).allocationDefinition;
     const linkDelegate = (prisma as unknown as { sacrificeGoalLink?: SacrificeGoalLinkDelegate }).sacrificeGoalLink;
     const goalDelegate = (prisma as unknown as { goal?: GoalListDelegate }).goal;
+    const transferDelegate = (prisma as unknown as { sacrificeTransferConfirmation?: SacrificeTransferDelegate }).sacrificeTransferConfirmation;
 
-    if (!allocationDefinition?.findMany || !linkDelegate?.findMany || !linkDelegate?.upsert || !goalDelegate?.findMany || !goalDelegate?.create) {
+    if (!allocationDefinition?.findMany || !linkDelegate?.findMany || !linkDelegate?.upsert || !goalDelegate?.findMany) {
       return false;
     }
 
@@ -103,51 +190,56 @@ export async function ensureLegacyCustomSacrificesHaveGoals(budgetPlanId: string
           id: true,
           targetKey: true,
           goalId: true,
-          goal: { select: { title: true, category: true } },
+          goal: { select: { title: true, category: true, description: true } },
         },
       }),
       goalDelegate.findMany({
         where: { budgetPlanId },
         orderBy: [{ createdAt: "desc" }],
-        select: { id: true, title: true },
+        select: { id: true, title: true, category: true, description: true, targetYear: true },
       }),
     ]);
 
-    const linkedTargetKeys = new Set(existingLinks.map((link) => String(link.targetKey).trim()));
-    const goalIdByTitle = new Map<string, string>();
+    const existingLinkByTargetKey = new Map(existingLinks.map((link) => [String(link.targetKey).trim(), link]));
+    const remainingLinkCountByGoalId = new Map<string, number>();
+    const obsoleteAutoLinkedGoalIds = new Set<string>();
+    const preferredInvestmentGoalId = resolvePreferredInvestmentGoalId(existingGoals);
 
-    for (const goal of existingGoals) {
-      const normalizedTitle = normalizeGoalTitle(goal.title);
-      if (!normalizedTitle || goalIdByTitle.has(normalizedTitle)) continue;
-      goalIdByTitle.set(normalizedTitle, goal.id);
+    for (const link of existingLinks) {
+      const goalId = String(link.goalId);
+      remainingLinkCountByGoalId.set(goalId, (remainingLinkCountByGoalId.get(goalId) ?? 0) + 1);
     }
 
     for (const allocation of allocations) {
       const targetKey = `custom:${allocation.id}`;
-      if (linkedTargetKeys.has(targetKey)) continue;
+      const existingLink = existingLinkByTargetKey.get(targetKey);
+      const goalConfig = resolveLegacySacrificeGoalConfig(String(allocation.name ?? ""));
 
-      const title = String(allocation.name ?? "").trim() || "Custom sacrifice";
-      const normalizedTitle = normalizeGoalTitle(title);
+      if (!goalConfig.shouldAutoLink || goalConfig.category !== "investment" || !preferredInvestmentGoalId) {
+        continue;
+      }
 
-      let goalId = goalIdByTitle.get(normalizedTitle);
-      if (!goalId) {
-        const createdGoal = await goalDelegate.create({
-          data: {
-            title,
-            type: "long_term",
-            category: inferGoalCategory(title),
-            description: "Backfilled from an older custom sacrifice. Update the target amount and year if needed.",
-            targetAmount: null,
-            currentAmount: 0,
-            targetYear: null,
-            budgetPlanId,
-          },
-          select: { id: true },
-        });
-        goalId = String(createdGoal.id);
-        if (normalizedTitle) {
-          goalIdByTitle.set(normalizedTitle, goalId);
+      const goalId = preferredInvestmentGoalId;
+
+      if (existingLink?.goalId && existingLink.goalId !== goalId) {
+        const previousGoalTitle = String(existingLink.goal?.title ?? "");
+        const previousGoalDescription = typeof existingLink.goal?.description === "string"
+          ? existingLink.goal.description
+          : null;
+
+        remainingLinkCountByGoalId.set(existingLink.goalId, Math.max(0, (remainingLinkCountByGoalId.get(existingLink.goalId) ?? 0) - 1));
+        remainingLinkCountByGoalId.set(goalId, (remainingLinkCountByGoalId.get(goalId) ?? 0) + 1);
+
+        if (
+          previousGoalDescription === BACKFILLED_CUSTOM_SACRIFICE_GOAL_DESCRIPTION
+          && shouldCanonicalizeInvestmentSacrificeGoal(previousGoalTitle)
+        ) {
+          obsoleteAutoLinkedGoalIds.add(existingLink.goalId);
         }
+      }
+
+      if (existingLink?.goalId === goalId) {
+        continue;
       }
 
       await linkDelegate.upsert({
@@ -164,6 +256,30 @@ export async function ensureLegacyCustomSacrificesHaveGoals(budgetPlanId: string
         },
         update: { goalId },
       });
+    }
+
+    if (obsoleteAutoLinkedGoalIds.size > 0 && goalDelegate.deleteMany) {
+      const candidateGoalIds = Array.from(obsoleteAutoLinkedGoalIds).filter((goalId) => (remainingLinkCountByGoalId.get(goalId) ?? 0) === 0);
+
+      if (candidateGoalIds.length > 0) {
+        const confirmedRows = transferDelegate?.findMany
+          ? await transferDelegate.findMany({
+            where: { budgetPlanId, goalId: { in: candidateGoalIds } },
+            select: { goalId: true },
+          })
+          : [];
+        const protectedGoalIds = new Set(confirmedRows.map((row) => String(row.goalId)));
+        const deletableGoalIds = candidateGoalIds.filter((goalId) => !protectedGoalIds.has(goalId));
+
+        if (deletableGoalIds.length > 0) {
+          await goalDelegate.deleteMany({
+            where: {
+              budgetPlanId,
+              id: { in: deletableGoalIds },
+            },
+          });
+        }
+      }
     }
 
     return true;

@@ -4,13 +4,13 @@ import { resolveUserPayPeriodContext } from "@/lib/api/payPeriodContext";
 import {
 	getMonthlyAllocationSnapshot,
 	getMonthlyCustomAllocationsSnapshot,
-	resolveActiveBudgetYear,
 	upsertMonthlyAllocation,
 	upsertMonthlyCustomAllocationOverrides,
 } from "@/lib/allocations/store";
 import {
 	ensureLegacyCustomSacrificesHaveGoals,
 	getPlannedAmountForTarget,
+	isLegacyBackfilledSacrificeGoal,
 	listSacrificeGoalLinks,
 	listSacrificeTransferConfirmations,
 } from "@/lib/income-sacrifice/goalLinks";
@@ -145,7 +145,7 @@ export async function GET(request: NextRequest) {
 			customItems: custom.items,
 			customTotal: toMoney(custom.total),
 			totalSacrifice: fixedTotal + toMoney(custom.total),
-			goals,
+			goals: goals.filter((goal) => !isLegacyBackfilledSacrificeGoal(goal)),
 			goalLinks,
 			confirmations,
 			tips,
