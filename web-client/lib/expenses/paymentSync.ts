@@ -4,6 +4,7 @@ enforceServerOnlyRuntime();
 
 import { isCreditLikeDebtType, isLoanLikeDebtType } from "@/lib/expenses/paymentSource";
 import { prisma } from "@/lib/prisma";
+import { normalizeCreditLikeCurrentBalance } from "@/lib/debts/cardBalanceSemantics";
 import { getSettings, saveSettings } from "@/lib/settings/store";
 import { getPaymentPeriodKey, resolvePayDate } from "@/lib/helpers/periodKey";
 
@@ -106,11 +107,33 @@ async function applyCreditCardCharge(params: {
 
   const card = await params.tx.debt.findFirst({
     where: { id: params.debtId, budgetPlanId: params.budgetPlanId, sourceType: null },
-    select: { id: true, currentBalance: true, initialBalance: true, paidAmount: true },
+    select: { id: true, type: true, currentBalance: true, initialBalance: true, paidAmount: true, creditLimit: true },
   });
   if (!card) return;
 
-  const current = decimalToNumber((card as unknown as { currentBalance?: unknown }).currentBalance);
+  const [expenseChargesAgg, debtChargesAgg, cardPaymentsAgg] = await Promise.all([
+    params.tx.expensePayment.aggregate({
+      where: { debtId: card.id },
+      _sum: { amount: true },
+    }),
+    params.tx.debtPayment.aggregate({
+      where: { cardDebtId: card.id },
+      _sum: { amount: true },
+    }),
+    params.tx.debtPayment.aggregate({
+      where: { debtId: card.id },
+      _sum: { amount: true },
+    }),
+  ]);
+
+  const current = normalizeCreditLikeCurrentBalance({
+    type: card.type,
+    currentBalance: (card as unknown as { currentBalance?: unknown }).currentBalance,
+    creditLimit: (card as unknown as { creditLimit?: unknown }).creditLimit,
+    trackedExpenseCharges: expenseChargesAgg._sum.amount,
+    trackedDebtCharges: debtChargesAgg._sum.amount,
+    trackedPayments: cardPaymentsAgg._sum.amount,
+  });
   const initial = decimalToNumber((card as unknown as { initialBalance?: unknown }).initialBalance);
   const paidAmount = decimalToNumber((card as unknown as { paidAmount?: unknown }).paidAmount);
 

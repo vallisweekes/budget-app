@@ -15,8 +15,6 @@ function toNumber(value: string | null | undefined): number {
 
 function resolveCardAvailableAmount(currentBalance: number, creditLimit: number): number {
   if (creditLimit <= 0) return 0;
-  if (currentBalance <= 0) return creditLimit;
-  if (currentBalance >= creditLimit) return creditLimit;
   return Math.max(creditLimit - currentBalance, 0);
 }
 

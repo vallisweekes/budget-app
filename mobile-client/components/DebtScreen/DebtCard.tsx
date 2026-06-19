@@ -22,10 +22,22 @@ export function DebtCard({
   const { t } = useAppTranslation();
   const [logoFailed, setLogoFailed] = useState(false);
   const accentColor = TYPE_COLORS[debt.type] ?? T.accent;
-  const progressPct =
-    debt.initialBalance > 0
-      ? Math.min(100, ((debt.initialBalance - debt.currentBalance) / debt.initialBalance) * 100)
-      : 100;
+  const isCardDebt = debt.type === "credit_card" || debt.type === "store_card";
+  const creditLimit = Math.max(0, Number(debt.creditLimit ?? 0));
+  const currentBalance = Math.max(0, Number(debt.currentBalance ?? 0));
+  const cardUtilizationPct = isCardDebt && creditLimit > 0
+    ? (currentBalance / creditLimit) * 100
+    : null;
+  const progressPct = isCardDebt
+    ? Math.min(100, Math.max(0, cardUtilizationPct ?? 0))
+    : (debt.initialBalance > 0
+        ? Math.min(100, ((debt.initialBalance - debt.currentBalance) / debt.initialBalance) * 100)
+        : 100);
+  const progressLabel = isCardDebt && creditLimit > 0
+    ? (currentBalance > creditLimit
+        ? t("debts.card.percentOverLimit", { percent: (((currentBalance - creditLimit) / creditLimit) * 100).toFixed(0) })
+        : t("debts.card.percentUsed", { percent: progressPct.toFixed(0) }))
+    : t("debts.card.percentPaid", { percent: progressPct.toFixed(0) });
   const isPaid = debt.paid || debt.currentBalance <= 0;
   const dueThisMonth = Math.max(0, debt.dueThisMonth ?? debt.computedMonthlyPayment ?? 0);
   const paidThisMonth = Math.max(0, debt.paidThisMonth ?? 0);
@@ -86,7 +98,7 @@ export function DebtCard({
             <View style={styles.progressBg}>
               <View style={[styles.progressFill, { width: `${progressPct}%` as `${number}%`, backgroundColor: accentColor }]} />
             </View>
-            <Text style={styles.progressPct}>{t("debts.card.percentPaid", { percent: progressPct.toFixed(0) })}</Text>
+            <Text style={styles.progressPct}>{progressLabel}</Text>
           </View>
         ) : null}
 

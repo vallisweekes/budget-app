@@ -10,6 +10,7 @@ import { isNonDebtCategoryName } from "@/lib/expenses/helpers";
 import { invalidateDashboardCache } from "@/lib/cache/dashboardCache";
 import { bestEffortWithin } from "@/lib/bestEffortWithin";
 import { resolveExpenseLogoWithSearch } from "@/lib/expenses/logoResolver";
+import { normalizeCreditLikeCurrentBalance } from "@/lib/debts/cardBalanceSemantics";
 
 export const runtime = "nodejs";
 
@@ -163,6 +164,8 @@ export async function GET(request: Request) {
     const debts = await prisma.debt.findMany({
       where: { budgetPlanId },
       include: {
+        expensePayments: { select: { amount: true } },
+        debtPaymentsAsCard: { select: { amount: true } },
         payments: {
           orderBy: { paidAt: "desc" },
         },
@@ -178,9 +181,20 @@ export async function GET(request: Request) {
           logoUrl?: string | null;
           logoSource?: string | null;
         };
+        const normalizedCurrentBalance = normalizeCreditLikeCurrentBalance({
+          type: debt.type,
+          currentBalance: debt.currentBalance,
+          creditLimit: debt.creditLimit,
+          trackedExpenseCharges: debt.expensePayments.reduce((sum, payment) => sum + toNumber(payment.amount), 0),
+          trackedDebtCharges: debt.debtPaymentsAsCard.reduce((sum, payment) => sum + toNumber(payment.amount), 0),
+          trackedPayments: debt.payments.reduce((sum, payment) => sum + toNumber(payment.amount), 0),
+        });
 
         if (typeof debtWithOptionalLogo.logoUrl === "string" && debtWithOptionalLogo.logoUrl.trim()) {
-          return withMissedPaymentFlag(debt);
+          return withMissedPaymentFlag({
+            ...debt,
+            currentBalance: normalizedCurrentBalance,
+          });
         }
 
         const resolvedLogo = await bestEffortWithin(
@@ -190,6 +204,7 @@ export async function GET(request: Request) {
 
         return withMissedPaymentFlag({
           ...debt,
+          currentBalance: normalizedCurrentBalance,
           logoUrl: resolvedLogo?.logoUrl ?? debtWithOptionalLogo.logoUrl ?? null,
           logoSource: resolvedLogo?.logoSource ?? debtWithOptionalLogo.logoSource ?? null,
         });

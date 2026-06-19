@@ -638,7 +638,7 @@ export function useDebtDetailController({ debtId, debtName, onDeleted, onDeleteF
     const progressLabel = isCardDebt && typeof creditLimitGap === "number"
       ? (creditLimitGap < 0
           ? `${Math.abs(progressPct).toFixed(1)}% over limit`
-          : `${progressPct.toFixed(1)}% paid off`)
+          : `${progressPct.toFixed(1)}% of limit used`)
       : `${progressPct.toFixed(1)}% paid off`;
 
     return {

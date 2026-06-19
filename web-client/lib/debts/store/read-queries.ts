@@ -1,10 +1,12 @@
 import type { DebtItem, DebtPayment, MonthKey } from "@/types";
+import { normalizeCreditLikeCurrentBalance } from "@/lib/debts/cardBalanceSemantics";
 import { monthKeyToNumber } from "@/lib/helpers/monthKey";
 import { prisma } from "@/lib/prisma";
 import {
 	debtSelect,
 	paymentSelect,
 	decimalToNumber,
+	DEBT_PAYMENT_HAS_CARD_DEBT_ID,
 } from "./shared";
 import {
 	serializeDebt,
@@ -12,6 +14,82 @@ import {
 	isDebtTypeEnumMismatchError,
 	resolveBudgetYear,
 } from "./transforms";
+
+async function normalizeDebtBalances(debts: DebtItem[]): Promise<DebtItem[]> {
+	const candidateCardIds = debts
+		.filter(
+			(debt) =>
+				(debt.type === "credit_card" || debt.type === "store_card") &&
+				Number(debt.creditLimit ?? 0) > 0 &&
+				Number(debt.currentBalance ?? 0) >= Number(debt.creditLimit ?? 0)
+		)
+		.map((debt) => debt.id);
+
+	if (!candidateCardIds.length) return debts;
+
+	const [expenseChargeRows, debtChargeRows, paymentRows] = await Promise.all([
+		prisma.expensePayment.groupBy({
+			by: ["debtId"],
+			where: { debtId: { in: candidateCardIds } },
+			_sum: { amount: true },
+		}),
+		DEBT_PAYMENT_HAS_CARD_DEBT_ID
+			? prisma.debtPayment.groupBy({
+					by: ["cardDebtId"],
+					where: { cardDebtId: { in: candidateCardIds } },
+					_sum: { amount: true },
+			  })
+			: Promise.resolve([]),
+		prisma.debtPayment.groupBy({
+			by: ["debtId"],
+			where: { debtId: { in: candidateCardIds } },
+			_sum: { amount: true },
+		}),
+	]);
+
+	const expenseChargesByDebtId = new Map(
+		expenseChargeRows.map((row) => [row.debtId, Number(row._sum.amount ?? 0)])
+	);
+	const debtChargesByDebtId = new Map(
+		debtChargeRows.map((row) => [String(row.cardDebtId ?? ""), Number(row._sum.amount ?? 0)])
+	);
+	const paymentsByDebtId = new Map(
+		paymentRows.map((row) => [row.debtId, Number(row._sum.amount ?? 0)])
+	);
+	const candidateCardIdSet = new Set(candidateCardIds);
+	const normalizedDebts = debts.map((debt) => {
+		if (!candidateCardIdSet.has(debt.id)) return debt;
+		return {
+			...debt,
+			currentBalance: normalizeCreditLikeCurrentBalance({
+				type: debt.type,
+				currentBalance: debt.currentBalance,
+				creditLimit: debt.creditLimit,
+				trackedExpenseCharges: expenseChargesByDebtId.get(debt.id) ?? 0,
+				trackedDebtCharges: debtChargesByDebtId.get(debt.id) ?? 0,
+				trackedPayments: paymentsByDebtId.get(debt.id) ?? 0,
+			}),
+		};
+	});
+
+	const pendingRepairs = normalizedDebts.filter((debt, index) => {
+		const previous = debts[index];
+		return previous && Math.abs(Number(previous.currentBalance ?? 0) - Number(debt.currentBalance ?? 0)) > 0.009;
+	});
+
+	if (pendingRepairs.length) {
+		await Promise.all(
+			pendingRepairs.map((debt) =>
+				prisma.debt.update({
+					where: { id: debt.id },
+					data: { currentBalance: String(Number(debt.currentBalance ?? 0)) },
+				})
+			)
+		);
+	}
+
+	return normalizedDebts;
+}
 
 type DebtRow = {
 	id: string;
@@ -72,7 +150,7 @@ async function getDebtsRaw(budgetPlanId: string, id?: string): Promise<DebtItem[
 			AND (${id ?? null}::text IS NULL OR "id" = ${id ?? null})
 		ORDER BY "createdAt" ASC
 	`;
-	return rows.map(serializeDebt);
+	return normalizeDebtBalances(rows.map(serializeDebt));
 }
 
 export async function getAllDebts(budgetPlanId: string): Promise<DebtItem[]> {
@@ -82,7 +160,7 @@ export async function getAllDebts(budgetPlanId: string): Promise<DebtItem[]> {
 			orderBy: [{ createdAt: "asc" }],
 			select: debtSelect(),
 		});
-		return rows.map(serializeDebt);
+		return normalizeDebtBalances(rows.map(serializeDebt));
 	} catch (error) {
 		if (isDebtTypeEnumMismatchError(error)) return getDebtsRaw(budgetPlanId);
 		throw error;
@@ -92,7 +170,9 @@ export async function getAllDebts(budgetPlanId: string): Promise<DebtItem[]> {
 export async function getDebtById(budgetPlanId: string, id: string): Promise<DebtItem | undefined> {
 	try {
 		const row = await prisma.debt.findFirst({ where: { id, budgetPlanId }, select: debtSelect() });
-		return row ? serializeDebt(row) : undefined;
+		if (!row) return undefined;
+		const [debt] = await normalizeDebtBalances([serializeDebt(row)]);
+		return debt;
 	} catch (error) {
 		if (isDebtTypeEnumMismatchError(error)) {
 			const rows = await getDebtsRaw(budgetPlanId, id);
@@ -139,6 +219,6 @@ export async function getPaymentsByMonth(
 }
 
 export async function getTotalDebtBalance(budgetPlanId: string): Promise<number> {
-	const rows = await prisma.debt.findMany({ where: { budgetPlanId }, select: { currentBalance: true } });
-	return rows.reduce((sum, debt) => sum + decimalToNumber(debt.currentBalance), 0);
+	const debts = await getAllDebts(budgetPlanId);
+	return debts.reduce((sum, debt) => sum + decimalToNumber(debt.currentBalance), 0);
 }

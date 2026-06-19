@@ -22,6 +22,7 @@ import { enforceServerOnlyRuntime } from "@/lib/serverOnly";
 enforceServerOnlyRuntime();
 
 import { prisma } from "@/lib/prisma";
+import { normalizeCreditLikeCurrentBalance } from "@/lib/debts/cardBalanceSemantics";
 import { addOrUpdateExpenseAcrossMonths } from "@/lib/expenses/store";
 import { resolveExpenseLogo, resolveExpenseLogoWithSearch } from "@/lib/expenses/logoResolver";
 import { maybeSendCategoryThresholdPush } from "@/lib/push/thresholdNotifications";
@@ -279,10 +280,31 @@ export async function recordPaymentSource({
       await prisma.$transaction(async (tx) => {
         const debt = await tx.debt.findFirst({
           where: { id: targetDebtId, budgetPlanId },
-          select: { id: true, currentBalance: true, initialBalance: true, paidAmount: true },
+          select: { id: true, type: true, currentBalance: true, initialBalance: true, paidAmount: true, creditLimit: true },
         });
         if (!debt) return;
-        const current = Number(debt.currentBalance?.toString?.() ?? debt.currentBalance ?? 0);
+        const [expenseChargesAgg, debtChargesAgg, cardPaymentsAgg] = await Promise.all([
+          tx.expensePayment.aggregate({
+            where: { debtId: debt.id },
+            _sum: { amount: true },
+          }),
+          tx.debtPayment.aggregate({
+            where: { cardDebtId: debt.id },
+            _sum: { amount: true },
+          }),
+          tx.debtPayment.aggregate({
+            where: { debtId: debt.id },
+            _sum: { amount: true },
+          }),
+        ]);
+        const current = normalizeCreditLikeCurrentBalance({
+          type: debt.type,
+          currentBalance: debt.currentBalance,
+          creditLimit: debt.creditLimit,
+          trackedExpenseCharges: expenseChargesAgg._sum.amount,
+          trackedDebtCharges: debtChargesAgg._sum.amount,
+          trackedPayments: cardPaymentsAgg._sum.amount,
+        });
         const initial = Number(debt.initialBalance?.toString?.() ?? debt.initialBalance ?? 0);
         const paid = Number(debt.paidAmount?.toString?.() ?? debt.paidAmount ?? 0);
         const nextCurrent = Math.max(0, current + amount);

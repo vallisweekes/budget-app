@@ -12,6 +12,7 @@ import { getEarlyPaymentWindowStart } from "@/lib/helpers/finance/earlyPaymentWi
 import { invalidateDashboardCache } from "@/lib/cache/dashboardCache";
 import { getPayPeriodKeyForDate, normalizePayFrequency, resolveActivePayPeriodWindow } from "@/lib/payPeriods";
 import { bestEffortWithin } from "@/lib/bestEffortWithin";
+import { normalizeCreditLikeCurrentBalance } from "@/lib/debts/cardBalanceSemantics";
 
 export const runtime = "nodejs";
 
@@ -333,6 +334,8 @@ export async function GET(
       where: { id },
       include: {
         budgetPlan: { select: { userId: true } },
+        expensePayments: { select: { amount: true } },
+        debtPaymentsAsCard: { select: { amount: true } },
         payments: { orderBy: { paidAt: "desc" } },
       },
     });
@@ -343,6 +346,20 @@ export async function GET(
 
     const { budgetPlan, ...safe } = refreshedDebt;
     void budgetPlan;
+    (safe as any).currentBalance = normalizeCreditLikeCurrentBalance({
+      type: (safe as any).type,
+      currentBalance: (safe as any).currentBalance,
+      creditLimit: (safe as any).creditLimit,
+      trackedExpenseCharges: Array.isArray((safe as any).expensePayments)
+        ? (safe as any).expensePayments.reduce((sum: number, payment: { amount: unknown }) => sum + toNumber(payment.amount), 0)
+        : 0,
+      trackedDebtCharges: Array.isArray((safe as any).debtPaymentsAsCard)
+        ? (safe as any).debtPaymentsAsCard.reduce((sum: number, payment: { amount: unknown }) => sum + toNumber(payment.amount), 0)
+        : 0,
+      trackedPayments: Array.isArray((safe as any).payments)
+        ? (safe as any).payments.reduce((sum: number, payment: { amount: unknown }) => sum + toNumber(payment.amount), 0)
+        : 0,
+    });
 
     // Data integrity: for regular debts, `paidAmount` should equal the sum of recorded debt payments.
     // (Expense-derived debts can be affected by Expense payments that aren't mirrored as DebtPayment rows.)

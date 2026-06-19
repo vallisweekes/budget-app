@@ -6,6 +6,7 @@ import { sendUserPush } from "@/lib/push/sendUserPush";
 import { getPaymentPeriodKey, getPeriodKey, resolvePayDate } from "@/lib/helpers/periodKey";
 import { invalidateDashboardCache } from "@/lib/cache/dashboardCache";
 import { bestEffortWithin } from "@/lib/bestEffortWithin";
+import { normalizeCreditLikeCurrentBalance } from "@/lib/debts/cardBalanceSemantics";
 import { resolveDebtPlannedPaymentTarget } from "@/lib/debts/plannedPaymentOverrides";
 
 export const runtime = "nodejs";
@@ -454,7 +455,35 @@ export async function POST(
       targetPeriodKey: periodKey,
     });
 
-    const appliedAmount = Math.min(paymentAmount, debt.currentBalance.toNumber());
+    const normalizedDebtCurrentBalance = isCardDebtType(debt.type)
+      ? await (async () => {
+          const [expenseCharges, debtCharges, payments] = await Promise.all([
+            prisma.expensePayment.aggregate({
+              where: { debtId: debt.id },
+              _sum: { amount: true },
+            }),
+            prisma.debtPayment.aggregate({
+              where: { cardDebtId: debt.id },
+              _sum: { amount: true },
+            }),
+            prisma.debtPayment.aggregate({
+              where: { debtId: debt.id },
+              _sum: { amount: true },
+            }),
+          ]);
+
+          return normalizeCreditLikeCurrentBalance({
+            type: debt.type,
+            currentBalance: debt.currentBalance,
+            creditLimit: debt.creditLimit,
+            trackedExpenseCharges: expenseCharges._sum.amount,
+            trackedDebtCharges: debtCharges._sum.amount,
+            trackedPayments: payments._sum.amount,
+          });
+        })()
+      : debt.currentBalance.toNumber();
+
+    const appliedAmount = Math.min(paymentAmount, normalizedDebtCurrentBalance);
 
     // Create payment + update debt (and linked expense when applicable) atomically
     const payment = await prisma.$transaction(async (tx) => {
@@ -475,11 +504,33 @@ export async function POST(
       if (paymentSource === "credit_card" && paymentCardDebtId) {
         const cardDebt = await tx.debt.findUnique({
           where: { id: paymentCardDebtId },
-          select: { id: true, currentBalance: true, initialBalance: true, paidAmount: true },
+          select: { id: true, type: true, creditLimit: true, currentBalance: true, initialBalance: true, paidAmount: true },
         });
         if (!cardDebt) throw new Error("Selected source card not found");
 
-        const cardCurrent = toNumber(cardDebt.currentBalance);
+        const [cardExpenseCharges, cardDebtCharges, cardPayments] = await Promise.all([
+          tx.expensePayment.aggregate({
+            where: { debtId: cardDebt.id },
+            _sum: { amount: true },
+          }),
+          tx.debtPayment.aggregate({
+            where: { cardDebtId: cardDebt.id },
+            _sum: { amount: true },
+          }),
+          tx.debtPayment.aggregate({
+            where: { debtId: cardDebt.id },
+            _sum: { amount: true },
+          }),
+        ]);
+
+        const cardCurrent = normalizeCreditLikeCurrentBalance({
+          type: cardDebt.type,
+          currentBalance: cardDebt.currentBalance,
+          creditLimit: cardDebt.creditLimit,
+          trackedExpenseCharges: cardExpenseCharges._sum.amount,
+          trackedDebtCharges: cardDebtCharges._sum.amount,
+          trackedPayments: cardPayments._sum.amount,
+        });
         const cardInitial = toNumber(cardDebt.initialBalance);
         const cardPaid = toNumber(cardDebt.paidAmount);
         const nextCardCurrent = Math.max(0, cardCurrent + appliedAmount);
@@ -511,7 +562,7 @@ export async function POST(
         }
       }
 
-      const nextDebtBalance = Math.max(0, debt.currentBalance.toNumber() - appliedAmount);
+      const nextDebtBalance = Math.max(0, normalizedDebtCurrentBalance - appliedAmount);
       const nextDebtPaidAmount = Math.max(0, debt.paidAmount.toNumber() + appliedAmount);
 
       const updatedDebt = await tx.debt.update({
