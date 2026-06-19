@@ -174,7 +174,12 @@ export async function GET(request: Request) {
 
     const debtsWithLogos = await Promise.all(
       visibleDebts.map(async (debt) => {
-        if (typeof debt.logoUrl === "string" && debt.logoUrl.trim()) {
+        const debtWithOptionalLogo = debt as typeof debt & {
+          logoUrl?: string | null;
+          logoSource?: string | null;
+        };
+
+        if (typeof debtWithOptionalLogo.logoUrl === "string" && debtWithOptionalLogo.logoUrl.trim()) {
           return withMissedPaymentFlag(debt);
         }
 
@@ -185,8 +190,8 @@ export async function GET(request: Request) {
 
         return withMissedPaymentFlag({
           ...debt,
-          logoUrl: resolvedLogo?.logoUrl ?? debt.logoUrl ?? null,
-          logoSource: resolvedLogo?.logoSource ?? (debt as { logoSource?: string | null }).logoSource ?? null,
+          logoUrl: resolvedLogo?.logoUrl ?? debtWithOptionalLogo.logoUrl ?? null,
+          logoSource: resolvedLogo?.logoSource ?? debtWithOptionalLogo.logoSource ?? null,
         });
       }),
     );
