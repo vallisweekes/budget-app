@@ -6,6 +6,7 @@ import { apiFetch, getApiMutationVersion } from "@/lib/api";
 import type { Category, Expense, ExpenseCategoryBreakdown } from "@/lib/apiTypes";
 import { resolveCategoryColor } from "@/lib/categoryColors";
 import { PAYMENT_EDIT_GRACE_DAYS } from "@/lib/domain/paymentRules";
+import { subscribeCategoryAddExpenseTrigger } from "@/lib/events/categoryAddExpenseTrigger";
 import { getCachedPayPeriodExpenses, setCachedPayPeriodExpenses } from "@/lib/expensePeriodCache";
 import { getLatestPaymentAt, splitCategoryExpenses } from "@/lib/helpers/categoryExpenses";
 import { useTopHeaderOffset } from "@/hooks";
@@ -220,6 +221,11 @@ export function useCategoryExpensesScreenController({ navigation, route }: Props
     graceCutoff.setDate(graceCutoff.getDate() + PAYMENT_EDIT_GRACE_DAYS);
     return currentTimestamp <= graceCutoff.getTime();
   }, [currentTimestamp, month, payDate, payFrequency, year]);
+
+  useEffect(() => subscribeCategoryAddExpenseTrigger(() => {
+    if (!canAddExpenseInSelectedPeriod) return;
+    setAddSheetOpen(true);
+  }), [canAddExpenseInSelectedPeriod]);
 
   const getPeriodOptionLabel = useCallback((targetMonth: number, targetYear: number) => {
     const actualYear = resolvePickerActualYear(targetMonth, targetYear);

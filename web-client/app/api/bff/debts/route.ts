@@ -9,6 +9,7 @@ import { isLegacyPlaceholderExpenseRow } from "@/lib/expenses/legacyPlaceholders
 import { isNonDebtCategoryName } from "@/lib/expenses/helpers";
 import { invalidateDashboardCache } from "@/lib/cache/dashboardCache";
 import { bestEffortWithin } from "@/lib/bestEffortWithin";
+import { resolveExpenseLogoWithSearch } from "@/lib/expenses/logoResolver";
 
 export const runtime = "nodejs";
 
@@ -169,11 +170,28 @@ export async function GET(request: Request) {
       orderBy: { createdAt: "desc" },
     });
 
-    return NextResponse.json(
-      debts
-        .filter((debt) => !shouldHideAllocationLikeDebt(debt))
-        .map((debt) => withMissedPaymentFlag(debt)),
+    const visibleDebts = debts.filter((debt) => !shouldHideAllocationLikeDebt(debt));
+
+    const debtsWithLogos = await Promise.all(
+      visibleDebts.map(async (debt) => {
+        if (typeof debt.logoUrl === "string" && debt.logoUrl.trim()) {
+          return withMissedPaymentFlag(debt);
+        }
+
+        const resolvedLogo = await bestEffortWithin(
+          resolveExpenseLogoWithSearch(String(debt.name ?? ""), null),
+          800,
+        );
+
+        return withMissedPaymentFlag({
+          ...debt,
+          logoUrl: resolvedLogo?.logoUrl ?? debt.logoUrl ?? null,
+          logoSource: resolvedLogo?.logoSource ?? (debt as { logoSource?: string | null }).logoSource ?? null,
+        });
+      }),
     );
+
+    return NextResponse.json(debtsWithLogos);
   } catch (error) {
     console.error("Failed to fetch debts:", error);
     return NextResponse.json(
