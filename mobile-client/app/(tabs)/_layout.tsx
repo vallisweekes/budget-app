@@ -20,6 +20,7 @@ type TabRouteState = {
   key: string;
   state?: {
     key?: string;
+    index?: number;
   };
 };
 
@@ -50,8 +51,9 @@ function createTabListeners(options?: { onTabPress?: () => void; preventDefaultO
               (candidate) => candidate.key === route.key
             );
             const nestedNavigatorKey = tabRoute?.state?.key;
+            const nestedNavigatorIndex = tabRoute?.state?.index ?? 0;
 
-            if (!nestedNavigatorKey) {
+            if (!nestedNavigatorKey || nestedNavigatorIndex <= 0) {
               return;
             }
 
@@ -167,10 +169,11 @@ export default function MainTabsLayout() {
         ? "tabs:goals-split"
       : isDebtSplitRoute
         ? "tabs:debt-split"
-        : `tabs:main:${showDebtsTab ? "with-debts" : "without-debts"}:${shouldHideNativeTabs ? "hidden" : "visible"}`;
-  const tabBarBackgroundColor = (isIncomeSplitRoute || isCategoryExpensesSplitRoute) ? undefined : T.card;
-  const tabBarBlurEffect = (isIncomeSplitRoute || isCategoryExpensesSplitRoute) ? undefined : "systemUltraThinMaterialDark";
-  const tabBarShadowColor = (isIncomeSplitRoute || isCategoryExpensesSplitRoute) ? undefined : T.border;
+        : `tabs:main:${showDebtsTab ? "with-debts" : "without-debts"}`;
+  const tabBarBackgroundColor = T.card;
+  const tabBarBlurEffect = undefined;
+  const tabBarShadowColor = T.border;
+  const tabBarTitlePositionAdjustment = { vertical: -1 };
   const splitRouteLabelStyle = {
     color: inactiveLabelColor,
     fontSize: 10,
@@ -178,7 +181,7 @@ export default function MainTabsLayout() {
   };
   const selectedTabLabelStyle = {
     color: selectedTintColor,
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "500" as const,
   };
   const splitRouteSelectedTabLabelStyle = {
@@ -349,10 +352,14 @@ export default function MainTabsLayout() {
       <NativeTabs
         key={tabsLayoutKey}
         hidden={shouldHideNativeTabs}
+        backgroundColor={tabBarBackgroundColor}
+        blurEffect={tabBarBlurEffect}
+        shadowColor={tabBarShadowColor}
         tintColor={selectedTintColor}
         iconColor={inactiveIconColor}
         labelStyle={splitRouteLabelStyle}
-        titlePositionAdjustment={{ vertical: -2 }}
+        titlePositionAdjustment={tabBarTitlePositionAdjustment}
+        disableTransparentOnScrollEdge
         backBehavior="history"
       >
         <NativeTabs.Trigger
@@ -361,15 +368,14 @@ export default function MainTabsLayout() {
           role="search"
           disablePopToTop
           disableScrollToTop
+          disableTransparentOnScrollEdge
           contentStyle={tabContentStyle}
           unstable_nativeProps={tabNativeProps}
         >
           <NativeTabs.Trigger.Icon
             src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name="add" />}
             renderingMode="template"
-            selectedColor={selectedTintColor}
           />
-          <NativeTabs.Trigger.Label hidden />
         </NativeTabs.Trigger>
       </NativeTabs>
     );
@@ -381,15 +387,20 @@ export default function MainTabsLayout() {
         <NativeTabs
           key={tabsLayoutKey}
           hidden={shouldHideNativeTabs}
+          backgroundColor={tabBarBackgroundColor}
+          blurEffect={tabBarBlurEffect}
+          shadowColor={tabBarShadowColor}
           tintColor={selectedTintColor}
           iconColor={inactiveIconColor}
           labelStyle={splitRouteLabelStyle}
-          titlePositionAdjustment={{ vertical: -2 }}
+          titlePositionAdjustment={tabBarTitlePositionAdjustment}
+          disableTransparentOnScrollEdge
           backBehavior="history"
         >
           <NativeTabs.Trigger
             {...resetOnBlurScreenProps}
             name="dashboard"
+            disableTransparentOnScrollEdge
             contentStyle={tabContentStyle}
             unstable_nativeProps={tabNativeProps}
           >
@@ -403,6 +414,7 @@ export default function MainTabsLayout() {
           <NativeTabs.Trigger
             {...loggedExpensesSplitScreenProps}
             name="logged-expenses"
+            disableTransparentOnScrollEdge
             contentStyle={tabContentStyle}
             unstable_nativeProps={tabNativeProps}
           >
@@ -419,6 +431,7 @@ export default function MainTabsLayout() {
             role="search"
             disablePopToTop
             disableScrollToTop
+            disableTransparentOnScrollEdge
             contentStyle={tabContentStyle}
             unstable_nativeProps={tabNativeProps}
           >
@@ -438,10 +451,14 @@ export default function MainTabsLayout() {
       <NativeTabs
         key={tabsLayoutKey}
         hidden={shouldHideNativeTabs}
+        backgroundColor={tabBarBackgroundColor}
+        blurEffect={tabBarBlurEffect}
+        shadowColor={tabBarShadowColor}
         tintColor={selectedTintColor}
         iconColor={inactiveIconColor}
         labelStyle={splitRouteLabelStyle}
-        titlePositionAdjustment={{ vertical: -2 }}
+        titlePositionAdjustment={tabBarTitlePositionAdjustment}
+        disableTransparentOnScrollEdge
         backBehavior="history"
       >
         <NativeTabs.Trigger
@@ -450,6 +467,7 @@ export default function MainTabsLayout() {
           role="search"
           disablePopToTop
           disableScrollToTop
+          disableTransparentOnScrollEdge
           contentStyle={tabContentStyle}
           unstable_nativeProps={tabNativeProps}
         >
@@ -468,15 +486,20 @@ export default function MainTabsLayout() {
       <NativeTabs
         key={tabsLayoutKey}
         hidden={shouldHideNativeTabs}
+        backgroundColor={tabBarBackgroundColor}
+        blurEffect={tabBarBlurEffect}
+        shadowColor={tabBarShadowColor}
         tintColor={selectedTintColor}
         iconColor={inactiveIconColor}
         labelStyle={splitRouteLabelStyle}
-        titlePositionAdjustment={{ vertical: -2 }}
+        titlePositionAdjustment={tabBarTitlePositionAdjustment}
+        disableTransparentOnScrollEdge
         backBehavior="history"
       >
         <NativeTabs.Trigger
           {...resetOnBlurScreenProps}
           name="dashboard"
+          disableTransparentOnScrollEdge
           contentStyle={tabContentStyle}
           unstable_nativeProps={tabNativeProps}
         >
@@ -490,6 +513,7 @@ export default function MainTabsLayout() {
         <NativeTabs.Trigger
           {...resetOnBlurScreenProps}
           name="expenses"
+          disableTransparentOnScrollEdge
           contentStyle={tabContentStyle}
           unstable_nativeProps={tabNativeProps}
         >
@@ -504,6 +528,7 @@ export default function MainTabsLayout() {
           {...incomeTriggerScreenProps}
           name="income"
           role="search"
+          disableTransparentOnScrollEdge
           contentStyle={tabContentStyle}
           unstable_nativeProps={tabNativeProps}
         >
@@ -522,15 +547,20 @@ export default function MainTabsLayout() {
       <NativeTabs
         key={tabsLayoutKey}
         hidden={shouldHideNativeTabs}
+        backgroundColor={tabBarBackgroundColor}
+        blurEffect={tabBarBlurEffect}
+        shadowColor={tabBarShadowColor}
         tintColor={selectedTintColor}
         iconColor={inactiveIconColor}
         labelStyle={splitRouteLabelStyle}
-        titlePositionAdjustment={{ vertical: -2 }}
+        titlePositionAdjustment={tabBarTitlePositionAdjustment}
+        disableTransparentOnScrollEdge
         backBehavior="history"
       >
         <NativeTabs.Trigger
           {...resetOnBlurScreenProps}
           name="dashboard"
+          disableTransparentOnScrollEdge
           contentStyle={tabContentStyle}
           unstable_nativeProps={tabNativeProps}
         >
@@ -544,6 +574,7 @@ export default function MainTabsLayout() {
         <NativeTabs.Trigger
           {...resetOnBlurScreenProps}
           name="debt-analytics"
+          disableTransparentOnScrollEdge
           contentStyle={tabContentStyle}
           unstable_nativeProps={tabNativeProps}
         >
@@ -558,6 +589,7 @@ export default function MainTabsLayout() {
           {...debtSplitTriggerScreenProps}
           name="debts"
           role="search"
+          disableTransparentOnScrollEdge
           contentStyle={tabContentStyle}
           unstable_nativeProps={tabNativeProps}
         >
@@ -576,15 +608,20 @@ export default function MainTabsLayout() {
       <NativeTabs
         key={tabsLayoutKey}
         hidden={shouldHideNativeTabs}
+        backgroundColor={tabBarBackgroundColor}
+        blurEffect={tabBarBlurEffect}
+        shadowColor={tabBarShadowColor}
         tintColor={selectedTintColor}
         iconColor={inactiveIconColor}
         labelStyle={splitRouteLabelStyle}
-        titlePositionAdjustment={{ vertical: -2 }}
+        titlePositionAdjustment={tabBarTitlePositionAdjustment}
+        disableTransparentOnScrollEdge
         backBehavior="history"
       >
         <NativeTabs.Trigger
           {...resetOnBlurScreenProps}
           name="dashboard"
+          disableTransparentOnScrollEdge
           contentStyle={tabContentStyle}
           unstable_nativeProps={tabNativeProps}
         >
@@ -598,6 +635,7 @@ export default function MainTabsLayout() {
         <NativeTabs.Trigger
           {...resetOnBlurScreenProps}
           name="goals-projection"
+          disableTransparentOnScrollEdge
           contentStyle={tabContentStyle}
           unstable_nativeProps={tabNativeProps}
         >
@@ -612,6 +650,7 @@ export default function MainTabsLayout() {
           {...goalsSplitTriggerScreenProps}
           name="goals"
           role="search"
+          disableTransparentOnScrollEdge
           contentStyle={tabContentStyle}
           unstable_nativeProps={tabNativeProps}
         >
@@ -637,15 +676,17 @@ export default function MainTabsLayout() {
         iconColor={inactiveIconColor}
         labelStyle={{
           color: inactiveLabelColor,
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: "500",
         }}
-        titlePositionAdjustment={{ vertical: -2 }}
+        titlePositionAdjustment={tabBarTitlePositionAdjustment}
+        disableTransparentOnScrollEdge
         backBehavior="history"
       >
         <NativeTabs.Trigger
           {...resetOnBlurScreenProps}
           name="dashboard"
+          disableTransparentOnScrollEdge
           contentStyle={tabContentStyle}
           unstable_nativeProps={tabNativeProps}
         >
@@ -659,6 +700,7 @@ export default function MainTabsLayout() {
         <NativeTabs.Trigger
           {...resetOnBlurScreenProps}
           name="expenses"
+          disableTransparentOnScrollEdge
           contentStyle={tabContentStyle}
           unstable_nativeProps={tabNativeProps}
         >
@@ -673,6 +715,7 @@ export default function MainTabsLayout() {
           <NativeTabs.Trigger
             {...resetOnBlurScreenProps}
             name="debts"
+            disableTransparentOnScrollEdge
             contentStyle={tabContentStyle}
             unstable_nativeProps={tabNativeProps}
           >
@@ -687,6 +730,7 @@ export default function MainTabsLayout() {
         <NativeTabs.Trigger
           {...resetOnBlurScreenProps}
           name="income"
+          disableTransparentOnScrollEdge
           contentStyle={tabContentStyle}
           unstable_nativeProps={tabNativeProps}
         >
@@ -700,6 +744,7 @@ export default function MainTabsLayout() {
         <NativeTabs.Trigger
           {...resetOnBlurScreenProps}
           name="goals"
+          disableTransparentOnScrollEdge
           contentStyle={tabContentStyle}
           unstable_nativeProps={tabNativeProps}
         >

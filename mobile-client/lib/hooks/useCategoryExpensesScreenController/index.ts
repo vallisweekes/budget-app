@@ -18,19 +18,45 @@ import type { AddExpenseSheetAddedPayload } from "@/types/components/AddExpenseS
 
 type Props = NativeStackScreenProps<ExpensesStackParamList, "CategoryExpenses">;
 
+function parseRouteNumber(value: unknown, fallback: number) {
+  const next = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(next) ? next : fallback;
+}
+
+function parseNullableRouteString(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === "null" || trimmed === "undefined") return null;
+  return trimmed;
+}
+
 export function useCategoryExpensesScreenController({ navigation, route }: Props): CategoryExpensesControllerState {
   const topHeaderOffset = useTopHeaderOffset();
   const { settings } = useBootstrapData();
+  const now = new Date();
+  const fallbackMonth = now.getMonth() + 1;
+  const fallbackYear = now.getFullYear();
   const {
-    categoryId,
-    categoryName,
-    color,
-    icon,
-    month: routeMonth,
-    year: routeYear,
-    budgetPlanId,
-    currency,
+    categoryId: rawCategoryId,
+    categoryName: rawCategoryName,
+    color: rawColor,
+    icon: rawIcon,
+    month: rawRouteMonth,
+    year: rawRouteYear,
+    budgetPlanId: rawBudgetPlanId,
+    currency: rawCurrency,
   } = route.params;
+
+  const categoryId = parseNullableRouteString(rawCategoryId) ?? "__none__";
+  const categoryName = parseNullableRouteString(rawCategoryName) ?? "Category";
+  const color = parseNullableRouteString(rawColor);
+  const icon = parseNullableRouteString(rawIcon);
+  const parsedMonth = parseRouteNumber(rawRouteMonth, fallbackMonth);
+  const routeMonth = Math.min(12, Math.max(1, parsedMonth));
+  const parsedYear = parseRouteNumber(rawRouteYear, fallbackYear);
+  const routeYear = Math.max(2000, parsedYear);
+  const budgetPlanId = parseNullableRouteString(rawBudgetPlanId);
+  const currency = parseNullableRouteString(rawCurrency) ?? "£";
 
   const categoryColor = useMemo(() => resolveCategoryColor(color), [color]);
   const [month, setMonth] = useState(routeMonth);
@@ -133,7 +159,8 @@ export function useCategoryExpensesScreenController({ navigation, route }: Props
       setLogoFailed({});
       seenMutationVersionRef.current = getApiMutationVersion();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load");
+      const fallbackMessage = "Failed to load category expenses";
+      setError(err instanceof Error ? (err.message || fallbackMessage) : fallbackMessage);
     } finally {
       setLoading(false);
       setRefreshing(false);

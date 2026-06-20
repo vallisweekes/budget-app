@@ -111,6 +111,12 @@ export const categoryExpensesStyles = StyleSheet.create({
     shadowOffset: { width: 0, height: 12 },
     elevation: 12,
   },
+  heroFlat: {
+    paddingHorizontal: 20,
+    paddingBottom: 24,
+    alignItems: "center",
+    marginBottom: 10,
+  },
   heroGlow: {
     position: "absolute",
     borderRadius: 999,

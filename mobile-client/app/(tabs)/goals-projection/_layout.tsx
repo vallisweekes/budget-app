@@ -8,7 +8,7 @@ export default function GoalsProjectionLayout() {
     <Stack
       screenOptions={{
         headerShown: false,
-        animation: "none",
+        animation: "default",
         contentStyle: { backgroundColor: T.bg },
       }}
     />

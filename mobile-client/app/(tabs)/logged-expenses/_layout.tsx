@@ -13,7 +13,7 @@ export default function LoggedExpensesLayout() {
         headerStyle: { backgroundColor: "transparent" },
         headerShadowVisible: false,
         header: () => <TabRouteHeader />,
-        animation: "none",
+        animation: "default",
         contentStyle: { backgroundColor: T.bg },
       }}
     />

@@ -12,7 +12,7 @@ export default function TabsSearchLayout() {
         headerTintColor: T.text,
         headerShadowVisible: false,
         header: () => <TabRouteHeader />,
-        animation: "none",
+        animation: "default",
         contentStyle: { backgroundColor: T.bg },
       }}
     />

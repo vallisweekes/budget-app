@@ -5,6 +5,7 @@ import { styles } from "./styles";
 
 import { useAppTranslation } from "@/hooks";
 import { resolveLogoUri } from "@/components/DebtScreen/utils";
+import { fmt } from "@/lib/formatting";
 import { T } from "@/lib/theme";
 import type { SettingsDebtGroupsProps } from "@/types/components/settings/SettingsDebtGroups.types";
 
@@ -21,12 +22,10 @@ function resolveCardAvailableAmount(currentBalance: number, creditLimit: number)
 function SettingsDebtCard({
   debt,
   currency,
-  asMoneyInput,
   onOpenDebtEditor,
 }: {
   debt: SettingsDebtGroupsProps["groupedDebts"][number]["items"][number];
   currency: string;
-  asMoneyInput: SettingsDebtGroupsProps["asMoneyInput"];
   onOpenDebtEditor: SettingsDebtGroupsProps["onOpenDebtEditor"];
 }) {
   const { t } = useAppTranslation();
@@ -62,7 +61,7 @@ function SettingsDebtCard({
             <Text style={styles.debtName} numberOfLines={1}>{debt.name}</Text>
             <Ionicons name="chevron-forward" size={18} color={T.textDim} />
           </View>
-          {creditLimit > 0 ? <Text style={styles.availableAmount}>{t("debts.add.creditLimit")}: {currency}{asMoneyInput(String(creditLimit)) || "0"}</Text> : null}
+          {creditLimit > 0 ? <Text style={styles.availableAmount}>{t("debts.add.creditLimit")}: {fmt(creditLimit, currency)}</Text> : null}
         </View>
       </View>
 
@@ -78,7 +77,7 @@ function SettingsDebtCard({
           </View>
           <View style={styles.utilizationMetaRow}>
             <Text style={styles.utilizationMetaText}>{utilizationPct}% used</Text>
-            <Text style={styles.utilizationMetaText}>{currency}{asMoneyInput(String(availableToSpend)) || "0"} available</Text>
+            <Text style={styles.utilizationMetaText}>{fmt(availableToSpend, currency)} available</Text>
           </View>
         </View>
       ) : null}
@@ -89,7 +88,6 @@ function SettingsDebtCard({
 export default function SettingsDebtGroups({
   groupedDebts,
   currency,
-  asMoneyInput,
   onOpenDebtEditor,
 }: SettingsDebtGroupsProps) {
   const { t } = useAppTranslation();
@@ -111,7 +109,6 @@ export default function SettingsDebtGroups({
               key={debt.id}
               debt={debt}
               currency={currency}
-              asMoneyInput={asMoneyInput}
               onOpenDebtEditor={onOpenDebtEditor}
             />
           ))}

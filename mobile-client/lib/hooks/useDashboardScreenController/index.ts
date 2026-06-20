@@ -32,7 +32,7 @@ function normalizeQueryError(nextError: unknown, fallbackMessage: string): Error
   return new Error(fallbackMessage);
 }
 
-export function useDashboardScreenController({ navigation: _navigation }: DashboardScreenProps) {
+export function useDashboardScreenController({ navigation }: DashboardScreenProps) {
   const router = useRouter();
   const scrollRef = useRef<ScrollView>(null);
   useScrollToTop(scrollRef);
@@ -194,8 +194,13 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
   }, [bootstrapLoading, budgetPlanId, ensureLoaded, hasBootstrapDashboard, isFocused]);
 
   const onRefresh = useCallback(() => {
+    setFailedLogos({});
     void load({ force: true });
   }, [load]);
+
+  useEffect(() => {
+    setFailedLogos({});
+  }, [budgetPlanId, resolvedDashboard?.monthNum, resolvedDashboard?.year]);
 
   useEffect(() => {
     if (!payPeriodBoundaryVersion) return;
@@ -251,12 +256,25 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
     : "";
 
   const closeCategorySheet = useCallback(() => setCategorySheet(null), []);
-  const openCategorySheet = useCallback((category: { id: string; name: string }) => {
-    if (!resolvedDashboard) {
+  const openCategorySheet = useCallback((category: { id: string; name: string; color?: string | null; icon?: string | null }) => {
+    if (!category?.id || !dashboardMonth || !dashboardYear) {
       return;
     }
-    setCategorySheet(category);
-  }, [resolvedDashboard]);
+
+    router.push({
+      pathname: "/(tabs)/expenses/CategoryExpenses",
+      params: {
+        categoryId: category.id,
+        categoryName: category.name,
+        color: category.color ?? null,
+        icon: category.icon ?? null,
+        month: dashboardMonth,
+        year: dashboardYear,
+        budgetPlanId: budgetPlanId || null,
+        currency,
+      },
+    });
+  }, [budgetPlanId, currency, dashboardMonth, dashboardYear, router]);
   const closeQuickPay = useCallback(() => setQuickPayItem(null), []);
 
   const handleQuickPayUpdated = useCallback(() => {

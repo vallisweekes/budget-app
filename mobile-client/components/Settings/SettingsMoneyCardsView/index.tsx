@@ -5,9 +5,9 @@ import { PieChart } from "react-native-gifted-charts";
 
 import SettingsDebtGroups from "@/components/Settings/SettingsDebtGroups";
 import { useAppTranslation } from "@/hooks";
+import { fmt } from "@/lib/formatting";
 import { T } from "@/lib/theme";
 import { styles } from "./styles";
-import { asMoneyInput } from "@/lib/helpers/settings";
 import type { SettingsMoneyCardsViewProps } from "@/types/components/settings/SettingsMoneyCardsView.types";
 
 function toNumber(value: string | null | undefined): number {
@@ -59,7 +59,7 @@ export default function SettingsMoneyCardsView({ currency, creditCardGroups, sto
             <View style={styles.cardsSummaryHeader}>
               <View style={styles.cardsSummaryCopy}>
                 <Text style={styles.cardsSummaryEyebrow}>{t("settings.cards.overview")}</Text>
-                <Text style={styles.cardsSummaryPrimaryValue}>{currency}{asMoneyInput(String(cardsSummary.available)) || "0"}</Text>
+                <Text style={styles.cardsSummaryPrimaryValue}>{fmt(cardsSummary.available, currency)}</Text>
                 <Text style={styles.cardsSummaryPrimaryLabel}>{t("settings.cards.availableToSpend")}</Text>
                 <Text style={styles.cardsSummaryUtilisation}>{cardsSummary.utilizationPct}% {t("settings.cards.utilisation").toLowerCase()}</Text>
               </View>
@@ -82,7 +82,7 @@ export default function SettingsMoneyCardsView({ currency, creditCardGroups, sto
                 centerLabelComponent={() => (
                   <View style={styles.cardsSummaryChartCenter}>
                     <Text style={styles.cardsSummaryChartLabel}>Total</Text>
-                    <Text style={styles.cardsSummaryChartValue}>{currency}{asMoneyInput(String(cardsSummary.limit)) || "0"}</Text>
+                    <Text style={styles.cardsSummaryChartValue}>{fmt(cardsSummary.limit, currency)}</Text>
                   </View>
                 )}
               />
@@ -92,23 +92,23 @@ export default function SettingsMoneyCardsView({ currency, creditCardGroups, sto
               <View style={styles.cardsSummaryLegendRow}>
                 <View style={[styles.cardsSummaryLegendDot, { backgroundColor: "#3ec97e" }]} />
                 <Text style={styles.cardsSummaryLegendLabel}>{t("settings.cards.availableToSpend")}</Text>
-                <Text style={styles.cardsSummaryLegendValue}>{currency}{asMoneyInput(String(cardsSummary.available)) || "0"}</Text>
+                <Text style={styles.cardsSummaryLegendValue}>{fmt(cardsSummary.available, currency)}</Text>
               </View>
               <View style={styles.cardsSummaryLegendRow}>
                 <View style={[styles.cardsSummaryLegendDot, { backgroundColor: "#e25c5c" }]} />
                 <Text style={styles.cardsSummaryLegendLabel}>{t("settings.cards.outstandingBalance")}</Text>
-                <Text style={styles.cardsSummaryLegendValue}>{currency}{asMoneyInput(String(cardsSummary.outstanding)) || "0"}</Text>
+                <Text style={styles.cardsSummaryLegendValue}>{fmt(cardsSummary.outstanding, currency)}</Text>
               </View>
             </View>
 
             <View style={styles.cardsSummaryStatsRow}>
               <View style={styles.cardsSummaryStat}>
                 <Text style={styles.cardsSummaryStatLabel}>{t("settings.cards.outstandingBalance")}</Text>
-                <Text style={styles.cardsSummaryStatValue}>{currency}{asMoneyInput(String(cardsSummary.outstanding)) || "0"}</Text>
+                <Text style={styles.cardsSummaryStatValue}>{fmt(cardsSummary.outstanding, currency)}</Text>
               </View>
               <View style={styles.cardsSummaryStat}>
                 <Text style={styles.cardsSummaryStatLabel}>{t("debts.add.creditLimit")}</Text>
-                <Text style={styles.cardsSummaryStatValue}>{currency}{asMoneyInput(String(cardsSummary.limit)) || "0"}</Text>
+                <Text style={styles.cardsSummaryStatValue}>{fmt(cardsSummary.limit, currency)}</Text>
               </View>
             </View>
 
@@ -118,7 +118,7 @@ export default function SettingsMoneyCardsView({ currency, creditCardGroups, sto
         {creditCardGroups.length === 0 ? (
           <Text style={styles.muted}>{t("settings.cards.noCreditCards")}</Text>
         ) : (
-          <SettingsDebtGroups groupedDebts={creditCardGroups} currency={currency} asMoneyInput={asMoneyInput} onOpenDebtEditor={onOpenDebtEditor} />
+          <SettingsDebtGroups groupedDebts={creditCardGroups} currency={currency} onOpenDebtEditor={onOpenDebtEditor} />
         )}
       </View>
 
@@ -129,7 +129,7 @@ export default function SettingsMoneyCardsView({ currency, creditCardGroups, sto
         {storeCardGroups.length === 0 ? (
           <Text style={styles.muted}>{t("settings.cards.noStoreCards")}</Text>
         ) : (
-          <SettingsDebtGroups groupedDebts={storeCardGroups} currency={currency} asMoneyInput={asMoneyInput} onOpenDebtEditor={onOpenDebtEditor} />
+          <SettingsDebtGroups groupedDebts={storeCardGroups} currency={currency} onOpenDebtEditor={onOpenDebtEditor} />
         )}
       </View>
     </View>

@@ -4,6 +4,8 @@ import type { CurrencyFormatter } from "./BudgetDonutCard.types";
 export interface CategorySwipeCardsPressPayload {
   id: string;
   name: string;
+  color?: string | null;
+  icon?: string | null;
 }
 
 export interface CategorySwipeCardsProps {

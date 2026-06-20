@@ -9,11 +9,13 @@ import { categoryExpensesStyles as s } from "@/components/CategoryExpensesScreen
 import type { CategoryExpensesHeroProps } from "@/types";
 
 export default function CategoryExpensesHero(props: CategoryExpensesHeroProps) {
+  const containerStyle = props.flat ? s.heroFlat : s.hero;
+
   return (
-    <View style={[s.hero, { paddingTop: props.topHeaderOffset - 8 }]}> 
-      <View style={[s.heroGlow, s.heroGlowPrimary]} />
-      <View style={[s.heroGlow, s.heroGlowSecondary]} />
-      <View style={s.heroInnerBorder} />
+    <View style={[containerStyle, { paddingTop: props.topHeaderOffset - 8 }]}> 
+      {props.flat ? null : <View style={[s.heroGlow, s.heroGlowPrimary]} />}
+      {props.flat ? null : <View style={[s.heroGlow, s.heroGlowSecondary]} />}
+      {props.flat ? null : <View style={s.heroInnerBorder} />}
       <Pressable onPress={props.onPressMonth} style={s.heroMonthBtn} hitSlop={12}>
         <Text style={s.heroMonthText}>{props.heroPeriodLabel}</Text>
         <Ionicons name="chevron-down" size={14} color={withOpacity(T.onAccent, 0.8)} />

@@ -26,6 +26,8 @@ export default function CategorySwipeCards({ categories, totalIncome, currency, 
       return {
         id: c.id,
         name: c.name,
+        color: c.color ?? null,
+        icon: c.icon ?? null,
         total: c.total ?? 0,
         pct,
         accent,
@@ -56,7 +58,7 @@ export default function CategorySwipeCards({ categories, totalIncome, currency, 
         }}
         renderItem={({ item }) => (
           <Pressable
-            onPress={() => onPressCategory?.({ id: item.id, name: item.name })}
+            onPress={() => onPressCategory?.({ id: item.id, name: item.name, color: item.color, icon: item.icon })}
             style={[styles.card, { backgroundColor: tintedDarkBg(item.accent, T.card) }]}
           >
             <View style={styles.top}>

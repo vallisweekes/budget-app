@@ -14,6 +14,5 @@ export type SettingsDebtGroupsGroup = {
 export type SettingsDebtGroupsProps = {
   groupedDebts: SettingsDebtGroupsGroup[];
   currency: string;
-  asMoneyInput: (value: string | null | undefined) => string;
   onOpenDebtEditor: (debt: Debt) => void;
 };

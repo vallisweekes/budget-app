@@ -1,6 +1,7 @@
 export type CategoryExpensesHeroProps = {
   canAddExpenseInSelectedPeriod: boolean;
   currency: string;
+  flat?: boolean;
   heroPeriodLabel: string;
   onPressAdd: () => void;
   onPressMonth: () => void;
