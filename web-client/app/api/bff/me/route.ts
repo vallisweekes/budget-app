@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { put } from "@vercel/blob";
 import { prisma } from "@/lib/prisma";
 import { getSessionIdentity } from "@/lib/api/bffAuth";
 import { isValidEmail, normalizeEmail } from "@/lib/helpers/email";
@@ -16,6 +17,57 @@ import {
 import { buildProfileResponse } from "@/lib/profileResponse";
 
 export const runtime = "nodejs";
+
+type AvatarPayload = {
+  mime: "image/jpeg" | "image/png" | "image/webp" | "image/heic" | "image/heif";
+  base64: string;
+};
+
+function parseAvatarDataUrl(value: string | null): AvatarPayload | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  const match = /^data:(image\/(?:jpeg|jpg|png|webp|heic|heif));base64,([A-Za-z0-9+/=\s]+)$/i.exec(trimmed);
+  if (!match) return null;
+
+  const mimeRaw = match[1]?.toLowerCase();
+  const base64 = (match[2] ?? "").replace(/\s+/g, "");
+  if (!mimeRaw || !base64) return null;
+
+  const mime = mimeRaw === "image/jpg" ? "image/jpeg" : mimeRaw;
+  if (mime !== "image/jpeg" && mime !== "image/png" && mime !== "image/webp" && mime !== "image/heic" && mime !== "image/heif") return null;
+  return { mime, base64 };
+}
+
+async function resolveAvatarImageStorage(userId: string, avatarImageDataUrl: string | null): Promise<string | null> {
+  if (avatarImageDataUrl === null) return null;
+  const parsed = parseAvatarDataUrl(avatarImageDataUrl);
+  if (!parsed) throw new Error("invalid_avatar_format");
+
+  // In local/dev where Blob isn't configured, keep existing data-URL behavior.
+  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+    return avatarImageDataUrl;
+  }
+
+  const ext = parsed.mime === "image/png"
+    ? "png"
+    : parsed.mime === "image/webp"
+      ? "webp"
+      : parsed.mime === "image/heic"
+        ? "heic"
+        : parsed.mime === "image/heif"
+          ? "heif"
+          : "jpg";
+  const bytes = Buffer.from(parsed.base64, "base64");
+  const path = `avatars/${userId}/avatar.${ext}`;
+
+  const blob = await put(path, bytes, {
+    access: "public",
+    addRandomSuffix: true,
+    contentType: parsed.mime,
+  });
+
+  return blob.url;
+}
 
 function unauthorized() {
   return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
@@ -137,11 +189,20 @@ export async function PATCH(request: Request) {
 
     const rawAvatar = hasAvatar ? body.avatarImageDataUrl : undefined;
     const avatarImageDataUrl = rawAvatar == null ? null : String(rawAvatar);
-    if (hasAvatar && avatarImageDataUrl && !/^data:image\/(jpeg|jpg|png|webp);base64,[A-Za-z0-9+/=\s]+$/i.test(avatarImageDataUrl)) {
-      return NextResponse.json({ error: "Invalid avatar image format" }, { status: 400 });
-    }
     if (avatarImageDataUrl && avatarImageDataUrl.length > 3_000_000) {
       return NextResponse.json({ error: "Avatar image is too large" }, { status: 413 });
+    }
+
+    let nextAvatarImageUrl: string | null | undefined = undefined;
+    if (hasAvatar) {
+      try {
+        nextAvatarImageUrl = await resolveAvatarImageStorage(userId, avatarImageDataUrl);
+      } catch (error) {
+        if (String((error as { message?: unknown })?.message ?? "") === "invalid_avatar_format") {
+          return NextResponse.json({ error: "Invalid avatar image format" }, { status: 400 });
+        }
+        throw error;
+      }
     }
 
     const currentUser = await prisma.user.findUnique({
@@ -159,7 +220,7 @@ export async function PATCH(request: Request) {
       data: {
         email: hasEmail ? (normalized || null) : undefined,
         emailVerified: emailChanged ? null : undefined,
-        image: hasAvatar ? avatarImageDataUrl : undefined,
+        image: hasAvatar ? (nextAvatarImageUrl ?? null) : undefined,
       },
       select: { email: true },
     });

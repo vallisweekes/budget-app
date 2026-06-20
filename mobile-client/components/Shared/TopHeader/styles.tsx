@@ -94,6 +94,11 @@ export const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: T.border,
   },
+  avatarImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 17,
+  },
   avatarInitial: { color: T.onAccent, fontSize: 14, fontWeight: "700" },
   rightActions: {
     flexDirection: "row",

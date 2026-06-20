@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, Pressable, StyleSheet, Modal } from "react-native";
+import { View, Text, Pressable, StyleSheet, Modal, Image } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
@@ -29,7 +29,7 @@ export default function TopHeader({
   onAddIncome,
 }: TopHeaderProps) {
   const insets = useSafeAreaInsets();
-  const { username } = useAuth();
+  const { username, profile } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const isAnalyticsVariant = variant === "analytics";
   const visibleActionCount = (showIncomeAction ? 1 : 0) + (showHelpAction ? 1 : 0) + (showAnalyticsAction ? 1 : 0);
@@ -53,6 +53,7 @@ export default function TopHeader({
 
   const centerWrapStyle = [styles.centerWrap, getCenterWrapStyle()];
   const initial = username ? username.charAt(0).toUpperCase() : "?";
+  const avatarUri = typeof profile?.avatarUrl === "string" && profile.avatarUrl.trim().length > 0 ? profile.avatarUrl : null;
 
   return (
     <BlurView intensity={isAnalyticsVariant ? 42 : 30} tint="dark" style={[styles.container, isAnalyticsVariant && styles.containerAnalytics, { paddingTop: insets.top }]}> 
@@ -69,7 +70,11 @@ export default function TopHeader({
         ) : (
           <Pressable onPress={onSettings} style={styles.avatarBtn} hitSlop={10}>
             <View style={styles.avatar}>
-              <Text style={styles.avatarInitial}>{initial}</Text>
+              {avatarUri ? (
+                <Image source={{ uri: avatarUri }} style={styles.avatarImage} resizeMode="cover" />
+              ) : (
+                <Text style={styles.avatarInitial}>{initial}</Text>
+              )}
             </View>
           </Pressable>
         )}

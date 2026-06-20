@@ -163,9 +163,11 @@ export async function getExpoPushTokenAsync(): Promise<string | null> {
   }
 
   if (!allowed) {
+    const existingSettingsAny = existingSettings as any;
     devLog("notification permission not granted", {
-      status: existingSettings?.status,
-      iosStatus: existingSettings?.ios?.status,
+      granted: existingSettingsAny?.granted,
+      canAskAgain: existingSettingsAny?.canAskAgain,
+      iosStatus: existingSettingsAny?.ios?.status,
     });
     return null;
   }

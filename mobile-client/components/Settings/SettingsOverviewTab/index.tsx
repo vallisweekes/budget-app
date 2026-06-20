@@ -31,6 +31,7 @@ export default function SettingsOverviewTab({
   onOpenBudget,
   onOpenSavings,
   onOpenPreferences,
+  onOpenPrivacy,
   onSignOut,
 }: SettingsOverviewTabProps) {
   const { t } = useAppTranslation();
@@ -60,6 +61,7 @@ export default function SettingsOverviewTab({
         <SettingsLinkRow label="Budget details" icon="wallet-outline" onPress={onOpenBudget} />
         <SettingsLinkRow label={t("settings.overview.savingsAndCards")} icon="cash-outline" onPress={onOpenSavings} />
         <SettingsLinkRow label="App preferences" icon="options-outline" onPress={onOpenPreferences} />
+        <SettingsLinkRow label={t("settings.overview.privacyPolicy")} icon="document-text-outline" onPress={onOpenPrivacy} />
         <SettingsLinkRow label={t("settings.overview.resetSignOut")} icon="log-out-outline" onPress={onSignOut} />
       </SettingsSection>
     </>

@@ -85,6 +85,7 @@ export default function SettingsMainContent({ controller, navigation, savingsTil
           onOpenBudget={() => controller.setActiveTab("budget")}
           onOpenSavings={() => controller.setActiveTab("savings")}
           onOpenPreferences={() => controller.setActiveTab("preferences")}
+          onOpenPrivacy={() => router.push("/privacy-policy")}
           onSignOut={controller.signOut}
         />
       ) : null}

@@ -3,9 +3,8 @@ import { Alert, Image, KeyboardAvoidingView, Platform, Pressable, Text, TextInpu
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
-
 import { useAuth } from "@/context/AuthContext";
-import { useResendEmailVerificationMutation, useUpdateProfileMutation } from "@/store/api";
+import { getMobileApiErrorMessage, useResendEmailVerificationMutation, useUpdateProfileMutation } from "@/store/api";
 import { T } from "@/lib/theme";
 import { useTopHeaderOffset } from "@/hooks";
 import { styles } from "@/components/SettingsProfileDetailsScreen/style";
@@ -14,18 +13,15 @@ import type { RootStackScreenProps } from "@/navigation/types";
 export default function SettingsProfileDetailsScreen({ navigation, route }: RootStackScreenProps<"SettingsProfileDetails">) {
   const topHeaderOffset = useTopHeaderOffset(8);
   const { hydrateProfile, profile, refreshProfile } = useAuth();
-  const [email, setEmail] = useState(route.params?.email ?? "");
+  const initialEmail = route.params?.email ?? profile?.email ?? "";
+  const initialAvatar = profile?.avatarUrl ?? null;
+  const [email, setEmail] = useState(initialEmail);
   const [username] = useState(route.params?.username ?? "");
-  const [avatarImageDataUrl, setAvatarImageDataUrl] = useState<string | null>(profile?.avatarUrl ?? null);
+  const [avatarImageDataUrl, setAvatarImageDataUrl] = useState<string | null>(initialAvatar);
+  const [savedAvatarImageDataUrl, setSavedAvatarImageDataUrl] = useState<string | null>(initialAvatar);
   const [updateProfile, { isLoading: saving }] = useUpdateProfileMutation();
   const [resendEmailVerification, { isLoading: resending }] = useResendEmailVerificationMutation();
-  const [verificationState, setVerificationState] = useState<{
-    status: "verified" | "pending" | "missing_email" | "not_required";
-    deadlineAt: string | null;
-  }>({
-    status: route.params?.emailVerificationStatus ?? "not_required",
-    deadlineAt: route.params?.emailVerificationDeadlineAt ?? null,
-  });
+  const [verificationState, setVerificationState] = useState<{ status: "verified" | "pending" | "missing_email" | "not_required"; deadlineAt: string | null }>({ status: route.params?.emailVerificationStatus ?? "not_required", deadlineAt: route.params?.emailVerificationDeadlineAt ?? null });
 
   const badge = React.useMemo(() => {
     if (verificationState.status === "verified") {
@@ -44,22 +40,31 @@ export default function SettingsProfileDetailsScreen({ navigation, route }: Root
     if (!verificationState.deadlineAt) return null;
     const parsed = new Date(verificationState.deadlineAt);
     if (Number.isNaN(parsed.getTime())) return null;
-    return parsed.toLocaleString("en-GB", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    return parsed.toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
   }, [verificationState.deadlineAt]);
 
   const save = async () => {
     try {
-      const next = await updateProfile({ email: email.trim() || null, avatarImageDataUrl }).unwrap();
+      const payload: { email?: string | null; avatarImageDataUrl?: string | null } = {};
+      const normalizedNextEmail = email.trim() || null;
+      const normalizedInitialEmail = initialEmail.trim() || null;
+
+      if (normalizedNextEmail !== normalizedInitialEmail) {
+        payload.email = normalizedNextEmail;
+      }
+      if (avatarImageDataUrl !== savedAvatarImageDataUrl) {
+        payload.avatarImageDataUrl = avatarImageDataUrl;
+      }
+      if (!Object.keys(payload).length) {
+        navigation.goBack();
+        return;
+      }
+
+      const next = await updateProfile(payload).unwrap();
       hydrateProfile(next);
       navigation.goBack();
     } catch (err: unknown) {
-      Alert.alert("Could not save details", err instanceof Error ? err.message : "Please try again.");
+      Alert.alert("Could not save details", getMobileApiErrorMessage(err, "Please try again."));
     }
   };
 
@@ -75,7 +80,7 @@ export default function SettingsProfileDetailsScreen({ navigation, route }: Root
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.35,
+        quality: 0.2,
         base64: true,
       });
       if (result.canceled || !result.assets?.[0]) return;
@@ -86,10 +91,17 @@ export default function SettingsProfileDetailsScreen({ navigation, route }: Root
         Alert.alert("Could not use image", "Please choose a different image.");
         return;
       }
-      const mime = asset.mimeType && asset.mimeType.startsWith("image/") ? asset.mimeType : "image/jpeg";
-      setAvatarImageDataUrl(`data:${mime};base64,${base64}`);
+      const mime = typeof asset.mimeType === "string" && asset.mimeType.startsWith("image/") ? asset.mimeType.toLowerCase() : "image/jpeg";
+      const nextAvatar = `data:${mime};base64,${base64}`;
+      setAvatarImageDataUrl(nextAvatar);
+
+      const next = await updateProfile({ avatarImageDataUrl: nextAvatar }).unwrap();
+      hydrateProfile(next);
+      setSavedAvatarImageDataUrl(next.avatarUrl ?? null);
+      setAvatarImageDataUrl(next.avatarUrl ?? null);
     } catch (err: unknown) {
-      Alert.alert("Could not pick image", err instanceof Error ? err.message : "Please try again.");
+      setAvatarImageDataUrl(savedAvatarImageDataUrl);
+      Alert.alert("Could not update avatar", getMobileApiErrorMessage(err, "Please try again."));
     }
   };
 
@@ -103,7 +115,7 @@ export default function SettingsProfileDetailsScreen({ navigation, route }: Root
       await refreshProfile();
       Alert.alert("Verification sent", "Check your email for a fresh verification link.");
     } catch (err: unknown) {
-      Alert.alert("Could not resend", err instanceof Error ? err.message : "Please try again.");
+      Alert.alert("Could not resend", getMobileApiErrorMessage(err, "Please try again."));
     }
   };
 

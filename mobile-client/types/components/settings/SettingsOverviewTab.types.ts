@@ -6,5 +6,6 @@ export type SettingsOverviewTabProps = {
   onOpenBudget: () => void;
   onOpenSavings: () => void;
   onOpenPreferences: () => void;
+  onOpenPrivacy: () => void;
   onSignOut: () => void;
 };
