@@ -11,8 +11,12 @@ export function getSettingsTabTitle(
   t: (key: AppTranslationKey, params?: Record<string, string | number>) => string,
 ): string {
   switch (tab) {
+    case "personal":
+      return "Personal details";
     case "budget":
       return t("settings.budgetTitle");
+    case "preferences":
+      return "App preferences";
     case "savings":
       return t("settings.moneyTitle");
     case "locale":

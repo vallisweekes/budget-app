@@ -353,6 +353,7 @@ export interface BudgetPlansResponse {
 export interface UserProfile {
   id: string;
   username: string;
+  avatarUrl: string | null;
   email: string | null;
   emailVerifiedAt: string | null;
   emailVerificationStatus: "verified" | "pending" | "missing_email" | "not_required";

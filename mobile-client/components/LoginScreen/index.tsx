@@ -114,6 +114,7 @@ export default function LoginScreen() {
                   key={m}
                   style={[styles.modeBtn, mode === m && styles.modeBtnActive]}
                   onPress={() => setMode(m)}
+                  disabled={loading}
                 >
                   <Text style={[styles.modeBtnText, mode === m && styles.modeBtnTextActive]}>
                     {m === "login" ? "Sign In" : "Register"}
@@ -216,7 +217,10 @@ export default function LoginScreen() {
               disabled={loading}
             >
               {loading ? (
-                <ActivityIndicator color="#fff" size="small" />
+                <View style={styles.submitBtnLoadingRow}>
+                  <ActivityIndicator color={T.bg} size="small" />
+                  <Text style={styles.submitBtnLoadingText}>{mode === "login" ? "Signing in..." : "Creating account..."}</Text>
+                </View>
               ) : (
                 <Text style={styles.submitBtnText}>
                   {mode === "login" ? "Sign In" : "Create Account"}

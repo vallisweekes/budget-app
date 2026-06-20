@@ -12,10 +12,13 @@ export default function SettingsBudgetTab({
   payDate,
   horizonYears,
   payFrequencyLabel,
+  debtManagementLabel,
   strategyDraft,
   onOpenField,
   onOpenStrategy,
   onOpenIncomeSettings,
+  onOpenDebtManagement,
+  onOpenPlans,
 }: SettingsBudgetTabProps) {
   const { t } = useAppTranslation();
   const strategyLabel = strategyDraft === "zeroBased"
@@ -96,6 +99,40 @@ export default function SettingsBudgetTab({
             <Text style={styles.infoCardLabel}>{t("settings.budget.strategy")}</Text>
             <Text style={styles.infoCardValue}>{strategyLabel}</Text>
             <Text style={styles.infoCardHint}>{t("settings.budget.strategyHint")}</Text>
+          </View>
+          <View style={styles.forwardBadge}>
+            <Ionicons name="chevron-forward" size={17} color={T.text} />
+          </View>
+        </View>
+      </Pressable>
+
+      <Pressable onPress={onOpenDebtManagement} style={[styles.infoCard, styles.featureCard]}>
+        <View pointerEvents="none" style={[styles.cardGlow, styles.featureGlowPrimary]} />
+        <View pointerEvents="none" style={[styles.cardGlow, styles.featureGlowSecondary]} />
+        <View style={styles.featureRow}>
+          <View style={styles.featureIconWrap}>
+            <Ionicons name="card-outline" size={17} color={T.accent} />
+          </View>
+          <View style={styles.featureTextWrap}>
+            <Text style={styles.infoCardLabel}>{t("settings.overview.debtManagement")}</Text>
+            <Text style={styles.infoCardValue}>{debtManagementLabel}</Text>
+          </View>
+          <View style={styles.forwardBadge}>
+            <Ionicons name="chevron-forward" size={17} color={T.text} />
+          </View>
+        </View>
+      </Pressable>
+
+      <Pressable onPress={onOpenPlans} style={[styles.infoCard, styles.featureCard]}>
+        <View pointerEvents="none" style={[styles.cardGlow, styles.featureGlowPrimary]} />
+        <View pointerEvents="none" style={[styles.cardGlow, styles.featureGlowSecondary]} />
+        <View style={styles.featureRow}>
+          <View style={styles.featureIconWrap}>
+            <Ionicons name="list-outline" size={17} color={T.accent} />
+          </View>
+          <View style={styles.featureTextWrap}>
+            <Text style={styles.infoCardLabel}>{t("settings.overview.plans")}</Text>
+            <Text style={styles.infoCardHint}>{t("settings.plansTitle")}</Text>
           </View>
           <View style={styles.forwardBadge}>
             <Ionicons name="chevron-forward" size={17} color={T.text} />

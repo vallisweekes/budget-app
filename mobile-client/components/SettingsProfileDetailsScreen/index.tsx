@@ -1,6 +1,8 @@
 import React, { useState } from "react";
-import { Alert, KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from "react-native";
+import { Alert, Image, KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 
 import { useAuth } from "@/context/AuthContext";
 import { useResendEmailVerificationMutation, useUpdateProfileMutation } from "@/store/api";
@@ -11,9 +13,10 @@ import type { RootStackScreenProps } from "@/navigation/types";
 
 export default function SettingsProfileDetailsScreen({ navigation, route }: RootStackScreenProps<"SettingsProfileDetails">) {
   const topHeaderOffset = useTopHeaderOffset(8);
-  const { hydrateProfile, refreshProfile } = useAuth();
+  const { hydrateProfile, profile, refreshProfile } = useAuth();
   const [email, setEmail] = useState(route.params?.email ?? "");
   const [username] = useState(route.params?.username ?? "");
+  const [avatarImageDataUrl, setAvatarImageDataUrl] = useState<string | null>(profile?.avatarUrl ?? null);
   const [updateProfile, { isLoading: saving }] = useUpdateProfileMutation();
   const [resendEmailVerification, { isLoading: resending }] = useResendEmailVerificationMutation();
   const [verificationState, setVerificationState] = useState<{
@@ -52,11 +55,41 @@ export default function SettingsProfileDetailsScreen({ navigation, route }: Root
 
   const save = async () => {
     try {
-      const next = await updateProfile({ email: email.trim() || null }).unwrap();
+      const next = await updateProfile({ email: email.trim() || null, avatarImageDataUrl }).unwrap();
       hydrateProfile(next);
       navigation.goBack();
     } catch (err: unknown) {
       Alert.alert("Could not save details", err instanceof Error ? err.message : "Please try again.");
+    }
+  };
+
+  const pickAvatar = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert("Permission needed", "Allow photo library access to choose an avatar.");
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.35,
+        base64: true,
+      });
+      if (result.canceled || !result.assets?.[0]) return;
+
+      const asset = result.assets[0];
+      const base64 = asset.base64;
+      if (!base64) {
+        Alert.alert("Could not use image", "Please choose a different image.");
+        return;
+      }
+      const mime = asset.mimeType && asset.mimeType.startsWith("image/") ? asset.mimeType : "image/jpeg";
+      setAvatarImageDataUrl(`data:${mime};base64,${base64}`);
+    } catch (err: unknown) {
+      Alert.alert("Could not pick image", err instanceof Error ? err.message : "Please try again.");
     }
   };
 
@@ -80,6 +113,22 @@ export default function SettingsProfileDetailsScreen({ navigation, route }: Root
         <View style={styles.card}>
           <View pointerEvents="none" style={[styles.cardGlow, styles.cardGlowPrimary]} />
           <View pointerEvents="none" style={[styles.cardGlow, styles.cardGlowSecondary]} />
+
+          <View style={styles.avatarSection}>
+            <Pressable onPress={pickAvatar} style={styles.avatarWrap}>
+              <View style={styles.avatarCircle}>
+                {avatarImageDataUrl ? (
+                  <Image source={{ uri: avatarImageDataUrl }} style={styles.avatarImage} resizeMode="cover" />
+                ) : (
+                  <Text style={styles.avatarFallback}>{(username.trim()[0] ?? "U").toUpperCase()}</Text>
+                )}
+              </View>
+              <View style={styles.avatarCameraBadge}>
+                <Ionicons name="camera" size={12} color={T.onAccent} />
+              </View>
+            </Pressable>
+            <Text style={styles.avatarHint}>Tap to change avatar</Text>
+          </View>
 
           <Text style={styles.label}>Username</Text>
           <TextInput value={username} editable={false} style={styles.inputDisabled} />

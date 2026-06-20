@@ -48,7 +48,7 @@ export default function TabRouteHeader() {
   const navigation = useNavigation<any>();
   const segments = useSegments() as string[];
   const params = useLocalSearchParams() as Record<string, string | string[] | undefined>;
-  const { profile, signOut } = useAuth();
+  const { profile } = useAuth();
   const { activeBudgetPlanId, bootstrapBudgetPlanId } = useActiveBudgetPlan();
   const [notificationUnreadCount, setNotificationUnreadCount] = React.useState(0);
   const availablePlanIds = React.useMemo(
@@ -534,7 +534,7 @@ export default function TabRouteHeader() {
       compactActionsMenu={isSettings || isSettingsProfileDetails || isSettingsIncomeSettings || isSettingsStrategy || isSettingsDebtManagement}
       showAnalyticsAction={!isSettings && !isSettingsProfileDetails && !isSettingsIncomeSettings && !isSettingsStrategy && !isSettingsDebtManagement && !isAnalyticsRoute && !isGoalDetail && !isDebtSplitSection && !isUnplannedExpense}
       showNotificationAction={!isSettings && !isSettingsProfileDetails && !isSettingsIncomeSettings && !isSettingsStrategy && !isSettingsDebtManagement && !isAnalyticsRoute}
-      onLogout={isSettings && !isSettingsNotifications ? signOut : undefined}
+      onLogout={undefined}
     />
   );
 }

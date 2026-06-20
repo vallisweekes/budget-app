@@ -18,6 +18,7 @@ export * from "./usePostDashboardWarmup";
 export * from "./useSavingsPotStore";
 export * from "./useSettingsDebtBuckets";
 export * from "./useSettingsIncomeSettingsScreenController";
+export * from "./useSettingsMainContentViewModel";
 export * from "./useSettingsScreenController";
 export * from "./useSwipeDownToClose";
 export * from "./useTopHeaderOffset";

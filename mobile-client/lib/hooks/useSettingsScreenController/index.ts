@@ -603,7 +603,9 @@ export function useSettingsScreenController({ navigation, route }: SettingsScree
   useEffect(() => {
     if (
       requestedSubTab !== "details"
+      && requestedSubTab !== "personal"
       && requestedSubTab !== "budget"
+      && requestedSubTab !== "preferences"
       && requestedSubTab !== "savings"
       && requestedSubTab !== "locale"
       && requestedSubTab !== "plans"

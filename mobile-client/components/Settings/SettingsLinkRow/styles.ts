@@ -3,6 +3,12 @@ import { StyleSheet } from "react-native";
 import { T } from "@/lib/theme";
 
 export const styles = StyleSheet.create({
+  left: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
   row: {
     minHeight: 48,
     flexDirection: "row",

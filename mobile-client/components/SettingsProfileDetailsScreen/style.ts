@@ -4,6 +4,50 @@ import { T } from "@/lib/theme";
 import { cardElevated, flatInput, flatInputDisabled, flatInputLabel } from "@/lib/ui";
 
 export const styles = StyleSheet.create({
+  avatarCameraBadge: {
+    position: "absolute",
+    right: 0,
+    bottom: 4,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: T.accent,
+    borderWidth: 1,
+    borderColor: `${T.card}CC`,
+  },
+  avatarCircle: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: T.accent,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  avatarFallback: {
+    color: T.onAccent,
+    fontSize: 32,
+    fontWeight: "900",
+  },
+  avatarHint: {
+    color: T.textDim,
+    fontSize: 12,
+    fontWeight: "700",
+    marginTop: 8,
+  },
+  avatarImage: {
+    width: "100%",
+    height: "100%",
+  },
+  avatarSection: {
+    alignItems: "center",
+    marginBottom: 14,
+  },
+  avatarWrap: {
+    position: "relative",
+  },
   safe: { flex: 1, backgroundColor: T.bg },
   content: { flex: 1, paddingHorizontal: 16, paddingTop: 10 },
   cardGlow: {

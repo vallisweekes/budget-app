@@ -1,4 +1,4 @@
-export type SettingsTab = "details" | "budget" | "savings" | "locale" | "plans" | "subscription" | "notifications" | "danger";
+export type SettingsTab = "details" | "personal" | "budget" | "preferences" | "savings" | "locale" | "plans" | "subscription" | "notifications" | "danger";
 export type PlanKind = "personal" | "holiday" | "carnival";
 export type DebtKind = "credit_card" | "loan" | "hire_purchase";
 export type PayFrequency = "monthly" | "every_2_weeks" | "every_4_weeks" | "weekly";

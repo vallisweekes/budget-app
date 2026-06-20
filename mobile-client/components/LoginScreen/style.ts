@@ -100,5 +100,11 @@ export const styles = StyleSheet.create({
     elevation: 5,
   },
   submitBtnDisabled: { opacity: 0.6 },
+  submitBtnLoadingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  submitBtnLoadingText: { color: T.bg, fontWeight: "800", fontSize: 15, letterSpacing: 0.2 },
   submitBtnText: { color: T.bg, fontWeight: "800", fontSize: 16, letterSpacing: 0.2 },
 });

@@ -122,14 +122,26 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
     }
 
-    if (!("email" in body)) {
+    const hasEmail = "email" in body;
+    const hasAvatar = "avatarImageDataUrl" in body;
+
+    if (!hasEmail && !hasAvatar) {
       return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
     }
 
-    const rawEmail = body.email;
+    const rawEmail = hasEmail ? body.email : undefined;
     const normalized = rawEmail == null ? "" : normalizeEmail(String(rawEmail));
-    if (normalized && !isValidEmail(normalized)) {
+    if (hasEmail && normalized && !isValidEmail(normalized)) {
       return NextResponse.json({ error: "Invalid email address" }, { status: 400 });
+    }
+
+    const rawAvatar = hasAvatar ? body.avatarImageDataUrl : undefined;
+    const avatarImageDataUrl = rawAvatar == null ? null : String(rawAvatar);
+    if (hasAvatar && avatarImageDataUrl && !/^data:image\/(jpeg|jpg|png|webp);base64,[A-Za-z0-9+/=\s]+$/i.test(avatarImageDataUrl)) {
+      return NextResponse.json({ error: "Invalid avatar image format" }, { status: 400 });
+    }
+    if (avatarImageDataUrl && avatarImageDataUrl.length > 3_000_000) {
+      return NextResponse.json({ error: "Avatar image is too large" }, { status: 413 });
     }
 
     const currentUser = await prisma.user.findUnique({
@@ -140,13 +152,14 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const emailChanged = (currentUser.email ?? null) !== (normalized || null);
+    const emailChanged = hasEmail && (currentUser.email ?? null) !== (normalized || null);
 
     const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: {
-        email: normalized || null,
+        email: hasEmail ? (normalized || null) : undefined,
         emailVerified: emailChanged ? null : undefined,
+        image: hasAvatar ? avatarImageDataUrl : undefined,
       },
       select: { email: true },
     });

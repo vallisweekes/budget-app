@@ -556,7 +556,7 @@ export const mobileApi = createApi({
       },
       invalidatesTags: ["Debts", "Dashboard", "CreditCards"],
     }),
-    updateProfile: builder.mutation<UserProfile, { email: string | null }>({
+    updateProfile: builder.mutation<UserProfile, { email?: string | null; avatarImageDataUrl?: string | null }>({
       async queryFn(body) {
         try {
           const data = await apiFetch<UserProfile>("/api/bff/me", {

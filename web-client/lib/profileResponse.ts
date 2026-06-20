@@ -51,7 +51,7 @@ export async function buildProfileResponse(userId: string) {
   const [user, verification, onboarding, onboardingMeta, settings, plans] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, name: true, email: true, createdAt: true },
+      select: { id: true, name: true, email: true, image: true, createdAt: true },
     }),
     getEmailVerificationState(userId).catch((error) => {
       console.error("Failed to resolve email verification state:", error);
@@ -88,6 +88,7 @@ export async function buildProfileResponse(userId: string) {
   return {
     id: user.id,
     username: String(user.name ?? "").trim(),
+    avatarUrl: user.image ?? null,
     email: user.email,
     emailVerifiedAt: verification.emailVerifiedAt?.toISOString() ?? null,
     emailVerificationStatus: verification.status,

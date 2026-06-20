@@ -51,7 +51,9 @@ export const TAB_ICONS: Record<
   }
 > = {
   details: { active: "person", inactive: "person-outline" },
+  personal: { active: "person-circle", inactive: "person-circle-outline" },
   budget: { active: "wallet", inactive: "wallet-outline" },
+  preferences: { active: "options", inactive: "options-outline" },
   savings: { active: "cash", inactive: "cash-outline" },
   plans: { active: "list", inactive: "list-outline" },
   locale: { active: "globe", inactive: "globe-outline" },
