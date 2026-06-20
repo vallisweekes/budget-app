@@ -5,8 +5,6 @@ import { useAppTranslation } from "@/hooks";
 import { styles as s } from "@/components/Expenses/AddExpenseSheet/styles";
 
 export default function AddExpenseSheetToggles({
-  paid,
-  setPaid,
   isDirectDebit,
   setIsDirectDebit,
   distributeMonths,
@@ -14,8 +12,6 @@ export default function AddExpenseSheetToggles({
   distributeYears,
   setDistributeYears,
 }: {
-  paid: boolean;
-  setPaid: (updater: (v: boolean) => boolean) => void;
   isDirectDebit: boolean;
   setIsDirectDebit: (updater: (v: boolean) => boolean) => void;
   distributeMonths: boolean;
@@ -27,16 +23,6 @@ export default function AddExpenseSheetToggles({
 
   return (
     <>
-      <View style={s.toggleRow}>
-        <View style={s.toggleInfo}>
-          <Text style={s.toggleTitle}>{t("expenses.toggleMarkPaid")}</Text>
-          <Text style={s.toggleSub}>{t("expenses.toggleMarkPaidSub")}</Text>
-        </View>
-        <TouchableOpacity onPress={() => setPaid((v) => !v)} style={[s.toggle, paid && s.toggleOn]} activeOpacity={0.8}>
-          <View style={[s.toggleThumb, paid && s.toggleThumbOn]} />
-        </TouchableOpacity>
-      </View>
-
       <View style={s.toggleRow}>
         <View style={s.toggleInfo}>
           <Text style={s.toggleTitle}>{t("expenses.toggleDirectDebit")}</Text>

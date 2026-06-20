@@ -36,6 +36,31 @@ function norm(value: string | null | undefined): string {
   return String(value ?? "").trim().toLowerCase();
 }
 
+function isRetryablePrismaError(error: unknown): boolean {
+  const code = typeof error === "object" && error !== null && "code" in error
+    ? String((error as { code?: unknown }).code ?? "")
+    : "";
+  return code === "P1017" || code === "P1001" || code === "P2028";
+}
+
+async function withRetry<T>(label: string, fn: () => Promise<T>, maxAttempts = 5): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      if (!isRetryablePrismaError(error) || attempt === maxAttempts) {
+        throw error;
+      }
+      const waitMs = 300 * attempt;
+      console.warn(`[retry] ${label} failed (attempt ${attempt}/${maxAttempts}), retrying in ${waitMs}ms`);
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+    }
+  }
+  throw lastError;
+}
+
 async function main() {
   const options = parseArgs(process.argv.slice(2));
 
@@ -122,8 +147,10 @@ async function main() {
     return;
   }
 
-  await prisma.$transaction(async (tx) => {
-    const createdUser = await tx.user.create({
+  {
+    const tx = prisma;
+
+    const createdUser = await withRetry("create user", () => tx.user.create({
       data: {
         name: options.targetName,
         email: options.targetEmail,
@@ -135,11 +162,11 @@ async function main() {
         notificationPaymentAlerts: sourceUser.notificationPaymentAlerts,
         notificationDailyTips: sourceUser.notificationDailyTips,
       },
-    });
+    }));
 
     if (sourceUser.onboardingProfile) {
       const profile = sourceUser.onboardingProfile;
-      await tx.userOnboardingProfile.create({
+      await withRetry("create onboarding profile", () => tx.userOnboardingProfile.create({
         data: {
           userId: createdUser.id,
           status: profile.status,
@@ -170,12 +197,12 @@ async function main() {
           debtAmount: profile.debtAmount,
           debtNotes: profile.debtNotes,
         },
-      });
+      }));
     }
 
     const planIdMap = new Map<string, string>();
     for (const sourcePlan of sourcePlans) {
-      const plan = await tx.budgetPlan.create({
+      const plan = await withRetry("create budget plan", () => tx.budgetPlan.create({
         data: {
           name: sourcePlan.name,
           kind: sourcePlan.kind,
@@ -200,13 +227,14 @@ async function main() {
           language: sourcePlan.language,
           currency: sourcePlan.currency,
         },
-      });
+      }));
       planIdMap.set(sourcePlan.id, plan.id);
     }
 
     const categoryIdMap = new Map<string, string>();
+    const createdCategoryIds = new Set<string>();
     for (const sourceCategory of categories) {
-      const created = await tx.category.create({
+      const created = await withRetry("create category", () => tx.category.create({
         data: {
           name: sourceCategory.name,
           icon: sourceCategory.icon,
@@ -214,13 +242,14 @@ async function main() {
           featured: sourceCategory.featured,
           budgetPlanId: planIdMap.get(sourceCategory.budgetPlanId)!,
         },
-      });
+      }));
       categoryIdMap.set(sourceCategory.id, created.id);
+      createdCategoryIds.add(created.id);
     }
 
     const debtIdMap = new Map<string, string>();
     for (const sourceDebt of debts) {
-      const created = await tx.debt.create({
+      const created = await withRetry("create debt", () => tx.debt.create({
         data: {
           name: sourceDebt.name,
           type: sourceDebt.type,
@@ -248,13 +277,20 @@ async function main() {
           sourceExpenseName: sourceDebt.sourceExpenseName,
           isDirectDebit: sourceDebt.isDirectDebit,
         },
-      });
+      }));
       debtIdMap.set(sourceDebt.id, created.id);
     }
 
     const expenseIdMap = new Map<string, string>();
     for (const sourceExpense of expenses) {
-      const created = await tx.expense.create({
+      const mappedCategoryId = sourceExpense.categoryId
+        ? categoryIdMap.get(sourceExpense.categoryId) ?? null
+        : null;
+      const safeCategoryId = mappedCategoryId && createdCategoryIds.has(mappedCategoryId)
+        ? mappedCategoryId
+        : null;
+
+      const created = await withRetry("create expense", () => tx.expense.create({
         data: {
           name: sourceExpense.name,
           merchantDomain: sourceExpense.merchantDomain,
@@ -273,18 +309,18 @@ async function main() {
           dueDate: sourceExpense.dueDate,
           periodKey: sourceExpense.periodKey,
           budgetPlanId: planIdMap.get(sourceExpense.budgetPlanId)!,
-          categoryId: sourceExpense.categoryId ? categoryIdMap.get(sourceExpense.categoryId) ?? null : null,
+          categoryId: safeCategoryId,
           lastPaymentAt: sourceExpense.lastPaymentAt,
           paymentSource: sourceExpense.paymentSource,
           cardDebtId: sourceExpense.cardDebtId ? debtIdMap.get(sourceExpense.cardDebtId) ?? null : null,
         },
-      });
+      }));
       expenseIdMap.set(sourceExpense.id, created.id);
     }
 
     for (const sourceDebt of debts) {
       const nextDebtId = debtIdMap.get(sourceDebt.id)!;
-      await tx.debt.update({
+      await withRetry("update debt references", () => tx.debt.update({
         where: { id: nextDebtId },
         data: {
           defaultPaymentCardDebtId: sourceDebt.defaultPaymentCardDebtId
@@ -292,11 +328,11 @@ async function main() {
             : null,
           sourceExpenseId: sourceDebt.sourceExpenseId ? expenseIdMap.get(sourceDebt.sourceExpenseId) ?? null : null,
         },
-      });
+      }));
     }
 
     for (const sourceIncome of incomes) {
-      await tx.income.create({
+      await withRetry("create income", () => tx.income.create({
         data: {
           name: sourceIncome.name,
           amount: sourceIncome.amount,
@@ -305,12 +341,12 @@ async function main() {
           periodKey: sourceIncome.periodKey,
           budgetPlanId: planIdMap.get(sourceIncome.budgetPlanId)!,
         },
-      });
+      }));
     }
 
     const goalIdMap = new Map<string, string>();
     for (const sourceGoal of goals) {
-      const created = await tx.goal.create({
+      const created = await withRetry("create goal", () => tx.goal.create({
         data: {
           title: sourceGoal.title,
           type: sourceGoal.type,
@@ -321,12 +357,12 @@ async function main() {
           targetYear: sourceGoal.targetYear,
           budgetPlanId: planIdMap.get(sourceGoal.budgetPlanId)!,
         },
-      });
+      }));
       goalIdMap.set(sourceGoal.id, created.id);
     }
 
     for (const row of savingsPots) {
-      await tx.savingsPot.create({
+      await withRetry("create savings pot", () => tx.savingsPot.create({
         data: {
           field: row.field,
           name: row.name,
@@ -335,11 +371,11 @@ async function main() {
           allocationId: row.allocationId,
           budgetPlanId: planIdMap.get(row.budgetPlanId)!,
         },
-      });
+      }));
     }
 
     for (const row of monthlyAllocations) {
-      await tx.monthlyAllocation.create({
+      await withRetry("create monthly allocation", () => tx.monthlyAllocation.create({
         data: {
           year: row.year,
           month: row.month,
@@ -349,12 +385,12 @@ async function main() {
           monthlyInvestmentContribution: row.monthlyInvestmentContribution,
           budgetPlanId: planIdMap.get(row.budgetPlanId)!,
         },
-      });
+      }));
     }
 
     const allocationIdMap = new Map<string, string>();
     for (const row of allocationDefinitions) {
-      const created = await tx.allocationDefinition.create({
+      const created = await withRetry("create allocation definition", () => tx.allocationDefinition.create({
         data: {
           name: row.name,
           defaultAmount: row.defaultAmount,
@@ -362,12 +398,12 @@ async function main() {
           isArchived: row.isArchived,
           budgetPlanId: planIdMap.get(row.budgetPlanId)!,
         },
-      });
+      }));
       allocationIdMap.set(row.id, created.id);
     }
 
     for (const row of monthlyAllocationItems) {
-      await tx.monthlyAllocationItem.create({
+      await withRetry("create monthly allocation item", () => tx.monthlyAllocationItem.create({
         data: {
           year: row.year,
           month: row.month,
@@ -375,11 +411,11 @@ async function main() {
           allocationId: allocationIdMap.get(row.allocationId)!,
           budgetPlanId: planIdMap.get(row.budgetPlanId)!,
         },
-      });
+      }));
     }
 
     for (const row of debtPayments) {
-      await tx.debtPayment.create({
+      await withRetry("create debt payment", () => tx.debtPayment.create({
         data: {
           debtId: debtIdMap.get(row.debtId)!,
           amount: row.amount,
@@ -391,11 +427,11 @@ async function main() {
           cardDebtId: row.cardDebtId ? debtIdMap.get(row.cardDebtId) ?? null : null,
           notes: row.notes,
         },
-      });
+      }));
     }
 
     for (const row of expensePayments) {
-      await tx.expensePayment.create({
+      await withRetry("create expense payment", () => tx.expensePayment.create({
         data: {
           expenseId: expenseIdMap.get(row.expenseId)!,
           amount: row.amount,
@@ -404,21 +440,21 @@ async function main() {
           paidAt: row.paidAt,
           periodKey: row.periodKey,
         },
-      });
+      }));
     }
 
     for (const row of sacrificeGoalLinks) {
-      await tx.sacrificeGoalLink.create({
+      await withRetry("create sacrifice goal link", () => tx.sacrificeGoalLink.create({
         data: {
           targetKey: row.targetKey,
           budgetPlanId: planIdMap.get(row.budgetPlanId)!,
           goalId: goalIdMap.get(row.goalId)!,
         },
-      });
+      }));
     }
 
     for (const row of sacrificeTransferConfirmations) {
-      await tx.sacrificeTransferConfirmation.create({
+      await withRetry("create sacrifice transfer confirmation", () => tx.sacrificeTransferConfirmation.create({
         data: {
           year: row.year,
           month: row.month,
@@ -428,14 +464,11 @@ async function main() {
           budgetPlanId: planIdMap.get(row.budgetPlanId)!,
           goalId: goalIdMap.get(row.goalId)!,
         },
-      });
+      }));
     }
 
     console.log(`Created cloned user '${options.targetName}' with id=${createdUser.id}`);
-  }, {
-    maxWait: 30000,
-    timeout: 300000,
-  });
+  }
 }
 
 main()

@@ -66,12 +66,9 @@ export default function AddExpenseSheetHeader({
           >
             <Ionicons name="chevron-back" size={16} color={T.text} />
           </Pressable>
-          <View style={s.periodPill}>
-            <Ionicons name="calendar-outline" size={14} color={T.accent} />
-            <Text style={s.periodPillText} numberOfLines={1}>
-              {label}
-            </Text>
-          </View>
+          <Text style={s.periodText} numberOfLines={1}>
+            {label}
+          </Text>
           <Pressable onPress={onNextMonth} hitSlop={10} style={s.periodIconBtn}>
             <Ionicons name="chevron-forward" size={16} color={T.text} />
           </Pressable>

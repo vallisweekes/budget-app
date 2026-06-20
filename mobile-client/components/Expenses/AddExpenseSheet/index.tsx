@@ -91,6 +91,7 @@ export default function AddExpenseSheet({
   const { settings } = useBootstrapData();
   const { t } = useAppTranslation();
   const slideY = useRef(new Animated.Value(ADD_EXPENSE_SHEET_SCREEN_H ?? SCREEN_H)).current;
+  const [renderVisible, setRenderVisible] = useState(visible);
   const [createExpense] = useCreateExpenseMutation();
 
   const [name, setName] = useState("");
@@ -201,10 +202,33 @@ export default function AddExpenseSheet({
 
   const { dragY, panHandlers } = useSwipeDownToClose({ onClose, disabled: submitting });
 
-  // Animate in / out
+  // Keep modal mounted while animating out.
   useEffect(() => {
+    if (visible) {
+      setRenderVisible(true);
+      return;
+    }
+    if (!renderVisible) return;
+    const closeAnim = Animated.timing(slideY, {
+      toValue: SCREEN_H,
+      duration: 240,
+      useNativeDriver: true,
+    });
+    closeAnim.start(({ finished }) => {
+      if (finished) setRenderVisible(false);
+    });
+
+    return () => {
+      closeAnim.stop();
+    };
+  }, [renderVisible, slideY, visible]);
+
+  // Animate in
+  useEffect(() => {
+    if (!visible) return;
+    slideY.setValue(SCREEN_H);
     Animated.spring(slideY, {
-      toValue: visible ? 0 : SCREEN_H,
+      toValue: 0,
       useNativeDriver: true,
       bounciness: 3,
       speed: 18,
@@ -517,7 +541,7 @@ export default function AddExpenseSheet({
 
   return (
     <Modal
-      visible={visible}
+      visible={renderVisible}
       transparent
       animationType="none"
       presentationStyle="overFullScreen"
@@ -631,8 +655,6 @@ export default function AddExpenseSheet({
 
             <View style={styles.togglesWrap}>
               <AddExpenseSheetToggles
-                paid={paid}
-                setPaid={setPaid}
                 isDirectDebit={isDirectDebit}
                 setIsDirectDebit={setIsDirectDebit}
                 distributeMonths={distributeMonths}
@@ -647,7 +669,7 @@ export default function AddExpenseSheet({
           <View
             style={{
               ...styles.footerWrap,
-              paddingBottom: insets.bottom + 2,
+              paddingBottom: Math.max(insets.bottom - 8, 0),
             }}
           >
             <AddExpenseSheetFooter
