@@ -29,7 +29,8 @@
     "income:dedupe": "tsx scripts/dedupe-income-rows.ts",
     "income:dedupe:apply": "APPLY=1 tsx scripts/dedupe-income-rows.ts",
     "logged-expenses:audit": "tsx scripts/backfill-logged-expense-flags.ts",
-    "logged-expenses:backfill": "tsx scripts/backfill-logged-expense-flags.ts --apply"
+    "logged-expenses:backfill": "tsx scripts/backfill-logged-expense-flags.ts --apply",
+    "user:clone": "tsx scripts/clone-user-data.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",
