@@ -356,6 +356,7 @@ export function useCategoryExpensesScreenController({ navigation, route }: Props
         year,
         budgetPlanId,
         currency,
+        returnTo: "category-expenses",
       });
     },
   };

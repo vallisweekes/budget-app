@@ -10,7 +10,6 @@ import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { apiFetch } from "@/lib/api";
 import type { Expense, ExpenseFrequencyPoint, ExpenseFrequencyResponse } from "@/lib/apiTypes";
 import { getCachedPayPeriodExpenses, setCachedPayPeriodExpenses } from "@/lib/expensePeriodCache";
-import { getExpenseDetailReturnContext } from "@/lib/helpers/expenseDetailReturnContext";
 import { T } from "@/lib/theme";
 import { clearScheduledUnpaidReminders, notifyPaymentStatus, scheduleUnpaidFollowUpReminders, scheduleUnpaidReminder } from "@/lib/unpaidReminder";
 import type { ExpensesStackParamList } from "@/navigation/types";
@@ -60,8 +59,7 @@ export function useExpenseDetailScreenController({ route, navigation }: Props): 
   const insets = useSafeAreaInsets();
   const { settings } = useBootstrapData();
   const tabBarHeight = useMemo(() => Math.max(insets.bottom, 56), [insets.bottom]);
-  const { expenseId, expenseName, categoryId, month, year, budgetPlanId, currency, returnTo } = route.params;
-  const effectiveReturnTo = returnTo ?? getExpenseDetailReturnContext(expenseId);
+  const { expenseId, expenseName, categoryId, month, year, budgetPlanId, currency } = route.params;
   const cachedExpenses = useMemo(
     () => getCachedPayPeriodExpenses({ budgetPlanId, month, year }) ?? [],
     [budgetPlanId, month, year],
@@ -516,33 +514,18 @@ export function useExpenseDetailScreenController({ route, navigation }: Props): 
       await markUnpaid();
     },
     onGoBack: () => {
-      if (effectiveReturnTo === "dashboard") {
-        router.replace({ pathname: "/(tabs)/dashboard" });
-        return;
-      }
-
-      if (effectiveReturnTo === "logged-expenses") {
-        router.replace({
-          pathname: "/(tabs)/expenses/LoggedExpenses",
-          params: {
-            categoryId,
-            categoryName: route.params.categoryName,
-            color: route.params.color ?? undefined,
-            month,
-            year,
-            budgetPlanId: budgetPlanId ?? undefined,
-            currency,
-          },
-        });
-        return;
-      }
-
-      if (effectiveReturnTo === "search") {
-        router.replace({ pathname: "/(tabs)/search" });
-        return;
-      }
-
-      navigation.goBack();
+      router.replace({
+        pathname: "/(tabs)/expenses/CategoryExpenses",
+        params: {
+          categoryId,
+          categoryName: route.params.categoryName,
+          color: route.params.color ?? undefined,
+          month,
+          year,
+          budgetPlanId: budgetPlanId ?? undefined,
+          currency,
+        },
+      });
     },
     onLogoError: () => setLogoFailed(true),
     onMarkPaid,
