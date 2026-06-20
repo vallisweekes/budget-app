@@ -17,6 +17,7 @@ export type NormalizedExpensePaymentSource =
 
 type PaymentSyncDbClient = {
   expensePayment: typeof prisma.expensePayment;
+  debtPayment: typeof prisma.debtPayment;
   expense: typeof prisma.expense;
   debt: typeof prisma.debt;
 };
