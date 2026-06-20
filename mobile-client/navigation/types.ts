@@ -78,7 +78,7 @@ export type ExpensesStackParamList = {
     year: number;
     budgetPlanId: string | null;
     currency: string;
-    returnTo?: "logged-expenses" | "search";
+    returnTo?: "logged-expenses" | "search" | "dashboard";
   };
   UnplannedExpense:
     | {

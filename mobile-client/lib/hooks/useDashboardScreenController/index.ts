@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useIsFocused, useScrollToTop } from "@react-navigation/native";
+import { useNavigation } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 
 import { useBootstrapData, isNoBudgetPlanError } from "@/context/BootstrapDataContext";
@@ -10,6 +11,7 @@ import { currencySymbol, normalizeUpcomingName } from "@/lib/formatting";
 import { usePayPeriodBoundaryRefresh, useSwipeDownToClose, useTopHeaderOffset } from "@/hooks";
 import { translateAppText } from "@/lib/i18n";
 import { normalizePayFrequency } from "@/lib/payPeriods";
+import { setExpenseDetailReturnContext } from "@/lib/helpers/expenseDetailReturnContext";
 import type { MainTabScreenProps } from "@/navigation/types";
 import { useGetIncomeMonthQuery } from "@/store/api";
 import type { QuickPaymentActionItem } from "@/types";
@@ -34,6 +36,7 @@ function normalizeQueryError(nextError: unknown, fallbackMessage: string): Error
 
 export function useDashboardScreenController({ navigation }: DashboardScreenProps) {
   const router = useRouter();
+  const rootNavigation = useNavigation<any>();
   const scrollRef = useRef<ScrollView>(null);
   useScrollToTop(scrollRef);
   const isFocused = useIsFocused();
@@ -292,25 +295,39 @@ export function useDashboardScreenController({ navigation }: DashboardScreenProp
     const expenseId = String(expense.id ?? "").trim();
     if (!expenseId) return;
 
+    setExpenseDetailReturnContext(expenseId, "dashboard");
+
     const match = derived.categories
       .flatMap((category) => (category.expenses ?? []).map((entry) => ({ category, entry })))
       .find(({ entry }) => String(entry.id ?? "").trim() === expenseId);
 
+    const params = {
+      expenseId,
+      expenseName: expense.name,
+      categoryId: match?.category.id ?? "__none__",
+      categoryName: match?.category.name ?? "Expense",
+      color: match?.category.color ?? null,
+      month: derived.monthNum,
+      year: derived.year,
+      budgetPlanId: budgetPlanId || null,
+      currency,
+      returnTo: "dashboard" as const,
+    };
+
+    const routeNames = (rootNavigation as any)?.getState?.()?.routeNames;
+    if (Array.isArray(routeNames) && routeNames.includes("Expenses")) {
+      (rootNavigation as any).navigate("Expenses", {
+        screen: "ExpenseDetail",
+        params,
+      });
+      return;
+    }
+
     router.push({
       pathname: "/(tabs)/expenses/ExpenseDetail",
-      params: {
-        expenseId,
-        expenseName: expense.name,
-        categoryId: match?.category.id ?? "",
-        categoryName: match?.category.name ?? "Expense",
-        color: match?.category.color ?? null,
-        month: derived.monthNum,
-        year: derived.year,
-        budgetPlanId: budgetPlanId || null,
-        currency,
-      },
+      params,
     });
-  }, [budgetPlanId, currency, derived.categories, derived.monthNum, derived.year, router]);
+  }, [budgetPlanId, currency, derived.categories, derived.monthNum, derived.year, rootNavigation, router]);
 
   const openDebtQuickPay = useCallback((debt: {
     id: string;
