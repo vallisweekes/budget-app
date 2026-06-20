@@ -281,7 +281,7 @@ export function useDashboardScreenController({ navigation }: DashboardScreenProp
     void load({ force: true });
   }, [load]);
 
-  const openExpenseQuickPay = useCallback((expense: {
+  const openUpcomingExpenseDetail = useCallback((expense: {
     id: string;
     name: string;
     amount: number;
@@ -289,16 +289,28 @@ export function useDashboardScreenController({ navigation }: DashboardScreenProp
     dueDate?: string | null;
     logoUrl?: string | null;
   }) => {
-    setQuickPayItem({
-      kind: "expense",
-      id: expense.id,
-      name: expense.name,
-      amount: expense.amount,
-      paidAmount: expense.paidAmount ?? undefined,
-      dueDate: expense.dueDate,
-      logoUrl: expense.logoUrl ?? null,
+    const expenseId = String(expense.id ?? "").trim();
+    if (!expenseId) return;
+
+    const match = derived.categories
+      .flatMap((category) => (category.expenses ?? []).map((entry) => ({ category, entry })))
+      .find(({ entry }) => String(entry.id ?? "").trim() === expenseId);
+
+    router.push({
+      pathname: "/(tabs)/expenses/ExpenseDetail",
+      params: {
+        expenseId,
+        expenseName: expense.name,
+        categoryId: match?.category.id ?? "",
+        categoryName: match?.category.name ?? "Expense",
+        color: match?.category.color ?? null,
+        month: derived.monthNum,
+        year: derived.year,
+        budgetPlanId: budgetPlanId || null,
+        currency,
+      },
     });
-  }, []);
+  }, [budgetPlanId, currency, derived.categories, derived.monthNum, derived.year, router]);
 
   const openDebtQuickPay = useCallback((debt: {
     id: string;
@@ -364,7 +376,7 @@ export function useDashboardScreenController({ navigation }: DashboardScreenProp
     closeCategorySheet,
     closeQuickPay,
     handleQuickPayUpdated,
-    openExpenseQuickPay,
+    openUpcomingExpenseDetail,
     openDebtQuickPay,
     markLogoFailed,
     isLogoFailed,

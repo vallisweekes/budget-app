@@ -104,10 +104,6 @@ export default function TabRouteHeader() {
   const routeParams = (deepestRoute?.params ?? {}) as Record<string, unknown>;
   const isIncomeMonth = leafSegment === "IncomeMonth" || deepestRouteName === "IncomeMonth";
 
-  if (isDebtDetail || isExpenseDetail) {
-    return null;
-  }
-
   const routeMonthNum = getRouteParamNumber(routeParams, "month");
   const routeYearNum = getRouteParamNumber(routeParams, "year");
   const localMonthNum = getNumberParam(params.month);
@@ -512,7 +508,7 @@ export default function TabRouteHeader() {
     </Pressable>
   ) : undefined;
 
-  if (isIncomeMonth && incomeMonthManageActive) {
+  if (isDebtDetail || isExpenseDetail || (isIncomeMonth && incomeMonthManageActive)) {
     return null;
   }
 

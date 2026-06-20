@@ -99,7 +99,7 @@ export type DashboardUpcomingExpensesSectionProps = {
   formatShortDate: (iso: string | null | undefined) => string | null;
   isLogoFailed: (key: string) => boolean;
   onLogoError: (key: string) => void;
-  onOpenQuickPay: (expense: UpcomingExpense) => void;
+  onOpenExpenseDetail: (expense: UpcomingExpense) => void;
   onSeeAll: () => void;
 };
 

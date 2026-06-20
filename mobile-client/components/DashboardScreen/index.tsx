@@ -204,7 +204,7 @@ export default function DashboardScreen(props: DashboardScreenProps) {
           formatShortDate={controller.formatShortDate}
           isLogoFailed={controller.isLogoFailed}
           onLogoError={controller.markLogoFailed}
-          onOpenQuickPay={controller.openExpenseQuickPay}
+          onOpenExpenseDetail={controller.openUpcomingExpenseDetail}
           onSeeAll={controller.goToPayments}
         />
 

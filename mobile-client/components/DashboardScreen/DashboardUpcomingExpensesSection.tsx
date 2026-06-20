@@ -12,7 +12,7 @@ export default function DashboardUpcomingExpensesSection({
   formatShortDate,
   isLogoFailed,
   onLogoError,
-  onOpenQuickPay,
+  onOpenExpenseDetail,
   onSeeAll,
 }: DashboardUpcomingExpensesSectionProps) {
   const { t } = useAppTranslation();
@@ -38,7 +38,7 @@ export default function DashboardUpcomingExpensesSection({
             : t("dashboard.upcomingThisPayPeriod");
 
         return (
-          <Pressable key={item.id} style={styles.lightRow} onPress={() => onOpenQuickPay(item)}>
+          <Pressable key={item.id} style={styles.lightRow} onPress={() => onOpenExpenseDetail(item)}>
             <View style={styles.lightLeft}>
               <View style={styles.lightAvatar}>
                 {showLogo ? (
