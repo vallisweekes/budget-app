@@ -16,6 +16,7 @@ export * from "./usePayPeriodBoundaryRefresh";
 export * from "./usePaymentsSections";
 export * from "./usePostDashboardWarmup";
 export * from "./useSavingsPotStore";
+export * from "./useScanReceiptScreenController";
 export * from "./useSettingsDebtBuckets";
 export * from "./useSettingsIncomeSettingsScreenController";
 export * from "./useSettingsMainContentViewModel";
