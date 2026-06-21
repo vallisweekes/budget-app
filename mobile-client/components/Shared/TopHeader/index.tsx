@@ -69,7 +69,7 @@ export default function TopHeader({
           </Pressable>
         ) : (
           <Pressable onPress={onSettings} style={styles.avatarBtn} hitSlop={10}>
-            <View style={styles.avatar}>
+            <View style={[styles.avatar, avatarUri ? styles.avatarWithImage : styles.avatarFallback]}>
               {avatarUri ? (
                 <Image source={{ uri: avatarUri }} style={styles.avatarImage} resizeMode="cover" />
               ) : (

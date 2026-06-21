@@ -88,11 +88,19 @@ export const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: T.accent,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1.5,
+    overflow: "hidden",
+  },
+  avatarFallback: {
+    backgroundColor: T.accent,
+    borderWidth: 1,
     borderColor: T.border,
+  },
+  avatarWithImage: {
+    backgroundColor: T.cardAlt,
+    borderWidth: 0,
+    borderColor: "transparent",
   },
   avatarImage: {
     width: "100%",
