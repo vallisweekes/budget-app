@@ -32,10 +32,6 @@ function parseArgs(argv: string[]): CliOptions {
   };
 }
 
-function norm(value: string | null | undefined): string {
-  return String(value ?? "").trim().toLowerCase();
-}
-
 function isRetryablePrismaError(error: unknown): boolean {
   const code = typeof error === "object" && error !== null && "code" in error
     ? String((error as { code?: unknown }).code ?? "")
@@ -155,6 +151,8 @@ async function main() {
         name: options.targetName,
         email: options.targetEmail,
         image: sourceUser.image,
+        createdAt: sourceUser.createdAt,
+        updatedAt: sourceUser.updatedAt,
         phoneNumber: null,
         isOnboarded: sourceUser.isOnboarded,
         theme: sourceUser.theme,
@@ -169,6 +167,8 @@ async function main() {
       await withRetry("create onboarding profile", () => tx.userOnboardingProfile.create({
         data: {
           userId: createdUser.id,
+          createdAt: profile.createdAt,
+          updatedAt: profile.updatedAt,
           status: profile.status,
           completedAt: profile.completedAt,
           mainGoal: profile.mainGoal,
@@ -207,6 +207,8 @@ async function main() {
           name: sourcePlan.name,
           kind: sourcePlan.kind,
           userId: createdUser.id,
+          createdAt: sourcePlan.createdAt,
+          updatedAt: sourcePlan.updatedAt,
           eventDate: sourcePlan.eventDate,
           includePostEventIncome: sourcePlan.includePostEventIncome,
           categorySeedVersion: sourcePlan.categorySeedVersion,

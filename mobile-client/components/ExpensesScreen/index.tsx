@@ -36,18 +36,15 @@ function getPlanVisual(kind: string | null | undefined) {
   switch (String(kind ?? "").trim().toLowerCase()) {
     case "holiday":
       return {
-        icon: "airplane-outline" as const,
         label: "Holiday plan",
       };
     case "carnival":
       return {
-        icon: "sparkles-outline" as const,
         label: "Event plan",
       };
     case "personal":
     default:
       return {
-        icon: "home-outline" as const,
         label: "Main plan",
       };
   }
@@ -98,9 +95,6 @@ export default function ExpensesScreen({ navigation, route }: ExpensesScreenProp
           ListHeaderComponent={
             <>
               <View style={[styles.purpleHero, { paddingTop: controller.topHeaderOffset + 22 }]}>
-                <View style={[styles.heroGlow, styles.heroGlowPrimary]} />
-                <View style={[styles.heroGlow, styles.heroGlowSecondary]} />
-                <View style={styles.heroInnerBorder} />
                 {controller.showPlanTotalFallback ? (
                   <Text style={styles.purpleHeroLabel}>
                     {t("expenses.hero.totalPlanExpenses", { plan: getDisplayPlanName(controller.activePlan) })}
@@ -111,6 +105,7 @@ export default function ExpensesScreen({ navigation, route }: ExpensesScreenProp
                     <Ionicons name="chevron-down" size={14} color="rgba(255,255,255,0.72)" />
                   </Pressable>
                 )}
+
                 {controller.summary ? (
                   <>
                     <Text style={styles.purpleHeroAmount}>
@@ -143,16 +138,6 @@ export default function ExpensesScreen({ navigation, route }: ExpensesScreenProp
                         </View>
                       );
                     })()}
-                    <View style={styles.heroStatRow}>
-                      <View style={styles.heroStatCard}>
-                        <Text style={styles.heroStatLabel}>{t("expenses.hero.activePlan")}</Text>
-                        <Text style={styles.heroStatValue} numberOfLines={1}>{getDisplayPlanName(controller.activePlan)}</Text>
-                      </View>
-                      <View style={styles.heroStatCard}>
-                        <Text style={styles.heroStatLabel}>{t("expenses.hero.status")}</Text>
-                        <Text style={styles.heroStatValue}>{controller.isPastSelectedPeriod ? t("expenses.hero.statusPast") : t("expenses.hero.statusLive")}</Text>
-                      </View>
-                    </View>
                   </>
                 ) : null}
               </View>
@@ -199,21 +184,15 @@ export default function ExpensesScreen({ navigation, route }: ExpensesScreenProp
                             style={[styles.planPill, selected && styles.planPillSelected]}
                             hitSlop={8}
                           >
-                            <View style={[styles.planPillIconWrap, selected && styles.planPillIconWrapSelected]}>
-                              <Ionicons
-                                name={planVisual.icon}
-                                size={14}
-                                color={selected ? T.onAccent : T.textDim}
-                              />
+                            <View style={[styles.planPillCheck, selected && styles.planPillCheckSelected]}>
+                              {selected ? <Ionicons name="checkmark" size={11} color={T.onAccent} /> : null}
                             </View>
                             <Text style={[styles.planPillText, selected && styles.planPillTextSelected]} numberOfLines={1}>
                               {getDisplayPlanName(plan)}
                             </Text>
-                            {selected ? (
-                              <View style={styles.planPillCheck}>
-                                <Ionicons name="checkmark" size={12} color={T.onAccent} />
-                              </View>
-                            ) : null}
+                            <Text style={[styles.planPillMeta, selected && styles.planPillMetaSelected]} numberOfLines={1}>
+                              {planVisual.label}
+                            </Text>
                           </Pressable>
                         );
                       })}
