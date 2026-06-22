@@ -473,6 +473,53 @@ export const mobileApi = createApi({
           return { error: normalizeApiError(err) };
         }
       },
+      async onQueryStarted({ id, changes }, { dispatch, getState, queryFulfilled }) {
+        const patches: Array<{ undo: () => void }> = [];
+        const state = (getState() as Record<string, unknown>)[mobileApi.reducerPath] as
+          | {
+              queries?: Record<
+                string,
+                {
+                  endpointName?: string;
+                  originalArgs?: unknown;
+                  data?: unknown;
+                }
+              >;
+            }
+          | undefined;
+
+        const queries = state?.queries ?? {};
+        for (const queryState of Object.values(queries)) {
+          if (queryState.endpointName !== "getExpenses") continue;
+          const args = queryState.originalArgs as
+            | {
+                month: number;
+                year: number;
+                budgetPlanId?: string | null;
+                scope?: "month" | "pay_period";
+              }
+            | undefined;
+          if (!args) continue;
+
+          const patch = dispatch(
+            mobileApi.util.updateQueryData("getExpenses", args, (draft) => {
+              const item = draft.find((expense) => expense.id === id);
+              if (!item) return;
+              Object.assign(item, changes);
+            }),
+          );
+
+          patches.push(patch);
+        }
+
+        try {
+          await queryFulfilled;
+        } catch {
+          for (const patch of patches) {
+            patch.undo();
+          }
+        }
+      },
       invalidatesTags: ["Dashboard", "Debts", "CreditCards", "Expenses"],
     }),
     deleteExpense: builder.mutation<{ success?: boolean }, { id: string; scope?: "single" | "future" }>({
