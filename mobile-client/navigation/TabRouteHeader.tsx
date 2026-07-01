@@ -83,6 +83,7 @@ export default function TabRouteHeader() {
   const isDebtAnalyticsTab = tabSegment === "debt-analytics";
   const isDebtSplitSection = tabSegment === "debts" || isDebtAnalyticsTab;
   const isDashboardHome = tabSegment === "dashboard" && !leafSegment;
+  const isDashboardMissedPayments = tabSegment === "dashboard" && leafSegment === "missed-payments";
   const isGoalDetail = leafSegment === "GoalDetail";
   const isCategoryExpenses = leafSegment === "CategoryExpenses";
   const isDebtDetail = leafSegment === "DebtDetail";
@@ -192,6 +193,8 @@ export default function TabRouteHeader() {
               ? t("analytics.debt.distributionTitle")
             : isAnalytics
               ? t("analytics.title")
+              : isDashboardMissedPayments
+                ? t("dashboard.missedPaymentsTitle")
               : isSettings && settingsSubTab === "savings"
                 ? t("settings.moneyTitle")
               : isSettings && settingsSubTab === "plans"
@@ -278,6 +281,16 @@ export default function TabRouteHeader() {
         budgetPlanId: incomeMonthBudgetPlanId,
         initialMode: "income",
       });
+      return;
+    }
+
+    if (isDashboardMissedPayments) {
+      if (navigation.canGoBack?.()) {
+        navigation.goBack();
+        return;
+      }
+
+      replaceRoute("/(tabs)/dashboard");
       return;
     }
 
@@ -520,7 +533,7 @@ export default function TabRouteHeader() {
       onAnalytics={openAnalytics}
       onHelp={() => pushRoute("/help")}
       onNotifications={() => pushRoute("/settings", { initialTab: "notifications" })}
-      leftVariant={isStandaloneSacrificeIncomeMonth || isAnalyticsRoute || isSettings || isSettingsProfileDetails || isSettingsIncomeSettings || isSettingsStrategy || isSettingsDebtManagement || isGoalDetail || isGoalsProjection || isCategoryExpenses || isLoggedExpenses || isLoggedSearch || isUnplannedExpense || isScanReceipt || isAnyDebtAnalytics ? "back" : "avatar"}
+      leftVariant={isStandaloneSacrificeIncomeMonth || isAnalyticsRoute || isSettings || isSettingsProfileDetails || isSettingsIncomeSettings || isSettingsStrategy || isSettingsDebtManagement || isGoalDetail || isGoalsProjection || isCategoryExpenses || isLoggedExpenses || isLoggedSearch || isUnplannedExpense || isScanReceipt || isAnyDebtAnalytics || isDashboardMissedPayments ? "back" : "avatar"}
       onBack={handleBack}
       centerLabel={centerLabel}
       centerContent={incomeMonthSwitcher}

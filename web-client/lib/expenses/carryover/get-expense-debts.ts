@@ -3,7 +3,7 @@ import { buildPayPeriodFromMonthAnchor } from "@/lib/payPeriods";
 import { prisma } from "@/lib/prisma";
 import { isNonDebtCategoryName } from "../helpers";
 import { isLegacyPlaceholderExpenseRow } from "@/lib/expenses/legacyPlaceholders";
-import { OVERDUE_GRACE_DAYS, resolveExpenseDueDate, addDays, monthNumberToKey } from "./shared";
+import { OVERDUE_GRACE_DAYS, monthNumberToKey, resolveExpenseOverdueThresholdDate } from "./shared";
 import { syncExpensePaymentsToPaidAmount } from "@/lib/expenses/paymentSync";
 import {
 	fetchExpenseDebtRows,
@@ -110,8 +110,15 @@ export async function getExpenseDebts(budgetPlanId: string) {
 
 		const remainingAmount = totalAmount - paidAmount;
 		if (!(Number.isFinite(remainingAmount) && remainingAmount > 0)) return true;
-		const expenseDueDate = resolveExpenseDueDate({ year: expense.year, month: expense.month, dueDate: expense.dueDate, defaultDueDay });
-		const overdueThreshold = addDays(expenseDueDate, OVERDUE_GRACE_DAYS);
+		const overdueThreshold = resolveExpenseOverdueThresholdDate({
+			year: expense.year,
+			month: expense.month,
+			dueDate: expense.dueDate,
+			payDate: defaultDueDay,
+			payFrequency: payPeriodContext.payFrequency,
+			payAnchorDate: payPeriodContext.payAnchorDate,
+			graceDays: OVERDUE_GRACE_DAYS,
+		});
 		const isExpenseOverdueByGrace = overdueThreshold.getTime() <= today.getTime();
 		const hasPartialPayment = Number.isFinite(paidAmount) && paidAmount > 0;
 		if (isExpenseOverdueByGrace) {
@@ -154,7 +161,6 @@ export async function getExpenseDebts(budgetPlanId: string) {
 	const syntheticPaidCarryovers = await buildSyntheticPaidCarryovers({
 		budgetPlanId,
 		sourceExpenseIds,
-		defaultDueDay,
 		firstSelectableStart,
 		payDate: defaultDueDay,
 		payFrequency: payPeriodContext.payFrequency,
@@ -167,13 +173,12 @@ export async function getExpenseDebts(budgetPlanId: string) {
 async function buildSyntheticPaidCarryovers(params: {
 	budgetPlanId: string;
 	sourceExpenseIds: string[];
-	defaultDueDay: number;
 	firstSelectableStart: Date;
 	payDate: number;
 	payFrequency: "monthly" | "every_2_weeks" | "every_4_weeks" | "weekly";
 	payAnchorDate: string | null;
 }): Promise<DebtItem[]> {
-	const { budgetPlanId, sourceExpenseIds, defaultDueDay } = params;
+	const { budgetPlanId, sourceExpenseIds } = params;
 	const paidExpensesWithoutDebt = await fetchPaidExpensesWithoutDebt(budgetPlanId, sourceExpenseIds);
 	const paidExpenseIds = paidExpensesWithoutDebt.map((e) => e.id);
 	const latestExpensePayments = paidExpenseIds.length
@@ -196,8 +201,15 @@ async function buildSyntheticPaidCarryovers(params: {
 			const paidAmount = Number(expense.paidAmount);
 			if (!(Number.isFinite(totalAmount - paidAmount) && totalAmount - paidAmount <= 0)) return false;
 
-			const dueDate = resolveExpenseDueDate({ year: expense.year, month: expense.month, dueDate: expense.dueDate, defaultDueDay });
-			const overdueThreshold = addDays(dueDate, OVERDUE_GRACE_DAYS);
+			const overdueThreshold = resolveExpenseOverdueThresholdDate({
+				year: expense.year,
+				month: expense.month,
+				dueDate: expense.dueDate,
+				payDate: params.payDate,
+				payFrequency: params.payFrequency,
+				payAnchorDate: params.payAnchorDate,
+				graceDays: OVERDUE_GRACE_DAYS,
+			});
 			const explicitPaidAt = latestExpensePaymentByExpenseId.get(expense.id) ?? null;
 			const latestPaymentAt = explicitPaidAt ?? expense.updatedAt;
 			if (!latestPaymentAt || latestPaymentAt.getTime() <= overdueThreshold.getTime()) return false;

@@ -189,7 +189,7 @@ export const mobileApi = createApi({
     getDebtSummary: builder.query<DebtSummaryData, void>({
       async queryFn() {
         try {
-          const data = await apiFetch<DebtSummaryData>("/api/bff/debt-summary", { cacheTtlMs: 0 });
+          const data = await apiFetch<DebtSummaryData>("/api/bff/debt-summary?includeExpenseDebts=1&sync=1", { cacheTtlMs: 0 });
           return { data };
         } catch (err: unknown) {
           return { error: normalizeApiError(err) };

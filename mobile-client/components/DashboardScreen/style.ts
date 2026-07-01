@@ -443,6 +443,15 @@ export const styles = StyleSheet.create({
     backgroundColor: "rgba(24,31,49,0.56)",
     borderColor: "rgba(244,246,255,0.16)",
   },
+  recapMissedCardPressed: {
+    opacity: 0.92,
+  },
+  recapMissedHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
   recapStatLabel: {
     color: T.textDim,
     fontSize: 12,

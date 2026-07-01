@@ -1,8 +1,10 @@
-import { Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 
 import type { DashboardRecapSectionProps } from "@/types";
 import { fmt } from "@/lib/formatting";
 import { useAppTranslation } from "@/hooks";
+import { T } from "@/lib/theme";
 import { styles } from "@/components/DashboardScreen/style";
 
 export default function DashboardRecapSection({
@@ -10,6 +12,7 @@ export default function DashboardRecapSection({
   hasRecapData,
   recapTitle,
   currency,
+  onPressMissedPayments,
 }: DashboardRecapSectionProps) {
   const { t } = useAppTranslation();
 
@@ -28,11 +31,23 @@ export default function DashboardRecapSection({
           <Text style={styles.recapStatAmount}>{fmt(recap.paidAmount ?? 0, currency)}</Text>
         </View>
 
-        <View style={[styles.recapStatCard, styles.recapMissedCard]}>
-          <Text style={styles.recapMissedTitle}>{t("dashboard.recapMissedPayment")}</Text>
+        <Pressable
+          onPress={onPressMissedPayments}
+          style={({ pressed }) => [
+            styles.recapStatCard,
+            styles.recapMissedCard,
+            pressed && styles.recapMissedCardPressed,
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel={t("dashboard.missedPaymentsOpenList")}
+        >
+          <View style={styles.recapMissedHeaderRow}>
+            <Text style={styles.recapMissedTitle}>{t("dashboard.recapMissedPayment")}</Text>
+            <Ionicons name="chevron-forward" size={16} color={T.textDim} />
+          </View>
           <Text style={styles.recapMissedCount}>{recap.missedDueCount ?? 0}</Text>
           <Text style={styles.recapMissedAmount}>{fmt(recap.missedDueAmount ?? 0, currency)}</Text>
-        </View>
+        </Pressable>
       </View>
     </View>
   );

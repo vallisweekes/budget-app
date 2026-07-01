@@ -235,6 +235,17 @@ export type LoggedExpenseHabits = {
 	paymentSources: LoggedExpenseHabitBreakdown[];
 };
 
+export type DashboardMissedPaymentItem = {
+	id: string;
+	name: string;
+	logoUrl?: string;
+	dueDate?: string;
+	dueAmount: number;
+	year: number;
+	monthNum: number;
+	source: "previous_month" | "carryover";
+};
+
 type LoggedExpenseSourceRow = {
 	id: string;
 	name: string;
@@ -401,6 +412,7 @@ export async function getDashboardExpenseInsights({
 	upcoming: ReturnType<typeof computeUpcomingPayments>;
 	recapTips: ReturnType<typeof computeRecapTips>;
 	loggedExpenseHabits: LoggedExpenseHabits;
+	missedPayments: DashboardMissedPaymentItem[];
 }> {
 	const normalizedPayFrequency = normalizePayFrequency(payFrequency);
 	const activeWindow = resolveActivePayPeriodWindow({
@@ -486,6 +498,24 @@ export async function getDashboardExpenseInsights({
 	const canonicalExpenseWindowRows = expenseWindowRows.map((row) => {
 		const paidInfo = paidMap.get(row.id);
 		if (!paidInfo) return row;
+
+		if (!paidInfo.hasPaymentRows) {
+			const storedAmount = toNumber(row.amount);
+			const storedPaidAmount = toNumber(row.paidAmount);
+			const hasStoredPaidState = Boolean(row.paid) || storedPaidAmount > 0;
+			if (hasStoredPaidState) {
+				const fallbackPaidAmount = Boolean(row.paid)
+					? Math.max(storedPaidAmount, storedAmount)
+					: storedPaidAmount;
+				const fallbackPaid = Boolean(row.paid) || (storedAmount > 0 && fallbackPaidAmount >= storedAmount);
+				return {
+					...row,
+					paid: fallbackPaid,
+					paidAmount: fallbackPaidAmount,
+				};
+			}
+		}
+
 		return {
 			...row,
 			paid: paidInfo.isPaid,
@@ -590,37 +620,94 @@ export async function getDashboardExpenseInsights({
 			now,
 		});
 
+	const missedPayments: DashboardMissedPaymentItem[] = [];
+
+	if (recap) {
+		const prevMonthEnd = new Date(Date.UTC(prevYear, prevMonthNum, 0));
+
+		for (const expense of prevMonthExpenses) {
+			const status = getPaymentStatus(expense);
+			if (status === "paid") continue;
+
+			const amount = toNumber(expense.amount);
+			const paidAmount = toNumber(expense.paidAmount);
+			const remaining = Math.max(0, amount - paidAmount);
+			if (!(amount > 0) || !(remaining > 0)) continue;
+
+			const dueIso = resolveEffectiveDueDateIso(expense, {
+				year: prevYear,
+				monthNum: prevMonthNum,
+				payDate,
+			});
+			const dueByEndOfPrevMonth = !dueIso || new Date(`${dueIso}T00:00:00.000Z`).getTime() <= prevMonthEnd.getTime();
+			if (!dueByEndOfPrevMonth) continue;
+
+			missedPayments.push({
+				id: expense.id,
+				name: expense.name,
+				logoUrl: expense.logoUrl,
+				dueDate: dueIso ?? undefined,
+				dueAmount: remaining,
+				year: prevYear,
+				monthNum: prevMonthNum,
+				source: "previous_month",
+			});
+		}
+	}
+
 	// Include unpaid/partial carryover from months before the previous month in missed-due recap.
 	// Example: a January bill still unpaid in February should be reflected in February recap missed totals.
 	if (recap) {
 		const prevMonthEnd = new Date(Date.UTC(prevYear, prevMonthNum, 0));
-		const carryover = historyExpenses
-			.filter((e) => e.year < prevYear || (e.year === prevYear && e.monthNum < prevMonthNum))
-			.reduce(
-				(acc, e) => {
-					const status = getPaymentStatus(e);
-					if (status === "paid") return acc;
+		const carryoverRows = historyExpenses
+			.filter((expense) => expense.year < prevYear || (expense.year === prevYear && expense.monthNum < prevMonthNum))
+			.filter((expense) => {
+				const status = getPaymentStatus(expense);
+				if (status === "paid") return false;
 
-					const amount = toNumber(e.amount);
-					const paidAmount = toNumber(e.paidAmount);
-					const remaining = Math.max(0, amount - paidAmount);
-					if (!(amount > 0) || !(remaining > 0)) return acc;
+				const amount = toNumber(expense.amount);
+				const paidAmount = toNumber(expense.paidAmount);
+				const remaining = Math.max(0, amount - paidAmount);
+				if (!(amount > 0) || !(remaining > 0)) return false;
 
-					const dueIso = resolveEffectiveDueDateIso(e, {
-						year: e.year,
-						monthNum: e.monthNum,
-						payDate,
-					});
-					const dueByEndOfPrevMonth =
-						!dueIso || new Date(`${dueIso}T00:00:00.000Z`).getTime() <= prevMonthEnd.getTime();
-					if (!dueByEndOfPrevMonth) return acc;
+				const dueIso = resolveEffectiveDueDateIso(expense, {
+					year: expense.year,
+					monthNum: expense.monthNum,
+					payDate,
+				});
+				return !dueIso || new Date(`${dueIso}T00:00:00.000Z`).getTime() <= prevMonthEnd.getTime();
+			});
 
-					acc.count += 1;
-					acc.amount += amount;
-					return acc;
-				},
-				{ count: 0, amount: 0 }
-			);
+		for (const expense of carryoverRows) {
+			const dueIso = resolveEffectiveDueDateIso(expense, {
+				year: expense.year,
+				monthNum: expense.monthNum,
+				payDate,
+			});
+			const amount = toNumber(expense.amount);
+			const paidAmount = toNumber(expense.paidAmount);
+			const remaining = Math.max(0, amount - paidAmount);
+
+			missedPayments.push({
+				id: expense.id,
+				name: expense.name,
+				logoUrl: expense.logoUrl,
+				dueDate: dueIso ?? undefined,
+				dueAmount: remaining,
+				year: expense.year,
+				monthNum: expense.monthNum,
+				source: "carryover",
+			});
+		}
+
+		const carryover = carryoverRows.reduce(
+			(acc, expense) => {
+				acc.count += 1;
+				acc.amount += toNumber(expense.amount);
+				return acc;
+			},
+			{ count: 0, amount: 0 }
+		);
 
 		if (carryover.count > 0 || carryover.amount > 0) {
 			recap = {
@@ -778,5 +865,11 @@ export async function getDashboardExpenseInsights({
 		payFrequency: normalizedPayFrequency,
 	});
 
-	return { recap, upcoming, recapTips, loggedExpenseHabits };
+	return {
+		recap,
+		upcoming,
+		recapTips,
+		loggedExpenseHabits,
+		missedPayments: missedPayments.sort((a, b) => b.dueAmount - a.dueAmount || a.name.localeCompare(b.name)),
+	};
 }

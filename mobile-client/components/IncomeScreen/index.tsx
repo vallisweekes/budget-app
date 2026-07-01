@@ -23,7 +23,7 @@ import type { IncomeSummaryData } from "@/lib/apiTypes";
 import { useBootstrapData } from "@/context/BootstrapDataContext";
 import { SCREEN_FOCUS_REVALIDATE_TTL_MS } from "@/lib/constants";
 import { currencySymbol, fmt } from "@/lib/formatting";
-import { useAppLocale, useSwipeDownToClose, useTopHeaderOffset, useYearGuard } from "@/hooks";
+import { useAppLocale, usePayPeriodBoundaryRefresh, useSwipeDownToClose, useTopHeaderOffset, useYearGuard } from "@/hooks";
 import { resolveDisplayedPayPeriodAnchor } from "@/lib/helpers/resolveDisplayedPayPeriodAnchor";
 import { buildPayPeriodFromMonthAnchor, formatPayPeriodLabel, getPayPeriodAnchorFromWindow, normalizePayFrequency, resolveActivePayPeriod } from "@/lib/payPeriods";
 import { T } from "@/lib/theme";
@@ -70,6 +70,43 @@ export default function IncomeScreen() {
   const { locale } = useAppLocale();
 
   const { minMonth, minYear } = useYearGuard(settings);
+  const payFrequency = normalizePayFrequency(settings?.payFrequency);
+  const payAnchorDate = payFrequency === "monthly" ? null : (settings?.payAnchorDate ?? null);
+  const planCreatedAt = React.useMemo(() => {
+    const raw = settings?.setupCompletedAt ?? settings?.accountCreatedAt ?? null;
+    if (!raw) return null;
+
+    const parsed = new Date(raw);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }, [settings?.accountCreatedAt, settings?.setupCompletedAt]);
+  const activePeriodAnchor = React.useMemo(() => {
+    const activePayPeriod = resolveActivePayPeriod({
+      now: new Date(),
+      payDate: settings?.payDate ?? 27,
+      payFrequency,
+      payAnchorDate,
+      planCreatedAt,
+    });
+
+    return getPayPeriodAnchorFromWindow({ period: activePayPeriod, payFrequency });
+  }, [payAnchorDate, payFrequency, planCreatedAt, settings?.payDate]);
+  const boundaryBudgetPlanId = typeof data?.budgetPlanId === "string" && data.budgetPlanId.trim().length > 0
+    ? data.budgetPlanId
+    : (typeof settings?.id === "string" ? settings.id : "");
+  const payPeriodBoundaryVersion = usePayPeriodBoundaryRefresh({
+    enabled: Boolean(isFocused && boundaryBudgetPlanId),
+    identityKey: [
+      boundaryBudgetPlanId,
+      settings?.payDate ?? 27,
+      payFrequency,
+      payAnchorDate ?? "",
+      settings?.setupCompletedAt ?? settings?.accountCreatedAt ?? "",
+    ].join("|"),
+    payDate: settings?.payDate ?? 27,
+    payFrequency,
+    payAnchorDate,
+    planCreatedAt,
+  });
 
   useEffect(() => {
     const routeYear = Number(route.params?.year);
@@ -183,6 +220,31 @@ export default function IncomeScreen() {
     return unsubscribe;
   }, [navigation]);
 
+  useEffect(() => {
+    if (!payPeriodBoundaryVersion) return;
+
+    const activeAnchorChanged = Boolean(
+      displayedActiveAnchor
+      && (
+        displayedActiveAnchor.month !== activePeriodAnchor.month
+        || displayedActiveAnchor.year !== activePeriodAnchor.year
+      )
+    );
+    const shouldMoveToNextYear = activeAnchorChanged
+      && year === displayedActiveAnchor?.year
+      && year !== activePeriodAnchor.year;
+
+    if (shouldMoveToNextYear) {
+      setRefreshing(true);
+      setYear(activePeriodAnchor.year);
+      navigation.setParams({ year: activePeriodAnchor.year });
+      return;
+    }
+
+    setRefreshing(true);
+    void load({ force: true });
+  }, [activePeriodAnchor.month, activePeriodAnchor.year, displayedActiveAnchor?.month, displayedActiveAnchor?.year, load, navigation, payPeriodBoundaryVersion, year]);
+
   useFocusEffect(
     useCallback(() => {
       if (skipNextTabFocusReloadRef.current) {
@@ -263,8 +325,6 @@ export default function IncomeScreen() {
     }
   }, [closeYearAddSheet, createIncome, data?.budgetPlanId, load, year, yearDistributeFullYear, yearDistributeHorizon, yearIncomeAmount, yearIncomeName]);
 
-  const payFrequency = normalizePayFrequency(settings?.payFrequency);
-  const payAnchorDate = payFrequency === "monthly" ? null : (settings?.payAnchorDate ?? null);
   const displayMonths = React.useMemo(() => {
     const months = data?.months ?? [];
     if (payFrequency !== "monthly") return months;
@@ -305,18 +365,6 @@ export default function IncomeScreen() {
     );
   }
 
-  const activePayPeriod = resolveActivePayPeriod({
-    now,
-    payDate: settings?.payDate ?? 27,
-    payFrequency,
-    payAnchorDate,
-    planCreatedAt: settings?.setupCompletedAt
-      ? new Date(settings.setupCompletedAt)
-      : settings?.accountCreatedAt
-        ? new Date(settings.accountCreatedAt)
-        : null,
-  });
-  const activePeriodAnchor = getPayPeriodAnchorFromWindow({ period: activePayPeriod, payFrequency });
   const activePeriodAnchorMonth = displayedActiveAnchor?.month ?? activePeriodAnchor.month;
   const activePeriodAnchorYear = displayedActiveAnchor?.year ?? activePeriodAnchor.year;
   return (

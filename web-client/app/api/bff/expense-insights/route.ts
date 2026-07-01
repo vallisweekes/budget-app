@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
 			periodKey,
 		});
 		const cachedInsights = await getJsonCache<Record<string, unknown>>(expenseInsightsCacheKey);
-		if (cachedInsights) {
+		if (cachedInsights && Array.isArray((cachedInsights as { missedPayments?: unknown }).missedPayments)) {
 			logDerivedSummaryCacheEvent({
 				route: "expense-insights",
 				status: "hit",
@@ -267,6 +267,7 @@ export async function GET(req: NextRequest) {
 		const responseBody = {
 			recap: insights.recap,
 			upcoming: insights.upcoming,
+			missedPayments: insights.missedPayments,
 			tips: bestTips.length ? bestTips : fallbackTips,
 		};
 

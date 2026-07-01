@@ -213,6 +213,7 @@ export default function DashboardScreen(props: DashboardScreenProps) {
           hasRecapData={controller.hasRecapData}
           recapTitle={controller.recapTitle}
           currency={controller.currency}
+          onPressMissedPayments={controller.goToMissedPayments}
         />
 
         {controller.debts.length > 0 ? (

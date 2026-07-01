@@ -29,6 +29,8 @@ export interface ExpensePaidInfo {
 	isPaid: boolean;
 	/** Amount paid from income specifically */
 	paidFromIncome: number;
+	/** True when at least one ExpensePayment row exists for this expense */
+	hasPaymentRows: boolean;
 }
 
 /**
@@ -51,7 +53,7 @@ export async function getExpensePaidMap(
 
 	// Initialize with zeros
 	for (const e of expenses) {
-		result.set(e.id, { paidAmount: 0, isPaid: false, paidFromIncome: 0 });
+		result.set(e.id, { paidAmount: 0, isPaid: false, paidFromIncome: 0, hasPaymentRows: false });
 	}
 
 	const ids = expenses.map((e) => e.id);
@@ -78,6 +80,7 @@ export async function getExpensePaidMap(
 		if (!info) continue;
 
 		const rowAmount = decimalToNumber(row._sum.amount);
+		info.hasPaymentRows = true;
 		info.paidAmount += rowAmount;
 
 		if (row.source === "income") {

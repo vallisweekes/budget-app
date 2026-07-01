@@ -1,4 +1,4 @@
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useIsFocused } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PanResponder, ScrollView } from "react-native";
@@ -20,7 +20,7 @@ import { clearCachedPayPeriodExpenses, getCachedPayPeriodExpenses, setCachedPayP
 import { currencySymbol } from "@/lib/formatting";
 import { consumeSkipExpensesFocusReload } from "@/lib/helpers/expensesFocusReload";
 import { registerSessionScopedResetter } from "@/lib/sessionScopedState";
-import { useTopHeaderOffset, useYearGuard } from "@/hooks";
+import { usePayPeriodBoundaryRefresh, useTopHeaderOffset, useYearGuard } from "@/hooks";
 import { buildPayPeriodFromMonthAnchor, getPayPeriodAnchorFromWindow, normalizePayFrequency, resolveActivePayPeriod } from "@/lib/payPeriods";
 import type { ExpensesStackParamList } from "@/navigation/types";
 import type { ExpensesScreenControllerState } from "@/types/ExpensesScreen.types";
@@ -42,6 +42,7 @@ registerSessionScopedResetter(() => {
 
 export function useExpensesScreenController({ navigation, route }: Props): ExpensesScreenControllerState {
   const topHeaderOffset = useTopHeaderOffset();
+  const isFocused = useIsFocused();
   const now = new Date();
   const routeMonth = Number(route.params?.month);
   const routeYear = Number(route.params?.year);
@@ -247,6 +248,9 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
     ? Math.floor(settings?.payDate as number)
     : 27;
   const effectivePayFrequency = normalizePayFrequency(settings?.payFrequency);
+  const effectivePayAnchorDate = effectivePayFrequency === "monthly"
+    ? null
+    : (settings?.payAnchorDate ?? null);
   const resolvePickerActualYear = useCallback((targetMonth: number, displayYear: number) => {
     if (effectivePayFrequency === "monthly" && targetMonth === 1) {
       return displayYear + 1;
@@ -278,9 +282,10 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       now: new Date(),
       payDate: effectivePayDate,
       payFrequency: effectivePayFrequency,
+      payAnchorDate: effectivePayAnchorDate,
       planCreatedAt: activePlanCreatedAt,
     }),
-    [activePlanCreatedAt, effectivePayDate, effectivePayFrequency],
+    [activePlanCreatedAt, effectivePayAnchorDate, effectivePayDate, effectivePayFrequency],
   );
   const defaultActiveAnchor = useMemo(
     () => getPayPeriodAnchorFromWindow({ period: defaultActivePeriod, payFrequency: effectivePayFrequency }),
@@ -288,6 +293,10 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
   );
   const defaultActiveMonth = defaultActiveAnchor.month;
   const defaultActiveYear = defaultActiveAnchor.year;
+  const previousDefaultActiveAnchorRef = useRef<{ month: number; year: number }>({
+    month: defaultActiveMonth,
+    year: defaultActiveYear,
+  });
 
   useEffect(() => {
     if (didNormalizeInitialPeriodRef.current) return;
@@ -419,11 +428,12 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       year: actualYear,
       payDate: effectivePayDate,
       payFrequency: effectivePayFrequency,
+      payAnchorDate: effectivePayAnchorDate,
     });
     const startLabel = period.start.toLocaleString("en-GB", { month: "short" });
     const endLabel = period.end.toLocaleString("en-GB", { month: "short" });
     return `${startLabel} - ${endLabel}`;
-  }, [effectivePayDate, effectivePayFrequency, resolvePickerActualYear]);
+  }, [effectivePayAnchorDate, effectivePayDate, effectivePayFrequency, resolvePickerActualYear]);
 
   const getOrFetchSummary = useCallback(async (params: {
     planId: string | null;
@@ -573,7 +583,10 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
         ? Math.floor(loadedSettings.payDate as number)
         : 27;
       const payFrequencyForResolution = normalizePayFrequency(loadedSettings.payFrequency);
-      const nextSignature = `${payDateForResolution}:${payFrequencyForResolution}`;
+      const payAnchorDateForResolution = payFrequencyForResolution === "monthly"
+        ? null
+        : (loadedSettings.payAnchorDate ?? null);
+      const nextSignature = `${payDateForResolution}:${payFrequencyForResolution}:${payAnchorDateForResolution ?? "none"}`;
       if (cacheSignatureRef.current !== nextSignature) {
         cacheSignatureRef.current = nextSignature;
         sharedExpensesCacheSignature = nextSignature;
@@ -619,6 +632,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
         now: new Date(),
         payDate: payDateForResolution,
         payFrequency: payFrequencyForResolution,
+        payAnchorDate: payAnchorDateForResolution,
         planCreatedAt: resolvedPlanCreatedAt,
       });
       const resolvedDefaultAnchor = getPayPeriodAnchorFromWindow({
@@ -723,6 +737,7 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
               now: nextDue,
               payDate: payDateForResolution,
               payFrequency: payFrequencyForResolution,
+              payAnchorDate: payAnchorDateForResolution,
               planCreatedAt: resolvedPlanCreatedAt,
             });
             const anchor = getPayPeriodAnchorFromWindow({ period, payFrequency: payFrequencyForResolution });
@@ -787,6 +802,63 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       setRefreshing(false);
     }
   }, [activePlanId, bootstrapError, ensureLoaded, getOrFetchPayPeriodExpenses, latestResolvedDate, month, parsePlanCreatedAt, planCacheKey, preloadSummaryWindow, refreshBootstrap, resolvePlanTargetPeriod, route.params?.month, route.params?.year, setupCompletedAt, year]);
+
+  const payPeriodBoundaryVersion = usePayPeriodBoundaryRefresh({
+    enabled: Boolean(isFocused && activePlanId),
+    identityKey: [
+      activePlanId ?? "",
+      effectivePayDate,
+      effectivePayFrequency,
+      effectivePayAnchorDate ?? "",
+      activePlanCreatedAt?.getTime() ?? "",
+    ].join("|"),
+    payDate: effectivePayDate,
+    payFrequency: effectivePayFrequency,
+    payAnchorDate: effectivePayAnchorDate,
+    planCreatedAt: activePlanCreatedAt,
+  });
+
+  useEffect(() => {
+    if (!payPeriodBoundaryVersion) return;
+
+    const previousActiveAnchor = previousDefaultActiveAnchorRef.current;
+    const activeAnchorChanged = (
+      previousActiveAnchor.month !== defaultActiveMonth
+      || previousActiveAnchor.year !== defaultActiveYear
+    );
+    const wasViewingPreviousActivePeriod = activeAnchorChanged
+      && month === previousActiveAnchor.month
+      && year === previousActiveAnchor.year;
+
+    if (wasViewingPreviousActivePeriod) {
+      if (activePlanId) {
+        preferredPeriodByPlanRef.current[activePlanId] = {
+          month: defaultActiveMonth,
+          year: defaultActiveYear,
+        };
+        sharedPreferredPeriodByPlanCache = preferredPeriodByPlanRef.current;
+      }
+
+      setMonth(defaultActiveMonth);
+      setYear(defaultActiveYear);
+      navigation.setParams({
+        month: defaultActiveMonth,
+        year: defaultActiveYear,
+        prevDisabled: !canDecrement(defaultActiveYear, defaultActiveMonth),
+      });
+    }
+
+    clearExpenseCaches();
+    setRefreshing(true);
+    void load({ force: true });
+  }, [activePlanId, canDecrement, clearExpenseCaches, defaultActiveMonth, defaultActiveYear, load, month, navigation, payPeriodBoundaryVersion, year]);
+
+  useEffect(() => {
+    previousDefaultActiveAnchorRef.current = {
+      month: defaultActiveMonth,
+      year: defaultActiveYear,
+    };
+  }, [defaultActiveMonth, defaultActiveYear]);
 
   const currentViewKey = `${activePlanId ?? "none"}:${year}-${month}`;
   useEffect(() => {
@@ -860,11 +932,12 @@ export function useExpensesScreenController({ navigation, route }: Props): Expen
       month: targetMonth,
       payDate: effectivePayDate,
       payFrequency: effectivePayFrequency,
+      payAnchorDate: effectivePayAnchorDate,
     });
     const periodEnd = new Date(period.end.getTime());
     periodEnd.setHours(23, 59, 59, 999);
     return periodEnd;
-  }, [effectivePayDate, effectivePayFrequency]);
+  }, [effectivePayAnchorDate, effectivePayDate, effectivePayFrequency]);
 
   useEffect(() => {
     if (!monthPickerOpen) return;

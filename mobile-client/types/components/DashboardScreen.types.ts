@@ -63,6 +63,7 @@ export type DashboardRecapSectionProps = {
   hasRecapData: boolean;
   recapTitle: string;
   currency: string;
+  onPressMissedPayments: () => void;
 };
 
 export type UpcomingDebt = {

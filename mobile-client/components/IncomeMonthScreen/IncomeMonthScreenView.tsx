@@ -10,14 +10,14 @@ import {
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useIsFocused } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 
 import { apiFetch, getApiMutationVersion } from "@/lib/api";
 import type { Income, Settings, IncomeMonthData, IncomeSacrificeData, IncomeSacrificeFixed } from "@/lib/apiTypes";
 import { computeMoneyLeftVsLastMonth } from "@/lib/domain/incomeStats";
 import { currencySymbol, fmt } from "@/lib/formatting";
-import { useAppLocale, useIncomeCRUD, useSavingsPotStore, useTopHeaderOffset } from "@/hooks";
+import { useAppLocale, useIncomeCRUD, usePayPeriodBoundaryRefresh, useSavingsPotStore, useTopHeaderOffset } from "@/hooks";
 import { registerSessionScopedResetter } from "@/lib/sessionScopedState";
 import { subscribeIncomeAddTrigger } from "@/lib/events/incomeAddTrigger";
 import {
@@ -122,6 +122,7 @@ function toInitialIncomeItems(
 
 export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScreenProps) {
   const router = useRouter();
+  const isFocused = useIsFocused();
   const { formatDate, locale, monthNamesLong } = useAppLocale();
   const { readSavingsPotsForPlan, writeSavingsPotsForPlan, ensureSavingsPotAllocationLinks } = useSavingsPotStore();
   const [updateIncomeSacrifice] = useUpdateIncomeSacrificeMutation();
@@ -410,12 +411,45 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
     return parsed;
   }, [settings?.accountCreatedAt, settings?.setupCompletedAt]);
 
+  const activePeriodAnchor = useMemo(() => {
+    const activePayPeriod = resolveActivePayPeriod({
+      now: new Date(),
+      payDate: settings?.payDate ?? 27,
+      payFrequency: normalizedPayFrequency,
+      payAnchorDate: normalizedPayAnchorDate,
+      planCreatedAt: planStartAt,
+    });
+
+    return getPayPeriodAnchorFromWindow({
+      period: activePayPeriod,
+      payFrequency: normalizedPayFrequency,
+    });
+  }, [normalizedPayAnchorDate, normalizedPayFrequency, planStartAt, settings?.payDate]);
+
   const firstSelectablePeriod = useMemo(() => resolveFirstSelectablePayPeriodWindow({
     payDate: settings?.payDate ?? 27,
     payFrequency: normalizePayFrequency(settings?.payFrequency),
     payAnchorDate: normalizePayFrequency(settings?.payFrequency) === "monthly" ? null : (settings?.payAnchorDate ?? null),
     planStartAt,
   }), [planStartAt, settings?.payAnchorDate, settings?.payDate, settings?.payFrequency]);
+
+  const payPeriodBoundaryVersion = usePayPeriodBoundaryRefresh({
+    enabled: Boolean(isFocused && budgetPlanId && settings),
+    identityKey: [
+      budgetPlanId,
+      settings?.payDate ?? 27,
+      normalizedPayFrequency,
+      normalizedPayAnchorDate ?? "",
+      settings?.setupCompletedAt ?? settings?.accountCreatedAt ?? "",
+    ].join("|"),
+    payDate: settings?.payDate ?? 27,
+    payFrequency: normalizedPayFrequency,
+    payAnchorDate: normalizedPayAnchorDate,
+    planCreatedAt: planStartAt,
+  });
+  const wasViewingActivePeriodRef = useRef(
+    month === activePeriodAnchor.month && year === activePeriodAnchor.year,
+  );
 
   const canGoToPreviousPeriod = useMemo(() => {
     const previous = month === 1
@@ -466,29 +500,15 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
   }, [month, navigation, viewMode, year]);
 
   const handleGoToCurrentPeriod = useCallback(() => {
-    const planCreatedAtRaw = settings?.accountCreatedAt ?? settings?.setupCompletedAt ?? null;
-    const planCreatedAt = planCreatedAtRaw ? new Date(planCreatedAtRaw) : null;
-    const currentPeriod = resolveActivePayPeriod({
-      now: new Date(),
-      payDate: settings?.payDate ?? 27,
-      payFrequency: normalizedPayFrequency,
-      payAnchorDate: normalizedPayAnchorDate,
-      planCreatedAt: planCreatedAt && !Number.isNaN(planCreatedAt.getTime()) ? planCreatedAt : null,
-    });
-    const currentAnchor = getPayPeriodAnchorFromWindow({
-      period: currentPeriod,
-      payFrequency: normalizedPayFrequency,
-    });
-
     navigation.setParams({
-      month: currentAnchor.month,
-      year: currentAnchor.year,
+      month: activePeriodAnchor.month,
+      year: activePeriodAnchor.year,
       initialMode: viewMode,
       showPendingNotice: undefined,
       pendingConfirmationsCount: undefined,
       openIncomeAddAt: undefined,
     });
-  }, [navigation, normalizedPayAnchorDate, normalizedPayFrequency, settings?.accountCreatedAt, settings?.payDate, settings?.setupCompletedAt, viewMode]);
+  }, [activePeriodAnchor.month, activePeriodAnchor.year, navigation, viewMode]);
 
   const prefetchMonthAnalysis = useCallback(async (targetYear: number, targetMonth: number) => {
     if (getCachedAnalysis(targetYear, targetMonth)) return;
@@ -623,6 +643,35 @@ export default function IncomeMonthScreen({ navigation, route }: IncomeMonthScre
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!payPeriodBoundaryVersion) return;
+
+    const wasViewingActivePeriod = wasViewingActivePeriodRef.current;
+    const activeAnchorChanged = month !== activePeriodAnchor.month || year !== activePeriodAnchor.year;
+
+    if (wasViewingActivePeriod && activeAnchorChanged) {
+      navigation.setParams({
+        month: activePeriodAnchor.month,
+        year: activePeriodAnchor.year,
+        initialMode: viewMode,
+        showPendingNotice: undefined,
+        pendingConfirmationsCount: undefined,
+        openIncomeAddAt: undefined,
+      });
+      return;
+    }
+
+    setRefreshing(true);
+    void load({ force: true });
+  }, [activePeriodAnchor.month, activePeriodAnchor.year, load, month, navigation, payPeriodBoundaryVersion, viewMode, year]);
+
+  useEffect(() => {
+    wasViewingActivePeriodRef.current = (
+      month === activePeriodAnchor.month
+      && year === activePeriodAnchor.year
+    );
+  }, [activePeriodAnchor.month, activePeriodAnchor.year, month, year]);
 
   useFocusEffect(
     useCallback(() => {

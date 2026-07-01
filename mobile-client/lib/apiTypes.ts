@@ -547,10 +547,22 @@ export interface InsightTip {
   priority?: number;
 }
 
+export interface RecapMissedPaymentItem {
+  id: string;
+  name: string;
+  logoUrl?: string;
+  dueDate?: string;
+  dueAmount: number;
+  year: number;
+  monthNum: number;
+  source: "previous_month" | "carryover";
+}
+
 /** Expense insights from /api/bff/expense-insights */
 export interface ExpenseInsights {
   recap: PreviousMonthRecap | null;
   upcoming: UpcomingPayment[];
+  missedPayments?: RecapMissedPaymentItem[];
   recapTips: InsightTip[];
 }
 

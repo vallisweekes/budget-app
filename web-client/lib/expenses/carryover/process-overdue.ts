@@ -7,13 +7,14 @@ import { isLegacyPlaceholderExpenseRow } from "@/lib/expenses/legacyPlaceholders
 import { getExpensePaidMap } from "@/lib/expenses/paidSummary";
 import { isNonDebtCategoryName } from "../helpers";
 import { markExpensesMovedToDebt } from "./get-expense-debts.helpers";
-import { OVERDUE_GRACE_DAYS, resolveExpenseDueDate, addDays, monthNumberToKey } from "./shared";
+import { OVERDUE_GRACE_DAYS, monthNumberToKey, resolveExpenseOverdueThresholdDate } from "./shared";
 
 type OverdueExpenseCarryRow = {
 	id: string;
 	name: string;
 	amount: number | string | null;
 	paidAmount: number | string | null;
+	paid: boolean;
 	isAllocation: boolean;
 	dueDate: Date | null;
 	year: number;
@@ -69,6 +70,7 @@ export async function processOverdueExpensesToDebts(budgetPlanId: string) {
 			name: true,
 			amount: true,
 			paidAmount: true,
+			paid: true,
 			isAllocation: true,
 			dueDate: true,
 			year: true,
@@ -108,17 +110,23 @@ export async function processOverdueExpensesToDebts(budgetPlanId: string) {
 
 		const totalAmount = Number(expense.amount);
 		const paidInfo = paidMap.get(expense.id);
-		const paidAmount = paidInfo?.paidAmount ?? Number(expense.paidAmount);
+		const storedPaidAmount = Number(expense.paidAmount);
+		const hasStoredPaidState = Boolean(expense.paid) || (Number.isFinite(storedPaidAmount) && storedPaidAmount > 0);
+		const paidAmount = !paidInfo?.hasPaymentRows && hasStoredPaidState
+			? (expense.paid ? Math.max(storedPaidAmount, totalAmount) : storedPaidAmount)
+			: (paidInfo?.paidAmount ?? storedPaidAmount);
 		const remainingAmount = totalAmount - paidAmount;
 		if (!(Number.isFinite(remainingAmount) && remainingAmount > 0)) continue;
 
-		const expenseDueDate = resolveExpenseDueDate({
+		const overdueThreshold = resolveExpenseOverdueThresholdDate({
 			year: expense.year,
 			month: expense.month,
 			dueDate: expense.dueDate,
-			defaultDueDay: defaultDueDate,
+			payDate: defaultDueDate,
+			payFrequency: payPeriodContext.payFrequency,
+			payAnchorDate: payPeriodContext.payAnchorDate,
+			graceDays: OVERDUE_GRACE_DAYS,
 		});
-		const overdueThreshold = addDays(expenseDueDate, OVERDUE_GRACE_DAYS);
 		const isExpenseOverdueByGrace = overdueThreshold.getTime() <= today.getTime();
 		if (!isExpenseOverdueByGrace) continue;
 

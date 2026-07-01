@@ -1,10 +1,11 @@
+import { resolveBudgetPlanPayPeriodContext } from "@/lib/api/payPeriodContext";
 import { prisma } from "@/lib/prisma";
 import { upsertExpenseDebt } from "@/lib/debts/store";
 import { isExpenseDebtCoveredByRegularDebt } from "@/lib/helpers/debts/expenseDebtDuplicates";
 import { isLegacyPlaceholderExpenseRow } from "@/lib/expenses/legacyPlaceholders";
 import type { MonthKey } from "@/types";
 import { isNonDebtCategoryName } from "../helpers";
-import { OVERDUE_GRACE_DAYS, resolveExpenseDueDate, addDays, monthNumberToKey } from "./shared";
+import { OVERDUE_GRACE_DAYS, monthNumberToKey, resolveExpenseOverdueThresholdDate } from "./shared";
 
 type ExpenseCarryRow = {
 	id: string;
@@ -32,10 +33,11 @@ export async function processUnpaidExpenses(params: {
 
 	const budgetPlan = await prisma.budgetPlan.findUnique({
 		where: { id: budgetPlanId },
-		select: { payDate: true, kind: true },
+		select: { kind: true },
 	});
 	if (budgetPlan && budgetPlan.kind !== "personal") return [];
-	const defaultDueDate = budgetPlan?.payDate ?? 27;
+	const payPeriodContext = await resolveBudgetPlanPayPeriodContext({ budgetPlanId, now });
+	const defaultDueDate = payPeriodContext.payDate ?? 27;
 
 	const normalizedForceIds = Array.isArray(forceExpenseIds)
 		? forceExpenseIds.map((id) => String(id ?? "").trim()).filter(Boolean)
@@ -91,13 +93,15 @@ export async function processUnpaidExpenses(params: {
 		const paidAmount = Number(expense.paidAmount);
 		const remainingAmount = totalAmount - paidAmount;
 
-		const expenseDueDate = resolveExpenseDueDate({
+		const overdueThreshold = resolveExpenseOverdueThresholdDate({
 			year: expense.year,
 			month: expense.month,
 			dueDate: expense.dueDate,
-			defaultDueDay: defaultDueDate,
+			payDate: defaultDueDate,
+			payFrequency: payPeriodContext.payFrequency,
+			payAnchorDate: payPeriodContext.payAnchorDate,
+			graceDays: OVERDUE_GRACE_DAYS,
 		});
-		const overdueThreshold = addDays(expenseDueDate, OVERDUE_GRACE_DAYS);
 		const isExpenseOverdueByGrace = overdueThreshold.getTime() <= today.getTime();
 		const shouldConvertImmediately = normalizedForceIds.length > 0 || onlyPartialPayments;
 		if (!shouldConvertImmediately && !isExpenseOverdueByGrace) continue;

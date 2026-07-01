@@ -31,7 +31,7 @@ export function useDebtAnalyticsScreenController(): DebtAnalyticsControllerState
       setError(null);
       setLoading(true);
       const [summary, settings] = await Promise.all([
-        apiFetch<DebtSummaryData>("/api/bff/debt-summary"),
+        apiFetch<DebtSummaryData>("/api/bff/debt-summary?includeExpenseDebts=1&sync=1"),
         apiFetch<Settings>("/api/bff/settings"),
       ]);
       setDebts(summary.debts ?? []);

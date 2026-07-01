@@ -258,6 +258,22 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
       : `${recap.label} ${translateAppText(settings?.language, "dashboard.recapSuffix")}`)
     : "";
 
+  const goToMissedPayments = useCallback(() => {
+    const previousAnchorMonth = derived.monthNum <= 1 ? 12 : derived.monthNum - 1;
+    const previousAnchorYear = derived.monthNum <= 1 ? derived.year - 1 : derived.year;
+
+    router.push({
+      pathname: "/(tabs)/dashboard/missed-payments",
+      params: {
+        recapTitle,
+        currency,
+        month: String(previousAnchorMonth),
+        year: String(previousAnchorYear),
+        budgetPlanId: budgetPlanId || undefined,
+      },
+    });
+  }, [budgetPlanId, currency, derived.monthNum, derived.year, recapTitle, router]);
+
   const closeCategorySheet = useCallback(() => setCategorySheet(null), []);
   const openCategorySheet = useCallback((category: { id: string; name: string; color?: string | null; icon?: string | null }) => {
     if (!category?.id || !dashboardMonth || !dashboardYear) {
@@ -386,6 +402,7 @@ export function useDashboardScreenController({ navigation: _navigation }: Dashbo
     dashboardTips,
     hasRecapData,
     recapTitle,
+    goToMissedPayments,
     isRedirectingForSetup: Boolean(effectiveError && isNoBudgetPlanError(effectiveError)),
     load,
     onRefresh,
