@@ -1,5 +1,4 @@
 import { prisma } from "@/lib/prisma";
-import { getDebtPlannedPaymentOverridesForPeriod } from "@/lib/debts/plannedPaymentOverrides";
 import { getEarlyPaymentWindowStart } from "@/lib/helpers/finance/earlyPaymentWindow";
 import { isNonDebtCategoryName } from "@/lib/expenses/helpers";
 import { isExpenseDebtCoveredByRegularDebt } from "@/lib/helpers/debts/expenseDebtDuplicates";
@@ -135,7 +134,7 @@ export async function getMonthlyDebtPlan({ budgetPlanId, year, month, periodKey,
 		monthlyMinimum: unknown;
 		sourceType: unknown;
 		type: unknown;
-	}) => getMonthlyPlannedPayment(d);
+	}) => getScheduledMonthlyDebtPayment(d);
 
 	// Build payment filter: prefer periodKey > paidAt range > year/month
 	const paymentFilter = (() => {
@@ -202,20 +201,10 @@ export async function getMonthlyDebtPlan({ budgetPlanId, year, month, periodKey,
 		periodStart,
 		periodEnd,
 	}));
-	const plannedPaymentOverrides = await getDebtPlannedPaymentOverridesForPeriod({
-		debtIds: visibleDueDebts.map((debt) => debt.id),
-		periodKey,
-		year,
-		month,
-	});
 
+	// Keep planned totals schedule-based to avoid drift from payment spikes/overrides.
 	const totalDueDebts = visibleDueDebts.reduce((sum, d) => {
-		const currentBalance = Math.max(0, decimalToNumber(d.currentBalance));
-		const overrideAmount = plannedPaymentOverrides.get(d.id);
-		const plannedAmount = typeof overrideAmount === "number"
-			? Math.min(currentBalance, Math.max(0, overrideAmount))
-			: computeMonthlyPlannedPayment(d);
-		return sum + plannedAmount;
+		return sum + computeMonthlyPlannedPayment(d);
 	}, 0);
 	const totalPaidDebtPayments = decimalToNumber(paidAllAgg._sum.amount);
 	const paidDebtPaymentsFromIncome = decimalToNumber(paidIncomeAgg._sum.amount);
@@ -231,7 +220,7 @@ export async function getMonthlyDebtPlan({ budgetPlanId, year, month, periodKey,
 	};
 }
 
-function getMonthlyPlannedPayment(d: {
+export function getScheduledMonthlyDebtPayment(d: {
 	amount: unknown;
 	currentBalance: unknown;
 	initialBalance: unknown;
@@ -277,7 +266,7 @@ function getMonthlyPlannedPayment(d: {
 	return Math.min(currentBalance, planned);
 }
 
-export async function getMonthlyPlannedDebtPaymentsOnly({ budgetPlanId, year, month, periodKey, periodStart, periodEnd }: Params) {
+export async function getMonthlyPlannedDebtPaymentsOnly({ budgetPlanId, year, month, periodStart, periodEnd }: Params) {
 	const dueDebts = await prisma.debt.findMany({
 		where: {
 			budgetPlanId,
@@ -311,20 +300,9 @@ export async function getMonthlyPlannedDebtPaymentsOnly({ budgetPlanId, year, mo
 		periodStart,
 		periodEnd,
 	}));
-	const plannedPaymentOverrides = await getDebtPlannedPaymentOverridesForPeriod({
-		debtIds: visibleDueDebts.map((debt) => debt.id),
-		periodKey,
-		year,
-		month,
-	});
 
 	const plannedDebtPayments = visibleDueDebts.reduce((sum, debt) => {
-		const currentBalance = Math.max(0, decimalToNumber(debt.currentBalance));
-		const overrideAmount = plannedPaymentOverrides.get(debt.id);
-		const plannedAmount = typeof overrideAmount === "number"
-			? Math.min(currentBalance, Math.max(0, overrideAmount))
-			: getMonthlyPlannedPayment(debt);
-		return sum + plannedAmount;
+		return sum + getScheduledMonthlyDebtPayment(debt);
 	}, 0);
 
 	return {

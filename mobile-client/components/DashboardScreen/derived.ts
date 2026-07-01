@@ -39,8 +39,7 @@ export function buildDashboardDerived(params: {
 
   const allExpenses = categories.flatMap((c) => c.expenses);
   const amountLeftToBudget = dashboardSummary?.amountLeftToBudget ?? incomeAfterAllocations;
-  const amountAfterExpenses = dashboardSummary?.amountAfterExpenses ?? (amountLeftToBudget - totalExpenses);
-  const isOverBudgetBySpending = dashboardSummary?.isOverBudgetBySpending ?? (amountAfterExpenses < 0);
+  const baseAmountAfterExpenses = dashboardSummary?.amountAfterExpenses ?? (amountLeftToBudget - totalExpenses);
 
   const overLimitDebtCount = dashboardSummary?.overLimitDebtCount ?? debts.filter((d) => {
     const limit = d.creditLimit ?? 0;
@@ -48,8 +47,6 @@ export function buildDashboardDerived(params: {
     return (d.currentBalance ?? 0) > limit;
   }).length;
   const hasOverLimitDebt = dashboardSummary?.hasOverLimitDebt ?? (overLimitDebtCount > 0);
-
-  const isOverBudget = dashboardSummary?.isOverBudget ?? (isOverBudgetBySpending || hasOverLimitDebt);
 
   const totalBudget = dashboardSummary?.totalBudget ?? (amountLeftToBudget > 0 ? amountLeftToBudget : totalIncome);
   const summaryIncomeLeft = Number.isFinite(dashboardSummary?.incomeLeftRightNow as number)
@@ -60,8 +57,17 @@ export function buildDashboardDerived(params: {
     : null;
   const incomeLeftRightNow = overrideMoneyLeft != null
     ? overrideMoneyLeft
-    : summaryIncomeLeft ?? amountAfterExpenses;
+    : summaryIncomeLeft ?? baseAmountAfterExpenses;
   const hasCanonicalIncomeLeft = overrideMoneyLeft != null || summaryIncomeLeft != null;
+  const amountAfterExpenses = hasCanonicalIncomeLeft
+    ? incomeLeftRightNow
+    : baseAmountAfterExpenses;
+  const isOverBudgetBySpending = hasCanonicalIncomeLeft
+    ? amountAfterExpenses < 0
+    : dashboardSummary?.isOverBudgetBySpending ?? (baseAmountAfterExpenses < 0);
+  const isOverBudget = hasCanonicalIncomeLeft
+    ? (isOverBudgetBySpending || hasOverLimitDebt)
+    : dashboardSummary?.isOverBudget ?? (isOverBudgetBySpending || hasOverLimitDebt);
   const paidTotal = hasCanonicalIncomeLeft
     ? Math.max(0, totalBudget - incomeLeftRightNow)
     : dashboardSummary?.paidTotal ?? allExpenses.reduce((acc, e) => acc + (e.paidAmount ?? (e.paid ? e.amount : 0)), 0);

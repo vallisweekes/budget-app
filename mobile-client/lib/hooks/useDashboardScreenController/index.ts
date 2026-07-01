@@ -34,7 +34,7 @@ function normalizeQueryError(nextError: unknown, fallbackMessage: string): Error
   return new Error(fallbackMessage);
 }
 
-export function useDashboardScreenController({ navigation }: DashboardScreenProps) {
+export function useDashboardScreenController({ navigation: _navigation }: DashboardScreenProps) {
   const router = useRouter();
   const rootNavigation = useNavigation<any>();
   const scrollRef = useRef<ScrollView>(null);

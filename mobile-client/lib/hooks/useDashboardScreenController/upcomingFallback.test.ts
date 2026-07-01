@@ -239,4 +239,54 @@ describe("buildDashboardDerived", () => {
       logoUrl: "/logos/ee.png",
     });
   });
+
+  it("uses canonical money-left override to avoid over-budget alert drift", () => {
+    const derived = buildDashboardDerived({
+      dashboard: createDashboard({
+        dashboardSummary: {
+          amountLeftToBudget: 2250.67,
+          amountAfterExpenses: -813.34,
+          isOverBudgetBySpending: true,
+          overLimitDebtCount: 0,
+          hasOverLimitDebt: false,
+          isOverBudget: true,
+          paidTotal: 3064.01,
+          totalBudget: 2250.67,
+        },
+      }),
+      settings: createSettings(),
+      categorySheet: null,
+      displayedAnchor: { month: 7, year: 2026 },
+      moneyLeftOverride: 309.66,
+    });
+
+    expect(derived.amountAfterExpenses).toBeCloseTo(309.66, 2);
+    expect(derived.isOverBudgetBySpending).toBe(false);
+    expect(derived.isOverBudget).toBe(false);
+    expect(derived.paidTotal).toBeCloseTo(1941.01, 2);
+  });
+
+  it("falls back to dashboard summary over-budget state when canonical money-left is unavailable", () => {
+    const derived = buildDashboardDerived({
+      dashboard: createDashboard({
+        dashboardSummary: {
+          amountLeftToBudget: 1000,
+          amountAfterExpenses: -120,
+          isOverBudgetBySpending: true,
+          overLimitDebtCount: 0,
+          hasOverLimitDebt: false,
+          isOverBudget: true,
+          paidTotal: 1120,
+          totalBudget: 1000,
+        },
+      }),
+      settings: createSettings(),
+      categorySheet: null,
+      displayedAnchor: { month: 7, year: 2026 },
+    });
+
+    expect(derived.amountAfterExpenses).toBe(-120);
+    expect(derived.isOverBudgetBySpending).toBe(true);
+    expect(derived.isOverBudget).toBe(true);
+  });
 });
