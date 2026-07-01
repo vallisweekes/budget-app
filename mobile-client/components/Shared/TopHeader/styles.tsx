@@ -85,27 +85,27 @@ export const styles = StyleSheet.create({
 
   avatarBtn: { position: "relative" },
   avatar: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.24)",
   },
   avatarFallback: {
     backgroundColor: T.accent,
-    borderWidth: 1,
-    borderColor: T.border,
+    borderColor: `${T.border}CC`,
   },
   avatarWithImage: {
-    backgroundColor: T.cardAlt,
-    borderWidth: 0,
-    borderColor: "transparent",
+    backgroundColor: "rgba(255,255,255,0.07)",
+    borderColor: "rgba(255,255,255,0.30)",
   },
   avatarImage: {
     width: "100%",
     height: "100%",
-    borderRadius: 17,
+    borderRadius: 19,
   },
   avatarInitial: { color: T.onAccent, fontSize: 14, fontWeight: "700" },
   rightActions: {
